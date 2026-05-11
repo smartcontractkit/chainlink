@@ -9,6 +9,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -79,6 +80,9 @@ type EngineConfig struct {
 }
 
 type EngineLimiters struct {
+	// Settings is the CRE dynamic settings getter from [limits.Factory.Settings] (optional).
+	Settings settings.Getter
+
 	ExecutionResponse        limits.BoundLimiter[config.Size]
 	TriggerSubscriptionTime  limits.TimeLimiter
 	TriggerRegistrationsTime limits.TimeLimiter
@@ -124,6 +128,8 @@ func NewLimiters(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*Engine
 }
 
 func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (err error) {
+	l.Settings = lf.Settings
+
 	cfg := cresettings.Default.PerWorkflow // make copy
 	if cfgFn != nil {
 		cfgFn(&cfg)

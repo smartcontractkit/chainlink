@@ -43,7 +43,7 @@
   override_mode = "each"
   http_port_range_start = 10100
 
-  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"BaseTriggerRetransmitEnabled":"true"}}' }
   capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "http-action", "http-trigger", "consensus", "don-time", "write-evm-1337", "read-contract-1337", "evm-1337", "write-evm-2337", "read-contract-2337", "evm-2337"]
   registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
@@ -102,7 +102,7 @@
   override_mode = "all"
   http_port_range_start = 10400
 
-  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"BaseTriggerRetransmitEnabled":"true"}}' }
   # add "vault", "http-action", "http-trigger", when gateway can support more than 1 DON per service
   capabilities = ["ocr3", "custom-compute",  "web-api-target", "web-api-trigger", "cron", "consensus", "don-time", "write-evm-1337", "read-contract-1337", "evm-1337", "write-evm-2337", "read-contract-2337", "evm-2337"]
   registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
@@ -129,7 +129,7 @@
   override_mode = "each"
   http_port_range_start = 10300
 
-  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"BaseTriggerRetransmitEnabled":"true"}}' }
   supported_evm_chains = [1337, 2337]
 
   [nodesets.db]

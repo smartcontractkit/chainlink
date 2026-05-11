@@ -409,12 +409,11 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 	successfulLogTriggerChains := make([]string, 0, len(chainsToTest))
 	for chainID, bcOutput := range chainsToTest {
-		// TODO: (CRE-2314) Re-enable trigger event ACKS
-		// triggerDB := connectTriggerDB(t, testEnv.Config.NodeSets, chainID)
+		triggerDB := connectTriggerDB(t, testEnv.Config.NodeSets, chainID)
 
-		// baselineStats, err := snapshotTriggerStats(t.Context(), triggerDB)
-		// require.NoError(t, err, "failed to snapshot trigger_pending_events stats for chain %s", chainID)
-		// t.Logf("baseline trigger_pending_events stats for chain %s: inserts=%d deletes=%d", chainID, baselineStats.inserts, baselineStats.deletes)
+		baselineStats, err := snapshotTriggerStats(t.Context(), triggerDB)
+		require.NoError(t, err, "failed to snapshot trigger_pending_events stats for chain %s", chainID)
+		t.Logf("baseline trigger_pending_events stats for chain %s: inserts=%d deletes=%d", chainID, baselineStats.inserts, baselineStats.deletes)
 
 		lggr.Info().Msgf("Creating EVM LogTrigger workflow configuration for chain %s", chainID)
 		workflowConfig, msgEmitter := configureEVMLogTriggerWorkflow(t, lggr, bcOutput)
@@ -453,8 +452,7 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		emitCancelFn()
 		lggr.Info().Msgf("Found expected user log: '%s' on chain %s", expectedUserLog, chainID)
 
-		// TODO: (CRE-2314) Re-enable trigger event ACKS
-		// verifyTriggerEventACKs(t, triggerDB, baselineStats)
+		verifyTriggerEventACKs(t, lggr, triggerDB, baselineStats)
 
 		lggr.Info().Msgf("🎉 LogTrigger Workflow %s executed successfully on chain %s", workflowName, chainID)
 		successfulLogTriggerChains = append(successfulLogTriggerChains, chainID)

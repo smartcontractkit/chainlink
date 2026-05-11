@@ -38,10 +38,14 @@ type triggerSubscriber struct {
 	//   - Easier migration.
 	// workflowID -> triggerID -> subRegState
 	registeredWorkflows map[string]map[string]*subRegState
-	mu                  sync.RWMutex // protects registeredWorkflows and messageCache
-	stopCh              services.StopChan
-	wg                  sync.WaitGroup
-	lggr                logger.Logger
+	// Records that the workflow engine already issued ACK fan-out for this logical event
+	// (registration TriggerID + TriggerEventId). Used to replay ACK on duplicate Receive without
+	// re-aggregating or delivering to the engine again.
+	ackReplayCache map[ackReplayKey]int64
+	mu             sync.RWMutex // protects registeredWorkflows, messageCache, and ackReplayCache
+	stopCh         services.StopChan
+	wg             sync.WaitGroup
+	lggr           logger.Logger
 }
 
 type dynamicConfig struct {
@@ -57,6 +61,11 @@ type triggerEventKey struct {
 	triggerEventID string
 	workflowID     string
 	triggerID      string
+}
+
+type ackReplayKey struct {
+	triggerID      string
+	triggerEventID string
 }
 
 type subRegState struct {
@@ -86,6 +95,7 @@ func NewTriggerSubscriber(capabilityID string, capMethodName string, dispatcher 
 		capMethodName:       capMethodName,
 		dispatcher:          dispatcher,
 		messageCache:        messagecache.NewMessageCache[triggerEventKey, p2ptypes.PeerID](),
+		ackReplayCache:      make(map[ackReplayKey]int64),
 		registeredWorkflows: make(map[string]map[string]*subRegState),
 		stopCh:              make(services.StopChan),
 		lggr:                logger.With(logger.Named(lggr, "TriggerSubscriber"), "capabilityID", capabilityID, "capMethodName", capMethodName),
@@ -157,6 +167,10 @@ func (s *triggerSubscriber) AckEvent(ctx context.Context, triggerID string, even
 			s.lggr.Errorw("failed to send message", "donId", cfg.capDonInfo.ID, "peerId", peerID, "err", err)
 		}
 	}
+	rk := ackReplayKey{triggerID: triggerID, triggerEventID: eventID}
+	s.mu.Lock()
+	s.ackReplayCache[rk] = time.Now().UnixMilli()
+	s.mu.Unlock()
 	return nil
 }
 
@@ -216,10 +230,16 @@ func (s *triggerSubscriber) registrationLoop() {
 
 			s.mu.RLock()
 			s.lggr.Infow("register trigger for remote capability", "donId", cfg.capDonInfo.ID, "nMembers", len(cfg.capDonInfo.Members), "nWorkflows", len(s.registeredWorkflows))
-			if len(s.registeredWorkflows) == 0 {
-				s.lggr.Infow("no workflows to register")
+			var totalRegistrations, totalP2PSends, totalSendErrors int
+			for _, regMap := range s.registeredWorkflows {
+				totalRegistrations += len(regMap)
 			}
-
+			s.lggr.Infow("registrationLoop tick: sending registrations",
+				"donId", cfg.capDonInfo.ID,
+				"nCapDonMembers", len(cfg.capDonInfo.Members),
+				"nWorkflows", len(s.registeredWorkflows),
+				"nRegistrations", totalRegistrations,
+				"expectedP2PSends", totalRegistrations*len(cfg.capDonInfo.Members))
 			for _, regMap := range s.registeredWorkflows {
 				for _, registration := range regMap {
 					for _, peerID := range cfg.capDonInfo.Members {
@@ -233,12 +253,19 @@ func (s *triggerSubscriber) registrationLoop() {
 						}
 						err := s.dispatcher.Send(peerID, m)
 						if err != nil {
+							totalSendErrors++
 							s.lggr.Errorw("failed to send message", "donId", cfg.capDonInfo.ID, "peerId", peerID, "err", err)
+						} else {
+							totalP2PSends++
 						}
 					}
 				}
 			}
 			s.mu.RUnlock()
+			s.lggr.Infow("registrationLoop tick: completed",
+				"donId", cfg.capDonInfo.ID,
+				"p2pSendsSent", totalP2PSends,
+				"p2pSendErrors", totalSendErrors)
 		}
 	}
 }
@@ -280,7 +307,8 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 		return
 	}
 
-	if msg.Method == types.MethodTriggerEvent {
+	switch msg.Method {
+	case types.MethodTriggerEvent:
 		meta := msg.GetTriggerEventMetadata()
 		if meta == nil {
 			s.lggr.Errorw("received message with invalid trigger metadata", "sender", sender)
@@ -304,8 +332,9 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 					registration = triggerMap[triggerID]
 				} else {
 					// legacy flow, expect there to be only a single trigger of each type per workflow
-					for _, reg := range triggerMap {
+					for tid, reg := range triggerMap {
 						registration = reg
+						triggerID = tid // canonical registration id for caches and AckEvent replay
 						break
 					}
 					if len(triggerMap) > 1 {
@@ -318,13 +347,30 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 				s.lggr.Errorw("received message for unregistered workflow/trigger", "workflowID", SanitizeLogString(workflowID), "triggerID", triggerID, "sender", sender)
 				continue
 			}
+
 			key := triggerEventKey{
 				triggerEventID: meta.TriggerEventId,
 				workflowID:     workflowID,
 				triggerID:      triggerID,
 			}
-			nowMs := time.Now().UnixMilli()
+			rk := ackReplayKey{triggerID: triggerID, triggerEventID: meta.TriggerEventId}
 			s.mu.Lock()
+			if _, ok := s.ackReplayCache[rk]; ok {
+				// Event has already been ACKd by engine, so we don't need to re-deliver
+				s.mu.Unlock()
+				ctx, cancel := s.stopCh.NewCtx()
+				err := s.AckEvent(ctx, triggerID, meta.TriggerEventId, s.capMethodName)
+				cancel()
+				if err != nil {
+					s.lggr.Errorw("replay AckEvent failed", "triggerID", triggerID, "triggerEventID", meta.TriggerEventId, "err", err)
+				} else {
+					s.lggr.Infow("replayed ACK fan-out for duplicate trigger event after prior engine ACK",
+						"triggerID", triggerID, "triggerEventID", meta.TriggerEventId, "sender", sender)
+				}
+				continue
+			}
+
+			nowMs := time.Now().UnixMilli()
 			creationTs := s.messageCache.Insert(key, sender, nowMs, msg.Payload)
 			ready, payloads := s.messageCache.Ready(key, cfg.remoteConfig.MinResponsesToAggregate, nowMs-cfg.remoteConfig.MessageExpiry.Milliseconds(), true)
 			s.mu.Unlock()
@@ -339,8 +385,62 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 				registration.callback <- aggregatedResponse
 			}
 		}
-	} else {
+	case types.MethodTriggerRegistrationCheck:
+		meta := msg.GetTriggerEventMetadata()
+		if meta == nil {
+			s.lggr.Errorw("received registration check with nil metadata", "sender", sender)
+			return
+		}
+
+		s.lggr.Infow("received registration check", "sender", sender)
+		for i, workflowID := range meta.WorkflowIds {
+			triggerID := meta.TriggerIds[i]
+
+			s.mu.RLock()
+			triggerMap, ok := s.registeredWorkflows[workflowID]
+			reg := ok && triggerMap[triggerID] != nil
+			s.mu.RUnlock()
+
+			if !reg {
+				s.lggr.Infow("sending unregister in response to registration check", "workflowID", workflowID, "triggerID", triggerID)
+				// Registration was removed locally — tell the publisher to clean up.
+				s.sendUnregister(workflowID, triggerID)
+			}
+			// For existing registrations we intentionally do NOT resend.
+			// The periodic registrationLoop already refreshes registrations,
+			// and the publisher ignores duplicate MethodRegisterTrigger for
+			// registrations it already has.
+		}
+	default:
 		s.lggr.Errorw("received trigger event with unknown method", "method", SanitizeLogString(msg.Method), "sender", sender, "err", SanitizeLogString(msg.ErrorMsg))
+	}
+}
+
+func (s *triggerSubscriber) sendUnregister(workflowID, triggerID string) {
+	if s.dispatcher == nil {
+		return
+	}
+
+	cfg := s.cfg.Load()
+
+	for _, peerID := range cfg.capDonInfo.Members {
+		m := &types.MessageBody{
+			CapabilityId:     cfg.capInfo.ID,
+			CapabilityDonId:  cfg.capDonInfo.ID,
+			CallerDonId:      cfg.localDonID,
+			Method:           types.MethodUnregisterTrigger,
+			CapabilityMethod: s.capMethodName,
+			Metadata: &types.MessageBody_TriggerEventMetadata{
+				TriggerEventMetadata: &types.TriggerEventMetadata{
+					WorkflowIds: []string{workflowID},
+					TriggerIds:  []string{triggerID},
+				},
+			},
+		}
+		err := s.dispatcher.Send(peerID, m)
+		if err != nil {
+			s.lggr.Errorw("failed to send message", "donId", cfg.capDonInfo.ID, "peerId", peerID, "err", err)
+		}
 	}
 }
 
@@ -364,6 +464,12 @@ func (s *triggerSubscriber) eventCleanupLoop() {
 			}
 			s.mu.Lock()
 			s.messageCache.DeleteOlderThan(time.Now().UnixMilli() - remoteConfig.MessageExpiry.Milliseconds())
+			cutoff := time.Now().UnixMilli() - remoteConfig.MessageExpiry.Milliseconds()
+			for k, ts := range s.ackReplayCache {
+				if ts < cutoff {
+					delete(s.ackReplayCache, k)
+				}
+			}
 			s.mu.Unlock()
 		}
 	}
