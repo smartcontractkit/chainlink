@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -63,6 +64,7 @@ type ReportingPluginConfig struct {
 	MaxRequestBatchSize               limits.BoundLimiter[int]
 	MaxBatchSize                      limits.BoundLimiter[int]
 	OrgIDAsSecretOwnerEnabled         limits.GateLimiter
+	Base64EncodingEnabled             limits.GateLimiter
 }
 
 func NewReportingPluginFactory(
@@ -256,6 +258,11 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		return nil, fmt.Errorf("VaultOrgIDAsSecretOwnerEnabled: %w", err)
 	}
 
+	base64EncodingEnabled, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultBase64EncodingEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("VaultBase64EncodingEnabled: %w", err)
+	}
+
 	return &ReportingPluginConfig{
 		MaxShareLengthBytes:               maxShareLengthBytesLimiter,
 		MaxRequestBatchSize:               maxRequestBatchSizeLimiter,
@@ -264,6 +271,7 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		MaxIdentifierOwnerLengthBytes:     maxIdentifierOwnerLengthBytesLimiter,
 		MaxIdentifierNamespaceLengthBytes: maxIdentifierNamespaceLengthBytesLimiter,
 		OrgIDAsSecretOwnerEnabled:         orgIDAsSecretOwnerEnabled,
+		Base64EncodingEnabled:             base64EncodingEnabled,
 	}, nil
 }
 
@@ -398,6 +406,17 @@ func generateRandomNonce() ([]byte, error) {
 
 func (r *ReportingPlugin) orgIDAsSecretOwnerEnabled(ctx context.Context) bool {
 	return r.cfg.OrgIDAsSecretOwnerEnabled.AllowErr(ctx) == nil
+}
+
+func (r *ReportingPlugin) base64EncodingEnabled(ctx context.Context) bool {
+	return r.cfg.Base64EncodingEnabled.AllowErr(ctx) == nil
+}
+
+func (r *ReportingPlugin) ciphertextStringEncoding(ctx context.Context) vaultutils.CiphertextStringEncoding {
+	if r.base64EncodingEnabled(ctx) {
+		return vaultutils.CiphertextStringEncodingBase64
+	}
+	return vaultutils.CiphertextStringEncodingHex
 }
 
 // canonicalResponseID rewrites Vault responses to the canonical owner identity.
@@ -689,7 +708,7 @@ type share struct {
 	data []byte
 }
 
-func (s *share) encryptWithKey(pk string) (string, error) {
+func (s *share) encryptWithKey(pk string, enc vaultutils.CiphertextStringEncoding) (string, error) {
 	publicKey, err := hex.DecodeString(pk)
 	if err != nil {
 		return "", newUserError("failed to convert public key to bytes: " + err.Error())
@@ -705,7 +724,14 @@ func (s *share) encryptWithKey(pk string) (string, error) {
 		return "", fmt.Errorf("failed to encrypt decryption share: %w", err)
 	}
 
-	return hex.EncodeToString(encrypted), nil
+	switch enc {
+	case vaultutils.CiphertextStringEncodingBase64:
+		return base64.StdEncoding.EncodeToString(encrypted), nil
+	case vaultutils.CiphertextStringEncodingHex:
+		return hex.EncodeToString(encrypted), nil
+	default:
+		return "", fmt.Errorf("invalid ciphertext string encoding: %d", enc)
+	}
 }
 
 func generatePlaintextShare(publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2easy.PrivateShare, encryptedSecret []byte, workflowOwner string, orgID string) (*share, error) {
@@ -716,7 +742,7 @@ func generatePlaintextShare(publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2
 	}
 
 	es := hex.EncodeToString(encryptedSecret)
-	err = vaultcap.EnsureRightLabelOnSecret(publicKey, es, workflowOwner, orgID)
+	err = vaultcap.EnsureRightLabelOnSecret(publicKey, es, workflowOwner, orgID, vaultutils.CiphertextStringEncodingHex)
 	if err != nil {
 		return nil, errors.New("failed to verify label on secret. error: " + err.Error())
 	}
@@ -757,8 +783,9 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 	}
 
 	shares := []*vaultcommon.EncryptedShares{}
+	wireEnc := r.ciphertextStringEncoding(ctx)
 	for _, pk := range secretRequest.EncryptionKeys {
-		encShare, err := sh.encryptWithKey(pk)
+		encShare, err := sh.encryptWithKey(pk, wireEnc)
 		if err != nil {
 			return nil, err
 		}
@@ -771,11 +798,21 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 		})
 	}
 
+	var encVal string
+	switch wireEnc {
+	case vaultutils.CiphertextStringEncodingBase64:
+		encVal = base64.StdEncoding.EncodeToString(secret.EncryptedSecret)
+	case vaultutils.CiphertextStringEncodingHex:
+		encVal = hex.EncodeToString(secret.EncryptedSecret)
+	default:
+		return nil, fmt.Errorf("invalid ciphertext string encoding: %d", wireEnc)
+	}
+
 	return &vaultcommon.SecretResponse{
 		Id: r.canonicalResponseID(ctx, id, orgID),
 		Result: &vaultcommon.SecretResponse_Data{
 			Data: &vaultcommon.SecretData{
-				EncryptedValue:               hex.EncodeToString(secret.EncryptedSecret),
+				EncryptedValue:               encVal,
 				EncryptedDecryptionKeyShares: shares,
 			},
 		},
@@ -844,14 +881,14 @@ func (r *ReportingPlugin) observeCreateSecretRequest(ctx context.Context, reader
 		return id, newUserError("duplicate request for secret identifier " + vaulttypes.KeyFor(id))
 	}
 
-	if ierr := r.validator.ValidateCiphertextSize(ctx, secretRequest.Id.Owner, secretRequest.EncryptedValue); ierr != nil {
+	if ierr := r.validator.ValidateCiphertextSize(ctx, secretRequest.Id.Owner, secretRequest.EncryptedValue, r.ciphertextStringEncoding(ctx)); ierr != nil {
 		return id, newUserError(ierr.Error())
 	}
 
 	if !r.orgIDAsSecretOwnerEnabled(ctx) {
 		orgID = ""
 	}
-	err = vaultcap.EnsureRightLabelOnSecret(r.cfg.PublicKey, secretRequest.EncryptedValue, workflowOwner, orgID)
+	err = vaultcap.EnsureRightLabelOnSecret(r.cfg.PublicKey, secretRequest.EncryptedValue, workflowOwner, orgID, r.ciphertextStringEncoding(ctx))
 	if err != nil {
 		return id, newUserError("failed to verify ciphertext: " + err.Error())
 	}
@@ -1374,7 +1411,7 @@ func (r *ReportingPlugin) validateCreateSecretsObservation(ctx context.Context, 
 
 		idSet[vaulttypes.KeyFor(s.Id)] = true
 
-		if err := r.validator.ValidateCiphertextSize(ctx, s.Id.Owner, s.EncryptedValue); err != nil {
+		if err := r.validator.ValidateCiphertextSize(ctx, s.Id.Owner, s.EncryptedValue, r.ciphertextStringEncoding(ctx)); err != nil {
 			return fmt.Errorf("CreateSecrets request: %w", err)
 		}
 	}
@@ -1418,7 +1455,7 @@ func (r *ReportingPlugin) validateUpdateSecretsObservation(ctx context.Context, 
 
 		idSet[vaulttypes.KeyFor(s.Id)] = true
 
-		if err := r.validator.ValidateCiphertextSize(ctx, s.Id.Owner, s.EncryptedValue); err != nil {
+		if err := r.validator.ValidateCiphertextSize(ctx, s.Id.Owner, s.EncryptedValue, r.ciphertextStringEncoding(ctx)); err != nil {
 			return fmt.Errorf("UpdateSecrets request: %w", err)
 		}
 	}
@@ -1935,9 +1972,9 @@ func (r *ReportingPlugin) stateTransitionCreateSecretsRequest(ctx context.Contex
 		return resp, newUserError(resp.GetError())
 	}
 
-	encryptedSecret, err := hex.DecodeString(req.EncryptedValue)
+	encryptedSecret, err := vaultutils.DecodeEncryptedValue(req.EncryptedValue, r.ciphertextStringEncoding(ctx))
 	if err != nil {
-		return nil, newUserError("could not decode secret value: invalid hex" + err.Error())
+		return nil, newUserError("could not decode secret value: " + err.Error())
 	}
 
 	secret, err := store.GetSecret(ctx, req.Id)
@@ -2053,9 +2090,9 @@ func (r *ReportingPlugin) stateTransitionUpdateSecretsRequest(ctx context.Contex
 		return resp, newUserError(resp.GetError())
 	}
 
-	encryptedSecret, err := hex.DecodeString(req.EncryptedValue)
+	encryptedSecret, err := vaultutils.DecodeEncryptedValue(req.EncryptedValue, r.ciphertextStringEncoding(ctx))
 	if err != nil {
-		return nil, newUserError("could not decode secret value: invalid hex" + err.Error())
+		return nil, newUserError("could not decode secret value: " + err.Error())
 	}
 
 	secret, err := store.GetSecret(ctx, req.Id)
@@ -2188,6 +2225,38 @@ func (r *ReportingPlugin) Committed(ctx context.Context, seqNr uint64, keyValueR
 	return errors.New("not implemented")
 }
 
+// hexEncodeGetSecretsResponseForReport returns a deep copy of resp with ciphertext and shares
+// converted from base64 to hex strings for the signed OCR report consumed by workflow nodes
+// (secrets.go expects hex). It is only used when VaultBase64EncodingEnabled is on, so every
+// value is base64 on the wire. The input resp is not modified.
+func (r *ReportingPlugin) hexEncodeGetSecretsResponseForReport(resp *vaultcommon.GetSecretsResponse) (*vaultcommon.GetSecretsResponse, error) {
+	if resp == nil {
+		return nil, nil
+	}
+	out := proto.Clone(resp).(*vaultcommon.GetSecretsResponse)
+	for i, sr := range out.Responses {
+		d := sr.GetData()
+		if d == nil {
+			continue
+		}
+		raw, err := vaultutils.DecodeEncryptedValue(d.EncryptedValue, vaultutils.CiphertextStringEncodingBase64)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding encrypted value at index %d: %w", i, err)
+		}
+		d.EncryptedValue = hex.EncodeToString(raw)
+		for _, es := range d.EncryptedDecryptionKeyShares {
+			for shareIdx, shareStr := range es.Shares {
+				sb, err := vaultutils.DecodeEncryptedValue(shareStr, vaultutils.CiphertextStringEncodingBase64)
+				if err != nil {
+					return nil, fmt.Errorf("error decoding share at index %d: %w", shareIdx, err)
+				}
+				es.Shares[shareIdx] = hex.EncodeToString(sb)
+			}
+		}
+	}
+	return out, nil
+}
+
 func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlusPrecursor ocr3_1types.ReportsPlusPrecursor) ([]ocr3types.ReportPlus[[]byte], error) {
 	outcomes := &vaultcommon.Outcomes{}
 	err := proto.Unmarshal([]byte(reportsPlusPrecursor), outcomes)
@@ -2195,11 +2264,21 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 		return nil, fmt.Errorf("could not unmarshal outcomes: %w", err)
 	}
 
+	useBase64 := r.base64EncodingEnabled(ctx)
 	reports := []ocr3types.ReportPlus[[]byte]{}
 	for _, o := range outcomes.Outcomes {
 		switch o.RequestType {
 		case vaultcommon.RequestType_GET_SECRETS:
-			rep, err := r.generateProtoReport(o.Id, o.RequestType, o.GetGetSecretsResponse())
+			resp := o.GetGetSecretsResponse()
+			if useBase64 {
+				normalized, herr := r.hexEncodeGetSecretsResponseForReport(resp)
+				if herr != nil {
+					r.lggr.Errorw("failed to normalize get secrets response to hex for report", "error", herr, "id", o.Id)
+					continue
+				}
+				resp = normalized
+			}
+			rep, err := r.generateProtoReport(o.Id, o.RequestType, resp)
 			if err != nil {
 				r.lggr.Errorw("failed to generate Proto report", "error", err, "id", o.Id)
 				continue
@@ -2342,5 +2421,6 @@ func (r *ReportingPlugin) Close() error {
 		r.cfg.MaxRequestBatchSize.Close(),
 		r.cfg.MaxBatchSize.Close(),
 		r.cfg.OrgIDAsSecretOwnerEnabled.Close(),
+		r.cfg.Base64EncodingEnabled.Close(),
 	)
 }

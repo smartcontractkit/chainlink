@@ -1,7 +1,9 @@
 package vault
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -1070,4 +1072,345 @@ func TestVaultHandler_PublicKeyGet(t *testing.T) {
 
 	assert.Equal(t, jsonRequest.ID, publicKeyResponse.ID, "request ID should match")
 	assert.Equal(t, publicKey, publicKeyResponse.Result.PublicKey, "public key should match")
+}
+
+func TestHandleSecretsCreate_Base64EncodingEnabled_ForwardsBase64ToNodes(t *testing.T) {
+	getter, err := settings.NewJSONGetter([]byte(`{"global":{"VaultBase64EncodingEnabled":true}}`))
+	require.NoError(t, err)
+
+	h, callback, don, _ := setupHandlerWithLimitsFactory(t, limits.Factory{Settings: getter})
+	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	createSecretsRequest := &vaultcommon.CreateSecretsRequest{
+		RequestId: "test_request_id",
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{
+				Id: &vaultcommon.SecretIdentifier{
+					Key:       "test_id",
+					Owner:     owner,
+					Namespace: "main",
+				},
+				EncryptedValue: "deadbeef",
+			},
+		},
+	}
+	params, err := json.Marshal(createSecretsRequest)
+	require.NoError(t, err)
+
+	requestID := "1"
+	validJSONRequest := jsonrpc.Request[json.RawMessage]{
+		ID:     requestID,
+		Method: vaulttypes.MethodSecretsCreate,
+		Params: (*json.RawMessage)(&params),
+	}
+
+	responseData := &vaultcommon.CreateSecretsResponse{
+		Responses: []*vaultcommon.CreateSecretResponse{
+			{
+				Id:      createSecretsRequest.EncryptedSecrets[0].Id,
+				Success: true,
+			},
+		},
+	}
+	resultBytes, err := json.Marshal(responseData)
+	require.NoError(t, err)
+	expectedRequestID := owner + vaulttypes.RequestIDSeparator + requestID
+	response := jsonrpc.Response[json.RawMessage]{
+		ID:     expectedRequestID,
+		Result: (*json.RawMessage)(&resultBytes),
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		_, err2 := callback.Wait(t.Context())
+		assert.NoError(t, err2)
+	}()
+
+	err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
+	require.NoError(t, err)
+
+	err = h.HandleNodeMessage(t.Context(), &response, NodeOne.Address)
+	require.NoError(t, err)
+	wg.Wait()
+
+	don.AssertCalled(t, "SendToNode", mock.Anything, mock.Anything, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
+		var parsed vaultcommon.CreateSecretsRequest
+		if json.Unmarshal(*req.Params, &parsed) != nil {
+			return false
+		}
+		if len(parsed.EncryptedSecrets) != 1 {
+			return false
+		}
+		ev := parsed.EncryptedSecrets[0].EncryptedValue
+		_, err := base64.StdEncoding.DecodeString(ev)
+		return err == nil
+	}))
+}
+
+func TestHandleSecretsUpdate_Base64EncodingEnabled_ForwardsBase64ToNodes(t *testing.T) {
+	runUpdateAndAssert := func(t *testing.T, updateSecretsRequest *vaultcommon.UpdateSecretsRequest, assertPayload func(*vaultcommon.UpdateSecretsRequest) bool) {
+		t.Helper()
+		getter, err := settings.NewJSONGetter([]byte(`{"global":{"VaultBase64EncodingEnabled":true}}`))
+		require.NoError(t, err)
+		h, callback, don, _ := setupHandlerWithLimitsFactory(t, limits.Factory{Settings: getter})
+		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+		params, err := json.Marshal(updateSecretsRequest)
+		require.NoError(t, err)
+		requestID := "1"
+		validJSONRequest := jsonrpc.Request[json.RawMessage]{
+			ID:     requestID,
+			Method: vaulttypes.MethodSecretsUpdate,
+			Params: (*json.RawMessage)(&params),
+		}
+		resps := make([]*vaultcommon.UpdateSecretResponse, 0, len(updateSecretsRequest.EncryptedSecrets))
+		for _, es := range updateSecretsRequest.EncryptedSecrets {
+			resps = append(resps, &vaultcommon.UpdateSecretResponse{Id: es.Id, Success: true})
+		}
+		responseData := &vaultcommon.UpdateSecretsResponse{Responses: resps}
+		resultBytes, err := json.Marshal(responseData)
+		require.NoError(t, err)
+		expectedRequestID := owner + vaulttypes.RequestIDSeparator + requestID
+		response := jsonrpc.Response[json.RawMessage]{
+			ID:     expectedRequestID,
+			Result: (*json.RawMessage)(&resultBytes),
+		}
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, err2 := callback.Wait(t.Context())
+			assert.NoError(t, err2)
+		}()
+		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
+		require.NoError(t, err)
+		err = h.HandleNodeMessage(t.Context(), &response, NodeOne.Address)
+		require.NoError(t, err)
+		wg.Wait()
+		don.AssertCalled(t, "SendToNode", mock.Anything, mock.Anything, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
+			var parsed vaultcommon.UpdateSecretsRequest
+			if json.Unmarshal(*req.Params, &parsed) != nil {
+				return false
+			}
+			return assertPayload(&parsed)
+		}))
+	}
+
+	t.Run("single_secret", func(t *testing.T) {
+		wantRaw, err := hex.DecodeString("deadbeef")
+		require.NoError(t, err)
+		updateSecretsRequest := &vaultcommon.UpdateSecretsRequest{
+			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+				{
+					Id: &vaultcommon.SecretIdentifier{
+						Key:       "sk1",
+						Owner:     owner,
+						Namespace: "main",
+					},
+					EncryptedValue: "deadbeef",
+				},
+			},
+		}
+		runUpdateAndAssert(t, updateSecretsRequest, func(parsed *vaultcommon.UpdateSecretsRequest) bool {
+			if len(parsed.EncryptedSecrets) != 1 {
+				return false
+			}
+			raw, err := base64.StdEncoding.DecodeString(parsed.EncryptedSecrets[0].EncryptedValue)
+			return err == nil && bytes.Equal(raw, wantRaw)
+		})
+	})
+
+	t.Run("multiple_secrets_distinct_ciphertexts", func(t *testing.T) {
+		want0, err := hex.DecodeString("deadbeef")
+		require.NoError(t, err)
+		want1, err := hex.DecodeString("010203ff")
+		require.NoError(t, err)
+		updateSecretsRequest := &vaultcommon.UpdateSecretsRequest{
+			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+				{
+					Id: &vaultcommon.SecretIdentifier{
+						Key:       "a",
+						Owner:     owner,
+						Namespace: "main",
+					},
+					EncryptedValue: "deadbeef",
+				},
+				{
+					Id: &vaultcommon.SecretIdentifier{
+						Key:       "b",
+						Owner:     owner,
+						Namespace: "main",
+					},
+					EncryptedValue: "010203ff",
+				},
+			},
+		}
+		runUpdateAndAssert(t, updateSecretsRequest, func(parsed *vaultcommon.UpdateSecretsRequest) bool {
+			if len(parsed.EncryptedSecrets) != 2 {
+				return false
+			}
+			for i, want := range [][]byte{want0, want1} {
+				raw, err := base64.StdEncoding.DecodeString(parsed.EncryptedSecrets[i].EncryptedValue)
+				if err != nil || !bytes.Equal(raw, want) {
+					return false
+				}
+			}
+			return parsed.EncryptedSecrets[0].Id.Key == "a" && parsed.EncryptedSecrets[1].Id.Key == "b"
+		})
+	})
+
+	t.Run("org_labeled_ciphertext_forwarded_as_base64_when_org_owner_flag_enabled", func(t *testing.T) {
+		getter, err := settings.NewJSONGetter([]byte(`{"global":{"VaultBase64EncodingEnabled":true,"VaultOrgIdAsSecretOwnerEnabled":true}}`))
+		require.NoError(t, err)
+		_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
+		require.NoError(t, err)
+		orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
+		encryptedSecret, err := vaultutils.EncryptSecretWithOrgID("org_upd", pk, orgID)
+		require.NoError(t, err)
+		wantRaw, err := hex.DecodeString(encryptedSecret)
+		require.NoError(t, err)
+
+		h, callback, don, _ := setupHandlerWithLimitsFactory(t, limits.Factory{Settings: getter})
+		cacheVaultPublicKeyForTest(t, h.(*handler), pk)
+		don.On("SendToNode", mock.Anything, mock.Anything, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
+			var parsed vaultcommon.UpdateSecretsRequest
+			if json.Unmarshal(*req.Params, &parsed) != nil {
+				return false
+			}
+			if len(parsed.EncryptedSecrets) != 1 {
+				return false
+			}
+			raw, err := base64.StdEncoding.DecodeString(parsed.EncryptedSecrets[0].EncryptedValue)
+			return err == nil && bytes.Equal(raw, wantRaw)
+		})).Return(nil)
+
+		updateSecretsRequest := &vaultcommon.UpdateSecretsRequest{
+			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+				{
+					Id: &vaultcommon.SecretIdentifier{
+						Key:       "oidx",
+						Owner:     owner,
+						Namespace: "main",
+					},
+					EncryptedValue: encryptedSecret,
+				},
+			},
+		}
+		params, err := json.Marshal(updateSecretsRequest)
+		require.NoError(t, err)
+		requestID := "org-up-1"
+		validJSONRequest := jsonrpc.Request[json.RawMessage]{
+			ID:     requestID,
+			Method: vaulttypes.MethodSecretsUpdate,
+			Params: (*json.RawMessage)(&params),
+		}
+		responseData := &vaultcommon.UpdateSecretsResponse{
+			Responses: []*vaultcommon.UpdateSecretResponse{
+				{Id: updateSecretsRequest.EncryptedSecrets[0].Id, Success: true},
+			},
+		}
+		resultBytes, err := json.Marshal(responseData)
+		require.NoError(t, err)
+		expectedRequestID := owner + vaulttypes.RequestIDSeparator + requestID
+		response := jsonrpc.Response[json.RawMessage]{
+			ID:     expectedRequestID,
+			Result: (*json.RawMessage)(&resultBytes),
+		}
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, err2 := callback.Wait(t.Context())
+			assert.NoError(t, err2)
+		}()
+		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
+		require.NoError(t, err)
+		err = h.HandleNodeMessage(t.Context(), &response, NodeOne.Address)
+		require.NoError(t, err)
+		wg.Wait()
+		don.AssertExpectations(t)
+	})
+
+	t.Run("jwt_org_id_validation_clone_path_forwards_base64", func(t *testing.T) {
+		getter, err := settings.NewJSONGetter([]byte(`{"global":{"VaultBase64EncodingEnabled":true,"VaultOrgIdAsSecretOwnerEnabled":true}}`))
+		require.NoError(t, err)
+		_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
+		require.NoError(t, err)
+		orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
+		workflowOwner := "0x0001020304050607080900010203040506070809"
+		encryptedSecret, err := vaultutils.EncryptSecretWithOrgID("jwt_upd", pk, orgID)
+		require.NoError(t, err)
+		wantRaw, err := hex.DecodeString(encryptedSecret)
+		require.NoError(t, err)
+
+		h, callback, don, clock := setupHandlerWithLimitsFactory(t, limits.Factory{Settings: getter})
+		h.(*handler).authorizer = &stubAuthorizer{result: vaultcap.NewAuthResult(orgID, workflowOwner, "digest-jwt-upd", clock.Now().Add(time.Minute).Unix())}
+		cacheVaultPublicKeyForTest(t, h.(*handler), pk)
+
+		don.On("SendToNode", mock.Anything, mock.Anything, mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
+			var parsed vaultcommon.UpdateSecretsRequest
+			if json.Unmarshal(*req.Params, &parsed) != nil {
+				return false
+			}
+			if parsed.OrgId != orgID {
+				return false
+			}
+			if parsed.WorkflowOwner != workflowOwner {
+				return false
+			}
+			if len(parsed.EncryptedSecrets) != 1 {
+				return false
+			}
+			raw, err := base64.StdEncoding.DecodeString(parsed.EncryptedSecrets[0].EncryptedValue)
+			return err == nil && bytes.Equal(raw, wantRaw)
+		})).Return(nil)
+
+		updateSecretsRequest := &vaultcommon.UpdateSecretsRequest{
+			OrgId:         orgID,
+			WorkflowOwner: workflowOwner,
+			EncryptedSecrets: []*vaultcommon.EncryptedSecret{{
+				Id: &vaultcommon.SecretIdentifier{
+					Key:       "jwt_key",
+					Owner:     orgID,
+					Namespace: "main",
+				},
+				EncryptedValue: encryptedSecret,
+			}},
+		}
+		params, err := json.Marshal(updateSecretsRequest)
+		require.NoError(t, err)
+		requestID := "jwt-up-1"
+		validJSONRequest := jsonrpc.Request[json.RawMessage]{
+			ID:     requestID,
+			Method: vaulttypes.MethodSecretsUpdate,
+			Params: (*json.RawMessage)(&params),
+		}
+		responseData := &vaultcommon.UpdateSecretsResponse{
+			Responses: []*vaultcommon.UpdateSecretResponse{
+				{Id: updateSecretsRequest.EncryptedSecrets[0].Id, Success: true},
+			},
+		}
+		resultBytes, err := json.Marshal(responseData)
+		require.NoError(t, err)
+		expectedRequestID := orgID + vaulttypes.RequestIDSeparator + requestID
+		response := jsonrpc.Response[json.RawMessage]{
+			ID:     expectedRequestID,
+			Result: (*json.RawMessage)(&resultBytes),
+		}
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, err2 := callback.Wait(t.Context())
+			assert.NoError(t, err2)
+		}()
+		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
+		require.NoError(t, err)
+		err = h.HandleNodeMessage(t.Context(), &response, NodeOne.Address)
+		require.NoError(t, err)
+		wg.Wait()
+		don.AssertExpectations(t)
+	})
 }

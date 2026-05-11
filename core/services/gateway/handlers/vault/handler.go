@@ -2,6 +2,7 @@ package vault
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -31,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	gwhandlers "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
@@ -147,6 +149,7 @@ type handler struct {
 
 	writeMethodsEnabled       limits.GateLimiter
 	orgIDAsSecretOwnerEnabled limits.GateLimiter
+	vaultBase64Gate           limits.GateLimiter
 	activeRequests            map[string]*activeRequest
 	metrics                   *metrics
 
@@ -255,6 +258,10 @@ func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DO
 	if err != nil {
 		return nil, fmt.Errorf("could not create vault org ID as secret owner limiter: %w", err)
 	}
+	vaultBase64Gate, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.VaultBase64EncodingEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("could not create vault base64 encoding limiter: %w", err)
+	}
 
 	return &handler{
 		methodConfig:              cfg,
@@ -265,6 +272,7 @@ func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DO
 		nodeRateLimiter:           nodeRateLimiter,
 		writeMethodsEnabled:       writeMethodsEnabled,
 		orgIDAsSecretOwnerEnabled: orgIDAsSecretOwnerEnabled,
+		vaultBase64Gate:           vaultBase64Gate,
 		activeRequests:            make(map[string]*activeRequest),
 		mu:                        sync.RWMutex{},
 		authorizer:                authorizer,
@@ -320,6 +328,7 @@ func (h *handler) Close() error {
 			jwtAuthErr,
 			h.writeMethodsEnabled.Close(),
 			h.orgIDAsSecretOwnerEnabled.Close(),
+			h.vaultBase64Gate.Close(),
 			h.MaxRequestBatchSizeLimiter.Close(),
 		)
 	})
@@ -605,6 +614,34 @@ func (h *handler) skipSecretLabelValidation(ctx context.Context, orgID string) (
 	return orgIDAsSecretOwnerEnabled && orgID == "", nil
 }
 
+func (h *handler) vaultBase64EncodingEnabled(ctx context.Context) bool {
+	return h.vaultBase64Gate.AllowErr(ctx) == nil
+}
+
+func convertEncryptedSecretsHexToBase64(secrets []*vaultcommon.EncryptedSecret) error {
+	for i, item := range secrets {
+		if item == nil {
+			continue
+		}
+		raw, err := hex.DecodeString(item.EncryptedValue)
+		if err != nil {
+			return fmt.Errorf("error decoding encrypted value at index %d: %w", i, err)
+		}
+		item.EncryptedValue = base64.StdEncoding.EncodeToString(raw)
+	}
+	return nil
+}
+
+func (h *handler) maybeConvertEncryptedSecretsHexToBase64(ctx context.Context, secrets []*vaultcommon.EncryptedSecret) error {
+	if !h.vaultBase64EncodingEnabled(ctx) {
+		return nil
+	}
+	if err := convertEncryptedSecretsHexToBase64(secrets); err != nil {
+		return fmt.Errorf("failed to convert ciphertext encoding: %w", err)
+	}
+	return nil
+}
+
 func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) error {
 	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
 
@@ -642,10 +679,15 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) er
 		validationRequest = proto.Clone(createSecretsRequest).(*vaultcommon.CreateSecretsRequest)
 		validationRequest.WorkflowOwner = ""
 	}
-	err = h.ValidateCreateSecretsRequest(ctx, cachedPublicKey, validationRequest, skipLabelValidation)
+	err = h.ValidateCreateSecretsRequest(ctx, cachedPublicKey, validationRequest, skipLabelValidation, vaultutils.CiphertextStringEncodingHex)
 	if err != nil {
 		l.Warnw("failed to validate create secrets request", "error", err)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate create secrets request: %w", err), nil))
+	}
+
+	if convErr := h.maybeConvertEncryptedSecretsHexToBase64(ctx, createSecretsRequest.EncryptedSecrets); convErr != nil {
+		l.Errorw("failed to convert ciphertext to base64 after validation", "error", convErr)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, convErr, nil))
 	}
 
 	reqBytes, err := json.Marshal(createSecretsRequest)
@@ -697,10 +739,15 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar *activeRequest) er
 		validationRequest = proto.Clone(updateSecretsRequest).(*vaultcommon.UpdateSecretsRequest)
 		validationRequest.WorkflowOwner = ""
 	}
-	vaultCapErr := h.ValidateUpdateSecretsRequest(ctx, cachedPublicKey, validationRequest, skipLabelValidation)
+	vaultCapErr := h.ValidateUpdateSecretsRequest(ctx, cachedPublicKey, validationRequest, skipLabelValidation, vaultutils.CiphertextStringEncodingHex)
 	if vaultCapErr != nil {
 		l.Warnw("failed to validate update secrets request", "error", vaultCapErr)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate update secrets request: %w", vaultCapErr), nil))
+	}
+
+	if convErr := h.maybeConvertEncryptedSecretsHexToBase64(ctx, updateSecretsRequest.EncryptedSecrets); convErr != nil {
+		l.Errorw("failed to convert ciphertext to base64 after validation", "error", convErr)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, convErr, nil))
 	}
 
 	reqBytes, err := json.Marshal(updateSecretsRequest)

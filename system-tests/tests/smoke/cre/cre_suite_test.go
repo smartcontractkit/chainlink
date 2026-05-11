@@ -151,6 +151,8 @@ func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.S
 				vaultConfig = getVaultJWTAuthEnabledTestConfig(t)
 				allowlistSubtestName = "allowlist_auth_when_jwt_auth_enabled"
 				jwtSubtestName = "jwt_auth_when_jwt_auth_enabled"
+			} else if isVaultBase64EncodingEnabledTopology(topology) {
+				vaultConfig = getVaultBase64EncodingEnabledTestConfig(t)
 			}
 			fixture := setupVaultSharedScenarioFixture(t, vaultConfig)
 			allowlistEnv := fixture.TestEnv

@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
 
 var _ capabilities.ExecutableCapability = (*Capability)(nil)
@@ -195,7 +196,7 @@ func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.Cre
 		s.lggr.Debugw("failed identity owner checks", "requestID", request.RequestId, "err", ownerErr)
 		return nil, ownerErr
 	}
-	err = s.ValidateCreateSecretsRequest(ctx, s.publicKey.Get(), request, false)
+	err = s.ValidateCreateSecretsRequest(ctx, s.publicKey.Get(), request, false, vaultutils.CiphertextStringEncodingHex)
 	if err != nil {
 		s.lggr.Debugw("failed validation checks", "requestID", request.RequestId, "err", err)
 		return nil, err
@@ -215,7 +216,7 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.Upd
 		s.lggr.Debugw("failed identity owner checks", "requestID", request.RequestId, "err", ownerErr)
 		return nil, ownerErr
 	}
-	err = s.ValidateUpdateSecretsRequest(ctx, s.publicKey.Get(), request, false)
+	err = s.ValidateUpdateSecretsRequest(ctx, s.publicKey.Get(), request, false, vaultutils.CiphertextStringEncodingHex)
 	if err != nil {
 		s.lggr.Debugw("failed validation checks", "requestID", request.RequestId, "err", err)
 		return nil, err

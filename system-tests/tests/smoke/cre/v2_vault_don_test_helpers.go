@@ -51,9 +51,10 @@ import (
 )
 
 const (
-	vaultDefaultConfigPath        = "/configs/workflow-gateway-capabilities-don.toml"
-	vaultJWTAuthEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
-	vaultJWTIssuerListenAddr      = "0.0.0.0:18123"
+	vaultDefaultConfigPath             = "/configs/workflow-gateway-capabilities-don.toml"
+	vaultJWTAuthEnabledConfigPath      = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
+	vaultBase64EncodingEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-base64-enabled.toml"
+	vaultJWTIssuerListenAddr           = "0.0.0.0:18123"
 )
 
 func FetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {
@@ -207,8 +208,18 @@ func getVaultDefaultTestConfig(t *testing.T) *ttypes.TestConfig {
 	return t_helpers.GetTestConfig(t, vaultDefaultConfigPath)
 }
 
+func getVaultBase64EncodingEnabledTestConfig(t *testing.T) *ttypes.TestConfig {
+	t.Helper()
+
+	return t_helpers.GetTestConfig(t, vaultBase64EncodingEnabledConfigPath)
+}
+
 func isVaultJWTAuthEnabledTopology(topologyName string) bool {
 	return strings.Contains(topologyName, "vault-jwt_auth-enabled")
+}
+
+func isVaultBase64EncodingEnabledTopology(topologyName string) bool {
+	return strings.Contains(topologyName, "vault-base64-enabled")
 }
 
 func setupVaultScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, usePerTestKeys bool) *vaultScenarioFixture {

@@ -6590,7 +6590,7 @@ func TestPlugin_MaxShareSize(t *testing.T) {
 		share, err := generatePlaintextShare(pk, shares[0], ctb, owner, "")
 		require.NoError(t, err)
 
-		eds, err := share.encryptWithKey(hex.EncodeToString(recipientPub[:]))
+		eds, err := share.encryptWithKey(hex.EncodeToString(recipientPub[:]), vaultutils.CiphertextStringEncodingHex)
 		require.NoError(t, err)
 
 		assert.GreaterOrEqual(t, expectedSize, len(eds), "share size should be constant regardless of plaintext size (plaintext=%d bytes)", len(plaintext))

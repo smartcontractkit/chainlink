@@ -2,6 +2,7 @@ package vault
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"testing"
@@ -91,7 +92,7 @@ func TestEnsureRightLabelOnSecret_WorkflowOwnerOnly(t *testing.T) {
 	owner := "0x0001020304050607080900010203040506070809"
 	secret := encryptWithEthAddressLabel(t, pk, owner)
 
-	err := EnsureRightLabelOnSecret(pk, secret, owner, "")
+	err := EnsureRightLabelOnSecret(pk, secret, owner, "", vaultutils.CiphertextStringEncodingHex)
 	assert.NoError(t, err)
 }
 
@@ -100,7 +101,7 @@ func TestEnsureRightLabelOnSecret_OrgIDOnly(t *testing.T) {
 	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
 	secret := encryptWithOrgIDLabel(t, pk, orgID)
 
-	err := EnsureRightLabelOnSecret(pk, secret, "", orgID)
+	err := EnsureRightLabelOnSecret(pk, secret, "", orgID, vaultutils.CiphertextStringEncodingHex)
 	assert.NoError(t, err)
 }
 
@@ -110,7 +111,7 @@ func TestEnsureRightLabelOnSecret_DualMatchesWorkflowOwner(t *testing.T) {
 	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
 	secret := encryptWithEthAddressLabel(t, pk, ethAddr)
 
-	err := EnsureRightLabelOnSecret(pk, secret, ethAddr, orgID)
+	err := EnsureRightLabelOnSecret(pk, secret, ethAddr, orgID, vaultutils.CiphertextStringEncodingHex)
 	assert.NoError(t, err)
 }
 
@@ -120,7 +121,7 @@ func TestEnsureRightLabelOnSecret_DualMatchesOrgID(t *testing.T) {
 	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
 	secret := encryptWithOrgIDLabel(t, pk, orgID)
 
-	err := EnsureRightLabelOnSecret(pk, secret, ethAddr, orgID)
+	err := EnsureRightLabelOnSecret(pk, secret, ethAddr, orgID, vaultutils.CiphertextStringEncodingHex)
 	assert.NoError(t, err)
 }
 
@@ -135,7 +136,7 @@ func TestEnsureRightLabelOnSecret_NeitherMatches(t *testing.T) {
 	expectedWorkflowOwnerLabel := hex.EncodeToString(expectedWorkflowOwnerLabelBytes[:])
 	expectedOrgIDLabel := hex.EncodeToString(expectedOrgIDLabelBytes[:])
 
-	err := EnsureRightLabelOnSecret(pk, secret, wrongAddr, wrongOrgID)
+	err := EnsureRightLabelOnSecret(pk, secret, wrongAddr, wrongOrgID, vaultutils.CiphertextStringEncodingHex)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "does not match any of the provided owner labels")
 	assert.Contains(t, err.Error(), "expectedLabels=["+expectedWorkflowOwnerLabel+", "+expectedOrgIDLabel+"]")
@@ -146,7 +147,7 @@ func TestEnsureRightLabelOnSecret_BothEmpty(t *testing.T) {
 	ethAddr := "0x0001020304050607080900010203040506070809"
 	secret := encryptWithEthAddressLabel(t, pk, ethAddr)
 
-	err := EnsureRightLabelOnSecret(pk, secret, "", "")
+	err := EnsureRightLabelOnSecret(pk, secret, "", "", vaultutils.CiphertextStringEncodingHex)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "does not match any of the provided owner labels")
 	assert.Contains(t, err.Error(), "expectedLabels=[]")
@@ -157,14 +158,14 @@ func TestEnsureRightLabelOnSecret_NilPublicKey(t *testing.T) {
 	ethAddr := "0x0001020304050607080900010203040506070809"
 	secret := encryptWithEthAddressLabel(t, pk, ethAddr)
 
-	err := EnsureRightLabelOnSecret(nil, secret, ethAddr, "")
+	err := EnsureRightLabelOnSecret(nil, secret, ethAddr, "", vaultutils.CiphertextStringEncodingHex)
 	assert.NoError(t, err)
 }
 
 func TestEnsureRightLabelOnSecret_InvalidHexSecret(t *testing.T) {
 	pk, _ := generateTestKeys(t)
 
-	err := EnsureRightLabelOnSecret(pk, "not-valid-hex!", "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "")
+	err := EnsureRightLabelOnSecret(pk, "not-valid-hex!", "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "", vaultutils.CiphertextStringEncodingHex)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to decode encrypted value")
 }
@@ -172,7 +173,7 @@ func TestEnsureRightLabelOnSecret_InvalidHexSecret(t *testing.T) {
 func TestEnsureRightLabelOnSecret_InvalidCiphertext(t *testing.T) {
 	pk, _ := generateTestKeys(t)
 
-	err := EnsureRightLabelOnSecret(pk, hex.EncodeToString([]byte("garbage")), "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "")
+	err := EnsureRightLabelOnSecret(pk, hex.EncodeToString([]byte("garbage")), "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "", vaultutils.CiphertextStringEncodingHex)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to verify encrypted value")
 }
@@ -183,7 +184,7 @@ func TestEnsureRightLabelOnSecret_WrongPublicKey(t *testing.T) {
 	ethAddr := "0x0001020304050607080900010203040506070809"
 	secret := encryptWithEthAddressLabel(t, pk, ethAddr)
 
-	err := EnsureRightLabelOnSecret(wrongPK, secret, ethAddr, "")
+	err := EnsureRightLabelOnSecret(wrongPK, secret, ethAddr, "", vaultutils.CiphertextStringEncodingHex)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to verify encrypted value")
 }
@@ -193,7 +194,7 @@ func TestEnsureRightLabelOnSecret_BackwardCompatSingleOwner(t *testing.T) {
 	owner := "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"
 	secret := encryptWithEthAddressLabel(t, pk, owner)
 
-	err := EnsureRightLabelOnSecret(pk, secret, owner, "")
+	err := EnsureRightLabelOnSecret(pk, secret, owner, "", vaultutils.CiphertextStringEncodingHex)
 	assert.NoError(t, err)
 }
 
@@ -203,7 +204,7 @@ func TestEnsureRightLabelOnSecret_LegacySecretReadViaNewFlow(t *testing.T) {
 	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
 
 	secret := encryptWithEthAddressLabel(t, pk, workflowOwner)
-	err := EnsureRightLabelOnSecret(pk, secret, workflowOwner, orgID)
+	err := EnsureRightLabelOnSecret(pk, secret, workflowOwner, orgID, vaultutils.CiphertextStringEncodingHex)
 	assert.NoError(t, err)
 }
 
@@ -213,7 +214,7 @@ func TestEnsureRightLabelOnSecret_NewSecretReadViaNewFlow(t *testing.T) {
 	workflowOwner := "0x0001020304050607080900010203040506070809"
 
 	secret := encryptWithOrgIDLabel(t, pk, orgID)
-	err := EnsureRightLabelOnSecret(pk, secret, workflowOwner, orgID)
+	err := EnsureRightLabelOnSecret(pk, secret, workflowOwner, orgID, vaultutils.CiphertextStringEncodingHex)
 	assert.NoError(t, err)
 }
 
@@ -254,7 +255,7 @@ func TestRequestValidator_BatchSizeLimit(t *testing.T) {
 				return v.ValidateCreateSecretsRequest(t.Context(), nil, &vaultcommon.CreateSecretsRequest{
 					RequestId:        "request-id",
 					EncryptedSecrets: makeSecrets(2),
-				}, false)
+				}, false, vaultutils.CiphertextStringEncodingHex)
 			},
 		},
 		{
@@ -263,7 +264,7 @@ func TestRequestValidator_BatchSizeLimit(t *testing.T) {
 				return v.ValidateCreateSecretsRequest(t.Context(), nil, &vaultcommon.CreateSecretsRequest{
 					RequestId:        "request-id",
 					EncryptedSecrets: makeSecrets(3),
-				}, false)
+				}, false, vaultutils.CiphertextStringEncodingHex)
 			},
 			errSubstr: "request batch size exceeds maximum of 2",
 		},
@@ -273,7 +274,7 @@ func TestRequestValidator_BatchSizeLimit(t *testing.T) {
 				return v.ValidateUpdateSecretsRequest(t.Context(), nil, &vaultcommon.UpdateSecretsRequest{
 					RequestId:        "request-id",
 					EncryptedSecrets: makeSecrets(2),
-				}, false)
+				}, false, vaultutils.CiphertextStringEncodingHex)
 			},
 		},
 		{
@@ -282,7 +283,7 @@ func TestRequestValidator_BatchSizeLimit(t *testing.T) {
 				return v.ValidateUpdateSecretsRequest(t.Context(), nil, &vaultcommon.UpdateSecretsRequest{
 					RequestId:        "request-id",
 					EncryptedSecrets: makeSecrets(3),
-				}, false)
+				}, false, vaultutils.CiphertextStringEncodingHex)
 			},
 			errSubstr: "request batch size exceeds maximum of 2",
 		},
@@ -330,7 +331,7 @@ func TestRequestValidator_CiphertextSizeLimit(t *testing.T) {
 					EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 						{Id: id, EncryptedValue: value},
 					},
-				}, false)
+				}, false, vaultutils.CiphertextStringEncodingHex)
 			},
 			value: hex.EncodeToString(make([]byte, 10)),
 		},
@@ -342,7 +343,7 @@ func TestRequestValidator_CiphertextSizeLimit(t *testing.T) {
 					EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 						{Id: id, EncryptedValue: value},
 					},
-				}, false)
+				}, false, vaultutils.CiphertextStringEncodingHex)
 			},
 			value:     hex.EncodeToString(make([]byte, 11)),
 			errSubstr: "ciphertext size exceeds maximum allowed size",
@@ -355,7 +356,7 @@ func TestRequestValidator_CiphertextSizeLimit(t *testing.T) {
 					EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 						{Id: id, EncryptedValue: value},
 					},
-				}, false)
+				}, false, vaultutils.CiphertextStringEncodingHex)
 			},
 			value: hex.EncodeToString(make([]byte, 10)),
 		},
@@ -367,7 +368,7 @@ func TestRequestValidator_CiphertextSizeLimit(t *testing.T) {
 					EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 						{Id: id, EncryptedValue: value},
 					},
-				}, false)
+				}, false, vaultutils.CiphertextStringEncodingHex)
 			},
 			value:     hex.EncodeToString(make([]byte, 11)),
 			errSubstr: "ciphertext size exceeds maximum allowed size",
@@ -416,7 +417,7 @@ func TestRequestValidator_ValidateCreateSecretsRequest_UsesRequestIdentityForOrg
 				EncryptedValue: encrypted,
 			},
 		},
-	}, false)
+	}, false, vaultutils.CiphertextStringEncodingHex)
 
 	require.NoError(t, err)
 }
@@ -446,7 +447,7 @@ func TestRequestValidator_ValidateCreateSecretsRequest_FallsBackToSecretOwnerFor
 				EncryptedValue: encrypted,
 			},
 		},
-	}, false)
+	}, false, vaultutils.CiphertextStringEncodingHex)
 
 	require.NoError(t, err)
 }
@@ -681,7 +682,7 @@ func TestRequestValidator_IdentifierLengths(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validator.ValidateCreateSecretsRequest(t.Context(), nil, makeRequest(tt.key, tt.owner, tt.namespace), false)
+			err := validator.ValidateCreateSecretsRequest(t.Context(), nil, makeRequest(tt.key, tt.owner, tt.namespace), false, vaultutils.CiphertextStringEncodingHex)
 			if tt.errSubstr == "" {
 				require.NoError(t, err)
 				return
@@ -1002,12 +1003,12 @@ func TestRequestValidator_OwnerSpecificCiphertextLimit(t *testing.T) {
 	}
 
 	// Regular owner is rejected because 15 bytes exceeds their 10-byte limit
-	err := validator.ValidateCreateSecretsRequest(t.Context(), nil, makeRequest("req-1", "regularowner"), false)
+	err := validator.ValidateCreateSecretsRequest(t.Context(), nil, makeRequest("req-1", "regularowner"), false, vaultutils.CiphertextStringEncodingHex)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "ciphertext size exceeds maximum allowed size")
 
 	// Privileged owner is accepted because 15 bytes is within their 20-byte limit
-	err = validator.ValidateCreateSecretsRequest(t.Context(), nil, makeRequest("req-2", privilegedOwner), false)
+	err = validator.ValidateCreateSecretsRequest(t.Context(), nil, makeRequest("req-2", privilegedOwner), false, vaultutils.CiphertextStringEncodingHex)
 	require.NoError(t, err)
 }
 
@@ -1039,10 +1040,10 @@ func TestRequestValidator_ValidateCreateSecretsRequest_SkipsLabelValidationWithB
 		},
 	}
 
-	err := validator.ValidateCreateSecretsRequest(t.Context(), pk, request, false)
+	err := validator.ValidateCreateSecretsRequest(t.Context(), pk, request, false, vaultutils.CiphertextStringEncodingHex)
 	require.ErrorContains(t, err, "doesn't have owner as the label")
 
-	err = validator.ValidateCreateSecretsRequest(t.Context(), pk, request, true)
+	err = validator.ValidateCreateSecretsRequest(t.Context(), pk, request, true, vaultutils.CiphertextStringEncodingHex)
 	require.NoError(t, err)
 }
 
@@ -1071,7 +1072,7 @@ func TestRequestValidator_NormalizesEmptyNamespaceOnStructs(t *testing.T) {
 				{Id: id, EncryptedValue: validValue},
 			},
 		}
-		require.NoError(t, validator.ValidateCreateSecretsRequest(t.Context(), nil, req, true))
+		require.NoError(t, validator.ValidateCreateSecretsRequest(t.Context(), nil, req, true, vaultutils.CiphertextStringEncodingHex))
 		assert.Equal(t, vaulttypes.DefaultNamespace, id.Namespace)
 	})
 
@@ -1087,4 +1088,29 @@ func TestRequestValidator_NormalizesEmptyNamespaceOnStructs(t *testing.T) {
 		require.NoError(t, validator.ValidateListSecretIdentifiersRequest(t.Context(), req))
 		assert.Equal(t, vaulttypes.DefaultNamespace, req.Namespace)
 	})
+}
+
+func TestValidateCiphertextSize_Base64(t *testing.T) {
+	validator := NewRequestValidator(
+		limits.NewUpperBoundLimiter(10),
+		limits.NewUpperBoundLimiter(100*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+	)
+	raw := make([]byte, 50)
+	b64 := base64.StdEncoding.EncodeToString(raw)
+	err := validator.ValidateCiphertextSize(t.Context(), "0x1111111111111111111111111111111111111111", b64, vaultutils.CiphertextStringEncodingBase64)
+	require.NoError(t, err)
+}
+
+func TestEnsureRightLabelOnSecret_Base64EncodedCiphertext(t *testing.T) {
+	pk, _ := generateTestKeys(t)
+	owner := "0x0001020304050607080900010203040506070809"
+	hexSecret := encryptWithEthAddressLabel(t, pk, owner)
+	raw, err := hex.DecodeString(hexSecret)
+	require.NoError(t, err)
+	b64 := base64.StdEncoding.EncodeToString(raw)
+	err = EnsureRightLabelOnSecret(pk, b64, owner, "", vaultutils.CiphertextStringEncodingBase64)
+	require.NoError(t, err)
 }

@@ -34,6 +34,7 @@ type testPluginBuildOpts struct {
 	maxRequestBatchSize               int
 	batchSize                         int
 	orgIDAsSecretOwnerEnabled         bool
+	base64EncodingEnabled             bool
 	marshalBlob                       func(ocr3_1types.BlobHandle) ([]byte, error)
 	unmarshalBlob                     func([]byte) (ocr3_1types.BlobHandle, error)
 }
@@ -71,6 +72,10 @@ func withMaxSecretsPerOwner(n int) testPluginOption {
 
 func withOrgIDEnabled() testPluginOption {
 	return func(o *testPluginBuildOpts) { o.orgIDAsSecretOwnerEnabled = true }
+}
+
+func withBase64EncodingEnabled() testPluginOption {
+	return func(o *testPluginBuildOpts) { o.base64EncodingEnabled = true }
 }
 
 func withOnchainCfg(n int, f int) testPluginOption {
@@ -116,6 +121,9 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 		o.maxIdentifierKeyLengthBytes, o.maxRequestBatchSize)
 	if o.orgIDAsSecretOwnerEnabled {
 		cfg.OrgIDAsSecretOwnerEnabled = limits.NewGateLimiter(true)
+	}
+	if o.base64EncodingEnabled {
+		cfg.Base64EncodingEnabled = limits.NewGateLimiter(true)
 	}
 	return &ReportingPlugin{
 		lggr:          o.lggr,
@@ -188,6 +196,7 @@ func makeReportingPluginConfig(
 		MaxIdentifierKeyLengthBytes:       keyLimiter,
 		MaxRequestBatchSize:               requestBatchSizeLimiter,
 		OrgIDAsSecretOwnerEnabled:         limits.NewGateLimiter(false),
+		Base64EncodingEnabled:             limits.NewGateLimiter(false),
 	}
 }
 
