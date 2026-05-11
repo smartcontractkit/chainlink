@@ -29,10 +29,9 @@ const failFastReasonBuildFailure = "build-failure"
 
 type diagnoseIterationResource = db.Resource
 
-// diagnoseIterationParams is the full input for one diagnose iteration (production
-// runner or tests that stub diagnoseRunHooks.runIteration).
+// diagnoseIterationParams is per-iteration state for diagnose (see diagnoseIterationRunner;
+// context is passed separately to avoid storing context in a struct).
 type diagnoseIterationParams struct {
-	Ctx              context.Context
 	Conf             *config.App
 	Out              *output.Printer
 	ResultsDir       string
@@ -46,7 +45,7 @@ type diagnoseIterationParams struct {
 	SerialProgressMu *sync.Mutex
 }
 
-type diagnoseIterationRunner func(diagnoseIterationParams) error
+type diagnoseIterationRunner func(ctx context.Context, p diagnoseIterationParams) error
 
 type diagnoseRunHooks struct {
 	runIteration diagnoseIterationRunner
@@ -450,8 +449,7 @@ func executeSingleIteration(runCtx context.Context, conf *config.App, out *outpu
 			seed = hooks.seed()
 		}
 		iterStart := time.Now()
-		iterErr := hooks.runIteration(diagnoseIterationParams{
-			Ctx:              runCtx,
+		iterErr := hooks.runIteration(runCtx, diagnoseIterationParams{
 			Conf:             conf,
 			Out:              out,
 			ResultsDir:       resultsDir,
@@ -975,8 +973,8 @@ func (sw *syncedWriter) Write(p []byte) (int, error) {
 	return sw.w.Write(p)
 }
 
-func diagnoseIteration(p diagnoseIterationParams) error {
-	ctx, conf, out := p.Ctx, p.Conf, p.Out
+func diagnoseIteration(ctx context.Context, p diagnoseIterationParams) error {
+	conf, out := p.Conf, p.Out
 	resultsDir, goTestArgs := p.ResultsDir, p.GoTestArgs
 	iteration, shuffleSeed := p.Iteration, p.ShuffleSeed
 	env := p.Env

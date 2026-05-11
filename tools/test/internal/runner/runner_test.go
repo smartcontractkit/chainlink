@@ -696,7 +696,7 @@ func TestRunDiagnoseIterationsRunsInParallelWithWorkerIsolation(t *testing.T) {
 		},
 	}
 	hooks := diagnoseRunHooks{
-		runIteration: func(p diagnoseIterationParams) error {
+		runIteration: func(_ context.Context, p diagnoseIterationParams) error {
 			require.False(t, p.LiveProgress)
 			require.Nil(t, p.ParallelProgress)
 			nowActive := atomic.AddInt32(&active, 1)
@@ -744,7 +744,7 @@ func TestRunDiagnoseIterationsFailFastCancelsNewWork(t *testing.T) {
 	var mu sync.Mutex
 	started := make(map[int]struct{})
 	hooks := diagnoseRunHooks{
-		runIteration: func(p diagnoseIterationParams) error {
+		runIteration: func(ctx context.Context, p diagnoseIterationParams) error {
 			mu.Lock()
 			started[p.Iteration] = struct{}{}
 			mu.Unlock()
@@ -752,8 +752,8 @@ func TestRunDiagnoseIterationsFailFastCancelsNewWork(t *testing.T) {
 				require.NoError(t, os.WriteFile(filepath.Join(p.ResultsDir, "iteration-0.log.jsonl"), []byte(`{"Action":"fail","Package":"p","Test":"T","Elapsed":0.01}`+"\n"), 0600))
 				return errors.New("test failed")
 			}
-			<-p.Ctx.Done()
-			return p.Ctx.Err()
+			<-ctx.Done()
+			return ctx.Err()
 		},
 	}
 
@@ -793,7 +793,7 @@ func TestRunDiagnoseIterationsStopsOnBuildFailure(t *testing.T) {
 			}
 			out := output.New(true, io.Discard, io.Discard, output.SkipFD)
 			hooks := diagnoseRunHooks{
-				runIteration: func(p diagnoseIterationParams) error {
+				runIteration: func(_ context.Context, p diagnoseIterationParams) error {
 					payload := tc.iterationJSON + "\n"
 					require.NoError(t, os.WriteFile(filepath.Join(p.ResultsDir, "iteration-"+strconv.Itoa(p.Iteration)+".log.jsonl"), []byte(payload), 0600))
 					return errors.New("exit status 1")
@@ -829,7 +829,7 @@ func TestRunDiagnoseIterations_serialLiveProgressMutex_noMergedProgressAndTableL
 	jsonl := `{"Action":"pass","Package":"p"}` + "\n"
 
 	hooks := diagnoseRunHooks{
-		runIteration: func(p diagnoseIterationParams) error {
+		runIteration: func(ctx context.Context, p diagnoseIterationParams) error {
 			require.True(t, p.LiveProgress)
 			require.NotNil(t, p.SerialProgressMu)
 			iter, iters := p.Iteration+1, conf.Iterations
@@ -841,7 +841,7 @@ func TestRunDiagnoseIterations_serialLiveProgressMutex_noMergedProgressAndTableL
 				defer tick.Stop()
 				for {
 					select {
-					case <-p.Ctx.Done():
+					case <-ctx.Done():
 						return
 					case <-tickDone:
 						return
@@ -952,12 +952,12 @@ func TestRunDiagnoseIterationsFailFastOnCategories(t *testing.T) {
 			}
 			out := output.New(true, io.Discard, io.Discard, output.SkipFD)
 			hooks := diagnoseRunHooks{
-				runIteration: func(p diagnoseIterationParams) error {
+				runIteration: func(_ context.Context, p diagnoseIterationParams) error {
 					return os.WriteFile(filepath.Join(p.ResultsDir, "iteration-"+strconv.Itoa(p.Iteration)+".log.jsonl"), []byte(tc.iterationJSON+"\n"), 0600)
 				},
 			}
 			if tc.iterErr != nil {
-				hooks.runIteration = func(p diagnoseIterationParams) error {
+				hooks.runIteration = func(_ context.Context, p diagnoseIterationParams) error {
 					require.NoError(t, os.WriteFile(filepath.Join(p.ResultsDir, "iteration-"+strconv.Itoa(p.Iteration)+".log.jsonl"), []byte(tc.iterationJSON+"\n"), 0600))
 					return tc.iterErr
 				}
