@@ -7,14 +7,14 @@ CREATE TABLE IF NOT EXISTS cre.chip_durable_events (
     delivered_at TIMESTAMPTZ NULL
 );
 
-CREATE INDEX idx_chip_durable_events_created_at
+CREATE INDEX IF NOT EXISTS idx_chip_durable_events_created_at
     ON cre.chip_durable_events (created_at ASC);
 
-CREATE INDEX idx_chip_durable_events_pending_delivery
+CREATE INDEX IF NOT EXISTS idx_chip_durable_events_pending_delivery
     ON cre.chip_durable_events (created_at ASC)
     WHERE delivered_at IS NULL;
 
-CREATE INDEX idx_chip_durable_events_delivered_purge
+CREATE INDEX IF NOT EXISTS idx_chip_durable_events_delivered_purge
     ON cre.chip_durable_events (delivered_at ASC)
     WHERE delivered_at IS NOT NULL;
 

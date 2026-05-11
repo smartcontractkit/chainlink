@@ -98,7 +98,7 @@ func ExecuteDurableEmitterTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	db := connectWorkflowDONDB(t, testEnv.Config.NodeSets)
 
 	_, err := countPendingDurableEvents(t.Context(), db)
-	require.NoError(t, err, "cre.chip_durable_events table should exist — check migration 0295")
+	require.NoError(t, err)
 
 	resetDurableEventQueue(t.Context(), t, db)
 
