@@ -169,7 +169,7 @@ jobs:
               count = int(os.environ["DEPLOYMENT_TEST_SHARD_COUNT"])
               for i in range(count):
                   rows.append({
-                      "job-name": f"go_deployment_tests shard {i}/{count}",
+                      "job-name": f"go_deployment_tests shard {i+1}/{count}",
                       "os": f"runs-on={run_id}-deployment-{i}/cpu=8/ram=32/family=m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache",
                       "shard-count": str(count),
                       "shard-index": str(i),
