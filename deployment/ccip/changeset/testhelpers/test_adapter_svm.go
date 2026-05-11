@@ -234,6 +234,8 @@ func SolEventEmitter[T any](ctx context.Context, client *solrpc.Client, address 
 						}:
 						case <-done:
 							return
+						case <-ctx.Done():
+							return
 						}
 					}
 				}

@@ -186,7 +186,7 @@ func (n Node) ReplayLogs(ctx context.Context, chains map[uint64]uint64) error {
 			continue
 		}
 		if family == "solana" {
-			fmt.Printf("ReplayFromBlock: family: %q chainID: %q\n", family, chainID)
+			fmt.Printf("Skipping replay for family: %q chainID: %q; Solana relayer Replay() is synchronous and blocks indefinitely in tests\n", family, chainID)
 			continue
 		}
 		if err := n.App.ReplayFromBlock(ctx, family, chainID, block, false); err != nil {
