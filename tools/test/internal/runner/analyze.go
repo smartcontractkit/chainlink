@@ -302,7 +302,7 @@ func buildReportFromAggs(aggs map[testKey]*aggregate, numIterations int, slowThr
 			rep.Failures = append(rep.Failures, base)
 		}
 
-		if !a.timedOut && slowThreshold > 0 && a.maxElapsed > slowThreshold {
+		if key.Test != "" && !a.timedOut && slowThreshold > 0 && a.maxElapsed > slowThreshold {
 			testsByPkg[key.Package] = append(testsByPkg[key.Package], base)
 		}
 	}

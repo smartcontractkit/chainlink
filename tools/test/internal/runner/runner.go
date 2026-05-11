@@ -475,6 +475,9 @@ func shouldFailFastIteration(conf *config.App, resultsDir string, iteration int,
 	if conf == nil {
 		return false, ""
 	}
+	if iterErr == nil && !conf.FailFast && len(conf.FailFastOn) == 0 {
+		return false, ""
+	}
 	jsonPath := filepath.Join(resultsDir, fmt.Sprintf("iteration-%d.log.jsonl", iteration))
 	f, err := os.Open(jsonPath)
 	if err != nil {

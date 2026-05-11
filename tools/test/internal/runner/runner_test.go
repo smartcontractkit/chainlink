@@ -978,3 +978,21 @@ func TestFormatIterationDigestAI(t *testing.T) {
 	}
 	assert.Equal(t, "d 7/100 p 90s r126 f0 t0 s6", formatIterationDigestAI(7, 100, d, 90*time.Second))
 }
+
+func TestShouldFailFastIterationOptimization(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	conf := &config.App{
+		FailFast:   false,
+		FailFastOn: nil,
+	}
+
+	failed, reason := shouldFailFastIteration(conf, filepath.Join(tmp, "non-existent"), 1, nil)
+	assert.False(t, failed)
+	assert.Empty(t, reason)
+
+	failed, reason = shouldFailFastIteration(conf, filepath.Join(tmp, "non-existent"), 1, os.ErrNotExist)
+	assert.False(t, failed)
+	assert.Empty(t, reason)
+}

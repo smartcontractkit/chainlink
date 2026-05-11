@@ -1127,3 +1127,27 @@ func TestMarshalAISummaryJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestAnalyzeSlowTestsNoDuplication(t *testing.T) {
+	t.Parallel()
+	iter := `{"Action":"pass","Package":"pkg/slow","Test":"TestSlow","Elapsed":10.0}
+{"Action":"pass","Package":"pkg/slow","Elapsed":10.0}
+`
+	rep, _, err := Analyze([]io.Reader{strings.NewReader(iter)}, 1*time.Second)
+	require.NoError(t, err)
+
+	pkgSlowCount := 0
+	testSlowCount := 0
+	for _, s := range rep.Slow {
+		if s.Package == "pkg/slow" {
+			if s.Test == "" {
+				pkgSlowCount++
+			} else if s.Test == "TestSlow" {
+				testSlowCount++
+			}
+		}
+	}
+
+	assert.Equal(t, 1, pkgSlowCount, "Package should appear exactly once in slow reports")
+	assert.Equal(t, 1, testSlowCount, "Slow test should appear exactly once")
+}
