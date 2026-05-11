@@ -18,10 +18,13 @@ type Config struct {
 	Checks []Check `yaml:"checks"`
 
 	// Legacy single-check fields kept for compatibility with any older callers.
-	SecretKey       string `yaml:"secretKey,omitempty"`
-	SecretNamespace string `yaml:"secretNamespace,omitempty"`
-	ExpectedValue   string `yaml:"expectedValue,omitempty"`
-	ExpectNotFound  bool   `yaml:"expectNotFound,omitempty"`
+	SecretKey               string `yaml:"secretKey,omitempty"`
+	SecretNamespace         string `yaml:"secretNamespace,omitempty"`
+	SecretKey2              string `yaml:"secretKey2"`
+	SecretNamespace2        string `yaml:"secretNamespace2"`
+	ExpectedValue           string `yaml:"expectedValue,omitempty"`
+	ExpectNotFound          bool   `yaml:"expectNotFound,omitempty"`
+	ExpectInvalidIdentifier bool   `yaml:"expectInvalidIdentifier"`
 }
 
 func (c Config) EffectiveChecks() []Check {

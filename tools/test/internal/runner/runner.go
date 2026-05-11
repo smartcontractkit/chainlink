@@ -1,0 +1,828 @@
+package runner
+
+import (
+	"bufio"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"math/rand/v2"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/config"
+	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/db"
+	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/output"
+	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/termstyle"
+)
+
+type diagnoseIterationResource = db.Resource
+
+type diagnoseIterationRunner func(ctx context.Context, conf *config.App, out *output.Printer, resultsDir string, goTestArgs []string, iteration int, shuffleSeed int64, env []string, liveProgress bool, parallelProgress *parallelDiagnoseProgress, diagnoseRunStart time.Time) error
+
+type diagnoseRunHooks struct {
+	runIteration diagnoseIterationRunner
+	seed         func() int64
+}
+
+type diagnoseRunState struct {
+	completed        int
+	failedFast       bool
+	failedFastReason string
+	iterDurations    []time.Duration
+	shuffleSeeds     map[int]int64
+	liveProgress     bool
+}
+
+// GoTest runs `go test` with the given args (repo root as working directory).
+func GoTest(ctx context.Context, conf *config.App, args []string) error {
+	//nolint:gosec // it's fine
+	cmd := exec.CommandContext(ctx, "go", append([]string{"test"}, args...)...)
+	cmd.Dir = conf.RepoRoot
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	cmd.Env = os.Environ()
+	return cmd.Run()
+}
+
+// Gotestsum runs `gotestsum` with the given args (repo root as working directory).
+func Gotestsum(ctx context.Context, conf *config.App, args []string) error {
+	if _, err := exec.LookPath("gotestsum"); err != nil {
+		return fmt.Errorf("gotestsum not on PATH: install with go install gotest.tools/gotestsum@latest: %w", err)
+	}
+
+	cmd := exec.CommandContext(ctx, "gotestsum", args...)
+	cmd.Dir = conf.RepoRoot
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	cmd.Env = os.Environ()
+	return cmd.Run()
+}
+
+// Diagnose runs go test -json once per iteration, writing each stream to
+// iteration-<n>.log.jsonl, then analyzes and writes report.json.
+// With --ai-output, stdout is three lines: the results directory path, the
+// path to report.json, and one line of JSON (the report's summary object, or
+// the JSON keyword null when there is no summary).
+// Test iteration failures do not stop later runs (unless --fail-fast); they are
+// reflected in report.json. Diagnose returns a non-nil error for setup failures
+// (e.g. mkdir, database reset), analyze/write report failures, or ctx errors
+// bubbling from dependencies — not for failing tests alone.
+// resources supplies the prepared per-worker database state. Each resource runs
+// one iteration at a time; when a worker is reused, its Reset hook restores the
+// database to its freshly-prepared state.
+func Diagnose(ctx context.Context, conf *config.App, out *output.Printer, goTestArgs []string, resources []diagnoseIterationResource) error {
+	if out == nil {
+		out = output.NewFromApp(conf)
+	}
+	start := time.Now()
+
+	resultsDir, err := makeDiagnoseResultsDir(conf, goTestArgs, start)
+	if err != nil {
+		return err
+	}
+	printDiagnoseResultsDirHeader(out, resultsDir)
+
+	state, runErr := runDiagnoseIterations(ctx, conf, out, resultsDir, goTestArgs, resources, diagnoseRunHooks{})
+	if runErr != nil {
+		if ctx.Err() == nil {
+			return runErr
+		}
+	}
+
+	interrupted := ctx.Err() != nil
+	if interrupted && !out.AIOutput() {
+		out.HumanStderr(
+			termstyle.Accent.Render(fmt.Sprintf("interrupted after %d/%d iterations", state.completed, conf.Iterations)) +
+				termstyle.Muted.Render(" — analyzing partial results…"))
+	}
+
+	if state.failedFast && !out.AIOutput() {
+		msg := "--fail-fast set, stopping early"
+		if state.failedFastReason != "" {
+			msg = fmt.Sprintf("fail-fast matched %s, stopping early", state.failedFastReason)
+		}
+		out.HumanStderr(termstyle.Accent.Render(msg))
+	}
+
+	printDiagnoseAnalyzing(out, state.liveProgress)
+	report, logs, analyzeErr := AnalyzeResults(resultsDir, conf.SlowThreshold)
+	if analyzeErr != nil {
+		out.Stderrf("analyze results: %v\n", analyzeErr)
+		return analyzeErr
+	}
+	if report != nil {
+		for i, d := range state.iterDurations {
+			if i >= len(report.IterationSummaries) {
+				break
+			}
+			report.IterationSummaries[i].Duration = d
+			if state.shuffleSeeds != nil {
+				report.IterationSummaries[i].ShuffleSeed = state.shuffleSeeds[i]
+			}
+		}
+		finished := time.Now()
+		report.Run = newRunMeta(conf, goTestArgs, resultsDir, start, &finished)
+		fillIterationRuntimeSummary(report)
+	}
+	if err := WriteLogFiles(resultsDir, report, logs); err != nil {
+		out.Stderrf("write log files: %v\n", err)
+		return err
+	}
+	if err := WriteReport(resultsDir, report); err != nil {
+		out.Stderrf("write report: %v\n", err)
+		return err
+	}
+	if err := WriteCSV(resultsDir, report); err != nil {
+		out.Stderrf("write csv: %v\n", err)
+		return err
+	}
+
+	reportPath := filepath.Join(resultsDir, "report.json")
+	if out.AIOutput() {
+		out.SparseStdoutln(reportPath)
+		summaryJSON, err := marshalAISummaryJSON(report)
+		if err != nil {
+			out.Stderrf("marshal ai summary: %v\n", err)
+			return err
+		}
+		out.SparseStdoutln(string(summaryJSON))
+		return nil
+	}
+
+	out.HumanStderr(
+		termstyle.Label.Render("diagnose complete") +
+			termstyle.Muted.Render(fmt.Sprintf(" (%s)", time.Since(start))))
+	if report != nil {
+		PrintSummary(out.HumanStderrWriter(), report)
+	}
+	out.HumanStderr(termstyle.Muted.Render("report.json: ") + termstyle.Label.Render(reportPath))
+	return nil
+}
+
+// fillIterationRuntimeSummary sets summary iteration_duration_* from each
+// iteration's wall-clock Duration (min / max / p50 across the run).
+func fillIterationRuntimeSummary(rep *Report) {
+	if rep == nil || rep.Summary == nil {
+		return
+	}
+	var samples []time.Duration
+	for _, s := range rep.IterationSummaries {
+		if s.Duration > 0 {
+			samples = append(samples, s.Duration)
+		}
+	}
+	if len(samples) == 0 {
+		return
+	}
+	minD, maxD, p50 := sortedDurationStats(samples)
+	rep.Summary.IterationDurationMin = minD
+	rep.Summary.IterationDurationMax = maxD
+	rep.Summary.IterationDurationP50 = p50
+}
+
+// marshalAISummaryJSON returns one line of JSON for --ai-output: the report's
+// summary block, or the JSON keyword null when absent (no aggregate stats).
+func marshalAISummaryJSON(report *Report) ([]byte, error) {
+	if report == nil || report.Summary == nil {
+		return []byte("null"), nil
+	}
+	return json.Marshal(report.Summary)
+}
+
+// EffectiveParallelIterations returns the bounded diagnose worker count.
+func EffectiveParallelIterations(conf *config.App) int {
+	if conf == nil {
+		return 1
+	}
+	parallel := conf.ParallelIterations
+	if parallel < 1 {
+		parallel = 1
+	}
+	if conf.Iterations > 0 && parallel > conf.Iterations {
+		parallel = conf.Iterations
+	}
+	return parallel
+}
+
+func makeDiagnoseResultsDir(conf *config.App, goTestArgs []string, now time.Time) (string, error) {
+	base := filepath.Join(conf.RepoRoot, diagnoseResultsDirName(goTestArgs, now))
+	for i := 0; ; i++ {
+		dir := base
+		if i > 0 {
+			dir = fmt.Sprintf("%s-%d", base, i)
+		}
+		err := os.Mkdir(dir, 0700)
+		if err == nil {
+			return dir, nil
+		}
+		if !errors.Is(err, os.ErrExist) {
+			return "", err
+		}
+	}
+}
+
+type diagnoseIterationResult struct {
+	iteration  int
+	duration   time.Duration
+	shuffle    int64
+	iterErr    error
+	fatalErr   error
+	dumpErr    error
+	failedFast bool
+	failReason string
+}
+
+func runDiagnoseIterations(ctx context.Context, conf *config.App, out *output.Printer, resultsDir string, goTestArgs []string, resources []diagnoseIterationResource, hooks diagnoseRunHooks) (diagnoseRunState, error) {
+	if hooks.runIteration == nil {
+		hooks.runIteration = diagnoseIteration
+	}
+	if hooks.seed == nil {
+		hooks.seed = func() int64 { return rand.Int64N(1<<62) + 1 }
+	}
+	parallel := EffectiveParallelIterations(conf)
+	if len(resources) == 0 {
+		resources = make([]diagnoseIterationResource, parallel)
+	}
+	if len(resources) < parallel {
+		parallel = len(resources)
+	}
+	resources = resources[:parallel]
+	state := diagnoseRunState{
+		iterDurations: make([]time.Duration, conf.Iterations),
+	}
+	if conf.Shuffle {
+		state.shuffleSeeds = make(map[int]int64)
+	}
+
+	if !out.AIOutput() {
+		printDiagnoseIterationTableHeader(out)
+	}
+
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	jobs := make(chan int)
+	results := make(chan diagnoseIterationResult)
+	var parallelProgress *parallelDiagnoseProgress
+	var diagnoseRunStart time.Time
+	var progressTickWG sync.WaitGroup
+	progressTickDone := make(chan struct{})
+	if !out.AIOutput() && out.LiveInlineProgress() {
+		state.liveProgress = true
+		if parallel > 1 {
+			parallelProgress = newParallelDiagnoseProgress(conf.Iterations)
+			progressTickWG.Go(func() {
+				tick := time.NewTicker(250 * time.Millisecond)
+				defer tick.Stop()
+				for {
+					select {
+					case <-progressTickDone:
+						return
+					case <-tick.C:
+						parallelProgress.withRenderLock(func() {
+							renderParallelDiagnoseProgressLine(out.HumanStderrWriter(), parallelProgress, time.Now(), true)
+						})
+					}
+				}
+			})
+		} else {
+			diagnoseRunStart = time.Now()
+		}
+	}
+	defer func() {
+		close(progressTickDone)
+		progressTickWG.Wait()
+	}()
+
+	var wg sync.WaitGroup
+	for _, resource := range resources {
+		wg.Go(func() {
+			executeSingleIteration(runCtx, conf, out, resultsDir, goTestArgs, resource, hooks, parallel, parallelProgress, diagnoseRunStart, jobs, results, cancel)
+		})
+	}
+
+	wg.Go(func() {
+		defer close(jobs)
+		for i := range conf.Iterations {
+			select {
+			case <-runCtx.Done():
+				return
+			case jobs <- i:
+			}
+		}
+	})
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	var firstErr error
+	for result := range results {
+		if result.fatalErr != nil {
+			if firstErr == nil {
+				firstErr = result.fatalErr
+				cancel()
+			}
+			continue
+		}
+		state.completed++
+		state.iterDurations[result.iteration] = result.duration
+		if state.shuffleSeeds != nil {
+			state.shuffleSeeds[result.iteration] = result.shuffle
+		}
+		if parallelProgress != nil {
+			parallelProgress.withRenderLock(func() {
+				out.ClearInline()
+				printDiagnoseIterationDigest(out, result.iteration, conf.Iterations, conf, resultsDir, result.duration)
+			})
+		} else {
+			printDiagnoseIterationDigest(out, result.iteration, conf.Iterations, conf, resultsDir, result.duration)
+		}
+		if result.dumpErr != nil && !out.AIOutput() {
+			out.Stderrf("postgres state dump iteration %d: %v\n", result.iteration, result.dumpErr)
+		}
+		if result.failedFast {
+			state.failedFast = true
+			if state.failedFastReason == "" {
+				state.failedFastReason = result.failReason
+			}
+		}
+	}
+	return state, firstErr
+}
+
+func executeSingleIteration(runCtx context.Context, conf *config.App, out *output.Printer, resultsDir string, goTestArgs []string, resource diagnoseIterationResource, hooks diagnoseRunHooks, parallel int, parallelProgress *parallelDiagnoseProgress, diagnoseRunStart time.Time, jobs <-chan int, results chan<- diagnoseIterationResult, cancel context.CancelFunc) {
+	used := false
+	for iteration := range jobs {
+		if runCtx.Err() != nil {
+			return
+		}
+		if used && resource.Reset != nil {
+			if err := resource.Reset(runCtx); err != nil {
+				if runCtx.Err() != nil {
+					return
+				}
+				select {
+				case results <- diagnoseIterationResult{iteration: iteration, fatalErr: fmt.Errorf("reset database before iteration %d: %w", iteration, err)}:
+				case <-runCtx.Done():
+				}
+				cancel()
+				return
+			}
+		}
+		used = true
+		var seed int64
+		if conf.Shuffle {
+			seed = hooks.seed()
+		}
+		iterStart := time.Now()
+		iterErr := hooks.runIteration(runCtx, conf, out, resultsDir, goTestArgs, iteration, seed, resource.Env, parallel == 1, parallelProgress, diagnoseRunStart)
+		iterDur := time.Since(iterStart)
+		var dumpErr error
+		if resource.DumpDiagnostics != nil {
+			dumpErr = resource.DumpDiagnostics(runCtx, resultsDir, iteration)
+		}
+		failedFast, failReason := shouldFailFastIteration(conf, resultsDir, iteration, iterErr)
+		failedFast = failedFast && runCtx.Err() == nil
+		if failedFast {
+			cancel()
+		}
+		select {
+		case results <- diagnoseIterationResult{
+			iteration:  iteration,
+			duration:   iterDur,
+			shuffle:    seed,
+			iterErr:    iterErr,
+			dumpErr:    dumpErr,
+			failedFast: failedFast,
+			failReason: failReason,
+		}:
+		case <-runCtx.Done():
+			if failedFast {
+				results <- diagnoseIterationResult{
+					iteration:  iteration,
+					duration:   iterDur,
+					shuffle:    seed,
+					iterErr:    iterErr,
+					dumpErr:    dumpErr,
+					failedFast: true,
+					failReason: failReason,
+				}
+			}
+			return
+		}
+	}
+}
+
+func shouldFailFastIteration(conf *config.App, resultsDir string, iteration int, iterErr error) (bool, string) {
+	if conf == nil {
+		return false, ""
+	}
+	if iterErr != nil && conf.FailFast {
+		return true, "failure"
+	}
+	if len(conf.FailFastOn) == 0 {
+		return false, ""
+	}
+	jsonPath := filepath.Join(resultsDir, fmt.Sprintf("iteration-%d.log.jsonl", iteration))
+	f, err := os.Open(jsonPath)
+	if err != nil {
+		return false, ""
+	}
+	defer f.Close()
+	d, err := DigestIterationJSONL(f, conf.SlowThreshold)
+	if err != nil {
+		return false, ""
+	}
+	return failFastDigestMatch(d, conf.FailFastOn)
+}
+
+func failFastDigestMatch(d IterationDigest, categories []string) (bool, string) {
+	for _, category := range categories {
+		switch strings.ToLower(strings.TrimSpace(category)) {
+		case config.FailFastOnAny:
+			if d.Result == "fail" || d.Result == "timeout" || d.SlowTests > 0 {
+				return true, config.FailFastOnAny
+			}
+		case config.FailFastOnFailure:
+			if d.Result == "fail" && d.FailTests > 0 {
+				return true, config.FailFastOnFailure
+			}
+		case config.FailFastOnTimeout:
+			if d.Result == "timeout" || d.TimeoutTests > 0 {
+				return true, config.FailFastOnTimeout
+			}
+		case config.FailFastOnSlow:
+			if d.SlowTests > 0 {
+				return true, config.FailFastOnSlow
+			}
+		}
+	}
+	return false, ""
+}
+
+// goTestFlagsBeforeArgs returns the portion of argv that belongs to `go test`
+// itself, stopping before -args (flags after -args are passed to the test binary).
+func goTestFlagsBeforeArgs(args []string) []string {
+	for i, a := range args {
+		if a == "-args" {
+			return args[:i]
+		}
+	}
+	return args
+}
+
+// parseDiagnoseGoTestCount returns the last -count in the portion of argv that
+// belongs to `go test` itself (before -args). If no -count appears, set is false.
+func parseDiagnoseGoTestCount(goTestArgs []string) (set bool, n int, err error) {
+	args := goTestFlagsBeforeArgs(goTestArgs)
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if after, ok := strings.CutPrefix(a, "-count="); ok {
+			v := after
+			num, e := strconv.Atoi(strings.TrimSpace(v))
+			if e != nil {
+				return false, 0, fmt.Errorf("invalid -count value %q: %w", v, e)
+			}
+			if num < 1 {
+				return false, 0, fmt.Errorf("invalid go test arguments: -count must be a positive integer, got %d", num)
+			}
+			set = true
+			n = num
+			continue
+		}
+		if a == "-count" {
+			if i+1 >= len(args) {
+				return false, 0, errors.New("invalid go test arguments: -count must be followed by a value")
+			}
+			i++
+			num, e := strconv.Atoi(strings.TrimSpace(args[i]))
+			if e != nil {
+				return false, 0, fmt.Errorf("invalid -count value %q: %w", args[i], e)
+			}
+			if num < 1 {
+				return false, 0, fmt.Errorf("invalid go test arguments: -count must be a positive integer, got %d", num)
+			}
+			set = true
+			n = num
+		}
+	}
+	return set, n, nil
+}
+
+// WarnDiagnoseGoTestCount prints hints when the user sets -count on go test, and
+// returns an error if -count values in the go test flag section are malformed.
+func WarnDiagnoseGoTestCount(w io.Writer, goTestArgs []string) error {
+	set, n, err := parseDiagnoseGoTestCount(goTestArgs)
+	if err != nil {
+		return err
+	}
+	if !set {
+		return nil
+	}
+	if n == 1 {
+		fmt.Fprintln(w, termstyle.Muted.Render(
+			"note: -count=1 is unnecessary; diagnose adds -count=1 when you omit it."))
+		return nil
+	}
+	fmt.Fprintln(w, termstyle.Muted.Render(
+		"note: prefer diagnose --iterations for repetition; use -count>1 only if you want to avoid overhead between diagnose iterations (e.g. DB setup/teardown)."))
+	return nil
+}
+
+// filterDiagnoseUserGoTestArgs removes -json/--json from the go test flag
+// section so the harness can inject -json; arguments after -args are unchanged.
+func filterDiagnoseUserGoTestArgs(args []string) []string {
+	split := len(args)
+	for i, a := range args {
+		if a == "-args" {
+			split = i
+			break
+		}
+	}
+	prefix := args[:split]
+	suffix := args[split:]
+	var out []string
+	for _, a := range prefix {
+		if a == "-json" || a == "--json" {
+			continue
+		}
+		out = append(out, a)
+	}
+	return append(out, suffix...)
+}
+
+// buildDiagnoseArgs constructs the `go test` argv for a single diagnose iteration.
+func buildDiagnoseArgs(goTestArgs []string, shuffleSeed int64) ([]string, error) {
+	filtered := filterDiagnoseUserGoTestArgs(goTestArgs)
+	set, n, err := parseDiagnoseGoTestCount(goTestArgs)
+	if err != nil {
+		return nil, err
+	}
+	args := []string{"test", "-json"}
+	args = append(args, filtered...)
+	if shuffleSeed != 0 {
+		args = append(args, fmt.Sprintf("-shuffle=%d", shuffleSeed))
+	}
+	if !set || n <= 1 {
+		args = append(args, "-count=1")
+	}
+	return args, nil
+}
+
+func printDiagnoseResultsDirHeader(out *output.Printer, resultsDir string) {
+	if out.AIOutput() {
+		out.Stdoutln(resultsDir)
+		return
+	}
+	out.HumanStderr(termstyle.Muted.Render("results directory: ") + termstyle.Label.Render(resultsDir))
+}
+
+func printDiagnoseAnalyzing(out *output.Printer, afterLiveProgress bool) {
+	if out.AIOutput() {
+		return
+	}
+	if afterLiveProgress {
+		_, _ = fmt.Fprint(out.HumanStderrWriter(), "\r\033[K\n")
+	}
+	out.HumanStderr("analyzing...")
+}
+
+func printDiagnoseIterationDigest(out *output.Printer, iterationIdx0, totalIters int, conf *config.App, resultsDir string, iterDur time.Duration) {
+	jsonPath := filepath.Join(resultsDir, fmt.Sprintf("iteration-%d.log.jsonl", iterationIdx0))
+	f, err := os.Open(jsonPath)
+	if err != nil {
+		out.Stderrf("diagnose iteration %d summary: %v\n", iterationIdx0+1, err)
+		return
+	}
+	defer f.Close()
+	d, err := DigestIterationJSONL(f, conf.SlowThreshold)
+	if err != nil {
+		out.Stderrf("diagnose iteration %d summary: %v\n", iterationIdx0+1, err)
+		return
+	}
+	iter := iterationIdx0 + 1
+	if out.AIOutput() {
+		out.Stdoutln(formatIterationDigestAI(iter, totalIters, d, iterDur))
+		return
+	}
+	printIterationDigestHuman(out, iter, totalIters, d, iterDur)
+}
+
+// formatIterationDigestAI prints one line for --ai-output diagnose progress.
+// Tokens: d iter/total; p|f|t result; wall seconds; r named tests that ran;
+// f failing-test entries; t timeouts; s slow tests.
+func formatIterationDigestAI(iter, total int, d IterationDigest, dur time.Duration) string {
+	rs := "?"
+	switch d.Result {
+	case "pass":
+		rs = "p"
+	case "fail":
+		rs = "f"
+	case "timeout":
+		rs = "t"
+	}
+	sec := int(dur.Round(time.Second) / time.Second)
+	if sec < 0 {
+		sec = 0
+	}
+	return fmt.Sprintf("d %d/%d %s %ds r%d f%d t%d s%d", iter, total, rs, sec, d.RanTests, d.FailTests, d.TimeoutTests, d.SlowTests)
+}
+
+func printIterationDigestHuman(out *output.Printer, iter, total int, d IterationDigest, dur time.Duration) {
+	_ = total
+	out.HumanStderr(formatDiagnoseIterationTableRow(iter, d, dur))
+}
+
+func renderIterationResultHuman(r string) string {
+	switch r {
+	case "pass":
+		return termstyle.OK.Render("pass")
+	case "fail":
+		return termstyle.Bad.Render("fail")
+	case "timeout":
+		return termstyle.Accent.Render("timeout")
+	default:
+		return termstyle.Muted.Render(r)
+	}
+}
+
+// syncedWriter serializes writes to w so stdout and stderr from `go test` can
+// share one JSONL file without interleaved corrupt lines.
+type syncedWriter struct {
+	mu sync.Mutex
+	w  io.Writer
+}
+
+func (sw *syncedWriter) Write(p []byte) (int, error) {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
+	return sw.w.Write(p)
+}
+
+func diagnoseIteration(ctx context.Context, conf *config.App, out *output.Printer, resultsDir string, goTestArgs []string, iteration int, shuffleSeed int64, env []string, liveProgress bool, parallelProgress *parallelDiagnoseProgress, diagnoseRunStart time.Time) error {
+	start := time.Now()
+	jsonPath := filepath.Join(resultsDir, fmt.Sprintf("iteration-%d.log.jsonl", iteration))
+	resultsFile, err := os.Create(jsonPath)
+	if err != nil {
+		return err
+	}
+	defer resultsFile.Close()
+
+	args, err := buildDiagnoseArgs(goTestArgs, shuffleSeed)
+	if err != nil {
+		return err
+	}
+	cmd := exec.CommandContext(ctx, "go", args...)
+	cmd.Dir = conf.RepoRoot
+	cmd.Stdin = os.Stdin
+	cmd.Env = append(os.Environ(), env...)
+	// Soft-cancel on ctx cancellation so `go test -json` gets a chance to flush
+	// its final events before we escalate to SIGKILL after WaitDelay.
+	cmd.Cancel = func() error { return cmd.Process.Signal(os.Interrupt) }
+	cmd.WaitDelay = 5 * time.Second
+
+	if out.AIOutput() {
+		sw := &syncedWriter{w: resultsFile}
+		cmd.Stdout = sw
+		cmd.Stderr = sw
+		return cmd.Run()
+	}
+
+	sw := &syncedWriter{w: resultsFile}
+	cmd.Stderr = sw
+
+	totalPkgs := -1
+	if n, listErr := listTestPackageCount(ctx, conf.RepoRoot, goTestArgs); listErr == nil {
+		totalPkgs = n
+	}
+	prog := newDiagnoseProgress(totalPkgs)
+	if parallelProgress != nil {
+		parallelProgress.start(iteration)
+		defer parallelProgress.finish(iteration)
+	}
+
+	pr, pw := io.Pipe()
+	cmd.Stdout = pw
+
+	live := liveProgress && out.LiveInlineProgress()
+	iter, iters := iteration+1, conf.Iterations
+	if liveProgress && !live {
+		out.HumanStderr(termstyle.Muted.Render(fmt.Sprintf("iteration %d/%d started", iter, iters)))
+	}
+
+	redraw := func(liveInline bool) {
+		renderDiagnoseProgressLine(out.HumanStderrWriter(), iter, iters, time.Since(start), diagnoseRunStart, time.Now(), liveInline)
+	}
+
+	var readWG sync.WaitGroup
+	var scanErr error
+	readWG.Go(func() {
+		r := bufio.NewReaderSize(pr, 1024*1024)
+		for {
+			line, err := r.ReadBytes('\n')
+			if len(line) > 0 {
+				if _, werr := sw.Write(line); werr != nil {
+					break
+				}
+				completedIncreased := prog.onTestJSONLine(line)
+				if completedIncreased && !live {
+					redraw(false)
+				}
+			}
+			if err != nil {
+				if err != io.EOF {
+					scanErr = err
+				}
+				break
+			}
+		}
+	})
+
+	tickDone := make(chan struct{})
+	var tickWG sync.WaitGroup
+	if live {
+		tickWG.Go(func() {
+			tick := time.NewTicker(250 * time.Millisecond)
+			defer tick.Stop()
+			for {
+				select {
+				case <-tickDone:
+					return
+				case <-tick.C:
+					redraw(true)
+				}
+			}
+		})
+		redraw(true)
+	}
+
+	runErr := cmd.Start()
+	started := runErr == nil
+	if started {
+		runErr = cmd.Wait()
+		_ = pw.Close()
+	} else {
+		_ = pw.CloseWithError(runErr)
+	}
+	readWG.Wait()
+	close(tickDone)
+	tickWG.Wait()
+
+	if live {
+		out.ClearInline()
+	}
+	if scanErr != nil {
+		return fmt.Errorf("reading go test output: %w", scanErr)
+	}
+	return runErr
+}
+
+func newRunMeta(conf *config.App, goTestArgs []string, resultsDir string, started time.Time, finished *time.Time) *RunMeta {
+	if conf == nil {
+		return nil
+	}
+	target := guessPackagePatternForSlug(goTestArgs)
+	slug := diagnoseTargetSlug(target)
+	args := append([]string(nil), goTestArgs...)
+	slow := conf.SlowThreshold
+	if slow == 0 {
+		slow = 30 * time.Second
+	}
+	var ffo []string
+	if n, err := config.NormalizeFailFastOn(conf.FailFastOn); err == nil && len(n) > 0 {
+		ffo = n
+	}
+	par := conf.ParallelIterations
+	if par < 1 {
+		par = 1
+	}
+	var fin *time.Time
+	if finished != nil {
+		t := finished.UTC()
+		fin = &t
+	}
+	return &RunMeta{
+		ResultsDirBasename: filepath.Base(resultsDir),
+		StartedAt:          started.UTC(),
+		FinishedAt:         fin,
+		GoTestArgs:         args,
+		TargetSlug:         slug,
+		DiagnoseIterations: conf.Iterations,
+		ParallelIterations: par,
+		SlowThreshold:      slow,
+		FailFast:           conf.FailFast,
+		FailFastOn:         ffo,
+		Shuffle:            conf.Shuffle,
+	}
+}

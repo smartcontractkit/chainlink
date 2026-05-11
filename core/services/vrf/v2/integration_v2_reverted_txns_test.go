@@ -95,7 +95,7 @@ func TestVRFV2Integration_ForceFulfillmentRevertedTxn_Retry(t *testing.T) {
 
 	// Make VRF request without sufficient balance and send fulfillment without simulation
 	req := makeVRFReq(t, th, th.subs[0])
-	req = fulfillVRFReq(t, th, req, th.subs[0], true, ptr(uint64(7)))
+	req = fulfillVRFReq(t, th, req, th.subs[0], true, new(uint64(7)))
 
 	waitForForceFulfillment(t, th, req, th.subs[0], true, 2)
 
@@ -174,10 +174,9 @@ func TestUniqueReqById_WithPendingReceipts(t *testing.T) {
 		{RequestID: common.BigToHash(big.NewInt(2)).Hex(),
 			ForceFulfillmentAttempt: 4, EVMReceipt: types.Receipt{Status: 0}},
 	}
-	allForceTxns := []v2.TxnReceiptDB{}
+	allForceTxns := make([]v2.TxnReceiptDB, 0, len(revertedForceTxns)+1)
 	allForceTxns = append(allForceTxns, revertedForceTxns...)
-	allForceTxns = append(allForceTxns, v2.TxnReceiptDB{RequestID: common.BigToHash(big.NewInt(2)).Hex(),
-		ForceFulfillmentAttempt: 5})
+	allForceTxns = append(allForceTxns, v2.TxnReceiptDB{RequestID: common.BigToHash(big.NewInt(2)).Hex(), ForceFulfillmentAttempt: 5})
 	res := v2.UniqueByReqID(revertedForceTxns, allForceTxns)
 	require.Len(t, res, 1)
 	for _, r := range res {
@@ -188,17 +187,20 @@ func TestUniqueReqById_WithPendingReceipts(t *testing.T) {
 }
 
 // Wait till force fulfillment event fired for the req passed in, till go test timeout
-func waitForForceFulfillment(t *testing.T,
+func waitForForceFulfillment(
+	t *testing.T,
 	th *revertTxnTH,
 	req *vrfReq,
 	sub *vrfSub,
 	success bool,
-	forceFulfilledCount int64) {
+	forceFulfilledCount int64,
+) {
 	uni := th.uni
 	coordinator := th.uni.rootContract
 	requestID := req.requestID
 
 	// Wait for force-fulfillment to be queued.
+	// Use a longer timeout: the retry cycle (multiple reverts before success) can exceed DefaultWaitTimeout under parallel load.
 	require.Eventually(t, func() bool {
 		uni.backend.Commit()
 		commitment, err := coordinator.GetCommitment(nil, requestID)
@@ -229,7 +231,7 @@ func checkForForceFulfilledEvent(t *testing.T,
 	sub *vrfSub,
 	numForcedLogs int) {
 	requestID := req.requestID
-	it, err := th.uni.vrfOwnerNew.FilterRandomWordsForced(nil, []*big.Int{requestID},
+	it, err := th.uni.vrfOwnerNew.FilterRandomWordsForced(indexedFilterOpts(t, th.uni.backend), []*big.Int{requestID},
 		[]uint64{sub.subID}, []common.Address{th.eoaConsumerAddr})
 	require.NoError(t, err)
 	i := 0
@@ -287,13 +289,13 @@ func fulfillVRFReq(t *testing.T,
 	require.True(t, ok)
 
 	metadata := &txmgr.TxMeta{
-		RequestID:     ptr(common.BytesToHash(req.requestID.Bytes())),
+		RequestID:     new(common.BytesToHash(req.requestID.Bytes())),
 		SubID:         &sub.subID,
 		RequestTxHash: req.requestTxHash,
 		// No max link since simulation failed
 	}
 	if forceFulfill {
-		metadata.ForceFulfilled = ptr(true)
+		metadata.ForceFulfilled = new(true)
 		if forceFulfilmentAttempt != nil {
 			metadata.ForceFulfillmentAttempt = forceFulfilmentAttempt
 		}
@@ -310,7 +312,7 @@ func fulfillVRFReq(t *testing.T,
 	ec.Commit()
 
 	// wait for above tx to mine (reach state confirmed)
-	mine(t, req.requestID, big.NewInt(int64(sub.subID)), th.uni.backend, th.db, vrfcommon.V2, th.chainID)
+	mine(t, req.requestID, new(big.Int).SetUint64(sub.subID), th.uni.backend, th.db, vrfcommon.V2, th.chainID)
 
 	receipts, err := getTxnReceiptDB(th.db, etx.ID)
 	require.NoError(t, err)
@@ -324,12 +326,13 @@ func fulfillVRFReq(t *testing.T,
 func fulfilBatchVRFReq(t *testing.T,
 	th *revertTxnTH,
 	reqs []*vrfReq,
-	sub *vrfSub) {
-	proofs := make([]vrf_coordinator_v2.VRFProof, 0)
-	reqCommitments := make([]vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment, 0)
-	requestIDs := make([]common.Hash, 0)
-	requestIDInts := make([]*big.Int, 0)
-	requestTxnHashes := make([]common.Hash, 0)
+	sub *vrfSub,
+) {
+	proofs := make([]vrf_coordinator_v2.VRFProof, 0, len(reqs))
+	reqCommitments := make([]vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment, 0, len(reqs))
+	requestIDs := make([]common.Hash, 0, len(reqs))
+	requestIDInts := make([]*big.Int, 0, len(reqs))
+	requestTxnHashes := make([]common.Hash, 0, len(reqs))
 	// Generate VRF proof and commitment
 	for i, req := range reqs {
 		reqUpdated := genReqProofNCommitment(t, th, *req, sub)
@@ -372,7 +375,7 @@ func fulfilBatchVRFReq(t *testing.T,
 	ec.Commit()
 
 	// wait for above tx to mine (reach state confirmed)
-	mineBatch(t, requestIDInts, big.NewInt(int64(sub.subID)), th.uni.backend, th.db, vrfcommon.V2, chainID)
+	mineBatch(t, requestIDInts, new(big.Int).SetUint64(sub.subID), th.uni.backend, th.db, vrfcommon.V2, chainID)
 
 	receipts, err := getTxnReceiptDB(th.db, etx.ID)
 	require.NoError(t, err)
@@ -418,16 +421,15 @@ func createVRFJobsNew(
 	gasLanePrices ...*assets.Wei,
 ) (jobs []job.Job, vrfKeyIDs []string) {
 	ctx := testutils.Context(t)
-	if len(gasLanePrices) != len(fromKeys) {
-		t.Fatalf("must provide one gas lane price for each set of from addresses. len(gasLanePrices) != len(fromKeys) [%d != %d]",
-			len(gasLanePrices), len(fromKeys))
-	}
+	require.Len(t, gasLanePrices, len(fromKeys), "must provide one gas lane price for each set of from addresses, got %d for %d sets", len(gasLanePrices), len(fromKeys))
 	// Create separate jobs for each gas lane and register their keys
 	for i, keys := range fromKeys {
-		var keyStrs []string
+		keyStrs := make([]string, 0, len(keys))
 		for _, k := range keys {
 			keyStrs = append(keyStrs, k.Address.String())
 		}
+		//nolint:gosec // we already checked the length of gasLanePrices above
+		gasLanePrice := gasLanePrices[i]
 
 		vrfkey, err := app.GetKeyStore().VRF().Create(ctx)
 		require.NoError(t, err)
@@ -446,7 +448,7 @@ func createVRFJobsNew(
 			BackoffInitialDelay:          10 * time.Millisecond,
 			BackoffMaxDelay:              time.Second,
 			V2:                           true,
-			GasLanePrice:                 gasLanePrices[i],
+			GasLanePrice:                 gasLanePrice,
 			VRFOwnerAddress:              uni.vrfOwnerAddressNew.Hex(),
 			CustomRevertsPipelineEnabled: true,
 			EVMChainID:                   chainID.String(),
@@ -456,7 +458,7 @@ func createVRFJobsNew(
 		require.NoError(t, err)
 		err = app.JobSpawner().CreateJob(ctx, nil, &jb)
 		require.NoError(t, err)
-		registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, coordinator, vrfkey, ptr(gasLanePrices[i].ToInt().Uint64()))
+		registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, coordinator, vrfkey, new(gasLanePrice.ToInt().Uint64()))
 		jobs = append(jobs, jb)
 		vrfKeyIDs = append(vrfKeyIDs, vrfkey.ID())
 	}
@@ -575,14 +577,14 @@ func newRevertTxnTH(t *testing.T,
 	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
 			// Gas lane.
-			Key:          ptr(key1.EIP55Address),
+			Key:          new(key1.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		}, toml.KeySpecific{
 			// Gas lane.
-			Key:          ptr(key2.EIP55Address),
+			Key:          new(key2.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+		c.EVM[0].MinIncomingConfirmations = new(uint32(2))
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1, key2)
 
@@ -678,12 +680,13 @@ func setupSub(t *testing.T, th *revertTxnTH, subID uint64, balance uint64) {
 	b, err := evmutils.ABIEncode(`[{"type":"uint64"}]`, subID)
 	require.NoError(t, err)
 	_, err = uni.linkContract.TransferAndCall(
-		uni.sergey, coordinatorAddress, big.NewInt(int64(balance)), b)
+		uni.sergey, coordinatorAddress, new(big.Int).SetUint64(balance), b,
+	)
 	require.NoError(t, err, "failed to fund sub")
 	uni.backend.Commit()
 
 	// Add the consumer to the sub
-	subIDBig := big.NewInt(int64(subID))
+	subIDBig := new(big.Int).SetUint64(subID)
 	_, err = coordinator.AddConsumer(uni.neil, subIDBig, th.eoaConsumerAddr)
 	require.NoError(t, err, "failed to add consumer")
 	uni.backend.Commit()
@@ -692,7 +695,7 @@ func setupSub(t *testing.T, th *revertTxnTH, subID uint64, balance uint64) {
 	sub, err := coordinator.GetSubscription(nil, subIDBig)
 	consumers := sub.Consumers()
 	require.NoError(t, err, "failed to get subscription with id %d", subID)
-	require.Equal(t, big.NewInt(int64(balance)), sub.Balance())
+	require.Equal(t, new(big.Int).SetUint64(balance), sub.Balance())
 	require.Len(t, consumers, 1)
 	require.Equal(t, th.eoaConsumerAddr, consumers[0])
 	require.Equal(t, uni.neil.From, sub.Owner())

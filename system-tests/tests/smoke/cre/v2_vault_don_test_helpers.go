@@ -40,11 +40,12 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
+	stvault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	vaultsecret_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
+	vaultjwt "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
@@ -170,8 +171,8 @@ func isGatewayNotAllowlistedError(body []byte) bool {
 
 type vaultScenarioFixture struct {
 	TestEnv        *ttypes.TestEnvironment
-	Issuer         *vault.TestJWTIssuer
-	LinkingService *vault.TestLinkingService
+	Issuer         *stvault.TestJWTIssuer
+	LinkingService *stvault.TestLinkingService
 	GatewayURL     *url.URL
 	VaultPublicKey string
 }
@@ -213,13 +214,13 @@ func isVaultJWTAuthEnabledTopology(topologyName string) bool {
 func setupVaultScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, usePerTestKeys bool) *vaultScenarioFixture {
 	t.Helper()
 
-	issuer, err := vault.NewTestJWTIssuerOnAddr(vaultJWTIssuerListenAddr)
+	issuer, err := stvault.NewTestJWTIssuerOnAddr(vaultJWTIssuerListenAddr)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, issuer.Close())
 	})
 
-	linkingService, err := vault.EnsureSharedTestLinkingServiceStarted()
+	linkingService, err := stvault.EnsureSharedTestLinkingServiceStarted()
 	require.NoError(t, err)
 
 	var testEnv *ttypes.TestEnvironment
@@ -258,7 +259,7 @@ func ensureVaultDKGResultPackages(t *testing.T, testEnv *ttypes.TestEnvironment)
 			if slices.Contains(nodeSet.Capabilities, cre.VaultCapability) {
 				for i, node := range nodeSet.NodeSpecs {
 					if !slices.Contains(node.Roles, cre.BootstrapNode) {
-						packageCount, err := vault.GetResultPackageCount(t.Context(), i, nodeSet.DbInput.Port)
+						packageCount, err := stvault.GetResultPackageCount(t.Context(), i, nodeSet.DbInput.Port)
 						if err != nil || packageCount != 1 {
 							return false
 						}
@@ -300,7 +301,7 @@ func newAllowlistVaultRequestAuth(requestOwner string, sethClient *seth.Client, 
 	}
 }
 
-func newJWTVaultRequestAuth(issuer *vault.TestJWTIssuer, orgID, workflowOwner string) vaultRequestAuth {
+func newJWTVaultRequestAuth(issuer *stvault.TestJWTIssuer, orgID, workflowOwner string) vaultRequestAuth {
 	return vaultRequestAuth{
 		requestOwner: orgID,
 		authorize: func(t *testing.T, req *jsonrpc.Request[json.RawMessage]) {
@@ -391,12 +392,25 @@ func sendVaultSignedOCRRequestToGateway(t *testing.T, gatewayURL string, jsonReq
 func executeVaultSecretsCreateWithAuth(t *testing.T, auth vaultRequestAuth, encryptedSecret, secretID, expectedResponseOwner, gatewayURL string, namespaces []string) {
 	t.Helper()
 
+	executeVaultSecretsCreateWithAuthExpectOwners(t, auth, encryptedSecret, secretID, []string{expectedResponseOwner}, gatewayURL, namespaces)
+}
+
+func executeVaultSecretsCreateWithAuthExpectOwners(t *testing.T, auth vaultRequestAuth, encryptedSecret, secretID string, expectedResponseOwners []string, gatewayURL string, namespaces []string) string {
+	t.Helper()
+
+	return executeVaultSecretsCreateWithAuthExpectOwnersAndIdentifierOwner(t, auth, auth.requestOwner, encryptedSecret, secretID, expectedResponseOwners, gatewayURL, namespaces)
+}
+
+func executeVaultSecretsCreateWithAuthExpectOwnersAndIdentifierOwner(t *testing.T, auth vaultRequestAuth, identifierOwner, encryptedSecret, secretID string, expectedResponseOwners []string, gatewayURL string, namespaces []string) string {
+	t.Helper()
+
 	framework.L.Info().Msgf("Creating secrets (namespaces=%v)...", namespaces)
+	require.NotEmpty(t, expectedResponseOwners, "expected response owners must not be empty")
 
 	uniqueRequestID := uuid.New().String()
 	secretsCreateRequest := vault_helpers.CreateSecretsRequest{
 		RequestId:        uniqueRequestID,
-		EncryptedSecrets: buildEncryptedSecrets(secretID, auth.requestOwner, encryptedSecret, namespaces),
+		EncryptedSecrets: buildEncryptedSecrets(secretID, identifierOwner, encryptedSecret, namespaces),
 	}
 	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsCreate, &secretsCreateRequest)
 	auth.apply(t, &jsonRequest)
@@ -414,26 +428,40 @@ func executeVaultSecretsCreateWithAuth(t *testing.T, auth vaultRequestAuth, encr
 	for _, r := range createSecretsResponse.GetResponses() {
 		respByNs[r.GetId().GetNamespace()] = r
 	}
+	actualResponseOwner := ""
 	for _, namespace := range namespaces {
 		result, ok := respByNs[namespace]
 		require.True(t, ok, "missing response for namespace %s", namespace)
 		require.Empty(t, result.GetError())
 		require.Equal(t, secretID, result.GetId().Key)
-		require.Equal(t, expectedResponseOwner, result.GetId().Owner)
+		require.Contains(t, expectedResponseOwners, result.GetId().Owner)
+		if actualResponseOwner == "" {
+			actualResponseOwner = result.GetId().Owner
+			continue
+		}
+		require.Equal(t, actualResponseOwner, result.GetId().Owner)
 	}
+
+	return actualResponseOwner
 }
 
 func executeVaultSecretsUpdateWithAuth(t *testing.T, auth vaultRequestAuth, encryptedSecret, secretID, expectedResponseOwner, gatewayURL string, namespaces []string) {
 	t.Helper()
 
+	executeVaultSecretsUpdateWithAuthAndIdentifierOwner(t, auth, auth.requestOwner, encryptedSecret, secretID, expectedResponseOwner, gatewayURL, namespaces)
+}
+
+func executeVaultSecretsUpdateWithAuthAndIdentifierOwner(t *testing.T, auth vaultRequestAuth, identifierOwner, encryptedSecret, secretID, expectedResponseOwner, gatewayURL string, namespaces []string) {
+	t.Helper()
+
 	framework.L.Info().Msgf("Updating secrets (namespaces=%v)...", namespaces)
 	require.NotEmpty(t, namespaces, "namespaces must not be empty")
 
-	encryptedSecrets := buildEncryptedSecrets(secretID, auth.requestOwner, encryptedSecret, namespaces)
+	encryptedSecrets := buildEncryptedSecrets(secretID, identifierOwner, encryptedSecret, namespaces)
 	encryptedSecrets = append(encryptedSecrets, &vault_helpers.EncryptedSecret{
 		Id: &vault_helpers.SecretIdentifier{
 			Key:       "invalid",
-			Owner:     auth.requestOwner,
+			Owner:     identifierOwner,
 			Namespace: namespaces[0],
 		},
 		EncryptedValue: encryptedSecret,
@@ -479,12 +507,18 @@ func executeVaultSecretsUpdateWithAuth(t *testing.T, auth vaultRequestAuth, encr
 func executeVaultSecretsListWithAuth(t *testing.T, auth vaultRequestAuth, expectedKeys []string, expectedOwner, gatewayURL, namespace string) {
 	t.Helper()
 
+	executeVaultSecretsListWithAuthAndOwner(t, auth, auth.requestOwner, expectedKeys, expectedOwner, gatewayURL, namespace)
+}
+
+func executeVaultSecretsListWithAuthAndOwner(t *testing.T, auth vaultRequestAuth, requestOwner string, expectedKeys []string, expectedOwner, gatewayURL, namespace string) {
+	t.Helper()
+
 	framework.L.Info().Msgf("Listing secrets (namespace=%s)...", namespace)
 
 	uniqueRequestID := uuid.New().String()
 	secretsListRequest := vault_helpers.ListSecretIdentifiersRequest{
 		RequestId: uniqueRequestID,
-		Owner:     auth.requestOwner,
+		Owner:     requestOwner,
 		Namespace: namespace,
 	}
 	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsList, &secretsListRequest)
@@ -514,13 +548,19 @@ func executeVaultSecretsListWithAuth(t *testing.T, auth vaultRequestAuth, expect
 func executeVaultSecretsDeleteWithAuth(t *testing.T, auth vaultRequestAuth, secretID, expectedResponseOwner, gatewayURL string, namespaces []string) {
 	t.Helper()
 
+	executeVaultSecretsDeleteWithAuthAndIdentifierOwner(t, auth, auth.requestOwner, secretID, expectedResponseOwner, gatewayURL, namespaces)
+}
+
+func executeVaultSecretsDeleteWithAuthAndIdentifierOwner(t *testing.T, auth vaultRequestAuth, identifierOwner, secretID, expectedResponseOwner, gatewayURL string, namespaces []string) {
+	t.Helper()
+
 	framework.L.Info().Msgf("Deleting secrets (namespaces=%v)...", namespaces)
 	require.NotEmpty(t, namespaces, "namespaces must not be empty")
 
-	deleteIDs := buildSecretIdentifiers(secretID, auth.requestOwner, namespaces)
+	deleteIDs := buildSecretIdentifiers(secretID, identifierOwner, namespaces)
 	deleteIDs = append(deleteIDs, &vault_helpers.SecretIdentifier{
 		Key:       "invalid",
-		Owner:     auth.requestOwner,
+		Owner:     identifierOwner,
 		Namespace: namespaces[0],
 	})
 
@@ -562,50 +602,56 @@ func executeVaultSecretsDeleteWithAuth(t *testing.T, auth vaultRequestAuth, secr
 }
 
 func executeVaultAllowListSecretsCreateTest(t *testing.T, encryptedSecret, secretID, requestOwner, expectedResponseOwner, gatewayURL string, namespaces []string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
+	t.Helper()
+
 	auth := newAllowlistVaultRequestAuth(requestOwner, sethClient, wfRegistryContract)
 	executeVaultSecretsCreateWithAuth(t, auth, encryptedSecret, secretID, expectedResponseOwner, gatewayURL, namespaces)
 }
 
-func executeVaultJWTSecretsCreateTest(t *testing.T, issuer *vault.TestJWTIssuer, encryptedSecret, secretID, orgID, workflowOwner, gatewayURL string, namespaces []string) {
+func executeVaultJWTSecretsCreateTest(t *testing.T, issuer *stvault.TestJWTIssuer, encryptedSecret, secretID, orgID, workflowOwner, gatewayURL string, namespaces []string) {
 	t.Helper()
 
 	auth := newJWTVaultRequestAuth(issuer, orgID, workflowOwner)
 	executeVaultSecretsCreateWithAuth(t, auth, encryptedSecret, secretID, orgID, gatewayURL, namespaces)
 }
 
-func executeVaultJWTSecretsListTest(t *testing.T, issuer *vault.TestJWTIssuer, secretID, orgID, workflowOwner, gatewayURL, namespace string) {
+func executeVaultJWTSecretsListTest(t *testing.T, issuer *stvault.TestJWTIssuer, secretID, orgID, workflowOwner, gatewayURL, namespace string) {
 	t.Helper()
 
 	auth := newJWTVaultRequestAuth(issuer, orgID, workflowOwner)
 	executeVaultSecretsListWithAuth(t, auth, []string{secretID}, orgID, gatewayURL, namespace)
 }
 
-func executeVaultJWTSecretsDeleteTest(t *testing.T, issuer *vault.TestJWTIssuer, secretID, orgID, workflowOwner, gatewayURL string, namespaces []string) {
+func executeVaultJWTSecretsDeleteTest(t *testing.T, issuer *stvault.TestJWTIssuer, secretID, orgID, workflowOwner, gatewayURL string, namespaces []string) {
 	t.Helper()
 
 	auth := newJWTVaultRequestAuth(issuer, orgID, workflowOwner)
 	executeVaultSecretsDeleteWithAuth(t, auth, secretID, orgID, gatewayURL, namespaces)
 }
 
-func mustMintVaultJWTForRequest(t *testing.T, issuer *vault.TestJWTIssuer, req jsonrpc.Request[json.RawMessage], orgID, workflowOwner string) string {
+func mustMintVaultJWTForRequest(t *testing.T, issuer *stvault.TestJWTIssuer, req jsonrpc.Request[json.RawMessage], orgID, workflowOwner string) string {
 	t.Helper()
 	return mustMintVaultJWTForRequestWithExtraClaims(t, issuer, req, orgID, workflowOwner, nil)
 }
 
-func mustMintVaultJWTForRequestWithExtraClaims(t *testing.T, issuer *vault.TestJWTIssuer, req jsonrpc.Request[json.RawMessage], orgID, workflowOwner string, extraClaims map[string]any) string {
+func mustMintVaultJWTForRequestWithExtraClaims(t *testing.T, issuer *stvault.TestJWTIssuer, req jsonrpc.Request[json.RawMessage], orgID, workflowOwner string, extraClaims map[string]any) string {
 	t.Helper()
 
 	outboundReq := outboundRequestWithoutAuth(req)
 	requestDigest, err := outboundReq.Digest()
 	require.NoError(t, err, "failed to compute request digest")
 
-	token, err := issuer.MintToken(vault.JWTTokenClaims{
-		KeyID:         vault.DefaultJWTIssuerKeyID,
+	oauthScope, err := vaultjwt.OAuthScopeForVaultRPCMethod(req.Method)
+	require.NoError(t, err, "resolve OAuth scope for Vault method")
+
+	token, err := issuer.MintToken(stvault.JWTTokenClaims{
+		KeyID:         stvault.DefaultJWTIssuerKeyID,
 		Issuer:        issuer.DockerIssuerURL(),
-		Audience:      vault.DefaultJWTAudience,
+		Audience:      stvault.DefaultJWTAudience,
 		OrgID:         orgID,
 		WorkflowOwner: workflowOwner,
 		RequestDigest: requestDigest,
+		Scopes:        []string{oauthScope},
 		ExtraClaims:   extraClaims,
 	})
 	require.NoError(t, err, "failed to mint JWT")
@@ -645,7 +691,7 @@ func outboundRequestWithoutAuth(req jsonrpc.Request[json.RawMessage]) jsonrpc.Re
 
 func executeVaultJWTSecretsCreateUnauthorizedTest(
 	t *testing.T,
-	issuer *vault.TestJWTIssuer,
+	issuer *stvault.TestJWTIssuer,
 	vaultPublicKey, orgID, workflowOwner, gatewayURL string,
 	expectedAuthError string,
 ) {
@@ -655,7 +701,7 @@ func executeVaultJWTSecretsCreateUnauthorizedTest(
 
 func executeVaultJWTSecretsCreateUnauthorizedWithExtraClaimsTest(
 	t *testing.T,
-	issuer *vault.TestJWTIssuer,
+	issuer *stvault.TestJWTIssuer,
 	vaultPublicKey, orgID, workflowOwner, gatewayURL string,
 	extraClaims map[string]any,
 	expectedAuthError string,

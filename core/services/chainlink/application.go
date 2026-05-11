@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -40,10 +41,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
+	"github.com/smartcontractkit/chainlink-data-streams/mercury"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-	"github.com/smartcontractkit/chainlink-evm/pkg/mercury"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
@@ -73,6 +74,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/nodestatusreporter/bridgestatus"
+	"github.com/smartcontractkit/chainlink/v2/core/services/nodestatusreporter/jobspec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
@@ -538,6 +540,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	)
 	srvcs = append(srvcs, workflowORM)
 
+	nodePlatformJobInfo := NewNodePlatformJobInfoService(NewNodePlatformJobInfoConfig(opts, jobORM))
+	srvcs = append(srvcs, &nodePlatformJobInfo)
+
 	promReporter := headreporter.NewLegacyEVMPrometheusReporter(opts.DS, legacyEVMChains)
 	evmChainIDs := make([]*big.Int, len(cfg.EVMConfigs()))
 	for i, chain := range cfg.EVMConfigs() {
@@ -797,8 +802,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	srvcs = append(srvcs, jobSpawner, pipelineRunner)
 
 	var feedsService feeds.Service
+	var feedsORM feeds.ORM
 	if cfg.Feature().FeedsManager() {
-		feedsORM := feeds.NewORM(opts.DS, globalLogger)
+		feedsORM = feeds.NewORM(opts.DS, globalLogger)
 		feedsService = feeds.NewService(
 			feedsORM,
 			jobORM,
@@ -820,6 +826,19 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	} else {
 		feedsService = &feeds.NullService{}
 	}
+
+	hostname, _ := os.Hostname()
+	jobSpecReporter := jobspec.NewJobSpecReporter(
+		cfg.JobSpecReporter(),
+		jobSpawner,
+		feedsORM,
+		beholder.GetEmitter(),
+		csaPubKeyHex,
+		static.Version,
+		hostname,
+		globalLogger,
+	)
+	srvcs = append(srvcs, jobSpecReporter)
 
 	for _, s := range srvcs {
 		if s == nil {

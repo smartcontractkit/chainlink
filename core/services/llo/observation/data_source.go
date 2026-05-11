@@ -17,19 +17,72 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 )
 
+// Observation cache and loop tuning (all durations scale with observationTimeout T from the plugin Observe deadline).
+//
+// Invariants:
+//   - cacheEntryTTL(T) = cacheTTLMultiplier·T — how long successful values remain valid after cache write.
+//   - staleRefreshSkipThreshold(T) = (staleRefreshRemainingNumerator/Denominator)·T — a stream is not a refresh driver
+//     while time.Until(expiresAt) is strictly greater than this (see buildStreamsRefreshPlan). A larger threshold
+//     makes that inequality fail sooner as TTL decays, so the stream becomes a refresh driver earlier after each write
+//     (higher freshness, more pipeline work); a smaller threshold lengthens the no-driver interval (staler reads, less load).
+//   - Keep staleRefreshSkipThreshold(T)+observationLoopPacing(T) < cacheEntryTTL(T) (same T throughout). With
+//     num/den = 8/5 and default pacing = T/10, (8/5+1/10)·T = 1.7·T < 2·T.
+//
+// Example timings for observationTimeout T = 250ms (cacheTTLMultiplier=2, pacing divisor=10, staleRefresh num/den = 8/5):
+//   - cacheEntryTTL = 2·T = 500ms — TTL applied on successful per-pipeline-group AddMany writes.
+//   - staleRefreshSkipThreshold = (8/5)·T = 400ms — a stream in the plugin scope is not a refresh driver while time.Until(expiresAt) > 400ms.
+//   - observationLoopPacing = T/10 = 25ms (≥ observationLoopPacingMin and ≤ T/2) — minimum delay between loop iterations after the first (plugin Observe may wake the loop earlier; see loopWakeCh).
+//   - per-iteration context uses WithTimeout(..., T) = 250ms — ceiling on wall time for one observation loop iteration (pipeline workers run in parallel under that deadline).
+const (
+	cacheTTLMultiplier                     = 2
+	staleRefreshRemainingNumerator   int64 = 8
+	staleRefreshRemainingDenominator int64 = 5
+
+	observationLoopPacingMin     = 10 * time.Millisecond
+	observationLoopPacingDivisor = 10 // pacing default = T/10, capped below
+)
+
+func cacheEntryTTL(observationTimeout time.Duration) time.Duration {
+	return time.Duration(cacheTTLMultiplier) * observationTimeout
+}
+
+// staleRefreshSkipThreshold returns (staleRefreshRemainingNumerator/staleRefreshRemainingDenominator)·T.
+// buildStreamsRefreshPlan treats a cached stream as still fresh (not a refresh driver) while time.Until(expiresAt)
+// is strictly greater than this value. A larger fraction (e.g. higher numerator) raises the threshold, so the stream
+// becomes a refresh driver again sooner after each successful write (more pipeline work, fresher cache entries).
+func staleRefreshSkipThreshold(observationTimeout time.Duration) time.Duration {
+	return (time.Duration(staleRefreshRemainingNumerator) * observationTimeout) / time.Duration(staleRefreshRemainingDenominator)
+}
+
+// observationLoopPacing returns the minimum time between observation loop iterations to cap CPU while
+// staying responsive relative to T. Scales with T, clamped to [observationLoopPacingMin, T/2].
+func observationLoopPacing(observationTimeout time.Duration) time.Duration {
+	if observationTimeout <= 0 {
+		return observationLoopPacingMin
+	}
+	p := observationTimeout / observationLoopPacingDivisor
+	maxP := observationTimeout / 2
+	if p < observationLoopPacingMin {
+		p = observationLoopPacingMin
+	}
+	if p > maxP {
+		p = maxP
+	}
+	return p
+}
+
 var (
 	promMissingStreamCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "llo",
 		Subsystem: "datasource",
 		Name:      "stream_missing_count",
-		Help:      "Number of times we tried to observe a stream, but it was missing",
+		Help:      "Number of times a stream had no pipeline in the registry (including refresh planning before Observe)",
 	},
 		[]string{"streamID"},
 	)
@@ -45,12 +98,20 @@ var (
 		Namespace: "llo",
 		Subsystem: "datasource",
 		Name:      "observation_loop_duration_ms",
-		Help:      "Duration of the observation loop",
+		Help:      "Wall time for one observation loop iteration (pacing excluded)",
 		Buckets: []float64{
 			10, 25, 50, 100, 250, 500, 750, 1000,
 		},
 	},
 		[]string{"configDigest"},
+	)
+	promObservationLoopWaitOutcome = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "llo",
+		Subsystem: "datasource",
+		Name:      "observation_loop_wait_outcome_count",
+		Help:      "How the observation loop ended its inter-iteration wait: timer (pacing), wake (plugin Observe hint), or shutdown",
+	},
+		[]string{"outcome"},
 	)
 )
 
@@ -94,6 +155,9 @@ type dataSource struct {
 
 	observableStreamsMu sync.Mutex
 	observableStreams   *observableStreamValues
+
+	// loopWakeCh coalesces plugin Observe hints (buffer 1): the loop may skip pacing when the plugin is active.
+	loopWakeCh chan struct{}
 }
 
 func NewDataSource(lggr logger.Logger, registry Registry, t Telemeter) llo.DataSource {
@@ -107,15 +171,28 @@ func newDataSource(lggr logger.Logger, registry Registry, t Telemeter) *dataSour
 		t:                      t,
 		cache:                  NewCache(time.Minute),
 		observationLoopCloseCh: make(chan struct{}),
+		loopWakeCh:             make(chan struct{}, 1),
 	}
 }
 
-// Observe looks up all streams in the registry and populates a map of stream ID => value
+// signalObservationLoopWake notifies the background observation loop that the plugin called Observe (non-blocking,
+// coalesced). Safe when the loop is not running (no-op).
+func (d *dataSource) signalObservationLoopWake() {
+	if d.loopWakeCh == nil || !d.observationLoopStarted.Load() {
+		return
+	}
+	select {
+	case d.loopWakeCh <- struct{}{}:
+	default:
+	}
+}
+
+// Observe starts or refreshes the background observation loop for the plugin's stream set, then fills streamValues
+// from the in-memory cache (backed by pipeline observations registered for each stream ID).
 func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues, opts llo.DSOpts) error {
 	// Observation loop logic
 	{
-		// Update the list of streams to observe for this config digest and set the timeout
-		// StreamValues  needs a copy to avoid concurrent access
+		// setObservableStreams copies stream IDs and deadline into internal state (the plugin's map is not retained).
 		d.setObservableStreams(ctx, streamValues, opts)
 
 		if !d.observationLoopStarted.Load() {
@@ -123,6 +200,7 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 			go d.startObservationLoop(loopStartedCh)
 			<-loopStartedCh
 		}
+		d.signalObservationLoopWake()
 	}
 
 	// Update stream values with the cached observations for all streams.
@@ -131,11 +209,13 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 	return nil
 }
 
-// startObservationLoop continuously makes observations for the streams in this data source
-// caching them in memory making the Observe call duration and performance independent
-// of the underlying resources providing the observations.
-// Based on the expected maxObservationDuration determine the pace of the observation loop
-// and for how long to cache the observations.
+// startObservationLoop continuously runs pipeline observations for this data source and caches results in memory,
+// so the plugin Observe path stays fast regardless of adapter latency.
+// Loop pacing (observationLoopPacing), per-round deadline (observationTimeout), cache TTL, and stale-refresh
+// threshold (see package constants) are chosen so refresh tends to run before entries expire without busy-spinning.
+// Each iteration schedules one goroutine per pipeline that needs work; that worker calls Observe once per
+// stream ID in the intersection of p.StreamIDs() with the plugin's requested keys (see buildStreamsRefreshPlan), then
+// AddMany for that batch if every Observe in the worker succeeded. If any Observe fails, the worker skips AddMany for that pipeline.
 func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 	// atomically set the observation loop started flag to true
 	// or return if it's already started
@@ -158,10 +238,6 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 		}()
 
 		for {
-			if stopChanCtx.Err() != nil {
-				return
-			}
-
 			osv := d.getObservableStreams()
 			if osv == nil || len(osv.streamValues) == 0 {
 				// There is nothing to observe, exit and let the next Observe() call reinitialize the loop.
@@ -169,18 +245,50 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 				return
 			}
 
-			time.Sleep(osv.observationTimeout)
+			if !loopStarting {
+				// Pace the loop to bound CPU; plugin Observe can wake via loopWakeCh to skip sleep when data is needed sooner.
+				pacing := observationLoopPacing(osv.observationTimeout)
+				t := time.NewTimer(pacing)
+				select {
+				case <-stopChanCtx.Done():
+					promObservationLoopWaitOutcome.WithLabelValues("shutdown").Inc()
+					if !t.Stop() {
+						select {
+						case <-t.C:
+						default:
+						}
+					}
+					return
+				case <-t.C:
+					promObservationLoopWaitOutcome.WithLabelValues("timer").Inc()
+				case <-d.loopWakeCh:
+					promObservationLoopWaitOutcome.WithLabelValues("wake").Inc()
+					if !t.Stop() {
+						select {
+						case <-t.C:
+						default:
+						}
+					}
+				}
+			}
+
+			if stopChanCtx.Err() != nil {
+				return
+			}
+
 			startTS := time.Now()
 			ctx, cancel := context.WithTimeout(stopChanCtx, osv.observationTimeout)
 			lggr := logger.With(d.lggr, "observationTimestamp", osv.opts.ObservationTimestamp(), "configDigest", osv.opts.ConfigDigest(), "seqNr", osv.opts.OutCtx().SeqNr)
 
+			var mu sync.Mutex
+			var wg sync.WaitGroup
+			var errs []ErrObservationFailed
+			successfulStreamIDs := make([]streams.StreamID, 0, len(osv.streamValues))
+			plan := d.buildStreamsRefreshPlan(osv.streamValues, osv.observationTimeout, lggr)
+			ttl := cacheEntryTTL(osv.observationTimeout)
+
 			if osv.opts.VerboseLogging() {
-				streamIDs := make([]streams.StreamID, 0, len(osv.streamValues))
-				for streamID := range osv.streamValues {
-					streamIDs = append(streamIDs, streamID)
-				}
-				sort.Slice(streamIDs, func(i, j int) bool { return streamIDs[i] < streamIDs[j] })
-				lggr = logger.With(lggr, "streamIDs", streamIDs)
+				lggr = logger.With(lggr, "staleStreamIDs", plan.streamIDsToRefresh)
 				lggr.Debugw("Observing streams")
 			}
 
@@ -189,8 +297,9 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 			{
 				// Size needs to accommodate the max number of telemetry events that could be generated
 				// Standard case might be about 3 bridge requests per spec and one stream<=>spec
-				// Overallocate for safety (to avoid dropping packets)
-				telemCh = d.t.MakeObservationScopedTelemetryCh(osv.opts, 10*len(osv.streamValues))
+				// Overallocate for safety (to avoid dropping packets). Sized from stale driver count; total Observe
+				// calls can be higher when one pipeline has several plugin-requested streams (same worker, same iteration).
+				telemCh = d.t.MakeObservationScopedTelemetryCh(osv.opts, 10*len(plan.streamIDsToRefresh))
 				if telemCh != nil {
 					if d.t.CaptureEATelemetry() {
 						ctx = pipeline.WithTelemetryCh(ctx, telemCh)
@@ -201,124 +310,170 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 				}
 			}
 
-			var mu sync.Mutex
-			successfulStreamIDs := make([]streams.StreamID, 0, len(osv.streamValues))
-			observedValues := make(map[streams.StreamID]llo.StreamValue, len(osv.streamValues))
-			var errs []ErrObservationFailed
-
-			var wg sync.WaitGroup
 			oc := NewObservationContext(lggr, d.registry, d.t)
-
-			streamsToRefresh := d.getStreamsToRefresh(osv.streamValues, osv.observationTimeout)
-
-			for streamID := range streamsToRefresh {
+			for p := range plan.groups {
 				wg.Add(1)
-				go func(streamID llotypes.StreamID) {
+				go func(streamIDs []streams.StreamID) {
 					defer wg.Done()
-					var val llo.StreamValue
-					var err error
-
-					// Observe the stream
-					if val, err = oc.Observe(ctx, streamID, osv.opts); err != nil {
-						streamIDStr := strconv.FormatUint(uint64(streamID), 10)
-						if errors.As(err, &MissingStreamError{}) {
-							promMissingStreamCount.WithLabelValues(streamIDStr).Inc()
+					local := make(llo.StreamValues, len(streamIDs))
+					var hadErr bool
+					for _, sid := range streamIDs {
+						local[sid] = nil
+						val, err := oc.Observe(ctx, sid, osv.opts)
+						if err != nil {
+							hadErr = true
+							streamIDStr := strconv.FormatUint(uint64(sid), 10)
+							if errors.As(err, &MissingStreamError{}) {
+								promMissingStreamCount.WithLabelValues(streamIDStr).Inc()
+							}
+							promObservationErrorCount.WithLabelValues(streamIDStr).Inc()
+							mu.Lock()
+							errs = append(errs, ErrObservationFailed{inner: err, streamID: sid, reason: "failed to observe stream"})
+							mu.Unlock()
+							continue
 						}
-						promObservationErrorCount.WithLabelValues(streamIDStr).Inc()
 						mu.Lock()
-						errs = append(errs, ErrObservationFailed{inner: err, streamID: streamID, reason: "failed to observe stream"})
+						successfulStreamIDs = append(successfulStreamIDs, sid)
 						mu.Unlock()
-						return
+						local[sid] = val
 					}
-
-					mu.Lock()
-					observedValues[streamID] = val
-					successfulStreamIDs = append(successfulStreamIDs, streamID)
-					mu.Unlock()
-				}(streamID)
+					if !hadErr {
+						d.cache.AddMany(local, ttl)
+					}
+				}(plan.groups[p])
 			}
 
 			wg.Wait()
 			elapsed = time.Since(startTS)
 
-			droppedStreamIDs := d.removeIncompleteGroups(lggr, observedValues, osv.streamValues)
-
-			d.cache.AddMany(observedValues, 4*osv.observationTimeout)
-
-			// notify the caller that we've completed our first round of observations.
+			// Unblock the first Observe caller once the initial observation round has finished.
 			if loopStarting {
 				loopStarting = false
 				close(loopStartedCh)
 			}
 
-			// After all Observations have returned, nothing else will be sent to the
-			// telemetry channel, so it can safely be closed
+			// After all Observe calls return, nothing else is sent on the telemetry channel for this iteration.
 			if telemCh != nil {
 				close(telemCh)
 			}
 
-			// Only log on errors or if VerboseLogging is turned on
-			if len(errs) > 0 || osv.opts.VerboseLogging() {
-				slices.Sort(successfulStreamIDs)
-				sort.Slice(errs, func(i, j int) bool { return errs[i].streamID < errs[j].streamID })
+			slices.Sort(successfulStreamIDs)
+			hasRefreshWork := len(plan.groups) > 0 || len(plan.missingStreamIDs) > 0
+			elapsedMs := elapsed.Milliseconds()
+			nOK := len(successfulStreamIDs)
 
-				failedStreamIDs := make([]streams.StreamID, len(errs))
+			switch {
+			case len(errs) > 0:
+				sort.Slice(errs, func(i, j int) bool { return errs[i].streamID < errs[j].streamID })
 				errStrs := make([]string, len(errs))
+				failedStreamIDs := make([]streams.StreamID, len(errs))
 				for i, e := range errs {
 					errStrs[i] = e.String()
 					failedStreamIDs[i] = e.streamID
 				}
-
-				lggr = logger.With(lggr, "elapsed", elapsed, "nSuccessfulStreams",
-					len(observedValues), "nFailedStreams", len(failedStreamIDs), "nDroppedStreams", len(droppedStreamIDs), "errs", errStrs)
-
+				wl := logger.With(lggr,
+					"elapsed_ms", elapsedMs,
+					"nSuccessfulStreams", nOK,
+					"nFailedStreams", len(failedStreamIDs),
+					"failedStreamIDs", failedStreamIDs,
+					"errs", errStrs,
+				)
 				if osv.opts.VerboseLogging() {
-					lggr = logger.With(lggr, "streamValues", osv.streamValues)
+					wl = logger.With(wl, "staleStreamIDs", plan.streamIDsToRefresh)
 				}
+				wl.Warnw("Observation loop completed with observation errors")
+			case osv.opts.VerboseLogging():
+				logger.With(lggr,
+					"elapsed_ms", elapsedMs,
+					"nSuccessfulStreams", nOK,
+					"staleStreamIDs", plan.streamIDsToRefresh,
+				).Debugw("Observation loop")
+			case hasRefreshWork:
+				lggr.Debugw("Observation loop",
+					"elapsed_ms", elapsedMs,
+					"nSuccessfulStreams", nOK,
+				)
 			}
 
 			promObservationLoopDuration.WithLabelValues(
-				osv.opts.ConfigDigest().String()).Observe(float64(elapsed.Milliseconds()))
+				osv.opts.ConfigDigest().String()).Observe(float64(elapsedMs))
 
-			lggr.Debugw("Observation loop", "elapsed_ms", elapsed.Milliseconds())
-
-			// context cancellation
 			cancel()
 		}
 	})
 }
 
-// getStreamsToRefresh returns the set of stream IDs that need to be re-observed.
-// When any stream in a pipeline is stale, ALL streams from that pipeline should be
-// re-observed to ensure atomic observation of pipeline groups (e.g. bid/mid/ask must be observed together).
-func (d *dataSource) getStreamsToRefresh(streamValues llo.StreamValues, observationTimeout time.Duration) map[streams.StreamID]struct{} {
-	streamIDs := make(map[streams.StreamID]struct{})
+// streamsRefreshPlan is the refresh scope for one observation loop iteration.
+// groups maps each pipeline that needs work to the ordered list of stream IDs that worker will Observe: the
+// intersection of p.StreamIDs() with the plugin's requested keys (streamValues), in pipeline order.
+// streamIDsToRefresh is the sorted list of plugin-scope keys that are refresh drivers this round (stale or uncached).
+// missingStreamIDs lists drivers with no registry entry (no Observe worker is started for them).
+type streamsRefreshPlan struct {
+	groups             map[streams.Pipeline][]streams.StreamID
+	streamIDsToRefresh []streams.StreamID
+	missingStreamIDs   []streams.StreamID
+}
+
+// buildStreamsRefreshPlan derives pipeline work groups and refresh-driver IDs from the cache and streamValues keys.
+// A key is a refresh driver when the cache has no live value for it, or when time.Until(expiresAt) is not greater than
+// staleRefreshSkipThreshold (same rule as package-level tuning comments). Each registered driver records its pipeline
+// in groups; the worker observe list is built from p.StreamIDs() filtered to keys present in streamValues so we never
+// run Observe for pipeline siblings the plugin did not request this round. Unregistered drivers go to missingStreamIDs;
+// each increments promMissingStreamCount and triggers a single Warn when missingStreamIDs is non-empty.
+func (d *dataSource) buildStreamsRefreshPlan(streamValues llo.StreamValues, observationTimeout time.Duration, lggr logger.Logger) streamsRefreshPlan {
+	candidatesValues := make(llo.StreamValues, len(streamValues))
 	for streamID := range streamValues {
-		if _, exists := streamIDs[streamID]; exists {
-			continue
-		}
-		// refresh stream and associated streams from pipeline if this streamID is stale
+		// Plugin-scope keys that need refresh become drivers; pipelines are collected below and scoped to these keys.
 		if val, expiresAt := d.cache.Get(streamID); val != nil {
-			if time.Until(expiresAt) > 2*observationTimeout {
+			if time.Until(expiresAt) > staleRefreshSkipThreshold(observationTimeout) {
 				continue
 			}
 		}
+		candidatesValues[streamID] = nil
+	}
 
-		streamIDs[streamID] = struct{}{}
-
-		p, exists := d.registry.Get(streamID)
-		if !exists {
-			// pipeline isn't registered yet so we can't get associated stream IDs
-			// this might happen if the plugin requests observations for streamIDs before
-			// the node operator has registered its job spec or before the registry is fully initialized
+	// Observe all streams for the pipelines that have at least one candidate stream
+	// that are in the plugin scope
+	groups := make(map[streams.Pipeline][]streams.StreamID, len(candidatesValues))
+	missingSet := []streams.StreamID{}
+	for sid := range candidatesValues {
+		p, ok := d.registry.Get(sid)
+		if !ok {
+			missingSet = append(missingSet, sid)
 			continue
 		}
 
-		for _, sid := range p.StreamIDs() {
-			streamIDs[sid] = struct{}{}
+		if _, ok := groups[p]; !ok {
+			for _, sid := range p.StreamIDs() {
+				if _, ok := streamValues[sid]; ok {
+					groups[p] = append(groups[p], sid)
+				}
+			}
 		}
 	}
-	return streamIDs
+
+	var candidates = make([]streams.StreamID, 0, len(candidatesValues))
+	for sid := range candidatesValues {
+		candidates = append(candidates, sid)
+	}
+	slices.Sort(candidates)
+
+	for _, sid := range missingSet {
+		streamIDStr := strconv.FormatUint(uint64(sid), 10)
+		promMissingStreamCount.WithLabelValues(streamIDStr).Inc()
+	}
+	if len(missingSet) > 0 {
+		lggr.Warnw("observation loop: streams have no pipeline in registry; discarding",
+			"missingStreamIDs", missingSet,
+			"nMissingStreams", len(missingSet),
+		)
+	}
+
+	return streamsRefreshPlan{
+		groups:             groups,
+		streamIDsToRefresh: candidates,
+		missingStreamIDs:   missingSet,
+	}
 }
 
 func (d *dataSource) Close() error {
@@ -329,60 +484,13 @@ func (d *dataSource) Close() error {
 	return nil
 }
 
-// removeIncompleteGroups enforces all-or-nothing (atomic) writes per pipeline group.
-// Some pipelines produce values that must be used together. For example jobs that output a bid/mid/ask
-// must be used together to form a quote. So if any stream in the group failed, we drop
-// the entire group to avoid writing a mix of fresh and stale values to the cache.
-// Mutates observedValues in place.
-func (d *dataSource) removeIncompleteGroups(lggr logger.Logger, observedValues map[streams.StreamID]llo.StreamValue, streamValues llo.StreamValues) []streams.StreamID {
-	var dropped []streams.StreamID
-	checked := make(map[streams.Pipeline]bool)
-	for streamID := range observedValues {
-		// we only need to check the pipeline once per group. So if we've already checked this pipeline, skip it.
-		p, exists := d.registry.Get(streamID)
-		if !exists || checked[p] {
-			continue
-		}
-		checked[p] = true
-
-		// Check that every in-scope stream for this pipeline succeeded.
-		// This is because some pipelines might emit values for streams that the plugin is not requesting to be observed
-		var missing []streams.StreamID
-		for _, sid := range p.StreamIDs() {
-			if _, inScope := streamValues[sid]; !inScope {
-				continue // not requested this cycle so we can skip evaluating result
-			}
-			if _, ok := observedValues[sid]; !ok {
-				missing = append(missing, sid)
-			}
-		}
-
-		if len(missing) > 0 {
-			var droppedFromGroup []streams.StreamID
-			for _, sid := range p.StreamIDs() {
-				if _, ok := observedValues[sid]; ok {
-					droppedFromGroup = append(droppedFromGroup, sid)
-				}
-				delete(observedValues, sid)
-			}
-			dropped = append(dropped, droppedFromGroup...)
-			lggr.Debugw("Discarding incomplete pipeline group",
-				"pipelineStreamIDs", p.StreamIDs(),
-				"missingStreamIDs", missing,
-				"droppedStreamIDs", droppedFromGroup,
-			)
-		}
-	}
-	return dropped
-}
-
 type observableStreamValues struct {
 	opts               llo.DSOpts
 	streamValues       llo.StreamValues
 	observationTimeout time.Duration
 }
 
-// setObservableStreams sets the observable streams for the given config digest.
+// setObservableStreams updates the stream set and observation deadline (T) used by the background loop when in production.
 func (d *dataSource) setObservableStreams(ctx context.Context, streamValues llo.StreamValues, opts llo.DSOpts) {
 	if opts == nil || len(streamValues) == 0 {
 		d.lggr.Warnw("setObservableStreams: no observable streams to set",
@@ -437,9 +545,8 @@ func (d *dataSource) setObservableStreams(ctx context.Context, streamValues llo.
 	d.observableStreams = osv
 }
 
-// getObservableStreams returns the active plugin data source options, the streams to observe and the observation interval
-// the observation interval is the maximum time we can spend observing streams. We ensure that we don't exceed this time and
-// we wait for the remaining time in the observation loop.
+// getObservableStreams returns the current observableStreamValues (opts, stream key set, and T), or nil if unset.
+// T is the plugin Observe deadline; the loop uses a separate pacing timer between iterations and WithTimeout(..., T) per round.
 func (d *dataSource) getObservableStreams() *observableStreamValues {
 	d.observableStreamsMu.Lock()
 	defer d.observableStreamsMu.Unlock()

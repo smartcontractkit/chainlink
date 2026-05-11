@@ -5,11 +5,11 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	changesetstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
@@ -63,7 +63,7 @@ func (l ConfigureOCR3) Apply(e cldf.Environment, input ConfigureOCR3Input) (cldf
 	}
 	contractAddr := common.HexToAddress(contractAddrRef.Address)
 
-	var mcmsContracts *changesetstate.MCMSWithTimelockState
+	var mcmsContracts *evmstate.MCMSWithTimelockState
 	if input.MCMSConfig != nil {
 		var mcmsErr error
 		mcmsContracts, mcmsErr = strategies.GetMCMSContracts(e, input.ContractChainSelector, *input.MCMSConfig)

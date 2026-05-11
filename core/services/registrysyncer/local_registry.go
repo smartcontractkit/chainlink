@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"sync"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/libocr/ragep2p/types"
@@ -199,6 +200,10 @@ type LocalRegistry struct {
 	IDsToDONs         map[DonID]DON
 	IDsToNodes        map[types.PeerID]NodeInfo
 	IDsToCapabilities map[string]Capability
+
+	cacheMu             sync.RWMutex
+	cachedLocalNodePeer types.PeerID
+	cachedLocalNode     capabilities.Node
 }
 
 func NewLocalRegistry(
@@ -226,7 +231,31 @@ func (l *LocalRegistry) LocalNode(ctx context.Context) (capabilities.Node, error
 		return capabilities.Node{}, errors.New("unable to get local node: peerWrapper hasn't started yet")
 	}
 
-	return l.NodeByPeerID(ctx, pid)
+	l.cacheMu.RLock()
+	if l.cachedLocalNodePeer != (types.PeerID{}) && l.cachedLocalNodePeer == pid {
+		node := l.cachedLocalNode
+		l.cacheMu.RUnlock()
+		return node, nil
+	}
+	l.cacheMu.RUnlock()
+
+	l.cacheMu.Lock()
+	defer l.cacheMu.Unlock()
+	if l.cachedLocalNodePeer != (types.PeerID{}) && l.cachedLocalNodePeer == pid {
+		return l.cachedLocalNode, nil
+	}
+
+	// cache miss
+	if l.cachedLocalNodePeer != (types.PeerID{}) {
+		l.Logger.Errorw("node's peerID changed at runtime, this should never happen", "cachedLocalNodePeer", l.cachedLocalNodePeer, "currentPeerID", pid)
+	}
+	n, err := l.NodeByPeerID(ctx, pid)
+	if err != nil {
+		return n, err
+	}
+	l.cachedLocalNode = n
+	l.cachedLocalNodePeer = pid
+	return n, nil
 }
 
 func (l *LocalRegistry) NodeByPeerID(ctx context.Context, peerID types.PeerID) (capabilities.Node, error) {
@@ -249,9 +278,9 @@ func (l *LocalRegistry) NodeByPeerID(ctx context.Context, peerID types.PeerID) (
 					// greater than 0, so if the ID is 0, it means we've not set `workflowDON` initialized above yet.
 					if workflowDON.ID == 0 {
 						workflowDON = d.DON
-						l.Logger.Debug("Workflow DON identified: %+v", workflowDON)
+						l.Logger.Debugw("Workflow DON identified", "workflowDONID", workflowDON.ID)
 					} else {
-						l.Logger.Errorf("Configuration error: node %s belongs to more than one workflowDON", peerID)
+						l.Logger.Errorw("Configuration error: node belongs to more than one workflowDON", "peerID", peerID)
 					}
 				}
 

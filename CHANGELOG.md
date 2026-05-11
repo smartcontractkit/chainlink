@@ -1,6 +1,16 @@
 # Changelog Chainlink Core
 
+## 2.46.0
+
+### Minor Changes
+
+- [#22250](https://github.com/smartcontractkit/chainlink/pull/22250) [`ffa5f62`](https://github.com/smartcontractkit/chainlink/commit/ffa5f62008eee8737648c29d32384dc6bd68bbcc) - Minor bump to start next version
+
 ## 2.45.0
+
+### Breaking Changes
+
+- [#22208](https://github.com/smartcontractkit/chainlink/pull/22208) [`b8e5aec`](https://github.com/smartcontractkit/chainlink/commit/b8e5aec903d28ed0fdd0fcc9e9ab59e710c1b43e) - Remove legacy Keepers v1 (keeper job type, node configuration, and related database tables). Automation v2 is unchanged. #breaking_change #nops
 
 ### Minor Changes
 

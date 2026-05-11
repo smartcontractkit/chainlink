@@ -10,6 +10,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/google/go-cmp/cmp"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -54,7 +55,7 @@ func TestGrantRoleInTimeLock(t *testing.T) {
 	)
 	updatedEnv, err := commonchangeset.Apply(t, *env, configuredChangeset)
 	require.NoError(t, err)
-	mcmsState, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockState(updatedEnv, []uint64{selector})
+	mcmsState, err := evmstate.MaybeLoadMCMSWithTimelockState(updatedEnv, []uint64{selector})
 	require.NoError(t, err)
 
 	// change the environment to remove proposer from the timelock, so that we can deploy new proposer
@@ -96,7 +97,7 @@ func TestGrantRoleInTimeLock(t *testing.T) {
 	// now deploy MCMS again so that only the proposer is new
 	updatedEnv, err = commonchangeset.Apply(t, updatedEnv, configuredChangeset)
 	require.NoError(t, err)
-	mcmsState, err = mcmschangesetstate.MaybeLoadMCMSWithTimelockState(updatedEnv, []uint64{selector})
+	mcmsState, err = evmstate.MaybeLoadMCMSWithTimelockState(updatedEnv, []uint64{selector})
 	require.NoError(t, err)
 
 	require.NotEqual(t, existingProposer.Address(), mcmsState[selector].ProposerMcm.Address())
@@ -110,7 +111,7 @@ func TestGrantRoleInTimeLock(t *testing.T) {
 		},
 	))
 	require.NoError(t, err)
-	mcmsState, err = mcmschangesetstate.MaybeLoadMCMSWithTimelockState(updatedEnv, []uint64{selector})
+	mcmsState, err = evmstate.MaybeLoadMCMSWithTimelockState(updatedEnv, []uint64{selector})
 	require.NoError(t, err)
 
 	evmTimelockInspector := mcmsevmsdk.NewTimelockInspector(updatedEnv.BlockChains.EVMChains()[selector].Client)
@@ -220,7 +221,7 @@ func TestDeployMCMSWithTimelockV2WithFewExistingContracts(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	state, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockState(rt.Environment(), selectors)
+	state, err := evmstate.MaybeLoadMCMSWithTimelockState(rt.Environment(), selectors)
 	require.NoError(t, err)
 	evmState1 := state[selector1]
 
@@ -349,7 +350,7 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load the MCMS contractsstate
-	evmMCMSState, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockState(rt.Environment(), []uint64{evmSelector})
+	evmMCMSState, err := evmstate.MaybeLoadMCMSWithTimelockState(rt.Environment(), []uint64{evmSelector})
 	require.NoError(t, err)
 	require.Len(t, evmMCMSState, 1)
 
