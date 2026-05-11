@@ -352,7 +352,7 @@ func TestLoad(t *testing.T) {
 					}
 				}
 				return true
-			}, time.Minute*5, time.Second*5).Should(gomega.BeTrue())
+			}, testutils.WaitTimeout(t), time.Second*5).Should(gomega.BeTrue())
 			l.Info().Msg("All upkeeps confirmed performed after load")
 			endTimeTestEx := time.Now()
 			testExDuration := endTimeTestEx.Sub(startTimeTestEx)
