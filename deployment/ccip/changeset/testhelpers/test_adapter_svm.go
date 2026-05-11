@@ -94,7 +94,7 @@ func (a *SVMAdapter) GetInboundNonce(ctx context.Context, sender []byte, srcSel 
 }
 
 func (a *SVMAdapter) CurrentBlock(t *testing.T) uint64 {
-	slot, err := a.Client.GetSlot(context.Background(), solconfig.DefaultCommitment)
+	slot, err := a.Client.GetSlot(tests.Context(t), solconfig.DefaultCommitment)
 	require.NoError(t, err)
 	return slot
 }

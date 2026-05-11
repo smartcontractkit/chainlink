@@ -148,7 +148,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 			CurrentBlock(t *testing.T) uint64
 		}
 		if cb, ok := destAdapter.(currentBlocker); ok {
-			block := cb.CurrentBlock(t)
+			block := cb.CurrentBlock(tc.T)
 			startBlock = &block
 		}
 	}
