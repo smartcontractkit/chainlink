@@ -381,8 +381,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	// Wire DurableEmitter for persistent chip ingress delivery when enabled.
 	if cfg.Telemetry().DurableEmitterEnabled() && cfg.Telemetry().ChipIngressEndpoint() != "" {
-		if err := setupDurableEmitter(ctx, opts.DS, globalLogger, cfg.Telemetry()); err != nil {
-			globalLogger.Warnw("Failed to set up durable emitter, continuing without it", "error", err)
+		if setupErr := setupDurableEmitter(ctx, opts.DS, globalLogger, cfg.Telemetry()); setupErr != nil {
+			globalLogger.Warnw("Failed to set up durable emitter, continuing without it", "error", setupErr)
 		}
 	}
 
@@ -1284,12 +1284,12 @@ func (app *ChainlinkApplication) DeleteLogPollerDataAfter(ctx context.Context, c
 func setupDurableEmitter(ctx context.Context, ds sqlutil.DataSource, lggr logger.SugaredLogger, _ config.Telemetry) error {
 	client := beholder.GetClient()
 	if client == nil {
-		return fmt.Errorf("beholder client not initialized")
+		return errors.New("beholder client not initialized")
 	}
 
 	chipClient := client.Chip
 	if chipClient == nil || isNoopChipClient(chipClient) {
-		return fmt.Errorf("chip ingress client not available")
+		return errors.New("chip ingress client not available")
 	}
 
 	pgStore := beholdersvc.NewPgDurableEventStore(ds)

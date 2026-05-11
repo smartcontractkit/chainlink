@@ -32,7 +32,7 @@ func TestPgDurableEventStore_InsertDeleteRoundTrip(t *testing.T) {
 
 	id, err := store.Insert(ctx, []byte("test-payload"))
 	require.NoError(t, err)
-	require.Greater(t, id, int64(0))
+	require.Positive(t, id)
 
 	events, err := store.ListPending(ctx, time.Now().Add(time.Second), 10)
 	require.NoError(t, err)
@@ -44,7 +44,7 @@ func TestPgDurableEventStore_InsertDeleteRoundTrip(t *testing.T) {
 
 	events, err = store.ListPending(ctx, time.Now().Add(time.Second), 10)
 	require.NoError(t, err)
-	assert.Len(t, events, 0)
+	assert.Empty(t, events)
 }
 
 func TestPgDurableEventStore_ListPending_RespectsCreatedBefore(t *testing.T) {
@@ -59,7 +59,7 @@ func TestPgDurableEventStore_ListPending_RespectsCreatedBefore(t *testing.T) {
 	// createdBefore in the past should return nothing (event was just created).
 	events, err := store.ListPending(ctx, time.Now().Add(-time.Hour), 10)
 	require.NoError(t, err)
-	assert.Len(t, events, 0)
+	assert.Empty(t, events)
 
 	// createdBefore in the future should return the event.
 	events, err = store.ListPending(ctx, time.Now().Add(time.Hour), 10)
@@ -140,7 +140,7 @@ func TestPgDurableEventStore_MarkDeliveredAndPurgeDelivered(t *testing.T) {
 
 	pending, err = store.ListPending(ctx, time.Now().Add(time.Hour), 10)
 	require.NoError(t, err)
-	require.Len(t, pending, 0)
+	require.Empty(t, pending)
 
 	var cnt int64
 	require.NoError(t, db.GetContext(ctx, &cnt, `SELECT count(*) FROM cre.chip_durable_events`))

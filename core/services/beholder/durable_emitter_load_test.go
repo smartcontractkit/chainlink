@@ -29,7 +29,6 @@ import (
 	"os"
 	"runtime"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -149,7 +148,8 @@ func (s *loadTestServer) setPublishDelay(d time.Duration) {
 func startLoadServer(t testing.TB) (*loadTestServer, string) {
 	t.Helper()
 	srv := &loadTestServer{}
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	lc := &net.ListenConfig{}
+	lis, err := lc.Listen(t.Context(), "tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 
 	gs := grpc.NewServer()
@@ -256,13 +256,6 @@ func skipIfExternalChip(t *testing.T, reason string) {
 	if externalChipConfigured() {
 		t.Skipf("requires in-process mock Chip: %s (unset %s)", reason, envChipIngressTestAddr)
 	}
-}
-
-func formatMockServerEvents(srv *loadTestServer) string {
-	if srv == nil {
-		return "N/A"
-	}
-	return strconv.FormatInt(srv.totalEvents.Load(), 10)
 }
 
 func loadEmitAttrs() []any {
@@ -379,13 +372,10 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 	cfg.Hooks = newPipelineHooks(pipe)
 
 	totalEvents := 5_000_000
-	//if testing.Short() {
-	//totalEvents = 10_000
-	//}
 	const concurrency = 200
 
 	// Target produce rate in msg/s. 0 = unlimited (fire-hose / max throughput).
-	targetRate := 0 //5000 //0
+	targetRate := 0
 
 	// Wire OTel metrics to the local obs stack when OTEL_EXPORTER_OTLP_ENDPOINT is set.
 	// Start the obs stack first: ./bin/ctf obs up
@@ -958,15 +948,15 @@ func TestFullStack_BacklogDrain(t *testing.T) {
 	t.Skip("Local testing only")
 	db := directDB(t)
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	configs := []drainRunConfig{
 		{retransmitBatchSize: 1000, publishBatchSize: 100},
 		{retransmitBatchSize: 1000, publishBatchSize: 1000},
-		//{retransmitBatchSize: 5000, publishBatchSize: 100},
-		//{retransmitBatchSize: 5000, publishBatchSize: 1000},
-		//{retransmitBatchSize: 10_000, publishBatchSize: 100},
-		//{retransmitBatchSize: 10_000, publishBatchSize: 1000},
+		{retransmitBatchSize: 5000, publishBatchSize: 100},
+		{retransmitBatchSize: 5000, publishBatchSize: 1000},
+		{retransmitBatchSize: 10_000, publishBatchSize: 100},
+		{retransmitBatchSize: 10_000, publishBatchSize: 1000},
 	}
 	const backlogSize = 500_000
 	const liveRate = 1000
@@ -1001,7 +991,6 @@ func TestFullStack_BacklogDrain(t *testing.T) {
 	}
 
 	for _, rc := range configs {
-		rc := rc
 		t.Run(rc.label(), func(t *testing.T) {
 			// Clean the table between runs.
 			_, truncErr := db.ExecContext(ctx, "DELETE FROM cre.chip_durable_events")
@@ -1389,7 +1378,7 @@ func progressBar(pct float64, width int) string {
 		}
 	}
 	b.WriteByte(']')
-	b.WriteString(fmt.Sprintf(" %3.0f%%", pct*100))
+	_, _ = fmt.Fprintf(&b, " %3.0f%%", pct*100)
 	return b.String()
 }
 
@@ -1694,7 +1683,7 @@ func bumpMaxQueuePayloadBytes(maxB *atomic.Int64, b int64) {
 }
 
 // queuePayloadStats returns pending row count and payload bytes (delivered_at IS NULL).
-func queuePayloadStats(db *sqlx.DB, ctx context.Context) (rows int64, payloadBytes int64, err error) {
+func queuePayloadStats(ctx context.Context, db *sqlx.DB) (rows int64, payloadBytes int64, err error) {
 	err = db.QueryRowContext(ctx,
 		`SELECT count(*), coalesce(sum(octet_length(payload)), 0) FROM cre.chip_durable_events WHERE delivered_at IS NULL`,
 	).Scan(&rows, &payloadBytes)
@@ -1758,7 +1747,7 @@ func runRateLimitedEmit(
 				case <-pollCtx.Done():
 					return
 				case <-ticker.C:
-					c, b, err := queuePayloadStats(maxQueueDB, pollCtx)
+					c, b, err := queuePayloadStats(pollCtx, maxQueueDB)
 					if err != nil {
 						continue
 					}
@@ -1837,7 +1826,7 @@ func runRateLimitedEmit(
 
 	wg.Wait()
 	if maxQueueDB != nil {
-		c, b, err := queuePayloadStats(maxQueueDB, ctx)
+		c, b, err := queuePayloadStats(ctx, maxQueueDB)
 		if err == nil {
 			bumpMaxQueueDepth(&maxQ, c)
 			bumpMaxQueuePayloadBytes(&maxPayloadBytes, b)
@@ -1919,7 +1908,7 @@ func TestTPS_RampUp(t *testing.T) {
 			p50 := stats.percentile(0.50)
 			p99 := stats.percentile(0.99)
 
-			queueEnd, _, err := queuePayloadStats(db, ctx)
+			queueEnd, _, err := queuePayloadStats(ctx, db)
 			require.NoError(t, err)
 
 			totalEmits := stats.count()
@@ -1947,7 +1936,9 @@ func TestTPS_RampUp(t *testing.T) {
 	t.Logf("* Q max / Q end: peak & final row counts (polled ~50ms; Q end after settle). Q max KB* = sum(octet_length(payload))/1024 for queued rows.")
 	t.Logf("TestTPS_RampUp finished in %s", time.Since(testStart).Round(time.Millisecond))
 
-	summaryLines := []string{
+	tpsRampMu.Lock()
+	summaryLines := make([]string, 0, 7+len(tpsRampRows)+2)
+	summaryLines = append(summaryLines,
 		fmt.Sprintf("total wall clock: %s", time.Since(testStart).Round(time.Millisecond)),
 		"╔══════════════════════════════════════════════════════════════════════════════════════════════╗",
 		"║                              TPS RAMP-UP TEST RESULTS                                        ║",
@@ -1955,8 +1946,7 @@ func TestTPS_RampUp(t *testing.T) {
 		"║ Target    ║ Achieved ║ Total emits ║ Emit p50 ║ Emit p99 ║ Pub fail ║ Q max    ║ Q end    ║ Q max    ║",
 		"║ TPS       ║ TPS      ║ (success)   ║ (ms)     ║ (ms)     ║ (retry)* ║ (rows)   ║ (rows)   ║ (KB)*    ║",
 		"╠═══════════╬══════════╬═════════════╬══════════╬══════════╬══════════╬══════════╬══════════╬══════════╣",
-	}
-	tpsRampMu.Lock()
+	)
 	summaryLines = append(summaryLines, tpsRampRows...)
 	tpsRampMu.Unlock()
 	summaryLines = append(summaryLines, "╚═══════════╩══════════╩═════════════╩══════════╩══════════╩══════════╩══════════╩══════════╩══════════╝",
@@ -2105,7 +2095,7 @@ func TestTPS_1k_WithChipOutage(t *testing.T) {
 	t.Logf("Phase 2 emit finished in %s", time.Since(p2Start).Round(time.Millisecond))
 
 	// Queue at end of outage phase (for drain math) + peak sampled during phase 2 emit window.
-	queueDuringOutage, _, err := queuePayloadStats(db, ctx)
+	queueDuringOutage, _, err := queuePayloadStats(ctx, db)
 	require.NoError(t, err)
 	t.Logf("Phase 2 done: %d events emitted (%.0f TPS), queue end: %d rows, queue max (emit): %d rows / %s KB*",
 		phase2Stats.count(), float64(phase2Stats.count())/15.0,
@@ -2215,10 +2205,10 @@ func TestTPS_PayloadSizeScaling(t *testing.T) {
 
 			t.Logf(">>> payload %s: emitting %d TPS for %s", s.name, targetTPS, payloadDuration)
 			emitRes := runRateLimitedEmit(ctx, t, em, targetTPS, payloadDuration, concurrency, s.size,
-				fmt.Sprintf("payload/%s", s.name), db, pipe)
+				"payload/"+s.name, db, pipe)
 			stats := emitRes.stats
 
-			queueEnd, _, err := queuePayloadStats(db, ctx)
+			queueEnd, _, err := queuePayloadStats(ctx, db)
 			require.NoError(t, err)
 
 			achieved := float64(stats.count()) / payloadDuration.Seconds()
@@ -2246,7 +2236,9 @@ func TestTPS_PayloadSizeScaling(t *testing.T) {
 	t.Logf("* Pub fail: failed Publish / PublishBatch (see ramp test footnote). Q max KB* = sum(octet_length(payload))/1024. Total emits = successful Emit() per %s.", payloadDuration)
 	t.Logf("TestTPS_PayloadSizeScaling finished in %s", time.Since(testStart).Round(time.Millisecond))
 
-	summaryLines := []string{
+	tpsPayloadMu.Lock()
+	summaryLines := make([]string, 0, 7+len(tpsPayloadRows)+1)
+	summaryLines = append(summaryLines,
 		fmt.Sprintf("total wall clock: %s", time.Since(testStart).Round(time.Millisecond)),
 		"╔════════════════════════════════════════════════════════════════════════════════════════════╗",
 		"║                 1k TPS × PAYLOAD SIZE SCALING                                              ║",
@@ -2254,8 +2246,7 @@ func TestTPS_PayloadSizeScaling(t *testing.T) {
 		"║ Payload  ║ Achieved ║ Total emits ║ Emit p50 ║ Emit p99 ║ Pub fail ║ Q max    ║ Q end    ║ Q max    ║",
 		"║ Size     ║ TPS      ║ (success)   ║ (ms)     ║ (ms)     ║ (retry)* ║ (rows)   ║ (rows)   ║ (KB)*    ║",
 		"╠══════════╬══════════╬═════════════╬══════════╬══════════╬══════════╬══════════╬══════════╬══════════╣",
-	}
-	tpsPayloadMu.Lock()
+	)
 	summaryLines = append(summaryLines, tpsPayloadRows...)
 	tpsPayloadMu.Unlock()
 	summaryLines = append(summaryLines, "╚══════════╩══════════╩═════════════╩══════════╩══════════╩══════════╩══════════╩══════════╩══════════╝")
