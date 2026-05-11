@@ -667,7 +667,6 @@ ds -> ds_parse -> ds_multiply;
 type BlockhashStoreSpecParams struct {
 	JobID                          string
 	Name                           string
-	CoordinatorV1Address           string
 	CoordinatorV2Address           string
 	CoordinatorV2PlusAddress       string
 	WaitBlocks                     int
@@ -749,9 +748,6 @@ func GenerateBlockhashStoreSpec(params BlockhashStoreSpecParams) BlockhashStoreS
 		`schemaVersion = 1`,
 		fmt.Sprintf(`name = "%s"`, params.Name),
 	)
-	if params.CoordinatorV1Address != "" {
-		lines = append(lines, fmt.Sprintf(`coordinatorV1Address = "%s"`, params.CoordinatorV1Address))
-	}
 	if params.CoordinatorV2Address != "" {
 		lines = append(lines, fmt.Sprintf(`coordinatorV2Address = "%s"`, params.CoordinatorV2Address))
 	}
@@ -780,7 +776,6 @@ func GenerateBlockhashStoreSpec(params BlockhashStoreSpecParams) BlockhashStoreS
 type BlockHeaderFeederSpecParams struct {
 	JobID                      string
 	Name                       string
-	CoordinatorV1Address       string
 	CoordinatorV2Address       string
 	CoordinatorV2PlusAddress   string
 	WaitBlocks                 int
@@ -866,9 +861,6 @@ func GenerateBlockHeaderFeederSpec(params BlockHeaderFeederSpecParams) BlockHead
 		`schemaVersion = 1`,
 		fmt.Sprintf(`name = "%s"`, params.Name),
 	)
-	if params.CoordinatorV1Address != "" {
-		lines = append(lines, fmt.Sprintf(`coordinatorV1Address = "%s"`, params.CoordinatorV1Address))
-	}
 	if params.CoordinatorV2Address != "" {
 		lines = append(lines, fmt.Sprintf(`coordinatorV2Address = "%s"`, params.CoordinatorV2Address))
 	}

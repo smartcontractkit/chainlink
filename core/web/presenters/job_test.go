@@ -42,9 +42,6 @@ func TestJob(t *testing.T) {
 	require.NoError(t, err)
 
 	// Used in blockhashstore test
-	v1CoordAddress, err := types.NewEIP55Address("0x16988483b46e695f6c8D58e6e1461DC703e008e1")
-	require.NoError(t, err)
-
 	v2CoordAddress, err := types.NewEIP55Address("0x2C409DD6D4eBDdA190B5174Cc19616DD13884262")
 	require.NoError(t, err)
 
@@ -532,7 +529,6 @@ func TestJob(t *testing.T) {
 				ID: 1,
 				BlockhashStoreSpec: &job.BlockhashStoreSpec{
 					ID:                             1,
-					CoordinatorV1Address:           &v1CoordAddress,
 					CoordinatorV2Address:           &v2CoordAddress,
 					CoordinatorV2PlusAddress:       &v2PlusCoordAddress,
 					WaitBlocks:                     123,
@@ -577,7 +573,7 @@ func TestJob(t *testing.T) {
 						"webhookSpec": null,
 						"workflowSpec": null,
 						"blockhashStoreSpec": {
-							"coordinatorV1Address": "0x16988483b46e695f6c8D58e6e1461DC703e008e1",
+							"coordinatorV1Address": null,
 							"coordinatorV2Address": "0x2C409DD6D4eBDdA190B5174Cc19616DD13884262",
 							"coordinatorV2PlusAddress": "0x92B5e28Ac583812874e4271380c7d070C5FB6E6b",
 							"waitBlocks": 123,
@@ -617,7 +613,6 @@ func TestJob(t *testing.T) {
 				ID: 1,
 				BlockHeaderFeederSpec: &job.BlockHeaderFeederSpec{
 					ID:                         1,
-					CoordinatorV1Address:       &v1CoordAddress,
 					CoordinatorV2Address:       &v2CoordAddress,
 					CoordinatorV2PlusAddress:   &v2PlusCoordAddress,
 					WaitBlocks:                 123,
@@ -663,7 +658,7 @@ func TestJob(t *testing.T) {
 						"workflowSpec": null,
 						"blockhashStoreSpec": null,
 						"blockHeaderFeederSpec": {
-							"coordinatorV1Address": "0x16988483b46e695f6c8D58e6e1461DC703e008e1",
+							"coordinatorV1Address": null,
 							"coordinatorV2Address": "0x2C409DD6D4eBDdA190B5174Cc19616DD13884262",
 							"coordinatorV2PlusAddress": "0x92B5e28Ac583812874e4271380c7d070C5FB6E6b",
 							"waitBlocks": 123,
