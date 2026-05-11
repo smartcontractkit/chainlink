@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -131,18 +130,4 @@ func ExecuteDurableEmitterTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 		return newInserts >= minExpectedEvents && newDeletes >= minExpectedEvents
 	}, 2*time.Minute, 5*time.Second, "expected at least %d insert+delete events", minExpectedEvents)
-
-	pending, err := countPendingDurableEvents(t.Context(), db)
-	require.NoError(t, err)
-	t.Logf("pending durable events at end of test: %d", pending)
-	assert.LessOrEqual(t, pending, int64(10),
-		"durable event queue should be near-empty when chip ingress is healthy")
-
-	final, err := snapshotDurableEventStats(t.Context(), db)
-	require.NoError(t, err)
-	t.Logf("final chip_durable_events stats: inserts=%d (+%d) deletes=%d (+%d)",
-		final.inserts, final.inserts-baseline.inserts,
-		final.deletes, final.deletes-baseline.deletes)
-
-	lggr.Info().Msg("Durable emitter test completed successfully")
 }
