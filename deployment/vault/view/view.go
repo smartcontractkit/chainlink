@@ -6,8 +6,8 @@ import (
 	"slices"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	mcmsv10 "github.com/smartcontractkit/cld-changesets/pkg/contract/mcms/view/v1_0"
-	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"

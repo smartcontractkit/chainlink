@@ -7,7 +7,7 @@ import (
 	suistate "github.com/smartcontractkit/chainlink-sui/deployment"
 	tonstate "github.com/smartcontractkit/chainlink-ton/deployment/state"
 
-	linkviewv10 "github.com/smartcontractkit/cld-changesets/pkg/contract/link/view/v1_0"
+	linkviewv10 "github.com/smartcontractkit/cld-changesets/pkg/contract/link/view/v10"
 
 	mcmsv10 "github.com/smartcontractkit/cld-changesets/pkg/contract/mcms/view/v1_0"
 

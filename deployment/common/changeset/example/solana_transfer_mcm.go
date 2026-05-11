@@ -10,7 +10,7 @@ import (
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/smartcontractkit/mcms/types"
 
-	cldchangesetssolana "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+	cldchangesetssolana "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
