@@ -178,9 +178,6 @@ type Job struct {
 	BootstrapSpecID               *int32
 	GatewaySpec                   *GatewaySpec
 	GatewaySpecID                 *int32
-	// KeeperSpecID is unused; the jobs.keeper_spec_id column was removed in migration 0296.
-	// The field remains so sqlx can scan SELECT jobs.* against databases that have not applied that migration yet.
-	KeeperSpecID *int32 `db:"keeper_spec_id" toml:"-"`
 	EALSpec                       *EALSpec
 	EALSpecID                     *int32
 	LiquidityBalancerSpec         *LiquidityBalancerSpec
