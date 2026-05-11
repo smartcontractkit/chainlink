@@ -94,7 +94,7 @@ func (a *SVMAdapter) GetInboundNonce(ctx context.Context, sender []byte, srcSel 
 }
 
 func (a *SVMAdapter) CurrentBlock(t *testing.T) uint64 {
-	slot, err := a.Client.GetSlot(tests.Context(t), solconfig.DefaultCommitment)
+	slot, err := a.Client.GetSlot(t.Context(), solconfig.DefaultCommitment)
 	require.NoError(t, err)
 	return slot
 }
@@ -176,6 +176,7 @@ func SolEventEmitter[T any](ctx context.Context, client *solrpc.Client, address 
 				}
 
 				// values are returned ordered newest to oldest, so we replay them backwards
+				batchCompleted := true
 				for _, txSig := range slices.Backward(txSigs) {
 					if txSig.Err != nil && !includeFailed {
 						// We're not interested in failed transactions.
@@ -197,7 +198,9 @@ func SolEventEmitter[T any](ctx context.Context, client *solrpc.Client, address 
 					)
 					if err != nil {
 						if isTransientSolanaRPCError(err) {
-							continue
+							// Don't advance until; retry this batch on the next tick
+							batchCompleted = false
+							break
 						}
 						select {
 						case errorCh <- err:
@@ -229,8 +232,11 @@ func SolEventEmitter[T any](ctx context.Context, client *solrpc.Client, address 
 						}
 					}
 				}
-				// next scan should stop at the newest signature we've received
-				until = txSigs[0].Signature
+				// Only advance the cursor if the entire batch was processed successfully,
+				// otherwise retry the same batch on the next tick.
+				if batchCompleted {
+					until = txSigs[0].Signature
+				}
 			}
 		}
 	}()
