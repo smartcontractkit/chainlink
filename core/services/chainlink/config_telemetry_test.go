@@ -224,7 +224,7 @@ func TestTelemetryConfig_ChipIngressBatchEmitterEnabled(t *testing.T) {
 		telemetry toml.Telemetry
 		expected  bool
 	}{
-		{"DefaultNil", toml.Telemetry{ChipIngressBatchEmitterEnabled: nil}, false},
+		{"DefaultNil", toml.Telemetry{ChipIngressBatchEmitterEnabled: nil}, true},
 		{"ExplicitTrue", toml.Telemetry{ChipIngressBatchEmitterEnabled: ptr(true)}, true},
 		{"ExplicitFalse", toml.Telemetry{ChipIngressBatchEmitterEnabled: ptr(false)}, false},
 	}

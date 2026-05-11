@@ -892,7 +892,7 @@ ChipIngressEndpoint = '' # Default
 ChipIngressInsecureConnection = false # Default
 # ChipIngressBatchEmitterEnabled enables batching for chip-ingress events.
 # When false, events are sent individually (legacy behavior).
-ChipIngressBatchEmitterEnabled = false # Default
+ChipIngressBatchEmitterEnabled = true # Default
 
 # HeartbeatInterval is the interval at which a the application heartbeat is sent to telemetry backends.
 HeartbeatInterval = '1s' # Default

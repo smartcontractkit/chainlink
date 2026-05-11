@@ -99,7 +99,7 @@ func (b *telemetryConfig) ChipIngressInsecureConnection() bool {
 
 func (b *telemetryConfig) ChipIngressBatchEmitterEnabled() bool {
 	if b.s.ChipIngressBatchEmitterEnabled == nil {
-		return false
+		return true
 	}
 	return *b.s.ChipIngressBatchEmitterEnabled
 }
