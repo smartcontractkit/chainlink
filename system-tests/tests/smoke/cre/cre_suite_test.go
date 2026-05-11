@@ -297,6 +297,14 @@ func Test_CRE_V2_Beholder_Suite(t *testing.T) {
 	ExecuteLogStreamingTest(t, testEnv)
 }
 
+func Test_CRE_V2_ChipIngress_Batching(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
+
+	t.Run("[v2] ChipIngress batching", func(t *testing.T) {
+		ExecuteChipIngressBatchingTest(t, testEnv)
+	})
+}
+
 func Test_CRE_V2_Sharding(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
 		t,
