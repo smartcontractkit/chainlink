@@ -179,7 +179,10 @@ jobs:
 
           add_deployment_rows()
 
-          print(f"deployment-test-matrix={json.dumps(rows)}")
+          matrix_json = json.dumps(rows)
+          print(f"deployment-test-matrix={matrix_json}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"deployment-test-matrix={matrix_json}\n")
 
   deployment-shard-consistency:
     name: Check Deployment Test Sharding Consistency
