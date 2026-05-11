@@ -156,9 +156,8 @@ jobs:
     steps:
       - name: Build shard matrices
         id: shard-matrices
-        shell: bash
+        shell: python
         run: |
-          python - <<'PY' >> "$GITHUB_OUTPUT"
           import json
           import os
 
@@ -170,18 +169,20 @@ jobs:
               count = int(os.environ["DEPLOYMENT_TEST_SHARD_COUNT"])
               for i in range(count):
                   rows.append({
-                      "job-name": f"go_deployment_tests shard {i}/{count}",
+                      "job-name": f"go_deployment_tests shard {i+1}/{count}",
                       "os": f"runs-on={run_id}-deployment-{i}/cpu=8/ram=32/family=m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache",
                       "shard-count": str(count),
                       "shard-index": str(i),
                       "run-timeout-minutes": "25",
-                      "logs-artifact-name": f"go_deployment_tests_logs_shard_{i}",
+                      "logs-artifact-name": f"go_deployment_tests_logs_shard_{i+1}",
                   })
 
           add_deployment_rows()
 
-          print(f"deployment-test-matrix={json.dumps(rows)}")
-          PY
+          matrix_json = json.dumps(rows)
+          print(f"deployment-test-matrix={matrix_json}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"deployment-test-matrix={matrix_json}\n")
 
   deployment-shard-consistency:
     name: Check Deployment Test Sharding Consistency

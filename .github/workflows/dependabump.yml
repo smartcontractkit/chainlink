@@ -1,0 +1,81 @@
+name: dependabump
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 1-5' # every week-day at midnight
+
+permissions: { }
+
+jobs:
+  dependabump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: read
+      security-events: read
+      vulnerability-alerts: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: develop
+
+      - name: Set up Go
+        uses: ./.github/actions/setup-go
+        with:
+          go-version-file: "go.mod"
+
+      - name: Bump Dependencies
+        run: make dependabot
+        continue-on-error: true
+
+      - name: Notify Failure
+        if: failure()
+        uses: slackapi/slack-github-action@af78098f536edbc4de71162a307590698245be95 # v3.0.1
+        with:
+          method: chat.postMessage
+          token: ${{ secrets.DEPENDABUMP_SLACK_API_KEY }}
+          payload: |
+            channel: ${{ secrets.SLACK_TEAM_CORE_CHANNEL_ID}}
+            text: "Failed to check for vulnerabilities in `chainlink`: <${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}|Run>"
+
+      - if: failure()
+        run: exit 1
+
+      - name: Create Pull Request
+        id: pr
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          branch: bot/dependabump
+          commit-message: "bump dependencies"
+          title: "dependabump"
+          body: "Upgrading vulnerable dependencies."
+          sign-commits: true
+        continue-on-error: true
+
+      - name: Notify PR Failure
+        if: failure()
+        uses: slackapi/slack-github-action@af78098f536edbc4de71162a307590698245be95 # v3.0.1
+        with:
+          method: chat.postMessage
+          token: ${{ secrets.DEPENDABUMP_SLACK_API_KEY }}
+          payload: |
+            channel: ${{ secrets.SLACK_TEAM_CORE_CHANNEL_ID}}
+            text: "Vulnerabilities detected in `chainlink`, but failed to create PR: <${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}|Run>"
+
+      - if: failure()
+        run: exit 1
+
+      - name: Notify PR Created
+        if: steps.pr.outputs.pull-request-operation == 'created' || steps.pr.outputs.pull-request-operation == 'updated'
+        uses: slackapi/slack-github-action@af78098f536edbc4de71162a307590698245be95 # v3.0.1
+        with:
+          method: chat.postMessage
+          token: ${{ secrets.DEPENDABUMP_SLACK_API_KEY }}
+          payload: |
+            channel: ${{ secrets.SLACK_TEAM_CORE_CHANNEL_ID}}
+            text: "Vulnerabilities detected in `chainlink` - upgrading dependencies: <${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}|Run> - <${{steps.pr.outputs.pull-request-url}}|PR> :review-time:"

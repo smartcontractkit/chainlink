@@ -248,7 +248,7 @@ WorkflowLimit = "1"
 	cfg := defaultTestConfig(t, nil)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.GlobalExecutionConcurrencyLimiter = sLimiter
+	cfg.GlobalWorkflowLimit = sLimiter
 	cfg.Hooks = hooks
 	var engine1, engine2, engine3, engine4 *v2.Engine
 
@@ -2553,24 +2553,24 @@ func createTestEngineForDonVersionTest(
 	require.NoError(t, err)
 
 	cfg := &v2.EngineConfig{
-		Lggr:                              lggr,
-		Module:                            wasmModule,
-		CapRegistry:                       registry,
-		UseLocalTimeProvider:              true,
-		DonSubscriber:                     donNotifier,
-		ExecutionsStore:                   defaultTestConfig(t, nil).ExecutionsStore,
-		WorkflowID:                        "ffffaabbccddeeff00112233aabbccddeeff00112233aabbccddeeff00112233",
-		WorkflowOwner:                     "1234567890123456789012345678901234567890",
-		WorkflowName:                      name,
-		WorkflowTag:                       "test-tag",
-		WorkflowEncryptionKey:             defaultTestConfig(t, nil).WorkflowEncryptionKey,
-		LocalLimits:                       v2.EngineLimits{},
-		LocalLimiters:                     defaultTestConfig(t, nil).LocalLimiters,
-		FeatureFlags:                      featureFlags,
-		GlobalExecutionConcurrencyLimiter: sLimiter,
-		BeholderEmitter:                   emitter,
-		WorkflowRegistryAddress:           "0xWorkflowRegistry",
-		WorkflowRegistryChainSelector:     "11155111",
+		Lggr:                          lggr,
+		Module:                        wasmModule,
+		CapRegistry:                   registry,
+		UseLocalTimeProvider:          true,
+		DonSubscriber:                 donNotifier,
+		ExecutionsStore:               defaultTestConfig(t, nil).ExecutionsStore,
+		WorkflowID:                    "ffffaabbccddeeff00112233aabbccddeeff00112233aabbccddeeff00112233",
+		WorkflowOwner:                 "1234567890123456789012345678901234567890",
+		WorkflowName:                  name,
+		WorkflowTag:                   "test-tag",
+		WorkflowEncryptionKey:         defaultTestConfig(t, nil).WorkflowEncryptionKey,
+		LocalLimits:                   v2.EngineLimits{},
+		LocalLimiters:                 defaultTestConfig(t, nil).LocalLimiters,
+		FeatureFlags:                  featureFlags,
+		GlobalWorkflowLimit:           sLimiter,
+		BeholderEmitter:               emitter,
+		WorkflowRegistryAddress:       "0xWorkflowRegistry",
+		WorkflowRegistryChainSelector: "11155111",
 	}
 
 	engine, err := v2.NewEngine(cfg)
