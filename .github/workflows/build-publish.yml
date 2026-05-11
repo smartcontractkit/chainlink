@@ -105,6 +105,7 @@ jobs:
       aws-region-gati: us-west-2
       dockerfile: core/chainlink.Dockerfile
       docker-build-context: .
+      docker-target: final
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
@@ -142,6 +143,7 @@ jobs:
       aws-region-gati: us-west-2
       dockerfile: core/chainlink.Dockerfile
       docker-build-context: .
+      docker-target: final
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}

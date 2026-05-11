@@ -95,7 +95,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build,id=go-build-chainlink \
 ##
 # Final Image
 ##
-FROM ubuntu:24.04
+FROM ubuntu:24.04 AS final
 
 ARG CHAINLINK_USER=root
 ENV DEBIAN_FRONTEND=noninteractive
@@ -133,8 +133,6 @@ COPY --from=build-local-plugins /gobins/ /usr/local/bin/
 COPY --from=build-chainlink /gobins/ /usr/local/bin/
 # Copy shared libraries from the remote plugins build stage.
 COPY --from=build-remote-plugins /tmp/lib /usr/lib/
-COPY --from=build-delve /go/bin/dlv /usr/local/bin/
-
 
 WORKDIR /home/${CHAINLINK_USER}
 
@@ -151,3 +149,7 @@ EXPOSE 6688
 ENTRYPOINT ["chainlink"]
 HEALTHCHECK CMD curl -f http://localhost:6688/health || exit 1
 CMD ["local", "node"]
+
+FROM final AS debug
+
+COPY --from=build-delve /go/bin/dlv /usr/local/bin/
