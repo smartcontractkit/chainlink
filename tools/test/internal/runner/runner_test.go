@@ -696,9 +696,9 @@ func TestRunDiagnoseIterationsRunsInParallelWithWorkerIsolation(t *testing.T) {
 		},
 	}
 	hooks := diagnoseRunHooks{
-		runIteration: func(_ context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, env []string, liveProgress bool, parallelProgress *parallelDiagnoseProgress, _ time.Time, _ *sync.Mutex) error {
-			require.False(t, liveProgress)
-			require.Nil(t, parallelProgress)
+		runIteration: func(p diagnoseIterationParams) error {
+			require.False(t, p.LiveProgress)
+			require.Nil(t, p.ParallelProgress)
 			nowActive := atomic.AddInt32(&active, 1)
 			for {
 				seen := atomic.LoadInt32(&maxActive)
@@ -707,10 +707,10 @@ func TestRunDiagnoseIterationsRunsInParallelWithWorkerIsolation(t *testing.T) {
 				}
 			}
 			mu.Lock()
-			envByIter[iteration] = append([]string(nil), env...)
+			envByIter[p.Iteration] = append([]string(nil), p.Env...)
 			mu.Unlock()
 			time.Sleep(25 * time.Millisecond)
-			err := os.WriteFile(filepath.Join(dir, "iteration-"+strconv.Itoa(iteration)+".log.jsonl"), []byte(`{"Action":"pass","Package":"p","Test":"T","Elapsed":0.01}`+"\n"), 0600)
+			err := os.WriteFile(filepath.Join(p.ResultsDir, "iteration-"+strconv.Itoa(p.Iteration)+".log.jsonl"), []byte(`{"Action":"pass","Package":"p","Test":"T","Elapsed":0.01}`+"\n"), 0600)
 			atomic.AddInt32(&active, -1)
 			return err
 		},
@@ -744,16 +744,16 @@ func TestRunDiagnoseIterationsFailFastCancelsNewWork(t *testing.T) {
 	var mu sync.Mutex
 	started := make(map[int]struct{})
 	hooks := diagnoseRunHooks{
-		runIteration: func(ctx context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, _ []string, _ bool, _ *parallelDiagnoseProgress, _ time.Time, _ *sync.Mutex) error {
+		runIteration: func(p diagnoseIterationParams) error {
 			mu.Lock()
-			started[iteration] = struct{}{}
+			started[p.Iteration] = struct{}{}
 			mu.Unlock()
-			if iteration == 0 {
-				require.NoError(t, os.WriteFile(filepath.Join(dir, "iteration-0.log.jsonl"), []byte(`{"Action":"fail","Package":"p","Test":"T","Elapsed":0.01}`+"\n"), 0600))
+			if p.Iteration == 0 {
+				require.NoError(t, os.WriteFile(filepath.Join(p.ResultsDir, "iteration-0.log.jsonl"), []byte(`{"Action":"fail","Package":"p","Test":"T","Elapsed":0.01}`+"\n"), 0600))
 				return errors.New("test failed")
 			}
-			<-ctx.Done()
-			return ctx.Err()
+			<-p.Ctx.Done()
+			return p.Ctx.Err()
 		},
 	}
 
@@ -793,9 +793,9 @@ func TestRunDiagnoseIterationsStopsOnBuildFailure(t *testing.T) {
 			}
 			out := output.New(true, io.Discard, io.Discard, output.SkipFD)
 			hooks := diagnoseRunHooks{
-				runIteration: func(_ context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, _ []string, _ bool, _ *parallelDiagnoseProgress, _ time.Time, _ *sync.Mutex) error {
+				runIteration: func(p diagnoseIterationParams) error {
 					payload := tc.iterationJSON + "\n"
-					require.NoError(t, os.WriteFile(filepath.Join(dir, "iteration-"+strconv.Itoa(iteration)+".log.jsonl"), []byte(payload), 0600))
+					require.NoError(t, os.WriteFile(filepath.Join(p.ResultsDir, "iteration-"+strconv.Itoa(p.Iteration)+".log.jsonl"), []byte(payload), 0600))
 					return errors.New("exit status 1")
 				},
 			}
@@ -829,10 +829,10 @@ func TestRunDiagnoseIterations_serialLiveProgressMutex_noMergedProgressAndTableL
 	jsonl := `{"Action":"pass","Package":"p"}` + "\n"
 
 	hooks := diagnoseRunHooks{
-		runIteration: func(ctx context.Context, _ *config.App, pr *output.Printer, dir string, _ []string, iteration int, _ int64, _ []string, liveProgress bool, _ *parallelDiagnoseProgress, diagnoseRunStart time.Time, serialMu *sync.Mutex) error {
-			require.True(t, liveProgress)
-			require.NotNil(t, serialMu)
-			iter, iters := iteration+1, conf.Iterations
+		runIteration: func(p diagnoseIterationParams) error {
+			require.True(t, p.LiveProgress)
+			require.NotNil(t, p.SerialProgressMu)
+			iter, iters := p.Iteration+1, conf.Iterations
 			iterStart := time.Now()
 			tickDone := make(chan struct{})
 			var wgTick sync.WaitGroup
@@ -841,21 +841,21 @@ func TestRunDiagnoseIterations_serialLiveProgressMutex_noMergedProgressAndTableL
 				defer tick.Stop()
 				for {
 					select {
-					case <-ctx.Done():
+					case <-p.Ctx.Done():
 						return
 					case <-tickDone:
 						return
 					case <-tick.C:
-						serialMu.Lock()
-						renderDiagnoseProgressLine(pr.HumanStderrWriter(), iter, iters, time.Since(iterStart), diagnoseRunStart, time.Now(), true)
-						serialMu.Unlock()
+						p.SerialProgressMu.Lock()
+						renderDiagnoseProgressLine(p.Out.HumanStderrWriter(), iter, iters, time.Since(iterStart), p.DiagnoseRunStart, time.Now(), true)
+						p.SerialProgressMu.Unlock()
 					}
 				}
 			})
 			time.Sleep(3 * time.Millisecond)
 			close(tickDone)
 			wgTick.Wait()
-			path := filepath.Join(dir, "iteration-"+strconv.Itoa(iteration)+".log.jsonl")
+			path := filepath.Join(p.ResultsDir, "iteration-"+strconv.Itoa(p.Iteration)+".log.jsonl")
 			return os.WriteFile(path, []byte(jsonl), 0o600)
 		},
 	}
@@ -952,13 +952,13 @@ func TestRunDiagnoseIterationsFailFastOnCategories(t *testing.T) {
 			}
 			out := output.New(true, io.Discard, io.Discard, output.SkipFD)
 			hooks := diagnoseRunHooks{
-				runIteration: func(_ context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, _ []string, _ bool, _ *parallelDiagnoseProgress, _ time.Time, _ *sync.Mutex) error {
-					return os.WriteFile(filepath.Join(dir, "iteration-"+strconv.Itoa(iteration)+".log.jsonl"), []byte(tc.iterationJSON+"\n"), 0600)
+				runIteration: func(p diagnoseIterationParams) error {
+					return os.WriteFile(filepath.Join(p.ResultsDir, "iteration-"+strconv.Itoa(p.Iteration)+".log.jsonl"), []byte(tc.iterationJSON+"\n"), 0600)
 				},
 			}
 			if tc.iterErr != nil {
-				hooks.runIteration = func(_ context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, _ []string, _ bool, _ *parallelDiagnoseProgress, _ time.Time, _ *sync.Mutex) error {
-					require.NoError(t, os.WriteFile(filepath.Join(dir, "iteration-"+strconv.Itoa(iteration)+".log.jsonl"), []byte(tc.iterationJSON+"\n"), 0600))
+				hooks.runIteration = func(p diagnoseIterationParams) error {
+					require.NoError(t, os.WriteFile(filepath.Join(p.ResultsDir, "iteration-"+strconv.Itoa(p.Iteration)+".log.jsonl"), []byte(tc.iterationJSON+"\n"), 0600))
 					return tc.iterErr
 				}
 			}

@@ -29,7 +29,24 @@ const failFastReasonBuildFailure = "build-failure"
 
 type diagnoseIterationResource = db.Resource
 
-type diagnoseIterationRunner func(ctx context.Context, conf *config.App, out *output.Printer, resultsDir string, goTestArgs []string, iteration int, shuffleSeed int64, env []string, liveProgress bool, parallelProgress *parallelDiagnoseProgress, diagnoseRunStart time.Time, serialProgressMu *sync.Mutex) error
+// diagnoseIterationParams is the full input for one diagnose iteration (production
+// runner or tests that stub diagnoseRunHooks.runIteration).
+type diagnoseIterationParams struct {
+	Ctx              context.Context
+	Conf             *config.App
+	Out              *output.Printer
+	ResultsDir       string
+	GoTestArgs       []string
+	Iteration        int
+	ShuffleSeed      int64
+	Env              []string
+	LiveProgress     bool
+	ParallelProgress *parallelDiagnoseProgress
+	DiagnoseRunStart time.Time
+	SerialProgressMu *sync.Mutex
+}
+
+type diagnoseIterationRunner func(diagnoseIterationParams) error
 
 type diagnoseRunHooks struct {
 	runIteration diagnoseIterationRunner
@@ -433,7 +450,20 @@ func executeSingleIteration(runCtx context.Context, conf *config.App, out *outpu
 			seed = hooks.seed()
 		}
 		iterStart := time.Now()
-		iterErr := hooks.runIteration(runCtx, conf, out, resultsDir, goTestArgs, iteration, seed, resource.Env, parallel == 1, parallelProgress, diagnoseRunStart, serialProgressMu)
+		iterErr := hooks.runIteration(diagnoseIterationParams{
+			Ctx:              runCtx,
+			Conf:             conf,
+			Out:              out,
+			ResultsDir:       resultsDir,
+			GoTestArgs:       goTestArgs,
+			Iteration:        iteration,
+			ShuffleSeed:      seed,
+			Env:              resource.Env,
+			LiveProgress:     parallel == 1,
+			ParallelProgress: parallelProgress,
+			DiagnoseRunStart: diagnoseRunStart,
+			SerialProgressMu: serialProgressMu,
+		})
 		iterDur := time.Since(iterStart)
 		var dumpErr error
 		if resource.DumpDiagnostics != nil {
@@ -945,7 +975,14 @@ func (sw *syncedWriter) Write(p []byte) (int, error) {
 	return sw.w.Write(p)
 }
 
-func diagnoseIteration(ctx context.Context, conf *config.App, out *output.Printer, resultsDir string, goTestArgs []string, iteration int, shuffleSeed int64, env []string, liveProgress bool, parallelProgress *parallelDiagnoseProgress, diagnoseRunStart time.Time, serialProgressMu *sync.Mutex) error {
+func diagnoseIteration(p diagnoseIterationParams) error {
+	ctx, conf, out := p.Ctx, p.Conf, p.Out
+	resultsDir, goTestArgs := p.ResultsDir, p.GoTestArgs
+	iteration, shuffleSeed := p.Iteration, p.ShuffleSeed
+	env := p.Env
+	liveProgress, parallelProgress := p.LiveProgress, p.ParallelProgress
+	diagnoseRunStart, serialProgressMu := p.DiagnoseRunStart, p.SerialProgressMu
+
 	start := time.Now()
 	jsonPath := filepath.Join(resultsDir, fmt.Sprintf("iteration-%d.log.jsonl", iteration))
 	resultsFile, err := os.Create(jsonPath)
