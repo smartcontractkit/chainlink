@@ -42,6 +42,7 @@ import (
 	evmtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/functions"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	evmmercury "github.com/smartcontractkit/chainlink-evm/pkg/mercury"
 	"github.com/smartcontractkit/chainlink-evm/pkg/read"
 	"github.com/smartcontractkit/chainlink-evm/pkg/transmitter"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -616,7 +617,7 @@ func FilterNamesFromRelayArgs(args commontypes.RelayArgs) (filterNames []string,
 	}
 
 	if relayConfig.FeedID != nil {
-		filterNames = []string{mercury.FilterName(addr.Address(), *relayConfig.FeedID)}
+		filterNames = []string{evmmercury.FilterName(addr.Address(), *relayConfig.FeedID)}
 	} else {
 		filterNames = []string{configPollerFilterName(addr.Address()), transmitter.FilterName(addr.Address())}
 	}

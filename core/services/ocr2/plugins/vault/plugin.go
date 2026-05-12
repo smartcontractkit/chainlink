@@ -64,6 +64,7 @@ type ReportingPluginConfig struct {
 	MaxRequestBatchSize               limits.BoundLimiter[int]
 	MaxBatchSize                      limits.BoundLimiter[int]
 	OrgIDAsSecretOwnerEnabled         limits.GateLimiter
+	VaultForceEmptyOCRRounds          limits.GateLimiter
 }
 
 func NewReportingPluginFactory(
@@ -73,6 +74,7 @@ func NewReportingPluginFactory(
 	recipientKey *dkgrecipientkey.Key,
 	lazyPublicKey *vaultcap.LazyPublicKey,
 	limitsFactory limits.Factory,
+	lifecycle *vaultcap.RequestLifecycleTracker,
 ) (*ReportingPluginFactory, error) {
 	if db == nil {
 		return nil, errors.New("result package db cannot be nil")
@@ -80,6 +82,10 @@ func NewReportingPluginFactory(
 
 	if recipientKey == nil {
 		return nil, errors.New("DKG recipient key cannot be nil when using result package db")
+	}
+
+	if lifecycle == nil {
+		return nil, errors.New("request lifecycle tracker cannot be nil")
 	}
 
 	cfg := &ReportingPluginConfig{
@@ -93,6 +99,7 @@ func NewReportingPluginFactory(
 		db:            db,
 		recipientKey:  recipientKey,
 		limitsFactory: limitsFactory,
+		lifecycle:     lifecycle,
 	}, nil
 }
 
@@ -103,6 +110,7 @@ type ReportingPluginFactory struct {
 	db            dkgocrtypes.ResultPackageDatabase
 	recipientKey  *dkgrecipientkey.Key
 	limitsFactory limits.Factory
+	lifecycle     *vaultcap.RequestLifecycleTracker
 }
 
 func (r *ReportingPluginFactory) getKeyMaterial(ctx context.Context, instanceID string) (publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2easy.PrivateShare, err error) {
@@ -165,62 +173,6 @@ func (r *ReportingPluginFactory) pollForKeyMaterial(ctx context.Context, instanc
 	}
 }
 
-func initializePluginLimits(ctx context.Context, limitsFactory limits.Factory) (ocr3_1types.ReportingPluginLimits, error) {
-	maxQueryBytes, err := cresettings.Default.VaultMaxQuerySizeLimit.GetOrDefault(ctx, limitsFactory.Settings)
-	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxQuerySizeLimit: %w", err)
-	}
-	maxObservationBytes, err := cresettings.Default.VaultMaxObservationSizeLimit.GetOrDefault(ctx, limitsFactory.Settings)
-	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxObservationSizeLimit: %w", err)
-	}
-	maxReportsPlusPrecursorBytes, err := cresettings.Default.VaultMaxReportsPlusPrecursorSizeLimit.GetOrDefault(ctx, limitsFactory.Settings)
-	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxReportsPlusPrecursorSizeLimit: %w", err)
-	}
-	maxReportBytes, err := cresettings.Default.VaultMaxReportSizeLimit.GetOrDefault(ctx, limitsFactory.Settings)
-	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxReportSizeLimit: %w", err)
-	}
-	maxReportCount, err := cresettings.Default.VaultMaxReportCount.GetOrDefault(ctx, limitsFactory.Settings)
-	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxReportCount: %w", err)
-	}
-	maxKVModifiedKeysPlusValuesBytes, err := cresettings.Default.VaultMaxKeyValueModifiedKeysPlusValuesSizeLimit.GetOrDefault(ctx, limitsFactory.Settings)
-	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxKeyValueModifiedKeysPlusValuesSizeLimit: %w", err)
-	}
-	maxKVModifiedKeys, err := cresettings.Default.VaultMaxKeyValueModifiedKeys.GetOrDefault(ctx, limitsFactory.Settings)
-	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxKeyValueModifiedKeys: %w", err)
-	}
-	maxBlobPayloadBytes, err := cresettings.Default.VaultMaxBlobPayloadSizeLimit.GetOrDefault(ctx, limitsFactory.Settings)
-	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxBlobPayloadSizeLimit: %w", err)
-	}
-	maxPerOracleUnexpiredBlobCumulativePayloadBytes, err := cresettings.Default.VaultMaxPerOracleUnexpiredBlobCumulativePayloadSizeLimit.GetOrDefault(ctx, limitsFactory.Settings)
-	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxPerOracleUnexpiredBlobCumulativePayloadSizeLimit: %w", err)
-	}
-	maxPerOracleUnexpiredBlobCount, err := cresettings.Default.VaultMaxPerOracleUnexpiredBlobCount.GetOrDefault(ctx, limitsFactory.Settings)
-	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxPerOracleUnexpiredBlobCount: %w", err)
-	}
-
-	return ocr3_1types.ReportingPluginLimits{
-		MaxQueryBytes:                                   int(maxQueryBytes),
-		MaxObservationBytes:                             int(maxObservationBytes),
-		MaxReportsPlusPrecursorBytes:                    int(maxReportsPlusPrecursorBytes),
-		MaxReportBytes:                                  int(maxReportBytes),
-		MaxReportCount:                                  maxReportCount,
-		MaxKeyValueModifiedKeysPlusValuesBytes:          int(maxKVModifiedKeysPlusValuesBytes),
-		MaxKeyValueModifiedKeys:                         maxKVModifiedKeys,
-		MaxBlobPayloadBytes:                             int(maxBlobPayloadBytes),
-		MaxPerOracleUnexpiredBlobCumulativePayloadBytes: int(maxPerOracleUnexpiredBlobCumulativePayloadBytes),
-		MaxPerOracleUnexpiredBlobCount:                  maxPerOracleUnexpiredBlobCount,
-	}, nil
-}
-
 func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginConfig, error) {
 	maxCiphertextLengthBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultCiphertextSizeLimit)
 	if err != nil {
@@ -257,6 +209,11 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		return nil, fmt.Errorf("VaultOrgIDAsSecretOwnerEnabled: %w", err)
 	}
 
+	vaultForceEmptyOCRRounds, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultForceEmptyOCRRounds)
+	if err != nil {
+		return nil, fmt.Errorf("VaultForceEmptyOCRRounds: %w", err)
+	}
+
 	return &ReportingPluginConfig{
 		MaxShareLengthBytes:               maxShareLengthBytesLimiter,
 		MaxRequestBatchSize:               maxRequestBatchSizeLimiter,
@@ -265,6 +222,7 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		MaxIdentifierOwnerLengthBytes:     maxIdentifierOwnerLengthBytesLimiter,
 		MaxIdentifierNamespaceLengthBytes: maxIdentifierNamespaceLengthBytesLimiter,
 		OrgIDAsSecretOwnerEnabled:         orgIDAsSecretOwnerEnabled,
+		VaultForceEmptyOCRRounds:          vaultForceEmptyOCRRounds,
 	}, nil
 }
 
@@ -347,6 +305,8 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		cfg.MaxIdentifierNamespaceLengthBytes,
 	)
 
+	r.lifecycle.SetConfigDigest(config.ConfigDigest.String())
+
 	return &ReportingPlugin{
 			lggr:       r.lggr.Named("VaultReportingPlugin"),
 			store:      r.store,
@@ -354,6 +314,7 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 			metrics:    metrics,
 			onchainCfg: config,
 			validator:  validator,
+			lifecycle:  r.lifecycle,
 			unmarshalBlob: func(data []byte) (ocr3_1types.BlobHandle, error) {
 				handle := ocr3_1types.BlobHandle{}
 				err := handle.UnmarshalBinary(data)
@@ -375,6 +336,7 @@ type ReportingPlugin struct {
 	cfg        *ReportingPluginConfig
 	metrics    *pluginMetrics
 	validator  *vaultcap.RequestValidator
+	lifecycle  *vaultcap.RequestLifecycleTracker
 
 	// For testing: functions to mock out marshaling/unmarshaling blob handles.
 	// The Blob API isn't very test friendly because it uses sum types that belong
@@ -432,19 +394,26 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 
 	wrappedReadStore := NewKVStoreWrapper(NewReadStore(keyValueReader, r.metrics), r.orgIDAsSecretOwnerEnabled(ctx), r.lggr)
 
-	batch, err := wrappedReadStore.GetPendingQueue(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("could not fetch batch of requests: %w", err)
+	var currentPendingQueueItems []*vaultcommon.StoredPendingQueueItem
+	if !forceEmptyOCRRounds(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds) {
+		var err error
+		currentPendingQueueItems, err = wrappedReadStore.GetPendingQueue(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("could not fetch batch of requests: %w", err)
+		}
+	} else {
+		r.lggr.Warnw("VaultForceEmptyOCRRounds is enabled; pending queue is not read this OCR round — store-backed pending observation items are skipped")
 	}
+
 	// Avoid log spam by only logging if we have any requests to process.
-	if len(batch) > 0 {
+	if len(currentPendingQueueItems) > 0 {
 		mbs, _ := r.cfg.MaxBatchSize.Limit(ctx)
 		r.lggr.Debugw("observation started", "seqNr", seqNr, "batchSize", mbs)
 	}
 
 	ids := []string{}
 	obs := []*vaultcommon.Observation{}
-	for _, req := range batch {
+	for _, req := range currentPendingQueueItems {
 		o := &vaultcommon.Observation{
 			Id: req.Id,
 		}
@@ -473,6 +442,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		}
 
 		obs = append(obs, o)
+		r.lifecycle.RecordObservedOutcome(req.Id, seqNr, time.Now())
 	}
 
 	obspb := &vaultcommon.Observations{
@@ -486,6 +456,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	if ierr != nil {
 		return nil, ierr
 	}
+	r.metrics.trackLocalQueueSize(ctx, len(localQueueItems))
 
 	// Sort the local queue by ID as we may have to limit its contents
 	// later on and we want to maximize the possibility of overlap among
@@ -501,16 +472,10 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		}
 	})
 
-	// Next, get the current pending queue. We'll use this to dedupe
-	// requests when generating an observation for the next state of the
-	// pending queue.
-	pendingQueue, ierr := wrappedReadStore.GetPendingQueue(ctx)
-	if ierr != nil {
-		return nil, ierr
-	}
-
+	// Next, use the current pending queue to dedupe requests when generating
+	// an observation for the next state of the pending queue.
 	pendingQueueHasID := map[string]bool{}
-	for _, item := range pendingQueue {
+	for _, item := range currentPendingQueueItems {
 		pendingQueueHasID[item.Id] = true
 	}
 
@@ -549,6 +514,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 
 		blobPayloads = append(blobPayloads, itemb)
 		blobPayloadIDs = append(blobPayloadIDs, item.Id)
+		r.lifecycle.RecordBlobBroadcasting(item.Id, seqNr, time.Now())
 
 		if len(blobPayloads) >= maxObservedLocalQueueItems {
 			r.lggr.Warnw("Observed local queue exceeds batch size limit, truncating",
@@ -580,8 +546,8 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	}
 
 	// Avoid log spam by only logging if we have any requests to process.
-	if len(batch) > 0 {
-		r.lggr.Debugw("observation complete", "ids", ids, "batchSize", len(batch))
+	if len(currentPendingQueueItems) > 0 {
+		r.lggr.Debugw("observation complete", "ids", ids, "batchSize", len(currentPendingQueueItems))
 	}
 	return types.Observation(obsb), nil
 }
@@ -639,6 +605,7 @@ func (r *ReportingPlugin) broadcastBlobPayloads(
 			}
 
 			results[i] = blobHandleBytes
+			r.lifecycle.RecordBlobBroadcasted(requestID, seqNr, time.Now())
 			return nil
 		})
 	}
@@ -1146,9 +1113,15 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 	//   the same deterministic key-value store-based queue.
 	// - that all pending queue items can be fetched as blobs.
 	wrappedStore := NewKVStoreWrapper(NewReadStore(keyValueReader, r.metrics), r.orgIDAsSecretOwnerEnabled(ctx), r.lggr)
-	pendingQueueItems, err := wrappedStore.GetPendingQueue(ctx)
-	if err != nil {
-		return fmt.Errorf("could not fetch pending queue from store: %w", err)
+	var pendingQueueItems []*vaultcommon.StoredPendingQueueItem
+	if !forceEmptyOCRRounds(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds) {
+		var err error
+		pendingQueueItems, err = wrappedStore.GetPendingQueue(ctx)
+		if err != nil {
+			return fmt.Errorf("could not fetch pending queue from store: %w", err)
+		}
+	} else {
+		r.lggr.Warnw("VaultForceEmptyOCRRounds is enabled; pending queue is not read this OCR round — store-backed pending observation items are skipped")
 	}
 
 	if len(idToObs) != len(pendingQueueItems) {
@@ -1490,7 +1463,7 @@ func (r *ReportingPlugin) validateListSecretIdentifiersObservation(ctx context.C
 		if err := r.cfg.MaxSecretsPerOwner.Check(ctx, len(listResp.Identifiers)); err != nil {
 			var errBoundLimited limits.ErrorBoundLimited[int]
 			if errors.As(err, &errBoundLimited) {
-				return fmt.Errorf("ListSecretIdentifiers response exceeds maximum number of secrets per owner (have=%d, limit=%d)", len(listResp.Identifiers), errBoundLimited.Limit)
+				return fmt.Errorf("ListSecretIdentifiers response exceeds maximum number of secrets per owner (have=%d, limit=%d): %w", len(listResp.Identifiers), errBoundLimited.Limit, err)
 			}
 			return fmt.Errorf("failed to check max secrets per owner limit: %w", err)
 		}
@@ -1629,9 +1602,14 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 	// ---
 	// Phase 2: Process the pending queue.
 	// ---
-	err := r.stateTransitionPendingQueue(ctx, wrappedStore, marshalledObs, blobFetcher)
+	err := r.stateTransitionPendingQueue(ctx, seqNr, wrappedStore, marshalledObs, blobFetcher)
 	if err != nil {
 		return ocr3_1types.ReportsPlusPrecursor{}, fmt.Errorf("could not process pending queue during state transition: %w", err)
+	}
+
+	nowST := time.Now()
+	for _, out := range os.Outcomes {
+		r.lifecycle.RecordStateTransitionOutcome(out.Id, seqNr, nowST)
 	}
 
 	ospb, err := proto.MarshalOptions{Deterministic: true}.Marshal(os)
@@ -1645,7 +1623,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 	return ocr3_1types.ReportsPlusPrecursor(ospb), nil
 }
 
-func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, store pendingQueueStore, obs map[uint8]*vaultcommon.Observations, blobFetcher ocr3_1types.BlobFetcher) error {
+func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, seqNr uint64, store pendingQueueStore, obs map[uint8]*vaultcommon.Observations, blobFetcher ocr3_1types.BlobFetcher) error {
 	// Step 1: Create a map of id -> sha -> count.
 	idToShaToCount := map[string]map[string]int{}
 	oidsToIDs := map[uint8][]string{} // for debugging only
@@ -1746,6 +1724,11 @@ func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, store
 			return fmt.Errorf("failed to check batch size limit: %w", err)
 		}
 		keptItems = keptItems[:errBoundLimited.Limit]
+	}
+
+	now := time.Now()
+	for _, it := range keptItems {
+		r.lifecycle.RecordWrittenToPendingQueue(ctx, it.Id, seqNr, now)
 	}
 
 	return store.WritePendingQueue(ctx, keptItems)
@@ -2343,5 +2326,6 @@ func (r *ReportingPlugin) Close() error {
 		r.cfg.MaxRequestBatchSize.Close(),
 		r.cfg.MaxBatchSize.Close(),
 		r.cfg.OrgIDAsSecretOwnerEnabled.Close(),
+		r.cfg.VaultForceEmptyOCRRounds.Close(),
 	)
 }

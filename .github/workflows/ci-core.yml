@@ -365,6 +365,7 @@ jobs:
         with:
           tmpfs: "true"
           image-tag: "16-alpine"
+          postgres-options: "-c max_connections=1000 -c shared_buffers=2GB -c fsync=off -c synchronous_commit=off -c full_page_writes=off -c client_min_messages=warning" # Turn off some prod-protections to make postgres go brrr. https://github.com/peterldowns/pgtestdb#how-do-i-make-it-go-faster
 
       - name: Touching core/web/assets/index.html
         if: ${{ matrix.type.should-run == 'true' }}
