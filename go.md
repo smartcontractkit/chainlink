@@ -39,13 +39,14 @@ flowchart LR
 	click chainlink-ccip/ccv/chains/evm href "https://github.com/smartcontractkit/chainlink-ccip"
 	chainlink-ccip/chains/evm --> ccip-contract-examples/chains/evm
 	chainlink-ccip/chains/evm --> ccip-owner-contracts
+	chainlink-ccip/chains/evm --> chainlink-ccip/chains/solana
 	chainlink-ccip/chains/evm --> chainlink-ccip/deployment
-	chainlink-ccip/chains/evm --> chainlink-ccv
-	chainlink-ccip/chains/evm --> chainlink-ccv/deployment
 	chainlink-ccip/chains/evm --> chainlink-deployments-framework
+	chainlink-ccip/chains/evm --> chainlink-evm
 	chainlink-ccip/chains/evm --> chainlink-protos/job-distributor
 	chainlink-ccip/chains/evm --> chainlink-protos/op-catalog
 	chainlink-ccip/chains/evm --> chainlink-sui
+	chainlink-ccip/chains/evm --> chainlink-testing-framework/framework
 	chainlink-ccip/chains/evm --> chainlink-testing-framework/seth
 	chainlink-ccip/chains/evm --> chainlink-ton
 	chainlink-ccip/chains/evm --> mcms
@@ -66,8 +67,6 @@ flowchart LR
 	chainlink-ccv --> chainlink-solana
 	chainlink-ccv --> chainlink-testing-framework/framework
 	click chainlink-ccv href "https://github.com/smartcontractkit/chainlink-ccv"
-	chainlink-ccv/deployment
-	click chainlink-ccv/deployment href "https://github.com/smartcontractkit/chainlink-ccv"
 	chainlink-common --> chainlink-common/pkg/chipingress
 	chainlink-common --> chainlink-protos/billing/go
 	chainlink-common --> chainlink-protos/cre/go
@@ -168,6 +167,7 @@ flowchart LR
 	click chainlink-tron/relayer href "https://github.com/smartcontractkit/chainlink-tron"
 	chainlink/v2 --> chainlink-automation
 	chainlink/v2 --> chainlink-ccip/chains/evm
+	chainlink/v2 --> chainlink-ccv
 	chainlink/v2 --> chainlink-data-streams
 	chainlink/v2 --> chainlink-evm/contracts/cre/gobindings
 	chainlink/v2 --> chainlink-feeds
@@ -216,12 +216,6 @@ flowchart LR
 		 chainlink-ccip/deployment
 	end
 	click chainlink-ccip-repo href "https://github.com/smartcontractkit/chainlink-ccip"
-
-	subgraph chainlink-ccv-repo[chainlink-ccv]
-		 chainlink-ccv
-		 chainlink-ccv/deployment
-	end
-	click chainlink-ccv-repo href "https://github.com/smartcontractkit/chainlink-ccv"
 
 	subgraph chainlink-common-repo[chainlink-common]
 		 chainlink-common
@@ -288,7 +282,7 @@ flowchart LR
 	click tdh2-repo href "https://github.com/smartcontractkit/tdh2"
 
 	classDef outline stroke-dasharray:6,fill:none;
-	class chainlink-ccip-repo,chainlink-ccv-repo,chainlink-common-repo,chainlink-evm-repo,chainlink-framework-repo,chainlink-protos-repo,chainlink-testing-framework-repo,cre-sdk-go-repo,tdh2-repo outline
+	class chainlink-ccip-repo,chainlink-common-repo,chainlink-evm-repo,chainlink-framework-repo,chainlink-protos-repo,chainlink-testing-framework-repo,cre-sdk-go-repo,tdh2-repo outline
 ```
 ## All modules
 ```mermaid
@@ -313,6 +307,73 @@ flowchart LR
   classDef group stroke-dasharray:6,fill:none;
   class chains,products group
 
+found 33 go.mod files:
+	./go.mod
+	core/scripts/go.mod
+	core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/go.mod
+	core/scripts/cre/environment/examples/workflows/v2/cron/go.mod
+	core/scripts/cre/environment/examples/workflows/v2/http/go.mod
+	core/scripts/cre/environment/examples/workflows/v2/http_simple/go.mod
+	core/scripts/cre/environment/examples/workflows/v2/node-mode/go.mod
+	core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based/go.mod
+	core/scripts/cre/environment/examples/workflows/v2/time/go.mod
+	core/scripts/cre/environment/examples/workflows/v2/time_consensus/go.mod
+	deployment/go.mod
+	devenv/go.mod
+	devenv/fakes/go.mod
+	integration-tests/go.mod
+	integration-tests/load/go.mod
+	system-tests/lib/go.mod
+	system-tests/tests/go.mod
+	system-tests/tests/canaries_sentinels/proof-of-reserve/cron-based/go.mod
+	system-tests/tests/regression/cre/consensus/go.mod
+	system-tests/tests/regression/cre/evm/evmread-negative/go.mod
+	system-tests/tests/regression/cre/evm/evmwrite-negative/go.mod
+	system-tests/tests/regression/cre/evm/logtrigger-negative/go.mod
+	system-tests/tests/regression/cre/http/go.mod
+	system-tests/tests/regression/cre/httpaction-negative/go.mod
+	system-tests/tests/smoke/cre/aptos/aptosread/go.mod
+	system-tests/tests/smoke/cre/aptos/aptoswrite/go.mod
+	system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip/go.mod
+	system-tests/tests/smoke/cre/evm/evmread/go.mod
+	system-tests/tests/smoke/cre/evm/logtrigger/go.mod
+	system-tests/tests/smoke/cre/httpaction/go.mod
+	system-tests/tests/smoke/cre/solana/solwrite/go.mod
+	system-tests/tests/smoke/cre/vaultsecret/go.mod
+	tools/test/go.mod
+.$ go mod graph
+core/scripts$ go mod graph
+core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based$ go mod graph
+core/scripts/cre/environment/examples/workflows/v2/cron$ go mod graph
+core/scripts/cre/environment/examples/workflows/v2/http$ go mod graph
+core/scripts/cre/environment/examples/workflows/v2/http_simple$ go mod graph
+core/scripts/cre/environment/examples/workflows/v2/node-mode$ go mod graph
+core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based$ go mod graph
+core/scripts/cre/environment/examples/workflows/v2/time$ go mod graph
+core/scripts/cre/environment/examples/workflows/v2/time_consensus$ go mod graph
+deployment$ go mod graph
+devenv$ go mod graph
+devenv/fakes$ go mod graph
+integration-tests$ go mod graph
+integration-tests/load$ go mod graph
+system-tests/lib$ go mod graph
+system-tests/tests$ go mod graph
+system-tests/tests/canaries_sentinels/proof-of-reserve/cron-based$ go mod graph
+system-tests/tests/regression/cre/consensus$ go mod graph
+system-tests/tests/regression/cre/evm/evmread-negative$ go mod graph
+system-tests/tests/regression/cre/evm/evmwrite-negative$ go mod graph
+system-tests/tests/regression/cre/evm/logtrigger-negative$ go mod graph
+system-tests/tests/regression/cre/http$ go mod graph
+system-tests/tests/regression/cre/httpaction-negative$ go mod graph
+system-tests/tests/smoke/cre/aptos/aptosread$ go mod graph
+system-tests/tests/smoke/cre/aptos/aptoswrite$ go mod graph
+system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip$ go mod graph
+system-tests/tests/smoke/cre/evm/evmread$ go mod graph
+system-tests/tests/smoke/cre/evm/logtrigger$ go mod graph
+system-tests/tests/smoke/cre/httpaction$ go mod graph
+system-tests/tests/smoke/cre/solana/solwrite$ go mod graph
+system-tests/tests/smoke/cre/vaultsecret$ go mod graph
+tools/test$ go mod graph
 	ccip-contract-examples/chains/evm --> chainlink-ccip
 	click ccip-contract-examples/chains/evm href "https://github.com/smartcontractkit/ccip-contract-examples"
 	ccip-owner-contracts --> chain-selectors
