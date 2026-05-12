@@ -7,6 +7,7 @@ func Coalesce[T any](p *T, fallback T) T {
 	return fallback
 }
 
+//go:fix inline
 func To[T any](v T) *T {
-	return &v
+	return new(v)
 }

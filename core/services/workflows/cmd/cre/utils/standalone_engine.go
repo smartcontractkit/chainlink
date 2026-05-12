@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	legacySdk "github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 
@@ -131,7 +132,8 @@ func NewStandaloneEngine(
 	}
 
 	if module.IsLegacyDAG() {
-		sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
+		var sdkSpec *legacySdk.WorkflowSpec
+		sdkSpec, err = host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -155,7 +157,8 @@ func NewStandaloneEngine(
 			BillingClient:        billingClient,
 		}
 
-		engine, err := workflows.NewEngine(ctx, cfg)
+		var engine *workflows.Engine
+		engine, err = workflows.NewEngine(ctx, cfg)
 		if err != nil {
 			return nil, nil, err
 		}

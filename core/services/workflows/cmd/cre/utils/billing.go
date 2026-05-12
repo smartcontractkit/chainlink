@@ -92,7 +92,8 @@ func (s *BillingService) SubmitWorkflowReceipt(
 }
 
 func (s *BillingService) start(ctx context.Context) error {
-	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", s.port))
+	lc := &net.ListenConfig{}
+	lis, err := lc.Listen(ctx, "tcp", fmt.Sprintf("localhost:%d", s.port))
 	if err != nil {
 		return err
 	}

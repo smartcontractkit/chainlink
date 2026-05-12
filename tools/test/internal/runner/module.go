@@ -52,10 +52,10 @@ func isRelativePackagePattern(p string) bool {
 
 // patternBaseDir strips trailing /... and /. wildcards to get the directory part.
 func patternBaseDir(p string) string {
-	if s := strings.TrimSuffix(p, "/..."); s != p {
+	if s, ok := strings.CutSuffix(p, "/..."); ok {
 		return s
 	}
-	if s := strings.TrimSuffix(p, "/."); s != p {
+	if s, ok := strings.CutSuffix(p, "/."); ok {
 		return s
 	}
 	return p

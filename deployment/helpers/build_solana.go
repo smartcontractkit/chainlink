@@ -3,6 +3,7 @@ package helpers
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"io/fs"
 	"os"
@@ -57,7 +58,7 @@ type DomainParams struct {
 
 // Run a command in a specific directory
 func RunCommand(command string, args []string, workDir string) (string, error) {
-	cmd := exec.Command(command, args...)
+	cmd := exec.CommandContext(context.Background(), command, args...)
 	cmd.Dir = workDir
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -138,6 +139,7 @@ func replaceKeysForUpgrade(e cldf.Environment, cloneDir, anchorDir string, progr
 
 		// Replace declare_id!("..."); with the new key
 		updatedContent := regexp.MustCompile(`declare_id!\(".*?"\);`).ReplaceAllString(string(content), fmt.Sprintf(`declare_id!("%s");`, key))
+		//nolint:gosec // used for tests
 		err = os.WriteFile(fullPath, []byte(updatedContent), 0600)
 		if err != nil {
 			return fmt.Errorf("failed to write updated keys to file %s: %w", fullPath, err)
@@ -231,13 +233,13 @@ func golangVersionFromAncestorToolVersions(startDir string) string {
 }
 
 func parseGolangFromToolVersions(data []byte) string {
-	for _, line := range bytes.Split(data, []byte("\n")) {
+	for line := range bytes.SplitSeq(data, []byte("\n")) {
 		line = bytes.TrimSpace(line)
 		if len(line) == 0 || bytes.HasPrefix(line, []byte("#")) {
 			continue
 		}
-		if bytes.HasPrefix(line, []byte("golang ")) {
-			return strings.TrimSpace(string(bytes.TrimPrefix(line, []byte("golang "))))
+		if after, ok := bytes.CutPrefix(line, []byte("golang ")); ok {
+			return strings.TrimSpace(string(after))
 		}
 	}
 	return ""
@@ -254,20 +256,26 @@ func mergeGolangIntoNestedToolVersions(cloneDir, golangVersion string) error {
 	if golangVersion == "" {
 		return nil
 	}
-	return filepath.WalkDir(cloneDir, func(path string, d fs.DirEntry, err error) error {
+	root, err := os.OpenRoot(cloneDir)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+
+	return fs.WalkDir(root.FS(), ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.IsDir() {
 			if d.Name() == ".git" {
-				return filepath.SkipDir
+				return fs.SkipDir
 			}
 			return nil
 		}
 		if d.Name() != ".tool-versions" {
 			return nil
 		}
-		data, err := os.ReadFile(path)
+		data, err := root.ReadFile(path)
 		if err != nil {
 			return err
 		}
@@ -279,7 +287,7 @@ func mergeGolangIntoNestedToolVersions(cloneDir, golangVersion string) error {
 			out = append(out, '\n')
 		}
 		out = append(out, []byte("golang "+golangVersion+"\n")...)
-		return os.WriteFile(path, out, 0o644)
+		return root.WriteFile(path, out, 0o644)
 	})
 }
 
