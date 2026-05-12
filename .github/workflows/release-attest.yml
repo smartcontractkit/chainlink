@@ -32,7 +32,7 @@ jobs:
       id-token: write
     steps:
       - name: Publish attestation to GitHub
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@v4
         with:
           subject-name: ${{ inputs.docker-image-name }}
           subject-digest: ${{ inputs.docker-image-digest }}

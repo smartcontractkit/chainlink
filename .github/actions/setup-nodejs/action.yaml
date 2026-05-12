@@ -11,11 +11,11 @@ description: Setup pnpm for contracts
 runs:
   using: composite
   steps:
-    - uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3.0.0
+    - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
       with:
         version: ^10.0.0
 
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@v6
       with:
         node-version: "20"
         cache: "pnpm"

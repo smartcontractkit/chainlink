@@ -53,9 +53,7 @@ jobs:
       pull-requests: read
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        uses: runs-on/action@742bf56072eb4845a0f94b3394673e4903c90ff0 # v2.1.0
-        with:
-          metrics: cpu,network,memory,disk
+        uses: runs-on/action@d141ef83eb66d096ce8afc767e09115a65c63b60 # v2.1.2
 
       - name: Checkout the repo
         uses: actions/checkout@v6
