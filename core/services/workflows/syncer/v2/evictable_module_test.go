@@ -401,7 +401,7 @@ func TestEvictable_EvictDoesNotWaitForExecution(t *testing.T) {
 			return &sdkpb.ExecutionResult{}, nil
 		},
 	)
-	inner.EXPECT().Close()
+	inner.EXPECT().Close().Run(func() { closeCalled.Store(true) })
 
 	em, _ := newTestEvictableModule(t, inner, nil)
 	t.Cleanup(em.Close)
@@ -601,7 +601,13 @@ func TestLRU_FrequentReapSkipsPinnedModuleAndEvictsAfterDrain(t *testing.T) {
 	<-onReaped
 
 	assert.False(t, em.IsLoaded(), "module should be evicted after executions drain")
-	assert.Equal(t, int32(1), closeCalls.Load(), "exactly one module instance should be closed")
+	// Evict drops the strong ref only; mod.Close runs via runtime.AddCleanup after GC
+	// reclaims the weak holder (same contract as TestEvictable_GCFiresCloseAfterEvict).
+	require.Eventually(t, func() bool {
+		runtime.GC()
+		return closeCalls.Load() == 1
+	}, 5*time.Second, 50*time.Millisecond,
+		"exactly one module instance should be closed after GC + AddCleanup")
 	assert.Equal(t, int32(0), factoryCalls.Load(), "eviction itself should not reload a module")
 }
 
