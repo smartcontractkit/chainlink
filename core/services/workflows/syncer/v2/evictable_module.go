@@ -34,7 +34,7 @@ var executePinMaxAttempts = defaultExecutePinMaxAttempts
 
 // tryAcquireCompareAndSwap is injectable for tests to deterministically force CAS contention.
 // It must be left as nil in production (defaulting to moduleEntry.refCount.CompareAndSwap).
-var tryAcquireCompareAndSwap func(e *moduleEntry, old, next int64) bool
+var tryAcquireCompareAndSwap func(e *loadedModule, old, next int64) bool
 
 // evictAfterEnsureLoadedHook is set by tests to force eviction after a successful ensureLoaded,
 // exercising the pin retry loop and exhaustion path. It must be nil in production.
@@ -108,10 +108,10 @@ func newLoadedModule(mod host.ModuleV2) *loadedModule {
 // A plain Add(1) would race with a release that already drove the count to zero
 // and called Close, leading to a use-after-close. CAS makes the increment
 // conditional on the entry still being live.
-func (e *moduleEntry) tryAcquire() (acquired bool, exhausted bool) {
+func (e *loadedModule) tryAcquire() (acquired bool, exhausted bool) {
 	cas := tryAcquireCompareAndSwap
 	if cas == nil {
-		cas = func(e *moduleEntry, old, next int64) bool {
+		cas = func(e *loadedModule, old, next int64) bool {
 			return e.refCount.CompareAndSwap(old, next)
 		}
 	}
@@ -130,7 +130,7 @@ func (e *moduleEntry) tryAcquire() (acquired bool, exhausted bool) {
 // release drops one ref. It deliberately does NOT call mod.Close on zero so the
 // weak L2 cache can resurrect the holder before GC reaps it. Final close runs
 // via the runtime.AddCleanup callback (or eagerly via EvictableModule.Close).
-func (h *loadedModule) release() { h.refCount.Add(-1) }
+func (e *loadedModule) release() { e.refCount.Add(-1) }
 
 // EvictableModule wraps a host.ModuleV2 with idle-eviction and on-demand reload.
 // Trigger registrations and event channels are owned by the engine, not by this module,
@@ -406,7 +406,7 @@ type ModuleLRU struct {
 
 	// reapTicker drives the eviction scan. Injectable for deterministic tests.
 	reapTicker <-chan time.Time
-	// onReaped is signalled after each reap cycle completes (test hook only).
+	// onReaped is signaled after each reap cycle completes (test hook only).
 	onReaped chan struct{}
 }
 
