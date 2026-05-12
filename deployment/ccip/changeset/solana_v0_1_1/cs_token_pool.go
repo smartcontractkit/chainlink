@@ -934,12 +934,11 @@ func parseMultisigAddress(text string) (string, error) {
 }
 
 type TransferMintAuthorityToSignerPDAConfig struct {
-	ChainSelector        uint64
-	TokenMint            solana.PublicKey
-	PoolType             *cldf.ContractType
-	Metadata             string
-	CurrentMintAuthority solana.PublicKey // current mint authority account (e.g. multisig)
-	MCMS                 *proposalutils.TimelockConfig
+	ChainSelector uint64
+	TokenMint     solana.PublicKey
+	PoolType      *cldf.ContractType
+	Metadata      string
+	MCMS          *proposalutils.TimelockConfig
 }
 
 func (cfg TransferMintAuthorityToSignerPDAConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
@@ -991,6 +990,15 @@ func TransferMintAuthorityToSignerPDA(e cldf.Environment, cfg TransferMintAuthor
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get solana token pool program data: %w", err)
 	}
 
+	var mintAccount solToken.Mint
+	if err := chain.GetAccountDataBorshInto(context.Background(), cfg.TokenMint, &mintAccount); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get token mint account data: %w", err)
+	}
+	if mintAccount.MintAuthority == nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("token %s has no mint authority set", cfg.TokenMint)
+	}
+	currentMintAuthority := *mintAccount.MintAuthority
+
 	useMcms := solanastateview.IsSolanaProgramOwnedByTimelock(
 		&e,
 		chain,
@@ -1015,7 +1023,7 @@ func TransferMintAuthorityToSignerPDA(e cldf.Environment, cfg TransferMintAuthor
 		tokenProgram,
 		tokenPoolSigner,
 		authority,
-		cfg.CurrentMintAuthority,
+		currentMintAuthority,
 		tokenPool,
 		programData.Address,
 	).ValidateAndBuild()
