@@ -126,8 +126,6 @@ type ReportSummary struct {
 	DistinctNamedTests          int      `json:"distinct_named_tests"`
 	FlakeNamedCount             int      `json:"flake_named_count"`
 	FlakePrevalence             *float64 `json:"flake_prevalence,omitempty"`
-	FlakePrevalenceLower        *float64 `json:"flake_prevalence_lower,omitempty"`
-	FlakePrevalenceUpper        *float64 `json:"flake_prevalence_upper,omitempty"`
 	FlakeFailRuns               int      `json:"flake_fail_runs,omitempty"`
 	FlakeTotalRuns              int      `json:"flake_total_runs,omitempty"`
 	FlakeExecutionFailRate      *float64 `json:"flake_execution_fail_rate,omitempty"`
@@ -463,9 +461,6 @@ func buildReportSummary(rep *Report, aggs map[testKey]*aggregate, slowThreshold 
 	if distinct > 0 {
 		v := float64(flakeNamed) / float64(distinct)
 		s.FlakePrevalence = &v
-		lo, hi := WilsonScoreInterval(flakeNamed, distinct, 1.96)
-		s.FlakePrevalenceLower = &lo
-		s.FlakePrevalenceUpper = &hi
 	}
 	if flakeTotalRuns > 0 {
 		v := float64(flakeFailRuns) / float64(flakeTotalRuns)
@@ -903,12 +898,7 @@ func printOverallStats(w io.Writer, rep *Report) {
 		if s.FlakePrevalence != nil {
 			pct = *s.FlakePrevalence * 100
 		}
-		ci := ""
-		if s.FlakePrevalenceLower != nil && s.FlakePrevalenceUpper != nil {
-			ciText := fmt.Sprintf(" [Confidence Interval: %.1f%%–%.1f%%]", *s.FlakePrevalenceLower*100, *s.FlakePrevalenceUpper*100)
-			ci = ciStyleForGap(*s.FlakePrevalenceUpper - *s.FlakePrevalenceLower).Render(ciText)
-		}
-		line = fmt.Sprintf("  Flaky: %d/%d (%.1f%%)%s", s.FlakeNamedCount, s.DistinctNamedTests, pct, ci)
+		line = fmt.Sprintf("  Flaky: %d/%d (%.1f%%)", s.FlakeNamedCount, s.DistinctNamedTests, pct)
 		if s.FlakeNamedCount > 0 {
 			fmt.Fprintln(w, termstyle.Bad.Render(line))
 		} else {

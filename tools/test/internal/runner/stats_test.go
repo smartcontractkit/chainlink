@@ -168,10 +168,6 @@ func TestReportSummary_hasCI_noFlakes(t *testing.T) {
 	assert.Equal(t, 0.0, *s.FlakeIterationFailRateLower)
 	assert.True(t, *s.FlakeIterationFailRateUpper > 0, "upper bound should be non-zero for finite n")
 
-	require.NotNil(t, s.FlakePrevalenceLower, "FlakePrevalenceLower should be set even with no flakes")
-	require.NotNil(t, s.FlakePrevalenceUpper, "FlakePrevalenceUpper should be set even with no flakes")
-	assert.Equal(t, 0.0, *s.FlakePrevalenceLower)
-	assert.True(t, *s.FlakePrevalenceUpper > 0)
 }
 
 func TestPrintOverallStats_includesCI_noFlakes(t *testing.T) {
@@ -191,47 +187,6 @@ func TestPrintOverallStats_includesCI_noFlakes(t *testing.T) {
 	assert.Contains(t, out, "[Confidence Interval:", "CI annotation should appear even with 0 flakes")
 }
 
-func TestReportSummary_hasFlakePrevalenceCI(t *testing.T) {
-	t.Parallel()
-	rep, _, err := Analyze(readers(
-		`{"Action":"fail","Package":"pkg/foo","Test":"TestX","Elapsed":0.5}`,
-		`{"Action":"pass","Package":"pkg/foo","Test":"TestX","Elapsed":0.4}`,
-	), 30*time.Second)
-	require.NoError(t, err)
-	require.NotNil(t, rep.Summary)
-	s := rep.Summary
-
-	require.NotNil(t, s.FlakePrevalenceLower, "FlakePrevalenceLower should be set")
-	require.NotNil(t, s.FlakePrevalenceUpper, "FlakePrevalenceUpper should be set")
-	assert.True(t, *s.FlakePrevalenceLower >= 0)
-	assert.True(t, *s.FlakePrevalenceUpper <= 1)
-	assert.True(t, *s.FlakePrevalenceLower <= *s.FlakePrevalenceUpper)
-}
-
-func TestPrintOverallStats_flakyTestsLine_includesCI(t *testing.T) {
-	t.Parallel()
-	rep, _, err := Analyze(readers(
-		`{"Action":"fail","Package":"pkg/foo","Test":"TestX","Elapsed":0.5}`,
-		`{"Action":"pass","Package":"pkg/foo","Test":"TestX","Elapsed":0.4}`,
-	), 30*time.Second)
-	require.NoError(t, err)
-
-	var buf strings.Builder
-	PrintSummary(&buf, rep)
-	out := buf.String()
-
-	// The "Flaky:" line (prevalence) should have a CI, not just the iterations line.
-	lines := strings.Split(out, "\n")
-	var flakyLine string
-	for _, l := range lines {
-		if strings.Contains(l, "Flaky:") && !strings.Contains(l, "Iterations") {
-			flakyLine = l
-			break
-		}
-	}
-	require.NotEmpty(t, flakyLine, "Flaky: line must exist")
-	assert.Contains(t, flakyLine, "[Confidence Interval:", "Flaky: line should have CI")
-}
 
 func TestCIStyleForGap(t *testing.T) {
 	t.Parallel()

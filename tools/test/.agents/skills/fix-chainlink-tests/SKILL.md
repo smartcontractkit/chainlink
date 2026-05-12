@@ -54,7 +54,7 @@ If you hit permissions issues running commands for this skill, read and/or direc
   ```json
   {"timestamp": "[current_timestamp]", "model": "[current-model] (e.g. `claude-sonnet-4.6/high`, `gemini-3.1-pro`)", "hypothesis": "Your original hypothesis for the issue", "experiment": "A concise summary of what you tried. Include small code snippets if helpful", "result": "Did it fix it or not? If not, give concise reason why", "next": "Next steps to attempt"}
   ```
-6. If no issues, ask the user if they want to verify with more iterations. If not, end and output final report of findings, fixes, and lessons learned.
+6. If no issues, run a final `diagnose` loop to fully validate it's fixed. Use MINIMUM `100` iterations. Target `300-500` iterations for higher confidence.
 7. If issues detected, focus on the ones the user wants to fix.
 
 IF at any time the user interrupts or interjects during this loop, pick it up again where you left off, unless explicitly told otherwise.

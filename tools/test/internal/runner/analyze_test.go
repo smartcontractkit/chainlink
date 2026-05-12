@@ -664,12 +664,7 @@ func TestPrintSummaryOverall_usesSeverityColors(t *testing.T) {
 	if s.FlakePrevalence != nil {
 		pctFlake = *s.FlakePrevalence * 100
 	}
-	flakyCI := ""
-	if s.FlakePrevalenceLower != nil && s.FlakePrevalenceUpper != nil {
-		ciText := fmt.Sprintf(" [Confidence Interval: %.1f%%–%.1f%%]", *s.FlakePrevalenceLower*100, *s.FlakePrevalenceUpper*100)
-		flakyCI = ciStyleForGap(*s.FlakePrevalenceUpper - *s.FlakePrevalenceLower).Render(ciText)
-	}
-	flakyLine := fmt.Sprintf("  Flaky: %d/%d (%.1f%%)%s", s.FlakeNamedCount, s.DistinctNamedTests, pctFlake, flakyCI)
+	flakyLine := fmt.Sprintf("  Flaky: %d/%d (%.1f%%)", s.FlakeNamedCount, s.DistinctNamedTests, pctFlake)
 	if s.FlakeNamedCount > 0 {
 		assert.Contains(t, out, termstyle.Bad.Render(flakyLine))
 	} else {
