@@ -1489,7 +1489,7 @@ func (r *ReportingPlugin) validateListSecretIdentifiersObservation(ctx context.C
 		if err := r.cfg.MaxSecretsPerOwner.Check(ctx, len(listResp.Identifiers)); err != nil {
 			var errBoundLimited limits.ErrorBoundLimited[int]
 			if errors.As(err, &errBoundLimited) {
-				return fmt.Errorf("ListSecretIdentifiers response exceeds maximum number of secrets per owner (have=%d, limit=%d)", len(listResp.Identifiers), errBoundLimited.Limit)
+				return fmt.Errorf("ListSecretIdentifiers response exceeds maximum number of secrets per owner (have=%d, limit=%d): %w", len(listResp.Identifiers), errBoundLimited.Limit, err)
 			}
 			return fmt.Errorf("failed to check max secrets per owner limit: %w", err)
 		}
