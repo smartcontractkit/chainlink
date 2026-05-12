@@ -37,13 +37,7 @@ func resolveVaultOCRBoundLimitInt[I constraints.Integer](
 	spec settings.IsSetting[I],
 	settingKey string,
 ) (int, error) {
-	limiter, err := limits.MakeUpperBoundLimiter(factory, spec)
-	if err != nil {
-		return 0, fmt.Errorf("%s: %w", settingKey, err)
-	}
-	defer func() { _ = limiter.Close() }()
-
-	v, err := limiter.Limit(ctx)
+	v, err := spec.GetSpec().GetOrDefault(ctx, factory.Settings)
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", settingKey, err)
 	}
