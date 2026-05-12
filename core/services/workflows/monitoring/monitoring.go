@@ -63,6 +63,8 @@ type EngineMetrics struct {
 	shardExecutionDeniedOrchestratorCounter metric.Int64Counter
 
 	triggerEventReceivedCounter         metric.Int64Counter
+	triggerEventAckSuccessCounter       metric.Int64Counter
+	triggerEventAckFailureCounter       metric.Int64Counter
 	triggerEventEnqueuedCounter         metric.Int64Counter
 	triggerEventEnqueueDroppedCounter   metric.Int64Counter
 	triggerEventDequeueDroppedCounter   metric.Int64Counter
@@ -296,6 +298,22 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register trigger event received counter: %w", err)
+	}
+
+	em.triggerEventAckSuccessCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_trigger_event_ack_success_total",
+		metric.WithDescription("Trigger events successfully acknowledged to the trigger capability"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger event ack success counter: %w", err)
+	}
+
+	em.triggerEventAckFailureCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_trigger_event_ack_failure_total",
+		metric.WithDescription("Trigger event ACK attempts that failed (registration missing or capability AckEvent error)"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger event ack failure counter: %w", err)
 	}
 
 	em.triggerEventEnqueuedCounter, err = beholder.GetMeter().Int64Counter(
@@ -656,6 +674,16 @@ func (c WorkflowsMetricLabeler) IncrementShardExecutionDeniedOrchestratorErrorCo
 func (c WorkflowsMetricLabeler) IncrementTriggerEventReceivedCounter(ctx context.Context) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.triggerEventReceivedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementTriggerEventAckSuccessCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.triggerEventAckSuccessCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementTriggerEventAckFailureCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.triggerEventAckFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c WorkflowsMetricLabeler) IncrementTriggerEventEnqueuedCounter(ctx context.Context) {

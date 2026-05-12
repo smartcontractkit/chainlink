@@ -752,7 +752,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 			tm.IncrementWorkflowTriggerEventErrorCounter(ctx)
 			tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonDuplicateExecution)
 			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, wrappedTriggerEvent.triggerIndex)
-			err = e.ackTriggerEvent(ctx, registrationID, &triggerEvent)
+			err = e.ackTriggerEvent(ctx, wrappedTriggerEvent.triggerCapID, registrationID, &triggerEvent)
 			if err != nil {
 				e.lggr.Errorw("failed to re-ACK trigger event", "eventID", triggerEvent.ID, "err", err)
 			}
@@ -782,7 +782,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 			triggerDrop(monitoring.TriggerDropReasonShardDeniedOrchestrator)
 			executionStatus = store.StatusErrored
 			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, wrappedTriggerEvent.triggerIndex)
-			if ackErr := e.ackTriggerEvent(ctx, registrationID, &triggerEvent); ackErr != nil {
+			if ackErr := e.ackTriggerEvent(ctx, wrappedTriggerEvent.triggerCapID, registrationID, &triggerEvent); ackErr != nil {
 				e.logger().Errorw("failed to ACK trigger after shard ownership orchestrator error", "eventID", triggerEvent.ID, "err", ackErr)
 			}
 			return
@@ -801,7 +801,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 			triggerDrop(monitoring.TriggerDropReasonShardDeniedNotOwner)
 			executionStatus = store.StatusErrored
 			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, wrappedTriggerEvent.triggerIndex)
-			if ackErr := e.ackTriggerEvent(ctx, registrationID, &triggerEvent); ackErr != nil {
+			if ackErr := e.ackTriggerEvent(ctx, wrappedTriggerEvent.triggerCapID, registrationID, &triggerEvent); ackErr != nil {
 				e.logger().Errorw("failed to ACK trigger after shard ownership denial", "eventID", triggerEvent.ID, "err", ackErr)
 			}
 			return
@@ -865,7 +865,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
 
 	registrationID := TriggerRegistrationID(e.cfg.WorkflowID, wrappedTriggerEvent.triggerIndex)
-	err = e.ackTriggerEvent(ctx, registrationID, &triggerEvent)
+	err = e.ackTriggerEvent(ctx, wrappedTriggerEvent.triggerCapID, registrationID, &triggerEvent)
 	if err != nil {
 		e.lggr.Errorf("failed to ACK trigger event (eventID=%s): %v", triggerEvent.ID, err)
 	}
@@ -975,17 +975,26 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	e.cfg.Hooks.OnResultReceived(result)
 }
 
-func (e *Engine) ackTriggerEvent(ctx context.Context, triggerRegistrationID string, te *capabilities.TriggerEvent) error {
+func (e *Engine) ackTriggerEvent(ctx context.Context, triggerCapID, triggerRegistrationID string, te *capabilities.TriggerEvent) error {
 	e.logger().Infow("ACKing trigger event", "triggerRegistrationID", triggerRegistrationID, "eventID", te.ID)
+
+	tm := e.metrics.With(platform.KeyTriggerID, triggerCapID)
 
 	e.triggersRegMu.Lock()
 	trigger, ok := e.triggers[triggerRegistrationID]
 	e.triggersRegMu.Unlock()
 
 	if !ok {
+		tm.IncrementTriggerEventAckFailureCounter(ctx)
 		return fmt.Errorf("failed to find trigger %s", triggerRegistrationID)
 	}
-	return trigger.AckEvent(ctx, triggerRegistrationID, te.ID, trigger.method)
+	err := trigger.AckEvent(ctx, triggerRegistrationID, te.ID, trigger.method)
+	if err != nil {
+		tm.IncrementTriggerEventAckFailureCounter(ctx)
+		return err
+	}
+	tm.IncrementTriggerEventAckSuccessCounter(ctx)
+	return nil
 }
 
 func (e *Engine) secretsFetcher(phaseID string) SecretsFetcher {
