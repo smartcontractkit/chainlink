@@ -387,6 +387,9 @@ type LifecycleHooks struct {
 	OnResultReceived       func(*sdkpb.ExecutionResult)
 	OnRateLimited          func(executionID string)
 	OnNodeSynced           func(node commoncap.Node, err error)
+
+	// Used by the standalone engine
+	OnRequirementsSet func(executionId string, requirements *sdkpb.Requirements)
 }
 
 func (c *EngineConfig) Validate() error {
