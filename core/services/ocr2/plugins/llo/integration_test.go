@@ -2,6 +2,7 @@ package llo_test
 
 import (
 	"crypto/ed25519"
+	sha3 "crypto/sha3"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -25,7 +26,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/crypto/sha3"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/protobuf/proto"
 
@@ -357,9 +357,9 @@ func setProductionConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, b
 func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, configurator *configurator.Configurator, configuratorAddress common.Address, nodes []Node, opts ...OCRConfigOption) ocr2types.ConfigDigest {
 	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig := generateConfig(t, opts...)
 
-	var onchainPubKeys [][]byte
-	for _, signer := range signers {
-		onchainPubKeys = append(onchainPubKeys, signer)
+	onchainPubKeys := make([][]byte, len(signers))
+	for i, signer := range signers {
+		onchainPubKeys[i] = signer
 	}
 	offchainTransmitters := make([][32]byte, nNodes)
 	for i := range nNodes {
@@ -450,7 +450,7 @@ func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig datastreams
 		clientPubKeys[i] = key.PublicKey
 	}
 
-	steve, backend, _, _, verifier, _, verifierProxy, _, configStore, configStoreAddress, legacyVerifier, legacyVerifierAddr, _, _ := setupBlockchain(t)
+	steve, backend, _, _, verifier, _, _, _, configStore, configStoreAddress, legacyVerifier, legacyVerifierAddr, _, _ := setupBlockchain(t)
 	fromBlock := 1
 
 	// Setup bootstrap
@@ -476,7 +476,7 @@ func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig datastreams
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -592,7 +592,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				}
 
 				var expectedBm, expectedBid, expectedAsk *big.Int
-				if feedID == quoteStreamFeedID1 { //nolint
+				//nolint:gocritic,staticcheck // switch case doesn't play nice with these types
+				if feedID == quoteStreamFeedID1 {
 					expectedBm = quoteStream1.baseBenchmarkPrice.Mul(multiplier).BigInt()
 					expectedBid = quoteStream1.baseBid.Mul(multiplier).BigInt()
 					expectedAsk = quoteStream1.baseAsk.Mul(multiplier).BigInt()
@@ -601,14 +602,14 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					expectedBid = quoteStream2.baseBid.Mul(multiplier).BigInt()
 					expectedAsk = quoteStream2.baseAsk.Mul(multiplier).BigInt()
 				} else {
-					t.Fatalf("unrecognized feedID: 0x%x", feedID)
+					require.FailNowf(t, "unrecognized feedID: 0x%x", hex.EncodeToString(feedID[:]))
 				}
 
-				assert.GreaterOrEqual(t, reportElems["validFromTimestamp"].(uint32), uint32(testStartTimeStamp.Unix()))
-				assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp.Unix()))
+				assert.GreaterOrEqual(t, int64(reportElems["validFromTimestamp"].(uint32)), testStartTimeStamp.Unix())
+				assert.GreaterOrEqual(t, int64(reportElems["observationsTimestamp"].(uint32)), testStartTimeStamp.Unix())
 				assert.Equal(t, "33597747607000", reportElems["nativeFee"].(*big.Int).String())
 				assert.Equal(t, "7547169811320755", reportElems["linkFee"].(*big.Int).String())
-				assert.Equal(t, reportElems["observationsTimestamp"].(uint32)+uint32(expirationWindow), reportElems["expiresAt"].(uint32))
+				assert.Equal(t, int64(reportElems["observationsTimestamp"].(uint32))+int64(expirationWindow), int64(reportElems["expiresAt"].(uint32)))
 				assert.Equal(t, expectedBm.String(), reportElems["benchmarkPrice"].(*big.Int).String())
 				assert.Equal(t, expectedBid.String(), reportElems["bid"].(*big.Int).String())
 				assert.Equal(t, expectedAsk.String(), reportElems["ask"].(*big.Int).String())
@@ -628,16 +629,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					assert.GreaterOrEqual(t, len(reportSigners), int(fNodes+1))
 					assert.Subset(t, signerAddresses, reportSigners)
 				}
-
-				// test on-chain verification
-				t.Run("on-chain verification", func(t *testing.T) {
-					t.Skip("SKIP - MERC-6637")
-					// Disabled because it flakes, sometimes returns "execution reverted"
-					// No idea why
-					// https://smartcontract-it.atlassian.net/browse/MERC-6637
-					_, err = verifierProxy.Verify(steve, req.req.Payload, []byte{})
-					require.NoError(t, err)
-				})
 
 				pr, ok := peer.FromContext(req.ctx)
 				require.True(t, ok)
@@ -717,7 +708,7 @@ func testIntegrationLLOMultiFormats(t *testing.T, offchainConfig datastreamsllo.
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -1469,7 +1460,7 @@ func TestIntegration_LLO_stress_test_V1(t *testing.T) {
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
 	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, func(c *chainlink.Config) {
-		c.Log.Level = ptr(logLevel)
+		c.Log.Level = new(logLevel)
 	})
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
@@ -1490,8 +1481,8 @@ func TestIntegration_LLO_stress_test_V1(t *testing.T) {
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolGRPC)
-			c.Log.Level = ptr(logLevel)
+			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Log.Level = new(logLevel)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -1546,7 +1537,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		}
 
 		// Set config on configurator
-		opts := []OCRConfigOption{WithOracles(oracles)}
+		opts := make([]OCRConfigOption, 0, 1+len(ocrConfigOpts))
+		opts = append(opts, WithOracles(oracles))
 		opts = append(opts, ocrConfigOpts...)
 		blueDigest := setProductionConfig(
 			t, donID, steve, backend, configurator, configuratorAddress, nodes, opts...,
@@ -1694,7 +1686,7 @@ func TestIntegration_LLO_transmit_errors(t *testing.T) {
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
 	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, func(c *chainlink.Config) {
-		c.Log.Level = ptr(logLevel)
+		c.Log.Level = new(logLevel)
 	})
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
@@ -1715,9 +1707,9 @@ func TestIntegration_LLO_transmit_errors(t *testing.T) {
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolGRPC)
-			c.Mercury.Transmitter.TransmitQueueMaxSize = ptr(uint32(maxQueueSize)) // Test queue overflow
-			c.Log.Level = ptr(logLevel)
+			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.TransmitQueueMaxSize = new(uint32(maxQueueSize)) // Test queue overflow
+			c.Log.Level = new(logLevel)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -1869,7 +1861,7 @@ func testIntegrationLLOBlueGreenLifecycle(t *testing.T, offchainConfig datastrea
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -2229,7 +2221,7 @@ func TestIntegration_LLO_channel_merging_owners_adders(t *testing.T) {
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -2736,7 +2728,7 @@ func TestIntegration_LLO_tombstone_stops_observations_and_reports(t *testing.T) 
 	serverURL := startMercuryServer(t, srv, clientPubKeys)
 
 	oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-		c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolGRPC)
+		c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
 	})
 
 	chainID := testutils.SimulatedChainID

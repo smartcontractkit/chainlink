@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	"github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
@@ -16,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/seqs"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -68,14 +68,14 @@ func (t GrantRoleTimelockSolana) VerifyPreconditions(
 			}
 		}
 
-		mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, chainAddresses)
+		mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(solChain, chainAddresses)
 		if err != nil {
 			return fmt.Errorf("failed to load MCMS state: %w", err)
 		}
 		if mcmState.TimelockProgram.IsZero() {
 			return fmt.Errorf("timelock program not deployed for chain %d", chainSelector)
 		}
-		if (mcmState.TimelockSeed == state.PDASeed{}) {
+		if (mcmState.TimelockSeed == solstate.PDASeed{}) {
 			return fmt.Errorf("timelock seed not found for chain %d", chainSelector)
 		}
 	}
@@ -98,7 +98,7 @@ func (t GrantRoleTimelockSolana) Apply(
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 		}
-		mcmsChainState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addresses)
+		mcmsChainState, _ := solstate.MaybeLoadMCMSWithTimelockChainState(solChain, addresses)
 
 		deps := seqs.SeqSolanaGrantRoleTimelockDeps{Chain: solChain}
 		input := seqs.SeqSolanaGrantRoleTimelockInput{
@@ -118,7 +118,7 @@ func (t GrantRoleTimelockSolana) Apply(
 				Transactions:  report.Output.McmsTransactions,
 			})
 			proposers[chainSelector], _ = proposalMCM(mcmsChainState, cfg.MCMS.MCMSAction)
-			timelocks[chainSelector] = state.EncodeAddressWithSeed(mcmsChainState.TimelockProgram, mcmsChainState.TimelockSeed)
+			timelocks[chainSelector] = solstate.EncodeAddressWithSeed(mcmsChainState.TimelockProgram, mcmsChainState.TimelockSeed)
 			inspectors[chainSelector] = mcmssolanasdk.NewInspector(solChain.Client)
 		}
 	}
@@ -151,12 +151,12 @@ func validTimelockActions(timelockConfig *proposalutils.TimelockConfig) bool {
 	}
 }
 
-func proposalMCM(mcmsState *state.MCMSWithTimelockStateSolana, action mcmstypes.TimelockAction) (string, error) {
+func proposalMCM(mcmsState *solstate.MCMSWithTimelockState, action mcmstypes.TimelockAction) (string, error) {
 	switch action {
 	case "", mcmstypes.TimelockActionSchedule:
-		return state.EncodeAddressWithSeed(mcmsState.McmProgram, mcmsState.ProposerMcmSeed), nil
+		return solstate.EncodeAddressWithSeed(mcmsState.McmProgram, mcmsState.ProposerMcmSeed), nil
 	case mcmstypes.TimelockActionBypass:
-		return state.EncodeAddressWithSeed(mcmsState.McmProgram, mcmsState.BypasserMcmSeed), nil
+		return solstate.EncodeAddressWithSeed(mcmsState.McmProgram, mcmsState.BypasserMcmSeed), nil
 	default:
 		return "", fmt.Errorf("invalid mcms action: %v", action)
 	}

@@ -50,7 +50,7 @@ func NormalizeFailFastOn(values []string) ([]string, error) {
 	var out []string
 	seen := make(map[string]struct{})
 	for _, value := range values {
-		for _, part := range strings.Split(value, ",") {
+		for part := range strings.SplitSeq(value, ",") {
 			category := strings.ToLower(strings.TrimSpace(part))
 			if category == "" {
 				return nil, errors.New(`--fail-fast-on must contain only "any", "failure", "timeout", or "slow"; got ""`)
