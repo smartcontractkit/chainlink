@@ -139,17 +139,17 @@ func Test_PluginConfig(t *testing.T) {
 		t.Run("with invalid values", func(t *testing.T) {
 			var mc PluginConfig
 
-			rawToml := `LinkFeedID = "test"`
+			rawToml := `LinkFeedID = "0y0000000000000000000000000000000000000000000000000000000000000000"`
 			err := toml.Unmarshal([]byte(rawToml), &mc)
-			assert.Contains(t, err.Error(), "toml: hex string without 0x prefix")
+			assert.Contains(t, err.Error(), "toml: FeedID must start with '0x' or '0X' prefix")
 
 			rawToml = `LinkFeedID = "0xtest000000000000000000000000000000000000000000000000000000000000"`
 			err = toml.Unmarshal([]byte(rawToml), &mc)
-			assert.Contains(t, err.Error(), `toml: invalid hex string`)
+			assert.Contains(t, err.Error(), `toml: Failed to decode hex: encoding/hex: invalid byte`)
 
 			rawToml = `LinkFeedID = "0xtest"`
 			err = toml.Unmarshal([]byte(rawToml), &mc)
-			assert.Contains(t, err.Error(), `toml: hex string has length 4, want 64 for Hash`)
+			assert.Contains(t, err.Error(), `toml: FeedID must be 32 bytes (64 hex chars) long`)
 
 			rawToml = `
 				ServerURL = "example.com:80"

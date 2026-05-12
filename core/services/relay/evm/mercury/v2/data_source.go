@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	v2types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
 	mercurytypes "github.com/smartcontractkit/chainlink-data-streams/mercury/types"
-	mercuryutils "github.com/smartcontractkit/chainlink-data-streams/mercury/utils"
 	v2 "github.com/smartcontractkit/chainlink-data-streams/mercury/v2"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/v2/reportcodec"
 
@@ -37,15 +36,15 @@ type datasource struct {
 	pipelineRunner Runner
 	jb             job.Job
 	spec           pipeline.Spec
-	feedID         mercuryutils.FeedID
+	feedID         mercury.FeedID
 	lggr           logger.Logger
 	saver          ocrcommon.Saver
 	orm            mercurytypes.DataSourceORM
 	codec          reportcodec.ReportCodec
 
 	fetcher      LatestReportFetcher
-	linkFeedID   mercuryutils.FeedID
-	nativeFeedID mercuryutils.FeedID
+	linkFeedID   mercury.FeedID
+	nativeFeedID mercury.FeedID
 
 	mu sync.RWMutex
 
@@ -54,7 +53,7 @@ type datasource struct {
 
 var _ v2.DataSource = &datasource{}
 
-func NewDataSource(orm mercurytypes.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, feedID mercuryutils.FeedID, lggr logger.Logger, s ocrcommon.Saver, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, fetcher LatestReportFetcher, linkFeedID, nativeFeedID mercuryutils.FeedID) *datasource {
+func NewDataSource(orm mercurytypes.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, feedID mercury.FeedID, lggr logger.Logger, s ocrcommon.Saver, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, fetcher LatestReportFetcher, linkFeedID, nativeFeedID mercury.FeedID) *datasource {
 	return &datasource{pr, jb, spec, feedID, lggr, s, orm, reportcodec.ReportCodec{}, fetcher, linkFeedID, nativeFeedID, sync.RWMutex{}, enhancedTelemChan}
 }
 
@@ -170,7 +169,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 		V2Observation:              &obs,
 		TaskRunResults:             trrs,
 		RepTimestamp:               repts,
-		FeedVersion:                mercuryutils.REPORT_V2,
+		FeedVersion:                mercury.REPORT_V2,
 		FetchMaxFinalizedTimestamp: fetchMaxFinalizedTimestamp,
 		IsLinkFeed:                 isLink,
 		IsNativeFeed:               isNative,

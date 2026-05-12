@@ -19,7 +19,6 @@ import (
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	v4 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury"
-	mercuryutils "github.com/smartcontractkit/chainlink-data-streams/mercury/utils"
 	reportcodecv2 "github.com/smartcontractkit/chainlink-data-streams/mercury/v2/reportcodec"
 	reportcodecv3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3/reportcodec"
 	reportcodecv4 "github.com/smartcontractkit/chainlink-data-streams/mercury/v4/reportcodec"
@@ -64,7 +63,7 @@ func NewMercuryProvider(
 	reportCodecV3 := reportcodecv3.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV3"))
 	reportCodecV4 := reportcodecv4.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV4"))
 
-	getCodecForFeed := func(feedID mercuryutils.FeedID) (mercury.TransmitterReportDecoder, error) {
+	getCodecForFeed := func(feedID mercurytypes.FeedID) (mercury.TransmitterReportDecoder, error) {
 		var transmitterCodec mercury.TransmitterReportDecoder
 		switch feedID.Version() {
 		case 2:
@@ -79,7 +78,7 @@ func NewMercuryProvider(
 		return transmitterCodec, nil
 	}
 
-	benchmarkPriceDecoder := func(ctx context.Context, feedID mercuryutils.FeedID, report ocrtypes.Report) (*big.Int, error) {
+	benchmarkPriceDecoder := func(ctx context.Context, feedID mercurytypes.FeedID, report ocrtypes.Report) (*big.Int, error) {
 		benchmarkPriceCodec, benchmarkPriceErr := getCodecForFeed(feedID)
 		if benchmarkPriceErr != nil {
 			return nil, benchmarkPriceErr
@@ -99,7 +98,7 @@ func NewMercuryProvider(
 			return nil, err
 		}
 	}
-	transmitterCodec, err := getCodecForFeed(mercuryutils.FeedID(*relayConfig.FeedID))
+	transmitterCodec, err := getCodecForFeed(mercurytypes.FeedID(*relayConfig.FeedID))
 	if err != nil {
 		return nil, err
 	}

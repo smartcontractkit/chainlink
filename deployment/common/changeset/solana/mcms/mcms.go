@@ -8,6 +8,7 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -16,7 +17,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms/sequence/operation"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -29,13 +29,13 @@ func DeployMCMSWithTimelockProgramsSolana(
 	chain cldf_solana.Chain,
 	addressBook cldf.AddressBook,
 	config commontypes.MCMSWithTimelockConfigV2,
-) (*state.MCMSWithTimelockStateSolana, error) {
+) (*solstate.MCMSWithTimelockState, error) {
 	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 	if err != nil && !errors.Is(err, cldf.ErrChainNotFound) {
 		return nil, fmt.Errorf("failed to get addresses for chain %v from environment: %w", chain.Selector, err)
 	}
 
-	chainState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	chainState, err := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load mcms with timelock solana chain state: %w", err)
 	}
@@ -116,8 +116,8 @@ func DeployMCMSWithTimelockProgramsSolanaV2(
 	e cldf.Environment,
 	ds datastore.MutableDataStore,
 	chain cldf_solana.Chain,
-	config commontypes.MCMSWithTimelockConfigV2) (*state.MCMSWithTimelockStateSolana, error) {
-	chainstate, err := state.MaybeLoadMCMSWithTimelockChainStateSolanaV2(e.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(chain.Selector)))
+	config commontypes.MCMSWithTimelockConfigV2) (*solstate.MCMSWithTimelockState, error) {
+	chainstate, err := solstate.MaybeLoadMCMSWithTimelockChainStateV2(e.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(chain.Selector)))
 	if err != nil {
 		return nil, err
 	}

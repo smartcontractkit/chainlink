@@ -128,7 +128,16 @@ jobs:
         runs-on: ubuntu-latest
         needs: [ df1-compat ]
         if: always() && github.event.client_payload.slack_thread_ts
+        permissions:
+            contents: read
         steps:
+            - name: Checkout code
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+              with:
+                  # use default branch to avoid running action from unmerged PRs and exposing secrets it uses
+                  ref: ${{ github.event.repository.default_branch }}
+                  persist-credentials: false
+
             - name: Notify Slack Jobs Result
               uses: ./.github/actions/notify-slack-jobs-result
               with:
@@ -144,7 +153,15 @@ jobs:
         runs-on: ubuntu-latest
         needs: [ cre-compat ]
         if: always() && github.event.client_payload.slack_thread_ts
+        permissions:
+            contents: read
         steps:
+            - name: Checkout code
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+              with:
+                  # use default branch to avoid running action from unmerged PRs and exposing secrets it uses
+                  ref: ${{ github.event.repository.default_branch }}
+                  persist-credentials: false
             - name: Notify Slack Jobs Result
               uses: ./.github/actions/notify-slack-jobs-result
               with:
@@ -160,7 +177,15 @@ jobs:
         runs-on: ubuntu-latest
         needs: [ legacy-system-tests ]
         if: always() && github.event.client_payload.slack_thread_ts
+        permissions:
+            contents: read
         steps:
+            - name: Checkout code
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+              with:
+                  # use default branch to avoid running action from unmerged PRs and exposing secrets it uses
+                  ref: ${{ github.event.repository.default_branch }}
+                  persist-credentials: false
             - name: Notify Slack Jobs Result
               uses: ./.github/actions/notify-slack-jobs-result
               with:
@@ -176,7 +201,15 @@ jobs:
         runs-on: ubuntu-latest
         needs: [ cre-smoke-tests ]
         if: always() && github.event.client_payload.slack_thread_ts
+        permissions:
+            contents: read
         steps:
+            - name: Checkout code
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+              with:
+                  # use default branch to avoid running action from unmerged PRs and exposing secrets it uses
+                  ref: ${{ github.event.repository.default_branch }}
+                  persist-credentials: false
             - name: Notify Slack Jobs Result
               uses: ./.github/actions/notify-slack-jobs-result
               with:
@@ -192,7 +225,15 @@ jobs:
         runs-on: ubuntu-latest
         needs: [ cre-regression-tests ]
         if: always() && github.event.client_payload.slack_thread_ts
+        permissions:
+            contents: read
         steps:
+            - name: Checkout code
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+              with:
+                  # use default branch to avoid running action from unmerged PRs and exposing secrets it uses
+                  ref: ${{ github.event.repository.default_branch }}
+                  persist-credentials: false
             - name: Notify Slack Jobs Result
               uses: ./.github/actions/notify-slack-jobs-result
               with:

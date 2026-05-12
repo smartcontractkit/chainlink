@@ -40,10 +40,11 @@ type triggerPublisher struct {
 	dispatcher    types.Dispatcher
 	cfg           atomic.Pointer[dynamicPublisherConfig]
 
-	messageCache  *messagecache.MessageCache[registrationKey, p2ptypes.PeerID]
-	registrations map[registrationKey]*pubRegState
-	ackCache      *messagecache.MessageCache[ackKey, p2ptypes.PeerID]
-	mu            sync.RWMutex // protects messageCache, ackCache, and registrations
+	messageCache    *messagecache.MessageCache[registrationKey, p2ptypes.PeerID]
+	registrations   map[registrationKey]*pubRegState
+	unregisterCache *messagecache.MessageCache[registrationKey, p2ptypes.PeerID]
+	ackCache        *messagecache.MessageCache[ackKey, p2ptypes.PeerID]
+	mu              sync.RWMutex // protects messageCache, ackCache, unregisterCache, and registrations
 
 	batchingQueue map[[32]byte]*batchedResponse
 	bqMu          sync.Mutex // protects batchingQueue
@@ -107,15 +108,16 @@ const minAllowedBatchCollectionPeriod = 10 * time.Millisecond
 
 func NewTriggerPublisher(capabilityID string, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *triggerPublisher {
 	return &triggerPublisher{
-		capabilityID:  capabilityID,
-		capMethodName: capMethodName,
-		dispatcher:    dispatcher,
-		messageCache:  messagecache.NewMessageCache[registrationKey, p2ptypes.PeerID](),
-		ackCache:      messagecache.NewMessageCache[ackKey, p2ptypes.PeerID](),
-		registrations: make(map[registrationKey]*pubRegState),
-		batchingQueue: make(map[[32]byte]*batchedResponse),
-		stopCh:        make(services.StopChan),
-		lggr:          logger.With(logger.Named(lggr, "TriggerPublisher"), "capabilityID", capabilityID, "capMethodName", capMethodName),
+		capabilityID:    capabilityID,
+		capMethodName:   capMethodName,
+		dispatcher:      dispatcher,
+		messageCache:    messagecache.NewMessageCache[registrationKey, p2ptypes.PeerID](),
+		ackCache:        messagecache.NewMessageCache[ackKey, p2ptypes.PeerID](),
+		unregisterCache: messagecache.NewMessageCache[registrationKey, p2ptypes.PeerID](),
+		registrations:   make(map[registrationKey]*pubRegState),
+		batchingQueue:   make(map[[32]byte]*batchedResponse),
+		stopCh:          make(services.StopChan),
+		lggr:            logger.With(logger.Named(lggr, "TriggerPublisher"), "capabilityID", capabilityID, "capMethodName", capMethodName),
 	}
 }
 
@@ -201,6 +203,8 @@ func (p *triggerPublisher) Start(ctx context.Context) error {
 
 	p.wg.Add(1)
 	go p.cacheCleanupLoop()
+	p.wg.Add(1)
+	go p.registrationCheckLoop()
 	p.wg.Add(1)
 	go p.batchingLoop()
 	p.lggr.Info("TriggerPublisher started")
@@ -306,6 +310,64 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 					"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", err)
 			}
 		}
+	case types.MethodUnregisterTrigger:
+		meta := msg.GetTriggerEventMetadata()
+		if meta == nil {
+			p.lggr.Errorw("received unregister with nil metadata", "sender", sender)
+			return
+		}
+		if len(meta.WorkflowIds) != 1 || len(meta.TriggerIds) != 1 {
+			p.lggr.Errorw("received unregister with unexpected metadata sizes",
+				"sender", sender, "workflowIdsLen", len(meta.WorkflowIds), "triggerIdsLen", len(meta.TriggerIds))
+			return
+		}
+		callerDon, ok := cfg.workflowDONs[msg.CallerDonId]
+		if !ok {
+			p.lggr.Errorw("received unregister from unsupported workflow DON", "callerDonId", msg.CallerDonId)
+			return
+		}
+		if !cfg.membersCache[msg.CallerDonId][sender] {
+			p.lggr.Errorw("unregister sender not a member of its workflow DON", "callerDonId", msg.CallerDonId, "sender", sender)
+			return
+		}
+
+		key := registrationKey{
+			callerDonID: msg.CallerDonId,
+			workflowID:  meta.WorkflowIds[0],
+			triggerID:   meta.TriggerIds[0],
+		}
+
+		p.mu.Lock()
+		reg, exists := p.registrations[key]
+		if !exists {
+			p.mu.Unlock()
+			return
+		}
+		nowMs := time.Now().UnixMilli()
+		minRequired := uint32(2*callerDon.F + 1)
+		p.unregisterCache.Insert(key, sender, nowMs, nil)
+		ready, _ := p.unregisterCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), true)
+		if !ready {
+			p.mu.Unlock()
+			p.lggr.Debugw("unregister quorum not reached yet", "workflowID", key.workflowID, "triggerID", key.triggerID, "sender", sender, "minRequired", minRequired)
+			return
+		}
+		p.lggr.Debugw("unregister trigger", "workflowID", key.workflowID, "triggerID", key.triggerID,
+			"callerDonId", msg.CallerDonId, "minRequired", minRequired, "sender", sender)
+		delete(p.registrations, key)
+		p.unregisterCache.Delete(key)
+		p.messageCache.Delete(key)
+		p.mu.Unlock()
+
+		reg.cancel()
+
+		ctx, cancel := p.stopCh.NewCtx()
+		err = p.cfg.Load().underlying.UnregisterTrigger(ctx, reg.request)
+		if err != nil {
+			p.lggr.Errorw("failed to unregister trigger on underlying", "workflowID", key.workflowID, "triggerID", key.triggerID, "err", err)
+		}
+		cancel()
+		p.lggr.Infow("unregistered trigger", "workflowID", key.workflowID, "triggerID", key.triggerID)
 	case types.MethodTriggerEvent:
 		p.lggr.Errorw("trigger request failed with error",
 			"method", SanitizeLogString(msg.Method), "sender", sender, "errorMsg", SanitizeLogString(msg.ErrorMsg))
@@ -340,15 +402,23 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 		nowMs := time.Now().UnixMilli()
 		p.ackCache.Insert(key, sender, nowMs, msg.Payload)
 		minRequired := uint32(2*callerDon.F + 1)
-		ready, _ := p.ackCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.MessageExpiry.Milliseconds(), false)
+		ready, _ := p.ackCache.Ready(key, minRequired, 0, false)
 		if !ready {
-			p.lggr.Debugw("not ready to ACK trigger event yet", "triggerEventId", triggerEventID, "minRequired", minRequired)
+			ackCount := len(p.ackCache.Peers(key))
+			p.lggr.Debugw("not ready to ACK trigger event yet",
+				"triggerEventId", triggerEventID,
+				"triggerID", triggerID,
+				"acksReceived", ackCount,
+				"minRequired", minRequired)
 			return
 		}
 
 		ctx, cancel := p.stopCh.NewCtx()
 		defer cancel()
-		p.lggr.Debugw("ACKing trigger event", "triggerEventId", triggerEventID)
+		p.lggr.Infow("ACK quorum reached, forwarding to underlying trigger",
+			"triggerEventId", triggerEventID,
+			"triggerID", triggerID,
+			"minRequired", minRequired)
 		err = cfg.underlying.AckEvent(ctx, triggerID, triggerEventID, p.capMethodName)
 		ackAttrs := metric.WithAttributes(
 			attribute.String("capabilityID", p.capabilityID),
@@ -385,49 +455,133 @@ func (p *triggerPublisher) cacheCleanupLoop() {
 			return
 		case <-ticker.C:
 			cfg := p.cfg.Load()
-			// Update cleanup interval if config has changed
 			if cfg.remoteConfig.MessageExpiry != cleanupInterval {
 				cleanupInterval = cfg.remoteConfig.MessageExpiry
 				ticker.Reset(cleanupInterval)
 			}
 			now := time.Now().UnixMilli()
 
+			// Registrations are no longer expired by timeout. Subscribers that
+			// no longer want a registration respond to MethodTriggerRegistrationCheck
+			// with MethodUnregisterTrigger, which is handled in Receive.
 			p.mu.Lock()
-			for key, reg := range p.registrations {
-				callerDon := cfg.workflowDONs[key.callerDonID]
-				ready, _ := p.messageCache.Ready(key, uint32(2*callerDon.F+1), now-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), false)
-				if !ready {
-					p.lggr.Infow("trigger registration expired", "callerDonID", key.callerDonID, "workflowId", key.workflowID, "triggerID", key.triggerID)
-					if reg.registrationErr == nil {
-						ctx, cancel := p.stopCh.NewCtx()
-						err := cfg.underlying.UnregisterTrigger(ctx, reg.request)
-						cancel()
-						reg.cancel()
-						unregAttrs := metric.WithAttributes(
-							attribute.String("capabilityID", p.capabilityID),
-							attribute.String("callerDonID", strconv.FormatUint(uint64(key.callerDonID), 10)),
-						)
-						if err != nil {
-							p.metrics.unregisterTriggerCounter.Add(ctx, 1, unregAttrs, metric.WithAttributes(attribute.String("outcome", "error")))
-						} else {
-							p.metrics.unregisterTriggerCounter.Add(ctx, 1, unregAttrs, metric.WithAttributes(attribute.String("outcome", "success")))
-						}
-						p.lggr.Infow("unregistered trigger", "callerDonID", key.callerDonID, "workflowId", key.workflowID, "triggerID", key.triggerID, "err", err)
-					} else {
-						p.lggr.Debugw("removing failed user-error registration from local state", "callerDonID", key.callerDonID, "workflowId", key.workflowID, "triggerID", key.triggerID, "err", reg.registrationErr)
-					}
-					// after calling UnregisterTrigger, the underlying trigger will not send any more events to the channel
-					delete(p.registrations, key)
-					p.messageCache.Delete(key)
-				}
-			}
-
 			deleted := p.ackCache.DeleteOlderThan(now - cfg.remoteConfig.MessageExpiry.Milliseconds())
 			p.mu.Unlock()
 
 			if deleted > 0 {
 				p.lggr.Debugw("cleaned expired AckCache entries", "deleted", deleted)
 			}
+		}
+	}
+}
+
+func (p *triggerPublisher) registrationCheckLoop() {
+	defer p.wg.Done()
+	firstCfg := p.cfg.Load()
+	if firstCfg == nil {
+		p.lggr.Errorw("registrationCheckLoop started but config not set")
+		return
+	}
+	checkInterval := firstCfg.remoteConfig.RegistrationRefresh
+	ticker := time.NewTicker(checkInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-p.stopCh:
+			return
+		case <-ticker.C:
+			cfg := p.cfg.Load()
+			if cfg.remoteConfig.RegistrationRefresh != checkInterval {
+				checkInterval = cfg.remoteConfig.RegistrationRefresh
+				ticker.Reset(checkInterval)
+			}
+			p.sendRegistrationChecks()
+		}
+	}
+}
+
+func (p *triggerPublisher) sendRegistrationChecks() {
+	cfg := p.cfg.Load()
+	if cfg == nil {
+		return
+	}
+
+	now := time.Now().UnixMilli()
+
+	p.mu.Lock()
+	deletedUnreg := p.unregisterCache.DeleteOlderThan(now - cfg.remoteConfig.RegistrationExpiry.Milliseconds())
+	p.mu.Unlock()
+
+	if deletedUnreg > 0 {
+		p.lggr.Debugw("cleaned expired unregister cache entries", "deleted", deletedUnreg)
+	}
+
+	p.mu.RLock()
+	totalRegistrations := len(p.registrations)
+	grouped := make(map[uint32][]registrationKey, len(cfg.workflowDONs))
+	for key := range p.registrations {
+		grouped[key.callerDonID] = append(grouped[key.callerDonID], key)
+	}
+	p.mu.RUnlock()
+
+	p.lggr.Infow("sendRegistrationChecks: tick",
+		"totalRegistrations", totalRegistrations,
+		"nWorkflowDONs", len(grouped))
+
+	for callerDonID, keys := range grouped {
+		if len(keys) == 0 {
+			continue
+		}
+
+		chunkSize := int(cfg.remoteConfig.MaxBatchSize)
+		if chunkSize < 1 {
+			chunkSize = commoncap.DefaultBatchSize
+		}
+
+		don, ok := cfg.workflowDONs[callerDonID]
+		if !ok {
+			continue
+		}
+
+		for offset := 0; offset < len(keys); offset += chunkSize {
+			end := offset + chunkSize
+			if end > len(keys) {
+				end = len(keys)
+			}
+			chunk := keys[offset:end]
+			workflowIDs := make([]string, len(chunk))
+			triggerIDs := make([]string, len(chunk))
+			for i, key := range chunk {
+				workflowIDs[i] = key.workflowID
+				triggerIDs[i] = key.triggerID
+			}
+
+			msg := &types.MessageBody{
+				CapabilityId:     p.capabilityID,
+				CapabilityDonId:  cfg.capDonInfo.ID,
+				CallerDonId:      callerDonID,
+				Method:           types.MethodTriggerRegistrationCheck,
+				CapabilityMethod: p.capMethodName,
+				Metadata: &types.MessageBody_TriggerEventMetadata{
+					TriggerEventMetadata: &types.TriggerEventMetadata{
+						WorkflowIds: workflowIDs,
+						TriggerIds:  triggerIDs,
+					},
+				},
+			}
+
+			for _, peerID := range don.Members {
+				err := p.dispatcher.Send(peerID, msg)
+				if err != nil {
+					p.lggr.Errorw("failed to send message", "donId", cfg.capDonInfo.ID, "peerId", peerID, "err", err)
+				}
+			}
+			p.lggr.Debugw("sent batched registration check",
+				"callerDonId", callerDonID,
+				"chunkOffset", offset,
+				"chunkLen", len(chunk),
+				"totalRegistrations", len(keys),
+				"nPeers", len(don.Members))
 		}
 	}
 }
@@ -514,47 +668,16 @@ func (p *triggerPublisher) sendBatch(resp *batchedResponse) {
 			resp.triggerIDs = nil
 		}
 
-		ackSnapshot := make(map[string]map[p2ptypes.PeerID]bool)
-		p.mu.RLock()
-		for _, triggerID := range triggerBatch {
-			key := ackKey{
-				callerDonID:    resp.callerDonID,
-				triggerEventID: resp.triggerEventID,
-				triggerID:      triggerID,
-			}
-			ackSnapshot[triggerID] = p.ackCache.Peers(key)
-		}
-		p.mu.RUnlock()
-
+		peersSent := 0
 		for _, peerID := range cfg.workflowDONs[resp.callerDonID].Members {
-			var missingTriggerIDs []string
-			var missingWorkflowIDs []string
-
-			// determine which triggerIDs / workflowIDs have not yet ACKd this trigger event
-			for i, triggerID := range triggerBatch {
-				peers := ackSnapshot[triggerID]
-				if peers == nil || !peers[peerID] {
-					missingTriggerIDs = append(missingTriggerIDs, triggerID)
-					missingWorkflowIDs = append(missingWorkflowIDs, workflowBatch[i])
-				}
-			}
-
-			if len(missingTriggerIDs) == 0 {
-				p.lggr.Debugw("skipping trigger event send; all triggerIDs already ACKed by peer",
-					"peerID", peerID,
-					"callerDonID", resp.callerDonID,
-					"triggerEventID", resp.triggerEventID,
-					"triggerIDs", triggerBatch,
-				)
-				continue
-			}
+			peersSent++
 
 			p.lggr.Debugw("sending trigger event to peer",
 				"peerID", peerID,
 				"callerDonID", resp.callerDonID,
 				"triggerEventID", resp.triggerEventID,
-				"workflowIDs", missingWorkflowIDs,
-				"triggerIDs", missingTriggerIDs,
+				"workflowIDs", workflowBatch,
+				"triggerIDs", triggerBatch,
 			)
 
 			msg := &types.MessageBody{
@@ -566,8 +689,8 @@ func (p *triggerPublisher) sendBatch(resp *batchedResponse) {
 				CapabilityMethod: p.capMethodName,
 				Metadata: &types.MessageBody_TriggerEventMetadata{
 					TriggerEventMetadata: &types.TriggerEventMetadata{
-						WorkflowIds:    missingWorkflowIDs,
-						TriggerIds:     missingTriggerIDs,
+						WorkflowIds:    workflowBatch,
+						TriggerIds:     triggerBatch,
 						TriggerEventId: resp.triggerEventID,
 					},
 				},
@@ -578,6 +701,11 @@ func (p *triggerPublisher) sendBatch(resp *batchedResponse) {
 				p.lggr.Errorw("failed to send trigger event", "peerID", peerID, "err", err)
 			}
 		}
+		p.lggr.Infow("sendBatch: event dispatched",
+			"triggerEventID", resp.triggerEventID,
+			"callerDonID", resp.callerDonID,
+			"batchSize", len(triggerBatch),
+			"peersSent", peersSent)
 	}
 }
 
