@@ -181,10 +181,10 @@ func NewStandaloneEngine(
 		WorkflowName:  name,
 		WorkflowTag:   "workflowTag",
 
-		LocalLimits:                       v2.EngineLimits{},
-		LocalLimiters:                     limiters,
-		FeatureFlags:                      featureFlags,
-		GlobalExecutionConcurrencyLimiter: workflowLimits,
+		LocalLimits:         v2.EngineLimits{},
+		LocalLimiters:       limiters,
+		FeatureFlags:        featureFlags,
+		GlobalWorkflowLimit: workflowLimits,
 
 		BeholderEmitter: custmsg.NewLabeler(),
 

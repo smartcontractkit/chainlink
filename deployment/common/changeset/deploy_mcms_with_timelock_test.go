@@ -29,12 +29,15 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	soltestutils "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana/testutils"
+
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	mcmschangesetstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 )
 
 func TestGrantRoleInTimeLock(t *testing.T) {
@@ -511,7 +514,7 @@ func TestDeployMCMSWithTimelockV2SkipInitSolana(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	solanaState, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockStateSolana(rt.Environment(), []uint64{selector})
+	solanaState, err := solstate.MaybeLoadMCMSWithTimelockState(rt.Environment(), []uint64{selector})
 	require.NoError(t, err)
 
 	// Call deploy again, seeds and addresses from original state should not change
@@ -520,7 +523,7 @@ func TestDeployMCMSWithTimelockV2SkipInitSolana(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	solanaStateNew, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockStateSolana(rt.Environment(), []uint64{selector})
+	solanaStateNew, err := solstate.MaybeLoadMCMSWithTimelockState(rt.Environment(), []uint64{selector})
 	require.NoError(t, err)
 
 	// --- assert ---
@@ -542,17 +545,17 @@ func TestDeployMCMSWithTimelockV2SkipInitSolana(t *testing.T) {
 
 // ----- helpers -----
 
-func mcmSignerPDA(programID solana.PublicKey, seed mcmschangesetstate.PDASeed) string {
-	return mcmschangesetstate.GetMCMSignerPDA(programID, seed).String()
+func mcmSignerPDA(programID solana.PublicKey, seed solstate.PDASeed) string {
+	return pdasol.GetMCMSignerPDA(programID, seed).String()
 }
 
 func solanaTimelockConfig(
-	ctx context.Context, t *testing.T, chain cldf_solana.Chain, programID solana.PublicKey, seed mcmschangesetstate.PDASeed,
+	ctx context.Context, t *testing.T, chain cldf_solana.Chain, programID solana.PublicKey, seed solstate.PDASeed,
 ) timelockBindings.Config {
 	t.Helper()
 
 	var data timelockBindings.Config
-	err := chain.GetAccountDataBorshInto(ctx, mcmschangesetstate.GetTimelockConfigPDA(programID, seed), &data)
+	err := chain.GetAccountDataBorshInto(ctx, pdasol.GetTimelockConfigPDA(programID, seed), &data)
 	require.NoError(t, err)
 
 	return data

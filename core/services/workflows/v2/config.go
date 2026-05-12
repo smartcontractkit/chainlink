@@ -9,6 +9,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -48,10 +49,10 @@ type EngineConfig struct {
 	WorkflowTag           string // workflow tag is required during workflow registration. owner + name + tag uniquely identifies a workflow.
 	WorkflowEncryptionKey workflowkey.Key
 
-	LocalLimits                       EngineLimits
-	LocalLimiters                     *EngineLimiters
-	FeatureFlags                      *EngineFeatureFlags
-	GlobalExecutionConcurrencyLimiter limits.ResourceLimiter[int] // global + per owner WorkflowExecutionConcurrencyLimit
+	LocalLimits         EngineLimits
+	LocalLimiters       *EngineLimiters
+	FeatureFlags        *EngineFeatureFlags
+	GlobalWorkflowLimit limits.ResourceLimiter[int] // global + PerOwner.WorkflowLimit
 
 	BeholderEmitter custmsg.MessageEmitter
 
@@ -79,6 +80,9 @@ type EngineConfig struct {
 }
 
 type EngineLimiters struct {
+	// Settings is the CRE dynamic settings getter from [limits.Factory.Settings] (optional).
+	Settings settings.Getter
+
 	ExecutionResponse        limits.BoundLimiter[config.Size]
 	TriggerSubscriptionTime  limits.TimeLimiter
 	TriggerRegistrationsTime limits.TimeLimiter
@@ -124,6 +128,8 @@ func NewLimiters(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*Engine
 }
 
 func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (err error) {
+	l.Settings = lf.Settings
+
 	cfg := cresettings.Default.PerWorkflow // make copy
 	if cfgFn != nil {
 		cfgFn(&cfg)
@@ -421,7 +427,7 @@ func (c *EngineConfig) Validate() error {
 	}
 
 	c.LocalLimits.setDefaultLimits()
-	if c.GlobalExecutionConcurrencyLimiter == nil {
+	if c.GlobalWorkflowLimit == nil {
 		return errors.New("execution concurrency limiter not set")
 	}
 

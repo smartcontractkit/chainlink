@@ -15,8 +15,9 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
@@ -56,9 +57,9 @@ func TestMCMSSignFireDrillChangeset(t *testing.T) {
 	// Fund the signer PDAs for the MCMS contracts
 	mcmsState := soltestutils.GetMCMSStateFromAddressBook(t, rt.State().AddressBook, solChain)
 
-	timelockSigner := state.GetTimelockSignerPDA(mcmsState.TimelockProgram, mcmsState.TimelockSeed)
-	mcmSigner := state.GetMCMSignerPDA(mcmsState.McmProgram, mcmsState.ProposerMcmSeed)
-	mcmSignerBypasser := state.GetMCMSignerPDA(mcmsState.McmProgram, mcmsState.BypasserMcmSeed)
+	timelockSigner := pdasol.GetTimelockSignerPDA(mcmsState.TimelockProgram, mcmsState.TimelockSeed)
+	mcmSigner := pdasol.GetMCMSignerPDA(mcmsState.McmProgram, mcmsState.ProposerMcmSeed)
+	mcmSignerBypasser := pdasol.GetMCMSignerPDA(mcmsState.McmProgram, mcmsState.BypasserMcmSeed)
 
 	// Note we cannot use FundSignerPDAs here because we also have to fund the bypasser signer PDA.
 	err = solutils.FundAccounts(t.Context(),

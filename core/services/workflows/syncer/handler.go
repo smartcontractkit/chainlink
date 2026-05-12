@@ -596,10 +596,10 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		WorkflowTag:           "", // V1 workflows don't have tags, so set empty string
 		WorkflowEncryptionKey: h.workflowEncryptionKey,
 
-		LocalLimits:                       v2.EngineLimits{}, // all defaults
-		LocalLimiters:                     h.engineLimiters,
-		FeatureFlags:                      h.featureFlags,
-		GlobalExecutionConcurrencyLimiter: h.workflowLimits,
+		LocalLimits:         v2.EngineLimits{}, // all defaults
+		LocalLimiters:       h.engineLimiters,
+		FeatureFlags:        h.featureFlags,
+		GlobalWorkflowLimit: h.workflowLimits,
 
 		BeholderEmitter: h.emitter,
 		BillingClient:   h.billingClient,

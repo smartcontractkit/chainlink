@@ -6,6 +6,8 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 	"github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
 
@@ -16,11 +18,11 @@ import (
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	cs_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -55,7 +57,7 @@ func (c TransferSignerRegistryToMCMSWithTimelockSolanaConfig) Validate(e cldf.En
 	if err != nil {
 		return fmt.Errorf("failed to get addresses for chain: %w", err)
 	}
-	_, err = state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addresses)
+	_, err = solstate.MaybeLoadMCMSWithTimelockChainState(solChain, addresses)
 	if err != nil {
 		return fmt.Errorf("failed to load mcm state: %w", err)
 	}
@@ -102,13 +104,13 @@ func TransferSignerRegistryToMCMSWithTimelockSolanaChangeset(
 
 	solChain := e.BlockChains.SolanaChains()[chainSelector]
 	addresses, _ := e.ExistingAddresses.AddressesForChain(chainSelector)
-	mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addresses)
+	mcmState, _ := solstate.MaybeLoadMCMSWithTimelockChainState(solChain, addresses)
 
 	currentOwner := solChain.DeployerKey.PublicKey()
 	if !cfg.CurrentOwner.IsZero() {
 		currentOwner = cfg.CurrentOwner
 	}
-	timelockSigner := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	timelockSigner := pdasol.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 	proposedOwner := timelockSigner
 	if !cfg.ProposedOwner.IsZero() {
 		proposedOwner = cfg.ProposedOwner

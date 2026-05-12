@@ -10,6 +10,7 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	"github.com/smartcontractkit/mcms/sdk/evm"
 	"github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -27,7 +28,6 @@ import (
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonchangesetsolana "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
@@ -195,7 +195,7 @@ func TestSetConfigMCMSV2Solana(t *testing.T) {
 	// Load the MCMS state
 	addrs, err := rt.State().AddressBook.AddressesForChain(selector)
 	require.NoError(t, err)
-	mcmsState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addrs)
+	mcmsState, err := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addrs)
 	require.NoError(t, err)
 
 	// Fund the signer PDAs for the MCMS contracts
@@ -496,7 +496,7 @@ func TestValidateV2(t *testing.T) {
 }
 
 func assertSolConfigEquals(
-	t *testing.T, inspector *solana.Inspector, programID solanago.PublicKey, seed state.PDASeed, want mcmstypes.Config,
+	t *testing.T, inspector *solana.Inspector, programID solanago.PublicKey, seed solstate.PDASeed, want mcmstypes.Config,
 ) {
 	t.Helper()
 
