@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
 
 	evminternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -75,7 +74,7 @@ func TestDeployMCMSWithTimelockContracts(t *testing.T) {
 	_, err = evminternal.DeployMCMSWithTimelockContractsEVM(*env,
 		chain,
 		ab,
-		proposalutils.SingleGroupTimelockConfigV2(t),
+		cldftesthelpers.SingleGroupTimelockConfig(t),
 		nil,
 	)
 	require.NoError(t, err)

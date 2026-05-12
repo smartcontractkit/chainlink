@@ -9,8 +9,12 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
@@ -37,8 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 )
 
@@ -333,11 +335,11 @@ func deployV16Contracts(t *testing.T, tenv *cldf.Environment, homeChainSel uint6
 	require.NoError(t, err)
 	p2pIDs := nodes.NonBootstraps().PeerIDs()
 
-	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
+	cfg := make(map[uint64]cldfproposalutils.MCMSWithTimelockConfig)
 	contractParams := make(map[uint64]ccipseq.ChainContractParams)
 	prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
 	for _, sel := range evmSelectors {
-		cfg[sel] = proposalutils.SingleGroupTimelockConfigV2(t)
+		cfg[sel] = cldftesthelpers.SingleGroupTimelockConfig(t)
 		contractParams[sel] = ccipseq.ChainContractParams{
 			FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
 			OffRampParams:   ccipops.DefaultOffRampParams(),
@@ -360,7 +362,7 @@ func deployV16Contracts(t *testing.T, tenv *cldf.Environment, homeChainSel uint6
 		cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
 		evmSelectors,
 	), commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
 		cfg,
 	), commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
