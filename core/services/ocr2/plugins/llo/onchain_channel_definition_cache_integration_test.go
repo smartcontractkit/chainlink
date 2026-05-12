@@ -1292,7 +1292,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, ownerDefsDroppedSHA)))
 		backend.Commit()
 
-		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Set channel definitions for source",
 			"url", url)
 
 		// Build a prev that contains the tombstoned channel 600 (simulating the
