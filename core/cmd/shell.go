@@ -120,11 +120,8 @@ func tracingConfig(cfgTracing config.Tracing, lggr logger.Logger) loop.TracingCo
 	}
 }
 
-// newBeholderClient builds the Beholder client from telemetry and tracing
-// configuration and sets the CSA signer for auth headers.
-// The caller must wire log streaming (if needed) and call Start separately.
-// Pair with initGlobals by passing the returned client so global Beholder
-// state and OTel providers register during globals initialization.
+// newBeholderClient builds a Beholder client from tracing/telemetry config
+// and sets the CSA signer used for auth header refresh.
 func newBeholderClient(
 	lggr logger.Logger,
 	keyStore keystore.Master,
