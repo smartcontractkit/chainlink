@@ -71,6 +71,8 @@ type Engine struct {
 	loggerLabels atomic.Pointer[map[string]string]
 	localNode    atomic.Pointer[capabilities.Node]
 
+	workflowLimitUsed atomic.Bool // true if GlobalWorkflowLimit must be freed
+
 	// registration ID -> trigger capability
 	triggers map[string]*triggerCapability
 	// used to separate registration and unregistration phases
@@ -282,7 +284,7 @@ func (e *Engine) init(ctx context.Context) {
 
 	// apply global engine instance limits
 	// TODO(CAPPL-794): consider moving this outside of the engine, into the Syncer
-	err := e.cfg.GlobalExecutionConcurrencyLimiter.Use(ctx, 1)
+	err := e.cfg.GlobalWorkflowLimit.Use(ctx, 1)
 	if err != nil {
 		var errLimited limits.ErrorResourceLimited[int]
 		if errors.As(err, &errLimited) {
@@ -304,6 +306,7 @@ func (e *Engine) init(ctx context.Context) {
 		}
 		return
 	}
+	e.workflowLimitUsed.Store(true)
 
 	donSubCh, cleanup, err := e.cfg.DonSubscriber.Subscribe(ctx)
 	if err != nil {
@@ -1010,8 +1013,11 @@ func (e *Engine) close() error {
 
 	// reset metering mode metric so that a positive value does not persist
 	e.metrics.UpdateWorkflowMeteringModeGauge(ctx, false)
-
-	return e.cfg.GlobalExecutionConcurrencyLimiter.Free(ctx, 1)
+	var err error
+	if e.workflowLimitUsed.Load() { // init called Use
+		err = e.cfg.GlobalWorkflowLimit.Free(ctx, 1)
+	}
+	return err
 }
 
 // NOTE: needs to be called under the triggersRegMu lock
