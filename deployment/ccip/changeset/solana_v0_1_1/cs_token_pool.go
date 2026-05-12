@@ -22,11 +22,11 @@ import (
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
-	solBaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v1_6_2/base_token_pool"
+	solBaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/base_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/cctp_token_pool"
+	solLockReleaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/lockrelease_token_pool"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_token_pool"
 	solBurnMintTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v1_6_2/burnmint_token_pool"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v1_6_2/cctp_token_pool"
-	solLockReleaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v1_6_2/lockrelease_token_pool"
-	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v1_6_2/test_token_pool"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
@@ -999,61 +999,48 @@ func TransferMintAuthorityToSignerPDA(e cldf.Environment, cfg TransferMintAuthor
 		cfg.Metadata,
 	)
 
-	var txns []mcmsTypes.Transaction
+	authority := chain.DeployerKey.PublicKey()
 	if useMcms {
 		timelockSigner, err := FetchTimelockSigner(e, cfg.ChainSelector)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
 		}
+		authority = timelockSigner
+	}
 
-		ix, err := solBurnMintTokenPool.NewTransferMintAuthorityToPdaSignerInstruction(
-			poolConfig,
-			cfg.TokenMint,
-			tokenProgram,
-			tokenPoolSigner,
-			timelockSigner,
-			cfg.CurrentMintAuthority,
-			tokenPool,
-			programData.Address,
-		).ValidateAndBuild()
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to transfer mint authority to signer PDA: %w", err)
-		}
-		err = appendTxs([]solana.Instruction{ix}, tokenPool, *cfg.PoolType, &txns)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate mcms txn: %w", err)
-		}
-	} else {
-		ix, err := solBurnMintTokenPool.NewTransferMintAuthorityToPdaSignerInstruction(
-			poolConfig,
-			cfg.TokenMint,
-			tokenProgram,
-			tokenPoolSigner,
-			chain.DeployerKey.PublicKey(),
-			cfg.CurrentMintAuthority,
-			tokenPool,
-			programData.Address,
-		).ValidateAndBuild()
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to transfer mint authority to signer PDA: %w", err)
-		}
+	ix, err := solBurnMintTokenPool.NewTransferMintAuthorityToPdaSignerInstruction(
+		poolConfig,
+		cfg.TokenMint,
+		tokenProgram,
+		tokenPoolSigner,
+		authority,
+		cfg.CurrentMintAuthority,
+		tokenPool,
+		programData.Address,
+	).ValidateAndBuild()
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to transfer mint authority to signer PDA: %w", err)
+	}
+
+	if !useMcms {
 		if err := chain.Confirm([]solana.Instruction{ix}); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 		}
+		return cldf.ChangesetOutput{}, nil
 	}
 
-	if len(txns) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to transfer mint authority to signer PDA", cfg.MCMS.MinDelay, txns)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
-		}
-		return cldf.ChangesetOutput{
-			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-		}, nil
+	var txns []mcmsTypes.Transaction
+	if err := appendTxs([]solana.Instruction{ix}, tokenPool, *cfg.PoolType, &txns); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate mcms txn: %w", err)
 	}
-
-	return cldf.ChangesetOutput{}, nil
+	proposal, err := BuildProposalsForTxns(
+		e, cfg.ChainSelector, "proposal to transfer mint authority to signer PDA", cfg.MCMS.MinDelay, txns)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+	}
+	return cldf.ChangesetOutput{
+		MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+	}, nil
 }
 
 func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.ChangesetOutput, error) {
