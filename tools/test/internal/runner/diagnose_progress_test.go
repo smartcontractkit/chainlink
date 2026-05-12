@@ -111,8 +111,8 @@ func TestRenderDiagnoseProgressLine_etaShownWhenCompletionsExist(t *testing.T) {
 	var b strings.Builder
 	t0 := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
 	runStart := t0.Add(-60 * time.Second) // 60s elapsed, 2 iterations done
-	// iteration=3 (1-based), iterations=5, iterElapsed=10s
-	// completedCount=2, avg=30s, estimated=max(30s-10s,0)+2*30s=80s=1m20s
+	// iteration=3 (1-based), iterations=5, iterElapsed=10s (shown in bracket only; ETA ignores it)
+	// completedCount=2, avgPerIter=30s, remainingIters=5-2=3, estimated=3*30s=90s
 	renderDiagnoseProgressLine(&b, 3, 5, 10*time.Second, runStart, t0, true)
 	got := b.String()
 	require.Contains(t, got, "iter 3/5")

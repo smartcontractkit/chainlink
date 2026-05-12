@@ -101,7 +101,7 @@ func (s *BillingService) start(ctx context.Context) error {
 
 	server := grpc.NewServer()
 
-	billing.RegisterCreditReservationServiceServer(server, &BillingService{lggr: s.lggr})
+	billing.RegisterCreditReservationServiceServer(server, s)
 
 	go func() {
 		err := server.Serve(lis)
