@@ -10,6 +10,7 @@ import (
 const (
 	KeyCapabilityID        = "capabilityID"
 	KeyTriggerID           = "triggerID"
+	KeyTriggerDropReason   = "drop_reason"
 	KeyWorkflowID          = "workflowID"
 	KeyWorkflowExecutionID = "workflowExecutionID"
 	KeyWorkflowName        = "workflowName"

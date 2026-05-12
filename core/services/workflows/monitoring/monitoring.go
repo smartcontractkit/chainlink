@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 
 	monutils "github.com/smartcontractkit/chainlink/v2/core/monitoring"
+	"github.com/smartcontractkit/chainlink/v2/core/platform"
 )
 
 // em AKA "engine metrics" is to locally scope these instruments to avoid
@@ -64,6 +65,7 @@ type EngineMetrics struct {
 	triggerEventEnqueuedCounter         metric.Int64Counter
 	triggerEventEnqueueDroppedCounter   metric.Int64Counter
 	triggerEventDequeueDroppedCounter   metric.Int64Counter
+	triggerEventDroppedTotal            metric.Int64Counter
 	triggerEventExpiredCounter          metric.Int64Counter
 	triggerExecutionDeduplicatedCounter metric.Int64Counter
 	triggerEventQueueWaitSeconds        metric.Float64Histogram
@@ -309,6 +311,14 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register trigger event dequeue dropped counter: %w", err)
+	}
+
+	em.triggerEventDroppedTotal, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_trigger_event_dropped_total",
+		metric.WithDescription("Trigger events that never reached Module.Execute, by drop_reason"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger event dropped total counter: %w", err)
 	}
 
 	em.triggerEventExpiredCounter, err = beholder.GetMeter().Int64Counter(
@@ -642,6 +652,17 @@ func (c WorkflowsMetricLabeler) IncrementTriggerEventEnqueuedCounter(ctx context
 func (c WorkflowsMetricLabeler) IncrementTriggerEventEnqueueDroppedCounter(ctx context.Context) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.triggerEventEnqueueDroppedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+// IncrementTriggerEventDroppedTotal records one dropped trigger event before Module.Execute.
+// dropReason must be a low-cardinality value; use TriggerDropReason* constants.
+func (c WorkflowsMetricLabeler) IncrementTriggerEventDroppedTotal(ctx context.Context, dropReason string) {
+	if dropReason == "" {
+		dropReason = TriggerDropReasonUnknown
+	}
+	lc := c.With(platform.KeyTriggerDropReason, dropReason)
+	otelLabels := beholder.OtelAttributes(lc.Labels).AsStringAttributes()
+	lc.em.triggerEventDroppedTotal.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c WorkflowsMetricLabeler) IncrementTriggerEventDequeueDroppedCounter(ctx context.Context) {
