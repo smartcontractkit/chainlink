@@ -114,9 +114,9 @@ var EthBalMonWithdrawSequence = operations.NewSequence(
 )
 
 type EthBalMonWithdrawOpInput struct {
-	ChainSelector uint64 `json:"chain_selector"`
-	Amount        uint64 `json:"amount"`
-	Payeer        string `json:"payeer"`
+	ChainSelector uint64   `json:"chain_selector"`
+	Amount        *big.Int `json:"amount"`
+	Payeer        string   `json:"payeer"`
 }
 
 type EthBalMonWithdrawOpOutput struct {
@@ -177,8 +177,7 @@ var EthBalMonWithdrawOperation = operations.NewOperation(
 				fmt.Errorf("failed to instantiate EthBalanceMonitor at %s: %w", ethBalMonAddr, err)
 		}
 
-		amountBigInt := big.NewInt(int64(input.Amount))
-		withdrawTx, err := ethBalMon.Withdraw(cldf.SimTransactOpts(), amountBigInt, common.HexToAddress(input.Payeer))
+		withdrawTx, err := ethBalMon.Withdraw(cldf.SimTransactOpts(), input.Amount, common.HexToAddress(input.Payeer))
 		if err != nil {
 			return EthBalMonWithdrawOpOutput{}, fmt.Errorf("failed to generate withdraw calldata on chain %d: %w ", input.ChainSelector, err)
 		}

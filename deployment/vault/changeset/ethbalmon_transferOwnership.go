@@ -68,7 +68,7 @@ type EthBalMonTransferOwnershipSeqOutput struct {
 }
 
 var EthBalMonTransferOwnershipSequence = operations.NewSequence(
-	"ethbalmon-transferownership-operation",
+	"ethbalmon-transferownership-sequence",
 	semver.MustParse("1.0.0"),
 	"Sequence to create transferOwnership EthBalMon batch transaction",
 	func(b operations.Bundle, deps VaultDeps, input EthBalMonTransferOwnershipSeqInput) (EthBalMonTransferOwnershipSeqOutput, error) {

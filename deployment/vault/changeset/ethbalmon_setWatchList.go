@@ -71,7 +71,7 @@ type EthBalMonSetWatchListSeqOutput struct {
 }
 
 var EthBalMonSetWatchListSequence = operations.NewSequence(
-	"ethbalmon-setWathcList-sequence",
+	"ethbalmon-setWatchList-sequence",
 	semver.MustParse("1.0.0"),
 	"Sequence to create operations for EthBalMon setWatchList",
 	func(b operations.Bundle, deps VaultDeps, input EthBalMonSetWatchListSeqInput) (EthBalMonSetWatchListSeqOutput, error) {
@@ -133,7 +133,7 @@ type EthBalMonSetWatchListOpOutput struct {
 }
 
 var EthBalMonSetWatchListOperation = operations.NewOperation(
-	"ethbalmon-setWathcList-operation",
+	"ethbalmon-setWatchList-operation",
 	semver.MustParse("1.0.0"),
 	"Operation to create transaction batch for EthBalMon setWatchList",
 	func(b operations.Bundle, deps VaultDeps, input EthBalMonSetWatchListOpInput) (EthBalMonSetWatchListOpOutput, error) {

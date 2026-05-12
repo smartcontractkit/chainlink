@@ -279,15 +279,16 @@ func ValidateEthBalMonWithdrawConfig(ctx context.Context, env cldf.Environment, 
 		if _, ok := env.BlockChains.EVMChains()[chainSelector]; !ok {
 			return fmt.Errorf("chain not found in environment: %d", chainSelector)
 		}
-		if chainConfig.Amount == 0 {
-			return fmt.Errorf("chain %d: amount to withdraw cannot be 0 (zero)", chainSelector)
+		if chainConfig.Amount == nil || chainConfig.Amount.Cmp(big.NewInt(0)) <= 0 {
+			return fmt.Errorf("chain %d: amount to withdraw must be positive", chainSelector)
 		}
 
-		err := validateEthAddress("payeer", chainConfig.Payeer)
-		if err != nil {
+		if err := validateEthAddress("payeer", chainConfig.Payeer); err != nil {
 			return fmt.Errorf("chain %d: %w", chainSelector, err)
 		}
-
+		if common.HexToAddress(chainConfig.Payeer) == (common.Address{}) {
+			return fmt.Errorf("chain %d: payeer address cannot be zero address", chainSelector)
+		}
 	}
 
 	return nil
@@ -302,9 +303,11 @@ func ValidateEthBalMonTransferOwnershipConfig(ctx context.Context, env cldf.Envi
 		if _, ok := env.BlockChains.EVMChains()[chainSelector]; !ok {
 			return fmt.Errorf("chain not found in environment: %d", chainSelector)
 		}
-		err := validateEthAddress("newOwner", chainConfig.NewOwner)
-		if err != nil {
+		if err := validateEthAddress("newOwner", chainConfig.NewOwner); err != nil {
 			return fmt.Errorf("chain %d: %w", chainSelector, err)
+		}
+		if common.HexToAddress(chainConfig.NewOwner) == (common.Address{}) {
+			return fmt.Errorf("chain %d: newOwner address cannot be zero address", chainSelector)
 		}
 	}
 
@@ -320,19 +323,22 @@ func ValidateEthBalMonSetWatchListConfig(ctx context.Context, env cldf.Environme
 		if _, ok := env.BlockChains.EVMChains()[chainSelector]; !ok {
 			return fmt.Errorf("chain not found in environment: %d", chainSelector)
 		}
-		if len(chainConfig.Addresses) == 0 {
+		n := len(chainConfig.Addresses)
+		if n == 0 {
 			return fmt.Errorf("chain %d: addresses must not be empty", chainSelector)
 		}
-		if len(chainConfig.MinBalancesWei) == 0 {
-			return fmt.Errorf("chain %d: min_balance_wei must not be empty", chainSelector)
-		}
-		if len(chainConfig.TopUpAmountsWei) == 0 {
-			return fmt.Errorf("chain %d: topup_amounts_wei must not be empty", chainSelector)
+		if len(chainConfig.MinBalancesWei) != n || len(chainConfig.TopUpAmountsWei) != n {
+			return fmt.Errorf(
+				"chain %d: addresses, min_balance_wei, and topup_amounts_wei must have the same length (got %d, %d, %d)",
+				chainSelector, n, len(chainConfig.MinBalancesWei), len(chainConfig.TopUpAmountsWei),
+			)
 		}
 		for i, addr := range chainConfig.Addresses {
-			err := validateEthAddress(fmt.Sprintf("address %d", i), addr.Hex())
-			if err != nil {
+			if err := validateEthAddress(fmt.Sprintf("address %d", i), addr.Hex()); err != nil {
 				return fmt.Errorf("chain %d: %w", chainSelector, err)
+			}
+			if addr == (common.Address{}) {
+				return fmt.Errorf("chain %d: address at index %d is zero address", chainSelector, i)
 			}
 		}
 	}

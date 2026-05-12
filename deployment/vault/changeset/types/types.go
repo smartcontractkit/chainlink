@@ -122,8 +122,8 @@ type EthBalMonSetWatchListInput struct {
 
 // EthBalMonWithdrawChainConfig configures a native-token withdraw from EthBalMon on one chain.
 type EthBalMonWithdrawChainConfig struct {
-	// Amount is the withdrawal amount in wei. Must be non-zero (validated by the changeset).
-	Amount uint64 `json:"amount"`
+	// Amount is the withdrawal amount in wei. Must be positive (validated by the changeset).
+	Amount *big.Int `json:"amount"`
 	// Payeer is the recipient address (hex). JSON key is "payeer" for backward compatibility.
 	Payeer string `json:"payeer"`
 }
