@@ -48,7 +48,7 @@ func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *
 	if err := r.MaxRequestBatchSizeLimiter.Check(ctx, len(encryptedSecrets)); err != nil {
 		var errBoundLimited limits.ErrorBoundLimited[int]
 		if errors.As(err, &errBoundLimited) {
-			return fmt.Errorf("request batch size exceeds maximum of %d", errBoundLimited.Limit)
+			return fmt.Errorf("request batch size exceeds maximum of %d: %w", errBoundLimited.Limit, err)
 		}
 		return fmt.Errorf("failed to check request batch size limit: %w", err)
 	}
@@ -111,7 +111,7 @@ func (r *RequestValidator) ValidateCiphertextSize(ctx context.Context, owner str
 	if err := r.MaxCiphertextLengthLimiter.Check(innerCtx, pkgconfig.Size(len(rawCiphertext))*pkgconfig.Byte); err != nil {
 		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
 		if errors.As(err, &errBoundLimited) {
-			return fmt.Errorf("ciphertext size exceeds maximum allowed size: %s", errBoundLimited.Limit)
+			return fmt.Errorf("ciphertext size exceeds maximum allowed size: %s: %w", errBoundLimited.Limit, err)
 		}
 		return fmt.Errorf("failed to check ciphertext size limit: %w", err)
 	}
@@ -137,7 +137,7 @@ func (r *RequestValidator) ValidateSecretIdentifier(ctx context.Context, idKey s
 	if err := r.MaxIdentifierOwnerLengthLimiter.Check(ctx, pkgconfig.Size(len(idOwner))); err != nil {
 		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
 		if errors.As(err, &errBoundLimited) {
-			return fmt.Errorf("owner exceeds maximum length of %s", errBoundLimited.Limit)
+			return fmt.Errorf("owner exceeds maximum length of %s: %w", errBoundLimited.Limit, err)
 		}
 		return fmt.Errorf("failed to check owner length limit: %w", err)
 	}
@@ -145,7 +145,7 @@ func (r *RequestValidator) ValidateSecretIdentifier(ctx context.Context, idKey s
 	if err := r.MaxIdentifierNamespaceLengthLimiter.Check(ctx, pkgconfig.Size(len(idNamespace))); err != nil {
 		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
 		if errors.As(err, &errBoundLimited) {
-			return fmt.Errorf("namespace exceeds maximum length of %s", errBoundLimited.Limit)
+			return fmt.Errorf("namespace exceeds maximum length of %s: %w", errBoundLimited.Limit, err)
 		}
 		return fmt.Errorf("failed to check namespace length limit: %w", err)
 	}
@@ -153,7 +153,7 @@ func (r *RequestValidator) ValidateSecretIdentifier(ctx context.Context, idKey s
 	if err := r.MaxIdentifierKeyLengthLimiter.Check(ctx, pkgconfig.Size(len(idKey))); err != nil {
 		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
 		if errors.As(err, &errBoundLimited) {
-			return fmt.Errorf("key exceeds maximum length of %s", errBoundLimited.Limit)
+			return fmt.Errorf("key exceeds maximum length of %s: %w", errBoundLimited.Limit, err)
 		}
 		return fmt.Errorf("failed to check key length limit: %w", err)
 	}
