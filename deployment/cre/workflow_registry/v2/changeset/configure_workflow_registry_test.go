@@ -7,6 +7,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/workflow_registry/v2/changeset/operations/contracts"
 )
@@ -395,6 +399,74 @@ func TestBatchSetUserDONOverride(t *testing.T) {
 		require.Len(t, output.MCMSTimelockProposals[0].Operations, 1, "expected exactly one BatchOperation")
 		require.Len(t, output.MCMSTimelockProposals[0].Operations[0].Transactions, len(overrides), "BatchOperation should contain one Transaction per override")
 		t.Log("MCMS batch set user DON override completed successfully")
+	})
+
+	t.Run("op rejects input.ChainSelector that disagrees with deps.Chain.Selector", func(t *testing.T) {
+		// The defensive guard inside BatchSetUserDONOverrideOp prevents a programmatic caller
+		// (sequence, other changeset, future refactor) from generating a proposal whose target
+		// chain selector disagrees with the chain used to build the calldata. The public
+		// Apply() path can't trigger this — both values are derived from the same source — so
+		// we exercise the Op directly.
+		fixture := setupTest(t)
+		env := fixture.rt.Environment()
+
+		deps, err := prepareWorkflowRegistryDeps(env, fixture.selector, fixture.workflowRegistryQualifier, nil, contracts.BatchSetUserDONOverrideDescription)
+		require.NoError(t, err, "prepareWorkflowRegistryDeps should succeed for the test fixture chain")
+
+		_, err = operations.ExecuteOperation(env.OperationsBundle, contracts.BatchSetUserDONOverrideOp, deps, contracts.BatchSetUserDONOverrideOpInput{
+			ChainSelector: fixture.selector + 1, // deliberately wrong; must not match deps.Chain.Selector
+			Qualifier:     fixture.workflowRegistryQualifier,
+			Overrides:     makeOverrides(),
+		})
+		require.Error(t, err, "op must reject mismatched input.ChainSelector vs deps.Chain.Selector")
+		require.ErrorContains(t, err, "does not match deps.Chain.Selector")
+	})
+
+	t.Run("op works in MCMS path with nil deps.Chain", func(t *testing.T) {
+		// MCMS-only callers (e.g. a sequence assembling proposals) may legitimately have
+		// deps.Registry + strategy but no chain pointer. In that case the op should still
+		// build calldata via SimTransactOpts and produce a BatchOperation; input.ChainSelector
+		// is the authoritative source.
+		fixture := setupTestWithMCMS(t)
+		env := fixture.rt.Environment()
+
+		mcmsConfig := &crecontracts.MCMSConfig{
+			MinDelay: 30 * time.Second,
+			TimelockQualifierPerChain: map[uint64]string{
+				fixture.selector: "",
+			},
+		}
+		deps, err := prepareWorkflowRegistryDeps(env, fixture.selector, fixture.workflowRegistryQualifier, mcmsConfig, contracts.BatchSetUserDONOverrideDescription)
+		require.NoError(t, err, "prepareWorkflowRegistryDeps should succeed")
+		deps.Chain = nil // simulate an MCMS-only caller that didn't pass a chain pointer
+
+		report, err := operations.ExecuteOperation(env.OperationsBundle, contracts.BatchSetUserDONOverrideOp, deps, contracts.BatchSetUserDONOverrideOpInput{
+			ChainSelector: fixture.selector,
+			Qualifier:     fixture.workflowRegistryQualifier,
+			Overrides:     makeOverrides(),
+			MCMSConfig:    mcmsConfig,
+		})
+		require.NoError(t, err, "op should run in MCMS path without deps.Chain")
+		require.NotNil(t, report.Output.MCMSOperation, "MCMS BatchOperation should be produced")
+		require.Len(t, report.Output.MCMSOperation.Transactions, len(makeOverrides()), "BatchOperation should contain one Transaction per override")
+		require.Equal(t, mcmstypes.ChainSelector(fixture.selector), report.Output.MCMSOperation.ChainSelector, "BatchOperation chain selector must equal input.ChainSelector when deps.Chain is nil")
+	})
+
+	t.Run("op requires deps.Chain in non-MCMS path", func(t *testing.T) {
+		fixture := setupTest(t)
+		env := fixture.rt.Environment()
+
+		deps, err := prepareWorkflowRegistryDeps(env, fixture.selector, fixture.workflowRegistryQualifier, nil, contracts.BatchSetUserDONOverrideDescription)
+		require.NoError(t, err, "prepareWorkflowRegistryDeps should succeed")
+		deps.Chain = nil // non-MCMS path needs DeployerKey + Confirm, so this must fail loudly
+
+		_, err = operations.ExecuteOperation(env.OperationsBundle, contracts.BatchSetUserDONOverrideOp, deps, contracts.BatchSetUserDONOverrideOpInput{
+			ChainSelector: fixture.selector,
+			Qualifier:     fixture.workflowRegistryQualifier,
+			Overrides:     makeOverrides(),
+		})
+		require.Error(t, err, "op must reject nil deps.Chain in non-MCMS path")
+		require.ErrorContains(t, err, "deps.Chain is required when MCMSConfig is nil")
 	})
 }
 

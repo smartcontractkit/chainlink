@@ -37,8 +37,13 @@ type WorkflowRegistryOpDeps struct {
 	Env      *cldf.Environment
 	Strategy strategies.TransactionStrategy
 	Registry *workflow_registry_v2.WorkflowRegistry
-	// Chain is required by operations that bypass the strategy abstraction to build calldata
-	// directly (e.g. BatchSetUserDONOverrideOp). Other operations may leave it nil.
+	// Chain is the EVM chain whose datastore produced deps.Registry. Operations that bypass the
+	// strategy abstraction (e.g. BatchSetUserDONOverrideOp) require it when MCMSConfig is nil,
+	// to sign and confirm transactions on-chain via DeployerKey + Confirm. MCMS-only invocations
+	// of those operations may leave it nil; the chain selector then comes from the input.
+	// When provided, it must agree with the input's chain selector (the op validates this to
+	// avoid silently emitting a proposal targeting the wrong chain). Other operations that
+	// route everything through the strategy may leave it nil.
 	Chain *cldf_evm.Chain
 }
 
@@ -319,14 +324,36 @@ var BatchSetUserDONOverrideOp = operations.NewOperation(
 		if len(input.Overrides) == 0 {
 			return BatchSetUserDONOverrideOpOutput{}, errors.New("must provide at least one override")
 		}
-		if deps.Chain == nil {
-			return BatchSetUserDONOverrideOpOutput{}, errors.New("deps.Chain is required for BatchSetUserDONOverrideOp")
+		// deps.Chain is only strictly required for the non-MCMS path, where we need the deployer
+		// key to sign transactions and Confirm() to wait for them on-chain. In the MCMS path the
+		// op only builds calldata (via SimTransactOpts) and assembles an MCMS BatchOperation, so
+		// an MCMS-only caller can supply deps.Registry + strategy without a chain pointer.
+		if input.MCMSConfig == nil && deps.Chain == nil {
+			return BatchSetUserDONOverrideOpOutput{}, errors.New("deps.Chain is required when MCMSConfig is nil (needed to sign and confirm transactions on-chain)")
+		}
+
+		// Resolve the authoritative chain selector. Prefer deps.Chain (the chain whose lookup
+		// produced deps.Registry) when present; that keeps the on-chain lookup and the proposal
+		// target trivially in sync. Fall back to input.ChainSelector for MCMS-only callers that
+		// deliberately don't pass a chain pointer. When both are present they must agree, else
+		// we'd silently emit a proposal targeting the wrong chain.
+		chainSelector := input.ChainSelector
+		if deps.Chain != nil {
+			chainSelector = deps.Chain.ChainSelector()
+			if input.ChainSelector != chainSelector {
+				return BatchSetUserDONOverrideOpOutput{}, fmt.Errorf(
+					"input.ChainSelector (%d) does not match deps.Chain.Selector (%d); refusing to build proposal with ambiguous target chain",
+					input.ChainSelector, chainSelector,
+				)
+			}
 		}
 
 		// MCMS path uses simulated tx opts to produce calldata without sending; non-MCMS uses the deployer key.
-		txOpts := deps.Chain.DeployerKey
+		var txOpts *bind.TransactOpts
 		if input.MCMSConfig != nil {
 			txOpts = cldf.SimTransactOpts()
+		} else {
+			txOpts = deps.Chain.DeployerKey
 		}
 
 		var mcmsTxs []mcmstypes.Transaction
@@ -344,7 +371,7 @@ var BatchSetUserDONOverrideOp = operations.NewOperation(
 				continue
 			}
 
-			mtx, err := cldfproposalutils.TransactionForChain(input.ChainSelector, deps.Registry.Address().Hex(), tx.Data(), big.NewInt(0), "", nil)
+			mtx, err := cldfproposalutils.TransactionForChain(chainSelector, deps.Registry.Address().Hex(), tx.Data(), big.NewInt(0), "", nil)
 			if err != nil {
 				return BatchSetUserDONOverrideOpOutput{}, fmt.Errorf("failed to build MCMS transaction for %s: %w", entry.User.Hex(), err)
 			}
@@ -354,12 +381,12 @@ var BatchSetUserDONOverrideOp = operations.NewOperation(
 		var mergedOp *mcmstypes.BatchOperation
 		if input.MCMSConfig != nil {
 			mergedOp = &mcmstypes.BatchOperation{
-				ChainSelector: mcmstypes.ChainSelector(input.ChainSelector),
+				ChainSelector: mcmstypes.ChainSelector(chainSelector),
 				Transactions:  mcmsTxs,
 			}
-			deps.Env.Logger.Infof("Created MCMS batch with %d SetUserDONOverride transactions on chain %d", len(mcmsTxs), input.ChainSelector)
+			deps.Env.Logger.Infof("Created MCMS batch with %d SetUserDONOverride transactions on chain %d", len(mcmsTxs), chainSelector)
 		} else {
-			deps.Env.Logger.Infof("Successfully applied %d SetUserDONOverride transactions on chain %d", len(input.Overrides), input.ChainSelector)
+			deps.Env.Logger.Infof("Successfully applied %d SetUserDONOverride transactions on chain %d", len(input.Overrides), chainSelector)
 		}
 
 		return BatchSetUserDONOverrideOpOutput{
