@@ -313,7 +313,11 @@ type VRFSpecParams struct {
 	BackoffInitialDelay           time.Duration
 	BackoffMaxDelay               time.Duration
 	GasLanePrice                  *assets.Wei
-	PollPeriod                    time.Duration
+	// OmitGasLanePrice omits the gasLanePrice field from the generated TOML, resulting in a
+	// nil GasLanePrice on the parsed spec. Useful for testing code paths that only run when
+	// a gas lane price is explicitly configured.
+	OmitGasLanePrice bool
+	PollPeriod       time.Duration
 }
 
 type VRFSpec struct {
@@ -458,8 +462,11 @@ publicKey = "%s"
 chunkSize = %d
 backoffInitialDelay = "%s"
 backoffMaxDelay = "%s"
-gasLanePrice = "%s"
-pollPeriod = "%s"
+`
+	if !params.OmitGasLanePrice {
+		template += `gasLanePrice = "` + gasLanePrice.String() + `"` + "\n"
+	}
+	template += `pollPeriod = "%s"
 observationSource = """
 %s
 """
@@ -469,7 +476,7 @@ observationSource = """
 		params.BatchFulfillmentEnabled, strconv.FormatFloat(batchFulfillmentGasMultiplier, 'f', 2, 64),
 		params.CustomRevertsPipelineEnabled,
 		confirmations, params.RequestedConfsDelay, requestTimeout.String(), publicKey, chunkSize,
-		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(), gasLanePrice.String(),
+		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(),
 		pollPeriod.String(), observationSource)
 	fromAddrs := params.FromAddresses
 	if len(fromAddrs) == 0 {

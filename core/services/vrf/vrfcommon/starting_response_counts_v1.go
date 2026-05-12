@@ -11,6 +11,8 @@ import (
 	"github.com/avast/retry-go/v4"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+
+	"github.com/smartcontractkit/chainlink/v2/core/utils/safe"
 )
 
 // GetStartingResponseCountsV1 returns fulfilled-request counts keyed by raw
@@ -45,7 +47,11 @@ func GetStartingResponseCountsV1(ctx context.Context, chain legacyevm.Chain) (ma
 		}
 		var reqID [32]byte
 		copy(reqID[:], b)
-		respCounts[reqID] = uint64(c.Count)
+		count, err3 := safe.IntToUint64(c.Count)
+		if err3 != nil {
+			continue
+		}
+		respCounts[reqID] = count
 	}
 
 	return respCounts, nil
