@@ -22,7 +22,6 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
-	commonbeholder "github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
@@ -61,6 +60,7 @@ func resetShellForTest(shell *cmd.Shell) {
 	shell.LDB = nil
 	shell.DS = nil
 	shell.KeyStore = nil
+	shell.BeholderClient = nil
 }
 
 type stubLockedDB struct{}
@@ -648,10 +648,21 @@ func TestShell_BeholderLifecycle(t *testing.T) {
 		return shell, ctx
 	}
 
-	t.Run("starts and closes beholder", func(t *testing.T) {
+	t.Run("telemetry disabled skips beholder client", func(t *testing.T) {
 		shell, c := newShell(t, nil, nil)
 		require.NoError(t, shell.BeforeNode(c))
-		assert.NoError(t, commonbeholder.GetClient().Ready())
+		assert.Nil(t, shell.BeholderClient, "BeholderClient should be nil when telemetry is disabled")
+		require.NoError(t, shell.AfterNode(c))
+	})
+
+	t.Run("telemetry enabled starts and closes beholder", func(t *testing.T) {
+		shell, c := newShell(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			trueVal := true
+			c.Telemetry.Enabled = &trueVal
+		}, nil)
+		require.NoError(t, shell.BeforeNode(c))
+		require.NotNil(t, shell.BeholderClient, "BeholderClient should be set when telemetry is enabled")
+		assert.NoError(t, shell.BeholderClient.Ready())
 		require.NoError(t, shell.AfterNode(c))
 	})
 
@@ -660,19 +671,6 @@ func TestShell_BeholderLifecycle(t *testing.T) {
 		require.NoError(t, shell.BeforeNode(c))
 		require.NoError(t, shell.AfterNode(c))
 		require.NoError(t, shell.AfterNode(c))
-	})
-
-	t.Run("after node tolerates unstarted noop client", func(t *testing.T) {
-		prevClient := commonbeholder.GetClient()
-		noopClient := commonbeholder.NewNoopClient()
-		commonbeholder.SetClient(noopClient)
-		t.Cleanup(func() { commonbeholder.SetClient(prevClient) })
-
-		shell := cmd.Shell{LDB: stubLockedDB{}, Logger: logger.TestLogger(t)}
-		require.Error(t, noopClient.Ready())
-		assert.NotPanics(t, func() {
-			shell.AfterNode(cli.NewContext(nil, flag.NewFlagSet("test", 0), nil))
-		})
 	})
 
 	t.Run("log streaming sets otel core", func(t *testing.T) {
@@ -689,6 +687,28 @@ func TestShell_BeholderLifecycle(t *testing.T) {
 		require.NoError(t, shell.BeforeNode(c))
 		assert.Equal(t, 1, setOtelCoreCalls)
 		require.NoError(t, shell.AfterNode(c))
+	})
+
+	t.Run("log streaming fails when SetOtelCore is nil", func(t *testing.T) {
+		shell, c := newShell(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			trueVal := true
+			c.Telemetry.Enabled = &trueVal
+			c.Telemetry.LogStreamingEnabled = &trueVal
+		}, nil) // SetOtelCore intentionally nil
+		err := shell.BeforeNode(c)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "SetOtelCore is nil")
+	})
+}
+
+func TestShell_AfterNode_NilBeholderClient(t *testing.T) {
+	shell := cmd.Shell{
+		LDB:    stubLockedDB{},
+		Logger: logger.TestLogger(t),
+	}
+	assert.Nil(t, shell.BeholderClient)
+	assert.NotPanics(t, func() {
+		shell.AfterNode(cli.NewContext(nil, flag.NewFlagSet("test", 0), nil))
 	})
 }
 

@@ -27,7 +27,6 @@ import (
 
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -1196,36 +1195,51 @@ func (s *Shell) beforeNode(c *cli.Context) error {
 		return fmt.Errorf("failed to build Beholder auth: %w", err)
 	}
 
-	// Initialize globals with beholder and telemetry
-	err = initGlobals(s.Config.Prometheus(), s.Config.Tracing(), s.Config.Telemetry(), s.Logger, csaPubKeyHex, beholderAuthHeaders)
-	if err != nil {
+	// Build Beholder client when telemetry is enabled.
+	if s.Config.Telemetry().Enabled() {
+		var err error
+		s.BeholderClient, err = newBeholderClient(s.Logger, keyStore, s.Config.Tracing(), s.Config.Telemetry(), csaPubKeyHex, beholderAuthHeaders)
+		if err != nil {
+			return fmt.Errorf("failed creating beholder client: %w", err)
+		}
+	}
+
+	// Prometheus, grpc, tracing, and (when telemetry is on) Beholder OTel globals.
+	if err = initGlobals(s.Config.Prometheus(), s.Config.Telemetry(), s.Config.Tracing(), s.Logger, s.BeholderClient); err != nil {
 		return fmt.Errorf("failed initializing globals: %w", err)
 	}
 
-	// Set the signing mechanism for beholder auth headers
-	// if the TTL is 0, we will use the static headers, and this signer will never be called.
-	beholder.GetClient().SetSigner(&keystore.CSASigner{CSA: keyStore.CSA()})
-	// If log streaming is enabled swap core to add Otel.
-	// This must happen before Start() so that ChipIngressLogger and any other
-	// services started by the beholder client already see the otel core.
-	if s.Config.Telemetry().LogStreamingEnabled() {
-		if s.SetOtelCore == nil {
-			return errors.New("Shell.SetOtelCore is nil")
+	// Wire log streaming before Start so ChipIngressLogger and other internals
+	// see the OTel-backed logger core.
+	if err = s.setupLogStreaming(); err != nil {
+		return err
+	}
+
+	// Start the beholder client after log streaming is wired.
+	if s.BeholderClient != nil {
+		if err = s.BeholderClient.Start(ctx); err != nil {
+			return fmt.Errorf("failed to start beholder client: %w", err)
 		}
-		otelLogger := beholder.GetLogger()
-		logLevel := s.Config.Telemetry().LogLevel()
-		otelCore := otelzap.NewCore(otelLogger, otelzap.WithLevel(logLevel))
-
-		s.SetOtelCore(otelCore)
-		lggr.Info("Log streaming enabled")
 	}
-	// Start the beholder client (after log streaming so the logger is fully wired)
-	if err = beholder.GetClient().Start(ctx); err != nil {
-		return fmt.Errorf("failed to start beholder client: %w", err)
-	}
-	// Emit node configuration through beholder
-	s.EmitNodeConfig(ctx)
 
+	if s.Config.Telemetry().Enabled() {
+		s.EmitNodeConfig(ctx)
+	}
+
+	return nil
+}
+
+func (s *Shell) setupLogStreaming() error {
+	if !s.Config.Telemetry().LogStreamingEnabled() || s.BeholderClient == nil {
+		return nil
+	}
+	if s.SetOtelCore == nil {
+		return errors.New("Shell.SetOtelCore is nil")
+	}
+	logLevel := s.Config.Telemetry().LogLevel()
+	otelCore := otelzap.NewCore(s.BeholderClient.Logger, otelzap.WithLevel(logLevel))
+	s.SetOtelCore(otelCore)
+	s.Logger.Info("Log streaming enabled")
 	return nil
 }
 
@@ -1253,8 +1267,8 @@ func (s *Shell) afterNode(lggr logger.SugaredLogger) {
 				log.Printf("Failed to close Logger: %v", err)
 			}
 		}
-		if beholder.GetClient() != nil {
-			if err := beholder.GetClient().Close(); err != nil {
+		if s.BeholderClient != nil {
+			if err := s.BeholderClient.Close(); err != nil {
 				log.Printf("Failed to close Beholder client: %v", err)
 			}
 		}

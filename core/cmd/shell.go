@@ -83,7 +83,7 @@ func metricViews() []sdkmetric.View {
 	)
 }
 
-func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTelemetry config.Telemetry, lggr logger.Logger, csaPubKeyHex string, beholderAuthHeaders map[string]string) error {
+func initGlobals(cfgProm config.Prometheus, cfgTelemetry config.Telemetry, cfgTracing config.Tracing, lggr logger.Logger, beholderClient *beholder.Client) error {
 	// Avoid double initializations, but does not prevent relay methods from being called multiple times.
 	var err error
 	initGlobalsOnce.Do(func() {
@@ -95,71 +95,98 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 				lggr.Errorw("Telemetry error", "err", err)
 			}))
 
-			tracingCfg := loop.TracingConfig{
-				Enabled:         cfgTracing.Enabled(),
-				CollectorTarget: cfgTracing.CollectorTarget(),
-				NodeAttributes:  cfgTracing.Attributes(),
-				SamplingRatio:   cfgTracing.SamplingRatio(),
-				TLSCertPath:     cfgTracing.TLSCertPath(),
-				OnDialError:     func(error) { lggr.Errorw("Failed to dial", "err", err) },
-			}
 			if !cfgTelemetry.Enabled() {
-				return loop.SetupTracing(tracingCfg)
+				return loop.SetupTracing(tracingConfig(cfgTracing, lggr))
 			}
 
-			var attributes []attribute.KeyValue
-			if tracingCfg.Enabled {
-				attributes = tracingCfg.Attributes()
+			if beholderClient != nil {
+				beholder.SetClient(beholderClient)
+				beholder.SetGlobalOtelProviders()
 			}
-			for k, v := range cfgTelemetry.ResourceAttributes() {
-				attributes = append(attributes, attribute.String(k, v))
-			}
-
-			clientCfg := beholder.Config{
-				InsecureConnection:             cfgTelemetry.InsecureConnection(),
-				CACertFile:                     cfgTelemetry.CACertFile(),
-				OtelExporterGRPCEndpoint:       cfgTelemetry.OtelExporterGRPCEndpoint(),
-				ResourceAttributes:             attributes,
-				TraceSampleRatio:               cfgTelemetry.TraceSampleRatio(),
-				EmitterBatchProcessor:          cfgTelemetry.EmitterBatchProcessor(),
-				EmitterExportTimeout:           cfgTelemetry.EmitterExportTimeout(),
-				AuthPublicKeyHex:               csaPubKeyHex,
-				AuthHeaders:                    beholderAuthHeaders,
-				AuthHeadersTTL:                 cfgTelemetry.AuthHeadersTTL(),
-				ChipIngressEmitterEnabled:      cfgTelemetry.ChipIngressEndpoint() != "",
-				ChipIngressEmitterGRPCEndpoint: cfgTelemetry.ChipIngressEndpoint(),
-				ChipIngressInsecureConnection:  cfgTelemetry.ChipIngressInsecureConnection(),
-				ChipIngressBatchEmitterEnabled: cfgTelemetry.ChipIngressBatchEmitterEnabled(),
-				ChipIngressLogger:              lggr,
-				LogStreamingEnabled:            cfgTelemetry.LogStreamingEnabled(),
-				LogLevel:                       cfgTelemetry.LogLevel(),
-				LogBatchProcessor:              cfgTelemetry.LogBatchProcessor(),
-				LogExportTimeout:               cfgTelemetry.LogExportTimeout(),
-				LogExportMaxBatchSize:          cfgTelemetry.LogExportMaxBatchSize(),
-				LogExportInterval:              cfgTelemetry.LogExportInterval(),
-				LogMaxQueueSize:                cfgTelemetry.LogMaxQueueSize(),
-				// note: due to the OTEL specification, all histogram buckets
-				// must be defined when the beholder client is created
-				MetricViews: metricViews(),
-			}
-
-			if tracingCfg.Enabled {
-				clientCfg.TraceSpanExporter, err = tracingCfg.NewSpanExporter()
-				if err != nil {
-					return err
-				}
-			}
-			var beholderClient *beholder.Client
-			beholderClient, err = beholder.NewClient(clientCfg)
-			if err != nil {
-				return err
-			}
-			beholder.SetClient(beholderClient)
-			beholder.SetGlobalOtelProviders()
 			return nil
 		}()
 	})
 	return err
+}
+
+func tracingConfig(cfgTracing config.Tracing, lggr logger.Logger) loop.TracingConfig {
+	return loop.TracingConfig{
+		Enabled:         cfgTracing.Enabled(),
+		CollectorTarget: cfgTracing.CollectorTarget(),
+		NodeAttributes:  cfgTracing.Attributes(),
+		SamplingRatio:   cfgTracing.SamplingRatio(),
+		TLSCertPath:     cfgTracing.TLSCertPath(),
+		OnDialError:     func(e error) { lggr.Errorw("Failed to dial", "err", e) },
+	}
+}
+
+// newBeholderClient builds the Beholder client from telemetry and tracing
+// configuration and sets the CSA signer for auth headers.
+// The caller must wire log streaming (if needed) and call Start separately.
+// Pair with initGlobals by passing the returned client so global Beholder
+// state and OTel providers register during globals initialization.
+func newBeholderClient(
+	lggr logger.Logger,
+	keyStore keystore.Master,
+	cfgTracing config.Tracing,
+	cfgTelemetry config.Telemetry,
+	csaPubKeyHex string,
+	beholderAuthHeaders map[string]string,
+) (*beholder.Client, error) {
+	var attributes []attribute.KeyValue
+	for k, v := range cfgTelemetry.ResourceAttributes() {
+		attributes = append(attributes, attribute.String(k, v))
+	}
+
+	clientCfg := beholder.Config{
+		InsecureConnection:             cfgTelemetry.InsecureConnection(),
+		CACertFile:                     cfgTelemetry.CACertFile(),
+		OtelExporterGRPCEndpoint:       cfgTelemetry.OtelExporterGRPCEndpoint(),
+		ResourceAttributes:             attributes,
+		TraceSampleRatio:               cfgTelemetry.TraceSampleRatio(),
+		EmitterBatchProcessor:          cfgTelemetry.EmitterBatchProcessor(),
+		EmitterExportTimeout:           cfgTelemetry.EmitterExportTimeout(),
+		AuthPublicKeyHex:               csaPubKeyHex,
+		AuthHeaders:                    beholderAuthHeaders,
+		AuthHeadersTTL:                 cfgTelemetry.AuthHeadersTTL(),
+		ChipIngressEmitterEnabled:      cfgTelemetry.ChipIngressEndpoint() != "",
+		ChipIngressEmitterGRPCEndpoint: cfgTelemetry.ChipIngressEndpoint(),
+		ChipIngressInsecureConnection:  cfgTelemetry.ChipIngressInsecureConnection(),
+		ChipIngressBatchEmitterEnabled: cfgTelemetry.ChipIngressBatchEmitterEnabled(),
+		ChipIngressLogger:              lggr,
+		LogStreamingEnabled:            cfgTelemetry.LogStreamingEnabled(),
+		LogLevel:                       cfgTelemetry.LogLevel(),
+		LogBatchProcessor:              cfgTelemetry.LogBatchProcessor(),
+		LogExportTimeout:               cfgTelemetry.LogExportTimeout(),
+		LogExportMaxBatchSize:          cfgTelemetry.LogExportMaxBatchSize(),
+		LogExportInterval:              cfgTelemetry.LogExportInterval(),
+		LogMaxQueueSize:                cfgTelemetry.LogMaxQueueSize(),
+		// Due to OpenTelemetry semantics, histogram bucket boundaries must be set
+		// when the Beholder client is constructed.
+		MetricViews: metricViews(),
+	}
+
+	if cfgTracing.Enabled() {
+		tracingCfg := tracingConfig(cfgTracing, lggr)
+		// add tracing attributes to resource attributes
+		clientCfg.ResourceAttributes = append(clientCfg.ResourceAttributes, tracingCfg.Attributes()...)
+
+		var err error
+		clientCfg.TraceSpanExporter, err = tracingCfg.NewSpanExporter()
+		if err != nil {
+			return nil, err
+		}
+	}
+	beholderClient, err := beholder.NewClient(clientCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set the signer used to refresh auth headers when AuthHeadersTTL is non-zero.
+	// TTL 0 means static headers only; the signer will not run.
+	beholderClient.SetSigner(&keystore.CSASigner{CSA: keyStore.CSA()})
+
+	return beholderClient, nil
 }
 
 // ErrNoAPICredentialsAvailable is returned when not run from a terminal
@@ -190,9 +217,10 @@ type Shell struct {
 	secretsFiles     []string
 	secretsFileIsSet bool
 
-	LDB      pg.LockedDB        // initialized in BeforeNode
-	DS       sqlutil.DataSource // initialized in BeforeNode
-	KeyStore keystore.Master    // initialized in BeforeNode
+	LDB            pg.LockedDB        // initialized in BeforeNode
+	DS             sqlutil.DataSource // initialized in BeforeNode
+	KeyStore       keystore.Master    // initialized in BeforeNode
+	BeholderClient *beholder.Client   // initialized in BeforeNode
 
 	CleanupOnce sync.Once // ensures cleanup happens exactly once
 }
