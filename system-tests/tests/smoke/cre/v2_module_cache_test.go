@@ -1,6 +1,7 @@
 package cre
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -41,9 +42,11 @@ func ExecuteModuleCacheTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
-		server.Shutdown(t.Context())
-		close(userLogsCh)
-		close(baseMessageCh)
+		// Do not use t.Context() here: it is cancelled before cleanup runs, which breaks chip-router
+		// unregister and can leave gRPC Publish blocked on full log channels after WatchWorkflowLogs returns.
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		t_helpers.ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
 	})
 
 	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/cron/main.go"
