@@ -294,7 +294,10 @@ func renderDiagnoseProgressLine(w io.Writer, iteration, iterations int, iterElap
 		line += "  " + progressBracket(termstyle.Muted.Render(runEl.Round(time.Second).String()))
 		completedCount := iteration - 1
 		if completedCount > 0 {
-			avgPerIter := runEl / time.Duration(completedCount)
+			// runEl includes the current iteration; counting it in the average makes
+			// avgPerIter grow every tick during an in-flight iteration (~ETA counts up).
+			completedWall := max(runEl-iterElapsed, 0)
+			avgPerIter := completedWall / time.Duration(completedCount)
 			remainingIters := iterations - completedCount
 			estimated := time.Duration(remainingIters) * avgPerIter
 			if estimated > 0 {
