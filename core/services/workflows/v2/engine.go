@@ -582,6 +582,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 					}
 					triggerID := subs.Subscriptions[idx].Id
 					eventID := event.Event.ID
+					e.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventReceivedCounter(ctx)
 					e.logger().Debugw("Processing trigger event", "triggerID", triggerID, "eventID", eventID)
 					if event.Err != nil {
 						e.logger().Errorw("Received a trigger event with error, dropping", "triggerID", triggerID, "err", event.Err)

@@ -62,6 +62,7 @@ type EngineMetrics struct {
 	shardExecutionDeniedNotOwnerCounter     metric.Int64Counter
 	shardExecutionDeniedOrchestratorCounter metric.Int64Counter
 
+	triggerEventReceivedCounter         metric.Int64Counter
 	triggerEventEnqueuedCounter         metric.Int64Counter
 	triggerEventEnqueueDroppedCounter   metric.Int64Counter
 	triggerEventDequeueDroppedCounter   metric.Int64Counter
@@ -287,6 +288,14 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	em.shardExecutionDeniedOrchestratorCounter, err = beholder.GetMeter().Int64Counter("platform_engine_shard_execution_denied_orchestrator_error")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register shard execution denied orchestrator error counter: %w", err)
+	}
+
+	em.triggerEventReceivedCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_trigger_event_received_total",
+		metric.WithDescription("Trigger events read from the capability trigger channel (one per receive)"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger event received counter: %w", err)
 	}
 
 	em.triggerEventEnqueuedCounter, err = beholder.GetMeter().Int64Counter(
@@ -642,6 +651,11 @@ func (c WorkflowsMetricLabeler) IncrementShardExecutionDeniedNotOwnerCounter(ctx
 func (c WorkflowsMetricLabeler) IncrementShardExecutionDeniedOrchestratorErrorCounter(ctx context.Context) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.shardExecutionDeniedOrchestratorCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementTriggerEventReceivedCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.triggerEventReceivedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c WorkflowsMetricLabeler) IncrementTriggerEventEnqueuedCounter(ctx context.Context) {
