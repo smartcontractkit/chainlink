@@ -110,7 +110,7 @@ func (ar *activeRequest) copiedResponses() map[string]jsonrpc.Response[json.RawM
 }
 
 type relayAggregator interface {
-	Aggregate(resps map[string]jsonrpc.Response[json.RawMessage], donF int, donMembersCount int, l logger.Logger) (*jsonrpc.Response[json.RawMessage], error)
+	Aggregate(req jsonrpc.Request[json.RawMessage], resps map[string]jsonrpc.Response[json.RawMessage], donF int, donMembersCount int, l logger.Logger) (*jsonrpc.Response[json.RawMessage], error)
 }
 
 type Config struct {
@@ -328,7 +328,7 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	}
 
 	copiedResponses := ar.copiedResponses()
-	aggregatedResp, err := h.aggregator.Aggregate(copiedResponses, h.donConfig.F, len(h.donConfig.Members), l)
+	aggregatedResp, err := h.aggregator.Aggregate(ar.req, copiedResponses, h.donConfig.F, len(h.donConfig.Members), l)
 	switch {
 	case errors.Is(err, errInsufficientResponsesForQuorum):
 		l.Debugw("aggregating responses, waiting for other nodes...", "error", err)

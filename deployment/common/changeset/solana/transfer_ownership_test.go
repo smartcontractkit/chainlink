@@ -6,6 +6,9 @@ import (
 	"time"
 
 	"github.com/gagliardetto/solana-go"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	soltestutils "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana/testutils"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 
@@ -17,9 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 )
 
 func TestTransferToMCMSToTimelockSolana(t *testing.T) {
@@ -33,7 +35,7 @@ func TestTransferToMCMSToTimelockSolana(t *testing.T) {
 
 	chain := rt.Environment().BlockChains.SolanaChains()[selector]
 
-	mcmsState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	mcmsState, err := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	require.NoError(t, err)
 
 	soltestutils.FundSignerPDAs(t, chain, mcmsState)
@@ -53,19 +55,19 @@ func TestTransferToMCMSToTimelockSolana(t *testing.T) {
 	require.NoError(t, err)
 
 	// --- assert ---
-	timelockSignerPDA := state.GetTimelockSignerPDA(mcmsState.TimelockProgram, mcmsState.TimelockSeed)
+	timelockSignerPDA := pdasol.GetTimelockSignerPDA(mcmsState.TimelockProgram, mcmsState.TimelockSeed)
 	assertOwner(t, chain, mcmsState, timelockSignerPDA)
 }
 
 func assertOwner(
-	t *testing.T, chain cldf_solana.Chain, mcmsState *state.MCMSWithTimelockStateSolana, owner solana.PublicKey,
+	t *testing.T, chain cldf_solana.Chain, mcmsState *solstate.MCMSWithTimelockState, owner solana.PublicKey,
 ) {
 	t.Helper()
 
-	assertMCMOwner(t, owner, state.GetMCMConfigPDA(mcmsState.McmProgram, mcmsState.ProposerMcmSeed), chain)
-	assertMCMOwner(t, owner, state.GetMCMConfigPDA(mcmsState.McmProgram, mcmsState.CancellerMcmSeed), chain)
-	assertMCMOwner(t, owner, state.GetMCMConfigPDA(mcmsState.McmProgram, mcmsState.BypasserMcmSeed), chain)
-	assertTimelockOwner(t, owner, state.GetTimelockConfigPDA(mcmsState.TimelockProgram, mcmsState.TimelockSeed), chain)
+	assertMCMOwner(t, owner, pdasol.GetMCMConfigPDA(mcmsState.McmProgram, mcmsState.ProposerMcmSeed), chain)
+	assertMCMOwner(t, owner, pdasol.GetMCMConfigPDA(mcmsState.McmProgram, mcmsState.CancellerMcmSeed), chain)
+	assertMCMOwner(t, owner, pdasol.GetMCMConfigPDA(mcmsState.McmProgram, mcmsState.BypasserMcmSeed), chain)
+	assertTimelockOwner(t, owner, pdasol.GetTimelockConfigPDA(mcmsState.TimelockProgram, mcmsState.TimelockSeed), chain)
 	assertAccessControllerOwner(t, owner, mcmsState.ProposerAccessControllerAccount, chain)
 	assertAccessControllerOwner(t, owner, mcmsState.ExecutorAccessControllerAccount, chain)
 	assertAccessControllerOwner(t, owner, mcmsState.CancellerAccessControllerAccount, chain)

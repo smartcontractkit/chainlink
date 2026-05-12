@@ -121,10 +121,8 @@ func (p PluginConfig) Validate() (merr error) {
 		if err := json.Unmarshal([]byte(p.ChannelDefinitions), &cd); err != nil {
 			merr = errors.Join(merr, fmt.Errorf("channelDefinitions is invalid JSON: %w", err))
 		}
-	} else {
-		if p.ChannelDefinitionsContractAddress == (common.Address{}) {
-			merr = errors.Join(merr, errors.New("llo: ChannelDefinitionsContractAddress is required if ChannelDefinitions is not specified"))
-		}
+	} else if p.ChannelDefinitionsContractAddress == (common.Address{}) {
+		merr = errors.Join(merr, errors.New("llo: ChannelDefinitionsContractAddress is required if ChannelDefinitions is not specified"))
 	}
 
 	merr = errors.Join(merr, validateKeyBundleIDs(p.KeyBundleIDs))

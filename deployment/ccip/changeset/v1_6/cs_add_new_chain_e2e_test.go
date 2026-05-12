@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -398,7 +399,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 			// Build new chain configuration
 			nodeInfo, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 			require.NoError(t, err, "must get node info")
-			mcmsDeploymentCfg := proposalutils.SingleGroupTimelockConfigV2(t)
+			mcmsDeploymentCfg := cldftesthelpers.SingleGroupTimelockConfig(t)
 			newChain := newChainConfigHelper(newChainSelector, deployedEnvironment.FeedChainSel, linkAddress, &nodeInfo, len(nodeInfo.NonBootstraps().PeerIDs()))
 
 			if test.ErrStr != "" {
@@ -643,7 +644,7 @@ func TestValidateTransmitterAddresses(t *testing.T) {
 			FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
 		}
 
-		mcmsDeploymentCfg := proposalutils.SingleGroupTimelockConfigV2(t)
+		mcmsDeploymentCfg := cldftesthelpers.SingleGroupTimelockConfig(t)
 		donIDOffSet := uint32(0)
 		state, err := stateview.LoadOnchainState(e)
 		require.NoError(t, err, "must load onchain state")

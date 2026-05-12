@@ -49,10 +49,10 @@ type EngineConfig struct {
 	WorkflowTag           string // workflow tag is required during workflow registration. owner + name + tag uniquely identifies a workflow.
 	WorkflowEncryptionKey workflowkey.Key
 
-	LocalLimits                       EngineLimits
-	LocalLimiters                     *EngineLimiters
-	FeatureFlags                      *EngineFeatureFlags
-	GlobalExecutionConcurrencyLimiter limits.ResourceLimiter[int] // global + per owner WorkflowExecutionConcurrencyLimit
+	LocalLimits         EngineLimits
+	LocalLimiters       *EngineLimiters
+	FeatureFlags        *EngineFeatureFlags
+	GlobalWorkflowLimit limits.ResourceLimiter[int] // global + PerOwner.WorkflowLimit
 
 	BeholderEmitter custmsg.MessageEmitter
 
@@ -427,7 +427,7 @@ func (c *EngineConfig) Validate() error {
 	}
 
 	c.LocalLimits.setDefaultLimits()
-	if c.GlobalExecutionConcurrencyLimiter == nil {
+	if c.GlobalWorkflowLimit == nil {
 		return errors.New("execution concurrency limiter not set")
 	}
 

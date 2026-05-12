@@ -8,12 +8,14 @@ import (
 	evmMcms "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/ops"
 	"github.com/smartcontractkit/chainlink/deployment/common/opsutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 )
 
@@ -28,12 +30,12 @@ type RolesAndAddresses struct {
 }
 
 type SeqGrantRolesTimelockInput struct {
-	ContractType       cldf.ContractType           `json:"contractType"`
-	ChainSelector      uint64                      `json:"chainSelector"`
-	Timelock           common.Address              `json:"timelock"`
-	RolesAndAddresses  []RolesAndAddresses         `json:"rolesAndAddresses"`
-	IsDeployerKeyAdmin bool                        `json:"isDeployerKeyAdmin"`
-	GasBoostConfig     *commontypes.GasBoostConfig `json:"gasBoostConfig"`
+	ContractType       cldf.ContractType                 `json:"contractType"`
+	ChainSelector      uint64                            `json:"chainSelector"`
+	Timelock           common.Address                    `json:"timelock"`
+	RolesAndAddresses  []RolesAndAddresses               `json:"rolesAndAddresses"`
+	IsDeployerKeyAdmin bool                              `json:"isDeployerKeyAdmin"`
+	GasBoostConfig     *cldfproposalutils.GasBoostConfig `json:"gasBoostConfig"`
 }
 
 type SeqGrantRolesTimelockOutput struct {

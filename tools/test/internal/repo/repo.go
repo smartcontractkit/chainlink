@@ -41,7 +41,7 @@ func RootFrom(dir string) (string, error) {
 // modulePathFromGoMod returns the module path from the first `module` directive,
 // skipping leading comments and blank lines (go.mod may legally start with either).
 func modulePathFromGoMod(data string) (path string, ok bool) {
-	for _, raw := range strings.Split(data, "\n") {
+	for raw := range strings.SplitSeq(data, "\n") {
 		line := strings.TrimSpace(raw)
 		if line == "" || strings.HasPrefix(line, "//") {
 			continue

@@ -9,10 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	testenv "github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
-	"github.com/smartcontractkit/chainlink/deployment/common/types"
+
 	"github.com/smartcontractkit/chainlink/deployment/cre/mcms/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/mcms/pkg"
 )
@@ -57,7 +59,7 @@ func TestMCMSDeployment(t *testing.T) {
 
 var d = 5 * time.Second
 var eoa = common.HexToAddress("0xA01E9eD15b18D3688D0B84D88a98ed750D56999B")
-var testMCMSCfg = types.MCMSWithTimelockConfigV2{
+var testMCMSCfg = cldfproposalutils.MCMSWithTimelockConfig{
 	Proposer: pkg.MustGetMCMSConfig(1, []common.Address{
 		eoa,
 	}, nil),

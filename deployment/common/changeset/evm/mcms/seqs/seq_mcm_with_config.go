@@ -5,6 +5,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/mcms/sdk"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
@@ -12,17 +13,18 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/ops"
 	"github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 type SeqDeployMCMWithConfigInput struct {
-	ContractType   cldf.ContractType           `json:"contractType"`
-	MCMConfig      mcmsTypes.Config            `json:"mcmConfig"`
-	ChainSelector  uint64                      `json:"chainSelector"`
-	GasBoostConfig *commontypes.GasBoostConfig `json:"gasBoostConfig"`
-	Qualifier      *string                     `json:"qualifier"`
+	ContractType   cldf.ContractType                 `json:"contractType"`
+	MCMConfig      mcmsTypes.Config                  `json:"mcmConfig"`
+	ChainSelector  uint64                            `json:"chainSelector"`
+	GasBoostConfig *cldfproposalutils.GasBoostConfig `json:"gasBoostConfig"`
+	Qualifier      *string                           `json:"qualifier"`
 }
 
 type SeqDeployMCMWithConfigOutput struct {

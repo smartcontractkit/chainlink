@@ -11,8 +11,8 @@ import (
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
+	mercurytypes "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/types"
-	"github.com/smartcontractkit/chainlink-data-streams/mercury/utils"
 	relaymercuryv2 "github.com/smartcontractkit/chainlink-data-streams/mercury/v2"
 	relaymercuryv3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3"
 	relaymercuryv4 "github.com/smartcontractkit/chainlink-data-streams/mercury/v4"
@@ -71,7 +71,7 @@ func NewServices(
 	cfg Config,
 	chEnhancedTelem chan ocrcommon.EnhancedTelemetryMercuryData,
 	orm types.DataSourceORM,
-	feedID utils.FeedID,
+	feedID mercurytypes.FeedID,
 	enableTriggerCapability bool,
 ) ([]job.ServiceCtx, error) {
 	if jb.PipelineSpec == nil {
@@ -169,10 +169,10 @@ type factoryCfg struct {
 	ocr2Provider          commontypes.MercuryProvider
 	reportingPluginConfig config.PluginConfig
 	cfg                   Config
-	feedID                utils.FeedID
+	feedID                mercurytypes.FeedID
 }
 
-func getPluginFeedIDs(pluginConfig config.PluginConfig) (linkFeedID utils.FeedID, nativeFeedID utils.FeedID) {
+func getPluginFeedIDs(pluginConfig config.PluginConfig) (linkFeedID mercurytypes.FeedID, nativeFeedID mercurytypes.FeedID) {
 	if pluginConfig.LinkFeedID != nil {
 		linkFeedID = *pluginConfig.LinkFeedID
 	}
@@ -302,7 +302,7 @@ func newv2factory(factoryCfg factoryCfg) (ocr3types.MercuryPluginFactory, []job.
 	return factory, srvs, nil
 }
 
-func initLoop(cmd string, cfg Config, feedID utils.FeedID, lggr logger.Logger) (func() *exec.Cmd, *loopUnregisterCloser, loop.GRPCOpts, logger.Logger, error) {
+func initLoop(cmd string, cfg Config, feedID mercurytypes.FeedID, lggr logger.Logger) (func() *exec.Cmd, *loopUnregisterCloser, loop.GRPCOpts, logger.Logger, error) {
 	lggr.Debugw("Initializing Mercury loop", "command", cmd)
 	mercuryLggr := lggr.Named(fmt.Sprintf("MercuryV%d", feedID.Version())).Named(feedID.String())
 	envVars, err := plugins.ParseEnvFile(env.MercuryPlugin.Env.Get())

@@ -1,6 +1,7 @@
 package output
 
 import (
+	"io"
 	"strings"
 	"testing"
 
@@ -33,6 +34,19 @@ func TestNew_liveInline_requiresTTYAndHuman(t *testing.T) {
 
 	// AI mode never enables live inline even with fd 1 (often TTY in tests).
 	pAI := New(true, &b, &b, 1)
+	require.False(t, pAI.LiveInlineProgress())
+}
+
+func TestNewForTest_liveInline(t *testing.T) {
+	t.Parallel()
+	var stderr strings.Builder
+	p := NewForTest(false, io.Discard, &stderr, true)
+	require.True(t, p.LiveInlineProgress())
+	p.ClearInline()
+	require.Equal(t, "\r\u001b[K", stderr.String())
+
+	var err2 strings.Builder
+	pAI := NewForTest(true, io.Discard, &err2, true)
 	require.False(t, pAI.LiveInlineProgress())
 }
 

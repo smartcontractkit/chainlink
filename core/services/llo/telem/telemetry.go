@@ -12,10 +12,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
-	mercuryutils "github.com/smartcontractkit/chainlink-data-streams/mercury/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -404,7 +404,7 @@ func (t *telemeter) prepareObservationTelemetry(p any, opts llo.DSOpts) {
 }
 
 func (t *telemeter) prepareV3PremiumLegacyTelemetry(d *TelemetryPipeline) {
-	eaTelemetryValues := ocrcommon.ParseMercuryEATelemetry(t.eng.SugaredLogger, d.trrs, mercuryutils.REPORT_V3)
+	eaTelemetryValues := ocrcommon.ParseMercuryEATelemetry(t.eng.SugaredLogger, d.trrs, mercury.REPORT_V3)
 	for _, eaTelem := range eaTelemetryValues {
 		var benchmarkPrice, bidPrice, askPrice int64
 		var bp, bid, ask string
@@ -443,7 +443,7 @@ func (t *telemeter) prepareV3PremiumLegacyTelemetry(d *TelemetryPipeline) {
 			IsNativeFeed:                    false,
 			ConfigDigest:                    d.opts.ConfigDigest().Hex(),
 			AssetSymbol:                     eaTelem.AssetSymbol,
-			Version:                         uint32(1000 + mercuryutils.REPORT_V3), // add 1000 to distinguish between legacy feeds, this can be changed if necessary
+			Version:                         uint32(1000 + mercury.REPORT_V3), // add 1000 to distinguish between legacy feeds, this can be changed if necessary
 			DonId:                           t.donID,
 		}
 		epoch, round, err := evm.SeqNrToEpochAndRound(d.opts.OutCtx().SeqNr)
