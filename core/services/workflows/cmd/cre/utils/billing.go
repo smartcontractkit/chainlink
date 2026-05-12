@@ -2,8 +2,8 @@ package utils
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"log"
 	"net"
 
 	"google.golang.org/grpc"
@@ -104,10 +104,9 @@ func (s *BillingService) start(ctx context.Context) error {
 	billing.RegisterCreditReservationServiceServer(server, &BillingService{lggr: s.lggr})
 
 	go func() {
-		err = server.Serve(lis)
-		if err != nil {
-			log.Fatalf("billing failed to serve: %v", err)
-			return
+		err := server.Serve(lis)
+		if err != nil && !errors.Is(err, grpc.ErrServerStopped) {
+			s.lggr.Errorf("billing gRPC serve ended unexpectedly: %v", err)
 		}
 	}()
 

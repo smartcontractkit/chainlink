@@ -19,8 +19,9 @@ description: >-
 </absolute_constraints>
 
 <cli_reference>
-Base Command from `chainlink/` dir: `go -C tools/test run . diagnose [harness_flags] -- [go_test_flags] ./path`
-From `chainlink/tools/test/` dir: `go run . diagnose [harness_flags] -- [go_test_flags] ../../path`
+Base command from `chainlink/` dir: `go -C tools/test run . diagnose [harness_flags] -- [go_test_flags] ./path`
+From `chainlink/tools/test/` dir: `go run . diagnose [harness_flags] -- [go_test_flags] ./path` (same `./path` as above).
+Package patterns after `--` are resolved against the monorepo `repo_root` (and may be rewritten when targeting a nested `go.mod`), not your shell cwd. Prefer `./core/...` / `./deployment/...`, not `../../...` from `tools/test/`.
 - ALWAYS use `--ai-output` before the `--`.
 - Harness flags (before `--`): `--iterations N`, `--fail-fast-on=(timeout|slow)`, `--parallel-iterations N`
 - Go test flags (after `--`): `--run '^TestName$'`, `--timeout 10m`, `--race`

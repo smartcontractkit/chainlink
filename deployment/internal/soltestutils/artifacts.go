@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sync"
 	"testing"
 
@@ -32,7 +33,7 @@ func downloadChainlinkSolanaProgramArtifacts(t *testing.T) string {
 	cachePath := programsCachePath()
 
 	onceSolana.Do(func() {
-		required := append(solutils.KeystoneProgramNames, solutils.DataFeedsProgramNames...)
+		required := slices.Concat(solutils.KeystoneProgramNames, solutils.DataFeedsProgramNames)
 		if programsCached(cachePath, required) {
 			return
 		}
@@ -54,7 +55,7 @@ func downloadChainlinkCCIPProgramArtifacts(t *testing.T) string {
 	cachePath := programsCachePath()
 
 	onceCCIP.Do(func() {
-		required := append(solutils.CCIPProgramNames, solutils.MCMSProgramNames...)
+		required := slices.Concat(solutils.CCIPProgramNames, solutils.MCMSProgramNames)
 		if programsCached(cachePath, required) {
 			return
 		}
