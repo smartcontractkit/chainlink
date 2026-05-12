@@ -295,10 +295,10 @@ func renderDiagnoseProgressLine(w io.Writer, iteration, iterations int, iterElap
 		completedCount := iteration - 1
 		if completedCount > 0 {
 			avgPerIter := runEl / time.Duration(completedCount)
-			remainingIters := iterations - iteration
-			estimated := max(avgPerIter-iterElapsed, 0) + time.Duration(remainingIters)*avgPerIter
+			remainingIters := iterations - completedCount
+			estimated := time.Duration(remainingIters) * avgPerIter
 			if estimated > 0 {
-				line += "  " + progressBracket(termstyle.Muted.Render("~"+estimated.Round(time.Second).String()+" left"))
+				line += formatETA(estimated)
 			}
 		}
 	}
@@ -327,11 +327,15 @@ func renderParallelDiagnoseProgressLine(w io.Writer, prog *parallelDiagnoseProgr
 		remaining := totalIters - completed
 		estimated := time.Duration(remaining) * poolElapsed / time.Duration(completed)
 		if estimated > 0 {
-			line += "  " + progressBracket(termstyle.Muted.Render("~"+estimated.Round(time.Second).String()+" left"))
+			line += formatETA(estimated)
 		}
 	}
 	fmt.Fprint(w, "\r\033[K")
 	fmt.Fprint(w, line)
+}
+
+func formatETA(estimated time.Duration) string {
+	return "  " + progressBracket(termstyle.Muted.Render("~"+estimated.Round(time.Second).String()+" left"))
 }
 
 func ellipsizeRight(s string, maxLen int) string {
