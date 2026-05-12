@@ -107,6 +107,29 @@ func TestRenderDiagnoseProgressLine_notLiveInline(t *testing.T) {
 	require.Empty(t, b.String())
 }
 
+func TestRenderDiagnoseProgressLine_etaShownWhenCompletionsExist(t *testing.T) {
+	var b strings.Builder
+	t0 := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
+	runStart := t0.Add(-60 * time.Second) // 60s elapsed, 2 iterations done
+	// iteration=3 (1-based), iterations=5, iterElapsed=10s
+	// completedCount=2, avg=30s, estimated=max(30s-10s,0)+2*30s=80s=1m20s
+	renderDiagnoseProgressLine(&b, 3, 5, 10*time.Second, runStart, t0, true)
+	got := b.String()
+	require.Contains(t, got, "iter 3/5")
+	require.Contains(t, got, "left")
+	require.Contains(t, got, "~")
+}
+
+func TestRenderDiagnoseProgressLine_noEtaOnFirstIteration(t *testing.T) {
+	var b strings.Builder
+	t0 := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
+	runStart := t0.Add(-5 * time.Second)
+	renderDiagnoseProgressLine(&b, 1, 5, 5*time.Second, runStart, t0, true)
+	got := b.String()
+	require.Contains(t, got, "iter 1/5")
+	require.NotContains(t, got, "left")
+}
+
 func TestRenderParallelDiagnoseProgressLine(t *testing.T) {
 	var b strings.Builder
 	t0 := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -126,6 +149,30 @@ func TestRenderParallelDiagnoseProgressLine(t *testing.T) {
 	require.NotContains(t, got, "active")
 	require.NotContains(t, got, "·")
 	require.NotContains(t, got, "core/")
+}
+
+func TestRenderParallelDiagnoseProgressLine_etaShownWhenCompletionsExist(t *testing.T) {
+	var b strings.Builder
+	t0 := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	now := t0.Add(60 * time.Second)
+	p := newParallelDiagnoseProgressAt(10, t0)
+	p.bumpCompletedForTest(2) // 2 completed in 60s → avg 30s, remaining 8 → ~240s=4m0s
+	renderParallelDiagnoseProgressLine(&b, p, now, true)
+	got := b.String()
+	require.Contains(t, got, "2/10")
+	require.Contains(t, got, "left")
+	require.Contains(t, got, "~")
+}
+
+func TestRenderParallelDiagnoseProgressLine_noEtaWhenNoneComplete(t *testing.T) {
+	var b strings.Builder
+	t0 := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	now := t0.Add(10 * time.Second)
+	p := newParallelDiagnoseProgressAt(10, t0)
+	renderParallelDiagnoseProgressLine(&b, p, now, true)
+	got := b.String()
+	require.Contains(t, got, "0/10")
+	require.NotContains(t, got, "left")
 }
 
 // Simulates: worker goroutine redraws the next iteration's \r line before the

@@ -292,6 +292,15 @@ func renderDiagnoseProgressLine(w io.Writer, iteration, iterations int, iterElap
 	if !diagnoseRunStart.IsZero() {
 		runEl := max(now.Sub(diagnoseRunStart), 0)
 		line += "  " + progressBracket(termstyle.Muted.Render(runEl.Round(time.Second).String()))
+		completedCount := iteration - 1
+		if completedCount > 0 {
+			avgPerIter := runEl / time.Duration(completedCount)
+			remainingIters := iterations - iteration
+			estimated := max(avgPerIter-iterElapsed, 0) + time.Duration(remainingIters)*avgPerIter
+			if estimated > 0 {
+				line += "  " + progressBracket(termstyle.Muted.Render("~"+estimated.Round(time.Second).String()+" left"))
+			}
+		}
 	}
 	fmt.Fprint(w, "\r\033[K")
 	fmt.Fprint(w, line)
@@ -314,6 +323,13 @@ func renderParallelDiagnoseProgressLine(w io.Writer, prog *parallelDiagnoseProgr
 		line += "  " + progressBracket(sb.String())
 	}
 	line += "  " + progressBracket(termstyle.Muted.Render(poolElapsed.String()))
+	if completed > 0 && totalIters > completed {
+		remaining := totalIters - completed
+		estimated := time.Duration(remaining) * poolElapsed / time.Duration(completed)
+		if estimated > 0 {
+			line += "  " + progressBracket(termstyle.Muted.Render("~"+estimated.Round(time.Second).String()+" left"))
+		}
+	}
 	fmt.Fprint(w, "\r\033[K")
 	fmt.Fprint(w, line)
 }
