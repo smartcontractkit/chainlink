@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 	"golang.org/x/sync/errgroup"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
@@ -27,7 +29,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -284,11 +285,11 @@ func (d *DeployerGroup) GetDeployerForSVM(chain uint64) (func(DeployerForSVM) (s
 			}
 		}
 
-		mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(d.e.BlockChains.SolanaChains()[chain], addresses)
+		mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(d.e.BlockChains.SolanaChains()[chain], addresses)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load mcm state: %w", err)
 		}
-		timelockSignerPDA := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+		timelockSignerPDA := pdasol.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 		authority = timelockSignerPDA
 	}
 
@@ -531,7 +532,7 @@ func BuildTimelockAddressPerChain(e cldf.Environment, onchainState stateview.CCI
 		if err != nil {
 			return nil, fmt.Errorf("failed to load addresses for chain %d: %w", selector, err)
 		}
-		mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+		mcmState, _ := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 		addressPerChain[selector] = mcmsSolana.ContractAddress(mcmState.TimelockProgram, mcmsSolana.PDASeed(mcmState.TimelockSeed))
 	}
 
@@ -569,7 +570,7 @@ func BuildMcmAddressesPerChainByAction(e cldf.Environment, onchainState statevie
 		if err != nil {
 			return nil, fmt.Errorf("failed to load addresses for chain %d: %w", selector, err)
 		}
-		mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+		mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load mcm state: %w", err)
 		}

@@ -10,6 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 
@@ -19,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 )
@@ -38,7 +39,7 @@ func TestMCMSWithTimelockState_GenerateMCMSWithTimelockViewSolana(t *testing.T) 
 
 	chain := env.BlockChains.SolanaChains()[selector]
 
-	defaultState := func() *state.MCMSWithTimelockStateSolana {
+	defaultState := func() *solstate.MCMSWithTimelockState {
 		addressBook := cldf.NewMemoryAddressBook()
 		mcmsState, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(*env, chain, addressBook,
 			commontypes.MCMSWithTimelockConfigV2{
@@ -64,14 +65,14 @@ func TestMCMSWithTimelockState_GenerateMCMSWithTimelockViewSolana(t *testing.T) 
 
 	tests := []struct {
 		name    string
-		state   *state.MCMSWithTimelockStateSolana
-		want    func(*state.MCMSWithTimelockStateSolana) string
+		state   *solstate.MCMSWithTimelockState
+		want    func(*solstate.MCMSWithTimelockState) string
 		wantErr string
 	}{
 		{
 			name:  "success",
 			state: defaultState(),
-			want: func(state *state.MCMSWithTimelockStateSolana) string {
+			want: func(state *solstate.MCMSWithTimelockState) string {
 				return fmt.Sprintf(`{
 					"proposer": {
 						"programID": "%s",
@@ -150,6 +151,6 @@ func toJSON[T any](t *testing.T, value T) string {
 	return string(bytes)
 }
 
-func signerPDA(programID solana.PublicKey, seed state.PDASeed) string {
-	return state.GetMCMSignerPDA(programID, seed).String()
+func signerPDA(programID solana.PublicKey, seed solstate.PDASeed) string {
+	return pdasol.GetMCMSignerPDA(programID, seed).String()
 }

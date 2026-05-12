@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
 
@@ -45,7 +46,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 
-	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
@@ -393,14 +393,14 @@ func (c CCIPOnChainState) EVMMCMSStateByChain() map[uint64]evmstate.MCMSWithTime
 	return mcmsStateByChain
 }
 
-func (c CCIPOnChainState) SolanaMCMSStateByChain(e cldf.Environment) map[uint64]commonstate.MCMSWithTimelockStateSolana {
-	mcmsStateByChain := make(map[uint64]commonstate.MCMSWithTimelockStateSolana)
+func (c CCIPOnChainState) SolanaMCMSStateByChain(e cldf.Environment) map[uint64]solstate.MCMSWithTimelockState {
+	mcmsStateByChain := make(map[uint64]solstate.MCMSWithTimelockState)
 	for chainSelector := range e.BlockChains.SolanaChains() {
 		addreses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			return mcmsStateByChain
 		}
-		mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(e.BlockChains.SolanaChains()[chainSelector], addreses)
+		mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(e.BlockChains.SolanaChains()[chainSelector], addreses)
 		if err != nil {
 			return mcmsStateByChain
 		}
