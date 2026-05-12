@@ -2,15 +2,19 @@ package vault
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	workflowsyncerv2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 )
 
@@ -27,13 +31,26 @@ type allowListBasedAuth struct {
 	lggr                   logger.Logger
 	retryCount             int
 	retryInterval          time.Duration
+	// vaultBase64EncodingEnabled, when non-nil and AllowErr(ctx)==nil, indicates the
+	// gateway forwards ciphertext as base64. Allowlist digests are always registered
+	// against the client (hex) wire form, so we normalize before Digest().
+	vaultBase64EncodingEnabled limits.GateLimiter
 }
 
 // AuthorizeRequest authorizes a request using AllowListBasedAuth.
 // It does NOT check if the request method is allowed.
 func (r *allowListBasedAuth) AuthorizeRequest(ctx context.Context, req jsonrpc.Request[json.RawMessage]) (*AuthResult, error) {
 	r.lggr.Debugw("AllowListBasedAuth authorizing request", "method", req.Method, "requestID", req.ID)
-	requestDigest, err := req.Digest()
+	reqForDigest := req
+	if r.vaultBase64EncodingEnabled != nil && r.vaultBase64EncodingEnabled.AllowErr(ctx) == nil {
+		normalized, normErr := vaultRequestEncryptedSecretsBase64ToHexForAllowlistDigest(req)
+		if normErr != nil {
+			r.lggr.Debugw("AllowListBasedAuth failed to normalize ciphertext for digest", "method", req.Method, "requestID", req.ID, "error", normErr)
+			return nil, normErr
+		}
+		reqForDigest = normalized
+	}
+	requestDigest, err := reqForDigest.Digest()
 	if err != nil {
 		r.lggr.Debugw("AllowListBasedAuth failed to create digest", "method", req.Method, "requestID", req.ID, "error", err)
 		return nil, err
@@ -120,13 +137,72 @@ func (r *allowListBasedAuth) fetchAllowlistedItem(allowListedRequests []workflow
 }
 
 // NewAllowListBasedAuth creates the allowlist-backed Vault auth mechanism.
-func NewAllowListBasedAuth(lggr logger.Logger, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer) *allowListBasedAuth {
+// vaultBase64EncodingEnabled may be nil; when set and limits allow, ciphertext in
+// create/update params is decoded from base64 to hex before computing the allowlist digest.
+func NewAllowListBasedAuth(lggr logger.Logger, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, vaultBase64EncodingEnabled limits.GateLimiter) *allowListBasedAuth {
 	return &allowListBasedAuth{
-		workflowRegistrySyncer: workflowRegistrySyncer,
-		lggr:                   logger.Named(lggr, "VaultAllowListBasedAuth"),
-		retryCount:             allowListBasedAuthRetryCount,
-		retryInterval:          allowListBasedAuthRetryInterval,
+		workflowRegistrySyncer:     workflowRegistrySyncer,
+		lggr:                       logger.Named(lggr, "VaultAllowListBasedAuth"),
+		retryCount:                 allowListBasedAuthRetryCount,
+		retryInterval:              allowListBasedAuthRetryInterval,
+		vaultBase64EncodingEnabled: vaultBase64EncodingEnabled,
 	}
+}
+
+func vaultRequestEncryptedSecretsBase64ToHexForAllowlistDigest(req jsonrpc.Request[json.RawMessage]) (jsonrpc.Request[json.RawMessage], error) {
+	if req.Params == nil {
+		return req, nil
+	}
+	switch req.Method {
+	case vaulttypes.MethodSecretsCreate:
+		parsed := &vaultcommon.CreateSecretsRequest{}
+		if err := json.Unmarshal(*req.Params, parsed); err != nil {
+			return jsonrpc.Request[json.RawMessage]{}, err
+		}
+		if err := convertEncryptedSecretsBase64WireToHexStrings(parsed.EncryptedSecrets); err != nil {
+			return jsonrpc.Request[json.RawMessage]{}, err
+		}
+		b, err := json.Marshal(parsed)
+		if err != nil {
+			return jsonrpc.Request[json.RawMessage]{}, err
+		}
+		raw := json.RawMessage(b)
+		out := req
+		out.Params = &raw
+		return out, nil
+	case vaulttypes.MethodSecretsUpdate:
+		parsed := &vaultcommon.UpdateSecretsRequest{}
+		if err := json.Unmarshal(*req.Params, parsed); err != nil {
+			return jsonrpc.Request[json.RawMessage]{}, err
+		}
+		if err := convertEncryptedSecretsBase64WireToHexStrings(parsed.EncryptedSecrets); err != nil {
+			return jsonrpc.Request[json.RawMessage]{}, err
+		}
+		b, err := json.Marshal(parsed)
+		if err != nil {
+			return jsonrpc.Request[json.RawMessage]{}, err
+		}
+		raw := json.RawMessage(b)
+		out := req
+		out.Params = &raw
+		return out, nil
+	default:
+		return req, nil
+	}
+}
+
+func convertEncryptedSecretsBase64WireToHexStrings(secrets []*vaultcommon.EncryptedSecret) error {
+	for i, item := range secrets {
+		if item == nil || item.EncryptedValue == "" {
+			continue
+		}
+		raw, err := base64.StdEncoding.DecodeString(item.EncryptedValue)
+		if err != nil {
+			return fmt.Errorf("encrypted secret index %d: %w", i, err)
+		}
+		item.EncryptedValue = hex.EncodeToString(raw)
+	}
+	return nil
 }
 
 func sleepWithContext(ctx context.Context, d time.Duration) error {

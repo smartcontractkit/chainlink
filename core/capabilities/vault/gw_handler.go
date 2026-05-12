@@ -14,6 +14,7 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
@@ -65,10 +66,11 @@ type GatewayHandler struct {
 
 	secretsService   vaulttypes.SecretsService
 	gatewayConnector gatewayConnector
-	authorizer       Authorizer
-	jwtAuthService   services.Service
-	lggr             logger.Logger
-	metrics          *metrics
+	authorizer               Authorizer
+	jwtAuthService           services.Service
+	vaultBase64AllowlistGate limits.GateLimiter
+	lggr                     logger.Logger
+	metrics                  *metrics
 }
 
 // NewGatewayHandler creates a Vault gateway connector handler with internal auth wiring.
@@ -97,8 +99,14 @@ func NewGatewayHandler(
 		jwtBasedAuth = jwtAuthService.(Authorizer)
 	}
 
+	var vaultBase64AllowlistGate limits.GateLimiter
 	if authorizer == nil {
-		allowListBasedAuth := NewAllowListBasedAuth(lggr, workflowRegistrySyncer)
+		var gateErr error
+		vaultBase64AllowlistGate, gateErr = limits.MakeGateLimiter(limitsFactory, cresettings.Default.VaultBase64EncodingEnabled)
+		if gateErr != nil {
+			return nil, fmt.Errorf("failed to create VaultBase64EncodingEnabled gate: %w", gateErr)
+		}
+		allowListBasedAuth := NewAllowListBasedAuth(lggr, workflowRegistrySyncer, vaultBase64AllowlistGate)
 		authorizer = NewAuthorizer(allowListBasedAuth, jwtBasedAuth, lggr)
 	}
 
@@ -108,12 +116,13 @@ func NewGatewayHandler(
 	}
 
 	gh := &GatewayHandler{
-		secretsService:   secretsService,
-		gatewayConnector: connector,
-		authorizer:       authorizer,
-		jwtAuthService:   jwtAuthService,
-		lggr:             lggr.Named(HandlerName),
-		metrics:          metrics,
+		secretsService:           secretsService,
+		gatewayConnector:         connector,
+		authorizer:               authorizer,
+		jwtAuthService:           jwtAuthService,
+		vaultBase64AllowlistGate: vaultBase64AllowlistGate,
+		lggr:                     lggr.Named(HandlerName),
+		metrics:                  metrics,
 	}
 	gh.Service, gh.eng = services.Config{
 		Name:  "GatewayHandler",
@@ -136,14 +145,21 @@ func (h *GatewayHandler) start(ctx context.Context) error {
 }
 
 func (h *GatewayHandler) close() error {
-	var jwtAuthErr error
+	var errs []error
+	if h.vaultBase64AllowlistGate != nil {
+		if err := h.vaultBase64AllowlistGate.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("failed to close vault base64 allowlist gate: %w", err))
+		}
+	}
 	if h.jwtAuthService != nil {
-		jwtAuthErr = h.jwtAuthService.Close()
+		if err := h.jwtAuthService.Close(); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	if gwerr := h.gatewayConnector.RemoveHandler(context.Background(), h.Methods()); gwerr != nil {
-		return errors.Join(fmt.Errorf("failed to remove vault handler from connector: %w", gwerr), jwtAuthErr)
+		errs = append(errs, fmt.Errorf("failed to remove vault handler from connector: %w", gwerr))
 	}
-	return jwtAuthErr
+	return errors.Join(errs...)
 }
 
 func (h *GatewayHandler) ID(ctx context.Context) (string, error) {

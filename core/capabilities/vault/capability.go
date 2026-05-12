@@ -34,6 +34,7 @@ type Capability struct {
 	capabilitiesRegistry core.CapabilitiesRegistry
 	publicKey            *LazyPublicKey
 	linker               *OrgIDToWorkflowOwnerLinker
+	base64Gate           limits.GateLimiter
 	*RequestValidator
 }
 
@@ -93,7 +94,18 @@ func (s *Capability) Close() error {
 		err = errors.Join(err, fmt.Errorf("error closing org_id linker: %w", lerr))
 	}
 
+	if lerr := s.base64Gate.Close(); lerr != nil {
+		err = errors.Join(err, fmt.Errorf("error closing base64 encoding gate: %w", lerr))
+	}
+
 	return err
+}
+
+func (s *Capability) ciphertextStringEncoding(ctx context.Context) vaultutils.CiphertextStringEncoding {
+	if s.base64Gate.AllowErr(ctx) == nil {
+		return vaultutils.CiphertextStringEncodingBase64
+	}
+	return vaultutils.CiphertextStringEncodingHex
 }
 
 func (s *Capability) Info(_ context.Context) (capabilities.CapabilityInfo, error) {
@@ -196,7 +208,7 @@ func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.Cre
 		s.lggr.Debugw("failed identity owner checks", "requestID", request.RequestId, "err", ownerErr)
 		return nil, ownerErr
 	}
-	err = s.ValidateCreateSecretsRequest(ctx, s.publicKey.Get(), request, false, vaultutils.CiphertextStringEncodingHex)
+	err = s.ValidateCreateSecretsRequest(ctx, s.publicKey.Get(), request, false, s.ciphertextStringEncoding(ctx))
 	if err != nil {
 		s.lggr.Debugw("failed validation checks", "requestID", request.RequestId, "err", err)
 		return nil, err
@@ -216,7 +228,7 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.Upd
 		s.lggr.Debugw("failed identity owner checks", "requestID", request.RequestId, "err", ownerErr)
 		return nil, ownerErr
 	}
-	err = s.ValidateUpdateSecretsRequest(ctx, s.publicKey.Get(), request, false, vaultutils.CiphertextStringEncodingHex)
+	err = s.ValidateUpdateSecretsRequest(ctx, s.publicKey.Get(), request, false, s.ciphertextStringEncoding(ctx))
 	if err != nil {
 		s.lggr.Debugw("failed validation checks", "requestID", request.RequestId, "err", err)
 		return nil, err
@@ -412,6 +424,10 @@ func NewCapability(
 	if err != nil {
 		return nil, fmt.Errorf("could not create identifier namespace length limiter: %w", err)
 	}
+	base64Gate, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.VaultBase64EncodingEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("could not create base64 encoding gate: %w", err)
+	}
 	return &Capability{
 		lggr:                 logger.Named(lggr, "VaultCapability"),
 		clock:                clock,
@@ -420,6 +436,7 @@ func NewCapability(
 		capabilitiesRegistry: capabilitiesRegistry,
 		publicKey:            publicKey,
 		linker:               linker,
+		base64Gate:           base64Gate,
 		RequestValidator:     NewRequestValidator(limiter, ciphertextLimiter, idKeyLengthLimiter, idOwnerLengthLimiter, idNamespaceLengthLimiter),
 	}, nil
 }

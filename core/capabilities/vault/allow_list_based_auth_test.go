@@ -2,6 +2,7 @@ package vault
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"testing"
@@ -13,6 +14,7 @@ import (
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -159,7 +161,7 @@ func testAuthForRequests(t *testing.T, allowlistedRequest, notAllowlistedRequest
 	owner := common.Address{1, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
 	mockSyncer := syncerv2mocks.NewWorkflowRegistrySyncer(t)
-	auth := NewAllowListBasedAuth(lggr, mockSyncer)
+	auth := NewAllowListBasedAuth(lggr, mockSyncer, nil)
 	auth.retryCount = 0
 	auth.retryInterval = time.Millisecond
 
@@ -226,7 +228,7 @@ func TestAllowListBasedAuth_RetriesUntilRequestIsAllowlisted(t *testing.T) {
 	}
 
 	mockSyncer := syncerv2mocks.NewWorkflowRegistrySyncer(t)
-	auth := NewAllowListBasedAuth(lggr, mockSyncer)
+	auth := NewAllowListBasedAuth(lggr, mockSyncer, nil)
 	auth.retryCount = 2
 	auth.retryInterval = time.Millisecond
 
@@ -247,7 +249,7 @@ func TestAllowListBasedAuth_FailsAfterAllowlistReadRetries(t *testing.T) {
 	mockSyncer := syncerv2mocks.NewWorkflowRegistrySyncer(t)
 	mockSyncer.On("GetAllowlistedRequests", mock.Anything).Return([]workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}).Times(3)
 
-	auth := NewAllowListBasedAuth(lggr, mockSyncer)
+	auth := NewAllowListBasedAuth(lggr, mockSyncer, nil)
 	auth.retryCount = 2
 	auth.retryInterval = time.Millisecond
 
@@ -266,13 +268,69 @@ func TestAllowListBasedAuth_StopsRetriesWhenContextCanceled(t *testing.T) {
 	mockSyncer := syncerv2mocks.NewWorkflowRegistrySyncer(t)
 	mockSyncer.On("GetAllowlistedRequests", mock.Anything).Return([]workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}).Once()
 
-	auth := NewAllowListBasedAuth(lggr, mockSyncer)
+	auth := NewAllowListBasedAuth(lggr, mockSyncer, nil)
 	auth.retryCount = 2
 	auth.retryInterval = time.Second
 
 	authResult, err := auth.AuthorizeRequest(ctx, req)
 	require.Nil(t, authResult)
 	require.ErrorIs(t, err, context.Canceled)
+}
+
+func TestAllowListBasedAuth_Base64WireMatchesHexAllowlistedDigest(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	owner := common.Address{9, 8, 7}
+
+	hexParams, err := json.Marshal(vaultcommon.CreateSecretsRequest{
+		RequestId: "rid-1",
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{{
+			Id:             &vaultcommon.SecretIdentifier{Key: "k", Namespace: "ns", Owner: "o"},
+			EncryptedValue: "41",
+		}},
+	})
+	require.NoError(t, err)
+	hexRaw := json.RawMessage(hexParams)
+	hexReq := jsonrpc.Request[json.RawMessage]{
+		ID:     "123",
+		Method: vaulttypes.MethodSecretsCreate,
+		Params: &hexRaw,
+	}
+	digest, err := hexReq.Digest()
+	require.NoError(t, err)
+	digestBytes, err := hex.DecodeString(digest)
+	require.NoError(t, err)
+
+	b64Val := base64.StdEncoding.EncodeToString([]byte{0x41})
+	b64Params, err := json.Marshal(vaultcommon.CreateSecretsRequest{
+		RequestId: "rid-1",
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{{
+			Id:             &vaultcommon.SecretIdentifier{Key: "k", Namespace: "ns", Owner: "o"},
+			EncryptedValue: b64Val,
+		}},
+	})
+	require.NoError(t, err)
+	b64Raw := json.RawMessage(b64Params)
+	b64Req := jsonrpc.Request[json.RawMessage]{
+		ID:     "123",
+		Method: vaulttypes.MethodSecretsCreate,
+		Params: &b64Raw,
+	}
+
+	mockSyncer := syncerv2mocks.NewWorkflowRegistrySyncer(t)
+	expiry := time.Now().UTC().Unix() + 100
+	mockSyncer.On("GetAllowlistedRequests", mock.Anything).Return([]workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{{
+		RequestDigest:   [32]byte(digestBytes),
+		Owner:           owner,
+		ExpiryTimestamp: uint32(expiry), //nolint:gosec // it is a safe conversion
+	}})
+
+	auth := NewAllowListBasedAuth(lggr, mockSyncer, limits.NewGateLimiter(true))
+	auth.retryCount = 0
+	auth.retryInterval = time.Millisecond
+
+	authResult, err := auth.AuthorizeRequest(t.Context(), b64Req)
+	require.NoError(t, err)
+	require.Equal(t, owner.Hex(), authResult.AuthorizedOwner())
 }
 
 func makeListSecretsRequest(t *testing.T, id, namespace string) jsonrpc.Request[json.RawMessage] {

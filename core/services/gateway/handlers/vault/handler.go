@@ -190,7 +190,7 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		return nil, fmt.Errorf("failed to unmarshal method config: %w", err)
 	}
 
-	allowListBasedAuth := vaultcap.NewAllowListBasedAuth(lggr, workflowRegistrySyncer)
+	allowListBasedAuth := vaultcap.NewAllowListBasedAuth(lggr, workflowRegistrySyncer, nil)
 	var jwtBasedAuth vaultcap.Authorizer
 	var jwtAuth services.Service
 	if cfg.Auth0 != nil {
