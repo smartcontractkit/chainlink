@@ -21,6 +21,36 @@ import (
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 )
 
+// forceEvictForTest drops the strong reference and synchronously closes any
+// weakly-held holder, simulating the GC reclaiming the compiled module.
+// Production code uses Evict (strong-only drop); tests use this to
+// deterministically exercise the disk-reload path without waiting for GC.
+func (m *EvictableModule) forceEvictForTest() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if h := m.current.Swap(nil); h != nil {
+		h.release()
+		h.mod.Close()
+	}
+	if h := m.weakInner.Value(); h != nil {
+		h.mod.Close()
+	}
+	m.weakInner = weak.Pointer[loadedModule]{}
+}
+
+// fakeModule is a minimal host.ModuleV2 used by tests that need to observe
+// Close calls without going through the mockery expectation lifecycle.
+type fakeModule struct {
+	closeCalls atomic.Int32
+}
+
+func (f *fakeModule) Start()            {}
+func (f *fakeModule) IsLegacyDAG() bool { return false }
+func (f *fakeModule) Close()            { f.closeCalls.Add(1) }
+func (f *fakeModule) Execute(_ context.Context, _ *sdkpb.ExecuteRequest, _ host.ExecutionHelper) (*sdkpb.ExecutionResult, error) {
+	return &sdkpb.ExecutionResult{}, nil
+}
+
 // countingStore wraps a SerialisedModuleStore and counts GetModule calls
 // to verify whether disk I/O occurred during module reload.
 type countingStore struct {
@@ -45,9 +75,11 @@ func newTestEvictableModule(t *testing.T, inner host.ModuleV2, factory ModuleFac
 func TestEvictable_Execute_ContextCanceled(t *testing.T) {
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Start()
+	inner.EXPECT().Close()
 
 	em, _ := newTestEvictableModule(t, inner, nil)
 	em.Start()
+	t.Cleanup(em.Close)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -103,6 +135,9 @@ func TestEvictable_Execute_PinRetriesExhausted(t *testing.T) {
 	t.Cleanup(func() { executePinMaxAttempts = prevAttempts })
 
 	prevHook := evictAfterEnsureLoadedHook
+	// The hook drops the strong reference each iteration; weak resurrection
+	// then re-promotes the same holder until the retry budget is exhausted.
+	// The factory is never invoked because L2 keeps hitting.
 	evictAfterEnsureLoadedHook = func(em *EvictableModule) { em.Evict() }
 	t.Cleanup(func() { evictAfterEnsureLoadedHook = prevHook })
 
@@ -118,30 +153,29 @@ func TestEvictable_Execute_PinRetriesExhausted(t *testing.T) {
 	inner.EXPECT().Close()
 
 	factory := func(_ context.Context, _ *host.ModuleConfig, _ []byte, _ ...func(*host.ModuleConfig)) (host.ModuleV2, error) {
-		m := modulemocks.NewModuleV2(t)
-		m.EXPECT().Start()
-		m.EXPECT().Close()
-		return m, nil
+		t.Fatalf("factory must not be called when weak resurrection keeps hitting")
+		return nil, nil
 	}
 
 	em, _ := newTestEvictableModule(t, inner, factory)
 	em.metrics = cm
 	em.started.Store(true)
+	t.Cleanup(em.Close)
 
 	_, err = em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
 	require.ErrorIs(t, err, ErrExecutePinExhausted)
 	assert.Equal(t, int32(1), pinExhaustedRecorded.Load())
-
-	em.Close()
 }
 
 func TestEvictable_DelegatesToInner(t *testing.T) {
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Start()
 	inner.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil)
+	inner.EXPECT().Close()
 
 	em, _ := newTestEvictableModule(t, inner, nil)
 	em.Start()
+	t.Cleanup(em.Close)
 
 	result, err := em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
 	require.NoError(t, err)
@@ -152,8 +186,10 @@ func TestEvictable_DelegatesToInner(t *testing.T) {
 func TestEvictable_LastUsedUpdated(t *testing.T) {
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil).Times(2)
+	inner.EXPECT().Close()
 
 	em, _ := newTestEvictableModule(t, inner, nil)
+	t.Cleanup(em.Close)
 
 	before := em.LastUsed()
 	time.Sleep(time.Millisecond)
@@ -171,6 +207,8 @@ func TestEvictable_LastUsedUpdated(t *testing.T) {
 
 func TestEvictable_EvictFreesModule(t *testing.T) {
 	inner := modulemocks.NewModuleV2(t)
+	// Close comes from forceEvictForTest below (simulating GC cleanup);
+	// the production Evict call does not close.
 	inner.EXPECT().Close()
 
 	em, _ := newTestEvictableModule(t, inner, nil)
@@ -178,6 +216,10 @@ func TestEvictable_EvictFreesModule(t *testing.T) {
 
 	em.Evict()
 	assert.False(t, em.IsLoaded())
+
+	// Simulate GC pressure so the mock sees Close deterministically before
+	// the test harness asserts expectations.
+	em.forceEvictForTest()
 }
 
 func TestEvictable_ReloadFromDisk(t *testing.T) {
@@ -188,6 +230,7 @@ func TestEvictable_ReloadFromDisk(t *testing.T) {
 	reloaded := modulemocks.NewModuleV2(t)
 	reloaded.EXPECT().Start()
 	reloaded.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil)
+	reloaded.EXPECT().Close()
 
 	factory := func(_ context.Context, _ *host.ModuleConfig, binary []byte, _ ...func(*host.ModuleConfig)) (host.ModuleV2, error) {
 		reloadedBinary = make([]byte, len(binary))
@@ -197,7 +240,10 @@ func TestEvictable_ReloadFromDisk(t *testing.T) {
 
 	em, _ := newTestEvictableModule(t, inner, factory)
 	em.started.Store(true)
-	em.Evict()
+	// Force a full evict (including L2) so the subsequent Execute must go
+	// all the way to disk and invoke the factory.
+	em.forceEvictForTest()
+	t.Cleanup(em.Close)
 
 	_, err := em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
 	require.NoError(t, err)
@@ -224,7 +270,7 @@ func TestEvictable_ReloadFromDisk_RejectsEngineVersionMismatch(t *testing.T) {
 
 	em := NewEvictableModule(inner, &host.ModuleConfig{}, store, "wf-test", "v2", factory, cm, int64(len("v1-binary")))
 	em.started.Store(true)
-	em.Evict()
+	em.forceEvictForTest()
 
 	_, err = em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
 	require.ErrorIs(t, err, ErrEngineVersionMismatch)
@@ -242,6 +288,7 @@ func TestEvictable_ReloadFromDisk_AcceptsMatchingEngineVersion(t *testing.T) {
 	reloaded := modulemocks.NewModuleV2(t)
 	reloaded.EXPECT().Start()
 	reloaded.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil)
+	reloaded.EXPECT().Close()
 
 	factory := func(_ context.Context, _ *host.ModuleConfig, _ []byte, _ ...func(*host.ModuleConfig)) (host.ModuleV2, error) {
 		return reloaded, nil
@@ -253,7 +300,8 @@ func TestEvictable_ReloadFromDisk_AcceptsMatchingEngineVersion(t *testing.T) {
 
 	em := NewEvictableModule(inner, &host.ModuleConfig{}, store, "wf-test", "v2", factory, nil, int64(len("v2-binary")))
 	em.started.Store(true)
-	em.Evict()
+	em.forceEvictForTest()
+	t.Cleanup(em.Close)
 
 	_, err = em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
 	require.NoError(t, err)
@@ -267,6 +315,7 @@ func TestEvictable_ReloadCallsStart(t *testing.T) {
 	reloaded := modulemocks.NewModuleV2(t)
 	reloaded.EXPECT().Start()
 	reloaded.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil)
+	reloaded.EXPECT().Close()
 
 	factory := func(_ context.Context, _ *host.ModuleConfig, _ []byte, _ ...func(*host.ModuleConfig)) (host.ModuleV2, error) {
 		return reloaded, nil
@@ -274,7 +323,8 @@ func TestEvictable_ReloadCallsStart(t *testing.T) {
 
 	em, _ := newTestEvictableModule(t, inner, factory)
 	em.Start()
-	em.Evict()
+	em.forceEvictForTest()
+	t.Cleanup(em.Close)
 
 	_, err := em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
 	require.NoError(t, err)
@@ -311,6 +361,7 @@ func TestEvictable_ConcurrentExecuteDuringEvict(t *testing.T) {
 
 	em, _ := newTestEvictableModule(t, inner, factory)
 	em.started.Store(true)
+	t.Cleanup(em.Close)
 
 	var wg sync.WaitGroup
 	execErrs := make(chan error, 5)
@@ -350,9 +401,10 @@ func TestEvictable_EvictDoesNotWaitForExecution(t *testing.T) {
 			return &sdkpb.ExecutionResult{}, nil
 		},
 	)
-	inner.EXPECT().Close().Run(func() { closeCalled.Store(true) })
+	inner.EXPECT().Close()
 
 	em, _ := newTestEvictableModule(t, inner, nil)
+	t.Cleanup(em.Close)
 
 	execDone := make(chan error, 1)
 	go func() {
@@ -398,6 +450,7 @@ func TestEvictable_NewExecuteUsesExistingModuleWhenEvictSkipped(t *testing.T) {
 	firstExecuteStarted := make(chan struct{})
 	releaseFirstExecute := make(chan struct{})
 	firstExecuteDone := make(chan error, 1)
+	secondExecuteStarted := make(chan struct{})
 	secondExecuteDone := make(chan error, 1)
 	evictReturned := make(chan struct{})
 
@@ -572,8 +625,11 @@ func TestEvictable_MultipleEvictReloadCycles(t *testing.T) {
 	em, _ := newTestEvictableModule(t, inner, factory)
 	em.started.Store(true)
 
+	// Each iteration force-evicts (including L2) so the factory is guaranteed
+	// to run. Without the force, weak resurrection would skip the factory after
+	// the first cycle.
 	for i := 0; i < 3; i++ {
-		em.Evict()
+		em.forceEvictForTest()
 		assert.False(t, em.IsLoaded())
 
 		_, err := em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
@@ -583,7 +639,6 @@ func TestEvictable_MultipleEvictReloadCycles(t *testing.T) {
 
 	assert.Equal(t, int32(3), createCount.Load())
 
-	// Final cleanup
 	em.Close()
 }
 
@@ -592,7 +647,7 @@ func TestEvictable_ReloadFailure(t *testing.T) {
 	inner.EXPECT().Close()
 
 	em, store := newTestEvictableModule(t, inner, nil)
-	em.Evict()
+	em.forceEvictForTest()
 
 	// Corrupt the cache by deleting the binary
 	require.NoError(t, store.DeleteModule("wf-test"))
@@ -608,6 +663,7 @@ func TestEvictable_ReloadFailure(t *testing.T) {
 func newLRUModule(t *testing.T, store artifacts.SerialisedModuleStore, wfID string) *EvictableModule {
 	t.Helper()
 	inner := modulemocks.NewModuleV2(t)
+	inner.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil).Maybe()
 	inner.EXPECT().Close().Maybe()
 	require.NoError(t, store.StoreModule(wfID, []byte("binary"), ""))
 	factory := func(_ context.Context, _ *host.ModuleConfig, _ []byte, _ ...func(*host.ModuleConfig)) (host.ModuleV2, error) {
@@ -619,6 +675,7 @@ func newLRUModule(t *testing.T, store artifacts.SerialisedModuleStore, wfID stri
 	}
 	em := NewEvictableModule(inner, &host.ModuleConfig{}, store, wfID, "", factory, nil, int64(len("binary")))
 	em.started.Store(true)
+	t.Cleanup(em.forceEvictForTest)
 	return em
 }
 
@@ -842,19 +899,17 @@ func TestLRU_EvictionOrder(t *testing.T) {
 
 // --- Weak reference (L2 cache) tests ---
 
+// TestEvictable_WeakRefHitAfterEvict verifies that Evict drops only the strong
+// reference and a subsequent Execute resurrects the still-live compiled module
+// via the weak L2, skipping both disk I/O and the factory.
 func TestEvictable_WeakRefHitAfterEvict(t *testing.T) {
 	inner := modulemocks.NewModuleV2(t)
+	inner.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil)
 	inner.EXPECT().Close()
 
-	var receivedBinary []byte
-	reloaded := modulemocks.NewModuleV2(t)
-	reloaded.EXPECT().Start()
-	reloaded.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil)
-
-	factory := func(_ context.Context, _ *host.ModuleConfig, binary []byte, _ ...func(*host.ModuleConfig)) (host.ModuleV2, error) {
-		receivedBinary = make([]byte, len(binary))
-		copy(receivedBinary, binary)
-		return reloaded, nil
+	factory := func(_ context.Context, _ *host.ModuleConfig, _ []byte, _ ...func(*host.ModuleConfig)) (host.ModuleV2, error) {
+		t.Fatalf("factory must not be called when weak resurrection succeeds")
+		return nil, nil
 	}
 
 	realStore, err := artifacts.NewFileModuleStore(t.TempDir(), false)
@@ -864,24 +919,19 @@ func TestEvictable_WeakRefHitAfterEvict(t *testing.T) {
 
 	em := NewEvictableModule(inner, &host.ModuleConfig{}, cs, "wf-test", "", factory, nil, int64(len("disk-binary")))
 	em.started.Store(true)
-
-	// Seed the weak reference with a known binary. Hold a strong reference
-	// to binaryHeap so the GC cannot collect it during the test.
-	binaryData := []byte("weak-ref-binary")
-	binaryHeap := new([]byte)
-	*binaryHeap = binaryData
-	em.weakBinary = weak.Make(binaryHeap)
+	t.Cleanup(em.Close)
 
 	em.Evict()
 
 	_, err = em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
 	require.NoError(t, err)
 
-	assert.Equal(t, int32(0), cs.getModuleCalls.Load(), "disk should not be accessed when weak ref is alive")
-	assert.Equal(t, []byte("weak-ref-binary"), receivedBinary)
-	runtime.KeepAlive(binaryHeap)
+	assert.Equal(t, int32(0), cs.getModuleCalls.Load(), "disk should not be accessed when weak module is alive")
 }
 
+// TestEvictable_WeakRefMissFallsToDisk verifies that when the weak L2 is
+// unreachable (GC has reclaimed the holder, simulated via forceEvictForTest),
+// ensureLoaded falls through to disk and invokes the factory.
 func TestEvictable_WeakRefMissFallsToDisk(t *testing.T) {
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Close()
@@ -890,6 +940,7 @@ func TestEvictable_WeakRefMissFallsToDisk(t *testing.T) {
 	reloaded := modulemocks.NewModuleV2(t)
 	reloaded.EXPECT().Start()
 	reloaded.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil)
+	reloaded.EXPECT().Close()
 
 	factory := func(_ context.Context, _ *host.ModuleConfig, binary []byte, _ ...func(*host.ModuleConfig)) (host.ModuleV2, error) {
 		receivedBinary = make([]byte, len(binary))
@@ -902,35 +953,34 @@ func TestEvictable_WeakRefMissFallsToDisk(t *testing.T) {
 	require.NoError(t, realStore.StoreModule("wf-test", []byte("disk-binary"), ""))
 	cs := &countingStore{SerialisedModuleStore: realStore}
 
-	// weakBinary is zero-valued (never populated), so L2 is a guaranteed miss.
 	em := NewEvictableModule(inner, &host.ModuleConfig{}, cs, "wf-test", "", factory, nil, int64(len("disk-binary")))
 	em.started.Store(true)
-	em.Evict()
+	em.forceEvictForTest()
+	t.Cleanup(em.Close)
 
 	_, err = em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
 	require.NoError(t, err)
 
-	assert.Equal(t, int32(1), cs.getModuleCalls.Load(), "disk should be accessed when weak ref is nil")
+	assert.Equal(t, int32(1), cs.getModuleCalls.Load(), "disk should be accessed when weak module is dead")
 	assert.Equal(t, []byte("disk-binary"), receivedBinary)
 }
 
-func TestEvictable_WeakRefUpdatedOnReload(t *testing.T) {
+// TestEvictable_WeakRefPopulatedAfterReload verifies that a disk reload
+// populates weakInner, so a second evict+execute cycle hits the weak L2.
+func TestEvictable_WeakRefPopulatedAfterReload(t *testing.T) {
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Close()
 
+	var factoryCalls atomic.Int32
 	reloaded := modulemocks.NewModuleV2(t)
-	reloaded.EXPECT().Start().Maybe()
-	reloaded.EXPECT().Close().Maybe()
+	reloaded.EXPECT().Start()
 	reloaded.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).
-		Return(&sdkpb.ExecutionResult{}, nil).Maybe()
+		Return(&sdkpb.ExecutionResult{}, nil).Times(2)
+	reloaded.EXPECT().Close()
 
 	factory := func(_ context.Context, _ *host.ModuleConfig, _ []byte, _ ...func(*host.ModuleConfig)) (host.ModuleV2, error) {
-		m := modulemocks.NewModuleV2(t)
-		m.EXPECT().Start().Maybe()
-		m.EXPECT().Close().Maybe()
-		m.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).
-			Return(&sdkpb.ExecutionResult{}, nil).Maybe()
-		return m, nil
+		factoryCalls.Add(1)
+		return reloaded, nil
 	}
 
 	realStore, err := artifacts.NewFileModuleStore(t.TempDir(), false)
@@ -940,27 +990,76 @@ func TestEvictable_WeakRefUpdatedOnReload(t *testing.T) {
 
 	em := NewEvictableModule(inner, &host.ModuleConfig{}, cs, "wf-test", "", factory, nil, int64(len("disk-binary")))
 	em.started.Store(true)
+	// Drop initial inner entirely so the first reload must go to disk.
+	em.forceEvictForTest()
+	t.Cleanup(em.Close)
 
-	// First cycle: evict + reload from disk (populates weakBinary)
-	em.Evict()
+	// First cycle: disk reload populates weakInner.
 	_, err = em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
 	require.NoError(t, err)
+	assert.Equal(t, int32(1), factoryCalls.Load())
 	assert.Equal(t, int32(1), cs.getModuleCalls.Load())
+	require.NotNil(t, em.weakInner.Value(), "weak L2 must be populated after disk reload")
+	// Hold a strong reference to the weak holder so GC cannot reclaim it
+	// between Evict and the second Execute.
+	holder := em.weakInner.Value()
+	require.NotNil(t, holder)
 
-	// Verify weakBinary was populated
-	assert.NotNil(t, em.weakBinary.Value(), "weak ref should be set after disk reload")
-
-	// Hold a strong reference to the binary via the weak pointer so GC
-	// cannot collect it between the evict and the second reload.
-	bp := em.weakBinary.Value()
-	require.NotNil(t, bp)
-
-	// Second cycle: evict + reload — should use weak ref (no new disk read)
+	// Second cycle: strong-drop only; weak holder stays alive, so L2 hits.
 	em.Evict()
 	_, err = em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
 	require.NoError(t, err)
-	assert.Equal(t, int32(1), cs.getModuleCalls.Load(), "second reload should use weak ref, not disk")
-	runtime.KeepAlive(bp)
+	assert.Equal(t, int32(1), factoryCalls.Load(), "second reload must use weak L2, not factory")
+	assert.Equal(t, int32(1), cs.getModuleCalls.Load(), "second reload must not touch disk")
+	runtime.KeepAlive(holder)
+}
+
+// TestEvictable_WeakRefClearedOnForceEvict proves that forceEvictForTest (the
+// GC-pressure simulation) genuinely clears the weak pointer — a sanity check
+// for the other weak-ref tests.
+func TestEvictable_WeakRefClearedOnForceEvict(t *testing.T) {
+	inner := modulemocks.NewModuleV2(t)
+	inner.EXPECT().Close()
+
+	em, _ := newTestEvictableModule(t, inner, nil)
+	require.NotNil(t, em.weakInner.Value(), "weak L2 must be populated at construction")
+
+	em.forceEvictForTest()
+	assert.Nil(t, em.weakInner.Value(), "weak L2 must be cleared after forceEvictForTest")
+
+	// runtime.KeepAlive prevents the compiler from reordering the inner
+	// reference above the forceEvict call, which would defeat the check.
+	runtime.KeepAlive(inner)
+}
+
+// TestEvictable_GCFiresCloseAfterEvict proves the production close path:
+// after Evict drops the strong reference, the weakly-held loadedModule becomes
+// GC-eligible and runtime.AddCleanup must eventually invoke mod.Close. This
+// is the only path that reclaims wasm runtime resources in production
+// (forceEvictForTest exists solely as a deterministic test hook).
+func TestEvictable_GCFiresCloseAfterEvict(t *testing.T) {
+	fake := &fakeModule{}
+
+	em, _ := newTestEvictableModule(t, fake, nil)
+	require.True(t, em.IsLoaded())
+	require.Equal(t, int32(0), fake.closeCalls.Load(), "Close must not fire on construction")
+
+	em.Evict()
+	require.False(t, em.IsLoaded(), "Evict clears the strong reference synchronously")
+	require.Equal(t, int32(0), fake.closeCalls.Load(),
+		"Evict must not call Close; close is deferred to GC + runtime.AddCleanup")
+
+	// runtime.AddCleanup fires asynchronously after the holder becomes
+	// unreachable. Force GC repeatedly until the cleanup runs (or time out).
+	require.Eventually(t, func() bool {
+		runtime.GC()
+		return fake.closeCalls.Load() == 1
+	}, 5*time.Second, 50*time.Millisecond,
+		"runtime.AddCleanup must close the wrapped module after GC reclaims the holder")
+
+	assert.Nil(t, em.weakInner.Value(),
+		"weak L2 must report nil once the holder has been GC-reclaimed")
+	assert.Equal(t, int32(1), fake.closeCalls.Load(), "Close must fire exactly once")
 }
 
 // --- Metrics integration tests ---
@@ -975,6 +1074,7 @@ func TestEvictable_ReloadSourceMetric(t *testing.T) {
 	reloaded := modulemocks.NewModuleV2(t)
 	reloaded.EXPECT().Start()
 	reloaded.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil)
+	reloaded.EXPECT().Close()
 
 	factory := func(_ context.Context, _ *host.ModuleConfig, _ []byte, _ ...func(*host.ModuleConfig)) (host.ModuleV2, error) {
 		return reloaded, nil
@@ -986,7 +1086,8 @@ func TestEvictable_ReloadSourceMetric(t *testing.T) {
 
 	em := NewEvictableModule(inner, &host.ModuleConfig{}, store, "wf-test", "", factory, cm, int64(len("binary")))
 	em.started.Store(true)
-	em.Evict()
+	em.forceEvictForTest()
+	t.Cleanup(em.Close)
 
 	// Reload from disk — metrics.recordReload should not panic with non-nil cacheMetrics
 	_, err = em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
@@ -1033,6 +1134,7 @@ func TestEvictable_BinarySizeTracked(t *testing.T) {
 	reloaded := modulemocks.NewModuleV2(t)
 	reloaded.EXPECT().Start()
 	reloaded.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil)
+	reloaded.EXPECT().Close()
 
 	factory := func(_ context.Context, _ *host.ModuleConfig, _ []byte, _ ...func(*host.ModuleConfig)) (host.ModuleV2, error) {
 		return reloaded, nil
@@ -1047,13 +1149,14 @@ func TestEvictable_BinarySizeTracked(t *testing.T) {
 	em.started.Store(true)
 	assert.Equal(t, int64(4096), em.BinarySize(), "binary size should match on-disk cache before first reload")
 
-	em.Evict()
+	em.forceEvictForTest()
 	assert.Equal(t, int64(4096), em.BinarySize(), "binary size should remain after eviction before any reload (memorySaved metric)")
 
 	_, err = em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
 	require.NoError(t, err)
 
 	assert.Equal(t, int64(4096), em.BinarySize(), "binary size should match stored binary after reload")
+	t.Cleanup(em.Close)
 }
 
 func TestLRU_MemorySavedMetric(t *testing.T) {

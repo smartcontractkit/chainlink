@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -55,19 +56,52 @@ func defaultModuleFactory(ctx context.Context, modCfg *host.ModuleConfig, binary
 	return host.NewModule(ctx, modCfg, binary, opts...)
 }
 
-// moduleEntry wraps a host.ModuleV2 with a refcount so Evict can drop ownership
-// without waiting for in-flight Execute calls. The owning ref held via
-// EvictableModule.current counts as 1; each successful tryAcquire adds 1.
-// The release that drives the count to zero closes the inner module exactly once.
-type moduleEntry struct {
-	mod      host.ModuleV2
+// onceCloseModule wraps host.ModuleV2 with an idempotent Close. Both
+// runtime.AddCleanup (fired when GC reaps the holder) and explicit
+// EvictableModule.Close target this method, and they may run in either order;
+// sync.Once ensures host.module.Close (which is not idempotent and would panic
+// on double-close) runs at most once across both paths.
+//
+// onceCloseModule is separate from loadedModule because runtime.AddCleanup
+// forbids the cleanup arg from transitively referencing the cleanup target.
+type onceCloseModule struct {
+	mod       host.ModuleV2
+	closeOnce sync.Once
+}
+
+func (m *onceCloseModule) Start() { m.mod.Start() }
+
+func (m *onceCloseModule) Execute(ctx context.Context, request *sdkpb.ExecuteRequest, handler host.ExecutionHelper) (*sdkpb.ExecutionResult, error) {
+	return m.mod.Execute(ctx, request, handler)
+}
+
+func (m *onceCloseModule) Close() {
+	m.closeOnce.Do(m.mod.Close)
+}
+
+// loadedModule is the weak-pointable holder around a compiled host.ModuleV2.
+// EvictableModule holds it strongly while loaded (L1) and weakly after Evict
+// (L2), so a reload before GC pressure can resurrect the same compiled module
+// and skip both the disk read and the wasm compilation cost.
+//
+// refCount enables non-blocking Evict: 1 represents the owning reference held
+// via EvictableModule.current, +1 per active Execute pin. Evict drops the
+// owning ref without waiting; in-flight pins keep the holder reachable until
+// they release. The actual mod.Close runs via runtime.AddCleanup once the
+// holder becomes unreachable (no strong refs, no pins) and GC reclaims it,
+// or eagerly via EvictableModule.Close on shutdown.
+type loadedModule struct {
+	mod      *onceCloseModule
+	cleanup  runtime.Cleanup
 	refCount atomic.Int64
 }
 
-func newModuleEntry(mod host.ModuleV2) *moduleEntry {
-	e := &moduleEntry{mod: mod}
-	e.refCount.Store(1)
-	return e
+func newLoadedModule(mod host.ModuleV2) *loadedModule {
+	wrapped := &onceCloseModule{mod: mod}
+	h := &loadedModule{mod: wrapped}
+	h.cleanup = runtime.AddCleanup(h, (*onceCloseModule).Close, wrapped)
+	h.refCount.Store(1)
+	return h
 }
 
 // tryAcquire pins the entry by incrementing refCount only if it is non-zero.
@@ -93,18 +127,18 @@ func (e *moduleEntry) tryAcquire() (acquired bool, exhausted bool) {
 	return false, true
 }
 
-func (e *moduleEntry) release() {
-	if e.refCount.Add(-1) == 0 {
-		e.mod.Close()
-	}
-}
+// release drops one ref. It deliberately does NOT call mod.Close on zero so the
+// weak L2 cache can resurrect the holder before GC reaps it. Final close runs
+// via the runtime.AddCleanup callback (or eagerly via EvictableModule.Close).
+func (h *loadedModule) release() { h.refCount.Add(-1) }
 
 // EvictableModule wraps a host.ModuleV2 with idle-eviction and on-demand reload.
 // Trigger registrations and event channels are owned by the engine, not by this module,
 // so evicting the inner module only frees WASM memory without losing trigger connectivity.
 type EvictableModule struct {
-	current       atomic.Pointer[moduleEntry]
-	mu            sync.Mutex // serializes ensureLoaded reloads; never held during inner.Execute
+	current       atomic.Pointer[loadedModule] // L1: strong, refcounted; cleared by Evict and Close
+	weakInner     weak.Pointer[loadedModule]   // L2: survives eviction until GC reclaims the holder
+	mu            sync.Mutex                   // guards weakInner and serializes ensureLoaded reloads; never held during inner.Execute
 	lastUsed      atomic.Int64
 	binarySize    atomic.Int64
 	closed        atomic.Bool
@@ -117,8 +151,6 @@ type EvictableModule struct {
 	store        artifacts.SerialisedModuleStore
 	factory      ModuleFactoryFn
 	metrics      *CacheMetrics
-
-	weakBinary weak.Pointer[[]byte] // L2: raw WASM binary survives eviction until GC pressure
 }
 
 func NewEvictableModule(
@@ -145,7 +177,9 @@ func NewEvictableModule(
 		metrics:       cm,
 	}
 	if inner != nil {
-		m.current.Store(newModuleEntry(inner))
+		holder := newLoadedModule(inner)
+		m.current.Store(holder)
+		m.weakInner = weak.Make(holder)
 	}
 	m.lastUsed.Store(time.Now().UnixNano())
 	// Set from the bytes used to build inner (and written by StoreModule) so eviction
@@ -168,9 +202,20 @@ func (m *EvictableModule) Start() {
 }
 
 func (m *EvictableModule) Close() {
-	m.closed.Store(true)
-	if e := m.current.Swap(nil); e != nil {
-		e.release()
+	if m.closed.Swap(true) {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	// weakInner is the live holder (current is a strong subset of it). Drop
+	// the owning refcount and close via the holder; sync.Once makes the
+	// eventual cleanup-driven Close (after GC reaps the holder) a no-op.
+	h := m.weakInner.Value()
+	if strong := m.current.Swap(nil); strong != nil {
+		strong.release()
+	}
+	if h != nil {
+		h.mod.Close()
 	}
 }
 
@@ -179,14 +224,16 @@ func (m *EvictableModule) IsLegacyDAG() bool {
 }
 
 func (m *EvictableModule) Execute(ctx context.Context, request *sdkpb.ExecuteRequest, handler host.ExecutionHelper) (*sdkpb.ExecutionResult, error) {
-	// Each loaded module is held behind a refcounted moduleEntry. Pinning is a
-	// CAS-conditional refcount increment: it succeeds only if the entry is still
-	// live (count > 0). Evict drops the owning ref atomically, so in-flight pins
-	// keep the entry alive until they release; the last release calls Close.
-	// ensureLoaded and pin are still not atomic, so we keep a bounded retry loop
-	// for the case where Evict fires between ensureLoaded returning and pin: each
-	// iteration also checks ctx so cancellation is not starved.
-	var pinned *moduleEntry
+	// Each loaded module is held behind a refcounted loadedModule. Pinning is
+	// a CAS-conditional refcount increment: it succeeds only if the holder is
+	// still live (count > 0). Evict drops the owning ref atomically without
+	// blocking, so in-flight pins keep the holder reachable until they release;
+	// final close runs via runtime.AddCleanup once GC reaps the holder, or
+	// eagerly via EvictableModule.Close. ensureLoaded and pin are not atomic,
+	// so we keep a bounded retry loop for the case where Evict fires between
+	// ensureLoaded returning and pin; each iteration also checks ctx so
+	// cancellation is not starved.
+	var pinned *loadedModule
 	for attempt := 0; attempt < executePinMaxAttempts; attempt++ {
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -232,39 +279,47 @@ func (m *EvictableModule) ensureLoaded(ctx context.Context) error {
 		return nil
 	}
 
-	var binary []byte
-	var reloadSource string
-	if bp := m.weakBinary.Value(); bp != nil {
-		binary = *bp
-		reloadSource = "weak_ref"
-	} else {
-		p, cachedVersion, ok, err := m.store.GetModule(m.workflowID)
-		if err != nil {
-			return fmt.Errorf("failed to get module path: %w", err)
-		}
-		if !ok {
-			return fmt.Errorf("no cached binary for workflow %s", m.workflowID)
-		}
-		if cachedVersion != m.engineVersion {
-			m.metrics.recordVersionMismatch(ctx)
-			lg := m.moduleConfig.Logger
-			if lg != nil {
-				lg.Warnw("rejecting cached module binary: engine version mismatch",
-					"workflowID", m.workflowID,
-					"cachedEngineVersion", cachedVersion,
-					"currentEngineVersion", m.engineVersion)
-			}
-			if delErr := m.store.DeleteModule(m.workflowID); delErr != nil && lg != nil {
-				lg.Warnw("failed to delete stale cached module", "workflowID", m.workflowID, "err", delErr)
-			}
-			return fmt.Errorf("%w (workflow_id=%s cached=%q current=%q)", ErrEngineVersionMismatch, m.workflowID, cachedVersion, m.engineVersion)
-		}
+	// L2: try to resurrect the still-live compiled module weakly held since
+	// Evict. weak.Pointer.Value returns nil once GC has reclaimed the holder
+	// (and cleanup is therefore queued or done), so a non-nil result means
+	// the holder is reachable and its mod is still open. We deliberately do
+	// NOT call h.cleanup.Stop here: the cleanup is the only path that closes
+	// the module when this resurrected holder is later evicted and reaped,
+	// and re-promoting it via current strongly references it again, so GC
+	// won't fire until the next eviction makes it unreachable once more.
+	if h := m.weakInner.Value(); h != nil {
+		h.refCount.Add(1) // re-establish owning ref (weakly-held holder had refCount 0)
+		m.metrics.recordReload(ctx, "weak_ref")
+		m.current.Store(h)
+		return nil
+	}
 
-		binary, err = os.ReadFile(p)
-		if err != nil {
-			return fmt.Errorf("failed to read cached binary: %w", err)
+	// L3: read binary from disk and re-instantiate via the factory.
+	p, cachedVersion, ok, err := m.store.GetModule(m.workflowID)
+	if err != nil {
+		return fmt.Errorf("failed to get module path: %w", err)
+	}
+	if !ok {
+		return fmt.Errorf("no cached binary for workflow %s", m.workflowID)
+	}
+	if cachedVersion != m.engineVersion {
+		m.metrics.recordVersionMismatch(ctx)
+		lg := m.moduleConfig.Logger
+		if lg != nil {
+			lg.Warnw("rejecting cached module binary: engine version mismatch",
+				"workflowID", m.workflowID,
+				"cachedEngineVersion", cachedVersion,
+				"currentEngineVersion", m.engineVersion)
 		}
-		reloadSource = "disk"
+		if delErr := m.store.DeleteModule(m.workflowID); delErr != nil && lg != nil {
+			lg.Warnw("failed to delete stale cached module", "workflowID", m.workflowID, "err", delErr)
+		}
+		return fmt.Errorf("%w (workflow_id=%s cached=%q current=%q)", ErrEngineVersionMismatch, m.workflowID, cachedVersion, m.engineVersion)
+	}
+
+	binary, err := os.ReadFile(p)
+	if err != nil {
+		return fmt.Errorf("failed to read cached binary: %w", err)
 	}
 
 	m.binarySize.Store(int64(len(binary)))
@@ -274,16 +329,14 @@ func (m *EvictableModule) ensureLoaded(ctx context.Context) error {
 		return fmt.Errorf("failed to create module on reload: %w", err)
 	}
 
-	m.metrics.recordReload(ctx, reloadSource)
-
-	binaryHeap := new([]byte)
-	*binaryHeap = binary
-	m.weakBinary = weak.Make(binaryHeap)
+	m.metrics.recordReload(ctx, "disk")
 
 	if m.started.Load() {
 		mod.Start()
 	}
-	m.current.Store(newModuleEntry(mod))
+	holder := newLoadedModule(mod)
+	m.current.Store(holder)
+	m.weakInner = weak.Make(holder)
 	return nil
 }
 
