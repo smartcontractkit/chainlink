@@ -977,7 +977,6 @@ func TransferMintAuthorityToSignerPDA(e cldf.Environment, cfg TransferMintAuthor
 	tokenPool := solChainState.GetActiveTokenPool(*cfg.PoolType, cfg.Metadata)
 
 	runSafely(func() {
-		solBurnMintTokenPool.SetProgramID(tokenPool)
 		solBurnMintTokenPool_V1_6_2.SetProgramID(tokenPool)
 	})
 
