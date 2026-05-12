@@ -496,14 +496,18 @@ func TestWithReconnect(t *testing.T) {
 	}
 
 	sg := NewStreamsGun(mocksClient, kb, feedAddresses, "streams-trigger@2.0.0", receiveChannel, 600, 2)
-	// Poll until the capability has received at least one request, confirming
-	// the report has been generated and the capability is ready.
+	// Wait until the capability has received at least one request, confirming
+	// the report has been generated and the capability is ready (same gate as before;
+	// the prior select+default only slept once and did not keep waiting on the channel).
+	waitCtx, waitCancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer waitCancel()
 	select {
 	case <-receiveChannel:
 		testLogger.Info().Msg("Capability report generated and ready")
-	default:
-		time.Sleep(time.Second * 5) // fallback: wait briefly then proceed
+	case <-waitCtx.Done():
+		require.FailNow(t, "timed out waiting for first capability request on receive channel")
 	}
+
 	_, err = wasp.NewProfile().
 		Add(wasp.NewGenerator(&wasp.Config{
 			CallTimeout: time.Minute * 5, // Give enough time for the workflow to execute
