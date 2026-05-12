@@ -40,8 +40,8 @@ If you hit permissions issues running commands for this skill, read and/or direc
   1. Use `search-test` MCP tool to lookup find the test ID of the test(s) you're trying to fix.
   2. Use `fix-flaky-test` MCP tool to gather diagnosis data on a specific test.
   </trunk>
-1. Investigate and understand the specific test code. 
-2. Formulate initial hypothesis based on any data you can gather from the user or code.
+3. Investigate and understand the specific test code. 
+4. Formulate initial hypothesis based on any data you can gather from the user or code.
 </init>
 
 <loop>
@@ -81,9 +81,9 @@ Lead with your hypothesis before writing code. Show contextual diffs, do not des
 <known_patterns>
 Files in the `references/flaky-patterns/` dir.
 
-- [filter.md](./references/flaky-patterns/filter.md): Tests using `Filter` functions to validate on-chain events. Usually LogPoller based tests.
+- [filter.md](./references/flaky-patterns/filter.md): Tests using `Filter` functions to validate on-chain events. Usually LogPoller based tests. Commonly fails with: `failed to retrieve log value pointer after last block`
 - [sql-lockout.md](./references/): `failed to create ...: ERROR: canceling statement due to lock timeout (SQLSTATE 55P03)`
-  </known_patterns>
+</known_patterns>
 
 <context_compaction>
 When summarizing/compacting/compressing context:

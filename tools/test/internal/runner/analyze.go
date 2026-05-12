@@ -72,20 +72,22 @@ type ProblemLog struct {
 
 // TestEntry is a single row in the analysis report.
 type TestEntry struct {
-	Package      string        `json:"package"`
-	Test         string        `json:"test,omitempty"`
-	Runs         int           `json:"runs"`
-	Successes    int           `json:"successes"`
-	Fails        int           `json:"fails"`
-	Skips        int           `json:"skips"`
-	Timeouts     int           `json:"timeouts"`
-	MinElapsed   time.Duration `json:"min_elapsed"`
-	MaxElapsed   time.Duration `json:"max_elapsed"`
-	P50Elapsed   time.Duration `json:"p50_elapsed"`
-	Logs         []ProblemLog  `json:"logs,omitempty"`
-	FailIters    []int         `json:"-"`
-	TimeoutIters []int         `json:"-"`
-	SlowIters    []int         `json:"-"`
+	Package       string        `json:"package"`
+	Test          string        `json:"test,omitempty"`
+	Runs          int           `json:"runs"`
+	Successes     int           `json:"successes"`
+	Fails         int           `json:"fails"`
+	Skips         int           `json:"skips"`
+	Timeouts      int           `json:"timeouts"`
+	FailRateLower *float64      `json:"fail_rate_lower,omitempty"`
+	FailRateUpper *float64      `json:"fail_rate_upper,omitempty"`
+	MinElapsed    time.Duration `json:"min_elapsed"`
+	MaxElapsed    time.Duration `json:"max_elapsed"`
+	P50Elapsed    time.Duration `json:"p50_elapsed"`
+	Logs          []ProblemLog  `json:"logs,omitempty"`
+	FailIters     []int         `json:"-"`
+	TimeoutIters  []int         `json:"-"`
+	SlowIters     []int         `json:"-"`
 }
 
 // IterationSummary captures high-level stats for a single diagnose iteration.
@@ -121,19 +123,25 @@ type RunMeta struct {
 // flake_fail_runs / flake_total_runs sum across flaky entries; flake_failing_iterations
 // / flake_iteration_total count diagnose iterations (union of flake failures vs rep.Iterations).
 type ReportSummary struct {
-	DistinctNamedTests     int      `json:"distinct_named_tests"`
-	FlakeNamedCount        int      `json:"flake_named_count"`
-	FlakePrevalence        *float64 `json:"flake_prevalence,omitempty"`
-	FlakeFailRuns          int      `json:"flake_fail_runs,omitempty"`
-	FlakeTotalRuns         int      `json:"flake_total_runs,omitempty"`
-	FlakeExecutionFailRate *float64 `json:"flake_execution_fail_rate,omitempty"`
+	DistinctNamedTests          int      `json:"distinct_named_tests"`
+	FlakeNamedCount             int      `json:"flake_named_count"`
+	FlakePrevalence             *float64 `json:"flake_prevalence,omitempty"`
+	FlakePrevalenceLower        *float64 `json:"flake_prevalence_lower,omitempty"`
+	FlakePrevalenceUpper        *float64 `json:"flake_prevalence_upper,omitempty"`
+	FlakeFailRuns               int      `json:"flake_fail_runs,omitempty"`
+	FlakeTotalRuns              int      `json:"flake_total_runs,omitempty"`
+	FlakeExecutionFailRate      *float64 `json:"flake_execution_fail_rate,omitempty"`
+	FlakeExecutionFailRateLower *float64 `json:"flake_execution_fail_rate_lower,omitempty"`
+	FlakeExecutionFailRateUpper *float64 `json:"flake_execution_fail_rate_upper,omitempty"`
 	// FlakeFailingIterations is how many diagnose iterations had at least one
 	// flake failure; FlakeIterationTotal is rep.Iterations (not summed per-test runs).
-	FlakeFailingIterations int      `json:"flake_failing_iterations,omitempty"`
-	FlakeIterationTotal    int      `json:"flake_iteration_total,omitempty"`
-	FlakeIterationFailRate *float64 `json:"flake_iteration_fail_rate,omitempty"`
-	SlowCount              int      `json:"slow_count,omitempty"`
-	SlowPrevalence         *float64 `json:"slow_prevalence,omitempty"`
+	FlakeFailingIterations      int      `json:"flake_failing_iterations,omitempty"`
+	FlakeIterationTotal         int      `json:"flake_iteration_total,omitempty"`
+	FlakeIterationFailRate      *float64 `json:"flake_iteration_fail_rate,omitempty"`
+	FlakeIterationFailRateLower *float64 `json:"flake_iteration_fail_rate_lower,omitempty"`
+	FlakeIterationFailRateUpper *float64 `json:"flake_iteration_fail_rate_upper,omitempty"`
+	SlowCount                   int      `json:"slow_count,omitempty"`
+	SlowPrevalence              *float64 `json:"slow_prevalence,omitempty"`
 	// IterationDurationMin/Max/P50 summarize wall-clock runtimes (IterationSummary.Duration) across all completed iterations.
 	IterationDurationMin time.Duration `json:"iteration_duration_min,omitempty"`
 	IterationDurationMax time.Duration `json:"iteration_duration_max,omitempty"`
@@ -266,20 +274,24 @@ func buildReportFromAggs(aggs map[testKey]*aggregate, numIterations int, slowThr
 
 	for key, a := range aggs {
 		minE, p50 := stats(a.elapseds)
+		runs := len(a.iterations)
+		ciLo, ciHi := WilsonScoreInterval(a.fails, runs, 0)
 		base := TestEntry{
-			Package:      key.Package,
-			Test:         key.Test,
-			Runs:         len(a.iterations),
-			Successes:    a.passes,
-			Fails:        a.fails,
-			Skips:        a.skips,
-			Timeouts:     len(a.timeoutIters),
-			MinElapsed:   minE,
-			MaxElapsed:   a.maxElapsed,
-			P50Elapsed:   p50,
-			FailIters:    sortedBoolMapKeys(a.failedIters),
-			TimeoutIters: sortedBoolMapKeys(a.timeoutIters),
-			SlowIters:    slowIterations(a.elapsedByIter, slowThreshold),
+			Package:       key.Package,
+			Test:          key.Test,
+			Runs:          runs,
+			Successes:     a.passes,
+			Fails:         a.fails,
+			Skips:         a.skips,
+			Timeouts:      len(a.timeoutIters),
+			FailRateLower: &ciLo,
+			FailRateUpper: &ciHi,
+			MinElapsed:    minE,
+			MaxElapsed:    a.maxElapsed,
+			P50Elapsed:    p50,
+			FailIters:     sortedBoolMapKeys(a.failedIters),
+			TimeoutIters:  sortedBoolMapKeys(a.timeoutIters),
+			SlowIters:     slowIterations(a.elapsedByIter, slowThreshold),
 		}
 		if key.Test == "" {
 			pkgEntries = append(pkgEntries, base)
@@ -439,19 +451,28 @@ func buildReportSummary(rep *Report, aggs map[testKey]*aggregate, slowThreshold 
 		FlakeTotalRuns:     flakeTotalRuns,
 		SlowCount:          slowCount,
 	}
-	if len(rep.Flakes) > 0 && rep.Iterations > 0 {
+	if rep.Iterations > 0 {
 		s.FlakeFailingIterations = len(iterWithFlakeFail)
 		s.FlakeIterationTotal = rep.Iterations
 		v := float64(s.FlakeFailingIterations) / float64(rep.Iterations)
 		s.FlakeIterationFailRate = &v
+		lo, hi := WilsonScoreInterval(s.FlakeFailingIterations, s.FlakeIterationTotal, 1.96)
+		s.FlakeIterationFailRateLower = &lo
+		s.FlakeIterationFailRateUpper = &hi
 	}
 	if distinct > 0 {
 		v := float64(flakeNamed) / float64(distinct)
 		s.FlakePrevalence = &v
+		lo, hi := WilsonScoreInterval(flakeNamed, distinct, 1.96)
+		s.FlakePrevalenceLower = &lo
+		s.FlakePrevalenceUpper = &hi
 	}
 	if flakeTotalRuns > 0 {
 		v := float64(flakeFailRuns) / float64(flakeTotalRuns)
 		s.FlakeExecutionFailRate = &v
+		lo, hi := WilsonScoreInterval(flakeFailRuns, flakeTotalRuns, 1.96)
+		s.FlakeExecutionFailRateLower = &lo
+		s.FlakeExecutionFailRateUpper = &hi
 	}
 	if slowThreshold > 0 && distinct > 0 {
 		v := float64(slowCount) / float64(distinct)
@@ -871,7 +892,7 @@ func printOverallStats(w io.Writer, rep *Report) {
 			}
 		}
 		pctBroken := float64(brokenN) / float64(s.DistinctNamedTests) * 100
-		line := fmt.Sprintf("  Broken tests: %d/%d (%.1f%%)", brokenN, s.DistinctNamedTests, pctBroken)
+		line := fmt.Sprintf("  Broken: %d/%d (%.1f%%)", brokenN, s.DistinctNamedTests, pctBroken)
 		if brokenN > 0 {
 			fmt.Fprintln(w, termstyle.Bad.Render(line))
 		} else {
@@ -882,16 +903,26 @@ func printOverallStats(w io.Writer, rep *Report) {
 		if s.FlakePrevalence != nil {
 			pct = *s.FlakePrevalence * 100
 		}
-		line = fmt.Sprintf("  Flaky tests: %d/%d (%.1f%%)", s.FlakeNamedCount, s.DistinctNamedTests, pct)
+		ci := ""
+		if s.FlakePrevalenceLower != nil && s.FlakePrevalenceUpper != nil {
+			ciText := fmt.Sprintf(" [Confidence Interval: %.1f%%–%.1f%%]", *s.FlakePrevalenceLower*100, *s.FlakePrevalenceUpper*100)
+			ci = ciStyleForGap(*s.FlakePrevalenceUpper - *s.FlakePrevalenceLower).Render(ciText)
+		}
+		line = fmt.Sprintf("  Flaky: %d/%d (%.1f%%)%s", s.FlakeNamedCount, s.DistinctNamedTests, pct, ci)
 		if s.FlakeNamedCount > 0 {
 			fmt.Fprintln(w, termstyle.Bad.Render(line))
 		} else {
 			fmt.Fprintln(w, termstyle.OK.Render(line))
 		}
 	}
-	if len(rep.Flakes) > 0 && s.FlakeIterationFailRate != nil {
+	if s.FlakeIterationTotal > 0 && s.FlakeIterationFailRate != nil {
 		pct := *s.FlakeIterationFailRate * 100
-		line := fmt.Sprintf("  Flaky Iterations: %d/%d (%.1f%%)", s.FlakeFailingIterations, s.FlakeIterationTotal, pct)
+		ci := ""
+		if s.FlakeIterationFailRateLower != nil && s.FlakeIterationFailRateUpper != nil {
+			ciText := fmt.Sprintf(" [Confidence Interval: %.1f%%–%.1f%%]", *s.FlakeIterationFailRateLower*100, *s.FlakeIterationFailRateUpper*100)
+			ci = ciStyleForGap(*s.FlakeIterationFailRateUpper - *s.FlakeIterationFailRateLower).Render(ciText)
+		}
+		line := fmt.Sprintf("  Flaky Iterations: %d/%d (%.1f%%)%s", s.FlakeFailingIterations, s.FlakeIterationTotal, pct, ci)
 		if s.FlakeFailingIterations > 0 {
 			fmt.Fprintln(w, termstyle.Bad.Render(line))
 		} else {
@@ -900,7 +931,7 @@ func printOverallStats(w io.Writer, rep *Report) {
 	}
 	if rep.SlowThreshold > 0 && s.DistinctNamedTests > 0 && s.SlowPrevalence != nil {
 		pct := *s.SlowPrevalence * 100
-		line := fmt.Sprintf("  Slow tests: %d/%d (%.1f%%)", s.SlowCount, s.DistinctNamedTests, pct)
+		line := fmt.Sprintf("  Slow: %d/%d (%.1f%%)", s.SlowCount, s.DistinctNamedTests, pct)
 		if s.SlowCount > 0 {
 			fmt.Fprintln(w, termstyle.Accent.Render(line))
 		} else {
@@ -926,10 +957,13 @@ func formatFlakyTestLine(e TestEntry) string {
 		runs = 1
 	}
 	pct := flakeFailRatio(e) * 100
+	lo, hi := WilsonScoreInterval(e.Fails, runs, 0)
+	ciText := fmt.Sprintf(" [Confidence Interval: %.1f%%–%.1f%%]", lo*100, hi*100)
+	ci := ciStyleForGap(hi - lo).Render(ciText)
 	if e.Test == "" {
-		return fmt.Sprintf("%s (%d/%d) %.1f%%", e.Package, e.Fails, runs, pct)
+		return fmt.Sprintf("%s (%d/%d) %.1f%%%s", e.Package, e.Fails, runs, pct, ci)
 	}
-	return fmt.Sprintf("%s (%d/%d) %.1f%%", e.Test, e.Fails, runs, pct)
+	return fmt.Sprintf("%s (%d/%d) %.1f%%%s", e.Test, e.Fails, runs, pct, ci)
 }
 
 func formatTimeoutTestLine(e TestEntry) string {

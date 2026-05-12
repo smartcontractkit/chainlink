@@ -480,8 +480,9 @@ func TestReportSummary(t *testing.T) {
 				assert.Equal(t, 0, s.FlakeTotalRuns)
 				assert.Nil(t, s.FlakeExecutionFailRate)
 				assert.Equal(t, 0, s.FlakeFailingIterations)
-				assert.Equal(t, 0, s.FlakeIterationTotal)
-				assert.Nil(t, s.FlakeIterationFailRate)
+				assert.Equal(t, 2, s.FlakeIterationTotal)
+				require.NotNil(t, s.FlakeIterationFailRate)
+				assert.InDelta(t, 0.0, *s.FlakeIterationFailRate, 1e-9)
 			},
 		},
 		{
@@ -513,8 +514,9 @@ func TestReportSummary(t *testing.T) {
 				require.NotNil(t, s.SlowPrevalence)
 				assert.InDelta(t, 0.0, *s.SlowPrevalence, 1e-9)
 				assert.Equal(t, 0, s.FlakeFailingIterations)
-				assert.Equal(t, 0, s.FlakeIterationTotal)
-				assert.Nil(t, s.FlakeIterationFailRate)
+				assert.Equal(t, 1, s.FlakeIterationTotal)
+				require.NotNil(t, s.FlakeIterationFailRate)
+				assert.InDelta(t, 0.0, *s.FlakeIterationFailRate, 1e-9)
 			},
 		},
 		{
@@ -607,7 +609,7 @@ func TestPrintSummaryOverallContains(t *testing.T) {
 				require.NoError(t, err)
 				return rep
 			},
-			needle: []string{"Overall", "Broken tests:", "Flaky tests:", "Flaky Iterations: 1/2 (50.0%)", "Slow tests:"},
+			needle: []string{"Overall", "Broken:", "Flaky:", "Flaky Iterations: 1/2 (50.0%)", "Slow:"},
 		},
 		{
 			name: "iteration_wall_clock_runtimes",
@@ -619,7 +621,7 @@ func TestPrintSummaryOverallContains(t *testing.T) {
 				fillIterationRuntimeSummary(rep)
 				return rep
 			},
-			needle: []string{"Overall", "Iteration runtimes:", "min=5s", "Broken tests:"},
+			needle: []string{"Overall", "Iteration runtimes:", "min=5s", "Broken:"},
 		},
 	}
 	for _, tc := range tests {
@@ -651,7 +653,7 @@ func TestPrintSummaryOverall_usesSeverityColors(t *testing.T) {
 
 	brokenN := len(rep.Failures)
 	pctBroken := float64(brokenN) / float64(s.DistinctNamedTests) * 100
-	brokenLine := fmt.Sprintf("  Broken tests: %d/%d (%.1f%%)", brokenN, s.DistinctNamedTests, pctBroken)
+	brokenLine := fmt.Sprintf("  Broken: %d/%d (%.1f%%)", brokenN, s.DistinctNamedTests, pctBroken)
 	if brokenN > 0 {
 		assert.Contains(t, out, termstyle.Bad.Render(brokenLine))
 	} else {
@@ -662,16 +664,26 @@ func TestPrintSummaryOverall_usesSeverityColors(t *testing.T) {
 	if s.FlakePrevalence != nil {
 		pctFlake = *s.FlakePrevalence * 100
 	}
-	flakyLine := fmt.Sprintf("  Flaky tests: %d/%d (%.1f%%)", s.FlakeNamedCount, s.DistinctNamedTests, pctFlake)
+	flakyCI := ""
+	if s.FlakePrevalenceLower != nil && s.FlakePrevalenceUpper != nil {
+		ciText := fmt.Sprintf(" [Confidence Interval: %.1f%%–%.1f%%]", *s.FlakePrevalenceLower*100, *s.FlakePrevalenceUpper*100)
+		flakyCI = ciStyleForGap(*s.FlakePrevalenceUpper - *s.FlakePrevalenceLower).Render(ciText)
+	}
+	flakyLine := fmt.Sprintf("  Flaky: %d/%d (%.1f%%)%s", s.FlakeNamedCount, s.DistinctNamedTests, pctFlake, flakyCI)
 	if s.FlakeNamedCount > 0 {
 		assert.Contains(t, out, termstyle.Bad.Render(flakyLine))
 	} else {
 		assert.Contains(t, out, termstyle.OK.Render(flakyLine))
 	}
 
-	if len(rep.Flakes) > 0 && s.FlakeIterationFailRate != nil {
+	if s.FlakeIterationTotal > 0 && s.FlakeIterationFailRate != nil {
 		pctFI := *s.FlakeIterationFailRate * 100
-		fiLine := fmt.Sprintf("  Flaky Iterations: %d/%d (%.1f%%)", s.FlakeFailingIterations, s.FlakeIterationTotal, pctFI)
+		ci := ""
+		if s.FlakeIterationFailRateLower != nil && s.FlakeIterationFailRateUpper != nil {
+			ciText := fmt.Sprintf(" [Confidence Interval: %.1f%%–%.1f%%]", *s.FlakeIterationFailRateLower*100, *s.FlakeIterationFailRateUpper*100)
+			ci = ciStyleForGap(*s.FlakeIterationFailRateUpper - *s.FlakeIterationFailRateLower).Render(ciText)
+		}
+		fiLine := fmt.Sprintf("  Flaky Iterations: %d/%d (%.1f%%)%s", s.FlakeFailingIterations, s.FlakeIterationTotal, pctFI, ci)
 		if s.FlakeFailingIterations > 0 {
 			assert.Contains(t, out, termstyle.Bad.Render(fiLine))
 		} else {
@@ -681,7 +693,7 @@ func TestPrintSummaryOverall_usesSeverityColors(t *testing.T) {
 
 	if rep.SlowThreshold > 0 && s.DistinctNamedTests > 0 && s.SlowPrevalence != nil {
 		pctSlow := *s.SlowPrevalence * 100
-		slowLine := fmt.Sprintf("  Slow tests: %d/%d (%.1f%%)", s.SlowCount, s.DistinctNamedTests, pctSlow)
+		slowLine := fmt.Sprintf("  Slow: %d/%d (%.1f%%)", s.SlowCount, s.DistinctNamedTests, pctSlow)
 		if s.SlowCount > 0 {
 			assert.Contains(t, out, termstyle.Accent.Render(slowLine))
 		} else {
@@ -697,6 +709,8 @@ func publicTestEntries(entries []TestEntry) []TestEntry {
 		out[i].FailIters = nil
 		out[i].TimeoutIters = nil
 		out[i].SlowIters = nil
+		out[i].FailRateLower = nil
+		out[i].FailRateUpper = nil
 	}
 	return out
 }
