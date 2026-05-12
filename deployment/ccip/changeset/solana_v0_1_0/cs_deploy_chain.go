@@ -10,6 +10,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 	"github.com/smartcontractkit/mcms"
@@ -76,7 +77,7 @@ type DeployChainContractsConfig struct {
 	BurnMintTokenPoolMetadata    string
 	LockReleaseTokenPoolMetadata string
 	// if specified, the mcms contracts will be deployed and initialized if they are not already deployed
-	MCMSWithTimelockConfig *types.MCMSWithTimelockConfigV2
+	MCMSWithTimelockConfig *cldfproposalutils.MCMSWithTimelockConfig
 }
 
 type ChainContractParams struct {
