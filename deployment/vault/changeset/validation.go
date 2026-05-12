@@ -282,12 +282,12 @@ func ValidateEthBalMonWithdrawConfig(ctx context.Context, env cldf.Environment, 
 		if chainConfig.Amount == 0 {
 			return fmt.Errorf("chain %d: amount to withdraw cannot be 0 (zero)", chainSelector)
 		}
-		if !common.IsHexAddress(chainConfig.Payeer) {
-			return fmt.Errorf("chain %d: invalid payeer address: %s", chainSelector, chainConfig.Payeer)
+
+		err := validateEthAddress("payeer", chainConfig.Payeer)
+		if err != nil {
+			return fmt.Errorf("chain %d: %w", chainSelector, err)
 		}
-		if chainConfig.Payeer == "" || chainConfig.Payeer == "0x0000000000000000000000000000000000000000" {
-			return fmt.Errorf("chain %d: payeer address cannot be zero address", chainSelector)
-		}
+
 	}
 
 	return nil
@@ -302,11 +302,9 @@ func ValidateEthBalMonTransferOwnershipConfig(ctx context.Context, env cldf.Envi
 		if _, ok := env.BlockChains.EVMChains()[chainSelector]; !ok {
 			return fmt.Errorf("chain not found in environment: %d", chainSelector)
 		}
-		if !common.IsHexAddress(chainConfig.NewOwner) {
-			return fmt.Errorf("chain %d: invalid payeer address: %s", chainSelector, chainConfig.NewOwner)
-		}
-		if chainConfig.NewOwner == "" || chainConfig.NewOwner == "0x0000000000000000000000000000000000000000" {
-			return fmt.Errorf("chain %d: payeer address cannot be zero address", chainSelector)
+		err := validateEthAddress("newOwner", chainConfig.NewOwner)
+		if err != nil {
+			return fmt.Errorf("chain %d: %w", chainSelector, err)
 		}
 	}
 
@@ -332,12 +330,9 @@ func ValidateEthBalMonSetWatchListConfig(ctx context.Context, env cldf.Environme
 			return fmt.Errorf("chain %d: topup_amounts_wei must not be empty", chainSelector)
 		}
 		for i, addr := range chainConfig.Addresses {
-			addrStr := addr.Hex()
-			if !common.IsHexAddress(addrStr) {
-				return fmt.Errorf("chain %d: address at index %d (%s) is invalid", chainSelector, i, addrStr)
-			}
-			if addrStr == "" || addrStr == "0x0000000000000000000000000000000000000000" {
-				return fmt.Errorf("chain %d: address at index %d is zero address", chainSelector, i)
+			err := validateEthAddress(fmt.Sprintf("address %d", i), addr.Hex())
+			if err != nil {
+				return fmt.Errorf("chain %d: %w", chainSelector, err)
 			}
 		}
 	}
