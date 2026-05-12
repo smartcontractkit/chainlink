@@ -11,6 +11,8 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
@@ -22,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
@@ -30,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 const (
@@ -83,9 +85,9 @@ func SetupTwoChainEnvironmentWithTokens(
 		}
 	}
 
-	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
+	mcmsCfg := make(map[uint64]cldfproposalutils.MCMSWithTimelockConfig)
 	for _, selector := range selectors {
-		mcmsCfg[selector] = proposalutils.SingleGroupTimelockConfigV2(t)
+		mcmsCfg[selector] = cldftesthelpers.SingleGroupTimelockConfig(t)
 	}
 
 	// Deploy one burn-mint token per chain to use in the tests

@@ -7,6 +7,9 @@ import (
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -15,10 +18,10 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
@@ -42,10 +45,10 @@ func TestMCMSSignFireDrillChangeset(t *testing.T) {
 	solChain := rt.Environment().BlockChains.SolanaChains()[solSelector]
 
 	// Deploy MCMS and Timelock
-	config := proposalutils.SingleGroupTimelockConfigV2(t)
+	config := cldftesthelpers.SingleGroupTimelockConfig(t)
 
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), map[uint64]commontypes.MCMSWithTimelockConfigV2{
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 			evmSelector1: config,
 			evmSelector2: config,
 			solSelector:  config,
@@ -56,9 +59,9 @@ func TestMCMSSignFireDrillChangeset(t *testing.T) {
 	// Fund the signer PDAs for the MCMS contracts
 	mcmsState := soltestutils.GetMCMSStateFromAddressBook(t, rt.State().AddressBook, solChain)
 
-	timelockSigner := state.GetTimelockSignerPDA(mcmsState.TimelockProgram, mcmsState.TimelockSeed)
-	mcmSigner := state.GetMCMSignerPDA(mcmsState.McmProgram, mcmsState.ProposerMcmSeed)
-	mcmSignerBypasser := state.GetMCMSignerPDA(mcmsState.McmProgram, mcmsState.BypasserMcmSeed)
+	timelockSigner := pdasol.GetTimelockSignerPDA(mcmsState.TimelockProgram, mcmsState.TimelockSeed)
+	mcmSigner := pdasol.GetMCMSignerPDA(mcmsState.McmProgram, mcmsState.ProposerMcmSeed)
+	mcmSignerBypasser := pdasol.GetMCMSignerPDA(mcmsState.McmProgram, mcmsState.BypasserMcmSeed)
 
 	// Note we cannot use FundSignerPDAs here because we also have to fund the bypasser signer PDA.
 	err = solutils.FundAccounts(t.Context(),

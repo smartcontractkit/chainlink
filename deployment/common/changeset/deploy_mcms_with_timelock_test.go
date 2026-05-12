@@ -10,12 +10,15 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/google/go-cmp/cmp"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
+
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/timelock"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -29,12 +32,15 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	soltestutils "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana/testutils"
+
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	mcmschangesetstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 )
 
 func TestGrantRoleInTimeLock(t *testing.T) {
@@ -49,8 +55,8 @@ func TestGrantRoleInTimeLock(t *testing.T) {
 	// deploy the MCMS with timelock contracts
 	configuredChangeset := commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
-		map[uint64]commontypes.MCMSWithTimelockConfigV2{
-			selector: proposalutils.SingleGroupTimelockConfigV2(t),
+		map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
+			selector: cldftesthelpers.SingleGroupTimelockConfig(t),
 		},
 	)
 	updatedEnv, err := commonchangeset.Apply(t, *env, configuredChangeset)
@@ -167,7 +173,7 @@ func TestDeployMCMSWithTimelockV2WithFewExistingContracts(t *testing.T) {
 
 	chain1 := rt.Environment().BlockChains.EVMChains()[selector1]
 
-	changesetConfig := map[uint64]commontypes.MCMSWithTimelockConfigV2{
+	changesetConfig := map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 		selector1: {
 			Proposer: mcmstypes.Config{
 				Quorum:  1,
@@ -273,7 +279,7 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 	evmChain := rt.Environment().BlockChains.EVMChains()[evmSelector]
 	solChain := rt.Environment().BlockChains.SolanaChains()[solSelector]
 
-	changesetConfig := map[uint64]commontypes.MCMSWithTimelockConfigV2{
+	changesetConfig := map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 		evmSelector: {
 			Proposer: mcmstypes.Config{
 				Quorum:  1,
@@ -458,7 +464,7 @@ func TestDeployMCMSWithTimelockV2SkipInitSolana(t *testing.T) {
 	))
 	require.NoError(t, err)
 
-	changesetConfig := map[uint64]commontypes.MCMSWithTimelockConfigV2{
+	changesetConfig := map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 		selector: {
 			Proposer: mcmstypes.Config{
 				Quorum: 1,
@@ -511,7 +517,7 @@ func TestDeployMCMSWithTimelockV2SkipInitSolana(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	solanaState, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockStateSolana(rt.Environment(), []uint64{selector})
+	solanaState, err := solstate.MaybeLoadMCMSWithTimelockState(rt.Environment(), []uint64{selector})
 	require.NoError(t, err)
 
 	// Call deploy again, seeds and addresses from original state should not change
@@ -520,7 +526,7 @@ func TestDeployMCMSWithTimelockV2SkipInitSolana(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	solanaStateNew, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockStateSolana(rt.Environment(), []uint64{selector})
+	solanaStateNew, err := solstate.MaybeLoadMCMSWithTimelockState(rt.Environment(), []uint64{selector})
 	require.NoError(t, err)
 
 	// --- assert ---
@@ -542,17 +548,17 @@ func TestDeployMCMSWithTimelockV2SkipInitSolana(t *testing.T) {
 
 // ----- helpers -----
 
-func mcmSignerPDA(programID solana.PublicKey, seed mcmschangesetstate.PDASeed) string {
-	return mcmschangesetstate.GetMCMSignerPDA(programID, seed).String()
+func mcmSignerPDA(programID solana.PublicKey, seed solstate.PDASeed) string {
+	return pdasol.GetMCMSignerPDA(programID, seed).String()
 }
 
 func solanaTimelockConfig(
-	ctx context.Context, t *testing.T, chain cldf_solana.Chain, programID solana.PublicKey, seed mcmschangesetstate.PDASeed,
+	ctx context.Context, t *testing.T, chain cldf_solana.Chain, programID solana.PublicKey, seed solstate.PDASeed,
 ) timelockBindings.Config {
 	t.Helper()
 
 	var data timelockBindings.Config
-	err := chain.GetAccountDataBorshInto(ctx, mcmschangesetstate.GetTimelockConfigPDA(programID, seed), &data)
+	err := chain.GetAccountDataBorshInto(ctx, pdasol.GetTimelockConfigPDA(programID, seed), &data)
 	require.NoError(t, err)
 
 	return data

@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	"github.com/spf13/cast"
 
 	bindings "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
@@ -126,7 +126,7 @@ func DeployMCMSWithTimelockContractsEVM(
 	env cldf.Environment,
 	chain cldf_evm.Chain,
 	ab cldf.AddressBook,
-	config commontypes.MCMSWithTimelockConfigV2,
+	config cldfproposalutils.MCMSWithTimelockConfig,
 	state *evmstate.MCMSWithTimelockState,
 ) ([]operations.Report[any, any], error) {
 	execReports := make([]operations.Report[any, any], 0)
@@ -403,7 +403,7 @@ func GrantRolesForTimelock(
 	chain cldf_evm.Chain,
 	timelockContracts *cldfproposalutils.MCMSWithTimelockContracts,
 	skipIfDeployerKeyNotAdmin bool, // If true, skip role grants if the deployer key is not an admin.
-	gasBoostConfig *commontypes.GasBoostConfig,
+	gasBoostConfig *cldfproposalutils.GasBoostConfig,
 ) (operations.SequenceReport[seqs.SeqGrantRolesTimelockInput, map[uint64][]opsutils.EVMCallOutput], error) {
 	lggr := env.Logger
 	ctx := env.GetContext()

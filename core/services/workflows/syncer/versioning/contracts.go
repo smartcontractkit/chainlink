@@ -19,8 +19,8 @@ import (
 type ContractType string
 
 const (
-	ContractName   = "TypeAndVersion"
-	MethodName     = "typeAndVersion"
+	ContractName = "TypeAndVersion"
+	MethodName   = "typeAndVersion"
 )
 
 var (

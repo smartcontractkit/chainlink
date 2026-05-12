@@ -12,7 +12,7 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 
-	mercuryutils "github.com/smartcontractkit/chainlink-data-streams/mercury/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -36,8 +36,8 @@ type PluginConfig struct {
 	// effectively sets the "first" validFromBlockNumber.
 	InitialBlockNumber null.Int64 `json:"initialBlockNumber" toml:"initialBlockNumber"`
 
-	LinkFeedID   *mercuryutils.FeedID `json:"linkFeedID" toml:"linkFeedID"`
-	NativeFeedID *mercuryutils.FeedID `json:"nativeFeedID" toml:"nativeFeedID"`
+	LinkFeedID   *mercury.FeedID `json:"linkFeedID" toml:"linkFeedID"`
+	NativeFeedID *mercury.FeedID `json:"nativeFeedID" toml:"nativeFeedID"`
 }
 
 func validateURL(rawServerURL string) error {
@@ -75,7 +75,7 @@ func (p PluginConfig) GetServers() (servers []Server) {
 	return
 }
 
-func ValidatePluginConfig(config PluginConfig, feedID mercuryutils.FeedID) (merr error) {
+func ValidatePluginConfig(config PluginConfig, feedID mercury.FeedID) (merr error) {
 	if len(config.Servers) > 0 {
 		if config.RawServerURL != "" || len(config.ServerPubKey) != 0 {
 			merr = errors.Join(merr, errors.New("Mercury: Servers and RawServerURL/ServerPubKey may not be specified together"))

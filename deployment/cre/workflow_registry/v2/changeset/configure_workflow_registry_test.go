@@ -7,7 +7,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/workflow_registry/v2/changeset/operations/contracts"
 )
 
 func TestSetConfig(t *testing.T) {
@@ -265,6 +270,203 @@ func TestSetUserDONOverride(t *testing.T) {
 		require.NotNil(t, output, "output should not be nil")
 		require.NotNil(t, output.MCMSTimelockProposals, "MCMS proposals should be created")
 		t.Log("MCMS set user DON override completed successfully")
+	})
+}
+
+func TestBatchSetUserDONOverride(t *testing.T) {
+	t.Parallel()
+
+	// A small but non-trivial set of overrides reused across subtests.
+	makeOverrides := func() []contracts.SetUserDONOverrideEntry {
+		return []contracts.SetUserDONOverrideEntry{
+			{User: common.HexToAddress("0x1111111111111111111111111111111111111111"), DONFamily: "test-don-family", Limit: 5, Enabled: true},
+			{User: common.HexToAddress("0x2222222222222222222222222222222222222222"), DONFamily: "test-don-family", Limit: 7, Enabled: true},
+			{User: common.HexToAddress("0x3333333333333333333333333333333333333333"), DONFamily: "test-don-family", Limit: 9, Enabled: false},
+		}
+	}
+
+	t.Run("verify preconditions: empty overrides rejected", func(t *testing.T) {
+		fixture := setupTest(t)
+		err := BatchSetUserDONOverride{}.VerifyPreconditions(fixture.rt.Environment(), BatchSetUserDONOverrideInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
+			Overrides:                 nil,
+		})
+		require.Error(t, err)
+	})
+
+	t.Run("verify preconditions: zero user address rejected", func(t *testing.T) {
+		fixture := setupTest(t)
+		err := BatchSetUserDONOverride{}.VerifyPreconditions(fixture.rt.Environment(), BatchSetUserDONOverrideInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
+			Overrides: []contracts.SetUserDONOverrideEntry{
+				{User: common.Address{}, DONFamily: "test-don-family", Limit: 1, Enabled: true},
+			},
+		})
+		require.Error(t, err)
+	})
+
+	t.Run("verify preconditions: empty donFamily rejected", func(t *testing.T) {
+		fixture := setupTest(t)
+		err := BatchSetUserDONOverride{}.VerifyPreconditions(fixture.rt.Environment(), BatchSetUserDONOverrideInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
+			Overrides: []contracts.SetUserDONOverrideEntry{
+				{User: common.HexToAddress("0x1111111111111111111111111111111111111111"), DONFamily: "", Limit: 1, Enabled: true},
+			},
+		})
+		require.Error(t, err)
+	})
+
+	t.Run("verify preconditions: duplicate (user, donFamily) rejected", func(t *testing.T) {
+		fixture := setupTest(t)
+		dup := common.HexToAddress("0x1111111111111111111111111111111111111111")
+		err := BatchSetUserDONOverride{}.VerifyPreconditions(fixture.rt.Environment(), BatchSetUserDONOverrideInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
+			Overrides: []contracts.SetUserDONOverrideEntry{
+				{User: dup, DONFamily: "test-don-family", Limit: 1, Enabled: true},
+				{User: dup, DONFamily: "test-don-family", Limit: 2, Enabled: false},
+			},
+		})
+		require.Error(t, err)
+	})
+
+	t.Run("batch set user DON override (no MCMS)", func(t *testing.T) {
+		fixture := setupTest(t)
+
+		// set DON limit first
+		_, err := SetDONLimit{}.Apply(fixture.rt.Environment(), SetDONLimitInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
+			DONFamily:                 "test-don-family",
+			DONLimit:                  100,
+			UserDefaultLimit:          5,
+			MCMSConfig:                nil,
+		})
+		require.NoError(t, err, "set DON limit should succeed")
+
+		overrides := makeOverrides()
+		t.Log("Starting batch set user DON override...")
+		output, err := BatchSetUserDONOverride{}.Apply(fixture.rt.Environment(), BatchSetUserDONOverrideInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
+			Overrides:                 overrides,
+			MCMSConfig:                nil,
+		})
+		t.Logf("Batch set user DON override result: err=%v, output=%v", err, output)
+		require.NoError(t, err, "batch set user DON override should succeed")
+		require.NotNil(t, output, "output should not be nil")
+		// Non-MCMS path: each override was confirmed on-chain individually; no proposals expected.
+		require.Empty(t, output.MCMSTimelockProposals, "no MCMS proposals expected without MCMSConfig")
+		t.Log("Batch set user DON override completed successfully")
+	})
+
+	t.Run("batch set user DON override with MCMS produces single BatchOperation", func(t *testing.T) {
+		fixture := setupTestWithMCMS(t)
+
+		// set DON limit first
+		_, err := SetDONLimit{}.Apply(fixture.rt.Environment(), SetDONLimitInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
+			DONFamily:                 "test-don-family",
+			DONLimit:                  100,
+			UserDefaultLimit:          5,
+			MCMSConfig:                nil,
+		})
+		require.NoError(t, err, "set DON limit should succeed")
+
+		overrides := makeOverrides()
+		t.Log("Starting batch set user DON override with MCMS...")
+		output, err := BatchSetUserDONOverride{}.Apply(fixture.rt.Environment(), BatchSetUserDONOverrideInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
+			Overrides:                 overrides,
+			MCMSConfig: &crecontracts.MCMSConfig{
+				MinDelay: 30 * time.Second,
+				TimelockQualifierPerChain: map[uint64]string{
+					fixture.selector: "",
+				},
+			},
+		})
+		t.Logf("MCMS batch set user DON override result: err=%v, output=%v", err, output)
+		require.NoError(t, err, "MCMS batch set user DON override should succeed")
+		require.NotNil(t, output, "output should not be nil")
+
+		// Core invariant: 1 proposal, 1 batch operation, N transactions inside.
+		require.Len(t, output.MCMSTimelockProposals, 1, "expected exactly one MCMS proposal")
+		require.Len(t, output.MCMSTimelockProposals[0].Operations, 1, "expected exactly one BatchOperation")
+		require.Len(t, output.MCMSTimelockProposals[0].Operations[0].Transactions, len(overrides), "BatchOperation should contain one Transaction per override")
+		t.Log("MCMS batch set user DON override completed successfully")
+	})
+
+	t.Run("op rejects input.ChainSelector that disagrees with deps.Chain.Selector", func(t *testing.T) {
+		// The defensive guard inside BatchSetUserDONOverrideOp prevents a programmatic caller
+		// (sequence, other changeset, future refactor) from generating a proposal whose target
+		// chain selector disagrees with the chain used to build the calldata. The public
+		// Apply() path can't trigger this — both values are derived from the same source — so
+		// we exercise the Op directly.
+		fixture := setupTest(t)
+		env := fixture.rt.Environment()
+
+		deps, err := prepareWorkflowRegistryDeps(env, fixture.selector, fixture.workflowRegistryQualifier, nil, contracts.BatchSetUserDONOverrideDescription)
+		require.NoError(t, err, "prepareWorkflowRegistryDeps should succeed for the test fixture chain")
+
+		_, err = operations.ExecuteOperation(env.OperationsBundle, contracts.BatchSetUserDONOverrideOp, deps, contracts.BatchSetUserDONOverrideOpInput{
+			ChainSelector: fixture.selector + 1, // deliberately wrong; must not match deps.Chain.Selector
+			Qualifier:     fixture.workflowRegistryQualifier,
+			Overrides:     makeOverrides(),
+		})
+		require.Error(t, err, "op must reject mismatched input.ChainSelector vs deps.Chain.Selector")
+		require.ErrorContains(t, err, "does not match deps.Chain.Selector")
+	})
+
+	t.Run("op works in MCMS path with nil deps.Chain", func(t *testing.T) {
+		// MCMS-only callers (e.g. a sequence assembling proposals) may legitimately have
+		// deps.Registry + strategy but no chain pointer. In that case the op should still
+		// build calldata via SimTransactOpts and produce a BatchOperation; input.ChainSelector
+		// is the authoritative source.
+		fixture := setupTestWithMCMS(t)
+		env := fixture.rt.Environment()
+
+		mcmsConfig := &crecontracts.MCMSConfig{
+			MinDelay: 30 * time.Second,
+			TimelockQualifierPerChain: map[uint64]string{
+				fixture.selector: "",
+			},
+		}
+		deps, err := prepareWorkflowRegistryDeps(env, fixture.selector, fixture.workflowRegistryQualifier, mcmsConfig, contracts.BatchSetUserDONOverrideDescription)
+		require.NoError(t, err, "prepareWorkflowRegistryDeps should succeed")
+		deps.Chain = nil // simulate an MCMS-only caller that didn't pass a chain pointer
+
+		report, err := operations.ExecuteOperation(env.OperationsBundle, contracts.BatchSetUserDONOverrideOp, deps, contracts.BatchSetUserDONOverrideOpInput{
+			ChainSelector: fixture.selector,
+			Qualifier:     fixture.workflowRegistryQualifier,
+			Overrides:     makeOverrides(),
+			MCMSConfig:    mcmsConfig,
+		})
+		require.NoError(t, err, "op should run in MCMS path without deps.Chain")
+		require.NotNil(t, report.Output.MCMSOperation, "MCMS BatchOperation should be produced")
+		require.Len(t, report.Output.MCMSOperation.Transactions, len(makeOverrides()), "BatchOperation should contain one Transaction per override")
+		require.Equal(t, mcmstypes.ChainSelector(fixture.selector), report.Output.MCMSOperation.ChainSelector, "BatchOperation chain selector must equal input.ChainSelector when deps.Chain is nil")
+	})
+
+	t.Run("op requires deps.Chain in non-MCMS path", func(t *testing.T) {
+		fixture := setupTest(t)
+		env := fixture.rt.Environment()
+
+		deps, err := prepareWorkflowRegistryDeps(env, fixture.selector, fixture.workflowRegistryQualifier, nil, contracts.BatchSetUserDONOverrideDescription)
+		require.NoError(t, err, "prepareWorkflowRegistryDeps should succeed")
+		deps.Chain = nil // non-MCMS path needs DeployerKey + Confirm, so this must fail loudly
+
+		_, err = operations.ExecuteOperation(env.OperationsBundle, contracts.BatchSetUserDONOverrideOp, deps, contracts.BatchSetUserDONOverrideOpInput{
+			ChainSelector: fixture.selector,
+			Qualifier:     fixture.workflowRegistryQualifier,
+			Overrides:     makeOverrides(),
+		})
+		require.Error(t, err, "op must reject nil deps.Chain in non-MCMS path")
+		require.ErrorContains(t, err, "deps.Chain is required when MCMSConfig is nil")
 	})
 }
 

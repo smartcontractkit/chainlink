@@ -12,10 +12,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	mercurytypes "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
-	"github.com/smartcontractkit/chainlink-data-streams/mercury/utils"
 	relaymercuryv3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3"
 	reportcodecv3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3/reportcodec"
-	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -35,19 +33,19 @@ type mockFetcher struct {
 	nativePriceErr error
 }
 
-var feedId utils.FeedID = [32]byte{1}
-var linkFeedId utils.FeedID = [32]byte{2}
-var nativeFeedId utils.FeedID = [32]byte{3}
+var feedID mercurytypes.FeedID = [32]byte{1}
+var linkFeedID mercurytypes.FeedID = [32]byte{2}
+var nativeFeedID mercurytypes.FeedID = [32]byte{3}
 
 func (m *mockFetcher) FetchInitialMaxFinalizedBlockNumber(context.Context) (*int64, error) {
 	return nil, nil
 }
 
 func (m *mockFetcher) LatestPrice(ctx context.Context, fId [32]byte) (*big.Int, error) {
-	switch utils.FeedID(fId) {
-	case linkFeedId:
+	switch mercurytypes.FeedID(fId) {
+	case linkFeedID:
 		return m.linkPrice, m.linkPriceErr
-	case nativeFeedId:
+	case nativeFeedID:
 		return m.nativePrice, m.nativePriceErr
 	}
 	return nil, nil
@@ -86,7 +84,7 @@ func Test_Datasource(t *testing.T) {
 		},
 	}
 	ds := &datasource{orm: orm, lggr: logger.Test(t), jb: jb}
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	repts := ocrtypes.ReportTimestamp{}
 
 	fetcher := &mockFetcher{}
@@ -188,12 +186,12 @@ func Test_Datasource(t *testing.T) {
 		})
 
 		t.Run("when run execution succeeded", func(t *testing.T) {
-			t.Run("when feedId=linkFeedID=nativeFeedId", func(t *testing.T) {
+			t.Run("when feedID=linkFeedID=nativeFeedID", func(t *testing.T) {
 				t.Cleanup(func() {
-					ds.feedID, ds.linkFeedID, ds.nativeFeedID = feedId, linkFeedId, nativeFeedId
+					ds.feedID, ds.linkFeedID, ds.nativeFeedID = feedID, linkFeedID, nativeFeedID
 				})
 
-				ds.feedID, ds.linkFeedID, ds.nativeFeedID = feedId, feedId, feedId
+				ds.feedID, ds.linkFeedID, ds.nativeFeedID = feedID, feedID, feedID
 
 				fetcher.ts = 123123
 				fetcher.tsErr = nil
@@ -323,13 +321,13 @@ func Test_Datasource(t *testing.T) {
 		})
 
 		t.Run("when run execution succeeded", func(t *testing.T) {
-			t.Run("when feedId=linkFeedID=nativeFeedId", func(t *testing.T) {
+			t.Run("when feedID=linkFeedID=nativeFeedID", func(t *testing.T) {
 				t.Cleanup(func() {
-					ds.feedID, ds.linkFeedID, ds.nativeFeedID = feedId, linkFeedId, nativeFeedId
+					ds.feedID, ds.linkFeedID, ds.nativeFeedID = feedID, linkFeedID, nativeFeedID
 				})
 
-				var feedId utils.FeedID = [32]byte{1}
-				ds.feedID, ds.linkFeedID, ds.nativeFeedID = feedId, feedId, feedId
+				var feedID mercurytypes.FeedID = [32]byte{1}
+				ds.feedID, ds.linkFeedID, ds.nativeFeedID = feedID, feedID, feedID
 
 				obs, err := ds.Observe(ctx, repts, false)
 				assert.NoError(t, err)

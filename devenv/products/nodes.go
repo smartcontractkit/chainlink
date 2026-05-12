@@ -8,8 +8,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	ctypes "github.com/docker/docker/api/types/container"
-	dc "github.com/docker/docker/client"
+	mobyclient "github.com/moby/moby/client"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -45,19 +44,20 @@ func RestartNodes(ctx context.Context, nodeSet *ns.Input, bc *blockchain.Input, 
 		for _, id := range containerIDs {
 			cerrg.Go(func() error {
 				framework.L.Debug().Msgf("Removing Docker container %s", id)
-				dockerClient, dockerClientErr := dc.NewClientWithOpts(dc.FromEnv, dc.WithAPIVersionNegotiation())
+				dockerClient, dockerClientErr := mobyclient.New(mobyclient.FromEnv)
 				if dockerClientErr != nil {
 					return errors.Wrap(dockerClientErr, "failed to create Docker client")
 				}
 
 				if !forceStop {
-					stopErr := dockerClient.ContainerStop(ctx, id, ctypes.StopOptions{})
+					_, stopErr := dockerClient.ContainerStop(ctx, id, mobyclient.ContainerStopOptions{})
 					if stopErr != nil {
 						return errors.Wrapf(stopErr, "failed to stop Docker container %s", id)
 					}
 				}
 
-				return dockerClient.ContainerRemove(ctx, id, ctypes.RemoveOptions{Force: forceStop})
+				_, err := dockerClient.ContainerRemove(ctx, id, mobyclient.ContainerRemoveOptions{Force: forceStop})
+				return err
 			})
 		}
 
@@ -84,18 +84,18 @@ func RestartNodes(ctx context.Context, nodeSet *ns.Input, bc *blockchain.Input, 
 }
 
 func findAllDockerContainerIDs(ctx context.Context, pattern string) ([]string, error) {
-	dockerClient, dockerClientErr := dc.NewClientWithOpts(dc.FromEnv, dc.WithAPIVersionNegotiation())
+	dockerClient, dockerClientErr := mobyclient.New(mobyclient.FromEnv)
 	if dockerClientErr != nil {
 		return nil, errors.Wrap(dockerClientErr, "failed to create Docker client")
 	}
 
-	containers, containersErr := dockerClient.ContainerList(ctx, ctypes.ListOptions{})
+	result, containersErr := dockerClient.ContainerList(ctx, mobyclient.ContainerListOptions{})
 	if containersErr != nil {
 		return nil, errors.Wrap(containersErr, "failed to list Docker containers")
 	}
 
 	containerIDs := []string{}
-	for _, container := range containers {
+	for _, container := range result.Items {
 		for _, name := range container.Names {
 			if strings.Contains(name, pattern) {
 				containerIDs = append(containerIDs, container.ID)

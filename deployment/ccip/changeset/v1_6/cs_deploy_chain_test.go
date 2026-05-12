@@ -5,6 +5,8 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -26,8 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/opsutils"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 func TestDeployChainContractsChangeset(t *testing.T) {
@@ -70,10 +70,10 @@ func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, 
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	p2pIds := nodes.NonBootstraps().PeerIDs()
-	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
+	cfg := make(map[uint64]cldfproposalutils.MCMSWithTimelockConfig)
 	contractParams := make(map[uint64]ccipseq.ChainContractParams)
 	for _, chain := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
-		cfg[chain] = proposalutils.SingleGroupTimelockConfigV2(t)
+		cfg[chain] = cldftesthelpers.SingleGroupTimelockConfig(t)
 		contractParams[chain] = ccipseq.ChainContractParams{
 			FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
 			OffRampParams:   ccipops.DefaultOffRampParams(),
