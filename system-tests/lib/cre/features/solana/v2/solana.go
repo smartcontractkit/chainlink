@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	cre_sol "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/solana"
@@ -419,7 +418,7 @@ func deployForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, solChai
 
 	creEnv.CldfEnvironment.DataStore = memoryDatastore.Seal()
 
-	return ptr.Ptr(out.Output.ProgramID.String()), ptr.Ptr(out.Output.State.String()), nil
+	return new(out.Output.ProgramID.String()), new(out.Output.State.String()), nil
 }
 
 func updateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data input, currentConfig string, capabilityConfig cre.CapabilityConfig) (*string, error) {
@@ -477,7 +476,7 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data input, 
 		return nil, errors.Wrapf(mErr, "failed to marshal config for node index %d", workerNode.Index)
 	}
 
-	return ptr.Ptr(string(stringifiedConfig)), nil
+	return new(string(stringifiedConfig)), nil
 }
 
 type input struct {

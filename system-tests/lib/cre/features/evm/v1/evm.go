@@ -20,7 +20,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	evmworkflow "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	tronchangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/tron"
@@ -305,7 +304,7 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, don *c
 				}
 
 				typedConfig.EVM[idx].Workflow = *evmWorkflow
-				typedConfig.EVM[idx].Transactions.ForwardersEnabled = ptr.Ptr(true)
+				typedConfig.EVM[idx].Transactions.ForwardersEnabled = new(true)
 
 				chainFound = true
 				break
@@ -322,7 +321,7 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, don *c
 		return nil, errors.Wrapf(mErr, "failed to marshal config for node index %d", workerNode.Index)
 	}
 
-	return ptr.Ptr(string(stringifiedConfig)), nil
+	return new(string(stringifiedConfig)), nil
 }
 
 func mergeDefaultAndRuntimeConfigValues(data writeEVMData, capabilityConfig cre.CapabilityConfig, chainID uint64) (writeEVMData, error) {
