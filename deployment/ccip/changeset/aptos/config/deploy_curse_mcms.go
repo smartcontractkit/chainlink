@@ -6,14 +6,15 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 // DeployCurseMCMSConfig holds per-chain configuration for deploying and
 // configuring a CurseMCMS contract on Aptos chains.
 type DeployCurseMCMSConfig struct {
-	CurseMCMSConfigPerChain    map[uint64]types.MCMSWithTimelockConfigV2
+	CurseMCMSConfigPerChain    map[uint64]cldfproposalutils.MCMSWithTimelockConfig
 	MCMSTimelockConfigPerChain map[uint64]proposalutils.TimelockConfig
 }
 

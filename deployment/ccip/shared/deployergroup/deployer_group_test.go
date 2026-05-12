@@ -8,8 +8,12 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
+
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
@@ -23,9 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 type mintConfig struct {
@@ -315,7 +317,7 @@ func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
 	}
 	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2), testhelpers.WithPrerequisiteDeploymentOnly(nil))
 
-	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
+	mcmsCfg := make(map[uint64]cldfproposalutils.MCMSWithTimelockConfig)
 	chain := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[selectorIndex]
 
 	// update the test config to include the qualifier for the selected chain
@@ -323,7 +325,7 @@ func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
 		chain: linktokenOwnerQualifier,
 	}
 	// Create a MCMS config for deployment with qualifier for the selected chain
-	cfg := proposalutils.SingleGroupTimelockConfigV2(t)
+	cfg := cldftesthelpers.SingleGroupTimelockConfig(t)
 	cfg.Qualifier = ptr.To(linktokenOwnerQualifier)
 	mcmsCfg[chain] = cfg
 
@@ -335,7 +337,7 @@ func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
 	// Delete the newly deployed MCMS addresses from addressbook so that the state loader does not pick them up
 	// otherwise the mcms state will throw an error for duplicate MCMS contracts
 	addressBookToDelete := cldf.NewMemoryAddressBook()
-	addressesToDelete, err := commonstate.LoadAddressesFromDataStore(e.Env.DataStore, chain, linktokenOwnerQualifier)
+	addressesToDelete, err := evmstate.LoadAddressesFromDataStore(e.Env.DataStore, chain, linktokenOwnerQualifier) //nolint:staticcheck // will be refactored once usages are removed
 	require.NoError(t, err)
 	for addr, tv := range addressesToDelete {
 		require.NoError(t, addressBookToDelete.Save(chain, addr, tv))

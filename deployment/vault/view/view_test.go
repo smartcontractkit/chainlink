@@ -7,13 +7,14 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
@@ -106,9 +107,9 @@ func TestGenerateVaultView_WithMCMSAndWhitelist(t *testing.T) {
 func setupMCMS(t *testing.T, rt *runtime.Runtime, chainSelectors []uint64) {
 	t.Helper()
 
-	timelockCfgs := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
+	timelockCfgs := make(map[uint64]cldfproposalutils.MCMSWithTimelockConfig)
 	for _, sel := range chainSelectors {
-		timelockCfgs[sel] = proposalutils.SingleGroupTimelockConfigV2(t)
+		timelockCfgs[sel] = cldftesthelpers.SingleGroupTimelockConfig(t)
 	}
 
 	err := rt.Exec(

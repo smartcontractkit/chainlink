@@ -173,12 +173,16 @@ func TestConfigureForwarder(t *testing.T) {
 			NumChains:       1,
 		})
 
-		// Inject the solana chain into the environment
+		solChainsBySel := cldfchain.NewBlockChainsFromSlice(solChains).SolanaChains()
+		solChain, ok := solChainsBySel[solSel]
+		require.True(t, ok, "solana loader must return a solana chain for selector %d", solSel)
+		require.NotEmpty(t, solChain.ProgramsPath, "programs dir required for solana program deploy CLI")
+
 		blockchains := make(map[uint64]cldfchain.BlockChain)
-		blockchains[solSel] = solChains[0]
 		for _, ch := range te.Env.BlockChains.All() {
 			blockchains[ch.ChainSelector()] = ch
 		}
+		blockchains[solSel] = solChain
 		te.Env.BlockChains = cldfchain.NewBlockChains(blockchains)
 
 		ds := datastore.NewMemoryDataStore()
@@ -201,7 +205,7 @@ func TestConfigureForwarder(t *testing.T) {
 		mcmsState, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolanaV2(
 			rt.Environment(),
 			ds,
-			rt.Environment().BlockChains.SolanaChains()[solSel],
+			solChain,
 			commontypes.MCMSWithTimelockConfigV2{
 				Canceller:        cldftesthelpers.SingleGroupMCMS(t),
 				Proposer:         cldftesthelpers.SingleGroupMCMS(t),
@@ -211,8 +215,7 @@ func TestConfigureForwarder(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		chain := te.Env.BlockChains.SolanaChains()[solSel]
-		soltestutils.FundSignerPDAs(t, chain, mcmsState)
+		soltestutils.FundSignerPDAs(t, solChain, mcmsState)
 
 		var wfNodes []string
 		for _, id := range te.GetP2PIDs("wfDon") {

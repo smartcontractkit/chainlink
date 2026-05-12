@@ -8,6 +8,8 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/sync/errgroup"
@@ -24,7 +26,6 @@ import (
 	ccipopsv1_2 "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_2"
 	ccipopsv1_6 "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 type ChainContractParams struct {
@@ -47,7 +48,7 @@ func (c ChainContractParams) Validate(selector uint64) error {
 type DeployChainContractsConfig struct {
 	HomeChainSelector      uint64
 	ContractParamsPerChain map[uint64]ChainContractParams
-	GasBoostConfigPerChain map[uint64]commontypes.GasBoostConfig
+	GasBoostConfigPerChain map[uint64]cldfproposalutils.GasBoostConfig
 }
 
 func (c DeployChainContractsConfig) Validate() error {
@@ -107,7 +108,7 @@ type DeployChainContractsSeqConfig struct {
 	DeployChainContractsConfig
 	RMNHomeAddress         common.Address
 	AddressesPerChain      map[uint64]CCIPAddresses
-	GasBoostConfigPerChain map[uint64]commontypes.GasBoostConfig
+	GasBoostConfigPerChain map[uint64]cldfproposalutils.GasBoostConfig
 }
 
 func (c DeployChainContractsSeqConfig) Validate() error {

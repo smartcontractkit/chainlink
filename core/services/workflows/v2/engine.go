@@ -18,6 +18,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
@@ -70,6 +71,8 @@ type Engine struct {
 	loggerLabels atomic.Pointer[map[string]string]
 	localNode    atomic.Pointer[capabilities.Node]
 
+	workflowLimitUsed atomic.Bool // true if GlobalWorkflowLimit must be freed
+
 	// registration ID -> trigger capability
 	triggers map[string]*triggerCapability
 	// used to separate registration and unregistration phases
@@ -87,6 +90,10 @@ type Engine struct {
 	tracer trace.Tracer
 
 	orgID string
+
+	draining         atomic.Bool
+	activeExecutions atomic.Int32
+	drainStartedAtNs atomic.Int64
 }
 
 type triggerCapability struct {
@@ -145,6 +152,31 @@ func (e *Engine) setLogger(lggr logger.SugaredLogger) {
 	e.lggrMu.Lock()
 	defer e.lggrMu.Unlock()
 	e.lggr = lggr
+}
+
+// Drain marks the engine as draining and prevents new executions from starting.
+// In-flight executions continue to run to completion.
+// It returns true only on the first transition to draining.
+func (e *Engine) Drain() bool {
+	started := e.draining.CompareAndSwap(false, true)
+	if started {
+		e.drainStartedAtNs.CompareAndSwap(0, time.Now().UnixNano())
+	}
+	e.srvcEng.SetHealthCond("draining", errors.New("engine is draining, pending deletion"))
+	return started
+}
+
+func (e *Engine) ActiveExecutions() int32 {
+	return e.activeExecutions.Load()
+}
+
+func (e *Engine) DrainStartedAt() (time.Time, bool) {
+	ns := e.drainStartedAtNs.Load()
+	if ns == 0 {
+		return time.Time{}, false
+	}
+
+	return time.Unix(0, ns), true
 }
 
 func NewEngine(cfg *EngineConfig) (*Engine, error) {
@@ -232,6 +264,8 @@ func (e *Engine) start(ctx context.Context) error {
 	loggerLabels[platform.KeyOrganizationID] = e.orgID
 	e.loggerLabels.Store(&loggerLabels)
 
+	e.metrics = e.metrics.With(platform.KeyOrganizationID, e.orgID)
+
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID})
 	e.srvcEng.GoCtx(ctx, e.heartbeatLoop)
 	e.srvcEng.GoCtx(ctx, e.init)
@@ -250,7 +284,7 @@ func (e *Engine) init(ctx context.Context) {
 
 	// apply global engine instance limits
 	// TODO(CAPPL-794): consider moving this outside of the engine, into the Syncer
-	err := e.cfg.GlobalExecutionConcurrencyLimiter.Use(ctx, 1)
+	err := e.cfg.GlobalWorkflowLimit.Use(ctx, 1)
 	if err != nil {
 		var errLimited limits.ErrorResourceLimited[int]
 		if errors.As(err, &errLimited) {
@@ -272,6 +306,7 @@ func (e *Engine) init(ctx context.Context) {
 		}
 		return
 	}
+	e.workflowLimitUsed.Store(true)
 
 	donSubCh, cleanup, err := e.cfg.DonSubscriber.Subscribe(ctx)
 	if err != nil {
@@ -553,12 +588,19 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 						e.metrics.With(platform.KeyTriggerID, triggerID).IncrementWorkflowTriggerEventErrorCounter(ctx)
 						continue
 					}
+					if e.draining.Load() {
+						e.logger().Infow("Engine is draining, dropping trigger event before enqueue", "triggerID", triggerID, "eventID", eventID)
+						e.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventEnqueueDroppedCounter(ctx)
+						e.cfg.Hooks.OnTriggerEventDropped(triggerID, eventID, "draining")
+						continue
+					}
 					if err := e.allTriggerEventsQueueCh.Put(ctx, enqueuedTriggerEvent{
 						triggerCapID: triggerID,
 						triggerIndex: idx,
 						timestamp:    e.cfg.Clock.Now(),
 						event:        event,
 					}); err != nil {
+						e.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventEnqueueDroppedCounter(ctx)
 						var errFull limits.ErrorQueueFull
 						if errors.As(err, &errFull) {
 							// queue full, drop the event
@@ -569,6 +611,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 						e.metrics.With(platform.KeyTriggerID, triggerID).IncrementWorkflowTriggerEventErrorCounter(ctx)
 						continue
 					}
+					e.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventEnqueuedCounter(ctx)
 					e.logger().Debugw("Enqueued trigger event", "triggerID", triggerID, "eventID", eventID)
 				}
 			}
@@ -586,9 +629,17 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 		if err != nil {
 			return
 		}
-		eventAge := e.cfg.Clock.Now().Sub(queueHead.timestamp)
 		eventID := queueHead.event.Event.ID
+		triggerMetricLabels := e.metrics.With(platform.KeyTriggerID, queueHead.triggerCapID)
+		if e.draining.Load() {
+			triggerMetricLabels.IncrementTriggerEventDequeueDroppedCounter(ctx)
+			e.cfg.Hooks.OnTriggerEventDropped(queueHead.triggerCapID, eventID, "draining")
+			e.logger().Infow("Engine is draining, stopping trigger handling loop", "eventID", eventID, "triggerID", queueHead.triggerCapID)
+			return
+		}
+		eventAge := e.cfg.Clock.Now().Sub(queueHead.timestamp)
 		e.logger().Debugw("Popped a trigger event from the queue", "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
+		triggerMetricLabels.RecordTriggerEventQueueWaitSeconds(ctx, eventAge.Seconds())
 		triggerEventMaxAge, err := e.cfg.LocalLimiters.TriggerEventQueueTime.Limit(ctx)
 		if err != nil {
 			e.logger().Errorw("Failed to get trigger event queue time limit", "err", err)
@@ -596,16 +647,21 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 		}
 		if eventAge > triggerEventMaxAge {
 			e.logger().Warnw("Trigger event is too old, skipping execution", "triggerID", queueHead.triggerCapID, "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
+			triggerMetricLabels.IncrementTriggerEventExpiredCounter(ctx)
 			continue
 		}
+		semWaitStart := e.cfg.Clock.Now()
 		free, err := e.executionsSemaphore.Wait(ctx, 1) // block if too many concurrent workflow executions
+		triggerMetricLabels.RecordExecutionSemaphoreWaitSeconds(ctx, e.cfg.Clock.Now().Sub(semWaitStart).Seconds())
 		if err != nil {
 			e.logger().Errorw("Failed to acquire executions semaphore", "err", err)
 			continue
 		}
+		e.activeExecutions.Add(1)
 		e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
 		e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
 			defer free()
+			defer e.activeExecutions.Add(-1)
 			creCtx := contexts.CREValue(ctx)
 			// Tracer is no-op if DebugMode is false
 			ctx, span := e.tracer.Start(ctx, "workflow_execution",
@@ -672,6 +728,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	if addErr != nil {
 		if errors.Is(addErr, store.ErrDuplicateExecution) {
 			lggr.Infow("Skipping duplicate execution", "executionID", executionID, "triggerID", wrappedTriggerEvent.triggerCapID, "triggerIndex", wrappedTriggerEvent.triggerIndex)
+			e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).IncrementTriggerExecutionDeduplicatedCounter(ctx)
 			e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).IncrementWorkflowTriggerEventErrorCounter(ctx)
 			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, wrappedTriggerEvent.triggerIndex)
 			err = e.ackTriggerEvent(ctx, registrationID, &triggerEvent)
@@ -755,7 +812,8 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		return
 	}
 	defer execCancel()
-	executionLogger := logger.With(lggr, "executionID", executionID, "triggerID", wrappedTriggerEvent.triggerCapID, "triggerIndex", wrappedTriggerEvent.triggerIndex)
+	executionLogger := logger.With(lggr, "executionID", executionID, "triggerID", wrappedTriggerEvent.triggerCapID,
+		"triggerIndex", wrappedTriggerEvent.triggerIndex, "eventID", triggerEvent.ID)
 
 	maxUserLogEventsPerExecution, err := e.cfg.LocalLimiters.LogEvent.Limit(ctx)
 	if err != nil {
@@ -775,6 +833,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	}
 
 	startTime := e.cfg.Clock.Now()
+	e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).RecordTriggerQueueToExecutionStartSeconds(ctx, startTime.Sub(wrappedTriggerEvent.timestamp).Seconds())
 	executionLogger.Infow("Workflow execution starting ...")
 	_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
 
@@ -818,6 +877,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		UserLogChan: userLogChan, TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
 	}
 	execHelper.initLimiters(e.cfg.LocalLimiters)
+	e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).RecordTriggerPayloadBytes(ctx, int64(proto.Size(triggerEvent.Payload)))
 	var result *sdkpb.ExecutionResult
 	result, execErr = e.cfg.Module.Execute(execCtx, &sdkpb.ExecuteRequest{
 		Request: &sdkpb.ExecuteRequest_Trigger{
@@ -887,6 +947,8 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 }
 
 func (e *Engine) ackTriggerEvent(ctx context.Context, triggerRegistrationID string, te *capabilities.TriggerEvent) error {
+	e.logger().Infow("ACKing trigger event", "triggerRegistrationID", triggerRegistrationID, "eventID", te.ID)
+
 	e.triggersRegMu.Lock()
 	trigger, ok := e.triggers[triggerRegistrationID]
 	e.triggersRegMu.Unlock()
@@ -917,6 +979,7 @@ func (e *Engine) secretsFetcher(phaseID string) SecretsFetcher {
 		// or the workflowID if called during trigger subscription
 		phaseID,
 		e.cfg.WorkflowEncryptionKey,
+		e.cfg.OverrideFetcher,
 	)
 }
 
@@ -950,8 +1013,11 @@ func (e *Engine) close() error {
 
 	// reset metering mode metric so that a positive value does not persist
 	e.metrics.UpdateWorkflowMeteringModeGauge(ctx, false)
-
-	return e.cfg.GlobalExecutionConcurrencyLimiter.Free(ctx, 1)
+	var err error
+	if e.workflowLimitUsed.Load() { // init called Use
+		err = e.cfg.GlobalWorkflowLimit.Free(ctx, 1)
+	}
+	return err
 }
 
 // NOTE: needs to be called under the triggersRegMu lock

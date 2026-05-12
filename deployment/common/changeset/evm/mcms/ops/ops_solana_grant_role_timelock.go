@@ -15,7 +15,8 @@ import (
 	cldfsolana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 )
 
 type OpSolanaGrantRoleTimelockDeps struct {
@@ -23,10 +24,10 @@ type OpSolanaGrantRoleTimelockDeps struct {
 }
 
 type OpSolanaGrantRoleTimelockInput struct {
-	ChainState         *state.MCMSWithTimelockStateSolana `json:"chainState"`
-	Role               timelockbindings.Role              `json:"role"`
-	Account            solana.PublicKey                   `json:"account"`
-	IsDeployerKeyAdmin bool                               `json:"isDeployerKeyAdmin"`
+	ChainState         *solstate.MCMSWithTimelockState `json:"chainState"`
+	Role               timelockbindings.Role           `json:"role"`
+	Account            solana.PublicKey                `json:"account"`
+	IsDeployerKeyAdmin bool                            `json:"isDeployerKeyAdmin"`
 }
 
 type OpSolanaGrantRoleTimelockOutput struct {
@@ -49,7 +50,7 @@ var OpSolanaGrantRoleTimelock = operations.NewOperation(
 		if in.IsDeployerKeyAdmin {
 			signer = deps.Chain.DeployerKey.PublicKey()
 		} else {
-			signer = state.GetTimelockSignerPDA(in.ChainState.TimelockProgram, in.ChainState.TimelockSeed)
+			signer = pdasol.GetTimelockSignerPDA(in.ChainState.TimelockProgram, in.ChainState.TimelockSeed)
 		}
 
 		ix, err := accesscontrollerbindings.NewAddAccessInstruction(accessController, signer, in.Account).ValidateAndBuild()

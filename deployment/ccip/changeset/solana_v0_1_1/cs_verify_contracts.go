@@ -8,6 +8,8 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/mr-tron/base58"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -16,7 +18,6 @@ import (
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
@@ -321,13 +322,13 @@ func VerifyBuild(e cldf.Environment, cfg VerifyBuildConfig) (cldf.ChangesetOutpu
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 	}
-	mcmState, err := csState.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	var timelockSignerPDA solana.PublicKey
 	if mcmState != nil {
-		timelockSignerPDA = csState.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+		timelockSignerPDA = pdasol.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 	}
 
 	verifications := []struct {

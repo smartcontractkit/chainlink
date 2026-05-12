@@ -3,8 +3,12 @@ package workflow
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"io"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -13,17 +17,23 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/google/uuid"
-	"github.com/pkg/errors"
-
+	"github.com/cosmos/gogoproto/proto"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
+	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 
+	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	workflow_registry_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
 	workflow_registry_wrapper_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+	chainlinkvalues "github.com/smartcontractkit/chainlink-protos/cre/go/values"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/postgres"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-
-	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -46,7 +56,30 @@ const (
 	errCreateRegistryInstance  = "failed to create workflow registry instance"
 	errGetWorkflowMetadataList = "failed to get workflow metadata list"
 	errDeleteWorkflow          = "failed to delete workflow %q"
+
+	// vaultConfigStaticPropagationWait is used when node DB info is not available
+	// (e.g. Kubernetes provider or missing state file) and we cannot actively poll
+	// for registry syncer propagation.
+	vaultConfigStaticPropagationWait = 15 * time.Second
+
+	// latestRegistrySyncStateQuery retrieves the most recent capabilities registry snapshot stored by the syncer.
+	latestRegistrySyncStateQuery = `SELECT data FROM registry_syncer_states ORDER BY id DESC LIMIT 1`
 )
+
+// vaultSyncStateDONCapConfig mirrors the JSON shape of registrysyncer.CapabilityConfiguration.
+type vaultSyncStateDONCapConfig struct {
+	Config []byte `json:"Config"`
+}
+
+// vaultSyncStateDON mirrors the JSON shape of registrysyncer.DON (CapabilityConfigurations only).
+type vaultSyncStateDON struct {
+	CapabilityConfigurations map[string]vaultSyncStateDONCapConfig `json:"CapabilityConfigurations"`
+}
+
+// vaultSyncStatePayload is a partial deserialisation of the registry_syncer_states.data JSON blob.
+type vaultSyncStatePayload struct {
+	IDsToDONs map[string]vaultSyncStateDON `json:"IDsToDONs"`
+}
 
 func RegisterWithContract(
 	ctx context.Context,
@@ -561,4 +594,268 @@ func generateWorkflowIDFromStrings(owner, name string, workflow, config []byte, 
 	}
 
 	return hex.EncodeToString(workflowID[:]), nil
+}
+
+// UpdateVaultCapabilityConfig merges the provided vaultPublicKey and threshold into the
+// vault capability's DefaultConfig in the capabilities registry for the given DON,
+// preserving any pre-existing fields. This is required so that workflow nodes can
+// unwrap the capability config when calling runtime.GetSecret().
+func UpdateVaultCapabilityConfig(ctx context.Context, sethClient *seth.Client, capabilitiesRegistryAddr string, don *capabilities_registry_v2.CapabilitiesRegistryDONInfo, vaultPublicKey string, threshold int) error {
+	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
+		common.HexToAddress(capabilitiesRegistryAddr), sethClient.Client,
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to create capabilities registry wrapper")
+	}
+
+	newConfigs := make([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, 0, len(don.CapabilityConfigurations))
+	for _, cc := range don.CapabilityConfigurations {
+		if cc.CapabilityId == vault_helpers.CapabilityID {
+			existingCfg := &capabilitiespb.CapabilityConfig{}
+			if len(cc.Config) > 0 {
+				if unmarshalErr := proto.Unmarshal(cc.Config, existingCfg); unmarshalErr != nil {
+					return errors.Wrap(unmarshalErr, "failed to unmarshal existing vault capability config")
+				}
+			}
+
+			base := chainlinkvalues.EmptyMap()
+			if existingCfg.DefaultConfig != nil {
+				base, err = chainlinkvalues.FromMapValueProto(existingCfg.DefaultConfig)
+				if err != nil {
+					return errors.Wrap(err, "failed to convert existing vault capability config")
+				}
+			}
+			newValues, wrapErr := chainlinkvalues.WrapMap(map[string]any{
+				"VaultPublicKey": vaultPublicKey,
+				"Threshold":      threshold,
+			})
+			if wrapErr != nil {
+				return errors.Wrap(wrapErr, "failed to wrap vault capability config values")
+			}
+			for k, v := range newValues.Underlying {
+				base.Underlying[k] = v
+			}
+			existingCfg.DefaultConfig = chainlinkvalues.ProtoMap(base)
+
+			configBytes, marshalErr := proto.Marshal(existingCfg)
+			if marshalErr != nil {
+				return errors.Wrap(marshalErr, "failed to marshal updated vault capability config")
+			}
+
+			cc.Config = configBytes
+		}
+		newConfigs = append(newConfigs, cc)
+	}
+
+	updateParams := capabilities_registry_v2.CapabilitiesRegistryUpdateDONParams{
+		Name:                     don.Name,
+		Config:                   don.Config,
+		CapabilityConfigurations: newConfigs,
+		Nodes:                    don.NodeP2PIds,
+		F:                        don.F,
+		IsPublic:                 don.IsPublic,
+	}
+
+	_, updateErr := sethClient.Decode(capReg.UpdateDONByName(sethClient.NewTXOpts(), don.Name, updateParams))
+	return errors.Wrap(updateErr, "UpdateDONByName tx failed")
+}
+
+// WaitForVaultConfigPropagation waits until every workflow node's local registry snapshot
+// (registry_syncer_states) shows a non-nil DefaultConfig for the vault capability.
+//
+// It connects directly to each node's PostgreSQL database using the shared postgres server
+// exposed at dbPort, with one database per node named db_0 … db_{nodeCount-1}.
+//
+// If dbPort or nodeCount is 0 (e.g. Kubernetes provider or missing state file), the function
+// falls back to a static wait of vaultConfigStaticPropagationWait.
+func WaitForVaultConfigPropagation(ctx context.Context, dbPort, nodeCount int) error {
+	if dbPort == 0 || nodeCount == 0 {
+		fmt.Printf("\n⚙️ Node DB info unavailable; waiting %s for vault config propagation\n", vaultConfigStaticPropagationWait)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(vaultConfigStaticPropagationWait):
+			return nil
+		}
+	}
+
+	fmt.Printf("\n⚙️ Polling %d workflow node(s) on db port %d for vault capability config propagation\n", nodeCount, dbPort)
+
+	const pollInterval = 2 * time.Second
+	const pollTimeout = 2 * time.Minute
+
+	timeoutCtx, cancel := context.WithTimeout(ctx, pollTimeout)
+	defer cancel()
+
+	pending := make(map[int]struct{}, nodeCount)
+	for i := 0; i < nodeCount; i++ {
+		pending[i] = struct{}{}
+	}
+
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+
+	for {
+		type checkResult struct {
+			index int
+			ready bool
+			msg   string
+		}
+
+		results := make(chan checkResult, len(pending))
+		eg, tickCtx := errgroup.WithContext(timeoutCtx)
+
+		for nodeIndex := range pending {
+			// capture for goroutine
+			eg.Go(func() error {
+				ready, msg := hasVaultCapabilityConfigOnNode(tickCtx, dbPort, nodeIndex)
+				results <- checkResult{index: nodeIndex, ready: ready, msg: msg}
+				return nil
+			})
+		}
+
+		if err := eg.Wait(); err != nil {
+			close(results)
+			return err
+		}
+		close(results)
+
+		for r := range results {
+			if r.ready {
+				delete(pending, r.index)
+				fmt.Printf("  ✅ node db_%d: vault config propagated\n", r.index)
+			} else {
+				fmt.Printf("  ⏳ node db_%d: %s\n", r.index, r.msg)
+			}
+		}
+
+		if len(pending) == 0 {
+			return nil
+		}
+
+		select {
+		case <-timeoutCtx.Done():
+			remaining := make([]int, 0, len(pending))
+			for i := range pending {
+				remaining = append(remaining, i)
+			}
+			return fmt.Errorf("timed out after %.0fs waiting for vault config propagation on nodes: %v", pollTimeout.Seconds(), remaining)
+		case <-ticker.C:
+		}
+	}
+}
+
+// hasVaultCapabilityConfigOnNode queries db_{nodeIndex} at dbPort and returns true when the latest
+// registry_syncer_states row contains a non-nil DefaultConfig for the vault capability.
+func hasVaultCapabilityConfigOnNode(ctx context.Context, dbPort, nodeIndex int) (bool, string) {
+	dsn := fmt.Sprintf(
+		"host=127.0.0.1 port=%d user=%s password=%s dbname=db_%d sslmode=disable connect_timeout=3",
+		dbPort, postgres.User, postgres.Password, nodeIndex,
+	)
+
+	db, err := sqlx.Open("postgres", dsn)
+	if err != nil {
+		return false, fmt.Sprintf("failed to open DB: %v", err)
+	}
+	defer db.Close()
+
+	queryCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	var rawData []byte
+	if err = db.GetContext(queryCtx, &rawData, latestRegistrySyncStateQuery); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, "registry_syncer_states is empty"
+		}
+		return false, fmt.Sprintf("query failed: %v", err)
+	}
+
+	var state vaultSyncStatePayload
+	if err = json.Unmarshal(rawData, &state); err != nil {
+		return false, fmt.Sprintf("failed to unmarshal registry syncer state: %v", err)
+	}
+
+	for _, don := range state.IDsToDONs {
+		capCfgEntry, ok := don.CapabilityConfigurations[vault_helpers.CapabilityID]
+		if !ok || len(capCfgEntry.Config) == 0 {
+			continue
+		}
+
+		capCfg := &capabilitiespb.CapabilityConfig{}
+		if unmarshalErr := proto.Unmarshal(capCfgEntry.Config, capCfg); unmarshalErr != nil {
+			return false, fmt.Sprintf("failed to unmarshal vault capability config protobuf: %v", unmarshalErr)
+		}
+
+		if capCfg.DefaultConfig != nil {
+			return true, ""
+		}
+	}
+
+	return false, fmt.Sprintf("vault capability %s DefaultConfig not yet set in any DON snapshot", vault_helpers.CapabilityID)
+}
+
+// VaultConfigHasPublicKey reports whether cfg.DefaultConfig already contains a
+// VaultPublicKey field whose value equals publicKey. It is used to decide whether
+// an update to the capabilities registry is necessary.
+func VaultConfigHasPublicKey(cfg *capabilitiespb.CapabilityConfig, publicKey string) bool {
+	if cfg == nil || cfg.DefaultConfig == nil {
+		return false
+	}
+	existing, err := chainlinkvalues.FromMapValueProto(cfg.DefaultConfig)
+	if err != nil {
+		return false
+	}
+	v, ok := existing.Underlying["VaultPublicKey"]
+	if !ok || v == nil {
+		return false
+	}
+	val, err := v.Unwrap()
+	if err != nil {
+		return false
+	}
+	str, ok := val.(string)
+	return ok && str == publicKey
+}
+
+// IsBase64File checks if the file at the given path is a base64-encoded file by reading a portion of it and attempting to decode it.
+func IsBase64File(filename string) error {
+	fileInfo, fErr := os.Stat(filename)
+	if fErr != nil {
+		return errors.Wrap(fErr, "failed to get file info")
+	}
+
+	readSize := min(fileInfo.Size(), 4*1024*1024) // 4MB
+
+	file, oErr := os.Open(filename)
+	if oErr != nil {
+		return errors.Wrap(oErr, "failed to open file")
+	}
+	defer file.Close()
+
+	buffer := make([]byte, readSize)
+	n, rErr := file.Read(buffer)
+	if rErr != nil && rErr != io.EOF {
+		return errors.Wrap(rErr, "failed to read file")
+	}
+
+	if !isBase64Content(string(buffer[:n])) {
+		return fmt.Errorf("❌ file %s is not a base64-encoded file", filename)
+	}
+
+	return nil
+}
+
+func isBase64Content(content string) bool {
+	// Remove whitespace and newlines, just to be safe
+	content = strings.ReplaceAll(content, "\n", "")
+	content = strings.ReplaceAll(content, "\r", "")
+	content = strings.ReplaceAll(content, " ", "")
+	content = strings.ReplaceAll(content, "\t", "")
+
+	if len(content) == 0 {
+		return false
+	}
+
+	_, err := base64.StdEncoding.DecodeString(content)
+	return err == nil
 }

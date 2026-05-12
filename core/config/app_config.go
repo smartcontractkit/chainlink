@@ -45,7 +45,6 @@ type AppConfig interface {
 	Insecure() Insecure
 	JobDistributor() JobDistributor
 	JobPipeline() JobPipeline
-	Keeper() Keeper
 	Log() Log
 	Mercury() Mercury
 	OCR() OCR
@@ -64,6 +63,7 @@ type AppConfig interface {
 	CCV() CCV
 	Billing() Billing
 	BridgeStatusReporter() BridgeStatusReporter
+	JobSpecReporter() JobSpecReporter
 	Sharding() Sharding
 	LOOPP() LOOPP
 }

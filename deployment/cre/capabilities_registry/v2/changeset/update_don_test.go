@@ -9,6 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -20,8 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
@@ -94,7 +95,7 @@ func setupRegistryForUpdateDON(t *testing.T, isWorkflow, useMCMS bool) *updFixtu
 	// this tests if modifier scaffolding works in the changeset
 	// each modifier's code is not tested here
 	capWithModifierID := capabilities_registry_v2.CapabilitiesRegistryCapability{
-		CapabilityId:          "aptos:ChainSelector:123456@1.0.0",
+		CapabilityId:          "aptos:ChainSelector:743186221051783445@1.0.0",
 		ConfigurationContract: common.Address{},
 		Metadata:              []byte(`{"capabilityType": 3, "responseType": 1}`),
 	}
@@ -182,8 +183,8 @@ func setupRegistryForUpdateDON(t *testing.T, isWorkflow, useMCMS bool) *updFixtu
 		}
 	}
 
-	timelockCfgs := map[uint64]commontypes.MCMSWithTimelockConfigV2{
-		selector: proposalutils.SingleGroupTimelockConfigV2(t),
+	timelockCfgs := map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
+		selector: cldftesthelpers.SingleGroupTimelockConfig(t),
 	}
 
 	updatedEnv, mcmsErr := commonchangeset.Apply(t, rt.Environment(), commonchangeset.Configure(

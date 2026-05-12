@@ -7,6 +7,8 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
@@ -18,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -228,14 +229,14 @@ func TestFundMCMSignersChangeset_Apply(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check balances of MCM Signer PDAS
-	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	require.NoError(t, err)
 
 	accounts := []solana.PublicKey{
-		state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed),
-		state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed),
-		state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.CancellerMcmSeed),
-		state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.BypasserMcmSeed),
+		pdasol.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed),
+		pdasol.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed),
+		pdasol.GetMCMSignerPDA(mcmState.McmProgram, mcmState.CancellerMcmSeed),
+		pdasol.GetMCMSignerPDA(mcmState.McmProgram, mcmState.BypasserMcmSeed),
 	}
 	var balances []uint64
 	for _, account := range accounts {

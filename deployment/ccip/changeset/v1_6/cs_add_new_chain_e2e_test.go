@@ -8,6 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
@@ -22,6 +24,7 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -397,7 +400,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 			// Build new chain configuration
 			nodeInfo, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 			require.NoError(t, err, "must get node info")
-			mcmsDeploymentCfg := proposalutils.SingleGroupTimelockConfigV2(t)
+			mcmsDeploymentCfg := cldftesthelpers.SingleGroupTimelockConfig(t)
 			newChain := newChainConfigHelper(newChainSelector, deployedEnvironment.FeedChainSel, linkAddress, &nodeInfo, len(nodeInfo.NonBootstraps().PeerIDs()))
 
 			if test.ErrStr != "" {
@@ -564,8 +567,8 @@ func TestRemoveLinkTokenAddressIfExists(t *testing.T) {
 		}
 		require.NotEmpty(t, linkTokenAddr, "should have Link token in the deployed environment")
 
-		existingContracts := commoncs.ExistingContractsConfig{
-			ExistingContracts: []commoncs.Contract{
+		existingContracts := changeset.ExistingContractsConfig{
+			ExistingContracts: []changeset.Contract{
 				{
 					ChainSelector:  chainSelector,
 					Address:        linkTokenAddr,
@@ -642,7 +645,7 @@ func TestValidateTransmitterAddresses(t *testing.T) {
 			FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
 		}
 
-		mcmsDeploymentCfg := proposalutils.SingleGroupTimelockConfigV2(t)
+		mcmsDeploymentCfg := cldftesthelpers.SingleGroupTimelockConfig(t)
 		donIDOffSet := uint32(0)
 		state, err := stateview.LoadOnchainState(e)
 		require.NoError(t, err, "must load onchain state")
@@ -685,8 +688,8 @@ func newChainConfigHelper(newChainSel, feedChainSel uint64, linkTokenAddr common
 			FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
 			OffRampParams:   ccipops.DefaultOffRampParams(),
 		},
-		ExistingContracts: commoncs.ExistingContractsConfig{
-			ExistingContracts: []commoncs.Contract{
+		ExistingContracts: changeset.ExistingContractsConfig{
+			ExistingContracts: []changeset.Contract{
 				{
 					Address:        linkTokenAddr.Hex(),
 					TypeAndVersion: cldf.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0),

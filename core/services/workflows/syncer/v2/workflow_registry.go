@@ -450,7 +450,7 @@ func toLocalHead(head *types.Head) Head {
 // It only considers engines from the specified source when determining deletions. This ensures that when a source
 // fails to fetch, we don't incorrectly delete engines from other sources.
 func (w *workflowRegistry) generateReconciliationEvents(
-	_ context.Context,
+	ctx context.Context,
 	pendingEvents map[string]*reconciliationEvent,
 	workflowMetadata []WorkflowMetadataView,
 	head *types.Head,
@@ -510,9 +510,12 @@ func (w *workflowRegistry) generateReconciliationEvents(
 				})
 				workflowsSeen[id] = true
 			// if the workflow is active, the workflow engine is in the engine registry, and the metadata has not changed
-			// then we don't need to action the event further. Mark as seen and continue.
+			// then we don't need to action the event further. Mark as seen and drop any stale pending event for this
+			// id (e.g. a WorkflowDeleted deferred via ErrDrainInProgress that was superseded by the workflow being
+			// re-activated before drain completed) so the end-of-loop invariant check does not fire.
 			case true:
 				workflowsSeen[id] = true
+				delete(pendingEvents, id)
 			}
 		case WorkflowStatusPaused:
 			signature := fmt.Sprintf("%s-%s-%s", WorkflowPaused, id, toSpecStatus(wfMeta.Status))
@@ -620,6 +623,34 @@ func (w *workflowRegistry) generateReconciliationEvents(
 	}
 
 	return events, nil
+}
+
+func (w *workflowRegistry) applyPreDispatchReconcileActions(ctx context.Context, events []*reconciliationEvent) {
+	for _, event := range events {
+		if event.Name != WorkflowDeleted {
+			continue
+		}
+
+		deletedEvent, ok := event.Data.(WorkflowDeletedEvent)
+		if !ok {
+			w.lggr.Warnw("skipping pre-dispatch drain due to invalid event payload type", "eventID", event.id, "eventType", event.Name)
+			continue
+		}
+
+		serviceWithMetadata, exists := w.engineRegistry.Get(deletedEvent.WorkflowID)
+		if !exists {
+			continue
+		}
+
+		drainable, isDrainable := serviceWithMetadata.Service.(DrainableService)
+		if !isDrainable {
+			continue
+		}
+
+		if started := drainable.Drain(); started {
+			w.metrics.incrementDrainStarted(ctx)
+		}
+	}
 }
 
 func (w *workflowRegistry) syncAllowlistedRequests(ctx context.Context) {
@@ -777,6 +808,8 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 
 				w.lggr.Debugw("Generated events for source", "source", sourceName, "num", len(events))
 
+				w.applyPreDispatchReconcileActions(ctx, events)
+
 				// Clear pending events after successful reconciliation
 				pendingEventsBySource[sourceIdentifier] = make(map[string]*reconciliationEvent)
 
@@ -864,6 +897,17 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 
 			runningWorkflows := w.engineRegistry.GetAll()
 			w.metrics.recordRunningWorkflows(ctx, len(runningWorkflows))
+			drainingWorkflows := 0
+			for _, workflow := range runningWorkflows {
+				drainable, isDrainable := workflow.Service.(DrainableService)
+				if !isDrainable {
+					continue
+				}
+				if _, draining := drainable.DrainStartedAt(); draining {
+					drainingWorkflows++
+				}
+			}
+			w.metrics.recordDrainingWorkflows(ctx, drainingWorkflows)
 			w.metrics.incrementCompletedSyncs(ctx)
 		}
 	}

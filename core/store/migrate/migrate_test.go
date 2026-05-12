@@ -96,6 +96,8 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	// Job struct at migration v0099
 	type Job struct {
 		job.Job
+		// keeper_spec_id remains on jobs until migration 0296; sqlx requires a field for SELECT * before then.
+		KeeperSpecID                   *int32 `db:"keeper_spec_id"`
 		OffchainreportingOracleSpecID  *int32
 		Offchainreporting2OracleSpecID *int32
 		Offchainreporting2OracleSpec   *OffchainReporting2OracleSpec

@@ -32,7 +32,6 @@ const (
 	DirectRequestJobSpec        JobSpecType = "directrequest"
 	FluxMonitorJobSpec          JobSpecType = "fluxmonitor"
 	OffChainReportingJobSpec    JobSpecType = "offchainreporting"
-	KeeperJobSpec               JobSpecType = "keeper"
 	CronJobSpec                 JobSpecType = "cron"
 	VRFJobSpec                  JobSpecType = "vrf"
 	WebhookJobSpec              JobSpecType = "webhook"
@@ -220,26 +219,6 @@ func NewPipelineSpec(spec *pipeline.Spec) PipelineSpec {
 		ID:           spec.ID,
 		JobID:        spec.JobID,
 		DotDAGSource: spec.DotDagSource,
-	}
-}
-
-// KeeperSpec defines the spec details of a Keeper Job
-type KeeperSpec struct {
-	ContractAddress types.EIP55Address `json:"contractAddress"`
-	FromAddress     types.EIP55Address `json:"fromAddress"`
-	CreatedAt       time.Time          `json:"createdAt"`
-	UpdatedAt       time.Time          `json:"updatedAt"`
-	EVMChainID      *sqlutil.Big       `json:"evmChainID"`
-}
-
-// NewKeeperSpec generates a new KeeperSpec from a job.KeeperSpec
-func NewKeeperSpec(spec *job.KeeperSpec) *KeeperSpec {
-	return &KeeperSpec{
-		ContractAddress: spec.ContractAddress,
-		FromAddress:     spec.FromAddress,
-		CreatedAt:       spec.CreatedAt,
-		UpdatedAt:       spec.UpdatedAt,
-		EVMChainID:      spec.EVMChainID,
 	}
 }
 
@@ -575,7 +554,6 @@ type JobResource struct {
 	CronSpec                 *CronSpec                 `json:"cronSpec"`
 	OffChainReportingSpec    *OffChainReportingSpec    `json:"offChainReportingOracleSpec"`
 	OffChainReporting2Spec   *OffChainReporting2Spec   `json:"offChainReporting2OracleSpec"`
-	KeeperSpec               *KeeperSpec               `json:"keeperSpec"`
 	VRFSpec                  *VRFSpec                  `json:"vrfSpec"`
 	WebhookSpec              *WebhookSpec              `json:"webhookSpec"`
 	BlockhashStoreSpec       *BlockhashStoreSpec       `json:"blockhashStoreSpec"`
@@ -619,8 +597,6 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.OffChainReportingSpec = NewOffChainReportingSpec(j.OCROracleSpec)
 	case job.OffchainReporting2:
 		resource.OffChainReporting2Spec = NewOffChainReporting2Spec(j.OCR2OracleSpec)
-	case job.Keeper:
-		resource.KeeperSpec = NewKeeperSpec(j.KeeperSpec)
 	case job.VRF:
 		resource.VRFSpec = NewVRFSpec(j.VRFSpec)
 	case job.Webhook:

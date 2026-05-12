@@ -10,6 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	mcmslib "github.com/smartcontractkit/mcms"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -20,12 +22,11 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
+
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
@@ -80,7 +81,7 @@ type NewChainDefinition struct {
 	// ChainContractParams defines contract parameters for the chain.
 	ccipseq.ChainContractParams `json:"chainContractParams"`
 	// ExistingContracts defines any contracts that are already deployed on this chain.
-	ExistingContracts commoncs.ExistingContractsConfig `json:"existingContracts"`
+	ExistingContracts changeset.ExistingContractsConfig `json:"existingContracts"`
 	// ConfigOnHome defines how this chain should be configured on the CCIPHome contract.
 	ConfigOnHome ChainConfig `json:"configOnHome"`
 	// CommitOCRParams defines the OCR parameters for this chain's commit plugin.
@@ -102,7 +103,7 @@ type AddCandidatesForNewChainConfig struct {
 	// RemoteChains defines the remote chains to be connected to the new chain.
 	RemoteChains []ChainDefinition `json:"remoteChains"`
 	// MCMSDeploymentConfig configures the MCMS deployment to the new chain.
-	MCMSDeploymentConfig *commontypes.MCMSWithTimelockConfigV2 `json:"mcmsDeploymentConfig,omitempty"`
+	MCMSDeploymentConfig *cldfproposalutils.MCMSWithTimelockConfig `json:"mcmsDeploymentConfig,omitempty"`
 	// MCMSConfig defines the MCMS configuration for the changeset.
 	MCMSConfig *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
 	// The offset to adjust the donID in DonIDClaimer (useful when certain DON IDs are dropped)
@@ -268,7 +269,7 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to run removeLinkTokenAddressIfExists on chain with selector %d: %w", c.NewChain.Selector, err)
 		}
 		err = runAndSaveAddresses(func() (cldf.ChangesetOutput, error) {
-			return commoncs.SaveExistingContractsChangeset(e, c.NewChain.ExistingContracts)
+			return changeset.SaveExistingContractsChangeset(e, c.NewChain.ExistingContracts)
 		}, newAddresses, e.ExistingAddresses)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to run SaveExistingContractsChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
@@ -285,7 +286,7 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 		// Deploy MCMS contracts
 		if c.MCMSDeploymentConfig != nil {
 			err = runAndSaveAddresses(func() (cldf.ChangesetOutput, error) {
-				return commoncs.DeployMCMSWithTimelockV2(e, map[uint64]commontypes.MCMSWithTimelockConfigV2{
+				return commoncs.DeployMCMSWithTimelockV2(e, map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 					c.NewChain.Selector: *c.MCMSDeploymentConfig,
 				})
 			}, newAddresses, e.ExistingAddresses)
@@ -991,7 +992,7 @@ func runAndSaveAddresses(fn func() (cldf.ChangesetOutput, error), newAddresses c
 
 // If LINK token is present in the existing contracts, remove it
 // This is because the LINK token can either be deployed via CLD or imported from existing deployments
-func RemoveLinkTokenAddressIfExists(e cldf.Environment, existingContracts *commoncs.ExistingContractsConfig) error {
+func RemoveLinkTokenAddressIfExists(e cldf.Environment, existingContracts *changeset.ExistingContractsConfig) error {
 	if len(existingContracts.ExistingContracts) == 0 {
 		return nil
 	}
@@ -1002,7 +1003,7 @@ func RemoveLinkTokenAddressIfExists(e cldf.Environment, existingContracts *commo
 	}
 
 	// Filter out LinkToken contracts that match the state LinkToken address
-	filteredContracts := make([]commoncs.Contract, 0, len(existingContracts.ExistingContracts))
+	filteredContracts := make([]changeset.Contract, 0, len(existingContracts.ExistingContracts))
 
 	for _, contract := range existingContracts.ExistingContracts {
 		shouldKeep := true

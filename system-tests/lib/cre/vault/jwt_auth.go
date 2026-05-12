@@ -23,6 +23,7 @@ import (
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 )
 
 const (
@@ -85,14 +86,16 @@ type JWTTokenClaims struct {
 	OrgID         string
 	WorkflowOwner string
 	RequestDigest string
-	Issuer        string
-	Audience      string
-	Subject       string
-	JWTID         string
-	KeyID         string
-	IssuedAt      time.Time
-	ExpiresAt     time.Time
-	ExtraClaims   map[string]any
+	// Scopes are OAuth scopes (e.g. create:secrets) required for Vault JWT authorization.
+	Scopes      []string
+	Issuer      string
+	Audience    string
+	Subject     string
+	JWTID       string
+	KeyID       string
+	IssuedAt    time.Time
+	ExpiresAt   time.Time
+	ExtraClaims map[string]any
 }
 
 // TestJWTIssuer is a minimal fake Auth0-style issuer for local CRE and system tests.
@@ -317,12 +320,17 @@ func SignTestJWT(privateKey *rsa.PrivateKey, claims JWTTokenClaims) (string, err
 		"iat":    jwt.NewNumericDate(claims.IssuedAt),
 		"exp":    jwt.NewNumericDate(claims.ExpiresAt),
 		"org_id": claims.OrgID,
+		vaultcap.ClaimVaultSecretManagementEnabled: "true",
 		"authorization_details": []map[string]string{
 			{
 				"type":  "request_digest",
 				"value": claims.RequestDigest,
 			},
 		},
+	}
+
+	if len(claims.Scopes) > 0 {
+		tokenClaims["scope"] = strings.Join(claims.Scopes, " ")
 	}
 
 	if claims.WorkflowOwner != "" {

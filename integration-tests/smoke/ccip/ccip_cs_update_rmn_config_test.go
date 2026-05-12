@@ -8,6 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 
@@ -25,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 var (
@@ -345,11 +347,11 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 	t.Parallel()
 	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNoJobsAndContracts())
 	allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
-	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
+	mcmsCfg := make(map[uint64]cldfproposalutils.MCMSWithTimelockConfig)
 	var err error
 	prereqCfgs := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
 	for _, c := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)) {
-		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfigV2(t)
+		mcmsCfg[c] = cldftesthelpers.SingleGroupTimelockConfig(t)
 		prereqCfgs = append(prereqCfgs, changeset.DeployPrerequisiteConfigPerChain{
 			ChainSelector: c,
 		})

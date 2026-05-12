@@ -5,6 +5,8 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	"github.com/smartcontractkit/mcms"
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
@@ -15,7 +17,6 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -35,7 +36,7 @@ func buildNoOPEVM(e cldf.Environment, selector uint64) (mcmstypes.Transaction, e
 	if err != nil {
 		return mcmstypes.Transaction{}, err
 	}
-	state, err := state.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
+	state, err := evmstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
 		return mcmstypes.Transaction{}, err
 	}
@@ -102,7 +103,7 @@ func MCMSSignFireDrillChangeset(e cldf.Environment, cfg FireDrillConfig) (cldf.C
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}
-			state, err := state.MaybeLoadMCMSWithTimelockChainState(e.BlockChains.EVMChains()[selector], addresses)
+			state, err := evmstate.MaybeLoadMCMSWithTimelockChainState(e.BlockChains.EVMChains()[selector], addresses)
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}
@@ -126,7 +127,7 @@ func MCMSSignFireDrillChangeset(e cldf.Environment, cfg FireDrillConfig) (cldf.C
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}
-			state, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(e.BlockChains.SolanaChains()[selector], addresses)
+			state, err := solstate.MaybeLoadMCMSWithTimelockChainState(e.BlockChains.SolanaChains()[selector], addresses)
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}

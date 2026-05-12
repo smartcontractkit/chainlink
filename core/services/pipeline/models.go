@@ -19,7 +19,9 @@ import (
 )
 
 type Spec struct {
-	ID                int32
+	ID int32
+	// DotDagSource is the pipeline graph in DOT notation. Bridge tasks may set
+	// checkRequired=true on a node to validate required JSON paths for cache fallback.
 	DotDagSource      string           `json:"dotDagSource"`
 	CreatedAt         time.Time        `json:"-"`
 	MaxTaskDuration   sqlutil.Interval `json:"-"`

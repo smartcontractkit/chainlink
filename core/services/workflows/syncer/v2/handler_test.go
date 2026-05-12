@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/jonboulle/clockwork"
 	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basictrigger"
@@ -27,6 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace/noop"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
@@ -118,9 +121,44 @@ func (m *mockEngine) HealthReport() map[string]error { return nil }
 
 func (m *mockEngine) Name() string { return "mockEngine" }
 
+type mockDrainableEngine struct {
+	mockEngine
+	draining         atomic.Bool
+	activeExecutions atomic.Int32
+	drainCalls       atomic.Int32
+	closeCalls       atomic.Int32
+	drainStartedAtNs atomic.Int64
+}
+
+func (m *mockDrainableEngine) Drain() bool {
+	started := m.draining.CompareAndSwap(false, true)
+	m.draining.Store(true)
+	m.drainCalls.Add(1)
+	m.drainStartedAtNs.CompareAndSwap(0, time.Now().UnixNano())
+	return started
+}
+
+func (m *mockDrainableEngine) ActiveExecutions() int32 {
+	return m.activeExecutions.Load()
+}
+
+func (m *mockDrainableEngine) DrainStartedAt() (time.Time, bool) {
+	ns := m.drainStartedAtNs.Load()
+	if ns == 0 {
+		return time.Time{}, false
+	}
+
+	return time.Unix(0, ns), true
+}
+
+func (m *mockDrainableEngine) Close() error {
+	m.closeCalls.Add(1)
+	return m.CloseErr
+}
+
 // mockEngineFactory returns a standard mock engine factory for tests.
 // It sends nil to initDone to signal successful initialization.
-func mockEngineFactory(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, _ string, initDone chan<- error) (services.Service, error) {
+func mockEngineFactory(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error) {
 	if initDone != nil {
 		initDone <- nil
 	}
@@ -274,7 +312,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					signedConfigURL:                      {Body: config, Err: nil},
 				})
 			},
-			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, _ string, initDone chan<- error) (services.Service, error) {
+			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error) {
 				if _, err := hex.DecodeString(name.Hex()); err != nil {
 					return nil, fmt.Errorf("invalid workflow name: %w", err)
 				}
@@ -318,7 +356,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					signedConfigURL:                      {Body: config, Err: nil},
 				})
 			},
-			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, _ string, initDone chan<- error) (services.Service, error) {
+			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error) {
 				if initDone != nil {
 					initDone <- nil
 				}
@@ -817,7 +855,7 @@ type testCase struct {
 	fetcherFactory   func(wfID []byte) *mockFetcher
 	Event            func(wfID []byte) WorkflowRegisteredEvent
 	validationFn     func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string)
-	engineFactoryFn  func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, _ string, initDone chan<- error) (services.Service, error)
+	engineFactoryFn  func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error)
 }
 
 func testRunningWorkflow(t *testing.T, tc testCase) {
@@ -1197,6 +1235,122 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		_, ok = h.engineRegistry.Get(giveWFID)
 		assert.True(t, ok)
 	})
+}
+
+type stubWorkflowArtifactsStore struct {
+	spec        *job.WorkflowSpec
+	deleteErr   error
+	deleteCalls atomic.Int32
+}
+
+func (s *stubWorkflowArtifactsStore) FetchWorkflowArtifacts(context.Context, string, string, string) ([]byte, []byte, error) {
+	return nil, nil, nil
+}
+
+func (s *stubWorkflowArtifactsStore) GetWorkflowSpec(context.Context, string) (*job.WorkflowSpec, error) {
+	if s.spec == nil {
+		return nil, errors.New("not found")
+	}
+	return s.spec, nil
+}
+
+func (s *stubWorkflowArtifactsStore) UpsertWorkflowSpec(context.Context, *job.WorkflowSpec) (int64, error) {
+	return 1, nil
+}
+
+func (s *stubWorkflowArtifactsStore) DeleteWorkflowArtifacts(context.Context, string) error {
+	s.deleteCalls.Add(1)
+	return s.deleteErr
+}
+
+func (s *stubWorkflowArtifactsStore) DeleteWorkflowArtifactsBatch(context.Context, []string) error {
+	return nil
+}
+
+func Test_workflowDeletedEvent_DrainInProgress(t *testing.T) {
+	t.Parallel()
+
+	workflowID := types.WorkflowID{1}
+	drainable := &mockDrainableEngine{}
+	drainable.activeExecutions.Store(2)
+	artifactStore := &stubWorkflowArtifactsStore{}
+	registry := NewEngineRegistry()
+	require.NoError(t, registry.Add(workflowID, "test-source", drainable))
+
+	h := &eventHandler{
+		lggr:                   logger.TestLogger(t),
+		engineRegistry:         registry,
+		workflowArtifactsStore: artifactStore,
+	}
+
+	err := h.workflowDeletedEvent(t.Context(), WorkflowDeletedEvent{WorkflowID: workflowID})
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrDrainInProgress)
+	assert.Equal(t, int32(1), drainable.drainCalls.Load())
+	assert.Equal(t, int32(0), drainable.closeCalls.Load())
+	assert.Equal(t, int32(0), artifactStore.deleteCalls.Load())
+	_, ok := registry.Get(workflowID)
+	assert.True(t, ok)
+}
+
+func Test_workflowDeletedEvent_IgnoresErrAlreadyStopped(t *testing.T) {
+	t.Parallel()
+
+	workflowID := types.WorkflowID{2}
+	drainable := &mockDrainableEngine{}
+	drainable.CloseErr = services.ErrAlreadyStopped
+	artifactStore := &stubWorkflowArtifactsStore{}
+	registry := NewEngineRegistry()
+	require.NoError(t, registry.Add(workflowID, "test-source", drainable))
+
+	h := &eventHandler{
+		lggr:                   logger.TestLogger(t),
+		engineRegistry:         registry,
+		workflowArtifactsStore: artifactStore,
+	}
+
+	err := h.workflowDeletedEvent(t.Context(), WorkflowDeletedEvent{WorkflowID: workflowID})
+	require.NoError(t, err)
+	assert.Equal(t, int32(1), drainable.closeCalls.Load())
+	assert.Equal(t, int32(1), artifactStore.deleteCalls.Load())
+	_, ok := registry.Get(workflowID)
+	assert.False(t, ok)
+}
+
+func Test_workflowRegisteredEvent_DrainingEngineNotTreatedAsHealthy(t *testing.T) {
+	t.Parallel()
+
+	workflowID := types.WorkflowID{3}
+	drainable := &mockDrainableEngine{
+		mockEngine: mockEngine{
+			CloseErr: assert.AnError,
+		},
+	}
+	require.True(t, drainable.Drain())
+
+	registry := NewEngineRegistry()
+	require.NoError(t, registry.Add(workflowID, "test-source", drainable))
+
+	artifactStore := &stubWorkflowArtifactsStore{
+		spec: &job.WorkflowSpec{
+			WorkflowID: workflowID.Hex(),
+			Status:     job.WorkflowSpecStatusActive,
+		},
+	}
+	h := &eventHandler{
+		lggr:                   logger.TestLogger(t),
+		engineRegistry:         registry,
+		workflowArtifactsStore: artifactStore,
+		tracer:                 noop.NewTracerProvider().Tracer(""),
+	}
+
+	err := h.workflowRegisteredEvent(t.Context(), WorkflowRegisteredEvent{
+		Status:     WorkflowStatusActive,
+		WorkflowID: workflowID,
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "could not clean up old engine")
+	assert.Equal(t, int32(1), drainable.closeCalls.Load())
 }
 
 // mockLinkingService implements the LinkingServiceServer interface for testing

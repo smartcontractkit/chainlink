@@ -7,6 +7,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -24,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -210,7 +210,7 @@ func SetUpgradeAuthorityChangeset(
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 		}
-		mcmState, err := csState.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+		mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 		}

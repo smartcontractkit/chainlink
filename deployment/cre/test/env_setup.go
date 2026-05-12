@@ -11,6 +11,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -27,8 +30,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	changeset2 "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
 	envtest "github.com/smartcontractkit/chainlink/deployment/environment/test"
 	changeset3 "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -231,8 +232,8 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 
 	if useMCMS {
 		t.Log("Setting up MCMS infrastructure...")
-		timelockCfgs := map[uint64]commontypes.MCMSWithTimelockConfigV2{
-			registryChainSel: proposalutils.SingleGroupTimelockConfigV2(t),
+		timelockCfgs := map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
+			registryChainSel: cldftesthelpers.SingleGroupTimelockConfig(t),
 		}
 
 		updatedEnv, mcmsErr := changeset.Apply(t, env, changeset.Configure(
@@ -285,7 +286,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel, aptosChainSel uint64,
 		}
 
 		nCfg := envtest.NodeConfig{
-			ChainSelectors: []uint64{registryChainSel, aptosChainSel},
+			ChainSelectors: []uint64{registryChainSel, aptosChainSel, chain_selectors.SOLANA_DEVNET.Selector},
 			Name:           fmt.Sprintf("%s-%d", donCfg.Name, i),
 			Labels:         labels,
 		}
@@ -303,7 +304,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel, aptosChainSel uint64,
 		maps.Copy(btLabels, donCfg.Labels)
 	}
 	nodesCfg = append(nodesCfg, envtest.NodeConfig{
-		ChainSelectors: []uint64{registryChainSel, aptosChainSel},
+		ChainSelectors: []uint64{registryChainSel, aptosChainSel, chain_selectors.SOLANA_DEVNET.Selector},
 		Name:           donCfg.Name + "-bootstrap",
 		Labels:         btLabels,
 	})

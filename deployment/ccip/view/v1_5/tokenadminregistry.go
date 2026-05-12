@@ -8,14 +8,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/sync/errgroup"
 
+	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
-	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 )
 
 type TokenAdminRegistryView struct {
-	types.ContractMetaData
+	commoncldchangesets.ContractMetaData
 	Tokens map[common.Address]TokenDetails `json:"tokens"`
 }
 
@@ -33,7 +34,7 @@ func GenerateTokenAdminRegistryView(taContract *token_admin_registry.TokenAdminR
 	if err != nil {
 		return TokenAdminRegistryView{}, fmt.Errorf("view error for token admin registry: %w", err)
 	}
-	tvMeta, err := types.NewContractMetaData(taContract, taContract.Address())
+	tvMeta, err := commoncldchangesets.NewContractMetaData(taContract, taContract.Address())
 	if err != nil {
 		return TokenAdminRegistryView{}, fmt.Errorf("metadata error for token admin registry: %w", err)
 	}

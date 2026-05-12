@@ -19,14 +19,12 @@ import (
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	v4 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury"
+	reportcodecv2 "github.com/smartcontractkit/chainlink-data-streams/mercury/v2/reportcodec"
+	reportcodecv3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3/reportcodec"
+	reportcodecv4 "github.com/smartcontractkit/chainlink-data-streams/mercury/v4/reportcodec"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc"
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
-	evmmercury "github.com/smartcontractkit/chainlink-evm/pkg/mercury"
-	mercuryutils "github.com/smartcontractkit/chainlink-evm/pkg/mercury/utils"
-	reportcodecv2 "github.com/smartcontractkit/chainlink-evm/pkg/mercury/v2/reportcodec"
-	reportcodecv3 "github.com/smartcontractkit/chainlink-evm/pkg/mercury/v3/reportcodec"
-	reportcodecv4 "github.com/smartcontractkit/chainlink-evm/pkg/mercury/v4/reportcodec"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 )
@@ -37,7 +35,7 @@ type mercuryProvider struct {
 	cp                 commontypes.ConfigProvider
 	codec              commontypes.Codec
 	csaSigner          *coretypes.Ed25519Signer
-	transmitter        evmmercury.Transmitter
+	transmitter        mercury.Transmitter
 	reportCodecV2      v2.ReportCodec
 	reportCodecV3      v3.ReportCodec
 	reportCodecV4      v4.ReportCodec
@@ -51,22 +49,22 @@ func NewMercuryProvider(
 	jobID int32,
 	relayConfig evmconfig.RelayConfig,
 	cfg config.PluginConfig,
-	transmitterCfg evmmercury.TransmitterConfig,
+	transmitterCfg mercury.TransmitterConfig,
 	cp commontypes.ConfigProvider,
 	codec commontypes.Codec,
 	mercuryChainReader mercurytypes.ChainReader,
 	lggr logger.SugaredLogger,
 	csaKeystore coretypes.Keystore,
 	mercuryPool wsrpc.Pool,
-	mercuryORM evmmercury.ORM,
+	mercuryORM mercury.ORM,
 	triggerCapability *triggers.MercuryTriggerService,
 ) (*mercuryProvider, error) {
 	reportCodecV2 := reportcodecv2.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV2"))
 	reportCodecV3 := reportcodecv3.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV3"))
 	reportCodecV4 := reportcodecv4.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV4"))
 
-	getCodecForFeed := func(feedID mercuryutils.FeedID) (evmmercury.TransmitterReportDecoder, error) {
-		var transmitterCodec evmmercury.TransmitterReportDecoder
+	getCodecForFeed := func(feedID mercurytypes.FeedID) (mercury.TransmitterReportDecoder, error) {
+		var transmitterCodec mercury.TransmitterReportDecoder
 		switch feedID.Version() {
 		case 2:
 			transmitterCodec = reportCodecV2
@@ -80,7 +78,7 @@ func NewMercuryProvider(
 		return transmitterCodec, nil
 	}
 
-	benchmarkPriceDecoder := func(ctx context.Context, feedID mercuryutils.FeedID, report ocrtypes.Report) (*big.Int, error) {
+	benchmarkPriceDecoder := func(ctx context.Context, feedID mercurytypes.FeedID, report ocrtypes.Report) (*big.Int, error) {
 		benchmarkPriceCodec, benchmarkPriceErr := getCodecForFeed(feedID)
 		if benchmarkPriceErr != nil {
 			return nil, benchmarkPriceErr
@@ -100,11 +98,11 @@ func NewMercuryProvider(
 			return nil, err
 		}
 	}
-	transmitterCodec, err := getCodecForFeed(mercuryutils.FeedID(*relayConfig.FeedID))
+	transmitterCodec, err := getCodecForFeed(mercurytypes.FeedID(*relayConfig.FeedID))
 	if err != nil {
 		return nil, err
 	}
-	transmitter := evmmercury.NewTransmitter(lggr, transmitterCfg, clients, csaPub, jobID, *relayConfig.FeedID, mercuryORM, transmitterCodec, benchmarkPriceDecoder, triggerCapability)
+	transmitter := mercury.NewTransmitter(lggr, transmitterCfg, clients, csaPub, jobID, *relayConfig.FeedID, mercuryORM, transmitterCodec, benchmarkPriceDecoder, triggerCapability)
 	return &mercuryProvider{
 		cp,
 		codec,

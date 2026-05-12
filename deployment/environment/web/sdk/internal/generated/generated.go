@@ -2063,6 +2063,12 @@ const (
 	ErrorCodeUnprocessable ErrorCode = "UNPROCESSABLE"
 )
 
+var AllErrorCode = []ErrorCode{
+	ErrorCodeNotFound,
+	ErrorCodeInvalidInput,
+	ErrorCodeUnprocessable,
+}
+
 // FeedsManagerParts includes the GraphQL fields of FeedsManager requested by the fragment FeedsManagerParts.
 type FeedsManagerParts struct {
 	Id                 string                                     `json:"id"`
@@ -4460,6 +4466,22 @@ func (v *JobPartsSpecCCIPSpec) __premarshalJSON() (*__premarshalJobPartsSpecCCIP
 	return &retval, nil
 }
 
+// JobPartsSpecCCVCommitteeVerifierSpec includes the requested fields of the GraphQL type CCVCommitteeVerifierSpec.
+type JobPartsSpecCCVCommitteeVerifierSpec struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns JobPartsSpecCCVCommitteeVerifierSpec.Typename, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecCCVCommitteeVerifierSpec) GetTypename() string { return v.Typename }
+
+// JobPartsSpecCCVExecutorSpec includes the requested fields of the GraphQL type CCVExecutorSpec.
+type JobPartsSpecCCVExecutorSpec struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns JobPartsSpecCCVExecutorSpec.Typename, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecCCVExecutorSpec) GetTypename() string { return v.Typename }
+
 // JobPartsSpecCronSpec includes the requested fields of the GraphQL type CronSpec.
 type JobPartsSpecCronSpec struct {
 	Typename string `json:"__typename"`
@@ -4857,11 +4879,12 @@ func (v *JobPartsSpecGatewaySpec) __premarshalJSON() (*__premarshalJobPartsSpecG
 // JobPartsSpecBlockhashStoreSpec
 // JobPartsSpecBootstrapSpec
 // JobPartsSpecCCIPSpec
+// JobPartsSpecCCVCommitteeVerifierSpec
+// JobPartsSpecCCVExecutorSpec
 // JobPartsSpecCronSpec
 // JobPartsSpecDirectRequestSpec
 // JobPartsSpecFluxMonitorSpec
 // JobPartsSpecGatewaySpec
-// JobPartsSpecKeeperSpec
 // JobPartsSpecOCR2Spec
 // JobPartsSpecOCRSpec
 // JobPartsSpecStandardCapabilitiesSpec
@@ -4879,11 +4902,12 @@ func (v *JobPartsSpecBlockHeaderFeederSpec) implementsGraphQLInterfaceJobPartsSp
 func (v *JobPartsSpecBlockhashStoreSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()       {}
 func (v *JobPartsSpecBootstrapSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()            {}
 func (v *JobPartsSpecCCIPSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()                 {}
+func (v *JobPartsSpecCCVCommitteeVerifierSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec() {}
+func (v *JobPartsSpecCCVExecutorSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()          {}
 func (v *JobPartsSpecCronSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()                 {}
 func (v *JobPartsSpecDirectRequestSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()        {}
 func (v *JobPartsSpecFluxMonitorSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()          {}
 func (v *JobPartsSpecGatewaySpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()              {}
-func (v *JobPartsSpecKeeperSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()               {}
 func (v *JobPartsSpecOCR2Spec) implementsGraphQLInterfaceJobPartsSpecJobSpec()                 {}
 func (v *JobPartsSpecOCRSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()                  {}
 func (v *JobPartsSpecStandardCapabilitiesSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec() {}
@@ -4918,6 +4942,12 @@ func __unmarshalJobPartsSpecJobSpec(b []byte, v *JobPartsSpecJobSpec) error {
 	case "CCIPSpec":
 		*v = new(JobPartsSpecCCIPSpec)
 		return json.Unmarshal(b, *v)
+	case "CCVCommitteeVerifierSpec":
+		*v = new(JobPartsSpecCCVCommitteeVerifierSpec)
+		return json.Unmarshal(b, *v)
+	case "CCVExecutorSpec":
+		*v = new(JobPartsSpecCCVExecutorSpec)
+		return json.Unmarshal(b, *v)
 	case "CronSpec":
 		*v = new(JobPartsSpecCronSpec)
 		return json.Unmarshal(b, *v)
@@ -4929,9 +4959,6 @@ func __unmarshalJobPartsSpecJobSpec(b []byte, v *JobPartsSpecJobSpec) error {
 		return json.Unmarshal(b, *v)
 	case "GatewaySpec":
 		*v = new(JobPartsSpecGatewaySpec)
-		return json.Unmarshal(b, *v)
-	case "KeeperSpec":
-		*v = new(JobPartsSpecKeeperSpec)
 		return json.Unmarshal(b, *v)
 	case "OCR2Spec":
 		*v = new(JobPartsSpecOCR2Spec)
@@ -5015,6 +5042,22 @@ func __marshalJobPartsSpecJobSpec(v *JobPartsSpecJobSpec) ([]byte, error) {
 			*__premarshalJobPartsSpecCCIPSpec
 		}{typename, premarshaled}
 		return json.Marshal(result)
+	case *JobPartsSpecCCVCommitteeVerifierSpec:
+		typename = "CCVCommitteeVerifierSpec"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*JobPartsSpecCCVCommitteeVerifierSpec
+		}{typename, v}
+		return json.Marshal(result)
+	case *JobPartsSpecCCVExecutorSpec:
+		typename = "CCVExecutorSpec"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*JobPartsSpecCCVExecutorSpec
+		}{typename, v}
+		return json.Marshal(result)
 	case *JobPartsSpecCronSpec:
 		typename = "CronSpec"
 
@@ -5061,18 +5104,6 @@ func __marshalJobPartsSpecJobSpec(v *JobPartsSpecJobSpec) ([]byte, error) {
 		result := struct {
 			TypeName string `json:"__typename"`
 			*__premarshalJobPartsSpecGatewaySpec
-		}{typename, premarshaled}
-		return json.Marshal(result)
-	case *JobPartsSpecKeeperSpec:
-		typename = "KeeperSpec"
-
-		premarshaled, err := v.__premarshalJSON()
-		if err != nil {
-			return nil, err
-		}
-		result := struct {
-			TypeName string `json:"__typename"`
-			*__premarshalJobPartsSpecKeeperSpec
 		}{typename, premarshaled}
 		return json.Marshal(result)
 	case *JobPartsSpecOCR2Spec:
@@ -5165,83 +5196,6 @@ func __marshalJobPartsSpecJobSpec(v *JobPartsSpecJobSpec) ([]byte, error) {
 		return nil, fmt.Errorf(
 			`unexpected concrete type for JobPartsSpecJobSpec: "%T"`, v)
 	}
-}
-
-// JobPartsSpecKeeperSpec includes the requested fields of the GraphQL type KeeperSpec.
-type JobPartsSpecKeeperSpec struct {
-	Typename   string `json:"__typename"`
-	KeeperSpec `json:"-"`
-}
-
-// GetTypename returns JobPartsSpecKeeperSpec.Typename, and is useful for accessing the field via an interface.
-func (v *JobPartsSpecKeeperSpec) GetTypename() string { return v.Typename }
-
-// GetContractAddress returns JobPartsSpecKeeperSpec.ContractAddress, and is useful for accessing the field via an interface.
-func (v *JobPartsSpecKeeperSpec) GetContractAddress() string { return v.KeeperSpec.ContractAddress }
-
-// GetCreatedAt returns JobPartsSpecKeeperSpec.CreatedAt, and is useful for accessing the field via an interface.
-func (v *JobPartsSpecKeeperSpec) GetCreatedAt() string { return v.KeeperSpec.CreatedAt }
-
-// GetEvmChainID returns JobPartsSpecKeeperSpec.EvmChainID, and is useful for accessing the field via an interface.
-func (v *JobPartsSpecKeeperSpec) GetEvmChainID() string { return v.KeeperSpec.EvmChainID }
-
-// GetFromAddress returns JobPartsSpecKeeperSpec.FromAddress, and is useful for accessing the field via an interface.
-func (v *JobPartsSpecKeeperSpec) GetFromAddress() string { return v.KeeperSpec.FromAddress }
-
-func (v *JobPartsSpecKeeperSpec) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*JobPartsSpecKeeperSpec
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.JobPartsSpecKeeperSpec = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(
-		b, &v.KeeperSpec)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type __premarshalJobPartsSpecKeeperSpec struct {
-	Typename string `json:"__typename"`
-
-	ContractAddress string `json:"contractAddress"`
-
-	CreatedAt string `json:"createdAt"`
-
-	EvmChainID string `json:"evmChainID"`
-
-	FromAddress string `json:"fromAddress"`
-}
-
-func (v *JobPartsSpecKeeperSpec) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *JobPartsSpecKeeperSpec) __premarshalJSON() (*__premarshalJobPartsSpecKeeperSpec, error) {
-	var retval __premarshalJobPartsSpecKeeperSpec
-
-	retval.Typename = v.Typename
-	retval.ContractAddress = v.KeeperSpec.ContractAddress
-	retval.CreatedAt = v.KeeperSpec.CreatedAt
-	retval.EvmChainID = v.KeeperSpec.EvmChainID
-	retval.FromAddress = v.KeeperSpec.FromAddress
-	return &retval, nil
 }
 
 // JobPartsSpecOCR2Spec includes the requested fields of the GraphQL type OCR2Spec.
@@ -6010,25 +5964,14 @@ const (
 	JobProposalStatusRevoked   JobProposalStatus = "REVOKED"
 )
 
-// KeeperSpec includes the GraphQL fields of KeeperSpec requested by the fragment KeeperSpec.
-type KeeperSpec struct {
-	ContractAddress string `json:"contractAddress"`
-	CreatedAt       string `json:"createdAt"`
-	EvmChainID      string `json:"evmChainID"`
-	FromAddress     string `json:"fromAddress"`
+var AllJobProposalStatus = []JobProposalStatus{
+	JobProposalStatusPending,
+	JobProposalStatusApproved,
+	JobProposalStatusRejected,
+	JobProposalStatusCancelled,
+	JobProposalStatusDeleted,
+	JobProposalStatusRevoked,
 }
-
-// GetContractAddress returns KeeperSpec.ContractAddress, and is useful for accessing the field via an interface.
-func (v *KeeperSpec) GetContractAddress() string { return v.ContractAddress }
-
-// GetCreatedAt returns KeeperSpec.CreatedAt, and is useful for accessing the field via an interface.
-func (v *KeeperSpec) GetCreatedAt() string { return v.CreatedAt }
-
-// GetEvmChainID returns KeeperSpec.EvmChainID, and is useful for accessing the field via an interface.
-func (v *KeeperSpec) GetEvmChainID() string { return v.EvmChainID }
-
-// GetFromAddress returns KeeperSpec.FromAddress, and is useful for accessing the field via an interface.
-func (v *KeeperSpec) GetFromAddress() string { return v.FromAddress }
 
 // ListBridgesBridgesBridgesPayload includes the requested fields of the GraphQL type BridgesPayload.
 type ListBridgesBridgesBridgesPayload struct {
@@ -6456,6 +6399,17 @@ const (
 	OCR2ChainTypeSui      OCR2ChainType = "SUI"
 )
 
+var AllOCR2ChainType = []OCR2ChainType{
+	OCR2ChainTypeEvm,
+	OCR2ChainTypeCosmos,
+	OCR2ChainTypeSolana,
+	OCR2ChainTypeStarknet,
+	OCR2ChainTypeAptos,
+	OCR2ChainTypeTron,
+	OCR2ChainTypeTon,
+	OCR2ChainTypeSui,
+}
+
 // OCR2Spec includes the GraphQL fields of OCR2Spec requested by the fragment OCR2Spec.
 type OCR2Spec struct {
 	BlockchainTimeout                 string        `json:"blockchainTimeout"`
@@ -6826,6 +6780,15 @@ const (
 	SpecStatusCancelled SpecStatus = "CANCELLED"
 	SpecStatusRevoked   SpecStatus = "REVOKED"
 )
+
+var AllSpecStatus = []SpecStatus{
+	SpecStatusUnknown,
+	SpecStatusPending,
+	SpecStatusApproved,
+	SpecStatusRejected,
+	SpecStatusCancelled,
+	SpecStatusRevoked,
+}
 
 // StandardCapabilitiesSpec includes the GraphQL fields of StandardCapabilitiesSpec requested by the fragment StandardCapabilitiesSpec.
 type StandardCapabilitiesSpec struct {
@@ -7693,7 +7656,7 @@ func (v *__UpdateJobProposalSpecDefinitionInput) GetInput() UpdateJobProposalSpe
 	return v.Input
 }
 
-// The query or mutation executed by ApproveJobProposalSpec.
+// The mutation executed by ApproveJobProposalSpec.
 const ApproveJobProposalSpec_Operation = `
 mutation ApproveJobProposalSpec ($id: ID!, $force: Boolean) {
 	approveJobProposalSpec(id: $id, force: $force) {
@@ -7726,7 +7689,7 @@ func ApproveJobProposalSpec(
 	client_ graphql.Client,
 	id string,
 	force bool,
-) (*ApproveJobProposalSpecResponse, error) {
+) (data_ *ApproveJobProposalSpecResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "ApproveJobProposalSpec",
 		Query:  ApproveJobProposalSpec_Operation,
@@ -7735,10 +7698,9 @@ func ApproveJobProposalSpec(
 			Force: force,
 		},
 	}
-	var err_ error
 
-	var data_ ApproveJobProposalSpecResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &ApproveJobProposalSpecResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -7746,10 +7708,10 @@ func ApproveJobProposalSpec(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by CancelJobProposalSpec.
+// The mutation executed by CancelJobProposalSpec.
 const CancelJobProposalSpec_Operation = `
 mutation CancelJobProposalSpec ($id: ID!) {
 	cancelJobProposalSpec(id: $id) {
@@ -7777,7 +7739,7 @@ func CancelJobProposalSpec(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	id string,
-) (*CancelJobProposalSpecResponse, error) {
+) (data_ *CancelJobProposalSpecResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CancelJobProposalSpec",
 		Query:  CancelJobProposalSpec_Operation,
@@ -7785,10 +7747,9 @@ func CancelJobProposalSpec(
 			Id: id,
 		},
 	}
-	var err_ error
 
-	var data_ CancelJobProposalSpecResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &CancelJobProposalSpecResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -7796,10 +7757,10 @@ func CancelJobProposalSpec(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by CreateFeedsManager.
+// The mutation executed by CreateFeedsManager.
 const CreateFeedsManager_Operation = `
 mutation CreateFeedsManager ($input: CreateFeedsManagerInput!) {
 	createFeedsManager(input: $input) {
@@ -7865,7 +7826,7 @@ func CreateFeedsManager(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	input CreateFeedsManagerInput,
-) (*CreateFeedsManagerResponse, error) {
+) (data_ *CreateFeedsManagerResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateFeedsManager",
 		Query:  CreateFeedsManager_Operation,
@@ -7873,10 +7834,9 @@ func CreateFeedsManager(
 			Input: input,
 		},
 	}
-	var err_ error
 
-	var data_ CreateFeedsManagerResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &CreateFeedsManagerResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -7884,10 +7844,10 @@ func CreateFeedsManager(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by CreateFeedsManagerChainConfig.
+// The mutation executed by CreateFeedsManagerChainConfig.
 const CreateFeedsManagerChainConfig_Operation = `
 mutation CreateFeedsManagerChainConfig ($input: CreateFeedsManagerChainConfigInput!) {
 	createFeedsManagerChainConfig(input: $input) {
@@ -7945,7 +7905,7 @@ func CreateFeedsManagerChainConfig(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	input CreateFeedsManagerChainConfigInput,
-) (*CreateFeedsManagerChainConfigResponse, error) {
+) (data_ *CreateFeedsManagerChainConfigResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateFeedsManagerChainConfig",
 		Query:  CreateFeedsManagerChainConfig_Operation,
@@ -7953,10 +7913,9 @@ func CreateFeedsManagerChainConfig(
 			Input: input,
 		},
 	}
-	var err_ error
 
-	var data_ CreateFeedsManagerChainConfigResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &CreateFeedsManagerChainConfigResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -7964,10 +7923,10 @@ func CreateFeedsManagerChainConfig(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by CreateOCR2KeyBundle.
+// The mutation executed by CreateOCR2KeyBundle.
 const CreateOCR2KeyBundle_Operation = `
 mutation CreateOCR2KeyBundle ($chainType: OCR2ChainType!) {
 	createOCR2KeyBundle(chainType: $chainType) {
@@ -7990,7 +7949,7 @@ func CreateOCR2KeyBundle(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	chainType OCR2ChainType,
-) (*CreateOCR2KeyBundleResponse, error) {
+) (data_ *CreateOCR2KeyBundleResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateOCR2KeyBundle",
 		Query:  CreateOCR2KeyBundle_Operation,
@@ -7998,10 +7957,9 @@ func CreateOCR2KeyBundle(
 			ChainType: chainType,
 		},
 	}
-	var err_ error
 
-	var data_ CreateOCR2KeyBundleResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &CreateOCR2KeyBundleResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -8009,10 +7967,10 @@ func CreateOCR2KeyBundle(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by DeleteFeedsManagerChainConfig.
+// The mutation executed by DeleteFeedsManagerChainConfig.
 const DeleteFeedsManagerChainConfig_Operation = `
 mutation DeleteFeedsManagerChainConfig ($id: ID!) {
 	deleteFeedsManagerChainConfig(id: $id) {
@@ -8034,7 +7992,7 @@ func DeleteFeedsManagerChainConfig(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	id string,
-) (*DeleteFeedsManagerChainConfigResponse, error) {
+) (data_ *DeleteFeedsManagerChainConfigResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DeleteFeedsManagerChainConfig",
 		Query:  DeleteFeedsManagerChainConfig_Operation,
@@ -8042,10 +8000,9 @@ func DeleteFeedsManagerChainConfig(
 			Id: id,
 		},
 	}
-	var err_ error
 
-	var data_ DeleteFeedsManagerChainConfigResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &DeleteFeedsManagerChainConfigResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -8053,10 +8010,10 @@ func DeleteFeedsManagerChainConfig(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by FetchAccounts.
+// The query executed by FetchAccounts.
 const FetchAccounts_Operation = `
 query FetchAccounts {
 	ethKeys {
@@ -8077,15 +8034,14 @@ query FetchAccounts {
 func FetchAccounts(
 	ctx_ context.Context,
 	client_ graphql.Client,
-) (*FetchAccountsResponse, error) {
+) (data_ *FetchAccountsResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "FetchAccounts",
 		Query:  FetchAccounts_Operation,
 	}
-	var err_ error
 
-	var data_ FetchAccountsResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &FetchAccountsResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -8093,10 +8049,10 @@ func FetchAccounts(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by FetchCSAKeys.
+// The query executed by FetchCSAKeys.
 const FetchCSAKeys_Operation = `
 query FetchCSAKeys {
 	csaKeys {
@@ -8112,15 +8068,14 @@ query FetchCSAKeys {
 func FetchCSAKeys(
 	ctx_ context.Context,
 	client_ graphql.Client,
-) (*FetchCSAKeysResponse, error) {
+) (data_ *FetchCSAKeysResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "FetchCSAKeys",
 		Query:  FetchCSAKeys_Operation,
 	}
-	var err_ error
 
-	var data_ FetchCSAKeysResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &FetchCSAKeysResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -8128,10 +8083,10 @@ func FetchCSAKeys(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by FetchKeys.
+// The query executed by FetchKeys.
 const FetchKeys_Operation = `
 query FetchKeys {
 	solanaKeys {
@@ -8157,15 +8112,14 @@ query FetchKeys {
 func FetchKeys(
 	ctx_ context.Context,
 	client_ graphql.Client,
-) (*FetchKeysResponse, error) {
+) (data_ *FetchKeysResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "FetchKeys",
 		Query:  FetchKeys_Operation,
 	}
-	var err_ error
 
-	var data_ FetchKeysResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &FetchKeysResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -8173,10 +8127,10 @@ func FetchKeys(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by FetchOCR2KeyBundles.
+// The query executed by FetchOCR2KeyBundles.
 const FetchOCR2KeyBundles_Operation = `
 query FetchOCR2KeyBundles {
 	ocr2KeyBundles {
@@ -8194,15 +8148,14 @@ query FetchOCR2KeyBundles {
 func FetchOCR2KeyBundles(
 	ctx_ context.Context,
 	client_ graphql.Client,
-) (*FetchOCR2KeyBundlesResponse, error) {
+) (data_ *FetchOCR2KeyBundlesResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "FetchOCR2KeyBundles",
 		Query:  FetchOCR2KeyBundles_Operation,
 	}
-	var err_ error
 
-	var data_ FetchOCR2KeyBundlesResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &FetchOCR2KeyBundlesResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -8210,10 +8163,10 @@ func FetchOCR2KeyBundles(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by FetchP2PKeys.
+// The query executed by FetchP2PKeys.
 const FetchP2PKeys_Operation = `
 query FetchP2PKeys {
 	p2pKeys {
@@ -8229,15 +8182,14 @@ query FetchP2PKeys {
 func FetchP2PKeys(
 	ctx_ context.Context,
 	client_ graphql.Client,
-) (*FetchP2PKeysResponse, error) {
+) (data_ *FetchP2PKeysResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "FetchP2PKeys",
 		Query:  FetchP2PKeys_Operation,
 	}
-	var err_ error
 
-	var data_ FetchP2PKeysResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &FetchP2PKeysResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -8245,10 +8197,10 @@ func FetchP2PKeys(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by GetBridge.
+// The query executed by GetBridge.
 const GetBridge_Operation = `
 query GetBridge ($id: ID!) {
 	bridge(id: $id) {
@@ -8275,7 +8227,7 @@ func GetBridge(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	id string,
-) (*GetBridgeResponse, error) {
+) (data_ *GetBridgeResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "GetBridge",
 		Query:  GetBridge_Operation,
@@ -8283,10 +8235,9 @@ func GetBridge(
 			Id: id,
 		},
 	}
-	var err_ error
 
-	var data_ GetBridgeResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &GetBridgeResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -8294,10 +8245,10 @@ func GetBridge(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by GetFeedsManager.
+// The query executed by GetFeedsManager.
 const GetFeedsManager_Operation = `
 query GetFeedsManager ($id: ID!) {
 	feedsManager(id: $id) {
@@ -8348,7 +8299,7 @@ func GetFeedsManager(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	id string,
-) (*GetFeedsManagerResponse, error) {
+) (data_ *GetFeedsManagerResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "GetFeedsManager",
 		Query:  GetFeedsManager_Operation,
@@ -8356,10 +8307,9 @@ func GetFeedsManager(
 			Id: id,
 		},
 	}
-	var err_ error
 
-	var data_ GetFeedsManagerResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &GetFeedsManagerResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -8367,10 +8317,10 @@ func GetFeedsManager(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by GetJob.
+// The query executed by GetJob.
 const GetJob_Operation = `
 query GetJob ($id: ID!) {
 	job(id: $id) {
@@ -8401,9 +8351,6 @@ fragment JobParts on Job {
 		}
 		... on FluxMonitorSpec {
 			... FluxMonitorSpec
-		}
-		... on KeeperSpec {
-			... KeeperSpec
 		}
 		... on DirectRequestSpec {
 			... DirectRequestSpec
@@ -8498,12 +8445,6 @@ fragment FluxMonitorSpec on FluxMonitorSpec {
 	pollTimerDisabled
 	pollTimerPeriod
 	threshold
-}
-fragment KeeperSpec on KeeperSpec {
-	contractAddress
-	createdAt
-	evmChainID
-	fromAddress
 }
 fragment DirectRequestSpec on DirectRequestSpec {
 	contractAddress
@@ -8620,7 +8561,7 @@ func GetJob(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	id string,
-) (*GetJobResponse, error) {
+) (data_ *GetJobResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "GetJob",
 		Query:  GetJob_Operation,
@@ -8628,10 +8569,9 @@ func GetJob(
 			Id: id,
 		},
 	}
-	var err_ error
 
-	var data_ GetJobResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &GetJobResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -8639,10 +8579,10 @@ func GetJob(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by GetJobProposal.
+// The query executed by GetJobProposal.
 const GetJobProposal_Operation = `
 query GetJobProposal ($id: ID!) {
 	jobProposal(id: $id) {
@@ -8723,7 +8663,7 @@ func GetJobProposal(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	id string,
-) (*GetJobProposalResponse, error) {
+) (data_ *GetJobProposalResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "GetJobProposal",
 		Query:  GetJobProposal_Operation,
@@ -8731,10 +8671,9 @@ func GetJobProposal(
 			Id: id,
 		},
 	}
-	var err_ error
 
-	var data_ GetJobProposalResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &GetJobProposalResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -8742,10 +8681,10 @@ func GetJobProposal(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by ListBridges.
+// The query executed by ListBridges.
 const ListBridges_Operation = `
 query ListBridges ($offset: Int, $limit: Int) {
 	bridges(offset: $offset, limit: $limit) {
@@ -8773,7 +8712,7 @@ func ListBridges(
 	client_ graphql.Client,
 	offset int,
 	limit int,
-) (*ListBridgesResponse, error) {
+) (data_ *ListBridgesResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "ListBridges",
 		Query:  ListBridges_Operation,
@@ -8782,10 +8721,9 @@ func ListBridges(
 			Limit:  limit,
 		},
 	}
-	var err_ error
 
-	var data_ ListBridgesResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &ListBridgesResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -8793,10 +8731,10 @@ func ListBridges(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by ListFeedsManagers.
+// The query executed by ListFeedsManagers.
 const ListFeedsManagers_Operation = `
 query ListFeedsManagers {
 	feedsManagers {
@@ -8843,15 +8781,14 @@ fragment FeedsManagerParts on FeedsManager {
 func ListFeedsManagers(
 	ctx_ context.Context,
 	client_ graphql.Client,
-) (*ListFeedsManagersResponse, error) {
+) (data_ *ListFeedsManagersResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "ListFeedsManagers",
 		Query:  ListFeedsManagers_Operation,
 	}
-	var err_ error
 
-	var data_ ListFeedsManagersResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &ListFeedsManagersResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -8859,10 +8796,10 @@ func ListFeedsManagers(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by ListJobs.
+// The query executed by ListJobs.
 const ListJobs_Operation = `
 query ListJobs ($offset: Int, $limit: Int) {
 	jobs(offset: $offset, limit: $limit) {
@@ -8893,9 +8830,6 @@ fragment JobParts on Job {
 		}
 		... on FluxMonitorSpec {
 			... FluxMonitorSpec
-		}
-		... on KeeperSpec {
-			... KeeperSpec
 		}
 		... on DirectRequestSpec {
 			... DirectRequestSpec
@@ -8990,12 +8924,6 @@ fragment FluxMonitorSpec on FluxMonitorSpec {
 	pollTimerDisabled
 	pollTimerPeriod
 	threshold
-}
-fragment KeeperSpec on KeeperSpec {
-	contractAddress
-	createdAt
-	evmChainID
-	fromAddress
 }
 fragment DirectRequestSpec on DirectRequestSpec {
 	contractAddress
@@ -9113,7 +9041,7 @@ func ListJobs(
 	client_ graphql.Client,
 	offset int,
 	limit int,
-) (*ListJobsResponse, error) {
+) (data_ *ListJobsResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "ListJobs",
 		Query:  ListJobs_Operation,
@@ -9122,10 +9050,9 @@ func ListJobs(
 			Limit:  limit,
 		},
 	}
-	var err_ error
 
-	var data_ ListJobsResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &ListJobsResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -9133,10 +9060,10 @@ func ListJobs(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by RejectJobProposalSpec.
+// The mutation executed by RejectJobProposalSpec.
 const RejectJobProposalSpec_Operation = `
 mutation RejectJobProposalSpec ($id: ID!) {
 	rejectJobProposalSpec(id: $id) {
@@ -9164,7 +9091,7 @@ func RejectJobProposalSpec(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	id string,
-) (*RejectJobProposalSpecResponse, error) {
+) (data_ *RejectJobProposalSpecResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "RejectJobProposalSpec",
 		Query:  RejectJobProposalSpec_Operation,
@@ -9172,10 +9099,9 @@ func RejectJobProposalSpec(
 			Id: id,
 		},
 	}
-	var err_ error
 
-	var data_ RejectJobProposalSpecResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &RejectJobProposalSpecResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -9183,10 +9109,10 @@ func RejectJobProposalSpec(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by UpdateFeedsManager.
+// The mutation executed by UpdateFeedsManager.
 const UpdateFeedsManager_Operation = `
 mutation UpdateFeedsManager ($id: ID!, $input: UpdateFeedsManagerInput!) {
 	updateFeedsManager(id: $id, input: $input) {
@@ -9249,7 +9175,7 @@ func UpdateFeedsManager(
 	client_ graphql.Client,
 	id string,
 	input UpdateFeedsManagerInput,
-) (*UpdateFeedsManagerResponse, error) {
+) (data_ *UpdateFeedsManagerResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateFeedsManager",
 		Query:  UpdateFeedsManager_Operation,
@@ -9258,10 +9184,9 @@ func UpdateFeedsManager(
 			Input: input,
 		},
 	}
-	var err_ error
 
-	var data_ UpdateFeedsManagerResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &UpdateFeedsManagerResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -9269,10 +9194,10 @@ func UpdateFeedsManager(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }
 
-// The query or mutation executed by UpdateJobProposalSpecDefinition.
+// The mutation executed by UpdateJobProposalSpecDefinition.
 const UpdateJobProposalSpecDefinition_Operation = `
 mutation UpdateJobProposalSpecDefinition ($id: ID!, $input: UpdateJobProposalSpecDefinitionInput!) {
 	updateJobProposalSpecDefinition(id: $id, input: $input) {
@@ -9301,7 +9226,7 @@ func UpdateJobProposalSpecDefinition(
 	client_ graphql.Client,
 	id string,
 	input UpdateJobProposalSpecDefinitionInput,
-) (*UpdateJobProposalSpecDefinitionResponse, error) {
+) (data_ *UpdateJobProposalSpecDefinitionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateJobProposalSpecDefinition",
 		Query:  UpdateJobProposalSpecDefinition_Operation,
@@ -9310,10 +9235,9 @@ func UpdateJobProposalSpecDefinition(
 			Input: input,
 		},
 	}
-	var err_ error
 
-	var data_ UpdateJobProposalSpecDefinitionResponse
-	resp_ := &graphql.Response{Data: &data_}
+	data_ = &UpdateJobProposalSpecDefinitionResponse{}
+	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
 		ctx_,
@@ -9321,5 +9245,5 @@ func UpdateJobProposalSpecDefinition(
 		resp_,
 	)
 
-	return &data_, err_
+	return data_, err_
 }

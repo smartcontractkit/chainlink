@@ -261,7 +261,7 @@ func TestConfidentialModule_Tee(t *testing.T) {
 		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
 			Return(execCap, nil).Once()
 		execCap.EXPECT().Execute(matches.AnyContext, mock.MatchedBy(func(req capabilities.CapabilityRequest) bool {
-			return req.Method == "GetRegions" &&
+			return req.Method == "ProvidedTees" &&
 				req.CapabilityId == confidentialWorkflowsCapabilityID &&
 				req.Metadata.WorkflowExecutionID == ""
 		})).Return(capabilities.CapabilityResponse{Payload: buildRespPayload(t, []*sdkpb.TeeTypeAndRegions{
@@ -353,7 +353,7 @@ func TestConfidentialModule_Tee(t *testing.T) {
 		mod := NewConfidentialModule(capReg, "https://example.com/wasm", []byte("hash"), "wf-xyz", "0xowner", "my-workflow", "v3", lggr)
 		_ = mod.Tee(ctx, anyRegionsTee("us-east-1"))
 
-		assert.Equal(t, "GetRegions", capturedReq.Method)
+		assert.Equal(t, "ProvidedTees", capturedReq.Method)
 		assert.Equal(t, confidentialWorkflowsCapabilityID, capturedReq.CapabilityId)
 		assert.Equal(t, "wf-xyz", capturedReq.Metadata.WorkflowID)
 		assert.Equal(t, "0xowner", capturedReq.Metadata.WorkflowOwner)

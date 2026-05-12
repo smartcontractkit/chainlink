@@ -9,12 +9,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -232,10 +235,10 @@ func TestBatchNativeTransferIntegration(t *testing.T) {
 func setupMCMSInfrastructure(t *testing.T, rt *runtime.Runtime, chainSelectors []uint64) {
 	t.Log("Setting up MCMS infrastructure with real deployment")
 
-	timelockCfgs := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
+	timelockCfgs := make(map[uint64]cldfproposalutils.MCMSWithTimelockConfig)
 	for _, sel := range chainSelectors {
 		t.Logf("Enabling MCMS on chain %d", sel)
-		timelockCfgs[sel] = proposalutils.SingleGroupTimelockConfigV2(t)
+		timelockCfgs[sel] = cldftesthelpers.SingleGroupTimelockConfig(t)
 	}
 
 	err := rt.Exec(
