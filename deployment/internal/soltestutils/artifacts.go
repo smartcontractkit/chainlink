@@ -1,6 +1,7 @@
 package soltestutils
 
 import (
+	"os"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -31,6 +32,10 @@ func downloadChainlinkSolanaProgramArtifacts(t *testing.T) string {
 	cachePath := programsCachePath()
 
 	onceSolana.Do(func() {
+		required := append(solutils.KeystoneProgramNames, solutils.DataFeedsProgramNames...)
+		if programsCached(cachePath, required) {
+			return
+		}
 		err := solutils.DownloadChainlinkSolanaProgramArtifacts(t.Context(), cachePath, "", nil)
 		require.NoError(t, err)
 	})
@@ -49,11 +54,25 @@ func downloadChainlinkCCIPProgramArtifacts(t *testing.T) string {
 	cachePath := programsCachePath()
 
 	onceCCIP.Do(func() {
+		required := append(solutils.CCIPProgramNames, solutils.MCMSProgramNames...)
+		if programsCached(cachePath, required) {
+			return
+		}
 		err := solutils.DownloadChainlinkCCIPProgramArtifacts(t.Context(), cachePath, "", nil)
 		require.NoError(t, err)
 	})
 
 	return cachePath
+}
+
+// programsCached returns true when every program in names has a .so file in dir.
+func programsCached(dir string, names []string) bool {
+	for _, name := range names {
+		if _, err := os.Stat(filepath.Join(dir, name+".so")); err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 // programsCachePath returns the path to the cache directory for the program artifacts.

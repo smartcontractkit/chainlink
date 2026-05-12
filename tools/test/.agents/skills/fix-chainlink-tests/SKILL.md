@@ -19,7 +19,8 @@ description: >-
 </absolute_constraints>
 
 <cli_reference>
-Base Command: `go -C tools/test run . diagnose [harness_flags] -- [go_test_flags] ./path`
+Base Command from `chainlink/` dir: `go -C tools/test run . diagnose [harness_flags] -- [go_test_flags] ./path`
+From `chainlink/tools/test/` dir: `go run . diagnose [harness_flags] -- [go_test_flags] ../../path`
 - ALWAYS use `--ai-output` before the `--`.
 - Harness flags (before `--`): `--iterations N`, `--fail-fast-on=(timeout|slow)`, `--parallel-iterations N`
 - Go test flags (after `--`): `--run '^TestName$'`, `--timeout 10m`, `--race`
@@ -27,22 +28,24 @@ Base Command: `go -C tools/test run . diagnose [harness_flags] -- [go_test_flags
 - Lint check: `golangci-lint run ./<packages-you-change> --fix`
 </cli_reference>
 
+<permissions-issues>
+If you hit permissions issues running commands for this skill, read and/or direct the user to [permissions.md](/tools/test/.agents/skills/fix-chainlink-tests/references/permissions.md). If you are unable to quickly resolve these STOP. For the rest of the skill, ask the user to run permission-blocked commands for you.
+</permissions-issues>
+
 <init>
 1. Verify target scope (test, package, or issue). If unknown, prompt user to provide one.
-2. Check if user has `trunk` MCP server. If not, [suggest they set it up](https://docs.trunk.io/flaky-tests/reference/mcp-reference#get-started). If they don't want to, move on.
-3. Investigate and understand the specific test code. 
-4. Formulate initial hypothesis based on any data you can gather from the user or code.
+2. Check if you have access to the `trunk` MCP server. If not, prompt the user to [install and authenticate it](https://github.com/trunk-io/mcp-server#quick-start).
+  <trunk>
+  Trunk.io is a service we use to track flaky tests in CI. Access it with the Trunk MCP server. If available, use it to fetch more data on flaky or broken tests. **Use this as another data point in your diagnosis**, not as a definitive answer.
+  1. Use `search-test` MCP tool to lookup find the test ID of the test(s) you're trying to fix.
+  2. Use `fix-flaky-test` MCP tool to gather diagnosis data on a specific test.
+  </trunk>
+1. Investigate and understand the specific test code. 
+2. Formulate initial hypothesis based on any data you can gather from the user or code.
 </init>
 
-<trunk>
-If the user mentions anything about "trunk" or "trunk.io", prompt them to install the MCP server (if not already done) so you can use it.
-Trunk.io is a service we use to track flaky tests in CI. It has a `trunk` MCP server. If available, use it to fetch more data on flaky or broken tests. **Use this as another data point in your diagnosis**, not as a definitive answer.
-1. Use `search-test` MCP tool to lookup find the test ID of the test(s) you're trying to fix.
-2. Use `fix-flaky-test` MCP tool to gather diagnosis data on a specific test.
-</trunk>
-
 <loop>
-1. If a `diagnose-attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` file exists, read it to see previous fix attempts and findings.
+1. If a `diagnose-attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` file exists, read it to see previous fix attempts and findings. If not, create one.
 2. Form a hypothesis on the cause of the issues
 3. Implement a fix
 4. Output the hypothesis and attempted fix, plus reasons why you think it would work.
@@ -77,14 +80,16 @@ Lead with your hypothesis before writing code. Show contextual diffs, do not des
 
 <known_patterns>
 Files in the `references/flaky-patterns/` dir.
+
 - [filter.md](./references/flaky-patterns/filter.md): Tests using `Filter` functions to validate on-chain events. Usually LogPoller based tests.
 - [sql-lockout.md](./references/): `failed to create ...: ERROR: canceling statement due to lock timeout (SQLSTATE 55P03)`
-</known_patterns>
+  </known_patterns>
 
 <context_compaction>
 When summarizing/compacting/compressing context:
-* Strictly maintain a reference to the `attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` you're using for this session.
-* Keep crucial data about your understanding of the test code you're trying to fix.
+
+- Strictly maintain a reference to the `attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` you're using for this session.
+- Keep crucial data about your understanding of the test code you're trying to fix.
 </context_compaction>
 
 <logs_structure>
@@ -98,14 +103,16 @@ When summarizing/compacting/compressing context:
 </logs_structure>
 
 <read_logs_sub_agent>
-When reading log files from the `logs/` directory or `iteration-n.log.jsonl`, you MUST spawn a specialist `LogAnalyzer` sub-agent. 
+When reading log files from the `logs/` directory or `iteration-n.log.jsonl`, you MUST spawn a specialist `LogAnalyzer` sub-agent.
 
 You MUST configure the sub-agent with these exact initialization parameters:
+
 1. System Prompt: "You are a headless, read-only log parser. Your sole purpose is to read Go test logs from the end up. Each log file contains logs from `chainlink` nodes, plus test-specific logs. Read the logs and construct possible reasons why the test [input reason we're investigating]. You do not converse. You output raw JSON and nothing else."
 2. Allowed Tools: File read/grep tools ONLY. Revoke all execution, write, and web search capabilities.
 3. Temperature: 0.0
 
 The sub-agent MUST output ONLY valid JSON matching this exact structure. DO NOT wrap the output in markdown code blocks. Output raw JSON only, with no explanations and no yapping:
+
 ```json
 {
   "logs_read": ["log_path_1.log", "log_path_2.log"],
@@ -114,7 +121,7 @@ The sub-agent MUST output ONLY valid JSON matching this exact structure. DO NOT 
       "possible_reason": "reason for failure",
       "evidence": "specific logs/log lines"
     },
-        {
+    {
       "possible_reason": "reason for failure",
       "evidence": "specific logs/log lines"
     }

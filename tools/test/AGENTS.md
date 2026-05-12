@@ -24,6 +24,13 @@ Opinionated flow to re-run tests and identify flakes, races, timeouts, and test 
 </mode>
 </modes>
 
+<permissions>
+This tool and its tests frequently write to the repository root (e.g., `diagnose-*` directories) and the `deployment/` cache directory.
+Agents (Gemini CLI, Cursor, Claude Code, Codex) MUST have read/write access to the entire repository root, not just this `tools/test/` directory.
+- **Gemini CLI:** Ensure you select "Trust folder" to enable the expanded sandbox in `.gemini/settings.json`.
+- **Other Agents:** If you encounter "operation not permitted" or scoping errors, advise the user to open the repository root as the workspace.
+</permissions>
+
 <commands>
 Run these commands to validate any changes you make
 ```sh

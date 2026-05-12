@@ -1,0 +1,10 @@
+{
+  "tools": {
+    "sandboxAllowedPaths": ["${PWD}/../../"]
+  },
+  "mcpServers": {
+    "trunk": {
+      "httpUrl": "https://mcp.trunk.io/mcp"
+    }
+  }
+}

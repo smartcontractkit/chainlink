@@ -64,9 +64,13 @@ type diagnoseRunState struct {
 
 // GoTest runs `go test` with the given args (repo root as working directory).
 func GoTest(ctx context.Context, conf *config.App, args []string) error {
+	dir, args, err := resolveModuleDir(conf.RepoRoot, args)
+	if err != nil {
+		return err
+	}
 	//nolint:gosec // it's fine
 	cmd := exec.CommandContext(ctx, "go", append([]string{"test"}, args...)...)
-	cmd.Dir = conf.RepoRoot
+	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
@@ -80,8 +84,12 @@ func Gotestsum(ctx context.Context, conf *config.App, args []string) error {
 		return fmt.Errorf("gotestsum not on PATH: install with go install gotest.tools/gotestsum@latest: %w", err)
 	}
 
+	dir, args, err := resolveModuleDir(conf.RepoRoot, args)
+	if err != nil {
+		return err
+	}
 	cmd := exec.CommandContext(ctx, "gotestsum", args...)
-	cmd.Dir = conf.RepoRoot
+	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
@@ -1015,6 +1023,11 @@ func diagnoseIteration(ctx context.Context, p diagnoseIterationParams) error {
 	liveProgress, parallelProgress := p.LiveProgress, p.ParallelProgress
 	diagnoseRunStart, serialProgressMu := p.DiagnoseRunStart, p.SerialProgressMu
 
+	moduleDir, goTestArgs, err := resolveModuleDir(conf.RepoRoot, goTestArgs)
+	if err != nil {
+		return err
+	}
+
 	start := time.Now()
 	jsonPath := filepath.Join(resultsDir, fmt.Sprintf("iteration-%d.log.jsonl", iteration))
 	resultsFile, err := os.Create(jsonPath)
@@ -1028,7 +1041,7 @@ func diagnoseIteration(ctx context.Context, p diagnoseIterationParams) error {
 		return err
 	}
 	cmd := exec.CommandContext(ctx, "go", args...)
-	cmd.Dir = conf.RepoRoot
+	cmd.Dir = moduleDir
 	cmd.Stdin = os.Stdin
 	cmd.Env = append(os.Environ(), env...)
 	// Soft-cancel on ctx cancellation so `go test -json` gets a chance to flush
@@ -1047,7 +1060,7 @@ func diagnoseIteration(ctx context.Context, p diagnoseIterationParams) error {
 	cmd.Stderr = sw
 
 	totalPkgs := -1
-	if n, listErr := listTestPackageCount(ctx, conf.RepoRoot, goTestArgs); listErr == nil {
+	if n, listErr := listTestPackageCount(ctx, moduleDir, goTestArgs); listErr == nil {
 		totalPkgs = n
 	}
 	prog := newDiagnoseProgress(totalPkgs)
