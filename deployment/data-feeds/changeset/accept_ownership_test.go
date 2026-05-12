@@ -8,6 +8,8 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -16,9 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
@@ -34,13 +35,13 @@ func TestAcceptOwnership(t *testing.T) {
 
 	chain := rt.Environment().BlockChains.EVMChains()[selector]
 
-	MCMScfg := proposalutils.SingleGroupTimelockConfigV2(t)
+	MCMScfg := cldftesthelpers.SingleGroupTimelockConfig(t)
 	MCMSQualifier := "MCMS_EVM_1"
 	MCMScfg.Qualifier = &MCMSQualifier
 
 	err = rt.Exec(
 		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(
-			commonChangesets.DeployMCMSWithTimelockV2), map[uint64]commonTypes.MCMSWithTimelockConfigV2{
+			commonChangesets.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 			selector: MCMScfg,
 		}),
 	)

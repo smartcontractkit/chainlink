@@ -10,6 +10,8 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -28,7 +30,7 @@ func DeployMCMSWithTimelockProgramsSolana(
 	e cldf.Environment,
 	chain cldf_solana.Chain,
 	addressBook cldf.AddressBook,
-	config commontypes.MCMSWithTimelockConfigV2,
+	config cldfproposalutils.MCMSWithTimelockConfig,
 ) (*solstate.MCMSWithTimelockState, error) {
 	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 	if err != nil && !errors.Is(err, cldf.ErrChainNotFound) {
