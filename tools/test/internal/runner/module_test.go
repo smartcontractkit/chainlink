@@ -26,11 +26,11 @@ func TestResolveModuleDir(t *testing.T) {
 	root := makeTestRepo(t)
 
 	tests := []struct {
-		name        string
-		goTestArgs  []string
-		wantDir     string
-		wantArgs    []string
-		wantErr     bool
+		name       string
+		goTestArgs []string
+		wantDir    string
+		wantArgs   []string
+		wantErr    bool
 	}{
 		{
 			name:       "core package stays at repo root",

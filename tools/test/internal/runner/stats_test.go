@@ -69,13 +69,13 @@ func TestWilsonScoreInterval(t *testing.T) {
 			lower, upper := WilsonScoreInterval(tc.k, tc.n, tc.z)
 			assert.InDelta(t, tc.wantLower, lower, 0.001, "lower bound")
 			assert.InDelta(t, tc.wantUpper, upper, 0.001, "upper bound")
-			assert.True(t, lower <= upper, "lower must be <= upper")
-			assert.True(t, lower >= 0, "lower must be >= 0")
-			assert.True(t, upper <= 1, "upper must be <= 1")
+			assert.LessOrEqual(t, lower, upper, "lower must be <= upper")
+			assert.GreaterOrEqual(t, lower, 0, "lower must be >= 0")
+			assert.LessOrEqual(t, upper, 1, "upper must be <= 1")
 			if tc.n > 0 {
 				p := float64(tc.k) / float64(tc.n)
-				assert.True(t, lower <= p+1e-9, "observed rate must be within CI")
-				assert.True(t, upper >= p-1e-9, "observed rate must be within CI")
+				assert.LessOrEqual(t, lower, p+1e-9, "observed rate must be within CI")
+				assert.GreaterOrEqual(t, upper, p-1e-9, "observed rate must be within CI")
 			}
 		})
 	}
@@ -127,15 +127,15 @@ func TestReportSummary_hasCI(t *testing.T) {
 
 	require.NotNil(t, s.FlakeExecutionFailRateLower, "FlakeExecutionFailRateLower should be set")
 	require.NotNil(t, s.FlakeExecutionFailRateUpper, "FlakeExecutionFailRateUpper should be set")
-	assert.True(t, *s.FlakeExecutionFailRateLower >= 0)
-	assert.True(t, *s.FlakeExecutionFailRateUpper <= 1)
-	assert.True(t, *s.FlakeExecutionFailRateLower <= *s.FlakeExecutionFailRateUpper)
+	assert.GreaterOrEqual(t, *s.FlakeExecutionFailRateLower, 0)
+	assert.LessOrEqual(t, *s.FlakeExecutionFailRateUpper, 1)
+	assert.LessOrEqual(t, *s.FlakeExecutionFailRateLower, *s.FlakeExecutionFailRateUpper)
 
 	require.NotNil(t, s.FlakeIterationFailRateLower, "FlakeIterationFailRateLower should be set")
 	require.NotNil(t, s.FlakeIterationFailRateUpper, "FlakeIterationFailRateUpper should be set")
-	assert.True(t, *s.FlakeIterationFailRateLower >= 0)
-	assert.True(t, *s.FlakeIterationFailRateUpper <= 1)
-	assert.True(t, *s.FlakeIterationFailRateLower <= *s.FlakeIterationFailRateUpper)
+	assert.GreaterOrEqual(t, *s.FlakeIterationFailRateLower, 0)
+	assert.LessOrEqual(t, *s.FlakeIterationFailRateUpper, 1)
+	assert.LessOrEqual(t, *s.FlakeIterationFailRateLower, *s.FlakeIterationFailRateUpper)
 }
 
 func TestPrintOverallStats_includesCI(t *testing.T) {
@@ -166,8 +166,7 @@ func TestReportSummary_hasCI_noFlakes(t *testing.T) {
 	require.NotNil(t, s.FlakeIterationFailRateLower, "FlakeIterationFailRateLower should be set even with no flakes")
 	require.NotNil(t, s.FlakeIterationFailRateUpper, "FlakeIterationFailRateUpper should be set even with no flakes")
 	assert.Equal(t, 0.0, *s.FlakeIterationFailRateLower)
-	assert.True(t, *s.FlakeIterationFailRateUpper > 0, "upper bound should be non-zero for finite n")
-
+	assert.Positive(t, *s.FlakeIterationFailRateUpper, "upper bound should be non-zero for finite n")
 }
 
 func TestPrintOverallStats_includesCI_noFlakes(t *testing.T) {
@@ -186,7 +185,6 @@ func TestPrintOverallStats_includesCI_noFlakes(t *testing.T) {
 	assert.Contains(t, out, "Flaky Iterations:", "should always show flaky iterations line when iterations > 0")
 	assert.Contains(t, out, "[Confidence Interval:", "CI annotation should appear even with 0 flakes")
 }
-
 
 func TestCIStyleForGap(t *testing.T) {
 	t.Parallel()

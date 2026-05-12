@@ -100,6 +100,10 @@ contracts/yarn.lock
 .devspace/
 go.work*
 
+# Ignore temp go caches by agents and tools
+.go-cache/
+.go-mod-cache/
+
 # This sometimes shows up for some reason
 tools/flakeytests/coverage.txt
 
