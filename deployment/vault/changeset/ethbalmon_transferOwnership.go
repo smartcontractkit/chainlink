@@ -84,10 +84,11 @@ var EthBalMonTransferOwnershipSequence = operations.NewSequence(
 				ChainSelector: chainSelector,
 				NewOwner:      chainConfig.NewOwner,
 			})
-			opOutput := opReport.Output
 			if err != nil {
 				return EthBalMonTransferOwnershipSeqOutput{}, fmt.Errorf("chain %d: failed to generate ownership batch: %w", chainSelector, err)
 			}
+			opOutput := opReport.Output
+
 			batches = append(batches, opOutput.BatchOperation)
 			timelockAddresses[chainSelector] = opOutput.TimelockAddress
 			mcmAddressByChain[chainSelector] = opOutput.MCMSAddress

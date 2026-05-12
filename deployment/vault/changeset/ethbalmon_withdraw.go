@@ -86,10 +86,11 @@ var EthBalMonWithdrawSequence = operations.NewSequence(
 				Amount:        chainConfig.Amount,
 				Payeer:        chainConfig.Payeer,
 			})
-			opOutput := opReport.Output
 			if err != nil {
 				return EthBalMonWithdrawSeqOutput{}, fmt.Errorf("chain %d: failed to generate withdraw batch: %w", chainSelector, err)
 			}
+			opOutput := opReport.Output
+
 			batches = append(batches, opOutput.BatchOperation)
 			timelockAddresses[chainSelector] = opOutput.TimelockAddress
 			mcmAddressByChain[chainSelector] = opOutput.MCMSAddress
