@@ -98,7 +98,7 @@ func TestEvictable_Execute_TryAcquireExhausted(t *testing.T) {
 	t.Cleanup(func() { executePinMaxAttempts = prevExecuteAttempts })
 
 	prevCAS := tryAcquireCompareAndSwap
-	tryAcquireCompareAndSwap = func(_ *moduleEntry, _, _ int64) bool { return false }
+	tryAcquireCompareAndSwap = func(_ *loadedModule, _, _ int64) bool { return false }
 	t.Cleanup(func() { tryAcquireCompareAndSwap = prevCAS })
 
 	cm, err := NewCacheMetrics()
@@ -450,7 +450,6 @@ func TestEvictable_NewExecuteUsesExistingModuleWhenEvictSkipped(t *testing.T) {
 	firstExecuteStarted := make(chan struct{})
 	releaseFirstExecute := make(chan struct{})
 	firstExecuteDone := make(chan error, 1)
-	secondExecuteStarted := make(chan struct{})
 	secondExecuteDone := make(chan error, 1)
 	evictReturned := make(chan struct{})
 
