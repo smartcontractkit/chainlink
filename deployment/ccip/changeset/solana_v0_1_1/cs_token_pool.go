@@ -945,6 +945,9 @@ func (cfg TransferMintAuthorityToSignerPDAConfig) Validate(e cldf.Environment, c
 	if err := chainState.CommonValidation(e, cfg.ChainSelector, cfg.TokenMint); err != nil {
 		return err
 	}
+	if cfg.PoolType == nil {
+		return errors.New("pool type is required")
+	}
 	if *cfg.PoolType != shared.BurnMintTokenPool {
 		return errors.New("transfer mint authority to signer PDA only for burn and mint pools")
 	}
@@ -975,6 +978,7 @@ func TransferMintAuthorityToSignerPDA(e cldf.Environment, cfg TransferMintAuthor
 
 	runSafely(func() {
 		solBurnMintTokenPool.SetProgramID(tokenPool)
+		solBurnMintTokenPool_V1_6_2.SetProgramID(tokenPool)
 	})
 
 	tokenPoolSigner, err := solTokenUtil.TokenPoolSignerAddress(cfg.TokenMint, tokenPool)
@@ -1038,6 +1042,9 @@ func TransferMintAuthorityToSignerPDA(e cldf.Environment, cfg TransferMintAuthor
 		return cldf.ChangesetOutput{}, nil
 	}
 
+	if cfg.MCMS == nil {
+		return cldf.ChangesetOutput{}, errors.New("MCMS config is required when program is owned by timelock")
+	}
 	var txns []mcmsTypes.Transaction
 	if err := appendTxs([]solana.Instruction{ix}, tokenPool, *cfg.PoolType, &txns); err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate mcms txn: %w", err)
