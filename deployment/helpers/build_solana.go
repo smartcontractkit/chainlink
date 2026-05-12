@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -209,6 +210,79 @@ func copyFile(srcFile string, destDir string) error {
 	return nil
 }
 
+// golangVersionFromAncestorToolVersions walks startDir and parents for a .tool-versions
+// file that declares golang (asdf). Used to align cloned repos with the chainlink monorepo.
+func golangVersionFromAncestorToolVersions(startDir string) string {
+	dir := startDir
+	for {
+		b, err := os.ReadFile(filepath.Join(dir, ".tool-versions"))
+		if err == nil {
+			if v := parseGolangFromToolVersions(b); v != "" {
+				return v
+			}
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	return ""
+}
+
+func parseGolangFromToolVersions(data []byte) string {
+	for _, line := range bytes.Split(data, []byte("\n")) {
+		line = bytes.TrimSpace(line)
+		if len(line) == 0 || bytes.HasPrefix(line, []byte("#")) {
+			continue
+		}
+		if bytes.HasPrefix(line, []byte("golang ")) {
+			return strings.TrimSpace(string(bytes.TrimPrefix(line, []byte("golang "))))
+		}
+	}
+	return ""
+}
+
+func toolVersionsDeclaresGo(data []byte) bool {
+	return parseGolangFromToolVersions(data) != ""
+}
+
+// mergeGolangIntoNestedToolVersions appends golang to .tool-versions files under cloneDir
+// that omit it. Upstream chainlink-solana may ship nested .tool-versions with only mockery;
+// asdf then fails for `go` in those directories, which breaks IDE scans of the workspace.
+func mergeGolangIntoNestedToolVersions(cloneDir, golangVersion string) error {
+	if golangVersion == "" {
+		return nil
+	}
+	return filepath.WalkDir(cloneDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if d.Name() == ".git" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if d.Name() != ".tool-versions" {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if toolVersionsDeclaresGo(data) {
+			return nil
+		}
+		out := bytes.TrimSuffix(data, []byte("\n"))
+		if len(out) > 0 {
+			out = append(out, '\n')
+		}
+		out = append(out, []byte("golang "+golangVersion+"\n")...)
+		return os.WriteFile(path, out, 0o644)
+	})
+}
+
 // Build the project with Anchor
 func buildProject(e cldf.Environment, cloneDir, anchorDir, buildCmd string) error {
 	solanaDir := filepath.Join(cloneDir, anchorDir, "..")
@@ -226,6 +300,13 @@ func buildLocally(e cldf.Environment, config BuildSolanaConfig, params DomainPar
 	// Clone the repository
 	if err := cloneRepo(e, config.GitCommitSha, params.CloneDir, params.RepoURL, config.LocalBuild.CleanGitDir); err != nil {
 		return fmt.Errorf("error cloning repo: %w", err)
+	}
+	if wd, err := os.Getwd(); err == nil {
+		if v := golangVersionFromAncestorToolVersions(wd); v != "" {
+			if err := mergeGolangIntoNestedToolVersions(params.CloneDir, v); err != nil {
+				e.Logger.Debugw("could not merge golang into cloned .tool-versions files", "err", err)
+			}
+		}
 	}
 
 	// Replace keys in Rust files using anchor keys sync
@@ -248,7 +329,7 @@ func buildLocally(e cldf.Environment, config BuildSolanaConfig, params DomainPar
 		return fmt.Errorf("error replacing keys for upgrade: %w", err)
 	}
 
-	// run sync to replace keys in programs that need to be synchonized
+	// run sync to replace keys in programs that need to be synchronized
 	for _, sync := range params.Syncers {
 		if err := sync(); err != nil {
 			return fmt.Errorf("error syncing program files: %w", err)

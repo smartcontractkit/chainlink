@@ -20,11 +20,8 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/quarantine"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -140,6 +137,7 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 	var linkAddress common.Address
 	linkAddress, _, f.linkContract, err = link_token_interface.DeployLinkToken(f.sergey, f.backend.Client())
 	require.NoError(t, err, "failed to deploy link contract to simulated ethereum blockchain")
+	f.backend.Commit()
 
 	f.flagsContractAddress, _, f.flagsContract, err = flags_wrapper.DeployFlags(f.sergey, f.backend.Client(), f.sergey.From)
 	require.NoError(t, err, "failed to deploy flags contract to simulated ethereum blockchain")
@@ -423,8 +421,7 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, ds sqlutil.Dat
 	lggr := logger.TestLogger(t)
 	lggr.Infof("Waiting for log on block: %v, job id: %v", blockNumber, pipelineSpecID)
 
-	g := gomega.NewWithT(t)
-	g.Eventually(func() bool {
+	require.Eventually(t, func() bool {
 		ctx := testutils.Context(t)
 		block, err := fa.backend.Client().BlockByNumber(ctx, new(big.Int).SetUint64(blockNumber))
 		require.NoError(t, err)
@@ -434,11 +431,10 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, ds sqlutil.Dat
 		require.NoError(t, err)
 		fa.backend.Commit()
 		return consumed
-	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), time.Second)
 }
 
 func TestFluxMonitor_Deviation(t *testing.T) {
-	quarantine.Flaky(t, "DX-1763")
 	tests := []struct {
 		name    string
 		eip1559 bool
@@ -451,7 +447,6 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			g := gomega.NewWithT(t)
 			fa := setupFluxAggregatorUniverse(t)
 
 			// - add oracles
@@ -546,10 +541,10 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 
 			// Waiting for flux monitor to finish Register process in log broadcaster
 			// and then to have log broadcaster backfill logs after the debounceResubscribe period of ~ 1 sec
-			g.Eventually(func() uint32 {
+			require.Eventually(t, func() bool {
 				lb := evmtest.MustGetDefaultChain(t, app.GetRelayers().LegacyEVMChains()).LogBroadcaster()
-				return lb.(log.BroadcasterInTest).TrackedAddressesCount()
-			}, testutils.WaitTimeout(t), 200*time.Millisecond).Should(gomega.BeNumerically(">=", 1))
+				return lb.(log.BroadcasterInTest).TrackedAddressesCount() >= 1
+			}, testutils.WaitTimeout(t), 200*time.Millisecond)
 
 			// Initial Poll
 			receiptBlock, answer := awaitSubmission(t, fa.backend, submissionReceived)
@@ -623,8 +618,6 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 }
 
 func TestFluxMonitor_NewRound(t *testing.T) {
-	quarantine.Flaky(t, "DX-1865")
-	g := gomega.NewWithT(t)
 	fa := setupFluxAggregatorUniverse(t)
 
 	// - add oracles
@@ -699,10 +692,10 @@ ds1 -> ds1_parse
 
 	// Waiting for flux monitor to finish Register process in log broadcaster
 	// and then to have log broadcaster backfill logs after the debounceResubscribe period of ~ 1 sec
-	g.Eventually(func() uint32 {
+	require.Eventually(t, func() bool {
 		lb := evmtest.MustGetDefaultChain(t, app.GetRelayers().LegacyEVMChains()).LogBroadcaster()
-		return lb.(log.BroadcasterInTest).TrackedAddressesCount()
-	}, testutils.WaitTimeout(t), 200*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
+		return lb.(log.BroadcasterInTest).TrackedAddressesCount() >= 2
+	}, testutils.WaitTimeout(t), 200*time.Millisecond)
 
 	// Have the fake node start a new round
 	submitAnswer(t, answerParams{
@@ -735,7 +728,6 @@ ds1 -> ds1_parse
 }
 
 func TestFluxMonitor_HibernationMode(t *testing.T) {
-	g := gomega.NewWithT(t)
 	fa := setupFluxAggregatorUniverse(t)
 
 	// - add oracles
@@ -838,12 +830,13 @@ ds1 -> ds1_parse
 	fa.backend.Commit()
 
 	// wait for FM to receive flags raised logs
-	g.Eventually(func() int {
+	require.Eventually(t, func() bool {
 		ilogs, err := fa.flagsContract.FilterFlagRaised(nil, []common.Address{})
-		require.NoError(t, err)
-		logs := cltest.GetLogs(t, nil, ilogs)
-		return len(logs)
-	}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.Equal(4))
+		if err != nil {
+			return false // LogPoller may not have indexed the latest block yet; retry
+		}
+		return len(cltest.GetLogs(t, nil, ilogs)) == 4
+	}, testutils.WaitTimeout(t), 100*time.Millisecond)
 
 	// change in price should not trigger run
 	reportPrice.Store(8)
