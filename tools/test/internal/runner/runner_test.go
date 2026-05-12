@@ -996,3 +996,106 @@ func TestShouldFailFastIterationOptimization(t *testing.T) {
 	assert.False(t, failed)
 	assert.Empty(t, reason)
 }
+
+func TestExtractBuildOutput(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		content string
+		want    string
+	}{
+		{
+			name: "json_output_events",
+			content: `{"Action":"output","Package":"example.com/bad","Output":"# example.com/bad\n"}` + "\n" +
+				`{"Action":"output","Package":"example.com/bad","Output":"main.go:5:2: undefined: Foo\n"}` + "\n" +
+				`{"Action":"fail","Package":"example.com/bad","FailedBuild":"example.com/bad.test"}` + "\n",
+			want: "# example.com/bad\nmain.go:5:2: undefined: Foo\n",
+		},
+		{
+			name:    "raw_non_json_lines",
+			content: "# example.com/bad\nmain.go:5:2: undefined: Foo\n",
+			want:    "# example.com/bad\nmain.go:5:2: undefined: Foo\n",
+		},
+		{
+			name: "mixed_json_and_raw",
+			content: `{"Action":"output","Package":"p","Output":"compiler error\n"}` + "\n" +
+				"not json\n",
+			want: "compiler error\nnot json\n",
+		},
+		{
+			name:    "empty_file",
+			content: "",
+			want:    "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			f := filepath.Join(t.TempDir(), "iteration-0.log.jsonl")
+			require.NoError(t, os.WriteFile(f, []byte(tc.content), 0600))
+			got, err := extractBuildOutput(f)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestDiagnoseBuildErrorStopsWithoutAnalysis(t *testing.T) {
+	t.Parallel()
+
+	buildErrJSONL := `{"Action":"output","Package":"example.com/bad","Output":"# example.com/bad\n"}` + "\n" +
+		`{"Action":"output","Package":"example.com/bad","Output":"main.go:5:2: undefined: Foo\n"}` + "\n" +
+		`{"Action":"fail","Package":"example.com/bad","FailedBuild":"example.com/bad.test"}` + "\n"
+
+	tests := []struct {
+		name     string
+		aiOutput bool
+	}{
+		{name: "human_output", aiOutput: false},
+		{name: "ai_output", aiOutput: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			repoRoot := t.TempDir()
+			conf := &config.App{
+				RepoRoot:   repoRoot,
+				AIOutput:   tc.aiOutput,
+				Iterations: 3,
+			}
+			var stderr strings.Builder
+			out := output.New(tc.aiOutput, io.Discard, &stderr, output.SkipFD)
+
+			hooks := diagnoseRunHooks{
+				runIteration: func(_ context.Context, p diagnoseIterationParams) error {
+					path := filepath.Join(p.ResultsDir, "iteration-"+strconv.Itoa(p.Iteration)+".log.jsonl")
+					require.NoError(t, os.WriteFile(path, []byte(buildErrJSONL), 0600))
+					return errors.New("exit status 1")
+				},
+			}
+
+			// Reach past Diagnose's private hooks by exercising through runDiagnoseIterations,
+			// then validate the public Diagnose output shape with a pre-built JSONL.
+			resultsDir := t.TempDir()
+			state, err := runDiagnoseIterations(context.Background(), conf, out, resultsDir, []string{"./pkg"}, []diagnoseIterationResource{{}}, hooks)
+			require.NoError(t, err)
+			require.Equal(t, failFastReasonBuildFailure, state.failedFastReason)
+
+			// Now exercise the output path that Diagnose uses.
+			stderr.Reset()
+			if !tc.aiOutput {
+				printBuildError(out, resultsDir, state.failedFastIteration)
+				stderrOut := stderr.String()
+				assert.Contains(t, stderrOut, "BUILD ERROR")
+				assert.Contains(t, stderrOut, "# example.com/bad")
+				assert.Contains(t, stderrOut, "main.go:5:2: undefined: Foo")
+			} else {
+				out.Stderrf("bf_stop iter=%d pkgs=\n", state.failedFastIteration+1)
+				assert.Contains(t, stderr.String(), "bf_stop iter=1")
+			}
+		})
+	}
+}

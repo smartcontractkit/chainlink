@@ -2,9 +2,10 @@ package utils
 
 import (
 	"context"
-	"log"
 	"net"
+	"testing"
 
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -18,16 +19,22 @@ type BillingService struct {
 	services.Service
 	eng *services.Engine
 
+	t      testing.TB
 	lggr   logger.Logger
 	server *grpc.Server
+	addr   string
 
 	billing.UnimplementedCreditReservationServiceServer
 }
 
+// Addr returns the address the billing service is listening on. Only valid after Start.
+func (s *BillingService) Addr() string { return s.addr }
+
 var _ services.Service = (*BillingService)(nil)
 
-func NewBillingService(lggr logger.Logger) *BillingService {
+func NewBillingService(t testing.TB, lggr logger.Logger) *BillingService {
 	b := &BillingService{
+		t:    t,
 		lggr: lggr,
 	}
 	b.Service, b.eng = services.Config{
@@ -67,22 +74,18 @@ func (s *BillingService) SubmitWorkflowReceipt(
 }
 
 func (s *BillingService) start(ctx context.Context) error {
-	lis, err := net.Listen("tcp", "localhost:4319")
+	lis, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
-		log.Fatalf("billing failed to listen: %v", err)
 		return err
 	}
+	s.addr = lis.Addr().String()
 
 	server := grpc.NewServer()
 
 	billing.RegisterCreditReservationServiceServer(server, &BillingService{lggr: s.lggr})
 
 	go func() {
-		err = server.Serve(lis)
-		if err != nil {
-			log.Fatalf("billing failed to serve: %v", err)
-			return
-		}
+		require.NoError(s.t, server.Serve(lis), "billing failed to serve")
 	}()
 
 	s.server = server

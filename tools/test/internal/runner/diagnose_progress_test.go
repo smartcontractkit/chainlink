@@ -119,9 +119,10 @@ func TestRenderParallelDiagnoseProgressLine(t *testing.T) {
 	renderParallelDiagnoseProgressLine(&b, p, now, true)
 
 	got := b.String()
-	require.Contains(t, got, "done 1/10")
-	require.Contains(t, got, "iter 2 (2m20s)")
-	require.Contains(t, got, "iter 4 (1m50s)")
+	require.Contains(t, got, "1/10")
+	require.NotContains(t, got, "done 1/10")
+	require.Contains(t, got, "2(2m20s)")
+	require.Contains(t, got, "4(1m50s)")
 	require.NotContains(t, got, "active")
 	require.NotContains(t, got, "·")
 	require.NotContains(t, got, "core/")

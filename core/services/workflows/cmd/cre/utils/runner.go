@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"testing"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -24,6 +25,7 @@ type RunnerConfig struct {
 	Lggr                       logger.Logger
 	LifecycleHooks             v2.LifecycleHooks
 	WorkflowSettingsCfgFn      func(*cresettings.Workflows)
+	T                          testing.TB
 }
 
 type RunnerHooks struct {
@@ -51,7 +53,7 @@ var defaultInitialize = func(ctx context.Context, cfg RunnerConfig) (*capabiliti
 
 	srvcs := []services.Service{}
 	if cfg.EnableBilling {
-		bs := NewBillingService(logger.Named(cfg.Lggr, "Fake_Billing_Client"))
+		bs := NewBillingService(cfg.T, logger.Named(cfg.Lggr, "Fake_Billing_Client"))
 		err := bs.Start(ctx)
 		if err != nil {
 			fmt.Printf("Failed to start billing service: %v\n", err)
@@ -147,7 +149,12 @@ func (r *Runner) Run(
 
 	billingAddress := ""
 	if cfg.EnableBilling {
-		billingAddress = "localhost:4319"
+		for _, svc := range services {
+			if bs, ok := svc.(*BillingService); ok {
+				billingAddress = bs.Addr()
+				break
+			}
+		}
 	}
 
 	engine, triggerSub, err := NewStandaloneEngine(ctx, cfg.Lggr, registry, binary, config, secrets, billingAddress, cfg.LifecycleHooks, workflowName, cfg.WorkflowSettingsCfgFn)

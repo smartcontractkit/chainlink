@@ -18,11 +18,6 @@ description: >-
 - For `diagnose` runs expected >2m: Execute in background. Perform a single 30s crash check, then suspend task and wait for the report.json system notification. DO NOT poll.
 </absolute_constraints>
 
-## Initialization
-1. Verify target scope (test, package, or issue). If unknown, prompt user.
-2. Formulate initial hypothesis: flake, timeout, slow, panic, deadlock, or race.
-3. Run bounded diagnosis (`--fail-fast` or low `--iterations`).
-
 <cli_reference>
 Base Command: `go -C tools/test run . diagnose [harness_flags] -- [go_test_flags] ./path`
 - ALWAYS use `--ai-output` before the `--`.
@@ -32,31 +27,43 @@ Base Command: `go -C tools/test run . diagnose [harness_flags] -- [go_test_flags
 - Lint check: `golangci-lint run ./<packages-you-change> --fix`
 </cli_reference>
 
+<init>
+1. Verify target scope (test, package, or issue). If unknown, prompt user to provide one.
+2. Check if user has `trunk` MCP server. If not, [suggest they set it up](https://docs.trunk.io/flaky-tests/reference/mcp-reference#get-started). If they don't want to, move on.
+3. Investigate and understand the specific test code. 
+4. Formulate initial hypothesis based on any data you can gather from the user or code.
+</init>
+
+<trunk>
+If the user mentions anything about "trunk" or "trunk.io", prompt them to install the MCP server (if not already done) so you can use it.
+Trunk.io is a service we use to track flaky tests in CI. It has a `trunk` MCP server. If available, use it to fetch more data on flaky or broken tests. **Use this as another data point in your diagnosis**, not as a definitive answer.
+1. Use `search-test` MCP tool to lookup find the test ID of the test(s) you're trying to fix.
+2. Use `fix-flaky-test` MCP tool to gather diagnosis data on a specific test.
+</trunk>
+
 <loop>
-1. If user doesn't have recent results, run `diagnose` command with min 5 iterations to gather initial info. If issues due to sandbox, STOP, give user command to run and have them report results.
-2. If no issues, ask the user if they want to verify with more iterations. If not, end and output final report of findings, fixes, and lessons learned.
-3. If issues detected, focus on the ones the user wants to fix.
-4. If a `diagnose-attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` file exists, read it to see previous fix attempts and findings.
-5. Form a hypothesis on the cause of the issues
-6. Implement a fix
-7. Output the hypothesis and attempted fix, plus reasons why you think it would work.
-8. Run a `diagnose` loop and read the `report.json` file using jq to see if the fix works. 
+1. If a `diagnose-attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` file exists, read it to see previous fix attempts and findings.
+2. Form a hypothesis on the cause of the issues
+3. Implement a fix
+4. Output the hypothesis and attempted fix, plus reasons why you think it would work.
+5. Run a `diagnose` loop and read the `report.json` file using jq to see if the fix works. 
   Append to `diagnose-attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` file in this json format:
   ```json
   {"timestamp": "[current_timestamp]", "model": "[current-model] (e.g. `claude-sonnet-4.6/high`, `gemini-3.1-pro`)", "hypothesis": "Your original hypothesis for the issue", "experiment": "A concise summary of what you tried. Include small code snippets if helpful", "result": "Did it fix it or not? If not, give concise reason why", "next": "Next steps to attempt"}
   ```
-9. GOTO 2
+6. If no issues, ask the user if they want to verify with more iterations. If not, end and output final report of findings, fixes, and lessons learned.
+7. If issues detected, focus on the ones the user wants to fix.
 
 IF at any time the user interrupts or interjects during this loop, pick it up again where you left off, unless explicitly told otherwise.
 </loop>
 
 <tests-context>
-* Chainlink nodes are blockchain oracles. Read the [README.md](/README.md)
+* Chainlink nodes are blockchain oracles that read and write data to chains. Read the [README.md](/README.md) for more info.
 * All tests share a single postgres DB. Each `diagnose` loop creates a new one.
 </tests-context>
 
 <analysis>
-Lead with your hypothesis before writing code. Show contextual diffs, do not describe fixes abstractly. List of common approaches and diagnoses:
+Lead with your hypothesis before writing code. Show contextual diffs, do not describe fixes abstractly. Common approaches and diagnoses:
 
 1. **Check Known Patterns:** See `<known_patterns>` below for common flaky test patterns and fixes in this repo. If they apply to the situation attempt them first.
 2. **Narrowing:** If many tests flag, look for similarities in their failures. If found, present that to the user and ask if they want to continue with assumption of relation. If not, try to focus on the most problematic test.
@@ -75,13 +82,10 @@ Files in the `references/flaky-patterns/` dir.
 </known_patterns>
 
 <context_compaction>
-When summarizing/compacting/compressing context, strictly maintain a reference to the `attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` you're using for this session.
+When summarizing/compacting/compressing context:
+* Strictly maintain a reference to the `attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` you're using for this session.
+* Keep crucial data about your understanding of the test code you're trying to fix.
 </context_compaction>
-
-<possible_execution_issues>
-- **GOCACHE permissions issues**: `[build failed]\n open .../Library/Caches/...` This is caused by some sandbox environments. If you cannot exit the sandbox to fix this, STOP. DO NOT attempt to create a new cache. Ask the user to run the command instead and give you results so you can continue.
-- **Postgres sandbox error**: `operation not permitted` connecting to postgres. Sandbox issues. If you cannot exit the sandbox to fix this, STOP. Ask the user to run the command instead and give you results so you can continue.
-</possible_execution_issues>
 
 <logs_structure>
 [resultsDir]/
@@ -93,7 +97,7 @@ When summarizing/compacting/compressing context, strictly maintain a reference t
 |---- pkg_TestName_iter-n.log # Logs for individual slow/failing tests, read this as needed
 </logs_structure>
 
-<sub_agent_protocol>
+<read_logs_sub_agent>
 When reading log files from the `logs/` directory or `iteration-n.log.jsonl`, you MUST spawn a specialist `LogAnalyzer` sub-agent. 
 
 You MUST configure the sub-agent with these exact initialization parameters:
@@ -102,13 +106,19 @@ You MUST configure the sub-agent with these exact initialization parameters:
 3. Temperature: 0.0
 
 The sub-agent MUST output ONLY valid JSON matching this exact structure. DO NOT wrap the output in markdown code blocks. Output raw JSON only, with no explanations and no yapping:
+```json
 {
   "logs_read": ["log_path_1.log", "log_path_2.log"],
   "failure_diagnosis": [
     {
-      "possible_reason": "explanation",
+      "possible_reason": "reason for failure",
+      "evidence": "specific logs/log lines"
+    },
+        {
+      "possible_reason": "reason for failure",
       "evidence": "specific logs/log lines"
     }
   ]
 }
-</sub_agent_protocol>
+```
+</read_logs_sub_agent>

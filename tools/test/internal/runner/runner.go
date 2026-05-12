@@ -123,6 +123,15 @@ func Diagnose(ctx context.Context, conf *config.App, out *output.Printer, goTest
 		}
 	}
 
+	if state.failedFast && state.failedFastReason == failFastReasonBuildFailure && state.failedFastIteration >= 0 {
+		if !out.AIOutput() {
+			printBuildError(out, resultsDir, state.failedFastIteration)
+		} else {
+			out.Stderrf("bf_stop iter=%d pkgs=\n", state.failedFastIteration+1)
+		}
+		return nil
+	}
+
 	interrupted := ctx.Err() != nil
 	if interrupted && !out.AIOutput() {
 		out.HumanStderr(
@@ -131,17 +140,11 @@ func Diagnose(ctx context.Context, conf *config.App, out *output.Printer, goTest
 	}
 
 	if state.failedFast && !out.AIOutput() {
-		if state.failedFastReason == failFastReasonBuildFailure && state.failedFastIteration >= 0 {
-			iter := state.failedFastIteration + 1
-			out.HumanStderr(termstyle.Bad.Render(
-				fmt.Sprintf("Build failed — stopping diagnose run (iteration %d/%d).", iter, conf.Iterations)))
-		} else {
-			msg := "--fail-fast set, stopping early"
-			if state.failedFastReason != "" {
-				msg = fmt.Sprintf("fail-fast matched %s, stopping early", state.failedFastReason)
-			}
-			out.HumanStderr(termstyle.Accent.Render(msg))
+		msg := "--fail-fast set, stopping early"
+		if state.failedFastReason != "" {
+			msg = fmt.Sprintf("fail-fast matched %s, stopping early", state.failedFastReason)
 		}
+		out.HumanStderr(termstyle.Accent.Render(msg))
 	}
 
 	stopAnalyzing := startDiagnoseAnalyzingProgress(out, state.liveProgress)
@@ -153,18 +156,6 @@ func Diagnose(ctx context.Context, conf *config.App, out *output.Printer, goTest
 	if analyzeErr != nil {
 		out.Stderrf("analyze results: %v\n", analyzeErr)
 		return analyzeErr
-	}
-	if out.AIOutput() && state.failedFastReason == failFastReasonBuildFailure && state.failedFastIteration >= 0 {
-		var pkgs []string
-		if report != nil {
-			for _, sum := range report.IterationSummaries {
-				if sum.Index == state.failedFastIteration {
-					pkgs = append(pkgs, sum.FailingTests...)
-					break
-				}
-			}
-		}
-		out.Stderrf("bf_stop iter=%d pkgs=%s\n", state.failedFastIteration+1, strings.Join(pkgs, ","))
 	}
 	if report != nil {
 		for i, d := range state.iterDurations {
@@ -796,6 +787,49 @@ func buildDiagnoseArgs(goTestArgs []string, shuffleSeed int64) ([]string, error)
 		args = append(args, "-count=1")
 	}
 	return args, nil
+}
+
+func printBuildError(out *output.Printer, resultsDir string, iteration int) {
+	sep := termstyle.Bad.Render("════════════════════════════════════════")
+	fmt.Fprintln(out.HumanStderrWriter(), sep)
+	fmt.Fprintln(out.HumanStderrWriter(), termstyle.Bad.Render("BUILD ERROR"))
+	fmt.Fprintln(out.HumanStderrWriter(), sep)
+	jsonPath := filepath.Join(resultsDir, fmt.Sprintf("iteration-%d.log.jsonl", iteration))
+	buildOut, err := extractBuildOutput(jsonPath)
+	if err == nil && buildOut != "" {
+		fmt.Fprint(out.HumanStderrWriter(), buildOut)
+	}
+}
+
+// extractBuildOutput reads a go-test-json JSONL log and returns all compiler output.
+// JSON lines: Output fields are concatenated. Non-JSON lines are included verbatim.
+func extractBuildOutput(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	var sb strings.Builder
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(line) == 0 || line[0] != '{' {
+			sb.Write(line)
+			sb.WriteByte('\n')
+			continue
+		}
+		var ev TestEvent
+		if jsonErr := json.Unmarshal(line, &ev); jsonErr != nil {
+			sb.Write(line)
+			sb.WriteByte('\n')
+			continue
+		}
+		if ev.Output != "" {
+			sb.WriteString(ev.Output)
+		}
+	}
+	return sb.String(), scanner.Err()
 }
 
 func printDiagnoseResultsDirHeader(out *output.Printer, resultsDir string) {

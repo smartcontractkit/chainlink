@@ -21,6 +21,10 @@ func TestRunner(t *testing.T) {
 	t.Run("happy path with an empty workflow", func(t *testing.T) {
 		t.Parallel()
 
+		// Compile the WASM binary before starting the deadline so slow CI builds
+		// don't consume the run budget.
+		binary := wasmtest.CreateTestBinary(filepath.Join("core/services/workflows/cmd/cre/examples/v2", "empty"), false, t)
+
 		duration := 5 * time.Second
 		ctx, cancel := context.WithDeadline(t.Context(), time.Now().Add(duration))
 		defer cancel()
@@ -33,8 +37,6 @@ func TestRunner(t *testing.T) {
 			}
 		}
 
-		binary := wasmtest.CreateTestBinary(filepath.Join("core/services/workflows/cmd/cre/examples/v2", "empty"), false, t)
-
 		runner := NewRunner(hooks)
 		runner.Run(ctx, "", binary, []byte{}, []byte{}, RunnerConfig{
 			EnableBeholder:             false,
@@ -42,6 +44,7 @@ func TestRunner(t *testing.T) {
 			EnableStandardCapabilities: false,
 			Lggr:                       logger.TestLogger(t),
 			LifecycleHooks:             v2.LifecycleHooks{},
+			T:                          t,
 		})
 	})
 }

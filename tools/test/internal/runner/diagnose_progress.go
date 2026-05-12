@@ -302,12 +302,17 @@ func renderParallelDiagnoseProgressLine(w io.Writer, prog *parallelDiagnoseProgr
 		return
 	}
 	completed, totalIters, actives, poolElapsed := prog.renderSnapshot(now)
-	line := progressBracket(termstyle.Label.Render(fmt.Sprintf("done %d/%d", completed, totalIters)))
-	var lineSb275 strings.Builder
-	for _, a := range actives {
-		lineSb275.WriteString("  " + progressBracket(termstyle.Label.Render(fmt.Sprintf("iter %d (%s)", a.iteration+1, a.elapsed.String()))))
+	line := progressBracket(termstyle.Label.Render(fmt.Sprintf("%d/%d", completed, totalIters)))
+	if len(actives) > 0 {
+		var sb strings.Builder
+		for i, a := range actives {
+			if i > 0 {
+				sb.WriteByte(' ')
+			}
+			sb.WriteString(termstyle.Label.Render(fmt.Sprintf("%d(%s)", a.iteration+1, a.elapsed.String())))
+		}
+		line += "  " + progressBracket(sb.String())
 	}
-	line += lineSb275.String()
 	line += "  " + progressBracket(termstyle.Muted.Render(poolElapsed.String()))
 	fmt.Fprint(w, "\r\033[K")
 	fmt.Fprint(w, line)
