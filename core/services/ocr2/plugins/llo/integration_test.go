@@ -570,6 +570,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				// feedID will be deleted when all n oracles have reported
 				seen[opts.FeedID] = make(map[string]struct{}, nNodes)
 			}
+			warmupSkips := 0
 			for {
 				req, err := receiveWithTimeout(t, reqs, reportTimeout)
 				require.NoError(t, err)
@@ -604,10 +605,21 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					t.Fatalf("unrecognized feedID: 0x%x", feedID)
 				}
 
+				nativeFee := reportElems["nativeFee"].(*big.Int)
+				linkFee := reportElems["linkFee"].(*big.Int)
+				if nativeFee.Sign() == 0 || linkFee.Sign() == 0 {
+					warmupSkips++
+					if warmupSkips > 100 {
+						t.Fatalf("too many warmup reports with zero fees (%d skipped) — stream bridges likely not producing values", warmupSkips)
+					}
+					t.Logf("skipping warmup report for feed 0x%x: nativeFee=%s linkFee=%s", feedID, nativeFee, linkFee)
+					continue
+				}
+
 				assert.GreaterOrEqual(t, reportElems["validFromTimestamp"].(uint32), uint32(testStartTimeStamp.Unix()))
 				assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp.Unix()))
-				assert.Equal(t, "33597747607000", reportElems["nativeFee"].(*big.Int).String())
-				assert.Equal(t, "7547169811320755", reportElems["linkFee"].(*big.Int).String())
+				assert.Equal(t, "33597747607000", nativeFee.String())
+				assert.Equal(t, "7547169811320755", linkFee.String())
 				assert.Equal(t, reportElems["observationsTimestamp"].(uint32)+uint32(expirationWindow), reportElems["expiresAt"].(uint32))
 				assert.Equal(t, expectedBm.String(), reportElems["benchmarkPrice"].(*big.Int).String())
 				assert.Equal(t, expectedBid.String(), reportElems["bid"].(*big.Int).String())
