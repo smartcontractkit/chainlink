@@ -172,8 +172,22 @@ func downloadProgramArtifacts(ctx context.Context, url string, targetDir string,
 			return fmt.Errorf("archive total size exceeds limit (limit: %d bytes)", maxTotalSize)
 		}
 
-		// Copy the file to the target directory
+		// Reject archive entries with unsafe paths to prevent Zip Slip (CWE-22).
+		// filepath.IsLocal returns false for empty paths, ".", absolute paths, and any
+		// path that traverses outside the target via "..".
+		if !filepath.IsLocal(header.Name) {
+			return fmt.Errorf("archive entry %q has unsafe path: must be a relative path within target directory", header.Name)
+		}
+
+		// Copy the file to the target directory using only the base filename.
 		outPath := filepath.Join(targetDir, filepath.Base(header.Name))
+
+		// Defense-in-depth: ensure the cleaned output path is contained within targetDir.
+		cleanTarget := filepath.Clean(targetDir)
+		if rel, err := filepath.Rel(cleanTarget, filepath.Clean(outPath)); err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return fmt.Errorf("archive entry %q resolves outside target directory", header.Name)
+		}
+
 		if err := os.MkdirAll(filepath.Dir(outPath), os.ModePerm); err != nil {
 			return err
 		}

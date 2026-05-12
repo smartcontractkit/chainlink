@@ -159,6 +159,62 @@ func TestDownloadProgramArtifacts(t *testing.T) {
 	}
 }
 
+func TestDownloadProgramArtifacts_RejectsZipSlipEntries(t *testing.T) {
+	tests := []struct {
+		name      string
+		entryName string
+	}{
+		{name: "parent directory traversal", entryName: "../evil.so"},
+		{name: "nested parent traversal", entryName: "subdir/../../evil.so"},
+		{name: "absolute unix path", entryName: "/etc/passwd"},
+		{name: "empty entry", entryName: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/gzip")
+
+				gzWriter := gzip.NewWriter(w)
+				defer gzWriter.Close()
+
+				tarWriter := tar.NewWriter(gzWriter)
+				defer tarWriter.Close()
+
+				content := "malicious content"
+				header := &tar.Header{
+					Name:     tt.entryName,
+					Size:     int64(len(content)),
+					Typeflag: tar.TypeReg,
+				}
+				if err := tarWriter.WriteHeader(header); err != nil {
+					t.Errorf("Failed to write tar header: %v", err)
+					return
+				}
+				if _, err := tarWriter.Write([]byte(content)); err != nil {
+					t.Errorf("Failed to write tar content: %v", err)
+					return
+				}
+			}))
+			defer server.Close()
+
+			tempDir := t.TempDir()
+			err := downloadProgramArtifacts(t.Context(), server.URL, tempDir, logger.Test(t))
+			require.Error(t, err)
+			require.ErrorContains(t, err, "unsafe path")
+
+			// Verify no file was written outside or inside the target directory.
+			entries, readErr := os.ReadDir(tempDir)
+			require.NoError(t, readErr)
+			assert.Empty(t, entries, "no files should be extracted from a malicious archive")
+
+			// Ensure the traversal target was not created on disk.
+			_, statErr := os.Stat(filepath.Join(filepath.Dir(tempDir), "evil.so"))
+			assert.True(t, os.IsNotExist(statErr), "traversal target file must not exist")
+		})
+	}
+}
+
 func TestDownloadProgramArtifacts_ContextCancellation(t *testing.T) {
 	// Create a server that delays response
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
