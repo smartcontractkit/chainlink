@@ -2,10 +2,10 @@ package utils
 
 import (
 	"context"
+	"fmt"
+	"log"
 	"net"
-	"testing"
 
-	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -15,11 +15,13 @@ import (
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 )
 
+const defaultBillingPort = 4319
+
 type BillingService struct {
 	services.Service
 	eng *services.Engine
 
-	t      testing.TB
+	port   int
 	lggr   logger.Logger
 	server *grpc.Server
 	addr   string
@@ -32,10 +34,26 @@ func (s *BillingService) Addr() string { return s.addr }
 
 var _ services.Service = (*BillingService)(nil)
 
-func NewBillingService(t testing.TB, lggr logger.Logger) *BillingService {
+// NewBillingServiceOnPort specify a port to listen on for the billing service.
+// Use 0 for a random port.
+func NewBillingServiceOnPort(lggr logger.Logger, port int) *BillingService {
 	b := &BillingService{
-		t:    t,
 		lggr: lggr,
+		port: port,
+	}
+	b.Service, b.eng = services.Config{
+		Name:  "fakeBillingService",
+		Start: b.start,
+		Close: b.close,
+	}.NewServiceEngine(lggr)
+	return b
+}
+
+// NewBillingService listens on the default billing port.
+func NewBillingService(lggr logger.Logger) *BillingService {
+	b := &BillingService{
+		lggr: lggr,
+		port: defaultBillingPort,
 	}
 	b.Service, b.eng = services.Config{
 		Name:  "fakeBillingService",
@@ -74,7 +92,7 @@ func (s *BillingService) SubmitWorkflowReceipt(
 }
 
 func (s *BillingService) start(ctx context.Context) error {
-	lis, err := net.Listen("tcp", "localhost:0")
+	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", s.port))
 	if err != nil {
 		return err
 	}
@@ -85,7 +103,11 @@ func (s *BillingService) start(ctx context.Context) error {
 	billing.RegisterCreditReservationServiceServer(server, &BillingService{lggr: s.lggr})
 
 	go func() {
-		require.NoError(s.t, server.Serve(lis), "billing failed to serve")
+		err = server.Serve(lis)
+		if err != nil {
+			log.Fatalf("billing failed to serve: %v", err)
+			return
+		}
 	}()
 
 	s.server = server

@@ -44,7 +44,6 @@ func TestRunner(t *testing.T) {
 			EnableStandardCapabilities: false,
 			Lggr:                       logger.TestLogger(t),
 			LifecycleHooks:             v2.LifecycleHooks{},
-			T:                          t,
 		})
 	})
 }
