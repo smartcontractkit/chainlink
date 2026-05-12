@@ -7,8 +7,6 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/mcms"
-	mcmssdk "github.com/smartcontractkit/mcms/sdk"
-	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -78,7 +76,6 @@ var EthBalMonTransferOwnershipSequence = operations.NewSequence(
 		var batches []mcmstypes.BatchOperation
 		timelockAddresses := make(map[uint64]string)
 		mcmAddressByChain := make(map[uint64]string)
-		inspectorPerChain := make(map[uint64]mcmssdk.Inspector)
 		for chainSelector, chainConfig := range input.Chains {
 			opReport, err := operations.ExecuteOperation(b, EthBalMonTransferOwnershipOperation, deps, EthBalMonTransferOwnershipOpInput{
 				ChainSelector: chainSelector,
@@ -92,10 +89,9 @@ var EthBalMonTransferOwnershipSequence = operations.NewSequence(
 			batches = append(batches, opOutput.BatchOperation)
 			timelockAddresses[chainSelector] = opOutput.TimelockAddress
 			mcmAddressByChain[chainSelector] = opOutput.MCMSAddress
-			inspectorPerChain[chainSelector] = opOutput.Inspector
 		}
 
-		proposal, err := proposalutils.BuildProposalFromBatchesV2(deps.Environment, timelockAddresses, mcmAddressByChain, inspectorPerChain, batches, "EthBalMon transferOwnership", proposalutils.TimelockConfig{
+		proposal, err := proposalutils.BuildProposalFromBatchesV2(deps.Environment, timelockAddresses, mcmAddressByChain, nil, batches, "EthBalMon transferOwnership", proposalutils.TimelockConfig{
 			MinDelay: 0,
 		})
 
@@ -121,7 +117,6 @@ type EthBalMonTransferOwnershipOpOutput struct {
 	BatchOperation  mcmstypes.BatchOperation `json:"batch_operation"`
 	TimelockAddress string                   `json:"timelock_address"`
 	MCMSAddress     string                   `json:"mcms_address"`
-	Inspector       *mcmsevmsdk.Inspector    `json:"inspector"`
 }
 
 var EthBalMonTransferOwnershipOperation = operations.NewOperation(
@@ -195,8 +190,6 @@ var EthBalMonTransferOwnershipOperation = operations.NewOperation(
 			},
 		}
 
-		chainInspector := mcmsevmsdk.NewInspector(chain.Client)
-
 		b.Logger.Infow("Generated EthBalMon transferOwnership batch",
 			"chainSelector", input.ChainSelector,
 			"ethBalMon", ethBalMonAddr,
@@ -208,7 +201,6 @@ var EthBalMonTransferOwnershipOperation = operations.NewOperation(
 			BatchOperation:  batch,
 			TimelockAddress: timelockAddr,
 			MCMSAddress:     mcmsAddr,
-			Inspector:       chainInspector,
 		}, nil
 	},
 )

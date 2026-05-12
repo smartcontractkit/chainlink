@@ -10,8 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/mcms"
-	mcmssdk "github.com/smartcontractkit/mcms/sdk"
-	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -422,7 +420,6 @@ func BuildAcceptOwnershipTimelockProposal(
 	var batches []mcmstypes.BatchOperation
 	timelockAddresses := make(map[uint64]string)
 	mcmAddressByChain := make(map[uint64]string)
-	inspectorPerChain := make(map[uint64]mcmssdk.Inspector)
 
 	for chainSelector, contractAddr := range input.ContractsByChain {
 		chain, ok := e.BlockChains.EVMChains()[chainSelector]
@@ -487,7 +484,6 @@ func BuildAcceptOwnershipTimelockProposal(
 
 		timelockAddresses[chainSelector] = timelockAddr
 		mcmAddressByChain[chainSelector] = mcmsAddr
-		inspectorPerChain[chainSelector] = mcmsevmsdk.NewInspector(chain.Client)
 	}
 
 	description := input.Description
@@ -499,7 +495,7 @@ func BuildAcceptOwnershipTimelockProposal(
 		e,
 		timelockAddresses,
 		mcmAddressByChain,
-		inspectorPerChain,
+		nil,
 		batches,
 		description,
 		proposalutils.TimelockConfig{

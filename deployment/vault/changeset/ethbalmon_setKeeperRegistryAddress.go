@@ -8,8 +8,6 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/mcms"
-	mcmssdk "github.com/smartcontractkit/mcms/sdk"
-	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -100,7 +98,6 @@ var SetKeeperRegistrySequence = operations.NewSequence(
 		var batches []mcmstypes.BatchOperation
 		timelockAddresses := make(map[uint64]string)
 		mcmAddressByChain := make(map[uint64]string)
-		inspectorPerChain := make(map[uint64]mcmssdk.Inspector)
 
 		for chainSelector, chainConfig := range input.Chains {
 			opReport, err := operations.ExecuteOperation(
@@ -122,14 +119,13 @@ var SetKeeperRegistrySequence = operations.NewSequence(
 			batches = append(batches, opOut.BatchOperation)
 			timelockAddresses[chainSelector] = opOut.TimelockAddress
 			mcmAddressByChain[chainSelector] = opOut.MCMSAddress
-			inspectorPerChain[chainSelector] = opOut.Inspector
 		}
 
 		proposal, err := proposalutils.BuildProposalFromBatchesV2(
 			deps.Environment,
 			timelockAddresses,
 			mcmAddressByChain,
-			inspectorPerChain,
+			nil,
 			batches,
 			"EthBalMon SetKeeperRegistryAddress",
 			proposalutils.TimelockConfig{MinDelay: 0},
@@ -160,7 +156,6 @@ type SetKeeperRegistryOperationOutput struct {
 	BatchOperation  mcmstypes.BatchOperation `json:"batch_operation"`
 	TimelockAddress string                   `json:"timelock_address"`
 	MCMSAddress     string                   `json:"mcms_address"`
-	Inspector       *mcmsevmsdk.Inspector    `json:"inspector"`
 }
 
 var SetKeeperRegistryOperation = operations.NewOperation(
@@ -242,8 +237,6 @@ var SetKeeperRegistryOperation = operations.NewOperation(
 			},
 		}
 
-		chainInspector := mcmsevmsdk.NewInspector(chain.Client)
-
 		b.Logger.Infow("Generated EthBalMon set keeper registry batch",
 			"chainSelector", input.ChainSelector,
 			"ethBalMon", ethBalMonAddr,
@@ -255,7 +248,6 @@ var SetKeeperRegistryOperation = operations.NewOperation(
 			BatchOperation:  batch,
 			TimelockAddress: timelockAddr,
 			MCMSAddress:     mcmsAddr,
-			Inspector:       chainInspector,
 		}, nil
 	},
 )

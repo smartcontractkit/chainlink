@@ -8,8 +8,6 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/mcms"
-	mcmssdk "github.com/smartcontractkit/mcms/sdk"
-	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -79,7 +77,6 @@ var EthBalMonWithdrawSequence = operations.NewSequence(
 		var batches []mcmstypes.BatchOperation
 		timelockAddresses := make(map[uint64]string)
 		mcmAddressByChain := make(map[uint64]string)
-		inspectorPerChain := make(map[uint64]mcmssdk.Inspector)
 		for chainSelector, chainConfig := range input.Chains {
 			opReport, err := operations.ExecuteOperation(b, EthBalMonWithdrawOperation, deps, EthBalMonWithdrawOpInput{
 				ChainSelector: chainSelector,
@@ -94,10 +91,9 @@ var EthBalMonWithdrawSequence = operations.NewSequence(
 			batches = append(batches, opOutput.BatchOperation)
 			timelockAddresses[chainSelector] = opOutput.TimelockAddress
 			mcmAddressByChain[chainSelector] = opOutput.MCMSAddress
-			inspectorPerChain[chainSelector] = opOutput.Inspector
 		}
 
-		proposal, err := proposalutils.BuildProposalFromBatchesV2(deps.Environment, timelockAddresses, mcmAddressByChain, inspectorPerChain, batches, "EthBalMon Withdraw", proposalutils.TimelockConfig{
+		proposal, err := proposalutils.BuildProposalFromBatchesV2(deps.Environment, timelockAddresses, mcmAddressByChain, nil, batches, "EthBalMon Withdraw", proposalutils.TimelockConfig{
 			MinDelay: 0,
 		})
 
@@ -124,7 +120,6 @@ type EthBalMonWithdrawOpOutput struct {
 	BatchOperation  mcmstypes.BatchOperation `json:"batch_operation"`
 	TimelockAddress string                   `json:"timelock_address"`
 	MCMSAddress     string                   `json:"mcms_address"`
-	Inspector       *mcmsevmsdk.Inspector    `json:"inspector"`
 }
 
 var EthBalMonWithdrawOperation = operations.NewOperation(
@@ -198,8 +193,6 @@ var EthBalMonWithdrawOperation = operations.NewOperation(
 			},
 		}
 
-		chainInspector := mcmsevmsdk.NewInspector(chain.Client)
-
 		b.Logger.Infow("Generated EthBalMon withdraw batch",
 			"chainSelector", input.ChainSelector,
 			"ethBalMon", ethBalMonAddr,
@@ -212,7 +205,6 @@ var EthBalMonWithdrawOperation = operations.NewOperation(
 			BatchOperation:  batch,
 			TimelockAddress: timelockAddr,
 			MCMSAddress:     mcmsAddr,
-			Inspector:       chainInspector,
 		}, nil
 	},
 )
