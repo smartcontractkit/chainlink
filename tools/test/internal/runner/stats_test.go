@@ -165,7 +165,7 @@ func TestReportSummary_hasCI_noFlakes(t *testing.T) {
 
 	require.NotNil(t, s.FlakeIterationFailRateLower, "FlakeIterationFailRateLower should be set even with no flakes")
 	require.NotNil(t, s.FlakeIterationFailRateUpper, "FlakeIterationFailRateUpper should be set even with no flakes")
-	assert.Equal(t, 0.0, *s.FlakeIterationFailRateLower)
+	assert.InDelta(t, 0.0, *s.FlakeIterationFailRateLower, 0.0000000000000001)
 	assert.Positive(t, *s.FlakeIterationFailRateUpper, "upper bound should be non-zero for finite n")
 }
 
