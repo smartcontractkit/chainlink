@@ -237,34 +237,38 @@ jobs:
         ${{ needs.docker-core.result == 'success' && format('public.ecr.aws/chainlink/chainlink:{0}|{1}', needs.docker-core.outputs.docker-manifest-tag, needs.docker-core.outputs.docker-manifest-digest) || '' }}
         ${{ needs.docker-ccip.result == 'success' && format('public.ecr.aws/chainlink/ccip:{0}|{1}', needs.docker-ccip.outputs.docker-manifest-tag, needs.docker-ccip.outputs.docker-manifest-digest) || '' }}
 
-  emit-pre-release-image-published-event:
-    name: Emit pre-release image published event
+  trigger-post-build-publish:
+    name: Trigger post-build-publish workflow
     needs: [ docker-core, slack-notify ]
     if: |
       always() &&
       needs.docker-core.result == 'success'
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      actions: write
     steps:
-      - name: Emit pre-release image published event
+      - name: Trigger post-build-publish workflow
         env:
           DOCKER_MANIFEST_TAG: ${{ needs.docker-core.outputs.docker-manifest-tag }}
-          GITHUB_REF_NAME: ${{ github.ref_name }}
+          TARGET_TAG: ${{ github.ref_name }}
           GH_TOKEN: ${{ github.token }}
           SLACK_THREAD_TS: ${{ needs.slack-notify.outputs.slack-thread-ts }}
         run: |
-          gh api \
-            --method POST \
-            -H "Accept: application/vnd.github+json" \
-            "/repos/${GITHUB_REPOSITORY}/dispatches" \
-            --input - <<JSON
-          {
-            "event_type": "pre-release-image-published",
-            "client_payload": {
-              "chainlink_image_tag": "${DOCKER_MANIFEST_TAG}",
-              "chainlink_version": "${GITHUB_REF_NAME}",
-              "slack_thread_ts": "${SLACK_THREAD_TS}"
-            }
-          }
-          JSON
+          set +e
+          view_out=$(gh workflow view post-build-publish.yml --ref "$TARGET_TAG" 2>&1)
+          view_status=$?
+          set -e
+          if [ "$view_status" -ne 0 ]; then
+            if echo "$view_out" | grep -qiE '404|not found|could not find.*workflow'; then
+              echo "::warning::post-build-publish.yml is not available at ref $TARGET_TAG (workflow missing on this tag). Skipping trigger."
+              exit 0
+            fi
+            echo "::error::Could not resolve post-build-publish workflow at ref $TARGET_TAG: ${view_out}"
+            exit 1
+          fi
+
+          gh workflow run post-build-publish.yml \
+            --ref "$TARGET_TAG" \
+            -f chainlink_version="$TARGET_TAG" \
+            -f chainlink_image_tag="$DOCKER_MANIFEST_TAG" \
+            -f slack_thread_ts="$SLACK_THREAD_TS"

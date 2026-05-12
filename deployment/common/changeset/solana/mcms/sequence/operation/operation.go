@@ -10,6 +10,8 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/rpc"
+	sollegacy "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 	mcmsSolanaSdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 	"github.com/smartcontractkit/wsrpc/logger"
@@ -22,14 +24,14 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonOps "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/operations"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
 type Deps struct {
 	Env       cldf.Environment
-	State     *state.MCMSWithTimelockStateSolana
+	State     *sollegacy.MCMSWithTimelockState
 	Datastore datastore.MutableDataStore
 	Chain     cldfsol.Chain
 }
@@ -162,7 +164,7 @@ func initAccessController(b operations.Bundle, deps Deps, in InitAccessControlle
 
 	log.Infow("initialized access controller", "account", account.PublicKey())
 
-	err = deps.State.SetState(in.ContractType, account.PublicKey(), state.PDASeed{})
+	err = deps.State.SetState(in.ContractType, account.PublicKey(), sollegacy.PDASeed{})
 	if err != nil {
 		return out, fmt.Errorf("failed to save onchain state: %w", err)
 	}
@@ -237,8 +239,8 @@ func initMCM(b operations.Bundle, deps Deps, in InitMCMInput) (InitMCMOutput, er
 		return out, fmt.Errorf("failed to get mcm state: %w", err)
 	}
 
-	if mcmSeed != (state.PDASeed{}) {
-		mcmConfigPDA := state.GetMCMConfigPDA(mcmProgram, mcmSeed)
+	if mcmSeed != (sollegacy.PDASeed{}) {
+		mcmConfigPDA := pdasol.GetMCMConfigPDA(mcmProgram, mcmSeed)
 		var data mcmBindings.MultisigConfig
 		err = solanaUtils.GetAccountDataBorshInto(b.GetContext(), deps.Chain.Client, mcmConfigPDA, rpc.CommitmentConfirmed, &data)
 		if err == nil {
@@ -258,7 +260,7 @@ func initMCM(b operations.Bundle, deps Deps, in InitMCMInput) (InitMCMOutput, er
 		return out, fmt.Errorf("failed to initialize mcm: %w", err)
 	}
 
-	mcmAddress := state.EncodeAddressWithSeed(programID, seed)
+	mcmAddress := sollegacy.EncodeAddressWithSeed(programID, seed)
 
 	configurer := mcmsSolanaSdk.NewConfigurer(deps.Chain.Client, *deps.Chain.DeployerKey, mcmsTypes.ChainSelector(deps.Chain.ChainSelector()))
 	tx, err := configurer.SetConfig(b.GetContext(), mcmAddress, &in.MCMConfig, false)
@@ -285,9 +287,9 @@ func initMCM(b operations.Bundle, deps Deps, in InitMCMInput) (InitMCMOutput, er
 	return out, nil
 }
 
-func initializeMCM(b operations.Bundle, deps Deps, mcmProgram solana.PublicKey, multisigID state.PDASeed) error {
+func initializeMCM(b operations.Bundle, deps Deps, mcmProgram solana.PublicKey, multisigID sollegacy.PDASeed) error {
 	var mcmConfig mcmBindings.MultisigConfig
-	err := deps.Chain.GetAccountDataBorshInto(b.GetContext(), state.GetMCMConfigPDA(mcmProgram, multisigID), &mcmConfig)
+	err := deps.Chain.GetAccountDataBorshInto(b.GetContext(), pdasol.GetMCMConfigPDA(mcmProgram, multisigID), &mcmConfig)
 	if err == nil {
 		b.Logger.Infow("MCM already initialized, skipping initialization", "chain", deps.Chain.String())
 		return nil
@@ -311,13 +313,13 @@ func initializeMCM(b operations.Bundle, deps Deps, mcmProgram solana.PublicKey, 
 	instruction, err := mcmBindings.NewInitializeInstruction(
 		deps.Chain.Selector,
 		multisigID,
-		state.GetMCMConfigPDA(mcmProgram, multisigID),
+		pdasol.GetMCMConfigPDA(mcmProgram, multisigID),
 		deps.Chain.DeployerKey.PublicKey(),
 		solana.SystemProgramID,
 		mcmProgram,
 		programData.Address,
-		state.GetMCMRootMetadataPDA(mcmProgram, multisigID),
-		state.GetMCMExpiringRootAndOpCountPDA(mcmProgram, multisigID),
+		pdasol.GetMCMRootMetadataPDA(mcmProgram, multisigID),
+		pdasol.GetMCMExpiringRootAndOpCountPDA(mcmProgram, multisigID),
 	).ValidateAndBuild()
 	if err != nil {
 		return fmt.Errorf("failed to build instruction: %w", err)
@@ -346,8 +348,8 @@ func initTimelock(b operations.Bundle, deps Deps, in InitTimelockInput) (InitTim
 		return out, fmt.Errorf("failed to get timelock state: %w", err)
 	}
 
-	if (timelockSeed != state.PDASeed{}) {
-		timelockConfigPDA := state.GetTimelockConfigPDA(timelockProgram, timelockSeed)
+	if (timelockSeed != sollegacy.PDASeed{}) {
+		timelockConfigPDA := pdasol.GetTimelockConfigPDA(timelockProgram, timelockSeed)
 		var timelockConfig timelockBindings.Config
 		err = deps.Chain.GetAccountDataBorshInto(b.GetContext(), timelockConfigPDA, &timelockConfig)
 		if err == nil {
@@ -368,7 +370,7 @@ func initTimelock(b operations.Bundle, deps Deps, in InitTimelockInput) (InitTim
 		return out, fmt.Errorf("failed to initialize timelock: %w", err)
 	}
 
-	timelockAddress := state.EncodeAddressWithSeed(programID, seed)
+	timelockAddress := sollegacy.EncodeAddressWithSeed(programID, seed)
 
 	err = deps.Datastore.Addresses().Add(datastore.AddressRef{
 		Address:       timelockAddress,
@@ -389,13 +391,13 @@ func initTimelock(b operations.Bundle, deps Deps, in InitTimelockInput) (InitTim
 }
 
 func initializeTimelock(b operations.Bundle, deps Deps, timelockProgram solana.PublicKey,
-	timelockID state.PDASeed, minDelay *big.Int) error {
+	timelockID sollegacy.PDASeed, minDelay *big.Int) error {
 	if minDelay == nil {
 		minDelay = big.NewInt(0)
 	}
 
 	var timelockConfig timelockBindings.Config
-	err := deps.Chain.GetAccountDataBorshInto(b.GetContext(), state.GetTimelockConfigPDA(timelockProgram, timelockID),
+	err := deps.Chain.GetAccountDataBorshInto(b.GetContext(), pdasol.GetTimelockConfigPDA(timelockProgram, timelockID),
 		&timelockConfig)
 	if err == nil {
 		b.Logger.Infow("Timelock already initialized, skipping initialization", "chain", deps.Chain.String())
@@ -420,7 +422,7 @@ func initializeTimelock(b operations.Bundle, deps Deps, timelockProgram solana.P
 	instruction, err := timelockBindings.NewInitializeInstruction(
 		timelockID,
 		minDelay.Uint64(),
-		state.GetTimelockConfigPDA(timelockProgram, timelockID),
+		pdasol.GetTimelockConfigPDA(timelockProgram, timelockID),
 		deps.Chain.DeployerKey.PublicKey(),
 		solana.SystemProgramID,
 		timelockProgram,
@@ -446,7 +448,7 @@ func initializeTimelock(b operations.Bundle, deps Deps, timelockProgram solana.P
 func addAccess(b operations.Bundle, deps Deps, in AddAccessInput) (AddAccessOutput, error) {
 	var out AddAccessOutput
 
-	timelockConfigPDA := state.GetTimelockConfigPDA(deps.State.TimelockProgram, deps.State.TimelockSeed)
+	timelockConfigPDA := pdasol.GetTimelockConfigPDA(deps.State.TimelockProgram, deps.State.TimelockSeed)
 
 	instructionBuilder := timelockBindings.NewBatchAddAccessInstruction([32]uint8(deps.State.TimelockSeed), in.Role,
 		timelockConfigPDA, deps.State.AccessControllerProgram, deps.State.RoleAccount(in.Role), deps.Chain.DeployerKey.PublicKey())
@@ -467,10 +469,10 @@ func addAccess(b operations.Bundle, deps Deps, in AddAccessInput) (AddAccessOutp
 	return out, nil
 }
 
-func randomSeed() state.PDASeed {
+func randomSeed() sollegacy.PDASeed {
 	const alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-	seed := state.PDASeed{}
+	seed := sollegacy.PDASeed{}
 	for i := range seed {
 		seed[i] = alphabet[rand.Intn(len(alphabet))]
 	}

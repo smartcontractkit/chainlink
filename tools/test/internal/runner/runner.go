@@ -148,11 +148,17 @@ func Diagnose(ctx context.Context, conf *config.App, out *output.Printer, goTest
 	}
 
 	if state.failedFast && !out.AIOutput() {
-		msg := "--fail-fast set, stopping early"
-		if state.failedFastReason != "" {
-			msg = fmt.Sprintf("fail-fast matched %s, stopping early", state.failedFastReason)
+		if state.failedFastReason == failFastReasonBuildFailure && state.failedFastIteration >= 0 {
+			iter := state.failedFastIteration + 1
+			out.HumanStderr(termstyle.Bad.Render(
+				fmt.Sprintf("Build failed — stopping diagnose run (iteration %d/%d).", iter, conf.Iterations)))
+		} else {
+			msg := "--fail-fast set, stopping early"
+			if state.failedFastReason != "" {
+				msg = fmt.Sprintf("fail-fast matched %s, stopping early", state.failedFastReason)
+			}
+			out.HumanStderr(termstyle.Accent.Render(msg))
 		}
-		out.HumanStderr(termstyle.Accent.Render(msg))
 	}
 
 	stopAnalyzing := startDiagnoseAnalyzingProgress(out, state.liveProgress)
@@ -164,6 +170,18 @@ func Diagnose(ctx context.Context, conf *config.App, out *output.Printer, goTest
 	if analyzeErr != nil {
 		out.Stderrf("analyze results: %v\n", analyzeErr)
 		return analyzeErr
+	}
+	if out.AIOutput() && state.failedFastReason == failFastReasonBuildFailure && state.failedFastIteration >= 0 {
+		var pkgs []string
+		if report != nil {
+			for _, sum := range report.IterationSummaries {
+				if sum.Index == state.failedFastIteration {
+					pkgs = append(pkgs, sum.FailingTests...)
+					break
+				}
+			}
+		}
+		out.Stderrf("bf_stop iter=%d pkgs=%s\n", state.failedFastIteration+1, strings.Join(pkgs, ","))
 	}
 	if report != nil {
 		for i, d := range state.iterDurations {

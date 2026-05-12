@@ -31,7 +31,7 @@ import (
 
 // migrateAddressBookWithQualifiers migrates an address book to a data store,
 // applying custom qualifiers from MCMS configs when available
-func migrateAddressBookWithQualifiers(ab cldf.AddressBook, cfgByChain map[uint64]types.MCMSWithTimelockConfigV2) (datastore.MutableDataStore, error) {
+func migrateAddressBookWithQualifiers(ab cldf.AddressBook, cfgByChain map[uint64]cldfproposalutils.MCMSWithTimelockConfig) (datastore.MutableDataStore, error) {
 	addrs, err := ab.Addresses()
 	if err != nil {
 		return nil, err
@@ -87,7 +87,7 @@ func isMCMSContract(contractType string) bool {
 }
 
 var (
-	_ cldf.ChangeSet[map[uint64]types.MCMSWithTimelockConfigV2] = DeployMCMSWithTimelockV2
+	_ cldf.ChangeSet[map[uint64]cldfproposalutils.MCMSWithTimelockConfig] = DeployMCMSWithTimelockV2
 
 	// GrantRoleInTimeLock grants proposer, canceller, bypasser, executor, admin roles to the timelock contract with corresponding addresses if the
 	// roles are not already set with the same addresses.
@@ -99,7 +99,7 @@ var (
 
 // DeployMCMSWithTimelockV2 deploys and initializes the MCM and Timelock contracts
 func DeployMCMSWithTimelockV2(
-	env cldf.Environment, cfgByChain map[uint64]types.MCMSWithTimelockConfigV2,
+	env cldf.Environment, cfgByChain map[uint64]cldfproposalutils.MCMSWithTimelockConfig,
 ) (cldf.ChangesetOutput, error) {
 	newAddresses := cldf.NewMemoryAddressBook()
 
@@ -170,7 +170,7 @@ func DeployMCMSWithTimelockV2(
 type GrantRoleInput struct {
 	ExistingProposerByChain map[uint64]common.Address // if needed in the future, need to add bypasser and canceller here
 	MCMS                    *proposalutils.TimelockConfig
-	GasBoostConfigPerChain  map[uint64]types.GasBoostConfig
+	GasBoostConfigPerChain  map[uint64]cldfproposalutils.GasBoostConfig
 }
 
 func grantRolePreconditions(e cldf.Environment, cfg GrantRoleInput) error {

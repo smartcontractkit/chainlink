@@ -6,9 +6,6 @@ concurrency:
     }}-deployments-tests
   cancel-in-progress: true
 
-env:
-  DEPLOYMENT_TEST_SHARD_COUNT: "7"
-
 # Run on key branches to make sure integration is good, otherwise run on all PR's
 on:
   push:
@@ -27,7 +24,6 @@ jobs:
     permissions:
       pull-requests: read
     outputs:
-      affected-modules: ${{ steps.changed-modules.outputs.modules-json }}
       # Runs on workflow changes, any deployment change, or any (non-ignored) core change
       should-run: >-
         ${{
@@ -100,25 +96,21 @@ jobs:
         continue-on-error: true
         with:
           file-sets: |
-            go-files:
+            included-files:
               - "**/*.go"
               - "**/go.mod"
               - "**/go.sum"
-            core-files:
               - "core/**"
-            core-test-files:
+              - "deployment/**"
+              - ".github/workflows/ci-deployments.yml"
+              - ".github/actions/**"
+              - "tools/bin/go_deployment_tests"
+            excluded-files:
               - "testdata/**"
               - "core/**/testdata/**"
               - "core/**/*_test.go"
-            e2e-tests-files:
               - "system-tests/**"
               - "integration-tests/**"
-            workflow-files:
-              - ".github/workflows/ci-deployments.yml"
-              - ".github/actions/**"
-            deployment-files:
-              - "deployment/**"
-            ignored-files:
               - "core/scripts/cre/environment/examples/workflows/**"
           # Note:
           # - for pull_request, merge_group, and push events, a trigger will resolve to true if any changed files match the path/glob patterns
@@ -126,93 +118,8 @@ jobs:
           # - by default these will resolve to true for schedule, and workflow_dispatch events
           triggers: |
             deployment-tests:
-              exclusion-sets: [ e2e-tests-files, core-test-files, ignored-files ]
-              inclusion-sets: [ go-files, core-files, deployment-files, workflow-files ]
-              paths:
-                - "tools/bin/go_deployment_tests"
-
-      - name: Changed modules
-        id: changed-modules
-        uses: smartcontractkit/.github/actions/changed-modules-go@changed-modules-go/v1
-        with:
-          # when scheduled/workflow_dispatch, run against all modules
-          no-change-behaviour: all
-          file-patterns: |
-            **/*.go
-            **/go.mod
-            **/go.sum
-          module-patterns: |
-            **
-            !core/scripts/cre/environment/examples/workflows/**
-
-  shard-matrices:
-    name: Build Shard Matrices
-    needs: [filter]
-    runs-on: ubuntu-latest
-    if: ${{ needs.filter.outputs.should-run == 'true' }}
-    permissions: {}
-    outputs:
-      deployment-test-matrix: ${{ steps.shard-matrices.outputs.deployment-test-matrix }}
-    steps:
-      - name: Build shard matrices
-        id: shard-matrices
-        shell: python
-        run: |
-          import json
-          import os
-
-          run_id = os.environ["GITHUB_RUN_ID"]
-
-          rows = []
-
-          def add_deployment_rows():
-              count = int(os.environ["DEPLOYMENT_TEST_SHARD_COUNT"])
-              for i in range(count):
-                  rows.append({
-                      "job-name": f"go_deployment_tests shard {i+1}/{count}",
-                      "os": f"runs-on={run_id}-deployment-{i}/cpu=8/ram=32/family=m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache",
-                      "shard-count": str(count),
-                      "shard-index": str(i),
-                      "run-timeout-minutes": "25",
-                      "logs-artifact-name": f"go_deployment_tests_logs_shard_{i+1}",
-                  })
-
-          add_deployment_rows()
-
-          matrix_json = json.dumps(rows)
-          print(f"deployment-test-matrix={matrix_json}")
-          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-              f.write(f"deployment-test-matrix={matrix_json}\n")
-
-  deployment-shard-consistency:
-    name: Check Deployment Test Sharding Consistency
-    needs: [filter]
-    if: ${{ github.actor != 'dependabot[bot]' }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-
-      - name: Setup Go
-        uses: ./.github/actions/setup-go
-        with:
-          go-version-file: deployment/go.mod
-          go-module-file: deployment/go.sum
-
-      - name: Download Go vendor packages
-        run: go mod download
-
-      - name: Verify deployment test sharding
-        shell: bash
-        run: |
-          (
-            cd deployment || exit 1
-            go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ./...
-          ) | go run ./tools/ci-testshard verify --shard-count "${DEPLOYMENT_TEST_SHARD_COUNT}"
+              exclusion-sets: [ excluded-files ]
+              inclusion-sets: [ included-files ]
 
   deployment-tests:
     env:
@@ -222,12 +129,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJson(needs.shard-matrices.outputs.deployment-test-matrix) }}
-    name: Deployment Tests (${{ matrix.job-name }})
-    if: ${{ github.actor != 'dependabot[bot]' }}
-    needs: [filter, shard-matrices, run-frequency]
+        shard-id: [1, 2, 3, 4, 5, 6, 7]
+    name: Deployment Tests (go_deployment_tests shard ${{ matrix.shard-id }}/${{ strategy.job-total }})
+    if: ${{ github.actor != 'dependabot[bot]' && needs.filter.outputs.should-run == 'true' }}
+    needs: [filter]
     timeout-minutes: 35
-    runs-on: ${{ matrix.os }}
+    runs-on: "runs-on=${{ github.run_id }}-deployment-${{ matrix.shard-id }}/cpu=8/ram=32/family=m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache"
+    outputs:
+      shard-count: ${{ strategy.job-total }}
     permissions:
       id-token: write
       contents: read
@@ -245,7 +154,7 @@ jobs:
         uses: ./.github/actions/setup-go
         with:
           restore-build-cache-only: false
-          build-cache-version: go_deployment_tests
+          build-cache-version: go_deployment_tests-${{ matrix.shard-id }}
           go-version-file: deployment/go.mod
           go-module-file: deployment/go.sum
       - name: Setup Solana
@@ -276,7 +185,7 @@ jobs:
       - name: Install LOOP Plugins
         run: make install-plugins
       - name: Run tests
-        timeout-minutes: ${{ fromJson(matrix.run-timeout-minutes) }}
+        timeout-minutes: 25
         continue-on-error: true
         id: run-tests
         shell: bash
@@ -287,8 +196,8 @@ jobs:
           TRUNK_AUTO_QUARANTINE: "true"
           RUN_QUARANTINED_TESTS: "true"
           JUNIT_FILE: ${{ github.workspace }}/junit.xml
-          GO_TEST_SHARD_COUNT: ${{ matrix.shard-count }}
-          GO_TEST_SHARD_INDEX: ${{ matrix.shard-index }}
+          GO_TEST_SHARD_COUNT: ${{ strategy.job-total }}
+          GO_TEST_SHARD_INDEX: ${{ strategy.job-index }}
         run: |
           GODEBUG=goindex=0 "./tools/bin/go_deployment_tests" ./...
           # See: https://github.com/golang/go/issues/69179
@@ -301,7 +210,7 @@ jobs:
           trunk-token: ${{ secrets.TRUNK_API_KEY }}
           trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
           trunk-upload-only: false
-          artifact-name: ${{ matrix.logs-artifact-name }}
+          artifact-name: "go_deployment_tests_logs_shard_${{ matrix.shard-id }}"
       - name: Print postgres logs
         if: ${{ always() }}
         uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/v1
@@ -311,7 +220,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.logs-artifact-name }}-always-logs
+          name: "go_deployment_tests_logs_shard_${{ matrix.shard-id }}_always"
           path: |
             ./deployment/coverage.txt
             ./postgres_logs.txt
@@ -324,7 +233,7 @@ jobs:
     # Do not modify this job name, it is used by branch protection rules
     name: Core Tests (go_core_deployment_tests)
     if: ${{ always() && github.actor != 'dependabot[bot]' && needs.filter.outputs.should-run == 'true' }}
-    needs: [filter, deployment-tests, deployment-shard-consistency]
+    needs: [filter, deployment-tests]
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -332,7 +241,7 @@ jobs:
     steps:
       - name: Check deployment shard results
         env:
-          EXPECTED_ROWS: ${{ env.DEPLOYMENT_TEST_SHARD_COUNT }}
+          EXPECTED_ROWS: ${{ needs.deployment-tests.outputs.shard-count }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           JOB_NAME_PREFIX: "Deployment Tests (go_deployment_tests shard "
         run: |
@@ -366,27 +275,3 @@ jobs:
               sys.exit(1)
           print("All deployment shards succeeded.")
           PY
-
-  run-frequency:
-    name: Run frequency
-    outputs:
-      one-per-day-frequency: ${{ steps.check-time.outputs.one-per-day-frequency || 'false' }}
-    runs-on: ubuntu-latest
-    permissions: {}
-    steps:
-      - name: Check time and set frequencies
-        id: check-time
-        shell: bash
-        run: |
-          if [ "$GITHUB_EVENT_NAME" != "schedule" ]; then
-            # Not a scheduled event - no frequencies to set. They default to false.
-            exit 0
-          fi
-
-          # Scheduled event, check current time for frequencies
-          current_hour=$(date +"%H")
-
-          # Check if the current hour is 00 (one per day)
-          if [ "$current_hour" -eq "00" ]; then
-            echo "one-per-day-frequency=true" | tee -a "$GITHUB_OUTPUT"
-          fi

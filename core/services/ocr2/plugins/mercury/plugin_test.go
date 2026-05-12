@@ -23,7 +23,6 @@ import (
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	v4 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/types"
-	"github.com/smartcontractkit/chainlink-data-streams/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -91,7 +90,7 @@ var (
 func TestNewServices(t *testing.T) {
 	type args struct {
 		pluginConfig job.JSONConfig
-		feedID       utils.FeedID
+		feedID       mercury.FeedID
 		cfg          mercuryocr2.Config
 	}
 	testCases := []struct {
@@ -227,7 +226,7 @@ func TestNewServices(t *testing.T) {
 		prodCfg := mercuryocr2.NewMercuryConfig(1, 1, loopRegistrarConfig)
 		type args struct {
 			pluginConfig job.JSONConfig
-			feedID       utils.FeedID
+			feedID       mercury.FeedID
 			cfg          mercuryocr2.Config
 		}
 		testCases := []struct {
@@ -296,7 +295,7 @@ func TestNewServices(t *testing.T) {
 
 // we are only varying the version via feedID (and the plugin config)
 // this wrapper supplies dummy values for the rest of the arguments
-func newServicesTestWrapper(t *testing.T, pluginConfig job.JSONConfig, feedID utils.FeedID, cfg mercuryocr2.Config) ([]job.ServiceCtx, error) {
+func newServicesTestWrapper(t *testing.T, pluginConfig job.JSONConfig, feedID mercury.FeedID, cfg mercuryocr2.Config) ([]job.ServiceCtx, error) {
 	t.Helper()
 	jb := testJob
 	jb.OCR2OracleSpec.PluginConfig = pluginConfig
