@@ -42,28 +42,28 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260415165642-49f23e4d76cc
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260415165642-49f23e4d76cc
 	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260504204047-af9826978b72
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260507124402-5637bdfdf811
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260511163550-f55b0441dfd3
 	github.com/smartcontractkit/chainlink-common/keystore v1.1.0
-	github.com/smartcontractkit/chainlink-deployments-framework v0.100.0
+	github.com/smartcontractkit/chainlink-deployments-framework v0.101.0
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260507171202-46e6a397da2d
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260403151002-2c91155b5501
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260421142741-9c7fbaf7c828
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260505131349-78e491b80735
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.18.0
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.10.0
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260506142558-6d6e28042110
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260511210120-d8089350d729
 	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260421131224-c46cbfe7bc6c
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260429183453-39df0198aed8
 	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260427132612-76b9f754a556
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.15.19
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20260423161209-5ce1dba9785e
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20260423161209-5ce1dba9785e
-	github.com/smartcontractkit/cld-changesets v0.0.0-20260427210718-b873c54e8d22
+	github.com/smartcontractkit/chainlink-ton v1.0.5-0.20260430134932-681b7a7fe426
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20260430134932-681b7a7fe426
+	github.com/smartcontractkit/cld-changesets v0.3.1-0.20260511171704-b04f4d990849
 	github.com/smartcontractkit/freeport v0.1.3-0.20250828155247-add56fa28aad
 	github.com/smartcontractkit/libocr v0.0.0-20260403184524-b6409238958d
 	github.com/smartcontractkit/mcms v0.41.1
-	github.com/smartcontractkit/quarantine v0.0.0-20250909213106-ece491bef618
+	github.com/smartcontractkit/quarantine v0.0.0-20251203215908-fd0551c6adf9
 	github.com/smartcontractkit/smdkg v0.0.0-20251029093710-c38905e58aeb
 	github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945
 	github.com/spf13/cast v1.10.0
@@ -103,7 +103,7 @@ require (
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/99designs/keyring v1.2.1 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
-	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
+	github.com/Azure/go-ntlmssp v0.1.1 // indirect
 	github.com/DataDog/zstd v1.5.6 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
@@ -420,7 +420,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20260408145530-22e2d05695cd // indirect
 	github.com/smartcontractkit/chainlink-ccv v0.0.2-0.20260428133800-3b1484e8b1fd // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.10 // indirect
-	github.com/smartcontractkit/chainlink-data-streams v0.1.14-0.20260504075031-e5aae8c82e91 // indirect
+	github.com/smartcontractkit/chainlink-data-streams v0.1.14-0.20260511174456-27c482950e2e // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
 	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20260423135514-5b1a7565a99c // indirect
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20260423135514-5b1a7565a99c // indirect

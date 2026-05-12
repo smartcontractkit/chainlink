@@ -12,6 +12,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/pelletier/go-toml"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
@@ -20,7 +21,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
@@ -345,7 +345,7 @@ func (c IDLConfig) Validate(e cldf.Environment) error {
 	if err != nil {
 		return fmt.Errorf("failed to get existing addresses: %w", err)
 	}
-	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(e.BlockChains.SolanaChains()[c.ChainSelector], addresses)
+	mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(e.BlockChains.SolanaChains()[c.ChainSelector], addresses)
 	if err != nil {
 		return fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}
@@ -414,7 +414,7 @@ func UploadIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 	}
-	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(e.BlockChains.SolanaChains()[c.ChainSelector], addresses)
+	mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(e.BlockChains.SolanaChains()[c.ChainSelector], addresses)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}
@@ -498,7 +498,7 @@ func SetAuthorityIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, err
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 	}
-	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}
@@ -600,7 +600,7 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 	}
-	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}

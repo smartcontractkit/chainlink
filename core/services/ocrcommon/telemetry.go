@@ -15,11 +15,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	v1types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
 	v2types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
 	v3types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	v4types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
-	mercuryutils "github.com/smartcontractkit/chainlink-data-streams/mercury/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -56,7 +56,7 @@ type EnhancedTelemetryMercuryData struct {
 	V4Observation                *v4types.Observation
 	TaskRunResults               pipeline.TaskRunResults
 	RepTimestamp                 ocrtypes.ReportTimestamp
-	FeedVersion                  mercuryutils.FeedVersion
+	FeedVersion                  mercury.FeedVersion
 	FetchMaxFinalizedTimestamp   bool
 	IsLinkFeed                   bool
 	IsNativeFeed                 bool
@@ -154,7 +154,7 @@ func (e *EnhancedTelemetryService[T]) getChainID() string {
 	}
 }
 
-func ParseMercuryEATelemetry(lggr logger.Logger, trrs pipeline.TaskRunResults, feedVersion mercuryutils.FeedVersion) (eaTelemetryValues []EATelemetry) {
+func ParseMercuryEATelemetry(lggr logger.Logger, trrs pipeline.TaskRunResults, feedVersion mercury.FeedVersion) (eaTelemetryValues []EATelemetry) {
 	for _, trr := range trrs {
 		if trr.Task.Type() != pipeline.TaskTypeBridge {
 			continue
@@ -502,7 +502,7 @@ type bridgeRequestData struct {
 }
 
 // parseRequestData parses the requestData of the bridge.
-func parseBridgeRequestData(requestData string, mercuryVersion mercuryutils.FeedVersion) bridgeRequestData {
+func parseBridgeRequestData(requestData string, mercuryVersion mercury.FeedVersion) bridgeRequestData {
 	type reqDataPayload struct {
 		Endpoint *string `json:"endpoint"`
 		To       *string `json:"to"`
@@ -553,7 +553,7 @@ const (
 	exchangeRate = "exchangeRate"
 )
 
-func getPricesFromBridgeTask(lggr logger.Logger, bridgeTask pipeline.TaskRunResult, allTasks pipeline.TaskRunResults, mercuryVersion mercuryutils.FeedVersion) (float64, float64, float64) {
+func getPricesFromBridgeTask(lggr logger.Logger, bridgeTask pipeline.TaskRunResult, allTasks pipeline.TaskRunResults, mercuryVersion mercury.FeedVersion) (float64, float64, float64) {
 	var benchmarkPrice, bidPrice, askPrice float64
 
 	// This will assume that all fields we care about are tagged with the correct priceType
@@ -635,7 +635,7 @@ func parsePriceFromTask(lggr logger.Logger, trr pipeline.TaskRunResult) float64 
 
 // getPricesFromResultsByOrder parses the pipeline.TaskRunResults for pipeline.TaskTypeJSONParse and gets the benchmarkPrice,
 // bid and ask. This functions expects the pipeline.TaskRunResults to be correctly ordered
-func getPricesFromResultsByOrder(lggr logger.Logger, startTask pipeline.TaskRunResult, allTasks pipeline.TaskRunResults, mercuryVersion mercuryutils.FeedVersion) (float64, float64, float64) {
+func getPricesFromResultsByOrder(lggr logger.Logger, startTask pipeline.TaskRunResult, allTasks pipeline.TaskRunResults, mercuryVersion mercury.FeedVersion) (float64, float64, float64) {
 	var benchmarkPrice, askPrice, bidPrice float64
 
 	// We rely on task results to be sorted in the correct order

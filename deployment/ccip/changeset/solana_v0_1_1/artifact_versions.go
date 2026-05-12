@@ -2,6 +2,8 @@ package solana
 
 // Mapping between Semver Tags and commit SHA from chainlink-ccip repository for Solana Contracts.
 // Source tags (GitHub releases):
+// - solana-v1.6.2
+// - solana-v1.6.1
 // - solana-v1.6.0
 // - solana-v0.1.2
 // - solana-v0.1.1-cctp
@@ -11,6 +13,7 @@ package solana
 // Public version constants.
 const (
 	// Versions for Chainlink CCIP Solana contracts
+	VersionSolanaV1_6_2           = "solana-v1.6.2"
 	VersionSolanaV1_6_1           = "solana-v1.6.1"
 	VersionSolanaV1_6_0           = "solana-v1.6.0"
 	VersionSolanaV0_1_2           = "solana-v0.1.2"
@@ -21,6 +24,7 @@ const (
 
 // VersionToShortCommitSHA maps a version tag to its corresponding short commit SHA.
 var VersionToShortCommitSHA = map[string]string{
+	VersionSolanaV1_6_2:           "9546a59bd0a3",
 	VersionSolanaV1_6_1:           "cb23ec38649f",
 	VersionSolanaV1_6_0:           "d0d81df31957",
 	VersionSolanaV0_1_2:           "b96a80a69ad2",
@@ -30,6 +34,7 @@ var VersionToShortCommitSHA = map[string]string{
 }
 
 var VersionToFullCommitSHA = map[string]string{
+	VersionSolanaV1_6_2:           "9546a59bd0a3cee4ddc8ae4042da533e62225b78",
 	VersionSolanaV1_6_1:           "cb23ec38649f9d23aabd0350e30d3d649ebc2174",
 	VersionSolanaV1_6_0:           "d0d81df3195728091cad1b0569a2980201a92e97",
 	VersionSolanaV0_1_2:           "b96a80a69ad2696c48d645d0cf7807fd02a212c8",

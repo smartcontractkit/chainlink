@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	"github.com/spf13/cast"
 
 	bindings "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"

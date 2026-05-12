@@ -16,15 +16,18 @@ func TestNewStartUpHealthReport(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
 	ibhr := services.NewStartUpHealthReport(1234, lggr)
 
-	ibhr.Start()
-	require.Eventually(t, func() bool { return observed.Len() >= 1 }, time.Second*5, time.Millisecond*100)
-	require.Equal(t, "Starting StartUpHealthReport", observed.TakeAll()[0].Message)
+	func() {
+		ibhr.Start()
+		defer ibhr.Stop()
+		require.Eventually(t, func() bool { return observed.Len() >= 1 }, time.Second*5, time.Millisecond*100)
+		require.Equal(t, "Starting StartUpHealthReport", observed.TakeAll()[0].Message)
 
-	req, err := http.NewRequestWithContext(t.Context(), "GET", "http://localhost:1234/health", nil)
-	require.NoError(t, err)
-	res, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	require.Equal(t, http.StatusNoContent, res.StatusCode)
+		req, err := http.NewRequestWithContext(t.Context(), "GET", "http://localhost:1234/health", nil)
+		require.NoError(t, err)
+		res, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusNoContent, res.StatusCode)
+	}()
 
 	ibhr.Stop()
 	require.Eventually(t, func() bool { return observed.Len() >= 1 }, time.Second*5, time.Millisecond*100)

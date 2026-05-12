@@ -54,6 +54,8 @@ type dispatcherMetrics struct {
 	unknownCapMsgsCounter       metric.Int64Counter
 	receiveChannelUsageGauge    metric.Float64Gauge
 	receiverDroppedMsgsCounter  metric.Int64Counter
+	messagesSentCounter         metric.Int64Counter
+	sendErrorsCounter           metric.Int64Counter
 }
 
 var _ types.Dispatcher = &dispatcher{}
@@ -118,6 +120,14 @@ func (d *dispatcher) initMetrics() error {
 	d.metrics.receiverDroppedMsgsCounter, err = beholder.GetMeter().Int64Counter("platform_don2don_dispatcher_receiver_dropped_msgs_total")
 	if err != nil {
 		return fmt.Errorf("failed to register platform_don2don_dispatcher_receiver_dropped_msgs_total: %w", err)
+	}
+	d.metrics.messagesSentCounter, err = beholder.GetMeter().Int64Counter("platform_don2don_dispatcher_messages_sent_total")
+	if err != nil {
+		return fmt.Errorf("failed to register platform_don2don_dispatcher_messages_sent_total: %w", err)
+	}
+	d.metrics.sendErrorsCounter, err = beholder.GetMeter().Int64Counter("platform_don2don_dispatcher_send_errors_total")
+	if err != nil {
+		return fmt.Errorf("failed to register platform_don2don_dispatcher_send_errors_total: %w", err)
 	}
 	return nil
 }
@@ -247,13 +257,25 @@ func (d *dispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) er
 	if err != nil {
 		return err
 	}
+
+	var sendErr error
 	if d.cfg.SendToSharedPeer() {
-		return d.don2donSharedPeer.Send(peerID, rawMsg)
+		sendErr = d.don2donSharedPeer.Send(peerID, rawMsg)
+	} else if d.peer != nil {
+		sendErr = d.peer.Send(peerID, rawMsg)
+	} else {
+		sendErr = errors.New("no peer available to send message")
 	}
-	if d.peer != nil {
-		return d.peer.Send(peerID, rawMsg)
+
+	ctx, cancel := d.stopCh.NewCtx()
+	defer cancel()
+	methodAttr := attribute.String("method", msgBody.Method)
+	if sendErr != nil {
+		d.metrics.sendErrorsCounter.Add(ctx, 1, metric.WithAttributes(methodAttr))
+		return sendErr
 	}
-	return errors.New("no peer available to send message")
+	d.metrics.messagesSentCounter.Add(ctx, 1, metric.WithAttributes(methodAttr))
+	return nil
 }
 
 func (d *dispatcher) receive() {

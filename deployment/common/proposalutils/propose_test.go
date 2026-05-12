@@ -10,6 +10,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	"github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	"github.com/smartcontractkit/mcms/sdk/solana"
@@ -28,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
@@ -79,7 +79,7 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 
 	addrs, err = rt.State().AddressBook.AddressesForChain(solSelector)
 	require.NoError(t, err)
-	solState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addrs)
+	solState, err := solstate.MaybeLoadMCMSWithTimelockChainState(solChain, addrs)
 	require.NoError(t, err)
 
 	timelockAddressPerChain := map[uint64]string{

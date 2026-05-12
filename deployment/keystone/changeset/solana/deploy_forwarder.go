@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	"github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
@@ -19,7 +20,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -243,7 +244,7 @@ func (cs ConfigureForwarders) VerifyPreconditions(env cldf.Environment, req *Con
 				return fmt.Errorf("failed get fowarder for chain selector %d: %w", sel, err)
 			}
 			if req.MCMS != nil {
-				_, err = commonstate.MaybeLoadMCMSWithTimelockChainStateSolanaV2(env.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(sel)))
+				_, err = solstate.MaybeLoadMCMSWithTimelockChainStateV2(env.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(sel)))
 				if err != nil {
 					return fmt.Errorf("failed to load MCMS for chain selector %d: %w", sel, err)
 				}
@@ -292,7 +293,7 @@ func (cs ConfigureForwarders) Apply(env cldf.Environment, req *ConfigureForwarde
 		solChain := env.BlockChains.SolanaChains()[chainSel]
 
 		addresses := env.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(chainSel))
-		mcmState, _ := commonstate.MaybeLoadMCMSWithTimelockChainStateSolanaV2(addresses)
+		mcmState, _ := solstate.MaybeLoadMCMSWithTimelockChainStateV2(addresses)
 		if mcmState.TimelockProgram.IsZero() {
 			return cldf.ChangesetOutput{}, errors.New("timelock is not found")
 		}
