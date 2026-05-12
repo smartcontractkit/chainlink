@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -705,7 +706,7 @@ func (s *share) encryptWithKey(pk string) (string, error) {
 		return "", fmt.Errorf("failed to encrypt decryption share: %w", err)
 	}
 
-	return hex.EncodeToString(encrypted), nil
+	return vaultutils.EncryptedDecryptionShareB64Prefix + base64.StdEncoding.EncodeToString(encrypted), nil
 }
 
 func generatePlaintextShare(publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2easy.PrivateShare, encryptedSecret []byte, workflowOwner string, orgID string) (*share, error) {

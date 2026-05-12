@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
@@ -455,9 +456,9 @@ func (s *secretsFetcher) decryptSecret(lggr logger.Logger, encryptedSecretBytes 
 
 	decryptionShares := make([]*tdh2easy.DecryptionShare, 0, len(encryptedDecryptionShares))
 	for i, encryptedDecryptionShare := range encryptedDecryptionShares {
-		encryptedDecryptionShareBytes, err := hex.DecodeString(encryptedDecryptionShare)
+		encryptedDecryptionShareBytes, err := vaultutils.DecodeEncryptedDecryptionShareString(encryptedDecryptionShare)
 		if err != nil {
-			lggr.Debugw("failed to hex decode the encryptedDecryptionShare", "index", i)
+			lggr.Debugw("failed to decode the encryptedDecryptionShare", "index", i, "error", err)
 			continue
 		}
 		decryptionShareBytes, err := s.workflowEncryptionKey.Decrypt(encryptedDecryptionShareBytes)

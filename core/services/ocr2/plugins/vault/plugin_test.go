@@ -1331,7 +1331,7 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 	assert.Len(t, resp.GetData().EncryptedDecryptionKeyShares, 1)
 	shareString := resp.GetData().EncryptedDecryptionKeyShares[0].Shares[0]
 
-	share, err := hex.DecodeString(shareString)
+	share, err := vaultutils.DecodeEncryptedDecryptionShareString(shareString)
 	require.NoError(t, err)
 	msg, ok := box.OpenAnonymous(nil, share, pubK, privK)
 	assert.True(t, ok)
@@ -2226,7 +2226,7 @@ func makeEncryptedShares(t *testing.T, ciphertext *tdh2easy.Ciphertext, privateS
 		require.NoError(t, err)
 		result[i] = &vaultcommon.EncryptedShares{
 			EncryptionKey: pk,
-			Shares:        []string{base64.StdEncoding.EncodeToString(encrypted)},
+			Shares:        []string{vaultutils.EncryptedDecryptionShareB64Prefix + base64.StdEncoding.EncodeToString(encrypted)},
 		}
 	}
 	return result

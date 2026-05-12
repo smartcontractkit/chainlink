@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/teeattestation/nitro"
 
 	vaulttypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
 
 var _ core.GatewayConnectorHandler = (*Handler)(nil)
@@ -328,7 +329,8 @@ func (h *Handler) resolveDONID(ctx context.Context, capability capabilities.Exec
 }
 
 // translateVaultResponse converts a vault GetSecretsResponse to the enclave relay protocol format.
-// Encoding conversion: hex (vault) -> base64 (enclave relay).
+// Encoding conversion: ciphertext hex (vault) -> base64 (enclave relay); encrypted shares may be
+// hex or b64-prefixed base64 (vault) -> base64 (enclave relay).
 func translateVaultResponse(vaultResp *vault.GetSecretsResponse, enclaveKey string) (*confidentialrelaytypes.SecretsResponseResult, error) {
 	result := &confidentialrelaytypes.SecretsResponseResult{}
 
@@ -351,7 +353,7 @@ func translateVaultResponse(vaultResp *vault.GetSecretsResponse, enclaveKey stri
 		for _, es := range data.EncryptedDecryptionKeyShares {
 			if es.EncryptionKey == enclaveKey {
 				for _, share := range es.Shares {
-					shareBytes, err := hex.DecodeString(share)
+					shareBytes, err := vaultutils.DecodeEncryptedDecryptionShareString(share)
 					if err != nil {
 						return nil, fmt.Errorf("failed to decode share: %w", err)
 					}
