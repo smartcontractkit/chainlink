@@ -809,12 +809,6 @@ If you want to use both together start ChIP Ingress on a different port with '--
 		return errors.Wrap(topicsErr, "failed to create topics")
 	}
 
-	if out.ChipIngress != nil && out.ChipIngress.GRPCExternalURL != "" {
-		if regErr := registerChipDemoLoadTestSchema(cmdContext, out.ChipIngress.GRPCExternalURL); regErr != nil {
-			framework.L.Warn().Err(regErr).Msg("chip-demo schema registration failed (durable emitter load tests with CHIP_INGRESS_TEST_ADDR may not drain until this succeeds; check Chip / auth)")
-		}
-	}
-
 	fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("Created topics in %.2f seconds", stageGen.Elapsed().Seconds())))
 
 	for _, topic := range in.Kafka.Topics {
