@@ -131,7 +131,7 @@ chainlink admin login --file tools/clroot/apicredentials
 number=${#CONTRACT_ADDRESSES[@]}
 echo "Adding jobs..."
 time {
-  for (( i=1; i<$number; i++ )) do
+  for (( i=1; i<number; i++ )) do
     job_spec=`make_spec $i`
     chainlink jobs create "$job_spec"
   done
@@ -140,7 +140,7 @@ time {
 
 echo "Deleting jobs..."
 time {
-  for (( i=1; i<$number; i++ )) do
+  for (( i=1; i<number; i++ )) do
     chainlink jobs delete $i
   done
 }
