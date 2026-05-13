@@ -180,9 +180,9 @@ func WithAdditionalSources(sources []AdditionalSourceConfig) Option {
 
 		for _, src := range sources {
 			// Detect source type by URL scheme
-			if strings.HasPrefix(src.URL, "file://") {
+			if after, ok := strings.CutPrefix(src.URL, "file://"); ok {
 				// File source - extract path from file:// URL
-				filePath := strings.TrimPrefix(src.URL, "file://")
+				filePath := after
 				fileSource, err := NewFileWorkflowSourceWithPath(wr.lggr, src.Name, filePath)
 				if err != nil {
 					wr.lggr.Errorw("Failed to create file workflow source",
@@ -343,9 +343,7 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 		ctx, cancel := w.stopCh.NewCtx()
 		initDoneCh := make(chan struct{})
 
-		w.wg.Add(1)
-		go func() {
-			defer w.wg.Done()
+		w.wg.Go(func() {
 			defer w.lggr.Debugw("Successfully set ContractReader")
 			defer close(initDoneCh)
 
@@ -367,11 +365,9 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 					w.contractReader = reader
 				}
 			}
-		}()
+		})
 
-		w.wg.Add(1)
-		go func() {
-			defer w.wg.Done()
+		w.wg.Go(func() {
 			defer cancel()
 			// Start goroutines to gather changes from Workflow Registry contract
 			select {
@@ -386,11 +382,9 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 				return
 			}
 			w.syncUsingReconciliationStrategy(ctx)
-		}()
+		})
 
-		w.wg.Add(1)
-		go func() {
-			defer w.wg.Done()
+		w.wg.Go(func() {
 			defer cancel()
 			// Start goroutines to gather allowlisted requests from Workflow Registry contract
 			select {
@@ -399,7 +393,7 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 				return
 			}
 			w.syncAllowlistedRequests(ctx)
-		}()
+		})
 
 		return w.handler.Start(ctx)
 	})
@@ -1068,7 +1062,7 @@ func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractR
 			ctx, readIdentifier, primitives.Unconfirmed, params, &response,
 		)
 		if err != nil {
-			return []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}, w.lastSeenAllowlistedRequestsCount, &types.Head{Height: "0"}, errors.New("failed to get lastest value with head data. error: " + err.Error())
+			return []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}, w.lastSeenAllowlistedRequestsCount, &types.Head{Height: "0"}, errors.New("failed to get latest value with head data. error: " + err.Error())
 		}
 
 		w.lggr.Debugw("contract call response",

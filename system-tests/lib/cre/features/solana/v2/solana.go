@@ -1,4 +1,4 @@
-package solana
+package v2
 
 import (
 	"bytes"

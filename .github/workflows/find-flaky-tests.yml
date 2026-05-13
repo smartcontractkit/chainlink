@@ -1,0 +1,57 @@
+name: Find Flaky Tests
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+    inputs:
+      dir:
+        description: The directory to find flaky tests in (core/services/...)
+        required: true
+        type: string
+        default: "./core/..."
+      iterations:
+        description: The number of iterations to run the tests for
+        required: true
+        type: number
+        default: 20 # Should take 3.3 hours max
+      parallel_iterations:
+        description: The number of iterations to run in parallel
+        required: false
+        type: number
+        default: 1
+
+permissions:
+  contents: read
+
+env:
+  ITERATIONS: ${{ inputs.iterations || 20 }}
+  PARALLEL_ITERATIONS: ${{ inputs.parallel_iterations || 1 }}
+  DIR: ${{ inputs.dir || './core/...' }}
+
+jobs:
+  find-flaky-tests:
+    name: Find Flaky Tests
+    runs-on: runs-on=${{ github.run_id
+      }}-diagnose/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+    timeout-minutes: 270 # 4.5 hours
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          repository: smartcontractkit/chainlink
+          ref: ${{ github.sha }}
+      - name: Enable S3 Cache for Self-Hosted Runners
+        uses: runs-on/action@d141ef83eb66d096ce8afc767e09115a65c63b60 # v2.1.2
+        with:
+          metrics: cpu,network,memory,disk
+      - name: Run `diagnose`
+        run: |
+          go -C tools/test run . diagnose --iterations "${ITERATIONS}" --parallel-iterations "${PARALLEL_ITERATIONS}" -- "${DIR}"
+      - name: Upload Results
+        uses: actions/upload-artifact@v7
+        with:
+          name: flaky-tests-results
+          path: ./diagnose-*
+          if-no-files-found: error

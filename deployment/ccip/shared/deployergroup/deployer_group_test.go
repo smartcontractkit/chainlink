@@ -12,6 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -25,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 type mintConfig struct {
@@ -315,7 +317,7 @@ func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
 	}
 	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2), testhelpers.WithPrerequisiteDeploymentOnly(nil))
 
-	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
+	mcmsCfg := make(map[uint64]cldfproposalutils.MCMSWithTimelockConfig)
 	chain := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[selectorIndex]
 
 	// update the test config to include the qualifier for the selected chain
@@ -323,7 +325,7 @@ func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
 		chain: linktokenOwnerQualifier,
 	}
 	// Create a MCMS config for deployment with qualifier for the selected chain
-	cfg := proposalutils.SingleGroupTimelockConfigV2(t)
+	cfg := cldftesthelpers.SingleGroupTimelockConfig(t)
 	cfg.Qualifier = ptr.To(linktokenOwnerQualifier)
 	mcmsCfg[chain] = cfg
 

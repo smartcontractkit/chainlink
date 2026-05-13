@@ -104,12 +104,24 @@ func ensure(ctx context.Context, conf *config.App, out *output.Printer, setGloba
 		}
 	}()
 
+	// Turned off some prod-protections to make postgres go brrr
+	// https://github.com/peterldowns/pgtestdb#how-do-i-make-it-go-faster
 	c, err := postgres.Run(ctx,
 		fmt.Sprintf("docker.io/postgres:%s-alpine", conf.PostgresVersion),
 		postgres.WithDatabase("chainlink_test"),
 		postgres.WithUsername("postgres"),
 		postgres.WithPassword("postgres"),
-		testcontainers.WithCmdArgs("-c", "max_connections=1000"),
+		testcontainers.WithCmdArgs(
+			"-c", "max_connections=1000",
+			"-c", "shared_buffers=128MB",
+			"-c", "fsync=off",
+			"-c", "synchronous_commit=off",
+			"-c", "full_page_writes=off",
+			"-c", "client_min_messages=warning",
+		),
+		testcontainers.WithTmpfs(map[string]string{
+			"/var/lib/postgresql/data": "rw",
+		}),
 		testcontainers.WithWaitStrategy(
 			wait.ForLog("database system is ready to accept connections").
 				WithOccurrence(2).
@@ -375,15 +387,18 @@ func (h *Handle) DumpDiagnostics(ctx context.Context, dir string, iteration int)
 		exitCode, out, execErr := h.container.Exec(ctx,
 			[]string{"psql", "-U", "postgres", "-d", "chainlink_test", "-P", "pager=off", "-c", q.sql},
 		)
-		switch {
-		case execErr != nil:
-			fmt.Fprintf(f, "error: %v\n", execErr)
-		case exitCode != 0:
+		if execErr != nil {
+			fmt.Fprintf(f, "error: %v\n```\n\n", execErr)
+			continue
+		}
+		if exitCode != 0 {
 			fmt.Fprintf(f, "psql exit %d\n", exitCode)
 		}
-		_, err = io.Copy(f, out)
-		if err != nil {
-			return fmt.Errorf("copy output: %w", err)
+		if out != nil {
+			_, err = io.Copy(f, out)
+			if err != nil {
+				return fmt.Errorf("copy output: %w", err)
+			}
 		}
 		fmt.Fprint(f, "```\n\n")
 	}

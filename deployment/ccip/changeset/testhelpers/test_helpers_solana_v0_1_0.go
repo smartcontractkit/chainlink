@@ -28,6 +28,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
 	cldlegacysolmcms "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
@@ -2448,7 +2450,7 @@ func TransferOwnershipSolanaV0_1_0(
 		*e, _, err = commoncs.ApplyChangesets(t, *e, []commoncs.ConfiguredChangeSet{
 			commoncs.Configure(
 				cldf.CreateLegacyChangeSet(commoncs.DeployMCMSWithTimelockV2),
-				map[uint64]commontypes.MCMSWithTimelockConfigV2{
+				map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 					solSelector: {
 						Canceller:        cldftesthelpers.SingleGroupMCMS(t),
 						Proposer:         cldftesthelpers.SingleGroupMCMS(t),

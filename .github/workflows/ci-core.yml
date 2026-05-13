@@ -153,6 +153,7 @@ jobs:
             **/*.go
             **/go.mod
             **/go.sum
+            **/.golangci.yml
           module-patterns: |
             **
             !core/scripts/cre/environment/examples/workflows/**
@@ -196,8 +197,7 @@ jobs:
 
       - name: Notify Slack
         # Skip for now as it's always failing on scheduled runs
-        if: false
-        # if: ${{ failure() && needs.run-frequency.outputs.one-per-day-frequency == 'true' }}
+        if: ${{ failure() && needs.run-frequency.outputs.one-per-day-frequency == 'true' && 'false' == 'true' }}
         uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
         with:
           method: chat.postMessage
@@ -365,6 +365,7 @@ jobs:
         with:
           tmpfs: "true"
           image-tag: "16-alpine"
+          postgres-options: "-c max_connections=1000 -c shared_buffers=2GB -c fsync=off -c synchronous_commit=off -c full_page_writes=off -c client_min_messages=warning" # Turn off some prod-protections to make postgres go brrr. https://github.com/peterldowns/pgtestdb#how-do-i-make-it-go-faster
 
       - name: Touching core/web/assets/index.html
         if: ${{ matrix.type.should-run == 'true' }}
@@ -435,7 +436,7 @@ jobs:
           GH_RUN_ID: ${{ github.run_id }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          find race.* | xargs cat >> races.txt
+          find . -name 'race.*' -type f -exec cat {} + >> races.txt
           if [[ -s races.txt ]]; then
             cat races.txt
             echo "post_to_slack=true" | tee -a "$GITHUB_OUTPUT"
@@ -533,8 +534,8 @@ jobs:
           core_artifact="go_core_tests_logs"
           if [ -d "$core_artifact" ]; then
             echo "Found $core_artifact"
-            sonarqube_coverage_report_paths=$(find "$core_artifact" -name coverage.txt | paste -sd "," -)
-            sonarqube_tests_report_paths=$(find "$core_artifact" -name output.txt | paste -sd "," -)
+            sonarqube_coverage_report_paths=$(find "./${core_artifact}" -name coverage.txt | paste -sd "," -)
+            sonarqube_tests_report_paths=$(find "./${core_artifact}" -name output.txt | paste -sd "," -)
             echo "Coverage report paths: $sonarqube_coverage_report_paths"
             echo "Tests report paths: $sonarqube_tests_report_paths"
           else
@@ -547,8 +548,8 @@ jobs:
           integration_tests_artifact="go_core_tests_integration_logs"
           if [ -d "$integration_tests_artifact" ]; then
             echo "Found $integration_tests_artifact"
-            integration_coverage_paths=$(find "$integration_tests_artifact" -name coverage.txt | paste -sd "," -)
-            integration_tests_paths=$(find "$integration_tests_artifact" -name output.txt | paste -sd "," -)
+            integration_coverage_paths=$(find "./${integration_tests_artifact}" -name coverage.txt | paste -sd "," -)
+            integration_tests_paths=$(find "./${integration_tests_artifact}" -name output.txt | paste -sd "," -)
 
             # Append to existing paths if they are set, otherwise assign directly
             sonarqube_coverage_report_paths="${sonarqube_coverage_report_paths:+$sonarqube_coverage_report_paths,}$integration_coverage_paths"
@@ -559,8 +560,8 @@ jobs:
           scripts_tests_artifact="go_core_scripts_tests_logs"
           if [ -d "$scripts_tests_artifact" ]; then
               echo "Found $scripts_tests_artifact"
-              scripts_coverage_paths=$(find "$scripts_tests_artifact" -name coverage.txt | paste -sd "," -)
-              scripts_tests_paths=$(find "$scripts_tests_artifact" -name output.txt | paste -sd "," -)
+              scripts_coverage_paths=$(find "./${scripts_tests_artifact}" -name coverage.txt | paste -sd "," -)
+              scripts_tests_paths=$(find "./${scripts_tests_artifact}" -name output.txt | paste -sd "," -)
 
               # Append to existing paths if they are set, otherwise assign directly
               sonarqube_coverage_report_paths="${sonarqube_coverage_report_paths:+$sonarqube_coverage_report_paths,}$scripts_coverage_paths"

@@ -1,4 +1,4 @@
-package consensus
+package v2
 
 import (
 	"bytes"

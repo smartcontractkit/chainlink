@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -236,9 +237,9 @@ func TestNewOwnableV2(t *testing.T) {
 	require.NoError(t, err)
 
 	// Deploy the capability registry
-	mcmsCfg := make(map[uint64]types.MCMSWithTimelockConfigV2)
+	mcmsCfg := make(map[uint64]cldfproposalutils.MCMSWithTimelockConfig)
 	for _, c := range rt.Environment().BlockChains.ListChainSelectors() {
-		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfigV2(t)
+		mcmsCfg[c] = cldftesthelpers.SingleGroupTimelockConfig(t)
 	}
 	err = rt.Exec(
 		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), mcmsCfg),

@@ -33,6 +33,7 @@ type Capability struct {
 	capabilitiesRegistry core.CapabilitiesRegistry
 	publicKey            *LazyPublicKey
 	linker               *OrgIDToWorkflowOwnerLinker
+	lifecycle            *RequestLifecycleTracker
 	*RequestValidator
 }
 
@@ -341,6 +342,7 @@ func validateOwnerMatchesResolvedIdentity(field string, owner string, resolvedId
 }
 
 func (s *Capability) handleRequest(ctx context.Context, requestID string, request proto.Message) (*vaulttypes.Response, error) {
+	s.lifecycle.RecordReceived(ctx, requestID, s.clock.Now())
 	respCh := make(chan *vaulttypes.Response, 1)
 	s.handler.SendRequest(ctx, &vaulttypes.Request{
 		Payload:      request,
@@ -353,13 +355,17 @@ func (s *Capability) handleRequest(ctx context.Context, requestID string, reques
 	select {
 	case <-ctx.Done():
 		s.lggr.Debugw("request timed out", "requestID", requestID, "error", ctx.Err())
+		s.lifecycle.FinalizeTimeout(ctx, requestID)
 		return nil, ctx.Err()
 	case resp := <-respCh:
 		s.lggr.Debugw("received response for request", "requestID", requestID, "error", resp.Error)
+		respAt := s.clock.Now()
 		if resp.Error != "" {
+			s.lifecycle.FinalizeResponseError(ctx, requestID, respAt, resp.Error)
 			return nil, fmt.Errorf("error processing request %s: %w", requestID, errors.New(resp.Error))
 		}
 
+		s.lifecycle.FinalizeSuccess(ctx, requestID, respAt)
 		return resp, nil
 	}
 }
@@ -386,7 +392,11 @@ func NewCapability(
 	publicKey *LazyPublicKey,
 	orgResolver orgresolver.OrgResolver,
 	limitsFactory limits.Factory,
+	lifecycle *RequestLifecycleTracker,
 ) (*Capability, error) {
+	if lifecycle == nil {
+		return nil, errors.New("vault capability requires a non-nil request lifecycle tracker")
+	}
 	limiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultRequestBatchSizeLimit)
 	if err != nil {
 		return nil, fmt.Errorf("could not create request batch size limiter: %w", err)
@@ -419,6 +429,7 @@ func NewCapability(
 		capabilitiesRegistry: capabilitiesRegistry,
 		publicKey:            publicKey,
 		linker:               linker,
+		lifecycle:            lifecycle,
 		RequestValidator:     NewRequestValidator(limiter, ciphertextLimiter, idKeyLengthLimiter, idOwnerLengthLimiter, idNamespaceLengthLimiter),
 	}, nil
 }

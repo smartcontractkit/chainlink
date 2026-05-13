@@ -26,6 +26,9 @@ import (
 	"github.com/xssnick/tonutils-go/tlb"
 	"go.uber.org/zap/zapcore"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	ops "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 	tonOperation "github.com/smartcontractkit/chainlink-ton/deployment/ccip/operation"
 	"github.com/smartcontractkit/chainlink-ton/deployment/utils"
@@ -73,6 +76,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangeSetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
@@ -725,9 +729,9 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 	e := NewEnvironment(t, tEnv)
 	evmChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	solChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
-	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
+	mcmsCfg := make(map[uint64]cldfproposalutils.MCMSWithTimelockConfig)
 	for _, c := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
-		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfigV2(t)
+		mcmsCfg[c] = cldftesthelpers.SingleGroupTimelockConfig(t)
 	}
 	prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
 	for _, chain := range evmChains {
@@ -855,7 +859,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 }
 
 func DeployChainContractsToSolChainCSV0_1_1(e DeployedEnv, solChainSelector uint64, preload bool, buildSolConfig *ccipChangeSetSolanaV0_1_1.BuildSolanaConfig) ([]commonchangeset.ConfiguredChangeSet, error) {
-	var mcmsCfg *commontypes.MCMSWithTimelockConfigV2
+	var mcmsCfg *cldfproposalutils.MCMSWithTimelockConfig
 	if preload {
 		// Pre load default programs
 		err := SavePreloadedSolAddresses(e.Env, solChainSelector)
@@ -863,7 +867,7 @@ func DeployChainContractsToSolChainCSV0_1_1(e DeployedEnv, solChainSelector uint
 			return nil, err
 		}
 	} else {
-		mcmsCfg = &commontypes.MCMSWithTimelockConfigV2{
+		mcmsCfg = &cldfproposalutils.MCMSWithTimelockConfig{
 			Proposer: mcmstypes.Config{
 				Quorum:  1,
 				Signers: []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000001")},
@@ -927,7 +931,7 @@ func DeployChainContractsToSolChainCSV0_1_1(e DeployedEnv, solChainSelector uint
 }
 
 func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, preload bool, buildSolConfig *ccipChangeSetSolanaV0_1_1.BuildSolanaConfig) ([]commonchangeset.ConfiguredChangeSet, error) {
-	var mcmsCfg *commontypes.MCMSWithTimelockConfigV2
+	var mcmsCfg *cldfproposalutils.MCMSWithTimelockConfig
 	if preload {
 		// Pre load default programs
 		err := SavePreloadedSolAddresses(e.Env, solChainSelector)
@@ -935,7 +939,7 @@ func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, pr
 			return nil, err
 		}
 	} else {
-		mcmsCfg = &commontypes.MCMSWithTimelockConfigV2{
+		mcmsCfg = &cldfproposalutils.MCMSWithTimelockConfig{
 			Proposer: mcmstypes.Config{
 				Quorum:  1,
 				Signers: []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000001")},
