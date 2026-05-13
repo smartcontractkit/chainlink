@@ -45,7 +45,8 @@ func (tw ethBalMonTransferOwnership) Apply(e cldf.Environment, config vaulttypes
 		DataStore:   e.DataStore,
 	}
 	seqInput := EthBalMonTransferOwnershipSeqInput{
-		Chains: config.Chains,
+		Chains:     config.Chains,
+		MCMSConfig: config.MCMSConfig,
 	}
 	seqReport, err := operations.ExecuteSequence(e.OperationsBundle, EthBalMonTransferOwnershipSequence, deps, seqInput)
 	if err != nil {
@@ -58,7 +59,8 @@ func (tw ethBalMonTransferOwnership) Apply(e cldf.Environment, config vaulttypes
 }
 
 type EthBalMonTransferOwnershipSeqInput struct {
-	Chains map[uint64]vaulttypes.EthBalMonTransferOwnershipChainConfig `json:"chains"`
+	Chains     map[uint64]vaulttypes.EthBalMonTransferOwnershipChainConfig `json:"chains"`
+	MCMSConfig *proposalutils.TimelockConfig                                 `json:"mcms_config,omitempty"`
 }
 
 type EthBalMonTransferOwnershipSeqOutput struct {
@@ -80,6 +82,7 @@ var EthBalMonTransferOwnershipSequence = operations.NewSequence(
 			opReport, err := operations.ExecuteOperation(b, EthBalMonTransferOwnershipOperation, deps, EthBalMonTransferOwnershipOpInput{
 				ChainSelector: chainSelector,
 				NewOwner:      chainConfig.NewOwner,
+				MCMSConfig:    input.MCMSConfig,
 			})
 			if err != nil {
 				return EthBalMonTransferOwnershipSeqOutput{}, fmt.Errorf("chain %d: failed to generate ownership batch: %w", chainSelector, err)
@@ -91,9 +94,7 @@ var EthBalMonTransferOwnershipSequence = operations.NewSequence(
 			mcmAddressByChain[chainSelector] = opOutput.MCMSAddress
 		}
 
-		proposal, err := proposalutils.BuildProposalFromBatchesV2(deps.Environment, timelockAddresses, mcmAddressByChain, nil, batches, "EthBalMon transferOwnership", proposalutils.TimelockConfig{
-			MinDelay: 0,
-		})
+		proposal, err := proposalutils.BuildProposalFromBatchesV2(deps.Environment, timelockAddresses, mcmAddressByChain, nil, batches, "EthBalMon transferOwnership", ethBalMonProposalTimelockConfig(input.MCMSConfig))
 
 		if err != nil {
 			return EthBalMonTransferOwnershipSeqOutput{}, fmt.Errorf("failed to build timelock proposal: %w", err)
@@ -108,8 +109,9 @@ var EthBalMonTransferOwnershipSequence = operations.NewSequence(
 )
 
 type EthBalMonTransferOwnershipOpInput struct {
-	ChainSelector uint64 `json:"chain_selector"`
-	NewOwner      string `json:"new_owner"`
+	ChainSelector uint64                         `json:"chain_selector"`
+	NewOwner      string                         `json:"new_owner"`
+	MCMSConfig    *proposalutils.TimelockConfig  `json:"mcms_config,omitempty"`
 }
 
 type EthBalMonTransferOwnershipOpOutput struct {
@@ -156,7 +158,7 @@ var EthBalMonTransferOwnershipOperation = operations.NewOperation(
 		mcmsAddr, err := mustGetContractAddress(
 			deps.DataStore,
 			input.ChainSelector,
-			commontypes.BypasserManyChainMultisig,
+			ethBalMonMCMSContractTypeForProposal(input.MCMSConfig),
 		)
 		if err != nil {
 			return EthBalMonTransferOwnershipOpOutput{},

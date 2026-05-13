@@ -52,7 +52,8 @@ func (sk setKeeperRegistryAddress) Apply(
 	}
 
 	seqInput := EthBalMonSetKeeperRegistryAddressSequenceInput{
-		Chains: config.Chains,
+		Chains:     config.Chains,
+		MCMSConfig: config.MCMSConfig,
 	}
 
 	seqReport, err := operations.ExecuteSequence(
@@ -71,7 +72,8 @@ func (sk setKeeperRegistryAddress) Apply(
 }
 
 type EthBalMonSetKeeperRegistryAddressSequenceInput struct {
-	Chains map[uint64]vaulttypes.SetKeeperRegistryChainConfig `json:"chains"`
+	Chains     map[uint64]vaulttypes.SetKeeperRegistryChainConfig `json:"chains"`
+	MCMSConfig *proposalutils.TimelockConfig                        `json:"mcms_config,omitempty"`
 }
 
 type EthBalMonSetKeeperRegistryAddressSequenceOutput struct {
@@ -107,6 +109,7 @@ var SetKeeperRegistrySequence = operations.NewSequence(
 				SetKeeperRegistryOperationInput{
 					ChainSelector:            chainSelector,
 					NewKeeperRegistryAddress: chainConfig.NewKeeperRegistryAddress,
+					MCMSConfig:               input.MCMSConfig,
 				},
 			)
 			if err != nil {
@@ -128,7 +131,7 @@ var SetKeeperRegistrySequence = operations.NewSequence(
 			nil,
 			batches,
 			"EthBalMon SetKeeperRegistryAddress",
-			proposalutils.TimelockConfig{MinDelay: 0},
+			ethBalMonProposalTimelockConfig(input.MCMSConfig),
 		)
 		if err != nil {
 			return EthBalMonSetKeeperRegistryAddressSequenceOutput{},
@@ -147,8 +150,9 @@ var SetKeeperRegistrySequence = operations.NewSequence(
 )
 
 type SetKeeperRegistryOperationInput struct {
-	ChainSelector            uint64 `json:"chain_selector"`
-	NewKeeperRegistryAddress string `json:"new_keeper_registry_address"`
+	ChainSelector            uint64                         `json:"chain_selector"`
+	NewKeeperRegistryAddress string                         `json:"new_keeper_registry_address"`
+	MCMSConfig               *proposalutils.TimelockConfig  `json:"mcms_config,omitempty"`
 }
 
 type SetKeeperRegistryOperationOutput struct {
@@ -195,7 +199,7 @@ var SetKeeperRegistryOperation = operations.NewOperation(
 		mcmsAddr, err := mustGetContractAddress(
 			deps.DataStore,
 			input.ChainSelector,
-			commontypes.BypasserManyChainMultisig,
+			ethBalMonMCMSContractTypeForProposal(input.MCMSConfig),
 		)
 		if err != nil {
 			return SetKeeperRegistryOperationOutput{},

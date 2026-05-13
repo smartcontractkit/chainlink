@@ -46,7 +46,8 @@ func (w ethBalMonWithdraw) Apply(e cldf.Environment, config vaulttypes.EthBalMon
 		DataStore:   e.DataStore,
 	}
 	seqInput := EthBalMonWithdrawSeqInput{
-		Chains: config.Chains,
+		Chains:     config.Chains,
+		MCMSConfig: config.MCMSConfig,
 	}
 	seqReport, err := operations.ExecuteSequence(e.OperationsBundle, EthBalMonWithdrawSequence, deps, seqInput)
 	if err != nil {
@@ -59,7 +60,8 @@ func (w ethBalMonWithdraw) Apply(e cldf.Environment, config vaulttypes.EthBalMon
 }
 
 type EthBalMonWithdrawSeqInput struct {
-	Chains map[uint64]vaulttypes.EthBalMonWithdrawChainConfig `json:"chains"`
+	Chains     map[uint64]vaulttypes.EthBalMonWithdrawChainConfig `json:"chains"`
+	MCMSConfig *proposalutils.TimelockConfig                        `json:"mcms_config,omitempty"`
 }
 
 type EthBalMonWithdrawSeqOutput struct {
@@ -82,6 +84,7 @@ var EthBalMonWithdrawSequence = operations.NewSequence(
 				ChainSelector: chainSelector,
 				Amount:        chainConfig.Amount,
 				Payeer:        chainConfig.Payeer,
+				MCMSConfig:    input.MCMSConfig,
 			})
 			if err != nil {
 				return EthBalMonWithdrawSeqOutput{}, fmt.Errorf("chain %d: failed to generate withdraw batch: %w", chainSelector, err)
@@ -93,9 +96,7 @@ var EthBalMonWithdrawSequence = operations.NewSequence(
 			mcmAddressByChain[chainSelector] = opOutput.MCMSAddress
 		}
 
-		proposal, err := proposalutils.BuildProposalFromBatchesV2(deps.Environment, timelockAddresses, mcmAddressByChain, nil, batches, "EthBalMon Withdraw", proposalutils.TimelockConfig{
-			MinDelay: 0,
-		})
+		proposal, err := proposalutils.BuildProposalFromBatchesV2(deps.Environment, timelockAddresses, mcmAddressByChain, nil, batches, "EthBalMon Withdraw", ethBalMonProposalTimelockConfig(input.MCMSConfig))
 
 		if err != nil {
 			return EthBalMonWithdrawSeqOutput{}, fmt.Errorf("failed to build timelock proposal: %w", err)
@@ -110,9 +111,10 @@ var EthBalMonWithdrawSequence = operations.NewSequence(
 )
 
 type EthBalMonWithdrawOpInput struct {
-	ChainSelector uint64   `json:"chain_selector"`
-	Amount        *big.Int `json:"amount"`
-	Payeer        string   `json:"payeer"`
+	ChainSelector uint64                         `json:"chain_selector"`
+	Amount        *big.Int                       `json:"amount"`
+	Payeer        string                         `json:"payeer"`
+	MCMSConfig    *proposalutils.TimelockConfig  `json:"mcms_config,omitempty"`
 }
 
 type EthBalMonWithdrawOpOutput struct {
@@ -159,7 +161,7 @@ var EthBalMonWithdrawOperation = operations.NewOperation(
 		mcmsAddr, err := mustGetContractAddress(
 			deps.DataStore,
 			input.ChainSelector,
-			commontypes.BypasserManyChainMultisig,
+			ethBalMonMCMSContractTypeForProposal(input.MCMSConfig),
 		)
 		if err != nil {
 			return EthBalMonWithdrawOpOutput{},

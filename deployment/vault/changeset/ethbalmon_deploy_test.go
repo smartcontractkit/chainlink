@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/eth_balance_monitor_wrapper"
 
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
@@ -142,7 +143,7 @@ func TestBuildAcceptOwnershipTimelockProposal(t *testing.T) {
 		_, err = BuildAcceptOwnershipTimelockProposal(*env, AcceptOwnershipProposalInput{
 			ContractsByChain: map[uint64]string{},
 			Description:      "test",
-			Action:           mcmstypes.TimelockActionBypass,
+			MCMSConfig: proposalutils.TimelockConfig{MinDelay: 0, MCMSAction: mcmstypes.TimelockActionBypass},
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "no contracts provided")
@@ -163,7 +164,7 @@ func TestBuildAcceptOwnershipTimelockProposal(t *testing.T) {
 				otherSel: testAddr1,
 			},
 			Description: "test",
-			Action:      mcmstypes.TimelockActionBypass,
+			MCMSConfig: proposalutils.TimelockConfig{MinDelay: 0, MCMSAction: mcmstypes.TimelockActionBypass},
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "not found in environment")
@@ -183,7 +184,7 @@ func TestBuildAcceptOwnershipTimelockProposal(t *testing.T) {
 				selector: testAddr1,
 			},
 			Description: "test",
-			Action:      mcmstypes.TimelockActionBypass,
+			MCMSConfig: proposalutils.TimelockConfig{MinDelay: 0, MCMSAction: mcmstypes.TimelockActionBypass},
 		})
 		require.Error(t, err)
 	})
@@ -219,7 +220,7 @@ func TestBuildAcceptOwnershipTimelockProposal(t *testing.T) {
 		prop, err := BuildAcceptOwnershipTimelockProposal(rt.Environment(), AcceptOwnershipProposalInput{
 			ContractsByChain: contractsByChain,
 			Description:      customDesc,
-			Action:           mcmstypes.TimelockActionBypass,
+			MCMSConfig: proposalutils.TimelockConfig{MinDelay: 0, MCMSAction: mcmstypes.TimelockActionBypass},
 		})
 		require.NoError(t, err)
 		require.NotNil(t, prop)
@@ -253,7 +254,7 @@ func TestBuildAcceptOwnershipTimelockProposal(t *testing.T) {
 		prop, err := BuildAcceptOwnershipTimelockProposal(rt.Environment(), AcceptOwnershipProposalInput{
 			ContractsByChain: map[uint64]string{selector: addr},
 			Description:      "",
-			Action:           mcmstypes.TimelockActionBypass,
+			MCMSConfig: proposalutils.TimelockConfig{MinDelay: 0, MCMSAction: mcmstypes.TimelockActionBypass},
 		})
 		require.NoError(t, err)
 		require.Equal(t, "Accept ownership of EthBalanceMonitor across chains", prop.Description)
@@ -562,7 +563,8 @@ func assertEthBalMonDeployOutput(
 	for sel, chainCfg := range cfg.Chains {
 		timelockAddr, err := GetContractAddress(env.DataStore, sel, commontypes.RBACTimelock)
 		require.NoError(t, err)
-		mcmsAddr, err := GetContractAddress(env.DataStore, sel, commontypes.BypasserManyChainMultisig)
+		mcmsType := ethBalMonMCMSContractTypeForAction(deployEthBalMonAcceptOwnershipMCMSAction(cfg.MCMSConfig))
+		mcmsAddr, err := GetContractAddress(env.DataStore, sel, mcmsType)
 		require.NoError(t, err)
 
 		meta, ok := bySel[sel]

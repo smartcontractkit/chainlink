@@ -47,7 +47,8 @@ func (sw ethBalMonSetWatchList) Apply(e cldf.Environment, config vaulttypes.EthB
 	}
 
 	seqInput := EthBalMonSetWatchListSeqInput{
-		Chains: config.Chains,
+		Chains:     config.Chains,
+		MCMSConfig: config.MCMSConfig,
 	}
 
 	seqReport, err := operations.ExecuteSequence(e.OperationsBundle, EthBalMonSetWatchListSequence, deps, seqInput)
@@ -61,7 +62,8 @@ func (sw ethBalMonSetWatchList) Apply(e cldf.Environment, config vaulttypes.EthB
 }
 
 type EthBalMonSetWatchListSeqInput struct {
-	Chains map[uint64]vaulttypes.EthBalMonSetWatchListChainConfig `json:"chains"`
+	Chains     map[uint64]vaulttypes.EthBalMonSetWatchListChainConfig `json:"chains"`
+	MCMSConfig *proposalutils.TimelockConfig                             `json:"mcms_config,omitempty"`
 }
 
 type EthBalMonSetWatchListSeqOutput struct {
@@ -86,6 +88,7 @@ var EthBalMonSetWatchListSequence = operations.NewSequence(
 				Addresses:       chainConfig.Addresses,
 				MinBalancesWei:  chainConfig.MinBalancesWei,
 				TopUpAmountsWei: chainConfig.TopUpAmountsWei,
+				MCMSConfig:      input.MCMSConfig,
 			})
 			if err != nil {
 				return EthBalMonSetWatchListSeqOutput{}, fmt.Errorf("chain %d: failed to generate setWatchList batch: %w", chainSelector, err)
@@ -97,9 +100,7 @@ var EthBalMonSetWatchListSequence = operations.NewSequence(
 			mcmAddressByChain[chainSelector] = opOutput.MCMSAddress
 		}
 
-		proposal, err := proposalutils.BuildProposalFromBatchesV2(deps.Environment, timelockAddresses, mcmAddressByChain, nil, batches, "EthBalMon SetWatchList", proposalutils.TimelockConfig{
-			MinDelay: 0,
-		})
+		proposal, err := proposalutils.BuildProposalFromBatchesV2(deps.Environment, timelockAddresses, mcmAddressByChain, nil, batches, "EthBalMon SetWatchList", ethBalMonProposalTimelockConfig(input.MCMSConfig))
 
 		if err != nil {
 			return EthBalMonSetWatchListSeqOutput{}, fmt.Errorf("failed to build timelock proposal: %w", err)
@@ -114,10 +115,11 @@ var EthBalMonSetWatchListSequence = operations.NewSequence(
 )
 
 type EthBalMonSetWatchListOpInput struct {
-	ChainSelector   uint64           `json:"chain_selector"`
-	Addresses       []common.Address `json:"addresses"`
-	MinBalancesWei  []big.Int        `json:"min_balance_wei"`
-	TopUpAmountsWei []big.Int        `json:"topup_amounts_wei"`
+	ChainSelector   uint64                         `json:"chain_selector"`
+	Addresses       []common.Address               `json:"addresses"`
+	MinBalancesWei  []big.Int                      `json:"min_balance_wei"`
+	TopUpAmountsWei []big.Int                      `json:"topup_amounts_wei"`
+	MCMSConfig      *proposalutils.TimelockConfig  `json:"mcms_config,omitempty"`
 }
 
 type EthBalMonSetWatchListOpOutput struct {
@@ -164,7 +166,7 @@ var EthBalMonSetWatchListOperation = operations.NewOperation(
 		mcmsAddr, err := mustGetContractAddress(
 			deps.DataStore,
 			input.ChainSelector,
-			commontypes.BypasserManyChainMultisig,
+			ethBalMonMCMSContractTypeForProposal(input.MCMSConfig),
 		)
 		if err != nil {
 			return EthBalMonSetWatchListOpOutput{},

@@ -74,7 +74,8 @@ func (d deployEthBalMon) Apply(e cldf.Environment, config vaulttypes.DeployEthBa
 		DataStore:   e.DataStore,
 	}
 	seqInput := DeployEthBalMonSequenceInput{
-		Chains: config.Chains,
+		Chains:     config.Chains,
+		MCMSConfig: config.MCMSConfig,
 	}
 
 	seqReport, err := operations.ExecuteSequence(e.OperationsBundle, DeployEthBalMonSequence, deps, seqInput)
@@ -131,7 +132,7 @@ func (d deployEthBalMon) Apply(e cldf.Environment, config vaulttypes.DeployEthBa
 		AcceptOwnershipProposalInput{
 			ContractsByChain: contractsByChain,
 			Description:      "Accept ownership of EthBalanceMonitor across chains",
-			Action:           mcmstypes.TimelockActionBypass,
+			MCMSConfig:       deployEthBalMonAcceptOwnershipTimelockConfig(config.MCMSConfig),
 		},
 	)
 	if err != nil {
@@ -154,7 +155,8 @@ func (d deployEthBalMon) Apply(e cldf.Environment, config vaulttypes.DeployEthBa
 // ================================================
 
 type DeployEthBalMonSequenceInput struct {
-	Chains map[uint64]vaulttypes.DeployEthBalMonChainConfig `json:"chains"`
+	Chains     map[uint64]vaulttypes.DeployEthBalMonChainConfig `json:"chains"`
+	MCMSConfig *proposalutils.TimelockConfig                      `json:"mcms_config,omitempty"`
 }
 type DeployEthBalMonPerChainOutput struct {
 	ChainSelector           uint64
@@ -199,7 +201,11 @@ var DeployEthBalMonSequence = operations.NewSequence(
 			if err != nil {
 				return DeployEthBalMonSequenceOutput{}, fmt.Errorf("chain %d: failed to get timelock address: %w", chainSelector, err)
 			}
-			mcmsAddr, err := mustGetContractAddress(deps.DataStore, chainSelector, commontypes.BypasserManyChainMultisig)
+			mcmsAddr, err := mustGetContractAddress(
+				deps.DataStore,
+				chainSelector,
+				ethBalMonMCMSContractTypeForAction(deployEthBalMonAcceptOwnershipMCMSAction(input.MCMSConfig)),
+			)
 			if err != nil {
 				return DeployEthBalMonSequenceOutput{}, fmt.Errorf("chain %d: failed to get mcms address: %w", chainSelector, err)
 			}
@@ -406,7 +412,7 @@ var TransferOwnershipOperation = operations.NewOperation(
 type AcceptOwnershipProposalInput struct {
 	ContractsByChain map[uint64]string
 	Description      string
-	Action           mcmstypes.TimelockAction
+	MCMSConfig       proposalutils.TimelockConfig
 }
 
 func BuildAcceptOwnershipTimelockProposal(
@@ -436,20 +442,11 @@ func BuildAcceptOwnershipTimelockProposal(
 			return nil, fmt.Errorf("chain %d: %w", chainSelector, err)
 		}
 
-		var mcmsAddr string
-		if input.Action == mcmstypes.TimelockActionBypass {
-			mcmsAddr, err = mustGetContractAddress(
-				e.DataStore,
-				chainSelector,
-				commontypes.BypasserManyChainMultisig,
-			)
-		} else {
-			mcmsAddr, err = mustGetContractAddress(
-				e.DataStore,
-				chainSelector,
-				commontypes.ProposerManyChainMultisig,
-			)
-		}
+		mcmsAddr, err := mustGetContractAddress(
+			e.DataStore,
+			chainSelector,
+			ethBalMonMCMSContractTypeForProposal(&input.MCMSConfig),
+		)
 		if err != nil {
 			return nil, fmt.Errorf("chain %d: %w", chainSelector, err)
 		}
@@ -491,6 +488,7 @@ func BuildAcceptOwnershipTimelockProposal(
 		description = "Accept ownership of EthBalanceMonitor across chains"
 	}
 
+	tlCfg := input.MCMSConfig
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelockAddresses,
@@ -498,9 +496,7 @@ func BuildAcceptOwnershipTimelockProposal(
 		nil,
 		batches,
 		description,
-		proposalutils.TimelockConfig{
-			MinDelay: 0,
-		},
+		tlCfg,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build timelock proposal: %w", err)
