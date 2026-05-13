@@ -63,7 +63,7 @@ func (sw ethBalMonSetWatchList) Apply(e cldf.Environment, config vaulttypes.EthB
 
 type EthBalMonSetWatchListSeqInput struct {
 	Chains     map[uint64]vaulttypes.EthBalMonSetWatchListChainConfig `json:"chains"`
-	MCMSConfig *proposalutils.TimelockConfig                             `json:"mcms_config,omitempty"`
+	MCMSConfig *proposalutils.TimelockConfig                          `json:"mcms_config,omitempty"`
 }
 
 type EthBalMonSetWatchListSeqOutput struct {
@@ -115,11 +115,11 @@ var EthBalMonSetWatchListSequence = operations.NewSequence(
 )
 
 type EthBalMonSetWatchListOpInput struct {
-	ChainSelector   uint64                         `json:"chain_selector"`
-	Addresses       []common.Address               `json:"addresses"`
-	MinBalancesWei  []big.Int                      `json:"min_balance_wei"`
-	TopUpAmountsWei []big.Int                      `json:"topup_amounts_wei"`
-	MCMSConfig      *proposalutils.TimelockConfig  `json:"mcms_config,omitempty"`
+	ChainSelector   uint64                        `json:"chain_selector"`
+	Addresses       []common.Address              `json:"addresses"`
+	MinBalancesWei  []big.Int                     `json:"min_balance_wei"`
+	TopUpAmountsWei []big.Int                     `json:"topup_amounts_wei"`
+	MCMSConfig      *proposalutils.TimelockConfig `json:"mcms_config,omitempty"`
 }
 
 type EthBalMonSetWatchListOpOutput struct {

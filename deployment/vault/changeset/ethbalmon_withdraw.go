@@ -61,7 +61,7 @@ func (w ethBalMonWithdraw) Apply(e cldf.Environment, config vaulttypes.EthBalMon
 
 type EthBalMonWithdrawSeqInput struct {
 	Chains     map[uint64]vaulttypes.EthBalMonWithdrawChainConfig `json:"chains"`
-	MCMSConfig *proposalutils.TimelockConfig                        `json:"mcms_config,omitempty"`
+	MCMSConfig *proposalutils.TimelockConfig                      `json:"mcms_config,omitempty"`
 }
 
 type EthBalMonWithdrawSeqOutput struct {
@@ -111,10 +111,10 @@ var EthBalMonWithdrawSequence = operations.NewSequence(
 )
 
 type EthBalMonWithdrawOpInput struct {
-	ChainSelector uint64                         `json:"chain_selector"`
-	Amount        *big.Int                       `json:"amount"`
-	Payeer        string                         `json:"payeer"`
-	MCMSConfig    *proposalutils.TimelockConfig  `json:"mcms_config,omitempty"`
+	ChainSelector uint64                        `json:"chain_selector"`
+	Amount        *big.Int                      `json:"amount"`
+	Payeer        string                        `json:"payeer"`
+	MCMSConfig    *proposalutils.TimelockConfig `json:"mcms_config,omitempty"`
 }
 
 type EthBalMonWithdrawOpOutput struct {

@@ -60,7 +60,7 @@ func (tw ethBalMonTransferOwnership) Apply(e cldf.Environment, config vaulttypes
 
 type EthBalMonTransferOwnershipSeqInput struct {
 	Chains     map[uint64]vaulttypes.EthBalMonTransferOwnershipChainConfig `json:"chains"`
-	MCMSConfig *proposalutils.TimelockConfig                                 `json:"mcms_config,omitempty"`
+	MCMSConfig *proposalutils.TimelockConfig                               `json:"mcms_config,omitempty"`
 }
 
 type EthBalMonTransferOwnershipSeqOutput struct {
@@ -109,9 +109,9 @@ var EthBalMonTransferOwnershipSequence = operations.NewSequence(
 )
 
 type EthBalMonTransferOwnershipOpInput struct {
-	ChainSelector uint64                         `json:"chain_selector"`
-	NewOwner      string                         `json:"new_owner"`
-	MCMSConfig    *proposalutils.TimelockConfig  `json:"mcms_config,omitempty"`
+	ChainSelector uint64                        `json:"chain_selector"`
+	NewOwner      string                        `json:"new_owner"`
+	MCMSConfig    *proposalutils.TimelockConfig `json:"mcms_config,omitempty"`
 }
 
 type EthBalMonTransferOwnershipOpOutput struct {
