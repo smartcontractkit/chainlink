@@ -35,14 +35,14 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260415165642-49f23e4d76cc
 	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260511163550-f55b0441dfd3
 	github.com/smartcontractkit/chainlink-common/keystore v1.1.0
-	github.com/smartcontractkit/chainlink-deployments-framework v0.101.0
+	github.com/smartcontractkit/chainlink-deployments-framework v0.101.1
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260507171202-46e6a397da2d
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260421142741-9c7fbaf7c828
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260505131349-78e491b80735
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.18.0
 	github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20251002192024-d2ad9222409b
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260323124644-faea187e6997
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.0
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.1
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter v1.0.4
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.23
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.15.0

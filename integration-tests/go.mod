@@ -31,7 +31,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260415165642-49f23e4d76cc
 	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260511163550-f55b0441dfd3
 	github.com/smartcontractkit/chainlink-common/keystore v1.1.0
-	github.com/smartcontractkit/chainlink-deployments-framework v0.101.0
+	github.com/smartcontractkit/chainlink-deployments-framework v0.101.1
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260507171202-46e6a397da2d
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260421142741-9c7fbaf7c828
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.18.0
@@ -182,7 +182,6 @@ require (
 	github.com/dgraph-io/ristretto/v2 v2.2.0 // indirect
 	github.com/digital-asset/dazl-client/v8 v8.9.0 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
-	github.com/docker/docker v28.5.3-0.20260325154711-31a1689cb0a1+incompatible // indirect
 	github.com/docker/go-connections v0.6.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dominikbraun/graph v0.23.0 // indirect
@@ -426,7 +425,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/svr v1.2.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260323124644-faea187e6997 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260511210120-d8089350d729 // indirect
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.15.19 // indirect
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.1 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20260408092456-3c6369888d4a // indirect
 	github.com/smartcontractkit/freeport v0.1.3-0.20250828155247-add56fa28aad // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
