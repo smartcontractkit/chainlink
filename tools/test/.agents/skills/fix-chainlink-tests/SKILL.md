@@ -37,9 +37,10 @@ If you hit permissions issues running commands for this skill, read and/or direc
 1. Verify target scope (test, package, or issue). If unknown, prompt user to provide one.
 2. Check if you have access to the `trunk` MCP server. If not, prompt the user to [install and authenticate it](https://github.com/trunk-io/mcp-server#quick-start).
   <trunk>
-  Trunk.io is a service we use to track flaky tests in CI. Access it with the Trunk MCP server. If available, use it to fetch more data on flaky or broken tests. **Use this as another data point in your diagnosis**, not as a definitive answer.
-  1. Use `search-test` MCP tool to lookup find the test ID of the test(s) you're trying to fix.
-  2. Use `fix-flaky-test` MCP tool to gather diagnosis data on a specific test.
+  Trunk.io tracks flakes seen ONLY in CI. Access it with the `trunk` MCP server. If available, use it to fetch more data on flaky or broken tests. **Use this as another data point in your diagnosis**, not as a definitive answer.
+  1. `search-test` find the test ID of the test(s) you're trying to fix. If not available, trunk has no data, SKIP
+  2. `fix-flaky-test` gather Trunk's diagnosis data on a specific test
+  3. `investigate-ci-failure` gather flaky test execution logs
   </trunk>
 3. Investigate and understand the specific test code. 
 4. Formulate initial hypothesis based on any data you can gather from the user or code.
