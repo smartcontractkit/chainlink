@@ -36,10 +36,11 @@ func TestDeployEthBalMonValidation(t *testing.T) {
 	require.NoError(t, err)
 
 	tests := []struct {
-		name      string
-		config    types.DeployEthBalMonInput
-		wantError bool
-		errorMsg  string
+		name        string
+		config      types.DeployEthBalMonInput
+		wantError   bool
+		errorMsg    string
+		setupMCMSIn bool
 	}{
 		{
 			name: "empty chains",
@@ -98,6 +99,18 @@ func TestDeployEthBalMonValidation(t *testing.T) {
 			errorMsg:  fmt.Sprintf("chain %d: setKeeperRegistryAddress is not a valid hex address: not-a-valid-address", selector),
 		},
 		{
+			name: "missing MCMS and timelock in datastore",
+			config: types.DeployEthBalMonInput{
+				Chains: map[uint64]types.DeployEthBalMonChainConfig{
+					selector: {
+						SetKeeperRegistryAddress: "0x1234567890123456789012345678901234567890",
+					},
+				},
+			},
+			wantError: true,
+			errorMsg:  "failed to get addresses from datastore",
+		},
+		{
 			name: "valid config",
 			config: types.DeployEthBalMonInput{
 				Chains: map[uint64]types.DeployEthBalMonChainConfig{
@@ -106,7 +119,8 @@ func TestDeployEthBalMonValidation(t *testing.T) {
 					},
 				},
 			},
-			wantError: false,
+			wantError:     false,
+			setupMCMSIn: true,
 		},
 	}
 
@@ -114,7 +128,19 @@ func TestDeployEthBalMonValidation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := ValidateDeployEthBalMonConfig(env.GetContext(), *env, test.config)
+			var testEnv cldf.Environment
+			if test.setupMCMSIn {
+				rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+					environment.WithEVMSimulated(t, []uint64{selector}),
+				))
+				require.NoError(t, err)
+				setupMCMSInfrastructure(t, rt, []uint64{selector})
+				testEnv = rt.Environment()
+			} else {
+				testEnv = *env
+			}
+
+			err := ValidateDeployEthBalMonConfig(testEnv.GetContext(), testEnv, test.config)
 
 			if test.wantError {
 				require.Error(t, err)

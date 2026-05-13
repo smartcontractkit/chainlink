@@ -237,6 +237,10 @@ func ValidateDeployEthBalMonConfig(ctx context.Context, env cldf.Environment, cf
 		return errors.New("chains must not be empty")
 	}
 
+	if cfg.MCMSConfig != nil && cfg.MCMSConfig.MinDelay < 0 {
+		return fmt.Errorf("MCMS minimum delay cannot be negative: %d", cfg.MCMSConfig.MinDelay)
+	}
+
 	for chainSelector, chainCfg := range cfg.Chains {
 		if err := validateChainSelector(chainSelector, env); err != nil {
 			return fmt.Errorf("chain %d: %w", chainSelector, err)
@@ -247,8 +251,40 @@ func ValidateDeployEthBalMonConfig(ctx context.Context, env cldf.Environment, cf
 		if err := validateEthAddress("setKeeperRegistryAddress", chainCfg.SetKeeperRegistryAddress); err != nil {
 			return fmt.Errorf("chain %d: %w", chainSelector, err)
 		}
+		if err := validateDeployEthBalMonMCMSInDatastore(env, chainSelector, cfg.MCMSConfig); err != nil {
+			return fmt.Errorf("chain %d: %w", chainSelector, err)
+		}
 	}
 
+	return nil
+}
+
+// validateDeployEthBalMonMCMSInDatastore ensures RBACTimelock, the MCM used for the post-deploy
+// accept-ownership proposal (bypasser vs proposer per cfg.MCMSConfig), and loadable MCMS state
+// exist in the datastore — matching DeployEthBalMonSequence and BuildAcceptOwnershipTimelockProposal.
+func validateDeployEthBalMonMCMSInDatastore(e cldf.Environment, chainSelector uint64, mcmsCfg *proposalutils.TimelockConfig) error {
+	const emptyQualifier = ""
+	addresses, err := state.GetAddressTypeVersionByQualifier(e.DataStore.Addresses(), chainSelector, emptyQualifier)
+	if err != nil {
+		return fmt.Errorf("failed to get addresses from datastore: %w", err)
+	}
+
+	_, err = GetContractAddress(e.DataStore, chainSelector, commontypes.RBACTimelock)
+	if err != nil {
+		return fmt.Errorf("timelock not found in datastore: %w", err)
+	}
+
+	mcmType := ethBalMonMCMSContractTypeForAction(deployEthBalMonAcceptOwnershipMCMSAction(mcmsCfg))
+	_, err = GetContractAddress(e.DataStore, chainSelector, mcmType)
+	if err != nil {
+		return fmt.Errorf("MCMS (%s) not found in datastore: %w", mcmType, err)
+	}
+
+	chain := e.BlockChains.EVMChains()[chainSelector]
+	_, err = changeset.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
+	if err != nil {
+		return fmt.Errorf("failed to load MCMS with timelock state: %w", err)
+	}
 	return nil
 }
 
