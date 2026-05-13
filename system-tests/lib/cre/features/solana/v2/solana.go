@@ -117,7 +117,7 @@ func (s *Solana) PostEnvStartup(
 	}
 
 	// 3. Configure Forwarders
-	consensusDons := dons.DonsWithFlags(cre.ConsensusCapability, cre.ConsensusCapabilityV2)
+	consensusDons := dons.DonsWithFlags(cre.ConsensusCapability)
 	for _, don := range consensusDons {
 		err := configureForwarders(ctx, testLogger, don, dons, creEnv)
 		if err != nil {
@@ -237,7 +237,7 @@ func createJobs(
 				Domain:      offchain.ProductLabel,
 				Environment: cre.EnvironmentName,
 				DONName:     don.Name,
-				JobName:     "sol-v2-worker-" + chainID,
+				JobName:     "solana-worker-" + chainID,
 				ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
 				DONFilters: []offchain.TargetDONFilter{
 					{Key: offchain.FilterKeyDONName, Value: don.Name},
@@ -252,12 +252,12 @@ func createJobs(
 
 			workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)
 			if workerVerErr != nil {
-				return fmt.Errorf("precondition verification failed for Solana v2 worker job: %w", workerVerErr)
+				return fmt.Errorf("precondition verification failed for Solana worker job: %w", workerVerErr)
 			}
 
 			workerReport, workerErr := cre_jobs.ProposeJobSpec{}.Apply(*creEnv.CldfEnvironment, workerInput)
 			if workerErr != nil {
-				return fmt.Errorf("failed to propose Solana v2 worker job spec: %w", workerErr)
+				return fmt.Errorf("failed to propose Solana worker job spec: %w", workerErr)
 			}
 
 			specs := make(map[string][]string)
@@ -294,7 +294,7 @@ func createJobs(
 
 	approveErr := jobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs)
 	if approveErr != nil {
-		return fmt.Errorf("failed to approve Solana v2 jobs: %w", approveErr)
+		return fmt.Errorf("failed to approve Solana jobs: %w", approveErr)
 	}
 
 	return nil
@@ -302,9 +302,9 @@ func createJobs(
 
 // pre env
 func registerSolanaCapability(selector uint64) []keystone_changeset.DONCapabilityWithConfig {
-	var caps []keystone_changeset.DONCapabilityWithConfig
+	caps := make([]keystone_changeset.DONCapabilityWithConfig, 1)
 	methodConfigs := getMethodConfigs()
-	caps = append(caps, keystone_changeset.DONCapabilityWithConfig{
+	caps[0] = keystone_changeset.DONCapabilityWithConfig{
 		Capability: kcr.CapabilitiesRegistryCapability{
 			LabelledName: "solana" + ":ChainSelector:" + strconv.FormatUint(selector, 10),
 			Version:      "1.0.0",
@@ -312,7 +312,7 @@ func registerSolanaCapability(selector uint64) []keystone_changeset.DONCapabilit
 		Config: &capabilitiespb.CapabilityConfig{
 			MethodConfigs: methodConfigs,
 		},
-	})
+	}
 
 	return caps
 }

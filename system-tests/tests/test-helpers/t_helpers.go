@@ -59,9 +59,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
-	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
-	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
-	porV2types "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based/types"
+	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
+	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -289,7 +288,6 @@ func CreateAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAdd
 type WorkflowConfig interface {
 	None |
 		portypes.WorkflowConfig |
-		porV2types.WorkflowConfig |
 		AptosReadWorkflowConfig |
 		aptoswrite_config.Config |
 		aptoswriteroundtrip_config.Config |
@@ -387,16 +385,10 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			testLogger.Info().Msg("Workflow config file is not requested and will not be created.")
 
 		case *portypes.WorkflowConfig:
-			workflowCfgFilePath, configErr := createPoRWorkflowConfigFile(workflowName, cfg, outputDir)
-			workflowConfigFilePath = workflowCfgFilePath
-			require.NoError(t, configErr, "failed to create PoR workflow config file")
-			testLogger.Info().Msg("PoR workflow config file created.")
-
-		case *porV2types.WorkflowConfig:
 			// Validate and format the feed ID (truncate to 16 bytes / 32 hex chars)
 			cleanID := strings.TrimPrefix(cfg.FeedID, "0x")
 			if len(cleanID) < 32 {
-				require.NoError(t, fmt.Errorf("v2 PoR feed ID must be at least 32 hex characters, got %d", len(cleanID)))
+				require.NoError(t, fmt.Errorf("PoR feed ID must be at least 32 hex characters, got %d", len(cleanID)))
 			}
 			if len(cleanID) > 32 {
 				cleanID = cleanID[:32]
@@ -404,8 +396,8 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			cfg.FeedID = "0x" + cleanID
 			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
-			require.NoError(t, configErr, "failed to create PoR v2 workflow config file")
-			testLogger.Info().Msg("PoR v2 workflow config file created.")
+			require.NoError(t, configErr, "failed to create PoR workflow config file")
+			testLogger.Info().Msg("PoR workflow config file created.")
 
 		case *AptosReadWorkflowConfig:
 			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
@@ -506,43 +498,6 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 		}
 	}
 	return workflowConfigFilePath
-}
-
-/*
-Creates .yaml workflow configuration file.
-It stores the values used by a workflow (main.go),
-(i.e. feedID, read/write contract addresses)
-
-The values are written to types.WorkflowConfig.
-The method returns the absolute path to the created config file.
-*/
-func createPoRWorkflowConfigFile(workflowName string, workflowConfig *portypes.WorkflowConfig, outputDir string) (string, error) {
-	feedIDToUse, fIDerr := validateAndFormatFeedID(workflowConfig)
-	if fIDerr != nil {
-		return "", errors.Wrap(fIDerr, "failed to validate and format feed ID")
-	}
-	workflowConfig.FeedID = feedIDToUse
-
-	return CreateWorkflowYamlConfigFile(workflowName, workflowConfig, outputDir)
-}
-
-func validateAndFormatFeedID(workflowConfig *portypes.WorkflowConfig) (string, error) {
-	feedID := workflowConfig.FeedID
-
-	// validate and format feed ID to fit 32 bytes
-	cleanFeedID := strings.TrimPrefix(feedID, "0x")
-	feedIDLength := len(cleanFeedID)
-	if feedIDLength < 32 {
-		return "", errors.Errorf("feed ID must be at least 32 characters long, but was %d", feedIDLength)
-	}
-
-	if feedIDLength > 32 {
-		cleanFeedID = cleanFeedID[:32]
-	}
-
-	// override feed ID in workflow config to ensure it is exactly 32 bytes
-	feedIDToUse := "0x" + cleanFeedID
-	return feedIDToUse, nil
 }
 
 func createHTTPWorkflowConfigFile(workflowName string, cfg *HTTPWorkflowConfig, outputDir string) (string, error) {

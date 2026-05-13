@@ -263,7 +263,7 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 
 	forwarderF := (don.WorkersCount() - 1) / 3
 	if forwarderF == 0 {
-		if don.HasFlag(ConsensusCapability) || don.HasFlag(ConsensusCapabilityV2) {
+		if don.HasFlag(ConsensusCapability) {
 			return nil, fmt.Errorf("incorrect number of worker nodes: %d. Resulting F must conform to formula: mod((N-1)/3) > 0", don.WorkersCount())
 		}
 		// for other capabilities, we can use 1 as F

@@ -779,38 +779,6 @@ decode_log->vrf->estimate_gas->simulate`
 	return MarshallTemplate(d, "VRFV2 pipeline template", sourceString)
 }
 
-// VRFTxPipelineSpec VRF request with tx callback
-type VRFTxPipelineSpec struct {
-	Address string
-}
-
-// Type returns the type of the pipeline
-func (d *VRFTxPipelineSpec) Type() string {
-	return "vrf_pipeline"
-}
-
-// String representation of the pipeline
-func (d *VRFTxPipelineSpec) String() (string, error) {
-	sourceString := `
-decode_log   [type=ethabidecodelog
-              abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
-              data="$(jobRun.logData)"
-              topics="$(jobRun.logTopics)"]
-vrf          [type=vrf
-              publicKey="$(jobSpec.publicKey)"
-              requestBlockHash="$(jobRun.logBlockHash)"
-              requestBlockNumber="$(jobRun.logBlockNumber)"
-              topics="$(jobRun.logTopics)"]
-encode_tx    [type=ethabiencode
-              abi="fulfillRandomnessRequest(bytes proof)"
-              data="{\\"proof\\": $(vrf)}"]
-submit_tx  [type=ethtx to="{{.Address}}"
-            data="$(encode_tx)"
-            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-decode_log->vrf->encode_tx->submit_tx`
-	return MarshallTemplate(d, "VRF pipeline template", sourceString)
-}
-
 // DirectRequestTxPipelineSpec oracle request with tx callback
 type DirectRequestTxPipelineSpec struct {
 	BridgeTypeAttributes BridgeTypeAttributes

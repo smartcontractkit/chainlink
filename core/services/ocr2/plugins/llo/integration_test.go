@@ -55,6 +55,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/llo"
+	evmmercury "github.com/smartcontractkit/chainlink-evm/pkg/mercury"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
@@ -396,7 +397,7 @@ func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, ba
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, len(logs), 1)
 
-	cfg, err := mercury.ConfigFromLog(logs[len(logs)-1].Data)
+	cfg, err := evmmercury.ConfigFromLog(logs[len(logs)-1].Data)
 	require.NoError(t, err)
 
 	return cfg.ConfigDigest

@@ -70,12 +70,6 @@ Start with Beholder:
 go run . env start --with-beholder
 ```
 
-Start against v1 contracts:
-
-```bash
-go run . env start --with-contracts-version v1
-```
-
 Set extra gateway ports when your workflow needs outbound access to local services:
 
 ```bash

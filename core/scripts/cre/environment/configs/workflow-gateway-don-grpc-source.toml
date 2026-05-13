@@ -2,7 +2,7 @@
 # This topology is the same as workflow-gateway-don.toml but with AdditionalSources
 # configured to read workflows from a gRPC source at host.docker.internal:8544.
 #
-# Used by: system-tests/tests/smoke/cre/v2_grpc_source_test.go
+# Used by: system-tests/tests/smoke/cre/grpc_source_test.go
 
 [chip_router]
   image = "local-cre-chip-router:v1.0.1"
@@ -48,7 +48,7 @@
   http_port_range_start = 10100
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
-  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "http-action", "http-trigger", "consensus", "don-time", "write-evm-1337", "write-evm-2337", "read-contract-1337", "read-contract-2337", "evm-1337", "evm-2337"]
+  capabilities = ["vault", "cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337", "evm-2337"]
   registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs

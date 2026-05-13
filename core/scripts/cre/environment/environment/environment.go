@@ -19,7 +19,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
@@ -42,14 +41,11 @@ import (
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	blockchains_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
 	feature_set "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/sets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/topologyviz"
@@ -195,60 +191,12 @@ var StartCmdRecoverHandlerFunc = func(p any, persistedBeholderState *envconfig.C
 	}
 }
 
-var StartCmdGenerateSettingsFile = func(registryChain blockchains.Blockchain, output *creenv.SetupOutput) error {
-	rpcs := map[uint64]string{}
-	for _, bcOut := range output.CreEnvironment.Blockchains {
-		rpcs[bcOut.ChainSelector()] = bcOut.CtfOutput().Nodes[0].ExternalHTTPUrl
-	}
-
-	regChainEVM, isEVM := registryChain.(*evm.Blockchain)
-	if !isEVM {
-		return fmt.Errorf("registry chain is not EVM, but %T, cannot generate CRE CLI settings file", registryChain)
-	}
-
-	creCLISettingsFile, settingsErr := crecli.PrepareCRECLISettingsFile(
-		crecli.CRECLIProfile,
-		regChainEVM.SethClient.MustGetRootKeyAddress(),
-		output.CreEnvironment.CldfEnvironment.DataStore,
-		output.CreEnvironment.ContractVersions,
-		output.Dons.MustWorkflowDON().ID,
-		regChainEVM.ChainSelector(),
-		rpcs,
-		output.S3ProviderOutput,
-	)
-
-	if settingsErr != nil {
-		return settingsErr
-	}
-
-	// Copy the file to current directory as cre.yaml
-	currentDir, cErr := os.Getwd()
-	if cErr != nil {
-		return cErr
-	}
-
-	targetPath := filepath.Join(currentDir, "cre.yaml")
-	input, err := os.ReadFile(creCLISettingsFile.Name())
-	if err != nil {
-		return err
-	}
-	err = os.WriteFile(targetPath, input, 0o600)
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("CRE CLI settings file created: %s\n\n", targetPath)
-
-	return nil
-}
-
 func startCmd() *cobra.Command {
 	var (
 		extraAllowedGatewayPorts []int
 		withExampleFlag          bool
 		exampleWorkflowTimeout   time.Duration
 		withPluginsDockerImage   string
-		withContractsVersion     string
 		doSetup                  bool
 		cleanupOnFailure         bool
 		cleanupWait              time.Duration
@@ -365,11 +313,9 @@ func startCmd() *cobra.Command {
 				os.Exit(1)
 			}()
 
-			withV2Registries := withContractsVersion == "v2"
 			envDependencies := cre.NewEnvironmentDependencies(
 				flags.NewDefaultCapabilityFlagsProvider(),
-				cre.NewContractVersionsProvider(envconfig.DefaultContractSet(withV2Registries)),
-				cre.NewCLIFlagsProvider(withV2Registries),
+				cre.NewContractVersionsProvider(envconfig.DefaultContractSet()),
 			)
 
 			if err := in.Validate(envDependencies); err != nil {
@@ -436,11 +382,6 @@ func startCmd() *cobra.Command {
 			}
 
 			registryChainOut := output.CreEnvironment.Blockchains[0]
-
-			sErr := StartCmdGenerateSettingsFile(registryChainOut, output)
-			if sErr != nil {
-				fmt.Fprintf(os.Stderr, "failed to create CRE CLI settings file: %s. You need to create it manually.", sErr)
-			}
 
 			dxErr := trackStartup(true, hasBuiltDockerImage(in), output.CreEnvironment.Provider.Type, nil, nil)
 			if dxErr != nil {
@@ -544,7 +485,7 @@ func startCmd() *cobra.Command {
 					return errors.New("no workflow DON found")
 				}
 
-				deployErr := deployAndVerifyExampleWorkflow(cmdContext, registryChainOut.CtfOutput().Nodes[0].ExternalHTTPUrl, workflowDonID, exampleWorkflowTimeout, workflowRegistryAddress, semver.MustParse(withContractsVersion))
+				deployErr := deployAndVerifyExampleWorkflow(cmdContext, registryChainOut.CtfOutput().Nodes[0].ExternalHTTPUrl, workflowDonID, exampleWorkflowTimeout, workflowRegistryAddress, output.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
 				if deployErr != nil {
 					fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
 				}
@@ -581,7 +522,6 @@ func startCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&withObs, "with-observability", false, "Start Observability Stack")
 	cmd.Flags().BoolVar(&withBilling, "with-billing", false, "Deploy Billing Platform Service")
 	cmd.Flags().BoolVarP(&doSetup, "auto-setup", "a", false, "Run setup before starting the environment")
-	cmd.Flags().StringVar(&withContractsVersion, "with-contracts-version", "v2", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
 	cmd.Flags().StringVarP(&setupConfig.ConfigPath, "setup-config", "s", DefaultSetupConfigPath, "Path to the TOML configuration file for the setup command")
 	cmd.Flags().IntVarP(&chipGRPCPort, "grpc-port", "g", mustStringToInt(chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT), "GRPC port for Chip Ingress")
 
@@ -887,8 +827,6 @@ func StartCLIEnvironment(
 		NodeSets:                in.NodeSets,
 		BlockchainsInput:        in.Blockchains,
 		ChipRouterInput:         in.ChipRouter,
-		ContractVersions:        env.ContractVersions(),
-		WithV2Registries:        env.WithV2Registries(),
 		JdInput:                 in.JD,
 		Provider:                *in.Infra,
 		S3ProviderInput:         in.S3ProviderInput,
@@ -899,6 +837,7 @@ func StartCLIEnvironment(
 		Features:                features,
 		GatewayWhitelistConfig:  gatewayWhitelistConfig,
 		BlockchainDeployers:     blockchains_sets.NewDeployerSet(testLogger, in.Infra),
+		ContractVersions:        env.ContractVersions(),
 	}
 
 	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)

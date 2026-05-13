@@ -313,7 +313,11 @@ type VRFSpecParams struct {
 	BackoffInitialDelay           time.Duration
 	BackoffMaxDelay               time.Duration
 	GasLanePrice                  *assets.Wei
-	PollPeriod                    time.Duration
+	// OmitGasLanePrice omits the gasLanePrice field from the generated TOML, resulting in a
+	// nil GasLanePrice on the parsed spec. Useful for testing code paths that only run when
+	// a gas lane price is explicitly configured.
+	OmitGasLanePrice bool
+	PollPeriod       time.Duration
 }
 
 type VRFSpec struct {
@@ -378,54 +382,7 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	if params.ChunkSize != 0 {
 		chunkSize = params.ChunkSize
 	}
-	observationSource := fmt.Sprintf(`
-decode_log   [type=ethabidecodelog
-              abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
-              data="$(jobRun.logData)"
-              topics="$(jobRun.logTopics)"]
-vrf          [type=vrf
-              publicKey="$(jobSpec.publicKey)"
-              requestBlockHash="$(jobRun.logBlockHash)"
-              requestBlockNumber="$(jobRun.logBlockNumber)"
-              topics="$(jobRun.logTopics)"]
-encode_tx    [type=ethabiencode
-              abi="fulfillRandomnessRequest(bytes proof)"
-              data="{\\"proof\\": $(vrf)}"]
-submit_tx  [type=ethtx to="%s"
-            data="$(encode_tx)"
-            minConfirmations="0"
-            from="$(jobSpec.from)"
-            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"
-            transmitChecker="{\\"CheckerType\\": \\"vrf_v1\\", \\"VRFCoordinatorAddress\\": \\"%s\\"}"]
-decode_log->vrf->encode_tx->submit_tx
-`, coordinatorAddress, coordinatorAddress)
-	if params.V2 {
-		observationSource = fmt.Sprintf(`
-decode_log   [type=ethabidecodelog
-              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
-              data="$(jobRun.logData)"
-              topics="$(jobRun.logTopics)"]
-vrf          [type=vrfv2
-              publicKey="$(jobSpec.publicKey)"
-              requestBlockHash="$(jobRun.logBlockHash)"
-              requestBlockNumber="$(jobRun.logBlockNumber)"
-              topics="$(jobRun.logTopics)"]
-estimate_gas [type=estimategaslimit
-              to="%s"
-              multiplier="1.1"
-              data="$(vrf.output)"
-]
-simulate [type=ethcall
-          to="%s"
-		  gas="$(estimate_gas)"
-		  gasPrice="$(jobSpec.maxGasPrice)"
-		  extractRevertReason=true
-		  contract="%s"
-		  data="$(vrf.output)"
-]
-decode_log->vrf->estimate_gas->simulate
-`, coordinatorAddress, coordinatorAddress, coordinatorAddress)
-	}
+	var observationSource string
 	if vrfVersion == vrfcommon.V2Plus {
 		observationSource = fmt.Sprintf(`
 decode_log              [type=ethabidecodelog
@@ -454,6 +411,32 @@ simulate_fulfillment    [type=ethcall
 ]
 decode_log->generate_proof->estimate_gas->simulate_fulfillment
 `, coordinatorAddress, coordinatorAddress, coordinatorAddress)
+	} else {
+		observationSource = fmt.Sprintf(`
+decode_log   [type=ethabidecodelog
+              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
+              data="$(jobRun.logData)"
+              topics="$(jobRun.logTopics)"]
+vrf          [type=vrfv2
+              publicKey="$(jobSpec.publicKey)"
+              requestBlockHash="$(jobRun.logBlockHash)"
+              requestBlockNumber="$(jobRun.logBlockNumber)"
+              topics="$(jobRun.logTopics)"]
+estimate_gas [type=estimategaslimit
+              to="%s"
+              multiplier="1.1"
+              data="$(vrf.output)"
+]
+simulate [type=ethcall
+          to="%s"
+		  gas="$(estimate_gas)"
+		  gasPrice="$(jobSpec.maxGasPrice)"
+		  extractRevertReason=true
+		  contract="%s"
+		  data="$(vrf.output)"
+]
+decode_log->vrf->estimate_gas->simulate
+`, coordinatorAddress, coordinatorAddress, coordinatorAddress)
 	}
 	if params.ObservationSource != "" {
 		observationSource = params.ObservationSource
@@ -479,8 +462,11 @@ publicKey = "%s"
 chunkSize = %d
 backoffInitialDelay = "%s"
 backoffMaxDelay = "%s"
-gasLanePrice = "%s"
-pollPeriod = "%s"
+`
+	if !params.OmitGasLanePrice {
+		template += `gasLanePrice = "` + gasLanePrice.String() + `"` + "\n"
+	}
+	template += `pollPeriod = "%s"
 observationSource = """
 %s
 """
@@ -490,15 +476,17 @@ observationSource = """
 		params.BatchFulfillmentEnabled, strconv.FormatFloat(batchFulfillmentGasMultiplier, 'f', 2, 64),
 		params.CustomRevertsPipelineEnabled,
 		confirmations, params.RequestedConfsDelay, requestTimeout.String(), publicKey, chunkSize,
-		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(), gasLanePrice.String(),
+		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(),
 		pollPeriod.String(), observationSource)
-	if len(params.FromAddresses) != 0 {
-		var addresses []string
-		for _, address := range params.FromAddresses {
-			addresses = append(addresses, fmt.Sprintf("%q", address))
-		}
-		toml = toml + "\n" + fmt.Sprintf(`fromAddresses = [%s]`, strings.Join(addresses, ", "))
+	fromAddrs := params.FromAddresses
+	if len(fromAddrs) == 0 {
+		fromAddrs = []string{"0x1111111111111111111111111111111111111111"}
 	}
+	var addresses []string
+	for _, address := range fromAddrs {
+		addresses = append(addresses, fmt.Sprintf("%q", address))
+	}
+	toml = toml + "\n" + fmt.Sprintf(`fromAddresses = [%s]`, strings.Join(addresses, ", "))
 	if vrfVersion == vrfcommon.V2 {
 		toml = toml + "\n" + fmt.Sprintf(`vrfOwnerAddress = "%s"`, vrfOwnerAddress)
 	}
@@ -686,7 +674,6 @@ ds -> ds_parse -> ds_multiply;
 type BlockhashStoreSpecParams struct {
 	JobID                          string
 	Name                           string
-	CoordinatorV1Address           string
 	CoordinatorV2Address           string
 	CoordinatorV2PlusAddress       string
 	WaitBlocks                     int
@@ -768,9 +755,6 @@ func GenerateBlockhashStoreSpec(params BlockhashStoreSpecParams) BlockhashStoreS
 		`schemaVersion = 1`,
 		fmt.Sprintf(`name = "%s"`, params.Name),
 	)
-	if params.CoordinatorV1Address != "" {
-		lines = append(lines, fmt.Sprintf(`coordinatorV1Address = "%s"`, params.CoordinatorV1Address))
-	}
 	if params.CoordinatorV2Address != "" {
 		lines = append(lines, fmt.Sprintf(`coordinatorV2Address = "%s"`, params.CoordinatorV2Address))
 	}
@@ -799,7 +783,6 @@ func GenerateBlockhashStoreSpec(params BlockhashStoreSpecParams) BlockhashStoreS
 type BlockHeaderFeederSpecParams struct {
 	JobID                      string
 	Name                       string
-	CoordinatorV1Address       string
 	CoordinatorV2Address       string
 	CoordinatorV2PlusAddress   string
 	WaitBlocks                 int
@@ -885,9 +868,6 @@ func GenerateBlockHeaderFeederSpec(params BlockHeaderFeederSpecParams) BlockHead
 		`schemaVersion = 1`,
 		fmt.Sprintf(`name = "%s"`, params.Name),
 	)
-	if params.CoordinatorV1Address != "" {
-		lines = append(lines, fmt.Sprintf(`coordinatorV1Address = "%s"`, params.CoordinatorV1Address))
-	}
 	if params.CoordinatorV2Address != "" {
 		lines = append(lines, fmt.Sprintf(`coordinatorV2Address = "%s"`, params.CoordinatorV2Address))
 	}
