@@ -491,7 +491,7 @@ func TestPlugin_Observation_PendingQueueEnabled_ItemBothInPendingQueueAndLocalQu
 	// This key doesn't exist in the store, so we should get a key does not exist error.
 	assert.Len(t, obs.Observations, 1)
 	gotO := obs.Observations[0]
-	assert.True(t, proto.Equal(gotO.GetGetSecretsRequest(), p))
+	assert.Nil(t, gotO.GetGetSecretsRequest())
 
 	assert.Len(t, gotO.GetGetSecretsResponse().Responses, 1)
 	gotResp := gotO.GetGetSecretsResponse().Responses[0]
@@ -802,7 +802,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing
 		o := obs.Observations[0]
 
 		assert.Equal(t, vaultcommon.RequestType_GET_SECRETS, o.RequestType)
-		assert.True(t, proto.Equal(o.GetGetSecretsRequest(), p))
+		assert.Nil(t, o.GetGetSecretsRequest())
 
 		batchResp := o.GetGetSecretsResponse()
 		assert.Len(t, p.Requests, 1)
@@ -879,7 +879,7 @@ func TestPlugin_Observation_GetSecretsRequest_ResponseUsesCanonicalIdentifier(t 
 	o := obs.Observations[0]
 
 	assert.Equal(t, vaultcommon.RequestType_GET_SECRETS, o.RequestType)
-	assert.True(t, proto.Equal(o.GetGetSecretsRequest(), p))
+	assert.Nil(t, o.GetGetSecretsRequest())
 
 	batchResp := o.GetGetSecretsResponse()
 	assert.Len(t, p.Requests, 1)
@@ -1046,7 +1046,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretDoesNotExist(t *testing.T) {
 	o := obs.Observations[0]
 
 	assert.Equal(t, vaultcommon.RequestType_GET_SECRETS, o.RequestType)
-	assert.True(t, proto.Equal(o.GetGetSecretsRequest(), p))
+	assert.Nil(t, o.GetGetSecretsRequest())
 
 	batchResp := o.GetGetSecretsResponse()
 	assert.Len(t, p.Requests, 1)
@@ -1106,7 +1106,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretExistsButIsIncorrect(t *test
 	o := obs.Observations[0]
 
 	assert.Equal(t, vaultcommon.RequestType_GET_SECRETS, o.RequestType)
-	assert.True(t, proto.Equal(o.GetGetSecretsRequest(), p))
+	assert.Nil(t, o.GetGetSecretsRequest())
 
 	batchResp := o.GetGetSecretsResponse()
 	assert.Len(t, p.Requests, 1)
@@ -1180,7 +1180,7 @@ func TestPlugin_Observation_GetSecretsRequest_PublicKeyIsInvalid(t *testing.T) {
 	o := obs.Observations[0]
 
 	assert.Equal(t, vaultcommon.RequestType_GET_SECRETS, o.RequestType)
-	assert.True(t, proto.Equal(o.GetGetSecretsRequest(), p))
+	assert.Nil(t, o.GetGetSecretsRequest())
 
 	batchResp := o.GetGetSecretsResponse()
 	assert.Len(t, p.Requests, 1)
@@ -1253,7 +1253,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretLabelIsInvalid(t *testing.T)
 	o := obs.Observations[0]
 
 	assert.Equal(t, vaultcommon.RequestType_GET_SECRETS, o.RequestType)
-	assert.True(t, proto.Equal(o.GetGetSecretsRequest(), p))
+	assert.Nil(t, o.GetGetSecretsRequest())
 
 	batchResp := o.GetGetSecretsResponse()
 	assert.Len(t, p.Requests, 1)
@@ -1328,7 +1328,7 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 	o := obs.Observations[0]
 
 	assert.Equal(t, vaultcommon.RequestType_GET_SECRETS, o.RequestType)
-	assert.True(t, proto.Equal(o.GetGetSecretsRequest(), p))
+	assert.Nil(t, o.GetGetSecretsRequest())
 
 	batchResp := o.GetGetSecretsResponse()
 	assert.Len(t, p.Requests, 1)
@@ -2512,7 +2512,7 @@ func TestPlugin_ValidateObservations_InvalidObservations(t *testing.T) {
 		kv,
 		nil,
 	)
-	require.ErrorContains(t, err, "GetSecrets observation must have both request and response")
+	require.ErrorContains(t, err, "GetSecrets observation must have a response")
 
 	// Invalid observation -- data can't be unmarshaled
 	err = r.ValidateObservation(
@@ -2780,7 +2780,6 @@ func TestPlugin_StateTransition_AggregatesValidationErrors(t *testing.T) {
 	assert.Len(t, os.Outcomes, 1)
 
 	o := os.Outcomes[0]
-	assert.True(t, proto.Equal(req, o.GetGetSecretsRequest()))
 	assert.True(t, proto.Equal(resp, o.GetGetSecretsResponse()))
 
 	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
@@ -2885,7 +2884,6 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 	assert.Len(t, os.Outcomes, 1)
 
 	o := os.Outcomes[0]
-	assert.True(t, proto.Equal(req, o.GetGetSecretsRequest()))
 
 	expectedResp := &vaultcommon.GetSecretsResponse{
 		Responses: []*vaultcommon.SecretResponse{
@@ -2966,7 +2964,6 @@ func TestPlugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T)
 	assert.Len(t, os.Outcomes, 1)
 
 	o := os.Outcomes[0]
-	assert.True(t, proto.Equal(req, o.GetCreateSecretsRequest()))
 
 	expectedResp := &vaultcommon.CreateSecretsResponse{
 		Responses: []*vaultcommon.CreateSecretResponse{
@@ -3049,7 +3046,6 @@ func TestPlugin_StateTransition_CreateSecretsRequest_UsesWorkflowOwnerMetadataWh
 	require.Len(t, os.Outcomes, 1)
 
 	o := os.Outcomes[0]
-	assert.True(t, proto.Equal(req, o.GetCreateSecretsRequest()), o.GetCreateSecretsRequest())
 	require.Len(t, o.GetCreateSecretsResponse().Responses, 1)
 	assert.False(t, o.GetCreateSecretsResponse().Responses[0].Success)
 	assert.Contains(t, o.GetCreateSecretsResponse().Responses[0].Error, "has reached maximum number of secrets")
@@ -3133,7 +3129,6 @@ func TestPlugin_StateTransition_CreateSecretsRequest_RewritesResponseOwnerToOrgI
 	require.Len(t, os.Outcomes, 1)
 
 	o := os.Outcomes[0]
-	assert.True(t, proto.Equal(req, o.GetCreateSecretsRequest()))
 	expectedResp := &vaultcommon.CreateSecretsResponse{
 		Responses: []*vaultcommon.CreateSecretResponse{
 			{
@@ -3667,7 +3662,6 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_SecretDoesntExist(t *testin
 	assert.Len(t, os.Outcomes, 1)
 
 	o := os.Outcomes[0]
-	assert.True(t, proto.Equal(req, o.GetUpdateSecretsRequest()))
 
 	expectedResp := &vaultcommon.UpdateSecretsResponse{
 		Responses: []*vaultcommon.UpdateSecretResponse{
@@ -3758,7 +3752,6 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_WritesSecrets(t *testing.T)
 	assert.Len(t, os.Outcomes, 1)
 
 	o := os.Outcomes[0]
-	assert.True(t, proto.Equal(req, o.GetUpdateSecretsRequest()))
 
 	expectedResp := &vaultcommon.UpdateSecretsResponse{
 		Responses: []*vaultcommon.UpdateSecretResponse{
@@ -3845,7 +3838,6 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_MigratesWorkflowOwnerSecret
 	require.Len(t, os.Outcomes, 1)
 
 	o := os.Outcomes[0]
-	assert.True(t, proto.Equal(req, o.GetUpdateSecretsRequest()), o.GetUpdateSecretsRequest())
 	require.Len(t, o.GetUpdateSecretsResponse().Responses, 1)
 	assert.True(t, o.GetUpdateSecretsResponse().Responses[0].Success)
 	assert.Equal(t, orgID, o.GetUpdateSecretsResponse().Responses[0].Id.Owner)
@@ -4163,7 +4155,6 @@ func TestPlugin_StateTransition_DeleteSecretsRequest(t *testing.T) {
 	assert.Len(t, os.Outcomes, 1)
 
 	o := os.Outcomes[0]
-	assert.True(t, proto.Equal(req, o.GetDeleteSecretsRequest()), o.GetDeleteSecretsRequest())
 	expectedResp := &vaultcommon.DeleteSecretsResponse{
 		Responses: []*vaultcommon.DeleteSecretResponse{
 			{
@@ -4242,7 +4233,6 @@ func TestPlugin_StateTransition_DeleteSecretsRequest_DeletesWorkflowOwnerSecretW
 	require.Len(t, os.Outcomes, 1)
 
 	o := os.Outcomes[0]
-	assert.True(t, proto.Equal(req, o.GetDeleteSecretsRequest()), o.GetDeleteSecretsRequest())
 	require.Len(t, o.GetDeleteSecretsResponse().Responses, 1)
 	assert.True(t, o.GetDeleteSecretsResponse().Responses[0].Success)
 	assert.True(t, proto.Equal(id, o.GetDeleteSecretsResponse().Responses[0].Id), o.GetDeleteSecretsResponse().Responses[0].Id)
@@ -4312,7 +4302,6 @@ func TestPlugin_StateTransition_DeleteSecretsRequest_SecretDoesNotExist(t *testi
 	assert.Len(t, os.Outcomes, 1)
 
 	o := os.Outcomes[0]
-	assert.True(t, proto.Equal(req, o.GetDeleteSecretsRequest()), o.GetDeleteSecretsRequest())
 	expectedResp := &vaultcommon.DeleteSecretsResponse{
 		Responses: []*vaultcommon.DeleteSecretResponse{
 			{
@@ -4789,7 +4778,6 @@ func TestPlugin_StateTransition_ListSecretIdentifiers(t *testing.T) {
 	assert.Len(t, os.Outcomes, 1)
 
 	o := os.Outcomes[0]
-	assert.True(t, proto.Equal(req, o.GetListSecretIdentifiersRequest()))
 
 	assert.True(t, proto.Equal(resp, o.GetListSecretIdentifiersResponse()))
 
@@ -5431,93 +5419,6 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 		Responses: []*vaultcommon.SecretResponse{
 			{
 				Id: id,
-				Result: &vaultcommon.SecretResponse_Error{
-					Error: "foo",
-				},
-			},
-			{
-				Id: id,
-				Result: &vaultcommon.SecretResponse_Error{
-					Error: "foo",
-				},
-			},
-		},
-	}
-
-	o1 = &vaultcommon.Observations{
-		Observations: []*vaultcommon.Observation{
-			{
-				Id:          "request-1",
-				RequestType: vaultcommon.RequestType_GET_SECRETS,
-				Request: &vaultcommon.Observation_GetSecretsRequest{
-					GetSecretsRequest: req,
-				},
-				Response: &vaultcommon.Observation_GetSecretsResponse{
-					GetSecretsResponse: resp,
-				},
-			},
-		},
-	}
-	o1b = protoMarshal(t, o1)
-
-	err = r.ValidateObservation(
-		t.Context(),
-		seqNr,
-		types.AttributedQuery{},
-		types.AttributedObservation{
-			Observer: 0, Observation: o1b,
-		},
-		rdr,
-		bf,
-	)
-	require.ErrorContains(t, err, "invalid observation: GetSecrets request and response must have the same number of items")
-
-	resp = &vaultcommon.GetSecretsResponse{
-		Responses: []*vaultcommon.SecretResponse{
-			{
-				Id: id,
-				Result: &vaultcommon.SecretResponse_Data{
-					Data: &vaultcommon.SecretData{
-						EncryptedValue:               "encrypted-value",
-						EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{},
-					},
-				},
-			},
-		},
-	}
-
-	o1 = &vaultcommon.Observations{
-		Observations: []*vaultcommon.Observation{
-			{
-				Id:          "request-1",
-				RequestType: vaultcommon.RequestType_GET_SECRETS,
-				Request: &vaultcommon.Observation_GetSecretsRequest{
-					GetSecretsRequest: req,
-				},
-				Response: &vaultcommon.Observation_GetSecretsResponse{
-					GetSecretsResponse: resp,
-				},
-			},
-		},
-	}
-	o1b = protoMarshal(t, o1)
-
-	err = r.ValidateObservation(
-		t.Context(),
-		seqNr,
-		types.AttributedQuery{},
-		types.AttributedObservation{
-			Observer: 0, Observation: o1b,
-		},
-		rdr,
-		bf,
-	)
-	require.ErrorContains(t, err, "invalid observation: observation must contain a share per encryption key provided")
-
-	resp = &vaultcommon.GetSecretsResponse{
-		Responses: []*vaultcommon.SecretResponse{
-			{
-				Id: id,
 				Result: &vaultcommon.SecretResponse_Data{
 					Data: &vaultcommon.SecretData{
 						EncryptedValue: "encrypted-value",
@@ -5559,6 +5460,126 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 		bf,
 	)
 	require.ErrorContains(t, err, "invalid observation: share provided exceeds maximum size allowed")
+
+	// More responses than requests in the original GetSecretsRequest is now valid because
+	// request content is no longer included in the observation — validation is response-only.
+	resp = &vaultcommon.GetSecretsResponse{
+		Responses: []*vaultcommon.SecretResponse{
+			{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Error{
+					Error: "foo",
+				},
+			},
+			{
+				Id: &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret2"},
+				Result: &vaultcommon.SecretResponse_Error{
+					Error: "foo",
+				},
+			},
+		},
+	}
+
+	o1 = &vaultcommon.Observations{
+		Observations: []*vaultcommon.Observation{
+			{
+				Id:          "request-1",
+				RequestType: vaultcommon.RequestType_GET_SECRETS,
+				Response: &vaultcommon.Observation_GetSecretsResponse{
+					GetSecretsResponse: resp,
+				},
+			},
+		},
+	}
+	o1b = protoMarshal(t, o1)
+
+	err = r.ValidateObservation(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		types.AttributedObservation{
+			Observer: 0, Observation: o1b,
+		},
+		rdr,
+		bf,
+	)
+	require.NoError(t, err)
+
+	// An empty EncryptedShares list is now valid because the per-key cross-check against
+	// the request's EncryptionKeys is no longer performed.
+	resp = &vaultcommon.GetSecretsResponse{
+		Responses: []*vaultcommon.SecretResponse{
+			{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{
+					Data: &vaultcommon.SecretData{
+						EncryptedValue:               "encrypted-value",
+						EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{},
+					},
+				},
+			},
+		},
+	}
+
+	o1 = &vaultcommon.Observations{
+		Observations: []*vaultcommon.Observation{
+			{
+				Id:          "request-1",
+				RequestType: vaultcommon.RequestType_GET_SECRETS,
+				Response: &vaultcommon.Observation_GetSecretsResponse{
+					GetSecretsResponse: resp,
+				},
+			},
+		},
+	}
+	o1b = protoMarshal(t, o1)
+
+	err = r.ValidateObservation(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		types.AttributedObservation{
+			Observer: 0, Observation: o1b,
+		},
+		rdr,
+		bf,
+	)
+	require.NoError(t, err)
+
+	// Batch limit is now enforced on the response count, not the request count.
+	rBatchLimited := newTestReportingPlugin(t, withMaxRequestBatchSize(1), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+
+	resp = &vaultcommon.GetSecretsResponse{
+		Responses: []*vaultcommon.SecretResponse{
+			{Id: id, Result: &vaultcommon.SecretResponse_Error{Error: "err"}},
+			{Id: &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret2"}, Result: &vaultcommon.SecretResponse_Error{Error: "err"}},
+		},
+	}
+
+	o1 = &vaultcommon.Observations{
+		Observations: []*vaultcommon.Observation{
+			{
+				Id:          "request-1",
+				RequestType: vaultcommon.RequestType_GET_SECRETS,
+				Response: &vaultcommon.Observation_GetSecretsResponse{
+					GetSecretsResponse: resp,
+				},
+			},
+		},
+	}
+	o1b = protoMarshal(t, o1)
+
+	err = rBatchLimited.ValidateObservation(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		types.AttributedObservation{
+			Observer: 0, Observation: o1b,
+		},
+		rdr,
+		bf,
+	)
+	require.ErrorContains(t, err, "invalid observation: max batch size exceeded for request")
 }
 
 func TestPlugin_ValidateObservation_GetSecretsRequest_OrgIDResponseOwner(t *testing.T) {
@@ -5615,8 +5636,10 @@ func TestPlugin_ValidateObservation_GetSecretsRequest_OrgIDResponseOwner(t *test
 
 	require.NoError(t, r.validateObservation(t.Context(), obs))
 
+	// When org-ID is disabled the response owner is still the orgID, but since we no longer
+	// cross-validate the request's secretID against the response, the observation passes.
 	r.cfg.OrgIDAsSecretOwnerEnabled = limits.NewGateLimiter(false)
-	require.ErrorContains(t, r.validateObservation(t.Context(), obs), "missing response for request with id workflowowner::main::secret")
+	require.NoError(t, r.validateObservation(t.Context(), obs))
 }
 
 func TestPlugin_ValidateObservation_PanicsOnEmptyShares(t *testing.T) {
@@ -5724,11 +5747,14 @@ func TestPlugin_ValidateObservation_NilSecretIdentifier(t *testing.T) {
 	}
 
 	tests := []struct {
-		name string
-		obs  *vaultcommon.Observation
+		name        string
+		obs         *vaultcommon.Observation
+		expectError bool
 	}{
 		{
-			name: "GetSecrets request with nil Id",
+			// The request is no longer included in GetSecrets observations, so a nil Id
+			// in the request field does not cause a validation error.
+			name: "GetSecrets request with nil Id passes",
 			obs: &vaultcommon.Observation{
 				Id:          "request-1",
 				RequestType: vaultcommon.RequestType_GET_SECRETS,
@@ -5747,9 +5773,11 @@ func TestPlugin_ValidateObservation_NilSecretIdentifier(t *testing.T) {
 					},
 				},
 			},
+			expectError: false,
 		},
 		{
-			name: "GetSecrets response with nil Id",
+			name:        "GetSecrets response with nil Id",
+			expectError: true,
 			obs: &vaultcommon.Observation{
 				Id:          "request-1",
 				RequestType: vaultcommon.RequestType_GET_SECRETS,
@@ -5770,7 +5798,8 @@ func TestPlugin_ValidateObservation_NilSecretIdentifier(t *testing.T) {
 			},
 		},
 		{
-			name: "CreateSecrets with nil Id",
+			name:        "CreateSecrets with nil Id",
+			expectError: true,
 			obs: &vaultcommon.Observation{
 				Id:          "request-1",
 				RequestType: vaultcommon.RequestType_CREATE_SECRETS,
@@ -5791,7 +5820,8 @@ func TestPlugin_ValidateObservation_NilSecretIdentifier(t *testing.T) {
 			},
 		},
 		{
-			name: "UpdateSecrets with nil Id",
+			name:        "UpdateSecrets with nil Id",
+			expectError: true,
 			obs: &vaultcommon.Observation{
 				Id:          "request-1",
 				RequestType: vaultcommon.RequestType_UPDATE_SECRETS,
@@ -5812,7 +5842,8 @@ func TestPlugin_ValidateObservation_NilSecretIdentifier(t *testing.T) {
 			},
 		},
 		{
-			name: "CreateSecrets response with nil Id",
+			name:        "CreateSecrets response with nil Id",
+			expectError: true,
 			obs: &vaultcommon.Observation{
 				Id:          "request-1",
 				RequestType: vaultcommon.RequestType_CREATE_SECRETS,
@@ -5833,7 +5864,8 @@ func TestPlugin_ValidateObservation_NilSecretIdentifier(t *testing.T) {
 			},
 		},
 		{
-			name: "UpdateSecrets response with nil Id",
+			name:        "UpdateSecrets response with nil Id",
+			expectError: true,
 			obs: &vaultcommon.Observation{
 				Id:          "request-1",
 				RequestType: vaultcommon.RequestType_UPDATE_SECRETS,
@@ -5854,7 +5886,8 @@ func TestPlugin_ValidateObservation_NilSecretIdentifier(t *testing.T) {
 			},
 		},
 		{
-			name: "DeleteSecrets response with nil Id",
+			name:        "DeleteSecrets response with nil Id",
+			expectError: true,
 			obs: &vaultcommon.Observation{
 				Id:          "request-1",
 				RequestType: vaultcommon.RequestType_DELETE_SECRETS,
@@ -5918,7 +5951,11 @@ func TestPlugin_ValidateObservation_NilSecretIdentifier(t *testing.T) {
 					bf,
 				)
 			})
-			require.Error(t, err, "expected an error for nil secret identifier, not a panic")
+			if tc.expectError {
+				require.Error(t, err, "expected an error for nil secret identifier, not a panic")
+			} else {
+				require.NoError(t, err)
+			}
 		})
 	}
 }
@@ -6144,24 +6181,6 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 		errSubstr string
 	}
 
-	makeGetSecretsObs := func(id *vaultcommon.SecretIdentifier) *vaultcommon.Observation {
-		req := &vaultcommon.GetSecretsRequest{
-			Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{"key"}}},
-		}
-		return &vaultcommon.Observation{
-			Id:          "request-1",
-			RequestType: vaultcommon.RequestType_GET_SECRETS,
-			Request:     &vaultcommon.Observation_GetSecretsRequest{GetSecretsRequest: req},
-			Response: &vaultcommon.Observation_GetSecretsResponse{
-				GetSecretsResponse: &vaultcommon.GetSecretsResponse{
-					Responses: []*vaultcommon.SecretResponse{
-						{Id: validID, Result: &vaultcommon.SecretResponse_Error{Error: "err"}},
-					},
-				},
-			},
-		}
-	}
-
 	makeCreateSecretsObs := func(id *vaultcommon.SecretIdentifier, ciphertext string) *vaultcommon.Observation {
 		return &vaultcommon.Observation{
 			Id:          "request-1",
@@ -6230,42 +6249,65 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 		}
 	}
 
+	// makeGetSecretsObs puts the identifier only in the request; the response always uses validID.
+	// Since GetSecrets observations no longer include the request, identifier validation on the
+	// request side is not performed — all these cases pass regardless of the request ID.
+	makeGetSecretsObs := func(id *vaultcommon.SecretIdentifier) *vaultcommon.Observation {
+		req := &vaultcommon.GetSecretsRequest{
+			Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{"key"}}},
+		}
+		return &vaultcommon.Observation{
+			Id:          "request-1",
+			RequestType: vaultcommon.RequestType_GET_SECRETS,
+			Request:     &vaultcommon.Observation_GetSecretsRequest{GetSecretsRequest: req},
+			Response: &vaultcommon.Observation_GetSecretsResponse{
+				GetSecretsResponse: &vaultcommon.GetSecretsResponse{
+					Responses: []*vaultcommon.SecretResponse{
+						{Id: validID, Result: &vaultcommon.SecretResponse_Error{Error: "err"}},
+					},
+				},
+			},
+		}
+	}
+
 	tests := []testCase{
 		// --- GetSecrets ---
+		// Request identifiers are not validated for GetSecrets (request is not included in the
+		// observation). All cases pass regardless of the identifier in the request.
 		{
 			name:      "GetSecrets valid identifier passes",
 			obs:       makeGetSecretsObs(validID),
 			errSubstr: "",
 		},
 		{
-			name:      "GetSecrets empty key rejected",
+			name:      "GetSecrets empty key in request passes (not validated)",
 			obs:       makeGetSecretsObs(&vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: ""}),
-			errSubstr: "key cannot be empty",
+			errSubstr: "",
 		},
 		{
-			name:      "GetSecrets empty owner rejected",
+			name:      "GetSecrets empty owner in request passes (not validated)",
 			obs:       makeGetSecretsObs(&vaultcommon.SecretIdentifier{Owner: "", Namespace: "main", Key: "secret"}),
-			errSubstr: "owner cannot be empty",
+			errSubstr: "",
 		},
 		{
-			name:      "GetSecrets empty namespace rejected",
+			name:      "GetSecrets empty namespace in request passes (not validated)",
 			obs:       makeGetSecretsObs(&vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "", Key: "secret"}),
-			errSubstr: "namespace cannot be empty",
+			errSubstr: "",
 		},
 		{
-			name:      "GetSecrets owner too long rejected",
+			name:      "GetSecrets owner too long in request passes (not validated)",
 			obs:       makeGetSecretsObs(&vaultcommon.SecretIdentifier{Owner: "toolongowner", Namespace: "main", Key: "secret"}),
-			errSubstr: "owner exceeds maximum length",
+			errSubstr: "",
 		},
 		{
-			name:      "GetSecrets namespace too long rejected",
+			name:      "GetSecrets namespace too long in request passes (not validated)",
 			obs:       makeGetSecretsObs(&vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "toolongnamespace", Key: "secret"}),
-			errSubstr: "namespace exceeds maximum length",
+			errSubstr: "",
 		},
 		{
-			name:      "GetSecrets key too long rejected",
+			name:      "GetSecrets key too long in request passes (not validated)",
 			obs:       makeGetSecretsObs(&vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "toolongkey123"}),
-			errSubstr: "key exceeds maximum length",
+			errSubstr: "",
 		},
 		// --- CreateSecrets ---
 		{
@@ -6494,7 +6536,6 @@ func TestPlugin_StateTransition_PendingQueueEnabled_NewQuora_NotGetRequest(t *te
 	assert.Len(t, os.Outcomes, 1)
 
 	o := os.Outcomes[0]
-	assert.True(t, proto.Equal(req, o.GetListSecretIdentifiersRequest()))
 	assert.True(t, proto.Equal(resp, o.GetListSecretIdentifiersResponse()))
 
 	ss, err := rs.GetSecret(t.Context(), id)
@@ -6568,7 +6609,6 @@ func TestPlugin_StateTransition_PendingQueueEnabled_GetRequest(t *testing.T) {
 	assert.Len(t, os.Outcomes, 1)
 
 	o := os.Outcomes[0]
-	assert.True(t, proto.Equal(req, o.GetGetSecretsRequest()))
 	assert.True(t, proto.Equal(resp, o.GetGetSecretsResponse()))
 
 	ss, err := rs.GetSecret(t.Context(), id)

@@ -625,9 +625,6 @@ func (r *ReportingPlugin) broadcastBlobPayloads(
 func (r *ReportingPlugin) observeGetSecrets(ctx context.Context, reader ReadKVStore, req proto.Message, o *vaultcommon.Observation) {
 	tp := req.(*vaultcommon.GetSecretsRequest)
 	o.RequestType = vaultcommon.RequestType_GET_SECRETS
-	o.Request = &vaultcommon.Observation_GetSecretsRequest{
-		GetSecretsRequest: tp,
-	}
 	resps := []*vaultcommon.SecretResponse{}
 	for _, secretRequest := range tp.Requests {
 		resp, ierr := r.observeGetSecretsRequest(ctx, reader, secretRequest, tp.WorkflowOwner, tp.OrgId)
@@ -1236,34 +1233,13 @@ func (r *ReportingPlugin) validateObservation(ctx context.Context, o *vaultcommo
 }
 
 func (r *ReportingPlugin) validateGetSecretsObservation(ctx context.Context, o *vaultcommon.Observation) error {
-	if o.GetGetSecretsRequest() == nil || o.GetGetSecretsResponse() == nil {
-		return errors.New("GetSecrets observation must have both request and response")
+	resp := o.GetGetSecretsResponse()
+	if resp == nil {
+		return errors.New("GetSecrets observation must have a response")
 	}
 
-	if err := r.checkRequestBatchLimit(ctx, len(o.GetGetSecretsRequest().Requests)); err != nil {
+	if err := r.checkRequestBatchLimit(ctx, len(resp.Responses)); err != nil {
 		return err
-	}
-
-	if len(o.GetGetSecretsRequest().Requests) != len(o.GetGetSecretsResponse().Responses) {
-		return errors.New("GetSecrets request and response must have the same number of items")
-	}
-
-	// check for that we have an entry per encrypted key in the request
-	// we should have max 1 share per observation per encrypted key
-	req, resp := o.GetGetSecretsRequest(), o.GetGetSecretsResponse()
-	reqMap := map[string]*vaultcommon.SecretRequest{}
-	for _, secretRequest := range req.Requests {
-		if secretRequest.Id == nil {
-			return errors.New("GetSecrets request contains nil secret identifier")
-		}
-		if err := r.validator.ValidateSecretIdentifier(ctx, secretRequest.Id.Key, secretRequest.Id.Owner, secretRequest.Id.Namespace); err != nil {
-			return fmt.Errorf("GetSecrets request contains invalid secret identifier: %w", err)
-		}
-		key := vaulttypes.KeyFor(r.canonicalResponseID(ctx, secretRequest.Id, req.OrgId))
-		if _, ok := reqMap[key]; ok {
-			return fmt.Errorf("duplicate request found for item %s", key)
-		}
-		reqMap[key] = secretRequest
 	}
 
 	respMap := map[string]*vaultcommon.SecretResponse{}
@@ -1278,39 +1254,25 @@ func (r *ReportingPlugin) validateGetSecretsObservation(ctx context.Context, o *
 		respMap[key] = secretResponse
 	}
 
-	if len(reqMap) != len(respMap) {
-		return errors.New("observation doesn't contain matching number of requests and responses")
-	}
-
-	for _, rq := range reqMap {
-		responseID := r.canonicalResponseID(ctx, rq.Id, req.OrgId)
-		key := vaulttypes.KeyFor(responseID)
-		rsp, ok := respMap[key]
-		if !ok {
-			return fmt.Errorf("missing response for request with id %s", key)
+	for _, rsp := range respMap {
+		d := rsp.GetData()
+		if d == nil {
+			continue
 		}
 
-		d := rsp.GetData()
-		if d != nil {
-			decryptionShares := d.GetEncryptedDecryptionKeyShares()
-			if len(rq.EncryptionKeys) != len(d.GetEncryptedDecryptionKeyShares()) {
-				return errors.New("observation must contain a share per encryption key provided")
+		innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: rsp.Id.Owner})
+		for _, ds := range d.GetEncryptedDecryptionKeyShares() {
+			if len(ds.Shares) != 1 {
+				return errors.New("observation must have exactly 1 share per encryption key")
 			}
 
-			innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: responseID.Owner})
-			for _, ds := range decryptionShares {
-				if len(ds.Shares) != 1 {
-					return errors.New("observation must have exactly 1 share per encryption key")
+			share := ds.Shares[0]
+			if err := r.cfg.MaxShareLengthBytes.Check(innerCtx, pkgconfig.Size(len(share))*pkgconfig.Byte); err != nil {
+				var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
+				if errors.As(err, &errBoundLimited) {
+					return fmt.Errorf("share provided exceeds maximum size allowed: %w", err)
 				}
-
-				share := ds.Shares[0]
-				if err := r.cfg.MaxShareLengthBytes.Check(innerCtx, pkgconfig.Size(len(share))*pkgconfig.Byte); err != nil {
-					var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
-					if errors.As(err, &errBoundLimited) {
-						return fmt.Errorf("share provided exceeds maximum size allowed: %w", err)
-					}
-					return errors.New("failed to check share size")
-				}
+				return errors.New("failed to check share size")
 			}
 		}
 	}
@@ -1742,34 +1704,10 @@ func sortKey(id string, nonce []byte) []byte {
 }
 
 func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, chosen []*vaultcommon.Observation, o *vaultcommon.Outcome) {
-	first := chosen[0]
-	// First, let's generate the aggregated request.
-	// We've validated that all requests with the same sha have the same
-	// contents, so we can just sort the SecretRequests by their ID
-	// and use that as the aggregated request.
-	reqs := first.GetGetSecretsRequest().Requests
-	idToReqs := map[string]*vaultcommon.SecretRequest{}
-	for _, req := range reqs {
-		idToReqs[vaulttypes.KeyFor(req.Id)] = req
-	}
-
-	newReqs := []*vaultcommon.SecretRequest{}
-	for _, sreq := range slices.Sorted(maps.Keys(idToReqs)) {
-		newReqs = append(newReqs, idToReqs[sreq])
-	}
-
-	o.Request = &vaultcommon.Outcome_GetSecretsRequest{
-		GetSecretsRequest: &vaultcommon.GetSecretsRequest{
-			Requests:      newReqs,
-			OrgId:         first.GetGetSecretsRequest().OrgId,
-			WorkflowOwner: first.GetGetSecretsRequest().WorkflowOwner,
-		},
-	}
-
 	// Next, we deal with the responses.
 	// For each request, we take the Id of the first observation
 	// then aggregate the encrypted shares across all observations.
-	// Like with the requests, we sort these by Id and use the result as the response.
+	// We sort these by Id and use the result as the response.
 	idToAggResponse := map[string]*vaultcommon.SecretResponse{}
 	for _, resp := range chosen {
 		getSecretsResp := resp.GetGetSecretsResponse()
@@ -1851,20 +1789,6 @@ func (r *ReportingPlugin) stateTransitionCreateSecrets(ctx context.Context, stor
 	idToReqs := map[string]*vaultcommon.EncryptedSecret{}
 	for _, r := range req {
 		idToReqs[vaulttypes.KeyFor(r.Id)] = r
-	}
-
-	newReqs := []*vaultcommon.EncryptedSecret{}
-	for _, sreq := range slices.Sorted(maps.Keys(idToReqs)) {
-		newReqs = append(newReqs, idToReqs[sreq])
-	}
-
-	o.Request = &vaultcommon.Outcome_CreateSecretsRequest{
-		CreateSecretsRequest: &vaultcommon.CreateSecretsRequest{
-			RequestId:        reqID,
-			EncryptedSecrets: newReqs,
-			OrgId:            first.GetCreateSecretsRequest().OrgId,
-			WorkflowOwner:    first.GetCreateSecretsRequest().WorkflowOwner,
-		},
 	}
 
 	// Next let's aggregate the responses.
@@ -1973,20 +1897,6 @@ func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, stor
 		idToReqs[vaulttypes.KeyFor(r.Id)] = r
 	}
 
-	newReqs := []*vaultcommon.EncryptedSecret{}
-	for _, sreq := range slices.Sorted(maps.Keys(idToReqs)) {
-		newReqs = append(newReqs, idToReqs[sreq])
-	}
-
-	o.Request = &vaultcommon.Outcome_UpdateSecretsRequest{
-		UpdateSecretsRequest: &vaultcommon.UpdateSecretsRequest{
-			RequestId:        reqID,
-			EncryptedSecrets: newReqs,
-			OrgId:            first.GetUpdateSecretsRequest().OrgId,
-			WorkflowOwner:    first.GetUpdateSecretsRequest().WorkflowOwner,
-		},
-	}
-
 	// Next let's aggregate the responses.
 	// We do this by taking the first response, and determine if
 	// there was a validation error. If not, we write it to the key value store.
@@ -2077,20 +1987,6 @@ func (r *ReportingPlugin) stateTransitionDeleteSecrets(ctx context.Context, stor
 		idToReqs[vaulttypes.KeyFor(r)] = r
 	}
 
-	newReqs := []*vaultcommon.SecretIdentifier{}
-	for _, sreq := range slices.Sorted(maps.Keys(idToReqs)) {
-		newReqs = append(newReqs, idToReqs[sreq])
-	}
-
-	o.Request = &vaultcommon.Outcome_DeleteSecretsRequest{
-		DeleteSecretsRequest: &vaultcommon.DeleteSecretsRequest{
-			RequestId:     reqID,
-			Ids:           newReqs,
-			OrgId:         first.GetDeleteSecretsRequest().OrgId,
-			WorkflowOwner: first.GetDeleteSecretsRequest().WorkflowOwner,
-		},
-	}
-
 	// Next let's aggregate the responses.
 	// We do this by taking the first response, and determine if
 	// there was a validation error. If not, we write it to the key value store.
@@ -2156,12 +2052,8 @@ func (r *ReportingPlugin) stateTransitionDeleteSecretsRequest(ctx context.Contex
 func (r *ReportingPlugin) stateTransitionListSecretIdentifiers(ctx context.Context, store WriteKVStore, chosen []*vaultcommon.Observation, o *vaultcommon.Outcome) {
 	// All of the logic for the ListSecretIdentifiers request is in the
 	// observation phase. This returns the observations in sorted order,
-	// so we can just take the first aggregated request and response and
-	// use it as the outcome.
+	// so we can just take the first aggregated response and use it as the outcome.
 	first := chosen[0]
-	o.Request = &vaultcommon.Outcome_ListSecretIdentifiersRequest{
-		ListSecretIdentifiersRequest: first.GetListSecretIdentifiersRequest(),
-	}
 	o.Response = &vaultcommon.Outcome_ListSecretIdentifiersResponse{
 		ListSecretIdentifiersResponse: first.GetListSecretIdentifiersResponse(),
 	}
