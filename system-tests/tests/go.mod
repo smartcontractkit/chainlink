@@ -150,7 +150,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/data-feeds v0.1.1-0.20260501174546-2e8846986b36 // indirect
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.18.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/node-platform v0.0.0-20260430172634-acccf17ece83 // indirect
-	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260421131224-c46cbfe7bc6c // indirect
+	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260513123719-d347eaf314e1 // indirect
 	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260427132612-76b9f754a556 // indirect
 	github.com/smartcontractkit/cld-changesets v0.3.1-0.20260511171704-b04f4d990849 // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20260508200755-99940c85383c // indirect
