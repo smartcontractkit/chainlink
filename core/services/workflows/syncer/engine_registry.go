@@ -75,7 +75,7 @@ func (r *EngineRegistry) Get(key EngineRegistryKey) (ServiceWithMetadata, bool) 
 func (r *EngineRegistry) GetAll() []ServiceWithMetadata {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	engines := []ServiceWithMetadata{}
+	engines := make([]ServiceWithMetadata, 0, len(r.engines))
 	for _, enginWithMetadata := range r.engines {
 		engines = append(engines, enginWithMetadata)
 	}

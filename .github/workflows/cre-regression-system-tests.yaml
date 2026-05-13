@@ -243,9 +243,9 @@ jobs:
             -v -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 -parallel="${PARALLEL_COUNT}" \
             github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre
 
-          exit_code=$?
+          exit_code="$?"
           if [ "$exit_code" -eq 0 ]; then
-            echo "tests_result=✅ Tests passed" >> $GITHUB_OUTPUT
+            echo "tests_result=✅ Tests passed" >> "$GITHUB_OUTPUT"
           fi
 
           echo "⚠️⚠️⚠️ Add 'skip-e2e-regression' label to skip this step if necessary ⚠️⚠️⚠️"

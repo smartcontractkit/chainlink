@@ -112,8 +112,7 @@ func Test_Config(t *testing.T) {
 			assert.False(t, mc.BenchmarkMode)
 
 			err = mc.Validate()
-			require.Error(t, err)
-			assert.EqualError(t, err, "llo: ChannelDefinitionsContractAddress is required if ChannelDefinitions is not specified")
+			require.EqualError(t, err, "llo: ChannelDefinitionsContractAddress is required if ChannelDefinitions is not specified")
 		})
 
 		t.Run("with invalid values", func(t *testing.T) {
@@ -124,7 +123,7 @@ func Test_Config(t *testing.T) {
 			var mc PluginConfig
 			err := toml.Unmarshal([]byte(rawToml), &mc)
 			require.Error(t, err)
-			assert.EqualError(t, err, `toml: cannot decode TOML string into struct field config.PluginConfig.ChannelDefinitionsContractFromBlock of type int64`)
+			require.EqualError(t, err, `toml: cannot decode TOML string into struct field config.PluginConfig.ChannelDefinitionsContractFromBlock of type int64`)
 			assert.False(t, mc.BenchmarkMode)
 
 			rawToml = `

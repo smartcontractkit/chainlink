@@ -10,6 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -24,8 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	envtest "github.com/smartcontractkit/chainlink/deployment/environment/test"
@@ -374,10 +375,10 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 
 	if c.UseMCMS {
 		// deploy, configure and xfer ownership of MCMS on all chains
-		timelockCfgs := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
+		timelockCfgs := make(map[uint64]cldfproposalutils.MCMSWithTimelockConfig)
 		for sel := range evmChains {
 			t.Logf("Enabling MCMS on chain %d", sel)
-			timelockCfgs[sel] = proposalutils.SingleGroupTimelockConfigV2(t)
+			timelockCfgs[sel] = cldftesthelpers.SingleGroupTimelockConfig(t)
 		}
 		env, err = commonchangeset.Apply(t, env,
 			commonchangeset.Configure(
