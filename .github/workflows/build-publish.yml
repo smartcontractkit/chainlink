@@ -91,7 +91,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
   docker-core:
-    needs: [ checks ]
+    needs: [checks]
     # No need to build the final image as we promote the last RC to use the final tag
     # so we only run the builds for pre-releases.
     if: needs.checks.outputs.is-pre-release == 'true'
@@ -129,7 +129,7 @@ jobs:
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
   docker-ccip:
-    needs: [ checks ]
+    needs: [checks]
     # No need to build the final image as we promote the last RC to use the final tag
     # so we only run the builds for pre-releases.
     if: needs.checks.outputs.is-pre-release == 'true'
@@ -171,7 +171,7 @@ jobs:
 
   deploy:
     name: "Deploy"
-    needs: [ checks, docker-ccip ]
+    needs: [checks, docker-ccip]
     # We are only deploying CCIP pre-releases and skipping hotfix deployments for now.
     if: needs.checks.outputs.is-pre-release == 'true' &&
       needs.checks.outputs.is-hotfix == 'false'
@@ -221,7 +221,7 @@ jobs:
       contents: read
     if: always() && (needs.docker-core.result == 'success' ||
       needs.docker-ccip.result == 'success')
-    needs: [ checks, docker-core, docker-ccip ]
+    needs: [checks, docker-core, docker-ccip]
     uses: ./.github/workflows/release-notifications.yml
     secrets: inherit
     with:
@@ -241,7 +241,7 @@ jobs:
 
   trigger-post-build-publish:
     name: Trigger post-build-publish workflow
-    needs: [ docker-core, slack-notify ]
+    needs: [docker-core, slack-notify]
     if: |
       always() &&
       needs.docker-core.result == 'success'
@@ -257,7 +257,7 @@ jobs:
           SLACK_THREAD_TS: ${{ needs.slack-notify.outputs.slack-thread-ts }}
         run: |
           set +e
-          view_out=$(gh workflow view post-build-publish.yml --ref "$TARGET_TAG" 2>&1)
+          view_out=$(gh workflow view post-build-publish.yml --ref "$TARGET_TAG" --yaml 2>&1)
           view_status=$?
           set -e
           if [ "$view_status" -ne 0 ]; then
