@@ -8,17 +8,15 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/smartcontractkit/mcms"
-
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/eth_balance_monitor_wrapper"
-
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/eth_balance_monitor_wrapper"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	vaulttypes "github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
@@ -156,7 +154,7 @@ func (d deployEthBalMon) Apply(e cldf.Environment, config vaulttypes.DeployEthBa
 
 type DeployEthBalMonSequenceInput struct {
 	Chains     map[uint64]vaulttypes.DeployEthBalMonChainConfig `json:"chains"`
-	MCMSConfig *proposalutils.TimelockConfig                      `json:"mcms_config,omitempty"`
+	MCMSConfig *proposalutils.TimelockConfig                    `json:"mcms_config,omitempty"`
 }
 type DeployEthBalMonPerChainOutput struct {
 	ChainSelector           uint64

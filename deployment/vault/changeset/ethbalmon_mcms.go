@@ -1,8 +1,9 @@
 package changeset
 
 import (
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"

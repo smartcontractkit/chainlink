@@ -73,7 +73,7 @@ func (sk setKeeperRegistryAddress) Apply(
 
 type EthBalMonSetKeeperRegistryAddressSequenceInput struct {
 	Chains     map[uint64]vaulttypes.SetKeeperRegistryChainConfig `json:"chains"`
-	MCMSConfig *proposalutils.TimelockConfig                        `json:"mcms_config,omitempty"`
+	MCMSConfig *proposalutils.TimelockConfig                      `json:"mcms_config,omitempty"`
 }
 
 type EthBalMonSetKeeperRegistryAddressSequenceOutput struct {
@@ -150,9 +150,9 @@ var SetKeeperRegistrySequence = operations.NewSequence(
 )
 
 type SetKeeperRegistryOperationInput struct {
-	ChainSelector            uint64                         `json:"chain_selector"`
-	NewKeeperRegistryAddress string                         `json:"new_keeper_registry_address"`
-	MCMSConfig               *proposalutils.TimelockConfig  `json:"mcms_config,omitempty"`
+	ChainSelector            uint64                        `json:"chain_selector"`
+	NewKeeperRegistryAddress string                        `json:"new_keeper_registry_address"`
+	MCMSConfig               *proposalutils.TimelockConfig `json:"mcms_config,omitempty"`
 }
 
 type SetKeeperRegistryOperationOutput struct {
