@@ -2,11 +2,13 @@ package llo_test
 
 import (
 	"bytes"
+	sha3 "crypto/sha3"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"math/rand"
 	"net/http"
 	"strconv"
@@ -19,7 +21,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/crypto/sha3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
@@ -120,9 +121,7 @@ func extractChannelDefinitions(defsJSON json.RawMessage) llotypes.ChannelDefinit
 	}
 	result := make(llotypes.ChannelDefinitions)
 	for _, sourceDef := range sourceDefs {
-		for channelID, def := range sourceDef.Definitions {
-			result[channelID] = def
-		}
+		maps.Copy(result, sourceDef.Definitions)
 	}
 	return result
 }

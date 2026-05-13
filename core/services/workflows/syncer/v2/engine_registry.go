@@ -68,7 +68,7 @@ func (r *EngineRegistry) Get(workflowID types.WorkflowID) (ServiceWithMetadata, 
 func (r *EngineRegistry) GetAll() []ServiceWithMetadata {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	engines := []ServiceWithMetadata{}
+	engines := make([]ServiceWithMetadata, 0, len(r.engines))
 	for workflowID, entry := range r.engines {
 		engines = append(engines, ServiceWithMetadata{
 			WorkflowID: workflowID,
@@ -124,7 +124,7 @@ func (r *EngineRegistry) Pop(workflowID types.WorkflowID) (ServiceWithMetadata, 
 func (r *EngineRegistry) PopAll() []ServiceWithMetadata {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	engines := []ServiceWithMetadata{}
+	engines := make([]ServiceWithMetadata, 0, len(r.engines))
 	for workflowID, entry := range r.engines {
 		engines = append(engines, ServiceWithMetadata{
 			WorkflowID: workflowID,

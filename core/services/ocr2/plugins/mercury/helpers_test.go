@@ -170,30 +170,30 @@ func setupNode(
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		// [JobPipeline]
 		// MaxSuccessfulRuns = 0
-		c.JobPipeline.MaxSuccessfulRuns = ptr(uint64(0))
-		c.JobPipeline.VerboseLogging = ptr(true)
+		c.JobPipeline.MaxSuccessfulRuns = new(uint64(0))
+		c.JobPipeline.VerboseLogging = new(true)
 
 		// [Feature]
 		// UICSAKeys=true
 		// LogPoller = true
 		// FeedsManager = false
-		c.Feature.UICSAKeys = ptr(true)
-		c.Feature.LogPoller = ptr(true)
-		c.Feature.FeedsManager = ptr(false)
+		c.Feature.UICSAKeys = new(true)
+		c.Feature.LogPoller = new(true)
+		c.Feature.FeedsManager = new(false)
 
 		// [OCR]
 		// Enabled = false
-		c.OCR.Enabled = ptr(false)
+		c.OCR.Enabled = new(false)
 
 		// [OCR2]
 		// Enabled = true
-		c.OCR2.Enabled = ptr(true)
+		c.OCR2.Enabled = new(true)
 
 		// [P2P]
 		// PeerID = '$PEERID'
 		// TraceLogging = true
-		c.P2P.PeerID = ptr(p2pKey.PeerID())
-		c.P2P.TraceLogging = ptr(true)
+		c.P2P.PeerID = new(p2pKey.PeerID())
+		c.P2P.TraceLogging = new(true)
 
 		// [P2P.V2]
 		// Enabled = true
@@ -201,7 +201,7 @@ func setupNode(
 		// ListenAddresses = ['127.0.0.1:17775']
 		// DeltaDial = 500ms
 		// DeltaReconcile = 5s
-		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.V2.Enabled = new(true)
 		c.P2P.V2.AnnounceAddresses = &p2paddresses
 		c.P2P.V2.ListenAddresses = &p2paddresses
 		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(500 * time.Millisecond)

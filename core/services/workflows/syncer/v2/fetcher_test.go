@@ -274,11 +274,11 @@ func TestNewFetcherService(t *testing.T) {
 	// Connector handler never makes a connection to a gateway and the context expires.
 	t.Run("NOK-request_context_deadline_exceeded", func(t *testing.T) {
 		connector := gcmocks.NewGatewayConnector(t)
-		wrapper := newConnectorWrapper(connector)
+		connWrapper := newConnectorWrapper(connector)
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 		connector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 
-		fetcher := NewFetcherService(lggr, wrapper, storageService, gateway.WithFixedStart())
+		fetcher := NewFetcherService(lggr, connWrapper, storageService, gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
@@ -302,11 +302,11 @@ func TestNewFetcherService(t *testing.T) {
 	// Connector handler cycles to next available gateway after first connection fails.
 	t.Run("OK-connector_handler_awaits_working_gateway", func(t *testing.T) {
 		connector := gcmocks.NewGatewayConnector(t)
-		wrapper := newConnectorWrapper(connector)
+		connWrapper := newConnectorWrapper(connector)
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 		connector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 
-		fetcher := NewFetcherService(lggr, wrapper, storageService, gateway.WithFixedStart())
+		fetcher := NewFetcherService(lggr, connWrapper, storageService, gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 

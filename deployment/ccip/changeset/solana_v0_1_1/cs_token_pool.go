@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/cctp_token_pool"
 	solLockReleaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/lockrelease_token_pool"
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_token_pool"
+	solBurnMintTokenPool_V1_6_2 "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v1_6_2/burnmint_token_pool"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
@@ -65,6 +66,9 @@ var _ cldf.ChangeSet[SyncDomainConfig] = SyncDomain
 
 // extend token pool lookup table
 var _ cldf.ChangeSet[ExtendTokenPoolLookupTableConfig] = ExtendTokenPoolLookupTable
+
+// transfer mint authority back to pool signer PDA
+var _ cldf.ChangeSet[TransferMintAuthorityToSignerPDAConfig] = TransferMintAuthorityToSignerPDA
 
 // append mcms txns generated from solanainstructions
 func appendTxs(instructions []solana.Instruction, tokenPool solana.PublicKey, poolType cldf.ContractType, txns *[]mcmsTypes.Transaction) error {
@@ -927,6 +931,131 @@ func parseMultisigAddress(text string) (string, error) {
 		return "", errors.New("multisig address not found")
 	}
 	return m[1], nil
+}
+
+type TransferMintAuthorityToSignerPDAConfig struct {
+	ChainSelector uint64
+	TokenMint     solana.PublicKey
+	PoolType      *cldf.ContractType
+	Metadata      string
+	MCMS          *proposalutils.TimelockConfig
+}
+
+func (cfg TransferMintAuthorityToSignerPDAConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
+	if err := chainState.CommonValidation(e, cfg.ChainSelector, cfg.TokenMint); err != nil {
+		return err
+	}
+	if cfg.PoolType == nil {
+		return errors.New("pool type is required")
+	}
+	if *cfg.PoolType != shared.BurnMintTokenPool {
+		return errors.New("transfer mint authority to signer PDA only for burn and mint pools")
+	}
+	if _, err := chainState.TokenToTokenProgram(cfg.TokenMint); err != nil {
+		return fmt.Errorf("token %s not found in existing state, deploy the token first", cfg.TokenMint.String())
+	}
+	tokenPool := chainState.GetActiveTokenPool(*cfg.PoolType, cfg.Metadata)
+	if tokenPool.IsZero() {
+		return fmt.Errorf("token pool of type %s not found in existing state, deploy the token pool first for chain %d", *cfg.PoolType, cfg.ChainSelector)
+	}
+	return nil
+}
+
+func TransferMintAuthorityToSignerPDA(e cldf.Environment, cfg TransferMintAuthorityToSignerPDAConfig) (cldf.ChangesetOutput, error) {
+	e.Logger.Infow("Transfer mint authority to signer PDA", "cfg", cfg)
+
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	solChainState := state.SolChains[cfg.ChainSelector]
+	if err := cfg.Validate(e, solChainState); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
+	tokenProgram, _ := solChainState.TokenToTokenProgram(cfg.TokenMint)
+	tokenPool := solChainState.GetActiveTokenPool(*cfg.PoolType, cfg.Metadata)
+
+	runSafely(func() {
+		solBurnMintTokenPool_V1_6_2.SetProgramID(tokenPool)
+	})
+
+	tokenPoolSigner, err := solTokenUtil.TokenPoolSignerAddress(cfg.TokenMint, tokenPool)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get token pool signer address: %w", err)
+	}
+	poolConfig, err := solTokenUtil.TokenPoolConfigAddress(cfg.TokenMint, tokenPool)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to calculate the pool config: %w", err)
+	}
+	programData, err := getSolProgramData(e, chain, tokenPool)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get solana token pool program data: %w", err)
+	}
+
+	var mintAccount solToken.Mint
+	if err := chain.GetAccountDataBorshInto(context.Background(), cfg.TokenMint, &mintAccount); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get token mint account data: %w", err)
+	}
+	if mintAccount.MintAuthority == nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("token %s has no mint authority set", cfg.TokenMint)
+	}
+	currentMintAuthority := *mintAccount.MintAuthority
+
+	useMcms := solanastateview.IsSolanaProgramOwnedByTimelock(
+		&e,
+		chain,
+		solChainState,
+		shared.BurnMintTokenPool,
+		cfg.TokenMint,
+		cfg.Metadata,
+	)
+
+	authority := chain.DeployerKey.PublicKey()
+	if useMcms {
+		timelockSigner, err := FetchTimelockSigner(e, cfg.ChainSelector)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+		}
+		authority = timelockSigner
+	}
+
+	ix, err := solBurnMintTokenPool_V1_6_2.NewTransferMintAuthorityToPdaSignerInstruction(
+		poolConfig,
+		cfg.TokenMint,
+		tokenProgram,
+		tokenPoolSigner,
+		authority,
+		currentMintAuthority,
+		tokenPool,
+		programData.Address,
+	).ValidateAndBuild()
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build ix to transfer mint authority to signer PDA: %w", err)
+	}
+
+	if !useMcms {
+		if err := chain.Confirm([]solana.Instruction{ix}); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+		}
+		return cldf.ChangesetOutput{}, nil
+	}
+
+	if cfg.MCMS == nil {
+		return cldf.ChangesetOutput{}, errors.New("MCMS config is required when program is owned by timelock")
+	}
+	var txns []mcmsTypes.Transaction
+	if err := appendTxs([]solana.Instruction{ix}, tokenPool, *cfg.PoolType, &txns); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate mcms txn: %w", err)
+	}
+	proposal, err := BuildProposalsForTxns(
+		e, cfg.ChainSelector, "proposal to transfer mint authority to signer PDA", cfg.MCMS.MinDelay, txns)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+	}
+	return cldf.ChangesetOutput{
+		MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+	}, nil
 }
 
 func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.ChangesetOutput, error) {
