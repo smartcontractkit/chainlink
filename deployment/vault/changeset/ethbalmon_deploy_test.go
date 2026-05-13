@@ -143,7 +143,7 @@ func TestBuildAcceptOwnershipTimelockProposal(t *testing.T) {
 		_, err = BuildAcceptOwnershipTimelockProposal(*env, AcceptOwnershipProposalInput{
 			ContractsByChain: map[uint64]string{},
 			Description:      "test",
-			MCMSConfig: proposalutils.TimelockConfig{MinDelay: 0, MCMSAction: mcmstypes.TimelockActionBypass},
+			MCMSConfig:       proposalutils.TimelockConfig{MinDelay: 0, MCMSAction: mcmstypes.TimelockActionBypass},
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "no contracts provided")
@@ -164,7 +164,7 @@ func TestBuildAcceptOwnershipTimelockProposal(t *testing.T) {
 				otherSel: testAddr1,
 			},
 			Description: "test",
-			MCMSConfig: proposalutils.TimelockConfig{MinDelay: 0, MCMSAction: mcmstypes.TimelockActionBypass},
+			MCMSConfig:  proposalutils.TimelockConfig{MinDelay: 0, MCMSAction: mcmstypes.TimelockActionBypass},
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "not found in environment")
@@ -184,7 +184,7 @@ func TestBuildAcceptOwnershipTimelockProposal(t *testing.T) {
 				selector: testAddr1,
 			},
 			Description: "test",
-			MCMSConfig: proposalutils.TimelockConfig{MinDelay: 0, MCMSAction: mcmstypes.TimelockActionBypass},
+			MCMSConfig:  proposalutils.TimelockConfig{MinDelay: 0, MCMSAction: mcmstypes.TimelockActionBypass},
 		})
 		require.Error(t, err)
 	})
@@ -220,7 +220,7 @@ func TestBuildAcceptOwnershipTimelockProposal(t *testing.T) {
 		prop, err := BuildAcceptOwnershipTimelockProposal(rt.Environment(), AcceptOwnershipProposalInput{
 			ContractsByChain: contractsByChain,
 			Description:      customDesc,
-			MCMSConfig: proposalutils.TimelockConfig{MinDelay: 0, MCMSAction: mcmstypes.TimelockActionBypass},
+			MCMSConfig:       proposalutils.TimelockConfig{MinDelay: 0, MCMSAction: mcmstypes.TimelockActionBypass},
 		})
 		require.NoError(t, err)
 		require.NotNil(t, prop)
@@ -254,7 +254,7 @@ func TestBuildAcceptOwnershipTimelockProposal(t *testing.T) {
 		prop, err := BuildAcceptOwnershipTimelockProposal(rt.Environment(), AcceptOwnershipProposalInput{
 			ContractsByChain: map[uint64]string{selector: addr},
 			Description:      "",
-			MCMSConfig: proposalutils.TimelockConfig{MinDelay: 0, MCMSAction: mcmstypes.TimelockActionBypass},
+			MCMSConfig:       proposalutils.TimelockConfig{MinDelay: 0, MCMSAction: mcmstypes.TimelockActionBypass},
 		})
 		require.NoError(t, err)
 		require.Equal(t, "Accept ownership of EthBalanceMonitor across chains", prop.Description)
