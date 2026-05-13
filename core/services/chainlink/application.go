@@ -381,8 +381,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	// Wire DurableEmitter for persistent chip ingress delivery when enabled.
 	if cfg.Telemetry().DurableEmitterEnabled() && cfg.Telemetry().ChipIngressEndpoint() != "" {
-		if setupErr := setupDurableEmitter(ctx, opts.DS, globalLogger, cfg.Telemetry()); setupErr != nil {
-			globalLogger.Warnw("Failed to set up durable emitter, continuing without it", "error", setupErr)
+		if err = setupDurableEmitter(ctx, opts.DS, globalLogger, cfg.Telemetry()); err != nil {
+			return nil, fmt.Errorf("failed to set up chip durable emitter: %w", err)
 		}
 	}
 
