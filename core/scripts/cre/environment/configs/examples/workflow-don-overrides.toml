@@ -1,4 +1,7 @@
 
+[chip_router]
+  image = "local-cre-chip-router:v1.0.1"
+
 [[blockchains]]
   type = "anvil"
   chain_id = "1337"
@@ -31,7 +34,7 @@
   http_port_range_start = 10100
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
-  capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "write-evm-1337", "evm-2337"]
+  capabilities = ["vault", "evm-2337"]
 
   # Capability config overrides for this DON.
   # IMPORTANT: When you override a capability config, you must provide ALL values
@@ -40,22 +43,9 @@
   # Defaults are only used for capabilities you don't configure at all.
   [nodesets.capability_configs]
 
-    # Override web-api-target settings - must include all required values
-    [nodesets.capability_configs.web-api-target.values]
-       GlobalRPS = 2000.0
-       GlobalBurst = 1500
-       PerSenderRPS = 1000.0
-       PerSenderBurst = 1500
-
-    # Chain-specific capability override - must include all required values
-    [nodesets.capability_configs.write-evm-1337.values]
-       GasLimitDefault = 700_000
-       AcceptanceTimeout = '60s'
-
-    # Override binary name for a capability (path is DefaultCapabilitiesDir + binary_name)
-    [nodesets.capability_configs.read-contract-1337]
-       binary_name = "readcontract"
-       # values = {} # Add any required values here
+    # Chain-specific evm override example
+    [nodesets.capability_configs.evm-1337.values]
+       LogTriggerPollInterval = 2500000000  # 2.5s in nanoseconds
 
 # [nodesets.capability_configs.http-action]
 #    binary_name = "http_action"

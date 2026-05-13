@@ -31,7 +31,6 @@ func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
 		workflowDonIDFlag           uint32
 		exampleWorkflowTimeoutFlag  string
 		workflowRegistryAddressFlag string
-		contractsVersionFlag        string
 	)
 	cmd := &cobra.Command{
 		Use:              "run-por-example",
@@ -63,7 +62,7 @@ func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
 				}
 			}
 
-			workflowRegistryAddress, contractsVersion, err := resolveContractAddressAndVersion(cmd, resolver, keystone_changeset.WorkflowRegistry, workflowRegistryAddressFlag, contractsVersionFlag, "workflow-registry-address")
+			workflowRegistryAddress, contractsVersion, err := resolveRegistryContractAddressAndVersion(cmd, resolver, keystone_changeset.WorkflowRegistry, workflowRegistryAddressFlag, "workflow-registry-address")
 			if err != nil {
 				return errors.Wrap(err, "❌ failed to resolve workflow registry")
 			}
@@ -76,7 +75,6 @@ func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&exampleWorkflowTimeoutFlag, "example-workflow-timeout", "u", "5m", "Time to wait until example workflow succeeds (e.g. 10s, 1m, 1h)")
 	cmd.Flags().Uint32VarP(&workflowDonIDFlag, "workflow-don-id", "d", 1, "DonID used in the workflow registry contract (integer starting with 1)")
 	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "w", "", "Workflow registry address (if not provided, address from the state file will be used)")
-	cmd.Flags().StringVar(&contractsVersionFlag, "with-contracts-version", "v2", "Version of workflow registry contract to use (v1 or v2)")
 
 	return cmd
 }

@@ -4,7 +4,8 @@ on:
   workflow_dispatch:
     inputs:
       chainlink_image_repository_path:
-        description: "ECR repository name used to compose image with chainlink_image_tag
+        description:
+          "ECR repository name used to compose image with chainlink_image_tag
           (for example: chainlink-integration-tests or chainlink or
           chainlink/chainlink)."
         required: true
@@ -20,18 +21,21 @@ on:
           - "sdlc"
           - "public"
         default: "sdlc"
-        description: "Whether to use the SDLC or public ECR registry for the Chainlink
+        description:
+          "Whether to use the SDLC or public ECR registry for the Chainlink
           image."
       chainlink_version:
         required: false
         type: string
-        description: "The version of Chainlink repository to use for the tests. If
+        description:
+          "The version of Chainlink repository to use for the tests. If
           empty, defaults to github.sha."
         default: ""
   workflow_call:
     inputs:
       chainlink_image_repository_path:
-        description: "ECR repository name used to compose image with chainlink_image_tag
+        description:
+          "ECR repository name used to compose image with chainlink_image_tag
           (for example: chainlink-integration-tests or chainlink or
           chainlink/chainlink)."
         required: true
@@ -43,12 +47,14 @@ on:
       ecr:
         type: string
         required: true
-        description: "Whether to use the SDLC (sdlc) or public ECR registry (public) for
+        description:
+          "Whether to use the SDLC (sdlc) or public ECR registry (public) for
           the Chainlink image."
       chainlink_version:
         required: false
         type: string
-        description: "The version of Chainlink repository to use for the tests. If
+        description:
+          "The version of Chainlink repository to use for the tests. If
           empty, defaults to github.sha."
         default: ""
 
@@ -94,8 +100,7 @@ jobs:
             | to_entries
             | map({
                 test_name: .value,
-                test_id: .key,
-                cre_version: (if (.value | test("V1")) then "v1" else "v2" end)
+                test_id: .key
               })
           ')
 
@@ -110,7 +115,7 @@ jobs:
       fail-fast: false
       matrix:
         tests: ${{fromJson(needs.define-test-matrix.outputs.matrix)}}
-    needs: [ define-test-matrix ]
+    needs: [define-test-matrix]
     # we need a `test_id` and `run_attempt` here to stop runner stealing
     # see: https://runs-on.com/guides/troubleshoot/#runner-stealing-and-matrix-jobs
     runs-on: runs-on=${{ github.run_id }}-${{ matrix.tests.test_id }}-${{
@@ -133,7 +138,8 @@ jobs:
         }}.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
       CTF_CHIP_ROUTER_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
         secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
-      BILLING_PLATFORM_SERVICE_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
+      BILLING_PLATFORM_SERVICE_IMAGE:
+        ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
         secrets.QA_AWS_REGION }}.amazonaws.com/billing-platform-service:v1.45.0
 
     steps:
@@ -218,10 +224,9 @@ jobs:
           retry-count: "3"
           retry-delay-seconds: "15"
           cleanup-on-error: "false"
-          env-start-extra-args: "${{ matrix.tests.cre_version == 'v1' && '--with-contracts-version v1' || '' }}"
           working-directory: core/scripts/cre/environment
 
-      - name: Run CRE${{ matrix.tests.cre_version }} Regression system tests
+      - name: Run CRE Regression system tests
         id: run-regression-tests
         shell: bash
         working-directory: system-tests/tests

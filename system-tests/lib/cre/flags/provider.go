@@ -10,21 +10,13 @@ func NewDefaultCapabilityFlagsProvider() *DefaultCapbilityFlagsProvider {
 	return &DefaultCapbilityFlagsProvider{
 		capabilities: []cre.CapabilityFlag{
 			cre.ConsensusCapability,
-			cre.ConsensusCapabilityV2,
 			cre.CronCapability,
-			cre.CustomComputeCapability,
 			cre.DONTimeCapability,
-			cre.WebAPITargetCapability,
-			cre.WebAPITriggerCapability,
-			cre.MockCapability,
 			cre.VaultCapability,
 			cre.HTTPTriggerCapability,
 			cre.HTTPActionCapability,
 			cre.SolanaCapability,
 			cre.EVMCapability,
-			cre.WriteEVMCapability,
-			cre.ReadContractCapability,
-			cre.LogEventTriggerCapability,
 			cre.AptosCapability,
 		},
 	}
@@ -43,22 +35,14 @@ func NewExtensibleCapabilityFlagsProvider(extraGlobalFlags []string) *Extensible
 	return &ExtensibleCapbilityFlagsProvider{
 		globalCapabilities: append([]cre.CapabilityFlag{
 			cre.ConsensusCapability,
-			cre.ConsensusCapabilityV2,
 			cre.CronCapability,
-			cre.CustomComputeCapability,
-			cre.WebAPITargetCapability,
-			cre.WebAPITriggerCapability,
-			cre.MockCapability,
 			cre.VaultCapability,
 			cre.HTTPTriggerCapability,
 			cre.HTTPActionCapability,
 		}, extraGlobalFlags...),
 		chainSpecificCapabilities: []cre.CapabilityFlag{
 			cre.EVMCapability,
-			cre.WriteEVMCapability,
 			cre.SolanaCapability,
-			cre.ReadContractCapability,
-			cre.LogEventTriggerCapability,
 			cre.AptosCapability,
 		},
 	}
@@ -82,14 +66,10 @@ func NewSwappableCapabilityFlagsProvider() *DefaultCapbilityFlagsProvider {
 	return &DefaultCapbilityFlagsProvider{
 		capabilities: []cre.CapabilityFlag{
 			cre.ConsensusCapability,
-			cre.ConsensusCapabilityV2,
 			cre.CronCapability,
-			cre.MockCapability,
 			cre.HTTPTriggerCapability,
 			cre.HTTPActionCapability,
 			cre.EVMCapability,
-			cre.ReadContractCapability,
-			cre.LogEventTriggerCapability,
 			cre.SolanaCapability,
 			cre.AptosCapability,
 		},

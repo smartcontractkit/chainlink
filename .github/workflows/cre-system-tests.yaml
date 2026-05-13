@@ -4,7 +4,8 @@ on:
   workflow_dispatch:
     inputs:
       chainlink_image_repository_path:
-        description: "ECR repository name used to compose image with chainlink_image_tag
+        description:
+          "ECR repository name used to compose image with chainlink_image_tag
           (for example: chainlink-integration-tests or chainlink or
           chainlink/chainlink)."
         required: true
@@ -20,18 +21,21 @@ on:
           - "sdlc"
           - "public"
         default: "sdlc"
-        description: "Whether to use the SDLC or public ECR registry for the Chainlink
+        description:
+          "Whether to use the SDLC or public ECR registry for the Chainlink
           image."
       chainlink_version:
         required: false
         type: string
-        description: "The version of Chainlink repository to use for the tests. If
+        description:
+          "The version of Chainlink repository to use for the tests. If
           empty, defaults to github.sha."
         default: ""
   workflow_call:
     inputs:
       chainlink_image_repository_path:
-        description: "ECR repository name used to compose image with chainlink_image_tag
+        description:
+          "ECR repository name used to compose image with chainlink_image_tag
           (for example: chainlink-integration-tests or chainlink or
           chainlink/chainlink)."
         required: true
@@ -43,12 +47,14 @@ on:
       ecr:
         type: string
         required: true
-        description: "Whether to use the SDLC (sdlc) or public ECR registry (public) for
+        description:
+          "Whether to use the SDLC (sdlc) or public ECR registry (public) for
           the Chainlink image."
       chainlink_version:
         required: false
         type: string
-        description: "The version of Chainlink repository to use for the tests. If
+        description:
+          "The version of Chainlink repository to use for the tests. If
           empty, defaults to github.sha."
         default: ""
 
@@ -104,9 +110,6 @@ jobs:
             "Test_CRE_V2_Solana_Suite": [
                {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
              ],
-            "Test_CRE_V1_Tron": [
-               {"topology":"workflow","configs":"configs/workflow-don-tron.toml"}
-             ],
             "Test_CRE_V2_Sharding": [
                {"topology":"workflow-gateway-sharded","configs":"configs/workflow-gateway-sharded-don.toml"}
              ]
@@ -137,18 +140,12 @@ jobs:
                 | $e.value[] | {test_name: $e.key} + .
               ] as $extra
 
-            # Combine and add test_id and CRE version
+            # Combine and add test_id
             | ($base + $extra)
             | to_entries
             | map(
                 .value + {
-                  test_id: .key,
-                  # Add CRE version based on test name pattern
-                  cre_version: (
-                    if (.value.test_name | test("V1")) then "v1"
-                    else "v2"
-                    end
-                  )
+                  test_id: .key
                 }
               )
           ')
@@ -164,7 +161,7 @@ jobs:
       fail-fast: false
       matrix:
         tests: ${{fromJson(needs.define-test-matrix.outputs.matrix)}}
-    needs: [ define-test-matrix ]
+    needs: [define-test-matrix]
     # we need a `test_id` and `run_attempt` here to stop runner stealing
     # see: https://runs-on.com/guides/troubleshoot/#runner-stealing-and-matrix-jobs
     runs-on: runs-on=${{ github.run_id }}-${{ matrix.tests.test_id }}-${{
@@ -177,7 +174,8 @@ jobs:
     timeout-minutes: 10
     env:
       ENABLE_AUTO_QUARANTINE: "true"
-      BILLING_PLATFORM_SERVICE_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
+      BILLING_PLATFORM_SERVICE_IMAGE:
+        ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
         secrets.QA_AWS_REGION }}.amazonaws.com/billing-platform-service:v1.57.1
 
     steps:
@@ -341,7 +339,8 @@ jobs:
         id: start-local-cre
         uses: ./.github/actions/start-local-cre-environment
         with:
-          jd-image: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION
+          jd-image:
+            "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION
             }}.amazonaws.com/job-distributor:0.22.1"
           chainlink-image: "${{ steps.resolve-chainlink-image.outputs.resolved_image }}"
           chip-router-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
@@ -350,8 +349,6 @@ jobs:
           retry-count: "3"
           retry-delay-seconds: "15"
           cleanup-on-error: "false"
-          env-start-extra-args: "${{ matrix.tests.cre_version == 'v1' &&
-            '--with-contracts-version v1' || '' }}"
           working-directory: core/scripts/cre/environment
 
       - name: Setup GitHub token using GATI
@@ -364,7 +361,7 @@ jobs:
           aws-role-duration-seconds: "1800"
           set-git-config: "true"
 
-      - name: Run CRE${{ matrix.tests.cre_version }} Smoke system tests
+      - name: Run CRE Smoke system tests
         id: run-tests
         shell: bash
         working-directory: system-tests/tests
@@ -398,7 +395,8 @@ jobs:
             echo "tests_result=✅ Tests passed" >> "${GITHUB_OUTPUT}"
           fi
 
-      - name: Analyze and upload test results (${{ steps.run-tests.outputs.tests_result
+      - name:
+          Analyze and upload test results (${{ steps.run-tests.outputs.tests_result
           }})
         if: ${{ !cancelled() }}
         uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/v1
