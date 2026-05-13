@@ -742,21 +742,21 @@ func (c ConnectNewChainConfig) validateChain(e cldf.Environment, state stateview
 		return errors.New("test router contract not found")
 	}
 
-	err = commoncs.ValidateOwnership(e.GetContext(), ownedByMCMS, deployerKey, chainState.Timelock.Address(), chainState.OnRamp)
+	err = mcmschangesets.ValidateOwnership(e.GetContext(), ownedByMCMS, deployerKey, chainState.Timelock.Address(), chainState.OnRamp)
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership of onRamp: %w", err)
 	}
-	err = commoncs.ValidateOwnership(e.GetContext(), ownedByMCMS, deployerKey, chainState.Timelock.Address(), chainState.OffRamp)
+	err = mcmschangesets.ValidateOwnership(e.GetContext(), ownedByMCMS, deployerKey, chainState.Timelock.Address(), chainState.OffRamp)
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership of offRamp: %w", err)
 	}
-	err = commoncs.ValidateOwnership(e.GetContext(), ownedByMCMS, deployerKey, chainState.Timelock.Address(), chainState.Router)
+	err = mcmschangesets.ValidateOwnership(e.GetContext(), ownedByMCMS, deployerKey, chainState.Timelock.Address(), chainState.Router)
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership of router: %w", err)
 	}
 
 	// Test router should always be owned by deployer key
-	err = commoncs.ValidateOwnership(e.GetContext(), false, deployerKey, chainState.Timelock.Address(), chainState.TestRouter)
+	err = mcmschangesets.ValidateOwnership(e.GetContext(), false, deployerKey, chainState.Timelock.Address(), chainState.TestRouter)
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership of test router: %w", err)
 	}

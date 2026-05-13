@@ -18,10 +18,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
 
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -97,7 +98,7 @@ func (c PermaBlessCommitStoreConfig) Validate(env cldf.Environment) error {
 			}
 		}
 
-		if err := commoncs.ValidateOwnership(context.Background(), c.MCMSConfig != nil, env.BlockChains.EVMChains()[destChain].DeployerKey.From, destState.Timelock.Address(), destState.RMN); err != nil {
+		if err := mcmschangesets.ValidateOwnership(context.Background(), c.MCMSConfig != nil, env.BlockChains.EVMChains()[destChain].DeployerKey.From, destState.Timelock.Address(), destState.RMN); err != nil {
 			return fmt.Errorf("failed to validate ownership: %w", err)
 		}
 	}
