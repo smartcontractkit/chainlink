@@ -4,13 +4,16 @@ import (
 	"testing"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/stretchr/testify/require"
+
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+
+	linkchangesets "github.com/smartcontractkit/cld-changesets/link/changesets"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
@@ -37,7 +40,7 @@ func TestDeployRegistryModuleChangeset(t *testing.T) {
 
 		*env, err = commonchangeset.Apply(t, *env,
 			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+				cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken),
 				[]uint64{chain1},
 			),
 			commonchangeset.Configure(
@@ -99,7 +102,7 @@ func TestDeployRegistryModuleChangeset(t *testing.T) {
 
 		*env, err = commonchangeset.Apply(t, *env,
 			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+				cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken),
 				chainSelectors,
 			),
 			commonchangeset.Configure(
@@ -157,7 +160,7 @@ func TestDeployRegistryModuleChangeset(t *testing.T) {
 
 		*env, err = commonchangeset.Apply(t, *env,
 			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+				cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken),
 				[]uint64{chain1},
 			),
 			commonchangeset.Configure(
@@ -243,7 +246,7 @@ func TestDeployRegistryModuleChangeset(t *testing.T) {
 
 		*env, err = commonchangeset.Apply(t, *env,
 			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+				cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken),
 				[]uint64{chain1},
 			),
 			commonchangeset.Configure(
@@ -309,7 +312,7 @@ func TestDeployRegistryModuleChangeset(t *testing.T) {
 
 		*env, err = commonchangeset.Apply(t, *env,
 			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+				cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken),
 				chainSelectors,
 			),
 			commonchangeset.Configure(
@@ -463,7 +466,7 @@ func TestDeployRegistryModuleConfig_Validate(t *testing.T) {
 
 		*env, err = commonchangeset.Apply(t, *env,
 			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+				cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken),
 				[]uint64{chain1},
 			),
 			commonchangeset.Configure(
@@ -505,7 +508,7 @@ func TestDeployRegistryModuleConfig_Validate(t *testing.T) {
 
 		*env, err = commonchangeset.Apply(t, *env,
 			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+				cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken),
 				chainSelectors,
 			),
 			commonchangeset.Configure(

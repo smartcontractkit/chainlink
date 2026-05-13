@@ -49,6 +49,8 @@ import (
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	linkchangesets "github.com/smartcontractkit/cld-changesets/link/changesets"
+
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -759,13 +761,13 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 		})
 	}
 	deployLinkApp := commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+		cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken),
 		evmChains,
 	)
 
 	if tc.IsStaticLink {
 		deployLinkApp = commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeployStaticLinkToken),
+			cldf.CreateLegacyChangeSet(linkchangesets.DeployStaticLinkToken),
 			evmChains,
 		)
 	}
@@ -782,8 +784,8 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 	if len(solChains) > 0 {
 		solLinkTokenPrivKey, _ := solanago.NewRandomPrivateKey()
 		deploySolanaLinkApp := commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeploySolanaLinkToken),
-			commonchangeset.DeploySolanaLinkTokenConfig{
+			cldf.CreateLegacyChangeSet(linkchangesets.DeploySolanaLinkToken),
+			linkchangesets.DeploySolanaLinkTokenConfig{
 				ChainSelector: solChains[0],
 				TokenPrivKey:  solLinkTokenPrivKey,
 				TokenDecimals: 9,

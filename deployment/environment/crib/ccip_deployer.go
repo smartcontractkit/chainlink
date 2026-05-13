@@ -54,6 +54,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
+	linkchangesets "github.com/smartcontractkit/cld-changesets/link/changesets"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -327,8 +328,8 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 				return *e, fmt.Errorf("failed to create the link token priv key: %w", err)
 			}
 			solLinkChangeset := commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(commonchangeset.DeploySolanaLinkToken),
-				commonchangeset.DeploySolanaLinkTokenConfig{
+				cldf.CreateLegacyChangeSet(linkchangesets.DeploySolanaLinkToken),
+				linkchangesets.DeploySolanaLinkTokenConfig{
 					ChainSelector: chain,
 					TokenPrivKey:  privKey,
 					TokenDecimals: 9,
@@ -352,7 +353,7 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 			},
 		),
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+			cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken),
 			evmChainSelectors,
 		),
 		commonchangeset.Configure(

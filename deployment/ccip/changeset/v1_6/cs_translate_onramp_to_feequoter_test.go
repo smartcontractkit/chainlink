@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -27,6 +28,8 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
+
+	linkchangesets "github.com/smartcontractkit/cld-changesets/link/changesets"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -39,6 +42,7 @@ import (
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
@@ -87,6 +91,17 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 			cldf.NewTypeAndVersion("LinkToken", deployment.Version1_0_0)))
 	}
 	require.NoError(t, tenv.ExistingAddresses.Remove(ab))
+	mds := datastore.NewMemoryDataStore()
+	require.NoError(t, mds.Merge(tenv.DataStore))
+	for _, sel := range allChainSelectors {
+		for _, ref := range mds.Addresses().Filter(
+			datastore.AddressRefByChainSelector(sel),
+			datastore.AddressRefByType(datastore.ContractType("LinkToken")),
+		) {
+			require.NoError(t, mds.Addresses().Delete(ref.Key()))
+		}
+	}
+	tenv.DataStore = mds.Seal()
 
 	// 4. Set the test router as the source chain's router
 	ab = cldf.NewMemoryAddressBook()
@@ -221,6 +236,17 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset_WithMCMS(t *testing.T) {
 			cldf.NewTypeAndVersion("LinkToken", deployment.Version1_0_0)))
 	}
 	require.NoError(t, tenv.ExistingAddresses.Remove(ab))
+	mds := datastore.NewMemoryDataStore()
+	require.NoError(t, mds.Merge(tenv.DataStore))
+	for _, sel := range allChainSelectors {
+		for _, ref := range mds.Addresses().Filter(
+			datastore.AddressRefByChainSelector(sel),
+			datastore.AddressRefByType(datastore.ContractType("LinkToken")),
+		) {
+			require.NoError(t, mds.Addresses().Delete(ref.Key()))
+		}
+	}
+	tenv.DataStore = mds.Seal()
 	ab = cldf.NewMemoryAddressBook()
 	for _, sel := range allChainSelectors {
 		require.NoError(t, ab.Save(sel, utils.RandomAddress().Hex(),
@@ -464,7 +490,7 @@ func DeployUtil(t *testing.T, e *cldf.Environment, homeChainSel uint64) {
 			},
 		},
 	), commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+		cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken),
 		evmSelectors,
 	), commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
