@@ -554,9 +554,14 @@ func NewAuthenticatedHTTPClient(lggr logger.Logger, clientOpts ClientOpts, cooki
 
 func newHttpClient(lggr logger.Logger, insecureSkipVerify bool) *http.Client {
 	tr := &http.Transport{
-		// User enables this at their own risk!
+		// User enables InsecureSkipVerify at their own risk; the explicit
+		// MinVersion still enforces a TLS 1.2 floor regardless of the
+		// platform default crypto policy.
 		// #nosec G402
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: insecureSkipVerify},
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: insecureSkipVerify,
+			MinVersion:         tls.VersionTLS12,
+		},
 	}
 	if insecureSkipVerify {
 		lggr.Warn("InsecureSkipVerify is on, skipping SSL certificate verification.")
