@@ -119,7 +119,7 @@ func TestDeployEthBalMonValidation(t *testing.T) {
 					},
 				},
 			},
-			wantError:     false,
+			wantError:   false,
 			setupMCMSIn: true,
 		},
 	}
