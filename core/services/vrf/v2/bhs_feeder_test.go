@@ -69,7 +69,7 @@ func TestStartHeartbeats(t *testing.T) {
 		require.NoError(t, app.Start(testutils.Context(t)))
 
 		_ = vrftesthelpers.CreateAndStartBHSJob(
-			t, bhsKeyAddresses, app, uni.bhsContractAddress.String(), "",
+			t, bhsKeyAddresses, app, uni.bhsContractAddress.String(),
 			uni.rootContractAddress.String(), "", "", 0, 200, heartbeatPeriod, 100)
 
 		// Ensure log poller is ready and has all logs.

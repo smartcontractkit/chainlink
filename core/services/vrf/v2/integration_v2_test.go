@@ -81,7 +81,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
-	v1 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v1"
 	v22 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
@@ -2187,12 +2186,9 @@ func TestStartingCountsV1(t *testing.T) {
 	require.NoError(t, err)
 	chain, ok := chainService.(legacyevm.Chain)
 	require.True(t, ok)
-	listenerV1 := &v1.Listener{
-		Chain: chain,
-	}
 	listenerV2 := v22.MakeTestListenerV2(chain)
 	var counts map[[32]byte]uint64
-	counts, err = listenerV1.GetStartingResponseCountsV1(testutils.Context(t))
+	counts, err = vrfcommon.GetStartingResponseCountsV1(testutils.Context(t), chain)
 	require.NoError(t, err)
 	assert.Empty(t, counts)
 	err = ks.Unlock(ctx, testutils.Password)
@@ -2346,7 +2342,7 @@ func TestStartingCountsV1(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	counts, err = listenerV1.GetStartingResponseCountsV1(testutils.Context(t))
+	counts, err = vrfcommon.GetStartingResponseCountsV1(testutils.Context(t), chain)
 	require.NoError(t, err)
 	assert.Len(t, counts, 3)
 	assert.Equal(t, uint64(1), counts[evmutils.PadByteToHash(0x10)])
