@@ -6,7 +6,3 @@ func Coalesce[T any](p *T, fallback T) T {
 	}
 	return fallback
 }
-
-func To[T any](v T) *T {
-	return &v
-}

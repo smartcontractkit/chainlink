@@ -45,7 +45,6 @@ import (
 	sollptesting "github.com/smartcontractkit/chainlink-solana/pkg/solana/logpoller/testing"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
-	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/internal/evmtestutils"
 	"github.com/smartcontractkit/chainlink/deployment/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -327,7 +326,7 @@ func (n Node) JDChainConfigs() ([]*nodev1.ChainConfig, error) {
 				OcrKeyBundle:     keyBundle,
 				Multiaddr:        n.MultiAddr(),
 				Plugins:          nil, // TODO: programmatic way to list these from the embedded chainlink.Application?
-				ForwarderAddress: pointer.To(""),
+				ForwarderAddress: new(""),
 			},
 		})
 	}
@@ -344,7 +343,7 @@ func WithFinalityDepths(finalityDepths map[uint64]uint32) ConfigOpt {
 			chainIDBig := sqlutil.New(new(big.Int).SetUint64(chainID))
 			for _, evmChainConfig := range c.EVM {
 				if evmChainConfig.ChainID.ToInt().Cmp(chainIDBig.ToInt()) == 0 {
-					evmChainConfig.FinalityDepth = pointer.To(depth)
+					evmChainConfig.FinalityDepth = new(depth)
 				}
 			}
 		}
@@ -392,30 +391,30 @@ func NewNode(
 	// Do not want to load fixtures as they contain a dummy chainID.
 	// Create database and initial configuration.
 	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Insecure.OCRDevelopmentMode = pointer.To(true) // Disables ocr spec validation so we can have fast polling for the test.
+		c.Insecure.OCRDevelopmentMode = new(true) // Disables ocr spec validation so we can have fast polling for the test.
 
-		c.Feature.LogPoller = pointer.To(true)
+		c.Feature.LogPoller = new(true)
 
 		// P2P V2 configs.
-		c.P2P.V2.Enabled = pointer.To(true)
+		c.P2P.V2.Enabled = new(true)
 		c.P2P.V2.DeltaDial = config.MustNewDuration(500 * time.Millisecond)
 		c.P2P.V2.DeltaReconcile = config.MustNewDuration(5 * time.Second)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", nodecfg.Port)}
 
 		// Enable Capabilities, This is a pre-requisite for registrySyncer to work.
 		if nodecfg.RegistryConfig.Contract != common.HexToAddress("0x0") {
-			c.Capabilities.ExternalRegistry.NetworkID = pointer.To(relay.NetworkEVM)
-			c.Capabilities.ExternalRegistry.ChainID = pointer.To(strconv.FormatUint(nodecfg.RegistryConfig.EVMChainID, 10))
-			c.Capabilities.ExternalRegistry.Address = pointer.To(nodecfg.RegistryConfig.Contract.String())
+			c.Capabilities.ExternalRegistry.NetworkID = new(relay.NetworkEVM)
+			c.Capabilities.ExternalRegistry.ChainID = new(strconv.FormatUint(nodecfg.RegistryConfig.EVMChainID, 10))
+			c.Capabilities.ExternalRegistry.Address = new(nodecfg.RegistryConfig.Contract.String())
 		}
 
 		// OCR configs
-		c.OCR.Enabled = pointer.To(false)
-		c.OCR.DefaultTransactionQueueDepth = pointer.To(uint32(200))
-		c.OCR2.Enabled = pointer.To(true)
+		c.OCR.Enabled = new(false)
+		c.OCR.DefaultTransactionQueueDepth = new(uint32(200))
+		c.OCR2.Enabled = new(true)
 		c.OCR2.ContractPollInterval = config.MustNewDuration(5 * time.Second)
 
-		c.Log.Level = pointer.To(configv2.LogLevel(nodecfg.LogLevel))
+		c.Log.Level = new(configv2.LogLevel(nodecfg.LogLevel))
 
 		var evmConfigs v2toml.EVMConfigs
 		for chainID := range evmchains {
@@ -536,12 +535,12 @@ func NewNode(
 	if nodecfg.Bootstrap {
 		nodeLabels[0] = &ptypes.Label{
 			Key:   devenv.LabelNodeTypeKey,
-			Value: pointer.To(devenv.LabelNodeTypeValueBootstrap),
+			Value: new(devenv.LabelNodeTypeValueBootstrap),
 		}
 	} else {
 		nodeLabels[0] = &ptypes.Label{
 			Key:   devenv.LabelNodeTypeKey,
-			Value: pointer.To(devenv.LabelNodeTypeValuePlugin),
+			Value: new(devenv.LabelNodeTypeValuePlugin),
 		}
 	}
 
@@ -762,13 +761,13 @@ func CreateKeys(t *testing.T,
 func createConfigV2Chain(chainID uint64) *v2toml.EVMConfig {
 	chainIDBig := sqlutil.NewI(int64(chainID))
 	chain := v2toml.Defaults(chainIDBig)
-	chain.GasEstimator.LimitDefault = pointer.To(uint64(5e6))
+	chain.GasEstimator.LimitDefault = new(uint64(5e6))
 	chain.LogPollInterval = config.MustNewDuration(500 * time.Millisecond)
-	chain.Transactions.ForwardersEnabled = pointer.To(false)
-	chain.FinalityDepth = pointer.To(uint32(2))
+	chain.Transactions.ForwardersEnabled = new(false)
+	chain.FinalityDepth = new(uint32(2))
 	return &v2toml.EVMConfig{
 		ChainID: chainIDBig,
-		Enabled: pointer.To(true),
+		Enabled: new(true),
 		Chain:   chain,
 		Nodes:   v2toml.EVMNodes{&v2toml.Node{}},
 	}
