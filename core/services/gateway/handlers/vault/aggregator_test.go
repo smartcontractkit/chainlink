@@ -316,7 +316,7 @@ func TestAggregator_MultipleRegistryDONs_SelectsByVaultHandlerDonName(t *testing
 	mcr := &mockCapabilitiesRegistry{DONs: []capabilities.DONWithNodes{donOther, donMine}}
 	agg := &baseAggregator{
 		capabilitiesRegistry: mcr,
-		vaultHandlerDonId:    "cre-reliability-vault",
+		vaultHandlerDonID:    "cre-reliability-vault",
 	}
 
 	rm := json.RawMessage([]byte(`{}`))
@@ -342,7 +342,7 @@ func TestAggregator_MultipleRegistryDONs_SelectsByIDWhenNameEmpty(t *testing.T) 
 	mcr := &mockCapabilitiesRegistry{DONs: []capabilities.DONWithNodes{donOther, donMine}}
 	agg := &baseAggregator{
 		capabilitiesRegistry: mcr,
-		vaultHandlerDonId:    "99",
+		vaultHandlerDonID:    "99",
 	}
 
 	rm := json.RawMessage([]byte(`{}`))
@@ -368,7 +368,7 @@ func TestAggregator_MultipleRegistryDONs_NoMatchingVaultHandlerDonId(t *testing.
 	mcr := &mockCapabilitiesRegistry{DONs: []capabilities.DONWithNodes{donA, donB}}
 	agg := &baseAggregator{
 		capabilitiesRegistry: mcr,
-		vaultHandlerDonId:    "unknown-vault",
+		vaultHandlerDonID:    "unknown-vault",
 	}
 
 	rm := json.RawMessage([]byte(`{}`))
@@ -389,7 +389,7 @@ func TestAggregator_MultipleRegistryDONs_AmbiguousMatchingVaultHandlerDonId(t *t
 	mcr := &mockCapabilitiesRegistry{DONs: []capabilities.DONWithNodes{donA, donB}}
 	agg := &baseAggregator{
 		capabilitiesRegistry: mcr,
-		vaultHandlerDonId:    "same-name",
+		vaultHandlerDonID:    "same-name",
 	}
 
 	rm := json.RawMessage([]byte(`{}`))

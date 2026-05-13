@@ -21,11 +21,14 @@ import (
 
 type baseAggregator struct {
 	capabilitiesRegistry capabilitiesRegistry
-	// vaultHandlerDonId is DONConfig.DonId for this vault handler (from ShardedDONConfig.DonName):
-	// the vault capability DON this gateway instance is wired to.
-	// When the registry lists multiple vault DONs, it selects the row where capabilities.DON.Name
-	// equals this string (v2), or if Name is empty (v1 sync) where decimal capabilities.DON.ID matches.
-	vaultHandlerDonId string
+	// vaultHandlerDonID scopes registry lookup when several vault DONs exist.
+	//
+	// Source: gateway job TOML [[gatewayConfig.ShardedDONs]] DonName (see deployment/cre/jobs/pkg/gateway_job.go),
+	// loaded as ShardedDONConfig.DonName and passed as DONConfig.DonId (handler_factory.shardedDONsToLegacy;
+	// DonId is a legacy field name for that string, not the on-chain uint32 id).
+	//
+	// Matching: capabilities.DON.Name when non-empty (v2), else decimal capabilities.DON.ID string (v1 sync).
+	vaultHandlerDonID string
 }
 
 func (a *baseAggregator) Aggregate(ctx context.Context, l logger.Logger, resps map[string]jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error) {
@@ -61,8 +64,8 @@ func (a *baseAggregator) donForVaultCapability(ctx context.Context) (*capabiliti
 		return &don, nil
 	}
 
-	handlerDonId := strings.TrimSpace(a.vaultHandlerDonId)
-	if handlerDonId == "" {
+	handlerDonID := strings.TrimSpace(a.vaultHandlerDonID)
+	if handlerDonID == "" {
 		return nil, fmt.Errorf("multiple DONs (%d) host vault capability %s but vault handler DonId is empty; set ShardedDONConfig.DonName so DONConfig.DonId matches the vault DON name or id in the registry (%s)",
 			len(dons), vaultcommon.CapabilityID, summarizeVaultRegistryDONs(dons))
 	}
@@ -70,27 +73,29 @@ func (a *baseAggregator) donForVaultCapability(ctx context.Context) (*capabiliti
 	var matches []capabilities.DONWithNodes
 	for i := range dons {
 		d := dons[i]
-		if vaultDONMatchesHandlerDonId(&d.DON, handlerDonId) {
+		if vaultDONMatchesHandlerDonID(&d.DON, handlerDonID) {
 			matches = append(matches, d)
 		}
 	}
 	switch len(matches) {
 	case 0:
 		return nil, fmt.Errorf("multiple DONs (%d) host vault capability %s but none match vault handler DonId %q; registry has %s",
-			len(dons), vaultcommon.CapabilityID, a.vaultHandlerDonId, summarizeVaultRegistryDONs(dons))
+			len(dons), vaultcommon.CapabilityID, a.vaultHandlerDonID, summarizeVaultRegistryDONs(dons))
 	case 1:
 		d := matches[0]
 		return &d, nil
 	default:
-		return nil, fmt.Errorf("%d DONs match vault handler DonId %q for vault capability %s", len(matches), a.vaultHandlerDonId, vaultcommon.CapabilityID)
+		return nil, fmt.Errorf("%d DONs match vault handler DonId %q for vault capability %s", len(matches), a.vaultHandlerDonID, vaultcommon.CapabilityID)
 	}
 }
 
-func vaultDONMatchesHandlerDonId(don *capabilities.DON, handlerDonId string) bool {
+// vaultDONMatchesHandlerDonID reports whether don is the vault DON this handler is configured for.
+// handlerDonID is vaultHandlerDonID (jobspec DonName / DONConfig.DonId); see struct comment.
+func vaultDONMatchesHandlerDonID(don *capabilities.DON, handlerDonID string) bool {
 	if don.Name != "" {
-		return don.Name == handlerDonId
+		return don.Name == handlerDonID
 	}
-	return strconv.FormatUint(uint64(don.ID), 10) == handlerDonId
+	return strconv.FormatUint(uint64(don.ID), 10) == handlerDonID
 }
 
 func summarizeVaultRegistryDONs(dons []capabilities.DONWithNodes) string {

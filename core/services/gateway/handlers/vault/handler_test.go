@@ -1014,7 +1014,7 @@ func TestVaultHandler_PublicKeyGet(t *testing.T) {
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
 	h.(*handler).aggregator = &baseAggregator{
 		capabilitiesRegistry: mcr,
-		vaultHandlerDonId:    h.(*handler).donConfig.DonId,
+		vaultHandlerDonID:    h.(*handler).donConfig.DonId,
 	}
 
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
