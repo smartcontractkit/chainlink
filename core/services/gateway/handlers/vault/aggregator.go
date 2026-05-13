@@ -8,6 +8,7 @@ import (
 	"maps"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -20,6 +21,11 @@ import (
 
 type baseAggregator struct {
 	capabilitiesRegistry capabilitiesRegistry
+	// vaultHandlerDonId is DONConfig.DonId for this vault handler (from ShardedDONConfig.DonName):
+	// the vault capability DON this gateway instance is wired to.
+	// When the registry lists multiple vault DONs, it selects the row where capabilities.DON.Name
+	// equals this string (v2), or if Name is empty (v1 sync) where decimal capabilities.DON.ID matches.
+	vaultHandlerDonId string
 }
 
 func (a *baseAggregator) Aggregate(ctx context.Context, l logger.Logger, resps map[string]jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error) {
@@ -47,15 +53,55 @@ func (a *baseAggregator) donForVaultCapability(ctx context.Context) (*capabiliti
 	if err != nil {
 		return nil, err
 	}
-	// TODO: Support multiple vault capabilities in the capability registry.
-	// For the initial Smartcon deployment there will be exactly one Vault capability
-	// split across both DON families.
-	if len(dons) != 1 {
-		return nil, fmt.Errorf("expected exactly one DON for vault capability, found %d", len(dons))
+	if len(dons) == 0 {
+		return nil, fmt.Errorf("no DON found for vault capability %s", vaultcommon.CapabilityID)
+	}
+	if len(dons) == 1 {
+		don := dons[0]
+		return &don, nil
 	}
 
-	don := dons[0]
-	return &don, nil
+	handlerDonId := strings.TrimSpace(a.vaultHandlerDonId)
+	if handlerDonId == "" {
+		return nil, fmt.Errorf("multiple DONs (%d) host vault capability %s but vault handler DonId is empty; set ShardedDONConfig.DonName so DONConfig.DonId matches the vault DON name or id in the registry (%s)",
+			len(dons), vaultcommon.CapabilityID, summarizeVaultRegistryDONs(dons))
+	}
+
+	var matches []capabilities.DONWithNodes
+	for i := range dons {
+		d := dons[i]
+		if vaultDONMatchesHandlerDonId(&d.DON, handlerDonId) {
+			matches = append(matches, d)
+		}
+	}
+	switch len(matches) {
+	case 0:
+		return nil, fmt.Errorf("multiple DONs (%d) host vault capability %s but none match vault handler DonId %q; registry has %s",
+			len(dons), vaultcommon.CapabilityID, a.vaultHandlerDonId, summarizeVaultRegistryDONs(dons))
+	case 1:
+		d := matches[0]
+		return &d, nil
+	default:
+		return nil, fmt.Errorf("%d DONs match vault handler DonId %q for vault capability %s", len(matches), a.vaultHandlerDonId, vaultcommon.CapabilityID)
+	}
+}
+
+func vaultDONMatchesHandlerDonId(don *capabilities.DON, handlerDonId string) bool {
+	if don.Name != "" {
+		return don.Name == handlerDonId
+	}
+	return strconv.FormatUint(uint64(don.ID), 10) == handlerDonId
+}
+
+func summarizeVaultRegistryDONs(dons []capabilities.DONWithNodes) string {
+	var b strings.Builder
+	for i, d := range dons {
+		if i > 0 {
+			b.WriteString("; ")
+		}
+		_, _ = fmt.Fprintf(&b, "name=%q id=%d", d.DON.Name, d.DON.ID)
+	}
+	return b.String()
 }
 
 func (a *baseAggregator) validateUsingQuorum(don capabilities.DON, resps map[string]jsonrpc.Response[json.RawMessage], l logger.Logger) (*jsonrpc.Response[json.RawMessage], error) {
