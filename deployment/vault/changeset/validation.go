@@ -340,6 +340,13 @@ func ValidateEthBalMonSetWatchListConfig(ctx context.Context, env cldf.Environme
 			if addr == (common.Address{}) {
 				return fmt.Errorf("chain %d: address at index %d is zero address", chainSelector, i)
 			}
+			// Check MinBalancesWei and TopUpAmountsWei are >= 0
+			if chainConfig.MinBalancesWei[i].Cmp(big.NewInt(0)) < 0 {
+				return fmt.Errorf("chain %d: min_balance_wei at index %d must be >= 0", chainSelector, i)
+			}
+			if chainConfig.TopUpAmountsWei[i].Cmp(big.NewInt(0)) < 0 {
+				return fmt.Errorf("chain %d: topup_amounts_wei at index %d must be >= 0", chainSelector, i)
+			}
 		}
 	}
 
