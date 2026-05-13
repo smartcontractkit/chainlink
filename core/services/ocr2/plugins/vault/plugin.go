@@ -1507,7 +1507,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 			case o.RequestType == vaultcommon.RequestType_GET_SECRETS && len(obs) >= 2*r.onchainCfg.F+1:
 				// GetRequests required 2F+1 observations because we need exactly T=F+1 shares to reconstruct the secret.
 				// Since F shares can be fault, that means T+F=2F+1 shares are required, necessitating 2F+1 observations.
-				chosen = shaToObs[sha]
+				chosen = shaToObs[sha][:2*r.onchainCfg.F+1]
 				r.lggr.Debugw("sufficient observations for sha", "sha", sha, "requestType", "GetSecrets", "count", len(obs), "threshold", 2*r.onchainCfg.F+1, "id", id)
 			case o.RequestType != vaultcommon.RequestType_GET_SECRETS && len(obs) >= r.onchainCfg.F+1:
 				// F+1 means that at least 1 honest node has provided this observation, so that's enough for all other request

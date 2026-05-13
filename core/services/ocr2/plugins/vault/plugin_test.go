@@ -2472,6 +2472,23 @@ func TestPlugin_StateTransition_GetSecretsRequest_ResponseSizeWithinLimit(t *tes
 		aos, kvStore, nil)
 	require.NoError(t, err)
 
+	twoFPlusOne := 2*r.onchainCfg.F + 1
+	osOut := &vaultcommon.Outcomes{}
+	err = proto.Unmarshal(reportPrecursor, osOut)
+	require.NoError(t, err)
+	for _, outcome := range osOut.Outcomes {
+		for _, secretResp := range outcome.GetGetSecretsResponse().GetResponses() {
+			data := secretResp.GetData()
+			if data == nil {
+				continue
+			}
+			for _, enc := range data.EncryptedDecryptionKeyShares {
+				assert.Len(t, enc.Shares, twoFPlusOne,
+					"expected at most 2f+1 shares per encryption key, got %d (N=%d)", len(enc.Shares), numObservers)
+			}
+		}
+	}
+
 	t.Logf("StateTransition response size: %d bytes (%.2f KB)", len(reportPrecursor), float64(len(reportPrecursor))/1024.0)
 	maxResponseSize := 512 * 1024
 	assert.LessOrEqual(t, len(reportPrecursor), maxResponseSize,
@@ -2885,6 +2902,100 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 
 	o := os.Outcomes[0]
 
+	expectedResp := &vaultcommon.GetSecretsResponse{
+		Responses: []*vaultcommon.SecretResponse{
+			{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{
+					Data: &vaultcommon.SecretData{
+						EncryptedValue: "encrypted-value",
+						EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
+							{
+								EncryptionKey: "my-encryption-key",
+								Shares:        []string{"encrypted-share-1", "encrypted-share-2", "encrypted-share-3"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	assert.True(t, proto.Equal(expectedResp, o.GetGetSecretsResponse()), o.GetGetSecretsResponse())
+
+	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
+}
+
+func TestPlugin_StateTransition_GetSecretsRequest_CapsSharesAtTwoFPlusOne(t *testing.T) {
+	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t, withLggr(lggr), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+
+	seqNr := uint64(1)
+	kv := &kv{
+		m: make(map[string]response),
+	}
+
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "secret",
+	}
+	req := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
+			{
+				Id: id,
+			},
+		},
+	}
+	makeResp := func(share string) *vaultcommon.GetSecretsResponse {
+		return &vaultcommon.GetSecretsResponse{
+			Responses: []*vaultcommon.SecretResponse{
+				{
+					Id: id,
+					Result: &vaultcommon.SecretResponse_Data{
+						Data: &vaultcommon.SecretData{
+							EncryptedValue: "encrypted-value",
+							EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
+								{
+									EncryptionKey: "my-encryption-key",
+									Shares:        []string{share},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	obsb1 := marshalObservations(t, observation{id, req, makeResp("encrypted-share-1")})
+	obsb2 := marshalObservations(t, observation{id, req, makeResp("encrypted-share-2")})
+	obsb3 := marshalObservations(t, observation{id, req, makeResp("encrypted-share-3")})
+	obsb4 := marshalObservations(t, observation{id, req, makeResp("encrypted-share-4")})
+	reportPrecursor, err := r.StateTransition(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		[]types.AttributedObservation{
+			{Observer: 0, Observation: types.Observation(obsb1)},
+			{Observer: 1, Observation: types.Observation(obsb2)},
+			{Observer: 2, Observation: types.Observation(obsb3)},
+			{Observer: 3, Observation: types.Observation(obsb4)},
+		}, kv, nil)
+	require.NoError(t, err)
+
+	os := &vaultcommon.Outcomes{}
+	err = proto.Unmarshal(reportPrecursor, os)
+	require.NoError(t, err)
+
+	assert.Len(t, os.Outcomes, 1)
+
+	o := os.Outcomes[0]
+
+	twoFPlusOne := 2*r.onchainCfg.F + 1
+	got := o.GetGetSecretsResponse().Responses[0].GetData().EncryptedDecryptionKeyShares[0].Shares
+	assert.Len(t, got, twoFPlusOne)
 	expectedResp := &vaultcommon.GetSecretsResponse{
 		Responses: []*vaultcommon.SecretResponse{
 			{
