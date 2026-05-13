@@ -408,6 +408,12 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 	if totalErr != nil {
 		return nil, 0, totalErr
 	}
+	// Per-relayer node ordering is whatever the underlying chain implementation
+	// returns and is not guaranteed to be stable across calls (#18263). Sort
+	// the aggregated slice by (ChainID, Name) so the API surface is paginated
+	// deterministically and operators can find the same node on the same page
+	// across reloads.
+	sortNodeStatuses(result)
 	if len(result) < offset {
 		return nil, 0, nil
 	}
@@ -416,6 +422,20 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 		return result[:limit], count, nil
 	}
 	return result, count, nil
+}
+
+// sortNodeStatuses orders node statuses by (ChainID, Name) in place so the
+// /nodes dashboard surface paginates deterministically. SortStableFunc keeps
+// the input order on equal (ChainID, Name) pairs so the aggregate is fully
+// reproducible. Extracted for unit testing without standing up a full
+// relayer; see #18263.
+func sortNodeStatuses(nodes []types.NodeStatus) {
+	slices.SortStableFunc(nodes, func(a, b types.NodeStatus) int {
+		if c := strings.Compare(a.ChainID, b.ChainID); c != 0 {
+			return c
+		}
+		return strings.Compare(a.Name, b.Name)
+	})
 }
 
 type FilterFn func(id types.RelayID) bool
