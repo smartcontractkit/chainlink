@@ -298,8 +298,11 @@ func ValidateSetKeeperRegistryAddressConfig(ctx context.Context, env cldf.Enviro
 			return fmt.Errorf("chain not found in environment: %d", chainSelector)
 		}
 
-		if !common.IsHexAddress(chainConfig.NewKeeperRegistryAddress) {
-			return fmt.Errorf("chain %d: invalid keeper registry address: %s", chainSelector, chainConfig.NewKeeperRegistryAddress)
+		if err := validateEthAddress("new_keeper_registry_address", chainConfig.NewKeeperRegistryAddress); err != nil {
+			return fmt.Errorf("chain %d: %w", chainSelector, err)
+		}
+		if common.HexToAddress(chainConfig.NewKeeperRegistryAddress) == (common.Address{}) {
+			return fmt.Errorf("chain %d: keeper registry address cannot be zero address", chainSelector)
 		}
 	}
 
