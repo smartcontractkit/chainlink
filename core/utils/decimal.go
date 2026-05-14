@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/json"
 	"math"
 	"math/big"
 
@@ -14,6 +15,14 @@ import (
 // https://github.com/smartcontractkit/chainlink/pull/14841
 func ToDecimal(input any) (decimal.Decimal, error) {
 	switch v := input.(type) {
+	case json.Number:
+		// json.Number is what encoding/json returns when Decoder.UseNumber()
+		// has been set, which is how the pipeline parses HTTP / JSON payloads
+		// containing numeric values. Without this case any downstream task
+		// that receives a json.Number (e.g. ethabiencode with a uint256[]
+		// argument, fluxmonitor, OCR data sources) fails the conversion with
+		// "type json.Number cannot be converted to decimal.Decimal".
+		return decimal.NewFromString(string(v))
 	case string:
 		return decimal.NewFromString(v)
 	case int:

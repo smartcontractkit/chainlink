@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/json"
 	"math"
 	"math/big"
 	"testing"
@@ -46,6 +47,12 @@ func TestDecimal(t *testing.T) {
 		{math.NaN(), true},
 		{float32(math.NaN()), true},
 		{true, true},
+		// json.Number is produced by Decoder.UseNumber, which the pipeline
+		// uses when decoding JSON HTTP responses. Both integer and floating
+		// point forms have to be accepted; see #8504.
+		{json.Number("123"), false},
+		{json.Number("-1.1"), false},
+		{json.Number("not-a-number"), true},
 	}
 	for _, tc := range tt {
 		_, err := ToDecimal(tc.v)
