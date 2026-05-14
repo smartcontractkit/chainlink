@@ -47,6 +47,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/diskmonitor"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins/ocr3"
@@ -101,10 +102,12 @@ import (
 )
 
 const (
-	vaultCapabilityID   = "vault@1.0.0"
-	vaultOCRConfigKey   = "vault"
-	dkgOCRConfigKey     = "dkg"
-	dontimeCapabilityID = "dontime@1.0.0"
+	vaultCapabilityID            = "vault@1.0.0"
+	vaultOCRConfigKey            = "vault"
+	dkgOCRConfigKey              = "dkg"
+	dontimeCapabilityID          = "dontime@1.0.0"
+	gaugeVaultDiskUsageBytes     = "platform_vault_disk_usage_bytes"
+	vaultDiskMonitorTickInterval = time.Minute
 )
 
 type JobSpecNoRelayerError struct {
@@ -726,7 +729,12 @@ func (d *Delegate) newServicesVaultPlugin(
 	})
 	srvs = append(srvs, ocrLogger)
 
-	dm, err := vaultocrplugin.NewDiskMonitor(lggr, d.cfg.OCR2().KeyValueStoreRootDir())
+	dm, err := diskmonitor.NewDiskMonitor(
+		lggr,
+		d.cfg.OCR2().KeyValueStoreRootDir(),
+		gaugeVaultDiskUsageBytes,
+		vaultDiskMonitorTickInterval,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create disk monitor: %w", err)
 	}

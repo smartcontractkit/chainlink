@@ -39,7 +39,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 )
 
 const EnvironmentName = "local-cre"
@@ -773,9 +772,9 @@ func (m *DonMetadata) ConfigureForGatewayAccess(chainID uint64, connectors Gatew
 		// if no gateways are configured, then gateway connector config is most probably also not configured
 		if len(typedConfig.Capabilities.GatewayConnector.Gateways) == 0 {
 			typedConfig.Capabilities.GatewayConnector = coretoml.GatewayConnector{
-				DonID:             ptr.Ptr(m.Name),
-				ChainIDForNodeKey: ptr.Ptr(strconv.FormatUint(chainID, 10)),
-				NodeAddress:       ptr.Ptr(evmKey.PublicAddress.Hex()),
+				DonID:             new(m.Name),
+				ChainIDForNodeKey: new(strconv.FormatUint(chainID, 10)),
+				NodeAddress:       new(evmKey.PublicAddress.Hex()),
 			}
 		}
 
@@ -791,8 +790,8 @@ func (m *DonMetadata) ConfigureForGatewayAccess(chainID uint64, connectors Gatew
 
 			if !alreadyPresent {
 				typedConfig.Capabilities.GatewayConnector.Gateways = append(typedConfig.Capabilities.GatewayConnector.Gateways, coretoml.ConnectorGateway{
-					ID: ptr.Ptr(gatewayConnector.AuthGatewayID),
-					URL: ptr.Ptr(fmt.Sprintf("ws://%s:%d%s",
+					ID: new(gatewayConnector.AuthGatewayID),
+					URL: new(fmt.Sprintf("ws://%s:%d%s",
 						gatewayConnector.Outgoing.Host,
 						gatewayConnector.Outgoing.Port,
 						gatewayConnector.Outgoing.Path)),
@@ -1549,7 +1548,7 @@ type CapabilityScope struct {
 
 // ChainCapabilityScope creates a scope value that targets a specific chain ID.
 func ChainCapabilityScope(chainID uint64) CapabilityScope {
-	return CapabilityScope{chainID: ptr.Ptr(chainID)}
+	return CapabilityScope{chainID: new(chainID)}
 }
 
 // DonCapabilityScope creates a scope value for DON-level capabilities with no chain ID.

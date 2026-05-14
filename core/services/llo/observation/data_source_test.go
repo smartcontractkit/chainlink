@@ -837,11 +837,11 @@ func Test_observationTuningHelpers(t *testing.T) {
 	assert.Less(t, staleRefreshSkipThreshold(tuningTestT), cacheEntryTTL(tuningTestT))
 	assert.Less(t, staleRefreshSkipThreshold(tuningTestT)+observationLoopPacing(tuningTestT), cacheEntryTTL(tuningTestT))
 
-	assert.Equal(t, 10*time.Millisecond, observationLoopPacing(100*time.Millisecond))
-	assert.Equal(t, 50*time.Millisecond, observationLoopPacing(500*time.Millisecond))
+	assert.Equal(t, cacheEntryTTL(100*time.Millisecond)-staleRefreshSkipThreshold(100*time.Millisecond)-time.Nanosecond, observationLoopPacing(100*time.Millisecond))
+	assert.Equal(t, cacheEntryTTL(500*time.Millisecond)-staleRefreshSkipThreshold(500*time.Millisecond)-time.Nanosecond, observationLoopPacing(500*time.Millisecond))
 	assert.Equal(t, observationLoopPacingMin, observationLoopPacing(0))
-	// T/10 below floor clamps to min, then caps to T/2
-	assert.Equal(t, 10*time.Millisecond, observationLoopPacing(30*time.Millisecond))
+	// T/2 exceeds invariant cap; pacing is min(T/2, cacheTTL−stale−1ns); here 30/2=15ms caps to ~12ms−1ns
+	assert.Equal(t, cacheEntryTTL(30*time.Millisecond)-staleRefreshSkipThreshold(30*time.Millisecond)-time.Nanosecond, observationLoopPacing(30*time.Millisecond))
 }
 
 func BenchmarkObserve(b *testing.B) {

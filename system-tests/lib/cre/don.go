@@ -39,7 +39,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/client"
 )
@@ -372,7 +371,7 @@ func NewNode(ctx context.Context, name string, nodeMetadata *NodeMetadata, ctfNo
 		Email:       ctfNode.Node.APIAuthUser,
 		Password:    ctfNode.Node.APIAuthPassword,
 		InternalIP:  ctfNode.Node.InternalIP,
-		HTTPTimeout: ptr.Ptr(10 * time.Second),
+		HTTPTimeout: new(10 * time.Second),
 	})
 	if cErr != nil {
 		return nil, fmt.Errorf("failed to create node rest client: %w", cErr)

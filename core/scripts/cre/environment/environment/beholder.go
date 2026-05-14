@@ -18,7 +18,7 @@ import (
 	"time"
 
 	retry "github.com/avast/retry-go/v4"
-	"github.com/docker/docker/client"
+	mobyclient "github.com/moby/moby/client"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
@@ -473,13 +473,13 @@ func ensureChipImagesExist(ctx context.Context, cfg *SetupConfigFile) error {
 }
 
 func ensureManagedImagesExist(ctx context.Context, awsProfile string, requiredImages []MissingImage) error {
-	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	dockerClient, err := mobyclient.New()
 	if err != nil {
 		return errors.Wrap(err, "failed to create Docker client")
 	}
 	defer dockerClient.Close()
 
-	_, err = dockerClient.Ping(ctx)
+	_, err = dockerClient.Ping(ctx, mobyclient.PingOptions{})
 	if err != nil {
 		return errors.Wrap(err, "Docker is not running")
 	}

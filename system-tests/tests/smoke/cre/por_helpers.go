@@ -24,7 +24,8 @@ import (
 	tron_df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/tron"
 	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/common/changeset"
+
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	tron_keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/tron"
@@ -337,10 +338,10 @@ func deployAndConfigureTronContracts(t *testing.T, testLogger zerolog.Logger, ch
 		DeployOptions:  deployOptions,
 	}
 
-	dfOutput, dfErr := changeset.RunChangeset(tron_df_changeset.DeployCacheChangeset, *creEnvironment.CldfEnvironment, tronDeployConfig)
+	dfOutput, dfErr := cldchangeset.RunChangeset(tron_df_changeset.DeployCacheChangeset, *creEnvironment.CldfEnvironment, tronDeployConfig)
 	require.NoError(t, dfErr, "failed to deploy Data Feeds Cache contract on chain %d", chainSelector)
 
-	rbOutput, rbErr := changeset.RunChangeset(tron_keystone_changeset.DeployReadBalanceChangeset, *creEnvironment.CldfEnvironment, tronDeployConfig)
+	rbOutput, rbErr := cldchangeset.RunChangeset(tron_keystone_changeset.DeployReadBalanceChangeset, *creEnvironment.CldfEnvironment, tronDeployConfig)
 	require.NoError(t, rbErr, "failed to deploy Read Balances contract on chain %d", chainSelector)
 
 	crecontracts.MergeAllDataStores(creEnvironment, dfOutput, rbOutput)
@@ -379,7 +380,7 @@ func deployAndConfigureTronContracts(t *testing.T, testLogger zerolog.Logger, ch
 		TriggerOptions: triggerOptions,
 	}
 
-	_, setDeployerAdminErr := changeset.RunChangeset(tron_df_changeset.SetFeedAdminChangeset, *creEnvironment.CldfEnvironment, setDeployerAdminConfig)
+	_, setDeployerAdminErr := cldchangeset.RunChangeset(tron_df_changeset.SetFeedAdminChangeset, *creEnvironment.CldfEnvironment, setDeployerAdminConfig)
 	require.NoError(t, setDeployerAdminErr, "failed to set deployer as admin for Tron chain")
 
 	workflowNameBytes := df_changeset.HashedWorkflowName(uniqueWorkflowName)
@@ -407,7 +408,7 @@ func deployAndConfigureTronContracts(t *testing.T, testLogger zerolog.Logger, ch
 		TriggerOptions:   triggerOptions,
 	}
 
-	_, setConfigErr := changeset.RunChangeset(tron_df_changeset.SetFeedConfigChangeset, *creEnvironment.CldfEnvironment, setFeedConfigConfig)
+	_, setConfigErr := cldchangeset.RunChangeset(tron_df_changeset.SetFeedConfigChangeset, *creEnvironment.CldfEnvironment, setFeedConfigConfig)
 	require.NoError(t, setConfigErr, "failed to set feed config for Tron chain")
 
 	testLogger.Info().Msgf("Successfully configured Tron data feeds cache for chain %d", chainSelector)
