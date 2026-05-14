@@ -24,13 +24,14 @@ import (
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
-	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 )
 
 // AddTokensE2E is a changeset that deploys and configures token pools for multiple tokens across multiple chains in a single changeset.
@@ -451,9 +452,16 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 	}
 	// if there are multiple proposals, aggregate them so that we don't have to propose them separately
 	if len(finalCSOut.MCMSTimelockProposals) > 1 {
-		aggregatedProposals, err := proposeutils.AggregateProposals(
-			e, state.EVMMCMSStateByChain(), nil, finalCSOut.MCMSTimelockProposals,
-			"Add Tokens E2E", config.MCMS)
+		aggregatedProposals, err := proposeutils.AggregateProposalsV2(
+			e,
+			proposeutils.MCMSStates{
+				MCMSEVMState:    state.EVMMCMSStateByChain(),
+				MCMSSolanaState: nil,
+			},
+			finalCSOut.MCMSTimelockProposals,
+			"Add Tokens E2E",
+			config.MCMS,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
 		}

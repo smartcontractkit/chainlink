@@ -9,10 +9,11 @@ import (
 	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	"github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"

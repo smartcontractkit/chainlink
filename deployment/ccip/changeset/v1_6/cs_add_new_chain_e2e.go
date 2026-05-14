@@ -461,10 +461,12 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to reset existing addresses: %w", err)
 	}
 
-	proposal, err := proposeutils.AggregateProposals(
+	proposal, err := proposeutils.AggregateProposalsV2(
 		e,
-		state.EVMMCMSStateByChain(),
-		nil,
+		proposeutils.MCMSStates{
+			MCMSEVMState:    state.EVMMCMSStateByChain(),
+			MCMSSolanaState: nil,
+		},
 		allProposals,
 		fmt.Sprintf("Deploy and set candidates for chain with selector %d", c.NewChain.Selector),
 		c.MCMSConfig,
@@ -649,10 +651,12 @@ func promoteNewChainForConfigLogic(e cldf.Environment, c PromoteNewChainForConfi
 	}
 	allProposals = append(allProposals, out.MCMSTimelockProposals...)
 
-	proposal, err := proposeutils.AggregateProposals(
+	proposal, err := proposeutils.AggregateProposalsV2(
 		e,
-		state.EVMMCMSStateByChain(),
-		nil,
+		proposeutils.MCMSStates{
+			MCMSEVMState:    state.EVMMCMSStateByChain(),
+			MCMSSolanaState: nil,
+		},
 		allProposals,
 		fmt.Sprintf("Promote chain with selector %d for testing", c.NewChain.Selector),
 		c.MCMSConfig,
@@ -869,10 +873,12 @@ func connectNewChainLogic(env cldf.Environment, c ConnectNewChainConfig) (cldf.C
 
 	allProposals := slices.Concat(ownershipTransferProposals, allEnablementProposals)
 
-	proposal, err := proposeutils.AggregateProposals(
+	proposal, err := proposeutils.AggregateProposalsV2(
 		env,
-		state.EVMMCMSStateByChain(),
-		nil,
+		proposeutils.MCMSStates{
+			MCMSEVMState:    state.EVMMCMSStateByChain(),
+			MCMSSolanaState: nil,
+		},
 		allProposals,
 		fmt.Sprintf("Connect chain with selector %d to other chains", c.NewChainSelector),
 		c.MCMSConfig,

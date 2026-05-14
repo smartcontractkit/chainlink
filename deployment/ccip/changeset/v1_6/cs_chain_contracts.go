@@ -11,47 +11,46 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	mcmslib "github.com/smartcontractkit/mcms"
 
-	mcmssdk "github.com/smartcontractkit/mcms/sdk"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
+	mcmslib "github.com/smartcontractkit/mcms"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	ccipops1_2 "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_2"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 	ccipseqs "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
-
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 

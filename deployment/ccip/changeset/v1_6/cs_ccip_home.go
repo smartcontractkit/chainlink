@@ -9,22 +9,15 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"golang.org/x/exp/maps"
 
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-
-	"github.com/Masterminds/semver/v3"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
-	mcmslib "github.com/smartcontractkit/mcms"
-	mcmssdk "github.com/smartcontractkit/mcms/sdk"
-	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
@@ -32,16 +25,19 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
-
-	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+	mcmslib "github.com/smartcontractkit/mcms"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -51,6 +47,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
 var (
