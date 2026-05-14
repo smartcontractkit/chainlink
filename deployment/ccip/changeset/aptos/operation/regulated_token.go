@@ -127,10 +127,10 @@ func initializeRegulatedToken(
 		in.TokenParams.Project,
 	)
 	if err != nil {
-		return aptos.AccountAddress{}, fmt.Errorf("Initialize: %w", err)
+		return aptos.AccountAddress{}, fmt.Errorf("initialize: %w", err)
 	}
 	if err := deps.AptosChain.Confirm(tx.Hash); err != nil {
-		return aptos.AccountAddress{}, fmt.Errorf("confirm Initialize: %w", err)
+		return aptos.AccountAddress{}, fmt.Errorf("confirm initialize: %w", err)
 	}
 	return in.TokenCodeObjectAddress, nil
 }
@@ -198,10 +198,10 @@ func mintRegulatedToken(
 
 	tx, err := token.RegulatedToken().Mint(opts, in.To, in.Amount)
 	if err != nil {
-		return aptos.AccountAddress{}, fmt.Errorf("Mint: %w", err)
+		return aptos.AccountAddress{}, fmt.Errorf("mint: %w", err)
 	}
 	if err := deps.AptosChain.Confirm(tx.Hash); err != nil {
-		return aptos.AccountAddress{}, fmt.Errorf("confirm Mint: %w", err)
+		return aptos.AccountAddress{}, fmt.Errorf("confirm mint: %w", err)
 	}
 	return in.TokenCodeObjectAddress, nil
 }
@@ -237,6 +237,43 @@ func transferRegulatedTokenOwnership(
 	}
 	if err := deps.AptosChain.Confirm(tx.Hash); err != nil {
 		return aptos.AccountAddress{}, fmt.Errorf("confirm TransferOwnership: %w", err)
+	}
+	return in.TokenCodeObjectAddress, nil
+}
+
+// ExecuteRegulatedTokenOwnershipTransferInput is input for ExecuteRegulatedTokenOwnershipTransferOp.
+type ExecuteRegulatedTokenOwnershipTransferInput struct {
+	TokenCodeObjectAddress aptos.AccountAddress
+	To                     aptos.AccountAddress
+}
+
+// ExecuteRegulatedTokenOwnershipTransferOp finalizes the 3-step ownable handoff by calling
+// regulated_token::execute_ownership_transfer with the original deployer (one tx). It must
+// be called after the new owner has accepted ownership.
+var ExecuteRegulatedTokenOwnershipTransferOp = operations.NewOperation(
+	"execute-regulated-token-ownership-transfer-op",
+	Version1_0_0,
+	"Execute regulated token ownership transfer (finalize 3-step handoff)",
+	executeRegulatedTokenOwnershipTransfer,
+)
+
+func executeRegulatedTokenOwnershipTransfer(
+	b operations.Bundle,
+	deps dependency.AptosDeps,
+	in ExecuteRegulatedTokenOwnershipTransferInput,
+) (aptos.AccountAddress, error) {
+	_ = b
+	signer := deps.AptosChain.DeployerSigner
+	client := deps.AptosChain.Client
+	opts := &bind.TransactOpts{Signer: signer}
+	token := regulated_token.Bind(in.TokenCodeObjectAddress, client)
+
+	tx, err := token.RegulatedToken().ExecuteOwnershipTransfer(opts, in.To)
+	if err != nil {
+		return aptos.AccountAddress{}, fmt.Errorf("execute ownership transfer: %w", err)
+	}
+	if err := deps.AptosChain.Confirm(tx.Hash); err != nil {
+		return aptos.AccountAddress{}, fmt.Errorf("confirm execute ownership transfer: %w", err)
 	}
 	return in.TokenCodeObjectAddress, nil
 }

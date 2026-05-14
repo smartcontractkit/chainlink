@@ -28,6 +28,7 @@ var TokenOperations = []*operations.Operation[any, any, any]{
 	GrantRegulatedTokenMinterRoleOp.AsUntypedRelaxed(),
 	MintRegulatedTokenOp.AsUntypedRelaxed(),
 	TransferRegulatedTokenOwnershipOp.AsUntypedRelaxed(),
+	ExecuteRegulatedTokenOwnershipTransferOp.AsUntypedRelaxed(),
 	TransferRegulatedTokenAdminOp.AsUntypedRelaxed(),
 	DeployTokenMCMSRegistrarOp.AsUntypedRelaxed(),
 	InitializeTokenOp.AsUntypedRelaxed(),

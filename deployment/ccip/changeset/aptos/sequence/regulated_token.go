@@ -1,6 +1,7 @@
 package sequence
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/aptos-labs/aptos-go-sdk"
@@ -149,4 +150,105 @@ func deployRegulatedTokenSequence(
 		TokenMetadataAddress:   tokenMetadata,
 		MCMSOperations:         mcmsOperations,
 	}, nil
+}
+
+// FinalizeRegulatedTokenOwnershipSequence runs regulated_token::execute_ownership_transfer
+// (EOA) to finalize the 3-step ownable handoff after MCMS has accepted ownership. The full
+// validation (transfer is to MCMS, accepted, deployer is current owner) lives in
+// VerifyFinalizeRegulatedTokenOwnership and must be invoked by the calling changeset's
+// VerifyPreconditions;
+var FinalizeRegulatedTokenOwnershipSequence = operations.NewSequence(
+	"finalize-regulated-token-ownership-sequence",
+	operation.Version1_0_0,
+	"Run regulated_token::execute_ownership_transfer (EOA) when a pending transfer exists",
+	finalizeRegulatedTokenOwnershipSequence,
+)
+
+func finalizeRegulatedTokenOwnershipSequence(
+	b operations.Bundle,
+	deps dependency.AptosDeps,
+	tokenCodeObjectAddress aptos.AccountAddress,
+) (aptos.AccountAddress, error) {
+	token := regulated_token.Bind(tokenCodeObjectAddress, deps.AptosChain.Client)
+	hasPending, err := token.RegulatedToken().HasPendingTransfer(nil)
+	if err != nil {
+		return aptos.AccountAddress{}, fmt.Errorf("query has_pending_transfer: %w", err)
+	}
+	if !hasPending {
+		return aptos.AccountAddress{}, nil
+	}
+	pendingTo, err := token.RegulatedToken().PendingTransferTo(nil)
+	if err != nil {
+		return aptos.AccountAddress{}, fmt.Errorf("query pending_transfer_to: %w", err)
+	}
+	if pendingTo == nil {
+		return aptos.AccountAddress{}, errors.New("pending_transfer_to is empty despite has_pending_transfer=true")
+	}
+	_, err = operations.ExecuteOperation(
+		b,
+		operation.ExecuteRegulatedTokenOwnershipTransferOp,
+		deps,
+		operation.ExecuteRegulatedTokenOwnershipTransferInput{
+			TokenCodeObjectAddress: tokenCodeObjectAddress,
+			To:                     *pendingTo,
+		},
+	)
+	if err != nil {
+		return aptos.AccountAddress{}, fmt.Errorf("ExecuteRegulatedTokenOwnershipTransferOp: %w", err)
+	}
+	return *pendingTo, nil
+}
+
+// VerifyFinalizeRegulatedTokenOwnership validates that the regulated token is in a state where
+// the deployer EOA can run execute_ownership_transfer to finalize the 3-step handoff to MCMS.
+func VerifyFinalizeRegulatedTokenOwnership(
+	deps dependency.AptosDeps,
+	tokenCodeObjectAddress aptos.AccountAddress,
+	mcmsAddress aptos.AccountAddress,
+) error {
+	token := regulated_token.Bind(tokenCodeObjectAddress, deps.AptosChain.Client)
+
+	hasPending, err := token.RegulatedToken().HasPendingTransfer(nil)
+	if err != nil {
+		return fmt.Errorf("query has_pending_transfer: %w", err)
+	}
+	if !hasPending {
+		return nil
+	}
+
+	mcmsContract := mcmsbind.Bind(mcmsAddress, deps.AptosChain.Client)
+	expectedOwner, err := mcmsContract.MCMSRegistry().GetPreexistingCodeObjectOwnerAddress(nil, tokenCodeObjectAddress)
+	if err != nil {
+		return fmt.Errorf("get mcms preexisting code object owner: %w", err)
+	}
+
+	pendingTo, err := token.RegulatedToken().PendingTransferTo(nil)
+	if err != nil {
+		return fmt.Errorf("query pending_transfer_to: %w", err)
+	}
+	if pendingTo == nil {
+		return errors.New("pending_transfer_to is empty despite has_pending_transfer=true")
+	}
+	if *pendingTo != expectedOwner {
+		return fmt.Errorf("pending_transfer_to %s does not match MCMS registry owner %s", pendingTo.StringLong(), expectedOwner.StringLong())
+	}
+
+	accepted, err := token.RegulatedToken().PendingTransferAccepted(nil)
+	if err != nil {
+		return fmt.Errorf("query pending_transfer_accepted: %w", err)
+	}
+	if accepted == nil || !*accepted {
+		return errors.New("pending transfer has not been accepted by MCMS")
+	}
+
+	currentOwner, err := token.RegulatedToken().Owner(nil)
+	if err != nil {
+		return fmt.Errorf("query owner: %w", err)
+	}
+	deployerAddress := deps.AptosChain.DeployerSigner.AccountAddress()
+	if currentOwner != deployerAddress {
+		return fmt.Errorf("current owner %s is not the deployer EOA %s; only the original owner can execute the ownership transfer", currentOwner.StringLong(), deployerAddress.StringLong())
+	}
+
+	return nil
 }
