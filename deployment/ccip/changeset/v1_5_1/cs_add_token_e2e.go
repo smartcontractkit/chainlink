@@ -452,7 +452,7 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 	}
 	// if there are multiple proposals, aggregate them so that we don't have to propose them separately
 	if len(finalCSOut.MCMSTimelockProposals) > 1 {
-		aggregatedProposals, err := proposeutils.AggregateProposals(
+		aggregatedProposals, err := proposeutils.AggregateProposals( //nolint:staticcheck will not migrate yet
 			e,
 			state.EVMMCMSStateByChain(),
 			nil,
