@@ -32,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/helpers"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/regulated_token"
-	module_regulated_token "github.com/smartcontractkit/chainlink-aptos/bindings/regulated_token/regulated_token"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/test_token/bnm_registrar"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/test_token/lnr_registrar"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/test_token/test_token"
@@ -393,8 +392,6 @@ func DeployRegulatedTransferableTokenAptos(
 	signer := e.BlockChains.AptosChains()[aptosChainSel].DeployerSigner
 	client := e.BlockChains.AptosChains()[aptosChainSel].Client
 	opts := &aptosBind.TransactOpts{Signer: signer}
-	aptosAddresses, err := e.ExistingAddresses.AddressesForChain(aptosChainSel)
-	require.NoError(t, err)
 	// helper function to wait for a transaction to be mined
 	assertTxSuccess := func(err error, tx *api.PendingTransaction, msg string, args ...any) {
 		require.NoError(t, err)
@@ -402,6 +399,30 @@ func DeployRegulatedTransferableTokenAptos(
 		require.NoError(t, err)
 		require.True(t, data.Success, "%s: %s", fmt.Sprintf(msg, args...), data.VmStatus)
 	}
+
+	// Deploy + initialize regulated token, transfer ownership/admin to mcms via the changeset.
+	const tokenSymbol shared.TokenSymbol = "TKN"
+	e, err = commoncs.Apply(t, e,
+		commoncs.Configure(aptoscs.DeployRegulatedToken{},
+			config.DeployRegulatedTokenConfig{
+				ChainSelector: aptosChainSel,
+				TokenParams: config.TokenParams{
+					Name:     tokenName,
+					Symbol:   tokenSymbol,
+					Decimals: 8,
+				},
+				TokenMint: mintAmount,
+				MCMSConfig: &proposalutils.TimelockConfig{
+					MinDelay: time.Second,
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	// Lookup deployed addresses (saved by the changeset).
+	aptosAddresses, err := e.ExistingAddresses.AddressesForChain(aptosChainSel)
+	require.NoError(t, err)
 	mcmsAddress := aptosstate.FindAptosAddress(
 		cldf.TypeAndVersion{
 			Type:    shared.AptosMCMSType,
@@ -410,84 +431,33 @@ func DeployRegulatedTransferableTokenAptos(
 		aptosAddresses,
 	)
 	require.NotEqualf(t, aptos.AccountAddress{}, mcmsAddress, "Aptos mcms address not found")
+	tokenAddress := aptosstate.FindAptosAddress(
+		cldf.TypeAndVersion{
+			Type:    shared.AptosRegulatedTokenType,
+			Version: deployment.Version1_6_0,
+			Labels:  cldf.NewLabelSet(string(tokenSymbol)),
+		},
+		aptosAddresses,
+	)
+	require.NotEqualf(t, aptos.AccountAddress{}, tokenAddress, "regulated token code object address not found")
+	tokenMetadata := aptosstate.FindAptosAddress(
+		cldf.TypeAndVersion{
+			Type:    cldf.ContractType(tokenSymbol),
+			Version: deployment.Version1_6_0,
+		},
+		aptosAddresses,
+	)
+	require.NotEqualf(t, aptos.AccountAddress{}, tokenMetadata, "regulated token metadata address not found")
 
-	// Deploy the token and token registrar, setting the deployer as the administrator
-	adminAddress := signer.AccountAddress()
-	tokenAddress, tx, token, err := regulated_token.DeployToObject(signer, client, adminAddress)
-	assertTxSuccess(err, tx, "failed to deploy regulated token")
-	tx, _, err = regulated_token.DeployMCMSRegistrarToExistingObject(signer, client, tokenAddress, adminAddress, mcmsAddress, true)
-	assertTxSuccess(err, tx, "failed to deploy regulated token MCMS registrar")
-
-	// Initialize the token
-	tx, err = token.RegulatedToken().Initialize(opts, nil, tokenName, "TKN", 8, "", "")
-	assertTxSuccess(err, tx, "failed to initialize regulated token")
-
-	// If requested, set the deployer as an allowed minter and mint the requested tokens
-	if mintAmount != nil {
-		lggr.Infof("Minting %v tokens to %v...", mintAmount.Amount, mintAmount.To)
-		tx, err = token.RegulatedToken().GrantRole(opts, module_regulated_token.MINTER_ROLE, adminAddress)
-		assertTxSuccess(err, tx, "failed to grant mint role to deployer")
-		tx, err = token.RegulatedToken().Mint(opts, mintAmount.To, mintAmount.Amount)
-		assertTxSuccess(err, tx, "failed to mint %d token to %s", mintAmount.Amount, mintAmount.To)
-	}
-
-	// Save token addresses in address book
-	tokenMetadata, err := token.RegulatedToken().TokenMetadata(nil)
-	require.NoError(t, err)
-	typeAndVersion := cldf.NewTypeAndVersion(shared.AptosRegulatedTokenType, deployment.Version1_6_0)
-	typeAndVersion.AddLabel("TKN")
-	err = e.ExistingAddresses.Save(aptosChainSel, tokenAddress.StringLong(), typeAndVersion)
-	require.NoError(t, err)
-	typeAndVersion = cldf.NewTypeAndVersion("TKN", deployment.Version1_6_0)
-	err = e.ExistingAddresses.Save(aptosChainSel, tokenMetadata.StringLong(), typeAndVersion)
-	require.NoError(t, err)
-
-	// Transfer token ownership to mcms
+	// Finalize the 3-step ownable handoff: original deployer must call execute_ownership_transfer
+	// after MCMS has accepted ownership. Not part of the changeset because it requires the
+	// original deployer signer.
 	mcmsContract := mcms.Bind(mcmsAddress, client)
 	tokenOwnerAddress, err := mcmsContract.MCMSRegistry().GetPreexistingCodeObjectOwnerAddress(nil, tokenAddress)
 	require.NoError(t, err)
-	tx, err = token.RegulatedToken().TransferOwnership(opts, tokenOwnerAddress)
-	assertTxSuccess(err, tx, "failed to propose ownership transfer to mcms %v", tokenOwnerAddress)
-	_, err = commoncs.Apply(t, e,
-		commoncs.Configure(aptoscs.AcceptTokenOwnership{},
-			config.AcceptTokenOwnershipInput{
-				ChainSelector: aptosChainSel,
-				Accepts: []config.TokenAcceptInput{
-					{
-						TokenCodeObjectAddress: tokenAddress,
-						TokenType:              shared.AptosRegulatedTokenType,
-					},
-				},
-				MCMSConfig: &proposalutils.TimelockConfig{
-					MinDelay: time.Second,
-				},
-			},
-		),
-	)
-	require.NoError(t, err)
-	tx, err = token.RegulatedToken().ExecuteOwnershipTransfer(opts, tokenOwnerAddress)
+	token := regulated_token.Bind(tokenAddress, client)
+	tx, err := token.RegulatedToken().ExecuteOwnershipTransfer(opts, tokenOwnerAddress)
 	assertTxSuccess(err, tx, "failed to execute ownership transfer to mcms %v", tokenOwnerAddress)
-
-	// Transfer admin role to mcms
-	tx, err = token.RegulatedToken().TransferAdmin(opts, tokenOwnerAddress)
-	assertTxSuccess(err, tx, "failed to propose admin transfer to mcms %v", tokenOwnerAddress)
-	_, err = commoncs.Apply(t, e,
-		commoncs.Configure(aptoscs.AcceptTokenAdmin{},
-			config.AcceptTokenAdminInput{
-				ChainSelector: aptosChainSel,
-				Accepts: []config.TokenAcceptInput{
-					{
-						TokenCodeObjectAddress: tokenAddress,
-						TokenType:              shared.AptosRegulatedTokenType,
-					},
-				},
-				MCMSConfig: &proposalutils.TimelockConfig{
-					MinDelay: time.Second,
-				},
-			},
-		),
-	)
-	require.NoError(t, err)
 
 	// Deploy lane
 	e, err = commoncs.Apply(t, e,
@@ -522,32 +492,24 @@ func DeployRegulatedTransferableTokenAptos(
 	)
 	require.NoError(t, err)
 
+	lggr.Debugf("Deployed Regulated Token on Aptos: %v", tokenMetadata.StringLong())
 	aptosAddresses, err = e.ExistingAddresses.AddressesForChain(aptosChainSel)
 	require.NoError(t, err)
-	tokenMetadataAddress := aptosstate.FindAptosAddress(
-		cldf.TypeAndVersion{
-			Type:    "TKN", // Regulated Token symbol
-			Version: deployment.Version1_6_0,
-			Labels:  nil,
-		},
-		aptosAddresses,
-	)
-	lggr.Debugf("Deployed Regulated Token on Aptos: %v", tokenMetadataAddress.StringLong())
 	tokenPoolAddress := aptosstate.FindAptosAddress(
 		cldf.TypeAndVersion{
 			Type:    shared.AptosRegulatedTokenPoolType,
 			Version: deployment.Version1_6_0,
-			Labels:  cldf.NewLabelSet(tokenMetadataAddress.StringLong()),
+			Labels:  cldf.NewLabelSet(tokenMetadata.StringLong()),
 		},
 		aptosAddresses,
 	)
 	aptosTokenPool := regulated_token_pool.Bind(tokenPoolAddress, e.BlockChains.AptosChains()[aptosChainSel].Client)
-	lggr.Debugf("Deployed Regulated Token Pool for %v to %v", tokenMetadataAddress.StringLong(), tokenPoolAddress.StringLong())
-	err = setTokenPoolCounterPart(e.BlockChains.EVMChains()[evmChainSel], evmPool, evmDeployerKey, aptosChainSel, tokenMetadataAddress[:], tokenPoolAddress[:])
+	lggr.Debugf("Deployed Regulated Token Pool for %v to %v", tokenMetadata.StringLong(), tokenPoolAddress.StringLong())
+	err = setTokenPoolCounterPart(e.BlockChains.EVMChains()[evmChainSel], evmPool, evmDeployerKey, aptosChainSel, tokenMetadata[:], tokenPoolAddress[:])
 	require.NoError(t, err)
 	err = grantMintBurnPermissions(lggr, e.BlockChains.EVMChains()[evmChainSel], evmToken, evmDeployerKey, evmPool.Address())
 	require.NoError(t, err)
-	return evmToken, evmPool, tokenMetadataAddress, aptosTokenPool, nil
+	return evmToken, evmPool, tokenMetadata, aptosTokenPool, nil
 }
 
 // DeployAptosCCIPReceiver deploys the ccip_dummy_receiver package to all Aptos chains, saving the resulting address in the address book for future use
