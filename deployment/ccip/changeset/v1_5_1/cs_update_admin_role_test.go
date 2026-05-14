@@ -1,6 +1,7 @@
 package v1_5_1_test
 
 import (
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"testing"
 	"time"
 
@@ -14,14 +15,13 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestUpdateAdminRoleChangesetV2_Validations(t *testing.T) {
 	t.Parallel()
 
-	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
+	mcmsConfig := &cldfproposalutils.TimelockConfig{MinDelay: 0 * time.Second}
 	e, selectorA, selectorB, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	tokenAddress := utils.RandomAddress()
@@ -257,7 +257,7 @@ func TestUpdateAdminRoleChangesetV2_ExecutionWithoutMCMS(t *testing.T) {
 func TestUpdateAdminRoleChangesetV2_ExecutionWithMCMS(t *testing.T) {
 	t.Parallel()
 
-	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
+	mcmsConfig := &cldfproposalutils.TimelockConfig{MinDelay: 0 * time.Second}
 	e, selectorA, selectorB, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	tokenAddressA := utils.RandomAddress()
@@ -308,7 +308,7 @@ func TestUpdateAdminRoleChangesetV2_ExecutionWithMCMS(t *testing.T) {
 func TestUpdateAdminRoleChangesetV2_MultipleTokensPerChain(t *testing.T) {
 	t.Parallel()
 
-	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
+	mcmsConfig := &cldfproposalutils.TimelockConfig{MinDelay: 0 * time.Second}
 	e, selectorA, _, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	token1 := utils.RandomAddress()

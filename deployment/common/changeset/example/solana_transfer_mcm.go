@@ -15,8 +15,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 )
 
 var _ cldf.ChangeSetV2[TransferFromTimelockConfig] = TransferFromTimelock{}
@@ -26,7 +25,7 @@ type TransferData struct {
 	Amount uint64
 }
 type TransferFromTimelockConfig struct {
-	TimelockCfg     proposalutils.TimelockConfig
+	TimelockCfg     cldfproposalutils.TimelockConfig
 	AmountsPerChain map[uint64]TransferData
 }
 
@@ -122,7 +121,7 @@ func (f TransferFromTimelock) Apply(e cldf.Environment, config TransferFromTimel
 			Transactions:  transactions,
 		})
 	}
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
 		proposers,

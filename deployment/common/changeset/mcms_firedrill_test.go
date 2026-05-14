@@ -22,7 +22,6 @@ import (
 	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
@@ -75,7 +74,7 @@ func TestMCMSSignFireDrillChangeset(t *testing.T) {
 	err = rt.Exec(
 		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.MCMSSignFireDrillChangeset), commonchangeset.FireDrillConfig{
 			Selectors: []uint64{evmSelector1, evmSelector2, solSelector},
-			TimelockCfg: proposalutils.TimelockConfig{
+			TimelockCfg: cldfproposalutils.TimelockConfig{
 				MCMSAction: mcmsTypes.TimelockActionBypass,
 			},
 		}),

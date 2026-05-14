@@ -15,8 +15,8 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
@@ -74,7 +74,7 @@ func (m *mcmsTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Tra
 		m.ChainSel: inspector,
 	}
 
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		m.Env,
 		timelocksPerChain,
 		proposerMCMSes,
@@ -146,7 +146,7 @@ func (m *MCMSTransactionV2) Apply(callFn func(opts *bind.TransactOpts) (*types.T
 		m.ChainSel: inspector,
 	}
 
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		m.Env,
 		timelocksPerChain,
 		proposerMCMSes,

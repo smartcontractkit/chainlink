@@ -14,11 +14,11 @@ import (
 	cldfsol "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	ks_forwarder "github.com/smartcontractkit/chainlink-solana/contracts/generated/keystone_forwarder"
 
 	commonOps "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/operations"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
 
@@ -71,7 +71,7 @@ type (
 		ChainSel            uint64
 		ProgramID           string
 		NewUpgradeAuthority string
-		MCMS                *proposalutils.TimelockConfig // if set, assumes current upgrade authority is the timelock
+		MCMS                *cldfproposalutils.TimelockConfig // if set, assumes current upgrade authority is the timelock
 	}
 
 	SetUpgradeAuthorityOutput struct {
@@ -79,7 +79,7 @@ type (
 	}
 
 	ConfigureForwarderInput struct {
-		MCMS           *proposalutils.TimelockConfig // if set, assumes current owner is the timelock
+		MCMS           *cldfproposalutils.TimelockConfig // if set, assumes current owner is the timelock
 		ConfigPDA      string
 		ProgramID      solana.PublicKey
 		ForwarderState solana.PublicKey

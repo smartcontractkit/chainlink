@@ -15,9 +15,10 @@ import (
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
@@ -79,7 +80,7 @@ func (m *MCMSTransaction) BuildProposal(operations []mcmstypes.BatchOperation) (
 		m.ChainSel: inspector,
 	}
 
-	return proposalutils.BuildProposalFromBatchesV2(
+	return proposeutils.BuildProposalFromBatchesV2(
 		m.Env,
 		timelocksPerChain,
 		mcmsAddressesPerChain,

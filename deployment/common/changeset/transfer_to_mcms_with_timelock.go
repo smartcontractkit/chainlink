@@ -17,18 +17,19 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/seqs"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 type TransferToMCMSWithTimelockConfig struct {
 	ContractsByChain map[uint64][]common.Address
 	// MCMSConfig is for the accept ownership proposal
-	MCMSConfig proposalutils.TimelockConfig
+	MCMSConfig cldfproposalutils.TimelockConfig
 
 	// Optional flag: Only runs accept ownership (not transfer ownership) if enabled
 	OnlyAcceptOwnership bool
@@ -163,7 +164,7 @@ func TransferToMCMSWithTimelockV2(
 			Transactions:  seqReport.Output.OpsMcms,
 		})
 	}
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		e,
 		timelockAddressByChain, proposerAddressByChain, inspectorPerChain,
 		batches, "Transfer ownership to timelock", cfg.MCMSConfig)

@@ -11,6 +11,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	"github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
@@ -30,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 )
 
@@ -153,7 +153,7 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 		name       string
 		batches    []types.BatchOperation
 		inspectors map[uint64]mcmssdk.Inspector
-		options    []proposalutils.BuildProposalOption
+		options    []proposeutils.BuildProposalOption
 		want       *mcms.TimelockProposal
 		wantErr    string
 	}{
@@ -161,22 +161,22 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 			name:       "success: explicit inspectors",
 			batches:    batches,
 			inspectors: inspectorPerChain,
-			options:    []proposalutils.BuildProposalOption{},
+			options:    []proposeutils.BuildProposalOption{},
 			want:       wantProposal,
 		},
 		{
 			name:       "success: implicit inspectors",
 			batches:    batches,
 			inspectors: nil,
-			options:    []proposalutils.BuildProposalOption{},
+			options:    []proposeutils.BuildProposalOption{},
 			want:       wantProposal,
 		},
 		{
 			name:       "success: extra chain metadata",
 			batches:    batches,
 			inspectors: nil,
-			options: []proposalutils.BuildProposalOption{
-				proposalutils.WithChainMetadata(proposalutils.ChainMetadata{
+			options: []proposeutils.BuildProposalOption{
+				proposeutils.WithChainMetadata(proposeutils.ChainMetadata{
 					evmSelector: map[string]any{
 						"gasLimit": 100,
 						"gasPrice": 50,
@@ -206,22 +206,22 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 					Transactions:  []types.Transaction{{To: "0xRecipient1", Data: []byte("data1")}},
 				},
 			},
-			options: []proposalutils.BuildProposalOption{},
+			options: []proposeutils.BuildProposalOption{},
 			wantErr: "Key: 'TimelockProposal.Operations[0].Transactions[0].AdditionalFields' Error:Field validation for 'AdditionalFields' failed on the 'required' tag",
 		},
 		{
 			name:    "empty batches",
 			batches: []types.BatchOperation{},
-			options: []proposalutils.BuildProposalOption{},
+			options: []proposeutils.BuildProposalOption{},
 			wantErr: "no operations in batch",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			proposal, err := proposalutils.BuildProposalFromBatchesV2(rt.Environment(),
+			proposal, err := proposeutils.BuildProposalFromBatchesV2(rt.Environment(),
 				timelockAddressPerChain, proposerAddressPerChain, tt.inspectors, tt.batches, description,
-				proposalutils.TimelockConfig{MinDelay: minDelay}, tt.options...)
+				cldfproposalutils.TimelockConfig{MinDelay: minDelay}, tt.options...)
 
 			if tt.wantErr == "" {
 				require.NoError(t, err)

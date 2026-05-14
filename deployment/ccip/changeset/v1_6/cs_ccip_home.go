@@ -39,6 +39,7 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 
@@ -49,7 +50,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -368,7 +368,7 @@ type PromoteCandidateChangesetConfig struct {
 	// MCMS is optional MCMS configuration, if provided the changeset will generate an MCMS proposal.
 	// If nil, the changeset will execute the commands directly using the deployer key
 	// of the provided environment.
-	MCMS *proposalutils.TimelockConfig `json:"mcms,omitempty"`
+	MCMS *cldfproposalutils.TimelockConfig `json:"mcms,omitempty"`
 }
 
 func (p PromoteCandidateChangesetConfig) Validate(e cldf.Environment) (map[uint64]uint32, error) {
@@ -598,7 +598,7 @@ type SetCandidateConfigBase struct {
 	// MCMS is optional MCMS configuration, if provided the changeset will generate an MCMS proposal.
 	// If nil, the changeset will execute the commands directly using the deployer key
 	// of the provided environment.
-	MCMS *proposalutils.TimelockConfig `json:"mcms,omitempty"`
+	MCMS *cldfproposalutils.TimelockConfig `json:"mcms,omitempty"`
 }
 
 func (s SetCandidateConfigBase) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -916,7 +916,7 @@ type RevokeCandidateChangesetConfig struct {
 	// MCMS is optional MCMS configuration, if provided the changeset will generate an MCMS proposal.
 	// If nil, the changeset will execute the commands directly using the deployer key
 	// of the provided environment.
-	MCMS *proposalutils.TimelockConfig `json:"mcms,omitempty"`
+	MCMS *cldfproposalutils.TimelockConfig `json:"mcms,omitempty"`
 }
 
 func (r RevokeCandidateChangesetConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) (donID uint32, err error) {
@@ -1014,7 +1014,7 @@ func RevokeCandidateChangeset(e cldf.Environment, cfg RevokeCandidateChangesetCo
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
 	}
-	prop, err := proposalutils.BuildProposalFromBatchesV2(
+	prop, err := proposeutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
 		mcmsContractByChain,
@@ -1104,10 +1104,10 @@ type ChainConfig struct {
 }
 
 type UpdateChainConfigConfig struct {
-	HomeChainSelector  uint64                        `json:"homeChainSelector"`
-	RemoteChainRemoves []uint64                      `json:"remoteChainRemoves"`
-	RemoteChainAdds    map[uint64]ChainConfig        `json:"remoteChainAdds"`
-	MCMS               *proposalutils.TimelockConfig `json:"mcms,omitempty"`
+	HomeChainSelector  uint64                            `json:"homeChainSelector"`
+	RemoteChainRemoves []uint64                          `json:"remoteChainRemoves"`
+	RemoteChainAdds    map[uint64]ChainConfig            `json:"remoteChainAdds"`
+	MCMS               *cldfproposalutils.TimelockConfig `json:"mcms,omitempty"`
 }
 
 func (c UpdateChainConfigConfig) Validate(e cldf.Environment) error {

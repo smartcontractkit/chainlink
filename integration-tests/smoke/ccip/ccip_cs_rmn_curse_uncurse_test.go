@@ -14,6 +14,7 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
@@ -22,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonSolana "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 const (
@@ -552,7 +552,7 @@ func TestRMNCurseUncurseAptos(t *testing.T) {
 				CurseActions:             tc.curseActionsBuilder(mapIDToSelector),
 				Reason:                   "test curse",
 				IncludeNotConnectedLanes: true,
-				MCMS: &proposalutils.TimelockConfig{
+				MCMS: &cldfproposalutils.TimelockConfig{
 					MinDelay:   1 * time.Second,
 					MCMSAction: types.TimelockActionSchedule,
 				},
@@ -636,7 +636,7 @@ func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state s
 			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
-				MCMSConfig: proposalutils.TimelockConfig{
+				MCMSConfig: cldfproposalutils.TimelockConfig{
 					MinDelay: 0 * time.Second,
 				},
 			},
@@ -687,7 +687,7 @@ func runRmnUncurseMCMSTest(t *testing.T, tc CurseTestCase, action types.Timelock
 	config := v1_6.RMNCurseConfig{
 		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
 		Reason:       "test curse",
-		MCMS: &proposalutils.TimelockConfig{
+		MCMS: &cldfproposalutils.TimelockConfig{
 			MinDelay:   1 * time.Second,
 			MCMSAction: action,
 		},
@@ -825,7 +825,7 @@ func runRmnCurseMCMSTest(t *testing.T, tc CurseTestCase, action types.TimelockAc
 	config := v1_6.RMNCurseConfig{
 		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
 		Reason:       "test curse",
-		MCMS: &proposalutils.TimelockConfig{
+		MCMS: &cldfproposalutils.TimelockConfig{
 			MinDelay:   1 * time.Second,
 			MCMSAction: action,
 		},
@@ -1006,7 +1006,7 @@ func TestRMNUncurseForceOption(t *testing.T) {
 				CurseActions:             []v1_6.CurseAction{v1_6.CurseChain(mapIDToSelector(Evm1))},
 				Reason:                   "test curse",
 				IncludeNotConnectedLanes: true,
-				MCMS: &proposalutils.TimelockConfig{
+				MCMS: &cldfproposalutils.TimelockConfig{
 					MinDelay: 1 * time.Second,
 				},
 				Force: tc.force,

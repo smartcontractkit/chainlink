@@ -41,7 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 )
 
@@ -273,7 +272,7 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset_WithMCMS(t *testing.T) {
 		GasMultiplierWeiPerEth:         11e17,
 		NetworkFeeUSDCents:             10,
 	}
-	mcmsConfig := &proposalutils.TimelockConfig{
+	mcmsConfig := &cldfproposalutils.TimelockConfig{
 		MinDelay:   0 * time.Second,
 		MCMSAction: types.TimelockActionSchedule,
 	}
@@ -294,7 +293,7 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset_WithMCMS(t *testing.T) {
 				ContractsByChain: map[uint64][]common.Address{
 					sourceChainSelector: {state.MustGetEVMChainState(sourceChainSelector).FeeQuoter.Address()},
 				},
-				MCMSConfig: proposalutils.TimelockConfig{
+				MCMSConfig: cldfproposalutils.TimelockConfig{
 					MinDelay:   0 * time.Second,
 					MCMSAction: types.TimelockActionSchedule,
 				},

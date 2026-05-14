@@ -28,7 +28,6 @@ import (
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 var (
@@ -210,7 +209,7 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 				cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 				commonchangeset.TransferToMCMSWithTimelockConfig{
 					ContractsByChain: contractsByChain,
-					MCMSConfig: proposalutils.TimelockConfig{
+					MCMSConfig: cldfproposalutils.TimelockConfig{
 						MinDelay: 0 * time.Second,
 					},
 				},
@@ -226,10 +225,10 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 	previousActiveDigest, err := rmnHome.GetActiveDigest(nil)
 	require.NoError(t, err)
 
-	var mcmsConfig *proposalutils.TimelockConfig
+	var mcmsConfig *cldfproposalutils.TimelockConfig
 
 	if tc.useMCMS {
-		mcmsConfig = &proposalutils.TimelockConfig{
+		mcmsConfig = &cldfproposalutils.TimelockConfig{
 			MinDelay: 0,
 		}
 	}
@@ -393,7 +392,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 		cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 		commonchangeset.TransferToMCMSWithTimelockConfig{
 			ContractsByChain: contractsByChain,
-			MCMSConfig: proposalutils.TimelockConfig{
+			MCMSConfig: cldfproposalutils.TimelockConfig{
 				MinDelay: 0 * time.Second,
 			},
 		},
@@ -418,7 +417,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 		cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
 		v1_6.SetRMNRemoteOnRMNProxyConfig{
 			ChainSelectors: allChains,
-			MCMSConfig: &proposalutils.TimelockConfig{
+			MCMSConfig: &cldfproposalutils.TimelockConfig{
 				MinDelay: 0,
 			},
 		},

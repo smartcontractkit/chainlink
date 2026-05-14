@@ -10,9 +10,8 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
-
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
@@ -237,7 +236,7 @@ func SetupNewChain(
 				NewChain:             newChainDefinition,
 				RemoteChains:         remoteChainsDefinition,
 				MCMSDeploymentConfig: &mcmsDeploymentCfg,
-				MCMSConfig: &proposalutils.TimelockConfig{
+				MCMSConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay:   0 * time.Second,
 					MCMSAction: mcmstypes.TimelockActionSchedule,
 				},
@@ -257,7 +256,7 @@ func SetupNewChain(
 				NewChain:          newChainDefinition,
 				RemoteChains:      remoteChainsDefinition,
 				TestRouter:        pointer.ToBool(false),
-				MCMSConfig: &proposalutils.TimelockConfig{
+				MCMSConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay:   0 * time.Second,
 					MCMSAction: mcmstypes.TimelockActionSchedule,
 				},
@@ -350,7 +349,7 @@ func TransferOwnership(
 			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsToTransfer,
-				MCMSConfig: proposalutils.TimelockConfig{
+				MCMSConfig: cldfproposalutils.TimelockConfig{
 					MinDelay: 0 * time.Second,
 				},
 			},

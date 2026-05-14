@@ -27,9 +27,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -41,7 +41,7 @@ type ConfigPerRoleV2 struct {
 
 type MCMSConfigV2 struct {
 	ConfigsPerChain map[uint64]ConfigPerRoleV2
-	ProposalConfig  *proposalutils.TimelockConfig
+	ProposalConfig  *cldfproposalutils.TimelockConfig
 }
 
 var _ cldf.ChangeSet[MCMSConfigV2] = SetConfigMCMSV2
@@ -265,7 +265,7 @@ func SetConfigMCMSV2(e cldf.Environment, cfg MCMSConfigV2) (cldf.ChangesetOutput
 	}
 
 	if useMCMS {
-		proposal, err := proposalutils.BuildProposalFromBatchesV2(e, timelockAddressesPerChain,
+		proposal, err := proposeutils.BuildProposalFromBatchesV2(e, timelockAddressesPerChain,
 			proposerMcmsPerChain, inspectorPerChain, batches, "Set config proposal", *cfg.ProposalConfig)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal from batch: %w", err)

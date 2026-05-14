@@ -8,6 +8,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
@@ -19,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // use these changesets to register a token admin registry, transfer the admin role, and accept the admin role
@@ -51,7 +51,7 @@ type RegisterTokenConfig struct {
 type RegisterTokenAdminRegistryConfig struct {
 	ChainSelector        uint64
 	RegisterTokenConfigs []RegisterTokenConfig
-	MCMS                 *proposalutils.TimelockConfig
+	MCMS                 *cldfproposalutils.TimelockConfig
 }
 
 func (cfg RegisterTokenAdminRegistryConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
@@ -265,7 +265,7 @@ type TransferTokenAdminConfig struct {
 type TransferAdminRoleTokenAdminRegistryConfig struct {
 	ChainSelector             uint64
 	TransferTokenAdminConfigs []TransferTokenAdminConfig
-	MCMS                      *proposalutils.TimelockConfig
+	MCMS                      *cldfproposalutils.TimelockConfig
 }
 
 func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
@@ -414,7 +414,7 @@ type AcceptAdminRoleTokenConfig struct {
 type AcceptAdminRoleTokenAdminRegistryConfig struct {
 	ChainSelector               uint64
 	AcceptAdminRoleTokenConfigs []AcceptAdminRoleTokenConfig
-	MCMS                        *proposalutils.TimelockConfig
+	MCMS                        *cldfproposalutils.TimelockConfig
 }
 
 func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
@@ -617,7 +617,7 @@ type SetPoolTokenConfig struct {
 type SetPoolConfig struct {
 	ChainSelector       uint64
 	SetPoolTokenConfigs []SetPoolTokenConfig
-	MCMS                *proposalutils.TimelockConfig
+	MCMS                *cldfproposalutils.TimelockConfig
 }
 
 func (cfg SetPoolConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
@@ -767,7 +767,7 @@ func SetPool(e cldf.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput, error
 type RemovePoolConfig struct {
 	ChainSelector uint64
 	TokenPubKeys  []solana.PublicKey
-	MCMS          *proposalutils.TimelockConfig
+	MCMS          *cldfproposalutils.TimelockConfig
 }
 
 func (cfg RemovePoolConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
@@ -894,7 +894,7 @@ type SetTokenPoolSupportAutoDerivationConfig struct {
 	SolChainSelector       uint64
 	TokenPubKey            solana.PublicKey
 	SupportsAutoDerivation bool
-	MCMS                   *proposalutils.TimelockConfig
+	MCMS                   *cldfproposalutils.TimelockConfig
 	SkipRegistryCheck      bool // set to true when you want to register, set pool, and set auto derivation flag in the same proposal
 }
 

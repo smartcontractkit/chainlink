@@ -16,12 +16,12 @@ import (
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/v1_5"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
@@ -80,7 +80,7 @@ func TestSetTokenTransferFeeConfig_Validations(t *testing.T) {
 	})
 
 	// Define helper vars
-	mcmCfg := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
+	mcmCfg := &cldfproposalutils.TimelockConfig{MinDelay: 0 * time.Second}
 	tokenA := utils.RandomAddress()
 	tokenB := utils.RandomAddress()
 
@@ -330,7 +330,7 @@ func TestSetTokenTransferFeeConfig_Execution_WithMCMS(t *testing.T) {
 	})
 
 	// Define helper vars
-	mcmCfg := proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
+	mcmCfg := cldfproposalutils.TimelockConfig{MinDelay: 0 * time.Second}
 	tokenA := utils.RandomAddress()
 	tokenB := utils.RandomAddress() // will be reset via MCMS
 

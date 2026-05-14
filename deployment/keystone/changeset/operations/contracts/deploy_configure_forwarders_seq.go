@@ -19,13 +19,13 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	mcmsOps "github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/ops"
 	mcmsSeqs "github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/seqs"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	contracts2 "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
@@ -145,7 +145,7 @@ var DeployConfigureForwardersSeq = operations.NewSequence[DeployConfigureForward
 		// build proposal for transfer ownership to timelock if MCMS is used
 		if input.UseMCMS() {
 			b.Logger.Infof("Building MCMS proposal for ownership transfer to timelock")
-			proposal, err := proposalutils.BuildProposalFromBatchesV2(
+			proposal, err := proposeutils.BuildProposalFromBatchesV2(
 				*deps.Env,
 				timelockAddressByChain, proposerAddressByChain, inspectorPerChain,
 				batches, "Transfer ownership to timelock", *input.MCMSConfig)
