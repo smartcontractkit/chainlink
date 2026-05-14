@@ -53,7 +53,7 @@ type ORM interface {
 // has completed initialization (including trigger subscriptions). For v2 engines, this is wired to
 // the OnInitialized lifecycle hook. For v1 legacy DAG engines, nil is sent immediately after engine
 // creation since they don't support async initialization hooks.
-type engineFactoryFn func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error)
+type engineFactoryFn func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error)
 
 type DrainableService interface {
 	Drain() bool
@@ -127,7 +127,7 @@ func WithEngineFactoryFn(efn engineFactoryFn) func(*eventHandler) {
 
 func WithStaticEngine(engine services.Service) func(*eventHandler) {
 	return func(e *eventHandler) {
-		e.engineFactory = func(_ context.Context, _ string, _ string, _ types.WorkflowName, _ string, _ []byte, _ []byte, initDone chan<- error) (services.Service, error) {
+		e.engineFactory = func(_ context.Context, _ string, _ string, _ types.WorkflowName, _ string, _ []byte, _ []byte, _ string, initDone chan<- error) (services.Service, error) {
 			// For static engines (used in tests), signal immediate initialization success
 			if initDone != nil {
 				initDone <- nil
@@ -638,7 +638,7 @@ func (h *eventHandler) fetchOrganizationID(ctx context.Context, workflowOwner st
 	return organizationID, nil
 }
 
-func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error) {
+func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error) {
 	lggr := logger.Named(h.lggr, "WorkflowEngine.Module")
 	lggr = logger.With(lggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
 	var sdkName string
@@ -709,7 +709,22 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	}
 
 	// V2 aka "NoDAG"
-	cfg := h.newV2EngineConfig(module, workflowID, owner, tag, sdkName, name, config)
+	// Wrap the local WASM module in a RequirementSelectingModule that routes
+	// triggers with a TEE requirement to the ConfidentialModule (which delegates
+	// to the confidential-workflows capability and runs the WASM inside the
+	// enclave). Triggers without a TEE requirement continue to run locally.
+	binaryHash := v2.ComputeBinaryHash(binary)
+	confLggr := logger.Named(h.lggr, "WorkflowEngine.ConfidentialModule")
+	confLggr = logger.With(confLggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
+	confidential := v2.NewConfidentialModule(h.capRegistry, binaryURL, binaryHash, workflowID, owner, name.String(), tag, confLggr)
+	selectingModule := generichost.NewRequirementSelectingModule(
+		generichost.ModuleAndHandler{Module: module},
+		[]generichost.ModuleAndHandler{{
+			Module:              confidential,
+			RequirementsHandler: generichost.RequirementsHandler{Tee: confidential.Tee},
+		}},
+	)
+	cfg := h.newV2EngineConfig(selectingModule, workflowID, owner, tag, sdkName, name, config)
 
 	h.wireInitDoneHook(cfg, initDone)
 
@@ -862,7 +877,7 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	initDone := make(chan error, 1)
 	var engine services.Service
 
-	engine, err = h.engineFactory(ctx, spec.WorkflowID, spec.WorkflowOwner, workflowName, spec.WorkflowTag, configBytes, decodedBinary, initDone)
+	engine, err = h.engineFactory(ctx, spec.WorkflowID, spec.WorkflowOwner, workflowName, spec.WorkflowTag, configBytes, decodedBinary, spec.BinaryURL, initDone)
 	if err != nil {
 		return fmt.Errorf("failed to create workflow engine: %w", err)
 	}
@@ -1001,65 +1016,6 @@ func (h *eventHandler) wireInitDoneHook(cfg *v2.EngineConfig, initDone chan<- er
 			existingHook(err)
 		}
 	}
-}
-
-func (h *eventHandler) createModule(
-	ctx context.Context,
-	workflowID string,
-	owner string,
-	name types.WorkflowName,
-	tag string,
-	binary []byte,
-	binaryUrl string,
-) (host.ModuleV2, *host.ModuleConfig, string, error) {
-	decodedBinary := binary
-
-	binaryHash := v2.ComputeBinaryHash(decodedBinary)
-	confLggr := logger.Named(h.lggr, "WorkflowEngine.ConfidentialModule")
-	confLggr = logger.With(confLggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
-	confidential := v2.NewConfidentialModule(h.capRegistry, binaryUrl, binaryHash, workflowID, owner, name.String(), tag, confLggr)
-
-	confidentialRequirementsHandler := generichost.RequirementsHandler{Tee: confidential.Tee}
-
-	lggr := logger.Named(h.lggr, "WorkflowEngine.Module")
-	lggr = logger.With(lggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
-	var sdkName string
-	h.emitterMu.RLock()
-	labeler := h.emitter
-	h.emitterMu.RUnlock()
-	moduleConfig := &host.ModuleConfig{
-		Logger:                               lggr,
-		Labeler:                              labeler,
-		MemoryLimiter:                        h.engineLimiters.WASMMemorySize,
-		MaxCompressedBinaryLimiter:           h.engineLimiters.WASMCompressedBinarySize,
-		MaxDecompressedBinaryLimiter:         h.engineLimiters.WASMBinarySize,
-		MaxResponseSizeLimiter:               h.engineLimiters.ExecutionResponse,
-		EnableUserMetricsLimiter:             h.engineLimiters.UserMetricEnabled,
-		MaxUserMetricPayloadLimiter:          h.engineLimiters.UserMetricPayload,
-		MaxUserMetricNameLengthLimiter:       h.engineLimiters.UserMetricNameLength,
-		MaxUserMetricLabelsPerMetricLimiter:  h.engineLimiters.UserMetricLabelsPerMetric,
-		MaxUserMetricLabelValueLengthLimiter: h.engineLimiters.UserMetricLabelValueLength,
-		SdkLabeler: func(name string) {
-			sdkName = name
-			h.emitterMu.Lock()
-			h.emitter = h.emitter.With(platform.KeySDK, name)
-			h.emitterMu.Unlock()
-		},
-	}
-	module, err := host.NewModule(ctx, moduleConfig, binary, host.WithDeterminism())
-	if err != nil {
-		return nil, nil, "", err
-	}
-
-	selectingModule := generichost.NewRequirementSelectingModule(
-		generichost.ModuleAndHandler{Module: module},
-		[]generichost.ModuleAndHandler{{
-			Module:              confidential,
-			RequirementsHandler: confidentialRequirementsHandler,
-		}},
-	)
-
-	return selectingModule, moduleConfig, sdkName, nil
 }
 
 // logCustMsg emits a custom message to the external sink and logs an error if that fails.
