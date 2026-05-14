@@ -264,7 +264,7 @@ lint-fix: gomods ## Run golangci-lint with --fix for all modules
 
 .PHONY: modgraph
 modgraph:
-	go install github.com/jmank88/modgraph@v0.1.2
+	go install github.com/jmank88/modgraph@v0.1.4
 	./tools/bin/modgraph > go.md
 
 .PHONY: test-short
