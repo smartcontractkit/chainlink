@@ -245,9 +245,6 @@ func ValidateDeployEthBalMonConfig(ctx context.Context, env cldf.Environment, cf
 		if err := validateChainSelector(chainSelector, env); err != nil {
 			return fmt.Errorf("chain %d: %w", chainSelector, err)
 		}
-		if chainCfg.SetKeeperRegistryAddress == "" {
-			return fmt.Errorf("chain %d: setKeeperRegistryAddress must not be empty", chainSelector)
-		}
 		if err := validateEthAddress("setKeeperRegistryAddress", chainCfg.SetKeeperRegistryAddress); err != nil {
 			return fmt.Errorf("chain %d: %w", chainSelector, err)
 		}
@@ -322,10 +319,10 @@ func ValidateEthBalMonWithdrawConfig(ctx context.Context, env cldf.Environment, 
 			return fmt.Errorf("chain %d: amount to withdraw must be positive", chainSelector)
 		}
 
-		if err := validateEthAddress("payeer", chainConfig.Payeer); err != nil {
+		if err := validateEthAddress("payee", chainConfig.Payee); err != nil {
 			return fmt.Errorf("chain %d: %w", chainSelector, err)
 		}
-		if common.HexToAddress(chainConfig.Payeer) == (common.Address{}) {
+		if common.HexToAddress(chainConfig.Payee) == (common.Address{}) {
 			return fmt.Errorf("chain %d: payeer address cannot be zero address", chainSelector)
 		}
 	}

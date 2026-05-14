@@ -83,7 +83,7 @@ var EthBalMonWithdrawSequence = operations.NewSequence(
 			opReport, err := operations.ExecuteOperation(b, EthBalMonWithdrawOperation, deps, EthBalMonWithdrawOpInput{
 				ChainSelector: chainSelector,
 				Amount:        chainConfig.Amount,
-				Payeer:        chainConfig.Payeer,
+				Payee:         chainConfig.Payee,
 				MCMSConfig:    input.MCMSConfig,
 			})
 			if err != nil {
@@ -113,7 +113,7 @@ var EthBalMonWithdrawSequence = operations.NewSequence(
 type EthBalMonWithdrawOpInput struct {
 	ChainSelector uint64                        `json:"chain_selector"`
 	Amount        *big.Int                      `json:"amount"`
-	Payeer        string                        `json:"payeer"`
+	Payee         string                        `json:"payee"`
 	MCMSConfig    *proposalutils.TimelockConfig `json:"mcms_config,omitempty"`
 }
 
@@ -174,9 +174,9 @@ var EthBalMonWithdrawOperation = operations.NewOperation(
 				fmt.Errorf("failed to instantiate EthBalanceMonitor at %s: %w", ethBalMonAddr, err)
 		}
 
-		withdrawTx, err := ethBalMon.Withdraw(cldf.SimTransactOpts(), input.Amount, common.HexToAddress(input.Payeer))
+		withdrawTx, err := ethBalMon.Withdraw(cldf.SimTransactOpts(), input.Amount, common.HexToAddress(input.Payee))
 		if err != nil {
-			return EthBalMonWithdrawOpOutput{}, fmt.Errorf("failed to generate withdraw calldata on chain %d: %w ", input.ChainSelector, err)
+			return EthBalMonWithdrawOpOutput{}, fmt.Errorf("failed to generate withdraw calldata on chain %d: %w", input.ChainSelector, err)
 		}
 		batch := mcmstypes.BatchOperation{
 			ChainSelector: mcmstypes.ChainSelector(input.ChainSelector),
@@ -199,7 +199,7 @@ var EthBalMonWithdrawOperation = operations.NewOperation(
 			"chainSelector", input.ChainSelector,
 			"ethBalMon", ethBalMonAddr,
 			"amount", input.Amount,
-			"payeer", input.Payeer,
+			"payee", input.Payee,
 		)
 
 		return EthBalMonWithdrawOpOutput{

@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -58,12 +57,19 @@ func (d deployEthBalMon) Apply(e cldf.Environment, config vaulttypes.DeployEthBa
 
 	evmChains := e.BlockChains.EVMChains()
 
-	// Pick the first chain for deps (only needed for direct execution, not MCMS)
-	var primaryChain cldf_evm.Chain
+	// Pick a deterministic primary chain for deps (only needed for direct execution, not MCMS).
+	var (
+		primaryChainSelector uint64
+		primaryChainSet      bool
+	)
 	for chainSelector := range config.Chains {
-		primaryChain = evmChains[chainSelector]
-		break
+		if !primaryChainSet || chainSelector < primaryChainSelector {
+			primaryChainSelector = chainSelector
+			primaryChainSet = true
+		}
 	}
+
+	primaryChain := evmChains[primaryChainSelector]
 
 	deps := VaultDeps{
 		Auth:        primaryChain.DeployerKey,

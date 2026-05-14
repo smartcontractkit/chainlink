@@ -117,8 +117,8 @@ var EthBalMonSetWatchListSequence = operations.NewSequence(
 type EthBalMonSetWatchListOpInput struct {
 	ChainSelector   uint64                        `json:"chain_selector"`
 	Addresses       []common.Address              `json:"addresses"`
-	MinBalancesWei  []big.Int                     `json:"min_balance_wei"`
-	TopUpAmountsWei []big.Int                     `json:"topup_amounts_wei"`
+	MinBalancesWei  []*big.Int                    `json:"min_balance_wei"`
+	TopUpAmountsWei []*big.Int                    `json:"topup_amounts_wei"`
 	MCMSConfig      *proposalutils.TimelockConfig `json:"mcms_config,omitempty"`
 }
 
@@ -182,16 +182,7 @@ var EthBalMonSetWatchListOperation = operations.NewOperation(
 				fmt.Errorf("failed to instantiate EthBalanceMonitor at %s: %w", ethBalMonAddr, err)
 		}
 
-		minBalancesWei := make([]*big.Int, len(input.MinBalancesWei))
-		for i := range input.MinBalancesWei {
-			minBalancesWei[i] = &input.MinBalancesWei[i]
-		}
-
-		topAmountsWei := make([]*big.Int, len(input.TopUpAmountsWei))
-		for i := range input.TopUpAmountsWei {
-			topAmountsWei[i] = &input.TopUpAmountsWei[i]
-		}
-		setWatchListTx, err := ethBalMon.SetWatchList(cldf.SimTransactOpts(), input.Addresses, minBalancesWei, topAmountsWei)
+		setWatchListTx, err := ethBalMon.SetWatchList(cldf.SimTransactOpts(), input.Addresses, input.MinBalancesWei, input.TopUpAmountsWei)
 		if err != nil {
 			return EthBalMonSetWatchListOpOutput{}, fmt.Errorf("failed to generate setWatchList calldata on chain %d: %w ", input.ChainSelector, err)
 		}

@@ -113,10 +113,11 @@ type EthBalMonSetKeeperRegistryAddressInput struct {
 
 // EthBalMonSetWatchListChainConfig replaces the monitored addresses and thresholds on one chain.
 // Addresses, MinBalancesWei, and TopUpAmountsWei are parallel slices: index i applies to Addresses[i].
+// MinBalancesWei and TopUpAmountsWei are represented as *big.Int values in wei.
 type EthBalMonSetWatchListChainConfig struct {
 	Addresses       []common.Address `json:"addresses"`
-	MinBalancesWei  []big.Int        `json:"min_balance_wei"`
-	TopUpAmountsWei []big.Int        `json:"topup_amounts_wei"`
+	MinBalancesWei  []*big.Int       `json:"min_balance_wei"`
+	TopUpAmountsWei []*big.Int       `json:"topup_amounts_wei"`
 }
 
 // EthBalMonSetWatchListInput is the input to the setWatchList changeset.
@@ -131,8 +132,8 @@ type EthBalMonSetWatchListInput struct {
 type EthBalMonWithdrawChainConfig struct {
 	// Amount is the withdrawal amount in wei. Must be positive (validated by the changeset).
 	Amount *big.Int `json:"amount"`
-	// Payeer is the recipient address (hex). JSON key is "payeer" for backward compatibility.
-	Payeer string `json:"payeer"`
+	// Payee is the recipient address (hex).
+	Payee string `json:"payee"`
 }
 
 // EthBalMonWithdrawInput is the input to the EthBalMon withdraw changeset.
