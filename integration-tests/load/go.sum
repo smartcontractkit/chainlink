@@ -142,8 +142,6 @@ github.com/ProjectZKM/Ziren/crates/go-runtime/zkvm_runtime v0.0.0-20251001021608
 github.com/ProjectZKM/Ziren/crates/go-runtime/zkvm_runtime v0.0.0-20251001021608-1fe7b43fc4d6/go.mod h1:ioLG6R+5bUSO1oeGSDxOV3FADARuMoytZCSX6MEMQkI=
 github.com/RaveNoX/go-jsoncommentstrip v1.0.0/go.mod h1:78ihd09MekBnJnxpICcwzCMzGrKSKYe4AqU6PDYYpjk=
 github.com/Sereal/Sereal/Go/sereal v0.0.0-20231009093132-b9187f1a92c6/go.mod h1:JwrycNnC8+sZPDyzM3MQ86LvaGzSpfxg885KOOwFRW4=
-github.com/TyphonHill/go-mermaid v1.0.0 h1:VtmgQwgZA+KNHJvG/O591ibBVuDkGhg2+F/olVXnXAs=
-github.com/TyphonHill/go-mermaid v1.0.0/go.mod h1:BqMEbKnr2HHpZ4lJJvGjL47v6rZAUpJcOaE/db1Ppwc=
 github.com/VictoriaMetrics/fastcache v1.13.0 h1:AW4mheMR5Vd9FkAPUv+NH6Nhw+fmbTMGMsNAoA/+4G0=
 github.com/VictoriaMetrics/fastcache v1.13.0/go.mod h1:hHXhl4DA2fTL2HTZDJFXWgW0LNjo6B+4aj2Wmng3TjU=
 github.com/VividCortex/gohistogram v1.0.0 h1:6+hBz+qvs0JOrrNhhmR7lFxo5sINxBCGXrdtl/UvroE=

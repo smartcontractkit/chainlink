@@ -120,8 +120,6 @@ github.com/ProjectZKM/Ziren/crates/go-runtime/zkvm_runtime v0.0.0-20251001021608
 github.com/ProtonMail/go-crypto v1.3.0 h1:ILq8+Sf5If5DCpHQp4PbZdS1J7HDFRXz/+xKBiRGFrw=
 github.com/ProtonMail/go-crypto v1.3.0/go.mod h1:9whxjD8Rbs29b4XWbB8irEcE8KHMqaR2e7GWU1R+/PE=
 github.com/RaveNoX/go-jsoncommentstrip v1.0.0/go.mod h1:78ihd09MekBnJnxpICcwzCMzGrKSKYe4AqU6PDYYpjk=
-github.com/TyphonHill/go-mermaid v1.0.0 h1:VtmgQwgZA+KNHJvG/O591ibBVuDkGhg2+F/olVXnXAs=
-github.com/TyphonHill/go-mermaid v1.0.0/go.mod h1:BqMEbKnr2HHpZ4lJJvGjL47v6rZAUpJcOaE/db1Ppwc=
 github.com/Unheilbar/anchor-go v1.0.3 h1:rIZ9FU7L+OazdTR+FB6Q2Fe65LvsDXA649vR3LJRJl0=
 github.com/Unheilbar/anchor-go v1.0.3/go.mod h1:v5AdT7FpHKNcIppfr3bix/ZP3Kr8oOzmxSxEWsCMEd0=
 github.com/VictoriaMetrics/fastcache v1.13.0 h1:AW4mheMR5Vd9FkAPUv+NH6Nhw+fmbTMGMsNAoA/+4G0=

@@ -72,7 +72,6 @@ require (
 	github.com/NethermindEth/juno v0.12.5 // indirect
 	github.com/NethermindEth/starknet.go v0.8.0 // indirect
 	github.com/ProjectZKM/Ziren/crates/go-runtime/zkvm_runtime v0.0.0-20251001021608-1fe7b43fc4d6 // indirect
-	github.com/TyphonHill/go-mermaid v1.0.0 // indirect
 	github.com/VictoriaMetrics/fastcache v1.13.0 // indirect
 	github.com/XSAM/otelsql v0.37.0 // indirect
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b // indirect
