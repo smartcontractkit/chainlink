@@ -463,7 +463,7 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 
 	var proposal *mcmslib.TimelockProposal
 	if c.MCMSConfig != nil && len(allProposals) > 0 {
-		proposal, err = proposeutils.AggregateProposals(
+		proposal, err = proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: not migrating to AggregateProposalsV2 yet
 			e,
 			state.EVMMCMSStateByChain(),
 			nil,
@@ -655,7 +655,7 @@ func promoteNewChainForConfigLogic(e cldf.Environment, c PromoteNewChainForConfi
 	if c.MCMSConfig == nil || len(allProposals) == 0 {
 		return cldf.ChangesetOutput{}, nil
 	}
-	proposal, err := proposeutils.AggregateProposals(
+	proposal, err := proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: not migrating to AggregateProposalsV2 in this PR
 		e,
 		state.EVMMCMSStateByChain(),
 		nil,

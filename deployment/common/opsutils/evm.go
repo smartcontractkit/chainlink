@@ -198,7 +198,7 @@ func AddEVMCallSequenceToCSOutput[IN any](
 			builder.WriteString(", ")
 		}
 	}
-	aggProposal, err := proposeutils.AggregateProposals(
+	aggProposal, err := proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: not migrating to AggregateProposalsV2 yet
 		e,
 		mcmsStateByChain,
 		nil,
