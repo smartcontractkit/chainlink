@@ -19,6 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	linkchangesets "github.com/smartcontractkit/cld-changesets/link/changesets"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/example"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
@@ -43,7 +45,7 @@ func setupLinkTransferRuntime(t *testing.T) (*runtime.Runtime, uint64) {
 	// Deploy MCMS and Timelock
 	config := cldftesthelpers.SingleGroupMCMS(t)
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployLinkToken), []uint64{selector}),
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken), []uint64{selector}),
 		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 			selector: {
 				Canceller:        config,
