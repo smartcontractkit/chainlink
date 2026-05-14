@@ -22,6 +22,13 @@ import (
 const managedTokenStateSeed = "managed_token::managed_token::token_state"
 
 var TokenOperations = []*operations.Operation[any, any, any]{
+	DeployRegulatedTokenObjectOp.AsUntypedRelaxed(),
+	DeployRegulatedTokenMCMSRegistrarOp.AsUntypedRelaxed(),
+	InitializeRegulatedTokenOp.AsUntypedRelaxed(),
+	GrantRegulatedTokenMinterRoleOp.AsUntypedRelaxed(),
+	MintRegulatedTokenOp.AsUntypedRelaxed(),
+	TransferRegulatedTokenOwnershipOp.AsUntypedRelaxed(),
+	TransferRegulatedTokenAdminOp.AsUntypedRelaxed(),
 	DeployTokenMCMSRegistrarOp.AsUntypedRelaxed(),
 	InitializeTokenOp.AsUntypedRelaxed(),
 	MintTokensOp.AsUntypedRelaxed(),
