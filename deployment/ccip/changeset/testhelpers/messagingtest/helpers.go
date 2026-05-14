@@ -104,9 +104,6 @@ type TestCaseOutput struct {
 }
 
 func getLatestNonce(tc TestCase) uint64 {
-	_, err := chain_selectors.GetSelectorFamily(tc.DestChain)
-	require.NoError(tc.T, err)
-
 	destAdapter := tc.DeployedEnv.Adapters[tc.DestChain]
 	latestNonce, err := destAdapter.GetInboundNonce(tc.T.Context(), tc.Sender, tc.SourceChain)
 	require.NoError(tc.T, err)
