@@ -461,16 +461,19 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to reset existing addresses: %w", err)
 	}
 
-	proposal, err := proposeutils.AggregateProposals(
-		e,
-		state.EVMMCMSStateByChain(),
-		nil,
-		allProposals,
-		fmt.Sprintf("Deploy and set candidates for chain with selector %d", c.NewChain.Selector),
-		c.MCMSConfig,
-	)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+	var proposal *mcmslib.TimelockProposal
+	if c.MCMSConfig != nil && len(allProposals) > 0 {
+		proposal, err = proposeutils.AggregateProposals(
+			e,
+			state.EVMMCMSStateByChain(),
+			nil,
+			allProposals,
+			fmt.Sprintf("Deploy and set candidates for chain with selector %d", c.NewChain.Selector),
+			c.MCMSConfig,
+		)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
 	}
 
 	ds, err := shared.PopulateDataStore(newAddresses)

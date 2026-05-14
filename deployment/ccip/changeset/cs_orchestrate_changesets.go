@@ -147,6 +147,9 @@ func orchestrateChangesetsLogic(e cldf.Environment, c OrchestrateChangesetsConfi
 	}
 
 	// Aggregate all Timelock proposals into 1 proposal
+	if len(finalOutput.MCMSTimelockProposals) == 0 {
+		return finalOutput, nil
+	}
 	proposal, err := proposeutils.AggregateProposalsV2(
 		e,
 		proposeutils.MCMSStates{

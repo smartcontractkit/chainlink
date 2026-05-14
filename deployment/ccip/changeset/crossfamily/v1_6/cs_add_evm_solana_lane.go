@@ -33,7 +33,9 @@ var (
 		"Post ops to aggregate proposals",
 		func(b operations.Bundle, deps Dependencies, input postOpsInput) ([]mcmslib.TimelockProposal, error) {
 			allProposals := input.Proposals
-
+			if input.MCMSConfig == nil || len(allProposals) == 0 {
+				return input.Proposals, nil
+			}
 			proposal, err := proposeutils.AggregateProposals(
 				deps.Env,
 				deps.EVMMCMSState,
