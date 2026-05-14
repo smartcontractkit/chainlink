@@ -24,10 +24,11 @@ import (
 	tron_df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/tron"
 	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 
+	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/common/changeset"
+
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	tron_keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/tron"
-	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/common/changeset"
 
 	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 

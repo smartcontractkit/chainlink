@@ -12,10 +12,11 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/common/changeset"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
-	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/common/changeset"
 )
 
 // NewFeedWithProxyChangeset configures new feeds with a proxy addresses
