@@ -72,9 +72,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/mock_v3_aggregator_contract"
-	tonOps "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
-	tonCfg "github.com/smartcontractkit/chainlink-ton/deployment/ccip/config"
-	tonrouter "github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/router"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
@@ -208,8 +205,6 @@ func WaitForEventFilterRegistration(t *testing.T, oc cldf_offchain.Client, chain
 		}
 		return fmt.Errorf("failed to find event with name %s in onramp or offramp ABIs", eventName)
 	case chainsel.FamilySolana:
-		eventID = eventName
-	case chainsel.FamilyTon:
 		eventID = eventName
 	case chainsel.FamilyAptos:
 		// Aptos is not using LogPoller
@@ -514,17 +509,6 @@ func SendRequest(
 		return SendRequestSui(e, state, cfg)
 	case chainsel.FamilyAptos:
 		return SendRequestAptos(e, state, cfg)
-	case chainsel.FamilyTon:
-		tonMsg := cfg.Message.(tonrouter.CCIPSend)
-		seq, raw, err := tonOps.SendCCIPMessage(e, state.TonChains[cfg.SourceChain], cfg.SourceChain, tonMsg)
-		if err != nil {
-			return nil, err
-		}
-
-		return &ccipclient.AnyMsgSentEvent{
-			SequenceNumber: seq,
-			RawEvent:       raw,
-		}, nil
 	default:
 		return nil, fmt.Errorf("send request: unsupported chain family: %v", family)
 	}
@@ -979,17 +963,6 @@ func AddLane(
 			aptosTokenPrices[aptoscs.MustParseAddress(t, address)] = price
 		}
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, aptosTokenPrices)...)
-	case chainsel.FamilyTon:
-		onRamp, err := state.GetOnRampAddressBytes(to)
-		if err != nil {
-			return err
-		}
-		addLaneConfig := tonOps.AddLaneTONConfig(&e.Env, onRamp, from, to, fromFamily, toFamily, gasPrices)
-		changesets = append(changesets, commoncs.Configure(tonOps.AddTonLanes{},
-			tonCfg.UpdateTonLanesConfig{
-				Lanes:      []tonCfg.LaneConfig{addLaneConfig},
-				TestRouter: false,
-			}))
 	}
 
 	switch toFamily {
@@ -999,17 +972,6 @@ func AddLane(
 		changesets = append(changesets, AddLaneSolanaChangesetsV0_1_0(e, to, from, fromFamily)...)
 	case chainsel.FamilyAptos:
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, nil)...)
-	case chainsel.FamilyTon:
-		onRamp, err := state.GetOnRampAddressBytes(from)
-		if err != nil {
-			return err
-		}
-		addLaneConfig := tonOps.AddLaneTONConfig(&e.Env, onRamp, from, to, fromFamily, toFamily, gasPrices)
-		changesets = append(changesets, commoncs.Configure(tonOps.AddTonLanes{},
-			tonCfg.UpdateTonLanesConfig{
-				Lanes:      []tonCfg.LaneConfig{addLaneConfig},
-				TestRouter: false,
-			}))
 	}
 
 	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, changesets)
@@ -1388,11 +1350,6 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 		aptosState := state.AptosChains[from]
 		tokenPrices[aptosState.LinkTokenAddress.StringLong()] = deployment.EDecMult(20, 28)
 		tokenPrices[shared.AptosAPTAddress] = deployment.EDecMult(5, 28)
-	case chainsel.FamilyTon:
-		// TODO Need to double check this, LINK will have 9 decimals on TON like on Solana (not 18)
-		tonState := state.TonChains[from]
-		gasPrices[from] = big.NewInt(1e15)
-		tokenPrices[tonState.LinkTokenAddress.String()] = deployment.EDecMult(20, 28)
 	case chainsel.FamilySui:
 		suiState := state.SuiChains[from]
 		gasPrices[from] = big.NewInt(1e17)
@@ -1405,12 +1362,6 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 	if toFamily != chainsel.FamilyEVM {
 		fqCfg.EnforceOutOfOrder = true
 		fqCfg.MaxNumberOfTokensPerMsg = 1
-	}
-
-	// EVM -> TON
-	if toFamily == chainsel.FamilyTon {
-		fqCfg.MaxPerMsgGasLimit = 4_200_000_000 // 4_200_000_000 nano TON = 4.2 TON
-		gasPrices[to] = big.NewInt(2.12e9)      // 1 TON ~2.13 USD -> 1 nanoTON = 2.13e−9 USD -> 1 nanoTON expressed in 1e18 (1 USD) = 2.13e9
 	}
 
 	err = AddLane(
@@ -1435,10 +1386,8 @@ func AddLanesForAll(t *testing.T, e *DeployedEnv, state stateview.CCIPOnChainSta
 	chains := []uint64{}
 	allEvmChainSelectors := maps.Keys(e.Env.BlockChains.EVMChains())
 	allSolChainSelectors := maps.Keys(e.Env.BlockChains.SolanaChains())
-	allTonChainSelectors := maps.Keys(e.Env.BlockChains.TonChains())
 	chains = slices.AppendSeq(chains, allEvmChainSelectors)
 	chains = slices.AppendSeq(chains, allSolChainSelectors)
-	chains = slices.AppendSeq(chains, allTonChainSelectors)
 
 	for _, source := range chains {
 		for _, dest := range chains {
@@ -2535,8 +2484,8 @@ func GenTestTransferOwnershipConfig(
 	}
 }
 
-func DeployCCIPContractsTest(t *testing.T, solChains int, tonChains int) {
-	e, _ := NewMemoryEnvironment(t, WithSolChains(solChains), WithTonChains(tonChains))
+func DeployCCIPContractsTest(t *testing.T, solChains int) {
+	e, _ := NewMemoryEnvironment(t, WithSolChains(solChains))
 	// Deploy all the CCIP contracts.
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -2544,7 +2493,6 @@ func DeployCCIPContractsTest(t *testing.T, solChains int, tonChains int) {
 	allChains = append(allChains, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))...)
 	allChains = append(allChains, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilySolana))...)
 	allChains = append(allChains, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyAptos))...)
-	allChains = append(allChains, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyTon))...)
 	stateView, err := state.View(&e.Env, allChains)
 	require.NoError(t, err)
 	if solChains > 0 {
@@ -2560,9 +2508,6 @@ func DeployCCIPContractsTest(t *testing.T, solChains int, tonChains int) {
 	require.NoError(t, err)
 	fmt.Println(string(b))
 	b, err = json.MarshalIndent(stateView.AptosChains, "", "	")
-	require.NoError(t, err)
-	fmt.Println(string(b))
-	b, err = json.MarshalIndent(stateView.TONChains, "", "	")
 	require.NoError(t, err)
 	fmt.Println(string(b))
 }
