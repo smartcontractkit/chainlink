@@ -63,7 +63,7 @@ popd
 # Set the database URL in the .dbenv file
 dbenv=$repo/.dbenv
 echo "\n!Success!\n"
-echo "Datbase URL: $db_url"
+echo "Database URL: $db_url"
 
 echo "export $db_url" >> $dbenv
 echo "Has been set in the $dbenv file"
