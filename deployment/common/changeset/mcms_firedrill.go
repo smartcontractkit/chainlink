@@ -14,9 +14,10 @@ import (
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 )
 
 type FireDrillConfig struct {

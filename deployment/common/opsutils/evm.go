@@ -198,12 +198,10 @@ func AddEVMCallSequenceToCSOutput[IN any](
 			builder.WriteString(", ")
 		}
 	}
-	aggProposal, err := proposeutils.AggregateProposalsV2(
+	aggProposal, err := proposeutils.AggregateProposals(
 		e,
-		proposeutils.MCMSStates{
-			MCMSEVMState:    mcmsStateByChain,
-			MCMSSolanaState: nil,
-		},
+		mcmsStateByChain,
+		nil,
 		csOutput.MCMSTimelockProposals,
 		builder.String(),
 		mcmsCfg,

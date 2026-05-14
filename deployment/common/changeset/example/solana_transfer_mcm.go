@@ -13,9 +13,10 @@ import (
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/smartcontractkit/mcms/types"
 
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 )
 
 var _ cldf.ChangeSetV2[TransferFromTimelockConfig] = TransferFromTimelock{}

@@ -11,10 +11,11 @@ import (
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"

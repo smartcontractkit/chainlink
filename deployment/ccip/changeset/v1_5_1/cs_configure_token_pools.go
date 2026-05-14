@@ -867,12 +867,10 @@ func ConfigureMultiplePoolLogic(env cldf.Environment, c ConfigureMultipleTokenPo
 	}
 	// if there are multiple proposals, aggregate them so that we don't have to propose them separately
 	if len(finalOutput.MCMSTimelockProposals) > 1 {
-		aggregatedProposals, err := proposeutils.AggregateProposalsV2(
+		aggregatedProposals, err := proposeutils.AggregateProposals(
 			env,
-			proposeutils.MCMSStates{
-				MCMSEVMState:    state.EVMMCMSStateByChain(),
-				MCMSSolanaState: nil,
-			},
+			state.EVMMCMSStateByChain(),
+			nil,
 			finalOutput.MCMSTimelockProposals,
 			"Add Tokens E2E",
 			c.MCMS,

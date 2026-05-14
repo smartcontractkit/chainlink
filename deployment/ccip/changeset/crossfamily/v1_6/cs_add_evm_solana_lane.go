@@ -33,12 +33,11 @@ var (
 		"Post ops to aggregate proposals",
 		func(b operations.Bundle, deps Dependencies, input postOpsInput) ([]mcmslib.TimelockProposal, error) {
 			allProposals := input.Proposals
-			proposal, err := proposeutils.AggregateProposalsV2(
+
+			proposal, err := proposeutils.AggregateProposals(
 				deps.Env,
-				proposeutils.MCMSStates{
-					MCMSEVMState:    deps.EVMMCMSState,
-					MCMSSolanaState: deps.SolanaMCMSState,
-				},
+				deps.EVMMCMSState,
+				deps.SolanaMCMSState,
 				allProposals,
 				"Adding EVM and Solana lane",
 				input.MCMSConfig,
