@@ -7,6 +7,7 @@ import (
 
 	"github.com/AlekSi/pointer"
 	"github.com/ethereum/go-ethereum/common"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 
@@ -161,7 +162,7 @@ func SetupNewChain(
 ) cldf.Environment {
 	nodeInfo, err := deployment.NodeInfo(env.NodeIDs, env.Offchain)
 	require.NoError(t, err, "must get node info")
-	mcmsDeploymentCfg := proposalutils.SingleGroupTimelockConfigV2(t)
+	mcmsDeploymentCfg := cldftesthelpers.SingleGroupTimelockConfig(t)
 	tokenConfig := shared.NewTestTokenConfig(state.MustGetEVMChainState(feedChain).USDFeeds)
 
 	// Build remote chain configurations
