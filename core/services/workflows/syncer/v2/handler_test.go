@@ -712,7 +712,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 		wfStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
-		trigger := &captureTrigger{CapabilityInfo: commoncap.MustNewCapabilityInfo("basic-test-trigger@1.0.0", commoncap.CapabilityTypeCombined, "test trigger"), t: t, shouldRun: true}
+		trigger := &captureTrigger{CapabilityInfo: commoncap.MustNewCapabilityInfo("basic-test-trigger@1.0.0", commoncap.CapabilityTypeCombined, "test trigger"), t: t, shouldRun: false}
 		require.NoError(t, registry.Add(ctx, trigger))
 
 		executeRequest := &sdk.ExecuteRequest{
