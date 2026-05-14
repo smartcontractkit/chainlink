@@ -12,7 +12,6 @@ import (
 )
 
 func TestValidate(t *testing.T) {
-	v1Coordinator := types.EIP55Address("0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139")
 	v2Coordinator := types.EIP55Address("0x2be990eE17832b59E0086534c5ea2459Aa75E38F")
 	fromAddresses := []types.EIP55Address{("0x469aA2CD13e037DC5236320783dCfd0e641c0559")}
 
@@ -26,7 +25,6 @@ func TestValidate(t *testing.T) {
 			toml: `
 type = "blockhashstore"
 name = "valid-test"
-coordinatorV1Address = "0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139"
 coordinatorV2Address = "0x2be990eE17832b59E0086534c5ea2459Aa75E38F"
 waitBlocks = 59
 lookbackBlocks = 159
@@ -39,8 +37,7 @@ fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 				require.NoError(t, err)
 				require.Equal(t, job.BlockhashStore, os.Type)
 				require.Equal(t, "valid-test", os.Name.String)
-				require.Equal(t, &v1Coordinator,
-					os.BlockhashStoreSpec.CoordinatorV1Address)
+				require.Nil(t, os.BlockhashStoreSpec.CoordinatorV1Address)
 				require.Equal(t, &v2Coordinator,
 					os.BlockhashStoreSpec.CoordinatorV2Address)
 				require.Equal(t, int32(59), os.BlockhashStoreSpec.WaitBlocks)
@@ -59,7 +56,6 @@ fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 			toml: `
 type = "blockhashstore"
 name = "defaults-test"
-coordinatorV1Address = "0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139"
 coordinatorV2Address = "0x2be990eE17832b59E0086534c5ea2459Aa75E38F"
 blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
 evmChainID = "4"`,
@@ -78,7 +74,6 @@ evmChainID = "4"`,
 			toml: `
 type = "blockhashstore"
 name = "heartbeat-blocks-test"
-coordinatorV1Address = "0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139"
 coordinatorV2Address = "0x2be990eE17832b59E0086534c5ea2459Aa75E38F"
 blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
 heartbeatPeriod = "650s"
@@ -94,7 +89,7 @@ evmChainID = "4"`,
 			},
 		},
 		{
-			name: "v1 only",
+			name: "v1 coordinator not supported",
 			toml: `
 type = "blockhashstore"
 name = "defaults-test"
@@ -103,10 +98,7 @@ blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
 evmChainID = "4"
 fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 			assertion: func(t *testing.T, os job.Job, err error) {
-				require.NoError(t, err)
-				require.Equal(t, &v1Coordinator,
-					os.BlockhashStoreSpec.CoordinatorV1Address)
-				require.Nil(t, os.BlockhashStoreSpec.CoordinatorV2Address)
+				require.EqualError(t, err, `coordinatorV1Address is no longer supported; use coordinatorV2Address or coordinatorV2PlusAddress`)
 			},
 		},
 		{
@@ -133,7 +125,7 @@ blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
 evmChainID = "4"
 fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 			assertion: func(t *testing.T, os job.Job, err error) {
-				require.EqualError(t, err, `at least one of "coordinatorV1Address", "coordinatorV2Address" and "coordinatorV2PlusAddress" must be set`)
+				require.EqualError(t, err, `at least one of "coordinatorV2Address" and "coordinatorV2PlusAddress" must be set`)
 			},
 		},
 		{
@@ -165,7 +157,6 @@ fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 			toml: `
 type = "blockhashstore"
 name = "valid-test"
-coordinatorV1Address = "0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139"
 coordinatorV2Address = "0x2be990eE17832b59E0086534c5ea2459Aa75E38F"
 waitBlocks = 257
 lookbackBlocks = 258
@@ -180,7 +171,6 @@ evmChainID = "4"`,
 			toml: `
 type = "blockhashstore"
 name = "valid-test"
-coordinatorV1Address = "0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139"
 coordinatorV2Address = "0x2be990eE17832b59E0086534c5ea2459Aa75E38F"
 lookbackBlocks = 257
 blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
@@ -194,7 +184,6 @@ evmChainID = "4"`,
 			toml: `
 type = "blockhashstore"
 name = "valid-test"
-coordinatorV1Address = "0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139"
 coordinatorV2Address = "0x2be990eE17832b59E0086534c5ea2459Aa75E38F"
 waitBlocks = 200
 lookbackBlocks = 100
@@ -209,7 +198,6 @@ evmChainID = "4"`,
 			toml: `
 type = "blockhashstore"
 name = "valid-test"
-coordinatorV1Address = "0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139"
 coordinatorV2Address = "0x2be990eE17832b59E0086534c5ea2459Aa75E38F"
 waitBlocks = 10
 lookbackBlocks = 100

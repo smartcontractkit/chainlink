@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 
 	monutils "github.com/smartcontractkit/chainlink/v2/core/monitoring"
+	"github.com/smartcontractkit/chainlink/v2/core/platform"
 )
 
 // em AKA "engine metrics" is to locally scope these instruments to avoid
@@ -61,9 +62,13 @@ type EngineMetrics struct {
 	shardExecutionDeniedNotOwnerCounter     metric.Int64Counter
 	shardExecutionDeniedOrchestratorCounter metric.Int64Counter
 
+	triggerEventReceivedCounter         metric.Int64Counter
+	triggerEventAckSuccessCounter       metric.Int64Counter
+	triggerEventAckFailureCounter       metric.Int64Counter
 	triggerEventEnqueuedCounter         metric.Int64Counter
 	triggerEventEnqueueDroppedCounter   metric.Int64Counter
 	triggerEventDequeueDroppedCounter   metric.Int64Counter
+	triggerEventDroppedTotal            metric.Int64Counter
 	triggerEventExpiredCounter          metric.Int64Counter
 	triggerExecutionDeduplicatedCounter metric.Int64Counter
 	triggerEventQueueWaitSeconds        metric.Float64Histogram
@@ -287,6 +292,30 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register shard execution denied orchestrator error counter: %w", err)
 	}
 
+	em.triggerEventReceivedCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_trigger_event_received_total",
+		metric.WithDescription("Trigger events read from the capability trigger channel (one per receive)"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger event received counter: %w", err)
+	}
+
+	em.triggerEventAckSuccessCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_trigger_event_ack_success_total",
+		metric.WithDescription("Trigger events successfully acknowledged to the trigger capability"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger event ack success counter: %w", err)
+	}
+
+	em.triggerEventAckFailureCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_trigger_event_ack_failure_total",
+		metric.WithDescription("Trigger event ACK attempts that failed (registration missing or capability AckEvent error)"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger event ack failure counter: %w", err)
+	}
+
 	em.triggerEventEnqueuedCounter, err = beholder.GetMeter().Int64Counter(
 		"platform_engine_trigger_event_enqueued_total",
 		metric.WithDescription("Trigger events accepted into the engine ingress queue"),
@@ -309,6 +338,14 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register trigger event dequeue dropped counter: %w", err)
+	}
+
+	em.triggerEventDroppedTotal, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_trigger_event_dropped_total",
+		metric.WithDescription("Trigger events that never reached Module.Execute, by drop_reason"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger event dropped total counter: %w", err)
 	}
 
 	em.triggerEventExpiredCounter, err = beholder.GetMeter().Int64Counter(
@@ -634,6 +671,21 @@ func (c WorkflowsMetricLabeler) IncrementShardExecutionDeniedOrchestratorErrorCo
 	c.em.shardExecutionDeniedOrchestratorCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
+func (c WorkflowsMetricLabeler) IncrementTriggerEventReceivedCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.triggerEventReceivedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementTriggerEventAckSuccessCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.triggerEventAckSuccessCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementTriggerEventAckFailureCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.triggerEventAckFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
 func (c WorkflowsMetricLabeler) IncrementTriggerEventEnqueuedCounter(ctx context.Context) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.triggerEventEnqueuedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
@@ -642,6 +694,17 @@ func (c WorkflowsMetricLabeler) IncrementTriggerEventEnqueuedCounter(ctx context
 func (c WorkflowsMetricLabeler) IncrementTriggerEventEnqueueDroppedCounter(ctx context.Context) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.triggerEventEnqueueDroppedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+// IncrementTriggerEventDroppedTotal records one dropped trigger event before Module.Execute.
+// dropReason must be a low-cardinality value; use TriggerDropReason* constants.
+func (c WorkflowsMetricLabeler) IncrementTriggerEventDroppedTotal(ctx context.Context, dropReason string) {
+	if dropReason == "" {
+		dropReason = TriggerDropReasonUnknown
+	}
+	lc := c.With(platform.KeyTriggerDropReason, dropReason)
+	otelLabels := beholder.OtelAttributes(lc.Labels).AsStringAttributes()
+	lc.em.triggerEventDroppedTotal.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c WorkflowsMetricLabeler) IncrementTriggerEventDequeueDroppedCounter(ctx context.Context) {

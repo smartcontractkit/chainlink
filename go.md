@@ -492,10 +492,10 @@ flowchart LR
 	chainlink/core/scripts --> chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based
 	chainlink/core/scripts --> chainlink/system-tests/lib
 	click chainlink/core/scripts href "https://github.com/smartcontractkit/chainlink"
-	chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based --> chainlink-common
-	click chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based href "https://github.com/smartcontractkit/chainlink"
-	chainlink/core/scripts/cre/environment/examples/workflows/v2/cron --> cre-sdk-go/capabilities/scheduler/cron
-	click chainlink/core/scripts/cre/environment/examples/workflows/v2/cron href "https://github.com/smartcontractkit/chainlink"
+	chainlink/core/scripts/cre/environment/examples/workflows/cron --> cre-sdk-go/capabilities/scheduler/cron
+	click chainlink/core/scripts/cre/environment/examples/workflows/cron href "https://github.com/smartcontractkit/chainlink"
+	chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based --> chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based
+	click chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based href "https://github.com/smartcontractkit/chainlink"
 	chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based --> chainlink-common
 	chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based --> chainlink-evm/gethwrappers
 	chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based --> cre-sdk-go/capabilities/blockchain/evm
@@ -525,10 +525,8 @@ flowchart LR
 	chainlink/system-tests/lib --> chainlink-testing-framework/framework/components/fake
 	chainlink/system-tests/lib --> chainlink/deployment
 	click chainlink/system-tests/lib href "https://github.com/smartcontractkit/chainlink"
-	chainlink/system-tests/tests --> chainlink-testing-framework/havoc
-	chainlink/system-tests/tests --> chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based
-	chainlink/system-tests/tests --> chainlink/core/scripts/cre/environment/examples/workflows/v2/cron
-	chainlink/system-tests/tests --> chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based
+	chainlink/system-tests/tests --> chainlink/core/scripts/cre/environment/examples/workflows/cron
+	chainlink/system-tests/tests --> chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based
 	chainlink/system-tests/tests --> chainlink/system-tests/lib
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/consensus
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/evm/evmread-negative
@@ -648,8 +646,8 @@ flowchart LR
 
 	subgraph chainlink-repo[chainlink]
 		 chainlink/core/scripts
-		 chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based
-		 chainlink/core/scripts/cre/environment/examples/workflows/v2/cron
+		 chainlink/core/scripts/cre/environment/examples/workflows/cron
+		 chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based
 		 chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based
 		 chainlink/deployment
 		 chainlink/devenv

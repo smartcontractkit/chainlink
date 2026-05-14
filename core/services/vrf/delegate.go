@@ -10,24 +10,20 @@ import (
 	"github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/theodesp/go-heaps/pairing"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_owner"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink-evm/pkg/log"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	v1 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v1"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 )
@@ -100,10 +96,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	if !ok {
 		return nil, fmt.Errorf("vrf is not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
 	}
-	coordinator, err := solidity_vrf_coordinator_interface.NewVRFCoordinator(jb.VRFSpec.CoordinatorAddress.Address(), chain.Client())
-	if err != nil {
-		return nil, err
-	}
 	coordinatorV2, err := vrf_coordinator_v2.NewVRFCoordinatorV2(jb.VRFSpec.CoordinatorAddress.Address(), chain.Client())
 	if err != nil {
 		return nil, err
@@ -138,7 +130,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		"externalJobID", jb.ExternalJobID,
 		"coordinatorAddress", jb.VRFSpec.CoordinatorAddress,
 	)
-	lV1 := l.Named("VRFListener")
 	lV2 := l.Named("VRFListenerV2")
 	lV2Plus := l.Named("VRFListenerV2Plus")
 
@@ -256,30 +247,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 			),
 			}, nil
 		}
-		if _, ok := task.(*pipeline.VRFTask); ok {
-			return []job.ServiceCtx{&v1.Listener{
-				Cfg:            chain.Config().EVM(),
-				FeeCfg:         chain.Config().EVM().GasEstimator(),
-				L:              logger.Sugared(lV1),
-				Coordinator:    coordinator,
-				PipelineRunner: d.pr,
-				GethKs:         d.ks.Eth(),
-				Job:            jb,
-				MailMon:        d.mailMon,
-				// Note the mailbox size effectively sets a limit on how many logs we can replay
-				// in the event of a VRF outage.
-				ReqLogs:            mailbox.NewHighCapacity[log.Broadcast](),
-				ChStop:             make(chan struct{}),
-				WaitOnStop:         make(chan struct{}),
-				NewHead:            make(chan struct{}, 1),
-				BlockNumberToReqID: pairing.New(),
-				ReqAdded:           func() {},
-				Deduper:            vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())),
-				Chain:              chain,
-			}}, nil
-		}
 	}
-	return nil, errors.New("invalid job spec expected a vrf task")
+	return nil, errors.New("invalid job spec expected a vrfv2 or vrfv2plus task")
 }
 
 // CheckFromAddressesExist returns an error if and only if one of the addresses

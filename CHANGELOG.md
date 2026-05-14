@@ -1,5 +1,19 @@
 # Changelog Chainlink Core
 
+## 2.47.0
+
+### Minor Changes
+
+- [#22309](https://github.com/smartcontractkit/chainlink/pull/22309) [`1083496`](https://github.com/smartcontractkit/chainlink/commit/1083496666fec79185b7aa1a0755d8d3c420070f) - Minor bump to start next version
+
+### Patch Changes
+
+- [#22302](https://github.com/smartcontractkit/chainlink/pull/22302) [`e866147`](https://github.com/smartcontractkit/chainlink/commit/e8661477544bfb3119d02ef1e8fea0bee98b46f6) - Confidential relay handlers now sign relay-DON secrets and capability responses before returning them toward the enclave path, and the gateway aggregator buckets per-node responses by canonical logical hash so F+1 unique signers form quorum over a shared logical payload.
+
+  #added
+
+- [#22394](https://github.com/smartcontractkit/chainlink/pull/22394) [`53a57db`](https://github.com/smartcontractkit/chainlink/commit/53a57dbf7ff672c03f8b0f7797f5fc12298fed9c) - #added changeset to clean up solana token mint authority after migration
+
 ## 2.46.0
 
 ### Minor Changes

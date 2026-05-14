@@ -59,9 +59,9 @@ runs:
       # XXX: Don't use `.` default working directory here due to issues with the golangci-lint-action.
       run: |
         if [ "${{ inputs.go-directory }}" == "." ]; then
-          echo "golangci-lint-working-directory=" >> $GITHUB_OUTPUT
+          echo "golangci-lint-working-directory=" >> "${GITHUB_OUTPUT}"
         else
-          echo "golangci-lint-working-directory=${{ inputs.go-directory }}/" >> $GITHUB_OUTPUT
+          echo "golangci-lint-working-directory=${{ inputs.go-directory }}/" >> "${GITHUB_OUTPUT}"
         fi
 
     - name: Golangci-lint
@@ -104,7 +104,7 @@ runs:
           echo "Directory name is valid for the artifact suffix: '$suffix'"
         fi
 
-        echo "suffix=${suffix}" >> $GITHUB_OUTPUT
+        echo "suffix=${suffix}" >> "${GITHUB_OUTPUT}"
 
     - name: Store Golangci-lint report artifact
       if: always()

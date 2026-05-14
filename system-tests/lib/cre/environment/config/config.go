@@ -114,7 +114,7 @@ func removeChainIDFromFlag(flag string) string {
 }
 
 func validateContractVersions(envDependencies cre.CLIEnvironmentDependencies) error {
-	supportedSet := DefaultContractSet(envDependencies.WithV2Registries())
+	supportedSet := DefaultContractSet()
 	cv := envDependencies.ContractVersions()
 	for k, v := range supportedSet {
 		version, ok := cv[k]
@@ -138,20 +138,13 @@ const (
 	DefaultDONFamily = "test-don-family"
 )
 
-func DefaultContractSet(withV2Registries bool) map[cre.ContractType]*semver.Version {
-	supportedSet := map[cre.ContractType]*semver.Version{
+func DefaultContractSet() map[cre.ContractType]*semver.Version {
+	return map[cre.ContractType]*semver.Version{
 		keystone_changeset.OCR3Capability.String():       semver.MustParse("1.0.0"),
-		keystone_changeset.WorkflowRegistry.String():     semver.MustParse("1.0.0"),
-		keystone_changeset.CapabilitiesRegistry.String(): semver.MustParse("1.1.0"),
+		keystone_changeset.WorkflowRegistry.String():     WorkflowRegistryV2Semver,
+		keystone_changeset.CapabilitiesRegistry.String(): CapabilityRegistryV2Semver,
 		keystone_changeset.KeystoneForwarder.String():    semver.MustParse("1.0.0"),
 	}
-
-	if withV2Registries {
-		supportedSet[keystone_changeset.WorkflowRegistry.String()] = WorkflowRegistryV2Semver
-		supportedSet[keystone_changeset.CapabilitiesRegistry.String()] = CapabilityRegistryV2Semver
-	}
-
-	return supportedSet
 }
 
 func (c *Config) Load(absPath string) error {

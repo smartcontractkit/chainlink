@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
@@ -777,7 +778,14 @@ func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc clte
 func setupEthClientForControllerTests(t *testing.T) *clienttest.Client {
 	ec := cltest.NewEthMocksWithStartupAssertions(t)
 	ec.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(100), nil).Maybe()
-	ec.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Once().Return(big.NewInt(0), nil).Maybe()
+	ec.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(0), nil).Maybe()
+	// Return a valid ABI-encoded zero address for calls to the VRF coordinator so that
+	// the LINKETHFEED lookup succeeds and the VRF v2 service can start.  All other
+	// contract calls (e.g. FluxMonitor) still receive nil and will trigger ErrNoCode.
+	vrfCoordAddr := common.HexToAddress("0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7")
+	ec.On("CallContract", mock.Anything, mock.MatchedBy(func(msg ethereum.CallMsg) bool {
+		return msg.To != nil && *msg.To == vrfCoordAddr
+	}), mock.Anything).Return(make([]byte, 32), nil).Maybe()
 	ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, nil).Maybe()
 	return ec
 }
