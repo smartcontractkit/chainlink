@@ -33,6 +33,7 @@ import (
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
 	cldlegacysolmcms "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	cldcommonchangesets "github.com/smartcontractkit/cld-changesets/pkg/common/changeset"
 	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
@@ -1858,7 +1859,7 @@ func NewMintTokenWithCustomSender(auth *bind.TransactOpts, sender *bind.Transact
 // ApproveToken approves the router to spend the given amount of tokens
 // Keeping this proxy method in order to not break compatibility
 func ApproveToken(env cldf.Environment, src uint64, tokenAddress common.Address, routerAddress common.Address, amount *big.Int) error {
-	return commoncs.ApproveToken(env, src, tokenAddress, routerAddress, amount)
+	return cldcommonchangesets.ApproveToken(env, src, tokenAddress, routerAddress, amount)
 }
 
 // MintAndAllow mints tokens for deployers and allow router to spend them
@@ -2051,7 +2052,7 @@ func TransferMultiple(
 				// Approve router to spend tokens
 				if tt.RouterAddress != (common.Address{}) {
 					for _, ta := range tt.Tokens {
-						err := commoncs.ApproveToken(env, tt.SourceChain, ta.Token, tt.RouterAddress, new(big.Int).Mul(ta.Amount, big.NewInt(10)))
+						err := cldcommonchangesets.ApproveToken(env, tt.SourceChain, ta.Token, tt.RouterAddress, new(big.Int).Mul(ta.Amount, big.NewInt(10)))
 						require.NoError(t, err)
 					}
 				}
