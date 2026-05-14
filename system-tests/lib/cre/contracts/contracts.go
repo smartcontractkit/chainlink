@@ -9,7 +9,6 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 
@@ -72,7 +71,7 @@ func MightGetAddressFromMemoryDataStore(dataStore *datastore.MemoryDataStore, ch
 		return nil
 	}
 
-	return ptr.Ptr(common.HexToAddress(addrRef.Address))
+	return new(common.HexToAddress(addrRef.Address))
 }
 
 func MightGetAddressFromDataStore(dataStore datastore.DataStore, chainSel uint64, contractType string, version *semver.Version, qualifier string) *common.Address {
@@ -87,7 +86,7 @@ func MightGetAddressFromDataStore(dataStore datastore.DataStore, chainSel uint64
 	if err != nil {
 		return nil
 	}
-	return ptr.Ptr(common.HexToAddress(addrRef.Address))
+	return new(common.HexToAddress(addrRef.Address))
 }
 
 func MustGetAddressFromDataStore(dataStore datastore.DataStore, chainSel uint64, contractType string, version *semver.Version, qualifier string) string {

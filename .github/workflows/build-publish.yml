@@ -91,7 +91,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
   docker-core:
-    needs: [ checks ]
+    needs: [checks]
     # No need to build the final image as we promote the last RC to use the final tag
     # so we only run the builds for pre-releases.
     if: needs.checks.outputs.is-pre-release == 'true'
@@ -105,6 +105,7 @@ jobs:
       aws-region-gati: us-west-2
       dockerfile: core/chainlink.Dockerfile
       docker-build-context: .
+      docker-target: final
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
@@ -128,7 +129,7 @@ jobs:
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
   docker-ccip:
-    needs: [ checks ]
+    needs: [checks]
     # No need to build the final image as we promote the last RC to use the final tag
     # so we only run the builds for pre-releases.
     if: needs.checks.outputs.is-pre-release == 'true'
@@ -142,6 +143,7 @@ jobs:
       aws-region-gati: us-west-2
       dockerfile: core/chainlink.Dockerfile
       docker-build-context: .
+      docker-target: final
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
@@ -169,7 +171,7 @@ jobs:
 
   deploy:
     name: "Deploy"
-    needs: [ checks, docker-ccip ]
+    needs: [checks, docker-ccip]
     # We are only deploying CCIP pre-releases and skipping hotfix deployments for now.
     if: needs.checks.outputs.is-pre-release == 'true' &&
       needs.checks.outputs.is-hotfix == 'false'
@@ -219,7 +221,7 @@ jobs:
       contents: read
     if: always() && (needs.docker-core.result == 'success' ||
       needs.docker-ccip.result == 'success')
-    needs: [ checks, docker-core, docker-ccip ]
+    needs: [checks, docker-core, docker-ccip]
     uses: ./.github/workflows/release-notifications.yml
     secrets: inherit
     with:
@@ -237,34 +239,38 @@ jobs:
         ${{ needs.docker-core.result == 'success' && format('public.ecr.aws/chainlink/chainlink:{0}|{1}', needs.docker-core.outputs.docker-manifest-tag, needs.docker-core.outputs.docker-manifest-digest) || '' }}
         ${{ needs.docker-ccip.result == 'success' && format('public.ecr.aws/chainlink/ccip:{0}|{1}', needs.docker-ccip.outputs.docker-manifest-tag, needs.docker-ccip.outputs.docker-manifest-digest) || '' }}
 
-  emit-pre-release-image-published-event:
-    name: Emit pre-release image published event
-    needs: [ docker-core, slack-notify ]
+  trigger-post-build-publish:
+    name: Trigger post-build-publish workflow
+    needs: [docker-core, slack-notify]
     if: |
       always() &&
       needs.docker-core.result == 'success'
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      actions: write
     steps:
-      - name: Emit pre-release image published event
+      - name: Trigger post-build-publish workflow
         env:
           DOCKER_MANIFEST_TAG: ${{ needs.docker-core.outputs.docker-manifest-tag }}
-          GITHUB_REF_NAME: ${{ github.ref_name }}
+          TARGET_TAG: ${{ github.ref_name }}
           GH_TOKEN: ${{ github.token }}
           SLACK_THREAD_TS: ${{ needs.slack-notify.outputs.slack-thread-ts }}
         run: |
-          gh api \
-            --method POST \
-            -H "Accept: application/vnd.github+json" \
-            "/repos/${GITHUB_REPOSITORY}/dispatches" \
-            --input - <<JSON
-          {
-            "event_type": "pre-release-image-published",
-            "client_payload": {
-              "chainlink_image_tag": "${DOCKER_MANIFEST_TAG}",
-              "chainlink_version": "${GITHUB_REF_NAME}",
-              "slack_thread_ts": "${SLACK_THREAD_TS}"
-            }
-          }
-          JSON
+          set +e
+          view_out=$(gh workflow view post-build-publish.yml --ref "$TARGET_TAG" --yaml 2>&1)
+          view_status=$?
+          set -e
+          if [ "$view_status" -ne 0 ]; then
+            if echo "$view_out" | grep -qiE '404|not found|could not find.*workflow'; then
+              echo "::warning::post-build-publish.yml is not available at ref $TARGET_TAG (workflow missing on this tag). Skipping trigger."
+              exit 0
+            fi
+            echo "::error::Could not resolve post-build-publish workflow at ref $TARGET_TAG: ${view_out}"
+            exit 1
+          fi
+
+          gh workflow run post-build-publish.yml \
+            --ref "$TARGET_TAG" \
+            -f chainlink_version="$TARGET_TAG" \
+            -f chainlink_image_tag="$DOCKER_MANIFEST_TAG" \
+            -f slack_thread_ts="$SLACK_THREAD_TS"

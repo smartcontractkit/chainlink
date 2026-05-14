@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 
@@ -197,13 +196,4 @@ func (r *LocalCREStateResolver) WorkflowDONNodeInfo() (dbPort int, nodeCount int
 	}
 
 	return nodeSet.DbInput.Port, len(workers), nil
-}
-
-func semverFromFlag(version string) (*semver.Version, error) {
-	parsed, err := semver.NewVersion(version)
-	if err != nil {
-		return nil, errors.Wrapf(err, "invalid contract version %q", version)
-	}
-
-	return parsed, nil
 }

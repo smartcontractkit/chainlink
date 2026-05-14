@@ -19,7 +19,7 @@ import (
 
 const bothSetRegressionSuccess = "HTTP Action multi-headers regression completed"
 
-// Expected Set-Cookie values from the fake server (v2_http_action_test.go).
+// Expected Set-Cookie values from the fake server (http_action_test.go).
 var expectedSetCookieSubstrings = []string{
 	"sessionid=multi-e2e-1",
 	"csrf=multi-e2e-2",

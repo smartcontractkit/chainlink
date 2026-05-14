@@ -42,7 +42,6 @@ Current `env start` flags from source code include:
 - `--with-dashboards`
 - `--with-observability`
 - `--with-billing`
-- `--with-contracts-version`
 - `--setup-config`
 - `--grpc-port`
 
