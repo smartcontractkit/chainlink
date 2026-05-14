@@ -15,6 +15,7 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
 	"github.com/stretchr/testify/require"
 
@@ -397,7 +398,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 			// Build new chain configuration
 			nodeInfo, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 			require.NoError(t, err, "must get node info")
-			mcmsDeploymentCfg := proposalutils.SingleGroupTimelockConfigV2(t)
+			mcmsDeploymentCfg := cldftesthelpers.SingleGroupTimelockConfig(t)
 			newChain := newChainConfigHelper(newChainSelector, deployedEnvironment.FeedChainSel, linkAddress, &nodeInfo, len(nodeInfo.NonBootstraps().PeerIDs()))
 
 			if test.ErrStr != "" {
@@ -642,7 +643,7 @@ func TestValidateTransmitterAddresses(t *testing.T) {
 			FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
 		}
 
-		mcmsDeploymentCfg := proposalutils.SingleGroupTimelockConfigV2(t)
+		mcmsDeploymentCfg := cldftesthelpers.SingleGroupTimelockConfig(t)
 		donIDOffSet := uint32(0)
 		state, err := stateview.LoadOnchainState(e)
 		require.NoError(t, err, "must load onchain state")
