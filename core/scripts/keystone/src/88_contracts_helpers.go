@@ -51,32 +51,32 @@ func WriteOnchainMeta(o *onchainMeta, artefactsDir string) {
 	ensureArtefactsDir(artefactsDir)
 
 	fmt.Println("Writing deployed contract addresses to file...")
-	serialzed := OnChainMetaSerialized{}
+	serialized := OnChainMetaSerialized{}
 
 	if o.OCR3 != nil {
-		serialzed.OCR = o.OCR3.Address()
+		serialized.OCR = o.OCR3.Address()
 	}
 
 	if o.Forwarder != nil {
-		serialzed.Forwarder = o.Forwarder.Address()
+		serialized.Forwarder = o.Forwarder.Address()
 	}
 
-	serialzed.SetConfigTxBlock = o.SetConfigTxBlock
-	serialzed.InitializedVerifierAddress = o.InitializedVerifierAddress
+	serialized.SetConfigTxBlock = o.SetConfigTxBlock
+	serialized.InitializedVerifierAddress = o.InitializedVerifierAddress
 
 	if o.CapabilitiesRegistry != nil {
-		serialzed.CapabilitiesRegistry = o.CapabilitiesRegistry.Address()
+		serialized.CapabilitiesRegistry = o.CapabilitiesRegistry.Address()
 	}
 
 	if o.Verifier != nil {
-		serialzed.Verifier = o.Verifier.Address()
+		serialized.Verifier = o.Verifier.Address()
 	}
 
 	if o.VerifierProxy != nil {
-		serialzed.VerifierProxy = o.VerifierProxy.Address()
+		serialized.VerifierProxy = o.VerifierProxy.Address()
 	}
 
-	jsonBytes, err := json.Marshal(serialzed)
+	jsonBytes, err := json.Marshal(serialized)
 	PanicErr(err)
 
 	err = os.WriteFile(deployedContractsFilePath(artefactsDir), jsonBytes, 0600)
