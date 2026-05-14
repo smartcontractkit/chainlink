@@ -867,7 +867,7 @@ func ConfigureMultiplePoolLogic(env cldf.Environment, c ConfigureMultipleTokenPo
 	}
 	// if there are multiple proposals, aggregate them so that we don't have to propose them separately
 	if len(finalOutput.MCMSTimelockProposals) > 1 {
-		aggregatedProposals, err := proposeutils.AggregateProposals( //nolint:staticcheck will not migrate yet
+		aggregatedProposals, err := proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: not migrating to AggregateProposalsV2 in this PR
 			env,
 			state.EVMMCMSStateByChain(),
 			nil,

@@ -878,7 +878,7 @@ func connectNewChainLogic(env cldf.Environment, c ConnectNewChainConfig) (cldf.C
 	if c.MCMSConfig == nil || len(allProposals) == 0 {
 		return cldf.ChangesetOutput{}, nil
 	}
-	proposal, err := proposeutils.AggregateProposals( //nolint:staticcheck will not migrate yet
+	proposal, err := proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: not migrating to AggregateProposalsV2 in this PR
 		env,
 		state.EVMMCMSStateByChain(),
 		nil,

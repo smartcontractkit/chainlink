@@ -5,19 +5,20 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 	"github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
-
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
+
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
