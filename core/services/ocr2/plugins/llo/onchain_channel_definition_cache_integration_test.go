@@ -1361,9 +1361,13 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 			},
 		}
 
-		mergedOutcome := cdc.Definitions(prevSimulatingOCROutcome)
-		_, has600 := mergedOutcome[600]
-		require.False(t, has600, "merged outcome should not contain dropped tombstoned channel 600")
+		var mergedOutcome llotypes.ChannelDefinitions
+		require.Eventually(t, func() bool {
+			mergedOutcome = cdc.Definitions(prevSimulatingOCROutcome)
+			_, has600 := mergedOutcome[600]
+			return !has600
+		}, 5*time.Second, 100*time.Millisecond,
+			"merged outcome should not contain dropped tombstoned channel 600")
 		_, has601 := mergedOutcome[601]
 		require.True(t, has601, "merged outcome should still contain channel 601")
 		_, has602 := mergedOutcome[602]

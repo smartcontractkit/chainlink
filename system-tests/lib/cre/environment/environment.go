@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -336,7 +335,7 @@ func SetupTestEnvironment(
 		Blockchains:   deployedBlockchains.Outputs,
 		Topology:      topology,
 		Provider:      input.Provider,
-		CapabilitiesRegistryAddress: ptr.Ptr(crecontracts.MustGetAddressFromMemoryDataStore(
+		CapabilitiesRegistryAddress: new(crecontracts.MustGetAddressFromMemoryDataStore(
 			deployKeystoneContractsOutput.MemoryDataStore,
 			deployedBlockchains.RegistryChain().ChainSelector(),
 			keystone_changeset.CapabilitiesRegistry.String(),

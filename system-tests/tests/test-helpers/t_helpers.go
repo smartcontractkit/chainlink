@@ -56,7 +56,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
@@ -583,7 +582,7 @@ func registerWorkflow(ctx context.Context, t *testing.T,
 	donID := wfRegCfg.DonID
 	workflowName := wfRegCfg.WorkflowName
 	binaryURL := "file://" + wfRegCfg.CompressedWasmPath
-	configURL := ptr.Ptr("file://" + wfRegCfg.ConfigFilePath)
+	configURL := new("file://" + wfRegCfg.ConfigFilePath)
 	containerTargetDir := &wfRegCfg.ContainerTargetDir
 
 	if wfRegCfg.ConfigFilePath == "" {

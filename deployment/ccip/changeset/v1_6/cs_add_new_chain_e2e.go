@@ -24,8 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/don_id_claimer"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
+	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/common/changeset"
 
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
@@ -375,7 +374,7 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 	}
 
 	if c.DonIDOffSet != nil {
-		_, err = commoncs.RunChangeset(DonIDClaimerOffSetChangeset, e, DonIDClaimerOffSetConfig{
+		_, err = cldchangeset.RunChangeset(DonIDClaimerOffSetChangeset, e, DonIDClaimerOffSetConfig{
 			OffSet: *c.DonIDOffSet,
 		})
 		if err != nil {
@@ -491,13 +490,13 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 	}, nil
 }
 
-///////////////////////////////////
+// /////////////////////////////////
 // END AddCandidatesForNewChainChangeset
-///////////////////////////////////
+// /////////////////////////////////
 
-///////////////////////////////////
+// /////////////////////////////////
 // START PromoteNewChainForConfigChangeset
-///////////////////////////////////
+// /////////////////////////////////
 
 // PromoteNewChainForConfig is a configuration struct for PromoteNewChainForConfigChangeset.
 type PromoteNewChainForConfig struct {
@@ -673,13 +672,13 @@ func promoteNewChainForConfigLogic(e cldf.Environment, c PromoteNewChainForConfi
 	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
-///////////////////////////////////
+// /////////////////////////////////
 // END PromoteNewChainForConfigChangeset
-///////////////////////////////////
+// /////////////////////////////////
 
-///////////////////////////////////
+// /////////////////////////////////
 // START ConnectNewChainChangeset
-///////////////////////////////////
+// /////////////////////////////////
 
 // ConnectionConfig defines how a chain should connect with other chains.
 type ConnectionConfig struct {
@@ -979,9 +978,9 @@ func connectRampsAndRouters(
 	return proposalAggregate, nil
 }
 
-///////////////////////////////////
+// /////////////////////////////////
 // END ConnectNewChainChangeset
-///////////////////////////////////
+// /////////////////////////////////
 
 func runAndSaveAddresses(fn func() (cldf.ChangesetOutput, error), newAddresses cldf.AddressBook, existingAddresses cldf.AddressBook) error {
 	output, err := fn()

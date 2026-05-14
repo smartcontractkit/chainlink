@@ -1,9 +1,19 @@
 ---
-name: fix-chainlink-tests
+name: debug-test-failure
 description: >-
-  Diagnoses and fixes unstable Chainlink Go tests (flakes, races, timeouts, deadlocks,
-  slow runs). Use for non-deterministic failures or slow tests.
-  Do NOT use for deterministic failures, routine runs, or full-suite CI prep.
+  A deep-dive diagnostic tool for fixing Go test failures (flakes, races, timeouts,
+  deadlocks) identified during local development or active CI failures.
+
+  USE THIS WHEN:
+  1. You have a specific, known failing test name or local error log.
+  2. You are currently working on a branch and need to fix a regression or a new flake.
+  3. The failure is NOT necessarily tracked in JIRA or indexed by Trunk.io yet.
+  4. You need to perform deep "forensic" code analysis and manual fix iterations.
+
+  DO NOT USE THIS WHEN:
+  1. Processing a batch of existing JIRA tickets (use 'backlog-flaky-test-pipeline' instead).
+  2. You require automated JIRA status updates or Trunk.io integration.
+  3. The goal is bulk technical debt reduction from a project backlog.
 ---
 
 <absolute_constraints>
@@ -40,7 +50,7 @@ Base Command: `go -C tools/test run . diagnose [harness_flags] -- [go_test_flags
 5. Form a hypothesis on the cause of the issues
 6. Implement a fix
 7. Output the hypothesis and attempted fix, plus reasons why you think it would work.
-8. Run a `diagnose` loop and read the `report.json` file using jq to see if the fix works. 
+8. Run a `diagnose` loop and read the `report.json` file using jq to see if the fix works.
   Append to `diagnose-attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` file in this json format:
   ```json
   {"timestamp": "[current_timestamp]", "model": "[current-model] (e.g. `claude-sonnet-4.6/high`, `gemini-3.1-pro`)", "hypothesis": "Your original hypothesis for the issue", "experiment": "A concise summary of what you tried. Include small code snippets if helpful", "result": "Did it fix it or not? If not, give concise reason why", "next": "Next steps to attempt"}
@@ -94,7 +104,7 @@ When summarizing/compacting/compressing context, strictly maintain a reference t
 </logs_structure>
 
 <sub_agent_protocol>
-When reading log files from the `logs/` directory or `iteration-n.log.jsonl`, you MUST spawn a specialist `LogAnalyzer` sub-agent. 
+When reading log files from the `logs/` directory or `iteration-n.log.jsonl`, you MUST spawn a specialist `LogAnalyzer` sub-agent.
 
 You MUST configure the sub-agent with these exact initialization parameters:
 1. System Prompt: "You are a headless, read-only log parser. Your sole purpose is to read Go test logs from the end up. Each log file contains logs from `chainlink` nodes, plus test-specific logs. Read the logs and construct possible reasons why the test [input reason we're investigating]. You do not converse. You output raw JSON and nothing else."

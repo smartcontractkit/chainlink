@@ -32,20 +32,21 @@ import (
 //     makes that inequality fail sooner as TTL decays, so the stream becomes a refresh driver earlier after each write
 //     (higher freshness, more pipeline work); a smaller threshold lengthens the no-driver interval (staler reads, less load).
 //   - Keep staleRefreshSkipThreshold(T)+observationLoopPacing(T) < cacheEntryTTL(T) (same T throughout). With
-//     num/den = 8/5 and default pacing = T/10, (8/5+1/10)·T = 1.7·T < 2·T.
+//     num/den = 6/4 (= 3/2·T stale) and divisor 2 (raw T/2 pacing), observationLoopPacing caps at (cacheEntryTTL−stale−1ns)
+//     so the strict inequality holds (same cap whenever raw T/divisor would exceed that budget).
 //
-// Example timings for observationTimeout T = 250ms (cacheTTLMultiplier=2, pacing divisor=10, staleRefresh num/den = 8/5):
+// Example timings for observationTimeout T = 250ms (cacheTTLMultiplier=2, pacing divisor=2, staleRefresh num/den = 6/4):
 //   - cacheEntryTTL = 2·T = 500ms — TTL applied on successful per-pipeline-group AddMany writes.
-//   - staleRefreshSkipThreshold = (8/5)·T = 400ms — a stream in the plugin scope is not a refresh driver while time.Until(expiresAt) > 400ms.
-//   - observationLoopPacing = T/10 = 25ms (≥ observationLoopPacingMin and ≤ T/2) — minimum delay between loop iterations after the first (plugin Observe may wake the loop earlier; see loopWakeCh).
+//   - staleRefreshSkipThreshold = (6/4)·T = 375ms — a stream in the plugin scope is not a refresh driver while time.Until(expiresAt) > 375ms.
+//   - observationLoopPacing targets T/2 = 125ms and is capped to (2−6/4)·T − 1ns = 125ms − 1ns (≥ observationLoopPacingMin and ≤ min(T/2, that cap)) — minimum delay between loop iterations after the first (plugin Observe may wake the loop earlier; see loopWakeCh).
 //   - per-iteration context uses WithTimeout(..., T) = 250ms — ceiling on wall time for one observation loop iteration (pipeline workers run in parallel under that deadline).
 const (
 	cacheTTLMultiplier                     = 2
-	staleRefreshRemainingNumerator   int64 = 8
-	staleRefreshRemainingDenominator int64 = 5
+	staleRefreshRemainingNumerator   int64 = 6
+	staleRefreshRemainingDenominator int64 = 4
 
 	observationLoopPacingMin     = 10 * time.Millisecond
-	observationLoopPacingDivisor = 10 // pacing default = T/10, capped below
+	observationLoopPacingDivisor = 2 // pacing targets T/2, capped below by cache invariant
 )
 
 func cacheEntryTTL(observationTimeout time.Duration) time.Duration {
@@ -61,13 +62,18 @@ func staleRefreshSkipThreshold(observationTimeout time.Duration) time.Duration {
 }
 
 // observationLoopPacing returns the minimum time between observation loop iterations to cap CPU while
-// staying responsive relative to T. Scales with T, clamped to [observationLoopPacingMin, T/2].
+// staying responsive relative to T. Scales with T/divisor, clamped to [observationLoopPacingMin, min(T/2,
+// cacheEntryTTL(T)−staleRefreshSkipThreshold(T)−1ns)] so staleRefreshSkipThreshold+observationLoopPacing < cacheEntryTTL.
 func observationLoopPacing(observationTimeout time.Duration) time.Duration {
 	if observationTimeout <= 0 {
 		return observationLoopPacingMin
 	}
 	p := observationTimeout / observationLoopPacingDivisor
+	invMax := cacheEntryTTL(observationTimeout) - staleRefreshSkipThreshold(observationTimeout) - time.Nanosecond
 	maxP := observationTimeout / 2
+	if invMax < maxP {
+		maxP = invMax
+	}
 	if p < observationLoopPacingMin {
 		p = observationLoopPacingMin
 	}
