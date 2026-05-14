@@ -46,7 +46,7 @@
   # because bootstrap job for capability DON will be created on the boostrap node from this DON
   supported_evm_chains = [1337, 2337]
 
-  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"BaseTriggerRetransmitEnabled":"true"}}' }
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
   capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337"]
   registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
@@ -77,7 +77,7 @@
   # to identify nodes in the gateway configuration (required by vault and gateway-based HTTP capabilities)
   supported_evm_chains = [1337, 2337]
 
-  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"BaseTriggerRetransmitEnabled":"true"}}' }
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
   capabilities = ["vault", "evm-2337"]
 
   [nodesets.db]
@@ -100,7 +100,7 @@
   override_mode = "each"
   http_port_range_start = 10300
 
-  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"BaseTriggerRetransmitEnabled":"true"}}' }
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
   supported_evm_chains = [1337, 2337]
 
   [nodesets.db]
