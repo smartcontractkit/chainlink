@@ -46,8 +46,6 @@ State:
 Config:   Name = 'Blue'
 URL = 'wss://primaryfoo.bar'
 SendOnly = false
-Order = 100
-IsLoadBalancedRPC = false
 
 -----------------------------
 Name:     Yellow
@@ -56,7 +54,5 @@ State:
 Config:   Name = 'Yellow'
 URL = 'wss://sendonlyfoo.bar'
 SendOnly = false
-Order = 100
-IsLoadBalancedRPC = false
 
 -----------------------------
