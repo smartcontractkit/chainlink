@@ -1184,8 +1184,8 @@ github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260
 github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260415165642-49f23e4d76cc/go.mod h1:67YbnoglYD61Pz/jTVCgav9wFq7S35OU8UyQSvPllRw=
 github.com/smartcontractkit/chainlink-ccv v0.0.2-0.20260428133800-3b1484e8b1fd h1:IMopuENFVS63AerRELdfWo6o60UNUidcldJOxJLmk24=
 github.com/smartcontractkit/chainlink-ccv v0.0.2-0.20260428133800-3b1484e8b1fd/go.mod h1:SBN8Urnh5sQvrQRbSo1Nr8coWatHg8LZoPw3R/42sho=
-github.com/smartcontractkit/chainlink-common v0.11.2-0.20260514144456-29b2f52c4fcf h1:Ai7bHctBPlhYwGn3+NIH/jXachC1eOpvDxQWLLjmjpY=
-github.com/smartcontractkit/chainlink-common v0.11.2-0.20260514144456-29b2f52c4fcf/go.mod h1:B+eYJSQmOc28kzs7OwJjwo0DEV2f01HnUk89r9R1d/Y=
+github.com/smartcontractkit/chainlink-common v0.11.2-0.20260515125558-1eb2e4fc64a1 h1:pPx5rWxigU4F9NB0Ey0fkHsZFA0kPYrcg7E2Nvn0XhI=
+github.com/smartcontractkit/chainlink-common v0.11.2-0.20260515125558-1eb2e4fc64a1/go.mod h1:B+eYJSQmOc28kzs7OwJjwo0DEV2f01HnUk89r9R1d/Y=
 github.com/smartcontractkit/chainlink-common/keystore v1.1.0 h1:2wzySccgk2fpWusPKO0bpeAZzfSU9eq6CS5U+JwYaVo=
 github.com/smartcontractkit/chainlink-common/keystore v1.1.0/go.mod h1:6JexOOhPhknQ0QMuppFIlOpm6wCp54yZMxai+tWugwY=
 github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.10 h1:FJAFgXS9oqASnkS03RE1HQwYQQxrO4l46O5JSzxqLgg=

@@ -540,6 +540,21 @@ TLSEnabled = true # Default
 # Name is a required unique identifier for this workflow source. Each additional source must have a distinct name to prevent workflow reconciliation conflicts. Names like 'ContractWorkflowSource' are reserved for internal use.
 Name = 'my-workflow-source' # Example
 
+[Capabilities.WorkflowRegistry.ModuleCache]
+# Enabled activates the two-level module cache (LRU + disk). When true, compiled WASM modules
+# are kept in memory and persisted to disk, avoiding recompilation on subsequent activations.
+Enabled = false # Default
+# IdleEviction enables time-based eviction of modules unused for IdleTimeout.
+IdleEviction = true # Default
+# IdleTimeout is how long a module can remain idle before being evicted from memory.
+# Only applies when IdleEviction = true.
+IdleTimeout = '10m' # Default
+# MaxLoaded caps the number of simultaneously loaded modules. When exceeded the least-recently-used
+# module is evicted immediately. 0 means no cap.
+MaxLoaded = 200 # Default
+# CacheDir is the directory for serialised module binaries. Empty uses a temp directory.
+CacheDir = '' # Default
+
 [Workflows]
 [Workflows.Limits]
 # Global is the maximum number of workflows that can be registered globally.

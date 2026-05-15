@@ -90,6 +90,11 @@ type eventHandler struct {
 	// localSecretOverrides is keyed by owner address; values are secret id -> secret value
 	localSecretOverrides map[string]map[string]string
 
+	moduleLRU           *ModuleLRU
+	moduleStore         artifacts.SerialisedModuleStore
+	cacheMetrics        *CacheMetrics
+	moduleEngineVersion string
+
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
 	// WorkflowRegistryChainSelector is the chain selector for the workflow registry
@@ -109,6 +114,9 @@ type eventHandler struct {
 
 	metrics *metrics
 }
+
+// EventHandlerOption is a functional option for configuring an eventHandler.
+type EventHandlerOption = func(*eventHandler)
 
 func WithEngineRegistry(er *EngineRegistry) func(*eventHandler) {
 	return func(e *eventHandler) {
@@ -212,6 +220,33 @@ func WithLocalSecretOverrides(lggr logger.Logger, perOwner map[string]map[string
 	}
 }
 
+func WithModuleLRU(lru *ModuleLRU) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.moduleLRU = lru
+	}
+}
+
+func WithModuleStore(store artifacts.SerialisedModuleStore) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.moduleStore = store
+	}
+}
+
+func WithModuleCacheMetrics(cm *CacheMetrics) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.cacheMetrics = cm
+	}
+}
+
+// WithModuleEngineVersion sets the engine version tag persisted alongside cached module
+// binaries and compared on reload. Reloads from an older version are rejected with a log
+// and a metric, ensuring process upgrades never reuse ABI-incompatible binaries.
+func WithModuleEngineVersion(v string) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.moduleEngineVersion = v
+	}
+}
+
 type WorkflowArtifactsStore interface {
 	FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryIdentifier, configIdentifier string) ([]byte, []byte, error)
 	GetWorkflowSpec(ctx context.Context, workflowID string) (*job.WorkflowSpec, error)
@@ -280,13 +315,24 @@ func NewEventHandler(
 
 	eh.Service, eh.eng = services.Config{
 		Name:  "EventHandler",
+		Start: eh.start,
 		Close: eh.close,
 	}.NewServiceEngine(lggr)
 
 	return eh, nil
 }
 
+func (h *eventHandler) start(_ context.Context) error {
+	if h.moduleLRU != nil {
+		h.moduleLRU.Start()
+	}
+	return nil
+}
+
 func (h *eventHandler) close() error {
+	if h.moduleLRU != nil {
+		h.moduleLRU.Close()
+	}
 	es := h.engineRegistry.PopAll()
 	cs := make([]io.Closer, 0, len(es)+1)
 	cs = append(cs, h.engineLimiters)
@@ -707,7 +753,23 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	}
 
 	// V2 aka "NoDAG"
-	cfg := h.newV2EngineConfig(module, workflowID, owner, tag, sdkName, name, config)
+	var engineModule host.ModuleV2 = module
+	if h.moduleLRU != nil && h.moduleStore != nil {
+		storeStart := time.Now()
+		storeErr := h.moduleStore.StoreModule(workflowID, binary, h.moduleEngineVersion)
+		if h.metrics != nil {
+			h.metrics.recordModuleStore(ctx, time.Since(storeStart), storeErr == nil)
+		}
+		if storeErr != nil {
+			h.lggr.Warnw("Failed to cache module binary to disk, LRU eviction disabled for this workflow", "workflowID", workflowID, "err", storeErr)
+		} else {
+			evictable := NewEvictableModule(module, moduleConfig, h.moduleStore, workflowID, h.moduleEngineVersion, nil, h.cacheMetrics, int64(len(binary)), host.WithDeterminism())
+			h.moduleLRU.Register(workflowID, evictable)
+			engineModule = evictable
+		}
+	}
+
+	cfg := h.newV2EngineConfig(engineModule, workflowID, owner, tag, sdkName, name, config)
 
 	h.wireInitDoneHook(cfg, initDone)
 
@@ -765,6 +827,8 @@ func (h *eventHandler) workflowDeletedEvent(
 		return fmt.Errorf("failed to delete workflow artifacts: %w", err)
 	}
 
+	h.cleanupModuleCache(payload.WorkflowID.Hex())
+
 	_, err := h.engineRegistry.Pop(payload.WorkflowID)
 	if errors.Is(err, ErrNotFound) {
 		return nil
@@ -792,6 +856,8 @@ func (h *eventHandler) tryEngineCleanup(workflowID types.WorkflowID) error {
 			return fmt.Errorf("failed to close workflow engine: %w", err)
 		}
 
+		h.cleanupModuleCache(workflowID.Hex())
+
 		// Remove the engine from the registry
 		_, err := h.engineRegistry.Pop(workflowID)
 		if err != nil {
@@ -799,6 +865,17 @@ func (h *eventHandler) tryEngineCleanup(workflowID types.WorkflowID) error {
 		}
 	}
 	return nil
+}
+
+func (h *eventHandler) cleanupModuleCache(workflowID string) {
+	if h.moduleLRU != nil {
+		h.moduleLRU.Deregister(workflowID)
+	}
+	if h.moduleStore != nil {
+		if err := h.moduleStore.DeleteModule(workflowID); err != nil {
+			h.lggr.Warnw("Failed to delete cached module binary", "workflowID", workflowID, "err", err)
+		}
+	}
 }
 
 // tryEngineCreate attempts to create a new workflow engine, start it, and register it with the engine registry.
