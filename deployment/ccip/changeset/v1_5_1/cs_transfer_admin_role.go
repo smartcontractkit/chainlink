@@ -7,10 +7,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
@@ -87,7 +88,7 @@ func transferAdminRolePrecondition(e cldf.Environment, cfg TransferAdminRoleConf
 			currentAdmin = chainState.Timelock.Address()
 		}
 
-		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, currentAdmin, chainState.Timelock.Address(), chainState.TokenAdminRegistry); err != nil {
+		if err := mcmschangesets.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, currentAdmin, chainState.Timelock.Address(), chainState.TokenAdminRegistry); err != nil {
 			return fmt.Errorf("token admin registry failed ownership validation on %s: %w", chain, err)
 		}
 

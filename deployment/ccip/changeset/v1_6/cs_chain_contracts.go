@@ -12,6 +12,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -136,7 +137,7 @@ func (cfg UpdateNonceManagerConfig) Validate(e cldf.Environment) error {
 			return fmt.Errorf("missing chain %d in environment", sourceSel)
 		}
 		if !cfg.SkipOwnershipCheck {
-			if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, sourceChain.DeployerKey.From, sourceChainState.Timelock.Address(), sourceChainState.NonceManager); err != nil {
+			if err := mcmschangesets.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, sourceChain.DeployerKey.From, sourceChainState.Timelock.Address(), sourceChainState.NonceManager); err != nil {
 				return fmt.Errorf("chain %s: %w", sourceChain.String(), err)
 			}
 		}
@@ -294,7 +295,7 @@ func (cfg UpdateOnRampDestsConfig) Validate(e cldf.Environment) error {
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
 		}
 		if !cfg.SkipOwnershipCheck {
-			if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.BlockChains.EVMChains()[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.OnRamp); err != nil {
+			if err := mcmschangesets.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.BlockChains.EVMChains()[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.OnRamp); err != nil {
 				return err
 			}
 		}
@@ -388,7 +389,7 @@ func (cfg UpdateOnRampDynamicConfig) Validate(e cldf.Environment, state statevie
 		if err := stateview.ValidateChain(e, state, chainSel, cfg.MCMS); err != nil {
 			return err
 		}
-		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.BlockChains.EVMChains()[chainSel].DeployerKey.From, state.Chains[chainSel].Timelock.Address(), state.Chains[chainSel].OnRamp); err != nil {
+		if err := mcmschangesets.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.BlockChains.EVMChains()[chainSel].DeployerKey.From, state.Chains[chainSel].Timelock.Address(), state.Chains[chainSel].OnRamp); err != nil {
 			return err
 		}
 		if state.Chains[chainSel].FeeQuoter == nil {
@@ -652,7 +653,7 @@ func (cfg WithdrawOnRampFeeTokensConfig) Validate(e cldf.Environment, state stat
 		if err := stateview.ValidateChain(e, state, chainSel, cfg.MCMS); err != nil {
 			return err
 		}
-		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.BlockChains.EVMChains()[chainSel].DeployerKey.From, state.Chains[chainSel].Timelock.Address(), state.Chains[chainSel].OnRamp); err != nil {
+		if err := mcmschangesets.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.BlockChains.EVMChains()[chainSel].DeployerKey.From, state.Chains[chainSel].Timelock.Address(), state.Chains[chainSel].OnRamp); err != nil {
 			return err
 		}
 		feeQuoter := state.Chains[chainSel].FeeQuoter
@@ -766,7 +767,7 @@ func (cfg UpdateFeeQuoterPricesConfig) Validate(e cldf.Environment) error {
 		if fq == nil {
 			return fmt.Errorf("missing fee quoter for chain %d", chainSel)
 		}
-		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.BlockChains.EVMChains()[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.FeeQuoter); err != nil {
+		if err := mcmschangesets.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.BlockChains.EVMChains()[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.FeeQuoter); err != nil {
 			return err
 		}
 		// check that whether price updaters are set
@@ -907,7 +908,7 @@ func (cfg UpdateFeeQuoterDestsConfig) Validate(e cldf.Environment) error {
 		if chainState.OnRamp == nil {
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
 		}
-		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.BlockChains.EVMChains()[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.FeeQuoter); err != nil {
+		if err := mcmschangesets.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.BlockChains.EVMChains()[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.FeeQuoter); err != nil {
 			return err
 		}
 
@@ -1104,7 +1105,7 @@ func (cfg UpdateOffRampSourcesConfig) Validate(e cldf.Environment, state statevi
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
 		}
 		if !cfg.SkipOwnershipCheck {
-			if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.BlockChains.EVMChains()[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.OffRamp); err != nil {
+			if err := mcmschangesets.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.BlockChains.EVMChains()[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.OffRamp); err != nil {
 				return err
 			}
 		}
@@ -1229,14 +1230,14 @@ func (cfg UpdateRouterRampsConfig) Validate(e cldf.Environment, state stateview.
 		if !cfg.SkipOwnershipCheck {
 			if cfg.TestRouter {
 				// If activating on the test router, we don't need the other CCIP contracts to have proper ownership.
-				if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.BlockChains.EVMChains()[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.TestRouter); err != nil {
+				if err := mcmschangesets.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.BlockChains.EVMChains()[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.TestRouter); err != nil {
 					return err
 				}
 			} else if cfg.MCMS == nil {
 				// If we are not using MCMS, then we know we aren't in a production environment given the EnforceMCMSUsageIfProd check above.
 				// In this case, we only need to validate that the router contract is owned by the deployer key.
 				// We don't care about uniform ownership in non-production environments.
-				if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.BlockChains.EVMChains()[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.Router); err != nil {
+				if err := mcmschangesets.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.BlockChains.EVMChains()[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.Router); err != nil {
 					return err
 				}
 			} else {
@@ -1427,7 +1428,7 @@ func (c SetOCR3OffRampConfig) validateRemoteChain(e *cldf.Environment, state *st
 		if !ok {
 			return fmt.Errorf("remote chain %d not found in onchain state", chainSelector)
 		}
-		if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMS != nil, e.BlockChains.EVMChains()[chainSelector].DeployerKey.From, chainState.Timelock.Address(), chainState.OffRamp); err != nil {
+		if err := mcmschangesets.ValidateOwnership(e.GetContext(), c.MCMS != nil, e.BlockChains.EVMChains()[chainSelector].DeployerKey.From, chainState.Timelock.Address(), chainState.OffRamp); err != nil {
 			return err
 		}
 	case chain_selectors.FamilySui:
@@ -1587,7 +1588,7 @@ func (cfg UpdateDynamicConfigOffRampConfig) Validate(e cldf.Environment) error {
 				"GasForCallExactCheck is set, please note it's a static config and will be ignored for this changeset",
 				"chain", chainSel, "gas", params.GasForCallExactCheck)
 		}
-		if err := commoncs.ValidateOwnership(
+		if err := mcmschangesets.ValidateOwnership(
 			e.GetContext(),
 			cfg.MCMS != nil,
 			e.BlockChains.EVMChains()[chainSel].DeployerKey.From,
@@ -1785,7 +1786,7 @@ func (cfg ApplyFeeTokensUpdatesConfig) Validate(e cldf.Environment) error {
 				return fmt.Errorf("token %s not found for in state chain %d", token, chainSel)
 			}
 		}
-		if err := commoncs.ValidateOwnership(
+		if err := mcmschangesets.ValidateOwnership(
 			e.GetContext(),
 			cfg.MCMSConfig != nil,
 			e.BlockChains.EVMChains()[chainSel].DeployerKey.From,
@@ -1889,7 +1890,7 @@ func (cfg UpdateTokenPriceFeedsConfig) Validate(e cldf.Environment) error {
 				return fmt.Errorf("price feed for token %s not found in state for chain %d", update.SourceToken, chainSel)
 			}
 		}
-		if err := commoncs.ValidateOwnership(
+		if err := mcmschangesets.ValidateOwnership(
 			e.GetContext(),
 			cfg.MCMS != nil,
 			e.BlockChains.EVMChains()[chainSel].DeployerKey.From,
@@ -2031,7 +2032,7 @@ func (cfg PremiumMultiplierWeiPerEthUpdatesConfig) Validate(e cldf.Environment) 
 				return fmt.Errorf("missing premium multiplier for chain %d", chainSel)
 			}
 		}
-		if err := commoncs.ValidateOwnership(
+		if err := mcmschangesets.ValidateOwnership(
 			e.GetContext(),
 			cfg.MCMS != nil,
 			e.BlockChains.EVMChains()[chainSel].DeployerKey.From,
@@ -2152,7 +2153,7 @@ func (cfg ApplyTokenTransferFeeConfigUpdatesConfig) Validate(e cldf.Environment)
 					"error getting token transfer fee config for token %s in chain %d: %w", remove.Token, chainSel, err)
 			}
 		}
-		if err := commoncs.ValidateOwnership(
+		if err := mcmschangesets.ValidateOwnership(
 			e.GetContext(),
 			cfg.MCMS != nil,
 			e.BlockChains.EVMChains()[chainSel].DeployerKey.From,
@@ -2268,7 +2269,7 @@ func (cfg UpdateWrappedNativeOnRouterConfig) Validate(e cldf.Environment) error 
 			return fmt.Errorf("missing chain %d in environment", chainSel)
 		}
 
-		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, chain.DeployerKey.From, chainState.Timelock.Address(), chainState.Router); err != nil {
+		if err := mcmschangesets.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, chain.DeployerKey.From, chainState.Timelock.Address(), chainState.Router); err != nil {
 			return fmt.Errorf("chain %s: %w", chain.String(), err)
 		}
 

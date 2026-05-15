@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"text/template"
@@ -21,7 +23,6 @@ import (
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	cre_jobs_pkg "github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
@@ -39,9 +40,14 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/jobhelpers"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
+
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 )
 
 const (
@@ -66,7 +72,7 @@ func (o *EVM) PreEnvStartup(
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 ) (*cre.PreEnvStartupOutput, error) {
-	chainsWithForwarders := evm.ChainsWithForwarders(creEnv.Blockchains, cre.ConvertToNodeSetWithChainCapabilities(topology.NodeSets()))
+	chainsWithForwarders := chainsWithForwarders(creEnv.Blockchains, cre.ConvertToNodeSetWithChainCapabilities(topology.NodeSets()))
 	evmForwardersSelectors, exist := chainsWithForwarders[blockchain.FamilyEVM]
 
 	if exist {
@@ -80,30 +86,19 @@ func (o *EVM) PreEnvStartup(
 		}
 
 		if len(selectorsToDeploy) > 0 {
-			deployErr := evm.DeployEVMForwarders(testLogger, creEnv.CldfEnvironment, selectorsToDeploy, creEnv.ContractVersions)
+			deployErr := deployEVMForwarders(testLogger, creEnv.CldfEnvironment, selectorsToDeploy, creEnv.ContractVersions)
 			if deployErr != nil {
 				return nil, errors.Wrap(deployErr, "failed to deploy EVM Keystone forwarder")
 			}
 		}
 	}
 
-	// update node configs to include evm v2 configuration
-	workerNodes, wErr := don.Workers()
-	if wErr != nil {
-		return nil, errors.Wrap(wErr, "failed to find worker nodes")
-	}
-	for _, workerNode := range workerNodes {
-		currentConfig := don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-		currentConfigPtr := ptr.Ptr(currentConfig)
-		don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *currentConfigPtr
-	}
-
-	capabilities := []keystone_changeset.DONCapabilityWithConfig{}
-
 	enabledChainIDs, err := don.MustNodeSet().GetEnabledChainIDsForCapability(flag)
 	if err != nil {
 		return nil, fmt.Errorf("could not find enabled chainIDs for '%s' in don '%s': %w", flag, don.Name, err)
 	}
+
+	capabilities := []keystone_changeset.DONCapabilityWithConfig{}
 
 	for _, chainID := range enabledChainIDs {
 		selector, selectorErr := chainselectors.SelectorFromChainId(chainID)
@@ -157,19 +152,18 @@ func (o *EVM) PostEnvStartup(
 		return jobsErr
 	}
 
-	// configure EVM forwarders
-	consensusDons := dons.DonsWithFlags(cre.ConsensusCapability, cre.ConsensusCapabilityV2)
+	// configure EVM forwarders for DONs that run consensus
+	consensusDons := dons.DonsWithFlags(cre.ConsensusCapability)
 
-	// for now we end up configuring forwarders twice, if the same chain has both evm v1 and v2 capabilities enabled
-	// it doesn't create any issues, but ideally we wouldn't do that
+	// Forwarders may be configured when multiple DONs share chains with EVM capability; duplicate configuration is harmless.
 	chainsWithEVMCapability := chainsWithEVMCapability(creEnv.Blockchains, dons.DonsWithFlag(flag))
 	if len(chainsWithEVMCapability) > 0 {
 		evmChainsWithForwarders := make([]uint64, 0)
-		for chainID := range chainsWithEVMCapability {
-			evmChainsWithForwarders = append(evmChainsWithForwarders, uint64(chainID))
+		for _, chainSelector := range chainsWithEVMCapability {
+			evmChainsWithForwarders = append(evmChainsWithForwarders, uint64(chainSelector))
 		}
 		for _, don := range consensusDons {
-			config, confErr := evm.ConfigureEVMForwarders(testLogger, creEnv.CldfEnvironment, evmChainsWithForwarders, don)
+			config, confErr := configureEVMForwarders(testLogger, creEnv.CldfEnvironment, evmChainsWithForwarders, don)
 			if confErr != nil {
 				return errors.Wrap(confErr, "failed to configure EVM forwarders")
 			}
@@ -356,7 +350,7 @@ func createJobs(
 				Domain:      offchain.ProductLabel,
 				Environment: cre.EnvironmentName,
 				DONName:     don.Name,
-				JobName:     fmt.Sprintf("evm-capabilities-v2-%d", chainID),
+				JobName:     fmt.Sprintf("evm-worker-%d", chainID),
 				ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
 				DONFilters: []offchain.TargetDONFilter{
 					{Key: offchain.FilterKeyDONName, Value: don.Name},
@@ -385,12 +379,12 @@ func createJobs(
 
 			workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)
 			if workerVerErr != nil {
-				return fmt.Errorf("precondition verification failed for EVM v2 worker job: %w", workerVerErr)
+				return fmt.Errorf("precondition verification failed for EVM worker job: %w", workerVerErr)
 			}
 
 			workerReport, workerErr := cre_jobs.ProposeJobSpec{}.Apply(*creEnv.CldfEnvironment, workerInput)
 			if workerErr != nil {
-				return fmt.Errorf("failed to propose EVM v2 worker job spec: %w", workerErr)
+				return fmt.Errorf("failed to propose EVM worker job spec: %w", workerErr)
 			}
 
 			specs := make(map[string][]string)
@@ -427,7 +421,7 @@ func createJobs(
 
 	approveErr := jobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs)
 	if approveErr != nil {
-		return fmt.Errorf("failed to approve EVM v2 jobs: %w", approveErr)
+		return fmt.Errorf("failed to approve EVM jobs: %w", approveErr)
 	}
 
 	return nil
@@ -516,4 +510,127 @@ func readActionConfig() *capabilitiespb.CapabilityMethodConfig {
 			},
 		},
 	}
+}
+
+func deployEVMForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, chainSelectors []uint64, contractVersions map[cre.ContractType]*semver.Version) error {
+	memoryDatastore, mErr := contracts.NewDataStoreFromExisting(cldfEnv.DataStore)
+	if mErr != nil {
+		return fmt.Errorf("failed to create memory datastore: %w", mErr)
+	}
+
+	evmForwardersReport, deployErr := operations.ExecuteSequence(
+		cldfEnv.OperationsBundle,
+		forwarder.DeploySequence,
+		forwarder.DeploySequenceDeps{
+			Env: cldfEnv,
+		},
+		forwarder.DeploySequenceInput{
+			Targets: chainSelectors,
+		},
+	)
+	if deployErr != nil {
+		return errors.Wrap(deployErr, "failed to deploy evm forwarder")
+	}
+
+	if err := memoryDatastore.Merge(evmForwardersReport.Output.Datastore); err != nil {
+		return errors.Wrap(err, "failed to merge datastore with Keystone contracts addresses")
+	}
+
+	for _, selector := range chainSelectors {
+		forwarderAddr := contracts.MustGetAddressFromMemoryDataStore(memoryDatastore, selector, keystone_changeset.KeystoneForwarder.String(), contractVersions[keystone_changeset.KeystoneForwarder.String()], "")
+		testLogger.Info().Msgf("Deployed EVM Forwarder %s contract on chain %d at %s", contractVersions[keystone_changeset.KeystoneForwarder.String()], selector, forwarderAddr)
+	}
+
+	cldfEnv.DataStore = memoryDatastore.Seal()
+
+	return nil
+}
+
+func configureEVMForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment, chainSelectors []uint64, ocr3DON *cre.Don) (*forwarder.Config, error) {
+	forwarderCfg := forwarder.DonConfiguration{
+		Name:    ocr3DON.Name,
+		ID:      libc.MustSafeUint32FromUint64(ocr3DON.ID),
+		F:       ocr3DON.F,
+		Version: 1, // TODO this should be dynamic, but we don't have cap reg configured at this point, can we get that version from forwarder contract?
+		NodeIDs: ocr3DON.KeystoneDONConfig().NodeIDs,
+	}
+
+	if len(chainSelectors) == 0 {
+		for _, chain := range cldfEnv.BlockChains.EVMChains() {
+			chainSelectors = append(chainSelectors, chain.Selector)
+		}
+	}
+
+	chainsByQualifier := make(map[string]map[uint64]struct{})
+	for _, selector := range chainSelectors {
+		refs := cldfEnv.DataStore.Addresses().Filter(
+			datastore.AddressRefByChainSelector(selector),
+			datastore.AddressRefByType(datastore.ContractType(keystone_changeset.KeystoneForwarder.String())),
+		)
+		if len(refs) == 0 {
+			return nil, fmt.Errorf("failed to resolve deployed forwarder for chain selector %d", selector)
+		}
+
+		for _, ref := range refs {
+			if chainsByQualifier[ref.Qualifier] == nil {
+				chainsByQualifier[ref.Qualifier] = make(map[uint64]struct{})
+			}
+			chainsByQualifier[ref.Qualifier][selector] = struct{}{}
+		}
+	}
+
+	qualifiers := make([]string, 0, len(chainsByQualifier))
+	for qualifier := range chainsByQualifier {
+		qualifiers = append(qualifiers, qualifier)
+	}
+	sort.Strings(qualifiers)
+
+	var configuredConfig forwarder.Config
+	for _, qualifier := range qualifiers {
+		fout, err := operations.ExecuteSequence(
+			cldfEnv.OperationsBundle,
+			forwarder.ConfigureSeq,
+			forwarder.ConfigureSeqDeps{
+				Env: cldfEnv,
+			},
+			forwarder.ConfigureSeqInput{
+				DON:       forwarderCfg,
+				Qualifier: qualifier,
+				Chains:    chainsByQualifier[qualifier],
+			},
+		)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to configure forwarders with qualifier %q", qualifier)
+		}
+		configuredConfig = fout.Output.Config
+	}
+
+	return &configuredConfig, nil
+}
+
+func chainsWithForwarders(blockchains []blockchains.Blockchain, nodeSets []cre.NodeSetWithCapabilityConfigs) map[string][]uint64 {
+	chainsWithForwarders := make(map[string][]uint64)
+
+	for _, bcOut := range blockchains {
+		for _, nodeSet := range nodeSets {
+			if chainSelectors, familyExists := chainsWithForwarders[bcOut.ChainFamily()]; familyExists {
+				if slices.Contains(chainSelectors, bcOut.ChainSelector()) {
+					continue
+				}
+			}
+
+			if !bcOut.IsFamily(chainselectors.FamilyEVM) && !bcOut.IsFamily(chainselectors.FamilyTron) {
+				continue
+			}
+
+			if flags.RequiresForwarderContract(nodeSet.GetCapabilityFlags(), bcOut.ChainID()) {
+				if _, exists := chainsWithForwarders[bcOut.ChainFamily()]; !exists {
+					chainsWithForwarders[bcOut.ChainFamily()] = []uint64{}
+				}
+				chainsWithForwarders[bcOut.ChainFamily()] = append(chainsWithForwarders[bcOut.ChainFamily()], bcOut.ChainSelector())
+			}
+		}
+	}
+
+	return chainsWithForwarders
 }

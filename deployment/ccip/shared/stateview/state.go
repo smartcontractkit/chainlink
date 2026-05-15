@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/transparent_upgradeable_proxy"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	"golang.org/x/exp/maps"
@@ -634,7 +635,7 @@ func (c CCIPOnChainState) ValidateOwnershipOfChain(e cldf.Environment, chainSel 
 				errs <- fmt.Errorf("missing %s contract on %s", name, chain)
 				return
 			}
-			err := commoncs.ValidateOwnership(e.GetContext(), mcmsConfig != nil, chain.DeployerKey.From, chainState.Timelock.Address(), contract)
+			err := mcmschangesets.ValidateOwnership(e.GetContext(), mcmsConfig != nil, chain.DeployerKey.From, chainState.Timelock.Address(), contract)
 			if err != nil {
 				errs <- fmt.Errorf("failed to validate ownership of %s contract on %s: %w", name, chain, err)
 			}

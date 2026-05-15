@@ -12,7 +12,9 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/common/changeset"
+
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
@@ -54,7 +56,7 @@ func newFeedWithProxyLogic(env cldf.Environment, c types.NewFeedWithProxyConfig)
 			Labels:           append([]string{c.Descriptions[index]}, c.Labels...),
 			Qualifier:        c.Qualifiers[index],
 		}
-		newEnv, err := changeset.RunChangeset(DeployAggregatorProxyChangeset, env, proxyConfig)
+		newEnv, err := cldchangeset.RunChangeset(DeployAggregatorProxyChangeset, env, proxyConfig)
 
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute DeployAggregatorProxyChangeset: %w", err)
@@ -76,7 +78,7 @@ func newFeedWithProxyLogic(env cldf.Environment, c types.NewFeedWithProxyConfig)
 
 		// transfer proxy ownership
 		timelockAddr, _ := cldf.SearchAddressBook(env.ExistingAddresses, c.ChainSelector, commonTypes.RBACTimelock)
-		_, proxyContract, err := changeset.LoadOwnableContract(common.HexToAddress(proxyAddress), chain.Client)
+		_, proxyContract, err := commonchangeset.LoadOwnableContract(common.HexToAddress(proxyAddress), chain.Client)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to load proxy contract %w", err)
 		}

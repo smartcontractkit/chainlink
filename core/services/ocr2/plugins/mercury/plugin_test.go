@@ -70,11 +70,11 @@ var (
 	testJob = job.Job{
 		ID:               1,
 		ExternalJobID:    uuid.Must(uuid.NewRandom()),
-		OCR2OracleSpecID: ptr(int32(7)),
+		OCR2OracleSpecID: new(int32(7)),
 		OCR2OracleSpec: &job.OCR2OracleSpec{
 			ID:         7,
 			ContractID: "phony",
-			FeedID:     ptr(common.BytesToHash([]byte{1, 2, 3})),
+			FeedID:     new(common.BytesToHash([]byte{1, 2, 3})),
 			Relay:      relay.NetworkEVM,
 			ChainID:    "1",
 		},

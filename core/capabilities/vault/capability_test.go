@@ -28,6 +28,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+func newTestRequestLifecycleTracker(t *testing.T) *RequestLifecycleTracker {
+	t.Helper()
+	tr, err := NewRequestLifecycleTracker(logger.TestLogger(t))
+	require.NoError(t, err)
+	return tr
+}
+
 func TestCapability_CapabilityCall(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
@@ -36,7 +43,7 @@ func TestCapability_CapabilityCall(t *testing.T) {
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, nil, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, nil, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
@@ -134,7 +141,7 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, nil, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, nil, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
@@ -238,7 +245,7 @@ func TestCapability_Execute_GetSecretsRequestValidationFailed(t *testing.T) {
 		handler := requests.NewHandler(lggr, store, clock, expiry)
 		reg := coreCapabilities.NewRegistry(lggr)
 		lf := limits.Factory{Settings: cresettings.DefaultGetter}
-		capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, nil, lf)
+		capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, nil, lf, newTestRequestLifecycleTracker(t))
 		require.NoError(t, err)
 		servicetest.Run(t, capability)
 		return capability
@@ -329,7 +336,7 @@ func TestCapability_Execute_GetSecretsRequestValidationFailed(t *testing.T) {
 		store := requests.NewStore[*vaulttypes.Request]()
 		handler := requests.NewHandler(lggr, store, clock, expiry)
 		reg := coreCapabilities.NewRegistry(lggr)
-		capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, nil, lf)
+		capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, nil, lf, newTestRequestLifecycleTracker(t))
 		require.NoError(t, err)
 		servicetest.Run(t, capability)
 
@@ -456,7 +463,7 @@ func TestCapability_CapabilityCall_SecretIdentifierOwnerMismatch(t *testing.T) {
 			handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 			reg := coreCapabilities.NewRegistry(lggr)
 			lf := limits.Factory{Settings: cresettings.DefaultGetter}
-			capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, nil, lf)
+			capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, nil, lf, newTestRequestLifecycleTracker(t))
 			require.NoError(t, err)
 			servicetest.Run(t, capability)
 
@@ -535,7 +542,7 @@ func TestCapability_CapabilityCall_UsesMetadataWorkflowOwner(t *testing.T) {
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := newVaultOrgIDAsSecretOwnerLimitsFactory(t, true)
 	resolver := &testOrgResolver{orgID: "org-123"}
-	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
@@ -614,7 +621,7 @@ func TestCapability_CapabilityCall_ForwardsRequestGetSecretsIdentity(t *testing.
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := newVaultOrgIDAsSecretOwnerLimitsFactory(t, true)
 	resolver := &testOrgResolver{orgID: "org-123"}
-	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
@@ -713,7 +720,7 @@ func TestCapability_CapabilityCall_BackfillsGetSecretsWorkflowOwnerFromFirstSecr
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := newVaultOrgIDAsSecretOwnerLimitsFactory(t, true)
 	resolver := &testOrgResolver{orgID: "org-123"}
-	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
@@ -810,7 +817,7 @@ func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, nil, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, nil, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
@@ -885,7 +892,7 @@ func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, fakeClock, expiry)
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, fakeClock, expiry, handler, reg, nil, nil, lf)
+	capability, err := NewCapability(lggr, fakeClock, expiry, handler, reg, nil, nil, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
@@ -1598,7 +1605,7 @@ func TestCapability_CRUD(t *testing.T) {
 			handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 			reg := coreCapabilities.NewRegistry(lggr)
 			lf := limits.Factory{Settings: cresettings.DefaultGetter}
-			capability, err := NewCapability(lggr, clock, expiry, handler, reg, lpk, nil, lf)
+			capability, err := NewCapability(lggr, clock, expiry, handler, reg, lpk, nil, lf, newTestRequestLifecycleTracker(t))
 			require.NoError(t, err)
 			servicetest.Run(t, capability)
 
@@ -1646,7 +1653,7 @@ func TestCapability_Lifecycle(t *testing.T) {
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, nil, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, nil, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
 
 	_, err = reg.GetExecutable(t.Context(), vault.CapabilityID)
@@ -1677,7 +1684,7 @@ func TestCapability_PublicKeyGet(t *testing.T) {
 	reg := coreCapabilities.NewRegistry(lggr)
 	lpk := NewLazyPublicKey()
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, clock, expiry, handler, reg, lpk, nil, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, lpk, nil, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 

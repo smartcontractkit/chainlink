@@ -45,6 +45,24 @@ func New(aiOutput bool, stdout, stderr io.Writer, stderrFD uintptr) *Printer {
 	}
 }
 
+// NewForTest returns a Printer with explicit live-inline behavior for unit tests.
+// Production code should use New/NewFromApp (TTY detection on stderr).
+func NewForTest(aiOutput bool, stdout, stderr io.Writer, liveInline bool) *Printer {
+	if stdout == nil {
+		stdout = io.Discard
+	}
+	if stderr == nil {
+		stderr = io.Discard
+	}
+	li := liveInline && !aiOutput
+	return &Printer{
+		aiOutput:   aiOutput,
+		stdout:     stdout,
+		stderr:     stderr,
+		liveInline: li,
+	}
+}
+
 // NewFromApp uses os.Stdout/os.Stderr and stderr's TTY bit from conf.AIOutput.
 func NewFromApp(conf *config.App) *Printer {
 	return New(conf.AIOutput, os.Stdout, os.Stderr, os.Stderr.Fd())
