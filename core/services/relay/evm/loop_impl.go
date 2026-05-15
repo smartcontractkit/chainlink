@@ -8,7 +8,7 @@ import (
 )
 
 // RelayAdapter extends loop.Relayer with a method for accessing the internal legacy chain type.
-// Only avaialable in embedded mode, not LOOPP mode.
+// Only available in embedded mode, not LOOPP mode.
 type RelayAdapter interface {
 	loop.Relayer
 	Chain() types.ChainService

@@ -1133,7 +1133,7 @@ func (e *Engine) isWorkflowFullyProcessed(_ context.Context, state store.Workflo
 		}
 		statuses[s.Ref] = stateStep.Status
 		switch stateStep.Status {
-		// For each step with any of the following statuses, propagate the statuses to its dependants
+		// For each step with any of the following statuses, propagate the statuses to its dependents
 		// since they will not be executed.
 		case store.StatusErrored, store.StatusCompletedEarlyExit, store.StatusTimeout:
 			// Let's properly propagate the status to all dependents, not just direct dependents.
