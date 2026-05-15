@@ -2,7 +2,6 @@ package ccip
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"errors"
 	"math/big"
 	"slices"
@@ -14,22 +13,18 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
-
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
@@ -58,9 +53,9 @@ func TestRMN_TwoMessagesOneSourceChainCursed(t *testing.T) {
 			{chainIdx: chain1, f: 1},
 		},
 		rmnNodes: []rmnNode{
-			{id: 0, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
-			{id: 1, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
-			{id: 2, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 0, observedChainIdxs: []int{chain0, chain1}},
+			{id: 1, observedChainIdxs: []int{chain0, chain1}},
+			{id: 2, observedChainIdxs: []int{chain0, chain1}},
 		},
 		messagesToSend: []messageToSend{
 			{fromChainIdx: chain0, toChainIdx: chain1, count: 1}, // <----- this message should not be committed
@@ -82,9 +77,9 @@ func TestRMN_GlobalCurseTwoMessagesOnTwoLanes(t *testing.T) {
 			{chainIdx: chain1, f: 1},
 		},
 		rmnNodes: []rmnNode{
-			{id: 0, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
-			{id: 1, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
-			{id: 2, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 0, observedChainIdxs: []int{chain0, chain1}},
+			{id: 1, observedChainIdxs: []int{chain0, chain1}},
+			{id: 2, observedChainIdxs: []int{chain0, chain1}},
 		},
 		messagesToSend: []messageToSend{
 			{fromChainIdx: chain0, toChainIdx: chain1, count: 1},
@@ -170,7 +165,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		}
 		rmnRemoteConfig[selector] = ccipops.RMNRemoteConfig{
 			F:       uint64(remoteCfg.f),
-			Signers: tc.alterSigners(t, tc.pf.rmnRemoteSigners),
+			Signers: tc.pf.rmnRemoteSigners,
 		}
 	}
 
@@ -178,8 +173,6 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		RMNRemoteConfigs: rmnRemoteConfig,
 	})
 	require.NoError(t, err)
-
-	tc.killMarkedRmnNodes(t, rmnCluster)
 
 	envWithRMN.RmnEnabledSourceChains = make(map[uint64]bool)
 	for chainIdx := range tc.homeChainConfig.f {
@@ -193,9 +186,6 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 
 	startBlocks, seqNumCommit, seqNumExec := tc.sendMessages(t, onChainState, envWithRMN)
 	t.Logf("Sent all messages, seqNumCommit: %v seqNumExec: %v", seqNumCommit, seqNumExec)
-
-	cleanup := tc.restartNode(t, rmnCluster)
-	defer cleanup()
 
 	eg := errgroup.Group{}
 	tc.callContractsToCurseChains(ctx, t, onChainState, envWithRMN)
@@ -325,10 +315,7 @@ type remoteChainConfig struct {
 
 type rmnNode struct {
 	id                int
-	isSigner          bool
 	observedChainIdxs []int
-	forceExit         bool // force exit will simply force exit the rmn node to simulate failure scenarios
-	restart           bool // restart will restart the rmn node to simulate failure scenarios
 }
 
 type messageToSend struct {
@@ -350,7 +337,6 @@ type rmnTestCase struct {
 	remoteChainsConfig            []remoteChainConfig
 	rmnNodes                      []rmnNode
 	messagesToSend                []messageToSend
-	nodesWithIncorrectSigner      []int
 
 	// populated fields after environment setup
 	pf testCasePopulatedFields
@@ -363,29 +349,6 @@ type testCasePopulatedFields struct {
 	rmnHomeSourceChains              []rmn_home.RMNHomeSourceChain
 	cursedSubjectsPerChainSel        map[uint64][]uint64
 	revokedCursedSubjectsPerChainSel map[uint64]map[uint64]time.Duration
-}
-
-func (tc *rmnTestCase) alterSigners(t *testing.T, signers []rmn_remote.RMNRemoteSigner) []rmn_remote.RMNRemoteSigner {
-	for _, n := range tc.nodesWithIncorrectSigner {
-		for i, s := range signers {
-			if n >= 0 && s.NodeIndex == uint64(n) {
-				// Random address ethereum private key
-				privateKey, err := crypto.GenerateKey()
-				if err != nil {
-					t.Fatalf("failed to generate private key: %v", err)
-				}
-				publicKey := privateKey.Public()
-				publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-				if !ok {
-					t.Fatalf("failed to cast public key to ECDSA")
-				}
-				address := crypto.PubkeyToAddress(*publicKeyECDSA)
-				signers[i].OnchainPublicKey = address
-			}
-		}
-	}
-
-	return signers
 }
 
 func (tc *rmnTestCase) populateFields(t *testing.T, envWithRMN testhelpers.DeployedEnv, rmnCluster devenv.RMNCluster) {
@@ -405,15 +368,13 @@ func (tc *rmnTestCase) populateFields(t *testing.T, envWithRMN testhelpers.Deplo
 			OffchainPublicKey: offchainPublicKey,
 		})
 
-		if rmnNodeInfo.isSigner {
-			if rmnNodeInfo.id < 0 {
-				t.Fatalf("node id is negative: %d", rmnNodeInfo.id)
-			}
-			tc.pf.rmnRemoteSigners = append(tc.pf.rmnRemoteSigners, rmn_remote.RMNRemoteSigner{
-				OnchainPublicKey: rmn.RMN.EVMOnchainPublicKey,
-				NodeIndex:        uint64(rmnNodeInfo.id),
-			})
+		if rmnNodeInfo.id < 0 {
+			t.Fatalf("node id is negative: %d", rmnNodeInfo.id)
 		}
+		tc.pf.rmnRemoteSigners = append(tc.pf.rmnRemoteSigners, rmn_remote.RMNRemoteSigner{
+			OnchainPublicKey: rmn.RMN.EVMOnchainPublicKey,
+			NodeIndex:        uint64(rmnNodeInfo.id),
+		})
 	}
 
 	for remoteChainIdx, remoteF := range tc.homeChainConfig.f {
@@ -464,47 +425,6 @@ func (tc rmnTestCase) validate() error {
 			"test will wait for non-transmitted roots")
 	}
 	return nil
-}
-
-func (tc rmnTestCase) killMarkedRmnNodes(t *testing.T, rmnCluster devenv.RMNCluster) {
-	for _, n := range tc.rmnNodes {
-		if n.forceExit {
-			t.Logf("Pausing RMN node %d", n.id)
-			rmnN := rmnCluster.Nodes["rmn_"+strconv.Itoa(n.id)]
-			require.NoError(t, osutil.ExecCmd(zerolog.Nop(), "docker kill "+rmnN.Proxy.ContainerName))
-			t.Logf("Paused RMN node %d", n.id)
-		}
-	}
-}
-
-func (tc rmnTestCase) restartNode(t *testing.T, rmnCluster devenv.RMNCluster) func() {
-	errCh := make(chan error, 1)
-	go func() {
-		time.Sleep(10 * time.Second)
-		for _, n := range tc.rmnNodes {
-			if n.restart {
-				t.Logf("Restarting RMN node %d", n.id)
-				rmnN := rmnCluster.Nodes["rmn_"+strconv.Itoa(n.id)]
-				if err := osutil.ExecCmd(zerolog.Nop(), "docker start "+rmnN.Proxy.ContainerName); err != nil {
-					errCh <- err
-					return
-				}
-				t.Logf("Restarted RMN node %d", n.id)
-			}
-		}
-		errCh <- nil
-	}()
-	require.NoError(t, <-errCh)
-	return func() {
-		for _, n := range tc.rmnNodes {
-			if n.restart {
-				t.Logf("Stopping RMN node %d", n.id)
-				rmnN := rmnCluster.Nodes["rmn_"+strconv.Itoa(n.id)]
-				require.NoError(t, osutil.ExecCmd(zerolog.Nop(), "docker stop "+rmnN.Proxy.ContainerName))
-				t.Logf("Stopped RMN node %d", n.id)
-			}
-		}
-	}
 }
 
 func (tc rmnTestCase) disableOraclesIfThisIsACursingTestCase(ctx context.Context, t *testing.T, envWithRMN testhelpers.DeployedEnv) []string {
@@ -660,5 +580,4 @@ func (tc rmnTestCase) enableOracles(ctx context.Context, t *testing.T, envWithRM
 		require.NoError(t, err)
 		t.Logf("node %s enabled", n)
 	}
-}
 }
