@@ -168,7 +168,7 @@ func (o *orm) AssertBridgesExist(ctx context.Context, p pipeline.Pipeline) error
 
 // ErrJobTypeRemoved is returned when attempting to create a job whose type has
 // been permanently removed from this node.
-var ErrJobTypeRemoved = errors.New("job type has been removed and is no longer supported")
+var ErrJobTypeRemoved = fmt.Errorf("job type has been removed and is no longer supported: %w", stderrors.ErrUnsupported)
 
 // CreateJob creates the job, and it's associated spec record.
 // Expects an unmarshalled job spec as the jb argument i.e. output from ValidatedXX.

@@ -1087,9 +1087,9 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 			return nil, errors.New("The Offchain Reporting 2 feature is disabled by configuration")
 		}
 	case job.DirectRequest:
-		return nil, errors.New("job type directrequest has been removed and is no longer supported")
+		return nil, fmt.Errorf("cannot create job of type %q: %w", job.DirectRequest, job.ErrJobTypeRemoved)
 	case job.FluxMonitor:
-		return nil, errors.New("job type fluxmonitor has been removed and is no longer supported")
+		return nil, fmt.Errorf("cannot create job of type %q: %w", job.FluxMonitor, job.ErrJobTypeRemoved)
 	case job.CRESettings:
 		jb, err = cresettings.ValidatedCRESettingsSpec(args.Input.TOML)
 	case job.Cron:
