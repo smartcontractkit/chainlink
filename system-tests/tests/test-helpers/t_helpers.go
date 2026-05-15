@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -634,8 +635,22 @@ func deleteWorkflows(
 	deleteWorkflowsMu.Lock()
 	defer deleteWorkflowsMu.Unlock()
 
-	deleteErr := creworkflow.DeleteWithContract(t.Context(), sethClient, workflowRegistryAddress, version, uniqueWorkflowName)
-	require.NoError(t, deleteErr, "failed to delete workflow '%s'. Please delete/unregister it manually.", uniqueWorkflowName)
+	retryErr := retry.Do(func() error {
+		return creworkflow.DeleteWithContract(t.Context(), sethClient, workflowRegistryAddress, version, uniqueWorkflowName)
+	}, retry.Attempts(3), retry.Delay(1*time.Second), retry.DelayType(retry.BackOffDelay), retry.RetryIf(func(err error) bool {
+		/**
+		 * NOTE: ReentrancySentryOOG occurs if the EVM hits a gas cliff during the
+		 * ReentrancyGuard cleanup phase (the 63/64ths rule).
+		 * Intermittent failure in simulation is usually due to Cold vs Warm storage
+		 * slot costs. Retrying might work, because the subsequent attempt might benefit from
+		 * warmed storage/access lists, saving ~2,000 gas.
+		 */
+		return strings.Contains(err.Error(), "ReentrancySentryOOG")
+	}), retry.OnRetry(func(n uint, err error) {
+		testLogger.Error().Msgf("Error deleting workflow '%s': %s", uniqueWorkflowName, err.Error())
+	}))
+
+	require.NoError(t, retryErr, "failed to delete workflow '%s'", uniqueWorkflowName)
 	testLogger.Info().Msgf("Workflow '%s' deleted successfully from the registry.", uniqueWorkflowName)
 }
 

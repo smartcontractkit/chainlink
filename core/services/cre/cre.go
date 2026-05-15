@@ -942,13 +942,6 @@ func newWorkflowRegistrySyncerV2(
 		key,
 		custmsg.NewLabeler(),
 		lf,
-		artifactsV2.WithMaxArtifactSize(
-			artifactsV2.ArtifactConfig{
-				MaxBinarySize:  uint64(wfReg.MaxBinarySize()),
-				MaxSecretsSize: uint64(wfReg.MaxEncryptedSecretsSize()),
-				MaxConfigSize:  uint64(wfReg.MaxConfigSize()),
-			},
-		),
 		artifactsV2.WithConfig(artifactsV2.StoreConfig{
 			ArtifactStorageHost: wfReg.WorkflowStorage().ArtifactStorageHost(),
 		}),

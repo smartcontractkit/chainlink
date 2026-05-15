@@ -40,45 +40,24 @@ type ArtifactLimiters struct {
 	MaxBinarySize  limits.BoundLimiter[config.Size]
 }
 
-type ArtifactConfig struct {
-	MaxConfigSize  uint64
-	MaxSecretsSize uint64
-	MaxBinarySize  uint64
-}
-
-// MakeLimiters constructs ArtifactLimiters from cfg, or uses defaults if cfg is nil.
-func (cfg *ArtifactConfig) MakeLimiters(lf limits.Factory) (limiters *ArtifactLimiters, err error) {
+// makeLimiters constructs ArtifactLimiters from cfg, or uses defaults if cfg is nil.
+func makeLimiters(lf limits.Factory) (limiters *ArtifactLimiters, err error) {
 	limiters = new(ArtifactLimiters)
 	configSizeLimit := cresettings.Default.PerWorkflow.WASMConfigSizeLimit
-	if cfg != nil {
-		configSizeLimit.DefaultValue = config.Size(safeUint32(cfg.MaxConfigSize))
-	}
 	limiters.MaxConfigSize, err = limits.MakeBoundLimiter(lf, configSizeLimit)
 	if err != nil {
 		return
 	}
 
 	secretsSizeLimit := cresettings.Default.PerWorkflow.WASMSecretsSizeLimit
-	if cfg != nil {
-		secretsSizeLimit.DefaultValue = config.Size(safeUint32(cfg.MaxSecretsSize))
-	}
 	limiters.MaxSecretsSize, err = limits.MakeBoundLimiter(lf, secretsSizeLimit)
 	if err != nil {
 		return
 	}
 
 	binarySizeLimit := cresettings.Default.PerWorkflow.WASMBinarySizeLimit
-	if cfg != nil {
-		binarySizeLimit.DefaultValue = config.Size(safeUint32(cfg.MaxBinarySize))
-	}
 	limiters.MaxBinarySize, err = limits.MakeBoundLimiter(lf, binarySizeLimit)
 	return
-}
-
-func WithMaxArtifactSize(cfg ArtifactConfig) func(*Store) {
-	return func(a *Store) {
-		a.limits = &cfg
-	}
 }
 
 type StoreConfig struct {
@@ -100,8 +79,6 @@ type SerialisedModuleStore interface {
 type Store struct {
 	lggr logger.Logger
 
-	// limits sets max artifact sizes to fetch when handling events
-	limits   *ArtifactConfig
 	limiters *ArtifactLimiters
 	config   *StoreConfig
 
@@ -137,7 +114,7 @@ func NewStore(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn types.FetcherF
 	}
 
 	var err error
-	artifactsStore.limiters, err = artifactsStore.limits.MakeLimiters(limitsFactory)
+	artifactsStore.limiters, err = makeLimiters(limitsFactory)
 	if err != nil {
 		return nil, err
 	}
