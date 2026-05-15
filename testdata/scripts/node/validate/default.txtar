@@ -332,6 +332,13 @@ ArtifactStorageHost = ''
 URL = ''
 TLSEnabled = true
 
+[Capabilities.WorkflowRegistry.ModuleCache]
+Enabled = false
+IdleEviction = true
+IdleTimeout = '10m0s'
+MaxLoaded = 200
+CacheDir = ''
+
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = ''
 NodeAddress = ''

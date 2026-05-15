@@ -12,9 +12,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 
+	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/common/changeset"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
@@ -148,7 +149,7 @@ func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *cre.ConfigureData
 			AdminAddress:  input.AdminAddress,
 			IsAdmin:       true,
 		}
-		_, setAdminErr := commonchangeset.RunChangeset(df_changeset.SetFeedAdminChangeset, *input.CldEnv, setAdminConfig)
+		_, setAdminErr := cldchangeset.RunChangeset(df_changeset.SetFeedAdminChangeset, *input.CldEnv, setAdminConfig)
 		if setAdminErr != nil {
 			return nil, errors.Wrap(setAdminErr, "failed to set feed admin")
 		}
@@ -168,7 +169,7 @@ func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *cre.ConfigureData
 		feeIDs = append(feeIDs, feedID[:32])
 	}
 
-	_, setFeedConfigErr := commonchangeset.RunChangeset(df_changeset.SetFeedConfigChangeset, *input.CldEnv, df_changeset_types.SetFeedDecimalConfig{
+	_, setFeedConfigErr := cldchangeset.RunChangeset(df_changeset.SetFeedConfigChangeset, *input.CldEnv, df_changeset_types.SetFeedDecimalConfig{
 		ChainSelector:    input.ChainSelector,
 		CacheAddress:     input.DataFeedsCacheAddress,
 		DataIDs:          feeIDs,
@@ -204,7 +205,7 @@ func DeployDataFeedsCacheContract(testLogger zerolog.Logger, chainSelector uint6
 		Labels:         []string{"data-feeds"}, // label required by the changeset
 	}
 
-	dfOutput, dfErr := commonchangeset.RunChangeset(df_changeset.DeployCacheChangeset, *creEnvironment.CldfEnvironment, deployDfConfig)
+	dfOutput, dfErr := cldchangeset.RunChangeset(df_changeset.DeployCacheChangeset, *creEnvironment.CldfEnvironment, deployDfConfig)
 	if dfErr != nil {
 		return common.Address{}, errors.Wrapf(dfErr, "failed to deploy Data Feeds Cache contract on chain %d", chainSelector)
 	}

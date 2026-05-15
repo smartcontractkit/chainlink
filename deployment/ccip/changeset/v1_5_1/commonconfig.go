@@ -15,11 +15,12 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
-	changeset2 "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -74,7 +75,7 @@ func (c TokenAdminRegistryChangesetConfig) Validate(
 		// Validate that the token admin registry is owned by the address that will be actioning the transactions (i.e. Timelock or deployer key)
 		// However, most token admin registry actions aren't owner-protected. They just require you to be the admin.
 		if mustBeOwner {
-			if err := changeset2.ValidateOwnership(env.GetContext(), c.MCMS != nil, chain.DeployerKey.From, chainState.Timelock.Address(), chainState.TokenAdminRegistry); err != nil {
+			if err := mcmschangesets.ValidateOwnership(env.GetContext(), c.MCMS != nil, chain.DeployerKey.From, chainState.Timelock.Address(), chainState.TokenAdminRegistry); err != nil {
 				return fmt.Errorf("token admin registry failed ownership validation on %s: %w", chain, err)
 			}
 		}

@@ -9,11 +9,14 @@ import (
 	solBinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	"github.com/stretchr/testify/require"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
+	linkchangesets "github.com/smartcontractkit/cld-changesets/link/changesets"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
 	burnmint "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/burnmint_token_pool"
@@ -38,6 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
@@ -236,8 +240,8 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 			},
 		),
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeploySolanaLinkToken),
-			commonchangeset.DeploySolanaLinkTokenConfig{
+			cldf.CreateLegacyChangeSet(linkchangesets.DeploySolanaLinkToken),
+			linkchangesets.DeploySolanaLinkTokenConfig{
 				ChainSelector: solChainSel,
 				TokenPrivKey:  solLinkTokenPrivKey,
 				TokenDecimals: 9,
@@ -275,7 +279,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 			},
 		),
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
 			map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 				solChainSel: {
 					Canceller:        cldftesthelpers.SingleGroupMCMS(t),

@@ -12,8 +12,9 @@ import (
 	"github.com/smartcontractkit/mcms/types"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	cldmcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
@@ -21,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commonSolana "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -80,7 +80,8 @@ var testCases = []CurseTestCase{
 		curseActionsBuilder: func(mapIDToSelector mapIDToSelectorFunc) []v1_6.CurseAction {
 			return []v1_6.CurseAction{
 				v1_6.CurseLaneBidirectionally(mapIDToSelector(Evm1), mapIDToSelector(Sol1)),
-				v1_6.CurseLaneBidirectionally(mapIDToSelector(Evm1), mapIDToSelector(Sol1))}
+				v1_6.CurseLaneBidirectionally(mapIDToSelector(Evm1), mapIDToSelector(Sol1)),
+			}
 		},
 		curseAssertions: []curseAssertion{
 			{chainID: Evm1, subject: Evm2, cursed: false},
@@ -569,7 +570,8 @@ func TestRMNCurseUncurseAptos(t *testing.T) {
 					commonchangeset.Configure(
 						cldf.CreateLegacyChangeSet(v1_6.RMNCurseChangeset),
 						config,
-					)},
+					),
+				},
 			)
 			require.NoError(t, err)
 
@@ -580,7 +582,8 @@ func TestRMNCurseUncurseAptos(t *testing.T) {
 					commonchangeset.Configure(
 						cldf.CreateLegacyChangeSet(v1_6.RMNUncurseChangeset),
 						config,
-					)},
+					),
+				},
 			)
 			require.NoError(t, err)
 
@@ -655,21 +658,21 @@ func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state s
 			})
 	}
 
-	cfgAmounts := commonSolana.AmountsToTransfer{
+	cfgAmounts := cldmcmschangesets.AmountsToTransfer{
 		ProposeMCM:   100 * solana.LAMPORTS_PER_SOL,
 		CancellerMCM: 350 * solana.LAMPORTS_PER_SOL,
 		BypasserMCM:  75 * solana.LAMPORTS_PER_SOL,
 		Timelock:     83 * solana.LAMPORTS_PER_SOL,
 	}
-	amountsPerChain := make(map[uint64]commonSolana.AmountsToTransfer)
+	amountsPerChain := make(map[uint64]cldmcmschangesets.AmountsToTransfer)
 	for _, chainSelector := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana)) {
 		amountsPerChain[chainSelector] = cfgAmounts
 	}
-	config := commonSolana.FundMCMSignerConfig{
+	config := cldmcmschangesets.FundMCMSignerConfig{
 		AmountsPerChain: amountsPerChain,
 	}
 
-	changesetInstance := commonSolana.FundMCMSignersChangeset{}
+	changesetInstance := cldmcmschangesets.FundMCMSignersChangeset{}
 
 	_, _, err = commonchangeset.ApplyChangesets(t, e.Env, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(changesetInstance, config),
@@ -706,7 +709,8 @@ func runRmnUncurseMCMSTest(t *testing.T, tc CurseTestCase, action types.Timelock
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(v1_6.RMNCurseChangeset),
 				config,
-			)},
+			),
+		},
 	)
 	require.NoError(t, err)
 
@@ -717,7 +721,8 @@ func runRmnUncurseMCMSTest(t *testing.T, tc CurseTestCase, action types.Timelock
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(v1_6.RMNUncurseChangeset),
 				config,
-			)},
+			),
+		},
 	)
 	require.NoError(t, err)
 
@@ -844,7 +849,8 @@ func runRmnCurseMCMSTest(t *testing.T, tc CurseTestCase, action types.TimelockAc
 			commonchangeset.Configure(
 				cldf.CreateLegacyChangeSet(v1_6.RMNCurseChangeset),
 				config,
-			)},
+			),
+		},
 	)
 	require.NoError(t, err)
 
@@ -895,13 +901,13 @@ type ForceOptionTestCase struct {
 		env *testhelpers.DeployedEnv,
 		config v1_6.RMNCurseConfig,
 		t *testing.T,
-	) deployment.ChangesetOutput
+	) cldf.ChangesetOutput
 }
 
 var forceOptionTestCases = []ForceOptionTestCase{
 	{
 		name: "RMNUncurseForceOptionFalse",
-		applyChangeset: func(env *testhelpers.DeployedEnv, config v1_6.RMNCurseConfig, t *testing.T) deployment.ChangesetOutput {
+		applyChangeset: func(env *testhelpers.DeployedEnv, config v1_6.RMNCurseConfig, t *testing.T) cldf.ChangesetOutput {
 			cs, err := v1_6.RMNUncurseChangeset(env.Env, config)
 			require.NoError(t, err)
 			return cs
@@ -911,13 +917,14 @@ var forceOptionTestCases = []ForceOptionTestCase{
 	},
 	{
 		name: "RMNCurseForceOptionFalse",
-		applyChangeset: func(env *testhelpers.DeployedEnv, config v1_6.RMNCurseConfig, t *testing.T) deployment.ChangesetOutput {
+		applyChangeset: func(env *testhelpers.DeployedEnv, config v1_6.RMNCurseConfig, t *testing.T) cldf.ChangesetOutput {
 			_, _, err := commonchangeset.ApplyChangesets(t, env.Env,
 				[]commonchangeset.ConfiguredChangeSet{
 					commonchangeset.Configure(
 						cldf.CreateLegacyChangeSet(v1_6.RMNCurseChangeset),
 						config,
-					)},
+					),
+				},
 			)
 			require.NoError(t, err)
 
@@ -931,7 +938,7 @@ var forceOptionTestCases = []ForceOptionTestCase{
 	},
 	{
 		name: "RMNUncurseForceOptionTrue",
-		applyChangeset: func(env *testhelpers.DeployedEnv, config v1_6.RMNCurseConfig, t *testing.T) deployment.ChangesetOutput {
+		applyChangeset: func(env *testhelpers.DeployedEnv, config v1_6.RMNCurseConfig, t *testing.T) cldf.ChangesetOutput {
 			cs, err := v1_6.RMNUncurseChangeset(env.Env, config)
 			require.NoError(t, err)
 			return cs
@@ -942,13 +949,14 @@ var forceOptionTestCases = []ForceOptionTestCase{
 	},
 	{
 		name: "RMNCurseForceOptionTrue",
-		applyChangeset: func(env *testhelpers.DeployedEnv, config v1_6.RMNCurseConfig, t *testing.T) deployment.ChangesetOutput {
+		applyChangeset: func(env *testhelpers.DeployedEnv, config v1_6.RMNCurseConfig, t *testing.T) cldf.ChangesetOutput {
 			_, _, err := commonchangeset.ApplyChangesets(t, env.Env,
 				[]commonchangeset.ConfiguredChangeSet{
 					commonchangeset.Configure(
 						cldf.CreateLegacyChangeSet(v1_6.RMNCurseChangeset),
 						config,
-					)},
+					),
+				},
 			)
 			require.NoError(t, err)
 

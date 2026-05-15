@@ -12,9 +12,10 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -69,7 +70,7 @@ func (c SyncUSDCDomainsWithChainsConfig) Validate(env cldf.Environment, state st
 			return fmt.Errorf("expected USDC token pool address on %s (%s) to be less than 32 bytes", chain, usdcTokenPool.Address())
 		}
 		// Validate that the USDC token pool is owned by the address that will be actioning the transactions (i.e. Timelock or deployer key)
-		if err := commoncs.ValidateOwnership(ctx, c.MCMS != nil, chain.DeployerKey.From, chainState.Timelock.Address(), usdcTokenPool); err != nil {
+		if err := mcmschangesets.ValidateOwnership(ctx, c.MCMS != nil, chain.DeployerKey.From, chainState.Timelock.Address(), usdcTokenPool); err != nil {
 			return fmt.Errorf("token pool with address %s on %s failed ownership validation: %w", usdcTokenPool.Address(), chain, err)
 		}
 		// Validate that each supported chain has a domain ID defined

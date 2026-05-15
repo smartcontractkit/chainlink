@@ -16,6 +16,8 @@ import (
 	"github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+
 	aptosCCIP "github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	aptosOffRamp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
@@ -35,7 +37,6 @@ import (
 	aptosstateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -130,7 +131,7 @@ func (c RMNCurseConfig) Validate(e cldf.Environment) error {
 					return fmt.Errorf("chain %s not found in onchain state", targetChain.String())
 				}
 
-				if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMS != nil, targetChain.DeployerKey.From, targetChainState.Timelock.Address(), targetChainState.RMNRemote); err != nil {
+				if err := mcmschangesets.ValidateOwnership(e.GetContext(), c.MCMS != nil, targetChain.DeployerKey.From, targetChainState.Timelock.Address(), targetChainState.RMNRemote); err != nil {
 					return fmt.Errorf("chain %s: %w", targetChain.String(), err)
 				}
 			case chain_selectors.FamilySolana:

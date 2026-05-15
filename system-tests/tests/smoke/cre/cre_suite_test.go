@@ -224,6 +224,13 @@ func Test_CRE_V2_Aptos_Suite(t *testing.T) {
 		ExecuteAptosTest(t, testEnv)
 	})
 }
+
+func Test_CRE_V2_Module_Cache(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-cache-test.toml"))
+
+	ExecuteModuleCacheTest(t, testEnv)
+}
+
 func Test_CRE_V2_HTTP_Action_Regression_Suite(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 

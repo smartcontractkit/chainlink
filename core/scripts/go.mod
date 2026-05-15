@@ -54,7 +54,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.1
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.23
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5
-	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based v0.0.0-20260504220946-2d2d90a051c6
+	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/system-tests/lib v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20260508200755-99940c85383c
 	github.com/spf13/cobra v1.10.2
@@ -480,7 +480,7 @@ require (
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260507123701-77fc93b573bb // indirect
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260428205619-2db1389501a1 // indirect
 	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20260408145530-22e2d05695cd // indirect
-	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260415165642-49f23e4d76cc // indirect
+	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260506144252-c100eabfda74 // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260511195239-0f6e1b177fc7 // indirect
 	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260504204047-af9826978b72 // indirect
 	github.com/smartcontractkit/chainlink-ccv v0.0.2-0.20260428133800-3b1484e8b1fd // indirect

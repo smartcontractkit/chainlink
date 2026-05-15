@@ -13,6 +13,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
+	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/common/changeset"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -26,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	deployment_contracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	shard_config_changeset "github.com/smartcontractkit/chainlink/deployment/cre/shard_config/v1/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -384,7 +384,7 @@ func getShardCountFromContract(t *testing.T, testEnv *ttypes.TestEnvironment, ch
 
 func updateShardCount(t *testing.T, testEnv *ttypes.TestEnvironment, chainSelector uint64, shardConfigRef datastore.AddressRefKey, count uint64) {
 	t.Helper()
-	_, err := commonchangeset.RunChangeset(
+	_, err := cldchangeset.RunChangeset(
 		shard_config_changeset.UpdateShardCount{},
 		*testEnv.CreEnvironment.CldfEnvironment,
 		shard_config_changeset.UpdateShardCountInput{

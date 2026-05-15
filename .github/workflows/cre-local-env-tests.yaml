@@ -179,19 +179,19 @@ jobs:
           total_seconds=$(echo "$minutes * 60 + $seconds" | bc)
           echo "execution_time=$total_seconds" >> "${GITHUB_OUTPUT}"
 
-      - name: Deploy v2 Cron workflow (Go)
+      - name: Deploy Cron workflow (Go)
         shell: bash
         working-directory: core/scripts/cre/environment
         run: |
-          go run . env workflow deploy --compile --workflow-file-path ./examples/workflows/v2/cron/main.go --name cronv2workflow
+          go run . env workflow deploy --compile --workflow-file-path ./examples/workflows/cron/main.go --name cronworkflow
 
-      - name: Delete v2 Cron workflow (Go)
+      - name: Delete Cron workflow (Go)
         shell: bash
         working-directory: core/scripts/cre/environment
         run: |
-          go run . env workflow delete --name cronv2workflow
+          go run . env workflow delete --name cronworkflow
 
-      - name: Deploy v2 Cron workflow (TypeScript)
+      - name: Deploy Cron workflow (TypeScript)
         shell: bash
         working-directory: core/scripts/cre/environment
         run: |

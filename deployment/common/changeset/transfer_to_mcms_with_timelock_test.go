@@ -9,7 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
+	linkchangesets "github.com/smartcontractkit/cld-changesets/link/changesets"
 	"github.com/stretchr/testify/require"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
@@ -41,8 +43,8 @@ func TestTransferToMCMSWithTimelockV2(t *testing.T) {
 
 	// Setup contracts
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployLinkToken), []uint64{selector}),
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken), []uint64{selector}),
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 			selector: cldftesthelpers.SingleGroupTimelockConfig(t),
 		}),
 	)
@@ -105,8 +107,8 @@ func TestTransferToMCMSWithTimelockV2DataStore(t *testing.T) {
 
 	// Setup contracts
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployLinkToken), []uint64{selector}),
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken), []uint64{selector}),
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 			selector: cldftesthelpers.SingleGroupTimelockConfig(t),
 		}),
 	)
@@ -202,7 +204,7 @@ func TestRenounceTimelockDeployerConfigValidate(t *testing.T) {
 
 	// Deploy MCMS to selector 1 only, so we have a chain without MCMS
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 			selector1: cldftesthelpers.SingleGroupTimelockConfig(t),
 		}),
 	)
@@ -269,7 +271,7 @@ func TestRenounceTimelockDeployer(t *testing.T) {
 	chain := rt.Environment().BlockChains.EVMChains()[selector]
 
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 			selector: cldftesthelpers.SingleGroupTimelockConfig(t),
 		}),
 	)

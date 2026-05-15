@@ -32,8 +32,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -608,7 +608,7 @@ func removeNodesPrecondition(env cldf.Environment, c RemoveNodesConfig) error {
 	if state.Chains[c.HomeChainSel].Timelock == nil {
 		return fmt.Errorf("timelock does not exist for home chain %d", c.HomeChainSel)
 	}
-	err = commoncs.ValidateOwnership(env.GetContext(), c.MCMSCfg != nil,
+	err = mcmschangesets.ValidateOwnership(env.GetContext(), c.MCMSCfg != nil,
 		env.BlockChains.EVMChains()[c.HomeChainSel].DeployerKey.From, state.Chains[c.HomeChainSel].Timelock.Address(),
 		state.Chains[c.HomeChainSel].CapabilityRegistry)
 	if err != nil {
@@ -762,7 +762,7 @@ func addUpdateOrRemoveNopsPrecondition(env cldf.Environment, c AddOrUpdateNopsCo
 	if state.Chains[c.homeChainSel].Timelock == nil {
 		return fmt.Errorf("timelock does not exist for home chain %d", c.homeChainSel)
 	}
-	err = commoncs.ValidateOwnership(env.GetContext(), c.MCMSConfig != nil,
+	err = mcmschangesets.ValidateOwnership(env.GetContext(), c.MCMSConfig != nil,
 		env.BlockChains.EVMChains()[c.homeChainSel].DeployerKey.From, state.Chains[c.homeChainSel].Timelock.Address(),
 		state.Chains[c.homeChainSel].CapabilityRegistry)
 	if err != nil {

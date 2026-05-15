@@ -8,9 +8,9 @@ import (
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 type CsMCMSDeploy struct{}
@@ -65,7 +65,7 @@ func (CsMCMSDeploy) Apply(env cldf.Environment, input DeployChangesetInput) (cld
 		mcmsConfigPerChain[s] = c
 	}
 
-	o, err := commonchangeset.DeployMCMSWithTimelockV2(env, mcmsConfigPerChain)
+	o, err := mcmschangesets.DeployMCMSWithTimelockV2(env, mcmsConfigPerChain)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
