@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+
 	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
@@ -26,11 +27,11 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
+	deploycciptesthelpers "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
-	deploycciptesthelpers "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/abihelpers"
 )
@@ -182,7 +183,6 @@ func encodeExecOffchainBytes(
 	}
 	return json.Marshal(j)
 }
-
 
 // --- lane contracts (from cs_lane_contracts.go) ---
 
@@ -585,10 +585,10 @@ func (e *ExecuteOCR2ConfigParams) PopulateOffChainAndOnChainCfg(router, priceReg
 	}
 	e.OCR2ConfigParams.OnchainConfig, err = abihelpers.EncodeAbiStruct(execOnchainCfg{
 		PermissionLessExecutionThresholdSeconds: e.ExecOnchainConfig.PermissionLessExecutionThresholdSeconds,
-		Router:                  router,
-		PriceRegistry:           priceReg,
-		MaxNumberOfTokensPerMsg: e.ExecOnchainConfig.MaxNumberOfTokensPerMsg,
-		MaxDataBytes:            e.ExecOnchainConfig.MaxDataBytes,
+		Router:                                  router,
+		PriceRegistry:                           priceReg,
+		MaxNumberOfTokensPerMsg:                 e.ExecOnchainConfig.MaxNumberOfTokensPerMsg,
+		MaxDataBytes:                            e.ExecOnchainConfig.MaxDataBytes,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to encode onchain config for exec plugin, source chain %d dest chain %d :%w",
@@ -795,7 +795,6 @@ func deriveOCR2Config(
 		OffchainConfig:        offchainConfig,
 	}, nil
 }
-
 
 // --- test helpers (from test_helpers.go) ---
 

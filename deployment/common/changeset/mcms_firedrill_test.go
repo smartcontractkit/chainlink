@@ -4,8 +4,12 @@ import (
 	"testing"
 
 	"github.com/gagliardetto/solana-go"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
+
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
@@ -19,7 +23,6 @@ import (
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
@@ -43,10 +46,10 @@ func TestMCMSSignFireDrillChangeset(t *testing.T) {
 	solChain := rt.Environment().BlockChains.SolanaChains()[solSelector]
 
 	// Deploy MCMS and Timelock
-	config := proposalutils.SingleGroupTimelockConfigV2(t)
+	config := cldftesthelpers.SingleGroupTimelockConfig(t)
 
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), map[uint64]commontypes.MCMSWithTimelockConfigV2{
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 			evmSelector1: config,
 			evmSelector2: config,
 			solSelector:  config,

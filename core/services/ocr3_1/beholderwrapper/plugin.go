@@ -64,9 +64,13 @@ func (p *reportingPlugin[RI]) wrapFetcher(bf ocr3_1types.BlobFetcher) ocr3_1type
 }
 
 func (p *reportingPlugin[RI]) Query(ctx context.Context, seqNr uint64, keyValueReader ocr3_1types.KeyValueStateReader, blobBroadcastFetcher ocr3_1types.BlobBroadcastFetcher) (ocrtypes.Query, error) {
-	return withObservedExecution(ctx, p.metrics, metrics.Query, func() (ocrtypes.Query, error) {
+	result, err := withObservedExecution(ctx, p.metrics, metrics.Query, func() (ocrtypes.Query, error) {
 		return p.ReportingPlugin.Query(ctx, seqNr, p.wrapReader(ctx, keyValueReader), p.wrapBroadcastFetcher(blobBroadcastFetcher))
 	})
+	if err == nil {
+		p.metrics.TrackSize(ctx, metrics.Query, len(result))
+	}
+	return result, err
 }
 
 func (p *reportingPlugin[RI]) Observation(ctx context.Context, seqNr uint64, aq ocrtypes.AttributedQuery, keyValueReader ocr3_1types.KeyValueStateReader, blobBroadcastFetcher ocr3_1types.BlobBroadcastFetcher) (ocrtypes.Observation, error) {

@@ -1,53 +1,12 @@
 package contracts
 
 import (
-	"fmt"
 	"time"
 
-	"github.com/Masterminds/semver/v3"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/rs/zerolog"
-
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
-
-func DeployOCR3Contract(logger zerolog.Logger, qualifier string, selector uint64, env *cldf.Environment, contractVersions map[cre.ContractType]*semver.Version) (*ks_contracts_op.DeployOCR3ContractSequenceOutput, *common.Address, error) {
-	memoryDatastore, mErr := NewDataStoreFromExisting(env.DataStore)
-	if mErr != nil {
-		return nil, nil, fmt.Errorf("failed to create memory datastore: %w", mErr)
-	}
-
-	ocr3DeployReport, err := operations.ExecuteSequence(
-		env.OperationsBundle,
-		ks_contracts_op.DeployOCR3ContractsSequence,
-		ks_contracts_op.DeployOCR3ContractSequenceDeps{
-			Env: env,
-		},
-		ks_contracts_op.DeployOCR3ContractSequenceInput{
-			ChainSelector: selector,
-			Qualifier:     qualifier,
-		},
-	)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to deploy OCR3 contract '%s' on chain %d: %w", qualifier, selector, err)
-	}
-	if err = memoryDatastore.Merge(ocr3DeployReport.Output.Datastore); err != nil {
-		return nil, nil, fmt.Errorf("failed to merge datastore with OCR3 contract address for '%s' on chain %d: %w", qualifier, selector, err)
-	}
-
-	address := MustGetAddressFromMemoryDataStore(memoryDatastore, selector, keystone_changeset.OCR3Capability.String(), contractVersions[keystone_changeset.OCR3Capability.String()], qualifier)
-	logger.Info().Msgf("Deployed OCR3 %s contract on chain %d at %s [qualifier: %s]", contractVersions[keystone_changeset.OCR3Capability.String()], selector, address, qualifier)
-
-	env.DataStore = memoryDatastore.Seal()
-
-	return &ocr3DeployReport.Output, &address, nil
-}
 
 // values supplied by Alexandr Yepishev as the expected values for OCR3 config
 func DefaultOCR3Config() *ocr3.OracleConfig {

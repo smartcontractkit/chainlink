@@ -8,8 +8,7 @@ import (
 	"strings"
 	"time"
 
-	ctypes "github.com/docker/docker/api/types/container"
-	dc "github.com/docker/docker/client"
+	dc "github.com/moby/moby/client"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
@@ -22,20 +21,20 @@ var (
 )
 
 func findAllDockerContainerNames(pattern string) ([]string, error) {
-	dockerClient, dockerClientErr := dc.NewClientWithOpts(dc.FromEnv, dc.WithAPIVersionNegotiation())
+	dockerClient, dockerClientErr := dc.New(dc.FromEnv)
 	if dockerClientErr != nil {
 		return nil, errors.Wrap(dockerClientErr, "failed to create Docker client")
 	}
 	defer dockerClient.Close()
 
-	containers, containersErr := dockerClient.ContainerList(context.Background(), ctypes.ListOptions{})
+	listRes, containersErr := dockerClient.ContainerList(context.Background(), dc.ContainerListOptions{})
 	if containersErr != nil {
 		return nil, errors.Wrap(containersErr, "failed to list Docker containers")
 	}
 
 	containerNames := []string{}
-	for _, container := range containers {
-		for _, name := range container.Names {
+	for _, ctr := range listRes.Items {
+		for _, name := range ctr.Names {
 			if strings.Contains(name, pattern) {
 				// Remove leading slash from container name
 				cleanName := strings.TrimPrefix(name, "/")
@@ -93,7 +92,7 @@ func copyArtifactToDockerContainers(filePath string, containerNamePattern string
 	if err != nil {
 		return errors.Wrap(err, "failed to create framework Docker client")
 	}
-	dockerClient, err := dc.NewClientWithOpts(dc.FromEnv, dc.WithAPIVersionNegotiation())
+	dockerClient, err := dc.New(dc.FromEnv)
 	if err != nil {
 		return errors.Wrap(err, "failed to create Docker client")
 	}
@@ -113,15 +112,15 @@ func copyArtifactToDockerContainers(filePath string, containerNamePattern string
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			containerJSON, inspectErr := dockerClient.ContainerInspect(ctx, containerName)
+			inspectRes, inspectErr := dockerClient.ContainerInspect(ctx, containerName, dc.ContainerInspectOptions{})
 			if inspectErr != nil {
 				return errors.Wrap(inspectErr, "failed to inspect Docker container")
 			}
-			user := containerJSON.Config.User
+			user := inspectRes.Container.Config.User
 			// if not running as root, change ownership to user that is running the container to avoid permission issues
 			if user != "" {
 				targetFilePath := filepath.Join(targetDir, filepath.Base(filePath))
-				execConfig := ctypes.ExecOptions{
+				execConfig := dc.ExecCreateOptions{
 					Cmd:          []string{"chown", user, targetFilePath},
 					AttachStdout: true,
 					AttachStderr: true,

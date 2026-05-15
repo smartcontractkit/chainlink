@@ -223,9 +223,7 @@ func NewWorkflowRegistry(
 func (w *workflowRegistry) Start(_ context.Context) error {
 	return w.StartOnce(w.Name(), func() error {
 		ctx, cancel := w.stopCh.NewCtx()
-		w.wg.Add(1)
-		go func() {
-			defer w.wg.Done()
+		w.wg.Go(func() {
 			defer cancel()
 
 			w.lggr.Debugw("Waiting for DON...")
@@ -248,7 +246,7 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			case SyncStrategyReconciliation:
 				w.syncUsingReconciliationStrategy(ctx, don, reader)
 			}
-		}()
+		})
 
 		return w.handler.Start(ctx)
 	})
@@ -663,11 +661,9 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context, 
 	ets := []WorkflowRegistryEventType{
 		ForceUpdateSecretsEvent,
 	}
-	w.wg.Add(1)
-	go func() {
-		defer w.wg.Done()
+	w.wg.Go(func() {
 		w.readRegistryEventsLoop(ctx, ets, don, reader, loadWorkflowsHead.Height)
-	}()
+	})
 
 	ticker := w.getTicker()
 	pendingEvents := map[string]*reconciliationEvent{}
@@ -842,7 +838,7 @@ func (w *workflowRegistry) getWorkflowMetadata(ctx context.Context, don capabili
 		var workflows GetWorkflowMetadataListByDONReturnVal
 		headAtLastRead, err = contractReader.GetLatestValueWithHeadData(ctx, readIdentifier, primitives.Finalized, params, &workflows)
 		if err != nil {
-			return []GetWorkflowMetadata{}, &types.Head{Height: "0"}, fmt.Errorf("failed to get lastest value with head data %w", err)
+			return []GetWorkflowMetadata{}, &types.Head{Height: "0"}, fmt.Errorf("failed to get latest value with head data %w", err)
 		}
 
 		allWorkflows = append(allWorkflows, workflows.WorkflowMetadataList...)
@@ -862,7 +858,7 @@ func (w *workflowRegistry) getWorkflowMetadata(ctx context.Context, don capabili
 func toWorkflowRegistryEventResponse(
 	log types.Sequence,
 	evt WorkflowRegistryEventType,
-	lggr logger.Logger,
+	_ logger.Logger,
 ) (workflowRegistryEvent, error) {
 	resp := workflowRegistryEvent{
 		Cursor: log.Cursor,

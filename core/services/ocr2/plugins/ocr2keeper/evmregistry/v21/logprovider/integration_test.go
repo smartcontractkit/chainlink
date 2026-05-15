@@ -510,13 +510,13 @@ func ptr[T any](v T) *T { return &v }
 
 func setupDB(t *testing.T) *sqlx.DB {
 	_, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Feature.LogPoller = ptr(true)
+		c.Feature.LogPoller = new(true)
 
-		c.OCR.Enabled = ptr(false)
-		c.OCR2.Enabled = ptr(true)
+		c.OCR.Enabled = new(false)
+		c.OCR2.Enabled = new(true)
 
-		c.EVM[0].Transactions.ForwardersEnabled = ptr(true)
-		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+		c.EVM[0].Transactions.ForwardersEnabled = new(true)
+		c.EVM[0].GasEstimator.Mode = new("FixedPrice")
 	})
 	return db
 }
