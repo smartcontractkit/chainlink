@@ -1,6 +1,6 @@
 ---
 phase: phase2a
-model: haiku
+model_tier: lightweight
 ---
 
 <phase id="phase2a">
@@ -18,7 +18,7 @@ Read [shared-jira-protocol.md](shared-jira-protocol.md) before parsing any previ
 Run `git remote get-url origin` once. Extract `{owner}/{repo}` from the URL. Cache as `current_repo`. Pass to the subagent below.
 </parent-setup>
 
-<subagent id="fetch-filter" model="haiku">
+<subagent id="fetch-filter" model_tier="lightweight">
 
 <inputs>
 `KEY`, `N`, `cloudId`, `current_repo`, `nav_tool`, `lsp_available` (from `phase_outputs.phase0`), repo root path.

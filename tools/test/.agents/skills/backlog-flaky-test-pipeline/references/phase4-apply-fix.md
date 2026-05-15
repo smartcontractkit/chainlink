@@ -1,6 +1,6 @@
 ---
 phase: phase4
-model: sonnet
+model_tier: standard
 ---
 
 <phase id="phase4">
@@ -17,7 +17,7 @@ For each PROCEED issue: call `mcp__atlassian__getJiraIssue`, verify assignee mat
 If reassigned: report "KEY-NNN is now assigned to {displayName} — reach out before proceeding." Apply mid-flight abandonment rule (unassign + transition to Open + comment). Continue with remaining issues.
 </substep>
 
-<subagent id="verification" model="sonnet" instances="one per PROCEED issue that passed 4a" parallelism="single message">
+<subagent id="verification" model_tier="standard" instances="one per PROCEED issue that passed 4a" parallelism="single message">
 
 <inputs>
 `key`, `fix_file`, `fix_line`, `fix_description`, `proposer_root_cause`, `recommended_next_step` (from phase3 result), `test_name`, `package` (from slim record), `accountId`, `cloudId`.

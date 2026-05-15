@@ -1,6 +1,6 @@
 ---
 phase: phase2b
-model: haiku
+model_tier: lightweight
 ---
 
 <phase id="phase2b">
@@ -18,7 +18,7 @@ Read [shared-jira-protocol.md](shared-jira-protocol.md) before parsing any previ
 Run `git remote get-url origin` once. Extract `{owner}/{repo}`. Cache as `current_repo`.
 </parent-setup>
 
-<subagent id="validation" model="haiku" instances="one per ticket" parallelism="all in a single message">
+<subagent id="validation" model_tier="lightweight" instances="one per ticket" parallelism="all in a single message">
 
 <inputs>
 Ticket key, optional `ci_run_url` (from phase1 `KEY@URL` parsing — null if not provided), `cloudId`, `current_repo`, `nav_tool`, `lsp_available` (from `phase_outputs.phase0`), repo root path.
