@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -14,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	solBinary "github.com/gagliardetto/binary"
@@ -23,16 +21,10 @@ import (
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
-	"github.com/xssnick/tonutils-go/address"
-	"github.com/xssnick/tonutils-go/tlb"
 	"go.uber.org/zap/zapcore"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
-
-	ops "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
-	tonOperation "github.com/smartcontractkit/chainlink-ton/deployment/ccip/operation"
-	"github.com/smartcontractkit/chainlink-ton/deployment/utils"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
@@ -40,7 +32,6 @@ import (
 	cldf_evm_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
-	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
@@ -56,7 +47,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	sui_cs_core "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/sui"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
@@ -65,14 +55,12 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/internal/jdtestutils"
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
-	"github.com/smartcontractkit/chainlink/deployment/internal/tontestutils"
 	"github.com/smartcontractkit/chainlink/deployment/utils/nodetestutils"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
-	fee_quoterV1_6_3 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	solFeeQuoterV0_1_1 "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/execute/tokendata/lbtc"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -86,7 +74,6 @@ import (
 	ccipChangeSetSolanaV0_1_1 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/cciptesthelpertypes"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -96,10 +83,6 @@ const (
 	// NOTE: these are test values, real production values are configured in CLD.
 	DefaultGasPriceDeviationPPB   = 1000
 	DefaultDAGasPriceDeviationPPB = 1000
-)
-
-var (
-	tonDeployerFundAmount = tlb.MustFromTON("1000")
 )
 
 type EnvType string
@@ -127,7 +110,6 @@ type TestConfigs struct {
 	SolChains                  int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	AptosChains                int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	SuiChains                  int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
-	TonChains                  int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	EVMChainsBySelectors       []uint64 // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	NumOfUsersPerChain         uint     // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	Nodes                      int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
@@ -172,10 +154,6 @@ type TestConfigs struct {
 
 	// Solana Handle different contract versions
 	CCIPSolanaContractVersion ccipChangeSetSolanaV0_1_1.CCIPSolanaContractVersion
-
-	// TonContainerConfig allows custom configuration for mylocalton-docker.
-	// See https://github.com/neodix42/mylocalton-docker/wiki/Genesis-setup-parameters for available options.
-	TonContainerConfig *onchain.TonContainerConfig
 
 	// SuiContainerConfig allows custom configuration for Sui containers.
 	SuiContainerConfig *onchain.SuiContainerConfig
@@ -367,19 +345,6 @@ func WithSuiChains(numChains int) TestOps {
 	}
 }
 
-func WithTonChains(numChains int) TestOps {
-	return func(testCfg *TestConfigs) {
-		testCfg.TonChains = numChains
-	}
-}
-
-// WithTonContainerConfig sets the TON container configuration for tests.
-func WithTonContainerConfig(cfg onchain.TonContainerConfig) TestOps {
-	return func(testCfg *TestConfigs) {
-		testCfg.TonContainerConfig = &cfg
-	}
-}
-
 // WithSuiContainerConfig sets the Sui container configuration for tests.
 func WithSuiContainerConfig(cfg onchain.SuiContainerConfig) TestOps {
 	return func(testCfg *TestConfigs) {
@@ -469,7 +434,6 @@ type MemoryEnvironment struct {
 	SolChains   map[uint64]cldf_solana.Chain
 	AptosChains map[uint64]cldf_aptos.Chain
 	SuiChains   map[uint64]cldf_sui.Chain
-	TonChains   map[uint64]cldf_ton.Chain
 }
 
 func (m *MemoryEnvironment) TestConfigs() *TestConfigs {
@@ -513,12 +477,6 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 		loadOpts = append(loadOpts, environment.WithSolanaContainerN(t, tc.SolChains, programsPath, progIDs))
 	}
 
-	// Handle TON chains
-	if tc.TonChains > 0 {
-		require.NotNil(t, tc.TonContainerConfig, "TON container config is required")
-		loadOpts = append(loadOpts, environment.WithTonContainerNWithConfig(t, tc.TonChains, *tc.TonContainerConfig))
-	}
-
 	if tc.SuiChains > 0 {
 		if tc.SuiContainerConfig != nil {
 			loadOpts = append(loadOpts, environment.WithSuiContainerNWithConfig(t, tc.SuiChains, *tc.SuiContainerConfig))
@@ -534,7 +492,6 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	m.Chains = env.BlockChains.EVMChains()
 	m.AptosChains = env.BlockChains.AptosChains()
 	m.SolChains = env.BlockChains.SolanaChains()
-	m.TonChains = env.BlockChains.TonChains()
 	m.SuiChains = env.BlockChains.SuiChains()
 
 	homeChainSel, feedSel := allocateCCIPChainSelectors(m.Chains)
@@ -544,13 +501,6 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	// Aptos doesn't support replaying blocks
 	for selector := range env.BlockChains.AptosChains() {
 		delete(replayBlocks, selector)
-	}
-
-	// Ton chains must be funded if they exist
-	if len(env.BlockChains.TonChains()) > 0 {
-		for _, tonChain := range env.BlockChains.TonChains() {
-			utils.FundWallets(t, tonChain.Client, []*address.Address{tonChain.WalletAddress}, []tlb.Coins{tonDeployerFundAmount})
-		}
 	}
 
 	m.DeployedEnv = DeployedEnv{
@@ -824,12 +774,10 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	evmChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	solChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
 	aptosChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyAptos))
-	tonChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyTon))
 	suiChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySui))
 	//nolint:gocritic // we need to segregate EVM and Solana chains
 	allChains := append(evmChains, solChains...)
 	allChains = append(allChains, aptosChains...)
-	allChains = append(allChains, tonChains...)
 	allChains = append(allChains, suiChains...)
 
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
@@ -1005,85 +953,6 @@ func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, pr
 		)}, nil
 }
 
-type WrapSetOCR3Config struct{}
-
-func (cs WrapSetOCR3Config) VerifyPreconditions(env cldf.Environment, config WrapSetOCR3ConfigArgs) error {
-	// NOTE: this is a workaround and it only validates RemoteChainSelectors
-	return ops.SetOCR3Config{}.VerifyPreconditions(env, ops.SetOCR3OffRampConfig{RemoteChainSels: config.RemoteChainSels})
-}
-
-// NOTE: this should become the new standard function that returns generic OCR3ConfigArgs
-func ocr3ConfigArgs(e cldf.Environment, homeChainSelector uint64, chainSelector uint64, configType globals.ConfigType) ([]tonOperation.OCR3ConfigArgs, error) {
-	state, err := stateview.LoadOnchainState(e, stateview.WithLoadLegacyContracts(true))
-	if err != nil {
-		return nil, err
-	}
-
-	donID, err := internal.DonIDForChain(
-		state.Chains[homeChainSelector].CapabilityRegistry,
-		state.Chains[homeChainSelector].CCIPHome,
-		chainSelector,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get DON ID: %w", err)
-	}
-
-	// Default to active config if not set
-	if configType == "" {
-		configType = globals.ConfigTypeActive
-	}
-
-	ocr3Args, err := internal.BuildSetOCR3ConfigArgsAptos(
-		donID,
-		state.Chains[homeChainSelector].CCIPHome,
-		chainSelector,
-		configType,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build OCR3 config args: %w", err)
-	}
-
-	// MAP TO ARGS, this will become unnecessary once BuildSetOCR3Config uses correct types
-	var args []tonOperation.OCR3ConfigArgs
-	for _, arg := range ocr3Args {
-		args = append(args, tonOperation.OCR3ConfigArgs{
-			ConfigDigest:                   arg.ConfigDigest,
-			PluginType:                     tonOperation.PluginType(arg.OcrPluginType),
-			F:                              arg.F,
-			IsSignatureVerificationEnabled: arg.IsSignatureVerificationEnabled,
-			Signers:                        arg.Signers,
-			Transmitters:                   arg.Transmitters,
-		})
-	}
-	return args, nil
-}
-
-type WrapSetOCR3ConfigArgs struct {
-	HomeChainSel    uint64
-	RemoteChainSels []uint64
-	ConfigType      globals.ConfigType
-}
-
-func (cs WrapSetOCR3Config) Apply(env cldf.Environment, config WrapSetOCR3ConfigArgs) (cldf.ChangesetOutput, error) {
-	// TODO: loop over tonChains
-	args, err := ocr3ConfigArgs(env, config.HomeChainSel, config.RemoteChainSels[0], config.ConfigType)
-	if err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
-
-	configs := make(map[tonOperation.PluginType]tonOperation.OCR3ConfigArgs, 2)
-	for _, arg := range args {
-		configs[arg.PluginType] = arg
-	}
-
-	// TODO: don't only wrap TON
-	return ops.SetOCR3Config{}.Apply(env, ops.SetOCR3OffRampConfig{
-		// TODO: map[remoteChainSels => configs]
-		RemoteChainSels: config.RemoteChainSels,
-		Configs:         configs,
-	})
-}
-
 func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEnvironment, mcmsEnabled bool) DeployedEnv {
 	tc := tEnv.TestConfigs()
 	e := tEnv.DeployedEnvironment()
@@ -1096,7 +965,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	evmContractParams := make(map[uint64]ccipseq.ChainContractParams)
 
 	var (
-		evmChains, solChains, aptosChains, suiChains, tonChains []uint64
+		evmChains, solChains, aptosChains, suiChains []uint64
 	)
 	for _, chain := range allChains {
 		if _, ok := e.Env.BlockChains.EVMChains()[chain]; ok {
@@ -1113,28 +982,10 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		}
 	}
 
-	for _, chain := range allChains {
-		if _, ok := e.Env.BlockChains.TonChains()[chain]; ok {
-			tonChains = append(tonChains, chain)
-		}
-	}
-
-	// Use 1.6.0 latest FeeQuoter when TON chains present in environment.
-	// The 1.6.0 latest FeeQuoter version is required on EVM chains to calculate fees for TON destinations.
-	// TODO: remove this once we have a released version of FeeQuoter for TON destinations.
-	useLatestFeeQuoter := len(tonChains) > 0
-
 	for _, chain := range evmChains {
 		params := ccipseq.ChainContractParams{
 			FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
 			OffRampParams:   ccipops.DefaultOffRampParams(),
-		}
-		if useLatestFeeQuoter {
-			params.FeeQuoterOpts = &opsutil.ContractOpts{
-				Version:          semver.MustParse("1.6.0-latest"),
-				EVMBytecode:      common.FromHex(fee_quoterV1_6_3.FeeQuoterBin),
-				ZkSyncVMBytecode: fee_quoterV1_6_3.ZkBytecode,
-			}
 		}
 		evmContractParams[chain] = params
 	}
@@ -1213,21 +1064,6 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		aptosCs := DeployChainContractsToAptosCS(t, e, aptosChains[0])
 		e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, []commonchangeset.ConfiguredChangeSet{aptosCs})
 		require.NoError(t, err)
-	}
-
-	if len(tonChains) != 0 {
-		// Currently only one ton chain is supported in test environment
-		_, err := tontestutils.GetTONSha()
-		require.NoError(t, err, "failed to get TON commit sha")
-		// TODO replace the hardcoded commit sha with the one fetched from memory.GetTONSha()
-		contractVersion := "github.com/smartcontractkit/chainlink-ton@contracts/1.6.0"
-		// Allow overriding with a custom version, it's set to "local" on chainlink-ton CI
-		if version := os.Getenv("CCIP_CONTRACTS_TON_VERSION"); version != "" {
-			contractVersion = version
-		}
-		cs := commonchangeset.Configure(ops.DeployCCIPContracts{}, ops.DeployChainContractsConfig(t, e.Env, tonChains[0], contractVersion, rand.Uint32()))
-		e.Env, _, err = commonchangeset.ApplyChangesets(t, e.Env, []commonchangeset.ConfiguredChangeSet{cs})
-		require.NoError(t, err, "failed to deploy TON ccip contracts")
 	}
 
 	state, err := stateview.LoadOnchainState(e.Env, stateview.WithLoadLegacyContracts(true))
@@ -1464,30 +1300,6 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		}
 	}
 
-	// TODO(ton): Set Ton chains plugin configs and update token addr once available, https://smartcontract-it.atlassian.net/browse/NONEVM-1938
-	for _, chain := range tonChains {
-		t.Logf("[TON-E2E] AddCCIPContractsToEnvironment: Setting up Ton chain %d", chain)
-		tokenInfo := map[cciptypes.UnknownEncodedAddress]pluginconfig.TokenInfo{}
-		address := state.TonChains[chain].LinkTokenAddress
-		tokenInfo[cciptypes.UnknownEncodedAddress(address.String())] = tokenConfig.TokenSymbolToInfo[shared.LinkSymbol]
-		// TODO check if TON WETH is needed for TokenSymbolInfo?
-		// tokenInfo[cciptypes.UnknownEncodedAddress()] = tokenConfig.TokenSymbolToInfo[shared.WethSymbol]
-		ocrOverride := tc.OCRConfigOverride
-		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, tokenInfo, ocrOverride)
-		execOCRConfigs[chain] = v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, tokenDataProviders, ocrOverride)
-		chainConfigs[chain] = v1_6.ChainConfig{
-			Readers: nodeInfo.NonBootstraps().PeerIDs(),
-			// #nosec G115 - Overflow is not a concern in this test scenario
-			FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
-			EncodableChainConfig: chainconfig.ChainConfig{
-				GasPriceDeviationPPB:      cciptypes.BigInt{Int: big.NewInt(DefaultGasPriceDeviationPPB)},
-				DAGasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(DefaultDAGasPriceDeviationPPB)},
-				OptimisticConfirmations:   globals.OptimisticConfirmations,
-				ChainFeeDeviationDisabled: true,
-			},
-		}
-	}
-
 	// Apply second set of changesets to configure the CCIP contracts.
 	var mcmsConfig *proposalutils.TimelockConfig
 	if mcmsEnabled {
@@ -1611,18 +1423,6 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				},
 			))
 		}
-
-		if len(tonChains) > 0 {
-			apps = append(apps, commonchangeset.Configure(
-				// Enable the OCR config on the remote chains.
-				WrapSetOCR3Config{},
-				WrapSetOCR3ConfigArgs{
-					HomeChainSel:    e.HomeChainSel,
-					RemoteChainSels: tonChains,
-					ConfigType:      globals.ConfigTypeActive,
-				},
-			))
-		}
 	}
 	apps = append(apps, commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(v1_6.CCIPCapabilityJobspecChangeset),
@@ -1658,8 +1458,6 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 
 	err = ValidateSolanaState(e.Env, solChains)
 	require.NoError(t, err)
-
-	// TODO(ton): Validate TON state
 
 	tEnv.UpdateDeployedEnvironment(e)
 	return e

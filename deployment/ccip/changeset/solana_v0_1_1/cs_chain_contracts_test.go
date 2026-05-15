@@ -1005,7 +1005,7 @@ func TestDeployCCIPContracts(t *testing.T) {
 	// TODO: Fix this test to use the new changeset
 	t.Parallel()
 	skipInCI(t)
-	testhelpers.DeployCCIPContractsTest(t, 1, 1)
+	testhelpers.DeployCCIPContractsTest(t, 1)
 }
 
 // ocr3 test

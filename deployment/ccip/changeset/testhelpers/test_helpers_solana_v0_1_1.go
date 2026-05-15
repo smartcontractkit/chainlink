@@ -22,9 +22,6 @@ import (
 
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
-	tonOps "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
-	tonrouter "github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/router"
-
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
@@ -396,17 +393,6 @@ func SendRequestV0_1_1(
 		return SendRequestSolV0_1_1(e, state, cfg)
 	case chainsel.FamilyAptos:
 		return SendRequestAptos(e, state, cfg)
-	case chainsel.FamilyTon:
-		tonMsg := cfg.Message.(tonrouter.CCIPSend)
-		seq, raw, err := tonOps.SendCCIPMessage(e, state.TonChains[cfg.SourceChain], cfg.SourceChain, tonMsg)
-		if err != nil {
-			return nil, err
-		}
-
-		return &ccipclient.AnyMsgSentEvent{
-			SequenceNumber: seq,
-			RawEvent:       raw,
-		}, nil
 	default:
 		return nil, fmt.Errorf("send request: unsupported chain family: %v", family)
 	}

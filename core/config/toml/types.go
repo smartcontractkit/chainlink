@@ -2333,6 +2333,32 @@ func (a AdditionalWorkflowSource) GetName() string {
 	return *a.Name
 }
 
+type ModuleCache struct {
+	Enabled      *bool
+	IdleEviction *bool
+	IdleTimeout  *commonconfig.Duration
+	MaxLoaded    *int
+	CacheDir     *string
+}
+
+func (m *ModuleCache) setFrom(f *ModuleCache) {
+	if f.Enabled != nil {
+		m.Enabled = f.Enabled
+	}
+	if f.IdleEviction != nil {
+		m.IdleEviction = f.IdleEviction
+	}
+	if f.IdleTimeout != nil {
+		m.IdleTimeout = f.IdleTimeout
+	}
+	if f.MaxLoaded != nil {
+		m.MaxLoaded = f.MaxLoaded
+	}
+	if f.CacheDir != nil {
+		m.CacheDir = f.CacheDir
+	}
+}
+
 type WorkflowRegistry struct {
 	Address                 *string
 	NetworkID               *string
@@ -2344,6 +2370,7 @@ type WorkflowRegistry struct {
 	SyncStrategy            *string
 	MaxConcurrency          *int
 	WorkflowStorage         WorkflowStorage
+	ModuleCache             ModuleCache
 	AdditionalSourcesConfig []AdditionalWorkflowSource `toml:"AdditionalSources"`
 }
 
@@ -2385,6 +2412,7 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 	}
 
 	r.WorkflowStorage.setFrom(&f.WorkflowStorage)
+	r.ModuleCache.setFrom(&f.ModuleCache)
 
 	if len(f.AdditionalSourcesConfig) > 0 {
 		r.AdditionalSourcesConfig = make([]AdditionalWorkflowSource, len(f.AdditionalSourcesConfig))
