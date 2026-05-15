@@ -3303,6 +3303,27 @@ func (cfg SetChainRateLimitConfig) Validate(e cldf.Environment, chainState solan
 		if err := entry.RateLimiterConfig.Validate(); err != nil {
 			return fmt.Errorf("invalid rate limiter config for token %s remote chain %d: %w", entry.SolTokenPubKey, entry.RemoteChainSelector, err)
 		}
+		// Verify that our authority (deployer or timelock) is the pool's rate limit admin,
+		// so we don't build an unexecutable MCMS proposal for a pool handed over to a customer.
+		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
+		programData := solTestTokenPool.State{}
+		if err := chain.GetAccountDataBorshInto(context.Background(), poolConfigPDA, &programData); err != nil {
+			return fmt.Errorf("failed to read pool config for token %s: %w", entry.SolTokenPubKey, err)
+		}
+		rlAdmin := programData.Config.RateLimitAdmin
+		if cfg.MCMS != nil {
+			timelockSigner, err := FetchTimelockSigner(e, cfg.SolChainSelector)
+			if err != nil {
+				return fmt.Errorf("failed to fetch timelock signer: %w", err)
+			}
+			if rlAdmin != timelockSigner {
+				return fmt.Errorf("rate limit admin %s does not match timelock signer %s for token %s", rlAdmin, timelockSigner, entry.SolTokenPubKey)
+			}
+		} else {
+			if rlAdmin != chain.DeployerKey.PublicKey() {
+				return fmt.Errorf("rate limit admin %s does not match deployer key %s for token %s", rlAdmin, chain.DeployerKey.PublicKey(), entry.SolTokenPubKey)
+			}
+		}
 	}
 	return nil
 }
@@ -3325,14 +3346,6 @@ func SetChainRateLimit(e cldf.Environment, cfg SetChainRateLimitConfig) (cldf.Ch
 		tokenPool := chainState.GetActiveTokenPool(entry.PoolType, entry.Metadata)
 		poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(tokenPubKey, tokenPool, entry.RemoteChainSelector)
 
-		tokenPoolUsingMcms := solanastateview.IsSolanaProgramOwnedByTimelock(
-			&e,
-			chain,
-			chainState,
-			entry.PoolType,
-			tokenPubKey,
-			entry.Metadata,
-		)
 		authority := GetAuthorityForIxn(
 			&e,
 			chain,
@@ -3341,6 +3354,7 @@ func SetChainRateLimit(e cldf.Environment, cfg SetChainRateLimitConfig) (cldf.Ch
 			tokenPubKey,
 			entry.Metadata,
 		)
+		tokenPoolUsingMcms := authority != chain.DeployerKey.PublicKey()
 
 		var ixns []solana.Instruction
 
@@ -3349,9 +3363,6 @@ func SetChainRateLimit(e cldf.Environment, cfg SetChainRateLimitConfig) (cldf.Ch
 		// This workaround is only needed when enabling a rate limit that is currently disabled on-chain,
 		// not when updating already-enabled limits, to avoid resetting that direction's token bucket.
 		_, onChainConfig, err := isSupportedChain(chain, tokenPubKey, tokenPool, entry.PoolType, entry.RemoteChainSelector)
-		// If the account doesn't exist yet (e.g. during token expansion where MCMS batches
-		// init_chain_remote_config and set_chain_rate_limit in a single proposal), we treat
-		// both directions as uninitialized and always prepend the dummy instruction.
 		needsDummy := false
 		if err != nil {
 			needsDummy = entry.RateLimiterConfig.Inbound.Enabled || entry.RateLimiterConfig.Outbound.Enabled
