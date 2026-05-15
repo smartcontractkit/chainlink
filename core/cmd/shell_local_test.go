@@ -648,10 +648,10 @@ func TestShell_BeholderLifecycle(t *testing.T) {
 		return shell, ctx
 	}
 
-	t.Run("telemetry disabled skips beholder client", func(t *testing.T) {
+	t.Run("telemetry disabled assigns noop beholder client", func(t *testing.T) {
 		shell, c := newShell(t, nil, nil)
 		require.NoError(t, shell.BeforeNode(c))
-		assert.Nil(t, shell.BeholderClient, "BeholderClient should be nil when telemetry is disabled")
+		require.NotNil(t, shell.BeholderClient, "BeholderClient should be a no-op client when telemetry is disabled")
 		require.NoError(t, shell.AfterNode(c))
 	})
 
