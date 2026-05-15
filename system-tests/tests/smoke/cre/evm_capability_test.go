@@ -3,7 +3,6 @@ package cre
 import (
 	"bufio"
 	"context"
-	"database/sql"
 	"fmt"
 	"io"
 	"math/big"
@@ -13,7 +12,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"slices"
 	"testing"
 	"time"
 
@@ -25,7 +23,6 @@ import (
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
@@ -322,68 +319,6 @@ func configureEVMLogTriggerWorkflow(t *testing.T, lggr zerolog.Logger, chain blo
 	}, msgEmitter
 }
 
-// connectTriggerDB connects to the Postgres database where BaseTrigger persists
-// pending events for the given chainID. Which database that is depends on
-// which DON owns the evm-{chainID} capability.
-func connectTriggerDB(t *testing.T, nodeSets []*cre.NodeSet, chainID string) *sql.DB {
-	t.Helper()
-
-	var port int
-	var label string
-	evmFlag := "evm-" + chainID
-
-	// Check workflow NodeSet first (local takes precedence).
-	for _, ns := range nodeSets {
-		if slices.Contains(ns.DONTypes, cre.WorkflowDON) && slices.Contains(ns.Capabilities, evmFlag) {
-			port = ns.DbInput.Port
-			label = ns.Name
-			break
-		}
-	}
-
-	// Fall back to any NodeSet that has the capability (e.g. capabilities DON).
-	if port == 0 {
-		for _, ns := range nodeSets {
-			if slices.Contains(ns.Capabilities, evmFlag) {
-				port = ns.DbInput.Port
-				label = ns.Name
-				break
-			}
-		}
-	}
-	require.NotZerof(t, port, "no NodeSet found with evm-%s capability", chainID)
-
-	dsn := fmt.Sprintf(
-		"host=localhost port=%d user=chainlink password=thispasswordislongenough dbname=db_0 sslmode=disable",
-		port,
-	)
-	db, err := sql.Open("postgres", dsn)
-	require.NoError(t, err)
-	require.NoError(t, db.PingContext(t.Context()))
-	t.Logf("connected to %s node DB (port %d) for trigger event tracking on chain %s", label, port, chainID)
-	t.Cleanup(func() { _ = db.Close() })
-	return db
-}
-
-var _ = connectTriggerDB
-
-type tableStats struct {
-	inserts int64
-	deletes int64
-}
-
-// snapshotTriggerStats returns the current cumulative insert/delete counts for
-// the trigger_pending_events table from pg_stat_user_tables.
-func snapshotTriggerStats(ctx context.Context, db *sql.DB) (tableStats, error) {
-	var s tableStats
-	err := db.QueryRowContext(ctx,
-		`SELECT COALESCE(n_tup_ins,0), COALESCE(n_tup_del,0)
-		   FROM pg_stat_user_tables
-		  WHERE relname = 'trigger_pending_events'`,
-	).Scan(&s.inserts, &s.deletes)
-	return s, err
-}
-
 func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	const workflowFileLocation = "./evm/logtrigger/main.go"
 	lggr := framework.L
@@ -414,12 +349,6 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 	successfulLogTriggerChains := make([]string, 0, len(chainsToTest))
 	for chainID, bcOutput := range chainsToTest {
-		triggerDB := connectTriggerDB(t, testEnv.Config.NodeSets, chainID)
-
-		baselineStats, err := snapshotTriggerStats(t.Context(), triggerDB)
-		require.NoError(t, err, "failed to snapshot trigger_pending_events stats for chain %s", chainID)
-		t.Logf("baseline trigger_pending_events stats for chain %s: inserts=%d deletes=%d", chainID, baselineStats.inserts, baselineStats.deletes)
-
 		lggr.Info().Msgf("Creating EVM LogTrigger workflow configuration for chain %s", chainID)
 		workflowConfig, msgEmitter := configureEVMLogTriggerWorkflow(t, lggr, bcOutput)
 
@@ -466,9 +395,7 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 			return ackFound.Load()
 		}, 4*time.Minute, 500*time.Millisecond,
 			"expected BaseTrigger Event ACK log line in container logs (BaseTriggerCapability.AckEvent logs msg Event ACK)")
-
-		// TODO: Replace with container log streaming
-		//verifyTriggerEventACKs(t, lggr, triggerDB, baselineStats)
+		lggr.Info().Msg("found BaseTrigger Event ACK log")
 
 		lggr.Info().Msgf("🎉 LogTrigger Workflow %s executed successfully on chain %s", workflowName, chainID)
 		successfulLogTriggerChains = append(successfulLogTriggerChains, chainID)
@@ -485,8 +412,7 @@ var triggerEventACKLogPattern = regexp.MustCompile(`Event ACK`)
 
 // verifyTriggerEventACKLogs starts parallel readers (one per container stream) that scan for BaseTrigger Event ACK
 // lines. Call the returned cleanup after the test step finishes to cancel scanners and close readers.
-// The returned atomic is set to true when any container reports a matching line; the first match cancels
-// sibling scanners to mirror CheckContainersForPanicsFromStreams-style early exit.
+// The returned atomic is set to true when any container reports a matching line.
 func verifyTriggerEventACKLogs(ctx context.Context, lggr zerolog.Logger, logStreams map[string]io.ReadCloser) (*atomic.Bool, func()) {
 	found := &atomic.Bool{}
 	if len(logStreams) == 0 {
@@ -531,24 +457,3 @@ func scanOneContainerForTriggerEventACK(ctx context.Context, cancel context.Canc
 		lggr.Error().Err(err).Str("container", containerName).Msg("error reading container logs while scanning for Event ACK")
 	}
 }
-
-// verifyTriggerEventACKs ensures the Base Trigger persisted events and processed ACKs
-// by checking cumulative insert/delete counters in pg_stat_user_tables.
-// This works for both local triggers (where ACK is near-instant) and remote
-// triggers (where there's a network round-trip).
-func verifyTriggerEventACKs(t *testing.T, lggr zerolog.Logger, triggerDB *sql.DB, baselineStats tableStats) {
-	t.Helper()
-	require.Eventually(t, func() bool {
-		cur, sErr := snapshotTriggerStats(t.Context(), triggerDB)
-		if sErr != nil {
-			lggr.Error().Msgf("stats query error: %v", sErr)
-			return false
-		}
-		newInserts := cur.inserts - baselineStats.inserts
-		newDeletes := cur.deletes - baselineStats.deletes
-		lggr.Info().Msgf("trigger_pending_events stats delta: inserts=%d deletes=%d", newInserts, newDeletes)
-		return newInserts > 0 && newDeletes > 0
-	}, 2*time.Minute, time.Second, "trigger events were never inserted and/or ACKed in the database")
-}
-
-var _ = verifyTriggerEventACKs
