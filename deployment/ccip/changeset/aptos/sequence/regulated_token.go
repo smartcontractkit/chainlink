@@ -252,6 +252,19 @@ func VerifyFinalizeRegulatedTokenOwnership(
 		return errors.New("pending transfer has not been accepted by MCMS")
 	}
 
+	// The DeployRegulatedToken changeset emits accept_ownership and accept_admin in the same
+	// MCMS proposal, so once ownership is accepted we expect admin to be MCMS as well. The
+	// regulated pool deployment later emits an MCMS GrantRole for BRIDGE_MINTER_OR_BURNER_ROLE
+	// that requires MCMS to be admin at execution time; finalizing ownership here without that
+	// would produce a pool proposal that fails at execution.
+	currentAdmin, err := token.RegulatedToken().Admin(nil)
+	if err != nil {
+		return fmt.Errorf("query admin: %w", err)
+	}
+	if currentAdmin != expectedOwner {
+		return fmt.Errorf("admin %s has not been transferred to MCMS registry owner %s; accept_admin from the deploy proposal must execute before finalizing ownership", currentAdmin.StringLong(), expectedOwner.StringLong())
+	}
+
 	currentOwner, err := token.RegulatedToken().Owner(nil)
 	if err != nil {
 		return fmt.Errorf("query owner: %w", err)
