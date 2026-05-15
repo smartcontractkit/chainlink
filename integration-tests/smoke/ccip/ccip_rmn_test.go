@@ -3,6 +3,7 @@ package ccip
 import (
 	"context"
 	"errors"
+	"math"
 	"math/big"
 	"slices"
 	"strconv"
@@ -46,7 +47,7 @@ func TestRMN_TwoMessagesOneSourceChainCursed(t *testing.T) {
 			chain0: {globalCurse: 5 * time.Second}, // chain0 will be globally cursed and curse will be revoked later
 		},
 		homeChainConfig: homeChainConfig{
-			f: map[int]int{chain0: 1, chain1: 1},
+			f: map[int]uint{chain0: 1, chain1: 1},
 		},
 		remoteChainsConfig: []remoteChainConfig{
 			{chainIdx: chain0, f: 1},
@@ -70,7 +71,7 @@ func TestRMN_GlobalCurseTwoMessagesOnTwoLanes(t *testing.T) {
 		name:        "global curse messages on two lanes",
 		waitForExec: false,
 		homeChainConfig: homeChainConfig{
-			f: map[int]int{chain0: 1, chain1: 1},
+			f: map[int]uint{chain0: 1, chain1: 1},
 		},
 		remoteChainsConfig: []remoteChainConfig{
 			{chainIdx: chain0, f: 1},
@@ -160,9 +161,6 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	rmnRemoteConfig := make(map[uint64]ccipops.RMNRemoteConfig)
 	for _, remoteCfg := range tc.remoteChainsConfig {
 		selector := tc.pf.chainSelectors[remoteCfg.chainIdx]
-		if remoteCfg.f < 0 {
-			t.Fatalf("remoteCfg.f is negative: %d", remoteCfg.f)
-		}
 		rmnRemoteConfig[selector] = ccipops.RMNRemoteConfig{
 			F:       uint64(remoteCfg.f),
 			Signers: tc.pf.rmnRemoteSigners,
@@ -286,6 +284,14 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	}
 }
 
+// observerNodesBitmapBitIndex maps an RMN node index to a math/big.Int bit index (SetBit requires int).
+func observerNodesBitmapBitIndex(id uint64) int {
+	if id > uint64(math.MaxInt) {
+		panic("rmn node id overflows int (required for math/big.Int.SetBit)")
+	}
+	return int(id)
+}
+
 func createObserverNodesBitmap(chainSel uint64, rmnNodes []rmnNode, chainSelectors []uint64) *big.Int {
 	bitmap := new(big.Int)
 	for _, n := range rmnNodes {
@@ -298,23 +304,23 @@ func createObserverNodesBitmap(chainSel uint64, rmnNodes []rmnNode, chainSelecto
 			continue
 		}
 
-		bitmap.SetBit(bitmap, n.id, 1)
+		bitmap.SetBit(bitmap, observerNodesBitmapBitIndex(n.id), 1)
 	}
 
 	return bitmap
 }
 
 type homeChainConfig struct {
-	f map[int]int
+	f map[int]uint
 }
 
 type remoteChainConfig struct {
 	chainIdx int
-	f        int
+	f        uint
 }
 
 type rmnNode struct {
-	id                int
+	id                uint64
 	observedChainIdxs []int
 }
 
@@ -358,7 +364,7 @@ func (tc *rmnTestCase) populateFields(t *testing.T, envWithRMN testhelpers.Deplo
 	}
 
 	for _, rmnNodeInfo := range tc.rmnNodes {
-		rmn := rmnCluster.Nodes["rmn_"+strconv.Itoa(rmnNodeInfo.id)]
+		rmn := rmnCluster.Nodes["rmn_"+strconv.FormatUint(rmnNodeInfo.id, 10)]
 
 		var offchainPublicKey [32]byte
 		copy(offchainPublicKey[:], rmn.RMN.OffchainPublicKey)
@@ -368,19 +374,13 @@ func (tc *rmnTestCase) populateFields(t *testing.T, envWithRMN testhelpers.Deplo
 			OffchainPublicKey: offchainPublicKey,
 		})
 
-		if rmnNodeInfo.id < 0 {
-			t.Fatalf("node id is negative: %d", rmnNodeInfo.id)
-		}
 		tc.pf.rmnRemoteSigners = append(tc.pf.rmnRemoteSigners, rmn_remote.RMNRemoteSigner{
 			OnchainPublicKey: rmn.RMN.EVMOnchainPublicKey,
-			NodeIndex:        uint64(rmnNodeInfo.id),
+			NodeIndex:        rmnNodeInfo.id,
 		})
 	}
 
 	for remoteChainIdx, remoteF := range tc.homeChainConfig.f {
-		if remoteF < 0 {
-			t.Fatalf("negative remote F: %d", remoteF)
-		}
 		// configure remote chain details on the home contract
 		tc.pf.rmnHomeSourceChains = append(tc.pf.rmnHomeSourceChains, rmn_home.RMNHomeSourceChain{
 			ChainSelector:       tc.pf.chainSelectors[remoteChainIdx],
