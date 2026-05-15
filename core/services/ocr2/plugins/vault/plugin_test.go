@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -344,8 +345,8 @@ func TestPlugin_Observation_PendingQueueEnabled_EmptyPendingQueue(t *testing.T) 
 	// There was no pending queue in the KV store, so this will be empty
 	assert.Empty(t, obs.Observations)
 
-	// We expect the pending queue observation to contain the request in the local queue.
-	assert.Len(t, obs.PendingQueueItems, 2)
+	// Two local GetSecrets requests share one batched blob; PendingQueueItems is one handle per blob.
+	assert.Len(t, obs.PendingQueueItems, 1)
 
 	assertPendingQueueItemsContain(t, bf.blobs, map[string]proto.Message{
 		expectedID:  p,
@@ -423,8 +424,8 @@ func TestPlugin_Observation_PendingQueueEnabled_WithPendingQueueProvided(t *test
 	gotResp := gotO.GetDeleteSecretsResponse().Responses[0]
 	assert.Equal(t, "key does not exist", gotResp.Error)
 
-	// We expect the pending queue observation to contain the request in the local queue.
-	assert.Len(t, obs.PendingQueueItems, 2)
+	// Two local GetSecrets requests share one batched blob; PendingQueueItems is one handle per blob.
+	assert.Len(t, obs.PendingQueueItems, 1)
 
 	assertPendingQueueItemsContain(t, bf.blobs, map[string]proto.Message{
 		expectedID:  p,
@@ -523,29 +524,103 @@ func assertPendingQueueItemsEqual(t *testing.T, expectedID string, got []byte, e
 func assertPendingQueueItemsContain(t *testing.T, gotItems [][]byte, expected map[string]proto.Message) {
 	t.Helper()
 
-	require.Len(t, gotItems, len(expected))
-
 	remaining := make(map[string]proto.Message, len(expected))
 	for id, payload := range expected {
 		remaining[id] = payload
 	}
 
+	var total int
 	for _, got := range gotItems {
-		gotMsg := &vaultcommon.StoredPendingQueueItem{}
-		err := proto.Unmarshal(got, gotMsg)
+		items, err := unmarshalPendingQueueBlob(got)
 		require.NoError(t, err)
+		total += len(items)
+		for _, gotMsg := range items {
+			expectedPayload, ok := remaining[gotMsg.Id]
+			require.True(t, ok, "unexpected pending queue item id %q", gotMsg.Id)
 
-		expectedPayload, ok := remaining[gotMsg.Id]
-		require.True(t, ok, "unexpected pending queue item id %q", gotMsg.Id)
+			gotPayload, err := gotMsg.Item.UnmarshalNew()
+			require.NoError(t, err)
+			assert.True(t, proto.Equal(expectedPayload, gotPayload))
 
-		gotPayload, err := gotMsg.Item.UnmarshalNew()
-		require.NoError(t, err)
-		assert.True(t, proto.Equal(expectedPayload, gotPayload))
-
-		delete(remaining, gotMsg.Id)
+			delete(remaining, gotMsg.Id)
+		}
 	}
 
+	require.Equal(t, len(expected), total, "item count across blob payloads")
 	assert.Empty(t, remaining)
+}
+
+func TestPendingQueueBlobMarshalUnmarshal_legacyAndBatch(t *testing.T) {
+	id := &vaultcommon.SecretIdentifier{Owner: "o", Namespace: "n", Key: "k"}
+	req := &vaultcommon.GetSecretsRequest{Requests: []*vaultcommon.SecretRequest{{Id: id}}}
+	any1, err := anypb.New(req)
+	require.NoError(t, err)
+	s1 := &vaultcommon.StoredPendingQueueItem{Id: "a", Item: any1}
+	any2, err := anypb.New(req)
+	require.NoError(t, err)
+	s2 := &vaultcommon.StoredPendingQueueItem{Id: "b", Item: any2}
+
+	legacy, err := marshalPendingQueueBlobPayload([]*vaultcommon.StoredPendingQueueItem{s1})
+	require.NoError(t, err)
+	items, err := unmarshalPendingQueueBlob(legacy)
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.Equal(t, "a", items[0].Id)
+
+	batchBytes, err := marshalPendingQueueBlobPayload([]*vaultcommon.StoredPendingQueueItem{s1, s2})
+	require.NoError(t, err)
+	items2, err := unmarshalPendingQueueBlob(batchBytes)
+	require.NoError(t, err)
+	require.Len(t, items2, 2)
+	require.Equal(t, "a", items2[0].Id)
+	require.Equal(t, "b", items2[1].Id)
+}
+
+func TestPrepareObservationPendingQueueBlobs_packsManySmallItemsInOneObservation(t *testing.T) {
+	store := requests.NewStore[*vaulttypes.Request]()
+	r := newTestReportingPlugin(t, withStore(store))
+
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "my_secret",
+	}
+	pubK, _, err := box.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	pks := hex.EncodeToString(pubK[:])
+	p := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
+			{Id: id, EncryptionKeys: []string{pks}},
+		},
+	}
+	const n = 25
+	for i := range n {
+		require.NoError(t, store.Add(&vaulttypes.Request{Payload: p, IDVal: fmt.Sprintf("req-%02d", i)}))
+	}
+	localQueueItems, err := store.All()
+	require.NoError(t, err)
+	slices.SortFunc(localQueueItems, func(a, b *vaulttypes.Request) int {
+		return strings.Compare(a.ID(), b.ID())
+	})
+
+	maxBlobSz, err := r.cfg.MaxBlobPayloadBytes.Limit(t.Context())
+	require.NoError(t, err)
+	batchSize, err := r.cfg.MaxBatchSize.Limit(t.Context())
+	require.NoError(t, err)
+
+	pack, err := r.prepareObservationPendingQueueBlobs(t.Context(), 1, localQueueItems, map[string]bool{}, int(maxBlobSz), 2*int(batchSize))
+	require.NoError(t, err)
+	require.Equal(t, n, pack.packedItemCount)
+	require.False(t, pack.truncated)
+	require.LessOrEqual(t, len(pack.blobPayloads), 2*int(batchSize))
+
+	var unpacked int
+	for _, blob := range pack.blobPayloads {
+		items, uerr := unmarshalPendingQueueBlob(blob)
+		require.NoError(t, uerr)
+		unpacked += len(items)
+	}
+	require.Equal(t, n, unpacked)
 }
 
 type blockingBlobBroadcastFetcher struct {
@@ -599,7 +674,9 @@ func (e *errorBlobBroadcastFetcher) FetchBlob(context.Context, ocr3_1types.BlobH
 
 func TestPlugin_Observation_PendingQueueEnabled_BroadcastsPendingQueueBlobsInParallel(t *testing.T) {
 	store := requests.NewStore[*vaulttypes.Request]()
-	r := newTestReportingPlugin(t, withStore(store))
+	// Blob payload cap: one pending item fits in a blob, two batched items do not — two BroadcastBlob calls.
+	// Blob cap between one item (155B) and two batched (316B) so two BroadcastBlob calls occur.
+	r := newTestReportingPlugin(t, withStore(store), withMaxBlobPayloadBytes(310))
 
 	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
@@ -2655,10 +2732,18 @@ func TestPlugin_ValidateObservations_DisallowsDuplicateBlobHandles(t *testing.T)
 		m: make(map[string]response),
 	}
 
+	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
+	req := &vaultcommon.GetSecretsRequest{Requests: []*vaultcommon.SecretRequest{{Id: id}}}
+	anyMsg, err := anypb.New(req)
+	require.NoError(t, err)
+	stored := &vaultcommon.StoredPendingQueueItem{Id: "request-1", Item: anyMsg}
+	dupBytes, err := proto.Marshal(stored)
+	require.NoError(t, err)
+
 	obs := &vaultcommon.Observations{
 		PendingQueueItems: [][]byte{
-			{0: 1},
-			{0: 2},
+			{0},
+			{1},
 		},
 	}
 	obsb, err := proto.Marshal(obs)
@@ -2666,8 +2751,8 @@ func TestPlugin_ValidateObservations_DisallowsDuplicateBlobHandles(t *testing.T)
 
 	bf := &blobber{
 		blobs: [][]byte{
-			{0: 1},
-			{0: 1},
+			dupBytes,
+			dupBytes,
 		},
 	}
 	err = r.ValidateObservation(

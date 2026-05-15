@@ -33,6 +33,7 @@ type testPluginBuildOpts struct {
 	maxIdentifierKeyLengthBytes       int
 	maxRequestBatchSize               int
 	batchSize                         int
+	maxBlobPayloadBytes               int
 	orgIDAsSecretOwnerEnabled         bool
 	marshalBlob                       func(ocr3_1types.BlobHandle) ([]byte, error)
 	unmarshalBlob                     func([]byte) (ocr3_1types.BlobHandle, error)
@@ -87,6 +88,10 @@ func withMaxRequestBatchSize(n int) testPluginOption {
 	return func(o *testPluginBuildOpts) { o.maxRequestBatchSize = n }
 }
 
+func withMaxBlobPayloadBytes(n int) testPluginOption {
+	return func(o *testPluginBuildOpts) { o.maxBlobPayloadBytes = n }
+}
+
 func withMarshalBlob(fn func(ocr3_1types.BlobHandle) ([]byte, error)) testPluginOption {
 	return func(o *testPluginBuildOpts) { o.marshalBlob = fn }
 }
@@ -113,7 +118,7 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 	cfg := makeReportingPluginConfig(t, o.batchSize, o.publicKey, o.privateKeyShare,
 		o.maxSecretsPerOwner, o.maxCiphertextLengthBytes,
 		o.maxIdentifierOwnerLengthBytes, o.maxIdentifierNamespaceLengthBytes,
-		o.maxIdentifierKeyLengthBytes, o.maxRequestBatchSize)
+		o.maxIdentifierKeyLengthBytes, o.maxRequestBatchSize, o.maxBlobPayloadBytes)
 	if o.orgIDAsSecretOwnerEnabled {
 		cfg.OrgIDAsSecretOwnerEnabled = limits.NewGateLimiter(true)
 	}
@@ -153,6 +158,7 @@ func makeReportingPluginConfig(
 	maxIdentifierNamespaceOwnerLengthBytes int,
 	maxIdentifierKeyLengthBytes int,
 	maxRequestBatchSize int,
+	maxBlobPayloadBytes int,
 ) *ReportingPluginConfig {
 	msl, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Int(maxSecretsPerOwner))
 	require.NoError(t, err)
@@ -178,6 +184,14 @@ func makeReportingPluginConfig(
 	requestBatchSizeLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Int(maxRequestBatchSize))
 	require.NoError(t, err)
 
+	var maxBlobPayloadLimiter limits.BoundLimiter[pkgconfig.Size]
+	if maxBlobPayloadBytes > 0 {
+		maxBlobPayloadLimiter, err = limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxBlobPayloadBytes)*pkgconfig.Byte))
+	} else {
+		maxBlobPayloadLimiter, err = limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, cresettings.Default.VaultMaxBlobPayloadSizeLimit)
+	}
+	require.NoError(t, err)
+
 	return &ReportingPluginConfig{
 		MaxBatchSize: bsl,
 
@@ -190,6 +204,7 @@ func makeReportingPluginConfig(
 		MaxIdentifierNamespaceLengthBytes: namespaceOwnerLimiter,
 		MaxIdentifierKeyLengthBytes:       keyLimiter,
 		MaxRequestBatchSize:               requestBatchSizeLimiter,
+		MaxBlobPayloadBytes:               maxBlobPayloadLimiter,
 		OrgIDAsSecretOwnerEnabled:         limits.NewGateLimiter(false),
 		VaultForceEmptyOCRRounds:          limits.NewGateLimiter(false),
 	}

@@ -3,7 +3,11 @@ package cre
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os/exec"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -189,6 +193,10 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		executeVaultSecretsIdentifierValidationTest(t, enc, owner, gwURL, sc, wfReg)
 		executeVaultSecretsGetInvalidIdentifierViaWorkflowTest(t, subEnv, "vget1", ulCh, bmCh)
 	})
+
+	t.Run("pending_queue_blob_batching_many_concurrent_creates", func(t *testing.T) {
+		ExecuteVaultBlobBatchingSmokeTest(t, fixture, testEnv)
+	})
 }
 
 func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
@@ -373,6 +381,129 @@ func ExecuteVaultJWTDisabledTest(t *testing.T, fixture *vaultScenarioFixture) {
 	t.Run("jwt_without_workflow_owner_rejected_when_jwt_auth_disabled", func(t *testing.T) {
 		executeVaultJWTSecretsCreateUnauthorizedTest(t, issuer, vaultPublicKey, orgID, "", gwURL, "JWTBasedAuth is disabled")
 	})
+}
+
+// ExecuteVaultBlobBatchingSmokeTest issues many concurrent Vault create calls so OCR observes a large
+// local pending queue and exercises batched pending-queue blobs (beyond the legacy per-blob single-item cap).
+func ExecuteVaultBlobBatchingSmokeTest(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
+	t.Helper()
+	const nConcurrentCreates = 25
+
+	gwURL := fixture.GatewayURL.String()
+	vaultParsedPublicKey := mustVaultPublicKey(t, fixture.VaultPublicKey)
+	linkingService := fixture.LinkingService
+
+	sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+	workflowOwnerAddress := sc.MustGetRootKeyAddress()
+	owner := workflowOwnerAddress.Hex()
+	expectedResponseOwner := owner
+	orgID := ""
+	orgIDAsSecretOwnerEnabled := isVaultJWTAuthEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath)
+	if linkingService != nil {
+		orgID = "org" + strings.ReplaceAll(uuid.NewString(), "-", "")
+		linkingService.SetOwnerOrg(owner, orgID)
+		if orgIDAsSecretOwnerEnabled {
+			expectedResponseOwner = orgID
+		}
+	}
+	if orgIDAsSecretOwnerEnabled {
+		require.NotEmpty(t, orgID, "JWT auth enabled topology must link the workflow owner to an org ID")
+	}
+
+	wfRegAddr := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+	wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+	require.NoError(t, err)
+	requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
+
+	const plainValue = "blob-batch-smoke-value"
+	createEnc, err := vaultutils.EncryptSecretWithWorkflowOwner(plainValue, vaultParsedPublicKey, workflowOwnerAddress)
+	require.NoError(t, err)
+	namespaces := []string{"main"}
+
+	t.Run("concurrent_secrets_creates", func(t *testing.T) {
+		for i := range nConcurrentCreates {
+			i := i
+			t.Run(fmt.Sprintf("secret_%d", i), func(t *testing.T) {
+				t.Parallel()
+				secretID := uniqueVaultSecretID(fmt.Sprintf("blobbatch%d", i))
+				executeVaultAllowListSecretsCreateTest(t, createEnc, secretID, owner, expectedResponseOwner, gwURL, namespaces, sc, wfReg)
+			})
+		}
+	})
+	// Runs after the parallel subtests above complete (sibling Run, not same body as t.Parallel children).
+	t.Run("pending_queue_pack_observed_in_docker_logs", func(t *testing.T) {
+		assertVaultOCRPendingPackObservedInDockerLogs(t, nConcurrentCreates)
+	})
+}
+
+// assertVaultOCRPendingPackObservedInDockerLogs polls chainlink-related container logs until it finds
+// VAULT_OCR_OBSERVATION_PENDING_PACK with packedLocalItemCount >= wantMinPacked (one Observation packed that many local-queue items).
+var vaultPendingPackDockerLogRE = regexp.MustCompile(`packedLocalItemCount[^\d]*(\d+)`)
+
+func assertVaultOCRPendingPackObservedInDockerLogs(t *testing.T, wantMinPacked int) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("docker log scan skipped in -short mode")
+	}
+	dockerBin, err := exec.LookPath("docker")
+	if err != nil {
+		t.Skip("docker not in PATH; skipping pending-pack log assertion")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for {
+		psOut, err := exec.CommandContext(ctx, dockerBin, "ps", "--format", "{{.Names}}").Output()
+		if err != nil {
+			select {
+			case <-ctx.Done():
+				require.Fail(t, "timed out waiting for docker while scanning for VAULT_OCR_OBSERVATION_PENDING_PACK")
+			case <-ticker.C:
+			}
+			continue
+		}
+		names := strings.Split(strings.TrimSpace(string(psOut)), "\n")
+		for _, name := range names {
+			if name == "" {
+				continue
+			}
+			ln := strings.ToLower(name)
+			if !strings.Contains(ln, "chainlink") && !strings.Contains(ln, "ocr") && !strings.Contains(ln, "capabilit") {
+				continue
+			}
+			logs, err := exec.CommandContext(ctx, dockerBin, "logs", name, "--tail", "25000").CombinedOutput()
+			if err != nil {
+				continue
+			}
+			s := string(logs)
+			if !strings.Contains(s, "VAULT_OCR_OBSERVATION_PENDING_PACK") {
+				continue
+			}
+			best := 0
+			for _, m := range vaultPendingPackDockerLogRE.FindAllStringSubmatch(s, -1) {
+				if len(m) < 2 {
+					continue
+				}
+				v, err := strconv.Atoi(m[1])
+				if err != nil {
+					continue
+				}
+				if v > best {
+					best = v
+				}
+			}
+			if best >= wantMinPacked {
+				framework.L.Info().Str("container", name).Int("packedLocalItemCount", best).Msg("observed vault OCR pending pack log")
+				return
+			}
+		}
+		select {
+		case <-ctx.Done():
+			require.Fail(t, fmt.Sprintf("timed out waiting for VAULT_OCR_OBSERVATION_PENDING_PACK with packedLocalItemCount>=%d in docker logs (is the local CRE stack running?)", wantMinPacked))
+		case <-ticker.C:
+		}
+	}
 }
 
 func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
