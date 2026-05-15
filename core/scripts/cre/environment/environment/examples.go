@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/deploy"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/verify"
-	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based/types"
+	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
@@ -119,7 +119,7 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL string, w
 	fmt.Print(libformat.PurpleText("\n[Stage 2/4] Deployed Balance Reader in %.2f seconds\n", time.Since(start).Seconds()))
 
 	start = time.Now()
-	fmt.Print(libformat.PurpleText("[Stage 3/4] Registering PoR v2 cron example workflow\n\n"))
+	fmt.Print(libformat.PurpleText("[Stage 3/4] Registering PoR cron example workflow\n\n"))
 
 	workflowName := "por-cron-example"
 	workflowFilePath := "examples/workflows/proof-of-reserve/cron-based/main.go"
@@ -189,7 +189,7 @@ func buildAndSavePoRCronConfig(dataFeedsCacheAddress, balanceReaderAddress, feed
 		return "", errors.New("feedID is empty")
 	}
 	if len(addressesToRead) < 2 {
-		return "", errors.New("at least two addresses are required for the PoR v2 example")
+		return "", errors.New("at least two addresses are required for the PoR example")
 	}
 
 	cfg := portypes.WorkflowConfig{

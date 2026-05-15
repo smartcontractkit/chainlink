@@ -183,13 +183,13 @@ jobs:
         shell: bash
         working-directory: core/scripts/cre/environment
         run: |
-          go run . env workflow deploy --compile --workflow-file-path ./examples/workflows/cron/main.go --name cronv2workflow
+          go run . env workflow deploy --compile --workflow-file-path ./examples/workflows/cron/main.go --name cronworkflow
 
       - name: Delete Cron workflow (Go)
         shell: bash
         working-directory: core/scripts/cre/environment
         run: |
-          go run . env workflow delete --name cronv2workflow
+          go run . env workflow delete --name cronworkflow
 
       - name: Deploy Cron workflow (TypeScript)
         shell: bash

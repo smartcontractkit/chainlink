@@ -295,7 +295,7 @@ func buildCommandTree() *CompletionNode {
 	// ENV WORKFLOW - workflow management
 	workflowNode := &CompletionNode{
 		Suggestions: []prompt.Suggest{
-			{Text: "run-cron-example", Description: "Deploy and verify the Cron example workflow"},
+			{Text: "run-por-example", Description: "Deploy and verify the PoR cron example workflow"},
 			{Text: "delete", Description: "Delete a specific workflow"},
 			{Text: "delete-all", Description: "Delete all workflows"},
 			{Text: "compile", Description: "Compile a workflow specification"},
