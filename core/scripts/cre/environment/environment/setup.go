@@ -16,9 +16,8 @@ import (
 	"golang.org/x/text/language"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/client"
 	"github.com/ethereum/go-ethereum/log"
+	mobyclient "github.com/moby/moby/client"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -377,7 +376,7 @@ func (c ImageConfig) WithLocalImage(localImage string) ImageConfig {
 	return out
 }
 
-func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, awsProfile string, noPrompt bool, defaultOption EnsureOption, purge bool) (localImage string, err error) {
+func (c ImageConfig) Ensure(ctx context.Context, dockerClient *mobyclient.Client, awsProfile string, noPrompt bool, defaultOption EnsureOption, purge bool) (localImage string, err error) {
 	// If purge flag is set, remove existing images first
 	if purge {
 		logger := framework.L
@@ -386,13 +385,13 @@ func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, aw
 		logger.Info().Msgf("🗑️  Purging existing %s images...", name)
 
 		// Remove local image if it exists
-		_, err = dockerClient.ImageRemove(ctx, c.BuildConfig.LocalImage, image.RemoveOptions{Force: true})
+		_, err = dockerClient.ImageRemove(ctx, c.BuildConfig.LocalImage, mobyclient.ImageRemoveOptions{Force: true})
 		if err != nil {
 			logger.Warn().Msgf("Failed to remove local image %s: %v", c.BuildConfig.LocalImage, err)
 		}
 
 		// Remove remote-tagged image if it exists
-		_, err = dockerClient.ImageRemove(ctx, c.PullConfig.EcrImage, image.RemoveOptions{Force: true})
+		_, err = dockerClient.ImageRemove(ctx, c.PullConfig.EcrImage, mobyclient.ImageRemoveOptions{Force: true})
 		if err != nil {
 			logger.Warn().Msgf("Failed to remove ECR image %s: %v", c.PullConfig.EcrImage, err)
 		}
@@ -466,13 +465,13 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	logger.Info().Msg("✓ Docker is installed")
 
 	// Check if Docker is running
-	dockerClient, dockerClientErr := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	dockerClient, dockerClientErr := mobyclient.New()
 	if dockerClientErr != nil {
 		setupErr = errors.Wrap(dockerClientErr, "failed to create Docker client")
 		return
 	}
 
-	_, pingErr := dockerClient.Ping(ctx)
+	_, pingErr := dockerClient.Ping(ctx, mobyclient.PingOptions{})
 	if pingErr != nil {
 		setupErr = errors.Wrap(pingErr, "docker is not running. Please start Docker and try again")
 		return
@@ -828,7 +827,7 @@ func checkDockerConfiguration() error {
 
 // localImageExists checks if the local image or rendered remote image exists
 // if the rendered remote image exists, it tags it as the local image
-func localImageExists(ctx context.Context, dockerClient *client.Client, localImage, ecrImage string) (bool, error) {
+func localImageExists(ctx context.Context, dockerClient *mobyclient.Client, localImage, ecrImage string) (bool, error) {
 	logger := framework.L
 	name := strings.ReplaceAll(strings.Split(localImage, ":")[0], "-", " ")
 	name = cases.Title(language.English).String(name)
@@ -844,7 +843,7 @@ func localImageExists(ctx context.Context, dockerClient *client.Client, localIma
 	if err == nil {
 		logger.Info().Msgf("✓ %s image (%s) is available", name, ecrImage)
 		// Tag ECR image as local image
-		if err := dockerClient.ImageTag(ctx, ecrImage, localImage); err != nil {
+		if _, err := dockerClient.ImageTag(ctx, mobyclient.ImageTagOptions{Source: ecrImage, Target: localImage}); err != nil {
 			return false, fmt.Errorf("failed to tag %s image: %w", name, err)
 		}
 		logger.Info().Msgf("  ✓ %s image tagged as %s", name, localImage)

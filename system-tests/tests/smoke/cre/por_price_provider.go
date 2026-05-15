@@ -16,7 +16,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 )
 
 var fakeProviderStarted sync.Once
@@ -213,7 +212,7 @@ func NewFakePriceProvider(testLogger zerolog.Logger, input *fake.Input, authKey 
 
 	priceIndexes := make(map[string]*int)
 	for _, feedID := range cleanFeedIDs {
-		priceIndexes[feedID] = ptr.Ptr(0)
+		priceIndexes[feedID] = new(0)
 	}
 
 	expectedPrices := make(map[string][]*big.Int)
@@ -302,7 +301,7 @@ func (f *FakePriceProvider) NextPrice(feedID string, price *big.Int, elapsed tim
 			panic("more prices found than expected")
 		}
 		f.testLogger.Info().Msgf("Changing price provider price for feed %s to %s", cleanFeedID, f.expectedPrices[cleanFeedID][len(f.actualPrices[cleanFeedID])].String())
-		f.priceIndex[cleanFeedID] = ptr.Ptr(len(f.actualPrices[cleanFeedID]))
+		f.priceIndex[cleanFeedID] = new(len(f.actualPrices[cleanFeedID]))
 
 		// set new price and continue checking
 		return true
@@ -350,7 +349,7 @@ func NewFakePriceProviderForSoak(testLogger zerolog.Logger, input *fake.Input, a
 
 	priceIndexes := make(map[string]*int)
 	for _, feedID := range cleanFeedIDs {
-		priceIndexes[feedID] = ptr.Ptr(0)
+		priceIndexes[feedID] = new(0)
 	}
 
 	expectedPrices := make(map[string][]*big.Int)

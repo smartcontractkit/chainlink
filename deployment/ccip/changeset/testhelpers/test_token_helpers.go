@@ -9,6 +9,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	"github.com/stretchr/testify/require"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
@@ -121,7 +122,7 @@ func SetupTwoChainEnvironmentWithTokens(
 	// Deploy MCMS setup & prerequisite contracts
 	err = rt.Exec(
 		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset), changeset.DeployPrerequisiteConfig{Configs: prereqCfg}),
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commoncs.DeployMCMSWithTimelockV2), mcmsCfg),
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), mcmsCfg),
 	)
 	require.NoError(t, err)
 

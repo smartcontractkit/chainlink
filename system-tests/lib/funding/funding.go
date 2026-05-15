@@ -9,13 +9,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 )
@@ -195,7 +195,7 @@ func SendFunds(ctx context.Context, logger zerolog.Logger, client *seth.Client, 
 	logger.Debug().
 		Str("From", fromAddress.Hex()).
 		Str("To", payload.ToAddress.Hex()).
-		Str("Amount (wei/ether)", fmt.Sprintf("%s/%s", payload.Amount, conversions.WeiToEther(payload.Amount).Text('f', -1))).
+		Str("Amount (wei/ether)", fmt.Sprintf("%s/%s", payload.Amount, weiToEther(payload.Amount).Text('f', -1))).
 		Uint64("Nonce", nonce).
 		Uint64("Gas Limit", gasLimit).
 		Str("Gas Price", gasPrice.String()).
@@ -215,7 +215,7 @@ func SendFunds(ctx context.Context, logger zerolog.Logger, client *seth.Client, 
 		Str("From", fromAddress.Hex()).
 		Str("To", payload.ToAddress.Hex()).
 		Str("TxHash", signedTx.Hash().String()).
-		Str("Amount (wei/ether)", fmt.Sprintf("%s/%s", payload.Amount, conversions.WeiToEther(payload.Amount).Text('f', -1))).
+		Str("Amount (wei/ether)", fmt.Sprintf("%s/%s", payload.Amount, weiToEther(payload.Amount).Text('f', -1))).
 		Uint64("Nonce", nonce).
 		Uint64("Gas Limit", gasLimit).
 		Str("Gas Price", gasPrice.String()).
@@ -248,4 +248,15 @@ func SendFunds(ctx context.Context, logger zerolog.Logger, client *seth.Client, 
 	}
 
 	return receipt, nil
+}
+
+// weiToEther converts a wei amount to eth float
+func weiToEther(wei *big.Int) *big.Float {
+	f := new(big.Float)
+	f.SetPrec(236) //  IEEE 754 octuple-precision binary floating-point format: binary256
+	f.SetMode(big.ToNearestEven)
+	fWei := new(big.Float)
+	fWei.SetPrec(236) //  IEEE 754 octuple-precision binary floating-point format: binary256
+	fWei.SetMode(big.ToNearestEven)
+	return f.Quo(fWei.SetInt(wei), big.NewFloat(params.Ether))
 }

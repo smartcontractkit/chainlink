@@ -101,6 +101,7 @@ type ConfigureForwardContractsRequest struct {
 	// workflow don node ids in the offchain client. Used to fetch and derive the signer keys
 	WFNodeIDs        []string
 	RegistryChainSel uint64
+	Qualifier        string
 
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
 	MCMSConfig *crecontracts.MCMSConfig
@@ -141,6 +142,7 @@ func ConfigureForwardContracts(env cldf.Environment, req ConfigureForwardContrac
 		creforwarder.ConfigureSeqDeps{Env: &env},
 		creforwarder.ConfigureSeqInput{
 			DON:        cfg,
+			Qualifier:  req.Qualifier,
 			MCMSConfig: req.MCMSConfig,
 			Chains:     req.Chains,
 		},

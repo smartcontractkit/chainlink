@@ -10,6 +10,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/google/go-cmp/cmp"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
@@ -54,7 +55,7 @@ func TestGrantRoleInTimeLock(t *testing.T) {
 
 	// deploy the MCMS with timelock contracts
 	configuredChangeset := commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
 		map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 			selector: cldftesthelpers.SingleGroupTimelockConfig(t),
 		},
@@ -223,7 +224,7 @@ func TestDeployMCMSWithTimelockV2WithFewExistingContracts(t *testing.T) {
 	}
 
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), changesetConfig),
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), changesetConfig),
 	)
 	require.NoError(t, err)
 
@@ -351,7 +352,7 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 	}
 
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), changesetConfig),
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), changesetConfig),
 	)
 	require.NoError(t, err)
 
@@ -513,7 +514,7 @@ func TestDeployMCMSWithTimelockV2SkipInitSolana(t *testing.T) {
 
 	// --- act ---
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), changesetConfig),
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), changesetConfig),
 	)
 	require.NoError(t, err)
 
@@ -522,7 +523,7 @@ func TestDeployMCMSWithTimelockV2SkipInitSolana(t *testing.T) {
 
 	// Call deploy again, seeds and addresses from original state should not change
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), changesetConfig),
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), changesetConfig),
 	)
 	require.NoError(t, err)
 

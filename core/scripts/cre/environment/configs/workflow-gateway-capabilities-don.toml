@@ -47,7 +47,7 @@
   supported_evm_chains = [1337, 2337]
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"BaseTriggerRetransmitEnabled":"true"}}' }
-  capabilities = ["ocr3", "custom-compute", "web-api-trigger", "cron", "http-action", "http-trigger", "consensus", "don-time", "write-evm-1337", "read-contract-1337", "evm-1337"]
+  capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337"]
   registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
@@ -74,11 +74,11 @@
   http_port_range_start = 10200
 
   # we need to have chain 1337 configured (even if no capability uses it), because we use node addresses on chain 1337
-  # to identify nodes in the gateway configuration (required by both web-api-target and vault capabilities)
+  # to identify nodes in the gateway configuration (required by vault and gateway-based HTTP capabilities)
   supported_evm_chains = [1337, 2337]
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"BaseTriggerRetransmitEnabled":"true"}}' }
-  capabilities = ["web-api-target", "vault", "write-evm-2337", "read-contract-2337", "evm-2337"]
+  capabilities = ["vault", "evm-2337"]
 
   [nodesets.db]
     image = "postgres:12.0"

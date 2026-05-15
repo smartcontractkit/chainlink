@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/gagliardetto/solana-go"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 
@@ -48,7 +49,7 @@ func TestMCMSSignFireDrillChangeset(t *testing.T) {
 	config := cldftesthelpers.SingleGroupTimelockConfig(t)
 
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 			evmSelector1: config,
 			evmSelector2: config,
 			solSelector:  config,

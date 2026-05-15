@@ -9,6 +9,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/stretchr/testify/require"
 
@@ -27,7 +28,6 @@ import (
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/example"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -213,7 +213,7 @@ func TestTransferFromTimelockConfig_Apply(t *testing.T) {
 
 	// Deploy MCMS and Timelock
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 			selector: cldftesthelpers.SingleGroupTimelockConfig(t),
 		}),
 	)

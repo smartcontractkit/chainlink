@@ -32,6 +32,7 @@ import (
 
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	cldlegacysolmcms "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
@@ -2449,7 +2450,7 @@ func TransferOwnershipSolanaV0_1_0(
 	if needTimelockDeployed {
 		*e, _, err = commoncs.ApplyChangesets(t, *e, []commoncs.ConfiguredChangeSet{
 			commoncs.Configure(
-				cldf.CreateLegacyChangeSet(commoncs.DeployMCMSWithTimelockV2),
+				cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
 				map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 					solSelector: {
 						Canceller:        cldftesthelpers.SingleGroupMCMS(t),

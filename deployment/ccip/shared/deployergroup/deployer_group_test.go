@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
@@ -331,7 +332,7 @@ func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
 
 	// Deploy a new MCMS with qualifier and transfer the ownership of the link token to it
 	e.Env, err = commonchangeset.Apply(t, e.Env, commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), mcmsCfg))
+		cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), mcmsCfg))
 	require.NoError(t, err)
 
 	// Delete the newly deployed MCMS addresses from addressbook so that the state loader does not pick them up

@@ -18,6 +18,7 @@ import (
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
@@ -54,6 +55,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
+	linkchangesets "github.com/smartcontractkit/cld-changesets/link/changesets"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -113,7 +115,7 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 		}
 	}
 	*e, err = commonchangeset.Apply(nil, *e, commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
 		cfg,
 	), commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
@@ -327,8 +329,8 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 				return *e, fmt.Errorf("failed to create the link token priv key: %w", err)
 			}
 			solLinkChangeset := commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(commonchangeset.DeploySolanaLinkToken),
-				commonchangeset.DeploySolanaLinkTokenConfig{
+				cldf.CreateLegacyChangeSet(linkchangesets.DeploySolanaLinkToken),
+				linkchangesets.DeploySolanaLinkTokenConfig{
 					ChainSelector: chain,
 					TokenPrivKey:  privKey,
 					TokenDecimals: 9,
@@ -352,7 +354,7 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 			},
 		),
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+			cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken),
 			evmChainSelectors,
 		),
 		commonchangeset.Configure(

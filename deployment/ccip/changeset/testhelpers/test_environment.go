@@ -20,6 +20,7 @@ import (
 	solBinary "github.com/gagliardetto/binary"
 	solanago "github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 	"github.com/xssnick/tonutils-go/address"
@@ -48,6 +49,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
+	linkchangesets "github.com/smartcontractkit/cld-changesets/link/changesets"
 
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
 
@@ -759,13 +762,13 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 		})
 	}
 	deployLinkApp := commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+		cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken),
 		evmChains,
 	)
 
 	if tc.IsStaticLink {
 		deployLinkApp = commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeployStaticLinkToken),
+			cldf.CreateLegacyChangeSet(linkchangesets.DeployStaticLinkToken),
 			evmChains,
 		)
 	}
@@ -775,15 +778,15 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 			Configs: prereqCfg,
 		},
 	), commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
 		mcmsCfg,
 	))
 	require.NoError(t, err)
 	if len(solChains) > 0 {
 		solLinkTokenPrivKey, _ := solanago.NewRandomPrivateKey()
 		deploySolanaLinkApp := commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeploySolanaLinkToken),
-			commonchangeset.DeploySolanaLinkTokenConfig{
+			cldf.CreateLegacyChangeSet(linkchangesets.DeploySolanaLinkToken),
+			linkchangesets.DeploySolanaLinkTokenConfig{
 				ChainSelector: solChains[0],
 				TokenPrivKey:  solLinkTokenPrivKey,
 				TokenDecimals: 9,

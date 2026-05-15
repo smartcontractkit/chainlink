@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -188,7 +189,7 @@ func setupRegistryForUpdateDON(t *testing.T, isWorkflow, useMCMS bool) *updFixtu
 	}
 
 	updatedEnv, mcmsErr := commonchangeset.Apply(t, rt.Environment(), commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
 		timelockCfgs,
 	))
 	require.NoError(t, mcmsErr, "failed to deploy MCMS infrastructure")

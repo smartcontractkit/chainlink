@@ -246,13 +246,12 @@ func testMultipleConsumersNeedBHS(
 		v2CoordinatorAddress = coordinatorAddress.String()
 	case vrfcommon.V2Plus:
 		v2PlusCoordinatorAddress = coordinatorAddress.String()
-		// Also set V2 to satisfy the database constraint which requires V1 OR V2 (but not V2Plus)
-		// Using the same contract address is safe since it's a valid contract
+		// Also set V2 to satisfy validation when using a V2Plus coordinator.
 		v2CoordinatorAddress = coordinatorAddress.String()
 	}
 
 	_ = vrftesthelpers.CreateAndStartBHSJob(
-		t, bhsKeyAddresses, app, uni.bhsContractAddress.String(), "",
+		t, bhsKeyAddresses, app, uni.bhsContractAddress.String(),
 		v2CoordinatorAddress, v2PlusCoordinatorAddress, "", 0, 200, 0, 100,
 	)
 
@@ -402,8 +401,7 @@ func testMultipleConsumersNeedTrustedBHS(
 		v2CoordinatorAddress = coordinatorAddress.String()
 	case vrfcommon.V2Plus:
 		v2PlusCoordinatorAddress = coordinatorAddress.String()
-		// Also set V2 to satisfy the database constraint which requires V1 OR V2 (but not V2Plus)
-		// Using the same contract address is safe since it's a valid contract (if not log poller will fail)
+		// Also set V2 to satisfy validation when using a V2Plus coordinator.
 		v2CoordinatorAddress = coordinatorAddress.String()
 	}
 
@@ -412,8 +410,7 @@ func testMultipleConsumersNeedTrustedBHS(
 		waitBlocks = 400
 	}
 	_ = vrftesthelpers.CreateAndStartBHSJob(
-		t, bhsKeyAddressesStrings, app, "", "",
-		v2CoordinatorAddress, v2PlusCoordinatorAddress, uni.trustedBhsContractAddress.String(), 20, 1000, 0, waitBlocks)
+		t, bhsKeyAddressesStrings, app, "", v2CoordinatorAddress, v2PlusCoordinatorAddress, uni.trustedBhsContractAddress.String(), 20, 1000, 0, waitBlocks)
 
 	// Ensure log poller is ready and has all logs.
 	chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain)
@@ -809,7 +806,7 @@ func testBlockHeaderFeeder(
 	}
 
 	_ = vrftesthelpers.CreateAndStartBlockHeaderFeederJob(
-		t, bhfKeys, app, uni.bhsContractAddress.String(), uni.batchBHSContractAddress.String(), "",
+		t, bhfKeys, app, uni.bhsContractAddress.String(), uni.batchBHSContractAddress.String(),
 		v2coordinatorAddress, v2plusCoordinatorAddress)
 
 	// Ensure log poller is ready and has all logs.

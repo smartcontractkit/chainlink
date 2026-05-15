@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	fqv2ops "github.com/smartcontractkit/chainlink-ccip/chains/evm/deployment/v2_0_0/operations/fee_quoter"
@@ -30,6 +32,8 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 
+	linkchangesets "github.com/smartcontractkit/cld-changesets/link/changesets"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -39,6 +43,7 @@ import (
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 )
@@ -118,6 +123,17 @@ func TestValidateFeeQuoter_CrossVersionValidation(t *testing.T) {
 			cldf.NewTypeAndVersion("LinkToken", deployment.Version1_0_0)))
 	}
 	require.NoError(t, tenv.ExistingAddresses.Remove(ab))
+	mds := datastore.NewMemoryDataStore()
+	require.NoError(t, mds.Merge(tenv.DataStore))
+	for _, sel := range allChainSelectors {
+		for _, ref := range mds.Addresses().Filter(
+			datastore.AddressRefByChainSelector(sel),
+			datastore.AddressRefByType(datastore.ContractType("LinkToken")),
+		) {
+			require.NoError(t, mds.Addresses().Delete(ref.Key()))
+		}
+	}
+	tenv.DataStore = mds.Seal()
 
 	// 3. Add TestRouter placeholder.
 	ab = cldf.NewMemoryAddressBook()
@@ -358,10 +374,10 @@ func deployV16Contracts(t *testing.T, tenv *cldf.Environment, homeChainSel uint6
 			},
 		},
 	), commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+		cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken),
 		evmSelectors,
 	), commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
 		cfg,
 	), commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),

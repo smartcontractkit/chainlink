@@ -64,7 +64,6 @@ Each row maps to a CI matrix entry in [devenv-nightly.yml](../.github/workflows/
 | Cron           | `cl u env.toml,products/cron/basic.toml`                                       | `go test -v -run TestSmoke`                                        | `cron`          |
 | Direct Request | `cl u env.toml,products/directrequest/basic.toml`                              | `go test -v -run TestSmoke`                                        | `directrequest` |
 | Flux           | `cl u env.toml,products/flux/basic.toml`                                       | `go test -v -run TestSmoke`                                        | `flux`          |
-| VRF            | `cl u env.toml,products/vrf/basic.toml`                                        | `go test -v -timeout 10m -run TestVRFBasic\|TestVRFJobReplacement` | `vrf`           |
 | Automation 2.0 | `cl u env.toml,products/automation/basic.toml`                                 | `go test -v -timeout 30m -run TestRegistry_2_0`                    | `automation`    |
 | Automation 2.1 | `cl u env.toml,products/automation/basic.toml`                                 | `go test -v -timeout 30m -run TestRegistry_2_1`                    | `automation`    |
 | OCR2 Smoke     | `cl u env.toml,products/ocr2/basic.toml`                                       | `go test -v -run TestSmoke`                                        | `ocr2`          |
@@ -82,7 +81,7 @@ Then inside the shell:
 
 ```sh
 up                                  # start with default OCR2 config
-up env.toml,products/vrf/basic.toml # start with a specific product
+up env.toml,products/cron/basic.toml # start with a specific product
 obs up -f                           # start full observability stack
 test ocr2 TestSmoke                 # run a test
 down                                # tear down everything

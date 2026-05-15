@@ -162,13 +162,6 @@ flowchart TB
             end
         end
         subgraph vrf [vrf]
-            subgraph listenerV1 [listenerV1]
-                direction TB
-                vrfv1-reqLogs[[reqLogs]]
-                vrfv1-HandleLog(["HandleLog()"]) -- "Deliver()" --> vrfv1-reqLogs
-                vrfv1-reqLogs -- "Notify()" --> vrfv1-runLogListener(["runLogListener()"])
-                vrfv1-runLogListener -- "Retrieve()" --> vrfv1-reqLogs
-            end
             subgraph listenerV2 [listenerV2]
                 direction TB
                 vrfv2-reqLogs[[reqLogs]]
@@ -189,7 +182,6 @@ flowchart TB
     Listener --> FunctionsListener
     Listener --> RegistrySynchronizer  
     Listener --> OCRContractTracker  
-    Listener --> listenerV1  
     Listener --> listenerV2  
     
     
