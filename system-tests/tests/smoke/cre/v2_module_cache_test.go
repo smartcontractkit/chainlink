@@ -49,7 +49,7 @@ func ExecuteModuleCacheTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		t_helpers.ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
 	})
 
-	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/cron/main.go"
+	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/cron/main.go"
 	workflowConfig := crontypes.WorkflowConfig{
 		Schedule: "*/30 * * * * *",
 	}
