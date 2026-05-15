@@ -11,17 +11,30 @@ Run parallel per-ticket investigations: extract Trunk data, analyze test code, c
 
 <prereqs>
 
-Read [shared-jira-protocol.md](shared-jira-protocol.md) if not already loaded in this session. Required for Investigation Update comment format and mid-flight abandonment procedure.
+**If `invocation.mode = "local"`: skip this section entirely — no JIRA writes occur in local mode.**
+
+Otherwise (JIRA modes only):
+- Read [../../_shared-jira-flaky-ops/investigation-comment.md](../../_shared-jira-flaky-ops/investigation-comment.md) if not already loaded — required for Investigation Update comment format and parsing rules.
+- Read [../../_shared-jira-flaky-ops/abandon-ticket.md](../../_shared-jira-flaky-ops/abandon-ticket.md) if not already loaded — required for mid-flight abandonment procedure.
 </prereqs>
 
 <parallelism>
-Spawn all N per-ticket investigation subagents in a **single message**. Each receives: the slim record (`key`, `title`, `description`, `trunk_test_case_url`, `test_name`, `package`, `previous_attempts`), `nav_tool`, `lsp_available`, `auto_mode`. Never pass raw JIRA API objects.
+Spawn all N per-ticket investigation subagents in a **single message**. Each receives: the slim record (`jira_key`, `local_id`, `title`, `description`, `trunk_test_case_url`, `test_name`, `package`, `previous_attempts`, `provided_log_text`), `mode` (`project` | `direct-ticket` | `local`), `nav_tool`, `lsp_available`, `auto_mode`. Never pass raw JIRA API objects.
 </parallelism>
 
 ---
 
 <substep id="3a" model="haiku">
 <purpose>Resolve `testCaseId`, retrieve `fix-flaky-test` historical data, optionally invoke `investigate-ci-failure` for single-run forensic data, and run the top-level subtest check.</purpose>
+
+<local-mode-branch>
+**If `mode = "local"`**: skip the `fix-flaky-test-call` and `investigate-ci-failure-call` blocks entirely.
+
+- If `slim_record.provided_log_text` is non-null → set `trunk_filtered_facts = [slim_record.provided_log_text]`, `trunk_investigation_status = "user_provided"`.
+- If `provided_log_text` is null → set `trunk_filtered_facts = []`, `trunk_investigation_status = "uninvestigated"`.
+
+Proceed directly to `<top-level-check>`.
+</local-mode-branch>
 
 <fix-flaky-test-call>
 - Use `slim_record.test_case_id` as `testCaseId`. If null: call `mcp__trunk__search-test` with `slim_record.test_name` (falling back to `slim_record.title`) as fuzzy fallback — flag if used, it may match the wrong test.
@@ -71,15 +84,20 @@ Runs only when `slim_record.ci_run_url` is non-null (after upfront input or fall
 </investigate-ci-failure-call>
 
 <top-level-check>
-After Trunk investigation resolves, inspect `trunk_filtered_facts` (and any stack trace within them) for a `file:line`. If the failure line falls inside a `t.Run(...)` callback AND the outer function contains no assertions outside `t.Run` blocks → candidate for **SKIP_TOP_LEVEL**.
+After Trunk investigation resolves (or after the local-mode branch sets `trunk_filtered_facts`), inspect `trunk_filtered_facts` (and any stack trace within them) for a `file:line`. If the failure line falls inside a `t.Run(...)` callback AND the outer function contains no assertions outside `t.Run` blocks → candidate for **SKIP_TOP_LEVEL**.
 
 **Exception**: if `slim_record.test_name` contains a `/` the ticket was already filed against a specific subtest — SKIP_TOP_LEVEL must not fire. If `test_name` is null, check the title for `/`.
 
 If all conditions are met:
-1. `mcp__atlassian__getTransitionsForJiraIssue` → find a closing transition ("Won't Do", "Closed", "Done"). If it supports a resolution field, set `resolution = "Won't Do"` (fallback: "Won't Fix").
-2. `mcp__atlassian__transitionJiraIssue` → close with that transition + resolution.
-3. `mcp__atlassian__addCommentToJiraIssue` → Investigation Update comment (OUTCOME = CLOSED_SUBTEST). "What was investigated": failure originates in a `t.Run` subtest, not the top-level function. "Recommended next step": file or locate a ticket for the specific subtest. All other sections: N/A.
-4. Stop investigation for this issue.
+
+**JIRA mode** (mode ≠ "local"):
+1. Follow `_shared-jira-flaky-ops/transition-ticket.md` with `jira_key` and `target = "Won't Do"`.
+2. Follow `_shared-jira-flaky-ops/investigation-comment.md` to write `addCommentToJiraIssue` (OUTCOME = CLOSED_SUBTEST). "What was investigated": failure originates in a `t.Run` subtest, not the top-level function. "Recommended next step": file or locate a ticket for the specific subtest. All other sections: N/A.
+3. Stop investigation for this issue.
+
+**Local mode** (mode = "local"):
+- Print: *"Skipping {test_name} — failure originates in a t.Run subtest, not the top-level function. File a ticket against the specific subtest if you want this fixed."*
+- Return verdict `SKIP_TOP_LEVEL` for this record. No JIRA writes.
 </top-level-check>
 
 </substep>
@@ -90,11 +108,12 @@ If all conditions are met:
 
 <subagent id="trunk-analyzer" model="haiku">
 <inputs>
-`trunk_filtered_facts` (already filtered to ≥ 0.9 in 3a), `trunk_investigation_status`. Do not call any Trunk MCP tools.
+`trunk_filtered_facts` (already filtered to ≥ 0.9 in 3a, or the user-provided log in local mode), `trunk_investigation_status`, `mode`. Do not call any Trunk MCP tools.
 </inputs>
 <logic>
 - If `trunk_investigation_status = "uninvestigated"` or `trunk_filtered_facts` is empty → return `confidence: "none"` with empty `facts`.
-- Map confidence from pre-filtered facts:
+- If `trunk_investigation_status = "user_provided"` (local mode) → treat `provided_log_text` as observational evidence with `confidence: "low"`. It is symptom data, not aggregated CI data.
+- Map confidence from pre-filtered facts (JIRA modes):
   - `"high"`: at least one fact contains raw CI observational data — exact log lines, error messages, stack traces, or specific `file:line` from actual failing runs.
   - `"low"`: facts describe symptoms only (e.g. "failures in cluster 2 are regex mismatches") but contain no raw CI data.
   - `"none"`: `trunk_filtered_facts` empty or `trunk_investigation_status = "uninvestigated"`.
@@ -152,26 +171,26 @@ Two failure classes — validate each subagent individually:
 
 Structural failures include: `facts` containing category labels or counts instead of raw text strings (`"CI_LOGS (1.0)"` is a label — invalid; `"Error: no contract code at given address"` is raw text — valid), `confidence` not one of three allowed values, `code_mismatch` not a boolean.
 
-Allow up to **3 total attempts** per subagent. After 3 failures → hard stop for this issue. Apply mid-flight abandonment rule. Write Investigation Update comment (OUTCOME = ABANDONED): state which subagent failed and include the validation error; recommended next step: re-run and include last raw output verbatim. Continue with other issues.
+Allow up to **3 total attempts** per subagent. After 3 failures → hard stop for this issue. In **JIRA mode**: follow `_shared-jira-flaky-ops/abandon-ticket.md` then write Investigation Update comment via `_shared-jira-flaky-ops/investigation-comment.md` (OUTCOME = ABANDONED): state which subagent failed and include the validation error; recommended next step: re-run and include last raw output verbatim. In **local mode**: no JIRA writes — just return verdict `ABANDONED` with the error. Continue with other issues.
 </schema-validation>
 
 </substep>
 
 ---
 
-<substep id="3b-ii" model="haiku→sonnet" runs-in="parent">
+<substep id="3b-ii" model="sonnet" runs-in="parent">
 <purpose>
-Classify flakiness source as TEST / SUT / INFRA / AMBIGUOUS before entering the fix debate. Runs in the parent (not a subagent) because it may require a user gate.
+Classify flakiness source as TEST / SUT / INFRA / AMBIGUOUS before entering the fix debate. Runs in the parent (not a subagent) because it may require a user gate. Single LLM call — no scoring, no signal enumeration, no tier ladder. The model examines the available evidence and chooses one classification, with every conclusion grounded in a verbatim quote.
 </purpose>
 
 <input-schema>
 ```json
 {
   "$schema": "phase_3bii_input_v1",
-  "ticket_key": "string",
+  "record_id": "string (jira_key or local_id)",
   "test_name": "string",
   "trunk_filtered_facts": ["string"],
-  "trunk_investigation_status": "existing | triggered | uninvestigated | ci_run_only",
+  "trunk_investigation_status": "existing | triggered | uninvestigated | ci_run_only | user_provided",
   "subagent_b_output": {
     "file": "string", "line": "number", "analysis": "string",
     "suspected_cause": "string", "suspected_cause_location": "test_code | production_code | unknown",
@@ -179,60 +198,32 @@ Classify flakiness source as TEST / SUT / INFRA / AMBIGUOUS before entering the 
   }
 }
 ```
-**Matching scope rule**: all signal triggers match only against `trunk_filtered_facts` text or stack-trace excerpts — never against test source code, test names, or code comments.
 </input-schema>
 
-<tier id="1" type="string-match">
-Deterministic — no LLM judgment.
+<classifier-call model="sonnet">
+A single Sonnet call. The prompt:
 
-**SUT signals:**
-| ID | Trigger | Weight |
-|----|---------|--------|
-| SUT_SERVICE_UNAVAILABLE | "connection refused", "service unavailable", "dial tcp", "reset by peer"; OR "EOF" co-occurring within 200 chars of any of {grpc, rpc, dial, net., tcp, http} | 2 |
-| SUT_COMPONENT_NOT_INITIALIZED | "nil pointer dereference", "not initialized", "component not ready" — excerpt must be in a production code frame (not `_test.go`) | 1 |
-| SUT_CONSISTENT_PROD_CODE_FAILURE | Same production-code `file:line` appears in stack traces from ≥ 2 distinct CI runs in `trunk_filtered_facts` | 1 |
+> You are classifying a flaky test failure. Choose **one** of:
+> - **TEST** — the test code introduces non-determinism (timing dependency, shared state, missing cleanup, parallelism without sync, non-deterministic data, ordering assumption, race in test code, hardcoded resources, etc.).
+> - **SUT** — the production code under test is incorrect, racy, or not ready when the test exercises it.
+> - **INFRA** — an environmental failure unrelated to either the test or the SUT (OOM, disk full, image pull failure, network outage at infra layer).
+> - **AMBIGUOUS** — evidence is insufficient, contradictory, or absent.
+>
+> **Rules:**
+> 1. Every classification must be backed by 1–3 verbatim quotes. A quote's `source` is one of:
+>    - `trunk_facts` — excerpt must appear verbatim in `trunk_filtered_facts`.
+>    - `code_analysis` — excerpt must appear verbatim in `subagent_b_output.analysis`.
+>    - `direct_field` — the literal value `"test_code"` or `"production_code"` from `subagent_b_output.suspected_cause_location` (counts as TEST or SUT evidence respectively).
+> 2. **Never quote raw test source code, function names, or code comments.** Only the analyzer's *synthesized* `analysis` text counts as code-side evidence.
+> 3. If you cannot produce at least one valid quote for the winning side → classify AMBIGUOUS with confidence `none`.
+> 4. INFRA requires at least one `trunk_facts` quote. Code analysis alone cannot establish INFRA.
+> 5. If `subagent_b_output.code_mismatch == true` → classify AMBIGUOUS (stale stack trace; attribution unsafe).
+> 6. Confidence: `high` = 2+ corroborating quotes, no contradicting evidence; `low` = 1 quote OR thin/indirect quotes; `none` = no usable evidence (only on AMBIGUOUS).
+> 7. For SUT: also produce `sut_description` (one sentence) and `sut_pivot` (file/component/hypothesis — fields may be null).
+> 8. `pattern_category` is a short free-form label (≤ 5 words) for diagnostic display — e.g. "timing dependency", "OOM during test", "stale precondition", "production nil deref". Not load-bearing.
 
-**TEST signals** (all weight 1):
-| ID | Trigger |
-|----|---------|
-| TEST_SHARED_GLOBAL_STATE | Package-level var, global map, or singleton mutated without `t.Cleanup` restore |
-| TEST_PARALLEL_UNSYNC | `t.Parallel()` present with shared resource used without sync primitive |
-| TEST_TIMING_DEPENDENCY | `time.Sleep` or fixed-duration delay used to synchronize async behavior |
-| TEST_MISSING_CLEANUP | Resource setup (server, DB, goroutine) without corresponding Cleanup/defer |
-| TEST_RACE_DETECTOR_FIRED | `DATA RACE` or `RACE CONDITION DETECTED` in `trunk_filtered_facts` |
-
-**INFRA signals** (any match → INFRA, overrides scoring):
-| ID | Trigger |
-|----|---------|
-| INFRA_OOM_KILLED | "signal: killed", "OOM", "out of memory", "exit status 137" |
-| INFRA_DISK_FULL | "no space left on device", "disk full" |
-| INFRA_REGISTRY_FAILURE | "pulling image", "registry", "manifest unknown", "pull access denied" |
-</tier>
-
-<tier id="2" type="semantic" model="sonnet">
-| ID | Trigger | Weight |
-|----|---------|--------|
-| SUT_PRECONDITION_NOT_MET | LLM determines the failure indicates a precondition was unsatisfied — a dependency wasn't available, a registration hadn't completed, a service hadn't started — rather than the SUT behaving incorrectly *during* the test scenario. LLM must quote a verbatim excerpt from `trunk_filtered_facts` and provide a one-sentence explanation. | 2 |
-
-Ask: *"Does this failure indicate that a precondition for the test wasn't met (something wasn't ready or available), or does it indicate the system-under-test behaved incorrectly while executing the test's actual scenario?"* If LLM answers yes with a verbatim excerpt, the signal fires. If no excerpt can be quoted from the inputs, the signal is dropped.
-</tier>
-
-<scoring>
-Deterministic post-LLM — LLM never computes scores:
-1. LLM outputs matched signal IDs with one verbatim excerpt each.
-2. Post-processing: each excerpt must appear verbatim in `trunk_filtered_facts` joined text OR `subagent_b_output.analysis`. Unvalidated signals are dropped in-place; scores recomputed (no retry).
-3. `sut_score` = sum of weights for validated SUT signals; `test_score` = sum of weights for validated TEST signals.
-4. Classify: any validated INFRA signal → `INFRA`; `sut_score > test_score` → `SUT`; `test_score > sut_score` → `TEST`; equal → tiebreaker.
-
-**Tiebreaker** (only on tie):
-0. `sut_score == 0 AND test_score == 0` → `AMBIGUOUS` immediately.
-1. `subagent_b_output.code_mismatch == true` → `AMBIGUOUS` (stale data, cannot trust evidence).
-2. `trunk_investigation_status == "uninvestigated"` → `AMBIGUOUS`.
-3. Any SUT signal excerpt verbatim-matches a SUT trigger string → `SUT`.
-4. Default → `AMBIGUOUS`.
-
-**Confidence rule**: `high` = score margin ≥ 2 OR at least one weight-2 signal on the winning side; `low` = margin = 1 with no weight-2 signal; `none` = no signals matched, or classification is AMBIGUOUS/INFRA.
-</scoring>
+Inputs to inject into the prompt: `trunk_filtered_facts`, `subagent_b_output` (all fields). Bias the model toward AMBIGUOUS when evidence is thin — false TEST classification leads to bogus fixes; AMBIGUOUS just surfaces the case to the user.
+</classifier-call>
 
 <output-schema>
 ```json
@@ -240,37 +231,56 @@ Deterministic post-LLM — LLM never computes scores:
   "$schema": "phase_3bii_output_v1",
   "classification": "TEST | SUT | AMBIGUOUS | INFRA",
   "confidence": "high | low | none",
-  "sut_score": "number", "test_score": "number",
-  "sut_signals_matched": ["string"], "test_signals_matched": ["string"], "infra_signals_matched": ["string"],
-  "evidence": [{ "signal_id": "string", "source": "trunk_fact | code_analysis | stack_trace", "excerpt": "string" }],
-  "tiebreaker_applied": "boolean", "tiebreaker_step_fired": "number | null",
-  "rationale": "string",
+  "rationale": "string (one sentence)",
+  "pattern_category": "string | null (≤ 5 words; diagnostic label only)",
+  "evidence": [
+    {
+      "source": "trunk_facts | code_analysis | direct_field",
+      "excerpt": "string",
+      "supports": "TEST | SUT | INFRA"
+    }
+  ],
   "sut_description": "string | null",
-  "sut_pivot": { "file": "string | null", "component": "string | null", "hypothesis": "string | null" },
-  "smell_notes": ["string"]
+  "sut_pivot": { "file": "string | null", "component": "string | null", "hypothesis": "string | null" }
 }
 ```
-`sut_pivot`: required (fields may be null) when classification is SUT or AMBIGUOUS; null otherwise.
+`sut_description` required (non-null) when classification == SUT. `sut_pivot` required (fields may be null) when classification is SUT or AMBIGUOUS; null otherwise.
 </output-schema>
 
-<schema-validation applies-to="3b-ii">
-- **Transient**: retry immediately with original prompt.
-- **Structural** (missing fields, wrong types, invalid enum, `sut_pivot` absent when classification is SUT/AMBIGUOUS): retry with error context.
-- Excerpt validation is post-processing, not a retry trigger — drop unvalidated signals and recompute.
-- Allow up to 3 total attempts. After 3 failures: set `classification = "AMBIGUOUS"`, `confidence = "none"`, `rationale = "Schema validation failed after 3 attempts"`, and continue to gate logic.
-</schema-validation>
+<validation>
+Post-call, deterministically:
+
+1. **Excerpt verification** — for each `evidence` entry:
+   - `trunk_facts` → search the joined `trunk_filtered_facts` text. Excerpt must appear verbatim.
+   - `code_analysis` → search `subagent_b_output.analysis`. Excerpt must appear verbatim.
+   - `direct_field` → excerpt must equal either `"test_code"` or `"production_code"` AND match `subagent_b_output.suspected_cause_location`.
+   Drop any entry that fails verification.
+2. **Consistency** — apply in order:
+   - `subagent_b_output.code_mismatch == true` → force `classification = AMBIGUOUS`, `confidence = none`.
+   - After dropping invalid evidence, if no evidence remains supporting the chosen classification → force AMBIGUOUS.
+   - `classification == INFRA` but zero validated `trunk_facts` quotes → force AMBIGUOUS.
+   - `classification == SUT` but `sut_description` is null → force AMBIGUOUS.
+3. **Schema validation** — transient (empty/null) → retry; structural (missing fields, wrong types, invalid enum) → retry with error context. Up to 3 total attempts. After 3 failures: `classification = AMBIGUOUS`, `confidence = none`, `rationale = "Schema validation failed after 3 attempts"`, `evidence = []`. Continue to gate logic.
+</validation>
 
 <gate-logic>
-| Classification | `--auto` mode | Interactive mode |
-|---|---|---|
-| TEST | Continue to 3c | Continue to 3c |
-| SUT | Return to queue + JIRA comment | Prompt user (options a/b/c) |
-| AMBIGUOUS | Return to queue + JIRA comment | Prompt user with both signal lists |
-| INFRA | Return to queue + JIRA comment | Prompt user |
+| Classification | `--auto` JIRA mode | Interactive JIRA mode | `--auto` local mode | Interactive local mode |
+|---|---|---|---|---|
+| TEST | Continue to 3c | Continue to 3c | Continue to 3c | Continue to 3c |
+| SUT | Return to queue + JIRA comment | Prompt user (options a/b/c) | Skip test + report | Prompt: (a) skip (b) override to TEST — no JIRA option |
+| AMBIGUOUS | Return to queue + JIRA comment | Prompt user with evidence | Skip test + report | Prompt: (a) skip (b) override to TEST |
+| INFRA | Return to queue + JIRA comment | Prompt user | Skip test + report | Prompt: (a) skip (b) override to TEST |
+
+In local mode, "skip" means: no JIRA writes, no fix attempted; include in final summary as SKIPPED with the classification reason.
 
 <user-prompt id="sut-gate">
 Classification: **SUT** (confidence: {confidence})
-Signals: {sut_signals_matched}
+Pattern: {pattern_category}
+Rationale: {rationale}
+
+Evidence:
+{for each evidence row: - "{excerpt}" (from {source}, supports {supports})}
+
 {sut_description}
 
 This test appears to expose a SUT bug, not a test-code bug. Options:
@@ -279,11 +289,39 @@ This test appears to expose a SUT bug, not a test-code bug. Options:
 (c) Fix the test code AND auto-file a SUT bug ticket (label: sut-bug)
 </user-prompt>
 
-*Option (b) audit trail*: add JIRA comment "Classification overridden to TEST by user. Original: SUT, confidence: {confidence}, signals: {list}." Add commit trailer: `Flakiness-classification: TEST (user override from SUT)`.
+<user-prompt id="ambiguous-gate">
+Classification: **AMBIGUOUS** (confidence: {confidence})
+Rationale: {rationale}
 
-*Option (c)*: create a JIRA issue in the same project: summary `SUT bug: {sut_description}`, description includes `sut_pivot` fields, label `sut-bug`. Return the new ticket key to the user. Proceed to 3c treating current ticket as TEST.
+Evidence:
+{for each evidence row: - "{excerpt}" (from {source}, supports {supports})}
+{if evidence is empty: (no quotable evidence — investigation cannot reliably attribute the failure)}
 
-For SUT/AMBIGUOUS/INFRA auto-queue returns: write Investigation Update comment (OUTCOME = RETURNED_TO_QUEUE). "What was investigated": classification, confidence, matched signal IDs, SUT score, TEST score, rationale. "Hypothesis": `sut_description` if SUT, otherwise N/A. "Recommended next step": SUT → investigate `sut_pivot`; AMBIGUOUS → clarify classification before re-investigating; INFRA → check infrastructure. Apply mid-flight abandonment rule (unassign + transition to Open). Continue with other issues.
+Options:
+(a) Return this ticket to the queue / skip
+(b) Override — treat as TEST and proceed to fix debate (audited)
+</user-prompt>
+
+<user-prompt id="infra-gate">
+Classification: **INFRA** (confidence: {confidence})
+Pattern: {pattern_category}
+Rationale: {rationale}
+
+Evidence:
+{for each evidence row: - "{excerpt}" (from {source})}
+
+This test failed for environmental reasons unrelated to the test or SUT. Options:
+(a) Return to queue / skip (recommended — re-run when infra is healthy)
+(b) Override — treat as TEST and proceed to fix debate (audited)
+</user-prompt>
+
+*Option (b) audit trail*: add JIRA comment *"Classification overridden to TEST by user. Original: {classification}, confidence: {confidence}, rationale: {rationale}."* Add commit trailer: `Flakiness-classification: TEST (user override from {classification})`.
+
+*Option (c)* (SUT only): create a JIRA issue in the same project: summary `SUT bug: {sut_description}`, description includes `sut_pivot` fields and the evidence list, label `sut-bug`. Return the new ticket key to the user. Proceed to 3c treating current ticket as TEST.
+
+For SUT/AMBIGUOUS/INFRA auto-queue returns in **JIRA mode**: follow `_shared-jira-flaky-ops/investigation-comment.md` to write `addCommentToJiraIssue` (OUTCOME = RETURNED_TO_QUEUE). "What was investigated": classification, confidence, pattern category, rationale, evidence quotes. "Hypothesis": `sut_description` if SUT, otherwise N/A. "Recommended next step": SUT → investigate `sut_pivot`; AMBIGUOUS → clarify before re-investigating; INFRA → re-run after infra is healthy. Then follow `_shared-jira-flaky-ops/abandon-ticket.md` (unassign + transition to Open). Continue with other issues.
+
+For SUT/AMBIGUOUS/INFRA in **local mode**: no JIRA writes. Return verdict `SKIPPED` with the classification reason. Continue with other issues.
 </gate-logic>
 
 </substep>
@@ -311,7 +349,7 @@ Synthesizes Subagent A + B output (and `ci_run_evidence` if present); proposes t
 - **If `ci_run_evidence` is non-null**: include it in the prompt under a clearly labeled section: *"CI run forensic evidence (single run, not aggregated — weigh accordingly):"*. This data is unscored and reflects only one specific failure, so corroborating signals across `trunk_filtered_facts` and code analysis should outweigh isolated CI-run observations when they conflict. If `ci_run_evidence.status == "build_failure"`, note that test-level data is unavailable from this source.
 - Must explicitly state any approaches excluded due to previous failed attempts.
 - If any `previous_attempts` entry has a non-null `recommended_next_step`, prepend to prompt: *"Prior investigation ({date}, {outcome}) recommended: '{recommended_next_step}'. Approaches already tried and rejected: {excluded_approaches}. Rejected because: {rejection_reasons}. Start from this hypothesis — confirm or refute it with code evidence before proposing anything else."*
-- If 3b-ii returned `classification = "SUT"` with user override (option b or c), prepend: *"Note: this was originally classified SUT (signals: {sut_signals_matched}). The SUT hypothesis: {sut_description}. The test fix should defensively address this."*
+- If 3b-ii returned `classification = "SUT"` with user override (option b or c), prepend: *"Note: this was originally classified SUT (rationale: {rationale}; pattern: {pattern_category}). The SUT hypothesis: {sut_description}. The test fix should defensively address this."*
 
 <output-schema>
 ```json
@@ -342,7 +380,7 @@ Receives both Proposer and Challenger outputs. Decides whether to stop (enough c
 </role>
 
 <schema-validation applies-to="proposer challenger arbiter">
-Same two classes as 3b (transient → immediate retry; structural → retry with error context). Allow up to **3 total attempts** per role. After 3 failures → hard stop for this issue. Apply mid-flight abandonment rule. Write Investigation Update comment (OUTCOME = ABANDONED): state which debate role failed and include the validation error; recommended next step: re-run and include last raw output verbatim. Continue with other issues.
+Same two classes as 3b (transient → immediate retry; structural → retry with error context). Allow up to **3 total attempts** per role. After 3 failures → hard stop for this issue. In **JIRA mode**: follow `_shared-jira-flaky-ops/abandon-ticket.md` then write Investigation Update comment via `_shared-jira-flaky-ops/investigation-comment.md` (OUTCOME = ABANDONED): state which debate role failed and include the validation error; recommended next step: re-run and include last raw output verbatim. In **local mode**: no JIRA writes — return verdict `ABANDONED` with the error. Continue with other issues.
 </schema-validation>
 
 </substep>
@@ -354,9 +392,12 @@ Never surface raw Proposer/Challenger/Arbiter responses to the top-level parent.
 
 ```json
 {
-  "key": "KEY-NNN",
-  "outcome": "PROCEED | INCONCLUSIVE | MISMATCH | SKIP_TOP_LEVEL | RETURNED_TO_QUEUE | ABANDONED",
-  "trunk_investigation_status": "existing | triggered | uninvestigated | ci_run_only",
+  "key": "KEY-NNN | null",
+  "local_id": "local-N | null",
+  "record_id": "KEY-NNN (jira_key if non-null, else local_id)",
+  "outcome": "PROCEED | INCONCLUSIVE | MISMATCH | SKIP_TOP_LEVEL | RETURNED_TO_QUEUE | ABANDONED | SKIPPED",
+  "subagent_calls_made": ["trunk_analyzer | code_analyzer | classifier | proposer | challenger | arbiter"],
+  "trunk_investigation_status": "existing | triggered | uninvestigated | ci_run_only | user_provided",
   "trunk_fact_count": "integer",
   "trunk_analysis_url": "string | null",
   "trunk_test_case_url": "string | null",
@@ -368,8 +409,10 @@ Never surface raw Proposer/Challenger/Arbiter responses to the top-level parent.
   "excluded_approaches": ["string (PROCEED only, null otherwise)"],
   "classifier": {
     "classification": "TEST | SUT | AMBIGUOUS | INFRA",
-    "sut_score": "number", "test_score": "number",
-    "sut_signals_matched": ["string"], "test_signals_matched": ["string"],
+    "confidence": "high | low | none",
+    "rationale": "string",
+    "pattern_category": "string | null",
+    "evidence": [{ "source": "trunk_facts | code_analysis | direct_field", "excerpt": "string", "supports": "TEST | SUT | INFRA" }],
     "sut_description": "string | null",
     "sut_pivot": { "file": "string | null", "component": "string | null", "hypothesis": "string | null" }
   },
@@ -382,8 +425,29 @@ Never surface raw Proposer/Challenger/Arbiter responses to the top-level parent.
 }
 ```
 
-Outcomes RETURNED_TO_QUEUE, ABANDONED, CLOSED_SUBTEST, and SKIP_TOP_LEVEL are **fully handled within the per-issue subagent** (JIRA comment written, abandonment rule applied) before returning. The parent only records the outcome.
+Outcomes RETURNED_TO_QUEUE, ABANDONED, CLOSED_SUBTEST, and SKIP_TOP_LEVEL are **fully handled within the per-issue subagent** (JIRA comment written and abandonment rule applied in JIRA modes; no JIRA writes in local mode) before returning. The parent only records the outcome.
+
+`SKIPPED` is the local-mode equivalent of `RETURNED_TO_QUEUE` — no JIRA writes, included in the final summary with the classification reason.
+
 </per-issue-return-schema>
+
+---
+
+<integrity-gate>
+**The parent MUST check `subagent_calls_made` on every per-issue return. This check is never skipped — not in `--auto` mode, not for tickets that look obviously simple, not when the verdict appears self-evidently correct. The check is the only thing standing between the multi-agent protocol and a single model rationalizing its way to a confidently-wrong conclusion.**
+
+Required entries by outcome:
+
+| Outcome | Required entries in `subagent_calls_made` |
+|---------|-------------------------------------------|
+| `PROCEED` / `INCONCLUSIVE` | all six: `trunk_analyzer`, `code_analyzer`, `classifier`, `proposer`, `challenger`, `arbiter` |
+| `RETURNED_TO_QUEUE` / `SKIPPED` | `trunk_analyzer`, `code_analyzer`, `classifier` (classification ran; debate did not) |
+| `MISMATCH` | `trunk_analyzer`, `code_analyzer` (short-circuits at 3c) |
+| `SKIP_TOP_LEVEL` | `trunk_analyzer` (short-circuits in 3a) |
+| `ABANDONED` | whatever ran before the abandonment trigger; document the trigger in the return |
+
+If any required entry is missing → **override the outcome to `ABANDONED`**, reason `"protocol skipped — missing: {list of roles}"`. Do not apply the fix. Do not negotiate. Do not accept the verdict on the grounds that the inline reasoning "looks right."
+</integrity-gate>
 
 ---
 
@@ -391,6 +455,8 @@ Outcomes RETURNED_TO_QUEUE, ABANDONED, CLOSED_SUBTEST, and SKIP_TOP_LEVEL are **
 <purpose>Print summary and wait for user confirmation before any files are modified. Skip in `--auto` mode — proceed with all PROCEED verdicts automatically (MISMATCH issues were already resolved above).</purpose>
 
 <summary-table>
+**JIRA modes** — include Trunk columns:
+
 | Issue | Trunk | Trunk link | Proposed fix location | Verdict |
 |-------|-------|------------|-----------------------|---------|
 | KEY-123 | existing (2 facts ≥0.9) / triggered (0 facts ≥0.9) / uninvestigated | [Analysis]({trunk_analysis_url}) or [Test case]({trunk_test_case_url}) | `pkg/foo/bar_test.go:447` | PROCEED / INCONCLUSIVE / SKIP_TOP_LEVEL / MISMATCH |
@@ -399,6 +465,14 @@ Outcomes RETURNED_TO_QUEUE, ABANDONED, CLOSED_SUBTEST, and SKIP_TOP_LEVEL are **
 - `uninvestigated` — Trunk returned no results within 5 minutes; fix based on code analysis only.
 - `0 facts ≥0.9` — investigation existed but all facts were below threshold; treated as code-analysis-only.
 - `MISMATCH` — the innermost failing function from the Trunk stack trace no longer exists in the codebase.
+
+**Local mode** — drop Trunk columns; use `local_id + test_name` in the Issue column:
+
+| Issue / Test | Evidence | Proposed fix location | Verdict |
+|--------------|----------|----------------------|---------|
+| local-1 · TestFoo | user log / none | `pkg/foo/bar_test.go:447` | PROCEED / INCONCLUSIVE / SKIPPED / MISMATCH |
+
+- `Evidence` = "user log" if `provided_log_text` non-null, else "none".
 </summary-table>
 
 <mismatch-handling>
@@ -418,14 +492,15 @@ Apply the user's choice:
 
 State explicitly: "Investigation is done. Here's the summary above." Then ask: "Proceed with fixes? Exclude specific issues by listing their keys."
 
-If the user excludes or skips any ticket, apply the mid-flight abandonment rule to it immediately.
+If the user excludes or skips any ticket: in JIRA mode, follow `_shared-jira-flaky-ops/abandon-ticket.md` for it immediately. In local mode, no JIRA writes — just exclude from fix list.
 </checkpoint>
 
 <on_complete>
 Write investigation results into `ticket_records` (update `actionable_facts`, `chosen_fix`, outcome fields per ticket).
 
 - Any PROCEED verdicts exist → Read [phase4-apply-fix.md](phase4-apply-fix.md) and follow its instructions.
-- All verdicts are INCONCLUSIVE / MISMATCH / SKIP_TOP_LEVEL / RETURNED_TO_QUEUE → Read [phase6-jira-update.md](phase6-jira-update.md) and follow its instructions.
+- All verdicts are INCONCLUSIVE / MISMATCH / SKIP_TOP_LEVEL / RETURNED_TO_QUEUE / SKIPPED (no PROCEED) and `mode = "local"` → Read [phase-final-local.md](phase-final-local.md) and follow its instructions.
+- All verdicts are INCONCLUSIVE / MISMATCH / SKIP_TOP_LEVEL / RETURNED_TO_QUEUE (no PROCEED) and `mode ≠ "local"` → Read [phase6-jira-update.md](phase6-jira-update.md) and follow its instructions.
 </on_complete>
 
 </phase>

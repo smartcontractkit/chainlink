@@ -9,6 +9,15 @@ model: haiku
 Check each required tool before proceeding. Stop with setup instructions if any hard requirement fails. On success, write `phase_outputs.phase0` with `nav_tool`, `lsp_available`, and `golangci_lint_available`.
 </purpose>
 
+<pre-step id="mode-pre-detect">
+Scan the raw invocation args for the literal token `--local`. If found:
+- Set `invocation_mode_hint = "local"`.
+- Skip the `trunk-mcp` and `atlassian-mcp` checks below entirely (JIRA and Trunk are not needed).
+- Still run the `golangci-lint` and `code-navigation` checks — local mode requires both.
+
+Phase 1 performs the authoritative mode parse; this pre-detect only prevents hard-stopping on missing MCP servers when they are irrelevant.
+</pre-step>
+
 <checks>
 
 <check id="trunk-mcp" required="true">

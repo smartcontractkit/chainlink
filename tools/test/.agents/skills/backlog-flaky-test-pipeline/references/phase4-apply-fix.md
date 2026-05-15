@@ -12,9 +12,9 @@ Apply and verify fixes for all PROCEED issues. Updates `ticket_records` with `ap
 <substep id="4a" runs-in="parent">
 <purpose>Ownership re-check before touching any files.</purpose>
 
-For each PROCEED issue: call `mcp__atlassian__getJiraIssue`, verify assignee matches cached `accountId`.
+**Skip entirely in local mode** (`invocation.mode = "local"`) — no JIRA tickets are owned.
 
-If reassigned: report "KEY-NNN is now assigned to {displayName} — reach out before proceeding." Apply mid-flight abandonment rule (unassign + transition to Open + comment). Continue with remaining issues.
+For each PROCEED issue (JIRA modes): follow `_shared-jira-flaky-ops/recheck-ownership.md` with `jira_key` and `accountId`. If result is `reassigned`: follow `_shared-jira-flaky-ops/abandon-ticket.md` for that ticket. Continue with remaining issues.
 </substep>
 
 <subagent id="verification" model="sonnet" instances="one per PROCEED issue that passed 4a" parallelism="single message">
@@ -61,8 +61,8 @@ If reassigned: report "KEY-NNN is now assigned to {displayName} — reach out be
    - **10/10 pass** → return `{ "verdict": "FIXED", "diff": "<git diff output>" }`.
    - **< 10/10 pass** → verdict `PARTIAL_FIX`:
      - Revert: `git restore {file}`.
-     - Apply mid-flight abandonment rule: unassign, transition to "Open".
-     - Write Investigation Update comment (OUTCOME = PARTIAL_FIX). "What was investigated": the suspected cause. "Hypothesis": `proposer_root_cause`. "What was tried": `fix_description` + attempted diff. "Why it didn't hold": test passed {n}/10 runs + first failure output (truncated to ~500 chars). "Recommended next step": `recommended_next_step` adapted as next direction, or N/A.
+     - **JIRA mode**: follow `_shared-jira-flaky-ops/abandon-ticket.md` (unassign + transition to Open), then follow `_shared-jira-flaky-ops/investigation-comment.md` to write `addCommentToJiraIssue` (OUTCOME = PARTIAL_FIX). "What was investigated": the suspected cause. "Hypothesis": `proposer_root_cause`. "What was tried": `fix_description` + attempted diff. "Why it didn't hold": test passed {n}/10 runs + first failure output (truncated to ~500 chars). "Recommended next step": `recommended_next_step` adapted as next direction, or N/A.
+     - **Local mode**: no JIRA writes. Return `{ "verdict": "PARTIAL_FIX", "pass_count": N }` — include in final summary as `PARTIAL_FIX (reverted)`.
      - Return `{ "verdict": "PARTIAL_FIX", "pass_count": N }`.
 </steps>
 
@@ -103,11 +103,10 @@ Record decision in `user_decisions`. In `--auto` mode: automatically choose (a) 
 </on_subagent_return>
 
 <on_complete>
-Announce verdict for each issue: "Fix results: KEY-1 FIXED, KEY-2 PARTIAL_FIX (reverted and returned to queue)."
+Announce verdict for each issue: "Fix results: KEY-1 FIXED, KEY-2 PARTIAL_FIX (reverted and returned to queue)." In local mode, use `local_id` or test name in place of the JIRA key.
 
-State: "Moving to commit and PR. Please review the fix files before confirming."
-
-Read [phase5-commit-pr.md](phase5-commit-pr.md) and follow its instructions.
+- **JIRA mode**: State "Moving to commit and PR. Please review the fix files before confirming." → Read [phase5-commit-pr.md](phase5-commit-pr.md) and follow its instructions.
+- **Local mode**: → Read [phase-final-local.md](phase-final-local.md) and follow its instructions.
 </on_complete>
 
 </phase>

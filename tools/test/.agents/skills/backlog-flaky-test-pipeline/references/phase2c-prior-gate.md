@@ -11,7 +11,7 @@ Gate on prior investigation history, collect user decisions for affected tickets
 
 <prereqs>
 
-Read [shared-jira-protocol.md](shared-jira-protocol.md) before parsing any previous-investigation comments. It defines the comment format, parsing rules, and abandonment procedure.
+Read [../../_shared-jira-flaky-ops/investigation-comment.md](../../_shared-jira-flaky-ops/investigation-comment.md) before parsing any previous-investigation comments. It defines the comment format and parsing rules.
 </prereqs>
 
 <step id="1-categorise">
@@ -46,11 +46,7 @@ In `--auto` mode: automatically choose (a) for all and log: *"Prior investigatio
 </step>
 
 <step id="3-claim">
-For each approved ticket — assign before transitioning (serialize in this order):
-
-1. `mcp__atlassian__editJiraIssue` → assign to cached `accountId`. Wait for success.
-2. `mcp__atlassian__getTransitionsForJiraIssue` → find "In Progress" (aliases: "In Development", "Active"). If no match: log all available transitions and stop.
-3. `mcp__atlassian__transitionJiraIssue` → transition to "In Progress".
+For each approved ticket, follow `_shared-jira-flaky-ops/claim-ticket.md` with `jira_key` and `accountId`.
 
 Announce: "Claimed K issues: [KEY-1, KEY-2, ...]. Proceeding to investigation."
 

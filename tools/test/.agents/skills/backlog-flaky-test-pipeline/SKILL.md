@@ -1,29 +1,33 @@
 ---
 name: backlog-flaky-test-pipeline
 description: >-
-  A high-automation, multi-agent workflow specifically for resolving flaky tests
-  tracked in JIRA and analyzed by Trunk.io.
+  A high-automation, multi-agent workflow for resolving flaky tests. Supports
+  three modes: JIRA project backlog, direct JIRA ticket IDs, and local benchmark
+  mode (no JIRA or Trunk required).
 
   USE THIS WHEN:
   1. You have specific JIRA ticket IDs (e.g., CRE-123) or want to pull N tickets from a project backlog.
   2. The failure is identified as "flaky" by Trunk.io analysis.
   3. You need an end-to-end pipeline (fetch -> debate -> fix -> PR -> JIRA update).
+  4. You want a one-shot multi-agent fix attempt on named tests without JIRA (--local benchmark mode).
 
   DO NOT USE THIS WHEN:
-  1. Investigating general local failures, race conditions, or timeouts not linked to a JIRA ticket.
-  2. You are performing manual, exploratory debugging of a single test file (use 'debug-test-failure' instead).
+  1. Iterative, interactive debugging of a single test file — use 'debug-test-failure' instead.
+  2. You need an exploratory diagnostic loop rather than a structured fix attempt.
 ---
 
 <overview>
-End-to-end workflow: fetch flaky-test JIRA tickets → run Trunk + code analysis in parallel → apply fixes → commit → update JIRA with the PR.
+End-to-end workflow: fetch flaky-test JIRA tickets → run Trunk + code analysis in parallel → apply fixes → commit → update JIRA with the PR. In local mode: take test names directly, skip JIRA + Trunk, stop after fix verification.
 </overview>
 
 <usage>
 - `/backlog-flaky-test-pipeline [KEY [N]] [--auto]` — project + count mode
 - `/backlog-flaky-test-pipeline PROJ-NNN[@<run-url>] [PROJ-NNN[@<run-url>] ...] [--auto]` — direct-ticket mode (e.g. `CRE-5719 CCIP-42@https://github.com/.../actions/runs/123`). The optional `@<run-url>` attaches a CI run URL for `investigate-ci-failure` analysis (direct-ticket mode only).
+- `/backlog-flaky-test-pipeline --local <pkg>.TestName [<pkg>.TestName/subtest ...] [--log <path>] [--auto]` — local benchmark mode. Takes test specs directly; no JIRA or Trunk required. Stops after phase4 verification (no commit, no PR). Use for benchmarking this skill against other tools.
 - `KEY` — JIRA project key (e.g. `CRE`). Skips Phase 1 prompt if provided.
 - `N` — number of issues (default 3). Skips Phase 1 prompt if provided.
 - `--auto` — accept all defaults at every gate; only blocks on hard failures and ownership conflicts.
+- `--log <path>` — (local mode only) path to a log file whose contents become seed evidence for analysis.
 </usage>
 
 <model-assignment>
@@ -51,8 +55,8 @@ This skill is a multi-phase workflow; later phases depend on outputs from earlie
   </skill_rules>
 
   <invocation>
-    - `mode`: `project` | `direct-ticket`
-    - `args`: original user input verbatim (project key, count, ticket list, flags)
+    - `mode`: `project` | `direct-ticket` | `local`
+    - `args`: original user input verbatim (project key, count, ticket list, flags). In local mode: `{ test_specs: ["<pkg>.<TestName>", ...], log_path: "<path> | null" }`.
     - `auto_mode`: boolean
   </invocation>
 
@@ -64,20 +68,23 @@ This skill is a multi-phase workflow; later phases depend on outputs from earlie
 
   <ticket_records>
     One row per ticket. Maintain as a table, not a paragraph. Required fields:
-    - `jira_key` (e.g. `CRE-5719`)
-    - `test_case_id` (UUID from `customfield_13010`)
+    - `jira_key` (e.g. `CRE-5719`) — null in local mode
+    - `local_id` (e.g. `local-1`) — null in JIRA modes
+    - `test_case_id` (UUID from `customfield_13010`) — null in local mode
     - `test_name`, `package_path`
-    - `trunk_investigation_id`
+    - `trunk_investigation_id` — null in local mode
     - `actionable_facts` — `fix-flaky-test` facts with `Confidence ≥ 0.9` only
-    - `ci_run_url` — GitHub Actions run URL for `investigate-ci-failure` (null in project mode; populated from `KEY@URL` syntax or 3a fallback prompt)
-    - `ci_run_evidence` — structured failure data from `investigate-ci-failure` (null if no URL provided or call failed). Separate evidence track — exempt from the ≥ 0.9 rule.
+    - `ci_run_url` — GitHub Actions run URL for `investigate-ci-failure` (null in project mode and local mode; populated from `KEY@URL` syntax or 3a fallback prompt in direct-ticket mode)
+    - `ci_run_evidence` — structured failure data from `investigate-ci-failure` (null if no URL provided or call failed). Separate evidence track — exempt from the ≥ 0.9 rule. Always null in local mode.
+    - `provided_log_path` — path supplied via `--log` in local mode; null in JIRA modes
+    - `provided_log_text` — contents of the log file read once; null if no log or file missing
     - `shared_cause_group` — id linking tickets in the same package that share a root cause (see `shared-package-cause` tip)
     - `chosen_fix` — { approach, rationale }
     - `applied_fix` — { files_changed, diff_summary }
     - `lint_status` — `"ran"` | `"skipped"` | `"failed"`
     - `lint_scope` — package path used for linting (e.g. `./core/chains/evm/txmgr/...`)
     - `verification` — { local_10x_passed, ci_status }
-    - `branch`, `commit_sha`, `pr_url`
+    - `branch`, `commit_sha`, `pr_url` — null in local mode
   </ticket_records>
 
   <user_decisions>

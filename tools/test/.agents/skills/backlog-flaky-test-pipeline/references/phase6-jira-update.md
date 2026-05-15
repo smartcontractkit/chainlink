@@ -11,18 +11,19 @@ Write final JIRA comments and transition tickets to their terminal state. Reads 
 
 <prereqs>
 
-Read [shared-jira-protocol.md](shared-jira-protocol.md) if not already loaded in this session.
+Read [../../_shared-jira-flaky-ops/investigation-comment.md](../../_shared-jira-flaky-ops/investigation-comment.md) if not already loaded — needed for Investigation Update comment format.
+
+Read [../../_shared-jira-flaky-ops/abandon-ticket.md](../../_shared-jira-flaky-ops/abandon-ticket.md) if not already loaded — needed for INCONCLUSIVE abandonment procedure.
 </prereqs>
 
 <fixed-issues>
 For each FIXED issue:
 
-1. `getTransitionsForJiraIssue` → find "In Review" (aliases: "In Code Review", "Review").
-2. `transitionJiraIssue` → "In Review".
-3. `addCommentToJiraIssue` → Investigation Update comment (OUTCOME = FIXED):
+1. Follow `_shared-jira-flaky-ops/transition-ticket.md` with `jira_key` and `target = "In Review"`.
+2. Follow `_shared-jira-flaky-ops/investigation-comment.md` to write `addCommentToJiraIssue` (OUTCOME = FIXED):
    - **What was investigated**: the failure mode and root cause in one sentence.
    - **Hypothesis**: the Proposer's root cause.
-   - **What was tried**: fix description; PR: {PR URL}; signals matched: {sut_signals_matched + test_signals_matched}; SUT score: {sut_score}, TEST score: {test_score}. If classification was SUT with user override, note it here.
+   - **What was tried**: fix description; PR: {PR URL}; classification: {classification} ({confidence}); pattern: {pattern_category}; rationale: {rationale}. If classification was SUT with user override, note it here.
    - **Why it didn't hold**: N/A.
    - **Recommended next step**: N/A.
 </fixed-issues>
@@ -30,13 +31,13 @@ For each FIXED issue:
 <inconclusive-issues>
 For each INCONCLUSIVE issue:
 
-1. `addCommentToJiraIssue` → Investigation Update comment (OUTCOME = INCONCLUSIVE):
+1. Follow `_shared-jira-flaky-ops/investigation-comment.md` to write `addCommentToJiraIssue` (OUTCOME = INCONCLUSIVE):
    - **What was investigated**: the failure mode and what code was analyzed.
    - **Hypothesis**: the Proposer's root cause.
    - **What was tried**: the proposed fix if any, otherwise "No fix applied."
    - **Why it didn't hold**: the Challenger's key objections and the Arbiter's rationale.
    - **Recommended next step**: a concrete actionable direction derived from the Arbiter's reasoning.
-2. Apply the mid-flight abandonment rule (unassign + transition to "Open").
+2. Follow `_shared-jira-flaky-ops/abandon-ticket.md` (unassign + transition to "Open").
 </inconclusive-issues>
 
 <on_complete>

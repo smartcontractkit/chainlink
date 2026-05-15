@@ -42,9 +42,9 @@ Commit following the repo's existing message style.
 </step>
 
 <step id="6-ownership-recheck" never-skip-in-auto="true">
-For each FIXED issue: call `mcp__atlassian__getJiraIssue`, confirm assignee still matches cached `accountId`.
+For each FIXED issue: follow `_shared-jira-flaky-ops/recheck-ownership.md` with `jira_key` and `accountId`.
 
-If reassigned: pause and report. Do not push until user explicitly confirms. **This gate is never skipped by `--auto`.**
+If result is `reassigned`: pause and report. Do not push until user explicitly confirms. **This gate is never skipped by `--auto`.**
 </step>
 
 <step id="7-pr-dedup">
