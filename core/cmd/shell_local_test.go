@@ -659,6 +659,9 @@ func TestShell_BeholderLifecycle(t *testing.T) {
 		shell, c := newShell(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			trueVal := true
 			c.Telemetry.Enabled = &trueVal
+			endpoint := "localhost:4317"
+			c.Telemetry.Endpoint = &endpoint
+			c.Telemetry.InsecureConnection = &trueVal
 		}, nil)
 		require.NoError(t, shell.BeforeNode(c))
 		require.NotNil(t, shell.BeholderClient, "BeholderClient should be set when telemetry is enabled")
@@ -678,6 +681,9 @@ func TestShell_BeholderLifecycle(t *testing.T) {
 		shell, c := newShell(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			trueVal := true
 			c.Telemetry.Enabled = &trueVal
+			endpoint := "localhost:4317"
+			c.Telemetry.Endpoint = &endpoint
+			c.Telemetry.InsecureConnection = &trueVal
 			c.Telemetry.LogStreamingEnabled = &trueVal
 		}, func(core zapcore.Core) {
 			require.NotNil(t, core)
@@ -693,6 +699,9 @@ func TestShell_BeholderLifecycle(t *testing.T) {
 		shell, c := newShell(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			trueVal := true
 			c.Telemetry.Enabled = &trueVal
+			endpoint := "localhost:4317"
+			c.Telemetry.Endpoint = &endpoint
+			c.Telemetry.InsecureConnection = &trueVal
 			c.Telemetry.LogStreamingEnabled = &trueVal
 		}, nil) // SetOtelCore intentionally nil
 		err := shell.BeforeNode(c)
