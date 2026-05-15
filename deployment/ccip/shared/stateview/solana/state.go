@@ -10,6 +10,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/rs/zerolog/log"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
@@ -33,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
 	solanaview "github.com/smartcontractkit/chainlink/deployment/ccip/view/solana"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -593,7 +593,7 @@ func ValidateOwnershipSolana(
 		if err != nil {
 			return fmt.Errorf("failed to get account data: %w", err)
 		}
-		if err := commonchangeset.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Owner); err != nil {
+		if err := mcmschangesets.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Owner); err != nil {
 			return fmt.Errorf("failed to validate ownership for router: %w", err)
 		}
 	case shared.OffRamp:
@@ -602,7 +602,7 @@ func ValidateOwnershipSolana(
 		if err != nil {
 			return fmt.Errorf("failed to get account data: %w", err)
 		}
-		if err := commonchangeset.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Owner); err != nil {
+		if err := mcmschangesets.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Owner); err != nil {
 			return fmt.Errorf("failed to validate ownership for offramp: %w", err)
 		}
 	case shared.FeeQuoter:
@@ -611,7 +611,7 @@ func ValidateOwnershipSolana(
 		if err != nil {
 			return fmt.Errorf("failed to get account data: %w", err)
 		}
-		if err := commonchangeset.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Owner); err != nil {
+		if err := mcmschangesets.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Owner); err != nil {
 			return fmt.Errorf("failed to validate ownership for feequoter: %w", err)
 		}
 	case shared.BurnMintTokenPool:
@@ -621,7 +621,7 @@ func ValidateOwnershipSolana(
 		if err != nil {
 			return nil
 		}
-		if err := commonchangeset.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Config.Owner); err != nil {
+		if err := mcmschangesets.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Config.Owner); err != nil {
 			return fmt.Errorf("failed to validate ownership for burnmint_token_pool: %w", err)
 		}
 	case shared.LockReleaseTokenPool:
@@ -631,7 +631,7 @@ func ValidateOwnershipSolana(
 		if err != nil {
 			return nil
 		}
-		if err := commonchangeset.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Config.Owner); err != nil {
+		if err := mcmschangesets.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Config.Owner); err != nil {
 			return fmt.Errorf("failed to validate ownership for lockrelease_token_pool: %w", err)
 		}
 	case shared.RMNRemote:
@@ -640,7 +640,7 @@ func ValidateOwnershipSolana(
 		if err != nil {
 			return fmt.Errorf("failed to get account data: %w", err)
 		}
-		if err := commonchangeset.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Owner); err != nil {
+		if err := mcmschangesets.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Owner); err != nil {
 			return fmt.Errorf("failed to validate ownership for rmnremote: %w", err)
 		}
 	case shared.CCTPTokenPool:
@@ -650,7 +650,7 @@ func ValidateOwnershipSolana(
 		if err != nil {
 			return nil
 		}
-		if err := commonchangeset.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Config.Owner); err != nil {
+		if err := mcmschangesets.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Config.Owner); err != nil {
 			return fmt.Errorf("failed to validate ownership for cctp_token_pool: %w", err)
 		}
 	case shared.SVMSignerRegistry:
@@ -666,7 +666,7 @@ func ValidateOwnershipSolana(
 		}
 		fmt.Printf("%+v\n", configAccount)
 
-		if err := commonchangeset.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, configAccount.Owner); err != nil {
+		if err := mcmschangesets.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, configAccount.Owner); err != nil {
 			return fmt.Errorf("failed to validate ownership for signer_registry at account %s: %w", configPda, err)
 		}
 	default:

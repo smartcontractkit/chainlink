@@ -340,7 +340,7 @@ const (
 	TaskTypeMultiply         TaskType = "multiply"
 	TaskTypeSum              TaskType = "sum"
 	TaskTypeUppercase        TaskType = "uppercase"
-	TaskTypeVRF              TaskType = "vrf"
+	TaskTypeVRF              TaskType = "vrf" // legacy VRF v1; UnmarshalTaskFromMap returns a removal error
 	TaskTypeVRFV2            TaskType = "vrfv2"
 	TaskTypeVRFV2Plus        TaskType = "vrfv2plus"
 
@@ -400,7 +400,7 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap any, ID int, dotID string) 
 	case TaskTypeDivide:
 		task = &DivideTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeVRF:
-		task = &VRFTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		return nil, pkgerrors.Errorf("pipeline task type %q (VRF v1) has been removed and is no longer supported; migrate the observationSource to vrfv2 or vrfv2plus", taskType)
 	case TaskTypeVRFV2:
 		task = &VRFTaskV2{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeVRFV2Plus:

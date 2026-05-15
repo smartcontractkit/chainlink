@@ -40,13 +40,14 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	ccipseqs "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -379,7 +380,7 @@ func (p PromoteCandidateChangesetConfig) Validate(e cldf.Environment) (map[uint6
 		return nil, fmt.Errorf("home chain invalid: %w", err)
 	}
 	homeChainState := state.Chains[p.HomeChainSelector]
-	if err := commoncs.ValidateOwnership(e.GetContext(), p.MCMS != nil, e.BlockChains.EVMChains()[p.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CapabilityRegistry); err != nil {
+	if err := mcmschangesets.ValidateOwnership(e.GetContext(), p.MCMS != nil, e.BlockChains.EVMChains()[p.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CapabilityRegistry); err != nil {
 		return nil, err
 	}
 
@@ -611,7 +612,7 @@ func (s SetCandidateConfigBase) Validate(e cldf.Environment, state stateview.CCI
 	if !exists {
 		return fmt.Errorf("home chain %d does not exist", s.HomeChainSelector)
 	}
-	if err := commoncs.ValidateOwnership(e.GetContext(), s.MCMS != nil, e.BlockChains.EVMChains()[s.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CapabilityRegistry); err != nil {
+	if err := mcmschangesets.ValidateOwnership(e.GetContext(), s.MCMS != nil, e.BlockChains.EVMChains()[s.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CapabilityRegistry); err != nil {
 		return err
 	}
 
@@ -938,7 +939,7 @@ func (r RevokeCandidateChangesetConfig) Validate(e cldf.Environment, state state
 	if !exists {
 		return 0, fmt.Errorf("home chain %d does not exist", r.HomeChainSelector)
 	}
-	if err := commoncs.ValidateOwnership(e.GetContext(), r.MCMS != nil, e.BlockChains.EVMChains()[r.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CapabilityRegistry); err != nil {
+	if err := mcmschangesets.ValidateOwnership(e.GetContext(), r.MCMS != nil, e.BlockChains.EVMChains()[r.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CapabilityRegistry); err != nil {
 		return 0, err
 	}
 
@@ -1124,7 +1125,7 @@ func (c UpdateChainConfigConfig) Validate(e cldf.Environment) error {
 	if !exists {
 		return fmt.Errorf("home chain %d does not exist", c.HomeChainSelector)
 	}
-	if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMS != nil, e.BlockChains.EVMChains()[c.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CCIPHome); err != nil {
+	if err := mcmschangesets.ValidateOwnership(e.GetContext(), c.MCMS != nil, e.BlockChains.EVMChains()[c.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CCIPHome); err != nil {
 		return err
 	}
 	for _, remove := range c.RemoteChainRemoves {

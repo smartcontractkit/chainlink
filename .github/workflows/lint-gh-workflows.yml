@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/*.y*ml'
       - '.github/actions/**/action.y*ml'
+      - '.github/actionlint.yml'
 
 permissions: {}
 

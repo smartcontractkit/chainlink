@@ -36,7 +36,7 @@ on:
         description: "Chainlink image tag to use."
       ecr:
         type: string
-        required: true
+        required: false # defaulted
         default: "sdlc"
         description: "Whether to use the SDLC (sdlc) or public ECR registry (public) for the Chainlink image."
       chainlink_version:
@@ -87,7 +87,7 @@ jobs:
       - name: Print Summary
         working-directory: .
         run: |
-          echo "**Image:** \`${{ steps.resolve-chainlink-image.outputs.resolved_image }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ steps.resolve-chainlink-image.outputs.resolved_image }}\`" >> "${GITHUB_STEP_SUMMARY}"
 
   test-nightly:
     name: ${{ matrix.display_name }}
@@ -134,12 +134,6 @@ jobs:
             runner: "ubuntu-latest"
             tests_dir: "flux"
             logs_archive_name: "flux"
-          - display_name: "Test VRF Smoke"
-            testcmd: "go test -v -timeout 10m -run TestVRFBasic\\|TestVRFJobReplacement"
-            envcmd: "cl u env.toml,products/vrf/basic.toml"
-            runner: "ubuntu-latest"
-            tests_dir: "vrf"
-            logs_archive_name: "vrf"
           - display_name: "Test DF1 (OCR2) Smoke"
             testcmd: "go test -v -timeout 20m -run TestSmoke/rounds"
             envcmd: "cl u env.toml,products/ocr2/basic.toml"
@@ -324,7 +318,7 @@ jobs:
 
       - name: Set environment variables
         run: |
-          echo "CHAINLINK_IMAGE=${{ steps.resolve-chainlink-image.outputs.resolved_image }}" >> $GITHUB_ENV
+          echo "CHAINLINK_IMAGE=${{ steps.resolve-chainlink-image.outputs.resolved_image }}" >> "${GITHUB_ENV}"
       - name: Setup environment
         env:
           FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}

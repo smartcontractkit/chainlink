@@ -8,7 +8,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	mcmslib "github.com/smartcontractkit/mcms"
+
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -20,9 +23,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
+	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/common/changeset"
+
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
@@ -102,7 +106,7 @@ type AddCandidatesForNewChainConfig struct {
 	// RemoteChains defines the remote chains to be connected to the new chain.
 	RemoteChains []ChainDefinition `json:"remoteChains"`
 	// MCMSDeploymentConfig configures the MCMS deployment to the new chain.
-	MCMSDeploymentConfig *commontypes.MCMSWithTimelockConfigV2 `json:"mcmsDeploymentConfig,omitempty"`
+	MCMSDeploymentConfig *cldfproposalutils.MCMSWithTimelockConfig `json:"mcmsDeploymentConfig,omitempty"`
 	// MCMSConfig defines the MCMS configuration for the changeset.
 	MCMSConfig *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
 	// The offset to adjust the donID in DonIDClaimer (useful when certain DON IDs are dropped)
@@ -285,7 +289,7 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 		// Deploy MCMS contracts
 		if c.MCMSDeploymentConfig != nil {
 			err = runAndSaveAddresses(func() (cldf.ChangesetOutput, error) {
-				return commoncs.DeployMCMSWithTimelockV2(e, map[uint64]commontypes.MCMSWithTimelockConfigV2{
+				return mcmschangesets.DeployMCMSWithTimelockV2(e, map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 					c.NewChain.Selector: *c.MCMSDeploymentConfig,
 				})
 			}, newAddresses, e.ExistingAddresses)
@@ -373,7 +377,7 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 	}
 
 	if c.DonIDOffSet != nil {
-		_, err = commoncs.RunChangeset(DonIDClaimerOffSetChangeset, e, DonIDClaimerOffSetConfig{
+		_, err = cldchangeset.RunChangeset(DonIDClaimerOffSetChangeset, e, DonIDClaimerOffSetConfig{
 			OffSet: *c.DonIDOffSet,
 		})
 		if err != nil {
@@ -486,13 +490,13 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 	}, nil
 }
 
-///////////////////////////////////
+// /////////////////////////////////
 // END AddCandidatesForNewChainChangeset
-///////////////////////////////////
+// /////////////////////////////////
 
-///////////////////////////////////
+// /////////////////////////////////
 // START PromoteNewChainForConfigChangeset
-///////////////////////////////////
+// /////////////////////////////////
 
 // PromoteNewChainForConfig is a configuration struct for PromoteNewChainForConfigChangeset.
 type PromoteNewChainForConfig struct {
@@ -665,13 +669,13 @@ func promoteNewChainForConfigLogic(e cldf.Environment, c PromoteNewChainForConfi
 	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
-///////////////////////////////////
+// /////////////////////////////////
 // END PromoteNewChainForConfigChangeset
-///////////////////////////////////
+// /////////////////////////////////
 
-///////////////////////////////////
+// /////////////////////////////////
 // START ConnectNewChainChangeset
-///////////////////////////////////
+// /////////////////////////////////
 
 // ConnectionConfig defines how a chain should connect with other chains.
 type ConnectionConfig struct {
@@ -740,21 +744,21 @@ func (c ConnectNewChainConfig) validateChain(e cldf.Environment, state stateview
 		return errors.New("test router contract not found")
 	}
 
-	err = commoncs.ValidateOwnership(e.GetContext(), ownedByMCMS, deployerKey, chainState.Timelock.Address(), chainState.OnRamp)
+	err = mcmschangesets.ValidateOwnership(e.GetContext(), ownedByMCMS, deployerKey, chainState.Timelock.Address(), chainState.OnRamp)
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership of onRamp: %w", err)
 	}
-	err = commoncs.ValidateOwnership(e.GetContext(), ownedByMCMS, deployerKey, chainState.Timelock.Address(), chainState.OffRamp)
+	err = mcmschangesets.ValidateOwnership(e.GetContext(), ownedByMCMS, deployerKey, chainState.Timelock.Address(), chainState.OffRamp)
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership of offRamp: %w", err)
 	}
-	err = commoncs.ValidateOwnership(e.GetContext(), ownedByMCMS, deployerKey, chainState.Timelock.Address(), chainState.Router)
+	err = mcmschangesets.ValidateOwnership(e.GetContext(), ownedByMCMS, deployerKey, chainState.Timelock.Address(), chainState.Router)
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership of router: %w", err)
 	}
 
 	// Test router should always be owned by deployer key
-	err = commoncs.ValidateOwnership(e.GetContext(), false, deployerKey, chainState.Timelock.Address(), chainState.TestRouter)
+	err = mcmschangesets.ValidateOwnership(e.GetContext(), false, deployerKey, chainState.Timelock.Address(), chainState.TestRouter)
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership of test router: %w", err)
 	}
@@ -968,9 +972,9 @@ func connectRampsAndRouters(
 	return proposalAggregate, nil
 }
 
-///////////////////////////////////
+// /////////////////////////////////
 // END ConnectNewChainChangeset
-///////////////////////////////////
+// /////////////////////////////////
 
 func runAndSaveAddresses(fn func() (cldf.ChangesetOutput, error), newAddresses cldf.AddressBook, existingAddresses cldf.AddressBook) error {
 	output, err := fn()

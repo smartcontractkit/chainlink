@@ -59,13 +59,13 @@ runs:
       shell: bash
       id: go-cache-dir
       run: |
-        echo "gomodcache=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT
-        echo "gobuildcache=$(go env GOCACHE)" >> $GITHUB_OUTPUT
+        echo "gomodcache=$(go env GOMODCACHE)" >> "${GITHUB_OUTPUT}"
+        echo "gobuildcache=$(go env GOCACHE)" >> "${GITHUB_OUTPUT}"
 
     - name: Set go module path
       id: go-module-path
       shell: bash
-      run: echo "path=./${{ inputs.go-module-file }}" >> $GITHUB_OUTPUT
+      run: echo "path=./${{ inputs.go-module-file }}" >> "${GITHUB_OUTPUT}"
 
     # By default, restore the cache only.
     # If multiple jobs call actions/cache, then only one will get priority to create upon a cache miss.
@@ -144,7 +144,7 @@ runs:
         KEY_PREFIX="${RUNNER_OS}-gobuild-${CACHE_VERSION}"
 
         PRIMARY_KEY="${KEY_PREFIX}-${CURRENT_BRANCH}-${SHORT_SHA}"
-        echo "primary-key=${PRIMARY_KEY}" >> $GITHUB_OUTPUT
+        echo "primary-key=${PRIMARY_KEY}" >> "${GITHUB_OUTPUT}"
 
         if [ "$CURRENT_BRANCH" = "$DEFAULT_BRANCH" ]; then
           exit 0
@@ -153,8 +153,8 @@ runs:
         SECONDARY_KEY="${KEY_PREFIX}-${CURRENT_BRANCH}-"
         DEVELOP_KEY="${RUNNER_OS}-gobuild-${CACHE_VERSION}-${DEFAULT_BRANCH}-"
 
-        echo "secondary-key=${SECONDARY_KEY}" >> $GITHUB_OUTPUT
-        echo "develop-key=${DEVELOP_KEY}" >> $GITHUB_OUTPUT
+        echo "secondary-key=${SECONDARY_KEY}" >> "${GITHUB_OUTPUT}"
+        echo "develop-key=${DEVELOP_KEY}" >> "${GITHUB_OUTPUT}"
 
     # 3. Restore the build cache
     # ---

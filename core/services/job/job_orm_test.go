@@ -296,7 +296,7 @@ func TestORM(t *testing.T) {
 	t.Run("it creates and deletes records for blockhash store jobs", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		bhsJob, err := blockhashstore.ValidatedSpec(
-			testspecs.GenerateBlockhashStoreSpec(testspecs.BlockhashStoreSpecParams{CoordinatorV1Address: "0x613a38AC1659769640aaE063C651F48E0250454C"}).Toml())
+			testspecs.GenerateBlockhashStoreSpec(testspecs.BlockhashStoreSpecParams{CoordinatorV2Address: "0x613a38AC1659769640aaE063C651F48E0250454C"}).Toml())
 		require.NoError(t, err)
 
 		err = orm.CreateJob(ctx, &bhsJob)
@@ -578,7 +578,10 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	cltest.AssertCount(t, db, "vrf_specs", 0)
 	cltest.AssertCount(t, db, "jobs", 0)
 
-	jb, err = vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{RequestTimeout: 1 * time.Hour}).Toml())
+	jb, err = vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+		RequestTimeout: 1 * time.Hour,
+		FromAddresses:  fromAddresses,
+	}).Toml())
 	require.NoError(t, err)
 	require.NoError(t, jobORM.CreateJob(ctx, &jb))
 	cltest.AssertCount(t, db, "vrf_specs", 1)

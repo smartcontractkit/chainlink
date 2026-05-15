@@ -119,13 +119,13 @@ func setupNode(
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(int64(port)))
 	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
 	cfg, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Feature.LogPoller = ptr(true)
+		c.Feature.LogPoller = new(true)
 
-		c.OCR.Enabled = ptr(false)
-		c.OCR2.Enabled = ptr(true)
+		c.OCR.Enabled = new(false)
+		c.OCR2.Enabled = new(true)
 
-		c.P2P.PeerID = ptr(p2pKey.PeerID())
-		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.PeerID = new(p2pKey.PeerID())
+		c.P2P.V2.Enabled = new(true)
 		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(500 * time.Millisecond)
 		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
 		c.P2P.V2.AnnounceAddresses = &p2paddresses
@@ -134,8 +134,8 @@ func setupNode(
 			c.P2P.V2.DefaultBootstrappers = &p2pV2Bootstrappers
 		}
 
-		c.EVM[0].Transactions.ForwardersEnabled = ptr(true)
-		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+		c.EVM[0].Transactions.ForwardersEnabled = new(true)
+		c.EVM[0].GasEstimator.Mode = new("FixedPrice")
 		s.Mercury.Credentials = map[string]toml.MercuryCredentials{
 			MercuryCredName: {
 				LegacyURL: models.MustSecretURL(mercury.URL()),
