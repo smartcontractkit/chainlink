@@ -27,6 +27,7 @@ import (
 
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -1195,13 +1196,16 @@ func (s *Shell) beforeNode(c *cli.Context) error {
 		return fmt.Errorf("failed to build Beholder auth: %w", err)
 	}
 
-	// Build Beholder client when telemetry is enabled.
+	// Build Beholder client: a real one when telemetry is enabled, otherwise a
+	// no-op so that downstream code never needs to nil-check.
 	if s.Config.Telemetry().Enabled() {
 		var beholderErr error
 		s.BeholderClient, beholderErr = newBeholderClient(s.Logger, keyStore, s.Config.Tracing(), s.Config.Telemetry(), csaPubKeyHex, beholderAuthHeaders)
 		if beholderErr != nil {
 			return fmt.Errorf("failed creating beholder client: %w", beholderErr)
 		}
+	} else {
+		s.BeholderClient = beholder.NewNoopClient()
 	}
 
 	// Prometheus, grpc, tracing, and (when telemetry is on) Beholder OTel globals.
@@ -1216,10 +1220,8 @@ func (s *Shell) beforeNode(c *cli.Context) error {
 	}
 
 	// Start the beholder client after log streaming is wired.
-	if s.BeholderClient != nil {
-		if err = s.BeholderClient.Start(ctx); err != nil {
-			return fmt.Errorf("failed to start beholder client: %w", err)
-		}
+	if err = s.BeholderClient.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start beholder client: %w", err)
 	}
 
 	if s.Config.Telemetry().Enabled() {
@@ -1230,7 +1232,7 @@ func (s *Shell) beforeNode(c *cli.Context) error {
 }
 
 func (s *Shell) setupLogStreaming() error {
-	if !s.Config.Telemetry().LogStreamingEnabled() || s.BeholderClient == nil {
+	if !s.Config.Telemetry().LogStreamingEnabled() {
 		return nil
 	}
 	if s.SetOtelCore == nil {
