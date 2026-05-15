@@ -21,15 +21,8 @@ import (
 
 const managedTokenStateSeed = "managed_token::managed_token::token_state"
 
+// TokenOperations contains the token operations whose output is consumed by MCMS proposals.
 var TokenOperations = []*operations.Operation[any, any, any]{
-	DeployRegulatedTokenObjectOp.AsUntypedRelaxed(),
-	DeployRegulatedTokenMCMSRegistrarOp.AsUntypedRelaxed(),
-	InitializeRegulatedTokenOp.AsUntypedRelaxed(),
-	GrantRegulatedTokenMinterRoleOp.AsUntypedRelaxed(),
-	MintRegulatedTokenOp.AsUntypedRelaxed(),
-	TransferRegulatedTokenOwnershipOp.AsUntypedRelaxed(),
-	ExecuteRegulatedTokenOwnershipTransferOp.AsUntypedRelaxed(),
-	TransferRegulatedTokenAdminOp.AsUntypedRelaxed(),
 	DeployTokenMCMSRegistrarOp.AsUntypedRelaxed(),
 	InitializeTokenOp.AsUntypedRelaxed(),
 	MintTokensOp.AsUntypedRelaxed(),

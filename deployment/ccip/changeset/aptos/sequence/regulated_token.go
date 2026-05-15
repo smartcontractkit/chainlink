@@ -67,11 +67,12 @@ func deployRegulatedTokenSequence(
 		return DeployRegulatedTokenSeqOutput{}, fmt.Errorf("InitializeRegulatedTokenOp: %w", err)
 	}
 
+	// To be used for tests, staging and testnet
 	if in.TokenMint != nil {
-		grantee := deps.AptosChain.DeployerSigner.AccountAddress()
+		deployerAddress := deps.AptosChain.DeployerSigner.AccountAddress()
 		_, err = operations.ExecuteOperation(b, operation.GrantRegulatedTokenMinterRoleOp, deps, operation.GrantRegulatedTokenMinterRoleInput{
 			TokenCodeObjectAddress: codeObj,
-			Grantee:                grantee,
+			Grantee:                deployerAddress,
 		})
 		if err != nil {
 			return DeployRegulatedTokenSeqOutput{}, fmt.Errorf("GrantRegulatedTokenMinterRoleOp: %w", err)
@@ -83,6 +84,16 @@ func deployRegulatedTokenSequence(
 		})
 		if err != nil {
 			return DeployRegulatedTokenSeqOutput{}, fmt.Errorf("MintRegulatedTokenOp: %w", err)
+		}
+		// Revoke the deployer's MINTER_ROLE so it doesn't retain mint authority once admin
+		// is handed over to MCMS. Must happen while the deployer is still admin (i.e., before
+		// MCMS executes accept_admin from the proposal generated below).
+		_, err = operations.ExecuteOperation(b, operation.RevokeRegulatedTokenMinterRoleOp, deps, operation.RevokeRegulatedTokenMinterRoleInput{
+			TokenCodeObjectAddress: codeObj,
+			Account:                deployerAddress,
+		})
+		if err != nil {
+			return DeployRegulatedTokenSeqOutput{}, fmt.Errorf("RevokeRegulatedTokenMinterRoleOp: %w", err)
 		}
 	}
 

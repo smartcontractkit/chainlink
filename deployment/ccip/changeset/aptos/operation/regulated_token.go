@@ -170,6 +170,41 @@ func grantRegulatedTokenMinterRole(
 	return in.TokenCodeObjectAddress, nil
 }
 
+// RevokeRegulatedTokenMinterRoleInput is input for RevokeRegulatedTokenMinterRoleOp.
+type RevokeRegulatedTokenMinterRoleInput struct {
+	TokenCodeObjectAddress aptos.AccountAddress
+	Account                aptos.AccountAddress
+}
+
+// RevokeRegulatedTokenMinterRoleOp revokes MINTER_ROLE from one account (one tx).
+var RevokeRegulatedTokenMinterRoleOp = operations.NewOperation(
+	"revoke-regulated-token-minter-role-op",
+	Version1_0_0,
+	"Revoke regulated token minter role from an account",
+	revokeRegulatedTokenMinterRole,
+)
+
+func revokeRegulatedTokenMinterRole(
+	b operations.Bundle,
+	deps dependency.AptosDeps,
+	in RevokeRegulatedTokenMinterRoleInput,
+) (aptos.AccountAddress, error) {
+	_ = b
+	signer := deps.AptosChain.DeployerSigner
+	client := deps.AptosChain.Client
+	opts := &bind.TransactOpts{Signer: signer}
+	token := regulated_token.Bind(in.TokenCodeObjectAddress, client)
+
+	tx, err := token.RegulatedToken().RevokeRole(opts, module_regulated_token.MINTER_ROLE, in.Account)
+	if err != nil {
+		return aptos.AccountAddress{}, fmt.Errorf("revoke role minter: %w", err)
+	}
+	if err := deps.AptosChain.Confirm(tx.Hash); err != nil {
+		return aptos.AccountAddress{}, fmt.Errorf("confirm revoke role: %w", err)
+	}
+	return in.TokenCodeObjectAddress, nil
+}
+
 // MintRegulatedTokenInput is input for MintRegulatedTokenOp.
 type MintRegulatedTokenInput struct {
 	TokenCodeObjectAddress aptos.AccountAddress
