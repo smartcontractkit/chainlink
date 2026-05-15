@@ -269,6 +269,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 			job_ops.ProposeCRESettingsJobsDeps{Env: e},
 			job_ops.ProposeCRESettingsJobsInput{
 				Domain:      input.Domain,
+				Environment: input.Environment,
 				DONName:     input.DONName,
 				DONFilters:  input.DONFilters,
 				ExtraLabels: input.ExtraLabels,
