@@ -28,11 +28,11 @@ import (
 func TestPlugin_ThroughputAnalysis(t *testing.T) {
 	// --- Vault DON parameters ---
 	const (
-		donN           = 7
-		donF           = 2
+		donN           = 10
+		donF           = 3
 		byzQuorumSize  = 2*donF + 1       // 7 — chosen observations for GetSecrets
 		fPlusOne       = donF + 1         // 4 — chosen observations for all other types
-		maxBatchSize   = 10               // VaultPluginBatchSizeLimit
+		maxBatchSize   = 12               // VaultPluginBatchSizeLimit
 		maxPendingBlob = 2 * maxBatchSize // max blob *handles* per Observation(); each handle may cover many requests via StoredPendingQueueBatch
 	)
 
