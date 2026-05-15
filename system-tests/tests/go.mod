@@ -5,8 +5,6 @@ go 1.26.2
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../../
 
-replace github.com/smartcontractkit/chainlink-common => ../../../chainlink-common
-
 replace github.com/smartcontractkit/chainlink/deployment => ../../deployment
 
 replace github.com/smartcontractkit/chainlink/system-tests/lib => ../lib
