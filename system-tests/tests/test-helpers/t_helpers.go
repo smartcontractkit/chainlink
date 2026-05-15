@@ -59,6 +59,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
+	v2crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
 	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -291,6 +292,7 @@ type WorkflowConfig interface {
 		aptoswrite_config.Config |
 		aptoswriteroundtrip_config.Config |
 		crontypes.WorkflowConfig |
+		v2crontypes.WorkflowConfig |
 		HTTPWorkflowConfig |
 		consensus_negative_config.Config |
 		evmread_config.Config |
@@ -427,6 +429,12 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create Cron workflow config file")
 			testLogger.Info().Msg("Cron workflow config file created.")
+
+		case *v2crontypes.WorkflowConfig:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create v2 Cron workflow config file")
+			testLogger.Info().Msg("v2 Cron workflow config file created.")
 
 		case *consensus_negative_config.Config:
 			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
