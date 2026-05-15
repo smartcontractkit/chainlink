@@ -33,8 +33,8 @@ func configureHybridTokenPoolChains(t *testing.T, e cldf.Environment, selectorA,
 			Version: shared.HybridWithExternalMinterFastTransferTokenPoolVersion,
 			ChainUpdates: v1_5_1.RateLimiterPerChain{
 				selectorB: v1_5_1.RateLimiterConfig{
-					Inbound:  ratelimiterConfig,
-					Outbound: ratelimiterConfig,
+					Inbound:  &ratelimiterConfig,
+					Outbound: &ratelimiterConfig,
 				},
 			},
 		},
@@ -43,8 +43,8 @@ func configureHybridTokenPoolChains(t *testing.T, e cldf.Environment, selectorA,
 			Version: shared.HybridWithExternalMinterFastTransferTokenPoolVersion,
 			ChainUpdates: v1_5_1.RateLimiterPerChain{
 				selectorA: v1_5_1.RateLimiterConfig{
-					Inbound:  ratelimiterConfig,
-					Outbound: ratelimiterConfig,
+					Inbound:  &ratelimiterConfig,
+					Outbound: &ratelimiterConfig,
 				},
 			},
 		},

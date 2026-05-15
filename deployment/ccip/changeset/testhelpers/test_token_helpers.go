@@ -44,12 +44,12 @@ const (
 // CreateSymmetricRateLimits is a utility to quickly create a rate limiter config with equal inbound and outbound values.
 func CreateSymmetricRateLimits(rate int64, capacity int64) v1_5_1.RateLimiterConfig {
 	return v1_5_1.RateLimiterConfig{
-		Inbound: token_pool.RateLimiterConfig{
+		Inbound: &token_pool.RateLimiterConfig{
 			IsEnabled: rate != 0 || capacity != 0,
 			Rate:      big.NewInt(rate),
 			Capacity:  big.NewInt(capacity),
 		},
-		Outbound: token_pool.RateLimiterConfig{
+		Outbound: &token_pool.RateLimiterConfig{
 			IsEnabled: rate != 0 || capacity != 0,
 			Rate:      big.NewInt(rate),
 			Capacity:  big.NewInt(capacity),
