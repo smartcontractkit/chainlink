@@ -708,7 +708,7 @@ func TestShell_AfterNode_NilBeholderClient(t *testing.T) {
 	}
 	assert.Nil(t, shell.BeholderClient)
 	assert.NotPanics(t, func() {
-		shell.AfterNode(cli.NewContext(nil, flag.NewFlagSet("test", 0), nil))
+		_ = shell.AfterNode(cli.NewContext(nil, flag.NewFlagSet("test", 0), nil))
 	})
 }
 

@@ -130,7 +130,7 @@ func newBeholderClient(
 	csaPubKeyHex string,
 	beholderAuthHeaders map[string]string,
 ) (*beholder.Client, error) {
-	var attributes []attribute.KeyValue
+	attributes := make([]attribute.KeyValue, 0, len(cfgTelemetry.ResourceAttributes()))
 	for k, v := range cfgTelemetry.ResourceAttributes() {
 		attributes = append(attributes, attribute.String(k, v))
 	}

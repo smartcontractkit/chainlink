@@ -1197,10 +1197,10 @@ func (s *Shell) beforeNode(c *cli.Context) error {
 
 	// Build Beholder client when telemetry is enabled.
 	if s.Config.Telemetry().Enabled() {
-		var err error
-		s.BeholderClient, err = newBeholderClient(s.Logger, keyStore, s.Config.Tracing(), s.Config.Telemetry(), csaPubKeyHex, beholderAuthHeaders)
-		if err != nil {
-			return fmt.Errorf("failed creating beholder client: %w", err)
+		var beholderErr error
+		s.BeholderClient, beholderErr = newBeholderClient(s.Logger, keyStore, s.Config.Tracing(), s.Config.Telemetry(), csaPubKeyHex, beholderAuthHeaders)
+		if beholderErr != nil {
+			return fmt.Errorf("failed creating beholder client: %w", beholderErr)
 		}
 	}
 
