@@ -16,7 +16,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+
 	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"

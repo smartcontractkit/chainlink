@@ -36,7 +36,7 @@ var (
 			if input.MCMSConfig == nil || len(allProposals) == 0 {
 				return input.Proposals, nil
 			}
-			proposal, err := proposeutils.AggregateProposals(
+			proposal, err := proposeutils.AggregateProposals( //nolint:staticcheck //SA1019 ignoring deprecated
 				deps.Env,
 				deps.EVMMCMSState,
 				deps.SolanaMCMSState,

@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // TokenAdminRegistryChangesetConfig defines a config for all token admin registry actions.
