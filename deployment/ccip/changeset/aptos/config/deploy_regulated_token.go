@@ -3,6 +3,8 @@ package config
 import (
 	"errors"
 
+	"github.com/aptos-labs/aptos-go-sdk"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -27,6 +29,17 @@ func (c DeployRegulatedTokenConfig) Validate() error {
 	}
 	if err := c.TokenParams.Validate(); err != nil {
 		errs = append(errs, err)
+	}
+	// The deploy sequence grants MINTER_ROLE to the deployer and calls Mint via direct EOA
+	// transactions before the MCMS proposal is built; reject invalid TokenMint up front so
+	// we don't fail after partial on-chain side effects.
+	if c.TokenMint != nil {
+		if (c.TokenMint.To == aptos.AccountAddress{}) {
+			errs = append(errs, errors.New("TokenMint.To address is empty"))
+		}
+		if c.TokenMint.Amount == 0 {
+			errs = append(errs, errors.New("TokenMint.Amount is 0"))
+		}
 	}
 	return errors.Join(errs...)
 }
