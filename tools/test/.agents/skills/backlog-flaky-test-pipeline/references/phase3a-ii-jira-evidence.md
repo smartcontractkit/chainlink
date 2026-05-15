@@ -14,7 +14,7 @@ Read [phase3-trunk-investigation.md](phase3-trunk-investigation.md) and follow i
 
 Inputs: `test_case_id`, `test_name`, `title`, `ci_run_url`, `jira_key`, `auto_mode`.
 
-On return, `actionable_facts`, `ci_run_evidence`, `trunk_investigation_status`, and `trunk_analysis_url` are written to the ticket record.
+On return, `actionable_facts`, `ci_run_evidence`, `trunk_facts_quality`, and `trunk_analysis_url` are written to the ticket record. `local_evidence_source` stays at its initial value `"none"` unless the diagnose-fallback step runs below.
 </step>
 
 <step id="diagnose-fallback">

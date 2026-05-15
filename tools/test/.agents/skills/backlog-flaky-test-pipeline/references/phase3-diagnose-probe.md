@@ -1,12 +1,12 @@
 ---
 name: phase3-diagnose-probe
-description: Shared procedure — invoke the chainlink diagnose tool to gather local failure symptoms. Called when no log or Trunk data is available. Writes to actionable_facts and trunk_investigation_status.
+description: Shared procedure — invoke the chainlink diagnose tool to gather local failure symptoms. Called when no log or Trunk data is available. Writes to actionable_facts and local_evidence_source.
 ---
 
 <procedure id="diagnose-probe">
 
 <purpose>
-Run the chainlink `diagnose` tool once to collect failure symptoms locally. Evidence-gathering mode only. Writes to `actionable_facts` and `trunk_investigation_status` in the calling context.
+Run the chainlink `diagnose` tool once to collect failure symptoms locally. Evidence-gathering mode only. Writes to `actionable_facts` and `local_evidence_source` in the calling context.
 </purpose>
 
 <inputs>
@@ -28,9 +28,9 @@ Package-scope (`./{package}/...`) is intentional even though `-run` limits which
 <outcome-handling>
 Parse the `--ai-output` summary:
 
-- **At least one iteration failed** → extract failure-specific portions (error messages, stack traces, race-detector output, timeout reports) into `actionable_facts` as raw strings. Set `trunk_investigation_status = "diagnose_run"`.
-- **All iterations passed** → `actionable_facts` stays `[]`, `trunk_investigation_status` unchanged. Inform user: *"`diagnose` ran 10 iterations without reproducing the failure for {caller_context} (single-test scope — cross-test ordering effects won't surface); proceeding with code analysis only."*
-- **Tool failed to run** (missing dependency, build error, etc.) → `actionable_facts` stays `[]`, status unchanged. Log the error; do not retry.
+- **At least one iteration failed** → extract failure-specific portions (error messages, stack traces, race-detector output, timeout reports) into `actionable_facts` as raw strings. Set `local_evidence_source = "diagnose"`.
+- **All iterations passed** → `actionable_facts` stays `[]`, `local_evidence_source` unchanged. Inform user: *"`diagnose` ran 10 iterations without reproducing the failure for {caller_context} (single-test scope — cross-test ordering effects won't surface); proceeding with code analysis only."*
+- **Tool failed to run** (missing dependency, build error, etc.) → `actionable_facts` stays `[]`, `local_evidence_source` unchanged. Log the error; do not retry.
 </outcome-handling>
 
 </procedure>

@@ -72,8 +72,9 @@ This skill is a multi-phase workflow; later phases depend on outputs from earlie
     - `local_id` (e.g. `local-1`) — null in JIRA modes
     - `test_case_id` (UUID from `customfield_13010`) — null in local mode
     - `test_name`, `package_path`
-    - `trunk_investigation_status` — e.g. `"existing" | "triggered" | "uninvestigated" | "ci_run_only" | "user_provided" | "diagnose_run"`; null in local mode before 3a runs
-    - `actionable_facts` — facts with `Confidence >= 0.9` from Trunk, or raw strings from `diagnose`/user log
+    - `trunk_facts_quality` — `"aggregated" | "symptom_only" | "none"`; null when Trunk was not consulted (local mode, or before 3a runs)
+    - `local_evidence_source` — `"user_log" | "diagnose" | "none"`; describes non-Trunk evidence collected for this ticket
+    - `actionable_facts` — facts with `Confidence >= 0.9` from Trunk, or raw strings from `diagnose`/user log (flat array; provenance described by the two fields above)
     - `ci_run_url` — GitHub Actions run URL for `investigate-ci-failure` (null in project mode and local mode; populated from `KEY@URL` syntax or 3a fallback prompt in direct-ticket mode)
     - `ci_run_evidence` — structured failure data from `investigate-ci-failure` (null if no URL provided or call failed). Separate evidence track — exempt from the ≥ 0.9 rule. Always null in local mode.
     - `provided_log_path` — path supplied via `--log` in local mode; null in JIRA modes

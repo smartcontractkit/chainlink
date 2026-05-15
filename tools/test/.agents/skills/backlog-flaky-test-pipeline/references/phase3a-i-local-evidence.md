@@ -10,7 +10,8 @@ Gather observational evidence for a local-mode ticket. Uses the user-supplied lo
 </purpose>
 
 <steps>
-- If `slim_record.provided_log_text` is non-null → set `actionable_facts = [slim_record.provided_log_text]`, `trunk_investigation_status = "user_provided"`.
+- `trunk_facts_quality` stays `null` for the duration of local mode — Trunk is not consulted.
+- If `slim_record.provided_log_text` is non-null → set `actionable_facts = [slim_record.provided_log_text]`, `local_evidence_source = "user_log"`.
 - If `provided_log_text` is null → Read [phase3-diagnose-probe.md](phase3-diagnose-probe.md) and follow its procedure with `test_name` (part before first `/`), `package`, `caller_context = slim_record.test_name`.
 </steps>
 

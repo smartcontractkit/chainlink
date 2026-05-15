@@ -35,29 +35,7 @@ Each path calls [phase3a-iii-top-level-check.md](phase3a-iii-top-level-check.md)
 
 ---
 
-<substep id="3b" parallelism="Subagent A and Subagent B spawn in a single message">
-
-<subagent id="trunk-analyzer" model_tier="lightweight">
-<inputs>
-`actionable_facts` (already filtered to `Confidence >= 0.9` in 3a, or the user-provided log in local mode), `trunk_investigation_status`, `mode`. Do not call any Trunk MCP tools.
-</inputs>
-<logic>
-Map `trunk_investigation_status` to `evidence_quality`:
-
-- `"uninvestigated"` or `actionable_facts` empty → `evidence_quality: "none"`. Return with empty `facts`.
-- `"user_provided"` (local mode, user-supplied log) → `evidence_quality: "symptom_only"`. It is symptom data, not aggregated CI data.
-- `"diagnose_run"` (agent-collected via `diagnose` tool — 3 local iterations, not aggregated CI data) → `evidence_quality: "symptom_only"`.
-- `"existing"` | `"triggered"` | `"ci_run_only"` (JIRA modes with actual Trunk/CI data):
-  - `"raw"` — at least one fact contains raw CI observational data: exact log lines, error messages, stack traces, or specific `file:line` from actual failing runs.
-  - `"symptom_only"` — facts describe symptoms only (e.g. "failures in cluster 2 are regex mismatches") but contain no raw CI data.
-</logic>
-<output-schema>
-```json
-{ "testCaseId": "string", "facts": ["string"], "evidence_quality": "raw | symptom_only | none" }
-```
-`facts` must be an array of raw text strings. Empty array is valid only when `evidence_quality = "none"`.
-</output-schema>
-</subagent>
+<substep id="3b">
 
 <subagent id="code-analyzer" model_tier="standard">
 <inputs>
@@ -96,15 +74,15 @@ Slim record, `nav_tool`, `lsp_available`, `actionable_facts`.
 </output-schema>
 </subagent>
 
-<schema-validation applies-to="trunk-analyzer code-analyzer">
-Two failure classes — validate each subagent individually:
+<schema-validation applies-to="code-analyzer">
+Two failure classes:
 
 - **Transient** (empty or null response — likely tool timeout): retry immediately with original prompt.
 - **Structural** (fields missing, wrong types, semantically invalid): retry with (1) exact validation error, (2) concrete example of expected format for the failing field, (3) subagent's previous invalid output.
 
-Structural failures include: `facts` containing category labels or counts instead of raw text strings (`"CI_LOGS (1.0)"` is a label — invalid; `"Error: no contract code at given address"` is raw text — valid), `evidence_quality` not one of three allowed values, `code_mismatch` not a boolean.
+Structural failures include: `code_mismatch` not a boolean, `suspected_cause_location` not one of three allowed values, missing required fields.
 
-Allow up to **3 total attempts** per subagent. After 3 failures → hard stop for this issue. In **JIRA mode**: follow `_shared-jira-flaky-ops/abandon-ticket.md` then write Investigation Update comment via `_shared-jira-flaky-ops/investigation-comment.md` (OUTCOME = ABANDONED): state which subagent failed and include the validation error; recommended next step: re-run and include last raw output verbatim. In **local mode**: no JIRA writes — just return verdict `ABANDONED` with the error. Continue with other issues.
+Allow up to **3 total attempts**. After 3 failures → hard stop for this issue. In **JIRA mode**: follow `_shared-jira-flaky-ops/abandon-ticket.md` then write Investigation Update comment via `_shared-jira-flaky-ops/investigation-comment.md` (OUTCOME = ABANDONED): include the validation error; recommended next step: re-run and include last raw output verbatim. In **local mode**: no JIRA writes — just return verdict `ABANDONED` with the error. Continue with other issues.
 </schema-validation>
 
 </substep>
@@ -117,7 +95,7 @@ Classify flakiness source as TEST / SUT / INFRA / AMBIGUOUS before entering the 
 </purpose>
 
 <pre-check>
-If `code_mismatch = true` from Subagent B → skip this substep entirely and proceed directly to `<substep id="3c">`.
+If `code_mismatch = true` from code-analyzer → skip this substep entirely and proceed directly to `<substep id="3c">`.
 </pre-check>
 
 <input-schema>
@@ -127,8 +105,9 @@ If `code_mismatch = true` from Subagent B → skip this substep entirely and pro
   "record_id": "string (jira_key or local_id)",
   "test_name": "string",
   "actionable_facts": ["string"],
-  "trunk_investigation_status": "existing | triggered | uninvestigated | ci_run_only | user_provided | diagnose_run",
-  "subagent_b_output": {
+  "trunk_facts_quality": "aggregated | symptom_only | none | null",
+  "local_evidence_source": "user_log | diagnose | none",
+  "code_analyzer_output": {
     "file": "string", "line": "number", "analysis": "string",
     "suspected_cause": "string", "suspected_cause_location": "test_code | production_code | unknown",
     "excluded_approaches": ["string"], "code_mismatch": "boolean", "mismatch_details": "string | null"
@@ -149,8 +128,8 @@ A single call. The prompt:
 > **Rules:**
 > 1. Every classification must be backed by 1–3 verbatim quotes. A quote's `source` is one of:
 >    - `trunk_facts` — excerpt must appear verbatim in `actionable_facts`.
->    - `code_analysis` — excerpt must appear verbatim in `subagent_b_output.analysis`.
->    - `direct_field` — the literal value `"test_code"` or `"production_code"` from `subagent_b_output.suspected_cause_location` (counts as TEST or SUT evidence respectively).
+>    - `code_analysis` — excerpt must appear verbatim in `code_analyzer_output.analysis`.
+>    - `direct_field` — the literal value `"test_code"` or `"production_code"` from `code_analyzer_output.suspected_cause_location` (counts as TEST or SUT evidence respectively).
 > 2. **Never quote raw test source code, function names, or code comments.** Only the analyzer's *synthesized* `analysis` text counts as code-side evidence.
 > 3. If you cannot produce at least one valid quote for the winning side → classify AMBIGUOUS with confidence `none`.
 > 4. INFRA requires at least one `trunk_facts` quote. Code analysis alone cannot establish INFRA.
@@ -158,7 +137,7 @@ A single call. The prompt:
 > 6. For SUT: also produce `sut_description` (one sentence) and `sut_pivot` (file/component/hypothesis — fields may be null).
 > 7. `pattern_category` is a short free-form label (≤ 5 words) for diagnostic display — e.g. "timing dependency", "OOM during test", "stale precondition", "production nil deref". Not load-bearing.
 
-Inputs to inject into the prompt: `actionable_facts`, `subagent_b_output` (all fields). Bias the model toward AMBIGUOUS when evidence is thin — false TEST classification leads to bogus fixes; AMBIGUOUS just surfaces the case to the user.
+Inputs to inject into the prompt: `actionable_facts`, `code_analyzer_output` (all fields). Bias the model toward AMBIGUOUS when evidence is thin — false TEST classification leads to bogus fixes; AMBIGUOUS just surfaces the case to the user.
 </classifier-call>
 
 <output-schema>
@@ -188,8 +167,8 @@ Post-call, deterministically:
 
 1. **Excerpt verification** — for each `evidence` entry:
    - `trunk_facts` → search the joined `actionable_facts` text. Excerpt must appear verbatim.
-   - `code_analysis` → search `subagent_b_output.analysis`. Excerpt must appear verbatim.
-   - `direct_field` → excerpt must equal either `"test_code"` or `"production_code"` AND match `subagent_b_output.suspected_cause_location`.
+   - `code_analysis` → search `code_analyzer_output.analysis`. Excerpt must appear verbatim.
+   - `direct_field` → excerpt must equal either `"test_code"` or `"production_code"` AND match `code_analyzer_output.suspected_cause_location`.
    Drop any entry that fails verification.
 2. **Consistency** — apply in order:
    - After dropping invalid evidence, if no evidence remains supporting the chosen classification → force AMBIGUOUS.
@@ -249,7 +228,7 @@ For SUT/AMBIGUOUS/INFRA in **local mode**: no JIRA writes. Return verdict `SKIPP
 <substep id="3c" model_tier="standard">
 <purpose>Mismatch short-circuit — check before entering the debate.</purpose>
 
-If `code_mismatch: true` from Subagent B → stop here. Return verdict `MISMATCH` with `mismatch_details`. Do not enter the debate — the Trunk stack trace references code that no longer exists; any fix derived from it would target the wrong location.
+If `code_mismatch: true` from code-analyzer → stop here. Return verdict `MISMATCH` with `mismatch_details`. Do not enter the debate — the Trunk stack trace references code that no longer exists; any fix derived from it would target the wrong location.
 
 Otherwise: proceed to 3d.
 </substep>
@@ -264,10 +243,9 @@ Assemble this bundle before spawning the Proposer. The Proposer always receives 
 
 ```json
 {
-  "trunk_facts": {
-    "items": ["..."],
-    "evidence_quality": "raw | symptom_only | none"
-  },
+  "actionable_facts": ["..."],
+  "trunk_facts_quality": "aggregated | symptom_only | none | null",
+  "local_evidence_source": "user_log | diagnose | none",
   "ci_run_evidence": { "...": "..." } | null,
   "code_analysis": {
     "file": "string",
@@ -295,9 +273,12 @@ Assemble this bundle before spawning the Proposer. The Proposer always receives 
 ```
 
 Notes for the Proposer prompt:
-- `trunk_facts.evidence_quality = "none"` means no Trunk data — rely solely on `code_analysis` (and `ci_run_evidence` if non-null).
-- `trunk_facts.evidence_quality = "raw" | "symptom_only"` — anchor the hypothesis in the code structure from `code_analysis`, treating trunk facts as supporting evidence, not the conclusion.
-- `ci_run_evidence` is single-run forensic data (not aggregated) — weigh it accordingly; corroborating signals from `trunk_facts` and `code_analysis` outweigh isolated CI-run observations when they conflict. If `ci_run_evidence.status == "build_failure"`, note that test-level data is unavailable from this source.
+- `actionable_facts` is the unified evidence array. `trunk_facts_quality` and `local_evidence_source` describe provenance and weight.
+- `trunk_facts_quality = "aggregated"` → strong supporting evidence; anchor the hypothesis in `code_analysis` and corroborate against these facts.
+- `trunk_facts_quality = "symptom_only"` → descriptive Trunk facts only; treat as weaker supporting signals, anchor in `code_analysis`.
+- `trunk_facts_quality = "none"` or `null` AND `local_evidence_source = "none"` → no observational evidence; rely solely on `code_analysis` (and `ci_run_evidence` if non-null).
+- `local_evidence_source = "user_log"` or `"diagnose"` → facts came from a single local sample, not aggregated CI data; weigh as symptom-only.
+- `ci_run_evidence` is single-run forensic data (not aggregated) — weigh accordingly; corroborating signals from Trunk facts and `code_analysis` outweigh isolated CI-run observations when they conflict. If `ci_run_evidence.status == "build_failure"`, note that test-level data is unavailable from this source.
 - `investigation_history.recommended_next_step` non-null → treat as the starting hypothesis; confirm or refute with code evidence before proposing anything else.
 - `classification_context` non-null → this was originally classified {original} but user overrode to TEST. The SUT hypothesis: {sut_description}. The fix should defensively address this.
 </proposer-context-bundle>
@@ -350,8 +331,9 @@ Never surface raw Proposer/Challenger/Arbiter responses to the top-level parent.
   "local_id": "local-N | null",
   "record_id": "KEY-NNN (jira_key if non-null, else local_id)",
   "outcome": "PROCEED | INCONCLUSIVE | MISMATCH | SKIP_TOP_LEVEL | RETURNED_TO_QUEUE | ABANDONED | SKIPPED",
-  "subagent_calls_made": ["trunk_analyzer | code_analyzer | classifier | proposer | challenger | arbiter"],
-  "trunk_investigation_status": "existing | triggered | uninvestigated | ci_run_only | user_provided | diagnose_run",
+  "subagent_calls_made": ["code_analyzer | classifier | proposer | challenger | arbiter"],
+  "trunk_facts_quality": "aggregated | symptom_only | none | null",
+  "local_evidence_source": "user_log | diagnose | none",
   "actionable_facts_count": "integer",
   "trunk_analysis_url": "string | null",
   "trunk_test_case_url": "string | null",
@@ -394,10 +376,10 @@ Required entries by outcome:
 
 | Outcome | Required entries in `subagent_calls_made` |
 |---------|-------------------------------------------|
-| `PROCEED` / `INCONCLUSIVE` | all six: `trunk_analyzer`, `code_analyzer`, `classifier`, `proposer`, `challenger`, `arbiter` |
-| `RETURNED_TO_QUEUE` / `SKIPPED` | `trunk_analyzer`, `code_analyzer`, `classifier` (classification ran; debate did not) |
-| `MISMATCH` | `trunk_analyzer`, `code_analyzer` (short-circuits at 3c) |
-| `SKIP_TOP_LEVEL` | `trunk_analyzer` (short-circuits in 3a-iii) |
+| `PROCEED` / `INCONCLUSIVE` | all five: `code_analyzer`, `classifier`, `proposer`, `challenger`, `arbiter` |
+| `RETURNED_TO_QUEUE` / `SKIPPED` | `code_analyzer`, `classifier` (classification ran; debate did not) |
+| `MISMATCH` | `code_analyzer` (short-circuits at 3c) |
+| `SKIP_TOP_LEVEL` | none — short-circuits in 3a-iii before any subagent runs |
 | `ABANDONED` | whatever ran before the abandonment trigger; document the trigger in the return |
 
 If any required entry is missing → **override the outcome to `ABANDONED`**, reason `"protocol skipped — missing: {list of roles}"`. Do not apply the fix. Do not negotiate. Do not accept the verdict on the grounds that the inline reasoning "looks right."
@@ -409,17 +391,21 @@ If any required entry is missing → **override the outcome to `ABANDONED`**, re
 <purpose>Print summary and wait for user confirmation before any files are modified. Skip in `--auto` mode — proceed with all PROCEED verdicts automatically.</purpose>
 
 <summary-table>
-**JIRA modes** — include Trunk columns:
+**JIRA modes** — include evidence columns:
 
-| Issue | Trunk | Trunk link | Proposed fix location | Verdict |
-|-------|-------|------------|-----------------------|---------|
-| KEY-123 | existing (2 facts) / triggered (0 facts) / ci_run_only / diagnose_run (N facts) / uninvestigated | [Analysis]({trunk_analysis_url}) or [Test case]({trunk_test_case_url}) | `pkg/foo/bar_test.go:447` | PROCEED / INCONCLUSIVE / SKIP_TOP_LEVEL / MISMATCH |
+| Issue | Trunk facts | Local evidence | Trunk link | Proposed fix location | Verdict |
+|-------|-------------|----------------|------------|-----------------------|---------|
+| KEY-123 | aggregated (2) / symptom-only (1) / none | — / diagnose (3 facts) | [Analysis]({trunk_analysis_url}) or [Test case]({trunk_test_case_url}) | `pkg/foo/bar_test.go:447` | PROCEED / INCONCLUSIVE / SKIP_TOP_LEVEL / MISMATCH |
 
-- Use `trunk_analysis_url` for the link when available; fall back to `trunk_test_case_url`.
-- `uninvestigated` — Trunk returned no results within 5 minutes; fix based on code analysis only.
-- `0 facts` — investigation existed but all facts were below the `Confidence >= 0.9` threshold; treated as code-analysis-only.
-- `ci_run_only` — relying on `investigate-ci-failure` evidence; no fix-flaky-test facts were available.
-- `diagnose_run` — JIRA-mode diagnose-fallback fired (no Trunk or CI-run evidence existed); facts are local-reproduction symptoms, low evidence quality.
+- **Trunk facts** column reads from `trunk_facts_quality` + fact count:
+  - `aggregated (N)` — Trunk returned ≥1 fact at `Confidence >= 0.9` with raw observational data.
+  - `symptom-only (N)` — Trunk returned facts but they describe symptoms only.
+  - `none` — no usable Trunk facts (no investigation, polled-and-empty, or relying solely on a `ci_run_evidence` payload).
+- **Local evidence** column reads from `local_evidence_source` + fact count:
+  - `—` for `"none"`.
+  - `diagnose (N facts)` when JIRA-mode diagnose-fallback fired; facts are local-reproduction symptoms.
+- Use `trunk_analysis_url` for the link when available; fall back to `trunk_test_case_url`. Link column is `—` when `trunk_facts_quality = "none"` and no analysis URL was captured.
+- If `ci_run_evidence` is non-null, append `· ci-run` to the Trunk facts cell (the column reflects all Trunk-side evidence sources).
 - `MISMATCH` — the innermost failing function from the Trunk stack trace no longer exists in the codebase.
 
 **Local mode** — drop Trunk columns; use `local_id + test_name` in the Issue column:
@@ -428,7 +414,7 @@ If any required entry is missing → **override the outcome to `ABANDONED`**, re
 |--------------|----------|----------------------|---------|
 | local-1 · TestFoo | user log / diagnose / none | `pkg/foo/bar_test.go:447` | PROCEED / INCONCLUSIVE / SKIPPED / MISMATCH |
 
-- `Evidence` = "user log" if `provided_log_text` non-null, "diagnose" if `diagnose-probe` ran, "none" if neither.
+- `Evidence` reads from `local_evidence_source`: `"user_log"` → "user log", `"diagnose"` → "diagnose", `"none"` → "none". (`trunk_facts_quality` is always `null` in local mode, so no Trunk column.)
 </summary-table>
 
 <mismatch-handling>
@@ -444,7 +430,7 @@ Use `AskUserQuestion`:
 </user-prompt>
 
 Apply the user's choice:
-- Option 1 → re-run this issue through 3d with `trunk_investigation_status = "uninvestigated"`.
+- Option 1 → re-run this issue through 3d with `trunk_facts_quality = "none"` (treat as code-analysis-only).
 - Option 2 or 3 → apply mid-flight abandonment rule immediately.
 </mismatch-handling>
 
