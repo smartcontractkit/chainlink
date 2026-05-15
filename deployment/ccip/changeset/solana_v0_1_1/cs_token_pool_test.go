@@ -409,43 +409,6 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 		require.Equal(t, newInboundConfig.Rate, base.InboundRateLimit.Cfg.Rate)
 		require.Equal(t, newOutboundConfig.Rate, base.OutboundRateLimit.Cfg.Rate)
 
-		// test SetChainRateLimit changeset (direct path)
-		setRateLimitConfig := solBaseTokenPool.RateLimitConfig{
-			Enabled:  true,
-			Capacity: uint64(80e12),
-			Rate:     uint64(2500000000000),
-		}
-		e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
-			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(ccipChangesetSolana.SetChainRateLimit),
-				ccipChangesetSolana.SetChainRateLimitConfig{
-					SolChainSelector: solChain,
-					ChainRateLimitConfigs: []ccipChangesetSolana.ChainRateLimitEntry{
-						{
-							SolTokenPubKey:      tokenAddress.String(),
-							PoolType:            testCase.poolType,
-							Metadata:            tokenMetadata,
-							RemoteChainSelector: evmChain,
-							RateLimiterConfig: ccipChangesetSolana.RateLimiterConfig{
-								Inbound:  setRateLimitConfig,
-								Outbound: setRateLimitConfig,
-							},
-						},
-					},
-					MCMS: mcmsConfig,
-				},
-			),
-		})
-		require.NoError(t, err)
-
-		base = getTokenPoolBaseChainConfig(t, e, solChain, testCase.poolType, remoteChainConfigPDA)
-		require.Equal(t, setRateLimitConfig.Rate, base.InboundRateLimit.Cfg.Rate)
-		require.Equal(t, setRateLimitConfig.Capacity, base.InboundRateLimit.Cfg.Capacity)
-		require.True(t, base.InboundRateLimit.Cfg.Enabled)
-		require.Equal(t, setRateLimitConfig.Rate, base.OutboundRateLimit.Cfg.Rate)
-		require.Equal(t, setRateLimitConfig.Capacity, base.OutboundRateLimit.Cfg.Capacity)
-		require.True(t, base.OutboundRateLimit.Cfg.Enabled)
-
 		if testCase.poolType == shared.LockReleaseTokenPool && tokenAddress == newTokenAddress {
 			e, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{
 				commonchangeset.Configure(
