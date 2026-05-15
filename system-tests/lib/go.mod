@@ -31,7 +31,7 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/sethvargo/go-retry v0.3.0
 	github.com/smartcontractkit/chain-selectors v1.0.98
-	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260430175646-295a7f9a1500
+	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260514112937-fe381c3804fc
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260415165642-49f23e4d76cc
 	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260505124104-72181f5345ce
 	github.com/smartcontractkit/chainlink-common/keystore v1.1.0
