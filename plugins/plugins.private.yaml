@@ -39,11 +39,11 @@ plugins:
       installPath: "."
   solana:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/solana"
-      gitRef: "3ab8f47891f9edd6f20cb881fc312fa98243e902"
+      gitRef: "ec5ce26a1b13ff2d8e51cd2e9d54dd562ebd13b9"
       installPath: "."
   aptos:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/aptos"
-      gitRef: "013fa2f45526689f989e091d76dcd680c0e4d695"
+      gitRef: "ec5ce26a1b13ff2d8e51cd2e9d54dd562ebd13b9"
       installPath: "."
   confidential-http:
     - moduleURI: "github.com/smartcontractkit/confidential-compute/enclave/apps/confi\

@@ -469,6 +469,13 @@ func TestConfig_Marshal(t *testing.T) {
 				URL:                 ptr(""),
 				TLSEnabled:          ptr(true),
 			},
+			ModuleCache: toml.ModuleCache{
+				Enabled:      ptr(false),
+				IdleEviction: ptr(true),
+				IdleTimeout:  commoncfg.MustNewDuration(10 * time.Minute),
+				MaxLoaded:    ptr(200),
+				CacheDir:     ptr(""),
+			},
 			AdditionalSourcesConfig: []toml.AdditionalWorkflowSource{
 				{
 					URL:        ptr("localhost:50051"),

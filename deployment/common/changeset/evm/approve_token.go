@@ -6,10 +6,11 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/cld-changesets/pkg/common/changeset"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commonCS "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
 var (
@@ -53,7 +54,7 @@ func logicApproveToken(e cldf.Environment, cfg ApproveTokensConfig) (cldf.Change
 		cfg.Amount,
 	)
 
-	err := commonCS.ApproveToken(
+	err := changeset.ApproveToken(
 		e,
 		cfg.ChainSelector,
 		cfg.TokenAddress,
@@ -106,7 +107,7 @@ func logicApproveTokenForRouter(e cldf.Environment, cfg ApproveTokensForRouterCo
 		cfg.Amount,
 	)
 
-	err := commonCS.ApproveToken(
+	err := changeset.ApproveToken(
 		e,
 		cfg.ChainSelector,
 		cfg.TokenAddress,

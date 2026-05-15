@@ -112,6 +112,9 @@ jobs:
              ],
             "Test_CRE_V2_Sharding": [
                {"topology":"workflow-gateway-sharded","configs":"configs/workflow-gateway-sharded-don.toml"}
+             ],
+            "Test_CRE_V2_Module_Cache": [
+               {"topology":"workflow-gateway-cache-test","configs":"configs/workflow-gateway-don-cache-test.toml"}
              ]
               }'}
           PER_TEST_MODE=${PER_TEST_MODE:-append}

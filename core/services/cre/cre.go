@@ -1003,6 +1003,53 @@ func newWorkflowRegistrySyncerV2(
 		shardRoutingSteady = shardownership.NewSteadySignal(shardownership.WithSteadySignalMetrics(steadyMetrics))
 	}
 
+	handlerOpts := []syncerV2.EventHandlerOption{
+		syncerV2.WithBillingClient(billingClient),
+		syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), selector),
+		syncerV2.WithOrgResolver(orgResolver),
+		syncerV2.WithDebugMode(cfg.CRE().DebugMode()),
+		syncerV2.WithLocalSecretOverrides(lggr, cfg.CRE().LocalSecretOverrides()),
+		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled, shardIndex),
+		syncerV2.WithShardRoutingSteady(shardRoutingSteady),
+	}
+
+	mc := capCfg.WorkflowRegistry().ModuleCache()
+	if mc.Enabled() {
+		cm, cmErr := syncerV2.NewCacheMetrics()
+		if cmErr != nil {
+			return nil, nil, fmt.Errorf("unable to create module cache metrics: %w", cmErr)
+		}
+
+		fileStore, fsErr := artifactsV2.NewFileModuleStore(mc.CacheDir(), true)
+		if fsErr != nil {
+			return nil, nil, fmt.Errorf("unable to create file module store: %w", fsErr)
+		}
+
+		lruOpts := []func(*syncerV2.ModuleLRU){
+			syncerV2.WithMaxLoadedModules(mc.MaxLoaded()),
+			syncerV2.WithCacheMetrics(cm),
+		}
+		if mc.IdleEviction() {
+			lruOpts = append(lruOpts, syncerV2.WithIdleTimeout(mc.IdleTimeout()))
+		} else {
+			lruOpts = append(lruOpts, syncerV2.WithIdleTimeout(0))
+		}
+		moduleLRU := syncerV2.NewModuleLRU(clockwork.NewRealClock(), lruOpts...)
+
+		handlerOpts = append(handlerOpts,
+			syncerV2.WithModuleLRU(moduleLRU),
+			syncerV2.WithModuleStore(fileStore),
+			syncerV2.WithModuleCacheMetrics(cm),
+		)
+
+		lggr.Infow("Module cache enabled",
+			"idleEviction", mc.IdleEviction(),
+			"idleTimeout", mc.IdleTimeout(),
+			"maxLoaded", mc.MaxLoaded(),
+			"cacheDir", mc.CacheDir(),
+		)
+	}
+
 	eventHandler, err := syncerV2.NewEventHandler(
 		lggr,
 		workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock()),
@@ -1018,13 +1065,7 @@ func newWorkflowRegistrySyncerV2(
 		artifactsStore,
 		key,
 		workflowDonNotifier,
-		syncerV2.WithBillingClient(billingClient),
-		syncerV2.WithWorkflowRegistry(wfReg.Address(), selector),
-		syncerV2.WithOrgResolver(orgResolver),
-		syncerV2.WithDebugMode(cfg.CRE().DebugMode()),
-		syncerV2.WithLocalSecretOverrides(lggr, cfg.CRE().LocalSecretOverrides()),
-		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled, shardIndex),
-		syncerV2.WithShardRoutingSteady(shardRoutingSteady),
+		handlerOpts...,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)

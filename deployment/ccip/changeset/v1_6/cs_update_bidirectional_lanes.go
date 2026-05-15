@@ -23,9 +23,10 @@ import (
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -662,7 +663,7 @@ func maybeAddPreviousRampUpdate(
 		if !ok {
 			return fmt.Errorf("chain %d not found in environment", sourceChain)
 		}
-		if err := commoncs.ValidateOwnership(
+		if err := mcmschangesets.ValidateOwnership(
 			e.GetContext(),
 			true,
 			evmChain.DeployerKey.From,

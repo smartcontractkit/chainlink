@@ -3,6 +3,7 @@ package chainlink
 import (
 	"regexp"
 	"sync"
+	"time"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 
@@ -261,6 +262,49 @@ func (c *workflowStorage) TLSEnabled() bool {
 
 func (c *workflowStorage) ArtifactStorageHost() string {
 	return *c.c.ArtifactStorageHost
+}
+
+func (c *capabilitiesWorkflowRegistry) ModuleCache() config.ModuleCache {
+	return &moduleCacheConfig{c: c.c.ModuleCache}
+}
+
+type moduleCacheConfig struct {
+	c toml.ModuleCache
+}
+
+func (m *moduleCacheConfig) Enabled() bool {
+	if m.c.Enabled == nil {
+		return false
+	}
+	return *m.c.Enabled
+}
+
+func (m *moduleCacheConfig) IdleEviction() bool {
+	if m.c.IdleEviction == nil {
+		return true
+	}
+	return *m.c.IdleEviction
+}
+
+func (m *moduleCacheConfig) IdleTimeout() time.Duration {
+	if m.c.IdleTimeout == nil {
+		return 10 * time.Minute
+	}
+	return m.c.IdleTimeout.Duration()
+}
+
+func (m *moduleCacheConfig) MaxLoaded() int {
+	if m.c.MaxLoaded == nil {
+		return 200
+	}
+	return *m.c.MaxLoaded
+}
+
+func (m *moduleCacheConfig) CacheDir() string {
+	if m.c.CacheDir == nil {
+		return ""
+	}
+	return *m.c.CacheDir
 }
 
 type additionalWorkflowSource struct {
