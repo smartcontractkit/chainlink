@@ -39,7 +39,6 @@ Base Command: `go -C tools/test run . diagnose [harness_flags] -- [go_test_flags
 - Harness flags (before `--`): `--iterations N`, `--fail-fast-on=(timeout|slow)`, `--parallel-iterations N`
 - Go test flags (after `--`): `--run '^TestName$'`, `--timeout 10m`, `--race`
 - Help: `go -C tools/test run . diagnose -h`
-- Lint check: `golangci-lint run ./<packages-you-change> --fix`
 </cli_reference>
 
 <loop>
