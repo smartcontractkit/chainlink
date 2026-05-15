@@ -88,9 +88,40 @@ Runs only when `slim_record.ci_run_url` is non-null (after upfront input or fall
 - Store the full structured response as `ci_run_evidence` on the ticket record. **No `Confidence ≥ 0.9` filter applies** — this is a separate evidence track per the constraints exemption.
 - Edge cases:
   - Tool returns "build/compile failure before tests ran" → set `ci_run_evidence = { "status": "build_failure", "raw": <response> }`. Inform user: *"CI run for {KEY} failed before tests executed; CI evidence will be limited."* Continue.
-  - Tool errors (permission, unknown error, malformed URL) → set `ci_run_evidence = null`, log the error to the user, do not retry.
+  - Tool errors (permission, unknown error, malformed URL) → set `ci_run_evidence = null`, log the error to the user. **Then, if `trunk_filtered_facts` is also empty** (i.e. this would leave the ticket with zero Trunk evidence — typical of Branch A entry), recover via `fix-flaky-test`:
+    - `auto_mode = true` → trigger a new investigation without prompting. Inform user: *"investigate-ci-failure failed for {KEY} ({error}); auto mode falling back to fix-flaky-test (2–5 minutes)."*
+    - `auto_mode = false` → opt-in prompt:
+      <user-prompt>
+      investigate-ci-failure failed for {KEY} ({error}). Trunk has no investigation data for this test. Trigger a new fix-flaky-test investigation? (this takes 2–5 minutes) [Y/n]
+      </user-prompt>
+      User declines → leave `ci_run_evidence = null` and `trunk_filtered_facts = []`, continue (the diagnose-fallback block below may still fire).
+    - Triggered path: call `mcp__trunk__fix-flaky-test` with `createNewInvestigation: true`. Poll per Branch C rules (every ~30s for up to 5 min, immediate filter on each response). On non-empty result → `trunk_investigation_status = "triggered"`. On 5-min timeout → `trunk_investigation_status = "uninvestigated"` and re-apply Branch C's "Continue / Wait / Skip" prompt.
 - The 3b-ii classifier does **not** consume `ci_run_evidence` — only the Proposer does (see 3d).
 </investigate-ci-failure-call>
+
+<diagnose-fallback>
+Runs only when `mode != "local"` AND `trunk_filtered_facts == []` AND `ci_run_evidence == null` — i.e. the ticket would otherwise enter substep 3b with zero observational evidence.
+
+- `auto_mode = true` → run `diagnose` without prompting. Inform user: *"No Trunk or CI-run evidence for {KEY}; auto mode running diagnose locally to gather symptoms."*
+- `auto_mode = false` → opt-in prompt:
+  <user-prompt>
+  {KEY}: No Trunk or CI-run evidence available. Run `diagnose` locally to gather failure symptoms before code analysis? (~2–5 min, scoped to the package) [Y/n]
+  </user-prompt>
+  User declines → leave `trunk_filtered_facts = []`, proceed to `<top-level-check>`.
+
+- Invoke:
+  ```bash
+  go -C tools/test run . diagnose --ai-output --iterations 3 --parallel-iterations 3 -- --run "^{TestName}$" --race --shuffle=on ./{package}/...
+  ```
+  Use the top-level test name (part of `slim_record.test_name` before the first `/`) and `slim_record.package`. Drop `--parallel-iterations` to `1` if the test holds external resources (fixed port, exclusive temp file, etc.). Use `--iterations 3` here (not 10) — this is evidence-gathering, not fix verification.
+
+  Package-scope (`./{package}/...`) is intentional even though `-run` filters which tests execute: Go still loads the full package, so `TestMain` / `init()` / package-level setup runs, surfacing init-order and shared-state flakes that a single-test invocation would miss. Cross-test ordering effects (TestY pollutes state then TestX reads it) still won't surface because only the named test executes — call this out to the user if all iterations pass.
+
+  Parse the `--ai-output` summary:
+  - **At least one iteration failed** → extract failure-specific portions (error messages, stack traces, race-detector output, timeout reports) into `trunk_filtered_facts` as raw strings. Set `trunk_investigation_status = "diagnose_run"`.
+  - **All iterations passed** → `trunk_filtered_facts` stays `[]`, `trunk_investigation_status` unchanged. Inform user: *"diagnose ran 3 iterations without reproducing the failure for {test_name} (single-test scope — cross-test ordering effects won't surface here); proceeding with code analysis only."*
+  - **Tool itself failed to run** (missing dependency, build error, etc.) → `trunk_filtered_facts` stays `[]`, status unchanged. Log the error; do not retry.
+</diagnose-fallback>
 
 <top-level-check>
 After Trunk investigation resolves (or after the local-mode branch sets `trunk_filtered_facts`), inspect `trunk_filtered_facts` (and any stack trace within them) for a `file:line`. If the failure line falls inside a `t.Run(...)` callback AND the outer function contains no assertions outside `t.Run` blocks → candidate for **SKIP_TOP_LEVEL**.
@@ -122,7 +153,7 @@ If all conditions are met:
 <logic>
 - If `trunk_investigation_status = "uninvestigated"` or `trunk_filtered_facts` is empty → return `confidence: "none"` with empty `facts`.
 - If `trunk_investigation_status = "user_provided"` (local mode, user-supplied log) → treat the log content as observational evidence with `confidence: "low"`. It is symptom data, not aggregated CI data.
-- If `trunk_investigation_status = "diagnose_run"` (local mode, agent-collected from chainlink `diagnose` tool) → treat the diagnose output as observational evidence with `confidence: "low"`. It is a small local sample (3 iterations), not aggregated CI data.
+- If `trunk_investigation_status = "diagnose_run"` (agent-collected from chainlink `diagnose` tool — set by the local-mode branch when no log was provided, or by the JIRA-mode diagnose-fallback when no Trunk/CI evidence existed) → treat the diagnose output as observational evidence with `confidence: "low"`. It is a small local sample (3 iterations), not aggregated CI data.
 - Map confidence from pre-filtered facts (JIRA modes):
   - `"high"`: at least one fact contains raw CI observational data — exact log lines, error messages, stack traces, or specific `file:line` from actual failing runs.
   - `"low"`: facts describe symptoms only (e.g. "failures in cluster 2 are regex mismatches") but contain no raw CI data.
@@ -469,11 +500,13 @@ If any required entry is missing → **override the outcome to `ABANDONED`**, re
 
 | Issue | Trunk | Trunk link | Proposed fix location | Verdict |
 |-------|-------|------------|-----------------------|---------|
-| KEY-123 | existing (2 facts ≥0.9) / triggered (0 facts ≥0.9) / uninvestigated | [Analysis]({trunk_analysis_url}) or [Test case]({trunk_test_case_url}) | `pkg/foo/bar_test.go:447` | PROCEED / INCONCLUSIVE / SKIP_TOP_LEVEL / MISMATCH |
+| KEY-123 | existing (2 facts ≥0.9) / triggered (0 facts ≥0.9) / ci_run_only / diagnose_run (N facts) / uninvestigated | [Analysis]({trunk_analysis_url}) or [Test case]({trunk_test_case_url}) | `pkg/foo/bar_test.go:447` | PROCEED / INCONCLUSIVE / SKIP_TOP_LEVEL / MISMATCH |
 
 - Use `trunk_analysis_url` for the link when available; fall back to `trunk_test_case_url`.
 - `uninvestigated` — Trunk returned no results within 5 minutes; fix based on code analysis only.
 - `0 facts ≥0.9` — investigation existed but all facts were below threshold; treated as code-analysis-only.
+- `ci_run_only` — relying on `investigate-ci-failure` evidence (`ci_run_evidence`); no fix-flaky-test facts were available.
+- `diagnose_run` — JIRA-mode diagnose-fallback fired (no Trunk or CI-run evidence existed); facts are local-reproduction symptoms, low confidence.
 - `MISMATCH` — the innermost failing function from the Trunk stack trace no longer exists in the codebase.
 
 **Local mode** — drop Trunk columns; use `local_id + test_name` in the Issue column:
