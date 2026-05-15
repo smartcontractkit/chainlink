@@ -70,6 +70,9 @@ var _ cldf.ChangeSet[ExtendTokenPoolLookupTableConfig] = ExtendTokenPoolLookupTa
 // transfer mint authority back to pool signer PDA
 var _ cldf.ChangeSet[TransferMintAuthorityToSignerPDAConfig] = TransferMintAuthorityToSignerPDA
 
+// set chain rate limits on a token pool
+var _ cldf.ChangeSet[SetChainRateLimitConfig] = SetChainRateLimit
+
 // append mcms txns generated from solanainstructions
 func appendTxs(instructions []solana.Instruction, tokenPool solana.PublicKey, poolType cldf.ContractType, txns *[]mcmsTypes.Transaction) error {
 	for _, ixn := range instructions {
@@ -3248,6 +3251,201 @@ func SetRateLimitAdmin(e cldf.Environment, cfg SetRateLimitAdminConfig) (cldf.Ch
 	if len(mcmsTxs) > 0 {
 		proposal, err := BuildProposalsForTxns(
 			e, cfg.SolChainSelector, "proposal to SetRateLimitAdmin in Solana", cfg.MCMS.MinDelay, mcmsTxs)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		return cldf.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
+	}
+
+	return cldf.ChangesetOutput{}, nil
+}
+
+type ChainRateLimitEntry struct {
+	SolTokenPubKey      string
+	PoolType            cldf.ContractType
+	Metadata            string
+	RemoteChainSelector uint64
+	RateLimiterConfig   RateLimiterConfig
+}
+
+type SetChainRateLimitConfig struct {
+	SolChainSelector      uint64
+	ChainRateLimitConfigs []ChainRateLimitEntry
+	MCMS                  *proposalutils.TimelockConfig
+}
+
+func (cfg SetChainRateLimitConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
+	chain := e.BlockChains.SolanaChains()[cfg.SolChainSelector]
+	for _, entry := range cfg.ChainRateLimitConfigs {
+		tokenPubKey := solana.MustPublicKeyFromBase58(entry.SolTokenPubKey)
+		if entry.PoolType == "" {
+			return errors.New("pool type must be defined")
+		}
+		if entry.RemoteChainSelector == 0 {
+			return errors.New("remote chain selector must be defined")
+		}
+		if err := chainState.CommonValidation(e, cfg.SolChainSelector, tokenPubKey); err != nil {
+			return err
+		}
+		if err := chainState.ValidatePoolDeployment(&e, entry.PoolType, cfg.SolChainSelector, tokenPubKey, true, entry.Metadata); err != nil {
+			return err
+		}
+		tokenPool := chainState.GetActiveTokenPool(entry.PoolType, entry.Metadata)
+		isSup, _, err := isSupportedChain(chain, tokenPubKey, tokenPool, entry.PoolType, entry.RemoteChainSelector)
+		if err != nil {
+			return fmt.Errorf("failed to check if remote chain %d is supported: %w", entry.RemoteChainSelector, err)
+		}
+		if !isSup {
+			return fmt.Errorf("remote chain %d is not configured for token %s on pool %s; use SetupTokenPoolForRemoteChain first", entry.RemoteChainSelector, entry.SolTokenPubKey, tokenPool.String())
+		}
+		if err := entry.RateLimiterConfig.Validate(); err != nil {
+			return fmt.Errorf("invalid rate limiter config for token %s remote chain %d: %w", entry.SolTokenPubKey, entry.RemoteChainSelector, err)
+		}
+	}
+	return nil
+}
+
+func SetChainRateLimit(e cldf.Environment, cfg SetChainRateLimitConfig) (cldf.ChangesetOutput, error) {
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	chainState := state.SolChains[cfg.SolChainSelector]
+	if err := cfg.Validate(e, chainState); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
+	var mcmsTxs []mcmsTypes.Transaction
+
+	for _, entry := range cfg.ChainRateLimitConfigs {
+		chain := e.BlockChains.SolanaChains()[cfg.SolChainSelector]
+		tokenPubKey := solana.MustPublicKeyFromBase58(entry.SolTokenPubKey)
+		tokenPool := chainState.GetActiveTokenPool(entry.PoolType, entry.Metadata)
+		poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(tokenPubKey, tokenPool, entry.RemoteChainSelector)
+
+		tokenPoolUsingMcms := solanastateview.IsSolanaProgramOwnedByTimelock(
+			&e,
+			chain,
+			chainState,
+			entry.PoolType,
+			tokenPubKey,
+			entry.Metadata,
+		)
+		authority := GetAuthorityForIxn(
+			&e,
+			chain,
+			chainState,
+			entry.PoolType,
+			tokenPubKey,
+			entry.Metadata,
+		)
+
+		var ixns []solana.Instruction
+
+		// There is a bug on the token pool contract which does not allow us to set the actual rate limits directly.
+		// We have to setup dummy limits first and then update it.
+		// This workaround is only needed when enabling a rate limit that is currently disabled on-chain,
+		// not when updating already-enabled limits, to avoid resetting that direction's token bucket.
+		_, onChainConfig, err := isSupportedChain(chain, tokenPubKey, tokenPool, entry.PoolType, entry.RemoteChainSelector)
+		// If the account doesn't exist yet (e.g. during token expansion where MCMS batches
+		// init_chain_remote_config and set_chain_rate_limit in a single proposal), we treat
+		// both directions as uninitialized and always prepend the dummy instruction.
+		needsDummy := false
+		if err != nil {
+			needsDummy = entry.RateLimiterConfig.Inbound.Enabled || entry.RateLimiterConfig.Outbound.Enabled
+		} else {
+			needsDummy = (entry.RateLimiterConfig.Inbound.Enabled && !onChainConfig.InboundRateLimit.Cfg.Enabled) ||
+				(entry.RateLimiterConfig.Outbound.Enabled && !onChainConfig.OutboundRateLimit.Cfg.Enabled)
+		}
+		if needsDummy {
+			// Build dummy configs that preserve already-enabled directions.
+			// Only the direction(s) transitioning from disabled→enabled need the
+			// dummy disabled config; the other direction keeps its on-chain values
+			// so we don't reset its token bucket.
+			dummyInbound := onChainConfig.InboundRateLimit.Cfg
+			dummyOutbound := onChainConfig.OutboundRateLimit.Cfg
+			if entry.RateLimiterConfig.Inbound.Enabled && !onChainConfig.InboundRateLimit.Cfg.Enabled {
+				dummyInbound = solBaseTokenPool.RateLimitConfig{Enabled: false, Capacity: 0, Rate: 0}
+			}
+			if entry.RateLimiterConfig.Outbound.Enabled && !onChainConfig.OutboundRateLimit.Cfg.Enabled {
+				dummyOutbound = solBaseTokenPool.RateLimitConfig{Enabled: false, Capacity: 0, Rate: 0}
+			}
+			var dummyIx solana.Instruction
+			switch entry.PoolType {
+			case shared.BurnMintTokenPool:
+				runSafely(func() { solBurnMintTokenPool.SetProgramID(tokenPool) })
+				dummyIx, err = solBurnMintTokenPool.NewSetChainRateLimitInstruction(
+					entry.RemoteChainSelector, tokenPubKey, dummyInbound, dummyOutbound,
+					poolConfigPDA, remoteChainConfigPDA, authority,
+				).ValidateAndBuild()
+			case shared.LockReleaseTokenPool:
+				runSafely(func() { solLockReleaseTokenPool.SetProgramID(tokenPool) })
+				dummyIx, err = solLockReleaseTokenPool.NewSetChainRateLimitInstruction(
+					entry.RemoteChainSelector, tokenPubKey, dummyInbound, dummyOutbound,
+					poolConfigPDA, remoteChainConfigPDA, authority,
+				).ValidateAndBuild()
+			case shared.CCTPTokenPool:
+				runSafely(func() { cctp_token_pool.SetProgramID(tokenPool) })
+				dummyIx, err = cctp_token_pool.NewSetChainRateLimitInstruction(
+					entry.RemoteChainSelector, tokenPubKey, dummyInbound, dummyOutbound,
+					poolConfigPDA, remoteChainConfigPDA, authority,
+				).ValidateAndBuild()
+			default:
+				return cldf.ChangesetOutput{}, fmt.Errorf("invalid pool type: %s", entry.PoolType)
+			}
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate dummy rate limit instruction: %w", err)
+			}
+			ixns = append(ixns, dummyIx)
+		}
+
+		var ix solana.Instruction
+		switch entry.PoolType {
+		case shared.BurnMintTokenPool:
+			runSafely(func() { solBurnMintTokenPool.SetProgramID(tokenPool) })
+			ix, err = solBurnMintTokenPool.NewSetChainRateLimitInstruction(
+				entry.RemoteChainSelector, tokenPubKey,
+				entry.RateLimiterConfig.Inbound, entry.RateLimiterConfig.Outbound,
+				poolConfigPDA, remoteChainConfigPDA, authority,
+			).ValidateAndBuild()
+		case shared.LockReleaseTokenPool:
+			runSafely(func() { solLockReleaseTokenPool.SetProgramID(tokenPool) })
+			ix, err = solLockReleaseTokenPool.NewSetChainRateLimitInstruction(
+				entry.RemoteChainSelector, tokenPubKey,
+				entry.RateLimiterConfig.Inbound, entry.RateLimiterConfig.Outbound,
+				poolConfigPDA, remoteChainConfigPDA, authority,
+			).ValidateAndBuild()
+		case shared.CCTPTokenPool:
+			runSafely(func() { cctp_token_pool.SetProgramID(tokenPool) })
+			ix, err = cctp_token_pool.NewSetChainRateLimitInstruction(
+				entry.RemoteChainSelector, tokenPubKey,
+				entry.RateLimiterConfig.Inbound, entry.RateLimiterConfig.Outbound,
+				poolConfigPDA, remoteChainConfigPDA, authority,
+			).ValidateAndBuild()
+		default:
+			return cldf.ChangesetOutput{}, fmt.Errorf("invalid pool type: %s", entry.PoolType)
+		}
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate set chain rate limit instruction: %w", err)
+		}
+		ixns = append(ixns, ix)
+
+		if tokenPoolUsingMcms {
+			if err := appendTxs(ixns, tokenPool, entry.PoolType, &mcmsTxs); err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate mcms txn: %w", err)
+			}
+		} else {
+			if err := chain.Confirm(ixns); err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+			}
+		}
+	}
+
+	if len(mcmsTxs) > 0 {
+		proposal, err := BuildProposalsForTxns(
+			e, cfg.SolChainSelector, "proposal to SetChainRateLimit in Solana", cfg.MCMS.MinDelay, mcmsTxs)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
