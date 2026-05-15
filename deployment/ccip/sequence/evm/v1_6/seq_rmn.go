@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
@@ -16,7 +17,6 @@ import (
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 var (
@@ -70,7 +70,7 @@ type SetRMNRemoteOnRMNProxySequenceInput struct {
 
 type SetRMNRemoteConfig struct {
 	RMNRemoteConfigs map[uint64]ccipops.RMNRemoteConfig `json:"rmnRemoteConfigs"`
-	MCMSConfig       *proposalutils.TimelockConfig      `json:"mcmsConfig,omitempty"`
+	MCMSConfig       *cldfproposalutils.TimelockConfig  `json:"mcmsConfig,omitempty"`
 }
 
 func (c SetRMNRemoteConfig) Validate(env cldf.Environment, state stateview.CCIPOnChainState) error {

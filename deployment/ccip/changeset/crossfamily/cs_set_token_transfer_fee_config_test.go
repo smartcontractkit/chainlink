@@ -19,9 +19,9 @@ import (
 	solfq "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
@@ -39,7 +39,7 @@ import (
 
 const SetTokenTransferFeePriceRegStalenessThreshold = 60 * 60 * 24 * 14 // two weeks in seconds
 
-var SetTokenTransferFeeMcmsConfig = proposalutils.TimelockConfig{MinDelay: 1 * time.Second}
+var SetTokenTransferFeeMcmsConfig = cldfproposalutils.TimelockConfig{MinDelay: 1 * time.Second}
 
 func deploySolanaToken(t *testing.T, tEnv cldf.Environment, solSelector uint64, tokenSymbol string) (cldf.Environment, solana.PublicKey, error) {
 	t.Helper()

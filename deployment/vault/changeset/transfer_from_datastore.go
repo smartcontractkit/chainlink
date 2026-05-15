@@ -8,9 +8,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -63,7 +63,7 @@ func TransferMCMSOwnershipFromDataStore(e cldf.Environment, input TransferFromDa
 		contractsByChain[chainSel] = addrs
 	}
 
-	mcmsConfig := proposalutils.TimelockConfig{MinDelay: 0}
+	mcmsConfig := cldfproposalutils.TimelockConfig{MinDelay: 0}
 	if mcmsConfig.TimelockQualifierPerChain == nil {
 		mcmsConfig.TimelockQualifierPerChain = make(map[uint64]string)
 	}

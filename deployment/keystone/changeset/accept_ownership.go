@@ -7,9 +7,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 type AcceptAllOwnershipRequest struct {
@@ -28,7 +28,7 @@ func AcceptAllOwnershipsProposal(e cldf.Environment, req *AcceptAllOwnershipRequ
 		ContractsByChain: map[uint64][]common.Address{
 			chainSelector: getTransferableContracts(e.DataStore.Addresses(), chainSelector),
 		},
-		MCMSConfig: proposalutils.TimelockConfig{MinDelay: req.MinDelay},
+		MCMSConfig: cldfproposalutils.TimelockConfig{MinDelay: req.MinDelay},
 	}
 
 	// Create and return the changeset

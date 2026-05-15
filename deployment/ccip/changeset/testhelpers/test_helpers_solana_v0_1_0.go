@@ -34,7 +34,7 @@ import (
 
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	cldlegacysolmcms "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
-	cldcommonchangesets "github.com/smartcontractkit/cld-changesets/pkg/common/changeset"
+	cldcommonchangesets "github.com/smartcontractkit/cld-changesets/pkg/cldfutil/changeset"
 	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
@@ -86,7 +86,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/internal/jdtestutils"
@@ -1266,7 +1265,7 @@ func AddLaneAptosChangesets(t *testing.T, srcChainSelector, destChainSelector ui
 		commoncs.Configure(
 			aptoscs.AddAptosLanes{},
 			config.UpdateAptosLanesConfig{
-				AptosMCMSConfig: &proposalutils.TimelockConfig{
+				AptosMCMSConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay:     time.Second,
 					MCMSAction:   mcmstypes.TimelockActionSchedule,
 					OverrideRoot: false,
@@ -2436,7 +2435,7 @@ func TransferOwnershipSolanaV0_1_0(
 		commoncs.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_0.TransferCCIPToMCMSWithTimelockSolana),
 			ccipChangeSetSolanaV0_1_0.TransferCCIPToMCMSWithTimelockSolanaConfig{
-				MCMSCfg: proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+				MCMSCfg: cldfproposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 				ContractsByChain: map[uint64]ccipChangeSetSolanaV0_1_0.CCIPContractsToTransfer{
 					solSelector: contractsToTransfer,
 				},

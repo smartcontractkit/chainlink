@@ -6,7 +6,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/cld-changesets/pkg/common/changeset"
+	"github.com/smartcontractkit/cld-changesets/pkg/cldfutil/changeset"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 

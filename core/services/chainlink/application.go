@@ -62,9 +62,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/cre"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
-	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
-	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/headreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -558,12 +556,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	var (
 		delegates = map[job.Type]job.Delegate{
-			job.DirectRequest: directrequest.NewDelegate(
-				globalLogger,
-				pipelineRunner,
-				pipelineORM,
-				legacyEVMChains,
-				mailMon),
+			job.DirectRequest: &job.DeprecatedDelegate{Type: job.DirectRequest},
 			job.VRF: vrf.NewDelegate(
 				opts.DS,
 				keyStore,
@@ -632,21 +625,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		workflows.WithWorkflowRegistry(cfg.Capabilities().WorkflowRegistry().Address(), cfg.Capabilities().WorkflowRegistry().ChainID()),
 	)
 
-	// Flux monitor requires ethereum just to boot, silence errors with a null delegate
-	if !cfg.EVMConfigs().RPCEnabled() {
-		delegates[job.FluxMonitor] = &job.NullDelegate{Type: job.FluxMonitor}
-	} else {
-		delegates[job.FluxMonitor] = fluxmonitorv2.NewDelegate(
-			cfg,
-			keyStore.Eth(),
-			jobORM,
-			pipelineORM,
-			pipelineRunner,
-			opts.DS,
-			legacyEVMChains,
-			globalLogger,
-		)
-	}
+	// FluxMonitor has been removed; use a deprecated delegate so existing jobs
+	// surface a visible error in the UI rather than silently doing nothing.
+	delegates[job.FluxMonitor] = &job.DeprecatedDelegate{Type: job.FluxMonitor}
 
 	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings)
 

@@ -12,7 +12,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/common/changeset"
+	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/cldfutil/changeset"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"

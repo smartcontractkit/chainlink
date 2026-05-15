@@ -7,6 +7,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
@@ -15,7 +18,6 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
 	"github.com/stretchr/testify/require"
 
@@ -33,7 +35,6 @@ import (
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
@@ -80,11 +81,11 @@ func TestConnectNewChain(t *testing.T) {
 		Msg                        string
 		TransferRemoteChainsToMCMS bool
 		TestRouter                 bool
-		MCMS                       *proposalutils.TimelockConfig
+		MCMS                       *cldfproposalutils.TimelockConfig
 		ErrStr                     string
 	}
 
-	mcmsConfig := &proposalutils.TimelockConfig{
+	mcmsConfig := &cldfproposalutils.TimelockConfig{
 		MinDelay:   0 * time.Second,
 		MCMSAction: mcmstypes.TimelockActionSchedule,
 	}
@@ -152,7 +153,7 @@ func TestConnectNewChain(t *testing.T) {
 						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 						commoncs.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: contractsToTransfer,
-							MCMSConfig: proposalutils.TimelockConfig{
+							MCMSConfig: cldfproposalutils.TimelockConfig{
 								MinDelay: 0 * time.Second,
 							},
 						},
@@ -239,14 +240,14 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 	t.Parallel()
 	type test struct {
 		Msg         string
-		MCMS        *proposalutils.TimelockConfig
+		MCMS        *cldfproposalutils.TimelockConfig
 		DonIDOffSet *uint32
 		ErrStr      string
 	}
 
 	offset := uint32(0)
 
-	mcmsConfig := &proposalutils.TimelockConfig{
+	mcmsConfig := &cldfproposalutils.TimelockConfig{
 		MinDelay:   0 * time.Second,
 		MCMSAction: mcmstypes.TimelockActionSchedule,
 	}
@@ -371,7 +372,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 						commoncs.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: contractsToTransfer,
-							MCMSConfig: proposalutils.TimelockConfig{
+							MCMSConfig: cldfproposalutils.TimelockConfig{
 								MinDelay: 0 * time.Second,
 							},
 						},
@@ -657,7 +658,7 @@ func TestValidateTransmitterAddresses(t *testing.T) {
 					NewChain:             newChainConfigHelper(chain_selectors.ETHEREUM_TESTNET_SEPOLIA_OPTIMISM_1.Selector, deployedEnvironment.FeedChainSel, linkAddress, &nodeInfo, 6),
 					RemoteChains:         remoteChains,
 					MCMSDeploymentConfig: &mcmsDeploymentCfg,
-					MCMSConfig: &proposalutils.TimelockConfig{
+					MCMSConfig: &cldfproposalutils.TimelockConfig{
 						MinDelay:   0 * time.Second,
 						MCMSAction: mcmstypes.TimelockActionSchedule,
 					},

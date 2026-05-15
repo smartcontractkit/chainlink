@@ -6,13 +6,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	"github.com/smartcontractkit/mcms"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // OrchestrateChangesets orchestrates the validation and application of multiple changesets.
@@ -65,7 +66,7 @@ type MCMSAddressesForEVM struct {
 type OrchestrateChangesetsConfig struct {
 	Description               string
 	MCMSOverridesForEVMChains map[uint64]MCMSAddressesForEVM
-	MCMS                      *proposalutils.TimelockConfig
+	MCMS                      *cldfproposalutils.TimelockConfig
 	ChangeSets                []WithConfig
 }
 
@@ -140,15 +141,33 @@ func orchestrateChangesetsLogic(e cldf.Environment, c OrchestrateChangesetsConfi
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get EVM MCMS state by chain: %w", err)
 	}
 
-	tonMCMSState, err := state.TONMCMSStateByChain(e)
+	tonMCMSStateRaw, err := state.TONMCMSStateByChain(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get TON MCMS state by chain: %w", err)
 	}
+	tonMCMSState := make(map[uint64]cldfproposalutils.TonMCMSChainState, len(tonMCMSStateRaw))
+	for chainSel, chainState := range tonMCMSStateRaw {
+		byQualifier := make(map[string]*cldfproposalutils.TonMCMSSuiteState, len(chainState.ByQualifier))
+		for q, s := range chainState.ByQualifier {
+			if s != nil {
+				byQualifier[q] = &cldfproposalutils.TonMCMSSuiteState{
+					Proposer:  s.Proposer,
+					Canceller: s.Canceller,
+					Bypasser:  s.Bypasser,
+					Timelock:  s.Timelock,
+				}
+			}
+		}
+		tonMCMSState[chainSel] = cldfproposalutils.TonMCMSChainState{ByQualifier: byQualifier}
+	}
 
 	// Aggregate all Timelock proposals into 1 proposal
-	proposal, err := proposalutils.AggregateProposalsV2(
+	if len(finalOutput.MCMSTimelockProposals) == 0 {
+		return finalOutput, nil
+	}
+	proposal, err := proposeutils.AggregateProposalsV2(
 		e,
-		proposalutils.MCMSStates{
+		proposeutils.MCMSStates{
 			MCMSEVMState:    evmMCMSState,
 			MCMSSolanaState: state.SolanaMCMSStateByChain(e),
 			MCMSAptosState:  state.AptosMCMSStateByChain(),

@@ -104,7 +104,6 @@ install-plugins-testing: ## Build & install testing only LOOPP binaries (plugins
 		GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 5 $(LOOPINSTALL_TESTING_ARGS) ./plugins/plugins.testing.yaml; \
 	fi
 
-
 .PHONY: install-plugins-local
 install-plugins-local: ## Build & install local plugins
 	go install -ldflags="-s" \

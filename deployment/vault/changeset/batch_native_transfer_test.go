@@ -19,7 +19,6 @@ import (
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
@@ -372,7 +371,7 @@ func executeBatchTransfersWithMCMS(t *testing.T, rt *runtime.Runtime, chainSelec
 
 	transferConfig := types.BatchNativeTransferConfig{
 		TransfersByChain: make(map[uint64][]types.NativeTransfer),
-		MCMSConfig: &proposalutils.TimelockConfig{
+		MCMSConfig: &cldfproposalutils.TimelockConfig{
 			MinDelay: 0,
 		},
 		Description: "Integration test batch transfer",

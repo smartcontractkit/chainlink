@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 func TestAddRegistryModuleChangeset(t *testing.T) {
@@ -82,7 +81,7 @@ func TestAddRegistryModuleChangeset(t *testing.T) {
 		}
 
 		// Create MCMS config for testing
-		mcmsConfig := &proposalutils.TimelockConfig{
+		mcmsConfig := &cldfproposalutils.TimelockConfig{
 			MinDelay: 0,
 		}
 
@@ -177,7 +176,7 @@ func TestAddRegistryModuleChangeset(t *testing.T) {
 		}
 
 		// Create MCMS config for testing
-		mcmsConfig := &proposalutils.TimelockConfig{
+		mcmsConfig := &cldfproposalutils.TimelockConfig{
 			MinDelay: 0,
 		}
 
@@ -259,7 +258,7 @@ func TestAddRegistryModuleChangeset(t *testing.T) {
 			break
 		}
 
-		mcmsConfig := &proposalutils.TimelockConfig{
+		mcmsConfig := &cldfproposalutils.TimelockConfig{
 			MinDelay: 0,
 		}
 
@@ -372,7 +371,7 @@ func TestAddRegistryModuleConfig_Validate(t *testing.T) {
 
 		cfg := v1_6.AddRegistryModuleConfig{
 			RegistryModuleAddrs: map[uint64]common.Address{},
-			MCMSConfig:          &proposalutils.TimelockConfig{MinDelay: 0},
+			MCMSConfig:          &cldfproposalutils.TimelockConfig{MinDelay: 0},
 		}
 
 		err = cfg.Validate(*env)
@@ -391,7 +390,7 @@ func TestAddRegistryModuleConfig_Validate(t *testing.T) {
 
 		cfg := v1_6.AddRegistryModuleConfig{
 			RegistryModuleAddrs: nil,
-			MCMSConfig:          &proposalutils.TimelockConfig{MinDelay: 0},
+			MCMSConfig:          &cldfproposalutils.TimelockConfig{MinDelay: 0},
 		}
 
 		err = cfg.Validate(*env)
@@ -431,7 +430,7 @@ func TestAddRegistryModuleConfig_Validate(t *testing.T) {
 			RegistryModuleAddrs: map[uint64]common.Address{
 				chain1: common.Address{}, // Zero address
 			},
-			MCMSConfig: &proposalutils.TimelockConfig{MinDelay: 0},
+			MCMSConfig: &cldfproposalutils.TimelockConfig{MinDelay: 0},
 		}
 
 		err = cfg.Validate(*env)
@@ -452,7 +451,7 @@ func TestAddRegistryModuleConfig_Validate(t *testing.T) {
 			RegistryModuleAddrs: map[uint64]common.Address{
 				999999: common.HexToAddress("0x1234567890123456789012345678901234567890"),
 			},
-			MCMSConfig: &proposalutils.TimelockConfig{MinDelay: 0},
+			MCMSConfig: &cldfproposalutils.TimelockConfig{MinDelay: 0},
 		}
 
 		err = cfg.Validate(*env)
@@ -476,7 +475,7 @@ func TestAddRegistryModuleConfig_Validate(t *testing.T) {
 			RegistryModuleAddrs: map[uint64]common.Address{
 				chain2: common.HexToAddress("0x1234567890123456789012345678901234567890"),
 			},
-			MCMSConfig: &proposalutils.TimelockConfig{MinDelay: 0},
+			MCMSConfig: &cldfproposalutils.TimelockConfig{MinDelay: 0},
 		}
 
 		err = cfg.Validate(*env)
@@ -556,7 +555,7 @@ func TestAddRegistryModuleConfig_Validate(t *testing.T) {
 			RegistryModuleAddrs: map[uint64]common.Address{
 				chain1: common.HexToAddress("0x1234567890123456789012345678901234567890"),
 			},
-			MCMSConfig: &proposalutils.TimelockConfig{MinDelay: 0},
+			MCMSConfig: &cldfproposalutils.TimelockConfig{MinDelay: 0},
 		}
 
 		err = cfg.Validate(*env)

@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	aptoschain "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
@@ -26,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -267,7 +267,7 @@ func TestDeployAptosChain_Apply(t *testing.T) {
 				TimelockMinDelay: big.NewInt(1),
 			},
 		},
-		MCMSTimelockConfigPerChain: map[uint64]proposalutils.TimelockConfig{
+		MCMSTimelockConfigPerChain: map[uint64]cldfproposalutils.TimelockConfig{
 			selector: {
 				MinDelay:     time.Duration(1) * time.Second,
 				MCMSAction:   mcmstypes.TimelockActionSchedule,

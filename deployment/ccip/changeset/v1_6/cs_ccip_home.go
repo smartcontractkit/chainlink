@@ -9,22 +9,15 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"golang.org/x/exp/maps"
 
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-
-	"github.com/Masterminds/semver/v3"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
-	mcmslib "github.com/smartcontractkit/mcms"
-	mcmssdk "github.com/smartcontractkit/mcms/sdk"
-	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
@@ -32,13 +25,19 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	mcmslib "github.com/smartcontractkit/mcms"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 
@@ -49,8 +48,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
 var (
@@ -368,7 +368,7 @@ type PromoteCandidateChangesetConfig struct {
 	// MCMS is optional MCMS configuration, if provided the changeset will generate an MCMS proposal.
 	// If nil, the changeset will execute the commands directly using the deployer key
 	// of the provided environment.
-	MCMS *proposalutils.TimelockConfig `json:"mcms,omitempty"`
+	MCMS *cldfproposalutils.TimelockConfig `json:"mcms,omitempty"`
 }
 
 func (p PromoteCandidateChangesetConfig) Validate(e cldf.Environment) (map[uint64]uint32, error) {
@@ -598,7 +598,7 @@ type SetCandidateConfigBase struct {
 	// MCMS is optional MCMS configuration, if provided the changeset will generate an MCMS proposal.
 	// If nil, the changeset will execute the commands directly using the deployer key
 	// of the provided environment.
-	MCMS *proposalutils.TimelockConfig `json:"mcms,omitempty"`
+	MCMS *cldfproposalutils.TimelockConfig `json:"mcms,omitempty"`
 }
 
 func (s SetCandidateConfigBase) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -916,7 +916,7 @@ type RevokeCandidateChangesetConfig struct {
 	// MCMS is optional MCMS configuration, if provided the changeset will generate an MCMS proposal.
 	// If nil, the changeset will execute the commands directly using the deployer key
 	// of the provided environment.
-	MCMS *proposalutils.TimelockConfig `json:"mcms,omitempty"`
+	MCMS *cldfproposalutils.TimelockConfig `json:"mcms,omitempty"`
 }
 
 func (r RevokeCandidateChangesetConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) (donID uint32, err error) {
@@ -1014,7 +1014,7 @@ func RevokeCandidateChangeset(e cldf.Environment, cfg RevokeCandidateChangesetCo
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
 	}
-	prop, err := proposalutils.BuildProposalFromBatchesV2(
+	prop, err := proposeutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
 		mcmsContractByChain,
@@ -1104,10 +1104,10 @@ type ChainConfig struct {
 }
 
 type UpdateChainConfigConfig struct {
-	HomeChainSelector  uint64                        `json:"homeChainSelector"`
-	RemoteChainRemoves []uint64                      `json:"remoteChainRemoves"`
-	RemoteChainAdds    map[uint64]ChainConfig        `json:"remoteChainAdds"`
-	MCMS               *proposalutils.TimelockConfig `json:"mcms,omitempty"`
+	HomeChainSelector  uint64                            `json:"homeChainSelector"`
+	RemoteChainRemoves []uint64                          `json:"remoteChainRemoves"`
+	RemoteChainAdds    map[uint64]ChainConfig            `json:"remoteChainAdds"`
+	MCMS               *cldfproposalutils.TimelockConfig `json:"mcms,omitempty"`
 }
 
 func (c UpdateChainConfigConfig) Validate(e cldf.Environment) error {
