@@ -4,9 +4,9 @@ import (
 	"errors"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
@@ -15,7 +15,7 @@ type CsMCMSConfigure struct{}
 var _ cldf.ChangeSetV2[ConfigureChangesetInput] = CsMCMSConfigure{}
 
 type ContractConfiguration struct {
-	Config types.MCMSWithTimelockConfigV2 `json:"config,omitempty" yaml:"config,omitempty"`
+	Config cldfproposalutils.MCMSWithTimelockConfig `json:"config,omitempty" yaml:"config,omitempty"`
 }
 
 // MCMSConfigureChangesetInput is the input for the set MCMS configuration changeset.

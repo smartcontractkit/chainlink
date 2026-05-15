@@ -9,6 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/mcms"
 
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -101,11 +103,11 @@ func initChainUpgradesPrecondition(e cldf.Environment, c InitChainUpgradesConfig
 		return fmt.Errorf("failed to validate home chain state: %w", err)
 	}
 	// Home chain contracts are owned by MCMS.
-	err = commoncs.ValidateOwnership(e.GetContext(), true, common.Address{}, state.Chains[c.HomeChainSelector].Timelock.Address(), state.Chains[c.HomeChainSelector].CCIPHome)
+	err = mcmschangesets.ValidateOwnership(e.GetContext(), true, common.Address{}, state.Chains[c.HomeChainSelector].Timelock.Address(), state.Chains[c.HomeChainSelector].CCIPHome)
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership of CCIPHome on %s: %w", e.BlockChains.EVMChains()[c.HomeChainSelector], err)
 	}
-	err = commoncs.ValidateOwnership(e.GetContext(), true, common.Address{}, state.Chains[c.HomeChainSelector].Timelock.Address(), state.Chains[c.HomeChainSelector].CapabilityRegistry)
+	err = mcmschangesets.ValidateOwnership(e.GetContext(), true, common.Address{}, state.Chains[c.HomeChainSelector].Timelock.Address(), state.Chains[c.HomeChainSelector].CapabilityRegistry)
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership of CapabilityRegistry on %s: %w", e.BlockChains.EVMChains()[c.HomeChainSelector], err)
 	}
@@ -131,7 +133,7 @@ func initChainUpgradesPrecondition(e cldf.Environment, c InitChainUpgradesConfig
 			return fmt.Errorf("failed to validate exec OCR params for chain %d: %w", destChainSel, err)
 		}
 		// ARMProxy contracts are owned by MCMS on destination.
-		err = commoncs.ValidateOwnership(e.GetContext(), true, common.Address{}, state.Chains[destChainSel].Timelock.Address(), state.Chains[destChainSel].RMNProxy)
+		err = mcmschangesets.ValidateOwnership(e.GetContext(), true, common.Address{}, state.Chains[destChainSel].Timelock.Address(), state.Chains[destChainSel].RMNProxy)
 		if err != nil {
 			return fmt.Errorf("failed to validate ownership of RMNProxy on %s: %w", e.BlockChains.EVMChains()[destChainSel], err)
 		}
@@ -511,11 +513,11 @@ func promoteChainUpgradesPrecondition(e cldf.Environment, c PromoteChainUpgrades
 		return fmt.Errorf("failed to validate home chain state: %w", err)
 	}
 	// Home chain contracts are owned by MCMS.
-	err = commoncs.ValidateOwnership(e.GetContext(), true, common.Address{}, state.Chains[c.HomeChainSelector].Timelock.Address(), state.Chains[c.HomeChainSelector].CCIPHome)
+	err = mcmschangesets.ValidateOwnership(e.GetContext(), true, common.Address{}, state.Chains[c.HomeChainSelector].Timelock.Address(), state.Chains[c.HomeChainSelector].CCIPHome)
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership of CCIPHome on %s: %w", e.BlockChains.EVMChains()[c.HomeChainSelector], err)
 	}
-	err = commoncs.ValidateOwnership(e.GetContext(), true, common.Address{}, state.Chains[c.HomeChainSelector].Timelock.Address(), state.Chains[c.HomeChainSelector].CapabilityRegistry)
+	err = mcmschangesets.ValidateOwnership(e.GetContext(), true, common.Address{}, state.Chains[c.HomeChainSelector].Timelock.Address(), state.Chains[c.HomeChainSelector].CapabilityRegistry)
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership of CapabilityRegistry on %s: %w", e.BlockChains.EVMChains()[c.HomeChainSelector], err)
 	}
@@ -542,7 +544,7 @@ func promoteChainUpgradesPrecondition(e cldf.Environment, c PromoteChainUpgrades
 
 	for chainSel := range allChainSels {
 		// Routers are owned by MCMS on both source and destination chains.
-		err := commoncs.ValidateOwnership(e.GetContext(), true, common.Address{}, state.Chains[chainSel].Timelock.Address(), state.Chains[chainSel].Router)
+		err := mcmschangesets.ValidateOwnership(e.GetContext(), true, common.Address{}, state.Chains[chainSel].Timelock.Address(), state.Chains[chainSel].Router)
 		if err != nil {
 			return fmt.Errorf("failed to validate ownership of Router on %s: %w", e.BlockChains.EVMChains()[chainSel], err)
 		}

@@ -249,7 +249,6 @@ func buildCommandTree() *CompletionNode {
 			{Text: "--with-billing", Description: "Deploys Billing Platform Service (default: false)"},
 			{Text: "--with-proto-configs", Description: "Paths to protobuf config files for Beholder, comma separated (default: ./proto-configs/default.toml)"},
 			{Text: "--auto-setup", Description: "Runs setup before starting the environment (default: false)"},
-			{Text: "--with-contracts-version", Description: "Version of workflow and capabilities registry contracts to use (v1 or v2) (default: v2)"},
 			{Text: "--setup-config", Description: "Path to the TOML configuration file for the setup command"},
 		},
 	}
@@ -329,7 +328,6 @@ func buildCommandTree() *CompletionNode {
 			{Text: "--name", Description: "⚠️  Workflow name (required)"},
 			{Text: "--delete-workflow-file", Description: "Deletes the workflow file after deployment (default: false)"},
 			{Text: "--compile", Description: "Compiles the workflow before deploying it (default: false)"},
-			{Text: "--with-contracts-version", Description: "Version of workflow and capabilities registry contracts to use (v1 or v2) (default: v2)"},
 		},
 	}
 
@@ -339,7 +337,6 @@ func buildCommandTree() *CompletionNode {
 			{Text: "--owner-address", Description: "Workflow owner address (default: 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266)"},
 			{Text: "--workflow-registry-address", Description: "Workflow registry address (default: 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512)"},
 			{Text: "--name", Description: "⚠️  Workflow name (required)"},
-			{Text: "--with-contracts-version", Description: "Version of workflow and capabilities registry contracts to use (v1 or v2) (default: v2)"},
 		},
 	}
 

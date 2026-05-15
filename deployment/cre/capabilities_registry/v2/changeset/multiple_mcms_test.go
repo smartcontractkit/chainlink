@@ -5,7 +5,11 @@ import (
 	"time"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	"github.com/stretchr/testify/require"
+
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -13,9 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
@@ -34,15 +35,15 @@ func TestMultipleMCMSDeploymentsConflict(t *testing.T) {
 
 	// Create Team A's MCMS config with qualifier
 	teamAQualifier := "team-a"
-	teamAConfig := proposalutils.SingleGroupTimelockConfigV2(t)
+	teamAConfig := cldftesthelpers.SingleGroupTimelockConfig(t)
 	teamAConfig.Qualifier = &teamAQualifier
 
-	teamATimelockCfgs := map[uint64]commontypes.MCMSWithTimelockConfigV2{
+	teamATimelockCfgs := map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 		selector: teamAConfig,
 	}
 
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
 			teamATimelockCfgs,
 		),
 	)
@@ -65,15 +66,15 @@ func TestMultipleMCMSDeploymentsConflict(t *testing.T) {
 
 	// Create Team B's MCMS config with different qualifier
 	teamBQualifier := "team-b"
-	teamBConfig := proposalutils.SingleGroupTimelockConfigV2(t)
+	teamBConfig := cldftesthelpers.SingleGroupTimelockConfig(t)
 	teamBConfig.Qualifier = &teamBQualifier
 
-	teamBTimelockCfgs := map[uint64]commontypes.MCMSWithTimelockConfigV2{
+	teamBTimelockCfgs := map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 		selector: teamBConfig,
 	}
 
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
 			teamBTimelockCfgs,
 		),
 	)

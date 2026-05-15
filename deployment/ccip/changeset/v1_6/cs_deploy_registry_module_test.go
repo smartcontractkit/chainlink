@@ -4,18 +4,22 @@ import (
 	"testing"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	"github.com/stretchr/testify/require"
+
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
+	linkchangesets "github.com/smartcontractkit/cld-changesets/link/changesets"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 func TestDeployRegistryModuleChangeset(t *testing.T) {
@@ -37,7 +41,7 @@ func TestDeployRegistryModuleChangeset(t *testing.T) {
 
 		*env, err = commonchangeset.Apply(t, *env,
 			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+				cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken),
 				[]uint64{chain1},
 			),
 			commonchangeset.Configure(
@@ -99,7 +103,7 @@ func TestDeployRegistryModuleChangeset(t *testing.T) {
 
 		*env, err = commonchangeset.Apply(t, *env,
 			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+				cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken),
 				chainSelectors,
 			),
 			commonchangeset.Configure(
@@ -157,7 +161,7 @@ func TestDeployRegistryModuleChangeset(t *testing.T) {
 
 		*env, err = commonchangeset.Apply(t, *env,
 			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+				cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken),
 				[]uint64{chain1},
 			),
 			commonchangeset.Configure(
@@ -243,7 +247,7 @@ func TestDeployRegistryModuleChangeset(t *testing.T) {
 
 		*env, err = commonchangeset.Apply(t, *env,
 			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+				cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken),
 				[]uint64{chain1},
 			),
 			commonchangeset.Configure(
@@ -253,9 +257,9 @@ func TestDeployRegistryModuleChangeset(t *testing.T) {
 				},
 			),
 			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
-				map[uint64]commontypes.MCMSWithTimelockConfigV2{
-					chain1: proposalutils.SingleGroupTimelockConfigV2(t),
+				cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
+				map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
+					chain1: cldftesthelpers.SingleGroupTimelockConfig(t),
 				},
 			),
 		)
@@ -302,14 +306,14 @@ func TestDeployRegistryModuleChangeset(t *testing.T) {
 			})
 		}
 
-		mcmsConfigs := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
+		mcmsConfigs := make(map[uint64]cldfproposalutils.MCMSWithTimelockConfig)
 		for _, chain := range chainSelectors {
-			mcmsConfigs[chain] = proposalutils.SingleGroupTimelockConfigV2(t)
+			mcmsConfigs[chain] = cldftesthelpers.SingleGroupTimelockConfig(t)
 		}
 
 		*env, err = commonchangeset.Apply(t, *env,
 			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+				cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken),
 				chainSelectors,
 			),
 			commonchangeset.Configure(
@@ -319,7 +323,7 @@ func TestDeployRegistryModuleChangeset(t *testing.T) {
 				},
 			),
 			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+				cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
 				mcmsConfigs,
 			),
 		)
@@ -463,7 +467,7 @@ func TestDeployRegistryModuleConfig_Validate(t *testing.T) {
 
 		*env, err = commonchangeset.Apply(t, *env,
 			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+				cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken),
 				[]uint64{chain1},
 			),
 			commonchangeset.Configure(
@@ -505,7 +509,7 @@ func TestDeployRegistryModuleConfig_Validate(t *testing.T) {
 
 		*env, err = commonchangeset.Apply(t, *env,
 			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+				cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken),
 				chainSelectors,
 			),
 			commonchangeset.Configure(

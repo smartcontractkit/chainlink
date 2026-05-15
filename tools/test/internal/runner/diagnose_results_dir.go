@@ -11,6 +11,28 @@ const (
 	maxDiagnoseResultsBasename = 220
 )
 
+// parseGoTestRunPattern returns the last `-run` pattern from go test-style argv
+// (before `-args`), mirroring how Go applies repeated `-run` flags.
+func parseGoTestRunPattern(goTestArgs []string) string {
+	args := goTestFlagsBeforeArgs(goTestArgs)
+	var last string
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if after, ok := strings.CutPrefix(a, "-run="); ok {
+			last = strings.TrimSpace(after)
+			continue
+		}
+		if a == "-run" {
+			if i+1 >= len(args) {
+				continue
+			}
+			i++
+			last = strings.TrimSpace(args[i])
+		}
+	}
+	return last
+}
+
 // diagnoseResultsDirName returns a repo-root-relative directory basename for
 // diagnose output: diagnose-<targetSlug>-<YYYYMMDDHHMMSS>. Full argv and harness
 // flags live in report.json under the run key (see RunMeta).
@@ -18,6 +40,9 @@ func diagnoseResultsDirName(goTestArgs []string, now time.Time) string {
 	tsPart := now.Format("20060102150405")
 	target := guessPackagePatternForSlug(goTestArgs)
 	slug := diagnoseTargetSlug(target)
+	if run := parseGoTestRunPattern(goTestArgs); run != "" {
+		slug += "__run_" + sanitizeDirToken(run)
+	}
 	tail := "-" + tsPart
 	avail := max(maxDiagnoseResultsBasename-len(diagnoseResultsNamePrefix)-len(tail), 1)
 	slug = truncateUTF8MaxBytes(slug, avail)

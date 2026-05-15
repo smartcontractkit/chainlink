@@ -19,11 +19,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Masterminds/semver/v3"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/client"
 	"github.com/ethereum/go-ethereum/crypto"
+	mobyclient "github.com/moby/moby/client"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
@@ -33,7 +30,6 @@ import (
 	billingplatformservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/billing_platform_service"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/tracking"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
@@ -42,14 +38,11 @@ import (
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	blockchains_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
 	feature_set "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/sets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/topologyviz"
@@ -195,60 +188,12 @@ var StartCmdRecoverHandlerFunc = func(p any, persistedBeholderState *envconfig.C
 	}
 }
 
-var StartCmdGenerateSettingsFile = func(registryChain blockchains.Blockchain, output *creenv.SetupOutput) error {
-	rpcs := map[uint64]string{}
-	for _, bcOut := range output.CreEnvironment.Blockchains {
-		rpcs[bcOut.ChainSelector()] = bcOut.CtfOutput().Nodes[0].ExternalHTTPUrl
-	}
-
-	regChainEVM, isEVM := registryChain.(*evm.Blockchain)
-	if !isEVM {
-		return fmt.Errorf("registry chain is not EVM, but %T, cannot generate CRE CLI settings file", registryChain)
-	}
-
-	creCLISettingsFile, settingsErr := crecli.PrepareCRECLISettingsFile(
-		crecli.CRECLIProfile,
-		regChainEVM.SethClient.MustGetRootKeyAddress(),
-		output.CreEnvironment.CldfEnvironment.DataStore,
-		output.CreEnvironment.ContractVersions,
-		output.Dons.MustWorkflowDON().ID,
-		regChainEVM.ChainSelector(),
-		rpcs,
-		output.S3ProviderOutput,
-	)
-
-	if settingsErr != nil {
-		return settingsErr
-	}
-
-	// Copy the file to current directory as cre.yaml
-	currentDir, cErr := os.Getwd()
-	if cErr != nil {
-		return cErr
-	}
-
-	targetPath := filepath.Join(currentDir, "cre.yaml")
-	input, err := os.ReadFile(creCLISettingsFile.Name())
-	if err != nil {
-		return err
-	}
-	err = os.WriteFile(targetPath, input, 0o600)
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("CRE CLI settings file created: %s\n\n", targetPath)
-
-	return nil
-}
-
 func startCmd() *cobra.Command {
 	var (
 		extraAllowedGatewayPorts []int
 		withExampleFlag          bool
 		exampleWorkflowTimeout   time.Duration
 		withPluginsDockerImage   string
-		withContractsVersion     string
 		doSetup                  bool
 		cleanupOnFailure         bool
 		cleanupWait              time.Duration
@@ -365,11 +310,9 @@ func startCmd() *cobra.Command {
 				os.Exit(1)
 			}()
 
-			withV2Registries := withContractsVersion == "v2"
 			envDependencies := cre.NewEnvironmentDependencies(
 				flags.NewDefaultCapabilityFlagsProvider(),
-				cre.NewContractVersionsProvider(envconfig.DefaultContractSet(withV2Registries)),
-				cre.NewCLIFlagsProvider(withV2Registries),
+				cre.NewContractVersionsProvider(envconfig.DefaultContractSet()),
 			)
 
 			if err := in.Validate(envDependencies); err != nil {
@@ -401,7 +344,7 @@ func startCmd() *cobra.Command {
 				fmt.Fprintf(os.Stderr, "Error: %s\n", startErr)
 				fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
 
-				dxErr := trackStartup(false, hasBuiltDockerImage(in), in.Infra.Type, ptr.Ptr(strings.SplitN(startErr.Error(), "\n", 1)[0]), ptr.Ptr(false))
+				dxErr := trackStartup(false, hasBuiltDockerImage(in), in.Infra.Type, new(strings.SplitN(startErr.Error(), "\n", 1)[0]), new(false))
 				if dxErr != nil {
 					fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
 				}
@@ -436,11 +379,6 @@ func startCmd() *cobra.Command {
 			}
 
 			registryChainOut := output.CreEnvironment.Blockchains[0]
-
-			sErr := StartCmdGenerateSettingsFile(registryChainOut, output)
-			if sErr != nil {
-				fmt.Fprintf(os.Stderr, "failed to create CRE CLI settings file: %s. You need to create it manually.", sErr)
-			}
 
 			dxErr := trackStartup(true, hasBuiltDockerImage(in), output.CreEnvironment.Provider.Type, nil, nil)
 			if dxErr != nil {
@@ -544,7 +482,7 @@ func startCmd() *cobra.Command {
 					return errors.New("no workflow DON found")
 				}
 
-				deployErr := deployAndVerifyExampleWorkflow(cmdContext, registryChainOut.CtfOutput().Nodes[0].ExternalHTTPUrl, workflowDonID, exampleWorkflowTimeout, workflowRegistryAddress, semver.MustParse(withContractsVersion))
+				deployErr := deployAndVerifyExampleWorkflow(cmdContext, registryChainOut.CtfOutput().Nodes[0].ExternalHTTPUrl, workflowDonID, exampleWorkflowTimeout, workflowRegistryAddress, output.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
 				if deployErr != nil {
 					fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
 				}
@@ -581,7 +519,6 @@ func startCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&withObs, "with-observability", false, "Start Observability Stack")
 	cmd.Flags().BoolVar(&withBilling, "with-billing", false, "Deploy Billing Platform Service")
 	cmd.Flags().BoolVarP(&doSetup, "auto-setup", "a", false, "Run setup before starting the environment")
-	cmd.Flags().StringVar(&withContractsVersion, "with-contracts-version", "v2", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
 	cmd.Flags().StringVarP(&setupConfig.ConfigPath, "setup-config", "s", DefaultSetupConfigPath, "Path to the TOML configuration file for the setup command")
 	cmd.Flags().IntVarP(&chipGRPCPort, "grpc-port", "g", mustStringToInt(chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT), "GRPC port for Chip Ingress")
 
@@ -797,7 +734,7 @@ func detectServiceStatus(cmdContext context.Context) serviceStatus {
 }
 
 func isObservabilityGrafanaRunning(cmdContext context.Context) bool {
-	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	dockerClient, err := mobyclient.New()
 	if err != nil {
 		return false
 	}
@@ -806,12 +743,12 @@ func isObservabilityGrafanaRunning(cmdContext context.Context) bool {
 	ctx, cancel := context.WithTimeout(cmdContext, 15*time.Second)
 	defer cancel()
 
-	containers, err := dockerClient.ContainerList(ctx, container.ListOptions{})
+	listRes, err := dockerClient.ContainerList(ctx, mobyclient.ContainerListOptions{})
 	if err != nil {
 		return false
 	}
 
-	for _, c := range containers {
+	for _, c := range listRes.Items {
 		// Observability is typically started from the CTF compose bundle and identified by compose labels.
 		if c.Labels["com.docker.compose.service"] == "grafana" && c.Labels["com.docker.compose.project"] == "compose" {
 			return true
@@ -887,8 +824,6 @@ func StartCLIEnvironment(
 		NodeSets:                in.NodeSets,
 		BlockchainsInput:        in.Blockchains,
 		ChipRouterInput:         in.ChipRouter,
-		ContractVersions:        env.ContractVersions(),
-		WithV2Registries:        env.WithV2Registries(),
 		JdInput:                 in.JD,
 		Provider:                *in.Infra,
 		S3ProviderInput:         in.S3ProviderInput,
@@ -899,6 +834,7 @@ func StartCLIEnvironment(
 		Features:                features,
 		GatewayWhitelistConfig:  gatewayWhitelistConfig,
 		BlockchainDeployers:     blockchains_sets.NewDeployerSet(testLogger, in.Infra),
+		ContractVersions:        env.ContractVersions(),
 	}
 
 	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)
@@ -926,20 +862,23 @@ func StartCLIEnvironment(
 }
 
 func isBlockscoutRunning(cmdContext context.Context) bool {
-	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	dockerClient, err := mobyclient.New()
 	if err != nil {
 		return false
 	}
 
 	ctx, cancel := context.WithTimeout(cmdContext, 15*time.Second)
 	defer cancel()
-	containers, err := dockerClient.ContainerList(ctx, container.ListOptions{All: true})
+	listRes, err := dockerClient.ContainerList(ctx, mobyclient.ContainerListOptions{All: true})
 	if err != nil {
 		return false
 	}
 
-	for _, container := range containers {
-		if strings.Contains(strings.ToLower(container.Names[0]), "blockscout") {
+	for _, ctr := range listRes.Items {
+		if len(ctr.Names) == 0 {
+			continue
+		}
+		if strings.Contains(strings.ToLower(ctr.Names[0]), "blockscout") {
 			return true
 		}
 	}
@@ -1056,12 +995,12 @@ func initDxTracker() {
 }
 
 func ensureDockerIsRunning(ctx context.Context) error {
-	dockerClient, dockerClientErr := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	dockerClient, dockerClientErr := mobyclient.New()
 	if dockerClientErr != nil {
 		return errors.Wrap(dockerClientErr, "failed to create Docker client")
 	}
 
-	_, pingErr := dockerClient.Ping(ctx)
+	_, pingErr := dockerClient.Ping(ctx, mobyclient.PingOptions{})
 	if pingErr != nil {
 		return errors.Wrap(pingErr, "docker is not running. Please start Docker and try again")
 	}
@@ -1104,7 +1043,7 @@ func ensureDockerImagesExist(ctx context.Context, logger zerolog.Logger, in *env
 // it returns an error if the image does not exist locally and pulling fails
 // it doesn't handle registries that require authentication
 func ensureDockerImageExists(ctx context.Context, logger zerolog.Logger, imageName string) error {
-	dockerClient, dErr := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	dockerClient, dErr := mobyclient.New()
 	if dErr != nil {
 		return errors.Wrap(dErr, "failed to create Docker client")
 	}
@@ -1115,11 +1054,14 @@ func ensureDockerImageExists(ctx context.Context, logger zerolog.Logger, imageNa
 	if err != nil {
 		logger.Debug().Msgf("Image '%s' not found locally, trying to pull it", imageName)
 
-		ioRead, pullErr := dockerClient.ImagePull(ctx, imageName, image.PullOptions{})
+		ioRead, pullErr := dockerClient.ImagePull(ctx, imageName, mobyclient.ImagePullOptions{})
 		if pullErr != nil {
 			return fmt.Errorf("image '%s' not found locally and pulling failed", imageName)
 		}
 		defer ioRead.Close()
+		if waitErr := ioRead.Wait(ctx); waitErr != nil {
+			return fmt.Errorf("image '%s' not found locally and pulling failed: %w", imageName, waitErr)
+		}
 
 		logger.Debug().Msgf("Image '%s' pulled successfully", imageName)
 

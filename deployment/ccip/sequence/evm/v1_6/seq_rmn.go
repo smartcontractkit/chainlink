@@ -11,9 +11,10 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -82,7 +83,7 @@ func (c SetRMNRemoteConfig) Validate(env cldf.Environment, state stateview.CCIPO
 		if state.MustGetEVMChainState(chainSelector).RMNRemote == nil {
 			return fmt.Errorf("RMNRemote not found for chain %s", chain.String())
 		}
-		err = commoncs.ValidateOwnership(
+		err = mcmschangesets.ValidateOwnership(
 			env.GetContext(), c.MCMSConfig != nil,
 			chain.DeployerKey.From, state.MustGetEVMChainState(chainSelector).Timelock.Address(),
 			state.MustGetEVMChainState(chainSelector).RMNRemote,

@@ -12,6 +12,20 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
+// vrfV2Observation is a minimal valid VRF v2 pipeline for validation tests.
+const vrfV2Observation = `
+decode_log   [type=ethabidecodelog
+              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
+              data="$(jobRun.logData)"
+              topics="$(jobRun.logTopics)"]
+vrf          [type=vrfv2
+              publicKey="$(jobSpec.publicKey)"
+              requestBlockHash="$(jobRun.logBlockHash)"
+              requestBlockNumber="$(jobRun.logBlockNumber)"
+              topics="$(jobRun.logTopics)"]
+decode_log->vrf
+`
+
 func TestValidateVRFJobSpec(t *testing.T) {
 	var tt = []struct {
 		name      string
@@ -31,24 +45,8 @@ requestTimeout = "168h" # 7 days
 chunkSize = 25
 backoffInitialDelay = "1m"
 backoffMaxDelay = "2h"
-observationSource = """
-decode_log   [type=ethabidecodelog
-              abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
-              data="$(jobRun.logData)"
-              topics="$(jobRun.logTopics)"]
-vrf          [type=vrf
-			  publicKey="$(jobSpec.publicKey)"
-              requestBlockHash="$(jobRun.logBlockHash)"
-              requestBlockNumber="$(jobRun.logBlockNumber)"
-              topics="$(jobRun.logTopics)"]
-encode_tx    [type=ethabiencode
-              abi="fulfillRandomnessRequest(bytes proof)"
-              data="{\\"proof\\": $(vrf)}"]
-submit_tx  [type=ethtx to="%s"
-			data="$(encode_tx)"
-            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-decode_log->vrf->encode_tx->submit_tx
-"""
+fromAddresses = ["0x1111111111111111111111111111111111111111"]
+observationSource = """` + vrfV2Observation + `"""
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.NoError(t, err)
@@ -70,24 +68,8 @@ type            = "vrf"
 schemaVersion   = 1
 minIncomingConfirmations = 10
 coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
-observationSource = """
-decode_log   [type=ethabidecodelog
-              abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
-              data="$(jobRun.logData)"
-              topics="$(jobRun.logTopics)"]
-vrf          [type=vrf
-			  publicKey="$(jobSpec.publicKey)"
-              requestBlockHash="$(jobRun.logBlockHash)"
-              requestBlockNumber="$(jobRun.logBlockNumber)"
-              topics="$(jobRun.logTopics)"]
-encode_tx    [type=ethabiencode
-              abi="fulfillRandomnessRequest(bytes proof)"
-              data="{\\"proof\\": $(vrf)}"]
-submit_tx  [type=ethtx to="%s"
-			data="$(encode_tx)"
-            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-decode_log->vrf->encode_tx->submit_tx
-"""
+fromAddresses = ["0x1111111111111111111111111111111111111111"]
+observationSource = """` + vrfV2Observation + `"""
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Error(t, err)
@@ -106,25 +88,8 @@ requestTimeout = "168h" # 7 days
 chunkSize = 25
 backoffInitialDelay = "1m"
 backoffMaxDelay = "2h"
-observationSource = """
-decode_log   [type=ethabidecodelog
-				abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
-				data="$(jobRun.logData)"
-				topics="$(jobRun.logTopics)"]
-vrf          [type=vrfv2
-				publicKey="$(jobSpec.publicKey)"
-				requestBlockHash="$(jobRun.logBlockHash)"
-				requestBlockNumber="$(jobRun.logBlockNumber)"
-				topics="$(jobRun.logTopics)"]
-encode_tx    [type=ethabiencode
-				abi="fulfillRandomnessRequest(bytes proof)"
-				data="{\\"proof\\": $(vrf)}"]
-submit_tx  [type=ethtx to="%s"
-			data="$(encode_tx)"
-			txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-decode_log->vrf->encode_tx->submit_tx
-"""
-			`,
+observationSource = """` + vrfV2Observation + `"""
+`,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Error(t, err)
 				require.True(t, errors.Is(ErrKeyNotSet, errors.Cause(err)))
@@ -137,24 +102,8 @@ type            = "vrf"
 schemaVersion   = 1
 minIncomingConfirmations = 10
 publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
-observationSource = """
-decode_log   [type=ethabidecodelog
-              abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
-              data="$(jobRun.logData)"
-              topics="$(jobRun.logTopics)"]
-vrf          [type=vrf
-			  publicKey="$(jobSpec.publicKey)"
-              requestBlockHash="$(jobRun.logBlockHash)"
-              requestBlockNumber="$(jobRun.logBlockNumber)"
-              topics="$(jobRun.logTopics)"]
-encode_tx    [type=ethabiencode
-              abi="fulfillRandomnessRequest(bytes proof)"
-              data="{\\"proof\\": $(vrf)}"]
-submit_tx  [type=ethtx to="%s"
-			data="$(encode_tx)"
-            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-decode_log->vrf->encode_tx->submit_tx
-"""
+fromAddresses = ["0x1111111111111111111111111111111111111111"]
+observationSource = """` + vrfV2Observation + `"""
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Error(t, err)
@@ -170,24 +119,8 @@ minIncomingConfirmations = 10
 publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
 coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
 externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
-observationSource = """
-decode_log   [type=ethabidecodelog
-              abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
-              data="$(jobRun.logData)"
-              topics="$(jobRun.logTopics)"]
-vrf          [type=vrf
-			  publicKey="$(jobSpec.publicKey)"
-              requestBlockHash="$(jobRun.logBlockHash)"
-              requestBlockNumber="$(jobRun.logBlockNumber)"
-              topics="$(jobRun.logTopics)"]
-encode_tx    [type=ethabiencode
-              abi="fulfillRandomnessRequest(bytes proof)"
-              data="{\\"proof\\": $(vrf)}"]
-submit_tx  [type=ethtx to="%s"
-			data="$(encode_tx)"
-            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-decode_log->vrf->encode_tx->submit_tx
-"""
+fromAddresses = ["0x1111111111111111111111111111111111111111"]
+observationSource = """` + vrfV2Observation + `"""
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.NoError(t, err)
@@ -197,31 +130,15 @@ decode_log->vrf->encode_tx->submit_tx
 		{
 			name: "no requested confs delay",
 			toml: `
-			type            = "vrf"
-			schemaVersion   = 1
-			minIncomingConfirmations = 10
-			publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
-			coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
-			externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
-			observationSource = """
-			decode_log   [type=ethabidecodelog
-						  abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
-						  data="$(jobRun.logData)"
-						  topics="$(jobRun.logTopics)"]
-			vrf          [type=vrf
-						  publicKey="$(jobSpec.publicKey)"
-						  requestBlockHash="$(jobRun.logBlockHash)"
-						  requestBlockNumber="$(jobRun.logBlockNumber)"
-						  topics="$(jobRun.logTopics)"]
-			encode_tx    [type=ethabiencode
-						  abi="fulfillRandomnessRequest(bytes proof)"
-						  data="{\\"proof\\": $(vrf)}"]
-			submit_tx  [type=ethtx to="%s"
-						data="$(encode_tx)"
-						txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-			decode_log->vrf->encode_tx->submit_tx
-			"""
-			`,
+type            = "vrf"
+schemaVersion   = 1
+minIncomingConfirmations = 10
+publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
+coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
+fromAddresses = ["0x1111111111111111111111111111111111111111"]
+observationSource = """` + vrfV2Observation + `"""
+`,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.NoError(t, err)
 				require.Equal(t, int64(0), os.VRFSpec.RequestedConfsDelay)
@@ -230,32 +147,16 @@ decode_log->vrf->encode_tx->submit_tx
 		{
 			name: "with requested confs delay",
 			toml: `
-			type            = "vrf"
-			schemaVersion   = 1
-			minIncomingConfirmations = 10
-			requestedConfsDelay = 10
-			publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
-			coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
-			externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
-			observationSource = """
-			decode_log   [type=ethabidecodelog
-						  abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
-						  data="$(jobRun.logData)"
-						  topics="$(jobRun.logTopics)"]
-			vrf          [type=vrf
-						  publicKey="$(jobSpec.publicKey)"
-						  requestBlockHash="$(jobRun.logBlockHash)"
-						  requestBlockNumber="$(jobRun.logBlockNumber)"
-						  topics="$(jobRun.logTopics)"]
-			encode_tx    [type=ethabiencode
-						  abi="fulfillRandomnessRequest(bytes proof)"
-						  data="{\\"proof\\": $(vrf)}"]
-			submit_tx  [type=ethtx to="%s"
-						data="$(encode_tx)"
-						txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-			decode_log->vrf->encode_tx->submit_tx
-			"""
-			`,
+type            = "vrf"
+schemaVersion   = 1
+minIncomingConfirmations = 10
+requestedConfsDelay = 10
+publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
+coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
+fromAddresses = ["0x1111111111111111111111111111111111111111"]
+observationSource = """` + vrfV2Observation + `"""
+`,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.NoError(t, err)
 				require.Equal(t, int64(10), os.VRFSpec.RequestedConfsDelay)
@@ -264,32 +165,16 @@ decode_log->vrf->encode_tx->submit_tx
 		{
 			name: "negative (illegal) requested confs delay",
 			toml: `
-			type            = "vrf"
-			schemaVersion   = 1
-			minIncomingConfirmations = 10
-			requestedConfsDelay = -10
-			publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
-			coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
-			externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
-			observationSource = """
-			decode_log   [type=ethabidecodelog
-						  abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
-						  data="$(jobRun.logData)"
-						  topics="$(jobRun.logTopics)"]
-			vrf          [type=vrf
-						  publicKey="$(jobSpec.publicKey)"
-						  requestBlockHash="$(jobRun.logBlockHash)"
-						  requestBlockNumber="$(jobRun.logBlockNumber)"
-						  topics="$(jobRun.logTopics)"]
-			encode_tx    [type=ethabiencode
-						  abi="fulfillRandomnessRequest(bytes proof)"
-						  data="{\\"proof\\": $(vrf)}"]
-			submit_tx  [type=ethtx to="%s"
-						data="$(encode_tx)"
-						txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-			decode_log->vrf->encode_tx->submit_tx
-			"""
-			`,
+type            = "vrf"
+schemaVersion   = 1
+minIncomingConfirmations = 10
+requestedConfsDelay = -10
+publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
+coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
+fromAddresses = ["0x1111111111111111111111111111111111111111"]
+observationSource = """` + vrfV2Observation + `"""
+`,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
 			},
@@ -297,32 +182,16 @@ decode_log->vrf->encode_tx->submit_tx
 		{
 			name: "no request timeout provided, sets default of 1 day",
 			toml: `
-			type            = "vrf"
-			schemaVersion   = 1
-			minIncomingConfirmations = 10
-			requestedConfsDelay = 10
-			publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
-			coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
-			externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
-			observationSource = """
-			decode_log   [type=ethabidecodelog
-						  abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
-						  data="$(jobRun.logData)"
-						  topics="$(jobRun.logTopics)"]
-			vrf          [type=vrf
-						  publicKey="$(jobSpec.publicKey)"
-						  requestBlockHash="$(jobRun.logBlockHash)"
-						  requestBlockNumber="$(jobRun.logBlockNumber)"
-						  topics="$(jobRun.logTopics)"]
-			encode_tx    [type=ethabiencode
-						  abi="fulfillRandomnessRequest(bytes proof)"
-						  data="{\\"proof\\": $(vrf)}"]
-			submit_tx  [type=ethtx to="%s"
-						data="$(encode_tx)"
-						txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-			decode_log->vrf->encode_tx->submit_tx
-			"""
-			`,
+type            = "vrf"
+schemaVersion   = 1
+minIncomingConfirmations = 10
+requestedConfsDelay = 10
+publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
+coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
+fromAddresses = ["0x1111111111111111111111111111111111111111"]
+observationSource = """` + vrfV2Observation + `"""
+`,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.NoError(t, err)
 				require.Equal(t, 24*time.Hour, os.VRFSpec.RequestTimeout)
@@ -331,33 +200,17 @@ decode_log->vrf->encode_tx->submit_tx
 		{
 			name: "request timeout provided, uses that",
 			toml: `
-			type            = "vrf"
-			schemaVersion   = 1
-			minIncomingConfirmations = 10
-			requestedConfsDelay = 10
-			requestTimeout = "168h" # 7 days
-			publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
-			coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
-			externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
-			observationSource = """
-			decode_log   [type=ethabidecodelog
-						  abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
-						  data="$(jobRun.logData)"
-						  topics="$(jobRun.logTopics)"]
-			vrf          [type=vrf
-						  publicKey="$(jobSpec.publicKey)"
-						  requestBlockHash="$(jobRun.logBlockHash)"
-						  requestBlockNumber="$(jobRun.logBlockNumber)"
-						  topics="$(jobRun.logTopics)"]
-			encode_tx    [type=ethabiencode
-						  abi="fulfillRandomnessRequest(bytes proof)"
-						  data="{\\"proof\\": $(vrf)}"]
-			submit_tx  [type=ethtx to="%s"
-						data="$(encode_tx)"
-						txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-			decode_log->vrf->encode_tx->submit_tx
-			"""
-			`,
+type            = "vrf"
+schemaVersion   = 1
+minIncomingConfirmations = 10
+requestedConfsDelay = 10
+requestTimeout = "168h" # 7 days
+publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
+coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
+fromAddresses = ["0x1111111111111111111111111111111111111111"]
+observationSource = """` + vrfV2Observation + `"""
+`,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.NoError(t, err)
 				require.Equal(t, 7*24*time.Hour, os.VRFSpec.RequestTimeout)
@@ -366,33 +219,17 @@ decode_log->vrf->encode_tx->submit_tx
 		{
 			name: "batch fulfillment enabled, no batch coordinator address",
 			toml: `
-			type            = "vrf"
-			schemaVersion   = 1
-			minIncomingConfirmations = 10
-			requestedConfsDelay = 10
-			batchFulfillmentEnabled = true
-			publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
-			coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
-			externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
-			observationSource = """
-			decode_log   [type=ethabidecodelog
-						  abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
-						  data="$(jobRun.logData)"
-						  topics="$(jobRun.logTopics)"]
-			vrf          [type=vrf
-						  publicKey="$(jobSpec.publicKey)"
-						  requestBlockHash="$(jobRun.logBlockHash)"
-						  requestBlockNumber="$(jobRun.logBlockNumber)"
-						  topics="$(jobRun.logTopics)"]
-			encode_tx    [type=ethabiencode
-						  abi="fulfillRandomnessRequest(bytes proof)"
-						  data="{\\"proof\\": $(vrf)}"]
-			submit_tx  [type=ethtx to="%s"
-						data="$(encode_tx)"
-						txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-			decode_log->vrf->encode_tx->submit_tx
-			"""
-			`,
+type            = "vrf"
+schemaVersion   = 1
+minIncomingConfirmations = 10
+requestedConfsDelay = 10
+batchFulfillmentEnabled = true
+publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
+coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
+fromAddresses = ["0x1111111111111111111111111111111111111111"]
+observationSource = """` + vrfV2Observation + `"""
+`,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
 			},
@@ -400,34 +237,18 @@ decode_log->vrf->encode_tx->submit_tx
 		{
 			name: "batch fulfillment enabled, batch coordinator address provided",
 			toml: `
-			type            = "vrf"
-			schemaVersion   = 1
-			minIncomingConfirmations = 10
-			requestedConfsDelay = 10
-			batchFulfillmentEnabled = true
-			batchCoordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
-			publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
-			coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
-			externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
-			observationSource = """
-			decode_log   [type=ethabidecodelog
-						  abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
-						  data="$(jobRun.logData)"
-						  topics="$(jobRun.logTopics)"]
-			vrf          [type=vrf
-						  publicKey="$(jobSpec.publicKey)"
-						  requestBlockHash="$(jobRun.logBlockHash)"
-						  requestBlockNumber="$(jobRun.logBlockNumber)"
-						  topics="$(jobRun.logTopics)"]
-			encode_tx    [type=ethabiencode
-						  abi="fulfillRandomnessRequest(bytes proof)"
-						  data="{\\"proof\\": $(vrf)}"]
-			submit_tx  [type=ethtx to="%s"
-						data="$(encode_tx)"
-						txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-			decode_log->vrf->encode_tx->submit_tx
-			"""
-			`,
+type            = "vrf"
+schemaVersion   = 1
+minIncomingConfirmations = 10
+requestedConfsDelay = 10
+batchFulfillmentEnabled = true
+batchCoordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
+coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
+fromAddresses = ["0x1111111111111111111111111111111111111111"]
+observationSource = """` + vrfV2Observation + `"""
+`,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.NoError(t, err)
 				require.Equal(t, "0xB3b7874F13387D44a3398D298B075B7A3505D8d4", os.VRFSpec.BatchCoordinatorAddress.String())
@@ -445,24 +266,8 @@ requestTimeout = "168h" # 7 days
 chunkSize = 25
 backoffInitialDelay = "1h"
 backoffMaxDelay = "30m"
-observationSource = """
-decode_log   [type=ethabidecodelog
-              abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
-              data="$(jobRun.logData)"
-              topics="$(jobRun.logTopics)"]
-vrf          [type=vrf
-			  publicKey="$(jobSpec.publicKey)"
-              requestBlockHash="$(jobRun.logBlockHash)"
-              requestBlockNumber="$(jobRun.logBlockNumber)"
-              topics="$(jobRun.logTopics)"]
-encode_tx    [type=ethabiencode
-              abi="fulfillRandomnessRequest(bytes proof)"
-              data="{\\"proof\\": $(vrf)}"]
-submit_tx  [type=ethtx to="%s"
-			data="$(encode_tx)"
-            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-decode_log->vrf->encode_tx->submit_tx
-"""
+fromAddresses = ["0x1111111111111111111111111111111111111111"]
+observationSource = """` + vrfV2Observation + `"""
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Error(t, err)
@@ -481,24 +286,8 @@ chunkSize = 25
 backoffInitialDelay = "1m"
 backoffMaxDelay = "2h"
 gasLanePrice = "200 gwei"
-observationSource = """
-decode_log   [type=ethabidecodelog
-              abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
-              data="$(jobRun.logData)"
-              topics="$(jobRun.logTopics)"]
-vrf          [type=vrf
-			  publicKey="$(jobSpec.publicKey)"
-              requestBlockHash="$(jobRun.logBlockHash)"
-              requestBlockNumber="$(jobRun.logBlockNumber)"
-              topics="$(jobRun.logTopics)"]
-encode_tx    [type=ethabiencode
-              abi="fulfillRandomnessRequest(bytes proof)"
-              data="{\\"proof\\": $(vrf)}"]
-submit_tx  [type=ethtx to="%s"
-			data="$(encode_tx)"
-            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-decode_log->vrf->encode_tx->submit_tx
-"""
+fromAddresses = ["0x1111111111111111111111111111111111111111"]
+observationSource = """` + vrfV2Observation + `"""
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.NoError(t, err)
@@ -526,24 +315,8 @@ chunkSize = 25
 backoffInitialDelay = "1m"
 backoffMaxDelay = "2h"
 gasLanePrice = "-200"
-observationSource = """
-decode_log   [type=ethabidecodelog
-              abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
-              data="$(jobRun.logData)"
-              topics="$(jobRun.logTopics)"]
-vrf          [type=vrf
-			  publicKey="$(jobSpec.publicKey)"
-              requestBlockHash="$(jobRun.logBlockHash)"
-              requestBlockNumber="$(jobRun.logBlockNumber)"
-              topics="$(jobRun.logTopics)"]
-encode_tx    [type=ethabiencode
-              abi="fulfillRandomnessRequest(bytes proof)"
-              data="{\\"proof\\": $(vrf)}"]
-submit_tx  [type=ethtx to="%s"
-			data="$(encode_tx)"
-            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-decode_log->vrf->encode_tx->submit_tx
-"""
+fromAddresses = ["0x1111111111111111111111111111111111111111"]
+observationSource = """` + vrfV2Observation + `"""
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Error(t, err)
@@ -562,24 +335,8 @@ chunkSize = 25
 backoffInitialDelay = "1m"
 backoffMaxDelay = "2h"
 gasLanePrice = "0 gwei"
-observationSource = """
-decode_log   [type=ethabidecodelog
-              abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
-              data="$(jobRun.logData)"
-              topics="$(jobRun.logTopics)"]
-vrf          [type=vrf
-			  publicKey="$(jobSpec.publicKey)"
-              requestBlockHash="$(jobRun.logBlockHash)"
-              requestBlockNumber="$(jobRun.logBlockNumber)"
-              topics="$(jobRun.logTopics)"]
-encode_tx    [type=ethabiencode
-              abi="fulfillRandomnessRequest(bytes proof)"
-              data="{\\"proof\\": $(vrf)}"]
-submit_tx  [type=ethtx to="%s"
-			data="$(encode_tx)"
-            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-decode_log->vrf->encode_tx->submit_tx
-"""
+fromAddresses = ["0x1111111111111111111111111111111111111111"]
+observationSource = """` + vrfV2Observation + `"""
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Error(t, err)

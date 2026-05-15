@@ -14,6 +14,8 @@ import (
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -78,7 +80,7 @@ type DeployChainContractsConfig struct {
 	BurnMintTokenPoolMetadata    []string
 	LockReleaseTokenPoolMetadata []string
 	// if specified, the mcms contracts will be deployed and initialized if they are not already deployed
-	MCMSWithTimelockConfig *types.MCMSWithTimelockConfigV2
+	MCMSWithTimelockConfig *cldfproposalutils.MCMSWithTimelockConfig
 }
 
 type ChainContractParams struct {

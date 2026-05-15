@@ -15,6 +15,7 @@ type pluginMetrics struct {
 
 	queueOverflow       metric.Int64Counter
 	kvOperationDuration metric.Int64Histogram
+	localQueueSize      metric.Int64Histogram
 }
 
 func newPluginMetrics(configDigest string) (*pluginMetrics, error) {
@@ -31,10 +32,20 @@ func newPluginMetrics(configDigest string) (*pluginMetrics, error) {
 		return nil, fmt.Errorf("failed to create kv operation duration histogram: %w", err)
 	}
 
+	localQueueSize, err := beholder.GetMeter().Int64Histogram(
+		"platform_vault_plugin_local_queue_size",
+		metric.WithUnit("{request}"),
+		metric.WithDescription("Count of items in the Vault reporting plugin local request store at Observation time"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create local queue size histogram: %w", err)
+	}
+
 	return &pluginMetrics{
 		configDigest:        configDigest,
 		queueOverflow:       queueOverflow,
 		kvOperationDuration: kvOperationDuration,
+		localQueueSize:      localQueueSize,
 	}, nil
 }
 
@@ -56,5 +67,14 @@ func (m *pluginMetrics) trackQueueOverflow(ctx context.Context, queueSize int, b
 		attribute.String("configDigest", m.configDigest),
 		attribute.Int("queueSize", queueSize),
 		attribute.Int("batchSize", batchSize),
+	))
+}
+
+func (m *pluginMetrics) trackLocalQueueSize(ctx context.Context, size int) {
+	if m == nil {
+		return
+	}
+	m.localQueueSize.Record(ctx, int64(size), metric.WithAttributes(
+		attribute.String("configDigest", m.configDigest),
 	))
 }

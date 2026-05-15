@@ -25,7 +25,7 @@ import (
 
 /*
 Test_CRE_PoR_MemoryLeakSoak is a long-running soak test that:
- 1. Registers 20 V2 PoR workflows, each with a unique feed ID and staggered cron schedule.
+ 1. Registers 20 PoR workflows, each with a unique feed ID and staggered cron schedule.
  2. Runs a time-bounded loop that detects on-chain price updates for every workflow.
  3. After the soak, asserts Prometheus CPU / memory metrics haven't exceeded configured thresholds.
 
@@ -109,7 +109,7 @@ func Test_CRE_PoR_MemoryLeakSoak(t *testing.T) {
 
 		wfConfig := smokecre.WorkflowTestConfig{
 			WorkflowName:         fmt.Sprintf("por-soak-%02d", i),
-			WorkflowFileLocation: smokecre.PoRWFV2Location,
+			WorkflowFileLocation: smokecre.PoRWFLocation,
 			FeedIDs:              []string{allFeedIDs[i]},
 			CronSchedule:         cronSchedule,
 		}

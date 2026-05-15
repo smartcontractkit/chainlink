@@ -47,6 +47,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/diskmonitor"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins/ocr3"
@@ -101,10 +102,12 @@ import (
 )
 
 const (
-	vaultCapabilityID   = "vault@1.0.0"
-	vaultOCRConfigKey   = "vault"
-	dkgOCRConfigKey     = "dkg"
-	dontimeCapabilityID = "dontime@1.0.0"
+	vaultCapabilityID            = "vault@1.0.0"
+	vaultOCRConfigKey            = "vault"
+	dkgOCRConfigKey              = "dkg"
+	dontimeCapabilityID          = "dontime@1.0.0"
+	gaugeVaultDiskUsageBytes     = "platform_vault_disk_usage_bytes"
+	vaultDiskMonitorTickInterval = time.Minute
 )
 
 type JobSpecNoRelayerError struct {
@@ -660,6 +663,11 @@ func (d *Delegate) newServicesVaultPlugin(
 	}
 	dkgRecipientKey := dkgRecipientKeys[0]
 
+	requestLifecycle, err := vaultcap.NewRequestLifecycleTracker(lggr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create request lifecycle tracker: %w", err)
+	}
+
 	gwconnector := wrapper.GetGatewayConnector()
 	if gwconnector == nil {
 		return nil, errors.New("failed to instantiate vault plugin: gateway connector is not set")
@@ -670,7 +678,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	expiryDuration := cfg.RequestExpiryDuration.Duration()
 	requestStoreHandler := requests.NewHandler(lggr, requestStore, clock, expiryDuration)
 	lpk := vaultcap.NewLazyPublicKey()
-	vaultCapability, err := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler, capabilitiesRegistry, lpk, d.OrgResolver, limitsFactory)
+	vaultCapability, err := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler, capabilitiesRegistry, lpk, d.OrgResolver, limitsFactory, requestLifecycle)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create vault capability: %w", err)
 	}
@@ -721,7 +729,12 @@ func (d *Delegate) newServicesVaultPlugin(
 	})
 	srvs = append(srvs, ocrLogger)
 
-	dm, err := vaultocrplugin.NewDiskMonitor(lggr, d.cfg.OCR2().KeyValueStoreRootDir())
+	dm, err := diskmonitor.NewDiskMonitor(
+		lggr,
+		d.cfg.OCR2().KeyValueStoreRootDir(),
+		gaugeVaultDiskUsageBytes,
+		vaultDiskMonitorTickInterval,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create disk monitor: %w", err)
 	}
@@ -767,6 +780,7 @@ func (d *Delegate) newServicesVaultPlugin(
 			lggr,
 			ocrtypes.Account(spec.TransmitterID.String),
 			requestStoreHandler,
+			requestLifecycle,
 		),
 		Database:                ocrDB,
 		KeyValueDatabaseFactory: kvFactory,
@@ -785,6 +799,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		&dkgRecipientKey,
 		lpk,
 		limitsFactory,
+		requestLifecycle,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create reporting plugin factory: %w", err)

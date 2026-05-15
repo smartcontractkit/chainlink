@@ -9,12 +9,16 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	solanago "github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	linkchangesets "github.com/smartcontractkit/cld-changesets/link/changesets"
 	"github.com/smartcontractkit/mcms/sdk/evm"
 	"github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
+
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
@@ -29,7 +33,6 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonchangesetsolana "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 )
 
@@ -48,11 +51,11 @@ func TestSetConfigMCMSV2EVM(t *testing.T) {
 	chain1 := rt.Environment().BlockChains.EVMChains()[selector1]
 	chain2 := rt.Environment().BlockChains.EVMChains()[selector2]
 
-	config := proposalutils.SingleGroupTimelockConfigV2(t)
+	config := cldftesthelpers.SingleGroupTimelockConfig(t)
 
 	// Deploy MCMS and Timelock for selector1 & selector2
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), map[uint64]commontypes.MCMSWithTimelockConfigV2{
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 			selector1: config,
 			selector2: config,
 		}),
@@ -186,8 +189,8 @@ func TestSetConfigMCMSV2Solana(t *testing.T) {
 
 	// Deploy MCMS and Timelock
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), map[uint64]commontypes.MCMSWithTimelockConfigV2{
-			selector: proposalutils.SingleGroupTimelockConfigV2(t),
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
+			selector: cldftesthelpers.SingleGroupTimelockConfig(t),
 		}),
 	)
 	require.NoError(t, err)
@@ -294,12 +297,12 @@ func TestValidateV2(t *testing.T) {
 	))
 	require.NoError(t, err)
 
-	config := proposalutils.SingleGroupTimelockConfigV2(t)
+	config := cldftesthelpers.SingleGroupTimelockConfig(t)
 
 	// Deploy MCMS and Timelock
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken), []uint64{evmSelector}),
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), map[uint64]commontypes.MCMSWithTimelockConfigV2{
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken), []uint64{evmSelector}),
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 			evmSelector: config,
 			solSelector: config,
 		}),
@@ -532,21 +535,21 @@ func TestSetConfigMCMSV2WithTimelockQualifier(t *testing.T) {
 
 	// Deploy two MCMS instances on the same chain with different qualifiers,
 	// mirroring the production setup where each chain has CLLCCIP and RMNMCMS deployments
-	cllccipConfig := proposalutils.SingleGroupTimelockConfigV2(t)
+	cllccipConfig := cldftesthelpers.SingleGroupTimelockConfig(t)
 	cllccipConfig.Qualifier = &cllccipQualifier
 
-	rmnmcmsConfig := proposalutils.SingleGroupTimelockConfigV2(t)
+	rmnmcmsConfig := cldftesthelpers.SingleGroupTimelockConfig(t)
 	rmnmcmsConfig.Qualifier = &rmnmcmsQualifier
 
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), map[uint64]commontypes.MCMSWithTimelockConfigV2{
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 			selector: cllccipConfig,
 		}),
 	)
 	require.NoError(t, err)
 
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), map[uint64]commontypes.MCMSWithTimelockConfigV2{
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 			selector: rmnmcmsConfig,
 		}),
 	)
@@ -622,11 +625,11 @@ func TestSetConfigMCMSV2Partial(t *testing.T) {
 	require.NoError(t, err)
 
 	chain := rt.Environment().BlockChains.EVMChains()[selector]
-	config := proposalutils.SingleGroupTimelockConfigV2(t)
+	config := cldftesthelpers.SingleGroupTimelockConfig(t)
 
 	// Deploy MCMS and Timelock
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), map[uint64]commontypes.MCMSWithTimelockConfigV2{
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 			selector: config,
 		}),
 	)

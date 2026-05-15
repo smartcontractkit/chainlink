@@ -199,7 +199,6 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		// check that the message was emitted
 		var expectedSeqNums []uint64
 		for i := range tc.NumberOfMessages {
-
 			expectedSeqNums = append(expectedSeqNums, nextSeqNum+uint64(i))
 		}
 		iter, err := tc.OnchainState.MustGetEVMChainState(tc.SourceChain).OnRamp.FilterCCIPMessageSent(

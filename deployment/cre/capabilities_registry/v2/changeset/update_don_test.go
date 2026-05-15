@@ -6,8 +6,12 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
@@ -20,8 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
@@ -182,12 +184,12 @@ func setupRegistryForUpdateDON(t *testing.T, isWorkflow, useMCMS bool) *updFixtu
 		}
 	}
 
-	timelockCfgs := map[uint64]commontypes.MCMSWithTimelockConfigV2{
-		selector: proposalutils.SingleGroupTimelockConfigV2(t),
+	timelockCfgs := map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
+		selector: cldftesthelpers.SingleGroupTimelockConfig(t),
 	}
 
 	updatedEnv, mcmsErr := commonchangeset.Apply(t, rt.Environment(), commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
 		timelockCfgs,
 	))
 	require.NoError(t, mcmsErr, "failed to deploy MCMS infrastructure")

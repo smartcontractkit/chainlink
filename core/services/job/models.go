@@ -611,8 +611,7 @@ type VRFSpec struct {
 type BlockhashStoreSpec struct {
 	ID int32
 
-	// CoordinatorV1Address is the VRF V1 coordinator to watch for unfulfilled requests. If empty,
-	// no V1 coordinator will be watched.
+	// CoordinatorV1Address is a legacy field from VRF V1. It remains for API/DB compatibility; non-zero values are rejected at spec validation.
 	CoordinatorV1Address *evmtypes.EIP55Address `toml:"coordinatorV1Address"`
 
 	// CoordinatorV2Address is the VRF V2 coordinator to watch for unfulfilled requests. If empty,
@@ -668,8 +667,7 @@ type BlockhashStoreSpec struct {
 type BlockHeaderFeederSpec struct {
 	ID int32
 
-	// CoordinatorV1Address is the VRF V1 coordinator to watch for unfulfilled requests. If empty,
-	// no V1 coordinator will be watched.
+	// CoordinatorV1Address is a legacy field from VRF V1. It remains for API/DB compatibility; non-zero values are rejected at spec validation.
 	CoordinatorV1Address *evmtypes.EIP55Address `toml:"coordinatorV1Address"`
 
 	// CoordinatorV2Address is the VRF V2 coordinator to watch for unfulfilled requests. If empty,
