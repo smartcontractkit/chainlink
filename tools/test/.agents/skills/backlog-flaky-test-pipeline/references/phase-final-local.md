@@ -1,6 +1,6 @@
 ---
 phase: phase-final-local
-model: haiku
+model_tier: lightweight
 ---
 
 <phase id="phase-final-local">

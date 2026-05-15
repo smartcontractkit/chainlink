@@ -1,6 +1,6 @@
 ---
 phase: phase2b
-model: haiku
+model_tier: lightweight
 ---
 
 <phase id="phase2b">
@@ -18,7 +18,7 @@ Read [../../_shared-jira-flaky-ops/investigation-comment.md](../../_shared-jira-
 Run `git remote get-url origin` once. Extract `{owner}/{repo}`. Cache as `current_repo`.
 </parent-setup>
 
-<subagent id="validation" model="haiku" instances="one per ticket" parallelism="all in a single message">
+<subagent id="validation" model_tier="lightweight" instances="one per ticket" parallelism="all in a single message">
 
 Spawn one subagent per ticket, following `_shared-jira-flaky-ops/validate-flaky-ticket.md`. Read that file for the full validation steps and field extraction rules.
 

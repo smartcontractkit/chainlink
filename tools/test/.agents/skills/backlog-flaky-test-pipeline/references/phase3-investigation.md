@@ -1,6 +1,6 @@
 ---
 phase: phase3
-model: sonnet
+model_tier: standard
 ---
 
 <phase id="phase3">
@@ -24,7 +24,7 @@ Spawn all N per-ticket investigation subagents in a **single message**. Each rec
 
 ---
 
-<substep id="3a" model="haiku">
+<substep id="3a" model_tier="lightweight">
 <purpose>Resolve `testCaseId`, retrieve `fix-flaky-test` historical data, optionally invoke `investigate-ci-failure` for single-run forensic data, and run the top-level subtest check.</purpose>
 
 <local-mode-branch>
@@ -115,7 +115,7 @@ If all conditions are met:
 
 <substep id="3b" parallelism="Subagent A and Subagent B spawn in a single message">
 
-<subagent id="trunk-analyzer" model="haiku">
+<subagent id="trunk-analyzer" model_tier="lightweight">
 <inputs>
 `trunk_filtered_facts` (already filtered to ≥ 0.9 in 3a, or the user-provided log in local mode), `trunk_investigation_status`, `mode`. Do not call any Trunk MCP tools.
 </inputs>
@@ -136,7 +136,7 @@ If all conditions are met:
 </output-schema>
 </subagent>
 
-<subagent id="code-analyzer" model="sonnet">
+<subagent id="code-analyzer" model_tier="standard">
 <inputs>
 Slim record, `nav_tool`, `lsp_available`, `trunk_filtered_facts`.
 </inputs>
@@ -188,7 +188,7 @@ Allow up to **3 total attempts** per subagent. After 3 failures → hard stop fo
 
 ---
 
-<substep id="3b-ii" model="sonnet" runs-in="parent">
+<substep id="3b-ii" model_tier="standard" runs-in="parent">
 <purpose>
 Classify flakiness source as TEST / SUT / INFRA / AMBIGUOUS before entering the fix debate. Runs in the parent (not a subagent) because it may require a user gate. Single LLM call — no scoring, no signal enumeration, no tier ladder. The model examines the available evidence and chooses one classification, with every conclusion grounded in a verbatim quote.
 </purpose>
@@ -210,8 +210,8 @@ Classify flakiness source as TEST / SUT / INFRA / AMBIGUOUS before entering the 
 ```
 </input-schema>
 
-<classifier-call model="sonnet">
-A single Sonnet call. The prompt:
+<classifier-call model_tier="standard">
+A single call. The prompt:
 
 > You are classifying a flaky test failure. Choose **one** of:
 > - **TEST** — the test code introduces non-determinism (timing dependency, shared state, missing cleanup, parallelism without sync, non-deterministic data, ordering assumption, race in test code, hardcoded resources, etc.).
@@ -338,7 +338,7 @@ For SUT/AMBIGUOUS/INFRA in **local mode**: no JIRA writes. Return verdict `SKIPP
 
 ---
 
-<substep id="3c" model="sonnet">
+<substep id="3c" model_tier="standard">
 <purpose>Mismatch short-circuit — check before entering the debate.</purpose>
 
 If `code_mismatch: true` from Subagent B → stop here. Return verdict `MISMATCH` with `mismatch_details`. Do not enter the debate — the Trunk stack trace references code that no longer exists; any fix derived from it would target the wrong location.
@@ -351,7 +351,7 @@ Otherwise: proceed to 3d. Trunk facts are seed evidence for the Proposer, not a 
 <substep id="3d">
 <purpose>Proposer/Challenger/Arbiter debate — up to 3 rounds. Each role is a separate Agent call. Never collapse multiple roles into one agent call — self-critique by a single model defeats the purpose.</purpose>
 
-<role id="proposer" model="sonnet">
+<role id="proposer" model_tier="standard">
 Synthesizes Subagent A + B output (and `ci_run_evidence` if present); proposes the most likely root cause and a concrete fix with file and line reference.
 
 - If Subagent A returned `confidence: "high"` or `"low"`: inject filtered facts as seed evidence — anchor the hypothesis in the code structure from Subagent B, treating `fix-flaky-test` facts as supporting evidence, not the conclusion.
@@ -368,7 +368,7 @@ Synthesizes Subagent A + B output (and `ci_run_evidence` if present); proposes t
 </output-schema>
 </role>
 
-<role id="challenger" model="opus">
+<role id="challenger" model_tier="reasoning">
 Receives the Proposer's full output. Challenges the proposal — alternative causes, edge cases, risk of breaking other tests. Must explicitly take a position on whether the proposed causal mechanism itself is sound.
 
 <output-schema>
@@ -379,7 +379,7 @@ Receives the Proposer's full output. Challenges the proposal — alternative cau
 </output-schema>
 </role>
 
-<role id="arbiter" model="opus">
+<role id="arbiter" model_tier="reasoning">
 Receives both Proposer and Challenger outputs. Decides whether to stop (enough confidence) or run another round (max 3 total). Issues the final verdict.
 
 <output-schema>
@@ -461,7 +461,7 @@ If any required entry is missing → **override the outcome to `ABANDONED`**, re
 
 ---
 
-<checkpoint model="haiku">
+<checkpoint model_tier="lightweight">
 <purpose>Print summary and wait for user confirmation before any files are modified. Skip in `--auto` mode — proceed with all PROCEED verdicts automatically (MISMATCH issues were already resolved above).</purpose>
 
 <summary-table>

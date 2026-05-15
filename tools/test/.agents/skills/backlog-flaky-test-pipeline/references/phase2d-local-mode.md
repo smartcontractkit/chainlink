@@ -1,6 +1,6 @@
 ---
 phase: phase2d
-model: haiku
+model_tier: lightweight
 ---
 
 <phase id="phase2d">

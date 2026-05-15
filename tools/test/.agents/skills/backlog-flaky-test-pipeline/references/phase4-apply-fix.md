@@ -1,6 +1,6 @@
 ---
 phase: phase4
-model: sonnet
+model_tier: standard
 ---
 
 <phase id="phase4">
@@ -17,7 +17,7 @@ Apply and verify fixes for all PROCEED issues. Updates `ticket_records` with `ap
 For each PROCEED issue (JIRA modes): follow `_shared-jira-flaky-ops/recheck-ownership.md` with `jira_key` and `accountId`. If result is `reassigned`: follow `_shared-jira-flaky-ops/abandon-ticket.md` for that ticket. Continue with remaining issues.
 </substep>
 
-<subagent id="verification" model="sonnet" instances="one per PROCEED issue that passed 4a" parallelism="single message">
+<subagent id="verification" model_tier="standard" instances="one per PROCEED issue that passed 4a" parallelism="single message">
 
 <inputs>
 `key`, `fix_file`, `fix_line`, `fix_description`, `proposer_root_cause`, `recommended_next_step` (from phase3 result), `test_name`, `package` (from slim record), `accountId`, `cloudId`.

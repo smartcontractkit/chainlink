@@ -1,6 +1,6 @@
 ---
 phase: phase2a
-model: haiku
+model_tier: lightweight
 ---
 
 <phase id="phase2a">
@@ -18,7 +18,7 @@ Read [../../_shared-jira-flaky-ops/investigation-comment.md](../../_shared-jira-
 Run `git remote get-url origin` once. Extract `{owner}/{repo}` from the URL. Cache as `current_repo`. Pass to the subagent below.
 </parent-setup>
 
-<subagent id="fetch-filter" model="haiku">
+<subagent id="fetch-filter" model_tier="lightweight">
 
 Spawn this subagent following `_shared-jira-flaky-ops/fetch-flaky-tickets.md`. Read that file for the full loop, filtering rules, and field extraction logic.
 
