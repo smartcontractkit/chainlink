@@ -50,12 +50,17 @@ For each PROCEED issue (JIRA modes): follow `_shared-jira-flaky-ops/recheck-owne
    - **Lint finds violations that require changes outside the fix's scope** → set `lint_status = "failed"`, record violation summary in `lint_failure_detail`, return without fixing.
    - **Lint cannot execute** (binary missing, config error — not a lint violation) → set `lint_status = "skipped"`, record reason in `lint_failure_detail`, return without blocking.
 
-6. **Rerun the test 10 times in independent processes**:
+6. **Run the chainlink `diagnose` tool to verify the fix** (10 iterations, parallelized):
    ```bash
-   # Go (detected via go.mod presence):
-   for i in $(seq 10); do go test -race -shuffle=on -run "^{TestName}$" ./{package}/...; done
-   # Adjust for non-Go projects based on detected language/build tool.
+   go -C tools/test run . diagnose --ai-output --iterations 10 --parallel-iterations 5 -- --run "^{TestName}$" --race --shuffle=on ./{package}/...
    ```
+   Rules:
+   - `--ai-output` is mandatory (machine-readable summary) and must appear **before** the `--` separator.
+   - Harness flags (`--iterations`, `--parallel-iterations`, `--fail-fast-on`) go before `--`. `go test` flags go after `--`.
+   - Reduce `--parallel-iterations` to `1` if the test holds external resources that don't tolerate concurrent runs (e.g. listens on a fixed port, opens a fixed temp file, or claims an exclusive lock). Otherwise default 5.
+   - For additional flags: `go -C tools/test run . diagnose -h`.
+
+   Parse the `--ai-output` summary to determine pass count (N out of 10). The verdict logic in step 7 is unchanged.
 
 7. **Record result and return**:
    - **10/10 pass** → return `{ "verdict": "FIXED", "diff": "<git diff output>" }`.

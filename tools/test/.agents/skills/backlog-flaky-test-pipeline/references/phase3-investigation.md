@@ -31,7 +31,16 @@ Spawn all N per-ticket investigation subagents in a **single message**. Each rec
 **If `mode = "local"`**: skip the `fix-flaky-test-call` and `investigate-ci-failure-call` blocks entirely.
 
 - If `slim_record.provided_log_text` is non-null → set `trunk_filtered_facts = [slim_record.provided_log_text]`, `trunk_investigation_status = "user_provided"`.
-- If `provided_log_text` is null → set `trunk_filtered_facts = []`, `trunk_investigation_status = "uninvestigated"`.
+- If `provided_log_text` is null → **run the chainlink `diagnose` tool** to gather observational evidence locally before falling back to code-analysis-only:
+  ```bash
+  go -C tools/test run . diagnose --ai-output --iterations 3 --parallel-iterations 3 -- --run "^{TestName}$" --race --shuffle=on ./{package}/...
+  ```
+  Parse the `--ai-output` summary:
+  - **At least one iteration failed** → extract the failure-specific portions (error messages, stack traces, race-detector output, timeout reports) into `trunk_filtered_facts` as one or more raw strings. Set `trunk_investigation_status = "diagnose_run"`.
+  - **All iterations passed** → set `trunk_filtered_facts = []`, `trunk_investigation_status = "uninvestigated"`. Inform user: *"diagnose ran 3 iterations without reproducing the failure for {test_name}; proceeding with code analysis only."*
+  - **Tool itself failed to run** (missing dependency, build error, etc.) → set `trunk_filtered_facts = []`, `trunk_investigation_status = "uninvestigated"`. Log the error to the user; do not retry.
+
+  Drop `--parallel-iterations` to `1` if the test holds external resources (fixed port, exclusive temp file, etc.) that don't tolerate concurrent runs. Use `--iterations 3` here (not 10) — this is evidence-gathering, not fix verification.
 
 Proceed directly to `<top-level-check>`.
 </local-mode-branch>
@@ -112,7 +121,8 @@ If all conditions are met:
 </inputs>
 <logic>
 - If `trunk_investigation_status = "uninvestigated"` or `trunk_filtered_facts` is empty → return `confidence: "none"` with empty `facts`.
-- If `trunk_investigation_status = "user_provided"` (local mode) → treat `provided_log_text` as observational evidence with `confidence: "low"`. It is symptom data, not aggregated CI data.
+- If `trunk_investigation_status = "user_provided"` (local mode, user-supplied log) → treat the log content as observational evidence with `confidence: "low"`. It is symptom data, not aggregated CI data.
+- If `trunk_investigation_status = "diagnose_run"` (local mode, agent-collected from chainlink `diagnose` tool) → treat the diagnose output as observational evidence with `confidence: "low"`. It is a small local sample (3 iterations), not aggregated CI data.
 - Map confidence from pre-filtered facts (JIRA modes):
   - `"high"`: at least one fact contains raw CI observational data — exact log lines, error messages, stack traces, or specific `file:line` from actual failing runs.
   - `"low"`: facts describe symptoms only (e.g. "failures in cluster 2 are regex mismatches") but contain no raw CI data.
@@ -190,7 +200,7 @@ Classify flakiness source as TEST / SUT / INFRA / AMBIGUOUS before entering the 
   "record_id": "string (jira_key or local_id)",
   "test_name": "string",
   "trunk_filtered_facts": ["string"],
-  "trunk_investigation_status": "existing | triggered | uninvestigated | ci_run_only | user_provided",
+  "trunk_investigation_status": "existing | triggered | uninvestigated | ci_run_only | user_provided | diagnose_run",
   "subagent_b_output": {
     "file": "string", "line": "number", "analysis": "string",
     "suspected_cause": "string", "suspected_cause_location": "test_code | production_code | unknown",
@@ -397,7 +407,7 @@ Never surface raw Proposer/Challenger/Arbiter responses to the top-level parent.
   "record_id": "KEY-NNN (jira_key if non-null, else local_id)",
   "outcome": "PROCEED | INCONCLUSIVE | MISMATCH | SKIP_TOP_LEVEL | RETURNED_TO_QUEUE | ABANDONED | SKIPPED",
   "subagent_calls_made": ["trunk_analyzer | code_analyzer | classifier | proposer | challenger | arbiter"],
-  "trunk_investigation_status": "existing | triggered | uninvestigated | ci_run_only | user_provided",
+  "trunk_investigation_status": "existing | triggered | uninvestigated | ci_run_only | user_provided | diagnose_run",
   "trunk_fact_count": "integer",
   "trunk_analysis_url": "string | null",
   "trunk_test_case_url": "string | null",

@@ -68,6 +68,18 @@ If not found, determine the install path and stop:
   ```
 </check>
 
+<check id="diagnose-tool" required="true">
+Run `go -C tools/test run . diagnose -h` (exit code 0 expected; help text on stdout).
+
+If it fails → stop:
+```
+The chainlink `diagnose` tool is not available at tools/test/. Phase 4 relies on it to
+verify fixes (10x iteration runner with AI-readable output). Verify you are running
+this skill from the chainlink repo root and that tools/test/ contains the diagnose
+command.
+```
+</check>
+
 <check id="code-navigation" required="true">
 At least one code navigation tool must work.
 
