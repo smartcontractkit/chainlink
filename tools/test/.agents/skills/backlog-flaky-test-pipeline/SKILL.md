@@ -39,7 +39,7 @@ Set the `model` parameter explicitly when invoking Agent tool calls:
 
 <absolute_constraints>
 - **User gates belong in the parent, never in subagents.** Subagents are fire-and-return and cannot pause for decisions. Resolve all user-facing choices before spawning subagents; they receive already-resolved inputs.
-- **Only act on `fix-flaky-test` facts with `Confidence ≥ 0.9`.** Discard lower-confidence facts entirely. Never use the `## Markdown Summary` — it blends reliable and speculative inferences into a narrative that anchors analysis on wrong causes. (Exemption: `investigate-ci-failure` output is single-run forensic data without a confidence field — kept on a separate evidence track, see `ci_run_evidence` below.)
+- **Only act on `fix-flaky-test` facts with `Confidence >= 0.9`.** Discard lower-confidence facts entirely. Never use the `## Markdown Summary` — it blends reliable and speculative inferences into a narrative that anchors analysis on wrong causes. (Exemption: `investigate-ci-failure` output is single-run forensic data without a confidence field — kept on a separate evidence track, see `ci_run_evidence` below.)
 - **Check go.mod before writing any new utility code.** Three lines of existing library usage beats 30 lines of hand-rolled logic that has to be maintained and tested.
 - **Never alter a test's core goal to make it pass.** Changing what a test asserts to eliminate a failure is not a fix.
 - **Never remove tests or assertions** unless replacing them with stronger coverage or deleting confirmed dead code.
@@ -72,18 +72,18 @@ This skill is a multi-phase workflow; later phases depend on outputs from earlie
     - `local_id` (e.g. `local-1`) — null in JIRA modes
     - `test_case_id` (UUID from `customfield_13010`) — null in local mode
     - `test_name`, `package_path`
-    - `trunk_investigation_id` — null in local mode
-    - `actionable_facts` — `fix-flaky-test` facts with `Confidence ≥ 0.9` only
+    - `trunk_investigation_status` — e.g. `"existing" | "triggered" | "uninvestigated" | "ci_run_only" | "user_provided" | "diagnose_run"`; null in local mode before 3a runs
+    - `actionable_facts` — facts with `Confidence >= 0.9` from Trunk, or raw strings from `diagnose`/user log
     - `ci_run_url` — GitHub Actions run URL for `investigate-ci-failure` (null in project mode and local mode; populated from `KEY@URL` syntax or 3a fallback prompt in direct-ticket mode)
     - `ci_run_evidence` — structured failure data from `investigate-ci-failure` (null if no URL provided or call failed). Separate evidence track — exempt from the ≥ 0.9 rule. Always null in local mode.
     - `provided_log_path` — path supplied via `--log` in local mode; null in JIRA modes
     - `provided_log_text` — contents of the log file read once; null if no log or file missing
     - `shared_cause_group` — id linking tickets in the same package that share a root cause (see `shared-package-cause` tip)
-    - `chosen_fix` — { approach, rationale }
-    - `applied_fix` — { files_changed, diff_summary }
+    - `chosen_fix` — { fix_file, fix_line, fix_description, proposer_root_cause }
+    - `applied_fix` — { diff }
     - `lint_status` — `"ran"` | `"skipped"` | `"failed"`
     - `lint_scope` — package path used for linting (e.g. `./core/chains/evm/txmgr/...`)
-    - `verification` — { local_10x_passed, ci_status }
+    - `verification` — { iterations_passed, ci_status }
     - `branch`, `commit_sha`, `pr_url` — null in local mode
   </ticket_records>
 
@@ -102,7 +102,7 @@ This skill is a multi-phase workflow; later phases depend on outputs from earlie
 <tips>
 <tip id="test-case-id">`testCaseId` comes from `customfield_13010` (TrunkID) — a bare UUID, no URL parsing needed. If absent, fall back to extracting the UUID from the Trunk URL in the description. Use `search-test` fuzzy fallback only as a last resort — it may match the wrong test if names are similar.</tip>
 
-<tip id="mcp-suffix">All code-review-graph MCP tool names carry a `_tool` suffix (e.g. `get_minimal_context_tool`, `semantic_search_nodes_tool`).</tip>
+<tip id="mcp-suffix">All code-review-graph MCP tool names carry a `_tool` suffix (e.g. `get_minimal_context_tool`, `semantic_search_nodes_tool`). If these tools do not appear in your environment, skip the crg path and require LSP.</tip>
 
 <tip id="quarantine">Quarantined tests still run in CI (`RUN_QUARANTINED_TESTS=true`), so a successful local 10x run is a reasonable signal but not definitive.</tip>
 

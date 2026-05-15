@@ -46,26 +46,9 @@ Run `which golangci-lint`.
 
 If found → set `golangci_lint_available = true` and continue.
 
-If not found, determine the install path and stop:
-
-- **asdf available** (`which asdf` succeeds):
-  ```
-  golangci-lint is not installed. Run:
-    asdf install golangci-lint
-  ```
-
-- **asdf not available, `.tool-versions` present**: read the golangci-lint version from `.tool-versions` and stop:
-  ```
-  golangci-lint is not installed. Run:
-    go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@<version>
-  ```
-
-- **asdf not available, `.tool-versions` missing**: stop:
-  ```
-  golangci-lint is not installed and the required version cannot be determined automatically.
-  Check the project documentation for the correct version, then run:
-    go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@<version>
-  ```
+If not found → stop:
+- If `asdf` is available: `asdf install golangci-lint`
+- Otherwise: read the version from `.tool-versions` (or project docs) and run `go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@<version>`
 </check>
 
 <check id="diagnose-tool" required="true">
@@ -88,7 +71,7 @@ At least one code navigation tool must work.
 **a. LSP for Go** (preferred — always attempt first):
 Attempt an `LSP` hover call on any known `.go` source file.
 
-- Works → set `nav_tool = "lsp"`, skip step b.
+- Works → set `nav_tool = "lsp"`, `lsp_available = true`. Skip step b.
 - Fails → run `which gopls`:
   - **gopls missing**: print the following, then proceed to step b (do not stop):
     ```

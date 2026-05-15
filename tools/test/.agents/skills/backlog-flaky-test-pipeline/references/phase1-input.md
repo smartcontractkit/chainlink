@@ -20,24 +20,17 @@ Check arguments in order — stop at the first match:
 
 2. Any argument matches `PROJ-NNN` or `PROJ-NNN@<url>` (e.g. `CRE-5719`, `CCIP-42@https://github.com/.../actions/runs/123`) → **direct-ticket mode**, args = list of `{ key, ci_run_url }` pairs. For each token: split on the first `@`. Left side is the JIRA key (must match `PROJ-NNN`); right side, if present, is the CI run URL — store as-is, do not validate the URL here. Skip prompt.
 3. Both `KEY` and `N` were provided → **project mode**, args = `{ key, n }`. Skip prompt.
-4. Neither matched → **ask the user**:
+4. Neither matched → **ask the user** using `AskUserQuestion`:
+- Question: "Which mode would you like?"
+- Options:
+  - "Project mode — search JIRA for the top N open flaky-test tickets in a project (provide project key + count)"
+  - "Direct-ticket mode — investigate specific JIRA ticket IDs you provide (e.g. CRE-5719, or CRE-5719@<ci-run-url>)"
 
-<user-prompt>
-**Two modes available:**
-
-**Project mode** — searches JIRA for open flaky-test issues in a project, filters to ones that exist in this repo, and claims the top N for investigation. Good for batch-processing a queue.
-- Requires: project key (e.g. `CRE`, `CCIP`, `DX`) and number of issues (default 3).
-
-**Direct-ticket mode** — you provide specific JIRA ticket IDs (e.g. `CRE-5719 CCIP-42`) and those exact tickets are investigated. Good when you already know which tickets to fix. Optionally attach a CI run URL with `KEY@<url>` (e.g. `CRE-5719@https://github.com/.../actions/runs/123`) to feed it to `investigate-ci-failure`.
-
-Which mode would you like? (Or just paste ticket IDs / a project key to pick implicitly.)
-</user-prompt>
-
-Once the user responds, extract `KEY` + `N` for project mode, or ticket IDs for direct-ticket mode.
+Once the user responds, ask a follow-up for the required inputs (project key + N, or ticket IDs) if not already provided.
 </mode-detection>
 
 <validation>
-If `N > 5`: suggest a lower number and wait for confirmation before proceeding. Accept on second confirmation even if N is still high.
+If `N > 5`: suggest a lower number and wait for confirmation before proceeding. If user reconfirms, proceed without further prompting.
 </validation>
 
 <on_complete>

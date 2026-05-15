@@ -26,7 +26,7 @@ For each spec:
 <step id="2-locate-test">
 For each test spec, locate the test function in the repo:
 
-1. **LSP definition lookup** (if `nav_tool = "lsp"` or `lsp_available = true`): look up the definition of `func {TestName}`.
+1. **LSP definition lookup** (if `lsp_available = true`): look up the definition of `func {TestName}`.
 2. **code-review-graph** (if `nav_tool = "crg"`): `mcp__code-review-graph__semantic_search_nodes_tool` with the test name.
 3. **Last resort**: `grep -r "func {TestName}" .` — parse first `filepath:line`, warn if multiple matches.
 
@@ -36,7 +36,7 @@ If the package was not provided in the spec, infer it from the found file path (
 </step>
 
 <step id="3-read-log">
-If `invocation.args.log_path` is non-null and has not yet been read:
+If `invocation.args.log_path` is non-null:
 - Read the file once into a single string `provided_log_text`.
 - If the file is missing: warn user *"--log file not found at {path}; proceeding without log evidence."* and set `provided_log_text = null`.
 

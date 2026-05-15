@@ -1,40 +1,10 @@
 ---
 phase: phase-final-local
-model_tier: lightweight
+status: deprecated
 ---
 
-<phase id="phase-final-local">
+The local-mode session summary is now inlined in the `<on_complete>` sections of:
+- `phase3-investigation.md` — for all-non-PROCEED local runs
+- `phase4-apply-fix.md` — for local runs that reached the fix step
 
-<purpose>
-Print the local-mode session summary and end. No commits, no push, no PR, no JIRA writes. Reached only from local mode after phase4 completes.
-</purpose>
-
-<summary>
-Print the following table, populated from `ticket_records`:
-
-```
-Session complete (local mode — no JIRA, no PR).
-
-Fix results:
-| Test | Verdict | Local 10x | Notes |
-|------|---------|-----------|-------|
-| <pkg>.TestFoo  | FIXED        | 10/10 | diff retained, uncommitted |
-| <pkg>.TestBar  | PARTIAL_FIX  | 4/10  | reverted |
-| <pkg>.TestBaz  | SKIPPED      | —     | classified SUT |
-| <pkg>.TestQux  | INCONCLUSIVE | —     | debate did not converge |
-```
-
-Column rules:
-- **Test**: `{package}.{test_name}` (use `local_id` as fallback if package is null).
-- **Verdict**: FIXED | PARTIAL_FIX | SKIPPED | INCONCLUSIVE | MISMATCH.
-- **Local 10x**: pass count out of 10 for FIXED/PARTIAL_FIX; `—` for others.
-- **Notes**: one short phrase. For FIXED: "diff retained, uncommitted". For PARTIAL_FIX: "reverted". For SKIPPED: the classification reason (e.g. "classified SUT", "classified AMBIGUOUS", "SKIP_TOP_LEVEL"). For INCONCLUSIVE: "debate did not converge". For MISMATCH: "stack trace stale".
-</summary>
-
-<footer>
-After the table, print:
-
-> FIXED diffs are uncommitted in your working tree. Review with `git diff` and commit manually if you want to keep them.
-</footer>
-
-</phase>
+This file is no longer read.

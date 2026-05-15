@@ -34,13 +34,7 @@ For each PROCEED issue (JIRA modes): follow `_shared-jira-flaky-ops/recheck-owne
 
 3. **Apply the code change.**
 
-4. **Verify compilation**:
-   ```bash
-   go build ./...
-   ```
-   If `go build` fails → fix the compilation error before proceeding. Do not revert — diagnose and correct. Only abandon if the fix approach is architecturally broken; explain why.
-
-5. **Run the linter** (scoped to the changed package — never the whole repo):
+4. **Run the linter** (scoped to the changed package — never the whole repo; lint will catch compilation errors too):
    Derive `lint_scope` from `fix_file`: take the directory relative to the repo root and append `/...` (e.g. `fix_file = core/chains/evm/txmgr/foo_test.go` → `lint_scope = ./core/chains/evm/txmgr/...`).
    ```bash
    golangci-lint run {lint_scope}
@@ -88,21 +82,13 @@ The parent never sees raw build output, lint output, or test logs — only the c
 </subagent>
 
 <on_subagent_return>
-Write results into `ticket_records` (`applied_fix.diff` for FIXED, `verification.local_10x_passed`, `lint_status`, `lint_scope`).
+Write results into `ticket_records` (`applied_fix.diff` for FIXED, `verification.iterations_passed`, `lint_status`, `lint_scope`).
 
 For each ticket where `lint_status` is `"skipped"` or `"failed"`, gate on user decision before proceeding:
 
-<user-prompt>
-Lint {skipped | failed} for KEY-NNN.
-{lint_failure_detail}
-
-To run lint for just the changed package:
-  golangci-lint run {lint_scope}
-
-How would you like to proceed?
-(a) Proceed anyway
-(b) Wait — I'll fix lints myself (reply when ready to continue)
-</user-prompt>
+Use `AskUserQuestion`:
+- Question: "Lint {skipped | failed} for {key}. {lint_failure_detail}. To run lint manually: `golangci-lint run {lint_scope}`. How would you like to proceed?"
+- Options: ["Proceed anyway", "Wait — I'll fix lints myself (reply when ready to continue)"]
 
 Record decision in `user_decisions`. In `--auto` mode: automatically choose (a) and log the lint status.
 </on_subagent_return>
@@ -111,7 +97,28 @@ Record decision in `user_decisions`. In `--auto` mode: automatically choose (a) 
 Announce verdict for each issue: "Fix results: KEY-1 FIXED, KEY-2 PARTIAL_FIX (reverted and returned to queue)." In local mode, use `local_id` or test name in place of the JIRA key.
 
 - **JIRA mode**: State "Moving to commit and PR. Please review the fix files before confirming." → Read [phase5-commit-pr.md](phase5-commit-pr.md) and follow its instructions.
-- **Local mode**: → Read [phase-final-local.md](phase-final-local.md) and follow its instructions.
+- **Local mode**: print the session summary:
+
+```
+Session complete (local mode — no JIRA, no PR).
+
+Fix results:
+| Test | Verdict | 10x | Notes |
+|------|---------|-----|-------|
+| <pkg>.TestFoo  | FIXED        | 10/10 | diff retained, uncommitted |
+| <pkg>.TestBar  | PARTIAL_FIX  | 4/10  | reverted |
+| <pkg>.TestBaz  | SKIPPED      | —     | classified SUT |
+| <pkg>.TestQux  | INCONCLUSIVE | —     | debate did not converge |
+| <pkg>.TestQuux | MISMATCH     | —     | stack trace stale |
+```
+
+Column rules:
+- **Test**: `{package}.{test_name}` (use `local_id` as fallback if package is null).
+- **Verdict**: FIXED | PARTIAL_FIX | SKIPPED | INCONCLUSIVE | MISMATCH.
+- **10x**: pass count out of 10 for FIXED/PARTIAL_FIX; `—` for others.
+- **Notes**: one short phrase. FIXED → "diff retained, uncommitted". PARTIAL_FIX → "reverted". SKIPPED → classification reason. INCONCLUSIVE → "debate did not converge". MISMATCH → "stack trace stale".
+
+Then print: *"FIXED diffs are uncommitted in your working tree. Review with `git diff` and commit manually if you want to keep them."*
 </on_complete>
 
 </phase>
