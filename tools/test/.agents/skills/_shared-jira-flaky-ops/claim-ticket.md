@@ -14,14 +14,15 @@ description: Assign a flaky-test ticket to the current user and transition it to
 
 Execute in order — wait for each step to succeed before proceeding:
 
-1. `mcp__atlassian__editJiraIssue` → assign the issue to `accountId` (set `assignee.accountId = accountId`). Wait for success.
-2. Follow `transition-ticket.md` with `jira_key` and `target = "In Progress"`.
+1. `mcp__atlassian__getJiraIssue` with `jira_key` → read `fields.assignee.accountId`. Save it as `original_assignee` (null if the field is absent or the ticket is unassigned).
+2. `mcp__atlassian__editJiraIssue` → assign the issue to `accountId` (set `assignee.accountId = accountId`). Wait for success.
+3. Follow `transition-ticket.md` with `jira_key` and `target = "In Progress"`.
    - If the transition fails: log available transitions and stop. Do not leave the ticket assigned without transitioning.
 
 ## Output
 
 ```json
-{ "success": true, "jira_key": "KEY-NNN" }
+{ "success": true, "jira_key": "KEY-NNN", "original_assignee": "<accountId or null>" }
 ```
 
 or on failure:

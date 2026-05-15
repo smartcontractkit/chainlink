@@ -19,7 +19,7 @@ Read [../../_shared-jira-flaky-ops/abandon-ticket.md](../../_shared-jira-flaky-o
 <fixed-issues>
 For each FIXED issue:
 
-1. Follow `_shared-jira-flaky-ops/transition-ticket.md` with `jira_key` and `target = "In Review"`.
+1. Follow `_shared-jira-flaky-ops/transition-ticket.md` with `jira_key`, `target = "In Review"`, `original_assignee` (from the claim-ticket output for this ticket), and `accountId` (from `phase_outputs.phase0`).
 2. Follow `_shared-jira-flaky-ops/investigation-comment.md` to write `addCommentToJiraIssue` (OUTCOME = FIXED):
    - **What was investigated**: the failure mode and root cause in one sentence.
    - **Hypothesis**: the Proposer's root cause.
