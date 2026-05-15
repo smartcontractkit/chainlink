@@ -3319,10 +3319,8 @@ func (cfg SetChainRateLimitConfig) Validate(e cldf.Environment, chainState solan
 			if rlAdmin != timelockSigner {
 				return fmt.Errorf("rate limit admin %s does not match timelock signer %s for token %s", rlAdmin, timelockSigner, entry.SolTokenPubKey)
 			}
-		} else {
-			if rlAdmin != chain.DeployerKey.PublicKey() {
-				return fmt.Errorf("rate limit admin %s does not match deployer key %s for token %s", rlAdmin, chain.DeployerKey.PublicKey(), entry.SolTokenPubKey)
-			}
+		} else if rlAdmin != chain.DeployerKey.PublicKey() {
+			return fmt.Errorf("rate limit admin %s does not match deployer key %s for token %s", rlAdmin, chain.DeployerKey.PublicKey(), entry.SolTokenPubKey)
 		}
 	}
 	return nil
