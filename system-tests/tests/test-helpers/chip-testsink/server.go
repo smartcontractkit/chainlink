@@ -149,16 +149,6 @@ func (s *Server) PublishBatch(ctx context.Context, batch *chippb.CloudEventBatch
 		}
 	}
 
-	if s.cfg.UpstreamEndpoint != "" {
-		go func() {
-			forwardCtx, cancelFn := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancelFn()
-			if _, err := s.upstream.PublishBatch(forwardCtx, batch); err != nil {
-				log.Printf("failed to forward batch to upstream: %v", err)
-			}
-		}()
-	}
-
 	return &chippb.PublishResponse{}, nil
 }
 
