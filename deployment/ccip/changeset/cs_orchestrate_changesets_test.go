@@ -28,6 +28,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 var multiplyBy2 = operations.NewOperation(

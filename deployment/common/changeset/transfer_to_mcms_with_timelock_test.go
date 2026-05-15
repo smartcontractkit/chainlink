@@ -41,7 +41,7 @@ func TestTransferToMCMSWithTimelockV2(t *testing.T) {
 
 	// Setup contracts
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployLinkToken), []uint64{selector}),
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken), []uint64{selector}),
 		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 			selector: cldftesthelpers.SingleGroupTimelockConfig(t),
 		}),
@@ -105,7 +105,7 @@ func TestTransferToMCMSWithTimelockV2DataStore(t *testing.T) {
 
 	// Setup contracts
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployLinkToken), []uint64{selector}),
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken), []uint64{selector}),
 		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 			selector: cldftesthelpers.SingleGroupTimelockConfig(t),
 		}),
