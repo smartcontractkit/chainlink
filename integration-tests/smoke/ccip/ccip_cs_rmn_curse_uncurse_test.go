@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
@@ -636,8 +638,8 @@ func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state s
 	// This is required because RMN Contracts is initially owned by the deployer
 	_, err := commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
-			commonchangeset.TransferToMCMSWithTimelockConfig{
+			cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+			mcmschangesets.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
 				MCMSConfig: cldfproposalutils.TimelockConfig{
 					MinDelay: 0 * time.Second,

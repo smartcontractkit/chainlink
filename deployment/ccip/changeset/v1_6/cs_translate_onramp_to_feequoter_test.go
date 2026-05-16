@@ -314,8 +314,8 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset_WithMCMS(t *testing.T) {
 	// changeset proposal can be routed through it.
 	tenv, err = commonchangeset.Apply(t, tenv,
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
-			commonchangeset.TransferToMCMSWithTimelockConfig{
+			cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+			mcmschangesets.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: map[uint64][]common.Address{
 					sourceChainSelector: {state.MustGetEVMChainState(sourceChainSelector).FeeQuoter.Address()},
 				},

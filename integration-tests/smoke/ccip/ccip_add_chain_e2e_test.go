@@ -8,6 +8,7 @@ import (
 	"github.com/AlekSi/pointer"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 
@@ -344,8 +345,8 @@ func TransferOwnership(
 
 	return commonchangeset.Apply(t, env,
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
-			commonchangeset.TransferToMCMSWithTimelockConfig{
+			cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+			mcmschangesets.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsToTransfer,
 				MCMSConfig: cldfproposalutils.TimelockConfig{
 					MinDelay: 0 * time.Second,

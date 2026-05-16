@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
-	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/common/changeset"
+	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/cldfutil/changeset"
 
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
@@ -827,7 +827,7 @@ func connectNewChainLogic(env cldf.Environment, c ConnectNewChainConfig) (cldf.C
 				addressesToTransfer = append(addressesToTransfer, contract.Address())
 			}
 		}
-		out, err := commoncs.TransferToMCMSWithTimelockV2(env, commoncs.TransferToMCMSWithTimelockConfig{
+		out, err := mcmschangesets.TransferToMCMSWithTimelockV2(env, mcmschangesets.TransferToMCMSWithTimelockConfig{
 			ContractsByChain: map[uint64][]common.Address{
 				c.NewChainSelector: addressesToTransfer,
 			},

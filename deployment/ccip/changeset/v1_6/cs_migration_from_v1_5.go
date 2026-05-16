@@ -15,6 +15,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	migrate_seq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/migration"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -801,7 +802,7 @@ func ensureTimelockOwnership(e cldf.Environment, chainSel uint64, contracts []co
 	if len(addressesToTransfer) == 0 {
 		return cldf.ChangesetOutput{}, nil // Nothing to transfer, no ownership change needed.
 	}
-	return commoncs.TransferToMCMSWithTimelockV2(e, commoncs.TransferToMCMSWithTimelockConfig{
+	return mcmschangesets.TransferToMCMSWithTimelockV2(e, mcmschangesets.TransferToMCMSWithTimelockConfig{
 		ContractsByChain: map[uint64][]common.Address{
 			chainSel: addressesToTransfer,
 		},

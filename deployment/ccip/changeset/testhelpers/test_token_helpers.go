@@ -137,7 +137,7 @@ func SetupTwoChainEnvironmentWithTokens(
 	if transferToTimelock {
 		// Transfer ownership of token admin registry to the Timelock
 		err = rt.Exec(
-			runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2), commoncs.TransferToMCMSWithTimelockConfig{
+			runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2), mcmschangesets.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: timelockOwnedContractsByChain,
 				MCMSConfig: cldfproposalutils.TimelockConfig{
 					MinDelay: 0 * time.Second,
@@ -214,8 +214,8 @@ func DeployTestTokenPools(
 		// Transfer ownership of token admin registry to the Timelock
 		e, err = commoncs.Apply(t, e,
 			commoncs.Configure(
-				cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
-				commoncs.TransferToMCMSWithTimelockConfig{
+				cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+				mcmschangesets.TransferToMCMSWithTimelockConfig{
 					ContractsByChain: timelockOwnedContractsByChain,
 					MCMSConfig: cldfproposalutils.TimelockConfig{
 						MinDelay: 0 * time.Second,

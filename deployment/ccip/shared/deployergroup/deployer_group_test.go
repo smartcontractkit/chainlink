@@ -249,8 +249,8 @@ func TestDeployerGroupMCMS(t *testing.T) {
 
 			_, err = commonchangeset.Apply(t, e.Env,
 				commonchangeset.Configure(
-					cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
-					commonchangeset.TransferToMCMSWithTimelockConfig{
+					cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+					mcmschangesets.TransferToMCMSWithTimelockConfig{
 						ContractsByChain: contractsByChain,
 						MCMSConfig: cldfproposalutils.TimelockConfig{
 							MinDelay: 0,
@@ -351,8 +351,8 @@ func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
 	contractsByChain[chain] = []common.Address{token.Address()}
 
 	e.Env, err = commonchangeset.Apply(t, e.Env,
-		commonchangeset.Configure(cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
-			commonchangeset.TransferToMCMSWithTimelockConfig{
+		commonchangeset.Configure(cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+			mcmschangesets.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
 				MCMSConfig:       *testCfg.MCMS,
 			},
@@ -411,8 +411,8 @@ func TestDeployerGroupGenerateMultipleProposals(t *testing.T) {
 
 	_, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
-			commonchangeset.TransferToMCMSWithTimelockConfig{
+			cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+			mcmschangesets.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
 				MCMSConfig: cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
@@ -475,8 +475,8 @@ func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
 
 	_, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
-			commonchangeset.TransferToMCMSWithTimelockConfig{
+			cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+			mcmschangesets.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
 				MCMSConfig: cldfproposalutils.TimelockConfig{
 					MinDelay: 0,

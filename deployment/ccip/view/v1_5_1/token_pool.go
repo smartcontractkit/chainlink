@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/exp/maps"
 
-	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
+	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/cldfutil"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
