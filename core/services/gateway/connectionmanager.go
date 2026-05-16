@@ -272,7 +272,16 @@ func (m *connectionManager) FinalizeHandshake(attemptId string, response []byte,
 		return network.ErrChallengeInvalidSignature
 	}
 	if conn != nil {
+		// Set a read deadline so that half-open connections are detected and closed.
+		// Use 3x the heartbeat interval to tolerate up to 2 missed pongs.
+		pongWait := time.Duration(m.config.HeartbeatIntervalSec) * time.Second * 3
+		if pongWait > 0 {
+			conn.SetReadDeadline(time.Now().Add(pongWait))
+		}
 		conn.SetPongHandler(func(data string) error {
+			if pongWait > 0 {
+				conn.SetReadDeadline(time.Now().Add(pongWait))
+			}
 			m.lggr.Debugw("received keepalive pong from node", "nodeAddress", attempt.nodeAddress)
 			m.gMetrics.RecordKeepalivePongsReceived(context.Background(), attempt.nodeAddress, attempt.nodeState.name)
 			return nil
