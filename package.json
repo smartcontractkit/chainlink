@@ -4,19 +4,21 @@
   "description": "node of the decentralized oracle network, bridging on and off-chain computation",
   "main": "index.js",
   "scripts": {
-    "ci:changeset:version": "pnpm changeset version"
+    "ci:changeset:version": "pnpm changeset version",
+    "version": "pnpm changeset version",
+    "release": "pnpm changeset publish"
   },
   "private": true,
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/smartcontractkit/chainlink.git"
+    "url": "git+ssh://git@github.com/Pray4Love1/holo-protocol-attribution.git"
   },
   "author": "smartcontractkit",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/smartcontractkit/chainlink/issues"
+    "url": "https://github.com/Pray4Love1/holo-protocol-attribution/issues"
   },
-  "homepage": "https://github.com/smartcontractkit/chainlink#readme",
+  "homepage": "https://github.com/Pray4Love1/holo-protocol-attribution#readme",
   "engines": {
     "node": ">=18",
     "pnpm": ">=10"
