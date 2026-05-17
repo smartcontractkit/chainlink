@@ -28,23 +28,35 @@ jobs:
           github.event_name == 'push' ||
           github.event_name == 'schedule' ||
           github.event_name == 'workflow_dispatch' ||
-          steps.pr-labels.outputs.check-label-found == 'true'
+          steps.pr-labels.outputs.labels == 'build-publish'
         }}
       checked-out-sha: ${{ steps.checkout-sha.outputs.checked-out-sha }}
       version-tag: ${{ steps.version-info.outputs.version-tag }}
 
     steps:
-      - name: Get PR Labels
-        id: pr-labels
-        uses: actions-ecosystem/action-get-labels@v1
-        with:
-          labels: "build-publish"
-
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ inputs.git-ref || github.sha }}
+
+      - name: Get PR Labels
+        id: pr-labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            if (context.eventName !== 'pull_request') {
+              core.setOutput('labels', '');
+              return;
+            }
+            const labels = await github.rest.issues.listLabelsOnIssue({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const hasBuildPublish = labels.data.some(label => label.name === 'build-publish');
+            core.setOutput('labels', hasBuildPublish ? 'build-publish' : '');
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Resolve checked out SHA
         id: checkout-sha
@@ -113,7 +125,7 @@ jobs:
         run: |
           IMAGE_NAME="localhost/chainlink-${{ matrix.name }}${{ matrix.suffix }}"
           docker image ls $IMAGE_NAME
-          echo "✅ Successfully built: $IMAGE_NAME"
+          echo "Successfully built: $IMAGE_NAME"
 
       - name: Job Summary
         if: always()
