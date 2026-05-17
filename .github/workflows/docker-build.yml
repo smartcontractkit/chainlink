@@ -13,6 +13,7 @@ on:
       git-ref:
         description: "The git ref to check out"
         required: true
+        default: "develop"
 
 concurrency:
   group: "docker-build-${{ github.event_name }}-${{ github.ref_name }}"
@@ -22,300 +23,105 @@ jobs:
   init:
     runs-on: ubuntu-24.04
     outputs:
-      # To get an image from a feature branch, do one of the following:
-      # 1. Use a workflow dispatch
-      # 2. Add the `build-publish` label to your PR, and re-run the workflow (or push a commit)
       should-run: >-
         ${{
-          steps.pr-labels.outputs.check-label-found == 'true' ||
           github.event_name == 'push' ||
           github.event_name == 'schedule' ||
-          github.event_name == 'workflow_dispatch'
+          github.event_name == 'workflow_dispatch' ||
+          steps.pr-labels.outputs.check-label-found == 'true'
         }}
-      runner-arm64: ${{ steps.runner-labels.outputs.runner-arm64 }}
-      runner-amd64: ${{ steps.runner-labels.outputs.runner-amd64 }}
       checked-out-sha: ${{ steps.checkout-sha.outputs.checked-out-sha }}
       version-tag: ${{ steps.version-info.outputs.version-tag }}
+
     steps:
       - name: Get PR Labels
         id: pr-labels
-        uses: smartcontractkit/.github/actions/get-pr-labels@get-pr-labels/v1
+        uses: actions-ecosystem/action-get-labels@v1
         with:
-          check-label: "build-publish"
-          skip-merge-group: "true"
-
-      - name: Set runner labels
-        id: runner-labels
-        shell: bash
-        env:
-          SH_RUNNER_LABEL_ARM64: runs-on=${{ github.run_id
-            }}/cpu=8/ram=16/family=c7g/volume=80gb/spot=false/image=ubuntu24-full-arm64
-          SH_RUNNER_LABEL_AMD64: runs-on=${{ github.run_id
-            }}/cpu=8/ram=16/family=c7a/volume=80gb/spot=false/image=ubuntu24-full-x64
-          GH_RUNNER_LABEL_ARM64: ubuntu-24.04-arm
-          GH_RUNNER_LABEL_AMD64: ubuntu-24.04
-        run: |
-          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
-            echo "runner-arm64=${SH_RUNNER_LABEL_ARM64}" | tee -a "$GITHUB_OUTPUT"
-            echo "runner-amd64=${SH_RUNNER_LABEL_AMD64}" | tee -a "$GITHUB_OUTPUT"
-          else
-            # Use GitHub runner labels for non-PR events
-            echo "runner-arm64=${GH_RUNNER_LABEL_ARM64}" | tee -a "$GITHUB_OUTPUT"
-            echo "runner-amd64=${GH_RUNNER_LABEL_AMD64}" | tee -a "$GITHUB_OUTPUT"
-          fi
+          labels: "build-publish"
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ inputs.git-ref || github.sha }}
 
       - name: Resolve checked out SHA
         id: checkout-sha
-        shell: bash
-        run: echo "checked-out-sha=$(git rev-parse HEAD)" | tee -a "$GITHUB_OUTPUT"
+        run: echo "checked-out-sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
       - name: Version Info
         id: version-info
         run: |
-          pkg_version=$(jq -r '.version' ./package.json)
+          pkg_version=$(jq -r '.version' ./package.json 2>/dev/null || echo "dev")
           version_tag="${pkg_version}-dev"
-          echo "version-tag=${version_tag}" | tee -a "$GITHUB_OUTPUT"
+          echo "version-tag=${version_tag}" >> $GITHUB_OUTPUT
 
-  docker-core:
-    needs: [ init ]
+  docker-build:
+    needs: init
     if: ${{ needs.init.outputs.should-run == 'true' }}
-    permissions:
-      contents: read
-      id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@reusable-docker-build-publish/v1
-    with:
-      aws-ecr-name: chainlink
-      aws-region-ecr: us-west-2
-      aws-region-gati: us-west-2
-      dockerfile: core/chainlink.Dockerfile
-      docker-build-context: .
-      docker-target: debug
-      docker-build-args: |
-        CHAINLINK_USER=chainlink
-        COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
-        VERSION_TAG=${{ needs.init.outputs.version-tag }}
-      docker-manifest-sign: true
-      git-sha: ${{ needs.init.outputs.checked-out-sha }}
-      github-event-name: ${{ github.event_name }}
-      github-ref-name: ${{ github.ref_name }}
-      github-ref-type: ${{ github.ref_type}}
-      github-workflow-repository: ${{ github.repository }}
-      github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
-      github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
-      free-disk-space: "true"
-    secrets:
-      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
-      AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
-      AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
-      AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        include:
+          - name: core
+            dockerfile: core/chainlink.Dockerfile
+            suffix: ""
+          - name: core-plugins
+            dockerfile: plugins/chainlink.Dockerfile
+            suffix: "-plugins"
+          - name: core-plugins-testing
+            dockerfile: plugins/chainlink.Dockerfile
+            suffix: "-plugins-testing"
+          - name: ccip
+            dockerfile: core/chainlink.Dockerfile
+            suffix: ""
+          - name: ccip-plugins
+            dockerfile: plugins/chainlink.Dockerfile
+            suffix: "-plugins"
 
-  docker-core-plugins:
-    needs: [ init ]
-    if: ${{ needs.init.outputs.should-run == 'true' }}
-    permissions:
-      contents: read
-      id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@reusable-docker-build-publish/v1
-    with:
-      aws-ecr-name: chainlink
-      aws-region-ecr: us-west-2
-      aws-region-gati: us-west-2
-      dockerfile: plugins/chainlink.Dockerfile
-      docker-build-context: .
-      docker-target: debug
-      docker-build-args: |
-        CHAINLINK_USER=chainlink
-        COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
-        VERSION_TAG=${{ needs.init.outputs.version-tag }}
-        CL_INSTALL_PRIVATE_PLUGINS=true
-      docker-manifest-sign: true
-      docker-tag-custom-suffix: "-plugins"
-      git-sha: ${{ needs.init.outputs.checked-out-sha }}
-      github-event-name: ${{ github.event_name }}
-      github-ref-name: ${{ github.ref_name }}
-      github-ref-type: ${{ github.ref_type}}
-      github-workflow-repository: ${{ github.repository }}
-      github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
-      github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
-      free-disk-space: "true"
-    secrets:
-      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
-      AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
-      AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
-      AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
-
-  docker-core-plugins-testing:
-    needs: [ init ]
-    if: ${{ needs.init.outputs.should-run == 'true' }}
-    permissions:
-      contents: read
-      id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@reusable-docker-build-publish/v1
-    with:
-      aws-ecr-name: chainlink
-      aws-region-ecr: us-west-2
-      aws-region-gati: us-west-2
-      dockerfile: plugins/chainlink.Dockerfile
-      docker-build-context: .
-      docker-target: debug
-      docker-build-args: |
-        CHAINLINK_USER=chainlink
-        COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
-        VERSION_TAG=${{ needs.init.outputs.version-tag }}
-        CL_INSTALL_PRIVATE_PLUGINS=true
-        CL_INSTALL_TESTING_PLUGINS=true
-      docker-manifest-sign: true
-      docker-tag-custom-suffix: "-plugins-testing"
-      git-sha: ${{ needs.init.outputs.checked-out-sha }}
-      github-event-name: ${{ github.event_name }}
-      github-ref-name: ${{ github.ref_name }}
-      github-ref-type: ${{ github.ref_type}}
-      github-workflow-repository: ${{ github.repository }}
-      github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
-      github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
-      free-disk-space: "true"
-    secrets:
-      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
-      AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
-      AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
-      AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
-
-  docker-ccip:
-    needs: [ init ]
-    if: ${{ needs.init.outputs.should-run == 'true' }}
-    permissions:
-      contents: read
-      id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@reusable-docker-build-publish/v1
-    with:
-      aws-ecr-name: ccip
-      aws-region-ecr: us-west-2
-      aws-region-gati: us-west-2
-      dockerfile: core/chainlink.Dockerfile
-      docker-build-context: .
-      docker-target: debug
-      docker-build-args: |
-        CHAINLINK_USER=chainlink
-        COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
-        VERSION_TAG=${{ needs.init.outputs.version-tag }}
-        CL_INSTALL_PRIVATE_PLUGINS=true
-        CL_CHAIN_DEFAULTS=/ccip-config
-        CL_SOLANA_CMD=
-      docker-manifest-sign: true
-      git-sha: ${{ needs.init.outputs.checked-out-sha }}
-      github-event-name: ${{ github.event_name }}
-      github-ref-name: ${{ github.ref_name }}
-      github-ref-type: ${{ github.ref_type}}
-      github-workflow-repository: ${{ github.repository }}
-      github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
-      github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
-      free-disk-space: "true"
-    secrets:
-      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
-      AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
-      AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
-      AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
-
-  docker-ccip-plugins:
-    needs: [ init ]
-    if: ${{ needs.init.outputs.should-run == 'true' }}
-    permissions:
-      contents: read
-      id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@reusable-docker-build-publish/v1
-    with:
-      aws-ecr-name: ccip
-      aws-region-ecr: us-west-2
-      aws-region-gati: us-west-2
-      dockerfile: plugins/chainlink.Dockerfile
-      docker-build-context: .
-      docker-target: debug
-      docker-build-args: |
-        CHAINLINK_USER=chainlink
-        COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
-        VERSION_TAG=${{ needs.init.outputs.version-tag }}
-        CL_INSTALL_PRIVATE_PLUGINS=true
-        CL_CHAIN_DEFAULTS=/ccip-config
-      docker-manifest-sign: true
-      docker-tag-custom-suffix: "-plugins"
-      git-sha: ${{ needs.init.outputs.checked-out-sha }}
-      github-event-name: ${{ github.event_name }}
-      github-ref-name: ${{ github.ref_name }}
-      github-ref-type: ${{ github.ref_type}}
-      github-workflow-repository: ${{ github.repository }}
-      github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
-      github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
-      free-disk-space: "true"
-    secrets:
-      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
-      AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
-      AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
-      AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
-
-  call-post-docker-build:
-    if: ${{ github.event_name == 'schedule' || github.event_name ==
-      'workflow_dispatch' }}
-    needs: [ init, docker-core ]
-    uses: ./.github/workflows/post-docker-build.yml
-    permissions:
-      actions: read
-      id-token: write
-      contents: read
-    with:
-      chainlink_core_image_tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
-      chainlink_version: ${{ needs.init.outputs.checked-out-sha }}
-    secrets: inherit
-
-  deploy-nightly-core:
-    if: false
-    # temporarily disabled
-    # if: ${{ github.event_name == 'schedule' }}
-    needs: [ docker-core ]
-    permissions:
-      contents: read
-      id-token: write
-    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - name: Deploy
-        uses: ./.github/actions/deploy-image
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          aws-role-arn: ${{ secrets.AWS_RELENG_PROD_GATI_WORKFLOW_INVOKE_ARN }}
-          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          repo-destination: ${{ secrets.REPO_K8S_DEPLOY }}
-          oci-image-tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
-          oci-repository-url: ${{ format('{0}.dkr.ecr.{1}.amazonaws.com/chainlink',
-            secrets.AWS_ACCOUNT_ID_SDLC, secrets.AWS_REGION) }}
-          pr-close-enabled: false
-          products: |
-            cre
+          ref: ${{ inputs.git-ref || github.sha }}
 
-  deploy-nightly-ccip:
-    if: ${{ github.event_name == 'schedule' }}
-    needs: [ docker-ccip ]
-    permissions:
-      contents: read
-      id-token: write
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - name: Deploy
-        uses: ./.github/actions/deploy-image
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker Image (${{ matrix.name }})
+        uses: docker/build-push-action@v6
         with:
-          aws-role-arn: ${{ secrets.AWS_RELENG_PROD_GATI_WORKFLOW_INVOKE_ARN }}
-          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          repo-destination: ${{ secrets.REPO_K8S_DEPLOY }}
-          oci-image-tag: ${{ needs.docker-ccip.outputs.docker-manifest-tag }}
-          oci-repository-url: ${{ format('{0}.dkr.ecr.{1}.amazonaws.com/ccip',
-            secrets.AWS_ACCOUNT_ID_SDLC, secrets.AWS_REGION) }}
-          pr-close-enabled: false
-          products: |
-            ccip-nightlies
+          context: .
+          file: ./${{ matrix.dockerfile }}
+          push: false
+          load: true
+          tags: |
+            localhost/chainlink-${{ matrix.name }}${{ matrix.suffix }}:latest
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            CHAINLINK_USER=chainlink
+            COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
+            VERSION_TAG=${{ needs.init.outputs.version-tag }}
+            CL_INSTALL_PRIVATE_PLUGINS=true
+            CL_INSTALL_TESTING_PLUGINS=${{ matrix.name == 'core-plugins-testing' && 'true' || 'false' }}
+            CL_CHAIN_DEFAULTS=${{ contains(matrix.name, 'ccip') && '/ccip-config' || '' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Verify Image
+        run: |
+          IMAGE_NAME="localhost/chainlink-${{ matrix.name }}${{ matrix.suffix }}"
+          docker image ls $IMAGE_NAME
+          echo "✅ Successfully built: $IMAGE_NAME"
+
+      - name: Job Summary
+        if: always()
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          # Docker Build - ${{ matrix.name }}${{ matrix.suffix }}
+
+          Status: ${{ job.status }}
+          Push: Disabled (Fork Mode)
+          Dockerfile: ${{ matrix.dockerfile }}
+          EOF
