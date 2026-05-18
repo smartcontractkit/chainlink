@@ -22,22 +22,24 @@ import (
 type testPluginOption func(*testPluginBuildOpts)
 
 type testPluginBuildOpts struct {
-	lggr                              logger.Logger
-	store                             *requests.Store[*vaulttypes.Request]
-	publicKey                         *tdh2easy.PublicKey
-	privateKeyShare                   *tdh2easy.PrivateShare
-	onchainCfg                        ocr3types.ReportingPluginConfig
-	maxSecretsPerOwner                int
-	maxCiphertextLengthBytes          int
-	maxIdentifierOwnerLengthBytes     int
-	maxIdentifierNamespaceLengthBytes int
-	maxIdentifierKeyLengthBytes       int
-	maxRequestBatchSize               int
-	batchSize                         int
-	maxBlobPayloadBytes               int
-	orgIDAsSecretOwnerEnabled         bool
-	marshalBlob                       func(ocr3_1types.BlobHandle) ([]byte, error)
-	unmarshalBlob                     func([]byte) (ocr3_1types.BlobHandle, error)
+	lggr                                 logger.Logger
+	store                                *requests.Store[*vaulttypes.Request]
+	publicKey                            *tdh2easy.PublicKey
+	privateKeyShare                      *tdh2easy.PrivateShare
+	onchainCfg                           ocr3types.ReportingPluginConfig
+	maxSecretsPerOwner                   int
+	maxCiphertextLengthBytes             int
+	maxIdentifierOwnerLengthBytes        int
+	maxIdentifierNamespaceLengthBytes    int
+	maxIdentifierKeyLengthBytes          int
+	maxRequestBatchSize                  int
+	batchSize                            int
+	maxBlobPayloadBytes                  int
+	orgIDAsSecretOwnerEnabled            bool
+	marshalBlob                          func(ocr3_1types.BlobHandle) ([]byte, error)
+	unmarshalBlob                        func([]byte) (ocr3_1types.BlobHandle, error)
+	maxObservationBytesOverride          int
+	maxReportsPlusPrecursorBytesOverride int
 }
 
 func withLggr(lggr logger.Logger) testPluginOption {
@@ -97,6 +99,14 @@ func withMarshalBlob(fn func(ocr3_1types.BlobHandle) ([]byte, error)) testPlugin
 	return func(o *testPluginBuildOpts) { o.marshalBlob = fn }
 }
 
+func withMaxObservationBytes(n int) testPluginOption {
+	return func(o *testPluginBuildOpts) { o.maxObservationBytesOverride = n }
+}
+
+func withMaxReportsPlusPrecursorBytes(n int) testPluginOption {
+	return func(o *testPluginBuildOpts) { o.maxReportsPlusPrecursorBytesOverride = n }
+}
+
 func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPlugin {
 	t.Helper()
 	o := testPluginBuildOpts{
@@ -123,19 +133,31 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 	if o.orgIDAsSecretOwnerEnabled {
 		cfg.OrgIDAsSecretOwnerEnabled = limits.NewGateLimiter(true)
 	}
-	applyTestByteBudgets(t, cfg, o.onchainCfg)
+	ctx := context.Background()
+	pl, err := initializePluginLimits(ctx, limits.Factory{Settings: cresettings.DefaultGetter})
+	require.NoError(t, err)
+	maxObs := pl.MaxObservationBytes
+	maxPrec := pl.MaxReportsPlusPrecursorBytes
+	if o.maxObservationBytesOverride > 0 {
+		maxObs = o.maxObservationBytesOverride
+	}
+	if o.maxReportsPlusPrecursorBytesOverride > 0 {
+		maxPrec = o.maxReportsPlusPrecursorBytesOverride
+	}
 	lc, err := vaultcap.NewRequestLifecycleTracker(o.lggr)
 	require.NoError(t, err)
 	return &ReportingPlugin{
-		lggr:          o.lggr,
-		store:         o.store,
-		metrics:       newTestMetrics(t),
-		cfg:           cfg,
-		onchainCfg:    o.onchainCfg,
-		validator:     makeTestValidator(cfg),
-		lifecycle:     lc,
-		marshalBlob:   o.marshalBlob,
-		unmarshalBlob: o.unmarshalBlob,
+		lggr:                         o.lggr,
+		store:                        o.store,
+		metrics:                      newTestMetrics(t),
+		cfg:                          cfg,
+		onchainCfg:                   o.onchainCfg,
+		validator:                    makeTestValidator(cfg),
+		lifecycle:                    lc,
+		marshalBlob:                  o.marshalBlob,
+		unmarshalBlob:                o.unmarshalBlob,
+		maxObservationBytes:          maxObs,
+		maxReportsPlusPrecursorBytes: maxPrec,
 	}
 }
 
@@ -210,21 +232,6 @@ func makeReportingPluginConfig(
 		OrgIDAsSecretOwnerEnabled:         limits.NewGateLimiter(false),
 		VaultForceEmptyOCRRounds:          limits.NewGateLimiter(false),
 	}
-}
-
-func applyTestByteBudgets(t *testing.T, cfg *ReportingPluginConfig, onchain ocr3types.ReportingPluginConfig) {
-	t.Helper()
-	ctx := context.Background()
-	pl, err := initializePluginLimits(ctx, limits.Factory{Settings: cresettings.DefaultGetter})
-	require.NoError(t, err)
-	n, f := onchain.N, onchain.F
-	if n <= 0 {
-		n, f = 10, 3
-	}
-	obs, prec, err := computePluginByteBudgets(ctx, cfg, pl.MaxObservationBytes, pl.MaxReportsPlusPrecursorBytes, n, f)
-	require.NoError(t, err)
-	cfg.ObsArrayBudgetBytes = obs
-	cfg.PrecursorArrayBudgetBytes = prec
 }
 
 func mockUnmarshalBlob(data []byte) (ocr3_1types.BlobHandle, error) {

@@ -55,7 +55,7 @@ func newPluginMetrics(configDigest string) (*pluginMetrics, error) {
 	pendingQueueWrittenSize, err := beholder.GetMeter().Int64Histogram(
 		"platform_vault_plugin_pending_queue_written_size",
 		metric.WithUnit("{request}"),
-		metric.WithDescription("Items written to the KV pending queue after byte-budget bin-packing; use attributes candidate_count and truncated for backlog signals."),
+		metric.WithDescription("Items written to the KV pending queue after F+1 consensus aggregation."),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create pending queue written size histogram: %w", err)
@@ -111,13 +111,11 @@ func (m *pluginMetrics) trackObservationPendingPack(ctx context.Context, packedI
 	))
 }
 
-func (m *pluginMetrics) trackPendingQueueWrittenSize(ctx context.Context, writtenCount, candidateCount int, truncated bool) {
+func (m *pluginMetrics) trackPendingQueueWrittenSize(ctx context.Context, writtenCount int) {
 	if m == nil {
 		return
 	}
 	m.pendingQueueWrittenSize.Record(ctx, int64(writtenCount), metric.WithAttributes(
 		attribute.String("configDigest", m.configDigest),
-		attribute.Int("candidate_count", candidateCount),
-		attribute.Bool("truncated", truncated),
 	))
 }

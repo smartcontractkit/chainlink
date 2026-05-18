@@ -433,8 +433,11 @@ func ExecuteVaultBlobBatchingSmokeTest(t *testing.T, fixture *vaultScenarioFixtu
 	t.Run("pending_queue_pack_observed_in_docker_logs", func(t *testing.T) {
 		assertVaultOCRPendingPackObservedInDockerLogs(t, nConcurrentCreates)
 	})
-	t.Run("state_transition_pending_pack_observed_in_docker_logs", func(t *testing.T) {
-		assertVaultOCRStateTransitionPendingPackObservedInDockerLogs(t, nConcurrentCreates)
+	t.Run("state_transition_pending_write_observed_in_docker_logs", func(t *testing.T) {
+		assertVaultOCRStateTransitionPendingWriteObservedInDockerLogs(t, nConcurrentCreates)
+	})
+	t.Run("vault_ocr_wire_truncation_signals_in_docker_logs", func(t *testing.T) {
+		assertVaultOCRWireTruncationSignalsInDockerLogs(t)
 	})
 }
 
@@ -508,20 +511,19 @@ func assertVaultOCRPendingPackObservedInDockerLogs(t *testing.T, wantMinPacked i
 	}
 }
 
-// assertVaultOCRStateTransitionPendingPackObservedInDockerLogs polls chainlink-related container logs until it finds
-// VAULT_OCR_STATE_TRANSITION_PENDING_PACK on a line where candidateCount >= wantMinCandidates, writtenCount >= 1,
-// and writtenCount <= candidateCount (KV write after byte-budget bin-packing).
-var vaultStateTransitionPendingPackCandidateRE = regexp.MustCompile(`candidateCount[^\d]*(\d+)`)
-var vaultStateTransitionPendingPackWrittenRE = regexp.MustCompile(`writtenCount[^\d]*(\d+)`)
+// assertVaultOCRStateTransitionPendingWriteObservedInDockerLogs polls chainlink-related container logs until it finds
+// VAULT_OCR_STATE_TRANSITION_PENDING_WRITE with writtenCount >= wantMinWritten (all F+1 consensus items for that round
+// are written to the KV pending queue; there is no separate candidate count in the log line).
+var vaultStateTransitionPendingWriteWrittenRE = regexp.MustCompile(`writtenCount[^\d]*(\d+)`)
 
-func assertVaultOCRStateTransitionPendingPackObservedInDockerLogs(t *testing.T, wantMinCandidates int) {
+func assertVaultOCRStateTransitionPendingWriteObservedInDockerLogs(t *testing.T, wantMinWritten int) {
 	t.Helper()
 	if testing.Short() {
 		t.Skip("docker log scan skipped in -short mode")
 	}
 	dockerBin, err := exec.LookPath("docker")
 	if err != nil {
-		t.Skip("docker not in PATH; skipping state-transition pending-pack log assertion")
+		t.Skip("docker not in PATH; skipping state-transition pending-write log assertion")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
@@ -532,7 +534,7 @@ func assertVaultOCRStateTransitionPendingPackObservedInDockerLogs(t *testing.T, 
 		if err != nil {
 			select {
 			case <-ctx.Done():
-				require.Fail(t, "timed out waiting for docker while scanning for VAULT_OCR_STATE_TRANSITION_PENDING_PACK")
+				require.Fail(t, "timed out waiting for docker while scanning for VAULT_OCR_STATE_TRANSITION_PENDING_WRITE")
 			case <-ticker.C:
 			}
 			continue
@@ -552,33 +554,111 @@ func assertVaultOCRStateTransitionPendingPackObservedInDockerLogs(t *testing.T, 
 			}
 			s := string(logs)
 			for _, line := range strings.Split(s, "\n") {
-				if !strings.Contains(line, "VAULT_OCR_STATE_TRANSITION_PENDING_PACK") {
+				if !strings.Contains(line, "VAULT_OCR_STATE_TRANSITION_PENDING_WRITE") {
 					continue
 				}
-				cm := vaultStateTransitionPendingPackCandidateRE.FindStringSubmatch(line)
-				wm := vaultStateTransitionPendingPackWrittenRE.FindStringSubmatch(line)
-				if len(cm) < 2 || len(wm) < 2 {
+				wm := vaultStateTransitionPendingWriteWrittenRE.FindStringSubmatch(line)
+				if len(wm) < 2 {
 					continue
 				}
-				candidates, err1 := strconv.Atoi(cm[1])
-				written, err2 := strconv.Atoi(wm[1])
-				if err1 != nil || err2 != nil {
+				written, err1 := strconv.Atoi(wm[1])
+				if err1 != nil || written < 1 {
 					continue
 				}
-				if written > candidates || written < 1 {
-					continue
-				}
-				if candidates >= wantMinCandidates {
-					framework.L.Info().Str("container", name).Int("candidateCount", candidates).Int("writtenCount", written).Msg("observed vault OCR state-transition pending pack log")
+				if written >= wantMinWritten {
+					framework.L.Info().Str("container", name).Int("writtenCount", written).Msg("observed vault OCR state-transition pending write log (full consensus batch written)")
 					return
 				}
 			}
 		}
 		select {
 		case <-ctx.Done():
-			require.Fail(t, fmt.Sprintf("timed out waiting for VAULT_OCR_STATE_TRANSITION_PENDING_PACK with candidateCount>=%d and valid writtenCount in docker logs (is the local CRE stack running?)", wantMinCandidates))
+			require.Fail(t, fmt.Sprintf("timed out waiting for VAULT_OCR_STATE_TRANSITION_PENDING_WRITE with writtenCount>=%d in docker logs (is the local CRE stack running?)", wantMinWritten))
 		case <-ticker.C:
 		}
+	}
+}
+
+var vaultObservationWirePackPackedRE = regexp.MustCompile(`packedObservationCount[^\d]*(\d+)`)
+var vaultObservationWirePackPendingRE = regexp.MustCompile(`pendingQueueItemCount[^\d]*(\d+)`)
+var vaultOutcomeWirePackPackedRE = regexp.MustCompile(`packedOutcomeCount[^\d]*(\d+)`)
+var vaultOutcomeWirePackScheduledRE = regexp.MustCompile(`scheduledRequestIDs[^\d]*(\d+)`)
+
+// assertVaultOCRWireTruncationSignalsInDockerLogs scans recent chainlink-like container logs and asserts structural
+// consistency of truncation markers when present: observation wire-pack implies packed < pending store rows;
+// outcome wire-pack implies packed outcomes < scheduled request IDs for that state transition.
+func assertVaultOCRWireTruncationSignalsInDockerLogs(t *testing.T) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("docker log scan skipped in -short mode")
+	}
+	dockerBin, err := exec.LookPath("docker")
+	if err != nil {
+		t.Skip("docker not in PATH; skipping vault OCR wire truncation log scan")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	psOut, err := exec.CommandContext(ctx, dockerBin, "ps", "--format", "{{.Names}}").Output()
+	if err != nil {
+		t.Fatalf("docker ps: %v", err)
+	}
+	var combined strings.Builder
+	names := strings.Split(strings.TrimSpace(string(psOut)), "\n")
+	for _, name := range names {
+		if name == "" {
+			continue
+		}
+		ln := strings.ToLower(name)
+		if !strings.Contains(ln, "chainlink") && !strings.Contains(ln, "ocr") && !strings.Contains(ln, "capabilit") {
+			continue
+		}
+		logs, err := exec.CommandContext(ctx, dockerBin, "logs", name, "--tail", "25000").CombinedOutput()
+		if err != nil {
+			continue
+		}
+		combined.Write(logs)
+		combined.WriteByte('\n')
+	}
+	s := combined.String()
+
+	sawObsTrunc := false
+	for _, line := range strings.Split(s, "\n") {
+		if !strings.Contains(line, "VAULT_OCR_OBSERVATION_WIRE_PACK") {
+			continue
+		}
+		sawObsTrunc = true
+		pm := vaultObservationWirePackPackedRE.FindStringSubmatch(line)
+		qm := vaultObservationWirePackPendingRE.FindStringSubmatch(line)
+		require.GreaterOrEqual(t, len(pm), 2, "packedObservationCount should be present on VAULT_OCR_OBSERVATION_WIRE_PACK line: %s", line)
+		require.GreaterOrEqual(t, len(qm), 2, "pendingQueueItemCount should be present on VAULT_OCR_OBSERVATION_WIRE_PACK line: %s", line)
+		packed, err1 := strconv.Atoi(pm[1])
+		pending, err2 := strconv.Atoi(qm[1])
+		require.NoError(t, err1)
+		require.NoError(t, err2)
+		require.Less(t, packed, pending, "observation wire truncation should mean packedObservationCount < pendingQueueItemCount: %s", line)
+		framework.L.Info().Str("line", line).Int("packedObservationCount", packed).Int("pendingQueueItemCount", pending).Msg("vault OCR observation wire pack (truncation) observed in docker logs")
+	}
+
+	sawOutcomeTrunc := false
+	for _, line := range strings.Split(s, "\n") {
+		if !strings.Contains(line, "VAULT_OCR_STATE_TRANSITION_OUTCOME_WIRE_PACK") {
+			continue
+		}
+		sawOutcomeTrunc = true
+		om := vaultOutcomeWirePackPackedRE.FindStringSubmatch(line)
+		sm := vaultOutcomeWirePackScheduledRE.FindStringSubmatch(line)
+		require.GreaterOrEqual(t, len(om), 2, "packedOutcomeCount should be present on VAULT_OCR_STATE_TRANSITION_OUTCOME_WIRE_PACK line: %s", line)
+		require.GreaterOrEqual(t, len(sm), 2, "scheduledRequestIDs should be present on VAULT_OCR_STATE_TRANSITION_OUTCOME_WIRE_PACK line: %s", line)
+		packed, err1 := strconv.Atoi(om[1])
+		scheduled, err2 := strconv.Atoi(sm[1])
+		require.NoError(t, err1)
+		require.NoError(t, err2)
+		require.Less(t, packed, scheduled, "state transition outcome wire truncation should mean packedOutcomeCount < scheduledRequestIDs: %s", line)
+		framework.L.Info().Str("line", line).Int("packedOutcomeCount", packed).Int("scheduledRequestIDs", scheduled).Msg("vault OCR state transition outcome wire pack (truncation) observed in docker logs")
+	}
+
+	if !sawObsTrunc && !sawOutcomeTrunc {
+		framework.L.Info().Msg("no VAULT_OCR_OBSERVATION_WIRE_PACK or VAULT_OCR_STATE_TRANSITION_OUTCOME_WIRE_PACK in recent docker logs — observation and precursor outcome packing did not truncate in the sampled window (expected under default limits)")
 	}
 }
 
