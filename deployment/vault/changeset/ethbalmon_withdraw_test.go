@@ -106,7 +106,7 @@ func TestValidateEthBalMonWithdrawConfig(t *testing.T) {
 				},
 			},
 			wantError: true,
-			errorMsg:  "payeer address cannot be zero address",
+			errorMsg:  "payee address cannot be zero address",
 		},
 		{
 			name: "valid",

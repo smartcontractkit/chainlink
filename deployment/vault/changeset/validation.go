@@ -153,6 +153,11 @@ func validateMCMSConfig(e cldf.Environment, mcmsConfig *proposalutils.TimelockCo
 			return fmt.Errorf("proposer not found for chain %d: %w", chainSelector, err)
 		}
 
+		_, err = GetContractAddress(e.DataStore, chainSelector, commontypes.BypasserManyChainMultisig)
+		if err != nil {
+			return fmt.Errorf("bypasser not found for chain %d: %w", chainSelector, err)
+		}
+
 		chain := e.BlockChains.EVMChains()[chainSelector]
 		_, err = changeset.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 		if err != nil {
@@ -248,6 +253,9 @@ func ValidateDeployEthBalMonConfig(ctx context.Context, env cldf.Environment, cf
 		if err := validateEthAddress("setKeeperRegistryAddress", chainCfg.SetKeeperRegistryAddress); err != nil {
 			return fmt.Errorf("chain %d: %w", chainSelector, err)
 		}
+		if common.HexToAddress(chainCfg.SetKeeperRegistryAddress) == (common.Address{}) {
+			return fmt.Errorf("chain %d: setKeeperRegistryAddress cannot be zero address", chainSelector)
+		}
 		if err := validateDeployEthBalMonMCMSInDatastore(env, chainSelector, cfg.MCMSConfig); err != nil {
 			return fmt.Errorf("chain %d: %w", chainSelector, err)
 		}
@@ -323,7 +331,7 @@ func ValidateEthBalMonWithdrawConfig(ctx context.Context, env cldf.Environment, 
 			return fmt.Errorf("chain %d: %w", chainSelector, err)
 		}
 		if common.HexToAddress(chainConfig.Payee) == (common.Address{}) {
-			return fmt.Errorf("chain %d: payeer address cannot be zero address", chainSelector)
+			return fmt.Errorf("chain %d: payee address cannot be zero address", chainSelector)
 		}
 	}
 

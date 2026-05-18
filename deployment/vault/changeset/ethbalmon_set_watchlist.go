@@ -144,7 +144,7 @@ var EthBalMonSetWatchListOperation = operations.NewOperation(
 			return EthBalMonSetWatchListOpOutput{}, fmt.Errorf("chain not found in environment: %d", input.ChainSelector)
 		}
 
-		ethBalMonAddr, err := mustGetContractAddress(
+		ethBalMonAddr, err := getRequiredContractAddress(
 			deps.DataStore,
 			input.ChainSelector,
 			cldf.ContractType(vaulttypes.EthBalMonContractType),
@@ -154,7 +154,7 @@ var EthBalMonSetWatchListOperation = operations.NewOperation(
 				fmt.Errorf("failed to get EthBalMon address: %w", err)
 		}
 
-		timelockAddr, err := mustGetContractAddress(
+		timelockAddr, err := getRequiredContractAddress(
 			deps.DataStore,
 			input.ChainSelector,
 			commontypes.RBACTimelock,
@@ -163,7 +163,7 @@ var EthBalMonSetWatchListOperation = operations.NewOperation(
 			return EthBalMonSetWatchListOpOutput{},
 				fmt.Errorf("failed to get timelock address: %w", err)
 		}
-		mcmsAddr, err := mustGetContractAddress(
+		mcmsAddr, err := getRequiredContractAddress(
 			deps.DataStore,
 			input.ChainSelector,
 			ethBalMonMCMSContractTypeForProposal(input.MCMSConfig),

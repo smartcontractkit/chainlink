@@ -99,6 +99,18 @@ func TestDeployEthBalMonValidation(t *testing.T) {
 			errorMsg:  fmt.Sprintf("chain %d: setKeeperRegistryAddress is not a valid hex address: not-a-valid-address", selector),
 		},
 		{
+			name: "zero setKeeperRegistryAddress",
+			config: types.DeployEthBalMonInput{
+				Chains: map[uint64]types.DeployEthBalMonChainConfig{
+					selector: {
+						SetKeeperRegistryAddress: zeroAddr,
+					},
+				},
+			},
+			wantError: true,
+			errorMsg:  fmt.Sprintf("chain %d: setKeeperRegistryAddress cannot be zero address", selector),
+		},
+		{
 			name: "missing MCMS and timelock in datastore",
 			config: types.DeployEthBalMonInput{
 				Chains: map[uint64]types.DeployEthBalMonChainConfig{

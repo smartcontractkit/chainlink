@@ -35,7 +35,7 @@ func effectiveMinWaitPeriodSeconds(v uint64) uint64 {
 	return v
 }
 
-func mustGetContractAddress(store ds.DataStore, chainSelector uint64, contractType cldf.ContractType) (string, error) {
+func getRequiredContractAddress(store ds.DataStore, chainSelector uint64, contractType cldf.ContractType) (string, error) {
 	addr, err := GetContractAddress(store, chainSelector, contractType)
 	if err != nil {
 		return "", fmt.Errorf("failed to get contract address for type %s on chain %d: %w", contractType, chainSelector, err)
@@ -201,11 +201,11 @@ var DeployEthBalMonSequence = operations.NewSequence(
 				rawMinWait = *chainConfig.SetMinWaitPeriodSeconds
 			}
 			minWait := effectiveMinWaitPeriodSeconds(rawMinWait)
-			timelockAddr, err := mustGetContractAddress(deps.DataStore, chainSelector, commontypes.RBACTimelock)
+			timelockAddr, err := getRequiredContractAddress(deps.DataStore, chainSelector, commontypes.RBACTimelock)
 			if err != nil {
 				return DeployEthBalMonSequenceOutput{}, fmt.Errorf("chain %d: failed to get timelock address: %w", chainSelector, err)
 			}
-			mcmsAddr, err := mustGetContractAddress(
+			mcmsAddr, err := getRequiredContractAddress(
 				deps.DataStore,
 				chainSelector,
 				ethBalMonMCMSContractTypeForAction(deployEthBalMonAcceptOwnershipMCMSAction(input.MCMSConfig)),
@@ -437,7 +437,7 @@ func BuildAcceptOwnershipTimelockProposal(
 			return nil, fmt.Errorf("chain not found in environment: %d", chainSelector)
 		}
 
-		timelockAddr, err := mustGetContractAddress(
+		timelockAddr, err := getRequiredContractAddress(
 			e.DataStore,
 			chainSelector,
 			commontypes.RBACTimelock,
@@ -446,7 +446,7 @@ func BuildAcceptOwnershipTimelockProposal(
 			return nil, fmt.Errorf("chain %d: %w", chainSelector, err)
 		}
 
-		mcmsAddr, err := mustGetContractAddress(
+		mcmsAddr, err := getRequiredContractAddress(
 			e.DataStore,
 			chainSelector,
 			ethBalMonMCMSContractTypeForProposal(&input.MCMSConfig),
