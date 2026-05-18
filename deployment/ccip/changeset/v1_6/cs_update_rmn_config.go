@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
@@ -74,10 +75,10 @@ func (c SetRMNRemoteOnRMNProxyConfig) Validate(e cldf.Environment, state statevi
 }
 
 func (c SetRMNRemoteOnRMNProxyConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseq.SetRMNRemoteOnRMNProxySequenceInput {
-	updatesByChain := make(map[uint64]opsutil.EVMCallInput[common.Address], len(c.ChainSelectors))
+	updatesByChain := make(map[uint64]opsevm.EVMCallInput[common.Address], len(c.ChainSelectors))
 
 	for _, chainSel := range c.ChainSelectors {
-		updatesByChain[chainSel] = opsutil.EVMCallInput[common.Address]{
+		updatesByChain[chainSel] = opsevm.EVMCallInput[common.Address]{
 			Address:       state.Chains[chainSel].RMNProxy.Address(),
 			ChainSelector: chainSel,
 			CallInput:     state.Chains[chainSel].RMNRemote.Address(),
@@ -627,9 +628,9 @@ func SetRMNRemoteConfigChangeset(e cldf.Environment, config ccipseq.SetRMNRemote
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get active digest from RMNHome contract with address %s: %w", rmnHome.Address(), err)
 	}
 
-	input := make(map[uint64]opsutil.EVMCallInput[rmn_remote.RMNRemoteConfig])
+	input := make(map[uint64]opsevm.EVMCallInput[rmn_remote.RMNRemoteConfig])
 	for chainSel, cfg := range config.RMNRemoteConfigs {
-		input[chainSel] = opsutil.EVMCallInput[rmn_remote.RMNRemoteConfig]{
+		input[chainSel] = opsevm.EVMCallInput[rmn_remote.RMNRemoteConfig]{
 			ChainSelector: chainSel,
 			NoSend:        config.MCMSConfig != nil,
 			Address:       state.Chains[chainSel].RMNRemote.Address(),

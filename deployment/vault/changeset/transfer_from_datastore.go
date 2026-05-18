@@ -5,12 +5,12 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -71,10 +71,10 @@ func TransferMCMSOwnershipFromDataStore(e cldf.Environment, input TransferFromDa
 		mcmsConfig.TimelockQualifierPerChain[chainSel] = input.TimelockIdentifier
 	}
 
-	cfg := commonchangeset.TransferToMCMSWithTimelockConfig{
+	cfg := mcmschangesets.TransferToMCMSWithTimelockConfig{
 		ContractsByChain: contractsByChain,
 		MCMSConfig:       mcmsConfig,
 	}
 
-	return commonchangeset.TransferToMCMSWithTimelockV2(e, cfg)
+	return mcmschangesets.TransferToMCMSWithTimelockV2(e, cfg)
 }

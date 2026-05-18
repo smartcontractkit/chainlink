@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	"github.com/stretchr/testify/require"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
@@ -245,8 +246,8 @@ func TestRemoveDons(t *testing.T) {
 	donsBefore, err = homeChain.CapabilityRegistry.GetDONs(nil)
 	require.NoError(t, err)
 	e.Env, err = commoncs.Apply(t, e.Env, commoncs.Configure(
-		cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
-		commoncs.TransferToMCMSWithTimelockConfig{
+		cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+		mcmschangesets.TransferToMCMSWithTimelockConfig{
 			ContractsByChain: map[uint64][]common.Address{
 				e.HomeChainSel: {homeChain.CapabilityRegistry.Address()},
 			},
@@ -390,8 +391,8 @@ func TestAddUpdateAndRemoveNops(t *testing.T) {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
 				_, err := commoncs.Apply(t, e.Env,
 					commoncs.Configure(
-						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
-						commoncs.TransferToMCMSWithTimelockConfig{
+						cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+						mcmschangesets.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: map[uint64][]common.Address{
 								e.HomeChainSel: {homeChain.CapabilityRegistry.Address()},
 							},
@@ -524,8 +525,8 @@ func TestRemoveNodes(t *testing.T) {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
 				_, err := commoncs.Apply(t, e.Env,
 					commoncs.Configure(
-						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
-						commoncs.TransferToMCMSWithTimelockConfig{
+						cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+						mcmschangesets.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: map[uint64][]common.Address{
 								e.HomeChainSel: {homeChain.CapabilityRegistry.Address()},
 							},

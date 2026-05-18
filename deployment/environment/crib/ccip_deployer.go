@@ -896,12 +896,12 @@ func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState, la
 				globalUpdateRouterChanges[src].OnRampUpdates[dst] = true
 
 				rateLimitPerChain[dst] = v1_5_1.RateLimiterConfig{
-					Inbound: token_pool.RateLimiterConfig{
+					Inbound: &token_pool.RateLimiterConfig{
 						IsEnabled: false,
 						Capacity:  big.NewInt(0),
 						Rate:      big.NewInt(0),
 					},
-					Outbound: token_pool.RateLimiterConfig{
+					Outbound: &token_pool.RateLimiterConfig{
 						IsEnabled: false,
 						Capacity:  big.NewInt(0),
 						Rate:      big.NewInt(0),
