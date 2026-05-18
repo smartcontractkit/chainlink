@@ -89,7 +89,7 @@ require (
 	github.com/smartcontractkit/chainlink-common/keystore v1.1.0
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.10
 	github.com/smartcontractkit/chainlink-data-streams v0.1.14-0.20260512145107-b41c0e2855ec
-	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260512150409-b4068bf735e6
+	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260518111754-a525804d900b
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260403151002-2c91155b5501
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260119171452-39c98c3b33cd
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135
@@ -105,7 +105,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/ring/go v0.0.0-20260331131315-f08a616d8dcd
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260323124644-faea187e6997
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260511210120-d8089350d729
+	github.com/smartcontractkit/chainlink-solana v1.3.1
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260429183453-39df0198aed8
 	github.com/smartcontractkit/chainlink-ton v0.0.0-20260423161209-5ce1dba9785e
 	github.com/smartcontractkit/cre-sdk-go v1.5.0
