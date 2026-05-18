@@ -28,7 +28,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 var multiplyBy2 = operations.NewOperation(
@@ -141,7 +140,7 @@ func TestOrchestrateChangesets_VerifyPreconditions(t *testing.T) {
 
 		err = changeset.OrchestrateChangesets.VerifyPreconditions(*env, changeset.OrchestrateChangesetsConfig{
 			Description: "Test orchestrate changesets",
-			MCMS: &proposalutils.TimelockConfig{
+			MCMS: &cldfproposalutils.TimelockConfig{
 				MinDelay: 0 * time.Second,
 			},
 			ChangeSets: []changeset.WithConfig{
@@ -164,7 +163,7 @@ func TestOrchestrateChangesets_VerifyPreconditions(t *testing.T) {
 
 		err = changeset.OrchestrateChangesets.VerifyPreconditions(*env, changeset.OrchestrateChangesetsConfig{
 			Description: "Test orchestrate changesets",
-			MCMS: &proposalutils.TimelockConfig{
+			MCMS: &cldfproposalutils.TimelockConfig{
 				MinDelay: 0 * time.Second,
 			},
 			ChangeSets: []changeset.WithConfig{
@@ -188,7 +187,7 @@ func TestOrchestrateChangesets_Apply(t *testing.T) {
 
 		output, err := changeset.OrchestrateChangesets.Apply(rt.Environment(), changeset.OrchestrateChangesetsConfig{
 			Description: "Test orchestrate changesets",
-			MCMS: &proposalutils.TimelockConfig{
+			MCMS: &cldfproposalutils.TimelockConfig{
 				MinDelay: 0 * time.Second,
 			},
 			ChangeSets: []changeset.WithConfig{
@@ -211,7 +210,7 @@ func TestOrchestrateChangesets_Apply(t *testing.T) {
 
 		output, err := changeset.OrchestrateChangesets.Apply(rt.Environment(), changeset.OrchestrateChangesetsConfig{
 			Description: "Test orchestrate changesets",
-			MCMS: &proposalutils.TimelockConfig{
+			MCMS: &cldfproposalutils.TimelockConfig{
 				MinDelay: 0 * time.Second,
 			},
 			ChangeSets: []changeset.WithConfig{
@@ -235,7 +234,7 @@ func TestOrchestrateChangesets_Apply(t *testing.T) {
 		rt := newRuntimeWithMCMS(t)
 		output, err := changeset.OrchestrateChangesets.Apply(rt.Environment(), changeset.OrchestrateChangesetsConfig{
 			Description: "Test orchestrate changesets",
-			MCMS: &proposalutils.TimelockConfig{
+			MCMS: &cldfproposalutils.TimelockConfig{
 				MinDelay: 0 * time.Second,
 			},
 			ChangeSets: []changeset.WithConfig{
@@ -275,7 +274,7 @@ func TestOrchestrateChangesetsConfig_MCMSGetsOverridden(t *testing.T) {
 	}
 	cfg := changeset.OrchestrateChangesetsConfig{
 		Description: "Test MCMS override",
-		MCMS:        &proposalutils.TimelockConfig{MinDelay: 0},
+		MCMS:        &cldfproposalutils.TimelockConfig{MinDelay: 0},
 		ChangeSets:  nil,
 		MCMSOverridesForEVMChains: map[uint64]changeset.MCMSAddressesForEVM{
 			chainSelector: override,

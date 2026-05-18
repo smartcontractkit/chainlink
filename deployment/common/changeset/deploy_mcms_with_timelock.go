@@ -12,7 +12,6 @@ import (
 
 	evminternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/common/opsutils"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 var (
@@ -27,7 +26,7 @@ var (
 
 type GrantRoleInput struct {
 	ExistingProposerByChain map[uint64]common.Address // if needed in the future, need to add bypasser and canceller here
-	MCMS                    *proposalutils.TimelockConfig
+	MCMS                    *cldfproposalutils.TimelockConfig
 	GasBoostConfigPerChain  map[uint64]cldfproposalutils.GasBoostConfig
 }
 

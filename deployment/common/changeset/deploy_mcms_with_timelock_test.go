@@ -40,7 +40,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -114,7 +113,7 @@ func TestGrantRoleInTimeLock(t *testing.T) {
 			ExistingProposerByChain: map[uint64]common.Address{
 				selector: existingProposer.Address(),
 			},
-			MCMS: &proposalutils.TimelockConfig{MinDelay: 0},
+			MCMS: &cldfproposalutils.TimelockConfig{MinDelay: 0},
 		},
 	))
 	require.NoError(t, err)

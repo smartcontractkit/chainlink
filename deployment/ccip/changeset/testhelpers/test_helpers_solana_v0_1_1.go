@@ -22,9 +22,6 @@ import (
 
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
-	tonOps "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
-	tonrouter "github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/router"
-
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
@@ -52,7 +49,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
@@ -103,7 +99,7 @@ func TransferOwnershipSolanaV0_1_1(
 		commoncs.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_1.TransferCCIPToMCMSWithTimelockSolana),
 			ccipChangeSetSolanaV0_1_1.TransferCCIPToMCMSWithTimelockSolanaConfig{
-				MCMSCfg: proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+				MCMSCfg: cldfproposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 				ContractsByChain: map[uint64]ccipChangeSetSolanaV0_1_1.CCIPContractsToTransfer{
 					solSelector: contractsToTransfer,
 				},
@@ -396,17 +392,6 @@ func SendRequestV0_1_1(
 		return SendRequestSolV0_1_1(e, state, cfg)
 	case chainsel.FamilyAptos:
 		return SendRequestAptos(e, state, cfg)
-	case chainsel.FamilyTon:
-		tonMsg := cfg.Message.(tonrouter.CCIPSend)
-		seq, raw, err := tonOps.SendCCIPMessage(e, state.TonChains[cfg.SourceChain], cfg.SourceChain, tonMsg)
-		if err != nil {
-			return nil, err
-		}
-
-		return &ccipclient.AnyMsgSentEvent{
-			SequenceNumber: seq,
-			RawEvent:       raw,
-		}, nil
 	default:
 		return nil, fmt.Errorf("send request: unsupported chain family: %v", family)
 	}

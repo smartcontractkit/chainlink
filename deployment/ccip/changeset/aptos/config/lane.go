@@ -7,9 +7,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 type LaneConfig struct {
@@ -22,9 +23,9 @@ type LaneConfig struct {
 // Lanes accept different chain families
 type UpdateAptosLanesConfig struct {
 	// EVMMCMSConfig defines the MCMS configuration for EVM chains.
-	EVMMCMSConfig *proposalutils.TimelockConfig
+	EVMMCMSConfig *cldfproposalutils.TimelockConfig
 	// MCMSConfig defines the MCMS configuration for Aptos chains.
-	AptosMCMSConfig *proposalutils.TimelockConfig
+	AptosMCMSConfig *cldfproposalutils.TimelockConfig
 	// Lanes describes the lanes that we want to create.
 	Lanes []LaneConfig
 	// TestRouter indicates if we want to enable these lanes on the test router.

@@ -24,10 +24,10 @@ import (
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // use this changeset to add a token transfer fee for a remote chain to solana (used for very specific cases)
@@ -55,7 +55,7 @@ var _ cldf.ChangeSet[ModifyPriceUpdaterConfig] = ModifyPriceUpdater
 type BillingTokenConfig struct {
 	ChainSelector uint64
 	Config        solFeeQuoter.BillingTokenConfig
-	MCMS          *proposalutils.TimelockConfig
+	MCMS          *cldfproposalutils.TimelockConfig
 
 	// inferred from state
 	IsUpdate bool
@@ -95,7 +95,7 @@ func AddBillingToken(
 	chain cldf_solana.Chain,
 	chainState solanastateview.CCIPChainState,
 	billingTokenConfig solFeeQuoter.BillingTokenConfig,
-	mcms *proposalutils.TimelockConfig,
+	mcms *cldfproposalutils.TimelockConfig,
 	isUpdate bool,
 	feeQuoterAddress solana.PublicKey,
 	routerAddress solana.PublicKey,
@@ -212,7 +212,7 @@ type TokenTransferFeeForRemoteChainConfig struct {
 	ChainSelector      uint64
 	RemoteChainConfigs map[uint64]solFeeQuoter.TokenTransferFeeConfig
 	TokenPubKey        solana.PublicKey
-	MCMS               *proposalutils.TimelockConfig
+	MCMS               *cldfproposalutils.TimelockConfig
 }
 
 const MinDestBytesOverhead = 32
@@ -328,7 +328,7 @@ type UpdatePricesConfig struct {
 	TokenPriceUpdates []solFeeQuoter.TokenPriceUpdate
 	GasPriceUpdates   []solFeeQuoter.GasPriceUpdate
 	PriceUpdater      solana.PublicKey
-	MCMS              *proposalutils.TimelockConfig
+	MCMS              *cldfproposalutils.TimelockConfig
 }
 
 func (cfg UpdatePricesConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -444,7 +444,7 @@ type ModifyPriceUpdaterConfig struct {
 	ChainSelector      uint64
 	PriceUpdater       solana.PublicKey   // price updater to add or remove
 	PriceUpdaterAction PriceUpdaterAction // add or remove price updater
-	MCMS               *proposalutils.TimelockConfig
+	MCMS               *cldfproposalutils.TimelockConfig
 }
 
 type PriceUpdaterAction int
@@ -550,10 +550,10 @@ func ModifyPriceUpdater(e cldf.Environment, cfg ModifyPriceUpdaterConfig) (cldf.
 
 type WithdrawBilledFundsConfig struct {
 	ChainSelector uint64
-	TransferAll   bool                          // transfer all or specific amount
-	Amount        uint64                        // amount to transfer
-	TokenPubKey   solana.PublicKey              // billing token to transfer
-	MCMS          *proposalutils.TimelockConfig // timelock config for mcms
+	TransferAll   bool                              // transfer all or specific amount
+	Amount        uint64                            // amount to transfer
+	TokenPubKey   solana.PublicKey                  // billing token to transfer
+	MCMS          *cldfproposalutils.TimelockConfig // timelock config for mcms
 }
 
 func (cfg WithdrawBilledFundsConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -651,7 +651,7 @@ func WithdrawBilledFunds(e cldf.Environment, cfg WithdrawBilledFundsConfig) (cld
 type SetMaxFeeJuelsPerMsgConfig struct {
 	ChainSelector     uint64
 	MaxFeeJuelsPerMsg solBinary.Uint128
-	MCMS              *proposalutils.TimelockConfig
+	MCMS              *cldfproposalutils.TimelockConfig
 }
 
 func (cfg SetMaxFeeJuelsPerMsgConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -748,7 +748,7 @@ type TokenTransferFeeForRemoteChainConfigV2 struct {
 	InputsByChain map[uint64]map[uint64]TokenTransferFeeForRemoteChainConfigArgsV2
 
 	// Required MCMS config
-	MCMS *proposalutils.TimelockConfig
+	MCMS *cldfproposalutils.TimelockConfig
 }
 
 type TokenTransferFeeForRemoteChainConfigArgsV2 struct {

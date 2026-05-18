@@ -9,8 +9,8 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 
@@ -33,7 +33,7 @@ type SetTokenTransferFeeConfig struct {
 	InputsByChain map[uint64]map[uint64]SetTokenTransferFeeArgs `json:"inputsByChain"`
 
 	// The timelock config - all updates can be merged into one MCMS proposal with this setting
-	MCMS *proposalutils.TimelockConfig `json:"mcms"`
+	MCMS *cldfproposalutils.TimelockConfig `json:"mcms"`
 }
 
 type SetTokenTransferFeeArgs struct {

@@ -32,7 +32,6 @@ import (
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonchangesetsolana "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 )
 
@@ -112,7 +111,7 @@ func TestSetConfigMCMSV2EVM(t *testing.T) {
 			changeSets: func(selector uint64, cfgProp, cfgCancel, cfgBypass mcmstypes.Config) []runtime.Executable {
 				return []runtime.Executable{
 					runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.SetConfigMCMSV2), commonchangeset.MCMSConfigV2{
-						ProposalConfig: &proposalutils.TimelockConfig{
+						ProposalConfig: &cldfproposalutils.TimelockConfig{
 							MinDelay: 0,
 						},
 						ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{
@@ -243,7 +242,7 @@ func TestSetConfigMCMSV2Solana(t *testing.T) {
 		err = rt.Exec(
 			runtime.ChangesetTask(commonchangesetsolana.TransferMCMSToTimelockSolana{}, commonchangesetsolana.TransferMCMSToTimelockSolanaConfig{
 				Chains:  []uint64{selector},
-				MCMSCfg: proposalutils.TimelockConfig{MinDelay: time.Second * 1},
+				MCMSCfg: cldfproposalutils.TimelockConfig{MinDelay: time.Second * 1},
 			}),
 			// We must sign with an additional signer since we changed the config quorum previously.
 			runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner, signer1Key}),
@@ -258,7 +257,7 @@ func TestSetConfigMCMSV2Solana(t *testing.T) {
 
 		err = rt.Exec(
 			runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.SetConfigMCMSV2), commonchangeset.MCMSConfigV2{
-				ProposalConfig: &proposalutils.TimelockConfig{
+				ProposalConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay: time.Second * 1,
 				},
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{
@@ -321,7 +320,7 @@ func TestValidateV2(t *testing.T) {
 		{
 			name: "valid config",
 			cfg: commonchangeset.MCMSConfigV2{
-				ProposalConfig: &proposalutils.TimelockConfig{
+				ProposalConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				},
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{
@@ -378,7 +377,7 @@ func TestValidateV2(t *testing.T) {
 		{
 			name: "invalid proposer config",
 			cfg: commonchangeset.MCMSConfigV2{
-				ProposalConfig: &proposalutils.TimelockConfig{
+				ProposalConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				},
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{
@@ -399,7 +398,7 @@ func TestValidateV2(t *testing.T) {
 		{
 			name: "invalid canceller config",
 			cfg: commonchangeset.MCMSConfigV2{
-				ProposalConfig: &proposalutils.TimelockConfig{
+				ProposalConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				},
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{
@@ -420,7 +419,7 @@ func TestValidateV2(t *testing.T) {
 		{
 			name: "invalid bypasser config",
 			cfg: commonchangeset.MCMSConfigV2{
-				ProposalConfig: &proposalutils.TimelockConfig{
+				ProposalConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				},
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{
@@ -590,7 +589,7 @@ func TestSetConfigMCMSV2WithTimelockQualifier(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			mcmsCfg := commonchangeset.MCMSConfigV2{
-				ProposalConfig: &proposalutils.TimelockConfig{
+				ProposalConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 					TimelockQualifierPerChain: map[uint64]string{
 						selector: tt.qualifier,

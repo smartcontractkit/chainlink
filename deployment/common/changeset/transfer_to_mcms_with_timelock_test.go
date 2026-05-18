@@ -28,7 +28,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -64,7 +63,7 @@ func TestTransferToMCMSWithTimelockV2(t *testing.T) {
 			ContractsByChain: map[uint64][]common.Address{
 				selector: {link.LinkToken.Address()},
 			},
-			MCMSConfig: proposalutils.TimelockConfig{
+			MCMSConfig: cldfproposalutils.TimelockConfig{
 				MinDelay: 0,
 			},
 		}),
@@ -157,7 +156,7 @@ func TestTransferToMCMSWithTimelockV2DataStore(t *testing.T) {
 			ContractsByChain: map[uint64][]common.Address{
 				selector: {link.LinkToken.Address()},
 			},
-			MCMSConfig: proposalutils.TimelockConfig{
+			MCMSConfig: cldfproposalutils.TimelockConfig{
 				MinDelay: 0,
 			},
 		}),

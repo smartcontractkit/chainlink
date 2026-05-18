@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 )
 
 func Test_Config(t *testing.T) {
@@ -46,7 +46,7 @@ func Test_Config(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.Len(t, mc.Servers, 2)
-			assert.Equal(t, map[string]utils.PlainHexBytes{"example.com:80": utils.PlainHexBytes{0x72, 0x4f, 0xf6, 0xea, 0xe9, 0xe9, 0x0, 0x27, 0xe, 0xdf, 0xff, 0x23, 0x3e, 0x16, 0x32, 0x2a, 0x70, 0xec, 0x6, 0xe1, 0xa6, 0xe6, 0x2a, 0x81, 0xef, 0x13, 0x92, 0x1f, 0x39, 0x8f, 0x6c, 0x93}, "example2.invalid:1234": utils.PlainHexBytes{0x52, 0x4f, 0xf6, 0xea, 0xe9, 0xe9, 0x0, 0x27, 0xe, 0xdf, 0xff, 0x23, 0x3e, 0x16, 0x32, 0x2a, 0x70, 0xec, 0x6, 0xe1, 0xa6, 0xe6, 0x2a, 0x81, 0xef, 0x13, 0x92, 0x1f, 0x39, 0x8f, 0x6c, 0x93}}, mc.Servers)
+			assert.Equal(t, map[string]hex.PlainHexBytes{"example.com:80": hex.PlainHexBytes{0x72, 0x4f, 0xf6, 0xea, 0xe9, 0xe9, 0x0, 0x27, 0xe, 0xdf, 0xff, 0x23, 0x3e, 0x16, 0x32, 0x2a, 0x70, 0xec, 0x6, 0xe1, 0xa6, 0xe6, 0x2a, 0x81, 0xef, 0x13, 0x92, 0x1f, 0x39, 0x8f, 0x6c, 0x93}, "example2.invalid:1234": hex.PlainHexBytes{0x52, 0x4f, 0xf6, 0xea, 0xe9, 0xe9, 0x0, 0x27, 0xe, 0xdf, 0xff, 0x23, 0x3e, 0x16, 0x32, 0x2a, 0x70, 0xec, 0x6, 0xe1, 0xa6, 0xe6, 0x2a, 0x81, 0xef, 0x13, 0x92, 0x1f, 0x39, 0x8f, 0x6c, 0x93}}, mc.Servers)
 			assert.Equal(t, "0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF", mc.ChannelDefinitionsContractAddress.Hex())
 			assert.Equal(t, int64(1234), mc.ChannelDefinitionsContractFromBlock)
 			assert.JSONEq(t, cdjson, mc.ChannelDefinitions)
@@ -145,8 +145,8 @@ func Test_Config(t *testing.T) {
 
 func Test_PluginConfig_Validate(t *testing.T) {
 	t.Run("with invalid URLs or keys", func(t *testing.T) {
-		servers := map[string]utils.PlainHexBytes{
-			"not a valid url":                utils.PlainHexBytes([]byte{1, 2, 3}),
+		servers := map[string]hex.PlainHexBytes{
+			"not a valid url":                hex.PlainHexBytes([]byte{1, 2, 3}),
 			"mercuryserver.invalid:1234/foo": nil,
 		}
 		pc := PluginConfig{Servers: servers}
@@ -159,16 +159,16 @@ func Test_PluginConfig_Validate(t *testing.T) {
 
 func Test_PluginConfig_GetServers(t *testing.T) {
 	t.Run("with multiple servers", func(t *testing.T) {
-		servers := map[string]utils.PlainHexBytes{
-			"example.com:80":                 utils.PlainHexBytes([]byte{1, 2, 3}),
-			"mercuryserver.invalid:1234/foo": utils.PlainHexBytes([]byte{4, 5, 6}),
+		servers := map[string]hex.PlainHexBytes{
+			"example.com:80":                 hex.PlainHexBytes([]byte{1, 2, 3}),
+			"mercuryserver.invalid:1234/foo": hex.PlainHexBytes([]byte{4, 5, 6}),
 		}
 		pc := PluginConfig{Servers: servers}
 
 		require.Len(t, pc.GetServers(), 2)
 		assert.Equal(t, "example.com:80", pc.GetServers()[0].URL)
-		assert.Equal(t, utils.PlainHexBytes{1, 2, 3}, pc.GetServers()[0].PubKey)
+		assert.Equal(t, hex.PlainHexBytes{1, 2, 3}, pc.GetServers()[0].PubKey)
 		assert.Equal(t, "mercuryserver.invalid:1234/foo", pc.GetServers()[1].URL)
-		assert.Equal(t, utils.PlainHexBytes{4, 5, 6}, pc.GetServers()[1].PubKey)
+		assert.Equal(t, hex.PlainHexBytes{4, 5, 6}, pc.GetServers()[1].PubKey)
 	})
 }

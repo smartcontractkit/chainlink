@@ -16,12 +16,13 @@ import (
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 type CCIPSolanaContractVersion string
@@ -38,7 +39,7 @@ var ContractVersionShortSha = map[CCIPSolanaContractVersion]string{
 
 func ValidateMCMSConfigSolana(
 	e cldf.Environment,
-	mcms *proposalutils.TimelockConfig,
+	mcms *cldfproposalutils.TimelockConfig,
 	chain cldf_solana.Chain,
 	chainState solanastateview.CCIPChainState,
 	tokenAddress solana.PublicKey,
@@ -115,14 +116,14 @@ func buildProposalCommon(
 	proposers[chainSelector] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.ProposerMcmSeed))
 	inspectors[chainSelector] = mcmsSolana.NewInspector(chain.Client)
 
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
 		proposers,
 		inspectors,
 		batches,
 		description,
-		proposalutils.TimelockConfig{MinDelay: minDelay})
+		cldfproposalutils.TimelockConfig{MinDelay: minDelay})
 	if err != nil {
 		return nil, fmt.Errorf("failed to build proposal: %w", err)
 	}
@@ -241,7 +242,7 @@ func GetTokenProgramID(programName cldf.ContractType) (solana.PublicKey, error) 
 	return programID, nil
 }
 
-func generateProposalIfMCMS(e cldf.Environment, chainSelector uint64, mcmsCfg *proposalutils.TimelockConfig, mcmsTxs []mcmsTypes.Transaction) (cldf.ChangesetOutput, error) {
+func generateProposalIfMCMS(e cldf.Environment, chainSelector uint64, mcmsCfg *cldfproposalutils.TimelockConfig, mcmsTxs []mcmsTypes.Transaction) (cldf.ChangesetOutput, error) {
 	if len(mcmsTxs) > 0 {
 		if mcmsCfg == nil {
 			return cldf.ChangesetOutput{}, errors.New("MCMS txn detected but no MCMS config provided. Please re-run with mcms specified")
@@ -262,7 +263,7 @@ func generateProposalIfMCMS(e cldf.Environment, chainSelector uint64, mcmsCfg *p
 
 type ExecuteConfig struct {
 	ChainSelector uint64
-	MCMS          *proposalutils.TimelockConfig
+	MCMS          *cldfproposalutils.TimelockConfig
 	Chain         cldf_solana.Chain
 }
 

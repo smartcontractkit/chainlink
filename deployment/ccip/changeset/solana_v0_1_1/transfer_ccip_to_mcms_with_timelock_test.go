@@ -43,7 +43,6 @@ import (
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 )
 
@@ -178,7 +177,7 @@ func TestValidate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := ccipChangesetSolana.TransferCCIPToMCMSWithTimelockSolanaConfig{
 				ContractsByChain: tt.contractsByChain,
-				MCMSCfg: proposalutils.TimelockConfig{
+				MCMSCfg: cldfproposalutils.TimelockConfig{
 					MinDelay: 0 * time.Second,
 				},
 			}
@@ -474,7 +473,7 @@ func TestTransferCCIPFromMCMSWithTimelockSolana(t *testing.T) {
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.TransferCCIPToMCMSWithTimelockSolana),
 			ccipChangesetSolana.TransferCCIPToMCMSWithTimelockSolanaConfig{
-				MCMSCfg:       proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+				MCMSCfg:       cldfproposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 				CurrentOwner:  timelockSignerPDA,
 				ProposedOwner: solChain.DeployerKey.PublicKey(),
 				ContractsByChain: map[uint64]ccipChangesetSolana.CCIPContractsToTransfer{
