@@ -422,7 +422,6 @@ func ExecuteVaultBlobBatchingSmokeTest(t *testing.T, fixture *vaultScenarioFixtu
 
 	t.Run("concurrent_secrets_creates", func(t *testing.T) {
 		for i := range nConcurrentCreates {
-			i := i
 			t.Run(fmt.Sprintf("secret_%d", i), func(t *testing.T) {
 				t.Parallel()
 				secretID := uniqueVaultSecretID(fmt.Sprintf("blobbatch%d", i))
