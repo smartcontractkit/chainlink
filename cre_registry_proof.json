@@ -1,0 +1,7 @@
+{
+  "status": "REGISTERED",
+  "contract": "0xa35DF78f99d72f5646807C76C03b4c77b843F963",
+  "capabilities": ["ocr", "write_sepolia", "streams-trigger"],
+  "node_ops": 3,
+  "identity_match": "751BABCE_VERIFIED"
+}
