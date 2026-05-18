@@ -1091,7 +1091,7 @@ func TestRateLimiterPerChainPartialValidate(t *testing.T) {
 func TestPartialRateLimiterUpdate(t *testing.T) {
 	t.Parallel()
 
-	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
+	mcmsConfig := &cldfproposalutils.TimelockConfig{MinDelay: 0 * time.Second}
 
 	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.Test(t), true)
 
