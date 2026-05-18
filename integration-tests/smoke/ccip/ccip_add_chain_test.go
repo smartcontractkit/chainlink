@@ -782,8 +782,8 @@ func transferToMCMSAndRenounceTimelockDeployer(
 	))
 	for _, chain := range chains {
 		apps = append(apps, commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.RenounceTimelockDeployer),
-			commonchangeset.RenounceTimelockDeployerConfig{
+			cldf.CreateLegacyChangeSet(mcmschangesets.RenounceTimelockDeployer),
+			mcmschangesets.RenounceTimelockDeployerConfig{
 				ChainSel: chain,
 			},
 		))

@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+	"github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	"github.com/stretchr/testify/require"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
@@ -152,7 +153,7 @@ func SetupTwoChainEnvironmentWithTokens(
 }
 
 // getPoolsOwnedByDeployer returns any pools that need to be transferred to timelock.
-func getPoolsOwnedByDeployer[T commoncs.Ownable](t *testing.T, contracts map[semver.Version]T, chain cldf_evm.Chain) []common.Address {
+func getPoolsOwnedByDeployer[T evm.Ownable](t *testing.T, contracts map[semver.Version]T, chain cldf_evm.Chain) []common.Address {
 	var addresses []common.Address
 	for _, contract := range contracts {
 		owner, err := contract.Owner(nil)

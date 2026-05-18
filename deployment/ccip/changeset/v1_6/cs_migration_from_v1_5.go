@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	"github.com/smartcontractkit/mcms"
 
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
@@ -19,8 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	migrate_seq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/migration"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
@@ -206,7 +205,7 @@ func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesConfig) (cldf
 
 	for chainSel, chainUpgradeCfg := range c.DONConfigs {
 		// Ensure that FeeQuoter & NonceManager are owned by the timelock contract on all chains.
-		out, err := ensureTimelockOwnership(e, chainSel, []commoncs.Ownable{
+		out, err := ensureTimelockOwnership(e, chainSel, []evm.Ownable{
 			state.Chains[chainSel].FeeQuoter,
 			state.Chains[chainSel].NonceManager,
 		}, *c.MCMSConfig)
@@ -297,7 +296,7 @@ func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesConfig) (cldf
 		destChain := e.BlockChains.EVMChains()[destChainSel]
 
 		// Ensure that RMNRemote is owned by the timelock contract
-		out, err := ensureTimelockOwnership(e, destChainSel, []commoncs.Ownable{
+		out, err := ensureTimelockOwnership(e, destChainSel, []evm.Ownable{
 			state.Chains[destChainSel].RMNRemote,
 		}, *c.MCMSConfig)
 		allReports = append(allReports, out.Reports...)
@@ -641,7 +640,7 @@ func promoteChainUpgradesLogic(e cldf.Environment, c PromoteChainUpgradesConfig)
 		destChain := e.BlockChains.EVMChains()[destChainSel]
 
 		// Transfer ownership of OffRamp on destination chain.
-		out, err := ensureTimelockOwnership(e, destChainSel, []commoncs.Ownable{
+		out, err := ensureTimelockOwnership(e, destChainSel, []evm.Ownable{
 			state.Chains[destChainSel].OffRamp,
 		}, *c.MCMSConfig)
 		allReports = append(allReports, out.Reports...)
@@ -662,7 +661,7 @@ func promoteChainUpgradesLogic(e cldf.Environment, c PromoteChainUpgradesConfig)
 				ownershipAlreadyEnsured[sourceChainSel] = make(map[common.Address]struct{})
 			}
 			if _, ok := ownershipAlreadyEnsured[sourceChainSel][state.Chains[sourceChainSel].OnRamp.Address()]; !ok {
-				out, err = ensureTimelockOwnership(e, sourceChainSel, []commoncs.Ownable{
+				out, err = ensureTimelockOwnership(e, sourceChainSel, []evm.Ownable{
 					state.Chains[sourceChainSel].OnRamp,
 				}, *c.MCMSConfig)
 				allReports = append(allReports, out.Reports...)
@@ -785,7 +784,7 @@ func getSourceChainsForSelector(state stateview.CCIPOnChainState, chainSel uint6
 	return sourceChains
 }
 
-func ensureTimelockOwnership(e cldf.Environment, chainSel uint64, contracts []commoncs.Ownable, mcmsCfg cldfproposalutils.TimelockConfig) (cldf.ChangesetOutput, error) {
+func ensureTimelockOwnership(e cldf.Environment, chainSel uint64, contracts []evm.Ownable, mcmsCfg cldfproposalutils.TimelockConfig) (cldf.ChangesetOutput, error) {
 	addressesToTransfer := make([]common.Address, 0, len(contracts))
 	for _, contract := range contracts {
 		if contract == nil {

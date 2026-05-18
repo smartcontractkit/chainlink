@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+	"github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
@@ -72,7 +73,7 @@ func checkConnectivity(
 
 func TestConnectNewChain(t *testing.T) {
 	t.Parallel()
-	mustHaveOwner := func(t *testing.T, ownable commonchangeset.Ownable, expectedOwner string) {
+	mustHaveOwner := func(t *testing.T, ownable evm.Ownable, expectedOwner string) {
 		owner, err := ownable.Owner(nil)
 		require.NoError(t, err, "must get owner")
 		require.Equal(t, expectedOwner, owner.Hex(), "owner must be "+expectedOwner)

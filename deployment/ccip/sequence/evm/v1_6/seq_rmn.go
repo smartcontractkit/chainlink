@@ -5,6 +5,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -16,7 +17,6 @@ import (
 
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
 
 var (
@@ -24,8 +24,8 @@ var (
 		"SetRMNRemoteConfigSequence",
 		semver.MustParse("1.0.0"),
 		"Set RMNRemoteConfig based on ActiveDigest from RMNHome for evm chain(s)",
-		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, inputs map[uint64]opsutil.EVMCallInput[rmn_remote.RMNRemoteConfig]) (map[uint64][]opsutil.EVMCallOutput, error) {
-			out := make(map[uint64][]opsutil.EVMCallOutput, len(inputs))
+		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, inputs map[uint64]opsevm.EVMCallInput[rmn_remote.RMNRemoteConfig]) (map[uint64][]opsevm.EVMCallOutput, error) {
+			out := make(map[uint64][]opsevm.EVMCallOutput, len(inputs))
 
 			for chainSelector, input := range inputs {
 				if _, ok := chains[chainSelector]; !ok {
@@ -34,9 +34,9 @@ var (
 
 				report, err := operations.ExecuteOperation(b, ccipops.SetRMNRemoteConfigOp, chains[chainSelector], input)
 				if err != nil {
-					return map[uint64][]opsutil.EVMCallOutput{}, fmt.Errorf("failed to set RMNRemoteConfig for chain %d: %w", chainSelector, err)
+					return map[uint64][]opsevm.EVMCallOutput{}, fmt.Errorf("failed to set RMNRemoteConfig for chain %d: %w", chainSelector, err)
 				}
-				out[chainSelector] = []opsutil.EVMCallOutput{report.Output}
+				out[chainSelector] = []opsevm.EVMCallOutput{report.Output}
 			}
 
 			return out, nil
@@ -46,8 +46,8 @@ var (
 		"SetRMNRemoteOnRMNProxySequece",
 		semver.MustParse("1.0.0"),
 		"Setting SetRMNRemote on RMNProxy across multiple EVM chains",
-		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input SetRMNRemoteOnRMNProxySequenceInput) (map[uint64][]opsutil.EVMCallOutput, error) {
-			opOutputs := make(map[uint64][]opsutil.EVMCallOutput, len(input.UpdatesByChain))
+		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input SetRMNRemoteOnRMNProxySequenceInput) (map[uint64][]opsevm.EVMCallOutput, error) {
+			opOutputs := make(map[uint64][]opsevm.EVMCallOutput, len(input.UpdatesByChain))
 
 			for chainSel, update := range input.UpdatesByChain {
 				chain, ok := chains[chainSel]
@@ -58,14 +58,14 @@ var (
 				if err != nil {
 					return nil, fmt.Errorf("failed to execute SetRMNRemoteOnRMNProxyOp on %s: %w", chain, err)
 				}
-				opOutputs[chainSel] = []opsutil.EVMCallOutput{report.Output}
+				opOutputs[chainSel] = []opsevm.EVMCallOutput{report.Output}
 			}
 			return opOutputs, nil
 		})
 )
 
 type SetRMNRemoteOnRMNProxySequenceInput struct {
-	UpdatesByChain map[uint64]opsutil.EVMCallInput[common.Address] `json:"updatesByChain"`
+	UpdatesByChain map[uint64]opsevm.EVMCallInput[common.Address] `json:"updatesByChain"`
 }
 
 type SetRMNRemoteConfig struct {

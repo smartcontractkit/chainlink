@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+	"github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	mcmslib "github.com/smartcontractkit/mcms"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
@@ -25,8 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/cldfutil/changeset"
-
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
@@ -805,7 +804,7 @@ func connectNewChainLogic(env cldf.Environment, c ConnectNewChainConfig) (cldf.C
 	var ownershipTransferProposals []mcmslib.TimelockProposal
 	if !*c.TestRouter && c.MCMSConfig != nil {
 		// If using the production router, transfer ownership of all contracts on the new chain to MCMS.
-		allContracts := []commoncs.Ownable{
+		allContracts := []evm.Ownable{
 			state.Chains[c.NewChainSelector].OnRamp,
 			state.Chains[c.NewChainSelector].OffRamp,
 			state.Chains[c.NewChainSelector].FeeQuoter,
@@ -848,7 +847,7 @@ func connectNewChainLogic(env cldf.Environment, c ConnectNewChainConfig) (cldf.C
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to check if deployer key has admin role on timelock on chain with selector %d: %w", c.NewChainSelector, err)
 		}
 		if hasRole {
-			out, err = commoncs.RenounceTimelockDeployer(env, commoncs.RenounceTimelockDeployerConfig{
+			out, err = mcmschangesets.RenounceTimelockDeployer(env, mcmschangesets.RenounceTimelockDeployerConfig{
 				ChainSel:  c.NewChainSelector,
 				Qualifier: c.MCMSConfig.TimelockQualifierPerChain[c.NewChainSelector],
 			})
