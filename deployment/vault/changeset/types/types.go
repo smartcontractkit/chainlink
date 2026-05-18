@@ -3,7 +3,7 @@ package types
 import (
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 )
 
 type NativeTransfer struct {
@@ -17,7 +17,7 @@ type BatchNativeTransferConfig struct {
 	TransfersByChain map[uint64][]NativeTransfer `json:"transfers_by_chain"`
 
 	// MCMSConfig contains timelock and MCMS configuration
-	MCMSConfig *proposalutils.TimelockConfig `json:"mcms_config"`
+	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config"`
 
 	// Description for the MCMS proposal
 	Description string `json:"description"`

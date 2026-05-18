@@ -6,8 +6,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 
+	lloconfig "github.com/smartcontractkit/chainlink-data-streams/llo/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 )
 
 type ChannelDefinitionCacheFactory interface {

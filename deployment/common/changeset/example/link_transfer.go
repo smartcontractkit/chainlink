@@ -11,8 +11,11 @@ import (
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
@@ -20,7 +23,6 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -34,10 +36,10 @@ type TransferConfig struct {
 type LinkTransferConfig struct {
 	Transfers  map[uint64][]TransferConfig
 	From       common.Address
-	McmsConfig *proposalutils.TimelockConfig
+	McmsConfig *cldfproposalutils.TimelockConfig
 }
 
-func getDeployer(e cldf.Environment, chain uint64, mcmConfig *proposalutils.TimelockConfig) *bind.TransactOpts {
+func getDeployer(e cldf.Environment, chain uint64, mcmConfig *cldfproposalutils.TimelockConfig) *bind.TransactOpts {
 	if mcmConfig == nil {
 		return e.BlockChains.EVMChains()[chain].DeployerKey
 	}
@@ -145,7 +147,7 @@ func transferOrBuildTx(
 	transfer TransferConfig,
 	opts *bind.TransactOpts,
 	chain cldf_evm.Chain,
-	mcmsConfig *proposalutils.TimelockConfig) (*ethTypes.Transaction, error) {
+	mcmsConfig *cldfproposalutils.TimelockConfig) (*ethTypes.Transaction, error) {
 	tx, err := linkState.LinkToken.Transfer(opts, transfer.To, transfer.Value)
 	if err != nil {
 		return nil, fmt.Errorf("error packing transfer tx data: %w", err)
@@ -209,7 +211,7 @@ func LinkTransferV2(e cldf.Environment, cfg *LinkTransferConfig) (cldf.Changeset
 	}
 
 	if cfg.McmsConfig != nil {
-		proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		proposal, err := proposeutils.BuildProposalFromBatchesV2(
 			e,
 			timelockAddressesPerChain,
 			proposerAddressPerChain,

@@ -21,6 +21,7 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -31,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // createSymmetricRateLimits is a utility to quickly create a rate limiter config with equal inbound and outbound values.
@@ -431,7 +431,7 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		for _, mcmsConfig := range []*proposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} { // Run all tests with and without MCMS
+		for _, mcmsConfig := range []*cldfproposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} { // Run all tests with and without MCMS
 			t.Run(test.Msg, func(t *testing.T) {
 				e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.Test(t), mcmsConfig != nil)
 

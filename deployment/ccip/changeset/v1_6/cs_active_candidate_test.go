@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -19,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
@@ -199,7 +199,7 @@ func Test_ActiveCandidate(t *testing.T) {
 				SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
 					HomeChainSelector: tenv.HomeChainSel,
 					FeedChainSelector: tenv.FeedChainSel,
-					MCMS: &proposalutils.TimelockConfig{
+					MCMS: &cldfproposalutils.TimelockConfig{
 						MinDelay: 0,
 					},
 				},

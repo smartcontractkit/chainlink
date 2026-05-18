@@ -33,7 +33,6 @@ import (
 	token_governor "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/token_governor"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 const (
@@ -140,7 +139,7 @@ func SetupTwoChainEnvironmentWithTokens(
 		err = rt.Exec(
 			runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2), commoncs.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: timelockOwnedContractsByChain,
-				MCMSConfig: proposalutils.TimelockConfig{
+				MCMSConfig: cldfproposalutils.TimelockConfig{
 					MinDelay: 0 * time.Second,
 				},
 			}),
@@ -218,7 +217,7 @@ func DeployTestTokenPools(
 				cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 				commoncs.TransferToMCMSWithTimelockConfig{
 					ContractsByChain: timelockOwnedContractsByChain,
-					MCMSConfig: proposalutils.TimelockConfig{
+					MCMSConfig: cldfproposalutils.TimelockConfig{
 						MinDelay: 0 * time.Second,
 					},
 				},

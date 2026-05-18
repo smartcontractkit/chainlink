@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	"github.com/zksync-sdk/zksync2-go/accounts"
 	"github.com/zksync-sdk/zksync2-go/clients"
@@ -25,8 +26,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // EVMCallInput is the input structure for an EVM call operation.
@@ -120,7 +119,7 @@ func AddEVMCallSequenceToCSOutput[IN any](
 	seqReport operations.SequenceReport[IN, map[uint64][]EVMCallOutput],
 	seqErr error,
 	mcmsStateByChain map[uint64]evmstate.MCMSWithTimelockState,
-	mcmsCfg *proposalutils.TimelockConfig,
+	mcmsCfg *cldfproposalutils.TimelockConfig,
 	mcmsDescription string,
 ) (cldf.ChangesetOutput, error) {
 	defer func() { csOutput.Reports = append(csOutput.Reports, seqReport.ExecutionReports...) }()
@@ -172,7 +171,7 @@ func AddEVMCallSequenceToCSOutput[IN any](
 	}
 
 	// Build new proposal from the batches and MCMS configuration.
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
 		mcmContractByChain,
@@ -199,7 +198,14 @@ func AddEVMCallSequenceToCSOutput[IN any](
 			builder.WriteString(", ")
 		}
 	}
-	aggProposal, err := proposalutils.AggregateProposals(e, mcmsStateByChain, nil, csOutput.MCMSTimelockProposals, builder.String(), mcmsCfg)
+	aggProposal, err := proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: not migrating to AggregateProposalsV2 yet
+		e,
+		mcmsStateByChain,
+		nil,
+		csOutput.MCMSTimelockProposals,
+		builder.String(),
+		mcmsCfg,
+	)
 	if err != nil {
 		return csOutput, fmt.Errorf("failed to aggregate proposals: %w", err)
 	}

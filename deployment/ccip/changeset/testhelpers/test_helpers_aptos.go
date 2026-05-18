@@ -16,6 +16,7 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
 	aptosBind "github.com/smartcontractkit/chainlink-aptos/bindings/bind"
@@ -48,7 +49,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -88,7 +88,7 @@ func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector ui
 				TimelockMinDelay: big.NewInt(1),
 			},
 		},
-		MCMSTimelockConfigPerChain: map[uint64]proposalutils.TimelockConfig{
+		MCMSTimelockConfigPerChain: map[uint64]cldfproposalutils.TimelockConfig{
 			chainSelector: {
 				MinDelay:     time.Duration(1) * time.Second,
 				MCMSAction:   mcmstypes.TimelockActionSchedule,
@@ -312,7 +312,7 @@ func DeployTransferableTokenAptos(
 					Decimals: 8,
 				},
 				TokenMint: mintAmount,
-				MCMSConfig: &proposalutils.TimelockConfig{
+				MCMSConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay: time.Second, // TODO
 				},
 			},
@@ -398,7 +398,7 @@ func DeployRegulatedTransferableTokenAptos(
 					Decimals: 8,
 				},
 				TokenMint: mintAmount,
-				MCMSConfig: &proposalutils.TimelockConfig{
+				MCMSConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay: time.Second,
 				},
 			},
@@ -452,7 +452,7 @@ func DeployRegulatedTransferableTokenAptos(
 						},
 					},
 				},
-				MCMSConfig: &proposalutils.TimelockConfig{
+				MCMSConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay: time.Second,
 				},
 			},
@@ -664,7 +664,7 @@ func DeployBnMTokenAptos(
 						TokenPoolType:    shared.BurnMintTokenPool,
 					},
 				},
-				MCMSConfig: &proposalutils.TimelockConfig{
+				MCMSConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay: time.Second,
 				},
 			},
@@ -702,7 +702,7 @@ func DeployBnMTokenAptos(
 						},
 					},
 				},
-				MCMSConfig: &proposalutils.TimelockConfig{
+				MCMSConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay: time.Second,
 				},
 			},
@@ -917,7 +917,7 @@ func DeployLnRTokenAptos(
 						TokenPoolType:    shared.LockReleaseTokenPool,
 					},
 				},
-				MCMSConfig: &proposalutils.TimelockConfig{
+				MCMSConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay: time.Second,
 				},
 			},
@@ -955,7 +955,7 @@ func DeployLnRTokenAptos(
 						},
 					},
 				},
-				MCMSConfig: &proposalutils.TimelockConfig{
+				MCMSConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay: time.Second,
 				},
 			},

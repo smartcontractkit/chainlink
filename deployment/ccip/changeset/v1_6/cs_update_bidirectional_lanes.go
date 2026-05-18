@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -24,11 +25,11 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // UpdateBidirectionalLanesChangeset enables or disables multiple bidirectional lanes on CCIP.
@@ -54,7 +55,7 @@ type laneDefinition struct {
 // UpdateBidirectionalLanesConfig is a configuration struct for UpdateBidirectionalLanesChangeset.
 type UpdateBidirectionalLanesConfig struct {
 	// MCMSConfig defines the MCMS configuration for the changeset.
-	MCMSConfig *proposalutils.TimelockConfig
+	MCMSConfig *cldfproposalutils.TimelockConfig
 	// Lanes describes the lanes that we want to create.
 	Lanes []BidirectionalLaneDefinition
 	// TestRouter indicates if we want to enable these lanes on the test router.
@@ -226,7 +227,7 @@ func updateBidirectionalLanesLogic(e cldf.Environment, c UpdateBidirectionalLane
 // On chains where a v2 FeeQuoter is deployed alongside the active v1.6 FeeQuoter, both are updated.
 // Already-configured destinations are skipped to ensure idempotency. Configs provided can be unidirectional
 // TODO: UpdateBidirectionalLanesChangesetConfigs name is misleading, it also accepts unidirectional lane updates
-func UpdateLanesLogic(e cldf.Environment, mcmsConfig *proposalutils.TimelockConfig, skipNonceManagerUpdates bool, configs UpdateBidirectionalLanesChangesetConfigs) (cldf.ChangesetOutput, error) {
+func UpdateLanesLogic(e cldf.Environment, mcmsConfig *cldfproposalutils.TimelockConfig, skipNonceManagerUpdates bool, configs UpdateBidirectionalLanesChangesetConfigs) (cldf.ChangesetOutput, error) {
 	var loadOpts []stateview.LoadOption
 	if !skipNonceManagerUpdates {
 		loadOpts = append(loadOpts, stateview.WithLoadLegacyContracts(true))
@@ -372,9 +373,9 @@ func UpdateLanesLogic(e cldf.Environment, mcmsConfig *proposalutils.TimelockConf
 	output.MCMSTimelockProposals = append(output.MCMSTimelockProposals, mcmslib.TimelockProposal{
 		Operations: v2BatchOps,
 	})
-	aggProposal, err := proposalutils.AggregateProposalsV2(
+	aggProposal, err := proposeutils.AggregateProposalsV2(
 		e,
-		proposalutils.MCMSStates{MCMSEVMState: state.EVMMCMSStateByChain()},
+		proposeutils.MCMSStates{MCMSEVMState: state.EVMMCMSStateByChain()},
 		output.MCMSTimelockProposals,
 		"Update lanes on CCIP",
 		mcmsConfig,
@@ -570,7 +571,7 @@ func buildNonceManagerUpdatesFromV15Contracts(
 	e cldf.Environment,
 	state stateview.CCIPOnChainState,
 	configs UpdateBidirectionalLanesChangesetConfigs,
-	mcmsConfig *proposalutils.TimelockConfig,
+	mcmsConfig *cldfproposalutils.TimelockConfig,
 ) (ccipseqs.NonceManagerUpdatesSequenceInput, error) {
 	updates := make(map[uint64]ccipseqs.NonceManagerUpdateInput)
 
@@ -613,7 +614,7 @@ func maybeAddPreviousRampUpdate(
 	state stateview.CCIPOnChainState,
 	updates map[uint64]ccipseqs.NonceManagerUpdateInput,
 	sourceChain, destChain uint64,
-	mcmsConfig *proposalutils.TimelockConfig,
+	mcmsConfig *cldfproposalutils.TimelockConfig,
 ) error {
 	chainState := state.Chains[sourceChain]
 	if chainState.NonceManager == nil {

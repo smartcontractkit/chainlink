@@ -19,39 +19,39 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	mcmslib "github.com/smartcontractkit/mcms"
 
-	mcmssdk "github.com/smartcontractkit/mcms/sdk"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	mcmslib "github.com/smartcontractkit/mcms"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	ccipops1_2 "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_2"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 	ccipseqs "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
-
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
@@ -96,7 +96,7 @@ var (
 
 type UpdateNonceManagerConfig struct {
 	UpdatesByChain map[uint64]NonceManagerUpdate // source -> dest -> update
-	MCMS           *proposalutils.TimelockConfig
+	MCMS           *cldfproposalutils.TimelockConfig
 	// SkipOwnershipCheck allows you to bypass the ownership check for the NonceManager.
 	// WARNING: This should only be used when running this changeset within another changeset that is managing contract ownership!
 	// Never use this option when running this changeset in isolation.
@@ -264,7 +264,7 @@ type UpdateOnRampDestsConfig struct {
 
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
-	MCMS *proposalutils.TimelockConfig
+	MCMS *cldfproposalutils.TimelockConfig
 	// SkipOwnershipCheck allows you to bypass the ownership check for the onRamp.
 	// WARNING: This should only be used when running this changeset within another changeset that is managing contract ownership!
 	// Never use this option when running this changeset in isolation.
@@ -381,7 +381,7 @@ type UpdateOnRampDynamicConfig struct {
 	UpdatesByChain map[uint64]OnRampDynamicConfigUpdate
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
-	MCMS *proposalutils.TimelockConfig
+	MCMS *cldfproposalutils.TimelockConfig
 }
 
 func (cfg UpdateOnRampDynamicConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -470,7 +470,7 @@ func UpdateOnRampDynamicConfigChangeset(e cldf.Environment, cfg UpdateOnRampDyna
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		e, timelocks, mcmsContractByChain, inspectors, batches,
 		"update onramp dynamic config",
 		*cfg.MCMS)
@@ -492,7 +492,7 @@ type UpdateOnRampAllowListConfig struct {
 	UpdatesByChain map[uint64]map[uint64]OnRampAllowListUpdate
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
-	MCMS *proposalutils.TimelockConfig
+	MCMS *cldfproposalutils.TimelockConfig
 }
 
 func (cfg UpdateOnRampAllowListConfig) Validate(env cldf.Environment) error {
@@ -627,7 +627,7 @@ func UpdateOnRampAllowListChangeset(e cldf.Environment, cfg UpdateOnRampAllowLis
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
 		mcmsContractByChain,
@@ -645,7 +645,7 @@ func UpdateOnRampAllowListChangeset(e cldf.Environment, cfg UpdateOnRampAllowLis
 
 type WithdrawOnRampFeeTokensConfig struct {
 	FeeTokensByChain map[uint64][]common.Address
-	MCMS             *proposalutils.TimelockConfig
+	MCMS             *cldfproposalutils.TimelockConfig
 }
 
 func (cfg WithdrawOnRampFeeTokensConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -724,7 +724,7 @@ func WithdrawOnRampFeeTokensChangeset(e cldf.Environment, cfg WithdrawOnRampFeeT
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
 		mcmsContractByChain,
@@ -742,7 +742,7 @@ func WithdrawOnRampFeeTokensChangeset(e cldf.Environment, cfg WithdrawOnRampFeeT
 
 type UpdateFeeQuoterPricesConfig struct {
 	PricesByChain map[uint64]FeeQuoterPriceUpdatePerSource // source -> PriceDetails
-	MCMS          *proposalutils.TimelockConfig
+	MCMS          *cldfproposalutils.TimelockConfig
 }
 
 type FeeQuoterPriceUpdatePerSource struct {
@@ -885,7 +885,7 @@ type UpdateFeeQuoterDestsConfig struct {
 	UpdatesByChain map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
-	MCMS *proposalutils.TimelockConfig
+	MCMS *cldfproposalutils.TimelockConfig
 }
 
 func (cfg UpdateFeeQuoterDestsConfig) Validate(e cldf.Environment) error {
@@ -1081,7 +1081,7 @@ type UpdateOffRampSourcesConfig struct {
 	// UpdatesByChain is a mapping from dest chain -> source chain -> source chain
 	// update on the dest chain offramp.
 	UpdatesByChain map[uint64]map[uint64]OffRampSourceUpdate
-	MCMS           *proposalutils.TimelockConfig
+	MCMS           *cldfproposalutils.TimelockConfig
 	// SkipOwnershipCheck allows you to bypass the ownership check for the offRamp.
 	// WARNING: This should only be used when running this changeset within another changeset that is managing contract ownership!
 	// Never use this option when running this changeset in isolation.
@@ -1194,7 +1194,7 @@ type UpdateRouterRampsConfig struct {
 	// on all chains. Disallow mixing test router/non-test router per chain for simplicity.
 	TestRouter     bool
 	UpdatesByChain map[uint64]RouterUpdates
-	MCMS           *proposalutils.TimelockConfig
+	MCMS           *cldfproposalutils.TimelockConfig
 	// SkipOwnershipCheck allows you to bypass the ownership check for the router.
 	// WARNING: This should only be used when running this changeset within another changeset that is managing contract ownership!
 	// Never use this option when running this changeset in isolation.
@@ -1379,7 +1379,7 @@ type SetOCR3OffRampConfig struct {
 	HomeChainSel       uint64
 	RemoteChainSels    []uint64
 	CCIPHomeConfigType globals.ConfigType
-	MCMS               *proposalutils.TimelockConfig
+	MCMS               *cldfproposalutils.TimelockConfig
 	PluginTypes        []cctypes.PluginType // empty plugin type list defaults to both commit and exec
 }
 
@@ -1546,7 +1546,7 @@ func SetOCR3OffRampChangeset(e cldf.Environment, cfg SetOCR3OffRampConfig) (cldf
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
 		mcmsContractByChain,
@@ -1565,7 +1565,7 @@ func SetOCR3OffRampChangeset(e cldf.Environment, cfg SetOCR3OffRampConfig) (cldf
 
 type UpdateDynamicConfigOffRampConfig struct {
 	Updates map[uint64]ccipops.OffRampParams
-	MCMS    *proposalutils.TimelockConfig
+	MCMS    *cldfproposalutils.TimelockConfig
 }
 
 func (cfg UpdateDynamicConfigOffRampConfig) Validate(e cldf.Environment) error {
@@ -1661,7 +1661,7 @@ func UpdateDynamicConfigOffRampChangeset(e cldf.Environment, cfg UpdateDynamicCo
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
 		mcmsContractByChain,
@@ -1751,7 +1751,7 @@ func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...ui
 
 type ApplyFeeTokensUpdatesConfig struct {
 	UpdatesByChain map[uint64]ApplyFeeTokensUpdatesConfigPerChain
-	MCMSConfig     *proposalutils.TimelockConfig
+	MCMSConfig     *cldfproposalutils.TimelockConfig
 }
 
 type ApplyFeeTokensUpdatesConfigPerChain struct {
@@ -1850,7 +1850,7 @@ func (cfg ApplyFeeTokensUpdatesConfig) ToSequenceInput(state stateview.CCIPOnCha
 type UpdateTokenPriceFeedsConfig struct {
 	Updates           map[uint64][]UpdateTokenPriceFeedsConfigPerChain
 	FeedChainSelector uint64
-	MCMS              *proposalutils.TimelockConfig
+	MCMS              *cldfproposalutils.TimelockConfig
 }
 
 type UpdateTokenPriceFeedsConfigPerChain struct {
@@ -1985,7 +1985,7 @@ func UpdateTokenPriceFeedsFeeQuoterChangeset(e cldf.Environment, cfg UpdateToken
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error getting mcms contract by chain: %w", err)
 	}
-	p, err := proposalutils.BuildProposalFromBatchesV2(
+	p, err := proposeutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
 		mcmsContractByChain,
@@ -2004,7 +2004,7 @@ func UpdateTokenPriceFeedsFeeQuoterChangeset(e cldf.Environment, cfg UpdateToken
 
 type PremiumMultiplierWeiPerEthUpdatesConfig struct {
 	Updates map[uint64][]PremiumMultiplierWeiPerEthUpdatesConfigPerChain
-	MCMS    *proposalutils.TimelockConfig
+	MCMS    *cldfproposalutils.TimelockConfig
 }
 
 func (cfg PremiumMultiplierWeiPerEthUpdatesConfig) Validate(e cldf.Environment) error {
@@ -2096,7 +2096,7 @@ func (cfg PremiumMultiplierWeiPerEthUpdatesConfig) ToSequenceInput(state statevi
 
 type ApplyTokenTransferFeeConfigUpdatesConfig struct {
 	UpdatesByChain map[uint64]ApplyTokenTransferFeeConfigUpdatesConfigPerChain
-	MCMS           *proposalutils.TimelockConfig
+	MCMS           *cldfproposalutils.TimelockConfig
 }
 
 func (cfg ApplyTokenTransferFeeConfigUpdatesConfig) Validate(e cldf.Environment) error {
@@ -2249,7 +2249,7 @@ func (cfg ApplyTokenTransferFeeConfigUpdatesConfig) ToSequenceInput(state statev
 
 type UpdateWrappedNativeOnRouterConfig struct {
 	UpdatesByChain map[uint64]common.Address
-	MCMS           *proposalutils.TimelockConfig
+	MCMS           *cldfproposalutils.TimelockConfig
 }
 
 func (cfg UpdateWrappedNativeOnRouterConfig) Validate(e cldf.Environment) error {
@@ -2336,7 +2336,7 @@ type ApplyTokenTransferFeeConfigUpdatesConfigV2Input struct {
 
 type ApplyTokenTransferFeeConfigUpdatesConfigV2 struct {
 	InputsByChain map[uint64]map[uint64]ApplyTokenTransferFeeConfigUpdatesConfigV2Input
-	MCMS          *proposalutils.TimelockConfig
+	MCMS          *cldfproposalutils.TimelockConfig
 }
 
 type OptionalFeeQuoterTokenTransferFeeConfig struct {

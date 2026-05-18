@@ -18,6 +18,7 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_deploy "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
@@ -29,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	ccipocr3types "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
@@ -87,7 +87,7 @@ var (
 	}
 )
 
-func initMigrationEnvironment(t *testing.T, numChains int, mcmsCfg proposalutils.TimelockConfig) cldf_deploy.Environment {
+func initMigrationEnvironment(t *testing.T, numChains int, mcmsCfg cldfproposalutils.TimelockConfig) cldf_deploy.Environment {
 	dEnv, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithNumOfChains(numChains),
 		testhelpers.WithDONConfigurationSkipped(),
@@ -341,7 +341,7 @@ func initMigrationEnvironment(t *testing.T, numChains int, mcmsCfg proposalutils
 }
 
 func TestInitAndPromoteChainUpgrades(t *testing.T) {
-	mcmsCfg := proposalutils.TimelockConfig{
+	mcmsCfg := cldfproposalutils.TimelockConfig{
 		MinDelay:   0 * time.Second,
 		MCMSAction: mcmstypes.TimelockActionSchedule,
 	}

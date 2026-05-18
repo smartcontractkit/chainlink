@@ -14,6 +14,7 @@ import (
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -22,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
@@ -97,7 +97,7 @@ func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 						selector: deployment.Version1_5_1,
 					},
 					ChainSelectorToUSDCDomain: map[uint64]uint32{},
-					MCMS:                      &proposalutils.TimelockConfig{MinDelay: 0 * time.Second},
+					MCMS:                      &cldfproposalutils.TimelockConfig{MinDelay: 0 * time.Second},
 				}
 			},
 			DeployUSDC: true,
@@ -186,7 +186,7 @@ func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 	t.Parallel()
 
-	for _, mcmsConfig := range []*proposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
+	for _, mcmsConfig := range []*cldfproposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
 		msg := "Sync domains without MCMS"
 		if mcmsConfig != nil {
 			msg = "Sync domains with MCMS"

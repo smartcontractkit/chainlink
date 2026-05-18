@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
@@ -15,7 +16,6 @@ import (
 
 	migrate_seq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/migration"
 	ccipseqs "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 var (
@@ -26,7 +26,7 @@ var (
 type TranslateEVM2EVMOnRampsToFeeQuoterConfig struct {
 	DestChainSelector           uint64
 	NewFeeQuoterParamsPerSource map[uint64]migrate_seq.NewFeeQuoterDestChainConfigParams
-	MCMS                        *proposalutils.TimelockConfig
+	MCMS                        *cldfproposalutils.TimelockConfig
 }
 
 func (cfg TranslateEVM2EVMOnRampsToFeeQuoterConfig) Validate(e cldf.Environment) error {

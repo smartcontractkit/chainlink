@@ -27,7 +27,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -315,7 +314,7 @@ func TestNewOwnableV2(t *testing.T) {
 		// Transfer ownership to MCMS with timelock
 		cfg := commonchangeset.TransferToMCMSWithTimelockConfig{
 			ContractsByChain: map[uint64][]common.Address{selector: {common.HexToAddress(targetAddrStr)}},
-			MCMSConfig: proposalutils.TimelockConfig{
+			MCMSConfig: cldfproposalutils.TimelockConfig{
 				MinDelay: time.Duration(0),
 			},
 		}

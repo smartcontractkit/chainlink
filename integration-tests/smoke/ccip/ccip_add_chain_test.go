@@ -14,10 +14,10 @@ import (
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
@@ -433,9 +433,9 @@ func setupInboundWiring(
 	testRouterEnabled,
 	mcmsEnabled bool,
 ) testhelpers.DeployedEnv {
-	var mcmsConfig *proposalutils.TimelockConfig
+	var mcmsConfig *cldfproposalutils.TimelockConfig
 	if mcmsEnabled {
-		mcmsConfig = &proposalutils.TimelockConfig{
+		mcmsConfig = &cldfproposalutils.TimelockConfig{
 			MinDelay: 0,
 		}
 	}
@@ -471,9 +471,9 @@ func setupOutboundWiring(
 	testRouterEnabled,
 	mcmsEnabled bool,
 ) testhelpers.DeployedEnv {
-	var mcmsConfig *proposalutils.TimelockConfig
+	var mcmsConfig *cldfproposalutils.TimelockConfig
 	if mcmsEnabled {
-		mcmsConfig = &proposalutils.TimelockConfig{
+		mcmsConfig = &cldfproposalutils.TimelockConfig{
 			MinDelay: 0,
 		}
 	}

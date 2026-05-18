@@ -28,7 +28,6 @@ func getSubCommands(parent string) []prompt.Suggest {
 	case "test":
 		return []prompt.Suggest{
 			{Text: "cron TestSmoke", Description: "Run Cron trigger test"},
-			{Text: "directrequest TestSmoke", Description: "Run Direct Request test"},
 			{Text: "flux TestSmoke", Description: "Run Flux test"},
 			{Text: "ocr2 TestSmoke/rounds", Description: "Run OCR2 smoke test"},
 			{Text: "ocr2 TestOCR2Soak/clean", Description: "Run OCR2 soak test"},
@@ -64,8 +63,6 @@ func getSubCommands(parent string) []prompt.Suggest {
 			{Text: "env.toml,products/cron/soak.toml", Description: "1 Anvil, 1 CL Node, 10 Cron triggers for soak testing"},
 			{Text: "env.toml,products/directrequest/basic.toml", Description: "1 Anvil, 1 CL Node, Runlog trigger"},
 			{Text: "env.toml,products/directrequest/soak.toml", Description: "1 Anvil, 1 CL Node, 10 Runlog triggers for soak testing"},
-			{Text: "env.toml,products/flux/basic.toml", Description: "1 Anvil, 1 CL Node, Runlog trigger"},
-			{Text: "env.toml,products/flux/soak.toml", Description: "1 Anvil, 1 CL Node, 10 Runlog triggers for soak testing"},
 			{Text: "env.toml,products/ocr2/basic.toml", Description: "2 Anvils, 5 CL nodes, 1 OCRv2 product"},
 			{Text: "env.toml,products/ocr2/basic.toml,products/ocr2/soak.toml", Description: "2 Anvils, 5 CL nodes, 10 OCRv2 product for soak testing"},
 			{Text: "env.toml,products/ocr2/basic.toml,env-cl-rebuild.toml", Description: "Spin OCR2 product + 5 CL nodes + build local CL image"},

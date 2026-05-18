@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	solTestUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
 	solBaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/base_token_pool"
@@ -37,7 +38,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -125,7 +125,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 		deployerKey,
 	)
 	rebalancer := deployerKey
-	var mcmsConfig *proposalutils.TimelockConfig
+	var mcmsConfig *cldfproposalutils.TimelockConfig
 	if mcms {
 		timelockSignerPDA, _ := testhelpers.TransferOwnershipSolanaV0_1_1(t, &e, solChain, true,
 			ccipChangesetSolana.CCIPContractsToTransfer{
@@ -133,7 +133,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 				FeeQuoter: true,
 				OffRamp:   true,
 			})
-		mcmsConfig = &proposalutils.TimelockConfig{
+		mcmsConfig = &cldfproposalutils.TimelockConfig{
 			MinDelay: 1 * time.Second,
 		}
 		rebalancer = timelockSignerPDA
@@ -484,7 +484,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 						commonchangeset.Configure(
 							cldf.CreateLegacyChangeSet(ccipChangesetSolana.TransferCCIPToMCMSWithTimelockSolana),
 							ccipChangesetSolana.TransferCCIPToMCMSWithTimelockSolanaConfig{
-								MCMSCfg:       proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+								MCMSCfg:       cldfproposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 								CurrentOwner:  timelockSignerPDA,
 								ProposedOwner: deployerKey,
 								ContractsByChain: map[uint64]ccipChangesetSolana.CCIPContractsToTransfer{
@@ -503,7 +503,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 						commonchangeset.Configure(
 							cldf.CreateLegacyChangeSet(ccipChangesetSolana.TransferCCIPToMCMSWithTimelockSolana),
 							ccipChangesetSolana.TransferCCIPToMCMSWithTimelockSolanaConfig{
-								MCMSCfg:       proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+								MCMSCfg:       cldfproposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 								CurrentOwner:  timelockSignerPDA,
 								ProposedOwner: deployerKey,
 								ContractsByChain: map[uint64]ccipChangesetSolana.CCIPContractsToTransfer{
@@ -522,7 +522,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 						commonchangeset.Configure(
 							cldf.CreateLegacyChangeSet(ccipChangesetSolana.TransferCCIPToMCMSWithTimelockSolana),
 							ccipChangesetSolana.TransferCCIPToMCMSWithTimelockSolanaConfig{
-								MCMSCfg:       proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+								MCMSCfg:       cldfproposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 								CurrentOwner:  timelockSignerPDA,
 								ProposedOwner: deployerKey,
 								ContractsByChain: map[uint64]ccipChangesetSolana.CCIPContractsToTransfer{
@@ -563,7 +563,7 @@ func doTestTokenPool(t *testing.T, e cldf.Environment, config TokenPoolTestConfi
 							ChainSelector:       solChain,
 							NewUpgradeAuthority: e.BlockChains.SolanaChains()[solChain].DeployerKey.PublicKey(),
 							TransferKeys:        transferKeys,
-							MCMS: &proposalutils.TimelockConfig{
+							MCMS: &cldfproposalutils.TimelockConfig{
 								MinDelay: 1 * time.Second,
 							},
 						},
@@ -692,7 +692,7 @@ func TestAddTokenPoolE2EWithMcms(t *testing.T) {
 			FeeQuoter: true,
 			OffRamp:   true,
 		})
-	mcmsConfig := &proposalutils.TimelockConfig{
+	mcmsConfig := &cldfproposalutils.TimelockConfig{
 		MinDelay: 1 * time.Second,
 	}
 	_, _, err = commonchangeset.ApplyChangesets(t, e, []commonchangeset.ConfiguredChangeSet{

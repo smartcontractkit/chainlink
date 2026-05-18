@@ -9,12 +9,14 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 func TestDeployRegulatedToken_Apply(t *testing.T) {
@@ -36,7 +38,7 @@ func TestDeployRegulatedToken_Apply(t *testing.T) {
 			Icon:      "",
 			Project:   "",
 		},
-		MCMSConfig: &proposalutils.TimelockConfig{
+		MCMSConfig: &cldfproposalutils.TimelockConfig{
 			MinDelay:     time.Second,
 			MCMSAction:   mcmstypes.TimelockActionSchedule,
 			OverrideRoot: false,

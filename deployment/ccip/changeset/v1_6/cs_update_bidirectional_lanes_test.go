@@ -18,6 +18,7 @@ import (
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	fqv2ops "github.com/smartcontractkit/chainlink-ccip/chains/evm/deployment/v2_0_0/operations/fee_quoter"
 	fqv2seq "github.com/smartcontractkit/chainlink-ccip/chains/evm/deployment/v2_0_0/sequences"
@@ -34,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 type laneDefinition struct {
@@ -183,7 +183,7 @@ func TestBuildConfigs(t *testing.T) {
 
 	cfg := v1_6.UpdateBidirectionalLanesConfig{
 		TestRouter: false,
-		MCMSConfig: &proposalutils.TimelockConfig{
+		MCMSConfig: &cldfproposalutils.TimelockConfig{
 			MinDelay:   0 * time.Second,
 			MCMSAction: types.TimelockActionSchedule,
 		},
@@ -285,11 +285,11 @@ func TestUpdateBidirectionalLanesChangeset(t *testing.T) {
 	type test struct {
 		Msg        string
 		TestRouter bool
-		MCMS       *proposalutils.TimelockConfig
+		MCMS       *cldfproposalutils.TimelockConfig
 		Disable    bool
 	}
 
-	mcmsConfig := &proposalutils.TimelockConfig{
+	mcmsConfig := &cldfproposalutils.TimelockConfig{
 		MinDelay:   0 * time.Second,
 		MCMSAction: types.TimelockActionSchedule,
 	}
@@ -349,7 +349,7 @@ func TestUpdateBidirectionalLanesChangeset(t *testing.T) {
 						cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 						commonchangeset.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: contractsToTransfer,
-							MCMSConfig: proposalutils.TimelockConfig{
+							MCMSConfig: cldfproposalutils.TimelockConfig{
 								MinDelay:   0 * time.Second,
 								MCMSAction: types.TimelockActionSchedule,
 							},
@@ -852,7 +852,7 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoterWithMCMS(t *testing.T) 
 	e.DataStore = ds.Seal()
 
 	// Transfer contracts to MCMS timelock
-	mcmsConfig := &proposalutils.TimelockConfig{
+	mcmsConfig := &cldfproposalutils.TimelockConfig{
 		MinDelay:   0 * time.Second,
 		MCMSAction: types.TimelockActionSchedule,
 	}
@@ -878,7 +878,7 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoterWithMCMS(t *testing.T) 
 			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsToTransfer,
-				MCMSConfig: proposalutils.TimelockConfig{
+				MCMSConfig: cldfproposalutils.TimelockConfig{
 					MinDelay:   0 * time.Second,
 					MCMSAction: types.TimelockActionSchedule,
 				},

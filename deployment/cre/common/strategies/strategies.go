@@ -63,6 +63,7 @@ func CreateStrategy(
 }
 
 // Legacy aliases for backward compatibility with existing CRE modules
+//
 // Deprecated: Use TransactionStrategy instead
 type StrategyV2 = TransactionStrategy
 

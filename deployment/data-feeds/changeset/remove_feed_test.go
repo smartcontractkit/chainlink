@@ -23,7 +23,6 @@ import (
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
@@ -105,7 +104,7 @@ func TestRemoveFeed(t *testing.T) {
 			ContractsByChain: map[uint64][]common.Address{
 				selector: {common.HexToAddress(cacheAddress)},
 			},
-			MCMSConfig: proposalutils.TimelockConfig{
+			MCMSConfig: cldfproposalutils.TimelockConfig{
 				MinDelay: 0,
 				TimelockQualifierPerChain: map[uint64]string{
 					selector: MCMSQualifier,
