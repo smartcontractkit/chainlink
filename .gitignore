@@ -1,133 +1,22 @@
-# dependencies
-node_modules/
-tmp/
-.pnp
-.pnp.js
-tools/bin/abigen
+# --- Giga-CRE Sovereign Ignore List ---
 
-/chainlink
-core/chainlink
+# Rust / Cargo
+/target/
+**/*.rs.bk
+Cargo.lock
 
-# SQLite
-tools/clroot/db.sqlite3-shm
-tools/clroot/db.sqlite3-wal
+# Compiled Binaries (The Static)
+*_bin
+x402_engine
+cl_aura_kernel_bin
+aura_shield_bin
+.sovereign_runtime/
 
-# Tooling caches
-*.tsbuildinfo
-.eslintcache
+# Environment & Secrets
+.env
+*.gpg
+*.key
+!751BABCE.pub
 
-# Log files
-*.log
-
-# misc
+# macOS Noise
 .DS_Store
-.envrc
-.env*
-.dbenv
-!.github/actions/setup-postgres/.env
-.direnv
-.idea
-.vscode/
-*.iml
-debug.env
-operator_ui/install
-.devenv
-event_dump.ndjson
-.cursor/
-.claude/
-
-# neovim
-.nvim.lua
-
-# codeship
-*.aes
-dockercfg
-env
-credentials.env
-gcr_creds.env
-
-# DB backups
-
-cl_backup_*.tar.gz
-
-# Test artifacts
-core/cmd/TestClient_ImportExportP2PKeyBundle_test_key.json
-race.*
-*output.txt
-/golangci-lint/
-.covdata
-core/services/job/testdata/wasm/testmodule.wasm
-core/services/job/testdata/wasm/testmodule.br
-temp-repo
-diagnose-*/
-diagnose-attempted-fixes-*.jsonl
-
-# DB state
-./db/
-.s.PGSQL.5432.lock
-
-# can be left behind by tests
-core/cmd/vrfkey1
-
-# Integration Tests
-integration-tests/**/logs/
-tests-*.xml
-*.test
-tmp-manifest-*.yaml
-ztarrepo.tar.gz
-**/test-ledger/*
-__debug_bin*
-.test_summary/
-db_dumps/
-.run.id
-integration-tests/**/traces/
-integration-tests/**/integration-tests
-benchmark_report.csv
-benchmark_summary.json
-secrets.toml
-tmp_laneconfig/
-solana_contracts
-
-# Test & linter reports
-*report.xml
-*report.json
-*.out
-dot_graphs/
-
-contracts/yarn.lock
-
-# Ignore DevSpace cache and log folder
-.devspace/
-go.work*
-
-# This sometimes shows up for some reason
-tools/flakeytests/coverage.txt
-
-# Runtime test configuration that might contain secrets
-override*.toml
-
-# Python venv
-.venv/
-
-ocr_soak_report.csv
-
-vendor/*
-
-*.wasm
-contracts/lcov.info
-contracts/out/
-/cache
-
-# Used by plugins/chainlink.prebuilt.Dockerfile
-/bin/
-/lib/
-/build/bin/
-/build/lib/
-
-# artifacts of CRE environment creation or CRE CLI usage
-core/scripts/cre/environment/*.yaml
-core/scripts/cre/environment/*.yml
-core/scripts/cre/environment/logs/
-core/scripts/cre/environment/cron
-core/scripts/cre/environment/binaries/*
-*.br.b64
