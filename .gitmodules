@@ -1,3 +1,6 @@
 [submodule "kinswarm-core/lib/chainlink"]
 	path = kinswarm-core/lib/chainlink
 	url = https://github.com/smartcontractkit/chainlink
+[submodule "kinswarm-core/lib/openzeppelin-contracts"]
+	path = kinswarm-core/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
