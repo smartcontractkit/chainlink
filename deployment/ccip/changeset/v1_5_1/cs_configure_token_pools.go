@@ -122,44 +122,42 @@ func resolvePartialRateLimiterConfig(
 	tokenPool *token_pool.TokenPool,
 	remoteChainSelector uint64,
 	chainUpdate RateLimiterConfig,
-) (token_pool.RateLimiterConfig, token_pool.RateLimiterConfig, error) {
+) (inbound token_pool.RateLimiterConfig, outbound token_pool.RateLimiterConfig, err error) {
 	if chainUpdate.Inbound == nil && chainUpdate.Outbound == nil {
 		return token_pool.RateLimiterConfig{}, token_pool.RateLimiterConfig{}, errors.New("at least one of inbound or outbound rate limiter config must be set")
 	}
 
-	var inboundCfg token_pool.RateLimiterConfig
 	if chainUpdate.Inbound != nil {
-		inboundCfg = *chainUpdate.Inbound
+		inbound = *chainUpdate.Inbound
 	} else {
-		state, err := tokenPool.GetCurrentInboundRateLimiterState(&bind.CallOpts{Context: ctx}, remoteChainSelector)
-		if err != nil {
-			return token_pool.RateLimiterConfig{}, token_pool.RateLimiterConfig{}, fmt.Errorf("failed to fetch on-chain inbound rate limiter state: %w", err)
+		state, fetchErr := tokenPool.GetCurrentInboundRateLimiterState(&bind.CallOpts{Context: ctx}, remoteChainSelector)
+		if fetchErr != nil {
+			return token_pool.RateLimiterConfig{}, token_pool.RateLimiterConfig{}, fmt.Errorf("failed to fetch on-chain inbound rate limiter state: %w", fetchErr)
 		}
 
-		inboundCfg = token_pool.RateLimiterConfig{
+		inbound = token_pool.RateLimiterConfig{
 			IsEnabled: state.IsEnabled,
 			Capacity:  state.Capacity,
 			Rate:      state.Rate,
 		}
 	}
 
-	var outboundCfg token_pool.RateLimiterConfig
 	if chainUpdate.Outbound != nil {
-		outboundCfg = *chainUpdate.Outbound
+		outbound = *chainUpdate.Outbound
 	} else {
-		state, err := tokenPool.GetCurrentOutboundRateLimiterState(&bind.CallOpts{Context: ctx}, remoteChainSelector)
-		if err != nil {
-			return token_pool.RateLimiterConfig{}, token_pool.RateLimiterConfig{}, fmt.Errorf("failed to fetch on-chain outbound rate limiter state: %w", err)
+		state, fetchErr := tokenPool.GetCurrentOutboundRateLimiterState(&bind.CallOpts{Context: ctx}, remoteChainSelector)
+		if fetchErr != nil {
+			return token_pool.RateLimiterConfig{}, token_pool.RateLimiterConfig{}, fmt.Errorf("failed to fetch on-chain outbound rate limiter state: %w", fetchErr)
 		}
 
-		outboundCfg = token_pool.RateLimiterConfig{
+		outbound = token_pool.RateLimiterConfig{
 			IsEnabled: state.IsEnabled,
 			Capacity:  state.Capacity,
 			Rate:      state.Rate,
 		}
 	}
 
-	return inboundCfg, outboundCfg, nil
+	return inbound, outbound, nil
 }
 
 // RateLimiterPerChain defines rate limits for remote chains.
