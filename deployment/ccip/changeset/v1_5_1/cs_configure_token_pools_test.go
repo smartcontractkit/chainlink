@@ -37,12 +37,12 @@ import (
 // createSymmetricRateLimits is a utility to quickly create a rate limiter config with equal inbound and outbound values.
 func createSymmetricRateLimits(rate int64, capacity int64) v1_5_1.RateLimiterConfig {
 	return v1_5_1.RateLimiterConfig{
-		Inbound: token_pool.RateLimiterConfig{
+		Inbound: &token_pool.RateLimiterConfig{
 			IsEnabled: rate != 0 || capacity != 0,
 			Rate:      big.NewInt(rate),
 			Capacity:  big.NewInt(capacity),
 		},
-		Outbound: token_pool.RateLimiterConfig{
+		Outbound: &token_pool.RateLimiterConfig{
 			IsEnabled: rate != 0 || capacity != 0,
 			Rate:      big.NewInt(rate),
 			Capacity:  big.NewInt(capacity),
@@ -172,12 +172,12 @@ func TestValidateRemoteChains(t *testing.T) {
 		t.Run(test.ErrStr, func(t *testing.T) {
 			remoteChains := v1_5_1.RateLimiterPerChain{
 				1: {
-					Inbound: token_pool.RateLimiterConfig{
+					Inbound: &token_pool.RateLimiterConfig{
 						IsEnabled: test.IsEnabled,
 						Rate:      test.Rate,
 						Capacity:  test.Capacity,
 					},
-					Outbound: token_pool.RateLimiterConfig{
+					Outbound: &token_pool.RateLimiterConfig{
 						IsEnabled: test.IsEnabled,
 						Rate:      test.Rate,
 						Capacity:  test.Capacity,
@@ -1038,4 +1038,244 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 			validateSolanaConfig(t, state, solChainUpdates, selector, remoteSelector)
 		}
 	}
+}
+
+func TestRateLimiterPerChainPartialValidate(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		config v1_5_1.RateLimiterConfig
+		errStr string
+	}{
+		{
+			name:   "rejects when neither inbound nor outbound is set",
+			config: v1_5_1.RateLimiterConfig{},
+			errStr: "must define at least one of inbound or outbound",
+		},
+		{
+			name: "accepts inbound-only",
+			config: v1_5_1.RateLimiterConfig{
+				Inbound: &token_pool.RateLimiterConfig{IsEnabled: false, Rate: big.NewInt(0), Capacity: big.NewInt(0)},
+			},
+		},
+		{
+			name: "accepts outbound-only",
+			config: v1_5_1.RateLimiterConfig{
+				Outbound: &token_pool.RateLimiterConfig{IsEnabled: true, Rate: big.NewInt(1), Capacity: big.NewInt(10)},
+			},
+		},
+		{
+			name: "validates the side that is set even when the other is nil",
+			config: v1_5_1.RateLimiterConfig{
+				Inbound: &token_pool.RateLimiterConfig{IsEnabled: true, Rate: big.NewInt(10), Capacity: big.NewInt(10)},
+			},
+			errStr: "rate must be greater than 0 and less than capacity",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			err := v1_5_1.RateLimiterPerChain{1: tc.config}.Validate()
+			if tc.errStr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.errStr)
+		})
+	}
+}
+
+func TestPartialRateLimiterUpdate(t *testing.T) {
+	t.Parallel()
+
+	mcmsConfig := &cldfproposalutils.TimelockConfig{MinDelay: 0 * time.Second}
+
+	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.Test(t), true)
+
+	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
+		selectorA: {
+			Type:               shared.BurnMintTokenPool,
+			TokenAddress:       tokens[selectorA].Address,
+			LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+		},
+		selectorB: {
+			Type:               shared.BurnMintTokenPool,
+			TokenAddress:       tokens[selectorB].Address,
+			LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+		},
+	}, true)
+
+	acceptLiquidity := false
+	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
+		selectorA: {
+			Type:               shared.LockReleaseTokenPool,
+			TokenAddress:       tokens[selectorA].Address,
+			LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+			AcceptLiquidity:    &acceptLiquidity,
+		},
+		selectorB: {
+			Type:               shared.LockReleaseTokenPool,
+			TokenAddress:       tokens[selectorB].Address,
+			LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+			AcceptLiquidity:    &acceptLiquidity,
+		},
+	}, true)
+
+	state, err := stateview.LoadOnchainState(e)
+	require.NoError(t, err)
+
+	poolA, err := token_pool.NewTokenPool(state.Chains[selectorA].LockReleaseTokenPools[testhelpers.TestTokenSymbol][deployment.Version1_5_1].Address(), e.BlockChains.EVMChains()[selectorA].Client)
+	require.NoError(t, err)
+	poolB, err := token_pool.NewTokenPool(state.Chains[selectorB].LockReleaseTokenPools[testhelpers.TestTokenSymbol][deployment.Version1_5_1].Address(), e.BlockChains.EVMChains()[selectorB].Client)
+	require.NoError(t, err)
+
+	fullCfg := func(rate, capacity int64) v1_5_1.RateLimiterConfig {
+		return v1_5_1.RateLimiterConfig{
+			Inbound:  &token_pool.RateLimiterConfig{IsEnabled: true, Rate: big.NewInt(rate), Capacity: big.NewInt(capacity)},
+			Outbound: &token_pool.RateLimiterConfig{IsEnabled: true, Rate: big.NewInt(rate), Capacity: big.NewInt(capacity)},
+		}
+	}
+
+	e, err = commonchangeset.Apply(t, e,
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
+			v1_5_1.ConfigureTokenPoolContractsConfig{
+				TokenSymbol: testhelpers.TestTokenSymbol,
+				MCMS:        mcmsConfig,
+				PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
+					selectorA: {
+						Type:         shared.LockReleaseTokenPool,
+						Version:      deployment.Version1_5_1,
+						ChainUpdates: v1_5_1.RateLimiterPerChain{selectorB: fullCfg(100, 1000)},
+					},
+					selectorB: {
+						Type:         shared.LockReleaseTokenPool,
+						Version:      deployment.Version1_5_1,
+						ChainUpdates: v1_5_1.RateLimiterPerChain{selectorA: fullCfg(100, 1000)},
+					},
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	_, err = commonchangeset.Apply(t, e,
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
+			v1_5_1.ConfigureTokenPoolContractsConfig{
+				TokenSymbol: testhelpers.TestTokenSymbol,
+				MCMS:        mcmsConfig,
+				PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
+					selectorA: {
+						Type:    shared.LockReleaseTokenPool,
+						Version: deployment.Version1_5_1,
+						ChainUpdates: v1_5_1.RateLimiterPerChain{
+							selectorB: {
+								Inbound: &token_pool.RateLimiterConfig{IsEnabled: true, Rate: big.NewInt(200), Capacity: big.NewInt(2000)},
+							},
+						},
+					},
+					selectorB: {
+						Type:    shared.LockReleaseTokenPool,
+						Version: deployment.Version1_5_1,
+						ChainUpdates: v1_5_1.RateLimiterPerChain{
+							selectorA: {
+								Outbound: &token_pool.RateLimiterConfig{IsEnabled: true, Rate: big.NewInt(300), Capacity: big.NewInt(3000)},
+							},
+						},
+					},
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	inboundA, err := poolA.GetCurrentInboundRateLimiterState(nil, selectorB)
+	require.NoError(t, err)
+	require.True(t, inboundA.IsEnabled)
+	require.Equal(t, int64(200), inboundA.Rate.Int64())
+	require.Equal(t, int64(2000), inboundA.Capacity.Int64())
+
+	outboundA, err := poolA.GetCurrentOutboundRateLimiterState(nil, selectorB)
+	require.NoError(t, err)
+	require.True(t, outboundA.IsEnabled)
+	require.Equal(t, int64(100), outboundA.Rate.Int64(), "outbound rate on pool A should be unchanged from pass 1")
+	require.Equal(t, int64(1000), outboundA.Capacity.Int64(), "outbound capacity on pool A should be unchanged from pass 1")
+
+	outboundB, err := poolB.GetCurrentOutboundRateLimiterState(nil, selectorA)
+	require.NoError(t, err)
+	require.True(t, outboundB.IsEnabled)
+	require.Equal(t, int64(300), outboundB.Rate.Int64())
+	require.Equal(t, int64(3000), outboundB.Capacity.Int64())
+
+	inboundB, err := poolB.GetCurrentInboundRateLimiterState(nil, selectorA)
+	require.NoError(t, err)
+	require.True(t, inboundB.IsEnabled)
+	require.Equal(t, int64(100), inboundB.Rate.Int64(), "inbound rate on pool B should be unchanged from pass 1")
+	require.Equal(t, int64(1000), inboundB.Capacity.Int64(), "inbound capacity on pool B should be unchanged from pass 1")
+}
+
+func TestPartialRateLimiterUpdateNewChainErrors(t *testing.T) {
+	t.Parallel()
+
+	e, selectorA, selectorB, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.Test(t), false)
+
+	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
+		selectorA: {
+			Type:               shared.BurnMintTokenPool,
+			TokenAddress:       tokens[selectorA].Address,
+			LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+		},
+		selectorB: {
+			Type:               shared.BurnMintTokenPool,
+			TokenAddress:       tokens[selectorB].Address,
+			LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+		},
+	}, false)
+
+	acceptLiquidity := false
+	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
+		selectorA: {
+			Type:               shared.LockReleaseTokenPool,
+			TokenAddress:       tokens[selectorA].Address,
+			LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+			AcceptLiquidity:    &acceptLiquidity,
+		},
+		selectorB: {
+			Type:               shared.LockReleaseTokenPool,
+			TokenAddress:       tokens[selectorB].Address,
+			LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+			AcceptLiquidity:    &acceptLiquidity,
+		},
+	}, false)
+
+	inboundOnly := v1_5_1.RateLimiterConfig{
+		Inbound: &token_pool.RateLimiterConfig{IsEnabled: false, Rate: big.NewInt(0), Capacity: big.NewInt(0)},
+	}
+
+	_, err := commonchangeset.Apply(t, e,
+		commonchangeset.Configure(
+			cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
+			v1_5_1.ConfigureTokenPoolContractsConfig{
+				TokenSymbol: testhelpers.TestTokenSymbol,
+				PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
+					selectorA: {
+						Type:         shared.LockReleaseTokenPool,
+						Version:      deployment.Version1_5_1,
+						ChainUpdates: v1_5_1.RateLimiterPerChain{selectorB: inboundOnly},
+					},
+					selectorB: {
+						Type:         shared.LockReleaseTokenPool,
+						Version:      deployment.Version1_5_1,
+						ChainUpdates: v1_5_1.RateLimiterPerChain{selectorA: inboundOnly},
+					},
+				},
+			},
+		),
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "both inbound and outbound rate limiter configs must be set when adding new chain support")
 }

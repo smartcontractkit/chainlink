@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/Masterminds/semver/v3"
+	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -19,6 +20,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	ccipseqs "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 
 	mcmslib "github.com/smartcontractkit/mcms"
@@ -256,8 +258,8 @@ func UpdateLanesLogic(e cldf.Environment, mcmsConfig *cldfproposalutils.Timelock
 	}
 
 	v2FeeQuoterChains := make(map[uint64]struct{})
-	v1FeeQuoterDestsUpdates := make(map[uint64]opsutil.EVMCallInput[[]fee_quoter.FeeQuoterDestChainConfigArgs])
-	v1FeeQuoterPriceUpdates := make(map[uint64]opsutil.EVMCallInput[fee_quoter.InternalPriceUpdates])
+	v1FeeQuoterDestsUpdates := make(map[uint64]opsevm.EVMCallInput[[]fee_quoter.FeeQuoterDestChainConfigArgs])
+	v1FeeQuoterPriceUpdates := make(map[uint64]opsevm.EVMCallInput[fee_quoter.InternalPriceUpdates])
 
 	for chainSel, update := range feeQuoterDestsInput.UpdatesByChain {
 		version, ok := feeQuoterVersionsByChain[chainSel]
@@ -692,7 +694,7 @@ func maybeAddPreviousRampUpdate(
 
 	update := updates[sourceChain]
 	if update.PreviousRampsArgs == nil {
-		update.PreviousRampsArgs = &opsutil.EVMCallInput[[]nonce_manager.NonceManagerPreviousRampsArgs]{
+		update.PreviousRampsArgs = &opsevm.EVMCallInput[[]nonce_manager.NonceManagerPreviousRampsArgs]{
 			Address:       chainState.NonceManager.Address(),
 			ChainSelector: sourceChain,
 			CallInput:     make([]nonce_manager.NonceManagerPreviousRampsArgs, 0),

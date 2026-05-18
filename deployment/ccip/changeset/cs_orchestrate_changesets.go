@@ -12,6 +12,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	tonstate "github.com/smartcontractkit/chainlink-ton/deployment/state"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
@@ -156,7 +157,7 @@ func orchestrateChangesetsLogic(e cldf.Environment, c OrchestrateChangesetsConfi
 			MCMSEVMState:    evmMCMSState,
 			MCMSSolanaState: state.SolanaMCMSStateByChain(e),
 			MCMSAptosState:  state.AptosMCMSStateByChain(),
-			MCMSTONState:    tonMCMSState,
+			MCMSTONState:    tonMCMSStateForProposalutils(tonMCMSState), // TODO: update once ton state is moved to cld-changesets.
 		},
 		finalOutput.MCMSTimelockProposals,
 		c.Description,
@@ -217,4 +218,34 @@ func MergeChangesetOutput(e cldf.Environment, dest *cldf.ChangesetOutput, src cl
 	}
 
 	return nil
+}
+
+// tonMCMSStateForProposalutils adapts chainlink-ton MCMS chain state into the
+// proposalutils type expected by cld-changesets (AggregateProposalsV2, etc.).
+// Remove once TON on-chain state is consolidated on a single type (NONEVM-3181).
+func tonMCMSStateForProposalutils(in map[uint64]tonstate.MCMSChainState) map[uint64]cldfproposalutils.TonMCMSChainState {
+	out := make(map[uint64]cldfproposalutils.TonMCMSChainState, len(in))
+	for sel, st := range in {
+		out[sel] = tonMCMSChainStateForProposalutils(st)
+	}
+	return out
+}
+
+func tonMCMSChainStateForProposalutils(in tonstate.MCMSChainState) cldfproposalutils.TonMCMSChainState {
+	out := cldfproposalutils.TonMCMSChainState{
+		ByQualifier: make(map[string]*cldfproposalutils.TonMCMSSuiteState, len(in.ByQualifier)),
+	}
+	for q, suite := range in.ByQualifier {
+		if suite == nil {
+			out.ByQualifier[q] = nil
+			continue
+		}
+		out.ByQualifier[q] = &cldfproposalutils.TonMCMSSuiteState{
+			Proposer:  suite.Proposer,
+			Canceller: suite.Canceller,
+			Bypasser:  suite.Bypasser,
+			Timelock:  suite.Timelock,
+		}
+	}
+	return out
 }

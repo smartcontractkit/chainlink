@@ -724,12 +724,12 @@ func TestAddTokenPoolE2EWithMcms(t *testing.T) {
 									SolChainUpdates: map[uint64]v1_5_1.SolChainUpdate{
 										solChain: {
 											RateLimiterConfig: v1_5_1.RateLimiterConfig{
-												Inbound: token_pool.RateLimiterConfig{
+												Inbound: &token_pool.RateLimiterConfig{
 													IsEnabled: false,
 													Capacity:  big.NewInt(0),
 													Rate:      big.NewInt(0),
 												},
-												Outbound: token_pool.RateLimiterConfig{
+												Outbound: &token_pool.RateLimiterConfig{
 													IsEnabled: false,
 													Capacity:  big.NewInt(0),
 													Rate:      big.NewInt(0),

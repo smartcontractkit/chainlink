@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
+	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -113,7 +114,7 @@ func TestAddEVMCallSequenceToCSOutput_SequenceError(t *testing.T) {
 	require.NoError(t, err)
 
 	csOutput := cldf.ChangesetOutput{}
-	seqReport := operations.SequenceReport[string, map[uint64][]opsutils.EVMCallOutput]{}
+	seqReport := operations.SequenceReport[string, map[uint64][]opsevm.EVMCallOutput]{}
 	seqErr := errors.New("sequence failed")
 
 	result, err := opsutils.AddEVMCallSequenceToCSOutput(
@@ -141,7 +142,7 @@ func TestAddEVMCallSequenceToCSOutput_NoMCMS(t *testing.T) {
 	require.NoError(t, err)
 
 	csOutput := cldf.ChangesetOutput{}
-	seqReport := operations.SequenceReport[string, map[uint64][]opsutils.EVMCallOutput]{}
+	seqReport := operations.SequenceReport[string, map[uint64][]opsevm.EVMCallOutput]{}
 
 	result, err := opsutils.AddEVMCallSequenceToCSOutput(
 		*env,
@@ -166,7 +167,7 @@ func TestAddEVMCallSequenceToCSOutput_AllConfirmed(t *testing.T) {
 	require.NoError(t, err)
 
 	csOutput := cldf.ChangesetOutput{}
-	seqReport := operations.SequenceReport[string, map[uint64][]opsutils.EVMCallOutput]{}
+	seqReport := operations.SequenceReport[string, map[uint64][]opsevm.EVMCallOutput]{}
 	mcmsCfg := &cldfproposalutils.TimelockConfig{}
 
 	result, err := opsutils.AddEVMCallSequenceToCSOutput(
@@ -237,9 +238,9 @@ func TestAddEVMCallSequenceToCSOutput_ProposalCombination(t *testing.T) {
 
 	// Create sequence report with unconfirmed calls to generate a new proposal
 	chainSel := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1]
-	seqReport := operations.SequenceReport[string, map[uint64][]opsutils.EVMCallOutput]{
-		Report: operations.Report[string, map[uint64][]opsutils.EVMCallOutput]{
-			Output: map[uint64][]opsutils.EVMCallOutput{
+	seqReport := operations.SequenceReport[string, map[uint64][]opsevm.EVMCallOutput]{
+		Report: operations.Report[string, map[uint64][]opsevm.EVMCallOutput]{
+			Output: map[uint64][]opsevm.EVMCallOutput{
 				chainSel: {
 					{
 						To:           common.HexToAddress("0x3333333333333333333333333333333333333333"),

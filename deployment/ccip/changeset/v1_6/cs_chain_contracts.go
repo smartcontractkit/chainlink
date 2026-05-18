@@ -9,6 +9,8 @@ import (
 	"math/big"
 	"slices"
 
+	"github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
+	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 	"golang.org/x/sync/errgroup"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
@@ -48,7 +50,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 
@@ -177,13 +179,13 @@ func (cfg UpdateNonceManagerConfig) ToSequenceInput(state stateview.CCIPOnChainS
 	updatesByChain := make(map[uint64]ccipseqs.NonceManagerUpdateInput, len(cfg.UpdatesByChain))
 
 	for chainSel, update := range cfg.UpdatesByChain {
-		var callerOpInput *opsutil.EVMCallInput[nonce_manager.AuthorizedCallersAuthorizedCallerArgs]
+		var callerOpInput *opsevm.EVMCallInput[nonce_manager.AuthorizedCallersAuthorizedCallerArgs]
 		if len(update.AddedAuthCallers) > 0 || len(update.RemovedAuthCallers) > 0 {
 			callerOpInputArgs := nonce_manager.AuthorizedCallersAuthorizedCallerArgs{
 				AddedCallers:   update.AddedAuthCallers,
 				RemovedCallers: update.RemovedAuthCallers,
 			}
-			callerOpInput = &(opsutil.EVMCallInput[nonce_manager.AuthorizedCallersAuthorizedCallerArgs]{
+			callerOpInput = &(opsevm.EVMCallInput[nonce_manager.AuthorizedCallersAuthorizedCallerArgs]{
 				Address:       state.Chains[chainSel].NonceManager.Address(),
 				ChainSelector: chainSel,
 				CallInput:     callerOpInputArgs,
@@ -192,7 +194,7 @@ func (cfg UpdateNonceManagerConfig) ToSequenceInput(state stateview.CCIPOnChainS
 		}
 
 		// construct this input
-		var rampUpdatesOpInput *opsutil.EVMCallInput[[]nonce_manager.NonceManagerPreviousRampsArgs]
+		var rampUpdatesOpInput *opsevm.EVMCallInput[[]nonce_manager.NonceManagerPreviousRampsArgs]
 		if len(update.PreviousRampsArgs) > 0 {
 			rampUpdatesOpInputArgs := make([]nonce_manager.NonceManagerPreviousRampsArgs, 0)
 			for _, prevRamp := range update.PreviousRampsArgs {
@@ -212,7 +214,7 @@ func (cfg UpdateNonceManagerConfig) ToSequenceInput(state stateview.CCIPOnChainS
 					},
 				})
 			}
-			rampUpdatesOpInput = &(opsutil.EVMCallInput[[]nonce_manager.NonceManagerPreviousRampsArgs]{
+			rampUpdatesOpInput = &(opsevm.EVMCallInput[[]nonce_manager.NonceManagerPreviousRampsArgs]{
 				Address:       state.Chains[chainSel].NonceManager.Address(),
 				ChainSelector: chainSel,
 				CallInput:     rampUpdatesOpInputArgs,
@@ -317,7 +319,7 @@ func (cfg UpdateOnRampDestsConfig) Validate(e cldf.Environment) error {
 }
 
 func (cfg UpdateOnRampDestsConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseqs.OnRampApplyDestChainConfigUpdatesSequenceInput {
-	updatesByChain := make(map[uint64]opsutil.EVMCallInput[[]onramp.OnRampDestChainConfigArgs], len(cfg.UpdatesByChain))
+	updatesByChain := make(map[uint64]opsevm.EVMCallInput[[]onramp.OnRampDestChainConfigArgs], len(cfg.UpdatesByChain))
 	for chainSel, updates := range cfg.UpdatesByChain {
 		var args []onramp.OnRampDestChainConfigArgs
 		for destination, update := range updates {
@@ -336,7 +338,7 @@ func (cfg UpdateOnRampDestsConfig) ToSequenceInput(state stateview.CCIPOnChainSt
 				AllowlistEnabled:  update.AllowListEnabled,
 			})
 		}
-		updatesByChain[chainSel] = opsutil.EVMCallInput[[]onramp.OnRampDestChainConfigArgs]{
+		updatesByChain[chainSel] = opsevm.EVMCallInput[[]onramp.OnRampDestChainConfigArgs]{
 			Address:       state.Chains[chainSel].OnRamp.Address(),
 			ChainSelector: chainSel,
 			CallInput:     args,
@@ -826,7 +828,7 @@ func (cfg UpdateFeeQuoterPricesConfig) Validate(e cldf.Environment) error {
 }
 
 func (cfg UpdateFeeQuoterPricesConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseqs.FeeQuoterUpdatePricesSequenceInput {
-	updates := make(map[uint64]opsutil.EVMCallInput[fee_quoter.InternalPriceUpdates], len(cfg.PricesByChain))
+	updates := make(map[uint64]opsevm.EVMCallInput[fee_quoter.InternalPriceUpdates], len(cfg.PricesByChain))
 	for chainSel, prices := range cfg.PricesByChain {
 		tokenPriceUpdates := make([]fee_quoter.InternalTokenPriceUpdate, len(prices.TokenPrices))
 		i := 0
@@ -846,7 +848,7 @@ func (cfg UpdateFeeQuoterPricesConfig) ToSequenceInput(state stateview.CCIPOnCha
 			}
 			i++
 		}
-		updates[chainSel] = opsutil.EVMCallInput[fee_quoter.InternalPriceUpdates]{
+		updates[chainSel] = opsevm.EVMCallInput[fee_quoter.InternalPriceUpdates]{
 			ChainSelector: chainSel,
 			Address:       state.Chains[chainSel].FeeQuoter.Address(),
 			CallInput: fee_quoter.InternalPriceUpdates{
@@ -947,7 +949,7 @@ func (cfg UpdateFeeQuoterDestsConfig) Validate(e cldf.Environment) error {
 }
 
 func (cfg UpdateFeeQuoterDestsConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseqs.FeeQuoterApplyDestChainConfigUpdatesSequenceInput {
-	updates := make(map[uint64]opsutil.EVMCallInput[[]fee_quoter.FeeQuoterDestChainConfigArgs], len(cfg.UpdatesByChain))
+	updates := make(map[uint64]opsevm.EVMCallInput[[]fee_quoter.FeeQuoterDestChainConfigArgs], len(cfg.UpdatesByChain))
 	for chainSel, destChainUpdates := range cfg.UpdatesByChain {
 		args := make([]fee_quoter.FeeQuoterDestChainConfigArgs, len(destChainUpdates))
 		i := 0
@@ -958,7 +960,7 @@ func (cfg UpdateFeeQuoterDestsConfig) ToSequenceInput(state stateview.CCIPOnChai
 			}
 			i++
 		}
-		updates[chainSel] = opsutil.EVMCallInput[[]fee_quoter.FeeQuoterDestChainConfigArgs]{
+		updates[chainSel] = opsevm.EVMCallInput[[]fee_quoter.FeeQuoterDestChainConfigArgs]{
 			Address:       state.Chains[chainSel].FeeQuoter.Address(),
 			ChainSelector: chainSel,
 			CallInput:     args,
@@ -1129,7 +1131,7 @@ func (cfg UpdateOffRampSourcesConfig) Validate(e cldf.Environment, state statevi
 }
 
 func (cfg UpdateOffRampSourcesConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseqs.OffRampApplySourceChainConfigUpdatesSequenceInput {
-	updatesByChain := make(map[uint64]opsutil.EVMCallInput[[]offramp.OffRampSourceChainConfigArgs], len(cfg.UpdatesByChain))
+	updatesByChain := make(map[uint64]opsevm.EVMCallInput[[]offramp.OffRampSourceChainConfigArgs], len(cfg.UpdatesByChain))
 	for chainSel, updates := range cfg.UpdatesByChain {
 		var args []offramp.OffRampSourceChainConfigArgs
 		for source, update := range updates {
@@ -1151,7 +1153,7 @@ func (cfg UpdateOffRampSourcesConfig) ToSequenceInput(state stateview.CCIPOnChai
 				IsRMNVerificationDisabled: update.IsRMNVerificationDisabled,
 			})
 		}
-		updatesByChain[chainSel] = opsutil.EVMCallInput[[]offramp.OffRampSourceChainConfigArgs]{
+		updatesByChain[chainSel] = opsevm.EVMCallInput[[]offramp.OffRampSourceChainConfigArgs]{
 			ChainSelector: chainSel,
 			Address:       state.Chains[chainSel].OffRamp.Address(),
 			CallInput:     args,
@@ -1247,7 +1249,7 @@ func (cfg UpdateRouterRampsConfig) Validate(e cldf.Environment, state stateview.
 				// That way, if cfg.MCMS exists, we ensure that every contract is owned by MCMS.
 				// Calling this function will ensure that both these checks are done.
 
-				ownedContracts := map[string]commoncs.Ownable{
+				ownedContracts := map[string]evm.Ownable{
 					"router":       chainState.Router,
 					"feeQuoter":    chainState.FeeQuoter,
 					"offRamp":      chainState.OffRamp,
@@ -1294,7 +1296,7 @@ func (cfg UpdateRouterRampsConfig) Validate(e cldf.Environment, state stateview.
 }
 
 func (cfg UpdateRouterRampsConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseqs.RouterApplyRampUpdatesSequenceInput {
-	input := make(map[uint64]opsutil.EVMCallInput[ccipops1_2.RouterApplyRampUpdatesOpInput], len(cfg.UpdatesByChain))
+	input := make(map[uint64]opsevm.EVMCallInput[ccipops1_2.RouterApplyRampUpdatesOpInput], len(cfg.UpdatesByChain))
 	for chainSel, update := range cfg.UpdatesByChain {
 		routerC := state.Chains[chainSel].Router
 		if cfg.TestRouter {
@@ -1334,7 +1336,7 @@ func (cfg UpdateRouterRampsConfig) ToSequenceInput(state stateview.CCIPOnChainSt
 				})
 			}
 		}
-		input[chainSel] = opsutil.EVMCallInput[ccipops1_2.RouterApplyRampUpdatesOpInput]{
+		input[chainSel] = opsevm.EVMCallInput[ccipops1_2.RouterApplyRampUpdatesOpInput]{
 			ChainSelector: chainSel,
 			Address:       routerC.Address(),
 			CallInput: ccipops1_2.RouterApplyRampUpdatesOpInput{
@@ -1821,7 +1823,7 @@ func ApplyFeeTokensUpdatesFeeQuoterChangeset(e cldf.Environment, cfg ApplyFeeTok
 }
 
 func (cfg ApplyFeeTokensUpdatesConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseqs.FeeQuoterUpdateFeeTokensConfig {
-	input := make(map[uint64]opsutil.EVMCallInput[ccipops.ApplyFeeTokensUpdatesInput], len(cfg.UpdatesByChain))
+	input := make(map[uint64]opsevm.EVMCallInput[ccipops.ApplyFeeTokensUpdatesInput], len(cfg.UpdatesByChain))
 
 	for chainSel, updates := range cfg.UpdatesByChain {
 		tokenAddresses, _ := state.Chains[chainSel].TokenAddressBySymbol()
@@ -1832,7 +1834,7 @@ func (cfg ApplyFeeTokensUpdatesConfig) ToSequenceInput(state stateview.CCIPOnCha
 		for _, token := range updates.TokensToAdd {
 			tokensToAdd = append(tokensToAdd, tokenAddresses[token])
 		}
-		input[chainSel] = opsutil.EVMCallInput[ccipops.ApplyFeeTokensUpdatesInput]{
+		input[chainSel] = opsevm.EVMCallInput[ccipops.ApplyFeeTokensUpdatesInput]{
 			ChainSelector: chainSel,
 			Address:       state.Chains[chainSel].FeeQuoter.Address(),
 			CallInput: ccipops.ApplyFeeTokensUpdatesInput{
@@ -2071,7 +2073,7 @@ func ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(e cldf.Environment
 }
 
 func (cfg PremiumMultiplierWeiPerEthUpdatesConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseqs.FeeQuoterUpdatePremiumMultiplierWeiPerEthConfig {
-	input := make(map[uint64]opsutil.EVMCallInput[[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs], len(cfg.Updates))
+	input := make(map[uint64]opsevm.EVMCallInput[[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs], len(cfg.Updates))
 
 	for chainSel, updates := range cfg.Updates {
 		tokenAddresses, _ := state.Chains[chainSel].TokenAddressBySymbol()
@@ -2082,7 +2084,7 @@ func (cfg PremiumMultiplierWeiPerEthUpdatesConfig) ToSequenceInput(state statevi
 				PremiumMultiplierWeiPerEth: update.PremiumMultiplierWeiPerEth,
 			})
 		}
-		input[chainSel] = opsutil.EVMCallInput[[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs]{
+		input[chainSel] = opsevm.EVMCallInput[[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs]{
 			ChainSelector: chainSel,
 			Address:       state.Chains[chainSel].FeeQuoter.Address(),
 			CallInput:     premiumMultiplierUpdates,
@@ -2206,7 +2208,7 @@ func ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(e cldf.Environment, cf
 }
 
 func (cfg ApplyTokenTransferFeeConfigUpdatesConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseqs.FeeQuoterUpdateTokenTransferConfig {
-	input := make(map[uint64]opsutil.EVMCallInput[ccipops.ApplyTokenTransferFeeConfigUpdatesConfigPerChain], len(cfg.UpdatesByChain))
+	input := make(map[uint64]opsevm.EVMCallInput[ccipops.ApplyTokenTransferFeeConfigUpdatesConfigPerChain], len(cfg.UpdatesByChain))
 	for chainSel, updates := range cfg.UpdatesByChain {
 		tokenAddresses, _ := state.Chains[chainSel].TokenAddressBySymbol()
 		var tokenTransferFeeConfigs []fee_quoter.FeeQuoterTokenTransferFeeConfigArgs
@@ -2231,7 +2233,7 @@ func (cfg ApplyTokenTransferFeeConfigUpdatesConfig) ToSequenceInput(state statev
 				Token:             tokenAddresses[remove.Token],
 			})
 		}
-		input[chainSel] = opsutil.EVMCallInput[ccipops.ApplyTokenTransferFeeConfigUpdatesConfigPerChain]{
+		input[chainSel] = opsevm.EVMCallInput[ccipops.ApplyTokenTransferFeeConfigUpdatesConfigPerChain]{
 			ChainSelector: chainSel,
 			Address:       state.Chains[chainSel].FeeQuoter.Address(),
 			CallInput: ccipops.ApplyTokenTransferFeeConfigUpdatesConfigPerChain{
@@ -2313,10 +2315,10 @@ func UpdateWrappedNativeOnRouterChangeset(e cldf.Environment, cfg UpdateWrappedN
 }
 
 func (cfg UpdateWrappedNativeOnRouterConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseqs.RouterUpdateWrappedNativeSequenceInput {
-	input := make(map[uint64]opsutil.EVMCallInput[common.Address], len(cfg.UpdatesByChain))
+	input := make(map[uint64]opsevm.EVMCallInput[common.Address], len(cfg.UpdatesByChain))
 
 	for chainSel, newWrappedAddress := range cfg.UpdatesByChain {
-		input[chainSel] = opsutil.EVMCallInput[common.Address]{
+		input[chainSel] = opsevm.EVMCallInput[common.Address]{
 			ChainSelector: chainSel,
 			Address:       state.Chains[chainSel].Router.Address(),
 			CallInput:     newWrappedAddress,

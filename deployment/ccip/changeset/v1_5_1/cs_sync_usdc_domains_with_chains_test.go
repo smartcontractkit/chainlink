@@ -6,6 +6,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -217,8 +218,8 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 				// Transfer ownership of token pools to timelock
 				e, err = commoncs.Apply(t, e,
 					commonchangeset.Configure(
-						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
-						commoncs.TransferToMCMSWithTimelockConfig{
+						cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+						mcmschangesets.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: timelockOwnedContractsByChain,
 							MCMSConfig:       *mcmsConfig,
 						},

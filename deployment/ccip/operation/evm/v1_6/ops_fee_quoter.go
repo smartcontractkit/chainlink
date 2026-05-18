@@ -8,6 +8,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
@@ -40,13 +41,13 @@ type ApplyFeeTokensUpdatesInput struct {
 }
 
 var (
-	DeployFeeQuoterOp = opsutil.NewEVMDeployOperation(
+	DeployFeeQuoterOp = opsevm.NewEVMDeployOperation(
 		"DeployFeeQuoter",
 		semver.MustParse("1.0.0"),
 		"Deploys FeeQuoter 1.6.x contract on the specified evm chain",
 		shared.FeeQuoter,
 		fee_quoter.FeeQuoterMetaData,
-		&opsutil.ContractOpts{
+		&opsevm.ContractOpts{
 			Version:          &deployment.Version1_6_3, // defaults to v1_6_3, but can be overwritten by input params.FeeQuoterOpts
 			EVMBytecode:      common.FromHex(fee_quoter.FeeQuoterBin),
 			ZkSyncVMBytecode: fee_quoter.ZkBytecode,
@@ -89,7 +90,7 @@ var (
 		},
 	)
 
-	FeeQuoterApplyDestChainConfigUpdatesOp = opsutil.NewEVMCallOperation(
+	FeeQuoterApplyDestChainConfigUpdatesOp = opsevm.NewEVMCallOperation(
 		"FeeQuoterApplyDestChainConfigUpdatesOp",
 		semver.MustParse("1.0.0"),
 		"Apply updates to destination chain configs on the FeeQuoter 1.6.0 contract",
@@ -101,7 +102,7 @@ var (
 		},
 	)
 
-	FeeQuoterUpdatePricesOp = opsutil.NewEVMCallOperation(
+	FeeQuoterUpdatePricesOp = opsevm.NewEVMCallOperation(
 		"FeeQuoterUpdatePricesOp",
 		semver.MustParse("1.0.0"),
 		"Update token and gas prices on the FeeQuoter 1.6.0 contract",
@@ -112,7 +113,7 @@ var (
 			return feeQuoter.UpdatePrices(opts, input)
 		},
 	)
-	FeeQuoterApplyTokenTransferFeeCfgOp = opsutil.NewEVMCallOperation(
+	FeeQuoterApplyTokenTransferFeeCfgOp = opsevm.NewEVMCallOperation(
 		"FeeQuoterApplyTokenTransferFeeCfgOp",
 		semver.MustParse("1.0.0"),
 		"Update or Remove token transfer Fee Configs on the FeeQuoter 1.6.0 contract",
@@ -124,7 +125,7 @@ var (
 		},
 	)
 
-	FeeQuoterApplyFeeTokensUpdatesOp = opsutil.NewEVMCallOperation(
+	FeeQuoterApplyFeeTokensUpdatesOp = opsevm.NewEVMCallOperation(
 		"FeeQuoterApplyFeeTokensUpdatesOp",
 		semver.MustParse("1.0.0"),
 		"Add or Remove supported fee tokens FeeQuoter 1.6.0 contract",
@@ -136,7 +137,7 @@ var (
 		},
 	)
 
-	FeeQApplyPremiumMultiplierWeiPerEthUpdateOp = opsutil.NewEVMCallOperation(
+	FeeQApplyPremiumMultiplierWeiPerEthUpdateOp = opsevm.NewEVMCallOperation(
 		"FeeQApplyPremiumMultiplierWeiPerEthUpdateOp",
 		semver.MustParse("1.0.0"),
 		"Applies premiumMultiplierWeiPerEth for tokens in FeeQuoter 1.6.0 contract",
