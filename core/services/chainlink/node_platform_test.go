@@ -178,13 +178,6 @@ func TestNodePlatformJobInfo_EmitsSubmitterAddressesFromJobFields(t *testing.T) 
 					},
 				},
 				{
-					Type: job.LegacyGasStationServer,
-					LegacyGasStationServerSpec: &job.LegacyGasStationServerSpec{
-						FromAddresses: []evmtypes.EIP55Address{eip55Address("0x1010101010101010101010101010101010101010")},
-						EVMChainID:    sqlutil.NewI(7),
-					},
-				},
-				{
 					Type: job.StandardCapabilities,
 					StandardCapabilitiesSpec: &job.StandardCapabilitiesSpec{
 						OracleFactory: job.OracleFactoryConfig{
@@ -261,12 +254,6 @@ func TestNodePlatformJobInfo_EmitsSubmitterAddressesFromJobFields(t *testing.T) 
 				JobType:   "blockheaderfeeder",
 				FieldPath: "fromAddresses",
 				Addresses: []string{"0x9999999999999999999999999999999999999999"},
-			},
-			{
-				ChainId:   "7",
-				JobType:   "legacygasstationserver",
-				FieldPath: "fromAddresses",
-				Addresses: []string{"0x1010101010101010101010101010101010101010"},
 			},
 			{
 				ChainId:   "8",
