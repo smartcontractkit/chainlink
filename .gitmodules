@@ -1,0 +1,3 @@
+[submodule "kinswarm-core/lib/chainlink"]
+	path = kinswarm-core/lib/chainlink
+	url = https://github.com/smartcontractkit/chainlink
