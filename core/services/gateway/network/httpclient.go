@@ -3,6 +3,7 @@ package network
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -179,6 +180,10 @@ type httpClient struct {
 // NewHTTPClient creates a new NewHTTPClient
 // As of now, the client does not support TLS configuration but may be extended in the future
 func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, error) {
+	return newHTTPClientWithOptions(config, HTTPClientOptions{}, lggr)
+}
+
+func newHTTPClientWithOptions(config HTTPClientConfig, options HTTPClientOptions, lggr logger.Logger) (HTTPClient, error) {
 	if len(config.AllowedPortRanges) > 0 {
 		expanded, err := expandPortRanges(config.AllowedPortRanges)
 		if err != nil {
@@ -193,7 +198,7 @@ func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, err
 		return nil, errors.New("could not coerce http.DefaultTransport to *http.Transport")
 	}
 
-	safeConfig := safeurl.
+	safeConfigBuilder := safeurl.
 		GetConfigBuilder().
 		SetAllowedIPs(config.AllowedIPs...).
 		SetAllowedIPsCIDR(config.AllowedIPsCIDR...).
@@ -202,8 +207,27 @@ func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, err
 		SetBlockedIPs(config.BlockedIPs...).
 		SetBlockedIPsCIDR(config.BlockedIPsCIDR...).
 		SetCheckRedirect(disableRedirects).
-		SetTransport(defaultTransport).
-		Build()
+		SetTransport(defaultTransport)
+
+	if options.Mtls != nil {
+		dt := defaultTransport.Clone()
+		// Defence-in-depth protection against accidental reuse
+		// of the HTTP client leading to auth'd connections leaking across
+		// users.
+		dt.DisableKeepAlives = true
+		dt.TLSHandshakeTimeout = 10 * time.Second
+
+		cert, err := tls.X509KeyPair(options.Mtls.Certificate, options.Mtls.PrivateKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse MtlsAuth into KeyPair: %w", err)
+		}
+
+		dt.TLSClientConfig = &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS12,
+		}
+		safeConfigBuilder.SetTransport(dt)
+	}
 
 	metrics, err := newHTTPClientMetrics()
 	if err != nil {
@@ -212,11 +236,32 @@ func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, err
 
 	return &httpClient{
 		config:  config,
-		client:  safeurl.Client(safeConfig),
+		client:  safeurl.Client(safeConfigBuilder.Build()),
 		lggr:    lggr,
 		metrics: metrics,
 	}, nil
 }
+
+type HTTPClientOptions struct {
+	Mtls *MtlsAuth
+}
+
+type Secret []byte
+
+func (s Secret) String() string { return "[REDACTED]" }
+
+type MtlsAuth struct {
+	PrivateKey  Secret
+	Certificate []byte
+}
+
+func NewHTTPClientFactory(config HTTPClientConfig, lggr logger.Logger) HTTPClientFactory {
+	return func(opts HTTPClientOptions) (HTTPClient, error) {
+		return newHTTPClientWithOptions(config, opts, lggr)
+	}
+}
+
+type HTTPClientFactory func(opts HTTPClientOptions) (HTTPClient, error)
 
 func disableRedirects(req *http.Request, via []*http.Request) error {
 	return &redirectsDisabledError{}
