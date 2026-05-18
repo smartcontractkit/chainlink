@@ -10,12 +10,13 @@ import (
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
@@ -95,7 +96,7 @@ func AddNops(env cldf.Environment, req *AddNopsRequest) (cldf.ChangesetOutput, e
 			req.RegistryChainSel: inspector,
 		}
 
-		proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		proposal, err := proposeutils.BuildProposalFromBatchesV2(
 			env,
 			timelocksPerChain,
 			proposerMCMSes,

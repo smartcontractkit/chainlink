@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -27,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -80,13 +80,13 @@ func TestAddTokenE2E(t *testing.T) {
 			var (
 				e                    cldf.Environment
 				selectorA, selectorB uint64
-				mcmsConfig           *proposalutils.TimelockConfig
+				mcmsConfig           *cldfproposalutils.TimelockConfig
 				err                  error
 			)
 
 			tokens := make(map[uint64]*cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677])
 			if test.withMCMS {
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay:   0,
 					MCMSAction: mcmsTypes.TimelockActionSchedule,
 				}

@@ -8,12 +8,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
@@ -50,9 +50,9 @@ func configureHybridTokenPoolChains(t *testing.T, e cldf.Environment, selectorA,
 		},
 	}
 
-	var mcmsConfig *proposalutils.TimelockConfig
+	var mcmsConfig *cldfproposalutils.TimelockConfig
 	if mcmsEnabled {
-		mcmsConfig = &proposalutils.TimelockConfig{
+		mcmsConfig = &cldfproposalutils.TimelockConfig{
 			MinDelay: 0,
 		}
 	}
@@ -356,9 +356,9 @@ func TestHybridTokenPoolUpdateGroupsChangeset_WithMCMS(t *testing.T) {
 
 			configureHybridTokenPoolChains(t, e, selectorA, selectorB, tc.mcmsEnabled)
 
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}

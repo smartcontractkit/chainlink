@@ -32,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/opsutils"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 func TestCloneTransactOptsWithGas(t *testing.T) {
@@ -168,7 +167,7 @@ func TestAddEVMCallSequenceToCSOutput_AllConfirmed(t *testing.T) {
 
 	csOutput := cldf.ChangesetOutput{}
 	seqReport := operations.SequenceReport[string, map[uint64][]opsutils.EVMCallOutput]{}
-	mcmsCfg := &proposalutils.TimelockConfig{}
+	mcmsCfg := &cldfproposalutils.TimelockConfig{}
 
 	result, err := opsutils.AddEVMCallSequenceToCSOutput(
 		*env,
@@ -253,7 +252,7 @@ func TestAddEVMCallSequenceToCSOutput_ProposalCombination(t *testing.T) {
 		},
 	}
 
-	mcmsCfg := &proposalutils.TimelockConfig{
+	mcmsCfg := &cldfproposalutils.TimelockConfig{
 		MinDelay:   0 * time.Second, // No delay for testing
 		MCMSAction: mcmstypes.TimelockActionSchedule,
 	}

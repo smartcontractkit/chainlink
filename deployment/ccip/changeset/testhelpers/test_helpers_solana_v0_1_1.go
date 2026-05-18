@@ -49,7 +49,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
@@ -100,7 +99,7 @@ func TransferOwnershipSolanaV0_1_1(
 		commoncs.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_1.TransferCCIPToMCMSWithTimelockSolana),
 			ccipChangeSetSolanaV0_1_1.TransferCCIPToMCMSWithTimelockSolanaConfig{
-				MCMSCfg: proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+				MCMSCfg: cldfproposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 				ContractsByChain: map[uint64]ccipChangeSetSolanaV0_1_1.CCIPContractsToTransfer{
 					solSelector: contractsToTransfer,
 				},

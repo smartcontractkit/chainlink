@@ -1,8 +1,8 @@
 package config
 
 import (
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 type DynamicConfig struct {
@@ -10,5 +10,5 @@ type DynamicConfig struct {
 	Inputs        []any // Each element should be the corresponding input type for its operation
 	ChainSelector uint64
 	Description   string
-	MCMSConfig    *proposalutils.TimelockConfig
+	MCMSConfig    *cldfproposalutils.TimelockConfig
 }

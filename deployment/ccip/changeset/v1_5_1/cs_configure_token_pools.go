@@ -20,17 +20,18 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
@@ -349,7 +350,7 @@ func (c TokenPoolConfig) Validate(ctx context.Context, chain cldf_evm.Chain, cci
 // ConfigureTokenPoolContractsConfig is the configuration for the ConfigureTokenPoolContractsConfig changeset.
 type ConfigureTokenPoolContractsConfig struct {
 	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
-	MCMS *proposalutils.TimelockConfig
+	MCMS *cldfproposalutils.TimelockConfig
 
 	// PoolUpdates defines the changes that we want to make to the token pool on a chain
 	PoolUpdates map[uint64]TokenPoolConfig
@@ -827,7 +828,7 @@ func GetTokenStateFromPoolByAddressEVM(
 
 type ConfigureMultipleTokenPoolsConfig struct {
 	Tokens []*ConfigureTokenPoolContractsConfig
-	MCMS   *proposalutils.TimelockConfig // this will override the MCMS in the token pool configs
+	MCMS   *cldfproposalutils.TimelockConfig // this will override the MCMS in the token pool configs
 }
 
 func configureMultiplePoolPreconditionValidation(env cldf.Environment, c ConfigureMultipleTokenPoolsConfig) error {
@@ -866,9 +867,14 @@ func ConfigureMultiplePoolLogic(env cldf.Environment, c ConfigureMultipleTokenPo
 	}
 	// if there are multiple proposals, aggregate them so that we don't have to propose them separately
 	if len(finalOutput.MCMSTimelockProposals) > 1 {
-		aggregatedProposals, err := proposalutils.AggregateProposals(
-			env, state.EVMMCMSStateByChain(), nil, finalOutput.MCMSTimelockProposals,
-			"Add Tokens E2E", c.MCMS)
+		aggregatedProposals, err := proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: not migrating to AggregateProposalsV2 in this PR
+			env,
+			state.EVMMCMSStateByChain(),
+			nil,
+			finalOutput.MCMSTimelockProposals,
+			"Add Tokens E2E",
+			c.MCMS,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
 		}

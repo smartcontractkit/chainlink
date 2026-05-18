@@ -12,10 +12,10 @@ import (
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm"
 	ccipseqs "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm"
@@ -36,7 +36,7 @@ type GrantMintRoleAndMintConfig struct {
 
 type GrantMintRoleInput struct {
 	GrantMintRoleByChain map[uint64]GrantMintRoleConfig
-	MCMS                 *proposalutils.TimelockConfig
+	MCMS                 *cldfproposalutils.TimelockConfig
 }
 
 type GrantMintRoleConfig struct {

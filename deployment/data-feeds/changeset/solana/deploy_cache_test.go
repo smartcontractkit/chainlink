@@ -12,6 +12,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -21,7 +22,6 @@ import (
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
@@ -152,9 +152,13 @@ func TestConfigureCache(t *testing.T) {
 
 	senderList := make([]Sender, len(forwarderProgramID))
 	for i := range forwarderProgramID {
+		var stateID solana.PublicKey
+		if i < len(forwarderCacheID) {
+			stateID = forwarderCacheID[i]
+		}
 		senderList[i] = Sender{
 			ProgramID: forwarderProgramID[i],
-			StateID:   forwarderCacheID[i],
+			StateID:   stateID,
 		}
 	}
 
@@ -297,7 +301,7 @@ func TestConfigureCache(t *testing.T) {
 		transferOwnershipChangeset := commonchangeset.Configure(TransferOwnershipCache{},
 			&TransferOwnershipCacheRequest{
 				ChainSel:  selector,
-				MCMSCfg:   proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+				MCMSCfg:   cldfproposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 				Qualifier: testQualifier,
 				Version:   "1.0.0",
 			})

@@ -1301,9 +1301,9 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	}
 
 	// Apply second set of changesets to configure the CCIP contracts.
-	var mcmsConfig *proposalutils.TimelockConfig
+	var mcmsConfig *cldfproposalutils.TimelockConfig
 	if mcmsEnabled {
-		mcmsConfig = &proposalutils.TimelockConfig{
+		mcmsConfig = &cldfproposalutils.TimelockConfig{
 			MinDelay: 0,
 		}
 	}
@@ -1395,7 +1395,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				HomeChainSel:       e.HomeChainSel,
 				RemoteChainSels:    aptosChains,
 				CCIPHomeConfigType: globals.ConfigTypeActive,
-				MCMS: &proposalutils.TimelockConfig{
+				MCMS: &cldfproposalutils.TimelockConfig{
 					MinDelay:     time.Second,
 					MCMSAction:   mcmstypes.TimelockActionSchedule,
 					OverrideRoot: false,
