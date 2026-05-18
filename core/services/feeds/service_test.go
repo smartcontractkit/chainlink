@@ -3890,10 +3890,6 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 			Version:       1,
 			Definition:    fmt.Sprintf(StreamTestSpecTemplate, streamName, externalJobID.String(), streamID),
 		}
-		j = job.Job{
-			ID:            1,
-			ExternalJobID: externalJobID,
-		}
 	)
 
 	testCases := []struct {
@@ -3913,7 +3909,48 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, externalJobID).Return(job.Job{}, sql.ErrNoRows)
-				svc.jobORM.On("FindJobIDByStreamID", mock.Anything, mock.Anything).Return(int32(0), sql.ErrNoRows)
+
+				svc.spawner.
+					On("CreateJob",
+						mock.Anything,
+						mock.Anything,
+						mock.MatchedBy(func(j *job.Job) bool {
+							return j.Name.String == streamName
+						}),
+					).
+					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Return(nil)
+				svc.orm.On("ApproveSpec",
+					mock.Anything,
+					spec.ID,
+					externalJobID,
+				).Return(nil)
+				svc.fmsClient.On("ApprovedJob",
+					mock.MatchedBy(func(ctx context.Context) bool { return true }),
+					&proto.ApprovedJobRequest{
+						Uuid:    jp.RemoteUUID.String(),
+						Version: int64(spec.Version),
+					},
+				).Return(&proto.ApprovedJobResponse{}, nil)
+				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
+				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
+				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
+			},
+			id:    spec.ID,
+			force: false,
+		},
+		{
+			// Stream jobs are matched only by external job ID; a collision
+			// on stream ID alone must not block approval at the feeds layer.
+			// The strict mock asserts FindJobIDByStreamID is never called.
+			name:        "pending job success when another job has the same stream ID",
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
+			before: func(svc *TestService) {
+				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(spec, nil)
+				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, externalJobID).Return(job.Job{}, sql.ErrNoRows)
 
 				svc.spawner.
 					On("CreateJob",
@@ -3957,13 +3994,12 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 				}
 
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
-				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
+				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID).Return(cancelledSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
 				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{cancelledSpec.JobProposalID}).
 					Return([]feeds.JobProposalSpec{otherSpec, *cancelledSpec}, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, externalJobID).Return(job.Job{}, sql.ErrNoRows)
-				svc.jobORM.On("FindJobIDByStreamID", mock.Anything, mock.Anything).Return(int32(0), sql.ErrNoRows)
 
 				svc.spawner.
 					On("CreateJob",
@@ -4005,7 +4041,7 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 					Definition:    fmt.Sprintf(StreamTestSpecTemplate, streamName, externalJobID.String(), streamID),
 				}
 
-				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(cancelledSpec, nil)
+				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID).Return(cancelledSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
 				svc.orm.On("ListSpecsByJobProposalIDs", mock.Anything, []int64{cancelledSpec.JobProposalID}).
 					Return([]feeds.JobProposalSpec{otherSpec, *cancelledSpec}, nil)
@@ -4017,162 +4053,12 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 		{
 			name: "rejected spec failed cannot be approved",
 			before: func(svc *TestService) {
-				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID, mock.Anything).Return(rejectedSpec, nil)
+				svc.orm.On("GetSpec", mock.Anything, cancelledSpec.ID).Return(rejectedSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
 			},
 			id:      rejectedSpec.ID,
 			force:   false,
 			wantErr: "cannot approve a rejected spec",
-		},
-		{
-			name:        "already existing job replacement error",
-			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
-			before: func(svc *TestService) {
-				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
-				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(spec, nil)
-				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
-				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, externalJobID).Return(job.Job{}, sql.ErrNoRows)
-				svc.jobORM.On("FindJobIDByStreamID", mock.Anything, mock.Anything).Return(j.ID, nil)
-				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
-				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
-			},
-			id:      spec.ID,
-			force:   false,
-			wantErr: "could not approve job proposal: a job for this contract address already exists - please use the 'force' option to replace it",
-		},
-		{
-			name:        "already existing self managed job replacement success if forced without feedID",
-			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
-			before: func(svc *TestService) {
-				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
-				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(spec, nil)
-				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
-				svc.orm.EXPECT().GetApprovedSpec(mock.Anything, jp.ID).Return(nil, sql.ErrNoRows)
-				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, externalJobID).Return(job.Job{}, sql.ErrNoRows)
-				svc.jobORM.On("FindJobIDByStreamID", mock.Anything, mock.Anything).Return(j.ID, nil)
-				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, j.ID).Return(nil)
-
-				svc.spawner.
-					On("CreateJob",
-						mock.Anything,
-						mock.Anything,
-						mock.MatchedBy(func(j *job.Job) bool {
-							return j.Name.String == streamName
-						}),
-					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
-					Return(nil)
-				svc.orm.On("ApproveSpec",
-					mock.Anything,
-					spec.ID,
-					externalJobID,
-				).Return(nil)
-				svc.fmsClient.On("ApprovedJob",
-					mock.MatchedBy(func(ctx context.Context) bool { return true }),
-					&proto.ApprovedJobRequest{
-						Uuid:    jp.RemoteUUID.String(),
-						Version: int64(spec.Version),
-					},
-				).Return(&proto.ApprovedJobResponse{}, nil)
-				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
-				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
-				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
-			},
-			id:    spec.ID,
-			force: true,
-		},
-		{
-			name:        "already existing self managed job replacement success if forced with feedID",
-			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
-			before: func(svc *TestService) {
-				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
-				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(&feeds.JobProposalSpec{
-					ID:            20,
-					Status:        feeds.SpecStatusPending,
-					JobProposalID: jp.ID,
-					Version:       1,
-					Definition:    fmt.Sprintf(StreamTestSpecTemplate, streamName, externalJobID.String(), streamID),
-				}, nil)
-				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
-				svc.orm.EXPECT().GetApprovedSpec(mock.Anything, jp.ID).Return(nil, sql.ErrNoRows)
-				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, externalJobID).Return(job.Job{}, sql.ErrNoRows)
-				svc.jobORM.On("FindJobIDByStreamID", mock.Anything, mock.Anything).Return(j.ID, nil)
-				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, j.ID).Return(nil)
-
-				svc.spawner.
-					On("CreateJob",
-						mock.Anything,
-						mock.Anything,
-						mock.MatchedBy(func(j *job.Job) bool {
-							return j.Name.String == streamName
-						}),
-					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
-					Return(nil)
-				svc.orm.On("ApproveSpec",
-					mock.Anything,
-					spec.ID,
-					externalJobID,
-				).Return(nil)
-				svc.fmsClient.On("ApprovedJob",
-					mock.MatchedBy(func(ctx context.Context) bool { return true }),
-					&proto.ApprovedJobRequest{
-						Uuid:    jp.RemoteUUID.String(),
-						Version: int64(spec.Version),
-					},
-				).Return(&proto.ApprovedJobResponse{}, nil)
-				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
-				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
-				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
-			},
-			id:    spec.ID,
-			force: true,
-		},
-		{
-			name:        "already existing FMS managed job replacement success if forced",
-			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
-			before: func(svc *TestService) {
-				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
-				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(spec, nil)
-				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
-				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
-				svc.orm.EXPECT().GetApprovedSpec(mock.Anything, jp.ID).Return(&feeds.JobProposalSpec{ID: 100}, nil)
-				svc.orm.EXPECT().CancelSpec(mock.Anything, int64(100)).Return(nil)
-				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, externalJobID).Return(job.Job{}, sql.ErrNoRows)
-				svc.jobORM.On("FindJobIDByStreamID", mock.Anything, mock.Anything).Return(j.ID, nil)
-				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, j.ID).Return(nil)
-
-				svc.spawner.
-					On("CreateJob",
-						mock.Anything,
-						mock.Anything,
-						mock.MatchedBy(func(j *job.Job) bool {
-							return j.Name.String == streamName
-						}),
-					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
-					Return(nil)
-				svc.orm.On("ApproveSpec",
-					mock.Anything,
-					spec.ID,
-					externalJobID,
-				).Return(nil)
-				svc.fmsClient.On("ApprovedJob",
-					mock.MatchedBy(func(ctx context.Context) bool { return true }),
-					&proto.ApprovedJobRequest{
-						Uuid:    jp.RemoteUUID.String(),
-						Version: int64(spec.Version),
-					},
-				).Return(&proto.ApprovedJobResponse{}, nil)
-				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
-				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
-				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
-			},
-			id:    spec.ID,
-			force: true,
 		},
 		{
 			name: "spec does not exist",
@@ -4206,7 +4092,7 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 					JobProposalID: jp.ID,
 					Status:        feeds.SpecStatusRejected,
 				}
-				svc.orm.On("GetSpec", mock.Anything, rspec.ID, mock.Anything).Return(rspec, nil)
+				svc.orm.On("GetSpec", mock.Anything, rspec.ID).Return(rspec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
 			},
 			id:      spec.ID,
@@ -4255,7 +4141,6 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, externalJobID).Return(job.Job{}, sql.ErrNoRows)
-				svc.jobORM.On("FindJobIDByStreamID", mock.Anything, mock.Anything).Return(int32(0), sql.ErrNoRows)
 
 				svc.spawner.
 					On("CreateJob",
@@ -4283,7 +4168,6 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, externalJobID).Return(job.Job{}, sql.ErrNoRows)
-				svc.jobORM.On("FindJobIDByStreamID", mock.Anything, mock.Anything).Return(int32(0), sql.ErrNoRows)
 
 				svc.spawner.
 					On("CreateJob",
@@ -4317,7 +4201,6 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, externalJobID).Return(job.Job{}, sql.ErrNoRows)
-				svc.jobORM.On("FindJobIDByStreamID", mock.Anything, mock.Anything).Return(int32(0), sql.ErrNoRows)
 
 				svc.spawner.
 					On("CreateJob",
@@ -5081,7 +4964,7 @@ func Test_Service_UpdateSpecDefinition(t *testing.T) {
 			name: "success",
 			before: func(svc *TestService) {
 				svc.orm.
-					On("GetSpec", mock.Anything, specID, mock.Anything).
+					On("GetSpec", mock.Anything, specID).
 					Return(spec, nil)
 				svc.orm.On("UpdateSpecDefinition", mock.Anything,
 					specID,
@@ -5095,7 +4978,7 @@ func Test_Service_UpdateSpecDefinition(t *testing.T) {
 			name: "does not exist",
 			before: func(svc *TestService) {
 				svc.orm.
-					On("GetSpec", mock.Anything, specID, mock.Anything).
+					On("GetSpec", mock.Anything, specID).
 					Return(nil, sql.ErrNoRows)
 			},
 			specID:  specID,
@@ -5105,7 +4988,7 @@ func Test_Service_UpdateSpecDefinition(t *testing.T) {
 			name: "other get errors",
 			before: func(svc *TestService) {
 				svc.orm.
-					On("GetSpec", mock.Anything, specID, mock.Anything).
+					On("GetSpec", mock.Anything, specID).
 					Return(nil, errors.New("other db error"))
 			},
 			specID:  specID,
@@ -5120,7 +5003,7 @@ func Test_Service_UpdateSpecDefinition(t *testing.T) {
 				}
 
 				svc.orm.
-					On("GetSpec", mock.Anything, specID, mock.Anything).
+					On("GetSpec", mock.Anything, specID).
 					Return(spec, nil)
 			},
 			specID:  specID,
