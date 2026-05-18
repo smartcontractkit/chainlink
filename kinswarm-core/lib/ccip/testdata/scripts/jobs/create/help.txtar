@@ -1,0 +1,9 @@
+exec chainlink jobs create --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink jobs create - Create a job
+
+USAGE:
+   chainlink jobs create [arguments...]

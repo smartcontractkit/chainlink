@@ -1,0 +1,41 @@
+helm:
+  values:
+    chainlink:
+      nodes:
+        node1: 
+          image: ${runtime.images.app}
+          overridesToml: |-
+            [[EVM]]
+            ChainID = '11155111'
+        node2: 
+          image: ${runtime.images.app}
+          overridesToml: |-
+            [[EVM]]
+            ChainID = '11155111'
+            [EVM.Workflow]
+            FromAddress = '{{ node_2_address }}'
+            ForwarderAddress = '{{ forwarder_address }}'
+        node3: 
+          image: ${runtime.images.app}
+          overridesToml: |-
+            [[EVM]]
+            ChainID = '11155111'
+            [EVM.Workflow]
+            FromAddress = '{{ node_3_address }}'
+            ForwarderAddress = '{{ forwarder_address }}'
+        node4: 
+          image: ${runtime.images.app}
+          overridesToml: |-
+            [[EVM]]
+            ChainID = '11155111'
+            [EVM.Workflow]
+            FromAddress = '{{ node_4_address }}'
+            ForwarderAddress = '{{ forwarder_address }}'
+        node5: 
+          image: ${runtime.images.app}
+          overridesToml: |-
+            [[EVM]]
+            ChainID = '11155111'
+            [EVM.Workflow]
+            FromAddress = '{{ node_5_address }}'
+            ForwarderAddress = '{{ forwarder_address }}'

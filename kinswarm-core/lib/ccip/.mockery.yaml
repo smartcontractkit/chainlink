@@ -1,0 +1,631 @@
+dir: "{{ .InterfaceDir }}/mocks"
+mockname: "{{ .InterfaceName }}"
+outpkg: mocks
+filename: "{{ .InterfaceName | snakecase }}.go"
+packages:
+  github.com/smartcontractkit/chainlink/v2/common/client:
+    config:
+      dir: "{{ .InterfaceDir }}"
+      filename: "mock_{{ .InterfaceName | snakecase }}_test.go"
+      inpackage: true
+      mockname: "mock{{ .InterfaceName | camelcase }}"
+    interfaces:
+      Node:
+      NodeSelector:
+      sendOnlyClient:
+      SendOnlyNode:
+      RPC:
+      Head:
+      NodeClient:
+      PoolChainInfoProvider:
+  github.com/smartcontractkit/chainlink/v2/common/headtracker:
+    interfaces:
+      HeadTrackable:
+      HeadTracker:
+      HeadBroadcaster:
+  github.com/smartcontractkit/chainlink/v2/common/txmgr:
+    interfaces:
+      TxManager:
+  github.com/smartcontractkit/chainlink/v2/common/txmgr/types:
+    interfaces:
+      ReaperChainConfig:
+        config:
+          mockname: ReaperConfig
+      ForwarderManager:
+      KeyStore:
+      TxStrategy:
+      TxAttemptBuilder:
+      TxStore:
+  github.com/smartcontractkit/chainlink/v2/common/types:
+    interfaces:
+      Head:
+      Subscription:
+  github.com/smartcontractkit/chainlink/v2/core/bridges:
+    interfaces:
+      ORM:
+  github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types:
+    interfaces:
+      Dispatcher:
+      Receiver:
+  github.com/smartcontractkit/chainlink/v2/core/chains/evm/client:
+    interfaces:
+      Client:
+      RPCClient:
+  github.com/smartcontractkit/chainlink/v2/core/chains/evm/config:
+    interfaces:
+      GasEstimator:
+      ChainScopedConfig:
+  github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders:
+    interfaces:
+      ORM:
+  github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas:
+    interfaces:
+      Config:
+      EvmFeeEstimator:
+      feeEstimatorClient:
+        config:
+          mockname: FeeEstimatorClient
+      feeHistoryEstimatorClient:
+        config:
+          mockname: FeeHistoryEstimatorClient
+      EvmEstimator:
+  github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups:
+    interfaces:
+      L1Oracle:
+      l1OracleClient:
+        config:
+          mockname: L1OracleClient
+  github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore:
+    interfaces:
+      Eth:
+  github.com/smartcontractkit/chainlink/v2/core/chains/evm/log:
+    interfaces:
+      Broadcaster:
+      Broadcast:
+      AbigenContract:
+  github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller:
+    interfaces:
+      LogPoller:
+  github.com/smartcontractkit/chainlink/v2/core/chains/evm/monitor:
+    interfaces:
+      BalanceMonitor:
+        config:
+          dir: "{{ .InterfaceDir }}/../mocks"
+  github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr:
+    interfaces:
+      ChainConfig:
+        config:
+          mockname: Config
+          filename: config.go
+      EvmTxStore:
+  github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm:
+    interfaces:
+      Chain:
+      LegacyChainContainer:
+  github.com/smartcontractkit/chainlink/v2/core/cmd:
+    interfaces:
+      Prompter:
+  github.com/smartcontractkit/chainlink/v2/core/config:
+    interfaces:
+      TelemetryIngress:
+      TelemetryIngressEndpoint:
+  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper:
+    config:
+      dir: core/internal/mocks
+      filename: flux_aggregator.go
+    interfaces:
+      FluxAggregatorInterface:
+        config:
+          mockname: FluxAggregator
+  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper:
+    config:
+      dir: core/internal/mocks
+      filename: flags.go
+    interfaces:
+      FlagsInterface:
+        config:
+          mockname: Flags
+  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface:
+    config:
+      dir: core/services/vrf/mocks
+      filename: aggregator_v3_interface.go
+    interfaces:
+      AggregatorV3InterfaceInterface:
+  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2:
+    config:
+      dir: core/services/vrf/mocks
+      filename: vrf_coordinator_v2.go
+    interfaces:
+      VRFCoordinatorV2Interface:
+  github.com/smartcontractkit/chainlink/v2/core/logger:
+    config:
+      dir: "{{ .InterfaceDir }}"
+      mockname: "Mock{{ .InterfaceName }}"
+      inpackage: true
+      filename: logger_mocks.go
+    interfaces:
+      Logger:
+  github.com/smartcontractkit/chainlink/v2/core/services:
+    interfaces:
+      Checker:
+  github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore:
+    interfaces:
+      BHS:
+      Timer:
+  github.com/smartcontractkit/chainlink/v2/core/services/ccip:
+    interfaces:
+      ORM:
+  github.com/smartcontractkit/chainlink/v2/core/services/chainlink:
+    interfaces:
+      Application:
+        config:
+          dir: core/internal/mocks
+      GeneralConfig:
+  github.com/smartcontractkit/chainlink/v2/core/services/feeds:
+    interfaces:
+      ConnectionsManager:
+      ORM:
+      Service:
+  github.com/smartcontractkit/chainlink/v2/core/services/feeds/proto:
+    config:
+      dir: "{{ .InterfaceDir }}/../mocks"
+    interfaces:
+      FeedsManagerClient:
+  github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2:
+    interfaces:
+      ContractSubmitter:
+      Flags:
+      KeyStoreInterface:
+      ORM:
+  github.com/smartcontractkit/chainlink/v2/core/services/functions:
+    interfaces:
+      ExternalAdapterClient:
+      BridgeAccessor:
+      FunctionsListener:
+      OffchainTransmitter:
+      ORM:
+  github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector:
+    interfaces:
+      GatewayConnector:
+      GatewayConnectorHandler:
+      Signer:
+  github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers:
+    interfaces:
+      Handler:
+      DON:
+  github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist:
+    interfaces:
+      OnchainAllowlist:
+      ORM:
+  github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/subscriptions:
+    interfaces:
+      OnchainSubscriptions:
+      ORM:
+  github.com/smartcontractkit/chainlink/v2/core/services/gateway/network:
+    interfaces:
+      ConnectionInitiator:
+      ConnectionAcceptor:
+      HttpServer:
+      HTTPRequestHandler:
+      WebSocketServer:
+  github.com/smartcontractkit/chainlink/v2/core/services/job:
+    interfaces:
+      ServiceCtx:
+      KVStore:
+      ORM:
+      Spawner:
+  github.com/smartcontractkit/chainlink/v2/core/services/keystore:
+    interfaces:
+      Aptos:
+      Cosmos:
+      CSA:
+      Eth:
+      Master:
+      OCR:
+      OCR2:
+      P2P:
+        config:
+          filename: p2p.go
+      Solana:
+      StarkNet:
+        config:
+          filename: starknet.go
+      VRF:
+  github.com/smartcontractkit/chainlink/v2/core/services/ocr:
+    interfaces:
+      OCRContractTrackerDB:
+  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v20:
+    interfaces:
+      Registry:
+  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21:
+    interfaces:
+      Registry:
+      HttpClient:
+  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core:
+    interfaces:
+      UpkeepStateReader:
+  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/promwrapper:
+    interfaces:
+      PrometheusBackend:
+  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold:
+    interfaces:
+      Decryptor:
+  github.com/smartcontractkit/chainlink/v2/core/services/p2p/types:
+    interfaces:
+      Peer:
+      PeerWrapper:
+      Signer:
+  github.com/smartcontractkit/chainlink/v2/core/services/pipeline:
+    interfaces:
+      Config:
+      ORM:
+      Runner:
+      PipelineParamUnmarshaler:
+  github.com/smartcontractkit/chainlink/v2/core/services/headreporter:
+    config:
+      dir: "{{ .InterfaceDir }}"
+      filename: "{{ .InterfaceName | snakecase }}_mock.go"
+      inpackage: true
+      mockname: "Mock{{ .InterfaceName | camelcase }}"
+    interfaces:
+      HeadReporter:
+      PrometheusBackend:
+  github.com/smartcontractkit/libocr/commontypes:
+    config:
+      dir: "common/types/mocks"
+    interfaces:
+      MonitoringEndpoint:
+  github.com/smartcontractkit/chainlink/v2/core/services/relay/evm:
+    interfaces:
+      BatchCaller:
+        config:
+          dir: "{{ .InterfaceDir }}/rpclibmocks"
+          outpkg: rpclibmocks
+      LoopRelayAdapter:
+      RequestRoundDB:
+  github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury:
+    interfaces:
+      asyncDeleter:
+        config:
+          mockname: AsyncDeleter
+  github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types:
+    interfaces:
+      LogPollerWrapper:
+  github.com/smartcontractkit/chainlink/v2/core/services/s4:
+    interfaces:
+      ORM:
+      Storage:
+  github.com/smartcontractkit/chainlink/v2/core/services/synchronization:
+    interfaces:
+      TelemetryService:
+  github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem:
+    config:
+      dir: "{{ .InterfaceDir }}/../mocks"
+    interfaces:
+      TelemClient:
+  github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon:
+    config:
+      dir: "{{ .InterfaceDir }}/../mocks"
+    interfaces:
+      Config:
+      FeeConfig:
+  github.com/smartcontractkit/chainlink/v2/core/services/telemetry:
+    config:
+      dir: "{{ .InterfaceDir }}"
+      filename: "{{ .InterfaceName | snakecase }}_mock.go"
+      inpackage: true
+      mockname: "Mock{{ .InterfaceName | camelcase }}"
+    interfaces:
+      MonitoringEndpointGenerator:
+      IngressAgent:
+  github.com/smartcontractkit/chainlink/v2/core/services/webhook:
+    interfaces:
+      ExternalInitiatorManager:
+      HTTPClient:
+  github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/read:
+    config:
+      dir: "{{ .InterfaceDir }}/mocks"
+    interfaces:
+      Registrar:
+      Reader:
+      BatchCaller:
+  github.com/smartcontractkit/chainlink/v2/core/sessions:
+    interfaces:
+      BasicAdminUsersORM:
+      AuthenticationProvider:
+  github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth:
+    interfaces:
+      LDAPClient:
+      LDAPConn:
+  github.com/smartcontractkit/chainlink-common/pkg/types:
+    config:
+      dir: core/capabilities/targets/mocks
+    interfaces:
+      Codec:
+        config:
+          dir: core/services/relay/evm/mocks
+      ChainWriter:
+      ContractReader:
+  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp:
+    config:
+      dir: core/gethwrappers/ccip/mocks/
+      filename: evm2_evm_on_ramp_interface.go
+      outpkg: mock_contracts
+    interfaces:
+      EVM2EVMOnRampInterface:
+  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp:
+      config:
+        dir: core/gethwrappers/ccip/mocks/
+        filename: evm2_evm_off_ramp_interface.go
+        outpkg: mock_contracts
+      interfaces:
+        EVM2EVMOffRampInterface:
+  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_2_0:
+    config:
+      dir: core/gethwrappers/ccip/mocks/v1_2_0/
+      filename: evm2_evm_off_ramp_interface.go
+      outpkg: mock_contracts
+    interfaces:
+      EVM2EVMOffRampInterface:
+  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_0_0:
+    config:
+      dir: core/gethwrappers/ccip/mocks/v1_0_0/
+      filename: evm2_evm_off_ramp_interface.go
+      outpkg: mock_contracts
+    interfaces:
+      EVM2EVMOffRampInterface:
+  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store:
+    config:
+      dir: core/gethwrappers/ccip/mocks/
+      filename: commit_store_interface.go
+      outpkg: mock_contracts
+    interfaces:
+      CommitStoreInterface:
+  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter:
+    config:
+      dir: core/gethwrappers/ccip/mocks/
+      filename: fee_quoter_interface.go
+      outpkg: mock_contracts
+    interfaces:
+      FeeQuoterInterface:
+  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface:
+    config:
+      dir: core/gethwrappers/ccip/mocks/
+      filename: link_token_interface.go
+      outpkg: mock_contracts
+    interfaces:
+      LinkTokenInterface:
+  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/arbitrum_l1_bridge_adapter:
+    config:
+      dir: core/gethwrappers/liquiditymanager/mocks/mock_arbitrum_l1_bridge_adapter/
+      filename: arbitrum_l1_bridge_adapter_interface.go
+      outpkg: mock_arbitrum_l1_bridge_adapter
+    interfaces:
+      ArbitrumL1BridgeAdapterInterface:
+  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/arbitrum_l2_bridge_adapter:
+    config:
+      dir: core/gethwrappers/liquiditymanager/mocks/mock_arbitrum_l2_bridge_adapter/
+      filename: arbitrum_l2_bridge_adapter_interface.go
+      outpkg: mock_arbitrum_l2_bridge_adapter
+    interfaces:
+      ArbitrumL2BridgeAdapterInterface:
+  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/arbitrum_gateway_router:
+    config:
+      dir: core/gethwrappers/liquiditymanager/mocks/mock_arbitrum_gateway_router/
+      filename: arbitrum_gateway_router_interface.go
+      outpkg: mock_arbitrum_gateway_router
+    interfaces:
+      ArbitrumGatewayRouterInterface:
+  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/arbitrum_inbox:
+    config:
+      dir: core/gethwrappers/liquiditymanager/mocks/mock_arbitrum_inbox/
+      filename: arbitrum_inbox_interface.go
+      outpkg: mock_arbitrum_inbox
+    interfaces:
+      ArbitrumInboxInterface:
+  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/l2_arbitrum_gateway:
+    config:
+      dir: core/gethwrappers/liquiditymanager/mocks/mock_l2_arbitrum_gateway/
+      filename: l2_arbitrum_gateway_interface.go
+      outpkg: mock_l2_arbitrum_gateway
+    interfaces:
+      L2ArbitrumGatewayInterface:
+  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/arbsys:
+    config:
+      dir: core/gethwrappers/liquiditymanager/mocks/mock_arbsys/
+      filename: arb_sys_interface.go
+      outpkg: mock_arbsys
+    interfaces:
+      ArbSysInterface:
+  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/arb_node_interface:
+    config:
+      dir: core/gethwrappers/liquiditymanager/mocks/mock_node_interface/
+      filename: node_interface_interface.go
+      outpkg: mock_node_interface
+    interfaces:
+      NodeInterfaceInterface:
+  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/l2_arbitrum_messenger:
+    config:
+      dir: core/gethwrappers/liquiditymanager/mocks/mock_l2_arbitrum_messenger/
+      filename: l2_arbitrum_messenger_interface.go
+      outpkg: mock_l2_arbitrum_messenger
+    interfaces:
+      L2ArbitrumMessengerInterface:
+  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/arbitrum_rollup_core:
+    config:
+      dir: core/gethwrappers/liquiditymanager/mocks/mock_arbitrum_rollup_core/
+      filename: arb_rollup_core_interface.go
+      outpkg: mock_arbitrum_rollup_core
+    interfaces:
+      ArbRollupCoreInterface:
+  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/optimism_portal:
+    config:
+      dir: core/gethwrappers/liquiditymanager/mocks/mock_optimism_portal/
+      filename: optimism_portal_interface.go
+      outpkg: mock_optimism_portal
+    interfaces:
+      OptimismPortalInterface:
+  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/optimism_l2_output_oracle:
+    config:
+      dir: core/gethwrappers/liquiditymanager/mocks/mock_optimism_l2_output_oracle/
+      filename: optimism_l2_output_oracle_interface.go
+      outpkg: mock_optimism_l2_output_oracle
+    interfaces:
+      OptimismL2OutputOracleInterface:
+  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/optimism_portal_2:
+    config:
+      dir: core/gethwrappers/liquiditymanager/mocks/mock_optimism_portal_2/
+      filename: optimism_portal2_interface.go
+      outpkg: mock_optimism_portal_2
+    interfaces:
+      OptimismPortal2Interface:
+  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/optimism_dispute_game_factory:
+    config:
+      dir: core/gethwrappers/liquiditymanager/mocks/mock_optimism_dispute_game_factory/
+      filename: optimism_dispute_game_factory_interface.go
+      outpkg: mock_optimism_dispute_game_factory
+    interfaces:
+      OptimismDisputeGameFactoryInterface:
+  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache:
+    config:
+      filename: chain_health_mock.go
+    interfaces:
+      ChainHealthcheck:
+  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata:
+    interfaces:
+      CommitStoreReader:
+        config:
+          filename: commit_store_reader_mock.go
+      OffRampReader:
+        config:
+          filename: offramp_reader_mock.go
+      OnRampReader:
+        config:
+          filename: onramp_reader_mock.go
+      PriceRegistryReader:
+        config:
+          filename: price_registry_reader_mock.go
+      FeeEstimatorConfigReader:
+        config:
+          filename: fee_estimator_config_mock.go
+      TokenPoolReader:
+        config:
+          filename: token_pool_reader_mock.go
+      USDCReader:
+        config:
+          filename: usdc_reader_mock.go
+  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/estimatorconfig:
+    interfaces:
+      GasPriceInterceptor:
+        config:
+          filename: gas_price_interceptor_mock.go
+  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/batchreader:
+    config:
+      filename: token_pool_batched_reader_mock.go
+    interfaces:
+      TokenPoolBatchedReader:
+  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/ccipdataprovider:
+    config:
+      filename: price_registry_mock.go
+    interfaces:
+      PriceRegistry:
+  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdb:
+    config:
+      filename: price_service_mock.go
+    interfaces:
+      PriceService:
+  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter:
+    config:
+      filename: mock.go
+      dir: "{{ .InterfaceDir }}/"
+      outpkg: pricegetter
+    interfaces:
+      PriceGetter:
+        config:
+          mockname: "Mock{{ .InterfaceName }}"
+          filename: mock.go
+      AllTokensPriceGetter:
+        config:
+          mockname: "Mock{{ .InterfaceName }}"
+          filename: all_price_getter_mock.go
+  github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/statuschecker:
+    interfaces:
+      CCIPTransactionStatusChecker:
+  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib:
+    config:
+      outpkg: rpclibmocks
+    interfaces:
+      BatchCaller:
+        config:
+          filename: batch_caller.go
+          dir: core/services/relay/evm/rpclibmocks
+      EvmBatchCaller:
+        config:
+          filename: evm_mock.go
+          dir: "{{ .InterfaceDir }}/rpclibmocks"
+  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices:
+    config:
+      dir: "{{ .InterfaceDir }}/"
+      outpkg: prices
+    interfaces:
+      GasPriceEstimatorCommit:
+        config:
+          mockname: "Mock{{ .InterfaceName }}"
+          filename: gas_price_estimator_commit_mock.go
+      GasPriceEstimatorExec:
+        config:
+          mockname: "Mock{{ .InterfaceName }}"
+          filename: gas_price_estimator_exec_mock.go
+      GasPriceEstimator:
+        config:
+          mockname: "Mock{{ .InterfaceName }}"
+          filename: gas_price_estimator_mock.go
+  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata:
+    config:
+      filename: reader_mock.go
+      dir: "{{ .InterfaceDir }}/"
+      outpkg: tokendata
+    interfaces:
+      Reader:
+        config:
+          mockname: "Mock{{ .InterfaceName }}"
+  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/bridge:
+    interfaces:
+      Bridge:
+        config:
+          filename: bridge_mock.go
+      Factory:
+        config:
+          filename: bridge_factory_mock.go
+  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/chain/evm:
+    interfaces:
+      Factory:
+        config:
+          filename: lm_factory_mock.go
+          dir: "{{ .InterfaceDir }}/../../mocks"
+      LiquidityManager:
+        config:
+          filename: liquidity_manager_mock.go
+  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager:
+    interfaces:
+      LiquidityManager:
+  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/discoverer:
+    interfaces:
+      Discoverer:
+        config:
+          filename: discoverer_mock.go
+      Factory:
+        config:
+          filename: factory_mock.go
+  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/rebalalgo:
+    config:
+      dir: "{{ .InterfaceDir }}/../mocks"
+      filename: rebalancer_mock.go
+    interfaces:
+      RebalancingAlgo:
+  github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer:
+    interfaces:
+      ORM:
+  github.com/smartcontractkit/chainlink/v2/core/capabilities/targets:
+    interfaces:
+      ContractValueGetter:

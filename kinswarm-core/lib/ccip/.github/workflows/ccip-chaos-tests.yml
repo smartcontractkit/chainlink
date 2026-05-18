@@ -1,0 +1,45 @@
+name: CCIP Chaos Tests
+on:
+  workflow_run:
+    workflows: [ CCIP Load Test ]
+    types: [ completed ]
+    branches: [ ccip-develop ]
+  workflow_dispatch:
+
+# Only run 1 of this workflow at a time per PR
+concurrency:
+  group: chaos-ccip-tests-chainlink-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run-e2e-tests-workflow:
+    name: Run E2E Tests
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@aad83f232743646faa35f5ac03ee3829148d37ce
+    with:
+      test_path: .github/e2e-tests.yml
+      chainlink_version: ${{ github.sha }}
+      require_chainlink_image_versions_in_qa_ecr: ${{ github.sha }}
+      test_trigger: E2E CCIP Chaos Tests
+      test_log_level: debug
+      slack_notification_after_tests: on_failure
+      slack_notification_after_tests_channel_id: '#ccip-testing'
+      slack_notification_after_tests_name: CCIP Chaos E2E Tests
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}    
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}

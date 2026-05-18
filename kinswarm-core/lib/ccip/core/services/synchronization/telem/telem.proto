@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem";
+
+package telem;
+
+service Telem {
+    rpc Telem(TelemRequest) returns (TelemResponse);
+    rpc TelemBatch(TelemBatchRequest) returns (TelemResponse);
+}
+
+message TelemRequest {
+    bytes telemetry = 1;
+    string address = 2;
+    string telemetry_type = 3;
+    int64 sent_at = 4;
+}
+
+message TelemBatchRequest {
+    string contract_id = 1;
+    repeated bytes telemetry = 2;
+    string telemetry_type = 3;
+    int64 sent_at = 4;
+}
+
+message TelemResponse {
+    string body = 1;
+}

@@ -1,0 +1,169 @@
+name: Solidity Foundry Artifact Generation
+on:
+  workflow_dispatch:
+    inputs:
+      product:
+        type: choice
+        description: 'product for which to generate artifacts; should be the same as Foundry profile'
+        required: true
+        options:
+          - "automation"
+          - "ccip"
+          - "functions"
+          - "keystone"
+          - "l2ep"
+          - "liquiditymanager"
+          - "llo-feeds"
+          - "operatorforwarder"
+          - "shared"
+          - "transmission"
+          - "vrf"
+      commit_to_use:
+        type: string
+        description: 'commit SHA to use for artifact generation; if empty HEAD will be used'
+        required: false
+      base_ref:
+        description: 'commit or tag to use as base reference, when looking for modified Solidity files'
+        required: true
+      link_with_jira:
+        description: 'link generated artifacts with Jira issues?'
+        type: boolean
+        default: true
+        required: false
+
+env:
+  FOUNDRY_PROFILE: ci
+  # Unfortunately, we can't use the "default" field in the inputs section, because it does not have
+  # access to the workflow context
+  head_ref:  ${{ inputs.commit_to_use || github.sha }}
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      product_changes: ${{ steps.changes-transform.outputs.product_changes }}
+      product_files: ${{ steps.changes-transform.outputs.product_files }}
+      changeset_changes: ${{ steps.changes-dorny.outputs.changeset }}
+      changeset_files: ${{ steps.changes-dorny.outputs.changeset_files }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ env.head_ref }}
+      - name: Find modified contracts
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: changes-dorny
+        with:
+          list-files: 'csv'
+          base: ${{ inputs.base_ref }}
+          # This is a valid input, see https://github.com/dorny/paths-filter/pull/226
+          predicate-quantifier: every
+          filters: |
+            ignored: &ignored
+              - '!contracts/src/v0.8/**/test/**'
+              - '!contracts/src/v0.8/**/tests/**'
+              - '!contracts/src/v0.8/**/mock/**'
+              - '!contracts/src/v0.8/**/mocks/**'
+              - '!contracts/src/v0.8/**/*.t.sol'
+              - '!contracts/src/v0.8/*.t.sol'
+              - '!contracts/src/v0.8/**/testhelpers/**'
+              - '!contracts/src/v0.8/testhelpers/**'
+              - '!contracts/src/v0.8/vendor/**'
+            other_shared:
+              - modified|added: 'contracts/src/v0.8/(interfaces/**/*.sol|*.sol)'
+              - *ignored
+            sol:
+              - modified|added: 'contracts/src/v0.8/**/*.sol'
+              - *ignored
+            product: &product
+              - modified|added: 'contracts/src/v0.8/${{ inputs.product }}/**/*.sol'
+              - *ignored
+            changeset:
+              - modified|added: 'contracts/.changeset/!(README)*.md'
+
+      # Manual transformation needed, because shared contracts have a different folder structure
+      - name: Transform modified files
+        id: changes-transform
+        shell: bash
+        run: |
+          if [ "${{ inputs.product }}" = "shared" ]; then
+            echo "::debug:: Product is shared, transforming changes"
+            if [[ "${{ steps.changes-dorny.outputs.product }}" == "true" && "${{ steps.changes-dorny.outputs.other_shared }}" == "true" ]]; then
+              echo "::debug:: Changes were found in 'shared' folder and in 'interfaces' and root folders"
+              echo "product_changes=true" >> $GITHUB_OUTPUT
+              echo "product_files=${{ steps.changes-dorny.outputs.product_files }},${{ steps.changes-dorny.outputs.other_shared_files }}" >> $GITHUB_OUTPUT
+            elif [[ "${{ steps.changes-dorny.outputs.product }}" == "false" && "${{ steps.changes-dorny.outputs.other_shared }}" == "true" ]]; then
+              echo "::debug:: Only contracts in' interfaces' and root folders were modified"
+              echo "product_changes=true" >> $GITHUB_OUTPUT
+              echo "product_files=${{ steps.changes-dorny.outputs.other_shared_files }}" >> $GITHUB_OUTPUT
+            elif [[ "${{ steps.changes-dorny.outputs.product }}" == "true" && "${{ steps.changes-dorny.outputs.other_shared }}" == "false" ]]; then
+              echo "::debug:: Only contracts in 'shared' folder were modified"
+              echo "product_changes=true" >> $GITHUB_OUTPUT
+              echo "product_files=${{ steps.changes-dorny.outputs.product_files }}" >> $GITHUB_OUTPUT
+            else
+              echo "::debug:: No contracts were modified"
+              echo "product_changes=false" >> $GITHUB_OUTPUT
+              echo "product_files=" >> $GITHUB_OUTPUT
+            fi
+          else
+           echo "product_changes=${{ steps.changes-dorny.outputs.product }}" >> $GITHUB_OUTPUT
+           echo "product_files=${{ steps.changes-dorny.outputs.product_files }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check for changes outside of artifact scope
+        uses: ./.github/actions/validate-artifact-scope
+        if: ${{ steps.changes-dorny.outputs.sol == 'true' }}
+        with:
+          sol_files: ${{ steps.changes-dorny.outputs.sol_files }}
+          product: ${{ inputs.product }}
+
+  prepare-workflow-inputs:
+    name: Prepare workflow inputs
+    runs-on: ubuntu-22.04
+    needs: [ changes ]
+    outputs:
+      foundry_version: ${{ steps.extract-foundry-version.outputs.foundry-version }}
+      generate_code_coverage: ${{ steps.skip-code-coverage.outputs.generate_code_coverage }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+
+      - name: Extract Foundry version
+        id: extract-foundry-version
+        uses: ./.github/actions/detect-solidity-foundry-version
+        with:
+          working-directory: contracts
+
+      - name: Should skip code coverage report
+        id: skip-code-coverage
+        run: |
+          if [[ "${{ inputs.product }}" = "automation" || "${{ inputs.product }}" = "vrf" || "${{ inputs.product }}" = "functions" ]]; then
+            echo "generate_code_coverage=false" >> $GITHUB_OUTPUT
+          else
+            echo "generate_code_coverage=true" >> $GITHUB_OUTPUT
+          fi
+
+  generate-artifacts:
+    name: Generate Solidity Review Artifacts
+    needs: [changes, prepare-workflow-inputs]
+    uses: smartcontractkit/.github/.github/workflows/solidity-review-artifacts.yml@b6e37806737eef87e8c9137ceeb23ef0bff8b1db # validate-solidity-artifacts@0.1.0
+    with:
+      product: ${{ inputs.product }}
+      commit_to_use: ${{ inputs.commit_to_use }}
+      base_ref: ${{ inputs.base_ref }}
+      product_changes: ${{ needs.changes.outputs.product_changes }}
+      product_files: ${{ needs.changes.outputs.product_files }}
+      changeset_changes: ${{ needs.changes.outputs.changeset_changes }}
+      changeset_files: ${{ needs.changes.outputs.changeset_files }}
+      foundry_version: ${{ needs.prepare-workflow-inputs.outputs.foundry_version }}
+      contracts_directory: './contracts'
+      generate_code_coverage: ${{ needs.prepare-workflow-inputs.outputs.generate_code_coverage == 'true' }}
+      link_with_jira: ${{ inputs.link_with_jira }}
+      jira_host: ${{ vars.JIRA_HOST }}
+      install_semver: false
+      slither_config_file_path: 'contracts/configs/slither/.slither.config-artifacts.json'
+      lcov_prune_script_path: 'scripts/lcov_prune'
+    secrets:
+      jira_username: ${{ secrets.JIRA_USERNAME }}
+      jira_api_token: ${{ secrets.JIRA_API_TOKEN }}

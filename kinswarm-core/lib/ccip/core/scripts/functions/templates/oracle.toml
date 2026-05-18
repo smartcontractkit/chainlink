@@ -1,0 +1,85 @@
+type = "offchainreporting2"
+schemaVersion = 1
+name = "Functions V1 {{timestamp}}"
+forwardingAllowed = false
+contractID = "{{router_contract_address}}"
+ocrKeyBundleID = "{{ocr2_key_bundle_id}}"
+p2pv2Bootstrappers = [
+  "{{p2p_bootstrapper}}"
+]
+relay = "evm"
+pluginType = "functions"
+transmitterID = "{{node_eth_address}}"
+observationSource  = """
+    run_computation    [type="bridge" name="ea_bridge" requestData="{\\"note\\": \\"observationSource is unused but the bridge is required\\"}"]
+    run_computation
+"""
+
+[relayConfig]
+chainID = {{chain_id}}
+
+[pluginConfig]
+contractUpdateCheckFrequencySec = 300
+contractVersion = 1
+donID = "{{don_id}}"
+enableRequestSignatureCheck = false
+listenerEventHandlerTimeoutSec = 210
+listenerEventsCheckFrequencyMillis = 500
+maxRequestSizeBytes = 30_720
+minIncomingConfirmations = 3
+pruneBatchSize = 500
+pruneCheckFrequencySec = 600
+pruneMaxStoredRequests = 20_000
+requestTimeoutBatchLookupSize = 200
+requestTimeoutCheckFrequencySec = 10
+requestTimeoutSec = 300
+maxRequestSizesList = [30_720, 51_200, 102_400, 204_800, 512_000, 1_048_576, 2_097_152, 3_145_728, 5_242_880, 10_485_760]
+maxSecretsSizesList = [10_240, 20_480, 51_200, 102_400, 307_200, 512_000, 1_048_576, 2_097_152]
+minimumSubscriptionBalance = "2 link"
+pastBlocksToPoll = 25
+
+
+  [pluginConfig.OnchainAllowlist]
+  blockConfirmations = 1
+  contractAddress = "{{router_contract_address}}"
+  contractVersion = 1
+  updateFrequencySec = 30
+  updateTimeoutSec = 10
+
+  [pluginConfig.OnchainSubscriptions]
+  blockConfirmations = 1
+  contractAddress = "{{router_contract_address}}"
+  updateFrequencySec = 30
+  updateTimeoutSec = 10
+  updateRangeSize = 2000
+
+  [pluginConfig.RateLimiter]
+  globalBurst = 30
+  globalRPS = 20
+  perSenderBurst = 5
+  perSenderRPS = 1
+
+  [pluginConfig.S4Constraints]
+  maxPayloadSizeBytes = 20_000
+  maxSlotsPerUser = 5
+  maxExpirationLengthSec = 259_200
+
+  [pluginConfig.decryptionQueueConfig]
+  completedCacheTimeoutSec = 300
+  decryptRequestTimeoutSec = 180
+  maxCiphertextBytes = 20_000
+  maxCiphertextIdLength = 100
+  maxQueueLength = 5_000
+
+  [pluginConfig.gatewayConnectorConfig]
+  AuthMinChallengeLen = 20
+  AuthTimestampToleranceSec = 20
+  DonID = "{{don_id}}"
+  NodeAddress = "{{node_eth_address}}"
+
+    [pluginConfig.gatewayConnectorConfig.WsClientConfig]
+    HandshakeTimeoutMillis = 1_000
+
+    [[pluginConfig.gatewayConnectorConfig.Gateways]]
+    Id = "{{gateway_id}}"
+    URL = "{{gateway_url}}"

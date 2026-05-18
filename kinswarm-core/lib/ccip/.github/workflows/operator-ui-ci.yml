@@ -1,0 +1,63 @@
+#name: Operator UI CI
+#on:
+#  pull_request:
+#
+#env:
+#  TARGET_BRANCH_NAME: ${{ github.event.pull_request.base.ref }}
+#
+#jobs:
+#  check-gql:
+#    permissions:
+#      id-token: write
+#      contents: read
+#      # To allow writing comments to the current PR
+#      pull-requests: write
+#
+#    name: Breaking Changes GQL Check
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Collect Metrics
+#        id: collect-gha-metrics
+#        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+#        with:
+#          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+#          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+#          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+#          this-job-name: Breaking Changes GQL Check
+#        continue-on-error: true
+#
+#      - name: Assume role capable of dispatching action
+#        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+#        with:
+#          role-to-assume: ${{ secrets.AWS_OIDC_CHAINLINK_CI_OPERATOR_UI_ACCESS_TOKEN_ISSUER_ROLE_ARN }}
+#          role-duration-seconds: 3600
+#          role-session-name: operator-ui-ci.check-gql
+#          aws-region: ${{ secrets.AWS_REGION }}
+#
+#      - name: Get Github Token
+#        id: get-gh-token
+#        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@main
+#        with:
+#          url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+#
+#      - name: Checkout repository
+#        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+#
+#      - name: Get operator-ui tag
+#        id: get-operator-ui-tag
+#        shell: bash
+#        run: |
+#          if [[ $TARGET_BRANCH_NAME == release/* ]]; then
+#            TAG=$(cat ./operator_ui/TAG)
+#            echo "TAG=$TAG" >> $GITHUB_OUTPUT
+#          else
+#            echo "TAG=main" >> $GITHUB_OUTPUT
+#          fi
+#
+#      - uses: convictional/trigger-workflow-and-wait@f69fa9eedd3c62a599220f4d5745230e237904be #v1.6.5
+#        with:
+#          owner: smartcontractkit
+#          repo: operator-ui
+#          github_token: ${{ steps.get-gh-token.outputs.access-token }}
+#          workflow_file_name: chainlink-ci.yml
+#          client_payload: '{"ref": "${{ github.event.pull_request.head.sha }}", "tag": "${{ steps.get-operator-ui-tag.outputs.TAG }}"}'

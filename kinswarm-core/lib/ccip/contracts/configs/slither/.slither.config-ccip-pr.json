@@ -1,0 +1,4 @@
+{
+  "filter_paths": "(openzeppelin|mocks/|test/|tests/|testhelpers)",
+  "detectors_to_exclude": "pragma,solc-version,naming-convention,assembly,reentrancy-events,timestamp,calls-loop,unused-return"
+}

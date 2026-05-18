@@ -1,0 +1,83 @@
+name: CI lint for Golang
+description: Runs CI lint for Golang
+inputs:
+  # general inputs
+  id:
+    description: Unique metrics collection id
+    required: true
+  name:
+    description: Name of the lint action
+    required: true
+  go-directory:
+    description: Go directory to run commands from
+    default: "."
+  # setup-go inputs
+  only-modules:
+    description: Set to 'true' to only cache modules
+    default: "false"
+  cache-version:
+    description: Set this to cache bust
+    default: "1"
+  go-version-file:
+    description: Set where the go version file is located at
+    default: "go.mod"
+  go-module-file:
+    description: Set where the go module file is located at
+    default: "go.sum"
+  # grafana inputs
+  gc-host:
+    description: "grafana hostname"
+  gc-basic-auth:
+    description: "grafana basic auth"
+  gc-org-id:
+    description: "grafana org id"
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+    - name: Setup Go
+      uses: ./.github/actions/setup-go
+      with:
+        only-modules: ${{ inputs.only-modules }}
+        cache-version: ${{ inputs.cache-version }}
+        go-version-file: ${{ inputs.go-version-file }}
+        go-module-file: ${{ inputs.go-module-file }}
+    - name: Touching core/web/assets/index.html
+      shell: bash
+      run: mkdir -p core/web/assets && touch core/web/assets/index.html
+    - name: Build binary
+      working-directory: ${{ inputs.go-directory }}
+      shell: bash
+      run: go build ./...
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@3cfe3a4abbb849e10058ce4af15d205b6da42804 # v4.0.0
+      with:
+        version: v1.59.1
+        # We already cache these directories in setup-go
+        skip-pkg-cache: true
+        skip-build-cache: true
+        # only-new-issues is only applicable to PRs, otherwise it is always set to false
+        only-new-issues: false # disabled for PRs due to unreliability
+        args: --out-format colored-line-number,checkstyle:golangci-lint-report.xml
+        working-directory: ${{ inputs.go-directory }}
+    - name: Print lint report artifact
+      if: failure()
+      shell: bash
+      run: cat ${{ inputs.go-directory }}/golangci-lint-report.xml
+    - name: Store lint report artifact
+      if: always()
+      uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+      with:
+        name: golangci-lint-report
+        path: ${{ inputs.go-directory }}/golangci-lint-report.xml
+    - name: Collect Metrics
+      if: always()
+      uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+      with:
+        id: chainlink-golang-ci-${{ inputs.id }}
+        basic-auth: ${{ inputs.gc-basic-auth }}
+        hostname: ${{ inputs.gc-host }}
+        org-id: ${{ inputs.gc-org-id }}
+        this-job-name: ${{ inputs.name }}
+      continue-on-error: true

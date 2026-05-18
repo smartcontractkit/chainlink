@@ -1,0 +1,64 @@
+name: Setup Go
+description: Setup Golang with efficient caching
+inputs:
+  only-modules:
+    description: Set to 'true' to only cache modules
+    default: "false"
+  cache-version: 
+    description: Set this to cache bust
+    default: "1"
+  go-version-file:
+    description: Set where the go version file is located at
+    default: "go.mod"
+  go-module-file:
+    description: Set where the go module file is located at
+    default: "go.sum"
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Go
+      uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+      with:
+        go-version-file: ${{ inputs.go-version-file }}
+        cache: false
+
+    - name: Get branch name
+      if: ${{ inputs.only-modules == 'false' }}
+      id: branch-name
+      uses: tj-actions/branch-names@6871f53176ad61624f978536bbf089c574dc19a2 # v8.0.1
+
+    - name: Set go cache keys
+      shell: bash
+      id: go-cache-dir
+      run: |
+        echo "gomodcache=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT
+        echo "gobuildcache=$(go env GOCACHE)" >> $GITHUB_OUTPUT
+
+    - name: Set go module path
+      id: go-module-path
+      shell: bash
+      run: echo "path=./${{ inputs.go-module-file }}" >> $GITHUB_OUTPUT
+
+    - uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+      name: Cache Go Modules
+      with:
+        path: |
+          ${{ steps.go-cache-dir.outputs.gomodcache }}
+        # The lifetime of go modules is much higher than the build outputs, so we increase cache efficiency
+        # here by not having the primary key contain the branch name
+        key: ${{ runner.os }}-gomod-${{ inputs.cache-version }}-${{ hashFiles(steps.go-module-path.output.path) }}
+        restore-keys: |
+          ${{ runner.os }}-gomod-${{ inputs.cache-version }}-
+
+    - uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+      if: ${{ inputs.only-modules == 'false' }}
+      name: Cache Go Build Outputs
+      with:
+        path: |
+          ${{ steps.go-cache-dir.outputs.gobuildcache }}
+        # The lifetime of go build outputs is pretty short, so we make our primary cache key be the branch name
+        key: ${{ runner.os }}-gobuild-${{ inputs.cache-version }}-${{ hashFiles(steps.go-module-path.output.path) }}-${{ steps.branch-name.outputs.current_branch }}
+        restore-keys: |
+          ${{ runner.os }}-gobuild-${{ inputs.cache-version }}-${{ hashFiles(steps.go-module-path.output.path) }}-
+          ${{ runner.os }}-gobuild-${{ inputs.cache-version }}-

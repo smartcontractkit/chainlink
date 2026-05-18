@@ -1,0 +1,20 @@
+ChainID = '43113'
+FinalityDepth = 1
+FinalityTagEnabled = true
+LinkContractAddress = '0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846'
+LogPollInterval = '3s'
+MinIncomingConfirmations = 1
+NoNewHeadsThreshold = '30s'
+OCR.ContractConfirmations = 1
+RPCBlockQueryDelay = 2
+NoNewFinalizedHeadsThreshold = '1m'
+
+[GasEstimator]
+PriceMin = '1 gwei'
+PriceDefault = '1 gwei'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 24
+
+[HeadTracker]
+FinalityTagBypass = false

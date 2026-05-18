@@ -1,0 +1,161 @@
+# Example of full config with all fields
+# General part
+[ChainlinkImage]
+version="2.7.0"
+
+[Logging]
+# if set to true will save logs even if test did not fail
+test_log_collect=false
+
+[Logging.LogStream]
+# supported targets: file, loki, in-memory. if empty no logs will be persistet
+log_targets=["file"]
+# context timeout for starting log producer and also time-frame for requesting logs
+log_producer_timeout="10s"
+# number of retries before log producer gives up and stops listening to logs
+log_producer_retry_limit=10
+
+# if you want to use simulated network
+[Network]
+selected_networks=["polygon_mumbai"]
+
+[PrivateEthereumNetwork]
+# pos or pow
+consensus_type="pos"
+# only prysm supported currently
+consensus_layer="prysm"
+# geth, besu, nethermind or erigon
+execution_layer="geth"
+# if true after env started it will wait for at least 1 epoch to be finalised before continuing
+wait_for_finalization=false
+
+[PrivateEthereumNetwork.EthereumChainConfig]
+# duration of single slot, lower => faster block production, must be >= 4
+seconds_per_slot=12
+# numer of slots in epoch, lower => faster epoch finalisation, must be >= 4
+slots_per_epoch=6
+# extra genesis gelay, no need to modify, but it should be after all validators/beacon chain starts
+genesis_delay=15
+# number of validators in the network
+validator_count=8
+chain_id=1337
+# list of addresses to be prefunded in genesis
+addresses_to_fund=["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"]
+
+[PrivateEthereumNetwork.EthereumChainConfig.HardForkEpochs]
+# hardforks to be applied (fork_name = epoch)
+Deneb=500
+
+# Chainlink node TOML config
+[NodeConfig]
+BaseConfigTOML = """
+[Feature]
+FeedsManager = true
+LogPoller = true
+UICSAKeys = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[Log.File]
+MaxSize = '0b'
+
+[WebServer]
+AllowOrigins = '*'
+HTTPPort = 6688
+SecureCookies = false
+HTTPWriteTimeout = '3m'
+SessionTimeout = '999h0m0s'
+
+[WebServer.RateLimit]
+Authenticated = 2000
+Unauthenticated = 1000
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[Database]
+MaxIdleConns = 20
+MaxOpenConns = 40
+MigrateOnStartup = true
+
+[OCR2]
+Enabled = true
+
+[P2P]
+[P2P.V2]
+Enabled = true
+ListenAddresses = ['0.0.0.0:6690']
+AnnounceAddresses = ['0.0.0.0:6690']
+DeltaDial = '500ms'
+DeltaReconcile = '5s'
+"""
+
+# override config toml related to EVMNode configs for chainlink nodes; applicable to all EVM node configs in chainlink toml
+CommonChainConfigTOML = """
+AutoCreateKey = true
+FinalityDepth = 1
+MinContractPayment = 0
+
+[GasEstimator]
+PriceMax = '200 gwei'
+LimitDefault = 6000000
+FeeCapDefault = '200 gwei'
+"""
+
+# chainlink override config toml for EVMNode config specific to EVM chains with chain id as mentioned in the key
+[NodeConfig.ChainConfigTOMLByChainID]
+# applicable for arbitrum-goerli chain
+421613 = """
+[GasEstimator]
+PriceMax = '400 gwei'
+LimitDefault = 100000000
+FeeCapDefault = '200 gwei'
+BumpThreshold = 60
+BumpPercent = 20
+BumpMin = '100 gwei'
+"""
+
+# Common
+[Common]
+chainlink_node_funding = 0.5
+
+# Product part
+[Functions]
+[Functions.Common]
+# Polygon Mumbai only for now
+receiver = "0x3098B6665589959711A48a6bAe5B7F2908f6a3bE"
+don_id = "fun-staging-mumbai-1"
+gateway_url = "https://gateway-stg-one.main.stage.cldev.sh"
+link_token_addr = "0x326C977E6efc84E512bB9C30f76E30c160eD06FB"
+coordinator_addr = "0x6D6a83BB356b7242E88C1A2b290102fde26590D0"
+router_addr = "0x2673266D3Cd08b53494B5a92B66DEec7F1408E7A"
+
+# comment "client_addr" and "subscription_id" and test will create a new pair
+# get it from logs and save
+client_addr = "0x89D4b58D859a536D0B888ecD5093eF5FF9e4F977"
+subscription_id = 47
+sub_funds = 10
+
+functions_call_payload_with_secrets = "return Functions.encodeString(JSON.stringify(secrets))"
+functions_call_payload_http = """
+const response = await Functions.makeHttpRequest({ url: 'http://dummyjson.com/products/1' });
+return Functions.encodeUint256(response.data.id);
+"""
+functions_call_payload_real = """
+const arg1 = args[0];
+const arg2 = args[1];
+const arg3 = args[2];
+const arg4 = args[3];
+
+const response = await Functions.makeHttpRequest({ url: 'http://dummyjson.com/products/${arg1}' });
+return Functions.encodeString(JSON.stringify(secrets));
+"""
+secrets_slot_id = 0
+secrets_version_id = 1693945705
+
+[Functions.Performance]
+rps = 95
+requests_per_call = 20
+duration = "10m"

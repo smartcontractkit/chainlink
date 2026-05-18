@@ -1,0 +1,1 @@
+{"id":"4271cc1447ab6d11","source_id_to_path":{"0":"infrastructure/KinSwarm_CCIP.sol","1":"lib/ccip/contracts/src/v0.8/ccip/interfaces/IRouterClient.sol","2":"lib/ccip/contracts/src/v0.8/ccip/libraries/Client.sol","3":"lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol"},"language":"Solidity"}

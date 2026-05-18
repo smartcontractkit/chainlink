@@ -1,0 +1,17 @@
+artifacts
+cache
+node_modules
+solc
+abi
+coverage
+coverage.json
+typechain
+
+
+# Foundry
+foundry-cache
+foundry-artifacts
+artifacts-zk
+cache-zk
+
+.openzeppelin

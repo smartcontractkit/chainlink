@@ -1,0 +1,172 @@
+# CODEOWNERS Best Practices
+# 1. Per Github docs: "Order is important; the last matching pattern takes the most precedence."
+# Please define less specific codeowner paths before more specific codeowner paths in order for the more specific rule to have priority
+
+# Root
+* @smartcontractkit/ccip
+
+# Chains
+/common @smartcontractkit/bix-framework
+/core/chains/ @smartcontractkit/bix-framework
+
+# Services
+/core/services/directrequest @smartcontractkit/keepers
+/core/services/feeds @smartcontractkit/op-core @eutopian @yevshev
+/core/services/synchronization/telem @smartcontractkit/realtime
+/core/capabilities/ccip @smartcontractkit/ccip-offchain
+
+# To be deprecated in Chainlink V3
+/core/services/fluxmonitorv2 @smartcontractkit/foundations
+/core/services/job @smartcontractkit/ccip
+/core/services/keystore @smartcontractkit/keepers
+/core/services/ocr* @smartcontractkit/foundations
+/core/services/periodicbackup @smartcontractkit/foundations
+/core/services/pg @smartcontractkit/foundations @samsondav
+/core/services/pipeline @smartcontractkit/foundations @smartcontractkit/bix-framework
+/core/services/telemetry @smartcontractkit/realtime
+/core/services/relay/evm/mercury @smartcontractkit/data-streams-engineers
+/core/services/webhook @smartcontractkit/foundations @smartcontractkit/bix-framework
+/core/services/llo @smartcontractkit/data-streams-engineers
+
+# VRF-related services
+/core/services/vrf @smartcontractkit/vrf-team
+/core/services/blockhashstore @smartcontractkit/vrf-team
+/core/services/blockheaderfeeder @smartcontractkit/vrf-team
+/core/services/pipeline/task.vrf.go @smartcontractkit/vrf-team
+/core/services/pipeline/task.vrfv2.go @smartcontractkit/vrf-team
+/core/services/pipeline/task.vrfv2plus.go @smartcontractkit/vrf-team
+
+# Keeper/Automation-related services
+/core/services/keeper @smartcontractkit/keepers
+/core/services/ocr2/plugins/ocr2keeper @smartcontractkit/keepers
+
+# Chainlink Functions
+core/services/functions @smartcontractkit/functions
+core/services/ocr2/plugins/functions @smartcontractkit/functions
+core/services/s4 @smartcontractkit/functions
+core/service/ocr2/plugins/s4 @smartcontractkit/functions
+core/services/ocr2/plugins/threshold @smartcontractkit/functions
+core/services/relay/evm/functions @smartcontractkit/functions
+core/services/relay/evm/functions @smartcontractkit/functions
+core/scripts/functions @smartcontractkit/functions
+core/scripts/gateway @smartcontractkit/functions
+
+# Contracts
+/contracts/ @RensR @matYang @RayXpub @elatoskinas
+
+# First we match on project names to catch files like the compilation scripts,
+# gas snapshots and other files not places in the project directories.
+# This could give some false positives, so afterwards we match on the project directories
+# to ensure the entire directory is always owned by the correct team.
+
+/contracts/**/*keeper* @smartcontractkit/keepers
+/contracts/**/*upkeep* @smartcontractkit/keepers
+/contracts/**/*automation* @smartcontractkit/keepers
+/contracts/gas-snapshots/automation.gas-snapshot @smartcontractkit/keepers
+/contracts/**/ccip/ @smartcontractkit/ccip-onchain @makramkd
+/contracts/**/*Functions* @smartcontractkit/functions
+
+/contracts/src/v0.8/functions @smartcontractkit/functions
+/contracts/**/*functions* @smartcontractkit/functions
+/contracts/**/*llo-feeds* @smartcontractkit/data-streams-engineers
+/contracts/**/*vrf* @smartcontractkit/vrf-team
+/contracts/**/*l2ep* @smartcontractkit/bix-ship
+/contracts/**/*keystone* @smartcontractkit/keystone
+
+/contracts/src/v0.8/automation @smartcontractkit/keepers
+/contracts/src/v0.8/functions @smartcontractkit/functions
+# TODO: interfaces folder, folder should be removed and files moved to the correct folders
+/contracts/src/v0.8/l2ep @chris-de-leon-cll
+/contracts/src/v0.8/llo-feeds @smartcontractkit/data-streams-engineers
+# TODO: mocks folder, folder should be removed and files moved to the correct folders
+/contracts/src/v0.8/operatorforwarder @smartcontractkit/data-feeds-engineers
+/contracts/src/v0.8/shared @RensR @matYang @RayXpub @elatoskinas
+# TODO: tests folder, folder should be removed and files moved to the correct folders
+# TODO: transmission folder, owner should be found
+/contracts/src/v0.8/vrf @smartcontractkit/vrf-team
+
+
+# At the end, match any files missed by the patterns above
+/contracts/scripts/native_solc_compile_all_events_mock @smartcontractkit/functions
+# Remove changeset files from the codeowners
+/contracts/.changeset
+
+
+# Tests
+/integration-tests/ @smartcontractkit/test-tooling-team
+/integration-tests/ccip-tests @smartcontractkit/ccip-offchain
+/integration-tests/**/*keeper* @smartcontractkit/keepers
+/integration-tests/**/*automation* @smartcontractkit/keepers
+/integration-tests/**/*lm_* @smartcontractkit/liquidity-manager
+
+# Deployment tooling
+# Initially the common structures owned by CCIP
+/integration-tests/deployment @smartcontractkit/ccip
+/integration-tests/deployment/ccip @smartcontractkit/ccip
+# TODO: As more products add their deployment logic here, add the team as an owner
+
+# CI/CD
+/.github/** @smartcontractkit/releng @smartcontractkit/test-tooling-team @jasonmci @smartcontractkit/ccip
+/.github/workflows/integration-tests.yml @smartcontractkit/test-tooling-team @jasonmci
+/.github/workflows/**-tests.yml @smartcontractkit/test-tooling-team @jasonmci
+/.github/workflows/integration-chaos-tests.yml @smartcontractkit/test-tooling-team @jasonmci
+/.github/workflows/integration-tests-publish.yml @smartcontractkit/test-tooling-team @jasonmci
+/.github/workflows/performance-tests.yml @smartcontractkit/test-tooling-team @jasonmci
+
+/.github/workflows/automation-ondemand-tests.yml @smartcontractkit/keepers
+/.github/workflows/automation-benchmark-tests.yml @smartcontractkit/keepers
+/.github/workflows/automation-load-tests.yml @smartcontractkit/keepers
+/.github/workflows/automation-nightly-tests.yml @smartcontractkit/keepers
+
+/core/chainlink.Dockerfile @smartcontractkit/prodsec-public
+
+# Dependencies
+contracts/scripts/requirements.txt @smartcontractkit/prodsec-public
+.tool-versions @smartcontractkit/prodsec-public
+.nvmrc @smartcontractkit/prodsec-public
+contracts/package.json @smartcontractkit/prodsec-public
+contracts/pnpm.lock @smartcontractkit/prodsec-public
+go.mod @smartcontractkit/prodsec-public @smartcontractkit/releng @smartcontractkit/foundations
+go.sum @smartcontractkit/prodsec-public @smartcontractkit/releng @smartcontractkit/foundations
+integration-tests/go.mod @smartcontractkit/prodsec-public
+integration-tests/go.sum @smartcontractkit/prodsec-public
+flake.nix @smartcontractkit/prodsec-public
+flake.lock @smartcontractkit/prodsec-public
+
+# Config
+./core/config @samsondav @jmank88
+
+# LOOP Plugins
+/plugins @jmank88 @krehermann
+
+# Config
+./docs/CONFIG.md @smartcontractkit/foundations @smartcontractkit/devrel
+./internal/config/docs.toml @smartcontractkit/foundations @smartcontractkit/devrel
+
+
+# CCIP override
+/core/ @smartcontractkit/ccip
+/core/scripts/ccip/manual-execution @smartcontractkit/ccip-offchain
+/contracts/ @smartcontractkit/ccip-onchain @makramkd @elatoskinas @RayXpub
+go.mod @smartcontractkit/ccip @smartcontractkit/prodsec-public @smartcontractkit/releng @smartcontractkit/foundations
+go.sum @smartcontractkit/ccip @smartcontractkit/prodsec-public @smartcontractkit/releng @smartcontractkit/foundations
+integration-tests/go.mod @smartcontractkit/ccip @smartcontractkit/prodsec-public
+integration-tests/go.sum @smartcontractkit/ccip @smartcontractkit/prodsec-public
+
+# leave snapshots & changeset as ownerless
+/contracts/gas-snapshots/
+/contracts/.changeset/
+
+# CCIP LM
+/core/**/liquiditymanager/ @smartcontractkit/liquidity-manager
+/core/services/relay/evm/liquidity_manager.go @smartcontractkit/liquidity-manager
+/contracts/**/liquiditymanager/ @smartcontractkit/liquidity-manager
+
+# CCIP RMN
+/contracts/src/v0.8/ccip/RMN.sol @smartcontractkit/rmn
+/contracts/src/v0.8/ccip/ARMProxy.sol @smartcontractkit/rmn
+/contracts/src/v0.8/ccip/interfaces/IRMN.sol @smartcontractkit/rmn
+/contracts/src/v0.8/ccip/test/arm @smartcontractkit/rmn
+
+# CCIP Capabilities
+/core/capabilities/ccip @smartcontractkit/ccip-offchain

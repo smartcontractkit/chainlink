@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink/v2/services/relay/evm/mercury/wsrpc/pb";
+
+package pb;
+
+service Mercury {
+    rpc Transmit(TransmitRequest) returns (TransmitResponse);
+    rpc LatestReport(LatestReportRequest) returns (LatestReportResponse);
+}
+
+message TransmitRequest {
+    bytes payload = 1;
+    uint32 reportFormat = 2;
+}
+
+message TransmitResponse {
+    int32 code = 1;
+    string error = 2;
+}
+
+message LatestReportRequest {
+    bytes feedId = 1;
+}
+
+message LatestReportResponse {
+    string error = 1;
+    Report report = 2;
+}
+
+message Report {
+    bytes feedId = 1;
+    bytes price = 2;
+    bytes payload = 3;
+    int64 validFromBlockNumber = 4;
+    int64 currentBlockNumber = 5;
+    bytes currentBlockHash = 6;
+    uint64 currentBlockTimestamp = 7;
+    int64 observationsTimestamp = 8;
+    bytes configDigest = 9;
+    uint32 epoch = 10;
+    uint32 round = 11;
+    string operatorName = 12;
+    bytes transmittingOperator = 13;
+    Timestamp createdAt = 14;
+}
+
+// Taken from: https://github.com/protocolbuffers/protobuf/blob/main/src/google/protobuf/timestamp.proto
+message Timestamp {
+  // Represents seconds of UTC time since Unix epoch
+  // 1970-01-01T00:00:00Z. Must be from 0001-01-01T00:00:00Z to
+  // 9999-12-31T23:59:59Z inclusive.
+  int64 seconds = 1;
+
+  // Non-negative fractions of a second at nanosecond resolution. Negative
+  // second values with fractions must still have non-negative nanos values
+  // that count forward in time. Must be from 0 to 999,999,999
+  // inclusive.
+  int32 nanos = 2;
+}

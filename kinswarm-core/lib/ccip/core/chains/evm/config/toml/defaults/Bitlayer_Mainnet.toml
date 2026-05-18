@@ -1,0 +1,11 @@
+ChainID = '200901'
+FinalityTagEnabled = false
+FinalityDepth = 21         # confirmed with Bitlayer team and recommended by docs: https://docs.bitlayer.org/docs/Learn/BitlayerNetwork/AboutFinality/#about-finality-at-stage-bitlayer-pos-bitlayer-mainnet-v1
+
+[GasEstimator]
+Mode = 'FeeHistory'
+EIP1559DynamicFees = false
+PriceMax = '1 gwei'        # DS&A recommended value
+PriceMin = '40 mwei'       # During testing, we saw minimum gas prices ~50 mwei
+PriceDefault = '1 gwei'    # As we set PriceMax to '1 gwei' and PriceDefault must be less than or equal to PriceMax
+FeeCapDefault = '1 gwei'   # As we set PriceMax to '1 gwei' and FeeCapDefault must be less than or equal to PriceMax

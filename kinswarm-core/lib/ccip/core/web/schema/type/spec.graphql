@@ -1,0 +1,181 @@
+union JobSpec =
+    CronSpec |
+    DirectRequestSpec |
+    KeeperSpec |
+    FluxMonitorSpec |
+    OCRSpec |
+    OCR2Spec |
+    VRFSpec |
+    WebhookSpec |
+    BlockhashStoreSpec |
+    BlockHeaderFeederSpec |
+    BootstrapSpec |
+    GatewaySpec |
+    WorkflowSpec |
+    StandardCapabilitiesSpec
+
+type CronSpec {
+    schedule: String!
+    evmChainID: String
+    createdAt: Time!
+}
+
+type DirectRequestSpec {
+    contractAddress: String!
+    createdAt: Time!
+    evmChainID: String
+    minIncomingConfirmations: Int!
+    minContractPaymentLinkJuels: String!
+    requesters: [String!]
+}
+
+type FluxMonitorSpec {
+    absoluteThreshold: Float!
+    contractAddress: String!
+    createdAt: Time!
+    drumbeatEnabled: Boolean!
+    drumbeatRandomDelay: String
+    drumbeatSchedule: String
+    evmChainID: String
+    idleTimerDisabled: Boolean!
+    idleTimerPeriod: String!
+    minPayment: String
+    pollTimerDisabled: Boolean!
+    pollTimerPeriod: String!
+    threshold: Float!
+}
+
+type KeeperSpec {
+    contractAddress: String!
+    createdAt: Time!
+    evmChainID: String
+    fromAddress: String
+}
+
+type OCRSpec {
+    blockchainTimeout: String
+    contractAddress: String!
+    contractConfigConfirmations: Int
+    contractConfigTrackerPollInterval: String
+    contractConfigTrackerSubscribeInterval: String
+    createdAt: Time!
+    evmChainID: String
+    isBootstrapPeer: Boolean!
+    keyBundleID: String
+    observationTimeout: String
+    p2pv2Bootstrappers: [String!]
+    transmitterAddress: String
+    databaseTimeout: String!
+    observationGracePeriod: String!
+    contractTransmitterTransmitTimeout: String!
+}
+
+type OCR2Spec {
+    blockchainTimeout: String
+    contractID: String!
+    contractConfigConfirmations: Int
+    contractConfigTrackerPollInterval: String
+    createdAt: Time!
+    ocrKeyBundleID: String
+    monitoringEndpoint: String
+    p2pv2Bootstrappers: [String!]
+    relay: String!
+    relayConfig: Map!
+    transmitterID: String
+    pluginType: String!
+    pluginConfig: Map!
+    feedID: String
+}
+
+type VRFSpec {
+    coordinatorAddress: String!
+    createdAt: Time!
+    evmChainID: String
+    fromAddresses: [String!]
+    minIncomingConfirmations: Int!
+    pollPeriod: String!
+    publicKey: String!
+    requestedConfsDelay: Int!
+    requestTimeout: String!
+    batchCoordinatorAddress: String
+    batchFulfillmentEnabled: Boolean!
+    batchFulfillmentGasMultiplier: Float!
+    customRevertsPipelineEnabled: Boolean
+    chunkSize: Int!
+    backoffInitialDelay: String!
+    backoffMaxDelay: String!
+    gasLanePrice: String
+    vrfOwnerAddress: String
+}
+
+type WebhookSpec {
+    createdAt: Time!
+}
+
+type BlockhashStoreSpec {
+    coordinatorV1Address: String
+    coordinatorV2Address: String
+    coordinatorV2PlusAddress: String
+    waitBlocks: Int!
+    lookbackBlocks: Int!
+    blockhashStoreAddress: String!
+    trustedBlockhashStoreAddress: String
+    trustedBlockhashStoreBatchSize: Int!
+    heartbeatPeriod: String!
+    pollPeriod: String!
+    runTimeout: String!
+    evmChainID: String
+    fromAddresses: [String!]
+    createdAt: Time!
+}
+
+type BlockHeaderFeederSpec {
+    coordinatorV1Address: String
+    coordinatorV2Address: String
+    coordinatorV2PlusAddress: String
+    waitBlocks: Int!
+    lookbackBlocks: Int!
+    blockhashStoreAddress: String!
+    batchBlockhashStoreAddress: String!
+    pollPeriod: String!
+    runTimeout: String!
+    evmChainID: String
+    getBlockhashesBatchSize: Int!
+    storeBlockhashesBatchSize: Int!
+    fromAddresses: [String!]
+    createdAt: Time!
+}
+
+type BootstrapSpec {
+    id: ID!
+    contractID: String!
+    relay: String!
+    relayConfig: Map!
+    monitoringEndpoint: String
+    blockchainTimeout: String
+    contractConfigTrackerPollInterval: String
+    contractConfigConfirmations: Int
+    createdAt: Time!
+}
+
+type GatewaySpec {
+    id: ID!
+    gatewayConfig: Map!
+    createdAt: Time!
+}
+
+type WorkflowSpec {
+    id: ID!
+    workflowID: String!
+    workflow: String!
+    workflowOwner: String!
+    createdAt: Time!
+    updatedAt: Time!
+}
+
+type StandardCapabilitiesSpec {
+    id: ID!
+    createdAt: Time!
+    command: String!
+    config: String
+}

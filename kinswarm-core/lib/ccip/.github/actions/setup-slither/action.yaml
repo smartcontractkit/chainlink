@@ -1,0 +1,10 @@
+name: Setup Slither
+description: Installs Slither 0.10.3 for contract analysis. Requires Python 3.6 or higher.
+runs:
+  using: composite
+  steps:
+    - name: Install Slither
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install slither-analyzer==0.10.3

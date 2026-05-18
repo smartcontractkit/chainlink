@@ -1,0 +1,9 @@
+exec chainlink admin logout --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink admin logout - Delete any local sessions
+
+USAGE:
+   chainlink admin logout [arguments...]

@@ -1,0 +1,36 @@
+services:
+  node:
+    depends_on:
+      - node-db
+    environment:
+      - CL_DATABASE_URL=postgresql://$CHAINLINK_PGUSER:$CHAINLINK_PGPASSWORD@node-db:5432/$CHAINLINK_DB_NAME?sslmode=disable
+
+  node-2:
+    depends_on:
+      - node-db-2
+    environment:
+      - CL_DATABASE_URL=postgresql://$CHAINLINK_PGUSER:$CHAINLINK_PGPASSWORD@node-db-2:5432/$CHAINLINK_DB_NAME?sslmode=disable
+
+  node-db:
+    container_name: chainlink-db
+    image: postgres:16
+    volumes:
+      - node-db-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: $CHAINLINK_PGUSER
+      POSTGRES_DB: $CHAINLINK_DB_NAME
+      POSTGRES_PASSWORD: $CHAINLINK_PGPASSWORD
+
+  node-db-2:
+    container_name: chainlink-db-2
+    image: postgres:16
+    volumes:
+      - node-db-2-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: $CHAINLINK_PGUSER
+      POSTGRES_DB: $CHAINLINK_DB_NAME
+      POSTGRES_PASSWORD: $CHAINLINK_PGPASSWORD
+
+volumes:
+  node-db-data:
+  node-db-2-data:

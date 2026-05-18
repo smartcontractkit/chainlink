@@ -1,0 +1,9 @@
+type = "bootstrap"
+schemaVersion = 1
+name = "Keystone boot"
+contractID = "{{ ocr_config_contract_address }}"
+relay = "evm"
+
+[relayConfig]
+chainID = "{{ chain_id }}"
+providerType = "ocr3-capability"

@@ -1,0 +1,441 @@
+name: CI Core
+run-name: CI Core ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.distinct_run_name }}
+  cancel-in-progress: true
+
+# Run on key branches to make sure integration is good, otherwise run on all PR's
+on:
+  push:
+    branches:
+      - develop
+      - ccip-develop
+      - "release/*"
+      - "ccip-release/*"
+  merge_group:
+  pull_request:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+    inputs:
+      distinct_run_name:
+        description: "A unique identifier for this run, used when running from other repos"
+        required: false
+        type: string
+      evm-ref:
+        description: The chainlink-evm reference to use when testing against a specific version for compatibliity
+        required: false
+        default: ""
+        type: string
+
+jobs:
+  filter: # No need to run core tests if there are only changes to the integration-tests
+    name: Detect Changes
+    permissions:
+      pull-requests: read
+    outputs:
+      changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.changes }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          repository: smartcontractkit/ccip
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: changes
+        with:
+          filters: |
+            changes:
+              - 'integration-tests/deployment/**'
+              - '!integration-tests/**'
+              - 'integration-tests/deployment/**'
+      - name: Ignore Filter On Workflow Dispatch
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        id: ignore-filter
+        run: echo "changes=true" >> $GITHUB_OUTPUT
+
+  golangci:
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: ${{ (github.event_name == 'pull_request' ||  github.event_name == 'schedule') && github.actor != 'dependabot[bot]' }}
+    name: lint
+    permissions:
+      # For golangci-lint-actions to annotate code in the PR.
+      checks: write
+      contents: read
+      # For golangci-lint-action's `only-new-issues` option.
+      pull-requests: read
+    runs-on: ubuntu22.04-8cores-32GB
+    needs: [filter]
+    steps:
+      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Golang Lint
+        uses: ./.github/actions/golangci-lint
+        if: ${{ needs.filter.outputs.changes == 'true' }}
+        with:
+          id: core
+          name: lint
+          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+
+      - name: Notify Slack
+        if: ${{ failure() && github.event.schedule != '' }}
+        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+        with:
+          channel-id: "#team-core"
+          slack-message: "golangci-lint failed: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}"
+
+  core:
+    env:
+      # We explicitly have this env var not be "CL_DATABASE_URL" to avoid having it be used by core related tests
+      # when they should not be using it, while still allowing us to DRY up the setup
+      DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
+    strategy:
+      fail-fast: false
+      matrix:
+        type:
+          - cmd: go_core_tests
+            id: core_unit
+            os: ubuntu22.04-32cores-128GB
+            printResults: true
+          - cmd: go_core_race_tests
+            id: core_race
+            # use 64cores for overnight runs only due to massive number of runs from PRs
+            os: ${{ github.event_name == 'schedule' && 'ubuntu-latest-64cores-256GB' || 'ubuntu-latest-32cores-128GB' }}
+          - cmd: go_core_fuzz
+            id: core_fuzz
+            os: ubuntu22.04-8cores-32GB
+    name: Core Tests (${{ matrix.type.cmd }})
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: github.actor != 'dependabot[bot]'
+    needs: [filter]
+    runs-on: ${{ matrix.type.os }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Setup node
+        if: ${{ needs.filter.outputs.changes == 'true' }}
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+      - name: Setup NodeJS
+        if: ${{ needs.filter.outputs.changes == 'true' }}
+        uses: ./.github/actions/setup-nodejs
+        with:
+          prod: "true"
+      - name: Setup Go
+        if: ${{ needs.filter.outputs.changes == 'true' }}
+        uses: ./.github/actions/setup-go
+      - name: Replace chainlink-evm deps
+        if: ${{ needs.filter.outputs.changes == 'true' && inputs.evm-ref != ''}}
+        shell: bash
+        run: go get github.com/smartcontractkit/chainlink-integrations/evm/relayer@${{ inputs.evm-ref }}
+      - name: Setup Solana
+        if: ${{ needs.filter.outputs.changes == 'true' }}
+        uses: ./.github/actions/setup-solana
+      - name: Setup wasmd
+        if: ${{ needs.filter.outputs.changes == 'true' }}
+        uses: ./.github/actions/setup-wasmd
+      - name: Setup Postgres
+        if: ${{ needs.filter.outputs.changes == 'true' }}
+        uses: ./.github/actions/setup-postgres
+      - name: Touching core/web/assets/index.html
+        if: ${{ needs.filter.outputs.changes == 'true' }}
+        run: mkdir -p core/web/assets && touch core/web/assets/index.html
+      - name: Download Go vendor packages
+        if: ${{ needs.filter.outputs.changes == 'true' }}
+        run: go mod download
+      - name: Build binary
+        if: ${{ needs.filter.outputs.changes == 'true' }}
+        run: go build -o chainlink.test .
+      - name: Setup DB
+        if: ${{ needs.filter.outputs.changes == 'true' }}
+        run: ./chainlink.test local db preparetest
+        env:
+          CL_DATABASE_URL: ${{ env.DB_URL }}
+      - name: Install LOOP Plugins
+        if: ${{ needs.filter.outputs.changes == 'true' }}
+        run: |
+          pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds)
+          go install ./cmd/chainlink-feeds
+          popd
+          pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-data-streams)
+          go install ./mercury/cmd/chainlink-mercury
+          popd
+          pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana)
+          go install ./pkg/solana/cmd/chainlink-solana
+          popd
+          pushd $(go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-starknet/relayer)
+          go install ./pkg/chainlink/cmd/chainlink-starknet
+          popd
+      - name: Increase Race Timeout
+        if: ${{ github.event.schedule != '' && needs.filter.outputs.changes == 'true' }}
+        run: |
+          echo "TIMEOUT=10m" >> $GITHUB_ENV
+          echo "COUNT=50" >> $GITHUB_ENV
+      - name: Install gotestloghelper
+        if: ${{ needs.filter.outputs.changes == 'true' }}
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.1.1
+      - name: Run tests
+        if: ${{ needs.filter.outputs.changes == 'true' }}
+        id: run-tests
+        env:
+          OUTPUT_FILE: ./output.txt
+          USE_TEE: false
+          CL_DATABASE_URL: ${{ env.DB_URL }}
+        run: ./tools/bin/${{ matrix.type.cmd }} ./...
+      - name: Print Filtered Test Results
+        if: ${{ failure() && needs.filter.outputs.changes == 'true' && steps.run-tests.conclusion == 'failure' }}
+        run: |
+          if [[ "${{ matrix.type.printResults }}"  == "true" ]]; then
+            cat output.txt | gotestloghelper -ci
+          fi
+      - name: Print Races
+        id: print-races
+        if: ${{ failure() && matrix.type.cmd == 'go_core_race_tests' && needs.filter.outputs.changes == 'true' }}
+        run: |
+          find race.* | xargs cat > race.txt
+          if [[ -s race.txt ]]; then
+            cat race.txt
+            echo "post_to_slack=true" >> $GITHUB_OUTPUT
+          else
+            echo "post_to_slack=false" >> $GITHUB_OUTPUT
+          fi
+          echo "github.event_name: ${{ github.event_name }}"
+          echo "github.ref: ${{ github.ref }}"
+      - name: Print postgres logs
+        if: ${{ always() &&  needs.filter.outputs.changes == 'true' }}
+        run: docker compose logs postgres | tee ../../../postgres_logs.txt
+        working-directory: ./.github/actions/setup-postgres
+      - name: Store logs artifacts
+        if: ${{ needs.filter.outputs.changes == 'true' && always() }}
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        with:
+          name: ${{ matrix.type.cmd }}_logs
+          path: |
+            ./output.txt
+            ./output-short.txt
+            ./race.*
+            ./coverage.txt
+            ./postgres_logs.txt
+      - name: Notify Slack
+        if: ${{ failure() && steps.print-races.outputs.post_to_slack == 'true' && matrix.type.cmd == 'go_core_race_tests' && (github.event_name == 'merge_group' || github.event.branch == 'ccip-develop') &&  needs.filter.outputs.changes == 'true' }}
+        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+        with:
+          channel-id: "#topic-data-races"
+          slack-message: "Race tests failed: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}"
+      - name: Collect Path Output
+        id: collect-path-output
+        env:
+          MATRIX_ID: ${{ matrix.type.id }}
+        run: |
+          # only push the test result file for the unit tests
+          if [[ "$MATRIX_ID" == "core_unit" ]]; then
+            resultsFile='{"testType":"go","filePath":"./output.txt"}'
+            echo "path_output=${resultsFile}" >> $GITHUB_OUTPUT
+          fi
+      - name: Collect Metrics
+        if: ${{ needs.filter.outputs.changes == 'true' && always() }}
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+        with:
+          id: ${{ matrix.type.id }}
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Core Tests (${{ matrix.type.cmd }})
+          test-results-file: ${{ steps.collect-path-output.outputs.path_output }}
+          test-results-batch-split-size: "524288" # 512KB
+        continue-on-error: true
+
+  detect-flakey-tests:
+    needs: [filter, core]
+    name: Flakey Test Detection
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    env:
+      CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4.2.1
+      - name: Setup node
+        uses: actions/setup-node@v4.0.4
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+        with:
+          prod: "true"
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+      - name: Setup Postgres
+        uses: ./.github/actions/setup-postgres
+      - name: Touching core/web/assets/index.html
+        run: mkdir -p core/web/assets && touch core/web/assets/index.html
+      - name: Download Go vendor packages
+        run: go mod download
+      - name: Replace chainlink-evm deps
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.evm-ref != ''}}
+        shell: bash
+        run: go get github.com/smartcontractkit/chainlink-integrations/evm/relayer@${{ inputs.evm-ref }}
+      - name: Build binary
+        run: go build -o chainlink.test .
+      - name: Setup DB
+        run: ./chainlink.test local db preparetest
+      - name: Load test outputs
+        uses: actions/download-artifact@v4.1.8
+        with:
+          name: go_core_tests_logs
+          path: ./artifacts
+      - name: Delete go_core_tests_logs/coverage.txt
+        shell: bash
+        run: |
+          # Need to delete coverage.txt so the disk doesn't fill up
+          rm -f ./artifacts/go_core_tests_logs/coverage.txt
+      - name: Build flakey test runner
+        run: go build ./tools/flakeytests/cmd/runner
+      - name: Re-run tests
+        env:
+          GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REPO: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: |
+          ./runner \
+            -grafana_auth=$GRAFANA_INTERNAL_BASIC_AUTH \
+            -grafana_host=$GRAFANA_INTERNAL_HOST \
+            -gh_sha=$GITHUB_SHA \
+            -gh_event_path=$GITHUB_EVENT_PATH \
+            -gh_event_name=$GITHUB_EVENT_NAME \
+            -gh_run_id=$GITHUB_RUN_ID \
+            -gh_repo=$GITHUB_REPO \
+            -command=./tools/bin/go_core_tests \
+            `ls -R ./artifacts/output.txt`
+      - name: Store logs artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4.4.3
+        with:
+          name: flakey_test_runner_logs
+          path: |
+            ./output.txt
+          retention-days: 7
+
+  scan:
+    name: SonarQube Scan
+    needs: [core]
+    if: ${{ always() && github.actor != 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4.2.1
+        with:
+          fetch-depth: 0 # fetches all history for all tags and branches to provide more metadata for sonar reports
+      - name: Download all workflow run artifacts
+        uses: actions/download-artifact@v4.1.8
+
+      - name: Check and Set SonarQube Report Paths
+        shell: bash
+        run: |
+          # Check and assign paths for coverage/test reports
+          if [ -d "go_core_tests_logs" ]; then
+            sonarqube_coverage_report_paths=$(find go_core_tests_logs -name coverage.txt | paste -sd "," -)
+            sonarqube_tests_report_paths=$(find go_core_tests_logs -name output.txt | paste -sd "," -)
+          else
+            sonarqube_coverage_report_paths=""
+            sonarqube_tests_report_paths=""
+          fi
+
+          # Check and assign paths for lint reports
+          if [ -d "golangci-lint-report" ]; then
+            sonarqube_lint_report_paths=$(find golangci-lint-report -name golangci-lint-report.xml | paste -sd "," -)
+          else
+            sonarqube_lint_report_paths=""
+          fi
+
+          ARGS=""
+          if [[ -z "$sonarqube_tests_report_paths" ]]; then
+            echo "::warning::No test report paths found, will not pass to sonarqube"
+          else
+            echo "Found test report paths: $sonarqube_tests_report_paths"
+            ARGS="$ARGS -Dsonar.go.tests.reportPaths=$sonarqube_tests_report_paths"
+          fi
+
+          if [[ -z "$sonarqube_coverage_report_paths" ]]; then
+            echo "::warning::No coverage report paths found, will not pass to sonarqube"
+          else
+            echo "Found coverage report paths: $sonarqube_coverage_report_paths"
+            ARGS="$ARGS -Dsonar.go.coverage.reportPaths=$sonarqube_coverage_report_paths"
+          fi
+
+          if [[ -z "$sonarqube_lint_report_paths" ]]; then
+            echo "::warning::No lint report paths found, will not pass to sonarqube"
+          else
+            echo "Found lint report paths: $sonarqube_lint_report_paths"
+            ARGS="$ARGS -Dsonar.go.golangci-lint.reportPaths=$sonarqube_lint_report_paths"
+          fi
+
+          echo "Final SONARQUBE_ARGS: $ARGS"
+          echo "SONARQUBE_ARGS=$ARGS" >> $GITHUB_ENV
+
+      - name: SonarQube Scan
+        if: ${{ env.SONARQUBE_ARGS != '' }}
+        uses: sonarsource/sonarqube-scan-action@aecaf43ae57e412bd97d70ef9ce6076e672fe0a9 # v2.3.0
+        with:
+          args: ${{ env.SONARQUBE_ARGS }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_SCANNER_OPTS: "-Xms6g -Xmx8g"
+  clean:
+    name: Clean Go Tidy & Generate
+    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') && github.actor != 'dependabot[bot]' }}
+    runs-on: ubuntu22.04-8cores-32GB
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check for Skip Tests Label
+        if: contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests')
+        run: |
+          echo "## \`skip-smoke-tests\` label is active, skipping E2E smoke tests" >>$GITHUB_STEP_SUMMARY
+          exit 0
+      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          fetch-depth: 0
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          only-modules: "true"
+      - name: Install protoc-gen-go-wsrpc
+        run: curl https://github.com/smartcontractkit/wsrpc/raw/main/cmd/protoc-gen-go-wsrpc/protoc-gen-go-wsrpc --output $HOME/go/bin/protoc-gen-go-wsrpc && chmod +x $HOME/go/bin/protoc-gen-go-wsrpc
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+      - name: make generate
+        run: |
+          make rm-mocked
+          make generate
+      - name: Ensure clean after generate
+        run: git diff --stat --exit-code
+      - run: make gomodtidy
+      - name: Ensure clean after tidy
+        run: git diff --minimal --exit-code
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+        with:
+          id: ci-core-generate
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Clean Go Tidy & Generate
+        continue-on-error: true

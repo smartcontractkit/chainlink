@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+
+# build test binaries
+# accepts a single space separated argument of the folders to build
+
+set -ex
+
+# get this scripts directory
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+
+cd "$SCRIPT_DIR"/../../ || exit 1
+
+TAG_VERSION="${1}"
+BASE_IMAGE_VERSION="${2}"
+SUITES=$3
+DEFAULT_SUITES="smoke soak chaos"
+ACCOUNT=$(aws sts get-caller-identity | jq -r .Account)
+AWS_BASE="${ACCOUNT}".dkr.ecr.us-west-2.amazonaws.com
+TAG="${AWS_BASE}"/chainlink-tests:"${TAG_VERSION}"
+BASE_IMAGE="${AWS_BASE}"/test-base-image
+
+if [ "${TAG_VERSION}" = "" ]; then
+    echo "Need an argument for the image tag version in argument 1"
+    exit 1
+fi
+
+if [ "${BASE_IMAGE_VERSION}" = "" ]; then
+    echo "Need an argument for the test-base-image tag version in argument 2"
+    exit 1
+fi
+
+if [ "${SUITES}" = "" ]; then
+    echo "SUITES not set, using defaults \"${DEFAULT_SUITES}\""
+    SUITES=${DEFAULT_SUITES}
+fi
+
+aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin ${AWS_BASE}
+docker build -t "${TAG}" -f "./integration-tests/test.Dockerfile" --build-arg BASE_IMAGE="${BASE_IMAGE}" --build-arg IMAGE_VERSION="${BASE_IMAGE_VERSION}" --build-arg SUITES="${SUITES}" .
+if "${4}" = "true"]; then
+    docker push "${TAG}"
+fi

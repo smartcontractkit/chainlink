@@ -1,0 +1,15 @@
+[ChainlinkImage]
+version="latest"
+
+[Benchmark.Automation.Benchmark]
+registry_to_test = "2_1"
+number_of_registries = 1
+number_of_nodes = 6
+number_of_upkeeps = 1000
+upkeep_gas_limit = 1500000
+check_gas_to_burn = 10000
+perform_gas_to_burn = 1000
+block_range = 3600
+block_interval = 60
+forces_single_tx_key = false
+delete_jobs_on_end = true

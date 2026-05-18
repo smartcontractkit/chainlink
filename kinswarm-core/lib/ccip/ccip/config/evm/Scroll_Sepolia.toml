@@ -1,0 +1,22 @@
+ChainID = '534351'
+FinalityDepth = 10
+FinalityTagEnabled = true
+ChainType = 'scroll'
+LogPollInterval = '5s'
+MinIncomingConfirmations = 1
+# Scroll only emits blocks when a new tx is received, so this method of liveness detection is not useful
+NoNewHeadsThreshold = '0'
+
+[GasEstimator]
+EIP1559DynamicFees = true
+PriceMin = '1 wei'
+BumpMin = '1 gwei'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 24
+
+[HeadTracker]
+HistoryDepth = 50
+
+[OCR]
+ContractConfirmations = 1

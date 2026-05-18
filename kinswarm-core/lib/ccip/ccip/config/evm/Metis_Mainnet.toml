@@ -1,0 +1,21 @@
+# Metis is an L2 chain based on Optimism.
+ChainID = '1088'
+ChainType = 'metis'
+# Sequencer offers absolute finality
+FinalityDepth = 10
+FinalityTagEnabled = true
+MinIncomingConfirmations = 1
+NoNewHeadsThreshold = '0'
+OCR.ContractConfirmations = 1
+
+[GasEstimator]
+Mode = 'SuggestedPrice'
+# Metis uses the SuggestedPrice estimator; we don't want to place any limits on the minimum gas price
+PriceMin = '0'
+
+[GasEstimator.BlockHistory]
+# Force an error if someone enables the estimator by accident; we never want to run the block history estimator on metisaa
+BlockHistorySize = 0
+
+[NodePool]
+SyncThreshold = 10

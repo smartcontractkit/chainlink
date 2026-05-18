@@ -1,0 +1,28 @@
+{
+  "tests": [
+    {
+      "name": "TestLogPollerFewFiltersFixedDepth"
+    },
+    {
+      "name": "TestLogPollerFewFiltersFinalityTag"
+    },
+    {
+      "name": "TestLogPollerWithChaosFixedDepth"
+    },
+    {
+      "name": "TestLogPollerWithChaosFinalityTag"
+    },
+    {
+      "name": "TestLogPollerWithChaosPostgresFinalityTag"
+    },
+    {
+      "name": "TestLogPollerWithChaosPostgresFixedDepth"
+    },
+    {
+      "name": "TestLogPollerReplayFixedDepth"
+    },
+    {
+      "name": "TestLogPollerReplayFinalityTag"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+---
+'@chainlink/contracts': patch
+---
+
+#internal

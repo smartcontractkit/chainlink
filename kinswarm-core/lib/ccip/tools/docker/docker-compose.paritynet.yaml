@@ -1,0 +1,19 @@
+services:
+  node:
+    depends_on:
+      - devnet
+  node-2:
+    depends_on:
+      - devnet
+  devnet:
+    container_name: parity
+    image: smartcontract/devnet@sha256:9bcf4a476db965af7f6a2152a3f07f8bd0b35e51ec45b122ebc9ce87cd1304a7
+    user: root
+    command: --reseal-max-period 4000 --force-sealing --config /devnet/miner.toml --db-path /devnet/database
+    ports:
+      - 8545
+      - 8546
+    volumes:
+      - parity-db-data:/devnet/database
+volumes:
+  parity-db-data:

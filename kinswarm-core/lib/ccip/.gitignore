@@ -1,0 +1,130 @@
+# dependencies
+node_modules/
+tmp/
+.pnp
+.pnp.js
+tools/bin/abigen
+
+/chainlink
+core/chainlink
+
+# SQLite
+tools/clroot/db.sqlite3-shm
+tools/clroot/db.sqlite3-wal
+
+# Tooling caches
+*.tsbuildinfo
+.eslintcache
+
+# Log files
+*.log
+
+# misc
+.DS_Store
+.envrc
+.env*
+.dbenv
+!crib/.env.example
+!.github/actions/setup-postgres/.env
+.direnv
+.idea
+.vscode/
+*.iml
+debug.env
+*.txt
+operator_ui/install
+
+# codeship
+*.aes
+dockercfg
+env
+credentials.env
+gcr_creds.env
+
+# DB backups
+
+cl_backup_*.tar.gz
+
+# Test artifacts
+core/cmd/TestClient_ImportExportP2PKeyBundle_test_key.json
+output.txt
+race.*
+golangci-lint-output.txt
+/golangci-lint/
+.covdata
+
+# DB state
+./db/
+.s.PGSQL.5432.lock
+
+# can be left behind by tests
+core/cmd/vrfkey1
+
+# Integration Tests
+integration-tests/**/logs/
+integration-tests/**/tmp_*
+integration-tests/**/testconfig/override/**.env
+integration-tests/**/secrets.toml
+tests-*.xml
+*.test
+tmp-manifest-*.yaml
+ztarrepo.tar.gz
+**/test-ledger/*
+__debug_bin*
+.test_summary/
+db_dumps/
+.run.id
+integration-tests/**/traces/
+benchmark_report.csv
+benchmark_summary.json
+secrets.toml
+tmp_laneconfig/
+
+# goreleaser builds
+cosign.*
+dist/
+MacOSX*
+
+cache
+core/services/ocr2/plugins/ccip/transactions.rlp
+lcov.info
+!core/services/ocr2/plugins/ccip/internal/cache/
+
+
+core/scripts/ccip/json/credentials
+core/scripts/ccip/json/deployments
+core/scripts/ccip/csv/node-wallets
+
+# Test & linter reports
+*report.xml
+*report.json
+*.out
+dot_graphs/
+
+contracts/yarn.lock
+
+# Ignore DevSpace cache and log folder
+.devspace/
+
+/core/scripts/ccip/json/credentials
+/core/scripts/ccip/revert-reason/bin/ccip-revert-reason
+
+# dependencies generated after running `go mod vendor`
+vendor/
+go.work*
+
+# This sometimes shows up for some reason
+tools/flakeytests/coverage.txt
+
+# Fuzz tests can create these files
+**/testdata/fuzz/*
+
+# Runtime test configuration that might contain secrets
+override*.toml
+
+# Python venv
+.venv/
+
+ocr_soak_report.csv
+
+vendor/*

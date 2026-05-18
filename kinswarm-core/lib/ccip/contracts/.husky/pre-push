@@ -1,0 +1,47 @@
+#!/bin/bash
+set -e
+
+source contracts/.husky/.env
+
+# Only run hook on enabled
+if ! [[ $HUSKY_ENABLE_PUSH_HOOKS == "true" && -n $UPSTREAM_BRANCH ]]; then
+    exit 0
+fi
+
+# Skip on no changes
+current_branch=$(git branch --show-current)
+changes_root=$(git diff --name-only $UPSTREAM_BRANCH...$current_branch -- "contracts/")
+
+if ! [[ -n $changes_root ]]; then
+    echo "Pre-push hook for contracts skipped - no changes detected"
+    exit 0
+fi
+
+cd contracts
+
+FOUNDRY_PROFILE=$FOUNDRY_PROFILE forge build
+FOUNDRY_PROFILE=$FOUNDRY_PROFILE forge test
+pnpm solhint
+
+# Skip interactive commands if interactive mode (/dev/tty) is unavailable
+# https://stackoverflow.com/a/69088164
+if sh -c ": >/dev/tty" >/dev/null 2>/dev/null; then
+    read -n1 -p "Re-generate snapshots & wrappers? (Y/n)" snapshot_answer < /dev/tty
+    echo $snapshot_answer
+
+    if [ "$snapshot_answer" != "${snapshot_answer#[Yy]}" ] ;then
+        # Create gas snapshot & commit gas snapshot
+        make snapshot
+        make wrappers
+
+        git add ./gas-snapshots
+        git add ../core/gethwrappers
+
+        # Check if commit is successful (non-empty)
+        if git commit -m "chore: update gas snapshots and wrappers"; then
+            # The commit is not included - need to push again (https://stackoverflow.com/questions/21334493/git-commit-in-pre-push-hook)
+            printf "\033[0;31m Snapshot commit created - run git push again \033[1;33m(skip snapshot, or use the --no-verify push option)\n"
+            exit 1
+        fi
+    fi
+fi

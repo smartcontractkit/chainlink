@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+#
+# This script acts as a docker replacement around pg_dump so that developers can
+# run DB involved tests locally without having postgres installed.
+#
+# Installation:
+# - Make sure that your PATH doesn't already contain a postgres installation
+# - Add this script to your PATH
+#
+# Usage:
+# You should be able to setup your test db via:
+# - go build -o chainlink.test . # Build the chainlink binary to run test db prep commands from
+# - export CL_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable"
+# - pushd .github/actions/setup-postgres/ # Navigate to the setup-postgres action so we can spin up a docker postgres
+# instance
+# - docker compose up # Spin up postgres
+# - ./chainlink.test local db preparetest # Run the db migration, which will shell out to our pg_dump wrapper too.
+# - popd 
+# - go test -timeout 30s ./core/services/workflows/... -v # Run tests that use the database
+
+cd "$(dirname "$0")" || exit
+
+docker compose exec -T postgres pg_dump "$@" 

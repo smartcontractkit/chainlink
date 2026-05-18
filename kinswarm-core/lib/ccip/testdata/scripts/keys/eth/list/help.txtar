@@ -1,0 +1,9 @@
+exec chainlink keys eth list --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink keys eth list - List available Ethereum accounts with their ETH & LINK balances and other metadata
+
+USAGE:
+   chainlink keys eth list [arguments...]

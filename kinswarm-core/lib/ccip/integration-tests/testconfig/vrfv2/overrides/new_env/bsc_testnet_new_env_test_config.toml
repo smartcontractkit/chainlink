@@ -1,0 +1,8 @@
+[Network]
+selected_networks = ["BSC_TESTNET"]
+
+[BSC_TESTNET.VRFv2.General]
+use_existing_env = false
+
+[Logging]
+test_log_collect = true

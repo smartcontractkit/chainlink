@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+set -e
+
+echo " ┌──────────────────────────────────────────────┐"
+echo " │         Compiling *all* contracts...         │"
+echo " └──────────────────────────────────────────────┘"
+
+SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
+
+# 6 and 7 are legacy contracts, for each other product we have a native_solc_compile_all_$product script
+# These scripts can be run individually, or all together with this script.
+# To add new CL products, simply write a native_solc_compile_all_$product script and add it to the list below.
+for product in automation events_mock feeds functions keystone llo-feeds logpoller operatorforwarder shared transmission vrf ccip liquiditymanager 
+do
+  $SCRIPTPATH/native_solc_compile_all_$product
+done

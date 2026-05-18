@@ -1,0 +1,15 @@
+exec chainlink node db preparetest --help
+cmp stdout out.txt
+! stderr .
+
+-- out.txt --
+NAME:
+   chainlink node db preparetest - Reset database and load fixtures.
+
+USAGE:
+   chainlink node db preparetest [command options] [arguments...]
+
+OPTIONS:
+   --user-only  only include test user fixture
+   --force      set to true to force the reset by dropping any existing connections to the database
+   

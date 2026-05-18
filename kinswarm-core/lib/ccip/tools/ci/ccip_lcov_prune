@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+set -e
+
+# src/v0.8/ccip/libraries/Internal.sol
+# src/v0.8/ccip/libraries/RateLimiter.sol
+# src/v0.8/ccip/libraries/USDPriceWith18Decimals.sol
+# src/v0.8/ccip/libraries/MerkleMultiProof.sol
+# src/v0.8/ccip/libraries/Pool.sol
+# excluded because Foundry doesn't support coverage on library files
+
+# BurnWithFromMintTokenPool is excluded because Forge doesn't seem to
+# register coverage, even though it is 100% covered.
+
+
+lcov --remove $1 -o $2 \
+  '*/ccip/test/*' \
+  '*/vendor/*' \
+  '*/shared/*' \
+  'src/v0.8/ccip/ocr/OCR2Abstract.sol' \
+  'src/v0.8/ccip/libraries/Internal.sol' \
+  'src/v0.8/ccip/libraries/RateLimiter.sol' \
+  'src/v0.8/ccip/libraries/USDPriceWith18Decimals.sol' \
+  'src/v0.8/ccip/libraries/MerkleMultiProof.sol' \
+  'src/v0.8/ccip/libraries/Pool.sol' \
+  'src/v0.8/ConfirmedOwnerWithProposal.sol' \
+  'src/v0.8/tests/MockV3Aggregator.sol' \
+  'src/v0.8/ccip/applications/CCIPClientExample.sol' \
+  'src/v0.8/ccip/pools/BurnWithFromMintTokenPool.sol' \
+  'src/v0.8/ccip/rmn/RMNHome.sol' \
+  --rc lcov_branch_coverage=1

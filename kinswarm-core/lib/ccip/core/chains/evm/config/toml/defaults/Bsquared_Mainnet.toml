@@ -1,0 +1,23 @@
+ChainID = '223'
+# OP stack from questionnaire https://docs.google.com/spreadsheets/d/1l8dx1GzxEnjgwH5x3vB60FUr5iFALzPcs6W_wOAiuDs/edit?gid=625078687#gid=625078687
+ChainType = 'optimismBedrock'
+# finality_depth was: ~1900
+FinalityDepth = 2000
+# block_time:  ~2s, adding 1 second buffer 
+LogPollInterval = '3s' 
+
+# finality_depth * block_time / 60 secs = ~66  min (finality time)
+NoNewFinalizedHeadsThreshold = '70m' 
+
+FinalityTagEnabled = true 
+
+[GasEstimator]
+EIP1559DynamicFees = true
+Mode = 'FeeHistory'
+
+[GasEstimator.FeeHistory]
+# block_time was: 2s, per recommendation skip 1-2 blocks
+CacheTimeout = '4s'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 100

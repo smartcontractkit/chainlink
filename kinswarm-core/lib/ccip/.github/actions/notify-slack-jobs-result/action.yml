@@ -1,0 +1,126 @@
+name: Notify Slack Jobs Result
+description: Will send a notification in Slack for the result of a GitHub action run, typically for test results
+inputs:
+  github_token:
+    description: "The GitHub token to use for authentication (usually github.token)"
+    required: true
+  github_repository:
+    description: "The GitHub owner/repository to use for authentication (usually github.repository))"
+    required: true
+  workflow_run_id:
+    description: "The workflow run ID to get the results from (usually github.run_id)"
+    required: true
+  github_job_name_regex:
+    description: "The regex to use to match 1..many job name(s) to collect results from. Should include a capture group named 'cap' for the part of the job name you want to display in the Slack message (e.g. ^Client Compatability Test (?<cap>.*?)$)"
+    required: true
+  message_title:
+    description: "The title of the Slack message"
+    required: true
+  slack_channel_id:
+    description: "The Slack channel ID to post the message to"
+    required: true
+  slack_bot_token:
+    description: "The Slack bot token to use for authentication which needs permission and an installed app in the channel"
+    required: true
+  slack_thread_ts:
+    description: "The Slack thread timestamp to post the message to, handy for keeping multiple related results in a single thread"
+    required: false
+  base64_parsed_results:
+    description: "Base64 encoded parsed results to use"
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Get Results
+      shell: bash
+      id: test-results
+      run: |
+        if [ -n "${{ inputs.base64_parsed_results }}" ]; then
+          echo "Using base64 parsed results"
+          PARSED_RESULTS=$(echo "${{ inputs.base64_parsed_results }}" | base64 -d)
+        else
+          go install github.com/smartcontractkit/chainlink-testing-framework/tools/workflowresultparser@v1.0.0
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH
+        
+          workflowresultparser -workflowRunID ${{ inputs.workflow_run_id }} -githubToken ${{ inputs.github_token }} -githubRepo "${{ inputs.github_repository }}" -jobNameRegex "${{ inputs.github_job_name_regex }}" -outputFile=output.json
+        
+          if [ ! -f output.json ]; then
+            PARSED_RESULTS='""'
+          else 
+            PARSED_RESULTS=$(cat output.json | jq -c "select(has(\"results\")) | .results[]")
+          fi
+        
+        fi
+        
+        echo "Parsed Results:"
+        echo $PARSED_RESULTS
+        
+        ALL_SUCCESS=true
+        
+        if [ "$PARSED_RESULTS" != '""' ]; then
+          echo "Checking for failures"
+          echo "$PARSED_RESULTS" | jq -s | jq -r '.[] | select(.conclusion != ":white_check_mark:")'
+          for row in $(echo "$PARSED_RESULTS" | jq -s | jq -r '.[] | select(.conclusion != ":white_check_mark:")'); do
+              ALL_SUCCESS=false
+              break
+          done
+          echo "Success: $ALL_SUCCESS"
+        
+          echo all_success=$ALL_SUCCESS >> $GITHUB_OUTPUT
+        
+          FORMATTED_RESULTS=$(echo $PARSED_RESULTS | jq -s '[.[]
+          | {
+            conclusion: .conclusion,
+            cap: .cap,
+            html_url: .html_url
+            }
+          ]
+          | map("{\"type\": \"section\", \"text\": {\"type\": \"mrkdwn\", \"text\": \"<\(.html_url)|\(.cap)>: \(.conclusion)\"}}")
+          | join(",")')
+        else
+          echo "Nothing to post, no results found"
+          exit 0
+        fi
+        
+        echo "Formatted Results:"
+        echo $FORMATTED_RESULTS
+
+        # Cleans out backslashes and quotes from jq
+        CLEAN_RESULTS=$(echo "$FORMATTED_RESULTS" | sed 's/\\\"/"/g' | sed 's/^"//;s/"$//')
+
+        echo "Clean Results"
+        echo $CLEAN_RESULTS
+
+        echo results=$CLEAN_RESULTS >> $GITHUB_OUTPUT
+    - name: Post Results
+      uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
+      if: steps.test-results.outputs.results != ''
+      env:
+        SLACK_BOT_TOKEN: ${{ inputs.slack_bot_token }}
+      with:
+        channel-id: ${{ inputs.slack_channel_id }}
+        payload: |
+          {
+            "thread_ts": "${{ inputs.slack_thread_ts }}",
+            "attachments": [
+              {
+                "color": "${{ steps.test-results.outputs.all_success == 'true' && '#2E7D32' || '#C62828' }}",
+                "blocks": [
+                  {
+                    "type": "header",
+                    "text": {
+                      "type": "plain_text",
+                      "text": "${{ inputs.message_title }} ${{ steps.test-results.outputs.all_success == 'true' && ':white_check_mark:' || ':x:'}}",
+                      "emoji": true
+                    }
+                  },
+                  {
+                    "type": "divider"
+                  },
+                  ${{ steps.test-results.outputs.results }}
+                ]
+              }
+            ]
+          }

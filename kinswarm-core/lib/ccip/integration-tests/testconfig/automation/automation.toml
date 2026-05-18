@@ -1,0 +1,552 @@
+# product defaults
+[Common]
+chainlink_node_funding = 2.0
+
+[Pyroscope]
+enabled=false
+
+[NodeConfig]
+BaseConfigTOML = """
+[Feature]
+FeedsManager = true
+LogPoller = true
+UICSAKeys = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[Log.File]
+MaxSize = '0b'
+
+[WebServer]
+AllowOrigins = '*'
+HTTPPort = 6688
+SecureCookies = false
+HTTPWriteTimeout = '3m'
+SessionTimeout = '999h0m0s'
+
+[WebServer.RateLimit]
+Authenticated = 2000
+Unauthenticated = 1000
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[OCR2]
+Enabled = true
+
+[P2P]
+[P2P.V2]
+Enabled = true
+ListenAddresses = ['0.0.0.0:6690']
+AnnounceAddresses = ['0.0.0.0:6690']
+"""
+
+# smoke test specific overrodes
+[Smoke.Automation.AutomationConfig]
+use_log_buffer_v1=false
+
+[Smoke.Automation.AutomationConfig.PublicConfig]
+delta_progress=10_000_000_000
+delta_resend=15_000_000_000
+delta_initial=500_000_000
+delta_round=1_000_000_000
+delta_grace=200_000_000
+delta_certified_commit_request=300_000_000
+delta_stage=30_000_000_000
+r_max=24
+f=1
+max_duration_query=20_000_000
+max_duration_observation=20_000_000
+max_duration_should_accept_attested_report=1_200_000_000
+max_duration_should_transmit_accepted_report=20_000_000
+
+[Smoke.Automation.AutomationConfig.PluginConfig]
+perform_lockout_window=3_600_000
+target_probability="0.999"
+target_in_rounds=1
+min_confirmations=0
+gas_limit_per_report=10_300_000
+gas_overhead_per_upkeep=300_000
+max_upkeep_batch_size=10
+
+[Smoke.Automation.AutomationConfig.PluginConfig.LogProviderConfig]
+block_rate=1
+log_limit=2
+
+[Smoke.Automation.AutomationConfig.RegistrySettings]
+payment_premium_ppb=200_000_000
+flat_fee_micro_link=0
+check_gas_limit=2_500_000
+staleness_seconds=90000
+gas_ceiling_multiplier=1
+max_perform_gas=5_000_000
+min_upkeep_spend=0
+fallback_gas_price=200_000_000_000
+fallback_link_price=2_000_000_000_000_000_000
+fallback_native_price=2_000_000_000_000_000_000
+max_check_data_size=5_000
+max_perform_data_size=5_000
+max_revert_data_size=5_000
+
+# reorg test specific overrides
+[Reorg.Common]
+chainlink_node_funding = 2.0
+
+
+[Reorg.Automation]
+
+[Reorg.NodeConfig.ChainConfigTOMLByChainID]
+# applicable for simulated chain
+1337 = """
+AutoCreateKey = true
+FinalityDepth = 20
+LogPollInterval = '1s'
+MinContractPayment = 0
+[HeadTracker]
+HistoryDepth = 30
+[GasEstimator]
+Mode = 'FixedPrice'
+LimitDefault = 5_000_000
+"""
+
+[Reorg.Automation.AutomationConfig]
+use_log_buffer_v1=false
+
+[Reorg.Automation.AutomationConfig.PublicConfig]
+delta_progress=10_000_000_000
+delta_resend=15_000_000_000
+delta_initial=500_000_000
+delta_round=1_000_000_000
+delta_grace=200_000_000
+delta_certified_commit_request=300_000_000
+delta_stage=30_000_000_000
+r_max=24
+f=1
+max_duration_query=20_000_000
+max_duration_observation=20_000_000
+max_duration_should_accept_attested_report=1_200_000_000
+max_duration_should_transmit_accepted_report=20_000_000
+
+[Reorg.Automation.AutomationConfig.PluginConfig]
+perform_lockout_window=3_600_000
+target_probability="0.999"
+target_in_rounds=1
+min_confirmations=0
+gas_limit_per_report=10_300_000
+gas_overhead_per_upkeep=300_000
+max_upkeep_batch_size=10
+
+[Reorg.Automation.AutomationConfig.PluginConfig.LogProviderConfig]
+block_rate=1
+log_limit=2
+
+[Reorg.Automation.AutomationConfig.RegistrySettings]
+payment_premium_ppb=200_000_000
+flat_fee_micro_link=0
+check_gas_limit=2_500_000
+staleness_seconds=90000
+gas_ceiling_multiplier=1
+max_perform_gas=5_000_000
+min_upkeep_spend=0
+fallback_gas_price=200_000_000_000
+fallback_link_price=2_000_000_000_000_000_000
+fallback_native_price=2_000_000_000_000_000_000
+max_check_data_size=5_000
+max_perform_data_size=5_000
+max_revert_data_size=5_000
+
+# chaos test specific overrides
+[Chaos.Common]
+chainlink_node_funding = 2.0
+
+[Chaos.Automation]
+
+[Chaos.Automation.AutomationConfig]
+use_log_buffer_v1=false
+
+[Chaos.Automation.AutomationConfig.PublicConfig]
+delta_progress=10_000_000_000
+delta_resend=15_000_000_000
+delta_initial=500_000_000
+delta_round=1_000_000_000
+delta_grace=200_000_000
+delta_certified_commit_request=300_000_000
+delta_stage=30_000_000_000
+r_max=24
+f=1
+max_duration_query=20_000_000
+max_duration_observation=20_000_000
+max_duration_should_accept_attested_report=1_200_000_000
+max_duration_should_transmit_accepted_report=20_000_000
+
+[Chaos.Automation.AutomationConfig.PluginConfig]
+perform_lockout_window=3_600_000
+target_probability="0.999"
+target_in_rounds=1
+min_confirmations=0
+gas_limit_per_report=10_300_000
+gas_overhead_per_upkeep=300_000
+max_upkeep_batch_size=10
+
+[Chaos.Automation.AutomationConfig.PluginConfig.LogProviderConfig]
+block_rate=1
+log_limit=2
+
+[Chaos.Automation.AutomationConfig.RegistrySettings]
+payment_premium_ppb=200_000_000
+flat_fee_micro_link=0
+check_gas_limit=2_500_000
+staleness_seconds=90000
+gas_ceiling_multiplier=1
+max_perform_gas=5_000_000
+min_upkeep_spend=0
+fallback_gas_price=200_000_000_000
+fallback_link_price=2_000_000_000_000_000_000
+fallback_native_price=2_000_000_000_000_000_000
+max_check_data_size=5_000
+max_perform_data_size=5_000
+max_revert_data_size=5_000
+
+# load test specific overrides
+[Load.Logging.Grafana]
+base_url="https://grafana.ops.prod.cldev.sh"
+dashboard_url="/d/a4899f53-f709-430a-aec2-24f32198dcc9/chainlink-automation-v2-load-test"
+
+[Load.Seth]
+ephemeral_addresses_number = 100
+root_key_funds_buffer = 1_000_000
+
+[Load.Common]
+chainlink_node_funding = 1000
+
+[Load.Automation]
+[Load.Automation.General]
+number_of_nodes=6
+duration=900
+block_time=1
+spec_type="minimum"
+chainlink_node_log_level="info"
+use_prometheus=false
+remove_namespace = true
+
+[Load.Automation.DataStreams]
+enabled=false
+
+[[Load.Automation.Load]]
+number_of_upkeeps=5
+number_of_events = 1
+number_of_spam_matching_events = 1
+number_of_spam_non_matching_events = 0
+check_burn_amount = 0
+perform_burn_amount = 0
+upkeep_gas_limit = 1000000
+shared_trigger = false
+is_streams_lookup = false
+feeds = ["0x000200"]
+
+[[Load.Automation.Load]]
+number_of_upkeeps=5
+number_of_events = 1
+number_of_spam_matching_events = 0
+number_of_spam_non_matching_events = 1
+check_burn_amount = 0
+perform_burn_amount = 0
+upkeep_gas_limit = 1000000
+shared_trigger = true
+is_streams_lookup = false
+feeds = ["0x000200"]
+
+[Load.Automation.AutomationConfig]
+use_log_buffer_v1=false
+
+[Load.Automation.AutomationConfig.PublicConfig]
+delta_progress=10_000_000_000
+delta_resend=15_000_000_000
+delta_initial=500_000_000
+delta_round=1_000_000_000
+delta_grace=200_000_000
+delta_certified_commit_request=300_000_000
+delta_stage=15_000_000_000
+r_max=24
+f=1
+max_duration_query=20_000_000
+max_duration_observation=20_000_000
+max_duration_should_accept_attested_report=1_200_000_000
+max_duration_should_transmit_accepted_report=20_000_000
+
+[Load.Automation.AutomationConfig.PluginConfig]
+perform_lockout_window=80_000
+target_probability="0.999"
+target_in_rounds=1
+min_confirmations=0
+gas_limit_per_report=10_300_000
+gas_overhead_per_upkeep=300_000
+max_upkeep_batch_size=10
+
+[Load.Automation.AutomationConfig.PluginConfig.LogProviderConfig]
+block_rate=1
+log_limit=2
+
+[Load.Automation.AutomationConfig.RegistrySettings]
+payment_premium_ppb=0
+flat_fee_micro_link=40000
+check_gas_limit=45_000_000
+staleness_seconds=90_000
+gas_ceiling_multiplier=2
+max_perform_gas=5_000_000
+min_upkeep_spend=0
+fallback_gas_price=200_000_000_000
+fallback_link_price=2_000_000_000_000_000_000
+fallback_native_price=2_000_000_000_000_000_000
+max_check_data_size=5_000
+max_perform_data_size=5_000
+max_revert_data_size=5_000
+
+[Load.Pyroscope]
+enabled=false
+
+# automation benchmark test specific overrides
+[Benchmark.Logging.Grafana]
+base_url="https://grafana.ops.prod.cldev.sh"
+dashboard_url="/d/Q8n6m1unz/chainlink-automation-benchmark-test"
+
+# will retry roughly for 1h before giving up (900 * 4s)
+[Benchmark.Automation.Resiliency]
+# number of retries before giving up
+contract_call_limit = 900
+# static interval between retries
+contract_call_interval = "4s"
+
+[Benchmark.Seth]
+# keeper benchmark running on simulated network requires 100k per node
+root_key_funds_buffer = 1_000_000
+
+[Benchmark.Automation]
+[Benchmark.Automation.General]
+number_of_nodes=6
+duration=3600
+block_time=1
+spec_type="minimum"
+chainlink_node_log_level="info"
+use_prometheus=false
+remove_namespace = true
+
+[Benchmark.Automation.Benchmark]
+registry_to_test = "2_1"
+number_of_registries = 1
+number_of_nodes = 6
+number_of_upkeeps = 1000
+upkeep_gas_limit = 1500000
+check_gas_to_burn = 10000
+perform_gas_to_burn = 1000
+block_range = 3600
+block_interval = 60
+forces_single_tx_key = false
+delete_jobs_on_end = true
+
+[Benchmark.NodeConfig]
+BaseConfigTOML = """
+[Feature]
+LogPoller = true
+
+[OCR2]
+Enabled = true
+
+[P2P]
+[P2P.V2]
+Enabled = true
+AnnounceAddresses = ["0.0.0.0:6690"]
+ListenAddresses = ["0.0.0.0:6690"]
+[Keeper]
+TurnLookBack = 0
+[WebServer]
+HTTPWriteTimeout = '1h'
+"""
+
+CommonChainConfigTOML = """
+"""
+
+[Benchmark.NodeConfig.ChainConfigTOMLByChainID]
+# applicable for simulated chain
+1337 = """
+FinalityDepth = 50
+LogPollInterval = '1s'
+MinIncomingConfirmations = 1
+
+[HeadTracker]
+HistoryDepth = 100
+
+[GasEstimator]
+Mode = 'FixedPrice'
+LimitDefault = 5_000_000
+"""
+
+[Benchmark.Automation.AutomationConfig]
+use_log_buffer_v1=false
+
+[Benchmark.Automation.AutomationConfig.PublicConfig]
+delta_progress=10_000_000_000
+delta_resend=15_000_000_000
+delta_initial=500_000_000
+delta_round=1_000_000_000
+delta_grace=200_000_000
+delta_certified_commit_request=300_000_000
+delta_stage=30_000_000_000
+r_max=24
+f=1
+max_duration_query=20_000_000
+max_duration_observation=20_000_000
+max_duration_should_accept_attested_report=1_200_000_000
+max_duration_should_transmit_accepted_report=20_000_000
+
+[Benchmark.Automation.AutomationConfig.PluginConfig]
+perform_lockout_window=3_600_000
+target_probability="0.999"
+target_in_rounds=1
+min_confirmations=0
+gas_limit_per_report=10_300_000
+gas_overhead_per_upkeep=300_000
+max_upkeep_batch_size=10
+
+[Benchmark.Automation.AutomationConfig.PluginConfig.LogProviderConfig]
+block_rate=1
+log_limit=2
+
+[Benchmark.Automation.AutomationConfig.RegistrySettings]
+payment_premium_ppb=0
+flat_fee_micro_link=40000
+check_gas_limit=45_000_000
+staleness_seconds=90_000
+gas_ceiling_multiplier=2
+max_perform_gas=5_000_000
+min_upkeep_spend=0
+fallback_gas_price=200_000_000_000
+fallback_link_price=2_000_000_000_000_000_000
+fallback_native_price=2_000_000_000_000_000_000
+max_check_data_size=5_000
+max_perform_data_size=5_000
+max_revert_data_size=5_000
+
+# automation soak test specific overrides
+[Soak.Logging.Grafana]
+base_url="https://grafana.ops.prod.cldev.sh"
+dashboard_url="/d/Q8n6m1unz/chainlink-automation-benchmark-test"
+
+# will retry roughly for 1h before giving up (900 * 4s)
+[Soak.Automation.Resiliency]
+# number of retries before giving up
+contract_call_limit = 900
+# static interval between retries
+contract_call_interval = "4s"
+
+[Soak.Seth]
+# keeper benchmark running on simulated network requires 100k per node
+root_key_funds_buffer = 1_000_000
+
+[Soak.Automation]
+[Soak.Automation.General]
+number_of_nodes=6
+duration=3600
+block_time=1
+spec_type="minimum"
+chainlink_node_log_level="info"
+use_prometheus=false
+remove_namespace = true
+
+[Soak.Automation.Benchmark]
+registry_to_test = "2_1"
+number_of_registries = 1
+number_of_nodes = 6
+number_of_upkeeps = 50
+upkeep_gas_limit = 1500000
+check_gas_to_burn = 10000
+perform_gas_to_burn = 1000
+block_range = 28800
+block_interval = 300
+forces_single_tx_key = false
+delete_jobs_on_end = true
+
+[Soak.NodeConfig]
+BaseConfigTOML = """
+[Feature]
+LogPoller = true
+
+[OCR2]
+Enabled = true
+
+[P2P]
+[P2P.V2]
+Enabled = true
+AnnounceAddresses = ["0.0.0.0:6690"]
+ListenAddresses = ["0.0.0.0:6690"]
+[Keeper]
+TurnLookBack = 0
+[WebServer]
+HTTPWriteTimeout = '1h'
+"""
+
+CommonChainConfigTOML = """
+"""
+
+[Soak.NodeConfig.ChainConfigTOMLByChainID]
+# applicable for simulated chain
+1337 = """
+FinalityDepth = 50
+LogPollInterval = '1s'
+MinIncomingConfirmations = 1
+
+[HeadTracker]
+HistoryDepth = 100
+
+[GasEstimator]
+Mode = 'FixedPrice'
+LimitDefault = 5_000_000
+"""
+
+[Soak.Automation.AutomationConfig]
+use_log_buffer_v1=false
+
+[Soak.Automation.AutomationConfig.PublicConfig]
+delta_progress=10_000_000_000
+delta_resend=15_000_000_000
+delta_initial=500_000_000
+delta_round=1_000_000_000
+delta_grace=200_000_000
+delta_certified_commit_request=300_000_000
+delta_stage=30_000_000_000
+r_max=24
+f=1
+max_duration_query=20_000_000
+max_duration_observation=20_000_000
+max_duration_should_accept_attested_report=1_200_000_000
+max_duration_should_transmit_accepted_report=20_000_000
+
+[Soak.Automation.AutomationConfig.PluginConfig]
+perform_lockout_window=3_600_000
+target_probability="0.999"
+target_in_rounds=1
+min_confirmations=0
+gas_limit_per_report=10_300_000
+gas_overhead_per_upkeep=300_000
+max_upkeep_batch_size=10
+
+[Soak.Automation.AutomationConfig.PluginConfig.LogProviderConfig]
+block_rate=1
+log_limit=2
+
+[Soak.Automation.AutomationConfig.RegistrySettings]
+payment_premium_ppb=200_000_000
+flat_fee_micro_link=0
+check_gas_limit=2_500_000
+staleness_seconds=90000
+gas_ceiling_multiplier=1
+max_perform_gas=5_000_000
+min_upkeep_spend=0
+fallback_gas_price=200_000_000_000
+fallback_link_price=2_000_000_000_000_000_000
+fallback_native_price=2_000_000_000_000_000_000
+max_check_data_size=5_000
+max_perform_data_size=5_000
+max_revert_data_size=5_000

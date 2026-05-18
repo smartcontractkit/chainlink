@@ -1,0 +1,416 @@
+name: CCIP Offchain Upgrade Compatibility Tests
+on:
+  merge_group:
+  pull_request:
+  push:
+    tags:
+      - "*"
+  workflow_dispatch:
+
+concurrency:
+  group: upgrade-tests-ccip-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # for run-test variables and environment
+  ECR_TAG: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-ccip-tests:ccip-develop
+  ENV_JOB_IMAGE_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-ccip-tests
+  CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+  INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
+  MOD_CACHE_VERSION: 2
+  AWS_ECR_REPO_PUBLIC_REGISTRY: public.ecr.aws
+  # Default private key test secret loaded from Github Secret as only security team has access to it.
+  # this key secrets.QA_SHARED_803C_KEY has a story behind it. To know more, see CCIP-2875 and SECHD-16575 tickets.
+  E2E_TEST_ETHEREUM_MAINNET_WALLET_KEY: ${{ secrets.QA_SHARED_803C_KEY }}
+  E2E_TEST_ARBITRUM_MAINNET_WALLET_KEY: ${{ secrets.QA_SHARED_803C_KEY }}
+  E2E_TEST_BASE_MAINNET_WALLET_KEY: ${{ secrets.QA_SHARED_803C_KEY }}
+  E2E_TEST_WEMIX_MAINNET_WALLET_KEY: ${{ secrets.QA_SHARED_803C_KEY }}
+  E2E_TEST_AVALANCHE_MAINNET_WALLET_KEY: ${{ secrets.QA_SHARED_803C_KEY }}
+  E2E_TEST_ZKSYNC_MAINNET_WALLET_KEY: ${{ secrets.QA_SHARED_803C_KEY }}
+  E2E_TEST_MODE_MAINNET_WALLET_KEY: ${{ secrets.QA_SHARED_803C_KEY }}
+  E2E_TEST_METIS_ANDROMEDA_WALLET_KEY: ${{ secrets.QA_SHARED_803C_KEY }}
+  E2E_TEST_OPTIMISM_MAINNET_WALLET_KEY: ${{ secrets.QA_SHARED_803C_KEY }}
+  E2E_TEST_KROMA_MAINNET_WALLET_KEY: ${{ secrets.QA_SHARED_803C_KEY }}
+  E2E_TEST_GNOSIS_MAINNET_WALLET_KEY: ${{ secrets.QA_SHARED_803C_KEY }}
+  E2E_TEST_POLYGON_MAINNET_WALLET_KEY: ${{ secrets.QA_SHARED_803C_KEY }}
+  E2E_TEST_BSC_MAINNET_WALLET_KEY: ${{ secrets.QA_SHARED_803C_KEY }}
+
+jobs:
+  # Build Test Dependencies
+  changes:
+    environment: integration
+    name: Check Paths That Require Tests To Run
+    runs-on: ubuntu-latest
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: github.actor != 'dependabot[bot]'
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          repository: smartcontractkit/ccip
+          ref: ${{ inputs.cl_ref }}
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: changes
+        with:
+          filters: |
+            src:
+              - '**/*.go'
+              - '**/*go.sum'
+              - '**/*go.mod'
+              - '.github/workflows/integration-tests.yml'
+              - '**/*Dockerfile'
+              - 'core/**/config/**/*.toml'
+              - 'integration-tests/**/*.toml'
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: ccip-offchain-upgrade-compatibility-tests-changes
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Check Paths That Require Tests To Run
+        continue-on-error: true
+    outputs:
+      src: ${{ inputs.set_changes_output || steps.changes.outputs.src }}
+
+  build-chainlink:
+    if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+    needs: [ changes ]
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Build Chainlink Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: ccip-offchain-upgrade-compatibility-tests-build-chainlink
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Build Chainlink Image
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          repository: smartcontractkit/ccip
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Build Chainlink Image
+        uses: ./.github/actions/build-chainlink-image
+        with:
+          tag_suffix: ""
+          dockerfile: core/chainlink.Dockerfile
+          git_commit_sha: ${{ github.sha }}
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+
+  build-test-image:
+    if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+    needs: [ changes ]
+    environment: integration
+    outputs:
+      tag: ${{ steps.build-test-image.outputs.test_image_tag }}
+    permissions:
+      id-token: write
+      contents: read
+    name: Build Test Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: ccip-offchain-upgrade-compatibility-tests-build-test-image
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Build Test Image with Current Sha
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          repository: smartcontractkit/ccip
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Build Test Image
+        id: build-test-image
+        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+        uses: smartcontractkit/.github/actions/ctf-build-test-image@a5e4f4c8fbb8e15ab2ad131552eca6ac83c4f4b3 # ctf-build-test-image@0.1.0
+        with:
+          # we just want to build the load tests
+          suites: ccip-tests/load ccip-tests/smoke
+          repository: chainlink-ccip-tests
+          tag: ${{ github.sha }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+
+  last-release-info:
+    if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+    needs: [ changes ]
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Fetch Info for Last Release
+    runs-on: ubuntu-latest
+    outputs:
+      release_name: ${{ steps.fetch_last_release.outputs.release_name }}
+      release_sha: ${{ steps.fetch_last_release.outputs.sha_ref }}
+      release_tag: ${{ steps.fetch_last_release.outputs.release_tag_name }}
+    steps:
+      - name: Collect Metrics
+        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: ccip-offchain-upgrade-compatibility-tests-last-release-info
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Build Test Image for Last Release
+        continue-on-error: true
+      - name: find last release
+        id: fetch_last_release
+        shell: bash
+        run: |
+          release_name=$(curl --header "Authorization: token ${{ secrets.GITHUB_TOKEN }}" --request GET https://api.github.com/repos/${{ github.repository }}/releases | jq -r --arg SUFFIX "release" '.[] | select(.tag_name | endswith("release"))  | .tag_name' | sort -V | tail -n 1)
+          release_tag_name="${release_name:1}"
+          echo "release_tag_name=${release_tag_name}" >> $GITHUB_OUTPUT
+          echo "release_name=${release_name}" >> $GITHUB_OUTPUT
+          sha_ref=$(curl -s --header "Authorization: token ${{ secrets.GITHUB_TOKEN }}" --request GET https://api.github.com/repos/${{ github.repository }}/git/refs/tags/${release_name} | jq -r '.object.sha' | sort -V | tail -n 1)
+          echo "sha_ref=${sha_ref}" >> $GITHUB_OUTPUT
+  # End Build Test Dependencies
+
+  # run test with previous image
+  run-test-with-last-release:
+    environment: integration
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [ changes, last-release-info, build-test-image ]
+    outputs:
+      existing_namespace: ${{ steps.fetch_namespace.outputs.existing_namespace }}
+      triggered_by: ${{ steps.fetch_namespace.outputs.triggered_by }}
+    strategy:
+      fail-fast: false
+      matrix:
+        product:
+          - name: ccip-smoke-with-last-release
+            os: ubuntu-latest
+            run: ^TestSmokeCCIPForBidirectionalLane$
+            config_path: ./integration-tests/ccip-tests/testconfig/tomls/node-pre-upgrade-compatibility.toml
+    runs-on: ubuntu-latest
+    name: CCIP Deployment with ${{ needs.last-release-info.outputs.release_tag }} - ${{ matrix.product.name }}
+    env:
+      RELEASE_TAG: ${{ needs.last-release-info.outputs.release_tag }}
+      RELEASE_SHA: ${{ needs.last-release-info.outputs.release_sha }}
+      RELEASE_NAME: ${{ needs.last-release-info.outputs.release_name }}
+      TEST_TRIGGERED_BY: ${{ matrix.product.name }}-${{ github.run_id }}
+    steps:
+      - name: Collect Metrics
+        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: ccip-offchain-upgrade-compatibility-tests-run-tests-with-last-release
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: CCIP Deployment with ${{ needs.last-release-info.outputs.release_tag }} - ${{ matrix.product.name }}
+          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          repository: smartcontractkit/ccip
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Set Override Config
+        id: set_override_config
+        run: |
+          # if the matrix.product.config_path is set, use it as the override config
+          if [ "${{ matrix.product.config_path }}" != "" ]; then
+            echo "base_64_override=$(base64 -w 0 -i ${{ matrix.product.config_path }})" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Prepare Base64 TOML override for CCIP secrets
+        uses: ./.github/actions/setup-create-base64-config-ccip
+        id: setup_create_base64_config_ccip
+        with:
+          runId: ${{ github.run_id }}
+          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+          chainlinkVersion: ${{ env.RELEASE_TAG }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          selectedNetworks: SIMULATED_1,SIMULATED_2
+      - name: Run Tests
+        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@94cb11f4bd545607a2f221c6685052b3abee723d # v2.3.32
+        env:
+          BASE64_CONFIG_OVERRIDE: ${{ steps.set_override_config.outputs.base_64_override }},${{ steps.setup_create_base64_config_ccip.outputs.base64_config }}
+          TEST_BASE64_CONFIG_OVERRIDE: ${{ steps.set_override_config.outputs.base_64_override }},${{ steps.setup_create_base64_config_ccip.outputs.base64_config }}
+          ENV_JOB_IMAGE: ${{ env.ENV_JOB_IMAGE_BASE }}:${{ needs.build-test-image.outputs.tag }}
+          TEST_SUITE: smoke
+          TEST_ARGS: -test.timeout 30m
+          TEST_LOG_LEVEL: info
+          DATABASE_URL: postgresql://postgres:node@localhost:5432/chainlink_test?sslmode=disable
+          RR_MEM: 8Gi
+          RR_CPU: 4
+          E2E_TEST_CHAINLINK_IMAGE: ${{ env.AWS_ECR_REPO_PUBLIC_REGISTRY }}/w0i8p0z9/chainlink-ccip
+          E2E_TEST_LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
+          E2E_TEST_LOKI_ENDPOINT: ${{ secrets.LOKI_URL_CI }}
+          E2E_TEST_LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+          E2E_TEST_GRAFANA_BASE_URL: ${{ vars.GRAFANA_URL }}
+          E2E_TEST_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+        with:
+          test_command_to_run: cd ./integration-tests/ccip-tests && go test -timeout 30m -count=1 -json -run ${{ matrix.product.run }} ./smoke 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci
+          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          # Load default test secrets
+          test_secrets_defaults_base64: ${{ secrets.CCIP_DEFAULT_TEST_SECRETS }}
+          cl_repo: ${{ env.AWS_ECR_REPO_PUBLIC_REGISTRY }}/w0i8p0z9/chainlink-ccip # releases are published to public registry
+          cl_image_tag: ${{ env.RELEASE_TAG }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          artifacts_name: ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}-test-logs
+          artifacts_location: |
+            ./integration-tests/ccip-tests/smoke/logs/*
+          token: ${{ secrets.GITHUB_TOKEN }}
+          go_mod_path: ./integration-tests/go.mod
+          cache_key_id: ccip-e2e-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+          triggered_by: ${{ env.TEST_TRIGGERED_BY }}
+          should_tidy: "false"
+          should_cleanup: "false"
+
+      - name: store laneconfig in artifacts
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+        with:
+            name: lane-config
+            path: ./integration-tests/ccip-tests/smoke/tmp_*.json
+            if-no-files-found: error
+
+      - name: fetch namespace
+        id: fetch_namespace
+        run: |
+          echo "looking for namespaces"
+          ITEMS=$(kubectl get ns -l=triggered-by=${{ env.TEST_TRIGGERED_BY }}-${{ github.event.pull_request.number || github.run_id }} -o jsonpath='{.items}')
+          COUNT=$(echo "${ITEMS}" | jq '. | length')
+          echo "found ${COUNT} namespaces. will set the env var with first one"
+          for ((i=0;i<${COUNT};i++)); do
+            name=$(echo "${ITEMS}" | jq -r ".[${i}].metadata.name")
+            echo "setting output var with namespace: ${name}"
+            echo "existing_namespace=${name}" >> $GITHUB_OUTPUT
+            break
+          done
+          echo "triggered_by=${{ env.TEST_TRIGGERED_BY }}" >> $GITHUB_OUTPUT
+          echo "completed env var set up"
+
+  # run load test with current image
+  run-test-with-current-sha:
+    environment: integration
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [ build-chainlink, changes, build-test-image, run-test-with-last-release ]
+    strategy:
+      fail-fast: false
+      matrix:
+        product:
+          - name: ccip-load-after-upgrade
+            os: ubuntu-latest
+            run: ^TestLoadCCIPWithUpgradeNodeVersion$
+            config_path: ./integration-tests/ccip-tests/testconfig/tomls/node-post-upgrade-compatibility.toml
+    runs-on: ubuntu-latest
+    name: Upgrade Nodes with Current SHA and Run ${{ matrix.product.name }}
+    steps:
+      - name: Collect Metrics
+        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: ccip-offchain-upgrade-compatibility-tests-run-test-image-current-sha
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Upgrade Nodes with Current SHA and Run ${{ matrix.product.name }}
+          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
+      - name: Checkout the repo
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          repository: smartcontractkit/ccip
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Download LaneConfig From Last Release
+        uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
+        with:
+            name: lane-config
+            path: ./integration-tests/ccip-tests/load/lane-config
+
+      - name: Set Override Config
+        id: set_override_config
+        run: |
+          # if the matrix.product.config_path is set, use it as the override config
+          if [ "${{ matrix.product.config_path }}" != "" ]; then
+            echo "base_64_override=$(base64 -w 0 -i ${{ matrix.product.config_path }})" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Prepare Base64 TOML override for CCIP secrets
+        uses: ./.github/actions/setup-create-base64-config-ccip
+        id: setup_create_base64_config_ccip
+        with:
+          runId: ${{ github.run_id }}
+          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+          chainlinkVersion: ${{ github.sha }}
+          upgradeVersion: ${{ github.sha }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          existingNamespace: ${{ needs.run-test-with-last-release.outputs.existing_namespace }}
+      - name: Run Tests
+        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@94cb11f4bd545607a2f221c6685052b3abee723d # v2.3.32
+        env:
+          BASE64_CONFIG_OVERRIDE: ${{ steps.set_override_config.outputs.base_64_override }},${{ steps.setup_create_base64_config_ccip.outputs.base64_config }}
+          TEST_BASE64_CONFIG_OVERRIDE: ${{ steps.set_override_config.outputs.base_64_override }},${{ steps.setup_create_base64_config_ccip.outputs.base64_config }}
+          ENV_JOB_IMAGE: ${{ env.ENV_JOB_IMAGE_BASE }}:${{ github.sha }}
+          TEST_SUITE: load
+          TEST_ARGS: -test.timeout 1h
+          DATABASE_URL: postgresql://postgres:node@localhost:5432/chainlink_test?sslmode=disable
+          RR_MEM: 8Gi
+          RR_CPU: 4
+          E2E_TEST_GRAFANA_DASHBOARD_URL: "/d/6vjVx-1V8/ccip-long-running-tests"
+          E2E_TEST_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
+          E2E_TEST_CHAINLINK_UPGRADE_IMAGE: ${{ env.CHAINLINK_IMAGE }}
+          E2E_TEST_LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
+          E2E_TEST_LOKI_ENDPOINT: ${{ secrets.LOKI_URL }}
+          E2E_TEST_LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+          E2E_TEST_GRAFANA_BASE_URL: ${{ vars.GRAFANA_URL }}
+        with:
+          test_command_to_run: cd ./integration-tests/ccip-tests && go test -timeout 1h -count=1 -json -run ${{ matrix.product.run }} ./load 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci
+          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          # Load default test secrets
+          test_secrets_defaults_base64: ${{ secrets.CCIP_DEFAULT_TEST_SECRETS }}
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ github.sha }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          artifacts_name: ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}-test-logs
+          artifacts_location: |
+            ./integration-tests/ccip-tests/load/tmp_*.json
+            ./integration-tests/ccip-tests/load/logs/*
+          publish_check_name: ${{ matrix.product.name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          go_mod_path: ./integration-tests/go.mod
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+          should_tidy: "false"
+          should_cleanup: "true"
+          triggered_by: ${{ needs.run-test-with-last-release.outputs.triggered_by }}

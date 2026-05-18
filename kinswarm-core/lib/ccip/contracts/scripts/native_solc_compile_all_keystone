@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+set -e
+
+echo " ┌──────────────────────────────────────────────┐"
+echo " │    Compiling Keystone contracts...           │"
+echo " └──────────────────────────────────────────────┘"
+
+SOLC_VERSION="0.8.24"
+OPTIMIZE_RUNS=1000000
+
+
+SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+python3 -m pip install --require-hashes -r "$SCRIPTPATH"/requirements.txt
+solc-select install $SOLC_VERSION
+solc-select use $SOLC_VERSION
+export SOLC_VERSION=$SOLC_VERSION
+
+ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../../ && pwd -P )"
+
+compileContract () {
+  local contract
+  contract=$(basename "$1" ".sol")
+
+  solc --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
+      -o "$ROOT"/contracts/solc/v$SOLC_VERSION/"$contract" \
+      --abi --bin --allow-paths "$ROOT"/contracts/src/v0.8\
+      --evm-version paris \
+      "$ROOT"/contracts/src/v0.8/"$1"
+}
+
+compileContract keystone/CapabilitiesRegistry.sol
+compileContract keystone/KeystoneForwarder.sol
+compileContract keystone/OCR3Capability.sol
+compileContract keystone/KeystoneFeedsConsumer.sol

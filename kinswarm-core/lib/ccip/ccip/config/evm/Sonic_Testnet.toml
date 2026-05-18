@@ -1,0 +1,28 @@
+ChainId = '57054'
+FinalityDepth = 10 
+FinalityTagEnabled = false
+LogPollInterval = "1s" #1s block rate
+MinIncomingConfirmations = 5
+RPCBlockQueryDelay = 10
+RPCDefaultBatchSize = 100 
+
+[GasEstimator]
+Mode = 'FeeHistory'
+EIP1559DynamicFees = true 
+BumpPercent = 10
+LimitDefault = 8000000 # default ccip value 
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '2s'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 100
+
+[HeadTracker]
+HistoryDepth = 50 
+
+[NodePool]
+SyncThreshold = 10
+
+[Transactions]
+MaxQueued = 500

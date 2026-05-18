@@ -1,0 +1,18 @@
+ChainID = '1329'
+ChainType = 'sei'
+# finality_depth: instant
+FinalityDepth = 10
+# block_time: ~0.4s, adding 1 second buffer
+LogPollInterval = '2s'
+# finality_depth * block_time / 60 secs = ~0.8 min (finality time)
+NoNewFinalizedHeadsThreshold = '5m'
+# "RPC node returned multiple missing blocks on query for block numbers [31592085 31592084] even though the WS subscription already sent us these blocks. It might help to increase EVM.RPCBlockQueryDelay (currently 1)"
+RPCBlockQueryDelay = 5 
+
+[GasEstimator]
+EIP1559DynamicFees = false
+Mode = 'BlockHistory'
+PriceMax = '3000 gwei' # recommended by ds&a
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 200

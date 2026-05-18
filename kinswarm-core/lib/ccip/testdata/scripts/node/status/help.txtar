@@ -1,0 +1,9 @@
+exec chainlink node status --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink node status - Displays the health of various services running inside the node.
+
+USAGE:
+   chainlink node status [arguments...]

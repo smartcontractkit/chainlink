@@ -1,0 +1,15 @@
+# Default genqlient config; for full documentation see:
+# https://github.com/Khan/genqlient/blob/main/docs/genqlient.yaml
+schema: ./internal/schema.graphql
+
+operations:
+- ./internal/genqlient.graphql
+
+generated: ./internal/generated/generated.go
+
+bindings:
+  Time:
+    type: string
+
+package_bindings:
+- package: github.com/smartcontractkit/chainlink/v2/core/web/gqlscalar

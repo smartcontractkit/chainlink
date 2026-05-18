@@ -1,0 +1,9 @@
+exec chainlink jobs run --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink jobs run - Trigger a job run
+
+USAGE:
+   chainlink jobs run [arguments...]

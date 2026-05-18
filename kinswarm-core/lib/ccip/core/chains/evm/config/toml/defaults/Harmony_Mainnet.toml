@@ -1,0 +1,8 @@
+ChainID = '1666600000'
+LinkContractAddress = '0x218532a12a389a4a92fC0C5Fb22901D1c19198aA'
+LogPollInterval = '2s'
+MinIncomingConfirmations = 1
+NoNewHeadsThreshold = '30s'
+
+[GasEstimator]
+PriceDefault = '5 gwei'

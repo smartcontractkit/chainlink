@@ -1,0 +1,4 @@
+type ConfigV2Payload {
+  user: String!
+  effective: String!
+}

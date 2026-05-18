@@ -1,0 +1,18 @@
+exec chainlink config --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink config - Commands for the node's configuration
+
+USAGE:
+   chainlink config command [command options] [arguments...]
+
+COMMANDS:
+   show      Show the application configuration
+   loglevel  Set log level
+   logsql    Enable/disable SQL statement logging
+
+OPTIONS:
+   --help, -h  show help
+   

@@ -1,0 +1,27 @@
+ChainID = '255'
+ChainType = 'kroma' # Kroma is based on the Optimism Bedrock architechture
+FinalityDepth = 400
+FinalityTagEnabled = true
+LogPollInterval = '2s'
+NoNewHeadsThreshold = '40s'
+MinIncomingConfirmations = 1
+
+[GasEstimator]
+EIP1559DynamicFees = true
+PriceMin = '1 wei'
+BumpMin = '100 wei'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 24
+
+[Transactions]
+ResendAfterThreshold = '30s'
+
+[HeadTracker]
+HistoryDepth = 400
+
+[NodePool]
+SyncThreshold = 10
+
+[OCR]
+ContractConfirmations = 1

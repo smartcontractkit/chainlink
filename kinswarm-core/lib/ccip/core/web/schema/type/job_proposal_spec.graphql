@@ -1,0 +1,61 @@
+enum SpecStatus {
+    UNKNOWN
+    PENDING
+    APPROVED
+    REJECTED
+    CANCELLED
+    REVOKED
+}
+
+type JobProposalSpec {
+    id: ID!
+    definition: String!
+    version: Int!
+    status: SpecStatus!
+    statusUpdatedAt: Time!
+    createdAt: Time!
+    updatedAt: Time!
+}
+
+type JobAlreadyExistsError implements Error {
+    message: String!
+    code: ErrorCode!
+}
+
+
+# ApproveJobProposalSpec
+
+type ApproveJobProposalSpecSuccess {
+    spec: JobProposalSpec!
+}
+
+union ApproveJobProposalSpecPayload = ApproveJobProposalSpecSuccess | NotFoundError | JobAlreadyExistsError
+
+# CancelJobProposalSpec
+
+type CancelJobProposalSpecSuccess {
+    spec: JobProposalSpec!
+}
+
+union CancelJobProposalSpecPayload = CancelJobProposalSpecSuccess | NotFoundError
+
+
+# RejectJobProposalSpec
+
+type RejectJobProposalSpecSuccess {
+    spec: JobProposalSpec!
+}
+
+union RejectJobProposalSpecPayload = RejectJobProposalSpecSuccess | NotFoundError
+
+# UpdateJobProposalSpec
+
+input UpdateJobProposalSpecDefinitionInput {
+    definition: String!
+}
+
+type UpdateJobProposalSpecDefinitionSuccess {
+    spec: JobProposalSpec!
+}
+
+union UpdateJobProposalSpecDefinitionPayload = UpdateJobProposalSpecDefinitionSuccess | NotFoundError

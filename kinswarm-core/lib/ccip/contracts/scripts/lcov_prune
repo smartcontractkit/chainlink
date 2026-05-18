@@ -1,0 +1,77 @@
+#!/bin/bash
+
+if [ "$#" -ne 3 ]; then
+    >&2 echo "Usage: $0 <product_name> <input_coverage_file> <output_coverage_file>"
+    exit 1
+fi
+
+set -e
+
+product_name=$1
+input_coverage_file=$2
+output_coverage_file=$3
+
+# src/v0.8/ccip/libraries/Internal.sol
+# src/v0.8/ccip/libraries/RateLimiter.sol
+# src/v0.8/ccip/libraries/USDPriceWith18Decimals.sol
+# src/v0.8/ccip/libraries/MerkleMultiProof.sol
+# src/v0.8/ccip/libraries/Pool.sol
+# excluded because Foundry doesn't support coverage on library files
+
+# BurnWithFromMintTokenPool is excluded because Forge doesn't seem to
+# register coverage, even though it is 100% covered.
+exclusion_list_ccip=(
+  "src/v0.8/ccip/ocr/OCR2Abstract.sol"
+  "src/v0.8/ccip/libraries/Internal.sol"
+  "src/v0.8/ccip/libraries/RateLimiter.sol"
+  "src/v0.8/ccip/libraries/USDPriceWith18Decimals.sol"
+  "src/v0.8/ccip/libraries/MerkleMultiProof.sol"
+  "src/v0.8/ccip/libraries/Pool.sol"
+  "src/v0.8/ConfirmedOwnerWithProposal.sol"
+  "src/v0.8/tests/MockV3Aggregator.sol"
+  "src/v0.8/ccip/applications/CCIPClientExample.sol"
+  "src/v0.8/ccip/pools/BurnWithFromMintTokenPool.sol"
+)
+
+exclusion_list_shared=(
+   "*/shared/*"
+)
+
+exclusion_list_common=(
+  "*/$product_name/test/*"
+  "*/vendor/*"
+)
+
+all_exclusions=()
+
+case "$product_name" in
+  "ccip")
+    all_exclusions+=("${exclusion_list_ccip[@]}")
+    ;;
+  "shared")
+  # No product-specific exclusions for shared
+  ;;
+  *)
+  ;;
+esac
+
+all_exclusions+=("${exclusion_list_common[@]}")
+
+if [ "$product_name" != "shared" ]; then
+  all_exclusions+=("${exclusion_list_shared[@]}")
+fi
+
+echo "Excluding the following files for product $product_name:"
+for exclusion in "${all_exclusions[@]}"; do
+  echo "$exclusion"
+done
+
+lcov_command="lcov --remove $input_coverage_file -o $output_coverage_file"
+
+for exclusion in "${all_exclusions[@]}"; do
+  lcov_command+=" \"$exclusion\""
+done
+
+lcov_command+=" --rc lcov_branch_coverage=1"
+
+eval $lcov_command

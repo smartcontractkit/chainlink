@@ -1,0 +1,20 @@
+services:
+  node:
+    depends_on:
+      - devnet
+  node-2:
+    depends_on:
+      - devnet
+  devnet:
+    build: ../gethnet
+    container_name: geth
+    image: smartcontract/gethnet
+    ports:
+      - 8545:8545
+      - 8546:8546
+    volumes:
+      - geth-db-data:/gethnet/datadir/geth
+    secrets:
+      - node_password
+volumes:
+  geth-db-data:

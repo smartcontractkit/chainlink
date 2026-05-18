@@ -1,0 +1,20 @@
+[Network]
+selected_networks = ["OPTIMISM_SEPOLIA"]
+
+[OPTIMISM_SEPOLIA.VRFv2Plus.General]
+use_existing_env = true
+
+[OPTIMISM_SEPOLIA.VRFv2Plus.ExistingEnv]
+coordinator_address = "0xA4a64A217bE85680e0ebB454CD5BF4A1c274Fc7B"
+consumer_address = ""
+sub_id = ""
+key_hash = "0x4b4838bbf22a7c5a871ada8ceab6ded3c2de6cadc037371146ee70f6435325c1"
+create_fund_subs_and_add_consumers = true
+node_sending_key_funding_min = 30
+node_sending_keys = [
+    "0x17509D615052DE3A81a684755Ec118d62C4e1Cd1",
+    "0x5118ece61294f4dFf4a1fb63b3f036969516dF0a",
+    "0x89554391652616ea06a408263b9B2b9a70E87204",
+    #    BHS
+    "0x8DE6446b5022C68F38CD32d04AA0E3b8F4C1aaB6",
+]

@@ -1,0 +1,15 @@
+services:
+  node:
+    develop:
+      watch:
+        - action: rebuild
+          path: ../../
+          ignore:
+            - '.changeset/'
+            - '.github/'
+            - 'charts/'
+            - 'core/sgx/target/'
+            - 'docs/'
+            - 'fuzz/'
+            - 'integration-tests/'
+            - 'tools/'

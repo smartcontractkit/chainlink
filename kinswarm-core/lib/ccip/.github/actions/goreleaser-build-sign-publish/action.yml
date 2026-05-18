@@ -1,0 +1,69 @@
+name: Build and Publish with Goreleaser
+description: A composite action that allows building and publishing signed chainlink artifacts (binaries + images)
+inputs:
+  goreleaser-version:
+    description: The goreleaser version
+    default: "~> v2"
+    required: false
+  goreleaser-key:
+    description: The goreleaser key
+    required: false
+  # publishing inputs
+  docker-registry:
+    description: The docker registry
+    default: localhost:5001
+    required: false
+  docker-image-tag:
+    description: The docker image tag
+    default: develop
+    required: false
+  # goreleaser inputs
+  goreleaser-release-type:
+    description: The goreleaser release type, it can be either "nightly", "merge", "snapshot", "release" 
+    default: "snapshot"
+    required: false
+  goreleaser-config:
+    description: "The goreleaser configuration yaml"
+    default: ".goreleaser.yaml"
+    required: false
+runs:
+  using: composite
+  steps:
+    - # We need QEMU to test the cross architecture builds after they're built. 
+      name: Set up QEMU 
+      uses: docker/setup-qemu-action@49b3bc8e6bdd4a60e6116a5414239cba5943d3cf # v3.2.0
+    - name: Setup docker buildx
+      uses: docker/setup-buildx-action@2b51285047da1547ffb1b2203d8be4c0af6b1f20 # v3.2.0
+    - name: Setup go
+      uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+      with:
+        go-version-file: "go.mod"
+    - name: Setup goreleaser
+      uses: goreleaser/goreleaser-action@286f3b13b1b49da4ac219696163fb8c1c93e1200 # v6.0.0
+      with:
+        distribution: goreleaser-pro
+        install-only: true
+        version: ${{ inputs.goreleaser-version }}
+      env:
+        GORELEASER_KEY: ${{ inputs.goreleaser-key }}
+
+    - name: Login to docker registry
+      uses: docker/login-action@e92390c5fb421da1463c202d546fed0ec5c39f20 # v3.1.0
+      with:
+        registry: ${{ inputs.docker-registry }}
+
+    - name: Install syft
+      uses: anchore/sbom-action/download-syft@61119d458adab75f756bc0b9e4bde25725f86a7a # v0.17.2
+
+    - name: Run goreleaser release
+      shell: bash
+      env:
+        GORELEASER_CONFIG: ${{ inputs.goreleaser-config }}
+        RELEASE_TYPE: ${{ inputs.goreleaser-release-type }}
+        IMAGE_PREFIX: ${{ inputs.docker-registry }}
+        IMAGE_TAG: ${{ inputs.docker-image-tag }}
+        GORELEASER_KEY: ${{ inputs.goreleaser-key }}
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        # https://github.com/orgs/community/discussions/24950
+        ${GITHUB_ACTION_PATH}/release.js

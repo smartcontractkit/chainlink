@@ -1,0 +1,190 @@
+enum JobType {
+	FLUX_MONITOR
+	OCR
+	OCR2
+}
+
+type Plugins {
+	commit: Boolean!
+	execute: Boolean!
+	median: Boolean!
+	mercury: Boolean!
+	rebalancer: Boolean!
+}
+
+type FeedsManager {
+	id: ID!
+	name: String!
+	uri: String!
+	publicKey: String!
+	jobProposals: [JobProposal!]!
+	isConnectionActive: Boolean!
+	createdAt: Time!
+	chainConfigs: [FeedsManagerChainConfig!]!
+}
+
+type FeedsManagerChainConfig {
+	id: ID!
+	chainID: String!
+	chainType: String!
+	accountAddr: String!
+	accountAddrPubKey: String
+	adminAddr: String!
+	fluxMonitorJobConfig: FluxMonitorJobConfig!
+	ocr1JobConfig: OCR1JobConfig!
+	ocr2JobConfig: OCR2JobConfig!
+}
+
+type FluxMonitorJobConfig {
+	enabled: Boolean!
+}
+
+type OCR1JobConfig {
+	enabled: Boolean!
+	isBootstrap: Boolean!
+	multiaddr: String
+	p2pPeerID: String
+	keyBundleID: String
+}
+
+type OCR2JobConfig {
+	enabled: Boolean!
+	isBootstrap: Boolean!
+	multiaddr: String
+	forwarderAddress: String
+	p2pPeerID: String
+	keyBundleID: String
+	plugins: Plugins!
+}
+
+# FeedsManagerPayload defines the response to fetch a single feeds manager by id
+union FeedsManagerPayload = FeedsManager | NotFoundError
+
+# FeedsManagersPayload defines the response when fetching feeds managers
+type FeedsManagersPayload {
+    results: [FeedsManager!]!
+}
+
+input CreateFeedsManagerInput {
+	name: String!
+	uri: String!
+	publicKey: String!
+}
+
+# CreateFeedsManagerSuccess defines the success response when creating a feeds
+# manager
+type CreateFeedsManagerSuccess {
+    feedsManager: FeedsManager!
+}
+
+type DuplicateFeedsManagerError implements Error {
+	message: String!
+	code: ErrorCode!
+}
+
+# DEPRECATED: No longer used since we now support multiple feeds manager.
+# Keeping this to avoid breaking change.
+type SingleFeedsManagerError implements Error {
+	message: String!
+	code: ErrorCode!
+}
+
+# CreateFeedsManagerPayload defines the response when creating a feeds manager
+union CreateFeedsManagerPayload = CreateFeedsManagerSuccess
+	| DuplicateFeedsManagerError
+	| SingleFeedsManagerError # // TODO: delete once multiple feeds managers support is released
+	| NotFoundError
+	| InputErrors
+
+input UpdateFeedsManagerInput {
+	name: String!
+	uri: String!
+	publicKey: String!
+}
+
+# UpdateFeedsManagerSuccess defines the success response when updating a feeds
+# manager
+type UpdateFeedsManagerSuccess {
+    feedsManager: FeedsManager!
+}
+
+# UpdateFeedsManagerPayload defines the response when updating a feeds manager
+union UpdateFeedsManagerPayload = UpdateFeedsManagerSuccess
+	| NotFoundError
+	| InputErrors
+
+input CreateFeedsManagerChainConfigInput {
+	feedsManagerID: ID!
+	chainID: String!
+	chainType: String!
+	accountAddr: String!
+	accountAddrPubKey: String
+	adminAddr: String!
+	fluxMonitorEnabled: Boolean!
+	ocr1Enabled: Boolean!
+	ocr1IsBootstrap: Boolean
+	ocr1Multiaddr: String
+	ocr1P2PPeerID: String
+	ocr1KeyBundleID: String
+	ocr2Enabled: Boolean!
+	ocr2IsBootstrap: Boolean
+	ocr2Multiaddr: String
+	ocr2ForwarderAddress: String
+	ocr2P2PPeerID: String
+	ocr2KeyBundleID: String
+	ocr2Plugins: String!
+}
+
+# CreateFeedsManagerChainConfigSuccess defines the success response when
+# creating a chain config for a feeds manager.
+type CreateFeedsManagerChainConfigSuccess {
+    chainConfig: FeedsManagerChainConfig!
+}
+
+# CreateFeedsManagerChainConfigPayload defines the response when creating a
+# feeds manager chain config.
+union CreateFeedsManagerChainConfigPayload = CreateFeedsManagerChainConfigSuccess
+	| NotFoundError
+	| InputErrors
+
+# DeleteFeedsManagerChainConfigSuccess defines the success response when
+# deleting a chain config for a feeds manager.
+type DeleteFeedsManagerChainConfigSuccess {
+    chainConfig: FeedsManagerChainConfig!
+}
+
+# DeleteFeedsManagerChainConfigPayload defines the response when creating a
+# feeds manager chain config.
+union DeleteFeedsManagerChainConfigPayload = DeleteFeedsManagerChainConfigSuccess
+	| NotFoundError
+
+input UpdateFeedsManagerChainConfigInput {
+	accountAddr: String!
+	accountAddrPubKey: String
+	adminAddr: String!
+	fluxMonitorEnabled: Boolean!
+	ocr1Enabled: Boolean!
+	ocr1IsBootstrap: Boolean
+	ocr1Multiaddr: String
+	ocr1P2PPeerID: String
+	ocr1KeyBundleID: String
+	ocr2Enabled: Boolean!
+	ocr2IsBootstrap: Boolean
+	ocr2Multiaddr: String
+	ocr2ForwarderAddress: String
+	ocr2P2PPeerID: String
+	ocr2KeyBundleID: String
+	ocr2Plugins: String!
+}
+
+# UpdateFeedsManagerChainConfigSuccess defines the success response when
+# updating a chain config for a feeds manager.
+type UpdateFeedsManagerChainConfigSuccess {
+    chainConfig: FeedsManagerChainConfig!
+}
+
+# UpdateFeedsManagerChainConfigPayload defines the response when updating a
+# feeds manager chain config.
+union UpdateFeedsManagerChainConfigPayload = UpdateFeedsManagerChainConfigSuccess
+	| NotFoundError
+	| InputErrors

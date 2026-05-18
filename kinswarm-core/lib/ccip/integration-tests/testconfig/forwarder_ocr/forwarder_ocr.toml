@@ -1,0 +1,102 @@
+[NodeConfig]
+BaseConfigTOML = """
+[Feature]
+FeedsManager = true
+LogPoller = true
+UICSAKeys = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[Log.File]
+MaxSize = '0b'
+
+[WebServer]
+AllowOrigins = '*'
+HTTPPort = 6688
+SecureCookies = false
+HTTPWriteTimeout = '3m'
+SessionTimeout = '999h0m0s'
+
+[WebServer.RateLimit]
+Authenticated = 2000
+Unauthenticated = 1000
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[Database]
+MaxIdleConns = 20
+MaxOpenConns = 40
+MigrateOnStartup = true
+
+[OCR]
+Enabled = true
+DefaultTransactionQueueDepth = 0
+
+[P2P]
+[P2P.V2]
+Enabled = true
+ListenAddresses = ['0.0.0.0:6690']
+AnnounceAddresses = ['0.0.0.0:6690']
+DeltaDial = '500ms'
+DeltaReconcile = '5s'
+"""
+
+CommonChainConfigTOML = """
+[Transactions]
+ForwardersEnabled = true
+"""
+
+[NodeConfig.ChainConfigTOMLByChainID]
+1337 = """
+AutoCreateKey = true
+FinalityDepth = 1
+MinContractPayment = 0
+
+[Transactions]
+ForwardersEnabled = true
+"""
+
+[OCR.Common]
+number_of_contracts=1
+
+# load test specific configuration
+[Load.OCR]
+[Load.OCR.Common]
+eth_funds = 3
+
+[Load.OCR.Load]
+test_duration = "3m"
+rate_limit_unit_duration = "1m"
+rate = 3
+verification_interval = "5s"
+verification_timeout = "3m"
+ea_change_interval = "5s"
+
+# volume test specific configuration
+[Volume.OCR]
+[Volume.OCR.Common]
+eth_funds = 3
+
+[Volume.OCR.Volume]
+test_duration = "3m"
+rate_limit_unit_duration = "1m"
+vu_requests_per_unit = 10
+rate = 1
+verification_interval = "5s"
+verification_timeout = "3m"
+ea_change_interval = "5s"
+
+# soak test specific configuration
+[Soak.Common]
+chainlink_node_funding = 0.5
+
+[Soak.OCR]
+[Soak.OCR.Common]
+number_of_contracts=2
+test_duration = "15m"
+
+[Soak.OCR.Soak]
+time_between_rounds="1m"

@@ -1,0 +1,15 @@
+type User {
+    email: String!
+    createdAt: Time!
+}
+
+input UpdatePasswordInput {
+    oldPassword: String!
+    newPassword: String!
+}
+
+type UpdatePasswordSuccess {
+    user: User!
+}
+
+union UpdatePasswordPayload = UpdatePasswordSuccess | InputErrors

@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+set -xe
+
+# global goreleaser before hook
+# moves native libraries to temp directories used by docker images / archives
+before_hook() {
+  local -r lib_path=tmp
+
+  mkdir -p "$lib_path/libs"
+  # Copy over all platform versions of the wasmvm library
+  cp -f "$(go list -json -m github.com/CosmWasm/wasmvm | jq -r '.Dir')"/internal/api/libwasmvm.* "$lib_path/libs"
+
+  install_local_plugins
+  install_remote_plugins
+  mkdir -p "$lib_path/plugins"
+
+  # Retrieve GOPATH
+  GOPATH=$(go env GOPATH)
+  GOARCH=$(go env GOARCH)
+
+  # Define the source directories
+  BIN_DIR="$GOPATH/bin"
+  PLUGIN_DIR="$lib_path/plugins"
+
+  # Because we still do cross compilation in the case of
+  # darwin_arm64 -> linux_arm64, the plugin path will have a suffix of
+  # linux_arm64, rather than being suffixless on native platforms
+  if [ "$GOARCH" = "arm64" ]; then
+    if [ -d "$BIN_DIR/linux_arm64" ]; then
+      cp "$BIN_DIR/linux_arm64"/chainlink* "$PLUGIN_DIR"
+    else 
+      cp "$BIN_DIR"/chainlink* "$PLUGIN_DIR"
+    fi
+    # Call patchelf --set-interpreter on all plugins
+    for plugin in "$PLUGIN_DIR"/chainlink*; do
+      patchelf --set-interpreter /lib/ld-linux-aarch64.so.1 "$plugin"
+    done
+
+  else
+    cp "$BIN_DIR"/chainlink* "$PLUGIN_DIR"
+
+    # Call patchelf --set-interpreter on all plugins
+    for plugin in "$PLUGIN_DIR"/chainlink*; do
+      patchelf --set-interpreter /lib64/ld-linux-x86-64.so.2 "$plugin"
+    done
+  fi
+
+}
+
+install_local_plugins() {
+  make install-medianpoc
+  make install-ocr3-capability
+}
+
+get_remote_plugin_paths() {
+  plugins=(
+    "github.com/smartcontractkit/chainlink-solana|/pkg/solana/cmd/chainlink-solana"
+    "github.com/smartcontractkit/chainlink-starknet/relayer|/pkg/chainlink/cmd/chainlink-starknet"
+    "github.com/smartcontractkit/chainlink-feeds|/cmd/chainlink-feeds"
+    "github.com/smartcontractkit/chainlink-data-streams|/mercury/cmd/chainlink-mercury"
+  )
+
+  for plugin in "${plugins[@]}"; do
+    plugin_dep_name=$(echo "$plugin" | cut -d"|" -f1)
+    plugin_main=$(echo "$plugin" | cut -d"|" -f2)
+
+    full_plugin_path=$(go list -m -f "{{.Dir}}" "$plugin_dep_name")"$plugin_main"
+    echo "$full_plugin_path"
+  done
+}
+
+install_remote_plugins() {
+  ldflags=(-ldflags "$(./tools/bin/ldflags)")
+
+  for plugin in $(get_remote_plugin_paths); do
+    go install "${ldflags[@]}" "$plugin" 
+  done  
+
+}
+
+# binary build post hook
+# moves native libraries to binary libs directory
+build_post_hook() {
+  local -r dist_path=$1
+  local -r plugin_src_path=./tmp/plugins
+  local -r wasmvm_lib_path=./tmp/libs
+  local -r lib_dest_path=$dist_path/libs
+  local -r plugin_dest_path=$dist_path/plugins
+
+  # COPY NATIVE LIBRARIES HERE
+  mkdir -p "$lib_dest_path"
+  cp -r "$wasmvm_lib_path/." "$lib_dest_path"
+
+  # COPY PLUGINS HERE
+  mkdir -p "$plugin_dest_path"
+  cp -r "$plugin_src_path/." "$plugin_dest_path"
+}
+
+"$@"

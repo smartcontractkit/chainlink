@@ -1,0 +1,50 @@
+services:
+  node:
+    container_name: chainlink-node
+    image: smartcontract/chainlink
+    build:
+      context: ../../
+      dockerfile: core/chainlink.Dockerfile
+    # Note that the keystore import allows us to submit transactions
+    # immediately because addresses are specified when starting the
+    # parity/geth node to be prefunded with eth.
+    entrypoint: /bin/sh -c "chainlink -c /run/secrets/config node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - 6688:6688
+    secrets:
+      - node_password
+      - apicredentials
+      - keystore
+      - config
+
+  node-2:
+    container_name: chainlink-node-2
+    image: smartcontract/chainlink
+    build:
+      context: ../../
+      dockerfile: core/chainlink.Dockerfile
+    entrypoint: /bin/sh -c "chainlink -c /run/secrets/config node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - 6699:6688
+    secrets:
+      - node_password
+      - apicredentials
+      - keystore
+      - config
+
+secrets:
+  node_password:
+    file: ../clroot/password.txt
+  apicredentials:
+    file: ../clroot/apicredentials
+  keystore:
+    file: ../secrets/0xb90c7E3F7815F59EAD74e7543eB6D9E8538455D6.json
+  config:
+    file: config.toml
+

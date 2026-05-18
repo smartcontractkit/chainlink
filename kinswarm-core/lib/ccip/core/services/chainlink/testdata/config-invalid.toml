@@ -1,0 +1,189 @@
+[Database.Lock]
+LeaseRefreshInterval='6s'
+LeaseDuration='10s'
+
+[WebServer]
+AuthenticationMethod = 'ldap'
+
+[WebServer.LDAP]
+ServerTLS = true
+SessionTimeout = '15m0s'
+QueryTimeout = '2m0s'
+BaseUserAttr = ''
+BaseDN = ''
+UsersDN = ''
+GroupsDN = ''
+ActiveAttribute = ''
+ActiveAttributeAllowedValue = ''
+AdminUserGroupCN = ''
+EditUserGroupCN = ''
+RunUserGroupCN = ''
+ReadUserGroupCN = ''
+UserApiTokenEnabled = false
+UserAPITokenDuration = '240h0m0s'
+UpstreamSyncInterval = '0s'
+UpstreamSyncRateLimit = '2m0s'
+
+[[EVM]]
+ChainID = '1'
+Transactions.MaxInFlight= 10
+
+[EVM.GasEstimator]
+Mode = 'BlockHistory'
+BumpTxDepth = 11
+BumpPercent = 1
+TipCapDefault = 3
+TipCapMin = 4
+FeeCapDefault = 2
+PriceMin = '10 gwei'
+PriceDefault = '9 gwei'
+PriceMax = '5 gwei'
+
+[EVM.GasEstimator.BlockHistory]
+BlockHistorySize = 0
+
+[[EVM.Nodes]]
+Name = 'foo'
+
+[[EVM.Nodes]]
+Name = 'foo'
+SendOnly = true
+
+[[EVM]]
+ChainID = '1'
+ChainType = 'Foo'
+FinalityDepth = 32
+FinalizedBlockOffset = 64
+
+[EVM.Transactions.AutoPurge]
+Enabled = true
+
+[EVM.GasEstimator]
+Mode = 'FixedPrice'
+BumpThreshold = 0
+EIP1559DynamicFees = true
+FeeCapDefault = 101
+PriceMax = 99
+
+[EVM.HeadTracker]
+HistoryDepth = 30
+MaxAllowedFinalityDepth = 0
+
+[[EVM.KeySpecific]]
+Key = '0xde709f2102306220921060314715629080e2fb77'
+
+[[EVM.KeySpecific]]
+Key = '0xde709f2102306220921060314715629080e2fb77'
+
+[[EVM]]
+ChainID = '10'
+ChainType = 'Arbitrum'
+FinalityDepth = 0
+MinIncomingConfirmations = 0
+
+[[EVM]]
+ChainID = '99'
+
+[[EVM.Nodes]]
+HTTPURl = ''
+
+[[EVM.Nodes]]
+WSURL = 'http://asdf.test'
+
+[[EVM.Nodes]]
+Name = ''
+HTTPURl = 'ws://foo.bar'
+
+[[EVM.Nodes]]
+Name = 'dupe'
+WSURL = 'ws://dupe.com'
+
+[[EVM.Nodes]]
+Name = 'dupe2'
+WSURL = 'ws://dupe.com'
+
+[[EVM]]
+
+[[EVM]]
+ChainID = '534352'
+ChainType = 'scroll'
+
+[EVM.Transactions.AutoPurge]
+Enabled = true
+DetectionApiUrl = ''
+
+[[EVM.Nodes]]
+Name = 'scroll node'
+WSURL = 'ws://foo.bar'
+HTTPURl = 'http://foo.bar'
+
+[[EVM]]
+ChainID = '100'
+LogBroadcasterEnabled = false
+
+[[EVM.Nodes]]
+Name = 'failing-fake'
+HTTPURl = 'http://foo.bar1'
+
+[[EVM]]
+ChainID = '101'
+LogBroadcasterEnabled = false
+
+[EVM.NodePool]
+NewHeadsPollInterval = '1s'
+
+[[EVM.Nodes]]
+Name = 'passing-fake'
+HTTPURl = 'http://foo.bar2'
+
+[[Cosmos]]
+ChainID = 'Malaga-420'
+
+[[Cosmos.Nodes]]
+Name = 'test'
+
+[[Cosmos.Nodes]]
+Name = 'test'
+
+[[Cosmos]]
+ChainID = 'Malaga-420'
+
+[[Cosmos]]
+
+[[Solana]]
+ChainID = 'mainnet'
+
+[[Solana]]
+ChainID = 'mainnet'
+
+[[Solana.Nodes]]
+Name = 'bar'
+
+[[Solana.Nodes]]
+Name = 'bar'
+
+[[Solana]]
+
+[[Starknet]]
+
+[[Starknet.Nodes]]
+Name = 'primary'
+URL = 'http://stark.node'
+APIKey = 'key'
+
+[[Starknet.Nodes]]
+Name = 'primary'
+URL = 'http://second.stark.node'
+APIKey = 'key'
+
+[[Starknet]]
+
+[[Aptos]]
+Enabled = 1
+
+[OCR2]
+Enabled = true
+
+[P2P]
+[P2P.V2]
+Enabled = false

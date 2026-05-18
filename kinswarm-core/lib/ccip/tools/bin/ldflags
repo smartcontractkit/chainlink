@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+cd "$(dirname "$0")"
+
+COMMIT_SHA=${COMMIT_SHA:-$(git rev-parse HEAD)}
+VERSION=${VERSION:-$(jq -r '.version' ../../package.json)}
+
+echo "-X github.com/smartcontractkit/chainlink/v2/core/static.Version=$VERSION -X github.com/smartcontractkit/chainlink/v2/core/static.Sha=$COMMIT_SHA"

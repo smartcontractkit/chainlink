@@ -1,0 +1,167 @@
+name: "Build and Publish GoReleaser"
+
+on:
+  pull_request:
+  # The default types are opened, synchronize, and reopened
+
+  # See https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows#pull_request
+  # We add a label trigger too, since when the build-publish label is added to a PR, we want to build and publish
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: "The git ref to check out"
+        required: true
+      build-publish:
+        description: "Whether to build and publish - defaults to just build"
+        required: false
+        default: "false"
+
+env:
+  GIT_REF: ${{ github.event.inputs.git_ref || github.ref }}
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    needs: [split, image-tag]
+    if: ${{ needs.image-tag.outputs.release-type == 'nightly' }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ env.GIT_REF }}
+
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_PUBLISH_PR_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+          role-session-name: "merge"
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: dist/linux_amd64_v1
+          key: chainlink-amd64-${{ github.sha }}
+          fail-on-cache-miss: true
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: dist/linux_arm64
+          key: chainlink-arm64-${{ github.sha }}
+          fail-on-cache-miss: true
+
+      - name: Merge images for both architectures
+        uses: ./.github/actions/goreleaser-build-sign-publish
+        with:
+          docker-registry: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
+          docker-image-tag: ${{ needs.image-tag.outputs.image-tag }}
+          goreleaser-release-type: "merge"
+          goreleaser-config: .goreleaser.develop.yaml
+          goreleaser-key: ${{ secrets.GORELEASER_KEY }}
+
+  split:
+    name: "split-${{ matrix.goarch }}"
+    needs: image-tag
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      id-token: write
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            goarch: amd64
+            dist_name: linux_amd64_v1
+
+          - runner: ubuntu-24.04-4cores-16GB-ARM
+            goarch: arm64
+            dist_name: linux_arm64
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ env.GIT_REF }}
+          fetch-depth: 0
+
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_PUBLISH_PR_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          mask-aws-account-id: true
+          role-session-name: "split-${{ matrix.goarch }}"
+
+      - id: cache
+        uses: actions/cache@v4
+        with:
+          path: dist/${{ matrix.dist_name }}
+          key: chainlink-${{ matrix.goarch }}-${{ github.sha }}
+
+      - name: Build images for ${{ matrix.goarch }}
+        uses: ./.github/actions/goreleaser-build-sign-publish
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          docker-registry: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
+          docker-image-tag: ${{ needs.image-tag.outputs.image-tag }}
+          goreleaser-release-type: ${{ needs.image-tag.outputs.release-type }}
+          goreleaser-config: .goreleaser.develop.yaml
+          goreleaser-key: ${{ secrets.GORELEASER_KEY }}
+
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+        with:
+          id: goreleaser-build-publish
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: "split-${{ matrix.goarch }}"
+        continue-on-error: true
+
+  image-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ steps.get-image-tag.outputs.image-tag }}
+      release-type: ${{ steps.get-image-tag.outputs.release-type }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.GIT_REF }}
+
+      - name: Get image tag
+        id: get-image-tag
+        run: |
+          short_sha=$(git rev-parse --short HEAD)
+          echo "release-type=snapshot" | tee -a $GITHUB_OUTPUT
+          if [[ ${{ github.event_name }} == 'push' ]]; then
+            echo "image-tag=develop" | tee -a $GITHUB_OUTPUT
+            echo "release-type=nightly" | tee -a $GITHUB_OUTPUT
+          elif [[ ${{ github.event_name }} == 'workflow_dispatch' ]]; then
+            echo "image-tag=${short_sha}" | tee -a $GITHUB_OUTPUT
+              if [[ "${{ inputs.build-publish }}" == 'false' ]]; then
+                echo "release-type=snapshot" | tee -a $GITHUB_OUTPUT
+              else
+                echo "release-type=nightly" | tee -a $GITHUB_OUTPUT
+            fi
+          else
+            if [[ ${{ github.event_name }} == "pull_request" ]]; then
+              echo "image-tag=pr-${{ github.event.number }}-${short_sha}" | tee -a $GITHUB_OUTPUT
+              if [[ ${{ contains(github.event.pull_request.labels.*.name, 'build-publish') }} == "true" ]]; then
+                echo "release-type=nightly" | tee -a $GITHUB_OUTPUT
+              fi
+            fi
+          fi

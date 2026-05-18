@@ -1,0 +1,84 @@
+name: publish
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+    branches:
+      - ccip-develop
+      - "release/**"
+
+jobs:
+  build-and-publish:
+    # Do not trigger from versioned tags.
+    if: ${{ ! startsWith(github.ref, 'refs/tags/v') }}
+    environment: publish
+    permissions:
+      id-token: write
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: ccip-build-and-publish
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: build-and-publish
+        continue-on-error: true
+
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Build and publish chainlink image
+        uses: ./.github/actions/build-sign-publish-chainlink
+        with:
+            publish: true
+            aws-role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_PROD_PUBLISH_ARN }}
+            aws-role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
+            aws-region: ${{ secrets.AWS_REGION }}
+            ecr-hostname: ${{ secrets.AWS_ECR_REPO_URL }}
+            ecr-image-name: chainlink-ccip
+            sign-images: false
+            dockerfile: ./core/chainlink.Dockerfile
+
+  build-and-publish-release:
+    # Trigger only from versioned tags.
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    environment: publish
+    env:
+      # Public ECR is only available in us-east-1; not a secret.
+      AWS_REGION: us-east-1
+      AWS_ECR_REPO_PUBLIC_REGISTRY: public.ecr.aws
+    permissions:
+      id-token: write
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: ccip-build-and-publish-release
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: build-and-publish-release
+        continue-on-error: true
+
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Build and publish chainlink image
+        uses: ./.github/actions/build-sign-publish-chainlink
+        with:
+          publish: true
+          aws-role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_PROD_PUBLISH_ARN }}
+          aws-role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
+          aws-region: ${{ env.AWS_REGION }}
+          ecr-hostname: ${{ env.AWS_ECR_REPO_PUBLIC_REGISTRY }}
+          ecr-image-name: w0i8p0z9/chainlink-ccip
+          sign-images: false
+          dockerfile: ./core/chainlink.Dockerfile
+

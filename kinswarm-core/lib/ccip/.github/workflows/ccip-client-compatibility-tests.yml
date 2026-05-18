@@ -1,0 +1,739 @@
+name: CCIP Client Compatibility Tests
+on:
+  schedule:
+    - cron: "30 5 * * TUE,FRI" # Run every Tuesday and Friday at midnight + 30min EST
+  push:
+    tags:
+      - "*"
+  merge_group:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      chainlinkVersion:
+        description: commit SHA or tag of the Chainlink version to test
+        required: true
+        type: string
+      evmImplementations:
+        description: comma separated list of EVM implementations to test (ignored if base64TestList is used)
+        required: true
+        type: string
+        default: "geth,besu,nethermind,erigon"
+      latestVersionsNumber:
+        description: how many of latest images of EVM implementations to test with (ignored if base64TestList is used)
+        required: true
+        type: number
+        default: 3
+      base64TestList:
+        description: base64 encoded list of tests to run (same as base64-ed output of testlistgenerator tool)
+        required: false
+        type: string
+
+env:
+  CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+  INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
+  MOD_CACHE_VERSION: 2
+
+jobs:
+  # Build Test Dependencies
+
+  check-dependency-bump:
+    name: Check for go-ethereum dependency bump
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_queue'
+    runs-on: ubuntu-latest
+    outputs:
+      dependency_changed: ${{ steps.changes.outputs.dependency_changed }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          repository: smartcontractkit/ccip
+          fetch-depth: 0
+      - name: Check for go.mod changes
+        id: changes
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          # if no match is found then grep exits with code 1, but if there is a match it exits with code 0
+          # this will return a match if there are any changes on that corresponding line, for example if spacing was changed
+          DEPENDENCY_CHANGED=$(git diff -U0 origin/${{ github.base_ref }}...HEAD -- go.mod | grep -q 'github.com/ethereum/go-ethereum'; echo $?)
+          PR_VERSION=$(grep 'github.com/ethereum/go-ethereum' go.mod | awk '{print $2}')
+
+          # here 0 means a match was found, 1 means no match was found
+          if [ "$DEPENDENCY_CHANGED" -eq 0 ]; then
+            # Dependency was changed in the PR, now compare with the base branch
+            git fetch origin ${{ github.base_ref }}
+            BASE_VERSION=$(git show origin/${{ github.base_ref }}:go.mod | grep 'github.com/ethereum/go-ethereum' | awk '{print $2}')
+
+            echo "Base branch version: $BASE_VERSION"
+            echo "PR branch version: $PR_VERSION"
+
+            echo "Dependency version changed in the PR compared to the base branch."
+            echo "dependency_changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "No changes to ethereum/go-ethereum dependency in the PR."
+            echo "PR branch version: $PR_VERSION"
+            echo "dependency_changed=false" >> $GITHUB_OUTPUT
+          fi  
+
+  should-run:
+    if: always()
+    name: Check if the job should run
+    needs: check-dependency-bump
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.should-run.outputs.should_run }}
+      eth_implementations : ${{ steps.should-run.outputs.eth_implementations }}
+    env:
+      GITHUB_REF_TYPE: ${{ github.ref_type }}
+    steps:
+      - name: Check if the job should run
+        id: should-run
+        run: |
+          if [ "${{ needs.check-dependency-bump.outputs.dependency_changed }}" == "true" ]; then
+            echo "Will run tests, because go-ethereum dependency was bumped"
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          elif [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+            echo "Will run tests, because trigger event was $GITHUB_EVENT_NAME"
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "Will run tests, because trigger event was $GITHUB_EVENT_NAME"
+            echo "should_run=true" >> $GITHUB_OUTPUT          
+          elif [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            echo "Will run tests, because new tag was created"
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          else
+            echo "Will not run tests"
+            echo "should_run=false" >> $GITHUB_OUTPUT
+          fi
+
+  select-versions:
+    if: always() && needs.should-run.outputs.should_run == 'true'
+    name: Select Versions
+    needs: should-run
+    runs-on: ubuntu-latest
+    env:
+      RELEASED_DAYS_AGO: 4
+      GITHUB_REF_TYPE: ${{ github.ref_type }}
+    outputs:
+      evm_implementations : ${{ steps.select-implementations.outputs.evm_implementations }}
+      chainlink_version: ${{ steps.select-chainlink-version.outputs.chainlink_version }}
+      latest_image_count: ${{ steps.get-image-count.outputs.image_count }}
+    steps:
+      # ghlatestreleasechecker is a tool to check if new release is available for a given repo
+      - name: Set Up ghlatestreleasechecker
+        shell: bash
+        run: |
+          go install github.com/smartcontractkit/chainlink-testing-framework/tools/ghlatestreleasechecker@v1.0.0
+      - name: Select EVM implementations to test
+        id: select-implementations
+        run: |
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH          
+          
+          if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+            echo "Checking for new releases"
+            implementations_arr=()
+            new_geth=$(ghlatestreleasechecker "ethereum/go-ethereum" $RELEASED_DAYS_AGO)
+            if [ "$new_geth" != "none" ]; then
+              echo "New geth release found: $new_geth"
+              implementations_arr+=("geth")
+            fi
+            new_besu=$(ghlatestreleasechecker "hyperledger/besu" $RELEASED_DAYS_AGO)
+            if [ "new_besu" != "none" ]; then
+              echo "New besu release found: $new_besu"
+              implementations_arr+=("besu")
+            fi
+            new_erigon=$(ghlatestreleasechecker "ledgerwatch/erigon" $RELEASED_DAYS_AGO)
+            if [ "new_erigon" != "none" ]; then
+              echo "New erigon release found: $new_erigon"
+              implementations_arr+=("erigon")
+            fi
+            new_nethermind=$(ghlatestreleasechecker "nethermindEth/nethermind" $RELEASED_DAYS_AGO)
+            if [ "new_nethermind" != "none" ]; then
+              echo "New nethermind release found: $new_nethermind"
+              implementations_arr+=("nethermind")
+            fi
+            IFS=','
+            eth_implementations="${implementations_arr[*]}"
+            echo "Found new releases for: $eth_implementations"
+            echo "evm_implementations=$eth_implementations" >> $GITHUB_OUTPUT
+          elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ -n "${{ github.event.inputs.base64TestList }}" ]; then
+              echo "Base64-ed Test Input provided, ignoring EVM implementations"
+            else
+              echo "Will test following EVM implementations: ${{ github.event.inputs.evmImplementations }}"
+              echo "evm_implementations=${{ github.event.inputs.evmImplementations }}" >> $GITHUB_OUTPUT
+            fi
+          else 
+            echo "Will test all EVM implementations"
+            echo "evm_implementations=geth,besu,nethermind,erigon" >> $GITHUB_OUTPUT
+          fi
+      - name: Select Chainlink CCIP version
+        id: select-chainlink-version
+        run: |
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH          
+          
+          if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+            echo "Fetching latest Chainlink CCIP stable version"
+            implementations_arr=()
+            # we use 100 days since we really want the latest one, and it's highly improbable there won't be a release in last 100 days
+            chainlink_version=$(ghlatestreleasechecker "smartcontractkit/ccip" 100) 
+            echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
+          elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "Fetching Chainlink version from input"
+            if [ -n "${{ github.event.inputs.chainlinkVersion }}" ]; then
+              echo "Chainlink version provided in input"
+              chainlink_version="${{ github.event.inputs.chainlinkVersion }}"
+            else
+              echo "Chainlink version not provided in input. Using latest commit SHA."
+              chainlink_version=${{ github.sha }}
+            fi
+            echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
+          elif [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            echo "Fetching Chainlink version from PR's head commit"
+            chainlink_version="${{ github.event.pull_request.head.sha }}"
+            echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
+          elif [ "$GITHUB_EVENT_NAME" = "merge_queue" ]; then
+            echo "Fetching Chainlink version from merge queue's head commit"
+            chainlink_version="${{ github.event.merge_group.head_sha }}"
+            echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
+          elif [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            echo "Fetching Chainlink version from tag"
+            chainlink_version="${{ github.ref_name }}"
+            echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
+          else
+            echo "Unsupported trigger event. It's probably an issue with the pipeline definition. Please reach out to the Test Tooling team."
+            exit 1
+          fi
+          echo "Will use following Chainlink version: $chainlink_version"
+      - name: Get image count
+        id: get-image-count
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "Fetching latest image count from input"
+            if [ -n "${{ github.event.inputs.base64TestList }}" ]; then
+              echo "Base64-ed Test Input provided, ignoring latest image count"
+            else
+              image_count="${{ github.event.inputs.latestVersionsNumber }}"
+              echo "image_count=$image_count" >> $GITHUB_OUTPUT
+            fi            
+          else
+            echo "Fetching default latest image count"
+            image_count=3
+            echo "image_count=$image_count" >> $GITHUB_OUTPUT
+          fi
+          echo "Will use following latest image count: $image_count"
+
+  check-ecr-images-exist:
+    name: Check images used as test dependencies exist in ECR
+    if: always() && needs.should-run.outputs.should_run == 'true'
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    needs: [should-run]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mirror:
+          - name: ethereum/client-go
+            expression: '^(alltools-v|v)[0-9]\.[0-9]+\.[0-9]+$'
+          - name: hyperledger/besu
+            expression: '^[0-9]+\.[0-9]+(\.[0-9]+)?$'
+            page_size: 300
+          - name: thorax/erigon
+            expression: '^v[0-9]+\.[0-9]+\.[0-9]+$'
+          - name: nethermind/nethermind
+            expression: '^[0-9]+\.[0-9]+\.[0-9]+$'
+          - name: tofelb/ethereum-genesis-generator
+            expression: '^[0-9]+\.[0-9]+\.[0-9]+(\-slots\-per\-epoch)?'
+    steps:
+      - name: Update internal ECR if the latest Ethereum client image does not exist
+        uses: smartcontractkit/chainlink-testing-framework/.github/actions/update-internal-mirrors@5eea86ee4f7742b4e944561a570a6b268e712d9e # v1.30.3
+        with:
+          aws_region: ${{ secrets.QA_AWS_REGION }}
+          role_to_assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          aws_account_number: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          image_name: ${{matrix.mirror.name}}
+          expression: ${{matrix.mirror.expression}}
+          page_size: ${{matrix.mirror.page_size}}
+
+  build-chainlink:
+    if: always() && needs.should-run.outputs.should_run == 'true'
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Build Chainlink Image
+    needs: [should-run, select-versions]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: client-compatablility-build-chainlink
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Build Chainlink Image
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          repository: smartcontractkit/ccip
+          ref: ${{ needs.select-versions.outputs.chainlink_version }}
+      - name: Build Chainlink Image
+        uses: ./.github/actions/build-chainlink-image
+        with:
+          tag_suffix: ""
+          dockerfile: core/chainlink.Dockerfile
+          git_commit_sha: ${{ needs.select-versions.outputs.chainlink_version }}
+          check_image_exists: 'true'
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+
+  get-latest-available-images:
+    name: Get Latest EVM Implementation's Images
+    if: always() && needs.should-run.outputs.should_run == 'true'
+    environment: integration
+    runs-on: ubuntu-latest
+    needs: [check-ecr-images-exist, should-run, select-versions]
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      LATEST_IMAGE_COUNT: ${{ needs.select-versions.outputs.latest_image_count }}
+    outputs:
+      geth_images: ${{ env.GETH_IMAGES }}
+      nethermind_images: ${{ env.NETHERMIND_IMAGES }}
+      besu_images: ${{ env.BESU_IMAGES }}
+      erigon_images: ${{ env.ERIGON_IMAGES }}
+    steps:
+      # Setup AWS creds
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        with:
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          role-to-assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          role-duration-seconds: 3600
+      # Login to ECR
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
+        with:
+          mask-password: "true"
+        env:
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      # ecrimagefetcher is a tool to get latest images from ECR
+      - name: Set Up ecrimagefetcher
+        shell: bash
+        run: |
+          go install github.com/smartcontractkit/chainlink-testing-framework/tools/ecrimagefetcher@v1.0.1
+      - name: Get latest docker images from ECR
+        if: ${{ github.event.inputs.base64TestList == '' }}
+        env:
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          ETH_IMPLEMENTATIONS: ${{ needs.select-versions.outputs.evm_implementations }}
+        run: |
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH          
+          if [[ "$ETH_IMPLEMENTATIONS" == *"geth"* ]]; then
+            geth_images=$(ecrimagefetcher 'ethereum/client-go' '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }})
+            echo "GETH_IMAGES=$geth_images" >> $GITHUB_ENV
+            echo "Geth latest images: $geth_images"
+          fi
+          
+          if [[ "$ETH_IMPLEMENTATIONS" == *"nethermind"* ]]; then
+            nethermind_images=$(ecrimagefetcher 'nethermind/nethermind' '^[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }})
+            echo "NETHERMIND_IMAGES=$nethermind_images" >> $GITHUB_ENV
+            echo "Nethermind latest images: $nethermind_images"
+          fi
+          
+          if [[ "$ETH_IMPLEMENTATIONS" == *"besu"* ]]; then
+            # 24.3.3 is ignored as it doesn't support data & input fields in eth_call
+            besu_images=$(ecrimagefetcher 'hyperledger/besu' '^[0-9]+\.[0-9]+(\.[0-9]+)?$' ${{ env.LATEST_IMAGE_COUNT }} ">=24.5.1")
+            echo "BESU_IMAGES=$besu_images" >> $GITHUB_ENV
+            echo "Besu latest images: $besu_images"
+          fi
+          
+          if [[ "$ETH_IMPLEMENTATIONS" == *"erigon"* ]]; then
+            # 2.60.0 and 2.60.1 are ignored as they stopped working with CL node
+            erigon_images=$(ecrimagefetcher 'thorax/erigon' '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }} "<v2.60.0")
+            echo "ERIGON_IMAGES=$erigon_images" >> $GITHUB_ENV
+            echo "Erigon latest images: $erigon_images" 
+          fi          
+
+  # End Build Test Dependencies
+
+  prepare-compatibility-matrix:
+    name: Prepare Compatibility Matrix
+    if: always() && needs.should-run.outputs.should_run == 'true'
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [get-latest-available-images,should-run,select-versions]
+    runs-on: ubuntu-latest
+    env:
+      ETH_IMPLEMENTATIONS: ${{ needs.select-versions.outputs.evm_implementations }}
+      BASE64_TEST_LIST: ${{ github.event.inputs.base64TestList }}
+    outputs:
+      matrix: ${{ env.JOB_MATRIX_JSON }}
+    steps:
+      - name: Decode Base64 Test List Input if Set
+        if: env.BASE64_TEST_LIST != ''
+        run: |
+          echo "Decoding base64 tests list from the input"
+          DECODED_BASE64_TEST_LIST=$(echo $BASE64_TEST_LIST | base64 -d)
+          echo "Decoded input:"
+          echo "$DECODED_BASE64_TEST_LIST"
+          is_valid=$(echo "$DECODED_BASE64_TEST_LIST" | jq . > /dev/null 2>&1; echo $?)
+          if [ "$is_valid" -ne 0 ]; then
+              echo "Invalid base64 input. Please provide a valid base64 encoded JSON list of tests."
+              echo "Here is an example of valid JSON:"
+              cat <<EOF
+              [
+                {
+                  "name": "evm-implementation-compatibility-test-1",
+                  "os": "ubuntu-latest",
+                  "product": "runlog",
+                  "eth_implementation": "erigon",
+                  "docker_image": "thorax/erigon:v2.59.2",
+                  "run": "-run 'TestSmokeCCIPForBidirectionalLane' ./smoke/ccip-tests/ccip_test.go"
+                }
+              ]
+          EOF
+              exit 1
+          fi          
+          JOB_MATRIX_JSON=$(echo $DECODED_BASE64_TEST_LIST)
+          echo "JOB_MATRIX_JSON=${JOB_MATRIX_JSON}" >> $GITHUB_ENV
+      # testlistgenerator is a tool that builds a matrix of tests to run
+      - name: Set Up testlistgenerator
+        if: env.BASE64_TEST_LIST == ''
+        shell: bash
+        run: |
+          go install github.com/smartcontractkit/chainlink-testing-framework/tools/testlistgenerator@v1.1.0
+      - name: Prepare matrix input
+        if: env.BASE64_TEST_LIST == ''
+        run: |
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH
+          
+          if [[ "$ETH_IMPLEMENTATIONS" == *"geth"* ]]; then
+            echo "Will test compatibility with geth"
+            testlistgenerator -o compatibility_test_list.json -p ccip -r TestSmokeCCIPForBidirectionalLane -f './ccip-tests/smoke/ccip_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "ccip-geth-compatibility-test" -w "SIMULATED_1,SIMULATED_2" -c 1337,2337 -n ubuntu-latest
+          else
+            echo "Will not test compatibility with geth"
+          fi
+          
+          if [[ "$ETH_IMPLEMENTATIONS" == *"besu"* ]]; then
+            echo "Will test compatibility with besu"
+            testlistgenerator -o compatibility_test_list.json -p ccip -r TestSmokeCCIPForBidirectionalLane -f './ccip-tests/smoke/ccip_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "ccip-besu-compatibility-test" -w "SIMULATED_BESU_NONDEV_1,SIMULATED_BESU_NONDEV_2" -c 1337,2337 -n ubuntu-latest
+          else
+            echo "Will not test compatibility with besu"
+          fi
+          
+          # TODO: Waiting for CCIP-2255 to be resolved
+          if [[ "$ETH_IMPLEMENTATIONS" == *"erigon"* ]]; then
+            echo "Will test compatibility with erigon"
+            testlistgenerator -o compatibility_test_list.json -p ccip -r TestSmokeCCIPForBidirectionalLane -f './ccip-tests/smoke/ccip_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "ccip-erigon-compatibility-test" -w "SIMULATED_1,SIMULATED_2" -c 1337,2337 -n ubuntu-latest
+          else
+            echo "Will not test compatibility with erigon"
+          fi
+          
+          # TODO: uncomment when nethermind flake reason is addressed
+          if [[ "$ETH_IMPLEMENTATIONS" == *"nethermind"* ]]; then
+             echo "Will not test compatibility with nethermind due to flakiness"
+            # echo "Will test compatibility with nethermind"
+            # testlistgenerator -o compatibility_test_list.json -p ccip -r TestSmokeCCIPForBidirectionalLane -f './ccip-tests/smoke/ccip_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "ccip-nethermind-compatibility-test" -w "SIMULATED_1,SIMULATED_2" -c 1337,2337 -n ubuntu-latest
+          else
+            echo "Will not test compatibility with nethermind"
+          fi
+          
+          jq . compatibility_test_list.json
+          echo "Adding human-readable name"
+          jq 'map(. + {visible_name: (.docker_image | split(",")[0] | split("=")[1])})' compatibility_test_list.json > compatibility_test_list_modified.json
+          jq . compatibility_test_list_modified.json
+          JOB_MATRIX_JSON=$(jq -c . compatibility_test_list_modified.json)
+          echo "JOB_MATRIX_JSON=${JOB_MATRIX_JSON}" >> $GITHUB_ENV
+
+  run-client-compatibility-matrix:
+    name: CCIP Compatibility with ${{ matrix.evm_node.visible_name }}
+    if: always() && needs.should-run.outputs.should_run == 'true'
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, prepare-compatibility-matrix, should-run, select-versions]
+    env:
+      CHAINLINK_COMMIT_SHA: ${{ needs.select-versions.outputs.chainlink_version }}
+      CHAINLINK_ENV_USER: ${{ github.actor }}
+      TEST_LOG_LEVEL: debug
+    strategy:
+      fail-fast: false
+      matrix:
+        evm_node: ${{fromJson(needs.prepare-compatibility-matrix.outputs.matrix)}}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          repository: smartcontractkit/ccip
+          ref: ${{ needs.select-versions.outputs.chainlink_version }}
+      - name: Prepare Base64 TOML override
+        uses: ./.github/actions/setup-create-base64-config
+        with:
+          runId: ${{ github.run_id }}
+          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+          selectedNetworks: ${{ matrix.evm_node.networks }}
+          chainlinkVersion: ${{ needs.select-versions.outputs.chainlink_version }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+      - name: Prepare Base64 TOML override for CCIP secrets
+        uses: ./.github/actions/setup-create-base64-config-ccip
+        id: setup_create_base64_config_ccip
+        with:
+          runId: ${{ github.run_id }}
+          selectedNetworks: ${{ matrix.evm_node.networks }}
+          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+          chainlinkVersion: ${{ needs.select-versions.outputs.chainlink_version }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          customEvmNodes: ${{ matrix.evm_node.docker_image }}
+      - name: Prepare test log name
+        run: |
+          replace_special_chars() {
+            if [ -z "$1" ]; then
+              echo "Please provide a string as an argument."
+              return 1
+            fi
+
+            local input_string="$1"
+
+            # Replace '/' with '-'
+            local modified_string="${input_string//\//-}"
+
+            # Replace ':' with '-'
+            modified_string="${modified_string//:/-}"
+
+            # Replace '.' with '-'
+            modified_string="${modified_string//./-}"
+
+            echo "$modified_string"
+          }
+          echo "TEST_LOG_NAME=$(replace_special_chars "ccip-${{ matrix.evm_node.name }}-test-logs")" >> $GITHUB_ENV
+      - name: Print Test details - ${{ matrix.evm_node.docker_image }}
+        run: |
+          echo "EVM Implementation Docker Image: ${{ matrix.evm_node.docker_image }}"
+          echo "EVM Implementation Networks: ${{ matrix.evm_node.networks }}"
+          echo "Test identifier: ${{ matrix.evm_node.name }}"
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@d38226be720c5ccc1ff4d3cee40608ebf264cd59 # v2.3.26
+        env:
+          BASE64_CONFIG_OVERRIDE: ${{ steps.setup_create_base64_config_ccip.outputs.base64_config }}
+          TEST_BASE64_CONFIG_OVERRIDE: ${{ steps.setup_create_base64_config_ccip.outputs.base64_config }}
+        with:
+          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=2 ${{ matrix.evm_node.run }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci
+          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          artifacts_name:  ${{ env.TEST_LOG_NAME }}
+          artifacts_location: |
+            ./integration-tests/smoke/logs/
+            ./integration-tests/ccip-tests/smoke/logs/*
+            /tmp/gotest.log
+          publish_check_name:  ${{ matrix.evm_node.name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          go_mod_path: ./integration-tests/go.mod
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: "true"
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ""
+          should_tidy: "false"
+          DEFAULT_LOKI_TENANT_ID: ${{ vars.LOKI_TENANT_ID }}
+          DEFAULT_LOKI_ENDPOINT: ${{ secrets.LOKI_URL_CI }}
+          DEFAULT_LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+          DEFAULT_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
+          DEFAULT_GRAFANA_BASE_URL: ${{ vars.GRAFANA_URL }}
+          DEFAULT_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          DEFAULT_PYROSCOPE_SERVER_URL: ${{ !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          DEFAULT_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+          DEFAULT_PYROSCOPE_ENVIRONMENT: ci-ccip-bidirectional-lane-${{ matrix.evm_node.name }}
+          DEFAULT_PYROSCOPE_ENABLED: 'true'
+
+      - name: Print failed test summary
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@1587f59bfd626b668d303abbc90fee41b12397e6 # v2.3.23
+        with:
+          test_directories: ./integration-tests/smoke/,./integration-tests/ccip-tests/smoke/
+
+  start-slack-thread:
+    name: Start Slack Thread
+    if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true' }}
+    environment: integration
+    outputs:
+      thread_ts: ${{ steps.slack.outputs.thread_ts }}
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    runs-on: ubuntu-latest
+    needs: [run-client-compatibility-matrix,should-run,select-versions]
+    steps:
+      - name: Debug Result
+        run: echo ${{ join(needs.*.result, ',') }}
+      - name: Main Slack Notification
+        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
+        id: slack
+        with:
+          channel-id: ${{ secrets.QA_CCIP_SLACK_CHANNEL }}
+          payload: |
+            {
+              "attachments": [
+                {
+                  "color": "${{ contains(join(needs.*.result, ','), 'failure') && '#C62828' || '#2E7D32' }}",
+                  "blocks": [
+                    {
+                      "type": "header",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "CCIP Compatibility Test Results ${{ contains(join(needs.*.result, ','), 'failure') && ':x:' || ':white_check_mark:'}}",
+                        "emoji": true
+                      }
+                    },
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "${{ contains(join(needs.*.result, ','), 'failure') && 'Some tests failed! Notifying <!subteam^S06HJ46A1EX|ccip-qa>' || 'All Good!' }}"
+                      }
+                    },
+                    {
+                      "type": "divider"
+                    },
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "<${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}|${{ github.ref_name }}> | <${{ github.server_url }}/${{ github.repository }}/commit/${{ needs.select-versions.outputs.chainlink_version }}|${{ needs.select-versions.outputs.chainlink_version }}> | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Run>"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+
+  parse-test-results:
+    name: Parse Test Results
+    if: always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true'
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    runs-on: ubuntu-latest
+    needs: [run-client-compatibility-matrix,should-run]
+    outputs:
+      base64_parsed_results: ${{ steps.get-test-results.outputs.base64_parsed_results }}
+    steps:
+      # workflowresultparser is a tool to get job results from a workflow run
+      - name: Set Up workflowresultparser
+        shell: bash
+        run: |
+          go install github.com/smartcontractkit/chainlink-testing-framework/tools/workflowresultparser@v1.0.0
+      - name: Get and parse Test Results
+        shell: bash
+        id: get-test-results
+        run: |
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH
+          
+          workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^CCIP Compatibility with (.*)$" -namedKey="CCIP" -outputFile=output.json
+          
+          echo "base64_parsed_results=$(base64 -w 0 output.json)" >> $GITHUB_OUTPUT
+
+  display-test-results:
+    name: Aggregated test results
+    if:  always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true' && needs.parse-test-results.result == 'success'
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    runs-on: ubuntu-latest
+    needs: [start-slack-thread, should-run, select-versions, parse-test-results]
+    steps:
+      # asciitable is a tool that prints results in a nice ASCII table
+      - name: Set Up asciitable
+        shell: bash
+        run: |
+          go install github.com/smartcontractkit/chainlink-testing-framework/tools/asciitable@v1.0.2
+      - name: Print aggregated test results
+        shell: bash
+        run: |
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH
+          
+          raw_results="$(echo ${{ needs.parse-test-results.outputs.base64_parsed_results }} | base64 -d)"
+          echo $raw_results > input.json
+          asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "CCIP" --namedKey "CCIP" 
+          
+          echo
+          echo "AGGREGATED RESULTS"
+          cat output.txt
+          
+          echo "## Aggregated EVM Implementations compatibility results summary" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY          
+
+  post-test-results-to-slack:
+    name: Post Test Results
+    if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true' }}
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    runs-on: ubuntu-latest
+    needs: [start-slack-thread,should-run,select-versions]
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ needs.select-versions.outputs.chainlink_version }}
+      - name: Get test results for CCIP
+        id: get-product-results
+        shell: bash
+        run: |
+          raw_results="$(echo ${{ needs.parse-test-results.outputs.base64_parsed_results }} | base64 -d)"
+          product_result=$(echo "$raw_results" | jq -c "select(has(\"CCIP\")) | .CCIP[]")
+          if [ -n "$product_result" ]; then
+            base64_result=$(echo $product_result | base64 -w 0)
+            echo "base64_result=$base64_result" >> $GITHUB_OUTPUT
+          else
+            echo "No results found for CCIP"
+            echo "base64_result=" >> $GITHUB_OUTPUT
+          fi
+      - name: Post Test Results to Slack
+        uses: ./.github/actions/notify-slack-jobs-result
+        with:
+          github_token: ${{ github.token }}
+          github_repository: ${{ github.repository }}
+          workflow_run_id: ${{ github.run_id }}
+          github_job_name_regex: ^CCIP Compatibility with (.*?)$
+          message_title: CCIP Compatibility Test Results
+          slack_channel_id: ${{ secrets.QA_CCIP_SLACK_CHANNEL }}
+          slack_bot_token: ${{ secrets.QA_SLACK_API_KEY }}
+          slack_thread_ts: ${{ needs.start-slack-thread.outputs.thread_ts }}
+          base64_parsed_results: ${{ steps.get-product-results.outputs.base64_result }}

@@ -1,0 +1,40 @@
+Business Source License 1.1
+
+Conditions
+
+The Licensor, as defined in the Business Source License, hereby grants you, the Licensee, the right to use, copy, modify, and distribute the Software, subject to the following conditions:
+
+1. Non‑Compete and Commercial Use
+   If you are using or distributing this Software as a component of a **managed service** or **as a service** (e.g., hosted oracles, Chainlink nodes, or any infrastructure‑as‑a‑service), you must obtain a **commercial license** from The Keeper (Pray4Love1 / Jon S.) before doing so.
+
+2. Source Availability
+   The Software is licensed under the Business Source License for a period of four years from the date of first release.
+   After that period, the Software may be relicensed under the Apache License, Version 2.0, at the Licensor’s discretion.
+
+3. No Warranty
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+
+4. Liability
+   In no event shall the authors or copyright holders be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the Software or the use or other dealings in the Software.
+
+Dual License Grant
+
+Notwithstanding the above, this software is also licensed under the Apache License, Version 2.0, for:
+- Chainlink‑compatible infrastructure nodes, and
+- Implementations that integrate with the x402 Payment Protocol,
+as explicitly authorized by The Keeper (Pray4Love1 / Jon S.).
+
+For all other managed‑service, SaaS, or hosted‑oracle deployments, a commercial license must be obtained from The Keeper.
+
+---
+
+Copyright (c) 2026 The Keeper (Pray4Love1 / Jon S.)
+
+---
+SOVEREIGN ATTRIBUTION:
+This core logic ("KinSwarm") was engineered by The Keeper.
+Integration into the x402 Payment Protocol is authorized for
+Chainlink‑compatible infrastructure nodes.
+
+Contractual terms for non‑Chainlink‑compatible managed‑service or SaaS deployments
+must be negotiated with The Keeper.

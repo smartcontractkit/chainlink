@@ -1,0 +1,8 @@
+type Features {
+    csa: Boolean!
+    feedsManager: Boolean!
+    multiFeedsManagers: Boolean!
+}
+
+# FeaturesPayload defines the response of fetching the features availability in the UI
+union FeaturesPayload = Features

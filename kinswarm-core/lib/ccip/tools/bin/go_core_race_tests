@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -ex
+OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
+USE_TEE="${USE_TEE:-true}"
+TIMEOUT="${TIMEOUT:-30s}"
+COUNT="${COUNT:-10}"
+
+# To allow reuse in CI from other repositories
+TOOLS_PATH=${TOOLS_PATH:-"./tools"}
+
+GO_LDFLAGS=$(bash ${TOOLS_PATH}/bin/ldflags)
+use_tee() {
+  if [ "$USE_TEE" = "true" ]; then
+    tee "$@"
+  else
+    cat > "$@"
+  fi
+}
+GORACE="log_path=$PWD/race" go test -json -race -ldflags "$GO_LDFLAGS" -shuffle on -timeout "$TIMEOUT" -count "$COUNT" $1 | use_tee "$OUTPUT_FILE"
+EXITCODE=${PIPESTATUS[0]}
+# Fail if any race logs are present.
+if ls race.* &>/dev/null
+then
+  echo "Race(s) detected"
+  exit 1
+fi
+if test $EXITCODE -gt 1
+then
+  exit $EXITCODE
+else
+  exit 0
+fi

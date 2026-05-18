@@ -1,0 +1,28 @@
+ChainID = '300'
+ChainType = 'zksync'
+# 200block ~ 20min concurrent with the l1_committed tag
+FinalityDepth = 200  
+# block rate is ~2-5sec, so this ensures blocks are polled correctly
+LogPollInterval = '5s'
+# sufficient time for RPC to be labelled out of sync, since blockRate is pretty fast
+NoNewHeadsThreshold = '1m'
+
+[GasEstimator]
+# no EIP1559 to ensure our estimator doesnot estimate gas with MaxPriorityFee which will break minFunding requirement 
+EIP1559DynamicFees = false 
+# high LimitDefault for worst case pubdata bytes with BatchGasLimit reduced to 4M in OCR2Config  
+LimitDefault = 2_500_000_000
+FeeCapDefault = '500 mwei'
+PriceDefault = '25 mwei'
+# p999 value for gasPrice based on historical data
+PriceMax = '500 mwei'
+# avg gasPrices are at 0.025 gwei
+PriceMin = '25 mwei' 
+
+[GasEstimator.BlockHistory]
+# increasing this to smooth out gas estimation
+BlockHistorySize = 200
+
+[HeadTracker]
+# tracks top N blocks to keep in heads database table. Should store atleast the same # of blocks as finalityDepth
+HistoryDepth = 250

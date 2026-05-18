@@ -1,0 +1,22 @@
+{
+  "PublicKey": "0xce3cc486a3aa567a2e15707cd5b874170e746f4db45ec084918e5b2b5ec6c6cf01",
+  "vrf_key": {
+    "address": "255d627147e5bd27a57e0b3bc2acca7cdf061ead",
+    "crypto": {
+      "cipher": "aes-128-ctr",
+      "ciphertext": "40647ef9ee6257b477faff9216d5023c295b7a5770355707d85e43b183a18c82",
+      "cipherparams": { "iv": "aa2c76420b26794603ffa28fa606ab5c" },
+      "kdf": "scrypt",
+      "kdfparams": {
+        "dklen": 32,
+        "n": 2,
+        "p": 1,
+        "r": 8,
+        "salt": "dbc429430b5364052030e476370573a375f114be7a6bb8a26be3d8d94ae051b0"
+      },
+      "mac": "8ce1bb8140cb9d3fbe29eb04c50fe091e07d0cb7975baaf1c8730f544a49aa81"
+    },
+    "id": "",
+    "version": 3
+  }
+}

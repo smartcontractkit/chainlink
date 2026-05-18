@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+
+set -e
+
+echo " ┌──────────────────────────────────────────────┐"
+echo " │      Compiling L2EP contracts...             │"
+echo " └──────────────────────────────────────────────┘"
+
+SOLC_VERSION="0.8.24"
+OPTIMIZE_RUNS=1000000
+
+SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
+solc-select install $SOLC_VERSION
+solc-select use $SOLC_VERSION
+
+ROOT="$(
+	cd "$(dirname "$0")" >/dev/null 2>&1
+	cd ../ && pwd -P
+)"
+
+compileContract() {
+	local version="$1"
+	local srcpath="$2"
+	solc \
+		@openzeppelin/=$ROOT/node_modules/@openzeppelin/ \
+		@eth-optimism/=$ROOT/node_modules/@eth-optimism/ \
+		@scroll-tech/=$ROOT/node_modules/@scroll-tech/ \
+		--overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
+		-o $ROOT/solc/v$SOLC_VERSION/l2ep/"$version" \
+		--abi --bin --allow-paths $ROOT/src/v0.8,$ROOT/node_modules \
+		--evm-version paris \
+		$ROOT/src/v0.8/l2ep/"$srcpath"
+}
+
+compileContract v1_0_0 dev/arbitrum/ArbitrumValidator.sol
+compileContract v1_0_0 dev/arbitrum/ArbitrumSequencerUptimeFeed.sol
+compileContract v1_0_0 dev/arbitrum/ArbitrumCrossDomainForwarder.sol
+compileContract v1_0_0 dev/arbitrum/ArbitrumCrossDomainGovernor.sol
+
+compileContract v1_0_0 dev/optimism/OptimismValidator.sol
+compileContract v1_0_0 dev/optimism/OptimismSequencerUptimeFeed.sol
+compileContract v1_0_0 dev/optimism/OptimismCrossDomainForwarder.sol
+compileContract v1_0_0 dev/optimism/OptimismCrossDomainGovernor.sol
+
+compileContract v1_0_0 dev/scroll/ScrollValidator.sol
+compileContract v1_0_0 dev/scroll/ScrollSequencerUptimeFeed.sol
+compileContract v1_0_0 dev/scroll/ScrollCrossDomainForwarder.sol
+compileContract v1_0_0 dev/scroll/ScrollCrossDomainGovernor.sol

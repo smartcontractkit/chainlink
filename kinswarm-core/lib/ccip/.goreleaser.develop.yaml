@@ -1,0 +1,207 @@
+version: 2
+project_name: ccip
+env:
+    - IMG_PRE={{ if index .Env "IMAGE_PREFIX"  }}{{ .Env.IMAGE_PREFIX }}{{ else }}localhost:5001{{ end }}
+    - IMG_TAG={{ if index .Env "IMAGE_TAG" }}{{ .Env.IMAGE_TAG }}{{ else }}develop{{ end }}
+    - CGO_ENABLED=1
+    - VERSION={{ if index .Env "CHAINLINK_VERSION" }}{{ .Env.CHAINLINK_VERSION }}{{ else }}v0.0.0-local{{ end }}
+release:
+    disable: "true"
+builds:
+    - targets:
+        - go_first_class
+      binary: chainlink
+      hooks:
+        post:
+            - cmd: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }}
+      no_unique_dist_dir: "true"
+      ldflags:
+        - -s -w -r=$ORIGIN/libs
+        - -X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}
+        - |-
+          -extldflags "-Wl,--dynamic-linker={{ if contains .Runtime.Goarch "amd64" -}}
+          /lib64/ld-linux-x86-64.so.2
+          {{- else if contains .Runtime.Goarch "arm64" -}}
+          /lib/ld-linux-aarch64.so.1
+          {{- end }}"
+        - -X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Env.VERSION }}
+      flags:
+        - -trimpath
+        - -buildmode=pie
+archives:
+    - format: binary
+snapshot:
+    version_template: '{{ .Env.VERSION }}-{{ .ShortCommit }}'
+checksum:
+    name_template: checksums.txt
+dockers:
+    - id: linux-amd64-ccip
+      goos: linux
+      goarch: amd64
+      dockerfile: core/chainlink.goreleaser.Dockerfile
+      image_templates:
+        - '{{ .Env.IMG_PRE }}/ccip:{{ .Env.IMG_TAG }}'
+        - '{{ .Env.IMG_PRE }}/ccip:{{ .Env.IMG_TAG }}-amd64'
+        - '{{ .Env.IMG_PRE }}/ccip:sha-{{ .ShortCommit }}-amd64'
+      extra_files:
+        - tmp/libs
+        - ccip/config
+      build_flag_templates:
+        - --platform=linux/amd64
+        - --pull
+        - --build-arg=CHAINLINK_USER=chainlink
+        - --build-arg=COMMIT_SHA={{ .FullCommit }}
+        - --build-arg=CL_CHAIN_DEFAULTS=/chainlink/ccip-config
+        - --label=org.opencontainers.image.created={{ .Date }}
+        - --label=org.opencontainers.image.description="node of the decentralized oracle network, bridging on and off-chain computation"
+        - --label=org.opencontainers.image.licenses=MIT
+        - --label=org.opencontainers.image.revision={{ .FullCommit }}
+        - --label=org.opencontainers.image.source=https://github.com/smartcontractkit/chainlink
+        - --label=org.opencontainers.image.title=chainlink
+        - --label=org.opencontainers.image.url=https://github.com/smartcontractkit/chainlink
+        - --label=org.opencontainers.image.version={{ .Env.VERSION }}
+      use: buildx
+    - id: linux-amd64-ccip-plugins
+      goos: linux
+      goarch: amd64
+      dockerfile: core/chainlink.goreleaser.Dockerfile
+      image_templates:
+        - '{{ .Env.IMG_PRE }}/ccip:{{ .Env.IMG_TAG }}-plugins'
+        - '{{ .Env.IMG_PRE }}/ccip:{{ .Env.IMG_TAG }}-plugins-amd64'
+        - '{{ .Env.IMG_PRE }}/ccip:sha-{{ .ShortCommit }}-plugins-amd64'
+      extra_files:
+        - tmp/libs
+        - tmp/plugins
+        - ccip/config
+      build_flag_templates:
+        - --platform=linux/amd64
+        - --pull
+        - --build-arg=CHAINLINK_USER=chainlink
+        - --build-arg=COMMIT_SHA={{ .FullCommit }}
+        - --build-arg=CL_CHAIN_DEFAULTS=/chainlink/ccip-config
+        - --build-arg=CL_MEDIAN_CMD=chainlink-feeds
+        - --build-arg=CL_MERCURY_CMD=chainlink-mercury
+        - --build-arg=CL_SOLANA_CMD=chainlink-solana
+        - --build-arg=CL_STARKNET_CMD=chainlink-starknet
+        - --label=org.opencontainers.image.created={{ .Date }}
+        - --label=org.opencontainers.image.description="node of the decentralized oracle network, bridging on and off-chain computation"
+        - --label=org.opencontainers.image.licenses=MIT
+        - --label=org.opencontainers.image.revision={{ .FullCommit }}
+        - --label=org.opencontainers.image.source=https://github.com/smartcontractkit/chainlink
+        - --label=org.opencontainers.image.title=chainlink
+        - --label=org.opencontainers.image.url=https://github.com/smartcontractkit/chainlink
+        - --label=org.opencontainers.image.version={{ .Env.VERSION }}
+      use: buildx
+    - id: linux-arm64-ccip
+      goos: linux
+      goarch: arm64
+      dockerfile: core/chainlink.goreleaser.Dockerfile
+      image_templates:
+        - '{{ .Env.IMG_PRE }}/ccip:{{ .Env.IMG_TAG }}-arm64'
+        - '{{ .Env.IMG_PRE }}/ccip:sha-{{ .ShortCommit }}-arm64'
+      extra_files:
+        - tmp/libs
+        - ccip/config
+      build_flag_templates:
+        - --platform=linux/arm64
+        - --pull
+        - --build-arg=CHAINLINK_USER=chainlink
+        - --build-arg=COMMIT_SHA={{ .FullCommit }}
+        - --build-arg=CL_CHAIN_DEFAULTS=/chainlink/ccip-config
+        - --label=org.opencontainers.image.created={{ .Date }}
+        - --label=org.opencontainers.image.description="node of the decentralized oracle network, bridging on and off-chain computation"
+        - --label=org.opencontainers.image.licenses=MIT
+        - --label=org.opencontainers.image.revision={{ .FullCommit }}
+        - --label=org.opencontainers.image.source=https://github.com/smartcontractkit/chainlink
+        - --label=org.opencontainers.image.title=chainlink
+        - --label=org.opencontainers.image.url=https://github.com/smartcontractkit/chainlink
+        - --label=org.opencontainers.image.version={{ .Env.VERSION }}
+      use: buildx
+    - id: linux-arm64-ccip-plugins
+      goos: linux
+      goarch: arm64
+      dockerfile: core/chainlink.goreleaser.Dockerfile
+      image_templates:
+        - '{{ .Env.IMG_PRE }}/ccip:{{ .Env.IMG_TAG }}-plugins-arm64'
+        - '{{ .Env.IMG_PRE }}/ccip:sha-{{ .ShortCommit }}-plugins-arm64'
+      extra_files:
+        - tmp/libs
+        - tmp/plugins
+        - ccip/config
+      build_flag_templates:
+        - --platform=linux/arm64
+        - --pull
+        - --build-arg=CHAINLINK_USER=chainlink
+        - --build-arg=COMMIT_SHA={{ .FullCommit }}
+        - --build-arg=CL_CHAIN_DEFAULTS=/chainlink/ccip-config
+        - --build-arg=CL_MEDIAN_CMD=chainlink-feeds
+        - --build-arg=CL_MERCURY_CMD=chainlink-mercury
+        - --build-arg=CL_SOLANA_CMD=chainlink-solana
+        - --build-arg=CL_STARKNET_CMD=chainlink-starknet
+        - --label=org.opencontainers.image.created={{ .Date }}
+        - --label=org.opencontainers.image.description="node of the decentralized oracle network, bridging on and off-chain computation"
+        - --label=org.opencontainers.image.licenses=MIT
+        - --label=org.opencontainers.image.revision={{ .FullCommit }}
+        - --label=org.opencontainers.image.source=https://github.com/smartcontractkit/chainlink
+        - --label=org.opencontainers.image.title=chainlink
+        - --label=org.opencontainers.image.url=https://github.com/smartcontractkit/chainlink
+        - --label=org.opencontainers.image.version={{ .Env.VERSION }}
+      use: buildx
+docker_manifests:
+    - id: tagged-chainlink
+      name_template: '{{ .Env.IMAGE_PREFIX }}/chainlink:{{ .Env.IMG_TAG }}'
+      image_templates:
+        - '{{ .Env.IMAGE_PREFIX }}/chainlink:{{ .Env.IMG_TAG }}'
+        - '{{ .Env.IMAGE_PREFIX }}/chainlink:{{ .Env.IMG_TAG }}-amd64'
+        - '{{ .Env.IMAGE_PREFIX }}/chainlink:{{ .Env.IMG_TAG }}-arm64'
+    - id: sha-chainlink
+      name_template: '{{ .Env.IMAGE_PREFIX }}/chainlink:sha-{{ .ShortCommit }}'
+      image_templates:
+        - '{{ .Env.IMAGE_PREFIX }}/chainlink:sha-{{ .ShortCommit }}-amd64'
+        - '{{ .Env.IMAGE_PREFIX }}/chainlink:sha-{{ .ShortCommit }}-arm64'
+    - id: tagged-plugins-chainlink
+      name_template: '{{ .Env.IMAGE_PREFIX }}/chainlink:{{ .Env.IMG_TAG }}-plugins'
+      image_templates:
+        - '{{ .Env.IMAGE_PREFIX }}/chainlink:{{ .Env.IMG_TAG }}-plugins'
+        - '{{ .Env.IMAGE_PREFIX }}/chainlink:{{ .Env.IMG_TAG }}-plugins-amd64'
+        - '{{ .Env.IMAGE_PREFIX }}/chainlink:{{ .Env.IMG_TAG }}-plugins-arm64'
+    - id: sha-plugins-chainlink
+      name_template: '{{ .Env.IMAGE_PREFIX }}/chainlink:sha-{{ .ShortCommit }}-plugins'
+      image_templates:
+        - '{{ .Env.IMAGE_PREFIX }}/chainlink:sha-{{ .ShortCommit }}-plugins-amd64'
+        - '{{ .Env.IMAGE_PREFIX }}/chainlink:sha-{{ .ShortCommit }}-plugins-arm64'
+    - id: tagged-ccip
+      name_template: '{{ .Env.IMAGE_PREFIX }}/ccip:{{ .Env.IMG_TAG }}'
+      image_templates:
+        - '{{ .Env.IMAGE_PREFIX }}/ccip:{{ .Env.IMG_TAG }}'
+        - '{{ .Env.IMAGE_PREFIX }}/ccip:{{ .Env.IMG_TAG }}-amd64'
+        - '{{ .Env.IMAGE_PREFIX }}/ccip:{{ .Env.IMG_TAG }}-arm64'
+    - id: sha-ccip
+      name_template: '{{ .Env.IMAGE_PREFIX }}/ccip:sha-{{ .ShortCommit }}'
+      image_templates:
+        - '{{ .Env.IMAGE_PREFIX }}/ccip:sha-{{ .ShortCommit }}-amd64'
+        - '{{ .Env.IMAGE_PREFIX }}/ccip:sha-{{ .ShortCommit }}-arm64'
+    - id: tagged-plugins-ccip
+      name_template: '{{ .Env.IMAGE_PREFIX }}/ccip:{{ .Env.IMG_TAG }}-plugins'
+      image_templates:
+        - '{{ .Env.IMAGE_PREFIX }}/ccip:{{ .Env.IMG_TAG }}-plugins'
+        - '{{ .Env.IMAGE_PREFIX }}/ccip:{{ .Env.IMG_TAG }}-plugins-amd64'
+        - '{{ .Env.IMAGE_PREFIX }}/ccip:{{ .Env.IMG_TAG }}-plugins-arm64'
+    - id: sha-plugins-ccip
+      name_template: '{{ .Env.IMAGE_PREFIX }}/ccip:sha-{{ .ShortCommit }}-plugins'
+      image_templates:
+        - '{{ .Env.IMAGE_PREFIX }}/ccip:sha-{{ .ShortCommit }}-plugins-amd64'
+        - '{{ .Env.IMAGE_PREFIX }}/ccip:sha-{{ .ShortCommit }}-plugins-arm64'
+changelog:
+    disable: "true"
+before:
+    hooks:
+        - cmd: go mod tidy
+        - cmd: ./tools/bin/goreleaser_utils before_hook
+git:
+    ignore_tags:
+        - contracts-ccip/v1.5.0-beta.0
+partial:
+    by: target
+nightly:
+    version_template: '{{ .Env.VERSION }}-{{ .Env.IMG_TAG }}'

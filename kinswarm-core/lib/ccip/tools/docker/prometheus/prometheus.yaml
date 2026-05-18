@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 5s
+scrape_configs:
+  - job_name: 'local_scrape'
+    scrape_interval: 1s
+    static_configs:
+      - targets: ['chainlink-node:6688', 'chainlink-node-2:6688']
+    metrics_path: '/metrics'
+alerting:
+  alertmanagers:
+    - scheme: http
+      static_configs:
+        - targets: ['alertmanager:9093']

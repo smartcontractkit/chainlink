@@ -1,0 +1,12 @@
+ChainID = '133'
+ChainType = 'optimismBedrock'
+FinalityTagEnabled = true
+
+[GasEstimator]
+PriceMax = '1000 gwei'
+LimitDefault = 8000000
+FeeCapDefault = '1000 gwei'
+
+[NodePool]
+PollFailureThreshold = 2
+PollInterval = '8s'

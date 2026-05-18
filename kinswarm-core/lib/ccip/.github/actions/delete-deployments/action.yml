@@ -1,0 +1,59 @@
+name: Delete Deployments
+description: Delete deployments by env and ref
+inputs:
+  environment:
+    required: true
+    description: The Github environment to filter deployments by
+  ref:
+    required: true
+    description: The ref to filter deployments by
+  dry-run:
+    required: false
+    description: Whether to actually delete deployments or not
+  github-token:
+    description: "The Github token to use for authentication"
+    required: true
+    default: ${{ github.token }}
+  num-of-pages:
+    required: false
+    description: The number of pages (of 100 per page) to fetch deployments from, set to 'all' to fetch all deployments
+    default: "all"
+  starting-page:
+    required: false
+    description: The page to start fetching deployments from, only valid if num-of-pages is set to a number
+  repository:
+    required: false
+    description: The owner and repository name to delete deployments from, defaults to the current repository, ex. 'smartcontractkit/chainlink'
+    default: ${{ github.repository }}
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3.0.0
+      with:
+        version: ^9.0.0
+
+    - uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+      with:
+        node-version: "20"
+        cache: "pnpm"
+        cache-dependency-path: "./.github/actions/delete-deployments/pnpm-lock.yaml"
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm i --prod
+      working-directory: "./.github/actions/delete-deployments"
+
+    - name: Run deployment deleter
+      shell: bash
+      run: pnpm start
+      env:
+        NUM_OF_PAGES: ${{ inputs.num-of-pages }}
+        STARTING_PAGE: ${{ inputs.starting-page }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        ENVIRONMENT: ${{ inputs.environment }}
+        REF: ${{ inputs.ref }}
+        DRY_RUN: ${{ inputs.dry-run }}
+        OWNER: ${{ inputs.owner }}
+        REPOSITORY: ${{ inputs.repository }}
+      working-directory: "./.github/actions/delete-deployments"

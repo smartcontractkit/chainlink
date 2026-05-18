@@ -1,0 +1,151 @@
+name: Create Base64 Config for CCIP Tests
+description: A composite action that creates a base64-encoded config to be used by ccip integration tests
+
+inputs:
+  runId:
+    description: The run id
+  existingNamespace:
+    description: If test needs to run against already deployed namespace
+  testLogCollect:
+    description: Whether to always collect logs, even for passing tests
+    default: "false"
+  selectedNetworks:
+    description: The networks to run tests against
+  chainlinkVersion:
+    description: The git commit sha to use for the image tag
+  upgradeVersion:
+    description: The git commit sha to use for the image tag    
+  logstreamLogTargets:
+    description: Where to send logs (e.g. file, loki)
+  customEvmNodes:
+    description: Custom EVM nodes to use  in key=value format, where key is chain id and value is docker image to use. If they are provided the number of networksSelected must be equal to the number of customEvmNodes
+  evmNodeLogLevel:
+    description: Log level for the custom EVM nodes
+    default: "info"
+outputs:
+  base64_config:
+    description: The base64-encoded config
+    value: ${{ steps.base64_config_override.outputs.base64_config }}
+
+runs:
+  using: composite
+  steps:
+    - name: Prepare Base64 TOML override
+      shell: bash
+      id: base64_config_override
+      env:
+        RUN_ID: ${{ inputs.runId }}
+        SELECTED_NETWORKS: ${{ inputs.selectedNetworks }}
+        EXISTING_NAMESPACE: ${{ inputs.existingNamespace }}
+        TEST_LOG_COLLECT: ${{ inputs.testLogCollect }}
+        CHAINLINK_VERSION: ${{ inputs.chainlinkVersion }}
+        UPGRADE_VERSION: ${{ inputs.upgradeVersion }}
+        LOGSTREAM_LOG_TARGETS: ${{ inputs.logstreamLogTargets }}
+        CUSTOM_EVM_NODES: ${{ inputs.customEvmNodes }}
+        EVM_NODE_LOG_LEVEL: ${{ inputs.evmNodeLogLevel }}
+      run: |
+        function convert_to_toml_array() {
+          local IFS=','
+          local input_array=($1)
+          local toml_array_format="["
+
+          for element in "${input_array[@]}"; do
+              toml_array_format+="\"$element\","
+          done
+
+          toml_array_format="${toml_array_format%,}]"
+          echo "$toml_array_format"
+        }
+
+        selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")
+        log_targets=$(convert_to_toml_array "$LOGSTREAM_LOG_TARGETS")      
+
+        if [ -n "$TEST_LOG_COLLECT" ]; then
+          test_log_collect=true
+        else
+          test_log_collect=false
+        fi
+
+        # make sure the number of networks and nodes match
+        IFS=',' read -r -a networks_array <<< "$SELECTED_NETWORKS"
+        IFS=',' read -r -a nodes_array <<< "$CUSTOM_EVM_NODES"
+
+        networks_count=${#networks_array[@]}
+        nodes_count=${#nodes_array[@]}
+
+        # Initialize or clear CONFIG_TOML environment variable
+        custom_nodes_toml=""
+
+        # Check if the number of CUSTOM_EVM_NODES is zero
+        if [ $nodes_count -eq 0 ]; then
+          echo "The number of CUSTOM_EVM_NODES is zero, won't output any custom private Ethereum network configurations."
+        else
+          if [ $networks_count -ne $nodes_count ]; then
+            echo "The number of elements in SELECTED_NETWORKS (${networks_count}) and CUSTOM_EVM_NODES does not match (${nodes_count})."
+            exit 1
+          else
+            for i in "${!networks_array[@]}"; do
+              IFS='=' read -r chain_id docker_image <<< "${nodes_array[i]}"
+              custom_nodes_toml+="
+        [CCIP.Env.PrivateEthereumNetworks.${networks_array[i]}]
+        ethereum_version=\"\"
+        execution_layer=\"\"
+
+        [CCIP.Env.PrivateEthereumNetworks.${networks_array[i]}.EthereumChainConfig]
+        seconds_per_slot=3
+        slots_per_epoch=2
+        genesis_delay=15
+        validator_count=4
+        chain_id=${chain_id}
+        addresses_to_fund=[\"0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266\", \"0x70997970C51812dc3A010C7d01b50e0d17dc79C8\"]
+        node_log_level=\"${EVM_NODES_LOG_LEVEL}\"
+
+        [CCIP.Env.PrivateEthereumNetworks.${networks_array[i]}.EthereumChainConfig.HardForkEpochs]
+        Deneb=500
+
+        [CCIP.Env.PrivateEthereumNetworks.${networks_array[i]}.CustomDockerImages]
+        execution_layer=\"${docker_image}\"
+        "
+            done
+          fi
+        fi
+
+        cat << EOF > config.toml
+        [CCIP]
+        [CCIP.Env]
+        EnvToConnect="$EXISTING_NAMESPACE"
+        [CCIP.Env.Network]
+        selected_networks = $selected_networks
+        [CCIP.Env.NewCLCluster]
+        [CCIP.Env.NewCLCluster.Common]
+        [CCIP.Env.NewCLCluster.Common.ChainlinkImage]
+        version="$CHAINLINK_VERSION"
+
+        $custom_nodes_toml
+
+        [CCIP.Env.Logging]
+        test_log_collect=$test_log_collect
+        run_id="$RUN_ID"
+
+        [CCIP.Env.Logging.LogStream]
+        log_targets=$log_targets
+
+        [CCIP.Groups.load]
+        TestRunName = '$EXISTING_NAMESPACE'
+
+        [CCIP.Groups.smoke]
+        TestRunName = '$EXISTING_NAMESPACE'
+
+        EOF
+
+        # Check if UPGRADE_VERSION is not empty and append to config.toml
+        if [ -n "$UPGRADE_VERSION" ]; then
+          cat << EOF >> config.toml
+        [CCIP.Env.NewCLCluster.Common.ChainlinkUpgradeImage]
+        version="$UPGRADE_VERSION"
+        EOF
+        fi     
+
+        BASE64_CONFIG=$(cat config.toml | base64 -w 0)
+        echo ::add-mask::$BASE64_CONFIG
+        echo "base64_config=$BASE64_CONFIG" >> $GITHUB_OUTPUT

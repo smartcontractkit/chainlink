@@ -1,0 +1,18 @@
+ChainID = '59141'
+FinalityDepth = 200
+NoNewHeadsThreshold = '0'
+
+[GasEstimator]
+EIP1559DynamicFees = true
+PriceMin = '1 wei'
+
+[Transactions]
+ResendAfterThreshold = '3m'
+
+[HeadTracker]
+HistoryDepth = 1000
+
+[Transactions.AutoPurge]
+Enabled = true
+Threshold = 50 # 50 blocks at 3s block time ~2.5 minutes
+MinAttempts = 3

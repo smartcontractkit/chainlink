@@ -1,0 +1,26 @@
+name: 'Detect Foundry version in GNUmakefile'
+description: 'Detects Foundry version in GNUmakefile'
+inputs:
+  working-directory:
+    description: 'The GNUmakefile directory'
+    required: false
+    default: 'contracts'
+outputs:
+  foundry-version:
+    description: 'Foundry version found in GNUmakefile'
+    value: ${{ steps.extract-foundry-version.outputs.foundry-version }}
+runs:
+  using: 'composite'
+  steps:
+    - name: Extract Foundry version
+      id: extract-foundry-version
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        foundry_version=$(grep -Eo "foundryup --version [^ ]+" GNUmakefile | awk '{print $3}')
+        if [ -z "$foundry_version" ]; then
+          echo "::error::Foundry version not found in GNUmakefile"
+          exit 1
+        fi
+        echo "Foundry version found: $foundry_version"
+        echo "foundry-version=$foundry_version" >> $GITHUB_OUTPUT

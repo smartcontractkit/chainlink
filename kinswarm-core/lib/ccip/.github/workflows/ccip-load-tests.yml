@@ -1,0 +1,62 @@
+name: CCIP Load Test
+on: 
+  push:
+    branches:
+      - ccip-develop
+    tags:
+      - '*'
+  workflow_dispatch:
+    inputs:
+      test_config_override_path:
+        description: Path to a test config file used to override the default test config
+        required: false
+        type: string
+      test_secrets_override_key:
+        description: 'Key to run tests with custom test secrets'
+        required: false
+        type: string
+      chainlink_version:
+        description: Chainlink image version to use. Commit sha if not provided
+        required: false
+        type: string        
+
+# Only run 1 of this workflow at a time per PR
+concurrency:
+  group: load-ccip-tests-chainlink-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run-e2e-tests-workflow:
+    name: Run E2E Tests
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@aad83f232743646faa35f5ac03ee3829148d37ce
+    with:
+      test_path: .github/e2e-tests.yml
+      test_trigger: E2E CCIP Load Tests
+      test_config_override_path: ${{ inputs.test_config_override_path }}
+      chainlink_version: ${{ inputs.chainlink_version || github.sha }} 
+      slack_notification_after_tests: always
+      slack_notification_after_tests_channel_id: '#ccip-testing'
+      slack_notification_after_tests_name: CCIP E2E Load Tests
+      test_image_suites: ccip-load
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
+      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}        
+      TEST_SECRETS_OVERRIDE_BASE64: ${{ secrets[inputs.test_secrets_override_key] }}
+      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+      SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
+

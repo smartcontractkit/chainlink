@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+option go_package = "core/services/ocr2/plugins/functions/config";
+
+package functions_config_types;
+
+// WARNING: Any changes to protobufs must also be reflected in Gauntlet which is used to generate the OCR plugin config for production deployments
+
+enum AggregationMethod {
+    AGGREGATION_MODE = 0;
+    AGGREGATION_MEDIAN = 1;
+}
+
+// Has to match the corresponding proto in tdh2.
+message ThresholdReportingPluginConfig {
+    uint32 max_query_length_bytes = 1;
+    uint32 max_observation_length_bytes = 2;
+    uint32 max_report_length_bytes = 3;
+    uint32 request_count_limit = 4;
+    uint32 request_total_bytes_limit = 5;
+    bool require_local_request_check = 6;
+    uint32 k = 7; // Number of decryption shares required for assembling plaintext.
+}
+
+message S4ReportingPluginConfig {
+    uint32 max_query_length_bytes = 1;
+    uint32 max_observation_length_bytes = 2;
+    uint32 max_report_length_bytes = 3;
+    uint32 n_snapshot_shards = 4;
+    uint32 max_observation_entries = 5;
+    uint32 max_report_entries = 6;
+    uint32 max_delete_expired_entries = 7;
+}
+
+message ReportingPluginConfig {
+    uint32 maxQueryLengthBytes = 1;
+    uint32 maxObservationLengthBytes = 2;
+    uint32 maxReportLengthBytes = 3;
+    uint32 maxRequestBatchSize = 4;
+    AggregationMethod defaultAggregationMethod = 5;
+    bool uniqueReports = 6;
+    ThresholdReportingPluginConfig thresholdPluginConfig = 7;
+    S4ReportingPluginConfig s4PluginConfig = 8;
+    // Needs to be set in tandem with gas estimator (e.g. [EVM.GasEstimator.LimitJobType] OCR = <limit>)
+    // otherwise the report won't go through TX Manager or fail later.
+    uint32 maxReportTotalCallbackGas = 9;
+}

@@ -1,0 +1,270 @@
+name: Build and Publish Chainlink
+
+description: A composite action that allows building and publishing signed chainlink images.
+
+inputs:
+  # Inputs for publishing
+  publish:
+    description: When set to the string boolean value of "true", the resulting built image will be published
+    default: "false"
+    required: false
+
+  dockerfile:
+    description: Path to the Dockerfile (relative to the repo root)
+    default: core/chainlink.Dockerfile
+    required: false
+  dockerhub_username:
+    description: Username for Docker Hub to avoid rate limits when pulling public images
+    required: false
+  dockerhub_password:
+    description: Password for Docker Hub to avoid rate limits when pulling public images
+    required: false
+  ecr-hostname:
+    description: The ECR registry scope
+    default: public.ecr.aws
+    required: false
+  ecr-image-name:
+    description: |
+      The image name with path, in the format of `[registry]/repository`. For private ECR repos the registry name is optional, where for public repos, it is required.
+      Eg. Public ECR repo `chainlink` and registry alias `chainlinklabs` should be `chainlinklabs/chainlink`. For a private ECR repo `chainlink` the image name should be `chainlink`
+    default: chainlink/chainlink
+    required: false
+  ecr-tag-suffix:
+    description: Docker image tag suffix
+    required: false
+  git-commit-sha:
+    description: Git commit SHA used as metadata when building the application (appears in logs)
+    default: ${{ github.event.pull_request.head.sha || github.sha }}
+    required: false
+  aws-role-to-assume:
+    description: The AWS role to assume as the CD user, if any. Used in configuring the docker/login-action
+    required: false
+  aws-role-duration-seconds:
+    description: The duration of the role assumed
+    required: false
+  aws-region:
+    description: The AWS region the ECR repository is located in, should only be needed for public ECR repositories, used in configuring docker/login-action
+    required: false
+
+  # Inputs for signing
+  sign-images:
+    description: When set to the string boolean value of "true", the resulting build image will be signed
+    default: "false"
+    required: false
+  verify-signature:
+    description: When set to the string boolean value of "true", the resulting build image signature will be verified
+    default: "false"
+    required: false
+
+outputs:
+  docker-image-tag:
+    description: The docker image tag that was built and pushed
+    value: ${{ steps.save-non-root-image-name-env.outputs.image-tag }}
+  docker-image-digest:
+    description: The docker image digest that was built and pushed
+    value: ${{ steps.save-non-root-image-name-env.outputs.image-digest }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set shared variables
+      shell: bash
+      # See https://docs.github.com/en/actions/learn-github-actions/workflow-commands-for-github-actions#multiline-strings
+      run: |
+        SHARED_IMAGES=${{ inputs.ecr-hostname }}/${{ inputs.ecr-image-name }}
+        OIDC_ISSUER=https://token.actions.githubusercontent.com
+        OIDC_IDENTITY=https://github.com/smartcontractkit/chainlink/.github/workflows/build-publish.yml@${{ github.ref }}
+
+        SHARED_TAG_LIST=$(cat << EOF
+        type=ref,event=branch,suffix=${{ inputs.ecr-tag-suffix }}
+        type=semver,pattern={{version}},suffix=${{ inputs.ecr-tag-suffix }}
+        type=sha,format=short,suffix=${{ inputs.ecr-tag-suffix }}
+        EOF
+        )
+
+        SHARED_BUILD_ARGS=$(cat << EOF
+        COMMIT_SHA=${{ inputs.git-commit-sha }}
+        EOF
+        )
+
+        echo "shared-images<<EOF" >> $GITHUB_ENV
+        echo "$SHARED_IMAGES" >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
+
+        echo "oidc-issuer=${OIDC_ISSUER}" >> $GITHUB_ENV
+        echo "oidc-identity=${OIDC_IDENTITY}" >> $GITHUB_ENV
+
+        echo "shared-tag-list<<EOF" >> $GITHUB_ENV
+        echo "$SHARED_TAG_LIST" >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
+
+        echo "shared-build-args<<EOF" >> $GITHUB_ENV
+        echo "$SHARED_BUILD_ARGS" >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
+
+    - if: inputs.publish == 'true'
+      # Log in to AWS for publish to ECR
+      name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+      with:
+        role-to-assume: ${{ inputs.aws-role-to-assume }}
+        role-duration-seconds: ${{ inputs.aws-role-duration-seconds }}
+        aws-region: ${{ inputs.aws-region }}
+        mask-aws-account-id: true
+        role-session-name: build-sign-publish-chainlink
+
+    - if: inputs.publish == 'true'
+      name: Login to ECR
+      uses: docker/login-action@e92390c5fb421da1463c202d546fed0ec5c39f20 # v3.1.0
+      with:
+        registry: ${{ inputs.ecr-hostname }}
+
+    - name: Setup Docker Buildx
+      uses: docker/setup-buildx-action@d70bba72b1f3fd22344832f00baa16ece964efeb # v3.3.0
+
+    - name: Generate docker metadata for root image
+      id: meta-root
+      uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
+      env:
+        DOCKER_METADATA_PR_HEAD_SHA: "true"
+      with:
+        # list of Docker images to use as base name for tags
+        images: ${{ env.shared-images }}
+        # XXX: DO NOT USE SHARED TAGS HERE
+        tags: |
+          type=ref,event=branch,suffix=${{ inputs.ecr-tag-suffix }}-root
+          type=semver,pattern={{version}},suffix=${{ inputs.ecr-tag-suffix }}-root
+          type=sha,format=short,suffix=${{ inputs.ecr-tag-suffix }}-root
+
+    # To avoid rate limiting from Docker Hub, we login with a paid user account.
+    - name: Login to Docker Hub
+      if: inputs.dockerhub_username && inputs.dockerhub_password
+      uses: docker/login-action@e92390c5fb421da1463c202d546fed0ec5c39f20 # v3.1.0
+      with:
+        username: ${{ inputs.dockerhub_username }}
+        password: ${{ inputs.dockerhub_password }}
+
+    - name: Build and push root docker image
+      id: buildpush-root
+      uses: docker/build-push-action@2cdde995de11925a030ce8070c3d77a52ffcf1c0 # v5.3.0
+      with:
+        push: ${{ inputs.publish }}
+        context: .
+        load: ${{ contains(inputs.publish, false) }}
+        tags: ${{ steps.meta-root.outputs.tags }}
+        labels: ${{ steps.meta-root.outputs.labels }}
+        file: ${{ inputs.dockerfile }}
+        build-args: |
+          CHAINLINK_USER=root
+          ${{ env.shared-build-args }}
+
+    - name: Save root image name in GITHUB_ENV
+      id: save-root-image-name-env
+      shell: sh
+      run: |
+        IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-root.outputs.metadata)['image.name'] }}
+        IMAGE_NAME=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)
+        IMAGE_DIGEST=${{ fromJSON(steps.buildpush-root.outputs.metadata)['containerimage.digest'] }}
+        echo "root_image_name=${IMAGE_NAME}" >> $GITHUB_ENV
+        echo "root_image_digest=${IMAGE_DIGEST}" >> $GITHUB_ENV
+
+    - name: Generate docker metadata for non-root image
+      id: meta-nonroot
+      uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
+      env:
+        DOCKER_METADATA_PR_HEAD_SHA: "true"
+      with:
+        flavor: |
+          latest=auto
+          prefix=
+          suffix=
+        images: ${{ env.shared-images }}
+        tags: ${{ env.shared-tag-list }}
+
+    # To avoid rate limiting from Docker Hub, we login with a paid user account.
+    - name: Login to Docker Hub
+      if: inputs.dockerhub_username && inputs.dockerhub_password
+      uses: docker/login-action@e92390c5fb421da1463c202d546fed0ec5c39f20 # v3.1.0
+      with:
+        username: ${{ inputs.dockerhub_username }}
+        password: ${{ inputs.dockerhub_password }}
+
+    - name: Build and push non-root docker image
+      id: buildpush-nonroot
+      uses: docker/build-push-action@2cdde995de11925a030ce8070c3d77a52ffcf1c0 # v5.3.0
+      with:
+        push: ${{ inputs.publish }}
+        context: .
+        load: ${{ contains(inputs.publish, false) }}
+        tags: ${{ steps.meta-nonroot.outputs.tags }}
+        labels: ${{ steps.meta-nonroot.outputs.labels }}
+        file: ${{ inputs.dockerfile }}
+        build-args: |
+          CHAINLINK_USER=chainlink
+          ${{ env.shared-build-args }}
+
+    - name: Save non-root image name in GITHUB_ENV and GITHUB_STEP_SUMMARY
+      id: save-non-root-image-name-env
+      shell: sh
+      run: |
+        IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-nonroot.outputs.metadata)['image.name'] }}
+        IMAGE_DIGEST=${{ fromJSON(steps.buildpush-nonroot.outputs.metadata)['containerimage.digest'] }}
+        IMAGE_NAME=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)
+        IMAGE_TAG=$(echo "$IMAGES_NAME_RAW" | cut -d":" -f2)
+        echo "nonroot_image_name=${IMAGE_NAME}" >> $GITHUB_ENV
+        echo "nonroot_image_digest=${IMAGE_DIGEST}" >> $GITHUB_ENV
+        echo '### Docker Image' >> $GITHUB_STEP_SUMMARY
+        echo "Image Name: ${IMAGE_NAME}"  >> $GITHUB_STEP_SUMMARY
+        echo "Image Digest: ${IMAGE_DIGEST}"  >> $GITHUB_STEP_SUMMARY
+        echo "image-tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+        echo "image-digest=${IMAGE_DIGEST}" >> $GITHUB_OUTPUT
+
+    - name: Check if non-root image runs as root
+      id: check-nonroot-runs-root
+      shell: sh
+      env:
+        PUBLISH: ${{ inputs.publish }}
+      run: |
+        echo "Fail build if non-root image runs as user: root"
+        # if we're publishing the image, it doesn't get loaded into the local docker daemon
+        # so we need to pull the image into our daemon
+        if [ $PUBLISH = "true" ]; then
+         docker pull "${nonroot_image_name}"
+        fi
+        docker inspect "${nonroot_image_name}" | jq -r '.[].Config.User' | ( ! grep "root" )
+
+    - if: inputs.sign-images == 'true'
+      name: Install cosign
+      uses: sigstore/cosign-installer@4959ce089c160fddf62f7b42464195ba1a56d382 # v3.6.0
+      with:
+        cosign-release: "v2.4.0"
+
+    # This automatically signs the image with the correct OIDC provider from Github
+    - if: inputs.sign-images == 'true'
+      name: Sign the published root Docker image using keyless method
+      shell: sh
+      run: |
+        cosign sign "${{ env.root_image_name }}" --yes
+
+    - if: inputs.verify-signature == 'true'
+      name: Verify the signature of the published root Docker image using keyless
+      shell: sh
+      run: |
+        cosign verify "${{ env.root_image_name }}" \
+        --certificate-oidc-issuer ${{ env.oidc-issuer }} \
+        --certificate-identity "${{ env.oidc-identity }}"
+
+    # This automatically signs the image with the correct OIDC provider from Github
+    - if: inputs.sign-images == 'true'
+      name: Sign the published non-root Docker image using keyless method
+      shell: sh
+      run: |
+        cosign sign "${{ env.nonroot_image_name }}" --yes
+
+    - if: inputs.verify-signature == 'true'
+      name: Verify the signature of the published non-root Docker image using keyless
+      shell: sh
+      run: |
+        cosign verify "${{ env.nonroot_image_name }}" \
+        --certificate-oidc-issuer ${{ env.oidc-issuer }} \
+        --certificate-identity "${{ env.oidc-identity }}"

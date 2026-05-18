@@ -1,0 +1,24 @@
+[Network]
+selected_networks = ["POLYGON_AMOY"]
+
+[POLYGON_AMOY.VRFv2.General]
+use_existing_env = true
+
+[POLYGON_AMOY.VRFv2.ExistingEnv]
+coordinator_address = "0x919BEF67CE94604A7Cd5747F2c0088C8EB8A93aa"
+consumer_address = ""
+sub_id = ""
+key_hash = "0xcd9c54d52db91522b69fe8ddc40d1f78156795de0efb2adbc053a438b9ee14a6"
+create_fund_subs_and_add_consumers = true
+node_sending_key_funding_min = 10
+node_sending_keys = [
+    "0xD4B787C4ce6E04c16b5FDce2c25956b8F4432195",
+    #    BHS
+    "0x638372de870eF0F8E675A3f67F18D5bd4A2fd804",
+    "0xF9eF03816411D037202d5ed4457dC1613e3bd729",
+    "0xCD66973f8fbaE787211EC20228c6bd90D83562A8",
+    "0x242ea1F4Bb72EF643B2D8EF22e18a89f00742F40",
+    "0xaA09B4F9B5710b239fdbf1D0f535dd7f86F91219",
+    "0xe6b72B647B8B45C5562F7a5259E187889C747d3b",
+    "0x2c1185C4d3B0B4a577d4079Ee193A4e293164D9d"
+]

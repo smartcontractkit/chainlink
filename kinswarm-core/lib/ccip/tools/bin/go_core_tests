@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -o pipefail
+set +e
+
+SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
+OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
+USE_TEE="${USE_TEE:-true}"
+
+# To allow reuse in CI from other repositories
+TOOLS_PATH=${TOOLS_PATH:-"./tools"}
+
+echo "Failed tests and panics: ---------------------"
+echo ""
+GO_LDFLAGS=$(bash ${TOOLS_PATH}/bin/ldflags)
+use_tee() {
+  if [ "$USE_TEE" = "true" ]; then
+    tee "$@"
+  else
+    cat > "$@"
+  fi
+}
+go test -json -ldflags "$GO_LDFLAGS" -tags integration $TEST_FLAGS -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt $1 | use_tee $OUTPUT_FILE
+EXITCODE=${PIPESTATUS[0]}
+
+# Assert no known sensitive strings present in test logger output
+printf "\n----------------------------------------------\n\n"
+echo "Beginning check of output logs for sensitive strings"
+$SCRIPT_PATH/scrub_logs $OUTPUT_FILE
+if [[ $? != 0 ]]; then
+  exit 1
+fi
+
+echo "Exit code: $EXITCODE"
+if [[ $EXITCODE != 0 ]]; then
+  echo "Encountered test failures."
+else
+  echo "All tests passed!"
+fi
+echo "go_core_tests exiting with code $EXITCODE"
+exit $EXITCODE
