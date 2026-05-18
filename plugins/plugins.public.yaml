@@ -10,7 +10,7 @@ defaults:
 plugins:
   aptos:
     - moduleURI: "github.com/smartcontractkit/chainlink-aptos"
-      gitRef: "v0.0.0-20260507123701-77fc93b573bb"
+      gitRef: "v0.0.0-20260518211324-c2a8d09e5b46"
       installPath: "./cmd/chainlink-aptos"
 
   sui:
