@@ -57,10 +57,11 @@ func TestProposeStandardCapabilityJob_Apply(t *testing.T) {
 	env := testEnv.Env
 
 	input := jobs.ProposeStandardCapabilityJobInput{
-		JobName: "cron-cap-job",
-		Command: "cron",
-		DONName: "test-don",
-		Domain:  offchain.ProductLabel,
+		JobName:     "cron-cap-job",
+		Command:     "cron",
+		DONName:     "test-don",
+		Domain:      offchain.ProductLabel,
+		Environment: "test",
 		DONFilters: []offchain.TargetDONFilter{
 			{Key: offchain.FilterKeyDONName, Value: test.DONName},
 			{Key: "environment", Value: "test"},
@@ -88,6 +89,7 @@ func TestProposeStandardCapabilityJob_Apply_HTTPTrigger(t *testing.T) {
 		ExternalJobID: "http-trigger-external-id",
 		DONName:       test.DONName,
 		Domain:        offchain.ProductLabel,
+		Environment:   "test",
 		DONFilters: []offchain.TargetDONFilter{
 			{Key: offchain.FilterKeyDONName, Value: test.DONName},
 			{Key: "environment", Value: "test"},
@@ -125,6 +127,7 @@ func TestProposeStandardCapabilityJob_Apply_HTTPAction(t *testing.T) {
 		ExternalJobID: "http-action-external-id",
 		DONName:       test.DONName,
 		Domain:        offchain.ProductLabel,
+		Environment:   "test",
 		DONFilters: []offchain.TargetDONFilter{
 			{Key: offchain.FilterKeyDONName, Value: test.DONName},
 			{Key: "environment", Value: "test"},

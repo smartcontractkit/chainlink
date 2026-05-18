@@ -12,8 +12,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	seq "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/solana/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/solana/sequence/operation"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
@@ -124,7 +124,7 @@ type SetCacheUpgradeAuthorityRequest struct {
 	NewUpgradeAuthority string // Use string for consistency with solana.PublicKey.String()
 	Qualifier           string
 	Version             string
-	MCMS                *proposalutils.TimelockConfig // if set, assumes current upgrade authority is the timelock
+	MCMS                *cldfproposalutils.TimelockConfig // if set, assumes current upgrade authority is the timelock
 }
 
 var _ cldf.ChangeSetV2[*SetCacheUpgradeAuthorityRequest] = SetCacheUpgradeAuthority{}
@@ -200,7 +200,7 @@ type InitCacheDecimalReportRequest struct {
 	ChainSel  uint64
 	Version   string
 	Qualifier string
-	MCMS      *proposalutils.TimelockConfig // if set, assumes current ownership
+	MCMS      *cldfproposalutils.TimelockConfig // if set, assumes current ownership
 	DataIDs   []string
 	FeedAdmin solana.PublicKey
 }

@@ -21,6 +21,7 @@ import (
 	relaytypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	lloconfig "github.com/smartcontractkit/chainlink-data-streams/llo/config"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink-data-streams/rpc"
@@ -28,6 +29,7 @@ import (
 	config2 "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	evmllo "github.com/smartcontractkit/chainlink-evm/pkg/llo"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evmmercury "github.com/smartcontractkit/chainlink-evm/pkg/mercury"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
@@ -35,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/mercurytransmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
-	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 )
 
 var _ commontypes.LLOProvider = (*lloProvider)(nil)
@@ -291,7 +292,7 @@ func (p *lloProvider) ShouldRetireCache() llotypes.ShouldRetireCache {
 
 // wrapper is needed to turn mercury config poller into a service
 type mercuryConfigPollerWrapper struct {
-	*mercury.ConfigPoller
+	*evmmercury.ConfigPoller
 	services.Service
 	eng *services.Engine
 
@@ -299,7 +300,7 @@ type mercuryConfigPollerWrapper struct {
 	fromBlock uint64
 }
 
-func newMercuryConfigPollerWrapper(lggr logger.Logger, cp *mercury.ConfigPoller, fromBlock uint64, runReplay bool) *mercuryConfigPollerWrapper {
+func newMercuryConfigPollerWrapper(lggr logger.Logger, cp *evmmercury.ConfigPoller, fromBlock uint64, runReplay bool) *mercuryConfigPollerWrapper {
 	w := &mercuryConfigPollerWrapper{cp, nil, nil, runReplay, fromBlock}
 	w.Service, w.eng = services.Config{
 		Name:  "LLOMercuryConfigWrapper",
@@ -334,7 +335,7 @@ func newLLOConfigPollers(ctx context.Context, lggr logger.Logger, cc evmllo.Conf
 		// NOTE: This uses the old config digest prefix for compatibility with legacy contracts
 		configDigester = mercury.NewOffchainConfigDigester(donIDHash, chainID, configuratorAddress, ocrtypes.ConfigDigestPrefixMercuryV02)
 		// Mercury config poller will register its own filter
-		mcp, err := mercury.NewConfigPoller(
+		mcp, err := evmmercury.NewConfigPoller(
 			ctx,
 			lggr,
 			lp,

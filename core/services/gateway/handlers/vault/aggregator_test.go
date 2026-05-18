@@ -287,3 +287,119 @@ func TestAggregator_QuorumUnobtainable(t *testing.T) {
 	_, err := agg.Aggregate(t.Context(), logger.Test(t), responses, resp3)
 	require.ErrorContains(t, err, "failed to validate using quorum: quorum unobtainable")
 }
+
+func makeDONWithNodesForTest(t *testing.T, name string, id uint32, f uint8, memberOffset byte, nodeCount int) capabilities.DONWithNodes {
+	t.Helper()
+	nodes := make([]capabilities.Node, nodeCount)
+	members := make([]p2ptypes.PeerID, nodeCount)
+	for i := 0; i < nodeCount; i++ {
+		pid := p2ptypes.PeerID{}
+		pid[0] = memberOffset + byte(i)
+		pid[1] = byte(i)
+		nodes[i] = capabilities.Node{PeerID: &pid, Signer: [32]byte{}}
+		members[i] = pid
+	}
+	return capabilities.DONWithNodes{
+		DON: capabilities.DON{
+			Name:    name,
+			ID:      id,
+			F:       f,
+			Members: members,
+		},
+		Nodes: nodes,
+	}
+}
+
+func TestAggregator_MultipleRegistryDONs_SelectsByVaultHandlerDonName(t *testing.T) {
+	donOther := makeDONWithNodesForTest(t, "staging-vault", 1, 2, 0x10, 7)
+	donMine := makeDONWithNodesForTest(t, "cre-reliability-vault", 2, 1, 0x20, 4)
+	mcr := &mockCapabilitiesRegistry{DONs: []capabilities.DONWithNodes{donOther, donMine}}
+	agg := &baseAggregator{
+		capabilitiesRegistry: mcr,
+		vaultHandlerDonID:    "cre-reliability-vault",
+	}
+
+	rm := json.RawMessage([]byte(`{}`))
+	currResp := jsonrpc.Response[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      "1",
+		Method:  vaulttypes.MethodSecretsCreate,
+		Result:  &rm,
+	}
+	responses := map[string]jsonrpc.Response[json.RawMessage]{
+		"a": currResp,
+		"b": currResp,
+		"c": currResp,
+	}
+	resp, err := agg.Aggregate(t.Context(), logger.Test(t), responses, &currResp)
+	require.NoError(t, err)
+	require.Equal(t, currResp.ID, resp.ID)
+}
+
+func TestAggregator_MultipleRegistryDONs_SelectsByIDWhenNameEmpty(t *testing.T) {
+	donOther := makeDONWithNodesForTest(t, "", 1, 2, 0x10, 7)
+	donMine := makeDONWithNodesForTest(t, "", 99, 1, 0x20, 4)
+	mcr := &mockCapabilitiesRegistry{DONs: []capabilities.DONWithNodes{donOther, donMine}}
+	agg := &baseAggregator{
+		capabilitiesRegistry: mcr,
+		vaultHandlerDonID:    "99",
+	}
+
+	rm := json.RawMessage([]byte(`{}`))
+	currResp := jsonrpc.Response[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      "1",
+		Method:  vaulttypes.MethodSecretsCreate,
+		Result:  &rm,
+	}
+	responses := map[string]jsonrpc.Response[json.RawMessage]{
+		"a": currResp,
+		"b": currResp,
+		"c": currResp,
+	}
+	resp, err := agg.Aggregate(t.Context(), logger.Test(t), responses, &currResp)
+	require.NoError(t, err)
+	require.Equal(t, currResp.ID, resp.ID)
+}
+
+func TestAggregator_MultipleRegistryDONs_NoMatchingVaultHandlerDonId(t *testing.T) {
+	donA := makeDONWithNodesForTest(t, "don-a", 1, 1, 0x10, 4)
+	donB := makeDONWithNodesForTest(t, "don-b", 2, 1, 0x20, 4)
+	mcr := &mockCapabilitiesRegistry{DONs: []capabilities.DONWithNodes{donA, donB}}
+	agg := &baseAggregator{
+		capabilitiesRegistry: mcr,
+		vaultHandlerDonID:    "unknown-vault",
+	}
+
+	rm := json.RawMessage([]byte(`{}`))
+	currResp := jsonrpc.Response[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      "1",
+		Method:  vaulttypes.MethodSecretsCreate,
+		Result:  &rm,
+	}
+	responses := map[string]jsonrpc.Response[json.RawMessage]{"a": currResp}
+	_, err := agg.Aggregate(t.Context(), logger.Test(t), responses, &currResp)
+	require.ErrorContains(t, err, "none match vault handler DonId")
+}
+
+func TestAggregator_MultipleRegistryDONs_AmbiguousMatchingVaultHandlerDonId(t *testing.T) {
+	donA := makeDONWithNodesForTest(t, "same-name", 1, 1, 0x10, 4)
+	donB := makeDONWithNodesForTest(t, "same-name", 2, 1, 0x20, 4)
+	mcr := &mockCapabilitiesRegistry{DONs: []capabilities.DONWithNodes{donA, donB}}
+	agg := &baseAggregator{
+		capabilitiesRegistry: mcr,
+		vaultHandlerDonID:    "same-name",
+	}
+
+	rm := json.RawMessage([]byte(`{}`))
+	currResp := jsonrpc.Response[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      "1",
+		Method:  vaulttypes.MethodSecretsCreate,
+		Result:  &rm,
+	}
+	responses := map[string]jsonrpc.Response[json.RawMessage]{"a": currResp}
+	_, err := agg.Aggregate(t.Context(), logger.Test(t), responses, &currResp)
+	require.ErrorContains(t, err, "2 DONs match vault handler DonId")
+}

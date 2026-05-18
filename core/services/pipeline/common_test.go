@@ -137,6 +137,14 @@ func TestUnmarshalTaskFromMap(t *testing.T) {
 		require.EqualError(t, err, `UnmarshalTaskFromMap: unknown task type: "xxx"`)
 	})
 
+	t.Run("legacy vrf pipeline task type is rejected", func(t *testing.T) {
+		taskMap := map[string]string{}
+		_, err := pipeline.UnmarshalTaskFromMap(pipeline.TaskTypeVRF, taskMap, 0, "foo-dot-id")
+		require.ErrorContains(t, err, `UnmarshalTaskFromMap: pipeline task type "vrf"`)
+		require.ErrorContains(t, err, "has been removed")
+		require.ErrorContains(t, err, "vrfv2 or vrfv2plus")
+	})
+
 	tests := []struct {
 		taskType         pipeline.TaskType
 		expectedTaskType any
@@ -154,7 +162,6 @@ func TestUnmarshalTaskFromMap(t *testing.T) {
 		{pipeline.TaskTypeJSONParse, &pipeline.JSONParseTask{}},
 		{pipeline.TaskTypeCBORParse, &pipeline.CBORParseTask{}},
 		{pipeline.TaskTypeAny, &pipeline.AnyTask{}},
-		{pipeline.TaskTypeVRF, &pipeline.VRFTask{}},
 		{pipeline.TaskTypeVRFV2, &pipeline.VRFTaskV2{}},
 		{pipeline.TaskTypeVRFV2Plus, &pipeline.VRFTaskV2Plus{}},
 		{pipeline.TaskTypeEstimateGasLimit, &pipeline.EstimateGasLimitTask{}},

@@ -9,8 +9,11 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/stretchr/testify/require"
+
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -20,12 +23,12 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/example"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
@@ -209,16 +212,16 @@ func TestTransferFromTimelockConfig_Apply(t *testing.T) {
 
 	// Deploy MCMS and Timelock
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2), map[uint64]types.MCMSWithTimelockConfigV2{
-			selector: proposalutils.SingleGroupTimelockConfigV2(t),
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
+			selector: cldftesthelpers.SingleGroupTimelockConfig(t),
 		}),
 	)
 	require.NoError(t, err)
 
 	// Fund the signer PDAs for the MCMS contracts
 	mcmState := soltestutils.GetMCMSStateFromAddressBook(t, rt.State().AddressBook, chain)
-	timelockSigner := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
-	mcmSigner := state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
+	timelockSigner := pdasol.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	mcmSigner := pdasol.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
 
 	err = solutils.FundAccounts(t.Context(), chain.Client, []solana.PublicKey{timelockSigner, mcmSigner, chain.DeployerKey.PublicKey()}, 150)
 	require.NoError(t, err)
@@ -231,7 +234,7 @@ func TestTransferFromTimelockConfig_Apply(t *testing.T) {
 
 	err = rt.Exec(
 		runtime.ChangesetTask(example.TransferFromTimelock{}, example.TransferFromTimelockConfig{
-			TimelockCfg: proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+			TimelockCfg: cldfproposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 			AmountsPerChain: map[uint64]example.TransferData{
 				selector: cfgAmounts,
 			},

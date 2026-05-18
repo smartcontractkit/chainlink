@@ -2,6 +2,7 @@ package cre
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -30,6 +31,14 @@ func (wfRegStorageStub) ArtifactStorageHost() string { return "" }
 func (wfRegStorageStub) URL() string                 { return "" }
 func (wfRegStorageStub) TLSEnabled() bool            { return false }
 
+type wfRegModuleCacheStub struct{}
+
+func (wfRegModuleCacheStub) Enabled() bool              { return false }
+func (wfRegModuleCacheStub) IdleEviction() bool         { return true }
+func (wfRegModuleCacheStub) IdleTimeout() time.Duration { return 10 * time.Minute }
+func (wfRegModuleCacheStub) MaxLoaded() int             { return 200 }
+func (wfRegModuleCacheStub) CacheDir() string           { return "" }
+
 func (w wfRegTestStub) Address() string                         { return w.addr }
 func (w wfRegTestStub) NetworkID() string                       { return "" }
 func (w wfRegTestStub) ChainID() string                         { return "" }
@@ -41,6 +50,7 @@ func (w wfRegTestStub) RelayID() commontypes.RelayID            { return commont
 func (w wfRegTestStub) SyncStrategy() string                    { return "" }
 func (w wfRegTestStub) MaxConcurrency() int                     { return 0 }
 func (w wfRegTestStub) WorkflowStorage() config.WorkflowStorage { return wfRegStorageStub{} }
+func (w wfRegTestStub) ModuleCache() config.ModuleCache         { return wfRegModuleCacheStub{} }
 func (w wfRegTestStub) AdditionalSources() []config.AdditionalWorkflowSource {
 	out := make([]config.AdditionalWorkflowSource, len(w.additionalURLs))
 	for i, u := range w.additionalURLs {

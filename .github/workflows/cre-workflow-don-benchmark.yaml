@@ -8,7 +8,7 @@ on:
         type: string
         description: "The tag of the Chainlink image to use for the tests."
       chainlink_version:
-        required: true
+        required: false # defaulted
         type: string
         description: "The version of Chainlink repository to use for the tests."
         default: "develop"
@@ -19,7 +19,7 @@ on:
         type: string
         description: "The tag of the Chainlink image to use for the tests."
       chainlink_version:
-        required: true
+        required: false # defaulted
         type: string
         description: "The version of Chainlink repository to use for the tests."
         default: "develop"
@@ -69,7 +69,7 @@ jobs:
       - name: Set date variable
         id: set-date
         if: ${{ github.event_name == 'pull_request' }}
-        run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+        run: echo "date=$(date +'%Y%m%d')" >> "${GITHUB_OUTPUT}"
 
       - name: Build Image
         if: github.event_name == 'pull_request'
@@ -159,9 +159,9 @@ jobs:
             regression_count=0
           fi
 
-          echo "regression_count=${regression_count}" >> $GITHUB_OUTPUT
+          echo "regression_count=${regression_count}" >> "${GITHUB_OUTPUT}"
 
-          if [ $regression_count -gt 0 ]; then
+          if [ "${regression_count}" -gt 0 ]; then
             echo "::warning::$regression_count performance regressions detected"
             echo "See the regression_reports artifact for details"
             # Extract detailed PERFORMANCE REGRESSION lines
@@ -202,7 +202,7 @@ jobs:
           REGRESSION_DETAILS=$(cat logs/regression_details.txt)
 
           # Create JSON payload with properly escaped details
-          cat > $GITHUB_WORKSPACE/slack_payload.json << EOF
+          cat > "${GITHUB_WORKSPACE}/slack_payload.json" << EOF
           {
             "channel": "C094W1V9A5N",
             "text": "Performance Regressions Detected",
@@ -272,3 +272,4 @@ jobs:
       - name: Teardown
         if: always()
         run: |
+          echo "TODO - teardown"

@@ -15,6 +15,7 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -209,6 +210,8 @@ func (s *Services) newSubservices(
 			relayService := confidentialrelay.NewService(
 				gatewayConnectorWrapper,
 				opts.CapabilitiesRegistry,
+				keyStore.P2P(),
+				confidentialRelayPeerID(cfg, capCfg),
 				lggr,
 				opts.LimitsFactory,
 			)
@@ -300,6 +303,15 @@ func (s *Services) newSubservices(
 	srvs = append(srvs, wfSyncerSrvcs...)
 
 	return srvs, nil
+}
+
+// Same peerID resolution pattern as core/services/standardcapabilities/delegate.go: prefer a
+// configured peerID, fall through to GetOrFirst(zero) so single-key nodes still resolve cleanly.
+func confidentialRelayPeerID(cfg Config, capCfg config.Capabilities) p2pkey.PeerID {
+	if id := capCfg.Peering().PeerID(); id != (p2pkey.PeerID{}) {
+		return id
+	}
+	return cfg.P2P().PeerID()
 }
 
 // Config is the minimal interface needed from GeneralConfig for CRE
@@ -930,13 +942,6 @@ func newWorkflowRegistrySyncerV2(
 		key,
 		custmsg.NewLabeler(),
 		lf,
-		artifactsV2.WithMaxArtifactSize(
-			artifactsV2.ArtifactConfig{
-				MaxBinarySize:  uint64(wfReg.MaxBinarySize()),
-				MaxSecretsSize: uint64(wfReg.MaxEncryptedSecretsSize()),
-				MaxConfigSize:  uint64(wfReg.MaxConfigSize()),
-			},
-		),
 		artifactsV2.WithConfig(artifactsV2.StoreConfig{
 			ArtifactStorageHost: wfReg.WorkflowStorage().ArtifactStorageHost(),
 		}),
@@ -991,6 +996,53 @@ func newWorkflowRegistrySyncerV2(
 		shardRoutingSteady = shardownership.NewSteadySignal(shardownership.WithSteadySignalMetrics(steadyMetrics))
 	}
 
+	handlerOpts := []syncerV2.EventHandlerOption{
+		syncerV2.WithBillingClient(billingClient),
+		syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), selector),
+		syncerV2.WithOrgResolver(orgResolver),
+		syncerV2.WithDebugMode(cfg.CRE().DebugMode()),
+		syncerV2.WithLocalSecretOverrides(lggr, cfg.CRE().LocalSecretOverrides()),
+		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled, shardIndex),
+		syncerV2.WithShardRoutingSteady(shardRoutingSteady),
+	}
+
+	mc := capCfg.WorkflowRegistry().ModuleCache()
+	if mc.Enabled() {
+		cm, cmErr := syncerV2.NewCacheMetrics()
+		if cmErr != nil {
+			return nil, nil, fmt.Errorf("unable to create module cache metrics: %w", cmErr)
+		}
+
+		fileStore, fsErr := artifactsV2.NewFileModuleStore(mc.CacheDir(), true)
+		if fsErr != nil {
+			return nil, nil, fmt.Errorf("unable to create file module store: %w", fsErr)
+		}
+
+		lruOpts := []func(*syncerV2.ModuleLRU){
+			syncerV2.WithMaxLoadedModules(mc.MaxLoaded()),
+			syncerV2.WithCacheMetrics(cm),
+		}
+		if mc.IdleEviction() {
+			lruOpts = append(lruOpts, syncerV2.WithIdleTimeout(mc.IdleTimeout()))
+		} else {
+			lruOpts = append(lruOpts, syncerV2.WithIdleTimeout(0))
+		}
+		moduleLRU := syncerV2.NewModuleLRU(clockwork.NewRealClock(), lruOpts...)
+
+		handlerOpts = append(handlerOpts,
+			syncerV2.WithModuleLRU(moduleLRU),
+			syncerV2.WithModuleStore(fileStore),
+			syncerV2.WithModuleCacheMetrics(cm),
+		)
+
+		lggr.Infow("Module cache enabled",
+			"idleEviction", mc.IdleEviction(),
+			"idleTimeout", mc.IdleTimeout(),
+			"maxLoaded", mc.MaxLoaded(),
+			"cacheDir", mc.CacheDir(),
+		)
+	}
+
 	eventHandler, err := syncerV2.NewEventHandler(
 		lggr,
 		workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock()),
@@ -1006,13 +1058,7 @@ func newWorkflowRegistrySyncerV2(
 		artifactsStore,
 		key,
 		workflowDonNotifier,
-		syncerV2.WithBillingClient(billingClient),
-		syncerV2.WithWorkflowRegistry(wfReg.Address(), selector),
-		syncerV2.WithOrgResolver(orgResolver),
-		syncerV2.WithDebugMode(cfg.CRE().DebugMode()),
-		syncerV2.WithLocalSecretOverrides(lggr, cfg.CRE().LocalSecretOverrides()),
-		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled, shardIndex),
-		syncerV2.WithShardRoutingSteady(shardRoutingSteady),
+		handlerOpts...,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)

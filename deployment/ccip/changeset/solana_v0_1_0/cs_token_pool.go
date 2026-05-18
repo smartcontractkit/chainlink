@@ -13,6 +13,7 @@ import (
 	solToken "github.com/gagliardetto/solana-go/programs/token"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
@@ -32,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // use this changeset to add a token pool and lookup table
@@ -113,7 +113,7 @@ type TokenPoolConfigWithMCM struct {
 	PoolType      cldf.ContractType
 	TokenPubKey   solana.PublicKey
 	Metadata      string
-	MCMS          *proposalutils.TimelockConfig
+	MCMS          *cldfproposalutils.TimelockConfig
 }
 
 func (cfg TokenPoolConfigWithMCM) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
@@ -129,7 +129,7 @@ type NewMintTokenPoolConfig struct {
 	PoolType         cldf.ContractType
 	TokenPubKey      solana.PublicKey
 	Metadata         string
-	MCMS             *proposalutils.TimelockConfig
+	MCMS             *cldfproposalutils.TimelockConfig
 	NewMintAuthority solana.PublicKey // new mint authority to set for the token pool
 }
 
@@ -386,7 +386,7 @@ type RemoteChainTokenPoolConfig struct {
 	EVMRemoteConfigs map[uint64]EVMRemoteConfig
 }
 
-func (cfg RemoteChainTokenPoolConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState, solChainSelector uint64, mcms *proposalutils.TimelockConfig) error {
+func (cfg RemoteChainTokenPoolConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState, solChainSelector uint64, mcms *cldfproposalutils.TimelockConfig) error {
 	chainState := state.SolChains[solChainSelector]
 	if err := chainState.CommonValidation(e, solChainSelector, cfg.SolTokenPubKey); err != nil {
 		return err
@@ -415,7 +415,7 @@ func (cfg RemoteChainTokenPoolConfig) Validate(e cldf.Environment, state statevi
 type SetupTokenPoolForRemoteChainConfig struct {
 	SolChainSelector       uint64
 	RemoteTokenPoolConfigs []RemoteChainTokenPoolConfig
-	MCMS                   *proposalutils.TimelockConfig
+	MCMS                   *cldfproposalutils.TimelockConfig
 }
 
 func (cfg SetupTokenPoolForRemoteChainConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -1056,7 +1056,7 @@ type ConfigureTokenPoolAllowListConfig struct {
 	// input only the ones you want to add, onchain throws error when we pass already configured accounts
 	Accounts []solana.PublicKey
 	Enabled  bool // enable or disable the allow list
-	MCMS     *proposalutils.TimelockConfig
+	MCMS     *cldfproposalutils.TimelockConfig
 }
 
 func (cfg ConfigureTokenPoolAllowListConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
@@ -1172,7 +1172,7 @@ type RemoveFromAllowListConfig struct {
 	PoolType       cldf.ContractType
 	Metadata       string             // tag to identify which client/cll token pool executable to use
 	Accounts       []solana.PublicKey // accounts to remove from allow list
-	MCMS           *proposalutils.TimelockConfig
+	MCMS           *cldfproposalutils.TimelockConfig
 }
 
 func (cfg RemoveFromAllowListConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
@@ -1285,7 +1285,7 @@ type LockReleaseLiquidityOpsConfig struct {
 	SetCfg         *SetLiquidityConfig
 	LiquidityCfg   *LiquidityConfig
 	RebalancerCfg  *RebalancerConfig
-	MCMS           *proposalutils.TimelockConfig
+	MCMS           *cldfproposalutils.TimelockConfig
 	Metadata       string
 }
 
@@ -1483,7 +1483,7 @@ type TokenPoolOpsCfg struct {
 	Metadata       string          // tag to identify which client/cll token pool executable to use
 	DeleteChainCfg *DeleteChainCfg // remove remote pool config corresponding to the set (solTokenPubKey, poolType, metadata, remoteChainSelector)
 	SetRouterCfg   *SetRouterCfg   // set router address on token pool config pda
-	MCMS           *proposalutils.TimelockConfig
+	MCMS           *cldfproposalutils.TimelockConfig
 }
 
 type DeleteChainCfg struct {

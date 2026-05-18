@@ -39,7 +39,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/client"
 )
@@ -263,7 +262,7 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 
 	forwarderF := (don.WorkersCount() - 1) / 3
 	if forwarderF == 0 {
-		if don.HasFlag(ConsensusCapability) || don.HasFlag(ConsensusCapabilityV2) {
+		if don.HasFlag(ConsensusCapability) {
 			return nil, fmt.Errorf("incorrect number of worker nodes: %d. Resulting F must conform to formula: mod((N-1)/3) > 0", don.WorkersCount())
 		}
 		// for other capabilities, we can use 1 as F
@@ -372,7 +371,7 @@ func NewNode(ctx context.Context, name string, nodeMetadata *NodeMetadata, ctfNo
 		Email:       ctfNode.Node.APIAuthUser,
 		Password:    ctfNode.Node.APIAuthPassword,
 		InternalIP:  ctfNode.Node.InternalIP,
-		HTTPTimeout: ptr.Ptr(10 * time.Second),
+		HTTPTimeout: new(10 * time.Second),
 	})
 	if cErr != nil {
 		return nil, fmt.Errorf("failed to create node rest client: %w", cErr)
@@ -702,6 +701,7 @@ func (n *Node) RegisterNodeToJobDistributor(ctx context.Context, cldfEnv *cldf.E
 
 	in := offchain_ops.JDRegisterNodeOpInput{
 		Domain:      cre_offchain.ProductLabel,
+		Environment: cldfEnv.Name,
 		Name:        n.Name,
 		CSAKey:      strings.TrimPrefix(n.Keys.CSAKey.Key, "csa_"),
 		P2PID:       n.PeerID(),

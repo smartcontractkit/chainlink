@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1"
 	depcontracts "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1/changeset/operations/contracts"
 	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -146,15 +145,15 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, regist
 
 	// enable workflow registry syncer
 	typedConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
-		Address:         ptr.Ptr(workflowRegistryAddress.Hex()),
-		NetworkID:       ptr.Ptr("evm"),
-		ChainID:         ptr.Ptr(strconv.FormatUint(registryChainID, 10)),
-		SyncStrategy:    ptr.Ptr("reconciliation"),
-		ContractVersion: ptr.Ptr(wfRegVersion.String()),
+		Address:         new(workflowRegistryAddress.Hex()),
+		NetworkID:       new("evm"),
+		ChainID:         new(strconv.FormatUint(registryChainID, 10)),
+		SyncStrategy:    new("reconciliation"),
+		ContractVersion: new(wfRegVersion.String()),
 	}
 	typedConfig.CRE.Linking = &coretoml.LinkingConfig{
-		URL:        ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":18124"),
-		TLSEnabled: ptr.Ptr(false),
+		URL:        new(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":18124"),
+		TLSEnabled: new(false),
 	}
 
 	stringifiedConfig, mErr := toml.Marshal(typedConfig)
@@ -162,7 +161,7 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, regist
 		return nil, errors.Wrapf(mErr, "failed to marshal config for node index %d", workerNode.Index)
 	}
 
-	return ptr.Ptr(string(stringifiedConfig)), nil
+	return new(string(stringifiedConfig)), nil
 }
 
 func configureWorkersNodeConfig(don *cre.DonMetadata, registryChainID uint64, workflowRegistryAddress common.Address, wfRegVersion *semver.Version) error {
@@ -462,7 +461,7 @@ func deployVaultContracts(testLogger zerolog.Logger, qualifier string, registryC
 
 	env.DataStore = memoryDatastore.Seal()
 
-	return ptr.Ptr(common.HexToAddress(vaultOCR3Addr)), ptr.Ptr(common.HexToAddress(vaultDKGOCR3Addr)), nil
+	return new(common.HexToAddress(vaultOCR3Addr)), new(common.HexToAddress(vaultDKGOCR3Addr)), nil
 }
 
 func dkgReportingPluginConfig(don *cre.Don) (*dkgocrtypes.ReportingPluginConfig, error) {

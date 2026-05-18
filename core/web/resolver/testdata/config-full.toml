@@ -149,8 +149,8 @@ DefaultTimeout = '1m0s'
 MaxSize = '100.00mb'
 
 [FluxMonitor]
-DefaultTransactionQueueDepth = 100
-SimulateTransactions = true
+DefaultTransactionQueueDepth = 1
+SimulateTransactions = false
 
 [OCR2]
 Enabled = true
@@ -329,6 +329,13 @@ AdditionalSources = []
 ArtifactStorageHost = ''
 URL = ''
 TLSEnabled = true
+
+[Capabilities.WorkflowRegistry.ModuleCache]
+Enabled = false
+IdleEviction = true
+IdleTimeout = '10m0s'
+MaxLoaded = 200
+CacheDir = ''
 
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = '11155111'

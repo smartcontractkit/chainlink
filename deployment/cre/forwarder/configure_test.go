@@ -28,6 +28,7 @@ func TestConfigureForwardersSeq(t *testing.T) {
 	}
 	input := forwarder.ConfigureSeqInput{
 		DON:        donConfig,
+		Qualifier:  "test-configure-forwarder",
 		MCMSConfig: nil,
 		Chains:     map[uint64]struct{}{}, // Empty means all chains
 	}
@@ -48,6 +49,7 @@ func TestConfigureForwarders(t *testing.T) {
 	t.Log("Starting configure changeset application...")
 	changesetOutput, err := forwarder.ConfigureForwarders{}.Apply(*env, forwarder.ConfigureSeqInput{
 		DON:        donConfig,
+		Qualifier:  "test-configure-forwarder",
 		MCMSConfig: nil, // Not using MCMS for this test
 		Chains:     map[uint64]struct{}{registryChainSel: {}},
 	})
@@ -68,7 +70,8 @@ func TestConfigureForwarders_WithMCMS(t *testing.T) {
 	// Test the durable pipeline wrapper
 	t.Log("Starting configure changeset application with MCMS...")
 	changesetOutput, err := forwarder.ConfigureForwarders{}.Apply(*env, forwarder.ConfigureSeqInput{
-		DON: donConfig,
+		DON:       donConfig,
+		Qualifier: "test-configure-forwarder",
 		MCMSConfig: &contracts.MCMSConfig{
 			MinDelay: 10 * time.Second,
 			TimelockQualifierPerChain: map[uint64]string{
@@ -137,6 +140,7 @@ func TestConfigureForwarders_SpecificChains(t *testing.T) {
 	t.Log("Starting configure changeset application for specific chains...")
 	changesetOutput, err := forwarder.ConfigureForwarders{}.Apply(*env, forwarder.ConfigureSeqInput{
 		DON:        donConfig,
+		Qualifier:  "test-configure-specific-chains",
 		MCMSConfig: nil,
 		Chains:     specificChains, // Only configure for registry chain
 	})
@@ -148,6 +152,53 @@ func TestConfigureForwarders_SpecificChains(t *testing.T) {
 	require.NotNil(t, changesetOutput.Reports, "reports should be present")
 	require.Empty(t, changesetOutput.MCMSTimelockProposals, "should not have MCMS proposals when not using MCMS")
 	require.NotEmpty(t, changesetOutput.Reports, "should have at least one report for the configured chain")
+}
+
+func TestConfigureForwarders_SameQualifierAcrossChains(t *testing.T) {
+	envWrapper := test.SetupEnvV2(t, false)
+	env := envWrapper.Env
+
+	allChains := make([]uint64, 0)
+	for chainSel := range env.BlockChains.EVMChains() {
+		allChains = append(allChains, chainSel)
+	}
+
+	b := optest.NewBundle(t)
+	deps := forwarder.DeploySequenceDeps{
+		Env: env,
+	}
+	input := forwarder.DeploySequenceInput{
+		Targets:   allChains,
+		Qualifier: "test-configure-shared-qualifier",
+	}
+
+	got, err := operations.ExecuteSequence(b, forwarder.DeploySequence, deps, input)
+	require.NoError(t, err)
+
+	addrRefs, err := got.Output.Addresses.Fetch()
+	require.NoError(t, err)
+	require.Len(t, addrRefs, len(input.Targets))
+	require.NotEmpty(t, got.Output.Datastore)
+
+	env.DataStore = got.Output.Datastore
+
+	donConfig := forwarder.DonConfiguration{
+		Name:    "testDONSharedQualifier",
+		ID:      4,
+		F:       1,
+		Version: 1,
+		NodeIDs: env.NodeIDs,
+	}
+
+	changesetOutput, err := forwarder.ConfigureForwarders{}.Apply(*env, forwarder.ConfigureSeqInput{
+		DON:        donConfig,
+		Qualifier:  "test-configure-shared-qualifier",
+		MCMSConfig: nil,
+		Chains:     map[uint64]struct{}{},
+	})
+	require.NoError(t, err, "changeset apply failed")
+	require.NotNil(t, changesetOutput, "changeset output should not be nil")
+	require.NotEmpty(t, changesetOutput.Reports, "should have reports for configured chains")
 }
 
 // setupForwarderTest is a helper function to reduce duplication in configure tests

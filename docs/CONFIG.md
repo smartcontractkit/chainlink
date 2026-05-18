@@ -987,20 +987,20 @@ MaxSize defines the maximum size for HTTP requests and responses made by `http` 
 DefaultTransactionQueueDepth = 1 # Default
 SimulateTransactions = false # Default
 ```
-
+Deprecated: FluxMonitor job type has been removed. These settings are accepted for backwards-compatible
+config parsing only and have no effect.
 
 ### DefaultTransactionQueueDepth
-:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
 DefaultTransactionQueueDepth = 1 # Default
 ```
-DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in Flux Monitor. Set to 0 to use `SendEvery` strategy instead.
+DefaultTransactionQueueDepth **DEPRECATED**: has no effect. The FluxMonitor job type has been removed.
 
 ### SimulateTransactions
 ```toml
 SimulateTransactions = false # Default
 ```
-SimulateTransactions enables transaction simulation for Flux Monitor.
+SimulateTransactions **DEPRECATED**: has no effect. The FluxMonitor job type has been removed.
 
 ## OCR2
 ```toml
@@ -1520,6 +1520,50 @@ TLSEnabled enables TLS for the GRPC connection. Defaults to true.
 Name = 'my-workflow-source' # Example
 ```
 Name is a required unique identifier for this workflow source. Each additional source must have a distinct name to prevent workflow reconciliation conflicts. Names like 'ContractWorkflowSource' are reserved for internal use.
+
+## Capabilities.WorkflowRegistry.ModuleCache
+```toml
+[Capabilities.WorkflowRegistry.ModuleCache]
+Enabled = false # Default
+IdleEviction = true # Default
+IdleTimeout = '10m' # Default
+MaxLoaded = 200 # Default
+CacheDir = '' # Default
+```
+
+
+### Enabled
+```toml
+Enabled = false # Default
+```
+Enabled activates the two-level module cache (LRU + disk). When true, compiled WASM modules
+are kept in memory and persisted to disk, avoiding recompilation on subsequent activations.
+
+### IdleEviction
+```toml
+IdleEviction = true # Default
+```
+IdleEviction enables time-based eviction of modules unused for IdleTimeout.
+
+### IdleTimeout
+```toml
+IdleTimeout = '10m' # Default
+```
+IdleTimeout is how long a module can remain idle before being evicted from memory.
+Only applies when IdleEviction = true.
+
+### MaxLoaded
+```toml
+MaxLoaded = 200 # Default
+```
+MaxLoaded caps the number of simultaneously loaded modules. When exceeded the least-recently-used
+module is evicted immediately. 0 means no cap.
+
+### CacheDir
+```toml
+CacheDir = '' # Default
+```
+CacheDir is the directory for serialised module binaries. Empty uses a temp directory.
 
 ## Workflows
 ```toml

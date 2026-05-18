@@ -95,22 +95,26 @@ RUN --mount=type=cache,target=/root/.cache/go-build,id=go-build-chainlink \
 ##
 # Final Image
 ##
-FROM ubuntu:24.04
+FROM ubuntu:24.04 AS final
 
 ARG CHAINLINK_USER=root
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y ca-certificates gnupg lsb-release curl && rm -rf /var/lib/apt/lists/*
 
 # Install Postgres for CLI tools, needed specifically for DB backups
-RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
-  && echo "deb http://apt.postgresql.org/pub/repos/apt/ `lsb_release -cs`-pgdg main" |tee /etc/apt/sources.list.d/pgdg.list \
-  && apt-get update && apt-get install -y postgresql-client-16 \
-  && rm -rf /var/lib/apt/lists/*
+RUN curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+      | gpg --dearmor -o /usr/share/keyrings/postgresql-archive-keyring.gpg \
+    && gpg --no-default-keyring \
+           --keyring /usr/share/keyrings/postgresql-archive-keyring.gpg \
+           --fingerprint B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8 \
+    && echo "deb [signed-by=/usr/share/keyrings/postgresql-archive-keyring.gpg] \
+       https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+       > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update && apt-get install -y postgresql-client-16 \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN if [ ${CHAINLINK_USER} != root ]; then useradd --uid 14933 --create-home ${CHAINLINK_USER}; fi
 USER ${CHAINLINK_USER}
-
-COPY --from=build-delve /go/bin/dlv /usr/local/bin/dlv
 
 # Expose image metadata to the running node.
 ARG CL_AUTO_DOCKER_TAG=unset
@@ -146,3 +150,7 @@ EXPOSE 6688
 ENTRYPOINT ["chainlink"]
 HEALTHCHECK CMD curl -f http://localhost:6688/health || exit 1
 CMD ["local", "node"]
+
+FROM final AS debug
+
+COPY --from=build-delve /go/bin/dlv /usr/local/bin/dlv

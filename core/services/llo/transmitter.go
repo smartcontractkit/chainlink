@@ -12,9 +12,10 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/chainlink-data-streams/llo/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/cre"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/mercurytransmitter"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
