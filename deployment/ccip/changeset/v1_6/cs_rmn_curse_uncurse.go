@@ -17,6 +17,7 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	aptosCCIP "github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	aptosOffRamp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
@@ -26,7 +27,9 @@ import (
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	aptosUtils "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
@@ -37,7 +40,6 @@ import (
 	aptosstateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 var (
@@ -57,7 +59,7 @@ type RMNCurseAction struct {
 type CurseAction func(e cldf.Environment) ([]RMNCurseAction, error)
 
 type RMNCurseConfig struct {
-	MCMS         *proposalutils.TimelockConfig
+	MCMS         *cldfproposalutils.TimelockConfig
 	CurseActions []CurseAction
 	// Use this if you need to include lanes that are not in sourcechain in the offramp. i.e. not yet migrated lane from 1.5
 	IncludeNotConnectedLanes bool
@@ -481,9 +483,9 @@ func RMNCurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.ChangesetOu
 	}
 	proposals := partialOut.MCMSTimelockProposals
 	proposals = append(proposals, aptosProposals...)
-	aggProposal, err := proposalutils.AggregateProposalsV2(
+	aggProposal, err := proposeutils.AggregateProposalsV2(
 		e,
-		proposalutils.MCMSStates{
+		proposeutils.MCMSStates{
 			MCMSEVMState:    state.EVMMCMSStateByChain(),
 			MCMSSolanaState: state.SolanaMCMSStateByChain(e),
 			MCMSAptosState:  state.AptosMCMSStateByChain(),
@@ -615,9 +617,9 @@ func RMNUncurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.Changeset
 	}
 	proposals := partialOut.MCMSTimelockProposals
 	proposals = append(proposals, aptosProposals...)
-	aggProposal, err := proposalutils.AggregateProposalsV2(
+	aggProposal, err := proposeutils.AggregateProposalsV2(
 		e,
-		proposalutils.MCMSStates{
+		proposeutils.MCMSStates{
 			MCMSEVMState:    state.EVMMCMSStateByChain(),
 			MCMSSolanaState: state.SolanaMCMSStateByChain(e),
 			MCMSAptosState:  state.AptosMCMSStateByChain(),

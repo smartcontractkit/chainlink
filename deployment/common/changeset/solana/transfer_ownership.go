@@ -18,14 +18,16 @@ import (
 	accessControllerBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/access_controller"
 	mcmBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/mcm"
 
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
 	cldfsol "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -34,7 +36,7 @@ const maxAcceptInstructionsPerBatch = 5
 // TransferToTimelockSolanaConfig holds the configuration for an ownership transfer changeset
 type TransferToTimelockSolanaConfig struct {
 	ContractsByChain map[uint64][]OwnableContract
-	MCMSCfg          proposalutils.TimelockConfig
+	MCMSCfg          cldfproposalutils.TimelockConfig
 }
 
 type OwnableContract struct {
@@ -159,7 +161,7 @@ func (t *TransferToTimelockSolana) Apply(
 	}
 
 	// create timelock proposal with accept transactions
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(env, timelocks, proposers, inspectors,
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(env, timelocks, proposers, inspectors,
 		batches, "proposal to transfer ownership of contracts to timelock", cfg.MCMSCfg)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
@@ -183,7 +185,7 @@ type TransferOwnershipRequest struct {
 	CurrentOwner, ProposedOwner solana.PublicKey
 	Version                     string
 	Qualifier                   string
-	MCMSCfg                     proposalutils.TimelockConfig
+	MCMSCfg                     cldfproposalutils.TimelockConfig
 	ContractConfig              ContractConfig
 }
 
@@ -252,7 +254,7 @@ func GenericTransferOwnership(env cldf.Environment, req *TransferOwnershipReques
 	proposers[req.ChainSel] = mcmssolanasdk.ContractAddress(mcmsState.McmProgram, mcmssolanasdk.PDASeed(mcmsState.ProposerMcmSeed))
 
 	// Create timelock proposal
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(env, timelocks, proposers, inspectors,
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(env, timelocks, proposers, inspectors,
 		execOut.Output.Batches, fmt.Sprintf("proposal to transfer ownership of %s to timelock", req.ContractConfig.ContractType), req.MCMSCfg)
 	if err != nil {
 		return out, fmt.Errorf("failed to build proposal: %w", err)
@@ -294,7 +296,7 @@ type (
 
 	TransferToTimelockInput struct {
 		Contract OwnableContract
-		MCMSCfg  proposalutils.TimelockConfig
+		MCMSCfg  cldfproposalutils.TimelockConfig
 	}
 
 	TransferToTimelockOutput struct {
@@ -360,7 +362,7 @@ func TransferToTimelockSolanaOp(b operations.Bundle, deps Deps, in TransferToTim
 
 type TransferMCMSToTimelockSolanaConfig struct {
 	Chains  []uint64
-	MCMSCfg proposalutils.TimelockConfig
+	MCMSCfg cldfproposalutils.TimelockConfig
 }
 
 // TransferMCMSToTimelockSolana transfers set MCMS "contracts" to the timelock

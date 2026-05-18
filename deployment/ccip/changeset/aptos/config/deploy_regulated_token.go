@@ -4,8 +4,7 @@ import (
 	"errors"
 
 	"github.com/aptos-labs/aptos-go-sdk"
-
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 )
 
 // DeployRegulatedTokenConfig drives the regulated token publish + initialize +
@@ -19,7 +18,7 @@ type DeployRegulatedTokenConfig struct {
 	TokenMint     *TokenMint
 	// RegistrarPreregister is passed to DeployMCMSRegistrarToExistingObject (default true).
 	RegistrarPreregister *bool
-	MCMSConfig           *proposalutils.TimelockConfig
+	MCMSConfig           *cldfproposalutils.TimelockConfig
 }
 
 func (c DeployRegulatedTokenConfig) Validate() error {

@@ -19,9 +19,8 @@ import (
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
-
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 func TestTransferToMCMSToTimelockSolana(t *testing.T) {
@@ -48,7 +47,7 @@ func TestTransferToMCMSToTimelockSolana(t *testing.T) {
 	err = rt.Exec(
 		runtime.ChangesetTask(&TransferMCMSToTimelockSolana{}, TransferMCMSToTimelockSolanaConfig{
 			Chains:  []uint64{selector},
-			MCMSCfg: proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+			MCMSCfg: cldfproposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 		}),
 		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
 	)

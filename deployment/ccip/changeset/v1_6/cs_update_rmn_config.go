@@ -8,12 +8,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
@@ -31,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 var (
@@ -45,7 +46,7 @@ var (
 
 type SetRMNRemoteOnRMNProxyConfig struct {
 	ChainSelectors []uint64
-	MCMSConfig     *proposalutils.TimelockConfig
+	MCMSConfig     *cldfproposalutils.TimelockConfig
 }
 
 func (c SetRMNRemoteOnRMNProxyConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -74,10 +75,10 @@ func (c SetRMNRemoteOnRMNProxyConfig) Validate(e cldf.Environment, state statevi
 }
 
 func (c SetRMNRemoteOnRMNProxyConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseq.SetRMNRemoteOnRMNProxySequenceInput {
-	updatesByChain := make(map[uint64]opsutil.EVMCallInput[common.Address], len(c.ChainSelectors))
+	updatesByChain := make(map[uint64]opsevm.EVMCallInput[common.Address], len(c.ChainSelectors))
 
 	for _, chainSel := range c.ChainSelectors {
-		updatesByChain[chainSel] = opsutil.EVMCallInput[common.Address]{
+		updatesByChain[chainSel] = opsevm.EVMCallInput[common.Address]{
 			Address:       state.Chains[chainSel].RMNProxy.Address(),
 			ChainSelector: chainSel,
 			CallInput:     state.Chains[chainSel].RMNRemote.Address(),
@@ -138,7 +139,7 @@ func (c RMNNopConfig) SetBit(bitmap *big.Int, value bool) {
 	}
 }
 
-func getDeployer(e cldf.Environment, chain uint64, mcmConfig *proposalutils.TimelockConfig) *bind.TransactOpts {
+func getDeployer(e cldf.Environment, chain uint64, mcmConfig *cldfproposalutils.TimelockConfig) *bind.TransactOpts {
 	if mcmConfig == nil {
 		return e.BlockChains.EVMChains()[chain].DeployerKey
 	}
@@ -151,7 +152,7 @@ type SetRMNHomeCandidateConfig struct {
 	RMNStaticConfig   rmn_home.RMNHomeStaticConfig
 	RMNDynamicConfig  rmn_home.RMNHomeDynamicConfig
 	DigestToOverride  [32]byte
-	MCMSConfig        *proposalutils.TimelockConfig
+	MCMSConfig        *cldfproposalutils.TimelockConfig
 }
 
 func (c SetRMNHomeCandidateConfig) Validate(state stateview.CCIPOnChainState) error {
@@ -257,7 +258,7 @@ func isRMNDynamicConfigEqual(a, b rmn_home.RMNHomeDynamicConfig) bool {
 type PromoteRMNHomeCandidateConfig struct {
 	HomeChainSelector uint64
 	DigestToPromote   [32]byte
-	MCMSConfig        *proposalutils.TimelockConfig
+	MCMSConfig        *cldfproposalutils.TimelockConfig
 }
 
 func (c PromoteRMNHomeCandidateConfig) Validate(state stateview.CCIPOnChainState) error {
@@ -350,7 +351,7 @@ func SetRMNHomeCandidateConfigChangeset(e cldf.Environment, config SetRMNHomeCan
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", homeChain.String(), err)
 	}
 
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
 		mcmContract,
@@ -435,7 +436,7 @@ func PromoteRMNHomeCandidateConfigChangeset(e cldf.Environment, config PromoteRM
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", homeChain.String(), err)
 	}
 
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
 		mcmContract,
@@ -465,7 +466,7 @@ type SetRMNHomeDynamicConfigConfig struct {
 	HomeChainSelector uint64
 	RMNDynamicConfig  rmn_home.RMNHomeDynamicConfig
 	ActiveDigest      [32]byte
-	MCMS              *proposalutils.TimelockConfig
+	MCMS              *cldfproposalutils.TimelockConfig
 }
 
 func (c SetRMNHomeDynamicConfigConfig) Validate(e cldf.Environment) error {
@@ -540,7 +541,7 @@ func SetRMNHomeDynamicConfigChangeset(e cldf.Environment, cfg SetRMNHomeDynamicC
 type RevokeCandidateConfig struct {
 	HomeChainSelector uint64
 	CandidateDigest   [32]byte
-	MCMS              *proposalutils.TimelockConfig
+	MCMS              *cldfproposalutils.TimelockConfig
 }
 
 func (c RevokeCandidateConfig) Validate(e cldf.Environment) error {
@@ -627,9 +628,9 @@ func SetRMNRemoteConfigChangeset(e cldf.Environment, config ccipseq.SetRMNRemote
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get active digest from RMNHome contract with address %s: %w", rmnHome.Address(), err)
 	}
 
-	input := make(map[uint64]opsutil.EVMCallInput[rmn_remote.RMNRemoteConfig])
+	input := make(map[uint64]opsevm.EVMCallInput[rmn_remote.RMNRemoteConfig])
 	for chainSel, cfg := range config.RMNRemoteConfigs {
-		input[chainSel] = opsutil.EVMCallInput[rmn_remote.RMNRemoteConfig]{
+		input[chainSel] = opsevm.EVMCallInput[rmn_remote.RMNRemoteConfig]{
 			ChainSelector: chainSel,
 			NoSend:        config.MCMSConfig != nil,
 			Address:       state.Chains[chainSel].RMNRemote.Address(),

@@ -6,15 +6,15 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	mcmslib "github.com/smartcontractkit/mcms"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/common/changeset"
+	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/cldfutil/changeset"
 
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
@@ -78,7 +78,7 @@ func newFeedWithProxyLogic(env cldf.Environment, c types.NewFeedWithProxyConfig)
 
 		// transfer proxy ownership
 		timelockAddr, _ := cldf.SearchAddressBook(env.ExistingAddresses, c.ChainSelector, commonTypes.RBACTimelock)
-		_, proxyContract, err := commonchangeset.LoadOwnableContract(common.HexToAddress(proxyAddress), chain.Client)
+		_, proxyContract, err := mcmschangesets.LoadOwnableContract(common.HexToAddress(proxyAddress), chain.Client)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to load proxy contract %w", err)
 		}

@@ -4,8 +4,8 @@ import (
 	"github.com/gagliardetto/solana-go"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // TransferOwnershipForwarderRequest wraps the generic request for forwarder contracts
@@ -14,7 +14,7 @@ type TransferOwnershipForwarderRequest struct {
 	CurrentOwner, ProposedOwner solana.PublicKey
 	Version                     string
 	Qualifier                   string
-	MCMSCfg                     proposalutils.TimelockConfig
+	MCMSCfg                     cldfproposalutils.TimelockConfig
 }
 
 // TransferOwnershipForwarder implementation

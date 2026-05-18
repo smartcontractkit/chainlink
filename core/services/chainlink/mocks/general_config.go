@@ -827,53 +827,6 @@ func (_c *GeneralConfig_Feature_Call) RunAndReturn(run func() config.Feature) *G
 	return _c
 }
 
-// FluxMonitor provides a mock function with no fields
-func (_m *GeneralConfig) FluxMonitor() config.FluxMonitor {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for FluxMonitor")
-	}
-
-	var r0 config.FluxMonitor
-	if rf, ok := ret.Get(0).(func() config.FluxMonitor); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(config.FluxMonitor)
-		}
-	}
-
-	return r0
-}
-
-// GeneralConfig_FluxMonitor_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FluxMonitor'
-type GeneralConfig_FluxMonitor_Call struct {
-	*mock.Call
-}
-
-// FluxMonitor is a helper method to define mock.On call
-func (_e *GeneralConfig_Expecter) FluxMonitor() *GeneralConfig_FluxMonitor_Call {
-	return &GeneralConfig_FluxMonitor_Call{Call: _e.mock.On("FluxMonitor")}
-}
-
-func (_c *GeneralConfig_FluxMonitor_Call) Run(run func()) *GeneralConfig_FluxMonitor_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *GeneralConfig_FluxMonitor_Call) Return(_a0 config.FluxMonitor) *GeneralConfig_FluxMonitor_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *GeneralConfig_FluxMonitor_Call) RunAndReturn(run func() config.FluxMonitor) *GeneralConfig_FluxMonitor_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // ImportedAptosKeys provides a mock function with no fields
 func (_m *GeneralConfig) ImportedAptosKeys() config.ImportableChainKeyLister {
 	ret := _m.Called()

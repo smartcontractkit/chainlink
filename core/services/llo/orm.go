@@ -10,8 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/types"
 )
 
 type ChainScopedORM interface {

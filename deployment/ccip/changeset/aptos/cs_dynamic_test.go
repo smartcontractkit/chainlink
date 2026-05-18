@@ -13,7 +13,9 @@ import (
 	module_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	aptosconfig "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
@@ -22,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/operation/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 func TestDynamicCS_Apply(t *testing.T) {
@@ -102,7 +103,7 @@ func TestDynamicCS_Apply(t *testing.T) {
 		Inputs:        inputs,
 		ChainSelector: aptosChainSel,
 		Description:   "Test dynamic changeset with multiple operations",
-		MCMSConfig: &proposalutils.TimelockConfig{
+		MCMSConfig: &cldfproposalutils.TimelockConfig{
 			MinDelay:     time.Duration(1) * time.Second,
 			MCMSAction:   mcmstypes.TimelockActionSchedule,
 			OverrideRoot: false,
@@ -180,7 +181,7 @@ func TestDynamicCS_Apply(t *testing.T) {
 		Inputs:        inputs,
 		ChainSelector: aptosChainSel,
 		Description:   "Test dynamic changeset with uncurse subjects operation",
-		MCMSConfig: &proposalutils.TimelockConfig{
+		MCMSConfig: &cldfproposalutils.TimelockConfig{
 			MinDelay:     time.Duration(1) * time.Second,
 			MCMSAction:   mcmstypes.TimelockActionSchedule,
 			OverrideRoot: false,
@@ -230,7 +231,7 @@ func TestDynamicCS_Apply(t *testing.T) {
 		Inputs:        inputs,
 		ChainSelector: aptosChainSel,
 		Description:   "Test dynamic changeset with global curse operation",
-		MCMSConfig: &proposalutils.TimelockConfig{
+		MCMSConfig: &cldfproposalutils.TimelockConfig{
 			MinDelay:     time.Duration(1) * time.Second,
 			MCMSAction:   mcmstypes.TimelockActionSchedule,
 			OverrideRoot: false,
