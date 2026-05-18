@@ -9,16 +9,16 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 type SetRMNRemoteConfig struct {
-	ChainSelector   uint64                        `json:"chainSelector"`
-	RMNRemoteConfig RMNRemoteConfig               `json:"rmnRemoteConfigs"`
-	MCMSConfig      *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
+	ChainSelector   uint64                            `json:"chainSelector"`
+	RMNRemoteConfig RMNRemoteConfig                   `json:"rmnRemoteConfigs"`
+	MCMSConfig      *cldfproposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
 }
 
 type RMNRemoteConfig struct {

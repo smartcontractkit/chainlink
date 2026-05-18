@@ -11,8 +11,8 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 
@@ -39,7 +39,7 @@ var (
 type ProposeAdminRoleConfig struct {
 	ProposeAdminByChain map[uint64][]TokenAdminInfo `json:"proposeAdminByChain"`
 	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
-	MCMS *proposalutils.TimelockConfig
+	MCMS *cldfproposalutils.TimelockConfig
 	// OverridePendingAdmin allows overriding existing pending administrators if set to true.
 	// Use with caution as this will replace any existing pending admin proposals.
 	OverridePendingAdmin bool `json:"overridePendingAdmin"`

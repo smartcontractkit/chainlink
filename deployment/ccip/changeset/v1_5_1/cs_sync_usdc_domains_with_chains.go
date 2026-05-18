@@ -11,12 +11,12 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 var _ cldf.ChangeSet[SyncUSDCDomainsWithChainsConfig] = SyncUSDCDomainsWithChainsChangeset
@@ -28,7 +28,7 @@ type SyncUSDCDomainsWithChainsConfig struct {
 	// ChainSelectorToUSDCDomain maps chains selectors to their USDC domain identifiers.
 	ChainSelectorToUSDCDomain map[uint64]uint32
 	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
-	MCMS *proposalutils.TimelockConfig
+	MCMS *cldfproposalutils.TimelockConfig
 }
 
 func (c SyncUSDCDomainsWithChainsConfig) Validate(env cldf.Environment, state stateview.CCIPOnChainState) error {

@@ -51,7 +51,7 @@ Please refer to integration-tests/testconfig/README.md for more information.
 Or if you want to run your tests right now add following content to integration-tests/testconfig/overrides.toml:
 [Network]
 selected_networks=`
-		return fmt.Errorf("%s\n%s%s%s", errStr, intro, extraInfo, selectedNetworkStr)
+		return fmt.Errorf("%s\n%s%s%s", errStr, intro, extraInfo, selectedNetworkStr.String())
 	}
 
 	return fmt.Errorf("%s\n%s", errStr, intro)

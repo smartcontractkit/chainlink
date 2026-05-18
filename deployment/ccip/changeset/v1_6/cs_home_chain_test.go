@@ -10,6 +10,7 @@ import (
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -22,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
@@ -250,7 +250,7 @@ func TestRemoveDons(t *testing.T) {
 			ContractsByChain: map[uint64][]common.Address{
 				e.HomeChainSel: {homeChain.CapabilityRegistry.Address()},
 			},
-			MCMSConfig: proposalutils.TimelockConfig{
+			MCMSConfig: cldfproposalutils.TimelockConfig{
 				MinDelay: 0,
 			},
 		},
@@ -259,7 +259,7 @@ func TestRemoveDons(t *testing.T) {
 		v1_6.RemoveDONsConfig{
 			HomeChainSel: e.HomeChainSel,
 			DonIDs:       []uint32{donsBefore[0].Id},
-			MCMS:         &proposalutils.TimelockConfig{MinDelay: 0},
+			MCMS:         &cldfproposalutils.TimelockConfig{MinDelay: 0},
 		},
 	))
 	require.NoError(t, err)
@@ -380,9 +380,9 @@ func TestAddUpdateAndRemoveNops(t *testing.T) {
 			require.NoError(t, err)
 			homeChain := s.Chains[e.HomeChainSel]
 
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -514,9 +514,9 @@ func TestRemoveNodes(t *testing.T) {
 			homeChain := s.Chains[e.HomeChainSel]
 			allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}

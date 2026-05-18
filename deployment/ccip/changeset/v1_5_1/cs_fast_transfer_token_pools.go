@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_5_1"
@@ -19,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 var (
@@ -112,7 +112,7 @@ type FastTransferWithdrawPoolFeesConfig struct {
 	ContractVersion semver.Version
 	Withdrawals     map[uint64]common.Address // chainSelector -> recipient address
 	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
-	MCMS *proposalutils.TimelockConfig
+	MCMS *cldfproposalutils.TimelockConfig
 }
 
 func (c FastTransferWithdrawPoolFeesConfig) Validate(env cldf.Environment) error {
@@ -166,7 +166,7 @@ type FastTransferUpdateLaneConfigConfig struct {
 	ContractVersion semver.Version
 	Updates         map[uint64](map[uint64]UpdateLaneConfig)
 	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
-	MCMS *proposalutils.TimelockConfig
+	MCMS *cldfproposalutils.TimelockConfig
 }
 
 func (c FastTransferUpdateLaneConfigConfig) Validate(env cldf.Environment) error {
@@ -259,7 +259,7 @@ type FastTransferFillerAllowlistConfig struct {
 	ContractVersion semver.Version
 	Updates         map[uint64]FillerAllowlistConfig
 	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
-	MCMS *proposalutils.TimelockConfig
+	MCMS *cldfproposalutils.TimelockConfig
 }
 
 func (c FastTransferFillerAllowlistConfig) Validate(env cldf.Environment) error {

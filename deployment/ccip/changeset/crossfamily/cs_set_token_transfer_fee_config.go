@@ -10,7 +10,7 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 
 	ccip_cs_common "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -66,7 +66,7 @@ type TokenTransferFeeConfigArgs struct {
 type SetTokenTransferFeeConfigInput struct {
 	InputsByChain map[uint64]map[uint64]TokenTransferFeeConfigArgs `json:"inputsByChain"`
 	VersionHints  *OptionalVersions                                `json:"versionHints"`
-	MCMS          *proposalutils.TimelockConfig                    `json:"mcms"`
+	MCMS          *cldfproposalutils.TimelockConfig                `json:"mcms"`
 }
 
 func (cfg SetTokenTransferFeeConfigInput) buildOrchestrateChangesetsConfig(env cldf.Environment) (ccip_cs_common.OrchestrateChangesetsConfig, error) {

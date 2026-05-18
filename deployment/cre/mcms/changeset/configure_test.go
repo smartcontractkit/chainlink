@@ -104,7 +104,7 @@ var testMCMSCfg2 = cldfproposalutils.MCMSWithTimelockConfig{
 	Canceller: pkg.MustGetMCMSConfig(1, []common.Address{updatedEOA}, nil),
 }
 
-// var mcmsConfig = proposalutils.TimelockConfig{
+// var mcmsConfig = cldfproposalutils.TimelockConfig{
 // 	MinDelay:   5 * time.Second,
 // 	MCMSAction: mcmstypes.TimelockActionSchedule,
 // }

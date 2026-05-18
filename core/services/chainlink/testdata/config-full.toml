@@ -149,8 +149,8 @@ DefaultTimeout = '1m0s'
 MaxSize = '100.00mb'
 
 [FluxMonitor]
-DefaultTransactionQueueDepth = 100
-SimulateTransactions = true
+DefaultTransactionQueueDepth = 1
+SimulateTransactions = false
 
 [OCR2]
 Enabled = true

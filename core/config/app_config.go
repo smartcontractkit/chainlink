@@ -41,7 +41,6 @@ type AppConfig interface {
 	Workflows() Workflows
 	Database() Database
 	Feature() Feature
-	FluxMonitor() FluxMonitor
 	Insecure() Insecure
 	JobDistributor() JobDistributor
 	JobPipeline() JobPipeline

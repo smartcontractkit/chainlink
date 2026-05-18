@@ -29,7 +29,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/example"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
@@ -235,7 +234,7 @@ func TestTransferFromTimelockConfig_Apply(t *testing.T) {
 
 	err = rt.Exec(
 		runtime.ChangesetTask(example.TransferFromTimelock{}, example.TransferFromTimelockConfig{
-			TimelockCfg: proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+			TimelockCfg: cldfproposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 			AmountsPerChain: map[uint64]example.TransferData{
 				selector: cfgAmounts,
 			},
