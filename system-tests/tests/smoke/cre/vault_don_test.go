@@ -434,6 +434,9 @@ func ExecuteVaultBlobBatchingSmokeTest(t *testing.T, fixture *vaultScenarioFixtu
 	t.Run("pending_queue_pack_observed_in_docker_logs", func(t *testing.T) {
 		assertVaultOCRPendingPackObservedInDockerLogs(t, nConcurrentCreates)
 	})
+	t.Run("state_transition_pending_pack_observed_in_docker_logs", func(t *testing.T) {
+		assertVaultOCRStateTransitionPendingPackObservedInDockerLogs(t, nConcurrentCreates)
+	})
 }
 
 // assertVaultOCRPendingPackObservedInDockerLogs polls chainlink-related container logs until it finds
@@ -501,6 +504,80 @@ func assertVaultOCRPendingPackObservedInDockerLogs(t *testing.T, wantMinPacked i
 		select {
 		case <-ctx.Done():
 			require.Fail(t, fmt.Sprintf("timed out waiting for VAULT_OCR_OBSERVATION_PENDING_PACK with packedLocalItemCount>=%d in docker logs (is the local CRE stack running?)", wantMinPacked))
+		case <-ticker.C:
+		}
+	}
+}
+
+// assertVaultOCRStateTransitionPendingPackObservedInDockerLogs polls chainlink-related container logs until it finds
+// VAULT_OCR_STATE_TRANSITION_PENDING_PACK on a line where candidateCount >= wantMinCandidates, writtenCount >= 1,
+// and writtenCount <= candidateCount (KV write after byte-budget bin-packing).
+var vaultStateTransitionPendingPackCandidateRE = regexp.MustCompile(`candidateCount[^\d]*(\d+)`)
+var vaultStateTransitionPendingPackWrittenRE = regexp.MustCompile(`writtenCount[^\d]*(\d+)`)
+
+func assertVaultOCRStateTransitionPendingPackObservedInDockerLogs(t *testing.T, wantMinCandidates int) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("docker log scan skipped in -short mode")
+	}
+	dockerBin, err := exec.LookPath("docker")
+	if err != nil {
+		t.Skip("docker not in PATH; skipping state-transition pending-pack log assertion")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for {
+		psOut, err := exec.CommandContext(ctx, dockerBin, "ps", "--format", "{{.Names}}").Output()
+		if err != nil {
+			select {
+			case <-ctx.Done():
+				require.Fail(t, "timed out waiting for docker while scanning for VAULT_OCR_STATE_TRANSITION_PENDING_PACK")
+			case <-ticker.C:
+			}
+			continue
+		}
+		names := strings.Split(strings.TrimSpace(string(psOut)), "\n")
+		for _, name := range names {
+			if name == "" {
+				continue
+			}
+			ln := strings.ToLower(name)
+			if !strings.Contains(ln, "chainlink") && !strings.Contains(ln, "ocr") && !strings.Contains(ln, "capabilit") {
+				continue
+			}
+			logs, err := exec.CommandContext(ctx, dockerBin, "logs", name, "--tail", "25000").CombinedOutput()
+			if err != nil {
+				continue
+			}
+			s := string(logs)
+			for _, line := range strings.Split(s, "\n") {
+				if !strings.Contains(line, "VAULT_OCR_STATE_TRANSITION_PENDING_PACK") {
+					continue
+				}
+				cm := vaultStateTransitionPendingPackCandidateRE.FindStringSubmatch(line)
+				wm := vaultStateTransitionPendingPackWrittenRE.FindStringSubmatch(line)
+				if len(cm) < 2 || len(wm) < 2 {
+					continue
+				}
+				candidates, err1 := strconv.Atoi(cm[1])
+				written, err2 := strconv.Atoi(wm[1])
+				if err1 != nil || err2 != nil {
+					continue
+				}
+				if written > candidates || written < 1 {
+					continue
+				}
+				if candidates >= wantMinCandidates {
+					framework.L.Info().Str("container", name).Int("candidateCount", candidates).Int("writtenCount", written).Msg("observed vault OCR state-transition pending pack log")
+					return
+				}
+			}
+		}
+		select {
+		case <-ctx.Done():
+			require.Fail(t, fmt.Sprintf("timed out waiting for VAULT_OCR_STATE_TRANSITION_PENDING_PACK with candidateCount>=%d and valid writtenCount in docker logs (is the local CRE stack running?)", wantMinCandidates))
 		case <-ticker.C:
 		}
 	}

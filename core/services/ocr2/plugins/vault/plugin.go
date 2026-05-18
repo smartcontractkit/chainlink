@@ -67,6 +67,10 @@ type ReportingPluginConfig struct {
 	MaxBlobPayloadBytes               limits.BoundLimiter[pkgconfig.Size]
 	OrgIDAsSecretOwnerEnabled         limits.GateLimiter
 	VaultForceEmptyOCRRounds          limits.GateLimiter
+
+	// Effective byte budgets for packing the KV pending queue (see NewReportingPlugin).
+	ObsArrayBudgetBytes       int
+	PrecursorArrayBudgetBytes int
 }
 
 func NewReportingPluginFactory(
@@ -284,6 +288,25 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 	cfg.PublicKey = publicKey
 	cfg.PrivateKeyShare = privateKeyShare
 
+	metrics, err := newPluginMetrics(config.ConfigDigest.String())
+	if err != nil {
+		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create plugin metrics: %w", err)
+	}
+
+	pluginLimits, err := initializePluginLimits(ctx, r.limitsFactory)
+	if err != nil {
+		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not resolve plugin limits: %w", err)
+	}
+
+	obsBudget, precursorBudget, err := computePluginByteBudgets(
+		ctx, cfg, pluginLimits.MaxObservationBytes, pluginLimits.MaxReportsPlusPrecursorBytes, config.N, config.F,
+	)
+	if err != nil {
+		return nil, ocr3_1types.ReportingPluginInfo1{}, err
+	}
+	cfg.ObsArrayBudgetBytes = obsBudget
+	cfg.PrecursorArrayBudgetBytes = precursorBudget
+
 	r.lggr.Debugw("instantiating VaultReportingPlugin with config",
 		"maxSecretsPerOwner", logLimit(ctx, r.lggr, cfg.MaxSecretsPerOwner),
 		"maxCiphertextLengthBytes", logLimit(ctx, r.lggr, cfg.MaxCiphertextLengthBytes),
@@ -294,17 +317,9 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		"maxShareLengthBytes", logLimit(ctx, r.lggr, cfg.MaxShareLengthBytes),
 		"batchSize", logLimit(ctx, r.lggr, cfg.MaxBatchSize),
 		"maxBlobPayloadBytes", logLimit(ctx, r.lggr, cfg.MaxBlobPayloadBytes),
+		"obsArrayBudgetBytes", cfg.ObsArrayBudgetBytes,
+		"precursorArrayBudgetBytes", cfg.PrecursorArrayBudgetBytes,
 	)
-
-	metrics, err := newPluginMetrics(config.ConfigDigest.String())
-	if err != nil {
-		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create plugin metrics: %w", err)
-	}
-
-	pluginLimits, err := initializePluginLimits(ctx, r.limitsFactory)
-	if err != nil {
-		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not resolve plugin limits: %w", err)
-	}
 
 	validator := vaultcap.NewRequestValidator(
 		cfg.MaxRequestBatchSize,
@@ -554,8 +569,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 
 	// Avoid log spam by only logging if we have any requests to process.
 	if len(currentPendingQueueItems) > 0 {
-		mbs, _ := r.cfg.MaxBatchSize.Limit(ctx)
-		r.lggr.Debugw("observation started", "seqNr", seqNr, "batchSize", mbs)
+		r.lggr.Debugw("observation started", "seqNr", seqNr, "batchSize", len(currentPendingQueueItems))
 	}
 
 	ids := []string{}
@@ -636,7 +650,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	if err != nil {
 		return nil, fmt.Errorf("could not fetch max batch size limit: %w", err)
 	}
-	maxBlobHandleCount := 2 * int(batchSizeLimit)
+	maxBlobHandleCount := 2 * batchSizeLimit
 
 	pack, err := r.prepareObservationPendingQueueBlobs(ctx, seqNr, localQueueItems, pendingQueueHasID, maxBlobBytes, maxBlobHandleCount)
 	if err != nil {
@@ -1823,13 +1837,18 @@ func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, seqNr
 		return bytes.Compare(sortKey(i.Id, salt), sortKey(j.Id, salt))
 	})
 
-	// Step 5: Apply batch size and write the latest batch to the store's pending queue.
-	if err := r.cfg.MaxBatchSize.Check(ctx, len(keptItems)); err != nil {
-		var errBoundLimited limits.ErrorBoundLimited[int]
-		if !errors.As(err, &errBoundLimited) {
-			return fmt.Errorf("failed to check batch size limit: %w", err)
-		}
-		keptItems = keptItems[:errBoundLimited.Limit]
+	// Step 5: Pack the pending queue to stay under next-round observation and precursor byte limits.
+	candidateCount := len(keptItems)
+	packed, truncated := packPendingQueueItemsToByteBudgets(ctx, keptItems, r.cfg, r.onchainCfg.F, r.lggr)
+	keptItems = packed
+	r.metrics.trackPendingQueueWrittenSize(ctx, len(keptItems), candidateCount, truncated)
+	if candidateCount > 0 {
+		r.lggr.Infow("VAULT_OCR_STATE_TRANSITION_PENDING_PACK",
+			"seqNr", seqNr,
+			"writtenCount", len(keptItems),
+			"candidateCount", candidateCount,
+			"truncated", truncated,
+		)
 	}
 
 	now := time.Now()

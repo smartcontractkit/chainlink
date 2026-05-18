@@ -17,7 +17,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -240,13 +239,13 @@ func TestPlugin_ThroughputAnalysis(t *testing.T) {
 	// -------------------------------------------------------------------------
 	pendingItemSizeFor := func(req proto.Message) int {
 		anyMsg, err := anypb.New(req)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		item := &vaultcommon.StoredPendingQueueItem{
 			Id:   strings.Repeat("i", 36), // UUID-length request ID
 			Item: anyMsg,
 		}
 		b, err := proto.Marshal(item)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		return len(b)
 	}
 

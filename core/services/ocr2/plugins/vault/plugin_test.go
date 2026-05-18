@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
@@ -103,7 +104,7 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	}
 	cfgb, err := proto.Marshal(&cfg)
 	require.NoError(t, err)
-	rp, info, err := rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{OffchainConfig: cfgb}, nil)
+	rp, info, err := rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{OffchainConfig: cfgb, N: 10, F: 3}, nil)
 	require.NoError(t, err)
 
 	typedRP := rp.(*ReportingPlugin)
@@ -151,7 +152,7 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	cfgb, err = proto.Marshal(&cfg)
 	require.NoError(t, err)
 
-	rp, info, err = rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{OffchainConfig: cfgb}, nil)
+	rp, info, err = rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{OffchainConfig: cfgb, N: 10, F: 3}, nil)
 	require.NoError(t, err)
 
 	typedRP = rp.(*ReportingPlugin)
@@ -193,7 +194,7 @@ func TestPlugin_ReportingPluginFactory_PassesValidate(t *testing.T) {
 	}
 	cfgb, err := proto.Marshal(&cfg)
 	require.NoError(t, err)
-	_, info, err := rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{OffchainConfig: cfgb}, nil)
+	_, info, err := rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{OffchainConfig: cfgb, N: 10, F: 3}, nil)
 	require.NoError(t, err)
 
 	infoObject, ok := info.(ocr3_1types.ReportingPluginInfo1)
@@ -229,7 +230,7 @@ func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 	}
 	cfgBytes, err := proto.Marshal(&rpCfg)
 	require.NoError(t, err)
-	rp, info, err := rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{OffchainConfig: cfgBytes}, nil)
+	rp, info, err := rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{OffchainConfig: cfgBytes, N: 10, F: 3}, nil)
 	require.NoError(t, err)
 
 	typedRP := rp.(*ReportingPlugin)
@@ -608,11 +609,11 @@ func TestPrepareObservationPendingQueueBlobs_packsManySmallItemsInOneObservation
 	batchSize, err := r.cfg.MaxBatchSize.Limit(t.Context())
 	require.NoError(t, err)
 
-	pack, err := r.prepareObservationPendingQueueBlobs(t.Context(), 1, localQueueItems, map[string]bool{}, int(maxBlobSz), 2*int(batchSize))
+	pack, err := r.prepareObservationPendingQueueBlobs(t.Context(), 1, localQueueItems, map[string]bool{}, int(maxBlobSz), 2*batchSize)
 	require.NoError(t, err)
 	require.Equal(t, n, pack.packedItemCount)
 	require.False(t, pack.truncated)
-	require.LessOrEqual(t, len(pack.blobPayloads), 2*int(batchSize))
+	require.LessOrEqual(t, len(pack.blobPayloads), 2*batchSize)
 
 	var unpacked int
 	for _, blob := range pack.blobPayloads {
@@ -5164,7 +5165,8 @@ func TestPlugin_StateTransition_StoresPendingQueue(t *testing.T) {
 	assert.ElementsMatch(t, []string{"item1", "item2", "item3"}, ids)
 }
 
-func TestPlugin_StateTransition_StoresPendingQueue_LimitedToBatchSize(t *testing.T) {
+func TestPlugin_StateTransition_StoresPendingQueue_LimitedToByteBudget(t *testing.T) {
+	ctx := t.Context()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withBatchSize(1), withMaxIdentifierLengths(30, 30, 30), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
@@ -5206,24 +5208,30 @@ func TestPlugin_StateTransition_StoresPendingQueue_LimitedToBatchSize(t *testing
 	areq4, err := anypb.New(req4)
 	require.NoError(t, err)
 
+	stored := []*vaultcommon.StoredPendingQueueItem{
+		{Id: "request-id", Item: areq1},
+		{Id: "request-id2", Item: areq2},
+		{Id: "request-id3", Item: areq3},
+		{Id: "request-id4", Item: areq4},
+	}
+	salt := []byte{}
+	slices.SortFunc(stored, func(i, j *vaultcommon.StoredPendingQueueItem) int {
+		return bytes.Compare(sortKey(i.Id, salt), sortKey(j.Id, salt))
+	})
+	c0obs, err := pendingQueueItemObservationBytes(ctx, stored[0], r.cfg, r.onchainCfg.F)
+	require.NoError(t, err)
+	c1obs, err := pendingQueueItemObservationBytes(ctx, stored[1], r.cfg, r.onchainCfg.F)
+	require.NoError(t, err)
+	require.Greater(t, c0obs+c1obs, c0obs)
+	r.cfg.ObsArrayBudgetBytes = c0obs + c1obs - 1
+	r.cfg.PrecursorArrayBudgetBytes = 10_000_000
+
 	bf := &blobber{
 		blobs: [][]byte{
-			protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
-				Id:   "request-id",
-				Item: areq1,
-			}),
-			protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
-				Id:   "request-id2",
-				Item: areq2,
-			}),
-			protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
-				Id:   "request-id3",
-				Item: areq3,
-			}),
-			protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
-				Id:   "request-id4",
-				Item: areq4,
-			}),
+			protoMarshal(t, stored[0]),
+			protoMarshal(t, stored[1]),
+			protoMarshal(t, stored[2]),
+			protoMarshal(t, stored[3]),
 		},
 	}
 
@@ -5284,15 +5292,10 @@ func TestPlugin_StateTransition_StoresPendingQueue_LimitedToBatchSize(t *testing
 
 	pq, err := newTestReadStore(t, rdr).GetPendingQueue(t.Context())
 	require.NoError(t, err)
-	assert.Len(t, pq, 1)
+	require.Len(t, pq, 1)
 
-	ids := []string{}
-	for _, item := range pq {
-		ids = append(ids, item.Id)
-	}
-
-	// Batch size is 1, so only one item should be stored.
-	assert.ElementsMatch(t, []string{"request-id"}, ids)
+	wantID := stored[0].Id
+	require.Equal(t, wantID, pq[0].Id, "greedy pack keeps the prefix of salt-sorted candidates under the observation byte budget")
 }
 
 func TestPlugin_StateTransition_StoresPendingQueue_DoesntDoubleCountObservationsFromOneNode(t *testing.T) {
@@ -5363,70 +5366,6 @@ func TestPlugin_StateTransition_StoresPendingQueue_DoesntDoubleCountObservations
 
 	// 1 oracle submitted duplicates, so skipping
 	assert.ElementsMatch(t, []string{}, ids)
-}
-
-func TestPlugin_ValidateObservation_RejectsIfMoreThan2xBatchSize(t *testing.T) {
-	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
-	require.NoError(t, err)
-	r := newTestReportingPlugin(t, withBatchSize(1), withMaxIdentifierLengths(30, 30, 30), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
-
-	seqNr := uint64(1)
-	rdr := &kv{
-		m: make(map[string]response),
-	}
-
-	req1 := &vaultcommon.ListSecretIdentifiersRequest{
-		Owner:     "owner",
-		Namespace: "main",
-		RequestId: "request-id",
-	}
-	areq1, err := anypb.New(req1)
-	require.NoError(t, err)
-
-	o1 := &vaultcommon.Observations{
-		PendingQueueItems: [][]byte{
-			{}, // maps to item 0 in the blobs
-			{}, // maps to item 1 in the blobs
-			{}, // maps to item 2 in the blobs
-			{}, // maps to item 3 in the blobs
-		},
-	}
-
-	o1b, err := proto.Marshal(o1)
-	require.NoError(t, err)
-
-	bf := &blobber{
-		blobs: [][]byte{
-			protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
-				Id:   "request-id",
-				Item: areq1,
-			}),
-			protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
-				Id:   "request-id",
-				Item: areq1,
-			}),
-			protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
-				Id:   "request-id",
-				Item: areq1,
-			}),
-			protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
-				Id:   "request-id",
-				Item: areq1,
-			}),
-		},
-	}
-
-	err = r.ValidateObservation(
-		t.Context(),
-		seqNr,
-		types.AttributedQuery{},
-		types.AttributedObservation{
-			Observer: 0, Observation: o1b,
-		},
-		rdr,
-		bf,
-	)
-	require.ErrorContains(t, err, "invalid observation: too many pending queue items provided, have 4, want max 2")
 }
 
 // TestPlugin_ValidateObservation_AcceptsFullPendingQueueObservation verifies that an observation

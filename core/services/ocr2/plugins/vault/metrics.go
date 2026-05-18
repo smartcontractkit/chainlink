@@ -13,10 +13,11 @@ import (
 type pluginMetrics struct {
 	configDigest string
 
-	queueOverflow       metric.Int64Counter
-	kvOperationDuration metric.Int64Histogram
-	localQueueSize      metric.Int64Histogram
+	queueOverflow                 metric.Int64Counter
+	kvOperationDuration           metric.Int64Histogram
+	localQueueSize                metric.Int64Histogram
 	observationPendingPackedItems metric.Int64Histogram
+	pendingQueueWrittenSize       metric.Int64Histogram
 }
 
 func newPluginMetrics(configDigest string) (*pluginMetrics, error) {
@@ -51,12 +52,22 @@ func newPluginMetrics(configDigest string) (*pluginMetrics, error) {
 		return nil, fmt.Errorf("failed to create observation pending packed items histogram: %w", err)
 	}
 
+	pendingQueueWrittenSize, err := beholder.GetMeter().Int64Histogram(
+		"platform_vault_plugin_pending_queue_written_size",
+		metric.WithUnit("{request}"),
+		metric.WithDescription("Items written to the KV pending queue after byte-budget bin-packing; use attributes candidate_count and truncated for backlog signals."),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create pending queue written size histogram: %w", err)
+	}
+
 	return &pluginMetrics{
 		configDigest:                  configDigest,
 		queueOverflow:                 queueOverflow,
 		kvOperationDuration:           kvOperationDuration,
 		localQueueSize:                localQueueSize,
 		observationPendingPackedItems: observationPendingPackedItems,
+		pendingQueueWrittenSize:       pendingQueueWrittenSize,
 	}, nil
 }
 
@@ -97,5 +108,16 @@ func (m *pluginMetrics) trackObservationPendingPack(ctx context.Context, packedI
 	m.observationPendingPackedItems.Record(ctx, int64(packedItemCount), metric.WithAttributes(
 		attribute.String("configDigest", m.configDigest),
 		attribute.Int("blobHandleCount", blobHandleCount),
+	))
+}
+
+func (m *pluginMetrics) trackPendingQueueWrittenSize(ctx context.Context, writtenCount, candidateCount int, truncated bool) {
+	if m == nil {
+		return
+	}
+	m.pendingQueueWrittenSize.Record(ctx, int64(writtenCount), metric.WithAttributes(
+		attribute.String("configDigest", m.configDigest),
+		attribute.Int("candidate_count", candidateCount),
+		attribute.Bool("truncated", truncated),
 	))
 }

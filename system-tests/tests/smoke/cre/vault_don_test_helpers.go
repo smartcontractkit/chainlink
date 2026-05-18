@@ -376,6 +376,7 @@ func sendVaultSignedOCRRequestToGateway(t *testing.T, gatewayURL string, jsonReq
 	}
 
 	statusCode, httpResponseBody := sendVaultRequestToGatewayWithHeaders(t, gatewayURL, requestBody, headers)
+	framework.L.Info().Msgf("DEBUGGING: Gateway response status code: %d", statusCode)
 	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
 
 	var jsonResponse jsonrpc.Response[vaulttypes.SignedOCRResponse]

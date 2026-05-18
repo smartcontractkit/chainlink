@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"context"
 	"testing"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
@@ -122,6 +123,7 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 	if o.orgIDAsSecretOwnerEnabled {
 		cfg.OrgIDAsSecretOwnerEnabled = limits.NewGateLimiter(true)
 	}
+	applyTestByteBudgets(t, cfg, o.onchainCfg)
 	lc, err := vaultcap.NewRequestLifecycleTracker(o.lggr)
 	require.NoError(t, err)
 	return &ReportingPlugin{
@@ -208,6 +210,21 @@ func makeReportingPluginConfig(
 		OrgIDAsSecretOwnerEnabled:         limits.NewGateLimiter(false),
 		VaultForceEmptyOCRRounds:          limits.NewGateLimiter(false),
 	}
+}
+
+func applyTestByteBudgets(t *testing.T, cfg *ReportingPluginConfig, onchain ocr3types.ReportingPluginConfig) {
+	t.Helper()
+	ctx := context.Background()
+	pl, err := initializePluginLimits(ctx, limits.Factory{Settings: cresettings.DefaultGetter})
+	require.NoError(t, err)
+	n, f := onchain.N, onchain.F
+	if n <= 0 {
+		n, f = 10, 3
+	}
+	obs, prec, err := computePluginByteBudgets(ctx, cfg, pl.MaxObservationBytes, pl.MaxReportsPlusPrecursorBytes, n, f)
+	require.NoError(t, err)
+	cfg.ObsArrayBudgetBytes = obs
+	cfg.PrecursorArrayBudgetBytes = prec
 }
 
 func mockUnmarshalBlob(data []byte) (ocr3_1types.BlobHandle, error) {
