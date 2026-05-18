@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
+	corenull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/pkg/log"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
@@ -36,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	corenull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	fmmocks "github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"

@@ -15,9 +15,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type PluginConfig struct {
@@ -42,7 +42,7 @@ type PluginConfig struct {
 	DonID uint32 `json:"donID" toml:"donID"`
 
 	// Mercury servers
-	Servers map[string]utils.PlainHexBytes `json:"servers" toml:"servers"`
+	Servers map[string]hex.PlainHexBytes `json:"servers" toml:"servers"`
 
 	Transmitters []TransmitterConfig `json:"transmitters" toml:"transmitters"`
 }
