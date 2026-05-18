@@ -837,7 +837,7 @@ func StartCLIEnvironment(
 		ContractVersions:        env.ContractVersions(),
 	}
 
-	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)
+	ctx, cancel := context.WithTimeout(cmdContext, 20*time.Minute)
 	defer cancel()
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(ctx, testLogger, singleFileLogger, universalSetupInput, relativePathToRepoRoot)
 	if setupErr != nil {
