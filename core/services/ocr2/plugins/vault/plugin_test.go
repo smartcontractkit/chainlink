@@ -856,7 +856,6 @@ func TestPlugin_Observation_GetSecretsRequest_ResponseUsesCanonicalIdentifier(t 
 				EncryptionKeys: []string{pks},
 			},
 		},
-		WorkflowOwner: "owner",
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
@@ -888,21 +887,22 @@ func TestPlugin_Observation_GetSecretsRequest_ResponseUsesCanonicalIdentifier(t 
 	assert.True(t, proto.Equal(batchResp.Responses[0].Id, createdID))
 }
 
-func TestPlugin_Observation_GetSecretsRequest_OrgIdLabelAcceptedWhenEnabled(t *testing.T) {
+func TestPlugin_Observation_GetSecretsRequest_WorkflowOwnerLabelAccepted(t *testing.T) {
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 
-	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOrgIDEnabled())
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]))
 
-	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
+	ownerAddr := common.HexToAddress("0x1111111111111111111111111111111111111111")
+	owner := ownerAddr.Hex()
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     orgID,
+		Owner:     owner,
 		Namespace: "main",
 		Key:       "my_secret",
 	}
 	rdr := &kv{m: make(map[string]response)}
 
-	encrypted, err := vaultutils.EncryptSecretWithOrgID("my-secret-value", pk, orgID)
+	encrypted, err := vaultutils.EncryptSecretWithWorkflowOwner("my-secret-value", pk, ownerAddr)
 	require.NoError(t, err)
 	ciphertextBytes, err := hex.DecodeString(encrypted)
 	require.NoError(t, err)
@@ -922,7 +922,6 @@ func TestPlugin_Observation_GetSecretsRequest_OrgIdLabelAcceptedWhenEnabled(t *t
 				EncryptionKeys: []string{hex.EncodeToString(pubK[:])},
 			},
 		},
-		OrgId: orgID,
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
@@ -944,25 +943,27 @@ func TestPlugin_Observation_GetSecretsRequest_OrgIdLabelAcceptedWhenEnabled(t *t
 	batchResp := obs.Observations[0].GetGetSecretsResponse()
 	require.Len(t, batchResp.Responses, 1)
 	require.NotNil(t, batchResp.Responses[0].GetId())
-	assert.Equal(t, orgID, batchResp.Responses[0].GetId().GetOwner())
+	assert.Equal(t, owner, batchResp.Responses[0].GetId().GetOwner())
 	assert.Empty(t, batchResp.Responses[0].GetError())
 }
 
-func TestPlugin_Observation_GetSecretsRequest_OrgIdLabelRejectedWhenDisabled(t *testing.T) {
+func TestPlugin_Observation_GetSecretsRequest_WrongOwnerLabelRejected(t *testing.T) {
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]))
 
-	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
+	goodOwner := common.HexToAddress("0x1111111111111111111111111111111111111111")
+	wrongOwner := common.HexToAddress("0x2222222222222222222222222222222222222222")
+
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     orgID,
+		Owner:     wrongOwner.Hex(),
 		Namespace: "main",
 		Key:       "my_secret",
 	}
 	rdr := &kv{m: make(map[string]response)}
 
-	encrypted, err := vaultutils.EncryptSecretWithOrgID("my-secret-value", pk, orgID)
+	encrypted, err := vaultutils.EncryptSecretWithWorkflowOwner("my-secret-value", pk, goodOwner)
 	require.NoError(t, err)
 	ciphertextBytes, err := hex.DecodeString(encrypted)
 	require.NoError(t, err)
@@ -982,7 +983,6 @@ func TestPlugin_Observation_GetSecretsRequest_OrgIdLabelRejectedWhenDisabled(t *
 				EncryptionKeys: []string{hex.EncodeToString(pubK[:])},
 			},
 		},
-		OrgId: orgID,
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
@@ -1158,7 +1158,6 @@ func TestPlugin_Observation_GetSecretsRequest_PublicKeyIsInvalid(t *testing.T) {
 				EncryptionKeys: []string{"foo"},
 			},
 		},
-		WorkflowOwner: "owner",
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
@@ -1306,7 +1305,6 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 				EncryptionKeys: []string{pks},
 			},
 		},
-		WorkflowOwner: owner,
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
@@ -2102,7 +2100,6 @@ func TestPlugin_Observation_CreateSecretsRequest_Success(t *testing.T) {
 				EncryptedValue: hex.EncodeToString(ciphertextBytes),
 			},
 		},
-		WorkflowOwner: "owner",
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
@@ -2135,19 +2132,20 @@ func TestPlugin_Observation_CreateSecretsRequest_Success(t *testing.T) {
 	assert.Empty(t, resp.GetError())
 }
 
-func TestPlugin_Observation_CreateSecretsRequest_OrgIdLabelAcceptedWhenEnabled(t *testing.T) {
+func TestPlugin_Observation_CreateSecretsRequest_WorkflowOwnerLabelAccepted(t *testing.T) {
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
-	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOrgIDEnabled())
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]))
 
-	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
+	ownerAddr := common.HexToAddress("0x1111111111111111111111111111111111111111")
+	owner := ownerAddr.Hex()
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     orgID,
+		Owner:     owner,
 		Namespace: "main",
 		Key:       "secret",
 	}
 
-	encrypted, err := vaultutils.EncryptSecretWithOrgID("my secret value", pk, orgID)
+	encrypted, err := vaultutils.EncryptSecretWithWorkflowOwner("my secret value", pk, ownerAddr)
 	require.NoError(t, err)
 
 	rdr := &kv{m: make(map[string]response)}
@@ -2155,7 +2153,6 @@ func TestPlugin_Observation_CreateSecretsRequest_OrgIdLabelAcceptedWhenEnabled(t
 		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{Id: id, EncryptedValue: encrypted},
 		},
-		OrgId: orgID,
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
@@ -2179,19 +2176,20 @@ func TestPlugin_Observation_CreateSecretsRequest_OrgIdLabelAcceptedWhenEnabled(t
 	assert.Empty(t, batchResp.Responses[0].GetError())
 }
 
-func TestPlugin_Observation_CreateSecretsRequest_OrgIdLabelRejectedWhenDisabled(t *testing.T) {
+func TestPlugin_Observation_CreateSecretsRequest_WrongOwnerLabelRejected(t *testing.T) {
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]))
 
-	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
+	goodOwner := common.HexToAddress("0x1111111111111111111111111111111111111111")
+	wrongOwner := common.HexToAddress("0x2222222222222222222222222222222222222222")
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     orgID,
+		Owner:     wrongOwner.Hex(),
 		Namespace: "main",
 		Key:       "secret",
 	}
 
-	encrypted, err := vaultutils.EncryptSecretWithOrgID("my secret value", pk, orgID)
+	encrypted, err := vaultutils.EncryptSecretWithWorkflowOwner("my secret value", pk, goodOwner)
 	require.NoError(t, err)
 
 	rdr := &kv{m: make(map[string]response)}
@@ -2199,7 +2197,6 @@ func TestPlugin_Observation_CreateSecretsRequest_OrgIdLabelRejectedWhenDisabled(
 		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{Id: id, EncryptedValue: encrypted},
 		},
-		OrgId: orgID,
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
@@ -2220,7 +2217,7 @@ func TestPlugin_Observation_CreateSecretsRequest_OrgIdLabelRejectedWhenDisabled(
 	require.Len(t, obs.Observations, 1)
 	batchResp := obs.Observations[0].GetCreateSecretsResponse()
 	require.Len(t, batchResp.Responses, 1)
-	assert.Contains(t, batchResp.Responses[0].GetError(), "does not match any of the provided owner labels")
+	assert.Contains(t, batchResp.Responses[0].GetError(), "does not match workflow owner label")
 }
 
 func makeEncryptedShares(t *testing.T, ciphertext *tdh2easy.Ciphertext, privateShare *tdh2easy.PrivateShare, keys []string) []*vaultcommon.EncryptedShares {
@@ -2987,24 +2984,21 @@ func TestPlugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T)
 	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
 }
 
-func TestPlugin_StateTransition_CreateSecretsRequest_UsesWorkflowOwnerMetadataWhenGateEnabled(t *testing.T) {
-	r := newTestReportingPlugin(t, withOnchainCfg(4, 1), withOrgIDEnabled())
+func TestPlugin_StateTransition_CreateSecretsRequest_PerOwnerLimitEnforcedWhenAtCapacity(t *testing.T) {
+	r := newTestReportingPlugin(t, withMaxSecretsPerOwner(1), withOnchainCfg(4, 1))
 
-	const (
-		orgID         = "org-create"
-		workflowOwner = "0x2222222222222222222222222222222222222222"
-	)
+	const owner = "0x2222222222222222222222222222222222222222"
 
 	kv := &kv{m: make(map[string]response)}
 	require.NoError(t, newTestWriteStore(t, kv).WriteSecret(t.Context(), &vaultcommon.SecretIdentifier{
-		Owner:     workflowOwner,
+		Owner:     owner,
 		Namespace: "main",
-		Key:       "legacy",
+		Key:       "existing",
 	}, &vaultcommon.StoredSecret{EncryptedSecret: []byte("legacy-value")}))
 	rs := newTestReadStore(t, kv)
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     orgID,
+		Owner:     owner,
 		Namespace: "main",
 		Key:       "new-secret",
 	}
@@ -3016,8 +3010,6 @@ func TestPlugin_StateTransition_CreateSecretsRequest_UsesWorkflowOwnerMetadataWh
 				EncryptedValue: hex.EncodeToString([]byte("encrypted-value")),
 			},
 		},
-		OrgId:         orgID,
-		WorkflowOwner: workflowOwner,
 	}
 	resp := &vaultcommon.CreateSecretsResponse{
 		Responses: []*vaultcommon.CreateSecretResponse{
@@ -3059,7 +3051,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_UsesWorkflowOwnerMetadataWh
 	assert.Nil(t, ss)
 }
 
-func TestPlugin_StateTransition_CreateSecretsRequest_RewritesResponseOwnerToOrgIDWhenGateEnabled(t *testing.T) {
+func TestPlugin_StateTransition_CreateSecrets_ResponseOwnerMatchesStoredIdentifier(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -3070,21 +3062,12 @@ func TestPlugin_StateTransition_CreateSecretsRequest_RewritesResponseOwnerToOrgI
 		withBatchSize(10),
 		withMaxSecretsPerOwner(5),
 		withOnchainCfg(4, 1),
-		withOrgIDEnabled(),
 	)
 
-	const (
-		orgID         = "org-create-success"
-		workflowOwner = "0x5555555555555555555555555555555555555555"
-	)
+	const workflowOwner = "0x5555555555555555555555555555555555555555"
 
 	requestID := &vaultcommon.SecretIdentifier{
 		Owner:     workflowOwner,
-		Namespace: "main",
-		Key:       "secret",
-	}
-	canonicalID := &vaultcommon.SecretIdentifier{
-		Owner:     orgID,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -3098,8 +3081,6 @@ func TestPlugin_StateTransition_CreateSecretsRequest_RewritesResponseOwnerToOrgI
 				EncryptedValue: hex.EncodeToString(value),
 			},
 		},
-		OrgId:         orgID,
-		WorkflowOwner: workflowOwner,
 	}
 	resp := &vaultcommon.CreateSecretsResponse{
 		Responses: []*vaultcommon.CreateSecretResponse{
@@ -3137,7 +3118,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_RewritesResponseOwnerToOrgI
 	expectedResp := &vaultcommon.CreateSecretsResponse{
 		Responses: []*vaultcommon.CreateSecretResponse{
 			{
-				Id:      canonicalID,
+				Id:      requestID,
 				Success: true,
 				Error:   "",
 			},
@@ -3145,7 +3126,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_RewritesResponseOwnerToOrgI
 	}
 	assert.True(t, proto.Equal(expectedResp, o.GetCreateSecretsResponse()), o.GetCreateSecretsResponse())
 
-	ss, err := rs.GetSecret(t.Context(), canonicalID)
+	ss, err := rs.GetSecret(t.Context(), requestID)
 	require.NoError(t, err)
 	assert.Equal(t, []byte("encrypted-value"), ss.EncryptedSecret)
 
@@ -3780,86 +3761,6 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_WritesSecrets(t *testing.T)
 	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
 }
 
-func TestPlugin_StateTransition_UpdateSecretsRequest_MigratesWorkflowOwnerSecretWhenGateEnabled(t *testing.T) {
-	r := newTestReportingPlugin(t, withMaxSecretsPerOwner(5), withOnchainCfg(4, 1), withOrgIDEnabled())
-
-	const (
-		orgID         = "org-update"
-		workflowOwner = "0x3333333333333333333333333333333333333333"
-	)
-
-	kv := &kv{m: make(map[string]response)}
-	legacyID := &vaultcommon.SecretIdentifier{
-		Owner:     workflowOwner,
-		Namespace: "main",
-		Key:       "secret",
-	}
-	require.NoError(t, newTestWriteStore(t, kv).WriteSecret(t.Context(), legacyID, &vaultcommon.StoredSecret{
-		EncryptedSecret: []byte("old-encrypted-value"),
-	}))
-	rs := newTestReadStore(t, kv)
-
-	id := &vaultcommon.SecretIdentifier{
-		Owner:     orgID,
-		Namespace: "main",
-		Key:       "secret",
-	}
-	req := &vaultcommon.UpdateSecretsRequest{
-		RequestId: "request-id",
-		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
-			{
-				Id:             legacyID,
-				EncryptedValue: hex.EncodeToString([]byte("encrypted-value")),
-			},
-		},
-		OrgId:         orgID,
-		WorkflowOwner: workflowOwner,
-	}
-	resp := &vaultcommon.UpdateSecretsResponse{
-		Responses: []*vaultcommon.UpdateSecretResponse{
-			{
-				Id:      legacyID,
-				Success: false,
-				Error:   "",
-			},
-		},
-	}
-
-	obsb := marshalObservations(t, observation{legacyID, req, resp})
-	reportPrecursor, err := r.StateTransition(
-		t.Context(),
-		1,
-		types.AttributedQuery{},
-		[]types.AttributedObservation{
-			{Observer: 0, Observation: types.Observation(obsb)},
-			{Observer: 1, Observation: types.Observation(obsb)},
-			{Observer: 2, Observation: types.Observation(obsb)},
-		},
-		kv,
-		nil,
-	)
-	require.NoError(t, err)
-
-	os := &vaultcommon.Outcomes{}
-	require.NoError(t, proto.Unmarshal(reportPrecursor, os))
-	require.Len(t, os.Outcomes, 1)
-
-	o := os.Outcomes[0]
-	assert.True(t, proto.Equal(req, o.GetUpdateSecretsRequest()), o.GetUpdateSecretsRequest())
-	require.Len(t, o.GetUpdateSecretsResponse().Responses, 1)
-	assert.True(t, o.GetUpdateSecretsResponse().Responses[0].Success)
-	assert.Equal(t, orgID, o.GetUpdateSecretsResponse().Responses[0].Id.Owner)
-
-	ss, err := rs.GetSecret(t.Context(), id)
-	require.NoError(t, err)
-	require.NotNil(t, ss)
-	assert.Equal(t, []byte("encrypted-value"), ss.EncryptedSecret)
-
-	legacySecret, err := rs.GetSecret(t.Context(), legacyID)
-	require.NoError(t, err)
-	assert.Nil(t, legacySecret)
-}
-
 func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
 	value := "encrypted-value"
 	id := &vaultcommon.SecretIdentifier{
@@ -4180,76 +4081,6 @@ func TestPlugin_StateTransition_DeleteSecretsRequest(t *testing.T) {
 	require.Nil(t, ss)
 
 	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
-}
-
-func TestPlugin_StateTransition_DeleteSecretsRequest_DeletesWorkflowOwnerSecretWhenGateEnabled(t *testing.T) {
-	r := newTestReportingPlugin(t, withMaxSecretsPerOwner(5), withOnchainCfg(4, 1), withOrgIDEnabled())
-
-	const (
-		orgID         = "org-delete"
-		workflowOwner = "0x4444444444444444444444444444444444444444"
-	)
-
-	kv := &kv{m: make(map[string]response)}
-	legacyID := &vaultcommon.SecretIdentifier{
-		Owner:     workflowOwner,
-		Namespace: "main",
-		Key:       "item4",
-	}
-	require.NoError(t, newTestWriteStore(t, kv).WriteSecret(t.Context(), legacyID, &vaultcommon.StoredSecret{
-		EncryptedSecret: []byte("encrypted-value"),
-	}))
-	rs := newTestReadStore(t, kv)
-
-	id := &vaultcommon.SecretIdentifier{
-		Owner:     orgID,
-		Namespace: "main",
-		Key:       "item4",
-	}
-	req := &vaultcommon.DeleteSecretsRequest{
-		RequestId:     "request-id",
-		Ids:           []*vaultcommon.SecretIdentifier{legacyID},
-		OrgId:         orgID,
-		WorkflowOwner: workflowOwner,
-	}
-	resp := &vaultcommon.DeleteSecretsResponse{
-		Responses: []*vaultcommon.DeleteSecretResponse{
-			{
-				Id:      legacyID,
-				Success: false,
-				Error:   "",
-			},
-		},
-	}
-
-	obsb := marshalObservations(t, observation{legacyID, req, resp})
-	reportPrecursor, err := r.StateTransition(
-		t.Context(),
-		1,
-		types.AttributedQuery{},
-		[]types.AttributedObservation{
-			{Observer: 0, Observation: types.Observation(obsb)},
-			{Observer: 1, Observation: types.Observation(obsb)},
-			{Observer: 2, Observation: types.Observation(obsb)},
-		},
-		kv,
-		nil,
-	)
-	require.NoError(t, err)
-
-	os := &vaultcommon.Outcomes{}
-	require.NoError(t, proto.Unmarshal(reportPrecursor, os))
-	require.Len(t, os.Outcomes, 1)
-
-	o := os.Outcomes[0]
-	assert.True(t, proto.Equal(req, o.GetDeleteSecretsRequest()), o.GetDeleteSecretsRequest())
-	require.Len(t, o.GetDeleteSecretsResponse().Responses, 1)
-	assert.True(t, o.GetDeleteSecretsResponse().Responses[0].Success)
-	assert.True(t, proto.Equal(id, o.GetDeleteSecretsResponse().Responses[0].Id), o.GetDeleteSecretsResponse().Responses[0].Id)
-
-	ss, err := rs.GetSecret(t.Context(), legacyID)
-	require.NoError(t, err)
-	assert.Nil(t, ss)
 }
 
 func TestPlugin_StateTransition_DeleteSecretsRequest_SecretDoesNotExist(t *testing.T) {
@@ -4596,18 +4427,14 @@ func TestPlugin_Observation_ListSecretIdentifiers_FilterByNamespace(t *testing.T
 	assert.Empty(t, resp.GetError())
 }
 
-func TestPlugin_Observation_ListSecretIdentifiers_FallsBackToWorkflowOwnerWhenGateEnabled(t *testing.T) {
+func TestPlugin_Observation_ListSecretIdentifiers_ListsSecretsForRequestOwner(t *testing.T) {
 	r := newTestReportingPlugin(
 		t,
 		withMaxSecretsPerOwner(5),
 		withMaxIdentifierLengths(30, 30, 30),
-		withOrgIDEnabled(),
 	)
 
-	const (
-		orgID         = "org-list"
-		workflowOwner = "0x1111111111111111111111111111111111111111"
-	)
+	const workflowOwner = "0x1111111111111111111111111111111111111111"
 
 	rdr := &kv{m: make(map[string]response)}
 	require.NoError(t, newTestWriteStore(t, rdr).WriteSecret(t.Context(), &vaultcommon.SecretIdentifier{
@@ -4617,10 +4444,8 @@ func TestPlugin_Observation_ListSecretIdentifiers_FallsBackToWorkflowOwnerWhenGa
 	}, &vaultcommon.StoredSecret{EncryptedSecret: []byte("legacy-data")}))
 
 	p := &vaultcommon.ListSecretIdentifiersRequest{
-		RequestId:     "request-id",
-		Owner:         orgID,
-		OrgId:         orgID,
-		WorkflowOwner: workflowOwner,
+		RequestId: "request-id",
+		Owner:     workflowOwner,
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
@@ -4640,7 +4465,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_FallsBackToWorkflowOwnerWhenGa
 	resp := obs.Observations[0].GetListSecretIdentifiersResponse()
 	require.True(t, resp.Success, resp.GetError())
 	require.Len(t, resp.Identifiers, 1)
-	assert.Equal(t, orgID, resp.Identifiers[0].Owner)
+	assert.Equal(t, workflowOwner, resp.Identifiers[0].Owner)
 	assert.Equal(t, "legacy-item", resp.Identifiers[0].Key)
 }
 
@@ -4660,10 +4485,8 @@ func TestPlugin_Observation_ListSecretIdentifiers_DoesNotFallbackWhenGateDisable
 	}, &vaultcommon.StoredSecret{EncryptedSecret: []byte("legacy-data")}))
 
 	p := &vaultcommon.ListSecretIdentifiersRequest{
-		RequestId:     "request-id",
-		Owner:         orgID,
-		OrgId:         orgID,
-		WorkflowOwner: workflowOwner,
+		RequestId: "request-id",
+		Owner:     orgID,
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
@@ -5561,7 +5384,7 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 	require.ErrorContains(t, err, "invalid observation: share provided exceeds maximum size allowed")
 }
 
-func TestPlugin_ValidateObservation_GetSecretsRequest_OrgIDResponseOwner(t *testing.T) {
+func TestPlugin_ValidateObservation_GetSecrets_MismatchedResponseOwnerRejected(t *testing.T) {
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 
@@ -5571,7 +5394,6 @@ func TestPlugin_ValidateObservation_GetSecretsRequest_OrgIDResponseOwner(t *test
 		withMaxIdentifierLengths(30, 30, 30),
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
-		withOrgIDEnabled(),
 	)
 
 	workflowOwner := "workflowowner"
@@ -5595,8 +5417,6 @@ func TestPlugin_ValidateObservation_GetSecretsRequest_OrgIDResponseOwner(t *test
 				Requests: []*vaultcommon.SecretRequest{
 					{Id: secretID},
 				},
-				OrgId:         orgID,
-				WorkflowOwner: workflowOwner,
 			},
 		},
 		Response: &vaultcommon.Observation_GetSecretsResponse{
@@ -5613,9 +5433,6 @@ func TestPlugin_ValidateObservation_GetSecretsRequest_OrgIDResponseOwner(t *test
 		},
 	}
 
-	require.NoError(t, r.validateObservation(t.Context(), obs))
-
-	r.cfg.OrgIDAsSecretOwnerEnabled = limits.NewGateLimiter(false)
 	require.ErrorContains(t, r.validateObservation(t.Context(), obs), "missing response for request with id workflowowner::main::secret")
 }
 
@@ -6600,7 +6417,7 @@ func TestPlugin_MaxShareSize(t *testing.T) {
 		ctb, err := ciphertext.Marshal()
 		require.NoError(t, err)
 
-		share, err := generatePlaintextShare(pk, shares[0], ctb, owner, "")
+		share, err := generatePlaintextShare(pk, shares[0], ctb, owner)
 		require.NoError(t, err)
 
 		eds, err := share.encryptWithKey(hex.EncodeToString(recipientPub[:]))
@@ -7242,9 +7059,7 @@ func TestProperty_broadcastBlobPayloads_MaxSizePayloadsWithinBlobLimit(t *testin
 		{
 			name: "GetSecretsRequest",
 			payload: &vaultcommon.GetSecretsRequest{
-				Requests:      buildMaxSecretRequests(),
-				OrgId:         maxIDOwnerField,
-				WorkflowOwner: maxIDOwnerField,
+				Requests: buildMaxSecretRequests(),
 			},
 		},
 		{
@@ -7252,35 +7067,27 @@ func TestProperty_broadcastBlobPayloads_MaxSizePayloadsWithinBlobLimit(t *testin
 			payload: &vaultcommon.CreateSecretsRequest{
 				RequestId:        "req",
 				EncryptedSecrets: buildMaxEncryptedSecrets(),
-				OrgId:            maxIDOwnerField,
-				WorkflowOwner:    maxIDOwnerField,
 			}},
 		{
 			name: "UpdateSecretsRequest",
 			payload: &vaultcommon.UpdateSecretsRequest{
 				RequestId:        "req",
 				EncryptedSecrets: buildMaxEncryptedSecrets(),
-				OrgId:            maxIDOwnerField,
-				WorkflowOwner:    maxIDOwnerField,
 			},
 		},
 		{
 			name: "DeleteSecretsRequest",
 			payload: &vaultcommon.DeleteSecretsRequest{
-				RequestId:     "req",
-				Ids:           buildMaxIdentifiers(),
-				OrgId:         maxIDOwnerField,
-				WorkflowOwner: maxIDOwnerField,
+				RequestId: "req",
+				Ids:       buildMaxIdentifiers(),
 			},
 		},
 		{
 			name: "ListSecretIdentifiersRequest",
 			payload: &vaultcommon.ListSecretIdentifiersRequest{
-				RequestId:     "req",
-				Owner:         maxIDOwnerField,
-				Namespace:     maxIDNamespaceField,
-				OrgId:         maxIDOwnerField,
-				WorkflowOwner: maxIDOwnerField,
+				RequestId: "req",
+				Owner:     maxIDOwnerField,
+				Namespace: maxIDNamespaceField,
 			},
 		},
 	}

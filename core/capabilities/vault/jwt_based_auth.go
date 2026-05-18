@@ -8,8 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/big"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -29,6 +31,7 @@ var (
 	ErrMissingToken                    = errors.New("missing JWT token")
 	ErrInvalidToken                    = errors.New("invalid JWT token")
 	ErrMissingOrgID                    = errors.New("missing org_id claim")
+	ErrMissingTenantID                 = errors.New("missing urn:chainlink:tenant_id or tenant_id claim for JWT-derived vault workflow owner")
 	ErrMissingWorkflowOwner            = errors.New("missing workflow_owner in authorization_details")
 	ErrMissingRequestDigest            = errors.New("missing request_digest in authorization_details")
 	ErrVaultSecretManagementNotEnabled = errors.New("claim_vault_secret_management_enabled claim must be true")
@@ -37,6 +40,10 @@ var (
 )
 
 const ClaimVaultSecretManagementEnabled = "urn:chainlink:claim_vault_secret_management_enabled"
+
+// ClaimChainlinkTenantID is the CRE tenant numeric id (typically a decimal string) as emitted on Auth0 JWTs.
+// See cre-platform-graphql/internal/auth/jwt_auth0.go (resolveStringClaim(..., "tenant_id")).
+const ClaimChainlinkTenantID = "urn:chainlink:tenant_id"
 
 const (
 	defaultJWKSRefreshInterval = 15 * time.Minute
@@ -61,6 +68,7 @@ type JWTBasedAuthConfig struct {
 // relevant to Vault request authorization.
 type JWTClaims struct {
 	OrgID         string
+	TenantID      uint64 // from urn:chainlink:tenant_id or tenant_id
 	WorkflowOwner string // from authorization_details
 	RequestDigest string // from authorization_details
 	ExpiresAt     time.Time
@@ -82,7 +90,7 @@ type jsonWebKeySet struct {
 
 // JWTBasedAuth verifies Auth0-issued RS256 JWTs using the provider's
 // public JWKS endpoint and extracts Vault-specific claims (org_id,
-// optional workflow_owner, request_digest). It is safe for concurrent use.
+// tenant id, optional workflow_owner, request_digest). It is safe for concurrent use.
 //
 // JWKS keys are fetched lazily on the first token validation and refreshed
 // on key-ID misses, rate-limited to at most once per JWKSRefreshInterval.
@@ -106,6 +114,8 @@ type jwtBasedAuth struct {
 
 	httpClient *http.Client
 	lggr       logger.Logger
+
+	limitsFactory limits.Factory
 }
 
 type jwtBasedAuthOptions struct {
@@ -161,6 +171,7 @@ func NewJWTBasedAuth(cfg JWTBasedAuthConfig, limitsFactory limits.Factory, lggr 
 		authEnabledGate: options.authEnabledGate,
 		httpClient:      httpClient,
 		lggr:            logger.Named(lggr, "VaultJWTBasedAuth"),
+		limitsFactory:   limitsFactory,
 	}
 	v.Service, v.eng = services.Config{
 		Name:  "VaultJWTBasedAuth",
@@ -228,18 +239,21 @@ func (v *jwtBasedAuth) AuthorizeRequest(ctx context.Context, req jsonrpc.Request
 		return nil, fmt.Errorf("request digest mismatch: computed=%s claimed=%s", requestDigest, claims.RequestDigest)
 	}
 
-	if claims.WorkflowOwner == "" {
-		if ownerErr := validateOrgIDOwnedVaultRequest(req, claims.OrgID); ownerErr != nil {
-			wrappedErr := fmt.Errorf("%w: %w", ErrMissingWorkflowOwner, ownerErr)
-			v.lggr.Debugw("JWTBasedAuth missing workflow owner rejected non-org-owned request", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "error", wrappedErr)
-			return nil, fmt.Errorf("invalid JWT auth token: %w", wrappedErr)
-		}
+	derivedWorkflowOwner, err := DeriveJWTAuthorizedVaultWorkflowOwner(claims.OrgID, claims.TenantID, claims.WorkflowOwner)
+	if err != nil {
+		v.lggr.Debugw("JWTBasedAuth failed to derive authorized workflow owner", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "error", err)
+		return nil, fmt.Errorf("invalid JWT auth token: %w", err)
 	}
 
-	v.lggr.Debugw("JWTBasedAuth authorization succeeded", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "workflowOwner", claims.WorkflowOwner, "digest", requestDigest, "expiresAt", claims.ExpiresAt.UTC().Unix())
+	if ownerErr := validateJWTPreparedVaultOwners(req, derivedWorkflowOwner); ownerErr != nil {
+		v.lggr.Debugw("JWTBasedAuth secret owners rejected prepared request", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "workflowOwner", derivedWorkflowOwner, "error", ownerErr)
+		return nil, fmt.Errorf("invalid JWT auth token: %w", ownerErr)
+	}
+
+	v.lggr.Debugw("JWTBasedAuth authorization succeeded", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "workflowOwner", derivedWorkflowOwner, "digest", requestDigest, "expiresAt", claims.ExpiresAt.UTC().Unix())
 	return &AuthResult{
 		orgID:         claims.OrgID,
-		workflowOwner: claims.WorkflowOwner,
+		workflowOwner: derivedWorkflowOwner,
 		digest:        requestDigest,
 		expiresAt:     claims.ExpiresAt.UTC().Unix(),
 	}, nil
@@ -247,7 +261,7 @@ func (v *jwtBasedAuth) AuthorizeRequest(ctx context.Context, req jsonrpc.Request
 
 // validateToken verifies the JWT signature via Auth0 JWKS, validates
 // standard claims (iss, aud, exp), and extracts Vault-specific claims
-// (org_id, optional workflow_owner, request_digest).
+// (org_id, tenant id, optional workflow_owner, request_digest).
 func (v *jwtBasedAuth) validateToken(ctx context.Context, tokenString string) (*JWTClaims, error) {
 	if tokenString == "" {
 		return nil, ErrMissingToken
@@ -307,6 +321,11 @@ func extractVaultClaims(claims jwt.MapClaims) (*JWTClaims, error) {
 		return nil, fmt.Errorf("%w: invalid exp claim", ErrInvalidToken)
 	}
 
+	tenantID, err := extractTenantNumericIDFromClaims(claims)
+	if err != nil {
+		return nil, fmt.Errorf("%w: invalid tenant id claim", ErrInvalidToken)
+	}
+
 	workflowOwner, requestDigest, err := extractAuthorizationDetails(claims)
 	if err != nil {
 		return nil, err
@@ -316,11 +335,58 @@ func extractVaultClaims(claims jwt.MapClaims) (*JWTClaims, error) {
 
 	return &JWTClaims{
 		OrgID:         orgID,
+		TenantID:      tenantID,
 		WorkflowOwner: workflowOwner,
 		RequestDigest: requestDigest,
 		ExpiresAt:     exp.Time,
 		OAuthScopes:   oauthScopes,
 	}, nil
+}
+
+func extractTenantNumericIDFromClaims(claims jwt.MapClaims) (uint64, error) {
+	var raw interface{}
+	ok := false
+	if v, exists := claims[ClaimChainlinkTenantID]; exists && v != nil {
+		raw, ok = v, true
+	} else if v, exists := claims["tenant_id"]; exists && v != nil {
+		raw, ok = v, true
+	}
+	if !ok {
+		return 0, nil
+	}
+	id, err := parseJWTUnsignedIntegerClaim(raw)
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
+}
+
+func parseJWTUnsignedIntegerClaim(raw interface{}) (uint64, error) {
+	switch v := raw.(type) {
+	case string:
+		s := strings.TrimSpace(v)
+		if s == "" {
+			return 0, nil
+		}
+		n, err := strconv.ParseUint(s, 10, 64)
+		if err != nil {
+			return 0, err
+		}
+		return n, nil
+	case json.Number:
+		n, err := strconv.ParseUint(v.String(), 10, 64)
+		if err != nil {
+			return 0, err
+		}
+		return n, nil
+	case float64:
+		if v <= 0 || v != math.Trunc(v) || v > math.MaxUint64 {
+			return 0, strconv.ErrSyntax
+		}
+		return uint64(v), nil
+	default:
+		return 0, strconv.ErrSyntax
+	}
 }
 
 func extractAuthorizationDetails(claims jwt.MapClaims) (workflowOwner, requestDigest string, err error) {
@@ -356,48 +422,41 @@ func extractAuthorizationDetails(claims jwt.MapClaims) (workflowOwner, requestDi
 	return workflowOwner, requestDigest, nil
 }
 
-func validateOrgIDOwnedVaultRequest(req jsonrpc.Request[json.RawMessage], orgID string) error {
-	if orgID == "" {
-		return ErrMissingOrgID
-	}
-	if req.Params == nil {
-		return errors.New("request params are required")
-	}
-
+func validateJWTPreparedVaultOwners(req jsonrpc.Request[json.RawMessage], workflowOwner string) error {
 	switch req.Method {
 	case vaulttypes.MethodSecretsCreate:
 		parsed := &vaultcommon.CreateSecretsRequest{}
 		if err := json.Unmarshal(*req.Params, parsed); err != nil {
 			return fmt.Errorf("failed to parse create secrets request: %w", err)
 		}
-		return validateEncryptedSecretOwnersMatchOrgID(parsed.EncryptedSecrets, orgID)
+		return validateEncryptedSecretOwnersMatchWorkflowOwner(parsed.EncryptedSecrets, workflowOwner)
 	case vaulttypes.MethodSecretsUpdate:
 		parsed := &vaultcommon.UpdateSecretsRequest{}
 		if err := json.Unmarshal(*req.Params, parsed); err != nil {
 			return fmt.Errorf("failed to parse update secrets request: %w", err)
 		}
-		return validateEncryptedSecretOwnersMatchOrgID(parsed.EncryptedSecrets, orgID)
+		return validateEncryptedSecretOwnersMatchWorkflowOwner(parsed.EncryptedSecrets, workflowOwner)
 	case vaulttypes.MethodSecretsDelete:
 		parsed := &vaultcommon.DeleteSecretsRequest{}
 		if err := json.Unmarshal(*req.Params, parsed); err != nil {
 			return fmt.Errorf("failed to parse delete secrets request: %w", err)
 		}
-		return validateSecretIdentifierOwnersMatchOrgID(parsed.Ids, orgID)
+		return validateSecretIdentifierOwnersMatchWorkflowOwner(parsed.Ids, workflowOwner)
 	case vaulttypes.MethodSecretsList:
 		parsed := &vaultcommon.ListSecretIdentifiersRequest{}
 		if err := json.Unmarshal(*req.Params, parsed); err != nil {
 			return fmt.Errorf("failed to parse list secrets request: %w", err)
 		}
-		if parsed.Owner != orgID {
-			return fmt.Errorf("list secrets owner %q does not match org_id %q", parsed.Owner, orgID)
+		if normalizeOwner(parsed.Owner) != normalizeOwner(workflowOwner) {
+			return fmt.Errorf("list secrets owner %q does not match authorized workflow owner %q", parsed.Owner, workflowOwner)
 		}
 		return nil
 	default:
-		return fmt.Errorf("method %q does not carry org-owned secret identifiers", req.Method)
+		return fmt.Errorf("method %q does not carry vault secret identifiers", req.Method)
 	}
 }
 
-func validateEncryptedSecretOwnersMatchOrgID(encryptedSecrets []*vaultcommon.EncryptedSecret, orgID string) error {
+func validateEncryptedSecretOwnersMatchWorkflowOwner(encryptedSecrets []*vaultcommon.EncryptedSecret, workflowOwner string) error {
 	if len(encryptedSecrets) == 0 {
 		return errors.New("encrypted secrets must contain at least one identifier")
 	}
@@ -405,14 +464,14 @@ func validateEncryptedSecretOwnersMatchOrgID(encryptedSecrets []*vaultcommon.Enc
 		if encryptedSecret == nil || encryptedSecret.Id == nil {
 			return fmt.Errorf("encrypted secret at index %d must include an identifier", idx)
 		}
-		if encryptedSecret.Id.Owner != orgID {
-			return fmt.Errorf("encrypted secret owner at index %d %q does not match org_id %q", idx, encryptedSecret.Id.Owner, orgID)
+		if normalizeOwner(encryptedSecret.Id.Owner) != normalizeOwner(workflowOwner) {
+			return fmt.Errorf("encrypted secret owner at index %d %q does not match authorized workflow owner %q", idx, encryptedSecret.Id.Owner, workflowOwner)
 		}
 	}
 	return nil
 }
 
-func validateSecretIdentifierOwnersMatchOrgID(ids []*vaultcommon.SecretIdentifier, orgID string) error {
+func validateSecretIdentifierOwnersMatchWorkflowOwner(ids []*vaultcommon.SecretIdentifier, workflowOwner string) error {
 	if len(ids) == 0 {
 		return errors.New("secret identifiers must not be empty")
 	}
@@ -420,8 +479,8 @@ func validateSecretIdentifierOwnersMatchOrgID(ids []*vaultcommon.SecretIdentifie
 		if id == nil {
 			return fmt.Errorf("secret identifier at index %d must not be nil", idx)
 		}
-		if id.Owner != orgID {
-			return fmt.Errorf("secret identifier owner at index %d %q does not match org_id %q", idx, id.Owner, orgID)
+		if normalizeOwner(id.Owner) != normalizeOwner(workflowOwner) {
+			return fmt.Errorf("secret identifier owner at index %d %q does not match authorized workflow owner %q", idx, id.Owner, workflowOwner)
 		}
 	}
 	return nil

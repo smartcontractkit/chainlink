@@ -503,17 +503,6 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 				EngineVersion:                 platform.ValueWorkflowVersionV2,
 				// no WorkflowExecutionID needed (or available at this stage)
 			}
-			gate := e.cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled
-			if gate == nil {
-				return errors.New("vault org id gate is nil")
-			}
-			enabled, gateErr := gate.Limit(gCtx)
-			if gateErr != nil {
-				return gateErr
-			}
-			if enabled {
-				metadata.OrgID = e.orgID
-			}
 			triggerEventCh, regErr := triggerCap.RegisterTrigger(gCtx, capabilities.TriggerRegistrationRequest{
 				TriggerID: registrationID,
 				Metadata:  metadata,
@@ -1008,7 +997,6 @@ func (e *Engine) secretsFetcher(phaseID string) SecretsFetcher {
 		e.logger(),
 		e.cfg.LocalLimiters.SecretsConcurrency,
 		e.cfg.LocalLimiters.SecretsCalls,
-		e.cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled,
 		e.orgID,
 		e.cfg.WorkflowOwner,
 		e.cfg.WorkflowName.String(),

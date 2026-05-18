@@ -39,11 +39,10 @@ type secretsFetcher struct {
 	capRegistry core.CapabilitiesRegistry
 	lggr        logger.Logger
 
-	semaphore                      limits.ResourcePoolLimiter[int]
-	secretsCallsLimit              limits.BoundLimiter[int]
-	vaultOrgIDAsSecretOwnerEnabled limits.GateLimiter
-	secretsCalled                  int
-	mu                             sync.Mutex
+	semaphore         limits.ResourcePoolLimiter[int]
+	secretsCallsLimit limits.BoundLimiter[int]
+	secretsCalled     int
+	mu                sync.Mutex
 
 	orgID                 string
 	workflowOwner         string
@@ -66,7 +65,6 @@ func NewSecretsFetcher(
 	lggr logger.Logger,
 	semaphore limits.ResourcePoolLimiter[int],
 	secretsCalls limits.BoundLimiter[int],
-	vaultOrgIDAsSecretOwnerEnabled limits.GateLimiter,
 	orgID string,
 	workflowOwner string,
 	workflowName string,
@@ -78,19 +76,18 @@ func NewSecretsFetcher(
 	lggr = logger.Named(lggr, "WorkflowEngine.SecretsFetcher")
 	lggr = logger.With(lggr, "workflowID", workflowID, "workflowName", workflowName, "workflowOwner", workflowOwner, "phaseID", phaseID)
 	return &secretsFetcher{
-		capRegistry:                    capRegistry,
-		lggr:                           lggr,
-		semaphore:                      semaphore,
-		secretsCallsLimit:              secretsCalls,
-		vaultOrgIDAsSecretOwnerEnabled: vaultOrgIDAsSecretOwnerEnabled,
-		orgID:                          orgID,
-		workflowOwner:                  workflowOwner,
-		workflowName:                   workflowName,
-		workflowID:                     workflowID,
-		phaseID:                        phaseID,
-		workflowEncryptionKey:          workflowEncryptionKey,
-		metrics:                        metrics,
-		overrideFetcher:                overrideFetcher,
+		capRegistry:           capRegistry,
+		lggr:                  lggr,
+		semaphore:             semaphore,
+		secretsCallsLimit:     secretsCalls,
+		orgID:                 orgID,
+		workflowOwner:         workflowOwner,
+		workflowName:          workflowName,
+		workflowID:            workflowID,
+		phaseID:               phaseID,
+		workflowEncryptionKey: workflowEncryptionKey,
+		metrics:               metrics,
+		overrideFetcher:       overrideFetcher,
 	}
 }
 
@@ -266,35 +263,14 @@ func (s *secretsFetcher) getVaultSecretsForBatch(ctx context.Context, request *s
 	if err != nil {
 		return nil, fmt.Errorf("failed to get encryption keys: %w", err)
 	}
-	if s.vaultOrgIDAsSecretOwnerEnabled == nil {
-		return nil, errors.New("vault org id gate is nil")
-	}
-	orgIDGateEnabled, err := s.vaultOrgIDAsSecretOwnerEnabled.Limit(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to evaluate vault org_id gate: %w", err)
-	}
-	if orgIDGateEnabled && s.orgID == "" {
-		return nil, errors.New("org_id is required when VaultOrgIdAsSecretOwnerEnabled is enabled")
-	}
 	metadata := capabilities.RequestMetadata{
 		WorkflowOwner:       s.workflowOwner,
 		WorkflowName:        s.workflowName,
 		WorkflowExecutionID: sha(s.phaseID, strconv.FormatInt(int64(request.CallbackId), 10)),
 		ReferenceID:         strconv.FormatInt(int64(request.CallbackId), 10),
 	}
-	if orgIDGateEnabled {
-		// WorkflowID is under this gate because the previous release skipped
-		// setting workflowID on SecretsFetcher entirely.
-		metadata.WorkflowID = s.workflowID
-		metadata.OrgID = s.orgID
-	}
-
 	vp := &vault.GetSecretsRequest{
 		Requests: make([]*vault.SecretRequest, 0),
-	}
-	if orgIDGateEnabled {
-		vp.OrgId = s.orgID
-		vp.WorkflowOwner = s.workflowOwner
 	}
 
 	owner, err := normalizeOwner(s.workflowOwner)
@@ -302,9 +278,6 @@ func (s *secretsFetcher) getVaultSecretsForBatch(ctx context.Context, request *s
 		return nil, fmt.Errorf("could not normalize workflowOwner: %w", err)
 	}
 	responseOwner := owner
-	if orgIDGateEnabled {
-		responseOwner = s.orgID
-	}
 
 	logKeys := make([]string, 0, len(request.Requests))
 	for _, r := range request.Requests {
