@@ -28,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -198,19 +197,6 @@ NOW(),NOW(),$1,'{}',false,$2,$3,0,0,0,0,0,0,0,0,0
 	return spec
 }
 
-func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
-	t.Helper()
-	drs := &job.DirectRequestSpec{EVMChainID: (*sqlutil.Big)(testutils.FixtureChainID)}
-	spec := &job.Job{
-		Type:              job.DirectRequest,
-		SchemaVersion:     1,
-		ExternalJobID:     uuid.New(),
-		DirectRequestSpec: drs,
-		Pipeline:          pipeline.Pipeline{},
-		PipelineSpec:      &pipeline.Spec{},
-	}
-	return spec
-}
 
 func MustInsertExternalInitiator(t *testing.T, orm bridges.ORM) (ei bridges.ExternalInitiator) {
 	return MustInsertExternalInitiatorWithOpts(t, orm, ExternalInitiatorOpts{})

@@ -13,8 +13,8 @@ import (
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
-	"github.com/smartcontractkit/chainlink/v2/core/null"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 )
 
 type PluginConfig struct {
@@ -23,12 +23,12 @@ type PluginConfig struct {
 
 	// Single mercury server
 	// LEGACY: This is the old way of specifying a mercury server
-	RawServerURL string              `json:"serverURL" toml:"serverURL"`
-	ServerPubKey utils.PlainHexBytes `json:"serverPubKey" toml:"serverPubKey"`
+	RawServerURL string            `json:"serverURL" toml:"serverURL"`
+	ServerPubKey hex.PlainHexBytes `json:"serverPubKey" toml:"serverPubKey"`
 
 	// Multi mercury servers
 	// This is the preferred way to specify mercury server(s)
-	Servers map[string]utils.PlainHexBytes `json:"servers" toml:"servers"`
+	Servers map[string]hex.PlainHexBytes `json:"servers" toml:"servers"`
 
 	// InitialBlockNumber allows to set a custom "validFromBlockNumber" for
 	// the first ever report in the case of a brand new feed, where the mercury
@@ -59,7 +59,7 @@ func validateURL(rawServerURL string) error {
 
 type Server struct {
 	URL    string
-	PubKey utils.PlainHexBytes
+	PubKey hex.PlainHexBytes
 }
 
 func (p PluginConfig) GetServers() (servers []Server) {

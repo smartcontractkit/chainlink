@@ -20,6 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	migrate_seq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/migration"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 

@@ -987,20 +987,20 @@ MaxSize defines the maximum size for HTTP requests and responses made by `http` 
 DefaultTransactionQueueDepth = 1 # Default
 SimulateTransactions = false # Default
 ```
-
+Deprecated: FluxMonitor job type has been removed. These settings are accepted for backwards-compatible
+config parsing only and have no effect.
 
 ### DefaultTransactionQueueDepth
-:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
 DefaultTransactionQueueDepth = 1 # Default
 ```
-DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in Flux Monitor. Set to 0 to use `SendEvery` strategy instead.
+DefaultTransactionQueueDepth **DEPRECATED**: has no effect. The FluxMonitor job type has been removed.
 
 ### SimulateTransactions
 ```toml
 SimulateTransactions = false # Default
 ```
-SimulateTransactions enables transaction simulation for Flux Monitor.
+SimulateTransactions **DEPRECATED**: has no effect. The FluxMonitor job type has been removed.
 
 ## OCR2
 ```toml

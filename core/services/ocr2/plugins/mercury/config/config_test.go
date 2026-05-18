@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 )
 
 var v1FeedId = [32]uint8{00, 01, 107, 74, 167, 229, 124, 167, 182, 138, 225, 191, 69, 101, 63, 86, 182, 86, 253, 58, 163, 53, 239, 127, 174, 105, 107, 102, 63, 27, 132, 114}
@@ -182,7 +182,7 @@ func Test_PluginConfig(t *testing.T) {
 
 func Test_PluginConfig_GetServers(t *testing.T) {
 	t.Run("with single server", func(t *testing.T) {
-		pubKey := utils.PlainHexBytes([]byte{1, 2, 3})
+		pubKey := hex.PlainHexBytes([]byte{1, 2, 3})
 		pc := PluginConfig{RawServerURL: "example.com", ServerPubKey: pubKey}
 		require.Len(t, pc.GetServers(), 1)
 		assert.Equal(t, "example.com", pc.GetServers()[0].URL)
@@ -205,16 +205,16 @@ func Test_PluginConfig_GetServers(t *testing.T) {
 	})
 
 	t.Run("with multiple servers", func(t *testing.T) {
-		servers := map[string]utils.PlainHexBytes{
-			"example.com:80":                 utils.PlainHexBytes([]byte{1, 2, 3}),
-			"mercuryserver.invalid:1234/foo": utils.PlainHexBytes([]byte{4, 5, 6}),
+		servers := map[string]hex.PlainHexBytes{
+			"example.com:80":                 hex.PlainHexBytes([]byte{1, 2, 3}),
+			"mercuryserver.invalid:1234/foo": hex.PlainHexBytes([]byte{4, 5, 6}),
 		}
 		pc := PluginConfig{Servers: servers}
 
 		require.Len(t, pc.GetServers(), 2)
 		assert.Equal(t, "example.com:80", pc.GetServers()[0].URL)
-		assert.Equal(t, utils.PlainHexBytes{1, 2, 3}, pc.GetServers()[0].PubKey)
+		assert.Equal(t, hex.PlainHexBytes{1, 2, 3}, pc.GetServers()[0].PubKey)
 		assert.Equal(t, "mercuryserver.invalid:1234/foo", pc.GetServers()[1].URL)
-		assert.Equal(t, utils.PlainHexBytes{4, 5, 6}, pc.GetServers()[1].PubKey)
+		assert.Equal(t, hex.PlainHexBytes{4, 5, 6}, pc.GetServers()[1].PubKey)
 	})
 }
