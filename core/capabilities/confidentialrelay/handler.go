@@ -605,17 +605,25 @@ func (h *Handler) signSecretsResponse(
 	result *confidentialrelaytypes.SecretsResponseResult,
 ) (*confidentialrelaytypes.SignedSecretsResponseResult, error) {
 	if h.responseSigner == nil {
+		h.lggr.Errorw("[DEBUG-cw324] signSecretsResponse: signer not configured")
 		return nil, errors.New("response signer not configured")
 	}
 
 	hash, err := result.Hash(params)
 	if err != nil {
+		h.lggr.Errorw("[DEBUG-cw324] signSecretsResponse: hash failed", "err", err)
 		return nil, fmt.Errorf("hash secrets response: %w", err)
 	}
 	signature, err := h.responseSigner.Sign(confidentialrelaytypes.RelayResponseSignaturePayload(hash))
 	if err != nil {
+		h.lggr.Errorw("[DEBUG-cw324] signSecretsResponse: sign failed", "err", err, "hashPrefix", fmt.Sprintf("%x", hash[:8]))
 		return nil, err
 	}
+	h.lggr.Infow("[DEBUG-cw324] signSecretsResponse: signed",
+		"hashPrefix", fmt.Sprintf("%x", hash[:8]),
+		"signerPrefix", fmt.Sprintf("%x", h.responseSigner.PublicKey()[:min(8, len(h.responseSigner.PublicKey()))]),
+		"sigLen", len(signature),
+	)
 
 	return &confidentialrelaytypes.SignedSecretsResponseResult{
 		Result: *result,
@@ -631,17 +639,25 @@ func (h *Handler) signCapabilityResponse(
 	result confidentialrelaytypes.CapabilityResponseResult,
 ) (*confidentialrelaytypes.SignedCapabilityResponseResult, error) {
 	if h.responseSigner == nil {
+		h.lggr.Errorw("[DEBUG-cw324] signCapabilityResponse: signer not configured")
 		return nil, errors.New("response signer not configured")
 	}
 
 	hash, err := result.Hash(params)
 	if err != nil {
+		h.lggr.Errorw("[DEBUG-cw324] signCapabilityResponse: hash failed", "err", err)
 		return nil, fmt.Errorf("hash capability response: %w", err)
 	}
 	signature, err := h.responseSigner.Sign(confidentialrelaytypes.RelayResponseSignaturePayload(hash))
 	if err != nil {
+		h.lggr.Errorw("[DEBUG-cw324] signCapabilityResponse: sign failed", "err", err, "hashPrefix", fmt.Sprintf("%x", hash[:8]))
 		return nil, err
 	}
+	h.lggr.Infow("[DEBUG-cw324] signCapabilityResponse: signed",
+		"hashPrefix", fmt.Sprintf("%x", hash[:8]),
+		"signerPrefix", fmt.Sprintf("%x", h.responseSigner.PublicKey()[:min(8, len(h.responseSigner.PublicKey()))]),
+		"sigLen", len(signature),
+	)
 
 	return &confidentialrelaytypes.SignedCapabilityResponseResult{
 		Result: result,

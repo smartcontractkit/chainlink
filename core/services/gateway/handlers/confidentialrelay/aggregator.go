@@ -38,8 +38,19 @@ func (a *aggregator) Aggregate(req jsonrpc.Request[json.RawMessage], resps map[s
 	// translation, producing byte-identical outputs. F+1 matching responses
 	// therefore guarantees at least one honest node vouched for the result.
 	requiredQuorum := donF + 1
+	l.Infow("[DEBUG-cw324] aggregator: entry",
+		"method", req.Method,
+		"responsesReceived", len(resps),
+		"donF", donF,
+		"donMembersCount", donMembersCount,
+		"requiredQuorum", requiredQuorum,
+	)
 
 	if len(resps) < requiredQuorum {
+		l.Warnw("[DEBUG-cw324] aggregator: not enough responses yet, returning errInsufficientResponsesForQuorum",
+			"responsesReceived", len(resps),
+			"requiredQuorum", requiredQuorum,
+		)
 		return nil, errInsufficientResponsesForQuorum
 	}
 
@@ -49,12 +60,17 @@ func (a *aggregator) Aggregate(req jsonrpc.Request[json.RawMessage], resps map[s
 
 	for nodeAddr, r := range resps {
 		if r.Error != nil || r.Result == nil {
+			l.Infow("[DEBUG-cw324] aggregator: skipping response (error or nil result)",
+				"nodeAddr", nodeAddr,
+				"hasError", r.Error != nil,
+				"hasResult", r.Result != nil,
+			)
 			continue
 		}
 
 		hash, sigs, raw, err := decodeSignedResponse(req, *r.Result)
 		if err != nil {
-			l.Warnw("failed to decode signed relay response, skipping", "nodeAddr", nodeAddr, "error", err)
+			l.Warnw("[DEBUG-cw324] aggregator: failed to decode signed relay response, skipping", "nodeAddr", nodeAddr, "error", err)
 			continue
 		}
 
@@ -63,6 +79,7 @@ func (a *aggregator) Aggregate(req jsonrpc.Request[json.RawMessage], resps map[s
 			b = &responseBucket{result: raw, signers: map[string]struct{}{}}
 			buckets[hash] = b
 		}
+		newSigs := 0
 		for _, sig := range sigs {
 			key := string(sig.Signer)
 			if _, dup := b.signers[key]; dup {
@@ -70,11 +87,19 @@ func (a *aggregator) Aggregate(req jsonrpc.Request[json.RawMessage], resps map[s
 			}
 			b.signers[key] = struct{}{}
 			b.signatures = append(b.signatures, sig)
+			newSigs++
 		}
 		contributingResponses++
 		if len(b.signatures) > maxBucketSigs {
 			maxBucketSigs = len(b.signatures)
 		}
+		l.Infow("[DEBUG-cw324] aggregator: bucket updated",
+			"nodeAddr", nodeAddr,
+			"hashPrefix", fmt.Sprintf("%x", hash[:8]),
+			"newSigsInThisResponse", newSigs,
+			"bucketTotalSigs", len(b.signatures),
+			"requiredQuorum", requiredQuorum,
+		)
 	}
 
 	var qualified [][32]byte
@@ -86,6 +111,12 @@ func (a *aggregator) Aggregate(req jsonrpc.Request[json.RawMessage], resps map[s
 	if len(qualified) > 0 {
 		sort.Slice(qualified, func(i, j int) bool { return bytes.Compare(qualified[i][:], qualified[j][:]) < 0 })
 		b := buckets[qualified[0]]
+		l.Infow("[DEBUG-cw324] aggregator: quorum reached, encoding merged response",
+			"hashPrefix", fmt.Sprintf("%x", qualified[0][:8]),
+			"signatureCount", len(b.signatures),
+			"requiredQuorum", requiredQuorum,
+			"qualifiedHashes", len(qualified),
+		)
 		merged, err := encodeMergedResponse(req, b.result, b.signatures)
 		if err != nil {
 			return nil, fmt.Errorf("failed to encode merged signed response: %w", err)
