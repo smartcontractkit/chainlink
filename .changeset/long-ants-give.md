@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-#updated #nops Updated documentation around SVR multiplexing. 
+Updated documentation for SVR multiplexing and CustomURLs configuration.

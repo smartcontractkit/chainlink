@@ -17702,7 +17702,6 @@ MinAttempts configures the minimum number of broadcasted attempts a transaction 
 [EVM.Transactions.TransactionManagerV2]
 Enabled = false # Default
 BlockTime = '10s' # Example
-CustomURL = 'https://example.api.io' # Example
 CustomURLs = ['https://relay.example/api', 'https://ofa-secondary.example/api'] # Example
 DualBroadcast = false # Example
 ReadRequestsToMultipleNodes = false # Example
@@ -17723,17 +17722,11 @@ BlockTime = '10s' # Example
 ```
 BlockTime controls the frequency of the backfill loop of TransactionManagerV2.
 
-### CustomURL
-```toml
-CustomURL = 'https://example.api.io' # Example
-```
-CustomURL configures the base url of a custom endpoint used by the dual broadcast functionality. (legacy single endpoint). Deprecated: use CustomURLs instead.
-
 ### CustomURLs
 ```toml
 CustomURLs = ['https://relay.example/api', 'https://ofa-secondary.example/api'] # Example
 ```
-CustomURLs configures an ordered list of OFA URLs: the first entry is primary (determines broadcast outcome); additional entries are multiplexed as secondaries (fire-and-forget). Cannot be used together with CustomURL in the same configuration.
+CustomURLs configures an ordered list of Order Flow Auction (OFA) endpoint URLs: the first entry is primary (determines broadcast outcome); additional entries are multiplexed as secondaries (fire-and-forget). Cannot be used together with CustomURL in the same configuration. CustomURL configures the base url of a custom endpoint used by the dual broadcast functionality (legacy single endpoint). Deprecated: use CustomURLs instead.
 
 ### DualBroadcast
 ```toml
