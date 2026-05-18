@@ -139,7 +139,6 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260506144252-c100eabfda74 // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260506144252-c100eabfda74 // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260511195239-0f6e1b177fc7 // indirect
-	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260504204047-af9826978b72 // indirect
 	github.com/smartcontractkit/chainlink-ccv v0.0.2-0.20260428133800-3b1484e8b1fd // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.14-0.20260518134832-b2e0f7199932 // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/committee-verifier v0.0.0-20251211142334-5c3421fe2c8d // indirect
@@ -150,7 +149,6 @@ require (
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.18.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/node-platform v0.0.0-20260430172634-acccf17ece83 // indirect
 	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260513123719-d347eaf314e1 // indirect
-	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260427132612-76b9f754a556 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.8 // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20260508200755-99940c85383c // indirect
 	github.com/stellar/go-stellar-sdk v0.5.0 // indirect
@@ -315,9 +313,7 @@ require (
 	github.com/fvbommel/sortorder v1.1.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.13 // indirect
-	github.com/gagliardetto/anchor-go v1.0.0 // indirect
 	github.com/gagliardetto/binary v0.8.0 // indirect
-	github.com/gagliardetto/metaplex-go v0.2.1 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
 	github.com/getsentry/sentry-go v0.27.0 // indirect
 	github.com/gin-contrib/sessions v0.0.5 // indirect
@@ -510,7 +506,6 @@ require (
 	github.com/sigurn/crc16 v0.0.0-20211026045750-20ab5afb07e3 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 // indirect
-	github.com/smartcontractkit/ccip-contract-examples/chains/evm v0.0.0-20260129135848-c86808ba5cb9 // indirect
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260507123701-77fc93b573bb
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
@@ -532,7 +527,6 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.23 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
 	github.com/smartcontractkit/chainlink-ton v1.0.5-0.20260430134932-681b7a7fe426 // indirect
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20260430134932-681b7a7fe426 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20260408092456-3c6369888d4a // indirect
 	github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/httpaction-negative v0.0.0-20251015074515-1acc1d3fb4c0
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction v0.0.0-20251015074515-1acc1d3fb4c0
