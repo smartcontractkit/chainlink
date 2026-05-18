@@ -1,12 +1,14 @@
 package confidentialrelay
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -228,6 +230,14 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	if err := h.verifyAttestationHash(ctx, att, params, confidentialrelaytypes.DomainSecretsGet); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
+	// Verify the enclave's reported config matches the onchain DON state
+	// before treating the attested request as trusted. Sigma Prime CL112-01:
+	// the Nitro attestation binds the request hash, but a malicious host
+	// can produce a genuinely-attested request over a forged enclave config
+	// unless we compare the config value against an onchain reference.
+	if err := h.verifyEnclaveConfigMatchesDON(ctx, params.EnclaveConfig); err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
+	}
 
 	vaultCap, err := h.capRegistry.GetExecutable(ctx, vault.CapabilityID)
 	if err != nil {
@@ -401,6 +411,9 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 	if err := h.verifyAttestationHash(ctx, att, params, confidentialrelaytypes.DomainCapabilityExec); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
+	if err := h.verifyEnclaveConfigMatchesDON(ctx, params.EnclaveConfig); err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
+	}
 
 	capability, err := h.capRegistry.GetExecutable(ctx, params.CapabilityID)
 	if err != nil {
@@ -470,6 +483,49 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 	}
 
 	return h.jsonResponse(req, signedResult)
+}
+
+// verifyEnclaveConfigMatchesDON compares the enclave's reported EnclaveConfig
+// against the local node's WorkflowDON membership and fault tolerance. The
+// relay DON runs on the same nodes as the workflow DON, so
+// localNode.WorkflowDON.Members is the right comparison target.
+//
+// Sigma Prime CL112-01 / PRIV-458: pool.go validates the Nitro attestation
+// cryptographically but a malicious host can still produce a
+// genuinely-attested request over a forged config. The fix is to compare
+// the attested config value against onchain DON state.
+//
+// LocalNode is an O(1) in-memory map lookup populated by the registry
+// syncer (background goroutine, default 12s tick); not an RPC on the hot
+// path. Up to a ~12s staleness window applies during DON membership
+// rotations and is acceptable: rotations are rare planned events.
+func (h *Handler) verifyEnclaveConfigMatchesDON(ctx context.Context, cfg confidentialrelaytypes.EnclaveConfig) error {
+	localNode, err := h.capRegistry.LocalNode(ctx)
+	if err != nil {
+		return fmt.Errorf("fetch LocalNode for enclave config check: %w", err)
+	}
+	expectedF := uint32(localNode.WorkflowDON.F)
+	if cfg.F != expectedF {
+		return fmt.Errorf("enclave config F mismatch: enclave reports %d, expected %d", cfg.F, expectedF)
+	}
+	if len(cfg.Signers) != len(localNode.WorkflowDON.Members) {
+		return fmt.Errorf("enclave config signers count mismatch: enclave reports %d, expected %d",
+			len(cfg.Signers), len(localNode.WorkflowDON.Members))
+	}
+	expected := make([][]byte, len(localNode.WorkflowDON.Members))
+	for i := range localNode.WorkflowDON.Members {
+		expected[i] = localNode.WorkflowDON.Members[i][:]
+	}
+	actual := append([][]byte(nil), cfg.Signers...)
+	sort.Slice(actual, func(i, j int) bool { return bytes.Compare(actual[i], actual[j]) < 0 })
+	sort.Slice(expected, func(i, j int) bool { return bytes.Compare(expected[i], expected[j]) < 0 })
+	for i := range actual {
+		if !bytes.Equal(actual[i], expected[i]) {
+			return fmt.Errorf("enclave config signer mismatch at sorted index %d: enclave reports %x, expected %x",
+				i, actual[i], expected[i])
+		}
+	}
+	return nil
 }
 
 // getEnclaveAttestationConfig reads the enclave pool configuration from the
