@@ -304,8 +304,16 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		"maxShareLengthBytes", logLimit(ctx, r.lggr, cfg.MaxShareLengthBytes),
 		"batchSize", logLimit(ctx, r.lggr, cfg.MaxBatchSize),
 		"maxBlobPayloadBytes", logLimit(ctx, r.lggr, cfg.MaxBlobPayloadBytes),
+		"maxQueryBytes", pluginLimits.MaxQueryBytes,
 		"maxObservationBytes", pluginLimits.MaxObservationBytes,
 		"maxReportsPlusPrecursorBytes", pluginLimits.MaxReportsPlusPrecursorBytes,
+		"maxReportBytes", pluginLimits.MaxReportBytes,
+		"maxReportCount", pluginLimits.MaxReportCount,
+		"maxKeyValueModifiedKeysPlusValuesBytes", pluginLimits.MaxKeyValueModifiedKeysPlusValuesBytes,
+		"maxKeyValueModifiedKeys", pluginLimits.MaxKeyValueModifiedKeys,
+		"reportingPluginLimitsMaxBlobPayloadBytes", pluginLimits.MaxBlobPayloadBytes,
+		"maxPerOracleUnexpiredBlobCumulativePayloadBytes", pluginLimits.MaxPerOracleUnexpiredBlobCumulativePayloadBytes,
+		"maxPerOracleUnexpiredBlobCount", pluginLimits.MaxPerOracleUnexpiredBlobCount,
 	)
 
 	validator := vaultcap.NewRequestValidator(
