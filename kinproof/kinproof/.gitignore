@@ -1,0 +1,10 @@
+# Binaries and build artifacts
+bin/
+run.sh
+setup_kinproof.sh
+kinproof-full-setup.sh
+
+# Local Sovereign Secrets (DO NOT COMMIT)
+keys/
+proofs/
+receipts/

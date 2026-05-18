@@ -1,0 +1,42 @@
+package vault
+
+import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"os"
+)
+
+type EncryptedVault struct {
+	EncryptedMnemonic string `json:"encryptedMnemonic"`
+	IV                string `json:"iv"`
+	Salt              string `json:"salt"`
+}
+
+func EncryptMnemonic(mnemonic, pin string) (EncryptedVault, error) {
+	salt := make([]byte, 16)
+	rand.Read(salt)
+	key := sha256.Sum256(append([]byte(pin), salt...))
+
+	block, _ := aes.NewCipher(key[:])
+	gcm, _ := cipher.NewGCM(block)
+	nonce := make([]byte, gcm.NonceSize())
+	rand.Read(nonce)
+
+	ciphertext := gcm.Seal(nil, nonce, []byte(mnemonic), nil)
+
+	return EncryptedVault{
+		EncryptedMnemonic: hex.EncodeToString(ciphertext),
+		IV:                hex.EncodeToString(nonce),
+		Salt:              hex.EncodeToString(salt),
+	}, nil
+}
+
+func Save(v EncryptedVault) error {
+	os.MkdirAll("keys", 0700)
+	data, _ := json.MarshalIndent(v, "", "  ")
+	return os.WriteFile("keys/vault.json", data, 0600)
+}
