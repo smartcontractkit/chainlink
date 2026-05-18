@@ -285,6 +285,19 @@ func (c AptosChainUpdate) GetAptosTokenAndTokenPool(state aptosstate.CCIPChainSt
 	return token, tokenPoolAddress, nil
 }
 
+func (c AptosChainUpdate) Validate(state aptosstate.CCIPChainState) error {
+	if err := c.RateLimiterConfig.validateBidirectional(); err != nil {
+		return fmt.Errorf("rate limiter config for aptos chain is invalid: %w", err)
+	}
+
+	_, _, err := c.GetAptosTokenAndTokenPool(state)
+	if err != nil {
+		return fmt.Errorf("failed to get aptos token and token pool: %w", err)
+	}
+
+	return nil
+}
+
 // SuiChainUpdate defines the rate limits and token address for an Sui chain.
 type SuiChainUpdate struct {
 	RateLimiterConfig RateLimiterConfig
@@ -326,6 +339,19 @@ func (c SuiChainUpdate) GetSuiTokenAndTokenPool(state suistate.CCIPChainState) (
 	}
 
 	return c.TokenAddress, tpAddress, nil
+}
+
+func (c SuiChainUpdate) Validate(state suistate.CCIPChainState) error {
+	if err := c.RateLimiterConfig.validateBidirectional(); err != nil {
+		return fmt.Errorf("rate limiter config for sui chain is invalid: %w", err)
+	}
+
+	_, _, err := c.GetSuiTokenAndTokenPool(state)
+	if err != nil {
+		return fmt.Errorf("failed to get sui token and token pool: %w", err)
+	}
+
+	return nil
 }
 
 // TokenPoolConfig defines all the information required of the user to configure a token pool.
@@ -432,6 +458,28 @@ func (c TokenPoolConfig) Validate(ctx context.Context, chain cldf_evm.Chain, cci
 		}
 		if err := solChainUpdate.Validate(solChain); err != nil {
 			return fmt.Errorf("failed to validate solana chain update for chain with selector %d: %w", remoteChainSelector, err)
+		}
+	}
+
+	// Validate Aptos chain configurations
+	for remoteChainSelector, aptosChainUpdate := range c.AptosChainUpdates {
+		aptosChain, ok := ccipState.AptosChains[remoteChainSelector]
+		if !ok {
+			return fmt.Errorf("aptos chain with selector %d does not exist in environment", remoteChainSelector)
+		}
+		if err := aptosChainUpdate.Validate(aptosChain); err != nil {
+			return fmt.Errorf("failed to validate aptos chain update for chain with selector %d: %w", remoteChainSelector, err)
+		}
+	}
+
+	// Validate Sui chain configurations
+	for remoteChainSelector, suiChainUpdate := range c.SuiChainUpdates {
+		suiChain, ok := ccipState.SuiChains[remoteChainSelector]
+		if !ok {
+			return fmt.Errorf("sui chain with selector %d does not exist in environment", remoteChainSelector)
+		}
+		if err := suiChainUpdate.Validate(suiChain); err != nil {
+			return fmt.Errorf("failed to validate sui chain update for chain with selector %d: %w", remoteChainSelector, err)
 		}
 	}
 
