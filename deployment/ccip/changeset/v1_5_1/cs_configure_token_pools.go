@@ -587,9 +587,9 @@ func configureTokenPool(
 
 	for remoteChainSelector, chainUpdate := range poolUpdate.SolChainUpdates {
 		// Solana does not support partial rate limiter updates; both Inbound and Outbound
-		// are required.
-		if chainUpdate.RateLimiterConfig.Inbound == nil || chainUpdate.RateLimiterConfig.Outbound == nil {
-			return fmt.Errorf("both inbound and outbound rate limiter configs must be set for solana remote chain with selector %d", remoteChainSelector)
+		// are required and must each pass on-chain validation rules.
+		if err := chainUpdate.RateLimiterConfig.validateBidirectional(); err != nil {
+			return fmt.Errorf("rate limiter config for solana remote chain with selector %d is invalid: %w", remoteChainSelector, err)
 		}
 
 		inboundCfg := *chainUpdate.RateLimiterConfig.Inbound
@@ -662,9 +662,10 @@ func configureTokenPool(
 	}
 
 	for remoteChainSelector, chainUpdate := range poolUpdate.AptosChainUpdates {
-		// Aptos does not support partial rate limiter updates; both Inbound and Outbound are required.
-		if chainUpdate.RateLimiterConfig.Inbound == nil || chainUpdate.RateLimiterConfig.Outbound == nil {
-			return fmt.Errorf("both inbound and outbound rate limiter configs must be set for aptos remote chain with selector %d", remoteChainSelector)
+		// Aptos does not support partial rate limiter updates; both Inbound and Outbound
+		// are required and must each pass on-chain validation rules.
+		if err := chainUpdate.RateLimiterConfig.validateBidirectional(); err != nil {
+			return fmt.Errorf("rate limiter config for aptos remote chain with selector %d is invalid: %w", remoteChainSelector, err)
 		}
 		inboundCfg := *chainUpdate.RateLimiterConfig.Inbound
 		outboundCfg := *chainUpdate.RateLimiterConfig.Outbound
@@ -711,9 +712,10 @@ func configureTokenPool(
 	}
 
 	for remoteChainSelector, chainUpdate := range poolUpdate.SuiChainUpdates {
-		// Sui does not support partial rate limiter updates; both Inbound and Outbound are required.
-		if chainUpdate.RateLimiterConfig.Inbound == nil || chainUpdate.RateLimiterConfig.Outbound == nil {
-			return fmt.Errorf("both inbound and outbound rate limiter configs must be set for sui remote chain with selector %d", remoteChainSelector)
+		// Sui does not support partial rate limiter updates; both Inbound and Outbound
+		// are required and must each pass on-chain validation rules.
+		if err := chainUpdate.RateLimiterConfig.validateBidirectional(); err != nil {
+			return fmt.Errorf("rate limiter config for sui remote chain with selector %d is invalid: %w", remoteChainSelector, err)
 		}
 		inboundCfg := *chainUpdate.RateLimiterConfig.Inbound
 		outboundCfg := *chainUpdate.RateLimiterConfig.Outbound
