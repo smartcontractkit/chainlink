@@ -11,6 +11,7 @@ import (
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 	"github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
+	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/cldfutil/changeset"
 	mcmslib "github.com/smartcontractkit/mcms"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
@@ -24,10 +25,6 @@ import (
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-
-	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/common/changeset"
-
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
@@ -513,7 +510,7 @@ type PromoteNewChainForConfig struct {
 	// TestRouter is true if we want to connect via test routers.
 	TestRouter *bool `json:"testRouter,omitempty"`
 	// MCMSConfig defines the MCMS configuration for the changeset.
-	MCMSConfig *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
+	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
 }
 
 func (c PromoteNewChainForConfig) promoteCandidateConfig() PromoteCandidateChangesetConfig {
