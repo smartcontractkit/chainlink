@@ -143,7 +143,7 @@ func (s *onchainSubscriptions) queryLoop() {
 
 		latestBlockHeight, err := s.client.LatestBlockHeight(ctx)
 		if err != nil || latestBlockHeight == nil {
-			s.lggr.Errorw("Error calling LatestBlockHeight", "err", err, "latestBlockHeight", latestBlockHeight)
+			s.lggr.Warnw("Error calling LatestBlockHeight", "err", err, "latestBlockHeight", latestBlockHeight)
 			return
 		}
 
