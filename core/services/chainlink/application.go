@@ -1275,7 +1275,7 @@ func setupDurableEmitter(ctx context.Context, ds sqlutil.DataSource, lggr logger
 
 	pgStore := beholdersvc.NewPgDurableEventStore(ds)
 	durableCfg := beholder.DefaultDurableEmitterConfig()
-	durableEmitter, err := beholder.NewDurableEmitter(pgStore, chipClient, durableCfg, lggr)
+	durableEmitter, err := beholder.NewDurableEmitter(pgStore, chipClient, true, durableCfg, lggr)
 	if err != nil {
 		return fmt.Errorf("failed to create durable emitter: %w", err)
 	}
