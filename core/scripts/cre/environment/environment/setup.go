@@ -620,7 +620,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 			return
 		}
 	} else {
-		logger.Warn().Msgf("Skipping Billing Platform Service setup, because the --with-billing flag was not provided")
+		logger.Info().Msgf("Skipping Billing Platform Service setup, because the --with-billing flag was not provided")
 	}
 
 	if err := runGHSetupGit(ctx); err != nil {
