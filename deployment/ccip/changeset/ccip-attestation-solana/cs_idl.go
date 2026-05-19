@@ -98,7 +98,7 @@ func BaseUploadIDLChangeset(e cldf.Environment, c BaseIDLConfig) (cldf.Changeset
 
 	e.Logger.Infow("Uploading IDL", "programName", solutils.ProgBaseSignerRegistry)
 	args := []string{"idl", "init", "--filepath", idlFile, signer_registry.ProgramID.String()}
-	e.Logger.Info(args)
+	e.Logger.Debug(args)
 	output, err := cs_solana.RunCommand("anchor", args, chain.ProgramsPath)
 	e.Logger.Debugw("IDL init output", "output", output)
 	if err != nil {
