@@ -344,7 +344,7 @@ type UploadTokenMetadataConfig struct {
 func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cldf.ChangesetOutput, error) {
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	out1, err1 := runCommand("solana", []string{"config", "set", "--url", chain.URL}, chain.ProgramsPath)
-	e.Logger.Infow("solana config set url output", "output", out1)
+	e.Logger.Debugw("solana config set url output", "output", out1)
 	if err1 != nil {
 		e.Logger.Errorw("solana config set url error", "error", err1)
 		return cldf.ChangesetOutput{}, fmt.Errorf("error setting solana url: %w", err1)
