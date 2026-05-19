@@ -449,15 +449,15 @@ func newWebSocketPair(t *testing.T) (serverConn, clientConn *websocket.Conn) {
 func doHandshake(t *testing.T, mgr gateway.ConnectionManager, clock clockwork.Clock, node gc.TestNode, conn *websocket.Conn) {
 	t.Helper()
 	authHeaderElems := network.AuthHeaderElems{
-		Timestamp: uint32(clock.Now().Unix()),
+		Timestamp: uint32(clock.Now().Unix()), //nolint:gosec // test clock is always small positive
 		DonId:     "my_don_1",
 		GatewayId: "my_gateway_no_3",
 	}
-	attemptId, challenge, err := mgr.StartHandshake(signAndPackAuthHeader(t, &authHeaderElems, node.PrivateKey))
+	attemptID, challenge, err := mgr.StartHandshake(signAndPackAuthHeader(t, &authHeaderElems, node.PrivateKey))
 	require.NoError(t, err)
 	response, err := gc.SignData(node.PrivateKey, challenge)
 	require.NoError(t, err)
-	require.NoError(t, mgr.FinalizeHandshake(attemptId, response, conn))
+	require.NoError(t, mgr.FinalizeHandshake(attemptID, response, conn))
 }
 
 func TestConnectionManager_ReadDeadline_ClosesIdleConnection(t *testing.T) {

@@ -391,6 +391,7 @@ type connectionManagerConfig struct {
 	AuthGatewayID             string `toml:"AuthGatewayId"`
 	AuthTimestampToleranceSec int    `toml:"AuthTimestampToleranceSec"`
 	HeartbeatIntervalSec      int    `toml:"HeartbeatIntervalSec"`
+	PongTimeoutSec            int    `toml:"PongTimeoutSec,omitempty"`
 }
 
 type handler struct {
