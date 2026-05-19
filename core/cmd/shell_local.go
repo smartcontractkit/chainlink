@@ -669,7 +669,7 @@ func checkFilePermissions(lggr logger.Logger, rootDir string) error {
 	// Ensure tls sub directory (and children) permissions are <= `ownerPermsMask``
 	tlsDir := filepath.Join(rootDir, "tls")
 	if _, err := os.Stat(tlsDir); err != nil && !os.IsNotExist(err) {
-		lggr.Errorf("error checking perms of 'tls' directory: %v", err)
+		lggr.Warnf("error checking perms of 'tls' directory: %v", err)
 	} else if err == nil {
 		err := utils.EnsureDirAndMaxPerms(tlsDir, ownerPermsMask)
 		if err != nil {
