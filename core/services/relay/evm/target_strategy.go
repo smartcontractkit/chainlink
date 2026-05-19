@@ -142,7 +142,7 @@ func (t *evmTargetStrategy) QueryTransmissionState(ctx context.Context, reportID
 			Err:         nil,
 		}, nil
 	case TransmissionStateInvalidReceiver:
-		t.lggr.Infow("returning without a transmission attempt - transmission already attempted, receiver was marked as invalid", "executionID", request.Metadata.WorkflowExecutionID)
+		t.lggr.Warnw("returning without a transmission attempt - transmission already attempted, receiver was marked as invalid", "executionID", request.Metadata.WorkflowExecutionID)
 		return &writetarget.TransmissionState{
 			Status:      writetarget.TransmissionStateFatal,
 			Transmitter: transmissionInfo.Transmitter.String(),
