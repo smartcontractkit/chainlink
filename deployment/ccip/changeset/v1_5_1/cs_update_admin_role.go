@@ -219,7 +219,7 @@ func updateAdminRolePrecondition(e cldf.Environment, cfg UpdateAdminRoleConfig) 
 func updateAdminRoleLogic(e cldf.Environment, cfg UpdateAdminRoleConfig) (cldf.ChangesetOutput, error) {
 	result := cldf.ChangesetOutput{}
 	if len(cfg.ChainUpdates) == 0 {
-		e.Logger.Warn("no chain updates were provided - exiting apply stage gracefully")
+		e.Logger.Info("no chain updates were provided - exiting apply stage gracefully")
 		return cldf.ChangesetOutput{}, nil
 	}
 
