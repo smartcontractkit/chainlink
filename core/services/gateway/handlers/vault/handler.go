@@ -434,7 +434,7 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 
 	authResult, authErr := h.authorizer.AuthorizeRequest(ctx, req)
 	if authErr != nil {
-		h.lggr.Errorw("request not authorized", "method", req.Method, "requestID", req.ID, "hasAuth", req.Auth != "", "error", authErr)
+		h.lggr.Warnw("request not authorized", "method", req.Method, "requestID", req.ID, "hasAuth", req.Auth != "", "error", authErr)
 		return errors.New("request not authorized: " + authErr.Error())
 	}
 	normalizedReq, normalizeErr := vaultcap.NormalizeRequestWithIdentity(req, authResult.OrgID(), authResult.WorkflowOwner())
