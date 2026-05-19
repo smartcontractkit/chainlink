@@ -224,7 +224,7 @@ func (cfg TokenTransferFeeForRemoteChainConfig) Validate(e cldf.Environment, sta
 		return fmt.Errorf("fee quoter validation failed: %w", err)
 	}
 	if cfg.Config.DestBytesOverhead < 32 {
-		e.Logger.Infow("dest bytes overhead is less than minimum. Setting to minimum value",
+		e.Logger.Warnw("dest bytes overhead is less than minimum. Setting to minimum value",
 			"destBytesOverhead", cfg.Config.DestBytesOverhead,
 			"minDestBytesOverhead", MinDestBytesOverhead)
 		cfg.Config.DestBytesOverhead = MinDestBytesOverhead
