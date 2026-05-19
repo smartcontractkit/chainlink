@@ -382,7 +382,7 @@ func (oi *oidcAuthenticator) AuthorizedUserWithSession(ctx context.Context, sess
 	if err != nil {
 		if errors.Is(err, clsessions.ErrUserSessionExpired) {
 			if _, execErr := oi.ds.ExecContext(ctx, "DELETE FROM oidc_sessions WHERE id = $1", sessionID); execErr != nil {
-				oi.lggr.Errorf("error purging stale OIDC session: %v", execErr)
+				oi.lggr.Warnf("error purging stale OIDC session: %v", execErr)
 			}
 		}
 		return clsessions.User{}, err
