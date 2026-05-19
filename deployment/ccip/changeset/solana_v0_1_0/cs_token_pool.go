@@ -269,7 +269,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 					"deployer", chain.DeployerKey.PublicKey().String(), "poolSigner", poolSigner.String())
 			}
 		} else {
-			e.Logger.Warnw("PoolType is not a BurnMintTokenPool, skipping setting poolSigner as mint authority",
+			e.Logger.Debugw("PoolType is not a BurnMintTokenPool, skipping setting poolSigner as mint authority",
 				"poolType", tokenPoolCfg.PoolType, "mintAuthority", mintAuthority,
 				"deployer", chain.DeployerKey.PublicKey().String(), "poolSigner", poolSigner.String())
 		}
