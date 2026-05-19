@@ -360,7 +360,7 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 	}
 
 	if payload.Timestamp == 0 {
-		h.lggr.Errorw(ErrDecodingPayload)
+		h.lggr.Warnw(ErrDecodingPayload)
 		return callback.SendResponse(handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
 				msg.Body.MessageId,
