@@ -64,7 +64,7 @@ func (c *webSocketClient) Connect(ctx context.Context, url *url.URL) (*websocket
 	}
 	challenge, err := base64.StdEncoding.DecodeString(challengeStr)
 	if err != nil {
-		c.lggr.Errorf("WebSocketClient: couldn't decode challenge: %s: %v", challengeStr, err)
+		c.lggr.Debugf("WebSocketClient: couldn't decode challenge: %s: %v", challengeStr, err)
 		c.tryCloseConn(conn)
 		return nil, err
 	}
