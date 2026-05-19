@@ -158,7 +158,7 @@ func setTokenTransferFeeConfigPrecondition(env cldf.Environment, cfg SetTokenTra
 
 func setTokenTransferFeeConfigLogic(env cldf.Environment, cfg SetTokenTransferFeeConfig) (cldf.ChangesetOutput, error) {
 	if len(cfg.InputsByChain) == 0 {
-		env.Logger.Warn("no inputs were provided - exiting apply stage gracefully")
+		env.Logger.Info("no inputs were provided - exiting apply stage gracefully")
 		return cldf.ChangesetOutput{}, nil
 	}
 
