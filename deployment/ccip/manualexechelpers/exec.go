@@ -238,7 +238,7 @@ func getCCIPMessageSentEvents(
 		seqNrs = append(seqNrs, i)
 	}
 
-	lggr.Infow("would query with",
+	lggr.Debugw("would query with",
 		"seqNrs", seqNrs,
 		"minSeqNr", merkleRoot.MinSeqNr,
 		"maxSeqNr", merkleRoot.MaxSeqNr,
