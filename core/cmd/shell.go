@@ -874,7 +874,7 @@ func (t *promptingAPIInitializer) Initialize(ctx context.Context, orm sessions.B
 			// On a fresh DB, create an admin user
 			user, err2 := sessions.NewUser(email, pwd, sessions.UserRoleAdmin)
 			if err2 != nil {
-				lggr.Errorw("Error creating API user", "err", err2)
+				lggr.Warnw("Error creating API user", "err", err2)
 				continue
 			}
 			if err = orm.CreateUser(ctx, &user); err != nil {
