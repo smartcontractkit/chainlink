@@ -349,7 +349,7 @@ func (a *onchainAllowlist) updateAllowedSendersBatch(
 		snapshot[k] = v
 	}
 	a.allowlist.Store(&snapshot)
-	a.lggr.Infow("allowlist updated in batches successfully", "len", len(currentAllowedSenderList))
+	a.lggr.Debugw("allowlist updated in batches successfully", "len", len(currentAllowedSenderList))
 
 	// persist each batch to the underalying orm layer
 	err = a.orm.CreateAllowedSenders(ctx, allowedSendersBatch)
