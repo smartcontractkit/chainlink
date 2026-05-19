@@ -146,7 +146,7 @@ func (s *webSocketServer) handleRequest(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if err = s.acceptor.FinalizeHandshake(attemptId, response, conn); err != nil {
-		s.lggr.Errorw("unable to finalize handshake", "err", err)
+		s.lggr.Debugw("unable to finalize handshake", "err", err)
 		conn.Close()
 		s.acceptor.AbortHandshake(attemptId)
 		return
