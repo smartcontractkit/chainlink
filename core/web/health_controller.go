@@ -109,7 +109,7 @@ func (hc *HealthController) Health(c *gin.Context) {
 
 	case gin.MIMEHTML:
 		if err := newCheckTree(checks).WriteHTMLTo(c.Writer); err != nil {
-			hc.App.GetLogger().Errorw("Failed to write HTML health report", "err", err)
+			hc.App.GetLogger().Warnw("Failed to write HTML health report", "err", err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 		}
 		return
