@@ -420,7 +420,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	var profiler *pyroscope.Profiler
 	if cfg.Pyroscope().ServerAddress() != "" {
-		globalLogger.Debug("Pyroscope (automatic pprof profiling) is enabled")
+		globalLogger.Info("Pyroscope (automatic pprof profiling) is enabled")
 		var err error
 		profiler, err = logger.StartPyroscope(cfg.Pyroscope(), cfg.AutoPprof())
 		if err != nil {
