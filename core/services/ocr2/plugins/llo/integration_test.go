@@ -42,6 +42,7 @@ import (
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	lloevm "github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury"
+	"github.com/smartcontractkit/chainlink-data-streams/mercury/transmitter"
 	reportcodecv3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3/reportcodec"
 	mercuryverifier "github.com/smartcontractkit/chainlink-data-streams/mercury/verifier"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
@@ -61,7 +62,6 @@ import (
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -477,7 +477,7 @@ func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig datastreams
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(transmitter.MercuryTransmitterProtocolGRPC)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -709,7 +709,7 @@ func testIntegrationLLOMultiFormats(t *testing.T, offchainConfig datastreamsllo.
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(transmitter.MercuryTransmitterProtocolGRPC)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -1488,7 +1488,7 @@ func TestIntegration_LLO_stress_test_V1(t *testing.T) {
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(transmitter.MercuryTransmitterProtocolGRPC)
 			c.Log.Level = new(logLevel)
 		})
 
@@ -1714,7 +1714,7 @@ func TestIntegration_LLO_transmit_errors(t *testing.T) {
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(transmitter.MercuryTransmitterProtocolGRPC)
 			c.Mercury.Transmitter.TransmitQueueMaxSize = new(uint32(maxQueueSize)) // Test queue overflow
 			c.Log.Level = new(logLevel)
 		})
@@ -1868,7 +1868,7 @@ func testIntegrationLLOBlueGreenLifecycle(t *testing.T, offchainConfig datastrea
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(transmitter.MercuryTransmitterProtocolGRPC)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -2228,7 +2228,7 @@ func TestIntegration_LLO_channel_merging_owners_adders(t *testing.T) {
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(transmitter.MercuryTransmitterProtocolGRPC)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -2735,7 +2735,7 @@ func TestIntegration_LLO_tombstone_stops_observations_and_reports(t *testing.T) 
 	serverURL := startMercuryServer(t, srv, clientPubKeys)
 
 	oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-		c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+		c.Mercury.Transmitter.Protocol = new(transmitter.MercuryTransmitterProtocolGRPC)
 	})
 
 	chainID := testutils.SimulatedChainID

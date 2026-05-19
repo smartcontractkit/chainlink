@@ -16,8 +16,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/mercury/transmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/mercurytransmitter"
 )
 
 type mockLogPoller struct {
