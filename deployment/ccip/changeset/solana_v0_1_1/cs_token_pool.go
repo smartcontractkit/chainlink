@@ -1532,7 +1532,7 @@ func getNewSetupInstructionsForLockRelease(
 		tokenPubKey,
 		cfg.Metadata,
 	)
-	e.Logger.Infow("getNewSetupInstructionsForLockRelease", "authority", authority.String())
+	e.Logger.Debugw("getNewSetupInstructionsForLockRelease", "authority", authority.String())
 	onChainEVMPoolConfigWithoutPoolAddress := solBaseTokenPool.RemoteConfig{
 		TokenAddress:  onChainEVMPoolConfig.TokenAddress,
 		PoolAddresses: []solBaseTokenPool.RemoteAddress{},
