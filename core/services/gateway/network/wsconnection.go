@@ -168,7 +168,7 @@ func (c *wsConnectionWrapper) writePump() {
 			}
 			err := conn.WriteMessage(wsMsg.MsgType, wsMsg.Data)
 			if err != nil {
-				c.lggr.Errorw("failed to write message", "msgType", wsMsg.MsgType, "dataLen", len(wsMsg.Data), "error", err)
+				c.lggr.Debugw("failed to write message", "msgType", wsMsg.MsgType, "dataLen", len(wsMsg.Data), "error", err)
 			}
 			wsMsg.ErrCh <- err
 			close(wsMsg.ErrCh)
