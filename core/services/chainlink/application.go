@@ -687,7 +687,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			mailMon,
 		)
 	} else {
-		globalLogger.Debug("Off-chain reporting disabled")
+		globalLogger.Info("Off-chain reporting disabled")
 	}
 
 	if cfg.OCR2().Enabled() {
