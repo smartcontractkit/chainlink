@@ -128,7 +128,7 @@ func (t *evmTargetStrategy) QueryTransmissionState(ctx context.Context, reportID
 	// TODO: Want to confirm these states are correct - invalid receiver and failed with sufficient gas are fatal.
 	switch transmissionInfo.State {
 	case TransmissionStateNotAttempted:
-		t.lggr.Infow("non-empty report - transmission not attempted", "request", request, "reportLen", len(r.Inputs.SignedReport.Report), "reportContextLen", len(r.Inputs.SignedReport.Context), "nSignatures", len(r.Inputs.SignedReport.Signatures), "executionID", request.Metadata.WorkflowExecutionID)
+		t.lggr.Debugw("non-empty report - transmission not attempted", "request", request, "reportLen", len(r.Inputs.SignedReport.Report), "reportContextLen", len(r.Inputs.SignedReport.Context), "nSignatures", len(r.Inputs.SignedReport.Signatures), "executionID", request.Metadata.WorkflowExecutionID)
 		return &writetarget.TransmissionState{
 			Status:      writetarget.TransmissionStateNotAttempted,
 			Transmitter: transmissionInfo.Transmitter.String(),
