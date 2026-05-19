@@ -70,7 +70,7 @@ func runSolanaVerifyMCMS(e cldf.Environment,
 			"--program-id", programID,
 		}
 		output, err := runCommand("solana-verify", cmdArgs, chain.ProgramsPath)
-		e.Logger.Infow("remote submit-job output", "output", output)
+		e.Logger.Debugw("remote submit-job output", "output", output)
 		if err != nil {
 			return fmt.Errorf("solana program verification failed: %s %w", output, err)
 		}
