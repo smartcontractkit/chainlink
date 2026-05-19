@@ -122,7 +122,7 @@ func (s *webSocketServer) handleRequest(w http.ResponseWriter, r *http.Request) 
 	hdr.Add(WsServerHandshakeChallengeHeaderName, challengeStr)
 	conn, err := s.upgrader.Upgrade(w, r, hdr)
 	if err != nil {
-		s.lggr.Errorw("failed websocket upgrade", "err", err)
+		s.lggr.Debugw("failed websocket upgrade", "err", err)
 		if conn != nil {
 			conn.Close()
 		}
