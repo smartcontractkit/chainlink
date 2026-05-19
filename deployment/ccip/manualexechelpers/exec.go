@@ -395,7 +395,7 @@ func manuallyExecuteSingle(
 
 		if uint64(len(ccipMessageSentEvents)) != merkleRootSize {
 			latestBlockNumber := messageSentCache.GetLatestBlockNumber()
-			lggr.Infow("not all messages found in cache, fetching from the chain", "msgSeqNr", msgSeqNr, "latestBlockNumber", latestBlockNumber)
+			lggr.Debugw("not all messages found in cache, fetching from the chain", "msgSeqNr", msgSeqNr, "latestBlockNumber", latestBlockNumber)
 			var err error
 			var blockNumbers []uint64
 			ccipMessageSentEvents, blockNumbers, err = getCCIPMessageSentEvents(
