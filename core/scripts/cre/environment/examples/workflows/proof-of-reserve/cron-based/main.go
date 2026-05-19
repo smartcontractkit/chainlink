@@ -48,7 +48,7 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 	evmClient := evm.Client{ChainSelector: config.ChainSelector}
 	runtime.Logger().Debug("Got EVM client", "chainSelector", evmClient.ChainSelector)
 	addressesToRead := config.BalanceReaderConfig.AddressesToRead
-	runtime.Logger().Info("Got addresses to read", "addresses", addressesToRead)
+	runtime.Logger().Debug("Got addresses to read", "addresses", addressesToRead)
 
 	// For testing purposes, there is no handling of index out of range or nil cases.
 	// It allows for the configuration of empty addresses, a single address, or zero balances.
