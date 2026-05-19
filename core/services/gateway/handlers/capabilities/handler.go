@@ -195,7 +195,7 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 		l.Debug("Sending request to client")
 		respMsg, err := h.sendHTTPMessageToClient(newCtx, req, msg)
 		if err != nil {
-			l.Errorw("error while sending HTTP request to external endpoint", "err", err)
+			l.Warnw("error while sending HTTP request to external endpoint", "err", err)
 			payload := Response{
 				ExecutionError: true,
 				ErrorMessage:   err.Error(),
