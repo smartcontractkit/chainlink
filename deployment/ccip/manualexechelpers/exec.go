@@ -373,7 +373,7 @@ func manuallyExecuteSingle(
 		lggr.Debugw("found merkle root in cache", "msgSeqNr", msgSeqNr, "merkleRoot", merkleRoot)
 	}
 
-	lggr.Infow("merkle root",
+	lggr.Debugw("merkle root",
 		"merkleRoot", hexutil.Encode(merkleRoot.MerkleRoot[:]),
 		"minSeqNr", merkleRoot.MinSeqNr,
 		"maxSeqNr", merkleRoot.MaxSeqNr,
