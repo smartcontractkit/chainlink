@@ -102,7 +102,7 @@ func (cw *chipIngressBatchWorker) BuildCloudEventBatch() *chipingress.CloudEvent
 		payload := <-cw.chTelemetry
 		event, err := cw.payloadToEvent(payload)
 		if err != nil {
-			cw.lggr.Warnw("failed to build CloudEvent for ChIP ingress", "error", err, "contractID", payload.ContractID, "telemType", payload.TelemType)
+			cw.lggr.Debugw("failed to build CloudEvent for ChIP ingress", "error", err, "contractID", payload.ContractID, "telemType", payload.TelemType)
 			TelemetryClientMessagesDropped.WithLabelValues(chipIngress, string(cw.telemType)).Inc()
 			continue
 		}
