@@ -168,7 +168,7 @@ func ParseMercuryEATelemetry(lggr logger.Logger, trrs pipeline.TaskRunResults, f
 		}
 		eaTelem, err := parseEATelemetry([]byte(bridgeRawResponse))
 		if err != nil {
-			lggr.Warnw(fmt.Sprintf("cannot parse EA telemetry, id=%s, name=%q", trr.Task.DotID(), bridgeName), "err", err, "dotID", trr.Task.DotID(), "bridgeName", bridgeName)
+			lggr.Debugw(fmt.Sprintf("cannot parse EA telemetry, id=%s, name=%q", trr.Task.DotID(), bridgeName), "err", err, "dotID", trr.Task.DotID(), "bridgeName", bridgeName)
 		}
 		eaTelem.BridgeRequestData = bridgeTask.RequestData
 		eaTelem.DpBenchmarkPrice, eaTelem.DpBid, eaTelem.DpAsk = getPricesFromBridgeTask(lggr, trr, trrs, feedVersion)
