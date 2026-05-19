@@ -354,7 +354,7 @@ func (ekc *ETHKeysController) getEthBalance(ctx context.Context, state ethkey.St
 	}
 	chain, ok := chainService.(legacyevm.Chain)
 	if !ok {
-		ekc.lggr.Errorw("EVM Chain in LOOPP mode", "chainID", chainID, "err", err)
+		ekc.lggr.Debugw("EVM Chain in LOOPP mode", "chainID", chainID, "err", err)
 		return nil
 	}
 
