@@ -331,7 +331,7 @@ func (sp *don2DonSharedPeer) recvLoopSingle(ctx context.Context, pid ragetypes.P
 			return
 		case msg, ok := <-ch:
 			if !ok {
-				sp.lggr.Infow("channel closed - exiting recvLoopSingle", "peerID", pid)
+				sp.lggr.Debugw("channel closed - exiting recvLoopSingle", "peerID", pid)
 				return
 			}
 			sp.recvCh <- p2ptypes.Message{Sender: pid, Payload: msg}
