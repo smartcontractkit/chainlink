@@ -20,7 +20,7 @@ func (VRFKeyResource) GetName() string {
 func NewVRFKeyResource(key vrfkey.KeyV2, lggr logger.Logger) *VRFKeyResource {
 	uncompressed, err := key.PublicKey.StringUncompressed()
 	if err != nil {
-		lggr.Errorw("Unable to get uncompressed pk", "err", err)
+		lggr.Warnw("Unable to get uncompressed pk", "err", err)
 	}
 	return &VRFKeyResource{
 		JAID:         NewJAID(key.PublicKey.String()),
