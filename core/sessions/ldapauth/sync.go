@@ -145,7 +145,7 @@ func (l *LDAPServerStateSyncer) Work(ctx context.Context) {
 	// Query for list of uniqueMember IDs present in Edit group
 	runUsers, err := l.ldapGroupMembersListToUser(conn, l.config.RunUserGroupCN(), sessions.UserRoleRun)
 	if err != nil {
-		l.lggr.Error("Error in ldapGroupMembersListToUser: ", err)
+		l.lggr.Warn("Error in ldapGroupMembersListToUser: ", err)
 		return
 	}
 	// Query for list of uniqueMember IDs present in Edit group
