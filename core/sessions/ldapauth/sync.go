@@ -280,7 +280,7 @@ func (l *LDAPServerStateSyncer) Work(ctx context.Context) {
 	if err != nil {
 		l.lggr.Warn("Error syncing local database state: ", err)
 	}
-	l.lggr.Info("Upstream LDAP sync complete")
+	l.lggr.Debug("Upstream LDAP sync complete")
 }
 
 // deleteStaleSessions deletes all ldap_sessions before the passed time.
