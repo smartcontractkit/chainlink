@@ -224,7 +224,7 @@ func (l *ldapAuthenticator) FindUserByAPIToken(ctx context.Context, apiToken str
 	}
 	if !foundUserToken.Valid { // API Token expired, purge
 		if _, execErr := l.ds.ExecContext(ctx, "DELETE FROM ldap_user_api_tokens WHERE token_key = $1", apiToken); execErr != nil {
-			l.lggr.Errorf("error purging stale ldap API token session: %v", execErr)
+			l.lggr.Warnf("error purging stale ldap API token session: %v", execErr)
 		}
 		return sessions.User{}, sessions.ErrUserSessionExpired
 	}
