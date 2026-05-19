@@ -183,7 +183,7 @@ func (c *wsConnectionWrapper) readPump(conn *websocket.Conn, closeCh chan<- erro
 	for {
 		msgType, data, err := conn.ReadMessage()
 		if err != nil {
-			c.lggr.Errorw("failed to read message, closing connection", "error", err)
+			c.lggr.Debugw("failed to read message, closing connection", "error", err)
 			closeErr := conn.Close()
 			if closeErr != nil {
 				c.lggr.Errorw("error closing connection", "error", closeErr)
