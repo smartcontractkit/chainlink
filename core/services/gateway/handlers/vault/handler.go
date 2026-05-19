@@ -769,7 +769,7 @@ func (h *handler) handleSecretsList(ctx context.Context, ar *activeRequest) erro
 	}
 	err := h.ValidateListSecretIdentifiersRequest(ctx, req)
 	if err != nil {
-		l.Warnw("failed to validate list secret identifiers request", "error", err)
+		l.Debugw("failed to validate list secret identifiers request", "error", err)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate list secret identifiers request: %w", err), nil))
 	}
 
