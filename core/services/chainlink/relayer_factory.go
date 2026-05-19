@@ -203,7 +203,7 @@ func (r *RelayerFactory) NewLOOPRelayer(name string, network string, plugin env.
 
 		// skip disabled chains from further processing
 		if !chainCfg.IsEnabled() {
-			lggr.Warnw("Skipping disabled chain", "id", relayID.ChainID)
+			lggr.Infow("Skipping disabled chain", "id", relayID.ChainID)
 			continue
 		}
 
