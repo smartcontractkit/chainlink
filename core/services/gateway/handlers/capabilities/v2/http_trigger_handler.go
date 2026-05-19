@@ -539,7 +539,7 @@ func (h *httpTriggerHandler) handleUserError(ctx context.Context, requestID stri
 		ErrorCode:   errorCode,
 	})
 	if err != nil {
-		h.lggr.Errorw("failed to send user callback", "err", err, "requestID", requestID)
+		h.lggr.Warnw("failed to send user callback", "err", err, "requestID", requestID)
 		return
 	}
 }
