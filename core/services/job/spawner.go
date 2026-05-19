@@ -205,7 +205,7 @@ func (js *spawner) stopService(jobID int32) {
 			}
 		}
 		if err := service.Close(); err != nil {
-			sLggr.Criticalw("Error stopping job service", "err", err)
+			sLggr.Errorw("Error stopping job service", "err", err)
 			js.SvcErrBuffer.Append(pkgerrors.Wrap(err, "error stopping job service"))
 		}
 	}
