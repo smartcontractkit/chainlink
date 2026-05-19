@@ -251,7 +251,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chain
 				chainView.Tokens[symbol.String()] = tokenView
 			}
 			chainView.UpdateMu.Unlock()
-			lggr.Infow("generated token view", "tokenAddress", address.StringLong(), "symbol", symbol, "chain", chainName)
+			lggr.Debugw("generated token view", "tokenAddress", address.StringLong(), "symbol", symbol, "chain", chainName)
 		}
 		return nil
 	})
