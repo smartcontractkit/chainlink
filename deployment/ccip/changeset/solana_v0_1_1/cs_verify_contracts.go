@@ -306,7 +306,7 @@ func setConfig(e cldf.Environment, chain cldf_solana.Chain) error {
 		"--url", chain.URL,
 	}
 	output, err = RunCommand("solana", cmdArgs, ".")
-	e.Logger.Infow("solana config set output", "output", output)
+	e.Logger.Debugw("solana config set output", "output", output)
 	if err != nil {
 		return fmt.Errorf("failed to set url during program verification: %s %w", output, err)
 	}
