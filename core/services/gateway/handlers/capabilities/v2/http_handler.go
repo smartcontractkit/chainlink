@@ -314,7 +314,7 @@ func (h *gatewayHandler) HandleJSONRPCUserMessage(ctx context.Context, req jsonr
 	h.metrics.IncrementTriggerRequestCount(ctx, h.lggr)
 	err := h.triggerHandler.HandleUserTriggerRequest(ctx, &req, callback, time.Now())
 	if err != nil {
-		h.lggr.Errorw("failed to handle user trigger request", "requestID",
+		h.lggr.Warnw("failed to handle user trigger request", "requestID",
 			req.ID, "err", err)
 		// error response is sent to the response channel by the trigger handler
 		// so return nil after logging
