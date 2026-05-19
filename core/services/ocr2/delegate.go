@@ -1632,7 +1632,7 @@ func (d *Delegate) newServicesLLO(
 			if len(kbs) == 0 {
 				return nil, fmt.Errorf("no on-chain signing keys found for report format %s", "evm")
 			} else if len(kbs) > 1 {
-				lggr.Debugf("Multiple on-chain signing keys found for report format %s, using the first", rf.String())
+				lggr.Warnf("Multiple on-chain signing keys found for report format %s, using the first", rf.String())
 			}
 			kbm[rf] = kbs[0]
 		}
