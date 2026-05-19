@@ -188,7 +188,7 @@ func (l *AuditLoggerService) runLoop() {
 	for {
 		select {
 		case <-l.chStop:
-			l.logger.Warn("The audit logger is shutting down")
+			l.logger.Info("The audit logger is shutting down")
 			return
 		case event := <-l.loggingChannel:
 			l.postLogToLogService(event.eventID, event.data)
