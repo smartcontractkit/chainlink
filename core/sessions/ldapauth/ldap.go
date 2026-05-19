@@ -166,7 +166,7 @@ func (l *ldapAuthenticator) FindUser(ctx context.Context, email string) (session
 	// Query the server
 	result, err := conn.Search(searchRequest)
 	if err != nil {
-		l.lggr.Errorf("error searching users in LDAP query: %v", err)
+		l.lggr.Warnf("error searching users in LDAP query: %v", err)
 		return sessions.User{}, errors.New("error searching users in LDAP directory")
 	}
 
