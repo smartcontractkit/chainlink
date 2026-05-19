@@ -392,7 +392,7 @@ func (m *donConnectionManager) keepaliveLoop(intervalSec uint32) {
 				}
 			}
 			promKeepalivesSent.WithLabelValues(m.donConfig.DonId).Set(float64(len(m.nodes) - errorCount))
-			m.lggr.Infow("sent keepalive pings to nodes", "donID", m.donConfig.DonId, "errCount", errorCount)
+			m.lggr.Debugw("sent keepalive pings to nodes", "donID", m.donConfig.DonId, "errCount", errorCount)
 		}
 	}
 }
