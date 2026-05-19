@@ -111,7 +111,7 @@ func runSolanaVerifyMCMS(e cldf.Environment,
 		return fmt.Errorf("failed to build upgrade transaction: %w", err)
 	}
 	if upgradeTx != nil {
-		e.Logger.Infow("upgradeTx", "tx", upgradeTx)
+		e.Logger.Debugw("upgradeTx", "tx", upgradeTx)
 		*mcmsTxs = append(*mcmsTxs, *upgradeTx)
 	}
 	return nil
