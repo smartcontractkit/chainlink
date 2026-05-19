@@ -68,7 +68,7 @@ func (o *orm) ListUsers(ctx context.Context) (users []sessions.User, err error) 
 // findValidSession finds an unexpired session by its ID and returns the associated email.
 func (o *orm) findValidSession(ctx context.Context, sessionID string) (email string, err error) {
 	if err := o.ds.GetContext(ctx, &email, "SELECT email FROM sessions WHERE id = $1 AND last_used + $2 >= now() FOR UPDATE", sessionID, o.sessionDuration); err != nil {
-		o.lggr.Infof("query result: %v", email)
+		o.lggr.Debugf("query result: %v", email)
 		return email, pkgerrors.Wrap(err, "no matching user for provided session token")
 	}
 	return email, nil
