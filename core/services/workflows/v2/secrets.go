@@ -143,6 +143,15 @@ func sha(strs ...string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+// vaultRequestIDFromMetadata mirrors the request ID formula in vault capability Execute.
+func vaultRequestIDFromMetadata(md capabilities.RequestMetadata) string {
+	phaseOrExecution := md.WorkflowExecutionID
+	if phaseOrExecution == "" {
+		phaseOrExecution = "subscription"
+	}
+	return fmt.Sprintf("%s::%s::%s", md.WorkflowID, phaseOrExecution, md.ReferenceID)
+}
+
 func normalizeOwner(owner string) (string, error) {
 	if len(owner) < 40 {
 		return "", errors.New("invalid owner address: too short")
@@ -329,7 +338,9 @@ func (s *secretsFetcher) getVaultSecretsForBatch(ctx context.Context, request *s
 		return nil, fmt.Errorf("failed to convert vault request to any: %w", err)
 	}
 
-	lggr := logger.With(s.lggr, "requestedKeys", logKeys, "metadata", metadata)
+	vaultRequestID := vaultRequestIDFromMetadata(metadata)
+	lggr := logger.With(s.lggr, "requestedKeys", logKeys, "metadata", metadata, "vaultRequestID", vaultRequestID)
+	lggr.Infow("dispatching vault GetSecrets request")
 	lggr.Debug("fetching secrets...")
 
 	capabilityResponse, err := vaultCap.Execute(ctx, capabilities.CapabilityRequest{

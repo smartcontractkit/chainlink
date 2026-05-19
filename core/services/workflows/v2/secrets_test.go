@@ -6,10 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -435,6 +438,86 @@ func TestSecretsFetcher_WorkflowIDMetadataFollowsOrgIDGate(t *testing.T) {
 			assert.Equal(t, tc.wantOrgID, capture.metadata.OrgID)
 		})
 	}
+}
+
+func TestSecretsFetcher_LogsVaultRequestIDOnDispatch(t *testing.T) {
+	lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
+	reg := coreCap.NewRegistry(lggr)
+	peer := coreCap.RandomUTF8BytesWord()
+
+	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+	_, vaultPublicKey, _, err := tdh2easy.GenerateKeys(2, 3)
+	require.NoError(t, err)
+	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
+	require.NoError(t, err)
+	reg.SetLocalRegistry(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
+
+	owner := "1234567890abcdef1234567890abcdef12345678"
+	normalizedOwner, err := normalizeOwner(owner)
+	require.NoError(t, err)
+
+	capture := &metadataCapturingVault{
+		response: &vault.GetSecretsResponse{
+			Responses: []*vault.SecretResponse{
+				{
+					Id: &vault.SecretIdentifier{
+						Key:       "Foo",
+						Namespace: "Bar",
+						Owner:     normalizedOwner,
+					},
+					Result: &vault.SecretResponse_Error{Error: "not found"},
+				},
+			},
+		},
+	}
+	err = reg.Add(t.Context(), capture)
+	require.NoError(t, err)
+
+	const phaseID = "exec-abc"
+	const callbackID int32 = 7
+	sf := NewSecretsFetcher(
+		MetricsLabelerTest(t),
+		reg,
+		lggr,
+		limits.WorkflowResourcePoolLimiter[int](5),
+		limits.NewUpperBoundLimiter[int](5),
+		testVaultOrgIDAsSecretOwnerGate(t, true),
+		"org-123",
+		owner,
+		"workflowName",
+		"workflowID",
+		phaseID,
+		workflowEncryptionKey,
+		nil,
+	)
+
+	_, err = sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
+		Requests: []*sdkpb.SecretRequest{
+			{
+				Id:        "Foo",
+				Namespace: "Bar",
+			},
+		},
+		CallbackId: callbackID,
+	})
+	require.NoError(t, err)
+
+	wantVaultRequestID := vaultRequestIDFromMetadata(capabilities.RequestMetadata{
+		WorkflowID:          "workflowID",
+		WorkflowExecutionID: sha(phaseID, strconv.FormatInt(int64(callbackID), 10)),
+		ReferenceID:         strconv.FormatInt(int64(callbackID), 10),
+	})
+
+	var dispatchLog *observer.LoggedEntry
+	for _, log := range observed.All() {
+		if log.Message == "dispatching vault GetSecrets request" {
+			dispatchLog = &log
+			break
+		}
+	}
+	require.NotNil(t, dispatchLog, "expected dispatch correlation log")
+	assert.Equal(t, wantVaultRequestID, dispatchLog.ContextMap()["vaultRequestID"])
+	assert.Equal(t, phaseID, dispatchLog.ContextMap()["phaseID"])
 }
 
 func TestSecretsFetcher_ForwardsOrgIDAndWorkflowOwner(t *testing.T) {
