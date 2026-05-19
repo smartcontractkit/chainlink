@@ -289,7 +289,7 @@ func deployHomeChain(
 			lggr.Errorw("Failed to get RMNHome active digest", "chain", chain.String(), "err", err)
 			return nil, err
 		}
-		lggr.Infow("Got rmn home active digest", "digest", rmnActiveDigest)
+		lggr.Debugw("Got rmn home active digest", "digest", rmnActiveDigest)
 
 		if rmnActiveDigest != rmnCandidateDigest {
 			lggr.Errorw("RMNHome active digest does not match previously candidate digest",
