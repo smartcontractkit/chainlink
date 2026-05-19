@@ -191,7 +191,7 @@ func (p *peer) Start(ctx context.Context) error {
 }
 
 func (p *peer) recvLoopSingle(pid ragetypes.PeerID, ch <-chan []byte) {
-	p.lggr.Infow("starting recvLoopSingle", "peerID", pid)
+	p.lggr.Debugw("starting recvLoopSingle", "peerID", pid)
 	defer p.wg.Done()
 	for {
 		select {
