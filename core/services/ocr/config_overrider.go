@@ -111,7 +111,7 @@ func (c *ConfigOverriderImpl) eventLoop() {
 			return
 		case <-c.pollTicker.Ticks():
 			if err := c.updateFlagsStatus(); err != nil {
-				c.logger.Errorw("OCRConfigOverrider: Error updating hibernation status", "err", err)
+				c.logger.Warnw("OCRConfigOverrider: Error updating hibernation status", "err", err)
 			}
 		}
 	}
