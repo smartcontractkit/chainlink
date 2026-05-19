@@ -1082,7 +1082,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.CCIPHome[c.CCIPHome.Address().Hex()] = chView
-			lggr.Infow("generated CCIP home view", "CCIPHome", c.CCIPHome.Address().Hex(), "chain", chain)
+			lggr.Debugw("generated CCIP home view", "CCIPHome", c.CCIPHome.Address().Hex(), "chain", chain)
 			return nil
 		}
 	}
