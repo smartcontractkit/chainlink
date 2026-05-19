@@ -175,7 +175,7 @@ func (l *LDAPServerStateSyncer) Work(ctx context.Context) {
 	// list group members that are no longer marked as active
 	usersActiveFlags, err := l.validateUsersActive(dedupedEmails, conn)
 	if err != nil {
-		l.lggr.Error("Error validating supplied user list: ", err)
+		l.lggr.Warn("Error validating supplied user list: ", err)
 	}
 	// Remove users in the upstreamUserStateMap source of truth who are part of groups but marked as deactivated/no-active
 	for i, active := range usersActiveFlags {
