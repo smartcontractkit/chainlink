@@ -980,7 +980,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 			err = stderrors.Join(err, app.profiler.Stop())
 		}
 
-		app.logger.Debugf("Closed application in %v", time.Since(shutdownStart))
+		app.logger.Infof("Closed application in %v", time.Since(shutdownStart))
 
 		app.started = false
 	})
