@@ -613,7 +613,7 @@ func getPricesFromBridgeTaskByTelemetryField(lggr logger.Logger, bridgeTask pipe
 				price := parsePriceFromTask(lggr, trr)
 				benchmarkPrice, bidPrice, askPrice = price, price, price
 			case "":
-				lggr.Warnw(fmt.Sprintf("no priceType found in attributes, parsedAttributes=%+v, id %s", attributes, trr.Task.DotID()))
+				lggr.Debugw(fmt.Sprintf("no priceType found in attributes, parsedAttributes=%+v, id %s", attributes, trr.Task.DotID()))
 			}
 		}
 	}
