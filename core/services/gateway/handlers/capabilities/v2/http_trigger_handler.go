@@ -591,7 +591,7 @@ func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, executionID st
 		}
 
 		if allNodesSucceeded {
-			h.lggr.Infow("Successfully sent trigger request to all nodes",
+			h.lggr.Debugw("Successfully sent trigger request to all nodes",
 				"executionID", executionID,
 				"nodeCount", len(h.donConfig.Members))
 			return nil
