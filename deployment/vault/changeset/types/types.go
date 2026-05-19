@@ -3,6 +3,7 @@ package types
 import (
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 )
 
@@ -70,4 +71,29 @@ type BatchNativeTransferState struct {
 
 	// ValidationErrors contains any validation errors found
 	ValidationErrors []TransferValidationError `json:"validation_errors"`
+}
+
+// ERC20Transfer is a single ERC20 transfer (payee, token, amount in token units)
+type ERC20Transfer struct {
+	Payee  string   `json:"payee"`  // Destination address
+	Token  string   `json:"token"`  // ERC20 token contract address
+	Amount *big.Int `json:"amount"` // Amount in token units (not wei)
+}
+
+// TransferERC20Config configures an ERC20 transfer from a timelock on a single chain
+type TransferERC20Config struct {
+	// ChainSelector is the chain where the timelock and token live
+	ChainSelector uint64 `json:"chain_selector"`
+
+	// TimelockIdentifier is the qualifier for the timelock (e.g. "vault_1"). Use "" for default/legacy.
+	TimelockIdentifier string `json:"timelock_identifier"`
+
+	// Transfers is the list of ERC20 transfers to execute from the timelock
+	Transfers []ERC20Transfer `json:"transfers"`
+
+	// MCMSConfig contains timelock and MCMS configuration for building the proposal
+	MCMSConfig *proposalutils.TimelockConfig `json:"mcms_config"`
+
+	// Description for the MCMS proposal
+	Description string `json:"description"`
 }

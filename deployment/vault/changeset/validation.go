@@ -222,3 +222,62 @@ func ValidateSetWhitelistConfig(e cldf.Environment, cfg types.SetWhitelistConfig
 
 	return nil
 }
+
+func validateERC20Transfers(e cldf.Environment, chainSelector uint64, transfers []types.ERC20Transfer) error {
+	whitelistedAddresses, err := GetWhitelistedAddresses(e, []uint64{chainSelector})
+	if err != nil {
+		return fmt.Errorf("failed to get whitelisted addresses for chain %d: %w", chainSelector, err)
+	}
+
+	whitelist := make(map[string]bool)
+	for _, entry := range whitelistedAddresses[chainSelector] {
+		whitelist[common.HexToAddress(entry.Address).Hex()] = true
+	}
+
+	for i, tr := range transfers {
+		if tr.Payee == "" || tr.Payee == "0x0000000000000000000000000000000000000000" {
+			return fmt.Errorf("transfer %d: payee cannot be zero address", i)
+		}
+		if tr.Token == "" || tr.Token == "0x0000000000000000000000000000000000000000" {
+			return fmt.Errorf("transfer %d: token address cannot be zero", i)
+		}
+		if tr.Amount == nil || tr.Amount.Cmp(big.NewInt(0)) <= 0 {
+			return fmt.Errorf("transfer %d: amount must be positive", i)
+		}
+
+		payeeAddress := common.HexToAddress(tr.Payee)
+		if !whitelist[payeeAddress.Hex()] {
+			return fmt.Errorf("transfer %d: payee %s is not whitelisted for chain %d", i, payeeAddress.Hex(), chainSelector)
+		}
+	}
+
+	return nil
+}
+
+func ValidateTransferERC20Config(e cldf.Environment, cfg types.TransferERC20Config) error {
+	if len(cfg.Transfers) == 0 {
+		return errors.New("transfers must not be empty")
+	}
+	if err := validateChainSelector(cfg.ChainSelector, e); err != nil {
+		return fmt.Errorf("invalid chain selector: %w", err)
+	}
+	_, exists := e.BlockChains.EVMChains()[cfg.ChainSelector]
+	if !exists {
+		return fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
+	}
+	if cfg.MCMSConfig == nil {
+		return errors.New("MCMSConfig is required for transfer_erc20")
+	}
+	if err := validateERC20Transfers(e, cfg.ChainSelector, cfg.Transfers); err != nil {
+		return err
+	}
+	// Validate timelock and proposer exist for this chain and qualifier
+	qualifier := cfg.TimelockIdentifier
+	if _, err := GetContractAddressWithQualifier(e.DataStore, cfg.ChainSelector, commontypes.RBACTimelock, qualifier); err != nil {
+		return fmt.Errorf("timelock not found for chain %d: %w", cfg.ChainSelector, err)
+	}
+	if _, err := GetContractAddressWithQualifier(e.DataStore, cfg.ChainSelector, commontypes.ProposerManyChainMultisig, qualifier); err != nil {
+		return fmt.Errorf("proposer not found for chain %d: %w", cfg.ChainSelector, err)
+	}
+	return nil
+}
