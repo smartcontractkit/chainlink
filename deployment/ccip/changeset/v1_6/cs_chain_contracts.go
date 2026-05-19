@@ -2512,7 +2512,7 @@ func applyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2Logic(env cldf.Enviro
 			tokenTransferFeeConfigs := []fee_quoter.FeeQuoterTokenTransferFeeConfigSingleTokenArgs{}
 			for tokenAddress, args := range input.TokenTransferFeeConfigArgs {
 				// This gets the token transfer fee config for the given token - if it doesn't exist, then the zero struct will be returned and `IsEnabled` will be `false`
-				env.Logger.Infof("fetching token transfer fee config (src = %s, dst = %s, token = %s)", srcChain.String(), dstChain.String(), tokenAddress.Hex())
+				env.Logger.Debugf("fetching token transfer fee config (src = %s, dst = %s, token = %s)", srcChain.String(), dstChain.String(), tokenAddress.Hex())
 				curConfig, err := chainState.FeeQuoter.GetTokenTransferFeeConfig(&bind.CallOpts{Context: env.GetContext()}, dstSelector, tokenAddress)
 				if err != nil {
 					return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch token transfer fee config (src = %s, dst = %s, token = %s): %w", srcChain.String(), dstChain.String(), tokenAddress.Hex(), err)
