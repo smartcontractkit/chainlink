@@ -186,7 +186,7 @@ func updateAdminRolePrecondition(e cldf.Environment, cfg UpdateAdminRoleConfig) 
 	}
 
 	if configs.orchestrateChangesetsConfig == nil && configs.transferAdminRoleConfig == nil && configs.proposeAdminRoleConfig == nil {
-		e.Logger.Warn("no operations to perform - exiting precondition stage gracefully")
+		e.Logger.Info("no operations to perform - exiting precondition stage gracefully")
 		return nil
 	}
 
