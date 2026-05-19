@@ -380,7 +380,7 @@ func writeBuffer(e cldf.Environment, programsPath, programID, programName string
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("error writing IDL buffer: %w", err)
 	}
-	e.Logger.Infow("Parsing IDL buffer", "programID", programID)
+	e.Logger.Debugw("Parsing IDL buffer", "programID", programID)
 	buffer, err := parseIdlBuffer(output)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("error parsing IDL buffer: %w", err)
