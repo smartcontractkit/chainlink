@@ -238,7 +238,7 @@ func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
 			}
 			handler, exists := c.handlers[req.Method]
 			if !exists {
-				c.lggr.Errorw("no handler for method", "id", gatewayState.config.Id, "method", req.Method)
+				c.lggr.Warnw("no handler for method", "id", gatewayState.config.Id, "method", req.Method)
 				break
 			}
 			// do not break on error. HandleGatewayMessage handles errors
