@@ -170,7 +170,7 @@ func (s *onchainSubscriptions) queryLoop() {
 
 		end := min(start+uint64(s.config.UpdateRangeSize)-1, lastKnownCount)
 		if err := s.querySubscriptionsRange(ctx, blockNumber, start, end); err != nil {
-			s.lggr.Errorw("Error querying subscriptions", "err", err, "start", start, "end", end)
+			s.lggr.Warnw("Error querying subscriptions", "err", err, "start", start, "end", end)
 			return
 		}
 
