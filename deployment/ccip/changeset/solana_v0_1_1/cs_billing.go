@@ -857,7 +857,7 @@ func (cfg TokenTransferFeeForRemoteChainConfigV2) buildOrchestrateChangesetsConf
 					feeConfig.DestGasOverhead = &destGasOverhead
 					feeConfig.DestBytesOverhead = &destBytesOverhead
 					feeConfig.IsEnabled = &isEnabled
-					env.Logger.Infof("missing fields in user input have been auto-filled with sensible defaults: %+v", feeConfig)
+					env.Logger.Debugf("missing fields in user input have been auto-filled with sensible defaults: %+v", feeConfig)
 				}
 
 				// at this point, we're either using inputs from the user (highest precedence), fallback values from the chain, or pre-defined sensible defaults
