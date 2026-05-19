@@ -1121,7 +1121,7 @@ func newWorkflowRegistrySyncerV2(
 	}
 
 	srvcs = append(srvcs, workflowRegistrySyncerV2)
-	lggr.Debugw("Created WorkflowRegistrySyncer V2")
+	lggr.Infow("Created WorkflowRegistrySyncer V2")
 	return workflowRegistrySyncerV2, srvcs, nil
 }
 
