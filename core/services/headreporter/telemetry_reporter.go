@@ -67,7 +67,7 @@ func (t *legacyEVMTelemetryReporter) ReportNewHead(ctx context.Context, head *ev
 	}
 	monitoringEndpoint.SendLog(bytes)
 	if finalized == nil {
-		t.lggr.Infow("No finalized block was found", "chainID", head.EVMChainID.ToInt().Int64(),
+		t.lggr.Debugw("No finalized block was found", "chainID", head.EVMChainID.ToInt().Int64(),
 			"head.number", head.Number, "chainLength", head.ChainLength())
 	}
 	return nil
