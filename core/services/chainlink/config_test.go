@@ -559,6 +559,7 @@ func TestConfig_Marshal(t *testing.T) {
 		AuthHeadersTTL:                commoncfg.MustNewDuration(0 * time.Second),
 		ChipIngressEndpoint:           ptr("example.com/chip-ingress"),
 		ChipIngressInsecureConnection: ptr(false),
+		DurableEmitterEnabled:         ptr(false),
 		HeartbeatInterval:             commoncfg.MustNewDuration(1 * time.Second),
 		LogStreamingEnabled:           ptr(false),
 		LogLevel:                      ptr("info"),

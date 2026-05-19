@@ -27,6 +27,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/chipingress"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
 	commonsrv "github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -46,6 +47,8 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
+
+	beholdersvc "github.com/smartcontractkit/chainlink/v2/core/services/beholder"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
@@ -373,6 +376,13 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		return nil, fmt.Errorf("failed to build node auth: %w", err)
 	}
 	jwtGenerator := nodeauthjwt.NewNodeJWTGenerator(csaSigner, csaPubKey)
+
+	// Wire DurableEmitter for persistent chip ingress delivery when enabled.
+	if cfg.Telemetry().DurableEmitterEnabled() && cfg.Telemetry().ChipIngressEndpoint() != "" {
+		if err = setupDurableEmitter(ctx, opts.DS, globalLogger, cfg.Telemetry()); err != nil {
+			return nil, fmt.Errorf("failed to set up chip durable emitter: %w", err)
+		}
+	}
 
 	creServices, err := cre.NewServices(
 		globalLogger,
@@ -1247,4 +1257,45 @@ func (app *ChainlinkApplication) DeleteLogPollerDataAfter(ctx context.Context, c
 	}
 
 	return nil
+}
+
+// setupDurableEmitter replaces the global beholder emitter with a DurableEmitter
+// backed by Postgres. Events are persisted before async gRPC delivery, surviving
+// node restarts and chip ingress outages.
+func setupDurableEmitter(ctx context.Context, ds sqlutil.DataSource, lggr logger.SugaredLogger, _ config.Telemetry) error {
+	client := beholder.GetClient()
+	if client == nil {
+		return errors.New("beholder client not initialized")
+	}
+
+	chipClient := client.Chip
+	if chipClient == nil || isNoopChipClient(chipClient) {
+		return errors.New("chip ingress client not available")
+	}
+
+	pgStore := beholdersvc.NewPgDurableEventStore(ds)
+	durableCfg := beholder.DefaultDurableEmitterConfig()
+	durableEmitter, err := beholder.NewDurableEmitter(pgStore, chipClient, true, durableCfg, lggr)
+	if err != nil {
+		return fmt.Errorf("failed to create durable emitter: %w", err)
+	}
+
+	// Build a new DualSourceEmitter: durable chip + OTLP.
+	messageLogger := client.MessageLoggerProvider.Logger("durable-emitter")
+	otlpEmitter := beholder.NewMessageEmitter(messageLogger)
+	dualEmitter, err := beholder.NewDualSourceEmitter(durableEmitter, otlpEmitter)
+	if err != nil {
+		return fmt.Errorf("failed to create dual source emitter: %w", err)
+	}
+
+	durableEmitter.Start(ctx)
+	client.Emitter = dualEmitter
+
+	lggr.Infow("Durable emitter enabled — all CloudEvent sources use the durable Chip queue")
+	return nil
+}
+
+func isNoopChipClient(c chipingress.Client) bool {
+	_, ok := c.(*chipingress.NoopClient)
+	return ok
 }
