@@ -280,7 +280,7 @@ func (c *gatewayConnector) reconnectLoop(gatewayState *gatewayState) {
 			c.closeWait.Done()
 			return
 		case <-time.After(redialBackoff.Duration()):
-			c.lggr.Info("reconnecting ...")
+			c.lggr.Debug("reconnecting ...")
 		}
 	}
 }
