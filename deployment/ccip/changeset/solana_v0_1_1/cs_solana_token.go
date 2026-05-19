@@ -345,7 +345,7 @@ func SetTokenAuthority(e cldf.Environment, cfg SetTokenAuthorityConfig) (cldf.Ch
 		if err = chain.GetAccountDataBorshInto(e.GetContext(), tokenAuthorityConfig.TokenPubkey, &tokenMint); err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
-		e.Logger.Infow("Fetched token mint", "MintAuthority", tokenMint.MintAuthority.String(), "tokenMintFreezeAuthority", tokenMint.FreezeAuthority.String())
+		e.Logger.Debugw("Fetched token mint", "MintAuthority", tokenMint.MintAuthority.String(), "tokenMintFreezeAuthority", tokenMint.FreezeAuthority.String())
 		authority := chain.DeployerKey.PublicKey()
 		switch tokenAuthorityConfig.AuthorityType {
 		case solToken.AuthorityMintTokens:
