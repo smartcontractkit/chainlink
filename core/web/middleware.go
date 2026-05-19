@@ -215,7 +215,7 @@ func (f *gzipFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	f.lggr.Infof("could not find file: %s", fpath)
+	f.lggr.Debugf("could not find file: %s", fpath)
 	http.NotFound(w, r)
 }
 
