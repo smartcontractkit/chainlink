@@ -61,7 +61,7 @@ func (cr *Cron) Start(context.Context) error {
 // Close implements the job.Service interface. It stops this job from
 // running and cleans up resources.
 func (cr *Cron) Close() error {
-	cr.logger.Debug("Closing")
+	cr.logger.Info("Closing")
 	cr.cronRunner.Stop()
 	return nil
 }
