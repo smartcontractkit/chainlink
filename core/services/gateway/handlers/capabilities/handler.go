@@ -347,7 +347,7 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 	codec := api.JsonRPCCodec{}
 	err := json.Unmarshal(body.Payload, &payload)
 	if err != nil {
-		h.lggr.Errorw(ErrDecodingPayload, "err", err)
+		h.lggr.Warnw(ErrDecodingPayload, "err", err)
 		return callback.SendResponse(handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
 				msg.Body.MessageId,
