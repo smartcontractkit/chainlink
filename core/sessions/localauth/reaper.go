@@ -37,7 +37,7 @@ func (sr *sessionReaper) Work(ctx context.Context) {
 		sr.config.SessionTimeout().Before(time.Now()))
 	err := sr.deleteStaleSessions(ctx, recordCreationStaleThreshold)
 	if err != nil {
-		sr.lggr.Error("unable to reap stale sessions: ", err)
+		sr.lggr.Warn("unable to reap stale sessions: ", err)
 	}
 }
 
