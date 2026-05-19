@@ -71,7 +71,7 @@ type SetTokenTransferFeeConfigInput struct {
 
 func (cfg SetTokenTransferFeeConfigInput) buildOrchestrateChangesetsConfig(env cldf.Environment) (ccip_cs_common.OrchestrateChangesetsConfig, error) {
 	// Make sure MCMS config is specified
-	env.Logger.Info("building orchestrate changesets config")
+	env.Logger.Debug("building orchestrate changesets config")
 	if cfg.MCMS == nil {
 		return ccip_cs_common.OrchestrateChangesetsConfig{}, errors.New("MCMS config is required")
 	}
