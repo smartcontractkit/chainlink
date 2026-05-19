@@ -439,7 +439,7 @@ func (cfg UploadTokenMetadataConfig) Validate(e cldf.Environment) error {
 		if err = e.BlockChains.SolanaChains()[cfg.ChainSelector].GetAccountDataBorshInto(context.Background(), metadataPDA, &tokenMetadata); err != nil {
 			// PDA does not exist. We need to create it. Validate fields
 			if metadata.MetadataJSONPath == "" {
-				e.Logger.Infow("Metadata JSON path is empty", "tokenPubkey", metadata.TokenPubkey.String())
+				e.Logger.Errorw("Metadata JSON path is empty", "tokenPubkey", metadata.TokenPubkey.String())
 				return errors.New("metadata JSON path is empty")
 			}
 		}
