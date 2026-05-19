@@ -101,7 +101,7 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 	for _, balance := range allOnchainBalances {
 		totalOnChainBalance = *totalOnChainBalance.Add(&totalOnChainBalance, balance)
 	}
-	runtime.Logger().With().Info(fmt.Sprintf("Total on-chain balance for addresses %v", &totalOnChainBalance))
+	runtime.Logger().With().Debug(fmt.Sprintf("Total on-chain balance for addresses %v", &totalOnChainBalance))
 
 	totalPriceOutput, err := cre.RunInNodeMode(config, runtime,
 		func(config types.WorkflowConfig, nodeRuntime cre.NodeRuntime) (priceOutput, error) {
