@@ -47,7 +47,7 @@ type updateAdminRoleConfigs struct {
 
 func (cfg *UpdateAdminRoleConfig) populate(e cldf.Environment) (updateAdminRoleConfigs, error) {
 	if cfg.configs != nil {
-		e.Logger.Info("using cached configs")
+		e.Logger.Debug("using cached configs")
 		return *cfg.configs, nil
 	}
 
