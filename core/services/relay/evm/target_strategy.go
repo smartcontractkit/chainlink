@@ -161,7 +161,7 @@ func (t *evmTargetStrategy) QueryTransmissionState(ctx context.Context, reportID
 				Err:         ErrTxFailed,
 			}, nil
 		}
-		t.lggr.Infow("non-empty report - transmission should be retried", "request", request, "reportLen", len(r.Inputs.SignedReport.Report), "reportContextLen", len(r.Inputs.SignedReport.Context), "nSignatures", len(r.Inputs.SignedReport.Signatures), "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
+		t.lggr.Debugw("non-empty report - transmission should be retried", "request", request, "reportLen", len(r.Inputs.SignedReport.Report), "reportContextLen", len(r.Inputs.SignedReport.Context), "nSignatures", len(r.Inputs.SignedReport.Signatures), "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
 		return &writetarget.TransmissionState{
 			Status:      writetarget.TransmissionStateFailed,
 			Transmitter: transmissionInfo.Transmitter.String(),
