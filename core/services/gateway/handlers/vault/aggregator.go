@@ -121,7 +121,7 @@ func (a *baseAggregator) validateUsingQuorum(don capabilities.DON, resps map[str
 	for _, r := range resps {
 		sha, err := a.sha(&r)
 		if err != nil {
-			l.Errorw("failed to compute digest of response during quorum validation, skipping...", "error", err)
+			l.Warnw("failed to compute digest of response during quorum validation, skipping...", "error", err)
 			continue
 		}
 		shaToCount[sha]++
