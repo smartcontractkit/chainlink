@@ -178,7 +178,7 @@ func runSolanaVerify(e cldf.Environment,
 	if err != nil {
 		return err
 	}
-	e.Logger.Infow("solana verify params", "params", string(log))
+	e.Logger.Debugw("solana verify params", "params", string(log))
 
 	// if timelock signer exists
 	// and user has set the upgrade authority to the timelock signer
