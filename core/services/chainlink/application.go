@@ -691,7 +691,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	}
 
 	if cfg.OCR2().Enabled() {
-		globalLogger.Debug("Off-chain reporting v2 enabled")
+		globalLogger.Info("Off-chain reporting v2 enabled")
 
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg.OCR2(), cfg.Mercury(), cfg.Threshold(), cfg.Insecure(), cfg.JobPipeline(), loopRegistrarConfig, cfg.Sharding(), ringStoreForShard0)
 
