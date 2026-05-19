@@ -323,7 +323,7 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 
 	added := ar.addResponseForNode(nodeAddr, resp)
 	if !added {
-		l.Errorw("duplicate response from node, ignoring", "nodeAddr", nodeAddr)
+		l.Warnw("duplicate response from node, ignoring", "nodeAddr", nodeAddr)
 		return nil
 	}
 
