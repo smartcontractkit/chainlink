@@ -101,7 +101,7 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 				NodeAttributes:  cfgTracing.Attributes(),
 				SamplingRatio:   cfgTracing.SamplingRatio(),
 				TLSCertPath:     cfgTracing.TLSCertPath(),
-				OnDialError:     func(error) { lggr.Errorw("Failed to dial", "err", err) },
+				OnDialError:     func(error) { lggr.Warnw("Failed to dial", "err", err) },
 			}
 			if !cfgTelemetry.Enabled() {
 				return loop.SetupTracing(tracingCfg)
