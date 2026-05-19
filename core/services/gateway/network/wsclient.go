@@ -58,7 +58,7 @@ func (c *webSocketClient) Connect(ctx context.Context, url *url.URL) (*websocket
 
 	challengeStr := resp.Header.Get(WsServerHandshakeChallengeHeaderName)
 	if challengeStr == "" {
-		c.lggr.Error("WebSocketClient: empty challenge")
+		c.lggr.Debug("WebSocketClient: empty challenge")
 		c.tryCloseConn(conn)
 		return nil, err
 	}
