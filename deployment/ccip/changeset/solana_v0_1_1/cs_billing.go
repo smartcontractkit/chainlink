@@ -884,7 +884,7 @@ func (cfg TokenTransferFeeForRemoteChainConfigV2) buildOrchestrateChangesetsConf
 					newConfig.IsEnabled != curConfig.TokenTransferConfig.IsEnabled
 
 				// only perform an update if the new config is different from the on-chain config
-				env.Logger.Infof("constructed new token transfer fee config: %+v", newConfig)
+				env.Logger.Debugf("constructed new token transfer fee config: %+v", newConfig)
 				if !isDifferent {
 					env.Logger.Infof(
 						"skipping update since input config is the same as on-chain config (src=%d, dst=%d, token=%s): %+v",
