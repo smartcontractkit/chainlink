@@ -251,7 +251,7 @@ func getHTTPPrice(config types.WorkflowConfig, runtime cre.NodeRuntime) (priceOu
 		return priceOutput{}, fmt.Errorf("failed to unmarshal price response: %w", err)
 	}
 
-	runtime.Logger().With().Info(fmt.Sprintf("Response is account name: %s, totalTrust: %.10f, ripcord: %v, updatedAt: %s", resp.AccountName, resp.TotalTrust, resp.Ripcord, resp.UpdatedAt.String()))
+	runtime.Logger().With().Debug(fmt.Sprintf("Response is account name: %s, totalTrust: %.10f, ripcord: %v, updatedAt: %s", resp.AccountName, resp.TotalTrust, resp.Ripcord, resp.UpdatedAt.String()))
 
 	if resp.Ripcord {
 		runtime.Logger().With(
