@@ -21,6 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
@@ -44,6 +46,8 @@ type secretsFetcher struct {
 	secretsCalled     int
 	mu                sync.Mutex
 
+	creSettingsGetter settings.Getter
+
 	orgID                 string
 	workflowOwner         string
 	workflowName          string
@@ -65,6 +69,7 @@ func NewSecretsFetcher(
 	lggr logger.Logger,
 	semaphore limits.ResourcePoolLimiter[int],
 	secretsCalls limits.BoundLimiter[int],
+	creSettingsGetter settings.Getter,
 	orgID string,
 	workflowOwner string,
 	workflowName string,
@@ -80,6 +85,7 @@ func NewSecretsFetcher(
 		lggr:                  lggr,
 		semaphore:             semaphore,
 		secretsCallsLimit:     secretsCalls,
+		creSettingsGetter:     creSettingsGetter,
 		orgID:                 orgID,
 		workflowOwner:         workflowOwner,
 		workflowName:          workflowName,
@@ -98,7 +104,7 @@ func keyFor(owner, namespace, id string) string {
 func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
 	ctx = contexts.WithCRE(ctx, contexts.CRE{
 		Owner:    s.workflowOwner,
-		Workflow: s.workflowName,
+		Workflow: s.workflowID,
 	})
 	s.mu.Lock()
 	secretsCalled := s.secretsCalled + 1
@@ -268,6 +274,11 @@ func (s *secretsFetcher) getVaultSecretsForBatch(ctx context.Context, request *s
 		WorkflowName:        s.workflowName,
 		WorkflowExecutionID: sha(s.phaseID, strconv.FormatInt(int64(request.CallbackId), 10)),
 		ReferenceID:         strconv.FormatInt(int64(request.CallbackId), 10),
+	}
+	if propagateOrgIDMeta, _ := cresettings.Default.PropagateOrgIDInRequestMetadata.GetOrDefault(ctx, s.creSettingsGetter); propagateOrgIDMeta && s.orgID != "" {
+		metadata.OrgID = s.orgID
+		// WorkflowID is under this gate because we previously skipped setting workflowID on SecretsFetcher entirely. Now setting it safely.
+		metadata.WorkflowID = s.workflowID
 	}
 	vp := &vault.GetSecretsRequest{
 		Requests: make([]*vault.SecretRequest, 0),

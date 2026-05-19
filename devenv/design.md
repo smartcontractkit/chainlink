@@ -162,8 +162,6 @@ sequenceDiagram
 | Name           | TOML key         | Config dir                | Nodes | Contracts deployed                                 |
 | -------------- | ---------------- | ------------------------- | ----- | -------------------------------------------------- |
 | Cron           | `cron`           | `products/cron/`          | 1     | None (bridge + cron job only)                      |
-| Direct Request | `direct_request` | `products/directrequest/` | 1     | LINK, Oracle, TestAPIConsumer                      |
-| Flux Monitor   | `flux`           | `products/flux/`          | 5     | LINK, FluxAggregator                               |
 | OCR2           | `ocr2`           | `products/ocr2/`          | 5     | LINK, OCR2Aggregator                               |
 | Automation     | `automation`     | `products/automation/`    | 5     | LINK, Registry (2.0-2.3), Registrar, Upkeeps       |
 
@@ -217,7 +215,6 @@ Chainlink nodes need external data sources (external adapters, price feeds, Merc
 | Product        | Route                           | Behavior                                                    |
 | -------------- | ------------------------------- | ----------------------------------------------------------- |
 | Cron           | `POST /cron_response`           | Returns `{"data": {"result": 200}}`                         |
-| Direct Request | `POST /direct_request_response` | Returns `{"data": {"result": 200}}`                         |
 | OCR2           | `POST /ea`                      | Returns current EA value (default 200)                      |
 | OCR2           | `POST /juelsPerFeeCoinSource`   | Returns JUELS/LINK ratio                                    |
 | OCR2           | `POST /trigger_deviation`       | Changes the EA return value (query param `?result=<value>`) |

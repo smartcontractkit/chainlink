@@ -152,6 +152,7 @@ func (m *ConfidentialModule) Execute(
 		CapabilityId: confidentialWorkflowsCapabilityID,
 		Metadata: capabilities.RequestMetadata{
 			WorkflowOwner:       m.workflowOwner,
+			WorkflowID:          m.workflowID,
 			WorkflowName:        m.workflowName,
 			WorkflowTag:         m.workflowTag,
 			WorkflowExecutionID: helper.GetWorkflowExecutionID(),

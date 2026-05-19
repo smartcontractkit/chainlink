@@ -36,7 +36,7 @@
   override_mode = "all"
   http_port_range_start = 10100
   supported_evm_chains = [1337, 2337]
-  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS_DEFAULT = '{"VaultJWTAuthEnabled":"true","VaultTenantID":"1"}' }
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS_DEFAULT = '{"VaultJWTAuthEnabled":"true","TenantID":"1"}' }
   capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337"]
   registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
@@ -60,7 +60,7 @@
   override_mode = "all"
   http_port_range_start = 10200
   supported_evm_chains = [1337, 2337]
-  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS_DEFAULT = '{"VaultJWTAuthEnabled":"true","VaultTenantID":"1"}' }
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS_DEFAULT = '{"VaultJWTAuthEnabled":"true","TenantID":"1"}' }
   capabilities = ["vault",  "evm-2337"]
 
   [nodesets.db]
@@ -81,7 +81,7 @@
   don_types = ["bootstrap", "gateway"]
   override_mode = "each"
   http_port_range_start = 10300
-  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS_DEFAULT = '{"VaultJWTAuthEnabled":"true","VaultTenantID":"1"}' }
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS_DEFAULT = '{"VaultJWTAuthEnabled":"true","TenantID":"1"}' }
   supported_evm_chains = [1337, 2337]
 
   [nodesets.db]

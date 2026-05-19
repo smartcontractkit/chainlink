@@ -158,7 +158,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 		execCap.EXPECT().Execute(matches.AnyContext, mock.MatchedBy(func(req capabilities.CapabilityRequest) bool {
 			return req.Method == "Execute" &&
 				req.CapabilityId == confidentialWorkflowsCapabilityID &&
-				req.Metadata.WorkflowID == "" &&
+				req.Metadata.WorkflowID == "wf-123" &&
 				req.Metadata.WorkflowOwner == "owner-abc" &&
 				req.Metadata.WorkflowExecutionID == "exec-456" &&
 				req.Payload != nil
@@ -309,7 +309,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 		// Verify metadata.
 		assert.Equal(t, "Execute", capturedReq.Method)
 		assert.Equal(t, confidentialWorkflowsCapabilityID, capturedReq.CapabilityId)
-		assert.Empty(t, capturedReq.Metadata.WorkflowID)
+		assert.Equal(t, "wf-abc", capturedReq.Metadata.WorkflowID)
 		assert.Equal(t, "0xowner", capturedReq.Metadata.WorkflowOwner)
 		assert.Equal(t, "my-workflow", capturedReq.Metadata.WorkflowName)
 		assert.Equal(t, "v2", capturedReq.Metadata.WorkflowTag)
