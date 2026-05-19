@@ -196,7 +196,7 @@ func (p *peer) recvLoopSingle(pid ragetypes.PeerID, ch <-chan []byte) {
 	for {
 		select {
 		case <-p.stopCh:
-			p.lggr.Infow("stopped - exiting recvLoopSingle", "peerID", pid)
+			p.lggr.Debugw("stopped - exiting recvLoopSingle", "peerID", pid)
 			return
 		case msg, ok := <-ch:
 			if !ok {
