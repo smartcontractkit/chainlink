@@ -323,7 +323,7 @@ func (sp *don2DonSharedPeer) updateConnections(donPairs []p2ptypes.DonPair, desi
 }
 
 func (sp *don2DonSharedPeer) recvLoopSingle(ctx context.Context, pid ragetypes.PeerID, ch <-chan []byte) {
-	sp.lggr.Infow("starting recvLoopSingle", "peerID", pid)
+	sp.lggr.Debugw("starting recvLoopSingle", "peerID", pid)
 	for {
 		select {
 		case <-ctx.Done():
