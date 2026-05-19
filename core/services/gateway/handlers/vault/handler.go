@@ -647,7 +647,7 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) er
 	}
 	err = h.ValidateCreateSecretsRequest(ctx, cachedPublicKey, validationRequest, skipLabelValidation)
 	if err != nil {
-		l.Warnw("failed to validate create secrets request", "error", err)
+		l.Debugw("failed to validate create secrets request", "error", err)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate create secrets request: %w", err), nil))
 	}
 
