@@ -100,7 +100,7 @@ func (h *baseHandler) ScrapeNodes() {
 }
 
 func (h *baseHandler) scrapeNodes(ctx context.Context, log logger.Logger) {
-	log.Warn("This scrapes node address, peer ID, CSA node address, CSA public key, OCR2 ID, OCR2 config pub key, OCR2 onchain pub key, and OCR2 offchain pub key.")
+	log.Info("This scrapes node address, peer ID, CSA node address, CSA public key, OCR2 ID, OCR2 config pub key, OCR2 onchain pub key, and OCR2 offchain pub key.")
 	log.Warn("This does NOT scrape for payee address, admin address etc. Please verify that manually.")
 	cls := make([]cmd.HTTPClient, len(h.cfg.KeeperURLs))
 	for i := range h.cfg.KeeperURLs {
