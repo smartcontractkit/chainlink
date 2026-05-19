@@ -1147,7 +1147,7 @@ func newWorkflowRegistrySyncer(
 
 	billingClient, err := newBillingClient(lggr, cfg, opts)
 	if err != nil {
-		lggr.Infof("failed to create billing client: %s", err)
+		lggr.Errorf("failed to create billing client: %s", err)
 	}
 
 	major, vErr := workflowRegistrySemverMajor(capCfg.WorkflowRegistry().ContractVersion())
