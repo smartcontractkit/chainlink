@@ -161,7 +161,7 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		envCfg.TelemetryLogExportInterval = m.cfgTelemetry.LogExportInterval()
 		envCfg.TelemetryLogMaxQueueSize = m.cfgTelemetry.LogMaxQueueSize()
 	}
-	m.lggr.Debugf("Registered loopp %q with port %d", id, envCfg.PrometheusPort)
+	m.lggr.Infof("Registered loopp %q with port %d", id, envCfg.PrometheusPort)
 
 	// Add auth header after logging config
 	if m.cfgTelemetry != nil {
