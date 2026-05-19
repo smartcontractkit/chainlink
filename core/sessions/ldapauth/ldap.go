@@ -653,7 +653,7 @@ func (l *ldapAuthenticator) validateUsersActive(emails []string) ([]bool, error)
 
 	conn, err := l.ldapClient.CreateEphemeralConnection()
 	if err != nil {
-		l.lggr.Error("error in LDAP dial: ", err)
+		l.lggr.Warn("error in LDAP dial: ", err)
 		return validUsers, errors.New("unable to establish connection to LDAP server with provided URL and credentials")
 	}
 	defer conn.Close()
