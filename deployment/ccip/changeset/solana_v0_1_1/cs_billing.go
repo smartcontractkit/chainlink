@@ -229,7 +229,7 @@ func (cfg TokenTransferFeeForRemoteChainConfig) Validate(e cldf.Environment, sta
 	}
 	for _, config := range cfg.RemoteChainConfigs {
 		if config.DestBytesOverhead < 32 {
-			e.Logger.Infow("dest bytes overhead is less than minimum. Setting to minimum value",
+			e.Logger.Warnw("dest bytes overhead is less than minimum. Setting to minimum value",
 				"destBytesOverhead", config.DestBytesOverhead,
 				"minDestBytesOverhead", MinDestBytesOverhead)
 			config.DestBytesOverhead = MinDestBytesOverhead
