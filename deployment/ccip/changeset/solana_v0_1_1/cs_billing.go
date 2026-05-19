@@ -828,7 +828,7 @@ func (cfg TokenTransferFeeForRemoteChainConfigV2) buildOrchestrateChangesetsConf
 				}
 
 				// if the config has not been set yet, we auto-fill any missing input fields with sensible defaults
-				env.Logger.Infof("current config = %+v", curConfig)
+				env.Logger.Debugf("current config = %+v", curConfig)
 				if !curConfig.TokenTransferConfig.IsEnabled {
 					// this config is dynamically adjusted (ethereum is very expensive)
 					minFeeUsdCentsVal := uint32(25)
