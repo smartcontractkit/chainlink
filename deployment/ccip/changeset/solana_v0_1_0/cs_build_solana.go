@@ -351,7 +351,7 @@ func BuildSolana(e cldf.Environment, config BuildSolanaConfig) error {
 			return fmt.Errorf("error downloading solana ccip program artifacts: %w", err)
 		}
 	} else {
-		e.Logger.Debug("Building Solana CCIP program artifacts locally...")
+		e.Logger.Info("Building Solana CCIP program artifacts locally...")
 		err := buildLocally(e, config)
 		if err != nil {
 			return fmt.Errorf("error building solana ccip program artifacts: %w", err)
