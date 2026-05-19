@@ -1196,7 +1196,7 @@ func (app *ChainlinkApplication) GetWebAuthnConfiguration() sessions.WebAuthnCon
 	rpid := app.Config.WebServer().MFA().RPID()
 	rporigin := app.Config.WebServer().MFA().RPOrigin()
 	if rpid == "" {
-		app.GetLogger().Errorf("RPID is not set, WebAuthn will likely not work as intended")
+		app.GetLogger().Warnf("RPID is not set, WebAuthn will likely not work as intended")
 	}
 
 	if rporigin == "" {
