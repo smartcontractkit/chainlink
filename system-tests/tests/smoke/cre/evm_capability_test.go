@@ -385,7 +385,7 @@ func executeEVMLogTriggerTestForChain(
 
 	logstream, err := framework.StreamContainerLogs(framework.CTFContainersListOpts(), framework.CTFContainersLogsOpts())
 	require.NoError(t, err, "failed to stream container logs for Event ACK check")
-	ackFound, stopACKLogScans := verifyTriggerEventACKLogs(t.Context(), lggr, logstream)
+	singleAckFound, stopACKLogScans := verifyTriggerEventACKLogs(t.Context(), lggr, logstream)
 	defer stopACKLogScans()
 
 	// create a context that will be cancelled as soon as we either find the log we are looking for or timeout
@@ -414,7 +414,7 @@ func executeEVMLogTriggerTestForChain(
 	lggr.Info().Msgf("Found expected user log: '%s' on chain %s", expectedUserLog, chainID)
 
 	require.Eventually(t, func() bool {
-		return ackFound.Load()
+		return singleAckFound.Load()
 	}, 4*time.Minute, 500*time.Millisecond,
 		"expected BaseTrigger Event ACK log line in container logs (BaseTriggerCapability.AckEvent logs msg Event ACK)")
 	lggr.Info().Msg("found BaseTrigger Event ACK log")
@@ -422,6 +422,7 @@ func executeEVMLogTriggerTestForChain(
 	lggr.Info().Msgf("🎉 LogTrigger Workflow %s executed successfully on chain %s", workflowName, chainID)
 }
 
+// chainlink-common/pkg/capabilities/base_trigger.go logs this
 var triggerEventACKLogPattern = regexp.MustCompile(`Event ACK`)
 
 // verifyTriggerEventACKLogs starts parallel readers (one per container stream) that scan for BaseTrigger Event ACK
@@ -430,14 +431,13 @@ var triggerEventACKLogPattern = regexp.MustCompile(`Event ACK`)
 func verifyTriggerEventACKLogs(ctx context.Context, lggr zerolog.Logger, logStreams map[string]io.ReadCloser) (*atomic.Bool, func()) {
 	found := &atomic.Bool{}
 	if len(logStreams) == 0 {
-		lggr.Warn().Msg("verifyTriggerEventACKLogs: no container log streams to scan")
+		lggr.Error().Msg("verifyTriggerEventACKLogs: no container log streams to scan")
 		return found, func() {}
 	}
 
 	scanCtx, cancel := context.WithCancel(ctx)
 	var wg sync.WaitGroup
 	for containerName, r := range logStreams {
-		wg.Add(1)
 		go func(name string, reader io.ReadCloser) {
 			defer wg.Done()
 			defer func() { _ = reader.Close() }()
