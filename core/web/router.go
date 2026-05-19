@@ -531,7 +531,7 @@ func loggerFunc(lggr logger.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		buf, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			lggr.Error("Web request log error: ", err.Error())
+			lggr.Warn("Web request log error: ", err.Error())
 			// Implicitly relies on limits.RequestSizeLimiter
 			// overriding of c.Request.Body to abort gin's Context
 			// inside io.ReadAll.
