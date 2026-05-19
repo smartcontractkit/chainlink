@@ -878,7 +878,7 @@ func parseConfigsAndRegisterProtos(ctx context.Context, schemaSets []chipingress
 
 	for _, protoSchemaSet := range schemaSets {
 		framework.L.Info().Msgf("Registering and fetching proto from %s", protoSchemaSet.URI)
-		framework.L.Info().Msgf("Proto schema set config: %+v", protoSchemaSet)
+		framework.L.Debug().Msgf("Proto schema set config: %+v", protoSchemaSet)
 	}
 
 	reposErr := chipingressset.FetchAndRegisterProtos(
