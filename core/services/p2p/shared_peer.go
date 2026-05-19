@@ -327,7 +327,7 @@ func (sp *don2DonSharedPeer) recvLoopSingle(ctx context.Context, pid ragetypes.P
 	for {
 		select {
 		case <-ctx.Done():
-			sp.lggr.Infow("stopped - exiting recvLoopSingle", "peerID", pid)
+			sp.lggr.Debugw("stopped - exiting recvLoopSingle", "peerID", pid)
 			return
 		case msg, ok := <-ch:
 			if !ok {
