@@ -88,7 +88,7 @@ func (c *webSocketClient) tryCloseConn(conn *websocket.Conn) {
 	if conn != nil {
 		err := conn.Close()
 		if err != nil {
-			c.lggr.Errorf("WebSocketClient: error closing connection %v", err)
+			c.lggr.Debugf("WebSocketClient: error closing connection %v", err)
 		}
 	}
 }
