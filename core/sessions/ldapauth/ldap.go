@@ -511,7 +511,7 @@ func (l *ldapAuthenticator) TestPassword(ctx context.Context, email string, pass
 	if err == nil {
 		return nil
 	}
-	l.lggr.Infof("Error binding user authentication request in TestPassword call LDAP Bind: %v", err)
+	l.lggr.Debugf("Error binding user authentication request in TestPassword call LDAP Bind: %v", err)
 
 	// Fall back to test local users table in case of supported local CLI users as well
 	var hashedPassword string
