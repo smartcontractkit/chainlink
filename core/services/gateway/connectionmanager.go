@@ -369,7 +369,7 @@ func (m *donConnectionManager) keepaliveLoop(intervalSec uint32) {
 	defer cancel()
 
 	if intervalSec == 0 {
-		m.lggr.Errorw("keepalive interval is 0, keepalive disabled", "donID", m.donConfig.DonId)
+		m.lggr.Warnw("keepalive interval is 0, keepalive disabled", "donID", m.donConfig.DonId)
 		return
 	}
 	m.lggr.Infow("starting keepalive loop", "donID", m.donConfig.DonId)
