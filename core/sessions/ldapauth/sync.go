@@ -126,7 +126,7 @@ func (l *LDAPServerStateSyncer) Work(ctx context.Context) {
 	// Root level root user auth with credentials provided from config
 	bindStr := l.config.BaseUserAttr() + "=" + l.config.ReadOnlyUserLogin() + "," + l.config.BaseDN()
 	if err = conn.Bind(bindStr, l.config.ReadOnlyUserPass()); err != nil {
-		l.lggr.Error("Unable to login as initial root LDAP user: ", err)
+		l.lggr.Warn("Unable to login as initial root LDAP user: ", err)
 	}
 	defer conn.Close()
 
