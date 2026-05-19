@@ -140,25 +140,38 @@ var StartCmdRecoverHandlerFunc = func(p any, persistedBeholderState *envconfig.C
 	if p != nil {
 		fmt.Println("Panicked when starting environment")
 
+		stack := debug.Stack()
+		stackStr := string(stack)
+
 		var errText string
+		var panicErr error
 		if err, ok := p.(error); ok {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-			fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
+			fmt.Fprintf(os.Stderr, "Stack trace: %s\n", stackStr)
+			panicErr = err
 
-			errText = strings.SplitN(err.Error(), "\n", 1)[0]
+			errText = strings.SplitN(err.Error(), "\n", 2)[0]
 		} else {
 			fmt.Fprintf(os.Stderr, "panic: %v\n", p)
-			fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
+			fmt.Fprintf(os.Stderr, "Stack trace: %s\n", stackStr)
 
-			errText = strings.SplitN(fmt.Sprintf("%v", p), "\n", 1)[0]
+			errText = strings.SplitN(fmt.Sprintf("%v", p), "\n", 2)[0]
 		}
 
-		tracingErr := dxTracker.Track(MetricStartupResult, map[string]any{
+		meta := map[string]any{
 			"success":  false,
 			"error":    errText,
 			"panicked": true,
 			"topology": os.Getenv("CTF_CONFIGS"),
-		})
+		}
+
+		if loc := errorLocationForTracking(panicErr, stack); loc != "" {
+			meta["error_location"] = loc
+		}
+
+		fmt.Println("Error location: ", meta["error_location"])
+
+		tracingErr := dxTracker.Track(MetricStartupResult, meta)
 
 		if tracingErr != nil {
 			fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", tracingErr)
@@ -344,7 +357,7 @@ func startCmd() *cobra.Command {
 				fmt.Fprintf(os.Stderr, "Error: %s\n", startErr)
 				fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
 
-				dxErr := trackStartup(false, hasBuiltDockerImage(in), in.Infra.Type, new(strings.SplitN(startErr.Error(), "\n", 1)[0]), new(false))
+				dxErr := trackStartup(false, hasBuiltDockerImage(in), in.Infra.Type, new(strings.SplitN(startErr.Error(), "\n", 2)[0]), new(false), errorLocationForTracking(startErr, nil))
 				if dxErr != nil {
 					fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
 				}
@@ -380,7 +393,7 @@ func startCmd() *cobra.Command {
 
 			registryChainOut := output.CreEnvironment.Blockchains[0]
 
-			dxErr := trackStartup(true, hasBuiltDockerImage(in), output.CreEnvironment.Provider.Type, nil, nil)
+			dxErr := trackStartup(true, hasBuiltDockerImage(in), output.CreEnvironment.Provider.Type, nil, nil, "")
 			if dxErr != nil {
 				fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
 			}
@@ -588,7 +601,7 @@ func setupDashboards(ctx context.Context, setupCfg SetupConfig) error {
 	return nil
 }
 
-func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMessage *string, panicked *bool) error {
+func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMessage *string, panicked *bool, errorLocation string) error {
 	metadata := map[string]any{
 		"success":  success,
 		"infra":    infraType,
@@ -601,6 +614,10 @@ func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMess
 
 	if panicked != nil {
 		metadata["panicked"] = *panicked
+	}
+
+	if errorLocation != "" {
+		metadata["error_location"] = errorLocation
 	}
 
 	dxStartupErr := dxTracker.Track(MetricStartupResult, metadata)
@@ -837,7 +854,7 @@ func StartCLIEnvironment(
 		ContractVersions:        env.ContractVersions(),
 	}
 
-	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)
+	ctx, cancel := context.WithTimeout(cmdContext, 20*time.Minute)
 	defer cancel()
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(ctx, testLogger, singleFileLogger, universalSetupInput, relativePathToRepoRoot)
 	if setupErr != nil {
@@ -975,10 +992,10 @@ func hasBuiltDockerImage(in *envconfig.Config) bool {
 
 func oneLineErrorMessage(errOrPanic any) string {
 	if err, ok := errOrPanic.(error); ok {
-		return strings.SplitN(err.Error(), "\n", 1)[0]
+		return strings.SplitN(err.Error(), "\n", 2)[0]
 	}
 
-	return strings.SplitN(fmt.Sprintf("%v", errOrPanic), "\n", 1)[0]
+	return strings.SplitN(fmt.Sprintf("%v", errOrPanic), "\n", 2)[0]
 }
 
 func initDxTracker() {

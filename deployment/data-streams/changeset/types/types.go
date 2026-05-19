@@ -7,8 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -61,7 +61,7 @@ type OwnershipFeature struct {
 	ShouldTransfer     bool // If true,  MCMS takes ownership
 	ShouldDeployMCMS   bool
 	DeployMCMSConfig   *commontypes.MCMSWithTimelockConfigV2
-	MCMSProposalConfig *proposalutils.TimelockConfig
+	MCMSProposalConfig *cldfproposalutils.TimelockConfig
 }
 
 func (f OwnershipFeature) Validate() error {
@@ -83,5 +83,5 @@ func (f OwnershipFeature) AsSettings() OwnershipSettings {
 
 type OwnershipSettings struct {
 	ShouldTransfer     bool
-	MCMSProposalConfig *proposalutils.TimelockConfig
+	MCMSProposalConfig *cldfproposalutils.TimelockConfig
 }

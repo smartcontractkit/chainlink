@@ -40,7 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockheaderfeeder"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
@@ -251,28 +251,6 @@ func TestORM(t *testing.T) {
 		assert.Equal(t, ocrSpecError2, dbSpecErr2.Description)
 	})
 
-	t.Run("creates a job with a direct request spec", func(t *testing.T) {
-		drSpec := fmt.Sprintf(`
-		type                = "directrequest"
-		schemaVersion       = 1
-		evmChainID          = "0"
-		name                = "example eth request event spec"
-		contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
-		externalJobID       = "%s"
-		observationSource   = """
-		    ds1          [type=http method=GET url="http://example.com" allowunrestrictednetworkaccess="true"];
-		    ds1_merge    [type=merge left="{}"]
-		    ds1_parse    [type=jsonparse path="USD"];
-		    ds1_multiply [type=multiply times=100];
-		    ds1 -> ds1_parse -> ds1_multiply;
-		"""
-		`, uuid.New())
-
-		drJob, err := directrequest.ValidatedDirectRequestSpec(drSpec)
-		require.NoError(t, err)
-		err = orm.CreateJob(testutils.Context(t), &drJob)
-		require.NoError(t, err)
-	})
 
 	t.Run("creates webhook specs along with external_initiator_webhook_specs", func(t *testing.T) {
 		ctx := testutils.Context(t)
@@ -731,19 +709,27 @@ func TestORM_CreateJob_EVMChainID_Validation(t *testing.T) {
 	})
 
 	t.Run("evm chain id validation for direct request works", func(t *testing.T) {
+		// DirectRequest has been removed; the job-type removal check fires
+		// before any EVM-chain-ID validation.
 		jb := job.Job{
 			Type:              job.DirectRequest,
 			DirectRequestSpec: &job.DirectRequestSpec{},
 		}
-		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(testutils.Context(t), &jb).Error())
+		err := jobORM.CreateJob(testutils.Context(t), &jb)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, job.ErrJobTypeRemoved)
 	})
 
 	t.Run("evm chain id validation for flux monitor works", func(t *testing.T) {
+		// FluxMonitor has been removed; the job-type removal check fires
+		// before any EVM-chain-ID validation.
 		jb := job.Job{
 			Type:            job.FluxMonitor,
 			FluxMonitorSpec: &job.FluxMonitorSpec{},
 		}
-		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(testutils.Context(t), &jb).Error())
+		err := jobORM.CreateJob(testutils.Context(t), &jb)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, job.ErrJobTypeRemoved)
 	})
 
 	t.Run("evm chain id validation for vrf works", func(t *testing.T) {
@@ -1138,9 +1124,7 @@ func Test_FindJobs(t *testing.T) {
 	err = orm.CreateJob(ctx, &jb1)
 	require.NoError(t, err)
 
-	jb2, err := directrequest.ValidatedDirectRequestSpec(
-		testspecs.GetDirectRequestSpec(),
-	)
+	jb2, err := cron.ValidatedCronSpec(fmt.Sprintf(testspecs.CronSpecTemplate, uuid.New()))
 	require.NoError(t, err)
 
 	err = orm.CreateJob(ctx, &jb2)
@@ -1437,9 +1421,8 @@ func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 	bridgesORM := bridges.NewORM(db)
 	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
 
-	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.GetDirectRequestSpec())
+	jb, err := cron.ValidatedCronSpec(fmt.Sprintf(testspecs.CronSpecTemplate, uuid.New()))
 	require.NoError(t, err)
-	jb.DirectRequestSpec.EVMChainID = sqlutil.NewI(0)
 
 	err = orm.CreateJob(testutils.Context(t), &jb)
 	require.NoError(t, err)
@@ -1816,7 +1799,7 @@ func Test_FindPipelineRunByID(t *testing.T) {
 	bridgesORM := bridges.NewORM(db)
 	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
 
-	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.GetDirectRequestSpec())
+	jb, err := cron.ValidatedCronSpec(fmt.Sprintf(testspecs.CronSpecTemplate, uuid.New()))
 	require.NoError(t, err)
 
 	err = orm.CreateJob(testutils.Context(t), &jb)
@@ -1862,7 +1845,7 @@ func Test_FindJobWithoutSpecErrors(t *testing.T) {
 	bridgesORM := bridges.NewORM(db)
 	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
 
-	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.GetDirectRequestSpec())
+	jb, err := cron.ValidatedCronSpec(fmt.Sprintf(testspecs.CronSpecTemplate, uuid.New()))
 	require.NoError(t, err)
 
 	err = orm.CreateJob(ctx, &jb)
@@ -1900,7 +1883,7 @@ func Test_FindSpecErrorsByJobIDs(t *testing.T) {
 	bridgesORM := bridges.NewORM(db)
 	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
 
-	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.GetDirectRequestSpec())
+	jb, err := cron.ValidatedCronSpec(fmt.Sprintf(testspecs.CronSpecTemplate, uuid.New()))
 	require.NoError(t, err)
 
 	err = orm.CreateJob(ctx, &jb)

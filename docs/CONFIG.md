@@ -987,20 +987,20 @@ MaxSize defines the maximum size for HTTP requests and responses made by `http` 
 DefaultTransactionQueueDepth = 1 # Default
 SimulateTransactions = false # Default
 ```
-
+Deprecated: FluxMonitor job type has been removed. These settings are accepted for backwards-compatible
+config parsing only and have no effect.
 
 ### DefaultTransactionQueueDepth
-:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
 DefaultTransactionQueueDepth = 1 # Default
 ```
-DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in Flux Monitor. Set to 0 to use `SendEvery` strategy instead.
+DefaultTransactionQueueDepth **DEPRECATED**: has no effect. The FluxMonitor job type has been removed.
 
 ### SimulateTransactions
 ```toml
 SimulateTransactions = false # Default
 ```
-SimulateTransactions enables transaction simulation for Flux Monitor.
+SimulateTransactions **DEPRECATED**: has no effect. The FluxMonitor job type has been removed.
 
 ## OCR2
 ```toml
@@ -8811,12 +8811,12 @@ FinalityTagEnabled = true
 SafeTagSupported = true
 LinkContractAddress = '0x3902228D6A3d2Dc44731fD9d45FeE6a61c722D0b'
 LogBackfillBatchSize = 1000
-LogPollInterval = '3s'
+LogPollInterval = '4s'
 LogPollerSkipEmptyBlocks = false
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
 BackupLogPollerBlockDelay = 100
-MinIncomingConfirmations = 3
+MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
@@ -8824,7 +8824,7 @@ LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '0s'
+NoNewFinalizedHeadsThreshold = '30m0s'
 
 [Transactions]
 Enabled = true
@@ -8833,7 +8833,7 @@ MaxInFlight = 16
 MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '1m0s'
+ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
@@ -8858,23 +8858,23 @@ EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
-EIP1559DynamicFees = false
+EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
-BlockHistorySize = 8
+BlockHistorySize = 60
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
-CacheTimeout = '10s'
+CacheTimeout = '4s'
 
 [HeadTracker]
-HistoryDepth = 100
+HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
@@ -8887,7 +8887,7 @@ PollFailureThreshold = 5
 PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
-SyncThreshold = 5
+SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
@@ -8898,7 +8898,7 @@ VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
 
 [OCR]
-ContractConfirmations = 4
+ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
@@ -8930,12 +8930,12 @@ FinalityTagEnabled = true
 SafeTagSupported = true
 LinkContractAddress = '0x5bB50A6888ee6a67E22afFDFD9513be7740F1c15'
 LogBackfillBatchSize = 1000
-LogPollInterval = '3s'
+LogPollInterval = '4s'
 LogPollerSkipEmptyBlocks = false
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
 BackupLogPollerBlockDelay = 100
-MinIncomingConfirmations = 3
+MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
@@ -8943,7 +8943,7 @@ LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '0s'
+NoNewFinalizedHeadsThreshold = '30m0s'
 
 [Transactions]
 Enabled = true
@@ -8952,7 +8952,7 @@ MaxInFlight = 16
 MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '1m0s'
+ResendAfterThreshold = '30s'
 ConfirmationTimeout = '1m0s'
 
 [Transactions.AutoPurge]
@@ -8977,23 +8977,23 @@ EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
-EIP1559DynamicFees = false
+EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
-BlockHistorySize = 8
+BlockHistorySize = 60
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
-CacheTimeout = '10s'
+CacheTimeout = '4s'
 
 [HeadTracker]
-HistoryDepth = 100
+HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
@@ -9006,7 +9006,7 @@ PollFailureThreshold = 5
 PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
-SyncThreshold = 5
+SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
@@ -9017,7 +9017,7 @@ VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
 
 [OCR]
-ContractConfirmations = 4
+ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'

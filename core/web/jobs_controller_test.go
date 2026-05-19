@@ -11,9 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"sync"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -37,10 +35,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/tomlutils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -103,34 +100,6 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 			assert.Contains(t, string(b), tc.expectedErr.Error())
 		})
 	}
-}
-
-func TestJobController_Create_DirectRequest_Fast(t *testing.T) {
-	ctx := testutils.Context(t)
-	app, client := setupJobsControllerTests(t)
-	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
-
-	n := 10
-
-	var wg sync.WaitGroup
-	for i := range n {
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
-
-			body, err := json.Marshal(web.CreateJobRequest{
-				TOML: fmt.Sprintf(testspecs.DirectRequestSpecNoExternalJobID, i, cltest.FixtureChainID.String()),
-			})
-			require.NoError(t, err)
-
-			t.Logf("POSTing %d", i)
-			r, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
-			defer cleanup()
-			require.Equal(t, http.StatusOK, r.StatusCode)
-		}(i)
-	}
-	wg.Wait()
-	cltest.AssertCount(t, app.GetDB(), "direct_request_specs", int64(n))
 }
 
 func mustInt32FromString(t *testing.T, s string) int32 {
@@ -254,81 +223,6 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 
 				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
 				require.Equal(t, sqlutil.NewI(42), jb.CronSpec.EVMChainID)
-			},
-		},
-		{
-			name: "directrequest",
-			tomlTemplate: func(nameAndExternalJobID string) string {
-				return testspecs.GetDirectRequestSpecWithUUID(uuid.MustParse(nameAndExternalJobID))
-			},
-			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
-				require.Equal(t, http.StatusOK, r.StatusCode)
-				resource := presenters.JobResource{}
-				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
-				assert.NoError(t, err)
-
-				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
-				require.NoError(t, err)
-				require.NotNil(t, jb.DirectRequestSpec)
-
-				assert.Equal(t, nameAndExternalJobID, jb.Name.ValueOrZero())
-				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
-				// Sanity check to make sure it inserted correctly
-				require.Equal(t, types.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.DirectRequestSpec.ContractAddress)
-				require.Equal(t, jb.ExternalJobID.String(), nameAndExternalJobID)
-			},
-		},
-		{
-			name: "directrequest-with-requesters-and-min-contract-payment",
-			tomlTemplate: func(nameAndExternalJobID string) string {
-				return fmt.Sprintf(testspecs.DirectRequestSpecWithRequestersAndMinContractPaymentTemplate, nameAndExternalJobID, nameAndExternalJobID, cltest.FixtureChainID.String())
-			},
-			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
-				require.Equal(t, http.StatusOK, r.StatusCode)
-				resource := presenters.JobResource{}
-				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
-				assert.NoError(t, err)
-
-				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
-				require.NoError(t, err)
-				require.NotNil(t, jb.DirectRequestSpec)
-
-				assert.Equal(t, nameAndExternalJobID, jb.Name.ValueOrZero())
-				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
-				assert.NotNil(t, resource.DirectRequestSpec.Requesters)
-				assert.Equal(t, "1000000000000000000000", resource.DirectRequestSpec.MinContractPayment.String())
-				// Check requesters got saved properly
-				require.EqualValues(t, []common.Address{common.HexToAddress("0xAaAA1F8ee20f5565510b84f9353F1E333e753B7a"), common.HexToAddress("0xBbBb70f0E81c6F3430dfDc9fa02fB22bDD818c4E")}, jb.DirectRequestSpec.Requesters)
-				require.Equal(t, "1000000000000000000000", jb.DirectRequestSpec.MinContractPayment.String())
-				require.Equal(t, jb.ExternalJobID.String(), nameAndExternalJobID)
-			},
-		},
-		{
-			name: "fluxmonitor",
-			tomlTemplate: func(nameAndExternalJobID string) string {
-				return fmt.Sprintf(testspecs.FluxMonitorSpecTemplate, nameAndExternalJobID, nameAndExternalJobID, cltest.FixtureChainID.String())
-			},
-			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
-				require.Equal(t, http.StatusInternalServerError, r.StatusCode)
-
-				errs := cltest.ParseJSONAPIErrors(t, r.Body)
-				require.NotNil(t, errs)
-				require.Len(t, errs.Errors, 1)
-				// services failed to start
-				require.Contains(t, errs.Errors[0].Detail, "no contract code at given address")
-				// but the job should still exist
-				ctx := testutils.Context(t)
-				jb, err := jorm.FindJobByExternalJobID(ctx, uuid.MustParse(nameAndExternalJobID))
-				require.NoError(t, err)
-				require.NotNil(t, jb.FluxMonitorSpec)
-
-				assert.Equal(t, nameAndExternalJobID, jb.Name.ValueOrZero())
-				assert.NotNil(t, jb.PipelineSpec.DotDagSource)
-				assert.Equal(t, types.EIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"), jb.FluxMonitorSpec.ContractAddress)
-				assert.Equal(t, time.Second, jb.FluxMonitorSpec.IdleTimerPeriod)
-				assert.False(t, jb.FluxMonitorSpec.IdleTimerDisabled)
-				assert.Equal(t, tomlutils.Float32(0.5), jb.FluxMonitorSpec.Threshold)
-				assert.Equal(t, tomlutils.Float32(0), jb.FluxMonitorSpec.AbsoluteThreshold)
 			},
 		},
 		{
@@ -519,7 +413,7 @@ func TestJobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {
 }
 
 func TestJobsController_Index_HappyPath(t *testing.T) {
-	_, client, ocrJobSpecFromFile, _, ereJobSpecFromFile, _ := setupJobSpecsControllerTestsWithJobs(t)
+	_, client, ocrJobSpecFromFile, _, cronJobSpecFromFile, _ := setupJobSpecsControllerTestsWithJobs(t)
 
 	url := url.URL{Path: "/v2/jobs"}
 	query := url.Query()
@@ -536,12 +430,12 @@ func TestJobsController_Index_HappyPath(t *testing.T) {
 
 	require.Len(t, resources, 2)
 
-	runDirectRequestJobSpecAssertions(t, ereJobSpecFromFile, resources[0])
+	assert.Equal(t, cronJobSpecFromFile.ExternalJobID.String(), resources[0].ExternalJobID.String())
 	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, resources[1])
 }
 
 func TestJobsController_Show_HappyPath(t *testing.T) {
-	_, client, ocrJobSpecFromFile, jobID, ereJobSpecFromFile, jobID2 := setupJobSpecsControllerTestsWithJobs(t)
+	_, client, ocrJobSpecFromFile, jobID, cronJobSpecFromFile, jobID2 := setupJobSpecsControllerTestsWithJobs(t)
 
 	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)))
 	t.Cleanup(cleanup)
@@ -567,21 +461,21 @@ func TestJobsController_Show_HappyPath(t *testing.T) {
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
-	ereJob := presenters.JobResource{}
-	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ereJob)
+	cronJob := presenters.JobResource{}
+	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &cronJob)
 	assert.NoError(t, err)
 
-	runDirectRequestJobSpecAssertions(t, ereJobSpecFromFile, ereJob)
+	assert.Equal(t, cronJobSpecFromFile.ExternalJobID.String(), cronJob.ExternalJobID.String())
 
-	response, cleanup = client.Get("/v2/jobs/" + ereJobSpecFromFile.ExternalJobID.String())
+	response, cleanup = client.Get("/v2/jobs/" + cronJobSpecFromFile.ExternalJobID.String())
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
-	ereJob = presenters.JobResource{}
-	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ereJob)
+	cronJob = presenters.JobResource{}
+	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &cronJob)
 	assert.NoError(t, err)
 
-	runDirectRequestJobSpecAssertions(t, ereJobSpecFromFile, ereJob)
+	assert.Equal(t, cronJobSpecFromFile.ExternalJobID.String(), cronJob.ExternalJobID.String())
 }
 
 func TestJobsController_Show_InvalidID(t *testing.T) {
@@ -740,16 +634,6 @@ func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFileDB job.Job, ocrJobS
 	assert.Contains(t, ocrJobSpecFromServer.OffChainReportingSpec.UpdatedAt.String(), "20")
 }
 
-func runDirectRequestJobSpecAssertions(t *testing.T, ereJobSpecFromFile job.Job, ereJobSpecFromServer presenters.JobResource) {
-	assert.Equal(t, ereJobSpecFromFile.DirectRequestSpec.ContractAddress, ereJobSpecFromServer.DirectRequestSpec.ContractAddress)
-	assert.Equal(t, ereJobSpecFromFile.Pipeline.Source, ereJobSpecFromServer.PipelineSpec.DotDAGSource)
-	// Check that create and update dates are non empty values.
-	// Empty date value is "0001-01-01 00:00:00 +0000 UTC" so we are checking for the
-	// millennia and century characters to be present
-	assert.Contains(t, ereJobSpecFromServer.DirectRequestSpec.CreatedAt.String(), "20")
-	assert.Contains(t, ereJobSpecFromServer.DirectRequestSpec.UpdatedAt.String(), "20")
-}
-
 func setupBridges(t *testing.T, ds sqlutil.DataSource) (b1, b2 string) {
 	_, bridge := cltest.MustCreateBridge(t, ds, cltest.BridgeOpts{})
 	_, bridge2 := cltest.MustCreateBridge(t, ds, cltest.BridgeOpts{})
@@ -820,26 +704,11 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	err = app.AddJobV2(ctx, &jb)
 	require.NoError(t, err)
 
-	drSpec := fmt.Sprintf(`
-		type                = "directrequest"
-		schemaVersion       = 1
-		evmChainID          = "%s"
-		name                = "example eth request event spec"
-		contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
-		externalJobID       = "%s"
-		observationSource   = """
-		    ds1          [type=http method=GET url="http://example.com" allowunrestrictednetworkaccess="true"];
-		    ds1_merge    [type=merge left="{}"]
-		    ds1_parse    [type=jsonparse path="USD"];
-		    ds1_multiply [type=multiply times=100];
-		    ds1 -> ds1_parse -> ds1_multiply;
-		"""
-		`, cltest.FixtureChainID.String(), uuid.New())
-
-	erejb, err := directrequest.ValidatedDirectRequestSpec(drSpec)
+	cronSpec := fmt.Sprintf(testspecs.CronSpecTemplate, uuid.New())
+	cronJb, err := cron.ValidatedCronSpec(cronSpec)
 	require.NoError(t, err)
-	err = app.AddJobV2(ctx, &erejb)
+	err = app.AddJobV2(ctx, &cronJb)
 	require.NoError(t, err)
 
-	return app, client, jb, jb.ID, erejb, erejb.ID
+	return app, client, jb, jb.ID, cronJb, cronJb.ID
 }

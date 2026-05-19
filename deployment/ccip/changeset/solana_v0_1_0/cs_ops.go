@@ -11,6 +11,7 @@ import (
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
@@ -25,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // use these changesets to set the default code version
@@ -62,7 +62,7 @@ type OffRampRefAddressesConfig struct {
 	FeeQuoter          solana.PublicKey
 	AddressLookupTable solana.PublicKey
 	RMNRemote          solana.PublicKey
-	MCMS               *proposalutils.TimelockConfig
+	MCMS               *cldfproposalutils.TimelockConfig
 }
 
 func (cfg OffRampRefAddressesConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -177,11 +177,11 @@ func UpdateOffRampRefAddresses(
 type SetUpgradeAuthorityConfig struct {
 	ChainSelector         uint64
 	NewUpgradeAuthority   solana.PublicKey
-	SetAfterInitialDeploy bool                          // set all of the programs after the initial deploy
-	SetOffRamp            bool                          // offramp not upgraded in place, so may need to set separately
-	SetMCMSPrograms       bool                          // these all deploy at once so just set them all
-	TransferKeys          []solana.PublicKey            // any keys not covered by the above e.g. partner programs
-	MCMS                  *proposalutils.TimelockConfig // if set, assumes current upgrade authority is the timelock
+	SetAfterInitialDeploy bool                              // set all of the programs after the initial deploy
+	SetOffRamp            bool                              // offramp not upgraded in place, so may need to set separately
+	SetMCMSPrograms       bool                              // these all deploy at once so just set them all
+	TransferKeys          []solana.PublicKey                // any keys not covered by the above e.g. partner programs
+	MCMS                  *cldfproposalutils.TimelockConfig // if set, assumes current upgrade authority is the timelock
 }
 
 func SetUpgradeAuthorityChangeset(
@@ -305,7 +305,7 @@ func setUpgradeAuthority(
 type SetFeeAggregatorConfig struct {
 	ChainSelector uint64
 	FeeAggregator string
-	MCMS          *proposalutils.TimelockConfig
+	MCMS          *cldfproposalutils.TimelockConfig
 }
 
 func (cfg SetFeeAggregatorConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -507,7 +507,7 @@ func DeployReceiverForTest(e cldf.Environment, cfg DeployForTestConfig) (cldf.Ch
 type SetDefaultCodeVersionConfig struct {
 	ChainSelector uint64
 	VersionEnum   uint8
-	MCMS          *proposalutils.TimelockConfig
+	MCMS          *cldfproposalutils.TimelockConfig
 }
 
 func (cfg SetDefaultCodeVersionConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -670,7 +670,7 @@ func SetDefaultCodeVersion(e cldf.Environment, cfg SetDefaultCodeVersionConfig) 
 type UpdateSvmChainSelectorConfig struct {
 	OldChainSelector uint64
 	NewChainSelector uint64
-	MCMS             *proposalutils.TimelockConfig
+	MCMS             *cldfproposalutils.TimelockConfig
 }
 
 func (cfg UpdateSvmChainSelectorConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -797,7 +797,7 @@ func UpdateSvmChainSelector(e cldf.Environment, cfg UpdateSvmChainSelectorConfig
 type UpdateEnableManualExecutionAfterConfig struct {
 	ChainSelector         uint64
 	EnableManualExecution int64
-	MCMS                  *proposalutils.TimelockConfig
+	MCMS                  *cldfproposalutils.TimelockConfig
 }
 
 func (cfg UpdateEnableManualExecutionAfterConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -889,7 +889,7 @@ type ConfigureCCIPVersionConfig struct {
 	ChainSelector     uint64
 	DestChainSelector uint64
 	Operation         CCIPVersionOp
-	MCMS              *proposalutils.TimelockConfig
+	MCMS              *cldfproposalutils.TimelockConfig
 }
 
 func (cfg ConfigureCCIPVersionConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -998,7 +998,7 @@ func ConfigureCCIPVersion(e cldf.Environment, cfg ConfigureCCIPVersionConfig) (c
 type RemoveOffRampConfig struct {
 	ChainSelector uint64
 	OffRamp       solana.PublicKey
-	MCMS          *proposalutils.TimelockConfig
+	MCMS          *cldfproposalutils.TimelockConfig
 }
 
 func (cfg RemoveOffRampConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {

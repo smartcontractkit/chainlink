@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/wsrpc/logger"
 	"github.com/stretchr/testify/require"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
 	cldfchain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
@@ -22,7 +23,6 @@ import (
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
@@ -241,7 +241,7 @@ func TestConfigureForwarder(t *testing.T) {
 			runtime.ChangesetTask(TransferOwnershipForwarder{},
 				&TransferOwnershipForwarderRequest{
 					ChainSel:  solSel,
-					MCMSCfg:   proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+					MCMSCfg:   cldfproposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 					Qualifier: testQualifier,
 					Version:   "1.0.0",
 				},
@@ -265,7 +265,7 @@ func TestConfigureForwarder(t *testing.T) {
 					DON:       donConfig,
 					Version:   "1.0.0",
 					Qualifier: testQualifier,
-					MCMS: &proposalutils.TimelockConfig{
+					MCMS: &cldfproposalutils.TimelockConfig{
 						MinDelay: time.Second,
 					},
 				},

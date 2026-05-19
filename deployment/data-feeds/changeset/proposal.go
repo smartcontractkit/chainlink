@@ -12,9 +12,10 @@ import (
 	"github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 )
 
 type ProposalData struct {
@@ -68,14 +69,14 @@ func BuildMultiChainProposals(env cldf.Environment, description string, proposal
 			Transactions:  transactions,
 		})
 	}
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		env,
 		timelocksPerChain,
 		proposerMCMSes,
 		inspectorPerChain,
 		batches,
 		description,
-		proposalutils.TimelockConfig{MinDelay: minDelay},
+		cldfproposalutils.TimelockConfig{MinDelay: minDelay},
 	)
 	if err != nil {
 		return nil, err

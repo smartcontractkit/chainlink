@@ -10,6 +10,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
+	seqsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/sequences"
 	"github.com/spf13/cast"
 
 	bindings "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
@@ -18,8 +20,6 @@ import (
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/seqs"
-	"github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 )
@@ -58,13 +58,13 @@ func GrantRolesForTimelock(
 	timelockContracts *cldfproposalutils.MCMSWithTimelockContracts,
 	skipIfDeployerKeyNotAdmin bool, // If true, skip role grants if the deployer key is not an admin.
 	gasBoostConfig *cldfproposalutils.GasBoostConfig,
-) (operations.SequenceReport[seqs.SeqGrantRolesTimelockInput, map[uint64][]opsutils.EVMCallOutput], error) {
+) (operations.SequenceReport[seqsevm.SeqGrantRolesTimelockInput, map[uint64][]opsevm.EVMCallOutput], error) {
 	lggr := env.Logger
 	ctx := env.GetContext()
 
 	if timelockContracts == nil {
 		lggr.Errorw("Timelock contracts not found", "chain", chain.String())
-		return operations.SequenceReport[seqs.SeqGrantRolesTimelockInput, map[uint64][]opsutils.EVMCallOutput]{}, fmt.Errorf("timelock contracts not found for chain %s", chain.String())
+		return operations.SequenceReport[seqsevm.SeqGrantRolesTimelockInput, map[uint64][]opsevm.EVMCallOutput]{}, fmt.Errorf("timelock contracts not found for chain %s", chain.String())
 	}
 
 	timelock := timelockContracts.Timelock
@@ -76,28 +76,28 @@ func GrantRolesForTimelock(
 	// get admin addresses
 	adminAddresses, err := getAdminAddresses(ctx, timelock)
 	if err != nil {
-		return operations.SequenceReport[seqs.SeqGrantRolesTimelockInput, map[uint64][]opsutils.EVMCallOutput]{}, fmt.Errorf("failed to get admin addresses: %w", err)
+		return operations.SequenceReport[seqsevm.SeqGrantRolesTimelockInput, map[uint64][]opsevm.EVMCallOutput]{}, fmt.Errorf("failed to get admin addresses: %w", err)
 	}
 	isDeployerKeyAdmin := slices.Contains(adminAddresses, chain.DeployerKey.From.String())
 	isTimelockAdmin := slices.Contains(adminAddresses, timelock.Address().String())
 	if !isDeployerKeyAdmin && skipIfDeployerKeyNotAdmin {
 		lggr.Infow("Deployer key is not admin, skipping role grants", "chain", chain.String())
-		return operations.SequenceReport[seqs.SeqGrantRolesTimelockInput, map[uint64][]opsutils.EVMCallOutput]{}, nil
+		return operations.SequenceReport[seqsevm.SeqGrantRolesTimelockInput, map[uint64][]opsevm.EVMCallOutput]{}, nil
 	}
 	if !isDeployerKeyAdmin && !isTimelockAdmin {
-		return operations.SequenceReport[seqs.SeqGrantRolesTimelockInput, map[uint64][]opsutils.EVMCallOutput]{}, errors.New("neither deployer key nor timelock is admin, cannot grant roles")
+		return operations.SequenceReport[seqsevm.SeqGrantRolesTimelockInput, map[uint64][]opsevm.EVMCallOutput]{}, errors.New("neither deployer key nor timelock is admin, cannot grant roles")
 	}
 
-	seqDeps := seqs.SeqGrantRolesTimelockDeps{
+	seqDeps := seqsevm.SeqGrantRolesTimelockDeps{
 		Chain: chain,
 	}
 
-	seqInput := seqs.SeqGrantRolesTimelockInput{
+	seqInput := seqsevm.SeqGrantRolesTimelockInput{
 		ContractType:       commontypes.RBACTimelock,
 		ChainSelector:      chain.Selector,
 		Timelock:           timelock.Address(),
 		IsDeployerKeyAdmin: isDeployerKeyAdmin,
-		RolesAndAddresses: []seqs.RolesAndAddresses{
+		RolesAndAddresses: []seqsevm.RolesAndAddresses{
 			{
 				Role:      v1_0.PROPOSER_ROLE.ID,
 				Name:      v1_0.PROPOSER_ROLE.Name,
@@ -124,7 +124,7 @@ func GrantRolesForTimelock(
 
 	if !isTimelockAdmin {
 		// We grant the timelock the admin role on the MCMS contracts.
-		seqInput.RolesAndAddresses = append(seqInput.RolesAndAddresses, seqs.RolesAndAddresses{
+		seqInput.RolesAndAddresses = append(seqInput.RolesAndAddresses, seqsevm.RolesAndAddresses{
 			Role:      v1_0.ADMIN_ROLE.ID,
 			Name:      v1_0.ADMIN_ROLE.Name,
 			Addresses: []common.Address{timelock.Address()},
@@ -133,13 +133,13 @@ func GrantRolesForTimelock(
 
 	report, err := operations.ExecuteSequence(
 		env.OperationsBundle,
-		seqs.SeqGrantRolesTimelock,
+		seqsevm.SeqGrantRolesTimelock,
 		seqDeps,
 		seqInput,
 	)
 	if err != nil {
 		lggr.Errorw("Failed to grant roles for timelock", "chain", chain.String(), "err", err)
-		return operations.SequenceReport[seqs.SeqGrantRolesTimelockInput, map[uint64][]opsutils.EVMCallOutput]{}, err
+		return operations.SequenceReport[seqsevm.SeqGrantRolesTimelockInput, map[uint64][]opsevm.EVMCallOutput]{}, err
 	}
 
 	return report, nil

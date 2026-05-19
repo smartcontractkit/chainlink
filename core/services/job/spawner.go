@@ -447,3 +447,29 @@ func (n *NullDelegate) BeforeJobDeleted(spec Job) {}
 func (n *NullDelegate) OnDeleteJob(context.Context, Job) error {
 	return nil
 }
+
+var _ Delegate = &DeprecatedDelegate{}
+
+// DeprecatedDelegate is a Delegate for job types that have been removed.
+// It surfaces a visible error via TryRecordError so operators can see the job
+// is no longer supported rather than silently doing nothing.
+type DeprecatedDelegate struct {
+	Type Type
+}
+
+func (d *DeprecatedDelegate) JobType() Type {
+	return d.Type
+}
+
+// ServicesForSpec returns an error so that the spawner records it as a job
+// error, making the deprecation visible in the UI.
+func (d *DeprecatedDelegate) ServicesForSpec(_ context.Context, _ Job) ([]ServiceCtx, error) {
+	return nil, fmt.Errorf("job type %q has been removed and is no longer supported; please delete this job", d.Type)
+}
+
+func (d *DeprecatedDelegate) BeforeJobCreated(Job) {}
+func (d *DeprecatedDelegate) AfterJobCreated(Job)  {}
+func (d *DeprecatedDelegate) BeforeJobDeleted(Job) {}
+func (d *DeprecatedDelegate) OnDeleteJob(context.Context, Job) error {
+	return nil
+}

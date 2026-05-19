@@ -19,13 +19,14 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/managed_token_pool"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 var testTokenTransferFeeConfig = fee_quoter.TokenTransferFeeConfig{
@@ -59,7 +60,7 @@ func TestAddTokenPool_Apply(t *testing.T) {
 
 	// Configure token pool settings
 	cfg := config.AddTokenPoolConfig{
-		MCMSConfig: &proposalutils.TimelockConfig{
+		MCMSConfig: &cldfproposalutils.TimelockConfig{
 			MinDelay:     time.Duration(1) * time.Second,
 			MCMSAction:   mcmstypes.TimelockActionSchedule,
 			OverrideRoot: false,

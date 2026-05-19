@@ -456,10 +456,11 @@ func TestProposeStandardCapabilityJob_ReusesUUIDWithLegacyNameFormat(t *testing.
 	// First create a job with legacy name format using ProposeStandardCapabilityJob
 	// This simulates an existing job that was created with the old name format
 	legacyJobInput := jobs.ProposeStandardCapabilityJobInput{
-		JobName: "evm-capabilities-v2--test-zone-1",
-		Command: "/usr/local/bin/evm",
-		DONName: test.DONName,
-		Domain:  "cre",
+		JobName:     "evm-capabilities-v2--test-zone-1",
+		Command:     "/usr/local/bin/evm",
+		DONName:     test.DONName,
+		Domain:      "cre",
+		Environment: env.Name,
 		DONFilters: []offchain.TargetDONFilter{
 			{Key: "zone", Value: test.Zone},
 		},

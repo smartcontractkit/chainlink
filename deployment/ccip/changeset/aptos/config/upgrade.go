@@ -1,6 +1,6 @@
 package config
 
-import "github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+import cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 type UpgradeAptosChainConfig struct {
 	ChainSelector  uint64
@@ -8,5 +8,5 @@ type UpgradeAptosChainConfig struct {
 	UpgradeOffRamp bool
 	UpgradeOnRamp  bool
 	UpgradeRouter  bool
-	MCMS           *proposalutils.TimelockConfig
+	MCMS           *cldfproposalutils.TimelockConfig
 }

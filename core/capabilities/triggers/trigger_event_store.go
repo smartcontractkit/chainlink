@@ -26,8 +26,8 @@ const triggerPendingEventsTable = "cre.trigger_pending_events"
 func (s *triggerEventStore) Insert(ctx context.Context, rec capabilities.PendingEvent) error {
 	const q = `
 INSERT INTO ` + triggerPendingEventsTable + ` (
-  trigger_id, event_id, payload, first_at, last_sent_at, attempts
-) VALUES ($1, $2, $3, $4, $5, $6)`
+  trigger_id, event_id, payload, first_at, last_sent_at, attempts, org_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7)`
 	var lastSent sql.NullTime
 	if !rec.LastSentAt.IsZero() {
 		lastSent = sql.NullTime{Time: rec.LastSentAt, Valid: true}
@@ -41,6 +41,7 @@ INSERT INTO ` + triggerPendingEventsTable + ` (
 		rec.FirstAt,
 		lastSent,
 		rec.Attempts,
+		rec.OrgID,
 	); err != nil {
 		return fmt.Errorf("failed to insert pending event trigger_id=%s event_id=%s: %w", rec.TriggerId, rec.EventId, err)
 	}
@@ -81,7 +82,8 @@ SELECT
   payload,
   first_at,
   last_sent_at,
-  attempts
+  attempts,
+  org_id
 FROM ` + triggerPendingEventsTable + `
 ORDER BY first_at ASC
 `
@@ -93,6 +95,7 @@ ORDER BY first_at ASC
 		FirstAt    time.Time    `db:"first_at"`
 		LastSentAt sql.NullTime `db:"last_sent_at"`
 		Attempts   int          `db:"attempts"`
+		OrgID      string       `db:"org_id"`
 	}
 
 	var rows []row
@@ -113,6 +116,7 @@ ORDER BY first_at ASC
 			FirstAt:    r.FirstAt,
 			LastSentAt: last,
 			Attempts:   r.Attempts,
+			OrgID:      r.OrgID,
 		})
 	}
 	return out, nil

@@ -74,8 +74,6 @@ import (
 	ccipChangeSetSolanaV0_1_1 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/cciptesthelpertypes"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
@@ -780,10 +778,10 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	allChains = append(allChains, aptosChains...)
 	allChains = append(allChains, suiChains...)
 
-	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+	mcmsCfg := make(map[uint64]cldfproposalutils.MCMSWithTimelockConfig)
 
 	for _, c := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
-		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfig(t)
+		mcmsCfg[c] = cldftesthelpers.SingleGroupTimelockConfig(t)
 	}
 
 	tEnv.UpdateDeployedEnvironment(e)
@@ -1301,9 +1299,9 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	}
 
 	// Apply second set of changesets to configure the CCIP contracts.
-	var mcmsConfig *proposalutils.TimelockConfig
+	var mcmsConfig *cldfproposalutils.TimelockConfig
 	if mcmsEnabled {
-		mcmsConfig = &proposalutils.TimelockConfig{
+		mcmsConfig = &cldfproposalutils.TimelockConfig{
 			MinDelay: 0,
 		}
 	}
@@ -1395,7 +1393,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				HomeChainSel:       e.HomeChainSel,
 				RemoteChainSels:    aptosChains,
 				CCIPHomeConfigType: globals.ConfigTypeActive,
-				MCMS: &proposalutils.TimelockConfig{
+				MCMS: &cldfproposalutils.TimelockConfig{
 					MinDelay:     time.Second,
 					MCMSAction:   mcmstypes.TimelockActionSchedule,
 					OverrideRoot: false,

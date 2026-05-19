@@ -22,7 +22,6 @@ import (
 	linkchangesets "github.com/smartcontractkit/cld-changesets/link/changesets"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/example"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/stretchr/testify/require"
 
@@ -94,7 +93,7 @@ func TestValidate(t *testing.T) {
 				Transfers: map[uint64][]example.TransferConfig{
 					selector: {{To: mcmsState.Timelock.Address(), Value: big.NewInt(100)}}},
 				From: chain.DeployerKey.From,
-				McmsConfig: &proposalutils.TimelockConfig{
+				McmsConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay: time.Hour,
 				},
 			},
@@ -118,7 +117,7 @@ func TestValidate(t *testing.T) {
 					},
 				},
 				From: mcmsState.Timelock.Address(),
-				McmsConfig: &proposalutils.TimelockConfig{
+				McmsConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay: time.Hour,
 				},
 			},
@@ -202,7 +201,7 @@ func TestValidate(t *testing.T) {
 				Transfers: map[uint64][]example.TransferConfig{
 					selector: {{To: mcmsState.Timelock.Address(), Value: big.NewInt(100)}}},
 				From: chain.DeployerKey.From,
-				McmsConfig: &proposalutils.TimelockConfig{
+				McmsConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay: time.Hour * 24 * 10,
 				},
 			},
@@ -269,7 +268,7 @@ func TestLinkTransferMCMSV2(t *testing.T) {
 			Transfers: map[uint64][]example.TransferConfig{
 				selector: {{To: chain.DeployerKey.From, Value: big.NewInt(500)}},
 			},
-			McmsConfig: &proposalutils.TimelockConfig{
+			McmsConfig: &cldfproposalutils.TimelockConfig{
 				MinDelay:     0,
 				OverrideRoot: true,
 			},

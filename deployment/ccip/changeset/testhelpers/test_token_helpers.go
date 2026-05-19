@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+	"github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	"github.com/stretchr/testify/require"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
@@ -33,7 +34,6 @@ import (
 	token_governor "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/token_governor"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 const (
@@ -44,12 +44,12 @@ const (
 // CreateSymmetricRateLimits is a utility to quickly create a rate limiter config with equal inbound and outbound values.
 func CreateSymmetricRateLimits(rate int64, capacity int64) v1_5_1.RateLimiterConfig {
 	return v1_5_1.RateLimiterConfig{
-		Inbound: token_pool.RateLimiterConfig{
+		Inbound: &token_pool.RateLimiterConfig{
 			IsEnabled: rate != 0 || capacity != 0,
 			Rate:      big.NewInt(rate),
 			Capacity:  big.NewInt(capacity),
 		},
-		Outbound: token_pool.RateLimiterConfig{
+		Outbound: &token_pool.RateLimiterConfig{
 			IsEnabled: rate != 0 || capacity != 0,
 			Rate:      big.NewInt(rate),
 			Capacity:  big.NewInt(capacity),
@@ -138,9 +138,9 @@ func SetupTwoChainEnvironmentWithTokens(
 	if transferToTimelock {
 		// Transfer ownership of token admin registry to the Timelock
 		err = rt.Exec(
-			runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2), commoncs.TransferToMCMSWithTimelockConfig{
+			runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2), mcmschangesets.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: timelockOwnedContractsByChain,
-				MCMSConfig: proposalutils.TimelockConfig{
+				MCMSConfig: cldfproposalutils.TimelockConfig{
 					MinDelay: 0 * time.Second,
 				},
 			}),
@@ -153,7 +153,7 @@ func SetupTwoChainEnvironmentWithTokens(
 }
 
 // getPoolsOwnedByDeployer returns any pools that need to be transferred to timelock.
-func getPoolsOwnedByDeployer[T commoncs.Ownable](t *testing.T, contracts map[semver.Version]T, chain cldf_evm.Chain) []common.Address {
+func getPoolsOwnedByDeployer[T evm.Ownable](t *testing.T, contracts map[semver.Version]T, chain cldf_evm.Chain) []common.Address {
 	var addresses []common.Address
 	for _, contract := range contracts {
 		owner, err := contract.Owner(nil)
@@ -215,10 +215,10 @@ func DeployTestTokenPools(
 		// Transfer ownership of token admin registry to the Timelock
 		e, err = commoncs.Apply(t, e,
 			commoncs.Configure(
-				cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
-				commoncs.TransferToMCMSWithTimelockConfig{
+				cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+				mcmschangesets.TransferToMCMSWithTimelockConfig{
 					ContractsByChain: timelockOwnedContractsByChain,
-					MCMSConfig: proposalutils.TimelockConfig{
+					MCMSConfig: cldfproposalutils.TimelockConfig{
 						MinDelay: 0 * time.Second,
 					},
 				},

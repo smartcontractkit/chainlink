@@ -8,7 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
+	lloconfig "github.com/smartcontractkit/chainlink-data-streams/llo/config"
 )
 
 func Test_ChannelDefinitionCacheFactory(t *testing.T) {

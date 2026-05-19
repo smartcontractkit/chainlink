@@ -12,7 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 
-	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/common/changeset"
+	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/cldfutil/changeset"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"

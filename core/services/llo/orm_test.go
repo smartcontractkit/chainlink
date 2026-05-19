@@ -10,11 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/types"
 )
 
 func Test_ORM(t *testing.T) {

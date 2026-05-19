@@ -19,10 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/types"
 )
 
 type mockLogPoller struct {
@@ -1376,7 +1375,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 }
 
 func Test_filterName(t *testing.T) {
-	s := types.ChannelDefinitionCacheFilterName(common.Address{1, 2, 3}, 654)
+	s := ChannelDefinitionCacheFilterName(common.Address{1, 2, 3}, 654)
 	require.Equal(t, "OCR3 LLO ChannelDefinitionCachePoller - 0x0102030000000000000000000000000000000000:654", s)
 }
 

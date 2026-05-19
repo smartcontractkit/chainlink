@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	"github.com/stretchr/testify/require"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -19,12 +20,14 @@ import (
 	solfq "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/v1_5"
@@ -39,7 +42,7 @@ import (
 
 const SetTokenTransferFeePriceRegStalenessThreshold = 60 * 60 * 24 * 14 // two weeks in seconds
 
-var SetTokenTransferFeeMcmsConfig = proposalutils.TimelockConfig{MinDelay: 1 * time.Second}
+var SetTokenTransferFeeMcmsConfig = cldfproposalutils.TimelockConfig{MinDelay: 1 * time.Second}
 
 func deploySolanaToken(t *testing.T, tEnv cldf.Environment, solSelector uint64, tokenSymbol string) (cldf.Environment, solana.PublicKey, error) {
 	t.Helper()
@@ -394,8 +397,8 @@ func TestSetTokenTransferFeeConfig_EVM_V1_5_1_Only(t *testing.T) {
 	require.NoError(t, err)
 	env.Env, err = commonchangeset.Apply(t, env.Env,
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
-			commonchangeset.TransferToMCMSWithTimelockConfig{
+			cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+			mcmschangesets.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: map[uint64][]common.Address{
 					src: {state.MustGetEVMChainState(src).EVM2EVMOnRamp[dst].Address()},
 					dst: {state.MustGetEVMChainState(dst).EVM2EVMOnRamp[src].Address()},

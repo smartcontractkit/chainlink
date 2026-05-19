@@ -10,7 +10,7 @@ This guide covers migrating a single Chainlink product's smoke tests. If the pro
 
 Read the old test file in `integration-tests/smoke/<product>_test.go` and identify:
 
-1. **Product name** -- what Chainlink product is being tested (e.g. VRF, Flux, Direct Request)
+1. **Product name** -- what Chainlink product is being tested (e.g. VRF, OCR2, Cron)
 2. **Contracts deployed** -- which Solidity contracts are deployed during test setup
 3. **Jobs and keys created** -- which CL node job types and key types are used
 4. **Helper functions** -- any calls to `integration-tests/actions` or `integration-tests/contracts` that need local replacements
@@ -30,11 +30,11 @@ For each forbidden import, find the replacement:
 
 Create `devenv/products/<name>/basic.toml`.
 
-Reference file: [products/directrequest/basic.toml](products/directrequest/basic.toml) (simplest single-node product).
+Reference file: [products/cron/basic.toml](products/cron/basic.toml) (simplest single-node product).
 
 Key decisions:
 - `[[products]]` `name` field must match the switch case you will add in Step 3
-- `nodes` count depends on the product (1 for single-node products like cron/DR/VRF, 5 for multi-node like OCR2/flux)
+- `nodes` count depends on the product (1 for single-node products like cron/VRF, 5 for multi-node like OCR2)
 - The product-specific TOML section (e.g. `[[vrf]]`) key must match the `toml` struct tag on the `Configurator.Config` field you create in Step 2
 - Include `gas_settings` if the product deploys contracts
 
@@ -43,8 +43,8 @@ Key decisions:
 Create `devenv/products/<name>/configuration.go`.
 
 Reference files:
-- [products/directrequest/configuration.go](products/directrequest/configuration.go) -- single-node product with contracts, bridge, and job
-- [products/flux/configuration.go](products/flux/configuration.go) -- multi-node product
+- [products/cron/configuration.go](products/cron/configuration.go) -- single-node product with bridge and job only
+- [products/ocr2/configuration.go](products/ocr2/configuration.go) -- multi-node product with contracts and jobs
 
 ### Struct definitions
 

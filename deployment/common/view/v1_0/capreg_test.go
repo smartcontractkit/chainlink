@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
+	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/cldfutil"
 
 	cr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )

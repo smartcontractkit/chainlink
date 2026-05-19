@@ -27,7 +27,6 @@ import (
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	solBinary "github.com/gagliardetto/binary"
@@ -112,7 +111,7 @@ type UpgradeConfig struct {
 	// UpgradeAuthority must be set
 	UpgradeAuthority solana.PublicKey
 	// MCMS config must be set for upgrades and offramp redeploys (to configure the fee quoter after redeploy)
-	MCMS *proposalutils.TimelockConfig
+	MCMS *cldfproposalutils.TimelockConfig
 }
 
 func (cfg UpgradeConfig) Validate(e cldf.Environment, chainSelector uint64) error {
@@ -1253,7 +1252,7 @@ type CloseBuffersConfig struct {
 	ChainSelector uint64
 	Buffers       []string
 	Programs      []string
-	MCMS          *proposalutils.TimelockConfig
+	MCMS          *cldfproposalutils.TimelockConfig
 }
 
 func CloseBuffersChangeset(e cldf.Environment, cfg CloseBuffersConfig) (cldf.ChangesetOutput, error) {

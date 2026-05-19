@@ -10,11 +10,11 @@ import (
 	chainSel "github.com/smartcontractkit/chain-selectors"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
@@ -131,7 +131,7 @@ func validateTimelockBalance(e cldf.Environment, chainSelector uint64, requiredA
 	return nil
 }
 
-func validateMCMSConfig(e cldf.Environment, mcmsConfig *proposalutils.TimelockConfig, transfersByChain map[uint64][]types.NativeTransfer) error {
+func validateMCMSConfig(e cldf.Environment, mcmsConfig *cldfproposalutils.TimelockConfig, transfersByChain map[uint64][]types.NativeTransfer) error {
 	if mcmsConfig != nil {
 		if mcmsConfig.MinDelay < 0 {
 			return fmt.Errorf("MCMS minimum delay cannot be negative: %d", mcmsConfig.MinDelay)

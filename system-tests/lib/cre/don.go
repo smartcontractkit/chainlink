@@ -701,6 +701,7 @@ func (n *Node) RegisterNodeToJobDistributor(ctx context.Context, cldfEnv *cldf.E
 
 	in := offchain_ops.JDRegisterNodeOpInput{
 		Domain:      cre_offchain.ProductLabel,
+		Environment: cldfEnv.Name,
 		Name:        n.Name,
 		CSAKey:      strings.TrimPrefix(n.Keys.CSAKey.Key, "csa_"),
 		P2PID:       n.PeerID(),
