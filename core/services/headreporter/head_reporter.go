@@ -101,7 +101,7 @@ func (hrd *HeadReporterService) eventLoop() {
 			for _, reporter := range hrd.reporters {
 				err := reporter.ReportPeriodic(ctx)
 				if err != nil && ctx.Err() == nil {
-					hrd.lggr.Errorw("Error in periodic report", "err", err)
+					hrd.lggr.Warnw("Error in periodic report", "err", err)
 				}
 			}
 			after = time.After(hrd.reportPeriod)
