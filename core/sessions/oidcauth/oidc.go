@@ -239,7 +239,7 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 		oi.config.ReadClaim(),
 	)
 	if err != nil {
-		oi.lggr.Errorf("Failed to map configured RBAC role name against received list of group claims: %v", err)
+		oi.lggr.Warnf("Failed to map configured RBAC role name against received list of group claims: %v", err)
 		c.String(http.StatusBadRequest, "No matching role within attested user group claims")
 		return
 	}
