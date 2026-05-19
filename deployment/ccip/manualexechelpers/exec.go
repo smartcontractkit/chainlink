@@ -139,7 +139,7 @@ func getCommitRootAcceptedEvent(
 	}
 	step := durationToBlocks(destChainSel, stepDuration)
 
-	lggr.Infow("Getting commit root accepted event", "startBlock", start, "step", step)
+	lggr.Debugw("Getting commit root accepted event", "startBlock", start, "step", step)
 	for start <= hdr.Number.Uint64() {
 		end := min(start+step, hdr.Number.Uint64())
 		lggr.Infow("Querying with", "startBlock", start, "endBlock", end, "step", step)
