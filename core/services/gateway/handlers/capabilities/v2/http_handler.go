@@ -370,7 +370,7 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 		defer sendCancel()
 		err := h.sendResponseToNode(sendCtx, requestID, outboundResp, nodeAddr)
 		if err != nil {
-			l.Errorw("error sending response to node", "err", err, "nodeAddr", nodeAddr, "requestID", requestID)
+			l.Warnw("error sending response to node", "err", err, "nodeAddr", nodeAddr, "requestID", requestID)
 			h.metrics.IncrementActionCapabilityFailures(ctx, nodeAddr, h.lggr)
 		}
 	}()
