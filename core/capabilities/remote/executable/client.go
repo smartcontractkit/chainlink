@@ -246,6 +246,12 @@ func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest
 	if err = c.storeRequest(req); err != nil {
 		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to store request: %w", err)
 	}
+	// Ensure the entry is removed from requestIDToCallerRequest regardless of how Execute exits
+	// (success, response error, ctx cancellation). Without this, the entry only goes away when
+	// expireRequests() reaps it on its ticker, which means any caller (workflow engine step retry,
+	// concurrent call with the same execution ID + reference ID) that re-enters Execute within
+	// that window hits "request for ID ... already exists" from storeRequest above.
+	defer c.deleteRequest(req.ID())
 
 	var respResult []byte
 	var respErr error
@@ -282,6 +288,16 @@ func (c *client) storeRequest(req *request.ClientRequest) error {
 	}
 	c.requestIDToCallerRequest[req.ID()] = req
 	return nil
+}
+
+// deleteRequest removes a request entry from requestIDToCallerRequest. Called by Execute on exit
+// so the map doesn't retain completed requests until expireRequests() reaps them on its ticker.
+// Safe to call for a request ID that's already been removed (e.g., by expireRequests) — delete
+// on a non-existent key is a no-op.
+func (c *client) deleteRequest(id string) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	delete(c.requestIDToCallerRequest, id)
 }
 
 func (c *client) Receive(ctx context.Context, msg *types.MessageBody) {
