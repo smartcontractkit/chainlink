@@ -876,7 +876,7 @@ func (h *handler) errorResponse(
 		h.lggr.Debugw("unsupported method", "requestID", req.ID, "method", req.Method, "error", err.Error())
 		err = errors.New("unsupported method(" + req.Method + "): " + err.Error())
 	case api.UserMessageParseError:
-		h.lggr.Errorw("user message parse error", "requestID", req.ID, "error", err.Error())
+		h.lggr.Debugw("user message parse error", "requestID", req.ID, "error", err.Error())
 		err = errors.New("user message parse error: " + err.Error())
 	case api.NoError:
 	case api.UnsupportedDONIdError:
