@@ -595,7 +595,7 @@ func DisableFreezeAuthority(e cldf.Environment, cfg DisableFreezeAuthorityConfig
 		output, err := RunCommand("spl-token", args, chain.ProgramsPath)
 		e.Logger.Debugw("spl-token output", "output", output)
 		if err != nil {
-			e.Logger.Debugw("spl-token authorize error", "error", err)
+			e.Logger.Errorw("spl-token authorize error", "error", err)
 			return cldf.ChangesetOutput{}, fmt.Errorf("error disabling freeze authority: %w", err)
 		}
 		e.Logger.Infow("Token freeze authority disabled", "tokenPubkey", tokenPubkey.String())
