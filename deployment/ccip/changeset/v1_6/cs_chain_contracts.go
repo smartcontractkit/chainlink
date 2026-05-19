@@ -2503,7 +2503,7 @@ func applyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2Logic(env cldf.Enviro
 				tokensToUseDefaultFeeConfigs[i] = fee_quoter.FeeQuoterTokenTransferFeeConfigRemoveArgs{DestChainSelector: dstSelector, Token: tokenAddress}
 			}
 
-			env.Logger.Infof("found fee quoter on source chain (src = %s, dst = %s, fq = %s)",
+			env.Logger.Debugf("found fee quoter on source chain (src = %s, dst = %s, fq = %s)",
 				srcChain.String(),
 				dstChain.String(),
 				chainState.FeeQuoter.Address().Hex(),
