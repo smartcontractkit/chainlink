@@ -100,7 +100,7 @@ func (l *LDAPServerStateSyncer) Work(ctx context.Context) {
 	recordCreationStaleThreshold = l.config.UserAPITokenDuration().Before(time.Now())
 	err = l.deleteStaleAPITokens(ctx, recordCreationStaleThreshold)
 	if err != nil {
-		l.lggr.Error("unable to expire user API tokens: ", err)
+		l.lggr.Warn("unable to expire user API tokens: ", err)
 	}
 
 	// Optional rate limiting check to limit the amount of upstream LDAP server queries performed
