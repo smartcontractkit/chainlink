@@ -47,7 +47,7 @@ func NewCronFromJobSpec(
 
 // Start implements the job.Service interface.
 func (cr *Cron) Start(context.Context) error {
-	cr.logger.Debug("Starting")
+	cr.logger.Info("Starting")
 
 	_, err := cr.cronRunner.AddFunc(cr.jobSpec.CronSpec.CronSchedule, cr.runPipeline)
 	if err != nil {
