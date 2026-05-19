@@ -42,22 +42,20 @@ func (s *PgDurableEventStore) InsertBatch(ctx context.Context, payloads [][]byte
 	if len(payloads) == 0 {
 		return nil, nil
 	}
-	var b strings.Builder
-	b.WriteString("INSERT INTO ")
-	b.WriteString(chipDurableEventsTable)
-	b.WriteString(" (payload) VALUES ")
+	placeholders := make([]string, len(payloads))
 	args := make([]interface{}, len(payloads))
 	for i, p := range payloads {
-		if i > 0 {
-			b.WriteByte(',')
-		}
-		fmt.Fprintf(&b, "($%d)", i+1)
+		placeholders[i] = fmt.Sprintf("($%d)", i+1)
 		args[i] = p
 	}
-	b.WriteString(" RETURNING id")
+	q := fmt.Sprintf(
+		"INSERT INTO %s (payload) VALUES %s RETURNING id",
+		chipDurableEventsTable,
+		strings.Join(placeholders, ","),
+	)
 
 	var ids []int64
-	if err := s.ds.SelectContext(ctx, &ids, b.String(), args...); err != nil {
+	if err := s.ds.SelectContext(ctx, &ids, q, args...); err != nil {
 		return nil, fmt.Errorf("failed to batch insert chip durable events: %w", err)
 	}
 	return ids, nil
