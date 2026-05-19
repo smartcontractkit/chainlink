@@ -391,7 +391,7 @@ func (ekc *ETHKeysController) getLinkBalance(ctx context.Context, state ethkey.S
 	addr := common.HexToAddress(chain.Config().EVM().LinkContractAddress())
 	bal, err := ethClient.LINKBalance(ctx, state.Address.Address(), addr)
 	if err != nil {
-		ekc.lggr.Errorw("Failed to get LINK balance", "chainID", chainID, "address", state.Address, "err", err)
+		ekc.lggr.Warnw("Failed to get LINK balance", "chainID", chainID, "address", state.Address, "err", err)
 		return nil
 	}
 	return bal
