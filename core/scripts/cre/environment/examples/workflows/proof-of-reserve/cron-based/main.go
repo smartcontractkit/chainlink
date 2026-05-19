@@ -46,7 +46,7 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 
 	// get balance with BalanceAt()
 	evmClient := evm.Client{ChainSelector: config.ChainSelector}
-	runtime.Logger().Info("Got EVM client", "chainSelector", evmClient.ChainSelector)
+	runtime.Logger().Debug("Got EVM client", "chainSelector", evmClient.ChainSelector)
 	addressesToRead := config.BalanceReaderConfig.AddressesToRead
 	runtime.Logger().Info("Got addresses to read", "addresses", addressesToRead)
 
