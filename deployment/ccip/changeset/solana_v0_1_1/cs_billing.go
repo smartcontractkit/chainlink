@@ -848,7 +848,7 @@ func (cfg TokenTransferFeeForRemoteChainConfigV2) buildOrchestrateChangesetsConf
 					destBytesOverhead := pointer.Coalesce(feeConfig.DestBytesOverhead, uint32(32))
 					deciBps := pointer.Coalesce(feeConfig.DeciBps, uint16(0))
 					isEnabled := pointer.Coalesce(feeConfig.IsEnabled, true)
-					env.Logger.Infof("config is not set - populating missing fields in user input with sensible defaults: %+v", feeConfig)
+					env.Logger.Debugf("config is not set - populating missing fields in user input with sensible defaults: %+v", feeConfig)
 
 					// fill in the missing values in-place
 					feeConfig.MinFeeUsdcents = &minFeeUsdCents
