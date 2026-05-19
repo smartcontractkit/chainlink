@@ -1717,7 +1717,7 @@ func getNewSetupInstructionsForCCTP(
 	rateLimiterConfig RateLimiterConfig,
 	onChainEVMPoolConfig cctp_token_pool.RemoteConfig,
 ) ([]solana.Instruction, error) {
-	e.Logger.Infow("getNewSetupInstructionsForCCTP", "remote_chain_selector", evmChainSelector, "token_pubkey", cfg.SolTokenPubKey.String())
+	e.Logger.Debugw("getNewSetupInstructionsForCCTP", "remote_chain_selector", evmChainSelector, "token_pubkey", cfg.SolTokenPubKey.String())
 	tokenPubKey := cfg.SolTokenPubKey
 	tokenPool := chainState.CCTPTokenPool
 	contractType := shared.CCTPTokenPool
