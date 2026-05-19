@@ -228,7 +228,7 @@ func getCCIPMessageSentEvents(
 
 	start := getStartBlock(srcChainSel, hdr.Number.Uint64(), lookbackDuration)
 	if cachedBlockNumber != 0 {
-		lggr.Infow("using cached block number to start search for messages", "cachedBlockNumber", cachedBlockNumber)
+		lggr.Debugw("using cached block number to start search for messages", "cachedBlockNumber", cachedBlockNumber)
 		start = cachedBlockNumber
 	}
 	step := durationToBlocks(srcChainSel, stepDuration)
