@@ -258,7 +258,7 @@ func getCCIPMessageSentEvents(
 	var blockNumbers []uint64
 	for uint64(len(ret)) < merkleRootSize && start <= hdr.Number.Uint64() {
 		end := min(start+step, hdr.Number.Uint64())
-		lggr.Infow("Querying for messages with", "startBlock", start, "endBlock", end, "stepBlocks", step)
+		lggr.Debugw("Querying for messages with", "startBlock", start, "endBlock", end, "stepBlocks", step)
 		iter, err := state.Chains[srcChainSel].OnRamp.FilterCCIPMessageSent(
 			&bind.FilterOpts{
 				Start: start,
