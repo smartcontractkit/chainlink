@@ -905,7 +905,7 @@ func createMultisig(e cldf.Environment, chainSelector uint64, tokenPoolSignerPDA
 		authoritiesStr[i] = auth.String()
 	}
 	args = append(args, authoritiesStr...)
-	e.Logger.Info(args)
+	e.Logger.Debug(args)
 	output, err := RunCommand("spl-token", args, ".")
 	e.Logger.Debugw("spl-token create-multisig output", "output", output)
 	if err != nil {
