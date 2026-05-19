@@ -124,7 +124,7 @@ func (l *ldapAuthenticator) FindUser(ctx context.Context, email string) (session
 	// If error is not nil, there was either an issue or no local users found
 	if !errors.Is(checkErr, sql.ErrNoRows) {
 		// If the error is not that no local user was found, log and exit
-		l.lggr.Errorf("error searching users table: %v", checkErr)
+		l.lggr.Warnf("error searching users table: %v", checkErr)
 		return sessions.User{}, errors.New("error Finding user")
 	}
 
