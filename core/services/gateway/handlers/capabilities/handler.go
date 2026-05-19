@@ -226,7 +226,7 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 		respMsg.Signature = msg.Signature
 		req, err := common.ValidatedRequestFromMessage(respMsg)
 		if err != nil {
-			l.Errorw(ErrTransformingMessageToRequest, "err", err)
+			l.Warnw(ErrTransformingMessageToRequest, "err", err)
 			return
 		}
 		err = h.don.SendToNode(newCtx, nodeAddr, req)
