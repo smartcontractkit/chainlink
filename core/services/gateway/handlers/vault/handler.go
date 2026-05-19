@@ -282,7 +282,7 @@ func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DO
 
 func (h *handler) Start(_ context.Context) error {
 	return h.StartOnce("VaultHandler", func() error {
-		h.lggr.Debug("starting vault handler")
+		h.lggr.Info("starting vault handler")
 		if h.jwtAuth != nil {
 			if err := h.jwtAuth.Start(context.Background()); err != nil {
 				return fmt.Errorf("failed to start JWTBasedAuth: %w", err)
