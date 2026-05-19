@@ -455,7 +455,7 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 	mcmsTxs := make([]mcmsTypes.Transaction, 0)
 
 	out1, err1 := RunCommand("solana", []string{"config", "set", "--url", chain.URL}, chain.ProgramsPath)
-	e.Logger.Infow("solana config set url output", "output", out1)
+	e.Logger.Debugw("solana config set url output", "output", out1)
 	if err1 != nil {
 		e.Logger.Errorw("solana config set url error", "error", err1)
 		return cldf.ChangesetOutput{}, fmt.Errorf("error setting solana url: %w", err1)
