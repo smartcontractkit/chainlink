@@ -80,7 +80,7 @@ func (w *WebAuthnController) FinishRegistration(c *gin.Context) {
 
 	credential, err := w.inProgressRegistrationsStore.FinishWebAuthnRegistration(*user, uwas, c.Request, webAuthnConfig)
 	if err != nil {
-		w.App.GetLogger().Errorf("error in FinishWebAuthnRegistration: %s", err)
+		w.App.GetLogger().Warnf("error in FinishWebAuthnRegistration: %s", err)
 		jsonAPIError(c, http.StatusBadRequest, errors.New("registration was unsuccessful"))
 		return
 	}
