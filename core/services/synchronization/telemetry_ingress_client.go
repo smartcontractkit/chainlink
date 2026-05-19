@@ -130,7 +130,7 @@ func (tc *telemetryIngressClient) handleTelemetry() {
 				}
 				_, err := tc.telemClient.Telem(ctx, telemReq)
 				if err != nil {
-					tc.eng.Errorf("Could not send telemetry: %v", err)
+					tc.eng.Warnf("Could not send telemetry: %v", err)
 					continue
 				}
 				if tc.logging {
