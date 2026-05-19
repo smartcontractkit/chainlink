@@ -345,7 +345,7 @@ func buildLocally(e cldf.Environment, config BuildSolanaConfig) error {
 
 func BuildSolana(e cldf.Environment, config BuildSolanaConfig) error {
 	if !config.LocalBuild.BuildLocally {
-		e.Logger.Debug("Downloading Solana CCIP program artifacts...")
+		e.Logger.Info("Downloading Solana CCIP program artifacts...")
 		err := solutils.DownloadChainlinkCCIPProgramArtifacts(e.GetContext(), config.DestinationDir, config.GitCommitSha, e.Logger)
 		if err != nil {
 			return fmt.Errorf("error downloading solana ccip program artifacts: %w", err)
