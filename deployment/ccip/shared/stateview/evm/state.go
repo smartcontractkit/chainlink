@@ -1190,7 +1190,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.RMN[c.RMN.Address().Hex()] = rmnView
-			lggr.Infow("generated rmn view", "rmn", c.RMN.Address().Hex(), "chain", chain)
+			lggr.Debugw("generated rmn view", "rmn", c.RMN.Address().Hex(), "chain", chain)
 			return nil
 		}
 	}
