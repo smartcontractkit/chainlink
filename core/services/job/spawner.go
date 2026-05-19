@@ -247,7 +247,7 @@ func (js *spawner) StartService(ctx context.Context, jb Job) error {
 	for _, srv := range srvs {
 		err = ms.Start(ctx, srv)
 		if err != nil {
-			lggr.Criticalw("Error starting service for job", "err", err)
+			lggr.Errorw("Error starting service for job", "err", err)
 			return err
 		}
 		if c, ok := srv.(services.HealthReporter); ok {
