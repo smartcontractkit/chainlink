@@ -1055,7 +1055,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.OffRamp[c.OffRamp.Address().Hex()] = offRampView
-			lggr.Infow("generated off ramp view", "offRamp", c.OffRamp.Address().Hex(), "chain", chain)
+			lggr.Debugw("generated off ramp view", "offRamp", c.OffRamp.Address().Hex(), "chain", chain)
 			return nil
 		}
 	}
