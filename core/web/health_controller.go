@@ -116,7 +116,7 @@ func (hc *HealthController) Health(c *gin.Context) {
 
 	case gin.MIMEPlain:
 		if err := writeTextTo(c.Writer, checks); err != nil {
-			hc.App.GetLogger().Errorw("Failed to write plaintext health report", "err", err)
+			hc.App.GetLogger().Warnw("Failed to write plaintext health report", "err", err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 		}
 		return
