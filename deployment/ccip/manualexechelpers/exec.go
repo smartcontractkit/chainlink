@@ -383,7 +383,7 @@ func manuallyExecuteSingle(
 	merkleRootSize := merkleRoot.MaxSeqNr - merkleRoot.MinSeqNr + 1
 	var ccipMessageSentEvents []onramp.OnRampCCIPMessageSent
 	if _, ok := messageSentCache.Get(msgSeqNr); ok {
-		lggr.Infow("found message in cache, fetching the rest", "msgSeqNr", msgSeqNr)
+		lggr.Debugw("found message in cache, fetching the rest", "msgSeqNr", msgSeqNr)
 		for start := merkleRoot.MinSeqNr; start <= merkleRoot.MaxSeqNr; start++ {
 			message, ok := messageSentCache.Get(start)
 			if !ok {
