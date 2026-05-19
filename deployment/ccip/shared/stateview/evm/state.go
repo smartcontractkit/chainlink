@@ -1069,7 +1069,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.RMNProxy[c.RMNProxy.Address().Hex()] = rmnProxyView
-			lggr.Infow("generated rmn proxy view", "rmnProxy", c.RMNProxy.Address().Hex(), "chain", chain)
+			lggr.Debugw("generated rmn proxy view", "rmnProxy", c.RMNProxy.Address().Hex(), "chain", chain)
 			return nil
 		}
 	}
