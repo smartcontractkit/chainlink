@@ -127,7 +127,7 @@ func (s *Service) pollAllBridges(ctx context.Context) {
 
 // handleBridgeError handles errors during bridge polling, either skipping or emitting empty telemetry
 func (s *Service) handleBridgeError(ctx context.Context, bridgeName string, jobs []JobInfo, logMsg string, logFields ...any) {
-	s.eng.Debugw(logMsg, logFields...)
+	s.eng.Warnw(logMsg, logFields...)
 	if s.config.IgnoreInvalidBridges() {
 		return
 	}
