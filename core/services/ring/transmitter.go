@@ -74,7 +74,7 @@ func (t *Transmitter) notifyArbiter(ctx context.Context, state *ringpb.RoutingSt
 	switch s := state.State.(type) {
 	case *ringpb.RoutingState_RoutableShards:
 		nShards = s.RoutableShards
-		t.lggr.Infow("Transmitting shard routing", "routableShards", nShards)
+		t.lggr.Debugw("Transmitting shard routing", "routableShards", nShards)
 	case *ringpb.RoutingState_Transition:
 		nShards = s.Transition.WantShards
 		t.lggr.Infow("Transmitting shard routing (in transition)", "wantShards", nShards)
