@@ -69,7 +69,7 @@ func (tw *telemetryIngressBatchWorker) Send(ctx context.Context) {
 	cancel()
 
 	if err != nil {
-		tw.lggr.Warnf("Could not send telemetry: %v", err)
+		tw.lggr.Debugf("Could not send telemetry: %v", err)
 		TelemetryClientMessagesSendErrors.WithLabelValues(tw.endpointURL, string(tw.telemType)).Inc()
 		return
 	}
