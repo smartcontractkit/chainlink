@@ -370,7 +370,7 @@ func manuallyExecuteSingle(
 		})
 		commitRootCache.Build()
 	} else {
-		lggr.Infow("found merkle root in cache", "msgSeqNr", msgSeqNr, "merkleRoot", merkleRoot)
+		lggr.Debugw("found merkle root in cache", "msgSeqNr", msgSeqNr, "merkleRoot", merkleRoot)
 	}
 
 	lggr.Infow("merkle root",
