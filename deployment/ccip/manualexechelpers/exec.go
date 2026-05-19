@@ -189,7 +189,7 @@ func findCommitRoot(
 ) (offramp.InternalMerkleRoot, bool) {
 	for _, root := range roots {
 		if root.SourceChainSelector == srcChainSel {
-			lggr.Infow("checking commit root",
+			lggr.Debugw("checking commit root",
 				"minSeqNr", root.MinSeqNr,
 				"maxSeqNr", root.MaxSeqNr,
 				"txHash", txHash.Hex(),
