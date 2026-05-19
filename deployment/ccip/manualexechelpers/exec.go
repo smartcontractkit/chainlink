@@ -387,7 +387,7 @@ func manuallyExecuteSingle(
 		for start := merkleRoot.MinSeqNr; start <= merkleRoot.MaxSeqNr; start++ {
 			message, ok := messageSentCache.Get(start)
 			if !ok {
-				lggr.Infow("message not found in cache, fetching from the chain", "msgSeqNr", start)
+				lggr.Debugw("message not found in cache, fetching from the chain", "msgSeqNr", start)
 				break
 			}
 			ccipMessageSentEvents = append(ccipMessageSentEvents, message)
