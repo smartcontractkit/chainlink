@@ -27,6 +27,10 @@ type ConnectionManagerConfig struct {
 	AuthTimestampToleranceSec uint32
 	AuthChallengeLen          uint32
 	HeartbeatIntervalSec      uint32
+	// PongTimeoutSec is the maximum time to wait for a pong response before
+	// considering the connection dead. When 0 (default), read deadline enforcement
+	// is disabled and connections may remain half-open indefinitely.
+	PongTimeoutSec uint32
 }
 
 type DONConfig struct {

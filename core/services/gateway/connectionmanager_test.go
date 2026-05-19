@@ -464,7 +464,8 @@ func TestConnectionManager_ReadDeadline_ClosesIdleConnection(t *testing.T) {
 	t.Parallel()
 
 	cfg, nodes := newTestConfig(t, 1)
-	cfg.ConnectionManagerConfig.HeartbeatIntervalSec = 1 // pongWait = 3s
+	cfg.ConnectionManagerConfig.HeartbeatIntervalSec = 1
+	cfg.ConnectionManagerConfig.PongTimeoutSec = 3
 	clock := clockwork.NewRealClock()
 	mgr := newConnectionManager(t, cfg, clock)
 
@@ -478,7 +479,7 @@ func TestConnectionManager_ReadDeadline_ClosesIdleConnection(t *testing.T) {
 
 	doHandshake(t, mgr, clock, nodes[0], serverConn)
 
-	// After pongWait (3s) the read deadline fires, readPump closes the conn.
+	// After PongTimeoutSec (3s) the read deadline fires, readPump closes the conn.
 	// SendToNode should eventually fail because the underlying conn is closed.
 	donMgr := mgr.DONConnectionManager("my_don_1")
 	require.NotNil(t, donMgr)
@@ -493,7 +494,8 @@ func TestConnectionManager_ReadDeadline_ConnectionAliveWithPongs(t *testing.T) {
 	t.Parallel()
 
 	cfg, nodes := newTestConfig(t, 1)
-	cfg.ConnectionManagerConfig.HeartbeatIntervalSec = 1 // pongWait = 3s
+	cfg.ConnectionManagerConfig.HeartbeatIntervalSec = 1
+	cfg.ConnectionManagerConfig.PongTimeoutSec = 3
 	clock := clockwork.NewRealClock()
 	mgr := newConnectionManager(t, cfg, clock)
 
@@ -503,7 +505,7 @@ func TestConnectionManager_ReadDeadline_ConnectionAliveWithPongs(t *testing.T) {
 
 	serverConn, clientConn := newWebSocketPair(t)
 
-	// Client reads in a loop — gorilla/websocket's default ping handler
+	// Client reads in a loop - gorilla/websocket's default ping handler
 	// automatically responds with pongs, which resets the server's read deadline.
 	go func() {
 		for {
@@ -516,18 +518,44 @@ func TestConnectionManager_ReadDeadline_ConnectionAliveWithPongs(t *testing.T) {
 
 	doHandshake(t, mgr, clock, nodes[0], serverConn)
 
-	// Wait significantly longer than pongWait (3s) to ensure multiple keepalive
-	// cycles have completed. With HeartbeatIntervalSec=1, by t=5s we expect 4-5
-	// pong cycles, each extending the deadline well past our check time.
-	// This avoids a race where the check lands exactly as a deadline expires.
-	time.Sleep(5 * time.Second)
-
+	// Assert the connection never dies during a period longer than PongTimeoutSec.
+	// With HeartbeatIntervalSec=1, pongs arrive every ~1s resetting the 3s deadline.
 	donMgr := mgr.DONConnectionManager("my_don_1")
 	require.NotNil(t, donMgr)
 
-	msg := &jsonrpc.Request[json.RawMessage]{ID: "alive-check"}
-	err = donMgr.SendToNode(testutils.Context(t), nodes[0].Address, msg)
-	require.NoError(t, err, "connection should still be alive when pongs are received")
+	assert.Never(t, func() bool {
+		msg := &jsonrpc.Request[json.RawMessage]{ID: "alive-check"}
+		return donMgr.SendToNode(testutils.Context(t), nodes[0].Address, msg) != nil
+	}, 5*time.Second, 500*time.Millisecond, "connection should stay alive when pongs are received")
+}
+
+func TestConnectionManager_ReadDeadline_DisabledWhenZero(t *testing.T) {
+	t.Parallel()
+
+	cfg, nodes := newTestConfig(t, 1)
+	cfg.ConnectionManagerConfig.HeartbeatIntervalSec = 1
+	// PongTimeoutSec = 0 (default) - deadline enforcement disabled
+	clock := clockwork.NewRealClock()
+	mgr := newConnectionManager(t, cfg, clock)
+
+	err := mgr.Start(testutils.Context(t))
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, mgr.Close()) })
+
+	serverConn, _ := newWebSocketPair(t)
+	// Client does NOT read - no pongs sent back.
+
+	doHandshake(t, mgr, clock, nodes[0], serverConn)
+
+	// Even without pongs, the connection should remain alive because
+	// PongTimeoutSec=0 means no read deadline is set.
+	donMgr := mgr.DONConnectionManager("my_don_1")
+	require.NotNil(t, donMgr)
+
+	assert.Never(t, func() bool {
+		msg := &jsonrpc.Request[json.RawMessage]{ID: "test"}
+		return donMgr.SendToNode(testutils.Context(t), nodes[0].Address, msg) != nil
+	}, 4*time.Second, 500*time.Millisecond, "connection should stay alive when deadline enforcement is disabled")
 }
 
 func newConnectionManager(t *testing.T, gwConfig *config.GatewayConfig, clock clockwork.Clock) gateway.ConnectionManager {
