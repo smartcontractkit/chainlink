@@ -348,7 +348,7 @@ func addBootstrapNodeConfig(
 		existingConfig.Telemetry.ChipIngressEndpoint = new(commonInputs.chipRouterInternalGRPCURL)
 		existingConfig.Telemetry.ChipIngressInsecureConnection = new(true)
 		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
-		existingConfig.Telemetry.DurableEmitterEnabled = ptr.Ptr(true)
+		existingConfig.Telemetry.DurableEmitterEnabled = new(true)
 
 		existingConfig.Billing = coretoml.Billing{
 			URL:        new("billing-platform-service:2223"),
@@ -437,7 +437,7 @@ func addWorkerNodeConfig(
 		existingConfig.Telemetry.ChipIngressEndpoint = new(commonInputs.chipRouterInternalGRPCURL)
 		existingConfig.Telemetry.ChipIngressInsecureConnection = new(true)
 		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
-		existingConfig.Telemetry.DurableEmitterEnabled = ptr.Ptr(true)
+		existingConfig.Telemetry.DurableEmitterEnabled = new(true)
 
 		existingConfig.Billing = coretoml.Billing{
 			URL:        new("billing-platform-service:2223"),
