@@ -386,7 +386,7 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 	}
 	// TODO: apply allowlist and rate-limiting here
 	if msg.Body.Method != MethodWebAPITrigger {
-		h.lggr.Errorw("unsupported method", "method", body.Method)
+		h.lggr.Warnw("unsupported method", "method", body.Method)
 		return callback.SendResponse(handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
 				msg.Body.MessageId,
