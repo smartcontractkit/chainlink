@@ -1176,7 +1176,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.PriceRegistry[c.PriceRegistry.Address().String()] = priceRegistryView
-			lggr.Infow("generated price registry view", "priceRegistry", c.PriceRegistry.Address().String(), "chain", chain)
+			lggr.Debugw("generated price registry view", "priceRegistry", c.PriceRegistry.Address().String(), "chain", chain)
 			return nil
 		}
 	}
