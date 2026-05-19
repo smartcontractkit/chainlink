@@ -273,7 +273,7 @@ func getCCIPMessageSentEvents(
 
 		for iter.Next() {
 			if iter.Event.DestChainSelector == destChainSel {
-				lggr.Infow("checking message",
+				lggr.Debugw("checking message",
 					"seqNr", iter.Event.SequenceNumber,
 					"destChain", iter.Event.DestChainSelector,
 					"txHash", iter.Event.Raw.TxHash.String())
