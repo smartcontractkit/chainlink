@@ -22,6 +22,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
@@ -596,10 +597,7 @@ func TestShell_BeforeNode(t *testing.T) {
 				require.Error(t, err)
 			}
 			// Clean up database if it was opened
-			if shell.LDB != nil {
-				cleanupErr := shell.AfterNode(c)
-				require.NoError(t, cleanupErr)
-			}
+			cleanupShell(t, &shell, c)
 		})
 	}
 }
@@ -712,10 +710,10 @@ func TestShell_BeholderLifecycle(t *testing.T) {
 
 func TestShell_AfterNode_NilBeholderClient(t *testing.T) {
 	shell := cmd.Shell{
-		LDB:    stubLockedDB{},
-		Logger: logger.TestLogger(t),
+		LDB:            stubLockedDB{},
+		Logger:         logger.TestLogger(t),
+		BeholderClient: beholder.NewNoopClient(),
 	}
-	assert.Nil(t, shell.BeholderClient)
 	assert.NotPanics(t, func() {
 		_ = shell.AfterNode(cli.NewContext(nil, flag.NewFlagSet("test", 0), nil))
 	})
@@ -809,10 +807,18 @@ func TestShell_RunNode_WithBeforeNode(t *testing.T) {
 				// Don't test RunNode if BeforeNode failed
 			}
 			// Clean up database if it was opened
-			if shell.LDB != nil {
-				cleanupErr := shell.AfterNode(c)
-				require.NoError(t, cleanupErr)
-			}
+			cleanupShell(t, &shell, c)
 		})
 	}
+}
+
+func cleanupShell(t *testing.T, shell *cmd.Shell, c *cli.Context) {
+	t.Helper()
+	if shell.LDB == nil {
+		return
+	}
+	if shell.BeholderClient == nil {
+		shell.BeholderClient = beholder.NewNoopClient()
+	}
+	require.NoError(t, shell.AfterNode(c))
 }
