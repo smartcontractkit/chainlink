@@ -168,7 +168,7 @@ func getReadBalancesContractABI(runtime cre.Runtime) (*abi.ABI, error) {
 		runtime.Logger().Error("failed to get Balance Reader contract ABI", "error", abiErr)
 		return nil, fmt.Errorf("failed to get Balance Reader contract ABI: %w", abiErr)
 	}
-	runtime.Logger().Info("successfully got Balance Reader contract ABI")
+	runtime.Logger().Debug("successfully got Balance Reader contract ABI")
 	return readBalancesABI, nil
 }
 
