@@ -362,7 +362,7 @@ func (l *ldapAuthenticator) AuthorizedUserWithSession(ctx context.Context, sessi
 	if !foundSession.Valid {
 		// Sessions expired, purge
 		if _, execErr := l.ds.ExecContext(ctx, "DELETE FROM ldap_sessions WHERE id = $1", sessionID); execErr != nil {
-			l.lggr.Errorf("error purging stale ldap session: %v", execErr)
+			l.lggr.Warnf("error purging stale ldap session: %v", execErr)
 		}
 		return sessions.User{}, sessions.ErrUserSessionExpired
 	}
