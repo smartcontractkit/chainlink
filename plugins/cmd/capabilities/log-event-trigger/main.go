@@ -87,7 +87,7 @@ func (cs *LogEventTriggerGRPCService) Initialise(
 	ctx context.Context,
 	dependencies core.StandardCapabilitiesDependencies,
 ) error {
-	cs.s.Logger.Debugf("Initialising %s", serviceName)
+	cs.s.Logger.Infof("Initialising %s", serviceName)
 
 	var logEventConfig logevent.Config
 	err := json.Unmarshal([]byte(dependencies.Config), &logEventConfig)
