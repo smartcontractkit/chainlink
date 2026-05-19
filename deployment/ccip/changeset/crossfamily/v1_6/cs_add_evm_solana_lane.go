@@ -516,7 +516,7 @@ func addEVMAndSolanaLaneLogic(env cldf.Environment, input AddMultiEVMSolanaLaneC
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	env.Logger.Infow("router input", "input", changesetInputs.solanaRouterInput)
+	env.Logger.Debugw("router input", "input", changesetInputs.solanaRouterInput)
 	deps := Dependencies{
 		Env:          env,
 		EVMMCMSState: evmState.EVMMCMSStateByChain(),
