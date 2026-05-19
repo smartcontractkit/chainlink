@@ -36,7 +36,7 @@ func GetLegacyChains(ctx context.Context, lggr logger.Logger, chainServices []co
 		}
 
 		if !slices.Contains(chainsInConfig, protocol.ChainSelector(chain2.Selector)) {
-			lggr.Infow("skipping chain not in config", "chain", chain2.Selector, "chainID", id.String())
+			lggr.Debugw("skipping chain not in config", "chain", chain2.Selector, "chainID", id.String())
 			continue
 		}
 
