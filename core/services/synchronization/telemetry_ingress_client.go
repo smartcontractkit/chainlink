@@ -92,7 +92,7 @@ func (tc *telemetryIngressClient) start(context.Context) error {
 		}()
 		if err != nil {
 			if ctx.Err() != nil {
-				tc.eng.Warnw("gave up connecting to telemetry endpoint", "err", err)
+				tc.eng.Infow("gave up connecting to telemetry endpoint", "err", err)
 			} else {
 				tc.eng.Criticalw("telemetry endpoint dial errored unexpectedly", "err", err)
 				tc.eng.EmitHealthErr(err)
