@@ -870,7 +870,7 @@ func (h *handler) errorResponse(
 		// Intentionally hide the error from the user
 		err = errors.New(errorCode.String())
 	case api.InvalidParamsError:
-		h.lggr.Errorw("invalid params", "requestID", req.ID, "params", string(*req.Params))
+		h.lggr.Debugw("invalid params", "requestID", req.ID, "params", string(*req.Params))
 		err = errors.New("invalid params error: " + err.Error())
 	case api.UnsupportedMethodError:
 		h.lggr.Errorw("unsupported method", "requestID", req.ID, "method", req.Method, "error", err.Error())
