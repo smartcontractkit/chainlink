@@ -876,7 +876,7 @@ func CreateTokenMultisig(e cldf.Environment, cfg CreateTokenMultisigConfig) (cld
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	e.Logger.Infow("Using tokenPoolSignerPDA as signer", "tokenPoolSignerPDA", tokenPoolSignerPDA, "tokenPoolProgramID", tokenPoolProgramID, "TokenMint", cfg.TokenMint)
+	e.Logger.Debugw("Using tokenPoolSignerPDA as signer", "tokenPoolSignerPDA", tokenPoolSignerPDA, "tokenPoolProgramID", tokenPoolProgramID, "TokenMint", cfg.TokenMint)
 	newMultisig, err := createMultisig(e, cfg.ChainSelector, tokenPoolSignerPDA, cfg.CustomerMintAuthorities, tokenProgramID)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
