@@ -203,7 +203,7 @@ func (s *httpServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 	source := http.MaxBytesReader(nil, r.Body, int64(maxRequestBytes))
 	rawMessage, err := io.ReadAll(source)
 	if err != nil {
-		s.lggr.Error("error reading request", err)
+		s.lggr.Debug("error reading request", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
