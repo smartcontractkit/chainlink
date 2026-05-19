@@ -275,7 +275,7 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 	cfg.PublicKey = publicKey
 	cfg.PrivateKeyShare = privateKeyShare
 
-	r.lggr.Debugw("instantiating VaultReportingPlugin with config",
+	r.lggr.Infow("instantiating VaultReportingPlugin with config",
 		"maxSecretsPerOwner", logLimit(ctx, r.lggr, cfg.MaxSecretsPerOwner),
 		"maxCiphertextLengthBytes", logLimit(ctx, r.lggr, cfg.MaxCiphertextLengthBytes),
 		"maxIdentifierKeyLengthBytes", logLimit(ctx, r.lggr, cfg.MaxIdentifierKeyLengthBytes),
