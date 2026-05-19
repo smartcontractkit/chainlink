@@ -341,7 +341,7 @@ func manuallyExecuteSingle(
 	merkleRoot, inCache := commitRootCache.Get(msgSeqNr)
 	if !inCache {
 		latestBlockNumber := commitRootCache.GetLatestBlockNumber()
-		lggr.Infow("merkle root not found in cache, fetching from the chain",
+		lggr.Debugw("merkle root not found in cache, fetching from the chain",
 			"msgSeqNr", msgSeqNr,
 			"latestBlockNumber", latestBlockNumber,
 		)
