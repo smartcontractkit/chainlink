@@ -1162,7 +1162,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 				return fmt.Errorf("failed to generate registry module view for registry module %s: %w", registryModule.Address().Hex(), err)
 			}
 			chainView.UpdateRegistryModuleView(registryModule.Address().Hex(), registryModuleView)
-			lggr.Infow("generated registry module view", "registryModule", registryModule.Address().Hex(), "chain", chain)
+			lggr.Debugw("generated registry module view", "registryModule", registryModule.Address().Hex(), "chain", chain)
 			return nil
 		}
 	}
