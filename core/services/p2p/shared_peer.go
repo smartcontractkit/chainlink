@@ -199,7 +199,7 @@ func (sp *don2DonSharedPeer) UpdateConnectionsByDONs(ctx context.Context, donPai
 	sp.metrics.discoveryGroups.Record(ctx, int64(len(sp.discoveryGroups)))
 	sp.metrics.messagingGroups.Record(ctx, int64(len(sp.remotePeers)))
 	sp.metrics.groupUpdateDurationMs.Record(ctx, time.Now().UnixMilli()-startTs)
-	sp.lggr.Info("UpdateConnectionsByDONs done")
+	sp.lggr.Debug("UpdateConnectionsByDONs done")
 	return nil
 }
 
