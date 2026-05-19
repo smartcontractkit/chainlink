@@ -1593,7 +1593,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 			r.stateTransitionListSecretIdentifiers(ctx, wrappedStore.WithRequest(req.OrgId, req.WorkflowOwner), chosen, o)
 			os.Outcomes = append(os.Outcomes, o)
 		default:
-			r.lggr.Debugw("unknown request type, skipping...", "requestType", first.RequestType, "id", id)
+			r.lggr.Errorw("unknown request type, skipping...", "requestType", first.RequestType, "id", id)
 			continue
 		}
 	}
