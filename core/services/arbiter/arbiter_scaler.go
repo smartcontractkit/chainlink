@@ -67,7 +67,7 @@ func (h *RingArbiterHandler) ConsensusWantShards(ctx context.Context, req *ringp
 		)
 	}
 
-	h.lggr.Infow("Consensus wants shards",
+	h.lggr.Debugw("Consensus wants shards",
 		"nShards", nShards,
 	)
 
