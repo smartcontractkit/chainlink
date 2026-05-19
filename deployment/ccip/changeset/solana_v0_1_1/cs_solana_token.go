@@ -475,7 +475,7 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 		if metadata.MetadataJSONPath != "" {
 			e.Logger.Infow("Uploading token metadata", "tokenPubkey", metadata.TokenPubkey.String())
 			args := []string{"create", "metadata", "--mint", metadata.TokenPubkey.String(), "--metadata", metadata.MetadataJSONPath}
-			e.Logger.Info(args)
+			e.Logger.Debug(args)
 			output, err := RunCommand("metaboss", args, chain.ProgramsPath)
 			e.Logger.Infow("metaboss output", "output", output)
 			if err != nil {
