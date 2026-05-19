@@ -605,7 +605,7 @@ func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, executionID st
 
 		select {
 		case <-doneCh:
-			h.lggr.Infow("Callback already responded to, stopping retries",
+			h.lggr.Debugw("Callback already responded to, stopping retries",
 				"executionID", executionID,
 				"requestID", req.ID,
 				"successNodes", len(successfulNodes),
