@@ -89,7 +89,7 @@ func runSolanaVerifyMCMS(e cldf.Environment,
 		"--mount-path", mountPath,
 		"--uploader", timelockSignerPDA.String(),
 	}
-	e.Logger.Infow("export-pda-tx cmdArgs", "cmdArgs", cmdArgs)
+	e.Logger.Debugw("export-pda-tx cmdArgs", "cmdArgs", cmdArgs)
 	output, err := runCommand("solana-verify", cmdArgs, ".")
 	e.Logger.Infow("export-pda-tx output", "output", output)
 	if err != nil {
