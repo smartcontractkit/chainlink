@@ -349,55 +349,7 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 	successfulLogTriggerChains := make([]string, 0, len(chainsToTest))
 	for chainID, bcOutput := range chainsToTest {
-		lggr.Info().Msgf("Creating EVM LogTrigger workflow configuration for chain %s", chainID)
-		workflowConfig, msgEmitter := configureEVMLogTriggerWorkflow(t, lggr, bcOutput)
-
-		workflowName := fmt.Sprintf("evm-logTrigger-workflow-%s-%04d", chainID, rand.Intn(10000))
-		lggr.Info().Msgf("About to deploy Workflow %s on chain %s", workflowName, chainID)
-		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
-
-		message := "Data for log trigger chain " + chainID
-		// start background event emission every 10s while WatchWorkflowLogs is running, so that the workflow has events to pick up eventually
-		var emittedEventCount int64
-		ticker := time.NewTicker(10 * time.Second)
-
-		logstream, err := framework.StreamContainerLogs(framework.CTFContainersListOpts(), framework.CTFContainersLogsOpts())
-		require.NoError(t, err, "failed to stream container logs for Event ACK check")
-		ackFound, stopACKLogScans := verifyTriggerEventACKLogs(t.Context(), lggr, logstream)
-		defer stopACKLogScans()
-
-		// create a context that will be cancelled as soon as we either find the log we are looking for or timeout
-		emitCtx, emitCancelFn := context.WithCancel(t.Context())
-		go func() {
-			defer func() {
-				emitCancelFn()
-				ticker.Stop()
-			}()
-			for {
-				select {
-				case <-emitCtx.Done():
-					return
-				case <-ticker.C:
-					lggr.Info().Msgf("About to emit event #%d for chain %s", emittedEventCount, chainID)
-					blockNumber := emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
-					lggr.Info().Msgf("Event emitted for chain %s at blockNumber %d", chainID, blockNumber)
-					emittedEventCount++
-				}
-			}
-		}()
-		expectedUserLog := "OnTrigger decoded message: message:" + message
-
-		t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedUserLog, 4*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
-		emitCancelFn()
-		lggr.Info().Msgf("Found expected user log: '%s' on chain %s", expectedUserLog, chainID)
-
-		require.Eventually(t, func() bool {
-			return ackFound.Load()
-		}, 4*time.Minute, 500*time.Millisecond,
-			"expected BaseTrigger Event ACK log line in container logs (BaseTriggerCapability.AckEvent logs msg Event ACK)")
-		lggr.Info().Msg("found BaseTrigger Event ACK log")
-
-		lggr.Info().Msgf("🎉 LogTrigger Workflow %s executed successfully on chain %s", workflowName, chainID)
+		executeEVMLogTriggerTestForChain(t, lggr, testEnv, chainID, bcOutput, userLogsCh, baseMessageCh, workflowFileLocation)
 		successfulLogTriggerChains = append(successfulLogTriggerChains, chainID)
 	}
 
@@ -406,6 +358,68 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		successfulLogTriggerChains, keysFromMap(chainsToTest))
 
 	lggr.Info().Msgf("✅ LogTrigger test ran for chains: %v", successfulLogTriggerChains)
+}
+
+func executeEVMLogTriggerTestForChain(
+	t *testing.T,
+	lggr zerolog.Logger,
+	testEnv *ttypes.TestEnvironment,
+	chainID string,
+	bcOutput blockchains.Blockchain,
+	userLogsCh chan *workflowevents.UserLogs,
+	baseMessageCh chan *commonevents.BaseMessage,
+	workflowFileLocation string,
+) {
+	t.Helper()
+	lggr.Info().Msgf("Creating EVM LogTrigger workflow configuration for chain %s", chainID)
+	workflowConfig, msgEmitter := configureEVMLogTriggerWorkflow(t, lggr, bcOutput)
+
+	workflowName := fmt.Sprintf("evm-logTrigger-workflow-%s-%04d", chainID, rand.Intn(10000))
+	lggr.Info().Msgf("About to deploy Workflow %s on chain %s", workflowName, chainID)
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
+
+	message := "Data for log trigger chain " + chainID
+	// start background event emission every 10s while WatchWorkflowLogs is running, so that the workflow has events to pick up eventually
+	var emittedEventCount int64
+	ticker := time.NewTicker(10 * time.Second)
+
+	logstream, err := framework.StreamContainerLogs(framework.CTFContainersListOpts(), framework.CTFContainersLogsOpts())
+	require.NoError(t, err, "failed to stream container logs for Event ACK check")
+	ackFound, stopACKLogScans := verifyTriggerEventACKLogs(t.Context(), lggr, logstream)
+	defer stopACKLogScans()
+
+	// create a context that will be cancelled as soon as we either find the log we are looking for or timeout
+	emitCtx, emitCancelFn := context.WithCancel(t.Context())
+	go func() {
+		defer func() {
+			emitCancelFn()
+			ticker.Stop()
+		}()
+		for {
+			select {
+			case <-emitCtx.Done():
+				return
+			case <-ticker.C:
+				lggr.Info().Msgf("About to emit event #%d for chain %s", emittedEventCount, chainID)
+				blockNumber := emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
+				lggr.Info().Msgf("Event emitted for chain %s at blockNumber %d", chainID, blockNumber)
+				emittedEventCount++
+			}
+		}
+	}()
+	expectedUserLog := "OnTrigger decoded message: message:" + message
+
+	t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedUserLog, 4*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
+	emitCancelFn()
+	lggr.Info().Msgf("Found expected user log: '%s' on chain %s", expectedUserLog, chainID)
+
+	require.Eventually(t, func() bool {
+		return ackFound.Load()
+	}, 4*time.Minute, 500*time.Millisecond,
+		"expected BaseTrigger Event ACK log line in container logs (BaseTriggerCapability.AckEvent logs msg Event ACK)")
+	lggr.Info().Msg("found BaseTrigger Event ACK log")
+
+	lggr.Info().Msgf("🎉 LogTrigger Workflow %s executed successfully on chain %s", workflowName, chainID)
 }
 
 var triggerEventACKLogPattern = regexp.MustCompile(`Event ACK`)
