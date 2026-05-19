@@ -91,7 +91,7 @@ func runSolanaVerifyMCMS(e cldf.Environment,
 	}
 	e.Logger.Debugw("export-pda-tx cmdArgs", "cmdArgs", cmdArgs)
 	output, err := runCommand("solana-verify", cmdArgs, ".")
-	e.Logger.Infow("export-pda-tx output", "output", output)
+	e.Logger.Debugw("export-pda-tx output", "output", output)
 	if err != nil {
 		return fmt.Errorf("solana program verification failed: %s %w", output, err)
 	}
