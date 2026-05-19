@@ -357,7 +357,7 @@ func (m *donConnectionManager) readLoop(nodeAddress string, nodeState *nodeState
 			m.gMetrics.RecordNodeMsgHandlerInvocation(ctx, nodeAddress, nodeState.name, err == nil)
 			m.gMetrics.RecordNodeMsgHandlerDuration(ctx, nodeAddress, nodeState.name, time.Since(startTime), err == nil)
 			if err != nil {
-				m.lggr.Errorw("error when calling HandleNodeMessage", "err", err, "nodeAddress", nodeAddress, "nodeState", nodeState.name, "responseID", resp.ID)
+				m.lggr.Warnw("error when calling HandleNodeMessage", "err", err, "nodeAddress", nodeAddress, "nodeState", nodeState.name, "responseID", resp.ID)
 			}
 		}
 	}
