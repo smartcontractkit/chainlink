@@ -595,7 +595,7 @@ func readBody(reader io.Reader, lggr logger.Logger) string {
 
 	s, err := readSanitizedJSON(buf)
 	if err != nil {
-		lggr.Warn("unable to sanitize json for logging: ", err)
+		lggr.Debug("unable to sanitize json for logging: ", err)
 		return "*FAILED TO READ BODY*"
 	}
 	return s
