@@ -80,11 +80,7 @@ func proposeGatewayJob(b operations.Bundle, deps ProposeGatewayJobDeps, input Pr
 		}
 		gj = built
 	} else {
-		built, err := buildLegacyFormatJob(deps, input, requestTimeoutSec)
-		if err != nil {
-			return ProposeGatewayJobOutput{}, err
-		}
-		gj = built
+		return ProposeGatewayJobOutput{}, errors.New("ServiceCentricFormatEnabled has to be true - legacy format is no longer supported")
 	}
 
 	if err := gj.Validate(); err != nil {
@@ -187,32 +183,6 @@ func buildServiceCentricJob(deps ProposeGatewayJobDeps, input ProposeGatewayJobI
 		AllowedSchemes:              input.AllowedSchemes,
 		AllowedIPsCIDR:              input.AllowedIPsCIDR,
 		AuthGatewayID:               input.AuthGatewayID,
-	}, nil
-}
-
-func buildLegacyFormatJob(deps ProposeGatewayJobDeps, input ProposeGatewayJobInput, requestTimeoutSec int) (pkg.GatewayJob, error) {
-	targetDONs := make([]pkg.TargetDON, 0, len(input.DONs))
-	for _, ad := range input.DONs {
-		members, _, err := resolveDONMembers(deps, input, ad.Name)
-		if err != nil {
-			return pkg.GatewayJob{}, err
-		}
-		targetDONs = append(targetDONs, pkg.TargetDON{
-			ID:       ad.Name,
-			F:        int(ad.F),
-			Members:  members,
-			Handlers: ad.Handlers,
-		})
-	}
-
-	return pkg.GatewayJob{
-		JobName:           "CRE Gateway",
-		TargetDONs:        targetDONs,
-		RequestTimeoutSec: requestTimeoutSec,
-		AllowedPorts:      toIntSlice(input.AllowedPorts),
-		AllowedSchemes:    input.AllowedSchemes,
-		AllowedIPsCIDR:    input.AllowedIPsCIDR,
-		AuthGatewayID:     input.AuthGatewayID,
 	}, nil
 }
 
