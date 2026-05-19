@@ -10,11 +10,10 @@ import (
 
 	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_compatible_utils"
 	registrar21 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_registrar_wrapper2_1"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	cltypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
 )
 
 // AbigenLog is an interface for abigen generated log topics
@@ -60,10 +59,6 @@ type KeeperRegistrar interface {
 	Fund(ethAmount *big.Float) error
 
 	RegisterUpkeepFromKey(keyNum int, name string, email []byte, upkeepAddr string, gasLimit uint32, adminAddr string, checkData []byte, amount *big.Int, wethTokenAddr string, isLogTrigger bool, isMercury bool) (*types.Transaction, error)
-}
-
-type UpkeepTranscoder interface {
-	Address() string
 }
 
 type KeeperRegistry interface {
@@ -269,4 +264,3 @@ type UpkeepInfo struct {
 	Paused                 bool
 	OffchainConfig         []byte
 }
-

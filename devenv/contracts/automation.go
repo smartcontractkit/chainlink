@@ -87,27 +87,6 @@ func DeployUpkeepTranscoder(client *seth.Client) (*EthereumUpkeepTranscoder, err
 	}, nil
 }
 
-func LoadUpkeepTranscoder(client *seth.Client, address common.Address) (*EthereumUpkeepTranscoder, error) {
-	abi, err := upkeep_transcoder.UpkeepTranscoderMetaData.GetAbi()
-	if err != nil {
-		return &EthereumUpkeepTranscoder{}, fmt.Errorf("failed to get UpkeepTranscoder ABI: %w", err)
-	}
-
-	client.ContractStore.AddABI("UpkeepTranscoder", *abi)
-	client.ContractStore.AddBIN("UpkeepTranscoder", common.FromHex(upkeep_transcoder.UpkeepTranscoderMetaData.Bin))
-
-	transcoder, err := upkeep_transcoder.NewUpkeepTranscoder(address, MustNewWrappedContractBackend(nil, client))
-	if err != nil {
-		return &EthereumUpkeepTranscoder{}, fmt.Errorf("failed to instantiate UpkeepTranscoder instance: %w", err)
-	}
-
-	return &EthereumUpkeepTranscoder{
-		client:     client,
-		transcoder: transcoder,
-		address:    &address,
-	}, nil
-}
-
 // EthereumKeeperRegistry represents keeper registry contract
 type EthereumKeeperRegistry struct {
 	client      *seth.Client

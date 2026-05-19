@@ -71,7 +71,6 @@ type Test struct {
 	Config *automation.Automation
 
 	LinkToken   contracts.LinkToken
-	Transcoder  contracts.UpkeepTranscoder
 	LINKETHFeed contracts.MockLINKETHFeed
 	ETHUSDFeed  contracts.MockETHUSDFeed
 	LINKUSDFeed contracts.MockETHUSDFeed
@@ -136,16 +135,6 @@ func (a *Test) LoadLINK(address string) error {
 	}
 	a.LinkToken = linkToken
 	a.Logger.Info().Str("LINK Token Address", a.LinkToken.Address()).Msg("Successfully loaded LINK Token")
-	return nil
-}
-
-func (a *Test) LoadTranscoder(address string) error {
-	transcoder, err := contracts.LoadUpkeepTranscoder(a.ChainClient, common.HexToAddress(address))
-	if err != nil {
-		return err
-	}
-	a.Transcoder = transcoder
-	a.Logger.Info().Str("Transcoder Address", a.Transcoder.Address()).Msg("Successfully loaded Transcoder")
 	return nil
 }
 
@@ -412,10 +401,6 @@ func (a *Test) LoadContracts() error {
 
 	if err := a.LoadLinkUSDFeed(a.Config.DeployedContracts.LinkUSDFeed); err != nil {
 		return fmt.Errorf("error loading link usd feed contract: %w", err)
-	}
-
-	if err := a.LoadTranscoder(a.Config.DeployedContracts.Transcoder); err != nil {
-		return fmt.Errorf("error loading transcoder contract: %w", err)
 	}
 
 	if err := a.LoadRegistry(a.Config.DeployedContracts.Registry, a.Config.DeployedContracts.ChainModule); err != nil {
