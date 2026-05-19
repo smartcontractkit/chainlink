@@ -107,7 +107,7 @@ func (p *Plugin) Observation(ctx context.Context, _ ocr3types.OutcomeContext, _ 
 
 	allWorkflowIDs = append(allWorkflowIDs, pendingAllocs...)
 	allWorkflowIDs = uniqueSorted(allWorkflowIDs)
-	p.lggr.Infow("RingOCR Observation all workflow IDs unique", "allWorkflowIDs", allWorkflowIDs, "wantShards", wantShards)
+	p.lggr.Debugw("RingOCR Observation all workflow IDs unique", "allWorkflowIDs", allWorkflowIDs, "wantShards", wantShards)
 
 	observation := &ringpb.Observation{
 		ShardStatus: shardStatus,
