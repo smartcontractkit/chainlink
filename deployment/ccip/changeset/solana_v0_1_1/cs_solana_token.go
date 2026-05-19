@@ -333,7 +333,7 @@ func SetTokenAuthority(e cldf.Environment, cfg SetTokenAuthorityConfig) (cldf.Ch
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("error loading timelockSignerPDA: %w", err)
 	}
-	e.Logger.Infow("Fetched timelock signer PDA", "timelockSignerPDA", timelockSignerPDA.String())
+	e.Logger.Debugw("Fetched timelock signer PDA", "timelockSignerPDA", timelockSignerPDA.String())
 	mcmsTxs := []mcmsTypes.Transaction{}
 
 	for _, tokenAuthorityConfig := range cfg.TokenAuthorityConfigs {
