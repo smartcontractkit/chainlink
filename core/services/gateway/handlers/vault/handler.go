@@ -741,7 +741,7 @@ func (h *handler) handleSecretsDelete(ctx context.Context, ar *activeRequest) er
 	}
 	err = h.ValidateDeleteSecretsRequest(ctx, deleteSecretsRequest)
 	if err != nil {
-		l.Warnw("failed to validate delete secrets request", "error", err)
+		l.Debugw("failed to validate delete secrets request", "error", err)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate delete secrets request: %w", err), nil))
 	}
 
