@@ -207,7 +207,7 @@ func isOCR3ConfigSetOnOffRampSolana(
 			return false, nil
 		}
 		if existingState.ConfigInfo.F != newState.F {
-			e.Logger.Infof("OCR3 config F mismatch")
+			e.Logger.Debugf("OCR3 config F mismatch")
 			return false, nil
 		}
 		if existingState.ConfigInfo.IsSignatureVerificationEnabled != btoi(newState.IsSignatureVerificationEnabled) {
