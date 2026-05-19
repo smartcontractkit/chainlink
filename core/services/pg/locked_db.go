@@ -82,7 +82,7 @@ func (l *lockedDb) Open(ctx context.Context) (err error) {
 
 		// Step 3: acquire DB locks
 		lockingMode := l.lockCfg.LockingMode()
-		l.lggr.Debugf("Using database locking mode: %s", lockingMode)
+		l.lggr.Infof("Using database locking mode: %s", lockingMode)
 
 		// Take the lease before any other DB operations
 		switch lockingMode {
