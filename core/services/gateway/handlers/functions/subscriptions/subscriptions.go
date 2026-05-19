@@ -160,7 +160,7 @@ func (s *onchainSubscriptions) queryLoop() {
 		}
 
 		if lastKnownCount == 0 {
-			s.lggr.Info("Router has no subscriptions yet")
+			s.lggr.Debug("Router has no subscriptions yet")
 			return
 		}
 
