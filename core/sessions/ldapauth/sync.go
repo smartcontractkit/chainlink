@@ -120,7 +120,7 @@ func (l *LDAPServerStateSyncer) Work(ctx context.Context) {
 
 	conn, err := l.ldapClient.CreateEphemeralConnection()
 	if err != nil {
-		l.lggr.Error("Failed to Dial LDAP Server: ", err)
+		l.lggr.Warn("Failed to Dial LDAP Server: ", err)
 		return
 	}
 	// Root level root user auth with credentials provided from config
