@@ -383,7 +383,13 @@ func executeEVMLogTriggerTestForChain(
 	var emittedEventCount int64
 	ticker := time.NewTicker(10 * time.Second)
 
-	logstream, err := framework.StreamContainerLogs(framework.CTFContainersListOpts(), framework.CTFContainersLogsOpts())
+	// Follow=true is required so we see "Event ACK" lines that are logged AFTER we start streaming
+	// (they only happen after events are emitted further down). Tail="0" skips historical lines so
+	// we don't match ACKs from previous chain iterations or earlier workflow activity.
+	logsOpts := framework.CTFContainersLogsOpts()
+	logsOpts.Follow = true
+	logsOpts.Tail = "0"
+	logstream, err := framework.StreamContainerLogs(framework.CTFContainersListOpts(), logsOpts)
 	require.NoError(t, err, "failed to stream container logs for Event ACK check")
 	singleAckFound, stopACKLogScans := verifyTriggerEventACKLogs(t.Context(), lggr, logstream)
 	defer stopACKLogScans()
@@ -437,15 +443,22 @@ func verifyTriggerEventACKLogs(ctx context.Context, lggr zerolog.Logger, logStre
 
 	scanCtx, cancel := context.WithCancel(ctx)
 	var wg sync.WaitGroup
+	// Snapshot readers so cleanup can close them — closing the reader is what unblocks a goroutine
+	// stuck in scanner.Scan() on a Follow=true stream; context cancel alone is not enough.
+	readers := make([]io.ReadCloser, 0, len(logStreams))
 	for containerName, r := range logStreams {
+		wg.Add(1)
+		readers = append(readers, r)
 		go func(name string, reader io.ReadCloser) {
 			defer wg.Done()
-			defer func() { _ = reader.Close() }()
 			scanOneContainerForTriggerEventACK(scanCtx, cancel, lggr, name, reader, found)
 		}(containerName, r)
 	}
 	return found, func() {
 		cancel()
+		for _, r := range readers {
+			_ = r.Close()
+		}
 		wg.Wait()
 	}
 }
