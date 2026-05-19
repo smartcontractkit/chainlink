@@ -16,17 +16,17 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-data-streams/rpc"
 
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
 type mockCfg struct{}
 
-func (m mockCfg) Protocol() config.MercuryTransmitterProtocol {
-	return config.MercuryTransmitterProtocolGRPC
+func (m mockCfg) Protocol() mercury.MercuryTransmitterProtocol {
+	return mercury.MercuryTransmitterProtocolGRPC
 }
 
 func (m mockCfg) ReaperMaxAge() time.Duration {

@@ -21,6 +21,7 @@ import (
 	relaytypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	commonmercury "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	lloconfig "github.com/smartcontractkit/chainlink-data-streams/llo/config"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc"
@@ -31,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmmercury "github.com/smartcontractkit/chainlink-evm/pkg/mercury"
 
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/bm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
@@ -129,7 +129,7 @@ func NewLLOProvider(
 		for _, server := range mercuryServers {
 			var client rpc.Client
 			switch mercuryCfg.Transmitter().Protocol() {
-			case config.MercuryTransmitterProtocolGRPC:
+			case commonmercury.MercuryTransmitterProtocolGRPC:
 				client = rpc.NewClient(rpc.ClientOpts{
 					Logger: logger.Sugared(lggr).
 						Named(fmt.Sprintf("%q", server.URL)).
@@ -138,7 +138,7 @@ func NewLLOProvider(
 					ServerPubKey: ed25519.PublicKey(server.PubKey),
 					ServerURL:    server.URL,
 				})
-			case config.MercuryTransmitterProtocolWSRPC:
+			case commonmercury.MercuryTransmitterProtocolWSRPC:
 				wsrpcClient, checkoutErr := mercuryPool.Checkout(ctx, csaPub, csaSigner, server.PubKey, server.URL)
 				if checkoutErr != nil {
 					return nil, checkoutErr

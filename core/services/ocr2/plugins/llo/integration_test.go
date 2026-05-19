@@ -36,8 +36,10 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	commonmercury "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	lloevm "github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
@@ -60,8 +62,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -91,7 +91,7 @@ func setupBlockchain(t *testing.T, adders ...*bind.TransactOpts) (
 	*verifier_proxy.VerifierProxy,
 	common.Address,
 ) {
-	steve := evmtestutils.MustNewSimTransactor(t) // config contract deployer and owner
+	steve := evmtestutils.MustNewSimTransactor(t) // commonmercury contract deployer and owner
 	genesisData := gethtypes.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
 	for _, adder := range adders {
 		genesisData[adder.From] = gethtypes.Account{Balance: assets.Ether(1000).ToInt()}
@@ -294,7 +294,7 @@ func generateConfig(t *testing.T, opts ...OCRConfigOption) (signers []types.Onch
 	for _, opt := range opts {
 		opt(cfg)
 	}
-	t.Logf("Using OCR config: %+v\n", cfg)
+	t.Logf("Using OCR commonmercury: %+v\n", cfg)
 	var err error
 	signers, transmitters, f, outOnchainConfig, offchainConfigVersion, offchainConfig, err = ocr3confighelper.ContractSetConfigArgsForTests(
 		cfg.DeltaProgress,
@@ -335,7 +335,7 @@ func setLegacyConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backe
 	_, err = legacyVerifier.SetConfig(steve, donIDPadded, signerAddresses, offchainTransmitters, fNodes, onchainConfig, offchainConfigVersion, offchainConfig, nil)
 	require.NoError(t, err)
 
-	// libocr requires a few confirmations to accept the config
+	// libocr requires a few confirmations to accept the commonmercury
 	backend.Commit()
 	backend.Commit()
 	backend.Commit()
@@ -381,7 +381,7 @@ func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, ba
 	}
 	require.NoError(t, err)
 
-	// libocr requires a few confirmations to accept the config
+	// libocr requires a few confirmations to accept the commonmercury
 	backend.Commit()
 	backend.Commit()
 	backend.Commit()
@@ -408,7 +408,7 @@ func promoteStagingConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, 
 	_, err := configurator.PromoteStagingConfig(steve, donIDPadded, isGreenProduction)
 	require.NoError(t, err)
 
-	// libocr requires a few confirmations to accept the config
+	// libocr requires a few confirmations to accept the commonmercury
 	backend.Commit()
 	backend.Commit()
 	backend.Commit()
@@ -477,7 +477,7 @@ func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig datastreams
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(commonmercury.MercuryTransmitterProtocolGRPC)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -543,12 +543,12 @@ channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
 		addOCRJobsEVMPremiumLegacy(t, streams, serverPubKey, serverURL, legacyVerifierAddr, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, pluginConfig, relayType, relayConfig)
 
-		// Set config on configurator
+		// Set commonmercury on configurator
 		setLegacyConfig(
 			t, donID, steve, backend, legacyVerifier, legacyVerifierAddr, nodes, oracles, offchainConfig,
 		)
 
-		// Set config on the destination verifier
+		// Set commonmercury on the destination verifier
 		signerAddresses := make([]common.Address, len(oracles))
 		for i, oracle := range oracles {
 			signerAddresses[i] = common.BytesToAddress(oracle.OnchainPublicKey)
@@ -709,7 +709,7 @@ func testIntegrationLLOMultiFormats(t *testing.T, offchainConfig datastreamsllo.
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(commonmercury.MercuryTransmitterProtocolGRPC)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -1190,7 +1190,7 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 			)
 		}
 
-		// Set config on configurator
+		// Set commonmercury on configurator
 		digest := setProductionConfig(
 			t, donID, steve, backend, configurator, configuratorAddress, nodes, WithOracles(oracles), WithOffchainConfig(offchainConfig),
 		)
@@ -1226,7 +1226,7 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 				}
 
 				// Check the report context
-				assert.Equal(t, [32]byte(digest), reportCtx.([3][32]uint8)[0])                                                                      // config digest
+				assert.Equal(t, [32]byte(digest), reportCtx.([3][32]uint8)[0])                                                                      // commonmercury digest
 				assert.Equal(t, "000000000000000000000000000000000000000000000000000d8e0d00000001", fmt.Sprintf("%x", reportCtx.([3][32]uint8)[2])) // extra hash
 
 				reportElems := make(map[string]any)
@@ -1482,7 +1482,7 @@ func TestIntegration_LLO_stress_test_V1(t *testing.T) {
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(commonmercury.MercuryTransmitterProtocolGRPC)
 			c.Log.Level = new(logLevel)
 		})
 
@@ -1537,7 +1537,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			addMemoStreamSpecs(t, node, streams)
 		}
 
-		// Set config on configurator
+		// Set commonmercury on configurator
 		opts := make([]OCRConfigOption, 0, 1+len(ocrConfigOpts))
 		opts = append(opts, WithOracles(oracles))
 		opts = append(opts, ocrConfigOpts...)
@@ -1708,7 +1708,7 @@ func TestIntegration_LLO_transmit_errors(t *testing.T) {
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(commonmercury.MercuryTransmitterProtocolGRPC)
 			c.Mercury.Transmitter.TransmitQueueMaxSize = new(uint32(maxQueueSize)) // Test queue overflow
 			c.Log.Level = new(logLevel)
 		})
@@ -1753,7 +1753,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, serverPubKey
 		var blueDigest ocr2types.ConfigDigest
 
 		{
-			// Set config on configurator
+			// Set commonmercury on configurator
 			blueDigest = setProductionConfig(
 				t, donID, steve, backend, configurator, configuratorAddress, nodes, WithOracles(oracles), WithOffchainConfig(offchainConfig),
 			)
@@ -1862,7 +1862,7 @@ func testIntegrationLLOBlueGreenLifecycle(t *testing.T, offchainConfig datastrea
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(commonmercury.MercuryTransmitterProtocolGRPC)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -1906,7 +1906,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		allReports := make(map[types.ConfigDigest][]datastreamsllo.Report)
 		// start off with blue=production, green=staging (specimen reports)
 		{
-			// Set config on configurator
+			// Set commonmercury on configurator
 			blueDigest = setProductionConfig(
 				t, donID, steve, backend, configurator, configuratorAddress, nodes, WithOracles(oracles), WithOffchainConfig(offchainConfig),
 			)
@@ -2064,7 +2064,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				assert.Equal(t, greenDigest, r.ConfigDigest)
 			}
 		}
-		// setStagingConfig replaces 'retired' instance with new config and starts producing specimen reports again
+		// setStagingConfig replaces 'retired' instance with new commonmercury and starts producing specimen reports again
 		{
 			offchainConfig.ProtocolVersion = 1
 			offchainConfig.DefaultMinReportIntervalNanoseconds = 1
@@ -2222,7 +2222,7 @@ func TestIntegration_LLO_channel_merging_owners_adders(t *testing.T) {
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(commonmercury.MercuryTransmitterProtocolGRPC)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -2273,7 +2273,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			)
 		}
 
-		// Set initial OCR config
+		// Set initial OCR commonmercury
 		digest := setProductionConfig(
 			t, donID, steve, backend, configurator, configuratorAddress, nodes, WithOracles(oracles), WithOffchainConfig(offchainConfig),
 		)
@@ -2729,7 +2729,7 @@ func TestIntegration_LLO_tombstone_stops_observations_and_reports(t *testing.T) 
 	serverURL := startMercuryServer(t, srv, clientPubKeys)
 
 	oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-		c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+		c.Mercury.Transmitter.Protocol = new(commonmercury.MercuryTransmitterProtocolGRPC)
 	})
 
 	chainID := testutils.SimulatedChainID

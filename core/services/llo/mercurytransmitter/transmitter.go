@@ -22,9 +22,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	"github.com/smartcontractkit/chainlink-data-streams/rpc"
-
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 const (
@@ -103,7 +102,7 @@ type Transmitter interface {
 var _ Transmitter = (*transmitter)(nil)
 
 type Config interface {
-	Protocol() config.MercuryTransmitterProtocol
+	Protocol() mercury.MercuryTransmitterProtocol
 	ReaperMaxAge() time.Duration
 	TransmitConcurrency() uint32
 	TransmitQueueMaxSize() uint32
