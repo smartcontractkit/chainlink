@@ -253,7 +253,7 @@ func setTokenTransferFeeConfigLogic(env cldf.Environment, cfg SetTokenTransferFe
 					newConfig.AggregateRateLimitEnabled != curConfig.AggregateRateLimitEnabled
 
 				// Only perform an update if the new config is different from the on-chain config
-				env.Logger.Infof("constructed token transfer fee config (src = %s, dst = %s, token = %s, new_cfg = %+v)", srcChain.String(), dstChain.String(), tokenAddress.Hex(), newConfig)
+				env.Logger.Debugf("constructed token transfer fee config (src = %s, dst = %s, token = %s, new_cfg = %+v)", srcChain.String(), dstChain.String(), tokenAddress.Hex(), newConfig)
 				if isDifferent {
 					tokenTransferFeeConfigArgs = append(tokenTransferFeeConfigArgs, newConfig)
 				} else {
