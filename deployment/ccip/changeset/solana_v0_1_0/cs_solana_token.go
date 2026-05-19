@@ -421,7 +421,7 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 		if metadata.MetadataJSONPath == "" && metadata.UpdateURI != "" {
 			e.Logger.Infow("Updating token metadata uri", "tokenPubkey", metadata.TokenPubkey.String())
 			args := []string{"update", "uri", "--account", metadata.TokenPubkey.String(), "--new-uri", metadata.UpdateURI}
-			e.Logger.Info(args)
+			e.Logger.Debug(args)
 			output, err := runCommand("metaboss", args, chain.ProgramsPath)
 			e.Logger.Debugw("metaboss output", "output", output)
 			if err != nil {
