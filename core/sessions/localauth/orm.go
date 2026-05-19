@@ -182,7 +182,7 @@ func (o *orm) CreateSession(ctx context.Context, sr sessions.SessionRequest) (st
 	// if not, return a 401 error for the frontend to prompt the user to provide this
 	// data in the next round trip request (tap key to include webauthn data on the login page)
 	if sr.WebAuthnData == "" {
-		lggr.Warnf("Attempted login to MFA user. Generating challenge for user.")
+		lggr.Debugf("Attempted login to MFA user. Generating challenge for user.")
 		options, webauthnError := sessions.BeginWebAuthnLogin(user, uwas, sr)
 		if webauthnError != nil {
 			lggr.Errorf("Could not begin WebAuthn verification: %v", webauthnError)
