@@ -1714,7 +1714,7 @@ func isOCR3ConfigSetOnOffRamp(
 			return false, nil
 		}
 		if mapOfframpOCR3Configs[pluginType].F != ocrConfig.ConfigInfo.F {
-			lggr.Infow("OCR3 config F mismatch", "pluginType", pluginType.String())
+			lggr.Debugw("OCR3 config F mismatch", "pluginType", pluginType.String())
 			return false, nil
 		}
 		if mapOfframpOCR3Configs[pluginType].IsSignatureVerificationEnabled != ocrConfig.ConfigInfo.IsSignatureVerificationEnabled {
