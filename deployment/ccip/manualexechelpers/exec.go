@@ -426,7 +426,7 @@ func manuallyExecuteSingle(
 		}
 	} else {
 		latestBlockNumber := messageSentCache.GetLatestBlockNumber()
-		lggr.Infow("not found in cache, fetching from the chain", "msgSeqNr", msgSeqNr, "latestBlockNumber", latestBlockNumber)
+		lggr.Debugw("not found in cache, fetching from the chain", "msgSeqNr", msgSeqNr, "latestBlockNumber", latestBlockNumber)
 		var err error
 		var blockNumbers []uint64
 		ccipMessageSentEvents, blockNumbers, err = getCCIPMessageSentEvents(
