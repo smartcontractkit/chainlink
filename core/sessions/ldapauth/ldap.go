@@ -143,7 +143,7 @@ func (l *ldapAuthenticator) FindUser(ctx context.Context, email string) (session
 
 	conn, err := l.ldapClient.CreateEphemeralConnection()
 	if err != nil {
-		l.lggr.Errorf("error in LDAP dial: %v", err)
+		l.lggr.Warnf("error in LDAP dial: %v", err)
 		return sessions.User{}, errors.New("unable to establish connection to LDAP server with provided URL and credentials")
 	}
 	defer conn.Close()
