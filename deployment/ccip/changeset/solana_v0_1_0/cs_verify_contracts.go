@@ -383,7 +383,7 @@ func VerifyBuild(e cldf.Environment, cfg VerifyBuildConfig) (cldf.ChangesetOutpu
 			continue
 		}
 
-		e.Logger.Debugw("Verifying program", "name", v.name, "programID", v.programID, "programLib", v.programLib)
+		e.Logger.Infow("Verifying program", "name", v.name, "programID", v.programID, "programLib", v.programLib)
 		err := runSolanaVerify(
 			e,
 			cfg,
