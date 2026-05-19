@@ -968,7 +968,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.NonceManager[c.NonceManager.Address().Hex()] = nmView
-			lggr.Infow("generated nonce manager view", "nonceManager", c.NonceManager.Address().Hex(), "chain", chain)
+			lggr.Debugw("generated nonce manager view", "nonceManager", c.NonceManager.Address().Hex(), "chain", chain)
 			return nil
 		}
 	}
