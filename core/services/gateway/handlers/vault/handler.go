@@ -702,7 +702,7 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar *activeRequest) er
 	}
 	vaultCapErr := h.ValidateUpdateSecretsRequest(ctx, cachedPublicKey, validationRequest, skipLabelValidation)
 	if vaultCapErr != nil {
-		l.Warnw("failed to validate update secrets request", "error", vaultCapErr)
+		l.Debugw("failed to validate update secrets request", "error", vaultCapErr)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate update secrets request: %w", vaultCapErr), nil))
 	}
 
