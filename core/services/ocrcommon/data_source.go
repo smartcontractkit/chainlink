@@ -155,7 +155,7 @@ func setEATelemetry(ds *inMemoryDataSource, finalResult pipeline.FinalResult, tr
 			RepTimestamp:   timestamp,
 		})
 	} else {
-		ds.lggr.Infow("Enhanced telemetry is disabled for job", "job", ds.jb.Name)
+		ds.lggr.Debugw("Enhanced telemetry is disabled for job", "job", ds.jb.Name)
 	}
 }
 
