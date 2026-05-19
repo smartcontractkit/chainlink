@@ -217,7 +217,7 @@ func isOCR3ConfigSetOnOffRampSolana(
 	for _, newState := range args {
 		existingState := configAccount.Ocr3[newState.OCRPluginType]
 		if existingState.ConfigInfo.ConfigDigest != newState.ConfigDigest {
-			e.Logger.Infof("OCR3 config digest mismatch")
+			e.Logger.Debugf("OCR3 config digest mismatch")
 			return false, nil
 		}
 		if existingState.ConfigInfo.F != newState.F {
