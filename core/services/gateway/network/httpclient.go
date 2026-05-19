@@ -313,7 +313,7 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 			c.lggr.Warnw("HTTP request blocked", "err", err)
 			return nil, fmt.Errorf("%w: %w", ErrBlockedRequest, err)
 		}
-		c.lggr.Errorw("failed to send HTTP request", "err", err)
+		c.lggr.Debugw("failed to send HTTP request", "err", err)
 		return nil, errors.Join(err, ErrHTTPSend)
 	}
 	defer resp.Body.Close()
