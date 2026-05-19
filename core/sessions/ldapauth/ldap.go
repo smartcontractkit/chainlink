@@ -406,7 +406,7 @@ func (l *ldapAuthenticator) CreateSession(ctx context.Context, sr sessions.Sessi
 	escapedEmail := ldap.EscapeFilter(strings.ToLower(sr.Email))
 	searchBaseDN := fmt.Sprintf("%s=%s,%s,%s", l.config.BaseUserAttr(), escapedEmail, l.config.UsersDN(), l.config.BaseDN())
 	if err = conn.Bind(searchBaseDN, sr.Password); err != nil {
-		l.lggr.Infof("Error binding user authentication request in LDAP Bind: %v", err)
+		l.lggr.Debugf("Error binding user authentication request in LDAP Bind: %v", err)
 		returnErr = errors.New("unable to log in with LDAP server. Check credentials")
 	}
 
