@@ -114,7 +114,7 @@ func NewChipIngressAgentMultitype(
 func (a *ChipIngressAgent) SendLog(log []byte) {
 	if a.TelemType == "" {
 		// Multitype agent - SendLog should not be called, use SendTypedLog instead
-		a.lggr.Warnw("SendLog called on multitype agent, use SendTypedLog instead")
+		a.lggr.Errorw("SendLog called on multitype agent, use SendTypedLog instead")
 		return
 	}
 	ctx := context.Background()
