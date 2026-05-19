@@ -431,7 +431,7 @@ func DeployReceiverForTest(e cldf.Environment, cfg DeployForTestConfig) (cldf.Ch
 	}
 
 	if cfg.BuildConfig != nil {
-		e.Logger.Debugw("Building solana artifacts", "gitCommitSha", cfg.BuildConfig.GitCommitSha)
+		e.Logger.Infow("Building solana artifacts", "gitCommitSha", cfg.BuildConfig.GitCommitSha)
 		err := BuildSolana(e, *cfg.BuildConfig)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build solana: %w", err)
