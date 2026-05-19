@@ -200,7 +200,7 @@ func (tc *telemetryIngressBatchClient) close() (err error) {
 // and a warning is logged.
 func (tc *telemetryIngressBatchClient) Send(ctx context.Context, telemData []byte, contractID string, telemType TelemetryType) {
 	if tc.useUniConn && !tc.connected.Load() {
-		tc.eng.Warnw("not connected to telemetry endpoint", "endpoint", tc.url.String())
+		tc.eng.Debugw("not connected to telemetry endpoint", "endpoint", tc.url.String())
 		return
 	}
 	payload := TelemPayload{
