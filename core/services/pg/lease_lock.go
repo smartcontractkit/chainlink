@@ -86,7 +86,7 @@ func NewLeaseLock(db *sqlx.DB, appID uuid.UUID, lggr logger.Logger, cfg LeaseLoc
 // Release() function must be used to release the acquired lock.
 // NOT THREAD SAFE
 func (l *leaseLock) TakeAndHold(ctx context.Context) (err error) {
-	l.logger.Debug("Taking initial lease...")
+	l.logger.Info("Taking initial lease...")
 	retryCount := 0
 	isInitial := true
 
