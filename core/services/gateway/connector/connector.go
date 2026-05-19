@@ -259,7 +259,7 @@ func (c *gatewayConnector) reconnectLoop(gatewayState *gatewayState) {
 	for {
 		conn, err := gatewayState.wsClient.Connect(ctx, gatewayState.url)
 		if err != nil {
-			c.lggr.Errorw("connection error", "url", gatewayState.url, "err", err)
+			c.lggr.Warnw("connection error", "url", gatewayState.url, "err", err)
 		} else {
 			c.lggr.Infow("connected successfully", "url", gatewayState.url)
 			closeCh := gatewayState.conn.Reset(conn)
