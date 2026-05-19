@@ -86,7 +86,7 @@ func (h *WorkflowMetadataHandler) Authorize(workflowID string, token string, req
 
 	keys, exists := h.authorizedKeys[workflowID]
 	if !exists {
-		h.lggr.Errorw("Workflow ID not found in authorized keys", "workflowID", workflowID)
+		h.lggr.Warnw("Workflow ID not found in authorized keys", "workflowID", workflowID)
 		return nil, fmt.Errorf("workflow ID %s not found", workflowID)
 	}
 	key := gateway.AuthorizedKey{
