@@ -914,7 +914,7 @@ func createMultisig(e cldf.Environment, chainSelector uint64, tokenPoolSignerPDA
 	}
 	multisigAddress, err := parseMultisigAddress(output)
 	if err != nil {
-		e.Logger.Debugw("spl-token create-multisig error", "error", err)
+		e.Logger.Errorw("spl-token create-multisig error", "error", err)
 	}
 	e.Logger.Infow("Created Token Multisig ", "tokenProgramId", tokenProgramID)
 	return solana.MustPublicKeyFromBase58(multisigAddress), nil
