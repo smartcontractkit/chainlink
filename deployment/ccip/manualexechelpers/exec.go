@@ -477,7 +477,7 @@ func manuallyExecuteSingle(
 		return fmt.Errorf("failed to get merkle proof: %w", err)
 	}
 
-	lggr.Infow("got hashes and flags", "hashes", hashes, "flags", flags)
+	lggr.Debugw("got hashes and flags", "hashes", hashes, "flags", flags)
 
 	// since we're only executing one message, we need to only include that message
 	// in the report.
