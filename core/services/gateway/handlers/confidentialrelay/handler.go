@@ -279,7 +279,7 @@ func (h *handler) newActiveRequest(req jsonrpc.Request[json.RawMessage], callbac
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.activeRequests[req.ID] != nil {
-		h.lggr.Errorw("request id already exists", "requestID", req.ID)
+		h.lggr.Warnw("request id already exists", "requestID", req.ID)
 		return nil, errors.New("request ID already exists: " + req.ID)
 	}
 	ar := &activeRequest{
