@@ -76,7 +76,7 @@ func (o *orchestrator) runGRPCServer(ctx context.Context) {
 	var lc net.ListenConfig
 	lis, err := lc.Listen(ctx, "tcp", o.grpcAddr)
 	if err != nil {
-		o.lggr.Errorw("Failed to listen for gRPC", "addr", o.grpcAddr, "error", err)
+		o.lggr.Criticalw("Failed to listen for gRPC", "addr", o.grpcAddr, "error", err)
 		return
 	}
 
