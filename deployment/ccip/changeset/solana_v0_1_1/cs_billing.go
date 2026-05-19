@@ -766,7 +766,7 @@ type OptionalFeeQuoterTokenTransferFeeConfig struct {
 }
 
 func (cfg TokenTransferFeeForRemoteChainConfigV2) buildOrchestrateChangesetsConfig(env cldf.Environment) (ccipcommoncs.OrchestrateChangesetsConfig, error) {
-	env.Logger.Info("building orchestrate changesets config")
+	env.Logger.Debug("building orchestrate changesets config")
 	if cfg.MCMS == nil {
 		return ccipcommoncs.OrchestrateChangesetsConfig{}, errors.New("MCMS config is required")
 	}
