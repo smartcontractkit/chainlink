@@ -205,7 +205,7 @@ func setTokenTransferFeeConfigLogic(env cldf.Environment, cfg SetTokenTransferFe
 				return cldf.ChangesetOutput{}, fmt.Errorf("no EVM2EVMOnRamp (src = %s, dst = %s)", srcChain.String(), dstChain.String())
 			}
 
-			env.Logger.Infof("found OnRamp on source chain (src = %s, dst = %s, onramp = %s)",
+			env.Logger.Debugf("found OnRamp on source chain (src = %s, dst = %s, onramp = %s)",
 				srcChain.String(),
 				dstChain.String(),
 				onramp.Address().Hex(),
