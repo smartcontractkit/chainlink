@@ -865,7 +865,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), v1_5_1.PoolView{
 					TokenPoolView: tokenPoolView,
 				})
-				lggr.Infow("generated burn mint token pool view", "tokenPool", tokenPool.Address().Hex(), "chain", chain)
+				lggr.Debugw("generated burn mint token pool view", "tokenPool", tokenPool.Address().Hex(), "chain", chain)
 				return nil
 			}
 		}
