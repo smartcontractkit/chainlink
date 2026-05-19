@@ -361,7 +361,7 @@ func (ekc *ETHKeysController) getEthBalance(ctx context.Context, state ethkey.St
 	ethClient := chain.Client()
 	bal, err := ethClient.BalanceAt(ctx, state.Address.Address(), nil)
 	if err != nil {
-		ekc.lggr.Errorw("Failed to get ETH balance", "chainID", chainID, "address", state.Address, "err", err)
+		ekc.lggr.Warnw("Failed to get ETH balance", "chainID", chainID, "address", state.Address, "err", err)
 		return nil
 	}
 
