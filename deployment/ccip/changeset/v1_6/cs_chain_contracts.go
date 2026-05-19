@@ -1732,7 +1732,7 @@ func isOCR3ConfigSetOnOffRamp(
 		}
 		for i, transmitter := range mapOfframpOCR3Configs[pluginType].Transmitters {
 			if !bytes.Equal(transmitter.Bytes(), ocrConfig.Transmitters[i].Bytes()) {
-				lggr.Infow("OCR3 config transmitter mismatch", "pluginType", pluginType.String())
+				lggr.Debugw("OCR3 config transmitter mismatch", "pluginType", pluginType.String())
 				return false, nil
 			}
 		}
