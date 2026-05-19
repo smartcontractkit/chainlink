@@ -290,7 +290,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chain
 		chainView.UpdateMu.Lock()
 		chainView.Router[s.CCIPAddress.StringLong()] = routerView
 		chainView.UpdateMu.Unlock()
-		lggr.Infow("generated router view", "routerAddress", s.CCIPAddress.StringLong(), "chain", chainName)
+		lggr.Debugw("generated router view", "routerAddress", s.CCIPAddress.StringLong(), "chain", chainName)
 		return nil
 	})
 
