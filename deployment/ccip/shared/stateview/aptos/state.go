@@ -278,7 +278,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chain
 		chainView.UpdateMu.Lock()
 		chainView.CCIP = ccipView
 		chainView.UpdateMu.Unlock()
-		lggr.Infow("generated CCIP view", "CCIPAddress", s.CCIPAddress.StringLong(), "chain", chainName)
+		lggr.Debugw("generated CCIP view", "CCIPAddress", s.CCIPAddress.StringLong(), "chain", chainName)
 		return nil
 	})
 
