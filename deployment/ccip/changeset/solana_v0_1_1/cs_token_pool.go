@@ -1314,7 +1314,7 @@ func getNewSetupInstructionsForBurnMint(
 	rateLimiterConfig RateLimiterConfig,
 	onChainEVMPoolConfig solBaseTokenPool.RemoteConfig,
 ) ([]solana.Instruction, error) {
-	e.Logger.Infow("getNewSetupInstructionsForBurnMint", "remote_chain_selector", evmChainSelector, "token_pubkey", cfg.SolTokenPubKey.String(), "pool_type", cfg.SolPoolType)
+	e.Logger.Debugw("getNewSetupInstructionsForBurnMint", "remote_chain_selector", evmChainSelector, "token_pubkey", cfg.SolTokenPubKey.String(), "pool_type", cfg.SolPoolType)
 	tokenPool := chainState.GetActiveTokenPool(cfg.SolPoolType, cfg.Metadata)
 	tokenPubKey := cfg.SolTokenPubKey
 	poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(tokenPubKey, tokenPool, evmChainSelector)
