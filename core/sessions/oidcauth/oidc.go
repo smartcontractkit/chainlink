@@ -460,7 +460,7 @@ func (oi *oidcAuthenticator) SetPassword(ctx context.Context, user *clsessions.U
 	// Ensure specified user is part of the local admins user table
 	var localAdminUser clsessions.User
 	if err := oi.ds.GetContext(ctx, &localAdminUser, SQLSelectUserbyEmail, user.Email); err != nil {
-		oi.lggr.Infof("Can not change password, local user with email not found in users table: %s, err: %v", user.Email, err)
+		oi.lggr.Debugf("Can not change password, local user with email not found in users table: %s, err: %v", user.Email, err)
 		return clsessions.ErrNotSupported
 	}
 
