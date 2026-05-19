@@ -313,7 +313,7 @@ func (h *handler) Start(_ context.Context) error {
 
 func (h *handler) Close() error {
 	return h.StopOnce("VaultHandler", func() error {
-		h.lggr.Debug("closing vault handler")
+		h.lggr.Info("closing vault handler")
 		close(h.stopCh)
 		var jwtAuthErr error
 		if h.jwtAuth != nil {
