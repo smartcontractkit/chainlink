@@ -200,7 +200,7 @@ func (p *peer) recvLoopSingle(pid ragetypes.PeerID, ch <-chan []byte) {
 			return
 		case msg, ok := <-ch:
 			if !ok {
-				p.lggr.Infow("channel closed - exiting recvLoopSingle", "peerID", pid)
+				p.lggr.Debugw("channel closed - exiting recvLoopSingle", "peerID", pid)
 				return
 			}
 			p.recvCh <- p2ptypes.Message{Sender: pid, Payload: msg}
