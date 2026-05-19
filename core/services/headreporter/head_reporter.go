@@ -94,7 +94,7 @@ func (hrd *HeadReporterService) eventLoop() {
 			for _, reporter := range hrd.reporters {
 				err := reporter.ReportNewHead(ctx, head)
 				if err != nil && ctx.Err() == nil {
-					hrd.lggr.Errorw("Error reporting new head", "err", err)
+					hrd.lggr.Warnw("Error reporting new head", "err", err)
 				}
 			}
 		case <-after:
