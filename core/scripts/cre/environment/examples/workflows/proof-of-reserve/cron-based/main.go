@@ -189,7 +189,7 @@ func readBalancesFromContract(addresses []common.Address, readBalancesABI *abi.A
 		runtime.Logger().Error(fmt.Sprintf("[logger] failed to get balances %v: %v", addresses, err))
 		return nil, fmt.Errorf("failed to get balances for addresses %v: %w", addresses, err)
 	}
-	runtime.Logger().With().Info(fmt.Sprintf("Got raw CallContract output: %s", hex.EncodeToString(readBalancesOutput.Data)))
+	runtime.Logger().With().Debug(fmt.Sprintf("Got raw CallContract output: %s", hex.EncodeToString(readBalancesOutput.Data)))
 	return readBalancesOutput, nil
 }
 
