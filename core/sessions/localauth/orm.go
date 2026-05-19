@@ -210,7 +210,7 @@ func (o *orm) CreateSession(ctx context.Context, sr sessions.SessionRequest) (st
 		return "", pkgerrors.New("MFA Error")
 	}
 
-	lggr.Infof("User passed MFA authentication and login will proceed")
+	lggr.Debugf("User passed MFA authentication and login will proceed")
 	// This is a success so we can create the sessions
 	session := sessions.NewSession()
 	_, err = o.ds.ExecContext(ctx, "INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, user.Email)
