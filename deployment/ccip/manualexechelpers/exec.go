@@ -332,7 +332,7 @@ func manuallyExecuteSingle(
 		return nil
 	}
 
-	lggr.Infow("contract addresses",
+	lggr.Debugw("contract addresses",
 		"offRampAddress", state.Chains[destChainSel].OffRamp.Address(),
 		"onRampAddress", onRampAddress,
 		"execState", execState,
