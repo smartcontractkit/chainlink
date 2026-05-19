@@ -89,7 +89,7 @@ func (s *Service) pollAllBridges(ctx context.Context) {
 	for {
 		bridgeList, _, err := s.bridgeORM.BridgeTypes(ctx, offset, bridgePollPageSize)
 		if err != nil {
-			s.eng.Debugw("Failed to fetch bridges", "error", err, "offset", offset)
+			s.eng.Warnw("Failed to fetch bridges", "error", err, "offset", offset)
 			return
 		}
 
