@@ -77,7 +77,7 @@ func (c *webSocketClient) Connect(ctx context.Context, url *url.URL) (*websocket
 	}
 
 	if err = conn.WriteMessage(websocket.BinaryMessage, response); err != nil {
-		c.lggr.Errorw("WebSocketClient: couldn't send challenge response", "err", err)
+		c.lggr.Debugw("WebSocketClient: couldn't send challenge response", "err", err)
 		c.tryCloseConn(conn)
 		return nil, err
 	}
