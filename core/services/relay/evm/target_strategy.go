@@ -135,7 +135,7 @@ func (t *evmTargetStrategy) QueryTransmissionState(ctx context.Context, reportID
 			Err:         nil,
 		}, nil
 	case TransmissionStateSucceeded:
-		t.lggr.Infow("returning without a transmission attempt - report already onchain ", "executionID", request.Metadata.WorkflowExecutionID)
+		t.lggr.Debugw("returning without a transmission attempt - report already onchain ", "executionID", request.Metadata.WorkflowExecutionID)
 		return &writetarget.TransmissionState{
 			Status:      writetarget.TransmissionStateSucceeded,
 			Transmitter: transmissionInfo.Transmitter.String(),
