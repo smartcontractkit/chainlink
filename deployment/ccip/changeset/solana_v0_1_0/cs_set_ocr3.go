@@ -225,7 +225,7 @@ func isOCR3ConfigSetOnOffRampSolana(
 			return false, nil
 		}
 		if existingState.ConfigInfo.IsSignatureVerificationEnabled != btoi(newState.IsSignatureVerificationEnabled) {
-			e.Logger.Infof("OCR3 config signature verification mismatch")
+			e.Logger.Debugf("OCR3 config signature verification mismatch")
 			return false, nil
 		}
 		if newState.OCRPluginType == OcrCommitPlugin {
