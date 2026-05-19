@@ -1725,7 +1725,7 @@ func isOCR3ConfigSetOnOffRamp(
 			// only commit will set signers, exec doesn't need them.
 			for i, signer := range mapOfframpOCR3Configs[pluginType].Signers {
 				if !bytes.Equal(signer.Bytes(), ocrConfig.Signers[i].Bytes()) {
-					lggr.Infow("OCR3 config signer mismatch", "pluginType", pluginType.String())
+					lggr.Debugw("OCR3 config signer mismatch", "pluginType", pluginType.String())
 					return false, nil
 				}
 			}
