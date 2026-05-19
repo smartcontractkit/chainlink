@@ -154,7 +154,7 @@ func (t *evmTargetStrategy) QueryTransmissionState(ctx context.Context, reportID
 			receiverGasMinimum = *r.Config.GasLimit - ForwarderContractLogicGasCost
 		}
 		if transmissionInfo.GasLimit.Uint64() > receiverGasMinimum {
-			t.lggr.Infow("returning without a transmission attempt - transmission already attempted and failed, sufficient gas was provided", "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
+			t.lggr.Warnw("returning without a transmission attempt - transmission already attempted and failed, sufficient gas was provided", "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
 			return &writetarget.TransmissionState{
 				Status:      writetarget.TransmissionStateFatal,
 				Transmitter: transmissionInfo.Transmitter.String(),
