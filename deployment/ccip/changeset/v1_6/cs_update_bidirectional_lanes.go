@@ -447,7 +447,7 @@ func FilterOutExistingDestChainConfigs[T destChainConfigType](
 				chainSel, destSel, err)
 		}
 		if enabled {
-			e.Logger.Infow("skipping dest chain config already present on FeeQuoter",
+			e.Logger.Debugw("skipping dest chain config already present on FeeQuoter",
 				"sourceChain", chainSel,
 				"destChain", destSel,
 			)
