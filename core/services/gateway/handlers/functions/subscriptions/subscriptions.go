@@ -152,7 +152,7 @@ func (s *onchainSubscriptions) queryLoop() {
 		if lastKnownCount == 0 || start > lastKnownCount {
 			count, err := s.getSubscriptionsCount(ctx, blockNumber)
 			if err != nil {
-				s.lggr.Errorw("Error getting new subscriptions count", "err", err)
+				s.lggr.Warnw("Error getting new subscriptions count", "err", err)
 			} else {
 				s.lggr.Infow("Updated subscriptions count", "count", count, "blockNumber", blockNumber.Int64())
 				lastKnownCount = count
