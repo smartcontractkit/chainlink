@@ -51,9 +51,9 @@
       user_config_overrides = """
 [Capabilities.WorkflowRegistry.ModuleCache]
 Enabled = true
-MaxLoaded = 1
+MaxLoaded = 20
 IdleEviction = true
-IdleTimeout = '30s'
+IdleTimeout = '45s'
 """
 
 [[nodesets]]

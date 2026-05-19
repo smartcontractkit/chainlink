@@ -105,6 +105,7 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 		query    string
 		filename string
 		metric   string
+		step     time.Duration // interval between query points
 	}
 
 	metrics := []metric{
@@ -112,16 +113,37 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 			metric:   "platform_workflow_module_cache_eviction_total",
 			query:    "increase(platform_workflow_module_cache_eviction_total{node_don=\"%s\", node_index=\"%d\"}[1m])",
 			filename: "metrics/cache_eviction_increase.json",
+			step:     1 * time.Minute,
 		},
 		{
 			metric:   "platform_workflow_module_cache_reload_total",
 			query:    "sum by (source) (increase(platform_workflow_module_cache_reload_total{node_don=\"%s\", node_index=\"%d\"}[1m]))",
 			filename: "metrics/cache_reload_increase.json",
+			step:     1 * time.Minute,
 		},
 		{
 			metric:   "platform_workflow_module_cache_memory_saved_bytes",
 			query:    "increase(platform_workflow_module_cache_memory_saved_bytes{node_don=\"%s\", node_index=\"%d\"}[1m])",
 			filename: "metrics/cache_memory_saved_bytes.json",
+			step:     1 * time.Minute,
+		},
+		// average memory usage of the container over the last 10 minutes, unit:MBs
+		// queried every 5 minutes
+		// name is the Docker container name, this metric is gathered by cAdvisor
+		{
+			metric:   "container_memory_rss",
+			query:    "avg_over_time(container_memory_rss{name=\"%s-node%d\"}[10m]) / 1024 / 1024",
+			filename: "metrics/container_memory_rss.json",
+			step:     5 * time.Minute,
+		},
+		// average CPU usage of the container over the last 10 minutes, unit:%
+		// queried every 5 minutes
+		// name is the Docker container name, this metric is gathered by cAdvisor
+		{
+			metric:   "container_cpu_usage_seconds_total",
+			query:    "sum(rate(container_cpu_usage_seconds_total{name=\"%s-node%d\"}[10m])) * 100",
+			filename: "metrics/container_cpu_usage_seconds_total.json",
+			step:     5 * time.Minute,
 		},
 	}
 
@@ -134,7 +156,7 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 					Query: query,
 					Start: startTime,
 					End:   endTime,
-					Step:  1 * time.Minute,
+					Step:  metric.step,
 				})
 				require.NoError(t, err, "failed to query Prometheus metrics, query:", query)
 				results = append(results, wrappedQueryRangeResponse{

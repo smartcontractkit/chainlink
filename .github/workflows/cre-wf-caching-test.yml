@@ -42,7 +42,7 @@ jobs:
       - name: Enable S3 Cache for Self-Hosted Runners
         uses: runs-on/action@742bf56072eb4845a0f94b3394673e4903c90ff0 # v2.1.0
         with:
-          metrics: cpu,network,memory,disk
+          metrics: cpu,network,memory,disk,io
 
       - name: Checkout
         uses: actions/checkout@v6
@@ -108,7 +108,7 @@ jobs:
           chainlink-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
             secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name ||
             'chainlink' }}:${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || 'nightly-20260519-plugins' }}"
-          ctf-configs: configs/workflow-gateway-don-cache-test.toml
+          ctf-configs: configs/workflow-gateway-don-cache-soak-test.toml
           chip-router-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER
             }}.dkr.ecr.${{secrets.QA_AWS_REGION
             }}.amazonaws.com/local-cre-chip-router:v1.0.1"
