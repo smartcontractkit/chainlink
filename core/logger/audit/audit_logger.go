@@ -149,7 +149,7 @@ func (l *AuditLoggerService) Close() error {
 		return errors.New("The audit logger is not enabled")
 	}
 
-	l.logger.Warnf("Disabled the audit logger service")
+	l.logger.Infof("Disabled the audit logger service")
 	close(l.chStop)
 	<-l.chDone
 
