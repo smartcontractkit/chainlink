@@ -234,7 +234,7 @@ func (h *WorkflowMetadataHandler) Start(ctx context.Context) error {
 		h.runTicker(time.Duration(h.config.MetadataPullIntervalMs)*time.Millisecond, func(ctx context.Context) {
 			err2 := h.sendMetadataPullRequest()
 			if err2 != nil {
-				h.lggr.Errorw("Failed to send pull request", "error", err2)
+				h.lggr.Warnw("Failed to send pull request", "error", err2)
 			}
 		})
 		h.runTicker(time.Duration(h.config.MetadataAggregationIntervalMs)*time.Millisecond, h.syncMetadata)
