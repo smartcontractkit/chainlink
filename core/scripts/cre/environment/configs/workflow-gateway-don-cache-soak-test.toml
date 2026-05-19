@@ -51,9 +51,15 @@
       user_config_overrides = """
 [Capabilities.WorkflowRegistry.ModuleCache]
 Enabled = true
-MaxLoaded = 20
+# Sized for ~50% of 128GiB host at cap; per loaded slot ~= WASMBinarySizeLimit + WASMMemoryLimit (100MiB each by default).
+MaxLoaded = 80
 IdleEviction = true
-IdleTimeout = '45s'
+# Long enough that 3m fast cron stays hot and 8m slow cron idles out between runs.
+IdleTimeout = '5m'
+
+[Workflows.Limits]
+Global = 5000
+PerOwner = 5000
 """
 
 [[nodesets]]

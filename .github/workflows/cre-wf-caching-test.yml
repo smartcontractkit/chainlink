@@ -135,8 +135,7 @@ jobs:
             secrets.QA_AWS_REGION
             }}.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced018\
             8f29b969"
-          CRE_SOAK_CACHE_OBSERVE_WINDOW: "10m"
-          CRE_SOAK_NUM_WORKFLOWS: "20"
+          CRE_SOAK_DURATION: "4h"
         # TODO - adjust test timeout to actual observation time
         run: |
           gotestsum \
