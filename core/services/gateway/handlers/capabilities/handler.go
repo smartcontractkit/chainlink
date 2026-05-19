@@ -231,7 +231,7 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 		}
 		err = h.don.SendToNode(newCtx, nodeAddr, req)
 		if err != nil {
-			l.Errorw("failed to send to node", "err", err, "to", nodeAddr)
+			l.Warnw("failed to send to node", "err", err, "to", nodeAddr)
 			return
 		}
 		l.Debugw("sent response to node", "to", nodeAddr)
