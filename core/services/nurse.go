@@ -85,7 +85,7 @@ func (n *Nurse) start(_ context.Context) error {
 		runtime.MemProfileRate = n.cfg.BlockProfileRate()
 	}
 
-	n.eng.Debugf("Starting nurse with config %+v", n.cfg)
+	n.eng.Infof("Starting nurse with config %+v", n.cfg)
 	runtime.SetCPUProfileRate(n.cfg.CPUProfileRate())
 	runtime.SetBlockProfileRate(n.cfg.BlockProfileRate())
 	runtime.SetMutexProfileFraction(n.cfg.MutexProfileFraction())
