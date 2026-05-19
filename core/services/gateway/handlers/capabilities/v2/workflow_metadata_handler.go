@@ -75,7 +75,7 @@ func NewWorkflowMetadataHandler(lggr logger.Logger, cfg ServiceConfig, don handl
 func (h *WorkflowMetadataHandler) Authorize(workflowID string, token string, req *jsonrpc.Request[json.RawMessage]) (*gateway.AuthorizedKey, error) {
 	claims, signer, err := utils.VerifyRequestJWT(token, *req)
 	if err != nil {
-		h.lggr.Errorw("Failed to verify JWT", "error", err)
+		h.lggr.Warnw("Failed to verify JWT", "error", err)
 		return nil, err
 	}
 
