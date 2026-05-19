@@ -28,7 +28,7 @@ type DataSource struct {
 func (d *DataSource) Observe(ctx context.Context, reportTimestamp ocrtypes.ReportTimestamp) (*big.Int, error) {
 	md, err := bridges.MarshalBridgeMetaData(d.currentAnswer())
 	if err != nil {
-		d.lggr.Warnw("unable to attach metadata for run", "err", err)
+		d.lggr.Debugw("unable to attach metadata for run", "err", err)
 	}
 
 	// NOTE: job metadata is automatically attached by the pipeline runner service
