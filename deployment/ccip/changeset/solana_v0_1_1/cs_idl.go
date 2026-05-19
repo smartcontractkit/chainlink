@@ -399,7 +399,7 @@ func SetAuthorityIDLByCLI(e cldf.Environment, newAuthority, programsPath, progra
 		e.Logger.Infow("Setting IDL authority for buffer", "bufferAccount", bufferAccount)
 		args = append(args, bufferAccount)
 	}
-	e.Logger.Info(args)
+	e.Logger.Debug(args)
 	_, err := RunCommand("anchor", args, programsPath)
 	if err != nil {
 		return fmt.Errorf("error setting idl authority: %w", err)
