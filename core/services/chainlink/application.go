@@ -429,7 +429,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			)
 		}
 	} else {
-		globalLogger.Debug("Pyroscope (automatic pprof profiling) is disabled")
+		globalLogger.Info("Pyroscope (automatic pprof profiling) is disabled")
 	}
 
 	ap := cfg.AutoPprof()
