@@ -136,7 +136,7 @@ func (l *leaseLock) TakeAndHold(ctx context.Context) (err error) {
 		case <-time.After(utils.WithJitter(l.cfg.LeaseRefreshInterval)):
 		}
 	}
-	l.logger.Debug("Got exclusive lease on database")
+	l.logger.Info("Got exclusive lease on database")
 
 	lctx, cancel := context.WithCancel(context.Background())
 	l.stop = cancel
