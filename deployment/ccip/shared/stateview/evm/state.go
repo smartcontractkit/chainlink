@@ -792,7 +792,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.Router[c.Router.Address().Hex()] = routerView
-			lggr.Infow("generated router view", "router", c.Router.Address().Hex(), "chain", chain)
+			lggr.Debugw("generated router view", "router", c.Router.Address().Hex(), "chain", chain)
 			return nil
 		}
 	}
