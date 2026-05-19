@@ -230,7 +230,7 @@ func updateAdminRoleLogic(e cldf.Environment, cfg UpdateAdminRoleConfig) (cldf.C
 	}
 
 	if configs.orchestrateChangesetsConfig == nil && configs.transferAdminRoleConfig == nil && configs.proposeAdminRoleConfig == nil {
-		e.Logger.Warn("no operations to perform - exiting apply stage gracefully")
+		e.Logger.Info("no operations to perform - exiting apply stage gracefully")
 		return cldf.ChangesetOutput{}, nil
 	}
 
