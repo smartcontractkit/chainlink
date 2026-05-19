@@ -171,7 +171,7 @@ func (o *orm) CreateSession(ctx context.Context, sr sessions.SessionRequest) (st
 
 	// No webauthn tokens registered for the current user, so normal authentication is now complete
 	if len(uwas) == 0 {
-		lggr.Infof("No MFA for user. Creating Session")
+		lggr.Debugf("No MFA for user. Creating Session")
 		session := sessions.NewSession()
 		_, err = o.ds.ExecContext(ctx, "INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, user.Email)
 		o.auditLogger.Audit(audit.AuthLoginSuccessNo2FA, map[string]any{"email": sr.Email})
