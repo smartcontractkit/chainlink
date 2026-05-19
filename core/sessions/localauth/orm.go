@@ -206,7 +206,7 @@ func (o *orm) CreateSession(ctx context.Context, sr sessions.SessionRequest) (st
 	if err != nil {
 		// The user does have WebAuthn enabled but failed the check
 		o.auditLogger.Audit(audit.AuthLoginFailed2FA, map[string]any{"email": sr.Email, "error": err})
-		lggr.Errorf("User sent an invalid attestation: %v", err)
+		lggr.Warnf("User sent an invalid attestation: %v", err)
 		return "", pkgerrors.New("MFA Error")
 	}
 
