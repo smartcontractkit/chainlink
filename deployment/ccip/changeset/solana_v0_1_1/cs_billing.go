@@ -794,7 +794,7 @@ func (cfg TokenTransferFeeForRemoteChainConfigV2) buildOrchestrateChangesetsConf
 
 		// prepare for iteration
 		remoteChainConfigsByToken := map[solana.PublicKey]map[uint64]solFeeQuoter.TokenTransferFeeConfig{}
-		env.Logger.Infof(
+		env.Logger.Debugf(
 			"successfully found Solana fee quoter in state for selector %d: %s",
 			srcSelector, solChainState.FeeQuoter.String(),
 		)
