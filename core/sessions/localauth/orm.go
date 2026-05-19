@@ -221,7 +221,7 @@ func (o *orm) CreateSession(ctx context.Context, sr sessions.SessionRequest) (st
 	// Forward registered credentials for audit logs
 	uwasj, err := json.Marshal(uwas)
 	if err != nil {
-		lggr.Errorf("error in Marshal credentials: %s", err)
+		lggr.Warnf("error in Marshal credentials: %s", err)
 	} else {
 		o.auditLogger.Audit(audit.AuthLoginSuccessWith2FA, map[string]any{"email": sr.Email, "credential": string(uwasj)})
 	}
