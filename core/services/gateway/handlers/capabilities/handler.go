@@ -399,7 +399,7 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 	}
 	req, err := common.ValidatedRequestFromMessage(msg)
 	if err != nil {
-		h.lggr.Errorw(ErrTransformingMessageToRequest)
+		h.lggr.Warnw(ErrTransformingMessageToRequest)
 		return callback.SendResponse(handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
 				msg.Body.MessageId,
