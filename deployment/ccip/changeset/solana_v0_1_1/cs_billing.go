@@ -820,7 +820,7 @@ func (cfg TokenTransferFeeForRemoteChainConfigV2) buildOrchestrateChangesetsConf
 				}
 
 				// get the token transfer fee config from the fee quoter - if it doesn't exist, then the zero struct will be returned and `IsEnabled` will be `false`
-				env.Logger.Infof("remote billing PDA = %s", remoteBillingPDA.String())
+				env.Logger.Debugf("remote billing PDA = %s", remoteBillingPDA.String())
 				var curConfig solFeeQuoter.PerChainPerTokenConfig
 				err = solChain.GetAccountDataBorshInto(env.GetContext(), remoteBillingPDA, &curConfig)
 				if !errors.Is(err, rpc.ErrNotFound) && err != nil {
