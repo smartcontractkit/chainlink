@@ -223,7 +223,7 @@ func setTokenTransferFeeConfigLogic(env cldf.Environment, cfg SetTokenTransferFe
 				// If no custom config already exists on-chain for the token, then use sensible defaults for any missing fields
 				env.Logger.Debugf("fetched token transfer fee config (src = %s, dst = %s, token = %s, cfg = %+v)", srcChain.String(), dstChain.String(), tokenAddress.Hex(), curConfig)
 				if !curConfig.IsEnabled {
-					env.Logger.Infof("no token transfer fee config exists on chain - filling in missing values (src = %s, dst = %s, token = %s, input = %+v)", srcChain.String(), dstChain.String(), tokenAddress.Hex(), args)
+					env.Logger.Debugf("no token transfer fee config exists on chain - filling in missing values (src = %s, dst = %s, token = %s, input = %+v)", srcChain.String(), dstChain.String(), tokenAddress.Hex(), args)
 					args = args.FillMissingValues(srcSelector, dstSelector)
 					env.Logger.Infof("missing values have been filled in with sensible defaults (src = %s, dst = %s, token = %s, input = %+v)", srcChain.String(), dstChain.String(), tokenAddress.Hex(), args)
 				}
