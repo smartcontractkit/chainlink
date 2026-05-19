@@ -142,7 +142,7 @@ func getCommitRootAcceptedEvent(
 	lggr.Debugw("Getting commit root accepted event", "startBlock", start, "step", step)
 	for start <= hdr.Number.Uint64() {
 		end := min(start+step, hdr.Number.Uint64())
-		lggr.Infow("Querying with", "startBlock", start, "endBlock", end, "step", step)
+		lggr.Debugw("Querying with", "startBlock", start, "endBlock", end, "step", step)
 
 		iter, err := state.Chains[destChainSel].OffRamp.FilterCommitReportAccepted(
 			&bind.FilterOpts{
