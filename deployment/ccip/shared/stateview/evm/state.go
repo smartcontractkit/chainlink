@@ -1018,7 +1018,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.FeeQuoter[c.FeeQuoter.Address().Hex()] = fqView
-			lggr.Infow("generated fee quoter view", "feeQuoter", c.FeeQuoter.Address().Hex(), "chain", chain)
+			lggr.Debugw("generated fee quoter view", "feeQuoter", c.FeeQuoter.Address().Hex(), "chain", chain)
 			return nil
 		}
 	}
