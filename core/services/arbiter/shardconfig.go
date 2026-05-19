@@ -178,7 +178,7 @@ func (s *shardConfigSyncer) initContractReader(ctx context.Context) error {
 		case <-ticker.C:
 			reader, err := s.newContractReader(ctx)
 			if err != nil {
-				s.lggr.Infow("Contract reader unavailable, retrying", "error", err)
+				s.lggr.Debugw("Contract reader unavailable, retrying", "error", err)
 				continue
 			}
 			s.contractReader = reader
