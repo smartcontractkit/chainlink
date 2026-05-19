@@ -89,7 +89,7 @@ func (p *Plugin) Observation(ctx context.Context, _ ocr3types.OutcomeContext, _ 
 	status, err := p.arbiterScaler.Status(ctx, &emptypb.Empty{})
 	if err != nil {
 		// NOTE: consider a fallback data source if Arbiter is not available
-		p.lggr.Errorw("RingOCR failed to get arbiter scaler status", "error", err)
+		p.lggr.Warnw("RingOCR failed to get arbiter scaler status", "error", err)
 		return nil, err
 	}
 	wantShards = status.WantShards
