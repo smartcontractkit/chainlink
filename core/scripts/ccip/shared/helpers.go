@@ -23,7 +23,7 @@ const TxInclusionTimout = 3 * time.Minute
 func WaitForMined(lggr logger.Logger, client ethereum.TransactionReader, hash common.Hash, shouldSucceed bool) error {
 	maxIterations := TxInclusionTimout / RetryTiming
 	for i := 0; i < int(maxIterations); i++ {
-		lggr.Info("[MINING] waiting for tx to be mined...")
+		lggr.Debug("[MINING] waiting for tx to be mined...")
 		receipt, _ := client.TransactionReceipt(context.Background(), hash)
 
 		if receipt != nil {
