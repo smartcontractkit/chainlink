@@ -415,7 +415,7 @@ func (ekc *ETHKeysController) getKeyMaxGasPriceWei(state ethkey.State, keyAddres
 	}
 	chain, ok := chainService.(legacyevm.Chain)
 	if !ok {
-		ekc.lggr.Errorw("EVM Chain in LOOPP mode", "chainID", chainID, "err", err)
+		ekc.lggr.Debugw("EVM Chain in LOOPP mode", "chainID", chainID, "err", err)
 		return nil
 	}
 	return chain.Config().EVM().GasEstimator().PriceMaxKey(keyAddress)
