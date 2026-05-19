@@ -119,7 +119,7 @@ func NewLLOProvider(
 
 	var transmitter LLOTransmitter
 	if lloCfg.BenchmarkMode {
-		lggr.Info("Benchmark mode enabled, using dummy transmitter. NOTE: THIS WILL NOT TRANSMIT ANYTHING")
+		lggr.Warn("Benchmark mode enabled, using dummy transmitter. NOTE: THIS WILL NOT TRANSMIT ANYTHING")
 		transmitter = bm.NewTransmitter(lggr, csaPub)
 	} else {
 		clients := make(map[string]rpc.Client)
