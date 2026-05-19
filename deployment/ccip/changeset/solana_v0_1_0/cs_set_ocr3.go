@@ -236,7 +236,7 @@ func isOCR3ConfigSetOnOffRampSolana(
 			}
 			for i := range len(existingState.Signers) {
 				if existingState.Signers[i] != newState.Signers[i] {
-					e.Logger.Infof("OCR3 config signers mismatch")
+					e.Logger.Debugf("OCR3 config signers mismatch")
 					return false, nil
 				}
 			}
