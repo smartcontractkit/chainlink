@@ -349,7 +349,7 @@ func (m *donConnectionManager) readLoop(nodeAddress string, nodeState *nodeState
 			}
 			handler, err := m.getHandler(resp.Method)
 			if err != nil {
-				m.lggr.Errorw("no handler for node message", "nodeAddress", nodeAddress, "method", resp.Method, "err", err)
+				m.lggr.Warnw("no handler for node message", "nodeAddress", nodeAddress, "method", resp.Method, "err", err)
 				break
 			}
 			startTime := time.Now()
