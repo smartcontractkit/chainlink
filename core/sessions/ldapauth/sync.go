@@ -303,7 +303,7 @@ func (l *LDAPServerStateSyncer) ldapGroupMembersListToUser(conn LDAPConn, groupN
 		l.lggr,
 	)
 	if err != nil {
-		l.lggr.Errorf("Error listing members of group (%s): %v", groupNameCN, err)
+		l.lggr.Warnf("Error listing members of group (%s): %v", groupNameCN, err)
 		return users, errors.New("error searching group members in LDAP directory")
 	}
 	return users, nil
