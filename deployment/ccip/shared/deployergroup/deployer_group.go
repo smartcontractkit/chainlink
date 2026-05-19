@@ -252,7 +252,7 @@ func (d *DeployerGroup) GetDeployer(chain uint64) (*bind.TransactOpts, error) {
 			}
 			decodedCall, err := d.txDecoder.Analyze(tx.To().String(), &_abi, tx.Data())
 			if err != nil {
-				d.e.Logger.Errorw("could not analyze transaction",
+				d.e.Logger.Warnw("could not analyze transaction",
 					"chain", chain, "address", tx.To().Hex(), "nonce", currentNonce, "error", err)
 			} else {
 				description = decodedCall.Describe(d.describeContext)
