@@ -257,7 +257,7 @@ func setTokenTransferFeeConfigLogic(env cldf.Environment, cfg SetTokenTransferFe
 				if isDifferent {
 					tokenTransferFeeConfigArgs = append(tokenTransferFeeConfigArgs, newConfig)
 				} else {
-					env.Logger.Infof("skipping update since input config is the same as on-chain config (src = %s, dst = %s, token = %s, cfg = %+v)", srcChain.String(), dstChain.String(), tokenAddress.Hex(), curConfig)
+					env.Logger.Debugf("skipping update since input config is the same as on-chain config (src = %s, dst = %s, token = %s, cfg = %+v)", srcChain.String(), dstChain.String(), tokenAddress.Hex(), curConfig)
 				}
 			}
 
