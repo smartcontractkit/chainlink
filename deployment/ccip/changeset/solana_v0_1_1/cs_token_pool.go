@@ -1731,7 +1731,7 @@ func getNewSetupInstructionsForCCTP(
 		tokenPubKey,
 		cfg.Metadata,
 	)
-	e.Logger.Infow("getNewSetupInstructionsForCCTP", "authority", authority.String())
+	e.Logger.Debugw("getNewSetupInstructionsForCCTP", "authority", authority.String())
 	onChainEVMPoolConfigWithoutPoolAddress := cctp_token_pool.RemoteConfig{
 		TokenAddress:  onChainEVMPoolConfig.TokenAddress,
 		PoolAddresses: []cctp_token_pool.RemoteAddress{},
