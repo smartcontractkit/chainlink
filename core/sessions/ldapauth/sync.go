@@ -278,7 +278,7 @@ func (l *LDAPServerStateSyncer) Work(ctx context.Context) {
 		return nil
 	})
 	if err != nil {
-		l.lggr.Error("Error syncing local database state: ", err)
+		l.lggr.Warn("Error syncing local database state: ", err)
 	}
 	l.lggr.Info("Upstream LDAP sync complete")
 }
