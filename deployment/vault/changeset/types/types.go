@@ -4,7 +4,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 )
 
@@ -91,7 +90,7 @@ type DeployEthBalMonInput struct {
 	Chains map[uint64]DeployEthBalMonChainConfig `json:"chains"`
 	// MCMSConfig optionally configures the post-deploy accept-ownership timelock proposal (MCMS action, delay, etc.).
 	// When nil or MCMSAction is unset, the deploy flow defaults accept-ownership to bypass (historical behavior).
-	MCMSConfig *proposalutils.TimelockConfig `json:"mcms_config,omitempty"`
+	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config,omitempty"`
 }
 
 // EthBalMonContractType is the datastore / MCMS contract type label for EthBalMon deployments.
@@ -108,7 +107,7 @@ type SetKeeperRegistryChainConfig struct {
 type EthBalMonSetKeeperRegistryAddressInput struct {
 	Chains map[uint64]SetKeeperRegistryChainConfig `json:"chains"`
 	// MCMSConfig optionally configures the timelock proposal; when nil, schedule + proposer MCM is used.
-	MCMSConfig *proposalutils.TimelockConfig `json:"mcms_config,omitempty"`
+	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config,omitempty"`
 }
 
 // EthBalMonSetWatchListChainConfig replaces the monitored addresses and thresholds on one chain.
@@ -125,7 +124,7 @@ type EthBalMonSetWatchListChainConfig struct {
 type EthBalMonSetWatchListInput struct {
 	Chains map[uint64]EthBalMonSetWatchListChainConfig `json:"chains"`
 	// MCMSConfig optionally configures the timelock proposal; when nil, schedule + proposer MCM is used.
-	MCMSConfig *proposalutils.TimelockConfig `json:"mcms_config,omitempty"`
+	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config,omitempty"`
 }
 
 // EthBalMonWithdrawChainConfig configures a native-token withdraw from EthBalMon on one chain.
@@ -141,7 +140,7 @@ type EthBalMonWithdrawChainConfig struct {
 type EthBalMonWithdrawInput struct {
 	Chains map[uint64]EthBalMonWithdrawChainConfig `json:"chains"`
 	// MCMSConfig optionally configures the timelock proposal; when nil, schedule + proposer MCM is used.
-	MCMSConfig *proposalutils.TimelockConfig `json:"mcms_config,omitempty"`
+	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config,omitempty"`
 }
 
 // EthBalMonTransferOwnershipChainConfig sets the new owner of EthBalMon on one chain.
@@ -155,5 +154,5 @@ type EthBalMonTransferOwnershipChainConfig struct {
 type EthBalMonTransferOwnershipInput struct {
 	Chains map[uint64]EthBalMonTransferOwnershipChainConfig `json:"chains"`
 	// MCMSConfig optionally configures the timelock proposal; when nil, schedule + proposer MCM is used.
-	MCMSConfig *proposalutils.TimelockConfig `json:"mcms_config,omitempty"`
+	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config,omitempty"`
 }
