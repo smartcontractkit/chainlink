@@ -167,7 +167,7 @@ func (n *Nurse) checkGoroutines() (bool, Meta) {
 func (n *Nurse) gatherVitals(reason string, meta Meta) {
 	loggerFields := (logger.Fields{"reason": reason}).Merge(logger.Fields(meta))
 
-	n.eng.Debugw("Nurse is gathering vitals", loggerFields.Slice()...)
+	n.eng.Infow("Nurse is gathering vitals", loggerFields.Slice()...)
 
 	size, err := n.totalProfileBytes()
 	if err != nil {
