@@ -70,11 +70,29 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, "Amazing workflow user log", 2*time.Minute)
 	testLogger.Info().Dur("window", cacheObserveWindow).Msg("First workflow execution confirmed, observing cache activity...")
 
-	// t_helpers.AssertNodeLogs(t, testEnv, "Module cache enabled")
+	t_helpers.AssertNodeLogs(t, testEnv, "Module cache enabled")
+
+	testLogger.Info().Dur("window", cacheObserveWindow).Msg("Observing cache activity...")
+	observeUntil := time.Now().Add(cacheObserveWindow)
+	for time.Now().Before(observeUntil) {
+		time.Sleep(30 * time.Second)
+		testLogger.Info().Dur("remaining", time.Until(observeUntil).Round(time.Second)).Msg("Cache observe progress")
+	}
+	testLogger.Info().Msg("Cache observe window complete")
 	endTime := time.Now()
 
 	// Check Prometheus metrics
 	pc := framework.NewPrometheusQueryClient(framework.LocalPrometheusBaseURL)
+
+	r, err := pc.QueryRange(framework.QueryRangeParams{
+		Query: "{__name__=~\"platform_workflow_module_cache.*\"}",
+		Start: startTime.Add(-2 * time.Hour),
+		End:   endTime.Add(2 * time.Hour),
+		Step:  1 * time.Minute,
+	})
+	require.NoError(t, err, "failed to query available metrics")
+	fmt.Printf("available metrics: %+v\n", r)
+	fmt.Println("--------------------------------")
 
 	workflowDONs := testEnv.Dons.DonsWithFlag(cre.WorkflowDON)
 	require.NotEmpty(t, workflowDONs, "no workflow DONs found")
@@ -121,6 +139,17 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 					NodeName:           node.Name,
 					QueryRangeResponse: *queryResponse,
 				})
+				fmt.Printf("results: %+v\n", results)
+				fmt.Println("--------------------------------")
+
+				qr, err := pc.QueryRange(framework.QueryRangeParams{
+					Query: query,
+					Start: startTime.Add(-2 * time.Hour),
+					End:   endTime.Add(2 * time.Hour),
+					Step:  1 * time.Minute,
+				})
+				require.NoError(t, err, "failed to query Prometheus metrics, query:", query)
+				fmt.Printf("qr with 2h window: %+v\n", qr)
 			}
 		}
 
