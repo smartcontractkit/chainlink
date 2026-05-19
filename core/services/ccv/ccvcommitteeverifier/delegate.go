@@ -70,7 +70,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		return nil, fmt.Errorf("failed to unmarshal committeeVerifierConfig into the verifier config struct: %w", err)
 	}
 
-	d.delegateLogger.Infow("validating committee verifier config", "config", decodedCfg, "raw", spec.CCVCommitteeVerifierSpec.CommitteeVerifierConfig)
+	d.delegateLogger.Debugw("validating committee verifier config", "config", decodedCfg, "raw", spec.CCVCommitteeVerifierSpec.CommitteeVerifierConfig)
 
 	err = decodedCfg.Validate()
 	if err != nil {
