@@ -338,7 +338,7 @@ func GrantRoleTransparentUpgradeableProxy(e cldf.Environment, c TransparentUpgra
 				if hasRole, err := transparent.HasRole(&bind.CallOpts{Context: e.GetContext()}, r, config.Account); err != nil {
 					return cldf.ChangesetOutput{}, fmt.Errorf("failed to check if account %s has role %s on TransparentUpgradeableProxy at %s for %s token on %s: %w", config.Account, config.Role, proxy.Address(), token, chain.Name(), err)
 				} else if hasRole {
-					e.Logger.Infof("Account %s already has role %s on TransparentUpgradeableProxy at %s for %s token on %s, skipping grantRole", config.Account, config.Role, proxy.Address(), token, chain.Name())
+					e.Logger.Debugf("Account %s already has role %s on TransparentUpgradeableProxy at %s for %s token on %s, skipping grantRole", config.Account, config.Role, proxy.Address(), token, chain.Name())
 					continue
 				}
 
