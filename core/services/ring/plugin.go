@@ -103,7 +103,7 @@ func (p *Plugin) Observation(ctx context.Context, _ ocr3types.OutcomeContext, _ 
 	}
 
 	pendingAllocs := p.store.GetPendingAllocations()
-	p.lggr.Infow("RingOCR Observation pending allocations", "pendingAllocs", pendingAllocs)
+	p.lggr.Debugw("RingOCR Observation pending allocations", "pendingAllocs", pendingAllocs)
 
 	allWorkflowIDs = append(allWorkflowIDs, pendingAllocs...)
 	allWorkflowIDs = uniqueSorted(allWorkflowIDs)
