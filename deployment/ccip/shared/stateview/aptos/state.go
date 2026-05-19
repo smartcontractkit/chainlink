@@ -265,7 +265,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chain
 		chainView.UpdateMu.Lock()
 		chainView.MCMSWithTimelock = mcmsView
 		chainView.UpdateMu.Unlock()
-		lggr.Infow("generated MCMS with timelock view", "MCMSAddress", s.MCMSAddress.StringLong(), "chain", chainName)
+		lggr.Debugw("generated MCMS with timelock view", "MCMSAddress", s.MCMSAddress.StringLong(), "chain", chainName)
 		return nil
 	})
 
