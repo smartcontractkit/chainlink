@@ -2,16 +2,18 @@ package helpers
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
 	"testing"
 
 	"github.com/moby/moby/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
 func AssertNodeLogs(t *testing.T, testEnv *ttypes.TestEnvironment, needle string) {
@@ -72,7 +74,7 @@ func decodeDockerLogStream(dst io.Writer, r io.Reader) error {
 	header := make([]byte, 8)
 	for {
 		_, err := io.ReadFull(r, header)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil
 		}
 		if err != nil {

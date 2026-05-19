@@ -53,7 +53,7 @@
 Enabled = true
 MaxLoaded = 1
 IdleEviction = true
-IdleTimeout = '30s'
+IdleTimeout = '45s'
 """
 
 [[nodesets]]

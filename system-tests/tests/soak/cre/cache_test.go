@@ -4,16 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/stretchr/testify/require"
 
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
 
@@ -22,7 +24,7 @@ import (
 )
 
 func Test_V2_CRE_CacheSoak(t *testing.T) {
-	numWorkflows := 10
+	numWorkflows := 20
 	if os.Getenv("CRE_SOAK_NUM_WORKFLOWS") != "" {
 		var err error
 		numWorkflows, err = strconv.Atoi(os.Getenv("CRE_SOAK_NUM_WORKFLOWS"))
@@ -57,12 +59,18 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 
 	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/cron/main.go"
 
-	workflowConfig := crontypes.WorkflowConfig{
-		Schedule: "*/30 * * * * *",
-	}
-
 	startTime := time.Now()
 	for i := range numWorkflows {
+		var workflowConfig crontypes.WorkflowConfig
+		if math.Mod(float64(i), 2) == 0 {
+			workflowConfig = crontypes.WorkflowConfig{
+				Schedule: "*/30 * * * * *",
+			}
+		} else {
+			workflowConfig = crontypes.WorkflowConfig{
+				Schedule: "*/52 * * * * *",
+			}
+		}
 		t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, fmt.Sprintf("cachetest%d", i), &workflowConfig, workflowFileLocation)
 	}
 	testLogger.Info().Int("count", numWorkflows).Msg("All cache-test workflows deployed")
@@ -76,7 +84,7 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 	observeUntil := time.Now().Add(cacheObserveWindow)
 	for time.Now().Before(observeUntil) {
 		time.Sleep(30 * time.Second)
-		testLogger.Info().Dur("remaining", time.Until(observeUntil).Round(time.Second)).Msg("Cache observe progress")
+		testLogger.Info().Dur("remaining_sec", time.Duration(time.Until(observeUntil).Round(time.Second).Seconds())).Msg("Cache observe progress")
 	}
 	testLogger.Info().Msg("Cache observe window complete")
 	endTime := time.Now()
@@ -84,39 +92,34 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 	// Check Prometheus metrics
 	pc := framework.NewPrometheusQueryClient(framework.LocalPrometheusBaseURL)
 
-	r, err := pc.QueryRange(framework.QueryRangeParams{
-		Query: "{__name__=~\"platform_workflow_module_cache.*\"}",
-		Start: startTime.Add(-2 * time.Hour),
-		End:   endTime.Add(2 * time.Hour),
-		Step:  1 * time.Minute,
-	})
-	require.NoError(t, err, "failed to query available metrics")
-	fmt.Printf("available metrics: %+v\n", r)
-	fmt.Println("--------------------------------")
-
 	workflowDONs := testEnv.Dons.DonsWithFlag(cre.WorkflowDON)
 	require.NotEmpty(t, workflowDONs, "no workflow DONs found")
 
 	type wrappedQueryRangeResponse struct {
 		NodeName string `json:"node_name"`
+		Metric   string `json:"metric"`
 		framework.QueryRangeResponse
 	}
 
 	type metric struct {
 		query    string
 		filename string
+		metric   string
 	}
 
 	metrics := []metric{
 		{
+			metric:   "platform_workflow_module_cache_eviction_total",
 			query:    "increase(platform_workflow_module_cache_eviction_total{node_don=\"%s\", node_index=\"%d\"}[1m])",
 			filename: "metrics/cache_eviction_increase.json",
 		},
 		{
+			metric:   "platform_workflow_module_cache_reload_total",
 			query:    "sum by (source) (increase(platform_workflow_module_cache_reload_total{node_don=\"%s\", node_index=\"%d\"}[1m]))",
 			filename: "metrics/cache_reload_increase.json",
 		},
 		{
+			metric:   "platform_workflow_module_cache_memory_saved_bytes",
 			query:    "increase(platform_workflow_module_cache_memory_saved_bytes{node_don=\"%s\", node_index=\"%d\"}[1m])",
 			filename: "metrics/cache_memory_saved_bytes.json",
 		},
@@ -127,7 +130,6 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 		for _, don := range workflowDONs {
 			for _, node := range don.Nodes {
 				query := fmt.Sprintf(metric.query, don.Name, node.Index)
-				fmt.Println("query:", query)
 				queryResponse, err := pc.QueryRange(framework.QueryRangeParams{
 					Query: query,
 					Start: startTime,
@@ -138,18 +140,8 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 				results = append(results, wrappedQueryRangeResponse{
 					NodeName:           node.Name,
 					QueryRangeResponse: *queryResponse,
+					Metric:             metric.metric,
 				})
-				fmt.Printf("results: %+v\n", results)
-				fmt.Println("--------------------------------")
-
-				qr, err := pc.QueryRange(framework.QueryRangeParams{
-					Query: query,
-					Start: startTime.Add(-2 * time.Hour),
-					End:   endTime.Add(2 * time.Hour),
-					Step:  1 * time.Minute,
-				})
-				require.NoError(t, err, "failed to query Prometheus metrics, query:", query)
-				fmt.Printf("qr with 2h window: %+v\n", qr)
 			}
 		}
 
