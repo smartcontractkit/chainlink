@@ -30,8 +30,8 @@ type ConfigureOCR3Input struct {
 	OracleConfig *ocr3.OracleConfig   `json:"oracleConfig" yaml:"oracleConfig"`
 	DryRun       bool                 `json:"dryRun" yaml:"dryRun"`
 
-	MCMSConfig           *crecontracts.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
-	ExtraSignersFamilies []string                 `json:"extraSignersFamilies" yaml:"extraSignersFamilies"`
+	MCMSConfig          *crecontracts.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
+	ExtraSignerFamilies []string                 `json:"extraSignerFamilies" yaml:"extraSignerFamilies"`
 }
 
 type ConfigureOCR3 struct{}
@@ -52,7 +52,7 @@ func (l ConfigureOCR3) VerifyPreconditions(_ cldf.Environment, input ConfigureOC
 	if input.OracleConfig == nil {
 		return errors.New("oracle config is required")
 	}
-	for _, family := range input.ExtraSignersFamilies {
+	for _, family := range input.ExtraSignerFamilies {
 		switch family {
 		case chainselectors.FamilySolana, chainselectors.FamilyAptos:
 			break
@@ -110,7 +110,7 @@ func (l ConfigureOCR3) Apply(e cldf.Environment, input ConfigureOCR3Input) (cldf
 		Config:              input.OracleConfig,
 		DryRun:              input.DryRun,
 		MCMSConfig:          input.MCMSConfig,
-		ExtraSignerFamilies: input.ExtraSignersFamilies,
+		ExtraSignerFamilies: input.ExtraSignerFamilies,
 	})
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure OCR3 contract: %w", err)
