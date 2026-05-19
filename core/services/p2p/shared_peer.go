@@ -160,7 +160,7 @@ func (sp *don2DonSharedPeer) UpdateConnections(peers map[ragetypes.PeerID]p2ptyp
 }
 
 func (sp *don2DonSharedPeer) UpdateConnectionsByDONs(ctx context.Context, donPairs []p2ptypes.DonPair, streamConfig p2ptypes.StreamConfig) error {
-	sp.lggr.Infow("UpdateConnectionsByDONs", "numDonPairs", len(donPairs))
+	sp.lggr.Debugw("UpdateConnectionsByDONs", "numDonPairs", len(donPairs))
 	startTs := time.Now().UnixMilli()
 
 	desiredDONPairsIDs := make(map[string]struct{})
