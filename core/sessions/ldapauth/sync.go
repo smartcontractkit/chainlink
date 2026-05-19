@@ -95,7 +95,7 @@ func (l *LDAPServerStateSyncer) Work(ctx context.Context) {
 	recordCreationStaleThreshold := l.config.SessionTimeout().Before(time.Now())
 	err := l.deleteStaleSessions(ctx, recordCreationStaleThreshold)
 	if err != nil {
-		l.lggr.Error("unable to expire local LDAP sessions: ", err)
+		l.lggr.Warn("unable to expire local LDAP sessions: ", err)
 	}
 	recordCreationStaleThreshold = l.config.UserAPITokenDuration().Before(time.Now())
 	err = l.deleteStaleAPITokens(ctx, recordCreationStaleThreshold)
