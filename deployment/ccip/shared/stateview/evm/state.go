@@ -955,7 +955,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 				return nil
 			}
 			chainView.UpdateTokenPool(string(shared.USDCSymbol), pool.Address().Hex(), tokenPoolView)
-			lggr.Infow("generated USDC token pool view", "tokenPool", pool.Address().Hex(), "chain", chain)
+			lggr.Debugw("generated USDC token pool view", "tokenPool", pool.Address().Hex(), "chain", chain)
 			return nil
 		}
 	}
