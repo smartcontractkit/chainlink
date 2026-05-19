@@ -265,7 +265,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			globalLogger.Infow("ShardOrchestrator gRPC client created", "shardID", shardIdx, "serverAddress", shardOrchestratorAddr.String())
 		}
 	} else {
-		globalLogger.Debug("Sharding not enabled, running without shard orchestrator client")
+		globalLogger.Info("Sharding not enabled, running without shard orchestrator client")
 	}
 
 	creSettingsTOML, err := toml.Marshal(commoncresettings.Default)
