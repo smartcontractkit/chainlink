@@ -100,7 +100,7 @@ func (a *aggregator) Aggregate(req jsonrpc.Request[json.RawMessage], resps map[s
 
 	remainingResponses := donMembersCount - len(resps)
 	if maxBucketSigs+remainingResponses < requiredQuorum {
-		l.Warnw("quorum unattainable for request",
+		l.Debugw("quorum unattainable for request",
 			"requiredQuorum", requiredQuorum,
 			"remainingResponses", remainingResponses,
 			"maxBucketSigs", maxBucketSigs,
