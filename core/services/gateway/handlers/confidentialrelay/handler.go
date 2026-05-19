@@ -363,7 +363,7 @@ func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *active
 			err := h.don.SendToNode(ctx, node.Address, &ar.req)
 			if err != nil {
 				nodeErrors.Add(1)
-				l.Errorw("error sending request to node", "node", node.Address, "error", err)
+				l.Warnw("error sending request to node", "node", node.Address, "error", err)
 			}
 			return nil
 		})
