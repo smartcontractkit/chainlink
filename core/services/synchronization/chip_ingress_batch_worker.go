@@ -72,7 +72,7 @@ func (cw *chipIngressBatchWorker) Send(ctx context.Context) {
 
 	_, err := cw.chipClient.PublishBatch(ctx, batch)
 	if err != nil {
-		cw.lggr.Warnf("Could not send telemetry via ChIP ingress: %v", err)
+		cw.lggr.Debugf("Could not send telemetry via ChIP ingress: %v", err)
 		TelemetryClientMessagesSendErrors.WithLabelValues(chipIngress, string(cw.telemType)).Inc()
 		return
 	}
