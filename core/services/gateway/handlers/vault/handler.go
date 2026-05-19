@@ -845,7 +845,7 @@ func (h *handler) fanOutToVaultNodes(ctx context.Context, l logger.Logger, ar *a
 		err := h.don.SendToNode(ctx, node.Address, &ar.req)
 		if err != nil {
 			nodeErrors = append(nodeErrors, err)
-			l.Errorw("error sending request to node", "node", node.Address, "error", err)
+			l.Warnw("error sending request to node", "node", node.Address, "error", err)
 		}
 	}
 
