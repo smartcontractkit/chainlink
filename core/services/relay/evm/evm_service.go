@@ -273,7 +273,7 @@ func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evm.Submit
 	})
 
 	if err != nil {
-		e.logger.Warnw("Failed getting transaction status", "txID", txID, "lastErr", lastStatusErr, "retryErr", err)
+		e.logger.Errorw("Failed getting transaction status", "txID", txID, "lastErr", lastStatusErr, "retryErr", err)
 		return &evm.TransactionResult{TxStatus: evm.TxFatal, TxIdempotencyKey: txID}, fmt.Errorf("last err: %w retry err: %w", lastStatusErr, err)
 	}
 
