@@ -302,7 +302,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chain
 		chainView.UpdateMu.Lock()
 		chainView.OnRamp[s.CCIPAddress.StringLong()] = onRampView
 		chainView.UpdateMu.Unlock()
-		lggr.Infow("generated onRamp view", "onRampAddress", s.CCIPAddress.StringLong(), "chain", chainName)
+		lggr.Debugw("generated onRamp view", "onRampAddress", s.CCIPAddress.StringLong(), "chain", chainName)
 		return nil
 	})
 
