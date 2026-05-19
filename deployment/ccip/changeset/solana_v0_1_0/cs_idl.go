@@ -227,7 +227,7 @@ func writeBuffer(e cldf.Environment, programsPath, programID, programName string
 	}
 	e.Logger.Infow("Writing IDL buffer", "programID", programID)
 	args := []string{"idl", "write-buffer", "--filepath", idlFile, programID}
-	e.Logger.Info(args)
+	e.Logger.Debug(args)
 	output, err := runCommand("anchor", args, programsPath)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("error writing IDL buffer: %w", err)
