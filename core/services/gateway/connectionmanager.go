@@ -344,7 +344,7 @@ func (m *donConnectionManager) readLoop(nodeAddress string, nodeState *nodeState
 			var resp jsonrpc.Response[json.RawMessage]
 			err := json.Unmarshal(item.Data, &resp)
 			if err != nil {
-				m.lggr.Errorw("parse error when reading from node", "nodeAddress", nodeAddress, "err", err)
+				m.lggr.Warnw("parse error when reading from node", "nodeAddress", nodeAddress, "err", err)
 				break
 			}
 			handler, err := m.getHandler(resp.Method)
