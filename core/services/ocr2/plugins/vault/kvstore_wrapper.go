@@ -356,7 +356,7 @@ func mergeMetadata(orgMd, woMd *vault.StoredMetadata, orgID string, lggr logger.
 		for _, id := range md.SecretIdentifiers {
 			dk := deduplicationKey(id)
 			if seen[dk] {
-				lggr.Criticalw(
+				lggr.Errorw(
 					"duplicate secret identifier found during owner migration metadata merge",
 					"orgID", orgID,
 					"duplicateKey", dk,
