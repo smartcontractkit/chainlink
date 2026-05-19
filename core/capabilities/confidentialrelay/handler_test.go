@@ -304,7 +304,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			checkExecutable: func(t *testing.T, reg *mockCapRegistry) {
 				exec := reg.executables["my-cap@1.0.0"]
 				require.NotNil(t, exec.lastRequest, "Execute should have been called")
-				assert.Empty(t, exec.lastRequest.Metadata.WorkflowID)
+				assert.Equal(t, "wf-1", exec.lastRequest.Metadata.WorkflowID)
 				assert.Equal(t, testOwner, exec.lastRequest.Metadata.WorkflowOwner)
 				assert.Equal(t, "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1", exec.lastRequest.Metadata.WorkflowExecutionID)
 				assert.Equal(t, "17", exec.lastRequest.Metadata.ReferenceID)
@@ -452,7 +452,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				require.Len(t, vaultReq.Requests, 1)
 				assert.Equal(t, "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B", vaultReq.Requests[0].Id.Owner)
 				assert.Equal(t, "0xab5801a7d398351b8be11c439e05c5b3259aec9b", exec.lastRequest.Metadata.WorkflowOwner)
-				assert.Empty(t, exec.lastRequest.Metadata.WorkflowID)
+				assert.Equal(t, "wf-secrets-1", exec.lastRequest.Metadata.WorkflowID)
 				assert.Equal(t, uint32(42), exec.lastRequest.Metadata.WorkflowDonID)
 			},
 		},
