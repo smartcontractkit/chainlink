@@ -953,7 +953,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 		// Stop services in the reverse order from which they were started
 		for i := len(app.srvcs) - 1; i >= 0; i-- {
 			service := app.srvcs[i]
-			app.logger.Debugw("Closing service...", "name", service.Name())
+			app.logger.Infow("Closing service...", "name", service.Name())
 			err = stderrors.Join(err, service.Close())
 		}
 
