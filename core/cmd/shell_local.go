@@ -1269,10 +1269,8 @@ func (s *Shell) afterNode(lggr logger.SugaredLogger) {
 				log.Printf("Failed to close Logger: %v", err)
 			}
 		}
-		if s.BeholderClient != nil {
-			if err := s.BeholderClient.Close(); err != nil {
-				log.Printf("Failed to close Beholder client: %v", err)
-			}
+		if err := s.BeholderClient.Close(); err != nil {
+			log.Printf("Failed to close Beholder client: %v", err)
 		}
 	})
 }
