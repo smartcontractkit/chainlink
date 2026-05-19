@@ -1037,7 +1037,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.OnRamp[c.OnRamp.Address().Hex()] = onRampView
-			lggr.Infow("generated on ramp view", "onRamp", c.OnRamp.Address().Hex(), "chain", chain)
+			lggr.Debugw("generated on ramp view", "onRamp", c.OnRamp.Address().Hex(), "chain", chain)
 			return nil
 		}
 	}
