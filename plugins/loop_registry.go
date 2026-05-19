@@ -152,6 +152,7 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		envCfg.TelemetryEmitterExportTimeout = m.cfgTelemetry.EmitterExportTimeout()
 		envCfg.TelemetryAuthPubKeyHex = m.telemetryAuthPubKeyHex
 		envCfg.ChipIngressEndpoint = m.cfgTelemetry.ChipIngressEndpoint()
+		envCfg.ChipIngressDurableEmitterEnabled = m.cfgTelemetry.DurableEmitterEnabled()
 		envCfg.ChipIngressInsecureConnection = m.cfgTelemetry.ChipIngressInsecureConnection()
 		envCfg.TelemetryLogStreamingEnabled = m.cfgTelemetry.LogStreamingEnabled()
 		envCfg.TelemetryLogLevel = m.cfgTelemetry.LogLevel()
