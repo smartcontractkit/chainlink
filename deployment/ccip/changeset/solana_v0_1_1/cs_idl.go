@@ -337,7 +337,7 @@ func IdlInit(e cldf.Environment, programsPath, programID, programName string) er
 	}
 	e.Logger.Infow("Uploading IDL", "programName", programName)
 	args := []string{"idl", "init", "--filepath", idlFile, programID}
-	e.Logger.Info(args)
+	e.Logger.Debug(args)
 	output, err := RunCommand("anchor", args, programsPath)
 	e.Logger.Debugw("IDL init output", "output", output)
 	if err != nil {
