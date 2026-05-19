@@ -225,7 +225,7 @@ func (s *httpServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(httpStatusCode)
 	_, err = w.Write(rawResponse)
 	if err != nil {
-		s.lggr.Error("error when writing response", err)
+		s.lggr.Debug("error when writing response", err)
 	}
 }
 
