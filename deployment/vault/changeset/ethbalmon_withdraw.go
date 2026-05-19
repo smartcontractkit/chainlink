@@ -12,11 +12,12 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	proposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/eth_balance_monitor_wrapper"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	vaulttypes "github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 )
 
 type ethBalMonWithdraw struct{}
@@ -96,7 +97,7 @@ var EthBalMonWithdrawSequence = operations.NewSequence(
 			mcmAddressByChain[chainSelector] = opOutput.MCMSAddress
 		}
 
-		proposal, err := proposalutils.BuildProposalFromBatchesV2(deps.Environment, timelockAddresses, mcmAddressByChain, nil, batches, "EthBalMon Withdraw", ethBalMonProposalTimelockConfig(input.MCMSConfig))
+		proposal, err := proposeutils.BuildProposalFromBatchesV2(deps.Environment, timelockAddresses, mcmAddressByChain, nil, batches, "EthBalMon Withdraw", ethBalMonProposalTimelockConfig(input.MCMSConfig))
 
 		if err != nil {
 			return EthBalMonWithdrawSeqOutput{}, fmt.Errorf("failed to build timelock proposal: %w", err)
