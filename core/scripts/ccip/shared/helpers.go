@@ -31,7 +31,7 @@ func WaitForMined(lggr logger.Logger, client ethereum.TransactionReader, hash co
 				lggr.Errorf("[MINING] ERROR tx reverted %s", hash.Hex())
 				panic(receipt)
 			} else if !shouldSucceed && receipt.Status != 0 {
-				lggr.Infof("[MINING] ERROR expected tx to revert %s", hash.Hex())
+				lggr.Errorf("[MINING] ERROR expected tx to revert %s", hash.Hex())
 				panic(receipt)
 			}
 			lggr.Infof("[MINING] tx mined %s successful %t", hash.Hex(), shouldSucceed)
