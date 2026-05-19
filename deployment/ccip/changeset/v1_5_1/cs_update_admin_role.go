@@ -175,7 +175,7 @@ func (cfg *UpdateAdminRoleConfig) populate(e cldf.Environment) (updateAdminRoleC
 
 func updateAdminRolePrecondition(e cldf.Environment, cfg UpdateAdminRoleConfig) error {
 	if len(cfg.ChainUpdates) == 0 {
-		e.Logger.Warn("no chain updates were provided - exiting precondition stage gracefully")
+		e.Logger.Info("no chain updates were provided - exiting precondition stage gracefully")
 		return nil
 	}
 
