@@ -740,7 +740,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			cfg.EVMConfigs(),
 		)
 	} else {
-		globalLogger.Debug("Off-chain reporting v2 disabled")
+		globalLogger.Info("Off-chain reporting v2 disabled")
 	}
 
 	bridgeStatusReporter := bridgestatus.NewBridgeStatusReporter(
