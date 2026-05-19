@@ -296,7 +296,7 @@ func setConfig(e cldf.Environment, chain cldf_solana.Chain) error {
 		"--keypair", chain.KeypairPath,
 	}
 	output, err := RunCommand("solana", cmdArgs, ".")
-	e.Logger.Infow("solana config set output", "output", output)
+	e.Logger.Debugw("solana config set output", "output", output)
 	if err != nil {
 		return fmt.Errorf("failed to set keypair during program verification: %s %w", output, err)
 	}
