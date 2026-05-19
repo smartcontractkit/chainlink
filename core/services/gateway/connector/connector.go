@@ -233,7 +233,7 @@ func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
 			var req jsonrpc.Request[json.RawMessage]
 			err := json.Unmarshal(item.Data, &req)
 			if err != nil {
-				c.lggr.Errorw("parse error when reading from Gateway", "id", gatewayState.config.Id, "err", err)
+				c.lggr.Warnw("parse error when reading from Gateway", "id", gatewayState.config.Id, "err", err)
 				break
 			}
 			handler, exists := c.handlers[req.Method]
