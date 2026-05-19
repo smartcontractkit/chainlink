@@ -342,7 +342,7 @@ func (l *LDAPServerStateSyncer) validateUsersActive(emails []string, conn LDAPCo
 	// Query LDAP server for the ActiveAttribute property of each specified user
 	results, err := conn.Search(searchRequest)
 	if err != nil {
-		l.lggr.Errorf("Error searching user in LDAP query: %v", err)
+		l.lggr.Warnf("Error searching user in LDAP query: %v", err)
 		return validUsers, errors.New("error searching users in LDAP directory")
 	}
 	// Ensure user response entries
