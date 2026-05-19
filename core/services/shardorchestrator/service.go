@@ -99,7 +99,7 @@ func (s *Server) ReportWorkflowTriggerRegistration(_ context.Context, req *ringp
 
 	s.ringStore.RegisterWorkflowsFromShard(req.SourceShardId, workflowIDs)
 
-	s.logger.Infow("Successfully registered workflows",
+	s.logger.Debugw("Successfully registered workflows",
 		"shardID", req.SourceShardId,
 		"workflowCount", len(workflowIDs),
 	)
