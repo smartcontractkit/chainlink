@@ -1121,7 +1121,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.LinkToken = linkTokenView
-			lggr.Infow("generated link token view", "linkToken", c.LinkToken.Address().Hex(), "chain", chain)
+			lggr.Debugw("generated link token view", "linkToken", c.LinkToken.Address().Hex(), "chain", chain)
 			return nil
 		}
 	}
