@@ -162,7 +162,7 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 }
 
 func getReadBalancesContractABI(runtime cre.Runtime) (*abi.ABI, error) {
-	runtime.Logger().Info("getting Balance Reader contract ABI")
+	runtime.Logger().Debug("getting Balance Reader contract ABI")
 	readBalancesABI, abiErr := balance_reader.BalanceReaderMetaData.GetAbi()
 	if abiErr != nil {
 		runtime.Logger().Error("failed to get Balance Reader contract ABI", "error", abiErr)
