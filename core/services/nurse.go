@@ -184,7 +184,7 @@ func (n *Nurse) gatherVitals(reason string, meta Meta) {
 
 	err = n.appendLog(now, reason, meta)
 	if err != nil {
-		n.eng.Warnw("cannot write pprof profile", loggerFields.With("err", err).Slice()...)
+		n.eng.Errorw("cannot write pprof profile", loggerFields.With("err", err).Slice()...)
 		return
 	}
 	var wg sync.WaitGroup
