@@ -5,11 +5,10 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
-
-	chainselectors "github.com/smartcontractkit/chain-selectors"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
@@ -54,7 +53,7 @@ func (l ConfigureOCR3) VerifyPreconditions(_ cldf.Environment, input ConfigureOC
 	}
 	for _, family := range input.ExtraSignerFamilies {
 		switch family {
-		case chainselectors.FamilySolana, chainselectors.FamilyAptos:
+		case chain_selectors.FamilySolana, chain_selectors.FamilyAptos:
 			break
 		default:
 			return fmt.Errorf("unsupported chain family: %s", family)
