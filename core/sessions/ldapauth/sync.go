@@ -274,7 +274,7 @@ func (l *LDAPServerStateSyncer) Work(ctx context.Context) {
 			}
 		}
 
-		l.lggr.Info("local ldap_sessions and ldap_user_api_tokens table successfully synced with upstream LDAP state")
+		l.lggr.Debug("local ldap_sessions and ldap_user_api_tokens table successfully synced with upstream LDAP state")
 		return nil
 	})
 	if err != nil {
