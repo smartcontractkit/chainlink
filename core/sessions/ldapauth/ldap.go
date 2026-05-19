@@ -415,7 +415,7 @@ func (l *ldapAuthenticator) CreateSession(ctx context.Context, sr sessions.Sessi
 	// with cached user email and role
 	foundUser, err := l.FindUser(ctx, escapedEmail)
 	if err != nil {
-		l.lggr.Infof("Successful user login, but error querying for user groups: user: %s, error %v", escapedEmail, err)
+		l.lggr.Warnf("Successful user login, but error querying for user groups: user: %s, error %v", escapedEmail, err)
 		returnErr = errors.New("log in successful, but no assigned groups to assume role")
 	}
 
