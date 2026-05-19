@@ -1190,7 +1190,7 @@ func (app *ChainlinkApplication) GetWebAuthnConfiguration() sessions.WebAuthnCon
 	}
 
 	if rporigin == "" {
-		app.GetLogger().Errorf("RPOrigin is not set, WebAuthn will likely not work as intended")
+		app.GetLogger().Warnf("RPOrigin is not set, WebAuthn will likely not work as intended")
 	}
 
 	return sessions.WebAuthnConfiguration{
