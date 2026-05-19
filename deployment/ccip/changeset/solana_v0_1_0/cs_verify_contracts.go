@@ -138,7 +138,7 @@ func runSolanaVerifyWithoutMCMS(e cldf.Environment,
 	}
 
 	output, err := runCommand("solana-verify", cmdArgs, ".")
-	e.Logger.Infow("verify-from-repo output", "output", output)
+	e.Logger.Debugw("verify-from-repo output", "output", output)
 	if err != nil {
 		return fmt.Errorf("solana program verification failed: %s %w", output, err)
 	}
