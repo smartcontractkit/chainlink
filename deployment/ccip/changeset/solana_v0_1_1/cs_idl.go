@@ -352,7 +352,7 @@ func IdlInit(e cldf.Environment, programsPath, programID, programName string) er
 func getIDLAddress(e cldf.Environment, programID solana.PublicKey) (solana.PublicKey, error) {
 	base, _, _ := solana.FindProgramAddress([][]byte{}, programID)
 	idlAddress, _ := solana.CreateWithSeed(base, "anchor:idl", programID)
-	e.Logger.Infof("IDL Address:  %s", idlAddress.String())
+	e.Logger.Debugf("IDL Address:  %s", idlAddress.String())
 	return idlAddress, nil
 }
 
