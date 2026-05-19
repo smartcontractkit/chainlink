@@ -92,7 +92,7 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 			grpcOpts = loop.NewGRPCOpts(nil) // default prometheus.Registerer
 
 			otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) {
-				lggr.Errorw("Telemetry error", "err", err)
+				lggr.Warnw("Telemetry error", "err", err)
 			}))
 
 			tracingCfg := loop.TracingConfig{
