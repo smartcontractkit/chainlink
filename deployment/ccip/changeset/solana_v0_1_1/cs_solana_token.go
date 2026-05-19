@@ -494,7 +494,7 @@ func UploadTokenMetadata(e cldf.Environment, cfg UploadTokenMetadataConfig) (cld
 		}
 		fmt.Println("Metadata", metadataPDA)
 		if err := e.BlockChains.SolanaChains()[cfg.ChainSelector].GetAccountDataBorshInto(context.Background(), metadataPDA, &mintMetadata); err != nil {
-			e.Logger.Errorw("Token metadata account does not exist. Cannot update", "tokenPubkey", metadata.TokenPubkey.String())
+			e.Logger.Warnw("Token metadata account does not exist. Cannot update", "tokenPubkey", metadata.TokenPubkey.String())
 			continue
 		}
 		newUpdateAuthority := mintMetadata.UpdateAuthority
