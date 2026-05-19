@@ -1710,7 +1710,7 @@ func isOCR3ConfigSetOnOffRamp(
 		// TODO: assertions to be done as part of full state
 		// resprentation validation CCIP-3047
 		if mapOfframpOCR3Configs[pluginType].ConfigDigest != ocrConfig.ConfigInfo.ConfigDigest {
-			lggr.Infow("OCR3 config digest mismatch", "pluginType", pluginType.String())
+			lggr.Debugw("OCR3 config digest mismatch", "pluginType", pluginType.String())
 			return false, nil
 		}
 		if mapOfframpOCR3Configs[pluginType].F != ocrConfig.ConfigInfo.F {
