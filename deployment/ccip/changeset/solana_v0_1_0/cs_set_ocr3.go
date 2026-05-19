@@ -247,7 +247,7 @@ func isOCR3ConfigSetOnOffRampSolana(
 		}
 		for i := range len(existingState.Transmitters) {
 			if existingState.Transmitters[i] != newState.Transmitters[i] {
-				e.Logger.Infof("OCR3 config transmitters mismatch")
+				e.Logger.Debugf("OCR3 config transmitters mismatch")
 				return false, nil
 			}
 		}
