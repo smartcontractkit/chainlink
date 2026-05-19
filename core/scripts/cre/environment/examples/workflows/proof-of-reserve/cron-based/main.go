@@ -93,7 +93,7 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 		runtime.Logger().Error(fmt.Sprintf("failed to read CallContract output: %v", err))
 		return "", fmt.Errorf("failed to read CallContract output: %w", err)
 	}
-	runtime.Logger().With().Info(fmt.Sprintf("Read on-onchain balances for addresses %v: %v", addressesToRead, &readBalancePrices))
+	runtime.Logger().With().Debug(fmt.Sprintf("Read on-onchain balances for addresses %v: %v", addressesToRead, &readBalancePrices))
 
 	// get total on-chain balance
 	allOnchainBalances := append(readBalancePrices, balanceAtResult)
