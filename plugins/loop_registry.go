@@ -193,7 +193,7 @@ func (m *LoopRegistry) Unregister(id string) {
 
 	freeport.Return([]int{loop.EnvCfg.PrometheusPort})
 	delete(m.registry, id)
-	m.lggr.Debugf("Unregistered loopp %q", id)
+	m.lggr.Infof("Unregistered loopp %q", id)
 }
 
 // Return slice sorted by plugin name. Safe for concurrent use.
