@@ -8,6 +8,10 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+	"github.com/smartcontractkit/mcms"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
 	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	proposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
@@ -15,9 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/eth_balance_monitor_wrapper"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	vaulttypes "github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
-	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
-	"github.com/smartcontractkit/mcms"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
 const defaultEthBalMonMinWaitPeriodSeconds uint64 = 60
