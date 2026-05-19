@@ -585,7 +585,7 @@ func readBody(reader io.Reader, lggr logger.Logger) string {
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(reader)
 	if err != nil {
-		lggr.Warn("unable to read from body for sanitization: ", err)
+		lggr.Debug("unable to read from body for sanitization: ", err)
 		return "*FAILED TO READ BODY*"
 	}
 
