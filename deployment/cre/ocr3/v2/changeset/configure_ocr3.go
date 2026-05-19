@@ -10,6 +10,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
@@ -51,6 +52,15 @@ func (l ConfigureOCR3) VerifyPreconditions(_ cldf.Environment, input ConfigureOC
 	if input.OracleConfig == nil {
 		return errors.New("oracle config is required")
 	}
+	for _, family := range input.ExtraSignersFamilies {
+		switch family {
+		case chainselectors.FamilySolana, chainselectors.FamilyAptos:
+			break
+		default:
+			return fmt.Errorf("unsupported chain family: %s", family)
+		}
+	}
+
 	return nil
 }
 
