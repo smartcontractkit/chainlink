@@ -54,7 +54,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.34.0
 	github.com/smartcontractkit/chain-selectors v1.0.100
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260518203858-4a2d236e3e5a
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260519133128-43fabe4ea5a5
 	github.com/smartcontractkit/chainlink-common/keystore v1.1.0
 	github.com/smartcontractkit/chainlink-deployments-framework v0.103.0
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260403151002-2c91155b5501
@@ -510,7 +510,7 @@ require (
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260507123701-77fc93b573bb
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260428205619-2db1389501a1 // indirect
-	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260518142424-bacfb6ba4146
+	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260519133128-43fabe4ea5a5
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260519095745-ddfc812d06a0 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
 	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20260423135514-5b1a7565a99c // indirect
