@@ -806,7 +806,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 			chainView.UpdateMu.Lock()
 			defer chainView.UpdateMu.Unlock()
 			chainView.Router[c.TestRouter.Address().Hex()] = testRouterView
-			lggr.Infow("generated test router view", "testRouter", c.TestRouter.Address().Hex(), "chain", chain)
+			lggr.Debugw("generated test router view", "testRouter", c.TestRouter.Address().Hex(), "chain", chain)
 			return nil
 		}
 	}
