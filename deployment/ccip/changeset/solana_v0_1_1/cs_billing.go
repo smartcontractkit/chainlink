@@ -813,7 +813,7 @@ func (cfg TokenTransferFeeForRemoteChainConfigV2) buildOrchestrateChangesetsConf
 			// build the config map
 			for tokenAddress, feeConfig := range dstConfig.TokenAddressToFeeConfig {
 				// get the remote billing PDA for the given (token, dst) pair
-				env.Logger.Infof("processing inputs src = %d, dst = %d, token = %s", srcSelector, dstSelector, tokenAddress.String())
+				env.Logger.Debugf("processing inputs src = %d, dst = %d, token = %s", srcSelector, dstSelector, tokenAddress.String())
 				remoteBillingPDA, _, err := solState.FindFqPerChainPerTokenConfigPDA(dstSelector, tokenAddress, solChainState.FeeQuoter)
 				if err != nil {
 					return ccipcommoncs.OrchestrateChangesetsConfig{}, fmt.Errorf("failed to find remote billing token config pda (src = %d, dst = %d, token = %s): %w", srcSelector, dstSelector, tokenAddress.String(), err)
