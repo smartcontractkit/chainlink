@@ -230,7 +230,7 @@ func (s *Services) newSubservices(
 		s.OrgResolver = fallbackResolver
 		srvs = append(srvs, fallbackResolver)
 	} else {
-		lggr.Warn("Skipping orgResolver, no linking service configured")
+		lggr.Info("Skipping orgResolver, no linking service configured")
 	}
 
 	dispatcherWrapper, err := newDispatcherWrapper(cfg, opts, keyStore, ds, singletonPeerWrapper, lggr)
