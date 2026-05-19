@@ -226,7 +226,7 @@ func (p *Plugin) Outcome(_ context.Context, outctx ocr3types.OutcomeContext, _ t
 		Routes: routes,
 	}
 
-	p.lggr.Infow("RingOCR Outcome", "healthyShards", len(healthyShards), "totalObservations", len(aos), "workflowCount", len(routes))
+	p.lggr.Debugw("RingOCR Outcome", "healthyShards", len(healthyShards), "totalObservations", len(aos), "workflowCount", len(routes))
 
 	return proto.MarshalOptions{Deterministic: true}.Marshal(outcome)
 }
