@@ -96,7 +96,7 @@ func (args TokenTransferFeeArgs) FillMissingValues(srcSelector uint64, dstSelect
 
 func setTokenTransferFeeConfigPrecondition(env cldf.Environment, cfg SetTokenTransferFeeConfig) error {
 	if len(cfg.InputsByChain) == 0 {
-		env.Logger.Warn("no inputs were provided - exiting precondition stage gracefully")
+		env.Logger.Info("no inputs were provided - exiting precondition stage gracefully")
 		return nil
 	}
 
