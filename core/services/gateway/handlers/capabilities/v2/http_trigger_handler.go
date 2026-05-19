@@ -366,7 +366,7 @@ func (h *httpTriggerHandler) checkRateLimit(ctx context.Context, workflowID, req
 		if errors.As(err, &errLimited) {
 			switch errLimited.Scope {
 			case settings.ScopeWorkflow:
-				lggr.Errorf("failed to start execution: per workflow rate limit exceeded")
+				lggr.Warnf("failed to start execution: per workflow rate limit exceeded")
 				h.metrics.IncrementWorkflowThrottled(ctx, h.lggr)
 			default:
 				lggr.Errorf("failed to start execution: unexpected rate limit for scope %s", errLimited.Scope)
