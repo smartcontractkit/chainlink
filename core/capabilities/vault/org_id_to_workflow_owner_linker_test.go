@@ -112,7 +112,7 @@ func TestCapability_ListSecretIdentifiers_RejectsWorkflowOwnerOrgIDMismatch(t *t
 	reg := coreCapabilities.NewRegistry(lggr)
 	resolver := &testOrgResolver{orgID: "org-actual"}
 
-	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, newVaultOrgIDAsSecretOwnerLimitsFactory(t, true))
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, newVaultOrgIDAsSecretOwnerLimitsFactory(t, true), newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
@@ -347,7 +347,7 @@ func TestCapability_ListSecretIdentifiers_RejectsMissingWorkflowOwnerWhenOrgIDMi
 	reg := coreCapabilities.NewRegistry(lggr)
 	resolver := &testOrgResolver{orgID: "org-actual"}
 
-	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, newVaultOrgIDAsSecretOwnerLimitsFactory(t, true))
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, newVaultOrgIDAsSecretOwnerLimitsFactory(t, true), newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
@@ -371,7 +371,7 @@ func captureListRequest(t *testing.T, requestID string, resolver orgresolver.Org
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 	reg := coreCapabilities.NewRegistry(lggr)
 
-	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, newVaultOrgIDAsSecretOwnerLimitsFactory(t, gateEnabled))
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, newVaultOrgIDAsSecretOwnerLimitsFactory(t, gateEnabled), newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
@@ -435,7 +435,7 @@ func newCapabilityWithOrgIDEncryptedSecret(t *testing.T, orgID string) (string, 
 	lpk := NewLazyPublicKey()
 	lpk.Set(pk)
 
-	capability, err := NewCapability(lggr, clock, expiry, handler, reg, lpk, &testOrgResolver{orgID: orgID}, newVaultOrgIDAsSecretOwnerLimitsFactory(t, true))
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, lpk, &testOrgResolver{orgID: orgID}, newVaultOrgIDAsSecretOwnerLimitsFactory(t, true), newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 

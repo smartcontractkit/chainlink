@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	"github.com/stretchr/testify/require"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
@@ -33,8 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -328,7 +327,7 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 		TransferCCIPHomeToMCMS bool
 		TransferCapRegToMCMS   bool
 		ExpectedErr            string
-		MCMSConfig             *proposalutils.TimelockConfig
+		MCMSConfig             *cldfproposalutils.TimelockConfig
 	}{
 		{
 			Msg:                    "CCIPHome & CapReg ownership mismatch",
@@ -337,7 +336,7 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 			DeployMCMS:             true,
 			TransferCCIPHomeToMCMS: true,
 			TransferCapRegToMCMS:   false,
-			MCMSConfig:             &proposalutils.TimelockConfig{},
+			MCMSConfig:             &cldfproposalutils.TimelockConfig{},
 			ExpectedErr:            "CCIPHome and CapabilitiesRegistry owners do not match",
 		},
 		{
@@ -347,7 +346,7 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 			DeployMCMS:             true,
 			TransferCCIPHomeToMCMS: true,
 			TransferCapRegToMCMS:   true,
-			MCMSConfig:             &proposalutils.TimelockConfig{},
+			MCMSConfig:             &cldfproposalutils.TimelockConfig{},
 			ExpectedErr:            "",
 		},
 		{
@@ -367,7 +366,7 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 			DeployMCMS:             true,
 			TransferCCIPHomeToMCMS: false,
 			TransferCapRegToMCMS:   false,
-			MCMSConfig:             &proposalutils.TimelockConfig{},
+			MCMSConfig:             &cldfproposalutils.TimelockConfig{},
 			ExpectedErr:            "",
 		},
 		{
@@ -387,7 +386,7 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 			DeployMCMS:             false,
 			TransferCCIPHomeToMCMS: false,
 			TransferCapRegToMCMS:   false,
-			MCMSConfig:             &proposalutils.TimelockConfig{},
+			MCMSConfig:             &cldfproposalutils.TimelockConfig{},
 			ExpectedErr:            "",
 		},
 		{
@@ -407,7 +406,7 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 			DeployMCMS:             false,
 			TransferCCIPHomeToMCMS: false,
 			TransferCapRegToMCMS:   false,
-			MCMSConfig:             &proposalutils.TimelockConfig{},
+			MCMSConfig:             &cldfproposalutils.TimelockConfig{},
 			ExpectedErr:            "",
 		},
 		{
@@ -466,7 +465,7 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 			}
 
 			if test.DeployMCMS {
-				err = rt.Exec(runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
+				err = rt.Exec(runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 					homeChainSelector: cldftesthelpers.SingleGroupTimelockConfig(t),
 				}))
 				require.NoError(t, err, "failed to deploy MCMS")
@@ -483,11 +482,11 @@ func TestEnforceMCMSUsageIfProd(t *testing.T) {
 				}
 				if len(addrs) > 0 {
 					err = rt.Exec(
-						runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2), commonchangeset.TransferToMCMSWithTimelockConfig{
+						runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2), mcmschangesets.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: map[uint64][]common.Address{
 								homeChainSelector: addrs,
 							},
-							MCMSConfig: proposalutils.TimelockConfig{
+							MCMSConfig: cldfproposalutils.TimelockConfig{
 								MinDelay: 0 * time.Second,
 							},
 						}),

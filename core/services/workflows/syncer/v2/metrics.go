@@ -32,6 +32,9 @@ type metrics struct {
 	reconcileEventsDispatched metric.Int64Histogram // events dispatched per source per tick
 	reconcileDuration         metric.Int64Histogram // wall-clock ms for parallel event processing
 	reconcileEventsBackoff    metric.Int64Counter   // events skipped due to backoff
+
+	// On-disk WASM cache write (sync); duration tails indicate IO contention vs typical skew.
+	moduleStoreDuration metric.Int64Histogram
 }
 
 func (m *metrics) recordHandleDuration(ctx context.Context, d time.Duration, event string, success bool) {
@@ -101,6 +104,126 @@ func (m *metrics) recordReconcileBackoff(ctx context.Context, source string, cou
 	m.reconcileEventsBackoff.Add(ctx, int64(count), metric.WithAttributes(
 		attribute.String("source", source),
 	))
+}
+
+func (m *metrics) recordModuleStore(ctx context.Context, d time.Duration, success bool) {
+	if m == nil {
+		return
+	}
+	m.moduleStoreDuration.Record(ctx, d.Milliseconds(), metric.WithAttributes(
+		attribute.String("success", strconv.FormatBool(success)),
+	))
+}
+
+type CacheMetrics struct {
+	reloadSource        metric.Int64Counter // attribute "source": "weak_ref" | "disk"
+	evictionTotal       metric.Int64Counter
+	loadedGauge         metric.Int64Gauge
+	memorySaved         metric.Int64Gauge   // bytes saved by evicting idle modules
+	versionMismatch     metric.Int64Counter // cached binary rejected due to engine version mismatch
+	pinExhausted        metric.Int64Counter // execute retries exhausted before a pin succeeds
+	tryAcquireExhausted metric.Int64Counter // moduleEntry CAS attempts exhausted while pinning
+}
+
+// cachePinExhaustedHook is a test-only hook to observe pin-exhausted recordings.
+var cachePinExhaustedHook func()
+
+// cacheTryAcquireExhaustedHook is a test-only hook to observe tryAcquire-exhausted recordings.
+var cacheTryAcquireExhaustedHook func()
+
+func (cm *CacheMetrics) recordReload(ctx context.Context, source string) {
+	if cm == nil {
+		return
+	}
+	cm.reloadSource.Add(ctx, 1, metric.WithAttributes(attribute.String("source", source)))
+}
+
+func (cm *CacheMetrics) recordEviction(ctx context.Context, count int) {
+	if cm == nil {
+		return
+	}
+	cm.evictionTotal.Add(ctx, int64(count))
+}
+
+func (cm *CacheMetrics) recordLoaded(ctx context.Context, count int) {
+	if cm == nil {
+		return
+	}
+	cm.loadedGauge.Record(ctx, int64(count))
+}
+
+func (cm *CacheMetrics) recordMemorySaved(ctx context.Context, bytes int64) {
+	if cm == nil {
+		return
+	}
+	cm.memorySaved.Record(ctx, bytes)
+}
+
+func (cm *CacheMetrics) recordVersionMismatch(ctx context.Context) {
+	if cm == nil {
+		return
+	}
+	cm.versionMismatch.Add(ctx, 1)
+}
+
+func (cm *CacheMetrics) recordPinExhausted(ctx context.Context) {
+	if cm == nil {
+		return
+	}
+	cm.pinExhausted.Add(ctx, 1)
+	if cachePinExhaustedHook != nil {
+		cachePinExhaustedHook()
+	}
+}
+
+func (cm *CacheMetrics) recordTryAcquireExhausted(ctx context.Context) {
+	if cm == nil {
+		return
+	}
+	cm.tryAcquireExhausted.Add(ctx, 1)
+	if cacheTryAcquireExhaustedHook != nil {
+		cacheTryAcquireExhaustedHook()
+	}
+}
+
+func NewCacheMetrics() (*CacheMetrics, error) {
+	reloadSource, err := beholder.GetMeter().Int64Counter("platform_workflow_module_cache_reload_total")
+	if err != nil {
+		return nil, err
+	}
+	evictionTotal, err := beholder.GetMeter().Int64Counter("platform_workflow_module_cache_eviction_total")
+	if err != nil {
+		return nil, err
+	}
+	loadedGauge, err := beholder.GetMeter().Int64Gauge("platform_workflow_module_cache_loaded")
+	if err != nil {
+		return nil, err
+	}
+	memorySaved, err := beholder.GetMeter().Int64Gauge("platform_workflow_module_cache_memory_saved_bytes")
+	if err != nil {
+		return nil, err
+	}
+	versionMismatch, err := beholder.GetMeter().Int64Counter("platform_workflow_module_cache_version_mismatch_total")
+	if err != nil {
+		return nil, err
+	}
+	pinExhausted, err := beholder.GetMeter().Int64Counter("platform_workflow_module_cache_pin_exhausted_total")
+	if err != nil {
+		return nil, err
+	}
+	tryAcquireExhausted, err := beholder.GetMeter().Int64Counter("platform_workflow_module_cache_try_acquire_exhausted_total")
+	if err != nil {
+		return nil, err
+	}
+	return &CacheMetrics{
+		reloadSource:        reloadSource,
+		evictionTotal:       evictionTotal,
+		loadedGauge:         loadedGauge,
+		memorySaved:         memorySaved,
+		versionMismatch:     versionMismatch,
+		pinExhausted:        pinExhausted,
+		tryAcquireExhausted: tryAcquireExhausted,
+	}, nil
 }
 
 func newMetrics() (*metrics, error) {
@@ -185,6 +308,11 @@ func newMetrics() (*metrics, error) {
 		return nil, err
 	}
 
+	moduleStoreDuration, err := beholder.GetMeter().Int64Histogram("platform_workflow_registry_syncer_module_store_duration_ms")
+	if err != nil {
+		return nil, err
+	}
+
 	return &metrics{
 		handleDuration:            handleDuration,
 		fetchedWorkflows:          fetchedWorkflows,
@@ -202,5 +330,6 @@ func newMetrics() (*metrics, error) {
 		reconcileEventsDispatched: reconcileEventsDispatched,
 		reconcileDuration:         reconcileDuration,
 		reconcileEventsBackoff:    reconcileEventsBackoff,
+		moduleStoreDuration:       moduleStoreDuration,
 	}, nil
 }

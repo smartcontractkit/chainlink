@@ -37,7 +37,7 @@
   http_port_range_start = 10100
   supported_evm_chains = [1337, 2337]
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS_DEFAULT = '{"VaultJWTAuthEnabled":"true","VaultOrgIdAsSecretOwnerEnabled":"true"}' }
-  capabilities = ["ocr3", "custom-compute", "web-api-trigger", "cron", "http-action", "http-trigger", "consensus", "don-time", "write-evm-1337", "read-contract-1337", "evm-1337"]
+  capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337"]
   registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
   [nodesets.db]
@@ -61,7 +61,7 @@
   http_port_range_start = 10200
   supported_evm_chains = [1337, 2337]
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS_DEFAULT = '{"VaultJWTAuthEnabled":"true","VaultOrgIdAsSecretOwnerEnabled":"true"}' }
-  capabilities = ["web-api-target", "vault", "write-evm-2337", "read-contract-2337", "evm-2337"]
+  capabilities = ["vault",  "evm-2337"]
 
   [nodesets.db]
     image = "postgres:12.0"

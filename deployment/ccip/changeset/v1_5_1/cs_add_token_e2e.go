@@ -8,6 +8,8 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 	"github.com/smartcontractkit/mcms"
 	"golang.org/x/exp/maps"
 
@@ -21,16 +23,15 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
-
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // AddTokensE2E is a changeset that deploys and configures token pools for multiple tokens across multiple chains in a single changeset.
@@ -98,7 +99,7 @@ type AddTokenE2EConfig struct {
 // newConfigurePoolAndTokenAdminRegConfig populated internal fields in AddTokenE2EConfig.
 // It creates the configuration for deploying and configuring token pools and token admin registry.
 // It then validates the configuration.
-func (c *AddTokenE2EConfig) newConfigurePoolAndTokenAdminRegConfig(e cldf.Environment, symbol shared.TokenSymbol, timelockCfg *proposalutils.TimelockConfig) error {
+func (c *AddTokenE2EConfig) newConfigurePoolAndTokenAdminRegConfig(e cldf.Environment, symbol shared.TokenSymbol, timelockCfg *cldfproposalutils.TimelockConfig) error {
 	c.deployPool = &DeployTokenPoolContractsConfig{
 		TokenSymbol:  symbol,
 		NewPools:     make(map[uint64]DeployTokenPoolInput),
@@ -232,7 +233,7 @@ type AddTokensE2EConfig struct {
 	Tokens map[shared.TokenSymbol]AddTokenE2EConfig `json:"tokens"`
 
 	// MCMS is the optional TimelockConfig used for governance proposals.
-	MCMS *proposalutils.TimelockConfig `json:"mcms,omitempty"`
+	MCMS *cldfproposalutils.TimelockConfig `json:"mcms,omitempty"`
 }
 
 func addTokenE2EPreconditionValidation(e cldf.Environment, config AddTokensE2EConfig) error {
@@ -356,7 +357,7 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 						addresses = append(addresses, common.HexToAddress(addr))
 					}
 
-					transferOwnershipProposalOutput, err := commoncs.TransferToMCMSWithTimelockV2(e, commoncs.TransferToMCMSWithTimelockConfig{
+					transferOwnershipProposalOutput, err := mcmschangesets.TransferToMCMSWithTimelockV2(e, mcmschangesets.TransferToMCMSWithTimelockConfig{
 						ContractsByChain: map[uint64][]common.Address{
 							chainID: addresses,
 						},
@@ -451,9 +452,14 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 	}
 	// if there are multiple proposals, aggregate them so that we don't have to propose them separately
 	if len(finalCSOut.MCMSTimelockProposals) > 1 {
-		aggregatedProposals, err := proposalutils.AggregateProposals(
-			e, state.EVMMCMSStateByChain(), nil, finalCSOut.MCMSTimelockProposals,
-			"Add Tokens E2E", config.MCMS)
+		aggregatedProposals, err := proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: not migrating to AggregateProposalsV2 in this PR
+			e,
+			state.EVMMCMSStateByChain(),
+			nil,
+			finalCSOut.MCMSTimelockProposals,
+			"Add Tokens E2E",
+			config.MCMS,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
 		}
@@ -811,7 +817,7 @@ func grantDefaultAdminRoleForBurnMintERC20Token(env cldf.Environment, selector u
 }
 
 func addMinterForERC677Token(env cldf.Environment, chain cldf_evm.Chain, tokenAddress common.Address, poolAddress common.Address) error {
-	_, err := operations.ExecuteOperation(env.OperationsBundle, ccipops.GrantMintAndBurnRolesERC677Op, chain, opsutil.EVMCallInput[common.Address]{
+	_, err := operations.ExecuteOperation(env.OperationsBundle, ccipops.GrantMintAndBurnRolesERC677Op, chain, opsevm.EVMCallInput[common.Address]{
 		Address:       tokenAddress,
 		ChainSelector: chain.Selector,
 		CallInput:     poolAddress,

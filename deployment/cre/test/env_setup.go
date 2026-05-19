@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -236,7 +237,7 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 		}
 
 		updatedEnv, mcmsErr := changeset.Apply(t, env, changeset.Configure(
-			cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
 			timelockCfgs,
 		))
 		require.NoError(t, mcmsErr, "failed to deploy MCMS infrastructure")

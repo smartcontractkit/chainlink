@@ -12,11 +12,12 @@ import (
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
@@ -144,7 +145,7 @@ func UpdateNodeCapabilities(env cldf.Environment, req *UpdateNodeCapabilitiesReq
 		inspectorPerChain := map[uint64]mcmssdk.Inspector{
 			req.RegistryChainSel: inspector,
 		}
-		proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		proposal, err := proposeutils.BuildProposalFromBatchesV2(
 			env,
 			timelocksPerChain,
 			proposerMCMSes,

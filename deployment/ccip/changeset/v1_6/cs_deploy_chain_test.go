@@ -5,9 +5,12 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
+	"github.com/stretchr/testify/require"
+
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
-	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
@@ -19,6 +22,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	linkchangesets "github.com/smartcontractkit/cld-changesets/link/changesets"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -26,8 +31,8 @@ import (
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
 
 func TestDeployChainContractsChangeset(t *testing.T) {
@@ -98,10 +103,10 @@ func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, 
 			},
 		},
 	), commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+		cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken),
 		evmSelectors,
 	), commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
 		cfg,
 	), commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
@@ -142,7 +147,7 @@ func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, 
 	// deploy feequoter with higher version
 	newFqVersion := semver.MustParse("1.6.4")
 	for sel, params := range contractParams {
-		params.FeeQuoterOpts = &opsutils.ContractOpts{
+		params.FeeQuoterOpts = &opsevm.ContractOpts{
 			Version:     newFqVersion,
 			EVMBytecode: common.FromHex(fee_quoter.FeeQuoterBin), // TODO: Can we replace this with actual 1.6.2 bytecode?
 		}
@@ -178,7 +183,7 @@ func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, 
 
 func TestDeployCCIPContracts(t *testing.T) {
 	t.Parallel()
-	testhelpers.DeployCCIPContractsTest(t, 0, 0)
+	testhelpers.DeployCCIPContractsTest(t, 0)
 }
 
 func TestDeployStaticLinkToken(t *testing.T) {

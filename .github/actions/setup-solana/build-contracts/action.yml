@@ -26,8 +26,8 @@ runs:
         cd chainlink-ccip
         git checkout $short_revision
 
-        echo "CHAINLINK_CCIP_COMMIT_SHORT=${short_revision}" >> $GITHUB_ENV
-        echo "ARTIFACT_NAME=solana-ccip-${short_revision}" >> $GITHUB_ENV
+        echo "CHAINLINK_CCIP_COMMIT_SHORT=${short_revision}" >> "${GITHUB_ENV}"
+        echo "ARTIFACT_NAME=solana-ccip-${short_revision}" >> "${GITHUB_ENV}"
     - name: Check if artifact exists
       id: check_artifact
       shell: bash
@@ -45,8 +45,8 @@ runs:
           if [[ "$ARTIFACT_NAME" == "${{ env.ARTIFACT_NAME }}" && "$ARTIFACT_EXPIRED" == false ]]; then
             # First non-expired artifact found, set variables and break loop
             echo "Artifact found"
-            echo "exists=true" >> $GITHUB_ENV
-            echo "ARTIFACT_DOWNLOAD_URL=$ARTIFACT_DOWNLOAD_URL" >> $GITHUB_ENV
+            echo "exists=true" >> "${GITHUB_ENV}"
+            echo "ARTIFACT_DOWNLOAD_URL=$ARTIFACT_DOWNLOAD_URL" >> "${GITHUB_ENV}"
             ARTIFACT_FOUND=true
             break
           fi
@@ -54,7 +54,7 @@ runs:
 
         if [[ "$ARTIFACT_FOUND" == false ]]; then
           echo "Artifact not found or expired"
-          echo "exists=false" >> $GITHUB_ENV
+          echo "exists=false" >> "${GITHUB_ENV}"
         fi
 
     - name: Download artifact if it exists

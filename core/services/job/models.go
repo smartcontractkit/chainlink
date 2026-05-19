@@ -23,12 +23,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
+	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -611,8 +611,7 @@ type VRFSpec struct {
 type BlockhashStoreSpec struct {
 	ID int32
 
-	// CoordinatorV1Address is the VRF V1 coordinator to watch for unfulfilled requests. If empty,
-	// no V1 coordinator will be watched.
+	// CoordinatorV1Address is a legacy field from VRF V1. It remains for API/DB compatibility; non-zero values are rejected at spec validation.
 	CoordinatorV1Address *evmtypes.EIP55Address `toml:"coordinatorV1Address"`
 
 	// CoordinatorV2Address is the VRF V2 coordinator to watch for unfulfilled requests. If empty,
@@ -668,8 +667,7 @@ type BlockhashStoreSpec struct {
 type BlockHeaderFeederSpec struct {
 	ID int32
 
-	// CoordinatorV1Address is the VRF V1 coordinator to watch for unfulfilled requests. If empty,
-	// no V1 coordinator will be watched.
+	// CoordinatorV1Address is a legacy field from VRF V1. It remains for API/DB compatibility; non-zero values are rejected at spec validation.
 	CoordinatorV1Address *evmtypes.EIP55Address `toml:"coordinatorV1Address"`
 
 	// CoordinatorV2Address is the VRF V2 coordinator to watch for unfulfilled requests. If empty,

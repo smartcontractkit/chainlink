@@ -725,7 +725,7 @@ type BlockhashStoreSpecResolver struct {
 	spec job.BlockhashStoreSpec
 }
 
-// CoordinatorV1Address returns the address of the V1 Coordinator, if any.
+// CoordinatorV1Address returns the legacy V1 coordinator address from persisted jobs, if any.
 func (b *BlockhashStoreSpecResolver) CoordinatorV1Address() *string {
 	if b.spec.CoordinatorV1Address == nil {
 		return nil
@@ -824,7 +824,7 @@ type BlockHeaderFeederSpecResolver struct {
 	spec job.BlockHeaderFeederSpec
 }
 
-// CoordinatorV1Address returns the address of the V1 Coordinator, if any.
+// CoordinatorV1Address returns the legacy V1 coordinator address from persisted jobs, if any.
 func (b *BlockHeaderFeederSpecResolver) CoordinatorV1Address() *string {
 	if b.spec.CoordinatorV1Address == nil {
 		return nil

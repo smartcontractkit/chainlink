@@ -26,6 +26,7 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
+	llotypes2 "github.com/smartcontractkit/chainlink-data-streams/llo/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
@@ -39,7 +40,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
-	llotypes2 "github.com/smartcontractkit/chainlink/v2/core/services/llo/types"
 )
 
 type mockHTTPClient struct {
@@ -1361,9 +1361,13 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 			},
 		}
 
-		mergedOutcome := cdc.Definitions(prevSimulatingOCROutcome)
-		_, has600 := mergedOutcome[600]
-		require.False(t, has600, "merged outcome should not contain dropped tombstoned channel 600")
+		var mergedOutcome llotypes.ChannelDefinitions
+		require.Eventually(t, func() bool {
+			mergedOutcome = cdc.Definitions(prevSimulatingOCROutcome)
+			_, has600 := mergedOutcome[600]
+			return !has600
+		}, 5*time.Second, 100*time.Millisecond,
+			"merged outcome should not contain dropped tombstoned channel 600")
 		_, has601 := mergedOutcome[601]
 		require.True(t, has601, "merged outcome should still contain channel 601")
 		_, has602 := mergedOutcome[602]

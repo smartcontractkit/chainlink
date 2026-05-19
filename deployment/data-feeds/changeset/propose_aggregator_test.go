@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	"github.com/stretchr/testify/require"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
@@ -19,8 +20,6 @@ import (
 
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
-	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
@@ -62,7 +61,7 @@ func TestProposeAggregator(t *testing.T) {
 			ProxyAddress:         common.HexToAddress(proxyAddress),
 			NewAggregatorAddress: common.HexToAddress("0x123"),
 		}),
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 			selector: MCMScfg,
 		}),
 	)
@@ -70,11 +69,11 @@ func TestProposeAggregator(t *testing.T) {
 
 	// with MCMS
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2), commonChangesets.TransferToMCMSWithTimelockConfig{
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2), mcmschangesets.TransferToMCMSWithTimelockConfig{
 			ContractsByChain: map[uint64][]common.Address{
 				selector: {common.HexToAddress(proxyAddress)},
 			},
-			MCMSConfig: proposalutils.TimelockConfig{
+			MCMSConfig: cldfproposalutils.TimelockConfig{
 				MinDelay: 0,
 				TimelockQualifierPerChain: map[uint64]string{
 					selector: MCMSQualifier,

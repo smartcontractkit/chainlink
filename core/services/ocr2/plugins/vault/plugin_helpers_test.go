@@ -117,6 +117,8 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 	if o.orgIDAsSecretOwnerEnabled {
 		cfg.OrgIDAsSecretOwnerEnabled = limits.NewGateLimiter(true)
 	}
+	lc, err := vaultcap.NewRequestLifecycleTracker(o.lggr)
+	require.NoError(t, err)
 	return &ReportingPlugin{
 		lggr:          o.lggr,
 		store:         o.store,
@@ -124,6 +126,7 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 		cfg:           cfg,
 		onchainCfg:    o.onchainCfg,
 		validator:     makeTestValidator(cfg),
+		lifecycle:     lc,
 		marshalBlob:   o.marshalBlob,
 		unmarshalBlob: o.unmarshalBlob,
 	}

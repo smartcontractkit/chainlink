@@ -21,8 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
-	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -236,9 +234,9 @@ func (jc *JobsController) validateJobSpec(ctx context.Context, tomlString string
 			return jb, http.StatusNotImplemented, errors.New("The Offchain Reporting 2 feature is disabled by configuration")
 		}
 	case job.DirectRequest:
-		jb, err = directrequest.ValidatedDirectRequestSpec(tomlString)
+		return jb, http.StatusUnprocessableEntity, errors.New("job type directrequest has been removed and is no longer supported")
 	case job.FluxMonitor:
-		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(config.JobPipeline(), tomlString)
+		return jb, http.StatusUnprocessableEntity, errors.New("job type fluxmonitor has been removed and is no longer supported")
 	case job.CRESettings:
 		jb, err = cresettings.ValidatedCRESettingsSpec(tomlString)
 	case job.Cron:

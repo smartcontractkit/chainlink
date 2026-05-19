@@ -8,6 +8,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+	"github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
+	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/cldfutil/changeset"
 	mcmslib "github.com/smartcontractkit/mcms"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
@@ -24,9 +28,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
-
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
@@ -105,7 +106,7 @@ type AddCandidatesForNewChainConfig struct {
 	// MCMSDeploymentConfig configures the MCMS deployment to the new chain.
 	MCMSDeploymentConfig *cldfproposalutils.MCMSWithTimelockConfig `json:"mcmsDeploymentConfig,omitempty"`
 	// MCMSConfig defines the MCMS configuration for the changeset.
-	MCMSConfig *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
+	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
 	// The offset to adjust the donID in DonIDClaimer (useful when certain DON IDs are dropped)
 	// This is a pointer to distinguish between an explicitly set value (including 0) and an unset value (nil).
 	// We can OffSet by 0 as well sync nextDonID with CapReg.
@@ -286,7 +287,7 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 		// Deploy MCMS contracts
 		if c.MCMSDeploymentConfig != nil {
 			err = runAndSaveAddresses(func() (cldf.ChangesetOutput, error) {
-				return commoncs.DeployMCMSWithTimelockV2(e, map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
+				return mcmschangesets.DeployMCMSWithTimelockV2(e, map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 					c.NewChain.Selector: *c.MCMSDeploymentConfig,
 				})
 			}, newAddresses, e.ExistingAddresses)
@@ -322,7 +323,7 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get owner of RMN proxy on chain with selector %d: %w", c.NewChain.Selector, err)
 		}
-		var mcmsConfig *proposalutils.TimelockConfig
+		var mcmsConfig *cldfproposalutils.TimelockConfig
 		if owner == state.Chains[c.NewChain.Selector].Timelock.Address() {
 			mcmsConfig = c.MCMSConfig
 		}
@@ -374,7 +375,7 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 	}
 
 	if c.DonIDOffSet != nil {
-		_, err = commoncs.RunChangeset(DonIDClaimerOffSetChangeset, e, DonIDClaimerOffSetConfig{
+		_, err = cldchangeset.RunChangeset(DonIDClaimerOffSetChangeset, e, DonIDClaimerOffSetConfig{
 			OffSet: *c.DonIDOffSet,
 		})
 		if err != nil {
@@ -460,16 +461,19 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to reset existing addresses: %w", err)
 	}
 
-	proposal, err := proposalutils.AggregateProposals(
-		e,
-		state.EVMMCMSStateByChain(),
-		nil,
-		allProposals,
-		fmt.Sprintf("Deploy and set candidates for chain with selector %d", c.NewChain.Selector),
-		c.MCMSConfig,
-	)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+	var proposal *mcmslib.TimelockProposal
+	if c.MCMSConfig != nil && len(allProposals) > 0 {
+		proposal, err = proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: not migrating to AggregateProposalsV2 yet
+			e,
+			state.EVMMCMSStateByChain(),
+			nil,
+			allProposals,
+			fmt.Sprintf("Deploy and set candidates for chain with selector %d", c.NewChain.Selector),
+			c.MCMSConfig,
+		)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
 	}
 
 	ds, err := shared.PopulateDataStore(newAddresses)
@@ -487,13 +491,13 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 	}, nil
 }
 
-///////////////////////////////////
+// /////////////////////////////////
 // END AddCandidatesForNewChainChangeset
-///////////////////////////////////
+// /////////////////////////////////
 
-///////////////////////////////////
+// /////////////////////////////////
 // START PromoteNewChainForConfigChangeset
-///////////////////////////////////
+// /////////////////////////////////
 
 // PromoteNewChainForConfig is a configuration struct for PromoteNewChainForConfigChangeset.
 type PromoteNewChainForConfig struct {
@@ -506,7 +510,7 @@ type PromoteNewChainForConfig struct {
 	// TestRouter is true if we want to connect via test routers.
 	TestRouter *bool `json:"testRouter,omitempty"`
 	// MCMSConfig defines the MCMS configuration for the changeset.
-	MCMSConfig *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
+	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
 }
 
 func (c PromoteNewChainForConfig) promoteCandidateConfig() PromoteCandidateChangesetConfig {
@@ -648,7 +652,10 @@ func promoteNewChainForConfigLogic(e cldf.Environment, c PromoteNewChainForConfi
 	}
 	allProposals = append(allProposals, out.MCMSTimelockProposals...)
 
-	proposal, err := proposalutils.AggregateProposals(
+	if c.MCMSConfig == nil || len(allProposals) == 0 {
+		return cldf.ChangesetOutput{}, nil
+	}
+	proposal, err := proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: not migrating to AggregateProposalsV2 in this PR
 		e,
 		state.EVMMCMSStateByChain(),
 		nil,
@@ -666,13 +673,13 @@ func promoteNewChainForConfigLogic(e cldf.Environment, c PromoteNewChainForConfi
 	return cldf.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
-///////////////////////////////////
+// /////////////////////////////////
 // END PromoteNewChainForConfigChangeset
-///////////////////////////////////
+// /////////////////////////////////
 
-///////////////////////////////////
+// /////////////////////////////////
 // START ConnectNewChainChangeset
-///////////////////////////////////
+// /////////////////////////////////
 
 // ConnectionConfig defines how a chain should connect with other chains.
 type ConnectionConfig struct {
@@ -693,7 +700,7 @@ type ConnectNewChainConfig struct {
 	// TestRouter is true if we want to connect via test routers.
 	TestRouter *bool `json:"testRouter,omitempty"`
 	// MCMSConfig is the MCMS configuration, omit to use deployer key only.
-	MCMSConfig *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
+	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
 }
 
 func (c ConnectNewChainConfig) validateNewChain(env cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -741,21 +748,21 @@ func (c ConnectNewChainConfig) validateChain(e cldf.Environment, state stateview
 		return errors.New("test router contract not found")
 	}
 
-	err = commoncs.ValidateOwnership(e.GetContext(), ownedByMCMS, deployerKey, chainState.Timelock.Address(), chainState.OnRamp)
+	err = mcmschangesets.ValidateOwnership(e.GetContext(), ownedByMCMS, deployerKey, chainState.Timelock.Address(), chainState.OnRamp)
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership of onRamp: %w", err)
 	}
-	err = commoncs.ValidateOwnership(e.GetContext(), ownedByMCMS, deployerKey, chainState.Timelock.Address(), chainState.OffRamp)
+	err = mcmschangesets.ValidateOwnership(e.GetContext(), ownedByMCMS, deployerKey, chainState.Timelock.Address(), chainState.OffRamp)
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership of offRamp: %w", err)
 	}
-	err = commoncs.ValidateOwnership(e.GetContext(), ownedByMCMS, deployerKey, chainState.Timelock.Address(), chainState.Router)
+	err = mcmschangesets.ValidateOwnership(e.GetContext(), ownedByMCMS, deployerKey, chainState.Timelock.Address(), chainState.Router)
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership of router: %w", err)
 	}
 
 	// Test router should always be owned by deployer key
-	err = commoncs.ValidateOwnership(e.GetContext(), false, deployerKey, chainState.Timelock.Address(), chainState.TestRouter)
+	err = mcmschangesets.ValidateOwnership(e.GetContext(), false, deployerKey, chainState.Timelock.Address(), chainState.TestRouter)
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership of test router: %w", err)
 	}
@@ -796,7 +803,7 @@ func connectNewChainLogic(env cldf.Environment, c ConnectNewChainConfig) (cldf.C
 	var ownershipTransferProposals []mcmslib.TimelockProposal
 	if !*c.TestRouter && c.MCMSConfig != nil {
 		// If using the production router, transfer ownership of all contracts on the new chain to MCMS.
-		allContracts := []commoncs.Ownable{
+		allContracts := []evm.Ownable{
 			state.Chains[c.NewChainSelector].OnRamp,
 			state.Chains[c.NewChainSelector].OffRamp,
 			state.Chains[c.NewChainSelector].FeeQuoter,
@@ -818,7 +825,7 @@ func connectNewChainLogic(env cldf.Environment, c ConnectNewChainConfig) (cldf.C
 				addressesToTransfer = append(addressesToTransfer, contract.Address())
 			}
 		}
-		out, err := commoncs.TransferToMCMSWithTimelockV2(env, commoncs.TransferToMCMSWithTimelockConfig{
+		out, err := mcmschangesets.TransferToMCMSWithTimelockV2(env, mcmschangesets.TransferToMCMSWithTimelockConfig{
 			ContractsByChain: map[uint64][]common.Address{
 				c.NewChainSelector: addressesToTransfer,
 			},
@@ -839,7 +846,7 @@ func connectNewChainLogic(env cldf.Environment, c ConnectNewChainConfig) (cldf.C
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to check if deployer key has admin role on timelock on chain with selector %d: %w", c.NewChainSelector, err)
 		}
 		if hasRole {
-			out, err = commoncs.RenounceTimelockDeployer(env, commoncs.RenounceTimelockDeployerConfig{
+			out, err = mcmschangesets.RenounceTimelockDeployer(env, mcmschangesets.RenounceTimelockDeployerConfig{
 				ChainSel:  c.NewChainSelector,
 				Qualifier: c.MCMSConfig.TimelockQualifierPerChain[c.NewChainSelector],
 			})
@@ -851,7 +858,7 @@ func connectNewChainLogic(env cldf.Environment, c ConnectNewChainConfig) (cldf.C
 
 	// Enable the production router on [new chain -> each remote chain] and [each remote chain -> new chain].
 	var allEnablementProposals []mcmslib.TimelockProposal
-	var mcmsConfig *proposalutils.TimelockConfig
+	var mcmsConfig *cldfproposalutils.TimelockConfig
 	if !*c.TestRouter {
 		mcmsConfig = c.MCMSConfig
 	}
@@ -868,7 +875,10 @@ func connectNewChainLogic(env cldf.Environment, c ConnectNewChainConfig) (cldf.C
 
 	allProposals := slices.Concat(ownershipTransferProposals, allEnablementProposals)
 
-	proposal, err := proposalutils.AggregateProposals(
+	if c.MCMSConfig == nil || len(allProposals) == 0 {
+		return cldf.ChangesetOutput{}, nil
+	}
+	proposal, err := proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: not migrating to AggregateProposalsV2 in this PR
 		env,
 		state.EVMMCMSStateByChain(),
 		nil,
@@ -893,7 +903,7 @@ func connectRampsAndRouters(
 	e cldf.Environment,
 	chainSelector uint64,
 	remoteChains map[uint64]ConnectionConfig,
-	mcmsConfig *proposalutils.TimelockConfig,
+	mcmsConfig *cldfproposalutils.TimelockConfig,
 	testRouter bool,
 	proposalAggregate []mcmslib.TimelockProposal,
 ) ([]mcmslib.TimelockProposal, error) {
@@ -969,9 +979,9 @@ func connectRampsAndRouters(
 	return proposalAggregate, nil
 }
 
-///////////////////////////////////
+// /////////////////////////////////
 // END ConnectNewChainChangeset
-///////////////////////////////////
+// /////////////////////////////////
 
 func runAndSaveAddresses(fn func() (cldf.ChangesetOutput, error), newAddresses cldf.AddressBook, existingAddresses cldf.AddressBook) error {
 	output, err := fn()

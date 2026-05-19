@@ -73,6 +73,7 @@ func NewReportingPluginFactory(
 	recipientKey *dkgrecipientkey.Key,
 	lazyPublicKey *vaultcap.LazyPublicKey,
 	limitsFactory limits.Factory,
+	lifecycle *vaultcap.RequestLifecycleTracker,
 ) (*ReportingPluginFactory, error) {
 	if db == nil {
 		return nil, errors.New("result package db cannot be nil")
@@ -80,6 +81,10 @@ func NewReportingPluginFactory(
 
 	if recipientKey == nil {
 		return nil, errors.New("DKG recipient key cannot be nil when using result package db")
+	}
+
+	if lifecycle == nil {
+		return nil, errors.New("request lifecycle tracker cannot be nil")
 	}
 
 	cfg := &ReportingPluginConfig{
@@ -93,6 +98,7 @@ func NewReportingPluginFactory(
 		db:            db,
 		recipientKey:  recipientKey,
 		limitsFactory: limitsFactory,
+		lifecycle:     lifecycle,
 	}, nil
 }
 
@@ -103,6 +109,7 @@ type ReportingPluginFactory struct {
 	db            dkgocrtypes.ResultPackageDatabase
 	recipientKey  *dkgrecipientkey.Key
 	limitsFactory limits.Factory
+	lifecycle     *vaultcap.RequestLifecycleTracker
 }
 
 func (r *ReportingPluginFactory) getKeyMaterial(ctx context.Context, instanceID string) (publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2easy.PrivateShare, err error) {
@@ -297,6 +304,8 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		cfg.MaxIdentifierNamespaceLengthBytes,
 	)
 
+	r.lifecycle.SetConfigDigest(config.ConfigDigest.String())
+
 	return &ReportingPlugin{
 			lggr:       r.lggr.Named("VaultReportingPlugin"),
 			store:      r.store,
@@ -304,6 +313,7 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 			metrics:    metrics,
 			onchainCfg: config,
 			validator:  validator,
+			lifecycle:  r.lifecycle,
 			unmarshalBlob: func(data []byte) (ocr3_1types.BlobHandle, error) {
 				handle := ocr3_1types.BlobHandle{}
 				err := handle.UnmarshalBinary(data)
@@ -325,6 +335,7 @@ type ReportingPlugin struct {
 	cfg        *ReportingPluginConfig
 	metrics    *pluginMetrics
 	validator  *vaultcap.RequestValidator
+	lifecycle  *vaultcap.RequestLifecycleTracker
 
 	// For testing: functions to mock out marshaling/unmarshaling blob handles.
 	// The Blob API isn't very test friendly because it uses sum types that belong
@@ -430,6 +441,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		}
 
 		obs = append(obs, o)
+		r.lifecycle.RecordObservedOutcome(req.Id, seqNr, time.Now())
 	}
 
 	obspb := &vaultcommon.Observations{
@@ -443,6 +455,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	if ierr != nil {
 		return nil, ierr
 	}
+	r.metrics.trackLocalQueueSize(ctx, len(localQueueItems))
 
 	// Sort the local queue by ID as we may have to limit its contents
 	// later on and we want to maximize the possibility of overlap among
@@ -500,6 +513,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 
 		blobPayloads = append(blobPayloads, itemb)
 		blobPayloadIDs = append(blobPayloadIDs, item.Id)
+		r.lifecycle.RecordBlobBroadcasting(item.Id, seqNr, time.Now())
 
 		if len(blobPayloads) >= maxObservedLocalQueueItems {
 			r.lggr.Warnw("Observed local queue exceeds batch size limit, truncating",
@@ -590,6 +604,7 @@ func (r *ReportingPlugin) broadcastBlobPayloads(
 			}
 
 			results[i] = blobHandleBytes
+			r.lifecycle.RecordBlobBroadcasted(requestID, seqNr, time.Now())
 			return nil
 		})
 	}
@@ -1586,9 +1601,14 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 	// ---
 	// Phase 2: Process the pending queue.
 	// ---
-	err := r.stateTransitionPendingQueue(ctx, wrappedStore, marshalledObs, blobFetcher)
+	err := r.stateTransitionPendingQueue(ctx, seqNr, wrappedStore, marshalledObs, blobFetcher)
 	if err != nil {
 		return ocr3_1types.ReportsPlusPrecursor{}, fmt.Errorf("could not process pending queue during state transition: %w", err)
+	}
+
+	nowST := time.Now()
+	for _, out := range os.Outcomes {
+		r.lifecycle.RecordStateTransitionOutcome(out.Id, seqNr, nowST)
 	}
 
 	ospb, err := proto.MarshalOptions{Deterministic: true}.Marshal(os)
@@ -1602,7 +1622,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 	return ocr3_1types.ReportsPlusPrecursor(ospb), nil
 }
 
-func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, store pendingQueueStore, obs map[uint8]*vaultcommon.Observations, blobFetcher ocr3_1types.BlobFetcher) error {
+func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, seqNr uint64, store pendingQueueStore, obs map[uint8]*vaultcommon.Observations, blobFetcher ocr3_1types.BlobFetcher) error {
 	// Step 1: Create a map of id -> sha -> count.
 	idToShaToCount := map[string]map[string]int{}
 	oidsToIDs := map[uint8][]string{} // for debugging only
@@ -1703,6 +1723,11 @@ func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, store
 			return fmt.Errorf("failed to check batch size limit: %w", err)
 		}
 		keptItems = keptItems[:errBoundLimited.Limit]
+	}
+
+	now := time.Now()
+	for _, it := range keptItems {
+		r.lifecycle.RecordWrittenToPendingQueue(ctx, it.Id, seqNr, now)
 	}
 
 	return store.WritePendingQueue(ctx, keptItems)

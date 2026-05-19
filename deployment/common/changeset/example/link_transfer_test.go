@@ -9,6 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
@@ -17,8 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	linkchangesets "github.com/smartcontractkit/cld-changesets/link/changesets"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/example"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/stretchr/testify/require"
 
@@ -41,8 +44,8 @@ func setupLinkTransferRuntime(t *testing.T) (*runtime.Runtime, uint64) {
 	// Deploy MCMS and Timelock
 	config := cldftesthelpers.SingleGroupMCMS(t)
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployLinkToken), []uint64{selector}),
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken), []uint64{selector}),
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 			selector: {
 				Canceller:        config,
 				Bypasser:         config,
@@ -90,7 +93,7 @@ func TestValidate(t *testing.T) {
 				Transfers: map[uint64][]example.TransferConfig{
 					selector: {{To: mcmsState.Timelock.Address(), Value: big.NewInt(100)}}},
 				From: chain.DeployerKey.From,
-				McmsConfig: &proposalutils.TimelockConfig{
+				McmsConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay: time.Hour,
 				},
 			},
@@ -114,7 +117,7 @@ func TestValidate(t *testing.T) {
 					},
 				},
 				From: mcmsState.Timelock.Address(),
-				McmsConfig: &proposalutils.TimelockConfig{
+				McmsConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay: time.Hour,
 				},
 			},
@@ -198,7 +201,7 @@ func TestValidate(t *testing.T) {
 				Transfers: map[uint64][]example.TransferConfig{
 					selector: {{To: mcmsState.Timelock.Address(), Value: big.NewInt(100)}}},
 				From: chain.DeployerKey.From,
-				McmsConfig: &proposalutils.TimelockConfig{
+				McmsConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay: time.Hour * 24 * 10,
 				},
 			},
@@ -265,7 +268,7 @@ func TestLinkTransferMCMSV2(t *testing.T) {
 			Transfers: map[uint64][]example.TransferConfig{
 				selector: {{To: chain.DeployerKey.From, Value: big.NewInt(500)}},
 			},
-			McmsConfig: &proposalutils.TimelockConfig{
+			McmsConfig: &cldfproposalutils.TimelockConfig{
 				MinDelay:     0,
 				OverrideRoot: true,
 			},

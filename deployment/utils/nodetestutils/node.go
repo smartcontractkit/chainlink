@@ -42,7 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 	sollptesting "github.com/smartcontractkit/chainlink-solana/pkg/solana/logpoller/testing"
-	tonlptesting "github.com/smartcontractkit/chainlink-ton/pkg/logpoller/store/postgres/testing"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
@@ -67,7 +66,6 @@ import (
 	cldf_evm_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
-	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 )
 
@@ -136,9 +134,6 @@ func NewNodes(
 	}
 
 	// Funding (only non-bootstrap nodes)
-	for _, tonChain := range cfg.BlockChains.TonChains() {
-		fundNodesTon(t, tonChain, nodes)
-	}
 	for _, aptosChain := range cfg.BlockChains.AptosChains() {
 		fundNodesAptos(t, aptosChain, nodes)
 	}
@@ -210,9 +205,6 @@ func (n Node) IsLogFilterRegistered(ctx context.Context, chainSel uint64, eventN
 	case chainsel.FamilySolana:
 		orm := sollptesting.NewTestORM(n.App.GetDB())
 		exists, err = orm.HasFilterByEventName(ctx, chainID, eventName, address)
-	case chainsel.FamilyTon:
-		orm := tonlptesting.NewTestORM(n.App.GetDB())
-		exists, err = orm.HasFilterByEventName(ctx, chainID, eventName, address)
 	default:
 		return false, fmt.Errorf("unsupported chain family; %v", family)
 	}
@@ -280,8 +272,6 @@ func (n Node) JDChainConfigs() ([]*nodev1.ChainConfig, error) {
 			ocrtype = corekeys.Aptos
 		case chainsel.FamilySui:
 			ocrtype = corekeys.Sui
-		case chainsel.FamilyTon:
-			ocrtype = corekeys.TON
 		case chainsel.FamilyTron:
 			ocrtype = corekeys.Tron
 		default:
@@ -311,8 +301,6 @@ func (n Node) JDChainConfigs() ([]*nodev1.ChainConfig, error) {
 			ctype = nodev1.ChainType_CHAIN_TYPE_APTOS
 		case chainsel.FamilySui:
 			ctype = nodev1.ChainType_CHAIN_TYPE_SUI
-		case chainsel.FamilyTon:
-			ctype = nodev1.ChainType_CHAIN_TYPE_TON
 		case chainsel.FamilyTron:
 			ctype = nodev1.ChainType_CHAIN_TYPE_TRON
 		default:
@@ -465,16 +453,6 @@ func NewNode(
 		}
 		c.Sui = suiConfigs
 
-		var tonConfigs chainlink.RawConfigs
-		for chainID, chain := range nodecfg.BlockChains.TonChains() {
-			tonChainID, err := chainsel.GetChainIDFromSelector(chainID)
-			if err != nil {
-				t.Fatal(err)
-			}
-			tonConfigs = append(tonConfigs, createTonChainConfig(tonChainID, chain))
-		}
-		c.TON = tonConfigs
-
 		var tronConfigs chainlink.RawConfigs
 		for chainID, chain := range nodecfg.BlockChains.TronChains() {
 			tronChainID, err := chainsel.GetChainIDFromSelector(chainID)
@@ -551,7 +529,6 @@ func NewNode(
 		nodecfg.BlockChains.SolanaChains(),
 		nodecfg.BlockChains.AptosChains(),
 		nodecfg.BlockChains.SuiChains(),
-		nodecfg.BlockChains.TonChains(),
 		nodecfg.BlockChains.TronChains(),
 	)
 
@@ -597,7 +574,6 @@ func CreateKeys(t *testing.T,
 	solchains map[uint64]cldf_solana.Chain,
 	aptoschains map[uint64]cldf_aptos.Chain,
 	suichains map[uint64]cldf_sui.Chain,
-	tonchains map[uint64]cldf_ton.Chain,
 	tronchains map[uint64]cldf_tron.Chain,
 ) Keys {
 	ctx := t.Context()
@@ -729,28 +705,6 @@ func CreateKeys(t *testing.T,
 		}
 	}
 
-	if len(tonchains) > 0 {
-		ctype := corekeys.TON
-		err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
-		require.NoError(t, err)
-		keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)
-		require.NoError(t, err)
-		require.Len(t, keys, 1)
-		keybundle := keys[0]
-		keybundles[ctype] = keybundle
-
-		err = app.GetKeyStore().TON().EnsureKey(ctx)
-		require.NoError(t, err, "failed to create key for TON")
-
-		tonkeys, err := app.GetKeyStore().TON().GetAll()
-		require.NoError(t, err)
-		require.Len(t, tonkeys, 1)
-		transmitter := tonkeys[0]
-		for chainSelector := range tonchains {
-			transmitters[chainSelector] = transmitter.AddressBase64()
-		}
-	}
-
 	if len(suichains) > 0 {
 		ctype := corekeys.Sui
 		err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
@@ -790,7 +744,7 @@ func CreateKeys(t *testing.T,
 		require.NoError(t, err)
 		require.Len(t, tronkeys, 1)
 		transmitter := tronkeys[0]
-		for chainSelector := range tonchains {
+		for chainSelector := range tronchains {
 			transmitters[chainSelector] = transmitter.PublicKeyStr()
 		}
 	}

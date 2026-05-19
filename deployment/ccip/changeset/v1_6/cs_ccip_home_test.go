@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -38,7 +39,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 func TestInvalidOCR3Params(t *testing.T) {
@@ -153,9 +153,9 @@ func Test_PromoteCandidate(t *testing.T) {
 			require.NoError(t, err)
 			require.NotEqual(t, [32]byte{}, ActiveDigestExecBefore)
 
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -244,9 +244,9 @@ func Test_SetCandidate(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, [32]byte{}, candidateDigestExecBefore)
 
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -374,9 +374,9 @@ func Test_RevokeCandidate(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, [32]byte{}, candidateDigestExecBefore)
 
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -497,9 +497,9 @@ func Test_UpdateChainConfigs(t *testing.T) {
 			require.NoError(t, err)
 			assert.NotZero(t, otherChainConfig.FChain)
 
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}

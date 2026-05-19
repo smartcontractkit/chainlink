@@ -13,11 +13,11 @@ import (
 	cldfsol "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	df_cache "github.com/smartcontractkit/chainlink-solana/contracts/generated/data_feeds_cache"
 
 	commonOps "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/operations"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
 
@@ -79,7 +79,7 @@ type (
 		ChainSel            uint64
 		ProgramID           string
 		NewUpgradeAuthority string
-		MCMS                *proposalutils.TimelockConfig // if set, assumes current upgrade authority is the timelock
+		MCMS                *cldfproposalutils.TimelockConfig // if set, assumes current upgrade authority is the timelock
 	}
 
 	SetUpgradeAuthorityOutput struct {
@@ -90,7 +90,7 @@ type (
 		ChainSel          uint64
 		Descriptions      [][32]uint8
 		DataIDs           [][16]uint8
-		MCMS              *proposalutils.TimelockConfig // if set, assumes current owner is the timelock
+		MCMS              *cldfproposalutils.TimelockConfig // if set, assumes current owner is the timelock
 		WorkflowMetadatas []df_cache.WorkflowMetadata
 		FeedAdmin         solana.PublicKey
 		State             solana.PublicKey
@@ -106,7 +106,7 @@ type (
 		ChainSel          uint64
 		Version           string
 		Qualifier         string
-		MCMS              *proposalutils.TimelockConfig // if set, assumes current
+		MCMS              *cldfproposalutils.TimelockConfig // if set, assumes current
 		DataIDs           [][16]uint8
 		FeedAdmin         solana.PublicKey
 		State             solana.PublicKey
@@ -119,7 +119,7 @@ func confirmInstructionOrBuildProposal(
 	deps Deps,
 	chainSel uint64,
 	instruction solana.Instruction,
-	mcmsConfig *proposalutils.TimelockConfig,
+	mcmsConfig *cldfproposalutils.TimelockConfig,
 	proposalDescription string,
 ) ([]mcms.TimelockProposal, error) {
 	if mcmsConfig == nil {
@@ -136,7 +136,7 @@ func buildMCMSProposal(
 	deps Deps,
 	chainSel uint64,
 	instruction solana.Instruction,
-	mcmsConfig *proposalutils.TimelockConfig,
+	mcmsConfig *cldfproposalutils.TimelockConfig,
 	description string,
 ) ([]mcms.TimelockProposal, error) {
 	tx, err := helpers.BuildMCMSTxn(
@@ -162,7 +162,7 @@ func buildMCMSProposal(
 	return []mcms.TimelockProposal{*proposal}, nil
 }
 
-func getCurrentAuthority(deps Deps, chainSel uint64, mcmsConfig *proposalutils.TimelockConfig) (solana.PublicKey, error) {
+func getCurrentAuthority(deps Deps, chainSel uint64, mcmsConfig *cldfproposalutils.TimelockConfig) (solana.PublicKey, error) {
 	if mcmsConfig == nil {
 		return deps.Chain.DeployerKey.PublicKey(), nil
 	}

@@ -21,6 +21,7 @@ import (
 	relaytypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	lloconfig "github.com/smartcontractkit/chainlink-data-streams/llo/config"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink-data-streams/rpc"
@@ -36,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/mercurytransmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
-	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 )
 
 var _ commontypes.LLOProvider = (*lloProvider)(nil)

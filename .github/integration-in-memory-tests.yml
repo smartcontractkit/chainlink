@@ -1051,43 +1051,6 @@ runner-test-matrix:
     install_plugins_public: true
     free_disk_space: true
 
-  # TON tests
-  - id: smoke/ccip/ccip_ton_messaging_test.go:Test_CCIPMessaging_TON2EVM
-    path: integration-tests/smoke/ccip/ccip_ton_messaging_test.go
-    test_env_type: in-memory
-    runs_on: ubuntu-latest
-    triggers:
-      - PR Integration CCIP Tests
-      - Nightly Integration CCIP Tests
-    test_cmd: |
-      echo "🚀 Starting CCIP TON2EVM test..."
-      gotestsum \
-        --junitfile=/tmp/junit.xml \
-        --jsonfile=/tmp/gotest.log \
-        --format=github-actions \
-        -- -v -run "Test_CCIPMessaging_TON2EVM" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
-    test_go_project_path: integration-tests
-    install_plugins_public: true
-    free_disk_space: true
-
-  - id: smoke/ccip/ccip_ton_messaging_test.go:Test_CCIPMessaging_EVM2TON
-    path: integration-tests/smoke/ccip/ccip_ton_messaging_test.go
-    test_env_type: in-memory
-    runs_on: ubuntu-latest
-    triggers:
-      - PR Integration CCIP Tests
-      - Nightly Integration CCIP Tests
-    test_cmd: |
-      echo "🚀 Starting CCIP EVM2TON test..."
-      gotestsum \
-        --junitfile=/tmp/junit.xml \
-        --jsonfile=/tmp/gotest.log \
-        --format=github-actions \
-        -- -v -run "Test_CCIPMessaging_EVM2TON" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
-    test_go_project_path: integration-tests
-    install_plugins_public: true
-    free_disk_space: true
-
   # Sui upgrade tests
   - id: smoke/ccip/ccip_sui_upgrade_test.go:Test_CCIP_Upgrade_Sui2EVM
     path: integration-tests/smoke/ccip/ccip_sui_upgrade_test.go

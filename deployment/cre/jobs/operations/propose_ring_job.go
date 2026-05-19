@@ -93,11 +93,12 @@ var ProposeRingJob = operations.NewSequence[ProposeRingJobInput, ProposeRingJobO
 			}
 			filters = append(filters, input.DONFilters...)
 			opReport, opErr := operations.ExecuteOperation(b, ProposeJobSpec, ProposeJobSpecDeps(deps), ProposeJobSpecInput{
-				Domain:     input.Domain,
-				DONName:    input.DONName,
-				Spec:       spec.Spec,
-				DONFilters: filters,
-				JobLabels:  input.ExtraLabels,
+				Domain:      input.Domain,
+				Environment: input.EnvName,
+				DONName:     input.DONName,
+				Spec:        spec.Spec,
+				DONFilters:  filters,
+				JobLabels:   input.ExtraLabels,
 			})
 			if opErr != nil {
 				// Do not fail the sequence if a single proposal fails, make it through all proposals.

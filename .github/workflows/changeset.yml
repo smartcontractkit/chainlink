@@ -81,7 +81,7 @@ jobs:
         if: ${{ steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true' }}
         run: |
           pnpm install && pnpm changeset version
-          echo "chainlink_version=$(jq -r '.version' package.json)" >> $GITHUB_OUTPUT
+          echo "chainlink_version=$(jq -r '.version' package.json)" | tee -a "${GITHUB_OUTPUT}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -90,7 +90,8 @@ jobs:
       # select the repository with jira-tracing and not the chainlink repository
       - name: Setup git top level directory
         id: find-git-top-level-dir
-        run: echo "top_level_dir=$(pwd)" >> $GITHUB_OUTPUT
+        run: |
+          echo "top_level_dir=$(pwd)" | tee -a "${GITHUB_OUTPUT}"
 
       - name: Checkout .Github repository
         uses: actions/checkout@v6

@@ -8,12 +8,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
@@ -35,7 +35,7 @@ func doTestGenericOps(t *testing.T, mcms bool) {
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
 	e := tenv.Env
 
-	var mcmsConfig *proposalutils.TimelockConfig
+	var mcmsConfig *cldfproposalutils.TimelockConfig
 	if mcms {
 		_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(t, &e, solChain, true,
 			ccipChangesetSolana.CCIPContractsToTransfer{
@@ -43,7 +43,7 @@ func doTestGenericOps(t *testing.T, mcms bool) {
 				FeeQuoter: true,
 				OffRamp:   true,
 			})
-		mcmsConfig = &proposalutils.TimelockConfig{
+		mcmsConfig = &cldfproposalutils.TimelockConfig{
 			MinDelay: 1 * time.Second,
 		}
 	}
