@@ -473,7 +473,7 @@ func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, timeout
 		// try calling runServer() and log error if any
 		if err := runServer(); err != nil {
 			if !errors.Is(err, http.ErrServerClosed) {
-				lggr.Criticalf("Error starting server: %v", err)
+				lggr.Errorf("Error starting server: %v", err)
 			}
 		}
 		// if ctx is cancelled, we must leave the loop
