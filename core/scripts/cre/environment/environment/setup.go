@@ -563,7 +563,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 			return
 		}
 	} else {
-		logger.Warn().Str("config file", config.ConfigPath).Msg("Skipping Chip Router setup, because configuration is not provided in the config file")
+		logger.Info().Str("config file", config.ConfigPath).Msg("Skipping Chip Router setup, because configuration is not provided in the config file")
 	}
 
 	var chipIngressLocalImage string
