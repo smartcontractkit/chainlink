@@ -800,7 +800,7 @@ func (cfg TokenTransferFeeForRemoteChainConfigV2) buildOrchestrateChangesetsConf
 		)
 
 		// 1st pass -> populate remote chain configs for each (token, dst) pair
-		env.Logger.Infof("building remote chain configs for chain %d", srcSelector)
+		env.Logger.Debugf("building remote chain configs for chain %d", srcSelector)
 		for dstSelector, dstConfig := range dst {
 			// perform basic validations on the first pass
 			if srcSelector == dstSelector {
