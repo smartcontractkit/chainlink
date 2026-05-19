@@ -208,7 +208,7 @@ func getIxnFromEncodedTx(e cldf.Environment, output string, timelockSignerPDA so
 	if base58EncodedTx == "" {
 		return nil, errors.New("failed to extract base58-encoded transaction")
 	}
-	e.Logger.Infow("base58-encoded transaction", "tx", base58EncodedTx)
+	e.Logger.Debugw("base58-encoded transaction", "tx", base58EncodedTx)
 
 	// create a transaction object from the base58EncodedTx
 	tx, err := solana.TransactionFromBase58(base58EncodedTx)
