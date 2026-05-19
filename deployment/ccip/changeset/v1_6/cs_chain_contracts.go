@@ -1586,7 +1586,7 @@ func (cfg UpdateDynamicConfigOffRampConfig) Validate(e cldf.Environment) error {
 			return fmt.Errorf("missing fee quoter for chain %d", chainSel)
 		}
 		if params.GasForCallExactCheck > 0 {
-			e.Logger.Infow(
+			e.Logger.Warnw(
 				"GasForCallExactCheck is set, please note it's a static config and will be ignored for this changeset",
 				"chain", chainSel, "gas", params.GasForCallExactCheck)
 		}
