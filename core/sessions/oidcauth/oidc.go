@@ -329,7 +329,7 @@ func (oi *oidcAuthenticator) FindUserByAPIToken(ctx context.Context, apiToken st
 		if errors.Is(err, clsessions.ErrUserSessionExpired) {
 			// API Token expired, purge
 			if _, execErr := oi.ds.ExecContext(ctx, "DELETE FROM oidc_user_api_tokens WHERE token_key = $1", apiToken); execErr != nil {
-				oi.lggr.Errorf("error purging stale oidc API token session: %v", execErr)
+				oi.lggr.Warnf("error purging stale oidc API token session: %v", execErr)
 			}
 		}
 		return clsessions.User{}, err
