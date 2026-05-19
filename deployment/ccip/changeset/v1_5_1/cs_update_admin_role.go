@@ -90,7 +90,7 @@ func (cfg *UpdateAdminRoleConfig) populate(e cldf.Environment) (updateAdminRoleC
 				continue
 			}
 
-			e.Logger.Infof(
+			e.Logger.Debugf(
 				"fetching token config for token '%s' from token admin registry at '%s' (chain selector = '%d')",
 				info.TokenAddress.Hex(),
 				chainState.TokenAdminRegistry.Address().Hex(),
