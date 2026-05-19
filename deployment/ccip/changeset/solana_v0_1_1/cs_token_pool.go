@@ -1815,7 +1815,7 @@ func getInstructionsForCCTP(
 	evmChainSelector uint64,
 	evmRemoteConfig EVMRemoteConfig,
 ) ([]solana.Instruction, error) {
-	e.Logger.Infow("getInstructionsForCCTP", "remote_chain_selector", evmChainSelector, "token_pubkey", cfg.SolTokenPubKey.String())
+	e.Logger.Debugw("getInstructionsForCCTP", "remote_chain_selector", evmChainSelector, "token_pubkey", cfg.SolTokenPubKey.String())
 	tokenPubKey := cfg.SolTokenPubKey
 	tokenPool := solChainState.CCTPTokenPool
 	contractType := shared.CCTPTokenPool
