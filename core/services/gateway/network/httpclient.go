@@ -324,7 +324,7 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 	reader := http.MaxBytesReader(nil, resp.Body, int64(n))
 	body, err := io.ReadAll(reader)
 	if err != nil {
-		c.lggr.Errorw("failed to read HTTP response body", "err", err)
+		c.lggr.Debugw("failed to read HTTP response body", "err", err)
 		return nil, errors.Join(err, ErrHTTPRead)
 	}
 
