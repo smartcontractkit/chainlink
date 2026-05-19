@@ -29,7 +29,8 @@ type ConfigureOCR3Input struct {
 	OracleConfig *ocr3.OracleConfig   `json:"oracleConfig" yaml:"oracleConfig"`
 	DryRun       bool                 `json:"dryRun" yaml:"dryRun"`
 
-	MCMSConfig *crecontracts.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
+	MCMSConfig           *crecontracts.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
+	ExtraSignersFamilies []string                 `json:"extraSignersFamilies" yaml:"extraSignersFamilies"`
 }
 
 type ConfigureOCR3 struct{}
@@ -93,12 +94,13 @@ func (l ConfigureOCR3) Apply(e cldf.Environment, input ConfigureOCR3Input) (cldf
 		Env:      &e,
 		Strategy: strategy,
 	}, contracts.ConfigureOCR3Input{
-		ContractAddress: &contractAddr,
-		ChainSelector:   input.ContractChainSelector,
-		DON:             input.DON,
-		Config:          input.OracleConfig,
-		DryRun:          input.DryRun,
-		MCMSConfig:      input.MCMSConfig,
+		ContractAddress:     &contractAddr,
+		ChainSelector:       input.ContractChainSelector,
+		DON:                 input.DON,
+		Config:              input.OracleConfig,
+		DryRun:              input.DryRun,
+		MCMSConfig:          input.MCMSConfig,
+		ExtraSignerFamilies: input.ExtraSignersFamilies,
 	})
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure OCR3 contract: %w", err)
