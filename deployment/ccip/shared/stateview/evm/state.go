@@ -941,7 +941,7 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 					return nil
 				}
 				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), tokenPoolView)
-				lggr.Infow("generated lock release token pool view", "tokenPool", tokenPool.Address().Hex(), "chain", chain)
+				lggr.Debugw("generated lock release token pool view", "tokenPool", tokenPool.Address().Hex(), "chain", chain)
 				return nil
 			}
 		}
