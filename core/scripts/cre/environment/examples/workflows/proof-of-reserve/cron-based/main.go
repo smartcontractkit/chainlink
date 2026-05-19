@@ -67,7 +67,7 @@ func onTrigger(config types.WorkflowConfig, runtime cre.Runtime, payload *cron.P
 	runtime.Logger().With().Debug(fmt.Sprintf("[logger] Got on-chain balance with BalanceAt() for address %s: %s", addressToRead1, balanceAtOutput.Balance.String()))
 	// Convert protobuf BigInt to big.Int manually to avoid import conflicts
 	balanceAtResult := values.ProtoToBigInt(balanceAtOutput.Balance)
-	runtime.Logger().With().Info(fmt.Sprintf("[logger] Got on-chain balance with BalanceAt() for address %s: %s", addressToRead1, balanceAtResult.String()))
+	runtime.Logger().With().Debug(fmt.Sprintf("[logger] Got on-chain balance with BalanceAt() for address %s: %s", addressToRead1, balanceAtResult.String()))
 
 	// get balance with CallContract
 	readBalancesParsedABI, err := getReadBalancesContractABI(runtime)
