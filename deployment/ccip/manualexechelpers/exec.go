@@ -174,7 +174,7 @@ func getCommitRootAcceptedEvent(
 		start = end + 1
 	}
 
-	lggr.Infow("didn't find commit root, maybe increase lookback duration")
+	lggr.Warnw("didn't find commit root, maybe increase lookback duration")
 
 	return offramp.InternalMerkleRoot{}, 0, errors.New("commit root not found")
 }
