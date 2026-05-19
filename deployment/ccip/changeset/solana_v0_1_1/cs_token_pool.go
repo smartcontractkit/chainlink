@@ -1415,7 +1415,7 @@ func getInstructionsForBurnMint(
 	evmChainSelector uint64,
 	evmRemoteConfig EVMRemoteConfig,
 ) ([]solana.Instruction, error) {
-	e.Logger.Infow("getInstructionsForBurnMint", "remote_chain_selector", evmChainSelector, "token_pubkey", cfg.SolTokenPubKey.String(), "pool_type", cfg.SolPoolType)
+	e.Logger.Debugw("getInstructionsForBurnMint", "remote_chain_selector", evmChainSelector, "token_pubkey", cfg.SolTokenPubKey.String(), "pool_type", cfg.SolPoolType)
 	tokenPubKey := cfg.SolTokenPubKey
 	tokenPool := solChainState.GetActiveTokenPool(cfg.SolPoolType, cfg.Metadata)
 	poolConfigPDA, remoteChainConfigPDA := getPoolPDAs(tokenPubKey, tokenPool, evmChainSelector)
