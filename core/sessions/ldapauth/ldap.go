@@ -134,7 +134,7 @@ func (l *ldapAuthenticator) FindUser(ctx context.Context, email string) (session
 		if errors.Is(err, ErrUserNotInUpstream) {
 			return sessions.User{}, ErrUserNotInUpstream
 		}
-		l.lggr.Errorf("error in validateUsers call: %v", err)
+		l.lggr.Warnf("error in validateUsers call: %v", err)
 		return sessions.User{}, errors.New("error running query to validate user active")
 	}
 	if !usersActive[0] {
