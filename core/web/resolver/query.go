@@ -302,7 +302,7 @@ func (r *Resolver) Node(ctx context.Context, args struct{ ID graphql.ID }) (*Nod
 		}
 	}
 
-	r.App.GetLogger().Errorw("resolver getting node status", "err", chains.ErrNotFound)
+	r.App.GetLogger().Debugw("resolver getting node status", "err", chains.ErrNotFound)
 	return NewNodePayloadResolver(nil, chains.ErrNotFound)
 }
 
