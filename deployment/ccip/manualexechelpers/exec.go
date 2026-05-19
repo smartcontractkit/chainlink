@@ -134,7 +134,7 @@ func getCommitRootAcceptedEvent(
 
 	start := getStartBlock(srcChainSel, hdr.Number.Uint64(), lookbackDuration)
 	if cachedBlockNumber != 0 {
-		lggr.Infow("using cached block number to start search for root", "cachedBlockNumber", cachedBlockNumber)
+		lggr.Debugw("using cached block number to start search for root", "cachedBlockNumber", cachedBlockNumber)
 		start = cachedBlockNumber
 	}
 	step := durationToBlocks(destChainSel, stepDuration)
