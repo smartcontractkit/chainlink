@@ -258,7 +258,7 @@ func (s *NodePlatformJobInfoService) submitterAddresses(ctx context.Context) []*
 	for offset := 0; ; {
 		jobs, count, err := s.opts.JobReader.FindJobs(ctx, offset, nodePlatformJobInfoPageSize)
 		if err != nil {
-			s.eng.Warnw("failed to resolve node-platform submitter addresses", "offset", offset, "limit", nodePlatformJobInfoPageSize, "err", err)
+			s.eng.Errorw("failed to resolve node-platform submitter addresses", "offset", offset, "limit", nodePlatformJobInfoPageSize, "err", err)
 			return nil
 		}
 
