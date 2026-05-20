@@ -7,10 +7,13 @@ on:
 
 permissions: {}
 
+# Tag push events use workflows from the tagged commit. Mirrored v* tags on forks/canary
+# therefore still ship this file; gate the whole pipeline to the primary repo only.
 jobs:
   checks:
     name: "Checks"
     runs-on: ubuntu-24.04
+    if: github.repository == 'smartcontractkit/chainlink'
     permissions:
       contents: read
     outputs:
@@ -85,7 +88,6 @@ jobs:
           fi
 
       - name: Check for VERSION file bump on tags
-        if: ${{ github.repository == 'smartcontractkit/chainlink' }}
         uses: ./.github/actions/version-file-bump
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -94,7 +96,7 @@ jobs:
     needs: [checks]
     # No need to build the final image as we promote the last RC to use the final tag
     # so we only run the builds for pre-releases.
-    if: needs.checks.outputs.is-pre-release == 'true'
+    if: github.repository == 'smartcontractkit/chainlink' && needs.checks.outputs.is-pre-release == 'true'
     permissions:
       contents: read
       id-token: write
@@ -132,7 +134,7 @@ jobs:
     needs: [checks]
     # No need to build the final image as we promote the last RC to use the final tag
     # so we only run the builds for pre-releases.
-    if: needs.checks.outputs.is-pre-release == 'true'
+    if: github.repository == 'smartcontractkit/chainlink' && needs.checks.outputs.is-pre-release == 'true'
     permissions:
       contents: read
       id-token: write
@@ -173,7 +175,8 @@ jobs:
     name: "Deploy"
     needs: [checks, docker-ccip]
     # We are only deploying CCIP pre-releases and skipping hotfix deployments for now.
-    if: needs.checks.outputs.is-pre-release == 'true' &&
+    if: github.repository == 'smartcontractkit/chainlink' &&
+      needs.checks.outputs.is-pre-release == 'true' &&
       needs.checks.outputs.is-hotfix == 'false'
     runs-on: ubuntu-latest
     permissions:
@@ -219,8 +222,9 @@ jobs:
   slack-notify:
     permissions:
       contents: read
-    if: always() && (needs.docker-core.result == 'success' ||
-      needs.docker-ccip.result == 'success')
+    if: github.repository == 'smartcontractkit/chainlink' && always() &&
+      (needs.docker-core.result == 'success' ||
+        needs.docker-ccip.result == 'success')
     needs: [checks, docker-core, docker-ccip]
     uses: ./.github/workflows/release-notifications.yml
     secrets: inherit
@@ -243,6 +247,7 @@ jobs:
     name: Trigger post-build-publish workflow
     needs: [docker-core, slack-notify]
     if: |
+      github.repository == 'smartcontractkit/chainlink' &&
       always() &&
       needs.docker-core.result == 'success'
     runs-on: ubuntu-latest
