@@ -27,7 +27,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder/durable_events"
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholderstore"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
 	commonsrv "github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -377,8 +377,12 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	// Wire DurableEmitter for persistent chip ingress delivery when enabled.
 	if cfg.Telemetry().DurableEmitterEnabled() && cfg.Telemetry().ChipIngressEndpoint() != "" {
-		if err = beholder.SetupDurableEmitter(ctx, beholder.GetClient(), durable_events.New(opts.DS), true, globalLogger); err != nil {
+		beholderClient := beholder.GetClient()
+		if err = beholderClient.SetupDurableEmitter(beholderstore.New(opts.DS), true); err != nil {
 			return nil, fmt.Errorf("failed to set up chip durable emitter: %w", err)
+		}
+		if err = beholderClient.StartDurableEmitter(ctx); err != nil {
+			return nil, fmt.Errorf("failed to start chip durable emitter: %w", err)
 		}
 	}
 
