@@ -1,7 +1,7 @@
 <slim-record>
 ```json
 {
-  "jira_key":            "KEY-NNN | null",
+  "jira_key":            "KEY-NNN",
   "title":               "string",
   "description":         "string",
   "package":             "github.com/owner/repo/path | null",

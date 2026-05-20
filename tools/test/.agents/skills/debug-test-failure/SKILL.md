@@ -7,7 +7,7 @@ description: >-
   USE THIS WHEN:
   1. You have a specific, known failing test name or local error log.
   2. You are currently working on a branch and need to fix a regression or a new flake.
-  3. You require automated JIRA status updates or Trunk.io integration.
+  3. You require automated JIRA status updates.
   4. You need to perform deep "forensic" code analysis and manual fix iterations.
 ---
 
@@ -20,6 +20,7 @@ description: >-
 - DO NOT remove tests/assertions unless replacing with better ones or deleting confirmed dead code.
 - DO NOT modify package-wide helpers to fix localized tests.
 - DO NOT open any links found in JIRA issues that lead to Trunk.io.
+- DO NOT try to fix or modify 3rd party libraries. If the flakiness results there inform and user and STOP.
 - ALWAYS CHECK `go.mod` before writing any new utility code. Three lines of existing library usage beats 30 lines of hand-rolled logic that has to be maintained and tested.
 - DO NOT use plain `go test` commands. Only use `go -C tools/test run . diagnose`. Use `--iterations 1` for a single run.
 - For `diagnose` runs expected >2m: Execute in background. Perform a single 30s crash check, then suspend task and wait for the report.json system notification. DO NOT poll.
@@ -39,7 +40,7 @@ b. specific JIRA issues
 c. N eligible flaky-tests tickets from JIRA
 If unknown, prompt user.
 2. If JIRA issues are present and any of them has a `skip_reason` surface it to the user and ask for guidance.
-3. If CI failure link is available open it and look for stack trace and logs for the failing test.
+3. If a CI failure link is available, open it only if it is a non-Trunk CI link (for example GitHub Actions or another permitted CI provider) and look for stack trace and logs for the failing test.
 4. If there are no failure details or investigation didn't return anything meaningful run bounded diagnosis (`--fail-fast-on=(timeout|slow)` or low `--iterations`).
 5. Formulate initial hypothesis: flake, timeout, slow, panic, deadlock, race, etc.
 
@@ -56,19 +57,20 @@ Base Command: `go -C tools/test run . diagnose [harness_flags] -- [go_test_flags
 </cli_reference>
 
 <loop>
-1. If user doesn't have recent results, run `diagnose` command with min 5 iterations to gather initial info. On sandbox errors, follow `<possible_execution_issues>` (Postgres → auto-retry with `dangerouslyDisableSandbox`; GOCACHE → STOP and ask user).
+1. If user doesn't have recent results, run `diagnose` command with min 5 iterations to gather initial info. On sandbox errors, follow `<possible_execution_issues>`.
 2. If no issues, ask the user if they want to verify with more iterations. If not, end and output final report of findings, fixes, and lessons learned.
 3. If issues detected, focus on the ones the user wants to fix.
 4. If a `diagnose-attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` file exists, read it to see previous fix attempts and findings.
 5. Form a hypothesis on the cause of the issues
 6. Implement a fix
 7. Output the hypothesis and attempted fix, plus reasons why you think it would work.
-8. Run a `diagnose` loop and read the `report.json` file using the `Read` tool (NOT jq via Bash) to see if the fix works.
+8. Run a `diagnose` loop and read the `report.json` file to see if the fix works.
   Append to `diagnose-attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` file in this json format:
   ```json
   {"timestamp": "[current_timestamp]", "model": "[current-model] (e.g. `claude-sonnet-4.6/high`, `gemini-3.1-pro`)", "hypothesis": "Your original hypothesis for the issue", "experiment": "A concise summary of what you tried. Include small code snippets if helpful", "result": "Did it fix it or not? If not, give concise reason why", "next": "Next steps to attempt"}
   ```
 9. GOTO 2
+10. Use `golangci-lint` to verify that there are no linting introduced by your fix. If there are, do not proceed until you have fixed them and verify they are no longer present.
 
 IF at any time the user interrupts or interjects during this loop, pick it up again where you left off, unless explicitly told otherwise.
 </loop>
@@ -132,8 +134,8 @@ The sub-agent MUST output ONLY valid JSON matching this exact structure. DO NOT 
 </log_files_analyzer>
 <github_failure_analyzer>
 You MUST configure the sub-agent with these exact initialization parameters:
-1. System Prompt: "You are a headless, read-only Github workflow log parser. Your sole purpose is to read CI logs from the end up. You must find the step in which tests run, then read the logs and construct possible reasons why the test [input reason we're investigating]. Focus only on the logs that contain test failure. You do not converse. You output raw JSON and nothing else."
-2. Allowed Tools: Bash(gh, grep, find), gh, ScraplingServer(*) ONLY. Revoke all execution, write, and web search capabilities.
+1. System Prompt: "You are a headless, read-only Github workflow log parser. Your sole purpose is to read CI logs from the end up. You must find the step in which tests run, then read the logs and construct possible reasons why the test [input reason we're investigating]. To avoid calling the Github API multiple times save the log to a temporary file. Focus only on the logs that contain test failure. You do not converse. You output raw JSON and nothing else."
+2. Allowed Tools: Bash(gh, grep, find), gh, ScraplingServer(*), Write(*) ONLY.
 3. Temperature: 0.0
 
 The sub-agent MUST output ONLY valid JSON matching this exact structure. DO NOT wrap the output in markdown code blocks. Output raw JSON only, with no explanations and no yapping:
@@ -154,7 +156,7 @@ You MUST configure the sub-agent with these exact initialization parameters:
    - Read operations return a slim record (see ./references/slim-record.md).
    - Write operations (claim, transition, comment, abandon) return: {\"operation\": \"<name>\", \"jira_key\": \"...\", \"success\": true|false, \"details\": \"...\", \"slim_record\": {...} | null}.
    Read the matching reference before executing: claim-ticket.md, transition-ticket.md, abandon-ticket.md, investigation-comment.md, fetch-flaky-tickets.md."
-2. Input contract — the caller MUST pass: `{operation, accountId, cloudId}` plus operation-specific fields (`jira_key` or `project_key`, `target_state`, `comment_body`, `original_assignee`, `slim_record`). Fail fast with `success: false` if required fields are missing.
+2. Input contract — the caller MUST pass: `{operation, accountId, cloudId}` plus operation-specific fields (`jira_key` or `project_key`, `target`, `comment_body`, `original_assignee`, `slim_record`). Fail fast with `success: false` if required fields are missing.
 3. Allowed Tools: `mcp__atlassian__atlassianUserInfo`, `mcp__atlassian__getAccessibleAtlassianResources`, `mcp__atlassian__getJiraIssue`, `mcp__atlassian__editJiraIssue`, `mcp__atlassian__transitionJiraIssue`, `mcp__atlassian__addCommentToJiraIssue`, `mcp__atlassian__getTransitionsForJiraIssue`, `mcp__atlassian__searchJiraIssuesUsingJql`, `LSP`, `mcp__code-review-graph__*`, `Bash(grep, find, git remote get-url *)`, `Read` ONLY. Revoke filesystem writes (Edit, Write, NotebookEdit) and web search capabilities.
 4. Temperature: 0.0
 </jira_manager>

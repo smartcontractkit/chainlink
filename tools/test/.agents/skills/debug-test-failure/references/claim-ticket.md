@@ -28,7 +28,7 @@ Execute in order — wait for each step to succeed before proceeding:
 
 1. `mcp__atlassian__getJiraIssue` with `jira_key` → read `fields.assignee.accountId`. Save it as `original_assignee` (null if the field is absent or the ticket is unassigned).
 2. `mcp__atlassian__editJiraIssue` → assign the issue to `accountId` (set `assignee.accountId = accountId`). Wait for success.
-3. Follow [transition-ticket.md](./transition-ticket.md) with `jira_key` and `target = "In Progress"`.
+3. Unless the ticket is already assigned to current user and is in `In Progress` stage follow [transition-ticket.md](./transition-ticket.md) with `jira_key` and `target = "In Progress"`.
    - If the transition fails: unassign the ticket.
    - Set transition failure in: `skip_reason`.
 </steps>

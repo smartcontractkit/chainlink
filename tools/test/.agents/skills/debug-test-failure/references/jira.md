@@ -25,9 +25,10 @@ All operations require:
 
 <available_operations>
 1. [investigation-comment](./investigation-comment.md) - Comment format for Investigation Updates; parsing prior-attempt comments or adding new comments
-2. [abandon-ticket](./abandon-ticket.md) - Mid-flight abandonment: unassign → Open → Investigation Update comment
+2. [fetch-flaky-tickets](./fetch-flaky-tickets.md) | JQL search loop: fetch N eligible flaky-test tickets for a project key
 3. [transition-ticket](./transition-ticket.md) - Transition a ticket to a semantic target state
-4. [fetch-flaky-tickets](./fetch-flaky-tickets.md) | JQL search loop: fetch N eligible flaky-test tickets for a project key
+4. [claim-ticket](./claim-ticket.md) - Claim one or more explicitly provided JIRA tickets for work
+5. [abandon-ticket](./abandon-ticket.md) - Mid-flight abandonment: unassign → Open → Investigation Update comment
 </available_operations>
 
 <canonical_slim_record>
