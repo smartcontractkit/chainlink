@@ -29,8 +29,8 @@ import (
 // moduleCacheMaxLoaded is per node; _defaultSoakNumWorkflows exceeds cap slots (~20%)
 // so enforceCap stays active after workflows are being triggered across nodes.
 const (
-	capPressurePercent   = 120
-	moduleCacheMaxLoaded = 80 // mirrors workflow-gateway-don-cache-soak-test.toml MaxLoaded
+	capPressurePercent   = 200 // 200% of MaxLoaded
+	moduleCacheMaxLoaded = 100 // mirrors workflow-gateway-don-cache-soak-test.toml MaxLoaded
 
 	moduleCacheIdleTimeout = 5 * time.Minute
 	fastCronInterval       = 3 * time.Minute
@@ -158,15 +158,79 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 			step:     defaultMetricStep,
 		},
 		{
+			// Gauge: peak loaded modules per step (cap pressure vs MaxLoaded).
 			metric:   "platform_workflow_module_cache_loaded",
-			query:    fmt.Sprintf("increase(platform_workflow_module_cache_loaded{node_don=\"%%s\", node_index=\"%%d\"}[%s])", cachePrometheusRange),
+			query:    fmt.Sprintf("max_over_time(platform_workflow_module_cache_loaded{node_don=\"%%s\", node_index=\"%%d\"}[%s])", cachePrometheusRange),
 			filename: "metrics/cache_loaded.json",
 			step:     defaultMetricStep,
 		},
 		{
+			// Gauge: average evicted-module bytes not held in RAM per step.
 			metric:   "platform_workflow_module_cache_memory_saved_bytes",
-			query:    fmt.Sprintf("increase(platform_workflow_module_cache_memory_saved_bytes{node_don=\"%%s\", node_index=\"%%d\"}[%s])", cachePrometheusRange),
+			query:    fmt.Sprintf("avg_over_time(platform_workflow_module_cache_memory_saved_bytes{node_don=\"%%s\", node_index=\"%%d\"}[%s])", cachePrometheusRange),
 			filename: "metrics/cache_memory_saved_bytes.json",
+			step:     defaultMetricStep,
+		},
+		{
+			// Gauge: workflows fetched from registry on last sync tick (registered on this node).
+			metric:   "platform_workflow_registry_syncer_fetched_workflows",
+			query:    fmt.Sprintf("max_over_time(platform_workflow_registry_syncer_fetched_workflows{node_don=\"%%s\", node_index=\"%%d\"}[%s])", cachePrometheusRange),
+			filename: "metrics/registry_fetched_workflows.json",
+			step:     defaultMetricStep,
+		},
+		{
+			// Gauge: workflow engines currently running on this node.
+			metric:   "platform_workflow_registry_syncer_running_workflows",
+			query:    fmt.Sprintf("max_over_time(platform_workflow_registry_syncer_running_workflows{node_don=\"%%s\", node_index=\"%%d\"}[%s])", cachePrometheusRange),
+			filename: "metrics/registry_running_workflows.json",
+			step:     defaultMetricStep,
+		},
+		{
+			metric:   "platform_workflow_registry_syncer_completed_syncs_total",
+			query:    fmt.Sprintf("increase(platform_workflow_registry_syncer_completed_syncs_total{node_don=\"%%s\", node_index=\"%%d\"}[%s])", cachePrometheusRange),
+			filename: "metrics/registry_completed_syncs_increase.json",
+			step:     defaultMetricStep,
+		},
+		{
+			metric:   "platform_workflow_registry_syncer_reconcile_events_backoff_total",
+			query:    fmt.Sprintf("increase(platform_workflow_registry_syncer_reconcile_events_backoff_total{node_don=\"%%s\", node_index=\"%%d\"}[%s])", cachePrometheusRange),
+			filename: "metrics/registry_reconcile_backoff_increase.json",
+			step:     defaultMetricStep,
+		},
+		{
+			metric: "platform_engine_workflow_execution_started_count",
+			query: fmt.Sprintf(
+				"sum(increase(platform_engine_workflow_execution_started_count{node_don=\"%%s\", node_index=\"%%d\"}[%s]))",
+				cachePrometheusRange,
+			),
+			filename: "metrics/engine_execution_started_increase.json",
+			step:     defaultMetricStep,
+		},
+		{
+			metric: "platform_engine_workflow_execution_succeeded_count",
+			query: fmt.Sprintf(
+				"sum(increase(platform_engine_workflow_execution_succeeded_count{node_don=\"%%s\", node_index=\"%%d\"}[%s]))",
+				cachePrometheusRange,
+			),
+			filename: "metrics/engine_execution_succeeded_increase.json",
+			step:     defaultMetricStep,
+		},
+		{
+			metric: "platform_engine_workflow_execution_failed_count",
+			query: fmt.Sprintf(
+				"sum(increase(platform_engine_workflow_execution_failed_count{node_don=\"%%s\", node_index=\"%%d\"}[%s]))",
+				cachePrometheusRange,
+			),
+			filename: "metrics/engine_execution_failed_increase.json",
+			step:     defaultMetricStep,
+		},
+		{
+			metric: "platform_engine_trigger_event_received_total",
+			query: fmt.Sprintf(
+				"sum(increase(platform_engine_trigger_event_received_total{node_don=\"%%s\", node_index=\"%%d\"}[%s]))",
+				cachePrometheusRange,
+			),
+			filename: "metrics/engine_trigger_event_received_increase.json",
 			step:     defaultMetricStep,
 		},
 		{
