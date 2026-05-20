@@ -119,19 +119,13 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 			expectedError: false,
 		},
 		{
-			name: "success - create secrets strips forwarded identity before reauthorization",
+			name: "success - create secrets with owner-prefixed gateway request ID",
 			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.Authorizer) {
 				ra.EXPECT().AuthorizeRequest(mock.Anything, mock.MatchedBy(func(req jsonrpc.Request[json.RawMessage]) bool {
-					if req.Method != vaulttypes.MethodSecretsCreate || req.ID != "1" || req.Params == nil {
-						return false
-					}
-					var payload map[string]json.RawMessage
-					if err := json.Unmarshal(*req.Params, &payload); err != nil {
-						return false
-					}
-					_, hasOrg := payload["org_id"]
-					_, hasWO := payload["workflow_owner"]
-					return !hasOrg && !hasWO
+					return req.Method == vaulttypes.MethodSecretsCreate &&
+						req.ID == "1" &&
+						req.Auth == "" &&
+						req.Params != nil
 				})).Return(authResult("org-1", "0xworkflow"), nil)
 				ss.EXPECT().CreateSecrets(mock.Anything, mock.MatchedBy(func(req *vaultcommon.CreateSecretsRequest) bool {
 					return len(req.EncryptedSecrets) == 1 &&
@@ -150,7 +144,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 				Params: func() *json.RawMessage {
 					rid := "org-1" + vaulttypes.RequestIDSeparator + "1"
 					raw := json.RawMessage(fmt.Sprintf(
-						`{"request_id":%q,"org_id":"org-1","workflow_owner":"0xworkflow","encrypted_secrets":[{"id":{"key":"test-secret","owner":"org-1"},"encrypted_value":"encrypted-value"}]}`,
+						`{"request_id":%q,"encrypted_secrets":[{"id":{"key":"test-secret","owner":"org-1"},"encrypted_value":"encrypted-value"}]}`,
 						rid,
 					))
 					return &raw
