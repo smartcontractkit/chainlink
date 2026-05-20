@@ -247,9 +247,7 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 			filename: "metrics/engine_trigger_event_received_increase.json",
 			step:     defaultMetricStep,
 		},
-		// Engine schedule skew (histograms). No per-execution cache-path label exists; correlate skew
-		// with cache_reload_disk_increase vs cache_reload_memory_increase in the same time step.
-		// Hot LRU hits produce neither reload counter.
+		// Engine schedule skew by module cache path (source: loaded | weak_ref | disk).
 		{
 			metric:   "platform_engine_trigger_queue_to_execution_start_seconds",
 			query:    histogramQuantileQuery("platform_engine_trigger_queue_to_execution_start_seconds", 0.50),
@@ -260,6 +258,24 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 			metric:   "platform_engine_trigger_queue_to_execution_start_seconds",
 			query:    histogramQuantileQuery("platform_engine_trigger_queue_to_execution_start_seconds", 0.95),
 			filename: "metrics/engine_trigger_skew_p95.json",
+			step:     defaultMetricStep,
+		},
+		{
+			metric:   "platform_engine_trigger_queue_to_execution_start_seconds",
+			query:    histogramQuantileQueryBySource("platform_engine_trigger_queue_to_execution_start_seconds", 0.95, "loaded"),
+			filename: "metrics/engine_trigger_skew_loaded_p95.json",
+			step:     defaultMetricStep,
+		},
+		{
+			metric:   "platform_engine_trigger_queue_to_execution_start_seconds",
+			query:    histogramQuantileQueryBySource("platform_engine_trigger_queue_to_execution_start_seconds", 0.95, "weak_ref"),
+			filename: "metrics/engine_trigger_skew_weak_ref_p95.json",
+			step:     defaultMetricStep,
+		},
+		{
+			metric:   "platform_engine_trigger_queue_to_execution_start_seconds",
+			query:    histogramQuantileQueryBySource("platform_engine_trigger_queue_to_execution_start_seconds", 0.95, "disk"),
+			filename: "metrics/engine_trigger_skew_disk_p95.json",
 			step:     defaultMetricStep,
 		},
 		{
@@ -355,6 +371,13 @@ func histogramQuantileQuery(metric string, quantile float64) string {
 	return fmt.Sprintf(
 		`histogram_quantile(%g, sum by (le) (rate(%s_bucket{node_don="%%s", node_index="%%d"}[%s])))`,
 		quantile, metric, cachePrometheusRange,
+	)
+}
+
+func histogramQuantileQueryBySource(metric string, quantile float64, source string) string {
+	return fmt.Sprintf(
+		`histogram_quantile(%g, sum by (le) (rate(%s_bucket{node_don="%%s", node_index="%%d", source="%s"}[%s])))`,
+		quantile, metric, source, cachePrometheusRange,
 	)
 }
 
