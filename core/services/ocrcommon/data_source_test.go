@@ -79,14 +79,18 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 		mockKVStore := mocks.KVStore{}
 		mockKVStore.On("Store", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockKVStore.On("Get", mock.Anything, mock.Anything).Return(nil, nil)
+
+		mockVal := int64(1)
+		// Must register before servicetest.Run: updater() calls updateCache() immediately on Start(),
+		// before the ticker fires, so the expectation must exist when the goroutine is created.
+		changeResultValue(runner, strconv.FormatInt(mockVal, 10), false, true)
+
 		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, &config.JuelsPerFeeCoinCache{UpdateInterval: sqlutil.Interval(time.Second * 2)})
 		require.NoError(t, err)
 		servicetest.Run(t, dsCache)
 
-		mockVal := int64(1)
 		// Test if Observe notices that cache updater failed and can refresh the cache on its own
-		// 1. Set initial value
-		changeResultValue(runner, strconv.FormatInt(mockVal, 10), false, true)
+		// 1. Initial value already registered above; wait for the first cache update to land
 		time.Sleep(time.Millisecond * 100)
 		val, err := dsCache.Observe(testutils.Context(t), types.ReportTimestamp{})
 		require.NoError(t, err)
