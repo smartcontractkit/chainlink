@@ -10,6 +10,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
+	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
@@ -93,6 +95,18 @@ func resetDurableEventQueue(ctx context.Context, t *testing.T, db *sql.DB) {
 func ExecuteDurableEmitterTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	lggr := framework.L
 	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/cron/main.go"
+
+	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
+	sink := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(lggr, userLogsCh, baseMessageCh))
+	t.Cleanup(func() {
+		// Do not use t.Context() here: it is cancelled before cleanup runs, which would
+		// break the chip-router unregister and could leave in-flight Publishes blocked
+		// on full sink channels.
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		t_helpers.ShutdownChipSinkWithDrain(ctx, sink, userLogsCh, baseMessageCh)
+	})
 
 	db := connectWorkflowDONDB(t, testEnv.Config.NodeSets)
 
