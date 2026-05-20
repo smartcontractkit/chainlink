@@ -80,16 +80,13 @@ type ERC20Transfer struct {
 	Amount *big.Int `json:"amount"` // Amount in token units (not wei)
 }
 
-// TransferERC20Config configures an ERC20 transfer from a timelock on a single chain
+// TransferERC20Config configures batch ERC20 transfers from timelocks across multiple chains
 type TransferERC20Config struct {
-	// ChainSelector is the chain where the timelock and token live
-	ChainSelector uint64 `json:"chain_selector"`
+	// TransfersByChain maps chain selector to ERC20 transfers for that chain
+	TransfersByChain map[uint64][]ERC20Transfer `json:"transfers_by_chain"`
 
 	// TimelockIdentifier is the qualifier for the timelock (e.g. "vault_1"). Use "" for default/legacy.
 	TimelockIdentifier string `json:"timelock_identifier"`
-
-	// Transfers is the list of ERC20 transfers to execute from the timelock
-	Transfers []ERC20Transfer `json:"transfers"`
 
 	// MCMSConfig contains timelock and MCMS configuration for building the proposal
 	MCMSConfig *proposalutils.TimelockConfig `json:"mcms_config"`

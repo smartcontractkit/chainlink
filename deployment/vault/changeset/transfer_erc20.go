@@ -3,6 +3,7 @@ package changeset
 import (
 	"fmt"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -14,35 +15,41 @@ var TransferERC20Changeset cldf.ChangeSetV2[types.TransferERC20Config] = transfe
 type transferERC20Changeset struct{}
 
 func (t transferERC20Changeset) VerifyPreconditions(e cldf.Environment, cfg types.TransferERC20Config) error {
-	return ValidateTransferERC20Config(e, cfg)
+	return ValidateTransferERC20Config(e.GetContext(), e, cfg)
 }
 
 func (t transferERC20Changeset) Apply(e cldf.Environment, cfg types.TransferERC20Config) (cldf.ChangesetOutput, error) {
 	lggr := e.Logger
 
-	lggr.Infow("Starting ERC20 transfer from timelock",
-		"chain", cfg.ChainSelector,
+	lggr.Infow("Starting batch ERC20 transfer",
+		"chains", len(cfg.TransfersByChain),
 		"timelock_id", cfg.TimelockIdentifier,
-		"transfers", len(cfg.Transfers),
 		"description", cfg.Description)
 
 	evmChains := e.BlockChains.EVMChains()
-	chain, exists := evmChains[cfg.ChainSelector]
-	if !exists {
-		return cldf.ChangesetOutput{}, fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
+
+	for chainSelector := range cfg.TransfersByChain {
+		if _, exists := evmChains[chainSelector]; !exists {
+			return cldf.ChangesetOutput{}, fmt.Errorf("chain %d not found in environment", chainSelector)
+		}
+	}
+
+	var primaryChain cldf_evm.Chain
+	for chainSelector := range cfg.TransfersByChain {
+		primaryChain = evmChains[chainSelector]
+		break
 	}
 
 	deps := VaultDeps{
-		Chain:       chain,
-		Auth:        chain.DeployerKey,
+		Chain:       primaryChain,
+		Auth:        primaryChain.DeployerKey,
 		DataStore:   e.DataStore,
 		Environment: e,
 	}
 
 	seqInput := TransferERC20SequenceInput{
-		ChainSelector:      cfg.ChainSelector,
+		TransfersByChain:   cfg.TransfersByChain,
 		TimelockIdentifier: cfg.TimelockIdentifier,
-		Transfers:          cfg.Transfers,
 		MCMSConfig:         cfg.MCMSConfig,
 		Description:        cfg.Description,
 	}
@@ -52,9 +59,8 @@ func (t transferERC20Changeset) Apply(e cldf.Environment, cfg types.TransferERC2
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute ERC20 transfer sequence: %w", err)
 	}
 
-	lggr.Infow("ERC20 transfer completed successfully",
-		"chain", cfg.ChainSelector,
-		"transfers", len(cfg.Transfers),
+	lggr.Infow("batch ERC20 transfer completed successfully",
+		"chains", len(cfg.TransfersByChain),
 		"mcms_proposals", len(seqReport.Output.MCMSTimelockProposals),
 		"execution_reports", len(seqReport.ExecutionReports))
 

@@ -254,30 +254,68 @@ func validateERC20Transfers(e cldf.Environment, chainSelector uint64, transfers 
 	return nil
 }
 
-func ValidateTransferERC20Config(e cldf.Environment, cfg types.TransferERC20Config) error {
-	if len(cfg.Transfers) == 0 {
-		return errors.New("transfers must not be empty")
-	}
-	if err := validateChainSelector(cfg.ChainSelector, e); err != nil {
-		return fmt.Errorf("invalid chain selector: %w", err)
-	}
-	_, exists := e.BlockChains.EVMChains()[cfg.ChainSelector]
-	if !exists {
-		return fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
+func ValidateTransferERC20Config(ctx context.Context, e cldf.Environment, cfg types.TransferERC20Config) error {
+	if len(cfg.TransfersByChain) == 0 {
+		return errors.New("transfers_by_chain must not be empty")
 	}
 	if cfg.MCMSConfig == nil {
 		return errors.New("MCMSConfig is required for transfer_erc20")
 	}
-	if err := validateERC20Transfers(e, cfg.ChainSelector, cfg.Transfers); err != nil {
-		return err
-	}
-	// Validate timelock and proposer exist for this chain and qualifier
+
 	qualifier := cfg.TimelockIdentifier
-	if _, err := GetContractAddressWithQualifier(e.DataStore, cfg.ChainSelector, commontypes.RBACTimelock, qualifier); err != nil {
-		return fmt.Errorf("timelock not found for chain %d: %w", cfg.ChainSelector, err)
+	for chainSelector, transfers := range cfg.TransfersByChain {
+		if err := validateChainSelector(chainSelector, e); err != nil {
+			return fmt.Errorf("invalid chain selector %d: %w", chainSelector, err)
+		}
+
+		if len(transfers) == 0 {
+			return fmt.Errorf("chain %d has no transfers", chainSelector)
+		}
+
+		if err := validateERC20Transfers(e, chainSelector, transfers); err != nil {
+			return fmt.Errorf("validation failed for chain %d: %w", chainSelector, err)
+		}
+
+		if _, err := GetContractAddressWithQualifier(e.DataStore, chainSelector, commontypes.RBACTimelock, qualifier); err != nil {
+			return fmt.Errorf("timelock not found for chain %d: %w", chainSelector, err)
+		}
+		if _, err := GetContractAddressWithQualifier(e.DataStore, chainSelector, commontypes.ProposerManyChainMultisig, qualifier); err != nil {
+			return fmt.Errorf("proposer not found for chain %d: %w", chainSelector, err)
+		}
 	}
-	if _, err := GetContractAddressWithQualifier(e.DataStore, cfg.ChainSelector, commontypes.ProposerManyChainMultisig, qualifier); err != nil {
-		return fmt.Errorf("proposer not found for chain %d: %w", cfg.ChainSelector, err)
+
+	if err := validateERC20MCMSConfig(e, cfg.MCMSConfig, cfg.TransfersByChain, qualifier); err != nil {
+		return fmt.Errorf("MCMS configuration validation failed: %w", err)
 	}
+
+	return nil
+}
+
+func validateERC20MCMSConfig(e cldf.Environment, mcmsConfig *cldfproposalutils.TimelockConfig, transfersByChain map[uint64][]types.ERC20Transfer, qualifier string) error {
+	if mcmsConfig.MinDelay < 0 {
+		return fmt.Errorf("MCMS minimum delay cannot be negative: %d", mcmsConfig.MinDelay)
+	}
+
+	for chainSelector := range transfersByChain {
+		addresses, err := evmstate.LoadAddressesFromDataStore(e.DataStore, chainSelector, qualifier)
+		if err != nil {
+			return fmt.Errorf("failed to get addresses from datastore for chain %d: %w", chainSelector, err)
+		}
+
+		if _, err := GetContractAddressWithQualifier(e.DataStore, chainSelector, commontypes.RBACTimelock, qualifier); err != nil {
+			return fmt.Errorf("timelock not found for chain %d: %w", chainSelector, err)
+		}
+
+		if _, err := GetContractAddressWithQualifier(e.DataStore, chainSelector, commontypes.ProposerManyChainMultisig, qualifier); err != nil {
+			return fmt.Errorf("proposer not found for chain %d: %w", chainSelector, err)
+		}
+
+		chain := e.BlockChains.EVMChains()[chainSelector]
+		_, err = changeset.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
+		if err != nil {
+			return fmt.Errorf("failed to load MCMS state for chain %d: %w", chainSelector, err)
+		}
+	}
+
 	return nil
 }
