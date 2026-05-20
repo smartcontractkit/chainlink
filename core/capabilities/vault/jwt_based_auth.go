@@ -35,6 +35,7 @@ var (
 	ErrMissingWorkflowOwner            = errors.New("missing workflow_owner in authorization_details")
 	ErrMissingRequestDigest            = errors.New("missing request_digest in authorization_details")
 	ErrVaultSecretManagementNotEnabled = errors.New("claim_vault_secret_management_enabled claim must be true")
+	ErrJWTTenantIDCresettingsMismatch  = errors.New("JWT tenant id does not match node TenantID CRE setting")
 	ErrJWKSFetchFailed                 = errors.New("failed to fetch JWKS")
 	ErrJWKSKeyNotFound                 = errors.New("signing key not found in JWKS")
 )
@@ -226,6 +227,18 @@ func (v *jwtBasedAuth) AuthorizeRequest(ctx context.Context, req jsonrpc.Request
 	if scopeErr := enforceVaultJWTOAuthScopes(req.Method, claims.OAuthScopes); scopeErr != nil {
 		v.lggr.Debugw("JWTBasedAuth OAuth scope rejected request", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "scopes", claims.OAuthScopes, "error", scopeErr)
 		return nil, fmt.Errorf("invalid JWT auth token: %w", scopeErr)
+	}
+
+	if claims.TenantID != 0 {
+		nodeTenantID, errTenant := cresettings.Default.TenantID.GetOrDefault(ctx, v.limitsFactory.Settings)
+		if errTenant != nil {
+			v.lggr.Errorw("failed to resolve CRE TenantID setting", "method", req.Method, "requestID", req.ID, "error", errTenant)
+			return nil, fmt.Errorf("failed to resolve TenantID from CRE settings: %w", errTenant)
+		}
+		if claims.TenantID != nodeTenantID {
+			v.lggr.Debugw("JWT tenant id does not match node TenantID CRE setting", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "claimsTenantID", claims.TenantID, "nodeTenantID", nodeTenantID)
+			return nil, fmt.Errorf("%w: jwt tenant id %d node tenant id %d", ErrJWTTenantIDCresettingsMismatch, claims.TenantID, nodeTenantID)
+		}
 	}
 
 	requestDigest, err := req.Digest()

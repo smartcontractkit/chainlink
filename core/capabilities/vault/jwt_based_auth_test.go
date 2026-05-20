@@ -942,6 +942,60 @@ func TestJWTBasedAuth_AuthorizeRequest_RejectsMissingTenantClaim(t *testing.T) {
 	require.ErrorIs(t, err, ErrMissingTenantID)
 }
 
+func TestJWTBasedAuth_AuthorizeRequest_RejectsTenantAgainstCresettingsMismatch(t *testing.T) {
+	rsaKey := generateTestRSAKey(t, "key-1")
+	jwksServer := newTestJWKSServer(t, rsaKey)
+
+	issuer := jwksServer.URL() + "/"
+	audience := "https://vault.test.chain.link"
+
+	getter, err := settings.NewJSONGetter([]byte(`{"global": {"TenantID": "2"}}`))
+	require.NoError(t, err)
+
+	v, err := NewJWTBasedAuth(JWTBasedAuthConfig{
+		IssuerURL:           issuer,
+		Audience:            audience,
+		JWKSRefreshInterval: time.Millisecond,
+	}, limits.Factory{Settings: getter}, logger.TestLogger(t), WithJWTBasedAuthGateLimiter(limits.NewGateLimiter(true)))
+	require.NoError(t, err)
+
+	owner := testJWTExpectedWorkflowOwner(t, 1, "org-123")
+	rawRequest := []byte(fmt.Sprintf(`{"jsonrpc":"2.0","id":"req-1","method":"vault.secrets.delete","params":{"request_id":"req-1","ids":[{"owner":"%s","namespace":"main","key":"k"}]}}`, owner))
+	req, err := jsonrpc.DecodeRequest[json.RawMessage](rawRequest, "")
+	require.NoError(t, err)
+
+	digest, err := req.Digest()
+	require.NoError(t, err)
+
+	token := createTestJWT(t, rsaKey, jwt.MapClaims{
+		"iss":                             issuer,
+		"aud":                             audience,
+		"exp":                             jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
+		"iat":                             jwt.NewNumericDate(time.Now()),
+		"org_id":                          "org-123",
+		ClaimVaultSecretManagementEnabled: "true",
+		ClaimChainlinkTenantID:            "1",
+		"permissions":                     []interface{}{OAuthScopeVaultSecretsDelete},
+		"authorization_details": []interface{}{
+			map[string]interface{}{
+				"type":  "request_digest",
+				"value": digest,
+			},
+			map[string]interface{}{
+				"type":  "workflow_owner",
+				"value": owner,
+			},
+		},
+	})
+
+	req, err = jsonrpc.DecodeRequest[json.RawMessage](rawRequest, token)
+	require.NoError(t, err)
+
+	authResult, err := v.AuthorizeRequest(t.Context(), req)
+	require.Nil(t, authResult)
+	require.ErrorIs(t, err, ErrJWTTenantIDCresettingsMismatch)
+}
+
 func TestJWTBasedAuth_InvalidTenantNumericClaim(t *testing.T) {
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
