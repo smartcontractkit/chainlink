@@ -464,25 +464,6 @@ func deployVaultContracts(testLogger zerolog.Logger, qualifier string, registryC
 	return new(common.HexToAddress(vaultOCR3Addr)), new(common.HexToAddress(vaultDKGOCR3Addr)), nil
 }
 
-func dkgReportingPluginConfig(don *cre.Don) (*dkgocrtypes.ReportingPluginConfig, error) {
-	cfg := &dkgocrtypes.ReportingPluginConfig{
-		T: 1,
-	}
-
-	workers, wErr := don.Workers()
-	if wErr != nil {
-		return nil, errors.Wrap(wErr, "failed to find worker nodes")
-	}
-
-	for _, workerNode := range workers {
-		pubKey := workerNode.Keys.DKGKey.PubKey
-		cfg.DealerPublicKeys = append(cfg.DealerPublicKeys, pubKey)
-		cfg.RecipientPublicKeys = append(cfg.RecipientPublicKeys, pubKey)
-	}
-
-	return cfg, nil
-}
-
 func reportingPluginConfigOverride(vaultDKGOCR3Addr *common.Address, creEnv *cre.Environment) ([]byte, error) {
 	client := creEnv.CldfEnvironment.BlockChains.EVMChains()[creEnv.RegistryChainSelector].Client
 	dkgContract, err := ocr3_capability.NewOCR3Capability(*vaultDKGOCR3Addr, client)

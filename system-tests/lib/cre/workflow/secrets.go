@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -19,7 +18,6 @@ import (
 
 	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
-	secretsUtils "github.com/smartcontractkit/chainlink-common/pkg/workflows/secrets"
 	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -48,25 +46,6 @@ type secretsNamesConfig struct {
 	SecretsNames map[string][]string `yaml:"secretsNames"`
 }
 
-func newSecretsConfig(configPath string) (*secretsUtils.SecretsConfig, error) {
-	secretsConfigFile, err := os.Open(configPath)
-	if err != nil {
-		return nil, fmt.Errorf("error opening secrets config file: %w", err)
-	}
-	defer secretsConfigFile.Close()
-
-	var config secretsUtils.SecretsConfig
-	err = yaml.NewDecoder(secretsConfigFile).Decode(&config)
-	if err != nil && errors.Is(err, io.EOF) {
-		return &secretsUtils.SecretsConfig{}, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("error decoding secrets config file: %w", err)
-	}
-
-	return &config, nil
-}
-
 // PrepareSecrets reads the vault secrets YAML file, encrypts each secret using the vault
 // public key, and writes the encrypted secrets list to a JSON file. The JSON file path is returned.
 //
@@ -91,8 +70,8 @@ func PrepareSecrets(secretsFilePath, vaultPublicKey string, ownerAddress common.
 	}
 
 	var cfg vaultSecretsConfig
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return "", errors.Wrap(err, "failed to parse secrets YAML file")
+	if yamlErr := yaml.Unmarshal(data, &cfg); yamlErr != nil {
+		return "", errors.Wrap(yamlErr, "failed to parse secrets YAML file")
 	}
 
 	if len(cfg.Secrets) == 0 {

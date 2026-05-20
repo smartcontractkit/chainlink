@@ -44,7 +44,7 @@ func PrepareNodeTOMLs(
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 	nodeSets []*cre.NodeSet,
-	capabilities []cre.InstallableCapability, // Deprecated, use Features instead and modify node configs inside a Feature
+	capabilities []cre.InstallableCapability, //nolint:staticcheck //SA1019 - We can't remove until other repos are updated
 	nodeConfigTransformerFns []cre.NodeConfigTransformerFn,
 	chipRouterInternalGRPCURL string,
 ) ([]*cre.NodeSet, error) {

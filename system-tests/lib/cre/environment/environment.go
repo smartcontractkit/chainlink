@@ -61,7 +61,7 @@ type SetupInput struct {
 	VaultOCR3Config        *keystone_changeset.OracleConfig
 	S3ProviderInput        *s3provider.Input
 	CapabilityConfigs      cre.CapabilityConfigs
-	Capabilities           []cre.InstallableCapability
+	Capabilities           []cre.InstallableCapability //nolint:staticcheck //SA1019 - We can't remove until other repos are updated
 	Features               cre.Features
 	GatewayWhitelistConfig gateway.WhitelistConfig
 	BlockchainDeployers    map[blockchain.ChainFamily]blockchains.Deployer
