@@ -7,9 +7,12 @@ import (
 
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
+
+var _ config.Telemetry = (*telemetryConfig)(nil)
 
 const defaultHeartbeatInterval = 1 * time.Second
 
@@ -97,11 +100,11 @@ func (b *telemetryConfig) ChipIngressInsecureConnection() bool {
 	return *b.s.ChipIngressInsecureConnection
 }
 
-func (b *telemetryConfig) ChipIngressBatchEmitterEnabled() bool {
-	if b.s.ChipIngressBatchEmitterEnabled == nil {
-		return true
+func (b *telemetryConfig) DurableEmitterEnabled() bool {
+	if b.s.DurableEmitterEnabled == nil {
+		return false
 	}
-	return *b.s.ChipIngressBatchEmitterEnabled
+	return *b.s.DurableEmitterEnabled
 }
 
 func (b *telemetryConfig) HeartbeatInterval() time.Duration {

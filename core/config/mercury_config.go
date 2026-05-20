@@ -1,10 +1,10 @@
 package config
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 )
 
 type MercuryCache interface {
@@ -17,31 +17,8 @@ type MercuryTLS interface {
 	CertFile() string
 }
 
-type MercuryTransmitterProtocol string
-
-const (
-	MercuryTransmitterProtocolWSRPC MercuryTransmitterProtocol = "wsrpc"
-	MercuryTransmitterProtocolGRPC  MercuryTransmitterProtocol = "grpc"
-)
-
-func (m MercuryTransmitterProtocol) String() string {
-	return string(m)
-}
-
-func (m *MercuryTransmitterProtocol) UnmarshalText(text []byte) error {
-	switch string(text) {
-	case "wsrpc":
-		*m = MercuryTransmitterProtocolWSRPC
-	case "grpc":
-		*m = MercuryTransmitterProtocolGRPC
-	default:
-		return fmt.Errorf("unknown mercury transmitter protocol: %s", text)
-	}
-	return nil
-}
-
 type MercuryTransmitter interface {
-	Protocol() MercuryTransmitterProtocol
+	Protocol() mercurytransmitter.MercuryTransmitterProtocol
 	TransmitQueueMaxSize() uint32
 	TransmitTimeout() time.Duration
 	TransmitConcurrency() uint32
