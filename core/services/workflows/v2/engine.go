@@ -837,6 +837,14 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		return
 	}
 	defer execCancel()
+	triggerCapID := wrappedTriggerEvent.triggerCapID
+	skewRec := &monitoring.TriggerSkewRecorder{
+		EnqueueTime: wrappedTriggerEvent.timestamp,
+		Record: func(ctx context.Context, seconds float64, source string) {
+			e.metrics.With(platform.KeyTriggerID, triggerCapID).RecordTriggerQueueToExecutionStartSeconds(ctx, seconds, source)
+		},
+	}
+	execCtx = monitoring.ContextWithTriggerSkewRecorder(execCtx, skewRec)
 	executionLogger := logger.With(lggr, "executionID", executionID, "triggerID", wrappedTriggerEvent.triggerCapID,
 		"triggerIndex", wrappedTriggerEvent.triggerIndex, "eventID", triggerEvent.ID)
 
@@ -906,14 +914,6 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	}
 	execHelper.initLimiters(e.cfg.LocalLimiters)
 	e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).RecordTriggerPayloadBytes(ctx, int64(proto.Size(triggerEvent.Payload)))
-	triggerCapID := wrappedTriggerEvent.triggerCapID
-	skewRec := &monitoring.TriggerSkewRecorder{
-		EnqueueTime: wrappedTriggerEvent.timestamp,
-		Record: func(ctx context.Context, seconds float64, source string) {
-			e.metrics.With(platform.KeyTriggerID, triggerCapID).RecordTriggerQueueToExecutionStartSeconds(ctx, seconds, source)
-		},
-	}
-	execCtx = monitoring.ContextWithTriggerSkewRecorder(execCtx, skewRec)
 	var result *sdkpb.ExecutionResult
 	result, execErr = e.cfg.Module.Execute(execCtx, &sdkpb.ExecuteRequest{
 		Request: &sdkpb.ExecuteRequest_Trigger{
