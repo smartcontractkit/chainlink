@@ -82,6 +82,16 @@ type Shard struct {
 }
 
 func (c *GatewayConfig) Validate() error {
+	if c.ConnectionManagerConfig.PongTimeoutSec != 0 {
+		if c.ConnectionManagerConfig.HeartbeatIntervalSec == 0 {
+			return errors.New("PongTimeoutSec requires HeartbeatIntervalSec > 0 (pong deadline needs periodic pings)")
+		}
+		if c.ConnectionManagerConfig.PongTimeoutSec <= c.ConnectionManagerConfig.HeartbeatIntervalSec {
+			return fmt.Errorf("PongTimeoutSec (%d) must be greater than HeartbeatIntervalSec (%d)",
+				c.ConnectionManagerConfig.PongTimeoutSec, c.ConnectionManagerConfig.HeartbeatIntervalSec)
+		}
+	}
+
 	if len(c.Dons) > 0 && (len(c.Services) > 0 || len(c.ShardedDONs) > 0) {
 		return errors.New("legacy Dons config and Services/ShardedDONs cannot be used together")
 	}

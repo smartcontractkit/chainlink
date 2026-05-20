@@ -441,7 +441,12 @@ func newWebSocketPair(t *testing.T) (serverConn, clientConn *websocket.Conn) {
 	require.NoError(t, err)
 	t.Cleanup(func() { clientConn.Close() })
 
-	serverConn = <-connCh
+	select {
+	case serverConn = <-connCh:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for WebSocket upgrade")
+	}
+	t.Cleanup(func() { serverConn.Close() })
 	return serverConn, clientConn
 }
 
@@ -483,6 +488,10 @@ func TestConnectionManager_ReadDeadline_ClosesIdleConnection(t *testing.T) {
 	// SendToNode should eventually fail because the underlying conn is closed.
 	donMgr := mgr.DONConnectionManager("my_don_1")
 	require.NotNil(t, donMgr)
+
+	// Verify connection works initially.
+	msg := &jsonrpc.Request[json.RawMessage]{ID: "pre-check"}
+	require.NoError(t, donMgr.SendToNode(testutils.Context(t), nodes[0].Address, msg))
 
 	assert.Eventually(t, func() bool {
 		msg := &jsonrpc.Request[json.RawMessage]{ID: "test"}

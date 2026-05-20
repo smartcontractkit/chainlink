@@ -271,11 +271,11 @@ func (m *connectionManager) FinalizeHandshake(attemptId string, response []byte,
 	if err != nil || attempt.nodeAddress != "0x"+hex.EncodeToString(signer) {
 		return network.ErrChallengeInvalidSignature
 	}
+	// Set a read deadline so that half-open connections are detected and closed.
+	// The deadline is reset every time a pong is received. If PongTimeoutSec is
+	// 0, deadline enforcement is disabled.
+	pongWait := time.Duration(m.config.PongTimeoutSec) * time.Second
 	if conn != nil {
-		// Set a read deadline so that half-open connections are detected and closed.
-		// The deadline is reset every time a pong is received. If PongTimeoutSec is
-		// 0, deadline enforcement is disabled (backward-compatible default).
-		pongWait := time.Duration(m.config.PongTimeoutSec) * time.Second
 		if pongWait > 0 {
 			if err := conn.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
 				m.lggr.Warnw("failed to set initial read deadline, connection may be unusable",
@@ -295,7 +295,7 @@ func (m *connectionManager) FinalizeHandshake(attemptId string, response []byte,
 		})
 	}
 	attempt.nodeState.conn.Reset(conn)
-	if conn != nil {
+	if conn != nil && pongWait > 0 {
 		// Send an immediate ping so the first pong arrives quickly (within
 		// milliseconds on a healthy connection) rather than waiting up to one
 		// full heartbeat interval for the keepalive ticker to fire.
