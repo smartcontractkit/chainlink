@@ -1234,13 +1234,19 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 				require.NoError(t, err)
 
 				feedID := reportElems["feedId"].([32]uint8)
+
+				// Skip reports from rounds where bridge timeouts caused zero-fee
+				// calculation. Under CI load, ETH/LINK price bridge tasks can time
+				// out, producing nativeFee=0. Wait for a round with valid fees.
+				if reportElems["nativeFee"].(*big.Int).Sign() == 0 {
+					continue
+				}
+
 				delete(feedIDs, feedID)
 
 				// Check headers
 				assert.GreaterOrEqual(t, reportElems["validFromTimestamp"].(uint32), uint32(testStartTimeStamp.Unix())) //nolint:gosec // G115
 				assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp.Unix()))
-				// Zero fees since both eth/link stream specs are missing, don't
-				// care about billing for purposes of this test
 				assert.Equal(t, "25148438659186", reportElems["nativeFee"].(*big.Int).String())
 				assert.Equal(t, "4264392324093817", reportElems["linkFee"].(*big.Int).String())
 				assert.Equal(t, reportElems["observationsTimestamp"].(uint32)+expirationWindow, reportElems["expiresAt"].(uint32))

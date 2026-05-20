@@ -1,16 +1,17 @@
 package cre
 
 import (
+	"bufio"
 	"context"
-	"database/sql"
-	"encoding/json"
 	"fmt"
+	"io"
 	"math/big"
 	"math/rand"
-	"strconv"
+	"regexp"
 	"strings"
+	"sync"
+	"sync/atomic"
 
-	"slices"
 	"testing"
 	"time"
 
@@ -22,7 +23,6 @@ import (
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
@@ -319,125 +319,6 @@ func configureEVMLogTriggerWorkflow(t *testing.T, lggr zerolog.Logger, chain blo
 	}, msgEmitter
 }
 
-// connectTriggerDB connects to the Postgres database where BaseTrigger persists
-// pending events for the given chainID. Which database that is depends on
-// which DON owns the evm-{chainID} capability.
-func connectTriggerDB(t *testing.T, nodeSets []*cre.NodeSet, chainID string) *sql.DB {
-	t.Helper()
-
-	ns := triggerNodeSetForChain(t, nodeSets, chainID)
-	port := ns.DbInput.Port
-	require.NotZerof(t, port, "DB port is not configured for node set %s", ns.Name)
-
-	dsn := fmt.Sprintf(
-		"host=localhost port=%d user=chainlink password=thispasswordislongenough dbname=db_0 sslmode=disable",
-		port,
-	)
-	db, err := sql.Open("postgres", dsn)
-	require.NoError(t, err)
-	require.NoError(t, db.PingContext(t.Context()))
-	t.Logf("connected to %s node DB (port %d) for trigger event tracking on chain %s", ns.Name, port, chainID)
-	t.Cleanup(func() { _ = db.Close() })
-	return db
-}
-
-var _ = connectTriggerDB
-
-func triggerNodeSetForChain(t *testing.T, nodeSets []*cre.NodeSet, chainID string) *cre.NodeSet {
-	t.Helper()
-
-	evmFlag := "evm-" + chainID
-
-	for _, ns := range nodeSets {
-		if slices.Contains(ns.DONTypes, cre.WorkflowDON) && slices.Contains(ns.Capabilities, evmFlag) {
-			return ns
-		}
-	}
-
-	for _, ns := range nodeSets {
-		if slices.Contains(ns.Capabilities, evmFlag) {
-			return ns
-		}
-	}
-
-	require.Failf(t, "missing evm capability owner", "no NodeSet found with %s capability", evmFlag)
-	return nil
-}
-
-func baseTriggerRetransmitEnabled(nodeSet *cre.NodeSet) (enabled bool, known bool) {
-	if nodeSet == nil || len(nodeSet.EnvVars) == 0 {
-		return false, false
-	}
-
-	for _, key := range []string{"CL_CRE_SETTINGS_DEFAULT", "CL_CRE_SETTINGS"} {
-		raw := strings.TrimSpace(nodeSet.EnvVars[key])
-		if raw == "" {
-			continue
-		}
-
-		var settings any
-		if err := json.Unmarshal([]byte(raw), &settings); err != nil {
-			continue
-		}
-
-		value, ok := nestedSetting(settings, "BaseTriggerRetransmitEnabled")
-		if !ok {
-			continue
-		}
-
-		switch v := value.(type) {
-		case bool:
-			return v, true
-		case string:
-			parsed, err := strconv.ParseBool(v)
-			if err == nil {
-				return parsed, true
-			}
-		}
-	}
-
-	return false, false
-}
-
-func nestedSetting(raw any, key string) (any, bool) {
-	switch v := raw.(type) {
-	case map[string]any:
-		for entryKey, entryVal := range v {
-			if entryKey == key {
-				return entryVal, true
-			}
-			if nested, ok := nestedSetting(entryVal, key); ok {
-				return nested, true
-			}
-		}
-	case []any:
-		for _, entryVal := range v {
-			if nested, ok := nestedSetting(entryVal, key); ok {
-				return nested, true
-			}
-		}
-	}
-
-	return nil, false
-}
-
-type tableStats struct {
-	inserts int64
-	deletes int64
-}
-
-// snapshotTriggerStats returns the current cumulative insert/delete counts for
-// the trigger_pending_events table from pg_stat_user_tables.
-func snapshotTriggerStats(ctx context.Context, db *sql.DB) (tableStats, error) {
-	var s tableStats
-	err := db.QueryRowContext(ctx,
-		`SELECT COALESCE(n_tup_ins,0), COALESCE(n_tup_del,0)
-		   FROM pg_stat_user_tables
-		  WHERE relname = 'trigger_pending_events'`,
-	).Scan(&s.inserts, &s.deletes)
-	return s, err
-}
-
 func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	const workflowFileLocation = "./evm/logtrigger/main.go"
 	lggr := framework.L
@@ -468,65 +349,7 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 	successfulLogTriggerChains := make([]string, 0, len(chainsToTest))
 	for chainID, bcOutput := range chainsToTest {
-		nodeSet := triggerNodeSetForChain(t, testEnv.Config.NodeSets, chainID)
-		retransmitEnabled, _ := baseTriggerRetransmitEnabled(nodeSet)
-		shouldVerifyACKs := retransmitEnabled
-
-		var triggerDB *sql.DB
-		var baselineStats tableStats
-		if shouldVerifyACKs {
-			triggerDB = connectTriggerDB(t, testEnv.Config.NodeSets, chainID)
-
-			var err error
-			baselineStats, err = snapshotTriggerStats(t.Context(), triggerDB)
-			require.NoError(t, err, "failed to snapshot trigger_pending_events stats for chain %s", chainID)
-			t.Logf("baseline trigger_pending_events stats for chain %s: inserts=%d deletes=%d", chainID, baselineStats.inserts, baselineStats.deletes)
-		} else {
-			lggr.Info().Msgf("BaseTriggerRetransmitEnabled is not true on node set %s for chain %s; skipping ACK verification", nodeSet.Name, chainID)
-		}
-
-		lggr.Info().Msgf("Creating EVM LogTrigger workflow configuration for chain %s", chainID)
-		workflowConfig, msgEmitter := configureEVMLogTriggerWorkflow(t, lggr, bcOutput)
-
-		workflowName := fmt.Sprintf("evm-logTrigger-workflow-%s-%04d", chainID, rand.Intn(10000))
-		lggr.Info().Msgf("About to deploy Workflow %s on chain %s", workflowName, chainID)
-		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
-
-		message := "Data for log trigger chain " + chainID
-		// start background event emission every 10s while WatchWorkflowLogs is running, so that the workflow has events to pick up eventually
-		var emittedEventCount int64
-		ticker := time.NewTicker(10 * time.Second)
-
-		// create a context that will be cancelled as soon as we either find the log we are looking for or timeout
-		emitCtx, emitCancelFn := context.WithCancel(t.Context())
-		go func() {
-			defer func() {
-				emitCancelFn()
-				ticker.Stop()
-			}()
-			for {
-				select {
-				case <-emitCtx.Done():
-					return
-				case <-ticker.C:
-					lggr.Info().Msgf("About to emit event #%d for chain %s", emittedEventCount, chainID)
-					blockNumber := emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
-					lggr.Info().Msgf("Event emitted for chain %s at blockNumber %d", chainID, blockNumber)
-					emittedEventCount++
-				}
-			}
-		}()
-		expectedUserLog := "OnTrigger decoded message: message:" + message
-
-		t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedUserLog, 4*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
-		emitCancelFn()
-		lggr.Info().Msgf("Found expected user log: '%s' on chain %s", expectedUserLog, chainID)
-
-		if shouldVerifyACKs {
-			verifyTriggerEventACKs(t, lggr, triggerDB, baselineStats)
-		}
-
-		lggr.Info().Msgf("🎉 LogTrigger Workflow %s executed successfully on chain %s", workflowName, chainID)
+		executeEVMLogTriggerTestForChain(t, lggr, testEnv, chainID, bcOutput, userLogsCh, baseMessageCh, workflowFileLocation)
 		successfulLogTriggerChains = append(successfulLogTriggerChains, chainID)
 	}
 
@@ -537,41 +360,127 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	lggr.Info().Msgf("✅ LogTrigger test ran for chains: %v", successfulLogTriggerChains)
 }
 
-// verifyTriggerEventACKs checks whether the Base Trigger persisted events and
-// processed ACKs by inspecting cumulative insert/delete counters in
-// pg_stat_user_tables.  When BaseTriggerRetransmitEnabled is false (the
-// default), DeliverEvent bypasses the store entirely and events are sent
-// directly to the inbox — so inserts/deletes will remain at zero.  In that
-// case the check logs a message and returns successfully.
-func verifyTriggerEventACKs(t *testing.T, lggr zerolog.Logger, triggerDB *sql.DB, baselineStats tableStats) {
+func executeEVMLogTriggerTestForChain(
+	t *testing.T,
+	lggr zerolog.Logger,
+	testEnv *ttypes.TestEnvironment,
+	chainID string,
+	bcOutput blockchains.Blockchain,
+	userLogsCh chan *workflowevents.UserLogs,
+	baseMessageCh chan *commonevents.BaseMessage,
+	workflowFileLocation string,
+) {
 	t.Helper()
+	lggr.Info().Msgf("Creating EVM LogTrigger workflow configuration for chain %s", chainID)
+	workflowConfig, msgEmitter := configureEVMLogTriggerWorkflow(t, lggr, bcOutput)
 
-	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
-	defer cancel()
+	workflowName := fmt.Sprintf("evm-logTrigger-workflow-%s-%04d", chainID, rand.Intn(10000))
+	lggr.Info().Msgf("About to deploy Workflow %s on chain %s", workflowName, chainID)
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
+	message := "Data for log trigger chain " + chainID
+	// start background event emission every 10s while WatchWorkflowLogs is running, so that the workflow has events to pick up eventually
+	var emittedEventCount int64
+	ticker := time.NewTicker(10 * time.Second)
 
-	for {
-		select {
-		case <-ctx.Done():
-			lggr.Info().Msg("trigger_pending_events stats show no inserts/deletes within timeout - BaseTrigger retransmit is likely disabled (default); skipping ACK verification")
-			return
-		case <-ticker.C:
-			cur, sErr := snapshotTriggerStats(ctx, triggerDB)
-			if sErr != nil {
-				lggr.Error().Msgf("stats query error: %v", sErr)
-				continue
-			}
-			newInserts := cur.inserts - baselineStats.inserts
-			newDeletes := cur.deletes - baselineStats.deletes
-			lggr.Info().Msgf("trigger_pending_events stats delta: inserts=%d deletes=%d", newInserts, newDeletes)
-			if newInserts > 0 && newDeletes > 0 {
-				lggr.Info().Msg("trigger_pending_events: inserts and deletes confirmed")
+	// Follow=true is required so we see "Event ACK" lines that are logged AFTER we start streaming
+	// (they only happen after events are emitted further down). Tail="0" skips historical lines so
+	// we don't match ACKs from previous chain iterations or earlier workflow activity.
+	logsOpts := framework.CTFContainersLogsOpts()
+	logsOpts.Follow = true
+	logsOpts.Tail = "0"
+	logstream, err := framework.StreamContainerLogs(framework.CTFContainersListOpts(), logsOpts)
+	require.NoError(t, err, "failed to stream container logs for Event ACK check")
+	singleAckFound, stopACKLogScans := verifyTriggerEventACKLogs(t.Context(), lggr, logstream)
+	defer stopACKLogScans()
+
+	// create a context that will be cancelled as soon as we either find the log we are looking for or timeout
+	emitCtx, emitCancelFn := context.WithCancel(t.Context())
+	go func() {
+		defer func() {
+			emitCancelFn()
+			ticker.Stop()
+		}()
+		for {
+			select {
+			case <-emitCtx.Done():
 				return
+			case <-ticker.C:
+				lggr.Info().Msgf("About to emit event #%d for chain %s", emittedEventCount, chainID)
+				blockNumber := emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
+				lggr.Info().Msgf("Event emitted for chain %s at blockNumber %d", chainID, blockNumber)
+				emittedEventCount++
 			}
 		}
+	}()
+	expectedUserLog := "OnTrigger decoded message: message:" + message
+
+	t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedUserLog, 4*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
+	emitCancelFn()
+	lggr.Info().Msgf("Found expected user log: '%s' on chain %s", expectedUserLog, chainID)
+
+	require.Eventually(t, func() bool {
+		return singleAckFound.Load()
+	}, 4*time.Minute, 500*time.Millisecond,
+		"expected BaseTrigger Event ACK log line in container logs (BaseTriggerCapability.AckEvent logs msg Event ACK)")
+	lggr.Info().Msg("found BaseTrigger Event ACK log")
+
+	lggr.Info().Msgf("🎉 LogTrigger Workflow %s executed successfully on chain %s", workflowName, chainID)
+}
+
+// chainlink-common/pkg/capabilities/base_trigger.go logs this
+var triggerEventACKLogPattern = regexp.MustCompile(`Event ACK`)
+
+// verifyTriggerEventACKLogs starts parallel readers (one per container stream) that scan for BaseTrigger Event ACK
+// lines. Call the returned cleanup after the test step finishes to cancel scanners and close readers.
+// The returned atomic is set to true when any container reports a matching line.
+func verifyTriggerEventACKLogs(ctx context.Context, lggr zerolog.Logger, logStreams map[string]io.ReadCloser) (*atomic.Bool, func()) {
+	found := &atomic.Bool{}
+	if len(logStreams) == 0 {
+		lggr.Error().Msg("verifyTriggerEventACKLogs: no container log streams to scan")
+		return found, func() {}
+	}
+
+	scanCtx, cancel := context.WithCancel(ctx)
+	var wg sync.WaitGroup
+	// Snapshot readers so cleanup can close them — closing the reader is what unblocks a goroutine
+	// stuck in scanner.Scan() on a Follow=true stream; context cancel alone is not enough.
+	readers := make([]io.ReadCloser, 0, len(logStreams))
+	for containerName, r := range logStreams {
+		wg.Add(1)
+		readers = append(readers, r)
+		go func(name string, reader io.ReadCloser) {
+			defer wg.Done()
+			scanOneContainerForTriggerEventACK(scanCtx, cancel, lggr, name, reader, found)
+		}(containerName, r)
+	}
+	return found, func() {
+		cancel()
+		for _, r := range readers {
+			_ = r.Close()
+		}
+		wg.Wait()
 	}
 }
 
-var _ = verifyTriggerEventACKs
+func scanOneContainerForTriggerEventACK(ctx context.Context, cancel context.CancelFunc, lggr zerolog.Logger, containerName string, reader io.Reader, found *atomic.Bool) {
+	scanner := bufio.NewScanner(reader)
+	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
+	for scanner.Scan() {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		line := scanner.Text()
+		if triggerEventACKLogPattern.MatchString(line) {
+			lggr.Info().Str("container", containerName).Str("line", line).Msg("detected BaseTrigger Event ACK in container logs")
+			found.Store(true)
+			cancel()
+			return
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		lggr.Error().Err(err).Str("container", containerName).Msg("error reading container logs while scanning for Event ACK")
+	}
+}
