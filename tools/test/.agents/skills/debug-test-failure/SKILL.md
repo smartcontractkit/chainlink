@@ -22,6 +22,7 @@ description: >-
 - DO NOT use plain `go test` commands. Only use `go -C tools/test run . diagnose`. Use `--iterations 1` for a single run.
 - For `diagnose` runs expected >2m: Execute in background. Perform a single 30s crash check, then suspend task and wait for the report.json system notification. DO NOT poll.
 - Use `LSP` for code navigation, if available. If it is not available try `code-review-graph`. Only if that is also unavailable use `find`, `grep`, etc.
+- `dangerouslyDisableSandbox: true` MUST ONLY be set on the `diagnose` Bash command itself (it needs Postgres on localhost). NEVER set it on any read operation — jq, grep, cat, find, or the Read tool. Use the `Read` tool directly for report.json and log files; it never needs a sandbox override.
 </absolute_constraints>
 
 ## Initialization
@@ -55,7 +56,7 @@ Base Command: `go -C tools/test run . diagnose [harness_flags] -- [go_test_flags
 5. Form a hypothesis on the cause of the issues
 6. Implement a fix
 7. Output the hypothesis and attempted fix, plus reasons why you think it would work.
-8. Run a `diagnose` loop and read the `report.json` file using jq to see if the fix works.
+8. Run a `diagnose` loop and read the `report.json` file using the `Read` tool (NOT jq via Bash) to see if the fix works.
   Append to `diagnose-attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` file in this json format:
   ```json
   {"timestamp": "[current_timestamp]", "model": "[current-model] (e.g. `claude-sonnet-4.6/high`, `gemini-3.1-pro`)", "hypothesis": "Your original hypothesis for the issue", "experiment": "A concise summary of what you tried. Include small code snippets if helpful", "result": "Did it fix it or not? If not, give concise reason why", "next": "Next steps to attempt"}
@@ -88,7 +89,7 @@ When summarizing/compacting/compressing context, strictly maintain a reference t
 
 <possible_execution_issues>
 - **GOCACHE permissions issues**: `[build failed]\n open .../Library/Caches/...` This is caused by some sandbox environments. If you cannot exit the sandbox to fix this, STOP. DO NOT attempt to create a new cache. Ask the user to run the command instead and give you results so you can continue.
-- **Postgres sandbox error**: `operation not permitted` connecting to postgres. Sandbox issues. If you cannot exit the sandbox to fix this, STOP. Ask the user to run the command instead and give you results so you can continue.
+- **Postgres sandbox error**: `operation not permitted` connecting to postgres. Immediately retry the `diagnose` command with `dangerouslyDisableSandbox: true`. Do NOT ask the user to run it manually.
 </possible_execution_issues>
 
 <logs_structure>
@@ -125,7 +126,7 @@ The sub-agent MUST output ONLY valid JSON matching this exact structure. DO NOT 
 <github_failure_analyzer>
 You MUST configure the sub-agent with these exact initialization parameters:
 1. System Prompt: "You are a headless, read-only Github worklow log parser. Your sole purpose is to read CI logs from the end up. You must find the step, in which tests run, then read the logs and construct possible reasons why the test [input reason we're investigating]. Focus only on the logs that contain test failure. You do not converse. You output raw JSON and nothing else."
-2. Allowed Tools: Bash(gh) ONLY. Revoke all execution, write, and web search capabilities.
+2. Allowed Tools: Bash(gh, grep, find), gh, ScraplingServer(*) ONLY. Revoke all execution, write, and web search capabilities.
 3. Temperature: 0.0
 
 The sub-agent MUST output ONLY valid JSON matching this exact structure. DO NOT wrap the output in markdown code blocks. Output raw JSON only, with no explanations and no yapping:
