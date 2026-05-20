@@ -619,15 +619,20 @@ jobs:
           SONAR_SCANNER_OPTS: "-Xms6g -Xmx8g"
 
   clean:
-    name: Clean Go Tidy & Generate
+    name: Go Tidy & Generate
     if: ${{ github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu22.04-8cores-32GB
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
     defaults:
       run:
         shell: bash
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ github.head_ref }}
           persist-credentials: false
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -638,24 +643,23 @@ jobs:
           https://github.com/smartcontractkit/wsrpc/raw/main/cmd/protoc-gen-go-wsrpc/protoc-gen-go-wsrpc
           --output "$HOME/go/bin/protoc-gen-go-wsrpc" && chmod +x
           "$HOME/go/bin/protoc-gen-go-wsrpc"
-      - name: make generate
+      - name: tidy & generate
         run: |
+          make gomodtidy
           make rm-mocked
           make generate
-      - name: Ensure clean after generate
+      - name: Commit if not clean
+        if: github.event_name == 'pull_request'
+        # Commit all changed files back to the repository
+        uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7.1.0
+        with:
+          commit_message: 'chore: tidy & generate'
+      - name: Ensure clean
+        if: github.event_name != 'pull_request'
         run: |
           git add --all
           if ! git diff --cached --quiet; then
-            echo "::error::Tree is dirty after 'make generate'. Full diff below:"
-            git diff --cached
-            exit 1
-          fi
-      - run: make gomodtidy
-      - name: Ensure clean after tidy
-        run: |
-          git add --all
-          if ! git diff --cached --quiet; then
-            echo "::error::Tree is dirty after 'make gomodtidy'. Full diff below:"
+            echo "::error::Tree is dirty after tidy & generate. Full diff below:"
             git diff --cached
             exit 1
           fi
