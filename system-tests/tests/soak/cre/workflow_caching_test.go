@@ -87,7 +87,6 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 
 	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/cron/main.go"
 
-	startTime := time.Now()
 	testLogger.Info().
 		Int("max_loaded_per_node", moduleCacheMaxLoaded).
 		Int("target_workflows", numWorkflows).
@@ -103,6 +102,8 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 		}
 	}
 	testLogger.Info().Int("count", numWorkflows).Msg("All cache-test workflows deployed")
+	nodeContainers := t_helpers.SnapshotNodeContainerRestarts(t, testEnv)
+	startTime := time.Now()
 
 	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, "Amazing workflow user log", 2*time.Minute)
 	testLogger.Info().Dur("duration", soakDuration).Msg("First workflow execution confirmed, running cache soak...")
@@ -229,6 +230,9 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 		require.NoError(t, saveJSONFile(metric.filename, results), "failed to save JSON file for metric:", metric.filename)
 		testLogger.Info().Str("filename", metric.filename).Msg("Saved JSON file for metric")
 	}
+
+	t_helpers.AssertNodeContainersStable(t, nodeContainers)
+	testLogger.Info().Msg("Node containers stable. None was restarted or OOM-killed.")
 }
 
 func crePerWorkflowSizeLimitMiB(size config.Size) int {

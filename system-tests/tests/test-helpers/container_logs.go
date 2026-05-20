@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 	"testing"
 
@@ -16,22 +17,36 @@ import (
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
-func AssertNodeLogs(t *testing.T, testEnv *ttypes.TestEnvironment, needle string) {
+func clNodeContainerNames(t *testing.T, testEnv *ttypes.TestEnvironment) []string {
 	t.Helper()
 
-	targetNames := make(map[string]struct{})
+	names := make(map[string]struct{})
 	for _, nodeSet := range testEnv.Config.NodeSets {
 		if nodeSet.Out == nil {
 			continue
 		}
 		for _, clNode := range nodeSet.Out.CLNodes {
-			name := clNode.Node.ContainerName
-			if name != "" {
-				targetNames[name] = struct{}{}
+			if name := clNode.Node.ContainerName; name != "" {
+				names[name] = struct{}{}
 			}
 		}
 	}
-	require.NotEmpty(t, targetNames, "no container names found in test environment")
+	require.NotEmpty(t, names, "no container names found in test environment")
+	out := make([]string, 0, len(names))
+	for name := range names {
+		out = append(out, name)
+	}
+	slices.Sort(out)
+	return out
+}
+
+func AssertNodeLogs(t *testing.T, testEnv *ttypes.TestEnvironment, needle string) {
+	t.Helper()
+
+	targetNames := make(map[string]struct{})
+	for _, name := range clNodeContainerNames(t, testEnv) {
+		targetNames[name] = struct{}{}
+	}
 
 	logStreams, err := framework.StreamContainerLogs(
 		client.ContainerListOptions{All: true},
