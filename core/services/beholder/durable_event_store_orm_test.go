@@ -106,7 +106,7 @@ func TestPGDurableEventStore_DeleteExpired(t *testing.T) {
 func TestPGDurableEventStore_ObserveDurableQueue(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	truncateChipDurableEvents(t, db)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	store := beholderstore.New(db)
 
 	st, err := store.ObserveDurableQueue(ctx, time.Hour, time.Minute)
@@ -125,7 +125,7 @@ func TestPGDurableEventStore_ObserveDurableQueue(t *testing.T) {
 func TestPGDurableEventStore_MarkDeliveredAndPurgeDelivered(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	truncateChipDurableEvents(t, db)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	store := beholderstore.New(db)
 
 	id, err := store.Insert(ctx, []byte("payload"))
