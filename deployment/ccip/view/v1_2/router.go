@@ -5,13 +5,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/cldfutil"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+
+	"github.com/smartcontractkit/chainlink/deployment/internal/stateutils"
 )
 
 type RouterView struct {
-	commoncldchangesets.ContractMetaData
+	stateutils.ContractMetaData
 	IsTestRouter  bool                        `json:"isTestRouter"`
 	WrappedNative common.Address              `json:"wrappedNative,omitempty"`
 	ARMProxy      common.Address              `json:"armProxy,omitempty"`
@@ -20,7 +20,7 @@ type RouterView struct {
 }
 
 func GenerateRouterView(r *router.Router, isTestRouter bool) (RouterView, error) {
-	meta, err := commoncldchangesets.NewContractMetaData(r, r.Address())
+	meta, err := stateutils.NewContractMetaData(r, r.Address())
 	if err != nil {
 		return RouterView{}, fmt.Errorf("view error to get router metadata: %w", err)
 	}

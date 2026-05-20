@@ -9,9 +9,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/cldfutil"
-
 	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
+	"github.com/smartcontractkit/chainlink/deployment/internal/stateutils"
 )
 
 type WorkflowStatus uint8
@@ -23,7 +22,7 @@ const (
 
 // WorkflowRegistryView is a high-fidelity view of the workflow registry contract.
 type WorkflowRegistryView struct {
-	commoncldchangesets.ContractMetaData
+	stateutils.ContractMetaData
 	Workflows           []WorkflowView   `json:"workflows,omitempty"`
 	AuthorizedAddresses []common.Address `json:"authorized_addresses,omitempty"`
 	AllowedDONs         []uint32         `json:"allowed_dons,omitempty"`
@@ -112,7 +111,7 @@ func GenerateWorkflowRegistryView(wr workflow_registry.WorkflowRegistryInterface
 	var errs []error
 
 	// 1) Build up basic contract metadata.
-	md, err := commoncldchangesets.NewContractMetaData(wr, wr.Address())
+	md, err := stateutils.NewContractMetaData(wr, wr.Address())
 	if err != nil {
 		errs = append(errs, &WorkflowRegistryError{
 			Operation: "failed to build WorkflowRegistry ContractMetaData",

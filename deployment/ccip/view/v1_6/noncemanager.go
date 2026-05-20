@@ -5,13 +5,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/cldfutil"
+	"github.com/smartcontractkit/chainlink/deployment/internal/stateutils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
 )
 
 type NonceManagerView struct {
-	commoncldchangesets.ContractMetaData
+	stateutils.ContractMetaData
 	AuthorizedCallers []common.Address `json:"authorizedCallers,omitempty"`
 }
 
@@ -20,7 +20,7 @@ func GenerateNonceManagerView(nm *nonce_manager.NonceManager) (NonceManagerView,
 	if err != nil {
 		return NonceManagerView{}, fmt.Errorf("view error for nonce manager: %w", err)
 	}
-	nmMeta, err := commoncldchangesets.NewContractMetaData(nm, nm.Address())
+	nmMeta, err := stateutils.NewContractMetaData(nm, nm.Address())
 	if err != nil {
 		return NonceManagerView{}, fmt.Errorf("metadata error for nonce manager: %w", err)
 	}
