@@ -22,12 +22,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury"
 	reportcodecv3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3/reportcodec"
 	mercuryverifier "github.com/smartcontractkit/chainlink-data-streams/mercury/verifier"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/destination_verifier"
 
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
@@ -150,7 +150,7 @@ func TestIntegration_LLO_history_backfill(t *testing.T) {
 	serverURL := startMercuryServer(t, srv, clientPubKeys)
 
 	oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-		c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+		c.Mercury.Transmitter.Protocol = new(mercurytransmitter.MercuryTransmitterProtocolGRPC)
 	})
 
 	chainID := testutils.SimulatedChainID
