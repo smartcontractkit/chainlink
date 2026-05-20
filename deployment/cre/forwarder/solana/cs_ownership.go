@@ -3,9 +3,10 @@ package solana
 import (
 	"github.com/gagliardetto/solana-go"
 
+	solchangesets "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana/changesets"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
 )
 
 // TransferOwnershipForwarderRequest wraps the generic request for forwarder contracts
@@ -23,23 +24,23 @@ var _ cldf.ChangeSetV2[*TransferOwnershipForwarderRequest] = TransferOwnershipFo
 type TransferOwnershipForwarder struct{}
 
 func (cs TransferOwnershipForwarder) VerifyPreconditions(env cldf.Environment, req *TransferOwnershipForwarderRequest) error {
-	return commonchangeset.GenericVerifyPreconditions(env, req.ChainSel, req.Version, req.Qualifier, ForwarderContract)
+	return solchangesets.GenericVerifyPreconditions(env, req.ChainSel, req.Version, req.Qualifier, ForwarderContract)
 }
 
 func (cs TransferOwnershipForwarder) Apply(env cldf.Environment, req *TransferOwnershipForwarderRequest) (cldf.ChangesetOutput, error) {
-	genericReq := &commonchangeset.TransferOwnershipRequest{
+	genericReq := &solchangesets.TransferOwnershipRequest{
 		ChainSel:      req.ChainSel,
 		CurrentOwner:  req.CurrentOwner,
 		ProposedOwner: req.ProposedOwner,
 		Version:       req.Version,
 		Qualifier:     req.Qualifier,
 		MCMSCfg:       req.MCMSCfg,
-		ContractConfig: commonchangeset.ContractConfig{
+		ContractConfig: solchangesets.ContractConfig{
 			ContractType: ForwarderContract,
 			StateType:    ForwarderState,
 			OperationID:  "transfer-ownership-forwarder",
 			Description:  "transfers ownership of forwarder to mcms",
 		},
 	}
-	return commonchangeset.GenericTransferOwnership(env, genericReq)
+	return solchangesets.GenericTransferOwnership(env, genericReq)
 }
