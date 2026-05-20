@@ -67,6 +67,7 @@ type ReportingPluginConfig struct {
 	MaxBlobPayloadBytes               limits.BoundLimiter[pkgconfig.Size]
 	OrgIDAsSecretOwnerEnabled         limits.GateLimiter
 	VaultForceEmptyOCRRounds          limits.GateLimiter
+	VaultOptimizationsEnabled         limits.GateLimiter
 }
 
 func NewReportingPluginFactory(
@@ -216,6 +217,11 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		return nil, fmt.Errorf("VaultForceEmptyOCRRounds: %w", err)
 	}
 
+	vaultOptimizationsEnabled, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultOptimizationsEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("VaultOptimizationsEnabled: %w", err)
+	}
+
 	maxBlobPayloadBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultMaxBlobPayloadSizeLimit)
 	if err != nil {
 		return nil, fmt.Errorf("VaultMaxBlobPayloadSizeLimit: %w", err)
@@ -231,6 +237,7 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		MaxBlobPayloadBytes:               maxBlobPayloadBytesLimiter,
 		OrgIDAsSecretOwnerEnabled:         orgIDAsSecretOwnerEnabled,
 		VaultForceEmptyOCRRounds:          vaultForceEmptyOCRRounds,
+		VaultOptimizationsEnabled:         vaultOptimizationsEnabled,
 	}, nil
 }
 
@@ -521,8 +528,60 @@ queueLoop:
 	return out, nil
 }
 
+// prepareLegacyObservationPendingQueueBlobs emits one legacy StoredPendingQueueItem blob per local-queue request.
+func (r *ReportingPlugin) prepareLegacyObservationPendingQueueBlobs(
+	ctx context.Context,
+	seqNr uint64,
+	localQueueItems []*vaulttypes.Request,
+	pendingQueueHasID map[string]bool,
+	maxBlobHandleCount int,
+) (pendingQueueBlobPack, error) {
+	var out pendingQueueBlobPack
+
+	for _, queueItem := range localQueueItems {
+		if pendingQueueHasID[queueItem.ID()] {
+			continue
+		}
+
+		anyMsg, err := anypb.New(queueItem.Payload)
+		if err != nil {
+			return pendingQueueBlobPack{}, fmt.Errorf("could not marshal request payload to Any: %w", err)
+		}
+
+		item := &vaultcommon.StoredPendingQueueItem{
+			Id:   queueItem.ID(),
+			Item: anyMsg,
+		}
+
+		itemb, err := proto.Marshal(item)
+		if err != nil {
+			return pendingQueueBlobPack{}, fmt.Errorf("could not marshal pending queue item: %w", err)
+		}
+
+		if len(out.blobPayloads) >= maxBlobHandleCount {
+			out.truncated = true
+			r.lggr.Warnw("Observed local queue exceeds batch size limit, truncating",
+				"queueSize", len(out.blobPayloads),
+				"batchSizeLimit", maxBlobHandleCount)
+			r.metrics.trackQueueOverflow(ctx, len(out.blobPayloads), maxBlobHandleCount)
+			break
+		}
+
+		out.blobPayloads = append(out.blobPayloads, itemb)
+		out.blobPayloadIDs = append(out.blobPayloadIDs, item.Id)
+		out.packedItemCount++
+		r.lifecycle.RecordBlobBroadcasting(item.Id, seqNr, time.Now())
+	}
+
+	return out, nil
+}
+
 func (r *ReportingPlugin) orgIDAsSecretOwnerEnabled(ctx context.Context) bool {
 	return r.cfg.OrgIDAsSecretOwnerEnabled.AllowErr(ctx) == nil
+}
+
+func (r *ReportingPlugin) optimizationsEnabled(ctx context.Context) bool {
+	return gateAllows(ctx, r.lggr, r.cfg.VaultOptimizationsEnabled, "VaultOptimizationsEnabled")
 }
 
 // canonicalResponseID rewrites Vault responses to the canonical owner identity.
@@ -557,7 +616,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	wrappedReadStore := NewKVStoreWrapper(NewReadStore(keyValueReader, r.metrics), r.orgIDAsSecretOwnerEnabled(ctx), r.lggr)
 
 	var currentPendingQueueItems []*vaultcommon.StoredPendingQueueItem
-	if !forceEmptyOCRRounds(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds) {
+	if !gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
 		var err error
 		currentPendingQueueItems, err = wrappedReadStore.GetPendingQueue(ctx)
 		if err != nil {
@@ -573,6 +632,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	}
 
 	obspb := &vaultcommon.Observations{}
+	optimizations := r.optimizationsEnabled(ctx)
 
 	// First, observe the local queue and broadcast blob payloads so the exact
 	// PendingQueueItems + SortNonce wire size is known before packing Observations.
@@ -613,19 +673,26 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	}
 	maxBlobHandleCount := 2 * batchSizeLimit
 
-	pack, err := r.prepareObservationPendingQueueBlobs(ctx, seqNr, localQueueItems, pendingQueueHasID, maxBlobBytes, maxBlobHandleCount)
-	if err != nil {
-		return nil, err
-	}
-
-	if pack.packedItemCount > 0 {
-		r.metrics.trackObservationPendingPack(ctx, pack.packedItemCount, len(pack.blobPayloads))
-		r.lggr.Infow("VAULT_OCR_OBSERVATION_PENDING_PACK",
-			"seqNr", seqNr,
-			"packedLocalItemCount", pack.packedItemCount,
-			"blobHandleCount", len(pack.blobPayloads),
-			"truncated", pack.truncated,
-		)
+	var pack pendingQueueBlobPack
+	if optimizations {
+		pack, err = r.prepareObservationPendingQueueBlobs(ctx, seqNr, localQueueItems, pendingQueueHasID, maxBlobBytes, maxBlobHandleCount)
+		if err != nil {
+			return nil, err
+		}
+		if pack.packedItemCount > 0 {
+			r.metrics.trackObservationPendingPack(ctx, pack.packedItemCount, len(pack.blobPayloads))
+			r.lggr.Infow("VAULT_OCR_OBSERVATION_PENDING_PACK",
+				"seqNr", seqNr,
+				"packedLocalItemCount", pack.packedItemCount,
+				"blobHandleCount", len(pack.blobPayloads),
+				"truncated", pack.truncated,
+			)
+		}
+	} else {
+		pack, err = r.prepareLegacyObservationPendingQueueBlobs(ctx, seqNr, localQueueItems, pendingQueueHasID, maxBlobHandleCount)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	pendingQueueItems, err := r.broadcastBlobPayloads(ctx, blobBroadcastFetcher, seqNr, pack.blobPayloads, pack.blobPayloadIDs)
@@ -642,51 +709,9 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	}
 	obspb.SortNonce = nonce
 
-	ids := []string{}
-	for _, req := range currentPendingQueueItems {
-		o := &vaultcommon.Observation{
-			Id: req.Id,
-		}
-
-		payload, ierr := req.Item.UnmarshalNew()
-		if ierr != nil {
-			r.lggr.Errorw("failed to unmarshal request payload", "id", req.Id, "error", ierr)
-			continue
-		}
-
-		switch tp := payload.(type) {
-		case *vaultcommon.GetSecretsRequest:
-			r.observeGetSecrets(ctx, wrappedReadStore.WithRequest(tp.OrgId, tp.WorkflowOwner), tp, o)
-		case *vaultcommon.CreateSecretsRequest:
-			r.observeCreateSecrets(ctx, wrappedReadStore.WithRequest(tp.OrgId, tp.WorkflowOwner), tp, o)
-		case *vaultcommon.UpdateSecretsRequest:
-			r.observeUpdateSecrets(ctx, wrappedReadStore.WithRequest(tp.OrgId, tp.WorkflowOwner), tp, o)
-		case *vaultcommon.DeleteSecretsRequest:
-			r.observeDeleteSecrets(ctx, wrappedReadStore.WithRequest(tp.OrgId, tp.WorkflowOwner), tp, o)
-		case *vaultcommon.ListSecretIdentifiersRequest:
-			r.observeListSecretIdentifiers(ctx, wrappedReadStore.WithRequest(tp.OrgId, tp.WorkflowOwner), tp, o)
-		default:
-			r.lggr.Errorw("unknown request type, skipping...", "requestType", fmt.Sprintf("%T", payload), "id", req.Id)
-			continue
-		}
-
-		obspb.Observations = append(obspb.Observations, o)
-		if proto.Size(obspb) > r.maxObservationBytes {
-			obspb.Observations = obspb.Observations[:len(obspb.Observations)-1]
-			r.lggr.Warnw("observation proto would exceed max observation bytes; stopping pending-queue observation pack",
-				"seqNr", seqNr,
-				"id", req.Id,
-				"maxObservationBytes", r.maxObservationBytes,
-				"packedObservationCount", len(obspb.Observations),
-				"pendingQueueItemCount", len(currentPendingQueueItems),
-			)
-			break
-		}
-		ids = append(ids, req.Id)
-		r.lifecycle.RecordObservedOutcome(req.Id, seqNr, time.Now())
-	}
-
-	if len(currentPendingQueueItems) > 0 && len(obspb.Observations) < len(currentPendingQueueItems) {
+	// Observe store-backed pending queue items after local-queue blob broadcast so blob wire size is known first.
+	observedIDs := r.appendPendingQueueObservations(ctx, seqNr, wrappedReadStore, currentPendingQueueItems, obspb, optimizations)
+	if optimizations && len(currentPendingQueueItems) > 0 && len(obspb.Observations) < len(currentPendingQueueItems) {
 		r.lggr.Infow("VAULT_OCR_OBSERVATION_WIRE_PACK",
 			"seqNr", seqNr,
 			"packedObservationCount", len(obspb.Observations),
@@ -701,9 +726,65 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 
 	// Avoid log spam by only logging if we have any requests to process.
 	if len(currentPendingQueueItems) > 0 {
-		r.lggr.Debugw("observation complete", "ids", ids, "batchSize", len(currentPendingQueueItems))
+		r.lggr.Debugw("observation complete", "ids", observedIDs, "batchSize", len(currentPendingQueueItems))
 	}
 	return types.Observation(obsb), nil
+}
+
+// appendPendingQueueObservations appends one Observation per store-backed pending queue item.
+// When applyWireCap is true, stops before obspb exceeds maxObservationBytes.
+func (r *ReportingPlugin) appendPendingQueueObservations(
+	ctx context.Context,
+	seqNr uint64,
+	store *KVStoreWrapper,
+	currentPendingQueueItems []*vaultcommon.StoredPendingQueueItem,
+	obspb *vaultcommon.Observations,
+	applyWireCap bool,
+) []string {
+	ids := make([]string, 0, len(currentPendingQueueItems))
+	for _, req := range currentPendingQueueItems {
+		o := &vaultcommon.Observation{
+			Id: req.Id,
+		}
+
+		payload, err := req.Item.UnmarshalNew()
+		if err != nil {
+			r.lggr.Errorw("failed to unmarshal request payload", "id", req.Id, "error", err)
+			continue
+		}
+
+		switch tp := payload.(type) {
+		case *vaultcommon.GetSecretsRequest:
+			r.observeGetSecrets(ctx, store.WithRequest(tp.OrgId, tp.WorkflowOwner), tp, o)
+		case *vaultcommon.CreateSecretsRequest:
+			r.observeCreateSecrets(ctx, store.WithRequest(tp.OrgId, tp.WorkflowOwner), tp, o)
+		case *vaultcommon.UpdateSecretsRequest:
+			r.observeUpdateSecrets(ctx, store.WithRequest(tp.OrgId, tp.WorkflowOwner), tp, o)
+		case *vaultcommon.DeleteSecretsRequest:
+			r.observeDeleteSecrets(ctx, store.WithRequest(tp.OrgId, tp.WorkflowOwner), tp, o)
+		case *vaultcommon.ListSecretIdentifiersRequest:
+			r.observeListSecretIdentifiers(ctx, store.WithRequest(tp.OrgId, tp.WorkflowOwner), tp, o)
+		default:
+			r.lggr.Errorw("unknown request type, skipping...", "requestType", fmt.Sprintf("%T", payload), "id", req.Id)
+			continue
+		}
+
+		obspb.Observations = append(obspb.Observations, o)
+		if applyWireCap && proto.Size(obspb) > r.maxObservationBytes {
+			obspb.Observations = obspb.Observations[:len(obspb.Observations)-1]
+			r.lggr.Warnw("observation proto would exceed max observation bytes; stopping pending-queue observation pack",
+				"seqNr", seqNr,
+				"id", req.Id,
+				"maxObservationBytes", r.maxObservationBytes,
+				"packedObservationCount", len(obspb.Observations),
+				"pendingQueueItemCount", len(currentPendingQueueItems),
+			)
+			break
+		}
+		ids = append(ids, req.Id)
+		r.lifecycle.RecordObservedOutcome(req.Id, seqNr, time.Now())
+	}
+	return ids
 }
 
 // broadcastBlobPayloads broadcasts each payload as a blob in parallel to reduce
@@ -785,6 +866,11 @@ func (r *ReportingPlugin) broadcastBlobPayloads(
 func (r *ReportingPlugin) observeGetSecrets(ctx context.Context, reader ReadKVStore, req proto.Message, o *vaultcommon.Observation) {
 	tp := req.(*vaultcommon.GetSecretsRequest)
 	o.RequestType = vaultcommon.RequestType_GET_SECRETS
+	if !r.optimizationsEnabled(ctx) {
+		o.Request = &vaultcommon.Observation_GetSecretsRequest{
+			GetSecretsRequest: tp,
+		}
+	}
 	resps := []*vaultcommon.SecretResponse{}
 	for _, secretRequest := range tp.Requests {
 		resp, ierr := r.observeGetSecretsRequest(ctx, reader, secretRequest, tp.WorkflowOwner, tp.OrgId)
@@ -1275,7 +1361,7 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 	// - that all pending queue items can be fetched as blobs.
 	wrappedStore := NewKVStoreWrapper(NewReadStore(keyValueReader, r.metrics), r.orgIDAsSecretOwnerEnabled(ctx), r.lggr)
 	var pendingQueueItems []*vaultcommon.StoredPendingQueueItem
-	if !forceEmptyOCRRounds(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds) {
+	if !gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
 		var err error
 		pendingQueueItems, err = wrappedStore.GetPendingQueue(ctx)
 		if err != nil {
@@ -1680,7 +1766,11 @@ outcomePackLoop:
 			case o.RequestType == vaultcommon.RequestType_GET_SECRETS && len(obs) >= 2*r.onchainCfg.F+1:
 				// GetRequests required 2F+1 observations because we need exactly T=F+1 shares to reconstruct the secret.
 				// Since F shares can be fault, that means T+F=2F+1 shares are required, necessitating 2F+1 observations.
-				chosen = shaToObs[sha][:2*r.onchainCfg.F+1]
+				if r.optimizationsEnabled(ctx) {
+					chosen = shaToObs[sha][:2*r.onchainCfg.F+1]
+				} else {
+					chosen = shaToObs[sha]
+				}
 				r.lggr.Debugw("sufficient observations for sha", "sha", sha, "requestType", "GetSecrets", "count", len(obs), "threshold", 2*r.onchainCfg.F+1, "id", id)
 			case o.RequestType != vaultcommon.RequestType_GET_SECRETS && len(obs) >= r.onchainCfg.F+1:
 				// F+1 means that at least 1 honest node has provided this observation, so that's enough for all other request
@@ -1729,7 +1819,7 @@ outcomePackLoop:
 		}
 
 		os.Outcomes = append(os.Outcomes, o)
-		if proto.Size(os) > r.maxReportsPlusPrecursorBytes {
+		if r.optimizationsEnabled(ctx) && proto.Size(os) > r.maxReportsPlusPrecursorBytes {
 			os.Outcomes = os.Outcomes[:len(os.Outcomes)-1]
 			r.lggr.Warnw("VAULT_OCR_STATE_TRANSITION_OUTCOME_WIRE_PACK: outcomes proto would exceed max reports+precursor bytes; stopping outcome pack",
 				"id", id,
@@ -1879,6 +1969,28 @@ func sortKey(id string, nonce []byte) []byte {
 }
 
 func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, chosen []*vaultcommon.Observation, o *vaultcommon.Outcome) {
+	if !r.optimizationsEnabled(ctx) {
+		first := chosen[0]
+		reqs := first.GetGetSecretsRequest().Requests
+		idToReqs := map[string]*vaultcommon.SecretRequest{}
+		for _, req := range reqs {
+			idToReqs[vaulttypes.KeyFor(req.Id)] = req
+		}
+
+		newReqs := []*vaultcommon.SecretRequest{}
+		for _, sreq := range slices.Sorted(maps.Keys(idToReqs)) {
+			newReqs = append(newReqs, idToReqs[sreq])
+		}
+
+		o.Request = &vaultcommon.Outcome_GetSecretsRequest{
+			GetSecretsRequest: &vaultcommon.GetSecretsRequest{
+				Requests:      newReqs,
+				OrgId:         first.GetGetSecretsRequest().OrgId,
+				WorkflowOwner: first.GetGetSecretsRequest().WorkflowOwner,
+			},
+		}
+	}
+
 	// Next, we deal with the responses.
 	// For each request, we take the Id of the first observation
 	// then aggregate the encrypted shares across all observations.
@@ -1964,6 +2076,22 @@ func (r *ReportingPlugin) stateTransitionCreateSecrets(ctx context.Context, stor
 	idToReqs := map[string]*vaultcommon.EncryptedSecret{}
 	for _, r := range req {
 		idToReqs[vaulttypes.KeyFor(r.Id)] = r
+	}
+
+	if !r.optimizationsEnabled(ctx) {
+		newReqs := []*vaultcommon.EncryptedSecret{}
+		for _, sreq := range slices.Sorted(maps.Keys(idToReqs)) {
+			newReqs = append(newReqs, idToReqs[sreq])
+		}
+
+		o.Request = &vaultcommon.Outcome_CreateSecretsRequest{
+			CreateSecretsRequest: &vaultcommon.CreateSecretsRequest{
+				RequestId:        reqID,
+				EncryptedSecrets: newReqs,
+				OrgId:            first.GetCreateSecretsRequest().OrgId,
+				WorkflowOwner:    first.GetCreateSecretsRequest().WorkflowOwner,
+			},
+		}
 	}
 
 	// Next let's aggregate the responses.
@@ -2072,6 +2200,22 @@ func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, stor
 		idToReqs[vaulttypes.KeyFor(r.Id)] = r
 	}
 
+	if !r.optimizationsEnabled(ctx) {
+		newReqs := []*vaultcommon.EncryptedSecret{}
+		for _, sreq := range slices.Sorted(maps.Keys(idToReqs)) {
+			newReqs = append(newReqs, idToReqs[sreq])
+		}
+
+		o.Request = &vaultcommon.Outcome_UpdateSecretsRequest{
+			UpdateSecretsRequest: &vaultcommon.UpdateSecretsRequest{
+				RequestId:        reqID,
+				EncryptedSecrets: newReqs,
+				OrgId:            first.GetUpdateSecretsRequest().OrgId,
+				WorkflowOwner:    first.GetUpdateSecretsRequest().WorkflowOwner,
+			},
+		}
+	}
+
 	// Next let's aggregate the responses.
 	// We do this by taking the first response, and determine if
 	// there was a validation error. If not, we write it to the key value store.
@@ -2162,6 +2306,22 @@ func (r *ReportingPlugin) stateTransitionDeleteSecrets(ctx context.Context, stor
 		idToReqs[vaulttypes.KeyFor(r)] = r
 	}
 
+	if !r.optimizationsEnabled(ctx) {
+		newReqs := []*vaultcommon.SecretIdentifier{}
+		for _, sreq := range slices.Sorted(maps.Keys(idToReqs)) {
+			newReqs = append(newReqs, idToReqs[sreq])
+		}
+
+		o.Request = &vaultcommon.Outcome_DeleteSecretsRequest{
+			DeleteSecretsRequest: &vaultcommon.DeleteSecretsRequest{
+				RequestId:     reqID,
+				Ids:           newReqs,
+				OrgId:         first.GetDeleteSecretsRequest().OrgId,
+				WorkflowOwner: first.GetDeleteSecretsRequest().WorkflowOwner,
+			},
+		}
+	}
+
 	// Next let's aggregate the responses.
 	// We do this by taking the first response, and determine if
 	// there was a validation error. If not, we write it to the key value store.
@@ -2229,6 +2389,11 @@ func (r *ReportingPlugin) stateTransitionListSecretIdentifiers(ctx context.Conte
 	// observation phase. This returns the observations in sorted order,
 	// so we can just take the first aggregated response and use it as the outcome.
 	first := chosen[0]
+	if !r.optimizationsEnabled(ctx) {
+		o.Request = &vaultcommon.Outcome_ListSecretIdentifiersRequest{
+			ListSecretIdentifiersRequest: first.GetListSecretIdentifiersRequest(),
+		}
+	}
 	o.Response = &vaultcommon.Outcome_ListSecretIdentifiersResponse{
 		ListSecretIdentifiersResponse: first.GetListSecretIdentifiersResponse(),
 	}

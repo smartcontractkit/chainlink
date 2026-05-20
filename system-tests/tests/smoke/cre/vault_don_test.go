@@ -17,8 +17,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	vault_helpers 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -662,16 +663,21 @@ func assertVaultOCRWireTruncationSignalsInDockerLogs(t *testing.T) {
 	}
 }
 
+func TestVaultOptimizationsEnabled_CRESettingDefaultsDisabled(t *testing.T) {
+	require.False(t, cresettings.Default.VaultOptimizationsEnabled.DefaultValue)
+}
+
 func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 	t.Parallel()
 	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
 
 	testCases := []struct {
-		name        string
-		configPath  string
-		wantJWTGate string
-		wantOrgGate string
-		wantLinking bool
+		name                  string
+		configPath            string
+		wantJWTGate           string
+		wantOrgGate           string
+		wantLinking           bool
+		wantOptimizationsGate string
 	}{
 		{
 			name:        "enabled",
@@ -687,6 +693,14 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 			wantOrgGate: "false",
 			wantLinking: false,
 		},
+		{
+			name:                   "optimizations_enabled",
+			configPath:             vaultOptimizationsEnabledConfigPath,
+			wantJWTGate:            "false",
+			wantOrgGate:            "false",
+			wantLinking:            false,
+			wantOptimizationsGate:  "true",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -695,18 +709,34 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 			require.NoError(t, cfg.Load(t_helpers.GetTestConfig(t, tc.configPath).EnvironmentConfigPath))
 
 			for _, nodeSet := range cfg.NodeSets {
-				if nodeSet.Name != "workflow" && nodeSet.Name != "capabilities" {
+				switch nodeSet.Name {
+				case "workflow", "capabilities":
+				case "bootstrap-gateway":
+					if tc.wantOptimizationsGate != "true" {
+						continue
+					}
+				default:
 					continue
 				}
 				settingsRaw := nodeSet.EnvVars["CL_CRE_SETTINGS_DEFAULT"]
 				if settingsRaw == "" {
 					require.Equal(t, "false", tc.wantJWTGate)
 					require.Equal(t, "false", tc.wantOrgGate)
+					if tc.wantOptimizationsGate != "" {
+						require.Equal(t, "false", tc.wantOptimizationsGate)
+					}
 				} else {
 					var settings map[string]string
 					require.NoError(t, json.Unmarshal([]byte(settingsRaw), &settings))
-					require.Equal(t, tc.wantJWTGate, settings["VaultJWTAuthEnabled"])
-					require.Equal(t, tc.wantOrgGate, settings["VaultOrgIdAsSecretOwnerEnabled"])
+					if tc.wantOptimizationsGate == "true" {
+						require.Equal(t, "true", settings["VaultOptimizationsEnabled"])
+					} else {
+						require.Equal(t, tc.wantJWTGate, settings["VaultJWTAuthEnabled"])
+						require.Equal(t, tc.wantOrgGate, settings["VaultOrgIdAsSecretOwnerEnabled"])
+						if v, ok := settings["VaultOptimizationsEnabled"]; ok {
+							require.Equal(t, "false", v)
+						}
+					}
 				}
 
 				for _, nodeSpec := range nodeSet.NodeSpecs {

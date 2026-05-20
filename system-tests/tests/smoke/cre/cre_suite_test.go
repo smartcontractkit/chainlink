@@ -92,6 +92,9 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 				vaultConfig = getVaultJWTAuthEnabledTestConfig(t)
 				allowlistSubtestName = "allowlist_auth_when_jwt_auth_enabled"
 				jwtSubtestName = "jwt_auth_when_jwt_auth_enabled"
+			} else if isVaultOptimizationsEnabledTopology(topology) {
+				vaultConfig = getVaultOptimizationsEnabledTestConfig(t)
+				allowlistSubtestName = "allowlist_auth_when_vault_optimizations_enabled"
 			}
 			fixture := setupVaultSharedScenarioFixture(t, vaultConfig)
 			allowlistEnv := fixture.TestEnv

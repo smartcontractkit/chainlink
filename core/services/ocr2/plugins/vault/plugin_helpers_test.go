@@ -36,6 +36,7 @@ type testPluginBuildOpts struct {
 	batchSize                            int
 	maxBlobPayloadBytes                  int
 	orgIDAsSecretOwnerEnabled            bool
+	vaultOptimizationsEnabled            bool
 	marshalBlob                          func(ocr3_1types.BlobHandle) ([]byte, error)
 	unmarshalBlob                        func([]byte) (ocr3_1types.BlobHandle, error)
 	maxObservationBytesOverride          int
@@ -75,6 +76,10 @@ func withMaxSecretsPerOwner(n int) testPluginOption {
 
 func withOrgIDEnabled() testPluginOption {
 	return func(o *testPluginBuildOpts) { o.orgIDAsSecretOwnerEnabled = true }
+}
+
+func withVaultOptimizationsEnabled() testPluginOption {
+	return func(o *testPluginBuildOpts) { o.vaultOptimizationsEnabled = true }
 }
 
 func withOnchainCfg(n int, f int) testPluginOption {
@@ -132,6 +137,9 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 		o.maxIdentifierKeyLengthBytes, o.maxRequestBatchSize, o.maxBlobPayloadBytes)
 	if o.orgIDAsSecretOwnerEnabled {
 		cfg.OrgIDAsSecretOwnerEnabled = limits.NewGateLimiter(true)
+	}
+	if o.vaultOptimizationsEnabled {
+		cfg.VaultOptimizationsEnabled = limits.NewGateLimiter(true)
 	}
 	ctx := context.Background()
 	pl, err := initializePluginLimits(ctx, limits.Factory{Settings: cresettings.DefaultGetter})
@@ -231,6 +239,7 @@ func makeReportingPluginConfig(
 		MaxBlobPayloadBytes:               maxBlobPayloadLimiter,
 		OrgIDAsSecretOwnerEnabled:         limits.NewGateLimiter(false),
 		VaultForceEmptyOCRRounds:          limits.NewGateLimiter(false),
+		VaultOptimizationsEnabled:         limits.NewGateLimiter(false),
 	}
 }
 
