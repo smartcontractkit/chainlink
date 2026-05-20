@@ -186,6 +186,21 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 			step:     defaultMetricStep,
 		},
 		{
+			// Gauge: total on-disk bytes under the module cache dir (DiskMonitor, ~1m tick).
+			// max_over_time: peak footprint per step; correlates with deploy count and disk reloads.
+			metric:   "platform_workflow_module_cache_disk_usage_bytes",
+			query:    fmt.Sprintf("max_over_time(platform_workflow_module_cache_disk_usage_bytes{node_don=\"%%s\", node_index=\"%%d\"}[%s])", cachePrometheusRange),
+			filename: "metrics/cache_disk_usage_bytes.json",
+			step:     defaultMetricStep,
+		},
+		{
+			// Gauge: typical on-disk cache footprint during the step (smoothed).
+			metric:   "platform_workflow_module_cache_disk_usage_bytes",
+			query:    fmt.Sprintf("avg_over_time(platform_workflow_module_cache_disk_usage_bytes{node_don=\"%%s\", node_index=\"%%d\"}[%s])", cachePrometheusRange),
+			filename: "metrics/cache_disk_usage_avg_bytes.json",
+			step:     defaultMetricStep,
+		},
+		{
 			// Gauge: workflows fetched from registry on last sync tick (registered on this node).
 			metric:   "platform_workflow_registry_syncer_fetched_workflows",
 			query:    fmt.Sprintf("max_over_time(platform_workflow_registry_syncer_fetched_workflows{node_don=\"%%s\", node_index=\"%%d\"}[%s])", cachePrometheusRange),
