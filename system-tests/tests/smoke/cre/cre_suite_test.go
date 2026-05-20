@@ -27,7 +27,7 @@ var (
 //////////// CRE TESTS /////////////
 /*
 To execute tests start the local CRE first:
- 1. Inside `core/scripts/cre/environment` directory: `go run . env restart --with-beholder`
+ 1. Inside `core/scripts/cre/environment` directory: `go run . env restart --with-chip-ingress-stack` (deprecated: `--with-beholder`)
  2. Execute the tests in `system-tests/tests/smoke/cre`: `go test -timeout 15m -run "^Test_CRE_"`.
 */
 func Test_CRE_V2_Suite_Bucket_A(t *testing.T) {
@@ -123,13 +123,13 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 				ExecuteVaultJWTDisabledTest(t, fixture)
 			})
 		})
-	case suite_config.SuiteScenarioCronBeholder:
+	case suite_config.SuiteScenarioCronChipIngressStack:
 		t.Run("Cron Beholder - "+topology, func(t *testing.T) {
 			if parallelEnabled {
 				t.Parallel()
 			}
 			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
-			ExecuteCronBeholderTest(t, testEnv)
+			ExecuteCronChipIngressStackTest(t, testEnv)
 		})
 	case suite_config.SuiteScenarioHTTPTriggerAction:
 		t.Run("HTTP Trigger Action - "+topology, func(t *testing.T) {

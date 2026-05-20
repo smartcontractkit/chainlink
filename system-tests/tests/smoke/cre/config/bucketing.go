@@ -7,7 +7,7 @@ type SuiteScenario int
 const (
 	SuiteScenarioProofOfReserve SuiteScenario = iota
 	SuiteScenarioVaultDON
-	SuiteScenarioCronBeholder
+	SuiteScenarioCronChipIngressStack
 	SuiteScenarioHTTPTriggerAction
 	SuiteScenarioHTTPActionCRUD
 	SuiteScenarioDONTime
@@ -21,8 +21,8 @@ func (s SuiteScenario) String() string {
 		return "ProofOfReserve"
 	case SuiteScenarioVaultDON:
 		return "VaultDON"
-	case SuiteScenarioCronBeholder:
-		return "CronBeholder"
+	case SuiteScenarioCronChipIngressStack:
+		return "CronChipIngressStack"
 	case SuiteScenarioHTTPTriggerAction:
 		return "HTTPTriggerAction"
 	case SuiteScenarioHTTPActionCRUD:
@@ -73,7 +73,7 @@ var suiteBucketRegistry = []suiteBucketDefinition{
 	{
 		Bucket: SuiteBucketC,
 		Scenarios: []SuiteScenario{
-			SuiteScenarioCronBeholder,
+			SuiteScenarioCronChipIngressStack,
 			SuiteScenarioHTTPActionCRUD,
 		},
 	},

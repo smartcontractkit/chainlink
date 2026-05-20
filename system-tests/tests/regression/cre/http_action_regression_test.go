@@ -119,7 +119,7 @@ func HTTPActionFailureTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpAc
 		"http-action-fail-"+httpActionTest.method+"-"+httpActionTest.name,
 	)
 
-	// Start Beholder listener BEFORE registering workflow to avoid missing messages
+	// Start Chip Ingress stack listener BEFORE registering workflow to avoid missing messages
 	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 
@@ -135,8 +135,8 @@ func HTTPActionFailureTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpAc
 	// Now register and deploy the workflow
 	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
-	// Wait for specific error message in Beholder based on test case
-	testLogger.Info().Msgf("Waiting for expected HTTP Action failure: '%s' in Beholder...", httpActionTest.expectedError)
+	// Wait for specific error message from Chip Ingress stack based on test case
+	testLogger.Info().Msgf("Waiting for expected HTTP Action failure: '%s' from Chip Ingress stack...", httpActionTest.expectedError)
 
 	// Expect exact error message for this test case - no fallbacks
 	t_helpers.WatchWorkflowLogs(

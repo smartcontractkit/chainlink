@@ -29,9 +29,9 @@ const (
 	defaultErrorBufferSize   = 100
 
 	// Kafka timings
-	beholderStartTimeout           = 2 * time.Minute  // timeout for starting Beholder stack
+	chipIngressStackStartTimeout   = 2 * time.Minute  // timeout for starting Chip Ingress stack
 	maxConsumerConnectivityTimeout = 60 * time.Second // max timeout before Kafka consumer reconnection
-	kafkaSessionTimeoutMs          = 20000            // keep it high enough to let Beholder messages incoming
+	kafkaSessionTimeoutMs          = 20000            // keep it high enough to let Chip Ingress stack messages incoming
 	messageReadInterval            = 50 * time.Millisecond
 
 	// CloudEvents binary format
@@ -44,19 +44,19 @@ const (
 	ceTypeHeader = "ce_type"
 
 	// Error messages
-	errBeholderOrConfigNil = "beholder or config is nil"
+	errChipIngressStackOrConfigNil = "chip ingress stack or config is nil"
 )
 
-var beholderStartupMu sync.Mutex
+var chipIngressStackStartupMu sync.Mutex
 
-type Beholder struct {
+type ChipIngressStack struct {
 	cfg  *config.ChipIngressConfig
 	lggr zerolog.Logger
 }
 
 // All fields are optional; sensible defaults are applied when nil or empty.
 type ConsumerOptions struct {
-	GroupID                string // The consumer group to ensure independent message consumption. Defaults to "beholder-consumer".
+	GroupID                string // The consumer group to ensure independent message consumption. Defaults to "chip-ingress-stack-consumer".
 	Topic                  string // If empty, uses the first topic from config.
 	MessageBuffer          int
 	ErrorBuffer            int
@@ -64,77 +64,77 @@ type ConsumerOptions struct {
 	IsolationReadCommitted bool // Ensures only committed messages are read. Defaults to "false".
 }
 
-// NewBeholder creates a Beholder instance, even if it's not already running.
-func NewBeholder(lggr zerolog.Logger, testConfig *configuration.TestConfig) (*Beholder, error) {
-	beholderStartupMu.Lock()
-	defer beholderStartupMu.Unlock()
+// NewChipIngressStack creates a ChipIngressStack instance, even if it's not already running.
+func NewChipIngressStack(lggr zerolog.Logger, testConfig *configuration.TestConfig) (*ChipIngressStack, error) {
+	chipIngressStackStartupMu.Lock()
+	defer chipIngressStackStartupMu.Unlock()
 
 	// we don't need to pass the GRPC port here, because it will be automatically assigned by Docker
-	if err := startBeholderIfNotRunning(testConfig.RelativePathToRepoRoot, testConfig.EnvironmentDirPath); err != nil {
-		return nil, errors.Wrap(err, "Beholder failed to start")
+	if err := startChipIngressStackIfNotRunning(testConfig.RelativePathToRepoRoot, testConfig.EnvironmentDirPath); err != nil {
+		return nil, errors.Wrap(err, "Chip Ingress stack failed to start")
 	}
 
-	chipConfig, err := loadBeholderStackCache(testConfig.RelativePathToRepoRoot)
+	chipConfig, err := loadChipIngressStackCache(testConfig.RelativePathToRepoRoot)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to load beholder stack cache")
+		return nil, errors.Wrap(err, "failed to load chip ingress stack cache")
 	}
 
-	return &Beholder{cfg: chipConfig, lggr: lggr}, nil
+	return &ChipIngressStack{cfg: chipConfig, lggr: lggr}, nil
 }
 
-// startBeholderIfNotRunning starts the Beholder stack if it's not already running.
-func startBeholderIfNotRunning(relativePathToRepoRoot, environmentDir string) error {
+// startChipIngressStackIfNotRunning starts the Chip Ingress stack if it's not already running.
+func startChipIngressStackIfNotRunning(relativePathToRepoRoot, environmentDir string) error {
 	if config.ChipIngressStateFileExists(relativePathToRepoRoot) {
-		framework.L.Info().Msg("No need to start Beholder - it is already running")
+		framework.L.Info().Msg("No need to start Chip Ingress stack - it is already running")
 		return nil
 	}
 
-	framework.L.Info().Dur("timeout", beholderStartTimeout).Msg("Beholder state file not found. Starting Beholder...")
-	ctx, cancel := context.WithTimeout(context.Background(), beholderStartTimeout)
+	framework.L.Info().Dur("timeout", chipIngressStackStartTimeout).Msg("Chip Ingress stack state file not found. Starting Chip Ingress stack...")
+	ctx, cancel := context.WithTimeout(context.Background(), chipIngressStackStartTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "go", "run", ".", "env", "beholder", "start")
+	cmd := exec.CommandContext(ctx, "go", "run", ".", "env", "chip-ingress-stack", "start")
 	cmd.Dir = environmentDir
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 
 	if err := cmd.Run(); err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
-			return errors.Wrap(err, "timeout starting Beholder")
+			return errors.Wrap(err, "timeout starting Chip Ingress stack")
 		}
-		return errors.Wrap(err, "failed to start Beholder")
+		return errors.Wrap(err, "failed to start Chip Ingress stack")
 	}
 
-	framework.L.Info().Msg("Beholder started successfully")
+	framework.L.Info().Msg("Chip Ingress stack started successfully")
 	return nil
 }
 
-func StopBeholder(relativePathToRepoRoot, environmentDir string) error {
+func StopChipIngressStack(relativePathToRepoRoot, environmentDir string) error {
 	if !config.ChipIngressStateFileExists(relativePathToRepoRoot) {
-		framework.L.Info().Msg("No need to stop Beholder - it is not running")
+		framework.L.Info().Msg("No need to stop Chip Ingress stack - it is not running")
 		return nil
 	}
 
-	framework.L.Info().Dur("timeout", beholderStartTimeout).Msg("Beholder state file found. Stopping Beholder...")
-	ctx, cancel := context.WithTimeout(context.Background(), beholderStartTimeout)
+	framework.L.Info().Dur("timeout", chipIngressStackStartTimeout).Msg("Chip Ingress stack state file found. Stopping Chip Ingress stack...")
+	ctx, cancel := context.WithTimeout(context.Background(), chipIngressStackStartTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "go", "run", ".", "env", "beholder", "stop")
+	cmd := exec.CommandContext(ctx, "go", "run", ".", "env", "chip-ingress-stack", "stop")
 	cmd.Dir = environmentDir
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 
 	if err := cmd.Run(); err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
-			return errors.Wrap(err, "timeout stopping Beholder")
+			return errors.Wrap(err, "timeout stopping Chip Ingress stack")
 		}
-		return errors.Wrap(err, "failed to stop Beholder")
+		return errors.Wrap(err, "failed to stop Chip Ingress stack")
 	}
 
-	framework.L.Info().Msg("Beholder stopped successfully")
+	framework.L.Info().Msg("Chip Ingress stack stopped successfully")
 	return nil
 }
 
-// loadBeholderStackCache loads and validates the Beholder configuration.
-func loadBeholderStackCache(relativePathToRepoRoot string) (*config.ChipIngressConfig, error) {
+// loadChipIngressStackCache loads and validates the Chip Ingress stack configuration.
+func loadChipIngressStackCache(relativePathToRepoRoot string) (*config.ChipIngressConfig, error) {
 	c := &config.ChipIngressConfig{}
 	if err := c.Load(config.MustChipIngressStateFileAbsPath(relativePathToRepoRoot)); err != nil {
 		return nil, errors.Wrap(err, "load cache")
@@ -152,10 +152,10 @@ func loadBeholderStackCache(relativePathToRepoRoot string) (*config.ChipIngressC
 }
 
 /*
-SubscribeToBeholderMessages starts a Kafka consumer and returns message/error channels.
+SubscribeToChipIngressStackMessages starts a Kafka consumer and returns message/error channels.
 
 1. Tests Kafka broker connectivity before starting the listener (FATAL - fails fast if not accessible)
-2. Validates Beholder heartbeat to ensure it's alive and healthy (FATAL - fails fast if not detected)
+2. Validates Chip Ingress stack heartbeat to ensure it's alive and healthy (FATAL - fails fast if not detected)
 3. Validates topic existence and accessibility during subscription
 4. Verifies topic metadata and partition availability
 5. Coordinates consumer readiness to prevent race conditions with producers
@@ -168,19 +168,19 @@ Returns:
   - Message channel (closed when consumer stops)
   - Error channel (buffered, reports fatal errors)
 */
-func (b *Beholder) SubscribeToBeholderMessages(ctx context.Context, messageTypes map[string]func() proto.Message,
+func (b *ChipIngressStack) SubscribeToChipIngressStackMessages(ctx context.Context, messageTypes map[string]func() proto.Message,
 ) (<-chan proto.Message, <-chan error) {
-	// If the Beholder is not initialized, return an error channel
+	// If the Chip Ingress stack is not initialized, return an error channel
 	if b == nil || b.cfg == nil {
 		errCh := make(chan error, 1)
-		errCh <- errors.New(errBeholderOrConfigNil)
+		errCh <- errors.New(errChipIngressStackOrConfigNil)
 		close(errCh)
 		return nil, errCh
 	}
 
 	// Create options internally with unique group ID (to enable tests parallelization)
 	opts := &ConsumerOptions{
-		GroupID:                fmt.Sprintf("beholder-consumer-%d", time.Now().UnixNano()),
+		GroupID:                fmt.Sprintf("chip-ingress-stack-consumer-%d", time.Now().UnixNano()),
 		Topic:                  b.cfg.Kafka.Topics[0],
 		MessageBuffer:          defaultMessageBufferSize,
 		ErrorBuffer:            defaultErrorBufferSize,
@@ -202,11 +202,11 @@ func (b *Beholder) SubscribeToBeholderMessages(ctx context.Context, messageTypes
 		return msgCh, errCh
 	}
 
-	// Pre-flight validation: Beholder heartbeat (fatal - fail early if Beholder is not healthy)
-	b.lggr.Debug().Msg("Performing Beholder heartbeat validation...")
-	if err := b.validateBeholderHeartbeat(ctx); err != nil {
-		b.lggr.Error().Err(err).Msg("Beholder heartbeat validation failed")
-		errCh <- errors.Wrap(err, "beholder heartbeat validation failed")
+	// Pre-flight validation: Chip Ingress stack heartbeat (fatal - fail early if stack is not healthy)
+	b.lggr.Debug().Msg("Performing Chip Ingress stack heartbeat validation...")
+	if err := b.validateChipIngressStackHeartbeat(ctx); err != nil {
+		b.lggr.Error().Err(err).Msg("Chip Ingress stack heartbeat validation failed")
+		errCh <- errors.Wrap(err, "chip ingress stack heartbeat validation failed")
 		close(errCh)
 		close(msgCh)
 		return msgCh, errCh
@@ -231,7 +231,7 @@ func (b *Beholder) SubscribeToBeholderMessages(ctx context.Context, messageTypes
 }
 
 // validateKafkaConnectivity explicitly validates Kafka broker connectivity.
-func (b *Beholder) validateConsumerConnectivity(ctx context.Context) error {
+func (b *ChipIngressStack) validateConsumerConnectivity(ctx context.Context) error {
 	vctx, cancel := context.WithTimeout(ctx, maxConsumerConnectivityTimeout)
 	defer cancel()
 
@@ -257,9 +257,9 @@ func (b *Beholder) validateConsumerConnectivity(ctx context.Context) error {
 	return nil
 }
 
-// validateBeholderHeartbeat validates that Beholder is alive and sending heartbeat messages.
+// validateChipIngressStackHeartbeat validates that the Chip Ingress stack is alive and sending heartbeat messages.
 // Retries up to 3 times with a fixed 5-second delay between attempts.
-func (b *Beholder) validateBeholderHeartbeat(ctx context.Context) error {
+func (b *ChipIngressStack) validateChipIngressStackHeartbeat(ctx context.Context) error {
 	const (
 		maxRetries = 3
 		retryDelay = 5 * time.Second
@@ -270,11 +270,11 @@ func (b *Beholder) validateBeholderHeartbeat(ctx context.Context) error {
 		Dur("retry_delay", retryDelay).
 		Dur("max_timeout", maxConsumerConnectivityTimeout).
 		Int("session_timeout_ms", kafkaSessionTimeoutMs).
-		Msg("Starting Beholder heartbeat validation...")
+		Msg("Starting Chip Ingress stack heartbeat validation...")
 
 	return retry.Do(
 		func() error {
-			return b.validateBeholderHeartbeatOnce(ctx)
+			return b.validateChipIngressStackHeartbeatOnce(ctx)
 		},
 		retry.Context(ctx),
 		retry.Attempts(maxRetries),
@@ -287,13 +287,13 @@ func (b *Beholder) validateBeholderHeartbeat(ctx context.Context) error {
 				Uint("attempt", n+1).
 				Uint("max_retries", maxRetries).
 				Dur("retry_delay", retryDelay).
-				Msg("Beholder heartbeat validation attempt failed, retrying...")
+				Msg("Chip Ingress stack heartbeat validation attempt failed, retrying...")
 		}),
 	)
 }
 
-// validateBeholderHeartbeatOnce performs a single heartbeat validation attempt.
-func (b *Beholder) validateBeholderHeartbeatOnce(ctx context.Context) error {
+// validateChipIngressStackHeartbeatOnce performs a single heartbeat validation attempt.
+func (b *ChipIngressStack) validateChipIngressStackHeartbeatOnce(ctx context.Context) error {
 	hctx, cancel := context.WithTimeout(ctx, maxConsumerConnectivityTimeout)
 	defer cancel()
 
@@ -312,7 +312,7 @@ func (b *Beholder) validateBeholderHeartbeatOnce(ctx context.Context) error {
 	for {
 		select {
 		case <-hctx.Done():
-			return errors.New("timeout waiting for Beholder heartbeat")
+			return errors.New("timeout waiting for Chip Ingress stack heartbeat")
 		default:
 		}
 
@@ -357,15 +357,15 @@ func (b *Beholder) validateBeholderHeartbeatOnce(ctx context.Context) error {
 		b.lggr.Info().
 			Str("msg", baseMsg.Msg).
 			Interface("labels", baseMsg.Labels).
-			Msg("Beholder heartbeat detected successfully")
+			Msg("Chip Ingress stack heartbeat detected successfully")
 		return nil
 	}
 }
 
 // createValidationConsumer creates a temporary Kafka consumer for validation purposes.
-func (b *Beholder) createValidationConsumer(ctx context.Context, groupIDPrefix string) (*kafka.Consumer, error) {
+func (b *ChipIngressStack) createValidationConsumer(ctx context.Context, groupIDPrefix string) (*kafka.Consumer, error) {
 	if b == nil || b.cfg == nil {
-		return nil, errors.New(errBeholderOrConfigNil)
+		return nil, errors.New(errChipIngressStackOrConfigNil)
 	}
 
 	groupID := fmt.Sprintf("%s-%d", groupIDPrefix, time.Now().UnixNano())
@@ -384,7 +384,7 @@ func (b *Beholder) createValidationConsumer(ctx context.Context, groupIDPrefix s
 	return consumer, nil
 }
 
-// isHeartbeatMessage checks if a BaseMessage is a Beholder heartbeat.
+// isHeartbeatMessage checks if a BaseMessage is a Chip Ingress stack heartbeat.
 // Heartbeat format: msg="heartbeat" and labels.system="Application"
 func isHeartbeatMessage(msg *commonevents.BaseMessage) bool {
 	if msg == nil {
@@ -409,7 +409,7 @@ func isHeartbeatMessage(msg *commonevents.BaseMessage) bool {
 }
 
 // consume runs the Kafka consumer loop with offset management and automatic reconnection.
-func (b *Beholder) consume(
+func (b *ChipIngressStack) consume(
 	ctx context.Context,
 	messageTypes map[string]func() proto.Message,
 	opts *ConsumerOptions,
@@ -464,7 +464,7 @@ func (b *Beholder) consume(
 }
 
 // consumeWithReconnect runs a single consumer session with UserLogs timeout tracking.
-func (b *Beholder) consumeWithReconnect(
+func (b *ChipIngressStack) consumeWithReconnect(
 	ctx context.Context,
 	messageTypes map[string]func() proto.Message,
 	opts *ConsumerOptions,
@@ -474,7 +474,7 @@ func (b *Beholder) consumeWithReconnect(
 ) error {
 	// The isolation level determines which messages the Kafka consumer is allowed to read:
 	// - [used by default] "read_uncommitted": The consumer can read all messages.
-	// - [beholder does not use Kafka transactions] "read_committed": The consumer will only read messages from transactions that have been successfully committed, ensuring no uncommitted or aborted data is delivered.
+	// - [Chip Ingress stack does not use Kafka transactions] "read_committed": The consumer will only read messages from transactions that have been successfully committed, ensuring no uncommitted or aborted data is delivered.
 	// This setting is important for applications that require strong data consistency and want to avoid processing uncommitted or potentially rolled-back messages.
 	isolationLevel := "read_uncommitted"
 	if opts.IsolationReadCommitted { // false by default
@@ -652,7 +652,7 @@ func (b *Beholder) consumeWithReconnect(
 // 2. Asynchronous - FASTER but less safe: CommitMessage, don't wait for confirmation from Kafka, offset commit happens in the background
 //
 // Default: false.Re-reading some messages on crash/restart is acceptable
-func (b *Beholder) commitMessage(consumer *kafka.Consumer, msg *kafka.Message, syncCommit bool) error {
+func (b *ChipIngressStack) commitMessage(consumer *kafka.Consumer, msg *kafka.Message, syncCommit bool) error {
 	if syncCommit {
 		// Synchronous: Store offset first, then commit synchronously
 		if _, err := consumer.StoreMessage(msg); err != nil {
@@ -691,7 +691,7 @@ func getMessageTypeKeys(m map[string]func() proto.Message) []string {
 }
 
 // createAndSubscribeConsumer creates a Kafka consumer and subscribes to a topic.
-func (b *Beholder) createAndSubscribeConsumer(cfg *kafka.ConfigMap, topic string) (*kafka.Consumer, error) {
+func (b *ChipIngressStack) createAndSubscribeConsumer(cfg *kafka.ConfigMap, topic string) (*kafka.Consumer, error) {
 	consumer, err := kafka.NewConsumer(cfg)
 	if err != nil {
 		b.lggr.Error().Err(err).Msg("failed to create Kafka consumer")
@@ -711,7 +711,7 @@ func (b *Beholder) createAndSubscribeConsumer(cfg *kafka.ConfigMap, topic string
 }
 
 // logSubscriptionInfo fetches and logs subscription and partition assignment details.
-func (b *Beholder) logSubscriptionInfo(consumer *kafka.Consumer, opts *ConsumerOptions, errCh chan<- error) error {
+func (b *ChipIngressStack) logSubscriptionInfo(consumer *kafka.Consumer, opts *ConsumerOptions, errCh chan<- error) error {
 	// Verify subscription by fetching from consumer
 	subscription, subErr := consumer.Subscription()
 	if subErr != nil {
@@ -739,7 +739,7 @@ func (b *Beholder) logSubscriptionInfo(consumer *kafka.Consumer, opts *ConsumerO
 }
 
 // validateConsumerReadiness verifies topic accessibility and logs consumer ready status.
-func (b *Beholder) validateConsumerReadiness(consumer *kafka.Consumer, opts *ConsumerOptions, errCh chan<- error) error {
+func (b *ChipIngressStack) validateConsumerReadiness(consumer *kafka.Consumer, opts *ConsumerOptions, errCh chan<- error) error {
 	// Get topic metadata to verify accessibility
 	md, err := b.validateTopicMetadata(consumer, opts.Topic)
 	if err != nil {
@@ -753,7 +753,7 @@ func (b *Beholder) validateConsumerReadiness(consumer *kafka.Consumer, opts *Con
 }
 
 // validateTopicMetadata fetches topic metadata and validates accessibility.
-func (b *Beholder) validateTopicMetadata(consumer *kafka.Consumer, topic string) (*kafka.Metadata, error) {
+func (b *ChipIngressStack) validateTopicMetadata(consumer *kafka.Consumer, topic string) (*kafka.Metadata, error) {
 	md, err := consumer.GetMetadata(&topic, false, int(maxConsumerConnectivityTimeout/time.Millisecond))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get metadata")
@@ -782,7 +782,7 @@ func (b *Beholder) validateTopicMetadata(consumer *kafka.Consumer, topic string)
 }
 
 // logConsumerReady logs consumer ready status with subscription and partition details.
-func (b *Beholder) logConsumerReady(consumer *kafka.Consumer, opts *ConsumerOptions, totalPartitions int) {
+func (b *ChipIngressStack) logConsumerReady(consumer *kafka.Consumer, opts *ConsumerOptions, totalPartitions int) {
 	// Get updated partition assignment after metadata verification
 	subscription, _ := consumer.Subscription()
 	assignment, _ := consumer.Assignment()
