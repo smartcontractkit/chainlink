@@ -40,7 +40,7 @@ go build
 Create the `.env` file based on the example `.env.example`, adding the node endpoint URLs and the private key of your wallet
 
 ### Keeper Registry
-Set `KEEPER_REGISTRY_ADDRESS` in `.env` if you already have a keeper registry deployed. Otherwise, `keeper launch-and-test` deploys one when that variable is unset.
+Set `KEEPER_REGISTRY_ADDRESS` in `.env` to your deployed keeper registry.
 
 Registry management commands:
 - `./chaincli keeper registry update`: update existing keeper registry
@@ -62,26 +62,6 @@ Other options include:
 
 The output of this command will show the tcp address of the deployed bootstrap node in the following format: `<p2p-key>@bootstrap:8000`.
 Copy this entire string, including the `@bootstrap:8000` suffix, and the set the `BOOTSTRAP_NODE_ADDR` variable to this address in the `.env` file.
-
-### Keeper launch and test
-Once the bootstrap node is running, run the following command to launch the ocr2keeper nodes:
-
-Example:
-```shell
-./chaincli keeper launch-and-test
-```
-
-Other options include:
-- `--withdraw | -w`: default `true`, if funds should be withdrawn and upkeeps should be canceled after the test
-- `--export-logs | -l`: default `false`, if container logs should be exported to ./ directory
-- `--force | -f`: default `false`, if existing containers should be forcefully removed
-
-You can also combine the `bootstrap` and `launch-and-test` commands into a single command:
-
-```shell
-./chaincli keeper launch-and-test --bootstrap
-```
-In the output of this command, you will see the http address of the nodes, e.g. `http://localhost:6688`. This is the Chainlink Operator GUI. You can use the default username `notreal@fakeemail.ch` and password `fj293fbBnlQ!f9vNs` to log in.
 
 ### Logs
 Now that the nodes are running, you can use the `logs` subcommand to stream the output of the containers to your local terminal:

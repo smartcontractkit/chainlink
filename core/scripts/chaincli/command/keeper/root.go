@@ -16,7 +16,6 @@ func init() {
 	RootCmd.AddCommand(jobCmd)
 	RootCmd.AddCommand(logsCmd)
 	RootCmd.AddCommand(registryCmd)
-	RootCmd.AddCommand(launchAndTestCmd)
 	RootCmd.AddCommand(upkeepEventsCmd)
 	RootCmd.AddCommand(upkeepHistoryCmd)
 	RootCmd.AddCommand(ocr2UpkeepReportHistoryCmd)

@@ -175,36 +175,6 @@ func (h *baseHandler) buildTxOpts(ctx context.Context) *bind.TransactOpts {
 	return auth
 }
 
-// Send eth from prefunded account.
-// Amount is number of wei.
-func (k *Keeper) sendEth(ctx context.Context, to common.Address, amount *big.Int) error {
-	txOpts := k.buildTxOpts(ctx)
-
-	tx := ethtypes.NewTx(&ethtypes.LegacyTx{
-		Nonce:    txOpts.Nonce.Uint64(),
-		To:       &to,
-		Value:    amount,
-		Gas:      txOpts.GasLimit,
-		GasPrice: txOpts.GasPrice,
-		Data:     nil,
-	})
-	signedTx, err := ethtypes.SignTx(tx, ethtypes.NewEIP155Signer(big.NewInt(k.cfg.ChainID)), k.privateKey)
-	if err != nil {
-		return fmt.Errorf("failed to sign tx: %w", err)
-	}
-
-	if err = k.client.SendTransaction(ctx, signedTx); err != nil {
-		return fmt.Errorf("failed to send tx: %w", err)
-	}
-
-	if err := k.waitTx(ctx, signedTx); err != nil {
-		log.Fatalf("Send ETH failed, error is %s", err.Error())
-	}
-	log.Println("Send ETH successfully")
-
-	return nil
-}
-
 func (h *baseHandler) waitDeployment(ctx context.Context, tx *ethtypes.Transaction) {
 	if _, err := bind.WaitDeployed(ctx, h.client, tx); err != nil {
 		log.Fatal("WaitDeployed failed: ", err, " ", helpers.ExplorerLink(h.cfg.ChainID, tx.Hash()))
@@ -563,21 +533,6 @@ func nodeRequest(ctx context.Context, client cmd.HTTPClient, path string) ([]byt
 	}
 
 	return raw, nil
-}
-
-// getNodeAddress returns chainlink node's wallet address
-func getNodeAddress(ctx context.Context, client cmd.HTTPClient) (string, error) {
-	resp, err := nodeRequest(ctx, client, ethKeysEndpoint)
-	if err != nil {
-		return "", fmt.Errorf("failed to get ETH keys: %w", err)
-	}
-
-	var keys cmd.EthKeyPresenters
-	if err = jsonapi.Unmarshal(resp, &keys); err != nil {
-		return "", fmt.Errorf("failed to unmarshal response body: %w", err)
-	}
-
-	return keys[0].Address, nil
 }
 
 // getNodeOCR2Config returns chainlink node's OCR2 bundle key ID
