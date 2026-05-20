@@ -35,43 +35,6 @@ var upkeepEventsCmd = &cobra.Command{
 	},
 }
 
-// upkeepHistoryCmd represents the command to run the upkeep history command
-var upkeepHistoryCmd = &cobra.Command{
-	Use:   "upkeep-history",
-	Short: "Print checkUpkeep history",
-	Long:  `Print checkUpkeep status and keeper responsibility for a given upkeep in a set block range`,
-	Run: func(cmd *cobra.Command, args []string) {
-		upkeepIDStr, err := cmd.Flags().GetString("upkeep-id")
-		if err != nil {
-			log.Fatal("failed to get 'upkeep-id' flag: ", err)
-		}
-		upkeepID, ok := handler.ParseUpkeepID(upkeepIDStr)
-		if !ok {
-			log.Fatal("failed to parse upkeep-id")
-		}
-
-		fromBlock, err := cmd.Flags().GetUint64("from")
-		if err != nil {
-			log.Fatal("failed to get 'from' flag: ", err)
-		}
-
-		toBlock, err := cmd.Flags().GetUint64("to")
-		if err != nil {
-			log.Fatal("failed to get 'to' flag: ", err)
-		}
-
-		gasPrice, err := cmd.Flags().GetUint64("gas-price")
-		if err != nil {
-			log.Fatal("failed to get 'gas-price' flag: ", err)
-		}
-
-		cfg := config.New()
-		hdlr := handler.NewKeeper(cfg)
-
-		hdlr.UpkeepHistory(cmd.Context(), upkeepID, fromBlock, toBlock, gasPrice)
-	},
-}
-
 var ocr2UpkeepReportHistoryCmd = &cobra.Command{
 	Use:   "ocr2-reports",
 	Short: "Print ocr2 automation reports",
@@ -125,11 +88,6 @@ var ocr2UpdateConfigCmd = &cobra.Command{
 }
 
 func init() {
-	upkeepHistoryCmd.Flags().String("upkeep-id", "", "upkeep ID")
-	upkeepHistoryCmd.Flags().Uint64("from", 0, "from block")
-	upkeepHistoryCmd.Flags().Uint64("to", 0, "to block")
-	upkeepHistoryCmd.Flags().Uint64("gas-price", 0, "gas price to use")
-
 	ocr2UpkeepReportHistoryCmd.Flags().StringSlice("tx-hashes", []string{}, "list of transaction hashes to get information for")
 	ocr2UpkeepReportHistoryCmd.Flags().String("csv", "", "path to csv file containing transaction hashes; first element per line should be transaction hash; file should not have headers")
 
