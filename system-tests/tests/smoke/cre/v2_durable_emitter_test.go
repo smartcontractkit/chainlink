@@ -92,7 +92,7 @@ func resetDurableEventQueue(ctx context.Context, t *testing.T, db *sql.DB) {
 // that chip_durable_events sees sustained insert+delete activity over time.
 func ExecuteDurableEmitterTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	lggr := framework.L
-	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/cron/main.go"
+	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/cron/main.go"
 
 	db := connectWorkflowDONDB(t, testEnv.Config.NodeSets)
 
@@ -101,7 +101,6 @@ func ExecuteDurableEmitterTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 	resetDurableEventQueue(t.Context(), t, db)
 
-	// TODO: Contrainer Log Streaming instead?
 	baseline, err := snapshotDurableEventStats(t.Context(), db)
 	require.NoError(t, err)
 	t.Logf("baseline chip_durable_events stats: inserts=%d deletes=%d", baseline.inserts, baseline.deletes)
