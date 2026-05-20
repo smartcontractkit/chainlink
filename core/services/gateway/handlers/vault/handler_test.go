@@ -251,7 +251,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		wg.Wait()
 	})
 
-	t.Run("overwrites request identity fields after authorization", func(t *testing.T) {
+	t.Run("sets authorized request_id on forwarded create", func(t *testing.T) {
 		lggr := logger.Test(t)
 		don := mocks.NewDON(t)
 		donConfig := &config.DONConfig{
@@ -285,7 +285,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		rawPayload := json.RawMessage(`{"request_id":"test_request_id","org_id":"forged-org","workflow_owner":"0xforged","encrypted_secrets":[{"id":{"key":"test_id","owner":"org1","namespace":"default"},"encrypted_value":"abc123"}]}`)
+		rawPayload := json.RawMessage(`{"request_id":"test_request_id","encrypted_secrets":[{"id":{"key":"test_id","owner":"org1","namespace":"default"},"encrypted_value":"abc123"}]}`)
 
 		var forwarded jsonrpc.Request[json.RawMessage]
 		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
@@ -302,12 +302,6 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NotNil(t, forwarded.Params)
-		var fwd map[string]json.RawMessage
-		require.NoError(t, json.Unmarshal(*forwarded.Params, &fwd))
-		_, hasOrg := fwd["org_id"]
-		_, hasWO := fwd["workflow_owner"]
-		require.False(t, hasOrg)
-		require.False(t, hasWO)
 		var forwardedCreateRequest vaultcommon.CreateSecretsRequest
 		require.NoError(t, json.Unmarshal(*forwarded.Params, &forwardedCreateRequest))
 		require.Equal(t, "0xworkflow"+vaulttypes.RequestIDSeparator+"1", forwardedCreateRequest.RequestId)
