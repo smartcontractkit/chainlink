@@ -192,6 +192,7 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		validator, err := vaultcap.NewJWTBasedAuth(vaultcap.JWTBasedAuthConfig{
 			IssuerURL: cfg.Auth0.IssuerURL,
 			Audience:  cfg.Auth0.Audience,
+			TenantID:  cfg.Auth0.TenantID,
 		}, limitsFactory, lggr)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create JWTBasedAuth: %w", err)

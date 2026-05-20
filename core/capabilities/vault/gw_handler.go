@@ -90,6 +90,7 @@ func NewGatewayHandler(
 		jwtAuthService, err = NewJWTBasedAuth(JWTBasedAuthConfig{
 			IssuerURL: auth0.IssuerURL,
 			Audience:  auth0.Audience,
+			TenantID:  auth0.TenantID,
 		}, limitsFactory, lggr)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create JWTBasedAuth: %w", err)

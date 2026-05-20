@@ -35,7 +35,7 @@ var (
 	ErrMissingWorkflowOwner            = errors.New("missing workflow_owner in authorization_details")
 	ErrMissingRequestDigest            = errors.New("missing request_digest in authorization_details")
 	ErrVaultSecretManagementNotEnabled = errors.New("claim_vault_secret_management_enabled claim must be true")
-	ErrJWTTenantIDCresettingsMismatch  = errors.New("JWT tenant id does not match node TenantID CRE setting")
+	ErrJWTTenantIDJobSpecMismatch      = errors.New("JWT tenant id does not match auth0 tenantID from job specification")
 	ErrJWKSFetchFailed                 = errors.New("failed to fetch JWKS")
 	ErrJWKSKeyNotFound                 = errors.New("signing key not found in JWKS")
 )
@@ -55,12 +55,14 @@ const (
 type Auth0Config struct {
 	IssuerURL string `json:"issuerURL" toml:"issuerURL" yaml:"issuerURL"`
 	Audience  string `json:"audience" toml:"audience" yaml:"audience"`
+	TenantID  uint64 `json:"tenantID" toml:"tenantID" yaml:"tenantID"`
 }
 
 // JWTBasedAuthConfig holds the configuration for JWTBasedAuth validation.
 type JWTBasedAuthConfig struct {
 	IssuerURL           string
 	Audience            string
+	TenantID            uint64        // required; must match JWT urn:chainlink:tenant_id / tenant_id claim
 	JWKSRefreshInterval time.Duration // minimum interval between JWKS fetches; 0 uses default (30s)
 	HTTPClient          *http.Client  // nil uses a default client with 5s timeout
 }
@@ -107,6 +109,8 @@ type jwtBasedAuth struct {
 	refreshInterval time.Duration
 	authEnabledGate limits.GateLimiter
 
+	expectedTenantID uint64
+
 	mu            sync.RWMutex
 	keySet        *jsonWebKeySet
 	lastRefreshed time.Time
@@ -150,6 +154,9 @@ func NewJWTBasedAuth(cfg JWTBasedAuthConfig, limitsFactory limits.Factory, lggr 
 	if cfg.Audience == "" {
 		return nil, errors.New("audience is required")
 	}
+	if cfg.TenantID == 0 {
+		return nil, errors.New("tenant ID is required")
+	}
 
 	trimmedIssuer := strings.TrimSuffix(cfg.IssuerURL, "/")
 	jwksURL := trimmedIssuer + "/.well-known/jwks.json"
@@ -165,14 +172,15 @@ func NewJWTBasedAuth(cfg JWTBasedAuthConfig, limitsFactory limits.Factory, lggr 
 	}
 
 	v := &jwtBasedAuth{
-		issuerURL:       cfg.IssuerURL,
-		audience:        cfg.Audience,
-		jwksURL:         jwksURL,
-		refreshInterval: refreshInterval,
-		authEnabledGate: options.authEnabledGate,
-		httpClient:      httpClient,
-		lggr:            logger.Named(lggr, "VaultJWTBasedAuth"),
-		limitsFactory:   limitsFactory,
+		issuerURL:        cfg.IssuerURL,
+		audience:         cfg.Audience,
+		jwksURL:          jwksURL,
+		refreshInterval:  refreshInterval,
+		authEnabledGate:  options.authEnabledGate,
+		expectedTenantID: cfg.TenantID,
+		httpClient:       httpClient,
+		lggr:             logger.Named(lggr, "VaultJWTBasedAuth"),
+		limitsFactory:    limitsFactory,
 	}
 	v.Service, v.eng = services.Config{
 		Name:  "VaultJWTBasedAuth",
@@ -229,16 +237,12 @@ func (v *jwtBasedAuth) AuthorizeRequest(ctx context.Context, req jsonrpc.Request
 		return nil, fmt.Errorf("invalid JWT auth token: %w", scopeErr)
 	}
 
-	if claims.TenantID != 0 {
-		nodeTenantID, errTenant := cresettings.Default.TenantID.GetOrDefault(ctx, v.limitsFactory.Settings)
-		if errTenant != nil {
-			v.lggr.Errorw("failed to resolve CRE TenantID setting", "method", req.Method, "requestID", req.ID, "error", errTenant)
-			return nil, fmt.Errorf("failed to resolve TenantID from CRE settings: %w", errTenant)
-		}
-		if claims.TenantID != nodeTenantID {
-			v.lggr.Debugw("JWT tenant id does not match node TenantID CRE setting", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "claimsTenantID", claims.TenantID, "nodeTenantID", nodeTenantID)
-			return nil, fmt.Errorf("%w: jwt tenant id %d node tenant id %d", ErrJWTTenantIDCresettingsMismatch, claims.TenantID, nodeTenantID)
-		}
+	if claims.TenantID == 0 {
+		return nil, ErrMissingTenantID
+	}
+	if claims.TenantID != v.expectedTenantID {
+		v.lggr.Debugw("JWT tenant id does not match job spec auth0 tenantID", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "claimsTenantID", claims.TenantID, "expectedTenantID", v.expectedTenantID)
+		return nil, fmt.Errorf("%w: jwt tenant id %d expected tenant id %d", ErrJWTTenantIDJobSpecMismatch, claims.TenantID, v.expectedTenantID)
 	}
 
 	requestDigest, err := req.Digest()

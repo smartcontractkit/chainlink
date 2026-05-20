@@ -154,6 +154,7 @@ func newTestValidator(t *testing.T, issuer, audience string) *jwtBasedAuth {
 	v, err := NewJWTBasedAuth(JWTBasedAuthConfig{
 		IssuerURL:           issuer,
 		Audience:            audience,
+		TenantID:            1,
 		JWKSRefreshInterval: time.Millisecond,
 	}, limits.Factory{Settings: cresettings.DefaultGetter}, logger.TestLogger(t), WithJWTBasedAuthGateLimiter(limits.NewGateLimiter(true)))
 	require.NoError(t, err)
@@ -377,6 +378,7 @@ func TestJWTBasedAuth_EmptyToken(t *testing.T) {
 	v, err := NewJWTBasedAuth(JWTBasedAuthConfig{
 		IssuerURL: "https://example.auth0.com/",
 		Audience:  "https://api.test.chain.link",
+		TenantID:  1,
 	}, limits.Factory{Settings: cresettings.DefaultGetter}, logger.TestLogger(t), WithJWTBasedAuthGateLimiter(limits.NewGateLimiter(true)))
 	require.NoError(t, err)
 
@@ -506,6 +508,7 @@ func TestJWTBasedAuth_StartRefreshesJWKSPeriodically(t *testing.T) {
 	v, err := NewJWTBasedAuth(JWTBasedAuthConfig{
 		IssuerURL:           jwksServer.URL() + "/",
 		Audience:            "https://api.test.chain.link",
+		TenantID:            1,
 		JWKSRefreshInterval: 10 * time.Millisecond,
 	}, limits.Factory{Settings: cresettings.DefaultGetter}, logger.TestLogger(t), WithJWTBasedAuthGateLimiter(limits.NewGateLimiter(true)))
 	require.NoError(t, err)
@@ -521,6 +524,7 @@ func TestNewJWTBasedAuth_InvalidConfig(t *testing.T) {
 	_, err := NewJWTBasedAuth(JWTBasedAuthConfig{
 		IssuerURL: "",
 		Audience:  "https://api.test.chain.link",
+		TenantID:  1,
 	}, limits.Factory{Settings: cresettings.DefaultGetter}, lggr, WithJWTBasedAuthGateLimiter(limits.NewGateLimiter(true)))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "issuer URL is required")
@@ -528,9 +532,18 @@ func TestNewJWTBasedAuth_InvalidConfig(t *testing.T) {
 	_, err = NewJWTBasedAuth(JWTBasedAuthConfig{
 		IssuerURL: "https://example.auth0.com/",
 		Audience:  "",
+		TenantID:  1,
 	}, limits.Factory{Settings: cresettings.DefaultGetter}, lggr, WithJWTBasedAuthGateLimiter(limits.NewGateLimiter(true)))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "audience is required")
+
+	_, err = NewJWTBasedAuth(JWTBasedAuthConfig{
+		IssuerURL: "https://example.auth0.com/",
+		Audience:  "https://api.test.chain.link",
+		TenantID:  0,
+	}, limits.Factory{Settings: cresettings.DefaultGetter}, lggr, WithJWTBasedAuthGateLimiter(limits.NewGateLimiter(true)))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "tenant ID is required")
 }
 
 func TestNewJWTBasedAuth_UsesVaultJWTAuthEnabledLimiter_Disabled(t *testing.T) {
@@ -539,6 +552,7 @@ func TestNewJWTBasedAuth_UsesVaultJWTAuthEnabledLimiter_Disabled(t *testing.T) {
 	v, err := NewJWTBasedAuth(JWTBasedAuthConfig{
 		IssuerURL: "https://example.auth0.com/",
 		Audience:  "https://api.test.chain.link",
+		TenantID:  1,
 	}, limits.Factory{Settings: cresettings.DefaultGetter}, logger.TestLogger(t))
 	require.NoError(t, err)
 
@@ -559,6 +573,7 @@ func TestNewJWTBasedAuth_UsesVaultJWTAuthEnabledLimiter_Enabled(t *testing.T) {
 	v, err := NewJWTBasedAuth(JWTBasedAuthConfig{
 		IssuerURL: "https://example.auth0.com/",
 		Audience:  "https://api.test.chain.link",
+		TenantID:  1,
 	}, limits.Factory{Settings: cresettings.DefaultGetter}, logger.TestLogger(t))
 	require.NoError(t, err)
 
@@ -942,21 +957,19 @@ func TestJWTBasedAuth_AuthorizeRequest_RejectsMissingTenantClaim(t *testing.T) {
 	require.ErrorIs(t, err, ErrMissingTenantID)
 }
 
-func TestJWTBasedAuth_AuthorizeRequest_RejectsTenantAgainstCresettingsMismatch(t *testing.T) {
+func TestJWTBasedAuth_AuthorizeRequest_RejectsTenantAgainstJobSpecMismatch(t *testing.T) {
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
 	issuer := jwksServer.URL() + "/"
 	audience := "https://vault.test.chain.link"
 
-	getter, err := settings.NewJSONGetter([]byte(`{"global": {"TenantID": "2"}}`))
-	require.NoError(t, err)
-
 	v, err := NewJWTBasedAuth(JWTBasedAuthConfig{
 		IssuerURL:           issuer,
 		Audience:            audience,
+		TenantID:            2,
 		JWKSRefreshInterval: time.Millisecond,
-	}, limits.Factory{Settings: getter}, logger.TestLogger(t), WithJWTBasedAuthGateLimiter(limits.NewGateLimiter(true)))
+	}, limits.Factory{Settings: cresettings.DefaultGetter}, logger.TestLogger(t), WithJWTBasedAuthGateLimiter(limits.NewGateLimiter(true)))
 	require.NoError(t, err)
 
 	owner := testJWTExpectedWorkflowOwner(t, 1, "org-123")
@@ -993,7 +1006,7 @@ func TestJWTBasedAuth_AuthorizeRequest_RejectsTenantAgainstCresettingsMismatch(t
 
 	authResult, err := v.AuthorizeRequest(t.Context(), req)
 	require.Nil(t, authResult)
-	require.ErrorIs(t, err, ErrJWTTenantIDCresettingsMismatch)
+	require.ErrorIs(t, err, ErrJWTTenantIDJobSpecMismatch)
 }
 
 func TestJWTBasedAuth_InvalidTenantNumericClaim(t *testing.T) {

@@ -21,5 +21,16 @@ func (c *Config) Validate() error {
 	if c.RequestExpiryDuration.Duration() <= 0 {
 		return errors.New("request expiry duration cannot be 0")
 	}
+	if c.Auth0 != nil {
+		if c.Auth0.IssuerURL == "" {
+			return errors.New("auth0 issuerURL is required when auth0 is configured")
+		}
+		if c.Auth0.Audience == "" {
+			return errors.New("auth0 audience is required when auth0 is configured")
+		}
+		if c.Auth0.TenantID == 0 {
+			return errors.New("auth0 tenantID is required when auth0 is configured")
+		}
+	}
 	return nil
 }
