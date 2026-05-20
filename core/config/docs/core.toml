@@ -870,6 +870,9 @@ AuthHeadersTTL = '0s' # Default
 ChipIngressEndpoint = '' # Default
 # ChipIngressInsecureConnection disables TLS when connecting to CHIP Ingress.
 ChipIngressInsecureConnection = false # Default
+# ChipIngressBatchEmitterEnabled enables batching for chip-ingress events.
+# When false, events are sent individually (legacy behavior).
+ChipIngressBatchEmitterEnabled = true # Default
 # DurableEmitterEnabled enables persisting outbound CHIP events to Postgres for at-least-once delivery.
 DurableEmitterEnabled = false # Default
 

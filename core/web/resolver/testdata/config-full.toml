@@ -360,6 +360,7 @@ EmitterExportTimeout = '1s'
 AuthHeadersTTL = '0s'
 ChipIngressEndpoint = 'example.com/chip-ingress'
 ChipIngressInsecureConnection = false
+ChipIngressBatchEmitterEnabled = true
 DurableEmitterEnabled = false
 HeartbeatInterval = '1s'
 LogLevel = 'info'
