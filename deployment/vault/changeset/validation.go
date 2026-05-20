@@ -15,6 +15,7 @@ import (
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
@@ -262,7 +263,8 @@ func ValidateTransferERC20Config(ctx context.Context, e cldf.Environment, cfg ty
 		return errors.New("MCMSConfig is required for transfer_erc20")
 	}
 
-	qualifier := cfg.TimelockIdentifier
+	// "" is the current default qualifier for the timelock
+	qualifier := ""
 	for chainSelector, transfers := range cfg.TransfersByChain {
 		if err := validateChainSelector(chainSelector, e); err != nil {
 			return fmt.Errorf("invalid chain selector %d: %w", chainSelector, err)
@@ -297,7 +299,7 @@ func validateERC20MCMSConfig(e cldf.Environment, mcmsConfig *cldfproposalutils.T
 	}
 
 	for chainSelector := range transfersByChain {
-		addresses, err := evmstate.LoadAddressesFromDataStore(e.DataStore, chainSelector, qualifier)
+		addresses, err := state.GetAddressTypeVersionByQualifier(e.DataStore.Addresses(), chainSelector, qualifier)
 		if err != nil {
 			return fmt.Errorf("failed to get addresses from datastore for chain %d: %w", chainSelector, err)
 		}

@@ -23,7 +23,6 @@ func (t transferERC20Changeset) Apply(e cldf.Environment, cfg types.TransferERC2
 
 	lggr.Infow("Starting batch ERC20 transfer",
 		"chains", len(cfg.TransfersByChain),
-		"timelock_id", cfg.TimelockIdentifier,
 		"description", cfg.Description)
 
 	evmChains := e.BlockChains.EVMChains()
@@ -48,10 +47,9 @@ func (t transferERC20Changeset) Apply(e cldf.Environment, cfg types.TransferERC2
 	}
 
 	seqInput := TransferERC20SequenceInput{
-		TransfersByChain:   cfg.TransfersByChain,
-		TimelockIdentifier: cfg.TimelockIdentifier,
-		MCMSConfig:         cfg.MCMSConfig,
-		Description:        cfg.Description,
+		TransfersByChain: cfg.TransfersByChain,
+		MCMSConfig:       cfg.MCMSConfig,
+		Description:      cfg.Description,
 	}
 
 	seqReport, err := operations.ExecuteSequence(e.OperationsBundle, TransferERC20Sequence, deps, seqInput)

@@ -3,7 +3,6 @@ package types
 import (
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 )
 
@@ -85,11 +84,8 @@ type TransferERC20Config struct {
 	// TransfersByChain maps chain selector to ERC20 transfers for that chain
 	TransfersByChain map[uint64][]ERC20Transfer `json:"transfers_by_chain"`
 
-	// TimelockIdentifier is the qualifier for the timelock (e.g. "vault_1"). Use "" for default/legacy.
-	TimelockIdentifier string `json:"timelock_identifier"`
-
 	// MCMSConfig contains timelock and MCMS configuration for building the proposal
-	MCMSConfig *proposalutils.TimelockConfig `json:"mcms_config"`
+	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config"`
 
 	// Description for the MCMS proposal
 	Description string `json:"description"`
