@@ -11,7 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholderstore"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
