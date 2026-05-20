@@ -92,7 +92,7 @@ func (o *orchestrator) runGRPCServer(ctx context.Context) {
 			// Normal shutdown, don't log as error
 			o.lggr.Info("gRPC server stopped")
 		default:
-			o.lggr.Errorw("gRPC server error", "error", err)
+			logger.Sugared(o.lggr).Criticalw("gRPC server error", "error", err)
 		}
 	}
 }
