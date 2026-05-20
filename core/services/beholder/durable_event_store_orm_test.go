@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder/pgstore"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -24,11 +24,11 @@ func truncateChipDurableEvents(t *testing.T, db *sqlx.DB) {
 	require.NoError(t, err)
 }
 
-func TestPgDurableEventStore_InsertDeleteRoundTrip(t *testing.T) {
+func TestPGDurableEventStore_InsertDeleteRoundTrip(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	truncateChipDurableEvents(t, db)
 	ctx := t.Context()
-	store := beholder.NewPgDurableEventStore(db)
+	store := pgstore.New(db)
 
 	id, err := store.Insert(ctx, []byte("test-payload"))
 	require.NoError(t, err)
@@ -47,11 +47,11 @@ func TestPgDurableEventStore_InsertDeleteRoundTrip(t *testing.T) {
 	assert.Empty(t, events)
 }
 
-func TestPgDurableEventStore_ListPending_RespectsCreatedBefore(t *testing.T) {
+func TestPGDurableEventStore_ListPending_RespectsCreatedBefore(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	truncateChipDurableEvents(t, db)
 	ctx := t.Context()
-	store := beholder.NewPgDurableEventStore(db)
+	store := pgstore.New(db)
 
 	_, err := store.Insert(ctx, []byte("event-1"))
 	require.NoError(t, err)
@@ -67,11 +67,11 @@ func TestPgDurableEventStore_ListPending_RespectsCreatedBefore(t *testing.T) {
 	assert.Len(t, events, 1)
 }
 
-func TestPgDurableEventStore_ListPending_RespectsLimit(t *testing.T) {
+func TestPGDurableEventStore_ListPending_RespectsLimit(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	truncateChipDurableEvents(t, db)
 	ctx := t.Context()
-	store := beholder.NewPgDurableEventStore(db)
+	store := pgstore.New(db)
 
 	for i := 0; i < 20; i++ {
 		_, err := store.Insert(ctx, []byte(fmt.Sprintf("event-%d", i)))
@@ -83,11 +83,11 @@ func TestPgDurableEventStore_ListPending_RespectsLimit(t *testing.T) {
 	assert.Len(t, events, 5)
 }
 
-func TestPgDurableEventStore_DeleteExpired(t *testing.T) {
+func TestPGDurableEventStore_DeleteExpired(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	truncateChipDurableEvents(t, db)
 	ctx := t.Context()
-	store := beholder.NewPgDurableEventStore(db)
+	store := pgstore.New(db)
 
 	_, err := store.Insert(ctx, []byte("will-expire"))
 	require.NoError(t, err)
@@ -103,11 +103,11 @@ func TestPgDurableEventStore_DeleteExpired(t *testing.T) {
 	assert.Equal(t, int64(1), deleted)
 }
 
-func TestPgDurableEventStore_ObserveDurableQueue(t *testing.T) {
+func TestPGDurableEventStore_ObserveDurableQueue(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	truncateChipDurableEvents(t, db)
 	ctx := testutils.Context(t)
-	store := beholder.NewPgDurableEventStore(db)
+	store := pgstore.New(db)
 
 	st, err := store.ObserveDurableQueue(ctx, time.Hour, time.Minute)
 	require.NoError(t, err)
@@ -122,11 +122,11 @@ func TestPgDurableEventStore_ObserveDurableQueue(t *testing.T) {
 	assert.Positive(t, st.OldestPendingAge)
 }
 
-func TestPgDurableEventStore_MarkDeliveredAndPurgeDelivered(t *testing.T) {
+func TestPGDurableEventStore_MarkDeliveredAndPurgeDelivered(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	truncateChipDurableEvents(t, db)
 	ctx := testutils.Context(t)
-	store := beholder.NewPgDurableEventStore(db)
+	store := pgstore.New(db)
 
 	id, err := store.Insert(ctx, []byte("payload"))
 	require.NoError(t, err)
