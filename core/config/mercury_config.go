@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-data-streams/mercury/transmitter"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 )
 
 type MercuryCache interface {
@@ -18,7 +18,7 @@ type MercuryTLS interface {
 }
 
 type MercuryTransmitter interface {
-	Protocol() transmitter.MercuryTransmitterProtocol
+	Protocol() mercurytransmitter.MercuryTransmitterProtocol
 	TransmitQueueMaxSize() uint32
 	TransmitTimeout() time.Duration
 	TransmitConcurrency() uint32

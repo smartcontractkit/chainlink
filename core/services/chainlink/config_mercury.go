@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-data-streams/mercury/transmitter"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -42,7 +42,7 @@ type mercuryTransmitterConfig struct {
 	c toml.MercuryTransmitter
 }
 
-func (m *mercuryTransmitterConfig) Protocol() transmitter.MercuryTransmitterProtocol {
+func (m *mercuryTransmitterConfig) Protocol() mercurytransmitter.MercuryTransmitterProtocol {
 	return *m.c.Protocol
 }
 

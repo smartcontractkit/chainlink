@@ -31,10 +31,10 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmmercury "github.com/smartcontractkit/chainlink-evm/pkg/mercury"
 
-	"github.com/smartcontractkit/chainlink-data-streams/llo/bm"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
 	llotransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter"
-	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/mercury/transmitter"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/bm"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
 )
 
