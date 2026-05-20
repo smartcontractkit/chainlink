@@ -91,10 +91,13 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 
 		// Test if Observe notices that cache updater failed and can refresh the cache on its own
 		// 1. Initial value already registered above; wait for the first cache update to land
-		time.Sleep(time.Millisecond * 100)
-		val, err := dsCache.Observe(testutils.Context(t), types.ReportTimestamp{})
-		require.NoError(t, err)
-		assert.Equal(t, mockVal, val.Int64())
+		var val *big.Int
+		require.Eventually(t, func() bool {
+			var valErr error
+			val, valErr = dsCache.Observe(testutils.Context(t), types.ReportTimestamp{})
+			return valErr == nil && val.Int64() == mockVal
+		}, time.Second*2, time.Millisecond*100)
+
 		// 2. Set values again, but make it error in updater
 		changeResultValue(runner, strconv.FormatInt(mockVal+1, 10), true, true)
 		time.Sleep(time.Second*2 + time.Millisecond*100)
