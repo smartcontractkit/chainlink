@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -475,10 +476,10 @@ func encodeERC20TransferCalldata(tr types.ERC20Transfer) ([]byte, error) {
 
 // TransferERC20SequenceInput is the input for the ERC20 transfer sequence.
 type TransferERC20SequenceInput struct {
-	TransfersByChain   map[uint64][]types.ERC20Transfer    `json:"transfers_by_chain"`
-	TimelockIdentifier string                              `json:"timelock_identifier"`
-	MCMSConfig         *cldfproposalutils.TimelockConfig   `json:"mcms_config"`
-	Description        string                              `json:"description"`
+	TransfersByChain   map[uint64][]types.ERC20Transfer  `json:"transfers_by_chain"`
+	TimelockIdentifier string                            `json:"timelock_identifier"`
+	MCMSConfig         *cldfproposalutils.TimelockConfig `json:"mcms_config"`
+	Description        string                            `json:"description"`
 }
 
 // TransferERC20SequenceOutput is the output of the ERC20 transfer sequence.
@@ -516,7 +517,7 @@ var TransferERC20Sequence = operations.NewSequence(
 		}
 
 		if input.MCMSConfig == nil {
-			return TransferERC20SequenceOutput{}, fmt.Errorf("MCMSConfig is required for ERC20 transfers")
+			return TransferERC20SequenceOutput{}, errors.New("MCMSConfig is required for ERC20 transfers")
 		}
 
 		return generateERC20MCMSProposals(b, deps, input, output)
