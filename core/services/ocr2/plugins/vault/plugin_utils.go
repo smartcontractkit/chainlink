@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -42,6 +43,36 @@ func resolveVaultOCRBoundLimitInt[I constraints.Integer](
 		return 0, fmt.Errorf("%s: %w", settingKey, err)
 	}
 	return int(v), nil
+}
+
+func validateEncryptedSharesEntry(es *vaultcommon.EncryptedShares) error {
+	nBinary := len(es.BinaryShares)
+	nString := len(es.Shares)
+	if nBinary == 1 && nString == 0 {
+		return nil
+	}
+	if nString == 1 && nBinary == 0 {
+		return nil
+	}
+	return errors.New("observation must have exactly 1 share per encryption key")
+}
+
+func encryptedShareSizeForLimit(es *vaultcommon.EncryptedShares) (int, error) {
+	if len(es.BinaryShares) == 1 {
+		return len(es.BinaryShares[0]), nil
+	}
+	if len(es.Shares) == 1 {
+		return len(es.Shares[0]), nil
+	}
+	return 0, errors.New("no share to measure")
+}
+
+func appendEncryptedShareEntry(dst, src *vaultcommon.EncryptedShares) {
+	if len(src.BinaryShares) == 1 {
+		dst.BinaryShares = append(dst.BinaryShares, src.BinaryShares[0])
+		return
+	}
+	dst.Shares = append(dst.Shares, src.Shares[0])
 }
 
 func initializePluginLimits(ctx context.Context, limitsFactory limits.Factory) (ocr3_1types.ReportingPluginLimits, error) {

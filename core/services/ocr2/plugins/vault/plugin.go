@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -900,23 +899,23 @@ type share struct {
 	data []byte
 }
 
-func (s *share) encryptWithKey(pk string) (string, error) {
+func (s *share) encryptWithKeyBinary(pk string) ([]byte, error) {
 	publicKey, err := hex.DecodeString(pk)
 	if err != nil {
-		return "", newUserError("failed to convert public key to bytes: " + err.Error())
+		return nil, newUserError("failed to convert public key to bytes: " + err.Error())
 	}
 
 	if len(publicKey) != curve25519.PointSize {
-		return "", newUserError(fmt.Sprintf("invalid public key size: expected %d bytes, got %d bytes", curve25519.PointSize, len(publicKey)))
+		return nil, newUserError(fmt.Sprintf("invalid public key size: expected %d bytes, got %d bytes", curve25519.PointSize, len(publicKey)))
 	}
 
 	publicKeyLength := [curve25519.PointSize]byte(publicKey)
 	encrypted, err := box.SealAnonymous(nil, s.data, &publicKeyLength, rand.Reader)
 	if err != nil {
-		return "", fmt.Errorf("failed to encrypt decryption share: %w", err)
+		return nil, fmt.Errorf("failed to encrypt decryption share: %w", err)
 	}
 
-	return vaultutils.EncryptedDecryptionShareB64Prefix + base64.StdEncoding.EncodeToString(encrypted), nil
+	return encrypted, nil
 }
 
 func generatePlaintextShare(publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2easy.PrivateShare, encryptedSecret []byte, workflowOwner string, orgID string) (*share, error) {
@@ -968,18 +967,31 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 	}
 
 	shares := []*vaultcommon.EncryptedShares{}
+	useBinaryShares := r.optimizationsEnabled(ctx)
 	for _, pk := range secretRequest.EncryptionKeys {
-		encShare, err := sh.encryptWithKey(pk)
+		encShare, err := sh.encryptWithKeyBinary(pk)
 		if err != nil {
 			return nil, err
 		}
 
-		shares = append(shares, &vaultcommon.EncryptedShares{
-			EncryptionKey: pk,
-			Shares: []string{
-				encShare,
-			},
-		})
+		if useBinaryShares {
+			shares = append(shares, &vaultcommon.EncryptedShares{
+				EncryptionKey: pk,
+				BinaryShares:  [][]byte{encShare},
+			})
+			r.lggr.Infow("VAULT_GET_SECRETS_BINARY_SHARES_ENCODED",
+				"secretKey", secretRequest.Id.GetKey(),
+				"secretNamespace", secretRequest.Id.GetNamespace(),
+				"encryptionKey", pk,
+			)
+		} else {
+			shares = append(shares, &vaultcommon.EncryptedShares{
+				EncryptionKey: pk,
+				Shares: []string{
+					hex.EncodeToString(encShare),
+				},
+			})
+		}
 	}
 
 	return &vaultcommon.SecretResponse{
@@ -1520,12 +1532,15 @@ func (r *ReportingPlugin) validateGetSecretsObservation(ctx context.Context, o *
 
 		innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: rsp.Id.Owner})
 		for _, ds := range d.GetEncryptedDecryptionKeyShares() {
-			if len(ds.Shares) != 1 {
-				return errors.New("observation must have exactly 1 share per encryption key")
+			if err := validateEncryptedSharesEntry(ds); err != nil {
+				return err
 			}
 
-			share := ds.Shares[0]
-			if err := r.cfg.MaxShareLengthBytes.Check(innerCtx, pkgconfig.Size(len(share))*pkgconfig.Byte); err != nil {
+			shareSize, err := encryptedShareSizeForLimit(ds)
+			if err != nil {
+				return err
+			}
+			if err := r.cfg.MaxShareLengthBytes.Check(innerCtx, pkgconfig.Size(shareSize)*pkgconfig.Byte); err != nil {
 				var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
 				if errors.As(err, &errBoundLimited) {
 					return fmt.Errorf("share provided exceeds maximum size allowed: %w", err)
@@ -2024,13 +2039,17 @@ func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, chosen 
 
 				innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: rsp.Id.Owner})
 				for _, existing := range rsp.GetData().EncryptedDecryptionKeyShares {
-					if len(existing.Shares) != 1 {
+					if err := validateEncryptedSharesEntry(existing); err != nil {
 						// This should not happen because we validate against this in ValidateObservation.
 						r.lggr.Errorw("exactly 1 share must be provided in the response, skipping", "id", rsp.Id)
 						continue
 					}
-					share := existing.Shares[0]
-					if err := r.cfg.MaxShareLengthBytes.Check(innerCtx, pkgconfig.Size(len(share))*pkgconfig.Byte); err != nil {
+					shareSize, err := encryptedShareSizeForLimit(existing)
+					if err != nil {
+						r.lggr.Errorw("could not measure share size, skipping", "id", rsp.Id, "encryptionKey", existing.EncryptionKey, "err", err)
+						continue
+					}
+					if err := r.cfg.MaxShareLengthBytes.Check(innerCtx, pkgconfig.Size(shareSize)*pkgconfig.Byte); err != nil {
 						var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
 						if errors.As(err, &errBoundLimited) {
 							r.lggr.Errorw("share exceeds max allowed size, skipping...", "id", rsp.Id, "encryptionKey", existing.EncryptionKey, "err", err)
@@ -2041,7 +2060,7 @@ func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, chosen 
 					}
 
 					if shares, ok := keyToShares[existing.EncryptionKey]; ok {
-						shares.Shares = append(shares.Shares, share)
+						appendEncryptedShareEntry(shares, existing)
 					} else {
 						// This shouldn't happen -- this is because we're aggregating
 						// requests that have a matching sha (excluding the decryption share).

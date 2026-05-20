@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
@@ -406,14 +405,19 @@ func (s *secretsFetcher) getSecretForSingleRequest(lggr logger.Logger, id, owner
 		return s.wrapErrorResponse(lggr, id, namespace, owner, errorMessage)
 	}
 
+	var localNodeBinaryShares [][]byte
 	var localNodeShares []string
 	workflowNodeEncryptionPublicKeyStr := s.workflowEncryptionKey.PublicKeyString()
 	for _, share := range response.GetData().GetEncryptedDecryptionKeyShares() {
 		if share.EncryptionKey == workflowNodeEncryptionPublicKeyStr {
-			localNodeShares = share.Shares
+			if len(share.BinaryShares) > 0 {
+				localNodeBinaryShares = share.BinaryShares
+			} else {
+				localNodeShares = share.Shares
+			}
 		}
 	}
-	if len(localNodeShares) == 0 {
+	if len(localNodeBinaryShares) == 0 && len(localNodeShares) == 0 {
 		errorMessage := "no shares found for this node's encryption key: " + workflowNodeEncryptionPublicKeyStr
 		return s.wrapErrorResponse(lggr, id, namespace, owner, errorMessage)
 	}
@@ -424,7 +428,13 @@ func (s *secretsFetcher) getSecretForSingleRequest(lggr logger.Logger, id, owner
 		return s.wrapErrorResponse(lggr, id, namespace, owner, errorMessage)
 	}
 
-	secret, err := s.decryptSecret(lggr, encryptedSecretBytes, localNodeShares, cfg)
+	encryptedDecryptionShares, err := encryptedDecryptionShareBytes(localNodeBinaryShares, localNodeShares)
+	if err != nil {
+		errorMessage := "failed to decode encrypted decryption shares: " + err.Error()
+		return s.wrapErrorResponse(lggr, id, namespace, owner, errorMessage)
+	}
+
+	secret, err := s.decryptSecret(lggr, encryptedSecretBytes, encryptedDecryptionShares, cfg)
 	if err != nil {
 		errorMessage := "failed to decrypt secret: " + err.Error()
 		return s.wrapErrorResponse(lggr, id, namespace, owner, errorMessage)
@@ -456,7 +466,22 @@ func (s *secretsFetcher) wrapErrorResponse(lggr logger.Logger, id, namespace, ow
 	}
 }
 
-func (s *secretsFetcher) decryptSecret(lggr logger.Logger, encryptedSecretBytes []byte, encryptedDecryptionShares []string, cfg *vaultConfig) (string, error) {
+func encryptedDecryptionShareBytes(binaryShares [][]byte, hexShares []string) ([][]byte, error) {
+	if len(binaryShares) > 0 {
+		return binaryShares, nil
+	}
+	out := make([][]byte, 0, len(hexShares))
+	for _, share := range hexShares {
+		shareBytes, err := hex.DecodeString(share)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, shareBytes)
+	}
+	return out, nil
+}
+
+func (s *secretsFetcher) decryptSecret(lggr logger.Logger, encryptedSecretBytes []byte, encryptedDecryptionShares [][]byte, cfg *vaultConfig) (string, error) {
 	lggr.Debug("decrypting secret...")
 
 	cipherText := &tdh2easy.Ciphertext{}
@@ -466,12 +491,7 @@ func (s *secretsFetcher) decryptSecret(lggr logger.Logger, encryptedSecretBytes 
 	}
 
 	decryptionShares := make([]*tdh2easy.DecryptionShare, 0, len(encryptedDecryptionShares))
-	for i, encryptedDecryptionShare := range encryptedDecryptionShares {
-		encryptedDecryptionShareBytes, err := vaultutils.DecodeEncryptedDecryptionShareString(encryptedDecryptionShare)
-		if err != nil {
-			lggr.Debugw("failed to decode the encryptedDecryptionShare", "index", i, "error", err)
-			continue
-		}
+	for i, encryptedDecryptionShareBytes := range encryptedDecryptionShares {
 		decryptionShareBytes, err := s.workflowEncryptionKey.Decrypt(encryptedDecryptionShareBytes)
 		if err != nil {
 			lggr.Debugw("failed to decrypt the encryptedDecryptionShare", "index", i)

@@ -95,6 +95,11 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		namespaces := []string{"main", "alt"}
 
 		executeVaultAllowListSecretsCreateTest(t, createEnc, secretID, owner, expectedResponseOwner, gwURL, namespaces, sc, wfReg)
+		if isVaultOptimizationsEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
+			t.Run("binary_encoded_shares", func(t *testing.T) {
+				executeVaultBinaryEncodedSharesSmokeTest(t, testEnv, secretID, "main", createValue, ulCh, bmCh)
+			})
+		}
 		var orgIDLabelSecretID string
 		var orgIDLabelCreateValue string
 		if orgIDAsSecretOwnerEnabled {

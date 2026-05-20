@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -1446,7 +1445,7 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 	assert.Len(t, resp.GetData().EncryptedDecryptionKeyShares, 1)
 	shareString := resp.GetData().EncryptedDecryptionKeyShares[0].Shares[0]
 
-	share, err := vaultutils.DecodeEncryptedDecryptionShareString(shareString)
+	share, err := hex.DecodeString(shareString)
 	require.NoError(t, err)
 	msg, ok := box.OpenAnonymous(nil, share, pubK, privK)
 	assert.True(t, ok)
@@ -1465,6 +1464,94 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, plaintext, gotSecret)
+}
+
+func TestPlugin_Observation_GetSecretsRequest_BinarySharesWhenOptimizationsEnabled(t *testing.T) {
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withVaultOptimizationsEnabled())
+
+	owner := "0x0001020304050607080900010203040506070809"
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     owner,
+		Namespace: "main",
+		Key:       "my_secret",
+	}
+	rdr := &kv{
+		m: make(map[string]response),
+	}
+
+	plaintext := []byte("my-secret-value")
+	var label [32]byte
+	ownerAddress := common.HexToAddress(owner)
+	copy(label[12:], ownerAddress.Bytes())
+	ciphertext, err := tdh2easy.EncryptWithLabel(pk, plaintext, label)
+	require.NoError(t, err)
+	ciphertextBytes, err := ciphertext.Marshal()
+	require.NoError(t, err)
+
+	err = newTestWriteStore(t, rdr).WriteSecret(t.Context(), id, &vaultcommon.StoredSecret{
+		EncryptedSecret: ciphertextBytes,
+	})
+	require.NoError(t, err)
+
+	pubK, privK, err := box.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	pks := hex.EncodeToString(pubK[:])
+
+	p := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
+			{
+				Id:             id,
+				EncryptionKeys: []string{pks},
+			},
+		},
+		WorkflowOwner: owner,
+	}
+	anyp, err := anypb.New(p)
+	require.NoError(t, err)
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
+		[]*vaultcommon.StoredPendingQueueItem{
+			{Id: "request-1", Item: anyp},
+		},
+	)
+	require.NoError(t, err)
+
+	data, err := r.Observation(t.Context(), 1, types.AttributedQuery{}, rdr, &blobber{})
+	require.NoError(t, err)
+
+	obs := &vaultcommon.Observations{}
+	require.NoError(t, proto.Unmarshal(data, obs))
+	require.Len(t, obs.Observations, 1)
+	resp := obs.Observations[0].GetGetSecretsResponse().Responses[0]
+	require.Empty(t, resp.GetError())
+
+	encShares := resp.GetData().EncryptedDecryptionKeyShares
+	require.Len(t, encShares, 1)
+	require.Empty(t, encShares[0].Shares)
+	require.Len(t, encShares[0].BinaryShares, 1)
+
+	msg, ok := box.OpenAnonymous(nil, encShares[0].BinaryShares[0], pubK, privK)
+	require.True(t, ok)
+
+	ds := &tdh2easy.DecryptionShare{}
+	require.NoError(t, ds.Unmarshal(msg))
+
+	ct := &tdh2easy.Ciphertext{}
+	require.NoError(t, ct.UnmarshalVerify(ciphertextBytes, pk))
+	gotSecret, err := tdh2easy.Aggregate(ct, []*tdh2easy.DecryptionShare{ds}, 3)
+	require.NoError(t, err)
+	require.Equal(t, plaintext, gotSecret)
+
+	err = r.ValidateObservation(
+		t.Context(),
+		1,
+		types.AttributedQuery{},
+		types.AttributedObservation{Observer: 0, Observation: types.Observation(data)},
+		rdr,
+		&blobber{},
+	)
+	require.NoError(t, err)
 }
 
 func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *testing.T) {
@@ -2341,7 +2428,29 @@ func makeEncryptedShares(t *testing.T, ciphertext *tdh2easy.Ciphertext, privateS
 		require.NoError(t, err)
 		result[i] = &vaultcommon.EncryptedShares{
 			EncryptionKey: pk,
-			Shares:        []string{vaultutils.EncryptedDecryptionShareB64Prefix + base64.StdEncoding.EncodeToString(encrypted)},
+			Shares:        []string{hex.EncodeToString(encrypted)},
+		}
+	}
+	return result
+}
+
+func makeBinaryEncryptedShares(t *testing.T, ciphertext *tdh2easy.Ciphertext, privateShare *tdh2easy.PrivateShare, keys []string) []*vaultcommon.EncryptedShares {
+	t.Helper()
+	share, err := tdh2easy.Decrypt(ciphertext, privateShare)
+	require.NoError(t, err)
+	shareBytes, err := share.Marshal()
+	require.NoError(t, err)
+
+	result := make([]*vaultcommon.EncryptedShares, len(keys))
+	for i, pk := range keys {
+		pkBytes, err := hex.DecodeString(pk)
+		require.NoError(t, err)
+		pubKey := [32]byte(pkBytes)
+		encrypted, err := box.SealAnonymous(nil, shareBytes, &pubKey, rand.Reader)
+		require.NoError(t, err)
+		result[i] = &vaultcommon.EncryptedShares{
+			EncryptionKey: pk,
+			BinaryShares:  [][]byte{encrypted},
 		}
 	}
 	return result
@@ -2383,6 +2492,52 @@ func makeGetSecretsObservations(
 						Data: &vaultcommon.SecretData{
 							EncryptedValue:               encryptedValue,
 							EncryptedDecryptionKeyShares: makeEncryptedShares(t, ciphertext, privateShare, encryptionKeys),
+						},
+					},
+				},
+			},
+		}
+		obs = append(obs, observation{id, req, resp})
+	}
+	return marshalObservations(t, obs...)
+}
+
+func makeGetSecretsBinaryObservations(
+	t *testing.T,
+	numRequests int,
+	owner string,
+	namespace string,
+	encryptionKeys []string,
+	encryptedValue string,
+	ciphertext *tdh2easy.Ciphertext,
+	privateShare *tdh2easy.PrivateShare,
+) []byte {
+	t.Helper()
+	obs := make([]observation, 0, numRequests)
+	for i := range numRequests {
+		maxKey := fmt.Sprintf("%s%d", strings.Repeat("c", 64-1), i)
+
+		id := &vaultcommon.SecretIdentifier{
+			Owner:     owner,
+			Namespace: namespace,
+			Key:       maxKey,
+		}
+		req := &vaultcommon.GetSecretsRequest{
+			Requests: []*vaultcommon.SecretRequest{
+				{
+					Id:             id,
+					EncryptionKeys: encryptionKeys,
+				},
+			},
+		}
+		resp := &vaultcommon.GetSecretsResponse{
+			Responses: []*vaultcommon.SecretResponse{
+				{
+					Id: id,
+					Result: &vaultcommon.SecretResponse_Data{
+						Data: &vaultcommon.SecretData{
+							EncryptedValue:               encryptedValue,
+							EncryptedDecryptionKeyShares: makeBinaryEncryptedShares(t, ciphertext, privateShare, encryptionKeys),
 						},
 					},
 				},
@@ -2563,7 +2718,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_ResponseSizeWithinLimit(t *tes
 	for i := range numObservers {
 		aos[i] = types.AttributedObservation{
 			Observer:    commontypes.OracleID(i),
-			Observation: types.Observation(makeGetSecretsObservations(t, 10, maxOwner, maxNamespace, encryptionKeys, encryptedValue, ciphertext, shares[i])),
+			Observation: types.Observation(makeGetSecretsBinaryObservations(t, 10, maxOwner, maxNamespace, encryptionKeys, encryptedValue, ciphertext, shares[i])),
 		}
 	}
 
@@ -2586,8 +2741,9 @@ func TestPlugin_StateTransition_GetSecretsRequest_ResponseSizeWithinLimit(t *tes
 				continue
 			}
 			for _, enc := range data.EncryptedDecryptionKeyShares {
-				assert.Len(t, enc.Shares, twoFPlusOne,
-					"expected at most 2f+1 shares per encryption key, got %d (N=%d)", len(enc.Shares), numObservers)
+				assert.Empty(t, enc.Shares)
+				assert.Len(t, enc.BinaryShares, twoFPlusOne,
+					"expected at most 2f+1 binary shares per encryption key, got %d (N=%d)", len(enc.BinaryShares), numObservers)
 			}
 		}
 	}
@@ -3054,6 +3210,130 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 	}
 	assert.True(t, proto.Equal(expectedResp, o.GetGetSecretsResponse()), o.GetGetSecretsResponse())
 
+	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
+}
+
+func TestPlugin_StateTransition_GetSecretsRequest_CombinesBinaryShares(t *testing.T) {
+	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t, withLggr(lggr), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+
+	seqNr := uint64(1)
+	kv := &kv{
+		m: make(map[string]response),
+	}
+
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "secret",
+	}
+	req := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
+			{
+				Id: id,
+			},
+		},
+	}
+	share1 := []byte("encrypted-share-1")
+	share2 := []byte("encrypted-share-2")
+	share3 := []byte("encrypted-share-3")
+	resp1 := &vaultcommon.GetSecretsResponse{
+		Responses: []*vaultcommon.SecretResponse{
+			{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{
+					Data: &vaultcommon.SecretData{
+						EncryptedValue: "encrypted-value",
+						EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
+							{
+								EncryptionKey: "my-encryption-key",
+								BinaryShares:  [][]byte{share1},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	resp2 := &vaultcommon.GetSecretsResponse{
+		Responses: []*vaultcommon.SecretResponse{
+			{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{
+					Data: &vaultcommon.SecretData{
+						EncryptedValue: "encrypted-value",
+						EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
+							{
+								EncryptionKey: "my-encryption-key",
+								BinaryShares:  [][]byte{share2},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	resp3 := &vaultcommon.GetSecretsResponse{
+		Responses: []*vaultcommon.SecretResponse{
+			{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{
+					Data: &vaultcommon.SecretData{
+						EncryptedValue: "encrypted-value",
+						EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
+							{
+								EncryptionKey: "my-encryption-key",
+								BinaryShares:  [][]byte{share3},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	obsb1 := marshalObservations(t, observation{id, req, resp1})
+	obsb2 := marshalObservations(t, observation{id, req, resp2})
+	obsb3 := marshalObservations(t, observation{id, req, resp3})
+	reportPrecursor, err := r.StateTransition(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		[]types.AttributedObservation{
+			{Observer: 0, Observation: types.Observation(obsb1)},
+			{Observer: 1, Observation: types.Observation(obsb2)},
+			{Observer: 2, Observation: types.Observation(obsb3)},
+		}, kv, nil)
+	require.NoError(t, err)
+
+	os := &vaultcommon.Outcomes{}
+	err = proto.Unmarshal(reportPrecursor, os)
+	require.NoError(t, err)
+
+	require.Len(t, os.Outcomes, 1)
+	o := os.Outcomes[0]
+
+	expectedResp := &vaultcommon.GetSecretsResponse{
+		Responses: []*vaultcommon.SecretResponse{
+			{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{
+					Data: &vaultcommon.SecretData{
+						EncryptedValue: "encrypted-value",
+						EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
+							{
+								EncryptionKey: "my-encryption-key",
+								BinaryShares:  [][]byte{share1, share2, share3},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	assert.True(t, proto.Equal(expectedResp, o.GetGetSecretsResponse()), o.GetGetSecretsResponse())
 	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
 }
 
@@ -5813,6 +6093,51 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 		Responses: []*vaultcommon.SecretResponse{
 			{
 				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{
+					Data: &vaultcommon.SecretData{
+						EncryptedValue: "encrypted-value",
+						EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
+							{
+								EncryptionKey: "my-encryption-key",
+								BinaryShares:  [][]byte{[]byte("encrypted-binary-share")},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	o1 = &vaultcommon.Observations{
+		Observations: []*vaultcommon.Observation{
+			{
+				Id:          "request-1",
+				RequestType: vaultcommon.RequestType_GET_SECRETS,
+				Request: &vaultcommon.Observation_GetSecretsRequest{
+					GetSecretsRequest: req,
+				},
+				Response: &vaultcommon.Observation_GetSecretsResponse{
+					GetSecretsResponse: resp,
+				},
+			},
+		},
+	}
+	o1b = protoMarshal(t, o1)
+	err = r.ValidateObservation(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		types.AttributedObservation{
+			Observer: 0, Observation: o1b,
+		},
+		rdr,
+		bf,
+	)
+	require.NoError(t, err)
+
+	resp = &vaultcommon.GetSecretsResponse{
+		Responses: []*vaultcommon.SecretResponse{
+			{
+				Id: id,
 				Result: &vaultcommon.SecretResponse_Error{
 					Error: "foo",
 				},
@@ -7076,7 +7401,7 @@ func TestPlugin_MaxShareSize(t *testing.T) {
 		share, err := generatePlaintextShare(pk, shares[0], ctb, owner, "")
 		require.NoError(t, err)
 
-		eds, err := share.encryptWithKey(hex.EncodeToString(recipientPub[:]))
+		eds, err := share.encryptWithKeyBinary(hex.EncodeToString(recipientPub[:]))
 		require.NoError(t, err)
 
 		assert.GreaterOrEqual(t, expectedSize, len(eds), "share size should be constant regardless of plaintext size (plaintext=%d bytes)", len(plaintext))

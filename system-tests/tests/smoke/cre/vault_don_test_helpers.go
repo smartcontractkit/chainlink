@@ -2,9 +2,12 @@ package cre
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
+	"os/exec"
 	"math/big"
 	"math/rand"
 	"net/http"
@@ -55,6 +58,7 @@ const (
 	vaultJWTAuthEnabledConfigPath          = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
 	vaultOptimizationsEnabledConfigPath    = "/configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"
 	vaultJWTIssuerListenAddr               = "0.0.0.0:18123"
+	vaultBinarySharesEncodedLogMarker      = "VAULT_GET_SECRETS_BINARY_SHARES_ENCODED"
 )
 
 func FetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {
@@ -139,17 +143,29 @@ func sendVaultRequestToGatewayWithHeaders(t *testing.T, gatewayURL string, reque
 
 		framework.L.Info().Msgf("HTTP Response Body: %s", string(body))
 
-		if !isGatewayNotAllowlistedError(body) {
+		if !shouldRetryGatewayRequest(statusCode, body) {
 			return statusCode, body
 		}
 
 		if attempt < maxRetries {
-			framework.L.Warn().Msgf("Request not yet allowlisted, retrying in %s (attempt %d/%d)...", retryInterval, attempt+1, maxRetries)
+			framework.L.Warn().Msgf("Gateway request retryable (status=%d), retrying in %s (attempt %d/%d)...", statusCode, retryInterval, attempt+1, maxRetries)
 			time.Sleep(retryInterval)
 		}
 	}
 
 	return statusCode, body
+}
+
+func shouldRetryGatewayRequest(statusCode int, body []byte) bool {
+	if isGatewayNotAllowlistedError(body) {
+		return true
+	}
+	switch statusCode {
+	case http.StatusServiceUnavailable, http.StatusBadGateway, http.StatusGatewayTimeout:
+		return true
+	default:
+		return false
+	}
 }
 
 // isGatewayNotAllowlistedError checks whether the response is a gateway-level
@@ -386,16 +402,25 @@ func sendVaultSignedOCRRequestToGateway(t *testing.T, gatewayURL string, jsonReq
 		headers["Authorization"] = "Bearer " + authToken
 	}
 
-	statusCode, httpResponseBody := sendVaultRequestToGatewayWithHeaders(t, gatewayURL, requestBody, headers)
-	framework.L.Info().Msgf("DEBUGGING: Gateway response status code: %d", statusCode)
-	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
-
 	var jsonResponse jsonrpc.Response[vaulttypes.SignedOCRResponse]
-	err = json.Unmarshal(httpResponseBody, &jsonResponse)
-	require.NoError(t, err, "failed to unmarshal gateway response")
-	if jsonResponse.Error != nil {
-		require.Empty(t, jsonResponse.Error.Error())
-	}
+	require.Eventually(t, func() bool {
+		statusCode, httpResponseBody := sendVaultRequestToGatewayWithHeaders(t, gatewayURL, requestBody, headers)
+		if shouldRetryGatewayRequest(statusCode, httpResponseBody) {
+			framework.L.Warn().Msgf("Vault signed OCR request not ready, status=%d body=%s", statusCode, string(httpResponseBody))
+			return false
+		}
+		if statusCode != http.StatusOK {
+			require.Fail(t, fmt.Sprintf("Gateway endpoint should respond with 200 OK, got %d: %s", statusCode, string(httpResponseBody)))
+		}
+		if err := json.Unmarshal(httpResponseBody, &jsonResponse); err != nil {
+			require.Fail(t, "failed to unmarshal gateway response: "+err.Error())
+		}
+		if jsonResponse.Error != nil {
+			require.Fail(t, "vault gateway returned error: "+jsonResponse.Error.Error())
+		}
+		return true
+	}, 120*time.Second, 5*time.Second)
+
 	require.Equal(t, jsonrpc.JsonRpcVersion, jsonResponse.Version)
 
 	return jsonResponse
@@ -819,6 +844,97 @@ func executeVaultSecretsListTest(t *testing.T, secretID, requestOwner, expectedO
 func executeVaultSecretsDeleteTest(t *testing.T, secretID, requestOwner, expectedResponseOwner, gatewayURL string, namespaces []string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
 	auth := newAllowlistVaultRequestAuth(requestOwner, sethClient, wfRegistryContract)
 	executeVaultSecretsDeleteWithAuth(t, auth, secretID, expectedResponseOwner, gatewayURL, namespaces)
+}
+
+// assertVaultBinarySharesEncodedInDockerLogs polls vault/capability node logs for evidence that
+// GetSecrets observations used binary_shares rather than hex-encoded string shares.
+func assertVaultBinarySharesEncodedInDockerLogs(t *testing.T, secretKey, secretNamespace string) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("docker log scan skipped in -short mode")
+	}
+	dockerBin, err := exec.LookPath("docker")
+	if err != nil {
+		t.Skip("docker not in PATH; skipping vault binary shares log scan")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for {
+		psOut, err := exec.CommandContext(ctx, dockerBin, "ps", "--format", "{{.Names}}").Output()
+		if err != nil {
+			select {
+			case <-ctx.Done():
+				require.Fail(t, "timed out waiting for docker while scanning for "+vaultBinarySharesEncodedLogMarker)
+			case <-ticker.C:
+			}
+			continue
+		}
+		names := strings.Split(strings.TrimSpace(string(psOut)), "\n")
+		for _, name := range names {
+			if name == "" {
+				continue
+			}
+			ln := strings.ToLower(name)
+			if !strings.Contains(ln, "chainlink") && !strings.Contains(ln, "ocr") && !strings.Contains(ln, "capabilit") {
+				continue
+			}
+			logs, err := exec.CommandContext(ctx, dockerBin, "logs", name, "--tail", "25000").CombinedOutput()
+			if err != nil {
+				continue
+			}
+			for _, line := range strings.Split(string(logs), "\n") {
+				if !strings.Contains(line, vaultBinarySharesEncodedLogMarker) {
+					continue
+				}
+				if secretKey != "" && !strings.Contains(line, secretKey) {
+					continue
+				}
+				if secretNamespace != "" && !strings.Contains(line, secretNamespace) {
+					continue
+				}
+				framework.L.Info().Str("container", name).Str("line", line).Msg("vault binary share encoding log observed in docker logs")
+				return
+			}
+		}
+		select {
+		case <-ctx.Done():
+			require.Fail(t, fmt.Sprintf(
+				"timed out waiting for %s in vault node logs for secret %s/%s (VaultOptimizationsEnabled should emit binary_shares)",
+				vaultBinarySharesEncodedLogMarker, secretNamespace, secretKey,
+			))
+		case <-ticker.C:
+		}
+	}
+}
+
+// executeVaultBinaryEncodedSharesSmokeTest verifies a workflow can fetch a secret when the vault
+// DON emits binary-encoded decryption shares (VaultOptimizationsEnabled). GetSecrets is not
+// exposed on the vault gateway; binary encoding is confirmed via vault node logs after the
+// workflow triggers a capability get.
+func executeVaultBinaryEncodedSharesSmokeTest(
+	t *testing.T,
+	testEnv *ttypes.TestEnvironment,
+	secretID, namespace, expectedPlaintext string,
+	userLogsCh chan *workflowevents.UserLogs,
+	baseMessageCh chan *commonevents.BaseMessage,
+) {
+	t.Helper()
+
+	framework.L.Info().Msg("Verifying workflow secret fetch and binary share encoding when optimizations are enabled...")
+
+	workflowID := startVaultSecretsWorkflowPhasesTest(t, testEnv, "binary-shares", []vaultWorkflowPhase{{
+		Name: "binary-shares-fetch",
+		Checks: []vaultWorkflowCheck{{
+			Name:            "binary-shares-main",
+			SecretKey:       secretID,
+			SecretNamespace: namespace,
+			ExpectedValue:   expectedPlaintext,
+		}},
+	}})
+	waitForVaultWorkflowPhase(t, workflowID, "binary-shares-fetch", userLogsCh, baseMessageCh)
+	assertVaultBinarySharesEncodedInDockerLogs(t, secretID, namespace)
 }
 
 // updateVaultCapabilityConfigInRegistry updates the on-chain capabilities registry
