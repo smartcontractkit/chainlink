@@ -152,6 +152,20 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 			step:     defaultMetricStep,
 		},
 		{
+			// Counter: WASM re-instantiated from on-disk cache (cold load path).
+			metric:   "platform_workflow_module_cache_reload_total",
+			query:    fmt.Sprintf("increase(platform_workflow_module_cache_reload_total{node_don=\"%%s\", node_index=\"%%d\", source=\"disk\"}[%s])", cachePrometheusRange),
+			filename: "metrics/cache_reload_disk_increase.json",
+			step:     defaultMetricStep,
+		},
+		{
+			// Counter: WASM resurrected from in-memory weak ref (warm load path).
+			metric:   "platform_workflow_module_cache_reload_total",
+			query:    fmt.Sprintf("increase(platform_workflow_module_cache_reload_total{node_don=\"%%s\", node_index=\"%%d\", source=\"weak_ref\"}[%s])", cachePrometheusRange),
+			filename: "metrics/cache_reload_memory_increase.json",
+			step:     defaultMetricStep,
+		},
+		{
 			metric:   "platform_workflow_module_cache_eviction_total",
 			query:    fmt.Sprintf("increase(platform_workflow_module_cache_eviction_total{node_don=\"%%s\", node_index=\"%%d\"}[%s])", cachePrometheusRange),
 			filename: "metrics/cache_eviction_increase.json",
@@ -233,6 +247,39 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 			filename: "metrics/engine_trigger_event_received_increase.json",
 			step:     defaultMetricStep,
 		},
+		// Engine schedule skew (histograms). No per-execution cache-path label exists; correlate skew
+		// with cache_reload_disk_increase vs cache_reload_memory_increase in the same time step.
+		// Hot LRU hits produce neither reload counter.
+		{
+			metric:   "platform_engine_trigger_queue_to_execution_start_seconds",
+			query:    histogramQuantileQuery("platform_engine_trigger_queue_to_execution_start_seconds", 0.50),
+			filename: "metrics/engine_trigger_skew_p50.json",
+			step:     defaultMetricStep,
+		},
+		{
+			metric:   "platform_engine_trigger_queue_to_execution_start_seconds",
+			query:    histogramQuantileQuery("platform_engine_trigger_queue_to_execution_start_seconds", 0.95),
+			filename: "metrics/engine_trigger_skew_p95.json",
+			step:     defaultMetricStep,
+		},
+		{
+			metric:   "platform_engine_trigger_event_queue_wait_seconds",
+			query:    histogramQuantileQuery("platform_engine_trigger_event_queue_wait_seconds", 0.95),
+			filename: "metrics/engine_trigger_queue_wait_p95.json",
+			step:     defaultMetricStep,
+		},
+		{
+			metric:   "platform_engine_execution_semaphore_wait_seconds",
+			query:    histogramQuantileQuery("platform_engine_execution_semaphore_wait_seconds", 0.95),
+			filename: "metrics/engine_execution_semaphore_wait_p95.json",
+			step:     defaultMetricStep,
+		},
+		{
+			metric:   "platform_engine_workflow_completed_time_seconds",
+			query:    histogramQuantileQuery("platform_engine_workflow_completed_time_seconds", 0.95),
+			filename: "metrics/engine_execution_duration_p95.json",
+			step:     defaultMetricStep,
+		},
 		{
 			metric:   "platform_workflow_module_cache_version_mismatch_total",
 			query:    fmt.Sprintf("increase(platform_workflow_module_cache_version_mismatch_total{node_don=\"%%s\", node_index=\"%%d\"}[%s])", cachePrometheusRange),
@@ -301,6 +348,14 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 
 func crePerWorkflowSizeLimitMiB(size config.Size) int {
 	return int(size / config.MByte)
+}
+
+// histogramQuantileQuery aggregates per-workflow engine histograms on a node (sum by le).
+func histogramQuantileQuery(metric string, quantile float64) string {
+	return fmt.Sprintf(
+		`histogram_quantile(%g, sum by (le) (rate(%s_bucket{node_don="%%s", node_index="%%d"}[%s])))`,
+		quantile, metric, cachePrometheusRange,
+	)
 }
 
 // cacheSoakWorkflowSchedule returns a minute-granularity cron schedule aligned with the soak topology.
