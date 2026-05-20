@@ -31,12 +31,11 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmmercury "github.com/smartcontractkit/chainlink-evm/pkg/mercury"
 
-	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/bm"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
+	llotransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/bm"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/mercurytransmitter"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 )
 
 var _ commontypes.LLOProvider = (*lloProvider)(nil)
@@ -129,7 +128,7 @@ func NewLLOProvider(
 		for _, server := range mercuryServers {
 			var client rpc.Client
 			switch mercuryCfg.Transmitter().Protocol() {
-			case config.MercuryTransmitterProtocolGRPC:
+			case mercurytransmitter.MercuryTransmitterProtocolGRPC:
 				client = rpc.NewClient(rpc.ClientOpts{
 					Logger: logger.Sugared(lggr).
 						Named(fmt.Sprintf("%q", server.URL)).
@@ -138,7 +137,7 @@ func NewLLOProvider(
 					ServerPubKey: ed25519.PublicKey(server.PubKey),
 					ServerURL:    server.URL,
 				})
-			case config.MercuryTransmitterProtocolWSRPC:
+			case mercurytransmitter.MercuryTransmitterProtocolWSRPC:
 				wsrpcClient, checkoutErr := mercuryPool.Checkout(ctx, csaPub, csaSigner, server.PubKey, server.URL)
 				if checkoutErr != nil {
 					return nil, checkoutErr
@@ -168,7 +167,7 @@ func NewLLOProvider(
 		// FIXME: The transmitter instantiation really ought to be moved out of
 		// the evm relay into llo package
 		// https://smartcontract-it.atlassian.net/browse/MERC-6847
-		transmitter, err = llo.NewTransmitter(llo.TransmitterOpts{
+		transmitter, err = llotransmitter.NewTransmitter(llotransmitter.TransmitterOpts{
 			Lggr:                   lggr,
 			DonID:                  lloCfg.DonID,
 			FromAccount:            csaPub, // NOTE: This may need to change if we support e.g. multiple tranmsmitters, to be a composite of all keys

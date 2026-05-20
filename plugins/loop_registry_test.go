@@ -12,6 +12,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
@@ -155,7 +156,7 @@ func (m mockCfgCache) LatestReportDeadline() time.Duration {
 
 type mockCfgTransmitter struct{}
 
-func (t mockCfgTransmitter) Protocol() config.MercuryTransmitterProtocol { return "foo" }
+func (t mockCfgTransmitter) Protocol() mercurytransmitter.MercuryTransmitterProtocol { return "foo" }
 
 func (t mockCfgTransmitter) TransmitQueueMaxSize() uint32 { return 42 }
 
