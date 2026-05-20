@@ -21,8 +21,6 @@ on:
       chainlink_image_tag:
         required: true
         type: string
-  # TODO - remove after testing
-  pull_request:
 
 jobs:
   caching:
@@ -32,7 +30,6 @@ jobs:
       deployment: false
     runs-on: runs-on=${{ github.run_id
       }}/cpu=32/ram=128/family=m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
-    # TODO Adjust to actual observation time
     timeout-minutes: 270 # 4h30m — test timeout is 4h20m
     permissions:
       contents: read
@@ -107,7 +104,7 @@ jobs:
           # TODO - remove nightly image fallback after testing
           chainlink-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
             secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name ||
-            'chainlink' }}:${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || 'nightly-20260519-plugins' }}"
+            'chainlink' }}:${{ inputs.chainlink_image_tag }}"
           ctf-configs: configs/workflow-gateway-don-cache-soak-test.toml
           chip-router-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER
             }}.dkr.ecr.${{secrets.QA_AWS_REGION
@@ -136,7 +133,6 @@ jobs:
             }}.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced018\
             8f29b969"
           CRE_SOAK_DURATION: "4h"
-        # TODO - adjust test timeout to actual observation time
         run: |
           gotestsum \
             --jsonfile=/tmp/gotest.log \
@@ -163,52 +159,3 @@ jobs:
           name: caching-docker-logs
           path: system-tests/tests/soak/cre/logs
           retention-days: 7
-
-  # notify-test-failure:
-  #   name: Notify about test Failure
-  #   #if: failure()
-  #   if: false # TODO: Silence for now
-  #   needs: [soak]
-  #   environment:
-  #     name: integration
-  #     deployment: false
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Send slack notification for failed resource regression tests
-  #       id: send-slack-notification
-  #       uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
-  #       with:
-  #         errors: "true"
-  #         method: chat.postMessage
-  #         token: ${{ secrets.QA_SLACK_API_KEY }}
-  #         payload: |
-  #           {
-  #             "channel": "C0117GGJB6Y",
-  #             "text": "CRE Resource Regression Test Failed. Investigation is required.",
-  #             "blocks": [
-  #               {
-  #                 "type": "section",
-  #                 "text": {
-  #                   "type": "mrkdwn",
-  #                   "text": "*:rotating_light: CRE Resource Regression Test Failed. Investigation is required. :rotating_light:*"
-  #                 }
-  #               },
-  #               {
-  #                 "type": "section",
-  #                 "text": {
-  #                   "type": "mrkdwn",
-  #                   "text": "Alerting <@U033CGL3CDT>, CRE Resource Regression Test failed for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. Please investigate."
-  #                 }
-  #               },
-  #               {
-  #                 "type": "divider"
-  #               },
-  #               {
-  #                 "type": "section",
-  #                 "text": {
-  #                   "type": "mrkdwn",
-  #                   "text": "Chainlink nodes used more resources than expected. Check the Docker logs and the alloc.pprof file."
-  #                 }
-  #               }
-  #             ]
-  #           }

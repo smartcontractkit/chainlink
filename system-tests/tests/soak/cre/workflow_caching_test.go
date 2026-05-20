@@ -69,10 +69,6 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 	}
 
 	soakDuration := parseDuration(os.Getenv("CRE_SOAK_DURATION"), defaultSoakDuration)
-	// CRE_SOAK_CACHE_OBSERVE_WINDOW is a legacy alias for CRE_SOAK_DURATION.
-	if v := os.Getenv("CRE_SOAK_CACHE_OBSERVE_WINDOW"); v != "" {
-		soakDuration = parseDuration(v, soakDuration)
-	}
 
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-cache-soak-test.toml"))
 	testLogger := framework.L
