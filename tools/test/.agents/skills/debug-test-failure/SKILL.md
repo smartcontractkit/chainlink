@@ -112,53 +112,8 @@ When summarizing/compacting/compressing context, strictly maintain a reference t
 </logs_structure>
 
 <sub_agent_protocol>
-1. When reading log files from the `logs/` directory or `iteration-n.log.jsonl`, you MUST spawn a specialist `LogAnalyzer` sub-agent.
-2. When inspecting CI failure, you MUST spawn a specialist `GithubFailureAnalyzer` sub-agent.
-3. When interacting with JIRA, you MUST spawn a specialist `JiraManager` sub-agent.
-<log_files_analyzer>
-You MUST configure the sub-agent with these exact initialization parameters:
-1. System Prompt: "You are a headless, read-only log parser. Your sole purpose is to read Go test logs from the end up. Each log file contains logs from `chainlink` nodes, plus test-specific logs. Read the logs and construct possible reasons why the test [input reason we're investigating]. You do not converse. You output raw JSON and nothing else."
-2. Allowed Tools: File read/grep tools ONLY. Revoke all execution, write, and web search capabilities.
-3. Temperature: 0.0
-
-The sub-agent MUST output ONLY valid JSON matching this exact structure. DO NOT wrap the output in markdown code blocks. Output raw JSON only, with no explanations and no yapping:
-{
-  "logs_read": ["log_path_1.log", "log_path_2.log"],
-  "failure_diagnosis": [
-    {
-      "possible_reason": "explanation",
-      "evidence": "specific logs/log lines"
-    }
-  ]
-}
-</log_files_analyzer>
-<github_failure_analyzer>
-You MUST configure the sub-agent with these exact initialization parameters:
-1. System Prompt: "You are a headless, read-only Github workflow log parser. Your sole purpose is to read CI logs from the end up. You must find the step in which tests run, then read the logs and construct possible reasons why the test [input reason we're investigating]. To avoid calling the Github API multiple times save the log to a temporary file. Focus only on the logs that contain test failure. You do not converse. You output raw JSON and nothing else."
-2. Allowed Tools: Bash(gh, grep, find), gh, ScraplingServer(*), Write(*) ONLY.
-3. Temperature: 0.0
-
-The sub-agent MUST output ONLY valid JSON matching this exact structure. DO NOT wrap the output in markdown code blocks. Output raw JSON only, with no explanations and no yapping:
-{
-  "urls_read": [url1, url2],
-  "failure_diagnosis": [
-    {
-      "possible_reason": "explanation",
-      "evidence": "specific logs/log lines"
-    }
-  ]
-}
-</github_failure_analyzer>
-
-<jira_manager>
-You MUST configure the sub-agent with these exact initialization parameters:
-1. System Prompt: "You are a headless JIRA ticket manager. You read and update JIRA tickets via Atlassian MCP. You output raw JSON and nothing else — no prose, no markdown fences.
-   - Read operations return a slim record (see ./references/slim-record.md).
-   - Write operations (claim, transition, comment, abandon) return: {\"operation\": \"<name>\", \"jira_key\": \"...\", \"success\": true|false, \"details\": \"...\", \"slim_record\": {...} | null}.
-   Read the matching reference before executing: claim-ticket.md, transition-ticket.md, abandon-ticket.md, investigation-comment.md, fetch-flaky-tickets.md."
-2. Input contract — the caller MUST pass: `{operation, accountId, cloudId}` plus operation-specific fields (`jira_key` or `project_key`, `target`, `comment_body`, `original_assignee`, `slim_record`). Fail fast with `success: false` if required fields are missing.
-3. Allowed Tools: `mcp__atlassian__atlassianUserInfo`, `mcp__atlassian__getAccessibleAtlassianResources`, `mcp__atlassian__getJiraIssue`, `mcp__atlassian__editJiraIssue`, `mcp__atlassian__transitionJiraIssue`, `mcp__atlassian__addCommentToJiraIssue`, `mcp__atlassian__getTransitionsForJiraIssue`, `mcp__atlassian__searchJiraIssuesUsingJql`, `LSP`, `mcp__code-review-graph__*`, `Bash(grep, find, git remote get-url *)`, `Read` ONLY. Revoke filesystem writes (Edit, Write, NotebookEdit) and web search capabilities.
-4. Temperature: 0.0
-</jira_manager>
+1. When reading log files from the `logs/` directory or `iteration-n.log.jsonl`, you MUST spawn a specialist `LogAnalyzer` sub-agent. Read [log-analyzer-subagent.md](./references/log-analyzer-subagent.md)
+2. When inspecting CI failure, you MUST spawn a specialist `GithubFailureAnalyzer` sub-agent. Read [github-failure-analyzer.md](./references/github-failure-analyzer.md).
+3. When interacting with JIRA, you MUST spawn a specialist `JiraManager` sub-agent. Read [jira-manager-subagent.md](./references/jira-mananger-subagent.md)
 </sub_agent_protocol>
 
