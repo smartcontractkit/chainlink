@@ -7,7 +7,7 @@ require (
 	github.com/Depado/ginprom v1.8.0
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/andybalholm/brotli v1.2.1
-	github.com/aptos-labs/aptos-go-sdk v1.12.1
+	github.com/aptos-labs/aptos-go-sdk v1.13.0
 	github.com/avast/retry-go/v4 v4.7.0
 	github.com/buger/jsonparser v1.2.0
 	github.com/buraksezer/consistent v0.10.0
@@ -107,7 +107,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260323124644-faea187e6997
 	github.com/smartcontractkit/chainlink-solana v1.2.1-0.20260514085000-b356a5d08d44
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260429183453-39df0198aed8
-	github.com/smartcontractkit/chainlink-ton v1.0.5-0.20260430134932-681b7a7fe426
+	github.com/smartcontractkit/chainlink-ton v1.0.5-0.20260520103847-15ca4de9dba9
 	github.com/smartcontractkit/cre-sdk-go v1.5.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v1.3.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.3.0
