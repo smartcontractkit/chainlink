@@ -18,7 +18,7 @@
     }
   ],
   "original_assignee":  "string | null",
-  "skip_reason"         "string | null"
+  "skip_reason":        "string | null"
 }
 ```
 

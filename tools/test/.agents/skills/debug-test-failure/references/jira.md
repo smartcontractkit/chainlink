@@ -28,20 +28,20 @@ All operations require:
 2. [abandon-ticket](./abandon-ticket.md) - Mid-flight abandonment: unassign → Open → Investigation Update comment
 3. [transition-ticket](./transition-ticket.md) - Transition a ticket to a semantic target state
 4. [fetch-flaky-tickets](./fetch-flaky-tickets.md) | JQL search loop: fetch N eligible flaky-test tickets for a project key
-</<available_operations>
+</available_operations>
 
 <canonical_slim_record>
 You MUST use [this](./slim-record.md) JSON structure to pass data around in order to avoid calling Atlassian MCP multiple times to read information.
 </canonical_slim_record>
 
 <logic>
-1. If user provided specific JIRA tickets exeute the [claim-ticket](./claim-ticket.md) process.
+1. If user provided specific JIRA tickets execute the [claim-ticket](./claim-ticket.md) process.
 2. If user asked to work on N eligible tickets execute the [fetch-flaky-tickets](./fetch-flaky-tickets.md) loop.
-4. Prepare and return slim records.
-5. Once the work on flaky tests has finished, regardless of the result, for each ticket:
+3. Prepare and return slim records.
+4. Once the work on flaky tests has finished, regardless of the result, for each ticket:
     a. Update the ticket with investigation comment
-    b. Transition the ticket to correct state:
+    b. Transition the ticket to correct state — pass `original_assignee` AND `accountId` from the slim record so `transition-ticket.md` step 4 can handle reassignment:
     - abandoned -> `Open`
     - mismatch -> `Open`
-    - fixed -> `In Review`
+    - fixed -> `In Review` (transition-ticket.md step 4 will reassign back to `original_assignee`, or unassign if `original_assignee` is null or matches `accountId`)
 </logic>

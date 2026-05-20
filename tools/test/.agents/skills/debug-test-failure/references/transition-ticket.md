@@ -11,14 +11,16 @@ Generic transition operation for flaky-test JIRA tickets. Takes a semantic targe
    - If `original_assignee` differs from `accountId` → call `mcp__atlassian__editJiraIssue` to assign the ticket back to `original_assignee` (set `assignee.accountId = original_assignee`).
 </steps>
 
-<traget_alias_table>
+<target_alias_table>
 | Semantic target | Try these names in order |
 |----------------|--------------------------|
 | `In Progress` | "In Progress", "In Development", "Active", "Start Progress" |
 | `In Review` | "In Review", "In Code Review", "Code Review", "Review" |
 | `Open` | "Open", "Reopen", "Backlog", "To Do", "Reopened" |
-| `Won't Do` | "Won't Do", "Won't Fix", "Reject", "Close", "Done" |
+| `Won't Do` | "Won't Do", "Won't Fix", "Reject", "Close" |
 | `Done` | "Done", "Closed", "Resolved", "Close", "Resolve" |
-</traget_alias_table>
+
+If no alias matches the available transitions, return an error rather than silently picking an unrelated state.
+</target_alias_table>
 
 </transition-ticket>

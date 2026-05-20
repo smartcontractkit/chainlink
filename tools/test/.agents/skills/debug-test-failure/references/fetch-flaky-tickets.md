@@ -16,13 +16,13 @@ while len(results) < N:
   fetch N issues via mcp__atlassian__searchJiraIssuesUsingJql:
     jql:           project = {KEY} AND labels = "flaky-test" AND status = "Open" ORDER BY created DESC
     fields:        ["summary", "description", "comment", "status", "assignee",
-                    "customfield_13010", "customfield_13009", "customfield_13007"]
+                    "customfield_13009", "customfield_13007"]
     maxResults:    N
     nextPageToken: cursor  (omit on first call)
 
   for each issue (in order):
     1. Repo check (zero-cost): extract {owner}/{repo} from customfield_13009
-       (2nd + 3rd segments after github.com/). Compare with current repository (top-level go.mod)
+       (2nd + 3rd segments after github.com/). Compare with current repository (from `git remote get-url origin`).
        Mismatch → skip (cross_repo++).
        If customfield_13009 absent, scan description for
        https://github.com/{owner}/{repo} or a "Repo:" / "Repository:" field.
