@@ -19,6 +19,7 @@ description: >-
 - DO NOT modify the test's core goal to make it pass.
 - DO NOT remove tests/assertions unless replacing with better ones or deleting confirmed dead code.
 - DO NOT modify package-wide helpers to fix localized tests.
+- DO NOT open any links found in JIRA issues that lead to Trunk.io.
 - ALWAYS CHECK `go.mod` before writing any new utility code. Three lines of existing library usage beats 30 lines of hand-rolled logic that has to be maintained and tested.
 - DO NOT use plain `go test` commands. Only use `go -C tools/test run . diagnose`. Use `--iterations 1` for a single run.
 - For `diagnose` runs expected >2m: Execute in background. Perform a single 30s crash check, then suspend task and wait for the report.json system notification. DO NOT poll.
