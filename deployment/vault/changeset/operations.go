@@ -46,15 +46,6 @@ type WhitelistValidationOutput struct {
 	Errors []string `json:"errors,omitempty"`
 }
 
-// ValidateTransferInput validates that transfer recipients are whitelisted.
-type ValidateTransferInput struct {
-	ChainSelector uint64                 `json:"chain_selector"`
-	Transfers     []types.NativeTransfer `json:"transfers"`
-}
-
-// ValidateTransferOutput is an alias kept for batch native transfer flows.
-type ValidateTransferOutput = WhitelistValidationOutput
-
 // FundTimelockInput funds a timelock contract
 type FundTimelockInput struct {
 	ChainSelector uint64   `json:"chain_selector"`
@@ -127,26 +118,21 @@ var ValidateWhitelistAddressesOp = operations.NewOperation(
 	},
 )
 
-var ValidateTransferOp = operations.NewOperation(
-	"validate-transfer",
-	semver.MustParse("1.0.0"),
-	"Validates that native transfer recipients are whitelisted",
-	func(b operations.Bundle, deps VaultDeps, input ValidateTransferInput) (ValidateTransferOutput, error) {
-		addresses := make([]string, len(input.Transfers))
-		for i, transfer := range input.Transfers {
-			addresses[i] = transfer.To
-		}
-
-		report, err := operations.ExecuteOperation(b, ValidateWhitelistAddressesOp, deps, ValidateWhitelistAddressesInput{
-			ChainSelector: input.ChainSelector,
-			Addresses:     addresses,
-		})
-		if err != nil {
-			return WhitelistValidationOutput{}, err
-		}
-		return report.Output, nil
-	},
-)
+func executeWhitelistValidation(
+	b operations.Bundle,
+	deps VaultDeps,
+	chainSelector uint64,
+	addresses []string,
+) (WhitelistValidationOutput, error) {
+	report, err := operations.ExecuteOperation(b, ValidateWhitelistAddressesOp, deps, ValidateWhitelistAddressesInput{
+		ChainSelector: chainSelector,
+		Addresses:     addresses,
+	})
+	if err != nil {
+		return WhitelistValidationOutput{}, err
+	}
+	return report.Output, nil
+}
 
 // FundTimelockOp funds Timelock with native tokens
 var FundTimelockOp = operations.NewOperation(
@@ -281,7 +267,7 @@ type BatchNativeTransferSequenceInput struct {
 }
 
 type BatchNativeTransferSequenceOutput struct {
-	ValidationResults     map[uint64]ValidateTransferOutput        `json:"validation_results"`
+	ValidationResults     map[uint64]WhitelistValidationOutput     `json:"validation_results"`
 	FundingResults        map[uint64]FundTimelockOutput            `json:"funding_results,omitempty"`
 	TransferResults       map[uint64][]ExecuteNativeTransferOutput `json:"transfer_results,omitempty"`
 	MCMSTimelockProposals []mcms.TimelockProposal                  `json:"mcms_timelock_proposals,omitempty"`
@@ -302,7 +288,7 @@ var BatchNativeTransferSequence = operations.NewSequence(
 			"description", input.Description)
 
 		output := BatchNativeTransferSequenceOutput{
-			ValidationResults: make(map[uint64]ValidateTransferOutput),
+			ValidationResults: make(map[uint64]WhitelistValidationOutput),
 			FundingResults:    make(map[uint64]FundTimelockOutput),
 			TransferResults:   make(map[uint64][]ExecuteNativeTransferOutput),
 			Description:       input.Description,
@@ -310,19 +296,14 @@ var BatchNativeTransferSequence = operations.NewSequence(
 
 		b.Logger.Infow("Validating transfers against whitelist")
 		for chainSelector, transfers := range input.TransfersByChain {
-			validateInput := ValidateTransferInput{
-				ChainSelector: chainSelector,
-				Transfers:     transfers,
-			}
-
-			validateReport, err := operations.ExecuteOperation(
-				b, ValidateTransferOp, deps, validateInput,
+			validation, err := executeWhitelistValidation(
+				b, deps, chainSelector, recipientAddressesFromNativeTransfers(transfers),
 			)
 			if err != nil {
 				return BatchNativeTransferSequenceOutput{}, fmt.Errorf("validation failed for chain %d: %w", chainSelector, err)
 			}
 
-			output.ValidationResults[chainSelector] = validateReport.Output
+			output.ValidationResults[chainSelector] = validation
 		}
 
 		if input.MCMSConfig == nil {
@@ -524,21 +505,13 @@ var TransferERC20Sequence = operations.NewSequence(
 			Description: input.Description,
 		}
 
-		payees := make([]string, len(input.Transfers))
-		for i, tr := range input.Transfers {
-			payees[i] = tr.Payee
-		}
-
-		validateReport, err := operations.ExecuteOperation(
-			b, ValidateWhitelistAddressesOp, deps, ValidateWhitelistAddressesInput{
-				ChainSelector: input.ChainSelector,
-				Addresses:     payees,
-			},
+		validation, err := executeWhitelistValidation(
+			b, deps, input.ChainSelector, recipientAddressesFromERC20Transfers(input.Transfers),
 		)
 		if err != nil {
 			return TransferERC20SequenceOutput{}, fmt.Errorf("validation failed for chain %d: %w", input.ChainSelector, err)
 		}
-		output.ValidationResults = validateReport.Output
+		output.ValidationResults = validation
 
 		if input.MCMSConfig == nil {
 			return TransferERC20SequenceOutput{}, fmt.Errorf("MCMSConfig is required for ERC20 transfers")

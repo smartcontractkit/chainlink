@@ -6,7 +6,25 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
+
+func recipientAddressesFromNativeTransfers(transfers []types.NativeTransfer) []string {
+	addresses := make([]string, len(transfers))
+	for i, transfer := range transfers {
+		addresses[i] = transfer.To
+	}
+	return addresses
+}
+
+func recipientAddressesFromERC20Transfers(transfers []types.ERC20Transfer) []string {
+	addresses := make([]string, len(transfers))
+	for i, transfer := range transfers {
+		addresses[i] = transfer.Payee
+	}
+	return addresses
+}
 
 func GetContractAddress(ds any, chainSelector uint64, contractType cldf.ContractType) (string, error) {
 	if ds == nil {
