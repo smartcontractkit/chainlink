@@ -40,32 +40,12 @@ go build
 Create the `.env` file based on the example `.env.example`, adding the node endpoint URLs and the private key of your wallet
 
 ### Keeper Registry
-Next, use chaincli to deploy the registry:
+Set `KEEPER_REGISTRY_ADDRESS` in `.env` if you already have a keeper registry deployed. Otherwise, `keeper launch-and-test` deploys one when that variable is unset.
 
-Example:
-```shell
-./chaincli keeper registry deploy
-```
-
-Other options include:
+Registry management commands:
 - `./chaincli keeper registry update`: update existing keeper registry
 - `./chaincli keeper registry withdraw`: cancel upkeeps and withdraw funds from registry
 - `./chaincli keeper registry verify <contract-addr> <constructor-args>`: verify keeper registry contract
-
-As the `keeper registry deploy` command executes, _two_ address are written to the terminal:
-
-- KeeperRegistry2.0 Logic _(can be ignored)_
-- KeeperRegistry2.0
-
-The second address, `KeeperRegistry2.0` is the address you need; in the `.env` file, set `KEEPER_REGISTRY_ADDRESS` variable to the `KeeperRegistry2.0` address.
-
-Note that this command doesn't run contract verification by default. If you want to run verification (eth, op and arb supported), config your .env and add the `--verify=true` flag in command.
-
-If you already have keeper registry contract deployed and want to run only contract verification, you can use the following command:
-
-```shell
-./chaincli keeper registry verify <contract-addr> <constructor-args>
-```
 
 ### Bootstrap Nodes
 Run the following `bootstrap` command to start bootstrap nodes:

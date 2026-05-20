@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"math/big"
-	"os"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -32,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // Keeper is the keepers commands handler
@@ -50,80 +48,6 @@ func NewKeeper(cfg *config.Config) *Keeper {
 	return &Keeper{
 		baseHandler:    NewBaseHandler(cfg),
 		addFundsAmount: addFundsAmount,
-	}
-}
-
-// DeployKeepers contains a logic to deploy keepers.
-func (k *Keeper) DeployKeepers(ctx context.Context) {
-	lggr, closeLggr := logger.NewLogger()
-	logger.Sugared(lggr).ErrorIfFn(closeLggr, "Failed to close logger")
-
-	keepers, owners := k.keepers()
-	upkeepCount, registryAddr, deployer := k.prepareRegistry(ctx)
-
-	// Create Keeper Jobs on Nodes for Registry
-	cls := make([]cmd.HTTPClient, len(k.cfg.Keepers))
-	for i, keeperAddr := range k.cfg.Keepers {
-		url := k.cfg.KeeperURLs[i]
-		email := k.cfg.KeeperEmails[i]
-		if len(email) == 0 {
-			email = defaultChainlinkNodeLogin
-		}
-		pwd := k.cfg.KeeperPasswords[i]
-		if len(pwd) == 0 {
-			pwd = defaultChainlinkNodePassword
-		}
-
-		cl, err := authenticate(ctx, url, email, pwd, lggr)
-		if err != nil {
-			log.Fatal(err)
-		}
-		cls[i] = cl
-
-		if err = k.createKeeperJob(ctx, cl, k.cfg.RegistryAddress, keeperAddr); err != nil {
-			log.Fatal(err)
-		}
-	}
-
-	// Approve keeper registry
-	k.approveFunds(ctx, registryAddr)
-
-	// Deploy Upkeeps
-	k.deployUpkeeps(ctx, registryAddr, deployer, upkeepCount)
-
-	// Set Keepers on the registry
-	k.setKeepers(ctx, cls, deployer, keepers, owners)
-}
-
-// DeployRegistry deploys a new keeper registry.
-func (k *Keeper) DeployRegistry(ctx context.Context, verify bool) {
-	if verify {
-		if k.cfg.RegistryVersion != config.RegistryVersion2_1 && k.cfg.RegistryVersion != config.RegistryVersion2_0 {
-			log.Fatal("keeper registry verification is only supported for version 2.0 and 2.1")
-		}
-		if k.cfg.ExplorerAPIKey == "" || k.cfg.ExplorerAPIKey == "<explorer-api-key>" || k.cfg.NetworkName == "" || k.cfg.NetworkName == "<network-name>" {
-			log.Fatal("please set your explore API key and network name in the .env file to verify the registry contract")
-		}
-
-		// Get the current working directory
-		currentDir, err := os.Getwd()
-		if err != nil {
-			log.Fatal("failed to get current working directory: %w", err)
-		}
-
-		// Check if it is the root directory of chaincli
-		if !strings.HasSuffix(currentDir, "core/scripts/chaincli") {
-			log.Fatal("please run the command from the root directory of chaincli to verify the registry")
-		}
-	}
-
-	switch k.cfg.RegistryVersion {
-	case config.RegistryVersion2_0:
-		k.deployRegistry20(ctx, verify)
-	case config.RegistryVersion2_1:
-		k.deployRegistry21(ctx, verify)
-	default:
-		panic("unsupported registry version")
 	}
 }
 
@@ -625,16 +549,6 @@ func (k *Keeper) setKeepers(ctx context.Context, cls []cmd.HTTPClient, deployer 
 	} else {
 		log.Println("No Keepers to register")
 	}
-}
-
-func (k *Keeper) keepers() ([]common.Address, []common.Address) {
-	var addrs []common.Address
-	var fromAddrs []common.Address
-	for _, addr := range k.cfg.Keepers {
-		addrs = append(addrs, common.HexToAddress(addr))
-		fromAddrs = append(fromAddrs, k.fromAddr)
-	}
-	return addrs, fromAddrs
 }
 
 type activeUpkeepGetter interface {
