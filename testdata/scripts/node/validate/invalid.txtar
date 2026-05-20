@@ -411,6 +411,10 @@ LogExportMaxBatchSize = 512
 LogExportInterval = '1s'
 LogMaxQueueSize = 2048
 
+[Telemetry.PrometheusBridge]
+Enabled = false
+Prefixes = ['go_']
+
 [Workflows]
 [Workflows.Limits]
 Global = 200

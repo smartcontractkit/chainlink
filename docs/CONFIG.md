@@ -2522,6 +2522,28 @@ foo = "bar" # Example
 ```
 foo is an example resource attribute
 
+## Telemetry.PrometheusBridge
+```toml
+[Telemetry.PrometheusBridge]
+Enabled = false # Default
+Prefixes = ["go_"] # Default
+```
+The Prometheus bridge automatically forwards metrics through open telemetry.
+
+### Enabled
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+```toml
+Enabled = false # Default
+```
+Enabled enables the Promtheus bridge.
+
+### Prefixes
+```toml
+Prefixes = ["go_"] # Default
+```
+Prefixes is a set of filters to restrict which prometheus metrics are forwarded based on prefix matching.
+By default, we only forward the go runtime metrics. Empty means forward everything.
+
 ## CRE.Streams
 ```toml
 [CRE.Streams]
