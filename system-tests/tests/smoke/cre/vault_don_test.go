@@ -17,7 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	vault_helpers 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"

@@ -7,11 +7,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os/exec"
 	"math/big"
 	"math/rand"
 	"net/http"
 	"net/url"
+	"os/exec"
 	"slices"
 	"strconv"
 	"strings"
@@ -54,11 +54,11 @@ import (
 )
 
 const (
-	vaultDefaultConfigPath                 = "/configs/workflow-gateway-capabilities-don.toml"
-	vaultJWTAuthEnabledConfigPath          = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
-	vaultOptimizationsEnabledConfigPath    = "/configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"
-	vaultJWTIssuerListenAddr               = "0.0.0.0:18123"
-	vaultBinarySharesEncodedLogMarker      = "VAULT_GET_SECRETS_BINARY_SHARES_ENCODED"
+	vaultDefaultConfigPath              = "/configs/workflow-gateway-capabilities-don.toml"
+	vaultJWTAuthEnabledConfigPath       = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
+	vaultOptimizationsEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"
+	vaultJWTIssuerListenAddr            = "0.0.0.0:18123"
+	vaultBinarySharesEncodedLogMarker   = "VAULT_GET_SECRETS_BINARY_SHARES_ENCODED"
 	// vaultJWTTestTenantID is the tenant_id / urn:chainlink:tenant_id claim for Vault JWT tests and
 	// matches the org_id passed to DeriveJWTAuthorizedVaultWorkflowOwner.
 	vaultJWTTestTenantID uint64 = 1
