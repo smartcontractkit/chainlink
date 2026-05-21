@@ -326,8 +326,10 @@ func setupOperatorContracts(t *testing.T) OperatorContracts {
 	// for the data request.
 	_, err = linkContract.Transfer(user, multiWordConsumerAddress, big.NewInt(1000))
 	require.NoError(t, err)
+	b.Commit()
 	_, err = linkContract.Transfer(user, singleConsumerAddress, big.NewInt(1000))
 	require.NoError(t, err)
+	b.Commit()
 
 	return OperatorContracts{
 		user:                      user,
