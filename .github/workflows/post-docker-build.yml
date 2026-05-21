@@ -62,3 +62,12 @@ jobs:
         with:
             chainlink_image_tag: ${{ inputs.chainlink_core_image_tag }}
         secrets: inherit
+
+    call-cre-workflow-caching-tests:
+        permissions:
+            contents: read
+            id-token: write
+        uses: ./.github/workflows/cre-wf-caching-test.yml
+        with:
+            chainlink_image_tag: ${{ inputs.chainlink_core_image_tag }}
+        secrets: inherit

@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
 
 const (
@@ -234,12 +235,20 @@ func (m *EvictableModule) Execute(ctx context.Context, request *sdkpb.ExecuteReq
 	// ensureLoaded returning and pin; each iteration also checks ctx so
 	// cancellation is not starved.
 	var pinned *loadedModule
+	var skewRecorded bool
 	for attempt := 0; attempt < executePinMaxAttempts; attempt++ {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		if err := m.ensureLoaded(ctx); err != nil {
+		source, err := m.ensureLoaded(ctx)
+		if err != nil {
 			return nil, err
+		}
+		if !skewRecorded {
+			if rec := monitoring.TriggerSkewRecorderFromContext(ctx); rec != nil {
+				rec.RecordReady(ctx, source)
+			}
+			skewRecorded = true
 		}
 		if h := evictAfterEnsureLoadedHook; h != nil {
 			h(m)
@@ -264,19 +273,19 @@ func (m *EvictableModule) Execute(ctx context.Context, request *sdkpb.ExecuteReq
 	return pinned.mod.Execute(ctx, request, handler)
 }
 
-func (m *EvictableModule) ensureLoaded(ctx context.Context) error {
+func (m *EvictableModule) ensureLoaded(ctx context.Context) (string, error) {
 	if m.current.Load() != nil {
-		return nil
+		return monitoring.ModuleLoadSourceLoaded, nil
 	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if m.closed.Load() {
-		return errors.New("module is permanently closed")
+		return "", errors.New("module is permanently closed")
 	}
 	if m.current.Load() != nil {
-		return nil
+		return monitoring.ModuleLoadSourceLoaded, nil
 	}
 
 	// L2: try to resurrect the still-live compiled module weakly held since
@@ -291,16 +300,16 @@ func (m *EvictableModule) ensureLoaded(ctx context.Context) error {
 		h.refCount.Add(1) // re-establish owning ref (weakly-held holder had refCount 0)
 		m.metrics.recordReload(ctx, "weak_ref")
 		m.current.Store(h)
-		return nil
+		return monitoring.ModuleLoadSourceWeakRef, nil
 	}
 
 	// L3: read binary from disk and re-instantiate via the factory.
 	p, cachedVersion, ok, err := m.store.GetModule(m.workflowID)
 	if err != nil {
-		return fmt.Errorf("failed to get module path: %w", err)
+		return "", fmt.Errorf("failed to get module path: %w", err)
 	}
 	if !ok {
-		return fmt.Errorf("no cached binary for workflow %s", m.workflowID)
+		return "", fmt.Errorf("no cached binary for workflow %s", m.workflowID)
 	}
 	if cachedVersion != m.engineVersion {
 		m.metrics.recordVersionMismatch(ctx)
@@ -314,19 +323,19 @@ func (m *EvictableModule) ensureLoaded(ctx context.Context) error {
 		if delErr := m.store.DeleteModule(m.workflowID); delErr != nil && lg != nil {
 			lg.Warnw("failed to delete stale cached module", "workflowID", m.workflowID, "err", delErr)
 		}
-		return fmt.Errorf("%w (workflow_id=%s cached=%q current=%q)", ErrEngineVersionMismatch, m.workflowID, cachedVersion, m.engineVersion)
+		return "", fmt.Errorf("%w (workflow_id=%s cached=%q current=%q)", ErrEngineVersionMismatch, m.workflowID, cachedVersion, m.engineVersion)
 	}
 
 	binary, err := os.ReadFile(p)
 	if err != nil {
-		return fmt.Errorf("failed to read cached binary: %w", err)
+		return "", fmt.Errorf("failed to read cached binary: %w", err)
 	}
 
 	m.binarySize.Store(int64(len(binary)))
 
 	mod, err := m.factory(ctx, m.moduleConfig, binary, m.moduleOpts...)
 	if err != nil {
-		return fmt.Errorf("failed to create module on reload: %w", err)
+		return "", fmt.Errorf("failed to create module on reload: %w", err)
 	}
 
 	m.metrics.recordReload(ctx, "disk")
@@ -337,7 +346,7 @@ func (m *EvictableModule) ensureLoaded(ctx context.Context) error {
 	holder := newLoadedModule(mod)
 	m.current.Store(holder)
 	m.weakInner = weak.Make(holder)
-	return nil
+	return monitoring.ModuleLoadSourceDisk, nil
 }
 
 // Evict drops the owning reference to the inner module only when no Execute call

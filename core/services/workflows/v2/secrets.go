@@ -101,7 +101,7 @@ func keyFor(owner, namespace, id string) string {
 func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
 	ctx = contexts.WithCRE(ctx, contexts.CRE{
 		Owner:    s.workflowOwner,
-		Workflow: s.workflowName,
+		Workflow: s.workflowID,
 	})
 	s.mu.Lock()
 	secretsCalled := s.secretsCalled + 1

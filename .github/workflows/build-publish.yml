@@ -257,20 +257,21 @@ jobs:
           SLACK_THREAD_TS: ${{ needs.slack-notify.outputs.slack-thread-ts }}
         run: |
           set +e
-          view_out=$(gh workflow view post-build-publish.yml --ref "$TARGET_TAG" --yaml 2>&1)
+          view_out=$(gh workflow view post-build-publish.yml --ref "$TARGET_TAG" --repo "$GITHUB_REPOSITORY" --yaml 2>&1)
           view_status=$?
           set -e
           if [ "$view_status" -ne 0 ]; then
             if echo "$view_out" | grep -qiE '404|not found|could not find.*workflow'; then
-              echo "::warning::post-build-publish.yml is not available at ref $TARGET_TAG (workflow missing on this tag). Skipping trigger."
+              echo "::warning::post-build-publish.yml is not available at ref $TARGET_TAG (workflow missing on this tag) in $GITHUB_REPOSITORY. Skipping trigger."
               exit 0
             fi
-            echo "::error::Could not resolve post-build-publish workflow at ref $TARGET_TAG: ${view_out}"
+            echo "::error::Could not resolve post-build-publish workflow at ref $TARGET_TAG in $GITHUB_REPOSITORY: ${view_out}"
             exit 1
           fi
 
           gh workflow run post-build-publish.yml \
             --ref "$TARGET_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
             -f chainlink_version="$TARGET_TAG" \
             -f chainlink_image_tag="$DOCKER_MANIFEST_TAG" \
             -f slack_thread_ts="$SLACK_THREAD_TS"
