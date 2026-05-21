@@ -62,13 +62,21 @@ WriteTimeoutMillis = 1000
 CORSEnabled = true
 CORSAllowedOrigins = ["https://remix.ethereum.org"]
 
-[[Dons]]
-DonId = "test_don"
-HandlerName = "dummy"
+[[shardedDONs]]
+DonName = "test_don"
+F = 0
 
-[[Dons.Members]]
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
 Address = "%s"
 Name = "test_node_1"
+
+[[services]]
+ServiceName = "test"
+DONs = ["test_don"]
+
+[[services.Handlers]]
+Name = "dummy"
 `
 
 const nodeConfigTemplate = `
@@ -202,14 +210,14 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 
 	// Send requests until one of them reaches Connector (i.e. the node)
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		req := newLegacyHTTPRequestObject(t, messageID1, userURL, userKeys.PrivateKey)
+		req := newJSONRPCHTTPRequestObject(t, messageID1, userURL, userKeys.PrivateKey)
 		httpClient := &http.Client{}
 		_, _ = httpClient.Do(req) // could initially return error if Gateway is not fully initialized yet
 		return client.done.Load()
 	}, testutils.WaitTimeout(t), testutils.TestInterval).Should(gomega.BeTrue())
 
 	// Send another request and validate that response has correct content and sender
-	req := newLegacyHTTPRequestObject(t, messageID2, userURL, userKeys.PrivateKey)
+	req := newJSONRPCHTTPRequestObject(t, messageID2, userURL, userKeys.PrivateKey)
 	httpClient := &http.Client{}
 	resp, err := httpClient.Do(req)
 	require.NoError(t, err)
@@ -226,11 +234,19 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	require.JSONEq(t, nodeResponsePayload, string(respMsg.Body.Payload))
 }
 
-func newLegacyHTTPRequestObject(t *testing.T, messageID string, userURL string, signerKey *ecdsa.PrivateKey) *http.Request {
-	msg := &api.Message{Body: api.MessageBody{MessageId: messageID, Method: "test", DonId: "test_don"}}
+func newJSONRPCHTTPRequestObject(t *testing.T, messageID string, userURL string, signerKey *ecdsa.PrivateKey) *http.Request {
+	msg := &api.Message{Body: api.MessageBody{MessageId: messageID, Method: "test"}}
 	require.NoError(t, msg.Sign(signerKey))
-	codec := api.JsonRPCCodec{}
-	rawMsg, err := codec.EncodeLegacyRequest(msg)
+	msgBytes, err := json.Marshal(msg)
+	require.NoError(t, err)
+	rawParams := json.RawMessage(msgBytes)
+	request := jsonrpc.Request[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      messageID,
+		Method:  "test.test",
+		Params:  &rawParams,
+	}
+	rawMsg, err := json.Marshal(&request)
 	require.NoError(t, err)
 	req, err := http.NewRequestWithContext(testutils.Context(t), "POST", userURL, bytes.NewBuffer(rawMsg))
 	require.NoError(t, err)

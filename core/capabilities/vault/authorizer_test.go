@@ -59,7 +59,7 @@ func TestAuthorizer_UsesJWTWhenGateEnabled(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "org-1", authResult.OrgID())
 	require.Equal(t, "0xworkflow", authResult.WorkflowOwner())
-	require.Equal(t, "org-1", authResult.AuthorizedOwner())
+	require.Equal(t, "0xworkflow", authResult.AuthorizedOwner())
 }
 
 func TestAuthorizer_DelegatesDigestVerificationToJWTAuth(t *testing.T) {
@@ -82,7 +82,7 @@ func TestAuthorizer_DelegatesDigestVerificationToJWTAuth(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "org-1", authResult.OrgID())
 	require.Empty(t, authResult.WorkflowOwner())
-	require.Equal(t, "org-1", authResult.AuthorizedOwner())
+	require.Empty(t, authResult.AuthorizedOwner())
 }
 
 func TestAuthorizer_RejectsJWTReplay(t *testing.T) {
@@ -105,7 +105,7 @@ func TestAuthorizer_RejectsJWTReplay(t *testing.T) {
 
 	authResult, err := a.AuthorizeRequest(t.Context(), req)
 	require.NoError(t, err)
-	require.Equal(t, "org-1", authResult.AuthorizedOwner())
+	require.Empty(t, authResult.AuthorizedOwner())
 
 	authResult, err = a.AuthorizeRequest(t.Context(), req)
 	require.Nil(t, authResult)

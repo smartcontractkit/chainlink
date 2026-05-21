@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -944,7 +945,7 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 
 	if confidential {
 		h.lggr.Infow("routing workflow to confidential execution", "workflowID", spec.WorkflowID)
-		engine, err = h.confidentialEngineFactory(spec, workflowName, decodedBinary, initDone)
+		engine, err = h.confidentialEngineFactory(ctx, spec, workflowName, decodedBinary, initDone)
 	} else {
 		engine, err = h.engineFactory(ctx, spec.WorkflowID, spec.WorkflowOwner, workflowName, spec.WorkflowTag, configBytes, decodedBinary, initDone)
 	}
@@ -1092,6 +1093,7 @@ func (h *eventHandler) wireInitDoneHook(cfg *v2.EngineConfig, initDone chan<- er
 // instead of a local WASM module. The ConfidentialModule delegates execution to
 // the confidential-workflows capability which runs the WASM inside a TEE.
 func (h *eventHandler) confidentialEngineFactory(
+	ctx context.Context,
 	spec *job.WorkflowSpec,
 	workflowName types.WorkflowName,
 	decodedBinary []byte,
@@ -1107,12 +1109,29 @@ func (h *eventHandler) confidentialEngineFactory(
 	lggr := logger.Named(h.lggr, "WorkflowEngine.ConfidentialModule")
 	lggr = logger.With(lggr, "workflowID", spec.WorkflowID, "workflowName", spec.WorkflowName, "workflowOwner", spec.WorkflowOwner)
 
+	engineOrgID := ""
+	if h.orgResolver != nil {
+		orgID, gerr := h.orgResolver.Get(ctx, spec.WorkflowOwner)
+		if gerr != nil {
+			lggr.Warnw("Failed to resolve organization ID for confidential module, continuing without stable org for metadata propagation", "workflowOwner", spec.WorkflowOwner, "err", gerr)
+		} else {
+			engineOrgID = orgID
+		}
+	}
+
+	var creGetter settings.Getter
+	if h.engineLimiters != nil {
+		creGetter = h.engineLimiters.Settings
+	}
+
 	module := v2.NewConfidentialModule(
 		h.capRegistry,
 		spec.BinaryURL,
 		binaryHash,
 		spec.WorkflowID, spec.WorkflowOwner, workflowName.String(), spec.WorkflowTag,
 		attrs.VaultDonSecrets,
+		creGetter,
+		engineOrgID,
 		lggr,
 	)
 

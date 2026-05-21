@@ -416,13 +416,14 @@ func applyGatewayAuth0Config(topology *cre.Topology, donName string, auth0 *cre.
 		if svc.ServiceName != pkg.ServiceNameVault || !slices.Contains(svc.DONs, donName) {
 			continue
 		}
-		if svc.Auth0 != nil && (svc.Auth0.IssuerURL != auth0.IssuerURL || svc.Auth0.Audience != auth0.Audience) {
+		if svc.Auth0 != nil && (svc.Auth0.IssuerURL != auth0.IssuerURL || svc.Auth0.Audience != auth0.Audience || svc.Auth0.TenantID != auth0.TenantID) {
 			return fmt.Errorf("vault gateway service %q already has conflicting auth0 config", svc.ServiceName)
 		}
 
 		svc.Auth0 = &cre.GatewayServiceAuth0Config{
 			IssuerURL: auth0.IssuerURL,
 			Audience:  auth0.Audience,
+			TenantID:  auth0.TenantID,
 		}
 		return nil
 	}

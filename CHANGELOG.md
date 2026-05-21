@@ -1,5 +1,17 @@
 # Changelog Chainlink Core
 
+## 2.48.0
+
+### Minor Changes
+
+- [#22331](https://github.com/smartcontractkit/chainlink/pull/22331) [`4a1b448`](https://github.com/smartcontractkit/chainlink/commit/4a1b448ed33ff83f677b7344f29467f4464d182b) - **DirectRequest and FluxMonitor job types have been removed.** Creating new jobs of these types is no longer supported and will return an error. Any existing jobs of these types that are still present in the database will surface an error in the job UI on node startup rather than running. The underlying database tables (`direct_request_specs`, `flux_monitor_specs`, `flux_monitor_round_stats_v2`) are **unchanged in this release** and will be cleaned up in a future migration. The `[FluxMonitor]` TOML config section is now a no-op but is still accepted to avoid breaking existing config files during the transition. #breaking_change #nops
+
+- [#22380](https://github.com/smartcontractkit/chainlink/pull/22380) [`822f135`](https://github.com/smartcontractkit/chainlink/commit/822f1355f8a89eec684c8c3cc7c704f3f78f4add) - Remove VRF v1 support including coordinators, the legacy `vrf` pipeline task, and related configuration. Migrate to VRF v2 or VRF v2 Plus. #removed #breaking_change
+
+- [#22422](https://github.com/smartcontractkit/chainlink/pull/22422) [`89874ec`](https://github.com/smartcontractkit/chainlink/commit/89874ec20991343971cdda7770b021d3ac108c63) - Minor bump to start next version
+
+- [#22530](https://github.com/smartcontractkit/chainlink/pull/22530) [`45099b6`](https://github.com/smartcontractkit/chainlink/commit/45099b6a924020a64674bed38c7a2a51d891000c) - Bumped chainlink-evm dep. This includes: Ronin updated configs, Logpoller improvements, and Finalizer improvements. #internal
+
 ## 2.47.0
 
 ### Minor Changes

@@ -3,9 +3,10 @@ package solana
 import (
 	"github.com/gagliardetto/solana-go"
 
+	solchangesets "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana/changesets"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
 )
 
 // TransferOwnershipCacheRequest wraps the generic request for cache contracts
@@ -23,23 +24,23 @@ var _ cldf.ChangeSetV2[*TransferOwnershipCacheRequest] = TransferOwnershipCache{
 type TransferOwnershipCache struct{}
 
 func (cs TransferOwnershipCache) VerifyPreconditions(env cldf.Environment, req *TransferOwnershipCacheRequest) error {
-	return commonchangeset.GenericVerifyPreconditions(env, req.ChainSel, req.Version, req.Qualifier, "CacheContract")
+	return solchangesets.GenericVerifyPreconditions(env, req.ChainSel, req.Version, req.Qualifier, "CacheContract")
 }
 
 func (cs TransferOwnershipCache) Apply(env cldf.Environment, req *TransferOwnershipCacheRequest) (cldf.ChangesetOutput, error) {
-	genericReq := &commonchangeset.TransferOwnershipRequest{
+	genericReq := &solchangesets.TransferOwnershipRequest{
 		ChainSel:      req.ChainSel,
 		CurrentOwner:  req.CurrentOwner,
 		ProposedOwner: req.ProposedOwner,
 		Version:       req.Version,
 		Qualifier:     req.Qualifier,
 		MCMSCfg:       req.MCMSCfg,
-		ContractConfig: commonchangeset.ContractConfig{
+		ContractConfig: solchangesets.ContractConfig{
 			ContractType: CacheContract,
 			StateType:    CacheState,
 			OperationID:  "transfer-ownership-cache",
 			Description:  "transfers ownership of cache to mcms",
 		},
 	}
-	return commonchangeset.GenericTransferOwnership(env, genericReq)
+	return solchangesets.GenericTransferOwnership(env, genericReq)
 }

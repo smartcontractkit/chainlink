@@ -62,8 +62,6 @@ Each row maps to a CI matrix entry in [devenv-nightly.yml](../.github/workflows/
 | Product        | envcmd (from `devenv/`)                                                        | testcmd (from `devenv/tests/<dir>/`)                               | tests_dir       |
 | -------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------ | --------------- |
 | Cron           | `cl u env.toml,products/cron/basic.toml`                                       | `go test -v -run TestSmoke`                                        | `cron`          |
-| Direct Request | `cl u env.toml,products/directrequest/basic.toml`                              | `go test -v -run TestSmoke`                                        | `directrequest` |
-| Flux           | `cl u env.toml,products/flux/basic.toml`                                       | `go test -v -run TestSmoke`                                        | `flux`          |
 | Automation 2.0 | `cl u env.toml,products/automation/basic.toml`                                 | `go test -v -timeout 30m -run TestRegistry_2_0`                    | `automation`    |
 | Automation 2.1 | `cl u env.toml,products/automation/basic.toml`                                 | `go test -v -timeout 30m -run TestRegistry_2_1`                    | `automation`    |
 | OCR2 Smoke     | `cl u env.toml,products/ocr2/basic.toml`                                       | `go test -v -run TestSmoke`                                        | `ocr2`          |

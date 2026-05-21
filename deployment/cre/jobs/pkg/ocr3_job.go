@@ -41,6 +41,7 @@ type OCR3JobConfigInput struct {
 type Auth0Config struct {
 	IssuerURL string `yaml:"issuerURL" toml:"issuerURL" json:"issuerURL"`
 	Audience  string `yaml:"audience" toml:"audience" json:"audience"`
+	TenantID  uint64 `yaml:"tenantID" toml:"tenantID" json:"tenantID"`
 }
 
 type OCR3JobConfig struct {
@@ -105,6 +106,9 @@ func (c OCR3JobConfig) Validate() error {
 			}
 			if c.Auth0.Audience == "" {
 				return errors.New("Auth0.Audience is required for worker-vault template when auth0 is configured")
+			}
+			if c.Auth0.TenantID == 0 {
+				return errors.New("Auth0.TenantID is required for worker-vault template when auth0 is configured")
 			}
 		}
 	}
