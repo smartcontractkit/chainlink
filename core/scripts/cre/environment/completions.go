@@ -249,7 +249,6 @@ func buildCommandTree() *CompletionNode {
 			{Text: "--with-beholder", Description: "Deprecated: use --with-chip-ingress-stack (default: false)"},
 			{Text: "--with-dashboards", Description: "Deploys Observability Stack and Grafana Dashboards (default: false)"},
 			{Text: "--with-billing", Description: "Deploys Billing Platform Service (default: false)"},
-			{Text: "--with-proto-configs", Description: "Paths to protobuf config files for Chip Ingress stack, comma separated (default: ./proto-configs/default.toml)"},
 			{Text: "--auto-setup", Description: "Runs setup before starting the environment (default: false)"},
 			{Text: "--setup-config", Description: "Path to the TOML configuration file for the setup command"},
 		},
@@ -364,8 +363,8 @@ func buildCommandTree() *CompletionNode {
 
 		n.Children["start"] = &CompletionNode{
 			Flags: []prompt.Suggest{
-				{Text: "--with-proto-configs", Description: "Paths to protobuf config files for Chip Ingress stack, comma separated (default: ./proto-configs/default.toml)"},
 				{Text: "--wait-on-error-timeout", Description: "Time to wait before removing Docker containers if environment fails to start (e.g. 10s, 1m, 1h) (default: 15s)"},
+				{Text: "--grpc-port", Description: "gRPC port for the Chip Ingress stack"},
 			},
 		}
 
@@ -379,8 +378,7 @@ func buildCommandTree() *CompletionNode {
 
 		n.Children["register-protos"] = &CompletionNode{
 			Flags: []prompt.Suggest{
-				{Text: "--red-panda-schema-registry-url", Description: "Red Panda Schema Registry URL (default: http://localhost:8081)"},
-				{Text: "--with-proto-configs", Description: "Paths to protobuf config files for Chip Ingress stack, comma separated (default: ./proto-configs/default.toml)"},
+				{Text: "--chip-ingress-grpc-url", Description: "Chip Ingress gRPC URL"},
 			},
 		}
 
