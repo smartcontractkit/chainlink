@@ -34,6 +34,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
+	coreconfig "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury"
 	mercuryconfig "github.com/smartcontractkit/chainlink-data-streams/mercury/config"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc"
@@ -51,8 +52,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/transmitter"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/writer"
-
-	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 var (

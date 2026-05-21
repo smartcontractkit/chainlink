@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
@@ -213,7 +212,7 @@ type MercuryConfig struct {
 	verboseLogging bool
 }
 
-func (m *MercuryConfig) Transmitter() config.MercuryTransmitter {
+func (m *MercuryConfig) Transmitter() mercurytransmitter.MercuryTransmitter {
 	return m.transmitter
 }
 

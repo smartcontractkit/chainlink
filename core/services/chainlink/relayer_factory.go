@@ -15,12 +15,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	evmtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 
-	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -52,7 +52,7 @@ type EVMFactoryConfig struct {
 	legacyevm.ChainOpts
 	EthKeystore   keystore.Eth
 	CSAKeystore   coretypes.Keystore
-	MercuryConfig coreconfig.Mercury
+	MercuryConfig mercurytransmitter.Mercury
 }
 
 func (r *RelayerFactory) NewEVM(config EVMFactoryConfig) (map[types.RelayID]evmrelay.RelayAdapter, error) {
