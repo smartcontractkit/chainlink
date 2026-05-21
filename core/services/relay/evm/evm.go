@@ -44,6 +44,8 @@ import (
 	evmtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/functions"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	"github.com/smartcontractkit/chainlink-evm/pkg/llo"
+	"github.com/smartcontractkit/chainlink-evm/pkg/llo/channeldefinitions"
 	evmmercury "github.com/smartcontractkit/chainlink-evm/pkg/mercury"
 	"github.com/smartcontractkit/chainlink-evm/pkg/read"
 	"github.com/smartcontractkit/chainlink-evm/pkg/transmitter"
@@ -51,8 +53,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/writer"
 
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
 )
 
 var (
