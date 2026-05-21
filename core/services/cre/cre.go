@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/diskmonitor"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
@@ -1017,6 +1018,17 @@ func newWorkflowRegistrySyncerV2(
 		if fsErr != nil {
 			return nil, nil, fmt.Errorf("unable to create file module store: %w", fsErr)
 		}
+
+		dm, dmErr := diskmonitor.NewDiskMonitor(
+			lggr,
+			fileStore.CacheDir(),
+			syncerV2.GaugeWorkflowModuleCacheDiskUsageBytes,
+			syncerV2.WorkflowModuleCacheDiskMonitorTickInterval,
+		)
+		if dmErr != nil {
+			return nil, nil, fmt.Errorf("unable to create module cache disk monitor: %w", dmErr)
+		}
+		srvcs = append(srvcs, dm)
 
 		lruOpts := []func(*syncerV2.ModuleLRU){
 			syncerV2.WithMaxLoadedModules(mc.MaxLoaded()),

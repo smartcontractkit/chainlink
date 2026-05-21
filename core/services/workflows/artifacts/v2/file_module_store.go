@@ -36,6 +36,9 @@ func NewFileModuleStore(cacheDir string, cleanOnStartup bool) (*FileModuleStore,
 	return &FileModuleStore{cacheDir: cacheDir}, nil
 }
 
+// CacheDir returns the resolved on-disk root for the module cache.
+func (s *FileModuleStore) CacheDir() string { return s.cacheDir }
+
 func (s *FileModuleStore) workflowDir(workflowID string) string {
 	return filepath.Join(s.cacheDir, workflowID)
 }

@@ -12,6 +12,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
@@ -69,7 +70,11 @@ func (m mockCfgTelemetry) EmitterExportTimeout() time.Duration { return 1 * time
 
 func (m mockCfgTelemetry) ChipIngressEndpoint() string { return "example.com/chip-ingress" }
 
+func (m mockCfgTelemetry) DurableEmitterEnabled() bool { return true }
+
 func (m mockCfgTelemetry) ChipIngressInsecureConnection() bool { return false }
+
+func (m mockCfgTelemetry) ChipIngressBatchEmitterEnabled() bool { return false }
 
 func (m mockCfgTelemetry) HeartbeatInterval() time.Duration {
 	return 5 * time.Second
@@ -153,7 +158,7 @@ func (m mockCfgCache) LatestReportDeadline() time.Duration {
 
 type mockCfgTransmitter struct{}
 
-func (t mockCfgTransmitter) Protocol() config.MercuryTransmitterProtocol { return "foo" }
+func (t mockCfgTransmitter) Protocol() mercurytransmitter.MercuryTransmitterProtocol { return "foo" }
 
 func (t mockCfgTransmitter) TransmitQueueMaxSize() uint32 { return 42 }
 
@@ -237,4 +242,5 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.Equal(t, 2048, envCfg.TelemetryLogMaxQueueSize)
 
 	require.Equal(t, "example.com/chip-ingress", envCfg.ChipIngressEndpoint)
+	require.False(t, envCfg.ChipIngressBatchEmitterEnabled)
 }

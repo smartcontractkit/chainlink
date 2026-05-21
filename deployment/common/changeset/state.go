@@ -1,16 +1,10 @@
 package changeset
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
-	linkviewv10 "github.com/smartcontractkit/cld-changesets/pkg/contract/link/view/v10"
-
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/link_token"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -188,126 +182,4 @@ func MaybeLoadMCMSWithTimelockChainState(
 		}
 	}
 	return &state, nil
-}
-
-type LinkTokenState struct {
-	LinkToken *link_token.LinkToken
-}
-
-// Deprecated: use GenerateLinkView from deployment/common/changeset/state/evm.go instead
-// if you are changing this, please make the similar changes in deployment/common/changeset/state
-func (s LinkTokenState) GenerateLinkView() (linkviewv10.LinkTokenView, error) {
-	if s.LinkToken == nil {
-		return linkviewv10.LinkTokenView{}, errors.New("link token not found")
-	}
-	return linkviewv10.GenerateLinkTokenView(s.LinkToken)
-}
-
-// MaybeLoadLinkTokenState loads the LinkTokenState state for each chain in the given environment.
-// Deprecated: use MaybeLoadLinkTokenState from deployment/common/changeset/state/evm.go instead
-// if you are changing this, please make the similar changes in deployment/common/changeset/state
-func MaybeLoadLinkTokenState(env cldf.Environment, chainSelectors []uint64) (map[uint64]*LinkTokenState, error) {
-	result := map[uint64]*LinkTokenState{}
-	for _, chainSelector := range chainSelectors {
-		chain, ok := env.BlockChains.EVMChains()[chainSelector]
-		if !ok {
-			return nil, fmt.Errorf("chain %d not found", chainSelector)
-		}
-		addressesChain, err := env.ExistingAddresses.AddressesForChain(chainSelector)
-		if err != nil {
-			return nil, err
-		}
-		state, err := MaybeLoadLinkTokenChainState(chain, addressesChain)
-		if err != nil {
-			return nil, err
-		}
-		result[chainSelector] = state
-	}
-	return result, nil
-}
-
-// Deprecated: use MaybeLoadLinkTokenChainState from deployment/common/changeset/state/evm.go instead
-// if you are changing this, please make the similar changes in deployment/common/changeset/state
-func MaybeLoadLinkTokenChainState(chain cldf_evm.Chain, addresses map[string]cldf.TypeAndVersion) (*LinkTokenState, error) {
-	state := LinkTokenState{}
-	linkToken := cldf.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0)
-
-	// Convert map keys to a slice
-	wantTypes := []cldf.TypeAndVersion{linkToken}
-
-	// Ensure we either have the bundle or not.
-	_, err := cldf.EnsureDeduped(addresses, wantTypes)
-	if err != nil {
-		return nil, fmt.Errorf("unable to check link token on chain %s error: %w", chain.Name(), err)
-	}
-
-	for address, tvStr := range addresses {
-		if tvStr.Type == linkToken.Type && tvStr.Version.String() == linkToken.Version.String() {
-			lt, err := link_token.NewLinkToken(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return nil, err
-			}
-			state.LinkToken = lt
-		}
-	}
-	return &state, nil
-}
-
-type StaticLinkTokenState struct {
-	StaticLinkToken *link_token_interface.LinkToken
-}
-
-// Deprecated: use GenerateStaticLinkView from deployment/common/changeset/state/evm.go instead
-// if you are changing this, please make the similar changes in deployment/common/changeset/state
-func (s StaticLinkTokenState) GenerateStaticLinkView() (linkviewv10.StaticLinkTokenView, error) {
-	if s.StaticLinkToken == nil {
-		return linkviewv10.StaticLinkTokenView{}, errors.New("static link token not found")
-	}
-	return linkviewv10.GenerateStaticLinkTokenView(s.StaticLinkToken)
-}
-
-// Deprecated: use MaybeLoadStaticLinkTokenState from deployment/common/changeset/state/evm.go instead
-// if you are changing this, please make the similar changes in deployment/common/changeset/state
-func MaybeLoadStaticLinkTokenState(chain cldf_evm.Chain, addresses map[string]cldf.TypeAndVersion) (*StaticLinkTokenState, error) {
-	state := StaticLinkTokenState{}
-	staticLinkToken := cldf.NewTypeAndVersion(types.StaticLinkToken, deployment.Version1_0_0)
-
-	// Convert map keys to a slice
-	wantTypes := []cldf.TypeAndVersion{staticLinkToken}
-
-	// Ensure we either have the bundle or not.
-	_, err := cldf.EnsureDeduped(addresses, wantTypes)
-	if err != nil {
-		return nil, fmt.Errorf("unable to check static link token on chain %s error: %w", chain.Name(), err)
-	}
-
-	for address, tvStr := range addresses {
-		if tvStr.Type == staticLinkToken.Type && tvStr.Version.String() == staticLinkToken.Version.String() {
-			lt, err := link_token_interface.NewLinkToken(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return nil, err
-			}
-			state.StaticLinkToken = lt
-		}
-	}
-	return &state, nil
-}
-
-// SearchAddress searches for a contract address in both AddressBook and DataStore
-// Returns the address if found in either source
-func SearchAddress(e cldf.Environment, chainSelector uint64, address string) (bool, error) {
-	// Use the merged address loading from the EVM state function
-	addressesChain, err := evmstate.AddressesForChain(e, chainSelector, "")
-	if err != nil {
-		return false, fmt.Errorf("failed to load addresses: %w", err)
-	}
-
-	// Search through merged addresses for the contract type
-	for addr := range addressesChain {
-		if addr == address {
-			return true, nil
-		}
-	}
-
-	return false, fmt.Errorf("%s not found", address)
 }

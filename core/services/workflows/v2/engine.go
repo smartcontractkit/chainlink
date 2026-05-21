@@ -837,6 +837,14 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		return
 	}
 	defer execCancel()
+	triggerCapID := wrappedTriggerEvent.triggerCapID
+	skewRec := &monitoring.TriggerSkewRecorder{
+		EnqueueTime: wrappedTriggerEvent.timestamp,
+		Record: func(ctx context.Context, seconds float64, source string) {
+			e.metrics.With(platform.KeyTriggerID, triggerCapID).RecordTriggerQueueToExecutionStartSeconds(ctx, seconds, source)
+		},
+	}
+	execCtx = monitoring.ContextWithTriggerSkewRecorder(execCtx, skewRec)
 	executionLogger := logger.With(lggr, "executionID", executionID, "triggerID", wrappedTriggerEvent.triggerCapID,
 		"triggerIndex", wrappedTriggerEvent.triggerIndex, "eventID", triggerEvent.ID)
 
@@ -860,7 +868,6 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	}
 
 	startTime := e.cfg.Clock.Now()
-	e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).RecordTriggerQueueToExecutionStartSeconds(ctx, startTime.Sub(wrappedTriggerEvent.timestamp).Seconds())
 	executionLogger.Infow("Workflow execution starting ...")
 	_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
 
@@ -918,6 +925,8 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
 	}, execHelper)
+	// Non-evictable modules do not record skew; label those as direct.
+	skewRec.RecordReady(execCtx, monitoring.ModuleLoadSourceDirect)
 
 	endTime := e.cfg.Clock.Now()
 	executionDuration := endTime.Sub(startTime)

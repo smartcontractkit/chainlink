@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
@@ -557,9 +558,11 @@ func TestConfig_Marshal(t *testing.T) {
 		EmitterBatchProcessor:         ptr(true),
 		EmitterExportTimeout:          commoncfg.MustNewDuration(1 * time.Second),
 		AuthHeadersTTL:                commoncfg.MustNewDuration(0 * time.Second),
-		ChipIngressEndpoint:           ptr("example.com/chip-ingress"),
-		ChipIngressInsecureConnection: ptr(false),
-		HeartbeatInterval:             commoncfg.MustNewDuration(1 * time.Second),
+		ChipIngressEndpoint:            ptr("example.com/chip-ingress"),
+		ChipIngressInsecureConnection:  ptr(false),
+		ChipIngressBatchEmitterEnabled: ptr(true),
+		DurableEmitterEnabled:          ptr(false),
+		HeartbeatInterval:              commoncfg.MustNewDuration(1 * time.Second),
 		LogStreamingEnabled:           ptr(false),
 		LogLevel:                      ptr("info"),
 		LogBatchProcessor:             ptr(true),
@@ -816,7 +819,7 @@ func TestConfig_Marshal(t *testing.T) {
 			CertFile: ptr("/path/to/cert.pem"),
 		},
 		Transmitter: toml.MercuryTransmitter{
-			Protocol:             ptr(config.MercuryTransmitterProtocolGRPC),
+			Protocol:             ptr(mercurytransmitter.MercuryTransmitterProtocolGRPC),
 			TransmitQueueMaxSize: ptr(uint32(123)),
 			TransmitTimeout:      commoncfg.MustNewDuration(234 * time.Second),
 			TransmitConcurrency:  ptr(uint32(456)),
