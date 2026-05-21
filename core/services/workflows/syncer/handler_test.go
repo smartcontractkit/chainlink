@@ -894,7 +894,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
-			secretsURL    = "http://example.com"
+			secretsURL    = "http://example.com/secrets/" + workflowName
 			binaryURL     = "http://example.com/binary"
 			configURL     = "http://example.com/config"
 		)
@@ -984,7 +984,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
-			secretsURL    = "http://example.com"
+			secretsURL    = "http://example.com/secrets/" + workflowName
 			binaryURL     = "http://example.com/binary"
 			configURL     = "http://example.com/config"
 		)
@@ -1043,7 +1043,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
-			secretsURL    = "http://example.com"
+			secretsURL    = "http://example.com/secrets/" + workflowName
 			binaryURL     = "http://example.com/binary"
 			configURL     = "http://example.com/config"
 
@@ -1141,7 +1141,7 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
 			updateConfig  = []byte("updated")
-			secretsURL    = "http://example.com"
+			secretsURL    = "http://example.com/secrets/" + workflowName
 			binaryURL     = "http://example.com/binary"
 			configURL     = "http://example.com/config"
 			newConfigURL  = "http://example.com/new-config"

@@ -17,13 +17,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
@@ -157,7 +158,7 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, configTOML string, keyst
 		RetirementReportCache: retirement.NewRetirementReportCache(c.Logger, c.DataSource),
 		MercuryConfig: &MercuryConfig{
 			transmitter: &Transmitter{
-				protocol:             config.MercuryTransmitterProtocol(c.MercuryTransmitterProtocol),
+				protocol:             mercurytransmitter.MercuryTransmitterProtocol(c.MercuryTransmitterProtocol),
 				transmitQueueMaxSize: c.MercuryTransmitterTransmitQueueMaxSize,
 				transmitTimeout:      c.MercuryTransmitterTransmitTimeout,
 				transmitConcurrency:  c.MercuryTransmitterTransmitConcurrency,
@@ -221,7 +222,7 @@ func (m *MercuryConfig) VerboseLogging() bool {
 }
 
 type Transmitter struct {
-	protocol             config.MercuryTransmitterProtocol
+	protocol             mercurytransmitter.MercuryTransmitterProtocol
 	transmitQueueMaxSize uint32
 	transmitTimeout      time.Duration
 	transmitConcurrency  uint32
@@ -229,7 +230,7 @@ type Transmitter struct {
 	reaperMaxAge         time.Duration
 }
 
-func (t *Transmitter) Protocol() config.MercuryTransmitterProtocol {
+func (t *Transmitter) Protocol() mercurytransmitter.MercuryTransmitterProtocol {
 	return t.protocol
 }
 

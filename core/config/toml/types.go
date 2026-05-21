@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -1798,7 +1799,7 @@ func (m *MercuryTLS) ValidateConfig() (err error) {
 }
 
 type MercuryTransmitter struct {
-	Protocol             *config.MercuryTransmitterProtocol
+	Protocol             *mercurytransmitter.MercuryTransmitterProtocol
 	TransmitQueueMaxSize *uint32
 	TransmitTimeout      *commonconfig.Duration
 	TransmitConcurrency  *uint32
@@ -2858,6 +2859,7 @@ type Telemetry struct {
 	AuthHeadersTTL                *commonconfig.Duration
 	ChipIngressEndpoint           *string
 	ChipIngressInsecureConnection *bool
+	DurableEmitterEnabled         *bool
 	HeartbeatInterval             *commonconfig.Duration
 	LogLevel                      *string
 	LogStreamingEnabled           *bool
@@ -2901,6 +2903,9 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	}
 	if v := f.ChipIngressInsecureConnection; v != nil {
 		b.ChipIngressInsecureConnection = v
+	}
+	if v := f.DurableEmitterEnabled; v != nil {
+		b.DurableEmitterEnabled = v
 	}
 	if v := f.HeartbeatInterval; v != nil {
 		b.HeartbeatInterval = v

@@ -18,6 +18,7 @@ type Telemetry interface {
 	EmitterExportTimeout() time.Duration
 	ChipIngressEndpoint() string
 	ChipIngressInsecureConnection() bool
+	DurableEmitterEnabled() bool
 	HeartbeatInterval() time.Duration
 	LogStreamingEnabled() bool
 	LogLevel() zapcore.Level

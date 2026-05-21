@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 
@@ -375,7 +376,7 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 
 	em.triggerQueueToExecutionStartSeconds, err = beholder.GetMeter().Float64Histogram(
 		"platform_engine_trigger_queue_to_execution_start_seconds",
-		metric.WithDescription("Time from trigger enqueue timestamp until execution start (startTime in startExecution)"),
+		metric.WithDescription("Time from trigger enqueue until the workflow module is ready to run WASM (includes cache load); attribute source: loaded | weak_ref | disk | direct"),
 		metric.WithUnit("s"),
 	)
 	if err != nil {
@@ -727,8 +728,9 @@ func (c WorkflowsMetricLabeler) RecordTriggerEventQueueWaitSeconds(ctx context.C
 	c.em.triggerEventQueueWaitSeconds.Record(ctx, waitSeconds, metric.WithAttributes(otelLabels...))
 }
 
-func (c WorkflowsMetricLabeler) RecordTriggerQueueToExecutionStartSeconds(ctx context.Context, seconds float64) {
+func (c WorkflowsMetricLabeler) RecordTriggerQueueToExecutionStartSeconds(ctx context.Context, seconds float64, source string) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	otelLabels = append(otelLabels, attribute.String("source", source))
 	c.em.triggerQueueToExecutionStartSeconds.Record(ctx, seconds, metric.WithAttributes(otelLabels...))
 }
 

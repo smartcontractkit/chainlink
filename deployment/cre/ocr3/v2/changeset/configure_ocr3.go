@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -29,7 +30,8 @@ type ConfigureOCR3Input struct {
 	OracleConfig *ocr3.OracleConfig   `json:"oracleConfig" yaml:"oracleConfig"`
 	DryRun       bool                 `json:"dryRun" yaml:"dryRun"`
 
-	MCMSConfig *crecontracts.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
+	MCMSConfig          *crecontracts.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
+	ExtraSignerFamilies []string                 `json:"extraSignerFamilies" yaml:"extraSignerFamilies"`
 }
 
 type ConfigureOCR3 struct{}
@@ -50,6 +52,15 @@ func (l ConfigureOCR3) VerifyPreconditions(_ cldf.Environment, input ConfigureOC
 	if input.OracleConfig == nil {
 		return errors.New("oracle config is required")
 	}
+	for _, family := range input.ExtraSignerFamilies {
+		switch family {
+		case chain_selectors.FamilySolana, chain_selectors.FamilyAptos:
+			break
+		default:
+			return fmt.Errorf("unsupported chain family: %s", family)
+		}
+	}
+
 	return nil
 }
 
@@ -93,12 +104,13 @@ func (l ConfigureOCR3) Apply(e cldf.Environment, input ConfigureOCR3Input) (cldf
 		Env:      &e,
 		Strategy: strategy,
 	}, contracts.ConfigureOCR3Input{
-		ContractAddress: &contractAddr,
-		ChainSelector:   input.ContractChainSelector,
-		DON:             input.DON,
-		Config:          input.OracleConfig,
-		DryRun:          input.DryRun,
-		MCMSConfig:      input.MCMSConfig,
+		ContractAddress:     &contractAddr,
+		ChainSelector:       input.ContractChainSelector,
+		DON:                 input.DON,
+		Config:              input.OracleConfig,
+		DryRun:              input.DryRun,
+		MCMSConfig:          input.MCMSConfig,
+		ExtraSignerFamilies: input.ExtraSignerFamilies,
 	})
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure OCR3 contract: %w", err)

@@ -115,6 +115,11 @@ func (m *metrics) recordModuleStore(ctx context.Context, d time.Duration, succes
 	))
 }
 
+const (
+	GaugeWorkflowModuleCacheDiskUsageBytes     = "platform_workflow_module_cache_disk_usage_bytes"
+	WorkflowModuleCacheDiskMonitorTickInterval = time.Minute
+)
+
 type CacheMetrics struct {
 	reloadSource        metric.Int64Counter // attribute "source": "weak_ref" | "disk"
 	evictionTotal       metric.Int64Counter
