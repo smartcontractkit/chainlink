@@ -755,22 +755,6 @@ func TestORM_CreateJob_EVMChainID_Validation(t *testing.T) {
 		}
 		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(testutils.Context(t), &jb).Error())
 	})
-
-	t.Run("evm chain id validation for legacy gas station server spec works", func(t *testing.T) {
-		jb := job.Job{
-			Type:                       job.LegacyGasStationServer,
-			LegacyGasStationServerSpec: &job.LegacyGasStationServerSpec{},
-		}
-		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(testutils.Context(t), &jb).Error())
-	})
-
-	t.Run("evm chain id validation for legacy gas station sidecar spec works", func(t *testing.T) {
-		jb := job.Job{
-			Type:                        job.LegacyGasStationSidecar,
-			LegacyGasStationSidecarSpec: &job.LegacyGasStationSidecarSpec{},
-		}
-		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(testutils.Context(t), &jb).Error())
-	})
 }
 
 func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
