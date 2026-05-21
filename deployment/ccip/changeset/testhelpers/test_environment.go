@@ -81,6 +81,10 @@ const (
 	// NOTE: these are test values, real production values are configured in CLD.
 	DefaultGasPriceDeviationPPB   = 1000
 	DefaultDAGasPriceDeviationPPB = 1000
+
+	// appStopCleanupTimeout caps node App.Stop() during test teardown when OCR
+	// Close() can hang after on-chain DON removal.
+	appStopCleanupTimeout = 30 * time.Second
 )
 
 type EnvType string
@@ -536,11 +540,18 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.Capabil
 			// reclaimed when the test binary exits; they hold no locks or DB connections.
 			done := make(chan error, 1)
 			go func() { done <- node.App.Stop() }()
+
+			timer := time.NewTimer(appStopCleanupTimeout)
+			defer timer.Stop()
+
 			select {
 			case err := <-done:
+				if !timer.Stop() {
+					<-timer.C
+				}
 				require.NoError(t, err)
-			case <-time.After(30 * time.Second):
-				t.Logf("warning: node %s App.Stop() timed out after 30s, continuing cleanup", id)
+			case <-timer.C:
+				t.Logf("warning: node %s App.Stop() timed out after %s, continuing cleanup", id, appStopCleanupTimeout)
 			}
 		})
 		nodeIDs = append(nodeIDs, id)
