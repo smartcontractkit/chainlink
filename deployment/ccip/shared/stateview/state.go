@@ -54,7 +54,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/helpers"
 
 	suiutil "github.com/smartcontractkit/chainlink-sui/bindings/utils"
 
@@ -1350,7 +1349,7 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			if err != nil {
 				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
 			}
-			state.BurnMintTokenPools = helpers.AddValueToNestedMap(state.BurnMintTokenPools, metadata.Symbol, metadata.Version, pool)
+			state.BurnMintTokenPools = ccipshared.AddValueToNestedMap(state.BurnMintTokenPools, metadata.Symbol, metadata.Version, pool)
 			state.ABIByAddress[address] = burn_mint_token_pool.BurnMintTokenPoolABI
 		case cldf.NewTypeAndVersion(ccipshared.BurnMintTokenPool, deployment.Version1_5_0).String():
 			ethAddress := common.HexToAddress(address)
@@ -1358,7 +1357,7 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			if err != nil {
 				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
 			}
-			state.BurnMintTokenPoolsAndProxies = helpers.AddValueToNestedMap(state.BurnMintTokenPoolsAndProxies, metadata.Symbol, metadata.Version, pool)
+			state.BurnMintTokenPoolsAndProxies = ccipshared.AddValueToNestedMap(state.BurnMintTokenPoolsAndProxies, metadata.Symbol, metadata.Version, pool)
 			state.ABIByAddress[address] = burn_mint_token_pool.BurnMintTokenPoolABI
 		case cldf.NewTypeAndVersion(ccipshared.BurnMintTokenPool, deployment.Version1_6_1).String():
 			ethAddress := common.HexToAddress(address)
@@ -1366,7 +1365,7 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			if err != nil {
 				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
 			}
-			state.BurnMintTokenPoolsV1_6_1 = helpers.AddValueToNestedMap(state.BurnMintTokenPoolsV1_6_1, metadata.Symbol, metadata.Version, pool)
+			state.BurnMintTokenPoolsV1_6_1 = ccipshared.AddValueToNestedMap(state.BurnMintTokenPoolsV1_6_1, metadata.Symbol, metadata.Version, pool)
 			state.ABIByAddress[address] = burn_mint_token_pool_v1_6_1.BurnMintTokenPoolABI
 		case cldf.NewTypeAndVersion(ccipshared.BurnMintFastTransferTokenPool, deployment.Version1_6_1).String():
 			ethAddress := common.HexToAddress(address)
@@ -1374,7 +1373,7 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			if err != nil {
 				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
 			}
-			state.BurnMintFastTransferTokenPools = helpers.AddValueToNestedMap(state.BurnMintFastTransferTokenPools, metadata.Symbol, metadata.Version, pool)
+			state.BurnMintFastTransferTokenPools = ccipshared.AddValueToNestedMap(state.BurnMintFastTransferTokenPools, metadata.Symbol, metadata.Version, pool)
 			state.ABIByAddress[address] = fast_transfer_token_pool.BurnMintFastTransferTokenPoolABI
 		case cldf.NewTypeAndVersion(ccipshared.BurnMintFastTransferTokenPool, deployment.Version1_6_3Dev).String():
 			ethAddress := common.HexToAddress(address)
@@ -1382,7 +1381,7 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			if err != nil {
 				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
 			}
-			state.BurnMintFastTransferTokenPools = helpers.AddValueToNestedMap(state.BurnMintFastTransferTokenPools, metadata.Symbol, metadata.Version, pool)
+			state.BurnMintFastTransferTokenPools = ccipshared.AddValueToNestedMap(state.BurnMintFastTransferTokenPools, metadata.Symbol, metadata.Version, pool)
 			state.ABIByAddress[address] = fast_transfer_token_pool.BurnMintFastTransferTokenPoolABI
 		case cldf.NewTypeAndVersion(ccipshared.BurnMintWithExternalMinterFastTransferTokenPool, deployment.Version1_6_0).String():
 			ethAddress := common.HexToAddress(address)
@@ -1390,7 +1389,7 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			if err != nil {
 				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
 			}
-			state.BurnMintWithExternalMinterFastTransferTokenPools = helpers.AddValueToNestedMap(state.BurnMintWithExternalMinterFastTransferTokenPools, metadata.Symbol, metadata.Version, pool)
+			state.BurnMintWithExternalMinterFastTransferTokenPools = ccipshared.AddValueToNestedMap(state.BurnMintWithExternalMinterFastTransferTokenPools, metadata.Symbol, metadata.Version, pool)
 			state.ABIByAddress[address] = burn_mint_with_external_minter_fast_transfer_token_pool.BurnMintWithExternalMinterFastTransferTokenPoolABI
 		case cldf.NewTypeAndVersion(ccipshared.HybridWithExternalMinterFastTransferTokenPool, deployment.Version1_6_0).String():
 			ethAddress := common.HexToAddress(address)
@@ -1398,7 +1397,7 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			if err != nil {
 				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
 			}
-			state.HybridWithExternalMinterFastTransferTokenPools = helpers.AddValueToNestedMap(state.HybridWithExternalMinterFastTransferTokenPools, metadata.Symbol, metadata.Version, pool)
+			state.HybridWithExternalMinterFastTransferTokenPools = ccipshared.AddValueToNestedMap(state.HybridWithExternalMinterFastTransferTokenPools, metadata.Symbol, metadata.Version, pool)
 			state.ABIByAddress[address] = hybrid_with_external_minter_fast_transfer_token_pool.HybridWithExternalMinterFastTransferTokenPoolABI
 		case cldf.NewTypeAndVersion(ccipshared.BurnWithFromMintTokenPool, deployment.Version1_5_1).String():
 			ethAddress := common.HexToAddress(address)
@@ -1406,7 +1405,7 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			if err != nil {
 				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
 			}
-			state.BurnWithFromMintTokenPools = helpers.AddValueToNestedMap(state.BurnWithFromMintTokenPools, metadata.Symbol, metadata.Version, pool)
+			state.BurnWithFromMintTokenPools = ccipshared.AddValueToNestedMap(state.BurnWithFromMintTokenPools, metadata.Symbol, metadata.Version, pool)
 			state.ABIByAddress[address] = burn_with_from_mint_token_pool.BurnWithFromMintTokenPoolABI
 		case cldf.NewTypeAndVersion(ccipshared.BurnFromMintTokenPool, deployment.Version1_5_1).String():
 			ethAddress := common.HexToAddress(address)
@@ -1414,7 +1413,7 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			if err != nil {
 				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
 			}
-			state.BurnFromMintTokenPools = helpers.AddValueToNestedMap(state.BurnFromMintTokenPools, metadata.Symbol, metadata.Version, pool)
+			state.BurnFromMintTokenPools = ccipshared.AddValueToNestedMap(state.BurnFromMintTokenPools, metadata.Symbol, metadata.Version, pool)
 			state.ABIByAddress[address] = burn_from_mint_token_pool.BurnFromMintTokenPoolABI
 		case cldf.NewTypeAndVersion(ccipshared.LockReleaseTokenPool, deployment.Version1_5_1).String():
 			ethAddress := common.HexToAddress(address)
@@ -1422,7 +1421,7 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			if err != nil {
 				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
 			}
-			state.LockReleaseTokenPools = helpers.AddValueToNestedMap(state.LockReleaseTokenPools, metadata.Symbol, metadata.Version, pool)
+			state.LockReleaseTokenPools = ccipshared.AddValueToNestedMap(state.LockReleaseTokenPools, metadata.Symbol, metadata.Version, pool)
 			state.ABIByAddress[address] = lock_release_token_pool.LockReleaseTokenPoolABI
 		case cldf.NewTypeAndVersion(ccipshared.LockReleaseTokenPool, deployment.Version1_6_1).String():
 			ethAddress := common.HexToAddress(address)
@@ -1430,7 +1429,7 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			if err != nil {
 				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
 			}
-			state.LockReleaseTokenPoolsV1_6_1 = helpers.AddValueToNestedMap(state.LockReleaseTokenPoolsV1_6_1, metadata.Symbol, metadata.Version, pool)
+			state.LockReleaseTokenPoolsV1_6_1 = ccipshared.AddValueToNestedMap(state.LockReleaseTokenPoolsV1_6_1, metadata.Symbol, metadata.Version, pool)
 			state.ABIByAddress[address] = lock_release_token_pool_v1_6_1.LockReleaseTokenPoolABI
 		case cldf.NewTypeAndVersion(ccipshared.BurnMintToken, deployment.Version1_0_0).String():
 			tok, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
@@ -1617,7 +1616,7 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			if err != nil {
 				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", addr, err)
 			}
-			state.BurnMintWithExternalMinterTokenPool = helpers.AddValueToNestedMap(state.BurnMintWithExternalMinterTokenPool, metadata.Symbol, metadata.Version, pool)
+			state.BurnMintWithExternalMinterTokenPool = ccipshared.AddValueToNestedMap(state.BurnMintWithExternalMinterTokenPool, metadata.Symbol, metadata.Version, pool)
 			state.ABIByAddress[address] = burn_mint_with_external_minter_token_pool.BurnMintWithExternalMinterTokenPoolABI
 		case cldf.NewTypeAndVersion(ccipshared.HybridWithExternalMinterTokenPool, deployment.Version1_6_0).String():
 			addr := common.HexToAddress(address)
@@ -1625,7 +1624,7 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			if err != nil {
 				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", addr, err)
 			}
-			state.HybridWithExternalMinterTokenPool = helpers.AddValueToNestedMap(state.HybridWithExternalMinterTokenPool, metadata.Symbol, metadata.Version, pool)
+			state.HybridWithExternalMinterTokenPool = ccipshared.AddValueToNestedMap(state.HybridWithExternalMinterTokenPool, metadata.Symbol, metadata.Version, pool)
 			state.ABIByAddress[address] = hybrid_with_external_minter_token_pool.HybridWithExternalMinterTokenPoolABI
 		case cldf.NewTypeAndVersion(ccipshared.TokenGovernor, deployment.Version1_6_0).String():
 			tokenGovernor, err := token_governor.NewTokenGovernor(common.HexToAddress(address), chain.Client)

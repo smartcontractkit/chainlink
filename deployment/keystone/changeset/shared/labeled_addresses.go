@@ -1,6 +1,8 @@
-package deployment
+package shared
 
-import cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+import (
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+)
 
 // LabeledAddresses is an alias to a map whose keys are contract addresses
 type LabeledAddresses map[string]cldf.TypeAndVersion

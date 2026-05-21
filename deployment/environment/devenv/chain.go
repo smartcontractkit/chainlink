@@ -201,7 +201,7 @@ func NewChains(ctx context.Context, logger logger.Logger, configs []ChainConfig)
 					}
 					blockNumber = receipt.BlockNumber.Uint64()
 					if receipt.Status == 0 {
-						errReason, err := deployment.GetErrorReasonFromTx(ec, chainCfg.DeployerKey.From, tx, receipt)
+						errReason, err := getErrorReasonFromTx(ec, chainCfg.DeployerKey.From, tx, receipt)
 						if err == nil && errReason != "" {
 							return blockNumber, fmt.Errorf("tx %s reverted,error reason: %s chain %s", tx.Hash().Hex(), errReason, chainInfo.ChainName)
 						}

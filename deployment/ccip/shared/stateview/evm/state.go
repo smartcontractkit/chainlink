@@ -1214,10 +1214,10 @@ func validateLatestConfigOffRamp(offRamp offramp.OffRampInterface, cfg offramp.M
 			return fmt.Errorf("offRamp %s config signers count mismatch: expected at least 3, got %d",
 				offRamp.Address().Hex(), len(cfg.Signers))
 		}
-		if !deployment.IsAddressListUnique(cfg.Signers) {
+		if !isAddressListUnique(cfg.Signers) {
 			return fmt.Errorf("offRamp %s config signers list %v is not unique", offRamp.Address().Hex(), cfg.Signers)
 		}
-		if deployment.AddressListContainsEmptyAddress(cfg.Signers) {
+		if addressListContainsEmptyAddress(cfg.Signers) {
 			return fmt.Errorf("offRamp %s config signers list %v contains empty address", offRamp.Address().Hex(), cfg.Signers)
 		}
 	} else if len(cfg.Signers) != 0 {
@@ -1228,10 +1228,10 @@ func validateLatestConfigOffRamp(offRamp offramp.OffRampInterface, cfg offramp.M
 		return fmt.Errorf("offRamp %s config transmitters count mismatch: expected at least 3, got %d",
 			offRamp.Address().Hex(), len(cfg.Transmitters))
 	}
-	if !deployment.IsAddressListUnique(cfg.Transmitters) {
+	if !isAddressListUnique(cfg.Transmitters) {
 		return fmt.Errorf("offRamp %s config transmitters list %v is not unique", offRamp.Address().Hex(), cfg.Transmitters)
 	}
-	if deployment.AddressListContainsEmptyAddress(cfg.Transmitters) {
+	if addressListContainsEmptyAddress(cfg.Transmitters) {
 		return fmt.Errorf("offRamp %s config transmitters list %v contains empty address", offRamp.Address().Hex(), cfg.Transmitters)
 	}
 
