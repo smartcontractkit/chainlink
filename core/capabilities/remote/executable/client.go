@@ -35,9 +35,14 @@ type client struct {
 	lggr          logger.Logger
 
 	requestIDToCallerRequest map[string]*request.ClientRequest
-	mutex                    sync.Mutex
-	stopCh                   services.StopChan
-	wg                       sync.WaitGroup
+	// completedRequestIDs records requestIDs whose Execute has returned, with the completion time.
+	// Late responses (after quorum) routed to Receive look the requestID up here to distinguish an
+	// expected-but-late message from a truly unknown one. Entries are reaped by expireRequests
+	// after cfg.requestTimeout passes.
+	completedRequestIDs map[string]time.Time
+	mutex               sync.Mutex
+	stopCh              services.StopChan
+	wg                  sync.WaitGroup
 }
 
 type dynamicConfig struct {
@@ -74,6 +79,7 @@ func NewClient(capabilityID string, capMethodName string, dispatcher types.Dispa
 		dispatcher:               dispatcher,
 		lggr:                     logger.With(logger.Named(lggr, "ExecutableCapabilityClient"), "capabilityID", capabilityID, "capMethodName", capMethodName),
 		requestIDToCallerRequest: make(map[string]*request.ClientRequest),
+		completedRequestIDs:      make(map[string]time.Time),
 		stopCh:                   make(services.StopChan),
 	}
 }
@@ -204,6 +210,18 @@ func (c *client) expireRequests() {
 			return
 		}
 	}
+
+	// Reap completedRequestIDs entries older than requestTimeout. After requestTimeout has
+	// passed, no late response is expected to arrive for that ID; if one does, it's a true
+	// anomaly and should surface as a Warn from Receive.
+	cfg := c.cfg.Load()
+	if cfg != nil {
+		for id, completedAt := range c.completedRequestIDs {
+			if time.Since(completedAt) > cfg.requestTimeout {
+				delete(c.completedRequestIDs, id)
+			}
+		}
+	}
 }
 
 func (c *client) cancelAllRequests(err error) {
@@ -250,8 +268,11 @@ func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest
 	// (success, response error, ctx cancellation). Without this, the entry only goes away when
 	// expireRequests() reaps it on its ticker, which means any caller (workflow engine step retry,
 	// concurrent call with the same execution ID + reference ID) that re-enters Execute within
-	// that window hits "request for ID ... already exists" from storeRequest above.
-	defer c.deleteRequest(req.ID())
+	// that window hits "request for ID ... already exists" from storeRequest above. The completed
+	// requestID is retained in completedRequestIDs so that late responses (from non-quorum
+	// signers arriving after Execute returns) can be silently dropped instead of flagged as
+	// "unknown message ID" by Receive.
+	defer c.markCompleted(req.ID())
 
 	var respResult []byte
 	var respErr error
@@ -290,14 +311,16 @@ func (c *client) storeRequest(req *request.ClientRequest) error {
 	return nil
 }
 
-// deleteRequest removes a request entry from requestIDToCallerRequest. Called by Execute on exit
-// so the map doesn't retain completed requests until expireRequests() reaps them on its ticker.
-// Safe to call for a request ID that's already been removed (e.g., by expireRequests) — delete
-// on a non-existent key is a no-op.
-func (c *client) deleteRequest(id string) {
+// markCompleted is called by Execute on exit. It removes the request from the active map and
+// records the completion time in completedRequestIDs so Receive can distinguish late post-quorum
+// responses from truly unknown messages. Safe to call for a request ID that's already been
+// removed (e.g., by expireRequests) — delete on a non-existent key is a no-op, and the
+// completedRequestIDs entry is still recorded so late responses for that ID stay quiet.
+func (c *client) markCompleted(id string) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	delete(c.requestIDToCallerRequest, id)
+	c.completedRequestIDs[id] = time.Now()
 }
 
 func (c *client) Receive(ctx context.Context, msg *types.MessageBody) {
@@ -314,6 +337,13 @@ func (c *client) Receive(ctx context.Context, msg *types.MessageBody) {
 
 	req := c.requestIDToCallerRequest[messageID]
 	if req == nil {
+		// Distinguish two cases. If the requestID was recently completed (Execute already
+		// returned), this is an expected late response from a non-quorum signer — drop quietly.
+		// Otherwise it's a truly unknown message ID, which is a real anomaly worth a warning.
+		if _, recentlyCompleted := c.completedRequestIDs[messageID]; recentlyCompleted {
+			c.lggr.Debugw("late response after Execute returned, ignoring", "messageID", messageID)
+			return
+		}
 		c.lggr.Warnw("received response for unknown message ID ", "messageID", messageID)
 		return
 	}
