@@ -167,13 +167,14 @@ func (d *dons) embedOCR3Config(capConfig *capabilitiespb.CapabilityConfig, don d
 
 func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress string, capabilityToOCR3Config map[string]*ocr3.OracleConfig, capabilityToExtraSignerFamilies map[string][]string) cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput {
 	nodes := make([]contracts.NodesInput, 0)
-	donParams := make([]capabilities_registry_v2.CapabilitiesRegistryNewDONParams, len(d.donsOrderedByID()))
+	orderedDons := d.donsOrderedByID()
+	donParams := make([]capabilities_registry_v2.CapabilitiesRegistryNewDONParams, len(orderedDons))
 
 	// Collect unique capabilities and NOPs
 	i := 0
 	capabilityMap := make(map[string]capabilities_registry_v2.CapabilitiesRegistryCapability)
 	nopMap := make(map[string]capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams)
-	for _, don := range d.donsOrderedByID() {
+	for _, don := range orderedDons {
 		// Extract capabilities
 		capIDs := make([]string, 0, len(don.Capabilities))
 		for _, myCap := range don.Capabilities {
