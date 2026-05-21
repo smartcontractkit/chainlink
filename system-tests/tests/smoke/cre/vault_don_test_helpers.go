@@ -85,10 +85,10 @@ func FetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {
 	require.NoError(t, err, "failed to marshal public key request")
 
 	require.Eventually(t, func() bool {
-		statusCode, _ := sendVaultRequestToGateway(t, gatewayURL, requestBody)
+		statusCode, _ := SendVaultRequestToGateway(t, gatewayURL, requestBody)
 		return statusCode == http.StatusOK
 	}, time.Second*120, time.Second*5)
-	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
+	statusCode, httpResponseBody := SendVaultRequestToGateway(t, gatewayURL, requestBody)
 	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
 
 	framework.L.Info().Msg("Checking jsonResponse structure...")
@@ -108,7 +108,7 @@ func FetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {
 	return publicKeyResponse.PublicKey
 }
 
-func mustVaultPublicKey(t *testing.T, publicKey string) *tdh2easy.PublicKey {
+func MustVaultPublicKey(t *testing.T, publicKey string) *tdh2easy.PublicKey {
 	t.Helper()
 
 	publicKeyBytes, err := hex.DecodeString(publicKey)
@@ -121,11 +121,11 @@ func mustVaultPublicKey(t *testing.T, publicKey string) *tdh2easy.PublicKey {
 	return parsed
 }
 
-func sendVaultRequestToGateway(t *testing.T, gatewayURL string, requestBody []byte) (statusCode int, body []byte) {
-	return sendVaultRequestToGatewayWithHeaders(t, gatewayURL, requestBody, nil)
+func SendVaultRequestToGateway(t *testing.T, gatewayURL string, requestBody []byte) (statusCode int, body []byte) {
+	return SendVaultRequestToGatewayWithHeaders(t, gatewayURL, requestBody, nil)
 }
 
-func sendVaultRequestToGatewayWithHeaders(t *testing.T, gatewayURL string, requestBody []byte, headers map[string]string) (statusCode int, body []byte) {
+func SendVaultRequestToGatewayWithHeaders(t *testing.T, gatewayURL string, requestBody []byte, headers map[string]string) (statusCode int, body []byte) {
 	const maxRetries = 7
 	const retryInterval = 2 * time.Second
 
@@ -332,7 +332,7 @@ func newAllowlistVaultRequestAuth(requestOwner string, sethClient *seth.Client, 
 	return vaultRequestAuth{
 		requestOwner: requestOwner,
 		authorize: func(t *testing.T, req *jsonrpc.Request[json.RawMessage]) {
-			allowlistRequest(t, requestOwner, *req, sethClient, wfRegistryContract)
+			AllowlistRequest(t, requestOwner, *req, sethClient, wfRegistryContract)
 		},
 	}
 }
@@ -415,7 +415,7 @@ func sendVaultSignedOCRRequestToGateway(t *testing.T, gatewayURL string, jsonReq
 
 	var jsonResponse jsonrpc.Response[vaulttypes.SignedOCRResponse]
 	require.Eventually(t, func() bool {
-		statusCode, httpResponseBody := sendVaultRequestToGatewayWithHeaders(t, gatewayURL, requestBody, headers)
+		statusCode, httpResponseBody := SendVaultRequestToGatewayWithHeaders(t, gatewayURL, requestBody, headers)
 		if shouldRetryGatewayRequest(statusCode, httpResponseBody) {
 			framework.L.Warn().Msgf("Vault signed OCR request not ready, status=%d body=%s", statusCode, string(httpResponseBody))
 			return false
@@ -525,7 +525,7 @@ func tryJWTSignedVaultSecretsUpdate(t *testing.T, jwtAuth vaultRequestAuth, iden
 	if authToken != "" {
 		headers["Authorization"] = "Bearer " + authToken
 	}
-	statusCode, body := sendVaultRequestToGatewayWithHeaders(t, gatewayURL, requestBody, headers)
+	statusCode, body := SendVaultRequestToGatewayWithHeaders(t, gatewayURL, requestBody, headers)
 	framework.L.Info().Msgf("tryJWTSignedVaultSecretsUpdate HTTP status=%d body=%s", statusCode, string(body))
 }
 
@@ -792,7 +792,7 @@ func sendVaultJWTRequestToGatewayExpectError(t *testing.T, gatewayURL string, js
 		headers["Authorization"] = "Bearer " + authToken
 	}
 
-	statusCode, httpResponseBody := sendVaultRequestToGatewayWithHeaders(t, gatewayURL, requestBody, headers)
+	statusCode, httpResponseBody := SendVaultRequestToGatewayWithHeaders(t, gatewayURL, requestBody, headers)
 	require.Equal(t, wantStatus, statusCode, "Gateway endpoint should respond with the expected error status")
 
 	var jsonResponse jsonrpc.Response[json.RawMessage]
@@ -831,7 +831,7 @@ func executeVaultJWTSecretsCreateUnauthorizedWithExtraClaimsTest(
 	derivedAddr := common.HexToAddress(derived)
 
 	secretID := strconv.Itoa(rand.Intn(10000))
-	encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-jwt-disabled", mustVaultPublicKey(t, vaultPublicKey), derivedAddr)
+	encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-jwt-disabled", MustVaultPublicKey(t, vaultPublicKey), derivedAddr)
 	require.NoError(t, err)
 
 	uniqueRequestID := uuid.New().String()
@@ -1050,7 +1050,7 @@ func updateVaultCapabilityConfigInRegistry(t *testing.T, testEnv *ttypes.TestEnv
 	time.Sleep(15 * time.Second) // registry syncer polls every 12s; one tick + margin
 }
 
-func allowlistRequest(t *testing.T, owner string, request jsonrpc.Request[json.RawMessage], sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
+func AllowlistRequest(t *testing.T, owner string, request jsonrpc.Request[json.RawMessage], sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
 	requestDigest, err := request.Digest()
 	require.NoError(t, err, "failed to get digest for request")
 	requestDigestBytes, err := hex.DecodeString(requestDigest)
