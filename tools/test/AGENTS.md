@@ -3,7 +3,7 @@ A test runner harness for the /chainlink repo.
 <goals>
 - Provide a single, easy command to setup and run tests in /chainlink repo, eliminating `make` command chaining.
 - Enable automatically re-running tests and analyzing results to catch and diagnose flakes and slow tests.
-- Provide an AI skill: `debug-test-failure`: A diagnostic skill for focused, iterative test fixing (under `tools/test/`) capable of analyzing GitHub Actions logs and managing JIRA tickets' lifecycle.
+- Provide an AI skill: `fix-flaky-tests`: A diagnostic skill for focused, iterative test fixing (under `tools/test/`) capable of analyzing GitHub Actions logs and managing JIRA tickets' lifecycle.
 </goals>
 
 <rules>

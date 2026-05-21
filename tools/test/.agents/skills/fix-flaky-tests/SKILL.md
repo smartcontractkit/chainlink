@@ -1,5 +1,5 @@
 ---
-name: debug-test-failure
+name: fix-flaky-tests
 description: >-
   A deep-dive diagnostic tool for fixing Go test failures (flakes, races, timeouts,
   deadlocks) identified during local development or active CI failures.
