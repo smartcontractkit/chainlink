@@ -18950,7 +18950,7 @@ SyncThreshold = 5 # Default
 LeaseDuration = '0s' # Default
 NodeIsSyncingEnabled = false # Default
 FinalizedBlockPollInterval = '5s' # Default
-HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000' # Default
+HistoricalBalanceCheckAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 FinalizedStateCheckFailureThreshold = 0 # Default
 EnforceRepeatableRead = true # Default
 DeathDeclarationDelay = '1m' # Default
@@ -19040,10 +19040,11 @@ Set to 0 to disable.
 
 ### HistoricalBalanceCheckAddress
 ```toml
-HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000' # Default
+HistoricalBalanceCheckAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 ```
-HistoricalBalanceCheckAddress is the probe account used by the historical balance health check.
+HistoricalBalanceCheckAddress is the probe account for the finalized-state availability check.
 The check executes `eth_getBalance` for this address at the latest finalized block.
+If omitted, defaults to the zero address (`0x0000000000000000000000000000000000000000`).
 Finalized block selection follows chain finality settings:
 - `FinalityTagEnabled = true`: use `finalized` tag
 - `FinalityTagEnabled = false`: use `latest - FinalityDepth`
