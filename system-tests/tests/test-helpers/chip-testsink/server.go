@@ -17,6 +17,8 @@ import (
 
 type PublishFn = func(ctx context.Context, event *pb.CloudEvent) (*chippb.PublishResponse, error)
 
+type PublishBatchFn = func(ctx context.Context, batch *chippb.CloudEventBatch) (*chippb.PublishResponse, error)
+
 const listenerReadyTimeout = 5 * time.Second
 
 // Config defines how the test sink listens.
@@ -29,6 +31,10 @@ type Config struct {
 	UpstreamEndpoint string
 
 	PublishFunc PublishFn
+
+	// PublishBatchFunc is called for PublishBatch RPCs when set.
+	// If nil, PublishBatch falls back to calling PublishFunc per event.
+	PublishBatchFunc PublishBatchFn
 
 	// Started optionally receives a signal once the gRPC listener is bound.
 	Started chan<- struct{}
@@ -142,6 +148,10 @@ func (s *Server) PublishBatch(ctx context.Context, batch *chippb.CloudEventBatch
 			log.Printf("failed to forward batch to upstream: %v", err)
 		}
 	}()
+
+	if s.cfg.PublishBatchFunc != nil {
+		return s.cfg.PublishBatchFunc(ctx, batch)
+	}
 
 	for _, event := range batch.Events {
 		if _, err := s.cfg.PublishFunc(ctx, event); err != nil {

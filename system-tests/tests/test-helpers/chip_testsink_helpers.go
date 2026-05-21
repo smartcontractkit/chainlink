@@ -598,17 +598,31 @@ func GetLoggingPublishFn(
 	}
 }
 
+// ChipTestSinkOpt is a functional option for StartChipTestSink.
+type ChipTestSinkOpt func(*chiptestsink.Config)
+
+// WithPublishBatchFunc sets a PublishBatchFunc on the test sink config.
+func WithPublishBatchFunc(fn chiptestsink.PublishBatchFn) ChipTestSinkOpt {
+	return func(cfg *chiptestsink.Config) {
+		cfg.PublishBatchFunc = fn
+	}
+}
+
 // StartChipTestSink boots a per-test CHiP sink on an ephemeral port and registers it with the
 // shared chip ingress router, which owns the default ingress port.
-func StartChipTestSink(t *testing.T, publishFn chiptestsink.PublishFn) ChipSink {
+func StartChipTestSink(t *testing.T, publishFn chiptestsink.PublishFn, opts ...ChipTestSinkOpt) ChipSink {
 	startCh := make(chan struct{}, 1)
 	addrCh := make(chan string, 1)
-	server, sErr := chiptestsink.NewServer(chiptestsink.Config{
+	cfg := chiptestsink.Config{
 		PublishFunc: publishFn,
 		GRPCListen:  "0.0.0.0:0",
 		Started:     startCh,
 		ActualAddr:  addrCh,
-	})
+	}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	server, sErr := chiptestsink.NewServer(cfg)
 	require.NoError(t, sErr, "failed to create new test sink server")
 
 	errCh := make(chan error, 1)
