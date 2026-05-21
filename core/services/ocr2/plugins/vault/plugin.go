@@ -946,11 +946,6 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 				EncryptionKey: pk,
 				BinaryShares:  [][]byte{encShare},
 			})
-			r.lggr.Infow("VAULT_GET_SECRETS_BINARY_SHARES_ENCODED",
-				"secretKey", secretRequest.Id.GetKey(),
-				"secretNamespace", secretRequest.Id.GetNamespace(),
-				"encryptionKey", pk,
-			)
 		} else {
 			shares = append(shares, &vaultcommon.EncryptedShares{
 				EncryptionKey: pk,

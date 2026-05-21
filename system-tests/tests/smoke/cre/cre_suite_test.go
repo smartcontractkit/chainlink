@@ -3,6 +3,7 @@ package cre
 import (
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -82,7 +83,8 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 		})
 	case suite_config.SuiteScenarioVaultDON:
 		t.Run("Vault DON - "+topology, func(t *testing.T) {
-			if parallelEnabled {
+			isJWTTopology := topology != "" && strings.Contains(topology, "jwt")
+			if parallelEnabled && !isJWTTopology {
 				t.Parallel()
 			}
 			allowlistSubtestName := "allowlist_auth_when_jwt_auth_disabled"
@@ -97,30 +99,24 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 				allowlistSubtestName = "allowlist_auth_when_vault_optimizations_enabled"
 			}
 			fixture := setupVaultSharedScenarioFixture(t, vaultConfig)
-			allowlistEnv := fixture.TestEnv
-			jwtEnv := fixture.TestEnv
-			if parallelEnabled && isVaultJWTAuthEnabledTopology(topology) {
-				allowlistEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
-				jwtEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
-			}
 
 			t.Run(allowlistSubtestName, func(t *testing.T) {
-				if parallelEnabled {
+				if parallelEnabled && !isJWTTopology {
 					t.Parallel()
 				}
-				ExecuteVaultAllowListBasedTests(t, fixture, allowlistEnv)
+				ExecuteVaultAllowListBasedTests(t, fixture, fixture.TestEnv)
 			})
 			if isVaultJWTAuthEnabledTopology(topology) {
 				t.Run(jwtSubtestName, func(t *testing.T) {
-					if parallelEnabled {
+					if parallelEnabled && !isJWTTopology {
 						t.Parallel()
 					}
-					ExecuteVaultMixedAuthTest(t, fixture, jwtEnv)
+					ExecuteVaultMixedAuthTest(t, fixture, fixture.TestEnv)
 				})
 				return
 			}
 			t.Run(jwtSubtestName, func(t *testing.T) {
-				if parallelEnabled {
+				if parallelEnabled && !isJWTTopology {
 					t.Parallel()
 				}
 				ExecuteVaultJWTDisabledTest(t, fixture)
