@@ -563,6 +563,9 @@ NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
 
+[EVM.NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
+
 [EVM.OCR]
 ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
