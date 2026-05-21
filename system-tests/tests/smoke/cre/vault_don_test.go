@@ -62,6 +62,7 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
 		workflowOwnerAddress := sc.MustGetRootKeyAddress()
 		owner := workflowOwnerAddress.Hex()
+		expectedResponseOwner := owner
 		var orgID string
 		if linkingService != nil {
 			orgID = "org" + strings.ReplaceAll(uuid.NewString(), "-", "")
@@ -375,17 +376,9 @@ func ExecuteVaultBlobBatchingSmokeTest(t *testing.T, fixture *vaultScenarioFixtu
 	workflowOwnerAddress := sc.MustGetRootKeyAddress()
 	owner := workflowOwnerAddress.Hex()
 	expectedResponseOwner := owner
-	orgID := ""
-	orgIDAsSecretOwnerEnabled := isVaultJWTAuthEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath)
 	if linkingService != nil {
-		orgID = "org" + strings.ReplaceAll(uuid.NewString(), "-", "")
+		orgID := "org" + strings.ReplaceAll(uuid.NewString(), "-", "")
 		linkingService.SetOwnerOrg(owner, orgID)
-		if orgIDAsSecretOwnerEnabled {
-			expectedResponseOwner = orgID
-		}
-	}
-	if orgIDAsSecretOwnerEnabled {
-		require.NotEmpty(t, orgID, "JWT auth enabled topology must link the workflow owner to an org ID")
 	}
 
 	wfRegAddr := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
@@ -668,12 +661,11 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 			wantLinking: false,
 		},
 		{
-			name:                   "optimizations_enabled",
-			configPath:             vaultOptimizationsEnabledConfigPath,
-			wantJWTGate:            "false",
-			wantOrgGate:            "false",
-			wantLinking:            false,
-			wantOptimizationsGate:  "true",
+			name:                  "optimizations_enabled",
+			configPath:            vaultOptimizationsEnabledConfigPath,
+			wantJWTGate:           "false",
+			wantLinking:           false,
+			wantOptimizationsGate: "true",
 		},
 	}
 

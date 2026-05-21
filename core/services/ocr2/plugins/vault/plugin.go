@@ -680,7 +680,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	obspb.SortNonce = nonce
 
 	// Observe store-backed pending queue items after local-queue blob broadcast so blob wire size is known first.
-	observedIDs := r.appendPendingQueueObservations(ctx, seqNr, wrappedReadStore, currentPendingQueueItems, obspb, optimizations)
+	observedIDs := r.appendPendingQueueObservations(ctx, seqNr, readKV, currentPendingQueueItems, obspb, optimizations)
 	if optimizations && len(currentPendingQueueItems) > 0 && len(obspb.Observations) < len(currentPendingQueueItems) {
 		r.lggr.Infow("VAULT_OCR_OBSERVATION_WIRE_PACK",
 			"seqNr", seqNr,
@@ -706,7 +706,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 func (r *ReportingPlugin) appendPendingQueueObservations(
 	ctx context.Context,
 	seqNr uint64,
-	store *KVStoreWrapper,
+	store *KVStore,
 	currentPendingQueueItems []*vaultcommon.StoredPendingQueueItem,
 	obspb *vaultcommon.Observations,
 	applyWireCap bool,
@@ -725,15 +725,15 @@ func (r *ReportingPlugin) appendPendingQueueObservations(
 
 		switch tp := payload.(type) {
 		case *vaultcommon.GetSecretsRequest:
-			r.observeGetSecrets(ctx, store.WithRequest(tp.OrgId, tp.WorkflowOwner), tp, o)
+			r.observeGetSecrets(ctx, store, tp, o)
 		case *vaultcommon.CreateSecretsRequest:
-			r.observeCreateSecrets(ctx, store.WithRequest(tp.OrgId, tp.WorkflowOwner), tp, o)
+			r.observeCreateSecrets(ctx, store, tp, o)
 		case *vaultcommon.UpdateSecretsRequest:
-			r.observeUpdateSecrets(ctx, store.WithRequest(tp.OrgId, tp.WorkflowOwner), tp, o)
+			r.observeUpdateSecrets(ctx, store, tp, o)
 		case *vaultcommon.DeleteSecretsRequest:
-			r.observeDeleteSecrets(ctx, store.WithRequest(tp.OrgId, tp.WorkflowOwner), tp, o)
+			r.observeDeleteSecrets(ctx, store, tp, o)
 		case *vaultcommon.ListSecretIdentifiersRequest:
-			r.observeListSecretIdentifiers(ctx, store.WithRequest(tp.OrgId, tp.WorkflowOwner), tp, o)
+			r.observeListSecretIdentifiers(ctx, store, tp, o)
 		default:
 			r.lggr.Errorw("unknown request type, skipping...", "requestType", fmt.Sprintf("%T", payload), "id", req.Id)
 			continue
@@ -1963,6 +1963,7 @@ func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, chosen 
 			Requests: newReqs,
 		},
 	}
+}
 
 	// Next, we deal with the responses.
 	// For each request, we take the Id of the first observation
@@ -2067,6 +2068,7 @@ func (r *ReportingPlugin) stateTransitionCreateSecrets(ctx context.Context, stor
 			EncryptedSecrets: newReqs,
 		},
 	}
+}
 
 	// Next let's aggregate the responses.
 	// We do this by taking the first response, and determine if
@@ -2186,6 +2188,7 @@ func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, stor
 			EncryptedSecrets: newReqs,
 		},
 	}
+}
 
 	// Next let's aggregate the responses.
 	// We do this by taking the first response, and determine if
@@ -2289,6 +2292,7 @@ func (r *ReportingPlugin) stateTransitionDeleteSecrets(ctx context.Context, stor
 			Ids:       newReqs,
 		},
 	}
+}
 
 	// Next let's aggregate the responses.
 	// We do this by taking the first response, and determine if

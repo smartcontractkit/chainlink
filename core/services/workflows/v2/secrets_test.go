@@ -6,13 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest/observer"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -335,7 +332,7 @@ func TestSecretsFetcher_DecryptsBinaryShares(t *testing.T) {
 		lggr,
 		limits.WorkflowResourcePoolLimiter[int](5),
 		limits.NewUpperBoundLimiter[int](5),
-		testVaultOrgIDAsSecretOwnerGate(t, false),
+		nil,
 		"",
 		owner,
 		"workflowName",
