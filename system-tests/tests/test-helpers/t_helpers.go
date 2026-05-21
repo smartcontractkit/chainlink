@@ -32,6 +32,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/Masterminds/semver/v3"
 	"github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum/common"
@@ -77,6 +79,9 @@ import (
 
 const WorkflowEngineInitErrorLog = "Workflow Engine initialization failed"
 const maxWorkflowNameLen = 64
+
+// defaultDeployMaxParallel is used when CRE_TEST_DEPLOY_MAX_PARALLEL is unset or invalid.
+const defaultDeployMaxParallel = 20
 
 var deleteWorkflowsMu sync.Mutex
 
@@ -341,7 +346,7 @@ type WorkflowRegistrationConfig struct {
 Creates the necessary workflow artifacts based on WorkflowConfig:
  1. Configuration for a workflow (or no config if typed nil is passed for workflowConfig);
  2. Compiled and compressed workflow WASM file;
- 3. Copies the workflow artifacts to the Docker containers
+ 3. Optionally copies the workflow artifacts to the Docker containers when copyToDocker is true.
 
 It returns the paths to:
  1. the compressed WASM file;
@@ -580,32 +585,42 @@ func registerWorkflow(ctx context.Context, t *testing.T,
 		)
 	})
 
-	donID := wfRegCfg.DonID
-	workflowName := wfRegCfg.WorkflowName
+	workflowID, registerErr := registerWorkflowErr(ctx, wfRegCfg, sethClient)
+	require.NoError(t, registerErr, "failed to register workflow '%s'", wfRegCfg.WorkflowName)
+	testLogger.Info().Msgf("Workflow registered successfully: '%s'", workflowID)
+	return workflowID
+}
+
+// registerWorkflowErr registers a workflow on-chain without test cleanup or require.
+func registerWorkflowErr(ctx context.Context, wfRegCfg *WorkflowRegistrationConfig, sethClient *seth.Client) (string, error) {
+	var configURL *string
+	if wfRegCfg.ConfigFilePath != "" {
+		u := "file://" + wfRegCfg.ConfigFilePath
+		configURL = &u
+	}
 	binaryURL := "file://" + wfRegCfg.CompressedWasmPath
-	configURL := new("file://" + wfRegCfg.ConfigFilePath)
 	containerTargetDir := &wfRegCfg.ContainerTargetDir
 
-	if wfRegCfg.ConfigFilePath == "" {
-		configURL = nil
-	}
-
-	workflowID, registerErr := creworkflow.RegisterWithContract(
+	return creworkflow.RegisterWithContract(
 		ctx,
 		sethClient,
 		wfRegCfg.WorkflowRegistryAddr,
 		wfRegCfg.WorkflowRegistryVersion,
-		donID,
-		workflowName,
+		wfRegCfg.DonID,
+		wfRegCfg.WorkflowName,
 		binaryURL,
 		configURL,
 		nil, // no secrets yet
 		wfRegCfg.Attributes,
 		containerTargetDir,
 	)
-	require.NoError(t, registerErr, "failed to register workflow '%s'", wfRegCfg.WorkflowName)
-	testLogger.Info().Msgf("Workflow registered successfully: '%s'", workflowID)
-	return workflowID
+}
+
+type workflowCleanupEntry struct {
+	name       string
+	configPath string
+	wasmPath   string
+	sethClient *seth.Client
 }
 
 /*
@@ -654,6 +669,71 @@ func deleteWorkflows(
 	testLogger.Info().Msgf("Workflow '%s' deleted successfully from the registry.", uniqueWorkflowName)
 }
 
+// deleteWorkflowUnsafe is the NTimes-only counterpart to deleteWorkflows: same local + registry
+// teardown and retry policy, but no deleteWorkflowsMu so independent deploy keys can delete in parallel.
+func deleteWorkflowUnsafe(
+	ctx context.Context,
+	uniqueWorkflowName string,
+	workflowConfigFilePath string,
+	compressedWorkflowWasmPath string,
+	workflowRegistryAddress common.Address,
+	version *semver.Version,
+	sethClient *seth.Client,
+) error {
+	testLogger := framework.L
+	testLogger.Info().Msgf("Deleting workflow artifacts (%s) after test.", uniqueWorkflowName)
+	if localEnvErr := creworkflow.RemoveWorkflowArtifactsFromLocalEnv(workflowConfigFilePath, compressedWorkflowWasmPath); localEnvErr != nil {
+		return errors.Wrap(localEnvErr, "failed to remove workflow artifacts from local environment")
+	}
+
+	retryErr := retry.Do(func() error {
+		return creworkflow.DeleteWithContract(ctx, sethClient, workflowRegistryAddress, version, uniqueWorkflowName)
+	}, retry.Attempts(3), retry.Delay(1*time.Second), retry.DelayType(retry.BackOffDelay), retry.RetryIf(func(err error) bool {
+		return strings.Contains(err.Error(), "ReentrancySentryOOG")
+	}), retry.OnRetry(func(n uint, err error) {
+		testLogger.Error().Msgf("Error deleting workflow '%s': %s", uniqueWorkflowName, err.Error())
+	}))
+	if retryErr != nil {
+		return errors.Wrapf(retryErr, "failed to delete workflow '%s' from registry", uniqueWorkflowName)
+	}
+	testLogger.Info().Msgf("Workflow '%s' deleted successfully from the registry.", uniqueWorkflowName)
+	return nil
+}
+
+// deleteWorkflowsNTimesCleanup deletes workflows registered by CompileAndDeployWorkflowNTimes.
+// Parallel across deploy keys (one goroutine per key, matching registration); serial within each key
+// to avoid nonce collisions on the same Seth client.
+func deleteWorkflowsNTimesCleanup(
+	t *testing.T,
+	byKey [][]workflowCleanupEntry,
+	workflowRegistryAddress common.Address,
+	version *semver.Version,
+) {
+	t.Helper()
+	if len(byKey) == 0 {
+		return
+	}
+
+	var eg errgroup.Group
+	eg.SetLimit(deployMaxParallel())
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	for _, entries := range byKey {
+		if len(entries) == 0 {
+			continue
+		}
+		eg.Go(func() error {
+			for _, e := range entries {
+				if err := deleteWorkflowUnsafe(ctx, e.name, e.configPath, e.wasmPath, workflowRegistryAddress, version, e.sethClient); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+	require.NoError(t, eg.Wait(), "parallel workflow cleanup")
+}
+
 func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	testEnv *ttypes.TestEnvironment, testLogger zerolog.Logger, workflowName string,
 	workflowConfig *T, workflowFileLocation string,
@@ -697,6 +777,196 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
 	workflowID := registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient, testLogger)
 	return workflowID
+}
+
+// deployMaxParallel returns CRE_TEST_DEPLOY_MAX_PARALLEL or defaultDeployMaxParallel when unset or invalid.
+func deployMaxParallel() int {
+	v := strings.TrimSpace(os.Getenv("CRE_TEST_DEPLOY_MAX_PARALLEL"))
+	if v == "" {
+		return defaultDeployMaxParallel
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 1 {
+		return defaultDeployMaxParallel
+	}
+	return n
+}
+
+// CompileAndDeployWorkflowNTimes compiles the workflow once, provisions numKeys funded signers via
+// ConfigureAdditionalWorkflowSigners (no CLDF / blockchain swap on testEnv), then registers numDeployments
+// workflows in parallel across keys (serial per key to avoid nonce collisions). Each deployment uses a
+// distinct compressed WASM file on disk (duplicated from the single build). For multiple deployments, all
+// artifacts are packed into one tar archive per DON, copied once, and extracted with GNU tar in the container
+// (no unzip). On-chain registration parallelism uses CRE_TEST_DEPLOY_MAX_PARALLEL.
+func CompileAndDeployWorkflowNTimes[T WorkflowConfig](t *testing.T,
+	testEnv *ttypes.TestEnvironment, testLogger zerolog.Logger,
+	workflowNameFn func(i int) string,
+	workflowConfigFn func(i int) *T,
+	workflowFileLocation string,
+	numDeployments, numKeys int,
+	opts ...CompileAndDeployWorkflowOpt,
+) []string {
+	t.Helper()
+	require.Greater(t, numDeployments, 0, "numDeployments must be positive")
+	require.Greater(t, numKeys, 0, "numKeys must be positive")
+
+	name0 := workflowNameFn(0)
+	require.GreaterOrEqual(t, len(name0), 10, "workflow name for compile must be at least 10 characters")
+
+	cfg := compileAndDeployWorkflowCfg{
+		artifactCopyDONTypes: []cre.CapabilityFlag{cre.WorkflowDON},
+	}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	testLogger.Info().
+		Int("num_deployments", numDeployments).
+		Int("num_keys", numKeys).
+		Int("max_parallel", deployMaxParallel()).
+		Str("workflow_file_location", workflowFileLocation).
+		Msg("compiling once and registering multiple workflows")
+
+	sharedEnv := getOrCreateSharedEnvironment(t, testEnv.TestConfig)
+	if testEnv.Execution == nil {
+		testEnv.Execution = &ttypes.ExecutionContext{}
+	}
+	if testEnv.Execution.TestID == "" {
+		testEnv.Execution.TestID = deriveExecutionTestID(t)
+	}
+
+	deployKeys := ConfigureAdditionalWorkflowSigners(t, sharedEnv, testEnv, numKeys)
+	require.Len(t, deployKeys, numKeys, "deploy keys count must match numKeys")
+
+	artifactDir := workflowArtifactsDir(t, testEnv)
+	registryChainSelector := testEnv.CreEnvironment.Blockchains[0].ChainSelector()
+	workflowDONs := selectArtifactTargetDONs(testEnv, cfg.artifactCopyDONTypes)
+
+	var firstCfg *T
+	if workflowConfigFn != nil {
+		firstCfg = workflowConfigFn(0)
+	}
+	configPathFirst := workflowConfigFactory(t, testLogger, name0, firstCfg, artifactDir)
+	compressedWasmPath, compileErr := creworkflow.CompileWorkflowToDir(t.Context(), workflowFileLocation, name0, artifactDir)
+	require.NoError(t, compileErr, "failed to compile workflow '%s'", workflowFileLocation)
+	testLogger.Info().Msg("Workflow compiled successfully.")
+	require.NotEmpty(t, compressedWasmPath, "failed to find workflow DON in the topology")
+
+	wasmBytes, readWasmErr := os.ReadFile(compressedWasmPath)
+	require.NoError(t, readWasmErr, "failed to read compiled workflow wasm artifact")
+
+	wasmPaths := make([]string, numDeployments)
+	wasmPaths[0] = compressedWasmPath
+	for i := 1; i < numDeployments; i++ {
+		name := workflowNameFn(i)
+		dst := filepath.Join(artifactDir, name+".br.b64")
+		writeErr := os.WriteFile(dst, wasmBytes, 0o644) //nolint:gosec // G306: test-generated artifact
+		require.NoError(t, writeErr, "failed to write per-workflow wasm copy for %q", name)
+		absDst, absErr := filepath.Abs(dst)
+		require.NoError(t, absErr, "failed to resolve wasm path for %q", name)
+		wasmPaths[i] = absDst
+	}
+
+	configPaths := make([]string, numDeployments)
+	configPaths[0] = configPathFirst
+	if workflowConfigFn != nil {
+		for i := 1; i < numDeployments; i++ {
+			cfgAtI := workflowConfigFn(i)
+			if cfgAtI == nil {
+				continue
+			}
+			configPaths[i] = workflowConfigFactory(t, testLogger, workflowNameFn(i), cfgAtI, artifactDir)
+		}
+	}
+
+	if numDeployments == 1 {
+		testLogger.Info().Msg("Copying workflow artifacts to Docker containers.")
+		for _, don := range workflowDONs {
+			copyErr := creworkflow.CopyArtifactsToDockerContainers(creworkflow.DefaultWorkflowTargetDir, ns.NodeNamePrefix(don.Name), wasmPaths[0], configPathFirst)
+			require.NoError(t, copyErr, "failed to copy workflow artifacts to docker containers")
+		}
+		testLogger.Info().Msg("Workflow artifacts successfully copied to the Docker containers.")
+	} else {
+		pathsForTar := make([]string, 0, numDeployments*2)
+		for i := 0; i < numDeployments; i++ {
+			pathsForTar = append(pathsForTar, wasmPaths[i])
+			if configPaths[i] != "" {
+				pathsForTar = append(pathsForTar, configPaths[i])
+			}
+		}
+		bundlePath := filepath.Join(artifactDir, "workflow-artifacts-bundle.tar")
+		tarErr := creworkflow.WriteArtifactTarball(bundlePath, pathsForTar)
+		require.NoError(t, tarErr, "failed to write workflow artifact tarball")
+		testLogger.Info().Str("bundle", bundlePath).Int("files", len(pathsForTar)).Msg("Copying workflow artifact tarball to DONs")
+		for _, don := range workflowDONs {
+			copyErr := creworkflow.CopyAndExtractTarballToDockerContainers(
+				creworkflow.DefaultWorkflowTargetDir,
+				ns.NodeNamePrefix(don.Name),
+				bundlePath,
+			)
+			require.NoError(t, copyErr, "failed to copy and extract artifact tarball for DON %q", don.Name)
+		}
+	}
+
+	workflowRegistryAddress := crecontracts.MustGetAddressRefFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
+
+	donID := testEnv.Dons.MustWorkflowDON().ID
+	registryAddr := common.HexToAddress(workflowRegistryAddress.Address)
+	registryVersion := workflowRegistryAddress.Version
+
+	ids := make([]string, numDeployments)
+	cleanupByKey := make([][]workflowCleanupEntry, numKeys)
+	var eg errgroup.Group
+	eg.SetLimit(deployMaxParallel())
+	ctx := t.Context()
+
+	for keyIdx := 0; keyIdx < numKeys; keyIdx++ {
+		keyIdx := keyIdx
+		eg.Go(func() error {
+			sc := deployKeys[keyIdx].RegistryClient
+			for i := keyIdx; i < numDeployments; i += numKeys {
+				name := workflowNameFn(i)
+				configPath := configPaths[i]
+
+				wfRegCfg := &WorkflowRegistrationConfig{
+					WorkflowName:            name,
+					WorkflowLocation:        workflowFileLocation,
+					ConfigFilePath:          configPath,
+					CompressedWasmPath:      wasmPaths[i],
+					WorkflowRegistryAddr:    registryAddr,
+					WorkflowRegistryVersion: registryVersion,
+					ChainID:                 registryChainSelector,
+					DonID:                   donID,
+					ContainerTargetDir:      creworkflow.DefaultWorkflowTargetDir,
+					SethClient:              sc,
+					Attributes:              cfg.attributes,
+				}
+
+				workflowID, regErr := registerWorkflowErr(ctx, wfRegCfg, sc)
+				if regErr != nil {
+					return fmt.Errorf("register workflow %q (index %d): %w", name, i, regErr)
+				}
+
+				cleanupByKey[keyIdx] = append(cleanupByKey[keyIdx], workflowCleanupEntry{
+					name:       name,
+					configPath: configPath,
+					wasmPath:   wasmPaths[i],
+					sethClient: sc,
+				})
+
+				ids[i] = workflowID
+				testLogger.Info().Str("workflow_id", workflowID).Str("workflow_name", name).Int("index", i).Msg("Workflow registered successfully")
+			}
+			return nil
+		})
+	}
+
+	require.NoError(t, eg.Wait(), "parallel workflow registration")
+	t.Cleanup(func() {
+		deleteWorkflowsNTimesCleanup(t, cleanupByKey, registryAddr, registryVersion)
+	})
+	return ids
 }
 
 type compileAndDeployWorkflowCfg struct {

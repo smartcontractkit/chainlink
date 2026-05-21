@@ -40,7 +40,6 @@ const (
 	defaultMetricStep       = 1 * time.Minute
 	cachePrometheusRange    = "5m" // increase() window; align with defaultMetricStep
 	soakProgressLogInterval = 5 * time.Minute
-	deployProgressInterval  = 25
 
 	// One of every cacheSoakSchedulePeriod workflows uses slowCronInterval (~1/3 idle-eviction tier).
 	cacheSoakSchedulePeriod = 3
@@ -57,7 +56,6 @@ var (
 )
 
 // Cron timing (below) keeps cap vs idle eviction visible in 5m Prometheus buckets; schedules are staggered.
-
 func Test_V2_CRE_CacheSoak(t *testing.T) {
 	numWorkflows := _defaultSoakNumWorkflows
 	if os.Getenv("CRE_SOAK_NUM_WORKFLOWS") != "" {
@@ -67,6 +65,8 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 			t.Fatalf("failed to parse CRE_SOAK_NUM_WORKFLOWS: %v", err)
 		}
 	}
+
+	os.Setenv("CRE_SOAK_DURATION", "5m")
 
 	soakDuration := parseDuration(os.Getenv("CRE_SOAK_DURATION"), defaultSoakDuration)
 
@@ -92,16 +92,16 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 		Int("target_workflows", numWorkflows).
 		Int("target_loaded_mib", moduleCacheMaxLoaded*(_workflowModuleMiB+_workflowEngineOverheadMiB)).
 		Msg("Deploying cache soak workflows")
-	for i := range numWorkflows {
-		workflowConfig := crontypes.WorkflowConfig{
-			Schedule: cacheSoakWorkflowSchedule(i),
-		}
-		t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, fmt.Sprintf("cachetest%d", i), &workflowConfig, workflowFileLocation)
-		if (i+1)%deployProgressInterval == 0 || i+1 == numWorkflows {
-			testLogger.Info().Int("deployed", i+1).Int("total", numWorkflows).Msg("Cache soak deploy progress")
-		}
-	}
-	testLogger.Info().Int("count", numWorkflows).Msg("All cache-test workflows deployed")
+	workflowIDs := t_helpers.CompileAndDeployWorkflowNTimes(t, testEnv, testLogger,
+		func(i int) string { return fmt.Sprintf("cachetest%d", i) },
+		func(i int) *crontypes.WorkflowConfig {
+			return &crontypes.WorkflowConfig{Schedule: cacheSoakWorkflowSchedule(i)}
+		},
+		workflowFileLocation,
+		numWorkflows,
+		20,
+	)
+	testLogger.Info().Int("count", len(workflowIDs)).Msg("All cache-test workflows deployed")
 	nodeContainers := t_helpers.SnapshotNodeContainerRestarts(t, testEnv)
 	startTime := time.Now()
 
@@ -111,10 +111,10 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 	t_helpers.AssertNodeLogs(t, testEnv, "Module cache enabled")
 
 	testLogger.Info().
-		Dur("duration", soakDuration).
-		Dur("fast_interval", fastCronInterval).
-		Dur("slow_interval", slowCronInterval).
-		Dur("idle_timeout", moduleCacheIdleTimeout).
+		Float64("duration_minutes", soakDuration.Minutes()).
+		Float64("fast_interval_seconds", fastCronInterval.Seconds()).
+		Float64("slow_interval_seconds", slowCronInterval.Seconds()).
+		Float64("idle_timeout_seconds", moduleCacheIdleTimeout.Seconds()).
 		Int("workflows", numWorkflows).
 		Msg("Observing cache activity")
 	observeUntil := time.Now().Add(soakDuration)
