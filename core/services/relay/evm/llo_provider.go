@@ -35,7 +35,7 @@ import (
 	llotransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/bm"
 	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
+	"github.com/smartcontractkit/chainlink-evm/pkg/llo/channeldefinitions"
 )
 
 var _ commontypes.LLOProvider = (*lloProvider)(nil)
