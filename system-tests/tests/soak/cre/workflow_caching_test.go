@@ -43,6 +43,8 @@ const (
 
 	// One of every cacheSoakSchedulePeriod workflows uses slowCronInterval (~1/3 idle-eviction tier).
 	cacheSoakSchedulePeriod = 3
+
+	numberOfDeploymentKeys = 20
 )
 
 var (
@@ -66,6 +68,7 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 		}
 	}
 
+	// TODO: remove after testing
 	os.Setenv("CRE_SOAK_DURATION", "5m")
 
 	soakDuration := parseDuration(os.Getenv("CRE_SOAK_DURATION"), defaultSoakDuration)
@@ -99,13 +102,17 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 		},
 		workflowFileLocation,
 		numWorkflows,
-		20,
+		numberOfDeploymentKeys,
 	)
 	testLogger.Info().Int("count", len(workflowIDs)).Msg("All cache-test workflows deployed")
 	nodeContainers := t_helpers.SnapshotNodeContainerRestarts(t, testEnv)
 	startTime := time.Now()
 
-	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, "Amazing workflow user log", 2*time.Minute)
+	timeout := 2 * time.Minute
+	testLogger.Info().
+		Float64("timeout_minutes", timeout.Minutes()).
+		Msg("Waiting for first workflow execution...")
+	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, "Amazing workflow user log", timeout)
 	testLogger.Info().Dur("duration", soakDuration).Msg("First workflow execution confirmed, running cache soak...")
 
 	t_helpers.AssertNodeLogs(t, testEnv, "Module cache enabled")

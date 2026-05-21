@@ -255,7 +255,7 @@ func configurePerTestExecutionContext(t *testing.T, sharedEnv *ttypes.TestEnviro
 // blockchains or CLDF (use configurePerTestExecutionContext when the test should own the env with one signer).
 func ConfigureAdditionalWorkflowSigners(t *testing.T, sharedEnv *ttypes.TestEnvironment, testEnv *ttypes.TestEnvironment, numSigners int) []ttypes.PerTestDeployKey {
 	t.Helper()
-	require.Greater(t, numSigners, 0, "numSigners must be at least 1")
+	require.Positive(t, numSigners, "numSigners must be at least 1")
 
 	registryChainSelector := testEnv.CreEnvironment.Blockchains[0].ChainSelector()
 	rootEVMChains := make(map[uint64]*evm.Blockchain)
