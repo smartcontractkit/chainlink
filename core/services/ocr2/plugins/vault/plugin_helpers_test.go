@@ -77,7 +77,6 @@ func withVaultOptimizationsEnabled() testPluginOption {
 	return func(o *testPluginBuildOpts) { o.vaultOptimizationsEnabled = true }
 }
 
-
 func withOnchainCfg(n int, f int) testPluginOption {
 	return func(o *testPluginBuildOpts) {
 		o.onchainCfg = ocr3types.ReportingPluginConfig{N: n, F: f}

@@ -572,7 +572,6 @@ func (r *ReportingPlugin) optimizationsEnabled(ctx context.Context) bool {
 	return gateAllows(ctx, r.lggr, r.cfg.VaultOptimizationsEnabled, "VaultOptimizationsEnabled")
 }
 
-
 type pendingQueueStore interface {
 	WritePendingQueue(ctx context.Context, pending []*vaultcommon.StoredPendingQueueItem) error
 }
@@ -1782,7 +1781,7 @@ outcomePackLoop:
 		case vaultcommon.RequestType_GET_SECRETS:
 			r.stateTransitionGetSecrets(ctx, chosen, o)
 		case vaultcommon.RequestType_CREATE_SECRETS:
-		  r.stateTransitionCreateSecrets(ctx, writeKV, chosen, o)
+			r.stateTransitionCreateSecrets(ctx, writeKV, chosen, o)
 		case vaultcommon.RequestType_UPDATE_SECRETS:
 			r.stateTransitionUpdateSecrets(ctx, writeKV, chosen, o)
 		case vaultcommon.RequestType_DELETE_SECRETS:
@@ -1953,17 +1952,17 @@ func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, chosen 
 			idToReqs[vaulttypes.KeyFor(req.Id)] = req
 		}
 
-		newReqs := []*vaultcommon.SecretRequest{}
+		newReqs := make([]*vaultcommon.SecretRequest, 0, len(idToReqs))
 		for _, sreq := range slices.Sorted(maps.Keys(idToReqs)) {
 			newReqs = append(newReqs, idToReqs[sreq])
 		}
 
-	o.Request = &vaultcommon.Outcome_GetSecretsRequest{
-		GetSecretsRequest: &vaultcommon.GetSecretsRequest{
-			Requests: newReqs,
-		},
+		o.Request = &vaultcommon.Outcome_GetSecretsRequest{
+			GetSecretsRequest: &vaultcommon.GetSecretsRequest{
+				Requests: newReqs,
+			},
+		}
 	}
-}
 
 	// Next, we deal with the responses.
 	// For each request, we take the Id of the first observation
@@ -2057,18 +2056,18 @@ func (r *ReportingPlugin) stateTransitionCreateSecrets(ctx context.Context, stor
 	}
 
 	if !r.optimizationsEnabled(ctx) {
-		newReqs := []*vaultcommon.EncryptedSecret{}
+		newReqs := make([]*vaultcommon.EncryptedSecret, 0, len(idToReqs))
 		for _, sreq := range slices.Sorted(maps.Keys(idToReqs)) {
 			newReqs = append(newReqs, idToReqs[sreq])
 		}
 
-	o.Request = &vaultcommon.Outcome_CreateSecretsRequest{
-		CreateSecretsRequest: &vaultcommon.CreateSecretsRequest{
-			RequestId:        reqID,
-			EncryptedSecrets: newReqs,
-		},
+		o.Request = &vaultcommon.Outcome_CreateSecretsRequest{
+			CreateSecretsRequest: &vaultcommon.CreateSecretsRequest{
+				RequestId:        reqID,
+				EncryptedSecrets: newReqs,
+			},
+		}
 	}
-}
 
 	// Next let's aggregate the responses.
 	// We do this by taking the first response, and determine if
@@ -2177,18 +2176,18 @@ func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, stor
 	}
 
 	if !r.optimizationsEnabled(ctx) {
-		newReqs := []*vaultcommon.EncryptedSecret{}
+		newReqs := make([]*vaultcommon.EncryptedSecret, 0, len(idToReqs))
 		for _, sreq := range slices.Sorted(maps.Keys(idToReqs)) {
 			newReqs = append(newReqs, idToReqs[sreq])
 		}
 
-	o.Request = &vaultcommon.Outcome_UpdateSecretsRequest{
-		UpdateSecretsRequest: &vaultcommon.UpdateSecretsRequest{
-			RequestId:        reqID,
-			EncryptedSecrets: newReqs,
-		},
+		o.Request = &vaultcommon.Outcome_UpdateSecretsRequest{
+			UpdateSecretsRequest: &vaultcommon.UpdateSecretsRequest{
+				RequestId:        reqID,
+				EncryptedSecrets: newReqs,
+			},
+		}
 	}
-}
 
 	// Next let's aggregate the responses.
 	// We do this by taking the first response, and determine if
@@ -2281,18 +2280,18 @@ func (r *ReportingPlugin) stateTransitionDeleteSecrets(ctx context.Context, stor
 	}
 
 	if !r.optimizationsEnabled(ctx) {
-		newReqs := []*vaultcommon.SecretIdentifier{}
+		newReqs := make([]*vaultcommon.SecretIdentifier, 0, len(idToReqs))
 		for _, sreq := range slices.Sorted(maps.Keys(idToReqs)) {
 			newReqs = append(newReqs, idToReqs[sreq])
 		}
 
-	o.Request = &vaultcommon.Outcome_DeleteSecretsRequest{
-		DeleteSecretsRequest: &vaultcommon.DeleteSecretsRequest{
-			RequestId: reqID,
-			Ids:       newReqs,
-		},
+		o.Request = &vaultcommon.Outcome_DeleteSecretsRequest{
+			DeleteSecretsRequest: &vaultcommon.DeleteSecretsRequest{
+				RequestId: reqID,
+				Ids:       newReqs,
+			},
+		}
 	}
-}
 
 	// Next let's aggregate the responses.
 	// We do this by taking the first response, and determine if
