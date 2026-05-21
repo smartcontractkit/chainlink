@@ -117,39 +117,39 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		executeVaultSecretsDeleteTest(t, secretID, owner, owner, gwURL, []string{"alt"}, sc, wfReg)
 	})
 
-	if !isVaultJWTAuthEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
-		return
+	if isVaultJWTAuthEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
+		t.Run("identifier_validation", func(t *testing.T) {
+			if parallelEnabled {
+				t.Parallel()
+			}
+			subEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
+			sc := subEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+			owner := sc.MustGetRootKeyAddress().Hex()
+			wfRegAddr := crecontracts.MustGetAddressFromDataStore(subEnv.CreEnvironment.CldfEnvironment.DataStore, subEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+			wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+			require.NoError(t, err)
+			require.NoError(t, creworkflow.LinkOwner(sc, common.HexToAddress(wfRegAddr), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()]))
+			vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
+			enc, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-basic", vaultParsedPublicKey, sc.MustGetRootKeyAddress())
+			require.NoError(t, err)
+			ulCh := make(chan *workflowevents.UserLogs, 1000)
+			bmCh := make(chan *commonevents.BaseMessage, 1000)
+			sink := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, ulCh, bmCh))
+			t.Cleanup(func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				t_helpers.ShutdownChipSinkWithDrain(ctx, sink, ulCh, bmCh)
+			})
+			executeVaultSecretsIdentifierValidationTest(t, enc, owner, gwURL, sc, wfReg)
+			executeVaultSecretsGetInvalidIdentifierViaWorkflowTest(t, subEnv, "vget1", ulCh, bmCh)
+		})
 	}
 
-	t.Run("identifier_validation", func(t *testing.T) {
-		if parallelEnabled {
-			t.Parallel()
-		}
-		subEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
-		sc := subEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
-		owner := sc.MustGetRootKeyAddress().Hex()
-		wfRegAddr := crecontracts.MustGetAddressFromDataStore(subEnv.CreEnvironment.CldfEnvironment.DataStore, subEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
-		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
-		require.NoError(t, err)
-		require.NoError(t, creworkflow.LinkOwner(sc, common.HexToAddress(wfRegAddr), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()]))
-		vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
-		enc, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-basic", vaultParsedPublicKey, sc.MustGetRootKeyAddress())
-		require.NoError(t, err)
-		ulCh := make(chan *workflowevents.UserLogs, 1000)
-		bmCh := make(chan *commonevents.BaseMessage, 1000)
-		sink := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, ulCh, bmCh))
-		t.Cleanup(func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			t_helpers.ShutdownChipSinkWithDrain(ctx, sink, ulCh, bmCh)
+	if isVaultOptimizationsEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
+		t.Run("pending_queue_blob_batching_many_concurrent_creates", func(t *testing.T) {
+			ExecuteVaultBlobBatchingSmokeTest(t, fixture, testEnv)
 		})
-		executeVaultSecretsIdentifierValidationTest(t, enc, owner, gwURL, sc, wfReg)
-		executeVaultSecretsGetInvalidIdentifierViaWorkflowTest(t, subEnv, "vget1", ulCh, bmCh)
-	})
-
-	t.Run("pending_queue_blob_batching_many_concurrent_creates", func(t *testing.T) {
-		ExecuteVaultBlobBatchingSmokeTest(t, fixture, testEnv)
-	})
+	}
 }
 
 func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {

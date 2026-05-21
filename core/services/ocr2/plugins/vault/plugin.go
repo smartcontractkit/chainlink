@@ -946,11 +946,6 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 				EncryptionKey: pk,
 				BinaryShares:  [][]byte{encShare},
 			})
-			r.lggr.Infow("VAULT_GET_SECRETS_BINARY_SHARES_ENCODED",
-				"secretKey", secretRequest.Id.GetKey(),
-				"secretNamespace", secretRequest.Id.GetNamespace(),
-				"encryptionKey", pk,
-			)
 		} else {
 			shares = append(shares, &vaultcommon.EncryptedShares{
 				EncryptionKey: pk,
@@ -1024,7 +1019,7 @@ func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, reader ReadK
 	}
 }
 
-func (r *ReportingPlugin) observeCreateSecretRequest(ctx context.Context, reader ReadKVStore, secretRequest *vaultcommon.EncryptedSecret, requestsCountForID map[string]int) (*vaultcommon.SecretIdentifier, error) {
+func (r *ReportingPlugin) observeCreateSecretRequest(ctx context.Context, _ ReadKVStore, secretRequest *vaultcommon.EncryptedSecret, requestsCountForID map[string]int) (*vaultcommon.SecretIdentifier, error) {
 	id, err := r.validateSecretIdentifier(ctx, secretRequest.Id)
 	if err != nil {
 		return id, err

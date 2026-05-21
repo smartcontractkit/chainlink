@@ -5601,16 +5601,16 @@ func TestPlugin_StateTransition_OutcomesStoppedByPrecursorWireSize(t *testing.T)
 			},
 		}
 	}
-	ws := NewKVStoreWrapper(NewWriteStore(&kv{m: make(map[string]response)}, newTestMetrics(t)), false, logger.TestLogger(t))
+	ws := NewWriteStore(&kv{m: make(map[string]response)}, newTestMetrics(t))
 
 	rPrec := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultOptimizationsEnabled())
 
 	out1 := &vaultcommon.Outcome{Id: "list-1", RequestType: vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS}
-	rPrec.stateTransitionListSecretIdentifiers(ctx, ws.WithRequest("", ""), []*vaultcommon.Observation{buildListObs("list-1")}, out1)
+	rPrec.stateTransitionListSecretIdentifiers(ctx, ws, []*vaultcommon.Observation{buildListObs("list-1")}, out1)
 	sz1 := proto.Size(&vaultcommon.Outcomes{Outcomes: []*vaultcommon.Outcome{out1}})
 
 	out2 := &vaultcommon.Outcome{Id: "list-2", RequestType: vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS}
-	rPrec.stateTransitionListSecretIdentifiers(ctx, ws.WithRequest("", ""), []*vaultcommon.Observation{buildListObs("list-2")}, out2)
+	rPrec.stateTransitionListSecretIdentifiers(ctx, ws, []*vaultcommon.Observation{buildListObs("list-2")}, out2)
 	szBoth := proto.Size(&vaultcommon.Outcomes{Outcomes: []*vaultcommon.Outcome{out1, out2}})
 	require.Greater(t, szBoth, sz1)
 
@@ -5656,8 +5656,8 @@ func TestPlugin_StateTransition_OutcomesNotStoppedByPrecursorWireSizeWhenOptimiz
 
 	out1 := &vaultcommon.Outcome{Id: "list-1", RequestType: vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS}
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
-	ws := NewKVStoreWrapper(NewWriteStore(&kv{m: make(map[string]response)}, newTestMetrics(t)), false, logger.TestLogger(t))
-	r.stateTransitionListSecretIdentifiers(ctx, ws.WithRequest("", ""), []*vaultcommon.Observation{buildListObs("list-1")}, out1)
+	ws := NewWriteStore(&kv{m: make(map[string]response)}, newTestMetrics(t))
+	r.stateTransitionListSecretIdentifiers(ctx, ws, []*vaultcommon.Observation{buildListObs("list-1")}, out1)
 	sz1 := proto.Size(&vaultcommon.Outcomes{Outcomes: []*vaultcommon.Outcome{out1}})
 
 	rPrec := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withMaxReportsPlusPrecursorBytes(sz1))
@@ -6178,7 +6178,7 @@ func TestPlugin_ValidateObservation_GetSecrets_MismatchedResponseOwnerRejected(t
 	)
 
 	workflowOwner := "workflowowner"
-	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
+	orgID := "org_abc123def456ghi"
 	secretID := &vaultcommon.SecretIdentifier{
 		Owner:     workflowOwner,
 		Namespace: "main",

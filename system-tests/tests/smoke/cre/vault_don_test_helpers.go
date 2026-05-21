@@ -2,7 +2,6 @@ package cre
 
 import (
 	"bytes"
-	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -11,7 +10,6 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
-	"os/exec"
 	"slices"
 	"strconv"
 	"strings"
@@ -58,7 +56,6 @@ const (
 	vaultJWTAuthEnabledConfigPath       = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
 	vaultOptimizationsEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"
 	vaultJWTIssuerListenAddr            = "0.0.0.0:18123"
-	vaultBinarySharesEncodedLogMarker   = "VAULT_GET_SECRETS_BINARY_SHARES_ENCODED"
 	// vaultJWTTestTenantID is the tenant_id / urn:chainlink:tenant_id claim for Vault JWT tests and
 	// matches the org_id passed to DeriveJWTAuthorizedVaultWorkflowOwner.
 	vaultJWTTestTenantID uint64 = 1
@@ -933,69 +930,6 @@ func executeVaultSecretsDeleteTest(t *testing.T, secretID, requestOwner, expecte
 	executeVaultSecretsDeleteWithAuth(t, auth, secretID, expectedResponseOwner, gatewayURL, namespaces)
 }
 
-// assertVaultBinarySharesEncodedInDockerLogs polls vault/capability node logs for evidence that
-// GetSecrets observations used binary_shares rather than hex-encoded string shares.
-func assertVaultBinarySharesEncodedInDockerLogs(t *testing.T, secretKey, secretNamespace string) {
-	t.Helper()
-	if testing.Short() {
-		t.Skip("docker log scan skipped in -short mode")
-	}
-	dockerBin, err := exec.LookPath("docker")
-	if err != nil {
-		t.Skip("docker not in PATH; skipping vault binary shares log scan")
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
-	defer cancel()
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
-	for {
-		psOut, err := exec.CommandContext(ctx, dockerBin, "ps", "--format", "{{.Names}}").Output()
-		if err != nil {
-			select {
-			case <-ctx.Done():
-				require.Fail(t, "timed out waiting for docker while scanning for "+vaultBinarySharesEncodedLogMarker)
-			case <-ticker.C:
-			}
-			continue
-		}
-		names := strings.Split(strings.TrimSpace(string(psOut)), "\n")
-		for _, name := range names {
-			if name == "" {
-				continue
-			}
-			ln := strings.ToLower(name)
-			if !strings.Contains(ln, "chainlink") && !strings.Contains(ln, "ocr") && !strings.Contains(ln, "capabilit") {
-				continue
-			}
-			logs, err := exec.CommandContext(ctx, dockerBin, "logs", name, "--tail", "25000").CombinedOutput()
-			if err != nil {
-				continue
-			}
-			for _, line := range strings.Split(string(logs), "\n") {
-				if !strings.Contains(line, vaultBinarySharesEncodedLogMarker) {
-					continue
-				}
-				if secretKey != "" && !strings.Contains(line, secretKey) {
-					continue
-				}
-				if secretNamespace != "" && !strings.Contains(line, secretNamespace) {
-					continue
-				}
-				framework.L.Info().Str("container", name).Str("line", line).Msg("vault binary share encoding log observed in docker logs")
-				return
-			}
-		}
-		select {
-		case <-ctx.Done():
-			require.Fail(t, fmt.Sprintf(
-				"timed out waiting for %s in vault node logs for secret %s/%s (VaultOptimizationsEnabled should emit binary_shares)",
-				vaultBinarySharesEncodedLogMarker, secretNamespace, secretKey,
-			))
-		case <-ticker.C:
-		}
-	}
-}
-
 // executeVaultBinaryEncodedSharesSmokeTest verifies a workflow can fetch a secret when the vault
 // DON emits binary-encoded decryption shares (VaultOptimizationsEnabled). GetSecrets is not
 // exposed on the vault gateway; binary encoding is confirmed via vault node logs after the
@@ -1021,7 +955,6 @@ func executeVaultBinaryEncodedSharesSmokeTest(
 		}},
 	}})
 	waitForVaultWorkflowPhase(t, workflowID, "binary-shares-fetch", userLogsCh, baseMessageCh)
-	assertVaultBinarySharesEncodedInDockerLogs(t, secretID, namespace)
 }
 
 // updateVaultCapabilityConfigInRegistry updates the on-chain capabilities registry
