@@ -2858,9 +2858,10 @@ type Telemetry struct {
 	EmitterExportTimeout          *commonconfig.Duration
 	AuthHeadersTTL                *commonconfig.Duration
 	ChipIngressEndpoint           *string
-	ChipIngressInsecureConnection *bool
-	DurableEmitterEnabled         *bool
-	HeartbeatInterval             *commonconfig.Duration
+	ChipIngressInsecureConnection  *bool
+	ChipIngressBatchEmitterEnabled *bool
+	DurableEmitterEnabled          *bool
+	HeartbeatInterval              *commonconfig.Duration
 	LogLevel                      *string
 	LogStreamingEnabled           *bool
 	LogBatchProcessor             *bool
@@ -2903,6 +2904,9 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	}
 	if v := f.ChipIngressInsecureConnection; v != nil {
 		b.ChipIngressInsecureConnection = v
+	}
+	if v := f.ChipIngressBatchEmitterEnabled; v != nil {
+		b.ChipIngressBatchEmitterEnabled = v
 	}
 	if v := f.DurableEmitterEnabled; v != nil {
 		b.DurableEmitterEnabled = v

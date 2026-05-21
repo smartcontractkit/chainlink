@@ -100,6 +100,13 @@ func (b *telemetryConfig) ChipIngressInsecureConnection() bool {
 	return *b.s.ChipIngressInsecureConnection
 }
 
+func (b *telemetryConfig) ChipIngressBatchEmitterEnabled() bool {
+	if b.s.ChipIngressBatchEmitterEnabled == nil {
+		return true
+	}
+	return *b.s.ChipIngressBatchEmitterEnabled
+}
+
 func (b *telemetryConfig) DurableEmitterEnabled() bool {
 	if b.s.DurableEmitterEnabled == nil {
 		return false

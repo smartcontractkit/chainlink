@@ -78,6 +78,9 @@ import (
 const WorkflowEngineInitErrorLog = "Workflow Engine initialization failed"
 const maxWorkflowNameLen = 64
 
+// defaultDeployMaxParallel is used when CRE_TEST_DEPLOY_MAX_PARALLEL is unset or invalid.
+const defaultDeployMaxParallel = 20
+
 var deleteWorkflowsMu sync.Mutex
 
 /////////////////////////
@@ -341,7 +344,7 @@ type WorkflowRegistrationConfig struct {
 Creates the necessary workflow artifacts based on WorkflowConfig:
  1. Configuration for a workflow (or no config if typed nil is passed for workflowConfig);
  2. Compiled and compressed workflow WASM file;
- 3. Copies the workflow artifacts to the Docker containers
+ 3. Copies the workflow artifacts to the Docker containers.
 
 It returns the paths to:
  1. the compressed WASM file;
@@ -580,33 +583,38 @@ func registerWorkflow(ctx context.Context, t *testing.T,
 		)
 	})
 
-	donID := wfRegCfg.DonID
-	workflowName := wfRegCfg.WorkflowName
+	workflowID, registerErr := registerWorkflowErr(ctx, wfRegCfg, sethClient)
+	require.NoError(t, registerErr, "failed to register workflow '%s'", wfRegCfg.WorkflowName)
+	testLogger.Info().Msgf("Workflow registered successfully: '%s'", workflowID)
+	return workflowID
+}
+
+// registerWorkflowErr registers a workflow on-chain without test cleanup or require.
+func registerWorkflowErr(ctx context.Context, wfRegCfg *WorkflowRegistrationConfig, sethClient *seth.Client) (string, error) {
+	var configURL *string
+	if wfRegCfg.ConfigFilePath != "" {
+		u := "file://" + wfRegCfg.ConfigFilePath
+		configURL = &u
+	}
 	binaryURL := "file://" + wfRegCfg.CompressedWasmPath
-	configURL := new("file://" + wfRegCfg.ConfigFilePath)
 	containerTargetDir := &wfRegCfg.ContainerTargetDir
 
-	if wfRegCfg.ConfigFilePath == "" {
-		configURL = nil
-	}
-
-	workflowID, registerErr := creworkflow.RegisterWithContract(
+	return creworkflow.RegisterWithContract(
 		ctx,
 		sethClient,
 		wfRegCfg.WorkflowRegistryAddr,
 		wfRegCfg.WorkflowRegistryVersion,
-		donID,
-		workflowName,
+		wfRegCfg.DonID,
+		wfRegCfg.WorkflowName,
 		binaryURL,
 		configURL,
 		nil, // no secrets yet
 		wfRegCfg.Attributes,
 		containerTargetDir,
 	)
-	require.NoError(t, registerErr, "failed to register workflow '%s'", wfRegCfg.WorkflowName)
-	testLogger.Info().Msgf("Workflow registered successfully: '%s'", workflowID)
-	return workflowID
 }
+
+const ReentrancySentryOOGError = "ReentrancySentryOOG"
 
 /*
 Deletes workflows from:
@@ -645,7 +653,7 @@ func deleteWorkflows(
 		 * slot costs. Retrying might work, because the subsequent attempt might benefit from
 		 * warmed storage/access lists, saving ~2,000 gas.
 		 */
-		return strings.Contains(err.Error(), "ReentrancySentryOOG")
+		return strings.Contains(err.Error(), ReentrancySentryOOGError)
 	}), retry.OnRetry(func(n uint, err error) {
 		testLogger.Error().Msgf("Error deleting workflow '%s': %s", uniqueWorkflowName, err.Error())
 	}))
@@ -697,6 +705,18 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
 	workflowID := registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient, testLogger)
 	return workflowID
+}
+
+func envVarOrDefault(envVar string, defaultValue int) int {
+	v := strings.TrimSpace(os.Getenv(envVar))
+	if v == "" {
+		return defaultValue
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 1 {
+		return defaultValue
+	}
+	return n
 }
 
 type compileAndDeployWorkflowCfg struct {

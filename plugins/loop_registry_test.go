@@ -74,6 +74,8 @@ func (m mockCfgTelemetry) DurableEmitterEnabled() bool { return true }
 
 func (m mockCfgTelemetry) ChipIngressInsecureConnection() bool { return false }
 
+func (m mockCfgTelemetry) ChipIngressBatchEmitterEnabled() bool { return false }
+
 func (m mockCfgTelemetry) HeartbeatInterval() time.Duration {
 	return 5 * time.Second
 }
@@ -240,4 +242,5 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.Equal(t, 2048, envCfg.TelemetryLogMaxQueueSize)
 
 	require.Equal(t, "example.com/chip-ingress", envCfg.ChipIngressEndpoint)
+	require.False(t, envCfg.ChipIngressBatchEmitterEnabled)
 }
