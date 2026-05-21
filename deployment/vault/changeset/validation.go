@@ -11,7 +11,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-	proposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -131,7 +130,7 @@ func validateTimelockBalance(e cldf.Environment, chainSelector uint64, requiredA
 	return nil
 }
 
-func validateMCMSConfig(e cldf.Environment, mcmsConfig *proposalutils.TimelockConfig, transfersByChain map[uint64][]types.NativeTransfer) error {
+func validateMCMSConfig(e cldf.Environment, mcmsConfig *cldfproposalutils.TimelockConfig, transfersByChain map[uint64][]types.NativeTransfer) error {
 	if mcmsConfig != nil {
 		if mcmsConfig.MinDelay < 0 {
 			return fmt.Errorf("MCMS minimum delay cannot be negative: %d", mcmsConfig.MinDelay)
@@ -298,7 +297,7 @@ func ValidateDeployEthBalMonConfig(ctx context.Context, env cldf.Environment, cf
 // validateDeployEthBalMonMCMSInDatastore ensures RBACTimelock, the MCM used for the post-deploy
 // accept-ownership proposal (bypasser vs proposer per cfg.MCMSConfig), and loadable MCMS state
 // exist in the datastore — matching DeployEthBalMonSequence and BuildAcceptOwnershipTimelockProposal.
-func validateDeployEthBalMonMCMSInDatastore(e cldf.Environment, chainSelector uint64, mcmsCfg *proposalutils.TimelockConfig) error {
+func validateDeployEthBalMonMCMSInDatastore(e cldf.Environment, chainSelector uint64, mcmsCfg *cldfproposalutils.TimelockConfig) error {
 	const emptyQualifier = ""
 	addresses, err := state.GetAddressTypeVersionByQualifier(e.DataStore.Addresses(), chainSelector, emptyQualifier)
 	if err != nil {
