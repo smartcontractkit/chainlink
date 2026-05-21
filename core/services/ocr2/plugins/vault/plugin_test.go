@@ -1545,7 +1545,7 @@ func TestPlugin_Observation_GetSecretsRequest_BinarySharesWhenOptimizationsEnabl
 		t.Context(),
 		1,
 		types.AttributedQuery{},
-		types.AttributedObservation{Observer: 0, Observation: types.Observation(data)},
+		types.AttributedObservation{Observer: 0, Observation: data},
 		rdr,
 		&blobber{},
 	)

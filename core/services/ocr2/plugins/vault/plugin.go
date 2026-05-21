@@ -1950,7 +1950,7 @@ func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, chosen 
 			idToReqs[vaulttypes.KeyFor(req.Id)] = req
 		}
 
-		newReqs := []*vaultcommon.SecretRequest{}
+		newReqs := make([]*vaultcommon.SecretRequest, 0, len(idToReqs))
 		for _, sreq := range slices.Sorted(maps.Keys(idToReqs)) {
 			newReqs = append(newReqs, idToReqs[sreq])
 		}
@@ -2054,7 +2054,7 @@ func (r *ReportingPlugin) stateTransitionCreateSecrets(ctx context.Context, stor
 	}
 
 	if !r.optimizationsEnabled(ctx) {
-		newReqs := []*vaultcommon.EncryptedSecret{}
+		newReqs := make([]*vaultcommon.EncryptedSecret, 0, len(idToReqs))
 		for _, sreq := range slices.Sorted(maps.Keys(idToReqs)) {
 			newReqs = append(newReqs, idToReqs[sreq])
 		}
@@ -2174,7 +2174,7 @@ func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, stor
 	}
 
 	if !r.optimizationsEnabled(ctx) {
-		newReqs := []*vaultcommon.EncryptedSecret{}
+		newReqs := make([]*vaultcommon.EncryptedSecret, 0, len(idToReqs))
 		for _, sreq := range slices.Sorted(maps.Keys(idToReqs)) {
 			newReqs = append(newReqs, idToReqs[sreq])
 		}
@@ -2278,7 +2278,7 @@ func (r *ReportingPlugin) stateTransitionDeleteSecrets(ctx context.Context, stor
 	}
 
 	if !r.optimizationsEnabled(ctx) {
-		newReqs := []*vaultcommon.SecretIdentifier{}
+		newReqs := make([]*vaultcommon.SecretIdentifier, 0, len(idToReqs))
 		for _, sreq := range slices.Sorted(maps.Keys(idToReqs)) {
 			newReqs = append(newReqs, idToReqs[sreq])
 		}

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io"
 	"math/big"
 	"math/rand"
@@ -412,24 +411,15 @@ func sendVaultSignedOCRRequestToGateway(t *testing.T, gatewayURL string, jsonReq
 		headers["Authorization"] = "Bearer " + authToken
 	}
 
+	statusCode, httpResponseBody := sendVaultRequestToGatewayWithHeaders(t, gatewayURL, requestBody, headers)
+	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
+
 	var jsonResponse jsonrpc.Response[vaulttypes.SignedOCRResponse]
-	require.Eventually(t, func() bool {
-		statusCode, httpResponseBody := sendVaultRequestToGatewayWithHeaders(t, gatewayURL, requestBody, headers)
-		if shouldRetryGatewayRequest(statusCode, httpResponseBody) {
-			framework.L.Warn().Msgf("Vault signed OCR request not ready, status=%d body=%s", statusCode, string(httpResponseBody))
-			return false
-		}
-		if statusCode != http.StatusOK {
-			require.Fail(t, fmt.Sprintf("Gateway endpoint should respond with 200 OK, got %d: %s", statusCode, string(httpResponseBody)))
-		}
-		if err := json.Unmarshal(httpResponseBody, &jsonResponse); err != nil {
-			require.Fail(t, "failed to unmarshal gateway response: "+err.Error())
-		}
-		if jsonResponse.Error != nil {
-			require.Fail(t, "vault gateway returned error: "+jsonResponse.Error.Error())
-		}
-		return true
-	}, 120*time.Second, 5*time.Second)
+	err = json.Unmarshal(httpResponseBody, &jsonResponse)
+	require.NoError(t, err, "failed to unmarshal gateway response")
+	if jsonResponse.Error != nil {
+		require.Empty(t, jsonResponse.Error.Error())
+	}
 
 	require.Equal(t, jsonrpc.JsonRpcVersion, jsonResponse.Version)
 
@@ -909,7 +899,7 @@ func waitForVaultWorkflowPhase(
 		baseMessageCh,
 		t_helpers.WorkflowEngineInitErrorLog,
 		"Vault secret workflow phase completed: "+phaseName,
-		4*time.Minute,
+		1*time.Minute,
 		t_helpers.WithUserLogWorkflowID(workflowID),
 	)
 	testLogger.Info().Str("phase_name", phaseName).Msg("Vault secret workflow phase completed")
