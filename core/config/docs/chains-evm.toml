@@ -183,6 +183,8 @@ ReadRequestsToMultipleNodes = false # Example
 Bundles = false # Example
 # FastlaneAuctionRequestTimeout configures the timeout for fastlane auction requests.
 FastlaneAuctionRequestTimeout = '5s' # Example
+# FeeBoost enables node to immediately boost txs to the max gas price configured 
+FeeBoost = false # Default
 
 [EVM.BalanceMonitor]
 # Enabled balance monitoring for all keys.
@@ -544,7 +546,7 @@ TooManyResults = '(: |^)too many results' # Example
 # MissingBlocks is a regex pattern to match an eth_getLogs error indicating the rpc server is permanently missing some blocks in the requested block range
 MissingBlocks = '(: |^)missing blocks' # Example
 # FinalizedStateUnavailable is a regex pattern to match errors indicating the RPC cannot serve historical state at the finalized block (e.g., pruned/non-archive node)
-FinalizedStateUnavailable = '(missing trie node|state not available|historical state unavailable)' # Example
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)' # Default
 
 [EVM.OCR]
 # ContractConfirmations sets `OCR.ContractConfirmations` for this EVM chain.

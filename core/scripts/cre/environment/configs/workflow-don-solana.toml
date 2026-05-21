@@ -49,7 +49,7 @@
   supported_sol_chains = ["22222222222222222222222222222222222222222222"]
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
-  capabilities = ["ocr3", "custom-compute", "web-api-trigger", "cron", "http-action", "http-trigger", "consensus", "don-time"]
+  capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time"]
   registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
@@ -76,12 +76,12 @@
   http_port_range_start = 10200
 
   # we need to have chain 1337 configured (even if no capability uses it), because we use node addresses on chain 1337
-  # to identify nodes in the gateway configuration (required by both web-api-target and vault capabilities)
+  # to identify nodes in the gateway configuration (required by vault and some gateway-based capabilities)
   supported_evm_chains = [1337]
   supported_sol_chains = ["22222222222222222222222222222222222222222222"]
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
-  capabilities = ["web-api-target", "vault", "solana"]
+  capabilities = ["vault", "solana"]
 
   [nodesets.db]
     image = "postgres:12.0"

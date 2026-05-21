@@ -11,8 +11,12 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
+	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmslib "github.com/smartcontractkit/mcms"
@@ -25,12 +29,10 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations/optest"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/opsutils"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 func TestCloneTransactOptsWithGas(t *testing.T) {
@@ -55,7 +57,7 @@ func TestCloneTransactOptsWithGas(t *testing.T) {
 func TestGasBoostConfigsForChainMap(t *testing.T) {
 	t.Parallel()
 	chainMap := map[uint64]string{1: "a", 2: "b"}
-	gasBoostConfigs := map[uint64]commontypes.GasBoostConfig{
+	gasBoostConfigs := map[uint64]cldfproposalutils.GasBoostConfig{
 		1: {InitialGasLimit: 10},
 	}
 	cfgs := opsutils.GasBoostConfigsForChainMap(chainMap, gasBoostConfigs)
@@ -69,7 +71,7 @@ func TestGasBoostConfigsForChainMap(t *testing.T) {
 
 func TestGetBoostedGasForAttempt_DefaultsAndOverrides(t *testing.T) {
 	t.Parallel()
-	cfg := commontypes.GasBoostConfig{}
+	cfg := cldfproposalutils.GasBoostConfig{}
 	limit, price := opsutils.GetBoostedGasForAttempt(cfg, 0)
 	assert.Equal(t, uint64(200_000), limit)
 	assert.Equal(t, uint64(20_000_000_000), price)
@@ -77,7 +79,7 @@ func TestGetBoostedGasForAttempt_DefaultsAndOverrides(t *testing.T) {
 	assert.Equal(t, uint64(200_000+2*50_000), limit)
 	assert.Equal(t, uint64(20_000_000_000+2*10_000_000_000), price)
 
-	cfg = commontypes.GasBoostConfig{
+	cfg = cldfproposalutils.GasBoostConfig{
 		InitialGasLimit:   1000,
 		GasLimitIncrement: 100,
 		InitialGasPrice:   2000,
@@ -90,7 +92,7 @@ func TestGetBoostedGasForAttempt_DefaultsAndOverrides(t *testing.T) {
 
 func TestRetryDeploymentWithGasBoost(t *testing.T) {
 	t.Parallel()
-	cfg := &commontypes.GasBoostConfig{
+	cfg := &cldfproposalutils.GasBoostConfig{
 		InitialGasLimit:   1000,
 		GasLimitIncrement: 100,
 		InitialGasPrice:   2000,
@@ -112,7 +114,7 @@ func TestAddEVMCallSequenceToCSOutput_SequenceError(t *testing.T) {
 	require.NoError(t, err)
 
 	csOutput := cldf.ChangesetOutput{}
-	seqReport := operations.SequenceReport[string, map[uint64][]opsutils.EVMCallOutput]{}
+	seqReport := operations.SequenceReport[string, map[uint64][]opsevm.EVMCallOutput]{}
 	seqErr := errors.New("sequence failed")
 
 	result, err := opsutils.AddEVMCallSequenceToCSOutput(
@@ -140,7 +142,7 @@ func TestAddEVMCallSequenceToCSOutput_NoMCMS(t *testing.T) {
 	require.NoError(t, err)
 
 	csOutput := cldf.ChangesetOutput{}
-	seqReport := operations.SequenceReport[string, map[uint64][]opsutils.EVMCallOutput]{}
+	seqReport := operations.SequenceReport[string, map[uint64][]opsevm.EVMCallOutput]{}
 
 	result, err := opsutils.AddEVMCallSequenceToCSOutput(
 		*env,
@@ -165,15 +167,15 @@ func TestAddEVMCallSequenceToCSOutput_AllConfirmed(t *testing.T) {
 	require.NoError(t, err)
 
 	csOutput := cldf.ChangesetOutput{}
-	seqReport := operations.SequenceReport[string, map[uint64][]opsutils.EVMCallOutput]{}
-	mcmsCfg := &proposalutils.TimelockConfig{}
+	seqReport := operations.SequenceReport[string, map[uint64][]opsevm.EVMCallOutput]{}
+	mcmsCfg := &cldfproposalutils.TimelockConfig{}
 
 	result, err := opsutils.AddEVMCallSequenceToCSOutput(
 		*env,
 		csOutput,
 		seqReport,
 		nil,
-		map[uint64]state.MCMSWithTimelockState{},
+		map[uint64]evmstate.MCMSWithTimelockState{},
 		mcmsCfg,
 		"test",
 	)
@@ -236,9 +238,9 @@ func TestAddEVMCallSequenceToCSOutput_ProposalCombination(t *testing.T) {
 
 	// Create sequence report with unconfirmed calls to generate a new proposal
 	chainSel := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[1]
-	seqReport := operations.SequenceReport[string, map[uint64][]opsutils.EVMCallOutput]{
-		Report: operations.Report[string, map[uint64][]opsutils.EVMCallOutput]{
-			Output: map[uint64][]opsutils.EVMCallOutput{
+	seqReport := operations.SequenceReport[string, map[uint64][]opsevm.EVMCallOutput]{
+		Report: operations.Report[string, map[uint64][]opsevm.EVMCallOutput]{
+			Output: map[uint64][]opsevm.EVMCallOutput{
 				chainSel: {
 					{
 						To:           common.HexToAddress("0x3333333333333333333333333333333333333333"),
@@ -251,7 +253,7 @@ func TestAddEVMCallSequenceToCSOutput_ProposalCombination(t *testing.T) {
 		},
 	}
 
-	mcmsCfg := &proposalutils.TimelockConfig{
+	mcmsCfg := &cldfproposalutils.TimelockConfig{
 		MinDelay:   0 * time.Second, // No delay for testing
 		MCMSAction: mcmstypes.TimelockActionSchedule,
 	}

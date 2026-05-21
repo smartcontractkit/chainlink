@@ -12,13 +12,14 @@ import (
 	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
-	"github.com/smartcontractkit/chainlink-aptos/bindings/compile"
-	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/compile"
+	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 )
 
 const MCMSProposalVersion = "v1"
@@ -29,7 +30,7 @@ func GenerateProposal(
 	chainSel uint64,
 	operations []mcmstypes.BatchOperation,
 	description string,
-	mcmsCfg proposalutils.TimelockConfig,
+	mcmsCfg cldfproposalutils.TimelockConfig,
 ) (*mcms.TimelockProposal, error) {
 	// Get role from action
 	role, err := cldfproposalutils.GetAptosRoleFromAction(mcmsCfg.MCMSAction)
@@ -38,7 +39,7 @@ func GenerateProposal(
 	}
 	inspector := aptosmcms.NewInspector(env.BlockChains.AptosChains()[chainSel].Client, role)
 
-	return proposalutils.BuildProposalFromBatchesV2(
+	return proposeutils.BuildProposalFromBatchesV2(
 		env,
 		map[uint64]string{chainSel: mcmsAddress.StringLong()},
 		map[uint64]string{chainSel: mcmsAddress.StringLong()},
@@ -60,7 +61,7 @@ func GenerateCurseMCMSProposal(
 	chainSel uint64,
 	operations []mcmstypes.BatchOperation,
 	description string,
-	mcmsCfg proposalutils.TimelockConfig,
+	mcmsCfg cldfproposalutils.TimelockConfig,
 ) (*mcms.TimelockProposal, error) {
 	role, err := cldfproposalutils.GetAptosRoleFromAction(mcmsCfg.MCMSAction)
 	if err != nil {
@@ -68,7 +69,7 @@ func GenerateCurseMCMSProposal(
 	}
 	inspector := aptosmcms.NewInspectorWithMCMSType(env.BlockChains.AptosChains()[chainSel].Client, role, aptosmcms.MCMSTypeCurse)
 
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		env,
 		map[uint64]string{chainSel: curseMCMSAddress.StringLong()},
 		map[uint64]string{chainSel: curseMCMSAddress.StringLong()},

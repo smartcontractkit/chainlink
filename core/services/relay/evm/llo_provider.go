@@ -21,21 +21,21 @@ import (
 	relaytypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	lloconfig "github.com/smartcontractkit/chainlink-data-streams/llo/config"
+	"github.com/smartcontractkit/chainlink-data-streams/mercury"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink-data-streams/rpc"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	config2 "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	evmllo "github.com/smartcontractkit/chainlink-evm/pkg/llo"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-	"github.com/smartcontractkit/chainlink-evm/pkg/mercury"
+	evmmercury "github.com/smartcontractkit/chainlink-evm/pkg/mercury"
 
-	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/bm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/mercurytransmitter"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
-	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
+	llotransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/bm"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
+	"github.com/smartcontractkit/chainlink-evm/pkg/llo/channeldefinitions"
 )
 
 var _ commontypes.LLOProvider = (*lloProvider)(nil)
@@ -128,7 +128,7 @@ func NewLLOProvider(
 		for _, server := range mercuryServers {
 			var client rpc.Client
 			switch mercuryCfg.Transmitter().Protocol() {
-			case config.MercuryTransmitterProtocolGRPC:
+			case mercurytransmitter.MercuryTransmitterProtocolGRPC:
 				client = rpc.NewClient(rpc.ClientOpts{
 					Logger: logger.Sugared(lggr).
 						Named(fmt.Sprintf("%q", server.URL)).
@@ -137,7 +137,7 @@ func NewLLOProvider(
 					ServerPubKey: ed25519.PublicKey(server.PubKey),
 					ServerURL:    server.URL,
 				})
-			case config.MercuryTransmitterProtocolWSRPC:
+			case mercurytransmitter.MercuryTransmitterProtocolWSRPC:
 				wsrpcClient, checkoutErr := mercuryPool.Checkout(ctx, csaPub, csaSigner, server.PubKey, server.URL)
 				if checkoutErr != nil {
 					return nil, checkoutErr
@@ -167,7 +167,7 @@ func NewLLOProvider(
 		// FIXME: The transmitter instantiation really ought to be moved out of
 		// the evm relay into llo package
 		// https://smartcontract-it.atlassian.net/browse/MERC-6847
-		transmitter, err = llo.NewTransmitter(llo.TransmitterOpts{
+		transmitter, err = llotransmitter.NewTransmitter(llotransmitter.TransmitterOpts{
 			Lggr:                   lggr,
 			DonID:                  lloCfg.DonID,
 			FromAccount:            csaPub, // NOTE: This may need to change if we support e.g. multiple tranmsmitters, to be a composite of all keys
@@ -291,7 +291,7 @@ func (p *lloProvider) ShouldRetireCache() llotypes.ShouldRetireCache {
 
 // wrapper is needed to turn mercury config poller into a service
 type mercuryConfigPollerWrapper struct {
-	*mercury.ConfigPoller
+	*evmmercury.ConfigPoller
 	services.Service
 	eng *services.Engine
 
@@ -299,7 +299,7 @@ type mercuryConfigPollerWrapper struct {
 	fromBlock uint64
 }
 
-func newMercuryConfigPollerWrapper(lggr logger.Logger, cp *mercury.ConfigPoller, fromBlock uint64, runReplay bool) *mercuryConfigPollerWrapper {
+func newMercuryConfigPollerWrapper(lggr logger.Logger, cp *evmmercury.ConfigPoller, fromBlock uint64, runReplay bool) *mercuryConfigPollerWrapper {
 	w := &mercuryConfigPollerWrapper{cp, nil, nil, runReplay, fromBlock}
 	w.Service, w.eng = services.Config{
 		Name:  "LLOMercuryConfigWrapper",
@@ -334,7 +334,7 @@ func newLLOConfigPollers(ctx context.Context, lggr logger.Logger, cc evmllo.Conf
 		// NOTE: This uses the old config digest prefix for compatibility with legacy contracts
 		configDigester = mercury.NewOffchainConfigDigester(donIDHash, chainID, configuratorAddress, ocrtypes.ConfigDigestPrefixMercuryV02)
 		// Mercury config poller will register its own filter
-		mcp, err := mercury.NewConfigPoller(
+		mcp, err := evmmercury.NewConfigPoller(
 			ctx,
 			lggr,
 			lp,

@@ -1,13 +1,19 @@
 package sequence
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 	"github.com/smartcontractkit/wsrpc/logger"
+
+	sollegacy "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/timelock"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -16,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms/sequence/operation"
 	commonOps "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/operations"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
@@ -120,7 +125,7 @@ func deployAccessController(b operations.Bundle, deps operation.Deps) error {
 		return fmt.Errorf("failed to add access controller to datastore: %w", err)
 	}
 
-	err = deps.State.SetState(commontypes.AccessControllerProgram, programID, state.PDASeed{})
+	err = deps.State.SetState(commontypes.AccessControllerProgram, programID, sollegacy.PDASeed{})
 	if err != nil {
 		return fmt.Errorf("failed to save onchain state: %w", err)
 	}
@@ -183,7 +188,7 @@ func deployMCM(b operations.Bundle, deps operation.Deps) error {
 		return fmt.Errorf("failed to add mcm to datastore: %w", err)
 	}
 
-	err = deps.State.SetState(commontypes.ManyChainMultisigProgram, programID, state.PDASeed{})
+	err = deps.State.SetState(commontypes.ManyChainMultisigProgram, programID, sollegacy.PDASeed{})
 	if err != nil {
 		return fmt.Errorf("failed to save onchain state: %w", err)
 	}
@@ -231,6 +236,9 @@ func deployTimelock(b operations.Bundle, deps operation.Deps) error {
 
 	if !programID.IsZero() {
 		log.Infow("using existing Timelock program", "programId", programID.String())
+		if err := waitForProgramExecutable(b.GetContext(), deps.Chain.Client, programID, 30*time.Second); err != nil {
+			return fmt.Errorf("timelock program not ready: %w", err)
+		}
 		return nil
 	}
 
@@ -261,7 +269,7 @@ func deployTimelock(b operations.Bundle, deps operation.Deps) error {
 		return fmt.Errorf("failed to add timelock to datastore: %w", err)
 	}
 
-	err = deps.State.SetState(commontypes.RBACTimelockProgram, programID, state.PDASeed{})
+	err = deps.State.SetState(commontypes.RBACTimelockProgram, programID, sollegacy.PDASeed{})
 	if err != nil {
 		return fmt.Errorf("failed to save onchain state: %w", err)
 	}
@@ -283,10 +291,34 @@ func initTimelock(b operations.Bundle, deps operation.Deps, minDelay *big.Int) e
 	return err
 }
 
+// waitForProgramExecutable polls until the program account is executable (validator may still be loading BPF).
+func waitForProgramExecutable(ctx context.Context, client *rpc.Client, programID solana.PublicKey, maxWait time.Duration) error {
+	timeout := time.After(maxWait)
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timeout:
+			return fmt.Errorf("timed out waiting for program %s to be deployed", programID.String())
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			resp, err := client.GetAccountInfo(ctx, programID)
+			if err != nil {
+				continue
+			}
+			if resp != nil && resp.Value != nil && resp.Value.Executable {
+				return nil
+			}
+		}
+	}
+}
+
 func setupRoles(b operations.Bundle, deps operation.Deps) error {
-	proposerPDA := state.GetMCMSignerPDA(deps.State.McmProgram, deps.State.ProposerMcmSeed)
-	cancellerPDA := state.GetMCMSignerPDA(deps.State.McmProgram, deps.State.CancellerMcmSeed)
-	bypasserPDA := state.GetMCMSignerPDA(deps.State.McmProgram, deps.State.BypasserMcmSeed)
+	proposerPDA := pdasol.GetMCMSignerPDA(deps.State.McmProgram, deps.State.ProposerMcmSeed)
+	cancellerPDA := pdasol.GetMCMSignerPDA(deps.State.McmProgram, deps.State.CancellerMcmSeed)
+	bypasserPDA := pdasol.GetMCMSignerPDA(deps.State.McmProgram, deps.State.BypasserMcmSeed)
 	roles := []struct {
 		pdas []solana.PublicKey
 		role timelockBindings.Role

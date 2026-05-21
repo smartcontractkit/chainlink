@@ -2,13 +2,11 @@ package blockhashstore
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	v1 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
 	v2plus "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -16,7 +14,6 @@ import (
 
 var (
 	_ Coordinator = MultiCoordinator{}
-	_ Coordinator = &V1Coordinator{}
 	_ Coordinator = &V2Coordinator{}
 	_ Coordinator = &V2PlusCoordinator{}
 )
@@ -59,95 +56,6 @@ func (m MultiCoordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([
 			return nil, fmt.Errorf("%w", err)
 		}
 		fuls = append(fuls, f...)
-	}
-	return fuls, nil
-}
-
-// V1Coordinator fetches request and fulfillment logs from a VRF V1 coordinator contract.
-type V1Coordinator struct {
-	c  v1.VRFCoordinatorInterface
-	lp logpoller.LogPoller
-}
-
-// NewV1Coordinator creates a new V1Coordinator from the given contract.
-func NewV1Coordinator(ctx context.Context, c v1.VRFCoordinatorInterface, lp logpoller.LogPoller) (*V1Coordinator, error) {
-	err := lp.RegisterFilter(ctx, logpoller.Filter{
-		Name: logpoller.FilterName("VRFv1CoordinatorFeeder", c.Address()),
-		EventSigs: []common.Hash{
-			v1.VRFCoordinatorRandomnessRequest{}.Topic(),
-			v1.VRFCoordinatorRandomnessRequestFulfilled{}.Topic(),
-		}, Addresses: []common.Address{c.Address()},
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &V1Coordinator{c, lp}, nil
-}
-
-// Requests satisfies the Coordinator interface.
-func (v *V1Coordinator) Requests(
-	ctx context.Context,
-	fromBlock uint64,
-	toBlock uint64,
-) ([]Event, error) {
-	logs, err := v.lp.LogsWithSigs(
-		ctx,
-		int64(fromBlock),
-		int64(toBlock),
-		[]common.Hash{
-			v1.VRFCoordinatorRandomnessRequest{}.Topic(),
-		},
-		v.c.Address())
-	if err != nil {
-		return nil, errors.Wrap(err, "filter v1 requests")
-	}
-
-	var reqs []Event
-	for _, l := range logs {
-		requestLog, err := v.c.ParseLog(l.ToGethLog())
-		if err != nil {
-			continue // malformed log should not break flow
-		}
-		request, ok := requestLog.(*v1.VRFCoordinatorRandomnessRequest)
-		if !ok {
-			continue // malformed log should not break flow
-		}
-		reqs = append(reqs, Event{ID: hex.EncodeToString(request.RequestID[:]), Block: request.Raw.BlockNumber})
-	}
-
-	return reqs, nil
-}
-
-// Fulfillments satisfies the Coordinator interface.
-func (v *V1Coordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]Event, error) {
-	toBlock, err := v.lp.LatestBlock(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "fetching latest block")
-	}
-
-	logs, err := v.lp.LogsWithSigs(
-		ctx,
-		int64(fromBlock),
-		toBlock.BlockNumber,
-		[]common.Hash{
-			v1.VRFCoordinatorRandomnessRequestFulfilled{}.Topic(),
-		},
-		v.c.Address())
-	if err != nil {
-		return nil, errors.Wrap(err, "filter v1 fulfillments")
-	}
-
-	var fuls []Event
-	for _, l := range logs {
-		requestLog, err := v.c.ParseLog(l.ToGethLog())
-		if err != nil {
-			continue // malformed log should not break flow
-		}
-		request, ok := requestLog.(*v1.VRFCoordinatorRandomnessRequestFulfilled)
-		if !ok {
-			continue // malformed log should not break flow
-		}
-		fuls = append(fuls, Event{ID: hex.EncodeToString(request.RequestId[:]), Block: request.Raw.BlockNumber})
 	}
 	return fuls, nil
 }

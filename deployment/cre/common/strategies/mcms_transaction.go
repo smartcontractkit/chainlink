@@ -8,16 +8,17 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
@@ -28,7 +29,7 @@ type MCMSTransaction struct {
 	Description   string
 	Address       common.Address
 	Config        *contracts.MCMSConfig
-	MCMSContracts *commonchangeset.MCMSWithTimelockState
+	MCMSContracts *evmstate.MCMSWithTimelockState
 }
 
 func (m *MCMSTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (*mcmstypes.BatchOperation, *types.Transaction, error) {
@@ -79,7 +80,7 @@ func (m *MCMSTransaction) BuildProposal(operations []mcmstypes.BatchOperation) (
 		m.ChainSel: inspector,
 	}
 
-	return proposalutils.BuildProposalFromBatchesV2(
+	return proposeutils.BuildProposalFromBatchesV2(
 		m.Env,
 		timelocksPerChain,
 		mcmsAddressesPerChain,

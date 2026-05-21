@@ -9,43 +9,44 @@ defaults:
 plugins:
   cron:
     - moduleURI: "github.com/smartcontractkit/capabilities/cron"
-      gitRef: "0755879dd5e2ba87e977f1f050b6ff407a830360"
+      gitRef: "45e774754b3f313d6d27ae493df5d29fffe717d6"
       installPath: "."
       flags: "-tags timetzdata"
   readcontract:
     - moduleURI: "github.com/smartcontractkit/capabilities/readcontract"
-      gitRef: "0755879dd5e2ba87e977f1f050b6ff407a830360"
+      gitRef: "45e774754b3f313d6d27ae493df5d29fffe717d6"
       installPath: "."
   consensus:
     - moduleURI: "github.com/smartcontractkit/capabilities/consensus"
-      gitRef: "0755879dd5e2ba87e977f1f050b6ff407a830360"
+      gitRef: "8bfe6517fb326f5b882977e7a04480feb9c64638"
       installPath: "."
   workflowevent:
     - enabled: false
       moduleURI: "github.com/smartcontractkit/capabilities/workflowevent"
-      gitRef: "0755879dd5e2ba87e977f1f050b6ff407a830360"
+      gitRef: "45e774754b3f313d6d27ae493df5d29fffe717d6"
       installPath: "."
   httpaction:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_action"
-      gitRef: "0755879dd5e2ba87e977f1f050b6ff407a830360"
+      gitRef: "45e774754b3f313d6d27ae493df5d29fffe717d6"
       installPath: "."
   httptrigger:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_trigger"
-      gitRef: "0755879dd5e2ba87e977f1f050b6ff407a830360"
+      gitRef: "45e774754b3f313d6d27ae493df5d29fffe717d6"
       installPath: "."
   evm:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
-      gitRef: "863d867937896a4869106e35995e897d4cf454e4"
+      gitRef: "9122b3279cbdb8a2b10cb8ad808a89c09832ac28"
       installPath: "."
   solana:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/solana"
-      gitRef: "3ab8f47891f9edd6f20cb881fc312fa98243e902"
+      gitRef: "ec5ce26a1b13ff2d8e51cd2e9d54dd562ebd13b9"
       installPath: "."
   aptos:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/aptos"
-      gitRef: "133e87d6fa49e380db7a4648587ef4dbd314e6b7"
+      gitRef: "ec5ce26a1b13ff2d8e51cd2e9d54dd562ebd13b9"
       installPath: "."
   confidential-http:
-    - moduleURI: "github.com/smartcontractkit/confidential-compute/enclave/apps/confidential-http/capability"
-      gitRef: "e035ae9a8ae76a0a74cd7a91d786fe8b69ae010f"
+    - moduleURI: "github.com/smartcontractkit/confidential-compute/enclave/apps/confi\
+        dential-http/capability"
+      gitRef: "3667aa398b384b296d29f8e9ce25980e3711636e"
       installPath: "./cmd/confidential-http"

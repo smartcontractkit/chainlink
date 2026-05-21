@@ -1,6 +1,42 @@
 # Changelog Chainlink Core
 
+## 2.48.0
+
+### Minor Changes
+
+- [#22331](https://github.com/smartcontractkit/chainlink/pull/22331) [`4a1b448`](https://github.com/smartcontractkit/chainlink/commit/4a1b448ed33ff83f677b7344f29467f4464d182b) - **DirectRequest and FluxMonitor job types have been removed.** Creating new jobs of these types is no longer supported and will return an error. Any existing jobs of these types that are still present in the database will surface an error in the job UI on node startup rather than running. The underlying database tables (`direct_request_specs`, `flux_monitor_specs`, `flux_monitor_round_stats_v2`) are **unchanged in this release** and will be cleaned up in a future migration. The `[FluxMonitor]` TOML config section is now a no-op but is still accepted to avoid breaking existing config files during the transition. #breaking_change #nops
+
+- [#22380](https://github.com/smartcontractkit/chainlink/pull/22380) [`822f135`](https://github.com/smartcontractkit/chainlink/commit/822f1355f8a89eec684c8c3cc7c704f3f78f4add) - Remove VRF v1 support including coordinators, the legacy `vrf` pipeline task, and related configuration. Migrate to VRF v2 or VRF v2 Plus. #removed #breaking_change
+
+- [#22422](https://github.com/smartcontractkit/chainlink/pull/22422) [`89874ec`](https://github.com/smartcontractkit/chainlink/commit/89874ec20991343971cdda7770b021d3ac108c63) - Minor bump to start next version
+
+- [#22530](https://github.com/smartcontractkit/chainlink/pull/22530) [`45099b6`](https://github.com/smartcontractkit/chainlink/commit/45099b6a924020a64674bed38c7a2a51d891000c) - Bumped chainlink-evm dep. This includes: Ronin updated configs, Logpoller improvements, and Finalizer improvements. #internal
+
+## 2.47.0
+
+### Minor Changes
+
+- [#22309](https://github.com/smartcontractkit/chainlink/pull/22309) [`1083496`](https://github.com/smartcontractkit/chainlink/commit/1083496666fec79185b7aa1a0755d8d3c420070f) - Minor bump to start next version
+
+### Patch Changes
+
+- [#22302](https://github.com/smartcontractkit/chainlink/pull/22302) [`e866147`](https://github.com/smartcontractkit/chainlink/commit/e8661477544bfb3119d02ef1e8fea0bee98b46f6) - Confidential relay handlers now sign relay-DON secrets and capability responses before returning them toward the enclave path, and the gateway aggregator buckets per-node responses by canonical logical hash so F+1 unique signers form quorum over a shared logical payload.
+
+  #added
+
+- [#22394](https://github.com/smartcontractkit/chainlink/pull/22394) [`53a57db`](https://github.com/smartcontractkit/chainlink/commit/53a57dbf7ff672c03f8b0f7797f5fc12298fed9c) - #added changeset to clean up solana token mint authority after migration
+
+## 2.46.0
+
+### Minor Changes
+
+- [#22250](https://github.com/smartcontractkit/chainlink/pull/22250) [`ffa5f62`](https://github.com/smartcontractkit/chainlink/commit/ffa5f62008eee8737648c29d32384dc6bd68bbcc) - Minor bump to start next version
+
 ## 2.45.0
+
+### Breaking Changes
+
+- [#22208](https://github.com/smartcontractkit/chainlink/pull/22208) [`b8e5aec`](https://github.com/smartcontractkit/chainlink/commit/b8e5aec903d28ed0fdd0fcc9e9ab59e710c1b43e) - Remove legacy Keepers v1 (keeper job type, node configuration, and related database tables). Automation v2 is unchanged. #breaking_change #nops
 
 ### Minor Changes
 

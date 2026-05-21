@@ -6,16 +6,15 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
@@ -30,7 +29,7 @@ func getMCMSTransaction(t *testing.T, env deployment.Environment) *strategies.MC
 		Description:   "test",
 		Config:        &contracts.MCMSConfig{},
 		Address:       common.HexToAddress("0x1"),
-		MCMSContracts: &commonchangeset.MCMSWithTimelockState{},
+		MCMSContracts: &evmstate.MCMSWithTimelockState{},
 	}
 }
 
@@ -207,8 +206,7 @@ func TestMCMSTransaction_BuildProposal(t *testing.T) {
 
 	t.Run("uses custom ValidDuration value to set the proposal duration", func(t *testing.T) {
 		m := getMCMSTransaction(t, *fixture.Env)
-		validDuration, err := commonconfig.NewDuration(2 * time.Second)
-		require.NoError(t, err)
+		validDuration := mcmstypes.NewDuration(2 * time.Second)
 		cfg := contracts.MCMSConfig{
 			MinDelay: 0,
 			TimelockQualifierPerChain: map[uint64]string{
@@ -228,7 +226,7 @@ func TestMCMSTransaction_BuildProposal(t *testing.T) {
 		p, err := m.BuildProposal([]mcmstypes.BatchOperation{op})
 		require.NoError(t, err)
 
-		expectedValidUntil := time.Now().Add(validDuration.Duration()).Unix()
+		expectedValidUntil := time.Now().Add(validDuration.Duration).Unix()
 		// Using InDelta to allow for slight timing differences during test execution
 		assert.InDelta(t, uint32(expectedValidUntil), p.ValidUntil, 1, "ValidUntil should be within 1 second of expected value") //nolint:gosec // G115
 	})

@@ -8,8 +8,13 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
+
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
@@ -23,9 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 type mintConfig struct {
@@ -36,18 +38,18 @@ type mintConfig struct {
 type dummyMultiChainDeployerGroupChangesetConfig struct {
 	address common.Address
 	mints   []mintConfig
-	MCMS    *proposalutils.TimelockConfig
+	MCMS    *cldfproposalutils.TimelockConfig
 }
 
 type dummyDeployerGroupChangesetConfig struct {
 	selector uint64
 	address  common.Address
 	mints    []*big.Int
-	MCMS     *proposalutils.TimelockConfig
+	MCMS     *cldfproposalutils.TimelockConfig
 }
 
 type dummyEmptyBatchChangesetConfig struct {
-	MCMS *proposalutils.TimelockConfig
+	MCMS *cldfproposalutils.TimelockConfig
 }
 
 func dummyEmptyBatchChangeset(e cldf.Environment, cfg dummyEmptyBatchChangesetConfig) (cldf.ChangesetOutput, error) {
@@ -236,7 +238,7 @@ func TestDeployerGroupMCMS(t *testing.T) {
 			e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
 
 			tc.cfg.selector = e.HomeChainSel
-			tc.cfg.MCMS = &proposalutils.TimelockConfig{
+			tc.cfg.MCMS = &cldfproposalutils.TimelockConfig{
 				MinDelay: 0,
 			}
 			state, err := stateview.LoadOnchainState(e.Env)
@@ -247,10 +249,10 @@ func TestDeployerGroupMCMS(t *testing.T) {
 
 			_, err = commonchangeset.Apply(t, e.Env,
 				commonchangeset.Configure(
-					cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
-					commonchangeset.TransferToMCMSWithTimelockConfig{
+					cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+					mcmschangesets.TransferToMCMSWithTimelockConfig{
 						ContractsByChain: contractsByChain,
-						MCMSConfig: proposalutils.TimelockConfig{
+						MCMSConfig: cldfproposalutils.TimelockConfig{
 							MinDelay: 0,
 						},
 					},
@@ -308,14 +310,14 @@ func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
 				amount:        big.NewInt(4),
 			},
 		},
-		MCMS: &proposalutils.TimelockConfig{
+		MCMS: &cldfproposalutils.TimelockConfig{
 			MinDelay: 0,
 			// we will set the qualifier below after we know the chain selector
 		},
 	}
 	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2), testhelpers.WithPrerequisiteDeploymentOnly(nil))
 
-	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
+	mcmsCfg := make(map[uint64]cldfproposalutils.MCMSWithTimelockConfig)
 	chain := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[selectorIndex]
 
 	// update the test config to include the qualifier for the selected chain
@@ -323,19 +325,19 @@ func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
 		chain: linktokenOwnerQualifier,
 	}
 	// Create a MCMS config for deployment with qualifier for the selected chain
-	cfg := proposalutils.SingleGroupTimelockConfigV2(t)
+	cfg := cldftesthelpers.SingleGroupTimelockConfig(t)
 	cfg.Qualifier = ptr.To(linktokenOwnerQualifier)
 	mcmsCfg[chain] = cfg
 
 	// Deploy a new MCMS with qualifier and transfer the ownership of the link token to it
 	e.Env, err = commonchangeset.Apply(t, e.Env, commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), mcmsCfg))
+		cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), mcmsCfg))
 	require.NoError(t, err)
 
 	// Delete the newly deployed MCMS addresses from addressbook so that the state loader does not pick them up
 	// otherwise the mcms state will throw an error for duplicate MCMS contracts
 	addressBookToDelete := cldf.NewMemoryAddressBook()
-	addressesToDelete, err := commonstate.LoadAddressesFromDataStore(e.Env.DataStore, chain, linktokenOwnerQualifier)
+	addressesToDelete, err := evmstate.LoadAddressesFromDataStore(e.Env.DataStore, chain, linktokenOwnerQualifier) //nolint:staticcheck // will be refactored once usages are removed
 	require.NoError(t, err)
 	for addr, tv := range addressesToDelete {
 		require.NoError(t, addressBookToDelete.Save(chain, addr, tv))
@@ -349,8 +351,8 @@ func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
 	contractsByChain[chain] = []common.Address{token.Address()}
 
 	e.Env, err = commonchangeset.Apply(t, e.Env,
-		commonchangeset.Configure(cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
-			commonchangeset.TransferToMCMSWithTimelockConfig{
+		commonchangeset.Configure(cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+			mcmschangesets.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
 				MCMSConfig:       *testCfg.MCMS,
 			},
@@ -394,7 +396,7 @@ func TestDeployerGroupGenerateMultipleProposals(t *testing.T) {
 				amount:        big.NewInt(4),
 			},
 		},
-		MCMS: &proposalutils.TimelockConfig{
+		MCMS: &cldfproposalutils.TimelockConfig{
 			MinDelay: 0,
 		},
 	}
@@ -409,10 +411,10 @@ func TestDeployerGroupGenerateMultipleProposals(t *testing.T) {
 
 	_, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
-			commonchangeset.TransferToMCMSWithTimelockConfig{
+			cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+			mcmschangesets.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
-				MCMSConfig: proposalutils.TimelockConfig{
+				MCMSConfig: cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				},
 			},
@@ -456,7 +458,7 @@ func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
 				amount:        big.NewInt(2),
 			},
 		},
-		MCMS: &proposalutils.TimelockConfig{
+		MCMS: &cldfproposalutils.TimelockConfig{
 			MinDelay: 0,
 		},
 	}
@@ -473,10 +475,10 @@ func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
 
 	_, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
-			commonchangeset.TransferToMCMSWithTimelockConfig{
+			cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+			mcmschangesets.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
-				MCMSConfig: proposalutils.TimelockConfig{
+				MCMSConfig: cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				},
 			},
@@ -520,7 +522,7 @@ func TestEmptyBatch(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
 
 	cfg := dummyEmptyBatchChangesetConfig{
-		MCMS: &proposalutils.TimelockConfig{
+		MCMS: &cldfproposalutils.TimelockConfig{
 			MinDelay: 0,
 		},
 	}

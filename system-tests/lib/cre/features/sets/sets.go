@@ -3,44 +3,26 @@ package sets
 import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	aptos_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/aptos"
-	consensus_v1_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/consensus/v1"
-	consensus_v2_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/consensus/v2"
+	consensus_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/consensus/v2"
 	cron_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/cron"
-	custom_compute_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/custom_compute"
 	don_time_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/don_time"
-	evm_v1_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm/v1"
-	evm_v2_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm/v2"
+	evm_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm/v2"
 	http_actions_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/http_action"
 	http_trigger_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/http_trigger"
-	log_event_trigger_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/log_event_trigger"
-	mock_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/mock"
-	read_contract_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/read_contract"
-	solana_v2_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/solana/v2"
+	solana_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/solana/v2"
 	vault_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/vault"
-	web_api_target_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/web_api_target"
-	web_api_trigger_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/web_api_trigger"
 )
 
 func New() cre.Features {
 	return cre.NewFeatures(
-		&consensus_v2_feature.Consensus{},
+		&consensus_feature.Consensus{},
 		&cron_feature.Cron{},
-		&custom_compute_feature.CustomCompute{},
 		&don_time_feature.DONTime{},
-		&evm_v1_feature.EVM{},
-		&evm_v2_feature.EVM{},
+		&evm_feature.EVM{},
 		&http_actions_feature.HTTPAction{},
 		&http_trigger_feature.HTTPTrigger{},
-		&log_event_trigger_feature.LogEventTrigger{},
-		&mock_feature.Mock{},
 		&aptos_feature.Aptos{},
-		&read_contract_feature.ReadContract{},
-		&web_api_target_feature.WebAPITarget{},
-		&web_api_trigger_feature.WebAPITrigger{},
-		&solana_v2_feature.Solana{},
-		// Keep OCR3 late in PostEnvStartup so ConfigWatcher health waits do not block
-		// the rest of the job-oriented features from making progress.
-		&consensus_v1_feature.Consensus{},
+		&solana_feature.Solana{},
 		&vault_feature.Vault{},
 	)
 }

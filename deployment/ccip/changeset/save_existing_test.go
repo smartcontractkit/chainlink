@@ -1,81 +1,147 @@
-package changeset_test
+package changeset
 
 import (
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	changeset2 "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestSaveExistingCCIP(t *testing.T) {
-	t.Parallel()
-
-	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
-		environment.WithEVMSimulatedN(t, 2),
-		environment.WithLogger(logger.Test(t)),
-	))
-	require.NoError(t, err)
-
-	chains := rt.Environment().BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
-	chain1 := chains[0]
-	chain2 := chains[1]
-	cfg := commonchangeset.ExistingContractsConfig{
-		ExistingContracts: []commonchangeset.Contract{
+func TestSaveExisting(t *testing.T) {
+	dummyEnv := cldf.Environment{
+		Name:              "dummy",
+		Logger:            logger.TestLogger(t),
+		ExistingAddresses: cldf.NewMemoryAddressBook(),
+		BlockChains: cldf_chain.NewBlockChains(
+			map[uint64]cldf_chain.BlockChain{
+				chainsel.TEST_90000001.Selector: cldf_evm.Chain{},
+				chainsel.TEST_90000002.Selector: cldf_evm.Chain{},
+			}),
+	}
+	ExistingContracts := ExistingContractsConfig{
+		ExistingContracts: []Contract{
 			{
-				Address:        common.BigToAddress(big.NewInt(1)).String(),
-				TypeAndVersion: cldf.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0),
-				ChainSelector:  chain1,
+				Address: common.BigToAddress(big.NewInt(1)).String(),
+				TypeAndVersion: cldf.TypeAndVersion{
+					Type:    "dummy1",
+					Version: deployment.Version1_5_0,
+				},
+				ChainSelector: chainsel.TEST_90000001.Selector,
 			},
 			{
-				Address:        common.BigToAddress(big.NewInt(2)).String(),
-				TypeAndVersion: cldf.NewTypeAndVersion(shared.WETH9, deployment.Version1_0_0),
-				ChainSelector:  chain1,
-			},
-			{
-				Address:        common.BigToAddress(big.NewInt(3)).String(),
-				TypeAndVersion: cldf.NewTypeAndVersion(shared.TokenAdminRegistry, deployment.Version1_5_0),
-				ChainSelector:  chain1,
-			},
-			{
-				Address:        common.BigToAddress(big.NewInt(4)).String(),
-				TypeAndVersion: cldf.NewTypeAndVersion(shared.RegistryModule, deployment.Version1_6_0),
-				ChainSelector:  chain2,
-			},
-			{
-				Address:        common.BigToAddress(big.NewInt(5)).String(),
-				TypeAndVersion: cldf.NewTypeAndVersion(shared.Router, deployment.Version1_2_0),
-				ChainSelector:  chain2,
+				Address: common.BigToAddress(big.NewInt(2)).String(),
+				TypeAndVersion: cldf.TypeAndVersion{
+					Type:    "dummy2",
+					Version: deployment.Version1_1_0,
+				},
+				ChainSelector: chainsel.TEST_90000002.Selector,
 			},
 		},
 	}
 
-	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.SaveExistingContractsChangeset), cfg),
-	)
+	output, err := SaveExistingContractsChangeset(dummyEnv, ExistingContracts)
 	require.NoError(t, err)
+	require.NoError(t, dummyEnv.ExistingAddresses.Merge(output.AddressBook)) //nolint:staticcheck // AddressBook is deprecated but still returned by this changeset.
+	addresses, err := dummyEnv.ExistingAddresses.Addresses()
+	require.NoError(t, err)
+	require.Len(t, addresses, 2)
+	addressForChain1, exists := addresses[chainsel.TEST_90000001.Selector]
+	require.True(t, exists)
+	require.Len(t, addressForChain1, 1)
+}
 
-	state, err := stateview.LoadOnchainState(rt.Environment())
+func TestSaveExistingAddressWithLabels(t *testing.T) {
+	dummyEnv := cldf.Environment{
+		Name:              "dummy",
+		Logger:            logger.TestLogger(t),
+		ExistingAddresses: cldf.NewMemoryAddressBook(),
+		BlockChains: cldf_chain.NewBlockChains(
+			map[uint64]cldf_chain.BlockChain{
+				chainsel.TEST_90000001.Selector: cldf_evm.Chain{},
+				chainsel.TEST_90000002.Selector: cldf_evm.Chain{},
+			}),
+	}
+	dummyType1 := cldf.TypeAndVersion{
+		Type:    "dummyType",
+		Version: deployment.Version1_5_0,
+	}
+	dummyType1.AddLabel("label1")
+	dummyType1.AddLabel("label2")
+	ExistingContracts := ExistingContractsConfig{
+		ExistingContracts: []Contract{
+			{
+				Address:        common.BigToAddress(big.NewInt(1)).String(),
+				TypeAndVersion: dummyType1,
+				ChainSelector:  chainsel.TEST_90000001.Selector,
+			},
+		},
+	}
+
+	output, err := SaveExistingContractsChangeset(dummyEnv, ExistingContracts)
 	require.NoError(t, err)
-	chainState, _ := state.EVMChainState(chain1)
-	require.Equal(t, chainState.LinkToken.Address(), common.BigToAddress(big.NewInt(1)))
-	require.Equal(t, chainState.Weth9.Address(), common.BigToAddress(big.NewInt(2)))
-	require.Equal(t, chainState.TokenAdminRegistry.Address(), common.BigToAddress(big.NewInt(3)))
-	require.NotEmpty(t, state.MustGetEVMChainState(chain2).RegistryModules1_6)
-	require.Equal(t, state.MustGetEVMChainState(chain2).RegistryModules1_6[0].Address(), common.BigToAddress(big.NewInt(4)))
-	require.Equal(t, state.MustGetEVMChainState(chain2).Router.Address(), common.BigToAddress(big.NewInt(5)))
+	require.NoError(t, dummyEnv.ExistingAddresses.Merge(output.AddressBook)) //nolint:staticcheck // AddressBook is deprecated but still returned by this changeset.
+	addresses, err := dummyEnv.ExistingAddresses.Addresses()
+	require.NoError(t, err)
+	require.Len(t, addresses, 1)
+	addressForChain1, exists := addresses[chainsel.TEST_90000001.Selector]
+	require.True(t, exists)
+	require.Len(t, addressForChain1, 1)
+	require.Equal(t, "dummyType 1.5.0 label1 label2", addressForChain1[common.BigToAddress(big.NewInt(1)).String()].String())
+}
+
+func TestSaveExistingMCMSAddressWithLabels(t *testing.T) {
+	dummyEnv := cldf.Environment{
+		Name:              "dummy",
+		Logger:            logger.TestLogger(t),
+		ExistingAddresses: cldf.NewMemoryAddressBook(),
+		BlockChains: cldf_chain.NewBlockChains(
+			map[uint64]cldf_chain.BlockChain{
+				chainsel.TEST_90000001.Selector: cldf_evm.Chain{},
+				chainsel.TEST_90000002.Selector: cldf_evm.Chain{},
+			}),
+	}
+	mcmsContractTV := cldf.TypeAndVersion{
+		Type:    types.ManyChainMultisig,
+		Version: deployment.Version1_0_0,
+	}
+	mcmsContractTV.AddLabel(types.ProposerRole.String())
+	mcmsContractTV.AddLabel(types.BypasserRole.String())
+	mcmsContractTV.AddLabel(types.CancellerRole.String())
+	ExistingContracts := ExistingContractsConfig{
+		ExistingContracts: []Contract{
+			{
+				Address:        common.BigToAddress(big.NewInt(1)).String(),
+				TypeAndVersion: mcmsContractTV,
+				ChainSelector:  chainsel.TEST_90000001.Selector,
+			},
+		},
+	}
+
+	output, err := SaveExistingContractsChangeset(dummyEnv, ExistingContracts)
+	require.NoError(t, err)
+	require.NoError(t, dummyEnv.ExistingAddresses.Merge(output.AddressBook)) //nolint:staticcheck // AddressBook is deprecated but still returned by this changeset.
+	addresses, err := dummyEnv.ExistingAddresses.Addresses()
+	require.NoError(t, err)
+	require.Len(t, addresses, 1)
+	addressForChain1, exists := addresses[chainsel.TEST_90000001.Selector]
+	require.True(t, exists)
+	require.Len(t, addressForChain1, 1)
+	// load mcms state
+	mcmsState, err := changeset2.MaybeLoadMCMSWithTimelockChainState(dummyEnv.BlockChains.EVMChains()[chainsel.TEST_90000001.Selector], addressForChain1)
+	require.NoError(t, err)
+	require.NotNil(t, mcmsState)
+	require.NotNil(t, mcmsState.ProposerMcm)
+	require.NotNil(t, mcmsState.BypasserMcm)
+	require.NotNil(t, mcmsState.CancellerMcm)
 }

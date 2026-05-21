@@ -192,6 +192,7 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		validator, err := vaultcap.NewJWTBasedAuth(vaultcap.JWTBasedAuthConfig{
 			IssuerURL: cfg.Auth0.IssuerURL,
 			Audience:  cfg.Auth0.Audience,
+			TenantID:  cfg.Auth0.TenantID,
 		}, limitsFactory, lggr)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create JWTBasedAuth: %w", err)
@@ -232,6 +233,18 @@ func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DO
 	if err != nil {
 		return nil, fmt.Errorf("could not create ciphertext size limiter: %w", err)
 	}
+	idKeyLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierKeySizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create identifier key size limiter: %w", err)
+	}
+	idOwnerLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierOwnerSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create identifier owner size limiter: %w", err)
+	}
+	idNamespaceLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierNamespaceSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create identifier namespace size limiter: %w", err)
+	}
 
 	writeMethodsEnabled, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.GatewayVaultManagementEnabled)
 	if err != nil {
@@ -252,9 +265,12 @@ func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DO
 		jwtAuth:             jwtAuth,
 		stopCh:              make(services.StopChan),
 		metrics:             metrics,
-		aggregator:          &baseAggregator{capabilitiesRegistry: capabilitiesRegistry},
-		clock:               clock,
-		RequestValidator:    vaultcap.NewRequestValidator(limiter, ciphertextLimiter),
+		aggregator: &baseAggregator{
+			capabilitiesRegistry: capabilitiesRegistry,
+			vaultHandlerDonID:    donConfig.DonId,
+		},
+		clock:            clock,
+		RequestValidator: vaultcap.NewRequestValidator(limiter, ciphertextLimiter, idKeyLengthLimiter, idOwnerLengthLimiter, idNamespaceLengthLimiter),
 	}, nil
 }
 
@@ -414,12 +430,6 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		h.lggr.Errorw("request not authorized", "method", req.Method, "requestID", req.ID, "hasAuth", req.Auth != "", "error", authErr)
 		return errors.New("request not authorized: " + authErr.Error())
 	}
-	normalizedReq, normalizeErr := vaultcap.NormalizeRequestWithIdentity(req, authResult.OrgID(), authResult.WorkflowOwner())
-	if normalizeErr != nil {
-		h.lggr.Errorw("failed to normalize authorized request identity", "method", req.Method, "requestID", req.ID, "orgID", authResult.OrgID(), "workflowOwner", authResult.WorkflowOwner(), "error", normalizeErr)
-		return normalizeErr
-	}
-	req = normalizedReq
 	authorizedOwner := authResult.AuthorizedOwner()
 	// Generate a unique ID for the request.
 	// Prefix request id with authorizedOwner, to ensure uniqueness across different owners
@@ -600,7 +610,8 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) er
 		}
 	}
 	_, cachedPublicKey := h.getCachedPublicKey()
-	err = h.ValidateCreateSecretsRequest(ctx, cachedPublicKey, createSecretsRequest)
+	skipLabelValidation := cachedPublicKey == nil
+	err = h.ValidateCreateSecretsRequest(ctx, cachedPublicKey, createSecretsRequest, skipLabelValidation)
 	if err != nil {
 		l.Warnw("failed to validate create secrets request", "error", err)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate create secrets request: %w", err), nil))
@@ -641,7 +652,8 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar *activeRequest) er
 		}
 	}
 	_, cachedPublicKey := h.getCachedPublicKey()
-	vaultCapErr := h.ValidateUpdateSecretsRequest(ctx, cachedPublicKey, updateSecretsRequest)
+	skipLabelValidation := cachedPublicKey == nil
+	vaultCapErr := h.ValidateUpdateSecretsRequest(ctx, cachedPublicKey, updateSecretsRequest, skipLabelValidation)
 	if vaultCapErr != nil {
 		l.Warnw("failed to validate update secrets request", "error", vaultCapErr)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate update secrets request: %w", vaultCapErr), nil))
@@ -680,7 +692,7 @@ func (h *handler) handleSecretsDelete(ctx context.Context, ar *activeRequest) er
 			id.Namespace = vaulttypes.DefaultNamespace
 		}
 	}
-	err = h.ValidateDeleteSecretsRequest(deleteSecretsRequest)
+	err = h.ValidateDeleteSecretsRequest(ctx, deleteSecretsRequest)
 	if err != nil {
 		l.Warnw("failed to validate delete secrets request", "error", err)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate delete secrets request: %w", err), nil))
@@ -708,7 +720,7 @@ func (h *handler) handleSecretsList(ctx context.Context, ar *activeRequest) erro
 	if req.Namespace == "" {
 		req.Namespace = vaulttypes.DefaultNamespace
 	}
-	err := h.ValidateListSecretIdentifiersRequest(req)
+	err := h.ValidateListSecretIdentifiersRequest(ctx, req)
 	if err != nil {
 		l.Warnw("failed to validate list secret identifiers request", "error", err)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate list secret identifiers request: %w", err), nil))

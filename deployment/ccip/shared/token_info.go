@@ -159,7 +159,7 @@ var (
 		FTMUSD:                        {WSSymbol},
 		BTCUSD:                        {WBTCNSymbol, WBTCSymbol},
 		LTCUSD:                        {WHYPESymbol},
-		USDCUSD:                       {WAPESymbol, WHSKSymbol, WSBYSymbol, WCROSymbol},
+		USDCUSD:                       {WAPESymbol, WHSKSymbol, WCROSymbol},
 		ARBUSD:                        {WCoreSymbol},
 		XTZUSD:                        {XTZSymbol},
 	}

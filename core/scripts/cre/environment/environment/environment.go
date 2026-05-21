@@ -11,17 +11,16 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"runtime/debug"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
-	"github.com/Masterminds/semver/v3"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/client"
 	"github.com/ethereum/go-ethereum/crypto"
+	mobyclient "github.com/moby/moby/client"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
@@ -31,7 +30,6 @@ import (
 	billingplatformservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/billing_platform_service"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/tracking"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
@@ -40,14 +38,11 @@ import (
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	blockchains_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
 	feature_set "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/sets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/topologyviz"
@@ -104,6 +99,32 @@ func waitToCleanUp(d time.Duration) {
 	time.Sleep(d)
 }
 
+func describePortUsage(ctx context.Context, port int) (string, error) {
+	lsofCtx, lsofCtxCancel := context.WithTimeout(ctx, 20*time.Second)
+	defer lsofCtxCancel()
+	cmd := exec.CommandContext(lsofCtx, "lsof", "-nP", fmt.Sprintf("-iTCP:%d", port)) //nolint:gosec //G204-- we control the value of the cmd so the lint/sec error is a false positive
+	output, err := cmd.CombinedOutput()
+	trimmedOutput := strings.TrimSpace(string(output))
+
+	if err == nil {
+		if trimmedOutput == "" {
+			return fmt.Sprintf("no processes found on TCP port %d", port), nil
+		}
+		return trimmedOutput, nil
+	}
+
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+		return fmt.Sprintf("no processes found on TCP port %d", port), nil
+	}
+
+	if trimmedOutput == "" {
+		return "", fmt.Errorf("failed to inspect TCP port %d with lsof: %w", port, err)
+	}
+
+	return "", fmt.Errorf("failed to inspect TCP port %d with lsof: %w\n%s", port, err, trimmedOutput)
+}
+
 var StartCmdPreRunFunc = func(cmd *cobra.Command, args []string) {
 	globalPreRunFunc(cmd, args)
 	provisioningStartTime = time.Now()
@@ -115,29 +136,42 @@ var StartCmdPreRunFunc = func(cmd *cobra.Command, args []string) {
 	// so we can skip Docker cleanup for Kubernetes provider
 }
 
-var StartCmdRecoverHandlerFunc = func(p any, cleanupOnFailure bool, cleanupWait time.Duration) {
+var StartCmdRecoverHandlerFunc = func(p any, persistedBeholderState *envconfig.ChipIngressConfig, cleanupOnFailure bool, cleanupWait time.Duration) {
 	if p != nil {
 		fmt.Println("Panicked when starting environment")
 
+		stack := debug.Stack()
+		stackStr := string(stack)
+
 		var errText string
+		var panicErr error
 		if err, ok := p.(error); ok {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-			fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
+			fmt.Fprintf(os.Stderr, "Stack trace: %s\n", stackStr)
+			panicErr = err
 
-			errText = strings.SplitN(err.Error(), "\n", 1)[0]
+			errText = strings.SplitN(err.Error(), "\n", 2)[0]
 		} else {
 			fmt.Fprintf(os.Stderr, "panic: %v\n", p)
-			fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
+			fmt.Fprintf(os.Stderr, "Stack trace: %s\n", stackStr)
 
-			errText = strings.SplitN(fmt.Sprintf("%v", p), "\n", 1)[0]
+			errText = strings.SplitN(fmt.Sprintf("%v", p), "\n", 2)[0]
 		}
 
-		tracingErr := dxTracker.Track(MetricStartupResult, map[string]any{
+		meta := map[string]any{
 			"success":  false,
 			"error":    errText,
 			"panicked": true,
 			"topology": os.Getenv("CTF_CONFIGS"),
-		})
+		}
+
+		if loc := errorLocationForTracking(panicErr, stack); loc != "" {
+			meta["error_location"] = loc
+		}
+
+		fmt.Println("Error location: ", meta["error_location"])
+
+		tracingErr := dxTracker.Track(MetricStartupResult, meta)
 
 		if tracingErr != nil {
 			fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", tracingErr)
@@ -156,56 +190,15 @@ var StartCmdRecoverHandlerFunc = func(p any, cleanupOnFailure bool, cleanupWait 
 			}
 		}
 
+		if persistedBeholderState != nil {
+			if err := restorePersistedBeholderState(relativePathToRepoRoot, persistedBeholderState); err != nil {
+				framework.L.Warn().Err(err).Msg("failed to restore persisted Beholder state after environment startup failure")
+			}
+		}
+
 		// signal that the environment failed to start
 		os.Exit(1)
 	}
-}
-
-var StartCmdGenerateSettingsFile = func(registryChain blockchains.Blockchain, output *creenv.SetupOutput) error {
-	rpcs := map[uint64]string{}
-	for _, bcOut := range output.CreEnvironment.Blockchains {
-		rpcs[bcOut.ChainSelector()] = bcOut.CtfOutput().Nodes[0].ExternalHTTPUrl
-	}
-
-	regChainEVM, isEVM := registryChain.(*evm.Blockchain)
-	if !isEVM {
-		return fmt.Errorf("registry chain is not EVM, but %T, cannot generate CRE CLI settings file", registryChain)
-	}
-
-	creCLISettingsFile, settingsErr := crecli.PrepareCRECLISettingsFile(
-		crecli.CRECLIProfile,
-		regChainEVM.SethClient.MustGetRootKeyAddress(),
-		output.CreEnvironment.CldfEnvironment.DataStore,
-		output.CreEnvironment.ContractVersions,
-		output.Dons.MustWorkflowDON().ID,
-		regChainEVM.ChainSelector(),
-		rpcs,
-		output.S3ProviderOutput,
-	)
-
-	if settingsErr != nil {
-		return settingsErr
-	}
-
-	// Copy the file to current directory as cre.yaml
-	currentDir, cErr := os.Getwd()
-	if cErr != nil {
-		return cErr
-	}
-
-	targetPath := filepath.Join(currentDir, "cre.yaml")
-	input, err := os.ReadFile(creCLISettingsFile.Name())
-	if err != nil {
-		return err
-	}
-	err = os.WriteFile(targetPath, input, 0o600)
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("CRE CLI settings file created: %s\n\n", targetPath)
-
-	return nil
 }
 
 func startCmd() *cobra.Command {
@@ -214,7 +207,6 @@ func startCmd() *cobra.Command {
 		withExampleFlag          bool
 		exampleWorkflowTimeout   time.Duration
 		withPluginsDockerImage   string
-		withContractsVersion     string
 		doSetup                  bool
 		cleanupOnFailure         bool
 		cleanupWait              time.Duration
@@ -233,8 +225,10 @@ func startCmd() *cobra.Command {
 		Aliases:          []string{"restart"},
 		PersistentPreRun: StartCmdPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			var persistedBeholderState *envconfig.ChipIngressConfig
+
 			defer func() {
-				StartCmdRecoverHandlerFunc(recover(), cleanupOnFailure, cleanupWait)
+				StartCmdRecoverHandlerFunc(recover(), persistedBeholderState, cleanupOnFailure, cleanupWait)
 			}()
 
 			if doSetup {
@@ -257,7 +251,8 @@ func startCmd() *cobra.Command {
 				return fmt.Errorf("with-plugins-docker-image flag is no longer supported. Set Docker image in TOML config instead (%s) for each nodeset under the [nodesets.nodesets.node_specs.node.image] field", effectiveConfig)
 			}
 
-			persistedBeholderState, persistedBeholderStateErr := loadPersistedBeholderState(relativePathToRepoRoot)
+			var persistedBeholderStateErr error
+			persistedBeholderState, persistedBeholderStateErr = loadPersistedBeholderState(relativePathToRepoRoot)
 			if persistedBeholderStateErr != nil {
 				framework.L.Warn().Err(persistedBeholderStateErr).Msg("failed to load persisted Beholder state before startup cleanup")
 			}
@@ -319,14 +314,18 @@ func startCmd() *cobra.Command {
 					}
 				}
 
+				if persistedBeholderState != nil {
+					if err := restorePersistedBeholderState(relativePathToRepoRoot, persistedBeholderState); err != nil {
+						framework.L.Warn().Err(err).Msg("failed to restore persisted Beholder state after environment startup termination")
+					}
+				}
+
 				os.Exit(1)
 			}()
 
-			withV2Registries := withContractsVersion == "v2"
 			envDependencies := cre.NewEnvironmentDependencies(
 				flags.NewDefaultCapabilityFlagsProvider(),
-				cre.NewContractVersionsProvider(envconfig.DefaultContractSet(withV2Registries)),
-				cre.NewCLIFlagsProvider(withV2Registries),
+				cre.NewContractVersionsProvider(envconfig.DefaultContractSet()),
 			)
 
 			if err := in.Validate(envDependencies); err != nil {
@@ -358,7 +357,7 @@ func startCmd() *cobra.Command {
 				fmt.Fprintf(os.Stderr, "Error: %s\n", startErr)
 				fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
 
-				dxErr := trackStartup(false, hasBuiltDockerImage(in), in.Infra.Type, ptr.Ptr(strings.SplitN(startErr.Error(), "\n", 1)[0]), ptr.Ptr(false))
+				dxErr := trackStartup(false, hasBuiltDockerImage(in), in.Infra.Type, new(strings.SplitN(startErr.Error(), "\n", 2)[0]), new(false), errorLocationForTracking(startErr, nil))
 				if dxErr != nil {
 					fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
 				}
@@ -394,12 +393,7 @@ func startCmd() *cobra.Command {
 
 			registryChainOut := output.CreEnvironment.Blockchains[0]
 
-			sErr := StartCmdGenerateSettingsFile(registryChainOut, output)
-			if sErr != nil {
-				fmt.Fprintf(os.Stderr, "failed to create CRE CLI settings file: %s. You need to create it manually.", sErr)
-			}
-
-			dxErr := trackStartup(true, hasBuiltDockerImage(in), output.CreEnvironment.Provider.Type, nil, nil)
+			dxErr := trackStartup(true, hasBuiltDockerImage(in), output.CreEnvironment.Provider.Type, nil, nil, "")
 			if dxErr != nil {
 				fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
 			}
@@ -501,7 +495,7 @@ func startCmd() *cobra.Command {
 					return errors.New("no workflow DON found")
 				}
 
-				deployErr := deployAndVerifyExampleWorkflow(cmdContext, registryChainOut.CtfOutput().Nodes[0].ExternalHTTPUrl, workflowDonID, exampleWorkflowTimeout, workflowRegistryAddress, semver.MustParse(withContractsVersion))
+				deployErr := deployAndVerifyExampleWorkflow(cmdContext, registryChainOut.CtfOutput().Nodes[0].ExternalHTTPUrl, workflowDonID, exampleWorkflowTimeout, workflowRegistryAddress, output.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
 				if deployErr != nil {
 					fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
 				}
@@ -538,7 +532,6 @@ func startCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&withObs, "with-observability", false, "Start Observability Stack")
 	cmd.Flags().BoolVar(&withBilling, "with-billing", false, "Deploy Billing Platform Service")
 	cmd.Flags().BoolVarP(&doSetup, "auto-setup", "a", false, "Run setup before starting the environment")
-	cmd.Flags().StringVar(&withContractsVersion, "with-contracts-version", "v2", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
 	cmd.Flags().StringVarP(&setupConfig.ConfigPath, "setup-config", "s", DefaultSetupConfigPath, "Path to the TOML configuration file for the setup command")
 	cmd.Flags().IntVarP(&chipGRPCPort, "grpc-port", "g", mustStringToInt(chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT), "GRPC port for Chip Ingress")
 
@@ -608,7 +601,7 @@ func setupDashboards(ctx context.Context, setupCfg SetupConfig) error {
 	return nil
 }
 
-func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMessage *string, panicked *bool) error {
+func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMessage *string, panicked *bool, errorLocation string) error {
 	metadata := map[string]any{
 		"success":  success,
 		"infra":    infraType,
@@ -621,6 +614,10 @@ func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMess
 
 	if panicked != nil {
 		metadata["panicked"] = *panicked
+	}
+
+	if errorLocation != "" {
+		metadata["error_location"] = errorLocation
 	}
 
 	dxStartupErr := dxTracker.Track(MetricStartupResult, metadata)
@@ -754,7 +751,7 @@ func detectServiceStatus(cmdContext context.Context) serviceStatus {
 }
 
 func isObservabilityGrafanaRunning(cmdContext context.Context) bool {
-	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	dockerClient, err := mobyclient.New()
 	if err != nil {
 		return false
 	}
@@ -763,12 +760,12 @@ func isObservabilityGrafanaRunning(cmdContext context.Context) bool {
 	ctx, cancel := context.WithTimeout(cmdContext, 15*time.Second)
 	defer cancel()
 
-	containers, err := dockerClient.ContainerList(ctx, container.ListOptions{})
+	listRes, err := dockerClient.ContainerList(ctx, mobyclient.ContainerListOptions{})
 	if err != nil {
 		return false
 	}
 
-	for _, c := range containers {
+	for _, c := range listRes.Items {
 		// Observability is typically started from the CTF compose bundle and identified by compose labels.
 		if c.Labels["com.docker.compose.service"] == "grafana" && c.Labels["com.docker.compose.project"] == "compose" {
 			return true
@@ -844,8 +841,6 @@ func StartCLIEnvironment(
 		NodeSets:                in.NodeSets,
 		BlockchainsInput:        in.Blockchains,
 		ChipRouterInput:         in.ChipRouter,
-		ContractVersions:        env.ContractVersions(),
-		WithV2Registries:        env.WithV2Registries(),
 		JdInput:                 in.JD,
 		Provider:                *in.Infra,
 		S3ProviderInput:         in.S3ProviderInput,
@@ -856,12 +851,27 @@ func StartCLIEnvironment(
 		Features:                features,
 		GatewayWhitelistConfig:  gatewayWhitelistConfig,
 		BlockchainDeployers:     blockchains_sets.NewDeployerSet(testLogger, in.Infra),
+		ContractVersions:        env.ContractVersions(),
 	}
 
-	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)
+	ctx, cancel := context.WithTimeout(cmdContext, 20*time.Minute)
 	defer cancel()
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(ctx, testLogger, singleFileLogger, universalSetupInput, relativePathToRepoRoot)
 	if setupErr != nil {
+		if strings.Contains(setupErr.Error(), "address already in use") {
+			regex := regexp.MustCompile(`:(\d+)`)
+			matches := regex.FindStringSubmatch(setupErr.Error())
+			if len(matches) > 1 {
+				port, pErr := strconv.Atoi(matches[1])
+				// ignore errors from now on, so that we don't overwrite the original error
+				if pErr == nil {
+					portUsage, err := describePortUsage(cmdContext, port)
+					if err == nil {
+						fmt.Printf("Port %d is already in use by:\n%s\n\n", port, portUsage)
+					}
+				}
+			}
+		}
 		return nil, fmt.Errorf("failed to setup test environment: %w", setupErr)
 	}
 
@@ -869,20 +879,23 @@ func StartCLIEnvironment(
 }
 
 func isBlockscoutRunning(cmdContext context.Context) bool {
-	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	dockerClient, err := mobyclient.New()
 	if err != nil {
 		return false
 	}
 
 	ctx, cancel := context.WithTimeout(cmdContext, 15*time.Second)
 	defer cancel()
-	containers, err := dockerClient.ContainerList(ctx, container.ListOptions{All: true})
+	listRes, err := dockerClient.ContainerList(ctx, mobyclient.ContainerListOptions{All: true})
 	if err != nil {
 		return false
 	}
 
-	for _, container := range containers {
-		if strings.Contains(strings.ToLower(container.Names[0]), "blockscout") {
+	for _, ctr := range listRes.Items {
+		if len(ctr.Names) == 0 {
+			continue
+		}
+		if strings.Contains(strings.ToLower(ctr.Names[0]), "blockscout") {
 			return true
 		}
 	}
@@ -979,10 +992,10 @@ func hasBuiltDockerImage(in *envconfig.Config) bool {
 
 func oneLineErrorMessage(errOrPanic any) string {
 	if err, ok := errOrPanic.(error); ok {
-		return strings.SplitN(err.Error(), "\n", 1)[0]
+		return strings.SplitN(err.Error(), "\n", 2)[0]
 	}
 
-	return strings.SplitN(fmt.Sprintf("%v", errOrPanic), "\n", 1)[0]
+	return strings.SplitN(fmt.Sprintf("%v", errOrPanic), "\n", 2)[0]
 }
 
 func initDxTracker() {
@@ -999,12 +1012,12 @@ func initDxTracker() {
 }
 
 func ensureDockerIsRunning(ctx context.Context) error {
-	dockerClient, dockerClientErr := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	dockerClient, dockerClientErr := mobyclient.New()
 	if dockerClientErr != nil {
 		return errors.Wrap(dockerClientErr, "failed to create Docker client")
 	}
 
-	_, pingErr := dockerClient.Ping(ctx)
+	_, pingErr := dockerClient.Ping(ctx, mobyclient.PingOptions{})
 	if pingErr != nil {
 		return errors.Wrap(pingErr, "docker is not running. Please start Docker and try again")
 	}
@@ -1047,7 +1060,7 @@ func ensureDockerImagesExist(ctx context.Context, logger zerolog.Logger, in *env
 // it returns an error if the image does not exist locally and pulling fails
 // it doesn't handle registries that require authentication
 func ensureDockerImageExists(ctx context.Context, logger zerolog.Logger, imageName string) error {
-	dockerClient, dErr := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	dockerClient, dErr := mobyclient.New()
 	if dErr != nil {
 		return errors.Wrap(dErr, "failed to create Docker client")
 	}
@@ -1058,11 +1071,14 @@ func ensureDockerImageExists(ctx context.Context, logger zerolog.Logger, imageNa
 	if err != nil {
 		logger.Debug().Msgf("Image '%s' not found locally, trying to pull it", imageName)
 
-		ioRead, pullErr := dockerClient.ImagePull(ctx, imageName, image.PullOptions{})
+		ioRead, pullErr := dockerClient.ImagePull(ctx, imageName, mobyclient.ImagePullOptions{})
 		if pullErr != nil {
 			return fmt.Errorf("image '%s' not found locally and pulling failed", imageName)
 		}
 		defer ioRead.Close()
+		if waitErr := ioRead.Wait(ctx); waitErr != nil {
+			return fmt.Errorf("image '%s' not found locally and pulling failed: %w", imageName, waitErr)
+		}
 
 		logger.Debug().Msgf("Image '%s' pulled successfully", imageName)
 

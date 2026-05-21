@@ -29,6 +29,7 @@ func main() {
 func RunVaultSecretWorkflow(cfg config.Config, _ *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[config.Config], error) {
 	return cre.Workflow[config.Config]{
 		cre.Handler(
+			// cron-trigger@1.0.0 rejects schedules faster than 30s ("maximum fastest cron schedule is 30s").
 			cron.Trigger(&cron.Config{Schedule: "*/30 * * * * *"}),
 			onTrigger,
 		),
@@ -36,11 +37,18 @@ func RunVaultSecretWorkflow(cfg config.Config, _ *slog.Logger, _ cre.SecretsProv
 }
 
 func onTrigger(cfg config.Config, runtime cre.Runtime, _ *cron.Payload) (string, error) {
+	if cfg.ExpectInvalidIdentifier {
+		return evaluateInvalidIdentifiers(cfg, runtime)
+	}
+
 	phases := cfg.EffectivePhases()
 	if len(phases) == 0 {
 		return "", fmt.Errorf("no vault workflow phases configured")
 	}
 
+	// Phases run in declaration order; the FIRST phase whose checks all succeed emits the completion log
+	// and returns. Later phases whose checks describe the SAME success state never run—you need a strictly
+	// later world state than earlier phases so that earlier phases eventually fail once the vault changes.
 	var lastErr error
 	for _, phase := range phases {
 		if err := evaluatePhase(runtime, phase); err != nil {
@@ -60,6 +68,41 @@ func onTrigger(cfg config.Config, runtime cre.Runtime, _ *cron.Payload) (string,
 	}
 
 	return "", fmt.Errorf("no vault workflow phase matched current state: %w", lastErr)
+}
+
+func evaluateInvalidIdentifiers(cfg config.Config, runtime cre.Runtime) (string, error) {
+	_, err := runtime.GetSecret(&cre.SecretRequest{
+		Namespace: cfg.SecretNamespace,
+		Id:        cfg.SecretKey,
+	}).Await()
+	if err == nil {
+		runtime.Logger().Error("Expected identifier validation to fail but GetSecret succeeded", "secretKey", cfg.SecretKey)
+		return "", fmt.Errorf("expected identifier validation failure for key=%s, but secret was retrieved", cfg.SecretKey)
+	}
+	runtime.Logger().Info("Vault get correctly rejected invalid identifier", "secretKey", cfg.SecretKey, "error", err)
+
+	if cfg.SecretKey2 != "" || cfg.SecretNamespace2 != "" {
+		key2 := cfg.SecretKey2
+		if key2 == "" {
+			key2 = cfg.SecretKey
+		}
+		ns2 := cfg.SecretNamespace2
+		if ns2 == "" {
+			ns2 = cfg.SecretNamespace
+		}
+		_, err2 := runtime.GetSecret(&cre.SecretRequest{
+			Namespace: ns2,
+			Id:        key2,
+		}).Await()
+		if err2 == nil {
+			runtime.Logger().Error("Expected identifier validation to fail for secondary identifier but GetSecret succeeded",
+				"secretKey2", key2, "secretNamespace2", ns2)
+			return "", fmt.Errorf("expected identifier validation failure for key=%s namespace=%s, but secret was retrieved", key2, ns2)
+		}
+		runtime.Logger().Info("Vault get correctly rejected invalid identifier", "secretKey", key2, "error", err2)
+	}
+
+	return fmt.Sprintf("Invalid identifier correctly rejected: key=%s", cfg.SecretKey), nil
 }
 
 func evaluatePhase(runtime cre.Runtime, phase config.Phase) error {

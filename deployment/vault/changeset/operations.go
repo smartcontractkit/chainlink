@@ -15,12 +15,13 @@ import (
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
@@ -243,7 +244,7 @@ var ExecuteNativeTransferOp = operations.NewOperation(
 // BatchNativeTransferSequenceInput is the input for the batch transfer sequence
 type BatchNativeTransferSequenceInput struct {
 	TransfersByChain map[uint64][]types.NativeTransfer `json:"transfers_by_chain"`
-	MCMSConfig       *proposalutils.TimelockConfig     `json:"mcms_config,omitempty"`
+	MCMSConfig       *cldfproposalutils.TimelockConfig `json:"mcms_config,omitempty"`
 	Description      string                            `json:"description"`
 }
 
@@ -411,7 +412,7 @@ func generateMCMSProposals(b operations.Bundle, deps VaultDeps, input BatchNativ
 		description = "Batch Native Token Transfer"
 	}
 
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		deps.Environment,
 		timelockAddressByChain,
 		mcmAddressByChain,

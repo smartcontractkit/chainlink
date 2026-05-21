@@ -62,8 +62,8 @@ const (
 	// backoffFactor is the factor by which to increase the delay each time a request fails.
 	backoffFactor = 1.3
 
-	txMetaFieldSubId  = "SubId"
-	txMetaGlobalSubId = "GlobalSubId"
+	txMetaFieldSubID  = "SubId"
+	txMetaGlobalSubID = "GlobalSubId"
 )
 
 func New(
@@ -195,19 +195,15 @@ func (lsn *listenerV2) Start(ctx context.Context) error {
 
 		if lsn.job.VRFSpec.CustomRevertsPipelineEnabled && lsn.vrfOwner != nil && lsn.job.VRFSpec.VRFOwnerAddress != nil {
 			// Start reverted txns handler in background
-			lsn.wg.Add(1)
-			go func() {
-				defer lsn.wg.Done()
+			lsn.wg.Go(func() {
 				lsn.runRevertedTxnsHandler(spec.PollPeriod)
-			}()
+			})
 		}
 
 		// Log listener gathers request logs and processes them
-		lsn.wg.Add(1)
-		go func() {
-			defer lsn.wg.Done()
+		lsn.wg.Go(func() {
 			lsn.runLogListener(spec.PollPeriod, spec.MinIncomingConfirmations)
-		}()
+		})
 
 		return nil
 	})
@@ -248,6 +244,10 @@ func (lsn *listenerV2) GetStartingResponseCountsV2(ctx context.Context) (respCou
 			continue
 		}
 		bi := new(big.Int).SetBytes(b)
+		if c.Count < 0 {
+			lsn.l.Errorw("unexpected negative fulfillment count from tx metadata", "count", c.Count, "reqID", c.RequestID)
+			continue
+		}
 		respCounts[bi.String()] = uint64(c.Count)
 	}
 	return respCounts, nil
@@ -256,6 +256,9 @@ func (lsn *listenerV2) GetStartingResponseCountsV2(ctx context.Context) (respCou
 func (lsn *listenerV2) setLatestHead(head logpoller.Block) {
 	lsn.latestHeadMu.Lock()
 	defer lsn.latestHeadMu.Unlock()
+	if head.BlockNumber < 0 {
+		return
+	}
 	num := uint64(head.BlockNumber)
 	if num > lsn.latestHeadNumber {
 		lsn.latestHeadNumber = num

@@ -5,22 +5,22 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
 
 var (
-	DeployOnRampOp = opsutil.NewEVMDeployOperation(
+	DeployOnRampOp = opsevm.NewEVMDeployOperation(
 		"DeployOnRamp",
 		semver.MustParse("1.0.0"),
 		"Deploys OnRamp 1.6 contract on the specified evm chain",
 		shared.OnRamp,
 		onramp.OnRampMetaData,
-		&opsutil.ContractOpts{
+		&opsevm.ContractOpts{
 			Version:          &deployment.Version1_6_0,
 			EVMBytecode:      common.FromHex(onramp.OnRampBin),
 			ZkSyncVMBytecode: onramp.ZkBytecode,
@@ -42,7 +42,7 @@ var (
 		},
 	)
 
-	OnRampApplyDestChainConfigUpdatesOp = opsutil.NewEVMCallOperation(
+	OnRampApplyDestChainConfigUpdatesOp = opsevm.NewEVMCallOperation(
 		"OnRampApplyDestChainConfigUpdatesOp",
 		semver.MustParse("1.0.0"),
 		"Applies updates to destination chain configurations stored on the OnRamp contract",

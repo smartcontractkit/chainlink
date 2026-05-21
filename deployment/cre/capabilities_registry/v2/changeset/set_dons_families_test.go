@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v2_0"
@@ -111,8 +111,7 @@ func TestSetDONsFamilies_Apply(t *testing.T) {
 	t.Run("set families for existing DON - MCMS", func(t *testing.T) {
 		mcmsEnv := test.SetupEnvV2(t, true)
 
-		duration, testErr := commonconfig.NewDuration(1 * time.Second)
-		require.NoError(t, testErr)
+		duration := mcmstypes.NewDuration(1 * time.Second)
 		csOut, testErr := cs.Apply(*mcmsEnv.Env, changeset.SetDONsFamiliesInput{
 			RegistrySelector:  chainSelector,
 			RegistryQualifier: test.RegistryQualifier,

@@ -23,11 +23,11 @@ Inside `core/scripts/cre/environment` directory
  3. Stop and clear any existing environment: `go run . env stop -a`
  4. Run: `CTF_CONFIGS=<path-to-your-topology-config> go run . env start && ./bin/ctf obs up` to start env + observability
  5. Optionally run the Blockscout (chain explorer) `./bin/ctf bs up`
- 6. Execute the tests in `system-tests/tests/regression/cre`: `go test -timeout 15m -run "^Test_CRE_V2"`
+ 6. Execute the tests in `system-tests/tests/regression/cre`: `go test -timeout 15m -run "^Test_CRE_"`
 */
 func Test_CRE_V2_Consensus_Regression(t *testing.T) {
 	// a template for Consensus negative tests names to avoid duplication
-	const consensusTestNameTemplate = "[v2] Consensus.%s fails with %s" // e.g. "[v2] Consensus.<Function> fails with <invalid input>"
+	const consensusTestNameTemplate = "Consensus.%s fails with %s" // e.g. "Consensus.<Function> fails with <invalid input>"
 
 	for _, tCase := range consensusNegativeTestsGenerateReport {
 		testName := fmt.Sprintf(consensusTestNameTemplate, tCase.caseToTrigger, tCase.name)
@@ -44,7 +44,7 @@ func Test_CRE_V2_Consensus_Regression(t *testing.T) {
 // For now we did not parallelize this suite to avoid complications related to using real ChIP Ingress stack (DX-3543)
 func Test_CRE_V2_Cron_Regression(t *testing.T) {
 	for _, tCase := range cronInvalidSchedulesTests {
-		testName := "[v2] Cron (Beholder) fails when schedule is " + tCase.name
+		testName := "Cron (Beholder) fails when schedule is " + tCase.name
 		t.Run(testName, func(t *testing.T) {
 			if parallelEnabled {
 				t.Parallel()
@@ -58,7 +58,7 @@ func Test_CRE_V2_Cron_Regression(t *testing.T) {
 
 func Test_CRE_V2_HTTP_Regression(t *testing.T) {
 	for _, tCase := range httpNegativeTests {
-		testName := "[v2] HTTP Trigger fails with " + tCase.name
+		testName := "HTTP Trigger fails with " + tCase.name
 		t.Run(testName, func(t *testing.T) {
 			if parallelEnabled {
 				t.Parallel()
@@ -72,7 +72,7 @@ func Test_CRE_V2_HTTP_Regression(t *testing.T) {
 // runEVMNegativeTestSuite runs a suite of EVM negative tests with the given test cases
 func runEVMNegativeTestSuite(t *testing.T, testCases []evmNegativeTest) {
 	// a template for EVM negative tests names to avoid duplication
-	const evmTestNameTemplate = "[v2] EVM.%s fails with %s" // e.g. "[v2] EVM.<Function> fails with <invalid input>"
+	const evmTestNameTemplate = "EVM.%s fails with %s" // e.g. "EVM.<Function> fails with <invalid input>"
 
 	for _, tCase := range testCases {
 		testName := fmt.Sprintf(evmTestNameTemplate, tCase.functionToTest, tCase.name)
@@ -160,7 +160,7 @@ func Test_CRE_V2_EVM_LogTrigger_Invalid_Address_Regression(t *testing.T) {
 
 func Test_CRE_V2_HTTP_Action_CRUD_Regression(t *testing.T) {
 	for _, tCase := range httpActionFailureTests {
-		testName := "[v2] HTTP Action fails with " + tCase.name
+		testName := "HTTP Action fails with " + tCase.name
 		t.Run(testName, func(t *testing.T) {
 			if parallelEnabled {
 				t.Parallel()

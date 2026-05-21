@@ -2,12 +2,11 @@ package chainlink
 
 import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 type GeneralConfig interface {
-	config.AppConfig
+	coreconfig.AppConfig
 	toml.HasEVMConfigs
 	CosmosConfigs() RawConfigs
 	SolanaConfigs() RawConfigs

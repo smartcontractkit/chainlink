@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"sync"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -86,6 +88,13 @@ type eventHandler struct {
 	billingClient          metering.BillingClient
 	orgResolver            orgresolver.OrgResolver
 	secretsFetcher         v2.SecretsFetcher
+	// localSecretOverrides is keyed by owner address; values are secret id -> secret value
+	localSecretOverrides map[string]map[string]string
+
+	moduleLRU           *ModuleLRU
+	moduleStore         artifacts.SerialisedModuleStore
+	cacheMetrics        *CacheMetrics
+	moduleEngineVersion string
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
@@ -106,6 +115,9 @@ type eventHandler struct {
 
 	metrics *metrics
 }
+
+// EventHandlerOption is a functional option for configuring an eventHandler.
+type EventHandlerOption = func(*eventHandler)
 
 func WithEngineRegistry(er *EngineRegistry) func(*eventHandler) {
 	return func(e *eventHandler) {
@@ -189,13 +201,50 @@ func WithSecretsFetcher(sf v2.SecretsFetcher) func(*eventHandler) {
 	}
 }
 
-func WithLocalSecrets(lggr logger.Logger, secrets map[string]string) func(*eventHandler) {
+// WithLocalSecretOverrides wires [CRE.LocalSecretOverrides]: per-workflow-owner name->secret map
+func WithLocalSecretOverrides(lggr logger.Logger, perOwner map[string]map[string]string) func(*eventHandler) {
 	return func(e *eventHandler) {
-		if len(secrets) == 0 {
+		if len(perOwner) == 0 {
 			return
 		}
-		lggr.Warnw("Local secrets override is active, vault capability will not be used for secrets", "numSecrets", len(secrets))
-		e.secretsFetcher = v2.NewLocalSecretsFetcher(secrets)
+		e.localSecretOverrides = make(map[string]map[string]string, len(perOwner))
+		for k, m := range perOwner {
+			e.localSecretOverrides[k] = maps.Clone(m)
+		}
+		owners := make([]string, 0, len(e.localSecretOverrides))
+		for owner := range e.localSecretOverrides {
+			owners = append(owners, owner)
+		}
+		lggr.Warnw("Per-owner local secret overrides are active; vault is used for secret IDs not listed under each owner",
+			"numOwners", len(e.localSecretOverrides),
+			"owners", owners)
+	}
+}
+
+func WithModuleLRU(lru *ModuleLRU) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.moduleLRU = lru
+	}
+}
+
+func WithModuleStore(store artifacts.SerialisedModuleStore) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.moduleStore = store
+	}
+}
+
+func WithModuleCacheMetrics(cm *CacheMetrics) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.cacheMetrics = cm
+	}
+}
+
+// WithModuleEngineVersion sets the engine version tag persisted alongside cached module
+// binaries and compared on reload. Reloads from an older version are rejected with a log
+// and a metric, ensuring process upgrades never reuse ABI-incompatible binaries.
+func WithModuleEngineVersion(v string) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.moduleEngineVersion = v
 	}
 }
 
@@ -267,15 +316,26 @@ func NewEventHandler(
 
 	eh.Service, eh.eng = services.Config{
 		Name:  "EventHandler",
+		Start: eh.start,
 		Close: eh.close,
 	}.NewServiceEngine(lggr)
 
 	return eh, nil
 }
 
+func (h *eventHandler) start(_ context.Context) error {
+	if h.moduleLRU != nil {
+		h.moduleLRU.Start()
+	}
+	return nil
+}
+
 func (h *eventHandler) close() error {
+	if h.moduleLRU != nil {
+		h.moduleLRU.Close()
+	}
 	es := h.engineRegistry.PopAll()
-	cs := []io.Closer{}
+	cs := make([]io.Closer, 0, len(es)+1)
 	cs = append(cs, h.engineLimiters)
 	for _, e := range es {
 		cs = append(cs, e)
@@ -651,13 +711,13 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		},
 	}
 
-	h.lggr.Debugf("Creating module for workflowID %s", workflowID)
+	h.lggr.Debugw("Creating module for workflowID", "workflowID", workflowID)
 
 	module, err := host.NewModule(ctx, moduleConfig, binary, host.WithDeterminism())
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate module: %w", err)
 	}
-	h.lggr.Debugf("Finished creating module for workflowID %s", workflowID)
+	h.lggr.Debugw("Finished creating module for workflowID", "workflowID", workflowID)
 
 	if module.IsLegacyDAG() { // V1 aka "DAG"
 		sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
@@ -694,7 +754,23 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	}
 
 	// V2 aka "NoDAG"
-	cfg := h.newV2EngineConfig(module, workflowID, owner, tag, sdkName, name, config)
+	var engineModule host.ModuleV2 = module
+	if h.moduleLRU != nil && h.moduleStore != nil {
+		storeStart := time.Now()
+		storeErr := h.moduleStore.StoreModule(workflowID, binary, h.moduleEngineVersion)
+		if h.metrics != nil {
+			h.metrics.recordModuleStore(ctx, time.Since(storeStart), storeErr == nil)
+		}
+		if storeErr != nil {
+			h.lggr.Warnw("Failed to cache module binary to disk, LRU eviction disabled for this workflow", "workflowID", workflowID, "err", storeErr)
+		} else {
+			evictable := NewEvictableModule(module, moduleConfig, h.moduleStore, workflowID, h.moduleEngineVersion, nil, h.cacheMetrics, int64(len(binary)), host.WithDeterminism())
+			h.moduleLRU.Register(workflowID, evictable)
+			engineModule = evictable
+		}
+	}
+
+	cfg := h.newV2EngineConfig(engineModule, workflowID, owner, tag, sdkName, name, config)
 
 	h.wireInitDoneHook(cfg, initDone)
 
@@ -752,6 +828,8 @@ func (h *eventHandler) workflowDeletedEvent(
 		return fmt.Errorf("failed to delete workflow artifacts: %w", err)
 	}
 
+	h.cleanupModuleCache(payload.WorkflowID.Hex())
+
 	_, err := h.engineRegistry.Pop(payload.WorkflowID)
 	if errors.Is(err, ErrNotFound) {
 		return nil
@@ -779,6 +857,8 @@ func (h *eventHandler) tryEngineCleanup(workflowID types.WorkflowID) error {
 			return fmt.Errorf("failed to close workflow engine: %w", err)
 		}
 
+		h.cleanupModuleCache(workflowID.Hex())
+
 		// Remove the engine from the registry
 		_, err := h.engineRegistry.Pop(workflowID)
 		if err != nil {
@@ -786,6 +866,17 @@ func (h *eventHandler) tryEngineCleanup(workflowID types.WorkflowID) error {
 		}
 	}
 	return nil
+}
+
+func (h *eventHandler) cleanupModuleCache(workflowID string) {
+	if h.moduleLRU != nil {
+		h.moduleLRU.Deregister(workflowID)
+	}
+	if h.moduleStore != nil {
+		if err := h.moduleStore.DeleteModule(workflowID); err != nil {
+			h.lggr.Warnw("Failed to delete cached module binary", "workflowID", workflowID, "err", err)
+		}
+	}
 }
 
 // tryEngineCreate attempts to create a new workflow engine, start it, and register it with the engine registry.
@@ -854,7 +945,7 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 
 	if confidential {
 		h.lggr.Infow("routing workflow to confidential execution", "workflowID", spec.WorkflowID)
-		engine, err = h.confidentialEngineFactory(spec, workflowName, decodedBinary, initDone)
+		engine, err = h.confidentialEngineFactory(ctx, spec, workflowName, decodedBinary, initDone)
 	} else {
 		engine, err = h.engineFactory(ctx, spec.WorkflowID, spec.WorkflowOwner, workflowName, spec.WorkflowTag, configBytes, decodedBinary, initDone)
 	}
@@ -914,6 +1005,22 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	return nil
 }
 
+func (h *eventHandler) overrideFetcherForOwner(owner string) v2.SecretsFetcher {
+	if h.localSecretOverrides == nil {
+		return nil
+	}
+	key, err := v2.LocalSecretOverrideOwnerKey(owner)
+	if err != nil {
+		h.lggr.Errorw("invalid workflow owner for local secret overrides", "owner", owner, "err", err)
+		return nil
+	}
+	overrides := h.localSecretOverrides[key]
+	if len(overrides) == 0 {
+		return nil
+	}
+	return v2.NewLocalSecretsFetcher(owner, overrides)
+}
+
 // newV2EngineConfig builds the common EngineConfig shared by both the normal
 // WASM engine and the confidential engine paths. Caller supplies the module.
 func (h *eventHandler) newV2EngineConfig(
@@ -937,10 +1044,10 @@ func (h *eventHandler) newV2EngineConfig(
 		WorkflowTag:           tag,
 		WorkflowEncryptionKey: h.workflowEncryptionKey,
 
-		LocalLimits:                       v2.EngineLimits{}, // all defaults
-		LocalLimiters:                     h.engineLimiters,
-		FeatureFlags:                      h.featureFlags,
-		GlobalExecutionConcurrencyLimiter: h.workflowLimits,
+		LocalLimits:         v2.EngineLimits{}, // all defaults
+		LocalLimiters:       h.engineLimiters,
+		FeatureFlags:        h.featureFlags,
+		GlobalWorkflowLimit: h.workflowLimits,
 
 		BeholderEmitter: func() custmsg.MessageEmitter {
 			h.emitterMu.RLock()
@@ -953,6 +1060,7 @@ func (h *eventHandler) newV2EngineConfig(
 		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
 		OrgResolver:                   h.orgResolver,
 		SecretsFetcher:                h.secretsFetcher,
+		OverrideFetcher:               h.overrideFetcherForOwner(owner),
 		DebugMode:                     h.debugMode,
 		SdkName:                       sdkName,
 
@@ -985,6 +1093,7 @@ func (h *eventHandler) wireInitDoneHook(cfg *v2.EngineConfig, initDone chan<- er
 // instead of a local WASM module. The ConfidentialModule delegates execution to
 // the confidential-workflows capability which runs the WASM inside a TEE.
 func (h *eventHandler) confidentialEngineFactory(
+	ctx context.Context,
 	spec *job.WorkflowSpec,
 	workflowName types.WorkflowName,
 	decodedBinary []byte,
@@ -1000,12 +1109,29 @@ func (h *eventHandler) confidentialEngineFactory(
 	lggr := logger.Named(h.lggr, "WorkflowEngine.ConfidentialModule")
 	lggr = logger.With(lggr, "workflowID", spec.WorkflowID, "workflowName", spec.WorkflowName, "workflowOwner", spec.WorkflowOwner)
 
+	engineOrgID := ""
+	if h.orgResolver != nil {
+		orgID, gerr := h.orgResolver.Get(ctx, spec.WorkflowOwner)
+		if gerr != nil {
+			lggr.Warnw("Failed to resolve organization ID for confidential module, continuing without stable org for metadata propagation", "workflowOwner", spec.WorkflowOwner, "err", gerr)
+		} else {
+			engineOrgID = orgID
+		}
+	}
+
+	var creGetter settings.Getter
+	if h.engineLimiters != nil {
+		creGetter = h.engineLimiters.Settings
+	}
+
 	module := v2.NewConfidentialModule(
 		h.capRegistry,
 		spec.BinaryURL,
 		binaryHash,
 		spec.WorkflowID, spec.WorkflowOwner, workflowName.String(), spec.WorkflowTag,
 		attrs.VaultDonSecrets,
+		creGetter,
+		engineOrgID,
 		lggr,
 	)
 

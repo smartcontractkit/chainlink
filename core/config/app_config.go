@@ -41,7 +41,6 @@ type AppConfig interface {
 	Workflows() Workflows
 	Database() Database
 	Feature() Feature
-	FluxMonitor() FluxMonitor
 	Insecure() Insecure
 	JobDistributor() JobDistributor
 	JobPipeline() JobPipeline
@@ -63,6 +62,7 @@ type AppConfig interface {
 	CCV() CCV
 	Billing() Billing
 	BridgeStatusReporter() BridgeStatusReporter
+	JobSpecReporter() JobSpecReporter
 	Sharding() Sharding
 	LOOPP() LOOPP
 }

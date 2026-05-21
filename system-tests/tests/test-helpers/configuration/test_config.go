@@ -31,6 +31,13 @@ type TestEnvironment struct {
 	Execution      *ExecutionContext
 }
 
+// PerTestDeployKey holds a funded, registry-authorized signer for workflow registration.
+// See ConfigureAdditionalWorkflowSigners.
+type PerTestDeployKey struct {
+	OwnerAddress   common.Address
+	RegistryClient *seth.Client
+}
+
 type ExecutionContext struct {
 	TestID       string
 	ChainClient  *seth.Client
