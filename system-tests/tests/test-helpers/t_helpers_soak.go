@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum/common"
+	gethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
@@ -26,6 +28,7 @@ import (
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
+	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
@@ -56,7 +59,7 @@ func deleteWorkflowUnsafe(
 	retryErr := retry.Do(func() error {
 		return creworkflow.DeleteWithContract(ctx, sethClient, workflowRegistryAddress, version, uniqueWorkflowName)
 	}, retry.Attempts(3), retry.Delay(1*time.Second), retry.DelayType(retry.BackOffDelay), retry.RetryIf(func(err error) bool {
-		return strings.Contains(err.Error(), "ReentrancySentryOOG")
+		return strings.Contains(err.Error(), ReentrancySentryOOGError)
 	}), retry.OnRetry(func(n uint, err error) {
 		testLogger.Error().Msgf("Error deleting workflow '%s': %s", uniqueWorkflowName, err.Error())
 	}))
@@ -82,18 +85,19 @@ func deleteWorkflowsNTimesCleanup(
 	}
 
 	var eg errgroup.Group
-	eg.SetLimit(deployMaxParallel())
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-	defer cancel()
+	eg.SetLimit(envVarOrDefault("CRE_TEST_DEPLOY_MAX_PARALLEL", defaultDeployMaxParallel))
 	for _, entries := range byKey {
 		if len(entries) == 0 {
 			continue
 		}
 		eg.Go(func() error {
 			for _, e := range entries {
+				ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
 				if err := deleteWorkflowUnsafe(ctx, e.name, e.configPath, e.wasmPath, workflowRegistryAddress, version, e.sethClient); err != nil {
+					cancel()
 					return err
 				}
+				cancel()
 			}
 			return nil
 		})
@@ -131,7 +135,7 @@ func CompileAndDeployWorkflowNTimes[T WorkflowConfig](t *testing.T,
 	testLogger.Info().
 		Int("num_deployments", numDeployments).
 		Int("num_keys", numKeys).
-		Int("max_parallel", deployMaxParallel()).
+		Int("max_parallel", envVarOrDefault("CRE_TEST_DEPLOY_MAX_PARALLEL", defaultDeployMaxParallel)).
 		Str("workflow_file_location", workflowFileLocation).
 		Msg("compiling once and registering multiple workflows")
 
@@ -143,7 +147,7 @@ func CompileAndDeployWorkflowNTimes[T WorkflowConfig](t *testing.T,
 		testEnv.Execution.TestID = deriveExecutionTestID(t)
 	}
 
-	deployKeys := ConfigureAdditionalWorkflowSigners(t, sharedEnv, testEnv, numKeys)
+	deployKeys := configureAdditionalWorkflowSigners(t, sharedEnv, testEnv, numKeys)
 	require.Len(t, deployKeys, numKeys, "deploy keys count must match numKeys")
 
 	artifactDir := workflowArtifactsDir(t, testEnv)
@@ -176,6 +180,68 @@ func CompileAndDeployWorkflowNTimes[T WorkflowConfig](t *testing.T,
 		deleteWorkflowsNTimesCleanup(t, cleanupByKey, registryAddr, registryVersion)
 	})
 	return ids
+}
+
+// configureAdditionalWorkflowSigners creates numSigners distinct funded keys and registry-chain seth clients,
+// authorizes each on the v2 workflow registry when needed, and returns them. It does not mutate testEnv
+// blockchains or CLDF (use configurePerTestExecutionContext when the test should own the env with one signer).
+func configureAdditionalWorkflowSigners(t *testing.T, sharedEnv *ttypes.TestEnvironment, testEnv *ttypes.TestEnvironment, numSigners int) []ttypes.PerTestDeployKey {
+	t.Helper()
+	require.Positive(t, numSigners, "numSigners must be at least 1")
+
+	registryChainSelector := testEnv.CreEnvironment.Blockchains[0].ChainSelector()
+	evmChains := make(map[uint64]*evm.Blockchain)
+	for _, bcOutput := range sharedEnv.CreEnvironment.Blockchains {
+		evmChain, ok := bcOutput.(*evm.Blockchain)
+		if !ok {
+			continue
+		}
+		evmChains[evmChain.ChainSelector()] = evmChain
+	}
+
+	out := make([]ttypes.PerTestDeployKey, 0, numSigners)
+	for keyIdx := range numSigners {
+		ownerAddress, privateKey, addrErr := crecrypto.GenerateNewKeyPair()
+		require.NoError(t, addrErr, "failed to generate workflow signer key pair")
+		privateKeyHex := hex.EncodeToString(gethcrypto.FromECDSA(privateKey))
+
+		var registryClient *seth.Client
+
+		for chainSelector, evmChain := range evmChains {
+			wsURL := evmChain.WSURL()
+			require.NotEmptyf(t, wsURL, "missing WS URL for chain selector %d", chainSelector)
+
+			perTestClient, clientErr := seth.NewClientBuilder().
+				WithRpcUrl(wsURL).
+				WithPrivateKeys([]string{privateKeyHex}).
+				WithProtections(false, false, seth.MustMakeDuration(time.Second)).
+				Build()
+			require.NoErrorf(t, clientErr, "failed to create per-signer seth client for selector %d", chainSelector)
+
+			rootSignerNonceLock.Lock()
+			require.NoError(
+				t,
+				evmChain.Fund(t.Context(), ownerAddress.Hex(), perTestEVMFundingAmountWei),
+				"failed to fund workflow signer %s on chain selector %d",
+				ownerAddress.Hex(),
+				chainSelector,
+			)
+			rootSignerNonceLock.Unlock()
+
+			if evmChain.ChainSelector() == registryChainSelector {
+				registryClient = perTestClient
+			}
+		}
+
+		require.NotNil(t, registryClient, "failed to build registry chain seth client for signer %d", keyIdx)
+		authorizePerTestWorkflowSignerIfNeeded(t, sharedEnv, ownerAddress)
+		out = append(out, ttypes.PerTestDeployKey{
+			OwnerAddress:   ownerAddress,
+			RegistryClient: registryClient,
+		})
+	}
+
+	return out
 }
 
 func buildNTimesWorkflowArtifacts[T WorkflowConfig](
@@ -266,7 +332,7 @@ func registerNTimesWorkflowsParallel(
 
 	ids := make([]string, numDeployments)
 	var eg errgroup.Group
-	eg.SetLimit(deployMaxParallel())
+	eg.SetLimit(envVarOrDefault("CRE_TEST_DEPLOY_MAX_PARALLEL", defaultDeployMaxParallel))
 
 	for keyIdx := range numKeys {
 		eg.Go(func() error {

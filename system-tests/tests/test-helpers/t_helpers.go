@@ -344,7 +344,7 @@ type WorkflowRegistrationConfig struct {
 Creates the necessary workflow artifacts based on WorkflowConfig:
  1. Configuration for a workflow (or no config if typed nil is passed for workflowConfig);
  2. Compiled and compressed workflow WASM file;
- 3. Optionally copies the workflow artifacts to the Docker containers when copyToDocker is true.
+ 3. Copies the workflow artifacts to the Docker containers.
 
 It returns the paths to:
  1. the compressed WASM file;
@@ -614,6 +614,8 @@ func registerWorkflowErr(ctx context.Context, wfRegCfg *WorkflowRegistrationConf
 	)
 }
 
+const ReentrancySentryOOGError = "ReentrancySentryOOG"
+
 /*
 Deletes workflows from:
  1. Local environment
@@ -651,7 +653,7 @@ func deleteWorkflows(
 		 * slot costs. Retrying might work, because the subsequent attempt might benefit from
 		 * warmed storage/access lists, saving ~2,000 gas.
 		 */
-		return strings.Contains(err.Error(), "ReentrancySentryOOG")
+		return strings.Contains(err.Error(), ReentrancySentryOOGError)
 	}), retry.OnRetry(func(n uint, err error) {
 		testLogger.Error().Msgf("Error deleting workflow '%s': %s", uniqueWorkflowName, err.Error())
 	}))
@@ -705,15 +707,14 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	return workflowID
 }
 
-// deployMaxParallel returns CRE_TEST_DEPLOY_MAX_PARALLEL or defaultDeployMaxParallel when unset or invalid.
-func deployMaxParallel() int {
-	v := strings.TrimSpace(os.Getenv("CRE_TEST_DEPLOY_MAX_PARALLEL"))
+func envVarOrDefault(envVar string, defaultValue int) int {
+	v := strings.TrimSpace(os.Getenv(envVar))
 	if v == "" {
-		return defaultDeployMaxParallel
+		return defaultValue
 	}
 	n, err := strconv.Atoi(v)
 	if err != nil || n < 1 {
-		return defaultDeployMaxParallel
+		return defaultValue
 	}
 	return n
 }

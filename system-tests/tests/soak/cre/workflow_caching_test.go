@@ -68,9 +68,6 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 		}
 	}
 
-	// TODO: remove after testing
-	os.Setenv("CRE_SOAK_DURATION", "5m")
-
 	soakDuration := parseDuration(os.Getenv("CRE_SOAK_DURATION"), defaultSoakDuration)
 
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-cache-soak-test.toml"))
