@@ -176,6 +176,8 @@ func TestConfidentialModule_Execute(t *testing.T) {
 				{Key: "API_KEY"},
 				{Key: "SIGNING_KEY", Namespace: "custom-ns"},
 			},
+			nil,
+			"",
 			lggr,
 		)
 
@@ -209,6 +211,8 @@ func TestConfidentialModule_Execute(t *testing.T) {
 			[]byte("hash"),
 			"wf-1", "owner", "name", "tag",
 			[]SecretIdentifier{{Key: "SECRET_A"}}, // no namespace
+			nil,
+			"",
 			lggr,
 		)
 
@@ -229,7 +233,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 			Return(nil, errors.New("capability not found")).Once()
 
 		mod := NewConfidentialModule(
-			capReg, "", nil, "wf", "owner", "name", "tag", nil, lggr,
+			capReg, "", nil, "wf", "owner", "name", "tag", nil, nil, "", lggr,
 		)
 
 		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{})
@@ -247,7 +251,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 			Return(capabilities.CapabilityResponse{}, errors.New("enclave unavailable")).Once()
 
 		mod := NewConfidentialModule(
-			capReg, "", nil, "wf", "owner", "name", "tag", nil, lggr,
+			capReg, "", nil, "wf", "owner", "name", "tag", nil, nil, "", lggr,
 		)
 
 		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{})
@@ -265,7 +269,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 			Return(capabilities.CapabilityResponse{Payload: nil}, nil).Once()
 
 		mod := NewConfidentialModule(
-			capReg, "", nil, "wf", "owner", "name", "tag", nil, lggr,
+			capReg, "", nil, "wf", "owner", "name", "tag", nil, nil, "", lggr,
 		)
 
 		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{})
@@ -300,6 +304,8 @@ func TestConfidentialModule_Execute(t *testing.T) {
 				{Key: "K1", Namespace: "ns1"},
 				{Key: "K2"},
 			},
+			nil,
+			"",
 			lggr,
 		)
 

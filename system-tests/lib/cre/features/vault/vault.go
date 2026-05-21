@@ -416,13 +416,14 @@ func applyGatewayAuth0Config(topology *cre.Topology, donName string, auth0 *cre.
 		if svc.ServiceName != pkg.ServiceNameVault || !slices.Contains(svc.DONs, donName) {
 			continue
 		}
-		if svc.Auth0 != nil && (svc.Auth0.IssuerURL != auth0.IssuerURL || svc.Auth0.Audience != auth0.Audience) {
+		if svc.Auth0 != nil && (svc.Auth0.IssuerURL != auth0.IssuerURL || svc.Auth0.Audience != auth0.Audience || svc.Auth0.TenantID != auth0.TenantID) {
 			return fmt.Errorf("vault gateway service %q already has conflicting auth0 config", svc.ServiceName)
 		}
 
 		svc.Auth0 = &cre.GatewayServiceAuth0Config{
 			IssuerURL: auth0.IssuerURL,
 			Audience:  auth0.Audience,
+			TenantID:  auth0.TenantID,
 		}
 		return nil
 	}
@@ -462,25 +463,6 @@ func deployVaultContracts(testLogger zerolog.Logger, qualifier string, registryC
 	env.DataStore = memoryDatastore.Seal()
 
 	return new(common.HexToAddress(vaultOCR3Addr)), new(common.HexToAddress(vaultDKGOCR3Addr)), nil
-}
-
-func dkgReportingPluginConfig(don *cre.Don) (*dkgocrtypes.ReportingPluginConfig, error) {
-	cfg := &dkgocrtypes.ReportingPluginConfig{
-		T: 1,
-	}
-
-	workers, wErr := don.Workers()
-	if wErr != nil {
-		return nil, errors.Wrap(wErr, "failed to find worker nodes")
-	}
-
-	for _, workerNode := range workers {
-		pubKey := workerNode.Keys.DKGKey.PubKey
-		cfg.DealerPublicKeys = append(cfg.DealerPublicKeys, pubKey)
-		cfg.RecipientPublicKeys = append(cfg.RecipientPublicKeys, pubKey)
-	}
-
-	return cfg, nil
 }
 
 func reportingPluginConfigOverride(vaultDKGOCR3Addr *common.Address, creEnv *cre.Environment) ([]byte, error) {

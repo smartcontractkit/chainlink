@@ -312,7 +312,7 @@ func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 	// Context must be the final positional argument.
 	args = append(args, c.DockerCtx)
 
-	cmd := exec.CommandContext(ctx, "docker", args...)
+	cmd := exec.CommandContext(ctx, "docker", args...) //nolint:gosec //G702: meaningless, we control the value of the cmd so the lint/sec error is a false positive
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	log.Info("Running command:", "cmd", cmd.String(), "dir", workingDir)
@@ -743,7 +743,7 @@ func checkDockerConfiguration() error {
 
 		configFile := ""
 		for _, path := range configPaths {
-			if _, err := os.Stat(path); err == nil {
+			if _, err := os.Stat(path); err == nil { //nolint:gosec //G204: false positive;
 				configFile = path
 				break
 			}
@@ -756,7 +756,7 @@ func checkDockerConfiguration() error {
 		logger.Info().Msgf("  Found Docker settings file at %s", configFile)
 
 		// Check settings
-		settings, err := os.ReadFile(configFile)
+		settings, err := os.ReadFile(configFile) //nolint:gosec //G204: docker is a fixed command; the flagged issue is configured subprocess arguments (for example image/dockerfile/context), which are passed as argv values rather than through a shell
 		if err != nil {
 			if strings.Contains(err.Error(), "operation not permitted") {
 				logger.Warn().Msgf("  ! Could not check Docker settings due to restrictive TCC policies (can't read file). You need to manually verify the settings in the Docker Desktop UI.")

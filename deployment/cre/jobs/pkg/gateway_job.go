@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"strconv"
 	"time"
@@ -113,6 +114,32 @@ func (g GatewayJob) Validate() error {
 		for _, cidr := range g.AllowedIPsCIDR {
 			if _, _, err := net.ParseCIDR(cidr); err != nil {
 				return errors.New("invalid CIDR format: " + cidr)
+			}
+		}
+	}
+
+	if g.ServiceCentricFormatEnabled {
+		for _, svc := range g.Services {
+			hasVaultHandler := false
+			for _, h := range svc.Handlers {
+				if h == GatewayHandlerTypeVault {
+					hasVaultHandler = true
+					break
+				}
+			}
+			if svc.Auth0 != nil {
+				if !hasVaultHandler {
+					return fmt.Errorf("service %q configures auth0 but does not expose the vault handler", svc.ServiceName)
+				}
+				if svc.Auth0.IssuerURL == "" {
+					return fmt.Errorf("Auth0.IssuerURL is required when auth0 is set on service %q", svc.ServiceName)
+				}
+				if svc.Auth0.Audience == "" {
+					return fmt.Errorf("Auth0.Audience is required when auth0 is set on service %q", svc.ServiceName)
+				}
+				if svc.Auth0.TenantID == 0 {
+					return fmt.Errorf("Auth0.TenantID is required when auth0 is set on service %q", svc.ServiceName)
+				}
 			}
 		}
 	}

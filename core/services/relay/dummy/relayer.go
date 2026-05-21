@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/bm"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
+	"github.com/smartcontractkit/chainlink-evm/pkg/llo/channeldefinitions"
 )
 
 // The dummy relayer is a simple reference implementation that doesn't actually

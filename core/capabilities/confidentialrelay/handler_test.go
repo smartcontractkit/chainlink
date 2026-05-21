@@ -427,12 +427,9 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			},
 		},
 		{
-			name:     "secrets get sets WorkflowOwner and OrgId when gate enabled",
+			name:     "secrets get invokes vault execute with stable capability metadata",
 			registry: secretsGetTestRegistry,
 			req:      secretsGetTestRequest,
-			modifyHandler: func(_ *testing.T, h *Handler) {
-				h.vaultIdentityGate = limits.NewGateLimiter(true)
-			},
 			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
 				require.Nil(t, resp.Error)
 				// signSecretsResponse hashes against the request params (no Attestation),
@@ -452,41 +449,11 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 
 				var vaultReq vault.GetSecretsRequest
 				require.NoError(t, exec.lastRequest.Payload.UnmarshalTo(&vaultReq))
-
-				// Gate enabled: owner should be EIP-55 checksummed on the vault request.
-				assert.Equal(t, "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B", vaultReq.WorkflowOwner)
-				assert.Equal(t, "org-123", vaultReq.OrgId)
-
-				// Metadata.WorkflowOwner should be the original (non-normalized) value.
+				require.Len(t, vaultReq.Requests, 1)
+				assert.Equal(t, "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B", vaultReq.Requests[0].Id.Owner)
 				assert.Equal(t, "0xab5801a7d398351b8be11c439e05c5b3259aec9b", exec.lastRequest.Metadata.WorkflowOwner)
 				assert.Equal(t, "wf-secrets-1", exec.lastRequest.Metadata.WorkflowID)
 				assert.Equal(t, uint32(42), exec.lastRequest.Metadata.WorkflowDonID)
-				// Gate enabled: OrgID should be set on metadata.
-				assert.Equal(t, "org-123", exec.lastRequest.Metadata.OrgID)
-			},
-		},
-		{
-			name:     "secrets get omits WorkflowOwner and OrgId when gate disabled",
-			registry: secretsGetTestRegistry,
-			req:      secretsGetTestRequest,
-			modifyHandler: func(_ *testing.T, h *Handler) {
-				h.vaultIdentityGate = limits.NewGateLimiter(false)
-			},
-			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
-				require.Nil(t, resp.Error)
-			},
-			checkExecutable: func(t *testing.T, reg *mockCapRegistry) {
-				exec := reg.executables[vault.CapabilityID]
-				require.NotNil(t, exec.lastRequest, "vault Execute should have been called")
-
-				var vaultReq vault.GetSecretsRequest
-				require.NoError(t, exec.lastRequest.Payload.UnmarshalTo(&vaultReq))
-
-				// Gate disabled: WorkflowOwner is always set, OrgId must be empty.
-				assert.Equal(t, "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B", vaultReq.WorkflowOwner)
-				assert.Empty(t, vaultReq.OrgId)
-				// Gate disabled: OrgID must be empty on metadata too.
-				assert.Empty(t, exec.lastRequest.Metadata.OrgID)
 			},
 		},
 		{

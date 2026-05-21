@@ -621,8 +621,6 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.CCVCommitteeVerifierSpec = NewCCVCommitteeVerifierSpec(j.CCVCommitteeVerifierSpec)
 	case job.CCVExecutor:
 		resource.CCVExecutorSpec = NewCCVExecutorSpec(j.CCVExecutorSpec)
-	case job.LegacyGasStationServer, job.LegacyGasStationSidecar:
-		// unsupported
 	}
 
 	jes := []JobError{}

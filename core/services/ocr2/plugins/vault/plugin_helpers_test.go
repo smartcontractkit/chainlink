@@ -35,7 +35,6 @@ type testPluginBuildOpts struct {
 	maxRequestBatchSize                  int
 	batchSize                            int
 	maxBlobPayloadBytes                  int
-	orgIDAsSecretOwnerEnabled            bool
 	vaultOptimizationsEnabled            bool
 	marshalBlob                          func(ocr3_1types.BlobHandle) ([]byte, error)
 	unmarshalBlob                        func([]byte) (ocr3_1types.BlobHandle, error)
@@ -72,10 +71,6 @@ func withMaxIdentifierLengths(owner, namespace, key int) testPluginOption {
 
 func withMaxSecretsPerOwner(n int) testPluginOption {
 	return func(o *testPluginBuildOpts) { o.maxSecretsPerOwner = n }
-}
-
-func withOrgIDEnabled() testPluginOption {
-	return func(o *testPluginBuildOpts) { o.orgIDAsSecretOwnerEnabled = true }
 }
 
 func withVaultOptimizationsEnabled() testPluginOption {
@@ -135,9 +130,6 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 		o.maxSecretsPerOwner, o.maxCiphertextLengthBytes,
 		o.maxIdentifierOwnerLengthBytes, o.maxIdentifierNamespaceLengthBytes,
 		o.maxIdentifierKeyLengthBytes, o.maxRequestBatchSize, o.maxBlobPayloadBytes)
-	if o.orgIDAsSecretOwnerEnabled {
-		cfg.OrgIDAsSecretOwnerEnabled = limits.NewGateLimiter(true)
-	}
 	if o.vaultOptimizationsEnabled {
 		cfg.VaultOptimizationsEnabled = limits.NewGateLimiter(true)
 	}
@@ -237,7 +229,6 @@ func makeReportingPluginConfig(
 		MaxIdentifierKeyLengthBytes:       keyLimiter,
 		MaxRequestBatchSize:               requestBatchSizeLimiter,
 		MaxBlobPayloadBytes:               maxBlobPayloadLimiter,
-		OrgIDAsSecretOwnerEnabled:         limits.NewGateLimiter(false),
 		VaultForceEmptyOCRRounds:          limits.NewGateLimiter(false),
 		VaultOptimizationsEnabled:         limits.NewGateLimiter(false),
 	}
