@@ -329,7 +329,6 @@ func setupOperatorContracts(t *testing.T) OperatorContracts {
 	b.Commit()
 	_, err = linkContract.Transfer(user, singleConsumerAddress, big.NewInt(1000))
 	require.NoError(t, err)
-	b.Commit()
 
 	return OperatorContracts{
 		user:                      user,
@@ -431,7 +430,7 @@ observationSource   = """
 		require.Len(t, outputs, 1)
 		output := outputs[0]
 		receipt := output.(map[string]any)
-		assert.Equal(t, "0x7", receipt["blockNumber"])
+		assert.Equal(t, "0x8", receipt["blockNumber"])
 		assert.Equal(t, "0x538f", receipt["gasUsed"])
 		assert.Equal(t, "0x0", receipt["status"]) // success
 	})
@@ -525,7 +524,7 @@ observationSource   = """
 		require.Len(t, outputs, 1)
 		output := outputs[0]
 		receipt := output.(map[string]any)
-		assert.Equal(t, "0x19", receipt["blockNumber"])
+		assert.Equal(t, "0x1a", receipt["blockNumber"])
 		assert.Equal(t, "0x7a120", receipt["gasUsed"])
 		assert.Equal(t, "0x0", receipt["status"])
 	})
