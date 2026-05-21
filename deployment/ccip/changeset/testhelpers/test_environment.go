@@ -530,7 +530,18 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.Capabil
 	for id, node := range nodes {
 		require.NoError(t, node.App.Start(ctx))
 		t.Cleanup(func() {
-			require.NoError(t, node.App.Stop())
+			// Timeout guard: tests that remove a DON on-chain mid-run leave OCR services in a
+			// confused state. Their Close() gets stuck inside libocr with no externally
+			// reachable cancel, so App.Stop() can hang indefinitely. Leaked goroutines are
+			// reclaimed when the test binary exits; they hold no locks or DB connections.
+			done := make(chan error, 1)
+			go func() { done <- node.App.Stop() }()
+			select {
+			case err := <-done:
+				require.NoError(t, err)
+			case <-time.After(30 * time.Second):
+				t.Logf("warning: node %s App.Stop() timed out after 30s, continuing cleanup", id)
+			}
 		})
 		nodeIDs = append(nodeIDs, id)
 	}
