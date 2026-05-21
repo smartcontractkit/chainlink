@@ -32,10 +32,9 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/types"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/types"
 )
 
 const (
@@ -188,7 +187,7 @@ func NewChannelDefinitionCache(lggr logger.Logger, orm ChannelDefinitionCacheORM
 		orm:             orm,
 		client:          client,
 		httpLimit:       MaxChannelDefinitionsFileSize,
-		filterName:      types.ChannelDefinitionCacheFilterName(addr, donID),
+		filterName:      ChannelDefinitionCacheFilterName(addr, donID),
 		lp:              lp,
 		logPollInterval: defaultLogPollInterval,
 		addr:            addr,
@@ -977,4 +976,8 @@ func newHTTPFetchBackoff() backoff.Backoff {
 		Max:    15 * time.Second,
 		Jitter: true,
 	}
+}
+
+func ChannelDefinitionCacheFilterName(addr common.Address, donID uint32) string {
+	return logpoller.FilterName("OCR3 LLO ChannelDefinitionCachePoller", addr.String(), strconv.FormatUint(uint64(donID), 10))
 }

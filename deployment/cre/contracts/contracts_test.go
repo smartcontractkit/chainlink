@@ -26,7 +26,7 @@ import (
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -312,14 +312,14 @@ func TestNewOwnableV2(t *testing.T) {
 
 	t.Run("creates OwnedContract for MCMS owner", func(t *testing.T) {
 		// Transfer ownership to MCMS with timelock
-		cfg := commonchangeset.TransferToMCMSWithTimelockConfig{
+		cfg := mcmschangesets.TransferToMCMSWithTimelockConfig{
 			ContractsByChain: map[uint64][]common.Address{selector: {common.HexToAddress(targetAddrStr)}},
 			MCMSConfig: cldfproposalutils.TimelockConfig{
 				MinDelay: time.Duration(0),
 			},
 		}
 		err = rt.Exec(
-			runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2), cfg),
+			runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2), cfg),
 			runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
 		)
 		require.NoError(t, err)

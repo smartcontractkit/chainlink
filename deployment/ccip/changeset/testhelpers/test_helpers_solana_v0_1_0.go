@@ -34,7 +34,7 @@ import (
 
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	cldlegacysolmcms "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
-	cldcommonchangesets "github.com/smartcontractkit/cld-changesets/pkg/common/changeset"
+	cldcommonchangesets "github.com/smartcontractkit/cld-changesets/pkg/cldfutil/changeset"
 	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
@@ -2451,7 +2451,7 @@ func GenTestTransferOwnershipConfig(
 	chains []uint64,
 	state stateview.CCIPOnChainState,
 	withTestRouterTransfer bool,
-) commoncs.TransferToMCMSWithTimelockConfig {
+) mcmschangesets.TransferToMCMSWithTimelockConfig {
 	var (
 		contracts = make(map[uint64][]common.Address)
 	)
@@ -2480,7 +2480,7 @@ func GenTestTransferOwnershipConfig(
 		state.MustGetEVMChainState(e.HomeChainSel).RMNHome.Address(),
 	)
 
-	return commoncs.TransferToMCMSWithTimelockConfig{
+	return mcmschangesets.TransferToMCMSWithTimelockConfig{
 		ContractsByChain: contracts,
 	}
 }
@@ -2523,7 +2523,7 @@ func TransferToTimelock(
 	// Transfer ownership to timelock so that we can promote the zero digest later down the line.
 	_, err := commoncs.Apply(t, tenv.Env,
 		commoncs.Configure(
-			cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
 			GenTestTransferOwnershipConfig(tenv, chains, state, withTestRouterTransfer),
 		),
 	)

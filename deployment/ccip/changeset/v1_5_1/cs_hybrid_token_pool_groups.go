@@ -6,6 +6,7 @@ import (
 	"math/big"
 
 	"github.com/Masterminds/semver/v3"
+	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
@@ -202,7 +203,7 @@ func hybridTokenPoolUpdateGroupsLogic(env cldf.Environment, c HybridTokenPoolUpd
 	}
 
 	// Build the sequence input for multi-chain updates
-	updatesByChain := make(map[uint64]opsutil.EVMCallInput[ccipops.UpdateGroupsInput])
+	updatesByChain := make(map[uint64]opsevm.EVMCallInput[ccipops.UpdateGroupsInput])
 
 	for chainSelector, groupUpdates := range c.Updates {
 		pool, err := getHybridTokenPoolContract(env, c.TokenSymbol, c.ContractType, c.ContractVersion, chainSelector)
@@ -224,7 +225,7 @@ func hybridTokenPoolUpdateGroupsLogic(env cldf.Environment, c HybridTokenPoolUpd
 			})
 		}
 
-		updatesByChain[chainSelector] = opsutil.EVMCallInput[ccipops.UpdateGroupsInput]{
+		updatesByChain[chainSelector] = opsevm.EVMCallInput[ccipops.UpdateGroupsInput]{
 			Address:       pool.Address(),
 			ChainSelector: chainSelector,
 			CallInput: ccipops.UpdateGroupsInput{

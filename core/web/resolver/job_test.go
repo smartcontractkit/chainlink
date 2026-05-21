@@ -18,8 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
@@ -316,8 +315,8 @@ func TestResolver_CreateJob(t *testing.T) {
 				}
 			}
 		}`
-	uuid := uuid.New()
-	spec := fmt.Sprintf(testspecs.DirectRequestSpecTemplate, uuid, uuid, testutils.FixtureChainID.String())
+	jobName := uuid.New().String()
+	spec := fmt.Sprintf(testspecs.CronSpecTemplate, jobName)
 	variables := map[string]any{
 		"input": map[string]any{
 			"TOML": spec,
@@ -328,7 +327,7 @@ func TestResolver_CreateJob(t *testing.T) {
 			"TOML": "some wrong value",
 		},
 	}
-	jb, err := directrequest.ValidatedDirectRequestSpec(spec)
+	jb, err := cron.ValidatedCronSpec(spec)
 	require.NoError(t, err)
 
 	d, err := json.Marshal(map[string]any{
@@ -336,7 +335,7 @@ func TestResolver_CreateJob(t *testing.T) {
 			"job": map[string]any{
 				"id":              "0",
 				"maxTaskDuration": "0s",
-				"name":            jb.Name,
+				"name":            jb.Name.ValueOrZero(),
 				"schemaVersion":   1,
 				"createdAt":       "0001-01-01T00:00:00Z",
 				"externalJobID":   jb.ExternalJobID.String(),

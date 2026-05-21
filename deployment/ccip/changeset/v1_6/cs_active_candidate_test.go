@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
@@ -127,7 +128,7 @@ func Test_ActiveCandidate(t *testing.T) {
 	// and set new config digest on the offramp.
 	_, err = commonchangeset.Apply(t, tenv.Env,
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
 			testhelpers.GenTestTransferOwnershipConfig(tenv, allChains, state, true),
 		),
 	)

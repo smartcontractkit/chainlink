@@ -9,7 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
+	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/cldfutil"
 
 	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
 )

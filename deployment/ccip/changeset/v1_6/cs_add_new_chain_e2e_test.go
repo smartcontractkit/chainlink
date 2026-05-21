@@ -7,6 +7,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+	"github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
+
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
@@ -34,7 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
@@ -71,7 +74,7 @@ func checkConnectivity(
 
 func TestConnectNewChain(t *testing.T) {
 	t.Parallel()
-	mustHaveOwner := func(t *testing.T, ownable commonchangeset.Ownable, expectedOwner string) {
+	mustHaveOwner := func(t *testing.T, ownable evm.Ownable, expectedOwner string) {
 		owner, err := ownable.Owner(nil)
 		require.NoError(t, err, "must get owner")
 		require.Equal(t, expectedOwner, owner.Hex(), "owner must be "+expectedOwner)
@@ -150,8 +153,8 @@ func TestConnectNewChain(t *testing.T) {
 				}
 				e, err = commonchangeset.Apply(t, e,
 					commonchangeset.Configure(
-						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
-						commoncs.TransferToMCMSWithTimelockConfig{
+						cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+						mcmschangesets.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: contractsToTransfer,
 							MCMSConfig: cldfproposalutils.TimelockConfig{
 								MinDelay: 0 * time.Second,
@@ -369,8 +372,8 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 				)
 				e, err = commonchangeset.Apply(t, e,
 					commonchangeset.Configure(
-						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
-						commoncs.TransferToMCMSWithTimelockConfig{
+						cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+						mcmschangesets.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: contractsToTransfer,
 							MCMSConfig: cldfproposalutils.TimelockConfig{
 								MinDelay: 0 * time.Second,

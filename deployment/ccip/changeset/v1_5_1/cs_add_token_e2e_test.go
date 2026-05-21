@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 
@@ -112,8 +113,8 @@ func TestAddTokenE2E(t *testing.T) {
 				if test.withMCMS {
 					e, err = commonchangeset.Apply(t, e,
 						commonchangeset.Configure(
-							cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
-							commonchangeset.TransferToMCMSWithTimelockConfig{
+							cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+							mcmschangesets.TransferToMCMSWithTimelockConfig{
 								ContractsByChain: timelockOwnedContractsByChain,
 								MCMSConfig:       *mcmsConfig,
 							},

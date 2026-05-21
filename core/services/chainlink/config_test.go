@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
@@ -44,10 +45,6 @@ var (
 	fullTOML string
 	//go:embed testdata/config-multi-chain.toml
 	multiChainTOML string
-
-	second        = *commoncfg.MustNewDuration(time.Second)
-	minute        = *commoncfg.MustNewDuration(time.Minute)
-	selectionMode = multinode.NodeSelectionModeHighestHead
 
 	multiChain = Config{
 		Core: toml.Core{
@@ -352,9 +349,9 @@ func TestConfig_Marshal(t *testing.T) {
 			DefaultTimeout: commoncfg.MustNewDuration(time.Minute),
 		},
 	}
-	full.FluxMonitor = toml.FluxMonitor{
-		DefaultTransactionQueueDepth: ptr[uint32](100),
-		SimulateTransactions:         ptr(true),
+	full.FluxMonitor = toml.FluxMonitor{ //nolint:staticcheck // deprecated config surface must match embedded config-full.toml
+		DefaultTransactionQueueDepth: ptr[uint32](1),
+		SimulateTransactions:         ptr(false),
 	}
 	full.OCR2 = toml.OCR2{
 		Enabled:                            ptr(true),
@@ -561,9 +558,11 @@ func TestConfig_Marshal(t *testing.T) {
 		EmitterBatchProcessor:         ptr(true),
 		EmitterExportTimeout:          commoncfg.MustNewDuration(1 * time.Second),
 		AuthHeadersTTL:                commoncfg.MustNewDuration(0 * time.Second),
-		ChipIngressEndpoint:           ptr("example.com/chip-ingress"),
-		ChipIngressInsecureConnection: ptr(false),
-		HeartbeatInterval:             commoncfg.MustNewDuration(1 * time.Second),
+		ChipIngressEndpoint:            ptr("example.com/chip-ingress"),
+		ChipIngressInsecureConnection:  ptr(false),
+		ChipIngressBatchEmitterEnabled: ptr(true),
+		DurableEmitterEnabled:          ptr(false),
+		HeartbeatInterval:              commoncfg.MustNewDuration(1 * time.Second),
 		LogStreamingEnabled:           ptr(false),
 		LogLevel:                      ptr("info"),
 		LogBatchProcessor:             ptr(true),
@@ -820,7 +819,7 @@ func TestConfig_Marshal(t *testing.T) {
 			CertFile: ptr("/path/to/cert.pem"),
 		},
 		Transmitter: toml.MercuryTransmitter{
-			Protocol:             ptr(config.MercuryTransmitterProtocolGRPC),
+			Protocol:             ptr(mercurytransmitter.MercuryTransmitterProtocolGRPC),
 			TransmitQueueMaxSize: ptr(uint32(123)),
 			TransmitTimeout:      commoncfg.MustNewDuration(234 * time.Second),
 			TransmitConcurrency:  ptr(uint32(456)),
@@ -988,10 +987,6 @@ Host = 'tls-host'
 HTTPSPort = 6789
 KeyPath = 'tls/key/path'
 ListenIP = '192.158.1.38'
-`},
-		{"FluxMonitor", Config{Core: toml.Core{FluxMonitor: full.FluxMonitor}}, `[FluxMonitor]
-DefaultTransactionQueueDepth = 100
-SimulateTransactions = true
 `},
 		{"JobPipeline", Config{Core: toml.Core{JobPipeline: full.JobPipeline}}, `[JobPipeline]
 ExternalInitiatorsEnabled = true
@@ -1624,10 +1619,10 @@ Dev = true`
 
 func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	// Provide a keystore password file and an env var with DB URL
-	const PWD_OVERRIDE = "great_password"
-	const DBURL_OVERRIDE = "http://user@db"
+	const pwdOverride = "great_password"
+	const dbURLOverride = "http://user@db"
 
-	t.Setenv("CL_DATABASE_URL", DBURL_OVERRIDE)
+	t.Setenv("CL_DATABASE_URL", dbURLOverride)
 
 	// Check for two overrides
 	opts := GeneralConfigOpts{
@@ -1635,11 +1630,11 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 		SecretsStrings: []string{secretsFullTOML},
 	}
 	c, err := opts.New()
-	assert.NoError(t, err)
-	c.SetPasswords(ptr(PWD_OVERRIDE), nil)
-	assert.Equal(t, PWD_OVERRIDE, c.Password().Keystore())
+	require.NoError(t, err)
+	c.SetPasswords(ptr(pwdOverride), nil)
+	assert.Equal(t, pwdOverride, c.Password().Keystore())
 	dbURL := c.Database().URL()
-	assert.Equal(t, DBURL_OVERRIDE, (&dbURL).String())
+	assert.Equal(t, dbURLOverride, (&dbURL).String())
 }
 
 func TestSecrets_Validate(t *testing.T) {
@@ -1714,22 +1709,23 @@ func TestConfig_setDefaults(t *testing.T) {
 	c.Starknet = RawConfigs{{"ChainID": ptr("unknown starknet chain")}}
 	c.setDefaults()
 
-	if s, err := c.TOMLString(); assert.NoError(t, err) {
-		t.Log(s, err)
-	}
+	s, err := c.TOMLString()
+	require.NoError(t, err)
+	t.Log(s)
+
 	configtest.AssertFieldsNotNil(t, c.Core)
 }
 
 func Test_validateEnv(t *testing.T) {
 	t.Setenv("LOG_LEVEL", "warn")
 	t.Setenv("DATABASE_URL", "foo")
-	assert.ErrorContains(t, validateEnv(), `invalid environment: 2 errors:
+	require.ErrorContains(t, validateEnv(), `invalid environment: 2 errors:
 	- environment variable DATABASE_URL must not be set: unsupported with config v2
 	- environment variable LOG_LEVEL must not be set: unsupported with config v2`)
 
 	t.Setenv("GAS_UPDATER_ENABLED", "true")
 	t.Setenv("ETH_GAS_BUMP_TX_DEPTH", "7")
-	assert.ErrorContains(t, validateEnv(), `invalid environment: 4 errors:
+	require.ErrorContains(t, validateEnv(), `invalid environment: 4 errors:
 	- environment variable DATABASE_URL must not be set: unsupported with config v2
 	- environment variable LOG_LEVEL must not be set: unsupported with config v2
 	- environment variable ETH_GAS_BUMP_TX_DEPTH must not be set: unsupported with config v2

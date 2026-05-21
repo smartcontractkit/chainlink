@@ -8,9 +8,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -777,13 +778,13 @@ func transferToMCMSAndRenounceTimelockDeployer(
 		cfg.ContractsByChain[e.HomeChainSel] = chainContracts
 	}
 	apps = append(apps, commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
+		cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
 		cfg,
 	))
 	for _, chain := range chains {
 		apps = append(apps, commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.RenounceTimelockDeployer),
-			commonchangeset.RenounceTimelockDeployerConfig{
+			cldf.CreateLegacyChangeSet(mcmschangesets.RenounceTimelockDeployer),
+			mcmschangesets.RenounceTimelockDeployerConfig{
 				ChainSel: chain,
 			},
 		))

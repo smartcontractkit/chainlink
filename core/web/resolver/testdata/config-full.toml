@@ -149,8 +149,8 @@ DefaultTimeout = '1m0s'
 MaxSize = '100.00mb'
 
 [FluxMonitor]
-DefaultTransactionQueueDepth = 100
-SimulateTransactions = true
+DefaultTransactionQueueDepth = 1
+SimulateTransactions = false
 
 [OCR2]
 Enabled = true
@@ -360,6 +360,8 @@ EmitterExportTimeout = '1s'
 AuthHeadersTTL = '0s'
 ChipIngressEndpoint = 'example.com/chip-ingress'
 ChipIngressInsecureConnection = false
+ChipIngressBatchEmitterEnabled = true
+DurableEmitterEnabled = false
 HeartbeatInterval = '1s'
 LogLevel = 'info'
 LogStreamingEnabled = false

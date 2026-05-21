@@ -166,11 +166,21 @@ func (o *orm) AssertBridgesExist(ctx context.Context, p pipeline.Pipeline) error
 	return nil
 }
 
+// ErrJobTypeRemoved is returned when attempting to create a job whose type has
+// been permanently removed from this node.
+var ErrJobTypeRemoved = fmt.Errorf("job type has been removed and is no longer supported: %w", stderrors.ErrUnsupported)
+
 // CreateJob creates the job, and it's associated spec record.
 // Expects an unmarshalled job spec as the jb argument i.e. output from ValidatedXX.
 // Scans all persisted records back into jb
 func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
-	if slices.Contains([]Type{DirectRequest, FluxMonitor, LegacyGasStationServer, LegacyGasStationSidecar, Webhook}, jb.Type) {
+	// Permanently removed job types: reject all new submissions regardless of
+	// which code path reaches here (REST API, GraphQL, feeds manager, etc.).
+	if jb.Type == DirectRequest || jb.Type == FluxMonitor {
+		return fmt.Errorf("cannot create job of type %q: %w", jb.Type, ErrJobTypeRemoved)
+	}
+
+	if slices.Contains([]Type{LegacyGasStationServer, LegacyGasStationSidecar, Webhook}, jb.Type) {
 		o.lggr.Warnw("Job of this type will not be supported in chainlink v3", "type", jb.Type)
 	}
 

@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
@@ -14,8 +16,6 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-
-	cldmcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
@@ -636,8 +636,8 @@ func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state s
 	// This is required because RMN Contracts is initially owned by the deployer
 	_, err := commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
-			commonchangeset.TransferToMCMSWithTimelockConfig{
+			cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+			mcmschangesets.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
 				MCMSConfig: cldfproposalutils.TimelockConfig{
 					MinDelay: 0 * time.Second,
@@ -658,21 +658,21 @@ func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state s
 			})
 	}
 
-	cfgAmounts := cldmcmschangesets.AmountsToTransfer{
+	cfgAmounts := mcmschangesets.AmountsToTransfer{
 		ProposeMCM:   100 * solana.LAMPORTS_PER_SOL,
 		CancellerMCM: 350 * solana.LAMPORTS_PER_SOL,
 		BypasserMCM:  75 * solana.LAMPORTS_PER_SOL,
 		Timelock:     83 * solana.LAMPORTS_PER_SOL,
 	}
-	amountsPerChain := make(map[uint64]cldmcmschangesets.AmountsToTransfer)
+	amountsPerChain := make(map[uint64]mcmschangesets.AmountsToTransfer)
 	for _, chainSelector := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana)) {
 		amountsPerChain[chainSelector] = cfgAmounts
 	}
-	config := cldmcmschangesets.FundMCMSignerConfig{
+	config := mcmschangesets.FundMCMSignerConfig{
 		AmountsPerChain: amountsPerChain,
 	}
 
-	changesetInstance := cldmcmschangesets.FundMCMSignersChangeset{}
+	changesetInstance := mcmschangesets.FundMCMSignersChangeset{}
 
 	_, _, err = commonchangeset.ApplyChangesets(t, e.Env, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(changesetInstance, config),

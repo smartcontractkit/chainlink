@@ -53,7 +53,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
 
@@ -610,7 +609,7 @@ func (c CCIPOnChainState) EnforceMCMSUsageIfProd(ctx context.Context, mcmsConfig
 // ValidateOwnershipOfChain validates the ownership of every CCIP contract on a chain.
 // If mcmsConfig is nil, the expected owner of each contract is the chain's deployer key.
 // If provided, the expected owner is the Timelock contract.
-func (c CCIPOnChainState) ValidateOwnershipOfChain(e cldf.Environment, chainSel uint64, mcmsConfig *cldfproposalutils.TimelockConfig, ownedContracts map[string]commoncs.Ownable) error {
+func (c CCIPOnChainState) ValidateOwnershipOfChain(e cldf.Environment, chainSel uint64, mcmsConfig *cldfproposalutils.TimelockConfig, ownedContracts map[string]evmstate.Ownable) error {
 	chain, ok := e.BlockChains.EVMChains()[chainSel]
 	if !ok {
 		return fmt.Errorf("chain with selector %d not found in the environment", chainSel)
@@ -628,7 +627,7 @@ func (c CCIPOnChainState) ValidateOwnershipOfChain(e cldf.Environment, chainSel 
 	errs := make(chan error, len(ownedContracts))
 	for contractName, contract := range ownedContracts {
 		wg.Add(1)
-		go func(name string, c commoncs.Ownable) {
+		go func(name string, c evmstate.Ownable) {
 			defer wg.Done()
 			if c == nil {
 				errs <- fmt.Errorf("missing %s contract on %s", name, chain)

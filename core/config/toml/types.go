@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -41,14 +42,16 @@ type Core struct {
 	RootDir             *string
 	ShutdownGracePeriod *commonconfig.Duration
 
-	Feature              Feature              `toml:",omitempty"`
-	Database             Database             `toml:",omitempty"`
-	TelemetryIngress     TelemetryIngress     `toml:",omitempty"`
-	AuditLogger          AuditLogger          `toml:",omitempty"`
-	Log                  Log                  `toml:",omitempty"`
-	WebServer            WebServer            `toml:",omitempty"`
-	JobDistributor       JobDistributor       `toml:",omitempty"`
-	JobPipeline          JobPipeline          `toml:",omitempty"`
+	Feature          Feature          `toml:",omitempty"`
+	Database         Database         `toml:",omitempty"`
+	TelemetryIngress TelemetryIngress `toml:",omitempty"`
+	AuditLogger      AuditLogger      `toml:",omitempty"`
+	Log              Log              `toml:",omitempty"`
+	WebServer        WebServer        `toml:",omitempty"`
+	JobDistributor   JobDistributor   `toml:",omitempty"`
+	JobPipeline      JobPipeline      `toml:",omitempty"`
+	// Deprecated: FluxMonitor job type has been removed. This field is retained for
+	// backwards-compatible config parsing only and has no effect.
 	FluxMonitor          FluxMonitor          `toml:",omitempty"`
 	OCR2                 OCR2                 `toml:",omitempty"`
 	OCR                  OCR                  `toml:",omitempty"`
@@ -93,8 +96,8 @@ func (c *Core) SetFrom(f *Core) {
 
 	c.WebServer.setFrom(&f.WebServer)
 	c.JobPipeline.setFrom(&f.JobPipeline)
-
 	c.FluxMonitor.setFrom(&f.FluxMonitor)
+
 	c.OCR2.setFrom(&f.OCR2)
 	c.OCR.setFrom(&f.OCR)
 	c.P2P.setFrom(&f.P2P)
@@ -1417,17 +1420,19 @@ func (j *JobPipelineHTTPRequest) setFrom(f *JobPipelineHTTPRequest) {
 	}
 }
 
+// FluxMonitor is retained for backwards-compatible TOML parsing only.
+// The FluxMonitor job type has been removed and these settings have no effect.
 type FluxMonitor struct {
 	DefaultTransactionQueueDepth *uint32
 	SimulateTransactions         *bool
 }
 
-func (m *FluxMonitor) setFrom(f *FluxMonitor) {
+func (fm *FluxMonitor) setFrom(f *FluxMonitor) {
 	if v := f.DefaultTransactionQueueDepth; v != nil {
-		m.DefaultTransactionQueueDepth = v
+		fm.DefaultTransactionQueueDepth = v
 	}
 	if v := f.SimulateTransactions; v != nil {
-		m.SimulateTransactions = v
+		fm.SimulateTransactions = v
 	}
 }
 
@@ -1794,7 +1799,7 @@ func (m *MercuryTLS) ValidateConfig() (err error) {
 }
 
 type MercuryTransmitter struct {
-	Protocol             *config.MercuryTransmitterProtocol
+	Protocol             *mercurytransmitter.MercuryTransmitterProtocol
 	TransmitQueueMaxSize *uint32
 	TransmitTimeout      *commonconfig.Duration
 	TransmitConcurrency  *uint32
@@ -2853,8 +2858,10 @@ type Telemetry struct {
 	EmitterExportTimeout          *commonconfig.Duration
 	AuthHeadersTTL                *commonconfig.Duration
 	ChipIngressEndpoint           *string
-	ChipIngressInsecureConnection *bool
-	HeartbeatInterval             *commonconfig.Duration
+	ChipIngressInsecureConnection  *bool
+	ChipIngressBatchEmitterEnabled *bool
+	DurableEmitterEnabled          *bool
+	HeartbeatInterval              *commonconfig.Duration
 	LogLevel                      *string
 	LogStreamingEnabled           *bool
 	LogBatchProcessor             *bool
@@ -2897,6 +2904,12 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	}
 	if v := f.ChipIngressInsecureConnection; v != nil {
 		b.ChipIngressInsecureConnection = v
+	}
+	if v := f.ChipIngressBatchEmitterEnabled; v != nil {
+		b.ChipIngressBatchEmitterEnabled = v
+	}
+	if v := f.DurableEmitterEnabled; v != nil {
+		b.DurableEmitterEnabled = v
 	}
 	if v := f.HeartbeatInterval; v != nil {
 		b.HeartbeatInterval = v

@@ -26,9 +26,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
-// Specs are only embedded on the job and are not fetchable by it's own id, so
+// Specs are only embedded on the job and are not fetchable by its own id, so
 // we test the spec resolvers by fetching a job by id.
-
 func TestResolver_CronSpec(t *testing.T) {
 	var (
 		id = int32(1)

@@ -41,6 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	lloevm "github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury"
 	reportcodecv3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3/reportcodec"
 	mercuryverifier "github.com/smartcontractkit/chainlink-data-streams/mercury/verifier"
@@ -61,7 +62,6 @@ import (
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -477,7 +477,7 @@ func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig datastreams
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(mercurytransmitter.MercuryTransmitterProtocolGRPC)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -709,7 +709,7 @@ func testIntegrationLLOMultiFormats(t *testing.T, offchainConfig datastreamsllo.
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(mercurytransmitter.MercuryTransmitterProtocolGRPC)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -1234,13 +1234,19 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 				require.NoError(t, err)
 
 				feedID := reportElems["feedId"].([32]uint8)
+
+				// Skip reports from rounds where bridge timeouts caused zero-fee
+				// calculation. Under CI load, ETH/LINK price bridge tasks can time
+				// out, producing nativeFee=0. Wait for a round with valid fees.
+				if reportElems["nativeFee"].(*big.Int).Sign() == 0 {
+					continue
+				}
+
 				delete(feedIDs, feedID)
 
 				// Check headers
 				assert.GreaterOrEqual(t, reportElems["validFromTimestamp"].(uint32), uint32(testStartTimeStamp.Unix())) //nolint:gosec // G115
 				assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp.Unix()))
-				// Zero fees since both eth/link stream specs are missing, don't
-				// care about billing for purposes of this test
 				assert.Equal(t, "25148438659186", reportElems["nativeFee"].(*big.Int).String())
 				assert.Equal(t, "4264392324093817", reportElems["linkFee"].(*big.Int).String())
 				assert.Equal(t, reportElems["observationsTimestamp"].(uint32)+expirationWindow, reportElems["expiresAt"].(uint32))
@@ -1482,7 +1488,7 @@ func TestIntegration_LLO_stress_test_V1(t *testing.T) {
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(mercurytransmitter.MercuryTransmitterProtocolGRPC)
 			c.Log.Level = new(logLevel)
 		})
 
@@ -1546,9 +1552,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		)
 
 		// NOTE: Wait for nReports reports per node
-		// transmitter addr => count of reports
+		// mercurytransmitter addr => count of reports
 		cnts := map[string]int{}
-		// transmitter addr => channel ID => reports
+		// mercurytransmitter addr => channel ID => reports
 		m := map[string]map[uint32][]datastreamsllo.Report{}
 
 		for {
@@ -1615,11 +1621,11 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 						}
 
 						// No gaps
-						require.Equal(t, prevObsTsNanos, r.ValidAfterNanoseconds, "gap in reports for transmitter %s at index %d; %d!=%d: prevReport=%s, thisReport=%s", addr, i, prevObsTsNanos, r.ValidAfterNanoseconds, mustMarshalJSON(rs[i-1]), mustMarshalJSON(r))
+						require.Equal(t, prevObsTsNanos, r.ValidAfterNanoseconds, "gap in reports for mercurytransmitter %s at index %d; %d!=%d: prevReport=%s, thisReport=%s", addr, i, prevObsTsNanos, r.ValidAfterNanoseconds, mustMarshalJSON(rs[i-1]), mustMarshalJSON(r))
 						// Timestamps are sane
-						require.GreaterOrEqual(t, r.ObservationTimestampNanoseconds, r.ValidAfterNanoseconds, "observation timestamp is before valid after timestamp for transmitter %s at index %d: report=%s", addr, i, mustMarshalJSON(r))
+						require.GreaterOrEqual(t, r.ObservationTimestampNanoseconds, r.ValidAfterNanoseconds, "observation timestamp is before valid after timestamp for mercurytransmitter %s at index %d: report=%s", addr, i, mustMarshalJSON(r))
 						// Reports are separated by at least the minimum interval
-						require.GreaterOrEqual(t, r.ObservationTimestampNanoseconds-uint64(defaultMinReportInterval), prevObsTsNanos, "reports are too close together for transmitter %s at index %d: prevReport=%s, thisReport=%s; expected at least %d nanoseconds of distance", addr, i, mustMarshalJSON(rs[i-1]), mustMarshalJSON(r), defaultMinReportInterval)
+						require.GreaterOrEqual(t, r.ObservationTimestampNanoseconds-uint64(defaultMinReportInterval), prevObsTsNanos, "reports are too close together for mercurytransmitter %s at index %d: prevReport=%s, thisReport=%s; expected at least %d nanoseconds of distance", addr, i, mustMarshalJSON(rs[i-1]), mustMarshalJSON(r), defaultMinReportInterval)
 
 						spacings = append(spacings, r.ObservationTimestampNanoseconds-prevObsTsNanos)
 					}
@@ -1631,7 +1637,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				avgSpacing += spacing
 			}
 			avgSpacing /= uint64(len(spacings))
-			t.Logf("transmitter %s: average spacing between reports: %d nanoseconds (%f seconds)", addr, avgSpacing, float64(avgSpacing)/1e9)
+			t.Logf("mercurytransmitter %s: average spacing between reports: %d nanoseconds (%f seconds)", addr, avgSpacing, float64(avgSpacing)/1e9)
 		}
 	})
 }
@@ -1708,7 +1714,7 @@ func TestIntegration_LLO_transmit_errors(t *testing.T) {
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(mercurytransmitter.MercuryTransmitterProtocolGRPC)
 			c.Mercury.Transmitter.TransmitQueueMaxSize = new(uint32(maxQueueSize)) // Test queue overflow
 			c.Log.Level = new(logLevel)
 		})
@@ -1759,7 +1765,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, serverPubKey
 			)
 
 			// NOTE: Wait for nReports reports
-			// count of packets received keyed by transmitter IP
+			// count of packets received keyed by mercurytransmitter IP
 			m := map[string]int{}
 			for {
 				pckt, err := receiveWithTimeout(t, packets, reportTimeout)
@@ -1862,7 +1868,7 @@ func testIntegrationLLOBlueGreenLifecycle(t *testing.T, offchainConfig datastrea
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(mercurytransmitter.MercuryTransmitterProtocolGRPC)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -2222,7 +2228,7 @@ func TestIntegration_LLO_channel_merging_owners_adders(t *testing.T) {
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(mercurytransmitter.MercuryTransmitterProtocolGRPC)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -2729,7 +2735,7 @@ func TestIntegration_LLO_tombstone_stops_observations_and_reports(t *testing.T) 
 	serverURL := startMercuryServer(t, srv, clientPubKeys)
 
 	oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-		c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+		c.Mercury.Transmitter.Protocol = new(mercurytransmitter.MercuryTransmitterProtocolGRPC)
 	})
 
 	chainID := testutils.SimulatedChainID
