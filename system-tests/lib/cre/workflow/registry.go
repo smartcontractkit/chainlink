@@ -33,6 +33,14 @@ import (
 // must match nubmer of events we track in core/services/workflows/syncer/handler.go
 const NumberOfTrackedWorkflowRegistryEvents = 6
 
+// On-chain WorkflowRegistry caps for system-test environments. Sized for cache soak
+// (200 workflows per owner at 200% MaxLoaded pressure; see workflow_caching_test.go)
+// and aligned with [Workflows.Limits] in workflow-gateway-don-cache-soak-test.toml.
+const (
+	defaultWorkflowRegistryDONLimit         = 5000
+	defaultWorkflowRegistryUserDefaultLimit = 5000
+)
+
 type OwnershipProofSignaturePayload struct {
 	RequestType              uint8          // should be uint8 in Solidity, 1 byte
 	WorkflowOwnerAddress     common.Address // should be 20 bytes in Solidity, address type
@@ -199,8 +207,8 @@ func ConfigureWorkflowRegistry(
 		wf_reg_v2_op.SetDONLimitOpInput{
 			ChainSelector:    input.ChainSelector,
 			DONFamily:        config.DefaultDONFamily,
-			DONLimit:         libc.MustSafeUint32(1000),
-			UserDefaultLimit: libc.MustSafeUint32(100),
+			DONLimit:         libc.MustSafeUint32(defaultWorkflowRegistryDONLimit),
+			UserDefaultLimit: libc.MustSafeUint32(defaultWorkflowRegistryUserDefaultLimit),
 		},
 	)
 	if err != nil || !donLimitReport.Output.Success {

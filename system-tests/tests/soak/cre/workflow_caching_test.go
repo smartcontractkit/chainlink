@@ -28,6 +28,7 @@ import (
 // 4-node workflow DON (see workflow-gateway-don-cache-soak-test.toml nodes + MaxLoaded).
 // moduleCacheMaxLoaded is per node; _defaultSoakNumWorkflows exceeds cap slots (~20%)
 // so enforceCap stays active after workflows are being triggered across nodes.
+// On-chain registry limits (SetDONLimit) and node [Workflows.Limits] must exceed _defaultSoakNumWorkflows.
 const (
 	capPressurePercent   = 200 // 200% of MaxLoaded
 	moduleCacheMaxLoaded = 100 // mirrors workflow-gateway-don-cache-soak-test.toml MaxLoaded
