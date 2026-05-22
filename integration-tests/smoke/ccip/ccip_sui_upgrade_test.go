@@ -246,6 +246,9 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 
 	e.RefreshAdapters()
 
+	// Extended wait after blocking operations for CCIP system reconfiguration
+	waitForSuiRPCSyncUpgrade(t, e.Env.BlockChains.SuiChains()[destChain])
+
 	var (
 		nonce  uint64
 		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
@@ -260,7 +263,7 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 		)
 	)
 
-	waitForSuiRPCSyncSlow(t, e.Env.BlockChains.SuiChains()[destChain])
+	waitForSuiRPCSyncUpgrade(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	t.Run("OffRamp, CCIP FQ upgraded and blocked v2: Message to Sui - Should Succeed", func(t *testing.T) {
 		message := []byte("Hello Sui, from EVM!")
@@ -362,6 +365,9 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 
 	e.RefreshAdapters()
 
+	// Extended wait after upgrade operations for CCIP system reconfiguration
+	waitForSuiRPCSyncUpgrade(t, e.Env.BlockChains.SuiChains()[destChain])
+
 	var (
 		nonce  uint64
 		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
@@ -376,7 +382,7 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 		)
 	)
 
-	waitForSuiRPCSyncSlow(t, e.Env.BlockChains.SuiChains()[destChain])
+	waitForSuiRPCSyncUpgrade(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	t.Run("OffRamp, CCIP FQ upgraded NoBlock: Message to Sui - Should Succeed", func(t *testing.T) {
 		message := []byte("Hello Sui, from EVM!")
@@ -506,6 +512,9 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 
 	e.RefreshAdapters()
 
+	// Extended wait after blocking operations for CCIP system reconfiguration
+	waitForSuiRPCSyncUpgrade(t, e.Env.BlockChains.SuiChains()[destChain])
+
 	setup = messagingtest.NewTestSetupWithDeployedEnv(
 		t,
 		e,
@@ -516,7 +525,7 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 		false,
 	)
 
-	waitForSuiRPCSyncSlow(t, e.Env.BlockChains.SuiChains()[destChain])
+	waitForSuiRPCSyncUpgrade(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	t.Run("CCIP FQ upgraded blocked v2: Message to Sui - Should Succeed", func(t *testing.T) {
 		message := []byte("Hello Sui, from EVM!")
