@@ -34,7 +34,6 @@ import (
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -1537,12 +1536,12 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2(t *testing.T) {
 								src: {
 									TokenTransferFeeConfigArgs: map[common.Address]v1_6.OptionalFeeQuoterTokenTransferFeeConfig{
 										dstLinkTokenAddress: {
-											MinFeeUSDCents:    pointer.To(uint32(1)),
-											MaxFeeUSDCents:    pointer.To(uint32(1)),
-											DeciBps:           pointer.To(uint16(1)),
-											DestGasOverhead:   pointer.To(uint32(1)),
-											DestBytesOverhead: pointer.To(uint32(1)),
-											IsEnabled:         pointer.To(true),
+											MinFeeUSDCents:    new(uint32(1)),
+											MaxFeeUSDCents:    new(uint32(1)),
+											DeciBps:           new(uint16(1)),
+											DestGasOverhead:   new(uint32(1)),
+											DestBytesOverhead: new(uint32(1)),
+											IsEnabled:         new(true),
 										},
 									},
 								},
@@ -1581,12 +1580,12 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2(t *testing.T) {
 								src: {
 									TokenTransferFeeConfigArgs: map[common.Address]v1_6.OptionalFeeQuoterTokenTransferFeeConfig{
 										dstLinkTokenAddress: {
-											MinFeeUSDCents:    pointer.To(uint32(1)),
-											MaxFeeUSDCents:    pointer.To(uint32(2)),
-											DeciBps:           pointer.To(uint16(1)),
-											DestGasOverhead:   pointer.To(uint32(1)),
-											DestBytesOverhead: pointer.To(uint32(64)),
-											IsEnabled:         pointer.To(true),
+											MinFeeUSDCents:    new(uint32(1)),
+											MaxFeeUSDCents:    new(uint32(2)),
+											DeciBps:           new(uint16(1)),
+											DestGasOverhead:   new(uint32(1)),
+											DestBytesOverhead: new(uint32(64)),
+											IsEnabled:         new(true),
 										},
 									},
 								},

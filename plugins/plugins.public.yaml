@@ -45,7 +45,7 @@ plugins:
 
   streams:
     - moduleURI: "github.com/smartcontractkit/chainlink-data-streams"
-      gitRef: "v0.1.15-0.20260520173048-0333bc7b082f"
+      gitRef: "v0.1.15-0.20260522094612-5f9f748bd87a"
       installPath: "./mercury/cmd/chainlink-mercury"
 
   ton:

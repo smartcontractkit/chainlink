@@ -564,6 +564,57 @@ func TestTriggerSubscriber_RegistrationCheck(t *testing.T) {
 		}))
 	})
 
+	t.Run("ignores check with mismatched WorkflowIds and TriggerIds lengths", func(t *testing.T) {
+		sub, dispatcher := newSubscriber(t)
+
+		for _, tc := range []struct {
+			name        string
+			workflowIDs []string
+			triggerIDs  []string
+		}{
+			{
+				name:        "more WorkflowIds than TriggerIds",
+				workflowIDs: []string{workflowID1},
+				triggerIDs:  nil,
+			},
+			{
+				name:        "more TriggerIds than WorkflowIds",
+				workflowIDs: nil,
+				triggerIDs:  []string{"triggerA"},
+			},
+			{
+				name:        "multiple WorkflowIds with shorter TriggerIds",
+				workflowIDs: []string{workflowID1, "workflow2", "workflow3"},
+				triggerIDs:  []string{"triggerA"},
+			},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				malformedMsg := &remotetypes.MessageBody{
+					Sender:      capDon.Members[0][:],
+					Method:      remotetypes.MethodTriggerRegistrationCheck,
+					CallerDonId: workflowDon.ID,
+					Metadata: &remotetypes.MessageBody_TriggerEventMetadata{
+						TriggerEventMetadata: &remotetypes.TriggerEventMetadata{
+							WorkflowIds: tc.workflowIDs,
+							TriggerIds:  tc.triggerIDs,
+						},
+					},
+				}
+
+				dispatcher.Calls = nil
+				// Must not panic.
+				sub.Receive(t.Context(), malformedMsg)
+
+				for _, call := range dispatcher.Calls {
+					if call.Method == "Send" {
+						t.Errorf("expected no dispatcher.Send for malformed check message, got method=%v",
+							call.Arguments.Get(1).(*remotetypes.MessageBody).Method)
+					}
+				}
+			})
+		}
+	})
+
 	t.Run("ignores check from unknown sender", func(t *testing.T) {
 		sub, dispatcher := newSubscriber(t)
 
