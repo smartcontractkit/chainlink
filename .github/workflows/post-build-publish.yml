@@ -1,8 +1,20 @@
 name: "Post Build, Sign and Publish Chainlink"
 on:
-    # # to be used with pre-release tests
-    repository_dispatch:
-        types: [ pre-release-image-published ]
+    workflow_dispatch:
+        inputs:
+            chainlink_version:
+                description: "Git tag / Chainlink version (e.g. v2.30.0-rc.1)"
+                required: true
+                type: string
+            chainlink_image_tag:
+                description: "Published Docker image manifest tag"
+                required: true
+                type: string
+            slack_thread_ts:
+                description: "Optional Slack thread timestamp for job result notifications"
+                required: false
+                type: string
+                default: ""
 
 permissions: {}
 
@@ -14,21 +26,21 @@ jobs:
         steps:
             - name: Validate trigger
               env:
-                  CHAINLINK_IMAGE_TAG: ${{ github.event.client_payload.chainlink_image_tag }}
-                  CHAINLINK_VERSION: ${{ github.event.client_payload.chainlink_version }}
+                  CHAINLINK_IMAGE_TAG: ${{ github.event.inputs.chainlink_image_tag }}
+                  CHAINLINK_VERSION: ${{ github.event.inputs.chainlink_version }}
               run: |
                   echo "Image Tag: $CHAINLINK_IMAGE_TAG"
                   echo "Chainlink Version: $CHAINLINK_VERSION"
                   if [ -z "$CHAINLINK_IMAGE_TAG" ]; then
-                      echo "Chainlink image tag is required, but 'client_payload.chainlink_image_tag' is empty"
+                      echo "chainlink_image_tag is required but empty"
                       exit 1
                   fi
                   if [ -z "$CHAINLINK_VERSION" ]; then
-                      echo "Chainlink Version is required, but 'client_payload.chainlink_version' is empty"
+                      echo "chainlink_version is required but empty"
                       exit 1
                   fi
                   if [[ "$CHAINLINK_VERSION" != v* ]]; then
-                      echo "This workflow can only be used with semver tags, 'chainlink_version' must begin with 'v', got: $CHAINLINK_VERSION"
+                      echo "chainlink_version must begin with 'v' (semver tag), got: $CHAINLINK_VERSION"
                       exit 1
                   fi
                   echo "Trigger validated successfully"
@@ -53,7 +65,7 @@ jobs:
             logs-directory: "./devenv/tests/ocr2/logs"
             ctf-log-level: "debug"
             strip-image-suffix: "v"
-            tag-version-ceiling: ${{ github.event.client_payload.chainlink_version }}
+            tag-version-ceiling: ${{ github.event.inputs.chainlink_version }}
         secrets: inherit
 
     cre-compat:
@@ -75,7 +87,7 @@ jobs:
             logs-directory: "./system-tests/tests/smoke/cre/logs"
             ctf-log-level: "debug"
             strip-image-suffix: "v"
-            tag-version-ceiling: ${{ github.event.client_payload.chainlink_version }}
+            tag-version-ceiling: ${{ github.event.inputs.chainlink_version }}
         secrets: inherit
 
     legacy-system-tests:
@@ -87,9 +99,9 @@ jobs:
         uses: ./.github/workflows/legacy-system-tests.yml
         with:
             ecr: "public"
-            chainlink_version: ${{ github.event.client_payload.chainlink_version }}
+            chainlink_version: ${{ github.event.inputs.chainlink_version }}
             chainlink_image_repository_path: "chainlink/chainlink"
-            chainlink_image_tag: ${{ github.event.client_payload.chainlink_image_tag }}
+            chainlink_image_tag: ${{ github.event.inputs.chainlink_image_tag }}
         secrets: inherit
 
     cre-smoke-tests:
@@ -102,9 +114,9 @@ jobs:
         uses: ./.github/workflows/cre-system-tests.yaml
         with:
             ecr: "public"
-            chainlink_version: ${{ github.event.client_payload.chainlink_version }}
+            chainlink_version: ${{ github.event.inputs.chainlink_version }}
             chainlink_image_repository_path: "chainlink/chainlink"
-            chainlink_image_tag: ${{ github.event.client_payload.chainlink_image_tag }}
+            chainlink_image_tag: ${{ github.event.inputs.chainlink_image_tag }}
         secrets: inherit
 
     cre-regression-tests:
@@ -117,17 +129,17 @@ jobs:
         uses: ./.github/workflows/cre-regression-system-tests.yaml
         with:
             ecr: "public"
-            chainlink_version: ${{ github.event.client_payload.chainlink_version }}
+            chainlink_version: ${{ github.event.inputs.chainlink_version }}
             chainlink_image_repository_path: "chainlink/chainlink"
-            chainlink_image_tag: ${{ github.event.client_payload.chainlink_image_tag }}
+            chainlink_image_tag: ${{ github.event.inputs.chainlink_image_tag }}
         secrets: inherit
 
     # Slack notifications
-    # Only executed, if the slack thread timestamp is provided in the event payload.
+    # Only executed if slack_thread_ts was provided on workflow_dispatch.
     df1-compat-notify:
         runs-on: ubuntu-latest
         needs: [ df1-compat ]
-        if: always() && github.event.client_payload.slack_thread_ts
+        if: always() && github.event.inputs.slack_thread_ts
         permissions:
             contents: read
         steps:
@@ -145,14 +157,14 @@ jobs:
                   job_name: "Data Feeds v1 Upgrade Test"
                   run_url: ${{ format('{0}/{1}/actions/runs/{2}', github.server_url,
                       github.repository, github.run_id) }}
-                  slack_thread_ts: ${{ github.event.client_payload.slack_thread_ts }}
+                  slack_thread_ts: ${{ github.event.inputs.slack_thread_ts }}
                   slack_channel_id: ${{ secrets.SLACK_CHANNEL_RELEASE_NOTIFICATIONS }}
                   slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN_RELENG }}
 
     cre-compat-notify:
         runs-on: ubuntu-latest
         needs: [ cre-compat ]
-        if: always() && github.event.client_payload.slack_thread_ts
+        if: always() && github.event.inputs.slack_thread_ts
         permissions:
             contents: read
         steps:
@@ -169,14 +181,14 @@ jobs:
                   job_name: "CRE Upgrade Test"
                   run_url: ${{ format('{0}/{1}/actions/runs/{2}', github.server_url,
                       github.repository, github.run_id) }}
-                  slack_thread_ts: ${{ github.event.client_payload.slack_thread_ts }}
+                  slack_thread_ts: ${{ github.event.inputs.slack_thread_ts }}
                   slack_channel_id: ${{ secrets.SLACK_CHANNEL_RELEASE_NOTIFICATIONS }}
                   slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN_RELENG }}
 
     legacy-system-tests-notify:
         runs-on: ubuntu-latest
         needs: [ legacy-system-tests ]
-        if: always() && github.event.client_payload.slack_thread_ts
+        if: always() && github.event.inputs.slack_thread_ts
         permissions:
             contents: read
         steps:
@@ -193,14 +205,14 @@ jobs:
                   job_name: "Legacy Smoke Tests"
                   run_url: ${{ format('{0}/{1}/actions/runs/{2}', github.server_url,
                       github.repository, github.run_id) }}
-                  slack_thread_ts: ${{ github.event.client_payload.slack_thread_ts }}
+                  slack_thread_ts: ${{ github.event.inputs.slack_thread_ts }}
                   slack_channel_id: ${{ secrets.SLACK_CHANNEL_RELEASE_NOTIFICATIONS }}
                   slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN_RELENG }}
 
     cre-smoke-tests-notify:
         runs-on: ubuntu-latest
         needs: [ cre-smoke-tests ]
-        if: always() && github.event.client_payload.slack_thread_ts
+        if: always() && github.event.inputs.slack_thread_ts
         permissions:
             contents: read
         steps:
@@ -217,14 +229,14 @@ jobs:
                   job_name: "CRE Smoke Tests"
                   run_url: ${{ format('{0}/{1}/actions/runs/{2}', github.server_url,
                       github.repository, github.run_id) }}
-                  slack_thread_ts: ${{ github.event.client_payload.slack_thread_ts }}
+                  slack_thread_ts: ${{ github.event.inputs.slack_thread_ts }}
                   slack_channel_id: ${{ secrets.SLACK_CHANNEL_RELEASE_NOTIFICATIONS }}
                   slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN_RELENG }}
 
     cre-regression-tests-notify:
         runs-on: ubuntu-latest
         needs: [ cre-regression-tests ]
-        if: always() && github.event.client_payload.slack_thread_ts
+        if: always() && github.event.inputs.slack_thread_ts
         permissions:
             contents: read
         steps:
@@ -241,6 +253,6 @@ jobs:
                   job_name: "CRE Regression Tests"
                   run_url: ${{ format('{0}/{1}/actions/runs/{2}', github.server_url,
                       github.repository, github.run_id) }}
-                  slack_thread_ts: ${{ github.event.client_payload.slack_thread_ts }}
+                  slack_thread_ts: ${{ github.event.inputs.slack_thread_ts }}
                   slack_channel_id: ${{ secrets.SLACK_CHANNEL_RELEASE_NOTIFICATIONS }}
                   slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN_RELENG }}

@@ -7,10 +7,13 @@ import (
 
 	"github.com/AlekSi/pointer"
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -28,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 )
 
@@ -159,7 +161,7 @@ func SetupNewChain(
 ) cldf.Environment {
 	nodeInfo, err := deployment.NodeInfo(env.NodeIDs, env.Offchain)
 	require.NoError(t, err, "must get node info")
-	mcmsDeploymentCfg := proposalutils.SingleGroupTimelockConfigV2(t)
+	mcmsDeploymentCfg := cldftesthelpers.SingleGroupTimelockConfig(t)
 	tokenConfig := shared.NewTestTokenConfig(state.MustGetEVMChainState(feedChain).USDFeeds)
 
 	// Build remote chain configurations
@@ -233,7 +235,7 @@ func SetupNewChain(
 				NewChain:             newChainDefinition,
 				RemoteChains:         remoteChainsDefinition,
 				MCMSDeploymentConfig: &mcmsDeploymentCfg,
-				MCMSConfig: &proposalutils.TimelockConfig{
+				MCMSConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay:   0 * time.Second,
 					MCMSAction: mcmstypes.TimelockActionSchedule,
 				},
@@ -253,7 +255,7 @@ func SetupNewChain(
 				NewChain:          newChainDefinition,
 				RemoteChains:      remoteChainsDefinition,
 				TestRouter:        pointer.ToBool(false),
-				MCMSConfig: &proposalutils.TimelockConfig{
+				MCMSConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay:   0 * time.Second,
 					MCMSAction: mcmstypes.TimelockActionSchedule,
 				},
@@ -343,10 +345,10 @@ func TransferOwnership(
 
 	return commonchangeset.Apply(t, env,
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
-			commonchangeset.TransferToMCMSWithTimelockConfig{
+			cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+			mcmschangesets.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsToTransfer,
-				MCMSConfig: proposalutils.TimelockConfig{
+				MCMSConfig: cldfproposalutils.TimelockConfig{
 					MinDelay: 0 * time.Second,
 				},
 			},

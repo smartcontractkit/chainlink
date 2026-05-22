@@ -53,7 +53,6 @@ The deploy command supports the following implementation-backed flags:
 - `--name`
 - `--delete-workflow-file`
 - `--compile`
-- `--with-contracts-version`
 
 `--workflow-file-path` and `--name` are required.
 

@@ -3,6 +3,7 @@ package runner
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/termstyle"
 )
 
 func readers(iters ...string) []io.Reader {
@@ -176,6 +179,7 @@ func TestDigestIterationJSONL(t *testing.T) {
 		assert.Equal(t, 0, d.FailTests)
 		assert.Equal(t, 0, d.SlowTests)
 		assert.Equal(t, 0, d.TimeoutTests)
+		assert.False(t, d.BuildFailure)
 	})
 
 	t.Run("slow test", func(t *testing.T) {
@@ -198,6 +202,16 @@ func TestDigestIterationJSONL(t *testing.T) {
 		assert.Equal(t, "fail", d.Result)
 		assert.Equal(t, 0, d.RanTests)
 		assert.Equal(t, 1, d.FailTests)
+		assert.True(t, d.BuildFailure)
+	})
+
+	t.Run("failed_build_field", func(t *testing.T) {
+		t.Parallel()
+		jsonl := `{"Action":"fail","Package":"example.com/badpkg","Elapsed":0,"FailedBuild":"example.com/badpkg.test"}` + "\n"
+		d, err := DigestIterationJSONL(strings.NewReader(jsonl), 30*time.Second)
+		require.NoError(t, err)
+		assert.Equal(t, "fail", d.Result)
+		assert.True(t, d.BuildFailure)
 	})
 
 	t.Run("timeout", func(t *testing.T) {
@@ -593,7 +607,7 @@ func TestPrintSummaryOverallContains(t *testing.T) {
 				require.NoError(t, err)
 				return rep
 			},
-			needle: []string{"Overall", "Flaky tests:", "Flaky Iterations: 1/2 (50.0%)", "Slow tests:"},
+			needle: []string{"Overall", "Broken tests:", "Flaky tests:", "Flaky Iterations: 1/2 (50.0%)", "Slow tests:"},
 		},
 		{
 			name: "iteration_wall_clock_runtimes",
@@ -605,7 +619,7 @@ func TestPrintSummaryOverallContains(t *testing.T) {
 				fillIterationRuntimeSummary(rep)
 				return rep
 			},
-			needle: []string{"Overall", "Iteration runtimes:", "min=5s"},
+			needle: []string{"Overall", "Iteration runtimes:", "min=5s", "Broken tests:"},
 		},
 	}
 	for _, tc := range tests {
@@ -618,6 +632,61 @@ func TestPrintSummaryOverallContains(t *testing.T) {
 				assert.Contains(t, out, s)
 			}
 		})
+	}
+}
+
+func TestPrintSummaryOverall_usesSeverityColors(t *testing.T) {
+	t.Parallel()
+	rep, _, err := Analyze(readers(
+		`{"Action":"fail","Package":"pkg/foo","Test":"TestX","Elapsed":0.5}`,
+		`{"Action":"pass","Package":"pkg/foo","Test":"TestX","Elapsed":0.4}`,
+	), 30*time.Second)
+	require.NoError(t, err)
+	require.NotNil(t, rep.Summary)
+	s := rep.Summary
+
+	var buf strings.Builder
+	PrintSummary(&buf, rep)
+	out := buf.String()
+
+	brokenN := len(rep.Failures)
+	pctBroken := float64(brokenN) / float64(s.DistinctNamedTests) * 100
+	brokenLine := fmt.Sprintf("  Broken tests: %d/%d (%.1f%%)", brokenN, s.DistinctNamedTests, pctBroken)
+	if brokenN > 0 {
+		assert.Contains(t, out, termstyle.Bad.Render(brokenLine))
+	} else {
+		assert.Contains(t, out, termstyle.OK.Render(brokenLine))
+	}
+
+	pctFlake := 0.0
+	if s.FlakePrevalence != nil {
+		pctFlake = *s.FlakePrevalence * 100
+	}
+	flakyLine := fmt.Sprintf("  Flaky tests: %d/%d (%.1f%%)", s.FlakeNamedCount, s.DistinctNamedTests, pctFlake)
+	if s.FlakeNamedCount > 0 {
+		assert.Contains(t, out, termstyle.Bad.Render(flakyLine))
+	} else {
+		assert.Contains(t, out, termstyle.OK.Render(flakyLine))
+	}
+
+	if len(rep.Flakes) > 0 && s.FlakeIterationFailRate != nil {
+		pctFI := *s.FlakeIterationFailRate * 100
+		fiLine := fmt.Sprintf("  Flaky Iterations: %d/%d (%.1f%%)", s.FlakeFailingIterations, s.FlakeIterationTotal, pctFI)
+		if s.FlakeFailingIterations > 0 {
+			assert.Contains(t, out, termstyle.Bad.Render(fiLine))
+		} else {
+			assert.Contains(t, out, termstyle.OK.Render(fiLine))
+		}
+	}
+
+	if rep.SlowThreshold > 0 && s.DistinctNamedTests > 0 && s.SlowPrevalence != nil {
+		pctSlow := *s.SlowPrevalence * 100
+		slowLine := fmt.Sprintf("  Slow tests: %d/%d (%.1f%%)", s.SlowCount, s.DistinctNamedTests, pctSlow)
+		if s.SlowCount > 0 {
+			assert.Contains(t, out, termstyle.Accent.Render(slowLine))
+		} else {
+			assert.Contains(t, out, termstyle.OK.Render(slowLine))
+		}
 	}
 }
 
@@ -1057,4 +1126,29 @@ func TestMarshalAISummaryJSON(t *testing.T) {
 			tc.check(t, b)
 		})
 	}
+}
+
+func TestAnalyzeSlowTestsNoDuplication(t *testing.T) {
+	t.Parallel()
+	iter := `{"Action":"pass","Package":"pkg/slow","Test":"TestSlow","Elapsed":10.0}
+{"Action":"pass","Package":"pkg/slow","Elapsed":10.0}
+`
+	rep, _, err := Analyze([]io.Reader{strings.NewReader(iter)}, 1*time.Second)
+	require.NoError(t, err)
+
+	pkgSlowCount := 0
+	testSlowCount := 0
+	for _, s := range rep.Slow {
+		if s.Package == "pkg/slow" {
+			switch s.Test {
+			case "":
+				pkgSlowCount++
+			case "TestSlow":
+				testSlowCount++
+			}
+		}
+	}
+
+	assert.Equal(t, 1, pkgSlowCount, "Package should appear exactly once in slow reports")
+	assert.Equal(t, 1, testSlowCount, "Slow test should appear exactly once")
 }

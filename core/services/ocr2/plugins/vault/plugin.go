@@ -62,7 +62,7 @@ type ReportingPluginConfig struct {
 	MaxShareLengthBytes               limits.BoundLimiter[pkgconfig.Size]
 	MaxRequestBatchSize               limits.BoundLimiter[int]
 	MaxBatchSize                      limits.BoundLimiter[int]
-	OrgIDAsSecretOwnerEnabled         limits.GateLimiter
+	VaultForceEmptyOCRRounds          limits.GateLimiter
 }
 
 func NewReportingPluginFactory(
@@ -72,6 +72,7 @@ func NewReportingPluginFactory(
 	recipientKey *dkgrecipientkey.Key,
 	lazyPublicKey *vaultcap.LazyPublicKey,
 	limitsFactory limits.Factory,
+	lifecycle *vaultcap.RequestLifecycleTracker,
 ) (*ReportingPluginFactory, error) {
 	if db == nil {
 		return nil, errors.New("result package db cannot be nil")
@@ -79,6 +80,10 @@ func NewReportingPluginFactory(
 
 	if recipientKey == nil {
 		return nil, errors.New("DKG recipient key cannot be nil when using result package db")
+	}
+
+	if lifecycle == nil {
+		return nil, errors.New("request lifecycle tracker cannot be nil")
 	}
 
 	cfg := &ReportingPluginConfig{
@@ -92,6 +97,7 @@ func NewReportingPluginFactory(
 		db:            db,
 		recipientKey:  recipientKey,
 		limitsFactory: limitsFactory,
+		lifecycle:     lifecycle,
 	}, nil
 }
 
@@ -102,6 +108,7 @@ type ReportingPluginFactory struct {
 	db            dkgocrtypes.ResultPackageDatabase
 	recipientKey  *dkgrecipientkey.Key
 	limitsFactory limits.Factory
+	lifecycle     *vaultcap.RequestLifecycleTracker
 }
 
 func (r *ReportingPluginFactory) getKeyMaterial(ctx context.Context, instanceID string) (publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2easy.PrivateShare, err error) {
@@ -164,62 +171,6 @@ func (r *ReportingPluginFactory) pollForKeyMaterial(ctx context.Context, instanc
 	}
 }
 
-func initializePluginLimits(ctx context.Context, limitsFactory limits.Factory) (ocr3_1types.ReportingPluginLimits, error) {
-	maxQueryBytes, err := cresettings.Default.VaultMaxQuerySizeLimit.GetOrDefault(ctx, limitsFactory.Settings)
-	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxQuerySizeLimit: %w", err)
-	}
-	maxObservationBytes, err := cresettings.Default.VaultMaxObservationSizeLimit.GetOrDefault(ctx, limitsFactory.Settings)
-	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxObservationSizeLimit: %w", err)
-	}
-	maxReportsPlusPrecursorBytes, err := cresettings.Default.VaultMaxReportsPlusPrecursorSizeLimit.GetOrDefault(ctx, limitsFactory.Settings)
-	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxReportsPlusPrecursorSizeLimit: %w", err)
-	}
-	maxReportBytes, err := cresettings.Default.VaultMaxReportSizeLimit.GetOrDefault(ctx, limitsFactory.Settings)
-	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxReportSizeLimit: %w", err)
-	}
-	maxReportCount, err := cresettings.Default.VaultMaxReportCount.GetOrDefault(ctx, limitsFactory.Settings)
-	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxReportCount: %w", err)
-	}
-	maxKVModifiedKeysPlusValuesBytes, err := cresettings.Default.VaultMaxKeyValueModifiedKeysPlusValuesSizeLimit.GetOrDefault(ctx, limitsFactory.Settings)
-	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxKeyValueModifiedKeysPlusValuesSizeLimit: %w", err)
-	}
-	maxKVModifiedKeys, err := cresettings.Default.VaultMaxKeyValueModifiedKeys.GetOrDefault(ctx, limitsFactory.Settings)
-	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxKeyValueModifiedKeys: %w", err)
-	}
-	maxBlobPayloadBytes, err := cresettings.Default.VaultMaxBlobPayloadSizeLimit.GetOrDefault(ctx, limitsFactory.Settings)
-	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxBlobPayloadSizeLimit: %w", err)
-	}
-	maxPerOracleUnexpiredBlobCumulativePayloadBytes, err := cresettings.Default.VaultMaxPerOracleUnexpiredBlobCumulativePayloadSizeLimit.GetOrDefault(ctx, limitsFactory.Settings)
-	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxPerOracleUnexpiredBlobCumulativePayloadSizeLimit: %w", err)
-	}
-	maxPerOracleUnexpiredBlobCount, err := cresettings.Default.VaultMaxPerOracleUnexpiredBlobCount.GetOrDefault(ctx, limitsFactory.Settings)
-	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxPerOracleUnexpiredBlobCount: %w", err)
-	}
-
-	return ocr3_1types.ReportingPluginLimits{
-		MaxQueryBytes:                                   int(maxQueryBytes),
-		MaxObservationBytes:                             int(maxObservationBytes),
-		MaxReportsPlusPrecursorBytes:                    int(maxReportsPlusPrecursorBytes),
-		MaxReportBytes:                                  int(maxReportBytes),
-		MaxReportCount:                                  maxReportCount,
-		MaxKeyValueModifiedKeysPlusValuesBytes:          int(maxKVModifiedKeysPlusValuesBytes),
-		MaxKeyValueModifiedKeys:                         maxKVModifiedKeys,
-		MaxBlobPayloadBytes:                             int(maxBlobPayloadBytes),
-		MaxPerOracleUnexpiredBlobCumulativePayloadBytes: int(maxPerOracleUnexpiredBlobCumulativePayloadBytes),
-		MaxPerOracleUnexpiredBlobCount:                  maxPerOracleUnexpiredBlobCount,
-	}, nil
-}
-
 func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginConfig, error) {
 	maxCiphertextLengthBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultCiphertextSizeLimit)
 	if err != nil {
@@ -251,9 +202,9 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		return nil, fmt.Errorf("VaultRequestBatchSizeLimit: %w", err)
 	}
 
-	orgIDAsSecretOwnerEnabled, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultOrgIdAsSecretOwnerEnabled)
+	vaultForceEmptyOCRRounds, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultForceEmptyOCRRounds)
 	if err != nil {
-		return nil, fmt.Errorf("VaultOrgIDAsSecretOwnerEnabled: %w", err)
+		return nil, fmt.Errorf("VaultForceEmptyOCRRounds: %w", err)
 	}
 
 	return &ReportingPluginConfig{
@@ -263,7 +214,7 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		MaxIdentifierKeyLengthBytes:       maxIdentifierKeyLengthBytesLimiter,
 		MaxIdentifierOwnerLengthBytes:     maxIdentifierOwnerLengthBytesLimiter,
 		MaxIdentifierNamespaceLengthBytes: maxIdentifierNamespaceLengthBytesLimiter,
-		OrgIDAsSecretOwnerEnabled:         orgIDAsSecretOwnerEnabled,
+		VaultForceEmptyOCRRounds:          vaultForceEmptyOCRRounds,
 	}, nil
 }
 
@@ -346,6 +297,8 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		cfg.MaxIdentifierNamespaceLengthBytes,
 	)
 
+	r.lifecycle.SetConfigDigest(config.ConfigDigest.String())
+
 	return &ReportingPlugin{
 			lggr:       r.lggr.Named("VaultReportingPlugin"),
 			store:      r.store,
@@ -353,6 +306,7 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 			metrics:    metrics,
 			onchainCfg: config,
 			validator:  validator,
+			lifecycle:  r.lifecycle,
 			unmarshalBlob: func(data []byte) (ocr3_1types.BlobHandle, error) {
 				handle := ocr3_1types.BlobHandle{}
 				err := handle.UnmarshalBinary(data)
@@ -374,6 +328,7 @@ type ReportingPlugin struct {
 	cfg        *ReportingPluginConfig
 	metrics    *pluginMetrics
 	validator  *vaultcap.RequestValidator
+	lifecycle  *vaultcap.RequestLifecycleTracker
 
 	// For testing: functions to mock out marshaling/unmarshaling blob handles.
 	// The Blob API isn't very test friendly because it uses sum types that belong
@@ -396,29 +351,6 @@ func generateRandomNonce() ([]byte, error) {
 	return nonceBytes, nil
 }
 
-func (r *ReportingPlugin) orgIDAsSecretOwnerEnabled(ctx context.Context) bool {
-	return r.cfg.OrgIDAsSecretOwnerEnabled.AllowErr(ctx) == nil
-}
-
-// canonicalResponseID rewrites Vault responses to the canonical owner identity.
-//
-// When VaultOrgIdAsSecretOwnerEnabled is on, requests may still arrive keyed by
-// workflow owner for backwards compatibility with existing clients and allowlist-based
-// flows. The server persists and reasons about the canonical owner as org_id though,
-// so responses should expose that canonical org owner instead of echoing the
-// workflow-owner request key back to the client.
-func (r *ReportingPlugin) canonicalResponseID(ctx context.Context, id *vaultcommon.SecretIdentifier, orgID string) *vaultcommon.SecretIdentifier {
-	if id == nil || orgID == "" || !r.orgIDAsSecretOwnerEnabled(ctx) {
-		return id
-	}
-
-	return &vaultcommon.SecretIdentifier{
-		Key:       id.Key,
-		Namespace: id.Namespace,
-		Owner:     orgID,
-	}
-}
-
 type pendingQueueStore interface {
 	WritePendingQueue(ctx context.Context, pending []*vaultcommon.StoredPendingQueueItem) error
 }
@@ -429,21 +361,28 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		r.lggr.Debugw("observation finished", "seqNr", seqNr, "elapsed", time.Since(start))
 	}()
 
-	wrappedReadStore := NewKVStoreWrapper(NewReadStore(keyValueReader, r.metrics), r.orgIDAsSecretOwnerEnabled(ctx), r.lggr)
+	readKV := NewReadStore(keyValueReader, r.metrics)
 
-	batch, err := wrappedReadStore.GetPendingQueue(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("could not fetch batch of requests: %w", err)
+	var currentPendingQueueItems []*vaultcommon.StoredPendingQueueItem
+	if !forceEmptyOCRRounds(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds) {
+		var err error
+		currentPendingQueueItems, err = readKV.GetPendingQueue(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("could not fetch batch of requests: %w", err)
+		}
+	} else {
+		r.lggr.Warnw("VaultForceEmptyOCRRounds is enabled; pending queue is not read this OCR round — store-backed pending observation items are skipped")
 	}
+
 	// Avoid log spam by only logging if we have any requests to process.
-	if len(batch) > 0 {
+	if len(currentPendingQueueItems) > 0 {
 		mbs, _ := r.cfg.MaxBatchSize.Limit(ctx)
 		r.lggr.Debugw("observation started", "seqNr", seqNr, "batchSize", mbs)
 	}
 
 	ids := []string{}
 	obs := []*vaultcommon.Observation{}
-	for _, req := range batch {
+	for _, req := range currentPendingQueueItems {
 		o := &vaultcommon.Observation{
 			Id: req.Id,
 		}
@@ -457,21 +396,22 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 
 		switch tp := payload.(type) {
 		case *vaultcommon.GetSecretsRequest:
-			r.observeGetSecrets(ctx, wrappedReadStore.WithRequest(tp.OrgId, tp.WorkflowOwner), tp, o)
+			r.observeGetSecrets(ctx, readKV, tp, o)
 		case *vaultcommon.CreateSecretsRequest:
-			r.observeCreateSecrets(ctx, wrappedReadStore.WithRequest(tp.OrgId, tp.WorkflowOwner), tp, o)
+			r.observeCreateSecrets(ctx, readKV, tp, o)
 		case *vaultcommon.UpdateSecretsRequest:
-			r.observeUpdateSecrets(ctx, wrappedReadStore.WithRequest(tp.OrgId, tp.WorkflowOwner), tp, o)
+			r.observeUpdateSecrets(ctx, readKV, tp, o)
 		case *vaultcommon.DeleteSecretsRequest:
-			r.observeDeleteSecrets(ctx, wrappedReadStore.WithRequest(tp.OrgId, tp.WorkflowOwner), tp, o)
+			r.observeDeleteSecrets(ctx, readKV, tp, o)
 		case *vaultcommon.ListSecretIdentifiersRequest:
-			r.observeListSecretIdentifiers(ctx, wrappedReadStore.WithRequest(tp.OrgId, tp.WorkflowOwner), tp, o)
+			r.observeListSecretIdentifiers(ctx, readKV, tp, o)
 		default:
 			r.lggr.Errorw("unknown request type, skipping...", "requestType", fmt.Sprintf("%T", payload), "id", req.Id)
 			continue
 		}
 
 		obs = append(obs, o)
+		r.lifecycle.RecordObservedOutcome(req.Id, seqNr, time.Now())
 	}
 
 	obspb := &vaultcommon.Observations{
@@ -485,6 +425,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	if ierr != nil {
 		return nil, ierr
 	}
+	r.metrics.trackLocalQueueSize(ctx, len(localQueueItems))
 
 	// Sort the local queue by ID as we may have to limit its contents
 	// later on and we want to maximize the possibility of overlap among
@@ -500,16 +441,10 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		}
 	})
 
-	// Next, get the current pending queue. We'll use this to dedupe
-	// requests when generating an observation for the next state of the
-	// pending queue.
-	pendingQueue, ierr := wrappedReadStore.GetPendingQueue(ctx)
-	if ierr != nil {
-		return nil, ierr
-	}
-
+	// Next, use the current pending queue to dedupe requests when generating
+	// an observation for the next state of the pending queue.
 	pendingQueueHasID := map[string]bool{}
-	for _, item := range pendingQueue {
+	for _, item := range currentPendingQueueItems {
 		pendingQueueHasID[item.Id] = true
 	}
 
@@ -548,6 +483,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 
 		blobPayloads = append(blobPayloads, itemb)
 		blobPayloadIDs = append(blobPayloadIDs, item.Id)
+		r.lifecycle.RecordBlobBroadcasting(item.Id, seqNr, time.Now())
 
 		if len(blobPayloads) >= maxObservedLocalQueueItems {
 			r.lggr.Warnw("Observed local queue exceeds batch size limit, truncating",
@@ -579,8 +515,8 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	}
 
 	// Avoid log spam by only logging if we have any requests to process.
-	if len(batch) > 0 {
-		r.lggr.Debugw("observation complete", "ids", ids, "batchSize", len(batch))
+	if len(currentPendingQueueItems) > 0 {
+		r.lggr.Debugw("observation complete", "ids", ids, "batchSize", len(currentPendingQueueItems))
 	}
 	return types.Observation(obsb), nil
 }
@@ -638,6 +574,7 @@ func (r *ReportingPlugin) broadcastBlobPayloads(
 			}
 
 			results[i] = blobHandleBytes
+			r.lifecycle.RecordBlobBroadcasted(requestID, seqNr, time.Now())
 			return nil
 		})
 	}
@@ -662,12 +599,12 @@ func (r *ReportingPlugin) observeGetSecrets(ctx context.Context, reader ReadKVSt
 	}
 	resps := []*vaultcommon.SecretResponse{}
 	for _, secretRequest := range tp.Requests {
-		resp, ierr := r.observeGetSecretsRequest(ctx, reader, secretRequest, tp.WorkflowOwner, tp.OrgId)
+		resp, ierr := r.observeGetSecretsRequest(ctx, reader, secretRequest)
 		if ierr != nil {
 			logUserErrorAware(r.lggr, "failed to observe get secret request item", ierr, "id", secretRequest.Id)
 			errorMsg := userFacingError(ierr, "failed to handle get secret request")
 			resps = append(resps, &vaultcommon.SecretResponse{
-				Id: r.canonicalResponseID(ctx, secretRequest.Id, tp.OrgId),
+				Id: secretRequest.Id,
 				Result: &vaultcommon.SecretResponse_Error{
 					Error: errorMsg,
 				},
@@ -708,7 +645,7 @@ func (s *share) encryptWithKey(pk string) (string, error) {
 	return hex.EncodeToString(encrypted), nil
 }
 
-func generatePlaintextShare(publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2easy.PrivateShare, encryptedSecret []byte, workflowOwner string, orgID string) (*share, error) {
+func generatePlaintextShare(publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2easy.PrivateShare, encryptedSecret []byte, workflowOwner string) (*share, error) {
 	ct := &tdh2easy.Ciphertext{}
 	err := ct.UnmarshalVerify(encryptedSecret, publicKey)
 	if err != nil {
@@ -716,7 +653,7 @@ func generatePlaintextShare(publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2
 	}
 
 	es := hex.EncodeToString(encryptedSecret)
-	err = vaultcap.EnsureRightLabelOnSecret(publicKey, es, workflowOwner, orgID)
+	err = vaultcap.EnsureRightLabelOnSecret(publicKey, es, workflowOwner)
 	if err != nil {
 		return nil, errors.New("failed to verify label on secret. error: " + err.Error())
 	}
@@ -734,7 +671,7 @@ func generatePlaintextShare(publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2
 	return &share{data: sb}, nil
 }
 
-func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader ReadKVStore, secretRequest *vaultcommon.SecretRequest, workflowOwner string, orgID string) (*vaultcommon.SecretResponse, error) {
+func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader ReadKVStore, secretRequest *vaultcommon.SecretRequest) (*vaultcommon.SecretResponse, error) {
 	id, err := r.validateSecretIdentifier(ctx, secretRequest.Id)
 	if err != nil {
 		return nil, err
@@ -748,10 +685,7 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 		return nil, newUserError("key does not exist")
 	}
 
-	if !r.orgIDAsSecretOwnerEnabled(ctx) {
-		orgID = ""
-	}
-	sh, err := generatePlaintextShare(r.cfg.PublicKey, r.cfg.PrivateKeyShare, secret.EncryptedSecret, workflowOwner, orgID)
+	sh, err := generatePlaintextShare(r.cfg.PublicKey, r.cfg.PrivateKeyShare, secret.EncryptedSecret, id.Owner)
 	if err != nil {
 		return nil, err
 	}
@@ -772,7 +706,7 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 	}
 
 	return &vaultcommon.SecretResponse{
-		Id: r.canonicalResponseID(ctx, id, orgID),
+		Id: id,
 		Result: &vaultcommon.SecretResponse_Data{
 			Data: &vaultcommon.SecretData{
 				EncryptedValue:               hex.EncodeToString(secret.EncryptedSecret),
@@ -806,7 +740,7 @@ func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, reader ReadK
 
 	resps := []*vaultcommon.CreateSecretResponse{}
 	for _, sr := range tp.EncryptedSecrets {
-		validatedID, ierr := r.observeCreateSecretRequest(ctx, reader, sr, requestsCountForID, tp.WorkflowOwner, tp.OrgId)
+		validatedID, ierr := r.observeCreateSecretRequest(ctx, reader, sr, requestsCountForID)
 		if ierr != nil {
 			logUserErrorAware(l, "failed to handle create secret request item", ierr, "id", sr.Id)
 			errorMsg := userFacingError(ierr, "failed to handle create secret request")
@@ -834,7 +768,7 @@ func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, reader ReadK
 	}
 }
 
-func (r *ReportingPlugin) observeCreateSecretRequest(ctx context.Context, reader ReadKVStore, secretRequest *vaultcommon.EncryptedSecret, requestsCountForID map[string]int, workflowOwner string, orgID string) (*vaultcommon.SecretIdentifier, error) {
+func (r *ReportingPlugin) observeCreateSecretRequest(ctx context.Context, reader ReadKVStore, secretRequest *vaultcommon.EncryptedSecret, requestsCountForID map[string]int) (*vaultcommon.SecretIdentifier, error) {
 	id, err := r.validateSecretIdentifier(ctx, secretRequest.Id)
 	if err != nil {
 		return id, err
@@ -848,10 +782,7 @@ func (r *ReportingPlugin) observeCreateSecretRequest(ctx context.Context, reader
 		return id, newUserError(ierr.Error())
 	}
 
-	if !r.orgIDAsSecretOwnerEnabled(ctx) {
-		orgID = ""
-	}
-	err = vaultcap.EnsureRightLabelOnSecret(r.cfg.PublicKey, secretRequest.EncryptedValue, workflowOwner, orgID)
+	err = vaultcap.EnsureRightLabelOnSecret(r.cfg.PublicKey, secretRequest.EncryptedValue, secretRequest.Id.Owner)
 	if err != nil {
 		return id, newUserError("failed to verify ciphertext: " + err.Error())
 	}
@@ -888,7 +819,7 @@ func (r *ReportingPlugin) observeUpdateSecrets(ctx context.Context, reader ReadK
 
 	resps := []*vaultcommon.UpdateSecretResponse{}
 	for _, sr := range tp.EncryptedSecrets {
-		validatedID, ierr := r.observeUpdateSecretRequest(ctx, reader, sr, requestsCountForID, tp.WorkflowOwner, tp.OrgId)
+		validatedID, ierr := r.observeUpdateSecretRequest(ctx, reader, sr, requestsCountForID)
 		if ierr != nil {
 			logUserErrorAware(l, "failed to observe update secret request item", ierr, "id", sr.Id)
 			errorMsg := userFacingError(ierr, "failed to handle update secret request")
@@ -916,11 +847,11 @@ func (r *ReportingPlugin) observeUpdateSecrets(ctx context.Context, reader ReadK
 	}
 }
 
-func (r *ReportingPlugin) observeUpdateSecretRequest(ctx context.Context, reader ReadKVStore, secretRequest *vaultcommon.EncryptedSecret, requestsCountForID map[string]int, workflowOwner string, orgID string) (*vaultcommon.SecretIdentifier, error) {
+func (r *ReportingPlugin) observeUpdateSecretRequest(ctx context.Context, reader ReadKVStore, secretRequest *vaultcommon.EncryptedSecret, requestsCountForID map[string]int) (*vaultcommon.SecretIdentifier, error) {
 	// The checks at this stage are identical since we only check the correctness of the payload
 	// at this stage. Checks that are different between update and create, like whether the secret already exists,
 	// are handled in the StateTransition phase.
-	return r.observeCreateSecretRequest(ctx, reader, secretRequest, requestsCountForID, workflowOwner, orgID)
+	return r.observeCreateSecretRequest(ctx, reader, secretRequest, requestsCountForID)
 }
 
 func (r *ReportingPlugin) observeListSecretIdentifiers(ctx context.Context, reader ReadKVStore, req proto.Message, o *vaultcommon.Observation) {
@@ -1144,10 +1075,16 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 	//   This is because honest nodes will all be reading from
 	//   the same deterministic key-value store-based queue.
 	// - that all pending queue items can be fetched as blobs.
-	wrappedStore := NewKVStoreWrapper(NewReadStore(keyValueReader, r.metrics), r.orgIDAsSecretOwnerEnabled(ctx), r.lggr)
-	pendingQueueItems, err := wrappedStore.GetPendingQueue(ctx)
-	if err != nil {
-		return fmt.Errorf("could not fetch pending queue from store: %w", err)
+	readKV := NewReadStore(keyValueReader, r.metrics)
+	var pendingQueueItems []*vaultcommon.StoredPendingQueueItem
+	if !forceEmptyOCRRounds(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds) {
+		var err error
+		pendingQueueItems, err = readKV.GetPendingQueue(ctx)
+		if err != nil {
+			return fmt.Errorf("could not fetch pending queue from store: %w", err)
+		}
+	} else {
+		r.lggr.Warnw("VaultForceEmptyOCRRounds is enabled; pending queue is not read this OCR round — store-backed pending observation items are skipped")
 	}
 
 	if len(idToObs) != len(pendingQueueItems) {
@@ -1285,7 +1222,7 @@ func (r *ReportingPlugin) validateGetSecretsObservation(ctx context.Context, o *
 		if err := r.validator.ValidateSecretIdentifier(ctx, secretRequest.Id.Key, secretRequest.Id.Owner, secretRequest.Id.Namespace); err != nil {
 			return fmt.Errorf("GetSecrets request contains invalid secret identifier: %w", err)
 		}
-		key := vaulttypes.KeyFor(r.canonicalResponseID(ctx, secretRequest.Id, req.OrgId))
+		key := vaulttypes.KeyFor(secretRequest.Id)
 		if _, ok := reqMap[key]; ok {
 			return fmt.Errorf("duplicate request found for item %s", key)
 		}
@@ -1309,7 +1246,7 @@ func (r *ReportingPlugin) validateGetSecretsObservation(ctx context.Context, o *
 	}
 
 	for _, rq := range reqMap {
-		responseID := r.canonicalResponseID(ctx, rq.Id, req.OrgId)
+		responseID := rq.Id
 		key := vaulttypes.KeyFor(responseID)
 		rsp, ok := respMap[key]
 		if !ok {
@@ -1489,7 +1426,7 @@ func (r *ReportingPlugin) validateListSecretIdentifiersObservation(ctx context.C
 		if err := r.cfg.MaxSecretsPerOwner.Check(ctx, len(listResp.Identifiers)); err != nil {
 			var errBoundLimited limits.ErrorBoundLimited[int]
 			if errors.As(err, &errBoundLimited) {
-				return fmt.Errorf("ListSecretIdentifiers response exceeds maximum number of secrets per owner (have=%d, limit=%d)", len(listResp.Identifiers), errBoundLimited.Limit)
+				return fmt.Errorf("ListSecretIdentifiers response exceeds maximum number of secrets per owner (have=%d, limit=%d): %w", len(listResp.Identifiers), errBoundLimited.Limit, err)
 			}
 			return fmt.Errorf("failed to check max secrets per owner limit: %w", err)
 		}
@@ -1499,7 +1436,7 @@ func (r *ReportingPlugin) validateListSecretIdentifiersObservation(ctx context.C
 }
 
 func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq types.AttributedQuery, aos []types.AttributedObservation, keyValueReadWriter ocr3_1types.KeyValueStateReadWriter, blobFetcher ocr3_1types.BlobFetcher) (ocr3_1types.ReportsPlusPrecursor, error) {
-	wrappedStore := NewKVStoreWrapper(NewWriteStore(keyValueReadWriter, r.metrics), r.orgIDAsSecretOwnerEnabled(ctx), r.lggr)
+	writeKV := NewWriteStore(keyValueReadWriter, r.metrics)
 
 	marshalledObs := map[uint8]*vaultcommon.Observations{}
 	for _, ao := range aos {
@@ -1604,20 +1541,16 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 			r.stateTransitionGetSecrets(ctx, chosen, o)
 			os.Outcomes = append(os.Outcomes, o)
 		case vaultcommon.RequestType_CREATE_SECRETS:
-			req := first.GetCreateSecretsRequest()
-			r.stateTransitionCreateSecrets(ctx, wrappedStore.WithRequest(req.OrgId, req.WorkflowOwner), chosen, o)
+			r.stateTransitionCreateSecrets(ctx, writeKV, chosen, o)
 			os.Outcomes = append(os.Outcomes, o)
 		case vaultcommon.RequestType_UPDATE_SECRETS:
-			req := first.GetUpdateSecretsRequest()
-			r.stateTransitionUpdateSecrets(ctx, wrappedStore.WithRequest(req.OrgId, req.WorkflowOwner), chosen, o)
+			r.stateTransitionUpdateSecrets(ctx, writeKV, chosen, o)
 			os.Outcomes = append(os.Outcomes, o)
 		case vaultcommon.RequestType_DELETE_SECRETS:
-			req := first.GetDeleteSecretsRequest()
-			r.stateTransitionDeleteSecrets(ctx, wrappedStore.WithRequest(req.OrgId, req.WorkflowOwner), chosen, o)
+			r.stateTransitionDeleteSecrets(ctx, writeKV, chosen, o)
 			os.Outcomes = append(os.Outcomes, o)
 		case vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS:
-			req := first.GetListSecretIdentifiersRequest()
-			r.stateTransitionListSecretIdentifiers(ctx, wrappedStore.WithRequest(req.OrgId, req.WorkflowOwner), chosen, o)
+			r.stateTransitionListSecretIdentifiers(ctx, writeKV, chosen, o)
 			os.Outcomes = append(os.Outcomes, o)
 		default:
 			r.lggr.Debugw("unknown request type, skipping...", "requestType", first.RequestType, "id", id)
@@ -1628,9 +1561,14 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 	// ---
 	// Phase 2: Process the pending queue.
 	// ---
-	err := r.stateTransitionPendingQueue(ctx, wrappedStore, marshalledObs, blobFetcher)
+	err := r.stateTransitionPendingQueue(ctx, seqNr, writeKV, marshalledObs, blobFetcher)
 	if err != nil {
 		return ocr3_1types.ReportsPlusPrecursor{}, fmt.Errorf("could not process pending queue during state transition: %w", err)
+	}
+
+	nowST := time.Now()
+	for _, out := range os.Outcomes {
+		r.lifecycle.RecordStateTransitionOutcome(out.Id, seqNr, nowST)
 	}
 
 	ospb, err := proto.MarshalOptions{Deterministic: true}.Marshal(os)
@@ -1644,7 +1582,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 	return ocr3_1types.ReportsPlusPrecursor(ospb), nil
 }
 
-func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, store pendingQueueStore, obs map[uint8]*vaultcommon.Observations, blobFetcher ocr3_1types.BlobFetcher) error {
+func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, seqNr uint64, store pendingQueueStore, obs map[uint8]*vaultcommon.Observations, blobFetcher ocr3_1types.BlobFetcher) error {
 	// Step 1: Create a map of id -> sha -> count.
 	idToShaToCount := map[string]map[string]int{}
 	oidsToIDs := map[uint8][]string{} // for debugging only
@@ -1747,6 +1685,11 @@ func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, store
 		keptItems = keptItems[:errBoundLimited.Limit]
 	}
 
+	now := time.Now()
+	for _, it := range keptItems {
+		r.lifecycle.RecordWrittenToPendingQueue(ctx, it.Id, seqNr, now)
+	}
+
 	return store.WritePendingQueue(ctx, keptItems)
 }
 
@@ -1776,9 +1719,7 @@ func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, chosen 
 
 	o.Request = &vaultcommon.Outcome_GetSecretsRequest{
 		GetSecretsRequest: &vaultcommon.GetSecretsRequest{
-			Requests:      newReqs,
-			OrgId:         first.GetGetSecretsRequest().OrgId,
-			WorkflowOwner: first.GetGetSecretsRequest().WorkflowOwner,
+			Requests: newReqs,
 		},
 	}
 
@@ -1878,8 +1819,6 @@ func (r *ReportingPlugin) stateTransitionCreateSecrets(ctx context.Context, stor
 		CreateSecretsRequest: &vaultcommon.CreateSecretsRequest{
 			RequestId:        reqID,
 			EncryptedSecrets: newReqs,
-			OrgId:            first.GetCreateSecretsRequest().OrgId,
-			WorkflowOwner:    first.GetCreateSecretsRequest().WorkflowOwner,
 		},
 	}
 
@@ -1908,7 +1847,7 @@ func (r *ReportingPlugin) stateTransitionCreateSecrets(ctx context.Context, stor
 			})
 			continue
 		}
-		resp, err := r.stateTransitionCreateSecretsRequest(ctx, store, req, resp, first.GetCreateSecretsRequest().OrgId)
+		resp, err := r.stateTransitionCreateSecretsRequest(ctx, store, req, resp)
 		if err != nil {
 			logUserErrorAware(r.lggr, "failed to handle create secret request", err, "id", req.Id, "requestID", reqID)
 			errorMsg := userFacingError(err, "failed to handle create secret request")
@@ -1930,7 +1869,7 @@ func (r *ReportingPlugin) stateTransitionCreateSecrets(ctx context.Context, stor
 	}
 }
 
-func (r *ReportingPlugin) stateTransitionCreateSecretsRequest(ctx context.Context, store WriteKVStore, req *vaultcommon.EncryptedSecret, resp *vaultcommon.CreateSecretResponse, orgID string) (*vaultcommon.CreateSecretResponse, error) {
+func (r *ReportingPlugin) stateTransitionCreateSecretsRequest(ctx context.Context, store WriteKVStore, req *vaultcommon.EncryptedSecret, resp *vaultcommon.CreateSecretResponse) (*vaultcommon.CreateSecretResponse, error) {
 	if resp.GetError() != "" {
 		return resp, newUserError(resp.GetError())
 	}
@@ -1971,7 +1910,7 @@ func (r *ReportingPlugin) stateTransitionCreateSecretsRequest(ctx context.Contex
 	}
 
 	return &vaultcommon.CreateSecretResponse{
-		Id:      r.canonicalResponseID(ctx, req.Id, orgID),
+		Id:      req.Id,
 		Success: true,
 		Error:   "",
 	}, nil
@@ -1998,8 +1937,6 @@ func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, stor
 		UpdateSecretsRequest: &vaultcommon.UpdateSecretsRequest{
 			RequestId:        reqID,
 			EncryptedSecrets: newReqs,
-			OrgId:            first.GetUpdateSecretsRequest().OrgId,
-			WorkflowOwner:    first.GetUpdateSecretsRequest().WorkflowOwner,
 		},
 	}
 
@@ -2026,7 +1963,7 @@ func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, stor
 			})
 			continue
 		}
-		resp, err := r.stateTransitionUpdateSecretsRequest(ctx, store, req, resp, first.GetUpdateSecretsRequest().OrgId)
+		resp, err := r.stateTransitionUpdateSecretsRequest(ctx, store, req, resp)
 		if err != nil {
 			logUserErrorAware(r.lggr, "failed to handle update secret request", err, "id", req.Id, "requestID", reqID)
 			errorMsg := userFacingError(err, "failed to handle update secret request")
@@ -2048,7 +1985,7 @@ func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, stor
 	}
 }
 
-func (r *ReportingPlugin) stateTransitionUpdateSecretsRequest(ctx context.Context, store WriteKVStore, req *vaultcommon.EncryptedSecret, resp *vaultcommon.UpdateSecretResponse, orgID string) (*vaultcommon.UpdateSecretResponse, error) {
+func (r *ReportingPlugin) stateTransitionUpdateSecretsRequest(ctx context.Context, store WriteKVStore, req *vaultcommon.EncryptedSecret, resp *vaultcommon.UpdateSecretResponse) (*vaultcommon.UpdateSecretResponse, error) {
 	if resp.GetError() != "" {
 		return resp, newUserError(resp.GetError())
 	}
@@ -2075,7 +2012,7 @@ func (r *ReportingPlugin) stateTransitionUpdateSecretsRequest(ctx context.Contex
 	}
 
 	return &vaultcommon.UpdateSecretResponse{
-		Id:      r.canonicalResponseID(ctx, req.Id, orgID),
+		Id:      req.Id,
 		Success: true,
 		Error:   "",
 	}, nil
@@ -2100,10 +2037,8 @@ func (r *ReportingPlugin) stateTransitionDeleteSecrets(ctx context.Context, stor
 
 	o.Request = &vaultcommon.Outcome_DeleteSecretsRequest{
 		DeleteSecretsRequest: &vaultcommon.DeleteSecretsRequest{
-			RequestId:     reqID,
-			Ids:           newReqs,
-			OrgId:         first.GetDeleteSecretsRequest().OrgId,
-			WorkflowOwner: first.GetDeleteSecretsRequest().WorkflowOwner,
+			RequestId: reqID,
+			Ids:       newReqs,
 		},
 	}
 
@@ -2130,7 +2065,7 @@ func (r *ReportingPlugin) stateTransitionDeleteSecrets(ctx context.Context, stor
 			})
 			continue
 		}
-		resp, err := r.stateTransitionDeleteSecretsRequest(ctx, store, req, resp, first.GetDeleteSecretsRequest().OrgId)
+		resp, err := r.stateTransitionDeleteSecretsRequest(ctx, store, req, resp)
 		if err != nil {
 			logUserErrorAware(r.lggr, "failed to handle delete secret request", err, "id", id, "requestId", reqID)
 			errorMsg := userFacingError(err, "failed to handle delete secret request")
@@ -2152,7 +2087,7 @@ func (r *ReportingPlugin) stateTransitionDeleteSecrets(ctx context.Context, stor
 	}
 }
 
-func (r *ReportingPlugin) stateTransitionDeleteSecretsRequest(ctx context.Context, store WriteKVStore, id *vaultcommon.SecretIdentifier, resp *vaultcommon.DeleteSecretResponse, orgID string) (*vaultcommon.DeleteSecretResponse, error) {
+func (r *ReportingPlugin) stateTransitionDeleteSecretsRequest(ctx context.Context, store WriteKVStore, id *vaultcommon.SecretIdentifier, resp *vaultcommon.DeleteSecretResponse) (*vaultcommon.DeleteSecretResponse, error) {
 	if resp.GetError() != "" {
 		return resp, newUserError(resp.GetError())
 	}
@@ -2163,7 +2098,7 @@ func (r *ReportingPlugin) stateTransitionDeleteSecretsRequest(ctx context.Contex
 	}
 
 	return &vaultcommon.DeleteSecretResponse{
-		Id:      r.canonicalResponseID(ctx, id, orgID),
+		Id:      id,
 		Success: true,
 		Error:   "",
 	}, nil
@@ -2341,6 +2276,6 @@ func (r *ReportingPlugin) Close() error {
 		r.cfg.MaxShareLengthBytes.Close(),
 		r.cfg.MaxRequestBatchSize.Close(),
 		r.cfg.MaxBatchSize.Close(),
-		r.cfg.OrgIDAsSecretOwnerEnabled.Close(),
+		r.cfg.VaultForceEmptyOCRRounds.Close(),
 	)
 }

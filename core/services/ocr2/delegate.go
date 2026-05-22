@@ -45,8 +45,10 @@ import (
 	"github.com/smartcontractkit/smdkg/dkgocr/oracleargs"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/diskmonitor"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins/ocr3"
@@ -59,12 +61,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
+	lloconfig "github.com/smartcontractkit/chainlink-data-streams/llo/config"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
@@ -74,11 +77,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
-	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
@@ -101,10 +102,12 @@ import (
 )
 
 const (
-	vaultCapabilityID   = "vault@1.0.0"
-	vaultOCRConfigKey   = "vault"
-	dkgOCRConfigKey     = "dkg"
-	dontimeCapabilityID = "dontime@1.0.0"
+	vaultCapabilityID            = "vault@1.0.0"
+	vaultOCRConfigKey            = "vault"
+	dkgOCRConfigKey              = "dkg"
+	dontimeCapabilityID          = "dontime@1.0.0"
+	gaugeVaultDiskUsageBytes     = "platform_vault_disk_usage_bytes"
+	vaultDiskMonitorTickInterval = time.Minute
 )
 
 type JobSpecNoRelayerError struct {
@@ -660,6 +663,11 @@ func (d *Delegate) newServicesVaultPlugin(
 	}
 	dkgRecipientKey := dkgRecipientKeys[0]
 
+	requestLifecycle, err := vaultcap.NewRequestLifecycleTracker(lggr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create request lifecycle tracker: %w", err)
+	}
+
 	gwconnector := wrapper.GetGatewayConnector()
 	if gwconnector == nil {
 		return nil, errors.New("failed to instantiate vault plugin: gateway connector is not set")
@@ -670,7 +678,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	expiryDuration := cfg.RequestExpiryDuration.Duration()
 	requestStoreHandler := requests.NewHandler(lggr, requestStore, clock, expiryDuration)
 	lpk := vaultcap.NewLazyPublicKey()
-	vaultCapability, err := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler, capabilitiesRegistry, lpk, d.OrgResolver, limitsFactory)
+	vaultCapability, err := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler, capabilitiesRegistry, lpk, limitsFactory, requestLifecycle)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create vault capability: %w", err)
 	}
@@ -721,7 +729,12 @@ func (d *Delegate) newServicesVaultPlugin(
 	})
 	srvs = append(srvs, ocrLogger)
 
-	dm, err := vaultocrplugin.NewDiskMonitor(lggr, d.cfg.OCR2().KeyValueStoreRootDir())
+	dm, err := diskmonitor.NewDiskMonitor(
+		lggr,
+		d.cfg.OCR2().KeyValueStoreRootDir(),
+		gaugeVaultDiskUsageBytes,
+		vaultDiskMonitorTickInterval,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create disk monitor: %w", err)
 	}
@@ -767,6 +780,7 @@ func (d *Delegate) newServicesVaultPlugin(
 			lggr,
 			ocrtypes.Account(spec.TransmitterID.String),
 			requestStoreHandler,
+			requestLifecycle,
 		),
 		Database:                ocrDB,
 		KeyValueDatabaseFactory: kvFactory,
@@ -785,6 +799,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		&dkgRecipientKey,
 		lpk,
 		limitsFactory,
+		requestLifecycle,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create reporting plugin factory: %w", err)

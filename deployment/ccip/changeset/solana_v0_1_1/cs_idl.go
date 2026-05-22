@@ -17,11 +17,11 @@ import (
 
 	cldfsolana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
@@ -46,17 +46,17 @@ var _ cldf.ChangeSet[IDLConfig] = CloseIDLs
 
 type IDLConfig struct {
 	ChainSelector                uint64
-	SolanaContractVersion        string                        // Get the commit sha with VersionToShortCommitSHA[VersionSolanaV0_1_2] this will be used to download the correct artifacts (idls) -> best if same as what was used to deploy the programs
-	Router                       bool                          // whether to upload the IDL for the router
-	FeeQuoter                    bool                          // whether to upload the IDL for the fee quoter
-	OffRamp                      bool                          // whether to upload the IDL for the off ramp
-	RMNRemote                    bool                          // whether to upload the IDL for the rmn remote
-	AccessController             bool                          // whether to upload the IDL for the access controller
-	MCM                          bool                          // whether to upload the IDL for the mcm
-	Timelock                     bool                          // whether to upload the IDL for the timelock
-	BurnMintTokenPoolMetadata    []string                      // whether to upload the IDL for the token pool (keyed my client identifier (metadata))
-	LockReleaseTokenPoolMetadata []string                      // metadata for the lock release token pool (keyed my client identifier (metadata))
-	MCMS                         *proposalutils.TimelockConfig // timelock config for mcms
+	SolanaContractVersion        string                            // Get the commit sha with VersionToShortCommitSHA[VersionSolanaV0_1_2] this will be used to download the correct artifacts (idls) -> best if same as what was used to deploy the programs
+	Router                       bool                              // whether to upload the IDL for the router
+	FeeQuoter                    bool                              // whether to upload the IDL for the fee quoter
+	OffRamp                      bool                              // whether to upload the IDL for the off ramp
+	RMNRemote                    bool                              // whether to upload the IDL for the rmn remote
+	AccessController             bool                              // whether to upload the IDL for the access controller
+	MCM                          bool                              // whether to upload the IDL for the mcm
+	Timelock                     bool                              // whether to upload the IDL for the timelock
+	BurnMintTokenPoolMetadata    []string                          // whether to upload the IDL for the token pool (keyed my client identifier (metadata))
+	LockReleaseTokenPoolMetadata []string                          // metadata for the lock release token pool (keyed my client identifier (metadata))
+	MCMS                         *cldfproposalutils.TimelockConfig // timelock config for mcms
 	CCTPTokenPool                bool
 	IdlSpace                     uint64
 }

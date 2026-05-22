@@ -6,8 +6,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	cciptypes "github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
@@ -30,7 +32,7 @@ var MintERC677Op = opsutil.NewEVMCallOperation(
 	},
 )
 
-var GrantMintAndBurnRolesERC677Op = opsutil.NewEVMCallOperation(
+var GrantMintAndBurnRolesERC677Op = opsevm.NewEVMCallOperation(
 	"GrantMintAndBurnRolesERC677Op",
 	&deployment.Version1_0_0,
 	"Grant MINTER_ROLE and BURNER_ROLE to the specified ERC677 token address",

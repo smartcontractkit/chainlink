@@ -18,7 +18,7 @@ plugins:
       installPath: "."
   consensus:
     - moduleURI: "github.com/smartcontractkit/capabilities/consensus"
-      gitRef: "45e774754b3f313d6d27ae493df5d29fffe717d6"
+      gitRef: "8bfe6517fb326f5b882977e7a04480feb9c64638"
       installPath: "."
   workflowevent:
     - enabled: false
@@ -35,18 +35,18 @@ plugins:
       installPath: "."
   evm:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
-      gitRef: "f16133952a0930f9f4848385dc8a91f965d1c3ab"
+      gitRef: "9122b3279cbdb8a2b10cb8ad808a89c09832ac28"
       installPath: "."
   solana:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/solana"
-      gitRef: "3ab8f47891f9edd6f20cb881fc312fa98243e902"
+      gitRef: "ec5ce26a1b13ff2d8e51cd2e9d54dd562ebd13b9"
       installPath: "."
   aptos:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/aptos"
-      gitRef: "013fa2f45526689f989e091d76dcd680c0e4d695"
+      gitRef: "ec5ce26a1b13ff2d8e51cd2e9d54dd562ebd13b9"
       installPath: "."
   confidential-http:
     - moduleURI: "github.com/smartcontractkit/confidential-compute/enclave/apps/confi\
         dential-http/capability"
-      gitRef: "e035ae9a8ae76a0a74cd7a91d786fe8b69ae010f"
+      gitRef: "3667aa398b384b296d29f8e9ce25980e3711636e"
       installPath: "./cmd/confidential-http"

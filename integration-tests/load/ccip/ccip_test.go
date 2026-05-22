@@ -50,21 +50,23 @@ const (
 	aptosTestKey    = "0x906b8a983b434318ca67b7eff7300f91b02744c84f87d243d2fbc3e528414366"
 )
 
-func runSafely(ops ...func()) {
+func runSafely(ops ...func()) (errs []error) {
 	for _, op := range ops {
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
-					fmt.Printf("Recovered from panic: %v\n", r)
+					errs = append(errs, fmt.Errorf("panic recovered: %v", r))
 				}
 			}()
 			op()
 		}()
 	}
+	return
 }
 
-func SetProgramIDsSafe(state solState.CCIPChainState) {
-	runSafely(
+func SetProgramIDsSafe(t *testing.T, state solState.CCIPChainState) {
+	t.Helper()
+	errs := runSafely(
 		func() {
 			ccip_router.SetProgramID(state.Router)
 		},
@@ -85,6 +87,7 @@ func SetProgramIDsSafe(state solState.CCIPChainState) {
 			}
 		},
 	)
+	require.Empty(t, errs, "SetProgramID operations failed")
 }
 
 // step 1: setup
@@ -157,7 +160,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	require.NoError(t, err)
 
 	for chainSel := range state.SolChains {
-		SetProgramIDsSafe(state.SolChains[chainSel])
+		SetProgramIDsSafe(t, state.SolChains[chainSel])
 		err := prepSolAccount(
 			ctx,
 			t,

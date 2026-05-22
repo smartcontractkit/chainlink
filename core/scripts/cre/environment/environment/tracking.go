@@ -1,6 +1,8 @@
 package environment
 
 const (
+	MetricChipIngressStackStart = "cre.local.chip_ingress_stack.startup.result"
+	// MetricBeholderStart is kept for backwards-compatible DX dashboards; emitted alongside MetricChipIngressStackStart.
 	MetricBeholderStart = "cre.local.beholder.startup.result"
 	MetricBillingStart  = "cre.local.billing.startup.result"
 

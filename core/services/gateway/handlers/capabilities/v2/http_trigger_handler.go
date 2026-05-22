@@ -374,6 +374,7 @@ func (h *httpTriggerHandler) checkRateLimit(ctx context.Context, workflowID, req
 			h.handleUserError(ctx, requestID, jsonrpc.ErrLimitExceeded, "rate limit exceeded", callback)
 			return err
 		}
+		return fmt.Errorf("failed to check rate limit: %w", err)
 	}
 	return nil
 }

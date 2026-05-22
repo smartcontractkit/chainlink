@@ -5,9 +5,10 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
-	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
+	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/cldfutil"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 )
 

@@ -45,13 +45,11 @@ func (a *AuthResult) WorkflowOwner() string {
 	return a.workflowOwner
 }
 
-// AuthorizedOwner returns the canonical owner to use for request scoping.
+// AuthorizedOwner returns the canonical workflow-owner address used for Vault request ID prefixing
+// and secret ownership (JWT-derived owner or allowlisted workflow owner).
 func (a *AuthResult) AuthorizedOwner() string {
 	if a == nil {
 		return ""
-	}
-	if a.orgID != "" {
-		return a.orgID
 	}
 	return a.workflowOwner
 }

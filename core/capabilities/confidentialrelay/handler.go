@@ -22,7 +22,6 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
@@ -101,36 +100,31 @@ type Handler struct {
 
 	capRegistry      core.CapabilitiesRegistry
 	gatewayConnector core.GatewayConnector
+	responseSigner   relayResponseSigner
 	lggr             logger.Logger
 	metrics          *handlerMetrics
 
 	// validateAttestation validates TEE attestation documents.
 	// Defaults to the Nitro validator; overridden in tests.
 	validateAttestation attestationValidatorFunc
-
-	// vaultIdentityGate controls whether WorkflowOwner and OrgId are set
-	// on the vault GetSecretsRequest. Gated behind VaultOrgIdAsSecretOwnerEnabled.
-	vaultIdentityGate limits.GateLimiter
 }
 
-func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnector, lggr logger.Logger, limitsFactory limits.Factory) (*Handler, error) {
+func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, _ limits.Factory) (*Handler, error) {
+	if responseSigner == nil {
+		return nil, errors.New("response signer is required")
+	}
 	m, err := newMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
 	}
 
-	vaultIdentityGate, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.VaultOrgIdAsSecretOwnerEnabled)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create vault identity gate limiter: %w", err)
-	}
-
 	h := &Handler{
 		capRegistry:         capRegistry,
 		gatewayConnector:    conn,
+		responseSigner:      responseSigner,
 		lggr:                logger.Named(lggr, HandlerName),
 		metrics:             m,
 		validateAttestation: nitro.ValidateAttestation,
-		vaultIdentityGate:   vaultIdentityGate,
 	}
 	h.Service, h.eng = services.Config{
 		Name:  HandlerName,
@@ -238,14 +232,6 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	vaultReq := &vault.GetSecretsRequest{
 		Requests: make([]*vault.SecretRequest, 0, len(params.Secrets)),
 	}
-	gateEnabled, err := h.vaultIdentityGate.Limit(ctx)
-	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to check VaultOrgIdAsSecretOwnerEnabled gate: %w", err))
-	}
-	vaultReq.WorkflowOwner = normalizedOwner
-	if gateEnabled {
-		vaultReq.OrgId = params.OrgID
-	}
 	for _, s := range params.Secrets {
 		namespace := s.Namespace
 		if namespace == "" {
@@ -279,10 +265,6 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 		WorkflowDonConfigVersion: localNode.WorkflowDON.ConfigVersion,
 		ReferenceID:              req.ID,
 	}
-	if gateEnabled {
-		metadata.OrgID = params.OrgID
-	}
-
 	capResp, err := vaultCap.Execute(ctx, capabilities.CapabilityRequest{
 		Payload:      anypbReq,
 		Method:       vault.MethodGetSecrets,
@@ -304,7 +286,12 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
 
-	return h.jsonResponse(req, result)
+	signedResult, err := h.signSecretsResponse(params, result)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to sign secrets response: %w", err))
+	}
+
+	return h.jsonResponse(req, signedResult)
 }
 
 // resolveDONID determines the DON ID for a capability.
@@ -454,7 +441,12 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 		result.Payload = base64.StdEncoding.EncodeToString(respBytes)
 	}
 
-	return h.jsonResponse(req, result)
+	signedResult, err := h.signCapabilityResponse(params, result)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to sign capability response: %w", err))
+	}
+
+	return h.jsonResponse(req, signedResult)
 }
 
 // getEnclaveAttestationConfig reads the enclave pool configuration from the
@@ -583,6 +575,58 @@ func (h *Handler) jsonResponse(req *jsonrpc.Request[json.RawMessage], result any
 		Method:  req.Method,
 		Result:  &resultJSON,
 	}
+}
+
+func (h *Handler) signSecretsResponse(
+	params confidentialrelaytypes.SecretsRequestParams,
+	result *confidentialrelaytypes.SecretsResponseResult,
+) (*confidentialrelaytypes.SignedSecretsResponseResult, error) {
+	if h.responseSigner == nil {
+		return nil, errors.New("response signer not configured")
+	}
+
+	hash, err := result.Hash(params)
+	if err != nil {
+		return nil, fmt.Errorf("hash secrets response: %w", err)
+	}
+	signature, err := h.responseSigner.Sign(confidentialrelaytypes.RelayResponseSignaturePayload(hash))
+	if err != nil {
+		return nil, err
+	}
+
+	return &confidentialrelaytypes.SignedSecretsResponseResult{
+		Result: *result,
+		Signatures: []confidentialrelaytypes.RelayResponseSignature{{
+			Signer:    h.responseSigner.PublicKey(),
+			Signature: signature,
+		}},
+	}, nil
+}
+
+func (h *Handler) signCapabilityResponse(
+	params confidentialrelaytypes.CapabilityRequestParams,
+	result confidentialrelaytypes.CapabilityResponseResult,
+) (*confidentialrelaytypes.SignedCapabilityResponseResult, error) {
+	if h.responseSigner == nil {
+		return nil, errors.New("response signer not configured")
+	}
+
+	hash, err := result.Hash(params)
+	if err != nil {
+		return nil, fmt.Errorf("hash capability response: %w", err)
+	}
+	signature, err := h.responseSigner.Sign(confidentialrelaytypes.RelayResponseSignaturePayload(hash))
+	if err != nil {
+		return nil, err
+	}
+
+	return &confidentialrelaytypes.SignedCapabilityResponseResult{
+		Result: result,
+		Signatures: []confidentialrelaytypes.RelayResponseSignature{{
+			Signer:    h.responseSigner.PublicKey(),
+			Signature: signature,
+		}},
+	}, nil
 }
 
 func (h *Handler) errorResponse(

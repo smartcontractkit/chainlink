@@ -1,4 +1,4 @@
-# beholder
+# Chip Ingress stack (local CRE)
 [chip_ingress]
   # compose_file will be auto-detected from go.mod version if not specified
   # compose_file='https://raw.githubusercontent.com/smartcontractkit/chainlink-testing-framework/refs/tags/framework/components/dockercompose/v0.1.19/framework/components/dockercompose/chip_ingress_set/docker-compose.yml'

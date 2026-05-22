@@ -13,7 +13,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
+	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 	"github.com/zksync-sdk/zksync2-go/accounts"
 	"github.com/zksync-sdk/zksync2-go/clients"
 
@@ -25,9 +27,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 // EVMCallInput is the input structure for an EVM call operation.
@@ -118,10 +117,10 @@ func NewEVMCallOperation[IN any, C any](
 func AddEVMCallSequenceToCSOutput[IN any](
 	e cldf.Environment,
 	csOutput cldf.ChangesetOutput,
-	seqReport operations.SequenceReport[IN, map[uint64][]EVMCallOutput],
+	seqReport operations.SequenceReport[IN, map[uint64][]opsevm.EVMCallOutput],
 	seqErr error,
 	mcmsStateByChain map[uint64]evmstate.MCMSWithTimelockState,
-	mcmsCfg *proposalutils.TimelockConfig,
+	mcmsCfg *cldfproposalutils.TimelockConfig,
 	mcmsDescription string,
 ) (cldf.ChangesetOutput, error) {
 	defer func() { csOutput.Reports = append(csOutput.Reports, seqReport.ExecutionReports...) }()
@@ -173,7 +172,7 @@ func AddEVMCallSequenceToCSOutput[IN any](
 	}
 
 	// Build new proposal from the batches and MCMS configuration.
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
 		mcmContractByChain,
@@ -200,7 +199,14 @@ func AddEVMCallSequenceToCSOutput[IN any](
 			builder.WriteString(", ")
 		}
 	}
-	aggProposal, err := proposalutils.AggregateProposals(e, mcmsStateByChain, nil, csOutput.MCMSTimelockProposals, builder.String(), mcmsCfg)
+	aggProposal, err := proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: not migrating to AggregateProposalsV2 yet
+		e,
+		mcmsStateByChain,
+		nil,
+		csOutput.MCMSTimelockProposals,
+		builder.String(),
+		mcmsCfg,
+	)
 	if err != nil {
 		return csOutput, fmt.Errorf("failed to aggregate proposals: %w", err)
 	}
@@ -359,8 +365,8 @@ func CloneTransactOptsWithGas(opts *bind.TransactOpts, gasLimit uint64, gasPrice
 
 // GasBoostConfigsForChainMap creates a map of GasBoostConfig pointers for each chain in the provided chainMap.
 // If a chain selector exists in gasBoostConfigs, it uses that config; otherwise, it sets nil.
-func GasBoostConfigsForChainMap[T any](chainMap map[uint64]T, gasBoostConfigs map[uint64]commontypes.GasBoostConfig) map[uint64]*commontypes.GasBoostConfig {
-	cfgs := make(map[uint64]*commontypes.GasBoostConfig, len(chainMap))
+func GasBoostConfigsForChainMap[T any](chainMap map[uint64]T, gasBoostConfigs map[uint64]cldfproposalutils.GasBoostConfig) map[uint64]*cldfproposalutils.GasBoostConfig {
+	cfgs := make(map[uint64]*cldfproposalutils.GasBoostConfig, len(chainMap))
 	if gasBoostConfigs == nil || chainMap == nil { // in either case, gas boosting should be empty
 		return cfgs
 	}
@@ -379,7 +385,7 @@ func GasBoostConfigsForChainMap[T any](chainMap map[uint64]T, gasBoostConfigs ma
 
 // RetryDeploymentWithGasBoost is an ExecuteOption that retries EVM deployments with gas boosting.
 // It uses the provided GasBoostConfig to adjust the gas limit and gas price on each retry attempt.
-func RetryDeploymentWithGasBoost[IN any](cfg *commontypes.GasBoostConfig) operations.ExecuteOption[EVMDeployInput[IN], cldf_evm.Chain] {
+func RetryDeploymentWithGasBoost[IN any](cfg *cldfproposalutils.GasBoostConfig) operations.ExecuteOption[EVMDeployInput[IN], cldf_evm.Chain] {
 	if cfg == nil {
 		return withoutRetry[EVMDeployInput[IN], cldf_evm.Chain]()
 	}
@@ -402,7 +408,7 @@ func withoutRetry[IN, DEP any]() operations.ExecuteOption[IN, DEP] {
 // RetryCallWithGasBoost is an ExecuteOption that retries EVM calls with gas boosting.
 // It uses the provided GasBoostConfig to adjust the gas limit and gas price on each retry attempt.
 // If NoSend is true, it will not apply gas boosting since the transaction is never sent.
-func RetryCallWithGasBoost[IN any](cfg *commontypes.GasBoostConfig) operations.ExecuteOption[EVMCallInput[IN], cldf_evm.Chain] {
+func RetryCallWithGasBoost[IN any](cfg *cldfproposalutils.GasBoostConfig) operations.ExecuteOption[EVMCallInput[IN], cldf_evm.Chain] {
 	// Use default retry option if no gas boost config is provided
 	if cfg == nil {
 		return operations.WithRetry[EVMCallInput[IN], cldf_evm.Chain]()
@@ -422,7 +428,7 @@ func RetryCallWithGasBoost[IN any](cfg *commontypes.GasBoostConfig) operations.E
 	})
 }
 
-func GetBoostedGasForAttempt(cfg commontypes.GasBoostConfig, attempt uint) (gasLimit uint64, gasPrice uint64) {
+func GetBoostedGasForAttempt(cfg cldfproposalutils.GasBoostConfig, attempt uint) (gasLimit uint64, gasPrice uint64) {
 	initialGasLimit := uint64(200_000)          // 200k
 	gasLimitIncrement := uint64(50_000)         // 50k
 	initialGasPrice := uint64(20_000_000_000)   // 20 Gwei

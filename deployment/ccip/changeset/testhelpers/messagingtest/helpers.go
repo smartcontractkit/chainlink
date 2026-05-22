@@ -104,18 +104,8 @@ type TestCaseOutput struct {
 }
 
 func getLatestNonce(tc TestCase) uint64 {
-	family, err := chain_selectors.GetSelectorFamily(tc.DestChain)
-	require.NoError(tc.T, err)
-
-	var latestNonce uint64
-	switch family {
-	case chain_selectors.FamilyTon:
-		// No nonce management on Ton, just return the test value
-		return *tc.Nonce
-	}
-
 	destAdapter := tc.DeployedEnv.Adapters[tc.DestChain]
-	latestNonce, err = destAdapter.GetInboundNonce(tc.T.Context(), tc.Sender, tc.SourceChain)
+	latestNonce, err := destAdapter.GetInboundNonce(tc.T.Context(), tc.Sender, tc.SourceChain)
 	require.NoError(tc.T, err)
 	return latestNonce
 }
@@ -199,7 +189,6 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		// check that the message was emitted
 		var expectedSeqNums []uint64
 		for i := range tc.NumberOfMessages {
-
 			expectedSeqNums = append(expectedSeqNums, nextSeqNum+uint64(i))
 		}
 		iter, err := tc.OnchainState.MustGetEVMChainState(tc.SourceChain).OnRamp.FilterCCIPMessageSent(

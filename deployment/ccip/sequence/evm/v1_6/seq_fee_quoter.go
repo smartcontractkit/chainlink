@@ -4,33 +4,33 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
+	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
 
 type FeeQuoterApplyDestChainConfigUpdatesSequenceInput struct {
-	UpdatesByChain map[uint64]opsutil.EVMCallInput[[]fee_quoter.FeeQuoterDestChainConfigArgs]
+	UpdatesByChain map[uint64]opsevm.EVMCallInput[[]fee_quoter.FeeQuoterDestChainConfigArgs]
 }
 
 type FeeQuoterUpdatePricesSequenceInput struct {
-	UpdatesByChain map[uint64]opsutil.EVMCallInput[fee_quoter.InternalPriceUpdates]
+	UpdatesByChain map[uint64]opsevm.EVMCallInput[fee_quoter.InternalPriceUpdates]
 }
 
 type FeeQuoterUpdateTokenTransferConfig struct {
-	UpdatesByChain map[uint64]opsutil.EVMCallInput[ccipops.ApplyTokenTransferFeeConfigUpdatesConfigPerChain]
+	UpdatesByChain map[uint64]opsevm.EVMCallInput[ccipops.ApplyTokenTransferFeeConfigUpdatesConfigPerChain]
 }
 
 type FeeQuoterUpdateFeeTokensConfig struct {
-	UpdatesByChain map[uint64]opsutil.EVMCallInput[ccipops.ApplyFeeTokensUpdatesInput]
+	UpdatesByChain map[uint64]opsevm.EVMCallInput[ccipops.ApplyFeeTokensUpdatesInput]
 }
 
 type FeeQuoterUpdatePremiumMultiplierWeiPerEthConfig struct {
-	UpdatesByChain map[uint64]opsutil.EVMCallInput[[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs]
+	UpdatesByChain map[uint64]opsevm.EVMCallInput[[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs]
 }
 
 var (
@@ -38,8 +38,8 @@ var (
 		"FeeQuoterApplyDestChainConfigUpdatesSequence",
 		semver.MustParse("1.0.0"),
 		"Apply updates to destination chain configs on the FeeQuoter 1.6.0 contract across multiple EVM chains",
-		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input FeeQuoterApplyDestChainConfigUpdatesSequenceInput) (map[uint64][]opsutil.EVMCallOutput, error) {
-			opOutputs := make(map[uint64][]opsutil.EVMCallOutput, len(input.UpdatesByChain))
+		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input FeeQuoterApplyDestChainConfigUpdatesSequenceInput) (map[uint64][]opsevm.EVMCallOutput, error) {
+			opOutputs := make(map[uint64][]opsevm.EVMCallOutput, len(input.UpdatesByChain))
 			for chainSel, update := range input.UpdatesByChain {
 				chain, ok := chains[chainSel]
 				if !ok {
@@ -49,7 +49,7 @@ var (
 				if err != nil {
 					return nil, fmt.Errorf("failed to execute FeeQuoterApplyDestChainConfigUpdatesOp on %s: %w", chain, err)
 				}
-				opOutputs[chainSel] = []opsutil.EVMCallOutput{report.Output}
+				opOutputs[chainSel] = []opsevm.EVMCallOutput{report.Output}
 			}
 			return opOutputs, nil
 		})
@@ -58,8 +58,8 @@ var (
 		"FeeQuoterUpdatePricesSequence",
 		semver.MustParse("1.0.0"),
 		"Update token and gas prices on FeeQuoter 1.6.0 contracts on multiple EVM chains",
-		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input FeeQuoterUpdatePricesSequenceInput) (map[uint64][]opsutil.EVMCallOutput, error) {
-			opOutputs := make(map[uint64][]opsutil.EVMCallOutput, len(input.UpdatesByChain))
+		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input FeeQuoterUpdatePricesSequenceInput) (map[uint64][]opsevm.EVMCallOutput, error) {
+			opOutputs := make(map[uint64][]opsevm.EVMCallOutput, len(input.UpdatesByChain))
 			for chainSel, update := range input.UpdatesByChain {
 				chain, ok := chains[chainSel]
 				if !ok {
@@ -69,7 +69,7 @@ var (
 				if err != nil {
 					return nil, fmt.Errorf("failed to execute FeeQuoterUpdatePricesOp on %s: %w", chain, err)
 				}
-				opOutputs[chainSel] = []opsutil.EVMCallOutput{report.Output}
+				opOutputs[chainSel] = []opsevm.EVMCallOutput{report.Output}
 			}
 			return opOutputs, nil
 		})
@@ -78,8 +78,8 @@ var (
 		"FeeQuoterUpdateTransferTokenFeeConfigSequence",
 		semver.MustParse("1.0.0"),
 		"Update token and gas prices on FeeQuoter 1.6.0 contracts on multiple EVM chains",
-		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input FeeQuoterUpdateTokenTransferConfig) (map[uint64][]opsutil.EVMCallOutput, error) {
-			opOutputs := make(map[uint64][]opsutil.EVMCallOutput, len(input.UpdatesByChain))
+		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input FeeQuoterUpdateTokenTransferConfig) (map[uint64][]opsevm.EVMCallOutput, error) {
+			opOutputs := make(map[uint64][]opsevm.EVMCallOutput, len(input.UpdatesByChain))
 			for chainSel, update := range input.UpdatesByChain {
 				chain, ok := chains[chainSel]
 				if !ok {
@@ -89,7 +89,7 @@ var (
 				if err != nil {
 					return nil, fmt.Errorf("failed to execute FeeQuoterApplyTokenTransferFeeCfgOp on %s: %w", chain, err)
 				}
-				opOutputs[chainSel] = []opsutil.EVMCallOutput{report.Output}
+				opOutputs[chainSel] = []opsevm.EVMCallOutput{report.Output}
 			}
 			return opOutputs, nil
 		})
@@ -98,8 +98,8 @@ var (
 		"FeeQuoterApplyFeeTokensUpdatesSeq",
 		semver.MustParse("1.0.0"),
 		"Add or Remove supported tokens on FeeQuoter 1.6.0 contracts on multiple EVM chains",
-		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input FeeQuoterUpdateFeeTokensConfig) (map[uint64][]opsutil.EVMCallOutput, error) {
-			opOutputs := make(map[uint64][]opsutil.EVMCallOutput, len(input.UpdatesByChain))
+		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input FeeQuoterUpdateFeeTokensConfig) (map[uint64][]opsevm.EVMCallOutput, error) {
+			opOutputs := make(map[uint64][]opsevm.EVMCallOutput, len(input.UpdatesByChain))
 			for chainSel, input := range input.UpdatesByChain {
 				chain, ok := chains[chainSel]
 				if !ok {
@@ -109,7 +109,7 @@ var (
 				if err != nil {
 					return nil, fmt.Errorf("failed to execute FeeQuoterApplyFeeTokensUpdatesOp on %s: %w", chain, err)
 				}
-				opOutputs[chainSel] = []opsutil.EVMCallOutput{report.Output}
+				opOutputs[chainSel] = []opsevm.EVMCallOutput{report.Output}
 			}
 			return opOutputs, nil
 		})
@@ -118,8 +118,8 @@ var (
 		"FeeQApplyPremiumMultiplierWeiPerEthUpdatesSeq",
 		semver.MustParse("1.0.0"),
 		"Applies premiumMultiplierWeiPerEth for tokens in FeeQuoter 1.6.0 contract on multiple EVM chains",
-		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input FeeQuoterUpdatePremiumMultiplierWeiPerEthConfig) (map[uint64][]opsutil.EVMCallOutput, error) {
-			opOutputs := make(map[uint64][]opsutil.EVMCallOutput, len(input.UpdatesByChain))
+		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input FeeQuoterUpdatePremiumMultiplierWeiPerEthConfig) (map[uint64][]opsevm.EVMCallOutput, error) {
+			opOutputs := make(map[uint64][]opsevm.EVMCallOutput, len(input.UpdatesByChain))
 			for chainSel, input := range input.UpdatesByChain {
 				chain, ok := chains[chainSel]
 				if !ok {
@@ -129,7 +129,7 @@ var (
 				if err != nil {
 					return nil, fmt.Errorf("failed to execute ApplyPremiumMultiplierWeiPerEthUpdates on %s: %w", chain, err)
 				}
-				opOutputs[chainSel] = []opsutil.EVMCallOutput{report.Output}
+				opOutputs[chainSel] = []opsevm.EVMCallOutput{report.Output}
 			}
 			return opOutputs, nil
 		})

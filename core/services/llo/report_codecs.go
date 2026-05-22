@@ -4,9 +4,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
-
+	"github.com/smartcontractkit/chainlink-data-streams/llo/cre"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/cre"
 )
 
 // NOTE: All supported codecs must be specified here
@@ -19,6 +18,7 @@ func NewReportCodecs(lggr logger.Logger, donID uint32) map[llotypes.ReportFormat
 	codecs[llotypes.ReportFormatEVMABIEncodeUnpackedExpr] = evm.NewReportCodecEVMABIEncodeUnpackedExpr(lggr, donID)
 	codecs[llotypes.ReportFormatCapabilityTrigger] = cre.NewReportCodecCapabilityTrigger(lggr, donID)
 	codecs[llotypes.ReportFormatEVMStreamlined] = evm.NewReportCodecStreamlined(lggr)
+	codecs[llotypes.ReportFormatHistoryBackfill] = llo.ReportCodecHistoryBackfill{}
 
 	return codecs
 }

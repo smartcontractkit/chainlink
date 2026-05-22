@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -56,12 +57,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
-	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
-	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
-	porV2types "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based/types"
+	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
+	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -78,6 +77,9 @@ import (
 
 const WorkflowEngineInitErrorLog = "Workflow Engine initialization failed"
 const maxWorkflowNameLen = 64
+
+// defaultDeployMaxParallel is used when CRE_TEST_DEPLOY_MAX_PARALLEL is unset or invalid.
+const defaultDeployMaxParallel = 20
 
 var deleteWorkflowsMu sync.Mutex
 
@@ -129,14 +131,14 @@ func GetEVMEnabledChains(t *testing.T, testEnv *ttypes.TestEnvironment) map[stri
 }
 
 /*
-Starts Beholder
-Recommendation: Use it in tests that need to listen for Beholder messages.
+Starts ChipIngressStack (Kafka listener for workflow messages from the local Chip Ingress stack).
+Recommendation: Use it in tests that need to listen for Chip Ingress stack messages.
 */
-func StartBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.TestEnvironment) (context.Context, <-chan proto.Message, <-chan error) {
+func StartChipIngressStack(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.TestEnvironment) (context.Context, <-chan proto.Message, <-chan error) {
 	t.Helper()
 
-	beholder, err := NewBeholder(framework.L, testEnv.TestConfig)
-	require.NoError(t, err, "failed to create beholder instance")
+	stack, err := NewChipIngressStack(framework.L, testEnv.TestConfig)
+	require.NoError(t, err, "failed to create chip ingress stack instance")
 
 	// We are interested in UserLogs (successful execution)
 	// or BaseMessage with specific error message (engine initialization failure)
@@ -150,32 +152,32 @@ func StartBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.Test
 	}
 
 	timeout := 5 * time.Minute
-	testLogger.Info().Dur("timeout", timeout).Msg("Starting Beholder listener...")
+	testLogger.Info().Dur("timeout", timeout).Msg("Starting Chip Ingress stack listener...")
 	listenerCtx, cancelListener := context.WithTimeout(t.Context(), timeout)
 	t.Cleanup(func() {
 		cancelListener()
-		testLogger.Info().Msg("Beholder listener stopped.")
+		testLogger.Info().Msg("Chip Ingress stack listener stopped.")
 	})
 
-	beholderMsgChan, beholderErrChan := beholder.SubscribeToBeholderMessages(listenerCtx, messageTypes)
+	msgChan, errChan := stack.SubscribeToChipIngressStackMessages(listenerCtx, messageTypes)
 
 	// Fail fast if there is an error from the heartbeat validation subscription
 	select {
-	case err := <-beholderErrChan:
-		require.NoError(t, err, "Beholder subscription failed during initialization")
+	case err := <-errChan:
+		require.NoError(t, err, "Chip Ingress stack subscription failed during initialization")
 	default:
 		// No immediate error, proceed
 	}
 
-	testLogger.Info().Msg("Beholder listener ready")
-	return listenerCtx, beholderMsgChan, beholderErrChan
+	testLogger.Info().Msg("Chip Ingress stack listener ready")
+	return listenerCtx, msgChan, errChan
 }
 
 /*
-Asserts that a specific log message is received from a Beholder within a timeout period.
+Asserts that a specific log message is received from the Chip Ingress stack within a timeout period.
 Returns an error if found in error channel or timeouts if a log message is not received.
 */
-func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string, testLogger zerolog.Logger, messageChan <-chan proto.Message, kafkaErrChan <-chan error, timeout time.Duration) error {
+func AssertChipIngressStackMessage(ctx context.Context, t *testing.T, expectedLog string, testLogger zerolog.Logger, messageChan <-chan proto.Message, kafkaErrChan <-chan error, timeout time.Duration) error {
 	foundExpectedLog := make(chan bool, 1) // Channel to signal when expected log is found
 	foundErrorLog := make(chan bool, 1)    // Channel to signal when engine initialization failure is detected
 	receivedUserLogs := 0
@@ -194,7 +196,7 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 						foundErrorLog <- true
 					}
 				case *workflowevents.UserLogs:
-					testLogger.Info().Msg("➡️ Beholder message received in test. Asserting...")
+					testLogger.Info().Msg("➡️ Chip Ingress stack message received in test. Asserting...")
 					receivedUserLogs++
 
 					for _, logLine := range typedMsg.LogLines {
@@ -235,8 +237,8 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 		testLogger.Info().Str("expected_log", expectedLog).Msg("✅ Test completed successfully - found expected user log message!")
 		return nil
 	case <-foundErrorLog:
-		testLogger.Warn().Msg("beholder found engine initialization failure message! (may be expected in negative tests)")
-		return errors.New("beholder message validation completed with error: found engine initialization failure message")
+		testLogger.Warn().Msg("chip ingress stack found engine initialization failure message! (may be expected in negative tests)")
+		return errors.New("chip ingress stack message validation completed with error: found engine initialization failure message")
 	case <-time.After(timeout):
 		testLogger.Error().Str("expected_log", expectedLog).Msg("Timed out waiting for expected user log message")
 		if receivedUserLogs > 0 {
@@ -246,7 +248,7 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 		}
 		require.Failf(t, "Timed out waiting for the expected user log message (or error)", "Expected user log message: '%s' not found after %s", expectedLog, timeout.String())
 	case err := <-kafkaErrChan:
-		testLogger.Error().Err(err).Msg("Kafka listener encountered an error during execution. Ensure Beholder is running and accessible.")
+		testLogger.Error().Err(err).Msg("Kafka listener encountered an error during execution. Ensure Chip Ingress stack is running and accessible.")
 		require.Fail(t, "Kafka listener failed", err.Error())
 	}
 	return nil
@@ -289,7 +291,6 @@ func CreateAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAdd
 type WorkflowConfig interface {
 	None |
 		portypes.WorkflowConfig |
-		porV2types.WorkflowConfig |
 		AptosReadWorkflowConfig |
 		aptoswrite_config.Config |
 		aptoswriteroundtrip_config.Config |
@@ -343,7 +344,7 @@ type WorkflowRegistrationConfig struct {
 Creates the necessary workflow artifacts based on WorkflowConfig:
  1. Configuration for a workflow (or no config if typed nil is passed for workflowConfig);
  2. Compiled and compressed workflow WASM file;
- 3. Copies the workflow artifacts to the Docker containers
+ 3. Copies the workflow artifacts to the Docker containers.
 
 It returns the paths to:
  1. the compressed WASM file;
@@ -387,16 +388,10 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			testLogger.Info().Msg("Workflow config file is not requested and will not be created.")
 
 		case *portypes.WorkflowConfig:
-			workflowCfgFilePath, configErr := createPoRWorkflowConfigFile(workflowName, cfg, outputDir)
-			workflowConfigFilePath = workflowCfgFilePath
-			require.NoError(t, configErr, "failed to create PoR workflow config file")
-			testLogger.Info().Msg("PoR workflow config file created.")
-
-		case *porV2types.WorkflowConfig:
 			// Validate and format the feed ID (truncate to 16 bytes / 32 hex chars)
 			cleanID := strings.TrimPrefix(cfg.FeedID, "0x")
 			if len(cleanID) < 32 {
-				require.NoError(t, fmt.Errorf("v2 PoR feed ID must be at least 32 hex characters, got %d", len(cleanID)))
+				require.NoError(t, fmt.Errorf("PoR feed ID must be at least 32 hex characters, got %d", len(cleanID)))
 			}
 			if len(cleanID) > 32 {
 				cleanID = cleanID[:32]
@@ -404,8 +399,8 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			cfg.FeedID = "0x" + cleanID
 			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
-			require.NoError(t, configErr, "failed to create PoR v2 workflow config file")
-			testLogger.Info().Msg("PoR v2 workflow config file created.")
+			require.NoError(t, configErr, "failed to create PoR workflow config file")
+			testLogger.Info().Msg("PoR workflow config file created.")
 
 		case *AptosReadWorkflowConfig:
 			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
@@ -508,43 +503,6 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 	return workflowConfigFilePath
 }
 
-/*
-Creates .yaml workflow configuration file.
-It stores the values used by a workflow (main.go),
-(i.e. feedID, read/write contract addresses)
-
-The values are written to types.WorkflowConfig.
-The method returns the absolute path to the created config file.
-*/
-func createPoRWorkflowConfigFile(workflowName string, workflowConfig *portypes.WorkflowConfig, outputDir string) (string, error) {
-	feedIDToUse, fIDerr := validateAndFormatFeedID(workflowConfig)
-	if fIDerr != nil {
-		return "", errors.Wrap(fIDerr, "failed to validate and format feed ID")
-	}
-	workflowConfig.FeedID = feedIDToUse
-
-	return CreateWorkflowYamlConfigFile(workflowName, workflowConfig, outputDir)
-}
-
-func validateAndFormatFeedID(workflowConfig *portypes.WorkflowConfig) (string, error) {
-	feedID := workflowConfig.FeedID
-
-	// validate and format feed ID to fit 32 bytes
-	cleanFeedID := strings.TrimPrefix(feedID, "0x")
-	feedIDLength := len(cleanFeedID)
-	if feedIDLength < 32 {
-		return "", errors.Errorf("feed ID must be at least 32 characters long, but was %d", feedIDLength)
-	}
-
-	if feedIDLength > 32 {
-		cleanFeedID = cleanFeedID[:32]
-	}
-
-	// override feed ID in workflow config to ensure it is exactly 32 bytes
-	feedIDToUse := "0x" + cleanFeedID
-	return feedIDToUse, nil
-}
-
 func createHTTPWorkflowConfigFile(workflowName string, cfg *HTTPWorkflowConfig, outputDir string) (string, error) {
 	testLogger := framework.L
 	mockServerURL := cfg.URL
@@ -625,33 +583,38 @@ func registerWorkflow(ctx context.Context, t *testing.T,
 		)
 	})
 
-	donID := wfRegCfg.DonID
-	workflowName := wfRegCfg.WorkflowName
+	workflowID, registerErr := registerWorkflowErr(ctx, wfRegCfg, sethClient)
+	require.NoError(t, registerErr, "failed to register workflow '%s'", wfRegCfg.WorkflowName)
+	testLogger.Info().Msgf("Workflow registered successfully: '%s'", workflowID)
+	return workflowID
+}
+
+// registerWorkflowErr registers a workflow on-chain without test cleanup or require.
+func registerWorkflowErr(ctx context.Context, wfRegCfg *WorkflowRegistrationConfig, sethClient *seth.Client) (string, error) {
+	var configURL *string
+	if wfRegCfg.ConfigFilePath != "" {
+		u := "file://" + wfRegCfg.ConfigFilePath
+		configURL = &u
+	}
 	binaryURL := "file://" + wfRegCfg.CompressedWasmPath
-	configURL := ptr.Ptr("file://" + wfRegCfg.ConfigFilePath)
 	containerTargetDir := &wfRegCfg.ContainerTargetDir
 
-	if wfRegCfg.ConfigFilePath == "" {
-		configURL = nil
-	}
-
-	workflowID, registerErr := creworkflow.RegisterWithContract(
+	return creworkflow.RegisterWithContract(
 		ctx,
 		sethClient,
 		wfRegCfg.WorkflowRegistryAddr,
 		wfRegCfg.WorkflowRegistryVersion,
-		donID,
-		workflowName,
+		wfRegCfg.DonID,
+		wfRegCfg.WorkflowName,
 		binaryURL,
 		configURL,
 		nil, // no secrets yet
 		wfRegCfg.Attributes,
 		containerTargetDir,
 	)
-	require.NoError(t, registerErr, "failed to register workflow '%s'", wfRegCfg.WorkflowName)
-	testLogger.Info().Msgf("Workflow registered successfully: '%s'", workflowID)
-	return workflowID
 }
+
+const ReentrancySentryOOGError = "ReentrancySentryOOG"
 
 /*
 Deletes workflows from:
@@ -680,8 +643,22 @@ func deleteWorkflows(
 	deleteWorkflowsMu.Lock()
 	defer deleteWorkflowsMu.Unlock()
 
-	deleteErr := creworkflow.DeleteWithContract(t.Context(), sethClient, workflowRegistryAddress, version, uniqueWorkflowName)
-	require.NoError(t, deleteErr, "failed to delete workflow '%s'. Please delete/unregister it manually.", uniqueWorkflowName)
+	retryErr := retry.Do(func() error {
+		return creworkflow.DeleteWithContract(t.Context(), sethClient, workflowRegistryAddress, version, uniqueWorkflowName)
+	}, retry.Attempts(3), retry.Delay(1*time.Second), retry.DelayType(retry.BackOffDelay), retry.RetryIf(func(err error) bool {
+		/**
+		 * NOTE: ReentrancySentryOOG occurs if the EVM hits a gas cliff during the
+		 * ReentrancyGuard cleanup phase (the 63/64ths rule).
+		 * Intermittent failure in simulation is usually due to Cold vs Warm storage
+		 * slot costs. Retrying might work, because the subsequent attempt might benefit from
+		 * warmed storage/access lists, saving ~2,000 gas.
+		 */
+		return strings.Contains(err.Error(), ReentrancySentryOOGError)
+	}), retry.OnRetry(func(n uint, err error) {
+		testLogger.Error().Msgf("Error deleting workflow '%s': %s", uniqueWorkflowName, err.Error())
+	}))
+
+	require.NoError(t, retryErr, "failed to delete workflow '%s'", uniqueWorkflowName)
 	testLogger.Info().Msgf("Workflow '%s' deleted successfully from the registry.", uniqueWorkflowName)
 }
 
@@ -728,6 +705,18 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
 	workflowID := registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient, testLogger)
 	return workflowID
+}
+
+func envVarOrDefault(envVar string, defaultValue int) int {
+	v := strings.TrimSpace(os.Getenv(envVar))
+	if v == "" {
+		return defaultValue
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 1 {
+		return defaultValue
+	}
+	return n
 }
 
 type compileAndDeployWorkflowCfg struct {
