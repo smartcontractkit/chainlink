@@ -326,7 +326,7 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 				batchSize = oldFlushSize
 			}()
 
-			lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
+			lggr, observedLogs := logger.TestObserved(t, zapcore.ErrorLevel)
 			chainID := testutils.FixtureChainID
 			db := pgtest.NewSqlxDB(t)
 			realORM := NewORM(chainID, db)
@@ -388,7 +388,7 @@ func (u *upkeepStateStore) clearCache() {
 
 func TestUpkeepStateStore_emptyDB(t *testing.T) {
 	t.Run("querying non-stored workIDs on empty db returns unknown state results", func(t *testing.T) {
-		lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
+		lggr, observedLogs := logger.TestObserved(t, zapcore.ErrorLevel)
 		chainID := testutils.FixtureChainID
 		db := pgtest.NewSqlxDB(t)
 		realORM := NewORM(chainID, db)
