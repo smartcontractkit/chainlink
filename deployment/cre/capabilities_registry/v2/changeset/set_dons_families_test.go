@@ -61,7 +61,7 @@ func TestSetDONsFamilies_Apply(t *testing.T) {
 	h := test.NewTestHarness(t, false)
 	chainSelector := h.RegistrySelector
 
-	chain, ok := h.Env.BlockChains.EVMChains()[h.RegistrySelector]
+	chain, ok := h.Runtime.Environment().BlockChains.EVMChains()[h.RegistrySelector]
 	require.True(t, ok, "chain not found for selector")
 
 	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
