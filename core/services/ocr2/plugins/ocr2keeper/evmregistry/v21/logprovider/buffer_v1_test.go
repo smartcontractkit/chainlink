@@ -210,7 +210,7 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			buf := NewLogBuffer(logger.Test(t), uint32(tc.lookback), uint32(tc.args.blockRate), uint32(tc.args.upkeepLimit))
+			buf := NewLogBuffer(logger.Test(t), uint32(tc.lookback), uint32(tc.args.blockRate), uint32(tc.args.upkeepLimit)) //nolint:gosec // G115
 			for id, logs := range tc.logsInBuffer {
 				added, dropped := buf.Enqueue(id, logs...)
 				require.Equal(t, len(logs), added+dropped)
