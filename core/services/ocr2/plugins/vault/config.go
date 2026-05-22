@@ -28,9 +28,6 @@ func (c *Config) Validate() error {
 		if c.Auth0.Audience == "" {
 			return errors.New("auth0 audience is required when auth0 is configured")
 		}
-		if c.Auth0.TenantID == 0 {
-			return errors.New("auth0 tenantID is required when auth0 is configured")
-		}
 	}
 	return nil
 }

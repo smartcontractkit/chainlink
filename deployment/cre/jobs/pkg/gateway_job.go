@@ -137,9 +137,6 @@ func (g GatewayJob) Validate() error {
 				if svc.Auth0.Audience == "" {
 					return fmt.Errorf("Auth0.Audience is required when auth0 is set on service %q", svc.ServiceName)
 				}
-				if svc.Auth0.TenantID == 0 {
-					return fmt.Errorf("Auth0.TenantID is required when auth0 is set on service %q", svc.ServiceName)
-				}
 			}
 		}
 	}

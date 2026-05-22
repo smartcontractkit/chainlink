@@ -520,6 +520,7 @@ func TestJWTBasedAuth_StartRefreshesJWKSPeriodically(t *testing.T) {
 
 func TestNewJWTBasedAuth_InvalidConfig(t *testing.T) {
 	lggr := logger.TestLogger(t)
+	var v *jwtBasedAuth
 
 	_, err := NewJWTBasedAuth(JWTBasedAuthConfig{
 		IssuerURL: "",
@@ -537,13 +538,16 @@ func TestNewJWTBasedAuth_InvalidConfig(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "audience is required")
 
-	_, err = NewJWTBasedAuth(JWTBasedAuthConfig{
-		IssuerURL: "https://example.auth0.com/",
-		Audience:  "https://api.test.chain.link",
-		TenantID:  0,
+	v, err = NewJWTBasedAuth(JWTBasedAuthConfig{
+		IssuerURL:           "https://example.auth0.com/",
+		Audience:            "https://api.test.chain.link",
+		TenantID:            0,
+		JWKSRefreshInterval: time.Millisecond,
 	}, limits.Factory{Settings: cresettings.DefaultGetter}, lggr, WithJWTBasedAuthGateLimiter(limits.NewGateLimiter(true)))
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "tenant ID is required")
+	require.NoError(t, err)
+	require.NotNil(t, v)
+	defer func() { _ = v.Close() }()
+	require.Equal(t, uint64(1), v.expectedTenantID)
 }
 
 func TestNewJWTBasedAuth_UsesVaultJWTAuthEnabledLimiter_Disabled(t *testing.T) {
