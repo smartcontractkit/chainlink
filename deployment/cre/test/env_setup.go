@@ -2,6 +2,7 @@ package test
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
 	"maps"
@@ -30,7 +31,6 @@ import (
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	changeset2 "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
 	envtest "github.com/smartcontractkit/chainlink/deployment/environment/test"
 	changeset3 "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -64,7 +64,7 @@ type donConfig struct {
 }
 
 // TODO CRE-999; aptos can be made optional
-func initEnv(t *testing.T, lggr logger.Logger) (registryChainSel, aptosChainSel uint64, env *cldf.Environment) {
+func initRuntime(t *testing.T, lggr logger.Logger) (rt *runtime.Runtime, registryChainSel, aptosChainSel uint64) {
 	registryChainSel = chain_selectors.TEST_90000001.Selector
 
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
@@ -88,16 +88,19 @@ func initEnv(t *testing.T, lggr logger.Logger) (registryChainSel, aptosChainSel 
 	require.Len(t, rt.Environment().BlockChains.EVMChains(), 1)
 
 	// by inspection, the only chain that is needed is evm, but some callers expect aptos keys and therefore an aptos selector to use for generating the keys
-	return registryChainSel, chain_selectors.APTOS_LOCALNET.Selector, new(rt.Environment())
+	return rt, registryChainSel, chain_selectors.APTOS_LOCALNET.Selector
 }
 
 // SetupEnvV2 starts an environment with a single DON, 4 nodes and a capabilities registry v2 deployed and configured.
 func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 	t.Helper()
 
+	//---------------- This block needs to be factored out into a helper function
+
 	lggr := logger.Test(t)
 
-	registryChainSel, aptosChainSel, envInitiated := initEnv(t, lggr)
+	rt, registryChainSel, aptosChainSel := initRuntime(t, lggr)
+	envInitiated := rt.Environment()
 	lggr.Debug("Initialized environment", "registryChainSel", registryChainSel)
 
 	n := TotalNodes
@@ -110,10 +113,14 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 
 	// Only need one DON
 	don, env, jd := setupViewOnlyNodeTest(t, registryChainSel, aptosChainSel, envInitiated.BlockChains, donCfg)
-
 	env.DataStore = envInitiated.DataStore
 
-	registryAddrs := env.DataStore.Addresses().Filter(
+	// Reassemble the runtime environment
+	rt = runtime.NewFromEnvironment(env)
+
+	//----------------
+
+	registryAddrs := rt.Environment().DataStore.Addresses().Filter(
 		datastore.AddressRefByChainSelector(registryChainSel),
 		datastore.AddressRefByType("CapabilitiesRegistry"),
 	)
@@ -152,10 +159,8 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 		})
 	}
 
-	configCapRegChangeset := changeset2.ConfigureCapabilitiesRegistry{}
-	changes := []changeset.ConfiguredChangeSet{
-		changeset.Configure(
-			cldf.CreateChangeSet(configCapRegChangeset.Apply, configCapRegChangeset.VerifyPreconditions),
+	err = rt.Exec(
+		runtime.ChangesetTask(changeset2.ConfigureCapabilitiesRegistry{},
 			changeset2.ConfigureCapabilitiesRegistryInput{
 				ChainSelector:               registryChainSel,
 				CapabilitiesRegistryAddress: registryAddrs[0].Address,
@@ -190,13 +195,56 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 				},
 			},
 		),
-	}
-
-	env, _, err = changeset.ApplyChangesets(t, env, changes)
+	)
 	require.NoError(t, err)
-	require.NotNil(t, env)
 
-	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(common.HexToAddress(registryAddrs[0].Address), env.BlockChains.EVMChains()[registryChainSel].Client)
+	// changes := []changeset.ConfiguredChangeSet{
+	// 	changeset.Configure(
+	// 		changeset2.ConfigureCapabilitiesRegistry{},
+	// 		changeset2.ConfigureCapabilitiesRegistryInput{
+	// 			ChainSelector:               registryChainSel,
+	// 			CapabilitiesRegistryAddress: registryAddrs[0].Address,
+	// 			Nops: []changeset2.CapabilitiesRegistryNodeOperator{
+	// 				{
+	// 					Name:  "Operator 1",
+	// 					Admin: common.HexToAddress("0x01"),
+	// 				},
+	// 			},
+	// 			Nodes: nodes,
+	// 			Capabilities: []changeset2.CapabilitiesRegistryCapability{
+	// 				{
+	// 					CapabilityID: "test-capability@1.0.0",
+	// 					Metadata:     map[string]any{"capabilityType": 2},
+	// 				},
+	// 			},
+	// 			DONs: []changeset2.CapabilitiesRegistryNewDONParams{
+	// 				{
+	// 					Name:        donCfg.Name,
+	// 					F:           uint8(donCfg.F), //nolint:gosec // disable G115
+	// 					Nodes:       nodesP2PIDs,
+	// 					DonFamilies: []string{"test-family"},
+	// 					Config:      map[string]any{"defaultConfig": map[string]any{}},
+	// 					CapabilityConfigurations: []changeset2.CapabilitiesRegistryCapabilityConfiguration{
+	// 						{
+	// 							CapabilityID: "test-capability@1.0.0",
+	// 						},
+	// 					},
+	// 					IsPublic:         true,
+	// 					AcceptsWorkflows: true,
+	// 				},
+	// 			},
+	// 		},
+	// 	),
+	// }
+
+	// env, _, err = changeset.ApplyChangesets(t, env, changes)
+	// require.NoError(t, err)
+	// require.NotNil(t, env)
+
+	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
+		common.HexToAddress(registryAddrs[0].Address),
+		rt.Environment().BlockChains.EVMChains()[registryChainSel].Client,
+	)
 	require.NoError(t, err)
 	require.NotNil(t, capReg)
 
@@ -231,31 +279,47 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 			registryChainSel: cldftesthelpers.SingleGroupTimelockConfig(t),
 		}
 
-		updatedEnv, mcmsErr := changeset.Apply(t, env, changeset.Configure(
-			cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
-			timelockCfgs,
-		))
-		require.NoError(t, mcmsErr, "failed to deploy MCMS infrastructure")
+		err = rt.Exec(
+			runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), timelockCfgs),
+		)
+		require.NoError(t, err, "failed to deploy MCMS infrastructure")
+
+		// updatedEnv, mcmsErr := changeset.Apply(t, env, changeset.Configure(
+		// 	cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
+		// 	timelockCfgs,
+		// ))
+
 		t.Log("MCMS infrastructure deployed successfully")
 
 		t.Log("Transferring ownership to MCMS...")
-		updatedEnv, mcmsErr = changeset.Apply(t, updatedEnv, changeset.Configure(
-			cldf.CreateLegacyChangeSet(changeset3.AcceptAllOwnershipsProposal),
-			&changeset3.AcceptAllOwnershipRequest{
-				ChainSelector: registryChainSel,
-				MinDelay:      0,
-			},
-		))
-		require.NoError(t, mcmsErr, "failed to transfer ownership to MCMS")
-		t.Log("Ownership transferred to MCMS successfully")
 
-		env = updatedEnv
+		err = rt.Exec(
+			runtime.ChangesetTask(
+				cldf.CreateLegacyChangeSet(changeset3.AcceptAllOwnershipsProposal),
+				&changeset3.AcceptAllOwnershipRequest{
+					ChainSelector: registryChainSel,
+					MinDelay:      0,
+				},
+			),
+			runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
+		)
+		require.NoError(t, err, "failed to transfer ownership to MCMS")
+		// updatedEnv, mcmsErr = changeset.Apply(t, updatedEnv, changeset.Configure(
+		// 	cldf.CreateLegacyChangeSet(changeset3.AcceptAllOwnershipsProposal),
+		// 	&changeset3.AcceptAllOwnershipRequest{
+		// 		ChainSelector: registryChainSel,
+		// 		MinDelay:      0,
+		// 	},
+		// ))
+
+		// require.NoError(t, mcmsErr, "failed to transfer ownership to MCMS")
+		t.Log("Ownership transferred to MCMS successfully")
 	}
 
 	return &EnvWrapperV2{
 		t:                t,
 		TestJD:           jd,
-		Env:              &env,
+		Env:              new(rt.Environment()),
 		AptosSelector:    aptosChainSel,
 		RegistrySelector: registryChainSel,
 		RegistryAddress:  common.HexToAddress(registryAddrs[0].Address),
@@ -337,3 +401,83 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel, aptosChainSel uint64,
 
 	return don, *env, jd
 }
+
+// func setupViewOnlyNodeTest2(
+// 	t *testing.T, registryChainSel, aptosChainSel uint64, rt *runtime.Runtime, donCfg donConfig,
+// ) (*viewOnlyDon, *runtime.Runtime, *envtest.JDNodeService) {
+// 	var (
+// 		don      *viewOnlyDon
+// 		nodesCfg []envtest.NodeConfig
+// 	)
+
+// 	for i := 0; i < donCfg.N; i++ {
+// 		labels := map[string]string{
+// 			"don-" + donCfg.Name: donCfg.Name,
+// 			"environment":        "test",
+// 			"product":            "cre",
+// 			"type":               "plugin",
+// 			"zone":               Zone,
+// 		}
+// 		if donCfg.Labels != nil {
+// 			maps.Copy(labels, donCfg.Labels)
+// 		}
+
+// 		nCfg := envtest.NodeConfig{
+// 			ChainSelectors: []uint64{registryChainSel, aptosChainSel, chain_selectors.SOLANA_DEVNET.Selector},
+// 			Name:           fmt.Sprintf("%s-%d", donCfg.Name, i),
+// 			Labels:         labels,
+// 		}
+// 		nodesCfg = append(nodesCfg, nCfg)
+// 	}
+
+// 	btLabels := map[string]string{
+// 		"don-" + donCfg.Name: donCfg.Name,
+// 		"environment":        "test",
+// 		"product":            "cre",
+// 		"type":               "bootstrap",
+// 		"zone":               Zone,
+// 	}
+// 	if donCfg.Labels != nil {
+// 		maps.Copy(btLabels, donCfg.Labels)
+// 	}
+// 	nodesCfg = append(nodesCfg, envtest.NodeConfig{
+// 		ChainSelectors: []uint64{registryChainSel, aptosChainSel, chain_selectors.SOLANA_DEVNET.Selector},
+// 		Name:           donCfg.Name + "-bootstrap",
+// 		Labels:         btLabels,
+// 	})
+
+// 	n := envtest.NewNodes(t, nodesCfg)
+// 	require.Len(t, n, donCfg.N+1) // +1 for bootstrap
+
+// 	don = newViewOnlyDon(donCfg.Name, n)
+
+// 	nodes := make(deployment.Nodes, 0, don.N())
+// 	for _, v := range don.m {
+// 		nodes = append(nodes, *v)
+// 	}
+
+// 	blockChains := map[uint64]cldf_chain.BlockChain{}
+// 	for sel, c := range rt.Environment().BlockChains.EVMChains() {
+// 		blockChains[sel] = c
+// 	}
+// 	for sel, c := range rt.Environment().BlockChains.AptosChains() {
+// 		blockChains[sel] = c
+// 	}
+
+// 	// TODO: use the runtime JD service
+// 	jd := envtest.NewJDService(nodes)
+
+// 	env := cldf.NewEnvironment(
+// 		"test",
+// 		logger.Test(t),
+// 		cldf.NewMemoryAddressBook(),
+// 		datastore.NewMemoryDataStore().Seal(),
+// 		nodes.IDs(),
+// 		jd,
+// 		t.Context,
+// 		focr.XXXGenerateTestOCRSecrets(),
+// 		cldf_chain.NewBlockChains(blockChains),
+// 	)
+
+// 	return don, *env, jd
+// }
