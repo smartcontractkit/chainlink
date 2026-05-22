@@ -30,7 +30,7 @@ func TestConfigureForwardersSeq(t *testing.T) {
 		DON:        donConfig,
 		Qualifier:  "test-configure-forwarder",
 		MCMSConfig: nil,
-		Chains:     map[uint64]struct{}{}, // Empty means all chains
+		Chains:     map[uint64]struct{}{}, //  Empty means all chains
 	}
 
 	// Execute the ConfigureSeq operation directly

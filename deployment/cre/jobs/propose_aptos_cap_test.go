@@ -45,7 +45,7 @@ func seedAptosAddresses(t *testing.T, ds *datastore.MemoryDataStore, ocrSel uint
 
 func freshAptosBase(ocrSel, aptosSel uint64) jobs.ProposeAptosCapJobSpecInput {
 	return jobs.ProposeAptosCapJobSpecInput{
-		Environment:          "test",
+		Environment:          test.EnvironmentName,
 		Zone:                 test.Zone,
 		Domain:               "cre",
 		DONName:              test.DONName,
@@ -246,7 +246,7 @@ func setupAptosCapTest(t *testing.T) aptosCapTestSetup {
 	}
 
 	baseInput := jobs.ProposeAptosCapJobSpecInput{
-		Environment:            "test",
+		Environment:            test.EnvironmentName,
 		Zone:                   test.Zone,
 		Domain:                 "cre",
 		DONName:                test.DONName,

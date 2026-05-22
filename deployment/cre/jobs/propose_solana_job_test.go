@@ -60,7 +60,7 @@ func solanaCapInput(nodeID, transmitter string) jobs.SolanaCapabilityInput {
 
 func freshSolanaBase(solSel uint64) jobs.ProposeSolanaJobSpecInput {
 	return jobs.ProposeSolanaJobSpecInput{
-		Environment:         "test",
+		Environment:         test.EnvironmentName,
 		Zone:                test.Zone,
 		Domain:              "cre",
 		DONName:             test.DONName,
@@ -225,7 +225,7 @@ func setupSolanaJobTest(t *testing.T) solanaJobTestSetup {
 	}
 
 	baseInput := jobs.ProposeSolanaJobSpecInput{
-		Environment:            "test",
+		Environment:            test.EnvironmentName,
 		Zone:                   test.Zone,
 		Domain:                 "cre",
 		DONName:                test.DONName,

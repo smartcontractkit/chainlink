@@ -61,10 +61,10 @@ func TestProposeStandardCapabilityJob_Apply(t *testing.T) {
 		Command:     "cron",
 		DONName:     "test-don",
 		Domain:      offchain.ProductLabel,
-		Environment: "test",
+		Environment: test.EnvironmentName,
 		DONFilters: []offchain.TargetDONFilter{
 			{Key: offchain.FilterKeyDONName, Value: test.DONName},
-			{Key: "environment", Value: "test"},
+			{Key: "environment", Value: test.EnvironmentName},
 			{Key: "product", Value: offchain.ProductLabel},
 		},
 	}
@@ -89,10 +89,10 @@ func TestProposeStandardCapabilityJob_Apply_HTTPTrigger(t *testing.T) {
 		ExternalJobID: "http-trigger-external-id",
 		DONName:       test.DONName,
 		Domain:        offchain.ProductLabel,
-		Environment:   "test",
+		Environment:   test.EnvironmentName,
 		DONFilters: []offchain.TargetDONFilter{
 			{Key: offchain.FilterKeyDONName, Value: test.DONName},
-			{Key: "environment", Value: "test"},
+			{Key: "environment", Value: test.EnvironmentName},
 			{Key: "product", Value: offchain.ProductLabel},
 		},
 	}
@@ -127,10 +127,10 @@ func TestProposeStandardCapabilityJob_Apply_HTTPAction(t *testing.T) {
 		ExternalJobID: "http-action-external-id",
 		DONName:       test.DONName,
 		Domain:        offchain.ProductLabel,
-		Environment:   "test",
+		Environment:   test.EnvironmentName,
 		DONFilters: []offchain.TargetDONFilter{
 			{Key: offchain.FilterKeyDONName, Value: test.DONName},
-			{Key: "environment", Value: "test"},
+			{Key: "environment", Value: test.EnvironmentName},
 			{Key: "product", Value: offchain.ProductLabel},
 		},
 	}
