@@ -306,7 +306,7 @@ func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
 	// Maximum acceptable WASM execution and goroutine-scheduling overhead above the
 	// artificial gateway delay. Generous enough for loaded CI runners while still
 	// catching runaway regressions.
-	const overheadCap = uint64(1000)
+	const overheadCap = int64(1000)
 
 	tests := []struct {
 		delay time.Duration
@@ -344,8 +344,6 @@ func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
-
 		t.Run(test.delay.String(), func(t *testing.T) {
 			t.Parallel()
 
@@ -376,12 +374,11 @@ func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
 
 			require.Len(t, response.Metadata.Metering, 1)
 
-			value, err := strconv.ParseUint(response.Metadata.Metering[0].SpendValue, 10, 64)
+			value, err := strconv.ParseInt(response.Metadata.Metering[0].SpendValue, 10, 64)
 			require.NoError(t, err)
 
-			delayMS := uint64(test.delay.Milliseconds())
-			assert.GreaterOrEqual(t, value, delayMS)
-			assert.Less(t, value, delayMS+overheadCap)
+			assert.GreaterOrEqual(t, value, test.delay.Milliseconds())
+			assert.Less(t, value, test.delay.Milliseconds()+overheadCap)
 		})
 	}
 }
