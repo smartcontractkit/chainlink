@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"sync"
 	"testing"
 	"time"
 
@@ -19,7 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/freeport"
@@ -621,16 +619,44 @@ func ClientTestRequests(t *testing.T, owner *bind.TransactOpts, b evmtypes.Backe
 	}
 
 	// validate that all client contracts got correct responses to their requests
-	var wg sync.WaitGroup
+	type pollResult struct {
+		idx    int
+		answer [32]byte
+		err    error
+	}
+	results := make(chan pollResult, len(clientContracts))
 	for i := range clientContracts {
 		ic := i
-		wg.Go(func() {
-			gomega.NewGomegaWithT(t).Eventually(func() [32]byte {
+		go func() {
+			ticker := time.NewTicker(time.Second)
+			defer ticker.Stop()
+			timer := time.NewTimer(timeout)
+			defer timer.Stop()
+			for {
 				answer, err := clientContracts[ic].Contract.SLastResponse(nil)
-				require.NoError(t, err)
-				return answer
-			}, timeout, 1*time.Second).Should(gomega.Equal(GetExpectedResponse(requestSources[ic])))
-		})
+				if err != nil {
+					results <- pollResult{ic, [32]byte{}, err}
+					return
+				}
+				if answer == GetExpectedResponse(requestSources[ic]) {
+					results <- pollResult{ic, answer, nil}
+					return
+				}
+				select {
+				case <-ticker.C:
+				case <-timer.C:
+					results <- pollResult{ic, [32]byte{}, fmt.Errorf("contract %d response timed out after %s", ic, timeout)}
+					return
+				}
+			}
+		}()
 	}
-	wg.Wait()
+	// require/gomega assertions call t.FailNow which must run on the test goroutine;
+	// calling them from spawned goroutines panics or behaves unpredictably, so we
+	// poll without assertions in the goroutines and fail here on the main goroutine.
+	for range clientContracts {
+		r := <-results
+		require.NoError(t, r.err)
+		require.Equal(t, GetExpectedResponse(requestSources[r.idx]), r.answer)
+	}
 }
