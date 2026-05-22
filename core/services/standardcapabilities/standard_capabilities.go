@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -13,10 +14,24 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 const defaultStartTimeout = 3 * time.Minute
+
+const extraSelectorsFileEnvVar = "EXTRA_SELECTORS_FILE"
+
+// forwardedLOOPPEnv returns the parent-process env vars that should be
+// passed through to standard-capability LOOPPs in addition to the curated
+// loop.EnvConfig.AsCmdEnv() set. Keep this list minimal and explicit.
+func forwardedEnv() []string {
+	var env []string
+	if v := os.Getenv(extraSelectorsFileEnvVar); v != "" {
+		env = append(env, extraSelectorsFileEnvVar+"="+v)
+	}
+	return env
+}
 
 var (
 	ErrServiceStopped  = errors.New("service stopped")
@@ -78,7 +93,7 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 		cmdFn, opts, err := s.pluginRegistrar.RegisterLOOP(plugins.CmdConfig{
 			ID:  s.log.Name(),
 			Cmd: s.command,
-			Env: nil,
+			Env: forwardedEnv(),
 		})
 		if err != nil {
 			return fmt.Errorf("error registering loop: %w", err)

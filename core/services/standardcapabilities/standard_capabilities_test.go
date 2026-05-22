@@ -3,6 +3,9 @@ package standardcapabilities
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"os/exec"
 	"testing"
 	"time"
 
@@ -19,6 +22,66 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
+
+func TestStandardCapabilities_ForwardsExtraSelectorsFile(t *testing.T) {
+	// plugins.NewCmdFactory does not call os.Environ() when building the
+	// LOOPP child env, so any operator-provided env var that LOOPP-side
+	// package init code expects must be forwarded explicitly via
+	// plugins.CmdConfig.Env. EXTRA_SELECTORS_FILE is one such var.
+
+	startAndCapture := func(t *testing.T) plugins.CmdConfig {
+		t.Helper()
+		var captured plugins.CmdConfig
+		registrar := &capturingRegistrar{
+			onRegister: func(cfg plugins.CmdConfig) { captured = cfg },
+		}
+		std := NewStandardCapabilities(
+			logger.TestLogger(t),
+			"not/found/path/to/binary",
+			"{}",
+			registrar,
+			core.StandardCapabilitiesDependencies{},
+		)
+		// We force RegisterLOOP to fail after capturing so Start returns
+		// immediately and we don't have to run the rest of the lifecycle.
+		err := std.Start(t.Context())
+		require.Error(t, err, "expected synthetic Start failure from capturingRegistrar")
+		require.Contains(t, err.Error(), capturingRegistrarErr)
+		return captured
+	}
+
+	t.Run("env var set on parent is forwarded via CmdConfig.Env", func(t *testing.T) {
+		t.Setenv(extraSelectorsFileEnvVar, "/extraConfig/extra-selectors.yaml")
+		cfg := startAndCapture(t)
+		require.Contains(t, cfg.Env, fmt.Sprintf("%s=/extraConfig/extra-selectors.yaml", extraSelectorsFileEnvVar),
+			"standard-capability LOOPP launcher should forward EXTRA_SELECTORS_FILE from the parent process so chain-selectors' init() in the LOOPP can read operator-provided selectors")
+	})
+
+	t.Run("env var unset on parent results in empty CmdConfig.Env", func(t *testing.T) {
+		t.Setenv(extraSelectorsFileEnvVar, "")
+		cfg := startAndCapture(t)
+		require.Empty(t, cfg.Env,
+			"no operator-provided env vars should be forwarded when EXTRA_SELECTORS_FILE is unset")
+	})
+}
+
+const capturingRegistrarErr = "capturingRegistrar: stop after capture"
+
+// capturingRegistrar records the CmdConfig handed to RegisterLOOP and then
+// returns a sentinel error so the caller's Start flow exits before any
+// LOOPP lifecycle code runs.
+type capturingRegistrar struct {
+	onRegister func(plugins.CmdConfig)
+}
+
+func (c *capturingRegistrar) RegisterLOOP(cfg plugins.CmdConfig) (func() *exec.Cmd, loop.GRPCOpts, error) {
+	if c.onRegister != nil {
+		c.onRegister(cfg)
+	}
+	return nil, loop.GRPCOpts{}, errors.New(capturingRegistrarErr)
+}
+
+func (c *capturingRegistrar) UnregisterLOOP(string) {}
 
 func TestStandardCapabilityStart(t *testing.T) {
 	t.Run("NOK-not_found_binary_does_not_block", func(t *testing.T) {
