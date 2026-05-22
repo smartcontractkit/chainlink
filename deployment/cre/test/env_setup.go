@@ -24,6 +24,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
@@ -66,34 +67,28 @@ type donConfig struct {
 func initEnv(t *testing.T, lggr logger.Logger) (registryChainSel, aptosChainSel uint64, env *cldf.Environment) {
 	registryChainSel = chain_selectors.TEST_90000001.Selector
 
-	e, err := environment.New(t.Context(),
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
 		environment.WithEVMSimulatedWithConfig(t, []uint64{registryChainSel}, onchain.EVMSimLoaderConfig{
 			NumAdditionalAccounts: 1,
 		}),
 		environment.WithLogger(lggr),
-	)
+	))
 	require.NoError(t, err)
 
-	deployCapRegChangeset := changeset2.DeployCapabilitiesRegistry{}
-	changes := []changeset.ConfiguredChangeSet{
-		changeset.Configure(
-			cldf.CreateChangeSet(deployCapRegChangeset.Apply, deployCapRegChangeset.VerifyPreconditions),
+	err = rt.Exec(
+		runtime.ChangesetTask(changeset2.DeployCapabilitiesRegistry{},
 			changeset2.DeployCapabilitiesRegistryInput{
 				ChainSelector: registryChainSel,
 				Qualifier:     RegistryQualifier,
 			},
 		),
-	}
-
-	localEnv, _, err := changeset.ApplyChangesets(t, *e, changes)
+	)
 	require.NoError(t, err)
 
-	env = &localEnv
-	require.NotNil(t, env)
-	require.Len(t, env.BlockChains.EVMChains(), 1)
+	require.Len(t, rt.Environment().BlockChains.EVMChains(), 1)
 
 	// by inspection, the only chain that is needed is evm, but some callers expect aptos keys and therefore an aptos selector to use for generating the keys
-	return registryChainSel, chain_selectors.APTOS_LOCALNET.Selector, env
+	return registryChainSel, chain_selectors.APTOS_LOCALNET.Selector, new(rt.Environment())
 }
 
 // SetupEnvV2 starts an environment with a single DON, 4 nodes and a capabilities registry v2 deployed and configured.
