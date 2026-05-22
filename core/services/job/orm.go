@@ -176,12 +176,8 @@ var ErrJobTypeRemoved = fmt.Errorf("job type has been removed and is no longer s
 func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 	// Permanently removed job types: reject all new submissions regardless of
 	// which code path reaches here (REST API, GraphQL, feeds manager, etc.).
-	if jb.Type == DirectRequest || jb.Type == FluxMonitor {
+	if jb.Type == DirectRequest || jb.Type == FluxMonitor || jb.Type == Webhook {
 		return fmt.Errorf("cannot create job of type %q: %w", jb.Type, ErrJobTypeRemoved)
-	}
-
-	if jb.Type == Webhook {
-		o.lggr.Warnw("Job of this type will not be supported in chainlink v3", "type", jb.Type)
 	}
 
 	p := jb.Pipeline

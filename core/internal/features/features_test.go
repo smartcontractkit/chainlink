@@ -67,7 +67,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
@@ -102,40 +101,13 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 		eiRequest = map[string]any{"result": 42}
 
 		jobUUID = uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46")
-
-		expectedCreateJobRequest = map[string]any{
-			"jobId":  jobUUID.String(),
-			"type":   eiName,
-			"params": eiSpec,
-		}
 	)
 
 	// Setup EI
 	var eiURL string
-	var eiNotifiedOfCreate bool
-	var eiNotifiedOfDelete bool
 	{
-		mockEI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !eiNotifiedOfCreate {
-				require.Equal(t, http.MethodPost, r.Method)
-
-				eiNotifiedOfCreate = true
-				defer r.Body.Close()
-
-				var gotCreateJobRequest map[string]any
-				err := json.NewDecoder(r.Body).Decode(&gotCreateJobRequest)
-				require.NoError(t, err)
-
-				require.Equal(t, expectedCreateJobRequest, gotCreateJobRequest)
-				w.WriteHeader(http.StatusOK)
-			} else {
-				require.Equal(t, http.MethodDelete, r.Method)
-
-				eiNotifiedOfDelete = true
-				defer r.Body.Close()
-
-				require.Equal(t, fmt.Sprintf("/%v", jobUUID.String()), r.URL.Path)
-			}
+		mockEI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
 		}))
 		defer mockEI.Close()
 		eiURL = mockEI.URL
@@ -158,25 +130,11 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 	}
 
 	// Create the bridge on the Core node
-	var bridgeCalled bool
 	{
 		bridgeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			bridgeCalled = true
 			defer r.Body.Close()
-
-			var gotBridgeRequest map[string]any
-			err := json.NewDecoder(r.Body).Decode(&gotBridgeRequest)
-			require.NoError(t, err)
-
-			expectedBridgeRequest := map[string]any{
-				"value": float64(42),
-			}
-			require.Equal(t, expectedBridgeRequest, gotBridgeRequest)
-
 			w.WriteHeader(http.StatusOK)
-			require.NoError(t, err)
-			_, err = io.WriteString(w, `{}`)
-			require.NoError(t, err)
+			_, _ = io.WriteString(w, `{}`)
 		}))
 		u, _ := url.Parse(bridgeServer.URL)
 		err := app.BridgeORM().CreateBridgeType(ctx, &bridges.BridgeType{
@@ -187,8 +145,7 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 		defer bridgeServer.Close()
 	}
 
-	// Create the job spec on the Core node
-	var jobID int32
+	// Webhook job creation via API is no longer supported.
 	{
 		tomlSpec := fmt.Sprintf(`
 type            = "webhook"
@@ -211,12 +168,18 @@ observationSource   = """
 
 		_, err := webhook.ValidatedWebhookSpec(ctx, tomlSpec, app.GetExternalInitiatorManager())
 		require.NoError(t, err)
-		job := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
-		jobID = job.ID
-		t.Log("JOB created", job.WebhookSpecID)
 
-		require.Eventually(t, func() bool { return eiNotifiedOfCreate }, 5*time.Second, 10*time.Millisecond, "expected external initiator to be notified of new job")
+		client := app.NewHTTPClient(nil)
+		body, err := json.Marshal(web.CreateJobRequest{TOML: tomlSpec})
+		require.NoError(t, err)
+		response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
+		defer cleanup()
+		cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
 	}
+
+	// Simulate a legacy webhook job already present in the database.
+	job, _ := cltest.MustInsertWebhookSpec(t, app.GetDB(), jobUUID)
+	jobID := job.ID
 
 	t.Run("calling webhook_spec with non-matching external_initiator_id returns unauthorized", func(t *testing.T) {
 		eiaWrong := auth.NewToken()
@@ -234,30 +197,24 @@ observationSource   = """
 		cltest.AssertCountStays(t, app.GetDB(), "pipeline_runs", 0)
 	})
 
-	t.Run("calling webhook_spec with matching external_initiator_id works", func(t *testing.T) {
-		// Simulate request from EI -> Core node
-		cltest.AwaitJobActive(t, app.JobSpawner(), jobID, 3*time.Second)
+	t.Run("calling webhook_spec with matching external_initiator_id is rejected", func(t *testing.T) {
+		body := cltest.MustJSONMarshal(t, eiRequest)
+		headers := make(map[string]string)
+		headers[static.ExternalInitiatorAccessKeyHeader] = eia.AccessKey
+		headers[static.ExternalInitiatorSecretHeader] = eia.Secret
 
-		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
+		url := app.Server.URL + "/v2/jobs/" + jobUUID.String() + "/runs"
+		bodyBuf := bytes.NewBufferString(body)
+		resp, cleanup := cltest.UnauthenticatedPost(t, url, bodyBuf, headers)
+		defer cleanup()
+		cltest.AssertServerResponse(t, resp, http.StatusInternalServerError)
 
-		pipelineORM := pipeline.NewORM(app.GetDB(), logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-		bridgeORM := bridges.NewORM(app.GetDB())
-		jobORM := job.NewORM(app.GetDB(), pipelineORM, bridgeORM, app.KeyStore, logger.TestLogger(t))
-
-		runs := cltest.WaitForPipelineComplete(t, 0, jobID, 1, 2, jobORM, 5*time.Second, 300*time.Millisecond)
-		require.Len(t, runs, 1)
-		run := runs[0]
-		require.Len(t, run.PipelineTaskRuns, 2)
-		require.Empty(t, run.PipelineTaskRuns[0].Error)
-		require.Empty(t, run.PipelineTaskRuns[1].Error)
-
-		assert.True(t, bridgeCalled, "expected bridge server to be called")
+		cltest.AssertCountStays(t, app.GetDB(), "pipeline_runs", 0)
 	})
 
 	// Delete the job
 	{
 		cltest.DeleteJobViaWeb(t, app, jobID)
-		require.Eventually(t, func() bool { return eiNotifiedOfDelete }, 5*time.Second, 10*time.Millisecond, "expected external initiator to be notified of deleted job")
 	}
 }
 

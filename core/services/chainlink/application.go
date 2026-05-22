@@ -575,10 +575,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				legacyEVMChains,
 				globalLogger,
 				mailMon),
-			job.Webhook: webhook.NewDelegate(
-				pipelineRunner,
-				externalInitiatorManager,
-				globalLogger),
+			job.Webhook: &job.DeprecatedDelegate{Type: job.Webhook},
 			job.Cron: cron.NewDelegate(
 				pipelineRunner,
 				globalLogger),
@@ -621,7 +618,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				relayChainInterops.LegacyEVMChains().Slice(),
 			),
 		}
-		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
+		webhookJobRunner = webhook.DeprecatedJobRunner{}
 	)
 
 	delegates[job.Workflow] = workflows.NewDelegate(

@@ -1090,14 +1090,14 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 		return nil, fmt.Errorf("cannot create job of type %q: %w", job.DirectRequest, job.ErrJobTypeRemoved)
 	case job.FluxMonitor:
 		return nil, fmt.Errorf("cannot create job of type %q: %w", job.FluxMonitor, job.ErrJobTypeRemoved)
+	case job.Webhook:
+		return nil, fmt.Errorf("cannot create job of type %q: %w", job.Webhook, job.ErrJobTypeRemoved)
 	case job.CRESettings:
 		jb, err = cresettings.ValidatedCRESettingsSpec(args.Input.TOML)
 	case job.Cron:
 		jb, err = cron.ValidatedCronSpec(args.Input.TOML)
 	case job.VRF:
 		jb, err = vrfcommon.ValidatedVRFSpec(args.Input.TOML)
-	case job.Webhook:
-		jb, err = webhook.ValidatedWebhookSpec(ctx, args.Input.TOML, r.App.GetExternalInitiatorManager())
 	case job.BlockhashStore:
 		jb, err = blockhashstore.ValidatedSpec(args.Input.TOML)
 	case job.BlockHeaderFeeder:

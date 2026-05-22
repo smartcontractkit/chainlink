@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/google/uuid"
@@ -15,6 +16,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
+
+// DeprecatedJobRunner rejects webhook job runs after the job type has been removed.
+type DeprecatedJobRunner struct{}
+
+var _ JobRunner = DeprecatedJobRunner{}
+
+func (DeprecatedJobRunner) RunJob(context.Context, uuid.UUID, string, jsonserializable.JSONSerializable) (int64, error) {
+	return 0, fmt.Errorf("cannot run job of type %q: %w", job.Webhook, job.ErrJobTypeRemoved)
+}
 
 type (
 	Delegate struct {
