@@ -844,7 +844,7 @@ observationSource = """
 	url := app.Server.URL + "/v2/jobs/" + jobUUID.String() + "/runs"
 	resp, cleanup := cltest.UnauthenticatedPost(t, url, bytes.NewBufferString(runBody), headers)
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, http.StatusInternalServerError)
+	cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
 	cltest.AssertCountStays(t, app.GetDB(), "pipeline_runs", 0)
 
 	cltest.DeleteJobViaWeb(t, app, job.ID)

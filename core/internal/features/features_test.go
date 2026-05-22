@@ -177,23 +177,7 @@ observationSource   = """
 	job, _ := cltest.MustInsertWebhookSpec(t, app.GetDB(), jobUUID)
 	jobID := job.ID
 
-	t.Run("calling webhook_spec with non-matching external_initiator_id returns unauthorized", func(t *testing.T) {
-		eiaWrong := auth.NewToken()
-		body := cltest.MustJSONMarshal(t, eiRequest)
-		headers := make(map[string]string)
-		headers[static.ExternalInitiatorAccessKeyHeader] = eiaWrong.AccessKey
-		headers[static.ExternalInitiatorSecretHeader] = eiaWrong.Secret
-
-		url := app.Server.URL + "/v2/jobs/" + jobUUID.String() + "/runs"
-		bodyBuf := bytes.NewBufferString(body)
-		resp, cleanup := cltest.UnauthenticatedPost(t, url, bodyBuf, headers)
-		defer cleanup()
-		cltest.AssertServerResponse(t, resp, 401)
-
-		cltest.AssertCountStays(t, app.GetDB(), "pipeline_runs", 0)
-	})
-
-	t.Run("calling webhook_spec with matching external_initiator_id is rejected", func(t *testing.T) {
+	t.Run("uuid job run via external initiator is rejected", func(t *testing.T) {
 		body := cltest.MustJSONMarshal(t, eiRequest)
 		headers := make(map[string]string)
 		headers[static.ExternalInitiatorAccessKeyHeader] = eia.AccessKey
@@ -203,7 +187,8 @@ observationSource   = """
 		bodyBuf := bytes.NewBufferString(body)
 		resp, cleanup := cltest.UnauthenticatedPost(t, url, bodyBuf, headers)
 		defer cleanup()
-		cltest.AssertServerResponse(t, resp, http.StatusInternalServerError)
+		cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
+		require.Contains(t, string(cltest.ParseResponseBody(t, resp)), "webhook")
 
 		cltest.AssertCountStays(t, app.GetDB(), "pipeline_runs", 0)
 	})

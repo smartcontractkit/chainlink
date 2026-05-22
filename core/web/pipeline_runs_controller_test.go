@@ -1,8 +1,9 @@
 package web_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
-	"io"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -33,29 +34,18 @@ import (
 func TestPipelineRunsController_CreateWebhookJobRejected(t *testing.T) {
 	t.Parallel()
 
-	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
-	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(big.NewInt(0), nil)
-	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(2 * time.Second)
-	})
-
-	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	mockServer := cltest.NewHTTPMockServerWithRequest(t, 200, `{}`, func(r *http.Request) {
-		defer r.Body.Close()
-		_, _ = io.ReadAll(r.Body)
-	})
-	_, bridge := cltest.MustCreateBridge(t, app.GetDB(), cltest.BridgeOpts{URL: mockServer.URL})
-
-	jobUUID := uuid.New()
-	tomlStr := fmt.Sprintf(testspecs.WebhookSpecWithBodyTemplate, jobUUID, bridge.Name.String())
-	_, err := job.ValidateSpec(tomlStr)
+	client := app.NewHTTPClient(nil)
+	// Bridge names are arbitrary; webhook creation is rejected before bridge validation.
+	tomlStr := testspecs.GetWebhookSpecNoBody(uuid.New(), uuid.NewString(), uuid.NewString())
+	body, err := json.Marshal(web.CreateJobRequest{TOML: tomlStr})
 	require.NoError(t, err)
-
-	err = app.AddJobV2(testutils.Context(t), &job.Job{Type: job.Webhook, SchemaVersion: 1})
-	require.Error(t, err)
-	require.ErrorIs(t, err, job.ErrJobTypeRemoved)
+	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
+	defer cleanup()
+	cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
+	require.Contains(t, string(cltest.ParseResponseBody(t, response)), "job type webhook has been removed")
 }
 
 func TestPipelineRunsController_RunExistingWebhookJobRejected(t *testing.T) {
@@ -77,8 +67,8 @@ func TestPipelineRunsController_RunExistingWebhookJobRejected(t *testing.T) {
 	body := strings.NewReader(`{"data":{"result":"123.45"}}`)
 	response, cleanup := client.Post("/v2/jobs/"+jobUUID.String()+"/runs", body)
 	defer cleanup()
-	cltest.AssertServerResponse(t, response, http.StatusInternalServerError)
-	require.Contains(t, cltest.ParseResponseBody(t, response), "webhook")
+	cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
+	require.Contains(t, string(cltest.ParseResponseBody(t, response)), "webhook")
 }
 
 func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {

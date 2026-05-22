@@ -72,7 +72,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc/cache"
-	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -95,7 +94,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
-	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
@@ -962,50 +960,6 @@ func AwaitJobActive(t testing.TB, jobSpawner job.Spawner, jobID int32, waitFor t
 		_, exists := jobSpawner.ActiveJobs()[jobID]
 		return exists
 	}, waitFor, 100*time.Millisecond)
-}
-
-func CreateJobRunViaExternalInitiatorV2(
-	t testing.TB,
-	app *TestApplication,
-	jobID uuid.UUID,
-	eia auth.Token,
-	body string,
-) webpresenters.PipelineRunResource {
-	t.Helper()
-
-	headers := make(map[string]string)
-	headers[static.ExternalInitiatorAccessKeyHeader] = eia.AccessKey
-	headers[static.ExternalInitiatorSecretHeader] = eia.Secret
-
-	url := app.Server.URL + "/v2/jobs/" + jobID.String() + "/runs"
-	bodyBuf := bytes.NewBufferString(body)
-	resp, cleanup := UnauthenticatedPost(t, url, bodyBuf, headers)
-	defer cleanup()
-	AssertServerResponse(t, resp, 200)
-	var pr webpresenters.PipelineRunResource
-	ParseJSONAPIResponse(t, resp, &pr)
-
-	// assert.Equal(t, j.ID, pr.JobSpecID)
-	return pr
-}
-
-func CreateJobRunViaUser(
-	t testing.TB,
-	app *TestApplication,
-	jobID uuid.UUID,
-	body string,
-) webpresenters.PipelineRunResource {
-	t.Helper()
-
-	bodyBuf := bytes.NewBufferString(body)
-	client := app.NewHTTPClient(nil)
-	resp, cleanup := client.Post("/v2/jobs/"+jobID.String()+"/runs", bodyBuf)
-	defer cleanup()
-	AssertServerResponse(t, resp, 200)
-	var pr webpresenters.PipelineRunResource
-	ParseJSONAPIResponse(t, resp, &pr)
-
-	return pr
 }
 
 func CreateJobRunViaUserByID(

@@ -379,7 +379,7 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
-	require.Contains(t, cltest.ParseResponseBody(t, response), "job type webhook has been removed")
+	require.Contains(t, string(cltest.ParseResponseBody(t, response)), "job type webhook has been removed")
 }
 
 //go:embed webhook-spec-template.yml

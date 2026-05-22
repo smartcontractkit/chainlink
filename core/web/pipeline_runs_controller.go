@@ -100,27 +100,13 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 
 	idStr := c.Param("ID")
 
-	user, isUser := auth.GetAuthenticatedUser(c)
-	ei, _ := auth.GetAuthenticatedExternalInitiator(c)
-	authorizer := NewWebhookRunAuthorizer(prc.App.GetDB(), user, ei)
-
-	// Is it a UUID? Then process it as a legacy webhook job run request.
-	jobUUID, err := uuid.Parse(idStr)
-	if err == nil {
-		canRun, err2 := authorizer.CanRun(ctx, prc.App.GetConfig().JobPipeline(), jobUUID)
-		if err2 != nil {
-			jsonAPIError(c, http.StatusInternalServerError, err2)
-			return
-		}
-		if canRun {
-			jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("cannot run job of type %q: %w", job.Webhook, job.ErrJobTypeRemoved))
-			return
-		} else {
-			jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("external initiator %s is not allowed to run job %s", ei.Name, jobUUID))
-		}
+	// Webhook runs used external job UUIDs; that job type has been removed.
+	if _, err := uuid.Parse(idStr); err == nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, fmt.Errorf("cannot run job of type %q: %w", job.Webhook, job.ErrJobTypeRemoved))
 		return
 	}
 
+	_, isUser := auth.GetAuthenticatedUser(c)
 	// only users are allowed to run jobs using int IDs - EIs not allowed
 	if isUser {
 		// Is it an int32? Then process it regardless of type
