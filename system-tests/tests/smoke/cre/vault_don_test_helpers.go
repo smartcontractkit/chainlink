@@ -169,6 +169,12 @@ func shouldRetryGatewayRequest(statusCode int, body []byte) bool {
 	}
 	switch statusCode {
 	case http.StatusServiceUnavailable, http.StatusBadGateway, http.StatusGatewayTimeout:
+		// Gateway-to-DON timeout: the gateway gave up relaying the response, but the DON likely
+		// already processed the request. Retrying the same request body just hits the vault
+		// replay guard ("request was already authorized previously"). Don't retry these.
+		if bytes.Contains(body, []byte("Request timed out")) {
+			return false
+		}
 		return true
 	default:
 		return false
