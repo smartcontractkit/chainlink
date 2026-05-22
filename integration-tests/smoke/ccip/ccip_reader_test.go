@@ -1542,12 +1542,6 @@ func testSetup(
 		require.NoError(t, lp.Close())
 		require.NoError(t, headTracker.Close())
 		require.NoError(t, db.Close())
-
-		// Clean up additional LogPollers and databases
-		for chain := range params.ToBindContracts {
-			// The additional cleanup will be handled by their respective test setup
-			t.Logf("Cleaned up chain %d resources", chain)
-		}
 	})
 
 	return &testSetupData{
