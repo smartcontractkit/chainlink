@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -1878,7 +1879,7 @@ func waitForSuiRPCSyncWithOptions(t *testing.T, suiChain sui.Chain, timeout time
 
 	const pollInterval = 200 * time.Millisecond
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(t.Context(), timeout)
 	defer cancel()
 
 	before, err := suiChain.Client.SuiGetLatestCheckpointSequenceNumber(ctx)
@@ -1945,4 +1946,9 @@ func waitForSuiRPCSyncFast(t *testing.T, suiChain sui.Chain) {
 // waitForSuiRPCSyncSlow provides extended synchronization for critical operations like upgrades
 func waitForSuiRPCSyncSlow(t *testing.T, suiChain sui.Chain) {
 	waitForSuiRPCSyncWithOptions(t, suiChain, 60*time.Second, 2)
+}
+
+// waitForSuiRPCSyncUpgrade provides maximum synchronization for post-upgrade event indexing
+func waitForSuiRPCSyncUpgrade(t *testing.T, suiChain sui.Chain) {
+	waitForSuiRPCSyncWithOptions(t, suiChain, 180*time.Second, 5)
 }
