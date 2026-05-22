@@ -82,13 +82,12 @@ type Shard struct {
 }
 
 func (c *GatewayConfig) Validate() error {
-	if c.ConnectionManagerConfig.PongTimeoutSec != 0 {
-		if c.ConnectionManagerConfig.HeartbeatIntervalSec == 0 {
+	if pong := c.ConnectionManagerConfig.PongTimeoutSec; pong != 0 {
+		if heartbeat := c.ConnectionManagerConfig.HeartbeatIntervalSec; heartbeat == 0 {
 			return errors.New("PongTimeoutSec requires HeartbeatIntervalSec > 0 (pong deadline needs periodic pings)")
-		}
-		if c.ConnectionManagerConfig.PongTimeoutSec <= c.ConnectionManagerConfig.HeartbeatIntervalSec {
+		} else if pong <= heartbeat {
 			return fmt.Errorf("PongTimeoutSec (%d) must be greater than HeartbeatIntervalSec (%d)",
-				c.ConnectionManagerConfig.PongTimeoutSec, c.ConnectionManagerConfig.HeartbeatIntervalSec)
+				pong, heartbeat)
 		}
 	}
 
