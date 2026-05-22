@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
-	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 )
 
 type ProposeStandardCapabilityJobDeps struct {
@@ -83,7 +82,7 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 				{
 					Key:   "type",
 					Op:    ptypes.SelectorOp_EQ,
-					Value: pointer.To(PluginNodeType),
+					Value: new(PluginNodeType),
 				},
 			},
 		}

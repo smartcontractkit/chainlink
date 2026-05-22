@@ -27,12 +27,12 @@ go test ./system-tests/tests/smoke/cre -timeout 20m -run '^Test_CRE_'
 
 The comments in `cre_suite_test.go` also call out the pattern of starting Local CRE first and then running the smoke package.
 
-Do not enable `--with-beholder` for the default smoke-test flow. Most CRE smoke tests start the ChIP test sink on the default gRPC port (`50051`), and Beholder starts Chip Ingress on that same port. If both try to use the default port, the test sink startup fails.
+Do not enable `--with-chip-ingress-stack` for the default smoke-test flow (`--with-beholder` is deprecated and maps to the same behavior). Most CRE smoke tests start the ChIP test sink on the default gRPC port (`50051`), and the Chip Ingress stack starts Chip Ingress on that same port. If both try to use the default port, the test sink startup fails.
 
-Enable Beholder only when:
+Enable the Chip Ingress stack only when:
 
-- you are running Beholder-specific coverage
-- you need the Beholder stack for debugging
+- you are running Chip Ingress stack-specific coverage
+- you need the stack for debugging
 - you start it on a different `--grpc-port` so the smoke-test sink can still bind its default port
 
 ## Environment Variables
@@ -102,11 +102,11 @@ The old V2 suite is split into:
 - `Test_CRE_V2_Suite_Bucket_B`
 - `Test_CRE_V2_Suite_Bucket_C`
 
-Those buckets are defined in `system-tests/tests/smoke/cre/v2suite/config/bucketing.go`:
+Those buckets are defined in `system-tests/tests/smoke/cre/config/bucketing.go`:
 
 - `suite-bucket-a`: ProofOfReserve, HTTPTriggerAction, DONTime, Consensus
 - `suite-bucket-b`: VaultDON
-- `suite-bucket-c`: CronBeholder, HTTPActionCRUD
+- `suite-bucket-c`: CronChipIngressStack, HTTPActionCRUD
 
 The EVM read suite uses a separate bucket registry in `system-tests/tests/smoke/cre/evm/evmread/config/bucketing.go`:
 
