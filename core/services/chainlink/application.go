@@ -38,7 +38,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
@@ -86,7 +85,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
-	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -127,7 +125,6 @@ type Application interface {
 	TxmStorageService() txmgr.EvmTxStore
 	AddJobV2(ctx context.Context, job *job.Job) error
 	DeleteJob(ctx context.Context, jobID int32) error
-	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta jsonserializable.JSONSerializable) (int64, error)
 	ResumeJobV2(ctx context.Context, taskID uuid.UUID, result pipeline.Result) error
 	// Testing only
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]any) (int64, error)
@@ -164,7 +161,6 @@ type ChainlinkApplication struct {
 	authenticationProvider   sessions.AuthenticationProvider // Note: this will be OIDC instance
 	txmStorageService        txmgr.EvmTxStore
 	FeedsService             feeds.Service
-	webhookJobRunner         webhook.JobRunner
 	Config                   GeneralConfig
 	KeyStore      keystore.Master
 	SessionReaper *utils.SleeperTask
@@ -614,7 +610,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				relayChainInterops.LegacyEVMChains().Slice(),
 			),
 		}
-		webhookJobRunner = webhook.DeprecatedJobRunner{}
 	)
 
 	delegates[job.Workflow] = workflows.NewDelegate(
@@ -835,7 +830,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		txmStorageService:        txmORM,
 		FeedsService:             feedsService,
 		Config:                   cfg,
-		webhookJobRunner:         webhookJobRunner,
 		KeyStore:                 keyStore,
 		SessionReaper: sessionReaper,
 		HealthChecker: healthChecker,
@@ -1056,10 +1050,6 @@ func (app *ChainlinkApplication) DeleteJob(ctx context.Context, jobID int32) err
 	}
 
 	return app.jobSpawner.DeleteJob(ctx, nil, jobID)
-}
-
-func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta jsonserializable.JSONSerializable) (int64, error) {
-	return app.webhookJobRunner.RunJob(ctx, jobUUID, requestBody, meta)
 }
 
 // Only used for local testing, not supported by the UI.

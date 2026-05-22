@@ -340,8 +340,9 @@ func TestIntegration_AsyncEthTx(t *testing.T) {
 	t.Run("with FailOnRevert enabled, run succeeds when transaction is successful", func(t *testing.T) {
 		app, sendingAddr, o := setupAppForEthTx(t, operatorContracts)
 		tomlSpec := `
-type            = "webhook"
-schemaVersion   = 1
+type                = "cron"
+schemaVersion       = 1
+schedule            = "CRON_TZ=UTC * 0 0 1 1 *"
 observationSource   = """
 	submit_tx  [type=ethtx to="%s"
             data="%s"
@@ -358,7 +359,7 @@ observationSource   = """
 		j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
 		cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
 
-		run := cltest.CreateJobRunViaUser(t, app, j.ExternalJobID, "")
+		run := cltest.CreateJobRunViaUserByID(t, app, j.ID, "")
 		assert.Equal(t, []*string(nil), run.Outputs)
 		assert.Equal(t, []*string(nil), run.Errors)
 
@@ -391,8 +392,9 @@ observationSource   = """
 	t.Run("with FailOnRevert enabled, run fails with transaction reverted error", func(t *testing.T) {
 		app, sendingAddr, o := setupAppForEthTx(t, operatorContracts)
 		tomlSpec := `
-type            = "webhook"
-schemaVersion   = 1
+type                = "cron"
+schemaVersion       = 1
+schedule            = "CRON_TZ=UTC * 0 0 1 1 *"
 observationSource   = """
 	submit_tx  [type=ethtx to="%s"
             data="%s"
@@ -409,7 +411,7 @@ observationSource   = """
 		j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
 		cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
 
-		run := cltest.CreateJobRunViaUser(t, app, j.ExternalJobID, "")
+		run := cltest.CreateJobRunViaUserByID(t, app, j.ID, "")
 		assert.Equal(t, []*string(nil), run.Outputs)
 		assert.Equal(t, []*string(nil), run.Errors)
 
@@ -434,8 +436,9 @@ observationSource   = """
 	t.Run("with FailOnRevert disabled, run succeeds with output being reverted receipt", func(t *testing.T) {
 		app, sendingAddr, o := setupAppForEthTx(t, operatorContracts)
 		tomlSpec := `
-type            = "webhook"
-schemaVersion   = 1
+type                = "cron"
+schemaVersion       = 1
+schedule            = "CRON_TZ=UTC * 0 0 1 1 *"
 observationSource   = """
 	submit_tx  [type=ethtx to="%s"
             data="%s"
@@ -452,7 +455,7 @@ observationSource   = """
 		j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
 		cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
 
-		run := cltest.CreateJobRunViaUser(t, app, j.ExternalJobID, "")
+		run := cltest.CreateJobRunViaUserByID(t, app, j.ID, "")
 		assert.Equal(t, []*string(nil), run.Outputs)
 		assert.Equal(t, []*string(nil), run.Errors)
 

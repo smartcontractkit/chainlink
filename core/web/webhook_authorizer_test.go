@@ -1,4 +1,4 @@
-package webhook_test
+package web_test
 
 import (
 	"testing"
@@ -11,8 +11,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
 
 type eiEnabledCfg struct{}
@@ -23,7 +23,7 @@ type eiDisabledCfg struct{}
 
 func (eiDisabledCfg) ExternalInitiatorsEnabled() bool { return false }
 
-func Test_Authorizer(t *testing.T) {
+func TestWebhookRunAuthorizer(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	borm := bridges.NewORM(db)
 
@@ -42,7 +42,7 @@ func Test_Authorizer(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("no user no ei never authorizes", func(t *testing.T) {
-		a := webhook.NewAuthorizer(db, nil, nil)
+		a := web.NewWebhookRunAuthorizer(db, nil, nil)
 
 		can, err := a.CanRun(testutils.Context(t), nil, jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)
@@ -56,7 +56,7 @@ func Test_Authorizer(t *testing.T) {
 	})
 
 	t.Run("with user no ei always authorizes", func(t *testing.T) {
-		a := webhook.NewAuthorizer(db, &sessions.User{}, nil)
+		a := web.NewWebhookRunAuthorizer(db, &sessions.User{}, nil)
 
 		can, err := a.CanRun(testutils.Context(t), nil, jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)
@@ -70,7 +70,7 @@ func Test_Authorizer(t *testing.T) {
 	})
 
 	t.Run("no user with ei authorizes conditionally", func(t *testing.T) {
-		a := webhook.NewAuthorizer(db, nil, &eiFoo)
+		a := web.NewWebhookRunAuthorizer(db, nil, &eiFoo)
 
 		can, err := a.CanRun(testutils.Context(t), eiEnabledCfg{}, jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)

@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -999,6 +1000,25 @@ func CreateJobRunViaUser(
 	bodyBuf := bytes.NewBufferString(body)
 	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Post("/v2/jobs/"+jobID.String()+"/runs", bodyBuf)
+	defer cleanup()
+	AssertServerResponse(t, resp, 200)
+	var pr webpresenters.PipelineRunResource
+	ParseJSONAPIResponse(t, resp, &pr)
+
+	return pr
+}
+
+func CreateJobRunViaUserByID(
+	t testing.TB,
+	app *TestApplication,
+	jobID int32,
+	body string,
+) webpresenters.PipelineRunResource {
+	t.Helper()
+
+	bodyBuf := bytes.NewBufferString(body)
+	client := app.NewHTTPClient(nil)
+	resp, cleanup := client.Post("/v2/jobs/"+strconv.Itoa(int(jobID))+"/runs", bodyBuf)
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
 	var pr webpresenters.PipelineRunResource

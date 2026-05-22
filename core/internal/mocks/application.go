@@ -8,7 +8,6 @@ import (
 
 	uuid "github.com/google/uuid"
 	sqlutil "github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	jsonserializable "github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	logpoller "github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	txmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	bridges "github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -1284,65 +1283,6 @@ func (_c *Application_RunJobV2_Call) Return(_a0 int64, _a1 error) *Application_R
 }
 
 func (_c *Application_RunJobV2_Call) RunAndReturn(run func(context.Context, int32, map[string]interface{}) (int64, error)) *Application_RunJobV2_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// RunWebhookJobV2 provides a mock function with given fields: ctx, jobUUID, requestBody, meta
-func (_m *Application) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta jsonserializable.JSONSerializable) (int64, error) {
-	ret := _m.Called(ctx, jobUUID, requestBody, meta)
-
-	if len(ret) == 0 {
-		panic("no return value specified for RunWebhookJobV2")
-	}
-
-	var r0 int64
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, string, jsonserializable.JSONSerializable) (int64, error)); ok {
-		return rf(ctx, jobUUID, requestBody, meta)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, string, jsonserializable.JSONSerializable) int64); ok {
-		r0 = rf(ctx, jobUUID, requestBody, meta)
-	} else {
-		r0 = ret.Get(0).(int64)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID, string, jsonserializable.JSONSerializable) error); ok {
-		r1 = rf(ctx, jobUUID, requestBody, meta)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// Application_RunWebhookJobV2_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RunWebhookJobV2'
-type Application_RunWebhookJobV2_Call struct {
-	*mock.Call
-}
-
-// RunWebhookJobV2 is a helper method to define mock.On call
-//   - ctx context.Context
-//   - jobUUID uuid.UUID
-//   - requestBody string
-//   - meta jsonserializable.JSONSerializable
-func (_e *Application_Expecter) RunWebhookJobV2(ctx interface{}, jobUUID interface{}, requestBody interface{}, meta interface{}) *Application_RunWebhookJobV2_Call {
-	return &Application_RunWebhookJobV2_Call{Call: _e.mock.On("RunWebhookJobV2", ctx, jobUUID, requestBody, meta)}
-}
-
-func (_c *Application_RunWebhookJobV2_Call) Run(run func(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta jsonserializable.JSONSerializable)) *Application_RunWebhookJobV2_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(uuid.UUID), args[2].(string), args[3].(jsonserializable.JSONSerializable))
-	})
-	return _c
-}
-
-func (_c *Application_RunWebhookJobV2_Call) Return(_a0 int64, _a1 error) *Application_RunWebhookJobV2_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *Application_RunWebhookJobV2_Call) RunAndReturn(run func(context.Context, uuid.UUID, string, jsonserializable.JSONSerializable) (int64, error)) *Application_RunWebhookJobV2_Call {
 	_c.Call.Return(run)
 	return _c
 }

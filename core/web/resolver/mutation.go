@@ -41,7 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -1223,10 +1222,6 @@ func (r *Resolver) RunJob(ctx context.Context, args struct {
 
 	jobRunID, err := r.App.RunJobV2(ctx, jobID, nil)
 	if err != nil {
-		if errors.Is(err, webhook.ErrJobNotExists) {
-			return NewRunJobPayload(nil, r.App, err), nil
-		}
-
 		return nil, err
 	}
 
@@ -1236,7 +1231,7 @@ func (r *Resolver) RunJob(ctx context.Context, args struct {
 	}
 
 	r.App.GetAuditLogger().Audit(audit.JobRunSet, map[string]any{"jobID": args.ID, "jobRunID": jobRunID, "planRunID": plnRun})
-	return NewRunJobPayload(&plnRun, r.App, nil), nil
+	return NewRunJobPayload(&plnRun, r.App), nil
 }
 
 func (r *Resolver) SetGlobalLogLevel(ctx context.Context, args struct {
