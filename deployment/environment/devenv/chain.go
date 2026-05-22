@@ -37,7 +37,7 @@ import (
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	tronprovider "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron/provider"
 	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
-	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv/internal/kms"
 )
 
 const (
@@ -118,15 +118,15 @@ func (c *ChainConfig) SetDeployerKey(pvtKeyStr *string) error {
 		c.DeployerKey = deployer
 		return nil
 	}
-	kmsConfig, err := deployment.KMSConfigFromEnvVars()
+	kmsConfig, err := kms.KMSConfigFromEnvVars()
 	if err != nil {
 		return fmt.Errorf("failed to get kms config from env vars: %w", err)
 	}
-	kmsClient, err := deployment.NewKMSClient(kmsConfig)
+	kmsClient, err := kms.NewKMSClient(kmsConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create KMS client: %w", err)
 	}
-	evmKMSClient := deployment.NewEVMKMSClient(kmsClient, kmsConfig.KmsDeployerKeyId)
+	evmKMSClient := kms.NewEVMKMSClient(kmsClient, kmsConfig.KmsDeployerKeyId)
 	chainID, success := new(big.Int).SetString(c.ChainID, 10)
 	if !success {
 		return fmt.Errorf("invalid chainID %s", c.ChainID)
