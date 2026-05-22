@@ -17,11 +17,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	vault "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
@@ -31,7 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/teeattestation"
 	"github.com/smartcontractkit/chainlink-common/pkg/teeattestation/nitro"
 
-	vaulttypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
 var _ core.GatewayConnectorHandler = (*Handler)(nil)
@@ -107,9 +108,10 @@ type Handler struct {
 	// validateAttestation validates TEE attestation documents.
 	// Defaults to the Nitro validator; overridden in tests.
 	validateAttestation attestationValidatorFunc
+	limitsFactory       limits.Factory
 }
 
-func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, _ limits.Factory) (*Handler, error) {
+func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, lf limits.Factory) (*Handler, error) {
 	if responseSigner == nil {
 		return nil, errors.New("response signer is required")
 	}
@@ -125,6 +127,7 @@ func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnecto
 		lggr:                logger.Named(lggr, HandlerName),
 		metrics:             m,
 		validateAttestation: nitro.ValidateAttestation,
+		limitsFactory:       lf,
 	}
 	h.Service, h.eng = services.Config{
 		Name:  HandlerName,
@@ -265,6 +268,7 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 		WorkflowDonConfigVersion: localNode.WorkflowDON.ConfigVersion,
 		ReferenceID:              req.ID,
 	}
+	h.applyPropagatedOrgID(ctx, &metadata, params.OrgID)
 	capResp, err := vaultCap.Execute(ctx, capabilities.CapabilityRequest{
 		Payload:      anypbReq,
 		Method:       vault.MethodGetSecrets,
@@ -410,6 +414,7 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 			ReferenceID:         referenceID,
 		},
 	}
+	h.applyPropagatedOrgID(ctx, &capReq.Metadata, params.OrgID)
 
 	// Backward compatibility: extract values.Map from Payload into Inputs
 	// for old-style capabilities that only look at Inputs.
@@ -485,6 +490,15 @@ func (h *Handler) getEnclaveAttestationConfig(ctx context.Context) ([]json.RawMe
 		}
 	}
 	return measurements, caRootsPEM, nil
+}
+
+func (h *Handler) applyPropagatedOrgID(ctx context.Context, md *capabilities.RequestMetadata, orgFromRequest string) {
+	propagateOrgIDMeta, _ := cresettings.Default.PropagateOrgIDInRequestMetadata.GetOrDefault(ctx, h.limitsFactory.Settings)
+	if propagateOrgIDMeta && orgFromRequest != "" {
+		md.OrgID = orgFromRequest
+		return
+	}
+	md.OrgID = ""
 }
 
 func (h *Handler) verifyAttestationHash(ctx context.Context, attestationB64 string, cleanParams any, domainTag string) error {

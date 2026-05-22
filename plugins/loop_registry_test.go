@@ -128,13 +128,13 @@ type mockCfgMercury struct{}
 
 func (m mockCfgMercury) Credentials(credName string) *types.MercuryCredentials { panic("implement me") }
 
-func (m mockCfgMercury) Cache() config.MercuryCache {
+func (m mockCfgMercury) Cache() mercurytransmitter.MercuryCache {
 	return mockCfgCache{}
 }
 
-func (m mockCfgMercury) TLS() config.MercuryTLS { panic("implement me") }
+func (m mockCfgMercury) TLS() mercurytransmitter.MercuryTLS { panic("implement me") }
 
-func (m mockCfgMercury) Transmitter() config.MercuryTransmitter {
+func (m mockCfgMercury) Transmitter() mercurytransmitter.MercuryTransmitter {
 	return mockCfgTransmitter{}
 }
 

@@ -51,7 +51,7 @@ func Test_CRE_V2_Cron_Regression(t *testing.T) {
 			}
 			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 
-			CronBeholderFailsWithInvalidScheduleTest(t, testEnv, tCase.invalidSchedule)
+			CronChipIngressStackFailsWithInvalidScheduleTest(t, testEnv, tCase.invalidSchedule)
 		})
 	}
 }

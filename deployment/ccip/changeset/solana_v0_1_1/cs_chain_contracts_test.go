@@ -35,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -415,10 +414,10 @@ func doTestBilling(t *testing.T, mcms bool) {
 							evmChain: {
 								TokenAddressToFeeConfig: map[solana.PublicKey]ccipChangesetSolana.OptionalFeeQuoterTokenTransferFeeConfig{
 									tokenAddressB: {
-										MinFeeUsdcents:    pointer.To(uint32(800)),
-										MaxFeeUsdcents:    pointer.To(uint32(1600)),
-										DestGasOverhead:   pointer.To(uint32(100)),
-										DestBytesOverhead: pointer.To(uint32(100)),
+										MinFeeUsdcents:    new(uint32(800)),
+										MaxFeeUsdcents:    new(uint32(1600)),
+										DestGasOverhead:   new(uint32(100)),
+										DestBytesOverhead: new(uint32(100)),
 										IsEnabled:         nil, // auto-filled
 										DeciBps:           nil, // auto-filled
 									},
@@ -430,10 +429,10 @@ func doTestBilling(t *testing.T, mcms bool) {
 							evmChain2: {
 								TokenAddressToFeeConfig: map[solana.PublicKey]ccipChangesetSolana.OptionalFeeQuoterTokenTransferFeeConfig{
 									tokenAddressB: {
-										MinFeeUsdcents:    pointer.To(uint32(800)),
-										MaxFeeUsdcents:    pointer.To(uint32(1600)),
-										DestGasOverhead:   pointer.To(uint32(100)),
-										DestBytesOverhead: pointer.To(uint32(100)),
+										MinFeeUsdcents:    new(uint32(800)),
+										MaxFeeUsdcents:    new(uint32(1600)),
+										DestGasOverhead:   new(uint32(100)),
+										DestBytesOverhead: new(uint32(100)),
 										IsEnabled:         nil, // auto-filled
 										DeciBps:           nil, // auto-filled
 									},

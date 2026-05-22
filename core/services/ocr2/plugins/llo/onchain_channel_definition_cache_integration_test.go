@@ -1291,7 +1291,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, ownerDefsDroppedSHA)))
 		backend.Commit()
 
-		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Set channel definitions for source",
 			"url", url)
 
 		// Build a prev that contains the tombstoned channel 600 (simulating the
@@ -1434,6 +1434,8 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
 			"url", url)
 
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Set channel definitions for source", "source", strconv.FormatUint(uint64(adder1ID), 10))
+
 		// Adder2 adds different channels
 		observedLogs.TakeAll()
 
@@ -1464,6 +1466,8 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 
 		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
 			"url", url2)
+
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Set channel definitions for source", "source", strconv.FormatUint(uint64(adder2ID), 10))
 
 		require.Eventually(t, func() bool {
 			defs := cdc.Definitions(llotypes.ChannelDefinitions{})

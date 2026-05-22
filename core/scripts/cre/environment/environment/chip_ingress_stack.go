@@ -30,7 +30,12 @@ import (
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 )
 
-const DefaultBeholderConfigFile = "configs/chip-ingress.toml"
+const (
+	DefaultChipIngressStackConfigFile = "configs/chip-ingress.toml"
+
+	chipIngressStackRouterSubscriberFilename       = "chip_ingress_router_chip_ingress_stack_subscriber"
+	chipIngressStackRouterSubscriberLegacyFilename = "chip_ingress_router_beholder_subscriber"
+)
 
 // moduleInfo represents the JSON output from `go list -m -json`
 type moduleInfo struct {
@@ -259,47 +264,109 @@ func getComposeFileFromGoMod(ctx context.Context) (string, error) {
 	return "file://" + cachedFile, nil
 }
 
-func beholderCmds() *cobra.Command {
+func printDeprecatedEnvBeholderSubtreeBanner() {
+	const width = 78
+	sep := strings.Repeat("=", width)
+	msg := "\n" + sep + "\n\n" +
+		"  DEPRECATED CLI: env beholder\n\n" +
+		"  This command group is deprecated and will be removed.\n\n" +
+		"  Use instead:\n" +
+		"    go run . env chip-ingress-stack <subcommand>\n\n" +
+		"  Examples:\n" +
+		"    go run . env chip-ingress-stack start\n" +
+		"    go run . env chip-ingress-stack stop\n\n" +
+		sep + "\n\n"
+	fmt.Fprint(os.Stderr, msg)
+}
+
+// printDeprecatedWithBeholderStartFlagBanner prints a large stderr warning after a successful
+// `env start` when the deprecated --with-beholder flag was used.
+func printDeprecatedWithBeholderStartFlagBanner() {
+	const width = 78
+	sep := strings.Repeat("=", width)
+	msg := "\n" + sep + "\n\n" +
+		"  DEPRECATED FLAG: --with-beholder (-b)\n\n" +
+		"  This flag is deprecated and will be removed.\n\n" +
+		"  Use instead:\n" +
+		"    go run . env start --with-chip-ingress-stack\n\n" +
+		sep + "\n\n"
+	fmt.Fprint(os.Stderr, msg)
+}
+
+func chipIngressStackCmds() *cobra.Command {
+	return newChipIngressStackRootCmd(
+		"chip-ingress-stack",
+		"",
+		"Chip Ingress stack commands",
+		"Commands to manage the local Chip Ingress stack (Red Panda + ChIP ingress)",
+	)
+}
+
+func beholderDeprecatedChipIngressStackCmd() *cobra.Command {
+	cmd := newChipIngressStackRootCmd(
+		"beholder",
+		"use 'env chip-ingress-stack' instead",
+		"Beholder commands (deprecated)",
+		"Deprecated: use 'env chip-ingress-stack'. Commands to manage the Chip Ingress stack.",
+	)
+	prevHelp := cmd.HelpFunc()
+	cmd.SetHelpFunc(func(c *cobra.Command, args []string) {
+		prevHelp(c, args)
+		printDeprecatedEnvBeholderSubtreeBanner()
+	})
+	// After any successful subcommand (start/stop/...), Cobra walks parents from the leaf and runs
+	// the first PersistentPostRun found; `start` has none, so this runs here (unlike PersistentPreRun,
+	// where `start`'s PersistentPreRun wins and parent hooks never run).
+	cmd.PersistentPostRun = func(_ *cobra.Command, _ []string) {
+		printDeprecatedEnvBeholderSubtreeBanner()
+	}
+	return cmd
+}
+
+func newChipIngressStackRootCmd(use, deprecated, short, long string) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "beholder",
-		Short: "Beholder commands",
-		Long:  `Commands to manage the Beholder stack`,
+		Use:        use,
+		Deprecated: deprecated,
+		Short:      short,
+		Long:       long,
 	}
 
-	cmd.AddCommand(startBeholderCmd())
-	cmd.AddCommand(stopBeholderCmd)
+	cmd.AddCommand(startChipIngressStackCmd())
+	cmd.AddCommand(newStopChipIngressStackCmd())
 	cmd.AddCommand(createKafkaTopicsCmd())
 	cmd.AddCommand(fetchAndRegisterProtosCmd())
 
 	return cmd
 }
 
-func startBeholderCmd() *cobra.Command {
+func startChipIngressStackCmd() *cobra.Command {
 	var (
 		timeout time.Duration
 		port    int
 	)
 	cmd := &cobra.Command{
 		Use:              "start",
-		Short:            "Start the Beholder",
-		Long:             `Start the Beholder`,
+		Short:            "Start the Chip Ingress stack",
+		Long:             `Start the Chip Ingress stack (Red Panda + ChIP ingress)`,
 		PersistentPreRun: globalPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			initDxTracker()
-			var startBeholderErr error
+			var startErr error
 
 			defer func() {
 				metaData := map[string]any{}
-				if startBeholderErr != nil {
+				if startErr != nil {
 					metaData["result"] = "failure"
-					metaData["error"] = oneLineErrorMessage(startBeholderErr)
+					metaData["error"] = oneLineErrorMessage(startErr)
 				} else {
 					metaData["result"] = "success"
 				}
 
-				trackingErr := dxTracker.Track(MetricBeholderStart, metaData)
-				if trackingErr != nil {
-					fmt.Fprintf(os.Stderr, "failed to track beholder start: %s\n", trackingErr)
+				if trackingErr := dxTracker.Track(MetricChipIngressStackStart, metaData); trackingErr != nil {
+					fmt.Fprintf(os.Stderr, "failed to track chip ingress stack start: %s\n", trackingErr)
+				}
+				if trackingErr := dxTracker.Track(MetricBeholderStart, metaData); trackingErr != nil {
+					fmt.Fprintf(os.Stderr, "failed to track legacy beholder metric: %s\n", trackingErr)
 				}
 			}()
 
@@ -309,17 +376,17 @@ func startBeholderCmd() *cobra.Command {
 				return fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", setErr)
 			}
 
-			startBeholderErr = startBeholder(cmd.Context(), timeout, port)
-			if startBeholderErr != nil {
+			startErr = startChipIngressStack(cmd.Context(), timeout, port)
+			if startErr != nil {
 				// remove the stack if the error is not related to proto registration
-				if !strings.Contains(startBeholderErr.Error(), protoRegistrationErrMsg) {
+				if !strings.Contains(startErr.Error(), protoRegistrationErrMsg) {
 					waitToCleanUp(timeout)
-					beholderRemoveErr := framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
-					if beholderRemoveErr != nil {
-						fmt.Fprint(os.Stderr, errors.Wrap(beholderRemoveErr, manualBeholderCleanupMsg).Error())
+					removeErr := framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
+					if removeErr != nil {
+						fmt.Fprint(os.Stderr, errors.Wrap(removeErr, manualChipIngressStackCleanupMsg).Error())
 					}
 				}
-				return errors.Wrap(startBeholderErr, "failed to start Beholder")
+				return errors.Wrap(startErr, "failed to start Chip Ingress stack")
 			}
 
 			return nil
@@ -341,24 +408,24 @@ func mustStringToInt(in string) int {
 	return out
 }
 
-func loadPersistedBeholderState(relativePathToRepoRoot string) (*envconfig.ChipIngressConfig, error) {
+func loadPersistedChipIngressStackState(relativePathToRepoRoot string) (*envconfig.ChipIngressConfig, error) {
 	absPath := envconfig.MustChipIngressStateFileAbsPath(relativePathToRepoRoot)
 	if _, err := os.Stat(absPath); err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
-		return nil, errors.Wrap(err, "failed to stat persisted Beholder state")
+		return nil, errors.Wrap(err, "failed to stat persisted Chip Ingress stack state")
 	}
 
 	cfg := &envconfig.ChipIngressConfig{}
 	if err := cfg.Load(absPath); err != nil {
-		return nil, errors.Wrap(err, "failed to load persisted Beholder state")
+		return nil, errors.Wrap(err, "failed to load persisted Chip Ingress stack state")
 	}
 
 	return cfg, nil
 }
 
-func persistedBeholderGRPCEndpoint(cfg *envconfig.ChipIngressConfig) string {
+func persistedChipIngressStackGRPCEndpoint(cfg *envconfig.ChipIngressConfig) string {
 	if cfg == nil || cfg.ChipIngress == nil || cfg.ChipIngress.Output == nil || cfg.ChipIngress.Output.ChipIngress == nil {
 		return ""
 	}
@@ -366,55 +433,57 @@ func persistedBeholderGRPCEndpoint(cfg *envconfig.ChipIngressConfig) string {
 	return strings.TrimSpace(cfg.ChipIngress.Output.ChipIngress.GRPCExternalURL)
 }
 
-func restorePersistedBeholderState(relativePathToRepoRoot string, cfg *envconfig.ChipIngressConfig) error {
+func restorePersistedChipIngressStackState(relativePathToRepoRoot string, cfg *envconfig.ChipIngressConfig) error {
 	if cfg == nil {
 		return nil
 	}
 	path := envconfig.MustChipIngressStateFileAbsPath(relativePathToRepoRoot)
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return errors.Wrap(err, "failed to create directory for persisted Beholder state")
+		return errors.Wrap(err, "failed to create directory for persisted Chip Ingress stack state")
 	}
 	return cfg.Store(path)
 }
 
-func reconcilePersistedBeholderWithRouter(ctx context.Context, cfg *envconfig.ChipIngressConfig) error {
-	endpoint := persistedBeholderGRPCEndpoint(cfg)
+func reconcilePersistedChipIngressStackWithRouter(ctx context.Context, cfg *envconfig.ChipIngressConfig) error {
+	endpoint := persistedChipIngressStackGRPCEndpoint(cfg)
 	if endpoint == "" {
-		return errors.New("persisted Beholder state is missing chip ingress grpc endpoint")
+		return errors.New("persisted Chip Ingress stack state is missing chip ingress grpc endpoint")
 	}
 
-	return registerBeholderEndpointWithRouter(ctx, endpoint)
+	return registerChipIngressStackEndpointWithRouter(ctx, endpoint)
 }
 
-var stopBeholderCmd = &cobra.Command{
-	Use:              "stop",
-	Short:            "Stop the Beholder",
-	Long:             "Stop the Beholder",
-	PersistentPreRun: globalPreRunFunc,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return stopBeholder()
-	},
+func newStopChipIngressStackCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:              "stop",
+		Short:            "Stop the Chip Ingress stack",
+		Long:             "Stop the Chip Ingress stack",
+		PersistentPreRun: globalPreRunFunc,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return stopChipIngressStack()
+		},
+	}
 }
 
-func stopBeholder() error {
-	subscriberID, loadSubscriberErr := loadBeholderSubscriberID(relativePathToRepoRoot)
+func stopChipIngressStack() error {
+	subscriberID, loadSubscriberErr := loadChipIngressStackSubscriberID(relativePathToRepoRoot)
 	if loadSubscriberErr != nil && !os.IsNotExist(loadSubscriberErr) {
-		framework.L.Warn().Err(loadSubscriberErr).Msg("failed to load Beholder router subscriber id")
+		framework.L.Warn().Err(loadSubscriberErr).Msg("failed to load Chip Ingress stack router subscriber id")
 	}
 	if subscriberID != "" {
 		unregisterErr := chiprouter.UnregisterSubscriber(context.Background(), subscriberID)
 		if unregisterErr != nil && !os.IsNotExist(unregisterErr) && !strings.Contains(unregisterErr.Error(), "local CRE state file not found") && !strings.Contains(unregisterErr.Error(), "no such file or directory") {
-			framework.L.Warn().Err(unregisterErr).Msg("failed to unregister Beholder from chip ingress router")
+			framework.L.Warn().Err(unregisterErr).Msg("failed to unregister Chip Ingress stack from chip ingress router")
 		}
 	}
 
-	setErr := os.Setenv("CTF_CONFIGS", DefaultBeholderConfigFile)
+	setErr := os.Setenv("CTF_CONFIGS", DefaultChipIngressStackConfigFile)
 	if setErr != nil {
 		return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", setErr)
 	}
 
-	removeCacheErr := removeBeholderStateFiles(relativePathToRepoRoot)
+	removeCacheErr := removeChipIngressStackStateFiles(relativePathToRepoRoot)
 	if removeCacheErr != nil {
 		framework.L.Warn().Msgf("failed to remove cache files: %s\n", removeCacheErr)
 	}
@@ -422,7 +491,7 @@ func stopBeholder() error {
 	return framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
 }
 
-func removeBeholderStateFiles(relativePathToRepoRoot string) error {
+func removeChipIngressStackStateFiles(relativePathToRepoRoot string) error {
 	path := filepath.Join(relativePathToRepoRoot, envconfig.StateDirname, envconfig.ChipIngressStateFilename)
 	absPath, absErr := filepath.Abs(path)
 	if absErr != nil {
@@ -432,7 +501,10 @@ func removeBeholderStateFiles(relativePathToRepoRoot string) error {
 	if err := os.Remove(absPath); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	if err := os.Remove(beholderSubscriberIDPath(relativePathToRepoRoot)); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(chipIngressStackSubscriberIDPath(relativePathToRepoRoot)); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if err := os.Remove(legacyBeholderSubscriberIDPath(relativePathToRepoRoot)); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	return nil
@@ -672,7 +744,7 @@ func printChipImagePullInstructions(requiredEnvVars []string) {
 	fmt.Println()
 }
 
-func startBeholder(cmdContext context.Context, cleanupWait time.Duration, port int) (startupErr error) {
+func startChipIngressStack(cmdContext context.Context, cleanupWait time.Duration, port int) (startupErr error) {
 	// just in case, remove the stack if it exists
 	_ = framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
 
@@ -680,7 +752,7 @@ func startBeholder(cmdContext context.Context, cleanupWait time.Duration, port i
 		p := recover()
 
 		if p != nil {
-			fmt.Println("Panicked when starting Beholder")
+			fmt.Println("Panicked when starting Chip Ingress stack")
 
 			if err, ok := p.(error); ok {
 				fmt.Fprintf(os.Stderr, "Error: %s\n", err)
@@ -696,9 +768,9 @@ func startBeholder(cmdContext context.Context, cleanupWait time.Duration, port i
 
 			time.Sleep(cleanupWait)
 
-			beholderRemoveErr := framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
-			if beholderRemoveErr != nil {
-				fmt.Fprint(os.Stderr, errors.Wrap(beholderRemoveErr, manualBeholderCleanupMsg).Error())
+			removeErr := framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
+			if removeErr != nil {
+				fmt.Fprint(os.Stderr, errors.Wrap(removeErr, manualChipIngressStackCleanupMsg).Error())
 			}
 
 			os.Exit(1)
@@ -751,7 +823,7 @@ If you want to use both together start ChIP Ingress on a different port with '--
 		}
 	}
 
-	// we want to restore previous configs, because Beholder might be started within the context of a different command,
+	// we want to restore previous configs, because the Chip Ingress stack might be started within the context of a different command,
 	// which is also using CTF_CONFIGS environment variable to load or later store configs
 	previousCTFConfig := os.Getenv("CTF_CONFIGS")
 	defer func() {
@@ -761,7 +833,7 @@ If you want to use both together start ChIP Ingress on a different port with '--
 		}
 	}()
 
-	setErr := os.Setenv("CTF_CONFIGS", DefaultBeholderConfigFile)
+	setErr := os.Setenv("CTF_CONFIGS", DefaultChipIngressStackConfigFile)
 	if setErr != nil {
 		return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", setErr)
 	}
@@ -816,57 +888,73 @@ If you want to use both together start ChIP Ingress on a different port with '--
 	}
 
 	if routerErr := chiprouter.EnsureStarted(cmdContext); routerErr == nil {
-		if err := registerBeholderWithRouter(cmdContext, out.ChipIngress); err != nil {
-			return errors.Wrap(err, "failed to register Beholder with chip ingress router")
+		if err := registerChipIngressStackWithRouter(cmdContext, out.ChipIngress); err != nil {
+			return errors.Wrap(err, "failed to register Chip Ingress stack with chip ingress router")
 		}
 	}
-	// ignore the fact that ChIP Ingress Router is not started. Once it is started it will detect that Beholder is running and will register it.
+	// ignore the fact that ChIP Ingress Router is not started. Once it is started it will detect that the Chip Ingress stack is running and will register it.
 
 	fmt.Println()
 	fmt.Println("To exclude a flood of heartbeat messages it is recommended that you register a JS filter with following code: `return value.msg !== 'heartbeat';`")
 	fmt.Println()
-	fmt.Print("To terminate Beholder stack execute: `go run . env beholder stop`\n\n")
+	fmt.Print("To terminate the Chip Ingress stack execute: `go run . env chip-ingress-stack stop`\n\n")
 
 	return in.Store(envconfig.MustChipIngressStateFileAbsPath(relativePathToRepoRoot))
 }
 
-func registerBeholderWithRouter(ctx context.Context, out *chipingressset.ChipIngressOutput) error {
-	return registerBeholderEndpointWithRouter(ctx, out.GRPCInternalURL)
+func registerChipIngressStackWithRouter(ctx context.Context, out *chipingressset.ChipIngressOutput) error {
+	return registerChipIngressStackEndpointWithRouter(ctx, out.GRPCInternalURL)
 }
 
-func registerBeholderEndpointWithRouter(ctx context.Context, endpoint string) error {
-	previousID, err := loadBeholderSubscriberID(relativePathToRepoRoot)
+func registerChipIngressStackEndpointWithRouter(ctx context.Context, endpoint string) error {
+	previousID, err := loadChipIngressStackSubscriberID(relativePathToRepoRoot)
 	if err == nil && previousID != "" {
 		_ = chiprouter.UnregisterSubscriber(ctx, previousID)
 	}
 
-	id, err := chiprouter.RegisterSubscriber(ctx, "beholder", endpoint)
+	id, err := chiprouter.RegisterSubscriber(ctx, "chip-ingress-stack", endpoint)
 	if err != nil {
 		return err
 	}
 
-	// Persist the fixed alias so stopBeholder can remove it without reading transient test output.
+	// Persist the fixed alias so stopChipIngressStack can remove it without reading transient test output.
 	if id == "" {
-		return errors.New("empty subscriber id returned when registering Beholder")
+		return errors.New("empty subscriber id returned when registering Chip Ingress stack")
 	}
 
-	statePath := beholderSubscriberIDPath(relativePathToRepoRoot)
+	statePath := chipIngressStackSubscriberIDPath(relativePathToRepoRoot)
 	if writeErr := os.WriteFile(statePath, []byte(id), 0o600); writeErr != nil {
-		return errors.Wrap(writeErr, "failed to persist Beholder router subscriber id")
+		return errors.Wrap(writeErr, "failed to persist Chip Ingress stack router subscriber id")
 	}
+	_ = os.Remove(legacyBeholderSubscriberIDPath(relativePathToRepoRoot))
 	return nil
 }
 
-func loadBeholderSubscriberID(relativePathToRepoRoot string) (string, error) {
-	raw, err := os.ReadFile(beholderSubscriberIDPath(relativePathToRepoRoot))
+func loadChipIngressStackSubscriberID(relativePathToRepoRoot string) (string, error) {
+	p := chipIngressStackSubscriberIDPath(relativePathToRepoRoot)
+	if raw, err := os.ReadFile(p); err == nil {
+		if s := strings.TrimSpace(string(raw)); s != "" {
+			return s, nil
+		}
+	}
+	legacy := legacyBeholderSubscriberIDPath(relativePathToRepoRoot)
+	raw, err := os.ReadFile(legacy)
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(string(raw)), nil
+	s := strings.TrimSpace(string(raw))
+	if s == "" {
+		return "", os.ErrNotExist
+	}
+	return s, nil
 }
 
-func beholderSubscriberIDPath(relativePathToRepoRoot string) string {
-	return filepath.Join(relativePathToRepoRoot, envconfig.StateDirname, "chip_ingress_router_beholder_subscriber")
+func chipIngressStackSubscriberIDPath(relativePathToRepoRoot string) string {
+	return filepath.Join(relativePathToRepoRoot, envconfig.StateDirname, chipIngressStackRouterSubscriberFilename)
+}
+
+func legacyBeholderSubscriberIDPath(relativePathToRepoRoot string) string {
+	return filepath.Join(relativePathToRepoRoot, envconfig.StateDirname, chipIngressStackRouterSubscriberLegacyFilename)
 }
 
 func parseConfigsAndRegisterProtos(ctx context.Context, schemaSets []chipingressset.SchemaSet, chipIngressOutput *chipingressset.ChipIngressOutput) error {
