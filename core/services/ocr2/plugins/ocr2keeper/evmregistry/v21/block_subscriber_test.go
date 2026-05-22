@@ -44,7 +44,7 @@ func TestBlockSubscriber_Subscribe(t *testing.T) {
 }
 
 func TestBlockSubscriber_Unsubscribe(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	var hb heads.Broadcaster
 	var lp logpoller.LogPoller
 
@@ -62,7 +62,7 @@ func TestBlockSubscriber_Unsubscribe(t *testing.T) {
 }
 
 func TestBlockSubscriber_Unsubscribe_Failure(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	var hb heads.Broadcaster
 	var lp logpoller.LogPoller
 
@@ -74,7 +74,7 @@ func TestBlockSubscriber_Unsubscribe_Failure(t *testing.T) {
 }
 
 func TestBlockSubscriber_GetBlockRange(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	var hb heads.Broadcaster
 
 	tests := []struct {
@@ -113,7 +113,7 @@ func TestBlockSubscriber_GetBlockRange(t *testing.T) {
 }
 
 func TestBlockSubscriber_InitializeBlocks(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	var hb heads.Broadcaster
 
 	tests := []struct {
@@ -176,7 +176,7 @@ func TestBlockSubscriber_InitializeBlocks(t *testing.T) {
 }
 
 func TestBlockSubscriber_BuildHistory(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	var hb heads.Broadcaster
 	lp := mocks.NewLogPoller(t)
 
@@ -226,7 +226,7 @@ func TestBlockSubscriber_BuildHistory(t *testing.T) {
 }
 
 func TestBlockSubscriber_Cleanup(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	var hb heads.Broadcaster
 	lp := mocks.NewLogPoller(t)
 
@@ -274,7 +274,7 @@ func TestBlockSubscriber_Cleanup(t *testing.T) {
 }
 
 func TestBlockSubscriber_Start(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	hb := headstest.NewBroadcaster[*evmtypes.Head, common.Hash](t)
 	hb.On("Subscribe", mock.Anything).Return(&evmtypes.Head{Number: 42}, func() {})
 	lp := mocks.NewLogPoller(t)

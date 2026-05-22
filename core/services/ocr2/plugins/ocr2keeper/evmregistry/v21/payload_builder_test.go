@@ -191,7 +191,7 @@ func TestNewPayloadBuilder(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			lggr, _ := logger.NewLogger()
+			lggr := logger.Test(t)
 			builder := NewPayloadBuilder(tc.activeList, tc.recoverer, lggr)
 			payloads, err := builder.BuildPayloads(t.Context(), tc.proposals...)
 			assert.NoError(t, err)
