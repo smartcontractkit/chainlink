@@ -80,6 +80,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	ccipChangeSetSolanaV0_1_0 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/bigint"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -103,8 +104,8 @@ const (
 var (
 	routerABI = abihelpers.MustParseABI(router.RouterABI)
 
-	DefaultLinkPrice = deployment.E18Mult(20)
-	DefaultWethPrice = deployment.E18Mult(4000)
+	DefaultLinkPrice = bigint.E18Mult(20)
+	DefaultWethPrice = bigint.E18Mult(4000)
 	DefaultGasPrice  = ToPackedFee(big.NewInt(8e14), big.NewInt(0))
 
 	OneCoin     = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1))
@@ -1349,13 +1350,13 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 		tokenPrices[stateChainFrom.Weth9.Address().String()] = DefaultWethPrice
 	case chainsel.FamilyAptos:
 		aptosState := state.AptosChains[from]
-		tokenPrices[aptosState.LinkTokenAddress.StringLong()] = deployment.EDecMult(20, 28)
-		tokenPrices[shared.AptosAPTAddress] = deployment.EDecMult(5, 28)
+		tokenPrices[aptosState.LinkTokenAddress.StringLong()] = bigint.EDecMult(20, 28)
+		tokenPrices[shared.AptosAPTAddress] = bigint.EDecMult(5, 28)
 	case chainsel.FamilySui:
 		suiState := state.SuiChains[from]
 		gasPrices[from] = big.NewInt(1e17)
 		gasPrices[to] = big.NewInt(1e17)
-		tokenPrices[suiState.LinkTokenCoinMetadataId] = deployment.EDecMult(20, 28)
+		tokenPrices[suiState.LinkTokenCoinMetadataId] = bigint.EDecMult(20, 28)
 	}
 	fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, to)
 
