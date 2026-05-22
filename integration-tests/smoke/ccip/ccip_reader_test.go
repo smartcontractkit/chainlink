@@ -1276,14 +1276,14 @@ func testSetupRealContracts(
 	for chainSelector, bindings := range toBindContracts {
 		// Create a separate database for each chain to prevent race conditions
 		db := pgtest.NewSqlxDB(t)
-		
+
 		simClient := env.Env.BlockChains.EVMChains()[uint64(chainSelector)].Client.(*cldf_evm_provider.SimClient)
 		cl := client.NewSimulatedBackendClient(t, simClient.Backend(), big.NewInt(0).SetUint64(uint64(chainSelector)))
 		headTracker := headstest.NewSimulatedHeadTracker(cl, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
-		
+
 		// Start head tracker before LogPoller to ensure proper initialization order
 		require.NoError(t, headTracker.Start(ctx))
-		
+
 		lp := logpoller.NewLogPoller(logpoller.NewORM(big.NewInt(0).SetUint64(uint64(chainSelector)), db, lggr),
 			cl,
 			lggr,
@@ -1291,7 +1291,7 @@ func testSetupRealContracts(
 			lpOpts,
 		)
 		require.NoError(t, lp.Start(ctx))
-		
+
 		// Add a small delay to ensure LogPoller is fully initialized
 		time.Sleep(50 * time.Millisecond)
 
@@ -1403,7 +1403,7 @@ func testSetup(
 	headTracker := headstest.NewSimulatedHeadTracker(cl, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 	// Start head tracker before LogPoller to ensure proper initialization order
 	require.NoError(t, headTracker.Start(ctx))
-	
+
 	orm := logpoller.NewORM(big.NewInt(0).SetUint64(uint64(params.ReaderChain)), db, lggr)
 	lp := logpoller.NewLogPoller(
 		orm,
@@ -1413,7 +1413,7 @@ func testSetup(
 		lpOpts,
 	)
 	require.NoError(t, lp.Start(ctx))
-	
+
 	// Add a small delay to ensure LogPoller is fully initialized
 	time.Sleep(50 * time.Millisecond)
 
@@ -1469,13 +1469,13 @@ func testSetup(
 	for chain, bindings := range params.ToBindContracts {
 		// Create a separate database for each chain to prevent race conditions
 		db2 := pgtest.NewSqlxDB(t)
-		
+
 		cl2 := client.NewSimulatedBackendClient(t, params.SimulatedBackend, big.NewInt(0).SetUint64(uint64(chain)))
 		headTracker2 := headstest.NewSimulatedHeadTracker(cl2, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
-		
+
 		// Start head tracker before LogPoller to ensure proper initialization order
 		require.NoError(t, headTracker2.Start(ctx))
-		
+
 		lp2 := logpoller.NewLogPoller(logpoller.NewORM(big.NewInt(0).SetUint64(uint64(chain)), db2, lggr),
 			cl2,
 			lggr,
@@ -1483,7 +1483,7 @@ func testSetup(
 			lpOpts,
 		)
 		require.NoError(t, lp2.Start(ctx))
-		
+
 		// Add a small delay to ensure LogPoller is fully initialized
 		time.Sleep(50 * time.Millisecond)
 
@@ -1542,7 +1542,7 @@ func testSetup(
 		require.NoError(t, lp.Close())
 		require.NoError(t, headTracker.Close())
 		require.NoError(t, db.Close())
-		
+
 		// Clean up additional LogPollers and databases
 		for chain := range params.ToBindContracts {
 			// The additional cleanup will be handled by their respective test setup
