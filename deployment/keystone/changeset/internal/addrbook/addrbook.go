@@ -1,9 +1,16 @@
-package deployment
+// Package addrbook provides a way to filter addresses based on labels.
+//
+// Addressbook is depcreated but this remains as a temporary solution
+// for backwards compatibility.
 
-import cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+package addrbook
+
+import (
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+)
 
 // LabeledAddresses is an alias to a map whose keys are contract addresses
-type LabeledAddresses map[string]cldf.TypeAndVersion
+type LabeledAddresses map[string]deployment.TypeAndVersion
 
 // And filters the LabeledAddresses to only include those entries that contain all
 // labels.  If labels is empty, then only unlabeled entries are returned.
