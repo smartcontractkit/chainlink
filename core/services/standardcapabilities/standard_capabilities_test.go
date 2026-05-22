@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os/exec"
 	"testing"
 	"time"
@@ -53,7 +52,7 @@ func TestStandardCapabilities_ForwardsExtraSelectorsFile(t *testing.T) {
 	t.Run("env var set on parent is forwarded via CmdConfig.Env", func(t *testing.T) {
 		t.Setenv(extraSelectorsFileEnvVar, "/extraConfig/extra-selectors.yaml")
 		cfg := startAndCapture(t)
-		require.Contains(t, cfg.Env, fmt.Sprintf("%s=/extraConfig/extra-selectors.yaml", extraSelectorsFileEnvVar),
+		require.Contains(t, cfg.Env, extraSelectorsFileEnvVar+"=/extraConfig/extra-selectors.yaml",
 			"standard-capability LOOPP launcher should forward EXTRA_SELECTORS_FILE from the parent process so chain-selectors' init() in the LOOPP can read operator-provided selectors")
 	})
 
