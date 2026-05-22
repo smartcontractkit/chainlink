@@ -1,34 +1,29 @@
 package test
 
 import (
-	"bytes"
 	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
 	"maps"
-	"sort"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
-	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
-
-	"github.com/smartcontractkit/chainlink/deployment"
 	changeset2 "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
 	envtest "github.com/smartcontractkit/chainlink/deployment/environment/test"
 	changeset3 "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -37,6 +32,7 @@ import (
 const (
 	DONName           = "test-don"
 	RegistryQualifier = "test-registry"
+	TestCapabilityID  = "test-capability@1.0.0"
 	Zone              = "test-zone-1"
 	TotalNodes        = 4
 	// EnvironmentName is the name of the environment used in the test
@@ -70,8 +66,10 @@ type donConfig struct {
 	RegistryChainSel uint64
 }
 
+// initHarness sets up the runtime and environment for the test harness.
+//
 // TODO CRE-999; aptos can be made optional
-func initRuntime(t *testing.T, lggr logger.Logger) *EnvWrapperV2 {
+func initHarness(t *testing.T, lggr logger.Logger) *EnvWrapperV2 {
 	var (
 		registryChainSel = chain_selectors.TEST_90000001.Selector
 		// by inspection, the only chain that is needed is evm, but some callers
@@ -91,11 +89,7 @@ func initRuntime(t *testing.T, lggr logger.Logger) *EnvWrapperV2 {
 	don := newViewOnlyNodes(t, registryChainSel, aptosChainSel, donCfg)
 
 	// Setup JD service
-	nodes := make(deployment.Nodes, 0, don.N())
-	for _, v := range don.m {
-		nodes = append(nodes, *v)
-	}
-	jd := envtest.NewJDService(nodes)
+	jd := envtest.NewJDService(don.Nodes())
 
 	// Setup the runtime environment
 	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
@@ -104,11 +98,11 @@ func initRuntime(t *testing.T, lggr logger.Logger) *EnvWrapperV2 {
 		}),
 		environment.WithLogger(lggr),
 		environment.WithOffchainClient(jd),
-		environment.WithNodeIDs(nodes.IDs()),
+		environment.WithNodeIDs(don.Nodes().IDs()),
 	))
 	require.NoError(t, err)
 
-	h := &EnvWrapperV2{
+	return &EnvWrapperV2{
 		t:                t,
 		Runtime:          rt,
 		TestJD:           jd,
@@ -116,6 +110,17 @@ func initRuntime(t *testing.T, lggr logger.Logger) *EnvWrapperV2 {
 		AptosSelector:    aptosChainSel,
 		RegistrySelector: registryChainSel,
 	}
+}
+
+// NewTestHarness starts a runtime with a single DON, 4 nodes and a capabilities registry v2
+// deployed and configured.
+func NewTestHarness(t *testing.T, useMCMS bool) *EnvWrapperV2 {
+	t.Helper()
+
+	lggr := logger.Test(t)
+	h := initHarness(t, lggr)
+
+	t.Log("Initialized runtime", "registryChainSel", h.RegistrySelector)
 
 	// Deploy the capabilities registry
 	deployCapabilitiesRegistry(t, h)
@@ -126,84 +131,14 @@ func initRuntime(t *testing.T, lggr logger.Logger) *EnvWrapperV2 {
 	)
 	require.Len(t, registryAddrs, 1)
 	registryAddress := registryAddrs[0].Address
-	h.RegistryAddress = common.HexToAddress(registryAddress)
+	h.RegistryAddress = common.HexToAddress(registryAddress) // Inject the registry address into the harness for convenience
 
-	return h
-}
-
-func NewTestHarness(t *testing.T, useMCMS bool) *EnvWrapperV2 {
-	t.Helper()
-
-	return SetupEnvV2(t, useMCMS)
-}
-
-// SetupEnvV2 starts an environment with a single DON, 4 nodes and a capabilities registry v2 deployed and configured.
-func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
-	t.Helper()
-
-	lggr := logger.Test(t)
-	h := initRuntime(t, lggr)
-	t.Log("Initialized runtime", "registryChainSel", h.RegistrySelector)
-
+	// Configure the capabilities registry
 	configureCapabilitiesRegistry(t, h)
-
-	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
-		h.RegistryAddress,
-		h.Runtime.Environment().BlockChains.EVMChains()[h.RegistrySelector].Client,
-	)
-	require.NoError(t, err)
-	require.NotNil(t, capReg)
-
-	gotNodes, err := capReg.GetNodesByP2PIds(nil, h.Don.GetP2PIDs().Bytes32())
-	require.NoError(t, err)
-	require.Len(t, gotNodes, len(h.Don.GetP2PIDs()))
-	require.Len(t, gotNodes, h.Don.N()) // +1 for bootstrap
-	for _, n := range gotNodes {
-		require.Equal(t, "test-capability@1.0.0", n.CapabilityIds[0])
-	}
-
-	gotDON, err := capReg.GetDONByName(nil, h.Don.Name())
-	require.NoError(t, err)
-	require.Len(t, gotDON.NodeP2PIds, len(h.Don.GetP2PIDs()))
-
-	// Sort both slices before comparison
-	sort.Slice(gotDON.NodeP2PIds, func(i, j int) bool {
-		return bytes.Compare(gotDON.NodeP2PIds[i][:], gotDON.NodeP2PIds[j][:]) < 0
-	})
-	sortedNodesP2PIDsBytes := make([][32]byte, len(h.Don.GetP2PIDs()))
-	copy(sortedNodesP2PIDsBytes, h.Don.GetP2PIDs().Bytes32())
-	sort.Slice(sortedNodesP2PIDsBytes, func(i, j int) bool {
-		return bytes.Compare(sortedNodesP2PIDsBytes[i][:], sortedNodesP2PIDsBytes[j][:]) < 0
-	})
-	for i, id := range gotDON.NodeP2PIds {
-		require.Equal(t, sortedNodesP2PIDsBytes[i], id)
-	}
+	assertCapabilitiesRegistryConfigured(t, h)
 
 	if useMCMS {
-		t.Log("Setting up MCMS infrastructure...")
-		timelockCfgs := map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
-			h.RegistrySelector: cldftesthelpers.SingleGroupTimelockConfig(t),
-		}
-
-		err = h.Runtime.Exec(
-			runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), timelockCfgs),
-		)
-		require.NoError(t, err, "failed to deploy MCMS infrastructure")
-		t.Log("MCMS infrastructure deployed successfully")
-
-		t.Log("Transferring ownership to MCMS...")
-		err = h.Runtime.Exec(
-			runtime.ChangesetTask(
-				cldf.CreateLegacyChangeSet(changeset3.AcceptAllOwnershipsProposal),
-				&changeset3.AcceptAllOwnershipRequest{
-					ChainSelector: h.RegistrySelector,
-					MinDelay:      0,
-				},
-			),
-			runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
-		)
-		require.NoError(t, err, "failed to transfer ownership to MCMS")
-		t.Log("Ownership transferred to MCMS successfully")
+		setupMCMSInfrastructure(t, h)
 	}
 
 	// Set the Environment because some changesets still use the Environment pointer
@@ -213,6 +148,16 @@ func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 	return h
 }
 
+// SetupEnvV2 is a deprecated function that is kept for backwards compatibility.
+//
+// Use NewTestHarness instead.
+func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
+	t.Helper()
+
+	return NewTestHarness(t, useMCMS)
+}
+
+// configureCapabilitiesRegistry configures the capabilities registry in the runtime environment
 func configureCapabilitiesRegistry(t *testing.T, h *EnvWrapperV2) {
 	t.Helper()
 
@@ -238,7 +183,7 @@ func configureCapabilitiesRegistry(t *testing.T, h *EnvWrapperV2) {
 			EncryptionPublicKey: n.WorkflowKey,
 			Signer:              hex.EncodeToString(ocrConfig.OnchainPublicKey),
 			CapabilityIDs: []string{
-				"test-capability@1.0.0",
+				TestCapabilityID,
 			},
 		})
 	}
@@ -257,7 +202,7 @@ func configureCapabilitiesRegistry(t *testing.T, h *EnvWrapperV2) {
 				Nodes: nodes,
 				Capabilities: []changeset2.CapabilitiesRegistryCapability{
 					{
-						CapabilityID: "test-capability@1.0.0",
+						CapabilityID: TestCapabilityID,
 						Metadata:     map[string]any{"capabilityType": 2},
 					},
 				},
@@ -270,7 +215,7 @@ func configureCapabilitiesRegistry(t *testing.T, h *EnvWrapperV2) {
 						Config:      map[string]any{"defaultConfig": map[string]any{}},
 						CapabilityConfigurations: []changeset2.CapabilitiesRegistryCapabilityConfiguration{
 							{
-								CapabilityID: "test-capability@1.0.0",
+								CapabilityID: TestCapabilityID,
 							},
 						},
 						IsPublic:         true,
@@ -281,6 +226,39 @@ func configureCapabilitiesRegistry(t *testing.T, h *EnvWrapperV2) {
 		),
 	)
 	require.NoError(t, err)
+}
+
+// capabilitiesRegistryClient returns a new capabilities registry client
+func capabilitiesRegistryClient(t *testing.T, h *EnvWrapperV2) *capabilities_registry_v2.CapabilitiesRegistry {
+	t.Helper()
+
+	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
+		h.RegistryAddress,
+		h.Runtime.Environment().BlockChains.EVMChains()[h.RegistrySelector].Client,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, capReg)
+
+	return capReg
+}
+
+// assertCapabilitiesRegistryConfigured asserts that the capabilities registry is configured correctly
+func assertCapabilitiesRegistryConfigured(t *testing.T, h *EnvWrapperV2) {
+	t.Helper()
+
+	capReg := capabilitiesRegistryClient(t, h)
+	expectedP2PIDs := h.Don.GetP2PIDs().Bytes32()
+
+	gotNodes, err := capReg.GetNodesByP2PIds(nil, expectedP2PIDs)
+	require.NoError(t, err)
+	require.Len(t, gotNodes, h.Don.N())
+	for _, n := range gotNodes {
+		require.Equal(t, TestCapabilityID, n.CapabilityIds[0])
+	}
+
+	gotDON, err := capReg.GetDONByName(nil, h.Don.Name())
+	require.NoError(t, err)
+	require.ElementsMatch(t, expectedP2PIDs, gotDON.NodeP2PIds)
 }
 
 // deployCapabilitiesRegistry deploys the capabilities registry in the runtime environment
@@ -296,6 +274,38 @@ func deployCapabilitiesRegistry(t *testing.T, h *EnvWrapperV2) {
 		),
 	)
 	require.NoError(t, err)
+}
+
+// setupMCMSInfrastructure sets up the MCMS infrastructure in the runtime environment
+func setupMCMSInfrastructure(t *testing.T, h *EnvWrapperV2) {
+	t.Helper()
+
+	t.Log("Setting up MCMS infrastructure...")
+
+	timelockCfgs := map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
+		h.RegistrySelector: cldftesthelpers.SingleGroupTimelockConfig(t),
+	}
+
+	err := h.Runtime.Exec(
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), timelockCfgs),
+	)
+	require.NoError(t, err, "failed to deploy MCMS infrastructure")
+
+	t.Log("MCMS infrastructure deployed successfully")
+
+	t.Log("Transferring ownership to MCMS...")
+	err = h.Runtime.Exec(
+		runtime.ChangesetTask(
+			cldf.CreateLegacyChangeSet(changeset3.AcceptAllOwnershipsProposal),
+			&changeset3.AcceptAllOwnershipRequest{
+				ChainSelector: h.RegistrySelector,
+				MinDelay:      0,
+			},
+		),
+		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
+	)
+	require.NoError(t, err, "failed to transfer ownership to MCMS")
+	t.Log("Ownership transferred to MCMS successfully")
 }
 
 // newViewOnlyNodes creates a view only DON with the given configuration.
