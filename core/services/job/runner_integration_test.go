@@ -43,7 +43,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
-	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
@@ -827,9 +826,6 @@ observationSource = """
 	parse [type=jsonparse path="result" data="$(jobRun.requestBody)"]
 """
 `, jobUUID, eiName, cltest.MustJSONMarshal(t, eiSpec))
-
-	_, err = webhook.ValidatedWebhookSpec(testutils.Context(t), tomlSpec, app.GetExternalInitiatorManager())
-	require.NoError(t, err)
 
 	client := app.NewHTTPClient(nil)
 	body, err := json.Marshal(web.CreateJobRequest{TOML: tomlSpec})

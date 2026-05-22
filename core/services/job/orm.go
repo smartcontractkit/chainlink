@@ -396,23 +396,6 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 				return fmt.Errorf("failed to create VRFSpec for jobSpec: %w", err)
 			}
 			jb.VRFSpecID = &specID
-		case Webhook:
-			err := tx.InsertWebhookSpec(ctx, jb.WebhookSpec)
-			if err != nil {
-				return errors.Wrap(err, "failed to create WebhookSpec")
-			}
-			jb.WebhookSpecID = &jb.WebhookSpec.ID
-
-			if len(jb.WebhookSpec.ExternalInitiatorWebhookSpecs) > 0 {
-				for i := range jb.WebhookSpec.ExternalInitiatorWebhookSpecs {
-					jb.WebhookSpec.ExternalInitiatorWebhookSpecs[i].WebhookSpecID = jb.WebhookSpec.ID
-				}
-				sql := `INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec)
-			VALUES (:external_initiator_id, :webhook_spec_id, :spec);`
-				if _, err := tx.ds.NamedExecContext(ctx, sql, jb.WebhookSpec.ExternalInitiatorWebhookSpecs); err != nil {
-					return errors.Wrap(err, "failed to create ExternalInitiatorWebhookSpecs")
-				}
-			}
 		case BlockhashStore:
 			if jb.BlockhashStoreSpec.EVMChainID == nil {
 				return errors.New("evm chain id must be defined")

@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -34,7 +33,6 @@ import (
 func TestPipelineRunsController_CreateWebhookJobRejected(t *testing.T) {
 	t.Parallel()
 
-	ctx := testutils.Context(t)
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(big.NewInt(0), nil)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -52,10 +50,10 @@ func TestPipelineRunsController_CreateWebhookJobRejected(t *testing.T) {
 
 	jobUUID := uuid.New()
 	tomlStr := fmt.Sprintf(testspecs.WebhookSpecWithBodyTemplate, jobUUID, bridge.Name.String())
-	jb, err := webhook.ValidatedWebhookSpec(ctx, tomlStr, app.GetExternalInitiatorManager())
+	_, err := job.ValidateSpec(tomlStr)
 	require.NoError(t, err)
 
-	err = app.AddJobV2(testutils.Context(t), &jb)
+	err = app.AddJobV2(testutils.Context(t), &job.Job{Type: job.Webhook, SchemaVersion: 1})
 	require.Error(t, err)
 	require.ErrorIs(t, err, job.ErrJobTypeRemoved)
 }

@@ -22,7 +22,6 @@ import (
 type ExternalInitiatorManager interface {
 	Notify(ctx context.Context, webhookSpecID int32) error
 	DeleteJob(ctx context.Context, webhookSpecID int32) error
-	FindExternalInitiatorByName(ctx context.Context, name string) (bridges.ExternalInitiator, error)
 }
 
 type HTTPClient interface {
@@ -161,12 +160,6 @@ func (m *externalInitiatorManager) DeleteJob(ctx context.Context, webhookSpecID 
 	return nil
 }
 
-func (m *externalInitiatorManager) FindExternalInitiatorByName(ctx context.Context, name string) (bridges.ExternalInitiator, error) {
-	var exi bridges.ExternalInitiator
-	err := m.ds.GetContext(ctx, &exi, "SELECT * FROM external_initiators WHERE lower(external_initiators.name) = lower($1)", name)
-	return exi, err
-}
-
 // JobSpecNotice is sent to the External Initiator when JobSpecs are created.
 type JobSpecNotice struct {
 	JobID  uuid.UUID   `json:"jobId"`
@@ -206,6 +199,3 @@ var _ ExternalInitiatorManager = (*NullExternalInitiatorManager)(nil)
 
 func (NullExternalInitiatorManager) Notify(context.Context, int32) error    { return nil }
 func (NullExternalInitiatorManager) DeleteJob(context.Context, int32) error { return nil }
-func (NullExternalInitiatorManager) FindExternalInitiatorByName(ctx context.Context, name string) (bridges.ExternalInitiator, error) {
-	return bridges.ExternalInitiator{}, nil
-}

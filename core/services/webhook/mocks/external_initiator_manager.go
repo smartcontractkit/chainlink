@@ -5,7 +5,6 @@ package mocks
 import (
 	context "context"
 
-	bridges "github.com/smartcontractkit/chainlink/v2/core/bridges"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -65,63 +64,6 @@ func (_c *ExternalInitiatorManager_DeleteJob_Call) Return(_a0 error) *ExternalIn
 }
 
 func (_c *ExternalInitiatorManager_DeleteJob_Call) RunAndReturn(run func(context.Context, int32) error) *ExternalInitiatorManager_DeleteJob_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// FindExternalInitiatorByName provides a mock function with given fields: ctx, name
-func (_m *ExternalInitiatorManager) FindExternalInitiatorByName(ctx context.Context, name string) (bridges.ExternalInitiator, error) {
-	ret := _m.Called(ctx, name)
-
-	if len(ret) == 0 {
-		panic("no return value specified for FindExternalInitiatorByName")
-	}
-
-	var r0 bridges.ExternalInitiator
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (bridges.ExternalInitiator, error)); ok {
-		return rf(ctx, name)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) bridges.ExternalInitiator); ok {
-		r0 = rf(ctx, name)
-	} else {
-		r0 = ret.Get(0).(bridges.ExternalInitiator)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, name)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// ExternalInitiatorManager_FindExternalInitiatorByName_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindExternalInitiatorByName'
-type ExternalInitiatorManager_FindExternalInitiatorByName_Call struct {
-	*mock.Call
-}
-
-// FindExternalInitiatorByName is a helper method to define mock.On call
-//   - ctx context.Context
-//   - name string
-func (_e *ExternalInitiatorManager_Expecter) FindExternalInitiatorByName(ctx interface{}, name interface{}) *ExternalInitiatorManager_FindExternalInitiatorByName_Call {
-	return &ExternalInitiatorManager_FindExternalInitiatorByName_Call{Call: _e.mock.On("FindExternalInitiatorByName", ctx, name)}
-}
-
-func (_c *ExternalInitiatorManager_FindExternalInitiatorByName_Call) Run(run func(ctx context.Context, name string)) *ExternalInitiatorManager_FindExternalInitiatorByName_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string))
-	})
-	return _c
-}
-
-func (_c *ExternalInitiatorManager_FindExternalInitiatorByName_Call) Return(_a0 bridges.ExternalInitiator, _a1 error) *ExternalInitiatorManager_FindExternalInitiatorByName_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *ExternalInitiatorManager_FindExternalInitiatorByName_Call) RunAndReturn(run func(context.Context, string) (bridges.ExternalInitiator, error)) *ExternalInitiatorManager_FindExternalInitiatorByName_Call {
 	_c.Call.Return(run)
 	return _c
 }
