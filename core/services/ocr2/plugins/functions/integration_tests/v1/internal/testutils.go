@@ -603,12 +603,12 @@ func ClientTestRequests(t *testing.T, owner *bind.TransactOpts, b evmtypes.Backe
 	// send requests
 	requestSources := make([][]byte, len(clientContracts))
 	rnd := rand.New(rand.NewSource(666))
-	for i, client := range clientContracts {
+	for i, cc := range clientContracts {
 		requestSources[i] = make([]byte, requestLenBytes)
 		for j := range requestLenBytes {
 			requestSources[i][j] = byte(rnd.Uint32() % 256)
 		}
-		_, err := client.Contract.SendRequest(
+		_, err := cc.Contract.SendRequest(
 			owner,
 			hex.EncodeToString(requestSources[i]),
 			expectedSecrets,
@@ -617,22 +617,20 @@ func ClientTestRequests(t *testing.T, owner *bind.TransactOpts, b evmtypes.Backe
 			donId,
 		)
 		require.NoError(t, err)
+		client.FinalizeLatest(t, b)
 	}
-	client.FinalizeLatest(t, b)
 
 	// validate that all client contracts got correct responses to their requests
 	var wg sync.WaitGroup
 	for i := range clientContracts {
 		ic := i
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			gomega.NewGomegaWithT(t).Eventually(func() [32]byte {
 				answer, err := clientContracts[ic].Contract.SLastResponse(nil)
 				require.NoError(t, err)
 				return answer
 			}, timeout, 1*time.Second).Should(gomega.Equal(GetExpectedResponse(requestSources[ic])))
-		}()
+		})
 	}
 	wg.Wait()
 }
