@@ -21,7 +21,6 @@ import (
 	job "github.com/smartcontractkit/chainlink/v2/core/services/job"
 	keystore "github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	pipeline "github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	webhook "github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	sessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 	plugins "github.com/smartcontractkit/chainlink/v2/plugins"
 	mock "github.com/stretchr/testify/mock"
@@ -567,53 +566,6 @@ func (_c *Application_GetDB_Call) Return(_a0 sqlutil.DataSource) *Application_Ge
 }
 
 func (_c *Application_GetDB_Call) RunAndReturn(run func() sqlutil.DataSource) *Application_GetDB_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// GetExternalInitiatorManager provides a mock function with no fields
-func (_m *Application) GetExternalInitiatorManager() webhook.ExternalInitiatorManager {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetExternalInitiatorManager")
-	}
-
-	var r0 webhook.ExternalInitiatorManager
-	if rf, ok := ret.Get(0).(func() webhook.ExternalInitiatorManager); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(webhook.ExternalInitiatorManager)
-		}
-	}
-
-	return r0
-}
-
-// Application_GetExternalInitiatorManager_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetExternalInitiatorManager'
-type Application_GetExternalInitiatorManager_Call struct {
-	*mock.Call
-}
-
-// GetExternalInitiatorManager is a helper method to define mock.On call
-func (_e *Application_Expecter) GetExternalInitiatorManager() *Application_GetExternalInitiatorManager_Call {
-	return &Application_GetExternalInitiatorManager_Call{Call: _e.mock.On("GetExternalInitiatorManager")}
-}
-
-func (_c *Application_GetExternalInitiatorManager_Call) Run(run func()) *Application_GetExternalInitiatorManager_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *Application_GetExternalInitiatorManager_Call) Return(_a0 webhook.ExternalInitiatorManager) *Application_GetExternalInitiatorManager_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *Application_GetExternalInitiatorManager_Call) RunAndReturn(run func() webhook.ExternalInitiatorManager) *Application_GetExternalInitiatorManager_Call {
 	_c.Call.Return(run)
 	return _c
 }

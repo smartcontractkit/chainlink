@@ -514,9 +514,8 @@ func NewNode(
 				return ethClient
 			}
 		},
-		Logger:                   lggr,
-		ExternalInitiatorManager: nil,
-		CloseLogger:              lggr.Sync,
+		Logger:      lggr,
+		CloseLogger: lggr.Sync,
 		UnrestrictedHTTPClient:   &http.Client{},
 		RestrictedHTTPClient:     &http.Client{},
 		AuditLogger:              audit.NoopLogger,

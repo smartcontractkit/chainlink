@@ -92,7 +92,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -258,10 +257,6 @@ func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, fla
 	return app
 }
 
-const (
-	UseRealExternalInitiatorManager = "UseRealExternalInitiatorManager"
-)
-
 // NewApplicationWithConfig creates a New TestApplication with specified test config.
 // This should only be used in full integration tests. For controller tests, see NewApplicationEVMDisabled.
 func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAndDeps ...any) *TestApplication {
@@ -361,21 +356,10 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	ds := sqlutil.WrapDataSource(db, lggr, sqlutil.TimeoutHook(cfg.Database().DefaultQueryTimeout))
 
 	var ethClient evmclient.Client
-	var externalInitiatorManager webhook.ExternalInitiatorManager
-	externalInitiatorManager = &webhook.NullExternalInitiatorManager{}
-	var useRealExternalInitiatorManager bool
 
 	for _, flag := range flagsAndDeps {
-		switch dep := flag.(type) {
-		case evmclient.Client:
+		if dep, ok := flag.(evmclient.Client); ok {
 			ethClient = dep
-		case webhook.ExternalInitiatorManager:
-			externalInitiatorManager = dep
-		default:
-			switch flag {
-			case UseRealExternalInitiatorManager:
-				externalInitiatorManager = webhook.NewExternalInitiatorManager(ds, clhttptest.NewTestLocalOnlyHTTPClient())
-			}
 		}
 	}
 
@@ -437,8 +421,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		Registerer:               prometheus.NewRegistry(),
 		AuditLogger:              auditLogger,
 		CloseLogger:              lggr.Sync,
-		ExternalInitiatorManager: externalInitiatorManager,
-		RestrictedHTTPClient:     c,
+		RestrictedHTTPClient: c,
 		UnrestrictedHTTPClient:   c,
 		SecretGenerator:          MockSecretGenerator{},
 		MercuryPool:              mercuryPool,
@@ -466,10 +449,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	srvr.Config.WriteTimeout = cfg.WebServer().HTTPWriteTimeout()
 	srvr.Start()
 	ta.Server = srvr
-
-	if !useRealExternalInitiatorManager {
-		app.ExternalInitiatorManager = externalInitiatorManager
-	}
 
 	return ta
 }

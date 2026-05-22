@@ -113,7 +113,6 @@ type Application interface {
 
 	GetCapabilitiesRegistry() *capabilities.Registry
 
-	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
 	GetRelayers() RelayerChainInteroperators
 	GetLoopRegistry() *plugins.LoopRegistry
 	GetLoopRegistrarConfig() plugins.RegistrarConfig
@@ -167,9 +166,8 @@ type ChainlinkApplication struct {
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
 	Config                   GeneralConfig
-	KeyStore                 keystore.Master
-	ExternalInitiatorManager webhook.ExternalInitiatorManager
-	SessionReaper            *utils.SleeperTask
+	KeyStore      keystore.Master
+	SessionReaper *utils.SleeperTask
 	shutdownOnce             sync.Once
 	srvcs                    []services.ServiceCtx
 	HealthChecker            services.Checker
@@ -198,9 +196,8 @@ type ApplicationOpts struct {
 	DS                       sqlutil.DataSource
 	KeyStore                 keystore.Master
 	AuditLogger              audit.AuditLogger
-	CloseLogger              func() error
-	ExternalInitiatorManager webhook.ExternalInitiatorManager
-	Version                  string
+	CloseLogger func() error
+	Version     string
 	VersionTag               string
 	DockerTag                string
 	RestrictedHTTPClient     *http.Client
@@ -229,7 +226,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	auditLogger := opts.AuditLogger
 	cfg := opts.Config
-	externalInitiatorManager := opts.ExternalInitiatorManager
 	globalLogger := logger.Sugared(opts.Logger)
 	keyStore := opts.KeyStore
 	restrictedHTTPClient := opts.RestrictedHTTPClient
@@ -841,9 +837,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		Config:                   cfg,
 		webhookJobRunner:         webhookJobRunner,
 		KeyStore:                 keyStore,
-		SessionReaper:            sessionReaper,
-		ExternalInitiatorManager: externalInitiatorManager,
-		HealthChecker:            healthChecker,
+		SessionReaper: sessionReaper,
+		HealthChecker: healthChecker,
 		logger:                   globalLogger,
 		AuditLogger:              auditLogger,
 		closeLogger:              opts.CloseLogger,
@@ -1030,10 +1025,6 @@ func (app *ChainlinkApplication) PipelineORM() pipeline.ORM {
 
 func (app *ChainlinkApplication) TxmStorageService() txmgr.EvmTxStore {
 	return app.txmStorageService
-}
-
-func (app *ChainlinkApplication) GetExternalInitiatorManager() webhook.ExternalInitiatorManager {
-	return app.ExternalInitiatorManager
 }
 
 func (app *ChainlinkApplication) GetCapabilitiesRegistry() *capabilities.Registry {

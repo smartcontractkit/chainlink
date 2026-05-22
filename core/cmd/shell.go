@@ -60,7 +60,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
-	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	workflowsmonitoring "github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -294,9 +293,8 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		KeyStore:                 keyStore,
 		Logger:                   appLggr,
 		Registerer:               appRegisterer,
-		AuditLogger:              auditLogger,
-		ExternalInitiatorManager: webhook.NewExternalInitiatorManager(ds, unrestrictedClient),
-		Version:                  static.Version,
+		AuditLogger: auditLogger,
+		Version:     static.Version,
 		VersionTag:               static.VersionTag,
 		DockerTag:                dockerTag,
 		RestrictedHTTPClient:     clhttp.NewRestrictedClient(cfg.Database(), appLggr),
