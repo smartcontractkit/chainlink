@@ -11,14 +11,13 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/threadcontrol"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type AutomationCustomTelemetryService struct {
@@ -26,7 +25,7 @@ type AutomationCustomTelemetryService struct {
 	monitoringEndpoint    commontypes.MonitoringEndpoint
 	blockSubscriber       ocr2keepers.BlockSubscriber
 	blockSubChanID        int
-	threadCtrl            utils.ThreadControl
+	threadCtrl            threadcontrol.ThreadControl
 	lggr                  logger.Logger
 	configDigest          [32]byte
 	contractConfigTracker types.ContractConfigTracker
@@ -38,8 +37,8 @@ func NewAutomationCustomTelemetryService(me commontypes.MonitoringEndpoint,
 	lggr logger.Logger, blocksub ocr2keepers.BlockSubscriber, configTracker types.ContractConfigTracker) (*AutomationCustomTelemetryService, error) {
 	return &AutomationCustomTelemetryService{
 		monitoringEndpoint:    me,
-		threadCtrl:            utils.NewThreadControl(),
-		lggr:                  lggr.Named("AutomationCustomTelem"),
+		threadCtrl:            threadcontrol.NewThreadControl(),
+		lggr:                  logger.Named(lggr, "AutomationCustomTelem"),
 		contractConfigTracker: configTracker,
 		blockSubscriber:       blocksub,
 	}, nil

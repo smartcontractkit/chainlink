@@ -11,7 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestUtils_GetTxBlock(t *testing.T) {
@@ -60,7 +59,7 @@ func TestUtils_GetTxBlock(t *testing.T) {
 			}
 		})
 
-		bn, bh, err := GetTxBlock(testutils.Context(t), client, tt.txHash)
+		bn, bh, err := GetTxBlock(t.Context(), client, tt.txHash)
 		if tt.ethCallError != nil {
 			assert.Equal(t, tt.ethCallError, err)
 		} else {

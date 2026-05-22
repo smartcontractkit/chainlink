@@ -9,10 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
 )
@@ -194,7 +193,7 @@ func TestNewPayloadBuilder(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			lggr, _ := logger.NewLogger()
 			builder := NewPayloadBuilder(tc.activeList, tc.recoverer, lggr)
-			payloads, err := builder.BuildPayloads(testutils.Context(t), tc.proposals...)
+			payloads, err := builder.BuildPayloads(t.Context(), tc.proposals...)
 			assert.NoError(t, err)
 			assert.Equal(t, tc.wantPayloads, payloads)
 		})

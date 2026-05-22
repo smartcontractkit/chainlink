@@ -10,7 +10,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestBlockTimeResolver_BlockTime(t *testing.T) {
@@ -63,7 +62,7 @@ func TestBlockTimeResolver_BlockTime(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 
 			lp := new(lpmocks.LogPoller)
 			resolver := newBlockTimeResolver(lp)

@@ -9,21 +9,19 @@ import (
 	"testing"
 	"time"
 
-	automationTypes "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/patrickmn/go-cache"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	automationTypes "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/threadcontrol"
 )
 
 const (
@@ -84,10 +82,10 @@ func (mock *MockHttpClient) Do(req *http.Request) (*http.Response, error) {
 
 // setups up a client object for tests.
 func setupClient(t *testing.T) *client {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	mockHttpClient := new(MockHttpClient)
 	mercuryConfig := NewMockMercuryConfigProvider()
-	threadCtl := utils.NewThreadControl()
+	threadCtl := threadcontrol.NewThreadControl()
 
 	client := NewClient(
 		mercuryConfig,
@@ -165,7 +163,7 @@ func TestV03_DoMercuryRequestV03(t *testing.T) {
 			}
 			c.httpClient = hc
 
-			state, values, errCode, retryable, retryInterval, reqErr := c.DoRequest(testutils.Context(t), tt.lookup, automationTypes.ConditionTrigger, tt.pluginRetryKey)
+			state, values, errCode, retryable, retryInterval, reqErr := c.DoRequest(t.Context(), tt.lookup, automationTypes.ConditionTrigger, tt.pluginRetryKey)
 
 			assert.Equal(t, tt.expectedValues, values)
 			assert.Equal(t, tt.expectedRetryable, retryable)
@@ -224,7 +222,7 @@ func TestV03_DoMercuryRequestV03_MultipleFeedsSuccess(t *testing.T) {
 		UpkeepId: upkeepId,
 	}
 
-	state, _, errCode, retryable, retryInterval, _ := c.DoRequest(testutils.Context(t), lookup, automationTypes.ConditionTrigger, pluginRetryKey)
+	state, _, errCode, retryable, retryInterval, _ := c.DoRequest(t.Context(), lookup, automationTypes.ConditionTrigger, pluginRetryKey)
 	assert.False(t, retryable)
 	assert.Equal(t, 0*time.Second, retryInterval)
 	assert.Equal(t, encoding.ErrCodeNil, errCode)
@@ -279,7 +277,7 @@ func TestV03_DoMercuryRequestV03_Timeout(t *testing.T) {
 	}
 
 	start := time.Now()
-	state, values, errCode, retryable, retryInterval, _ := c.DoRequest(testutils.Context(t), lookup, automationTypes.ConditionTrigger, pluginRetryKey)
+	state, values, errCode, retryable, retryInterval, _ := c.DoRequest(t.Context(), lookup, automationTypes.ConditionTrigger, pluginRetryKey)
 	elapsed := time.Since(start)
 	assert.Less(t, elapsed, serverTimeout)
 	assert.False(t, retryable)
@@ -338,7 +336,7 @@ func TestV03_DoMercuryRequestV03_OneFeedSuccessOneFeedPipelineError(t *testing.T
 		UpkeepId: upkeepId,
 	}
 
-	state, values, errCode, retryable, retryInterval, _ := c.DoRequest(testutils.Context(t), lookup, automationTypes.LogTrigger, pluginRetryKey)
+	state, values, errCode, retryable, retryInterval, _ := c.DoRequest(t.Context(), lookup, automationTypes.LogTrigger, pluginRetryKey)
 	assert.True(t, retryable)
 	assert.Equal(t, 1*time.Second, retryInterval)
 	assert.Equal(t, encoding.ErrCodeStreamsBadGateway, errCode)
@@ -409,7 +407,7 @@ func TestV03_DoMercuryRequestV03_OneFeedSuccessOneFeedErrCode(t *testing.T) {
 		UpkeepId: upkeepId,
 	}
 
-	state, values, errCode, retryable, retryInterval, _ := c.DoRequest(testutils.Context(t), lookup, automationTypes.LogTrigger, pluginRetryKey)
+	state, values, errCode, retryable, retryInterval, _ := c.DoRequest(t.Context(), lookup, automationTypes.LogTrigger, pluginRetryKey)
 	assert.Equal(t, [][]byte(nil), values)
 	assert.False(t, retryable)
 	assert.Equal(t, 0*time.Second, retryInterval)
@@ -875,7 +873,7 @@ func TestV03_MultiFeedRequest(t *testing.T) {
 			c.httpClient = hc
 
 			ch := make(chan mercury.MercuryData, 1)
-			c.multiFeedsRequest(testutils.Context(t), ch, tt.lookup)
+			c.multiFeedsRequest(t.Context(), ch, tt.lookup)
 
 			m := <-ch
 			assert.Equal(t, 0, m.Index)

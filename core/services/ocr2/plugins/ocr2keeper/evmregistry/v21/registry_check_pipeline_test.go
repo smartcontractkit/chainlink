@@ -27,7 +27,7 @@ import (
 	gasMocks "github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mocks"
@@ -204,7 +204,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 				e.client = client
 			}
 
-			state, retryable := e.verifyCheckBlock(testutils.Context(t), tc.checkBlock, tc.upkeepId, tc.checkHash)
+			state, retryable := e.verifyCheckBlock(t.Context(), tc.checkBlock, tc.upkeepId, tc.checkHash)
 			assert.Equal(t, tc.state, state)
 			assert.Equal(t, tc.retryable, retryable)
 		})
@@ -343,7 +343,7 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 			bs := &BlockSubscriber{
 				blocks: tc.blocks,
 			}
@@ -529,7 +529,7 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 			}
 			e.client = client
 
-			results, err := e.checkUpkeeps(testutils.Context(t), tc.inputs)
+			results, err := e.checkUpkeeps(t.Context(), tc.inputs)
 			assert.Equal(t, tc.results, results)
 			assert.Equal(t, tc.err, err)
 		})
@@ -657,7 +657,7 @@ func TestRegistry_SimulatePerformUpkeeps(t *testing.T) {
 			).Times(2)
 			e.registry = mockReg
 
-			results, err := e.simulatePerformUpkeeps(testutils.Context(t), tc.inputs)
+			results, err := e.simulatePerformUpkeeps(t.Context(), tc.inputs)
 			assert.Equal(t, tc.results, results)
 			assert.Equal(t, tc.err, err)
 		})

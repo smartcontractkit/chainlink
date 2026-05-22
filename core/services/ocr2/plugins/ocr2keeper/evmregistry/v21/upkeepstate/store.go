@@ -12,9 +12,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/threadcontrol"
 )
 
 const (
@@ -61,7 +62,7 @@ type upkeepStateRecord struct {
 // In addition, performed events are fetched by the scanner on demand.
 type upkeepStateStore struct {
 	services.StateMachine
-	threadCtrl utils.ThreadControl
+	threadCtrl threadcontrol.ThreadControl
 
 	orm     ORM
 	lggr    logger.Logger
@@ -87,7 +88,7 @@ func NewUpkeepStateStore(orm ORM, lggr logger.Logger, scanner PerformedLogsScann
 		scanner:        scanner,
 		retention:      CacheExpiration,
 		cleanCadence:   GCInterval,
-		threadCtrl:     utils.NewThreadControl(),
+		threadCtrl:     threadcontrol.NewThreadControl(),
 		pendingRecords: []persistedStateRecord{},
 		sem:            make(chan struct{}, concurrentBatchCalls),
 		batchSize:      batchSize,

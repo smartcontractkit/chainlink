@@ -13,10 +13,10 @@ import (
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+
 	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 )
 
@@ -101,11 +101,11 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 		},
 	}
 
-	p := NewLogProvider(logger.TestLogger(t), nil, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200, big.NewInt(1)))
+	p := NewLogProvider(logger.Test(t), nil, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200, big.NewInt(1)))
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 
 			if tc.mockPoller {
 				lp := mocks.NewLogPoller(t)
@@ -140,14 +140,14 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 }
 
 func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	mp := mocks.NewLogPoller(t)
 	mp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 	mp.On("HasFilter", mock.Anything).Return(false)
 	mp.On("LatestBlock", mock.Anything).Return(logpoller.Block{}, nil)
 	mp.On("ReplayAsync", mock.Anything).Return(nil)
 
-	p := NewLogProvider(logger.TestLogger(t), mp, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200, big.NewInt(1)))
+	p := NewLogProvider(logger.Test(t), mp, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200, big.NewInt(1)))
 
 	require.NoError(t, p.RegisterFilter(ctx, FilterOptions{
 		UpkeepID: core.GenUpkeepID(types.LogTrigger, "1111").BigInt(),
@@ -226,7 +226,7 @@ func TestLogEventProvider_ValidateLogTriggerConfig(t *testing.T) {
 		},
 	}
 
-	p := NewLogProvider(logger.TestLogger(t), nil, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200, big.NewInt(1)))
+	p := NewLogProvider(logger.Test(t), nil, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200, big.NewInt(1)))
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			err := p.validateLogTriggerConfig(tc.cfg)

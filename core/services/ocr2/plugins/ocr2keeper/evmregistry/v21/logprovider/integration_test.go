@@ -12,13 +12,15 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/quarantine"
 
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
@@ -26,10 +28,7 @@ import (
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	evmregistry21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
@@ -37,7 +36,7 @@ import (
 )
 
 func TestIntegration_LogEventProvider(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	backend, stopMining, accounts := setupBackend(t)
@@ -53,7 +52,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 
 	lp, ethClient := setupDependencies(t, db, backend)
 	filterStore := logprovider.NewUpkeepFilterStore()
-	provider, _ := setup(logger.TestLogger(t), lp, nil, nil, filterStore, &opts)
+	provider, _ := setup(logger.Test(t), lp, nil, nil, filterStore, &opts)
 	logProvider := provider.(logprovider.LogEventProviderTest)
 
 	n := 10
@@ -93,7 +92,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 		// assuming that our service was closed and restarted,
 		// we should be able to backfill old logs and fetch new ones
 		filterStore := logprovider.NewUpkeepFilterStore()
-		logProvider2 := logprovider.NewLogProvider(logger.TestLogger(t), lp, big.NewInt(1), logprovider.NewLogEventsPacker(), filterStore, opts)
+		logProvider2 := logprovider.NewLogProvider(logger.Test(t), lp, big.NewInt(1), logprovider.NewLogEventsPacker(), filterStore, opts)
 
 		poll(backend.Commit())
 		go func() {
@@ -127,7 +126,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 
 func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 	quarantine.Flaky(t, "DX-1779")
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	backend, stopMining, accounts := setupBackend(t)
 	defer stopMining()
@@ -141,7 +140,7 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 	}
 	lp, ethClient := setupDependencies(t, db, backend)
 	filterStore := logprovider.NewUpkeepFilterStore()
-	provider, _ := setup(logger.TestLogger(t), lp, nil, nil, filterStore, opts)
+	provider, _ := setup(logger.Test(t), lp, nil, nil, filterStore, opts)
 	logProvider := provider.(logprovider.LogEventProviderTest)
 
 	backend.Commit()
@@ -200,7 +199,7 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 }
 
 func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
-	ctx, cancel := context.WithTimeout(testutils.Context(t), testutils.WaitTimeout(t))
+	ctx, cancel := context.WithTimeout(t.Context(), tests.WaitTimeout(t))
 	defer cancel()
 
 	backend, stopMining, accounts := setupBackend(t)
@@ -216,7 +215,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 
 	lp, ethClient := setupDependencies(t, db, backend)
 	filterStore := logprovider.NewUpkeepFilterStore()
-	provider, _ := setup(logger.TestLogger(t), lp, nil, nil, filterStore, &opts)
+	provider, _ := setup(logger.Test(t), lp, nil, nil, filterStore, &opts)
 	logProvider := provider.(logprovider.LogEventProviderTest)
 
 	n := 10
@@ -253,7 +252,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 
 func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
 	quarantine.Flaky(t, "DX-1889")
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	backend, stopMining, accounts := setupBackend(t)
 	defer stopMining()
@@ -274,7 +273,7 @@ func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
 	defer func() {
 		logprovider.RecoveryInterval = origDefaultRecoveryInterval
 	}()
-	provider, recoverer := setup(logger.TestLogger(t), lp, nil, &mockUpkeepStateStore{}, filterStore, opts)
+	provider, recoverer := setup(logger.Test(t), lp, nil, &mockUpkeepStateStore{}, filterStore, opts)
 	logProvider := provider.(logprovider.LogEventProviderTest)
 
 	backend.Commit()
@@ -350,7 +349,7 @@ func waitLogProvider(ctx context.Context, t *testing.T, logProvider logprovider.
 		if currentPartition > partition { // make sure we went over all items
 			break
 		}
-		time.Sleep(testutils.TestInterval)
+		time.Sleep(tests.TestInterval)
 	}
 	require.Greater(t, logProvider.CurrentPartitionIdx(), partition,
 		"timed out waiting for log provider to pass partition %d", partition)
@@ -463,8 +462,7 @@ func newPlainLogTriggerConfig(upkeepAddr common.Address) logprovider.LogTriggerC
 
 func setupDependencies(t *testing.T, db *sqlx.DB, backend evmtypes.Backend) (logpoller.LogPollerTest, *evmclient.SimulatedBackendClient) {
 	ethClient := evmclient.NewSimulatedBackendClient(t, backend, big.NewInt(1337))
-	pollerLggr := logger.TestLogger(t)
-	pollerLggr.SetLogLevel(zapcore.WarnLevel)
+	pollerLggr := logger.Test(t)
 	lorm := logpoller.NewORM(big.NewInt(1337), db, pollerLggr)
 	lpOpts := logpoller.Opts{
 		PollPeriod:               100 * time.Millisecond,

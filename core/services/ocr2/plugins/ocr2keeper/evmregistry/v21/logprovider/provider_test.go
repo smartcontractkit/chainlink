@@ -16,14 +16,14 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+
 	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestLogEventProvider_GetFilters(t *testing.T) {
-	p := NewLogProvider(logger.TestLogger(t), nil, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200, big.NewInt(1)))
+	p := NewLogProvider(logger.Test(t), nil, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200, big.NewInt(1)))
 
 	_, f := newEntry(p, 1)
 	p.filterStore.AddActiveUpkeeps(f)
@@ -65,7 +65,7 @@ func TestLogEventProvider_GetFilters(t *testing.T) {
 }
 
 func TestLogEventProvider_UpdateEntriesLastPoll(t *testing.T) {
-	p := NewLogProvider(logger.TestLogger(t), nil, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200, big.NewInt(1)))
+	p := NewLogProvider(logger.Test(t), nil, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200, big.NewInt(1)))
 
 	n := 10
 
@@ -175,13 +175,13 @@ func TestLogEventProvider_ScheduleReadJobs(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 
 			readInterval := 10 * time.Millisecond
 			opts := NewOptions(200, big.NewInt(1))
 			opts.ReadInterval = readInterval
 
-			p := NewLogProvider(logger.TestLogger(t), mp, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), opts)
+			p := NewLogProvider(logger.Test(t), mp, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), opts)
 
 			var ids []*big.Int
 			for i, id := range tc.ids {
@@ -239,7 +239,7 @@ func TestLogEventProvider_ScheduleReadJobs(t *testing.T) {
 }
 
 func TestLogEventProvider_ReadLogs(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	mp := mocks.NewLogPoller(t)
 
@@ -256,7 +256,7 @@ func TestLogEventProvider_ReadLogs(t *testing.T) {
 	}, nil).Maybe()
 
 	filterStore := NewUpkeepFilterStore()
-	p := NewLogProvider(logger.TestLogger(t), mp, big.NewInt(1), &mockedPacker{}, filterStore, NewOptions(200, big.NewInt(1)))
+	p := NewLogProvider(logger.Test(t), mp, big.NewInt(1), &mockedPacker{}, filterStore, NewOptions(200, big.NewInt(1)))
 
 	for i := range 10 {
 		cfg, f := newEntry(p, i+1)
@@ -326,7 +326,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 			},
 		}
 
-		provider := NewLogProvider(logger.TestLogger(t), logPoller, big.NewInt(42161), &mockedPacker{}, nil, opts)
+		provider := NewLogProvider(logger.Test(t), logPoller, big.NewInt(42161), &mockedPacker{}, nil, opts)
 
 		ctx := t.Context()
 
@@ -344,7 +344,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 			},
 		}
 
-		provider := NewLogProvider(logger.TestLogger(t), logPoller, big.NewInt(42161), &mockedPacker{}, nil, opts)
+		provider := NewLogProvider(logger.Test(t), logPoller, big.NewInt(42161), &mockedPacker{}, nil, opts)
 
 		ctx := t.Context()
 
@@ -366,7 +366,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 			},
 		}
 
-		provider := NewLogProvider(logger.TestLogger(t), logPoller, big.NewInt(42161), &mockedPacker{}, nil, opts)
+		provider := NewLogProvider(logger.Test(t), logPoller, big.NewInt(42161), &mockedPacker{}, nil, opts)
 
 		ctx := t.Context()
 
@@ -391,7 +391,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 			},
 		}
 
-		provider := NewLogProvider(logger.TestLogger(t), logPoller, big.NewInt(42161), &mockedPacker{}, nil, opts)
+		provider := NewLogProvider(logger.Test(t), logPoller, big.NewInt(42161), &mockedPacker{}, nil, opts)
 
 		ctx := t.Context()
 
@@ -419,7 +419,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 			},
 		}
 
-		provider := NewLogProvider(logger.TestLogger(t), logPoller, big.NewInt(42161), &mockedPacker{}, nil, opts)
+		provider := NewLogProvider(logger.Test(t), logPoller, big.NewInt(42161), &mockedPacker{}, nil, opts)
 
 		ctx := t.Context()
 
@@ -470,7 +470,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 			},
 		}
 
-		provider := NewLogProvider(logger.TestLogger(t), logPoller, big.NewInt(42161), &mockedPacker{}, nil, opts)
+		provider := NewLogProvider(logger.Test(t), logPoller, big.NewInt(42161), &mockedPacker{}, nil, opts)
 
 		ctx := t.Context()
 
@@ -529,7 +529,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 			},
 		}
 
-		provider := NewLogProvider(logger.TestLogger(t), logPoller, big.NewInt(42161), &mockedPacker{}, nil, opts)
+		provider := NewLogProvider(logger.Test(t), logPoller, big.NewInt(42161), &mockedPacker{}, nil, opts)
 
 		ctx := t.Context()
 
@@ -583,7 +583,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 			},
 		}
 
-		provider := NewLogProvider(logger.TestLogger(t), logPoller, big.NewInt(42161), &mockedPacker{}, nil, opts)
+		provider := NewLogProvider(logger.Test(t), logPoller, big.NewInt(42161), &mockedPacker{}, nil, opts)
 
 		ctx := t.Context()
 

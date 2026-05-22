@@ -7,10 +7,10 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
 )
 
@@ -20,7 +20,7 @@ const finality = uint32(4)
 
 func TestNewAutomationCustomTelemetryService(t *testing.T) {
 	me := &MockMonitoringEndpoint{}
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	var hb heads.Broadcaster
 	var lp logpoller.LogPoller
 

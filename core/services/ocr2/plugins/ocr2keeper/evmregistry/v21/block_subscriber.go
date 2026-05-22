@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/threadcontrol"
 )
 
 const (
@@ -37,7 +37,7 @@ var (
 
 type BlockSubscriber struct {
 	services.StateMachine
-	threadCtrl utils.ThreadControl
+	threadCtrl threadcontrol.ThreadControl
 
 	mu               sync.RWMutex
 	hb               heads.Broadcaster
@@ -64,7 +64,7 @@ var _ ocr2keepers.BlockSubscriber = &BlockSubscriber{}
 
 func NewBlockSubscriber(hb heads.Broadcaster, lp logpoller.LogPoller, finalityDepth uint32, lggr logger.Logger) *BlockSubscriber {
 	return &BlockSubscriber{
-		threadCtrl:       utils.NewThreadControl(),
+		threadCtrl:       threadcontrol.NewThreadControl(),
 		hb:               hb,
 		lp:               lp,
 		headC:            make(chan *types.Head, channelSize),

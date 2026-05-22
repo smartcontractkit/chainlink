@@ -18,21 +18,21 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core/mocks"
 )
 
 func TestLogRecoverer_GetRecoverables(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lp := &lpmocks.LogPoller{}
 	lp.On("LatestBlock", mock.Anything).Return(logpoller.Block{BlockNumber: 100}, nil)
-	r := NewLogRecoverer(logger.TestLogger(t), lp, nil, nil, nil, nil, NewOptions(200, big.NewInt(1)))
+	r := NewLogRecoverer(logger.Test(t), lp, nil, nil, nil, nil, NewOptions(200, big.NewInt(1)))
 
 	tests := []struct {
 		name    string
@@ -173,7 +173,7 @@ func TestLogRecoverer_Clean(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(testutils.Context(t))
+			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 
 			lookbackBlocks := int64(100)
@@ -212,7 +212,7 @@ func TestLogRecoverer_Clean(t *testing.T) {
 }
 
 func TestLogRecoverer_Recover(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	tests := []struct {
 		name             string
@@ -1077,7 +1077,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				recoverer.states = tc.stateReader
 			}
 
-			b, err := recoverer.GetProposalData(testutils.Context(t), tc.proposal)
+			b, err := recoverer.GetProposalData(t.Context(), tc.proposal)
 			if tc.expectErr {
 				assert.Error(t, err)
 				assert.Equal(t, tc.wantErr.Error(), err.Error())
@@ -1150,7 +1150,7 @@ func TestLogRecoverer_pending(t *testing.T) {
 				maxPendingPayloadsPerUpkeep = origMaxPendingPayloadsPerUpkeep
 			}()
 
-			r := NewLogRecoverer(logger.TestLogger(t), nil, nil, nil, nil, nil, NewOptions(200, big.NewInt(1)))
+			r := NewLogRecoverer(logger.Test(t), nil, nil, nil, nil, nil, NewOptions(200, big.NewInt(1)))
 			r.lock.Lock()
 			r.pending = tc.exist
 			for i, p := range tc.new {
@@ -1234,6 +1234,6 @@ func setupTestRecoverer(t *testing.T, interval time.Duration, lookbackBlocks int
 	opts := NewOptions(lookbackBlocks, big.NewInt(1))
 	opts.ReadInterval = interval / 5
 	opts.LookbackBlocks = lookbackBlocks
-	recoverer := NewLogRecoverer(logger.TestLogger(t), lp, nil, statesReader, &mockedPacker{}, filterStore, opts)
+	recoverer := NewLogRecoverer(logger.Test(t), lp, nil, statesReader, &mockedPacker{}, filterStore, opts)
 	return recoverer, filterStore, lp, statesReader
 }

@@ -19,12 +19,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
-
 	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_compatible_utils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/prommetrics"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/threadcontrol"
 )
 
 var (
@@ -86,7 +86,7 @@ var _ LogEventProviderTest = &logEventProvider{}
 // logEventProvider manages log filters for upkeeps and enables to read the log events.
 type logEventProvider struct {
 	services.StateMachine
-	threadCtrl utils.ThreadControl
+	threadCtrl threadcontrol.ThreadControl
 
 	lggr logger.Logger
 
@@ -109,7 +109,7 @@ type logEventProvider struct {
 
 func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, chainID *big.Int, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
 	return &logEventProvider{
-		threadCtrl:  utils.NewThreadControl(),
+		threadCtrl:  threadcontrol.NewThreadControl(),
 		lggr:        logger.Named(lggr, "KeepersRegistry.LogEventProvider"),
 		packer:      packer,
 		buffer:      NewLogBuffer(lggr, uint32(opts.LookbackBlocks), opts.BlockRate, opts.LogLimit),

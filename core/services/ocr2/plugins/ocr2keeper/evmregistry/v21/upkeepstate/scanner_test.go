@@ -9,17 +9,17 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+
 	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestPerformedEventsScanner(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	registryAddr := common.HexToAddress("0x12345")
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	tests := []struct {
 		name           string
@@ -112,9 +112,9 @@ func TestPerformedEventsScanner(t *testing.T) {
 }
 
 func TestPerformedEventsScanner_Batch(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	registryAddr := common.HexToAddress("0x12345")
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	lp := mocks.NewLogPoller(t)
 	scanner := NewPerformedEventsScanner(lggr, lp, registryAddr, 100)
 

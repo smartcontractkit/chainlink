@@ -12,27 +12,24 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
+	autov2common "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 	v02 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/v02"
 	v03 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/v03"
-
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/mock"
-
-	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
-
-	autov2common "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_v21_plus_common"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type MockMercuryConfigProvider struct {
@@ -103,7 +100,7 @@ func (r *mockRegistry) CheckCallback(opts *bind.CallOpts, id *big.Int, values []
 
 // setups up a streams object for tests.
 func setupStreams(t *testing.T) *streams {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	mercuryConfig := new(MockMercuryConfigProvider)
 	blockSubscriber := new(MockBlockSubscriber)
 	registry := &mockRegistry{}
@@ -255,7 +252,7 @@ func TestStreams_CheckErrorHandler(t *testing.T) {
 				}).Once()
 			s.client = client
 
-			err = s.CheckErrorHandler(testutils.Context(t), tt.errCode, tt.lookup, tt.checkResults, 0)
+			err = s.CheckErrorHandler(t.Context(), tt.errCode, tt.lookup, tt.checkResults, 0)
 			tt.wantErr(t, err, fmt.Sprintf("Error assertion failed: %v", tt.name))
 			assert.Equal(t, uint8(tt.state), tt.checkResults[0].PipelineExecutionState)
 			assert.Equal(t, tt.retryable, tt.checkResults[0].Retryable)
@@ -410,7 +407,7 @@ func TestStreams_CheckCallback(t *testing.T) {
 				}).Once()
 			s.client = client
 
-			err = s.CheckCallback(testutils.Context(t), tt.values, tt.lookup, tt.input, 0)
+			err = s.CheckCallback(t.Context(), tt.values, tt.lookup, tt.input, 0)
 			tt.wantErr(t, err, fmt.Sprintf("Error assertion failed: %v", tt.name))
 			assert.Equal(t, uint8(tt.state), tt.input[0].PipelineExecutionState)
 			assert.Equal(t, tt.retryable, tt.input[0].Retryable)
@@ -966,7 +963,7 @@ func TestStreams_StreamsLookup(t *testing.T) {
 					}).Once()
 			}
 
-			got := s.Lookup(testutils.Context(t), tt.input)
+			got := s.Lookup(t.Context(), tt.input)
 			assert.Equal(t, tt.expectedResults, got, tt.name)
 		})
 	}

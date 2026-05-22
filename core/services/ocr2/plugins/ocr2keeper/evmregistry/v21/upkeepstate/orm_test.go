@@ -9,12 +9,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
 func TestInsertSelectDelete(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	chainID := testutils.FixtureChainID
 	db := pgtest.NewSqlxDB(t)
 	orm := NewORM(chainID, db)

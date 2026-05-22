@@ -13,24 +13,24 @@ import (
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+
 	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 )
 
 func TestTransmitEventProvider_Sanity(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	lp := mocks.NewLogPoller(t)
 
 	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 
-	provider, err := NewTransmitEventProvider(ctx, logger.TestLogger(t), lp, common.HexToAddress("0x"), client.NewNullClient(big.NewInt(1), logger.TestLogger(t)), 32)
+	provider, err := NewTransmitEventProvider(ctx, logger.Test(t), lp, common.HexToAddress("0x"), client.NewNullClient(big.NewInt(1), logger.Test(t)), 32)
 	require.NoError(t, err)
 	require.NotNil(t, provider)
 
@@ -104,9 +104,9 @@ func TestTransmitEventProvider_ProcessLogs(t *testing.T) {
 	lp := mocks.NewLogPoller(t)
 	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 	client := clienttest.NewClient(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
-	provider, err := NewTransmitEventProvider(ctx, logger.TestLogger(t), lp, common.HexToAddress("0x"), client, 250)
+	provider, err := NewTransmitEventProvider(ctx, logger.Test(t), lp, common.HexToAddress("0x"), client, 250)
 	require.NoError(t, err)
 
 	id := core.GenUpkeepID(types.LogTrigger, "1111111111111111")

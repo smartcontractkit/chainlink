@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/prommetrics"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/threadcontrol"
 )
 
 const (
@@ -43,11 +43,11 @@ type client struct {
 	services.StateMachine
 	mercuryConfig mercury.MercuryConfigProvider
 	httpClient    mercury.HttpClient
-	threadCtrl    utils.ThreadControl
+	threadCtrl    threadcontrol.ThreadControl
 	lggr          logger.Logger
 }
 
-func NewClient(mercuryConfig mercury.MercuryConfigProvider, httpClient mercury.HttpClient, threadCtrl utils.ThreadControl, lggr logger.Logger) *client {
+func NewClient(mercuryConfig mercury.MercuryConfigProvider, httpClient mercury.HttpClient, threadCtrl threadcontrol.ThreadControl, lggr logger.Logger) *client {
 	return &client{
 		mercuryConfig: mercuryConfig,
 		httpClient:    httpClient,

@@ -17,13 +17,11 @@ import (
 	coreTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/patrickmn/go-cache"
 
+	autotypes "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
-
-	autotypes "github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
-
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated"
 	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
@@ -31,11 +29,12 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/threadcontrol"
 )
 
 const (
@@ -93,7 +92,7 @@ func NewEvmRegistry(
 
 	return &EvmRegistry{
 		stopCh:           make(chan struct{}),
-		threadCtrl:       utils.NewThreadControl(),
+		threadCtrl:       threadcontrol.NewThreadControl(),
 		lggr:             logger.Sugared(lggr).Named(RegistryServiceName),
 		poller:           client.LogPoller(),
 		addr:             addr,
@@ -170,7 +169,7 @@ func (c *MercuryConfig) SetPluginRetry(k string, v any, d time.Duration) {
 
 type EvmRegistry struct {
 	services.StateMachine
-	threadCtrl       utils.ThreadControl
+	threadCtrl       threadcontrol.ThreadControl
 	lggr             logger.SugaredLogger
 	poller           logpoller.LogPoller
 	addr             common.Address

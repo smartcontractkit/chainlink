@@ -20,15 +20,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
-
 	autov2common "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_v21_plus_common"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 	v02 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/v02"
 	v03 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/v03"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/prommetrics"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/threadcontrol"
 )
 
 const (
@@ -62,7 +62,7 @@ type streams struct {
 	registry        streamRegistry
 	client          contextCaller
 	lggr            logger.Logger
-	threadCtrl      utils.ThreadControl
+	threadCtrl      threadcontrol.ThreadControl
 	v02Client       mercury.MercuryClient
 	v03Client       mercury.MercuryClient
 }
@@ -80,7 +80,7 @@ func NewStreamsLookup(
 	registry streamRegistry,
 	lggr logger.Logger) *streams {
 	httpClient := http.DefaultClient
-	threadCtrl := utils.NewThreadControl()
+	threadCtrl := threadcontrol.NewThreadControl()
 	packer := mercury.NewAbiPacker()
 
 	return &streams{
