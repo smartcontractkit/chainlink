@@ -514,12 +514,12 @@ func NewNode(
 				return ethClient
 			}
 		},
-		Logger:      lggr,
-		CloseLogger: lggr.Sync,
-		UnrestrictedHTTPClient:   &http.Client{},
-		RestrictedHTTPClient:     &http.Client{},
-		AuditLogger:              audit.NoopLogger,
-		RetirementReportCache:    retirement.NewRetirementReportCache(lggr, db),
+		Logger:                 lggr,
+		CloseLogger:            lggr.Sync,
+		UnrestrictedHTTPClient: &http.Client{},
+		RestrictedHTTPClient:   &http.Client{},
+		AuditLogger:            audit.NoopLogger,
+		RetirementReportCache:  retirement.NewRetirementReportCache(lggr, db),
 	})
 	require.NoError(t, err)
 	keys := CreateKeys(t, app,

@@ -59,8 +59,8 @@ type mocks struct {
 	chain                *legacyEvmORMMocks.Chain
 	legacyEVMChains      *legacyEvmORMMocks.LegacyChainContainer
 	relayerChainInterops *chainlinkMocks.FakeRelayerChainInteroperators
-	ethClient *clienttest.Client
-	balM      *evmMonMocks.BalanceMonitor
+	ethClient            *clienttest.Client
+	balM                 *evmMonMocks.BalanceMonitor
 	txmStore             *evmtxmgrmocks.EvmTxStore
 	auditLogger          *audit.AuditLoggerService
 }
@@ -119,8 +119,8 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		chain:                legacyEvmORMMocks.NewChain(t),
 		legacyEVMChains:      legacyEvmORMMocks.NewLegacyChainContainer(t),
 		relayerChainInterops: &chainlinkMocks.FakeRelayerChainInteroperators{},
-		ethClient: clienttest.NewClient(t),
-		balM:      evmMonMocks.NewBalanceMonitor(t),
+		ethClient:            clienttest.NewClient(t),
+		balM:                 evmMonMocks.NewBalanceMonitor(t),
 		txmStore:             evmtxmgrmocks.NewEvmTxStore(t),
 		auditLogger:          &audit.AuditLoggerService{},
 	}
