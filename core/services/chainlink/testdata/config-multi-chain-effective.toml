@@ -502,11 +502,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[EVM.NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [EVM.OCR]
 ContractConfirmations = 4
@@ -627,11 +632,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[EVM.NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [EVM.OCR]
 ContractConfirmations = 4
@@ -746,11 +756,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[EVM.NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [EVM.OCR]
 ContractConfirmations = 4

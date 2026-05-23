@@ -47,8 +47,9 @@ const ClaimVaultSecretManagementEnabled = "urn:chainlink:claim_vault_secret_mana
 const ClaimChainlinkTenantID = "urn:chainlink:tenant_id"
 
 const (
-	defaultJWKSRefreshInterval = 15 * time.Minute
-	defaultHTTPTimeout         = 5 * time.Second
+	defaultJWTAuthJobSpecTenantID uint64 = 1
+	defaultJWKSRefreshInterval           = 15 * time.Minute
+	defaultHTTPTimeout                   = 5 * time.Second
 )
 
 // Auth0Config captures the Vault JWT issuer settings shared by gateway and node handlers.
@@ -62,7 +63,7 @@ type Auth0Config struct {
 type JWTBasedAuthConfig struct {
 	IssuerURL           string
 	Audience            string
-	TenantID            uint64        // required; must match JWT urn:chainlink:tenant_id / tenant_id claim
+	TenantID            uint64        // omit or zero defaults to defaultJWTAuthJobSpecTenantID; must match JWT urn:chainlink:tenant_id / tenant_id claim
 	JWKSRefreshInterval time.Duration // minimum interval between JWKS fetches; 0 uses default (30s)
 	HTTPClient          *http.Client  // nil uses a default client with 5s timeout
 }
@@ -154,8 +155,10 @@ func NewJWTBasedAuth(cfg JWTBasedAuthConfig, limitsFactory limits.Factory, lggr 
 	if cfg.Audience == "" {
 		return nil, errors.New("audience is required")
 	}
-	if cfg.TenantID == 0 {
-		return nil, errors.New("tenant ID is required")
+
+	expectedTenantID := cfg.TenantID
+	if expectedTenantID == 0 {
+		expectedTenantID = defaultJWTAuthJobSpecTenantID
 	}
 
 	trimmedIssuer := strings.TrimSuffix(cfg.IssuerURL, "/")
@@ -177,7 +180,7 @@ func NewJWTBasedAuth(cfg JWTBasedAuthConfig, limitsFactory limits.Factory, lggr 
 		jwksURL:          jwksURL,
 		refreshInterval:  refreshInterval,
 		authEnabledGate:  options.authEnabledGate,
-		expectedTenantID: cfg.TenantID,
+		expectedTenantID: expectedTenantID,
 		httpClient:       httpClient,
 		lggr:             logger.Named(lggr, "VaultJWTBasedAuth"),
 		limitsFactory:    limitsFactory,

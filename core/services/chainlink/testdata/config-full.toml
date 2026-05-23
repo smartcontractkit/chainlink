@@ -561,6 +561,8 @@ SyncThreshold = 13
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = true
 FinalizedBlockPollInterval = '1s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
@@ -584,6 +586,7 @@ Fatal = '(: |^)fatal'
 ServiceUnavailable = '(: |^)service unavailable'
 TooManyResults = '(: |^)too many results'
 MissingBlocks = '(: |^)missing blocks'
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [EVM.OCR]
 ContractConfirmations = 11

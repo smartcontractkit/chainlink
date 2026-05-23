@@ -88,13 +88,13 @@ require (
 	github.com/smartcontractkit/chainlink-common/keystore v1.1.0
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260520194751-11a4f360f4e2
 	github.com/smartcontractkit/chainlink-data-streams v0.1.15-0.20260522094612-5f9f748bd87a
-	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260521145337-fdf89453516c
+	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260521215851-3fdbb363496f
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260403151002-2c91155b5501
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260512150409-b4068bf735e6
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135
 	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20260423135514-5b1a7565a99c
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20260423135514-5b1a7565a99c
-	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20260505202410-b350dca113b4
+	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20260521164805-26d78d5e1243
 	github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20251024234028-0988426d98f4
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260514104516-a827acdffe43
 	github.com/smartcontractkit/chainlink-protos/data-feeds v0.1.1-0.20260501174546-2e8846986b36
@@ -104,7 +104,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/ring/go v0.0.0-20260331131315-f08a616d8dcd
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260323124644-faea187e6997
-	github.com/smartcontractkit/chainlink-solana v1.2.1-0.20260514085000-b356a5d08d44
+	github.com/smartcontractkit/chainlink-solana v1.3.1-0.20260522172305-f71b70a4d020
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260429183453-39df0198aed8
 	github.com/smartcontractkit/chainlink-ton v1.0.5-0.20260520103847-15ca4de9dba9
 	github.com/smartcontractkit/cre-sdk-go v1.5.0
@@ -350,7 +350,7 @@ require (
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/sigurn/crc16 v0.0.0-20211026045750-20ab5afb07e3 // indirect
 	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20260408145530-22e2d05695cd // indirect
-	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20260508154216-3ed6f623098f // indirect
+	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20260521164805-26d78d5e1243 // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/committee-verifier v0.0.0-20251211142334-5c3421fe2c8d // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/heartbeat v0.0.0-20260115142640-f6b99095c12e // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/message-discovery v0.0.0-20251211142334-5c3421fe2c8d // indirect

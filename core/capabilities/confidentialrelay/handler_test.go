@@ -21,6 +21,7 @@ import (
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
@@ -308,6 +309,59 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				assert.Equal(t, testOwner, exec.lastRequest.Metadata.WorkflowOwner)
 				assert.Equal(t, "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1", exec.lastRequest.Metadata.WorkflowExecutionID)
 				assert.Equal(t, "17", exec.lastRequest.Metadata.ReferenceID)
+				assert.Empty(t, exec.lastRequest.Metadata.OrgID)
+			},
+		},
+		{
+			name: "capability execute sets metadata org id when PropagateOrgIDInRequestMetadata enabled",
+			registry: func(_ *testing.T) *mockCapRegistry {
+				return withEnclaveConfig(&mockCapRegistry{
+					executables: map[string]*mockExecutable{
+						"my-cap@1.0.0": {
+							execResult: capabilities.CapabilityResponse{
+								Payload: &anypb.Any{Value: []byte("result-proto-bytes")},
+							},
+						},
+					},
+				})
+			},
+			modifyHandler: func(t *testing.T, h *Handler) {
+				getter, err := settings.NewJSONGetter([]byte(`{"global":{"PropagateOrgIDInRequestMetadata":"true"}}`))
+				require.NoError(t, err)
+				h.limitsFactory = limits.Factory{Logger: h.lggr, Settings: getter}
+			},
+			req: func(t *testing.T) *jsonrpc.Request[json.RawMessage] {
+				return makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
+					WorkflowID:   "wf-1",
+					Owner:        testOwner,
+					ExecutionID:  "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+					OrgID:        "org-relay-1",
+					ReferenceID:  "17",
+					CapabilityID: "my-cap@1.0.0",
+					Payload:      makeCapabilityPayload(t, map[string]any{"key": "val"}),
+					Attestation:  testAttestationB64,
+				})
+			},
+			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
+				require.Nil(t, resp.Error)
+				params := confidentialrelaytypes.CapabilityRequestParams{
+					WorkflowID:   "wf-1",
+					Owner:        testOwner,
+					ExecutionID:  "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+					OrgID:        "org-relay-1",
+					ReferenceID:  "17",
+					CapabilityID: "my-cap@1.0.0",
+					Payload:      makeCapabilityPayload(t, map[string]any{"key": "val"}),
+				}
+				var result confidentialrelaytypes.SignedCapabilityResponseResult
+				require.NoError(t, json.Unmarshal(*resp.Result, &result))
+				require.Len(t, result.Signatures, 1)
+				assertValidCapabilitySignature(t, params, result)
+			},
+			checkExecutable: func(t *testing.T, reg *mockCapRegistry) {
+				exec := reg.executables["my-cap@1.0.0"]
+				require.NotNil(t, exec.lastRequest)
+				assert.Equal(t, "org-relay-1", exec.lastRequest.Metadata.OrgID)
 			},
 		},
 		{
@@ -454,6 +508,31 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				assert.Equal(t, "0xab5801a7d398351b8be11c439e05c5b3259aec9b", exec.lastRequest.Metadata.WorkflowOwner)
 				assert.Equal(t, "wf-secrets-1", exec.lastRequest.Metadata.WorkflowID)
 				assert.Equal(t, uint32(42), exec.lastRequest.Metadata.WorkflowDonID)
+				assert.Empty(t, exec.lastRequest.Metadata.OrgID, "org metadata requires PropagateOrgIDInRequestMetadata CRE setting")
+			},
+		},
+		{
+			name:     "secrets get sets metadata org id when PropagateOrgIDInRequestMetadata enabled",
+			registry: secretsGetTestRegistry,
+			req:      secretsGetTestRequest,
+			modifyHandler: func(t *testing.T, h *Handler) {
+				getter, err := settings.NewJSONGetter([]byte(`{"global":{"PropagateOrgIDInRequestMetadata":"true"}}`))
+				require.NoError(t, err)
+				h.limitsFactory = limits.Factory{Logger: h.lggr, Settings: getter}
+			},
+			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
+				require.Nil(t, resp.Error)
+				params := secretsGetTestParams()
+				params.Attestation = ""
+				var result confidentialrelaytypes.SignedSecretsResponseResult
+				require.NoError(t, json.Unmarshal(*resp.Result, &result))
+				require.Len(t, result.Signatures, 1)
+				assertValidSecretsSignature(t, params, result)
+			},
+			checkExecutable: func(t *testing.T, reg *mockCapRegistry) {
+				exec := reg.executables[vault.CapabilityID]
+				require.NotNil(t, exec.lastRequest)
+				assert.Equal(t, "org-123", exec.lastRequest.Metadata.OrgID)
 			},
 		},
 		{

@@ -399,9 +399,13 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 			primitives.Unconfirmed,
 			10,
 		)
-		require.NoError(t, err2)
+		if err2 != nil {
+			t.Logf("Error getting commit reports: %v", err2)
+			return false
+		}
+		t.Logf("Got %d commit reports, expected %d", len(ccipReaderReports), numReports-1)
 		return len(ccipReaderReports) == numReports-1
-	}, 90*time.Second, 50*time.Millisecond)
+	}, 90*time.Second, 100*time.Millisecond)
 
 	// trim the first report to simulate the timestamp filter above.
 	onchainEvents = onchainEvents[1:]
@@ -457,8 +461,14 @@ func TestCCIPReader_ExecutedMessages_SingleChain(t *testing.T) {
 			},
 			primitives.Unconfirmed,
 		)
-		return err == nil && len(executedMsgs[chainS1]) == 2
-	}, 90*time.Second, 500*time.Millisecond)
+		if err != nil {
+			t.Logf("Error getting executed messages: %v", err)
+			return false
+		}
+		chainMsgs := executedMsgs[chainS1]
+		t.Logf("Got %d executed messages for chain %v, expected 2", len(chainMsgs), chainS1)
+		return len(chainMsgs) == 2
+	}, 90*time.Second, 200*time.Millisecond)
 	require.NoError(t, err)
 
 	assert.Equal(t, []cciptypes.SeqNum{15, 16}, executedMsgs[chainS1])
@@ -1251,7 +1261,6 @@ func testSetupRealContracts(
 	toMockBindings map[cciptypes.ChainSelector][]types.BoundContract,
 	env testhelpers.DeployedEnv,
 ) ccipreaderpkg.CCIPReader {
-	db := pgtest.NewSqlxDB(t)
 	lpOpts := logpoller.Opts{
 		PollPeriod:               time.Millisecond,
 		FinalityDepth:            0,
@@ -1265,9 +1274,16 @@ func testSetupRealContracts(
 	var crs = make(map[cciptypes.ChainSelector]contractreader.Extended)
 	var contractWriters = make(map[cciptypes.ChainSelector]types.ContractWriter)
 	for chainSelector, bindings := range toBindContracts {
+		// Create a separate database for each chain to prevent race conditions
+		db := pgtest.NewSqlxDB(t)
+
 		simClient := env.Env.BlockChains.EVMChains()[uint64(chainSelector)].Client.(*cldf_evm_provider.SimClient)
 		cl := client.NewSimulatedBackendClient(t, simClient.Backend(), big.NewInt(0).SetUint64(uint64(chainSelector)))
 		headTracker := headstest.NewSimulatedHeadTracker(cl, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+
+		// Start head tracker before LogPoller to ensure proper initialization order
+		require.NoError(t, headTracker.Start(ctx))
+
 		lp := logpoller.NewLogPoller(logpoller.NewORM(big.NewInt(0).SetUint64(uint64(chainSelector)), db, lggr),
 			cl,
 			lggr,
@@ -1275,6 +1291,9 @@ func testSetupRealContracts(
 			lpOpts,
 		)
 		require.NoError(t, lp.Start(ctx))
+
+		// Add a small delay to ensure LogPoller is fully initialized
+		time.Sleep(50 * time.Millisecond)
 
 		var cfg config.ChainReaderConfig
 		if chainSelector == cs(destChain) {
@@ -1309,6 +1328,7 @@ func testSetupRealContracts(
 		t.Cleanup(func() {
 			require.NoError(t, cr.Close())
 			require.NoError(t, lp.Close())
+			require.NoError(t, headTracker.Close())
 			require.NoError(t, db.Close())
 		})
 	}
@@ -1381,6 +1401,9 @@ func testSetup(
 	}
 	cl := client.NewSimulatedBackendClient(t, params.SimulatedBackend, big.NewInt(0).SetUint64(uint64(params.ReaderChain)))
 	headTracker := headstest.NewSimulatedHeadTracker(cl, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	// Start head tracker before LogPoller to ensure proper initialization order
+	require.NoError(t, headTracker.Start(ctx))
+
 	orm := logpoller.NewORM(big.NewInt(0).SetUint64(uint64(params.ReaderChain)), db, lggr)
 	lp := logpoller.NewLogPoller(
 		orm,
@@ -1389,7 +1412,10 @@ func testSetup(
 		headTracker,
 		lpOpts,
 	)
-	assert.NoError(t, lp.Start(ctx))
+	require.NoError(t, lp.Start(ctx))
+
+	// Add a small delay to ensure LogPoller is fully initialized
+	time.Sleep(50 * time.Millisecond)
 
 	for sourceChain, seqNum := range params.OnChainSeqNums {
 		_, err1 := contract.SetSourceChainConfig(params.Auth, uint64(sourceChain), ccip_reader_tester.OffRampSourceChainConfig{
@@ -1441,15 +1467,25 @@ func testSetup(
 
 	var otherCrs = make(map[cciptypes.ChainSelector]contractreader.Extended)
 	for chain, bindings := range params.ToBindContracts {
+		// Create a separate database for each chain to prevent race conditions
+		db2 := pgtest.NewSqlxDB(t)
+
 		cl2 := client.NewSimulatedBackendClient(t, params.SimulatedBackend, big.NewInt(0).SetUint64(uint64(chain)))
 		headTracker2 := headstest.NewSimulatedHeadTracker(cl2, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
-		lp2 := logpoller.NewLogPoller(logpoller.NewORM(big.NewInt(0).SetUint64(uint64(chain)), db, lggr),
+
+		// Start head tracker before LogPoller to ensure proper initialization order
+		require.NoError(t, headTracker2.Start(ctx))
+
+		lp2 := logpoller.NewLogPoller(logpoller.NewORM(big.NewInt(0).SetUint64(uint64(chain)), db2, lggr),
 			cl2,
 			lggr,
 			headTracker2,
 			lpOpts,
 		)
 		require.NoError(t, lp2.Start(ctx))
+
+		// Add a small delay to ensure LogPoller is fully initialized
+		time.Sleep(50 * time.Millisecond)
 
 		cr2, err2 := read.NewChainReaderService(ctx, lggr, lp2, headTracker2, cl2, params.Cfg)
 		require.NoError(t, err2)
@@ -1504,6 +1540,8 @@ func testSetup(
 	t.Cleanup(func() {
 		require.NoError(t, cr.Close())
 		require.NoError(t, lp.Close())
+		require.NoError(t, headTracker.Close())
+		require.NoError(t, db.Close())
 	})
 
 	return &testSetupData{
