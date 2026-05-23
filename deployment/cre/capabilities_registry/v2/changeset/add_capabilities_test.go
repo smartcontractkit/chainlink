@@ -74,7 +74,7 @@ var (
 func TestAddCapabilities_VerifyPreconditions(t *testing.T) {
 	cs := changeset.AddCapabilities{}
 
-	h := test.NewTestHarness(t, false)
+	h := test.NewTestHarness(t)
 	chainSelector := h.RegistrySelector
 
 	capCfg := []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: "cap@1.0.0"}, Config: map[string]any{"k": "v"}}}
@@ -215,7 +215,7 @@ func requireCapability(t *testing.T, h *test.EnvWrapperV2, capID string) {
 
 func TestAddCapabilities_Apply(t *testing.T) {
 	// NewTestHarness deploys a cap reg v2 and configures it. So no need to do that here, just leverage the existing one.
-	h := test.NewTestHarness(t, false)
+	h := test.NewTestHarness(t)
 
 	addNewCapability(t, h, newCapID)
 	requireCapability(t, h, newCapID)
@@ -228,7 +228,7 @@ func TestAddCapabilities_Apply(t *testing.T) {
 
 func TestAddCapabilities_Apply_MCMS(t *testing.T) {
 	// NewTestHarness deploys a cap reg v2 and configures it. So no need to do that here, just leverage the existing one.
-	h := test.NewTestHarness(t, true)
+	h := test.NewTestHarness(t, test.WithMCMS())
 
 	input := changeset.AddCapabilitiesInput{
 		RegistryChainSel:  h.RegistrySelector,
@@ -356,13 +356,13 @@ func requireAptosSpecP2PTransmitterMap(t *testing.T, cfg *pkg.CapabilityConfig) 
 }
 
 func TestAddCapabilities_Apply_Modifier(t *testing.T) {
-	h := test.NewTestHarness(t, false)
+	h := test.NewTestHarness(t)
 	addCapabilityWithModifier(t, h)
 	requireCapabilityWithModifier(t, h)
 }
 
 func TestAddCapabilities_Apply_WithOCR3Config(t *testing.T) {
-	h := test.NewTestHarness(t, false)
+	h := test.NewTestHarness(t)
 	require.NotNil(t, h.Runtime.Environment().Offchain)
 
 	capID := "ocr3-test-cap@1.0.0"

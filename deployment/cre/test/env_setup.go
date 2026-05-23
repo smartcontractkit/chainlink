@@ -11,9 +11,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -43,6 +44,11 @@ const (
 	EnvironmentName = "test_environment"
 )
 
+var (
+	DefaultRegistrySelector uint64 = chain_selectors.TEST_90000001.Selector
+	DefaultAptosSelector    uint64 = chain_selectors.APTOS_LOCALNET.Selector
+)
+
 type EnvWrapperV2 struct {
 	t *testing.T
 
@@ -66,10 +72,44 @@ type donConfig struct {
 	RegistryChainSel uint64
 }
 
+type HarnessConfig struct {
+	WithMCMS      bool
+	DatastoreSeed *datastore.MemoryDataStore
+}
+
+// GetDatastoreSeed returns the datastore that will be seeded into the runtime
+// environment.
+//
+// Defaults to an empty memory data store.
+func (cfg *HarnessConfig) GetDatastoreSeed() datastore.DataStore {
+	if cfg.DatastoreSeed == nil {
+		return datastore.NewMemoryDataStore().Seal()
+	}
+
+	return cfg.DatastoreSeed.Seal()
+}
+
+// HarnessOpt is used to configure the initialization of the test harness.
+type HarnessOpt func(cfg *HarnessConfig)
+
+// WithMCMS configures the test harness to use MCMS.
+func WithMCMS() HarnessOpt {
+	return func(cfg *HarnessConfig) {
+		cfg.WithMCMS = true
+	}
+}
+
+// WithDatastore configures a custom datastore for the test harness.
+func WithDatastore(ds *datastore.MemoryDataStore) HarnessOpt {
+	return func(cfg *HarnessConfig) {
+		cfg.DatastoreSeed = ds
+	}
+}
+
 // initHarness sets up the runtime and environment for the test harness.
 //
 // TODO CRE-999; aptos can be made optional
-func initHarness(t *testing.T, lggr logger.Logger) *EnvWrapperV2 {
+func initHarness(t *testing.T, lggr logger.Logger, cfg *HarnessConfig) *EnvWrapperV2 {
 	var (
 		registryChainSel = chain_selectors.TEST_90000001.Selector
 		// by inspection, the only chain that is needed is evm, but some callers
@@ -99,6 +139,7 @@ func initHarness(t *testing.T, lggr logger.Logger) *EnvWrapperV2 {
 		environment.WithLogger(lggr),
 		environment.WithOffchainClient(jd),
 		environment.WithNodeIDs(don.Nodes().IDs()),
+		environment.WithDatastore(cfg.GetDatastoreSeed()),
 	))
 	require.NoError(t, err)
 
@@ -114,11 +155,16 @@ func initHarness(t *testing.T, lggr logger.Logger) *EnvWrapperV2 {
 
 // NewTestHarness starts a runtime with a single DON, 4 nodes and a capabilities registry v2
 // deployed and configured.
-func NewTestHarness(t *testing.T, useMCMS bool) *EnvWrapperV2 {
+func NewTestHarness(t *testing.T, opts ...HarnessOpt) *EnvWrapperV2 {
 	t.Helper()
 
+	cfg := &HarnessConfig{}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
 	lggr := logger.Test(t)
-	h := initHarness(t, lggr)
+	h := initHarness(t, lggr, cfg)
 
 	t.Log("Initialized runtime", "registryChainSel", h.RegistrySelector)
 
@@ -137,7 +183,7 @@ func NewTestHarness(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 	configureCapabilitiesRegistry(t, h)
 	assertCapabilitiesRegistryConfigured(t, h)
 
-	if useMCMS {
+	if cfg.WithMCMS {
 		setupMCMSInfrastructure(t, h)
 	}
 
@@ -154,7 +200,12 @@ func NewTestHarness(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
 	t.Helper()
 
-	return NewTestHarness(t, useMCMS)
+	var opts []HarnessOpt
+	if useMCMS {
+		opts = append(opts, WithMCMS())
+	}
+
+	return NewTestHarness(t, opts...)
 }
 
 // configureCapabilitiesRegistry configures the capabilities registry in the runtime environment

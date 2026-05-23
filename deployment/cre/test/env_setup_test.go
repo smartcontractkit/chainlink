@@ -9,7 +9,7 @@ import (
 )
 
 func TestNewTestHarness(t *testing.T) {
-	h := NewTestHarness(t, false)
+	h := NewTestHarness(t)
 
 	// all contracts on registry chain
 	registryChainAddrs := h.Runtime.Environment().DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(h.RegistrySelector))

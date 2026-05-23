@@ -17,7 +17,7 @@ import (
 
 func TestCREView(t *testing.T) {
 	t.Parallel()
-	h := test2.NewTestHarness(t, false)
+	h := test2.NewTestHarness(t)
 
 	addrs := h.Runtime.Environment().DataStore.Addresses().Filter(
 		datastore.AddressRefByChainSelector(h.RegistrySelector),

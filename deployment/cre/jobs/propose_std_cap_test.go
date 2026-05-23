@@ -52,7 +52,7 @@ func TestProposeStandardCapabilityJob_VerifyPreconditions(t *testing.T) {
 }
 
 func TestProposeStandardCapabilityJob_Apply(t *testing.T) {
-	h := test.NewTestHarness(t, false)
+	h := test.NewTestHarness(t)
 
 	task := runtime.ChangesetTask(jobs.ProposeStandardCapabilityJob{}, jobs.ProposeStandardCapabilityJobInput{
 		JobName:     "cron-cap-job",
@@ -80,7 +80,7 @@ func TestProposeStandardCapabilityJob_Apply(t *testing.T) {
 }
 
 func TestProposeStandardCapabilityJob_Apply_HTTPTrigger(t *testing.T) {
-	h := test.NewTestHarness(t, false)
+	h := test.NewTestHarness(t)
 
 	task := runtime.ChangesetTask(jobs.ProposeStandardCapabilityJob{}, jobs.ProposeStandardCapabilityJobInput{
 		JobName:       "http-trigger-job",
@@ -119,7 +119,7 @@ func TestProposeStandardCapabilityJob_Apply_HTTPTrigger(t *testing.T) {
 }
 
 func TestProposeStandardCapabilityJob_Apply_HTTPAction(t *testing.T) {
-	h := test.NewTestHarness(t, false)
+	h := test.NewTestHarness(t)
 
 	task := runtime.ChangesetTask(jobs.ProposeStandardCapabilityJob{}, jobs.ProposeStandardCapabilityJobInput{
 		JobName:       "http-action-job",

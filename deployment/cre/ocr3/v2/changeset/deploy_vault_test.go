@@ -11,7 +11,7 @@ import (
 )
 
 func TestDeployVault(t *testing.T) {
-	h := test.NewTestHarness(t, false)
+	h := test.NewTestHarness(t)
 
 	task := runtime.ChangesetTask(DeployVault{}, DeployVaultInput{
 		ChainSelector: h.RegistrySelector,

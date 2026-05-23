@@ -16,7 +16,7 @@ import (
 )
 
 func TestConfigureOCR3(t *testing.T) {
-	h := test.NewTestHarness(t, false)
+	h := test.NewTestHarness(t)
 
 	testCases := []struct {
 		Name  string

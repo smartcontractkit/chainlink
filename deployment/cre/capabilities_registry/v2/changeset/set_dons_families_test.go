@@ -22,7 +22,7 @@ import (
 func TestSetDONsFamilies_VerifyPreconditions(t *testing.T) {
 	cs := changeset.SetDONsFamilies{}
 
-	h := test.NewTestHarness(t, false)
+	h := test.NewTestHarness(t)
 	chainSelector := h.RegistrySelector
 
 	t.Run("invalid registry selector", func(t *testing.T) {
@@ -58,7 +58,7 @@ func TestSetDONsFamilies_VerifyPreconditions(t *testing.T) {
 func TestSetDONsFamilies_Apply(t *testing.T) {
 	cs := changeset.SetDONsFamilies{}
 
-	h := test.NewTestHarness(t, false)
+	h := test.NewTestHarness(t)
 	chainSelector := h.RegistrySelector
 
 	chain, ok := h.Runtime.Environment().BlockChains.EVMChains()[h.RegistrySelector]
@@ -114,7 +114,7 @@ func TestSetDONsFamilies_Apply(t *testing.T) {
 	})
 
 	t.Run("set families for existing DON - MCMS", func(t *testing.T) {
-		mcmsEnv := test.NewTestHarness(t, true)
+		mcmsEnv := test.NewTestHarness(t, test.WithMCMS())
 
 		duration := mcmstypes.NewDuration(1 * time.Second)
 

@@ -15,7 +15,7 @@ import (
 )
 
 func TestDeployOCR3(t *testing.T) {
-	h := test.NewTestHarness(t, false)
+	h := test.NewTestHarness(t)
 
 	// Apply the changeset to deploy the V2 capabilities registry
 	t.Log("Starting changeset application...")

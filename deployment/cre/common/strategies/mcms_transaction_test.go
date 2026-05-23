@@ -36,7 +36,7 @@ func getMCMSTransaction(t *testing.T, env deployment.Environment) *strategies.MC
 func TestMCMSTransaction_BuildProposal(t *testing.T) {
 	t.Parallel()
 
-	h := test.NewTestHarness(t, true)
+	h := test.NewTestHarness(t, test.WithMCMS())
 	env := h.Runtime.Environment()
 
 	t.Run("no config", func(t *testing.T) {
