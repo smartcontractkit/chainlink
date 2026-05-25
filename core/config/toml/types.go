@@ -2339,12 +2339,12 @@ func (a AdditionalWorkflowSource) GetName() string {
 }
 
 type ModuleCache struct {
-	Enabled              *bool
-	DiskMonitorEnabled   *bool
-	IdleEviction         *bool
-	IdleTimeout          *commonconfig.Duration
-	MaxLoaded            *int
-	CacheDir             *string
+	Enabled            *bool
+	DiskMonitorEnabled *bool
+	IdleEviction       *bool
+	IdleTimeout        *commonconfig.Duration
+	MaxLoaded          *int
+	CacheDir           *string
 }
 
 func (m *ModuleCache) setFrom(f *ModuleCache) {
@@ -2852,27 +2852,27 @@ func (t *Tracing) ValidateConfig() (err error) {
 }
 
 type Telemetry struct {
-	Enabled                       *bool
-	CACertFile                    *string
-	Endpoint                      *string
-	InsecureConnection            *bool
-	ResourceAttributes            map[string]string `toml:",omitempty"`
-	TraceSampleRatio              *float64
-	EmitterBatchProcessor         *bool
-	EmitterExportTimeout          *commonconfig.Duration
-	AuthHeadersTTL                *commonconfig.Duration
-	ChipIngressEndpoint           *string
+	Enabled                        *bool
+	CACertFile                     *string
+	Endpoint                       *string
+	InsecureConnection             *bool
+	ResourceAttributes             map[string]string `toml:",omitempty"`
+	TraceSampleRatio               *float64
+	EmitterBatchProcessor          *bool
+	EmitterExportTimeout           *commonconfig.Duration
+	AuthHeadersTTL                 *commonconfig.Duration
+	ChipIngressEndpoint            *string
 	ChipIngressInsecureConnection  *bool
 	ChipIngressBatchEmitterEnabled *bool
 	DurableEmitterEnabled          *bool
 	HeartbeatInterval              *commonconfig.Duration
-	LogLevel                      *string
-	LogStreamingEnabled           *bool
-	LogBatchProcessor             *bool
-	LogExportTimeout              *commonconfig.Duration
-	LogExportMaxBatchSize         *int
-	LogExportInterval             *commonconfig.Duration
-	LogMaxQueueSize               *int
+	LogLevel                       *string
+	LogStreamingEnabled            *bool
+	LogBatchProcessor              *bool
+	LogExportTimeout               *commonconfig.Duration
+	LogExportMaxBatchSize          *int
+	LogExportInterval              *commonconfig.Duration
+	LogMaxQueueSize                *int
 }
 
 func (b *Telemetry) setFrom(f *Telemetry) {
