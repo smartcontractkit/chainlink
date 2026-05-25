@@ -34,7 +34,6 @@ import (
 
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	cldlegacysolmcms "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
-	cldcommonchangesets "github.com/smartcontractkit/cld-changesets/pkg/cldfutil/changeset"
 	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
@@ -73,6 +72,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/mock_v3_aggregator_contract"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -1808,7 +1808,36 @@ func NewMintTokenWithCustomSender(auth *bind.TransactOpts, sender *bind.Transact
 // ApproveToken approves the router to spend the given amount of tokens
 // Keeping this proxy method in order to not break compatibility
 func ApproveToken(env cldf.Environment, src uint64, tokenAddress common.Address, routerAddress common.Address, amount *big.Int) error {
-	return cldcommonchangesets.ApproveToken(env, src, tokenAddress, routerAddress, amount)
+	evmChains := env.BlockChains.EVMChains()
+	ch, ok := evmChains[src]
+	if !ok {
+		return fmt.Errorf("evm chain %d not found in environment", src)
+	}
+
+	if ch.Client == nil {
+		return fmt.Errorf("evm chain %d has no RPC client", src)
+	}
+
+	if ch.DeployerKey == nil {
+		return fmt.Errorf("evm chain %d has no deployer key", src)
+	}
+
+	token, err := erc20.NewERC20(tokenAddress, ch.Client)
+	if err != nil {
+		return err
+	}
+
+	tx, err := token.Approve(ch.DeployerKey, routerAddress, amount)
+	if err != nil {
+		return err
+	}
+
+	_, err = ch.Confirm(tx)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // MintAndAllow mints tokens for deployers and allow router to spend them
@@ -2001,7 +2030,7 @@ func TransferMultiple(
 				// Approve router to spend tokens
 				if tt.RouterAddress != (common.Address{}) {
 					for _, ta := range tt.Tokens {
-						err := cldcommonchangesets.ApproveToken(env, tt.SourceChain, ta.Token, tt.RouterAddress, new(big.Int).Mul(ta.Amount, big.NewInt(10)))
+						err := ApproveToken(env, tt.SourceChain, ta.Token, tt.RouterAddress, new(big.Int).Mul(ta.Amount, big.NewInt(10)))
 						require.NoError(t, err)
 					}
 				}
