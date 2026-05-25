@@ -92,7 +92,7 @@ import (
 // on a chain. If a binding is nil, it means there is no such contract on the chain.
 type CCIPChainState struct {
 	evmstate.MCMSWithTimelockState
-	evmstate.LinkTokenState
+	LinkTokenState
 	evmstate.StaticLinkTokenState
 	ABIByAddress       map[string]string
 	OnRamp             onramp.OnRampInterface

@@ -1094,7 +1094,7 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 	}
 	state.MCMSWithTimelockState = *mcmsWithTimelock
 
-	linkState, err := evmstate.MaybeLoadLinkTokenChainState(chain, addresses)
+	linkState, err := evm.MaybeLoadLinkTokenChainState(chain, addresses)
 	if err != nil {
 		return state, err
 	}
