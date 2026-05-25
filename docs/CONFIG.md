@@ -1525,6 +1525,7 @@ Name is a required unique identifier for this workflow source. Each additional s
 ```toml
 [Capabilities.WorkflowRegistry.ModuleCache]
 Enabled = false # Default
+DiskMonitorEnabled = false # Default
 IdleEviction = true # Default
 IdleTimeout = '10m' # Default
 MaxLoaded = 200 # Default
@@ -1538,6 +1539,14 @@ Enabled = false # Default
 ```
 Enabled activates the two-level module cache (LRU + disk). When true, compiled WASM modules
 are kept in memory and persisted to disk, avoiding recompilation on subsequent activations.
+
+### DiskMonitorEnabled
+```toml
+DiskMonitorEnabled = false # Default
+```
+DiskMonitorEnabled exposes platform_workflow_module_cache_disk_usage_bytes for CacheDir without
+enabling LRU/disk persistence. Set CacheDir to the production path during rollout; then set
+Enabled = true for the full cache. Enabled = true also starts the disk monitor when this is false.
 
 ### IdleEviction
 ```toml

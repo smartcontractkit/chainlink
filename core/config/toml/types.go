@@ -2339,16 +2339,20 @@ func (a AdditionalWorkflowSource) GetName() string {
 }
 
 type ModuleCache struct {
-	Enabled      *bool
-	IdleEviction *bool
-	IdleTimeout  *commonconfig.Duration
-	MaxLoaded    *int
-	CacheDir     *string
+	Enabled              *bool
+	DiskMonitorEnabled   *bool
+	IdleEviction         *bool
+	IdleTimeout          *commonconfig.Duration
+	MaxLoaded            *int
+	CacheDir             *string
 }
 
 func (m *ModuleCache) setFrom(f *ModuleCache) {
 	if f.Enabled != nil {
 		m.Enabled = f.Enabled
+	}
+	if f.DiskMonitorEnabled != nil {
+		m.DiskMonitorEnabled = f.DiskMonitorEnabled
 	}
 	if f.IdleEviction != nil {
 		m.IdleEviction = f.IdleEviction
