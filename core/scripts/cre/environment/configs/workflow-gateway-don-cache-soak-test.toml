@@ -52,7 +52,7 @@
 [Capabilities.WorkflowRegistry.ModuleCache]
 Enabled = true
 # Sized for ~50% of 128GiB host at cap; per loaded slot ~= WASMBinarySizeLimit + WASMMemoryLimit (100MiB each by default).
-MaxLoaded = 100
+MaxLoaded = 25
 IdleEviction = true
 # Long enough that 3m fast cron stays hot and 8m slow cron idles out between runs.
 IdleTimeout = '5m'
