@@ -30,8 +30,8 @@ import (
 // so enforceCap stays active after workflows are being triggered across nodes.
 // On-chain registry limits (SetDONLimit) and node [Workflows.Limits] must exceed _defaultSoakNumWorkflows.
 const (
-	capPressurePercent   = 400 // 400% of MaxLoaded
-	moduleCacheMaxLoaded = 100 // mirrors workflow-gateway-don-cache-soak-test.toml MaxLoaded
+	capPressurePercent   = 1000 // 1000% of MaxLoaded
+	moduleCacheMaxLoaded = 25   // mirrors workflow-gateway-don-cache-soak-test.toml MaxLoaded
 
 	moduleCacheIdleTimeout = 5 * time.Minute
 	fastCronInterval       = 3 * time.Minute
