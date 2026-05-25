@@ -107,8 +107,9 @@ func deleteWorkflowsNTimesCleanup(
 
 // CompileAndDeployWorkflowNTimes compiles the workflow once, provisions numKeys funded signers via
 // ConfigureAdditionalWorkflowSigners, then registers numDeployments workflows in parallel across keys
-// (serial per key). Artifacts are packed into one tarball per DON. Requires numDeployments >= 2;
-// use CompileAndDeployWorkflow for a single deployment.
+// (serial per key). Artifacts are copied to DONs in one or more tarballs (batch size from
+// WithArtifactCopyBatchSize or CRE_TEST_ARTIFACT_COPY_BATCH_SIZE; default is a single tarball).
+// Requires numDeployments >= 2; use CompileAndDeployWorkflow for a single deployment.
 func CompileAndDeployWorkflowNTimes[T WorkflowConfig](t *testing.T,
 	testEnv *ttypes.TestEnvironment, testLogger zerolog.Logger,
 	workflowNameFn func(i int) string,
@@ -153,7 +154,11 @@ func CompileAndDeployWorkflowNTimes[T WorkflowConfig](t *testing.T,
 	artifactDir := workflowArtifactsDir(t, testEnv)
 	workflowDONs := selectArtifactTargetDONs(testEnv, cfg.artifactCopyDONTypes)
 	wasmPaths, configPaths := buildNTimesWorkflowArtifacts(t, testLogger, workflowNameFn, workflowConfigFn, workflowFileLocation, artifactDir, numDeployments)
-	copyNTimesArtifactsToDONs(t, testLogger, workflowDONs, artifactDir, wasmPaths, configPaths, numDeployments)
+	artifactCopyBatchSize := cfg.artifactCopyBatchSize
+	if artifactCopyBatchSize <= 0 {
+		artifactCopyBatchSize = envVarOrDefault("CRE_TEST_ARTIFACT_COPY_BATCH_SIZE", 0)
+	}
+	copyNTimesArtifactsToDONs(t, testLogger, workflowDONs, artifactDir, wasmPaths, configPaths, numDeployments, artifactCopyBatchSize)
 
 	registryChainSelector := testEnv.CreEnvironment.Blockchains[0].ChainSelector()
 	workflowRegistryAddress := crecontracts.MustGetAddressRefFromDataStore(
@@ -290,27 +295,48 @@ func copyNTimesArtifactsToDONs(
 	workflowDONs []*cre.Don,
 	artifactDir string,
 	wasmPaths, configPaths []string,
-	numDeployments int,
+	numDeployments, batchSize int,
 ) {
 	t.Helper()
 
-	pathsForTar := make([]string, 0, numDeployments*2)
-	for i := range numDeployments {
-		pathsForTar = append(pathsForTar, wasmPaths[i])
-		if configPaths[i] != "" {
-			pathsForTar = append(pathsForTar, configPaths[i])
-		}
+	if batchSize <= 0 || batchSize > numDeployments {
+		batchSize = numDeployments
 	}
-	bundlePath := filepath.Join(artifactDir, "workflow-artifacts-bundle.tar")
-	require.NoError(t, creworkflow.WriteArtifactTarball(bundlePath, pathsForTar), "failed to write workflow artifact tarball")
-	testLogger.Info().Str("bundle", bundlePath).Int("files", len(pathsForTar)).Msg("Copying workflow artifact tarball to DONs")
-	for _, don := range workflowDONs {
-		copyErr := creworkflow.CopyAndExtractTarballToDockerContainers(
-			creworkflow.DefaultWorkflowTargetDir,
-			ns.NodeNamePrefix(don.Name),
-			bundlePath,
-		)
-		require.NoError(t, copyErr, "failed to copy and extract artifact tarball for DON %q", don.Name)
+	numBatches := (numDeployments + batchSize - 1) / batchSize
+
+	for batchIdx := range numBatches {
+		start := batchIdx * batchSize
+		end := min(start+batchSize, numDeployments)
+
+		pathsForTar := make([]string, 0, (end-start)*2)
+		for i := start; i < end; i++ {
+			pathsForTar = append(pathsForTar, wasmPaths[i])
+			if configPaths[i] != "" {
+				pathsForTar = append(pathsForTar, configPaths[i])
+			}
+		}
+
+		bundleName := "workflow-artifacts-bundle.tar"
+		if numBatches > 1 {
+			bundleName = fmt.Sprintf("workflow-artifacts-bundle-%d.tar", batchIdx)
+		}
+		bundlePath := filepath.Join(artifactDir, bundleName)
+		require.NoError(t, creworkflow.WriteArtifactTarball(bundlePath, pathsForTar), "failed to write workflow artifact tarball batch %d", batchIdx)
+		testLogger.Info().
+			Str("bundle", bundlePath).
+			Int("batch", batchIdx+1).
+			Int("batches", numBatches).
+			Int("workflows_in_batch", end-start).
+			Int("files", len(pathsForTar)).
+			Msg("Copying workflow artifact tarball batch to DONs")
+		for _, don := range workflowDONs {
+			copyErr := creworkflow.CopyAndExtractTarballToDockerContainers(
+				creworkflow.DefaultWorkflowTargetDir,
+				ns.NodeNamePrefix(don.Name),
+				bundlePath,
+			)
+			require.NoError(t, copyErr, "failed to copy and extract artifact tarball batch %d for DON %q", batchIdx, don.Name)
+		}
 	}
 }
 

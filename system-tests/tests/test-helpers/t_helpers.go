@@ -720,8 +720,9 @@ func envVarOrDefault(envVar string, defaultValue int) int {
 }
 
 type compileAndDeployWorkflowCfg struct {
-	artifactCopyDONTypes []cre.CapabilityFlag
-	attributes           []byte
+	artifactCopyDONTypes  []cre.CapabilityFlag
+	attributes            []byte
+	artifactCopyBatchSize int // workflows per tarball when copying to DONs; 0 = unset
 }
 
 // CompileAndDeployWorkflowOpt customizes workflow compilation/deployment behavior.
@@ -744,6 +745,16 @@ func WithArtifactCopyDONTypes(donTypes ...cre.CapabilityFlag) CompileAndDeployWo
 func WithAttributes(attributes []byte) CompileAndDeployWorkflowOpt {
 	return func(cfg *compileAndDeployWorkflowCfg) {
 		cfg.attributes = slices.Clone(attributes)
+	}
+}
+
+// WithArtifactCopyBatchSize limits how many workflows are packed into each tarball
+// when copying artifacts to DON containers. Use for large N-times deployments (e.g.
+// soak tests) to avoid oversized single tarballs. Unset or zero falls back to
+// CRE_TEST_ARTIFACT_COPY_BATCH_SIZE, then to all workflows in one tarball.
+func WithArtifactCopyBatchSize(batchSize int) CompileAndDeployWorkflowOpt {
+	return func(cfg *compileAndDeployWorkflowCfg) {
+		cfg.artifactCopyBatchSize = batchSize
 	}
 }
 

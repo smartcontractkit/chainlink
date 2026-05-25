@@ -101,6 +101,7 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 		workflowFileLocation,
 		numWorkflows,
 		numberOfDeploymentKeys,
+		t_helpers.WithArtifactCopyBatchSize(200),
 	)
 	testLogger.Info().Int("count", len(workflowIDs)).Msg("All cache-test workflows deployed")
 	nodeContainers := t_helpers.SnapshotNodeContainerRestarts(t, testEnv)
