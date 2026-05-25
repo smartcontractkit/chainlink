@@ -93,7 +93,7 @@ import (
 type CCIPChainState struct {
 	evmstate.MCMSWithTimelockState
 	LinkTokenState
-	evmstate.StaticLinkTokenState
+	StaticLinkTokenState
 	ABIByAddress       map[string]string
 	OnRamp             onramp.OnRampInterface
 	OffRamp            offramp.OffRampInterface

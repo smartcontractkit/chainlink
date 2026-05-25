@@ -1099,7 +1099,7 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 		return state, err
 	}
 	state.LinkTokenState = *linkState
-	staticLinkState, err := evmstate.MaybeLoadStaticLinkTokenState(chain, addresses)
+	staticLinkState, err := evm.MaybeLoadStaticLinkTokenState(chain, addresses)
 	if err != nil {
 		return state, err
 	}
