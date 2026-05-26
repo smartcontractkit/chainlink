@@ -55,7 +55,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.34.0
 	github.com/smartcontractkit/chain-selectors v1.0.100
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260521180028-c6ae1f57246d
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260525193819-b17f8e7e1ef1
 	github.com/smartcontractkit/chainlink-common/keystore v1.1.0
 	github.com/smartcontractkit/chainlink-deployments-framework v0.105.0
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260403151002-2c91155b5501

@@ -494,7 +494,7 @@ func sendConcurrentVaultCreate(t *testing.T, gwURL, requestID string, jsonReques
 }
 
 // assertVaultOCRPendingPackObservedInDockerLogs polls chainlink-related container logs until it observes
-// a VAULT_OCR_OBSERVATION_PENDING_PACK log line emitted by the new batching code path. The line must
+// a 'observation packed local items into blob payloads' log line emitted by the new batching code path. The line must
 // carry the blobHandleCount field (only the new pending-queue-batching code path logs that field) and a
 // non-zero packedLocalItemCount. Strict "multi-item batched into fewer blobs" (packed > handles) is
 // timing-dependent: OCR rounds (~400ms) often drain the per-node local pending queue between arrivals,
@@ -521,7 +521,7 @@ func assertVaultOCRPendingPackObservedInDockerLogs(t *testing.T) {
 		if err != nil {
 			select {
 			case <-ctx.Done():
-				require.Fail(t, "timed out waiting for docker while scanning for VAULT_OCR_OBSERVATION_PENDING_PACK")
+				require.Fail(t, "timed out waiting for docker while scanning for observation packed local items into blob payloads")
 			case <-ticker.C:
 			}
 			continue
@@ -540,7 +540,7 @@ func assertVaultOCRPendingPackObservedInDockerLogs(t *testing.T) {
 				continue
 			}
 			for _, line := range strings.Split(string(logs), "\n") {
-				if !strings.Contains(line, "VAULT_OCR_OBSERVATION_PENDING_PACK") {
+				if !strings.Contains(line, "observation packed local items into blob payloads") {
 					continue
 				}
 				pm := vaultPendingPackDockerLogRE.FindStringSubmatch(line)
@@ -561,14 +561,14 @@ func assertVaultOCRPendingPackObservedInDockerLogs(t *testing.T) {
 		}
 		select {
 		case <-ctx.Done():
-			require.Fail(t, "timed out waiting for VAULT_OCR_OBSERVATION_PENDING_PACK line with packedLocalItemCount>=1 and blobHandleCount field set in docker logs (is the local CRE stack running with vault optimizations enabled?)")
+			require.Fail(t, "timed out waiting for observation packed local items into blob payloads line with packedLocalItemCount>=1 and blobHandleCount field set in docker logs (is the local CRE stack running with vault optimizations enabled?)")
 		case <-ticker.C:
 		}
 	}
 }
 
 // assertVaultOCRStateTransitionPendingWriteObservedInDockerLogs polls chainlink-related container logs until it
-// observes a VAULT_OCR_STATE_TRANSITION_PENDING_WRITE log line with writtenCount >= 1, proving that items
+// observes a 'state transition: more observations than can be included in response' log line with writtenCount >= 1, proving that items
 // reached the KV pending queue via the new batched-write state transition (rather than the legacy per-item
 // path that did not emit this log). Strict writtenCount>1 is timing-dependent — most rounds write only the
 // item(s) that arrived since the previous round — so we assert the code path was exercised instead.
@@ -592,7 +592,7 @@ func assertVaultOCRStateTransitionPendingWriteObservedInDockerLogs(t *testing.T)
 		if err != nil {
 			select {
 			case <-ctx.Done():
-				require.Fail(t, "timed out waiting for docker while scanning for VAULT_OCR_STATE_TRANSITION_PENDING_WRITE")
+				require.Fail(t, "timed out waiting for docker while scanning for pending queue items persisted to storage")
 			case <-ticker.C:
 			}
 			continue
@@ -611,7 +611,7 @@ func assertVaultOCRStateTransitionPendingWriteObservedInDockerLogs(t *testing.T)
 				continue
 			}
 			for _, line := range strings.Split(string(logs), "\n") {
-				if !strings.Contains(line, "VAULT_OCR_STATE_TRANSITION_PENDING_WRITE") {
+				if !strings.Contains(line, "pending queue items persisted to storage") {
 					continue
 				}
 				wm := vaultStateTransitionPendingWriteWrittenRE.FindStringSubmatch(line)
@@ -630,7 +630,7 @@ func assertVaultOCRStateTransitionPendingWriteObservedInDockerLogs(t *testing.T)
 		}
 		select {
 		case <-ctx.Done():
-			require.Fail(t, "timed out waiting for VAULT_OCR_STATE_TRANSITION_PENDING_WRITE line with writtenCount>=1 in docker logs (is the local CRE stack running with vault optimizations enabled?)")
+			require.Fail(t, "timed out waiting for pending queue items persisted to storage line with writtenCount>=1 in docker logs (is the local CRE stack running with vault optimizations enabled?)")
 		case <-ticker.C:
 		}
 	}
@@ -680,14 +680,14 @@ func assertVaultOCRWireTruncationSignalsInDockerLogs(t *testing.T) {
 
 	sawObsTrunc := false
 	for _, line := range strings.Split(s, "\n") {
-		if !strings.Contains(line, "VAULT_OCR_OBSERVATION_WIRE_PACK") {
+		if !strings.Contains(line, "observation: more pending queue items than can be observed") {
 			continue
 		}
 		sawObsTrunc = true
 		pm := vaultObservationWirePackPackedRE.FindStringSubmatch(line)
 		qm := vaultObservationWirePackPendingRE.FindStringSubmatch(line)
-		require.GreaterOrEqual(t, len(pm), 2, "packedObservationCount should be present on VAULT_OCR_OBSERVATION_WIRE_PACK line: %s", line)
-		require.GreaterOrEqual(t, len(qm), 2, "pendingQueueItemCount should be present on VAULT_OCR_OBSERVATION_WIRE_PACK line: %s", line)
+		require.GreaterOrEqual(t, len(pm), 2, "packedObservationCount should be present on observation wire pack line: %s", line)
+		require.GreaterOrEqual(t, len(qm), 2, "pendingQueueItemCount should be present on observation wire pack line: %s", line)
 		packed, err1 := strconv.Atoi(pm[1])
 		pending, err2 := strconv.Atoi(qm[1])
 		require.NoError(t, err1)
@@ -698,14 +698,14 @@ func assertVaultOCRWireTruncationSignalsInDockerLogs(t *testing.T) {
 
 	sawOutcomeTrunc := false
 	for _, line := range strings.Split(s, "\n") {
-		if !strings.Contains(line, "VAULT_OCR_STATE_TRANSITION_OUTCOME_WIRE_PACK") {
+		if !strings.Contains(line, "state transition: more observations than can be included in response") {
 			continue
 		}
 		sawOutcomeTrunc = true
 		om := vaultOutcomeWirePackPackedRE.FindStringSubmatch(line)
 		sm := vaultOutcomeWirePackScheduledRE.FindStringSubmatch(line)
-		require.GreaterOrEqual(t, len(om), 2, "packedOutcomeCount should be present on VAULT_OCR_STATE_TRANSITION_OUTCOME_WIRE_PACK line: %s", line)
-		require.GreaterOrEqual(t, len(sm), 2, "scheduledRequestIDs should be present on VAULT_OCR_STATE_TRANSITION_OUTCOME_WIRE_PACK line: %s", line)
+		require.GreaterOrEqual(t, len(om), 2, "packedOutcomeCount should be present on state transition outcome wire pack line: %s", line)
+		require.GreaterOrEqual(t, len(sm), 2, "scheduledRequestIDs should be present on state transition outcome wire pack line: %s", line)
 		packed, err1 := strconv.Atoi(om[1])
 		scheduled, err2 := strconv.Atoi(sm[1])
 		require.NoError(t, err1)
@@ -715,7 +715,7 @@ func assertVaultOCRWireTruncationSignalsInDockerLogs(t *testing.T) {
 	}
 
 	if !sawObsTrunc && !sawOutcomeTrunc {
-		framework.L.Info().Msg("no VAULT_OCR_OBSERVATION_WIRE_PACK or VAULT_OCR_STATE_TRANSITION_OUTCOME_WIRE_PACK in recent docker logs — observation and precursor outcome packing did not truncate in the sampled window (expected under default limits)")
+		framework.L.Info().Msg("no observation: more pending queue items than can be observed or state transition: more observations than can be included in response in recent docker logs — observation and precursor outcome packing did not truncate in the sampled window (expected under default limits)")
 	}
 }
 

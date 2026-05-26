@@ -391,17 +391,15 @@ func marshalPendingQueueBlobPayload(items []*vaultcommon.StoredPendingQueueItem)
 	case 1:
 		return proto.Marshal(items[0])
 	default:
-		return proto.Marshal(&vaultcommon.StoredPendingQueueBatch{Items: items})
+		return proto.Marshal(&vaultcommon.StoredPendingQueueBatch{Items: items, IsBatch: true})
 	}
 }
 
 // unmarshalPendingQueueBlob decodes a BroadcastBlob payload (legacy single item or StoredPendingQueueBatch).
 func unmarshalPendingQueueBlob(blob []byte) ([]*vaultcommon.StoredPendingQueueItem, error) {
 	batch := &vaultcommon.StoredPendingQueueBatch{}
-	if err := proto.Unmarshal(blob, batch); err == nil {
-		if items := batch.GetItems(); len(items) > 0 {
-			return items, nil
-		}
+	if err := proto.Unmarshal(blob, batch); err == nil && batch.IsBatch {
+		return batch.GetItems(), nil
 	}
 	single := &vaultcommon.StoredPendingQueueItem{}
 	if err := proto.Unmarshal(blob, single); err != nil {
@@ -418,6 +416,43 @@ type pendingQueueBlobPack struct {
 	truncated       bool
 }
 
+func (r *ReportingPlugin) flushBatch(
+	ctx context.Context,
+	seqNr uint64,
+	currentBatch []*vaultcommon.StoredPendingQueueItem,
+	out pendingQueueBlobPack,
+	maxBlobBytes int,
+	maxBlobHandleCount int,
+) (pendingQueueBlobPack, []*vaultcommon.StoredPendingQueueItem, error) {
+	if len(currentBatch) == 0 {
+		return out, currentBatch, nil
+	}
+	payload, mErr := marshalPendingQueueBlobPayload(currentBatch)
+	if mErr != nil {
+		return out, currentBatch, fmt.Errorf("could not marshal pending queue blob payload: %w", mErr)
+	}
+	if len(payload) > maxBlobBytes {
+		return out, currentBatch, fmt.Errorf("pending queue blob payload exceeds max size (%d > %d)", len(payload), maxBlobBytes)
+	}
+	ids := make([]string, 0, len(currentBatch))
+	for _, it := range currentBatch {
+		ids = append(ids, it.Id)
+		r.lifecycle.RecordBlobBroadcasting(it.Id, seqNr, time.Now())
+	}
+	out.packedItemCount += len(currentBatch)
+	out.blobPayloads = append(out.blobPayloads, payload)
+	out.blobPayloadIDs = append(out.blobPayloadIDs, strings.Join(ids, ","))
+	currentBatch = currentBatch[:0]
+	if len(out.blobPayloads) >= maxBlobHandleCount {
+		out.truncated = true
+		r.lggr.Warnw("Observed local queue exceeds batch size limit, truncating",
+			"queueSize", len(out.blobPayloads),
+			"batchSizeLimit", maxBlobHandleCount)
+		r.metrics.trackQueueOverflow(ctx, len(out.blobPayloads), maxBlobHandleCount)
+	}
+	return out, currentBatch, nil
+}
+
 // prepareObservationPendingQueueBlobs packs local-queue requests into OCR3.1 blob payloads (legacy
 // single-item or StoredPendingQueueBatch), capped by byte size per blob and by maxBlobHandleCount handles.
 func (r *ReportingPlugin) prepareObservationPendingQueueBlobs(
@@ -429,50 +464,17 @@ func (r *ReportingPlugin) prepareObservationPendingQueueBlobs(
 	maxBlobHandleCount int,
 ) (pendingQueueBlobPack, error) {
 	var out pendingQueueBlobPack
-
 	var currentBatch []*vaultcommon.StoredPendingQueueItem
 
-	flushBatch := func() error {
-		if len(currentBatch) == 0 {
-			return nil
-		}
-		if len(out.blobPayloads) >= maxBlobHandleCount {
-			out.truncated = true
-			r.lggr.Warnw("Observed local queue exceeds batch size limit, truncating",
-				"queueSize", len(out.blobPayloads),
-				"batchSizeLimit", maxBlobHandleCount)
-			r.metrics.trackQueueOverflow(ctx, len(out.blobPayloads), maxBlobHandleCount)
-			currentBatch = currentBatch[:0]
-			return nil
-		}
-		payload, mErr := marshalPendingQueueBlobPayload(currentBatch)
-		if mErr != nil {
-			return fmt.Errorf("could not marshal pending queue blob payload: %w", mErr)
-		}
-		if len(payload) > maxBlobBytes {
-			return fmt.Errorf("pending queue blob payload exceeds max size (%d > %d)", len(payload), maxBlobBytes)
-		}
-		ids := make([]string, 0, len(currentBatch))
-		for _, it := range currentBatch {
-			ids = append(ids, it.Id)
-			r.lifecycle.RecordBlobBroadcasting(it.Id, seqNr, time.Now())
-		}
-		out.packedItemCount += len(currentBatch)
-		out.blobPayloads = append(out.blobPayloads, payload)
-		out.blobPayloadIDs = append(out.blobPayloadIDs, strings.Join(ids, ","))
-		currentBatch = currentBatch[:0]
-		return nil
-	}
-
-queueLoop:
-	for _, queueItem := range localQueueItems {
+	for i := 0; i < len(localQueueItems); i++ {
+		queueItem := localQueueItems[i]
 		if pendingQueueHasID[queueItem.ID()] {
 			continue
 		}
 
-		anyMsg, ierr2 := anypb.New(queueItem.Payload)
-		if ierr2 != nil {
-			return pendingQueueBlobPack{}, fmt.Errorf("could not marshal request payload to Any: %w", ierr2)
+		anyMsg, err := anypb.New(queueItem.Payload)
+		if err != nil {
+			return pendingQueueBlobPack{}, fmt.Errorf("could not marshal request payload to Any: %w", err)
 		}
 
 		singleItem := &vaultcommon.StoredPendingQueueItem{
@@ -480,40 +482,34 @@ queueLoop:
 			Item: anyMsg,
 		}
 
-	restartSameItem:
 		candidate := append(slices.Clone(currentBatch), singleItem)
-		payload, ierr2 := marshalPendingQueueBlobPayload(candidate)
-		if ierr2 != nil {
-			return pendingQueueBlobPack{}, ierr2
+		payload, err := marshalPendingQueueBlobPayload(candidate)
+		if err != nil {
+			return pendingQueueBlobPack{}, err
 		}
 
-		if len(payload) <= maxBlobBytes {
-			if len(out.blobPayloads) >= maxBlobHandleCount && len(currentBatch) == 0 {
-				out.truncated = true
-				r.lggr.Warnw("Observed local queue exceeds batch size limit, truncating",
-					"queueSize", len(out.blobPayloads),
-					"batchSizeLimit", maxBlobHandleCount)
-				r.metrics.trackQueueOverflow(ctx, len(out.blobPayloads), maxBlobHandleCount)
-				break queueLoop
+		if len(payload) > maxBlobBytes {
+			if len(currentBatch) == 0 {
+				return pendingQueueBlobPack{}, fmt.Errorf("single pending queue item exceeds max blob payload size (%d > %d)", len(payload), maxBlobBytes)
 			}
-			currentBatch = candidate
-			continue queueLoop
-		}
-
-		if len(currentBatch) > 0 {
-			if err := flushBatch(); err != nil {
-				return pendingQueueBlobPack{}, err
+			// Current batch is full; flush it and retry the same item on the next iteration.
+			var ferr error
+			out, currentBatch, ferr = r.flushBatch(ctx, seqNr, currentBatch, out, maxBlobBytes, maxBlobHandleCount)
+			if ferr != nil {
+				return pendingQueueBlobPack{}, ferr
 			}
 			if out.truncated {
-				break queueLoop
+				break
 			}
-			goto restartSameItem
+			i--
+			continue
 		}
-
-		return pendingQueueBlobPack{}, fmt.Errorf("single pending queue item exceeds max blob payload size (%d > %d)", len(payload), maxBlobBytes)
+		currentBatch = candidate
 	}
 
-	if err := flushBatch(); err != nil {
+	var err error
+	out, currentBatch, err = r.flushBatch(ctx, seqNr, currentBatch, out, maxBlobBytes, maxBlobHandleCount)
+	if err != nil {
 		return pendingQueueBlobPack{}, err
 	}
 
@@ -650,7 +646,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		}
 		if pack.packedItemCount > 0 {
 			r.metrics.trackObservationPendingPack(ctx, pack.packedItemCount, len(pack.blobPayloads))
-			r.lggr.Infow("VAULT_OCR_OBSERVATION_PENDING_PACK",
+			r.lggr.Infow("observation packed local items into blob payloads",
 				"seqNr", seqNr,
 				"packedLocalItemCount", pack.packedItemCount,
 				"blobHandleCount", len(pack.blobPayloads),
@@ -681,10 +677,10 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	// Observe store-backed pending queue items after local-queue blob broadcast so blob wire size is known first.
 	observedIDs := r.appendPendingQueueObservations(ctx, seqNr, readKV, currentPendingQueueItems, obspb, optimizations)
 	if optimizations && len(currentPendingQueueItems) > 0 && len(obspb.Observations) < len(currentPendingQueueItems) {
-		r.lggr.Infow("VAULT_OCR_OBSERVATION_WIRE_PACK",
+		r.lggr.Infow("observation: more pending queue items than can be observed",
 			"seqNr", seqNr,
 			"packedObservationCount", len(obspb.Observations),
-			"pendingQueueItemCount", len(currentPendingQueueItems),
+			"totalPendingQueueItemCount", len(currentPendingQueueItems),
 		)
 	}
 
@@ -1794,11 +1790,11 @@ outcomePackLoop:
 		os.Outcomes = append(os.Outcomes, o)
 		if r.optimizationsEnabled(ctx) && proto.Size(os) > r.maxReportsPlusPrecursorBytes {
 			os.Outcomes = os.Outcomes[:len(os.Outcomes)-1]
-			r.lggr.Warnw("VAULT_OCR_STATE_TRANSITION_OUTCOME_WIRE_PACK: outcomes proto would exceed max reports+precursor bytes; stopping outcome pack",
+			r.lggr.Warnw("state transition: more observations than can be included in response",
 				"id", id,
 				"maxReportsPlusPrecursorBytes", r.maxReportsPlusPrecursorBytes,
 				"packedOutcomeCount", len(os.Outcomes),
-				"pendingObservedIDs", len(obsMap),
+				"scheduledRequestIDs", len(obsMap),
 			)
 			break outcomePackLoop
 		}
@@ -1924,7 +1920,7 @@ func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, seqNr
 	})
 
 	r.metrics.trackPendingQueueWrittenSize(ctx, len(keptItems))
-	r.lggr.Infow("VAULT_OCR_STATE_TRANSITION_PENDING_WRITE", "seqNr", seqNr, "writtenCount", len(keptItems))
+	r.lggr.Infow("pending queue items persisted to storage", "seqNr", seqNr, "writtenCount", len(keptItems))
 
 	now := time.Now()
 	for _, it := range keptItems {

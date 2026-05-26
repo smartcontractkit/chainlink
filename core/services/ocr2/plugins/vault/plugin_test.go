@@ -647,6 +647,113 @@ func TestPrepareObservationPendingQueueBlobs_packsManySmallItemsInOneObservation
 	require.Equal(t, n, unpacked)
 }
 
+func TestPrepareObservationPendingQueueBlobs_flushesAndContinuesWhenBatchFull(t *testing.T) {
+	// Items are larger than half maxBlobBytes so only one fits per blob.
+	// The loop must flush the current batch and start a new one for each item.
+	store := requests.NewStore[*vaulttypes.Request]()
+	r := newTestReportingPlugin(t, withStore(store), withVaultOptimizationsEnabled())
+
+	pubK, _, err := box.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	pks := hex.EncodeToString(pubK[:])
+	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "my_secret"}
+	p := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{pks}}},
+	}
+
+	const n = 3
+	for i := range n {
+		require.NoError(t, store.Add(&vaulttypes.Request{Payload: p, IDVal: fmt.Sprintf("req-%02d", i)}))
+	}
+	localQueueItems, err := store.All()
+	require.NoError(t, err)
+	slices.SortFunc(localQueueItems, func(a, b *vaulttypes.Request) int {
+		return strings.Compare(a.ID(), b.ID())
+	})
+
+	// Compute the wire size of a single item so we can set maxBlobBytes to just above it,
+	// forcing each item into its own blob.
+	anyMsg, err := anypb.New(p)
+	require.NoError(t, err)
+	singleItem := &vaultcommon.StoredPendingQueueItem{Id: "req-00", Item: anyMsg}
+	singlePayload, err := marshalPendingQueueBlobPayload([]*vaultcommon.StoredPendingQueueItem{singleItem})
+	require.NoError(t, err)
+	maxBlobBytes := len(singlePayload) + 5 // fits exactly one item
+
+	pack, err := r.prepareObservationPendingQueueBlobs(t.Context(), 1, localQueueItems, map[string]bool{}, maxBlobBytes, 10)
+	require.NoError(t, err)
+	require.Equal(t, n, pack.packedItemCount)
+	require.False(t, pack.truncated)
+	require.Equal(t, n, len(pack.blobPayloads), "each item should be its own blob")
+
+	var unpacked int
+	for _, blob := range pack.blobPayloads {
+		items, uerr := unmarshalPendingQueueBlob(blob)
+		require.NoError(t, uerr)
+		unpacked += len(items)
+	}
+	require.Equal(t, n, unpacked)
+}
+
+func TestPrepareObservationPendingQueueBlobs_truncatesWhenHandleCountExceeded(t *testing.T) {
+	store := requests.NewStore[*vaulttypes.Request]()
+	r := newTestReportingPlugin(t, withStore(store), withVaultOptimizationsEnabled())
+
+	pubK, _, err := box.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	pks := hex.EncodeToString(pubK[:])
+	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "my_secret"}
+	p := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{pks}}},
+	}
+
+	const n = 10
+	for i := range n {
+		require.NoError(t, store.Add(&vaulttypes.Request{Payload: p, IDVal: fmt.Sprintf("req-%02d", i)}))
+	}
+	localQueueItems, err := store.All()
+	require.NoError(t, err)
+	slices.SortFunc(localQueueItems, func(a, b *vaulttypes.Request) int {
+		return strings.Compare(a.ID(), b.ID())
+	})
+
+	anyMsg, err := anypb.New(p)
+	require.NoError(t, err)
+	singleItem := &vaultcommon.StoredPendingQueueItem{Id: "req-00", Item: anyMsg}
+	singlePayload, err := marshalPendingQueueBlobPayload([]*vaultcommon.StoredPendingQueueItem{singleItem})
+	require.NoError(t, err)
+	// Force one item per blob by making maxBlobBytes just above single-item size.
+	maxBlobBytes := len(singlePayload) + 5
+	const maxBlobHandleCount = 3
+
+	pack, err := r.prepareObservationPendingQueueBlobs(t.Context(), 1, localQueueItems, map[string]bool{}, maxBlobBytes, maxBlobHandleCount)
+	require.NoError(t, err)
+	require.True(t, pack.truncated)
+	require.Equal(t, maxBlobHandleCount, len(pack.blobPayloads))
+	require.Equal(t, maxBlobHandleCount, pack.packedItemCount)
+}
+
+func TestPrepareObservationPendingQueueBlobs_errorWhenSingleItemTooLarge(t *testing.T) {
+	store := requests.NewStore[*vaulttypes.Request]()
+	r := newTestReportingPlugin(t, withStore(store), withVaultOptimizationsEnabled())
+
+	pubK, _, err := box.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	pks := hex.EncodeToString(pubK[:])
+	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "my_secret"}
+	p := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{pks}}},
+	}
+	require.NoError(t, store.Add(&vaulttypes.Request{Payload: p, IDVal: "req-00"}))
+
+	localQueueItems, err := store.All()
+	require.NoError(t, err)
+
+	_, err = r.prepareObservationPendingQueueBlobs(t.Context(), 1, localQueueItems, map[string]bool{}, 1, 10)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "single pending queue item exceeds max blob payload size")
+}
+
 type blockingBlobBroadcastFetcher struct {
 	targetStarts int32
 	started      atomic.Int32
