@@ -1,4 +1,4 @@
-package changeset
+package internal
 
 import (
 	"testing"
