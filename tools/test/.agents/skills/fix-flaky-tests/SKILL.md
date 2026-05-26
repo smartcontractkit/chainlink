@@ -62,10 +62,11 @@ Base Command: `go -C tools/test run . diagnose [harness_flags] -- [go_test_flags
 2. If no issues, ask the user if they want to verify with more iterations. If not, end and output final report of findings, fixes, and lessons learned.
 3. If issues detected, focus on the ones the user wants to fix.
 4. If a `diagnose-attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` file exists, read it to see previous fix attempts and findings.
-5. Form a hypothesis on the cause of the issues
-6. Implement a fix
-7. Output the hypothesis and attempted fix, plus reasons why you think it would work.
-8. Run a `diagnose` loop and read the `report.json` file to see if the fix works.
+5. If it is a complex test proceed according to [complex_investigation_protocol](./complex_investigation_protocol.md).
+6. Otherwise form a hypothesis on the cause of the issues.
+7. Implement the fix.
+8. Output the hypothesis and attempted fix, plus reasons why you think it would work.
+9. Run a `diagnose` loop and read the `report.json` file to see if the fix works.
   Append to `diagnose-attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` file in this json format:
   ```json
   {"timestamp": "[current_timestamp]", "model": "[current-model] (e.g. `claude-sonnet-4.6/high`, `gemini-3.1-pro`)", "hypothesis": "Your original hypothesis for the issue", "experiment": "A concise summary of what you tried. Include small code snippets if helpful", "result": "Did it fix it or not? If not, give concise reason why", "next": "Next steps to attempt"}
@@ -92,6 +93,13 @@ Lead with your hypothesis before writing code. Show contextual diffs, do not des
 6. **Slow:** Compare `p50` vs `max_elapsed`. Look for `time.Sleep` or coarse polling loops. Replace with dynamic polling. Simulated chains are frequent offenders.
 7. **Resources:** If failing under load/CI only, check CPU and Memory usage. When logs/report are insufficient, use standard `go test` profile flags (`-race`, `-cpuprofile`, `-trace`, etc.). View with `go tool pprof` or `go tool trace`.
 </analysis>
+
+<complex_test>
+Treat the test as complex if any of the following is true:
+1. Test is located inside `devenv`, `integration-tests` or `system-tests` folder.
+2. Test connects to a database.
+3. Test starts Chainlink nodes.
+</complex_test>
 
 <context_compaction>
 When summarizing/compacting/compressing context, strictly maintain a reference to the `diagnose-attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` you're using for this session.

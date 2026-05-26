@@ -27,17 +27,14 @@ while len(results) < N:
        If customfield_13009 absent, scan description for
        https://github.com/{owner}/{repo} or a "Repo:" / "Repository:" field.
 
-    2. System-tests exclusion (zero-cost): if customfield_13009 starts with
-       github.com/smartcontractkit/chainlink/system-tests/ → skip (system_tests++).
-
-    3. Test function check: extract top-level function name from customfield_13007
+    2. Test function check: extract top-level function name from customfield_13007
        (part before first /), fall back to longest TestXxx token in title if absent.
        - `LSP` available: LSP definition lookup
        - `Code Review Graph` available: mcp__code-review-graph__semantic_search_nodes_tool
        - last resort only: grep -rl "func {TestName}" .
        Not found → skip (not_found++).
 
-    4. Eligible: build slim record (see schema), append to results.
+    3. Eligible: build slim record (see schema), append to results.
        Stop once len(results) == N.
 
   cursor = nextPageToken from response
