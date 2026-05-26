@@ -62,7 +62,7 @@ Base Command: `go -C tools/test run . diagnose [harness_flags] -- [go_test_flags
 2. If no issues, ask the user if they want to verify with more iterations. If not, end and output final report of findings, fixes, and lessons learned.
 3. If issues detected, focus on the ones the user wants to fix.
 4. If a `diagnose-attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` file exists, read it to see previous fix attempts and findings.
-5. If it is a complex test proceed according to [complex_investigation_protocol](./complex_investigation_protocol.md).
+5. If it is a complex test proceed according to [complex-investigation-protocol](./references/complex-investigation-protocol.md).
 6. Otherwise form a hypothesis on the cause of the issues.
 7. Implement the fix.
 8. Output the hypothesis and attempted fix, plus reasons why you think it would work.
@@ -71,8 +71,8 @@ Base Command: `go -C tools/test run . diagnose [harness_flags] -- [go_test_flags
   ```json
   {"timestamp": "[current_timestamp]", "model": "[current-model] (e.g. `claude-sonnet-4.6/high`, `gemini-3.1-pro`)", "hypothesis": "Your original hypothesis for the issue", "experiment": "A concise summary of what you tried. Include small code snippets if helpful", "result": "Did it fix it or not? If not, give concise reason why", "next": "Next steps to attempt"}
   ```
-9. GOTO 2
-10. Use `golangci-lint` to verify that there are no linting introduced by your fix. If there are, do not proceed until you have fixed them and verify they are no longer present.
+10. GOTO 2
+11. Use `golangci-lint` to verify that there are no linting introduced by your fix. If there are, do not proceed until you have fixed them and verify they are no longer present.
 
 IF at any time the user interrupts or interjects during this loop, pick it up again where you left off, unless explicitly told otherwise.
 </loop>
@@ -95,10 +95,12 @@ Lead with your hypothesis before writing code. Show contextual diffs, do not des
 </analysis>
 
 <complex_test>
-Treat the test as complex if any of the following is true:
-1. Test is located inside `devenv`, `integration-tests` or `system-tests` folder.
-2. Test connects to a database.
-3. Test starts Chainlink nodes.
+Treat the test as complex if any one signal matches (check via LSP/grep on the test file and its package-local helpers):
+1. Path under `devenv/`, `integration-tests/`, or `system-tests/`.
+2. Postgres usage: imports `core/internal/testutils/pgtest` or calls `pgtest.NewSqlxDB`.
+3. Node startup: imports `core/internal/cltest` or calls `cltest.NewApplication*`.
+4. Containers: imports `github.com/testcontainers/testcontainers-go`.
+One positive signal is enough.
 </complex_test>
 
 <context_compaction>
