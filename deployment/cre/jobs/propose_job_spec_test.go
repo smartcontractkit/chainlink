@@ -44,7 +44,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 		{
 			name: "valid cron job",
 			input: jobs.ProposeJobSpecInput{
-				Environment: "test",
+				Environment: test.EnvironmentName,
 				JobName:     "cron-test",
 				Domain:      "cre",
 				DONName:     "test-don",
@@ -61,7 +61,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 		{
 			name: "valid http trigger job",
 			input: jobs.ProposeJobSpecInput{
-				Environment: "test",
+				Environment: test.EnvironmentName,
 				JobName:     "http-trigger-test",
 				Domain:      "cre",
 				DONName:     "test-don",
@@ -82,7 +82,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 		{
 			name: "valid http action job",
 			input: jobs.ProposeJobSpecInput{
-				Environment: "test",
+				Environment: test.EnvironmentName,
 				JobName:     "http-action-test",
 				Domain:      "cre",
 				DONName:     "test-don",
@@ -103,7 +103,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 		{
 			name: "valid http action job",
 			input: jobs.ProposeJobSpecInput{
-				Environment: "test",
+				Environment: test.EnvironmentName,
 				JobName:     "confidential-http-test",
 				Domain:      "cre",
 				DONName:     "test-don",
@@ -124,7 +124,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 		{
 			name: "valid evm job",
 			input: jobs.ProposeJobSpecInput{
-				Environment: "test",
+				Environment: test.EnvironmentName,
 				JobName:     "evm-test",
 				Domain:      "cre",
 				DONName:     "test-don",
@@ -166,7 +166,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 		{
 			name: "missing domain",
 			input: jobs.ProposeJobSpecInput{
-				Environment: "test",
+				Environment: test.EnvironmentName,
 				Template:    job_types.Cron,
 				Inputs:      job_types.JobSpecInput{},
 			},
@@ -176,7 +176,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 		{
 			name: "missing don name",
 			input: jobs.ProposeJobSpecInput{
-				Environment: "test",
+				Environment: test.EnvironmentName,
 				Domain:      "cre",
 				Template:    job_types.Cron,
 				Inputs:      job_types.JobSpecInput{},
@@ -187,7 +187,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 		{
 			name: "missing don filters",
 			input: jobs.ProposeJobSpecInput{
-				Environment: "test",
+				Environment: test.EnvironmentName,
 				Domain:      "cre",
 				DONName:     "test-don",
 				Template:    job_types.Cron,
@@ -199,7 +199,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 		{
 			name: "missing job name",
 			input: jobs.ProposeJobSpecInput{
-				Environment: "test",
+				Environment: test.EnvironmentName,
 				Domain:      "cre",
 				DONName:     "test-don",
 				DONFilters: []offchain.TargetDONFilter{
@@ -216,7 +216,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 		{
 			name: "unsupported template",
 			input: jobs.ProposeJobSpecInput{
-				Environment: "test",
+				Environment: test.EnvironmentName,
 				Domain:      "cre",
 				DONName:     "test-don",
 				JobName:     "cron-test",
@@ -269,7 +269,7 @@ func TestProposeJobSpec_VerifyPreconditions_EVM(t *testing.T) {
 	var env cldf.Environment
 
 	base := jobs.ProposeJobSpecInput{
-		Environment: "test",
+		Environment: test.EnvironmentName,
 		Domain:      "cre",
 		DONName:     "test-don",
 		JobName:     "evm-test",
@@ -445,7 +445,7 @@ func TestProposeJobSpec_VerifyPreconditions_Aptos(t *testing.T) {
 	var env cldf.Environment
 
 	base := jobs.ProposeJobSpecInput{
-		Environment: "test",
+		Environment: test.EnvironmentName,
 		Domain:      "cre",
 		DONName:     "test-don",
 		JobName:     "aptos-test",
@@ -514,14 +514,14 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 
 	t.Run("successful cron job distribution", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "cron-cap-job",
 			DONName:     test.DONName,
 			Template:    job_types.Cron,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -563,14 +563,14 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 
 	t.Run("successful custom-compute job distribution", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "custom-compute-cap-job",
 			DONName:     test.DONName,
 			Template:    job_types.CustomCompute,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -624,14 +624,14 @@ perSenderBurst = 100
 
 	t.Run("successful web-api-trigger job distribution", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "web-api-trigger-cap-job",
 			DONName:     test.DONName,
 			Template:    job_types.WebAPITrigger,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -671,14 +671,14 @@ perSenderBurst = 100
 
 	t.Run("successful web-api-target job distribution", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "web-api-target-cap-job",
 			DONName:     test.DONName,
 			Template:    job_types.WebAPITarget,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -730,14 +730,14 @@ PerSenderBurst = 100
 
 	t.Run("successful log-event-trigger job distribution", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "log-event-trigger-cap-job",
 			DONName:     test.DONName,
 			Template:    job_types.LogEventTrigger,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -790,14 +790,14 @@ PerSenderBurst = 100
 
 	t.Run("successful readcontract job distribution", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "readcontract-cap-job",
 			DONName:     test.DONName,
 			Template:    job_types.ReadContract,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -854,14 +854,14 @@ PerSenderBurst = 100
 		env.DataStore = ds.Seal()
 
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "aptos-cap-job",
 			DONName:     test.DONName,
 			Template:    job_types.Aptos,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -931,7 +931,7 @@ PerSenderBurst = 100
 
 	t.Run("failed cron job distribution due to not finding nodes", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "cron-cap-job",
 			DONName:     "wrong-don-name",
@@ -973,14 +973,14 @@ PerSenderBurst = 100
 		env.DataStore = ds.Seal()
 
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "ocr3-bootstrap-job-success",
 			DONName:     test.DONName,
 			Template:    job_types.BootstrapOCR3,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 				{Key: "zone", Value: test.Zone},
 			},
@@ -1032,7 +1032,7 @@ PerSenderBurst = 100
 		env.DataStore = ds.Seal()
 
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "ocr3-bootstrap-job-wrong-zone",
 			DONName:     test.DONName,
@@ -1098,14 +1098,14 @@ PerSenderBurst = 100
 		env.DataStore = ds.Seal()
 
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "ocr3-job",
 			DONName:     test.DONName,
 			Template:    job_types.OCR3,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -1163,7 +1163,7 @@ PerSenderBurst = 100
 		env.DataStore = ds.Seal()
 
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "ocr3-job",
 			DONName:     test.DONName,
@@ -1187,14 +1187,14 @@ PerSenderBurst = 100
 
 	t.Run("successful evm job distribution", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "capability_evm_1337-1337",
 			DONName:     test.DONName,
 			Template:    job_types.EVM,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -1264,7 +1264,7 @@ PerSenderBurst = 100
 
 	t.Run("failed evm job distribution due to bad input", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "capability_evm_1337-1337",
 			DONName:     test.DONName,
@@ -1300,14 +1300,14 @@ PerSenderBurst = 100
 	})
 	t.Run("successful http trigger job distribution", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "http-trigger-job",
 			DONName:     test.DONName,
 			Template:    job_types.HTTPTrigger,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -1339,14 +1339,14 @@ PerSenderBurst = 100
 
 	t.Run("successful http action job distribution", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "http-action-job",
 			DONName:     test.DONName,
 			Template:    job_types.HTTPAction,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -1377,14 +1377,14 @@ PerSenderBurst = 100
 
 	t.Run("failed http trigger job distribution due to bad input", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "http-trigger-job",
 			DONName:     test.DONName,
 			Template:    job_types.HTTPTrigger,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -1402,14 +1402,14 @@ PerSenderBurst = 100
 
 	t.Run("failed http action job distribution due to bad input", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "http-action-job",
 			DONName:     test.DONName,
 			Template:    job_types.HTTPAction,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -1426,13 +1426,13 @@ PerSenderBurst = 100
 
 	t.Run("failed evm job distribution due to bad input", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "capability_evm_1337-1337",
 			Template:    job_types.EVM, // if unavailable, use the same template you use for cron but with evm inputs.
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -1485,14 +1485,14 @@ PerSenderBurst = 100
 		env.DataStore = ds.Seal()
 
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "vault-bootstrappers",
 			DONName:     test.DONName,
 			Template:    job_types.BootstrapVault,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -1554,14 +1554,14 @@ PerSenderBurst = 100
 		env.DataStore = ds.Seal()
 
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "vault-bootstrappers",
 			DONName:     test.DONName,
 			Template:    job_types.BootstrapVault,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -1602,14 +1602,14 @@ PerSenderBurst = 100
 		env.DataStore = ds.Seal()
 
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "vault-job",
 			DONName:     test.DONName,
 			Template:    job_types.OCR3,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -1665,14 +1665,14 @@ PerSenderBurst = 100
 		env.DataStore = ds.Seal()
 
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "ocr3-consensus-job",
 			DONName:     test.DONName,
 			Template:    job_types.Consensus,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -1731,14 +1731,14 @@ PerSenderBurst = 100
 		env.DataStore = ds.Seal()
 
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "ocr3-consensus-job-aptos",
 			DONName:     test.DONName,
 			Template:    job_types.Consensus,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -1800,14 +1800,14 @@ PerSenderBurst = 100
 		env.DataStore = ds.Seal()
 
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "ocr3-consensus-job",
 			DONName:     test.DONName,
 			Template:    job_types.Consensus,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{

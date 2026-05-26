@@ -47,7 +47,7 @@ require (
 	github.com/smartcontractkit/chainlink-common/keystore v1.1.0
 	github.com/smartcontractkit/chainlink-data-streams v0.1.15-0.20260522094612-5f9f748bd87a
 	github.com/smartcontractkit/chainlink-deployments-framework v0.105.0
-	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260521215851-3fdbb363496f
+	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260526103514-f2e42bbb7f98
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260521215851-3fdbb363496f
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260520181035-b5bb732eb9d7
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.18.0
@@ -639,6 +639,9 @@ require (
 )
 
 replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20260218133534-cbd44da2856b
+
+// to be removed after https://github.com/doyensec/safeurl/pull/11 is merged
+replace github.com/doyensec/safeurl => github.com/cedric-cordenier/safeurl v0.0.0-20260525105509-613a4d94ca55
 
 // moby/go-archive v0.2.0 removed deprecated aliases (archive.Gzip, etc.) that
 // docker/cli@v28.5.x still uses. docker/compose has not migrated to docker/cli v29

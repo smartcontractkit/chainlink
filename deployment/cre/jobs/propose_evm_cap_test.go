@@ -81,7 +81,7 @@ func setupEVMCapTest(t *testing.T) evmCapTestSetup {
 	}
 
 	baseInput := jobs.ProposeEVMCapJobSpecInput{
-		Environment:             "test",
+		Environment:             test.EnvironmentName,
 		Zone:                    test.Zone,
 		Domain:                  "cre",
 		DONName:                 test.DONName,
@@ -120,7 +120,7 @@ func deepCloneInput(in jobs.ProposeEVMCapJobSpecInput) jobs.ProposeEVMCapJobSpec
 
 func freshBase(selector uint64) jobs.ProposeEVMCapJobSpecInput {
 	return jobs.ProposeEVMCapJobSpecInput{
-		Environment:          "test",
+		Environment:          test.EnvironmentName,
 		Zone:                 test.Zone,
 		Domain:               "cre",
 		DONName:              test.DONName,
@@ -163,7 +163,7 @@ func TestProposeEVMCapJobSpec_VerifyPreconditions_success(t *testing.T) {
 	env.DataStore = ds.Seal()
 
 	in := jobs.ProposeEVMCapJobSpecInput{
-		Environment:          "test",
+		Environment:          test.EnvironmentName,
 		Zone:                 test.Zone,
 		Domain:               "cre",
 		DONName:              test.DONName,

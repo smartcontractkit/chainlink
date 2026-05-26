@@ -34,6 +34,7 @@ func (wfRegStorageStub) TLSEnabled() bool            { return false }
 type wfRegModuleCacheStub struct{}
 
 func (wfRegModuleCacheStub) Enabled() bool              { return false }
+func (wfRegModuleCacheStub) DiskMonitorEnabled() bool   { return false }
 func (wfRegModuleCacheStub) IdleEviction() bool         { return true }
 func (wfRegModuleCacheStub) IdleTimeout() time.Duration { return 10 * time.Minute }
 func (wfRegModuleCacheStub) MaxLoaded() int             { return 200 }
