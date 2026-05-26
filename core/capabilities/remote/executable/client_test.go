@@ -179,9 +179,9 @@ func Test_Client_ConsensusFailedIfInsufficientCapabilityPeerResponses(t *testing
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
 		var capErr caperrors.Error
-		assert.ErrorAs(t, responseError, &capErr)
-		assert.Equal(t, caperrors.ConsensusFailed, capErr.Code())
-		assert.Contains(t, capErr.Error(), "[100]ConsensusFailed: response quorum unreachable: not enough matching capability responses: received 1/10 peer responses with 1 unique payloads; best match count 1, need 12 (9 responses pending)")
+		require.ErrorAs(t, responseError, &capErr)
+		require.Equal(t, caperrors.ConsensusFailed, capErr.Code())
+		require.Contains(t, capErr.Error(), "[100]ConsensusFailed: response quorum unreachable: not enough matching capability responses: received 1/10 peer responses with 1 unique payloads; best match count 1, need 12 (9 responses pending)")
 	}
 
 	capability := &TestCapability{}
