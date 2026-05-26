@@ -32,7 +32,7 @@ func TestPlugin_ThroughputAnalysis(t *testing.T) {
 		byzQuorumSize  = 2*donF + 1       // 7 — chosen observations for GetSecrets
 		fPlusOne       = donF + 1         // 4 — chosen observations for all other types
 		maxBatchSize   = 12               // VaultPluginBatchSizeLimit
-		maxPendingBlob = 2 * maxBatchSize // max blob *handles* per Observation(); each handle may cover many requests via StoredPendingQueueBatch
+		maxPendingBlob = 2 * maxBatchSize // max blob *handles* per Observation(); each handle may cover many requests via PendingQueueBlobItems
 	)
 
 	// --- Per-secret limits (from cresettings defaults and plugin config) ---

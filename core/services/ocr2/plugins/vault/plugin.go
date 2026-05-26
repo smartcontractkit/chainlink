@@ -383,24 +383,47 @@ func generateRandomNonce() ([]byte, error) {
 }
 
 // marshalPendingQueueBlobPayload encodes pending queue items for OCR3.1 BroadcastBlob.
-// One item uses the legacy StoredPendingQueueItem wire form; multiple items use StoredPendingQueueBatch.
+// Always marshals as PendingQueueBlobItems. Single items are wire-compatible with StoredPendingQueueItem,
+// so the non-optimizations unmarshal path can decode them without knowing the new type.
+// Batch items wrap each StoredPendingQueueItem (payload + ID) inside an Any.
 func marshalPendingQueueBlobPayload(items []*vaultcommon.StoredPendingQueueItem) ([]byte, error) {
-	switch len(items) {
-	case 0:
+	if len(items) == 0 {
 		return nil, errors.New("empty pending queue blob payload")
-	case 1:
-		return proto.Marshal(items[0])
-	default:
-		return proto.Marshal(&vaultcommon.StoredPendingQueueBatch{Items: items, IsBatch: true})
 	}
+	if len(items) == 1 {
+		return proto.Marshal(&vaultcommon.PendingQueueBlobItems{
+			Items: []*anypb.Any{items[0].GetItem()},
+			Id:    items[0].GetId(),
+		})
+	}
+	anyItems := make([]*anypb.Any, len(items))
+	for i, item := range items {
+		anyItem, err := anypb.New(item)
+		if err != nil {
+			return nil, fmt.Errorf("could not wrap StoredPendingQueueItem in Any: %w", err)
+		}
+		anyItems[i] = anyItem
+	}
+	return proto.Marshal(&vaultcommon.PendingQueueBlobItems{Items: anyItems, IsBatch: true})
 }
 
-// unmarshalPendingQueueBlob decodes a BroadcastBlob payload (legacy single item or StoredPendingQueueBatch).
+// unmarshalPendingQueueBlob decodes a BroadcastBlob payload into one or more StoredPendingQueueItems.
+// Batch blobs (is_batch=true) contain each item wrapped as an Any inside PendingQueueBlobItems.
+// Non-batch blobs are wire-compatible with StoredPendingQueueItem and unmarshalled directly.
 func unmarshalPendingQueueBlob(blob []byte) ([]*vaultcommon.StoredPendingQueueItem, error) {
-	batch := &vaultcommon.StoredPendingQueueBatch{}
-	if err := proto.Unmarshal(blob, batch); err == nil && batch.IsBatch {
-		return batch.GetItems(), nil
+	pqbi := &vaultcommon.PendingQueueBlobItems{}
+	if err := proto.Unmarshal(blob, pqbi); err == nil && pqbi.IsBatch {
+		items := make([]*vaultcommon.StoredPendingQueueItem, len(pqbi.GetItems()))
+		for i, anyItem := range pqbi.GetItems() {
+			item := &vaultcommon.StoredPendingQueueItem{}
+			if err := anyItem.UnmarshalTo(item); err != nil {
+				return nil, fmt.Errorf("could not unmarshal batch item %d: %w", i, err)
+			}
+			items[i] = item
+		}
+		return items, nil
 	}
+	// Non-batch: PendingQueueBlobItems with is_batch=false is wire-compatible with StoredPendingQueueItem
 	single := &vaultcommon.StoredPendingQueueItem{}
 	if err := proto.Unmarshal(blob, single); err != nil {
 		return nil, err
@@ -453,8 +476,8 @@ func (r *ReportingPlugin) flushBatch(
 	return out, currentBatch, nil
 }
 
-// prepareObservationPendingQueueBlobs packs local-queue requests into OCR3.1 blob payloads (legacy
-// single-item or StoredPendingQueueBatch), capped by byte size per blob and by maxBlobHandleCount handles.
+// prepareObservationPendingQueueBlobs packs local-queue requests into OCR3.1 blob payloads
+// (PendingQueueBlobItems), capped by byte size per blob and by maxBlobHandleCount handles.
 func (r *ReportingPlugin) prepareObservationPendingQueueBlobs(
 	ctx context.Context,
 	seqNr uint64,
@@ -494,10 +517,12 @@ func (r *ReportingPlugin) prepareObservationPendingQueueBlobs(
 			}
 			// Current batch is full; flush it and retry the same item on the next iteration.
 			var ferr error
-			out, currentBatch, ferr = r.flushBatch(ctx, seqNr, currentBatch, out, maxBlobBytes, maxBlobHandleCount)
+			flushOut, flushBatch, ferr := r.flushBatch(ctx, seqNr, currentBatch, out, maxBlobBytes, maxBlobHandleCount)
 			if ferr != nil {
 				return pendingQueueBlobPack{}, ferr
 			}
+			out = flushOut
+			currentBatch = flushBatch
 			if out.truncated {
 				break
 			}
@@ -516,7 +541,7 @@ func (r *ReportingPlugin) prepareObservationPendingQueueBlobs(
 	return out, nil
 }
 
-// prepareLegacyObservationPendingQueueBlobs emits one legacy StoredPendingQueueItem blob per local-queue request.
+// prepareLegacyObservationPendingQueueBlobs emits one PendingQueueBlobItems blob per local-queue request.
 func (r *ReportingPlugin) prepareLegacyObservationPendingQueueBlobs(
 	ctx context.Context,
 	seqNr uint64,
@@ -541,7 +566,7 @@ func (r *ReportingPlugin) prepareLegacyObservationPendingQueueBlobs(
 			Item: anyMsg,
 		}
 
-		itemb, err := proto.Marshal(item)
+		itemb, err := marshalPendingQueueBlobPayload([]*vaultcommon.StoredPendingQueueItem{item})
 		if err != nil {
 			return pendingQueueBlobPack{}, fmt.Errorf("could not marshal pending queue item: %w", err)
 		}

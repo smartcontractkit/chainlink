@@ -684,7 +684,7 @@ func TestPrepareObservationPendingQueueBlobs_flushesAndContinuesWhenBatchFull(t 
 	require.NoError(t, err)
 	require.Equal(t, n, pack.packedItemCount)
 	require.False(t, pack.truncated)
-	require.Equal(t, n, len(pack.blobPayloads), "each item should be its own blob")
+	require.Len(t, pack.blobPayloads, n, "each item should be its own blob")
 
 	var unpacked int
 	for _, blob := range pack.blobPayloads {
@@ -729,7 +729,7 @@ func TestPrepareObservationPendingQueueBlobs_truncatesWhenHandleCountExceeded(t 
 	pack, err := r.prepareObservationPendingQueueBlobs(t.Context(), 1, localQueueItems, map[string]bool{}, maxBlobBytes, maxBlobHandleCount)
 	require.NoError(t, err)
 	require.True(t, pack.truncated)
-	require.Equal(t, maxBlobHandleCount, len(pack.blobPayloads))
+	require.Len(t, pack.blobPayloads, maxBlobHandleCount)
 	require.Equal(t, maxBlobHandleCount, pack.packedItemCount)
 }
 
