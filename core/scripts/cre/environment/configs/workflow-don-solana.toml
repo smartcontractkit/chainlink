@@ -39,12 +39,6 @@
   # either "docker" or "kubernetes"
   type = "docker"
 
-# Chainlink images are built from core/chainlink.Dockerfile (see nodesets.node_specs.node.docker_*).
-# That Dockerfile runs install-plugins-private, which runs `go` against private repos under
-# github.com/smartcontractkit/capabilities/*. The testing framework passes
-# `docker buildx --secret id=GIT_AUTH_TOKEN,env=GITHUB_TOKEN` when the host has GITHUB_TOKEN set
-# (local_cre also tries `gh auth token`). The token must allow reading those private repos (SSO authorized if required).
-
 [[nodesets]]
   nodes = 4
   name = "workflow"

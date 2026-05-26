@@ -572,7 +572,6 @@ flowchart LR
 	chainlink/system-tests/tests/smoke/cre/httpaction --> cre-sdk-go/capabilities/networking/http
 	chainlink/system-tests/tests/smoke/cre/httpaction --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/smoke/cre/httpaction href "https://github.com/smartcontractkit/chainlink"
-	chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger --> cre-sdk-go
 	chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger --> cre-sdk-go/capabilities/blockchain/solana
 	click chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/smoke/cre/solana/solwrite --> cre-sdk-go/capabilities/blockchain/solana
@@ -600,7 +599,7 @@ flowchart LR
 	cre-sdk-go/capabilities/blockchain/evm --> chainlink-common/pkg/workflows/sdk/v2/pb
 	cre-sdk-go/capabilities/blockchain/evm --> cre-sdk-go
 	click cre-sdk-go/capabilities/blockchain/evm href "https://github.com/smartcontractkit/cre-sdk-go"
-	cre-sdk-go/capabilities/blockchain/solana --> chainlink-protos/cre/go
+	cre-sdk-go/capabilities/blockchain/solana --> cre-sdk-go
 	click cre-sdk-go/capabilities/blockchain/solana href "https://github.com/smartcontractkit/cre-sdk-go"
 	cre-sdk-go/capabilities/networking/http --> cre-sdk-go
 	click cre-sdk-go/capabilities/networking/http href "https://github.com/smartcontractkit/cre-sdk-go"
