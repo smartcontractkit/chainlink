@@ -6,7 +6,6 @@ import (
 	context "context"
 
 	chains "github.com/smartcontractkit/chainlink-framework/chains"
-
 	mock "github.com/stretchr/testify/mock"
 
 	uuid "github.com/google/uuid"

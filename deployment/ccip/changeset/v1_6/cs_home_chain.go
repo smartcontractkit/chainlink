@@ -16,11 +16,16 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"golang.org/x/exp/maps"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -29,9 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
-
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -490,7 +492,7 @@ func addNodes(
 type RemoveDONsConfig struct {
 	HomeChainSel uint64
 	DonIDs       []uint32
-	MCMS         *proposalutils.TimelockConfig
+	MCMS         *cldfproposalutils.TimelockConfig
 }
 
 func (c RemoveDONsConfig) Validate(homeChain evm.CCIPChainState) error {
@@ -546,7 +548,7 @@ func RemoveDONs(e cldf.Environment, cfg RemoveDONsConfig) (cldf.ChangesetOutput,
 		return cldf.ChangesetOutput{}, nil
 	}
 
-	batchOperation, err := proposalutils.BatchOperationForChain(cfg.HomeChainSel,
+	batchOperation, err := cldfproposalutils.BatchOperationForChain(cfg.HomeChainSel,
 		homeChainState.CapabilityRegistry.Address().Hex(), tx.Data(), big.NewInt(0),
 		string(shared.CapabilitiesRegistry), []string{})
 	if err != nil {
@@ -559,7 +561,7 @@ func RemoveDONs(e cldf.Environment, cfg RemoveDONsConfig) (cldf.ChangesetOutput,
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
 		mcmsContractsByActionPerChain,
@@ -579,7 +581,7 @@ func RemoveDONs(e cldf.Environment, cfg RemoveDONsConfig) (cldf.ChangesetOutput,
 type RemoveNodesConfig struct {
 	HomeChainSel   uint64
 	P2PIDsToRemove [][32]byte
-	MCMSCfg        *proposalutils.TimelockConfig
+	MCMSCfg        *cldfproposalutils.TimelockConfig
 }
 
 func removeNodesPrecondition(env cldf.Environment, c RemoveNodesConfig) error {
@@ -606,7 +608,7 @@ func removeNodesPrecondition(env cldf.Environment, c RemoveNodesConfig) error {
 	if state.Chains[c.HomeChainSel].Timelock == nil {
 		return fmt.Errorf("timelock does not exist for home chain %d", c.HomeChainSel)
 	}
-	err = commoncs.ValidateOwnership(env.GetContext(), c.MCMSCfg != nil,
+	err = mcmschangesets.ValidateOwnership(env.GetContext(), c.MCMSCfg != nil,
 		env.BlockChains.EVMChains()[c.HomeChainSel].DeployerKey.From, state.Chains[c.HomeChainSel].Timelock.Address(),
 		state.Chains[c.HomeChainSel].CapabilityRegistry)
 	if err != nil {
@@ -681,7 +683,7 @@ func removeNodesLogic(env cldf.Environment, c RemoveNodesConfig) (cldf.Changeset
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	batchOperation, err := proposalutils.BatchOperationForChain(c.HomeChainSel,
+	batchOperation, err := cldfproposalutils.BatchOperationForChain(c.HomeChainSel,
 		homeChainState.CapabilityRegistry.Address().Hex(), tx.Data(), big.NewInt(0),
 		string(shared.CapabilitiesRegistry), []string{})
 	if err != nil {
@@ -697,11 +699,11 @@ func removeNodesLogic(env cldf.Environment, c RemoveNodesConfig) (cldf.Changeset
 		return cldf.ChangesetOutput{}, err
 	}
 	inspectors := make(map[uint64]mcmssdk.Inspector)
-	inspectors[c.HomeChainSel], err = proposalutils.McmsInspectorForChain(env, c.HomeChainSel)
+	inspectors[c.HomeChainSel], err = cldfproposalutils.McmsInspectorForChain(env, c.HomeChainSel)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", homeChain.String(), err)
 	}
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		env,
 		timelocks,
 		mcmContract,
@@ -741,7 +743,7 @@ type AddOrUpdateNopsConfig struct {
 	homeChainSel uint64
 	ExistingNops []capabilities_registry.CapabilitiesRegistryNodeOperator          // existing node operators, will be empty in case of adding new node operators
 	NopUpdates   map[string]capabilities_registry.CapabilitiesRegistryNodeOperator // node operators to add or update, key nop name, will be empty in case of removing node operators
-	MCMSConfig   *proposalutils.TimelockConfig
+	MCMSConfig   *cldfproposalutils.TimelockConfig
 }
 
 func addUpdateOrRemoveNopsPrecondition(env cldf.Environment, c AddOrUpdateNopsConfig) error {
@@ -760,7 +762,7 @@ func addUpdateOrRemoveNopsPrecondition(env cldf.Environment, c AddOrUpdateNopsCo
 	if state.Chains[c.homeChainSel].Timelock == nil {
 		return fmt.Errorf("timelock does not exist for home chain %d", c.homeChainSel)
 	}
-	err = commoncs.ValidateOwnership(env.GetContext(), c.MCMSConfig != nil,
+	err = mcmschangesets.ValidateOwnership(env.GetContext(), c.MCMSConfig != nil,
 		env.BlockChains.EVMChains()[c.homeChainSel].DeployerKey.From, state.Chains[c.homeChainSel].Timelock.Address(),
 		state.Chains[c.homeChainSel].CapabilityRegistry)
 	if err != nil {

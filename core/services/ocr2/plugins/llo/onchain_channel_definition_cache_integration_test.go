@@ -2,11 +2,13 @@ package llo_test
 
 import (
 	"bytes"
+	sha3 "crypto/sha3"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"math/rand"
 	"net/http"
 	"strconv"
@@ -19,26 +21,25 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/crypto/sha3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
+	llotypes2 "github.com/smartcontractkit/chainlink-data-streams/llo/types"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/llo"
+	"github.com/smartcontractkit/chainlink-evm/pkg/llo/channeldefinitions"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
-	llotypes2 "github.com/smartcontractkit/chainlink/v2/core/services/llo/types"
 )
 
 type mockHTTPClient struct {
@@ -120,9 +121,7 @@ func extractChannelDefinitions(defsJSON json.RawMessage) llotypes.ChannelDefinit
 	}
 	result := make(llotypes.ChannelDefinitions)
 	for _, sourceDef := range sourceDefs {
-		for channelID, def := range sourceDef.Definitions {
-			result[channelID] = def
-		}
+		maps.Copy(result, sourceDef.Definitions)
 	}
 	return result
 }
@@ -1292,7 +1291,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, ownerDefsDroppedSHA)))
 		backend.Commit()
 
-		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Set channel definitions for source",
 			"url", url)
 
 		// Build a prev that contains the tombstoned channel 600 (simulating the
@@ -1362,9 +1361,13 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 			},
 		}
 
-		mergedOutcome := cdc.Definitions(prevSimulatingOCROutcome)
-		_, has600 := mergedOutcome[600]
-		require.False(t, has600, "merged outcome should not contain dropped tombstoned channel 600")
+		var mergedOutcome llotypes.ChannelDefinitions
+		require.Eventually(t, func() bool {
+			mergedOutcome = cdc.Definitions(prevSimulatingOCROutcome)
+			_, has600 := mergedOutcome[600]
+			return !has600
+		}, 5*time.Second, 100*time.Millisecond,
+			"merged outcome should not contain dropped tombstoned channel 600")
 		_, has601 := mergedOutcome[601]
 		require.True(t, has601, "merged outcome should still contain channel 601")
 		_, has602 := mergedOutcome[602]
@@ -1431,6 +1434,8 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
 			"url", url)
 
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Set channel definitions for source", "source", strconv.FormatUint(uint64(adder1ID), 10))
+
 		// Adder2 adds different channels
 		observedLogs.TakeAll()
 
@@ -1461,6 +1466,8 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 
 		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
 			"url", url2)
+
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Set channel definitions for source", "source", strconv.FormatUint(uint64(adder2ID), 10))
 
 		require.Eventually(t, func() bool {
 			defs := cdc.Definitions(llotypes.ChannelDefinitions{})

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
@@ -27,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -41,6 +43,10 @@ var NodeOne = config.NodeConfig{
 }
 
 func setupHandler(t *testing.T) (handlers.Handler, *common.Callback, *mocks.DON, *clockwork.FakeClock) {
+	return setupHandlerWithLimitsFactory(t, limits.Factory{Settings: cresettings.DefaultGetter})
+}
+
+func setupHandlerWithLimitsFactory(t *testing.T, limitsFactory limits.Factory) (handlers.Handler, *common.Callback, *mocks.DON, *clockwork.FakeClock) {
 	lggr := logger.Test(t)
 	don := mocks.NewDON(t)
 	donConfig := &config.DONConfig{
@@ -60,15 +66,24 @@ func setupHandler(t *testing.T) (handlers.Handler, *common.Callback, *mocks.DON,
 	require.NoError(t, err)
 
 	clock := clockwork.NewFakeClock()
-	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter}
-	jwtBasedAuth, err := vaultcap.NewJWTBasedAuth(vaultcap.JWTBasedAuthConfig{}, limitsFactory, lggr, vaultcap.WithDisabledJWTBasedAuth())
-	require.NoError(t, err)
-	authorizer := vaultcap.NewAuthorizer(&stubAllowListBasedAuth{clock: clock}, jwtBasedAuth, lggr)
-	handler, err := newHandlerWithAuthorizer(methodConfig, donConfig, don, nil, authorizer, lggr, clock, limitsFactory)
+	authorizer := vaultcap.NewAuthorizer(&stubAllowListBasedAuth{clock: clock}, nil, lggr)
+	handler, err := newHandlerWithAuthorizer(methodConfig, donConfig, don, nil, authorizer, nil, lggr, clock, limitsFactory)
 	require.NoError(t, err)
 	handler.aggregator = &mockAggregator{}
 	cb := common.NewCallback()
 	return handler, cb, don, clock
+}
+
+func cacheVaultPublicKeyForTest(t *testing.T, h *handler, pk *tdh2easy.PublicKey) {
+	t.Helper()
+
+	pkBytes, err := pk.Marshal()
+	require.NoError(t, err)
+	publicKeyResponseBytes, err := json.Marshal(&vaultcommon.GetPublicKeyResponse{PublicKey: hex.EncodeToString(pkBytes)})
+	require.NoError(t, err)
+
+	h.cachedPublicKeyGetResponse = publicKeyResponseBytes
+	h.cachedPublicKeyObject = pk
 }
 
 type stubAllowListBasedAuth struct {
@@ -77,6 +92,15 @@ type stubAllowListBasedAuth struct {
 
 func (s *stubAllowListBasedAuth) AuthorizeRequest(_ context.Context, req jsonrpc.Request[json.RawMessage]) (*vaultcap.AuthResult, error) {
 	return vaultcap.NewAuthResult("", owner, "digest-"+req.ID, s.clock.Now().Add(time.Minute).Unix()), nil
+}
+
+type stubAuthorizer struct {
+	result *vaultcap.AuthResult
+	err    error
+}
+
+func (s *stubAuthorizer) AuthorizeRequest(_ context.Context, _ jsonrpc.Request[json.RawMessage]) (*vaultcap.AuthResult, error) {
+	return s.result, s.err
 }
 
 type mockAggregator struct {
@@ -93,12 +117,20 @@ func (m *mockAggregator) Aggregate(_ context.Context, _ logger.Logger, _ map[str
 type mockCapabilitiesRegistry struct {
 	F     uint8
 	Nodes []capabilities.Node
+	// DONs, if set, is returned as-is from DONsForCapability (for multi-DON tests).
+	DONs []capabilities.DONWithNodes
 }
 
-var owner = "test_owner"
+// allowlistWorkflowOwner is a valid checksummed workflow-owner address used in gateway Vault handler tests.
+var allowlistWorkflowOwner = "0x0001020304050607080900010203040506070809"
+
+var owner = allowlistWorkflowOwner
 
 func (m *mockCapabilitiesRegistry) DONsForCapability(_ context.Context, _ string) ([]capabilities.DONWithNodes, error) {
-	members := []p2ptypes.PeerID{}
+	if len(m.DONs) > 0 {
+		return m.DONs, nil
+	}
+	members := make([]p2ptypes.PeerID, 0, len(m.Nodes))
 	for _, n := range m.Nodes {
 		members = append(members, *n.PeerID)
 	}
@@ -217,6 +249,197 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		err = h.HandleNodeMessage(t.Context(), &response, NodeOne.Address)
 		require.NoError(t, err)
 		wg.Wait()
+	})
+
+	t.Run("sets authorized request_id on forwarded create", func(t *testing.T) {
+		lggr := logger.Test(t)
+		don := mocks.NewDON(t)
+		donConfig := &config.DONConfig{
+			DonId:   "test_don_id",
+			Members: []config.NodeConfig{NodeOne},
+		}
+		handlerConfig := Config{
+			RequestTimeoutSec: 30,
+			NodeRateLimiter: ratelimit.RateLimiterConfig{
+				GlobalRPS:      100,
+				GlobalBurst:    100,
+				PerSenderRPS:   10,
+				PerSenderBurst: 10,
+			},
+		}
+		methodConfig, err := json.Marshal(handlerConfig)
+		require.NoError(t, err)
+
+		clock := clockwork.NewFakeClock()
+		limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter}
+		h, err := newHandlerWithAuthorizer(
+			methodConfig,
+			donConfig,
+			don,
+			nil,
+			&stubAuthorizer{result: vaultcap.NewAuthResult("org-1", "0xworkflow", "digest-1", clock.Now().Add(time.Minute).Unix())},
+			nil,
+			lggr,
+			clock,
+			limitsFactory,
+		)
+		require.NoError(t, err)
+
+		rawPayload := json.RawMessage(`{"request_id":"test_request_id","encrypted_secrets":[{"id":{"key":"test_id","owner":"org1","namespace":"default"},"encrypted_value":"abc123"}]}`)
+
+		var forwarded jsonrpc.Request[json.RawMessage]
+		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			forwarded = *args.Get(2).(*jsonrpc.Request[json.RawMessage])
+		}).Return(nil)
+
+		req := jsonrpc.Request[json.RawMessage]{
+			ID:     "1",
+			Method: vaulttypes.MethodSecretsCreate,
+			Params: &rawPayload,
+		}
+
+		err = h.HandleJSONRPCUserMessage(t.Context(), req, common.NewCallback())
+		require.NoError(t, err)
+
+		require.NotNil(t, forwarded.Params)
+		var forwardedCreateRequest vaultcommon.CreateSecretsRequest
+		require.NoError(t, json.Unmarshal(*forwarded.Params, &forwardedCreateRequest))
+		require.Equal(t, "0xworkflow"+vaulttypes.RequestIDSeparator+"1", forwardedCreateRequest.RequestId)
+	})
+
+	t.Run("rejects create when ciphertext label does not match identifier owner", func(t *testing.T) {
+		_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
+		require.NoError(t, err)
+		encryptFor := "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("test_secret", pk, ethcommon.HexToAddress(encryptFor))
+		require.NoError(t, err)
+
+		h, callback, don, _ := setupHandlerWithLimitsFactory(t, limits.Factory{Settings: cresettings.DefaultGetter})
+		cacheVaultPublicKeyForTest(t, h.(*handler), pk)
+
+		reqData := &vaultcommon.CreateSecretsRequest{
+			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+				{
+					Id: &vaultcommon.SecretIdentifier{
+						Key:   "test_id",
+						Owner: owner,
+					},
+					EncryptedValue: encryptedSecret,
+				},
+			},
+		}
+		reqDataBytes, err := json.Marshal(reqData)
+		require.NoError(t, err)
+
+		req := jsonrpc.Request[json.RawMessage]{
+			ID:     "mismatched-label-secret",
+			Method: vaulttypes.MethodSecretsCreate,
+			Params: (*json.RawMessage)(&reqDataBytes),
+		}
+
+		err = h.HandleJSONRPCUserMessage(t.Context(), req, callback)
+		require.NoError(t, err)
+
+		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+		defer cancel()
+		resp, err := callback.Wait(ctx)
+		require.NoError(t, err)
+		var createResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
+		require.NoError(t, json.Unmarshal(resp.RawResponse, &createResponse))
+		require.ErrorContains(t, createResponse.Error, "doesn't have owner as the label")
+		require.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), createResponse.Error.Code)
+		don.AssertNotCalled(t, "SendToNode", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("forwards create secrets to DON when ciphertext matches identifier owner", func(t *testing.T) {
+		_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
+		require.NoError(t, err)
+		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("test_secret", pk, ethcommon.HexToAddress(owner))
+		require.NoError(t, err)
+
+		h, callback, don, _ := setupHandlerWithLimitsFactory(t, limits.Factory{Settings: cresettings.DefaultGetter})
+		cacheVaultPublicKeyForTest(t, h.(*handler), pk)
+
+		reqData := &vaultcommon.CreateSecretsRequest{
+			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+				{
+					Id: &vaultcommon.SecretIdentifier{
+						Key:   "test_id",
+						Owner: owner,
+					},
+					EncryptedValue: encryptedSecret,
+				},
+			},
+		}
+		reqDataBytes, err := json.Marshal(reqData)
+		require.NoError(t, err)
+
+		req := jsonrpc.Request[json.RawMessage]{
+			ID:     "matching-label-secret",
+			Method: vaulttypes.MethodSecretsCreate,
+			Params: (*json.RawMessage)(&reqDataBytes),
+		}
+
+		var forwarded jsonrpc.Request[json.RawMessage]
+		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			forwarded = *args.Get(2).(*jsonrpc.Request[json.RawMessage])
+		}).Return(nil).Once()
+
+		err = h.HandleJSONRPCUserMessage(t.Context(), req, callback)
+		require.NoError(t, err)
+
+		don.AssertExpectations(t)
+		require.NotNil(t, forwarded.Params)
+		var forwardedCreateRequest vaultcommon.CreateSecretsRequest
+		require.NoError(t, json.Unmarshal(*forwarded.Params, &forwardedCreateRequest))
+		require.Equal(t, owner+vaulttypes.RequestIDSeparator+req.ID, forwardedCreateRequest.RequestId)
+	})
+
+	t.Run("rejects JWT create when secret identifier owner does not match ciphertext workflow owner label", func(t *testing.T) {
+		_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
+		require.NoError(t, err)
+		orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
+		ciphertextOwner := "0x0001020304050607080900010203040506070809"
+		otherOwner := "0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("test_secret", pk, ethcommon.HexToAddress(ciphertextOwner))
+		require.NoError(t, err)
+
+		h, callback, don, clock := setupHandlerWithLimitsFactory(t, limits.Factory{Settings: cresettings.DefaultGetter})
+		h.(*handler).authorizer = &stubAuthorizer{result: vaultcap.NewAuthResult(orgID, ciphertextOwner, "digest-1", clock.Now().Add(time.Minute).Unix())}
+		cacheVaultPublicKeyForTest(t, h.(*handler), pk)
+
+		reqData := &vaultcommon.CreateSecretsRequest{
+			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+				{
+					Id: &vaultcommon.SecretIdentifier{
+						Key:   "test_id",
+						Owner: otherOwner,
+					},
+					EncryptedValue: encryptedSecret,
+				},
+			},
+		}
+		reqDataBytes, err := json.Marshal(reqData)
+		require.NoError(t, err)
+
+		req := jsonrpc.Request[json.RawMessage]{
+			ID:     "workflow-owner-labeled-secret",
+			Method: vaulttypes.MethodSecretsCreate,
+			Params: (*json.RawMessage)(&reqDataBytes),
+		}
+
+		err = h.HandleJSONRPCUserMessage(t.Context(), req, callback)
+		require.NoError(t, err)
+
+		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+		defer cancel()
+		resp, err := callback.Wait(ctx)
+		require.NoError(t, err)
+		var createResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
+		require.NoError(t, json.Unmarshal(resp.RawResponse, &createResponse))
+		require.ErrorContains(t, createResponse.Error, "doesn't have owner as the label")
+		require.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), createResponse.Error.Code)
+		don.AssertNotCalled(t, "SendToNode", mock.Anything, mock.Anything, mock.Anything)
 	})
 
 	t.Run("nil EncryptedSecrets inside CreateSecrets body", func(t *testing.T) {
@@ -764,6 +987,7 @@ func TestVaultHandler_PublicKeyGet(t *testing.T) {
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
 	h.(*handler).aggregator = &baseAggregator{
 		capabilitiesRegistry: mcr,
+		vaultHandlerDonID:    h.(*handler).donConfig.DonId,
 	}
 
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)

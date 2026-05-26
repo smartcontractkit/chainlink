@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"strconv"
 	"time"
@@ -53,6 +54,7 @@ type GatewayServiceConfig struct {
 	ServiceName string
 	Handlers    []string
 	DONs        []string
+	Auth0       *Auth0Config
 }
 
 type GatewayJob struct {
@@ -112,6 +114,29 @@ func (g GatewayJob) Validate() error {
 		for _, cidr := range g.AllowedIPsCIDR {
 			if _, _, err := net.ParseCIDR(cidr); err != nil {
 				return errors.New("invalid CIDR format: " + cidr)
+			}
+		}
+	}
+
+	if g.ServiceCentricFormatEnabled {
+		for _, svc := range g.Services {
+			hasVaultHandler := false
+			for _, h := range svc.Handlers {
+				if h == GatewayHandlerTypeVault {
+					hasVaultHandler = true
+					break
+				}
+			}
+			if svc.Auth0 != nil {
+				if !hasVaultHandler {
+					return fmt.Errorf("service %q configures auth0 but does not expose the vault handler", svc.ServiceName)
+				}
+				if svc.Auth0.IssuerURL == "" {
+					return fmt.Errorf("Auth0.IssuerURL is required when auth0 is set on service %q", svc.ServiceName)
+				}
+				if svc.Auth0.Audience == "" {
+					return fmt.Errorf("Auth0.Audience is required when auth0 is set on service %q", svc.ServiceName)
+				}
 			}
 		}
 	}
@@ -227,7 +252,7 @@ func (g GatewayJob) buildLegacyDons() ([]legacyDON, error) {
 			case GatewayHandlerTypeWebAPICapabilities:
 				hs = append(hs, newDefaultWebAPICapabilitiesHandler())
 			case GatewayHandlerTypeVault:
-				hs = append(hs, newDefaultVaultHandler(g.RequestTimeoutSec))
+				hs = append(hs, newDefaultVaultHandler(g.RequestTimeoutSec, nil))
 			case GatewayHandlerTypeHTTPCapabilities:
 				hs = append(hs, newDefaultHTTPCapabilitiesHandler())
 			case GatewayHandlerTypeConfidentialRelay:
@@ -271,7 +296,7 @@ func (g GatewayJob) buildServicesAndShardedDONs() ([]shardedDON, []service, erro
 			case GatewayHandlerTypeWebAPICapabilities:
 				handlers = append(handlers, newDefaultWebAPICapabilitiesHandler())
 			case GatewayHandlerTypeVault:
-				handlers = append(handlers, newDefaultVaultHandler(g.RequestTimeoutSec))
+				handlers = append(handlers, newDefaultVaultHandler(g.RequestTimeoutSec, svcCfg.Auth0))
 			case GatewayHandlerTypeHTTPCapabilities:
 				handlers = append(handlers, newDefaultHTTPCapabilitiesHandler())
 			case GatewayHandlerTypeConfidentialRelay:
@@ -314,9 +339,10 @@ func newDefaultWebAPICapabilitiesHandler() handler {
 type vaultHandlerConfig struct {
 	RequestTimeoutSec int                   `toml:"requestTimeoutSec"`
 	NodeRateLimiter   nodeRateLimiterConfig `toml:"NodeRateLimiter"`
+	Auth0             *Auth0Config          `toml:"auth0,omitempty"`
 }
 
-func newDefaultVaultHandler(requestTimeoutSec int) handler {
+func newDefaultVaultHandler(requestTimeoutSec int, auth0 *Auth0Config) handler {
 	return handler{
 		Name:        GatewayHandlerTypeVault,
 		ServiceName: ServiceNameVault,
@@ -330,6 +356,7 @@ func newDefaultVaultHandler(requestTimeoutSec int) handler {
 				PerSenderBurst: 10,
 				PerSenderRPS:   10,
 			},
+			Auth0: auth0,
 		},
 	}
 }
@@ -388,6 +415,7 @@ type connectionManagerConfig struct {
 	AuthGatewayID             string `toml:"AuthGatewayId"`
 	AuthTimestampToleranceSec int    `toml:"AuthTimestampToleranceSec"`
 	HeartbeatIntervalSec      int    `toml:"HeartbeatIntervalSec"`
+	PongTimeoutSec            int    `toml:"PongTimeoutSec,omitempty"`
 }
 
 type handler struct {

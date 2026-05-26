@@ -28,6 +28,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+	cldlegacysolmcms "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/helpers"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -47,7 +55,7 @@ import (
 	solTestReceiver "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/test_ccip_receiver"
 	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
-	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	ccipsolstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -64,30 +72,28 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/mock_v3_aggregator_contract"
-	tonOps "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
-	tonCfg "github.com/smartcontractkit/chainlink-ton/deployment/ccip/config"
-	tonrouter "github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/router"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	ccipChangeSetSolanaV0_1_0 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/bigint"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/internal/jdtestutils"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/abihelpers"
 )
 
 const (
@@ -98,8 +104,8 @@ const (
 var (
 	routerABI = abihelpers.MustParseABI(router.RouterABI)
 
-	DefaultLinkPrice = deployment.E18Mult(20)
-	DefaultWethPrice = deployment.E18Mult(4000)
+	DefaultLinkPrice = bigint.E18Mult(20)
+	DefaultWethPrice = bigint.E18Mult(4000)
 	DefaultGasPrice  = ToPackedFee(big.NewInt(8e14), big.NewInt(0))
 
 	OneCoin     = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1))
@@ -201,8 +207,6 @@ func WaitForEventFilterRegistration(t *testing.T, oc cldf_offchain.Client, chain
 		}
 		return fmt.Errorf("failed to find event with name %s in onramp or offramp ABIs", eventName)
 	case chainsel.FamilySolana:
-		eventID = eventName
-	case chainsel.FamilyTon:
 		eventID = eventName
 	case chainsel.FamilyAptos:
 		// Aptos is not using LogPoller
@@ -507,17 +511,6 @@ func SendRequest(
 		return SendRequestSui(e, state, cfg)
 	case chainsel.FamilyAptos:
 		return SendRequestAptos(e, state, cfg)
-	case chainsel.FamilyTon:
-		tonMsg := cfg.Message.(tonrouter.CCIPSend)
-		seq, raw, err := tonOps.SendCCIPMessage(e, state.TonChains[cfg.SourceChain], cfg.SourceChain, tonMsg)
-		if err != nil {
-			return nil, err
-		}
-
-		return &ccipclient.AnyMsgSentEvent{
-			SequenceNumber: seq,
-			RawEvent:       raw,
-		}, nil
 	default:
 		return nil, fmt.Errorf("send request: unsupported chain family: %v", family)
 	}
@@ -625,27 +618,27 @@ func SendRequestSol(
 		feeTokenUserATA = ata
 	}
 
-	destinationChainStatePDA, err := solstate.FindDestChainStatePDA(destinationChainSelector, s.Router)
+	destinationChainStatePDA, err := ccipsolstate.FindDestChainStatePDA(destinationChainSelector, s.Router)
 	if err != nil {
 		return nil, err
 	}
 
-	noncePDA, err := solstate.FindNoncePDA(cfg.DestChain, sender.PublicKey(), s.Router)
+	noncePDA, err := ccipsolstate.FindNoncePDA(cfg.DestChain, sender.PublicKey(), s.Router)
 	if err != nil {
 		return nil, err
 	}
 
-	linkFqBillingConfigPDA, _, err := solstate.FindFqBillingTokenConfigPDA(s.LinkToken, s.FeeQuoter)
+	linkFqBillingConfigPDA, _, err := ccipsolstate.FindFqBillingTokenConfigPDA(s.LinkToken, s.FeeQuoter)
 	if err != nil {
 		return nil, err
 	}
 
-	feeTokenFqBillingConfigPDA, _, err := solstate.FindFqBillingTokenConfigPDA(feeToken, s.FeeQuoter)
+	feeTokenFqBillingConfigPDA, _, err := ccipsolstate.FindFqBillingTokenConfigPDA(feeToken, s.FeeQuoter)
 	if err != nil {
 		return nil, err
 	}
 
-	billingSignerPDA, _, err := solstate.FindFeeBillingSignerPDA(s.Router)
+	billingSignerPDA, _, err := ccipsolstate.FindFeeBillingSignerPDA(s.Router)
 	if err != nil {
 		return nil, err
 	}
@@ -655,12 +648,12 @@ func SendRequestSol(
 		return nil, err
 	}
 
-	fqDestChainPDA, _, err := solstate.FindFqDestChainPDA(cfg.DestChain, s.FeeQuoter)
+	fqDestChainPDA, _, err := ccipsolstate.FindFqDestChainPDA(cfg.DestChain, s.FeeQuoter)
 	if err != nil {
 		return nil, err
 	}
 
-	rmnRemoteCursesPDA, _, err := solstate.FindRMNRemoteCursesPDA(s.RMNRemote)
+	rmnRemoteCursesPDA, _, err := ccipsolstate.FindRMNRemoteCursesPDA(s.RMNRemote)
 	if err != nil {
 		return nil, err
 	}
@@ -753,7 +746,7 @@ func SendRequestSol(
 
 		tokenPool.Chain[cfg.DestChain] = chainPDA
 
-		billingPDA, _, err := solstate.FindFqPerChainPerTokenConfigPDA(cfg.DestChain, tokenPubKey, s.FeeQuoter)
+		billingPDA, _, err := ccipsolstate.FindFqPerChainPerTokenConfigPDA(cfg.DestChain, tokenPubKey, s.FeeQuoter)
 		if err != nil {
 			return nil, err
 		}
@@ -972,17 +965,6 @@ func AddLane(
 			aptosTokenPrices[aptoscs.MustParseAddress(t, address)] = price
 		}
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, aptosTokenPrices)...)
-	case chainsel.FamilyTon:
-		onRamp, err := state.GetOnRampAddressBytes(to)
-		if err != nil {
-			return err
-		}
-		addLaneConfig := tonOps.AddLaneTONConfig(&e.Env, onRamp, from, to, fromFamily, toFamily, gasPrices)
-		changesets = append(changesets, commoncs.Configure(tonOps.AddTonLanes{},
-			tonCfg.UpdateTonLanesConfig{
-				Lanes:      []tonCfg.LaneConfig{addLaneConfig},
-				TestRouter: false,
-			}))
 	}
 
 	switch toFamily {
@@ -992,17 +974,6 @@ func AddLane(
 		changesets = append(changesets, AddLaneSolanaChangesetsV0_1_0(e, to, from, fromFamily)...)
 	case chainsel.FamilyAptos:
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, nil)...)
-	case chainsel.FamilyTon:
-		onRamp, err := state.GetOnRampAddressBytes(from)
-		if err != nil {
-			return err
-		}
-		addLaneConfig := tonOps.AddLaneTONConfig(&e.Env, onRamp, from, to, fromFamily, toFamily, gasPrices)
-		changesets = append(changesets, commoncs.Configure(tonOps.AddTonLanes{},
-			tonCfg.UpdateTonLanesConfig{
-				Lanes:      []tonCfg.LaneConfig{addLaneConfig},
-				TestRouter: false,
-			}))
 	}
 
 	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, changesets)
@@ -1295,7 +1266,7 @@ func AddLaneAptosChangesets(t *testing.T, srcChainSelector, destChainSelector ui
 		commoncs.Configure(
 			aptoscs.AddAptosLanes{},
 			config.UpdateAptosLanesConfig{
-				AptosMCMSConfig: &proposalutils.TimelockConfig{
+				AptosMCMSConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay:     time.Second,
 					MCMSAction:   mcmstypes.TimelockActionSchedule,
 					OverrideRoot: false,
@@ -1379,18 +1350,13 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 		tokenPrices[stateChainFrom.Weth9.Address().String()] = DefaultWethPrice
 	case chainsel.FamilyAptos:
 		aptosState := state.AptosChains[from]
-		tokenPrices[aptosState.LinkTokenAddress.StringLong()] = deployment.EDecMult(20, 28)
-		tokenPrices[shared.AptosAPTAddress] = deployment.EDecMult(5, 28)
-	case chainsel.FamilyTon:
-		// TODO Need to double check this, LINK will have 9 decimals on TON like on Solana (not 18)
-		tonState := state.TonChains[from]
-		gasPrices[from] = big.NewInt(1e15)
-		tokenPrices[tonState.LinkTokenAddress.String()] = deployment.EDecMult(20, 28)
+		tokenPrices[aptosState.LinkTokenAddress.StringLong()] = bigint.EDecMult(20, 28)
+		tokenPrices[shared.AptosAPTAddress] = bigint.EDecMult(5, 28)
 	case chainsel.FamilySui:
 		suiState := state.SuiChains[from]
 		gasPrices[from] = big.NewInt(1e17)
 		gasPrices[to] = big.NewInt(1e17)
-		tokenPrices[suiState.LinkTokenCoinMetadataId] = deployment.EDecMult(20, 28)
+		tokenPrices[suiState.LinkTokenCoinMetadataId] = bigint.EDecMult(20, 28)
 	}
 	fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, to)
 
@@ -1398,12 +1364,6 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 	if toFamily != chainsel.FamilyEVM {
 		fqCfg.EnforceOutOfOrder = true
 		fqCfg.MaxNumberOfTokensPerMsg = 1
-	}
-
-	// EVM -> TON
-	if toFamily == chainsel.FamilyTon {
-		fqCfg.MaxPerMsgGasLimit = 4_200_000_000 // 4_200_000_000 nano TON = 4.2 TON
-		gasPrices[to] = big.NewInt(2.12e9)      // 1 TON ~2.13 USD -> 1 nanoTON = 2.13e−9 USD -> 1 nanoTON expressed in 1e18 (1 USD) = 2.13e9
 	}
 
 	err = AddLane(
@@ -1428,10 +1388,8 @@ func AddLanesForAll(t *testing.T, e *DeployedEnv, state stateview.CCIPOnChainSta
 	chains := []uint64{}
 	allEvmChainSelectors := maps.Keys(e.Env.BlockChains.EVMChains())
 	allSolChainSelectors := maps.Keys(e.Env.BlockChains.SolanaChains())
-	allTonChainSelectors := maps.Keys(e.Env.BlockChains.TonChains())
 	chains = slices.AppendSeq(chains, allEvmChainSelectors)
 	chains = slices.AppendSeq(chains, allSolChainSelectors)
-	chains = slices.AppendSeq(chains, allTonChainSelectors)
 
 	for _, source := range chains {
 		for _, dest := range chains {
@@ -1851,7 +1809,36 @@ func NewMintTokenWithCustomSender(auth *bind.TransactOpts, sender *bind.Transact
 // ApproveToken approves the router to spend the given amount of tokens
 // Keeping this proxy method in order to not break compatibility
 func ApproveToken(env cldf.Environment, src uint64, tokenAddress common.Address, routerAddress common.Address, amount *big.Int) error {
-	return commoncs.ApproveToken(env, src, tokenAddress, routerAddress, amount)
+	evmChains := env.BlockChains.EVMChains()
+	ch, ok := evmChains[src]
+	if !ok {
+		return fmt.Errorf("evm chain %d not found in environment", src)
+	}
+
+	if ch.Client == nil {
+		return fmt.Errorf("evm chain %d has no RPC client", src)
+	}
+
+	if ch.DeployerKey == nil {
+		return fmt.Errorf("evm chain %d has no deployer key", src)
+	}
+
+	token, err := erc20.NewERC20(tokenAddress, ch.Client)
+	if err != nil {
+		return err
+	}
+
+	tx, err := token.Approve(ch.DeployerKey, routerAddress, amount)
+	if err != nil {
+		return err
+	}
+
+	_, err = ch.Confirm(tx)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // MintAndAllow mints tokens for deployers and allow router to spend them
@@ -2044,7 +2031,7 @@ func TransferMultiple(
 				// Approve router to spend tokens
 				if tt.RouterAddress != (common.Address{}) {
 					for _, ta := range tt.Tokens {
-						err := commoncs.ApproveToken(env, tt.SourceChain, ta.Token, tt.RouterAddress, new(big.Int).Mul(ta.Amount, big.NewInt(10)))
+						err := ApproveToken(env, tt.SourceChain, ta.Token, tt.RouterAddress, new(big.Int).Mul(ta.Amount, big.NewInt(10)))
 						require.NoError(t, err)
 					}
 				}
@@ -2442,12 +2429,12 @@ func TransferOwnershipSolanaV0_1_0(
 	if needTimelockDeployed {
 		*e, _, err = commoncs.ApplyChangesets(t, *e, []commoncs.ConfiguredChangeSet{
 			commoncs.Configure(
-				cldf.CreateLegacyChangeSet(commoncs.DeployMCMSWithTimelockV2),
-				map[uint64]commontypes.MCMSWithTimelockConfigV2{
+				cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
+				map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 					solSelector: {
-						Canceller:        proposalutils.SingleGroupMCMSV2(t),
-						Proposer:         proposalutils.SingleGroupMCMSV2(t),
-						Bypasser:         proposalutils.SingleGroupMCMSV2(t),
+						Canceller:        cldftesthelpers.SingleGroupMCMS(t),
+						Proposer:         cldftesthelpers.SingleGroupMCMS(t),
+						Bypasser:         cldftesthelpers.SingleGroupMCMS(t),
 						TimelockMinDelay: big.NewInt(0),
 					},
 				},
@@ -2460,13 +2447,13 @@ func TransferOwnershipSolanaV0_1_0(
 
 	addresses, err := e.ExistingAddresses.AddressesForChain(solSelector)
 	require.NoError(t, err)
-	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	mcmState, err := cldlegacysolmcms.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	require.NoError(t, err)
 
 	// Fund signer PDAs for timelock and mcm
 	// If we don't fund, execute() calls will fail with "no funds" errors.
-	timelockSignerPDA = state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
-	mcmSignerPDA = state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
+	timelockSignerPDA = pdasol.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	mcmSignerPDA = pdasol.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
 	err = solutils.FundAccounts(
 		e.GetContext(), chain.Client, []solana.PublicKey{timelockSignerPDA, mcmSignerPDA}, 100,
 	)
@@ -2478,7 +2465,7 @@ func TransferOwnershipSolanaV0_1_0(
 		commoncs.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_0.TransferCCIPToMCMSWithTimelockSolana),
 			ccipChangeSetSolanaV0_1_0.TransferCCIPToMCMSWithTimelockSolanaConfig{
-				MCMSCfg: proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+				MCMSCfg: cldfproposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 				ContractsByChain: map[uint64]ccipChangeSetSolanaV0_1_0.CCIPContractsToTransfer{
 					solSelector: contractsToTransfer,
 				},
@@ -2494,7 +2481,7 @@ func GenTestTransferOwnershipConfig(
 	chains []uint64,
 	state stateview.CCIPOnChainState,
 	withTestRouterTransfer bool,
-) commoncs.TransferToMCMSWithTimelockConfig {
+) mcmschangesets.TransferToMCMSWithTimelockConfig {
 	var (
 		contracts = make(map[uint64][]common.Address)
 	)
@@ -2523,13 +2510,13 @@ func GenTestTransferOwnershipConfig(
 		state.MustGetEVMChainState(e.HomeChainSel).RMNHome.Address(),
 	)
 
-	return commoncs.TransferToMCMSWithTimelockConfig{
+	return mcmschangesets.TransferToMCMSWithTimelockConfig{
 		ContractsByChain: contracts,
 	}
 }
 
-func DeployCCIPContractsTest(t *testing.T, solChains int, tonChains int) {
-	e, _ := NewMemoryEnvironment(t, WithSolChains(solChains), WithTonChains(tonChains))
+func DeployCCIPContractsTest(t *testing.T, solChains int) {
+	e, _ := NewMemoryEnvironment(t, WithSolChains(solChains))
 	// Deploy all the CCIP contracts.
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -2537,7 +2524,6 @@ func DeployCCIPContractsTest(t *testing.T, solChains int, tonChains int) {
 	allChains = append(allChains, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))...)
 	allChains = append(allChains, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilySolana))...)
 	allChains = append(allChains, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyAptos))...)
-	allChains = append(allChains, e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyTon))...)
 	stateView, err := state.View(&e.Env, allChains)
 	require.NoError(t, err)
 	if solChains > 0 {
@@ -2555,9 +2541,6 @@ func DeployCCIPContractsTest(t *testing.T, solChains int, tonChains int) {
 	b, err = json.MarshalIndent(stateView.AptosChains, "", "	")
 	require.NoError(t, err)
 	fmt.Println(string(b))
-	b, err = json.MarshalIndent(stateView.TONChains, "", "	")
-	require.NoError(t, err)
-	fmt.Println(string(b))
 }
 
 func TransferToTimelock(
@@ -2570,7 +2553,7 @@ func TransferToTimelock(
 	// Transfer ownership to timelock so that we can promote the zero digest later down the line.
 	_, err := commoncs.Apply(t, tenv.Env,
 		commoncs.Configure(
-			cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
 			GenTestTransferOwnershipConfig(tenv, chains, state, withTestRouterTransfer),
 		),
 	)

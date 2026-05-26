@@ -10,20 +10,20 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // This changeset generates a proposal to mint LINK when LINK is already owned by MCMS
 var MintLinkTokenMCMS = cldf.CreateChangeSet(MintLinkTokenMCMSLogic, MintLinkTokenMCMSPreconditions)
 
 type MintLinkTokenMCMSConfig struct {
-	Selector   uint64                        `json:"selector"`
-	ToAddress  common.Address                `json:"toAddress"`
-	Amount     *big.Int                      `json:"amount"`
-	MCMSConfig *proposalutils.TimelockConfig `json:"mcmsConfig"`
+	Selector   uint64                            `json:"selector"`
+	ToAddress  common.Address                    `json:"toAddress"`
+	Amount     *big.Int                          `json:"amount"`
+	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcmsConfig"`
 }
 
 func (cfg MintLinkTokenMCMSConfig) Validate(e cldf.Environment) error {

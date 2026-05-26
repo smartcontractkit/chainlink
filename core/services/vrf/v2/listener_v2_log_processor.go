@@ -68,12 +68,12 @@ func (lsn *listenerV2) ready(req pendingRequest, latestHead uint64) bool {
 			req.lastTry))
 }
 
-func nextTry(retries int, initial, max time.Duration, last time.Time) time.Time {
+func nextTry(retries int, initial, maxDur time.Duration, last time.Time) time.Time {
 	expBackoffFactor := math.Pow(backoffFactor, float64(retries-1))
 
 	var delay time.Duration
-	if expBackoffFactor > float64(max/initial) {
-		delay = max
+	if expBackoffFactor > float64(maxDur/initial) {
+		delay = maxDur
 	} else {
 		delay = time.Duration(float64(initial) * expBackoffFactor)
 	}
@@ -83,15 +83,15 @@ func nextTry(retries int, initial, max time.Duration, last time.Time) time.Time 
 // Remove all entries 10000 blocks or older
 // to avoid a memory leak.
 func (lsn *listenerV2) pruneConfirmedRequestCounts() {
-	min := lsn.blockNumberToReqID.FindMin()
-	for min != nil {
-		m := min.(fulfilledReqV2)
+	minBlock := lsn.blockNumberToReqID.FindMin()
+	for minBlock != nil {
+		m := minBlock.(fulfilledReqV2)
 		if m.blockNumber > (lsn.getLatestHead() - 10000) {
 			break
 		}
 		delete(lsn.respCount, m.reqID)
 		lsn.blockNumberToReqID.DeleteMin()
-		min = lsn.blockNumberToReqID.FindMin()
+		minBlock = lsn.blockNumberToReqID.FindMin()
 	}
 }
 
@@ -207,9 +207,9 @@ func (lsn *listenerV2) MaybeSubtractReservedLink(ctx context.Context, startBalan
 	var metaField string
 	switch vrfVersion {
 	case vrfcommon.V2Plus:
-		metaField = txMetaGlobalSubId
+		metaField = txMetaGlobalSubID
 	case vrfcommon.V2:
-		metaField = txMetaFieldSubId
+		metaField = txMetaFieldSubID
 	default:
 		return nil, errors.Errorf("unsupported vrf version %s", vrfVersion)
 	}
@@ -247,7 +247,7 @@ func (lsn *listenerV2) MaybeSubtractReservedEth(ctx context.Context, startBalanc
 	var metaField string
 	switch vrfVersion {
 	case vrfcommon.V2Plus:
-		metaField = txMetaGlobalSubId
+		metaField = txMetaGlobalSubID
 	case vrfcommon.V2:
 		// native payment is not supported for v2, so returning 0 reserved ETH
 		return big.NewInt(0), nil
@@ -409,11 +409,12 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 			ll = ll.With("fromAddress", fromAddress)
 
 			if p.err != nil {
-				if errors.Is(p.err, errBlockhashNotInStore{}) {
+				switch {
+				case errors.Is(p.err, blockhashNotInStoreError{}):
 					// Running the blockhash store feeder in backwards mode will be required to
 					// resolve this.
 					ll.Criticalw("Pipeline error", "err", p.err)
-				} else if errors.Is(p.err, errProofVerificationFailed{}) {
+				case errors.Is(p.err, proofVerificationFailedError{}):
 					// This occurs when the proof reverts in the simulation
 					// This is almost always (if not always) due to a proof generated with an out-of-date
 					// blockhash
@@ -421,7 +422,7 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 					// process the request with the right blockhash
 					ll.Infow("proof reverted in simulation, likely stale blockhash")
 					processed[p.req.req.RequestID().String()] = struct{}{}
-				} else {
+				default:
 					ll.Errorw("Pipeline error", "err", p.err)
 					if !subIsActive {
 						ll.Warnw("Force-fulfilling a request with insufficient funds on a cancelled sub")
@@ -440,7 +441,7 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 						continue
 					}
 
-					if startBalanceNoReserved.Cmp(p.fundsNeeded) < 0 && errors.Is(p.err, errPossiblyInsufficientFunds{}) {
+					if startBalanceNoReserved.Cmp(p.fundsNeeded) < 0 && errors.Is(p.err, possiblyInsufficientFundsError{}) {
 						ll.Infow("Insufficient balance to fulfill a request based on estimate, breaking", "err", p.err)
 						outOfBalance = true
 
@@ -588,10 +589,7 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 
 	lsn.l.Infow("fulfillRandomWords payload", "proof", p.proof, "commitment", p.reqCommitment.Get(), "payload", p.payload)
 	txData := hexutil.MustDecode(p.payload)
-	if err != nil {
-		err = fmt.Errorf("abi pack VRFOwner.fulfillRandomWords: %w", err)
-		return
-	}
+
 	estimateGasLimit, err := lsn.chain.Client().EstimateGas(ctx, ethereum.CallMsg{
 		From: fromAddress,
 		To:   &vrfOwnerAddressSpec,
@@ -619,7 +617,7 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 		Strategy:       txmgrcommon.NewSendEveryStrategy(),
 		Meta: &txmgr.TxMeta{
 			RequestID:     &requestID,
-			SubID:         ptr(subID.Uint64()),
+			SubID:         new(subID.Uint64()),
 			RequestTxHash: &requestTxHash,
 			// No max link since simulation failed
 		},
@@ -632,7 +630,7 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 func (lsn *listenerV2) isConsumerValidAfterFinalityDepthElapsed(ctx context.Context, req pendingRequest) bool {
 	latestHead := lsn.getLatestHead()
 	if latestHead-req.req.Raw().BlockNumber > uint64(lsn.cfg.FinalityDepth()) {
-		code, err := lsn.chain.Client().CodeAt(ctx, req.req.Sender(), big.NewInt(int64(latestHead)))
+		code, err := lsn.chain.Client().CodeAt(ctx, req.req.Sender(), new(big.Int).SetUint64(latestHead))
 		if err != nil {
 			lsn.l.Warnw("Failed to fetch contract code", "err", err)
 			return true // error fetching code, give the benefit of doubt to the consumer
@@ -732,11 +730,12 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 			ll = ll.With("fromAddress", fromAddress)
 
 			if p.err != nil {
-				if errors.Is(p.err, errBlockhashNotInStore{}) {
+				switch {
+				case errors.Is(p.err, blockhashNotInStoreError{}):
 					// Running the blockhash store feeder in backwards mode will be required to
 					// resolve this.
 					ll.Criticalw("Pipeline error", "err", p.err)
-				} else if errors.Is(p.err, errProofVerificationFailed{}) {
+				case errors.Is(p.err, proofVerificationFailedError{}):
 					// This occurs when the proof reverts in the simulation
 					// This is almost always (if not always) due to a proof generated with an out-of-date
 					// blockhash
@@ -744,7 +743,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 					// process the request with the right blockhash
 					ll.Infow("proof reverted in simulation, likely stale blockhash")
 					processed[p.req.req.RequestID().String()] = struct{}{}
-				} else {
+				default:
 					ll.Errorw("Pipeline error", "err", p.err)
 
 					if !subIsActive {
@@ -810,9 +809,9 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 					txMetaGlobalSubID *string
 				)
 				if lsn.coordinator.Version() == vrfcommon.V2Plus {
-					txMetaGlobalSubID = ptr(p.req.req.SubID().String())
+					txMetaGlobalSubID = new(p.req.req.SubID().String())
 				} else if lsn.coordinator.Version() == vrfcommon.V2 {
-					txMetaSubID = ptr(p.req.req.SubID().Uint64())
+					txMetaSubID = new(p.req.req.SubID().Uint64())
 				}
 				requestID := common.BytesToHash(p.req.req.RequestID().Bytes())
 				coordinatorAddress := lsn.coordinator.Address()
@@ -876,9 +875,9 @@ func (lsn *listenerV2) processRequestsPerSub(
 	}
 
 	var processed = make(map[string]struct{})
-	chainId := lsn.chain.Client().ConfiguredChainID()
+	chainID := lsn.chain.Client().ConfiguredChainID()
 	startBalanceNoReserveLink, err := lsn.MaybeSubtractReservedLink(
-		ctx, startLinkBalance, chainId, subID, lsn.coordinator.Version())
+		ctx, startLinkBalance, chainID, subID, lsn.coordinator.Version())
 	if err != nil {
 		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubID(), "err", err)
 		return processed
@@ -917,9 +916,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 		wg                             sync.WaitGroup
 		nativeProcessed, linkProcessed map[string]struct{}
 	)
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		nativeProcessed = lsn.processRequestsPerSubHelper(
 			ctx,
 			subID,
@@ -928,9 +925,8 @@ func (lsn *listenerV2) processRequestsPerSub(
 			nativeRequests,
 			subIsActive,
 			true)
-	}()
-	go func() {
-		defer wg.Done()
+	})
+	wg.Go(func() {
 		linkProcessed = lsn.processRequestsPerSubHelper(
 			ctx,
 			subID,
@@ -939,7 +935,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 			linkRequests,
 			subIsActive,
 			false)
-	}()
+	})
 	wg.Wait()
 	// combine the native and link processed requests into the processed map
 	maps.Copy(processed, nativeProcessed)
@@ -1141,11 +1137,12 @@ func (lsn *listenerV2) simulateFulfillment(
 	if res.run.AllErrors.HasError() {
 		res.err = errors.WithStack(res.run.AllErrors.ToError())
 
-		if strings.Contains(res.err.Error(), "blockhash not found in store") {
-			res.err = stderrors.Join(res.err, errBlockhashNotInStore{})
-		} else if isProofVerificationError(res.err.Error()) {
-			res.err = stderrors.Join(res.err, errProofVerificationFailed{})
-		} else if strings.Contains(res.err.Error(), "execution reverted") {
+		switch {
+		case strings.Contains(res.err.Error(), "blockhash not found in store"):
+			res.err = stderrors.Join(res.err, blockhashNotInStoreError{})
+		case isProofVerificationError(res.err.Error()):
+			res.err = stderrors.Join(res.err, proofVerificationFailedError{})
+		case strings.Contains(res.err.Error(), "execution reverted"):
 			// Even if the simulation fails, we want to get the
 			// txData for the fulfillRandomWords call, in case
 			// we need to force fulfill.
@@ -1169,7 +1166,7 @@ func (lsn *listenerV2) simulateFulfillment(
 					res.reqCommitment = NewRequestCommitment(m["requestCommitment"])
 				}
 			}
-			res.err = stderrors.Join(res.err, errPossiblyInsufficientFunds{})
+			res.err = stderrors.Join(res.err, possiblyInsufficientFundsError{})
 		}
 
 		return res
@@ -1216,7 +1213,7 @@ func (lsn *listenerV2) simulateFulfillment(
 }
 
 func (lsn *listenerV2) fromAddresses() []common.Address {
-	var addresses []common.Address
+	addresses := make([]common.Address, 0, len(lsn.job.VRFSpec.FromAddresses))
 	for _, a := range lsn.job.VRFSpec.FromAddresses {
 		addresses = append(addresses, a.Address())
 	}

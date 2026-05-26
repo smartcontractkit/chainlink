@@ -81,7 +81,7 @@ func setupEVMCapTest(t *testing.T) evmCapTestSetup {
 	}
 
 	baseInput := jobs.ProposeEVMCapJobSpecInput{
-		Environment:             "test",
+		Environment:             test.EnvironmentName,
 		Zone:                    test.Zone,
 		Domain:                  "cre",
 		DONName:                 test.DONName,
@@ -120,7 +120,7 @@ func deepCloneInput(in jobs.ProposeEVMCapJobSpecInput) jobs.ProposeEVMCapJobSpec
 
 func freshBase(selector uint64) jobs.ProposeEVMCapJobSpecInput {
 	return jobs.ProposeEVMCapJobSpecInput{
-		Environment:          "test",
+		Environment:          test.EnvironmentName,
 		Zone:                 test.Zone,
 		Domain:               "cre",
 		DONName:              test.DONName,
@@ -163,7 +163,7 @@ func TestProposeEVMCapJobSpec_VerifyPreconditions_success(t *testing.T) {
 	env.DataStore = ds.Seal()
 
 	in := jobs.ProposeEVMCapJobSpecInput{
-		Environment:          "test",
+		Environment:          test.EnvironmentName,
 		Zone:                 test.Zone,
 		Domain:               "cre",
 		DONName:              test.DONName,
@@ -456,10 +456,11 @@ func TestProposeStandardCapabilityJob_ReusesUUIDWithLegacyNameFormat(t *testing.
 	// First create a job with legacy name format using ProposeStandardCapabilityJob
 	// This simulates an existing job that was created with the old name format
 	legacyJobInput := jobs.ProposeStandardCapabilityJobInput{
-		JobName: "evm-capabilities-v2--test-zone-1",
-		Command: "/usr/local/bin/evm",
-		DONName: test.DONName,
-		Domain:  "cre",
+		JobName:     "evm-capabilities-v2--test-zone-1",
+		Command:     "/usr/local/bin/evm",
+		DONName:     test.DONName,
+		Domain:      "cre",
+		Environment: env.Name,
 		DONFilters: []offchain.TargetDONFilter{
 			{Key: "zone", Value: test.Zone},
 		},

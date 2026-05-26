@@ -8,16 +8,18 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	evmstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm"
 	ccipseqs "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	evmstateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 )
 
 var (
@@ -34,7 +36,7 @@ type GrantMintRoleAndMintConfig struct {
 
 type GrantMintRoleInput struct {
 	GrantMintRoleByChain map[uint64]GrantMintRoleConfig
-	MCMS                 *proposalutils.TimelockConfig
+	MCMS                 *cldfproposalutils.TimelockConfig
 }
 
 type GrantMintRoleConfig struct {
@@ -87,7 +89,7 @@ func GrantMintRoleAndMintLogic(e cldf.Environment, cfg GrantMintRoleAndMintConfi
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get addresses for chain %d: %w", cfg.Selector, err)
 	}
 
-	linkState, err := evmstate.MaybeLoadLinkTokenChainState(chain, addresses)
+	linkState, err := evmstateview.MaybeLoadLinkTokenChainState(chain, addresses)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load LINK token state: %w", err)
 	}
@@ -99,7 +101,7 @@ func GrantMintRoleAndMintLogic(e cldf.Environment, cfg GrantMintRoleAndMintConfi
 	}
 	if owner == chain.DeployerKey.From {
 		//  Grant deployer address mint/burn access on the LINK_TOKEN
-		_, err := operations.ExecuteOperation(e.OperationsBundle, ccipops.GrantMintAndBurnRolesERC677Op, chain, opsutil.EVMCallInput[common.Address]{
+		_, err := operations.ExecuteOperation(e.OperationsBundle, ccipops.GrantMintAndBurnRolesERC677Op, chain, opsevm.EVMCallInput[common.Address]{
 			Address:       linkState.LinkToken.Address(),
 			ChainSelector: chain.ChainSelector(),
 			CallInput:     chain.DeployerKey.From,
@@ -232,9 +234,9 @@ func GrantMintRoleLogic(e cldf.Environment, input GrantMintRoleInput) (cldf.Chan
 }
 
 func (input GrantMintRoleInput) ToSequenceInput(state stateview.CCIPOnChainState) ccipseqs.GrantMintRoleSeqInp {
-	updates := make(map[uint64]opsutil.EVMCallInput[common.Address], len(input.GrantMintRoleByChain))
+	updates := make(map[uint64]opsevm.EVMCallInput[common.Address], len(input.GrantMintRoleByChain))
 	for chainSel, cfg := range input.GrantMintRoleByChain {
-		updates[chainSel] = opsutil.EVMCallInput[common.Address]{
+		updates[chainSel] = opsevm.EVMCallInput[common.Address]{
 			ChainSelector: chainSel,
 			Address:       state.Chains[chainSel].LinkToken.Address(),
 			CallInput:     cfg.ToAddress,

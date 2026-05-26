@@ -44,10 +44,7 @@ Parallel execution is controlled by `CRE_TEST_PARALLEL_ENABLED`.
 That flag only permits parallelism. Each test still decides whether it is safe to call `t.Parallel()`. In `cre_suite_test.go`:
 
 - some scenarios parallelize immediately
-- some scenarios parallelize only when `CRE_TEST_CHIP_SINK_FANOUT_ENABLED=1`
 - some scenarios stay serial because they depend on non-shareable infrastructure
-
-The fanout flag matters for tests that share the ChIP test sink. In fanout mode, the helper starts one sink server and distributes events to per-test subscribers. That keeps parallel cases isolated without forcing a separate sink process per test.
 
 ## Supported Topologies in CI
 
@@ -57,10 +54,9 @@ By default, the CRE workflow runs tests against:
 
 Some tests must replace that default topology set with explicit per-test overrides in `.github/workflows/cre-system-tests.yaml`. Current examples are:
 
-- `Test_CRE_V2_Aptos_Suite` -> `workflow-gateway-aptos`
-- `Test_CRE_V2_Solana_Suite` -> `workflow`
-- `Test_CRE_V1_Tron` -> `workflow`
-- `Test_CRE_V2_Sharding` -> `workflow-gateway-sharded`
+- `Test_CRE_Aptos_Suite` -> `workflow-gateway-aptos`
+- `Test_CRE_Solana_Suite` -> `workflow`
+- `Test_CRE_Sharding` -> `workflow-gateway-sharded`
 
 If a new test only works with a non-default topology, adding the test code is not enough. You must also add an explicit override in the workflow matrix so CI runs the test with the matching `topology` and `configs` pair.
 

@@ -17,6 +17,8 @@ LOOPINSTALL_PUBLIC_ARGS  := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-
 LOOPINSTALL_PRIVATE_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/private.json)
 LOOPINSTALL_TESTING_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/testing.json)
 GOLANGCI_LINT_VERSION = "v2.11.4"
+# Pin path so `make generate` does not pick up a different mockery (e.g. v3) from PATH.
+MOCKERY_BIN ?= $(shell GOBIN="$$(go env GOBIN)"; if [ -n "$$GOBIN" ]; then echo "$$GOBIN/mockery"; else echo "$$(go env GOPATH)/bin/mockery"; fi)
 
 .PHONY: install
 install: install-chainlink-autoinstall ## Install chainlink and all its dependencies.
@@ -90,7 +92,6 @@ install-plugins-private: ## Build & install private remote LOOPP binaries (plugi
 install-plugins-testing: ## Build & install testing only LOOPP binaries (plugins).
 	GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 5 $(LOOPINSTALL_TESTING_ARGS) ./plugins/plugins.testing.yaml
 
-
 .PHONY: install-plugins-local
 install-plugins-local: ## Build & install local plugins
 	go install -ldflags="-s" \
@@ -163,7 +164,7 @@ operator-ui: ## Fetch the frontend
 generate: codecgen mockery protoc gomods modgraph ## Execute all go:generate commands.
 	## Updating PATH makes sure that go:generate uses the version of protoc installed by the protoc make command.
 	export PATH="$(HOME)/.local/bin:$(PATH)"; gomods -w go generate -x ./...
-	find . -type f -name .mockery.yaml -execdir mockery \; ## Execute mockery for all .mockery.yaml files
+	find . -type f -name .mockery.yaml -execdir $(MOCKERY_BIN) \; ## Execute mockery for all .mockery.yaml files (see mockery target: v2)
 
 .PHONY: rm-mocked
 rm-mocked:
@@ -251,12 +252,28 @@ lint-fix: gomods ## Run golangci-lint with --fix for all modules
 
 .PHONY: modgraph
 modgraph:
-	go install github.com/jmank88/modgraph@v0.1.1
+	go install github.com/jmank88/modgraph@v0.1.4
 	./tools/bin/modgraph > go.md
 
 .PHONY: test-short
 test-short: ## Run 'go test -short' and suppress uninteresting output
 	go test -short ./... | grep -v "\[no test files\]" | grep -v "\(cached\)"
+
+# Chainlink tools/test harness (Postgres setup + optional diagnose). Uses the
+# nested module directly so its dependencies stay out of the root module. Pass
+# flags and packages via ARGS (quoted), e.g. make new_test ARGS="-v -p 4 ./core/..."
+# Note: do not use "make target -p 4 ..." — -p is a make flag; use ARGS= instead.
+.PHONY: new_test
+new_test: ## tools/test: passthrough go test. Usage: make new_test ARGS="-v -p 4 ./core/..."
+	go -C tools/test run . run $(ARGS)
+
+.PHONY: new_gotestsum
+new_gotestsum: ## tools/test: gotestsum. Usage: make new_gotestsum ARGS="--format=dots -- -count=1 ./core/..."
+	go -C tools/test run . gotestsum $(ARGS)
+
+.PHONY: new_test_diagnose
+new_test_diagnose: ## tools/test: diagnose (flakes/slow). Usage: make new_test_diagnose ARGS="--iterations 5 -- --timeout 9m ./core/..."
+	go -C tools/test run . diagnose $(ARGS)
 
 .PHONY: gocs
 gocs: ## Run gocs to generate changeset markdown files.
@@ -268,9 +285,9 @@ DEPENDABOT_SEVERITY := "critical,high"
 endif
 dependabot: gomods
 	gh api --paginate -H "Accept: application/vnd.github+json" --method GET \
-      '/repos/smartcontractkit/chainlink/dependabot/alerts?state=open&ecosystem=Go&severity=$(DEPENDABOT_SEVERITY)' | \
-      jq -r '.[] | select(.security_vulnerability.first_patched_version != null) | .dependency.manifest_path |= rtrimstr("go.mod") | "./\(.dependency.manifest_path) \(.security_vulnerability.package.name) \(.security_vulnerability.first_patched_version.identifier)"' | \
-      xargs -L1 -t bash -c 'cd $$0 && go get $$1@v$$2 || go get $$1'
+	  '/repos/smartcontractkit/chainlink/dependabot/alerts?state=open&ecosystem=Go&severity=$(DEPENDABOT_SEVERITY)' \
+	  --jq '.[] | select(.security_vulnerability.first_patched_version != null) | .dependency.manifest_path |= rtrimstr("go.mod") | "./\(.dependency.manifest_path) \(.security_vulnerability.package.name) \(.security_vulnerability.first_patched_version.identifier)"' | \
+	  go tool dependabot && \
 	gomods tidy
 
 help:

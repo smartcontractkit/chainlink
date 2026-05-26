@@ -3,6 +3,7 @@ package v1_6
 import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	"github.com/ethereum/go-ethereum/core/types"
 
@@ -10,7 +11,6 @@ import (
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
 
 type AddDONOpInput struct {
@@ -21,7 +21,7 @@ type AddDONOpInput struct {
 	F                        uint8
 }
 
-var AddDONOp = opsutil.NewEVMCallOperation(
+var AddDONOp = opsevm.NewEVMCallOperation(
 	"AddDONOp",
 	semver.MustParse("1.0.0"),
 	"Adds DONs via the CapabilitiesRegistry",
@@ -41,7 +41,7 @@ type UpdateDONOpInput struct {
 	F                        uint8
 }
 
-var UpdateDONOp = opsutil.NewEVMCallOperation(
+var UpdateDONOp = opsevm.NewEVMCallOperation(
 	"UpdateDONOp",
 	semver.MustParse("1.0.0"),
 	"Updates DONs via the CapabilitiesRegistry",
@@ -58,7 +58,7 @@ type ApplyChainConfigUpdatesOpInput struct {
 	RemoteChainAdds    []ccip_home.CCIPHomeChainConfigArgs
 }
 
-var ApplyChainConfigUpdatesOp = opsutil.NewEVMCallOperation(
+var ApplyChainConfigUpdatesOp = opsevm.NewEVMCallOperation(
 	"ApplyChainConfigUpdatesOp",
 	semver.MustParse("1.0.0"),
 	"Updates chain configurations on CCIPHome",

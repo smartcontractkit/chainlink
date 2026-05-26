@@ -67,7 +67,7 @@ func Test_InitialStateSyncV2(t *testing.T) {
 	// Add requests to ensure we go above the MaxResultsPerQuery
 	activeAllowlistedRequestsCount := int(MaxResultsPerQuery + 1)
 	expiryTimestamp := time.Now().Add(24 * time.Hour)
-	for i := 0; i < activeAllowlistedRequestsCount; i++ {
+	for i := range activeAllowlistedRequestsCount {
 		createSecretsRequestParams, marshalErr := json.Marshal(vaultcommon.CreateSecretsRequest{
 			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 				{
@@ -911,7 +911,7 @@ func allowlistRequest(
 
 // Prepare the ABI arguments, in the exact order as expected by the Solidity contract.
 func prepareABIArguments() (*abi.Arguments, error) {
-	arguments := abi.Arguments{}
+	arguments := make(abi.Arguments, 0, 7)
 
 	uint8Type, err := abi.NewType("uint8", "", nil)
 	if err != nil {

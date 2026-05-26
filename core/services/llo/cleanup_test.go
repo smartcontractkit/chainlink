@@ -16,8 +16,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
+	"github.com/smartcontractkit/chainlink-evm/pkg/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/mercurytransmitter"
 )
 
 type mockLogPoller struct {
@@ -32,7 +33,7 @@ func (m *mockLogPoller) UnregisterFilter(ctx context.Context, name string) error
 func makeSampleTransmissions(n int) []*mercurytransmitter.Transmission {
 	transmissions := make([]*mercurytransmitter.Transmission, n)
 	for i := range n {
-		transmissions[i] = makeSampleTransmission(uint64(i), "http://example.com/foo") //nolint:gosec // G115 don't care in test code
+		transmissions[i] = makeSampleTransmission(uint64(i), "http://example.com/foo")
 	}
 	return transmissions
 }
@@ -66,7 +67,7 @@ func Test_Cleanup(t *testing.T) {
 	chainSelector := uint64(3)
 
 	// add some channel definitions
-	cdcorm := NewChainScopedORM(ds, chainSelector)
+	cdcorm := llo.NewChainScopedORM(ds, chainSelector)
 	{
 		err := cdcorm.StoreChannelDefinitions(ctx, addr1, donID1, 1, json.RawMessage(`{}`), 1, 1)
 		require.NoError(t, err)

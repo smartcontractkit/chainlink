@@ -17,11 +17,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	vault "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
@@ -30,7 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/teeattestation"
 	"github.com/smartcontractkit/chainlink-common/pkg/teeattestation/nitro"
 
-	vaulttypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
 var _ core.GatewayConnectorHandler = (*Handler)(nil)
@@ -99,15 +101,20 @@ type Handler struct {
 
 	capRegistry      core.CapabilitiesRegistry
 	gatewayConnector core.GatewayConnector
+	responseSigner   relayResponseSigner
 	lggr             logger.Logger
 	metrics          *handlerMetrics
 
 	// validateAttestation validates TEE attestation documents.
 	// Defaults to the Nitro validator; overridden in tests.
 	validateAttestation attestationValidatorFunc
+	limitsFactory       limits.Factory
 }
 
-func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnector, lggr logger.Logger) (*Handler, error) {
+func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, lf limits.Factory) (*Handler, error) {
+	if responseSigner == nil {
+		return nil, errors.New("response signer is required")
+	}
 	m, err := newMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
@@ -116,9 +123,11 @@ func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnecto
 	h := &Handler{
 		capRegistry:         capRegistry,
 		gatewayConnector:    conn,
+		responseSigner:      responseSigner,
 		lggr:                logger.Named(lggr, HandlerName),
 		metrics:             m,
 		validateAttestation: nitro.ValidateAttestation,
+		limitsFactory:       lf,
 	}
 	h.Service, h.eng = services.Config{
 		Name:  HandlerName,
@@ -251,19 +260,21 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get local node: %w", err))
 	}
 
+	metadata := capabilities.RequestMetadata{
+		WorkflowID:               params.WorkflowID,
+		WorkflowOwner:            params.Owner,
+		WorkflowExecutionID:      params.ExecutionID,
+		WorkflowDonID:            localNode.WorkflowDON.ID,
+		WorkflowDonConfigVersion: localNode.WorkflowDON.ConfigVersion,
+		ReferenceID:              req.ID,
+	}
+	h.applyPropagatedOrgID(ctx, &metadata, params.OrgID)
 	capResp, err := vaultCap.Execute(ctx, capabilities.CapabilityRequest{
 		Payload:      anypbReq,
 		Method:       vault.MethodGetSecrets,
 		CapabilityId: vault.CapabilityID,
 		Config:       values.EmptyMap(),
-		Metadata: capabilities.RequestMetadata{
-			WorkflowID:               params.WorkflowID,
-			WorkflowOwner:            params.Owner,
-			WorkflowExecutionID:      params.ExecutionID,
-			WorkflowDonID:            localNode.WorkflowDON.ID,
-			WorkflowDonConfigVersion: localNode.WorkflowDON.ConfigVersion,
-			ReferenceID:              req.ID,
-		},
+		Metadata:     metadata,
 	})
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("vault execute failed: %w", err))
@@ -279,7 +290,12 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
 
-	return h.jsonResponse(req, result)
+	signedResult, err := h.signSecretsResponse(params, result)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to sign secrets response: %w", err))
+	}
+
+	return h.jsonResponse(req, signedResult)
 }
 
 // resolveDONID determines the DON ID for a capability.
@@ -398,6 +414,7 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 			ReferenceID:         referenceID,
 		},
 	}
+	h.applyPropagatedOrgID(ctx, &capReq.Metadata, params.OrgID)
 
 	// Backward compatibility: extract values.Map from Payload into Inputs
 	// for old-style capabilities that only look at Inputs.
@@ -429,7 +446,12 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 		result.Payload = base64.StdEncoding.EncodeToString(respBytes)
 	}
 
-	return h.jsonResponse(req, result)
+	signedResult, err := h.signCapabilityResponse(params, result)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to sign capability response: %w", err))
+	}
+
+	return h.jsonResponse(req, signedResult)
 }
 
 // getEnclaveAttestationConfig reads the enclave pool configuration from the
@@ -468,6 +490,15 @@ func (h *Handler) getEnclaveAttestationConfig(ctx context.Context) ([]json.RawMe
 		}
 	}
 	return measurements, caRootsPEM, nil
+}
+
+func (h *Handler) applyPropagatedOrgID(ctx context.Context, md *capabilities.RequestMetadata, orgFromRequest string) {
+	propagateOrgIDMeta, _ := cresettings.Default.PropagateOrgIDInRequestMetadata.GetOrDefault(ctx, h.limitsFactory.Settings)
+	if propagateOrgIDMeta && orgFromRequest != "" {
+		md.OrgID = orgFromRequest
+		return
+	}
+	md.OrgID = ""
 }
 
 func (h *Handler) verifyAttestationHash(ctx context.Context, attestationB64 string, cleanParams any, domainTag string) error {
@@ -558,6 +589,58 @@ func (h *Handler) jsonResponse(req *jsonrpc.Request[json.RawMessage], result any
 		Method:  req.Method,
 		Result:  &resultJSON,
 	}
+}
+
+func (h *Handler) signSecretsResponse(
+	params confidentialrelaytypes.SecretsRequestParams,
+	result *confidentialrelaytypes.SecretsResponseResult,
+) (*confidentialrelaytypes.SignedSecretsResponseResult, error) {
+	if h.responseSigner == nil {
+		return nil, errors.New("response signer not configured")
+	}
+
+	hash, err := result.Hash(params)
+	if err != nil {
+		return nil, fmt.Errorf("hash secrets response: %w", err)
+	}
+	signature, err := h.responseSigner.Sign(confidentialrelaytypes.RelayResponseSignaturePayload(hash))
+	if err != nil {
+		return nil, err
+	}
+
+	return &confidentialrelaytypes.SignedSecretsResponseResult{
+		Result: *result,
+		Signatures: []confidentialrelaytypes.RelayResponseSignature{{
+			Signer:    h.responseSigner.PublicKey(),
+			Signature: signature,
+		}},
+	}, nil
+}
+
+func (h *Handler) signCapabilityResponse(
+	params confidentialrelaytypes.CapabilityRequestParams,
+	result confidentialrelaytypes.CapabilityResponseResult,
+) (*confidentialrelaytypes.SignedCapabilityResponseResult, error) {
+	if h.responseSigner == nil {
+		return nil, errors.New("response signer not configured")
+	}
+
+	hash, err := result.Hash(params)
+	if err != nil {
+		return nil, fmt.Errorf("hash capability response: %w", err)
+	}
+	signature, err := h.responseSigner.Sign(confidentialrelaytypes.RelayResponseSignaturePayload(hash))
+	if err != nil {
+		return nil, err
+	}
+
+	return &confidentialrelaytypes.SignedCapabilityResponseResult{
+		Result: result,
+		Signatures: []confidentialrelaytypes.RelayResponseSignature{{
+			Signer:    h.responseSigner.PublicKey(),
+			Signature: signature,
+		}},
+	}, nil
 }
 
 func (h *Handler) errorResponse(

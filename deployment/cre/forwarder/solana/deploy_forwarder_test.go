@@ -12,6 +12,9 @@ import (
 	"github.com/smartcontractkit/wsrpc/logger"
 	"github.com/stretchr/testify/require"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	cldfchain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
@@ -20,7 +23,6 @@ import (
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
@@ -177,12 +179,17 @@ func TestConfigureForwarder(t *testing.T) {
 			NumChains:       1,
 		})
 
-		// Inject the solana chain into the environment
+		solChainsBySel := cldfchain.NewBlockChainsFromSlice(solChains).SolanaChains()
+		solChain, ok := solChainsBySel[solSel]
+		require.True(t, ok, "solana loader must return a solana chain for selector %d", solSel)
+		require.NotEmpty(t, solChain.ProgramsPath, "programs dir required for solana program deploy CLI")
+
+		// Inject the solana chain into the environment (merge EVM first, then sol so sol is never overwritten).
 		blockchains := make(map[uint64]cldfchain.BlockChain)
-		blockchains[solSel] = solChains[0]
 		for _, ch := range te.Env.BlockChains.All() {
 			blockchains[ch.ChainSelector()] = ch
 		}
+		blockchains[solSel] = solChain
 		te.Env.BlockChains = cldfchain.NewBlockChains(blockchains)
 
 		ds := datastore.NewMemoryDataStore()
@@ -205,18 +212,17 @@ func TestConfigureForwarder(t *testing.T) {
 		mcmsState, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolanaV2(
 			rt.Environment(),
 			ds,
-			rt.Environment().BlockChains.SolanaChains()[solSel],
+			solChain,
 			commontypes.MCMSWithTimelockConfigV2{
-				Canceller:        proposalutils.SingleGroupMCMSV2(t),
-				Proposer:         proposalutils.SingleGroupMCMSV2(t),
-				Bypasser:         proposalutils.SingleGroupMCMSV2(t),
+				Canceller:        cldftesthelpers.SingleGroupMCMS(t),
+				Proposer:         cldftesthelpers.SingleGroupMCMS(t),
+				Bypasser:         cldftesthelpers.SingleGroupMCMS(t),
 				TimelockMinDelay: big.NewInt(0),
 			},
 		)
 		require.NoError(t, err)
 
-		chain := te.Env.BlockChains.SolanaChains()[solSel]
-		soltestutils.FundSignerPDAs(t, chain, mcmsState)
+		soltestutils.FundSignerPDAs(t, solChain, mcmsState)
 
 		var wfNodes []string
 		for _, id := range te.GetP2PIDs("wfDon") {
@@ -235,12 +241,12 @@ func TestConfigureForwarder(t *testing.T) {
 			runtime.ChangesetTask(TransferOwnershipForwarder{},
 				&TransferOwnershipForwarderRequest{
 					ChainSel:  solSel,
-					MCMSCfg:   proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+					MCMSCfg:   cldfproposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 					Qualifier: testQualifier,
 					Version:   "1.0.0",
 				},
 			),
-			runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
+			runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
 		)
 		require.NoError(t, err)
 
@@ -259,12 +265,12 @@ func TestConfigureForwarder(t *testing.T) {
 					DON:       donConfig,
 					Version:   "1.0.0",
 					Qualifier: testQualifier,
-					MCMS: &proposalutils.TimelockConfig{
+					MCMS: &cldfproposalutils.TimelockConfig{
 						MinDelay: time.Second,
 					},
 				},
 			),
-			runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
+			runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
 		)
 		require.NoError(t, err)
 	})

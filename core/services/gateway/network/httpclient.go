@@ -8,6 +8,7 @@ import (
 	"io"
 	"maps"
 	"net/http"
+	"net/http/httptrace"
 	"slices"
 	"strings"
 
@@ -169,9 +170,10 @@ func responseHeadersFromNetHeader(h http.Header) (map[string]string, map[string]
 }
 
 type httpClient struct {
-	client *safeurl.WrappedClient
-	config HTTPClientConfig
-	lggr   logger.Logger
+	client  *safeurl.WrappedClient
+	config  HTTPClientConfig
+	lggr    logger.Logger
+	metrics *httpClientMetrics
 }
 
 // NewHTTPClient creates a new NewHTTPClient
@@ -185,6 +187,12 @@ func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, err
 		config.AllowedPorts = append(config.AllowedPorts, expanded...)
 	}
 	config.ApplyDefaults()
+
+	defaultTransport, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		return nil, errors.New("could not coerce http.DefaultTransport to *http.Transport")
+	}
+
 	safeConfig := safeurl.
 		GetConfigBuilder().
 		SetAllowedIPs(config.AllowedIPs...).
@@ -194,18 +202,29 @@ func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, err
 		SetBlockedIPs(config.BlockedIPs...).
 		SetBlockedIPsCIDR(config.BlockedIPsCIDR...).
 		SetCheckRedirect(disableRedirects).
+		SetTransport(defaultTransport).
 		Build()
 
+	metrics, err := newHTTPClientMetrics()
+	if err != nil {
+		return nil, err
+	}
+
 	return &httpClient{
-		config: config,
-		client: safeurl.Client(safeConfig),
-		lggr:   lggr,
+		config:  config,
+		client:  safeurl.Client(safeConfig),
+		lggr:    lggr,
+		metrics: metrics,
 	}, nil
 }
 
 func disableRedirects(req *http.Request, via []*http.Request) error {
-	return errors.New("redirects are not allowed")
+	return &redirectsDisabledError{}
 }
+
+type redirectsDisabledError struct{}
+
+func (e *redirectsDisabledError) Error() string { return "redirects are not allowed" }
 
 // isBlockedRequest checks if an error is caused by blocked/invalid input (e.g., blocked IP, invalid scheme, blocked headers)
 // It checks for safeurl typed errors.
@@ -216,18 +235,20 @@ func isBlockedRequest(err error) bool {
 
 	// Check safeurl typed errors - use errors.As for type checking
 	var (
-		ipv6Err        *safeurl.IPv6BlockedError
-		portErr        *safeurl.AllowedPortError
-		schemeErr      *safeurl.AllowedSchemeError
-		invalidHostErr *safeurl.InvalidHostError
-		ipErr          *safeurl.AllowedIPError
+		ipv6Err              *safeurl.IPv6BlockedError
+		portErr              *safeurl.AllowedPortError
+		schemeErr            *safeurl.AllowedSchemeError
+		invalidHostErr       *safeurl.InvalidHostError
+		ipErr                *safeurl.AllowedIPError
+		redirectsDisabledErr *redirectsDisabledError
 	)
 
 	return errors.As(err, &ipv6Err) ||
 		errors.As(err, &portErr) ||
 		errors.As(err, &schemeErr) ||
 		errors.As(err, &invalidHostErr) ||
-		errors.As(err, &ipErr)
+		errors.As(err, &ipErr) ||
+		errors.As(err, &redirectsDisabledErr)
 }
 
 func (c *httpClient) validateMethod(method string) error {
@@ -291,8 +312,13 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 	timeoutCtx, cancel := context.WithTimeout(ctx, to)
 	defer cancel()
 
+	requestStart := time.Now()
+	trace, traceState := newClientTrace(ctx, req.Method, requestStart, c.metrics)
+	timeoutCtx = httptrace.WithClientTrace(timeoutCtx, trace)
+
 	r, err := http.NewRequestWithContext(timeoutCtx, req.Method, req.URL, bytes.NewBuffer(req.Body))
 	if err != nil {
+		c.metrics.recordTotal(ctx, req.Method, 0, false, false, time.Since(requestStart))
 		return nil, err
 	}
 	for k, values := range requestToNetHeader(req) {
@@ -303,6 +329,7 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 
 	resp, err := c.client.Do(r)
 	if err != nil {
+		c.metrics.recordTotal(ctx, req.Method, 0, false, traceState.connReused.Load(), time.Since(requestStart))
 		if isBlockedRequest(err) {
 			c.lggr.Warnw("HTTP request blocked", "err", err)
 			return nil, fmt.Errorf("%w: %w", ErrBlockedRequest, err)
@@ -318,9 +345,12 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 	reader := http.MaxBytesReader(nil, resp.Body, int64(n))
 	body, err := io.ReadAll(reader)
 	if err != nil {
+		c.metrics.recordTotal(ctx, req.Method, resp.StatusCode, false, traceState.connReused.Load(), time.Since(requestStart))
 		c.lggr.Errorw("failed to read HTTP response body", "err", err)
 		return nil, errors.Join(err, ErrHTTPRead)
 	}
+
+	c.metrics.recordTotal(ctx, req.Method, resp.StatusCode, true, traceState.connReused.Load(), time.Since(requestStart))
 
 	headers, multiHeaders := responseHeadersFromNetHeader(resp.Header)
 	c.lggr.Debugw("received HTTP response", "statusCode", resp.StatusCode)

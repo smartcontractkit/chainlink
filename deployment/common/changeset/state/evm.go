@@ -9,8 +9,6 @@ import (
 	bindings "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/link_token"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -383,78 +381,6 @@ func MaybeLoadMCMSWithTimelockChainStateFromRefs(chain cldf_evm.Chain, refs []da
 				return nil, err
 			}
 			state.CancellerMcm = mcms
-		}
-	}
-	return &state, nil
-}
-
-type LinkTokenState struct {
-	LinkToken *link_token.LinkToken
-}
-
-func (s LinkTokenState) GenerateLinkView() (view.LinkTokenView, error) {
-	if s.LinkToken == nil {
-		return view.LinkTokenView{}, errors.New("link token not found")
-	}
-	return view.GenerateLinkTokenView(s.LinkToken)
-}
-
-func MaybeLoadLinkTokenChainState(chain cldf_evm.Chain, addresses map[string]cldf.TypeAndVersion) (*LinkTokenState, error) {
-	state := LinkTokenState{}
-	linkToken := cldf.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0)
-
-	// Convert map keys to a slice
-	wantTypes := []cldf.TypeAndVersion{linkToken}
-
-	// Ensure we either have the bundle or not.
-	_, err := cldf.EnsureDeduped(addresses, wantTypes)
-	if err != nil {
-		return nil, fmt.Errorf("unable to check link token on chain %s error: %w", chain.Name(), err)
-	}
-
-	for address, tvStr := range addresses {
-		if tvStr.Type == linkToken.Type && tvStr.Version.String() == linkToken.Version.String() {
-			lt, err := link_token.NewLinkToken(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return nil, err
-			}
-			state.LinkToken = lt
-		}
-	}
-	return &state, nil
-}
-
-type StaticLinkTokenState struct {
-	StaticLinkToken *link_token_interface.LinkToken
-}
-
-func (s StaticLinkTokenState) GenerateStaticLinkView() (view.StaticLinkTokenView, error) {
-	if s.StaticLinkToken == nil {
-		return view.StaticLinkTokenView{}, errors.New("static link token not found")
-	}
-	return view.GenerateStaticLinkTokenView(s.StaticLinkToken)
-}
-
-func MaybeLoadStaticLinkTokenState(chain cldf_evm.Chain, addresses map[string]cldf.TypeAndVersion) (*StaticLinkTokenState, error) {
-	state := StaticLinkTokenState{}
-	staticLinkToken := cldf.NewTypeAndVersion(types.StaticLinkToken, deployment.Version1_0_0)
-
-	// Convert map keys to a slice
-	wantTypes := []cldf.TypeAndVersion{staticLinkToken}
-
-	// Ensure we either have the bundle or not.
-	_, err := cldf.EnsureDeduped(addresses, wantTypes)
-	if err != nil {
-		return nil, fmt.Errorf("unable to check static link token on chain %s error: %w", chain.Name(), err)
-	}
-
-	for address, tvStr := range addresses {
-		if tvStr.Type == staticLinkToken.Type && tvStr.Version.String() == staticLinkToken.Version.String() {
-			lt, err := link_token_interface.NewLinkToken(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return nil, err
-			}
-			state.StaticLinkToken = lt
 		}
 	}
 	return &state, nil

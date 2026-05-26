@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
@@ -22,8 +23,8 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
 // SourceDestPair is represents a pair of source and destination chain selectors.
@@ -117,14 +118,6 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					startBlock,
 					expectedSeqNum,
 					true,
-				))
-			case chainsel.FamilyTon:
-				return commonutils.JustError(confirmCommitWithExpectedSeqNumRangeTON(
-					t,
-					srcChain,
-					e.BlockChains.TonChains()[dstChain],
-					state.TonChains[dstChain].OffRamp,
-					expectedSeqNum,
 				))
 			default:
 				return fmt.Errorf("unsupported chain family; %v", family)
@@ -351,18 +344,6 @@ func ConfirmExecWithSeqNrsForAll(
 				if err != nil {
 					return err
 				}
-			case chainsel.FamilyTon:
-				innerExecutionStates, err = confirmExecWithExpectedSeqNrsTON(
-					t,
-					srcChain,
-					e.BlockChains.TonChains()[dstChain],
-					state.TonChains[dstChain].OffRamp,
-					startBlock,
-					seqRange,
-				)
-				if err != nil {
-					return err
-				}
 			default:
 				return fmt.Errorf("unsupported chain family; %v", family)
 			}
@@ -506,7 +487,7 @@ func AssertTimelockOwnership(
 			allContracts = append(allContracts, state.MustGetEVMChainState(chain).TestRouter.Address())
 		}
 		for _, contract := range allContracts {
-			owner, _, err := commonchangeset.LoadOwnableContract(contract, e.Env.BlockChains.EVMChains()[chain].Client)
+			owner, _, err := mcmschangesets.LoadOwnableContract(contract, e.Env.BlockChains.EVMChains()[chain].Client)
 			require.NoError(t, err)
 			require.Equal(t, state.MustGetEVMChainState(chain).Timelock.Address(), owner)
 		}
@@ -519,7 +500,7 @@ func AssertTimelockOwnership(
 		state.MustGetEVMChainState(e.HomeChainSel).CCIPHome.Address(),
 		state.MustGetEVMChainState(e.HomeChainSel).RMNHome.Address(),
 	} {
-		owner, _, err := commonchangeset.LoadOwnableContract(contract, e.Env.BlockChains.EVMChains()[e.HomeChainSel].Client)
+		owner, _, err := mcmschangesets.LoadOwnableContract(contract, e.Env.BlockChains.EVMChains()[e.HomeChainSel].Client)
 		require.NoError(t, err)
 		require.Equal(t, homeChainTimelockAddress, owner)
 	}

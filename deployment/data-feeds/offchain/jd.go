@@ -13,7 +13,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
-	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 )
 
 type NodesFilter struct {
@@ -33,7 +32,7 @@ func (f *NodesFilter) filter() *nodeapiv1.ListNodesRequest_Filter {
 		{
 			Key:   "don_id",
 			Op:    jdtypesv1.SelectorOp_EQ,
-			Value: pointer.To(strconv.FormatUint(f.DONID, 10)),
+			Value: new(strconv.FormatUint(f.DONID, 10)),
 		},
 		{
 			Key:   "environment",
@@ -51,13 +50,13 @@ func (f *NodesFilter) filter() *nodeapiv1.ListNodesRequest_Filter {
 		selectors = append(selectors, &jdtypesv1.Selector{
 			Key:   devenv.LabelNodeTypeKey,
 			Op:    jdtypesv1.SelectorOp_EQ,
-			Value: pointer.To(devenv.LabelNodeTypeValueBootstrap),
+			Value: new(devenv.LabelNodeTypeValueBootstrap),
 		})
 	} else {
 		selectors = append(selectors, &jdtypesv1.Selector{
 			Key:   devenv.LabelNodeTypeKey,
 			Op:    jdtypesv1.SelectorOp_EQ,
-			Value: pointer.To(devenv.LabelNodeTypeValuePlugin),
+			Value: new(devenv.LabelNodeTypeValuePlugin),
 		})
 	}
 
@@ -130,15 +129,15 @@ func ProposeJobs(ctx context.Context, env cldf.Environment, workflowJobSpec stri
 
 	// Propose jobs
 	jobLabels := []*ptypes.Label{
-		&ptypes.Label{
+		{
 			Key:   "don_id",
-			Value: pointer.To(strconv.FormatUint(nodeFilters.DONID, 10)),
+			Value: new(strconv.FormatUint(nodeFilters.DONID, 10)),
 		},
-		&ptypes.Label{
+		{
 			Key:   "environment",
 			Value: &nodeFilters.EnvLabel,
 		},
-		&ptypes.Label{
+		{
 			Key:   "zone",
 			Value: &nodeFilters.Zone,
 		},

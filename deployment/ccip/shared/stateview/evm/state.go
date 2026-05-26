@@ -3,6 +3,7 @@ package evm
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -12,6 +13,7 @@ import (
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/proxy_admin"
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/token_governor"
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/transparent_upgradeable_proxy"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	"golang.org/x/sync/errgroup"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -83,7 +85,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_6_1"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	v1_1 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
@@ -91,9 +92,9 @@ import (
 // CCIPChainState holds a Go binding for all the currently deployed CCIP contracts
 // on a chain. If a binding is nil, it means there is no such contract on the chain.
 type CCIPChainState struct {
-	state.MCMSWithTimelockState
-	state.LinkTokenState
-	state.StaticLinkTokenState
+	evmstate.MCMSWithTimelockState
+	LinkTokenState
+	StaticLinkTokenState
 	ABIByAddress       map[string]string
 	OnRamp             onramp.OnRampInterface
 	OffRamp            offramp.OffRampInterface
@@ -1214,10 +1215,10 @@ func validateLatestConfigOffRamp(offRamp offramp.OffRampInterface, cfg offramp.M
 			return fmt.Errorf("offRamp %s config signers count mismatch: expected at least 3, got %d",
 				offRamp.Address().Hex(), len(cfg.Signers))
 		}
-		if !deployment.IsAddressListUnique(cfg.Signers) {
+		if !isAddressListUnique(cfg.Signers) {
 			return fmt.Errorf("offRamp %s config signers list %v is not unique", offRamp.Address().Hex(), cfg.Signers)
 		}
-		if deployment.AddressListContainsEmptyAddress(cfg.Signers) {
+		if addressListContainsEmptyAddress(cfg.Signers) {
 			return fmt.Errorf("offRamp %s config signers list %v contains empty address", offRamp.Address().Hex(), cfg.Signers)
 		}
 	} else if len(cfg.Signers) != 0 {
@@ -1228,10 +1229,10 @@ func validateLatestConfigOffRamp(offRamp offramp.OffRampInterface, cfg offramp.M
 		return fmt.Errorf("offRamp %s config transmitters count mismatch: expected at least 3, got %d",
 			offRamp.Address().Hex(), len(cfg.Transmitters))
 	}
-	if !deployment.IsAddressListUnique(cfg.Transmitters) {
+	if !isAddressListUnique(cfg.Transmitters) {
 		return fmt.Errorf("offRamp %s config transmitters list %v is not unique", offRamp.Address().Hex(), cfg.Transmitters)
 	}
-	if deployment.AddressListContainsEmptyAddress(cfg.Transmitters) {
+	if addressListContainsEmptyAddress(cfg.Transmitters) {
 		return fmt.Errorf("offRamp %s config transmitters list %v contains empty address", offRamp.Address().Hex(), cfg.Transmitters)
 	}
 
@@ -1248,4 +1249,19 @@ func validateLatestConfigOffRamp(offRamp offramp.OffRampInterface, cfg offramp.M
 			offRamp.Address().Hex(), minTransmitterReq, len(cfg.Transmitters))
 	}
 	return nil
+}
+
+func addressListContainsEmptyAddress(addresses []common.Address) bool {
+	return slices.Contains(addresses, (common.Address{}))
+}
+
+func isAddressListUnique(addresses []common.Address) bool {
+	addressSet := make(map[common.Address]struct{})
+	for _, address := range addresses {
+		if _, exists := addressSet[address]; exists {
+			return false
+		}
+		addressSet[address] = struct{}{}
+	}
+	return true
 }

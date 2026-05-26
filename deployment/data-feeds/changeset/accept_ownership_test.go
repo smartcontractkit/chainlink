@@ -8,6 +8,8 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -15,9 +17,10 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
-	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
@@ -33,13 +36,13 @@ func TestAcceptOwnership(t *testing.T) {
 
 	chain := rt.Environment().BlockChains.EVMChains()[selector]
 
-	MCMScfg := proposalutils.SingleGroupTimelockConfigV2(t)
+	MCMScfg := cldftesthelpers.SingleGroupTimelockConfig(t)
 	MCMSQualifier := "MCMS_EVM_1"
 	MCMScfg.Qualifier = &MCMSQualifier
 
 	err = rt.Exec(
 		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(
-			commonChangesets.DeployMCMSWithTimelockV2), map[uint64]commonTypes.MCMSWithTimelockConfigV2{
+			mcmschangesets.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 			selector: MCMScfg,
 		}),
 	)
@@ -63,7 +66,7 @@ func TestAcceptOwnership(t *testing.T) {
 				TimeLockQualifier: MCMSQualifier,
 			},
 		}),
-		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
+		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
 	)
 	require.NoError(t, err)
 	require.Len(t, rt.State().Proposals, 1)

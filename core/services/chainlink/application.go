@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -39,18 +40,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
+	"github.com/smartcontractkit/chainlink-data-streams/mercury"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-	"github.com/smartcontractkit/chainlink-evm/pkg/mercury"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ring"
-	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvexecutor"
-	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
@@ -62,19 +58,18 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockheaderfeeder"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvexecutor"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cre"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
-	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
-	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/headreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/nodestatusreporter/bridgestatus"
-
+	"github.com/smartcontractkit/chainlink/v2/core/services/nodestatusreporter/jobspec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
@@ -82,6 +77,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ring"
+	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -289,7 +286,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		return nil, fmt.Errorf("failed to build Beholder auth: %w", err)
 	}
 	loopRegistry := plugins.NewLoopRegistry(globalLogger, cfg.AppID().String(), cfg.Feature().LogPoller(),
-		cfg.Database(), cfg.Mercury(), cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex, cfg.LOOPP())
+		cfg.Database(), cfg.Mercury(), cfg.Pyroscope(), cfg.AutoPprof(), cfg.Tracing(), cfg.Telemetry(),
+		beholderAuthHeaders, csaPubKeyHex, cfg.LOOPP())
 
 	relayerFactory := RelayerFactory{
 		Logger:                opts.Logger,
@@ -328,11 +326,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		initOps = append(initOps, InitCosmos(relayerFactory, keyStore.Cosmos(), keyStore.CSA(), cfg.CosmosConfigs()))
 	}
 	if cfg.SolanaEnabled() {
-		solanaCfg := SolanaFactoryConfig{
-			TOMLConfigs: cfg.SolanaConfigs(),
-			DS:          opts.DS,
-		}
-		initOps = append(initOps, InitSolana(relayerFactory, keyStore.Solana(), keyStore.CSA(), solanaCfg))
+		initOps = append(initOps, InitSolana(relayerFactory, keyStore.Solana(), keyStore.CSA(), cfg.SolanaConfigs()))
 	}
 	if cfg.StarkNetEnabled() {
 		initOps = append(initOps, InitStarknet(relayerFactory, keyStore.StarkNet(), keyStore.CSA(), cfg.StarknetConfigs()))
@@ -379,6 +373,15 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		return nil, fmt.Errorf("failed to build node auth: %w", err)
 	}
 	jwtGenerator := nodeauthjwt.NewNodeJWTGenerator(csaSigner, csaPubKey)
+
+	// Wire DurableEmitter for persistent chip ingress delivery when enabled.
+	/* TODO: CRE-4422 Re-enable after refactor
+	if cfg.Telemetry().DurableEmitterEnabled() && cfg.Telemetry().ChipIngressEndpoint() != "" {
+		if err = setupDurableEmitter(ctx, opts.DS, globalLogger, cfg.Telemetry()); err != nil {
+			return nil, fmt.Errorf("failed to set up chip durable emitter: %w", err)
+		}
+	}
+	*/
 
 	creServices, err := cre.NewServices(
 		globalLogger,
@@ -534,6 +537,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	)
 	srvcs = append(srvcs, workflowORM)
 
+	nodePlatformJobInfo := NewNodePlatformJobInfoService(NewNodePlatformJobInfoConfig(opts, jobORM))
+	srvcs = append(srvcs, &nodePlatformJobInfo)
+
 	promReporter := headreporter.NewLegacyEVMPrometheusReporter(opts.DS, legacyEVMChains)
 	evmChainIDs := make([]*big.Int, len(cfg.EVMConfigs()))
 	for i, chain := range cfg.EVMConfigs() {
@@ -559,20 +565,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	var (
 		delegates = map[job.Type]job.Delegate{
-			job.DirectRequest: directrequest.NewDelegate(
-				globalLogger,
-				pipelineRunner,
-				pipelineORM,
-				legacyEVMChains,
-				mailMon),
-			job.Keeper: keeper.NewDelegate(
-				cfg,
-				opts.DS,
-				jobORM,
-				pipelineRunner,
-				globalLogger,
-				legacyEVMChains,
-				mailMon),
+			job.DirectRequest: &job.DeprecatedDelegate{Type: job.DirectRequest},
 			job.VRF: vrf.NewDelegate(
 				opts.DS,
 				keyStore,
@@ -641,21 +634,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		workflows.WithWorkflowRegistry(cfg.Capabilities().WorkflowRegistry().Address(), cfg.Capabilities().WorkflowRegistry().ChainID()),
 	)
 
-	// Flux monitor requires ethereum just to boot, silence errors with a null delegate
-	if !cfg.EVMConfigs().RPCEnabled() {
-		delegates[job.FluxMonitor] = &job.NullDelegate{Type: job.FluxMonitor}
-	} else {
-		delegates[job.FluxMonitor] = fluxmonitorv2.NewDelegate(
-			cfg,
-			keyStore.Eth(),
-			jobORM,
-			pipelineORM,
-			pipelineRunner,
-			opts.DS,
-			legacyEVMChains,
-			globalLogger,
-		)
-	}
+	// FluxMonitor has been removed; use a deprecated delegate so existing jobs
+	// surface a visible error in the UI rather than silently doing nothing.
+	delegates[job.FluxMonitor] = &job.DeprecatedDelegate{Type: job.FluxMonitor}
 
 	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings)
 
@@ -801,8 +782,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	srvcs = append(srvcs, jobSpawner, pipelineRunner)
 
 	var feedsService feeds.Service
+	var feedsORM feeds.ORM
 	if cfg.Feature().FeedsManager() {
-		feedsORM := feeds.NewORM(opts.DS, globalLogger)
+		feedsORM = feeds.NewORM(opts.DS, globalLogger)
 		feedsService = feeds.NewService(
 			feedsORM,
 			jobORM,
@@ -824,6 +806,19 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	} else {
 		feedsService = &feeds.NullService{}
 	}
+
+	hostname, _ := os.Hostname()
+	jobSpecReporter := jobspec.NewJobSpecReporter(
+		cfg.JobSpecReporter(),
+		jobSpawner,
+		feedsORM,
+		beholder.GetEmitter(),
+		csaPubKeyHex,
+		static.Version,
+		hostname,
+		globalLogger,
+	)
+	srvcs = append(srvcs, jobSpecReporter)
 
 	for _, s := range srvcs {
 		if s == nil {
@@ -1262,3 +1257,46 @@ func (app *ChainlinkApplication) DeleteLogPollerDataAfter(ctx context.Context, c
 
 	return nil
 }
+
+// setupDurableEmitter replaces the global beholder emitter with a DurableEmitter
+// backed by Postgres. Events are persisted before async gRPC delivery, surviving
+// node restarts and chip ingress outages.
+/* TODO: CRE-4422 Re-enable after refactor
+func setupDurableEmitter(ctx context.Context, ds sqlutil.DataSource, lggr logger.SugaredLogger, _ config.Telemetry) error {
+	client := beholder.GetClient()
+	if client == nil {
+		return errors.New("beholder client not initialized")
+	}
+
+	chipClient := client.Chip
+	if chipClient == nil || isNoopChipClient(chipClient) {
+		return errors.New("chip ingress client not available")
+	}
+
+	pgStore := beholdersvc.NewPgDurableEventStore(ds)
+	durableCfg := durableemitter.DefaultDurableEmitterConfig()
+	durableEmitter, err := durableemitter.NewDurableEmitter(pgStore, chipClient, true, durableCfg, lggr)
+	if err != nil {
+		return fmt.Errorf("failed to create durable emitter: %w", err)
+	}
+
+	// Build a new DualSourceEmitter: durable chip + OTLP.
+	messageLogger := client.MessageLoggerProvider.Logger("durable-emitter")
+	otlpEmitter := beholder.NewMessageEmitter(messageLogger)
+	dualEmitter, err := beholder.NewDualSourceEmitter(durableEmitter, otlpEmitter)
+	if err != nil {
+		return fmt.Errorf("failed to create dual source emitter: %w", err)
+	}
+
+	durableEmitter.Start(ctx)
+	client.Emitter = dualEmitter
+
+	lggr.Infow("Durable emitter enabled — all CloudEvent sources use the durable Chip queue")
+	return nil
+}
+
+func isNoopChipClient(c chipingress.Client) bool {
+	_, ok := c.(*chipingress.NoopClient)
+	return ok
+}
+*/

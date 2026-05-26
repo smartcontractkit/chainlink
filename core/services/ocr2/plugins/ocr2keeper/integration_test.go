@@ -44,6 +44,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/automation/v21/mercury"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/forwarders"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -56,7 +57,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -119,13 +119,13 @@ func setupNode(
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(int64(port)))
 	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
 	cfg, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Feature.LogPoller = ptr(true)
+		c.Feature.LogPoller = new(true)
 
-		c.OCR.Enabled = ptr(false)
-		c.OCR2.Enabled = ptr(true)
+		c.OCR.Enabled = new(false)
+		c.OCR2.Enabled = new(true)
 
-		c.P2P.PeerID = ptr(p2pKey.PeerID())
-		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.PeerID = new(p2pKey.PeerID())
+		c.P2P.V2.Enabled = new(true)
 		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(500 * time.Millisecond)
 		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
 		c.P2P.V2.AnnounceAddresses = &p2paddresses
@@ -134,8 +134,8 @@ func setupNode(
 			c.P2P.V2.DefaultBootstrappers = &p2pV2Bootstrappers
 		}
 
-		c.EVM[0].Transactions.ForwardersEnabled = ptr(true)
-		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+		c.EVM[0].Transactions.ForwardersEnabled = new(true)
+		c.EVM[0].GasEstimator.Mode = new("FixedPrice")
 		s.Mercury.Credentials = map[string]toml.MercuryCredentials{
 			MercuryCredName: {
 				LegacyURL: models.MustSecretURL(mercury.URL()),

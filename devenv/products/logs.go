@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
-	"github.com/docker/docker/api/types/container"
-	dfilter "github.com/docker/docker/api/types/filters"
+	mobyclient "github.com/moby/moby/client"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"go.uber.org/zap/zapcore"
@@ -59,16 +59,22 @@ type ChainlinkNodeLogScannerSettings struct {
 }
 
 func ScanLogs(l zerolog.Logger, settings ChainlinkNodeLogScannerSettings) error {
-	logStream, lErr := framework.StreamContainerLogs(container.ListOptions{
-		All: true,
-		Filters: dfilter.NewArgs(dfilter.KeyValuePair{
-			Key:   "label",
-			Value: "framework=ctf",
-		}),
-	}, container.LogsOptions{ShowStdout: true, ShowStderr: true})
+	logStream, lErr := framework.StreamContainerLogs(mobyclient.ContainerListOptions{
+		All:     true,
+		Filters: make(mobyclient.Filters).Add("label", "framework=ctf"),
+	}, mobyclient.ContainerLogsOptions{ShowStdout: true, ShowStderr: true})
 
 	if lErr != nil {
 		return lErr
+	}
+
+	return ScanLogsFromStreams(l, settings, logStream)
+}
+
+func ScanLogsFromStreams(l zerolog.Logger, settings ChainlinkNodeLogScannerSettings, logStream map[string]io.ReadCloser) error {
+	if len(logStream) == 0 {
+		l.Info().Msg("No container logs found to scan")
+		return nil
 	}
 
 	verifyLogsGroup := &errgroup.Group{}
@@ -239,4 +245,31 @@ func DefaultSettings(extraAllowedMessages ...AllowedLogMessage) ChainlinkNodeLog
 		Threshold:       defaultSettings.Threshold,
 		AllowedMessages: allowedMessages,
 	}
+}
+
+func CleanupContainerLogs(settings ChainlinkNodeLogScannerSettings) error {
+	logDir := fmt.Sprintf("%s-%d", framework.DefaultCTFLogsDir, time.Now().UnixNano())
+
+	return framework.StreamCTFContainerLogsFanout(
+		framework.LogStreamConsumer{
+			Name: "scan-logs",
+			Consume: func(logStreams map[string]io.ReadCloser) error {
+				return ScanLogsFromStreams(framework.L, settings, logStreams)
+			},
+		},
+		framework.LogStreamConsumer{
+			Name: "save-container-logs",
+			Consume: func(logStreams map[string]io.ReadCloser) error {
+				_, saveErr := framework.SaveContainerLogsFromStreams(logDir, logStreams)
+				return saveErr
+			},
+		},
+		framework.LogStreamConsumer{
+			Name: "print-panic-logs",
+			Consume: func(logStreams map[string]io.ReadCloser) error {
+				_ = framework.CheckContainersForPanicsFromStreams(logStreams, 100)
+				return nil
+			},
+		},
+	)
 }

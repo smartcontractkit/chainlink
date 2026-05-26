@@ -31,12 +31,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
-	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
-	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
@@ -1090,11 +1087,9 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 			return nil, errors.New("The Offchain Reporting 2 feature is disabled by configuration")
 		}
 	case job.DirectRequest:
-		jb, err = directrequest.ValidatedDirectRequestSpec(args.Input.TOML)
+		return nil, fmt.Errorf("cannot create job of type %q: %w", job.DirectRequest, job.ErrJobTypeRemoved)
 	case job.FluxMonitor:
-		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(config.JobPipeline(), args.Input.TOML)
-	case job.Keeper:
-		jb, err = keeper.ValidatedKeeperSpec(args.Input.TOML)
+		return nil, fmt.Errorf("cannot create job of type %q: %w", job.FluxMonitor, job.ErrJobTypeRemoved)
 	case job.CRESettings:
 		jb, err = cresettings.ValidatedCRESettingsSpec(args.Input.TOML)
 	case job.Cron:
