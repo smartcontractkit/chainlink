@@ -1,5 +1,6 @@
 package beholder
 
+/* TODO: CRE-4422 Refactor: relocate this to durableemitter pkg
 import (
 	"context"
 	"fmt"
@@ -202,3 +203,4 @@ WHERE delivered_at IS NULL
 	}
 	return st, nil
 }
+*/
