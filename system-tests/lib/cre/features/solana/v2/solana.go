@@ -306,10 +306,13 @@ func createJobs(
 }
 
 // pre env
-func registerSolanaCapability(selector uint64) []keystone_changeset.DONCapabilityWithConfig {
-	caps := make([]keystone_changeset.DONCapabilityWithConfig, 1)
-	methodConfigs := getMethodConfigs()
-	caps[0] = keystone_changeset.DONCapabilityWithConfig{
+func registerSolanaCapability(selector uint64, nodeSet *cre.NodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
+	methodConfigs, err := getMethodConfigs(nodeSet)
+	if err != nil {
+		return nil, err
+	}
+
+	return []keystone_changeset.DONCapabilityWithConfig{{
 		Capability: kcr.CapabilitiesRegistryCapability{
 			LabelledName: "solana" + ":ChainSelector:" + strconv.FormatUint(selector, 10),
 			Version:      "1.0.0",
@@ -317,9 +320,7 @@ func registerSolanaCapability(selector uint64) []keystone_changeset.DONCapabilit
 		Config: &capabilitiespb.CapabilityConfig{
 			MethodConfigs: methodConfigs,
 		},
-	}
-
-	return caps, nil
+	}}, nil
 }
 
 func getMethodConfigs(nodeSet *cre.NodeSet) (map[string]*capabilitiespb.CapabilityMethodConfig, error) {

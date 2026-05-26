@@ -17,6 +17,7 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
@@ -350,26 +351,41 @@ func ExecuteSolanaLogTriggerTest(t *testing.T, tenv *configuration.TestEnvironme
 
 	const workflowFileLocation = "./solana/sollogtrigger/main.go"
 
-	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, tenv)
+	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		t_helpers.ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
+	})
 
-	t_helpers.CompileAndDeployWorkflow(t,
+	workflowID := t_helpers.CompileAndDeployWorkflow(t,
 		tenv, testLogger, workflowName, &workflowConfig,
 		workflowFileLocation)
 
-	workflowInitMessage := "RunSolLogTriggerWorkflow called"
-	err := t_helpers.AssertBeholderMessage(listenerCtx, t, workflowInitMessage, testLogger, messageChan, kafkaErrChan, 2*time.Minute)
-	require.NoError(t, err, "Workflow should have initialized")
+	emitCtx, emitCancel := context.WithCancel(t.Context())
+	defer emitCancel()
+	ticker := time.NewTicker(10 * time.Second)
+	go func() {
+		defer ticker.Stop()
+		for {
+			select {
+			case <-emitCtx.Done():
+				return
+			case <-ticker.C:
+				slot, err := triggerLogReadTestEvent(emitCtx, solChain, logReadTestProgramID, expectedU64Value)
+				if err == nil {
+					t.Logf("Log read test event triggered at slot: %d", slot)
+				}
+			}
+		}
+	}()
 
-	slot, err := triggerLogReadTestEvent(t.Context(), solChain, logReadTestProgramID, expectedU64Value)
-	require.NoError(t, err, "failed to trigger log_read_test event")
-
-	t.Logf("Log read test event triggered at slot: %d", slot)
-
-	timeout := 5 * time.Minute
-	expectedLogTriggerMessage := "TestEvent received!"
-
-	err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedLogTriggerMessage, testLogger, messageChan, kafkaErrChan, timeout)
-	require.NoError(t, err, "Log trigger should have received TestEvent")
+	const expectedLogTriggerMessage = "TestEvent received!"
+	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh,
+		t_helpers.WorkflowEngineInitErrorLog, expectedLogTriggerMessage,
+		5*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
 }
 
 func triggerLogReadTestEvent(ctx context.Context, solChain *solana.Blockchain, programID solgo.PublicKey, value uint64) (slot uint64, err error) {
@@ -492,24 +508,39 @@ func ExecuteSolanaLogTriggerCPITest(t *testing.T, tenv *configuration.TestEnviro
 
 	const workflowFileLocation = "./solana/sollogtrigger/main.go"
 
-	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, tenv)
+	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		t_helpers.ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
+	})
 
-	t_helpers.CompileAndDeployWorkflow(t,
+	workflowID := t_helpers.CompileAndDeployWorkflow(t,
 		tenv, testLogger, workflowName, &workflowConfig,
 		workflowFileLocation)
 
-	workflowInitMessage := "RunSolLogTriggerWorkflow called"
-	err := t_helpers.AssertBeholderMessage(listenerCtx, t, workflowInitMessage, testLogger, messageChan, kafkaErrChan, 2*time.Minute)
-	require.NoError(t, err, "Workflow should have initialized")
+	emitCtx, emitCancel := context.WithCancel(t.Context())
+	defer emitCancel()
+	ticker := time.NewTicker(10 * time.Second)
+	go func() {
+		defer ticker.Stop()
+		for {
+			select {
+			case <-emitCtx.Done():
+				return
+			case <-ticker.C:
+				slot, err := triggerLogReadTestCPIEvent(emitCtx, solChain, logReadTestProgramID, expectedU64Value)
+				if err == nil {
+					t.Logf("Log read test CPI event triggered at slot: %d", slot)
+				}
+			}
+		}
+	}()
 
-	slot, err := triggerLogReadTestCPIEvent(t.Context(), solChain, logReadTestProgramID, expectedU64Value)
-	require.NoError(t, err, "failed to trigger log_read_test CPI event")
-
-	t.Logf("Log read test CPI event triggered at slot: %d", slot)
-
-	timeout := 5 * time.Minute
-	expectedLogTriggerMessage := "TestEvent CPI received!"
-
-	err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedLogTriggerMessage, testLogger, messageChan, kafkaErrChan, timeout)
-	require.NoError(t, err, "Log trigger should have received TestEvent via CPI")
+	const expectedLogTriggerMessage = "TestEvent CPI received!"
+	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh,
+		t_helpers.WorkflowEngineInitErrorLog, expectedLogTriggerMessage,
+		5*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
 }
