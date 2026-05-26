@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -147,7 +148,10 @@ func Test_Client_TimesOutIfInsufficientCapabilityPeerResponses(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
-		assert.ErrorIs(t, responseError, executable.ErrRequestExpired)
+		var capErr caperrors.Error
+		assert.ErrorAs(t, responseError, &capErr)
+		assert.Equal(t, caperrors.ConsensusFailed, capErr.Code())
+		assert.Contains(t, capErr.Error(), "[100]ConsensusFailed: response quorum unreachable: not enough matching capability responses: received 1/10 peer responses with 1 unique payloads; best match count 1, need 12 (9 responses pending)")
 	}
 
 	capability := &TestCapability{}
