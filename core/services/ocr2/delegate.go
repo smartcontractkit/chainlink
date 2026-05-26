@@ -69,6 +69,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 
+	ocr2keeper21core "github.com/smartcontractkit/chainlink-evm/pkg/automation/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
@@ -85,7 +86,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/autotelemetry21"
-	ocr2keeper21core "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	ringconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ring/config"
 	vaultocrplugin "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"

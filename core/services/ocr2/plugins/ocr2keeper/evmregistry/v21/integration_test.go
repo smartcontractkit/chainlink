@@ -1,4 +1,4 @@
-package logprovider_test
+package evm_test
 
 import (
 	"context"
@@ -22,6 +22,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	evmregistry21 "github.com/smartcontractkit/chainlink-evm/pkg/automation/v21/core"
+	"github.com/smartcontractkit/chainlink-evm/pkg/automation/v21/logprovider"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -30,8 +32,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	evmregistry21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 

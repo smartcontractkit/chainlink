@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 
-	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
+	evm "github.com/smartcontractkit/chainlink-evm/pkg/automation/v21"
 )
 
 // const historySize = 4
