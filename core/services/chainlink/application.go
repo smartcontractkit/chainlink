@@ -394,9 +394,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		if err != nil {
 			return nil, fmt.Errorf("failed to set up chip durable emitter: %w", err)
 		}
-		if durableEmitter != nil {
-			srvcs = append(srvcs, durableEmitter)
-		}
+		srvcs = append(srvcs, durableEmitter)
 	}
 
 	creServices, err := cre.NewServices(
