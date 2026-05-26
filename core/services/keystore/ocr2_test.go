@@ -107,7 +107,7 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 			importedKey, err := ks.Import(ctx, exportJSON, cltest.Password)
 			require.NoError(t, err)
 			_, err = ks.Import(ctx, exportJSON, cltest.Password)
-			assert.ErrorContains(t, err, "already exists")
+			require.ErrorContains(t, err, "already exists")
 			_, err = ks.Import(ctx, []byte(""), cltest.Password)
 			assert.Error(t, err)
 			require.Equal(t, key.ID(), importedKey.ID())
