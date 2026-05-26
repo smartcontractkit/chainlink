@@ -31,11 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
-// defaultLogReadTestSoPath is the path to the locally built log_read_test.so when
-// chainlink-solana is a sibling of chainlink (e.g. repos/{chainlink,chainlink-solana}).
-// Resolved relative to contractsDir: up to system-tests then chainlink-solana/contracts/target/deploy.
-const defaultLogReadTestSoPath = "../../../../../chainlink-solana/contracts/target/deploy/log_read_test.so"
-
 var DefaultSolanaPrivateKey = solana.MustPrivateKeyFromBase58("4u2itaM9r5kxsmoti3GMSDZrQEFpX14o6qPWY9ZrrYTR6kduDBr4YAZJsjawKzGP3wDzyXqterFmfcLUmSBro5AT")
 
 type Deployer struct {
@@ -232,11 +227,6 @@ func initSolanaInput(bi *blockchain.Input) error {
 		if err2 != nil {
 			return fmt.Errorf("failed to download solana artifacts: %w", err2)
 		}
-
-		// Override log_read_test.so with locally built artifact when present (e.g. for CPI e2e).
-		if err := copyLocalLogReadTestSoIfPresent(bi.ContractsDir); err != nil {
-			return fmt.Errorf("failed to copy local log_read_test.so: %w", err)
-		}
 	}
 
 	return nil
@@ -277,34 +267,5 @@ func setDefaultPrivateKeyIfEmpty() error {
 		framework.L.Info().Msgf("Set SOLANA_PRIVATE_KEY environment variable to default value: %s", os.Getenv("PRIVATE_KEY"))
 	}
 
-	return nil
-}
-
-// copyLocalLogReadTestSoIfPresent copies a locally built log_read_test.so into contractsDir
-// when LOG_READ_TEST_SO_PATH is set or the default path exists (for CPI e2e tests).
-func copyLocalLogReadTestSoIfPresent(contractsDir string) error {
-	src := os.Getenv("LOG_READ_TEST_SO_PATH")
-	if src == "" {
-		src = filepath.Join(contractsDir, defaultLogReadTestSoPath)
-	}
-	src = filepath.Clean(src)
-	if !filepath.IsAbs(src) {
-		src = filepath.Join(contractsDir, src)
-	}
-	if _, err := os.Stat(src); err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
-	}
-	dst := filepath.Join(contractsDir, "log_read_test.so")
-	data, err := os.ReadFile(src)
-	if err != nil {
-		return err
-	}
-	if err := os.WriteFile(dst, data, 0o600); err != nil {
-		return err
-	}
-	framework.L.Info().Msgf("Using local log_read_test.so from %s for CPI support", src)
 	return nil
 }
