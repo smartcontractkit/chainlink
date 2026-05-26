@@ -512,6 +512,9 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 
 	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
+	// Ensure Sui state is fully consistent before uncurse operation
+	waitForSuiRPCSyncSlow(t, e.Env.BlockChains.SuiChains()[sourceChain])
+
 	// uncurse globally
 	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.RMNRemoteUncurseOp, deps, ccipops.RMNRemoteUncurseInput{
 		CCIPPackageId:    suiState[sourceChain].CCIPAddress,
