@@ -1,4 +1,4 @@
-package helpers
+package maputils
 
 // AddValueToNestedMap adds a value to a map nested within another map.
 func AddValueToNestedMap[K1 comparable, K2 comparable, V any](mapping map[K1]map[K2]V, key1 K1, key2 K2, value V) map[K1]map[K2]V {
