@@ -134,11 +134,7 @@ jobs:
             8f29b969"
           CRE_SOAK_DURATION: "4h"
         run: |
-          gotestsum \
-            --jsonfile=/tmp/gotest.log \
-            --junitfile=/tmp/junit-report.xml \
-            --format=github-actions \
-            -- \
+          go test \
             -v -run "^Test_V2_CRE_CacheSoak$" \
             -timeout 4h20m \
             -count=1 \
