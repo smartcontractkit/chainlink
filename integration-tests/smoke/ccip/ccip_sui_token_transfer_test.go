@@ -1964,8 +1964,3 @@ func waitForSuiRPCSyncSlow(t *testing.T, suiChain sui.Chain) {
 func waitForSuiRPCSyncUpgrade(t *testing.T, suiChain sui.Chain) {
 	waitForSuiRPCSyncWithOptions(t, suiChain, 180*time.Second, 5)
 }
-
-// waitForSuiRPCSyncCritical provides extended synchronization for critical CCIP system reconfigurations
-func waitForSuiRPCSyncCritical(t *testing.T, suiChain sui.Chain) {
-	waitForSuiRPCSyncWithOptions(t, suiChain, 300*time.Second, 10)
-}
