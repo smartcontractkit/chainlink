@@ -46,11 +46,11 @@ const (
 )
 
 // Weak-ref profile (Test_V2_CRE_CacheSoak_WeakRef): idle eviction to L2, GOGC=off, cron refire before GC.
+// IdleTimeout in workflow-gateway-don-cache-soak-weakref-test.toml is 90s; cron period is weakRefCronInterval.
 const (
-	weakRefMaxLoaded          = 50 // mirrors workflow-gateway-don-cache-soak-weakref-test.toml
-	weakRefNumWorkflows       = 30
-	weakRefIdleTimeout        = 90 * time.Second
-	weakRefCronInterval       = 2 * time.Minute
+	weakRefMaxLoaded           = 50 // mirrors workflow-gateway-don-cache-soak-weakref-test.toml MaxLoaded
+	weakRefNumWorkflows        = 30
+	weakRefCronInterval        = 2 * time.Minute
 	defaultWeakRefSoakDuration = 45 * time.Minute
 )
 
@@ -64,15 +64,28 @@ var (
 )
 
 type cacheSoakProfile struct {
-	name             string
-	configPath       string
-	numWorkflows     int
-	defaultDuration  time.Duration
-	schedule         func(workflowIndex int) string
-	deploymentKeys   int
-	artifactSubdir   string
-	requireWeakRef   bool
-	logMaxLoaded     int
+	name            string
+	configPath      string
+	numWorkflows    int
+	defaultDuration time.Duration
+	schedule        func(workflowIndex int) string
+	deploymentKeys  int
+	artifactSubdir  string
+	requireWeakRef  bool
+	logMaxLoaded    int
+}
+
+type promQueryDef struct {
+	query    string
+	filename string
+	metric   string
+	step     time.Duration
+}
+
+type queryRangeExport struct {
+	NodeName string `json:"node_name"`
+	Metric   string `json:"metric"`
+	framework.QueryRangeResponse
 }
 
 // Test_V2_CRE_CacheSoak exercises cap pressure and disk reload under heavy registry load.
@@ -113,12 +126,8 @@ func Test_V2_CRE_CacheSoak_WeakRef(t *testing.T) {
 func runCacheSoak(t *testing.T, profile cacheSoakProfile) {
 	t.Helper()
 
-	numWorkflows := profile.numWorkflows
-	if os.Getenv("CRE_SOAK_NUM_WORKFLOWS") != "" {
-		var err error
-		numWorkflows, err = strconv.Atoi(os.Getenv("CRE_SOAK_NUM_WORKFLOWS"))
-		require.NoError(t, err, "CRE_SOAK_NUM_WORKFLOWS")
-	}
+	numWorkflows, err := soakNumWorkflows(profile.numWorkflows)
+	require.NoError(t, err)
 
 	soakDuration := parseDuration(os.Getenv("CRE_SOAK_DURATION"), profile.defaultDuration)
 
@@ -209,61 +218,57 @@ func saveCacheSoakMetrics(
 ) {
 	t.Helper()
 
-	type wrappedQueryRangeResponse struct {
-		NodeName string `json:"node_name"`
-		Metric   string `json:"metric"`
-		framework.QueryRangeResponse
-	}
-
-	type metric struct {
-		query    string
-		filename string
-		metric   string
-		step     time.Duration
-	}
-
-	metrics := cacheSoakMetricDefinitions()
-	for _, m := range metrics {
-		filename := m.filename
-		if artifactSubdir != "" {
-			filename = filepath.Join(artifactSubdir, m.filename)
-		}
-		results := make([]wrappedQueryRangeResponse, 0)
-		for _, don := range workflowDONs {
-			for _, node := range don.Nodes {
-				query := fmt.Sprintf(m.query, don.Name, node.Index)
-				queryResponse, err := pc.QueryRange(framework.QueryRangeParams{
-					Query: query,
-					Start: startTime,
-					End:   endTime,
-					Step:  m.step,
-				})
-				require.NoError(t, err, "failed to query Prometheus metrics, query:", query)
-				results = append(results, wrappedQueryRangeResponse{
-					NodeName:           node.Name,
-					QueryRangeResponse: *queryResponse,
-					Metric:             m.metric,
-				})
-			}
-		}
-
-		require.NoError(t, saveJSONFile(filename, results), "failed to save JSON file for metric:", filename)
+	for _, m := range cacheSoakMetricDefinitions() {
+		filename := metricArtifactPath(artifactSubdir, m.filename)
+		results := queryRangeExports(t, pc, workflowDONs, m, startTime, endTime)
+		require.NoError(t, saveJSONFile(filename, results))
 		framework.L.Info().Str("filename", filename).Msg("Saved JSON file for metric")
 	}
 }
 
-func cacheSoakMetricDefinitions() []struct {
-	query    string
-	filename string
-	metric   string
-	step     time.Duration
-} {
-	return []struct {
-		query    string
-		filename string
-		metric   string
-		step     time.Duration
-	}{
+func metricArtifactPath(artifactSubdir, filename string) string {
+	if artifactSubdir == "" {
+		return filename
+	}
+	return filepath.Join(artifactSubdir, filename)
+}
+
+func queryRangeExports(
+	t *testing.T,
+	pc *framework.PrometheusQueryClient,
+	workflowDONs []*cre.Don,
+	m promQueryDef,
+	startTime, endTime time.Time,
+) []queryRangeExport {
+	t.Helper()
+
+	capacity := 0
+	for _, don := range workflowDONs {
+		capacity += len(don.Nodes)
+	}
+	results := make([]queryRangeExport, 0, capacity)
+	for _, don := range workflowDONs {
+		for _, node := range don.Nodes {
+			query := fmt.Sprintf(m.query, don.Name, node.Index)
+			queryResponse, err := pc.QueryRange(framework.QueryRangeParams{
+				Query: query,
+				Start: startTime,
+				End:   endTime,
+				Step:  m.step,
+			})
+			require.NoError(t, err, "query Prometheus: %s", query)
+			results = append(results, queryRangeExport{
+				NodeName:           node.Name,
+				QueryRangeResponse: *queryResponse,
+				Metric:             m.metric,
+			})
+		}
+	}
+	return results
+}
+
+func cacheSoakMetricDefinitions() []promQueryDef {
+	return []promQueryDef{
 		{
 			metric:   "platform_workflow_module_cache_reload_total",
 			query:    fmt.Sprintf("sum by (source) (increase(platform_workflow_module_cache_reload_total{node_don=\"%%s\", node_index=\"%%d\"}[%s]))", cachePrometheusRange),
@@ -459,6 +464,8 @@ func cacheSoakMetricDefinitions() []struct {
 	}
 }
 
+const weakRefReloadQuery = `sum(increase(platform_workflow_module_cache_reload_total{node_don="%s", node_index="%d", source="weak_ref"}[%s]))`
+
 // assertWeakRefReloadsObserved requires L2 weak.Pointer reloads during the soak window.
 func assertWeakRefReloadsObserved(
 	t *testing.T,
@@ -469,50 +476,57 @@ func assertWeakRefReloadsObserved(
 	t.Helper()
 
 	window := promqlDuration(endTime.Sub(startTime))
-	queryTemplate := `sum(increase(platform_workflow_module_cache_reload_total{node_don="%s", node_index="%d", source="weak_ref"}[%s]))`
-
 	for _, don := range workflowDONs {
 		for _, node := range don.Nodes {
-			query := fmt.Sprintf(queryTemplate, don.Name, node.Index, window)
+			query := fmt.Sprintf(weakRefReloadQuery, don.Name, node.Index, window)
 			resp, err := pc.Query(query, endTime)
-			require.NoError(t, err, "weak_ref assertion query: %s", query)
+			require.NoError(t, err, "weak_ref query: %s", query)
 			require.NotNil(t, resp)
 			require.NotNil(t, resp.Data)
-			require.NotEmpty(t, resp.Data.Result, "expected weak_ref reload series for %s node %d", don.Name, node.Index)
+			require.NotEmpty(t, resp.Data.Result,
+				"weak_ref series missing for don=%s node_index=%d", don.Name, node.Index)
 
 			total, err := prometheusScalarValue(resp.Data.Result[0].Value)
 			require.NoError(t, err)
 			require.Greater(t, total, 0.0,
-				"node %s index %d: no weak_ref reloads in [%s]; L2 path not exercised (check GOGC=off, IdleTimeout < cron period, workflows <= MaxLoaded)",
+				"weak_ref reloads=0 for don=%s node_index=%d window=%s (GOGC=off, IdleTimeout < cron, workflows <= MaxLoaded)",
 				don.Name, node.Index, window)
-			t.Logf("weak_ref reloads on %s node %d: %g over %s", don.Name, node.Index, total, window)
+			t.Logf("weak_ref reloads don=%s node_index=%d total=%g window=%s", don.Name, node.Index, total, window)
 		}
 	}
 }
 
+func soakNumWorkflows(defaultN int) (int, error) {
+	raw := os.Getenv("CRE_SOAK_NUM_WORKFLOWS")
+	if raw == "" {
+		return defaultN, nil
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0, fmt.Errorf("CRE_SOAK_NUM_WORKFLOWS: %w", err)
+	}
+	return n, nil
+}
+
 func promqlDuration(d time.Duration) string {
-	if d < 5*time.Minute {
+	mins := int(d.Round(time.Minute) / time.Minute)
+	if mins < 5 {
 		return "5m"
 	}
-	return fmt.Sprintf("%dm", int(d.Round(time.Minute)/time.Minute))
+	return strconv.Itoa(mins) + "m"
 }
 
 func prometheusScalarValue(value []interface{}) (float64, error) {
 	if len(value) < 2 {
-		return 0, fmt.Errorf("prometheus value too short: %v", value)
+		return 0, fmt.Errorf("prometheus value: want 2 elements, got %d", len(value))
 	}
-	switch v := value[1].(type) {
-	case string:
-		f, err := strconv.ParseFloat(v, 64)
-		if err != nil {
-			return 0, err
-		}
+	if s, ok := value[1].(string); ok {
+		return strconv.ParseFloat(s, 64)
+	}
+	if f, ok := value[1].(float64); ok {
 		return f, nil
-	case float64:
-		return v, nil
-	default:
-		return 0, fmt.Errorf("unexpected prometheus value type %T", value[1])
 	}
+	return 0, fmt.Errorf("prometheus value: unexpected type %T", value[1])
 }
 
 func crePerWorkflowSizeLimitMiB(size config.Size) int {
@@ -535,12 +549,12 @@ func histogramQuantileQueryBySource(metric string, quantile float64, source stri
 
 // cacheSoakCapPressureSchedule: fast cron + slow tier for cap vs idle eviction under registry pressure.
 func cacheSoakCapPressureSchedule(workflowIndex int) string {
-	if workflowIndex%cacheSoakSchedulePeriod == 0 {
-		offset := (workflowIndex / cacheSoakSchedulePeriod) % int(slowCronInterval.Minutes())
-		return fmt.Sprintf("0 %d/%d * * * *", offset, int(slowCronInterval.Minutes()))
+	if workflowIndex%cacheSoakSchedulePeriod != 0 {
+		offset := workflowIndex % int(fastCronInterval.Minutes())
+		return fmt.Sprintf("0 %d/%d * * * *", offset, int(fastCronInterval.Minutes()))
 	}
-	offset := workflowIndex % int(fastCronInterval.Minutes())
-	return fmt.Sprintf("0 %d/%d * * * *", offset, int(fastCronInterval.Minutes()))
+	offset := (workflowIndex / cacheSoakSchedulePeriod) % int(slowCronInterval.Minutes())
+	return fmt.Sprintf("0 %d/%d * * * *", offset, int(slowCronInterval.Minutes()))
 }
 
 // cacheSoakWeakRefSchedule: every weakRefCronInterval, staggered; idle eviction fires before next tick.
@@ -551,18 +565,19 @@ func cacheSoakWeakRefSchedule(workflowIndex int) string {
 }
 
 func saveJSONFile(path string, v any) error {
-	if dir := filepath.Dir(path); dir != "" && dir != "." {
+	dir := filepath.Dir(path)
+	if dir != "" && dir != "." {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return fmt.Errorf("create directory for %q: %w", path, err)
+			return fmt.Errorf("mkdir %q: %w", dir, err)
 		}
 	}
 
 	data, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
-		return fmt.Errorf("marshal JSON for %q: %w", path, err)
+		return fmt.Errorf("marshal %q: %w", path, err)
 	}
 	if err := os.WriteFile(path, data, 0o644); err != nil { //nolint:gosec // test artifact
-		return fmt.Errorf("write file %q: %w", path, err)
+		return fmt.Errorf("write %q: %w", path, err)
 	}
 	return nil
 }

@@ -12,6 +12,14 @@ on:
         description: "Chainlink image tag to use"
         required: true
         type: string
+      soak_profile:
+        description: "Soak profile (must match CTF config + go test)"
+        required: false
+        type: choice
+        options:
+          - cap-pressure
+          - weak-ref
+        default: cap-pressure
   workflow_call:
     inputs:
       ecr_name:
@@ -21,16 +29,21 @@ on:
       chainlink_image_tag:
         required: true
         type: string
+      soak_profile:
+        description: "Soak profile: cap-pressure (default) or weak-ref (L2 weak.Pointer)"
+        required: false
+        type: string
+        default: cap-pressure
 
 jobs:
   caching:
-    name: CRE Workflow Caching Test
+    name: CRE Workflow Caching (${{ inputs.soak_profile || 'cap-pressure' }})
     environment:
       name: integration
       deployment: false
     runs-on: runs-on=${{ github.run_id
       }}/cpu=32/ram=128/family=m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
-    timeout-minutes: 270 # 4h30m — test timeout is 4h20m
+    timeout-minutes: ${{ inputs.soak_profile == 'weak-ref' && 100 || 270 }}
     permissions:
       contents: read
       id-token: write
@@ -53,6 +66,29 @@ jobs:
         with:
           go-version-file: system-tests/tests/go.mod
           cache: true
+
+      - name: Resolve soak profile
+        id: soak
+        shell: bash
+        run: |
+          profile="${{ inputs.soak_profile || 'cap-pressure' }}"
+          case "$profile" in
+            weak-ref)
+              echo "ctf_configs=configs/workflow-gateway-don-cache-soak-weakref-test.toml" >> "$GITHUB_OUTPUT"
+              echo "test_run=^Test_V2_CRE_CacheSoak_WeakRef$" >> "$GITHUB_OUTPUT"
+              echo "cre_soak_duration=50m" >> "$GITHUB_OUTPUT"
+              echo "go_test_timeout=1h20m" >> "$GITHUB_OUTPUT"
+              echo "metrics_path=system-tests/tests/soak/cre/weakref" >> "$GITHUB_OUTPUT"
+              ;;
+            cap-pressure|*)
+              echo "ctf_configs=configs/workflow-gateway-don-cache-soak-test.toml" >> "$GITHUB_OUTPUT"
+              echo "test_run=^Test_V2_CRE_CacheSoak$" >> "$GITHUB_OUTPUT"
+              echo "cre_soak_duration=4h" >> "$GITHUB_OUTPUT"
+              echo "go_test_timeout=4h20m" >> "$GITHUB_OUTPUT"
+              echo "metrics_path=system-tests/tests/soak/cre/metrics" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+          echo "Resolved soak profile: $profile"
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a # v4.0.1
@@ -105,7 +141,7 @@ jobs:
           chainlink-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
             secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name ||
             'chainlink' }}:${{ inputs.chainlink_image_tag }}"
-          ctf-configs: configs/workflow-gateway-don-cache-soak-test.toml
+          ctf-configs: ${{ steps.soak.outputs.ctf_configs }}
           chip-router-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER
             }}.dkr.ecr.${{secrets.QA_AWS_REGION
             }}.amazonaws.com/local-cre-chip-router:v1.0.1"
@@ -132,11 +168,11 @@ jobs:
             secrets.QA_AWS_REGION
             }}.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced018\
             8f29b969"
-          CRE_SOAK_DURATION: "4h"
+          CRE_SOAK_DURATION: ${{ steps.soak.outputs.cre_soak_duration }}
         run: |
           go test \
-            -v -run "^Test_V2_CRE_CacheSoak$" \
-            -timeout 4h20m \
+            -v -run "${{ steps.soak.outputs.test_run }}" \
+            -timeout ${{ steps.soak.outputs.go_test_timeout }} \
             -count=1 \
             github.com/smartcontractkit/chainlink/system-tests/tests/soak/cre
 
@@ -144,9 +180,10 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: metrics
-          path: system-tests/tests/soak/cre/metrics
+          name: metrics-${{ inputs.soak_profile || 'cap-pressure' }}
+          path: ${{ steps.soak.outputs.metrics_path }}
           retention-days: 7
+          if-no-files-found: warn
 
       - name: Upload Docker logs
         if: failure()
