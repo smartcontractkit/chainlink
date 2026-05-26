@@ -24,14 +24,13 @@ import (
 	configmocks "github.com/smartcontractkit/chainlink-evm/pkg/config/mocks"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	fwtxmgr "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
-	keystoremocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
+	addressmocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types/mocks"
 )
 
 const ExpectedTxHash = "0xabcd"
@@ -46,7 +45,7 @@ type Mocks struct {
 	Poller        *lpmocks.LogPoller
 	HeaderTracker *headstest.Tracker[*types.Head, common.Hash]
 	Relayer       *Relayer
-	KeyStoreMock  keyStoreMock
+	AddressLister *addressmocks.AddressLister
 }
 
 type returnedStatusAndReceipts struct {
@@ -64,15 +63,6 @@ func createMockReceipt(t *testing.T) *txmgr.ChainReceipt {
 	return &receipt
 }
 
-type keyStoreMock struct {
-	chainID *big.Int
-	*keystoremocks.Eth
-}
-
-func (_m keyStoreMock) EnabledAddresses(ctx context.Context) ([]common.Address, error) {
-	return _m.EnabledAddressesForChain(ctx, _m.chainID)
-}
-
 func setupMocksAndRelayer(t *testing.T) (*Mocks, *Relayer) {
 	chain := evmmocks.NewChain(t)
 	txManager := txmmocks.NewMockEvmTxManager(t)
@@ -82,8 +72,8 @@ func setupMocksAndRelayer(t *testing.T) (*Mocks, *Relayer) {
 	evmClient := clienttest.NewClient(t)
 	poller := lpmocks.NewLogPoller(t)
 	ht := headstest.NewTracker[*types.Head](t)
-	ksMock := keyStoreMock{chainID: evmtestutils.FixtureChainID, Eth: keystoremocks.NewEth(t)}
-	ksMock.Eth.EXPECT().EnabledAddressesForChain(mock.Anything, mock.Anything).Return([]common.Address{createFromAddress().Address()}, nil).Maybe()
+	addressMock := addressmocks.NewAddressLister(t)
+	addressMock.EXPECT().EnabledAddresses(mock.Anything).Return([]common.Address{createFromAddress().Address()}, nil).Maybe()
 	mockEVM.EXPECT().ConfirmationTimeout().Return(2 * time.Second).Maybe()
 	chain.On("TxManager").Return(txManager).Maybe()
 	chain.On("LogPoller").Return(poller).Maybe()
@@ -96,7 +86,7 @@ func setupMocksAndRelayer(t *testing.T) (*Mocks, *Relayer) {
 	require.NoError(t, err)
 	relayer := &Relayer{
 		chain:      chain,
-		evmService: evmService{addressLister: ksMock, chain: chain, logger: lggr},
+		evmService: evmService{addressLister: addressMock, chain: chain, logger: lggr},
 	}
 
 	return &Mocks{
@@ -108,7 +98,7 @@ func setupMocksAndRelayer(t *testing.T) (*Mocks, *Relayer) {
 		EvmClient:     evmClient,
 		Poller:        poller,
 		HeaderTracker: ht,
-		KeyStoreMock:  ksMock,
+		AddressLister: addressMock,
 	}, relayer
 }
 
@@ -390,9 +380,9 @@ func TestEVMService(t *testing.T) {
 			Name: "Fails with failed to get enabled addresses",
 			SetupMocks: func(m *Mocks, ctx any) {
 				// Clear the default expectation first
-				m.KeyStoreMock.Eth.EXPECT().EnabledAddressesForChain(mock.Anything, mock.Anything).Unset()
+				m.AddressLister.EXPECT().EnabledAddresses(mock.Anything).Unset()
 				// Set new expectation
-				m.KeyStoreMock.EXPECT().EnabledAddressesForChain(mock.Anything, mock.Anything).Return([]common.Address{}, errors.New("some error")).Once()
+				m.AddressLister.EXPECT().EnabledAddresses(mock.Anything).Return([]common.Address{}, errors.New("some error")).Once()
 			},
 			ExpectedError: "failed to get enabled addresses: some error",
 		},
@@ -400,9 +390,9 @@ func TestEVMService(t *testing.T) {
 			Name: "Fails with no enabled addresses",
 			SetupMocks: func(m *Mocks, ctx any) {
 				// Clear the default expectation first
-				m.KeyStoreMock.Eth.EXPECT().EnabledAddressesForChain(mock.Anything, mock.Anything).Unset()
+				m.AddressLister.EXPECT().EnabledAddresses(mock.Anything).Unset()
 				// Set new expectation
-				m.KeyStoreMock.Eth.EXPECT().EnabledAddressesForChain(mock.Anything, mock.Anything).Return([]common.Address{}, nil).Once()
+				m.AddressLister.EXPECT().EnabledAddresses(mock.Anything).Return([]common.Address{}, nil).Once()
 			},
 			ExpectedError: "no enabled addresses available",
 		},
@@ -413,8 +403,8 @@ func TestEVMService(t *testing.T) {
 				lowBalanceAddr := common.HexToAddress("0x333")
 
 				// Clear the default expectation and return multiple addresses
-				m.KeyStoreMock.Eth.EXPECT().EnabledAddressesForChain(mock.Anything, mock.Anything).Unset()
-				m.KeyStoreMock.Eth.EXPECT().EnabledAddressesForChain(mock.Anything, mock.Anything).Return(
+				m.AddressLister.EXPECT().EnabledAddresses(mock.Anything).Unset()
+				m.AddressLister.EXPECT().EnabledAddresses(mock.Anything).Return(
 					[]common.Address{lowBalanceAddr, highBalanceAddr}, nil,
 				).Once()
 

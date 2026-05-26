@@ -1,4 +1,4 @@
-package evm
+package evm_test
 
 import (
 	"database/sql"
@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -26,7 +27,6 @@ import (
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/quarantine"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -38,9 +38,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
-
 	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -60,7 +60,7 @@ func TestConfigPoller(t *testing.T) {
 	var accessAddress common.Address
 	ctx := testutils.Context(t)
 
-	ld := OCR2AggregatorLogDecoder
+	ld := evm.OCR2AggregatorLogDecoder
 
 	{
 		key, err := crypto.GenerateKey()
@@ -110,7 +110,7 @@ func TestConfigPoller(t *testing.T) {
 	}
 
 	t.Run("LatestConfig errors if there is no config in logs and config store is unconfigured", func(t *testing.T) {
-		cp, err := NewConfigPoller(ctx, lggr, CPConfig{ethClient, lp, ocrAddress, nil, ld})
+		cp, err := evm.NewConfigPoller(ctx, lggr, evm.CPConfig{ethClient, lp, ocrAddress, nil, ld})
 		require.NoError(t, err)
 
 		_, err = cp.LatestConfig(testutils.Context(t), 0)
@@ -119,7 +119,7 @@ func TestConfigPoller(t *testing.T) {
 	})
 
 	t.Run("happy path (with config store)", func(t *testing.T) {
-		cp, err := NewConfigPoller(ctx, lggr, CPConfig{ethClient, lp, ocrAddress, &configStoreContractAddr, ld})
+		cp, err := evm.NewConfigPoller(ctx, lggr, evm.CPConfig{ethClient, lp, ocrAddress, &configStoreContractAddr, ld})
 		require.NoError(t, err)
 		// Should have no config to begin with.
 		_, configDigest, err := cp.LatestConfigDetails(testutils.Context(t))
@@ -190,7 +190,7 @@ func TestConfigPoller(t *testing.T) {
 		mp.On("LatestLogByEventSigWithConfs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, sql.ErrNoRows)
 
 		t.Run("if callLatestConfigDetails succeeds", func(t *testing.T) {
-			cp, err := newConfigPoller(ctx, lggr, ethClient, mp, ocrAddress, &configStoreContractAddr, ld)
+			cp, err := evm.NewConfigPollerWithParams(ctx, lggr, ethClient, mp, ocrAddress, &configStoreContractAddr, ld)
 			require.NoError(t, err)
 
 			t.Run("when config has not been set, returns zero values", func(t *testing.T) {
@@ -227,11 +227,11 @@ func TestConfigPoller(t *testing.T) {
 			failingClient := new(clienttest.Client)
 			failingClient.On("ConfiguredChainID").Return(big.NewInt(42))
 			failingClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("something exploded"))
-			cp, err := newConfigPoller(ctx, lggr, failingClient, mp, ocrAddress, &configStoreContractAddr, ld)
+			cp, err := evm.NewConfigPollerWithParams(ctx, lggr, failingClient, mp, ocrAddress, &configStoreContractAddr, ld)
 			require.NoError(t, err)
 
-			cp.configStoreContractAddr = &configStoreContractAddr
-			cp.configStoreContract = configStoreContract
+			//cp.configStoreContractAddr = &configStoreContractAddr
+			//cp.configStoreContract = configStoreContract
 
 			_, _, err = cp.LatestConfigDetails(testutils.Context(t))
 			assert.EqualError(t, err, "something exploded")
@@ -266,7 +266,7 @@ func TestConfigPoller(t *testing.T) {
 		mp.On("LatestLogByEventSigWithConfs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, sql.ErrNoRows)
 
 		t.Run("if callReadConfig succeeds", func(t *testing.T) {
-			cp, err := newConfigPoller(ctx, lggr, ethClient, mp, ocrAddress, &configStoreContractAddr, ld)
+			cp, err := evm.NewConfigPollerWithParams(ctx, lggr, ethClient, mp, ocrAddress, &configStoreContractAddr, ld)
 			require.NoError(t, err)
 
 			t.Run("when config has not been set, returns error", func(t *testing.T) {
@@ -288,9 +288,9 @@ func TestConfigPoller(t *testing.T) {
 					DeltaC:              10,
 				}, ocrContract, user)
 
-				signerAddresses, err := OnchainPublicKeyToAddress(contractConfig.Signers)
+				signerAddresses, err := evm.OnchainPublicKeyToAddress(contractConfig.Signers)
 				require.NoError(t, err)
-				transmitterAddresses, err := AccountToAddress(contractConfig.Transmitters)
+				transmitterAddresses, err := evm.AccountToAddress(contractConfig.Transmitters)
 				require.NoError(t, err)
 
 				configuration := ocrconfigurationstoreevmsimple.OCRConfigurationStoreEVMSimpleConfigurationEVMSimple{
@@ -328,7 +328,7 @@ func TestConfigPoller(t *testing.T) {
 				// initial call to retrieve config store address from aggregator
 				return *callArgs.To == ocrAddress
 			}), mock.Anything).Return(nil, errors.New("something exploded")).Once()
-			cp, err := newConfigPoller(ctx, lggr, failingClient, mp, ocrAddress, &configStoreContractAddr, ld)
+			cp, err := evm.NewConfigPollerWithParams(ctx, lggr, failingClient, mp, ocrAddress, &configStoreContractAddr, ld)
 			require.NoError(t, err)
 
 			_, err = cp.LatestConfig(testutils.Context(t), 0)
@@ -377,9 +377,9 @@ func setConfig(t *testing.T, pluginConfig median.OffchainConfig, ocrContract *oc
 		onchainConfig,
 	)
 	require.NoError(t, err)
-	signerAddresses, err := OnchainPublicKeyToAddress(signers)
+	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
 	require.NoError(t, err)
-	transmitterAddresses, err := AccountToAddress(transmitters)
+	transmitterAddresses, err := evm.AccountToAddress(transmitters)
 	require.NoError(t, err)
 	_, err = ocrContract.SetConfig(user, signerAddresses, transmitterAddresses, threshold, onchainConfig, offchainConfigVersion, offchainConfig)
 	require.NoError(t, err)

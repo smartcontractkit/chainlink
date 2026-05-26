@@ -232,6 +232,11 @@ packages:
       dir: "core/services/relay/evm/types/mocks"
     interfaces:
       LogPollerWrapper:
+  github.com/smartcontractkit/chainlink-evm/pkg/keys:
+    config:
+      dir: "core/services/relay/evm/types/mocks"
+    interfaces:
+      AddressLister:
   github.com/smartcontractkit/chainlink/v2/core/services/s4:
     interfaces:
       ORM:
