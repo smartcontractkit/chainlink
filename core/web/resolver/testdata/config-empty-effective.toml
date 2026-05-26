@@ -322,6 +322,7 @@ TLSEnabled = true
 
 [Capabilities.WorkflowRegistry.ModuleCache]
 Enabled = false
+DiskMonitorEnabled = false
 IdleEviction = true
 IdleTimeout = '10m0s'
 MaxLoaded = 200

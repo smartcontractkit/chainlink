@@ -1525,6 +1525,7 @@ Name is a required unique identifier for this workflow source. Each additional s
 ```toml
 [Capabilities.WorkflowRegistry.ModuleCache]
 Enabled = false # Default
+DiskMonitorEnabled = false # Default
 IdleEviction = true # Default
 IdleTimeout = '10m' # Default
 MaxLoaded = 200 # Default
@@ -1538,6 +1539,14 @@ Enabled = false # Default
 ```
 Enabled activates the two-level module cache (LRU + disk). When true, compiled WASM modules
 are kept in memory and persisted to disk, avoiding recompilation on subsequent activations.
+
+### DiskMonitorEnabled
+```toml
+DiskMonitorEnabled = false # Default
+```
+DiskMonitorEnabled exposes platform_workflow_module_cache_disk_usage_bytes for CacheDir without
+enabling LRU/disk persistence. Set CacheDir to the production path during rollout; then set
+Enabled = true for the full cache. Enabled = true also starts the disk monitor when this is false.
 
 ### IdleEviction
 ```toml
@@ -2865,11 +2874,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -2984,11 +2998,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -3103,11 +3122,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -3222,11 +3246,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -3346,11 +3375,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -3466,11 +3500,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -3585,11 +3624,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -3703,11 +3747,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -3821,11 +3870,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -3940,11 +3994,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -4059,11 +4118,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -4179,11 +4243,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -4298,11 +4367,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -4417,11 +4491,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -4541,11 +4620,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -4660,11 +4744,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -4779,11 +4868,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -4898,11 +4992,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -5022,11 +5121,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -5143,11 +5247,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -5264,11 +5373,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -5388,11 +5502,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -5510,11 +5629,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -5633,11 +5757,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -5752,11 +5881,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -5870,11 +6004,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -5994,11 +6133,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -6117,11 +6261,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -6237,11 +6386,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -6357,11 +6511,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -6480,11 +6639,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -6603,11 +6767,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -6727,11 +6896,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -6851,11 +7025,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -6970,11 +7149,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -7090,11 +7274,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -7214,11 +7403,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -7332,11 +7526,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -7456,11 +7655,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -7577,11 +7781,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -7697,11 +7906,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -7817,11 +8031,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -7936,11 +8155,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -8054,11 +8278,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -8178,11 +8407,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -8302,11 +8536,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -8420,11 +8659,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = false
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -8539,11 +8783,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -8663,11 +8912,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -8787,11 +9041,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -8906,11 +9165,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -9025,11 +9289,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -9143,11 +9412,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -9267,11 +9541,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -9388,11 +9667,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -9506,11 +9790,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -9625,11 +9914,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -9744,11 +10038,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -9863,11 +10162,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -9983,11 +10287,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -10107,11 +10416,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -10232,11 +10546,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -10357,11 +10676,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -10475,11 +10799,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -10599,11 +10928,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -10717,11 +11051,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '4s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -10837,11 +11176,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -10960,11 +11304,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -11083,11 +11432,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -11202,11 +11556,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -11326,11 +11685,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -11449,6 +11813,8 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
@@ -11457,6 +11823,7 @@ ExternalRequestMaxResponseSize = 1000000
 
 [NodePool.Errors]
 TerminallyUnderpriced = '(?:: |^)(max fee per gas less than block base fee|virtual machine entered unexpected state. (?:P|p)lease contact developers and provide transaction details that caused this error. Error description: (?:The operator included transaction with an unacceptable gas price|Assertion error: Fair pubdata price too high))$'
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -11575,11 +11942,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -11695,11 +12067,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -11818,11 +12195,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '4s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -11937,11 +12319,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -12056,11 +12443,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -12176,11 +12568,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -12302,11 +12699,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -12428,11 +12830,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -12547,11 +12954,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -12671,11 +13083,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -12789,11 +13206,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -12910,11 +13332,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -13031,11 +13458,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -13155,11 +13587,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -13279,11 +13716,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -13401,11 +13843,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -13520,11 +13967,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -13639,11 +14091,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -13758,11 +14215,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -13877,11 +14339,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -14001,11 +14468,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -14124,11 +14596,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -14248,11 +14725,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -14366,11 +14848,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -14484,11 +14971,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -14607,11 +15099,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -14725,11 +15222,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -14843,11 +15345,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -14966,11 +15473,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -15085,11 +15597,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -15204,11 +15721,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -15327,11 +15849,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -15450,11 +15977,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -15573,11 +16105,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -15698,11 +16235,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -15823,11 +16365,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -15943,11 +16490,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -16066,11 +16618,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '4s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -16189,11 +16746,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -16313,11 +16875,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -16437,11 +17004,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -16559,11 +17131,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -16678,11 +17255,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -16802,11 +17384,16 @@ SyncThreshold = 10
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 1
@@ -16925,11 +17512,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -17048,11 +17640,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -17172,11 +17769,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -17291,11 +17893,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -17410,11 +18017,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [OCR]
 ContractConfirmations = 4
@@ -18347,6 +18959,8 @@ SyncThreshold = 5 # Default
 LeaseDuration = '0s' # Default
 NodeIsSyncingEnabled = false # Default
 FinalizedBlockPollInterval = '5s' # Default
+HistoricalBalanceCheckAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
+FinalizedStateCheckFailureThreshold = 0 # Default
 EnforceRepeatableRead = true # Default
 DeathDeclarationDelay = '1m' # Default
 NewHeadsPollInterval = '0s' # Default
@@ -18433,6 +19047,26 @@ reported based on latest block and finality depth.
 
 Set to 0 to disable.
 
+### HistoricalBalanceCheckAddress
+```toml
+HistoricalBalanceCheckAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
+```
+HistoricalBalanceCheckAddress is the probe account for the finalized-state availability check.
+The check executes `eth_getBalance` for this address at the latest finalized block.
+If omitted, defaults to the zero address (`0x0000000000000000000000000000000000000000`).
+Finalized block selection follows chain finality settings:
+- `FinalityTagEnabled = true`: use `finalized` tag
+- `FinalityTagEnabled = false`: use `latest - FinalityDepth`
+The check is only active when `FinalizedStateCheckFailureThreshold > 0`.
+
+### FinalizedStateCheckFailureThreshold
+```toml
+FinalizedStateCheckFailureThreshold = 0 # Default
+```
+FinalizedStateCheckFailureThreshold is the number of consecutive failures of the finalized state availability check
+before the node is marked as FinalizedStateNotAvailable.
+Set to 0 to disable the check.
+
 ### EnforceRepeatableRead
 ```toml
 EnforceRepeatableRead = true # Default
@@ -18497,6 +19131,7 @@ Fatal = '(: |^)fatal' # Example
 ServiceUnavailable = '(: |^)service unavailable' # Example
 TooManyResults = '(: |^)too many results' # Example
 MissingBlocks = '(: |^)missing blocks' # Example
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)' # Default
 ```
 Errors enable the node to provide custom regex patterns to match against error messages from RPCs.
 
@@ -18595,6 +19230,12 @@ TooManyResults is a regex pattern to match an eth_getLogs error indicating the r
 MissingBlocks = '(: |^)missing blocks' # Example
 ```
 MissingBlocks is a regex pattern to match an eth_getLogs error indicating the rpc server is permanently missing some blocks in the requested block range
+
+### FinalizedStateUnavailable
+```toml
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)' # Default
+```
+FinalizedStateUnavailable is a regex pattern to match errors indicating the RPC cannot serve historical state at the finalized block (e.g., pruned/non-archive node)
 
 ## EVM.OCR
 ```toml

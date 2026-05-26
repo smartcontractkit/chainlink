@@ -18,7 +18,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestGetActiveUpkeepKeys(t *testing.T) {
@@ -56,7 +55,7 @@ func TestGetActiveUpkeepKeys(t *testing.T) {
 				active: actives,
 			}
 
-			keys, err := rg.GetActiveUpkeepIDs(testutils.Context(t))
+			keys, err := rg.GetActiveUpkeepIDs(t.Context())
 
 			if test.ExpectedErr != nil {
 				assert.ErrorIs(t, err, test.ExpectedErr)
@@ -187,7 +186,7 @@ func TestPollLogs(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 			mp := mocks.NewLogPoller(t)
 
 			if test.LatestBlock != nil {

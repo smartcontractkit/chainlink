@@ -545,6 +545,10 @@ Name = 'my-workflow-source' # Example
 # Enabled activates the two-level module cache (LRU + disk). When true, compiled WASM modules
 # are kept in memory and persisted to disk, avoiding recompilation on subsequent activations.
 Enabled = false # Default
+# DiskMonitorEnabled exposes platform_workflow_module_cache_disk_usage_bytes for CacheDir without
+# enabling LRU/disk persistence. Set CacheDir to the production path during rollout; then set
+# Enabled = true for the full cache. Enabled = true also starts the disk monitor when this is false.
+DiskMonitorEnabled = false # Default
 # IdleEviction enables time-based eviction of modules unused for IdleTimeout.
 IdleEviction = true # Default
 # IdleTimeout is how long a module can remain idle before being evicted from memory.

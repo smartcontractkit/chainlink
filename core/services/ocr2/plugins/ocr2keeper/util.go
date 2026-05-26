@@ -13,14 +13,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
+	evmregistry21 "github.com/smartcontractkit/chainlink-evm/pkg/automation/v21"
+	evmregistry21transmit "github.com/smartcontractkit/chainlink-evm/pkg/automation/v21/transmit"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	evmregistry20 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v20"
-	evmregistry21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
-	evmregistry21transmit "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/transmit"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 

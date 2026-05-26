@@ -7,8 +7,6 @@ import (
 	suistate "github.com/smartcontractkit/chainlink-sui/deployment"
 	tonstate "github.com/smartcontractkit/chainlink-ton/deployment/state"
 
-	linkviewv10 "github.com/smartcontractkit/cld-changesets/pkg/contract/link/view/v10"
-
 	mcmsv10 "github.com/smartcontractkit/cld-changesets/pkg/contract/mcms/view/v1_0"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/aptos"
@@ -56,8 +54,8 @@ type ChainView struct {
 	CCIPHome           map[string]v1_6.CCIPHomeView                  `json:"ccipHome,omitempty"`
 	CapabilityRegistry map[string]common_v1_0.CapabilityRegistryView `json:"capabilityRegistry,omitempty"`
 	MCMSWithTimelock   mcmsv10.MCMSWithTimelockView                  `json:"mcmsWithTimelock"`
-	LinkToken          linkviewv10.LinkTokenView                     `json:"linkToken"`
-	StaticLinkToken    linkviewv10.StaticLinkTokenView               `json:"staticLinkToken"`
+	LinkToken          v1_0.LinkTokenView                            `json:"linkToken"`
+	StaticLinkToken    v1_0.StaticLinkTokenView                      `json:"staticLinkToken"`
 
 	UpdateMu *sync.Mutex `json:"-"`
 }
@@ -86,8 +84,8 @@ func NewChain() ChainView {
 		CapabilityRegistry: make(map[string]common_v1_0.CapabilityRegistryView),
 		CCIPHome:           make(map[string]v1_6.CCIPHomeView),
 		MCMSWithTimelock:   mcmsv10.MCMSWithTimelockView{},
-		LinkToken:          linkviewv10.LinkTokenView{},
-		StaticLinkToken:    linkviewv10.StaticLinkTokenView{},
+		LinkToken:          v1_0.LinkTokenView{},
+		StaticLinkToken:    v1_0.StaticLinkTokenView{},
 		UpdateMu:           &sync.Mutex{},
 	}
 }

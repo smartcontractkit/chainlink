@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
@@ -73,13 +74,13 @@ var (
 func TestAddCapabilities_VerifyPreconditions(t *testing.T) {
 	cs := changeset.AddCapabilities{}
 
-	env := test.SetupEnvV2(t, false)
-	chainSelector := env.RegistrySelector
+	h := test.NewTestHarness(t)
+	chainSelector := h.RegistrySelector
 
 	capCfg := []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: "cap@1.0.0"}, Config: map[string]any{"k": "v"}}}
 
 	// Empty map
-	err := cs.VerifyPreconditions(*env.Env, changeset.AddCapabilitiesInput{
+	err := cs.VerifyPreconditions(h.Runtime.Environment(), changeset.AddCapabilitiesInput{
 		RegistryChainSel:     chainSelector,
 		RegistryQualifier:    "qual",
 		DonCapabilityConfigs: nil,
@@ -88,7 +89,7 @@ func TestAddCapabilities_VerifyPreconditions(t *testing.T) {
 	assert.Contains(t, err.Error(), "donCapabilityConfigs must contain at least one DON entry")
 
 	// Empty DON name key
-	err = cs.VerifyPreconditions(*env.Env, changeset.AddCapabilitiesInput{
+	err = cs.VerifyPreconditions(h.Runtime.Environment(), changeset.AddCapabilitiesInput{
 		RegistryChainSel:  chainSelector,
 		RegistryQualifier: "qual",
 		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
@@ -99,7 +100,7 @@ func TestAddCapabilities_VerifyPreconditions(t *testing.T) {
 	assert.Contains(t, err.Error(), "cannot be empty strings")
 
 	// Empty config list for a DON
-	err = cs.VerifyPreconditions(*env.Env, changeset.AddCapabilitiesInput{
+	err = cs.VerifyPreconditions(h.Runtime.Environment(), changeset.AddCapabilitiesInput{
 		RegistryChainSel:  chainSelector,
 		RegistryQualifier: "qual",
 		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
@@ -110,7 +111,7 @@ func TestAddCapabilities_VerifyPreconditions(t *testing.T) {
 	assert.Contains(t, err.Error(), "at least one capability config")
 
 	// Valid (single DON)
-	err = cs.VerifyPreconditions(*env.Env, changeset.AddCapabilitiesInput{
+	err = cs.VerifyPreconditions(h.Runtime.Environment(), changeset.AddCapabilitiesInput{
 		RegistryChainSel:  chainSelector,
 		RegistryQualifier: "qual",
 		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
@@ -120,7 +121,7 @@ func TestAddCapabilities_VerifyPreconditions(t *testing.T) {
 	require.NoError(t, err)
 
 	// Valid (multiple DONs)
-	err = cs.VerifyPreconditions(*env.Env, changeset.AddCapabilitiesInput{
+	err = cs.VerifyPreconditions(h.Runtime.Environment(), changeset.AddCapabilitiesInput{
 		RegistryChainSel:  chainSelector,
 		RegistryQualifier: "qual",
 		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
@@ -131,9 +132,9 @@ func TestAddCapabilities_VerifyPreconditions(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func addNewCapability(t *testing.T, fixture *test.EnvWrapperV2, capID string) {
+func addNewCapability(t *testing.T, h *test.EnvWrapperV2, capID string) {
 	input := changeset.AddCapabilitiesInput{
-		RegistryChainSel:  fixture.RegistrySelector,
+		RegistryChainSel:  h.RegistrySelector,
 		RegistryQualifier: test.RegistryQualifier,
 		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
 			test.DONName: {{
@@ -148,20 +149,17 @@ func addNewCapability(t *testing.T, fixture *test.EnvWrapperV2, capID string) {
 		Force: true,
 	}
 
-	// Preconditions
-	err := changeset.AddCapabilities{}.VerifyPreconditions(*fixture.Env, input)
-	require.NoError(t, err)
-
-	// Apply
-	_, err = changeset.AddCapabilities{}.Apply(*fixture.Env, input)
+	err := h.Runtime.Exec(
+		runtime.ChangesetTask(changeset.AddCapabilities{}, input),
+	)
 	require.NoError(t, err)
 }
 
-func requireCapability(t *testing.T, fixture *test.EnvWrapperV2, capID string) {
+func requireCapability(t *testing.T, h *test.EnvWrapperV2, capID string) {
 	// Validate on-chain state
 	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
-		fixture.RegistryAddress,
-		fixture.Env.BlockChains.EVMChains()[fixture.RegistrySelector].Client,
+		h.RegistryAddress,
+		h.Runtime.Environment().BlockChains.EVMChains()[h.RegistrySelector].Client,
 	)
 	require.NoError(t, err)
 
@@ -216,24 +214,24 @@ func requireCapability(t *testing.T, fixture *test.EnvWrapperV2, capID string) {
 }
 
 func TestAddCapabilities_Apply(t *testing.T) {
-	// SetupEnvV2 deploys a cap reg v2 and configures it. So no need to do that here, just leverage the existing one.
-	fixture := test.SetupEnvV2(t, false)
+	// NewTestHarness deploys a cap reg v2 and configures it. So no need to do that here, just leverage the existing one.
+	h := test.NewTestHarness(t)
 
-	addNewCapability(t, fixture, newCapID)
-	requireCapability(t, fixture, newCapID)
+	addNewCapability(t, h, newCapID)
+	requireCapability(t, h, newCapID)
 
 	// add another capability and ensure that both are present
-	addNewCapability(t, fixture, anotherCapID)
-	requireCapability(t, fixture, newCapID)
-	requireCapability(t, fixture, anotherCapID)
+	addNewCapability(t, h, anotherCapID)
+	requireCapability(t, h, newCapID)
+	requireCapability(t, h, anotherCapID)
 }
 
 func TestAddCapabilities_Apply_MCMS(t *testing.T) {
-	// SetupEnvV2 deploys a cap reg v2 and configures it. So no need to do that here, just leverage the existing one.
-	fixture := test.SetupEnvV2(t, true)
+	// NewTestHarness deploys a cap reg v2 and configures it. So no need to do that here, just leverage the existing one.
+	h := test.NewTestHarness(t, test.WithMCMS())
 
 	input := changeset.AddCapabilitiesInput{
-		RegistryChainSel:  fixture.RegistrySelector,
+		RegistryChainSel:  h.RegistrySelector,
 		RegistryQualifier: test.RegistryQualifier,
 		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
 			test.DONName: {{
@@ -249,35 +247,37 @@ func TestAddCapabilities_Apply_MCMS(t *testing.T) {
 		MCMSConfig: &crecontracts.MCMSConfig{
 			MinDelay: 1 * time.Second,
 			TimelockQualifierPerChain: map[uint64]string{
-				fixture.RegistrySelector: "",
+				h.RegistrySelector: "",
 			},
 		},
 	}
 
 	// Preconditions
-	err := changeset.AddCapabilities{}.VerifyPreconditions(*fixture.Env, input)
+	addCapabilitiesTask := runtime.ChangesetTask(changeset.AddCapabilities{}, input)
+	err := h.Runtime.Exec(
+		addCapabilitiesTask,
+	)
 	require.NoError(t, err)
 
-	// Apply
-	csOut, err := changeset.AddCapabilities{}.Apply(*fixture.Env, input)
-	require.NoError(t, err)
+	out := h.Runtime.State().Outputs[addCapabilitiesTask.ID()]
 
 	// Verify the changeset output
-	require.NotNil(t, csOut.Reports, "reports should be present")
-	require.NotEmpty(t, csOut.MCMSTimelockProposals, "should have MCMS proposals when using MCMS")
+	require.NotNil(t, out.Reports, "reports should be present")
+	require.NotEmpty(t, out.MCMSTimelockProposals, "should have MCMS proposals when using MCMS")
 }
 
 func aptosTestCapabilityID(aptosChainSelector uint64) string {
 	return fmt.Sprintf("aptos:ChainSelector:%d@1.0.0", aptosChainSelector)
 }
 
-func addCapabilityWithModifier(t *testing.T, fixture *test.EnvWrapperV2) {
+func addCapabilityWithModifier(t *testing.T, h *test.EnvWrapperV2) {
 	t.Helper()
-	require.NotNil(t, fixture.Env.Offchain, "Aptos add-capabilities needs JD Offchain client")
 
-	capID := aptosTestCapabilityID(fixture.AptosSelector)
+	require.NotNil(t, h.Runtime.Environment().Offchain, "Aptos add-capabilities needs JD Offchain client")
+
+	capID := aptosTestCapabilityID(h.AptosSelector)
 	input := changeset.AddCapabilitiesInput{
-		RegistryChainSel:  fixture.RegistrySelector,
+		RegistryChainSel:  h.RegistrySelector,
 		RegistryQualifier: test.RegistryQualifier,
 		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
 			test.DONName: {{
@@ -292,21 +292,22 @@ func addCapabilityWithModifier(t *testing.T, fixture *test.EnvWrapperV2) {
 		Force: true,
 	}
 
-	require.NoError(t, changeset.AddCapabilities{}.VerifyPreconditions(*fixture.Env, input))
-	_, err := changeset.AddCapabilities{}.Apply(*fixture.Env, input)
+	err := h.Runtime.Exec(
+		runtime.ChangesetTask(changeset.AddCapabilities{}, input),
+	)
 	require.NoError(t, err)
 }
 
-func requireCapabilityWithModifier(t *testing.T, fixture *test.EnvWrapperV2) {
+func requireCapabilityWithModifier(t *testing.T, h *test.EnvWrapperV2) {
 	t.Helper()
 
 	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
-		fixture.RegistryAddress,
-		fixture.Env.BlockChains.EVMChains()[fixture.RegistrySelector].Client,
+		h.RegistryAddress,
+		h.Runtime.Environment().BlockChains.EVMChains()[h.RegistrySelector].Client,
 	)
 	require.NoError(t, err)
 
-	capID := aptosTestCapabilityID(fixture.AptosSelector)
+	capID := aptosTestCapabilityID(h.AptosSelector)
 	caps, err := pkg.GetCapabilities(nil, capReg)
 	require.NoError(t, err)
 	var foundCap bool
@@ -355,14 +356,14 @@ func requireAptosSpecP2PTransmitterMap(t *testing.T, cfg *pkg.CapabilityConfig) 
 }
 
 func TestAddCapabilities_Apply_Modifier(t *testing.T) {
-	fixture := test.SetupEnvV2(t, false)
-	addCapabilityWithModifier(t, fixture)
-	requireCapabilityWithModifier(t, fixture)
+	h := test.NewTestHarness(t)
+	addCapabilityWithModifier(t, h)
+	requireCapabilityWithModifier(t, h)
 }
 
 func TestAddCapabilities_Apply_WithOCR3Config(t *testing.T) {
-	fixture := test.SetupEnvV2(t, false)
-	require.NotNil(t, fixture.Env.Offchain)
+	h := test.NewTestHarness(t)
+	require.NotNil(t, h.Runtime.Environment().Offchain)
 
 	capID := "ocr3-test-cap@1.0.0"
 	ocr3Config := map[string]any{
@@ -390,7 +391,7 @@ func TestAddCapabilities_Apply_WithOCR3Config(t *testing.T) {
 	}
 
 	input := changeset.AddCapabilitiesInput{
-		RegistryChainSel:  fixture.RegistrySelector,
+		RegistryChainSel:  h.RegistrySelector,
 		RegistryQualifier: test.RegistryQualifier,
 		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
 			test.DONName: {{
@@ -408,13 +409,14 @@ func TestAddCapabilities_Apply_WithOCR3Config(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, changeset.AddCapabilities{}.VerifyPreconditions(*fixture.Env, input))
-	_, err := changeset.AddCapabilities{}.Apply(*fixture.Env, input)
+	err := h.Runtime.Exec(
+		runtime.ChangesetTask(changeset.AddCapabilities{}, input),
+	)
 	require.NoError(t, err)
 
 	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
-		fixture.RegistryAddress,
-		fixture.Env.BlockChains.EVMChains()[fixture.RegistrySelector].Client,
+		h.RegistryAddress,
+		h.Runtime.Environment().BlockChains.EVMChains()[h.RegistrySelector].Client,
 	)
 	require.NoError(t, err)
 
