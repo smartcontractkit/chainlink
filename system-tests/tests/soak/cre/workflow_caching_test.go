@@ -24,28 +24,34 @@ import (
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 )
 
-// Memory sizing targets ~50% of a 128GiB soak host for concurrently loaded WASM modules across the
-// 4-node workflow DON (see workflow-gateway-don-cache-soak-test.toml nodes + MaxLoaded).
-// moduleCacheMaxLoaded is per node; _defaultSoakNumWorkflows exceeds cap slots (~20%)
-// so enforceCap stays active after workflows are being triggered across nodes.
-// On-chain registry limits (SetDONLimit) and node [Workflows.Limits] must exceed _defaultSoakNumWorkflows.
 const (
-	capPressurePercent   = 1000 // 1000% of MaxLoaded
-	moduleCacheMaxLoaded = 25   // mirrors workflow-gateway-don-cache-soak-test.toml MaxLoaded
-
-	moduleCacheIdleTimeout = 5 * time.Minute
-	fastCronInterval       = 3 * time.Minute
-	slowCronInterval       = 8 * time.Minute
-
-	defaultSoakDuration     = 4 * time.Hour
+	cacheSoakConfigCap      = "/configs/workflow-gateway-don-cache-soak-test.toml"
+	cacheSoakConfigWeakRef  = "/configs/workflow-gateway-don-cache-soak-weakref-test.toml"
+	cachePrometheusRange    = "5m"
 	defaultMetricStep       = 1 * time.Minute
-	cachePrometheusRange    = "5m" // increase() window; align with defaultMetricStep
 	soakProgressLogInterval = 5 * time.Minute
+	numberOfDeploymentKeys  = 20
+)
 
-	// One of every cacheSoakSchedulePeriod workflows uses slowCronInterval (~1/3 idle-eviction tier).
-	cacheSoakSchedulePeriod = 3
+// Cap-pressure profile (default Test_V2_CRE_CacheSoak): high registry/cap churn, mostly disk reloads.
+const (
+	capPressurePercent        = 1000
+	moduleCacheMaxLoaded      = 25
+	moduleCacheIdleTimeout    = 5 * time.Minute
+	fastCronInterval          = 3 * time.Minute
+	slowCronInterval          = 8 * time.Minute
+	cacheSoakSchedulePeriod   = 3
+	defaultCapSoakDuration    = 4 * time.Hour
+	defaultCapSoakNumWorkflow = moduleCacheMaxLoaded * capPressurePercent / 100
+)
 
-	numberOfDeploymentKeys = 20
+// Weak-ref profile (Test_V2_CRE_CacheSoak_WeakRef): idle eviction to L2, GOGC=off, cron refire before GC.
+const (
+	weakRefMaxLoaded          = 50 // mirrors workflow-gateway-don-cache-soak-weakref-test.toml
+	weakRefNumWorkflows       = 30
+	weakRefIdleTimeout        = 90 * time.Second
+	weakRefCronInterval       = 2 * time.Minute
+	defaultWeakRefSoakDuration = 45 * time.Minute
 )
 
 var (
@@ -55,23 +61,68 @@ var (
 	_workflowEngineOverheadMiB = crePerWorkflowSizeLimitMiB(
 		cresettings.Default.PerWorkflow.WASMMemoryLimit.DefaultValue,
 	)
-	_defaultSoakNumWorkflows = moduleCacheMaxLoaded * capPressurePercent / 100
 )
 
-// Cron timing (below) keeps cap vs idle eviction visible in 5m Prometheus buckets; schedules are staggered.
+type cacheSoakProfile struct {
+	name             string
+	configPath       string
+	numWorkflows     int
+	defaultDuration  time.Duration
+	schedule         func(workflowIndex int) string
+	deploymentKeys   int
+	artifactSubdir   string
+	requireWeakRef   bool
+	logMaxLoaded     int
+}
+
+// Test_V2_CRE_CacheSoak exercises cap pressure and disk reload under heavy registry load.
 func Test_V2_CRE_CacheSoak(t *testing.T) {
-	numWorkflows := _defaultSoakNumWorkflows
+	runCacheSoak(t, cacheSoakProfile{
+		name:            "cap-pressure",
+		configPath:      cacheSoakConfigCap,
+		numWorkflows:    defaultCapSoakNumWorkflow,
+		defaultDuration: defaultCapSoakDuration,
+		schedule:        cacheSoakCapPressureSchedule,
+		deploymentKeys:  numberOfDeploymentKeys,
+		artifactSubdir:  "",
+		requireWeakRef:  false,
+		logMaxLoaded:    moduleCacheMaxLoaded,
+	})
+}
+
+// Test_V2_CRE_CacheSoak_WeakRef isolates L2 (weak.Pointer) reloads: no cap churn, idle eviction,
+// GOGC=off on workflow nodes, and cron refire after IdleTimeout. Asserts weak_ref reload counters.
+//
+// Run:
+//
+//	go test -timeout 2h -run '^Test_V2_CRE_CacheSoak_WeakRef$' -v ./system-tests/tests/soak/cre/...
+func Test_V2_CRE_CacheSoak_WeakRef(t *testing.T) {
+	runCacheSoak(t, cacheSoakProfile{
+		name:            "weak-ref",
+		configPath:      cacheSoakConfigWeakRef,
+		numWorkflows:    weakRefNumWorkflows,
+		defaultDuration: defaultWeakRefSoakDuration,
+		schedule:        cacheSoakWeakRefSchedule,
+		deploymentKeys:  1,
+		artifactSubdir:  "weakref",
+		requireWeakRef:  true,
+		logMaxLoaded:    weakRefMaxLoaded,
+	})
+}
+
+func runCacheSoak(t *testing.T, profile cacheSoakProfile) {
+	t.Helper()
+
+	numWorkflows := profile.numWorkflows
 	if os.Getenv("CRE_SOAK_NUM_WORKFLOWS") != "" {
 		var err error
 		numWorkflows, err = strconv.Atoi(os.Getenv("CRE_SOAK_NUM_WORKFLOWS"))
-		if err != nil {
-			t.Fatalf("failed to parse CRE_SOAK_NUM_WORKFLOWS: %v", err)
-		}
+		require.NoError(t, err, "CRE_SOAK_NUM_WORKFLOWS")
 	}
 
-	soakDuration := parseDuration(os.Getenv("CRE_SOAK_DURATION"), defaultSoakDuration)
+	soakDuration := parseDuration(os.Getenv("CRE_SOAK_DURATION"), profile.defaultDuration)
 
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-cache-soak-test.toml"))
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, profile.configPath))
 	testLogger := framework.L
 
 	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
@@ -79,8 +130,6 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
-		// Do not use t.Context() here: it is cancelled before cleanup runs, which breaks chip-router
-		// unregister and can leave gRPC Publish blocked on full log channels after WatchWorkflowLogs returns.
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		t_helpers.ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
@@ -89,52 +138,76 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/cron/main.go"
 
 	testLogger.Info().
-		Int("max_loaded_per_node", moduleCacheMaxLoaded).
+		Str("profile", profile.name).
+		Int("max_loaded_per_node", profile.logMaxLoaded).
 		Int("target_workflows", numWorkflows).
-		Int("target_loaded_mib", moduleCacheMaxLoaded*(_workflowModuleMiB+_workflowEngineOverheadMiB)).
+		Int("target_loaded_mib", profile.logMaxLoaded*(_workflowModuleMiB+_workflowEngineOverheadMiB)).
 		Msg("Deploying cache soak workflows")
 	workflowIDs := t_helpers.CompileAndDeployWorkflowNTimes(t, testEnv, testLogger,
 		func(i int) string { return fmt.Sprintf("cachetest%d", i) },
 		func(i int) *crontypes.WorkflowConfig {
-			return &crontypes.WorkflowConfig{Schedule: cacheSoakWorkflowSchedule(i)}
+			return &crontypes.WorkflowConfig{Schedule: profile.schedule(i)}
 		},
 		workflowFileLocation,
 		numWorkflows,
-		numberOfDeploymentKeys,
+		profile.deploymentKeys,
 	)
-	testLogger.Info().Int("count", len(workflowIDs)).Msg("All cache-test workflows deployed")
+	testLogger.Info().Int("count", len(workflowIDs)).Str("profile", profile.name).Msg("All cache-test workflows deployed")
 	nodeContainers := t_helpers.SnapshotNodeContainerRestarts(t, testEnv)
 	startTime := time.Now()
 
 	timeout := 2 * time.Minute
 	testLogger.Info().
+		Str("profile", profile.name).
 		Float64("timeout_minutes", timeout.Minutes()).
 		Msg("Waiting for first workflow execution...")
 	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, "Amazing workflow user log", timeout)
-	testLogger.Info().Dur("duration", soakDuration).Msg("First workflow execution confirmed, running cache soak...")
+	testLogger.Info().
+		Str("profile", profile.name).
+		Dur("duration", soakDuration).
+		Msg("First workflow execution confirmed, running cache soak...")
 
 	t_helpers.AssertNodeLogs(t, testEnv, "Module cache enabled")
 
 	testLogger.Info().
+		Str("profile", profile.name).
 		Float64("duration_minutes", soakDuration.Minutes()).
-		Float64("fast_interval_seconds", fastCronInterval.Seconds()).
-		Float64("slow_interval_seconds", slowCronInterval.Seconds()).
-		Float64("idle_timeout_seconds", moduleCacheIdleTimeout.Seconds()).
 		Int("workflows", numWorkflows).
 		Msg("Observing cache activity")
 	observeUntil := time.Now().Add(soakDuration)
 	for time.Now().Before(observeUntil) {
 		time.Sleep(soakProgressLogInterval)
-		testLogger.Info().Dur("remaining", time.Until(observeUntil).Round(time.Second)).Msg("Cache soak progress")
+		testLogger.Info().
+			Str("profile", profile.name).
+			Dur("remaining", time.Until(observeUntil).Round(time.Second)).
+			Msg("Cache soak progress")
 	}
-	testLogger.Info().Msg("Cache soak complete")
+	testLogger.Info().Str("profile", profile.name).Msg("Cache soak complete")
 	endTime := time.Now()
 
-	// Check Prometheus metrics
 	pc := framework.NewPrometheusQueryClient(framework.LocalPrometheusBaseURL)
 
 	workflowDONs := testEnv.Dons.DonsWithFlag(cre.WorkflowDON)
 	require.NotEmpty(t, workflowDONs, "no workflow DONs found")
+
+	if profile.requireWeakRef {
+		assertWeakRefReloadsObserved(t, pc, workflowDONs, startTime, endTime)
+	}
+
+	saveCacheSoakMetrics(t, pc, workflowDONs, startTime, endTime, profile.artifactSubdir)
+
+	t_helpers.AssertNodeContainersStable(t, nodeContainers)
+	testLogger.Info().Str("profile", profile.name).Msg("Node containers stable. None was restarted or OOM-killed.")
+}
+
+func saveCacheSoakMetrics(
+	t *testing.T,
+	pc *framework.PrometheusQueryClient,
+	workflowDONs []*cre.Don,
+	startTime, endTime time.Time,
+	artifactSubdir string,
+) {
+	t.Helper()
 
 	type wrappedQueryRangeResponse struct {
 		NodeName string `json:"node_name"`
@@ -146,10 +219,51 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 		query    string
 		filename string
 		metric   string
-		step     time.Duration // interval between query points
+		step     time.Duration
 	}
 
-	metrics := []metric{
+	metrics := cacheSoakMetricDefinitions()
+	for _, m := range metrics {
+		filename := m.filename
+		if artifactSubdir != "" {
+			filename = filepath.Join(artifactSubdir, m.filename)
+		}
+		results := make([]wrappedQueryRangeResponse, 0)
+		for _, don := range workflowDONs {
+			for _, node := range don.Nodes {
+				query := fmt.Sprintf(m.query, don.Name, node.Index)
+				queryResponse, err := pc.QueryRange(framework.QueryRangeParams{
+					Query: query,
+					Start: startTime,
+					End:   endTime,
+					Step:  m.step,
+				})
+				require.NoError(t, err, "failed to query Prometheus metrics, query:", query)
+				results = append(results, wrappedQueryRangeResponse{
+					NodeName:           node.Name,
+					QueryRangeResponse: *queryResponse,
+					Metric:             m.metric,
+				})
+			}
+		}
+
+		require.NoError(t, saveJSONFile(filename, results), "failed to save JSON file for metric:", filename)
+		framework.L.Info().Str("filename", filename).Msg("Saved JSON file for metric")
+	}
+}
+
+func cacheSoakMetricDefinitions() []struct {
+	query    string
+	filename string
+	metric   string
+	step     time.Duration
+} {
+	return []struct {
+		query    string
+		filename string
+		metric   string
+		step     time.Duration
+	}{
 		{
 			metric:   "platform_workflow_module_cache_reload_total",
 			query:    fmt.Sprintf("sum by (source) (increase(platform_workflow_module_cache_reload_total{node_don=\"%%s\", node_index=\"%%d\"}[%s]))", cachePrometheusRange),
@@ -157,14 +271,12 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 			step:     defaultMetricStep,
 		},
 		{
-			// Counter: WASM re-instantiated from on-disk cache (cold load path).
 			metric:   "platform_workflow_module_cache_reload_total",
 			query:    fmt.Sprintf("increase(platform_workflow_module_cache_reload_total{node_don=\"%%s\", node_index=\"%%d\", source=\"disk\"}[%s])", cachePrometheusRange),
 			filename: "metrics/cache_reload_disk_increase.json",
 			step:     defaultMetricStep,
 		},
 		{
-			// Counter: WASM resurrected from in-memory weak ref (warm load path).
 			metric:   "platform_workflow_module_cache_reload_total",
 			query:    fmt.Sprintf("increase(platform_workflow_module_cache_reload_total{node_don=\"%%s\", node_index=\"%%d\", source=\"weak_ref\"}[%s])", cachePrometheusRange),
 			filename: "metrics/cache_reload_memory_increase.json",
@@ -177,43 +289,36 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 			step:     defaultMetricStep,
 		},
 		{
-			// Gauge: peak loaded modules per step (cap pressure vs MaxLoaded).
 			metric:   "platform_workflow_module_cache_loaded",
 			query:    fmt.Sprintf("max_over_time(platform_workflow_module_cache_loaded{node_don=\"%%s\", node_index=\"%%d\"}[%s])", cachePrometheusRange),
 			filename: "metrics/cache_loaded.json",
 			step:     defaultMetricStep,
 		},
 		{
-			// Gauge: average evicted-module bytes not held in RAM per step.
 			metric:   "platform_workflow_module_cache_memory_saved_bytes",
 			query:    fmt.Sprintf("avg_over_time(platform_workflow_module_cache_memory_saved_bytes{node_don=\"%%s\", node_index=\"%%d\"}[%s])", cachePrometheusRange),
 			filename: "metrics/cache_memory_saved_bytes.json",
 			step:     defaultMetricStep,
 		},
 		{
-			// Gauge: total on-disk bytes under the module cache dir (DiskMonitor, ~1m tick).
-			// max_over_time: peak footprint per step; correlates with deploy count and disk reloads.
 			metric:   "platform_workflow_module_cache_disk_usage_bytes",
 			query:    fmt.Sprintf("max_over_time(platform_workflow_module_cache_disk_usage_bytes{node_don=\"%%s\", node_index=\"%%d\"}[%s])", cachePrometheusRange),
 			filename: "metrics/cache_disk_usage_bytes.json",
 			step:     defaultMetricStep,
 		},
 		{
-			// Gauge: typical on-disk cache footprint during the step (smoothed).
 			metric:   "platform_workflow_module_cache_disk_usage_bytes",
 			query:    fmt.Sprintf("avg_over_time(platform_workflow_module_cache_disk_usage_bytes{node_don=\"%%s\", node_index=\"%%d\"}[%s])", cachePrometheusRange),
 			filename: "metrics/cache_disk_usage_avg_bytes.json",
 			step:     defaultMetricStep,
 		},
 		{
-			// Gauge: workflows fetched from registry on last sync tick (registered on this node).
 			metric:   "platform_workflow_registry_syncer_fetched_workflows",
 			query:    fmt.Sprintf("max_over_time(platform_workflow_registry_syncer_fetched_workflows{node_don=\"%%s\", node_index=\"%%d\"}[%s])", cachePrometheusRange),
 			filename: "metrics/registry_fetched_workflows.json",
 			step:     defaultMetricStep,
 		},
 		{
-			// Gauge: workflow engines currently running on this node.
 			metric:   "platform_workflow_registry_syncer_running_workflows",
 			query:    fmt.Sprintf("max_over_time(platform_workflow_registry_syncer_running_workflows{node_don=\"%%s\", node_index=\"%%d\"}[%s])", cachePrometheusRange),
 			filename: "metrics/registry_running_workflows.json",
@@ -267,7 +372,6 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 			filename: "metrics/engine_trigger_event_received_increase.json",
 			step:     defaultMetricStep,
 		},
-		// Engine schedule skew by module cache path (source: loaded | weak_ref | disk).
 		{
 			metric:   "platform_engine_trigger_queue_to_execution_start_seconds",
 			query:    histogramQuantileQuery("platform_engine_trigger_queue_to_execution_start_seconds", 0.50),
@@ -334,7 +438,6 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 			filename: "metrics/cache_try_acquire_exhausted.json",
 			step:     defaultMetricStep,
 		},
-		// Container RSS (cAdvisor): 5m avg/max windows aligned with 5m query step (one bucket per point).
 		{
 			metric:   "container_memory_rss",
 			query:    "avg_over_time(container_memory_rss{name=\"%s-node%d\"}[5m]) / 1024 / 1024",
@@ -354,40 +457,68 @@ func Test_V2_CRE_CacheSoak(t *testing.T) {
 			step:     5 * time.Minute,
 		},
 	}
+}
 
-	for _, metric := range metrics {
-		results := make([]wrappedQueryRangeResponse, 0)
-		for _, don := range workflowDONs {
-			for _, node := range don.Nodes {
-				query := fmt.Sprintf(metric.query, don.Name, node.Index)
-				queryResponse, err := pc.QueryRange(framework.QueryRangeParams{
-					Query: query,
-					Start: startTime,
-					End:   endTime,
-					Step:  metric.step,
-				})
-				require.NoError(t, err, "failed to query Prometheus metrics, query:", query)
-				results = append(results, wrappedQueryRangeResponse{
-					NodeName:           node.Name,
-					QueryRangeResponse: *queryResponse,
-					Metric:             metric.metric,
-				})
-			}
+// assertWeakRefReloadsObserved requires L2 weak.Pointer reloads during the soak window.
+func assertWeakRefReloadsObserved(
+	t *testing.T,
+	pc *framework.PrometheusQueryClient,
+	workflowDONs []*cre.Don,
+	startTime, endTime time.Time,
+) {
+	t.Helper()
+
+	window := promqlDuration(endTime.Sub(startTime))
+	queryTemplate := `sum(increase(platform_workflow_module_cache_reload_total{node_don="%s", node_index="%d", source="weak_ref"}[%s]))`
+
+	for _, don := range workflowDONs {
+		for _, node := range don.Nodes {
+			query := fmt.Sprintf(queryTemplate, don.Name, node.Index, window)
+			resp, err := pc.Query(query, endTime)
+			require.NoError(t, err, "weak_ref assertion query: %s", query)
+			require.NotNil(t, resp)
+			require.NotNil(t, resp.Data)
+			require.NotEmpty(t, resp.Data.Result, "expected weak_ref reload series for %s node %d", don.Name, node.Index)
+
+			total, err := prometheusScalarValue(resp.Data.Result[0].Value)
+			require.NoError(t, err)
+			require.Greater(t, total, 0.0,
+				"node %s index %d: no weak_ref reloads in [%s]; L2 path not exercised (check GOGC=off, IdleTimeout < cron period, workflows <= MaxLoaded)",
+				don.Name, node.Index, window)
+			t.Logf("weak_ref reloads on %s node %d: %g over %s", don.Name, node.Index, total, window)
 		}
-
-		require.NoError(t, saveJSONFile(metric.filename, results), "failed to save JSON file for metric:", metric.filename)
-		testLogger.Info().Str("filename", metric.filename).Msg("Saved JSON file for metric")
 	}
+}
 
-	t_helpers.AssertNodeContainersStable(t, nodeContainers)
-	testLogger.Info().Msg("Node containers stable. None was restarted or OOM-killed.")
+func promqlDuration(d time.Duration) string {
+	if d < 5*time.Minute {
+		return "5m"
+	}
+	return fmt.Sprintf("%dm", int(d.Round(time.Minute)/time.Minute))
+}
+
+func prometheusScalarValue(value []interface{}) (float64, error) {
+	if len(value) < 2 {
+		return 0, fmt.Errorf("prometheus value too short: %v", value)
+	}
+	switch v := value[1].(type) {
+	case string:
+		f, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return 0, err
+		}
+		return f, nil
+	case float64:
+		return v, nil
+	default:
+		return 0, fmt.Errorf("unexpected prometheus value type %T", value[1])
+	}
 }
 
 func crePerWorkflowSizeLimitMiB(size config.Size) int {
 	return int(size / config.MByte)
 }
 
-// histogramQuantileQuery aggregates per-workflow engine histograms on a node (sum by le).
 func histogramQuantileQuery(metric string, quantile float64) string {
 	return fmt.Sprintf(
 		`histogram_quantile(%g, sum by (le) (rate(%s_bucket{node_don="%%s", node_index="%%d"}[%s])))`,
@@ -402,17 +533,21 @@ func histogramQuantileQueryBySource(metric string, quantile float64, source stri
 	)
 }
 
-// cacheSoakWorkflowSchedule returns a minute-granularity cron schedule aligned with the soak topology.
-// Workflows with index divisible by cacheSoakSchedulePeriod use slowCronInterval (idle eviction tier);
-// the rest use fastCronInterval to keep MaxLoaded full and drive cap eviction.
-// Offsets stagger fires so cap and idle events land in different 5m Prometheus buckets.
-func cacheSoakWorkflowSchedule(workflowIndex int) string {
+// cacheSoakCapPressureSchedule: fast cron + slow tier for cap vs idle eviction under registry pressure.
+func cacheSoakCapPressureSchedule(workflowIndex int) string {
 	if workflowIndex%cacheSoakSchedulePeriod == 0 {
 		offset := (workflowIndex / cacheSoakSchedulePeriod) % int(slowCronInterval.Minutes())
 		return fmt.Sprintf("0 %d/%d * * * *", offset, int(slowCronInterval.Minutes()))
 	}
 	offset := workflowIndex % int(fastCronInterval.Minutes())
 	return fmt.Sprintf("0 %d/%d * * * *", offset, int(fastCronInterval.Minutes()))
+}
+
+// cacheSoakWeakRefSchedule: every weakRefCronInterval, staggered; idle eviction fires before next tick.
+func cacheSoakWeakRefSchedule(workflowIndex int) string {
+	periodMin := int(weakRefCronInterval.Minutes())
+	offset := workflowIndex % periodMin
+	return fmt.Sprintf("0 %d/%d * * * *", offset, periodMin)
 }
 
 func saveJSONFile(path string, v any) error {
