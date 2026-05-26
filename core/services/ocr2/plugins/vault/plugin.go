@@ -533,7 +533,7 @@ func (r *ReportingPlugin) prepareObservationPendingQueueBlobs(
 	}
 
 	var err error
-	out, currentBatch, err = r.flushBatch(ctx, seqNr, currentBatch, out, maxBlobBytes, maxBlobHandleCount)
+	out, _, err = r.flushBatch(ctx, seqNr, currentBatch, out, maxBlobBytes, maxBlobHandleCount)
 	if err != nil {
 		return pendingQueueBlobPack{}, err
 	}
