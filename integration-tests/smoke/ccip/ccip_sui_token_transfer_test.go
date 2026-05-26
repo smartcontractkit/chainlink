@@ -470,6 +470,9 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 
 	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
+	// Ensure Sui state is fully consistent before curse operation
+	waitForSuiRPCSyncSlow(t, e.Env.BlockChains.SuiChains()[sourceChain])
+
 	// curse globally
 	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.RMNRemoteCurseOp, deps, ccipops.RMNRemoteCurseInput{
 		CCIPPackageId:    suiState[sourceChain].CCIPAddress,
@@ -887,6 +890,9 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 
 	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
+	// Ensure Sui state is fully consistent before curse operation
+	waitForSuiRPCSyncSlow(t, e.Env.BlockChains.SuiChains()[sourceChain])
+
 	// curse destination chain
 	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.RMNRemoteCurseOp, deps, ccipops.RMNRemoteCurseInput{
 		CCIPPackageId:    suiState[sourceChain].CCIPAddress,
@@ -925,6 +931,9 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 	})
 
 	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
+
+	// Ensure Sui state is fully consistent before uncurse operation
+	waitForSuiRPCSyncSlow(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
 	// uncurse destination chain
 	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.RMNRemoteUncurseOp, deps, ccipops.RMNRemoteUncurseInput{
