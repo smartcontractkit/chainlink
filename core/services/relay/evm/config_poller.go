@@ -73,7 +73,7 @@ func NewConfigPoller(ctx context.Context, lggr logger.Logger, cfg CPConfig) (con
 	return NewConfigPollerWithParams(ctx, lggr, cfg.Client, cfg.DestinationChainPoller, cfg.AggregatorContractAddress, cfg.ConfigStoreAddress, cfg.LogDecoder)
 }
 
-func NewConfigPollerWithParams(ctx context.Context, lggr logger.Logger, client client.Client, destChainPoller logpoller.LogPoller, aggregatorContractAddr common.Address, configStoreAddr *common.Address, ld LogDecoder) (*configPoller, error) {
+func NewConfigPollerWithParams(ctx context.Context, lggr logger.Logger, client client.Client, destChainPoller logpoller.LogPoller, aggregatorContractAddr common.Address, configStoreAddr *common.Address, ld LogDecoder) (config.ConfigPoller, error) {
 	err := destChainPoller.RegisterFilter(ctx, logpoller.Filter{Name: configPollerFilterName(aggregatorContractAddr), EventSigs: []common.Hash{ld.EventSig()}, Addresses: []common.Address{aggregatorContractAddr}})
 	if err != nil {
 		return nil, err
