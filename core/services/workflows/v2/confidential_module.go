@@ -20,20 +20,16 @@ import (
 
 	confworkflowtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
+	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
+
+	workflowtypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
 const confidentialWorkflowsCapabilityID = "confidential-workflows@1.0.0-alpha"
 
 // WorkflowAttributes is the JSON structure stored in WorkflowSpec.Attributes.
 type WorkflowAttributes struct {
-	Confidential    bool               `json:"confidential"`
-	VaultDonSecrets []SecretIdentifier `json:"vault_don_secrets"`
-}
-
-// SecretIdentifier identifies a secret in VaultDON.
-type SecretIdentifier struct {
-	Key       string `json:"key"`
-	Namespace string `json:"namespace,omitempty"`
+	Confidential bool `json:"confidential"`
 }
 
 // ParseWorkflowAttributes parses the Attributes JSON from a WorkflowSpec.
@@ -64,14 +60,18 @@ func IsConfidential(data []byte) (bool, error) {
 // Instead of running WASM locally, it delegates execution to the
 // confidential-workflows capability via the CapabilitiesRegistry.
 type ConfidentialModule struct {
-	capRegistry       core.CapabilitiesRegistry
-	binaryURL         string
-	binaryHash        []byte
-	workflowID        string
-	workflowOwner     string
-	workflowName      string
-	workflowTag       string
-	vaultDonSecrets   []SecretIdentifier
+	capRegistry   core.CapabilitiesRegistry
+	binaryHash    []byte
+	workflowID    string
+	workflowOwner string
+	workflowName  string
+	workflowTag   string
+	// retrieveURL mints a fresh pre-signed CloudFront URL via the storage
+	// service's NodeService.DownloadArtifact at every Execute call. Each
+	// workflow DON node gets its own URL with its own signature and expiry,
+	// which is why the URL is carried on ConfidentialWorkflowRequest (outside
+	// the hashed WorkflowExecution) rather than inside it.
+	retrieveURL       workflowtypes.LocationRetrieverFunc
 	creSettingsGetter settings.Getter
 	orgID             string // resolved via org resolver at construction; stable for module lifetime
 	lggr              logger.Logger
@@ -81,23 +81,21 @@ var _ host.ModuleV2 = (*ConfidentialModule)(nil)
 
 func NewConfidentialModule(
 	capRegistry core.CapabilitiesRegistry,
-	binaryURL string,
 	binaryHash []byte,
 	workflowID, workflowOwner, workflowName, workflowTag string,
-	vaultDonSecrets []SecretIdentifier,
+	retrieveURL workflowtypes.LocationRetrieverFunc,
 	creSettingsGetter settings.Getter,
 	orgID string,
 	lggr logger.Logger,
 ) *ConfidentialModule {
 	return &ConfidentialModule{
 		capRegistry:       capRegistry,
-		binaryURL:         binaryURL,
 		binaryHash:        binaryHash,
 		workflowID:        workflowID,
 		workflowOwner:     workflowOwner,
 		workflowName:      workflowName,
 		workflowTag:       workflowTag,
-		vaultDonSecrets:   vaultDonSecrets,
+		retrieveURL:       retrieveURL,
 		creSettingsGetter: creSettingsGetter,
 		orgID:             orgID,
 		lggr:              lggr,
@@ -118,24 +116,25 @@ func (m *ConfidentialModule) Execute(
 		return nil, fmt.Errorf("failed to marshal ExecuteRequest: %w", err)
 	}
 
-	protoSecrets := make([]*confworkflowtypes.SecretIdentifier, len(m.vaultDonSecrets))
-	for i, s := range m.vaultDonSecrets {
-		// VaultDON treats "main" as the default namespace for secrets.
-		ns := s.Namespace
-		if ns == "" {
-			ns = "main"
-		}
-		protoSecrets[i] = &confworkflowtypes.SecretIdentifier{
-			Key:       s.Key,
-			Namespace: &ns,
-		}
+	if m.retrieveURL == nil {
+		return nil, errors.New("confidential module is missing a URL retriever; cannot fetch binary from storage service")
+	}
+	binaryURL, err := m.retrieveURL(ctx, &storage_service.DownloadArtifactRequest{
+		Id:   m.workflowID,
+		Type: storage_service.ArtifactType_ARTIFACT_TYPE_BINARY,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to mint pre-signed binary URL from storage service: %w", err)
 	}
 
 	capInput := &confworkflowtypes.ConfidentialWorkflowRequest{
-		VaultDonSecrets: protoSecrets,
+		// binary_url rides at the request level, outside the hashed
+		// WorkflowExecution. WorkflowExecution.binary_url is deprecated and
+		// intentionally left unset: it is inside ComputeRequest.PublicData
+		// (hashed for F+1 quorum), so a per-node value there would break quorum.
+		BinaryUrl: binaryURL,
 		Execution: &confworkflowtypes.WorkflowExecution{
 			WorkflowId:     m.workflowID,
-			BinaryUrl:      m.binaryURL,
 			BinaryHash:     m.binaryHash,
 			ExecuteRequest: execReqBytes,
 			Owner:          m.workflowOwner,

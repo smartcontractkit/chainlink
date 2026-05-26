@@ -20,12 +20,23 @@ import (
 
 	confworkflowtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
+	workflowtypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
+	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 	wfpb "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 )
+
+// stubRetrieveURL returns a LocationRetrieverFunc that always returns the given
+// URL, simulating the storage service's NodeService.DownloadArtifact presigned
+// URL response without a real storage backend.
+func stubRetrieveURL(url string) workflowtypes.LocationRetrieverFunc {
+	return func(context.Context, *storage_service.DownloadArtifactRequest) (string, error) {
+		return url, nil
+	}
+}
 
 // stubExecutionHelper implements host.ExecutionHelper for testing.
 type stubExecutionHelper struct {
@@ -49,23 +60,17 @@ func (s *stubExecutionHelper) EmitUserMetric(context.Context, *wfpb.WorkflowUser
 }
 
 func TestParseWorkflowAttributes(t *testing.T) {
-	t.Run("valid JSON with all fields", func(t *testing.T) {
-		data := []byte(`{"confidential":true,"vault_don_secrets":[{"key":"API_KEY"},{"key":"SIGNING_KEY","namespace":"custom-ns"}]}`)
+	t.Run("confidential true", func(t *testing.T) {
+		data := []byte(`{"confidential":true}`)
 		attrs, err := ParseWorkflowAttributes(data)
 		require.NoError(t, err)
 		assert.True(t, attrs.Confidential)
-		require.Len(t, attrs.VaultDonSecrets, 2)
-		assert.Equal(t, "API_KEY", attrs.VaultDonSecrets[0].Key)
-		assert.Empty(t, attrs.VaultDonSecrets[0].Namespace)
-		assert.Equal(t, "SIGNING_KEY", attrs.VaultDonSecrets[1].Key)
-		assert.Equal(t, "custom-ns", attrs.VaultDonSecrets[1].Namespace)
 	})
 
 	t.Run("empty data returns zero value", func(t *testing.T) {
 		attrs, err := ParseWorkflowAttributes(nil)
 		require.NoError(t, err)
 		assert.False(t, attrs.Confidential)
-		assert.Nil(t, attrs.VaultDonSecrets)
 
 		attrs, err = ParseWorkflowAttributes([]byte{})
 		require.NoError(t, err)
@@ -83,6 +88,15 @@ func TestParseWorkflowAttributes(t *testing.T) {
 		_, err := ParseWorkflowAttributes([]byte(`{not json}`))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to parse workflow attributes")
+	})
+
+	t.Run("unknown keys are ignored", func(t *testing.T) {
+		// vault_don_secrets is a leftover key from a previous schema. Parsing
+		// must tolerate it without failing.
+		data := []byte(`{"confidential":true,"vault_don_secrets":[{"key":"X"}]}`)
+		attrs, err := ParseWorkflowAttributes(data)
+		require.NoError(t, err)
+		assert.True(t, attrs.Confidential)
 	})
 }
 
@@ -166,16 +180,12 @@ func TestConfidentialModule_Execute(t *testing.T) {
 
 		mod := NewConfidentialModule(
 			capReg,
-			"https://example.com/binary.wasm",
 			[]byte("fakehash"),
 			"wf-123",
 			"owner-abc",
 			"my-workflow",
 			"v1",
-			[]SecretIdentifier{
-				{Key: "API_KEY"},
-				{Key: "SIGNING_KEY", Namespace: "custom-ns"},
-			},
+			stubRetrieveURL("https://example.com/binary.wasm"),
 			nil,
 			"",
 			lggr,
@@ -190,50 +200,13 @@ func TestConfidentialModule_Execute(t *testing.T) {
 		assert.Equal(t, "enclave-output", val.GetStringValue())
 	})
 
-	t.Run("default namespace is main", func(t *testing.T) {
-		capReg := regmocks.NewCapabilitiesRegistry(t)
-		execCap := capmocks.NewExecutableCapability(t)
-
-		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
-			Return(execCap, nil).Once()
-
-		// Capture the request to inspect proto secrets.
-		var capturedReq capabilities.CapabilityRequest
-		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
-			Run(func(_ context.Context, req capabilities.CapabilityRequest) {
-				capturedReq = req
-			}).
-			Return(capabilities.CapabilityResponse{Payload: respPayload}, nil).Once()
-
-		mod := NewConfidentialModule(
-			capReg,
-			"https://example.com/binary.wasm",
-			[]byte("hash"),
-			"wf-1", "owner", "name", "tag",
-			[]SecretIdentifier{{Key: "SECRET_A"}}, // no namespace
-			nil,
-			"",
-			lggr,
-		)
-
-		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{executionID: "exec-1"})
-		require.NoError(t, err)
-
-		// Unmarshal the captured request payload and verify namespace defaulted to "main".
-		var confReq confworkflowtypes.ConfidentialWorkflowRequest
-		require.NoError(t, capturedReq.Payload.UnmarshalTo(&confReq))
-		require.Len(t, confReq.VaultDonSecrets, 1)
-		assert.Equal(t, "SECRET_A", confReq.VaultDonSecrets[0].Key)
-		assert.Equal(t, "main", confReq.VaultDonSecrets[0].GetNamespace())
-	})
-
 	t.Run("GetExecutable error", func(t *testing.T) {
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
 			Return(nil, errors.New("capability not found")).Once()
 
 		mod := NewConfidentialModule(
-			capReg, "", nil, "wf", "owner", "name", "tag", nil, nil, "", lggr,
+			capReg, nil, "wf", "owner", "name", "tag", stubRetrieveURL("https://example.com/x"), nil, "", lggr,
 		)
 
 		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{})
@@ -251,7 +224,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 			Return(capabilities.CapabilityResponse{}, errors.New("enclave unavailable")).Once()
 
 		mod := NewConfidentialModule(
-			capReg, "", nil, "wf", "owner", "name", "tag", nil, nil, "", lggr,
+			capReg, nil, "wf", "owner", "name", "tag", stubRetrieveURL("https://example.com/x"), nil, "", lggr,
 		)
 
 		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{})
@@ -269,12 +242,39 @@ func TestConfidentialModule_Execute(t *testing.T) {
 			Return(capabilities.CapabilityResponse{Payload: nil}, nil).Once()
 
 		mod := NewConfidentialModule(
-			capReg, "", nil, "wf", "owner", "name", "tag", nil, nil, "", lggr,
+			capReg, nil, "wf", "owner", "name", "tag", stubRetrieveURL("https://example.com/x"), nil, "", lggr,
 		)
 
 		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "returned nil payload")
+	})
+
+	t.Run("missing URL retriever errors", func(t *testing.T) {
+		capReg := regmocks.NewCapabilitiesRegistry(t)
+		mod := NewConfidentialModule(
+			capReg, nil, "wf", "owner", "name", "tag", nil, nil, "", lggr,
+		)
+
+		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "missing a URL retriever")
+	})
+
+	t.Run("retrieveURL error", func(t *testing.T) {
+		capReg := regmocks.NewCapabilitiesRegistry(t)
+		failingRetrieve := workflowtypes.LocationRetrieverFunc(
+			func(context.Context, *storage_service.DownloadArtifactRequest) (string, error) {
+				return "", errors.New("storage service down")
+			},
+		)
+		mod := NewConfidentialModule(
+			capReg, nil, "wf", "owner", "name", "tag", failingRetrieve, nil, "", lggr,
+		)
+
+		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to mint pre-signed binary URL")
 	})
 
 	t.Run("request fields are forwarded correctly", func(t *testing.T) {
@@ -294,16 +294,12 @@ func TestConfidentialModule_Execute(t *testing.T) {
 		binaryHash := ComputeBinaryHash([]byte("some-binary"))
 		mod := NewConfidentialModule(
 			capReg,
-			"https://example.com/wasm",
 			binaryHash,
 			"wf-abc",
 			"0xowner",
 			"my-workflow",
 			"v2",
-			[]SecretIdentifier{
-				{Key: "K1", Namespace: "ns1"},
-				{Key: "K2"},
-			},
+			stubRetrieveURL("https://presigned.cloudfront.example.com/wasm?sig=abc"),
 			nil,
 			"",
 			lggr,
@@ -326,20 +322,16 @@ func TestConfidentialModule_Execute(t *testing.T) {
 		require.NoError(t, capturedReq.Payload.UnmarshalTo(&confReq))
 
 		assert.Equal(t, "wf-abc", confReq.Execution.WorkflowId)
-		assert.Equal(t, "https://example.com/wasm", confReq.Execution.BinaryUrl)
+		// binary_url is the per-execution minted URL on the request (outside the
+		// hashed WorkflowExecution); the in-hash Execution.binary_url is left unset.
+		assert.Equal(t, "https://presigned.cloudfront.example.com/wasm?sig=abc", confReq.BinaryUrl)
+		assert.Empty(t, confReq.Execution.BinaryUrl)
 		assert.Equal(t, binaryHash, confReq.Execution.BinaryHash)
 
 		// Verify the serialized ExecuteRequest round-trips.
 		var roundTripped sdkpb.ExecuteRequest
 		require.NoError(t, proto.Unmarshal(confReq.Execution.ExecuteRequest, &roundTripped))
 		assert.Equal(t, execReq.GetConfig(), roundTripped.GetConfig())
-
-		// Verify secrets.
-		require.Len(t, confReq.VaultDonSecrets, 2)
-		assert.Equal(t, "K1", confReq.VaultDonSecrets[0].Key)
-		assert.Equal(t, "ns1", confReq.VaultDonSecrets[0].GetNamespace())
-		assert.Equal(t, "K2", confReq.VaultDonSecrets[1].Key)
-		assert.Equal(t, "main", confReq.VaultDonSecrets[1].GetNamespace())
 	})
 }
 

@@ -88,6 +88,10 @@ type eventHandler struct {
 	billingClient          metering.BillingClient
 	orgResolver            orgresolver.OrgResolver
 	secretsFetcher         v2.SecretsFetcher
+	// retrieveURL mints a per-execution pre-signed download URL via the storage
+	// service for confidential workflows. Wired into ConfidentialModule so each
+	// run gets a fresh per-node URL.
+	retrieveURL types.LocationRetrieverFunc
 	// localSecretOverrides is keyed by owner address; values are secret id -> secret value
 	localSecretOverrides map[string]map[string]string
 
@@ -148,6 +152,16 @@ func WithStaticEngine(engine services.Service) func(*eventHandler) {
 func WithBillingClient(client metering.BillingClient) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.billingClient = client
+	}
+}
+
+// WithLocationRetriever installs the LocationRetrieverFunc used by
+// confidentialEngineFactory to mint per-execution pre-signed download URLs for
+// the confidential workflow path. Without it, ConfidentialModule.Execute fails
+// at runtime because there is no other way to obtain the URL.
+func WithLocationRetriever(fn types.LocationRetrieverFunc) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.retrieveURL = fn
 	}
 }
 
@@ -1102,11 +1116,6 @@ func (h *eventHandler) confidentialEngineFactory(
 	decodedBinary []byte,
 	initDone chan<- error,
 ) (services.Service, error) {
-	attrs, err := v2.ParseWorkflowAttributes(spec.Attributes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse workflow attributes: %w", err)
-	}
-
 	binaryHash := v2.ComputeBinaryHash(decodedBinary)
 
 	lggr := logger.Named(h.lggr, "WorkflowEngine.ConfidentialModule")
@@ -1129,10 +1138,9 @@ func (h *eventHandler) confidentialEngineFactory(
 
 	module := v2.NewConfidentialModule(
 		h.capRegistry,
-		spec.BinaryURL,
 		binaryHash,
 		spec.WorkflowID, spec.WorkflowOwner, workflowName.String(), spec.WorkflowTag,
-		attrs.VaultDonSecrets,
+		h.retrieveURL,
 		creGetter,
 		engineOrgID,
 		lggr,
