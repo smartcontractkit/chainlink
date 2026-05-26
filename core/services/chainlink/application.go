@@ -377,17 +377,16 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	jwtGenerator := nodeauthjwt.NewNodeJWTGenerator(csaSigner, csaPubKey)
 
 	// Wire DurableEmitter for persistent chip ingress delivery when enabled.
-	{
+	if cfg.Telemetry().DurableEmitterEnabled() && cfg.Telemetry().ChipIngressEndpoint() != "" {
 		var auth chipingress.HeaderProvider
 		if len(beholderAuthHeaders) > 0 {
 			auth = beholder.NewStaticAuth(beholderAuthHeaders, !cfg.Telemetry().ChipIngressInsecureConnection())
 		}
 		durableCfg := durableemitter.SetupConfig{
-			DurableEmitterEnabled: cfg.Telemetry().DurableEmitterEnabled() && cfg.Telemetry().ChipIngressEndpoint() != "",
-			Endpoint:              cfg.Telemetry().ChipIngressEndpoint(),
-			InsecureConnection:    cfg.Telemetry().ChipIngressInsecureConnection(),
-			Auth:                  auth,
-			RetransmitEnabled:     true, // host process owns retransmit
+			Endpoint:           cfg.Telemetry().ChipIngressEndpoint(),
+			InsecureConnection: cfg.Telemetry().ChipIngressInsecureConnection(),
+			Auth:               auth,
+			RetransmitEnabled:  true, // host process owns retransmit
 		}
 		pgStore := durableemitter.NewPgDurableEventStore(opts.DS)
 		durableEmitter, err := durableemitter.Setup(pgStore, durableCfg, globalLogger)
