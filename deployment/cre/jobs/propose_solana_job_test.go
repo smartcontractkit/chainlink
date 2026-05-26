@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
@@ -183,22 +184,26 @@ func TestProposeSolanaJobSpec_VerifyPreconditions_overrideMismatches(t *testing.
 }
 
 type solanaJobTestSetup struct {
-	env             *cldf.Environment
+	rt              *runtime.Runtime
 	solanaCapInputs []jobs.SolanaCapabilityInput
 	baseInput       jobs.ProposeSolanaJobSpecInput
 }
 
 func setupSolanaJobTest(t *testing.T) solanaJobTestSetup {
 	t.Helper()
-	testEnv := test.SetupEnvV2(t, false)
-	solSel := chainsel.SOLANA_DEVNET.Selector
 
-	ds := datastore.NewMemoryDataStore()
+	var (
+		solSel = chainsel.SOLANA_DEVNET.Selector
+		ds     = datastore.NewMemoryDataStore()
+	)
+
 	seedSolanaForwarderAddresses(t, ds, solSel, testSolSolanaFwdQualifier, testSolanaForwarderProgram, testSolanaForwarderState)
-	env := testEnv.Env
-	env.DataStore = ds.Seal()
 
-	nodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+	// Inject a new Job Distributor into the environment for testing
+	h := test.NewTestHarness(t, test.WithDatastore(ds))
+	env := h.Runtime.Environment()
+
+	nodes, err := h.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
 	require.NoError(t, err)
 
 	var solanaCapInputs []jobs.SolanaCapabilityInput
@@ -212,7 +217,7 @@ func setupSolanaJobTest(t *testing.T) solanaJobTestSetup {
 	}
 
 	client := tenv.NewJobServiceClient(mockGetter)
-	testEnv.TestJD.JobServiceClient = client
+	h.TestJD.JobServiceClient = client
 
 	env.Offchain = struct {
 		jobv1.JobServiceClient
@@ -223,6 +228,9 @@ func setupSolanaJobTest(t *testing.T) solanaJobTestSetup {
 		NodeServiceClient: env.Offchain,
 		CSAServiceClient:  env.Offchain,
 	}
+
+	// We need to create a new runtime from the updated environment
+	h.Runtime = runtime.NewFromEnvironment(env)
 
 	baseInput := jobs.ProposeSolanaJobSpecInput{
 		Environment:            test.EnvironmentName,
@@ -237,7 +245,7 @@ func setupSolanaJobTest(t *testing.T) solanaJobTestSetup {
 	}
 
 	return solanaJobTestSetup{
-		env:             env,
+		rt:              h.Runtime,
 		solanaCapInputs: solanaCapInputs,
 		baseInput:       baseInput,
 	}
@@ -247,9 +255,11 @@ func TestProposeSolanaJobSpec_Apply_success(t *testing.T) {
 	setup := setupSolanaJobTest(t)
 	input := setup.baseInput
 
-	require.NoError(t, jobs.ProposeSolanaJobSpec{}.VerifyPreconditions(*setup.env, input))
+	task := runtime.ChangesetTask(jobs.ProposeSolanaJobSpec{}, input)
+	err := setup.rt.Exec(task)
+	require.NoError(t, err)
 
-	out, err := jobs.ProposeSolanaJobSpec{}.Apply(*setup.env, input)
+	out := setup.rt.State().Outputs[task.ID()]
 	require.NoError(t, err)
 	assert.Len(t, out.Reports, 1)
 }
@@ -263,7 +273,7 @@ func TestProposeSolanaJobSpec_Apply_duplicateNodeIDs(t *testing.T) {
 		setup.solanaCapInputs[0],
 	}
 
-	_, err := jobs.ProposeSolanaJobSpec{}.Apply(*setup.env, input)
+	_, err := jobs.ProposeSolanaJobSpec{}.Apply(setup.rt.Environment(), input)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "duplicate nodeID")
 }

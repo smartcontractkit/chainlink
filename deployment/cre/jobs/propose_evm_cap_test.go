@@ -11,18 +11,19 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
-	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	tenv "github.com/smartcontractkit/chainlink/deployment/environment/test"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
+	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
+	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
@@ -35,7 +36,7 @@ const (
 )
 
 type evmCapTestSetup struct {
-	env          *cldf.Environment
+	rt           *runtime.Runtime
 	nodeIDs      []string
 	evmCapInputs []jobs.EVMCapabilityInput
 	baseInput    jobs.ProposeEVMCapJobSpecInput
@@ -43,15 +44,17 @@ type evmCapTestSetup struct {
 
 func setupEVMCapTest(t *testing.T) evmCapTestSetup {
 	t.Helper()
-	testEnv := test.SetupEnvV2(t, false)
 
-	selector := testEnv.RegistrySelector
 	ds := datastore.NewMemoryDataStore()
-	seedAddressesForSelector(t, ds, selector, "0xocr...", "0xfwd...")
-	env := testEnv.Env
-	env.DataStore = ds.Seal()
+	seedAddressesForSelector(t, ds, test.DefaultRegistrySelector, "0xocr...", "0xfwd...")
 
-	nodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+	var (
+		h        = test.NewTestHarness(t, test.WithDatastore(ds))
+		env      = h.Runtime.Environment()
+		selector = h.RegistrySelector
+	)
+
+	nodes, err := h.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
 	require.NoError(t, err)
 
 	var nodeIDs []string
@@ -68,7 +71,7 @@ func setupEVMCapTest(t *testing.T) evmCapTestSetup {
 
 	client := tenv.NewJobServiceClient(mockGetter)
 
-	testEnv.TestJD.JobServiceClient = client
+	h.TestJD.JobServiceClient = client
 
 	env.Offchain = struct {
 		jobv1.JobServiceClient
@@ -79,6 +82,8 @@ func setupEVMCapTest(t *testing.T) evmCapTestSetup {
 		NodeServiceClient: env.Offchain,
 		CSAServiceClient:  env.Offchain,
 	}
+
+	rt := runtime.NewFromEnvironment(env)
 
 	baseInput := jobs.ProposeEVMCapJobSpecInput{
 		Environment:             test.EnvironmentName,
@@ -96,7 +101,7 @@ func setupEVMCapTest(t *testing.T) evmCapTestSetup {
 	}
 
 	return evmCapTestSetup{
-		env:          env,
+		rt:           rt,
 		nodeIDs:      nodeIDs,
 		evmCapInputs: evmCapInputs,
 		baseInput:    baseInput,
@@ -338,7 +343,6 @@ func TestProposeEVMCapJobSpec_VerifyPreconditions_mismatchAndMinimums(t *testing
 
 func TestProposeEVMCapJobSpec_Apply_success(t *testing.T) {
 	setup := setupEVMCapTest(t)
-	env := setup.env
 
 	const (
 		inputLookback  int64 = 123 // non-zero input-level default
@@ -359,10 +363,12 @@ func TestProposeEVMCapJobSpec_Apply_success(t *testing.T) {
 	input.EVMCapabilityInputs[0].OverrideDefaultCfg.DeltaStage = 5 * time.Second
 
 	// Verify should pass
-	require.NoError(t, jobs.ProposeEVMCapJobSpec{}.VerifyPreconditions(*env, input))
-
-	out, err := jobs.ProposeEVMCapJobSpec{}.Apply(*env, input)
+	task := runtime.ChangesetTask(jobs.ProposeEVMCapJobSpec{}, input)
+	err := setup.rt.Exec(task)
 	require.NoError(t, err)
+
+	out := setup.rt.State().Outputs[task.ID()]
+	assert.NotNil(t, out, "changeset output should not be nil")
 	assert.Len(t, out.Reports, 1)
 
 	// Validate exactly one override and three defaults
@@ -377,7 +383,6 @@ func TestProposeEVMCapJobSpec_Apply_success(t *testing.T) {
 
 func TestProposeEVMCapJobSpec_Apply_duplicateNodeIDs(t *testing.T) {
 	setup := setupEVMCapTest(t)
-	env := setup.env
 
 	input := setup.baseInput
 	// duplicate
@@ -387,22 +392,22 @@ func TestProposeEVMCapJobSpec_Apply_duplicateNodeIDs(t *testing.T) {
 		setup.evmCapInputs[0],
 	}
 
-	_, err := jobs.ProposeEVMCapJobSpec{}.Apply(*env, input)
+	task := runtime.ChangesetTask(jobs.ProposeEVMCapJobSpec{}, input)
+	err := setup.rt.Exec(task)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "duplicate nodeID")
+	require.ErrorContains(t, err, "duplicate nodeID")
 }
 
 func TestProposeStandardCapabilityJob_ReusesUUIDForEvmCapabilitiesV2(t *testing.T) {
 	setup := setupEVMCapTest(t)
-	env := setup.env
 	nodeIDs := setup.nodeIDs
 	baseInput := setup.baseInput
 
 	verifyJobProposal := func(revision int64) {
-		jobProposals, err := env.Offchain.ListProposals(t.Context(), &jobv1.ListProposalsRequest{})
+		jobProposals, err := setup.rt.Environment().Offchain.ListProposals(t.Context(), &jobv1.ListProposalsRequest{})
 		require.NoError(t, err)
 
-		jobsList, err := env.Offchain.ListJobs(t.Context(), &jobv1.ListJobsRequest{Filter: &jobv1.ListJobsRequest_Filter{NodeIds: nodeIDs}})
+		jobsList, err := setup.rt.Environment().Offchain.ListJobs(t.Context(), &jobv1.ListJobsRequest{Filter: &jobv1.ListJobsRequest_Filter{NodeIds: nodeIDs}})
 		require.NoError(t, err)
 
 		proposalsAtRevision := 0
@@ -420,19 +425,26 @@ func TestProposeStandardCapabilityJob_ReusesUUIDForEvmCapabilitiesV2(t *testing.
 
 	// verify that the jobs have been distributed and accepted
 	input := baseInput
-	_, err := jobs.ProposeEVMCapJobSpec{}.Apply(*env, input)
+
+	err := setup.rt.Exec(
+		runtime.ChangesetTask(jobs.ProposeEVMCapJobSpec{}, input),
+	)
 	require.NoError(t, err)
 
 	verifyJobProposal(1)
 
 	// different config generates different uuid, but evm cap jobs should lookup the old id and reuse it
 	input.ForwarderLookbackBlocks = 999
-	_, err = jobs.ProposeEVMCapJobSpec{}.Apply(*env, input)
+
+	err = setup.rt.Exec(
+		runtime.ChangesetTask(jobs.ProposeEVMCapJobSpec{}, input),
+	)
 	require.NoError(t, err)
+
 	verifyJobProposal(2)
 
 	// Verify that jobs use the new name format (evm-cap-v2)
-	jobProposals, err := env.Offchain.ListProposals(t.Context(), &jobv1.ListProposalsRequest{})
+	jobProposals, err := setup.rt.Environment().Offchain.ListProposals(t.Context(), &jobv1.ListProposalsRequest{})
 	require.NoError(t, err)
 
 	hasNewFormat := false
@@ -449,7 +461,6 @@ func TestProposeStandardCapabilityJob_ReusesUUIDForEvmCapabilitiesV2(t *testing.
 
 func TestProposeStandardCapabilityJob_ReusesUUIDWithLegacyNameFormat(t *testing.T) {
 	setup := setupEVMCapTest(t)
-	env := setup.env
 	nodeIDs := setup.nodeIDs
 	baseInput := setup.baseInput
 
@@ -460,7 +471,7 @@ func TestProposeStandardCapabilityJob_ReusesUUIDWithLegacyNameFormat(t *testing.
 		Command:     "/usr/local/bin/evm",
 		DONName:     test.DONName,
 		Domain:      "cre",
-		Environment: env.Name,
+		Environment: test.EnvironmentName,
 		DONFilters: []offchain.TargetDONFilter{
 			{Key: "zone", Value: test.Zone},
 		},
@@ -470,19 +481,21 @@ func TestProposeStandardCapabilityJob_ReusesUUIDWithLegacyNameFormat(t *testing.
 		BootstrapPeers:        baseInput.BootstrapperOCR3Urls,
 	}
 
-	_, err := jobs.ProposeStandardCapabilityJob{}.Apply(*env, legacyJobInput)
+	err := setup.rt.Exec(
+		runtime.ChangesetTask(jobs.ProposeStandardCapabilityJob{}, legacyJobInput),
+	)
 	require.NoError(t, err)
 
 	// Get initial proposal count after creating legacy job
-	initialProposals, err := env.Offchain.ListProposals(t.Context(), &jobv1.ListProposalsRequest{})
+	initialProposals, err := setup.rt.Environment().Offchain.ListProposals(t.Context(), &jobv1.ListProposalsRequest{})
 	require.NoError(t, err)
 	initialCount := len(initialProposals.GetProposals())
 
 	verifyJobProposal := func(expectedNewProposals int) {
-		jobProposals, err := env.Offchain.ListProposals(t.Context(), &jobv1.ListProposalsRequest{})
+		jobProposals, err := setup.rt.Environment().Offchain.ListProposals(t.Context(), &jobv1.ListProposalsRequest{})
 		require.NoError(t, err)
 
-		jobsList, err := env.Offchain.ListJobs(t.Context(), &jobv1.ListJobsRequest{Filter: &jobv1.ListJobsRequest_Filter{NodeIds: nodeIDs}})
+		jobsList, err := setup.rt.Environment().Offchain.ListJobs(t.Context(), &jobv1.ListJobsRequest{Filter: &jobv1.ListJobsRequest_Filter{NodeIds: nodeIDs}})
 		require.NoError(t, err)
 
 		require.Len(t, jobsList.GetJobs(), len(nodeIDs))
@@ -492,19 +505,23 @@ func TestProposeStandardCapabilityJob_ReusesUUIDWithLegacyNameFormat(t *testing.
 	// Now propose again with ProposeEVMCapJobSpec (which uses new format evm-cap-v2)
 	// The system should detect the existing legacy job and handle it correctly
 	input := baseInput
-	_, err = jobs.ProposeEVMCapJobSpec{}.Apply(*env, input)
+	err = setup.rt.Exec(
+		runtime.ChangesetTask(jobs.ProposeEVMCapJobSpec{}, input),
+	)
 	require.NoError(t, err)
 
 	verifyJobProposal(len(nodeIDs))
 
 	// different config generates different uuid, but evm cap jobs should lookup the old id and reuse it
 	input.ForwarderLookbackBlocks = 999
-	_, err = jobs.ProposeEVMCapJobSpec{}.Apply(*env, input)
+	err = setup.rt.Exec(
+		runtime.ChangesetTask(jobs.ProposeEVMCapJobSpec{}, input),
+	)
 	require.NoError(t, err)
 	verifyJobProposal(len(nodeIDs) * 2)
 
 	// Verify that jobs use the legacy name format (evm-capabilities-v2) when UUIDs are reused
-	jobProposals, err := env.Offchain.ListProposals(t.Context(), &jobv1.ListProposalsRequest{})
+	jobProposals, err := setup.rt.Environment().Offchain.ListProposals(t.Context(), &jobv1.ListProposalsRequest{})
 	require.NoError(t, err)
 
 	hasLegacyFormat := false
