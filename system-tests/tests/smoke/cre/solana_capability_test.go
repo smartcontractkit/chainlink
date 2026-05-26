@@ -31,7 +31,8 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
-	logtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger/config"
+	sollogtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger/config"
+	sollogtrigger_idl "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger/idl"
 	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	"github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
@@ -345,9 +346,10 @@ func ExecuteSolanaLogTriggerTest(t *testing.T, tenv *configuration.TestEnvironme
 	const expectedU64Value uint64 = 42
 
 	workflowName := fmt.Sprintf("sol-logtrigger-wf--%04d", 1234)
-	var workflowConfig logtrigger_config.Config
+	var workflowConfig sollogtrigger_config.Config
 	workflowConfig.LogReadTestProgramID = logReadTestProgramID
 	workflowConfig.ExpectedU64Value = expectedU64Value
+	workflowConfig.ContractIdlJSON = string(sollogtrigger_idl.LogReadTest)
 
 	const workflowFileLocation = "./solana/sollogtrigger/main.go"
 
@@ -502,9 +504,10 @@ func ExecuteSolanaLogTriggerCPITest(t *testing.T, tenv *configuration.TestEnviro
 	const expectedU64Value uint64 = 99
 
 	workflowName := fmt.Sprintf("sol-logtrigger-cpi-wf--%04d", 5678)
-	var workflowConfig logtrigger_config.Config
+	var workflowConfig sollogtrigger_config.Config
 	workflowConfig.LogReadTestProgramID = logReadTestProgramID
 	workflowConfig.ExpectedU64Value = expectedU64Value
+	workflowConfig.ContractIdlJSON = string(sollogtrigger_idl.LogReadTest)
 
 	const workflowFileLocation = "./solana/sollogtrigger/main.go"
 

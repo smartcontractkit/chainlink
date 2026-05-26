@@ -15,176 +15,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func getTestEventIdlJson() []byte {
-	return []byte(`{
-  "address": "J1zQwrBNBngz26jRPNWsUSZMHJwBwpkoDitXRV95LdK4",
-  "metadata": {
-    "name": "log_read_test",
-    "version": "0.1.0",
-    "spec": "0.1.0",
-    "description": "Created with Anchor"
-  },
-  "instructions": [
-    {
-      "name": "create_log",
-      "discriminator": [215, 95, 248, 114, 153, 204, 208, 48],
-      "accounts": [{"name": "authority", "signer": true}, {"name": "system_program"}],
-      "args": [{"name": "value", "type": "u64"}]
-    },
-    {
-      "name": "create_truncated_log",
-      "discriminator": [133, 74, 116, 132, 80, 11, 241, 64],
-      "accounts": [{"name": "authority", "signer": true}, {"name": "system_program"}],
-      "args": [{"name": "value", "type": "u64"}]
-    }
-  ],
-  "events": [{"name": "TestEvent", "discriminator": [28, 52, 39, 105, 8, 210, 91, 9]}],
-  "types": [{"name": "TestEvent", "type": {"kind": "struct", "fields": [{"name": "str_val", "type": "string"}, {"name": "u64_value", "type": "u64"}]}}]
-}`)
-}
-
-// getTestEventIdlJsonWithCpi returns full contract IDL including createLogCpi for CPI event codec.
-func getTestEventIdlJsonWithCpi() []byte {
-	return []byte(`{
-  "address": "J1zQwrBNBngz26jRPNWsUSZMHJwBwpkoDitXRV95LdK4",
-  "metadata": {
-    "name": "log_read_test",
-    "version": "0.1.0",
-    "spec": "0.1.0",
-    "description": "Created with Anchor"
-  },
-  "instructions": [
-    {
-      "name": "create_log",
-      "discriminator": [
-        215,
-        95,
-        248,
-        114,
-        153,
-        204,
-        208,
-        48
-      ],
-      "accounts": [
-        {
-          "name": "authority",
-          "signer": true
-        },
-        {
-          "name": "system_program"
-        }
-      ],
-      "args": [
-        {
-          "name": "value",
-          "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "create_log_cpi",
-      "discriminator": [
-        101,
-        207,
-        236,
-        250,
-        214,
-        98,
-        173,
-        146
-      ],
-      "accounts": [
-        {
-          "name": "authority",
-          "signer": true
-        },
-        {
-          "name": "system_program"
-        },
-        {
-          "name": "event_authority"
-        },
-        {
-          "name": "program"
-        }
-      ],
-      "args": [
-        {
-          "name": "value",
-          "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "create_truncated_log",
-      "discriminator": [
-        133,
-        74,
-        116,
-        132,
-        80,
-        11,
-        241,
-        64
-      ],
-      "accounts": [
-        {
-          "name": "authority",
-          "signer": true
-        },
-        {
-          "name": "system_program"
-        }
-      ],
-      "args": [
-        {
-          "name": "value",
-          "type": "u64"
-        }
-      ]
-    }
-  ],
-  "events": [
-    {
-      "name": "TestEvent",
-      "discriminator": [
-        28,
-        52,
-        39,
-        105,
-        8,
-        210,
-        91,
-        9
-      ]
-    }
-  ],
-  "types": [
-    {
-      "name": "TestEvent",
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "str_val",
-            "type": "string"
-          },
-          {
-            "name": "u64_value",
-            "type": "u64"
-          }
-        ]
-      }
-    }
-  ]
-}`)
-}
-
 func RunSolLogTriggerWorkflow(cfg config.Config, logger *slog.Logger, secretsProvider cre.SecretsProvider) (cre.Workflow[config.Config], error) {
 	logger.Info("RunSolLogTriggerWorkflow called")
 
-	eventIdlJson := getTestEventIdlJson()
+	if cfg.ContractIdlJSON == "" {
+		return nil, fmt.Errorf("contract_idl_json is required in workflow config")
+	}
+	eventIdlJson := []byte(cfg.ContractIdlJSON)
 
 	expectedValueBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(expectedValueBytes, cfg.ExpectedU64Value)
@@ -201,12 +38,11 @@ func RunSolLogTriggerWorkflow(cfg config.Config, logger *slog.Logger, secretsPro
 		},
 	}
 
-	cpiEventIdlJson := getTestEventIdlJsonWithCpi()
 	filterLogTriggerRequestCPI := &solana.FilterLogTriggerRequest{
 		Name:            "test-cpi-event-filter",
 		Address:         cfg.LogReadTestProgramID[:],
 		EventName:       "TestEvent",
-		ContractIdlJson: cpiEventIdlJson,
+		ContractIdlJson: eventIdlJson,
 		CpiFilterConfig: &solana.CPIFilterConfig{
 			DestAddress: cfg.LogReadTestProgramID[:],
 			MethodName:  []byte("anchor:event"),
