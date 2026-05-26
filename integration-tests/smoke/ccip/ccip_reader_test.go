@@ -1251,7 +1251,6 @@ func testSetupRealContracts(
 	toMockBindings map[cciptypes.ChainSelector][]types.BoundContract,
 	env testhelpers.DeployedEnv,
 ) ccipreaderpkg.CCIPReader {
-	db := pgtest.NewSqlxDB(t)
 	lpOpts := logpoller.Opts{
 		PollPeriod:               time.Millisecond,
 		FinalityDepth:            0,
@@ -1265,16 +1264,33 @@ func testSetupRealContracts(
 	var crs = make(map[cciptypes.ChainSelector]contractreader.Extended)
 	var contractWriters = make(map[cciptypes.ChainSelector]types.ContractWriter)
 	for chainSelector, bindings := range toBindContracts {
+		// Create isolated database instance per chain to prevent race conditions
+		db := pgtest.NewSqlxDB(t)
+
 		simClient := env.Env.BlockChains.EVMChains()[uint64(chainSelector)].Client.(*cldf_evm_provider.SimClient)
 		cl := client.NewSimulatedBackendClient(t, simClient.Backend(), big.NewInt(0).SetUint64(uint64(chainSelector)))
 		headTracker := headstest.NewSimulatedHeadTracker(cl, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+
+		// Start headTracker before LogPoller to ensure proper initialization order
+		require.NoError(t, headTracker.Start(ctx))
+
 		lp := logpoller.NewLogPoller(logpoller.NewORM(big.NewInt(0).SetUint64(uint64(chainSelector)), db, lggr),
 			cl,
 			lggr,
 			headTracker,
 			lpOpts,
 		)
+
+		// Add small delay for component initialization
+		time.Sleep(10 * time.Millisecond)
 		require.NoError(t, lp.Start(ctx))
+
+		// Enhanced cleanup order
+		t.Cleanup(func() {
+			defer db.Close()
+			require.NoError(t, lp.Close())
+			require.NoError(t, headTracker.Close())
+		})
 
 		var cfg config.ChainReaderConfig
 		if chainSelector == cs(destChain) {
