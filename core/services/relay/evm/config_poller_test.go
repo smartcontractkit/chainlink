@@ -230,9 +230,6 @@ func TestConfigPoller(t *testing.T) {
 			cp, err := evm.NewConfigPollerWithParams(ctx, lggr, failingClient, mp, ocrAddress, &configStoreContractAddr, ld)
 			require.NoError(t, err)
 
-			//cp.configStoreContractAddr = &configStoreContractAddr
-			//cp.configStoreContract = configStoreContract
-
 			_, _, err = cp.LatestConfigDetails(testutils.Context(t))
 			assert.EqualError(t, err, "something exploded")
 
