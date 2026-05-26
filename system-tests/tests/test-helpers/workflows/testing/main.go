@@ -10,6 +10,10 @@ type T struct {
 	*slog.Logger
 }
 
+func NewT(logger *slog.Logger) *T {
+	return &T{Logger: logger}
+}
+
 func (t *T) Errorf(format string, args ...interface{}) {
 	// if the log was produced by require/assert we need to split it, as engine does not allow logs longer than 1k bytes
 	if len(args) > 0 {
