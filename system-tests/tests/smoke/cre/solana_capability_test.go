@@ -393,11 +393,10 @@ func ExecuteSolanaLogTriggerTest(t *testing.T, tenv *configuration.TestEnvironme
 func triggerLogReadTestEvent(ctx context.Context, solChain *solana.Blockchain, programID solgo.PublicKey, value uint64) (slot uint64, err error) {
 	discriminator := getCreateLogDiscriminator()
 
-	var instructionData []byte
-	instructionData = append(instructionData, discriminator[:]...)
-
 	valueBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(valueBytes, value)
+	instructionData := make([]byte, 0, len(discriminator)+len(valueBytes))
+	instructionData = append(instructionData, discriminator[:]...)
 	instructionData = append(instructionData, valueBytes...)
 
 	instruction := solgo.NewInstruction(
@@ -447,10 +446,10 @@ func triggerLogReadTestCPIEvent(ctx context.Context, solChain *solana.Blockchain
 	}
 
 	discriminator := getCreateLogCpiDiscriminator()
-	var instructionData []byte
-	instructionData = append(instructionData, discriminator[:]...)
 	valueBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(valueBytes, value)
+	instructionData := make([]byte, 0, len(discriminator)+len(valueBytes))
+	instructionData = append(instructionData, discriminator[:]...)
 	instructionData = append(instructionData, valueBytes...)
 
 	instruction := solgo.NewInstruction(

@@ -302,7 +302,7 @@ func copyLocalLogReadTestSoIfPresent(contractsDir string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(dst, data, 0o644); err != nil {
+	if err := os.WriteFile(dst, data, 0o600); err != nil {
 		return err
 	}
 	framework.L.Info().Msgf("Using local log_read_test.so from %s for CPI support", src)
