@@ -344,12 +344,15 @@ func ExecuteSolanaLogTriggerTest(t *testing.T, tenv *configuration.TestEnvironme
 	logReadTestProgramID := solgo.MustPublicKeyFromBase58("J1zQwrBNBngz26jRPNWsUSZMHJwBwpkoDitXRV95LdK4")
 
 	const expectedU64Value uint64 = 42
+	const expectedStrVal = "Hello, World!"
 
 	workflowName := fmt.Sprintf("sol-logtrigger-wf--%04d", 1234)
 	var workflowConfig sollogtrigger_config.Config
 	workflowConfig.LogReadTestProgramID = logReadTestProgramID
 	workflowConfig.ExpectedU64Value = expectedU64Value
+	workflowConfig.ExpectedStrVal = expectedStrVal
 	workflowConfig.ContractIdlJSON = string(sollogtrigger_idl.LogReadTest)
+	workflowConfig.CPILogTrigger = false
 
 	const workflowFileLocation = "./solana/sollogtrigger/main.go"
 
@@ -376,7 +379,7 @@ func ExecuteSolanaLogTriggerTest(t *testing.T, tenv *configuration.TestEnvironme
 			case <-emitCtx.Done():
 				return
 			case <-ticker.C:
-				slot, err := triggerLogReadTestEvent(emitCtx, solChain, logReadTestProgramID, expectedU64Value)
+				slot, err := callCreateLog(emitCtx, solChain, logReadTestProgramID, expectedU64Value)
 				if err == nil {
 					t.Logf("Log read test event triggered at slot: %d", slot)
 				}
@@ -384,13 +387,13 @@ func ExecuteSolanaLogTriggerTest(t *testing.T, tenv *configuration.TestEnvironme
 		}
 	}()
 
-	const expectedLogTriggerMessage = "TestEvent received!"
+	expectedLogTriggerMessage := fmt.Sprintf("TestEvent received: str_val=%s u64_value=%d", expectedStrVal, expectedU64Value)
 	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh,
 		t_helpers.WorkflowEngineInitErrorLog, expectedLogTriggerMessage,
 		5*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
 }
 
-func triggerLogReadTestEvent(ctx context.Context, solChain *solana.Blockchain, programID solgo.PublicKey, value uint64) (slot uint64, err error) {
+func callCreateLog(ctx context.Context, solChain *solana.Blockchain, programID solgo.PublicKey, value uint64) (slot uint64, err error) {
 	discriminator := getCreateLogDiscriminator()
 
 	valueBytes := make([]byte, 8)
@@ -501,12 +504,15 @@ func ExecuteSolanaLogTriggerCPITest(t *testing.T, tenv *configuration.TestEnviro
 
 	logReadTestProgramID := solgo.MustPublicKeyFromBase58("J1zQwrBNBngz26jRPNWsUSZMHJwBwpkoDitXRV95LdK4")
 	const expectedU64Value uint64 = 99
+	const expectedStrVal = "Hello, CPI!"
 
 	workflowName := fmt.Sprintf("sol-logtrigger-cpi-wf--%04d", 5678)
 	var workflowConfig sollogtrigger_config.Config
 	workflowConfig.LogReadTestProgramID = logReadTestProgramID
 	workflowConfig.ExpectedU64Value = expectedU64Value
+	workflowConfig.ExpectedStrVal = expectedStrVal
 	workflowConfig.ContractIdlJSON = string(sollogtrigger_idl.LogReadTest)
+	workflowConfig.CPILogTrigger = true
 
 	const workflowFileLocation = "./solana/sollogtrigger/main.go"
 
@@ -541,7 +547,7 @@ func ExecuteSolanaLogTriggerCPITest(t *testing.T, tenv *configuration.TestEnviro
 		}
 	}()
 
-	const expectedLogTriggerMessage = "TestEvent CPI received!"
+	expectedLogTriggerMessage := fmt.Sprintf("TestEvent CPI received: str_val=%s u64_value=%d", expectedStrVal, expectedU64Value)
 	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh,
 		t_helpers.WorkflowEngineInitErrorLog, expectedLogTriggerMessage,
 		5*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
