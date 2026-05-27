@@ -35,6 +35,11 @@ func onTrigger(config config.Config, runtime cre.Runtime, payload *cron.Payload)
 	solClient := solana.Client{ChainSelector: chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector}
 	runtime.Logger().Info("Got Solana client", "chainSelector", solClient.ChainSelector)
 
+	err := dfcache.ProgramID.Set(config.Receiver.String())
+	if err != nil {
+		return "", fmt.Errorf("failed to set program id: %w", err)
+	}
+
 	cache, err := dfcache.NewDataFeedsCache(&solClient)
 	if err != nil {
 		return "", fmt.Errorf("data feeds cache bindings: %w", err)
@@ -44,7 +49,6 @@ func onTrigger(config config.Config, runtime cre.Runtime, payload *cron.Payload)
 	if err != nil {
 		return "", fmt.Errorf("failed to derive remaining: %w", err)
 	}
-
 	output, err := cache.WriteReportFromReceivedDecimalReports(runtime,
 		[]dfcache.ReceivedDecimalReport{{
 			Timestamp: 1,

@@ -17,6 +17,14 @@ func NewAcceptOwnershipInstruction(
 	newOwnerAccount solanago.PublicKey,
 	stateAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_AcceptOwnership[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
 	accounts__ := solanago.AccountMetaSlice{}
 
 	// Add the accounts to the instruction.
@@ -31,7 +39,7 @@ func NewAcceptOwnershipInstruction(
 	return solanago.NewInstruction(
 		ProgramID,
 		accounts__,
-		nil,
+		buf__.Bytes(),
 	), nil
 }
 
@@ -91,6 +99,14 @@ func NewCloseLegacyFeedsConfigInstruction(
 	stateAccount solanago.PublicKey,
 	legacyFeedsConfigAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_CloseLegacyFeedsConfig[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
 	accounts__ := solanago.AccountMetaSlice{}
 
 	// Add the accounts to the instruction.
@@ -107,7 +123,7 @@ func NewCloseLegacyFeedsConfigInstruction(
 	return solanago.NewInstruction(
 		ProgramID,
 		accounts__,
-		nil,
+		buf__.Bytes(),
 	), nil
 }
 
@@ -624,6 +640,14 @@ func NewUpdateForwarderIdInstruction(
 	stateAccount solanago.PublicKey,
 	forwarderProgramAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_UpdateForwarderId[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
 	accounts__ := solanago.AccountMetaSlice{}
 
 	// Add the accounts to the instruction.
@@ -641,7 +665,7 @@ func NewUpdateForwarderIdInstruction(
 	return solanago.NewInstruction(
 		ProgramID,
 		accounts__,
-		nil,
+		buf__.Bytes(),
 	), nil
 }
 

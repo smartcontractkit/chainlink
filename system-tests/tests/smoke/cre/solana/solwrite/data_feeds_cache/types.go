@@ -80,6 +80,7 @@ func (c *Codec) EncodeAccountListStruct(in AccountList) ([]byte, error) {
 	return in.Marshal()
 }
 
+// WriteReportFromAccountList encodes the input struct, hashes the provided accounts, // generates a signed report, and submits it via WriteReport. //  // remainingAccounts must follow the keystone-forwarder account layout: //   - Index 0: forwarderState – the forwarder program's state account. //   - Index 1: forwarderAuthority – PDA derived from seeds //     ["forwarder", forwarderState, receiverProgram] under the forwarder program ID. //   - Index 2+: receiver-specific accounts required by the target program. //  // The full slice is hashed (via CalculateAccountsHash) into the report and forwarded // as WriteCreReportRequest.RemainingAccounts. The on-chain forwarder strips indices 0 and 1 // before CPI-ing into the receiver, so they must be present and correctly ordered.
 func (c *DataFeedsCache) WriteReportFromAccountList(
 	runtime cre.Runtime,
 	input AccountList,
@@ -211,6 +212,7 @@ func (c *Codec) EncodeCacheInitializedStruct(in CacheInitialized) ([]byte, error
 	return in.Marshal()
 }
 
+// WriteReportFromCacheInitialized encodes the input struct, hashes the provided accounts, // generates a signed report, and submits it via WriteReport. //  // remainingAccounts must follow the keystone-forwarder account layout: //   - Index 0: forwarderState – the forwarder program's state account. //   - Index 1: forwarderAuthority – PDA derived from seeds //     ["forwarder", forwarderState, receiverProgram] under the forwarder program ID. //   - Index 2+: receiver-specific accounts required by the target program. //  // The full slice is hashed (via CalculateAccountsHash) into the report and forwarded // as WriteCreReportRequest.RemainingAccounts. The on-chain forwarder strips indices 0 and 1 // before CPI-ing into the receiver, so they must be present and correctly ordered.
 func (c *DataFeedsCache) WriteReportFromCacheInitialized(
 	runtime cre.Runtime,
 	input CacheInitialized,
@@ -378,6 +380,7 @@ func (c *Codec) EncodeCacheStateStruct(in CacheState) ([]byte, error) {
 	return in.Marshal()
 }
 
+// WriteReportFromCacheState encodes the input struct, hashes the provided accounts, // generates a signed report, and submits it via WriteReport. //  // remainingAccounts must follow the keystone-forwarder account layout: //   - Index 0: forwarderState – the forwarder program's state account. //   - Index 1: forwarderAuthority – PDA derived from seeds //     ["forwarder", forwarderState, receiverProgram] under the forwarder program ID. //   - Index 2+: receiver-specific accounts required by the target program. //  // The full slice is hashed (via CalculateAccountsHash) into the report and forwarded // as WriteCreReportRequest.RemainingAccounts. The on-chain forwarder strips indices 0 and 1 // before CPI-ing into the receiver, so they must be present and correctly ordered.
 func (c *DataFeedsCache) WriteReportFromCacheState(
 	runtime cre.Runtime,
 	input CacheState,
@@ -531,6 +534,7 @@ func (c *Codec) EncodeDecimalFeedConfigSetStruct(in DecimalFeedConfigSet) ([]byt
 	return in.Marshal()
 }
 
+// WriteReportFromDecimalFeedConfigSet encodes the input struct, hashes the provided accounts, // generates a signed report, and submits it via WriteReport. //  // remainingAccounts must follow the keystone-forwarder account layout: //   - Index 0: forwarderState – the forwarder program's state account. //   - Index 1: forwarderAuthority – PDA derived from seeds //     ["forwarder", forwarderState, receiverProgram] under the forwarder program ID. //   - Index 2+: receiver-specific accounts required by the target program. //  // The full slice is hashed (via CalculateAccountsHash) into the report and forwarded // as WriteCreReportRequest.RemainingAccounts. The on-chain forwarder strips indices 0 and 1 // before CPI-ing into the receiver, so they must be present and correctly ordered.
 func (c *DataFeedsCache) WriteReportFromDecimalFeedConfigSet(
 	runtime cre.Runtime,
 	input DecimalFeedConfigSet,
@@ -652,6 +656,7 @@ func (c *Codec) EncodeDecimalReportStruct(in DecimalReport) ([]byte, error) {
 	return in.Marshal()
 }
 
+// WriteReportFromDecimalReport encodes the input struct, hashes the provided accounts, // generates a signed report, and submits it via WriteReport. //  // remainingAccounts must follow the keystone-forwarder account layout: //   - Index 0: forwarderState – the forwarder program's state account. //   - Index 1: forwarderAuthority – PDA derived from seeds //     ["forwarder", forwarderState, receiverProgram] under the forwarder program ID. //   - Index 2+: receiver-specific accounts required by the target program. //  // The full slice is hashed (via CalculateAccountsHash) into the report and forwarded // as WriteCreReportRequest.RemainingAccounts. The on-chain forwarder strips indices 0 and 1 // before CPI-ing into the receiver, so they must be present and correctly ordered.
 func (c *DataFeedsCache) WriteReportFromDecimalReport(
 	runtime cre.Runtime,
 	input DecimalReport,
@@ -772,6 +777,7 @@ func (c *Codec) EncodeDecimalReportClosedStruct(in DecimalReportClosed) ([]byte,
 	return in.Marshal()
 }
 
+// WriteReportFromDecimalReportClosed encodes the input struct, hashes the provided accounts, // generates a signed report, and submits it via WriteReport. //  // remainingAccounts must follow the keystone-forwarder account layout: //   - Index 0: forwarderState – the forwarder program's state account. //   - Index 1: forwarderAuthority – PDA derived from seeds //     ["forwarder", forwarderState, receiverProgram] under the forwarder program ID. //   - Index 2+: receiver-specific accounts required by the target program. //  // The full slice is hashed (via CalculateAccountsHash) into the report and forwarded // as WriteCreReportRequest.RemainingAccounts. The on-chain forwarder strips indices 0 and 1 // before CPI-ing into the receiver, so they must be present and correctly ordered.
 func (c *DataFeedsCache) WriteReportFromDecimalReportClosed(
 	runtime cre.Runtime,
 	input DecimalReportClosed,
@@ -892,6 +898,7 @@ func (c *Codec) EncodeDecimalReportInitializedStruct(in DecimalReportInitialized
 	return in.Marshal()
 }
 
+// WriteReportFromDecimalReportInitialized encodes the input struct, hashes the provided accounts, // generates a signed report, and submits it via WriteReport. //  // remainingAccounts must follow the keystone-forwarder account layout: //   - Index 0: forwarderState – the forwarder program's state account. //   - Index 1: forwarderAuthority – PDA derived from seeds //     ["forwarder", forwarderState, receiverProgram] under the forwarder program ID. //   - Index 2+: receiver-specific accounts required by the target program. //  // The full slice is hashed (via CalculateAccountsHash) into the report and forwarded // as WriteCreReportRequest.RemainingAccounts. The on-chain forwarder strips indices 0 and 1 // before CPI-ing into the receiver, so they must be present and correctly ordered.
 func (c *DataFeedsCache) WriteReportFromDecimalReportInitialized(
 	runtime cre.Runtime,
 	input DecimalReportInitialized,
@@ -1034,6 +1041,7 @@ func (c *Codec) EncodeDecimalReportUpdatedStruct(in DecimalReportUpdated) ([]byt
 	return in.Marshal()
 }
 
+// WriteReportFromDecimalReportUpdated encodes the input struct, hashes the provided accounts, // generates a signed report, and submits it via WriteReport. //  // remainingAccounts must follow the keystone-forwarder account layout: //   - Index 0: forwarderState – the forwarder program's state account. //   - Index 1: forwarderAuthority – PDA derived from seeds //     ["forwarder", forwarderState, receiverProgram] under the forwarder program ID. //   - Index 2+: receiver-specific accounts required by the target program. //  // The full slice is hashed (via CalculateAccountsHash) into the report and forwarded // as WriteCreReportRequest.RemainingAccounts. The on-chain forwarder strips indices 0 and 1 // before CPI-ing into the receiver, so they must be present and correctly ordered.
 func (c *DataFeedsCache) WriteReportFromDecimalReportUpdated(
 	runtime cre.Runtime,
 	input DecimalReportUpdated,
@@ -1165,6 +1173,7 @@ func (c *Codec) EncodeFeedAdminUpdatedStruct(in FeedAdminUpdated) ([]byte, error
 	return in.Marshal()
 }
 
+// WriteReportFromFeedAdminUpdated encodes the input struct, hashes the provided accounts, // generates a signed report, and submits it via WriteReport. //  // remainingAccounts must follow the keystone-forwarder account layout: //   - Index 0: forwarderState – the forwarder program's state account. //   - Index 1: forwarderAuthority – PDA derived from seeds //     ["forwarder", forwarderState, receiverProgram] under the forwarder program ID. //   - Index 2+: receiver-specific accounts required by the target program. //  // The full slice is hashed (via CalculateAccountsHash) into the report and forwarded // as WriteCreReportRequest.RemainingAccounts. The on-chain forwarder strips indices 0 and 1 // before CPI-ing into the receiver, so they must be present and correctly ordered.
 func (c *DataFeedsCache) WriteReportFromFeedAdminUpdated(
 	runtime cre.Runtime,
 	input FeedAdminUpdated,
@@ -1288,6 +1297,7 @@ func (c *Codec) EncodeFeedConfigStruct(in FeedConfig) ([]byte, error) {
 	return in.Marshal()
 }
 
+// WriteReportFromFeedConfig encodes the input struct, hashes the provided accounts, // generates a signed report, and submits it via WriteReport. //  // remainingAccounts must follow the keystone-forwarder account layout: //   - Index 0: forwarderState – the forwarder program's state account. //   - Index 1: forwarderAuthority – PDA derived from seeds //     ["forwarder", forwarderState, receiverProgram] under the forwarder program ID. //   - Index 2+: receiver-specific accounts required by the target program. //  // The full slice is hashed (via CalculateAccountsHash) into the report and forwarded // as WriteCreReportRequest.RemainingAccounts. The on-chain forwarder strips indices 0 and 1 // before CPI-ing into the receiver, so they must be present and correctly ordered.
 func (c *DataFeedsCache) WriteReportFromFeedConfig(
 	runtime cre.Runtime,
 	input FeedConfig,
@@ -1420,6 +1430,7 @@ func (c *Codec) EncodeForwarderStateStruct(in ForwarderState) ([]byte, error) {
 	return in.Marshal()
 }
 
+// WriteReportFromForwarderState encodes the input struct, hashes the provided accounts, // generates a signed report, and submits it via WriteReport. //  // remainingAccounts must follow the keystone-forwarder account layout: //   - Index 0: forwarderState – the forwarder program's state account. //   - Index 1: forwarderAuthority – PDA derived from seeds //     ["forwarder", forwarderState, receiverProgram] under the forwarder program ID. //   - Index 2+: receiver-specific accounts required by the target program. //  // The full slice is hashed (via CalculateAccountsHash) into the report and forwarded // as WriteCreReportRequest.RemainingAccounts. The on-chain forwarder strips indices 0 and 1 // before CPI-ing into the receiver, so they must be present and correctly ordered.
 func (c *DataFeedsCache) WriteReportFromForwarderState(
 	runtime cre.Runtime,
 	input ForwarderState,
@@ -1540,6 +1551,7 @@ func (c *Codec) EncodeForwarderUpdatedStruct(in ForwarderUpdated) ([]byte, error
 	return in.Marshal()
 }
 
+// WriteReportFromForwarderUpdated encodes the input struct, hashes the provided accounts, // generates a signed report, and submits it via WriteReport. //  // remainingAccounts must follow the keystone-forwarder account layout: //   - Index 0: forwarderState – the forwarder program's state account. //   - Index 1: forwarderAuthority – PDA derived from seeds //     ["forwarder", forwarderState, receiverProgram] under the forwarder program ID. //   - Index 2+: receiver-specific accounts required by the target program. //  // The full slice is hashed (via CalculateAccountsHash) into the report and forwarded // as WriteCreReportRequest.RemainingAccounts. The on-chain forwarder strips indices 0 and 1 // before CPI-ing into the receiver, so they must be present and correctly ordered.
 func (c *DataFeedsCache) WriteReportFromForwarderUpdated(
 	runtime cre.Runtime,
 	input ForwarderUpdated,
@@ -1693,6 +1705,7 @@ func (c *Codec) EncodeInvalidUpdatePermissionStruct(in InvalidUpdatePermission) 
 	return in.Marshal()
 }
 
+// WriteReportFromInvalidUpdatePermission encodes the input struct, hashes the provided accounts, // generates a signed report, and submits it via WriteReport. //  // remainingAccounts must follow the keystone-forwarder account layout: //   - Index 0: forwarderState – the forwarder program's state account. //   - Index 1: forwarderAuthority – PDA derived from seeds //     ["forwarder", forwarderState, receiverProgram] under the forwarder program ID. //   - Index 2+: receiver-specific accounts required by the target program. //  // The full slice is hashed (via CalculateAccountsHash) into the report and forwarded // as WriteCreReportRequest.RemainingAccounts. The on-chain forwarder strips indices 0 and 1 // before CPI-ing into the receiver, so they must be present and correctly ordered.
 func (c *DataFeedsCache) WriteReportFromInvalidUpdatePermission(
 	runtime cre.Runtime,
 	input InvalidUpdatePermission,
@@ -1825,6 +1838,7 @@ func (c *Codec) EncodeLegacyFeedEntryStruct(in LegacyFeedEntry) ([]byte, error) 
 	return in.Marshal()
 }
 
+// WriteReportFromLegacyFeedEntry encodes the input struct, hashes the provided accounts, // generates a signed report, and submits it via WriteReport. //  // remainingAccounts must follow the keystone-forwarder account layout: //   - Index 0: forwarderState – the forwarder program's state account. //   - Index 1: forwarderAuthority – PDA derived from seeds //     ["forwarder", forwarderState, receiverProgram] under the forwarder program ID. //   - Index 2+: receiver-specific accounts required by the target program. //  // The full slice is hashed (via CalculateAccountsHash) into the report and forwarded // as WriteCreReportRequest.RemainingAccounts. The on-chain forwarder strips indices 0 and 1 // before CPI-ing into the receiver, so they must be present and correctly ordered.
 func (c *DataFeedsCache) WriteReportFromLegacyFeedEntry(
 	runtime cre.Runtime,
 	input LegacyFeedEntry,
@@ -1946,6 +1960,7 @@ func (c *Codec) EncodeLegacyFeedListStruct(in LegacyFeedList) ([]byte, error) {
 	return in.Marshal()
 }
 
+// WriteReportFromLegacyFeedList encodes the input struct, hashes the provided accounts, // generates a signed report, and submits it via WriteReport. //  // remainingAccounts must follow the keystone-forwarder account layout: //   - Index 0: forwarderState – the forwarder program's state account. //   - Index 1: forwarderAuthority – PDA derived from seeds //     ["forwarder", forwarderState, receiverProgram] under the forwarder program ID. //   - Index 2+: receiver-specific accounts required by the target program. //  // The full slice is hashed (via CalculateAccountsHash) into the report and forwarded // as WriteCreReportRequest.RemainingAccounts. The on-chain forwarder strips indices 0 and 1 // before CPI-ing into the receiver, so they must be present and correctly ordered.
 func (c *DataFeedsCache) WriteReportFromLegacyFeedList(
 	runtime cre.Runtime,
 	input LegacyFeedList,
@@ -2069,6 +2084,7 @@ func (c *Codec) EncodeLegacyFeedsConfigStruct(in LegacyFeedsConfig) ([]byte, err
 	return in.Marshal()
 }
 
+// WriteReportFromLegacyFeedsConfig encodes the input struct, hashes the provided accounts, // generates a signed report, and submits it via WriteReport. //  // remainingAccounts must follow the keystone-forwarder account layout: //   - Index 0: forwarderState – the forwarder program's state account. //   - Index 1: forwarderAuthority – PDA derived from seeds //     ["forwarder", forwarderState, receiverProgram] under the forwarder program ID. //   - Index 2+: receiver-specific accounts required by the target program. //  // The full slice is hashed (via CalculateAccountsHash) into the report and forwarded // as WriteCreReportRequest.RemainingAccounts. The on-chain forwarder strips indices 0 and 1 // before CPI-ing into the receiver, so they must be present and correctly ordered.
 func (c *DataFeedsCache) WriteReportFromLegacyFeedsConfig(
 	runtime cre.Runtime,
 	input LegacyFeedsConfig,
@@ -2189,6 +2205,7 @@ func (c *Codec) EncodeLegacyFeedsConfigInitializedStruct(in LegacyFeedsConfigIni
 	return in.Marshal()
 }
 
+// WriteReportFromLegacyFeedsConfigInitialized encodes the input struct, hashes the provided accounts, // generates a signed report, and submits it via WriteReport. //  // remainingAccounts must follow the keystone-forwarder account layout: //   - Index 0: forwarderState – the forwarder program's state account. //   - Index 1: forwarderAuthority – PDA derived from seeds //     ["forwarder", forwarderState, receiverProgram] under the forwarder program ID. //   - Index 2+: receiver-specific accounts required by the target program. //  // The full slice is hashed (via CalculateAccountsHash) into the report and forwarded // as WriteCreReportRequest.RemainingAccounts. The on-chain forwarder strips indices 0 and 1 // before CPI-ing into the receiver, so they must be present and correctly ordered.
 func (c *DataFeedsCache) WriteReportFromLegacyFeedsConfigInitialized(
 	runtime cre.Runtime,
 	input LegacyFeedsConfigInitialized,
@@ -2309,6 +2326,7 @@ func (c *Codec) EncodeLegacyFeedsConfigUpdatedStruct(in LegacyFeedsConfigUpdated
 	return in.Marshal()
 }
 
+// WriteReportFromLegacyFeedsConfigUpdated encodes the input struct, hashes the provided accounts, // generates a signed report, and submits it via WriteReport. //  // remainingAccounts must follow the keystone-forwarder account layout: //   - Index 0: forwarderState – the forwarder program's state account. //   - Index 1: forwarderAuthority – PDA derived from seeds //     ["forwarder", forwarderState, receiverProgram] under the forwarder program ID. //   - Index 2+: receiver-specific accounts required by the target program. //  // The full slice is hashed (via CalculateAccountsHash) into the report and forwarded // as WriteCreReportRequest.RemainingAccounts. The on-chain forwarder strips indices 0 and 1 // before CPI-ing into the receiver, so they must be present and correctly ordered.
 func (c *DataFeedsCache) WriteReportFromLegacyFeedsConfigUpdated(
 	runtime cre.Runtime,
 	input LegacyFeedsConfigUpdated,
@@ -2440,6 +2458,7 @@ func (c *Codec) EncodeLegacyFeedsReportedStruct(in LegacyFeedsReported) ([]byte,
 	return in.Marshal()
 }
 
+// WriteReportFromLegacyFeedsReported encodes the input struct, hashes the provided accounts, // generates a signed report, and submits it via WriteReport. //  // remainingAccounts must follow the keystone-forwarder account layout: //   - Index 0: forwarderState – the forwarder program's state account. //   - Index 1: forwarderAuthority – PDA derived from seeds //     ["forwarder", forwarderState, receiverProgram] under the forwarder program ID. //   - Index 2+: receiver-specific accounts required by the target program. //  // The full slice is hashed (via CalculateAccountsHash) into the report and forwarded // as WriteCreReportRequest.RemainingAccounts. The on-chain forwarder strips indices 0 and 1 // before CPI-ing into the receiver, so they must be present and correctly ordered.
 func (c *DataFeedsCache) WriteReportFromLegacyFeedsReported(
 	runtime cre.Runtime,
 	input LegacyFeedsReported,
@@ -2571,6 +2590,7 @@ func (c *Codec) EncodeOwnershipAcceptanceStruct(in OwnershipAcceptance) ([]byte,
 	return in.Marshal()
 }
 
+// WriteReportFromOwnershipAcceptance encodes the input struct, hashes the provided accounts, // generates a signed report, and submits it via WriteReport. //  // remainingAccounts must follow the keystone-forwarder account layout: //   - Index 0: forwarderState – the forwarder program's state account. //   - Index 1: forwarderAuthority – PDA derived from seeds //     ["forwarder", forwarderState, receiverProgram] under the forwarder program ID. //   - Index 2+: receiver-specific accounts required by the target program. //  // The full slice is hashed (via CalculateAccountsHash) into the report and forwarded // as WriteCreReportRequest.RemainingAccounts. The on-chain forwarder strips indices 0 and 1 // before CPI-ing into the receiver, so they must be present and correctly ordered.
 func (c *DataFeedsCache) WriteReportFromOwnershipAcceptance(
 	runtime cre.Runtime,
 	input OwnershipAcceptance,
@@ -2702,6 +2722,7 @@ func (c *Codec) EncodeOwnershipTransferStruct(in OwnershipTransfer) ([]byte, err
 	return in.Marshal()
 }
 
+// WriteReportFromOwnershipTransfer encodes the input struct, hashes the provided accounts, // generates a signed report, and submits it via WriteReport. //  // remainingAccounts must follow the keystone-forwarder account layout: //   - Index 0: forwarderState – the forwarder program's state account. //   - Index 1: forwarderAuthority – PDA derived from seeds //     ["forwarder", forwarderState, receiverProgram] under the forwarder program ID. //   - Index 2+: receiver-specific accounts required by the target program. //  // The full slice is hashed (via CalculateAccountsHash) into the report and forwarded // as WriteCreReportRequest.RemainingAccounts. The on-chain forwarder strips indices 0 and 1 // before CPI-ing into the receiver, so they must be present and correctly ordered.
 func (c *DataFeedsCache) WriteReportFromOwnershipTransfer(
 	runtime cre.Runtime,
 	input OwnershipTransfer,
@@ -2834,6 +2855,7 @@ func (c *Codec) EncodeReceivedDecimalReportStruct(in ReceivedDecimalReport) ([]b
 	return in.Marshal()
 }
 
+// WriteReportFromReceivedDecimalReport encodes the input struct, hashes the provided accounts, // generates a signed report, and submits it via WriteReport. //  // remainingAccounts must follow the keystone-forwarder account layout: //   - Index 0: forwarderState – the forwarder program's state account. //   - Index 1: forwarderAuthority – PDA derived from seeds //     ["forwarder", forwarderState, receiverProgram] under the forwarder program ID. //   - Index 2+: receiver-specific accounts required by the target program. //  // The full slice is hashed (via CalculateAccountsHash) into the report and forwarded // as WriteCreReportRequest.RemainingAccounts. The on-chain forwarder strips indices 0 and 1 // before CPI-ing into the receiver, so they must be present and correctly ordered.
 func (c *DataFeedsCache) WriteReportFromReceivedDecimalReport(
 	runtime cre.Runtime,
 	input ReceivedDecimalReport,
@@ -2948,6 +2970,7 @@ func (c *Codec) EncodeReceivedDecimalReportsSchemaStruct(in ReceivedDecimalRepor
 	return in.Marshal()
 }
 
+// WriteReportFromReceivedDecimalReportsSchema encodes the input struct, hashes the provided accounts, // generates a signed report, and submits it via WriteReport. //  // remainingAccounts must follow the keystone-forwarder account layout: //   - Index 0: forwarderState – the forwarder program's state account. //   - Index 1: forwarderAuthority – PDA derived from seeds //     ["forwarder", forwarderState, receiverProgram] under the forwarder program ID. //   - Index 2+: receiver-specific accounts required by the target program. //  // The full slice is hashed (via CalculateAccountsHash) into the report and forwarded // as WriteCreReportRequest.RemainingAccounts. The on-chain forwarder strips indices 0 and 1 // before CPI-ing into the receiver, so they must be present and correctly ordered.
 func (c *DataFeedsCache) WriteReportFromReceivedDecimalReportsSchema(
 	runtime cre.Runtime,
 	input ReceivedDecimalReportsSchema,
@@ -3090,6 +3113,7 @@ func (c *Codec) EncodeStaleDecimalReportStruct(in StaleDecimalReport) ([]byte, e
 	return in.Marshal()
 }
 
+// WriteReportFromStaleDecimalReport encodes the input struct, hashes the provided accounts, // generates a signed report, and submits it via WriteReport. //  // remainingAccounts must follow the keystone-forwarder account layout: //   - Index 0: forwarderState – the forwarder program's state account. //   - Index 1: forwarderAuthority – PDA derived from seeds //     ["forwarder", forwarderState, receiverProgram] under the forwarder program ID. //   - Index 2+: receiver-specific accounts required by the target program. //  // The full slice is hashed (via CalculateAccountsHash) into the report and forwarded // as WriteCreReportRequest.RemainingAccounts. The on-chain forwarder strips indices 0 and 1 // before CPI-ing into the receiver, so they must be present and correctly ordered.
 func (c *DataFeedsCache) WriteReportFromStaleDecimalReport(
 	runtime cre.Runtime,
 	input StaleDecimalReport,
@@ -3223,6 +3247,7 @@ func (c *Codec) EncodeWorkflowMetadataStruct(in WorkflowMetadata) ([]byte, error
 	return in.Marshal()
 }
 
+// WriteReportFromWorkflowMetadata encodes the input struct, hashes the provided accounts, // generates a signed report, and submits it via WriteReport. //  // remainingAccounts must follow the keystone-forwarder account layout: //   - Index 0: forwarderState – the forwarder program's state account. //   - Index 1: forwarderAuthority – PDA derived from seeds //     ["forwarder", forwarderState, receiverProgram] under the forwarder program ID. //   - Index 2+: receiver-specific accounts required by the target program. //  // The full slice is hashed (via CalculateAccountsHash) into the report and forwarded // as WriteCreReportRequest.RemainingAccounts. The on-chain forwarder strips indices 0 and 1 // before CPI-ing into the receiver, so they must be present and correctly ordered.
 func (c *DataFeedsCache) WriteReportFromWorkflowMetadata(
 	runtime cre.Runtime,
 	input WorkflowMetadata,
@@ -3344,6 +3369,7 @@ func (c *Codec) EncodeWorkflowMetadataListStruct(in WorkflowMetadataList) ([]byt
 	return in.Marshal()
 }
 
+// WriteReportFromWorkflowMetadataList encodes the input struct, hashes the provided accounts, // generates a signed report, and submits it via WriteReport. //  // remainingAccounts must follow the keystone-forwarder account layout: //   - Index 0: forwarderState – the forwarder program's state account. //   - Index 1: forwarderAuthority – PDA derived from seeds //     ["forwarder", forwarderState, receiverProgram] under the forwarder program ID. //   - Index 2+: receiver-specific accounts required by the target program. //  // The full slice is hashed (via CalculateAccountsHash) into the report and forwarded // as WriteCreReportRequest.RemainingAccounts. The on-chain forwarder strips indices 0 and 1 // before CPI-ing into the receiver, so they must be present and correctly ordered.
 func (c *DataFeedsCache) WriteReportFromWorkflowMetadataList(
 	runtime cre.Runtime,
 	input WorkflowMetadataList,
