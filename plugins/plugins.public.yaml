@@ -57,3 +57,8 @@ plugins:
     - moduleURI: "github.com/smartcontractkit/chainlink-tron/relayer"
       gitRef: "v0.0.11-0.20260408092456-3c6369888d4a"
       installPath: "./cmd/chainlink-tron"
+
+  evm:
+    - moduleURI: "github.com/smartcontractkit/chainlink-evm"
+      gitRef: "v0.3.4-0.20260527111458-514eca23edf4"
+      installPath: "./pkg/cmd/chainlink-evm"
