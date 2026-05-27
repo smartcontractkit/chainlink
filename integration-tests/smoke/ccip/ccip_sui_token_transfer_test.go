@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -469,6 +470,9 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 
 	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
+	// Ensure Sui state is fully consistent before curse operation
+	waitForSuiRPCSyncSlow(t, e.Env.BlockChains.SuiChains()[sourceChain])
+
 	// curse globally
 	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.RMNRemoteCurseOp, deps, ccipops.RMNRemoteCurseInput{
 		CCIPPackageId:    suiState[sourceChain].CCIPAddress,
@@ -510,6 +514,9 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 	})
 
 	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
+
+	// Ensure Sui state is fully consistent before uncurse operation
+	waitForSuiRPCSyncSlow(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
 	// uncurse globally
 	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.RMNRemoteUncurseOp, deps, ccipops.RMNRemoteUncurseInput{
@@ -883,6 +890,9 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 
 	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
+	// Ensure Sui state is fully consistent before curse operation
+	waitForSuiRPCSyncSlow(t, e.Env.BlockChains.SuiChains()[sourceChain])
+
 	// curse destination chain
 	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.RMNRemoteCurseOp, deps, ccipops.RMNRemoteCurseInput{
 		CCIPPackageId:    suiState[sourceChain].CCIPAddress,
@@ -921,6 +931,9 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 	})
 
 	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
+
+	// Ensure Sui state is fully consistent before uncurse operation
+	waitForSuiRPCSyncSlow(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
 	// uncurse destination chain
 	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.RMNRemoteUncurseOp, deps, ccipops.RMNRemoteUncurseInput{
@@ -1872,32 +1885,87 @@ func assertSuiSourceRevertExpectedError(t *testing.T, err error, execRevertError
 // immediately after a previous Sui tx in the same test. This is a test-side band-aid;
 // the proper fix belongs in chainlink-sui/bindings/bind (poll sui_getTransactionBlock on
 // the returned digest, matching the Typescript SDK behavior).
-func waitForSuiRPCSync(t *testing.T, suiChain sui.Chain) {
+// waitForSuiRPCSyncWithOptions provides configurable Sui RPC synchronization
+func waitForSuiRPCSyncWithOptions(t *testing.T, suiChain sui.Chain, timeout time.Duration, minAdvance uint64) {
 	t.Helper()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	const pollInterval = 200 * time.Millisecond
+
+	ctx, cancel := context.WithTimeout(t.Context(), timeout)
 	defer cancel()
 
 	before, err := suiChain.Client.SuiGetLatestCheckpointSequenceNumber(ctx)
 	if err != nil {
 		t.Logf("waitForSuiRPCSync: failed to read initial checkpoint seq (%v); falling back to fixed sleep", err)
-		time.Sleep(3 * time.Second)
-		return
-	}
-
-	deadline := time.Now().Add(10 * time.Second)
-	for time.Now().Before(deadline) {
-		time.Sleep(500 * time.Millisecond)
-		after, cerr := suiChain.Client.SuiGetLatestCheckpointSequenceNumber(ctx)
-		if cerr != nil {
-			continue
+		// Use context-aware sleep instead of fixed sleep
+		fallbackSleep := 5 * time.Second
+		if timeout/2 < fallbackSleep {
+			fallbackSleep = timeout / 2
 		}
-		// Require at least 2 new checkpoints to ensure any recently-issued tx has been
-		// materialized in the RPC view, not just the one that triggered the current
-		// checkpoint boundary.
-		if after >= before+2 {
+		select {
+		case <-time.After(fallbackSleep):
+			return
+		case <-ctx.Done():
+			t.Logf("waitForSuiRPCSync: context cancelled during fallback sleep")
 			return
 		}
 	}
-	t.Logf("waitForSuiRPCSync: timeout waiting for checkpoint to advance from %d", before)
+
+	t.Logf("waitForSuiRPCSync: starting sync wait from checkpoint %d (timeout: %v, minAdvance: %d)", before, timeout, minAdvance)
+
+	// Use context deadline instead of separate time tracking
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			t.Logf("waitForSuiRPCSync: timeout waiting for checkpoint to advance from %d (context: %v)", before, ctx.Err())
+			return
+		case <-ticker.C:
+			after, cerr := suiChain.Client.SuiGetLatestCheckpointSequenceNumber(ctx)
+			if cerr != nil {
+				// Log but continue - network might be temporarily unavailable
+				t.Logf("waitForSuiRPCSync: temporary error reading checkpoint: %v", cerr)
+				continue
+			}
+
+			// Check if we've advanced enough checkpoints
+			if after >= before+minAdvance {
+				t.Logf("waitForSuiRPCSync: sync complete - checkpoint advanced from %d to %d", before, after)
+				return
+			}
+
+			// Log progress for debugging
+			if after > before {
+				t.Logf("waitForSuiRPCSync: checkpoint progressing: %d -> %d (need %d total advance)", before, after, minAdvance)
+			}
+		}
+	}
+}
+
+// waitForSuiRPCSync provides default Sui RPC synchronization with improved reliability
+func waitForSuiRPCSync(t *testing.T, suiChain sui.Chain) {
+	// Use more conservative defaults for better reliability
+	waitForSuiRPCSyncWithOptions(t, suiChain, 30*time.Second, 1)
+}
+
+// waitForSuiRPCSyncFast provides faster synchronization for less critical operations
+func waitForSuiRPCSyncFast(t *testing.T, suiChain sui.Chain) {
+	waitForSuiRPCSyncWithOptions(t, suiChain, 15*time.Second, 1)
+}
+
+// waitForSuiRPCSyncSlow provides extended synchronization for critical operations like upgrades
+func waitForSuiRPCSyncSlow(t *testing.T, suiChain sui.Chain) {
+	waitForSuiRPCSyncWithOptions(t, suiChain, 60*time.Second, 2)
+}
+
+// waitForSuiRPCSyncUpgrade provides maximum synchronization for post-upgrade event indexing
+func waitForSuiRPCSyncUpgrade(t *testing.T, suiChain sui.Chain) {
+	waitForSuiRPCSyncWithOptions(t, suiChain, 180*time.Second, 5)
+}
+
+// waitForSuiRPCSyncCritical provides extended synchronization for critical CCIP system reconfigurations
+func waitForSuiRPCSyncCritical(t *testing.T, suiChain sui.Chain) {
+	waitForSuiRPCSyncWithOptions(t, suiChain, 300*time.Second, 10)
 }

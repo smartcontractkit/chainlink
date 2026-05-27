@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
@@ -34,7 +35,7 @@ type LoopRegistry struct {
 	appID                  string
 	featureLogPoller       bool
 	cfgDatabase            config.Database
-	cfgMercury             config.Mercury
+	cfgMercury             de.Mercury
 	cfgPyroscope           config.Pyroscope
 	autoPPROF              config.AutoPprof
 	cfgTracing             config.Tracing
@@ -45,7 +46,7 @@ type LoopRegistry struct {
 }
 
 func NewLoopRegistry(lggr logger.Logger, appID string, featureLogPoller bool, dbConfig config.Database,
-	mercury config.Mercury, pyroscope config.Pyroscope, autoPPROF config.AutoPprof, tracing config.Tracing, telemetry config.Telemetry,
+	mercury de.Mercury, pyroscope config.Pyroscope, autoPPROF config.AutoPprof, tracing config.Tracing, telemetry config.Telemetry,
 	telemetryAuthHeaders map[string]string, telemetryAuthPubKeyHex string, looppCfg config.LOOPP) *LoopRegistry {
 	return &LoopRegistry{
 		registry:               map[string]*RegisteredLoop{},

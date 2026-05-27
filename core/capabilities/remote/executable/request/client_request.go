@@ -55,6 +55,20 @@ func newRemoteCapabilityExecuteErrorWithMessage(display string, errMsg string) e
 	}
 }
 
+// newRemoteCapabilityExecuteErrorFromCapError wraps a capability error produced locally
+// (not deserialized from a remote payload). Unwrap returns caperrors.Error so
+// capability_executor can errors.As into caperrors.Error.
+func newRemoteCapabilityExecuteErrorFromCapError(capErr caperrors.Error) error {
+	return &errRemoteCapabilityExecuteError{
+		s:    capErr.Error(),
+		wrap: capErr,
+	}
+}
+
+// ErrResponseQuorumUnreachable is returned when enough peer responses have been
+// received that F+1 matching payloads are no longer mathematically possible.
+var ErrResponseQuorumUnreachable = errors.New("response quorum unreachable: not enough matching capability responses")
+
 type clientResponse struct {
 	Result []byte
 	Err    error
@@ -380,6 +394,8 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 			}
 
 			c.sendResponse(clientResponse{Result: payload})
+		} else {
+			c.trySendQuorumUnreachableError()
 		}
 	} else {
 		c.lggr.Debugw("received error from peer", "error", msg.Error, "errorMsg", msg.ErrorMsg, "peer", sender)
@@ -410,6 +426,67 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 		}
 	}
 	return nil
+}
+
+func (c *ClientRequest) responsesReceivedCount() int {
+	n := 0
+	for _, received := range c.responseReceived {
+		if received {
+			n++
+		}
+	}
+	return n
+}
+
+func (c *ClientRequest) maxMatchingResponseCount() int {
+	currentMax := 0
+	for _, count := range c.responseIDCount {
+		if count > currentMax {
+			currentMax = count
+		}
+	}
+	return currentMax
+}
+
+// quorumStillPossible reports whether requiredResponseConfirmations identical OK
+// responses can still be reached. Each pending peer can add at most one vote to
+// the current leading payload hash.
+func (c *ClientRequest) quorumStillPossible(pending int) bool {
+	return c.maxMatchingResponseCount()+pending >= c.requiredResponseConfirmations
+}
+
+func (c *ClientRequest) trySendQuorumUnreachableError() {
+	pending := c.pending()
+	if c.respSent || c.quorumStillPossible(pending) {
+		return
+	}
+	received := c.responsesReceivedCount()
+	unique := len(c.responseIDCount)
+	maxMatch := c.maxMatchingResponseCount()
+
+	detail := fmt.Errorf(
+		"received %d/%d peer responses with %d unique payloads; best match count %d, need %d (%d responses pending)",
+		received, c.remoteNodeCount, unique, maxMatch, c.requiredResponseConfirmations, pending,
+	)
+	capErr := caperrors.NewPublicSystemError(
+		fmt.Errorf("%w: %w", ErrResponseQuorumUnreachable, detail),
+		caperrors.ConsensusFailed,
+	)
+	c.lggr.Warnw("response quorum unreachable, failing early",
+		"responsesReceived", received,
+		"remoteNodeCount", c.remoteNodeCount,
+		"uniqueResponseCount", unique,
+		"maxMatchingResponseCount", maxMatch,
+		"requiredResponseConfirmations", c.requiredResponseConfirmations,
+		"pendingResponses", pending,
+	)
+	c.sendResponse(clientResponse{Err: newRemoteCapabilityExecuteErrorFromCapError(capErr)})
+}
+
+func (c *ClientRequest) pending() int {
+	received := c.responsesReceivedCount()
+	pending := c.remoteNodeCount - received
+	return pending
 }
 
 func (c *ClientRequest) hasValidAttestation(resp commoncap.CapabilityResponse) bool {

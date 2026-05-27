@@ -12,8 +12,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 
+	evm "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 type V3_1OracleConfig struct {

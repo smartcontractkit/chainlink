@@ -33,7 +33,27 @@ func NewFileModuleStore(cacheDir string, cleanOnStartup bool) (*FileModuleStore,
 	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create module cache directory: %w", err)
 	}
+	if err := checkCacheDirWritable(cacheDir); err != nil {
+		return nil, err
+	}
 	return &FileModuleStore{cacheDir: cacheDir}, nil
+}
+
+func checkCacheDirWritable(dir string) error {
+	f, err := os.CreateTemp(dir, ".writecheck-*")
+	if err != nil {
+		return fmt.Errorf("module cache directory is not writable: %w", err)
+	}
+	name := f.Name()
+	defer os.Remove(name)
+	if _, err := f.Write([]byte{0}); err != nil {
+		_ = f.Close()
+		return fmt.Errorf("module cache directory is not writable: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("module cache directory is not writable: %w", err)
+	}
+	return nil
 }
 
 // CacheDir returns the resolved on-disk root for the module cache.

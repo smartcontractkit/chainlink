@@ -33,7 +33,6 @@ type testPluginBuildOpts struct {
 	maxIdentifierKeyLengthBytes       int
 	maxRequestBatchSize               int
 	batchSize                         int
-	orgIDAsSecretOwnerEnabled         bool
 	marshalBlob                       func(ocr3_1types.BlobHandle) ([]byte, error)
 	unmarshalBlob                     func([]byte) (ocr3_1types.BlobHandle, error)
 }
@@ -67,10 +66,6 @@ func withMaxIdentifierLengths(owner, namespace, key int) testPluginOption {
 
 func withMaxSecretsPerOwner(n int) testPluginOption {
 	return func(o *testPluginBuildOpts) { o.maxSecretsPerOwner = n }
-}
-
-func withOrgIDEnabled() testPluginOption {
-	return func(o *testPluginBuildOpts) { o.orgIDAsSecretOwnerEnabled = true }
 }
 
 func withOnchainCfg(n int, f int) testPluginOption {
@@ -114,9 +109,6 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 		o.maxSecretsPerOwner, o.maxCiphertextLengthBytes,
 		o.maxIdentifierOwnerLengthBytes, o.maxIdentifierNamespaceLengthBytes,
 		o.maxIdentifierKeyLengthBytes, o.maxRequestBatchSize)
-	if o.orgIDAsSecretOwnerEnabled {
-		cfg.OrgIDAsSecretOwnerEnabled = limits.NewGateLimiter(true)
-	}
 	lc, err := vaultcap.NewRequestLifecycleTracker(o.lggr)
 	require.NoError(t, err)
 	return &ReportingPlugin{
@@ -190,7 +182,6 @@ func makeReportingPluginConfig(
 		MaxIdentifierNamespaceLengthBytes: namespaceOwnerLimiter,
 		MaxIdentifierKeyLengthBytes:       keyLimiter,
 		MaxRequestBatchSize:               requestBatchSizeLimiter,
-		OrgIDAsSecretOwnerEnabled:         limits.NewGateLimiter(false),
 		VaultForceEmptyOCRRounds:          limits.NewGateLimiter(false),
 	}
 }

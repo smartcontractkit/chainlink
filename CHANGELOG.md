@@ -1,5 +1,16 @@
 # Changelog Chainlink Core
 
+## 2.49.0
+
+### Minor Changes
+
+- [#22538](https://github.com/smartcontractkit/chainlink/pull/22538) [`10c2bb0`](https://github.com/smartcontractkit/chainlink/commit/10c2bb00fc41b75d19ad5913756d3c990bdff859) - Minor bump to start next version
+
+- [#22518](https://github.com/smartcontractkit/chainlink/pull/22518) [`a5dffab`](https://github.com/smartcontractkit/chainlink/commit/a5dffab9f5c1ff7b325e7297fdaf04bafc9b4683) - Removed support for Legacy Gas Station jobs. The functionality was already removed before, this change removes
+  the database tables and code related to it.
+
+  #breaking_change #db_update #removed
+
 ## 2.48.0
 
 ### Minor Changes

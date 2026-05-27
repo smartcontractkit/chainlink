@@ -92,7 +92,7 @@ func PreparePayloadForSigning(payload OwnershipProofSignaturePayload) ([]byte, e
 
 // Prepare the ABI arguments, in the exact order as expected by the Solidity contract.
 func prepareABIArguments() (*abi.Arguments, error) {
-	arguments := abi.Arguments{}
+	arguments := make(abi.Arguments, 7)
 
 	uint8Type, err := abi.NewType("uint8", "", nil)
 	if err != nil {
@@ -119,13 +119,13 @@ func prepareABIArguments() (*abi.Arguments, error) {
 		return nil, fmt.Errorf("failed to create string type: %w", err)
 	}
 
-	arguments = append(arguments, abi.Argument{Type: uint8Type})   // request type
-	arguments = append(arguments, abi.Argument{Type: addressType}) // owner address
-	arguments = append(arguments, abi.Argument{Type: uint256Type}) // chain ID
-	arguments = append(arguments, abi.Argument{Type: addressType}) // address of the contract
-	arguments = append(arguments, abi.Argument{Type: stringType})  // version string
-	arguments = append(arguments, abi.Argument{Type: uint256Type}) // validity timestamp
-	arguments = append(arguments, abi.Argument{Type: bytes32Type}) // ownership proof hash
+	arguments[0] = abi.Argument{Type: uint8Type}   // request type
+	arguments[1] = abi.Argument{Type: addressType} // owner address
+	arguments[2] = abi.Argument{Type: uint256Type} // chain ID
+	arguments[3] = abi.Argument{Type: addressType} // address of the contract
+	arguments[4] = abi.Argument{Type: stringType}  // version string
+	arguments[5] = abi.Argument{Type: uint256Type} // validity timestamp
+	arguments[6] = abi.Argument{Type: bytes32Type} // ownership proof hash
 
 	return &arguments, nil
 }

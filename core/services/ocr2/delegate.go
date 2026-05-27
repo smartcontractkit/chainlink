@@ -34,6 +34,7 @@ import (
 	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
 	mercurytypes "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 	evmmercury "github.com/smartcontractkit/chainlink-data-streams/mercury"
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	functionsRelay "github.com/smartcontractkit/chainlink-evm/pkg/functions"
@@ -68,6 +69,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 
+	ocr2keeper21core "github.com/smartcontractkit/chainlink-evm/pkg/automation/v21/core"
+	evmrelay "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
@@ -84,7 +87,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/autotelemetry21"
-	ocr2keeper21core "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	ringconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ring/config"
 	vaultocrplugin "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
@@ -93,7 +95,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -172,7 +173,7 @@ type DelegateConfig interface {
 	OCR2() ocr2Config
 	JobPipeline() jobPipelineConfig
 	Insecure() insecureConfig
-	Mercury() coreconfig.Mercury
+	Mercury() de.Mercury
 	Threshold() coreconfig.Threshold
 	Sharding() coreconfig.Sharding
 	RingStoreForShard0() *ring.Store
@@ -202,7 +203,7 @@ func (d *delegateConfig) Threshold() coreconfig.Threshold {
 	return d.threshold
 }
 
-func (d *delegateConfig) Mercury() coreconfig.Mercury {
+func (d *delegateConfig) Mercury() de.Mercury {
 	return d.mercury
 }
 
@@ -246,9 +247,9 @@ type jobPipelineConfig interface {
 
 type mercuryConfig interface {
 	Credentials(credName string) *types.MercuryCredentials
-	Cache() coreconfig.MercuryCache
-	TLS() coreconfig.MercuryTLS
-	Transmitter() coreconfig.MercuryTransmitter
+	Cache() de.MercuryCache
+	TLS() de.MercuryTLS
+	Transmitter() de.MercuryTransmitter
 	VerboseLogging() bool
 }
 
@@ -256,7 +257,7 @@ type thresholdConfig interface {
 	ThresholdKeyShare() string
 }
 
-func NewDelegateConfig(ocr2Cfg ocr2Config, m coreconfig.Mercury, t coreconfig.Threshold, i insecureConfig, jp jobPipelineConfig, pluginProcessCfg plugins.RegistrarConfig, s coreconfig.Sharding, ringStore *ring.Store) DelegateConfig {
+func NewDelegateConfig(ocr2Cfg ocr2Config, m de.Mercury, t coreconfig.Threshold, i insecureConfig, jp jobPipelineConfig, pluginProcessCfg plugins.RegistrarConfig, s coreconfig.Sharding, ringStore *ring.Store) DelegateConfig {
 	return &delegateConfig{
 		ocr2:            ocr2Cfg,
 		RegistrarConfig: pluginProcessCfg,
@@ -678,7 +679,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	expiryDuration := cfg.RequestExpiryDuration.Duration()
 	requestStoreHandler := requests.NewHandler(lggr, requestStore, clock, expiryDuration)
 	lpk := vaultcap.NewLazyPublicKey()
-	vaultCapability, err := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler, capabilitiesRegistry, lpk, d.OrgResolver, limitsFactory, requestLifecycle)
+	vaultCapability, err := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler, capabilitiesRegistry, lpk, limitsFactory, requestLifecycle)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create vault capability: %w", err)
 	}

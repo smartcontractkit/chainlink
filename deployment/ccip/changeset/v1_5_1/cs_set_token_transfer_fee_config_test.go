@@ -26,7 +26,6 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 )
 
 // Two weeks in seconds
@@ -167,12 +166,12 @@ func TestSetTokenTransferFeeConfig_Validations(t *testing.T) {
 							TokensToUseDefaultFeeConfigs: []common.Address{tokenB},
 							TokenTransferFeeConfigArgs: map[common.Address]v1_5_1.TokenTransferFeeArgs{
 								tokenB: {
-									MinFeeUSDCents:            pointer.To(uint32(1)),
-									MaxFeeUSDCents:            pointer.To(uint32(2)),
-									DeciBps:                   pointer.To(uint16(10)),
-									DestGasOverhead:           pointer.To(uint32(100)),
-									DestBytesOverhead:         pointer.To(uint32(200)),
-									AggregateRateLimitEnabled: pointer.To(true),
+									MinFeeUSDCents:            new(uint32(1)),
+									MaxFeeUSDCents:            new(uint32(2)),
+									DeciBps:                   new(uint16(10)),
+									DestGasOverhead:           new(uint32(100)),
+									DestBytesOverhead:         new(uint32(200)),
+									AggregateRateLimitEnabled: new(true),
 								},
 							},
 						},
@@ -276,12 +275,12 @@ func TestSetTokenTransferFeeConfig_Execution_WithoutMCMS(t *testing.T) {
 							TokensToUseDefaultFeeConfigs: []common.Address{},
 							TokenTransferFeeConfigArgs: map[common.Address]v1_5_1.TokenTransferFeeArgs{
 								tokenA: {
-									MinFeeUSDCents:            pointer.To(uint32(100)),
-									MaxFeeUSDCents:            pointer.To(uint32(5000)),
-									DeciBps:                   pointer.To(uint16(25)),
-									DestGasOverhead:           pointer.To(uint32(100_000)),
-									DestBytesOverhead:         pointer.To(uint32(1200)),
-									AggregateRateLimitEnabled: pointer.To(true),
+									MinFeeUSDCents:            new(uint32(100)),
+									MaxFeeUSDCents:            new(uint32(5000)),
+									DeciBps:                   new(uint16(25)),
+									DestGasOverhead:           new(uint32(100_000)),
+									DestBytesOverhead:         new(uint32(1200)),
+									AggregateRateLimitEnabled: new(true),
 								},
 							},
 						},
@@ -347,12 +346,12 @@ func TestSetTokenTransferFeeConfig_Execution_WithMCMS(t *testing.T) {
 						TokensToUseDefaultFeeConfigs: []common.Address{},
 						TokenTransferFeeConfigArgs: map[common.Address]v1_5_1.TokenTransferFeeArgs{
 							tokenA: {
-								MinFeeUSDCents:            pointer.To(uint32(100)),
-								MaxFeeUSDCents:            pointer.To(uint32(5000)),
-								DeciBps:                   pointer.To(uint16(25)),
-								DestGasOverhead:           pointer.To(uint32(100_000)),
-								DestBytesOverhead:         pointer.To(uint32(1200)),
-								AggregateRateLimitEnabled: pointer.To(true),
+								MinFeeUSDCents:            new(uint32(100)),
+								MaxFeeUSDCents:            new(uint32(5000)),
+								DeciBps:                   new(uint16(25)),
+								DestGasOverhead:           new(uint32(100_000)),
+								DestBytesOverhead:         new(uint32(1200)),
+								AggregateRateLimitEnabled: new(true),
 							},
 						},
 					},
@@ -390,12 +389,12 @@ func TestSetTokenTransferFeeConfig_Execution_WithMCMS(t *testing.T) {
 						TokensToUseDefaultFeeConfigs: []common.Address{tokenB},
 						TokenTransferFeeConfigArgs: map[common.Address]v1_5_1.TokenTransferFeeArgs{
 							tokenA: {
-								MinFeeUSDCents:            nil,                    // keep current
-								MaxFeeUSDCents:            nil,                    // keep current
-								DeciBps:                   pointer.To(uint16(30)), // change
-								DestGasOverhead:           nil,                    // keep current
-								DestBytesOverhead:         nil,                    // keep current
-								AggregateRateLimitEnabled: nil,                    // keep current
+								MinFeeUSDCents:            nil,             // keep current
+								MaxFeeUSDCents:            nil,             // keep current
+								DeciBps:                   new(uint16(30)), // change
+								DestGasOverhead:           nil,             // keep current
+								DestBytesOverhead:         nil,             // keep current
+								AggregateRateLimitEnabled: nil,             // keep current
 							},
 						},
 					},
@@ -461,12 +460,12 @@ func TestSetTokenTransferFeeConfig_MultipleChains(t *testing.T) {
 					TokensToUseDefaultFeeConfigs: []common.Address{tokenB},
 					TokenTransferFeeConfigArgs: map[common.Address]v1_5_1.TokenTransferFeeArgs{
 						tokenA: {
-							MinFeeUSDCents:            pointer.To(uint32(101)),
-							MaxFeeUSDCents:            pointer.To(uint32(5001)),
-							DeciBps:                   pointer.To(uint16(26)),
-							DestGasOverhead:           pointer.To(uint32(110_000)),
-							DestBytesOverhead:         pointer.To(uint32(1300)),
-							AggregateRateLimitEnabled: pointer.To(true),
+							MinFeeUSDCents:            new(uint32(101)),
+							MaxFeeUSDCents:            new(uint32(5001)),
+							DeciBps:                   new(uint16(26)),
+							DestGasOverhead:           new(uint32(110_000)),
+							DestBytesOverhead:         new(uint32(1300)),
+							AggregateRateLimitEnabled: new(true),
 						},
 					},
 				},
@@ -476,12 +475,12 @@ func TestSetTokenTransferFeeConfig_MultipleChains(t *testing.T) {
 					TokensToUseDefaultFeeConfigs: []common.Address{tokenD},
 					TokenTransferFeeConfigArgs: map[common.Address]v1_5_1.TokenTransferFeeArgs{
 						tokenC: {
-							MinFeeUSDCents:            pointer.To(uint32(202)),
-							MaxFeeUSDCents:            pointer.To(uint32(6002)),
-							DeciBps:                   pointer.To(uint16(31)),
-							DestGasOverhead:           pointer.To(uint32(120_000)),
-							DestBytesOverhead:         pointer.To(uint32(1400)),
-							AggregateRateLimitEnabled: pointer.To(false),
+							MinFeeUSDCents:            new(uint32(202)),
+							MaxFeeUSDCents:            new(uint32(6002)),
+							DeciBps:                   new(uint16(31)),
+							DestGasOverhead:           new(uint32(120_000)),
+							DestBytesOverhead:         new(uint32(1400)),
+							AggregateRateLimitEnabled: new(false),
 						},
 					},
 				},

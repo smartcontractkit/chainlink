@@ -205,7 +205,21 @@ func (d *dispatcher) setReceiver(k key, rec types.Receiver) error {
 			case <-ctx.Done():
 				return
 			case msg := <-receiverCh:
-				rec.Receive(ctx, msg)
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							d.lggr.Errorw("Recovered goroutine panic",
+								"panic", r,
+								"capabilityId", SanitizeLogString(k.capID),
+								"donId", k.donID,
+								"methodName", k.methodName,
+								"msgMethod", msg.Method,
+								"sender", msg.Sender,
+							)
+						}
+					}()
+					rec.Receive(ctx, msg)
+				}()
 			}
 		}
 	}()
