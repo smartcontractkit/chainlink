@@ -43,11 +43,11 @@ import (
 	suistate "github.com/smartcontractkit/chainlink-sui/deployment"
 	tonstate "github.com/smartcontractkit/chainlink-ton/deployment/state"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/maputils"
 	ccipshared "github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-	"github.com/smartcontractkit/chainlink/deployment/helpers"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc677"
