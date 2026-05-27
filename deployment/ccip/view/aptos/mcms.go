@@ -9,11 +9,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
-	aptosCommon "github.com/smartcontractkit/chainlink/deployment/common/view/aptos"
 )
 
 type MCMSWithTimelockView struct {
-	aptosCommon.ContractMetaData
+	ContractMetaData
 
 	Bypasser  mcmstypes.Config
 	Proposer  mcmstypes.Config
@@ -83,7 +82,7 @@ func GenerateMCMSWithTimelockView(chain cldf_aptos.Chain, mcmsAddress aptos.Acco
 	}
 
 	return MCMSWithTimelockView{
-		ContractMetaData: aptosCommon.ContractMetaData{
+		ContractMetaData: ContractMetaData{
 			Address: mcmsAddress.StringLong(),
 			Owner:   mcmsOwner.StringLong(),
 		},
