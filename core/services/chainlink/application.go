@@ -27,6 +27,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/chipingress"
 	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
@@ -377,9 +378,16 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	// Wire DurableEmitter for persistent chip ingress delivery when enabled.
 	if cfg.Telemetry().DurableEmitterEnabled() && cfg.Telemetry().ChipIngressEndpoint() != "" {
+		// beholderAuthHeaders holds the node's CSA-key-signed credential required
+		// by the Chip Ingress service — used by all chip clients, not just beholder.
+		var auth chipingress.HeaderProvider
+		if len(beholderAuthHeaders) > 0 {
+			auth = beholder.NewStaticAuth(beholderAuthHeaders, !cfg.Telemetry().ChipIngressInsecureConnection())
+		}
 		durableCfg := durableemitter.SetupConfig{
 			Endpoint:           cfg.Telemetry().ChipIngressEndpoint(),
 			InsecureConnection: cfg.Telemetry().ChipIngressInsecureConnection(),
+			Auth:               auth,
 			RetransmitEnabled:  true, // host process owns retransmit
 		}
 		pgStore := durableemitter.NewPgDurableEventStore(opts.DS)
