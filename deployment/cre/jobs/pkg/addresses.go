@@ -52,7 +52,7 @@ func GetShardConfigAddressRefKey(chainSel uint64, qualifier string) datastore.Ad
 	return datastore.NewAddressRefKey(
 		chainSel,
 		"ShardConfig",
-		semver.MustParse("1.0.0"),
+		semver.MustParse("1.0.0-dev"),
 		qualifier,
 	)
 }
