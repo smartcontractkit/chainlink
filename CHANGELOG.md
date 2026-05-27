@@ -1,5 +1,13 @@
 # Changelog Chainlink Core
 
+## 2.49.1
+
+### Patch Changes
+
+- [#22666](https://github.com/smartcontractkit/chainlink/pull/22666) [`a2808a6`](https://github.com/smartcontractkit/chainlink/commit/a2808a6b275994649ef797486fbfde9c76757bfe) - Cherry-pick vault reliability fixes onto the `2.49.1` patch line for the CRE prod release train:
+  - [#22595](https://github.com/smartcontractkit/chainlink/pull/22595) [`7d2ffe7`](https://github.com/smartcontractkit/chainlink/commit/7d2ffe7965ac472649e161c70e00f3f0ef8b188c) - Optimize vault from load test
+  - [#22662](https://github.com/smartcontractkit/chainlink/pull/22662) [`068777e`](https://github.com/smartcontractkit/chainlink/commit/068777eee9e5f639069f8249c23cc000cdb4daab) - Bump confidential-compute ref to support vault changes
+
 ## 2.49.0
 
 ### Minor Changes
