@@ -1,9 +1,14 @@
 package cre
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os/exec"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -12,9 +17,11 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -86,6 +93,11 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		namespaces := []string{"main", "alt"}
 
 		executeVaultAllowListSecretsCreateTest(t, createEnc, secretID, owner, owner, gwURL, namespaces, sc, wfReg)
+		if isVaultOptimizationsEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
+			t.Run("binary_encoded_shares", func(t *testing.T) {
+				executeVaultBinaryEncodedSharesSmokeTest(t, testEnv, secretID, "main", createValue, ulCh, bmCh)
+			})
+		}
 		executeVaultSecretsUpdateTest(t, updateEnc, secretID, owner, owner, gwURL, namespaces, sc, wfReg)
 		executeVaultSecretsListTest(t, secretID, owner, owner, gwURL, "main", sc, wfReg)
 		executeVaultSecretsListTest(t, secretID, owner, owner, gwURL, "alt", sc, wfReg)
@@ -107,35 +119,39 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		executeVaultSecretsDeleteTest(t, secretID, owner, owner, gwURL, []string{"alt"}, sc, wfReg)
 	})
 
-	if !isVaultJWTAuthEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
-		return
+	if isVaultJWTAuthEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
+		t.Run("identifier_validation", func(t *testing.T) {
+			if parallelEnabled {
+				t.Parallel()
+			}
+			subEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
+			sc := subEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+			owner := sc.MustGetRootKeyAddress().Hex()
+			wfRegAddr := crecontracts.MustGetAddressFromDataStore(subEnv.CreEnvironment.CldfEnvironment.DataStore, subEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+			wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+			require.NoError(t, err)
+			require.NoError(t, creworkflow.LinkOwner(sc, common.HexToAddress(wfRegAddr), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()]))
+			vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
+			enc, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-basic", vaultParsedPublicKey, sc.MustGetRootKeyAddress())
+			require.NoError(t, err)
+			ulCh := make(chan *workflowevents.UserLogs, 1000)
+			bmCh := make(chan *commonevents.BaseMessage, 1000)
+			sink := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, ulCh, bmCh))
+			t.Cleanup(func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				t_helpers.ShutdownChipSinkWithDrain(ctx, sink, ulCh, bmCh)
+			})
+			executeVaultSecretsIdentifierValidationTest(t, enc, owner, gwURL, sc, wfReg)
+			executeVaultSecretsGetInvalidIdentifierViaWorkflowTest(t, subEnv, "vget1", ulCh, bmCh)
+		})
 	}
 
-	t.Run("identifier_validation", func(t *testing.T) {
-		if parallelEnabled {
-			t.Parallel()
-		}
-		subEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
-		sc := subEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
-		owner := sc.MustGetRootKeyAddress().Hex()
-		wfRegAddr := crecontracts.MustGetAddressFromDataStore(subEnv.CreEnvironment.CldfEnvironment.DataStore, subEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
-		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
-		require.NoError(t, err)
-		require.NoError(t, creworkflow.LinkOwner(sc, common.HexToAddress(wfRegAddr), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()]))
-		vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
-		enc, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-basic", vaultParsedPublicKey, sc.MustGetRootKeyAddress())
-		require.NoError(t, err)
-		ulCh := make(chan *workflowevents.UserLogs, 1000)
-		bmCh := make(chan *commonevents.BaseMessage, 1000)
-		sink := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, ulCh, bmCh))
-		t.Cleanup(func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			t_helpers.ShutdownChipSinkWithDrain(ctx, sink, ulCh, bmCh)
+	if isVaultOptimizationsEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
+		t.Run("pending_queue_blob_batching_many_concurrent_creates", func(t *testing.T) {
+			ExecuteVaultBlobBatchingSmokeTest(t, fixture, testEnv)
 		})
-		executeVaultSecretsIdentifierValidationTest(t, enc, owner, gwURL, sc, wfReg)
-		executeVaultSecretsGetInvalidIdentifierViaWorkflowTest(t, subEnv, "vget1", ulCh, bmCh)
-	})
+	}
 }
 
 func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
@@ -347,15 +363,376 @@ func ExecuteVaultJWTDisabledTest(t *testing.T, fixture *vaultScenarioFixture) {
 	})
 }
 
+// ExecuteVaultBlobBatchingSmokeTest issues many concurrent Vault create calls so OCR observes a large
+// local pending queue and exercises batched pending-queue blobs (beyond the legacy per-blob single-item cap).
+func ExecuteVaultBlobBatchingSmokeTest(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
+	t.Helper()
+	const nConcurrentCreates = 25
+
+	gwURL := fixture.GatewayURL.String()
+	vaultParsedPublicKey := mustVaultPublicKey(t, fixture.VaultPublicKey)
+	linkingService := fixture.LinkingService
+
+	sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+	workflowOwnerAddress := sc.MustGetRootKeyAddress()
+	owner := workflowOwnerAddress.Hex()
+	expectedResponseOwner := owner
+	orgID := ""
+	orgIDAsSecretOwnerEnabled := isVaultJWTAuthEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath)
+	if linkingService != nil {
+		orgID = "org" + strings.ReplaceAll(uuid.NewString(), "-", "")
+		linkingService.SetOwnerOrg(owner, orgID)
+		if orgIDAsSecretOwnerEnabled {
+			expectedResponseOwner = orgID
+		}
+	}
+	if orgIDAsSecretOwnerEnabled {
+		require.NotEmpty(t, orgID, "JWT auth enabled topology must link the workflow owner to an org ID")
+	}
+
+	wfRegAddr := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+	wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+	require.NoError(t, err)
+	requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
+
+	const plainValue = "blob-batch-smoke-value"
+	createEnc, err := vaultutils.EncryptSecretWithWorkflowOwner(plainValue, vaultParsedPublicKey, workflowOwnerAddress)
+	require.NoError(t, err)
+	namespaces := []string{"main"}
+
+	// Pre-generate all secret IDs, request IDs, and request objects
+	type secretCreateTest struct {
+		secretID    string
+		requestID   string
+		jsonRequest jsonrpc.Request[json.RawMessage]
+	}
+	secretTests := make([]secretCreateTest, nConcurrentCreates)
+	for i := range nConcurrentCreates {
+		secretTests[i].secretID = uniqueVaultSecretID(fmt.Sprintf("blobbatch%d", i))
+		secretTests[i].requestID = uuid.New().String()
+		secretsCreateRequest := vault_helpers.CreateSecretsRequest{
+			RequestId:        secretTests[i].requestID,
+			EncryptedSecrets: buildEncryptedSecrets(secretTests[i].secretID, owner, createEnc, namespaces),
+		}
+		secretTests[i].jsonRequest = newVaultJSONRequest(t, secretTests[i].requestID, vaulttypes.MethodSecretsCreate, &secretsCreateRequest)
+	}
+
+	// Sequentially allowlist all requests to avoid blockchain nonce conflicts
+	auth := newAllowlistVaultRequestAuth(owner, sc, wfReg)
+	for i := range secretTests {
+		// Allowlist sequentially to avoid nonce conflicts
+		auth.authorize(t, &secretTests[i].jsonRequest)
+	}
+
+	// Send all create requests to gateway in parallel; subtests are released together by t.Parallel
+	// once the parent body returns, so they queue up in the local pending queue and exercise batching.
+	t.Run("concurrent_secrets_creates", func(t *testing.T) {
+		for i, st := range secretTests {
+			t.Run(fmt.Sprintf("secret_%d", i), func(t *testing.T) {
+				t.Parallel()
+				sendConcurrentVaultCreate(t, gwURL, st.requestID, st.jsonRequest, expectedResponseOwner, namespaces)
+			})
+		}
+	})
+	// Runs after the parallel subtests above complete (sibling Run, not same body as t.Parallel children).
+	t.Run("pending_queue_pack_observed_in_docker_logs", func(t *testing.T) {
+		assertVaultOCRPendingPackObservedInDockerLogs(t)
+	})
+	t.Run("state_transition_pending_write_observed_in_docker_logs", func(t *testing.T) {
+		assertVaultOCRStateTransitionPendingWriteObservedInDockerLogs(t)
+	})
+	t.Run("vault_ocr_wire_truncation_signals_in_docker_logs", func(t *testing.T) {
+		assertVaultOCRWireTruncationSignalsInDockerLogs(t)
+	})
+}
+
+// sendConcurrentVaultCreate sends an already-allowlisted create request to the gateway and tolerates
+// the replay-guard outcome. Under burst load, the gateway can time out (503 "Request timed out") while
+// DON still processes the create; the test's HTTP retry then re-sends the same request digest, which
+// vault's replay guard rejects with "request was already authorized previously". That error proves the
+// original request was accepted and processed, so we treat it as success — there is no later response
+// payload to validate when this path fires.
+func sendConcurrentVaultCreate(t *testing.T, gwURL, requestID string, jsonRequest jsonrpc.Request[json.RawMessage], expectedResponseOwner string, namespaces []string) {
+	t.Helper()
+
+	authToken := jsonRequest.Auth
+	stripped := outboundRequestWithoutAuth(jsonRequest)
+	requestBody, err := json.Marshal(stripped)
+	require.NoError(t, err, "failed to marshal vault request")
+	headers := map[string]string{}
+	if authToken != "" {
+		headers["Authorization"] = "Bearer " + authToken
+	}
+
+	statusCode, body := sendVaultRequestToGatewayWithHeaders(t, gwURL, requestBody, headers)
+
+	// Under burst load the gateway can return 503 "Request timed out" when it gives up relaying the
+	// response, even though the DON has already processed the request. Tolerate that here — the goal
+	// of this subtest is to drive concurrent load for the docker-log batching assertions below, not
+	// to verify per-request response payloads.
+	if statusCode == http.StatusServiceUnavailable && bytes.Contains(body, []byte("Request timed out")) {
+		framework.L.Info().Str("requestID", requestID).Msg("vault create gateway-to-DON timeout; treating as success for batching load test")
+		return
+	}
+	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK; body=%s", string(body))
+
+	var parsed jsonrpc.Response[vaulttypes.SignedOCRResponse]
+	require.NoError(t, json.Unmarshal(body, &parsed), "failed to unmarshal gateway response")
+	if parsed.Error != nil && strings.Contains(parsed.Error.Message, "request was already authorized previously") {
+		framework.L.Info().Str("requestID", requestID).Msg("vault create returned replay-guard error after retry; DON processed the original request — treating as success")
+		return
+	}
+	require.Nil(t, parsed.Error, "gateway returned error: %v", parsed.Error)
+	require.Equal(t, requestID, parsed.ID)
+	require.Equal(t, vaulttypes.MethodSecretsCreate, parsed.Method)
+	var createResp vault_helpers.CreateSecretsResponse
+	require.NoError(t, protojson.Unmarshal(parsed.Result.Payload, &createResp), "failed to decode CreateSecretsResponse")
+	require.Len(t, createResp.Responses, len(namespaces), "Expected one item in the response per namespace")
+	for _, r := range createResp.Responses {
+		require.Equal(t, expectedResponseOwner, r.Id.Owner, "Response owner should match expected owner")
+	}
+}
+
+// assertVaultOCRPendingPackObservedInDockerLogs polls chainlink-related container logs until it observes
+// a 'observation packed local items into blob payloads' log line emitted by the new batching code path. The line must
+// carry the blobHandleCount field (only the new pending-queue-batching code path logs that field) and a
+// non-zero packedLocalItemCount. Strict "multi-item batched into fewer blobs" (packed > handles) is
+// timing-dependent: OCR rounds (~400ms) often drain the per-node local pending queue between arrivals,
+// even under burst load. Asserting the optimization code path was exercised is reliable; asserting that
+// every load shape produces packed>handles is not.
+var vaultPendingPackDockerLogRE = regexp.MustCompile(`packedLocalItemCount[^\d]*(\d+)`)
+var vaultPendingPackBlobHandleCountRE = regexp.MustCompile(`blobHandleCount[^\d]*(\d+)`)
+
+func assertVaultOCRPendingPackObservedInDockerLogs(t *testing.T) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("docker log scan skipped in -short mode")
+	}
+	dockerBin, err := exec.LookPath("docker")
+	if err != nil {
+		t.Skip("docker not in PATH; skipping pending-pack log assertion")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for {
+		psOut, err := exec.CommandContext(ctx, dockerBin, "ps", "--format", "{{.Names}}").Output()
+		if err != nil {
+			select {
+			case <-ctx.Done():
+				require.Fail(t, "timed out waiting for docker while scanning for observation packed local items into blob payloads")
+			case <-ticker.C:
+			}
+			continue
+		}
+		names := strings.Split(strings.TrimSpace(string(psOut)), "\n")
+		for _, name := range names {
+			if name == "" {
+				continue
+			}
+			ln := strings.ToLower(name)
+			if !strings.Contains(ln, "chainlink") && !strings.Contains(ln, "ocr") && !strings.Contains(ln, "capabilit") {
+				continue
+			}
+			logs, err := exec.CommandContext(ctx, dockerBin, "logs", name, "--tail", "25000").CombinedOutput()
+			if err != nil {
+				continue
+			}
+			for _, line := range strings.Split(string(logs), "\n") {
+				if !strings.Contains(line, "observation packed local items into blob payloads") {
+					continue
+				}
+				pm := vaultPendingPackDockerLogRE.FindStringSubmatch(line)
+				bm := vaultPendingPackBlobHandleCountRE.FindStringSubmatch(line)
+				if len(pm) < 2 || len(bm) < 2 {
+					continue
+				}
+				packed, err1 := strconv.Atoi(pm[1])
+				handles, err2 := strconv.Atoi(bm[1])
+				if err1 != nil || err2 != nil {
+					continue
+				}
+				if packed >= 1 && handles >= 1 {
+					framework.L.Info().Str("container", name).Int("packedLocalItemCount", packed).Int("blobHandleCount", handles).Msg("observed vault OCR pending pack log from new batching code path")
+					return
+				}
+			}
+		}
+		select {
+		case <-ctx.Done():
+			require.Fail(t, "timed out waiting for observation packed local items into blob payloads line with packedLocalItemCount>=1 and blobHandleCount field set in docker logs (is the local CRE stack running with vault optimizations enabled?)")
+		case <-ticker.C:
+		}
+	}
+}
+
+// assertVaultOCRStateTransitionPendingWriteObservedInDockerLogs polls chainlink-related container logs until it
+// observes a 'state transition: more observations than can be included in response' log line with writtenCount >= 1, proving that items
+// reached the KV pending queue via the new batched-write state transition (rather than the legacy per-item
+// path that did not emit this log). Strict writtenCount>1 is timing-dependent — most rounds write only the
+// item(s) that arrived since the previous round — so we assert the code path was exercised instead.
+var vaultStateTransitionPendingWriteWrittenRE = regexp.MustCompile(`writtenCount[^\d]*(\d+)`)
+
+func assertVaultOCRStateTransitionPendingWriteObservedInDockerLogs(t *testing.T) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("docker log scan skipped in -short mode")
+	}
+	dockerBin, err := exec.LookPath("docker")
+	if err != nil {
+		t.Skip("docker not in PATH; skipping state-transition pending-write log assertion")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for {
+		psOut, err := exec.CommandContext(ctx, dockerBin, "ps", "--format", "{{.Names}}").Output()
+		if err != nil {
+			select {
+			case <-ctx.Done():
+				require.Fail(t, "timed out waiting for docker while scanning for pending queue items persisted to storage")
+			case <-ticker.C:
+			}
+			continue
+		}
+		names := strings.Split(strings.TrimSpace(string(psOut)), "\n")
+		for _, name := range names {
+			if name == "" {
+				continue
+			}
+			ln := strings.ToLower(name)
+			if !strings.Contains(ln, "chainlink") && !strings.Contains(ln, "ocr") && !strings.Contains(ln, "capabilit") {
+				continue
+			}
+			logs, err := exec.CommandContext(ctx, dockerBin, "logs", name, "--tail", "25000").CombinedOutput()
+			if err != nil {
+				continue
+			}
+			for _, line := range strings.Split(string(logs), "\n") {
+				if !strings.Contains(line, "pending queue items persisted to storage") {
+					continue
+				}
+				wm := vaultStateTransitionPendingWriteWrittenRE.FindStringSubmatch(line)
+				if len(wm) < 2 {
+					continue
+				}
+				written, err1 := strconv.Atoi(wm[1])
+				if err1 != nil {
+					continue
+				}
+				if written >= 1 {
+					framework.L.Info().Str("container", name).Int("writtenCount", written).Msg("observed vault OCR state-transition pending write log from new batching code path")
+					return
+				}
+			}
+		}
+		select {
+		case <-ctx.Done():
+			require.Fail(t, "timed out waiting for pending queue items persisted to storage line with writtenCount>=1 in docker logs (is the local CRE stack running with vault optimizations enabled?)")
+		case <-ticker.C:
+		}
+	}
+}
+
+var vaultObservationWirePackPackedRE = regexp.MustCompile(`packedObservationCount[^\d]*(\d+)`)
+var vaultObservationWirePackPendingRE = regexp.MustCompile(`pendingQueueItemCount[^\d]*(\d+)`)
+var vaultOutcomeWirePackPackedRE = regexp.MustCompile(`packedOutcomeCount[^\d]*(\d+)`)
+var vaultOutcomeWirePackScheduledRE = regexp.MustCompile(`scheduledRequestIDs[^\d]*(\d+)`)
+
+// assertVaultOCRWireTruncationSignalsInDockerLogs scans recent chainlink-like container logs and asserts structural
+// consistency of truncation markers when present: observation wire-pack implies packed < pending store rows;
+// outcome wire-pack implies packed outcomes < scheduled request IDs for that state transition.
+func assertVaultOCRWireTruncationSignalsInDockerLogs(t *testing.T) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("docker log scan skipped in -short mode")
+	}
+	dockerBin, err := exec.LookPath("docker")
+	if err != nil {
+		t.Skip("docker not in PATH; skipping vault OCR wire truncation log scan")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	psOut, err := exec.CommandContext(ctx, dockerBin, "ps", "--format", "{{.Names}}").Output()
+	if err != nil {
+		t.Fatalf("docker ps: %v", err)
+	}
+	var combined strings.Builder
+	names := strings.Split(strings.TrimSpace(string(psOut)), "\n")
+	for _, name := range names {
+		if name == "" {
+			continue
+		}
+		ln := strings.ToLower(name)
+		if !strings.Contains(ln, "chainlink") && !strings.Contains(ln, "ocr") && !strings.Contains(ln, "capabilit") {
+			continue
+		}
+		logs, err := exec.CommandContext(ctx, dockerBin, "logs", name, "--tail", "25000").CombinedOutput()
+		if err != nil {
+			continue
+		}
+		combined.Write(logs)
+		combined.WriteByte('\n')
+	}
+	s := combined.String()
+
+	sawObsTrunc := false
+	for _, line := range strings.Split(s, "\n") {
+		if !strings.Contains(line, "observation: more pending queue items than can be observed") {
+			continue
+		}
+		sawObsTrunc = true
+		pm := vaultObservationWirePackPackedRE.FindStringSubmatch(line)
+		qm := vaultObservationWirePackPendingRE.FindStringSubmatch(line)
+		require.GreaterOrEqual(t, len(pm), 2, "packedObservationCount should be present on observation wire pack line: %s", line)
+		require.GreaterOrEqual(t, len(qm), 2, "pendingQueueItemCount should be present on observation wire pack line: %s", line)
+		packed, err1 := strconv.Atoi(pm[1])
+		pending, err2 := strconv.Atoi(qm[1])
+		require.NoError(t, err1)
+		require.NoError(t, err2)
+		require.Less(t, packed, pending, "observation wire truncation should mean packedObservationCount < pendingQueueItemCount: %s", line)
+		framework.L.Info().Str("line", line).Int("packedObservationCount", packed).Int("pendingQueueItemCount", pending).Msg("vault OCR observation wire pack (truncation) observed in docker logs")
+	}
+
+	sawOutcomeTrunc := false
+	for _, line := range strings.Split(s, "\n") {
+		if !strings.Contains(line, "state transition: more observations than can be included in response") {
+			continue
+		}
+		sawOutcomeTrunc = true
+		om := vaultOutcomeWirePackPackedRE.FindStringSubmatch(line)
+		sm := vaultOutcomeWirePackScheduledRE.FindStringSubmatch(line)
+		require.GreaterOrEqual(t, len(om), 2, "packedOutcomeCount should be present on state transition outcome wire pack line: %s", line)
+		require.GreaterOrEqual(t, len(sm), 2, "scheduledRequestIDs should be present on state transition outcome wire pack line: %s", line)
+		packed, err1 := strconv.Atoi(om[1])
+		scheduled, err2 := strconv.Atoi(sm[1])
+		require.NoError(t, err1)
+		require.NoError(t, err2)
+		require.Less(t, packed, scheduled, "state transition outcome wire truncation should mean packedOutcomeCount < scheduledRequestIDs: %s", line)
+		framework.L.Info().Str("line", line).Int("packedOutcomeCount", packed).Int("scheduledRequestIDs", scheduled).Msg("vault OCR state transition outcome wire pack (truncation) observed in docker logs")
+	}
+
+	if !sawObsTrunc && !sawOutcomeTrunc {
+		framework.L.Info().Msg("no observation: more pending queue items than can be observed or state transition: more observations than can be included in response in recent docker logs — observation and precursor outcome packing did not truncate in the sampled window (expected under default limits)")
+	}
+}
+
+func TestVaultOptimizationsEnabled_CRESettingDefaultsDisabled(t *testing.T) {
+	require.False(t, cresettings.Default.VaultOptimizationsEnabled.DefaultValue)
+}
+
 func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 	t.Parallel()
 	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
 
 	testCases := []struct {
-		name        string
-		configPath  string
-		wantJWTGate string
-		wantLinking bool
+		name                  string
+		configPath            string
+		wantJWTGate           string
+		wantLinking           bool
+		wantOptimizationsGate string
 	}{
 		{
 			name:        "enabled",
@@ -369,6 +746,13 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 			wantJWTGate: "false",
 			wantLinking: false,
 		},
+		{
+			name:                  "optimizations_enabled",
+			configPath:            vaultOptimizationsEnabledConfigPath,
+			wantJWTGate:           "false",
+			wantLinking:           false,
+			wantOptimizationsGate: "true",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -377,16 +761,32 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 			require.NoError(t, cfg.Load(t_helpers.GetTestConfig(t, tc.configPath).EnvironmentConfigPath))
 
 			for _, nodeSet := range cfg.NodeSets {
-				if nodeSet.Name != "workflow" && nodeSet.Name != "capabilities" {
+				switch nodeSet.Name {
+				case "workflow", "capabilities":
+				case "bootstrap-gateway":
+					if tc.wantOptimizationsGate != "true" {
+						continue
+					}
+				default:
 					continue
 				}
 				settingsRaw := nodeSet.EnvVars["CL_CRE_SETTINGS_DEFAULT"]
 				if settingsRaw == "" {
 					require.Equal(t, "false", tc.wantJWTGate)
+					if tc.wantOptimizationsGate != "" {
+						require.Equal(t, "false", tc.wantOptimizationsGate)
+					}
 				} else {
 					var settings map[string]string
 					require.NoError(t, json.Unmarshal([]byte(settingsRaw), &settings))
-					require.Equal(t, tc.wantJWTGate, settings["VaultJWTAuthEnabled"])
+					if tc.wantOptimizationsGate == "true" {
+						require.Equal(t, "true", settings["VaultOptimizationsEnabled"])
+					} else {
+						require.Equal(t, tc.wantJWTGate, settings["VaultJWTAuthEnabled"])
+						if v, ok := settings["VaultOptimizationsEnabled"]; ok {
+							require.Equal(t, "false", v)
+						}
+					}
 				}
 
 				for _, nodeSpec := range nodeSet.NodeSpecs {
