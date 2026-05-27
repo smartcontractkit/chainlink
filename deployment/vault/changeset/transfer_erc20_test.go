@@ -19,10 +19,10 @@ import (
 const (
 	testCustomTimelockQualifier = "vault-test-timelock-qualifier"
 
-	testTimelockAddrEmptyQualifier  = "0xa1111111111111111111111111111111111111"
-	testTimelockAddrCustomQualifier = "0xa2222222222222222222222222222222222222"
-	testProposerAddrEmptyQualifier  = "0xa3333333333333333333333333333333333333"
-	testProposerAddrCustomQualifier = "0xa4444444444444444444444444444444444444"
+	testTimelockAddrEmptyQualifier  = "0xa111111111111111111111111111111111111111"
+	testTimelockAddrCustomQualifier = "0xa222222222222222222222222222222222222222"
+	testProposerAddrEmptyQualifier  = "0xa333333333333333333333333333333333333333"
+	testProposerAddrCustomQualifier = "0xa444444444444444444444444444444444444444"
 )
 
 var testMCMSContractVersion = semver.MustParse("1.0.0")
