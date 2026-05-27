@@ -43,13 +43,13 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.100
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260506144252-c100eabfda74
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260521212707-223a934ccc7a
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260527110243-883689d933be
 	github.com/smartcontractkit/chainlink-common/keystore v1.1.0
 	github.com/smartcontractkit/chainlink-data-streams v0.1.15-0.20260522094612-5f9f748bd87a
 	github.com/smartcontractkit/chainlink-deployments-framework v0.105.0
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260526103514-f2e42bbb7f98
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260521215851-3fdbb363496f
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260520181035-b5bb732eb9d7
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260526195338-adcf8013a1b7
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.18.0
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.2
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.23
@@ -566,6 +566,7 @@ require (
 	go.etcd.io/bbolt v1.4.3 // indirect
 	go.mongodb.org/mongo-driver v1.17.9 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
+	go.opentelemetry.io/contrib/bridges/prometheus v0.68.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.49.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.68.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace v0.67.0 // indirect

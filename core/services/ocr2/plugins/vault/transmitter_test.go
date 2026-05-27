@@ -6,7 +6,6 @@ import (
 
 	"github.com/jonboulle/clockwork"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -71,26 +70,7 @@ func TestTransmitter(t *testing.T) {
 	eopb, err := proto.Marshal(&vault.Outcomes{Outcomes: []*vault.Outcome{expectedOutcome1}})
 	require.NoError(t, err)
 
-	r := &ReportingPlugin{
-		lggr: lggr,
-		onchainCfg: ocr3types.ReportingPluginConfig{
-			N: 4,
-			F: 1,
-		},
-		store: store,
-		cfg: makeReportingPluginConfig(
-			t,
-			10,
-			nil,
-			nil,
-			1,
-			1024,
-			100,
-			100,
-			100,
-			10,
-		),
-	}
+	r := newTestReportingPlugin(t, withLggr(lggr), withStore(store), withOnchainCfg(4, 1))
 
 	seqNr := uint64(1)
 

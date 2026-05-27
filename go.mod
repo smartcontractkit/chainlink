@@ -84,7 +84,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260415165642-49f23e4d76cc
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260415165642-49f23e4d76cc
 	github.com/smartcontractkit/chainlink-ccv v0.0.2-0.20260428133800-3b1484e8b1fd
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260521212707-223a934ccc7a
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260527110243-883689d933be
 	github.com/smartcontractkit/chainlink-common/keystore v1.1.0
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260520194751-11a4f360f4e2
 	github.com/smartcontractkit/chainlink-data-streams v0.1.15-0.20260522094612-5f9f748bd87a
@@ -96,7 +96,7 @@ require (
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20260423135514-5b1a7565a99c
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20260521164805-26d78d5e1243
 	github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20251024234028-0988426d98f4
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260520181035-b5bb732eb9d7
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260526195338-adcf8013a1b7
 	github.com/smartcontractkit/chainlink-protos/data-feeds v0.1.1-0.20260501174546-2e8846986b36
 	github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20260512230622-65f10f4cd305
 	github.com/smartcontractkit/chainlink-protos/node-platform v0.0.0-20260512230622-65f10f4cd305
@@ -266,6 +266,8 @@ require (
 	github.com/google/go-tpm v0.9.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/gorilla/context v1.1.1 // indirect
+	github.com/gorilla/handlers v1.5.2 // indirect
+	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/grafana/pyroscope-go/godeltaprof v0.1.10 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.1.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.3 // indirect
@@ -360,8 +362,6 @@ require (
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20260408092456-3c6369888d4a // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
-	github.com/stellar/go-stellar-sdk v0.5.0 // indirect
-	github.com/stellar/go-xdr v0.0.0-20260423131911-a87d4d0789c3 // indirect
 	github.com/stephenlacy/go-ethereum-hdwallet v0.0.0-20230913225845-a4fa94429863 // indirect
 	github.com/streamingfast/logging v0.0.0-20230608130331-f22c91403091 // indirect
 	github.com/stretchr/objx v0.5.3 // indirect
@@ -391,6 +391,7 @@ require (
 	go.etcd.io/bbolt v1.4.2 // indirect
 	go.mongodb.org/mongo-driver v1.17.9 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
+	go.opentelemetry.io/contrib/bridges/prometheus v0.68.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.68.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.19.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.19.0 // indirect
