@@ -32,6 +32,7 @@ import (
 	gasmocks "github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	evm "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	"github.com/smartcontractkit/chainlink-evm/pkg/report/datafeeds"
 	df_processor "github.com/smartcontractkit/chainlink-evm/pkg/report/datafeeds/processor"
 	por_processor "github.com/smartcontractkit/chainlink-evm/pkg/report/por/processor"
@@ -41,7 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/report/platform"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
-	evm "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
