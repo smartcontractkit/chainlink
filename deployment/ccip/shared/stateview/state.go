@@ -262,78 +262,7 @@ func (c CCIPOnChainState) runPostDeploymentValidation(e cldf.Environment, valida
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
-			e.Logger.Infow("Validating chain contracts", "chain", sel)
-			chainState := c.MustGetEVMChainState(sel)
-			var errs []error
-			isRMNEnabledInRmnRemote, err := chainState.ValidateRMNRemote(e, sel, rmnHomeActiveDigest)
-			if err != nil {
-				errs = append(errs, fmt.Errorf("RMNRemote %s: %w", safeAddr(chainState.RMNRemote), err))
-			} else if isRMNEnabledInRmnRemote != isRMNEnabledInRMNHomeBySourceChain[sel] {
-				errs = append(errs, fmt.Errorf("RMNRemote %s rmnEnabled mismatch with RMNHome: expected %v, got %v",
-					chainState.RMNRemote.Address().Hex(), isRMNEnabledInRMNHomeBySourceChain[sel], isRMNEnabledInRmnRemote))
-			}
-			var fqV2 *fqv2ops.FeeQuoterContract
-			if ds, dsErr := ccipshared.PopulateDataStore(e.ExistingAddresses); dsErr == nil {
-				if e.DataStore != nil {
-					_ = ds.Merge(e.DataStore)
-				}
-				chainAddresses := ds.Addresses().Filter(datastore.AddressRefByChainSelector(sel))
-				if fqAddr, fqVer, fqErr := ccipshared.ResolveFeeQuoterAddressAndVersion(chainAddresses, sel); fqErr == nil && fqVer.Major() >= 2 {
-					if evmChain, ok := e.BlockChains.EVMChains()[sel]; ok {
-						if v2, bindErr := fqv2ops.NewFeeQuoterContract(fqAddr, evmChain.Client); bindErr == nil {
-							fqV2 = v2
-						}
-					}
-				}
-			}
-			var fqV2Addr common.Address
-			if fqV2 != nil {
-				fqV2Addr = fqV2.Address()
-			}
-			otherOnRamps := make(map[uint64]common.Address)
-			useTestRouter := chainState.Router == nil
-			connectedChains, routerErr := chainState.ValidateRouter(e, useTestRouter, v16ActiveChains)
-			if routerErr != nil {
-				errs = append(errs, fmt.Errorf("router: %w", routerErr))
-			}
-			if len(connectedChains) > 0 {
-				for _, connectedChain := range connectedChains {
-					if connectedChain == sel {
-						continue
-					}
-					if addr, ok := c.resolveOnRampAddress(e, connectedChain); ok {
-						otherOnRamps[connectedChain] = addr
-					}
-				}
-				if err := chainState.ValidateOffRamp(e, sel, otherOnRamps, isRMNEnabledInRMNHomeBySourceChain, fqV2Addr); err != nil {
-					errs = append(errs, fmt.Errorf("offramp %s: %w", safeAddr(chainState.OffRamp), err))
-				}
-				if err := chainState.ValidateOnRamp(e, sel, connectedChains, fqV2Addr); err != nil {
-					errs = append(errs, fmt.Errorf("onramp %s: %w", safeAddr(chainState.OnRamp), err))
-				}
-				if err := chainState.ValidateNonceManager(e, sel, connectedChains); err != nil {
-					errs = append(errs, fmt.Errorf("nonce manager: %w", err))
-				}
-			}
-			{
-				var backend bind.ContractBackend
-				if evmChain, ok := e.BlockChains.EVMChains()[sel]; ok {
-					backend = evmChain.Client
-				}
-				if err := chainState.ValidateFeeQuoter(e, sel, connectedChains, fqV2, backend); err != nil {
-					errs = append(errs, fmt.Errorf("fee quoter: %w", err))
-				}
-			}
-			if validateOwnership {
-				if chainState.Timelock == nil {
-					errs = append(errs, errors.New("ownership: timelock not configured"))
-				} else if err := chainState.ValidateContractOwnership(e); err != nil {
-					errs = append(errs, fmt.Errorf("ownership: %w", err))
-				}
-			}
-			if err := chainState.ValidateRMNProxy(e); err != nil {
-				errs = append(errs, fmt.Errorf("RMNProxy: %w", err))
-			}
+			errs := c.runSingleChainValidation(e, sel, v16ActiveChains, rmnHomeActiveDigest, isRMNEnabledInRMNHomeBySourceChain, validateOwnership)
 			if len(errs) > 0 {
 				chainErrsMu.Lock()
 				chainErrs[sel] = append(chainErrs[sel], errs...)
@@ -348,6 +277,89 @@ func (c CCIPOnChainState) runPostDeploymentValidation(e cldf.Environment, valida
 	}
 	e.Logger.Infow("Post-deployment validation complete", "chainsValidated", chainsToProcess, "totalErrors", errCount)
 	return chainErrs
+}
+
+func (c CCIPOnChainState) runSingleChainValidation(
+	e cldf.Environment,
+	sel uint64,
+	v16ActiveChains map[uint64]bool,
+	rmnHomeActiveDigest [32]byte,
+	isRMNEnabledInRMNHomeBySourceChain map[uint64]bool,
+	validateOwnership bool,
+) []error {
+	e.Logger.Infow("Validating chain contracts", "chain", sel)
+	chainState := c.MustGetEVMChainState(sel)
+	var errs []error
+	isRMNEnabledInRmnRemote, err := chainState.ValidateRMNRemote(e, sel, rmnHomeActiveDigest)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("RMNRemote %s: %w", safeAddr(chainState.RMNRemote), err))
+	} else if isRMNEnabledInRmnRemote != isRMNEnabledInRMNHomeBySourceChain[sel] {
+		errs = append(errs, fmt.Errorf("RMNRemote %s rmnEnabled mismatch with RMNHome: expected %v, got %v",
+			chainState.RMNRemote.Address().Hex(), isRMNEnabledInRMNHomeBySourceChain[sel], isRMNEnabledInRmnRemote))
+	}
+	var fqV2 *fqv2ops.FeeQuoterContract
+	if ds, dsErr := ccipshared.PopulateDataStore(e.ExistingAddresses); dsErr == nil {
+		if e.DataStore != nil {
+			_ = ds.Merge(e.DataStore)
+		}
+		chainAddresses := ds.Addresses().Filter(datastore.AddressRefByChainSelector(sel))
+		if fqAddr, fqVer, fqErr := ccipshared.ResolveFeeQuoterAddressAndVersion(chainAddresses, sel); fqErr == nil && fqVer.Major() >= 2 {
+			if evmChain, ok := e.BlockChains.EVMChains()[sel]; ok {
+				if v2, bindErr := fqv2ops.NewFeeQuoterContract(fqAddr, evmChain.Client); bindErr == nil {
+					fqV2 = v2
+				}
+			}
+		}
+	}
+	var fqV2Addr common.Address
+	if fqV2 != nil {
+		fqV2Addr = fqV2.Address()
+	}
+	otherOnRamps := make(map[uint64]common.Address)
+	useTestRouter := chainState.Router == nil
+	connectedChains, routerErr := chainState.ValidateRouter(e, useTestRouter, v16ActiveChains)
+	if routerErr != nil {
+		errs = append(errs, fmt.Errorf("router: %w", routerErr))
+	}
+	if len(connectedChains) > 0 {
+		for _, connectedChain := range connectedChains {
+			if connectedChain == sel {
+				continue
+			}
+			if addr, ok := c.resolveOnRampAddress(e, connectedChain); ok {
+				otherOnRamps[connectedChain] = addr
+			}
+		}
+		if err := chainState.ValidateOffRamp(e, sel, otherOnRamps, isRMNEnabledInRMNHomeBySourceChain, fqV2Addr); err != nil {
+			errs = append(errs, fmt.Errorf("offramp %s: %w", safeAddr(chainState.OffRamp), err))
+		}
+		if err := chainState.ValidateOnRamp(e, sel, connectedChains, fqV2Addr); err != nil {
+			errs = append(errs, fmt.Errorf("onramp %s: %w", safeAddr(chainState.OnRamp), err))
+		}
+		if err := chainState.ValidateNonceManager(e, sel, connectedChains); err != nil {
+			errs = append(errs, fmt.Errorf("nonce manager: %w", err))
+		}
+	}
+	{
+		var backend bind.ContractBackend
+		if evmChain, ok := e.BlockChains.EVMChains()[sel]; ok {
+			backend = evmChain.Client
+		}
+		if err := chainState.ValidateFeeQuoter(e, sel, connectedChains, fqV2, backend); err != nil {
+			errs = append(errs, fmt.Errorf("fee quoter: %w", err))
+		}
+	}
+	if validateOwnership {
+		if chainState.Timelock == nil {
+			errs = append(errs, errors.New("ownership: timelock not configured"))
+		} else if err := chainState.ValidateContractOwnership(e); err != nil {
+			errs = append(errs, fmt.Errorf("ownership: %w", err))
+		}
+	}
+	if err := chainState.ValidateRMNProxy(e); err != nil {
+		errs = append(errs, fmt.Errorf("RMNProxy: %w", err))
+	}
+	return errs
 }
 
 // safeAddr returns the hex address of a contract, or "<nil>" if nil.
