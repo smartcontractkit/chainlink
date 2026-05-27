@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -17,18 +19,26 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
-func TestStandardCapabilities_ForwardsExtraSelectorsFile(t *testing.T) {
-	// plugins.NewCmdFactory does not call os.Environ() when building the
-	// LOOPP child env, so any operator-provided env var that LOOPP-side
-	// package init code expects must be forwarded explicitly via
-	// plugins.CmdConfig.Env. EXTRA_SELECTORS_FILE is one such var.
+// TestStandardCapabilities_ForwardsPluginEnvFile tests that the standard capabilities
+// LOOPP launcher reads the env file referenced by CL_CAPABILITIES_ENV and forwards
+// its contents to the plugin. This is how operator-supplied env vars (e.g. chain-selector's
+// EXTRA_SELECTORS_FILE) make it into the LOOPP subprocess despite plugins.NewCmdFactory
+// not inheriting os.Environ().
+func TestStandardCapabilities_ForwardsPluginEnvFile(t *testing.T) {
+	writeEnvFile := func(t *testing.T, contents string) string {
+		t.Helper()
+		path := filepath.Join(t.TempDir(), "capabilities.env")
+		require.NoError(t, os.WriteFile(path, []byte(contents), 0o600))
+		return path
+	}
 
-	startAndCapture := func(t *testing.T) plugins.CmdConfig {
+	startAndCapture := func(t *testing.T) (plugins.CmdConfig, error) {
 		t.Helper()
 		var captured plugins.CmdConfig
 		registrar := &capturingRegistrar{
@@ -41,26 +51,58 @@ func TestStandardCapabilities_ForwardsExtraSelectorsFile(t *testing.T) {
 			registrar,
 			core.StandardCapabilitiesDependencies{},
 		)
-		// We force RegisterLOOP to fail after capturing so Start returns
-		// immediately and we don't have to run the rest of the lifecycle.
-		err := std.Start(t.Context())
-		require.Error(t, err, "expected synthetic Start failure from capturingRegistrar")
-		require.Contains(t, err.Error(), capturingRegistrarErr)
-		return captured
+		// Start runs RegisterLOOP synchronously; the capturingRegistrar
+		// returns an error so Start unwinds before any LOOPP lifecycle code
+		// runs. The returned error from Start is propagated to the caller so
+		// each sub-test can assert on it as appropriate.
+		return captured, std.Start(t.Context())
 	}
 
-	t.Run("env var set on parent is forwarded via CmdConfig.Env", func(t *testing.T) {
-		t.Setenv(extraSelectorsFileEnvVar, "/extraConfig/extra-selectors.yaml")
-		cfg := startAndCapture(t)
-		require.Contains(t, cfg.Env, extraSelectorsFileEnvVar+"=/extraConfig/extra-selectors.yaml",
-			"standard-capability LOOPP launcher should forward EXTRA_SELECTORS_FILE from the parent process so chain-selectors' init() in the LOOPP can read operator-provided selectors")
+	t.Run("env file is parsed and forwarded via CmdConfig.Env", func(t *testing.T) {
+		envFile := writeEnvFile(t, "EXTRA_SELECTORS_FILE=/extraConfig/extra-selectors.yaml\nFOO=bar\n")
+		t.Setenv(string(env.CapabilitiesPlugin.Env), envFile)
+
+		cfg, err := startAndCapture(t)
+		require.Error(t, err, "expected synthetic Start failure from capturingRegistrar")
+		require.Contains(t, err.Error(), capturingRegistrarErr)
+
+		require.Contains(t, cfg.Env, "EXTRA_SELECTORS_FILE=/extraConfig/extra-selectors.yaml",
+			"standard-capability LOOPP launcher should forward EXTRA_SELECTORS_FILE from the operator-supplied env file so chain-selectors' init() in the LOOPP can read operator-provided selectors")
+		require.Contains(t, cfg.Env, "FOO=bar",
+			"all entries in the operator-supplied env file should be forwarded, not just well-known ones")
 	})
 
-	t.Run("env var unset on parent results in empty CmdConfig.Env", func(t *testing.T) {
-		t.Setenv(extraSelectorsFileEnvVar, "")
-		cfg := startAndCapture(t)
+	t.Run("env file unset results in empty CmdConfig.Env", func(t *testing.T) {
+		t.Setenv(string(env.CapabilitiesPlugin.Env), "")
+
+		cfg, err := startAndCapture(t)
+		require.Error(t, err, "expected synthetic Start failure from capturingRegistrar")
+		require.Contains(t, err.Error(), capturingRegistrarErr)
+
 		require.Empty(t, cfg.Env,
-			"no operator-provided env vars should be forwarded when EXTRA_SELECTORS_FILE is unset")
+			"no operator-provided env vars should be forwarded when CL_CAPABILITIES_ENV is unset")
+	})
+
+	t.Run("missing env file fails Start before RegisterLOOP", func(t *testing.T) {
+		missingPath := filepath.Join(t.TempDir(), "does-not-exist.env")
+		t.Setenv(string(env.CapabilitiesPlugin.Env), missingPath)
+
+		var registerCalled bool
+		registrar := &capturingRegistrar{
+			onRegister: func(plugins.CmdConfig) { registerCalled = true },
+		}
+		std := NewStandardCapabilities(
+			logger.TestLogger(t),
+			"not/found/path/to/binary",
+			"{}",
+			registrar,
+			core.StandardCapabilitiesDependencies{},
+		)
+
+		err := std.Start(t.Context())
+		require.Error(t, err, "Start should fail when the env file is missing")
+		require.Contains(t, err.Error(), "failed to parse capabilities env file")
+		require.False(t, registerCalled, "RegisterLOOP must not be called when env-file parsing fails")
 	})
 }
 
