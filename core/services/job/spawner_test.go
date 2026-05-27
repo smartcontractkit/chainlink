@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	evmrelayer "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -72,10 +73,11 @@ func clearDB(t *testing.T, db *sqlx.DB) {
 
 type relayGetter struct {
 	r *evmrelayer.Relayer
+	c legacyevm.Chain
 }
 
 func (g *relayGetter) Get(id types.RelayID) (loop.Relayer, error) {
-	return coreevmrelayer.NewLegacyAdapter(g.r, nil), nil
+	return coreevmrelayer.NewLegacyAdapter(g.r, g.c), nil
 }
 
 func (g *relayGetter) GetIDToRelayerMap() map[types.RelayID]loop.Relayer {
@@ -324,6 +326,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		testRelayGetter := &relayGetter{
 			r: evmRelayer,
+			c: chain,
 		}
 
 		jobOCR2Keeper := makeOCR2Keeper21JobSpec(t, keyStore, address, chain.ID())
