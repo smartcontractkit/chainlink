@@ -60,9 +60,6 @@ func GetContractAddressWithQualifier(ds any, chainSelector uint64, contractType 
 	if ds == nil {
 		return "", errors.New("datastore is nil")
 	}
-	if qualifier == "" {
-		qualifier = ""
-	}
 
 	var addresses []datastore.AddressRef
 

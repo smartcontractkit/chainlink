@@ -353,8 +353,8 @@ func ValidateTransferERC20Config(ctx context.Context, e cldf.Environment, cfg ty
 	}
 
 	// "" is the current default qualifier for the timelock
-	qualifier := ""
 	for chainSelector, transfers := range cfg.TransfersByChain {
+		qualifier := cfg.MCMSConfig.TimelockQualifierPerChain[chainSelector]
 		if err := validateChainSelector(chainSelector, e); err != nil {
 			return fmt.Errorf("invalid chain selector %d: %w", chainSelector, err)
 		}
@@ -375,7 +375,7 @@ func ValidateTransferERC20Config(ctx context.Context, e cldf.Environment, cfg ty
 		}
 	}
 
-	if err := validateERC20MCMSConfig(e, cfg.MCMSConfig, cfg.TransfersByChain, qualifier); err != nil {
+	if err := validateERC20MCMSConfig(e, cfg.MCMSConfig, cfg.TransfersByChain, cfg.MCMSConfig.TimelockQualifierPerChain); err != nil {
 		return fmt.Errorf("MCMS configuration validation failed: %w", err)
 	}
 	return nil
@@ -405,22 +405,22 @@ func ValidateEthBalMonWithdrawConfig(ctx context.Context, env cldf.Environment, 
 	return nil
 }
 
-func validateERC20MCMSConfig(e cldf.Environment, mcmsConfig *cldfproposalutils.TimelockConfig, transfersByChain map[uint64][]types.ERC20Transfer, qualifier string) error {
+func validateERC20MCMSConfig(e cldf.Environment, mcmsConfig *cldfproposalutils.TimelockConfig, transfersByChain map[uint64][]types.ERC20Transfer, qualifierMap map[uint64]string) error {
 	if mcmsConfig.MinDelay < 0 {
 		return fmt.Errorf("MCMS minimum delay cannot be negative: %d", mcmsConfig.MinDelay)
 	}
 
 	for chainSelector := range transfersByChain {
-		addresses, err := state.GetAddressTypeVersionByQualifier(e.DataStore.Addresses(), chainSelector, qualifier)
+		addresses, err := state.GetAddressTypeVersionByQualifier(e.DataStore.Addresses(), chainSelector, qualifierMap[chainSelector])
 		if err != nil {
 			return fmt.Errorf("failed to get addresses from datastore for chain %d: %w", chainSelector, err)
 		}
 
-		if _, err := GetContractAddressWithQualifier(e.DataStore, chainSelector, commontypes.RBACTimelock, qualifier); err != nil {
+		if _, err := GetContractAddressWithQualifier(e.DataStore, chainSelector, commontypes.RBACTimelock, qualifierMap[chainSelector]); err != nil {
 			return fmt.Errorf("timelock not found for chain %d: %w", chainSelector, err)
 		}
 
-		if _, err := GetContractAddressWithQualifier(e.DataStore, chainSelector, commontypes.ProposerManyChainMultisig, qualifier); err != nil {
+		if _, err := GetContractAddressWithQualifier(e.DataStore, chainSelector, commontypes.ProposerManyChainMultisig, qualifierMap[chainSelector]); err != nil {
 			return fmt.Errorf("proposer not found for chain %d: %w", chainSelector, err)
 		}
 

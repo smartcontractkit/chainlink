@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -448,38 +449,24 @@ func generateMCMSProposals(b operations.Bundle, deps VaultDeps, input BatchNativ
 	return output, nil
 }
 
-// erc20TransferSelector is the ERC20 transfer(address,uint256) method selector.
-var erc20TransferSelector = []byte{0xa9, 0x05, 0x9c, 0xbb}
+var erc20ABI = func() abi.ABI {
+	const abiJSON = `[{"name":"transfer","type":"function","inputs":[{"name":"to","type":"address"},{"name":"amount","type":"uint256"}],"outputs":[{"name":"","type":"bool"}]}]`
+	a, err := abi.JSON(strings.NewReader(abiJSON))
+	if err != nil {
+		panic(fmt.Sprintf("failed to parse ERC20 ABI: %v", err))
+	}
+	return a
+}()
 
 func encodeERC20TransferCalldata(tr types.ERC20Transfer) ([]byte, error) {
-	uint256Ty, err := abi.NewType("uint256", "", nil)
-	if err != nil {
-		return nil, err
-	}
-	addressTy, err := abi.NewType("address", "", nil)
-	if err != nil {
-		return nil, err
-	}
-	args := abi.Arguments{
-		{Type: addressTy},
-		{Type: uint256Ty},
-	}
-	packed, err := args.Pack(
-		common.HexToAddress(tr.Payee),
-		tr.Amount,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return append(erc20TransferSelector, packed...), nil
+	return erc20ABI.Pack("transfer", common.HexToAddress(tr.Payee), tr.Amount)
 }
 
 // TransferERC20SequenceInput is the input for the ERC20 transfer sequence.
 type TransferERC20SequenceInput struct {
-	TransfersByChain   map[uint64][]types.ERC20Transfer  `json:"transfers_by_chain"`
-	TimelockIdentifier string                            `json:"timelock_identifier"`
-	MCMSConfig         *cldfproposalutils.TimelockConfig `json:"mcms_config"`
-	Description        string                            `json:"description"`
+	TransfersByChain map[uint64][]types.ERC20Transfer  `json:"transfers_by_chain"`
+	MCMSConfig       *cldfproposalutils.TimelockConfig `json:"mcms_config"`
+	Description      string                            `json:"description"`
 }
 
 // TransferERC20SequenceOutput is the output of the ERC20 transfer sequence.
@@ -497,7 +484,6 @@ var TransferERC20Sequence = operations.NewSequence(
 	func(b operations.Bundle, deps VaultDeps, input TransferERC20SequenceInput) (TransferERC20SequenceOutput, error) {
 		b.Logger.Infow("Starting ERC20 transfer sequence",
 			"chains", len(input.TransfersByChain),
-			"timelock_id", input.TimelockIdentifier,
 			"description", input.Description)
 
 		output := TransferERC20SequenceOutput{
@@ -541,7 +527,7 @@ func generateERC20MCMSProposals(b operations.Bundle, deps VaultDeps, input Trans
 			return TransferERC20SequenceOutput{}, fmt.Errorf("chain %d not found in environment", chainSelector)
 		}
 
-		timelockAddr, err := GetContractAddressWithQualifier(deps.DataStore, chainSelector, commontypes.RBACTimelock, input.TimelockIdentifier)
+		timelockAddr, err := GetContractAddressWithQualifier(deps.DataStore, chainSelector, commontypes.RBACTimelock, input.MCMSConfig.TimelockQualifierPerChain[chainSelector])
 		if err != nil {
 			return TransferERC20SequenceOutput{}, fmt.Errorf("timelock not found for chain %d: %w", chainSelector, err)
 		}
@@ -549,10 +535,10 @@ func generateERC20MCMSProposals(b operations.Bundle, deps VaultDeps, input Trans
 		var mcmAddr string
 		var contractName string
 		if input.MCMSConfig.MCMSAction == mcmstypes.TimelockActionBypass {
-			mcmAddr, err = GetContractAddressWithQualifier(deps.DataStore, chainSelector, commontypes.BypasserManyChainMultisig, input.TimelockIdentifier)
+			mcmAddr, err = GetContractAddressWithQualifier(deps.DataStore, chainSelector, commontypes.BypasserManyChainMultisig, input.MCMSConfig.TimelockQualifierPerChain[chainSelector])
 			contractName = "bypasser"
 		} else {
-			mcmAddr, err = GetContractAddressWithQualifier(deps.DataStore, chainSelector, commontypes.ProposerManyChainMultisig, input.TimelockIdentifier)
+			mcmAddr, err = GetContractAddressWithQualifier(deps.DataStore, chainSelector, commontypes.ProposerManyChainMultisig, input.MCMSConfig.TimelockQualifierPerChain[chainSelector])
 			contractName = "proposer"
 		}
 		if err != nil {
