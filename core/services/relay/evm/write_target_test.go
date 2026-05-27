@@ -41,6 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/report/platform"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
+	evm "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
@@ -48,7 +49,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 var forwardABI = evmtypes.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
