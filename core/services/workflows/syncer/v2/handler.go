@@ -43,6 +43,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+
+	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 )
 
 type ORM interface {
@@ -1136,11 +1138,24 @@ func (h *eventHandler) confidentialEngineFactory(
 		creGetter = h.engineLimiters.Settings
 	}
 
+	// The storage-service retriever mints per-node pre-signed URLs in
+	// production. When it is absent (e.g. a file-based workflow fetcher in
+	// local/E2E setups with no storage service), fall back to the workflow's
+	// on-chain binary URL so the enclave can still fetch the WASM. It remains
+	// per-node data outside the hashed ComputeRequest.
+	retrieveURL := h.retrieveURL
+	if retrieveURL == nil && spec.BinaryURL != "" {
+		binaryURL := spec.BinaryURL
+		retrieveURL = func(context.Context, *storage_service.DownloadArtifactRequest) (string, error) {
+			return binaryURL, nil
+		}
+	}
+
 	module := v2.NewConfidentialModule(
 		h.capRegistry,
 		binaryHash,
 		spec.WorkflowID, spec.WorkflowOwner, workflowName.String(), spec.WorkflowTag,
-		h.retrieveURL,
+		retrieveURL,
 		creGetter,
 		engineOrgID,
 		lggr,
