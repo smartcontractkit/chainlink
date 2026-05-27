@@ -1290,6 +1290,9 @@ func testSetupRealContracts(
 			headTracker,
 			lpOpts,
 		)
+
+		// Add small delay for component initialization
+		time.Sleep(10 * time.Millisecond)
 		require.NoError(t, lp.Start(ctx))
 
 		// Add a small delay to ensure LogPoller is fully initialized

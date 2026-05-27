@@ -21,11 +21,12 @@ import (
 	evmtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 
+	evmrelay "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/dummy"
-	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	coreevmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -55,8 +56,8 @@ type EVMFactoryConfig struct {
 	MercuryConfig mercurytransmitter.Mercury
 }
 
-func (r *RelayerFactory) NewEVM(config EVMFactoryConfig) (map[types.RelayID]evmrelay.RelayAdapter, error) {
-	relayers := make(map[types.RelayID]evmrelay.RelayAdapter)
+func (r *RelayerFactory) NewEVM(config EVMFactoryConfig) (map[types.RelayID]coreevmrelay.RelayAdapter, error) {
+	relayers := make(map[types.RelayID]coreevmrelay.RelayAdapter)
 	lggr := logger.Named(r.Logger, "EVM")
 
 	newChainStore := config.GenChainStore
@@ -97,12 +98,12 @@ func (r *RelayerFactory) NewEVM(config EVMFactoryConfig) (map[types.RelayID]evmr
 			}
 
 			ks := keystore.NewEthSigner(config.EthKeystore, chain.ChainID.ToInt())
-			relayers[relayID] = evmrelay.NewLOOPAdapter(loop.NewRelayerService(logger.Named(lggr, relayID.ChainID), r.GRPCOpts, solCmdFn, string(cfgTOML), ks, config.CSAKeystore, r.CapabilitiesRegistry))
+			relayers[relayID] = coreevmrelay.NewLOOPAdapter(loop.NewRelayerService(logger.Named(lggr, relayID.ChainID), r.GRPCOpts, solCmdFn, string(cfgTOML), ks, config.CSAKeystore, r.CapabilitiesRegistry))
 		}
 		return relayers, nil
 	}
 
-	legacyChains, err := evmrelay.NewLegacyChains(lggr, config.EthKeystore, config.ChainOpts)
+	legacyChains, err := coreevmrelay.NewLegacyChains(lggr, config.EthKeystore, config.ChainOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +128,7 @@ func (r *RelayerFactory) NewEVM(config EVMFactoryConfig) (map[types.RelayID]evmr
 			continue
 		}
 
-		relayers[relayID] = evmrelay.NewLegacyAdapter(relayer)
+		relayers[relayID] = coreevmrelay.NewLegacyAdapter(relayer, chain)
 	}
 
 	// always return err because it is accumulating individual errors

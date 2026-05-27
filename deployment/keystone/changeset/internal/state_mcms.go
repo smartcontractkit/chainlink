@@ -1,9 +1,10 @@
-package changeset
+package internal
 
 import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 )
 
 // MCMSWithTimelockState holds the Go bindings
@@ -23,64 +23,6 @@ import (
 // if you are changing this, please make the similar changes in deployment/common/changeset/state
 type MCMSWithTimelockState struct {
 	*cldfproposalutils.MCMSWithTimelockContracts
-}
-
-// Deprecated: use GenerateMCMSWithTimelockView from deployment/common/changeset/state/evm.go instead
-// if you are changing this, please make the similar changes in deployment/common/changeset/state
-func (state MCMSWithTimelockState) GenerateMCMSWithTimelockView() (v1_0.MCMSWithTimelockView, error) {
-	if err := state.Validate(); err != nil {
-		return v1_0.MCMSWithTimelockView{}, err
-	}
-	timelockView, err := v1_0.GenerateTimelockView(*state.Timelock)
-	if err != nil {
-		return v1_0.MCMSWithTimelockView{}, nil
-	}
-	callProxyView, err := v1_0.GenerateCallProxyView(*state.CallProxy)
-	if err != nil {
-		return v1_0.MCMSWithTimelockView{}, nil
-	}
-	bypasserView, err := v1_0.GenerateMCMSView(*state.BypasserMcm)
-	if err != nil {
-		return v1_0.MCMSWithTimelockView{}, nil
-	}
-	proposerView, err := v1_0.GenerateMCMSView(*state.ProposerMcm)
-	if err != nil {
-		return v1_0.MCMSWithTimelockView{}, nil
-	}
-	cancellerView, err := v1_0.GenerateMCMSView(*state.CancellerMcm)
-	if err != nil {
-		return v1_0.MCMSWithTimelockView{}, nil
-	}
-	return v1_0.MCMSWithTimelockView{
-		Timelock:  timelockView,
-		Bypasser:  bypasserView,
-		Proposer:  proposerView,
-		Canceller: cancellerView,
-		CallProxy: callProxyView,
-	}, nil
-}
-
-// MaybeLoadMCMSWithTimelockState loads the MCMSWithTimelockState state for each chain in the given environment.
-// Deprecated: use MaybeLoadMCMSWithTimelockState from deployment/common/changeset/state/evm.go instead
-// if you are changing this, please make the similar changes in deployment/common/changeset/state
-func MaybeLoadMCMSWithTimelockState(env cldf.Environment, chainSelectors []uint64) (map[uint64]*MCMSWithTimelockState, error) {
-	result := map[uint64]*MCMSWithTimelockState{}
-	for _, chainSelector := range chainSelectors {
-		chain, ok := env.BlockChains.EVMChains()[chainSelector]
-		if !ok {
-			return nil, fmt.Errorf("chain %d not found", chainSelector)
-		}
-		addressesChain, err := env.ExistingAddresses.AddressesForChain(chainSelector)
-		if err != nil {
-			return nil, err
-		}
-		state, err := MaybeLoadMCMSWithTimelockChainState(chain, addressesChain)
-		if err != nil {
-			return nil, err
-		}
-		result[chainSelector] = state
-	}
-	return result, nil
 }
 
 // MaybeLoadMCMSWithTimelockChainState looks for the addresses corresponding to

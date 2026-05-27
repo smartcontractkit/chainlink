@@ -1,10 +1,8 @@
-package helpers_test
+package maputils
 
 import (
 	"reflect"
 	"testing"
-
-	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
 
 func TestAddValueToNestedMap(t *testing.T) {
@@ -66,7 +64,7 @@ func TestAddValueToNestedMap(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := helpers.AddValueToNestedMap(tt.mapping, tt.key1, tt.key2, tt.value)
+			result := AddValueToNestedMap(tt.mapping, tt.key1, tt.key2, tt.value)
 			if !reflect.DeepEqual(result, tt.expected) {
 				t.Errorf("got %v, want %v", result, tt.expected)
 			}
