@@ -21,9 +21,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	mocks2 "github.com/smartcontractkit/chainlink-evm/pkg/config/mocks"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-	evmrelay "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/web/testutils"
 )
 
