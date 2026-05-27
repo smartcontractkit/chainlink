@@ -11,7 +11,6 @@ import (
 	"maps"
 	"slices"
 	"sort"
-	"strings"
 	"time"
 
 	"golang.org/x/crypto/curve25519"
@@ -434,7 +433,7 @@ func unmarshalPendingQueueBlob(blob []byte) ([]*vaultcommon.StoredPendingQueueIt
 // pendingQueueBlobPack is the blob payload side of Observation for the local pending queue.
 type pendingQueueBlobPack struct {
 	blobPayloads    [][]byte
-	blobPayloadIDs  []string
+	blobPayloadIDs  [][]string
 	packedItemCount int
 	truncated       bool
 }
@@ -464,7 +463,7 @@ func (r *ReportingPlugin) flushBatch(
 	}
 	out.packedItemCount += len(currentBatch)
 	out.blobPayloads = append(out.blobPayloads, payload)
-	out.blobPayloadIDs = append(out.blobPayloadIDs, strings.Join(ids, ","))
+	out.blobPayloadIDs = append(out.blobPayloadIDs, ids)
 	currentBatch = currentBatch[:0]
 	if len(out.blobPayloads) >= maxBlobHandleCount {
 		out.truncated = true
@@ -581,7 +580,7 @@ func (r *ReportingPlugin) prepareLegacyObservationPendingQueueBlobs(
 		}
 
 		out.blobPayloads = append(out.blobPayloads, itemb)
-		out.blobPayloadIDs = append(out.blobPayloadIDs, item.Id)
+		out.blobPayloadIDs = append(out.blobPayloadIDs, []string{item.Id})
 		out.packedItemCount++
 		r.lifecycle.RecordBlobBroadcasting(item.Id, seqNr, time.Now())
 	}
@@ -791,7 +790,7 @@ func (r *ReportingPlugin) broadcastBlobPayloads(
 	fetcher ocr3_1types.BlobBroadcastFetcher,
 	seqNr uint64,
 	payloads [][]byte,
-	requestIDs []string,
+	requestIDs [][]string,
 ) ([][]byte, error) {
 	results := make([][]byte, len(payloads))
 
@@ -815,7 +814,7 @@ func (r *ReportingPlugin) broadcastBlobPayloads(
 				}
 				r.lggr.Warnw("failed to broadcast pending queue item as blob, skipping",
 					"seqNr", seqNr,
-					"requestID", requestID,
+					"requestID", requestID[0],
 					"err", err)
 				return nil
 			}
@@ -824,17 +823,13 @@ func (r *ReportingPlugin) broadcastBlobPayloads(
 			if err != nil {
 				r.lggr.Warnw("failed to marshal blob handle, skipping",
 					"seqNr", seqNr,
-					"requestID", requestID,
+					"requestID", requestID[0],
 					"err", err)
 				return nil
 			}
 
 			results[i] = blobHandleBytes
-			for _, id := range strings.Split(requestID, ",") {
-				id = strings.TrimSpace(id)
-				if id == "" {
-					continue
-				}
+			for _, id := range requestID {
 				r.lifecycle.RecordBlobBroadcasted(id, seqNr, time.Now())
 			}
 			return nil

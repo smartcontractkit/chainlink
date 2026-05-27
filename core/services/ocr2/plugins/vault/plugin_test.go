@@ -7636,7 +7636,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 
 		fetcher := &callbackBlobFetcher{fn: func([]byte) error { return nil }}
 		payloads := [][]byte{[]byte("p1"), []byte("p2"), []byte("p3")}
-		ids := []string{"req-1", "req-2", "req-3"}
+		ids := [][]string{{"req-1"}, {"req-2"}, {"req-3"}}
 
 		result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 1, payloads, ids)
 		require.NoError(t, err)
@@ -7653,10 +7653,10 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 		r := newTestReportingPlugin(t, withMarshalBlob(marshalBlobOverride))
 
 		payloads := make([][]byte, maxConcurrentBlobBroadcasts*2+1)
-		ids := make([]string, len(payloads))
+		ids := make([][]string, len(payloads))
 		for i := range payloads {
 			payloads[i] = []byte(fmt.Sprintf("payload-%d", i))
-			ids[i] = fmt.Sprintf("req-%d", i)
+			ids[i] = []string{fmt.Sprintf("req-%d", i)}
 		}
 
 		var active atomic.Int32
@@ -7740,7 +7740,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 		}}
 
 		payloads := [][]byte{[]byte("p1"), []byte("p2"), []byte("p3")}
-		ids := []string{"req-1", "req-2", "req-3"}
+		ids := [][]string{{"req-1"}, {"req-2"}, {"req-3"}}
 
 		result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 5, payloads, ids)
 		require.NoError(t, err)
@@ -7763,7 +7763,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 
 		fetcher := &errorBlobBroadcastFetcher{err: errors.New("network down")}
 		payloads := [][]byte{[]byte("p1"), []byte("p2")}
-		ids := []string{"req-1", "req-2"}
+		ids := [][]string{{"req-1"}, {"req-2"}}
 
 		result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 1, payloads, ids)
 		require.NoError(t, err)
@@ -7782,7 +7782,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 
 		fetcher := &callbackBlobFetcher{fn: func([]byte) error { return nil }}
 		payloads := [][]byte{[]byte("p1"), []byte("p2")}
-		ids := []string{"req-1", "req-2"}
+		ids := [][]string{{"req-1"}, {"req-2"}}
 
 		result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 1, payloads, ids)
 		require.NoError(t, err)
@@ -7813,7 +7813,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 		}}
 
 		payloads := [][]byte{[]byte("p1"), []byte("p2"), []byte("p3")}
-		ids := []string{"req-1", "req-2", "req-3"}
+		ids := [][]string{{"req-1"}, {"req-2"}, {"req-3"}}
 
 		result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 1, payloads, ids)
 		require.NoError(t, err)
@@ -7839,7 +7839,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 		}}
 
 		payloads := [][]byte{[]byte("p1"), []byte("p2")}
-		ids := []string{"req-1", "req-2"}
+		ids := [][]string{{"req-1"}, {"req-2"}}
 
 		result, err := r.broadcastBlobPayloads(ctx, fetcher, 1, payloads, ids)
 		assert.Nil(t, result)
@@ -7861,7 +7861,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 		}}
 
 		payloads := [][]byte{[]byte("p1")}
-		ids := []string{"req-1"}
+		ids := [][]string{{"req-1"}}
 
 		result, err := r.broadcastBlobPayloads(ctx, fetcher, 1, payloads, ids)
 		assert.Nil(t, result)
@@ -7884,7 +7884,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 		}}
 
 		payloads := [][]byte{[]byte("fast"), []byte("slow")}
-		ids := []string{"req-fast", "req-slow"}
+		ids := [][]string{{"req-fast"}, {"req-slow"}}
 
 		result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 1, payloads, ids)
 		require.NoError(t, err)
