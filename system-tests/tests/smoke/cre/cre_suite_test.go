@@ -221,6 +221,10 @@ func Test_CRE_V2_Solana_Suite(t *testing.T) {
 	t.Run("Solana Write", func(t *testing.T) {
 		ExecuteSolanaWriteTest(t, testEnv)
 	})
+	t.Run("[v2] Solana LogTrigger", func(t *testing.T) {
+		ExecuteSolanaLogTriggerTest(t, testEnv)
+		ExecuteSolanaLogTriggerCPITest(t, testEnv)
+	})
 }
 
 func Test_CRE_V2_Aptos_Suite(t *testing.T) {
