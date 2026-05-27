@@ -88,6 +88,16 @@ func (m mockCfgTelemetry) LogExportMaxBatchSize() int       { return 512 }
 func (m mockCfgTelemetry) LogExportInterval() time.Duration { return 5 * time.Second }
 func (m mockCfgTelemetry) LogMaxQueueSize() int             { return 2048 }
 
+func (m mockCfgTelemetry) PrometheusBridge() config.PrometheusBridge {
+	return mockPrometheusBridge{}
+}
+
+type mockPrometheusBridge struct{}
+
+func (m mockPrometheusBridge) Enabled() bool { return true }
+
+func (m mockPrometheusBridge) Prefixes() []string { return nil }
+
 type mockCfgDatabase struct{}
 
 func (m mockCfgDatabase) Backup() config.Backup { panic("unimplemented") }

@@ -2873,6 +2873,8 @@ type Telemetry struct {
 	LogExportMaxBatchSize          *int
 	LogExportInterval              *commonconfig.Duration
 	LogMaxQueueSize                *int
+
+	PrometheusBridge PrometheusBridge `toml:",omitempty"`
 }
 
 func (b *Telemetry) setFrom(f *Telemetry) {
@@ -2939,6 +2941,7 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	if v := f.LogMaxQueueSize; v != nil {
 		b.LogMaxQueueSize = v
 	}
+	b.PrometheusBridge.setFrom(&f.PrometheusBridge)
 }
 
 func (b *Telemetry) ValidateConfig() (err error) {
@@ -2958,6 +2961,20 @@ func (b *Telemetry) ValidateConfig() (err error) {
 		err = errors.Join(err, configutils.ErrInvalid{Name: "TraceSampleRatio", Value: *ratio, Msg: "must be between 0 and 1"})
 	}
 	return err
+}
+
+type PrometheusBridge struct {
+	Enabled  *bool
+	Prefixes []string
+}
+
+func (b *PrometheusBridge) setFrom(f *PrometheusBridge) {
+	if v := f.Enabled; v != nil {
+		b.Enabled = v
+	}
+	if v := f.Prefixes; v != nil {
+		b.Prefixes = v
+	}
 }
 
 var hostnameRegex = regexp.MustCompile(`^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*$`)

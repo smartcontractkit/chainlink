@@ -640,3 +640,59 @@ func TestHandler_Lifecycle(t *testing.T) {
 		assert.Equal(t, HandlerName, id)
 	})
 }
+
+func TestTranslateVaultResponse_BinaryShares(t *testing.T) {
+	enclaveKey := "aabbcc"
+	shareBytes := []byte("share-1")
+	vaultResp := &vault.GetSecretsResponse{
+		Responses: []*vault.SecretResponse{
+			{
+				Id: &vault.SecretIdentifier{Key: "API_KEY", Namespace: vaulttypes.DefaultNamespace},
+				Result: &vault.SecretResponse_Data{
+					Data: &vault.SecretData{
+						EncryptedValue: hex.EncodeToString([]byte("encrypted-value")),
+						EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
+							{
+								EncryptionKey: enclaveKey,
+								BinaryShares:  [][]byte{shareBytes},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result, err := translateVaultResponse(vaultResp, enclaveKey)
+	require.NoError(t, err)
+	require.Len(t, result.Secrets, 1)
+	require.Equal(t, base64.StdEncoding.EncodeToString(shareBytes), result.Secrets[0].EncryptedShares[0])
+}
+
+func TestTranslateVaultResponse_HexShares(t *testing.T) {
+	enclaveKey := "aabbcc"
+	shareBytes := []byte("share-1")
+	vaultResp := &vault.GetSecretsResponse{
+		Responses: []*vault.SecretResponse{
+			{
+				Id: &vault.SecretIdentifier{Key: "API_KEY", Namespace: vaulttypes.DefaultNamespace},
+				Result: &vault.SecretResponse_Data{
+					Data: &vault.SecretData{
+						EncryptedValue: hex.EncodeToString([]byte("encrypted-value")),
+						EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
+							{
+								EncryptionKey: enclaveKey,
+								Shares:        []string{hex.EncodeToString(shareBytes)},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result, err := translateVaultResponse(vaultResp, enclaveKey)
+	require.NoError(t, err)
+	require.Len(t, result.Secrets, 1)
+	require.Equal(t, base64.StdEncoding.EncodeToString(shareBytes), result.Secrets[0].EncryptedShares[0])
+}

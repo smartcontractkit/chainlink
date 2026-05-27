@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/node"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
@@ -26,7 +27,9 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 
 	t.Run("all ok", func(t *testing.T) {
 		t.Parallel()
-		env := test.SetupEnvV2(t, false)
+
+		h := test.NewTestHarness(t)
+
 		// Prepare input: one DON with two nodes
 		input := changeset.CsRegisterNodesWithJDInput{
 			Domain:      "test-domain",
@@ -55,11 +58,13 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 				},
 			},
 		}
-		cs := changeset.CsRegisterNodesWithJD{}
 
 		// Apply changeset
-		out, err := cs.Apply(*env.Env, input)
+		task := runtime.ChangesetTask(changeset.CsRegisterNodesWithJD{}, input)
+		err := h.Runtime.Exec(task)
 		require.NoError(t, err)
+		out := h.Runtime.State().Outputs[task.ID()]
+		require.NotNil(t, out, "changeset output should not be nil")
 
 		// Validate output reports
 		require.NotEmpty(t, out.Reports)
@@ -73,7 +78,7 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 			assert.Equal(t, o.Node.PublicKey, input.DONs[0].Nodes[i].CSAKey)
 			checkLabels(t, o.Node.Labels, map[string]string{
 				"product":             input.Domain,
-				"environment":         env.Env.Name,
+				"environment":         h.Runtime.Environment().Name,
 				"type":                "plugin",
 				"zone":                zone,
 				"don-" + test.DONName: "",
@@ -81,12 +86,17 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 			})
 		}
 	})
+
 	t.Run("register node error", func(t *testing.T) {
 		t.Parallel()
-		env := test.SetupEnvV2(t, false)
 
-		env.Env.Offchain = testJDClient{
-			env.TestJD,
+		var (
+			h   = test.NewTestHarness(t)
+			env = h.Runtime.Environment()
+		)
+
+		env.Offchain = testJDClient{
+			h.TestJD,
 		}
 
 		// Prepare input: one DON with one node that will trigger an error
@@ -110,8 +120,11 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 		}
 
 		// Apply changeset with test JD client that simulates error
+		//
+		// We cannot use the runtime Exec method here the runtime does not store output for failed changesets executions
+		// and the test is asserting on the output.
 		cs := changeset.CsRegisterNodesWithJD{}
-		out, err := cs.Apply(*env.Env, input)
+		out, err := cs.Apply(env, input)
 		require.Error(t, err)
 
 		// Validate output reports
@@ -128,14 +141,20 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 	// test with mixed valid and error nodes
 	t.Run("mixed valid and error nodes", func(t *testing.T) {
 		t.Parallel()
-		env := test.SetupEnvV2(t, false)
-		nodesReps, err := env.Env.Offchain.ListNodes(t.Context(), &nodev1.ListNodesRequest{})
+
+		var (
+			h   = test.NewTestHarness(t)
+			env = h.Runtime.Environment()
+		)
+
+		nodesReps, err := env.Offchain.ListNodes(t.Context(), &nodev1.ListNodesRequest{})
 		require.NoError(t, err)
 		nodes := nodesReps.GetNodes()
 
-		env.Env.Offchain = testJDClient{
-			env.TestJD,
+		env.Offchain = testJDClient{
+			h.TestJD,
 		}
+
 		// Prepare input: one DON with three nodes, one of which will trigger an error
 		input := changeset.CsRegisterNodesWithJDInput{
 			Domain:      "cre",
@@ -171,7 +190,7 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 
 		// Apply changeset with test JD client that simulates error
 		cs := changeset.CsRegisterNodesWithJD{}
-		out, err := cs.Apply(*env.Env, input)
+		out, err := cs.Apply(env, input)
 		require.Error(t, err)
 
 		// Validate output reports
@@ -198,7 +217,7 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 		}
 		checkLabels(t, o1.Node.Labels, map[string]string{
 			"product":             input.Domain,
-			"environment":         env.Env.Name,
+			"environment":         h.Runtime.Environment().Name,
 			"type":                typeLabel,
 			"zone":                zone,
 			"don-" + test.DONName: test.DONName,
@@ -232,7 +251,7 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 		assert.Equal(t, o3.Node.PublicKey, input.DONs[0].Nodes[2].CSAKey)
 		checkLabels(t, o3.Node.Labels, map[string]string{
 			"product":             input.Domain,
-			"environment":         env.Env.Name,
+			"environment":         h.Runtime.Environment().Name,
 			"type":                typeLabel,
 			"zone":                zone,
 			"don-" + test.DONName: test.DONName,
@@ -243,13 +262,14 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 	// test with valid node that gets updated
 	t.Run("valid node that gets updated", func(t *testing.T) {
 		t.Parallel()
-		env := test.SetupEnvV2(t, false)
 
-		nodes, err := env.Env.Offchain.ListNodes(t.Context(), &nodev1.ListNodesRequest{})
+		h := test.NewTestHarness(t)
+
+		nodes, err := h.Runtime.Environment().Offchain.ListNodes(t.Context(), &nodev1.ListNodesRequest{})
 		require.NoError(t, err)
 		firstNode := nodes.GetNodes()[0]
 
-		n, err := env.Env.Offchain.GetNode(t.Context(), &nodev1.GetNodeRequest{
+		n, err := h.Runtime.Environment().Offchain.GetNode(t.Context(), &nodev1.GetNodeRequest{
 			PublicKey: &firstNode.PublicKey,
 		})
 		require.NoError(t, err)
@@ -279,9 +299,11 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 		}
 
 		// Apply changeset with test JD client that simulates error
-		cs := changeset.CsRegisterNodesWithJD{}
-		out, err := cs.Apply(*env.Env, input)
+		task := runtime.ChangesetTask(changeset.CsRegisterNodesWithJD{}, input)
+		err = h.Runtime.Exec(task)
 		require.NoError(t, err)
+		out := h.Runtime.State().Outputs[task.ID()]
+		require.NotNil(t, out, "changeset output should not be nil")
 
 		// Validate output reports
 		require.Len(t, out.Reports, 1)
@@ -306,7 +328,7 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 			"don-" + test.DONName: test.DONName, // the label already existed
 			"product":             "cre",        // existing label should remain
 			"type":                typeLabel,
-			"environment":         env.Env.Name,
+			"environment":         h.Runtime.Environment().Name,
 			"zone":                zone,
 			"p2p_id":              p2pID,
 		})
@@ -315,13 +337,17 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 	// test with update node error
 	t.Run("update node error", func(t *testing.T) {
 		t.Parallel()
-		env := test.SetupEnvV2(t, false)
 
-		nodes, err := env.Env.Offchain.ListNodes(t.Context(), &nodev1.ListNodesRequest{})
+		var (
+			h   = test.NewTestHarness(t)
+			env = h.Runtime.Environment()
+		)
+
+		nodes, err := h.Runtime.Environment().Offchain.ListNodes(t.Context(), &nodev1.ListNodesRequest{})
 		require.NoError(t, err)
 		firstNode := nodes.GetNodes()[0]
 
-		n, err := env.Env.Offchain.GetNode(t.Context(), &nodev1.GetNodeRequest{
+		n, err := env.Offchain.GetNode(t.Context(), &nodev1.GetNodeRequest{
 			PublicKey: &firstNode.PublicKey,
 		})
 		require.NoError(t, err)
@@ -330,15 +356,15 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 		require.Equal(t, n.Node.Name, firstNode.Name)
 		require.Equal(t, n.Node.PublicKey, firstNode.PublicKey)
 
-		_, err = env.Env.Offchain.UpdateNode(t.Context(), &nodev1.UpdateNodeRequest{
+		_, err = env.Offchain.UpdateNode(t.Context(), &nodev1.UpdateNodeRequest{
 			Id:        firstNode.Id,
 			Name:      "update-node-error",
 			PublicKey: firstNode.PublicKey,
 		})
 		require.NoError(t, err)
 
-		env.Env.Offchain = testJDClient{
-			env.TestJD,
+		env.Offchain = testJDClient{
+			h.TestJD,
 		}
 
 		// Prepare input: one DON with one node that will trigger an update error
@@ -363,7 +389,7 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 
 		// Apply changeset with test JD client that simulates error
 		cs := changeset.CsRegisterNodesWithJD{}
-		out, err := cs.Apply(*env.Env, input)
+		out, err := cs.Apply(env, input)
 		require.Error(t, err)
 
 		// Validate output reports
@@ -402,11 +428,14 @@ func TestCsRegisterNodesWithJDV2_Apply(t *testing.T) {
 			},
 		}
 
-		env := test.SetupEnvV2(t, false)
-		cs := changeset.CsRegisterNodesWithJDV2{}
+		h := test.NewTestHarness(t)
 
-		out, err := cs.Apply(*env.Env, input)
+		task := runtime.ChangesetTask(changeset.CsRegisterNodesWithJDV2{}, input)
+		err := h.Runtime.Exec(task)
 		require.NoError(t, err)
+
+		out := h.Runtime.State().Outputs[task.ID()]
+		require.NotNil(t, out, "changeset output should not be nil")
 		require.Len(t, out.Reports, 2)
 		for i, report := range out.Reports {
 			assert.NotNil(t, report)
@@ -416,7 +445,7 @@ func TestCsRegisterNodesWithJDV2_Apply(t *testing.T) {
 			assert.Equal(t, input.DONs[0].Nodes[i].CSAKey, o.Node.PublicKey)
 			checkLabels(t, o.Node.Labels, map[string]string{
 				"product":             input.Domain,
-				"environment":         env.Env.Name,
+				"environment":         h.Runtime.Environment().Name,
 				"type":                "plugin",
 				"zone":                test.Zone,
 				"don-" + test.DONName: "",
@@ -431,9 +460,9 @@ func TestCsRegisterNodesWithJDV2_Apply(t *testing.T) {
 			DONs:        []offchain.DONConfig{},
 		}
 
-		env := test.SetupEnvV2(t, false)
+		h := test.NewTestHarness(t)
 		cs := changeset.CsRegisterNodesWithJDV2{}
-		err := cs.VerifyPreconditions(*env.Env, input)
+		err := cs.VerifyPreconditions(h.Runtime.Environment(), input)
 		require.Error(t, err)
 	})
 
@@ -454,18 +483,18 @@ func TestCsRegisterNodesWithJDV2_Apply(t *testing.T) {
 			},
 		}
 
-		env := test.SetupEnvV2(t, false)
+		h := test.NewTestHarness(t)
 		cs := changeset.CsRegisterNodesWithJDV2{}
-		err := cs.VerifyPreconditions(*env.Env, input)
+		err := cs.VerifyPreconditions(h.Runtime.Environment(), input)
 		require.Error(t, err)
 	})
 
 	t.Run("fails with already registered node", func(t *testing.T) {
 		t.Parallel()
 
-		env := test.SetupEnvV2(t, false)
+		h := test.NewTestHarness(t)
 
-		nodesReps, err := env.Env.Offchain.ListNodes(t.Context(), &nodev1.ListNodesRequest{})
+		nodesReps, err := h.Runtime.Environment().Offchain.ListNodes(t.Context(), &nodev1.ListNodesRequest{})
 		require.NoError(t, err)
 		nodes := nodesReps.GetNodes()
 
@@ -484,8 +513,9 @@ func TestCsRegisterNodesWithJDV2_Apply(t *testing.T) {
 				},
 			},
 		}
-		cs := changeset.CsRegisterNodesWithJDV2{}
-		_, err = cs.Apply(*env.Env, input)
+
+		task := runtime.ChangesetTask(changeset.CsRegisterNodesWithJDV2{}, input)
+		err = h.Runtime.Exec(task)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), operations2.ErrNodeAlreadyExists.Error())
 	})

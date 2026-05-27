@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -16,17 +17,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-// forceEmptyOCRRounds reports whether the VaultForceEmptyOCRRounds gate allows skipping pending-queue reads this round.
-// When the gate allows (setting true), it logs a warning. When evaluation errors for reasons other than ErrorNotAllowed, it logs an error and returns false.
-func forceEmptyOCRRounds(ctx context.Context, lggr logger.Logger, vaultForceEmptyOCRRounds limits.GateLimiter) bool {
-	err := vaultForceEmptyOCRRounds.AllowErr(ctx)
+// gateAllows reports whether the given CRE gate allows the gated behavior.
+// When evaluation errors for reasons other than ErrorNotAllowed, it logs an error and returns false.
+func gateAllows(ctx context.Context, lggr logger.Logger, gate limits.GateLimiter, gateName string) bool {
+	err := gate.AllowErr(ctx)
 	if err == nil {
 		return true
 	}
 	if errors.Is(err, limits.ErrorNotAllowed{}) {
 		return false
 	}
-	lggr.Errorw("unexpected error evaluating VaultForceEmptyOCRRounds gate; pending queue will be read normally", "error", err)
+	lggr.Errorw("unexpected error evaluating CRE gate", "gate", gateName, "error", err)
 	return false
 }
 
@@ -42,6 +43,36 @@ func resolveVaultOCRBoundLimitInt[I constraints.Integer](
 		return 0, fmt.Errorf("%s: %w", settingKey, err)
 	}
 	return int(v), nil
+}
+
+func validateEncryptedSharesEntry(es *vaultcommon.EncryptedShares) error {
+	nBinary := len(es.BinaryShares)
+	nString := len(es.Shares)
+	if nBinary == 1 && nString == 0 {
+		return nil
+	}
+	if nString == 1 && nBinary == 0 {
+		return nil
+	}
+	return errors.New("observation must have exactly 1 share per encryption key")
+}
+
+func encryptedShareSizeForLimit(es *vaultcommon.EncryptedShares) (int, error) {
+	if len(es.BinaryShares) == 1 {
+		return len(es.BinaryShares[0]), nil
+	}
+	if len(es.Shares) == 1 {
+		return len(es.Shares[0]), nil
+	}
+	return 0, errors.New("no share to measure")
+}
+
+func appendEncryptedShareEntry(dst, src *vaultcommon.EncryptedShares) {
+	if len(src.BinaryShares) == 1 {
+		dst.BinaryShares = append(dst.BinaryShares, src.BinaryShares[0])
+		return
+	}
+	dst.Shares = append(dst.Shares, src.Shares[0])
 }
 
 func initializePluginLimits(ctx context.Context, limitsFactory limits.Factory) (ocr3_1types.ReportingPluginLimits, error) {
