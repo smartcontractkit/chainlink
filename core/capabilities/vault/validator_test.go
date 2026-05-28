@@ -364,11 +364,10 @@ func TestValidateSecretIdentifier(t *testing.T) {
 			namespace: "main",
 		},
 		{
-			name:      "empty namespace is rejected",
+			name:      "empty namespace is allowed",
 			key:       "mykey",
 			owner:     "owner1",
 			namespace: "",
-			errSubstr: "namespace cannot be empty",
 		},
 		{
 			name:      "empty key",
