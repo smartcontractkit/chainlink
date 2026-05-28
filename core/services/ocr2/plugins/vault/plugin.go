@@ -1267,6 +1267,11 @@ func (r *ReportingPlugin) validateSecretIdentifier(ctx context.Context, id *vaul
 		return nil, newUserError("secret identifier cannot be nil")
 	}
 
+	namespace := id.Namespace
+	if namespace == "" {
+		namespace = vaulttypes.DefaultNamespace
+	}
+
 	if err := r.validator.ValidateSecretIdentifier(ctx, id.Key, id.Owner, id.Namespace); err != nil {
 		return nil, newUserError(err.Error())
 	}
