@@ -7030,9 +7030,9 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 			errSubstr: "owner cannot be empty",
 		},
 		{
-			name:      "CreateSecrets empty namespace rejected",
+			name:      "CreateSecrets empty namespace accepted",
 			obs:       makeCreateSecretsObs(&vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "", Key: "secret"}, validCiphertext),
-			errSubstr: "namespace cannot be empty",
+			errSubstr: "",
 		},
 		{
 			name:      "CreateSecrets owner too long rejected",
@@ -7061,9 +7061,9 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 			errSubstr: "owner cannot be empty",
 		},
 		{
-			name:      "UpdateSecrets empty namespace rejected",
+			name:      "UpdateSecrets empty namespace accepted",
 			obs:       makeUpdateSecretsObs(&vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "", Key: "secret"}, validCiphertext),
-			errSubstr: "namespace cannot be empty",
+			errSubstr: "",
 		},
 		{
 			name:      "UpdateSecrets namespace too long rejected",
@@ -7092,9 +7092,9 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 			errSubstr: "owner cannot be empty",
 		},
 		{
-			name:      "DeleteSecrets empty namespace rejected",
+			name:      "DeleteSecrets empty namespace accepted",
 			obs:       makeDeleteSecretsObs(&vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "", Key: "secret"}),
-			errSubstr: "namespace cannot be empty",
+			errSubstr: "",
 		},
 		{
 			name:      "DeleteSecrets owner too long rejected",
@@ -7118,9 +7118,9 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 			errSubstr: "key cannot be empty",
 		},
 		{
-			name:      "ListSecretIdentifiers empty namespace rejected",
+			name:      "ListSecretIdentifiers empty namespace accepted",
 			obs:       makeListObs("owner", ""),
-			errSubstr: "namespace cannot be empty",
+			errSubstr: "",
 		},
 		{
 			name:      "ListSecretIdentifiers owner too long rejected",
