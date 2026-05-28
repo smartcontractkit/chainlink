@@ -471,6 +471,7 @@ func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 	}
 
 	// Ignore error if durable emitter is not enabled
+	// TODO:CRE-4443 adjust durable emitter callsites
 	_ = durableemitter.GlobalEmit(ctx, b, "source", "platform", "type", entity)
 
 	return nil
