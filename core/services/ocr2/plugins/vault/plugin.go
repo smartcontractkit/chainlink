@@ -1939,6 +1939,17 @@ func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, seqNr
 		return bytes.Compare(sortKey(i.Id, salt), sortKey(j.Id, salt))
 	})
 
+	if !r.optimizationsEnabled(ctx) {
+		// Step 5: Apply batch size and write the latest batch to the store's pending queue.
+		if err := r.cfg.MaxBatchSize.Check(ctx, len(keptItems)); err != nil {
+			var errBoundLimited limits.ErrorBoundLimited[int]
+			if !errors.As(err, &errBoundLimited) {
+				return fmt.Errorf("failed to check batch size limit: %w", err)
+			}
+			keptItems = keptItems[:errBoundLimited.Limit]
+		}
+	}
+
 	r.metrics.trackPendingQueueWrittenSize(ctx, len(keptItems))
 	r.lggr.Infow("pending queue items persisted to storage", "seqNr", seqNr, "writtenCount", len(keptItems))
 
