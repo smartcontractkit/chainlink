@@ -120,9 +120,7 @@ func (r *RequestValidator) ValidateSecretIdentifier(ctx context.Context, idKey s
 	if idOwner == "" {
 		return errors.New("owner cannot be empty")
 	}
-	if idNamespace == "" {
-		return errors.New("namespace cannot be empty")
-	}
+	idNamespace = vaulttypes.NormalizeNamespace(idNamespace)
 
 	if !isValidIDComponent(idKey) || !isValidIDComponent(idOwner) || !isValidIDComponent(idNamespace) {
 		return errors.New("key, owner and namespace must only contain alphanumeric characters")
