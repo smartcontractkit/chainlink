@@ -1272,14 +1272,14 @@ func (r *ReportingPlugin) validateSecretIdentifier(ctx context.Context, id *vaul
 		namespace = vaulttypes.DefaultNamespace
 	}
 
-	if err := r.validator.ValidateSecretIdentifier(ctx, id.Key, id.Owner, id.Namespace); err != nil {
+	if err := r.validator.ValidateSecretIdentifier(ctx, id.Key, id.Owner, namespace); err != nil {
 		return nil, newUserError(err.Error())
 	}
 
 	newID := &vaultcommon.SecretIdentifier{
 		Key:       id.Key,
 		Owner:     id.Owner,
-		Namespace: id.Namespace,
+		Namespace: namespace,
 	}
 
 	return newID, nil
