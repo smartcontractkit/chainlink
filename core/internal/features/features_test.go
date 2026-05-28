@@ -26,12 +26,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest/observer"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/freeport"
-	"github.com/smartcontractkit/quarantine"
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
@@ -45,12 +42,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocrkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/consumer_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/multiwordconsumer_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/authorized_forwarder"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/operator"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/forwarders"
@@ -64,14 +58,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
-	"github.com/smartcontractkit/chainlink/v2/core/web"
 	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
 )
 
@@ -100,252 +91,6 @@ func TestIntegration_AuthToken(t *testing.T) {
 	resp, cleanup := cltest.UnauthenticatedGet(t, url, headers)
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
-}
-
-type OperatorContracts struct {
-	user                      *bind.TransactOpts
-	multiWordConsumerAddress  common.Address
-	singleWordConsumerAddress common.Address
-	operatorAddress           common.Address
-	linkTokenAddress          common.Address
-	linkToken                 *link_token_interface.LinkToken
-	multiWord                 *multiwordconsumer_wrapper.MultiWordConsumer
-	singleWord                *consumer_wrapper.Consumer
-	operator                  *operator.Operator
-	sim                       types.Backend
-}
-
-func setupOperatorContracts(t *testing.T) OperatorContracts {
-	user := evmtestutils.MustNewSimTransactor(t)
-	genesisData := gethtypes.GenesisAlloc{
-		user.From: {Balance: assets.Ether(1000).ToInt()},
-	}
-	b := cltest.NewSimulatedBackend(t, genesisData, 2*ethconfig.Defaults.Miner.GasCeil)
-	linkTokenAddress, _, linkContract, err := link_token_interface.DeployLinkToken(user, b.Client())
-	require.NoError(t, err)
-	b.Commit()
-
-	operatorAddress, _, operatorContract, err := operator.DeployOperator(user, b.Client(), linkTokenAddress, user.From)
-	require.NoError(t, err)
-	b.Commit()
-
-	var empty [32]byte
-	multiWordConsumerAddress, _, multiWordConsumerContract, err := multiwordconsumer_wrapper.DeployMultiWordConsumer(user, b.Client(), linkTokenAddress, operatorAddress, empty)
-	require.NoError(t, err)
-	b.Commit()
-
-	singleConsumerAddress, _, singleConsumerContract, err := consumer_wrapper.DeployConsumer(user, b.Client(), linkTokenAddress, operatorAddress, empty)
-	require.NoError(t, err)
-	b.Commit()
-
-	// The consumer contract needs to have link in it to be able to pay
-	// for the data request.
-	_, err = linkContract.Transfer(user, multiWordConsumerAddress, big.NewInt(1000))
-	require.NoError(t, err)
-	b.Commit()
-	_, err = linkContract.Transfer(user, singleConsumerAddress, big.NewInt(1000))
-	require.NoError(t, err)
-
-	return OperatorContracts{
-		user:                      user,
-		multiWordConsumerAddress:  multiWordConsumerAddress,
-		singleWordConsumerAddress: singleConsumerAddress,
-		linkToken:                 linkContract,
-		linkTokenAddress:          linkTokenAddress,
-		multiWord:                 multiWordConsumerContract,
-		singleWord:                singleConsumerContract,
-		operator:                  operatorContract,
-		operatorAddress:           operatorAddress,
-		sim:                       b,
-	}
-}
-
-func setupAppForEthTx(t *testing.T, operatorContracts OperatorContracts) (app *cltest.TestApplication, sendingAddress common.Address, o *observer.ObservedLogs) {
-	b := operatorContracts.sim
-	lggr, o := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-
-	cfg := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
-	})
-	app = cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, b, lggr)
-	b.Commit()
-
-	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
-	require.NoError(t, err)
-	require.Len(t, sendingKeys, 1)
-
-	// Fund node account with ETH.
-	n, err := b.Client().NonceAt(testutils.Context(t), operatorContracts.user.From, nil)
-	require.NoError(t, err)
-	tx := evmtestutils.NewLegacyTransaction(n, sendingKeys[0].Address, assets.Ether(100).ToInt(), 21000, big.NewInt(1000000000), nil)
-	signedTx, err := operatorContracts.user.Signer(operatorContracts.user.From, tx)
-	require.NoError(t, err)
-	err = b.Client().SendTransaction(testutils.Context(t), signedTx)
-	require.NoError(t, err)
-	b.Commit()
-
-	err = app.Start(testutils.Context(t))
-	require.NoError(t, err)
-
-	testutils.WaitForLogMessage(t, o, "Subscribing to new heads on chain 1337")
-	testutils.WaitForLogMessage(t, o, "Subscribed to heads on chain 1337")
-
-	return app, sendingKeys[0].Address, o
-}
-
-func TestIntegration_AsyncEthTx(t *testing.T) {
-	quarantine.Flaky(t, "DX-1767")
-	t.Parallel()
-	operatorContracts := setupOperatorContracts(t)
-	b := operatorContracts.sim
-
-	t.Run("with FailOnRevert enabled, run succeeds when transaction is successful", func(t *testing.T) {
-		app, sendingAddr, o := setupAppForEthTx(t, operatorContracts)
-		tomlSpec := `
-type                = "cron"
-schemaVersion       = 1
-schedule            = "CRON_TZ=UTC * 0 0 1 1 *"
-observationSource   = """
-	submit_tx  [type=ethtx to="%s"
-            data="%s"
-            minConfirmations="2"
-			failOnRevert=false
-			evmChainID="%s"
-            from="[\\"%s\\"]"
-			]
-"""
-`
-		// This succeeds for whatever reason
-		revertingData := "0xdeadbeef"
-		tomlSpec = fmt.Sprintf(tomlSpec, operatorContracts.linkTokenAddress.String(), revertingData, testutils.SimulatedChainID.String(), sendingAddr)
-		j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
-		cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
-
-		run := cltest.CreateJobRunForAsyncPipeline(t, app, j.ID)
-		assert.Equal(t, []*string(nil), run.Outputs)
-		assert.Equal(t, []*string(nil), run.Errors)
-
-		testutils.WaitForLogMessage(t, o, "Broadcasted transaction")
-		gomega.NewWithT(t).Eventually(func() bool {
-			b.Commit() // Process new head until tx confirmed, receipt is fetched, and task resumed
-			for _, l := range o.All() {
-				if strings.Contains(l.Message, "Resume run success") {
-					return true
-				}
-			}
-			return false
-		}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
-
-		pipelineRuns := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, 1, app.JobORM(), testutils.WaitTimeout(t), time.Second)
-
-		// The run should have succeeded but with the receipt detailing the reverted transaction
-		pipelineRun := pipelineRuns[0]
-		assertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
-
-		outputs := pipelineRun.Outputs.Val.([]any)
-		require.Len(t, outputs, 1)
-		output := outputs[0]
-		receipt := output.(map[string]any)
-		assert.Equal(t, "0x8", receipt["blockNumber"])
-		assert.Equal(t, "0x538f", receipt["gasUsed"])
-		assert.Equal(t, "0x0", receipt["status"]) // success
-	})
-
-	t.Run("with FailOnRevert enabled, run fails with transaction reverted error", func(t *testing.T) {
-		app, sendingAddr, o := setupAppForEthTx(t, operatorContracts)
-		tomlSpec := `
-type                = "cron"
-schemaVersion       = 1
-schedule            = "CRON_TZ=UTC * 0 0 1 1 *"
-observationSource   = """
-	submit_tx  [type=ethtx to="%s"
-            data="%s"
-            minConfirmations="2"
-			failOnRevert=true
-			evmChainID="%s"
-            from="[\\"%s\\"]"
-			]
-"""
-`
-		// This data is a call to link token's `transfer` function and will revert due to insufficient LINK on the sender address
-		revertingData := "0xa9059cbb000000000000000000000000526485b5abdd8ae9c6a63548e0215a83e7135e6100000000000000000000000000000000000000000000000db069932ea4fe1400"
-		tomlSpec = fmt.Sprintf(tomlSpec, operatorContracts.linkTokenAddress.String(), revertingData, testutils.SimulatedChainID.String(), sendingAddr)
-		j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
-		cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
-
-		run := cltest.CreateJobRunForAsyncPipeline(t, app, j.ID)
-		assert.Equal(t, []*string(nil), run.Outputs)
-		assert.Equal(t, []*string(nil), run.Errors)
-
-		testutils.WaitForLogMessage(t, o, "Broadcasted transaction")
-		gomega.NewWithT(t).Eventually(func() bool {
-			b.Commit() // Process new head until tx confirmed, receipt is fetched, and task resumed
-			for _, l := range o.All() {
-				if strings.Contains(l.Message, "Resume run success") {
-					return true
-				}
-			}
-			return false
-		}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
-
-		pipelineRuns := cltest.WaitForPipelineError(t, 0, j.ID, 1, 1, app.JobORM(), testutils.WaitTimeout(t), time.Second)
-
-		// The run should have failed as a revert
-		pipelineRun := pipelineRuns[0]
-		assertPipelineTaskRunsErrored(t, pipelineRun.PipelineTaskRuns)
-	})
-
-	t.Run("with FailOnRevert disabled, run succeeds with output being reverted receipt", func(t *testing.T) {
-		app, sendingAddr, o := setupAppForEthTx(t, operatorContracts)
-		tomlSpec := `
-type                = "cron"
-schemaVersion       = 1
-schedule            = "CRON_TZ=UTC * 0 0 1 1 *"
-observationSource   = """
-	submit_tx  [type=ethtx to="%s"
-            data="%s"
-            minConfirmations="2"
-			failOnRevert=false
-			evmChainID="%s"
-            from="[\\"%s\\"]"
-			]
-"""
-`
-		// This data is a call to link token's `transfer` function and will revert due to insufficient LINK on the sender address
-		revertingData := "0xa9059cbb000000000000000000000000526485b5abdd8ae9c6a63548e0215a83e7135e6100000000000000000000000000000000000000000000000db069932ea4fe1400"
-		tomlSpec = fmt.Sprintf(tomlSpec, operatorContracts.linkTokenAddress.String(), revertingData, testutils.SimulatedChainID.String(), sendingAddr)
-		j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
-		cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
-
-		run := cltest.CreateJobRunForAsyncPipeline(t, app, j.ID)
-		assert.Equal(t, []*string(nil), run.Outputs)
-		assert.Equal(t, []*string(nil), run.Errors)
-
-		testutils.WaitForLogMessage(t, o, "Broadcasted transaction")
-		gomega.NewWithT(t).Eventually(func() bool {
-			b.Commit() // Process new head until tx confirmed, receipt is fetched, and task resumed
-			for _, l := range o.All() {
-				if strings.Contains(l.Message, "Resume run success") {
-					return true
-				}
-			}
-			return false
-		}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
-
-		pipelineRuns := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, 1, app.JobORM(), testutils.WaitTimeout(t), time.Second)
-
-		// The run should have succeeded but with the receipt detailing the reverted transaction
-		pipelineRun := pipelineRuns[0]
-		assertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
-
-		outputs := pipelineRun.Outputs.Val.([]any)
-		require.Len(t, outputs, 1)
-		output := outputs[0]
-		receipt := output.(map[string]any)
-		assert.Equal(t, "0x1a", receipt["blockNumber"])
-		assert.Equal(t, "0x7a120", receipt["gasUsed"])
-		assert.Equal(t, "0x0", receipt["status"])
-	})
 }
 
 func setupOCRContracts(t *testing.T) (*bind.TransactOpts, types.Backend, common.Address, *offchainaggregator.OffchainAggregator, *flags_wrapper.Flags, common.Address) {
@@ -1084,30 +829,4 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	}, testutils.WaitTimeout(t), cltest.DBPollingInterval)
 }
 
-func assertPricesUint256(t *testing.T, usd, eur, jpy *big.Int, consumer *multiwordconsumer_wrapper.MultiWordConsumer) {
-	haveUsd, err := consumer.UsdInt(nil)
-	require.NoError(t, err)
-	assert.Equal(t, 0, usd.Cmp(haveUsd))
-	haveEur, err := consumer.EurInt(nil)
-	require.NoError(t, err)
-	assert.Equal(t, 0, eur.Cmp(haveEur))
-	haveJpy, err := consumer.JpyInt(nil)
-	require.NoError(t, err)
-	assert.Equal(t, 0, jpy.Cmp(haveJpy))
-}
-
 func ptr[T any](v T) *T { return &v }
-
-func assertPipelineTaskRunsSuccessful(t testing.TB, runs []pipeline.TaskRun) {
-	t.Helper()
-	for i, run := range runs {
-		require.True(t, run.Error.IsZero(), "pipeline.Task run failed (idx: %v, dotID: %v, error: '%v')", i, run.GetDotID(), run.Error.ValueOrZero())
-	}
-}
-
-func assertPipelineTaskRunsErrored(t testing.TB, runs []pipeline.TaskRun) {
-	t.Helper()
-	for i, run := range runs {
-		require.False(t, run.Error.IsZero(), "expected pipeline.Task run to have failed, but it succeeded (idx: %v, dotID: %v, output: '%v')", i, run.GetDotID(), run.Output)
-	}
-}

@@ -981,47 +981,6 @@ func CreateJobRunViaUserByID(
 	return pr
 }
 
-// CreateJobRunForAsyncPipeline starts a pipeline run for specs with async tasks (e.g. ethtx).
-// POST /v2/jobs/:id/runs uses RunJobV2/ExecuteRun, which does not support suspended runs.
-func CreateJobRunForAsyncPipeline(t testing.TB, app *TestApplication, jobID int32) webpresenters.PipelineRunResource {
-	t.Helper()
-	ctx := testutils.Context(t)
-	jb, err := app.JobORM().FindJob(ctx, jobID)
-	require.NoError(t, err)
-
-	cfg := app.GetConfig()
-	httpClient := clhttptest.NewTestLocalOnlyHTTPClient()
-	runner := pipeline.NewRunner(
-		app.PipelineORM(),
-		app.BridgeORM(),
-		cfg.JobPipeline(),
-		cfg.WebServer(),
-		app.GetRelayers().LegacyEVMChains(), //nolint:staticcheck // must use the running app's chain for ethtx
-		app.KeyStore.Eth(),
-		app.KeyStore.VRF(),
-		logger.TestLogger(t),
-		httpClient,
-		httpClient,
-	)
-
-	vars := pipeline.NewVarsFrom(map[string]any{
-		"jobSpec": map[string]any{
-			"databaseID":    jb.ID,
-			"externalJobID": jb.ExternalJobID,
-			"name":          jb.Name.ValueOrZero(),
-		},
-		"jobRun": map[string]any{"meta": map[string]any{}},
-	})
-
-	run := pipeline.NewRun(*jb.PipelineSpec, vars)
-	_, err = runner.Run(ctx, run, false, nil)
-	require.NoError(t, err)
-
-	pipelineRun, err := app.PipelineORM().FindRun(ctx, run.ID)
-	require.NoError(t, err)
-	return webpresenters.NewPipelineRunResource(pipelineRun, app.GetLogger())
-}
-
 // CreateExternalInitiatorViaWeb creates a bridgetype via web using /v2/bridge_types
 func CreateExternalInitiatorViaWeb(
 	t testing.TB,
