@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocrkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -1639,6 +1640,9 @@ func (s *service) newOCR2ConfigMsg(cfg OCR2ConfigModel) (*pb.OCR2Config, error) 
 			ConfigPublicKey:       hex.EncodeToString(ocrConfigPublicKey[:]),
 			OffchainPublicKey:     hex.EncodeToString(ocrOffChainPublicKey[:]),
 			OnchainSigningAddress: ocrKey.OnChainPublicKey(),
+		}
+		if rawPubKey, ok := ocr2key.RawEVMOnChainPublicKey(ocrKey); ok {
+			msg.OcrKeyBundle.OnchainSigningAddressPubKey = rawPubKey
 		}
 	}
 
