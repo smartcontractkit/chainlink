@@ -876,7 +876,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		bootstrapPeers,
 		dkgConfigTracker,
 		ocrDB,
-		kvdb.NewPebbleKeyValueDatabaseFactory(fullPathDKG),
+		wrapDebugKVDBFactory(kvdb.NewPebbleKeyValueDatabaseFactory(fullPathDKG), lggr),
 		dkgPluginLocalConfig,
 		dkgOcrLogger,
 		prometheus.WrapRegistererWith(map[string]string{"job_name": string(types.DKG)}, prometheus.DefaultRegisterer),
