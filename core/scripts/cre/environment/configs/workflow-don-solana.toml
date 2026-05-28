@@ -17,6 +17,7 @@
   [blockchains.solana_programs]
     keystone_forwarder = "whV7Q5pi17hPPyaPksToDw1nMx6Lh8qmNWKFaLRQ4wz"
     data_feeds_cache = "3kX63udXtYcsdj2737Wi2KGd2PhqiKPgAFAxstrjtRUa"
+    log_read_test = "J1zQwrBNBngz26jRPNWsUSZMHJwBwpkoDitXRV95LdK4"
 
 [jd]
   csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string

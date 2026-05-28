@@ -879,7 +879,6 @@ ChipIngressInsecureConnection = false # Default
 ChipIngressBatchEmitterEnabled = true # Default
 # DurableEmitterEnabled enables persisting outbound CHIP events to Postgres for at-least-once delivery.
 DurableEmitterEnabled = false # Default
-
 # HeartbeatInterval is the interval at which a the application heartbeat is sent to telemetry backends.
 HeartbeatInterval = '1s' # Default
 # LogLevel sets the log level for telemetry streaming (debug, info, warn, error, crit, panic, fatal)
@@ -901,6 +900,15 @@ LogMaxQueueSize = 2048 # Default
 [Telemetry.ResourceAttributes]
 # foo is an example resource attribute
 foo = "bar" # Example
+
+# The Prometheus bridge automatically forwards metrics through open telemetry.
+[Telemetry.PrometheusBridge]
+# **ADVANCED**
+# Enabled enables the Promtheus bridge.
+Enabled = false # Default
+# Prefixes is a set of filters to restrict which prometheus metrics are forwarded based on prefix matching.
+# By default, we only forward the go runtime metrics. Empty means forward everything.
+Prefixes = ["go_"] # Default
 
 [CRE.Streams]
 # WsURL is the websockets url for the streams sdk config

@@ -12,6 +12,8 @@ github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/fatih/color v1.18.0 h1:S8gINlzdQ840/4pfAwic/ZE0djQEH3wM94VfqLTZcOM=
 github.com/fatih/color v1.18.0/go.mod h1:4FelSpRwEGDpQ12mAdzqdOukCy4u8WUtOY6lkT/6HfU=
+github.com/gagliardetto/anchor-go v1.0.0 h1:YNt9I/9NOrNzz5uuzfzByAcbp39Ft07w63iPqC/wi34=
+github.com/gagliardetto/anchor-go v1.0.0/go.mod h1:X6c9bx9JnmwNiyy8hmV5pAsq1c/zzPvkdzeq9/qmlCg=
 github.com/gagliardetto/binary v0.8.0 h1:U9ahc45v9HW0d15LoN++vIXSJyqR/pWw8DDlhd7zvxg=
 github.com/gagliardetto/binary v0.8.0/go.mod h1:2tfj51g5o9dnvsc+fL3Jxr22MuWzYXwx9wEoN0XQ7/c=
 github.com/gagliardetto/solana-go v1.14.0 h1:3WfAi70jOOjAJ0deFMjdhFYlLXATF4tOQXsDNWJtOLw=
@@ -68,8 +70,8 @@ github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260505131349-78e491
 github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260505131349-78e491b80735/go.mod h1:Jqt53s27Tr0jDl8mdBXg1xhu6F8Fci8JOuq43tgHOM8=
 github.com/smartcontractkit/cre-sdk-go v1.5.0 h1:kepW3QDKARrOOHjXwWAZ9j5KLk6bxLzvi6OMrLsFwVo=
 github.com/smartcontractkit/cre-sdk-go v1.5.0/go.mod h1:yYrQFz1UH7hhRbPO0q4fgo1tfsJNd4yXnI3oCZE0RzM=
-github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.0 h1:8AzRC735Z3vCvcEyElBq8DXv884mQE67bCp6YNGI3jY=
-github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.0/go.mod h1:zlMsfDAXcrfEOGvHhrxaq4oxQN1egrzPwOSK2d5RnwQ=
+github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.1-0.20260512121445-c641f2952d28 h1:VQDtovithZncpCPUx4JUJUmpvMhG7xEeDevnSjNjQvo=
+github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.1-0.20260512121445-c641f2952d28/go.mod h1:GVv+jg5WjVtmQxsZp0O+u3mqfvpR8DL1tdtkUnZUQcc=
 github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.3.0 h1:qBZ4y6qlTOynSpU1QAi2Fgr3tUZQ332b6hit9EVZqkk=
 github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.3.0/go.mod h1:Rzhy75vD3FqQo/SV6lypnxIwjWac6IOWzI5BYj3tYMU=
 github.com/streamingfast/logging v0.0.0-20230608130331-f22c91403091 h1:RN5mrigyirb8anBEtdjtHFIufXdacyTi6i4KBfeNXeo=

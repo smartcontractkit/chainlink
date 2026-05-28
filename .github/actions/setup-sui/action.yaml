@@ -2,9 +2,9 @@ name: Setup Sui CLI
 description: Install and cache Sui CLI using suiup
 inputs:
   version:
-    description: Sui CLI version to install (e.g., mainnet-v1.69.2)
+    description: Sui CLI version to install (e.g., mainnet-v1.72.2)
     required: false
-    default: mainnet-v1.69.2
+    default: mainnet-v1.72.2
   github-token:
     description: GitHub token to use for authentication
     required: true

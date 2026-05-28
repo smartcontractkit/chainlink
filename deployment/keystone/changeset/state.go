@@ -12,7 +12,6 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal/addrbook"
 
@@ -37,7 +36,7 @@ type GetContractSetsResponse struct {
 }
 
 type ContractSet struct {
-	commonchangeset.MCMSWithTimelockState
+	internal.MCMSWithTimelockState
 	OCR3                 map[common.Address]*ocr3_capability.OCR3Capability
 	Forwarder            *forwarder.KeystoneForwarder
 	CapabilitiesRegistry *capabilities_registry.CapabilitiesRegistry
@@ -46,7 +45,7 @@ type ContractSet struct {
 
 func (cs ContractSet) Convert() internal.ContractSet {
 	return internal.ContractSet{
-		MCMSWithTimelockState: commonchangeset.MCMSWithTimelockState{
+		MCMSWithTimelockState: internal.MCMSWithTimelockState{
 			MCMSWithTimelockContracts: cs.MCMSWithTimelockContracts,
 		},
 		Forwarder:            cs.Forwarder,
@@ -117,7 +116,7 @@ func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContr
 
 func loadContractSet(lggr logger.Logger, chain cldf_evm.Chain, addresses map[string]cldf.TypeAndVersion) (*ContractSet, error) {
 	var out ContractSet
-	mcmsWithTimelock, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
+	mcmsWithTimelock, err := internal.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load mcms contract: %w", err)
 	}

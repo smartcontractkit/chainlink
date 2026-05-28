@@ -16,8 +16,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability"
 
+	evm "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 func provisionOCR3(

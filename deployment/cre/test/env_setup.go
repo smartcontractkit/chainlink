@@ -49,7 +49,7 @@ var (
 	DefaultAptosSelector    uint64 = chain_selectors.APTOS_LOCALNET.Selector
 )
 
-type EnvWrapperV2 struct {
+type Harness struct {
 	t *testing.T
 
 	Runtime *runtime.Runtime
@@ -57,7 +57,6 @@ type EnvWrapperV2 struct {
 
 	TestJD *envtest.JDNodeService
 
-	Env              *cldf.Environment
 	RegistrySelector uint64
 	RegistryAddress  common.Address
 	AptosSelector    uint64
@@ -72,6 +71,7 @@ type donConfig struct {
 	RegistryChainSel uint64
 }
 
+// HarnessConfig is used to configure the initialization of the test harness.
 type HarnessConfig struct {
 	WithMCMS      bool
 	DatastoreSeed *datastore.MemoryDataStore
@@ -109,7 +109,7 @@ func WithDatastore(ds *datastore.MemoryDataStore) HarnessOpt {
 // initHarness sets up the runtime and environment for the test harness.
 //
 // TODO CRE-999; aptos can be made optional
-func initHarness(t *testing.T, lggr logger.Logger, cfg *HarnessConfig) *EnvWrapperV2 {
+func initHarness(t *testing.T, lggr logger.Logger, cfg *HarnessConfig) *Harness {
 	var (
 		registryChainSel = chain_selectors.TEST_90000001.Selector
 		// by inspection, the only chain that is needed is evm, but some callers
@@ -143,7 +143,7 @@ func initHarness(t *testing.T, lggr logger.Logger, cfg *HarnessConfig) *EnvWrapp
 	))
 	require.NoError(t, err)
 
-	return &EnvWrapperV2{
+	return &Harness{
 		t:                t,
 		Runtime:          rt,
 		TestJD:           jd,
@@ -155,7 +155,7 @@ func initHarness(t *testing.T, lggr logger.Logger, cfg *HarnessConfig) *EnvWrapp
 
 // NewTestHarness starts a runtime with a single DON, 4 nodes and a capabilities registry v2
 // deployed and configured.
-func NewTestHarness(t *testing.T, opts ...HarnessOpt) *EnvWrapperV2 {
+func NewTestHarness(t *testing.T, opts ...HarnessOpt) *Harness {
 	t.Helper()
 
 	cfg := &HarnessConfig{}
@@ -187,29 +187,11 @@ func NewTestHarness(t *testing.T, opts ...HarnessOpt) *EnvWrapperV2 {
 		setupMCMSInfrastructure(t, h)
 	}
 
-	// Set the Environment because some changesets still use the Environment pointer
-	// To be removed once all changesets below use the runtime instead
-	h.Env = new(h.Runtime.Environment())
-
 	return h
 }
 
-// SetupEnvV2 is a deprecated function that is kept for backwards compatibility.
-//
-// Use NewTestHarness instead.
-func SetupEnvV2(t *testing.T, useMCMS bool) *EnvWrapperV2 {
-	t.Helper()
-
-	var opts []HarnessOpt
-	if useMCMS {
-		opts = append(opts, WithMCMS())
-	}
-
-	return NewTestHarness(t, opts...)
-}
-
 // configureCapabilitiesRegistry configures the capabilities registry in the runtime environment
-func configureCapabilitiesRegistry(t *testing.T, h *EnvWrapperV2) {
+func configureCapabilitiesRegistry(t *testing.T, h *Harness) {
 	t.Helper()
 
 	chainID, err := chain_selectors.GetChainIDFromSelector(h.RegistrySelector)
@@ -280,7 +262,7 @@ func configureCapabilitiesRegistry(t *testing.T, h *EnvWrapperV2) {
 }
 
 // capabilitiesRegistryClient returns a new capabilities registry client
-func capabilitiesRegistryClient(t *testing.T, h *EnvWrapperV2) *capabilities_registry_v2.CapabilitiesRegistry {
+func capabilitiesRegistryClient(t *testing.T, h *Harness) *capabilities_registry_v2.CapabilitiesRegistry {
 	t.Helper()
 
 	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
@@ -294,7 +276,7 @@ func capabilitiesRegistryClient(t *testing.T, h *EnvWrapperV2) *capabilities_reg
 }
 
 // assertCapabilitiesRegistryConfigured asserts that the capabilities registry is configured correctly
-func assertCapabilitiesRegistryConfigured(t *testing.T, h *EnvWrapperV2) {
+func assertCapabilitiesRegistryConfigured(t *testing.T, h *Harness) {
 	t.Helper()
 
 	capReg := capabilitiesRegistryClient(t, h)
@@ -313,7 +295,7 @@ func assertCapabilitiesRegistryConfigured(t *testing.T, h *EnvWrapperV2) {
 }
 
 // deployCapabilitiesRegistry deploys the capabilities registry in the runtime environment
-func deployCapabilitiesRegistry(t *testing.T, h *EnvWrapperV2) {
+func deployCapabilitiesRegistry(t *testing.T, h *Harness) {
 	t.Helper()
 
 	err := h.Runtime.Exec(
@@ -328,7 +310,7 @@ func deployCapabilitiesRegistry(t *testing.T, h *EnvWrapperV2) {
 }
 
 // setupMCMSInfrastructure sets up the MCMS infrastructure in the runtime environment
-func setupMCMSInfrastructure(t *testing.T, h *EnvWrapperV2) {
+func setupMCMSInfrastructure(t *testing.T, h *Harness) {
 	t.Helper()
 
 	t.Log("Setting up MCMS infrastructure...")
