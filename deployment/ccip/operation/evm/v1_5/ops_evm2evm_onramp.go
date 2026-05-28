@@ -1,6 +1,7 @@
 package v1_5
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -39,6 +40,36 @@ type BatchOnRampGetTokenCfgIn struct {
 
 // onRampBatchConcurrency caps concurrent RPC calls to avoid overwhelming the node/provider.
 const onRampBatchConcurrency = 10
+
+func batchFetchTokenConfigs[T any](
+	ctx context.Context,
+	tokens []common.Address,
+	concurrency int,
+	fetchFn func(context.Context, common.Address) (T, error),
+) (map[common.Address]T, error) {
+	var mu sync.Mutex
+	results := make(map[common.Address]T, len(tokens))
+	grp, grpCtx := errgroup.WithContext(ctx)
+	grp.SetLimit(concurrency)
+	for _, token := range tokens {
+		token := token
+		grp.Go(func() error {
+			cfg, err := fetchFn(grpCtx, token)
+			if err != nil {
+				return err
+			}
+			mu.Lock()
+			results[token] = cfg
+			mu.Unlock()
+			return nil
+		})
+	}
+	if err := grp.Wait(); err != nil {
+		return nil, err
+	}
+
+	return results, nil
+}
 
 var (
 	EVM2EVMOnrampGetDynamicCfgOp = operations.NewOperation(
@@ -120,27 +151,18 @@ var (
 				return nil, fmt.Errorf("failed to create EVM2EVMOnRamp contract binding: chainSelector=%d, OnRamp Address=%s, error=%w", deps.Chain.ChainSelector(), input.OnRamp.Hex(), err)
 			}
 
-			var mu sync.Mutex
-			results := make(map[common.Address]evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfig, len(input.Tokens))
-			grp, grpCtx := errgroup.WithContext(b.GetContext())
-			grp.SetLimit(onRampBatchConcurrency)
-			for _, token := range input.Tokens {
-				token := token
-				grp.Go(func() error {
-					cfg, err := onramp.GetTokenTransferFeeConfig(&bind.CallOpts{Context: grpCtx}, token)
+			return batchFetchTokenConfigs(
+				b.GetContext(),
+				input.Tokens,
+				onRampBatchConcurrency,
+				func(ctx context.Context, token common.Address) (evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfig, error) {
+					cfg, err := onramp.GetTokenTransferFeeConfig(&bind.CallOpts{Context: ctx}, token)
 					if err != nil {
-						return fmt.Errorf("failed to get token transfer fee config for token %s on OnRamp %s: %w", token.Hex(), input.OnRamp.Hex(), err)
+						return evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfig{}, fmt.Errorf("failed to get token transfer fee config for token %s on OnRamp %s: %w", token.Hex(), input.OnRamp.Hex(), err)
 					}
-					mu.Lock()
-					results[token] = cfg
-					mu.Unlock()
-					return nil
-				})
-			}
-			if err := grp.Wait(); err != nil {
-				return nil, err
-			}
-			return results, nil
+					return cfg, nil
+				},
+			)
 		})
 
 	// EVM2EVMOnrampGetAllFeeTokenConfigsOp fetches GetFeeTokenConfig for every token in the input
@@ -155,26 +177,17 @@ var (
 				return nil, fmt.Errorf("failed to create EVM2EVMOnRamp contract binding: chainSelector=%d, OnRamp Address=%s, error=%w", deps.Chain.ChainSelector(), input.OnRamp.Hex(), err)
 			}
 
-			var mu sync.Mutex
-			results := make(map[common.Address]evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig, len(input.Tokens))
-			grp, grpCtx := errgroup.WithContext(b.GetContext())
-			grp.SetLimit(onRampBatchConcurrency)
-			for _, token := range input.Tokens {
-				token := token
-				grp.Go(func() error {
-					cfg, err := onRamp.GetFeeTokenConfig(&bind.CallOpts{Context: grpCtx}, token)
+			return batchFetchTokenConfigs(
+				b.GetContext(),
+				input.Tokens,
+				onRampBatchConcurrency,
+				func(ctx context.Context, token common.Address) (evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig, error) {
+					cfg, err := onRamp.GetFeeTokenConfig(&bind.CallOpts{Context: ctx}, token)
 					if err != nil {
-						return fmt.Errorf("failed to get fee token config for token %s on OnRamp %s: %w", token.Hex(), input.OnRamp.Hex(), err)
+						return evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig{}, fmt.Errorf("failed to get fee token config for token %s on OnRamp %s: %w", token.Hex(), input.OnRamp.Hex(), err)
 					}
-					mu.Lock()
-					results[token] = cfg
-					mu.Unlock()
-					return nil
-				})
-			}
-			if err := grp.Wait(); err != nil {
-				return nil, err
-			}
-			return results, nil
+					return cfg, nil
+				},
+			)
 		})
 )

@@ -15,6 +15,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
+const (
+	pluginNameCommit = "commit"
+	pluginNameExec   = "exec"
+)
+
 // ValidateActiveOCR3DigestMatchesOffRamp checks that the CCIPHome versioned config digest
 // matches the OffRamp's LatestConfigDetails digest for the config's plugin type.
 // It intentionally does not validate JD, RMNHome wiring, signature verification, or OffRamp FChain.
@@ -46,9 +51,9 @@ func validateActiveOCR3Digest(
 	ocrConfig offramp.MultiOCR3BaseOCRConfig,
 ) error {
 	if ocrConfig.ConfigInfo.ConfigDigest != homeCfg.ConfigDigest {
-		pluginName := "exec"
+		pluginName := pluginNameExec
 		if homeCfg.Config.PluginType == uint8(types.PluginTypeCCIPCommit) {
-			pluginName = "commit"
+			pluginName = pluginNameCommit
 		}
 
 		return fmt.Errorf(
@@ -87,8 +92,8 @@ func (c CCIPChainState) ChainHasActiveCommitAndExecDigests(ctx context.Context, 
 		enum uint8
 		name string
 	}{
-		{uint8(types.PluginTypeCCIPCommit), "commit"},
-		{uint8(types.PluginTypeCCIPExec), "exec"},
+		{uint8(types.PluginTypeCCIPCommit), pluginNameCommit},
+		{uint8(types.PluginTypeCCIPExec), pluginNameExec},
 	} {
 		configs, err := c.CCIPHome.GetAllConfigs(callOpts, donID, pt.enum)
 		if err != nil {
