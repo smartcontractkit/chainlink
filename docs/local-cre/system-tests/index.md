@@ -40,4 +40,4 @@ This is why you can either:
 1. bring up Local CRE
 2. confirm the desired topology
 3. run the relevant smoke tests
-4. use Beholder or observability only when the scenario needs extra signals
+4. use the Chip Ingress stack or observability only when the scenario needs extra signals

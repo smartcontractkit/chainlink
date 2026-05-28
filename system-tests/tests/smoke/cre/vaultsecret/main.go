@@ -29,6 +29,7 @@ func main() {
 func RunVaultSecretWorkflow(cfg config.Config, _ *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[config.Config], error) {
 	return cre.Workflow[config.Config]{
 		cre.Handler(
+			// cron-trigger@1.0.0 rejects schedules faster than 30s ("maximum fastest cron schedule is 30s").
 			cron.Trigger(&cron.Config{Schedule: "*/30 * * * * *"}),
 			onTrigger,
 		),
@@ -45,6 +46,9 @@ func onTrigger(cfg config.Config, runtime cre.Runtime, _ *cron.Payload) (string,
 		return "", fmt.Errorf("no vault workflow phases configured")
 	}
 
+	// Phases run in declaration order; the FIRST phase whose checks all succeed emits the completion log
+	// and returns. Later phases whose checks describe the SAME success state never run—you need a strictly
+	// later world state than earlier phases so that earlier phases eventually fail once the vault changes.
 	var lastErr error
 	for _, phase := range phases {
 		if err := evaluatePhase(runtime, phase); err != nil {

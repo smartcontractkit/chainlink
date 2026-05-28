@@ -168,3 +168,13 @@ func TestFileModuleStore_CacheDir(t *testing.T) {
 		assert.Equal(t, filepath.Join(os.TempDir(), defaultCacheSubdir), s.CacheDir())
 	})
 }
+
+func TestNewFileModuleStore_NotWritable(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.Chmod(dir, 0o555))
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
+
+	_, err := NewFileModuleStore(dir, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not writable")
+}

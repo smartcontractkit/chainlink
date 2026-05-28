@@ -3,6 +3,8 @@ package types
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 )
 
@@ -70,4 +72,88 @@ type BatchNativeTransferState struct {
 
 	// ValidationErrors contains any validation errors found
 	ValidationErrors []TransferValidationError `json:"validation_errors"`
+}
+
+// DeployEthBalMonChainConfig is deployment-time configuration for EthBalMon on one chain.
+type DeployEthBalMonChainConfig struct {
+	// SetKeeperRegistryAddress is the Chainlink Automation registry forwarder (the upkeep
+	// "forwarder address") on standard automation chains, or the KMS executor address when
+	// using the Plaid/KMS automation path.
+	SetKeeperRegistryAddress string `json:"setKeeperRegistryAddress"`
+	// SetMinWaitPeriodSeconds is the minimum seconds between balance checks for this deployment.
+	// Optional: nil or 0 means the deploy changeset uses a default (currently 60 seconds).
+	SetMinWaitPeriodSeconds *uint64 `json:"setMinWaitPeriodSeconds,omitempty"`
+}
+
+// DeployEthBalMonInput is the input to the EthBalMon deploy changeset.
+// Keys are chain selectors; each value configures keeper/registry wiring and min wait for that chain.
+type DeployEthBalMonInput struct {
+	Chains map[uint64]DeployEthBalMonChainConfig `json:"chains"`
+	// MCMSConfig optionally configures the post-deploy accept-ownership timelock proposal (MCMS action, delay, etc.).
+	// When nil or MCMSAction is unset, the deploy flow defaults accept-ownership to bypass (historical behavior).
+	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config,omitempty"`
+}
+
+// EthBalMonContractType is the datastore / MCMS contract type label for EthBalMon deployments.
+const EthBalMonContractType = "EthBalMon"
+
+// SetKeeperRegistryChainConfig updates the automation executor/registry EthBalMon forwards work to.
+type SetKeeperRegistryChainConfig struct {
+	// NewKeeperRegistryAddress is the new Chainlink Automation forwarder or KMS executor address (hex).
+	NewKeeperRegistryAddress string `json:"new_keeper_registry_address"`
+}
+
+// EthBalMonSetKeeperRegistryAddressInput is the input to the setKeeperRegistryAddress changeset.
+// Keys are chain selectors with the registry address to set on each chain's EthBalMon.
+type EthBalMonSetKeeperRegistryAddressInput struct {
+	Chains map[uint64]SetKeeperRegistryChainConfig `json:"chains"`
+	// MCMSConfig optionally configures the timelock proposal; when nil, schedule + proposer MCM is used.
+	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config,omitempty"`
+}
+
+// EthBalMonSetWatchListChainConfig replaces the monitored addresses and thresholds on one chain.
+// Addresses, MinBalancesWei, and TopUpAmountsWei are parallel slices: index i applies to Addresses[i].
+// MinBalancesWei and TopUpAmountsWei are represented as *big.Int values in wei.
+type EthBalMonSetWatchListChainConfig struct {
+	Addresses       []common.Address `json:"addresses"`
+	MinBalancesWei  []*big.Int       `json:"min_balance_wei"`
+	TopUpAmountsWei []*big.Int       `json:"topup_amounts_wei"`
+}
+
+// EthBalMonSetWatchListInput is the input to the setWatchList changeset.
+// Keys are chain selectors; each value is the full watch list to install on that chain's EthBalMon.
+type EthBalMonSetWatchListInput struct {
+	Chains map[uint64]EthBalMonSetWatchListChainConfig `json:"chains"`
+	// MCMSConfig optionally configures the timelock proposal; when nil, schedule + proposer MCM is used.
+	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config,omitempty"`
+}
+
+// EthBalMonWithdrawChainConfig configures a native-token withdraw from EthBalMon on one chain.
+type EthBalMonWithdrawChainConfig struct {
+	// Amount is the withdrawal amount in wei. Must be positive (validated by the changeset).
+	Amount *big.Int `json:"amount"`
+	// Payee is the recipient address (hex).
+	Payee string `json:"payee"`
+}
+
+// EthBalMonWithdrawInput is the input to the EthBalMon withdraw changeset.
+// Keys are chain selectors; each value specifies amount and recipient for that chain.
+type EthBalMonWithdrawInput struct {
+	Chains map[uint64]EthBalMonWithdrawChainConfig `json:"chains"`
+	// MCMSConfig optionally configures the timelock proposal; when nil, schedule + proposer MCM is used.
+	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config,omitempty"`
+}
+
+// EthBalMonTransferOwnershipChainConfig sets the new owner of EthBalMon on one chain.
+type EthBalMonTransferOwnershipChainConfig struct {
+	// NewOwner is the address (hex) that will own the EthBalMon contract after the operation.
+	NewOwner string `json:"new_owner"`
+}
+
+// EthBalMonTransferOwnershipInput is the input to the EthBalMon transferOwnership changeset.
+// Keys are chain selectors; each value is the new owner for that chain's EthBalMon instance.
+type EthBalMonTransferOwnershipInput struct {
+	Chains map[uint64]EthBalMonTransferOwnershipChainConfig `json:"chains"`
+	// MCMSConfig optionally configures the timelock proposal; when nil, schedule + proposer MCM is used.
+	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config,omitempty"`
 }

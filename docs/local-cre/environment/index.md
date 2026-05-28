@@ -38,7 +38,7 @@ Current `env start` flags from source code include:
 - `--extra-allowed-gateway-ports`
 - `--with-example`
 - `--example-workflow-timeout`
-- `--with-beholder`
+- `--with-chip-ingress-stack` (deprecated alias: `--with-beholder`)
 - `--with-dashboards`
 - `--with-observability`
 - `--with-billing`
@@ -56,7 +56,7 @@ Restart:
 
 ```bash
 go run . env restart
-go run . env restart --with-beholder
+go run . env restart --with-chip-ingress-stack
 ```
 
 Purge environment state:
@@ -85,11 +85,11 @@ Chip Router image resolution during startup is:
 1. `CTF_CHIP_ROUTER_IMAGE` (if set)
 2. `chip_router.image` from the active topology TOML
 
-If the resolved router image is missing locally, startup follows the same build-or-pull fallback path as the Beholder images.
+If the resolved router image is missing locally, startup follows the same build-or-pull fallback path as the Chip Ingress stack images.
 
-## Beholder and Observability
+## Chip Ingress stack and Observability
 
-Use `--with-beholder` when you need the ChIP ingress stack and Red Panda. Use `--with-observability` or `--with-dashboards` when you need the Grafana-based observability stack.
+Use `--with-chip-ingress-stack` when you need the ChIP ingress stack and Red Panda. (`--with-beholder` is deprecated.) Use `--with-observability` or `--with-dashboards` when you need the Grafana-based observability stack.
 
 Important related flags:
 
@@ -107,9 +107,9 @@ Current local ports:
 - `50050`: Chip Router admin API
 - `50051`: Chip Router ingress gRPC
 - `50052`: chip-config
-- `50053`: real ChIP / Beholder ingress gRPC
+- `50053`: real ChIP / Chip Ingress stack gRPC
 
-In tests, sink-backed scenarios register a test sink with Chip Router. Beholder-backed scenarios register real ChIP / Beholder with Chip Router.
+In tests, sink-backed scenarios register a test sink with Chip Router. Stack-backed scenarios register real ChIP ingress with Chip Router.
 
 To override the router image without changing committed TOMLs:
 
@@ -131,7 +131,7 @@ For day-to-day debugging, the main patterns remain:
 
 - inspect core node logs and container state
 - rebuild or swap capabilities
-- use observability and Beholder when tracing workflow activity
+- use observability and the Chip Ingress stack when tracing workflow activity
 
 Hot-swapping guidance and workflow-specific commands are covered in:
 
@@ -143,7 +143,7 @@ Hot-swapping guidance and workflow-specific commands are covered in:
 The Local CRE stack supports:
 
 - OTel-based observability
-- Chip Router fanout with Beholder integration
+- Chip Router fanout with Chip Ingress stack integration
 - DX tracing
 
 If you need the full tracing stack for debugging or demos, enable observability during startup and follow the environment-specific tracing configuration described in the advanced page.
@@ -162,6 +162,6 @@ When startup problems happen:
 1. rerun `go run . env setup`
 2. confirm image access and authentication
 3. purge state if the saved state is stale
-4. restart with observability or Beholder if you need more signals
+4. restart with observability or the Chip Ingress stack if you need more signals
 
 For topology-specific issues, continue with [Topologies and Capabilities](topologies.md).

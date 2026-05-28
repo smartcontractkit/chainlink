@@ -86,6 +86,8 @@ type JWTTokenClaims struct {
 	OrgID         string
 	WorkflowOwner string
 	RequestDigest string
+	// TenantID is emitted as urn:chainlink:tenant_id; when zero, Vault JWT tests default it to 1.
+	TenantID uint64
 	// Scopes are OAuth scopes (e.g. create:secrets) required for Vault JWT authorization.
 	Scopes      []string
 	Issuer      string
@@ -312,14 +314,19 @@ func SignTestJWT(privateKey *rsa.PrivateKey, claims JWTTokenClaims) (string, err
 	if claims.Audience == "" {
 		claims.Audience = DefaultJWTAudience
 	}
+	tenantID := claims.TenantID
+	if tenantID == 0 {
+		tenantID = 1
+	}
 
 	tokenClaims := jwt.MapClaims{
-		"iss":    claims.Issuer,
-		"aud":    claims.Audience,
-		"sub":    claims.Subject,
-		"iat":    jwt.NewNumericDate(claims.IssuedAt),
-		"exp":    jwt.NewNumericDate(claims.ExpiresAt),
-		"org_id": claims.OrgID,
+		"iss":                           claims.Issuer,
+		"aud":                           claims.Audience,
+		"sub":                           claims.Subject,
+		"iat":                           jwt.NewNumericDate(claims.IssuedAt),
+		"exp":                           jwt.NewNumericDate(claims.ExpiresAt),
+		"org_id":                        claims.OrgID,
+		vaultcap.ClaimChainlinkTenantID: strconv.FormatUint(tenantID, 10),
 		vaultcap.ClaimVaultSecretManagementEnabled: "true",
 		"authorization_details": []map[string]string{
 			{

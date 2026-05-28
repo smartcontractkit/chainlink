@@ -22,7 +22,6 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 )
 
@@ -31,7 +30,9 @@ const (
 )
 
 func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env cldf.Environment, evmFundingEth uint64) error {
-	evmFundingAmount := new(big.Int).Mul(deployment.UBigInt(evmFundingEth), deployment.UBigInt(1e18))
+	evmFundingAmount := new(big.Int).Mul(new(
+		big.Int).SetUint64(evmFundingEth), new(big.Int).SetUint64(1e18),
+	)
 
 	g := new(errgroup.Group)
 

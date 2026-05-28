@@ -180,7 +180,7 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 		return fmt.Errorf("cannot create job of type %q: %w", jb.Type, ErrJobTypeRemoved)
 	}
 
-	if slices.Contains([]Type{LegacyGasStationServer, LegacyGasStationSidecar, Webhook}, jb.Type) {
+	if jb.Type == Webhook {
 		o.lggr.Warnw("Job of this type will not be supported in chainlink v3", "type", jb.Type)
 	}
 
@@ -435,24 +435,6 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 				return fmt.Errorf("failed to create BlockHeaderFeederSpec for jobSpec: %w", err)
 			}
 			jb.BlockHeaderFeederSpecID = &specID
-		case LegacyGasStationServer:
-			if jb.LegacyGasStationServerSpec.EVMChainID == nil {
-				return errors.New("evm chain id must be defined")
-			}
-			specID, err := tx.insertLegacyGasStationServerSpec(ctx, jb.LegacyGasStationServerSpec)
-			if err != nil {
-				return fmt.Errorf("failed to create LegacyGasStationServerSpec for jobSpec: %w", err)
-			}
-			jb.LegacyGasStationServerSpecID = &specID
-		case LegacyGasStationSidecar:
-			if jb.LegacyGasStationSidecarSpec.EVMChainID == nil {
-				return errors.New("evm chain id must be defined")
-			}
-			specID, err := tx.insertLegacyGasStationSidecarSpec(ctx, jb.LegacyGasStationSidecarSpec)
-			if err != nil {
-				return fmt.Errorf("failed to create LegacyGasStationSidecarSpec for jobSpec: %w", err)
-			}
-			jb.LegacyGasStationSidecarSpecID = &specID
 		case Bootstrap:
 			specID, err := tx.insertBootstrapSpec(ctx, jb.BootstrapSpec)
 			if err != nil {
@@ -638,18 +620,6 @@ func (o *orm) insertBlockHeaderFeederSpec(ctx context.Context, spec *BlockHeader
 			RETURNING id;`, toBlockHeaderFeederSpecRow(spec))
 }
 
-func (o *orm) insertLegacyGasStationServerSpec(ctx context.Context, spec *LegacyGasStationServerSpec) (specID int32, err error) {
-	return o.prepareQuerySpecID(ctx, `INSERT INTO legacy_gas_station_server_specs (forwarder_address, evm_chain_id, ccip_chain_selector, from_addresses, created_at, updated_at)
-			VALUES (:forwarder_address, :evm_chain_id, :ccip_chain_selector, :from_addresses, NOW(), NOW())
-			RETURNING id;`, toLegacyGasStationServerSpecRow(spec))
-}
-
-func (o *orm) insertLegacyGasStationSidecarSpec(ctx context.Context, spec *LegacyGasStationSidecarSpec) (specID int32, err error) {
-	return o.prepareQuerySpecID(ctx, `INSERT INTO legacy_gas_station_sidecar_specs (forwarder_address, off_ramp_address, lookback_blocks, poll_period, run_timeout, evm_chain_id, ccip_chain_selector, created_at, updated_at)
-			VALUES (:forwarder_address, :off_ramp_address, :lookback_blocks, :poll_period, :run_timeout, :evm_chain_id, :ccip_chain_selector, NOW(), NOW())
-			RETURNING id;`, spec)
-}
-
 func (o *orm) insertBootstrapSpec(ctx context.Context, spec *BootstrapSpec) (specID int32, err error) {
 	return o.prepareQuerySpecID(ctx, `INSERT INTO bootstrap_specs (contract_id, feed_id, relay, relay_config, monitoring_endpoint,
 					blockchain_timeout, contract_config_tracker_poll_interval,
@@ -762,18 +732,18 @@ func (o *orm) InsertJob(ctx context.Context, job *Job) error {
 		if job.ID == 0 {
 			query = `INSERT INTO jobs (name, stream_id, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
 				cre_settings_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id,
-                legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, workflow_spec_id, standard_capabilities_spec_id, ccip_spec_id, ccv_committee_verifier_spec_id, ccv_executor_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
+                workflow_spec_id, standard_capabilities_spec_id, ccip_spec_id, ccv_committee_verifier_spec_id, ccv_executor_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
 		VALUES (:name, :stream_id, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
 				:cre_settings_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id,
-				:legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :workflow_spec_id, :standard_capabilities_spec_id, :ccip_spec_id, :ccv_committee_verifier_spec_id, :ccv_executor_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
+				:workflow_spec_id, :standard_capabilities_spec_id, :ccip_spec_id, :ccv_committee_verifier_spec_id, :ccv_executor_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
 		RETURNING *;`
 		} else {
 			query = `INSERT INTO jobs (id, name, stream_id, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
 			cre_settings_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id,
-                  legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, workflow_spec_id, standard_capabilities_spec_id, ccip_spec_id, ccv_committee_verifier_spec_id, ccv_executor_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
+                  workflow_spec_id, standard_capabilities_spec_id, ccip_spec_id, ccv_committee_verifier_spec_id, ccv_executor_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
 		VALUES (:id, :name, :stream_id, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
 				:cre_settings_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id,
-				:legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :workflow_spec_id, :standard_capabilities_spec_id, :ccip_spec_id, :ccv_committee_verifier_spec_id, :ccv_executor_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
+				:workflow_spec_id, :standard_capabilities_spec_id, :ccip_spec_id, :ccv_committee_verifier_spec_id, :ccv_executor_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
 		RETURNING *;`
 		}
 		query, args, err := tx.ds.BindNamed(query, job)
@@ -1554,8 +1524,6 @@ func (o *orm) loadAllJobTypes(ctx context.Context, job *Job) error {
 		o.loadVRFJob(ctx, job, job.VRFSpecID),
 		o.loadBlockhashStoreJob(ctx, job, job.BlockhashStoreSpecID),
 		o.loadBlockHeaderFeederJob(ctx, job, job.BlockHeaderFeederSpecID),
-		o.loadLegacyGasStationServerJob(ctx, job, job.LegacyGasStationServerSpecID),
-		o.loadJobType(ctx, job, "LegacyGasStationSidecarSpec", "legacy_gas_station_sidecar_specs", job.LegacyGasStationSidecarSpecID),
 		o.loadJobType(ctx, job, "BootstrapSpec", "bootstrap_specs", job.BootstrapSpecID),
 		o.loadJobType(ctx, job, "GatewaySpec", "gateway_specs", job.GatewaySpecID),
 		o.loadJobType(ctx, job, "WorkflowSpec", "workflow_specs", job.WorkflowSpecID),
@@ -1727,45 +1695,6 @@ func (r blockHeaderFeederSpecRow) toBlockHeaderFeederSpec() *BlockHeaderFeederSp
 			evmtypes.EIP55AddressFromAddress(common.BytesToAddress(a)))
 	}
 	return r.BlockHeaderFeederSpec
-}
-
-func (o *orm) loadLegacyGasStationServerJob(ctx context.Context, job *Job, id *int32) error {
-	if id == nil {
-		return nil
-	}
-
-	var row legacyGasStationServerSpecRow
-	err := o.ds.GetContext(ctx, &row, `SELECT * FROM legacy_gas_station_server_specs WHERE id = $1`, *id)
-	if err != nil {
-		return errors.Wrapf(err, `failed to load job type LegacyGasStationServerSpec with id %d`, *id)
-	}
-
-	job.LegacyGasStationServerSpec = row.toLegacyGasStationServerSpec()
-	return nil
-}
-
-// legacyGasStationServerSpecRow is a helper type for reading and writing legacyGasStationServerSpec specs to the database. This is necessary
-// because the bytea[] in the DB is not automatically convertible to or from the spec's
-// FromAddresses field. pq.ByteaArray must be used instead.
-type legacyGasStationServerSpecRow struct {
-	*LegacyGasStationServerSpec
-	FromAddresses pq.ByteaArray
-}
-
-func toLegacyGasStationServerSpecRow(spec *LegacyGasStationServerSpec) legacyGasStationServerSpecRow {
-	addresses := make(pq.ByteaArray, len(spec.FromAddresses))
-	for i, a := range spec.FromAddresses {
-		addresses[i] = a.Bytes()
-	}
-	return legacyGasStationServerSpecRow{LegacyGasStationServerSpec: spec, FromAddresses: addresses}
-}
-
-func (r legacyGasStationServerSpecRow) toLegacyGasStationServerSpec() *LegacyGasStationServerSpec {
-	for _, a := range r.FromAddresses {
-		r.LegacyGasStationServerSpec.FromAddresses = append(r.LegacyGasStationServerSpec.FromAddresses,
-			evmtypes.EIP55AddressFromAddress(common.BytesToAddress(a)))
-	}
-	return r.LegacyGasStationServerSpec
 }
 
 func (o *orm) loadJobSpecErrors(ctx context.Context, jb *Job) error {

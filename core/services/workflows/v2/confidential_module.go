@@ -13,6 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
@@ -62,15 +64,17 @@ func IsConfidential(data []byte) (bool, error) {
 // Instead of running WASM locally, it delegates execution to the
 // confidential-workflows capability via the CapabilitiesRegistry.
 type ConfidentialModule struct {
-	capRegistry     core.CapabilitiesRegistry
-	binaryURL       string
-	binaryHash      []byte
-	workflowID      string
-	workflowOwner   string
-	workflowName    string
-	workflowTag     string
-	vaultDonSecrets []SecretIdentifier
-	lggr            logger.Logger
+	capRegistry       core.CapabilitiesRegistry
+	binaryURL         string
+	binaryHash        []byte
+	workflowID        string
+	workflowOwner     string
+	workflowName      string
+	workflowTag       string
+	vaultDonSecrets   []SecretIdentifier
+	creSettingsGetter settings.Getter
+	orgID             string // resolved via org resolver at construction; stable for module lifetime
+	lggr              logger.Logger
 }
 
 var _ host.ModuleV2 = (*ConfidentialModule)(nil)
@@ -81,18 +85,22 @@ func NewConfidentialModule(
 	binaryHash []byte,
 	workflowID, workflowOwner, workflowName, workflowTag string,
 	vaultDonSecrets []SecretIdentifier,
+	creSettingsGetter settings.Getter,
+	orgID string,
 	lggr logger.Logger,
 ) *ConfidentialModule {
 	return &ConfidentialModule{
-		capRegistry:     capRegistry,
-		binaryURL:       binaryURL,
-		binaryHash:      binaryHash,
-		workflowID:      workflowID,
-		workflowOwner:   workflowOwner,
-		workflowName:    workflowName,
-		workflowTag:     workflowTag,
-		vaultDonSecrets: vaultDonSecrets,
-		lggr:            lggr,
+		capRegistry:       capRegistry,
+		binaryURL:         binaryURL,
+		binaryHash:        binaryHash,
+		workflowID:        workflowID,
+		workflowOwner:     workflowOwner,
+		workflowName:      workflowName,
+		workflowTag:       workflowTag,
+		vaultDonSecrets:   vaultDonSecrets,
+		creSettingsGetter: creSettingsGetter,
+		orgID:             orgID,
+		lggr:              lggr,
 	}
 }
 
@@ -151,12 +159,16 @@ func (m *ConfidentialModule) Execute(
 		Method:       "Execute",
 		CapabilityId: confidentialWorkflowsCapabilityID,
 		Metadata: capabilities.RequestMetadata{
-			WorkflowID:          m.workflowID,
 			WorkflowOwner:       m.workflowOwner,
+			WorkflowID:          m.workflowID,
 			WorkflowName:        m.workflowName,
 			WorkflowTag:         m.workflowTag,
 			WorkflowExecutionID: helper.GetWorkflowExecutionID(),
 		},
+	}
+	propagateOrgIDMeta, _ := cresettings.Default.PropagateOrgIDInRequestMetadata.GetOrDefault(ctx, m.creSettingsGetter)
+	if propagateOrgIDMeta && m.orgID != "" {
+		capReq.Metadata.OrgID = m.orgID
 	}
 
 	capResp, err := executable.Execute(ctx, capReq)

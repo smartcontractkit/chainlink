@@ -88,6 +88,16 @@ func (m mockCfgTelemetry) LogExportMaxBatchSize() int       { return 512 }
 func (m mockCfgTelemetry) LogExportInterval() time.Duration { return 5 * time.Second }
 func (m mockCfgTelemetry) LogMaxQueueSize() int             { return 2048 }
 
+func (m mockCfgTelemetry) PrometheusBridge() config.PrometheusBridge {
+	return mockPrometheusBridge{}
+}
+
+type mockPrometheusBridge struct{}
+
+func (m mockPrometheusBridge) Enabled() bool { return true }
+
+func (m mockPrometheusBridge) Prefixes() []string { return nil }
+
 type mockCfgDatabase struct{}
 
 func (m mockCfgDatabase) Backup() config.Backup { panic("unimplemented") }
@@ -128,13 +138,13 @@ type mockCfgMercury struct{}
 
 func (m mockCfgMercury) Credentials(credName string) *types.MercuryCredentials { panic("implement me") }
 
-func (m mockCfgMercury) Cache() config.MercuryCache {
+func (m mockCfgMercury) Cache() mercurytransmitter.MercuryCache {
 	return mockCfgCache{}
 }
 
-func (m mockCfgMercury) TLS() config.MercuryTLS { panic("implement me") }
+func (m mockCfgMercury) TLS() mercurytransmitter.MercuryTLS { panic("implement me") }
 
-func (m mockCfgMercury) Transmitter() config.MercuryTransmitter {
+func (m mockCfgMercury) Transmitter() mercurytransmitter.MercuryTransmitter {
 	return mockCfgTransmitter{}
 }
 

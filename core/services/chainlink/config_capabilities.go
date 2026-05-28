@@ -279,6 +279,13 @@ func (m *moduleCacheConfig) Enabled() bool {
 	return *m.c.Enabled
 }
 
+func (m *moduleCacheConfig) DiskMonitorEnabled() bool {
+	if m.c.DiskMonitorEnabled == nil {
+		return false
+	}
+	return *m.c.DiskMonitorEnabled
+}
+
 func (m *moduleCacheConfig) IdleEviction() bool {
 	if m.c.IdleEviction == nil {
 		return true

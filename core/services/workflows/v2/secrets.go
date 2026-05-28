@@ -21,6 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
@@ -39,11 +41,12 @@ type secretsFetcher struct {
 	capRegistry core.CapabilitiesRegistry
 	lggr        logger.Logger
 
-	semaphore                      limits.ResourcePoolLimiter[int]
-	secretsCallsLimit              limits.BoundLimiter[int]
-	vaultOrgIDAsSecretOwnerEnabled limits.GateLimiter
-	secretsCalled                  int
-	mu                             sync.Mutex
+	semaphore         limits.ResourcePoolLimiter[int]
+	secretsCallsLimit limits.BoundLimiter[int]
+	secretsCalled     int
+	mu                sync.Mutex
+
+	creSettingsGetter settings.Getter
 
 	orgID                 string
 	workflowOwner         string
@@ -66,7 +69,7 @@ func NewSecretsFetcher(
 	lggr logger.Logger,
 	semaphore limits.ResourcePoolLimiter[int],
 	secretsCalls limits.BoundLimiter[int],
-	vaultOrgIDAsSecretOwnerEnabled limits.GateLimiter,
+	creSettingsGetter settings.Getter,
 	orgID string,
 	workflowOwner string,
 	workflowName string,
@@ -78,19 +81,19 @@ func NewSecretsFetcher(
 	lggr = logger.Named(lggr, "WorkflowEngine.SecretsFetcher")
 	lggr = logger.With(lggr, "workflowID", workflowID, "workflowName", workflowName, "workflowOwner", workflowOwner, "phaseID", phaseID)
 	return &secretsFetcher{
-		capRegistry:                    capRegistry,
-		lggr:                           lggr,
-		semaphore:                      semaphore,
-		secretsCallsLimit:              secretsCalls,
-		vaultOrgIDAsSecretOwnerEnabled: vaultOrgIDAsSecretOwnerEnabled,
-		orgID:                          orgID,
-		workflowOwner:                  workflowOwner,
-		workflowName:                   workflowName,
-		workflowID:                     workflowID,
-		phaseID:                        phaseID,
-		workflowEncryptionKey:          workflowEncryptionKey,
-		metrics:                        metrics,
-		overrideFetcher:                overrideFetcher,
+		capRegistry:           capRegistry,
+		lggr:                  lggr,
+		semaphore:             semaphore,
+		secretsCallsLimit:     secretsCalls,
+		creSettingsGetter:     creSettingsGetter,
+		orgID:                 orgID,
+		workflowOwner:         workflowOwner,
+		workflowName:          workflowName,
+		workflowID:            workflowID,
+		phaseID:               phaseID,
+		workflowEncryptionKey: workflowEncryptionKey,
+		metrics:               metrics,
+		overrideFetcher:       overrideFetcher,
 	}
 }
 
@@ -266,35 +269,19 @@ func (s *secretsFetcher) getVaultSecretsForBatch(ctx context.Context, request *s
 	if err != nil {
 		return nil, fmt.Errorf("failed to get encryption keys: %w", err)
 	}
-	if s.vaultOrgIDAsSecretOwnerEnabled == nil {
-		return nil, errors.New("vault org id gate is nil")
-	}
-	orgIDGateEnabled, err := s.vaultOrgIDAsSecretOwnerEnabled.Limit(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to evaluate vault org_id gate: %w", err)
-	}
-	if orgIDGateEnabled && s.orgID == "" {
-		return nil, errors.New("org_id is required when VaultOrgIdAsSecretOwnerEnabled is enabled")
-	}
 	metadata := capabilities.RequestMetadata{
 		WorkflowOwner:       s.workflowOwner,
 		WorkflowName:        s.workflowName,
 		WorkflowExecutionID: sha(s.phaseID, strconv.FormatInt(int64(request.CallbackId), 10)),
 		ReferenceID:         strconv.FormatInt(int64(request.CallbackId), 10),
 	}
-	if orgIDGateEnabled {
-		// WorkflowID is under this gate because the previous release skipped
-		// setting workflowID on SecretsFetcher entirely.
-		metadata.WorkflowID = s.workflowID
+	if propagateOrgIDMeta, _ := cresettings.Default.PropagateOrgIDInRequestMetadata.GetOrDefault(ctx, s.creSettingsGetter); propagateOrgIDMeta && s.orgID != "" {
 		metadata.OrgID = s.orgID
+		// WorkflowID is under this gate because we previously skipped setting workflowID on SecretsFetcher entirely. Now setting it safely.
+		metadata.WorkflowID = s.workflowID
 	}
-
 	vp := &vault.GetSecretsRequest{
 		Requests: make([]*vault.SecretRequest, 0),
-	}
-	if orgIDGateEnabled {
-		vp.OrgId = s.orgID
-		vp.WorkflowOwner = s.workflowOwner
 	}
 
 	owner, err := normalizeOwner(s.workflowOwner)
@@ -302,9 +289,6 @@ func (s *secretsFetcher) getVaultSecretsForBatch(ctx context.Context, request *s
 		return nil, fmt.Errorf("could not normalize workflowOwner: %w", err)
 	}
 	responseOwner := owner
-	if orgIDGateEnabled {
-		responseOwner = s.orgID
-	}
 
 	logKeys := make([]string, 0, len(request.Requests))
 	for _, r := range request.Requests {
@@ -394,14 +378,19 @@ func (s *secretsFetcher) getSecretForSingleRequest(lggr logger.Logger, id, owner
 		return s.wrapErrorResponse(lggr, id, namespace, owner, errorMessage)
 	}
 
+	var localNodeBinaryShares [][]byte
 	var localNodeShares []string
 	workflowNodeEncryptionPublicKeyStr := s.workflowEncryptionKey.PublicKeyString()
 	for _, share := range response.GetData().GetEncryptedDecryptionKeyShares() {
 		if share.EncryptionKey == workflowNodeEncryptionPublicKeyStr {
-			localNodeShares = share.Shares
+			if len(share.BinaryShares) > 0 {
+				localNodeBinaryShares = share.BinaryShares
+			} else {
+				localNodeShares = share.Shares
+			}
 		}
 	}
-	if len(localNodeShares) == 0 {
+	if len(localNodeBinaryShares) == 0 && len(localNodeShares) == 0 {
 		errorMessage := "no shares found for this node's encryption key: " + workflowNodeEncryptionPublicKeyStr
 		return s.wrapErrorResponse(lggr, id, namespace, owner, errorMessage)
 	}
@@ -412,7 +401,13 @@ func (s *secretsFetcher) getSecretForSingleRequest(lggr logger.Logger, id, owner
 		return s.wrapErrorResponse(lggr, id, namespace, owner, errorMessage)
 	}
 
-	secret, err := s.decryptSecret(lggr, encryptedSecretBytes, localNodeShares, cfg)
+	encryptedDecryptionShares, err := encryptedDecryptionShareBytes(localNodeBinaryShares, localNodeShares)
+	if err != nil {
+		errorMessage := "failed to decode encrypted decryption shares: " + err.Error()
+		return s.wrapErrorResponse(lggr, id, namespace, owner, errorMessage)
+	}
+
+	secret, err := s.decryptSecret(lggr, encryptedSecretBytes, encryptedDecryptionShares, cfg)
 	if err != nil {
 		errorMessage := "failed to decrypt secret: " + err.Error()
 		return s.wrapErrorResponse(lggr, id, namespace, owner, errorMessage)
@@ -444,7 +439,22 @@ func (s *secretsFetcher) wrapErrorResponse(lggr logger.Logger, id, namespace, ow
 	}
 }
 
-func (s *secretsFetcher) decryptSecret(lggr logger.Logger, encryptedSecretBytes []byte, encryptedDecryptionShares []string, cfg *vaultConfig) (string, error) {
+func encryptedDecryptionShareBytes(binaryShares [][]byte, hexShares []string) ([][]byte, error) {
+	if len(binaryShares) > 0 {
+		return binaryShares, nil
+	}
+	out := make([][]byte, 0, len(hexShares))
+	for _, share := range hexShares {
+		shareBytes, err := hex.DecodeString(share)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, shareBytes)
+	}
+	return out, nil
+}
+
+func (s *secretsFetcher) decryptSecret(lggr logger.Logger, encryptedSecretBytes []byte, encryptedDecryptionShares [][]byte, cfg *vaultConfig) (string, error) {
 	lggr.Debug("decrypting secret...")
 
 	cipherText := &tdh2easy.Ciphertext{}
@@ -454,12 +464,7 @@ func (s *secretsFetcher) decryptSecret(lggr logger.Logger, encryptedSecretBytes 
 	}
 
 	decryptionShares := make([]*tdh2easy.DecryptionShare, 0, len(encryptedDecryptionShares))
-	for i, encryptedDecryptionShare := range encryptedDecryptionShares {
-		encryptedDecryptionShareBytes, err := hex.DecodeString(encryptedDecryptionShare)
-		if err != nil {
-			lggr.Debugw("failed to hex decode the encryptedDecryptionShare", "index", i)
-			continue
-		}
+	for i, encryptedDecryptionShareBytes := range encryptedDecryptionShares {
 		decryptionShareBytes, err := s.workflowEncryptionKey.Decrypt(encryptedDecryptionShareBytes)
 		if err != nil {
 			lggr.Debugw("failed to decrypt the encryptedDecryptionShare", "index", i)

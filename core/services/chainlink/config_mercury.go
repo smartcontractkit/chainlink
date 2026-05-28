@@ -6,11 +6,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
-var _ config.MercuryCache = (*mercuryCacheConfig)(nil)
+var _ mercurytransmitter.MercuryCache = (*mercuryCacheConfig)(nil)
 
 type mercuryCacheConfig struct {
 	c toml.MercuryCache
@@ -26,7 +25,7 @@ func (m *mercuryCacheConfig) LatestReportDeadline() time.Duration {
 	return m.c.LatestReportDeadline.Duration()
 }
 
-var _ config.MercuryTLS = (*mercuryTLSConfig)(nil)
+var _ mercurytransmitter.MercuryTLS = (*mercuryTLSConfig)(nil)
 
 type mercuryTLSConfig struct {
 	c toml.MercuryTLS
@@ -36,7 +35,7 @@ func (m *mercuryTLSConfig) CertFile() string {
 	return *m.c.CertFile
 }
 
-var _ config.MercuryTransmitter = (*mercuryTransmitterConfig)(nil)
+var _ mercurytransmitter.MercuryTransmitter = (*mercuryTransmitterConfig)(nil)
 
 type mercuryTransmitterConfig struct {
 	c toml.MercuryTransmitter
@@ -86,15 +85,15 @@ func (m *mercuryConfig) Credentials(credName string) *types.MercuryCredentials {
 	return nil
 }
 
-func (m *mercuryConfig) Cache() config.MercuryCache {
+func (m *mercuryConfig) Cache() mercurytransmitter.MercuryCache {
 	return &mercuryCacheConfig{c: m.c.Cache}
 }
 
-func (m *mercuryConfig) TLS() config.MercuryTLS {
+func (m *mercuryConfig) TLS() mercurytransmitter.MercuryTLS {
 	return &mercuryTLSConfig{c: m.c.TLS}
 }
 
-func (m *mercuryConfig) Transmitter() config.MercuryTransmitter {
+func (m *mercuryConfig) Transmitter() mercurytransmitter.MercuryTransmitter {
 	return &mercuryTransmitterConfig{c: m.c.Transmitter}
 }
 

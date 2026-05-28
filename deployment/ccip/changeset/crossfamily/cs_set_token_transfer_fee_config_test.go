@@ -8,36 +8,30 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
-
-	"github.com/gagliardetto/solana-go"
-
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 
 	solfq "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	ccip_cs_sol_v0_1_1 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
+	solstateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
-
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/crossfamily"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/v1_5"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-
-	solstateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/crossfamily"
-	ccip_cs_sol_v0_1_1 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 )
 
 const SetTokenTransferFeePriceRegStalenessThreshold = 60 * 60 * 24 * 14 // two weeks in seconds
@@ -234,8 +228,8 @@ func TestSetTokenTransferFeeConfig_Validations(t *testing.T) {
 			MsgStr: "Unsupported EVM version hint fails fast",
 			Config: crossfamily.SetTokenTransferFeeConfigInput{
 				VersionHints: &crossfamily.OptionalVersions{
-					Solana: pointer.To(ccip_cs_sol_v0_1_1.VersionSolanaV0_1_1), // valid solana (doesn't matter)
-					Evm:    pointer.To("1.4.9"),                                // bogus/unsupported
+					Solana: new(ccip_cs_sol_v0_1_1.VersionSolanaV0_1_1), // valid solana (doesn't matter)
+					Evm:    new("1.4.9"),                                // bogus/unsupported
 				},
 				InputsByChain: map[uint64]map[uint64]crossfamily.TokenTransferFeeConfigArgs{
 					evmSrc: {
@@ -254,8 +248,8 @@ func TestSetTokenTransferFeeConfig_Validations(t *testing.T) {
 			MsgStr: "Unsupported Solana version hint fails fast",
 			Config: crossfamily.SetTokenTransferFeeConfigInput{
 				VersionHints: &crossfamily.OptionalVersions{
-					Evm:    pointer.To(deployment.Version1_6_0.String()),
-					Solana: pointer.To("v0_0_9"), // bogus/unsupported
+					Evm:    new(deployment.Version1_6_0.String()),
+					Solana: new("v0_0_9"), // bogus/unsupported
 				},
 				InputsByChain: map[uint64]map[uint64]crossfamily.TokenTransferFeeConfigArgs{
 					solSrc: {
@@ -329,15 +323,15 @@ func TestSetTokenTransferFeeConfig_EVM_V1_6_0_Only(t *testing.T) {
 					TokenAddressToFeeConfig: map[string]crossfamily.OptionalTokenTransferFeeConfig{
 						link.Hex(): {
 							// partial fields: defaults should be auto-filled by the EVM changeset when none exist
-							MinFeeUsdCents:  pointer.To(uint32(800)),
-							DestGasOverhead: pointer.To(uint32(100)),
+							MinFeeUsdCents:  new(uint32(800)),
+							DestGasOverhead: new(uint32(100)),
 						},
 					},
 				},
 			},
 		},
 		VersionHints: &crossfamily.OptionalVersions{
-			Evm: pointer.To(deployment.Version1_6_0.String()),
+			Evm: new(deployment.Version1_6_0.String()),
 		},
 		MCMS: &SetTokenTransferFeeMcmsConfig,
 	}
@@ -420,19 +414,19 @@ func TestSetTokenTransferFeeConfig_EVM_V1_5_1_Only(t *testing.T) {
 				dst: {
 					TokenAddressToFeeConfig: map[string]crossfamily.OptionalTokenTransferFeeConfig{
 						link.Hex(): {
-							DestBytesOverhead: pointer.To(uint32(32)),
-							DestGasOverhead:   pointer.To(uint32(10)),
-							MaxFeeUsdCents:    pointer.To(uint32(math.MaxUint32)),
-							MinFeeUsdCents:    pointer.To(uint32(800)),
-							DeciBps:           pointer.To(uint16(0)),
-							IsEnabled:         pointer.To(true),
+							DestBytesOverhead: new(uint32(32)),
+							DestGasOverhead:   new(uint32(10)),
+							MaxFeeUsdCents:    new(uint32(math.MaxUint32)),
+							MinFeeUsdCents:    new(uint32(800)),
+							DeciBps:           new(uint16(0)),
+							IsEnabled:         new(true),
 						},
 					},
 				},
 			},
 		},
 		VersionHints: &crossfamily.OptionalVersions{
-			Evm: pointer.To(deployment.Version1_5_1.String()),
+			Evm: new(deployment.Version1_5_1.String()),
 		},
 		MCMS: &SetTokenTransferFeeMcmsConfig,
 	}
@@ -507,19 +501,19 @@ func TestSetTokenTransferFeeConfig_Solana_V0_1_0_Only(t *testing.T) {
 					TokenAddressToFeeConfig: map[string]crossfamily.OptionalTokenTransferFeeConfig{
 						tokenAddressX.String(): {
 							// partial fields: defaults should be auto-filled by the SOL changeset when none exist
-							DestGasOverhead: pointer.To(uint32(10)),
+							DestGasOverhead: new(uint32(10)),
 						},
 						tokenAddressY.String(): {
 							// partial fields: defaults should be auto-filled by the SOL changeset when none exist
-							DestBytesOverhead: pointer.To(uint32(64)),
-							DestGasOverhead:   pointer.To(uint32(10)),
+							DestBytesOverhead: new(uint32(64)),
+							DestGasOverhead:   new(uint32(10)),
 						},
 					},
 				},
 			},
 		},
 		VersionHints: &crossfamily.OptionalVersions{
-			Solana: pointer.To(ccip_cs_sol_v0_1_1.VersionSolanaV0_1_1),
+			Solana: new(ccip_cs_sol_v0_1_1.VersionSolanaV0_1_1),
 		},
 		MCMS: &SetTokenTransferFeeMcmsConfig,
 	}
@@ -605,11 +599,11 @@ func TestSetTokenTransferFeeConfig_MixedFamilies_SingleApply(t *testing.T) {
 				evmDst: {
 					TokenAddressToFeeConfig: map[string]crossfamily.OptionalTokenTransferFeeConfig{
 						link.Hex(): {
-							MinFeeUsdCents:    pointer.To(uint32(12)),
-							DeciBps:           pointer.To(uint16(7)),
-							DestGasOverhead:   pointer.To(uint32(222)),
-							DestBytesOverhead: pointer.To(uint32(512)),
-							IsEnabled:         pointer.To(true),
+							MinFeeUsdCents:    new(uint32(12)),
+							DeciBps:           new(uint16(7)),
+							DestGasOverhead:   new(uint32(222)),
+							DestBytesOverhead: new(uint32(512)),
+							IsEnabled:         new(true),
 						},
 					},
 				},
@@ -620,9 +614,9 @@ func TestSetTokenTransferFeeConfig_MixedFamilies_SingleApply(t *testing.T) {
 					TokenAddressToFeeConfig: map[string]crossfamily.OptionalTokenTransferFeeConfig{
 						mint.String(): {
 							// partial: defaults will fill any omitted fields
-							MinFeeUsdCents:    pointer.To(uint32(900)),
-							DestGasOverhead:   pointer.To(uint32(100)),
-							DestBytesOverhead: pointer.To(uint32(128)),
+							MinFeeUsdCents:    new(uint32(900)),
+							DestGasOverhead:   new(uint32(100)),
+							DestBytesOverhead: new(uint32(128)),
 							// DeciBps/IsEnabled left nil -> defaults (0 / true)
 						},
 					},
@@ -630,8 +624,8 @@ func TestSetTokenTransferFeeConfig_MixedFamilies_SingleApply(t *testing.T) {
 			},
 		},
 		VersionHints: &crossfamily.OptionalVersions{
-			Solana: pointer.To(ccip_cs_sol_v0_1_1.VersionSolanaV0_1_1),
-			Evm:    pointer.To(deployment.Version1_6_0.String()),
+			Solana: new(ccip_cs_sol_v0_1_1.VersionSolanaV0_1_1),
+			Evm:    new(deployment.Version1_6_0.String()),
 		},
 		MCMS: &SetTokenTransferFeeMcmsConfig,
 	}

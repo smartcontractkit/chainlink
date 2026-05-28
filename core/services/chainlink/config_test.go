@@ -467,11 +467,12 @@ func TestConfig_Marshal(t *testing.T) {
 				TLSEnabled:          ptr(true),
 			},
 			ModuleCache: toml.ModuleCache{
-				Enabled:      ptr(false),
-				IdleEviction: ptr(true),
-				IdleTimeout:  commoncfg.MustNewDuration(10 * time.Minute),
-				MaxLoaded:    ptr(200),
-				CacheDir:     ptr(""),
+				Enabled:            ptr(false),
+				DiskMonitorEnabled: ptr(false),
+				IdleEviction:       ptr(true),
+				IdleTimeout:        commoncfg.MustNewDuration(10 * time.Minute),
+				MaxLoaded:          ptr(200),
+				CacheDir:           ptr(""),
 			},
 			AdditionalSourcesConfig: []toml.AdditionalWorkflowSource{
 				{
@@ -549,27 +550,32 @@ func TestConfig_Marshal(t *testing.T) {
 		Release:     ptr("v1.2.3"),
 	}
 	full.Telemetry = toml.Telemetry{
-		Enabled:                       ptr(true),
-		CACertFile:                    ptr("cert-file"),
-		Endpoint:                      ptr("example.com/collector"),
-		InsecureConnection:            ptr(true),
-		ResourceAttributes:            map[string]string{"Baz": "test", "Foo": "bar"},
-		TraceSampleRatio:              ptr(0.01),
-		EmitterBatchProcessor:         ptr(true),
-		EmitterExportTimeout:          commoncfg.MustNewDuration(1 * time.Second),
-		AuthHeadersTTL:                commoncfg.MustNewDuration(0 * time.Second),
+		Enabled:                        ptr(true),
+		CACertFile:                     ptr("cert-file"),
+		Endpoint:                       ptr("example.com/collector"),
+		InsecureConnection:             ptr(true),
+		ResourceAttributes:             map[string]string{"Baz": "test", "Foo": "bar"},
+		TraceSampleRatio:               ptr(0.01),
+		EmitterBatchProcessor:          ptr(true),
+		EmitterExportTimeout:           commoncfg.MustNewDuration(1 * time.Second),
+		AuthHeadersTTL:                 commoncfg.MustNewDuration(0 * time.Second),
 		ChipIngressEndpoint:            ptr("example.com/chip-ingress"),
 		ChipIngressInsecureConnection:  ptr(false),
 		ChipIngressBatchEmitterEnabled: ptr(true),
 		DurableEmitterEnabled:          ptr(false),
 		HeartbeatInterval:              commoncfg.MustNewDuration(1 * time.Second),
-		LogStreamingEnabled:           ptr(false),
-		LogLevel:                      ptr("info"),
-		LogBatchProcessor:             ptr(true),
-		LogExportTimeout:              commoncfg.MustNewDuration(1 * time.Second),
-		LogExportMaxBatchSize:         ptr[int](512),
-		LogExportInterval:             ptrDuration(1 * time.Second),
-		LogMaxQueueSize:               ptrInt(2048),
+		LogStreamingEnabled:            ptr(false),
+		LogLevel:                       ptr("info"),
+		LogBatchProcessor:              ptr(true),
+		LogExportTimeout:               commoncfg.MustNewDuration(1 * time.Second),
+		LogExportMaxBatchSize:          ptr[int](512),
+		LogExportInterval:              ptrDuration(1 * time.Second),
+		LogMaxQueueSize:                ptrInt(2048),
+
+		PrometheusBridge: toml.PrometheusBridge{
+			Enabled:  ptr(true),
+			Prefixes: []string{"ocr_"},
+		},
 	}
 	full.CRE = toml.CreConfig{
 		UseLocalTimeProvider: ptr(true),
@@ -738,19 +744,21 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 
 				NodePool: evmcfg.NodePool{
-					PollFailureThreshold:           ptr[uint32](5),
-					PollSuccessThreshold:           ptr[uint32](0),
-					PollInterval:                   &minute,
-					SelectionMode:                  &selectionMode,
-					SyncThreshold:                  ptr[uint32](13),
-					LeaseDuration:                  &zeroSeconds,
-					NodeIsSyncingEnabled:           ptr(true),
-					FinalizedBlockPollInterval:     &second,
-					EnforceRepeatableRead:          ptr(true),
-					DeathDeclarationDelay:          &minute,
-					VerifyChainID:                  ptr(true),
-					NewHeadsPollInterval:           &zeroSeconds,
-					ExternalRequestMaxResponseSize: ptr[uint32](10),
+					PollFailureThreshold:                ptr[uint32](5),
+					PollSuccessThreshold:                ptr[uint32](0),
+					PollInterval:                        &minute,
+					SelectionMode:                       &selectionMode,
+					SyncThreshold:                       ptr[uint32](13),
+					LeaseDuration:                       &zeroSeconds,
+					NodeIsSyncingEnabled:                ptr(true),
+					FinalizedBlockPollInterval:          &second,
+					HistoricalBalanceCheckAddress:       ptr(types.MustEIP55Address("0x0000000000000000000000000000000000000000")),
+					EnforceRepeatableRead:               ptr(true),
+					DeathDeclarationDelay:               &minute,
+					VerifyChainID:                       ptr(true),
+					NewHeadsPollInterval:                &zeroSeconds,
+					ExternalRequestMaxResponseSize:      ptr[uint32](10),
+					FinalizedStateCheckFailureThreshold: ptr[uint32](0),
 					Errors: evmcfg.ClientErrors{
 						NonceTooLow:                       ptr[string]("(: |^)nonce too low"),
 						NonceTooHigh:                      ptr[string]("(: |^)nonce too high"),
@@ -768,6 +776,7 @@ func TestConfig_Marshal(t *testing.T) {
 						ServiceUnavailable:                ptr[string]("(: |^)service unavailable"),
 						TooManyResults:                    ptr[string]("(: |^)too many results"),
 						MissingBlocks:                     ptr[string]("(: |^)missing blocks"),
+						FinalizedStateUnavailable:         ptr[string]("(: |^)(missing trie node|state not available|historical state unavailable)"),
 					},
 				},
 				OCR: evmcfg.OCR{
@@ -1189,6 +1198,8 @@ SyncThreshold = 13
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = true
 FinalizedBlockPollInterval = '1s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
@@ -1212,6 +1223,7 @@ Fatal = '(: |^)fatal'
 ServiceUnavailable = '(: |^)service unavailable'
 TooManyResults = '(: |^)too many results'
 MissingBlocks = '(: |^)missing blocks'
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [EVM.OCR]
 ContractConfirmations = 11

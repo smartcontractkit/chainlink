@@ -21,6 +21,7 @@ import (
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
@@ -359,6 +360,61 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				assert.Equal(t, testOwner, exec.lastRequest.Metadata.WorkflowOwner)
 				assert.Equal(t, "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1", exec.lastRequest.Metadata.WorkflowExecutionID)
 				assert.Equal(t, "17", exec.lastRequest.Metadata.ReferenceID)
+				assert.Empty(t, exec.lastRequest.Metadata.OrgID)
+			},
+		},
+		{
+			name: "capability execute sets metadata org id when PropagateOrgIDInRequestMetadata enabled",
+			registry: func(_ *testing.T) *mockCapRegistry {
+				return withEnclaveConfig(&mockCapRegistry{
+					executables: map[string]*mockExecutable{
+						"my-cap@1.0.0": {
+							execResult: capabilities.CapabilityResponse{
+								Payload: &anypb.Any{Value: []byte("result-proto-bytes")},
+							},
+						},
+					},
+				})
+			},
+			modifyHandler: func(t *testing.T, h *Handler) {
+				getter, err := settings.NewJSONGetter([]byte(`{"global":{"PropagateOrgIDInRequestMetadata":"true"}}`))
+				require.NoError(t, err)
+				h.limitsFactory = limits.Factory{Logger: h.lggr, Settings: getter}
+			},
+			req: func(t *testing.T) *jsonrpc.Request[json.RawMessage] {
+				return makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
+					WorkflowID:   "wf-1",
+					Owner:        testOwner,
+					ExecutionID:  "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+					OrgID:        "org-relay-1",
+					ReferenceID:  "17",
+					CapabilityID: "my-cap@1.0.0",
+					Payload:      makeCapabilityPayload(t, map[string]any{"key": "val"}),
+					EnclaveConfig: testEnclaveConfig(),
+					Attestation:  testAttestationB64,
+				})
+			},
+			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
+				require.Nil(t, resp.Error)
+				params := confidentialrelaytypes.CapabilityRequestParams{
+					WorkflowID:   "wf-1",
+					Owner:        testOwner,
+					ExecutionID:  "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+					OrgID:        "org-relay-1",
+					ReferenceID:  "17",
+					CapabilityID: "my-cap@1.0.0",
+					Payload:      makeCapabilityPayload(t, map[string]any{"key": "val"}),
+				EnclaveConfig: testEnclaveConfig(),
+				}
+				var result confidentialrelaytypes.SignedCapabilityResponseResult
+				require.NoError(t, json.Unmarshal(*resp.Result, &result))
+				require.Len(t, result.Signatures, 1)
+				assertValidCapabilitySignature(t, params, result)
+			},
+			checkExecutable: func(t *testing.T, reg *mockCapRegistry) {
+				exec := reg.executables["my-cap@1.0.0"]
+				require.NotNil(t, exec.lastRequest)
+				assert.Equal(t, "org-relay-1", exec.lastRequest.Metadata.OrgID)
 			},
 		},
 		{
@@ -482,12 +538,9 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			},
 		},
 		{
-			name:     "secrets get sets WorkflowOwner and OrgId when gate enabled",
+			name:     "secrets get invokes vault execute with stable capability metadata",
 			registry: secretsGetTestRegistry,
 			req:      secretsGetTestRequest,
-			modifyHandler: func(_ *testing.T, h *Handler) {
-				h.vaultIdentityGate = limits.NewGateLimiter(true)
-			},
 			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
 				require.Nil(t, resp.Error)
 				// signSecretsResponse hashes against the request params (no Attestation),
@@ -507,41 +560,36 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 
 				var vaultReq vault.GetSecretsRequest
 				require.NoError(t, exec.lastRequest.Payload.UnmarshalTo(&vaultReq))
-
-				// Gate enabled: owner should be EIP-55 checksummed on the vault request.
-				assert.Equal(t, "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B", vaultReq.WorkflowOwner)
-				assert.Equal(t, "org-123", vaultReq.OrgId)
-
-				// Metadata.WorkflowOwner should be the original (non-normalized) value.
+				require.Len(t, vaultReq.Requests, 1)
+				assert.Equal(t, "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B", vaultReq.Requests[0].Id.Owner)
 				assert.Equal(t, "0xab5801a7d398351b8be11c439e05c5b3259aec9b", exec.lastRequest.Metadata.WorkflowOwner)
 				assert.Equal(t, "wf-secrets-1", exec.lastRequest.Metadata.WorkflowID)
 				assert.Equal(t, uint32(42), exec.lastRequest.Metadata.WorkflowDonID)
-				// Gate enabled: OrgID should be set on metadata.
-				assert.Equal(t, "org-123", exec.lastRequest.Metadata.OrgID)
+				assert.Empty(t, exec.lastRequest.Metadata.OrgID, "org metadata requires PropagateOrgIDInRequestMetadata CRE setting")
 			},
 		},
 		{
-			name:     "secrets get omits WorkflowOwner and OrgId when gate disabled",
+			name:     "secrets get sets metadata org id when PropagateOrgIDInRequestMetadata enabled",
 			registry: secretsGetTestRegistry,
 			req:      secretsGetTestRequest,
-			modifyHandler: func(_ *testing.T, h *Handler) {
-				h.vaultIdentityGate = limits.NewGateLimiter(false)
+			modifyHandler: func(t *testing.T, h *Handler) {
+				getter, err := settings.NewJSONGetter([]byte(`{"global":{"PropagateOrgIDInRequestMetadata":"true"}}`))
+				require.NoError(t, err)
+				h.limitsFactory = limits.Factory{Logger: h.lggr, Settings: getter}
 			},
 			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
 				require.Nil(t, resp.Error)
+				params := secretsGetTestParams()
+				params.Attestation = ""
+				var result confidentialrelaytypes.SignedSecretsResponseResult
+				require.NoError(t, json.Unmarshal(*resp.Result, &result))
+				require.Len(t, result.Signatures, 1)
+				assertValidSecretsSignature(t, params, result)
 			},
 			checkExecutable: func(t *testing.T, reg *mockCapRegistry) {
 				exec := reg.executables[vault.CapabilityID]
-				require.NotNil(t, exec.lastRequest, "vault Execute should have been called")
-
-				var vaultReq vault.GetSecretsRequest
-				require.NoError(t, exec.lastRequest.Payload.UnmarshalTo(&vaultReq))
-
-				// Gate disabled: WorkflowOwner is always set, OrgId must be empty.
-				assert.Equal(t, "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B", vaultReq.WorkflowOwner)
-				assert.Empty(t, vaultReq.OrgId)
-				// Gate disabled: OrgID must be empty on metadata too.
-				assert.Empty(t, exec.lastRequest.Metadata.OrgID)
+				require.NotNil(t, exec.lastRequest)
+				assert.Equal(t, "org-123", exec.lastRequest.Metadata.OrgID)
 			},
 		},
 		{
@@ -808,4 +856,60 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 		resp := gwConn.lastResp
 		require.NotNil(t, resp.Error)
 	})
+}
+
+func TestTranslateVaultResponse_BinaryShares(t *testing.T) {
+	enclaveKey := "aabbcc"
+	shareBytes := []byte("share-1")
+	vaultResp := &vault.GetSecretsResponse{
+		Responses: []*vault.SecretResponse{
+			{
+				Id: &vault.SecretIdentifier{Key: "API_KEY", Namespace: vaulttypes.DefaultNamespace},
+				Result: &vault.SecretResponse_Data{
+					Data: &vault.SecretData{
+						EncryptedValue: hex.EncodeToString([]byte("encrypted-value")),
+						EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
+							{
+								EncryptionKey: enclaveKey,
+								BinaryShares:  [][]byte{shareBytes},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result, err := translateVaultResponse(vaultResp, enclaveKey)
+	require.NoError(t, err)
+	require.Len(t, result.Secrets, 1)
+	require.Equal(t, base64.StdEncoding.EncodeToString(shareBytes), result.Secrets[0].EncryptedShares[0])
+}
+
+func TestTranslateVaultResponse_HexShares(t *testing.T) {
+	enclaveKey := "aabbcc"
+	shareBytes := []byte("share-1")
+	vaultResp := &vault.GetSecretsResponse{
+		Responses: []*vault.SecretResponse{
+			{
+				Id: &vault.SecretIdentifier{Key: "API_KEY", Namespace: vaulttypes.DefaultNamespace},
+				Result: &vault.SecretResponse_Data{
+					Data: &vault.SecretData{
+						EncryptedValue: hex.EncodeToString([]byte("encrypted-value")),
+						EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
+							{
+								EncryptionKey: enclaveKey,
+								Shares:        []string{hex.EncodeToString(shareBytes)},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result, err := translateVaultResponse(vaultResp, enclaveKey)
+	require.NoError(t, err)
+	require.Len(t, result.Secrets, 1)
+	require.Equal(t, base64.StdEncoding.EncodeToString(shareBytes), result.Secrets[0].EncryptedShares[0])
 }
