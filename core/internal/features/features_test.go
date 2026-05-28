@@ -1,7 +1,6 @@
 package features_test
 
 import (
-	"bytes"
 	"context"
 	_ "embed"
 	"encoding/json"
@@ -69,7 +68,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
@@ -78,126 +76,6 @@ import (
 )
 
 var oneETH = assets.Eth(*big.NewInt(1000000000000000000))
-
-func TestIntegration_ExternalInitiatorV2(t *testing.T) {
-	t.Parallel()
-
-	ctx := testutils.Context(t)
-	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
-	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(big.NewInt(0), nil)
-
-	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
-		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(10 * time.Millisecond)
-	})
-
-	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
-	require.NoError(t, app.Start(testutils.Context(t)))
-
-	var (
-		eiName    = "substrate-ei"
-		eiSpec    = map[string]any{"foo": "bar"}
-		eiRequest = map[string]any{"result": 42}
-
-		jobUUID = uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46")
-	)
-
-	// Setup EI
-	var eiURL string
-	{
-		mockEI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			w.WriteHeader(http.StatusOK)
-		}))
-		defer mockEI.Close()
-		eiURL = mockEI.URL
-	}
-
-	// Create the EI record on the Core node
-	var eia *auth.Token
-	{
-		eiCreate := map[string]string{
-			"name": eiName,
-			"url":  eiURL,
-		}
-		eiCreateJSON, err := json.Marshal(eiCreate)
-		require.NoError(t, err)
-		eip := cltest.CreateExternalInitiatorViaWeb(t, app, string(eiCreateJSON))
-		eia = &auth.Token{
-			AccessKey: eip.AccessKey,
-			Secret:    eip.Secret,
-		}
-	}
-
-	// Create the bridge on the Core node
-	{
-		bridgeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			defer r.Body.Close()
-			w.WriteHeader(http.StatusOK)
-			_, _ = io.WriteString(w, `{}`)
-		}))
-		u, _ := url.Parse(bridgeServer.URL)
-		err := app.BridgeORM().CreateBridgeType(ctx, &bridges.BridgeType{
-			Name: bridges.BridgeName("substrate-adapter1"),
-			URL:  models.WebURL(*u),
-		})
-		require.NoError(t, err)
-		defer bridgeServer.Close()
-	}
-
-	// Webhook job creation via API is no longer supported.
-	{
-		tomlSpec := fmt.Sprintf(`
-type            = "webhook"
-schemaVersion   = 1
-externalJobID           = "%v"
-externalInitiators = [
-	{
-		name = "%s",
-		spec = """
-	%s
-"""
-	}
-]
-observationSource   = """
-    parse  [type=jsonparse path="result" data="$(jobRun.requestBody)"]
-    submit [type=bridge name="substrate-adapter1" requestData=<{ "value": $(parse) }>]
-    parse -> submit
-"""
-    `, jobUUID, eiName, cltest.MustJSONMarshal(t, eiSpec))
-
-		client := app.NewHTTPClient(nil)
-		body, err := json.Marshal(web.CreateJobRequest{TOML: tomlSpec})
-		require.NoError(t, err)
-		response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
-		defer cleanup()
-		cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
-	}
-
-	// Simulate a legacy webhook job already present in the database.
-	job, _ := cltest.MustInsertWebhookSpec(t, app.GetDB(), jobUUID)
-	jobID := job.ID
-
-	t.Run("uuid job run via external initiator is rejected", func(t *testing.T) {
-		body := cltest.MustJSONMarshal(t, eiRequest)
-		headers := make(map[string]string)
-		headers[static.ExternalInitiatorAccessKeyHeader] = eia.AccessKey
-		headers[static.ExternalInitiatorSecretHeader] = eia.Secret
-
-		url := app.Server.URL + "/v2/jobs/" + jobUUID.String() + "/runs"
-		bodyBuf := bytes.NewBufferString(body)
-		resp, cleanup := cltest.UnauthenticatedPost(t, url, bodyBuf, headers)
-		defer cleanup()
-		cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
-		require.Contains(t, string(cltest.ParseResponseBody(t, resp)), "webhook")
-
-		cltest.AssertCountStays(t, app.GetDB(), "pipeline_runs", 0)
-	})
-
-	// Delete the job
-	{
-		cltest.DeleteJobViaWeb(t, app, jobID)
-	}
-}
 
 func TestIntegration_AuthToken(t *testing.T) {
 	t.Parallel()
@@ -282,7 +160,6 @@ func setupOperatorContracts(t *testing.T) OperatorContracts {
 	}
 }
 
-
 func setupAppForEthTx(t *testing.T, operatorContracts OperatorContracts) (app *cltest.TestApplication, sendingAddress common.Address, o *observer.ObservedLogs) {
 	b := operatorContracts.sim
 	lggr, o := logger.TestLoggerObserved(t, zapcore.DebugLevel)
@@ -344,7 +221,7 @@ observationSource   = """
 		j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
 		cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
 
-		run := cltest.CreateJobRunViaUserByID(t, app, j.ID, "")
+		run := cltest.CreateJobRunForAsyncPipeline(t, app, j.ID)
 		assert.Equal(t, []*string(nil), run.Outputs)
 		assert.Equal(t, []*string(nil), run.Errors)
 
@@ -396,7 +273,7 @@ observationSource   = """
 		j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
 		cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
 
-		run := cltest.CreateJobRunViaUserByID(t, app, j.ID, "")
+		run := cltest.CreateJobRunForAsyncPipeline(t, app, j.ID)
 		assert.Equal(t, []*string(nil), run.Outputs)
 		assert.Equal(t, []*string(nil), run.Errors)
 
@@ -440,7 +317,7 @@ observationSource   = """
 		j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
 		cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
 
-		run := cltest.CreateJobRunViaUserByID(t, app, j.ID, "")
+		run := cltest.CreateJobRunForAsyncPipeline(t, app, j.ID)
 		assert.Equal(t, []*string(nil), run.Outputs)
 		assert.Equal(t, []*string(nil), run.Errors)
 
