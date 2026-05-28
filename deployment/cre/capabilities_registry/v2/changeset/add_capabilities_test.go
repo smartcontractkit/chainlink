@@ -132,7 +132,7 @@ func TestAddCapabilities_VerifyPreconditions(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func addNewCapability(t *testing.T, h *test.EnvWrapperV2, capID string) {
+func addNewCapability(t *testing.T, h *test.Harness, capID string) {
 	input := changeset.AddCapabilitiesInput{
 		RegistryChainSel:  h.RegistrySelector,
 		RegistryQualifier: test.RegistryQualifier,
@@ -155,7 +155,7 @@ func addNewCapability(t *testing.T, h *test.EnvWrapperV2, capID string) {
 	require.NoError(t, err)
 }
 
-func requireCapability(t *testing.T, h *test.EnvWrapperV2, capID string) {
+func requireCapability(t *testing.T, h *test.Harness, capID string) {
 	// Validate on-chain state
 	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
 		h.RegistryAddress,
@@ -270,7 +270,7 @@ func aptosTestCapabilityID(aptosChainSelector uint64) string {
 	return fmt.Sprintf("aptos:ChainSelector:%d@1.0.0", aptosChainSelector)
 }
 
-func addCapabilityWithModifier(t *testing.T, h *test.EnvWrapperV2) {
+func addCapabilityWithModifier(t *testing.T, h *test.Harness) {
 	t.Helper()
 
 	require.NotNil(t, h.Runtime.Environment().Offchain, "Aptos add-capabilities needs JD Offchain client")
@@ -298,7 +298,7 @@ func addCapabilityWithModifier(t *testing.T, h *test.EnvWrapperV2) {
 	require.NoError(t, err)
 }
 
-func requireCapabilityWithModifier(t *testing.T, h *test.EnvWrapperV2) {
+func requireCapabilityWithModifier(t *testing.T, h *test.Harness) {
 	t.Helper()
 
 	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(

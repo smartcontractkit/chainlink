@@ -8,14 +8,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	chainSel "github.com/smartcontractkit/chain-selectors"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	proposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
 
@@ -160,7 +160,7 @@ func validateMCMSConfig(e cldf.Environment, mcmsConfig *proposalutils.TimelockCo
 		}
 
 		chain := e.BlockChains.EVMChains()[chainSelector]
-		_, err = changeset.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
+		_, err = evmstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 		if err != nil {
 			return fmt.Errorf("failed to load MCMS state for chain %d: %w", chainSelector, err)
 		}
@@ -287,7 +287,7 @@ func validateDeployEthBalMonMCMSInDatastore(e cldf.Environment, chainSelector ui
 	}
 
 	chain := e.BlockChains.EVMChains()[chainSelector]
-	_, err = changeset.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
+	_, err = evmstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
 		return fmt.Errorf("failed to load MCMS with timelock state: %w", err)
 	}

@@ -290,12 +290,36 @@ func (c CCIPChainState) ValidateHomeChain(e cldf.Environment, nodes deployment.N
 	return errors.Join(allErrs...)
 }
 
+// ValidateHomeCfgForChain checks that a CCIPHome versioned OCR3 config (active or candidate)
+// is internally coherent with on-chain state
+func (c CCIPChainState) ValidateHomeCfgForChain(
+	homeCfg ccip_home.CCIPHomeVersionedConfig,
+	offRamp offramp.OffRampInterface,
+) error {
+	chainSel := homeCfg.Config.ChainSelector
+	if homeCfg.ConfigDigest == [32]byte{} {
+		return fmt.Errorf("chain %d: home config digest is empty", chainSel)
+	}
+	if offRamp == nil {
+		return fmt.Errorf("chain %d: offRamp is nil", chainSel)
+	}
+	if c.RMNHome == nil {
+		return errors.New("RMNHome is nil on home chain state")
+	}
+	if offRamp.Address() != common.BytesToAddress(homeCfg.Config.OfframpAddress) {
+		return fmt.Errorf("offRamp address mismatch in ccip home for chain %d: expected %s, got %s",
+			chainSel, offRamp.Address().Hex(), homeCfg.Config.OfframpAddress)
+	}
+	if c.RMNHome.Address() != common.BytesToAddress(homeCfg.Config.RmnHomeAddress) {
+		return fmt.Errorf("RMNHome address mismatch in ccip home for chain %d: expected %s, got %s",
+			chainSel, c.RMNHome.Address().Hex(), homeCfg.Config.RmnHomeAddress)
+	}
+	return nil
+}
+
 // validateCCIPHomeVersionedActiveConfig validates the CCIPHomeVersionedConfig based on the corresponding chain selector and its state
 // The validation related to correctness of F and node length is omitted here as it is already validated in the contract
 func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e cldf.Environment, nodes deployment.Nodes, homeCfg ccip_home.CCIPHomeVersionedConfig, offRampsByChain map[uint64]offramp.OffRampInterface) error {
-	if homeCfg.ConfigDigest == [32]byte{} {
-		return errors.New("active config digest is empty")
-	}
 	chainSel := homeCfg.Config.ChainSelector
 	if _, exists := e.BlockChains.SolanaChains()[chainSel]; exists {
 		return nil
@@ -313,6 +337,9 @@ func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e cldf.Environment
 	if !ok {
 		return fmt.Errorf("offRamp for chain %d not found in the state", chainSel)
 	}
+	if err := c.ValidateHomeCfgForChain(homeCfg, offRamp); err != nil {
+		return err
+	}
 	// validate ChainConfig in CCIPHome
 	homeChainConfig, err := c.CCIPHome.GetChainConfig(&bind.CallOpts{
 		Context: e.GetContext(),
@@ -324,16 +351,6 @@ func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e cldf.Environment
 	if err := nodes.P2PIDsPresentInJD(homeChainConfig.Readers); err != nil {
 		return fmt.Errorf("failed to find homechain readers in JD for chain %d: %w",
 			chainSel, err)
-	}
-
-	// Validate CCIPHome OCR3 Related Config
-	if offRamp.Address() != common.BytesToAddress(homeCfg.Config.OfframpAddress) {
-		return fmt.Errorf("offRamp address mismatch in active config for ccip home for chain %d: expected %s, got %s",
-			chainSel, offRamp.Address().Hex(), homeCfg.Config.OfframpAddress)
-	}
-	if c.RMNHome.Address() != common.BytesToAddress(homeCfg.Config.RmnHomeAddress) {
-		return fmt.Errorf("RMNHome address mismatch in active config for ccip home for chain %d: expected %s, got %s",
-			chainSel, c.RMNHome.Address().Hex(), homeCfg.Config.RmnHomeAddress)
 	}
 	p2pIDs := make([][32]byte, 0)
 	for _, node := range homeCfg.Config.Nodes {
@@ -351,10 +368,8 @@ func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e cldf.Environment
 		if err != nil {
 			return fmt.Errorf("failed to get commit config for chain %d offRamp %s: %w", chainSel, c.OffRamp.Address().Hex(), err)
 		}
-		// the config digest should match with CCIP Home ActiveConfig
-		if commitConfig.ConfigInfo.ConfigDigest != homeCfg.ConfigDigest {
-			return fmt.Errorf("offRamp %s commit config digest mismatch with CCIPHome for chain %d: expected %x, got %x",
-				offRamp.Address().Hex(), chainSel, homeCfg.ConfigDigest, commitConfig.ConfigInfo.ConfigDigest)
+		if err := validateActiveOCR3Digest(offRamp, homeCfg, commitConfig); err != nil {
+			return err
 		}
 		if !commitConfig.ConfigInfo.IsSignatureVerificationEnabled {
 			return fmt.Errorf("offRamp %s for chain %d commit config signature verification is not enabled",
@@ -371,10 +386,8 @@ func (c CCIPChainState) validateCCIPHomeVersionedActiveConfig(e cldf.Environment
 		if err != nil {
 			return fmt.Errorf("failed to get exec config for chain %d offRamp %s: %w", chainSel, offRamp.Address().Hex(), err)
 		}
-		// the config digest should match with CCIP Home ActiveConfig
-		if execConfig.ConfigInfo.ConfigDigest != homeCfg.ConfigDigest {
-			return fmt.Errorf("offRamp %s exec config digest mismatch with CCIPHome for chain %d: expected %x, got %x",
-				offRamp.Address().Hex(), chainSel, homeCfg.ConfigDigest, execConfig.ConfigInfo.ConfigDigest)
+		if err := validateActiveOCR3Digest(offRamp, homeCfg, execConfig); err != nil {
+			return err
 		}
 		if execConfig.ConfigInfo.IsSignatureVerificationEnabled {
 			return fmt.Errorf("offRamp %s for chain %d exec config signature verification is enabled",

@@ -376,6 +376,10 @@ LogMaxQueueSize = 2048
 Baz = 'test'
 Foo = 'bar'
 
+[Telemetry.PrometheusBridge]
+Enabled = true
+Prefixes = ['ocr_']
+
 [Workflows]
 [Workflows.Limits]
 Global = 200

@@ -2522,6 +2522,28 @@ foo = "bar" # Example
 ```
 foo is an example resource attribute
 
+## Telemetry.PrometheusBridge
+```toml
+[Telemetry.PrometheusBridge]
+Enabled = false # Default
+Prefixes = ["go_"] # Default
+```
+The Prometheus bridge automatically forwards metrics through open telemetry.
+
+### Enabled
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+```toml
+Enabled = false # Default
+```
+Enabled enables the Promtheus bridge.
+
+### Prefixes
+```toml
+Prefixes = ["go_"] # Default
+```
+Prefixes is a set of filters to restrict which prometheus metrics are forwarded based on prefix matching.
+By default, we only forward the go runtime metrics. Empty means forward everything.
+
 ## CRE.Streams
 ```toml
 [CRE.Streams]
@@ -9342,7 +9364,7 @@ MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 LogBroadcasterEnabled = false
-RPCDefaultBatchSize = 250
+RPCDefaultBatchSize = 10
 RPCBlockQueryDelay = 1
 FinalizedBlockOffset = 0
 NoNewFinalizedHeadsThreshold = '0s'
@@ -9367,18 +9389,18 @@ Enabled = false
 Enabled = false
 
 [GasEstimator]
-Mode = 'SuggestedPrice'
+Mode = 'FixedPrice'
 PriceDefault = '0'
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMax = '0'
 PriceMin = '0'
 LimitDefault = 250000000
 LimitMax = 250000000
-LimitMultiplier = '4'
+LimitMultiplier = '1'
 LimitTransfer = 21000
 EstimateLimit = false
 BumpMin = '5 gwei'
 BumpPercent = 20
-BumpThreshold = 3
+BumpThreshold = 0
 EIP1559DynamicFees = false
 FeeCapDefault = '0'
 TipCapDefault = '0'
@@ -9414,7 +9436,7 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
 FinalizedStateCheckFailureThreshold = 0
-EnforceRepeatableRead = true
+EnforceRepeatableRead = false
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true

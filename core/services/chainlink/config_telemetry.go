@@ -181,3 +181,19 @@ func (b *telemetryConfig) LogMaxQueueSize() int {
 	}
 	return *b.s.LogMaxQueueSize
 }
+
+func (b *telemetryConfig) PrometheusBridge() config.PrometheusBridge {
+	return &prometheusBridgeConfig{b.s.PrometheusBridge}
+}
+
+type prometheusBridgeConfig struct {
+	s toml.PrometheusBridge
+}
+
+func (p *prometheusBridgeConfig) Enabled() bool {
+	return *p.s.Enabled
+}
+
+func (p *prometheusBridgeConfig) Prefixes() []string {
+	return p.s.Prefixes
+}
