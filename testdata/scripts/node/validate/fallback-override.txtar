@@ -95,6 +95,8 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m'
 NewHeadsPollInterval = '0s'
@@ -478,6 +480,7 @@ TLSEnabled = true
 
 [Capabilities.WorkflowRegistry.ModuleCache]
 Enabled = false
+DiskMonitorEnabled = false
 IdleEviction = true
 IdleTimeout = '10m0s'
 MaxLoaded = 200
@@ -503,6 +506,8 @@ EmitterExportTimeout = '1s'
 AuthHeadersTTL = '0s'
 ChipIngressEndpoint = ''
 ChipIngressInsecureConnection = false
+ChipIngressBatchEmitterEnabled = true
+DurableEmitterEnabled = false
 HeartbeatInterval = '1s'
 LogLevel = 'info'
 LogStreamingEnabled = false
@@ -511,6 +516,10 @@ LogExportTimeout = '1s'
 LogExportMaxBatchSize = 512
 LogExportInterval = '1s'
 LogMaxQueueSize = 2048
+
+[Telemetry.PrometheusBridge]
+Enabled = false
+Prefixes = ['go_']
 
 [Workflows]
 [Workflows.Limits]
@@ -656,11 +665,16 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[EVM.NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [EVM.OCR]
 ContractConfirmations = 4

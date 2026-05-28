@@ -475,6 +475,18 @@ NodeIsSyncingEnabled = false # Default
 #
 # Set to 0 to disable.
 FinalizedBlockPollInterval = '5s' # Default
+# HistoricalBalanceCheckAddress is the probe account for the finalized-state availability check.
+# The check executes `eth_getBalance` for this address at the latest finalized block.
+# If omitted, defaults to the zero address (`0x0000000000000000000000000000000000000000`).
+# Finalized block selection follows chain finality settings:
+# - `FinalityTagEnabled = true`: use `finalized` tag
+# - `FinalityTagEnabled = false`: use `latest - FinalityDepth`
+# The check is only active when `FinalizedStateCheckFailureThreshold > 0`.
+HistoricalBalanceCheckAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
+# FinalizedStateCheckFailureThreshold is the number of consecutive failures of the finalized state availability check
+# before the node is marked as FinalizedStateNotAvailable.
+# Set to 0 to disable the check.
+FinalizedStateCheckFailureThreshold = 0 # Default
 # EnforceRepeatableRead defines if Core should only use RPCs whose most recently finalized block is greater or equal to
 # `highest finalized block - FinalizedBlockOffset`. In other words, exclude RPCs lagging on latest finalized
 # block.
@@ -534,6 +546,8 @@ ServiceUnavailable = '(: |^)service unavailable' # Example
 TooManyResults = '(: |^)too many results' # Example
 # MissingBlocks is a regex pattern to match an eth_getLogs error indicating the rpc server is permanently missing some blocks in the requested block range
 MissingBlocks = '(: |^)missing blocks' # Example
+# FinalizedStateUnavailable is a regex pattern to match errors indicating the RPC cannot serve historical state at the finalized block (e.g., pruned/non-archive node)
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)' # Default
 
 [EVM.OCR]
 # ContractConfirmations sets `OCR.ContractConfirmations` for this EVM chain.

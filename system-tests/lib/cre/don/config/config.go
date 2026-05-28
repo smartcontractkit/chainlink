@@ -44,7 +44,7 @@ func PrepareNodeTOMLs(
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 	nodeSets []*cre.NodeSet,
-	capabilities []cre.InstallableCapability, // Deprecated, use Features instead and modify node configs inside a Feature
+	capabilities []cre.InstallableCapability, //nolint:staticcheck //SA1019 - We can't remove until other repos are updated
 	nodeConfigTransformerFns []cre.NodeConfigTransformerFn,
 	chipRouterInternalGRPCURL string,
 ) ([]*cre.NodeSet, error) {
@@ -348,6 +348,7 @@ func addBootstrapNodeConfig(
 		existingConfig.Telemetry.ChipIngressEndpoint = new(commonInputs.chipRouterInternalGRPCURL)
 		existingConfig.Telemetry.ChipIngressInsecureConnection = new(true)
 		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
+		existingConfig.Telemetry.DurableEmitterEnabled = new(true)
 
 		existingConfig.Billing = coretoml.Billing{
 			URL:        new("billing-platform-service:2223"),
@@ -436,6 +437,7 @@ func addWorkerNodeConfig(
 		existingConfig.Telemetry.ChipIngressEndpoint = new(commonInputs.chipRouterInternalGRPCURL)
 		existingConfig.Telemetry.ChipIngressInsecureConnection = new(true)
 		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
+		existingConfig.Telemetry.DurableEmitterEnabled = new(true)
 
 		existingConfig.Billing = coretoml.Billing{
 			URL:        new("billing-platform-service:2223"),

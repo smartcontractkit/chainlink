@@ -18,7 +18,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 )
@@ -197,7 +196,7 @@ func TestRemoveDONs(t *testing.T) {
 			useMCMS:         false,
 			wantErr:         true,
 			validateRemoval: false,
-			donToRemove:     pointer.To(uint32(2839748937)),
+			donToRemove:     new(uint32(2839748937)),
 		},
 	}
 

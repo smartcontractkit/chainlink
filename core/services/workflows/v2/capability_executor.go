@@ -13,6 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
@@ -188,8 +190,8 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		Method:       request.Method,
 		CapabilityId: request.Id,
 		Metadata: capabilities.RequestMetadata{
-			WorkflowID:               c.cfg.WorkflowID,
 			WorkflowOwner:            c.cfg.WorkflowOwner,
+			WorkflowID:               c.cfg.WorkflowID,
 			WorkflowExecutionID:      c.WorkflowExecutionID,
 			WorkflowName:             c.cfg.WorkflowName.Hex(),
 			WorkflowDonID:            localNode.WorkflowDON.ID,
@@ -201,6 +203,14 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 			ExecutionTimestamp:       c.ExecutionTimestamp,
 		},
 		Config: values.EmptyMap(),
+	}
+	var creGetter settings.Getter
+	if c.cfg.LocalLimiters != nil {
+		creGetter = c.cfg.LocalLimiters.Settings
+	}
+	propagateOrgIDMeta, _ := cresettings.Default.PropagateOrgIDInRequestMetadata.GetOrDefault(ctx, creGetter)
+	if propagateOrgIDMeta && c.orgID != "" {
+		capReq.Metadata.OrgID = c.orgID
 	}
 
 	execLogger.Debug("Executing capability ...")

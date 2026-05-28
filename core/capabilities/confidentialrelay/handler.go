@@ -17,7 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	vault "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -32,7 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/teeattestation"
 	"github.com/smartcontractkit/chainlink-common/pkg/teeattestation/nitro"
 
-	vaulttypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
 var _ core.GatewayConnectorHandler = (*Handler)(nil)
@@ -108,24 +108,16 @@ type Handler struct {
 	// validateAttestation validates TEE attestation documents.
 	// Defaults to the Nitro validator; overridden in tests.
 	validateAttestation attestationValidatorFunc
-
-	// vaultIdentityGate controls whether WorkflowOwner and OrgId are set
-	// on the vault GetSecretsRequest. Gated behind VaultOrgIdAsSecretOwnerEnabled.
-	vaultIdentityGate limits.GateLimiter
+	limitsFactory       limits.Factory
 }
 
-func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, limitsFactory limits.Factory) (*Handler, error) {
+func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, lf limits.Factory) (*Handler, error) {
 	if responseSigner == nil {
 		return nil, errors.New("response signer is required")
 	}
 	m, err := newMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
-	}
-
-	vaultIdentityGate, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.VaultOrgIdAsSecretOwnerEnabled)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create vault identity gate limiter: %w", err)
 	}
 
 	h := &Handler{
@@ -135,7 +127,7 @@ func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnecto
 		lggr:                logger.Named(lggr, HandlerName),
 		metrics:             m,
 		validateAttestation: nitro.ValidateAttestation,
-		vaultIdentityGate:   vaultIdentityGate,
+		limitsFactory:       lf,
 	}
 	h.Service, h.eng = services.Config{
 		Name:  HandlerName,
@@ -243,14 +235,6 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	vaultReq := &vault.GetSecretsRequest{
 		Requests: make([]*vault.SecretRequest, 0, len(params.Secrets)),
 	}
-	gateEnabled, err := h.vaultIdentityGate.Limit(ctx)
-	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to check VaultOrgIdAsSecretOwnerEnabled gate: %w", err))
-	}
-	vaultReq.WorkflowOwner = normalizedOwner
-	if gateEnabled {
-		vaultReq.OrgId = params.OrgID
-	}
 	for _, s := range params.Secrets {
 		namespace := s.Namespace
 		if namespace == "" {
@@ -284,10 +268,7 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 		WorkflowDonConfigVersion: localNode.WorkflowDON.ConfigVersion,
 		ReferenceID:              req.ID,
 	}
-	if gateEnabled {
-		metadata.OrgID = params.OrgID
-	}
-
+	h.applyPropagatedOrgID(ctx, &metadata, params.OrgID)
 	capResp, err := vaultCap.Execute(ctx, capabilities.CapabilityRequest{
 		Payload:      anypbReq,
 		Method:       vault.MethodGetSecrets,
@@ -338,7 +319,8 @@ func (h *Handler) resolveDONID(ctx context.Context, capability capabilities.Exec
 }
 
 // translateVaultResponse converts a vault GetSecretsResponse to the enclave relay protocol format.
-// Encoding conversion: hex (vault) -> base64 (enclave relay).
+// Encoding conversion: ciphertext hex (vault) -> base64 (enclave relay); encrypted shares may be
+// binary or hex (vault) -> base64 (enclave relay).
 func translateVaultResponse(vaultResp *vault.GetSecretsResponse, enclaveKey string) (*confidentialrelaytypes.SecretsResponseResult, error) {
 	result := &confidentialrelaytypes.SecretsResponseResult{}
 
@@ -360,12 +342,18 @@ func translateVaultResponse(vaultResp *vault.GetSecretsResponse, enclaveKey stri
 		var shares []string
 		for _, es := range data.EncryptedDecryptionKeyShares {
 			if es.EncryptionKey == enclaveKey {
-				for _, share := range es.Shares {
-					shareBytes, err := hex.DecodeString(share)
-					if err != nil {
-						return nil, fmt.Errorf("failed to decode share: %w", err)
+				if len(es.BinaryShares) > 0 {
+					for _, shareBytes := range es.BinaryShares {
+						shares = append(shares, base64.StdEncoding.EncodeToString(shareBytes))
 					}
-					shares = append(shares, base64.StdEncoding.EncodeToString(shareBytes))
+				} else {
+					for _, share := range es.Shares {
+						shareBytes, err := hex.DecodeString(share)
+						if err != nil {
+							return nil, fmt.Errorf("failed to decode share: %w", err)
+						}
+						shares = append(shares, base64.StdEncoding.EncodeToString(shareBytes))
+					}
 				}
 				break
 			}
@@ -433,6 +421,7 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 			ReferenceID:         referenceID,
 		},
 	}
+	h.applyPropagatedOrgID(ctx, &capReq.Metadata, params.OrgID)
 
 	// Backward compatibility: extract values.Map from Payload into Inputs
 	// for old-style capabilities that only look at Inputs.
@@ -508,6 +497,15 @@ func (h *Handler) getEnclaveAttestationConfig(ctx context.Context) ([]json.RawMe
 		}
 	}
 	return measurements, caRootsPEM, nil
+}
+
+func (h *Handler) applyPropagatedOrgID(ctx context.Context, md *capabilities.RequestMetadata, orgFromRequest string) {
+	propagateOrgIDMeta, _ := cresettings.Default.PropagateOrgIDInRequestMetadata.GetOrDefault(ctx, h.limitsFactory.Settings)
+	if propagateOrgIDMeta && orgFromRequest != "" {
+		md.OrgID = orgFromRequest
+		return
+	}
+	md.OrgID = ""
 }
 
 func (h *Handler) verifyAttestationHash(ctx context.Context, attestationB64 string, cleanParams any, domainTag string) error {

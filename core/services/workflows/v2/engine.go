@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
@@ -503,15 +504,12 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 				EngineVersion:                 platform.ValueWorkflowVersionV2,
 				// no WorkflowExecutionID needed (or available at this stage)
 			}
-			gate := e.cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled
-			if gate == nil {
-				return errors.New("vault org id gate is nil")
+			var creGetter settings.Getter
+			if e.cfg.LocalLimiters != nil {
+				creGetter = e.cfg.LocalLimiters.Settings
 			}
-			enabled, gateErr := gate.Limit(gCtx)
-			if gateErr != nil {
-				return gateErr
-			}
-			if enabled {
+			propagateOrgIDMeta, _ := cresettings.Default.PropagateOrgIDInRequestMetadata.GetOrDefault(gCtx, creGetter)
+			if propagateOrgIDMeta && e.orgID != "" {
 				metadata.OrgID = e.orgID
 			}
 			triggerEventCh, regErr := triggerCap.RegisterTrigger(gCtx, capabilities.TriggerRegistrationRequest{
@@ -837,6 +835,14 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		return
 	}
 	defer execCancel()
+	triggerCapID := wrappedTriggerEvent.triggerCapID
+	skewRec := &monitoring.TriggerSkewRecorder{
+		EnqueueTime: wrappedTriggerEvent.timestamp,
+		Record: func(ctx context.Context, seconds float64, source string) {
+			e.metrics.With(platform.KeyTriggerID, triggerCapID).RecordTriggerQueueToExecutionStartSeconds(ctx, seconds, source)
+		},
+	}
+	execCtx = monitoring.ContextWithTriggerSkewRecorder(execCtx, skewRec)
 	executionLogger := logger.With(lggr, "executionID", executionID, "triggerID", wrappedTriggerEvent.triggerCapID,
 		"triggerIndex", wrappedTriggerEvent.triggerIndex, "eventID", triggerEvent.ID)
 
@@ -860,7 +866,6 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	}
 
 	startTime := e.cfg.Clock.Now()
-	e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).RecordTriggerQueueToExecutionStartSeconds(ctx, startTime.Sub(wrappedTriggerEvent.timestamp).Seconds())
 	executionLogger.Infow("Workflow execution starting ...")
 	_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
 
@@ -918,6 +923,8 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
 	}, execHelper)
+	// Non-evictable modules do not record skew; label those as direct.
+	skewRec.RecordReady(execCtx, monitoring.ModuleLoadSourceDirect)
 
 	endTime := e.cfg.Clock.Now()
 	executionDuration := endTime.Sub(startTime)
@@ -1008,7 +1015,7 @@ func (e *Engine) secretsFetcher(phaseID string) SecretsFetcher {
 		e.logger(),
 		e.cfg.LocalLimiters.SecretsConcurrency,
 		e.cfg.LocalLimiters.SecretsCalls,
-		e.cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled,
+		e.cfg.LocalLimiters.Settings,
 		e.orgID,
 		e.cfg.WorkflowOwner,
 		e.cfg.WorkflowName.String(),
@@ -1024,7 +1031,8 @@ func (e *Engine) secretsFetcher(phaseID string) SecretsFetcher {
 func (e *Engine) close() error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*time.Duration(e.cfg.LocalLimits.ShutdownTimeoutMs))
 	defer cancel()
-	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID}) // TODO org?
+
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID})
 	e.triggersRegMu.Lock()
 	e.unregisterAllTriggers(ctx)
 	e.triggersRegMu.Unlock()

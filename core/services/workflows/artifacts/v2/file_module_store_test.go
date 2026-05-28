@@ -153,3 +153,28 @@ func TestStore_ConcurrentAccess(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestFileModuleStore_CacheDir(t *testing.T) {
+	t.Run("explicit dir", func(t *testing.T) {
+		dir := t.TempDir()
+		s, err := NewFileModuleStore(dir, false)
+		require.NoError(t, err)
+		assert.Equal(t, dir, s.CacheDir())
+	})
+
+	t.Run("empty config resolves to temp subdir", func(t *testing.T) {
+		s, err := NewFileModuleStore("", false)
+		require.NoError(t, err)
+		assert.Equal(t, filepath.Join(os.TempDir(), defaultCacheSubdir), s.CacheDir())
+	})
+}
+
+func TestNewFileModuleStore_NotWritable(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.Chmod(dir, 0o555))
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
+
+	_, err := NewFileModuleStore(dir, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not writable")
+}

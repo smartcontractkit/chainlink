@@ -1,10 +1,14 @@
 package v1_5
 
 import (
+	"context"
 	"fmt"
+	"sync"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -26,6 +30,45 @@ type GetPoolBySourceTokenIn struct {
 	FeeTokenAddress   common.Address
 	ChainSelector     uint64
 	DestChainSelector uint64
+}
+
+type BatchOnRampGetTokenCfgIn struct {
+	OnRamp        common.Address
+	Tokens        []common.Address
+	ChainSelector uint64
+}
+
+// onRampBatchConcurrency caps concurrent RPC calls to avoid overwhelming the node/provider.
+const onRampBatchConcurrency = 10
+
+func batchFetchTokenConfigs[T any](
+	ctx context.Context,
+	tokens []common.Address,
+	concurrency int,
+	fetchFn func(context.Context, common.Address) (T, error),
+) (map[common.Address]T, error) {
+	var mu sync.Mutex
+	results := make(map[common.Address]T, len(tokens))
+	grp, grpCtx := errgroup.WithContext(ctx)
+	grp.SetLimit(concurrency)
+	for _, token := range tokens {
+		token := token
+		grp.Go(func() error {
+			cfg, err := fetchFn(grpCtx, token)
+			if err != nil {
+				return err
+			}
+			mu.Lock()
+			results[token] = cfg
+			mu.Unlock()
+			return nil
+		})
+	}
+	if err := grp.Wait(); err != nil {
+		return nil, err
+	}
+
+	return results, nil
 }
 
 var (
@@ -94,5 +137,57 @@ var (
 
 			}
 			return tokenTransferFeeCfg, nil
+		})
+
+	// EVM2EVMOnrampGetAllTokenTransferFeeConfigsOp fetches GetTokenTransferFeeConfig for every
+	// token in the input list concurrently
+	EVM2EVMOnrampGetAllTokenTransferFeeConfigsOp = operations.NewOperation(
+		"EVM2EVMOnrampGetAllTokenTransferFeeConfigsOp",
+		semver.MustParse("1.0.0"),
+		"Batch-fetches TokenTransferFeeConfig for all given tokens from a 1.5.0 OnRamp",
+		func(b operations.Bundle, deps MigrateOnRampToFQDeps, input BatchOnRampGetTokenCfgIn) (map[common.Address]evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfig, error) {
+			onramp, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(input.OnRamp, deps.Chain.Client)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create EVM2EVMOnRamp contract binding: chainSelector=%d, OnRamp Address=%s, error=%w", deps.Chain.ChainSelector(), input.OnRamp.Hex(), err)
+			}
+
+			return batchFetchTokenConfigs(
+				b.GetContext(),
+				input.Tokens,
+				onRampBatchConcurrency,
+				func(ctx context.Context, token common.Address) (evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfig, error) {
+					cfg, err := onramp.GetTokenTransferFeeConfig(&bind.CallOpts{Context: ctx}, token)
+					if err != nil {
+						return evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfig{}, fmt.Errorf("failed to get token transfer fee config for token %s on OnRamp %s: %w", token.Hex(), input.OnRamp.Hex(), err)
+					}
+					return cfg, nil
+				},
+			)
+		})
+
+	// EVM2EVMOnrampGetAllFeeTokenConfigsOp fetches GetFeeTokenConfig for every token in the input
+	// list concurrently
+	EVM2EVMOnrampGetAllFeeTokenConfigsOp = operations.NewOperation(
+		"EVM2EVMOnrampGetAllFeeTokenConfigsOp",
+		semver.MustParse("1.0.0"),
+		"Batch-fetches FeeTokenConfig for all given fee tokens from a 1.5.0 OnRamp",
+		func(b operations.Bundle, deps MigrateOnRampToFQDeps, input BatchOnRampGetTokenCfgIn) (map[common.Address]evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig, error) {
+			onRamp, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(input.OnRamp, deps.Chain.Client)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create EVM2EVMOnRamp contract binding: chainSelector=%d, OnRamp Address=%s, error=%w", deps.Chain.ChainSelector(), input.OnRamp.Hex(), err)
+			}
+
+			return batchFetchTokenConfigs(
+				b.GetContext(),
+				input.Tokens,
+				onRampBatchConcurrency,
+				func(ctx context.Context, token common.Address) (evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig, error) {
+					cfg, err := onRamp.GetFeeTokenConfig(&bind.CallOpts{Context: ctx}, token)
+					if err != nil {
+						return evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig{}, fmt.Errorf("failed to get fee token config for token %s on OnRamp %s: %w", token.Hex(), input.OnRamp.Hex(), err)
+					}
+					return cfg, nil
+				},
+			)
 		})
 )

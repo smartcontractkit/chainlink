@@ -3,12 +3,8 @@ package cre
 import (
 	"context"
 	"fmt"
-	"os/exec"
-	"strings"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/assert"
 
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
@@ -68,7 +64,7 @@ func ExecuteModuleCacheTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 	drainFor(userLogsCh, cacheObserveWindow)
 
-	assertNodeLogs(t, testEnv, "Module cache enabled")
+	t_helpers.AssertNodeLogs(t, testEnv, "Module cache enabled")
 }
 
 func drainFor(ch <-chan *workflowevents.UserLogs, d time.Duration) {
@@ -80,31 +76,4 @@ func drainFor(ch <-chan *workflowevents.UserLogs, d time.Duration) {
 		case <-ch:
 		}
 	}
-}
-
-func assertNodeLogs(t *testing.T, testEnv *ttypes.TestEnvironment, needle string) {
-	t.Helper()
-
-	found := false
-	for _, nodeSet := range testEnv.Config.NodeSets {
-		if nodeSet.Out == nil {
-			continue
-		}
-		for _, clNode := range nodeSet.Out.CLNodes {
-			name := clNode.Node.ContainerName
-			if name == "" {
-				continue
-			}
-			out, err := exec.CommandContext(t.Context(), "docker", "logs", name).CombinedOutput()
-			if err != nil {
-				framework.L.Warn().Str("container", name).Err(err).Msg("could not read docker logs")
-				continue
-			}
-			if strings.Contains(string(out), needle) {
-				found = true
-				framework.L.Info().Str("container", name).Msg("confirmed: " + needle)
-			}
-		}
-	}
-	assert.True(t, found, "expected at least one node container log to contain %q", needle)
 }

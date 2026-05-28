@@ -295,7 +295,6 @@ func (b *nodeSubmitterAddressBuilder) addJobs(jobs []job.Job) {
 		b.addVRFSubmitterAddresses(jb)
 		b.addBlockhashStoreSubmitterAddresses(jb)
 		b.addBlockHeaderFeederSubmitterAddresses(jb)
-		b.addLegacyGasStationServerSubmitterAddresses(jb)
 		b.addStandardCapabilitiesSubmitterAddress(jb)
 		b.addPipelineETHTxSubmitterAddresses(jb)
 	}
@@ -370,14 +369,6 @@ func (b *nodeSubmitterAddressBuilder) addBlockHeaderFeederSubmitterAddresses(jb 
 		return
 	}
 	b.add(spec.EVMChainID.String(), jobType(jb, job.BlockHeaderFeeder), "", nodeSubmitterFieldFromAddresses, eip55AddressStrings(spec.FromAddresses)...)
-}
-
-func (b *nodeSubmitterAddressBuilder) addLegacyGasStationServerSubmitterAddresses(jb job.Job) {
-	spec := jb.LegacyGasStationServerSpec
-	if spec == nil || spec.EVMChainID == nil {
-		return
-	}
-	b.add(spec.EVMChainID.String(), jobType(jb, job.LegacyGasStationServer), "", nodeSubmitterFieldFromAddresses, eip55AddressStrings(spec.FromAddresses)...)
 }
 
 func (b *nodeSubmitterAddressBuilder) addStandardCapabilitiesSubmitterAddress(jb job.Job) {
@@ -471,10 +462,6 @@ func jobEVMChainID(jb job.Job) string {
 		return jb.BlockhashStoreSpec.EVMChainID.String()
 	case jb.BlockHeaderFeederSpec != nil && jb.BlockHeaderFeederSpec.EVMChainID != nil:
 		return jb.BlockHeaderFeederSpec.EVMChainID.String()
-	case jb.LegacyGasStationServerSpec != nil && jb.LegacyGasStationServerSpec.EVMChainID != nil:
-		return jb.LegacyGasStationServerSpec.EVMChainID.String()
-	case jb.LegacyGasStationSidecarSpec != nil && jb.LegacyGasStationSidecarSpec.EVMChainID != nil:
-		return jb.LegacyGasStationSidecarSpec.EVMChainID.String()
 	default:
 		return ""
 	}
