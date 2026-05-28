@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
@@ -462,10 +463,17 @@ func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 		return fmt.Errorf("unknown message type: %T", msg)
 	}
 
-	return beholder.GetEmitter().Emit(ctx, b,
+	if err := beholder.GetEmitter().Emit(ctx, b,
 		"beholder_data_schema", schema, // required
 		"beholder_domain", "platform", // required
-		"beholder_entity", entity) // required
+		"beholder_entity", entity); err != nil { // required
+		return err
+	}
+
+	// Ignore error if durable emitter is not enabled
+	_ = durableemitter.GlobalEmit(ctx, b, "source", "platform", "type", entity)
+
+	return nil
 }
 
 // buildWorkflowMetadata populates a WorkflowMetadata from kvs (map[string]string).
