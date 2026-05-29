@@ -159,7 +159,7 @@ func withEnclaveConfig(reg *mockCapRegistry) *mockCapRegistry {
 	// verifyEnclaveConfigMatchesDON check passes for fixtures that build
 	// request params with testEnclaveConfig.
 	reg.localNode.WorkflowDON.Members = testWorkflowDONMembers()
-	reg.localNode.WorkflowDON.F = uint8(testEnclaveConfig().F)
+	reg.localNode.WorkflowDON.F = testEnclaveF
 	return reg
 }
 
@@ -190,6 +190,11 @@ func make32Byte(b byte) []byte {
 // outgoing request params. withEnclaveConfig wires the matching WorkflowDON
 // membership into the mock CapabilitiesRegistry so
 // verifyEnclaveConfigMatchesDON accepts requests built with this config.
+// testEnclaveF is the DON fault tolerance used across these tests. Untyped so
+// it assigns cleanly to both EnclaveConfig.F (uint32) and WorkflowDON.F
+// (uint8) without a narrowing conversion that would trip gosec G115.
+const testEnclaveF = 1
+
 func testEnclaveConfig() confidentialrelaytypes.EnclaveConfig {
 	return confidentialrelaytypes.EnclaveConfig{
 		Signers: [][]byte{
@@ -200,7 +205,7 @@ func testEnclaveConfig() confidentialrelaytypes.EnclaveConfig {
 		},
 		MasterPublicKey: []byte("test-master-public-key"),
 		T:               3,
-		F:               1,
+		F:               testEnclaveF,
 	}
 }
 
@@ -738,7 +743,7 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 		gwConn := &mockGatewayConnector{}
 		h := newTestHandler(t, reg, gwConn)
 		badCfg := testEnclaveConfig()
-		badCfg.F = badCfg.F + 5 // any non-matching value
+		badCfg.F += 5 // any non-matching value
 		req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
 			WorkflowID:    "wf-1",
 			Owner:         testOwner,
@@ -849,7 +854,7 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 		gwConn := &mockGatewayConnector{}
 		h := newTestHandler(t, reg, gwConn)
 		params := secretsGetTestParams()
-		params.EnclaveConfig.F = params.EnclaveConfig.F + 5
+		params.EnclaveConfig.F += 5
 		req := makeRequest(t, confidentialrelaytypes.MethodSecretsGet, params)
 		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
 		require.NoError(t, err)
