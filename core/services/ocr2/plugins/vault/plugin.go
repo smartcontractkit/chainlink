@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"slices"
 	"sort"
 	"time"
@@ -646,7 +647,10 @@ func (r *ReportingPlugin) skipStoreBackedPendingQueue(ctx context.Context, seqNr
 	}
 
 	lag := seqNr - index.WrittenSeqNr
-	if lag < uint64(threshold) {
+	if threshold <= 0 {
+		return false, "", nil
+	}
+	if lag <= math.MaxInt64 && int64(lag) < int64(threshold) {
 		return false, "", nil
 	}
 

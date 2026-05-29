@@ -155,7 +155,7 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 		cfg.VaultPendingQueueStaleAutoEmpty = limits.NewGateLimiter(true)
 	}
 	if o.vaultPendingQueueStaleRoundThreshold > 0 {
-		cfg.VaultPendingQueueStaleRoundThreshold = limits.NewBoundLimiter(o.vaultPendingQueueStaleRoundThreshold)
+		cfg.VaultPendingQueueStaleRoundThreshold = limits.NewUpperBoundLimiter(o.vaultPendingQueueStaleRoundThreshold)
 	}
 	ctx := context.Background()
 	pl, err := initializePluginLimits(ctx, limits.Factory{Settings: cresettings.DefaultGetter})
