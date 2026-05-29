@@ -684,13 +684,13 @@ func newLRUModule(t *testing.T, store artifacts.SerialisedModuleStore, wfID stri
 	return em
 }
 
-func newTestLRU(t *testing.T, cap int) (*clockwork.FakeClock, *ModuleLRU, chan time.Time, chan struct{}) {
+func newTestLRU(t *testing.T, maxLoaded int) (*clockwork.FakeClock, *ModuleLRU, chan time.Time, chan struct{}) {
 	t.Helper()
 	clock := clockwork.NewFakeClock()
 	reap := make(chan time.Time, 4)
 	done := make(chan struct{}, 4)
 	lru := NewModuleLRU(clock,
-		WithMaxLoadedModules(cap),
+		WithMaxLoadedModules(maxLoaded),
 		WithIdleTimeout(time.Hour),
 		WithReapTicker(reap),
 		WithOnReaped(done),
