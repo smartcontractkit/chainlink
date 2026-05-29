@@ -515,7 +515,10 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.Capabil
 	require.NotNil(t, m.DeployedEnv, "start chains and initiate deployed env first before starting nodes")
 	tc := m.TestConfig
 	c := nodetestutils.NewNodesConfig{
-		LogLevel:       zapcore.InfoLevel,
+		// TEMP debug toggle: DebugLevel surfaces the commit plugin's gating logs
+		// ("cannot observe off ramp seq nums since destination chain is not supported",
+		// "no bindings for source chain", etc.). Revert to zapcore.InfoLevel when done.
+		LogLevel:       zapcore.DebugLevel,
 		BlockChains:    m.Env.BlockChains,
 		NumNodes:       tc.Nodes,
 		NumBootstraps:  tc.Bootstraps,
