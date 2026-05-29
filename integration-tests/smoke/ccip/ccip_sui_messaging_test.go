@@ -657,3 +657,111 @@ func Test_CCIP_EVM2Sui_ZeroReceiver(t *testing.T) {
 		)
 	})
 }
+
+// Test_CCIP_EVM2Sui_UnregisteredReceiver is the regression test for report 74572.
+//
+// A sender targets a non-zero receiver package that was deployed on Sui but never
+// registered with the OffRamp's receiver registry, while still supplying message
+// data and a non-zero gas limit (so the relayer treats it as needing a receiver call).
+//
+// Before the fix, the relayer's ProcessReceivers hard-failed PTB construction with
+// "receiver is not registered" the moment DevInspect IsRegisteredReceiver returned
+// false. No transaction was ever submitted, so onchain execution state stayed
+// UNTOUCHED and every retry deterministically hit the same error until operator
+// intervention.
+//
+// After the fix, the relayer mirrors the onchain has_valid_message_receiver
+// semantics: for an unregistered receiver it logs and skips receiver call
+// generation instead of aborting. init_execute does not populate the message,
+// finish_execute consumes the receipt-only hot potato, and execution finalizes as
+// EXECUTION_STATE_SUCCESS. This test asserts that successful finalization, which
+// would have been impossible (the message would never have been submitted) before
+// the relayer change.
+func Test_CCIP_EVM2Sui_UnregisteredReceiver(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
+	e, _, _ := testsetups.NewIntegrationEnvironment(
+		t,
+		testhelpers.WithNumOfChains(2),
+		testhelpers.WithSuiChains(1),
+	)
+
+	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
+	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	sourceChain := evmChainSelectors[0]
+	destChain := suiChainSelectors[0]
+
+	t.Log("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
+
+	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+	require.NoError(t, err)
+
+	var (
+		nonce  uint64
+		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
+		setup  = messagingtest.NewTestSetupWithDeployedEnv(
+			t,
+			e,
+			state,
+			sourceChain,
+			destChain,
+			sender,
+			false, // test router
+		)
+	)
+
+	// Deploy a dummy receiver to obtain a real, non-zero receiver package ID, but
+	// deliberately DO NOT register it with the OffRamp. This reproduces the report
+	// 74572 trigger: a non-zero, unregistered receiver package.
+	_, output, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.DeployDummyReceiver{}, sui_cs.DeployDummyReceiverConfig{
+			SuiChainSelector: destChain,
+			McmsOwner:        "0x1",
+		}),
+	})
+	require.NoError(t, err)
+
+	rawOutput := output[0].Reports[0]
+	outputMap, ok := rawOutput.Output.(sui_ops.OpTxResult[ccipops.DeployDummyReceiverObjects])
+	require.True(t, ok)
+
+	id := strings.TrimPrefix(outputMap.PackageId, "0x")
+	unregisteredReceiver, err := hex.DecodeString(id)
+	require.NoError(t, err)
+
+	// NOTE: RegisterDummyReceiver is intentionally omitted so the receiver stays
+	// unregistered in the OffRamp's receiver registry.
+
+	// Object IDs a sender would normally supply for this receiver. They are
+	// irrelevant onchain because the receiver is unregistered, but including them
+	// mirrors a realistic sender that deployed the receiver and forgot to register.
+	var clockObj [32]byte
+	copy(clockObj[:], hexutil.MustDecode(
+		"0x0000000000000000000000000000000000000000000000000000000000000006",
+	))
+	var stateObj [32]byte
+	copy(stateObj[:], hexutil.MustDecode(outputMap.Objects.CCIPReceiverStateObjectId))
+	receiverObjectIDs := [][32]byte{clockObj, stateObj}
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
+
+	t.Run("Message to unregistered Sui receiver - should skip receiver call and finalize", func(t *testing.T) {
+		message := []byte("Hello unregistered receiver, from EVM!")
+		messagingtest.Run(t,
+			messagingtest.TestCase{
+				TestSetup:      setup,
+				Nonce:          &nonce,
+				ValidationType: messagingtest.ValidationTypeExec,
+				Receiver:       unregisteredReceiver,
+				MsgData:        message,
+				// Non-zero gas limit + non-empty data => the relayer treats this as
+				// needing a receiver call, exercising the registration check path.
+				ExtraArgs:              testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, [32]byte{}),
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+			},
+		)
+	})
+}
