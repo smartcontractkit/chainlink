@@ -16,7 +16,6 @@ import (
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/onsi/gomega"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
 
@@ -352,7 +351,7 @@ func TestLoad(t *testing.T) {
 					}
 				}
 				return true
-			}, testutils.WaitTimeout(t), time.Second*5).Should(gomega.BeTrue())
+			}, StopWaitTime, time.Second*5)
 			l.Info().Msg("All upkeeps confirmed performed after load")
 			endTimeTestEx := time.Now()
 			testExDuration := endTimeTestEx.Sub(startTimeTestEx)
