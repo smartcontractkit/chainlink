@@ -271,9 +271,12 @@ func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DO
 		jwtAuth:                   jwtAuth,
 		stopCh:                    make(services.StopChan),
 		metrics:                   metrics,
-		aggregator:                &baseAggregator{capabilitiesRegistry: capabilitiesRegistry},
-		clock:                     clock,
-		RequestValidator:          vaultcap.NewRequestValidator(limiter, ciphertextLimiter, idKeyLengthLimiter, idOwnerLengthLimiter, idNamespaceLengthLimiter),
+		aggregator: &baseAggregator{
+			capabilitiesRegistry: capabilitiesRegistry,
+			vaultHandlerDonID:    donConfig.DonId,
+		},
+		clock:            clock,
+		RequestValidator: vaultcap.NewRequestValidator(limiter, ciphertextLimiter, idKeyLengthLimiter, idOwnerLengthLimiter, idNamespaceLengthLimiter),
 	}, nil
 }
 

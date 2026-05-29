@@ -30,8 +30,9 @@ type ProposeStandardCapabilityJobDeps struct {
 }
 
 type ProposeStandardCapabilityJobInput struct {
-	Domain  string
-	DONName string
+	Domain      string
+	Environment string
+	DONName     string
 
 	// Job is the standard capability job to propose.
 	// If GenerateOracleFactory is true, the OracleFactory field will be ignored and generated.
@@ -72,7 +73,7 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 				{
 					Key:   "environment",
 					Op:    ptypes.SelectorOp_EQ,
-					Value: &deps.Env.Name,
+					Value: &input.Environment,
 				},
 				{
 					Key:   "product",
@@ -144,10 +145,11 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 
 				// 1 spec per node, each spec is unique to the node due to the oracle factory config
 				report, err := operations.ExecuteOperation(b, ProposeJobSpec, ProposeJobSpecDeps(deps), ProposeJobSpecInput{
-					Domain:    input.Domain,
-					DONName:   input.DONName,
-					Spec:      spec,
-					JobLabels: jobLabels,
+					Domain:      input.Domain,
+					DONName:     input.DONName,
+					Environment: input.Environment,
+					Spec:        spec,
+					JobLabels:   jobLabels,
 					DONFilters: []offchain.TargetDONFilter{
 						{Key: "p2p_id", Value: ni.PeerID.String()},
 					},
@@ -185,10 +187,11 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 
 			// 1 spec per node, each spec is unique to the node due to the oracle factory config
 			report, err := operations.ExecuteOperation(b, ProposeJobSpec, ProposeJobSpecDeps(deps), ProposeJobSpecInput{
-				Domain:    input.Domain,
-				DONName:   input.DONName,
-				Spec:      spec,
-				JobLabels: jobLabels,
+				Domain:      input.Domain,
+				DONName:     input.DONName,
+				Environment: input.Environment,
+				Spec:        spec,
+				JobLabels:   jobLabels,
 				DONFilters: []offchain.TargetDONFilter{
 					{Key: "p2p_id", Value: ni.PeerID.String()},
 				},

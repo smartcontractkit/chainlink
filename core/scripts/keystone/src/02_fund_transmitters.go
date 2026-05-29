@@ -6,8 +6,8 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/params"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
@@ -27,9 +27,9 @@ func distributeFunds(nodeKeys []NodeKeys, env helpers.Environment) {
 			fmt.Printf(
 				"Transmitter %s has insufficient funds, funding with %s ETH. Current balance: %s, threshold: %s\n",
 				n.EthAddress,
-				conversions.WeiToEther(fundingAmount).String(),
-				conversions.WeiToEther(balance).String(),
-				conversions.WeiToEther(minThreshold).String(),
+				weiToEther(fundingAmount).String(),
+				weiToEther(balance).String(),
+				weiToEther(minThreshold).String(),
 			)
 			transmittersStr = append(transmittersStr, n.EthAddress)
 		}
@@ -49,4 +49,14 @@ func getBalance(address string, env helpers.Environment) (*big.Int, error) {
 	}
 
 	return balance, nil
+}
+
+func weiToEther(wei *big.Int) *big.Float {
+	f := new(big.Float)
+	f.SetPrec(236) //  IEEE 754 octuple-precision binary floating-point format: binary256
+	f.SetMode(big.ToNearestEven)
+	fWei := new(big.Float)
+	fWei.SetPrec(236) //  IEEE 754 octuple-precision binary floating-point format: binary256
+	fWei.SetMode(big.ToNearestEven)
+	return f.Quo(fWei.SetInt(wei), big.NewFloat(params.Ether))
 }

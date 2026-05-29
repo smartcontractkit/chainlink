@@ -23,6 +23,7 @@ type JDRegisterNodeOpDeps struct {
 type JDRegisterNodeOpInput struct {
 	IsBootstrap bool              `json:"isBootstrap" yaml:"is_bootstrap"`
 	Domain      string            `json:"domain" yaml:"domain"`
+	Environment string            `json:"environment" yaml:"environment"`
 	Name        string            `json:"name" yaml:"name"`
 	CSAKey      string            `json:"csaKey" yaml:"csaKey"`
 	P2PID       string            `json:"p2pID" yaml:"p2pID"`
@@ -130,7 +131,7 @@ func registerNodeImpl(deps JDRegisterNodeOpDeps, input JDRegisterNodeOpInput) (*
 		input.CSAKey,
 		input.IsBootstrap,
 		input.Domain,
-		deps.Env.Name,
+		input.Environment,
 		labels,
 	)
 	if err != nil {

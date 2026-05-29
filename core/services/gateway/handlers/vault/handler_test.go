@@ -127,11 +127,16 @@ func (m *mockAggregator) Aggregate(_ context.Context, _ logger.Logger, _ map[str
 type mockCapabilitiesRegistry struct {
 	F     uint8
 	Nodes []capabilities.Node
+	// DONs, if set, is returned as-is from DONsForCapability (for multi-DON tests).
+	DONs []capabilities.DONWithNodes
 }
 
 var owner = "test_owner"
 
 func (m *mockCapabilitiesRegistry) DONsForCapability(_ context.Context, _ string) ([]capabilities.DONWithNodes, error) {
+	if len(m.DONs) > 0 {
+		return m.DONs, nil
+	}
 	members := make([]p2ptypes.PeerID, 0, len(m.Nodes))
 	for _, n := range m.Nodes {
 		members = append(members, *n.PeerID)
@@ -1009,6 +1014,7 @@ func TestVaultHandler_PublicKeyGet(t *testing.T) {
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
 	h.(*handler).aggregator = &baseAggregator{
 		capabilitiesRegistry: mcr,
+		vaultHandlerDonID:    h.(*handler).donConfig.DonId,
 	}
 
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)

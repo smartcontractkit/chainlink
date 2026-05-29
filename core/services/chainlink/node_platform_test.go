@@ -178,13 +178,6 @@ func TestNodePlatformJobInfo_EmitsSubmitterAddressesFromJobFields(t *testing.T) 
 					},
 				},
 				{
-					Type: job.LegacyGasStationServer,
-					LegacyGasStationServerSpec: &job.LegacyGasStationServerSpec{
-						FromAddresses: []evmtypes.EIP55Address{eip55Address("0x1010101010101010101010101010101010101010")},
-						EVMChainID:    sqlutil.NewI(7),
-					},
-				},
-				{
 					Type: job.StandardCapabilities,
 					StandardCapabilitiesSpec: &job.StandardCapabilitiesSpec{
 						OracleFactory: job.OracleFactoryConfig{
@@ -193,17 +186,6 @@ func TestNodePlatformJobInfo_EmitsSubmitterAddressesFromJobFields(t *testing.T) 
 							TransmitterID: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 						},
 					},
-				},
-				{
-					Type: job.DirectRequest,
-					DirectRequestSpec: &job.DirectRequestSpec{
-						EVMChainID: sqlutil.NewI(9),
-					},
-					Pipeline: pipeline.Pipeline{Tasks: []pipeline.Task{
-						&pipeline.ETHTxTask{
-							From: "[\"0xcccccccccccccccccccccccccccccccccccccccc\", \"0xdddddddddddddddddddddddddddddddddddddddd\"]",
-						},
-					}},
 				},
 			},
 		},
@@ -274,25 +256,10 @@ func TestNodePlatformJobInfo_EmitsSubmitterAddressesFromJobFields(t *testing.T) 
 				Addresses: []string{"0x9999999999999999999999999999999999999999"},
 			},
 			{
-				ChainId:   "7",
-				JobType:   "legacygasstationserver",
-				FieldPath: "fromAddresses",
-				Addresses: []string{"0x1010101010101010101010101010101010101010"},
-			},
-			{
 				ChainId:   "8",
 				JobType:   "standardcapabilities",
 				FieldPath: "oracle_factory.transmitter_id",
 				Addresses: []string{"0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
-			},
-			{
-				ChainId:   "9",
-				JobType:   "directrequest",
-				FieldPath: "observationSource.ethtx.from",
-				Addresses: []string{
-					"0xcccccccccccccccccccccccccccccccccccccccc",
-					"0xdddddddddddddddddddddddddddddddddddddddd",
-				},
 			},
 		},
 	}
@@ -304,8 +271,8 @@ func TestNodePlatformJobInfo_PaginatesSubmitterAddressJobs(t *testing.T) {
 
 	jobs := make([]job.Job, 1001)
 	jobs[1000] = job.Job{
-		Type: job.DirectRequest,
-		DirectRequestSpec: &job.DirectRequestSpec{
+		Type: job.VRF,
+		VRFSpec: &job.VRFSpec{
 			EVMChainID: sqlutil.NewI(10),
 		},
 		Pipeline: pipeline.Pipeline{Tasks: []pipeline.Task{
@@ -334,7 +301,7 @@ func TestNodePlatformJobInfo_PaginatesSubmitterAddressJobs(t *testing.T) {
 
 			for _, submitterAddress := range payload.SubmitterAddresses {
 				if submitterAddress.ChainId == "10" &&
-					submitterAddress.JobType == "directrequest" &&
+					submitterAddress.JobType == "vrf" &&
 					submitterAddress.FieldPath == "observationSource.ethtx.from" &&
 					len(submitterAddress.Addresses) == 1 &&
 					submitterAddress.Addresses[0] == "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {

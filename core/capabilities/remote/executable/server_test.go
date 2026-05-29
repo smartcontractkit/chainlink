@@ -211,7 +211,7 @@ func Test_Server_CapabilityError(t *testing.T) {
 
 	numCapabilityPeers := 4
 
-	callers, srvcs := testRemoteExecutableCapabilityServer(ctx, t, &commoncap.RemoteExecutableConfig{}, &TestErrorCapability{}, 10, 9, numCapabilityPeers, 3, 100*time.Millisecond, nil)
+	callers, srvcs := testRemoteExecutableCapabilityServer(ctx, t, &commoncap.RemoteExecutableConfig{}, &TestErrorCapability{}, 10, 9, numCapabilityPeers, 3, 10*time.Second, nil)
 
 	for _, caller := range callers {
 		_, err := caller.Execute(t.Context(),

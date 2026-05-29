@@ -138,7 +138,7 @@ func proposeAndReport(
 	e cldf.Environment,
 	job pkg.StandardCapabilityJob,
 	nodeIDToConfig map[string]string,
-	domain, donName, zone string,
+	domain, env, donName, zone string,
 ) (cldf.ChangesetOutput, error) {
 	report, err := operations.ExecuteSequence(
 		e.OperationsBundle,
@@ -148,6 +148,7 @@ func proposeAndReport(
 			Job:            job,
 			NodeIDToConfig: nodeIDToConfig,
 			Domain:         domain,
+			Environment:    env,
 			DONName:        donName,
 
 			DONFilters: []offchain.TargetDONFilter{

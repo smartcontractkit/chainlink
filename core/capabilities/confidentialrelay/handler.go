@@ -101,6 +101,7 @@ type Handler struct {
 
 	capRegistry      core.CapabilitiesRegistry
 	gatewayConnector core.GatewayConnector
+	responseSigner   relayResponseSigner
 	lggr             logger.Logger
 	metrics          *handlerMetrics
 
@@ -113,7 +114,10 @@ type Handler struct {
 	vaultIdentityGate limits.GateLimiter
 }
 
-func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnector, lggr logger.Logger, limitsFactory limits.Factory) (*Handler, error) {
+func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, limitsFactory limits.Factory) (*Handler, error) {
+	if responseSigner == nil {
+		return nil, errors.New("response signer is required")
+	}
 	m, err := newMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
@@ -127,6 +131,7 @@ func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnecto
 	h := &Handler{
 		capRegistry:         capRegistry,
 		gatewayConnector:    conn,
+		responseSigner:      responseSigner,
 		lggr:                logger.Named(lggr, HandlerName),
 		metrics:             m,
 		validateAttestation: nitro.ValidateAttestation,
@@ -304,7 +309,12 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
 
-	return h.jsonResponse(req, result)
+	signedResult, err := h.signSecretsResponse(params, result)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to sign secrets response: %w", err))
+	}
+
+	return h.jsonResponse(req, signedResult)
 }
 
 // resolveDONID determines the DON ID for a capability.
@@ -454,7 +464,12 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 		result.Payload = base64.StdEncoding.EncodeToString(respBytes)
 	}
 
-	return h.jsonResponse(req, result)
+	signedResult, err := h.signCapabilityResponse(params, result)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to sign capability response: %w", err))
+	}
+
+	return h.jsonResponse(req, signedResult)
 }
 
 // getEnclaveAttestationConfig reads the enclave pool configuration from the
@@ -583,6 +598,58 @@ func (h *Handler) jsonResponse(req *jsonrpc.Request[json.RawMessage], result any
 		Method:  req.Method,
 		Result:  &resultJSON,
 	}
+}
+
+func (h *Handler) signSecretsResponse(
+	params confidentialrelaytypes.SecretsRequestParams,
+	result *confidentialrelaytypes.SecretsResponseResult,
+) (*confidentialrelaytypes.SignedSecretsResponseResult, error) {
+	if h.responseSigner == nil {
+		return nil, errors.New("response signer not configured")
+	}
+
+	hash, err := result.Hash(params)
+	if err != nil {
+		return nil, fmt.Errorf("hash secrets response: %w", err)
+	}
+	signature, err := h.responseSigner.Sign(confidentialrelaytypes.RelayResponseSignaturePayload(hash))
+	if err != nil {
+		return nil, err
+	}
+
+	return &confidentialrelaytypes.SignedSecretsResponseResult{
+		Result: *result,
+		Signatures: []confidentialrelaytypes.RelayResponseSignature{{
+			Signer:    h.responseSigner.PublicKey(),
+			Signature: signature,
+		}},
+	}, nil
+}
+
+func (h *Handler) signCapabilityResponse(
+	params confidentialrelaytypes.CapabilityRequestParams,
+	result confidentialrelaytypes.CapabilityResponseResult,
+) (*confidentialrelaytypes.SignedCapabilityResponseResult, error) {
+	if h.responseSigner == nil {
+		return nil, errors.New("response signer not configured")
+	}
+
+	hash, err := result.Hash(params)
+	if err != nil {
+		return nil, fmt.Errorf("hash capability response: %w", err)
+	}
+	signature, err := h.responseSigner.Sign(confidentialrelaytypes.RelayResponseSignaturePayload(hash))
+	if err != nil {
+		return nil, err
+	}
+
+	return &confidentialrelaytypes.SignedCapabilityResponseResult{
+		Result: result,
+		Signatures: []confidentialrelaytypes.RelayResponseSignature{{
+			Signer:    h.responseSigner.PublicKey(),
+			Signature: signature,
+		}},
+	}, nil
 }
 
 func (h *Handler) errorResponse(

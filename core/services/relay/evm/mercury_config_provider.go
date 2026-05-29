@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/mercury"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
+	evmmercury "github.com/smartcontractkit/chainlink-evm/pkg/mercury"
 )
 
 func newMercuryConfigProvider(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, opts *config.RelayOpts) (commontypes.ConfigProvider, error) {
@@ -30,7 +31,7 @@ func newMercuryConfigProvider(ctx context.Context, lggr logger.Logger, chain leg
 	if relayConfig.FeedID == nil {
 		return nil, errors.New("feed ID is required for tracking config on mercury contracts")
 	}
-	cp, err := mercury.NewConfigPoller(
+	cp, err := evmmercury.NewConfigPoller(
 		ctx,
 		logger.Named(lggr, relayConfig.FeedID.String()),
 		chain.LogPoller(),

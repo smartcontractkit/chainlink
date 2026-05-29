@@ -15,11 +15,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
-	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	evmassets "github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -42,9 +41,6 @@ func TestJob(t *testing.T) {
 	require.NoError(t, err)
 
 	// Used in blockhashstore test
-	v1CoordAddress, err := types.NewEIP55Address("0x16988483b46e695f6c8D58e6e1461DC703e008e1")
-	require.NoError(t, err)
-
 	v2CoordAddress, err := types.NewEIP55Address("0x2C409DD6D4eBDdA190B5174Cc19616DD13884262")
 	require.NoError(t, err)
 
@@ -59,7 +55,6 @@ func TestJob(t *testing.T) {
 	require.NoError(t, err)
 	trustedBlockhashStoreBatchSize := int32(20)
 
-	var specGasLimit uint32 = 1000
 	vrfPubKey, _ := secp256k1.NewPublicKeyFromHex("0xede539e216e3a50e69d1c68aa9cc472085876c4002f6e1e6afee0ea63b50a78b00")
 
 	testCases := []struct {
@@ -67,158 +62,6 @@ func TestJob(t *testing.T) {
 		job  job.Job
 		want string
 	}{
-		{
-			name: "direct request spec",
-			job: job.Job{
-				ID:                1,
-				GasLimit:          clnull.Uint32From(specGasLimit),
-				ForwardingAllowed: false,
-				DirectRequestSpec: &job.DirectRequestSpec{
-					ContractAddress: contractAddress,
-					CreatedAt:       timestamp,
-					UpdatedAt:       timestamp,
-					EVMChainID:      evmChainID,
-				},
-				ExternalJobID: uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
-				PipelineSpec: &pipeline.Spec{
-					ID:           1,
-					DotDagSource: `ds1 [type=http method=GET url="https://pricesource1.com"`,
-				},
-				Type:            job.DirectRequest,
-				SchemaVersion:   1,
-				Name:            null.StringFrom("test"),
-				MaxTaskDuration: sqlutil.Interval(1 * time.Minute),
-			},
-			want: fmt.Sprintf(`
-			{
-				"data":{
-					"type":"jobs",
-					"id":"1",
-					"attributes":{
-						"name": "test",
-						"schemaVersion": 1,
-						"type": "directrequest",
-						"maxTaskDuration": "1m0s",
-					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
-						"pipelineSpec": {
-							"id": 1,
-							"dotDagSource": "ds1 [type=http method=GET url=\"https://pricesource1.com\"",
-							"jobID": 0
-						},
-						"directRequestSpec": {
-							"contractAddress": "%s",
-							"minIncomingConfirmations": null,
-							"minContractPaymentLinkJuels": null,
-							"requesters": null,
-							"initiator": "runlog",
-							"createdAt":"2000-01-01T00:00:00Z",
-							"updatedAt":"2000-01-01T00:00:00Z",
-							"evmChainID": "42"
-						},
-						"offChainReportingOracleSpec": null,
-						"offChainReporting2OracleSpec": null,
-						"fluxMonitorSpec": null,
-						"gasLimit": 1000,
-						"forwardingAllowed": false,
-                        "cronSpec": null,
-                        "vrfSpec": null,
-						"webhookSpec": null,
-						"workflowSpec": null,
-						"blockhashStoreSpec": null,
-						"blockHeaderFeederSpec": null,
-						"bootstrapSpec": null,
-						"gatewaySpec": null,
-						"standardCapabilitiesSpec": null,
-						"ccipSpec": null,
-						"ccvCommitteeVerifierSpec": null,
-						"ccvExecutorSpec": null,
-						"creSettingsSpec": null,
-						"errors": []
-					}
-				}
-			}`, contractAddress),
-		},
-		{
-			name: "fluxmonitor spec",
-			job: job.Job{
-				ID: 1,
-				FluxMonitorSpec: &job.FluxMonitorSpec{
-					ContractAddress:   contractAddress,
-					Threshold:         0.5,
-					IdleTimerPeriod:   1 * time.Minute,
-					IdleTimerDisabled: false,
-					PollTimerPeriod:   1 * time.Second,
-					PollTimerDisabled: false,
-					MinPayment:        assets.NewLinkFromJuels(1),
-					CreatedAt:         timestamp,
-					UpdatedAt:         timestamp,
-					EVMChainID:        evmChainID,
-				},
-				ExternalJobID: uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
-				PipelineSpec: &pipeline.Spec{
-					ID:           1,
-					DotDagSource: `ds1 [type=http method=GET url="https://pricesource1.com"`,
-				},
-				Type:            job.FluxMonitor,
-				SchemaVersion:   1,
-				Name:            null.StringFrom("test"),
-				MaxTaskDuration: sqlutil.Interval(1 * time.Minute),
-			},
-			want: fmt.Sprintf(`
-			{
-				"data":{
-					"type":"jobs",
-					"id":"1",
-					"attributes":{
-						"name": "test",
-						"schemaVersion": 1,
-						"type": "fluxmonitor",
-						"maxTaskDuration": "1m0s",
-					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
-						"pipelineSpec": {
-							"id": 1,
-							"dotDagSource": "ds1 [type=http method=GET url=\"https://pricesource1.com\"",
-							"jobID": 0
-						},
-						"fluxMonitorSpec": {
-							"contractAddress": "%s",
-							"threshold": 0.5,
-							"absoluteThreshold": 0,
-							"idleTimerPeriod": "1m0s",
-							"idleTimerDisabled": false,
-							"pollTimerPeriod": "1s",
-							"pollTimerDisabled": false,
-              				"drumbeatEnabled": false,
-              				"drumbeatRandomDelay": null,
-              				"drumbeatSchedule": null,
-							"minPayment": "1",
-							"createdAt":"2000-01-01T00:00:00Z",
-							"updatedAt":"2000-01-01T00:00:00Z",
-							"evmChainID": "42"
-						},
-						"gasLimit": null,
-						"forwardingAllowed": false,
-						"offChainReportingOracleSpec": null,
-						"offChainReporting2OracleSpec": null,
-						"directRequestSpec": null,
-                        "cronSpec": null,
-                        "vrfSpec": null,
-						"webhookSpec": null,
-						"workflowSpec": null,
-						"blockhashStoreSpec": null,
-						"blockHeaderFeederSpec": null,
-						"bootstrapSpec": null,
-						"gatewaySpec": null,
-						"standardCapabilitiesSpec": null,
-						"ccipSpec": null,
-						"creSettingsSpec": null,
-						"ccvCommitteeVerifierSpec": null,
-						"ccvExecutorSpec": null,
-						"errors": []
-					}
-				}
-			}`, contractAddress),
-		},
 		{
 			name: "ocr spec",
 			job: job.Job{
@@ -532,7 +375,6 @@ func TestJob(t *testing.T) {
 				ID: 1,
 				BlockhashStoreSpec: &job.BlockhashStoreSpec{
 					ID:                             1,
-					CoordinatorV1Address:           &v1CoordAddress,
 					CoordinatorV2Address:           &v2CoordAddress,
 					CoordinatorV2PlusAddress:       &v2PlusCoordAddress,
 					WaitBlocks:                     123,
@@ -577,7 +419,7 @@ func TestJob(t *testing.T) {
 						"webhookSpec": null,
 						"workflowSpec": null,
 						"blockhashStoreSpec": {
-							"coordinatorV1Address": "0x16988483b46e695f6c8D58e6e1461DC703e008e1",
+							"coordinatorV1Address": null,
 							"coordinatorV2Address": "0x2C409DD6D4eBDdA190B5174Cc19616DD13884262",
 							"coordinatorV2PlusAddress": "0x92B5e28Ac583812874e4271380c7d070C5FB6E6b",
 							"waitBlocks": 123,
@@ -617,7 +459,6 @@ func TestJob(t *testing.T) {
 				ID: 1,
 				BlockHeaderFeederSpec: &job.BlockHeaderFeederSpec{
 					ID:                         1,
-					CoordinatorV1Address:       &v1CoordAddress,
 					CoordinatorV2Address:       &v2CoordAddress,
 					CoordinatorV2PlusAddress:   &v2PlusCoordAddress,
 					WaitBlocks:                 123,
@@ -663,7 +504,7 @@ func TestJob(t *testing.T) {
 						"workflowSpec": null,
 						"blockhashStoreSpec": null,
 						"blockHeaderFeederSpec": {
-							"coordinatorV1Address": "0x16988483b46e695f6c8D58e6e1461DC703e008e1",
+							"coordinatorV1Address": null,
 							"coordinatorV2Address": "0x2C409DD6D4eBDdA190B5174Cc19616DD13884262",
 							"coordinatorV2PlusAddress": "0x92B5e28Ac583812874e4271380c7d070C5FB6E6b",
 							"waitBlocks": 123,

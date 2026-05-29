@@ -29,7 +29,8 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 		env := test.SetupEnvV2(t, false)
 		// Prepare input: one DON with two nodes
 		input := changeset.CsRegisterNodesWithJDInput{
-			Domain: "test-domain",
+			Domain:      "test-domain",
+			Environment: "test",
 			DONs: []offchain.DONConfig{
 				{
 					Name: test.DONName,
@@ -90,7 +91,8 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 
 		// Prepare input: one DON with one node that will trigger an error
 		input := changeset.CsRegisterNodesWithJDInput{
-			Domain: "test-domain",
+			Domain:      "test-domain",
+			Environment: "test",
 			DONs: []offchain.DONConfig{
 				{
 					Name: test.DONName,
@@ -136,7 +138,8 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 		}
 		// Prepare input: one DON with three nodes, one of which will trigger an error
 		input := changeset.CsRegisterNodesWithJDInput{
-			Domain: "cre",
+			Domain:      "cre",
+			Environment: "test",
 			DONs: []offchain.DONConfig{
 				{
 					Name: test.DONName,
@@ -257,7 +260,8 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 
 		// Prepare input: one DON with one node that will be registered and then updated
 		input := changeset.CsRegisterNodesWithJDInput{
-			Domain: "test-domain",
+			Domain:      "test-domain",
+			Environment: "test",
 			DONs: []offchain.DONConfig{
 				{
 					Name: test.DONName,
@@ -339,7 +343,8 @@ func TestCsRegisterNodesWithJD_Apply(t *testing.T) {
 
 		// Prepare input: one DON with one node that will trigger an update error
 		input := changeset.CsRegisterNodesWithJDInput{
-			Domain: "test-domain",
+			Domain:      "test-domain",
+			Environment: "test",
 			DONs: []offchain.DONConfig{
 				{
 					Name: test.DONName,
@@ -378,7 +383,8 @@ func TestCsRegisterNodesWithJDV2_Apply(t *testing.T) {
 
 	t.Run("registers nodes for a DON", func(t *testing.T) {
 		input := changeset.CsRegisterNodesWithJDInputV2{
-			Domain: "cre",
+			Domain:      "cre",
+			Environment: "test",
 			DONs: []offchain.DONConfig{
 				{
 					Name: test.DONName,
@@ -420,8 +426,9 @@ func TestCsRegisterNodesWithJDV2_Apply(t *testing.T) {
 
 	t.Run("fails with empty DONs", func(t *testing.T) {
 		input := changeset.CsRegisterNodesWithJDInputV2{
-			Domain: "cre",
-			DONs:   []offchain.DONConfig{},
+			Domain:      "cre",
+			Environment: "test",
+			DONs:        []offchain.DONConfig{},
 		}
 
 		env := test.SetupEnvV2(t, false)
@@ -432,7 +439,8 @@ func TestCsRegisterNodesWithJDV2_Apply(t *testing.T) {
 
 	t.Run("fails with empty DON name", func(t *testing.T) {
 		input := changeset.CsRegisterNodesWithJDInputV2{
-			Domain: "cre",
+			Domain:      "cre",
+			Environment: "test",
 			DONs: []offchain.DONConfig{
 				{
 					Name: "",
@@ -462,7 +470,8 @@ func TestCsRegisterNodesWithJDV2_Apply(t *testing.T) {
 		nodes := nodesReps.GetNodes()
 
 		input := changeset.CsRegisterNodesWithJDInputV2{
-			Domain: "cre",
+			Domain:      "cre",
+			Environment: "test",
 			DONs: []offchain.DONConfig{
 				{
 					Name: test.DONName,

@@ -7,23 +7,23 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
 
 var (
-	DeployOffRampOp = opsutil.NewEVMDeployOperation(
+	DeployOffRampOp = opsevm.NewEVMDeployOperation(
 		"DeployOffRamp",
 		semver.MustParse("1.0.0"),
 		"Deploys OffRamp 1.6 contract on the specified evm chain",
 		shared.OffRamp,
 		offramp.OffRampMetaData,
-		&opsutil.ContractOpts{
+		&opsevm.ContractOpts{
 			Version:          &deployment.Version1_6_0,
 			EVMBytecode:      common.FromHex(offramp.OffRampBin),
 			ZkSyncVMBytecode: offramp.ZkBytecode,
@@ -47,7 +47,7 @@ var (
 		},
 	)
 
-	OffRampApplySourceChainConfigUpdatesOp = opsutil.NewEVMCallOperation(
+	OffRampApplySourceChainConfigUpdatesOp = opsevm.NewEVMCallOperation(
 		"OffRampApplySourceChainConfigUpdatesOp",
 		semver.MustParse("1.0.0"),
 		"Applies updates to source chain configurations stored on the OffRamp contract",

@@ -1,0 +1,7 @@
+[
+  {
+    "sha": "c98d9e6822d101584549e1d2aa849029990c90a3",
+    "pr_url": "https://github.com/smartcontractkit/chainlink/pull/22324",
+    "package": "core/services/vrf/v2"
+  }
+]

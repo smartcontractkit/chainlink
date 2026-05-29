@@ -21,31 +21,29 @@ import (
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 
+	cnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
-	cnull "github.com/smartcontractkit/chainlink/v2/core/null"
 )
 
 const (
-	BlockHeaderFeederJobType       string = "blockheaderfeeder"
-	BlockhashStoreJobType          string = "blockhashstore"
-	BootstrapJobType               string = "bootstrap"
-	CRESettings                    string = "cresettings"
-	CronJobType                    string = "cron"
-	CCIPJobType                    string = "ccip"
-	CCVCommitteeVerifierJobType    string = "ccvcommitteeverifier"
-	CCVExecutorJobType             string = "ccvexecutor"
-	DirectRequestJobType           string = "directrequest"
-	FluxMonitorJobType             string = "fluxmonitor"
-	GatewayJobType                 string = "gateway"
-	LegacyGasStationServerJobType  string = "legacygasstationserver"
-	LegacyGasStationSidecarJobType string = "legacygasstationsidecar"
-	OffchainReporting2JobType      string = "offchainreporting2"
-	OffchainReportingJobType       string = "offchainreporting"
-	StreamJobType                  string = "stream"
-	VRFJobType                     string = "vrf"
-	WebhookJobType                 string = "webhook"
-	WorkflowJobType                string = "workflow"
-	StandardCapabilitiesJobType    string = "standardcapabilities"
+	BlockHeaderFeederJobType    string = "blockheaderfeeder"
+	BlockhashStoreJobType       string = "blockhashstore"
+	BootstrapJobType            string = "bootstrap"
+	CRESettings                 string = "cresettings"
+	CronJobType                 string = "cron"
+	CCIPJobType                 string = "ccip"
+	CCVCommitteeVerifierJobType string = "ccvcommitteeverifier"
+	CCVExecutorJobType          string = "ccvexecutor"
+	DirectRequestJobType        string = "directrequest"
+	FluxMonitorJobType          string = "fluxmonitor"
+	GatewayJobType              string = "gateway"
+	OffchainReporting2JobType   string = "offchainreporting2"
+	OffchainReportingJobType    string = "offchainreporting"
+	StreamJobType               string = "stream"
+	VRFJobType                  string = "vrf"
+	WebhookJobType              string = "webhook"
+	WorkflowJobType             string = "workflow"
+	StandardCapabilitiesJobType string = "standardcapabilities"
 )
 
 type (
@@ -340,7 +338,7 @@ const (
 	TaskTypeMultiply         TaskType = "multiply"
 	TaskTypeSum              TaskType = "sum"
 	TaskTypeUppercase        TaskType = "uppercase"
-	TaskTypeVRF              TaskType = "vrf"
+	TaskTypeVRF              TaskType = "vrf" // legacy VRF v1; UnmarshalTaskFromMap returns a removal error
 	TaskTypeVRFV2            TaskType = "vrfv2"
 	TaskTypeVRFV2Plus        TaskType = "vrfv2plus"
 
@@ -400,7 +398,7 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap any, ID int, dotID string) 
 	case TaskTypeDivide:
 		task = &DivideTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeVRF:
-		task = &VRFTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		return nil, pkgerrors.Errorf("pipeline task type %q (VRF v1) has been removed and is no longer supported; migrate the observationSource to vrfv2 or vrfv2plus", taskType)
 	case TaskTypeVRFV2:
 		task = &VRFTaskV2{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeVRFV2Plus:

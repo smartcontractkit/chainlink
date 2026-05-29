@@ -258,7 +258,7 @@ func NewEventHandler(
 
 func (h *eventHandler) close() error {
 	es := h.engineRegistry.PopAll()
-	cs := []io.Closer{}
+	cs := make([]io.Closer, 0, len(es)+1)
 	cs = append(cs, h.engineLimiters)
 	for _, e := range es {
 		cs = append(cs, e)

@@ -8,6 +8,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -23,9 +24,9 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -242,7 +243,7 @@ func TestNewOwnableV2(t *testing.T) {
 		mcmsCfg[c] = cldftesthelpers.SingleGroupTimelockConfig(t)
 	}
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), mcmsCfg),
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), mcmsCfg),
 		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployCapabilityRegistryV2), &changeset.DeployRequestV2{
 			ChainSel:  selector,
 			Qualifier: "cap-reg-qualifier",
@@ -311,14 +312,14 @@ func TestNewOwnableV2(t *testing.T) {
 
 	t.Run("creates OwnedContract for MCMS owner", func(t *testing.T) {
 		// Transfer ownership to MCMS with timelock
-		cfg := commonchangeset.TransferToMCMSWithTimelockConfig{
+		cfg := mcmschangesets.TransferToMCMSWithTimelockConfig{
 			ContractsByChain: map[uint64][]common.Address{selector: {common.HexToAddress(targetAddrStr)}},
-			MCMSConfig: proposalutils.TimelockConfig{
+			MCMSConfig: cldfproposalutils.TimelockConfig{
 				MinDelay: time.Duration(0),
 			},
 		}
 		err = rt.Exec(
-			runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2), cfg),
+			runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2), cfg),
 			runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
 		)
 		require.NoError(t, err)

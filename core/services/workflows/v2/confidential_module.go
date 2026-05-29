@@ -99,7 +99,6 @@ func (m *ConfidentialModule) Execute(
 	capInput := &confworkflowtypes.ConfidentialWorkflowRequest{
 		Execution: &confworkflowtypes.WorkflowExecution{
 			WorkflowId:     m.workflowID,
-			BinaryUrl:      m.binaryURL,
 			BinaryHash:     m.binaryHash,
 			ExecuteRequest: request,
 			Owner:          m.workflowOwner,
@@ -107,6 +106,7 @@ func (m *ConfidentialModule) Execute(
 			OrgId:          contexts.CREValue(ctx).Org,
 			Requirements:   requirements,
 		},
+		BinaryUrl: m.binaryURL,
 	}
 
 	capOutput := &confworkflowtypes.ConfidentialWorkflowResponse{}

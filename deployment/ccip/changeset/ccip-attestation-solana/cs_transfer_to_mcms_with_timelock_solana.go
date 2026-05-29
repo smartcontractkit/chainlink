@@ -10,20 +10,19 @@ import (
 	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 	"github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
-
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
-	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry_solana"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	cs_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-
+	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry_solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -34,7 +33,7 @@ type TransferSignerRegistryToMCMSWithTimelockSolanaConfig struct {
 	CurrentOwner  solana.PublicKey
 	ProposedOwner solana.PublicKey
 	// MCMSCfg is for the accept ownership proposal
-	MCMSCfg proposalutils.TimelockConfig
+	MCMSCfg cldfproposalutils.TimelockConfig
 }
 
 func (c TransferSignerRegistryToMCMSWithTimelockSolanaConfig) Validate(e cldf.Environment) error {
@@ -139,7 +138,7 @@ func TransferSignerRegistryToMCMSWithTimelockSolanaChangeset(
 		Transactions:  mcmsTxs,
 	})
 
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
 		proposers,

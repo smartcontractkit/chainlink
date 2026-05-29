@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/deploy"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/verify"
-	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based/types"
+	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
@@ -31,12 +31,11 @@ func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
 		workflowDonIDFlag           uint32
 		exampleWorkflowTimeoutFlag  string
 		workflowRegistryAddressFlag string
-		contractsVersionFlag        string
 	)
 	cmd := &cobra.Command{
 		Use:              "run-por-example",
-		Short:            "Runs the PoR v2 cron example workflow",
-		Long:             `Deploys the PoR v2 cron example workflow and waits until it succeeds`,
+		Short:            "Runs the PoR cron example workflow",
+		Long:             `Deploys the PoR cron example workflow and waits until it succeeds`,
 		PersistentPreRun: globalPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			timeout, timeoutErr := time.ParseDuration(exampleWorkflowTimeoutFlag)
@@ -63,7 +62,7 @@ func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
 				}
 			}
 
-			workflowRegistryAddress, contractsVersion, err := resolveContractAddressAndVersion(cmd, resolver, keystone_changeset.WorkflowRegistry, workflowRegistryAddressFlag, contractsVersionFlag, "workflow-registry-address")
+			workflowRegistryAddress, contractsVersion, err := resolveRegistryContractAddressAndVersion(cmd, resolver, keystone_changeset.WorkflowRegistry, workflowRegistryAddressFlag, "workflow-registry-address")
 			if err != nil {
 				return errors.Wrap(err, "❌ failed to resolve workflow registry")
 			}
@@ -76,7 +75,6 @@ func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&exampleWorkflowTimeoutFlag, "example-workflow-timeout", "u", "5m", "Time to wait until example workflow succeeds (e.g. 10s, 1m, 1h)")
 	cmd.Flags().Uint32VarP(&workflowDonIDFlag, "workflow-don-id", "d", 1, "DonID used in the workflow registry contract (integer starting with 1)")
 	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "w", "", "Workflow registry address (if not provided, address from the state file will be used)")
-	cmd.Flags().StringVar(&contractsVersionFlag, "with-contracts-version", "v2", "Version of workflow registry contract to use (v1 or v2)")
 
 	return cmd
 }
@@ -121,10 +119,10 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL string, w
 	fmt.Print(libformat.PurpleText("\n[Stage 2/4] Deployed Balance Reader in %.2f seconds\n", time.Since(start).Seconds()))
 
 	start = time.Now()
-	fmt.Print(libformat.PurpleText("[Stage 3/4] Registering PoR v2 cron example workflow\n\n"))
+	fmt.Print(libformat.PurpleText("[Stage 3/4] Registering PoR cron example workflow\n\n"))
 
-	workflowName := "por-v2-cron-example"
-	workflowFilePath := "examples/workflows/v2/proof-of-reserve/cron-based/main.go"
+	workflowName := "por-cron-example"
+	workflowFilePath := "examples/workflows/proof-of-reserve/cron-based/main.go"
 	feedID := "0x018e16c39e0003200000000000000000"
 	chainID, chainSelector, chainErr := deploy.ChainMetadata(rpcURL)
 	if chainErr != nil {
@@ -136,7 +134,7 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL string, w
 		return errors.Wrap(addressesErr, "failed to create and fund addresses for PoR config")
 	}
 
-	configFilePath, configErr := buildAndSavePoRV2CronConfig(
+	configFilePath, configErr := buildAndSavePoRCronConfig(
 		consumerContractAddress.Hex(),
 		balanceReaderContractAddress.Hex(),
 		feedID,
@@ -186,12 +184,12 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL string, w
 	return executeCronBasedWorkflow(cmdContext, rpcURL, *consumerContractAddress, feedID, timeout, totalStart)
 }
 
-func buildAndSavePoRV2CronConfig(dataFeedsCacheAddress, balanceReaderAddress, feedID string, chainSelector uint64, writeTargetName string, addressesToRead []common.Address, folder string) (string, error) {
+func buildAndSavePoRCronConfig(dataFeedsCacheAddress, balanceReaderAddress, feedID string, chainSelector uint64, writeTargetName string, addressesToRead []common.Address, folder string) (string, error) {
 	if feedID == "" {
 		return "", errors.New("feedID is empty")
 	}
 	if len(addressesToRead) < 2 {
-		return "", errors.New("at least two addresses are required for the PoR v2 example")
+		return "", errors.New("at least two addresses are required for the PoR example")
 	}
 
 	cfg := portypes.WorkflowConfig{

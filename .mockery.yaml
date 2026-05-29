@@ -86,14 +86,6 @@ packages:
     interfaces:
       TelemetryIngress:
       TelemetryIngressEndpoint:
-  github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flux_aggregator_wrapper:
-    config:
-      dir: core/internal/mocks
-      filename: flux_aggregator.go
-    interfaces:
-      FluxAggregatorInterface:
-        config:
-          mockname: FluxAggregator
   github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flags_wrapper:
     config:
       dir: core/internal/mocks
@@ -133,12 +125,6 @@ packages:
       dir: "core/services/feeds/mocks"
     interfaces:
       FeedsManagerClient:
-  github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2:
-    interfaces:
-      ContractSubmitter:
-      Flags:
-      KeyStoreInterface:
-      ORM:
   github.com/smartcontractkit/chainlink/v2/core/services/functions:
     interfaces:
       ExternalAdapterClient:

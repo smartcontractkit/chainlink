@@ -4,11 +4,11 @@ import (
 	"errors"
 	"fmt"
 
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	mcmslib "github.com/smartcontractkit/mcms"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
@@ -22,7 +22,7 @@ func acceptOwnershipLogic(env cldf.Environment, c types.AcceptOwnershipConfig) (
 
 	var mcmsProposals []ProposalData
 	for _, contractAddress := range c.ContractAddresses {
-		_, contract, err := commonChangesets.LoadOwnableContract(contractAddress, chain.Client)
+		_, contract, err := mcmschangesets.LoadOwnableContract(contractAddress, chain.Client)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to load the contract %w", err)
 		}

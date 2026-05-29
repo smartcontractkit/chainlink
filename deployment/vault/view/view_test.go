@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	"github.com/stretchr/testify/require"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
@@ -14,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
@@ -114,7 +114,7 @@ func setupMCMS(t *testing.T, rt *runtime.Runtime, chainSelectors []uint64) {
 
 	err := rt.Exec(
 		runtime.ChangesetTask(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
 			timelockCfgs,
 		),
 	)

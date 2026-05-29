@@ -14,8 +14,6 @@ import (
 
 	"github.com/jonboulle/clockwork"
 	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basictrigger"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -30,6 +28,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace/noop"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
@@ -231,10 +231,10 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 		return "http://example.com/" + wfID + "/config"
 	}
 	config := []byte("")
-	wfOwner := []byte("0xOwner")
+	wfOwner := testutils.NewAddress().Bytes()
+
 	binary := wasmtest.CreateTestBinary(binaryCmd, true, t)
 	encodedBinary := []byte(base64.StdEncoding.EncodeToString(binary))
-	workflowName := "workflow-name"
 	workflowTag := "workflow-tag"
 	signedURLParameter := "?auth=abc123"
 
@@ -285,13 +285,13 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			BinaryURLFactory: binaryURLFactory,
 			GiveBinary:       binary,
 			WFOwner:          wfOwner,
-			Event: func(wfID []byte) WorkflowRegisteredEvent {
+			Event: func(wfID []byte, wfName string, wfOwner []byte) WorkflowRegisteredEvent {
 				wfIDString := hex.EncodeToString(wfID)
 				return WorkflowRegisteredEvent{
 					Status:        WorkflowStatusActive,
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
-					WorkflowName:  workflowName,
+					WorkflowName:  wfName,
 					WorkflowTag:   workflowTag,
 					BinaryURL:     binaryURLFactory(wfIDString),
 					ConfigURL:     configURLFactory(wfIDString),
@@ -330,12 +330,12 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			BinaryURLFactory: binaryURLFactory,
 			GiveBinary:       binary,
 			WFOwner:          wfOwner,
-			Event: func(wfID []byte) WorkflowRegisteredEvent {
+			Event: func(wfID []byte, wfName string, wfOwner []byte) WorkflowRegisteredEvent {
 				return WorkflowRegisteredEvent{
 					Status:        WorkflowStatusActive,
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
-					WorkflowName:  workflowName,
+					WorkflowName:  wfName,
 					WorkflowTag:   workflowTag,
 					BinaryURL:     binaryURLFactory(hex.EncodeToString(wfID)),
 					ConfigURL:     configURLFactory(hex.EncodeToString(wfID)),
@@ -367,12 +367,12 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			BinaryURLFactory: binaryURLFactory,
 			GiveBinary:       binary,
 			WFOwner:          wfOwner,
-			Event: func(wfID []byte) WorkflowRegisteredEvent {
+			Event: func(wfID []byte, wfName string, wfOwner []byte) WorkflowRegisteredEvent {
 				return WorkflowRegisteredEvent{
 					Status:        WorkflowStatusActive,
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
-					WorkflowName:  workflowName,
+					WorkflowName:  wfName,
 					WorkflowTag:   workflowTag,
 					BinaryURL:     binaryURLFactory(hex.EncodeToString(wfID)),
 					ConfigURL:     configURLFactory(hex.EncodeToString(wfID)),
@@ -404,12 +404,12 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			BinaryURLFactory: binaryURLFactory,
 			GiveBinary:       binary,
 			WFOwner:          wfOwner,
-			Event: func(wfID []byte) WorkflowRegisteredEvent {
+			Event: func(wfID []byte, wfName string, wfOwner []byte) WorkflowRegisteredEvent {
 				return WorkflowRegisteredEvent{
 					Status:        WorkflowStatusActive,
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
-					WorkflowName:  workflowName,
+					WorkflowName:  wfName,
 					WorkflowTag:   workflowTag,
 					BinaryURL:     binaryURLFactory(hex.EncodeToString(wfID)),
 					ConfigURL:     configURLFactory(hex.EncodeToString(wfID)),
@@ -441,12 +441,12 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			BinaryURLFactory: binaryURLFactory,
 			GiveBinary:       binary,
 			WFOwner:          wfOwner,
-			Event: func(wfID []byte) WorkflowRegisteredEvent {
+			Event: func(wfID []byte, wfName string, wfOwner []byte) WorkflowRegisteredEvent {
 				return WorkflowRegisteredEvent{
 					Status:        WorkflowStatusActive,
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
-					WorkflowName:  workflowName,
+					WorkflowName:  wfName,
 					WorkflowTag:   workflowTag,
 					BinaryURL:     binaryURLFactory(hex.EncodeToString(wfID)),
 					ConfigURL:     configURLFactory(hex.EncodeToString(wfID)),
@@ -483,12 +483,12 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			BinaryURLFactory: binaryURLFactory,
 			GiveBinary:       binary,
 			WFOwner:          wfOwner,
-			Event: func(wfID []byte) WorkflowRegisteredEvent {
+			Event: func(wfID []byte, wfName string, wfOwner []byte) WorkflowRegisteredEvent {
 				return WorkflowRegisteredEvent{
 					Status:        WorkflowStatusPaused,
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
-					WorkflowName:  workflowName,
+					WorkflowName:  wfName,
 					WorkflowTag:   workflowTag,
 					BinaryURL:     binaryURLFactory(hex.EncodeToString(wfID)),
 					ConfigURL:     configURLFactory(hex.EncodeToString(wfID)),
@@ -504,7 +504,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				dbSpec, err := s.GetWorkflowSpec(ctx, wfID.Hex())
 				require.NoError(t, err)
 				require.Equal(t, hex.EncodeToString(wfOwner), dbSpec.WorkflowOwner)
-				require.Equal(t, workflowName, dbSpec.WorkflowName)
+				require.Equal(t, wfName, dbSpec.WorkflowName)
 				require.Equal(t, job.WorkflowSpecStatusPaused, dbSpec.Status)
 
 				// Verify there is no running engine
@@ -530,12 +530,12 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			BinaryURLFactory: binaryURLFactory,
 			GiveBinary:       binary,
 			WFOwner:          wfOwner,
-			Event: func(wfID []byte) WorkflowRegisteredEvent {
+			Event: func(wfID []byte, wfName string, wfOwner []byte) WorkflowRegisteredEvent {
 				return WorkflowRegisteredEvent{
 					Status:        WorkflowStatusActive,
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
-					WorkflowName:  workflowName,
+					WorkflowName:  wfName,
 					WorkflowTag:   workflowTag,
 					BinaryURL:     binaryURLFactory(hex.EncodeToString(wfID)),
 					ConfigURL:     configURLFactory(hex.EncodeToString(wfID)),
@@ -567,7 +567,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				dbSpec, err := s.GetWorkflowSpec(ctx, wfID.Hex())
 				require.NoError(t, err)
 				require.Equal(t, hex.EncodeToString(wfOwner), dbSpec.WorkflowOwner)
-				require.Equal(t, workflowName, dbSpec.WorkflowName)
+				require.Equal(t, wfName, dbSpec.WorkflowName)
 
 				// This reflects the event status, not what was previously stored in the DB
 				require.Equal(t, job.WorkflowSpecStatusActive, dbSpec.Status)
@@ -599,12 +599,12 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				require.Equal(t, 1, fetcher.Calls(binaryURL+signedURLParameter))
 				require.Equal(t, 0, fetcher.Calls(configURL+signedURLParameter))
 			},
-			Event: func(wfID []byte) WorkflowRegisteredEvent {
+			Event: func(wfID []byte, wfName string, wfOwner []byte) WorkflowRegisteredEvent {
 				return WorkflowRegisteredEvent{
 					Status:        WorkflowStatusActive,
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
-					WorkflowName:  workflowName,
+					WorkflowName:  wfName,
 					WorkflowTag:   workflowTag,
 					BinaryURL:     binaryURLFactory(hex.EncodeToString(wfID)),
 				}
@@ -652,12 +652,12 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				require.Equal(t, 0, fetcher.Calls(binaryURL+signedURLParameter))
 				require.Equal(t, 0, fetcher.Calls(configURL+signedURLParameter))
 			},
-			Event: func(wfID []byte) WorkflowRegisteredEvent {
+			Event: func(wfID []byte, wfName string, wfOwner []byte) WorkflowRegisteredEvent {
 				return WorkflowRegisteredEvent{
 					Status:        WorkflowStatusActive,
 					WorkflowID:    [32]byte(wfID),
 					WorkflowOwner: wfOwner,
-					WorkflowName:  workflowName,
+					WorkflowName:  wfName,
 					BinaryURL:     binaryURLFactory(hex.EncodeToString(wfID)),
 					ConfigURL:     configURLFactory(hex.EncodeToString(wfID)),
 				}
@@ -682,11 +682,12 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 			binary                = wasmtest.CreateTestBinary(withTeeV2Cmd, true, t)
 			encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
 			config                = []byte("")
-			wfOwner               = make([]byte, 20)
+			workflowName          = testutils.RandomizeName(t.Name())
 			workflowEncryptionKey = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 		)
+		wfOwner := testutils.NewAddress().Bytes()
 
-		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, "workflow-name", binary, config, "")
+		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, workflowName, binary, config, "")
 		require.NoError(t, err)
 		wfIDString := hex.EncodeToString(giveWFID[:])
 
@@ -725,12 +726,14 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 			CapabilityInfo: commoncap.MustNewCapabilityInfo("confidential-workflows@1.0.0-alpha", commoncap.CapabilityTypeCombined, "test confidential cap"),
 			t:              t,
 			trigger:        trigger,
-			expected: &confworkflowtypes.WorkflowExecution{
-				WorkflowId:     wfIDString,
-				BinaryUrl:      binaryURL,
-				BinaryHash:     v2.ComputeBinaryHash(binary),
-				ExecuteRequest: executeRequest,
-				Owner:          hex.EncodeToString(wfOwner),
+			expected: &confworkflowtypes.ConfidentialWorkflowRequest{
+				Execution: &confworkflowtypes.WorkflowExecution{
+					WorkflowId:     wfIDString,
+					BinaryHash:     v2.ComputeBinaryHash(binary),
+					ExecuteRequest: executeRequest,
+					Owner:          hex.EncodeToString(wfOwner),
+				},
+				BinaryUrl: binaryURL,
 			},
 		}
 
@@ -754,7 +757,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 			Status:        WorkflowStatusActive,
 			WorkflowID:    giveWFID,
 			WorkflowOwner: wfOwner,
-			WorkflowName:  "workflow-name",
+			WorkflowName:  workflowName,
 			WorkflowTag:   "workflow-tag",
 			BinaryURL:     binaryURL,
 			ConfigURL:     configURL,
@@ -779,11 +782,12 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 			binary                = wasmtest.CreateTestBinary(noTeeV2Cmd, true, t)
 			encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
 			config                = []byte("")
-			wfOwner               = make([]byte, 20)
+			wfOwner               = testutils.NewAddress().Bytes()
+			workflowName          = testutils.RandomizeName(t.Name())
 			workflowEncryptionKey = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 		)
 
-		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, "workflow-name", binary, config, "")
+		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, workflowName, binary, config, "")
 		require.NoError(t, err)
 		wfIDString := hex.EncodeToString(giveWFID[:])
 
@@ -831,7 +835,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 			Status:        WorkflowStatusActive,
 			WorkflowID:    giveWFID,
 			WorkflowOwner: wfOwner,
-			WorkflowName:  "workflow-name",
+			WorkflowName:  workflowName,
 			WorkflowTag:   "workflow-tag",
 			BinaryURL:     binaryURL,
 			ConfigURL:     configURL,
@@ -843,6 +847,80 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 
 		assert.True(t, trigger.ran, "expected trigger to be registered for non-confidential workflow")
 	})
+
+	t.Run("malformed attributes returns error", func(t *testing.T) {
+		var (
+			ctx     = testutils.Context(t)
+			lggr    = logger.TestLogger(t)
+			lf      = limits.Factory{Logger: lggr}
+			db      = pgtest.NewSqlxDB(t)
+			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
+			emitter = custmsg.NewLabeler()
+
+			binary                = wasmtest.CreateTestBinary(binaryCmd, true, t)
+			encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
+			config                = []byte("")
+			workflowName          = testutils.RandomizeName(t.Name())
+			workflowEncryptionKey = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+		)
+		wfOwner := testutils.NewAddress().Bytes()
+
+		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, workflowName, binary, config, "")
+		require.NoError(t, err)
+		wfIDString := hex.EncodeToString(giveWFID[:])
+
+		binaryURL := "http://example.com/" + wfIDString + "/binary"
+		configURL := "http://example.com/" + wfIDString + "/config"
+		signedURLParameter := "?auth=abc123"
+		signedBinaryURL := binaryURL + signedURLParameter
+		signedConfigURL := configURL + signedURLParameter
+
+		fetcher := newMockFetcher(map[string]mockFetchResp{
+			wfIDString + "-ARTIFACT_TYPE_BINARY": {Body: []byte(signedBinaryURL), Err: nil},
+			wfIDString + "-ARTIFACT_TYPE_CONFIG": {Body: []byte(signedConfigURL), Err: nil},
+			signedBinaryURL:                      {Body: encodedBinary, Err: nil},
+			signedConfigURL:                      {Body: config, Err: nil},
+		})
+		artifactStore, err := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), lf, artifacts.WithConfig(artifacts.StoreConfig{
+			ArtifactStorageHost: "example.com",
+		}))
+		require.NoError(t, err)
+
+		er := NewEngineRegistry()
+		wfStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
+		registry := capabilities.NewRegistry(lggr)
+		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+		limiters, err := v2.NewLimiters(lf, nil)
+		require.NoError(t, err)
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
+		require.NoError(t, err)
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
+		require.NoError(t, err)
+
+		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, er, emitter, limiters, nil, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
+			WithEngineRegistry(er),
+			WithEngineFactoryFn(mockEngineFactory),
+		)
+		require.NoError(t, err)
+		servicetest.Run(t, h)
+
+		event := WorkflowRegisteredEvent{
+			Status:        WorkflowStatusActive,
+			WorkflowID:    giveWFID,
+			WorkflowOwner: wfOwner,
+			WorkflowName:  workflowName,
+			WorkflowTag:   "workflow-tag",
+			BinaryURL:     binaryURL,
+			ConfigURL:     configURL,
+			Attributes:    []byte(`{not valid json`),
+		}
+
+		ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: hex.EncodeToString(wfOwner), Workflow: wfIDString})
+		err = h.workflowRegisteredEvent(ctx, event)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to parse workflow attributes")
+	})
 }
 
 type testCase struct {
@@ -853,7 +931,7 @@ type testCase struct {
 	ConfigURLFactory func(string) string
 	WFOwner          []byte
 	fetcherFactory   func(wfID []byte) *mockFetcher
-	Event            func(wfID []byte) WorkflowRegisteredEvent
+	Event            func(wfID []byte, wfName string, wfOwner []byte) WorkflowRegisteredEvent
 	validationFn     func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string)
 	engineFactoryFn  func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error)
 }
@@ -871,16 +949,17 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 
 			binary                = tc.GiveBinary
 			config                = tc.GiveConfig
-			wfOwner               = tc.WFOwner
+			workflowName          = testutils.RandomizeName(t.Name())
 			workflowEncryptionKey = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 
 			fetcherFactory = tc.fetcherFactory
 		)
+		wfOwner := testutils.NewAddress().Bytes()
 
-		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, "workflow-name", binary, config, "")
+		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, workflowName, binary, config, "")
 		require.NoError(t, err)
 
-		event := tc.Event(giveWFID[:])
+		event := tc.Event(giveWFID[:], workflowName, wfOwner)
 
 		er := NewEngineRegistry()
 		opts := []func(*eventHandler){
@@ -911,7 +990,7 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 		servicetest.Run(t, h)
 
 		ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: hex.EncodeToString(wfOwner), Workflow: hex.EncodeToString(giveWFID[:])})
-		tc.validationFn(t, ctx, event, h, artifactStore, wfOwner, "workflow-name", giveWFID, fetcher, tc.BinaryURLFactory(hex.EncodeToString(giveWFID[:])), tc.ConfigURLFactory(hex.EncodeToString(giveWFID[:])))
+		tc.validationFn(t, ctx, event, h, artifactStore, wfOwner, workflowName, giveWFID, fetcher, tc.BinaryURLFactory(hex.EncodeToString(giveWFID[:])), tc.ConfigURLFactory(hex.EncodeToString(giveWFID[:])))
 	})
 }
 
@@ -998,12 +1077,13 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
+			workflowName  = testutils.RandomizeName(t.Name())
 
-			wfOwner               = []byte("0xOwner")
 			workflowEncryptionKey = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 		)
+		wfOwner := testutils.NewAddress().Bytes()
 
-		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, "workflow-name", binary, config, "")
+		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, workflowName, binary, config, "")
 		require.NoError(t, err)
 		wfIDString := hex.EncodeToString(giveWFID[:])
 
@@ -1027,7 +1107,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			Status:        WorkflowStatusActive,
 			WorkflowID:    giveWFID,
 			WorkflowOwner: wfOwner,
-			WorkflowName:  "workflow-name",
+			WorkflowName:  workflowName,
 			WorkflowTag:   "workflow-tag",
 			BinaryURL:     binaryURL,
 			ConfigURL:     configURL,
@@ -1062,7 +1142,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		dbSpec, err := orm.GetWorkflowSpec(ctx, types.WorkflowID(giveWFID).Hex())
 		require.NoError(t, err)
 		require.Equal(t, hex.EncodeToString(wfOwner), dbSpec.WorkflowOwner)
-		require.Equal(t, "workflow-name", dbSpec.WorkflowName)
+		require.Equal(t, workflowName, dbSpec.WorkflowName)
 		require.Equal(t, job.WorkflowSpecStatusActive, dbSpec.Status)
 
 		// Verify the engine is started
@@ -1097,13 +1177,14 @@ func Test_workflowDeletedHandler(t *testing.T) {
 
 			binary                = wasmtest.CreateTestBinary(binaryCmd, true, t)
 			config                = []byte("")
-			wfOwner               = []byte("0xOwner")
+			workflowName          = testutils.RandomizeName(t.Name())
 			workflowEncryptionKey = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
-
-			fetcher = newMockFetcher(map[string]mockFetchResp{})
 		)
+		wfOwner := testutils.NewAddress().Bytes()
 
-		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, "workflow-name", binary, config, "")
+		fetcher := newMockFetcher(map[string]mockFetchResp{})
+
+		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, workflowName, binary, config, "")
 		require.NoError(t, err)
 
 		er := NewEngineRegistry()
@@ -1147,13 +1228,15 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			binary                = wasmtest.CreateTestBinary(binaryCmd, true, t)
 			encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
 			config                = []byte("")
-			wfOwner               = []byte("0xOwner")
+			workflowName          = testutils.RandomizeName(t.Name())
 			workflowEncryptionKey = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 
 			failWith = "mocked fail DB delete"
 		)
+		wfOwner := testutils.NewAddress().Bytes()
 
-		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, "workflow-name", binary, config, "")
+		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, workflowName, binary, config, "")
+
 		require.NoError(t, err)
 		wfIDString := hex.EncodeToString(giveWFID[:])
 
@@ -1175,7 +1258,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			Status:        WorkflowStatusActive,
 			WorkflowID:    giveWFID,
 			WorkflowOwner: wfOwner,
-			WorkflowName:  "workflow-name",
+			WorkflowName:  workflowName,
 			WorkflowTag:   "workflow-tag",
 			BinaryURL:     binaryURL,
 			ConfigURL:     configURL,
@@ -1212,7 +1295,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		dbSpec, err := orm.GetWorkflowSpec(ctx, types.WorkflowID(giveWFID).Hex())
 		require.NoError(t, err)
 		require.Equal(t, hex.EncodeToString(wfOwner), dbSpec.WorkflowOwner)
-		require.Equal(t, "workflow-name", dbSpec.WorkflowName)
+		require.Equal(t, workflowName, dbSpec.WorkflowName)
 		require.Equal(t, job.WorkflowSpecStatusActive, dbSpec.Status)
 
 		// Verify the engine is started
@@ -1383,17 +1466,20 @@ func Test_Handler_OrganizationID(t *testing.T) {
 	linkingURL := lis.Addr().String()
 
 	var (
-		lggr                  = logger.TestLogger(t)
-		lf                    = limits.Factory{Logger: lggr}
-		mockORM               = mocks.NewORM(t)
-		binary                = wasmtest.CreateTestBinary(binaryCmd, true, t)
-		encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
-		config                = []byte("")
-		wfOwner               = []byte("0xOwner")
+		lggr          = logger.TestLogger(t)
+		lf            = limits.Factory{Logger: lggr}
+		mockORM       = mocks.NewORM(t)
+		binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
+		encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
+		config        = []byte("")
+		workflowName  = testutils.RandomizeName(t.Name())
+
 		workflowEncryptionKey = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 	)
+	wfOwner := testutils.NewAddress().Bytes()
 
-	giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, "workflow-name", binary, config, "")
+	giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, workflowName, binary, config, "")
+
 	require.NoError(t, err)
 	wfIDString := hex.EncodeToString(giveWFID[:])
 
@@ -1457,12 +1543,11 @@ func Test_Handler_OrganizationID(t *testing.T) {
 		Status:        WorkflowStatusActive,
 		WorkflowID:    giveWFID,
 		WorkflowOwner: wfOwner,
-		WorkflowName:  "workflow-name",
+		WorkflowName:  workflowName,
 		WorkflowTag:   "workflow-tag",
 		BinaryURL:     "http://example.com/" + wfIDString + "/binary",
 		ConfigURL:     "http://example.com/" + wfIDString + "/config",
 	}
-
 	// Convert to WorkflowActivatedEvent and call through Handle method to test the full flow
 	activatedEvent := WorkflowActivatedEvent(event)
 	err = h.Handle(ctx, Event{
@@ -1502,8 +1587,9 @@ func Test_Handler_OrganizationID(t *testing.T) {
 		spec := &job.WorkflowSpec{
 			WorkflowID:    hex.EncodeToString(giveWFID[:]),
 			WorkflowOwner: hex.EncodeToString(wfOwner),
-			WorkflowName:  "workflow-name",
+			WorkflowName:  workflowName,
 		}
+
 		mockDeleteORM.EXPECT().GetWorkflowSpec(mock.Anything, types.WorkflowID(giveWFID).Hex()).Return(spec, nil)
 		mockDeleteORM.EXPECT().DeleteWorkflowSpec(mock.Anything, types.WorkflowID(giveWFID).Hex()).Return(nil)
 
@@ -1584,7 +1670,7 @@ type confidentialCap struct {
 	commoncap.CapabilityInfo
 	t        *testing.T
 	trigger  *captureTrigger
-	expected *confworkflowtypes.WorkflowExecution
+	expected *confworkflowtypes.ConfidentialWorkflowRequest
 }
 
 func (c *confidentialCap) Execute(_ context.Context, _ commoncap.RequestMetadata, input *confworkflowtypes.ConfidentialWorkflowRequest) (*commoncap.ResponseAndMetadata[*confworkflowtypes.ConfidentialWorkflowResponse], caperrors.Error) {
