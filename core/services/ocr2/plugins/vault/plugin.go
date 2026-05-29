@@ -2035,7 +2035,11 @@ func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, seqNr
 		r.lifecycle.RecordWrittenToPendingQueue(ctx, it.Id, seqNr, now)
 	}
 
-	return store.WritePendingQueue(ctx, keptItems, seqNr)
+	var writtenSeqNr uint64
+	if gateAllows(ctx, r.lggr, r.cfg.VaultPendingQueueStaleAutoEmpty, "VaultPendingQueueStaleAutoEmpty") {
+		writtenSeqNr = seqNr
+	}
+	return store.WritePendingQueue(ctx, keptItems, writtenSeqNr)
 }
 
 func sortKey(id string, nonce []byte) []byte {

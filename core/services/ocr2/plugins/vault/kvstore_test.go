@@ -467,3 +467,19 @@ func TestKVStore_WritePendingRequests(t *testing.T) {
 	_, exists = kv.m[pendingQueueItemPrefix+"3"]
 	assert.False(t, exists)
 }
+
+func TestKVStore_WritePendingQueue_omitsWrittenSeqNrWhenZero(t *testing.T) {
+	kv := &kv{m: make(map[string]response)}
+	store := newTestWriteStore(t, kv)
+
+	empty, err := anypb.New(&emptypb.Empty{})
+	require.NoError(t, err)
+	item := &vault.StoredPendingQueueItem{Id: "test-request-id-1", Item: empty}
+
+	err = store.WritePendingQueue(t.Context(), []*vault.StoredPendingQueueItem{item}, 0)
+	require.NoError(t, err)
+
+	legacyIndexBytes, err := proto.Marshal(&vault.StoredPendingQueueIndex{Length: 1})
+	require.NoError(t, err)
+	assert.Equal(t, legacyIndexBytes, kv.m[pendingQueueIndex].data)
+}

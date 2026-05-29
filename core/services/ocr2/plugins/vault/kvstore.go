@@ -368,8 +368,10 @@ func (s *KVStore) WritePendingQueue(ctx context.Context, pending []*vault.Stored
 	}
 
 	newIndex := &vault.StoredPendingQueueIndex{
-		Length:       int64(len(pending)),
-		WrittenSeqNr: writtenSeqNr,
+		Length: int64(len(pending)),
+	}
+	if writtenSeqNr != 0 {
+		newIndex.WrittenSeqNr = writtenSeqNr
 	}
 	newIndexBytes, err := proto.Marshal(newIndex)
 	if err != nil {
