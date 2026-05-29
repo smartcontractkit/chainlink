@@ -30,6 +30,7 @@ import (
 
 	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
 	module_fee_quoter "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/fee_quoter"
+	module_offramp "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_offramp/offramp"
 	sui_deployment "github.com/smartcontractkit/chainlink-sui/deployment"
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
 	sui_ops "github.com/smartcontractkit/chainlink-sui/deployment/ops"
@@ -1628,6 +1629,10 @@ func Test_CCIPProgrammableTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) 
 	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
 
+	// Diagnostics: log the Sui offRamp state the commit plugin depends on before waiting for the
+	// commit report. If the EVM source isn't enabled / on_ramp mismatches, commit never lands.
+	logSuiOffRampCommitDiagnostics(t, e, state, sourceChain, destChain)
+
 	err = testhelpers.ConfirmMultipleCommits(
 		t,
 		e.Env,
@@ -1845,6 +1850,61 @@ func testSetupHelperEvm2Sui(t *testing.T) (e testhelpers.DeployedEnv, sourceChai
 	copy(suiAddr[:], addrBytes)
 
 	return e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr
+}
+
+// logSuiOffRampCommitDiagnostics dev-inspects (read-only, no tx) the Sui offRamp to surface
+// the state the commit OCR plugin relies on when deciding whether to build & submit a commit
+// report for the EVM->Sui direction. If the EVM source chain is not enabled on the offRamp,
+// or the configured on_ramp address doesn't match the EVM onRamp, the commit plugin will
+// silently never produce a commit report -> the test times out waiting for CommitReportAccepted.
+//
+// Call this right before ConfirmMultipleCommits so the offRamp state is logged regardless of
+// whether the subsequent wait times out.
+func logSuiOffRampCommitDiagnostics(t *testing.T, e testhelpers.DeployedEnv, state stateview.CCIPOnChainState, sourceChain, destChain uint64) {
+	t.Helper()
+
+	suiChain := e.Env.BlockChains.SuiChains()[destChain]
+	suiState := state.SuiChains[destChain]
+
+	t.Logf("[DIAG] Sui offRamp commit diagnostics: offRamp=%s ref=%s offRampState=%s source(EVM)=%d dest(Sui)=%d",
+		suiState.OffRampAddress, suiState.CCIPObjectRef, suiState.OffRampStateObjectId, sourceChain, destChain)
+
+	// Expected on_ramp configured on the offRamp source-chain config = the EVM onRamp address.
+	if evmState, ok := state.Chains[sourceChain]; ok && evmState.OnRamp != nil {
+		t.Logf("[DIAG] EVM source onRamp address (expected on_ramp on Sui offRamp): %s", evmState.OnRamp.Address().Hex())
+	}
+
+	offRamp, err := module_offramp.NewOfframp(suiState.OffRampAddress, suiChain.Client)
+	if err != nil {
+		t.Logf("[DIAG] failed to bind Sui offRamp: %v", err)
+		return
+	}
+
+	opts := &suiBind.CallOpts{Signer: suiChain.Signer, WaitForExecution: true}
+	ctx := t.Context()
+	ref := suiBind.Object{Id: suiState.CCIPObjectRef}
+	stateObj := suiBind.Object{Id: suiState.OffRampStateObjectId}
+
+	cfg, err := offRamp.DevInspect().GetSourceChainConfig(ctx, opts, ref, stateObj, sourceChain)
+	if err != nil {
+		t.Logf("[DIAG] GetSourceChainConfig(source=%d) error: %v", sourceChain, err)
+	} else {
+		t.Logf("[DIAG] Sui offRamp source-chain config for EVM source %d: is_enabled=%v min_seq_nr=%d is_rmn_verification_disabled=%v router=%s on_ramp=0x%x",
+			sourceChain, cfg.IsEnabled, cfg.MinSeqNr, cfg.IsRmnVerificationDisabled, cfg.Router, cfg.OnRamp)
+		if !cfg.IsEnabled {
+			t.Logf("[DIAG] *** EVM source %d is NOT enabled on the Sui offRamp -> commit plugin will never commit. This is the likely cause of the timeout. ***", sourceChain)
+		}
+		if len(cfg.OnRamp) == 0 {
+			t.Logf("[DIAG] *** on_ramp is empty on the Sui offRamp source config -> commit plugin cannot match source messages. ***")
+		}
+	}
+
+	// Dump all configured sources so we can see what (if anything) the lane setup actually wired.
+	if all, allErr := offRamp.DevInspect().GetAllSourceChainConfigs(ctx, opts, ref, stateObj); allErr != nil {
+		t.Logf("[DIAG] GetAllSourceChainConfigs error: %v", allErr)
+	} else {
+		t.Logf("[DIAG] Sui offRamp all source-chain configs: %+v", all)
+	}
 }
 
 func getOpTxDeps(suiChain sui.Chain) sui_ops.OpTxDeps {
