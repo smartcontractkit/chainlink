@@ -57,6 +57,19 @@ Base Command: `go -C tools/test run . diagnose [harness_flags] -- [go_test_flags
 - Help: `go -C tools/test run . diagnose -h`
 </cli_reference>
 
+<diagnose-iterations>
+Use this table to determine how many diagnose iterations you should use to confirm behavior
+
+| Iterations | Chance you missed a flake |
+| ---------- | ------------------------- |
+| 5          | 50%                       |
+| 30         | 10%                       |
+| 60         | 5%                        |
+| 150        | 2%                        |
+| 300        | 1%                        |
+| 500+       | < 1%                      |
+</diagnose-iterations>
+
 <loop>
 1. If user doesn't have recent results, run `diagnose` command with min 5 iterations to gather initial info. On sandbox errors, follow `<possible_execution_issues>`.
 2. If no issues, ask the user if they want to verify with more iterations. If not, end and output final report of findings, fixes, and lessons learned.

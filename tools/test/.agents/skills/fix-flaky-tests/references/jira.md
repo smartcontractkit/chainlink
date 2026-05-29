@@ -8,9 +8,8 @@ These files are **includable references**, not user-facing skills (no `SKILL.md`
 </when_to_use>
 
 <requirements>
-1. Atlassian MCP available.
-2. If MCP is unauthenticated prompt user to authenticate before proceeding.
-If Atlassian MCP is not available prompt the user to install it. If authentication fails STOP.
+1. Atlassian MCP available. If Atlassian/Jira MCP unavailable, STOP!. Prompt user to install it before proceeding.
+2. If MCP is unauthenticated, STOP! Prompt user to authenticate before proceeding.
 </requirements>
 
 <operation_requirements>
