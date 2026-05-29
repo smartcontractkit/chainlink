@@ -2011,7 +2011,30 @@ func pollSuiCommitReportContents(t *testing.T, e testhelpers.DeployedEnv, state 
 
 	t.Logf("[DIAG] polling Sui for %s contents (want source=%d seq=%d) for up to %s", eventType, wantSource, wantSeq, maxWait)
 
+	// Track the offRamp's next-expected sequence number for the source (min_seq_nr). This is the
+	// "OffRampNextSeqNums"-style state the commit MerkleRoot processor reads to decide the range to
+	// root. If it never advances past wantSeq, no root for wantSeq was ever committed; if it jumps,
+	// something committed a root covering it. Logged only on change to keep the output small.
+	offRamp, berr := module_offramp.NewOfframp(state.SuiChains[destChain].OffRampAddress, suiChain.Client)
+	if berr != nil {
+		t.Logf("[DIAG] failed to bind offRamp for next-seq tracking: %v", berr)
+		offRamp = nil
+	}
+	devOpts := &suiBind.CallOpts{Signer: suiChain.Signer, WaitForExecution: true}
+	refObj := suiBind.Object{Id: state.SuiChains[destChain].CCIPObjectRef}
+	stateObj := suiBind.Object{Id: state.SuiChains[destChain].OffRampStateObjectId}
+	lastMinSeq := int64(-1)
+
 	for time.Now().Before(deadline) {
+		if offRamp != nil {
+			if cfg, cerr := offRamp.DevInspect().GetSourceChainConfig(ctx, devOpts, refObj, stateObj, wantSource); cerr != nil {
+				t.Logf("[DIAG] next-seq read error: %v", cerr)
+			} else if int64(cfg.MinSeqNr) != lastMinSeq {
+				t.Logf("[DIAG] offRamp next-expected seq (min_seq_nr) for source %d = %d (was %d)", wantSource, cfg.MinSeqNr, lastMinSeq)
+				lastMinSeq = int64(cfg.MinSeqNr)
+			}
+		}
+
 		resp, err := suiChain.Client.SuiXQueryEvents(ctx, models.SuiXQueryEventsRequest{
 			SuiEventFilter:  models.EventFilterByMoveEventType{MoveEventType: eventType},
 			Limit:           50,

@@ -514,11 +514,20 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.Capabil
 	require.NotNil(t, m.Chains, "start chains first, chains are empty")
 	require.NotNil(t, m.DeployedEnv, "start chains and initiate deployed env first before starting nodes")
 	tc := m.TestConfig
+	// Node log level defaults to Info to keep CI logs readable. Set CCIP_NODE_LOG_LEVEL=debug
+	// for an investigation run to surface the commit plugin's gating logs
+	// ("cannot observe off ramp seq nums since destination chain is not supported",
+	// "no bindings for source chain", "OffRampNextSeqNums", etc.).
+	nodeLogLevel := zapcore.InfoLevel
+	if lvl := os.Getenv("CCIP_NODE_LOG_LEVEL"); lvl != "" {
+		if parsed, err := zapcore.ParseLevel(lvl); err == nil {
+			nodeLogLevel = parsed
+		} else {
+			t.Logf("CCIP_NODE_LOG_LEVEL=%q is invalid (%v); falling back to info", lvl, err)
+		}
+	}
 	c := nodetestutils.NewNodesConfig{
-		// TEMP debug toggle: DebugLevel surfaces the commit plugin's gating logs
-		// ("cannot observe off ramp seq nums since destination chain is not supported",
-		// "no bindings for source chain", etc.). Revert to zapcore.InfoLevel when done.
-		LogLevel:       zapcore.DebugLevel,
+		LogLevel:       nodeLogLevel,
 		BlockChains:    m.Env.BlockChains,
 		NumNodes:       tc.Nodes,
 		NumBootstraps:  tc.Bootstraps,
