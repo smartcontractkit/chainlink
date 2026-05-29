@@ -16,6 +16,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
+	"github.com/block-vision/sui-go-sdk/models"
+
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -1633,6 +1635,9 @@ func Test_CCIPProgrammableTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) 
 	// commit report. If the EVM source isn't enabled / on_ramp mismatches, commit never lands.
 	logSuiOffRampCommitDiagnostics(t, e, state, sourceChain, destChain)
 
+	// Diagnostics: distinguish "no commit tx submitted" from "commit tx reverted on Sui".
+	pollSuiOffRampCommitTxns(t, e, state, destChain, 4*time.Minute)
+
 	err = testhelpers.ConfirmMultipleCommits(
 		t,
 		e.Env,
@@ -1905,6 +1910,77 @@ func logSuiOffRampCommitDiagnostics(t *testing.T, e testhelpers.DeployedEnv, sta
 	} else {
 		t.Logf("[DIAG] Sui offRamp all source-chain configs: %+v", all)
 	}
+}
+
+// pollSuiOffRampCommitTxns polls the Sui fullnode for any transaction that calls
+// offRamp::commit (regardless of success/failure) for up to maxWait. The existing
+// CommitReportAccepted event poller only observes *successful* commits; this surfaces the
+// two remaining cases:
+//
+//   - No commit tx ever appears  -> the commit OCR plugin is not submitting at all
+//     (observation/consensus/price-read problem, or transmitter not configured for Sui).
+//   - A commit tx appears with status=failure -> the Sui `offramp::commit` Move call is
+//     reverting (e.g. fee_quoter::update_prices aborting on the token/gas price update),
+//     which is logged with the abort error so we can pinpoint the failing assertion.
+//
+// Returns true if a successful commit tx was observed.
+func pollSuiOffRampCommitTxns(t *testing.T, e testhelpers.DeployedEnv, state stateview.CCIPOnChainState, destChain uint64, maxWait time.Duration) bool {
+	t.Helper()
+
+	suiChain := e.Env.BlockChains.SuiChains()[destChain]
+	offRampPkg := state.SuiChains[destChain].OffRampAddress
+	module := "offramp"
+	function := "commit"
+
+	seen := map[string]bool{}
+	deadline := time.Now().Add(maxWait)
+	ctx := t.Context()
+
+	t.Logf("[DIAG] polling Sui for %s::%s::%s transactions (success or failure) for up to %s", offRampPkg, module, function, maxWait)
+
+	for time.Now().Before(deadline) {
+		resp, err := suiChain.Client.SuiXQueryTransactionBlocks(ctx, models.SuiXQueryTransactionBlocksRequest{
+			SuiTransactionBlockResponseQuery: models.SuiTransactionBlockResponseQuery{
+				TransactionFilter: models.TransactionFilter{
+					"MoveFunction": models.MoveFunction{
+						Package:  offRampPkg,
+						Module:   &module,
+						Function: &function,
+					},
+				},
+				Options: models.SuiTransactionBlockOptions{
+					ShowEffects: true,
+					ShowInput:   true,
+				},
+			},
+			Limit:           20,
+			DescendingOrder: true,
+		})
+		if err != nil {
+			t.Logf("[DIAG] SuiXQueryTransactionBlocks(offramp::commit) error: %v", err)
+			time.Sleep(3 * time.Second)
+			continue
+		}
+
+		for _, tx := range resp.Data {
+			if seen[tx.Digest] {
+				continue
+			}
+			seen[tx.Digest] = true
+			status := tx.Effects.Status.Status
+			t.Logf("[DIAG] *** offRamp::commit tx observed: digest=%s status=%s error=%q ***", tx.Digest, status, tx.Effects.Status.Error)
+			if status == "success" {
+				return true
+			}
+		}
+
+		time.Sleep(3 * time.Second)
+	}
+
+	if len(seen) == 0 {
+		t.Logf("[DIAG] *** NO offRamp::commit transaction was ever submitted to Sui within %s -> commit OCR plugin is not transmitting (not a revert). Check the commit plugin observation/transmitter for the Sui dest. ***", maxWait)
+	}
+	return false
 }
 
 func getOpTxDeps(suiChain sui.Chain) sui_ops.OpTxDeps {
