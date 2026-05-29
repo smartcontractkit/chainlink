@@ -47,6 +47,8 @@ If unknown, prompt user.
 
 <jira_reference>
 If JIRA issues are present read [jira.md](./references/jira.md) to understand how to claim tickets, find eligible flaky-test tickets, read and add comments and transition JIRA issues.
+
+After a FIXED outcome, the ticket must stay assigned to the investigator (`accountId` from `atlassianUserInfo`) when moved to In Review. Do not unassign on FIXED — see [transition-ticket.md](./references/transition-ticket.md) assignee policy.
 </jira_reference>
 
 <cli_reference>
