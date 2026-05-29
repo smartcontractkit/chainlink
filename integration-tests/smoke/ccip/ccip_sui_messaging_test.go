@@ -631,7 +631,7 @@ func Test_CCIP_Messaging_EVM2Sui_Revert_Part2(t *testing.T) {
 // dummy receiver still executes to EXECUTION_STATE_SUCCESS after the poisoned message.
 // Before the fix the relayer crash loop would have prevented that from ever happening.
 func Test_CCIP_EVM2Sui_RegisteredBrokenReceiver(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
+	// tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
 
 	// Reuses the shared EVM->Sui fixture, which deploys AND registers a good dummy
 	// receiver (fx.receiverByte / fx.receiverObjectIDs) used for the healthy message.
@@ -789,7 +789,7 @@ func Test_CCIP_EVM2Sui_ZeroReceiver(t *testing.T) {
 // would have been impossible (the message would never have been submitted) before
 // the relayer change.
 func Test_CCIP_EVM2Sui_UnregisteredReceiver(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
+	// tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithNumOfChains(2),
