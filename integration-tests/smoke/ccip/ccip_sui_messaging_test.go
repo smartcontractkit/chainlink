@@ -604,6 +604,117 @@ func Test_CCIP_Messaging_EVM2Sui_Revert_Part2(t *testing.T) {
 	})
 }
 
+// Test_CCIP_EVM2Sui_RegisteredBrokenReceiver is the regression test for NONEVM-5191.
+//
+// A sender targets a receiver package that IS registered with the OffRamp's receiver
+// registry but whose ccip_receive is generic (`ccip_receive<T>(...)`). Its Sui
+// normalized ABI therefore contains the poison shape {"Vector":{"TypeParameter":0}}.
+//
+// Before the fix, the relayer's decodeParam/DecodeParameters used unchecked type
+// assertions and panicked while building the execute PTB the moment it hit a
+// TypeParameter shape (interface conversion: float64 is not map[string]interface{}).
+// The panic happened before the PTB was ever submitted, so the message stayed
+// UNTOUCHED and every retry re-panicked — a deterministic crash loop that took the
+// relayer down and blocked ALL execution on the lane (not just the poisoned message).
+//
+// After the fix, decodeParam returns a typed error ("unsupported ABI shape:
+// TypeParameter (receiver uses generics)") instead of panicking. ProcessReceivers
+// logs the permanent build failure, skips the receiver leg, and lets the rest of the
+// pipeline proceed. The poisoned message itself produces no on-chain terminal state
+// (init_execute populates the message, the skipped ccip_receive leg makes
+// finish_execute abort with ECCIPReceiveFailed, the PTB reverts, and the node records
+// a SYNTHETIC ExecutionStateChanged(FAILURE) in its own DB so the DON stops
+// retrying). Because that synthetic event is not on-chain, this test does not assert a
+// terminal exec state for the poisoned message — it only confirms the message commits.
+//
+// The key assertion is that the lane stays healthy: a normal message to the good
+// dummy receiver still executes to EXECUTION_STATE_SUCCESS after the poisoned message.
+// Before the fix the relayer crash loop would have prevented that from ever happening.
+func Test_CCIP_EVM2Sui_RegisteredBrokenReceiver(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
+
+	// Reuses the shared EVM->Sui fixture, which deploys AND registers a good dummy
+	// receiver (fx.receiverByte / fx.receiverObjectIDs) used for the healthy message.
+	fx := prepareEVM2SuiMessagingTest(t)
+	destChain := fx.destChain
+
+	// Deploy the test-only broken receiver: its generic ccip_receive<T> produces the
+	// {"Vector":{"TypeParameter":0}} poison ABI from report 71024.
+	_, output, err := commoncs.ApplyChangesets(t, fx.e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.DeployBrokenReceiver{}, sui_cs.DeployBrokenReceiverConfig{
+			SuiChainSelector: destChain,
+			McmsOwner:        "0x1",
+		}),
+	})
+	require.NoError(t, err)
+
+	rawOutput := output[0].Reports[0]
+	brokenOut, ok := rawOutput.Output.(sui_ops.OpTxResult[ccipops.DeployBrokenReceiverObjects])
+	require.True(t, ok)
+
+	// Register the broken receiver so the relayer's ProcessReceivers sees it as a
+	// registered receiver and attempts to decode its poison ccip_receive ABI (the
+	// exact path that panicked before the fix).
+	_, _, err = commoncs.ApplyChangesets(t, fx.e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.RegisterBrokenReceiver{}, sui_cs.RegisterBrokenReceiverConfig{
+			SuiChainSelector:        destChain,
+			OwnerCapObjectId:        brokenOut.Objects.OwnerCapObjectId,
+			CCIPObjectRefObjectId:   fx.state.SuiChains[destChain].CCIPObjectRef,
+			BrokenReceiverPackageId: brokenOut.PackageId,
+		}),
+	})
+	require.NoError(t, err)
+
+	brokenID := strings.TrimPrefix(brokenOut.PackageId, "0x")
+	brokenReceiver, err := hex.DecodeString(brokenID)
+	require.NoError(t, err)
+
+	var poisonNonce, healthyNonce uint64
+
+	waitForSuiRPCSync(t, fx.e.Env.BlockChains.SuiChains()[destChain])
+
+	// Step 1: send a message to the REGISTERED broken receiver. Non-empty data + a
+	// non-zero gas limit make the relayer treat it as needing a receiver call, so it
+	// hits the poison-ABI decode path. We only validate commit: the broken-receiver
+	// execution never yields an on-chain ExecutionStateChanged (see the doc comment).
+	// The real proof is that this no longer panics/crash-loops the relayer, which
+	// Step 2 demonstrates.
+	t.Run("Poison message to registered broken receiver - commits without crashing relayer", func(t *testing.T) {
+		message := []byte("Hello broken receiver, from EVM!")
+		messagingtest.Run(t,
+			messagingtest.TestCase{
+				TestSetup:      fx.setup,
+				Nonce:          &poisonNonce,
+				ValidationType: messagingtest.ValidationTypeCommit,
+				Receiver:       brokenReceiver,
+				MsgData:        message,
+				ExtraArgs:      testhelpers.MakeSuiExtraArgs(1000000, true, [][32]byte{}, [32]byte{}),
+			},
+		)
+	})
+
+	waitForSuiRPCSync(t, fx.e.Env.BlockChains.SuiChains()[destChain])
+
+	// Step 2: the lane must stay healthy. A normal message to the good dummy receiver
+	// must still execute to SUCCESS after the poison message above. Before the fix the
+	// relayer crash loop on the poison message would have prevented this from ever
+	// executing.
+	t.Run("Healthy message to good receiver still executes after poison", func(t *testing.T) {
+		message := []byte("Hello Sui, from EVM!")
+		messagingtest.Run(t,
+			messagingtest.TestCase{
+				TestSetup:              fx.setup,
+				Nonce:                  &healthyNonce,
+				ValidationType:         messagingtest.ValidationTypeExec,
+				Receiver:               fx.receiverByte,
+				MsgData:                message,
+				ExtraArgs:              testhelpers.MakeSuiExtraArgs(1000000, true, fx.receiverObjectIDs, [32]byte{}),
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+			},
+		)
+	})
+}
+
 func Test_CCIP_EVM2Sui_ZeroReceiver(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
 	e, _, _ := testsetups.NewIntegrationEnvironment(
@@ -658,7 +769,7 @@ func Test_CCIP_EVM2Sui_ZeroReceiver(t *testing.T) {
 	})
 }
 
-// Test_CCIP_EVM2Sui_UnregisteredReceiver is the regression test for report 74572.
+// Test_CCIP_EVM2Sui_UnregisteredReceiver is the regression test for NONEVM-5015
 //
 // A sender targets a non-zero receiver package that was deployed on Sui but never
 // registered with the OffRamp's receiver registry, while still supplying message
