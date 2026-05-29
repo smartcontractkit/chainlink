@@ -10,10 +10,10 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	linkchangesets "github.com/smartcontractkit/cld-changesets/tokens/link/changesets"
-
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deploylink"
 	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deploylink"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"

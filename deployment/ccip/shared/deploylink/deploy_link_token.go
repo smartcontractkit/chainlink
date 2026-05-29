@@ -10,7 +10,7 @@ import (
 
 // DeployLinkTokenChangeset wraps the upstream DeployLinkTokenChangeset and
 // additionally writes deployed addresses to AddressBook for backward compatibility.
-type DeployLinkTokenChangeset struct{}
+type DeployLinkTokenChangeset struct{} //nolint:revive // intentional name match with upstream
 
 var _ cldf.ChangeSetV2[linkchangesets.DeployLinkTokenInput] = DeployLinkTokenChangeset{}
 
@@ -39,7 +39,7 @@ func (DeployLinkTokenChangeset) Apply(e cldf.Environment, input linkchangesets.D
 				return out, fmt.Errorf("failed to save address to address book: %w", addErr)
 			}
 		}
-		out.AddressBook = ab
+		out.AddressBook = ab //nolint:staticcheck // intentional use of deprecated AddressBook for backward compat
 	}
 
 	return out, nil

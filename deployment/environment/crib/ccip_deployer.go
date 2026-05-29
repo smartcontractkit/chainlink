@@ -56,9 +56,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	linkchangesets "github.com/smartcontractkit/cld-changesets/tokens/link/changesets"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deploylink"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
