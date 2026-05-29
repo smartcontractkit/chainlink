@@ -35,6 +35,7 @@ type ReadKVStore interface {
 	GetSecret(ctx context.Context, id *vault.SecretIdentifier) (*vault.StoredSecret, error)
 	GetMetadata(ctx context.Context, owner string) (*vault.StoredMetadata, error)
 	GetSecretIdentifiersCountForOwner(ctx context.Context, owner string) (int, error)
+	GetPendingQueueIndex(ctx context.Context) (*vault.StoredPendingQueueIndex, error)
 	GetPendingQueue(ctx context.Context) ([]*vault.StoredPendingQueueItem, error)
 }
 
@@ -43,7 +44,7 @@ type WriteKVStore interface {
 	WriteSecret(ctx context.Context, id *vault.SecretIdentifier, secret *vault.StoredSecret) error
 	WriteMetadata(ctx context.Context, owner string, metadata *vault.StoredMetadata) error
 	DeleteSecret(ctx context.Context, id *vault.SecretIdentifier) error
-	WritePendingQueue(ctx context.Context, pending []*vault.StoredPendingQueueItem) error
+	WritePendingQueue(ctx context.Context, pending []*vault.StoredPendingQueueItem, writtenSeqNr uint64) error
 }
 
 func NewReadStore(reader ocr3_1types.KeyValueStateReader, metrics *pluginMetrics) *KVStore {
@@ -268,8 +269,8 @@ func (s *KVStore) DeleteSecret(ctx context.Context, id *vault.SecretIdentifier) 
 	return nil
 }
 
-func (s *KVStore) GetPendingQueue(ctx context.Context) ([]*vault.StoredPendingQueueItem, error) {
-	defer s.trackDuration(ctx, "GetPendingQueue", time.Now())
+func (s *KVStore) GetPendingQueueIndex(ctx context.Context) (*vault.StoredPendingQueueIndex, error) {
+	defer s.trackDuration(ctx, "GetPendingQueueIndex", time.Now())
 	indexBytes, err := s.reader.Read([]byte(pendingQueueIndex))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read pending queue index: %w", err)
@@ -283,6 +284,20 @@ func (s *KVStore) GetPendingQueue(ctx context.Context) ([]*vault.StoredPendingQu
 	err = proto.Unmarshal(indexBytes, index)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal pending queue index: %w", err)
+	}
+
+	return index, nil
+}
+
+func (s *KVStore) GetPendingQueue(ctx context.Context) ([]*vault.StoredPendingQueueItem, error) {
+	defer s.trackDuration(ctx, "GetPendingQueue", time.Now())
+	index, err := s.GetPendingQueueIndex(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if index == nil {
+		return nil, nil
 	}
 
 	items := make([]*vault.StoredPendingQueueItem, 0, index.Length)
@@ -334,7 +349,7 @@ func (s *KVStore) deletePendingQueue() error {
 	return nil
 }
 
-func (s *KVStore) WritePendingQueue(ctx context.Context, pending []*vault.StoredPendingQueueItem) error {
+func (s *KVStore) WritePendingQueue(ctx context.Context, pending []*vault.StoredPendingQueueItem, writtenSeqNr uint64) error {
 	defer s.trackDuration(ctx, "WritePendingQueue", time.Now())
 	err := s.deletePendingQueue()
 	if err != nil {
@@ -353,7 +368,8 @@ func (s *KVStore) WritePendingQueue(ctx context.Context, pending []*vault.Stored
 	}
 
 	newIndex := &vault.StoredPendingQueueIndex{
-		Length: int64(len(pending)),
+		Length:       int64(len(pending)),
+		WrittenSeqNr: writtenSeqNr,
 	}
 	newIndexBytes, err := proto.Marshal(newIndex)
 	if err != nil {

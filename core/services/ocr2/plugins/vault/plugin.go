@@ -54,17 +54,19 @@ type ReportingPluginConfig struct {
 	PrivateKeyShare *tdh2easy.PrivateShare
 
 	// Sourced from the offchain config
-	MaxSecretsPerOwner                limits.BoundLimiter[int]
-	MaxCiphertextLengthBytes          limits.BoundLimiter[pkgconfig.Size]
-	MaxIdentifierKeyLengthBytes       limits.BoundLimiter[pkgconfig.Size]
-	MaxIdentifierOwnerLengthBytes     limits.BoundLimiter[pkgconfig.Size]
-	MaxIdentifierNamespaceLengthBytes limits.BoundLimiter[pkgconfig.Size]
-	MaxShareLengthBytes               limits.BoundLimiter[pkgconfig.Size]
-	MaxRequestBatchSize               limits.BoundLimiter[int]
-	MaxBatchSize                      limits.BoundLimiter[int]
-	MaxBlobPayloadBytes               limits.BoundLimiter[pkgconfig.Size]
-	VaultForceEmptyOCRRounds          limits.GateLimiter
-	VaultOptimizationsEnabled         limits.GateLimiter
+	MaxSecretsPerOwner                   limits.BoundLimiter[int]
+	MaxCiphertextLengthBytes             limits.BoundLimiter[pkgconfig.Size]
+	MaxIdentifierKeyLengthBytes          limits.BoundLimiter[pkgconfig.Size]
+	MaxIdentifierOwnerLengthBytes        limits.BoundLimiter[pkgconfig.Size]
+	MaxIdentifierNamespaceLengthBytes    limits.BoundLimiter[pkgconfig.Size]
+	MaxShareLengthBytes                  limits.BoundLimiter[pkgconfig.Size]
+	MaxRequestBatchSize                  limits.BoundLimiter[int]
+	MaxBatchSize                         limits.BoundLimiter[int]
+	MaxBlobPayloadBytes                  limits.BoundLimiter[pkgconfig.Size]
+	VaultForceEmptyOCRRounds             limits.GateLimiter
+	VaultOptimizationsEnabled            limits.GateLimiter
+	VaultPendingQueueStaleAutoEmpty      limits.GateLimiter
+	VaultPendingQueueStaleRoundThreshold limits.BoundLimiter[int]
 }
 
 func NewReportingPluginFactory(
@@ -214,21 +216,33 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		return nil, fmt.Errorf("VaultOptimizationsEnabled: %w", err)
 	}
 
+	vaultPendingQueueStaleAutoEmpty, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultPendingQueueStaleAutoEmpty)
+	if err != nil {
+		return nil, fmt.Errorf("VaultPendingQueueStaleAutoEmpty: %w", err)
+	}
+
+	vaultPendingQueueStaleRoundThreshold, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultPendingQueueStaleRoundThreshold)
+	if err != nil {
+		return nil, fmt.Errorf("VaultPendingQueueStaleRoundThreshold: %w", err)
+	}
+
 	maxBlobPayloadBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultMaxBlobPayloadSizeLimit)
 	if err != nil {
 		return nil, fmt.Errorf("VaultMaxBlobPayloadSizeLimit: %w", err)
 	}
 
 	return &ReportingPluginConfig{
-		MaxShareLengthBytes:               maxShareLengthBytesLimiter,
-		MaxRequestBatchSize:               maxRequestBatchSizeLimiter,
-		MaxCiphertextLengthBytes:          maxCiphertextLengthBytesLimiter,
-		MaxIdentifierKeyLengthBytes:       maxIdentifierKeyLengthBytesLimiter,
-		MaxIdentifierOwnerLengthBytes:     maxIdentifierOwnerLengthBytesLimiter,
-		MaxIdentifierNamespaceLengthBytes: maxIdentifierNamespaceLengthBytesLimiter,
-		MaxBlobPayloadBytes:               maxBlobPayloadBytesLimiter,
-		VaultForceEmptyOCRRounds:          vaultForceEmptyOCRRounds,
-		VaultOptimizationsEnabled:         vaultOptimizationsEnabled,
+		MaxShareLengthBytes:                  maxShareLengthBytesLimiter,
+		MaxRequestBatchSize:                  maxRequestBatchSizeLimiter,
+		MaxCiphertextLengthBytes:             maxCiphertextLengthBytesLimiter,
+		MaxIdentifierKeyLengthBytes:          maxIdentifierKeyLengthBytesLimiter,
+		MaxIdentifierOwnerLengthBytes:        maxIdentifierOwnerLengthBytesLimiter,
+		MaxIdentifierNamespaceLengthBytes:    maxIdentifierNamespaceLengthBytesLimiter,
+		MaxBlobPayloadBytes:                  maxBlobPayloadBytesLimiter,
+		VaultForceEmptyOCRRounds:             vaultForceEmptyOCRRounds,
+		VaultOptimizationsEnabled:            vaultOptimizationsEnabled,
+		VaultPendingQueueStaleAutoEmpty:      vaultPendingQueueStaleAutoEmpty,
+		VaultPendingQueueStaleRoundThreshold: vaultPendingQueueStaleRoundThreshold,
 	}, nil
 }
 
@@ -512,7 +526,14 @@ func (r *ReportingPlugin) prepareObservationPendingQueueBlobs(
 
 		if len(payload) > maxBlobBytes {
 			if len(currentBatch) == 0 {
-				return pendingQueueBlobPack{}, fmt.Errorf("single pending queue item exceeds max blob payload size (%d > %d)", len(payload), maxBlobBytes)
+				r.lggr.Errorw("local queue item exceeds max blob payload size, skipping",
+					"seqNr", seqNr,
+					"requestID", queueItem.ID(),
+					"payloadBytes", len(payload),
+					"maxBlobBytes", maxBlobBytes,
+				)
+				r.metrics.trackLocalQueueBlobSkipped(ctx, queueItem.ID())
+				continue
 			}
 			// Current batch is full; flush it and retry the same item on the next iteration.
 			var ferr error
@@ -593,7 +614,44 @@ func (r *ReportingPlugin) optimizationsEnabled(ctx context.Context) bool {
 }
 
 type pendingQueueStore interface {
-	WritePendingQueue(ctx context.Context, pending []*vaultcommon.StoredPendingQueueItem) error
+	WritePendingQueue(ctx context.Context, pending []*vaultcommon.StoredPendingQueueItem, writtenSeqNr uint64) error
+}
+
+// skipStoreBackedPendingQueue reports whether Observation/ValidateObservation should skip
+// reading the KV pending queue this round (manual force-empty or stale-queue TTL).
+func (r *ReportingPlugin) skipStoreBackedPendingQueue(ctx context.Context, seqNr uint64, readKV *KVStore) (skip bool, reason string, err error) {
+	if gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
+		return true, "VaultForceEmptyOCRRounds", nil
+	}
+
+	if !gateAllows(ctx, r.lggr, r.cfg.VaultPendingQueueStaleAutoEmpty, "VaultPendingQueueStaleAutoEmpty") {
+		return false, "", nil
+	}
+
+	index, err := readKV.GetPendingQueueIndex(ctx)
+	if err != nil {
+		return false, "", err
+	}
+	if index == nil || index.Length == 0 || index.WrittenSeqNr == 0 {
+		return false, "", nil
+	}
+
+	threshold, err := r.cfg.VaultPendingQueueStaleRoundThreshold.Limit(ctx)
+	if err != nil {
+		return false, "", fmt.Errorf("could not fetch VaultPendingQueueStaleRoundThreshold: %w", err)
+	}
+
+	if seqNr < index.WrittenSeqNr {
+		return false, "", nil
+	}
+
+	lag := seqNr - index.WrittenSeqNr
+	if lag < uint64(threshold) {
+		return false, "", nil
+	}
+
+	r.metrics.trackPendingQueueStaleAutoEmpty(ctx)
+	return true, "VaultPendingQueueStaleAutoEmpty", nil
 }
 
 func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq types.AttributedQuery, keyValueReader ocr3_1types.KeyValueStateReader, blobBroadcastFetcher ocr3_1types.BlobBroadcastFetcher) (types.Observation, error) {
@@ -605,14 +663,20 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	readKV := NewReadStore(keyValueReader, r.metrics)
 
 	var currentPendingQueueItems []*vaultcommon.StoredPendingQueueItem
-	if !gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
-		var err error
+	skipStoreBacked, skipReason, err := r.skipStoreBackedPendingQueue(ctx, seqNr, readKV)
+	if err != nil {
+		return nil, err
+	}
+	if skipStoreBacked {
+		r.lggr.Warnw("store-backed pending queue is not read this OCR round — pending observation items are skipped",
+			"reason", skipReason,
+			"seqNr", seqNr,
+		)
+	} else {
 		currentPendingQueueItems, err = readKV.GetPendingQueue(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("could not fetch batch of requests: %w", err)
 		}
-	} else {
-		r.lggr.Warnw("VaultForceEmptyOCRRounds is enabled; pending queue is not read this OCR round — store-backed pending observation items are skipped")
 	}
 
 	// Avoid log spam by only logging if we have any requests to process.
@@ -1353,14 +1417,20 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 	// - that all pending queue items can be fetched as blobs.
 	readKV := NewReadStore(keyValueReader, r.metrics)
 	var pendingQueueItems []*vaultcommon.StoredPendingQueueItem
-	if !gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
-		var err error
+	skipStoreBacked, skipReason, err := r.skipStoreBackedPendingQueue(ctx, seqNr, readKV)
+	if err != nil {
+		return err
+	}
+	if skipStoreBacked {
+		r.lggr.Warnw("store-backed pending queue is not read this OCR round — pending observation items are skipped",
+			"reason", skipReason,
+			"seqNr", seqNr,
+		)
+	} else {
 		pendingQueueItems, err = readKV.GetPendingQueue(ctx)
 		if err != nil {
 			return fmt.Errorf("could not fetch pending queue from store: %w", err)
 		}
-	} else {
-		r.lggr.Warnw("VaultForceEmptyOCRRounds is enabled; pending queue is not read this OCR round — store-backed pending observation items are skipped")
 	}
 
 	pendingIDs := map[string]bool{}
@@ -1965,7 +2035,7 @@ func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, seqNr
 		r.lifecycle.RecordWrittenToPendingQueue(ctx, it.Id, seqNr, now)
 	}
 
-	return store.WritePendingQueue(ctx, keptItems)
+	return store.WritePendingQueue(ctx, keptItems, seqNr)
 }
 
 func sortKey(id string, nonce []byte) []byte {
@@ -2563,5 +2633,8 @@ func (r *ReportingPlugin) Close() error {
 		r.cfg.MaxRequestBatchSize.Close(),
 		r.cfg.MaxBatchSize.Close(),
 		r.cfg.VaultForceEmptyOCRRounds.Close(),
+		r.cfg.VaultOptimizationsEnabled.Close(),
+		r.cfg.VaultPendingQueueStaleAutoEmpty.Close(),
+		r.cfg.VaultPendingQueueStaleRoundThreshold.Close(),
 	)
 }

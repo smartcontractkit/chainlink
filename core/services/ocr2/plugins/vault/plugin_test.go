@@ -310,6 +310,7 @@ func TestPlugin_Observation_GetSecretsRequest_OmitsRequestWhenOptimizationsEnabl
 	rdr := &kv{m: make(map[string]response)}
 	require.NoError(t, newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{{Id: "request-1", Item: anyp}},
+		0,
 	))
 
 	data, err := r.Observation(t.Context(), 1, types.AttributedQuery{}, rdr, &blobber{})
@@ -426,6 +427,7 @@ func TestPlugin_Observation_PendingQueueEnabled_WithPendingQueueProvided(t *test
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-3", Item: anyd},
 		},
+		0,
 	)
 	require.NoError(t, err)
 
@@ -502,6 +504,7 @@ func TestPlugin_Observation_PendingQueueEnabled_ItemBothInPendingQueueAndLocalQu
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-2", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 
@@ -733,7 +736,7 @@ func TestPrepareObservationPendingQueueBlobs_truncatesWhenHandleCountExceeded(t 
 	require.Equal(t, maxBlobHandleCount, pack.packedItemCount)
 }
 
-func TestPrepareObservationPendingQueueBlobs_errorWhenSingleItemTooLarge(t *testing.T) {
+func TestPrepareObservationPendingQueueBlobs_skipsWhenSingleItemTooLarge(t *testing.T) {
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := newTestReportingPlugin(t, withStore(store), withVaultOptimizationsEnabled())
 
@@ -749,9 +752,10 @@ func TestPrepareObservationPendingQueueBlobs_errorWhenSingleItemTooLarge(t *test
 	localQueueItems, err := store.All()
 	require.NoError(t, err)
 
-	_, err = r.prepareObservationPendingQueueBlobs(t.Context(), 1, localQueueItems, map[string]bool{}, 1, 10)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "single pending queue item exceeds max blob payload size")
+	pack, err := r.prepareObservationPendingQueueBlobs(t.Context(), 1, localQueueItems, map[string]bool{}, 1, 10)
+	require.NoError(t, err)
+	assert.Empty(t, pack.blobPayloads)
+	assert.Equal(t, 0, pack.packedItemCount)
 }
 
 type blockingBlobBroadcastFetcher struct {
@@ -996,6 +1000,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing
 			[]*vaultcommon.StoredPendingQueueItem{
 				{Id: "request-1", Item: anyp},
 			},
+			0,
 		)
 		require.NoError(t, err)
 		bf := &blobber{}
@@ -1071,6 +1076,7 @@ func TestPlugin_Observation_GetSecretsRequest_ResponseUsesCanonicalIdentifier(t 
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 	seqNr := uint64(1)
@@ -1137,6 +1143,7 @@ func TestPlugin_Observation_GetSecretsRequest_WorkflowOwnerLabelAccepted(t *test
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 
@@ -1198,6 +1205,7 @@ func TestPlugin_Observation_GetSecretsRequest_WrongOwnerLabelRejected(t *testing
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 
@@ -1240,6 +1248,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretDoesNotExist(t *testing.T) {
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 	bf := &blobber{}
@@ -1300,6 +1309,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretExistsButIsIncorrect(t *test
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 	seqNr := uint64(1)
@@ -1373,6 +1383,7 @@ func TestPlugin_Observation_GetSecretsRequest_PublicKeyIsInvalid(t *testing.T) {
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 	seqNr := uint64(1)
@@ -1446,6 +1457,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretLabelIsInvalid(t *testing.T)
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 	seqNr := uint64(1)
@@ -1520,6 +1532,7 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 	seqNr := uint64(1)
@@ -1619,6 +1632,7 @@ func TestPlugin_Observation_GetSecretsRequest_BinarySharesWhenOptimizationsEnabl
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 
@@ -1755,6 +1769,7 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *test
 			[]*vaultcommon.StoredPendingQueueItem{
 				{Id: "request-1", Item: anyp},
 			},
+			0,
 		)
 		require.NoError(t, err)
 		bf := &blobber{}
@@ -1811,6 +1826,7 @@ func TestPlugin_Observation_CreateSecretsRequest_DisallowsDuplicateRequests(t *t
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
@@ -1964,6 +1980,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext(t *testing.T)
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
@@ -2016,6 +2033,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_TooLong(t *te
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
@@ -2079,6 +2097,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_EncryptedWith
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
@@ -2145,6 +2164,7 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretLabelIsInvalid(t *testing
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
@@ -2207,6 +2227,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_SecretLabelIsInvalid(t *testing
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
@@ -2403,6 +2424,7 @@ func TestPlugin_Observation_CreateSecretsRequest_Success(t *testing.T) {
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
@@ -2456,6 +2478,7 @@ func TestPlugin_Observation_CreateSecretsRequest_WorkflowOwnerLabelAccepted(t *t
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 
@@ -2500,6 +2523,7 @@ func TestPlugin_Observation_CreateSecretsRequest_WrongOwnerLabelRejected(t *test
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 
@@ -2966,6 +2990,7 @@ func TestPlugin_ValidateObservations_RequiresObservedIDsInPendingQueue(t *testin
 			{Id: vaulttypes.KeyFor(id), Item: anyd},
 			{Id: vaulttypes.KeyFor(id2), Item: anyg},
 		},
+		0,
 	)
 	require.NoError(t, err)
 
@@ -4098,6 +4123,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_SecretIdentifierInvalid(t *test
 			[]*vaultcommon.StoredPendingQueueItem{
 				{Id: "request-1", Item: anyp},
 			},
+			0,
 		)
 		require.NoError(t, err)
 		bf := &blobber{}
@@ -4154,6 +4180,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_DisallowsDuplicateRequests(t *t
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
@@ -4209,6 +4236,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext(t *testing.T)
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
@@ -4261,6 +4289,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext_TooLong(t *te
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
@@ -4324,6 +4353,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext_EncryptedWith
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
@@ -4628,6 +4658,7 @@ func TestPlugin_Observation_DeleteSecrets(t *testing.T) {
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
@@ -4674,6 +4705,7 @@ func TestPlugin_Observation_DeleteSecrets_IdDoesntExist(t *testing.T) {
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
@@ -4721,6 +4753,7 @@ func TestPlugin_Observation_DeleteSecrets_InvalidRequestDuplicateIds(t *testing.
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
@@ -4994,6 +5027,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_OwnerRequired(t *testing.T) {
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
@@ -5058,6 +5092,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_NoNamespaceProvided(t *testing
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
@@ -5143,6 +5178,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_FilterByNamespace(t *testing.T
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
@@ -5205,6 +5241,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_ListsSecretsForRequestOwner(t 
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	))
 
 	data, err := r.Observation(t.Context(), 1, types.AttributedQuery{}, rdr, &blobber{})
@@ -5246,6 +5283,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_DoesNotFallbackWhenGateDisable
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	))
 
 	data, err := r.Observation(t.Context(), 1, types.AttributedQuery{}, rdr, &blobber{})
@@ -6010,6 +6048,7 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 
@@ -6399,6 +6438,7 @@ func TestPlugin_ValidateObservation_PanicsOnEmptyShares(t *testing.T) {
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
+		0,
 	)
 	require.NoError(t, err)
 
@@ -6635,6 +6675,7 @@ func TestPlugin_ValidateObservation_NilSecretIdentifier(t *testing.T) {
 				[]*vaultcommon.StoredPendingQueueItem{
 					{Id: "request-1", Item: anyp},
 				},
+				0,
 			)
 			require.NoError(t, err)
 
@@ -6846,6 +6887,7 @@ func TestPlugin_ValidateObservation_CiphertextSize(t *testing.T) {
 				[]*vaultcommon.StoredPendingQueueItem{
 					{Id: "request-1", Item: anyp},
 				},
+				0,
 			)
 			require.NoError(t, err)
 
@@ -7165,6 +7207,7 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 
 			err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 				[]*vaultcommon.StoredPendingQueueItem{{Id: "request-1", Item: anyp}},
+				0,
 			)
 			require.NoError(t, err)
 
@@ -7537,6 +7580,7 @@ func TestPlugin_ValidateObservation_ListSecretIdentifiersExceedsMaxSecretsPerOwn
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyReq},
 		},
+		0,
 	)
 	require.NoError(t, err)
 
@@ -8035,4 +8079,115 @@ func TestProperty_broadcastBlobPayloads_MaxSizePayloadsWithinBlobLimit(t *testin
 				rt.name, len(itemBytes), maxBlobPayloadBytes)
 		})
 	}
+}
+
+func TestObservation_skipsStoreBackedPendingWhenStale(t *testing.T) {
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(
+		t,
+		withKeys(pk, shares[0]),
+		withVaultPendingQueueStaleAutoEmpty(),
+		withVaultPendingQueueStaleRoundThreshold(5),
+	)
+
+	const writtenSeqNr = uint64(1)
+	seqNr := uint64(10)
+	rdr := &kv{m: make(map[string]response)}
+
+	pubK, _, err := box.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	pks := hex.EncodeToString(pubK[:])
+	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "my_secret"}
+	p := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{pks}}},
+	}
+	anyp, err := anypb.New(p)
+	require.NoError(t, err)
+
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
+		[]*vaultcommon.StoredPendingQueueItem{{Id: "request-1", Item: anyp}},
+		writtenSeqNr,
+	)
+	require.NoError(t, err)
+
+	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
+	require.NoError(t, err)
+
+	obs := &vaultcommon.Observations{}
+	require.NoError(t, proto.Unmarshal(data, obs))
+	assert.Empty(t, obs.Observations)
+}
+
+func TestObservation_readsStoreBackedPendingWhenLegacyWrittenSeqNrZero(t *testing.T) {
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(
+		t,
+		withKeys(pk, shares[0]),
+		withVaultPendingQueueStaleAutoEmpty(),
+		withVaultPendingQueueStaleRoundThreshold(1),
+	)
+
+	rdr := &kv{m: make(map[string]response)}
+	pubK, _, err := box.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	pks := hex.EncodeToString(pubK[:])
+	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "my_secret"}
+	p := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{pks}}},
+	}
+	anyp, err := anypb.New(p)
+	require.NoError(t, err)
+
+	item := &vaultcommon.StoredPendingQueueItem{Id: "request-1", Item: anyp}
+	itemBytes, err := proto.Marshal(item)
+	require.NoError(t, err)
+	rdr.m[pendingQueueItemPrefix+"0"] = response{data: itemBytes}
+
+	index := &vaultcommon.StoredPendingQueueIndex{Length: 1}
+	indexBytes, err := proto.Marshal(index)
+	require.NoError(t, err)
+	rdr.m[pendingQueueIndex] = response{data: indexBytes}
+
+	data, err := r.Observation(t.Context(), 100, types.AttributedQuery{}, rdr, &blobber{})
+	require.NoError(t, err)
+
+	obs := &vaultcommon.Observations{}
+	require.NoError(t, proto.Unmarshal(data, obs))
+	assert.NotEmpty(t, obs.Observations)
+}
+
+func TestObservation_skipsStoreBackedPendingWhenForceEmptyGateEnabled(t *testing.T) {
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(
+		t,
+		withKeys(pk, shares[0]),
+		withVaultForceEmptyOCRRounds(),
+	)
+
+	rdr := &kv{m: make(map[string]response)}
+	pubK, _, err := box.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	pks := hex.EncodeToString(pubK[:])
+	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "my_secret"}
+	p := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{pks}}},
+	}
+	anyp, err := anypb.New(p)
+	require.NoError(t, err)
+
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
+		[]*vaultcommon.StoredPendingQueueItem{{Id: "request-1", Item: anyp}},
+		1,
+	)
+	require.NoError(t, err)
+
+	data, err := r.Observation(t.Context(), 2, types.AttributedQuery{}, rdr, &blobber{})
+	require.NoError(t, err)
+
+	obs := &vaultcommon.Observations{}
+	require.NoError(t, proto.Unmarshal(data, obs))
+	assert.Empty(t, obs.Observations)
 }

@@ -18,6 +18,8 @@ type pluginMetrics struct {
 	localQueueSize                metric.Int64Histogram
 	observationPendingPackedItems metric.Int64Histogram
 	pendingQueueWrittenSize       metric.Int64Histogram
+	pendingQueueStaleAutoEmpty    metric.Int64Counter
+	localQueueBlobSkipped         metric.Int64Counter
 }
 
 func newPluginMetrics(configDigest string) (*pluginMetrics, error) {
@@ -61,6 +63,22 @@ func newPluginMetrics(configDigest string) (*pluginMetrics, error) {
 		return nil, fmt.Errorf("failed to create pending queue written size histogram: %w", err)
 	}
 
+	pendingQueueStaleAutoEmpty, err := beholder.GetMeter().Int64Counter(
+		"platform_vault_plugin_pending_queue_stale_auto_empty_total",
+		metric.WithDescription("OCR rounds that skipped store-backed pending queue observations due to stale written_seq_nr."),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create pending queue stale auto empty counter: %w", err)
+	}
+
+	localQueueBlobSkipped, err := beholder.GetMeter().Int64Counter(
+		"platform_vault_plugin_local_queue_blob_skipped_total",
+		metric.WithDescription("Local queue items skipped during Observation because a single blob payload exceeded max size."),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create local queue blob skipped counter: %w", err)
+	}
+
 	return &pluginMetrics{
 		configDigest:                  configDigest,
 		queueOverflow:                 queueOverflow,
@@ -68,6 +86,8 @@ func newPluginMetrics(configDigest string) (*pluginMetrics, error) {
 		localQueueSize:                localQueueSize,
 		observationPendingPackedItems: observationPendingPackedItems,
 		pendingQueueWrittenSize:       pendingQueueWrittenSize,
+		pendingQueueStaleAutoEmpty:    pendingQueueStaleAutoEmpty,
+		localQueueBlobSkipped:         localQueueBlobSkipped,
 	}, nil
 }
 
@@ -117,5 +137,24 @@ func (m *pluginMetrics) trackPendingQueueWrittenSize(ctx context.Context, writte
 	}
 	m.pendingQueueWrittenSize.Record(ctx, int64(writtenCount), metric.WithAttributes(
 		attribute.String("configDigest", m.configDigest),
+	))
+}
+
+func (m *pluginMetrics) trackPendingQueueStaleAutoEmpty(ctx context.Context) {
+	if m == nil {
+		return
+	}
+	m.pendingQueueStaleAutoEmpty.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("configDigest", m.configDigest),
+	))
+}
+
+func (m *pluginMetrics) trackLocalQueueBlobSkipped(ctx context.Context, requestID string) {
+	if m == nil {
+		return
+	}
+	m.localQueueBlobSkipped.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("configDigest", m.configDigest),
+		attribute.String("requestID", requestID),
 	))
 }

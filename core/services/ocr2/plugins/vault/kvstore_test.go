@@ -422,7 +422,8 @@ func TestKVStore_WritePendingRequests(t *testing.T) {
 		Id:   "test-request-id-3",
 		Item: empty,
 	}
-	err = store.WritePendingQueue(t.Context(), []*vault.StoredPendingQueueItem{item, item2, item3})
+	const writtenSeqNr = uint64(42)
+	err = store.WritePendingQueue(t.Context(), []*vault.StoredPendingQueueItem{item, item2, item3}, writtenSeqNr)
 	require.NoError(t, err)
 
 	// Ensure index is correctly written.
@@ -433,6 +434,12 @@ func TestKVStore_WritePendingRequests(t *testing.T) {
 	}
 	require.NoError(t, proto.Unmarshal(indexBytes.data, index))
 	assert.Equal(t, int64(3), index.Length)
+	assert.Equal(t, writtenSeqNr, index.WrittenSeqNr)
+
+	indexFromStore, err := store.GetPendingQueueIndex(t.Context())
+	require.NoError(t, err)
+	require.NotNil(t, indexFromStore)
+	assert.Equal(t, writtenSeqNr, indexFromStore.WrittenSeqNr)
 
 	// Ensure queue items are correctly written.
 	itemBytes, exists := kv.m[pendingQueueItemPrefix+"0"]
@@ -454,7 +461,7 @@ func TestKVStore_WritePendingRequests(t *testing.T) {
 	assert.Equal(t, "test-request-id-3", item2.Id)
 
 	// Writing a shorter list deletes the old one.
-	err = store.WritePendingQueue(t.Context(), []*vault.StoredPendingQueueItem{item, item2})
+	err = store.WritePendingQueue(t.Context(), []*vault.StoredPendingQueueItem{item, item2}, 99)
 	require.NoError(t, err)
 
 	_, exists = kv.m[pendingQueueItemPrefix+"3"]
