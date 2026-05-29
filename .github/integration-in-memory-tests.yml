@@ -1064,9 +1064,9 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIP_Upgrade_Sui2EVM" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIP_Upgrade_Sui2EVM" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.2
+    sui_cli_version: mainnet-v1.72.3
     install_plugins_public: true
     free_disk_space: true
 
@@ -1082,9 +1082,9 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIP_Upgrade_EVM2Sui" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIP_Upgrade_EVM2Sui" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.2
+    sui_cli_version: mainnet-v1.72.3
     install_plugins_public: true
     free_disk_space: true
     test_artifacts_on_failure: integration-tests/logs/
@@ -1101,9 +1101,9 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIP_Upgrade_CommonPkg_EVM2Sui" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIP_Upgrade_CommonPkg_EVM2Sui" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.2
+    sui_cli_version: mainnet-v1.72.3
     install_plugins_public: true
     free_disk_space: true
 
@@ -1119,9 +1119,9 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIP_Upgrade_NoBlock_EVM2Sui" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIP_Upgrade_NoBlock_EVM2Sui" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.2
+    sui_cli_version: mainnet-v1.72.3
     install_plugins_public: true
     free_disk_space: true
 
@@ -1138,9 +1138,9 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool_Plain" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool_Plain" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.2
+    sui_cli_version: mainnet-v1.72.3
     install_plugins_public: true
     free_disk_space: true
 
@@ -1156,9 +1156,9 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool_Revert" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool_Revert" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.2
+    sui_cli_version: mainnet-v1.72.3
     install_plugins_public: true
     free_disk_space: true
 
@@ -1174,9 +1174,9 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_Plain" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_Plain" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.2
+    sui_cli_version: mainnet-v1.72.3
     install_plugins_public: true
     free_disk_space: true
 
@@ -1192,9 +1192,9 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.2
+    sui_cli_version: mainnet-v1.72.3
     install_plugins_public: true
     free_disk_space: true
 
@@ -1210,9 +1210,9 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist_DenylistedSender$" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "^Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist_DenylistedSender$" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.2
+    sui_cli_version: mainnet-v1.72.3
     install_plugins_public: true
     free_disk_space: true
 
@@ -1228,9 +1228,9 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist_AfterSignerAdded$" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "^Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist_AfterSignerAdded$" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.2
+    sui_cli_version: mainnet-v1.72.3
     install_plugins_public: true
     free_disk_space: true
 
@@ -1246,9 +1246,9 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.2
+    sui_cli_version: mainnet-v1.72.3
     install_plugins_public: true
     free_disk_space: true
 
@@ -1264,9 +1264,9 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.2
+    sui_cli_version: mainnet-v1.72.3
     install_plugins_public: true
     free_disk_space: true
 
@@ -1282,9 +1282,9 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_WithRateLimit" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_WithRateLimit" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.2
+    sui_cli_version: mainnet-v1.72.3
     install_plugins_public: true
     free_disk_space: true
 
@@ -1300,9 +1300,9 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPTokenTransfer_EVM2Sui_BurnMintTokenPool" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIPTokenTransfer_EVM2Sui_BurnMintTokenPool" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.2
+    sui_cli_version: mainnet-v1.72.3
     install_plugins_public: true
     free_disk_space: true
 
@@ -1318,9 +1318,9 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPTokenTransfer_EVM2Sui_ManagedTokenPool_NoRateLimit" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIPTokenTransfer_EVM2Sui_ManagedTokenPool_NoRateLimit" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.2
+    sui_cli_version: mainnet-v1.72.3
     install_plugins_public: true
     free_disk_space: true
 
@@ -1336,9 +1336,9 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPTokenTransfer_EVM2Sui_ManagedTokenPool_WithRateLimit" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIPTokenTransfer_EVM2Sui_ManagedTokenPool_WithRateLimit" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.2
+    sui_cli_version: mainnet-v1.72.3
     install_plugins_public: true
     free_disk_space: true
 
@@ -1354,9 +1354,9 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPPureTokenTransfer_EVM2Sui_BurnMintTokenPool" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIPPureTokenTransfer_EVM2Sui_BurnMintTokenPool" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.2
+    sui_cli_version: mainnet-v1.72.3
     install_plugins_public: true
     free_disk_space: true
 
@@ -1372,9 +1372,9 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPProgrammableTokenTransfer_EVM2Sui_BurnMintTokenPool" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIPProgrammableTokenTransfer_EVM2Sui_BurnMintTokenPool" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.2
+    sui_cli_version: mainnet-v1.72.3
     install_plugins_public: true
     free_disk_space: true
 
@@ -1390,9 +1390,9 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPZeroGasLimitTokenTransfer_EVM2Sui_BurnMintTokenPool" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIPZeroGasLimitTokenTransfer_EVM2Sui_BurnMintTokenPool" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.2
+    sui_cli_version: mainnet-v1.72.3
     install_plugins_public: true
     free_disk_space: true
 
@@ -1409,9 +1409,9 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIP_Messaging_Sui2EVM_Success" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIP_Messaging_Sui2EVM_Success" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.2
+    sui_cli_version: mainnet-v1.72.3
     install_plugins_public: true
     free_disk_space: true
 
@@ -1427,9 +1427,9 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIP_Messaging_Sui2EVM_Revert_Part1" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIP_Messaging_Sui2EVM_Revert_Part1" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.2
+    sui_cli_version: mainnet-v1.72.3
     install_plugins_public: true
     free_disk_space: true
 
@@ -1445,9 +1445,9 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIP_Messaging_Sui2EVM_Revert_Part2" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIP_Messaging_Sui2EVM_Revert_Part2" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.2
+    sui_cli_version: mainnet-v1.72.3
     install_plugins_public: true
     free_disk_space: true
 
@@ -1463,9 +1463,9 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIP_Messaging_EVM2Sui_Success" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIP_Messaging_EVM2Sui_Success" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.2
+    sui_cli_version: mainnet-v1.72.3
     install_plugins_public: true
     free_disk_space: true
 
@@ -1481,9 +1481,9 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIP_Messaging_EVM2Sui_Revert_Part1" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIP_Messaging_EVM2Sui_Revert_Part1" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.2
+    sui_cli_version: mainnet-v1.72.3
     install_plugins_public: true
     free_disk_space: true
 
@@ -1499,9 +1499,9 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIP_Messaging_EVM2Sui_Revert_Part2" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIP_Messaging_EVM2Sui_Revert_Part2" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.2
+    sui_cli_version: mainnet-v1.72.3
     install_plugins_public: true
     free_disk_space: true
 
@@ -1517,9 +1517,9 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIP_EVM2Sui_ZeroReceiver" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIP_EVM2Sui_ZeroReceiver" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.2
+    sui_cli_version: mainnet-v1.72.3
     install_plugins_public: true
     free_disk_space: true
 
@@ -1536,6 +1536,24 @@ runner-test-matrix:
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
         -- -v -run "Test_CCIP_EVM2Sui_UnregisteredReceiver" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
+    test_go_project_path: integration-tests
+    sui_cli_version: mainnet-v1.72.3
+    install_plugins_public: true
+    free_disk_space: true
+
+  - id: smoke/ccip/ccip_sui_messaging_test.go:Test_CCIP_EVM2Sui_RegisteredBrokenReceiver
+    path: integration-tests/smoke/ccip/ccip_sui_messaging_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIP_EVM2Sui_RegisteredBrokenReceiver" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-v1.72.3
     install_plugins_public: true
