@@ -277,7 +277,7 @@ func testClient(t *testing.T, numWorkflowPeers int, workflowNodeResponseTimeout 
 	for i := range numWorkflowPeers {
 		workflowPeerDispatcher := broker.NewDispatcherForNode(workflowPeers[i])
 		caller := executable.NewClient(capInfo.ID, "", workflowPeerDispatcher, lggr)
-		err := caller.SetConfig(capInfo, workflowDonInfo, workflowNodeResponseTimeout, nil, nil)
+		err := caller.SetConfig(capInfo, workflowDonInfo, workflowNodeResponseTimeout, nil, nil, 0)
 		require.NoError(t, err)
 		servicetest.Run(t, caller)
 		broker.RegisterReceiverNode(workflowPeers[i], caller)
@@ -437,7 +437,7 @@ func TestClient_SetConfig(t *testing.T) {
 			DeltaStage: 10 * time.Millisecond,
 		}
 
-		err := client.SetConfig(validCapInfo, validDonInfo, validTimeout, transmissionConfig, nil)
+		err := client.SetConfig(validCapInfo, validDonInfo, validTimeout, transmissionConfig, nil, 0)
 		require.NoError(t, err)
 
 		// Verify config was set
@@ -452,7 +452,7 @@ func TestClient_SetConfig(t *testing.T) {
 			CapabilityType: commoncap.CapabilityTypeAction,
 		}
 
-		err := client.SetConfig(invalidCapInfo, validDonInfo, validTimeout, nil, nil)
+		err := client.SetConfig(invalidCapInfo, validDonInfo, validTimeout, nil, nil, 0)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "capability info provided does not match the client's capabilityID")
 		assert.Contains(t, err.Error(), "different_capability@1.0.0 != test_capability@1.0.0")
@@ -465,7 +465,7 @@ func TestClient_SetConfig(t *testing.T) {
 			F:       0,
 		}
 
-		err := client.SetConfig(validCapInfo, invalidDonInfo, validTimeout, nil, nil)
+		err := client.SetConfig(validCapInfo, invalidDonInfo, validTimeout, nil, nil, 0)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "empty localDonInfo provided")
 	})
@@ -473,7 +473,7 @@ func TestClient_SetConfig(t *testing.T) {
 	t.Run("successful config update", func(t *testing.T) {
 		// Set initial config
 		initialTimeout := 10 * time.Second
-		err := client.SetConfig(validCapInfo, validDonInfo, initialTimeout, nil, nil)
+		err := client.SetConfig(validCapInfo, validDonInfo, initialTimeout, nil, nil, 0)
 		require.NoError(t, err)
 
 		// Replace with new config
@@ -484,7 +484,7 @@ func TestClient_SetConfig(t *testing.T) {
 			F:       1,
 		}
 
-		err = client.SetConfig(validCapInfo, newDonInfo, newTimeout, nil, nil)
+		err = client.SetConfig(validCapInfo, newDonInfo, newTimeout, nil, nil, 0)
 		require.NoError(t, err)
 
 		// Verify the config was completely replaced
@@ -528,7 +528,7 @@ func TestClient_SetConfig_StartClose(t *testing.T) {
 	})
 
 	t.Run("start succeeds after config set", func(t *testing.T) {
-		require.NoError(t, client.SetConfig(validCapInfo, validDonInfo, validTimeout, nil, nil))
+		require.NoError(t, client.SetConfig(validCapInfo, validDonInfo, validTimeout, nil, nil, 0))
 		require.NoError(t, client.Start(ctx))
 		require.NoError(t, client.Close())
 	})
@@ -538,12 +538,12 @@ func TestClient_SetConfig_StartClose(t *testing.T) {
 		freshClient := executable.NewClient(capabilityID, "execute", dispatcher, lggr)
 
 		// Set initial config and start
-		require.NoError(t, freshClient.SetConfig(validCapInfo, validDonInfo, validTimeout, nil, nil))
+		require.NoError(t, freshClient.SetConfig(validCapInfo, validDonInfo, validTimeout, nil, nil, 0))
 		require.NoError(t, freshClient.Start(ctx))
 
 		// Update config while running
 		validCapInfo.Description = "new description"
-		require.NoError(t, freshClient.SetConfig(validCapInfo, validDonInfo, validTimeout, nil, nil))
+		require.NoError(t, freshClient.SetConfig(validCapInfo, validDonInfo, validTimeout, nil, nil, 0))
 
 		// Verify config was updated
 		info, err := freshClient.Info(ctx)

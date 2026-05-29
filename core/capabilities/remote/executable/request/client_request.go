@@ -66,7 +66,7 @@ func newRemoteCapabilityExecuteErrorFromCapError(capErr caperrors.Error) error {
 }
 
 // ErrResponseQuorumUnreachable is returned when enough peer responses have been
-// received that F+1 matching payloads are no longer mathematically possible.
+// received that the required number of matching payloads (configurable; defaults to F+1) are no longer mathematically possible.
 var ErrResponseQuorumUnreachable = errors.New("response quorum unreachable: not enough matching capability responses")
 
 type clientResponse struct {
@@ -104,7 +104,7 @@ type ClientRequest struct {
 func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest,
 	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, dispatcher types.Dispatcher,
 	requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig, capMethodName string,
-	signers [][]byte,
+	signers [][]byte, minResponsesToAggregate uint32,
 ) (*ClientRequest, error) {
 	rawRequest, err := proto.MarshalOptions{Deterministic: true}.Marshal(pb.CapabilityRequestToProto(req))
 	if err != nil {
@@ -134,15 +134,25 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 	}
 
 	lggr = logger.With(lggr, "requestId", requestID) // cap ID and method name included in the parent logger
-	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName, signers)
+	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName, signers, minResponsesToAggregate)
 }
 
 var defaultDelayMargin = 10 * time.Second
 
+// requiredConfirmations returns the minimum number of matching peer responses needed before
+// the workflow DON accepts a read result. When minResponsesToAggregate is non-zero it is used
+// directly; otherwise the default of F+1 is used (backward compatible).
+func requiredConfirmations(f uint8, minResponsesToAggregate uint32) int {
+	if minResponsesToAggregate > 0 {
+		return int(minResponsesToAggregate)
+	}
+	return int(f) + 1
+}
+
 func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string, remoteCapabilityInfo commoncap.CapabilityInfo,
 	localDonInfo commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration,
 	tc transmission.TransmissionConfig, methodType string, rawRequest []byte, workflowExecutionID string, stepRef string, capMethodName string,
-	signers [][]byte,
+	signers [][]byte, minResponsesToAggregate uint32,
 ) (*ClientRequest, error) {
 	remoteCapabilityDonInfo := remoteCapabilityInfo.DON
 	if remoteCapabilityDonInfo == nil {
@@ -239,7 +249,7 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 		cancelFn:                      cancelFn,
 		createdAt:                     time.Now(),
 		requestTimeout:                requestTimeout,
-		requiredResponseConfirmations: int(remoteCapabilityDonInfo.F + 1),
+		requiredResponseConfirmations: requiredConfirmations(remoteCapabilityDonInfo.F, minResponsesToAggregate),
 		remoteNodeCount:               len(remoteCapabilityDonInfo.Members),
 		responseIDCount:               make(map[[32]byte]int),
 		meteringResponses:             make(map[[32]byte][]commoncap.MeteringNodeDetail),

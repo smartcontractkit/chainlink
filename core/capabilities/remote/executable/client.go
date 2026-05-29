@@ -48,12 +48,15 @@ type dynamicConfig struct {
 	transmissionConfig *transmission.TransmissionConfig
 	// Has to be set only for V2 capabilities using OCR.
 	signers [][]byte
+	// minResponsesToAggregate overrides the default F+1 matching threshold for read consensus.
+	// 0 defaults to F+1.
+	minResponsesToAggregate uint32
 }
 
 type Client interface {
 	commoncap.ExecutableCapability
 	Receive(ctx context.Context, msg *types.MessageBody)
-	SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig, signers [][]byte) error
+	SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig, signers [][]byte, minResponsesToAggregate uint32) error
 }
 
 var _ Client = &client{}
@@ -80,7 +83,7 @@ func NewClient(capabilityID string, capMethodName string, dispatcher types.Dispa
 
 // SetConfig sets the remote capability configuration dynamically
 // TransmissionConfig has to be set only for V2 capabilities. V1 capabilities read transmission schedule from every request.
-func (c *client) SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig, signers [][]byte) error {
+func (c *client) SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig, signers [][]byte, minResponsesToAggregate uint32) error {
 	if remoteCapabilityInfo.ID == "" || remoteCapabilityInfo.ID != c.capabilityID {
 		return fmt.Errorf("capability info provided does not match the client's capabilityID: %s != %s", remoteCapabilityInfo.ID, c.capabilityID)
 	}
@@ -96,11 +99,12 @@ func (c *client) SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localD
 
 	// always replace the whole dynamicConfig object to avoid inconsistent state
 	c.cfg.Store(&dynamicConfig{
-		remoteCapabilityInfo: remoteCapabilityInfo,
-		localDONInfo:         localDonInfo,
-		requestTimeout:       requestTimeout,
-		transmissionConfig:   transmissionConfig,
-		signers:              signers,
+		remoteCapabilityInfo:    remoteCapabilityInfo,
+		localDONInfo:            localDonInfo,
+		requestTimeout:          requestTimeout,
+		transmissionConfig:      transmissionConfig,
+		signers:                 signers,
+		minResponsesToAggregate: minResponsesToAggregate,
 	})
 	c.lggr.Infow("SetConfig", "remoteDONName", remoteCapabilityInfo.DON.Name, "remoteDONID", remoteCapabilityInfo.DON.ID, "requestTimeout", requestTimeout, "transmissionConfig", transmissionConfig)
 	return nil
@@ -237,7 +241,7 @@ func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest
 	}
 
 	req, err := request.NewClientExecuteRequest(ctx, c.lggr, capReq, cfg.remoteCapabilityInfo, cfg.localDONInfo, c.dispatcher,
-		cfg.requestTimeout, cfg.transmissionConfig, c.capMethodName, cfg.signers)
+		cfg.requestTimeout, cfg.transmissionConfig, c.capMethodName, cfg.signers, cfg.minResponsesToAggregate)
 	if err != nil {
 		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to create client request: %w", err)
 	}

@@ -91,7 +91,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := newClientRequestTestDispatcher()
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute, nil, "", nil)
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "", nil, 0)
 		defer req.Cancel(errors.New("test end"))
 
 		require.NoError(t, err)
@@ -150,7 +150,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := newClientRequestTestDispatcher()
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute, nil, "", nil)
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "", nil, 0)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
@@ -184,7 +184,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := newClientRequestTestDispatcher()
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute, nil, "", nil)
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "", nil, 0)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
@@ -215,7 +215,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := newClientRequestTestDispatcher()
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute, nil, "", nil)
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "", nil, 0)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
@@ -257,7 +257,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := newClientRequestTestDispatcher()
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute, nil, "", nil)
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "", nil, 0)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
@@ -301,7 +301,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := newClientRequestTestDispatcher()
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute, nil, "", nil)
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "", nil, 0)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
@@ -360,7 +360,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := newClientRequestTestDispatcher()
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute, nil, "", nil)
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "", nil, 0)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
@@ -465,7 +465,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 			dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 			req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-				workflowDonInfo, dispatcher, 10*time.Minute, nil, "", ocrSigners)
+				workflowDonInfo, dispatcher, 10*time.Minute, nil, "", ocrSigners, 0)
 			require.NoError(t, err)
 			defer req.Cancel(errors.New("test end"))
 
@@ -495,7 +495,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 			dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 			req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-				workflowDonInfo, dispatcher, 10*time.Minute, nil, "", ocrSigners)
+				workflowDonInfo, dispatcher, 10*time.Minute, nil, "", ocrSigners, 0)
 			require.NoError(t, err)
 			defer req.Cancel(errors.New("test end"))
 
@@ -548,7 +548,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			ctx := t.Context()
 			dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 			req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-				workflowDonInfo, dispatcher, 10*time.Minute, nil, "", ocrSigners)
+				workflowDonInfo, dispatcher, 10*time.Minute, nil, "", ocrSigners, 0)
 			require.NoError(t, err)
 			defer req.Cancel(errors.New("test end"))
 
@@ -591,7 +591,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			ctx := t.Context()
 			dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 			req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-				workflowDonInfo, dispatcher, 10*time.Minute, nil, "", ocrSigners)
+				workflowDonInfo, dispatcher, 10*time.Minute, nil, "", ocrSigners, 0)
 			require.NoError(t, err)
 			defer req.Cancel(errors.New("test end"))
 
@@ -646,6 +646,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			nil,
 			"",
 			nil,
+			0,
 		)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
@@ -761,6 +762,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			nil,
 			"",
 			nil,
+			0,
 		)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
@@ -850,7 +852,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := newClientRequestTestDispatcher()
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute, nil, "", nil)
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "", nil, 0)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
@@ -916,6 +918,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			},
 			"",
 			nil,
+			0,
 		)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
@@ -1058,3 +1061,115 @@ func (t *clientRequestTestDispatcher) Send(peerID p2ptypes.PeerID, msgBody *type
 	t.msgs <- msgBody
 	return nil
 }
+
+func TestRequiredConfirmations(t *testing.T) {
+	// helper vars for these sub-tests
+	workflowPeers := []p2ptypes.PeerID{NewP2PPeerID(t), NewP2PPeerID(t)}
+	testWorkflowDonInfo := commoncap.DON{Members: workflowPeers, ID: 2}
+	executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
+	require.NoError(t, err)
+	transmissionSchedule, err := values.NewMap(map[string]any{
+		"schedule":   transmission.Schedule_AllAtOnce,
+		"deltaStage": "1000ms",
+	})
+	require.NoError(t, err)
+	testCapReq := commoncap.CapabilityRequest{
+		Metadata: commoncap.RequestMetadata{
+			WorkflowID:          workflowID1,
+			WorkflowExecutionID: workflowExecutionID1,
+			ReferenceID:         stepRef1,
+		},
+		Inputs: executeInputs,
+		Config: transmissionSchedule,
+	}
+	m, err := values.NewMap(map[string]any{"response": "response1"})
+	require.NoError(t, err)
+	testCapResp := commoncap.CapabilityResponse{Value: m}
+
+	t.Run("default uses F+1", func(t *testing.T) {
+		// minResponsesToAggregate=0 → F=2, required=F+1=3
+		ctx := t.Context()
+		capabilityPeers, _, capInfo := capabilityDon(t, 7, 2)
+		dispatcher := newClientRequestTestDispatcher()
+		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), testCapReq, capInfo,
+			testWorkflowDonInfo, dispatcher, 10*time.Minute, nil, "", nil, 0)
+		require.NoError(t, err)
+		defer req.Cancel(errors.New("test end"))
+
+		rawResp, marshalErr := pb.MarshalCapabilityResponse(testCapResp)
+		require.NoError(t, marshalErr)
+		msg := &types.MessageBody{
+			CapabilityId:    capInfo.ID,
+			CapabilityDonId: capInfo.DON.ID,
+			CallerDonId:     testWorkflowDonInfo.ID,
+			Method:          types.MethodExecute,
+			Payload:         rawResp,
+			MessageId:       []byte("req-default"),
+		}
+
+		// 2 responses → not yet at F+1=3
+		for i := 0; i < 2; i++ {
+			msg.Sender = capabilityPeers[i][:]
+			require.NoError(t, req.OnMessage(ctx, msg))
+		}
+		select {
+		case <-req.ResponseChan():
+			t.Fatal("should not have resolved after 2 responses with F+1=3 threshold")
+		default:
+		}
+
+		// 3rd response should trigger resolution
+		msg.Sender = capabilityPeers[2][:]
+		require.NoError(t, req.OnMessage(ctx, msg))
+		select {
+		case resp := <-req.ResponseChan():
+			require.NoError(t, resp.Err)
+		case <-time.After(2 * time.Second):
+			t.Fatal("timed out waiting for response after F+1=3 matching")
+		}
+	})
+
+	t.Run("2F+1 threshold (tier-2, N=7 F=2)", func(t *testing.T) {
+		// minResponsesToAggregate=5 → need 5 matching responses
+		ctx := t.Context()
+		capabilityPeers, _, capInfo := capabilityDon(t, 7, 2)
+		dispatcher := newClientRequestTestDispatcher()
+		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), testCapReq, capInfo,
+			testWorkflowDonInfo, dispatcher, 10*time.Minute, nil, "", nil, 5)
+		require.NoError(t, err)
+		defer req.Cancel(errors.New("test end"))
+
+		rawResp, marshalErr := pb.MarshalCapabilityResponse(testCapResp)
+		require.NoError(t, marshalErr)
+		msg := &types.MessageBody{
+			CapabilityId:    capInfo.ID,
+			CapabilityDonId: capInfo.DON.ID,
+			CallerDonId:     testWorkflowDonInfo.ID,
+			Method:          types.MethodExecute,
+			Payload:         rawResp,
+			MessageId:       []byte("req-2f1"),
+		}
+
+		// 4 responses → not yet at 2F+1=5
+		for i := 0; i < 4; i++ {
+			msg.Sender = capabilityPeers[i][:]
+			require.NoError(t, req.OnMessage(ctx, msg))
+		}
+		select {
+		case <-req.ResponseChan():
+			t.Fatal("should not have resolved after only 4 responses with threshold 5")
+		default:
+		}
+
+		// 5th response should trigger resolution
+		msg.Sender = capabilityPeers[4][:]
+		require.NoError(t, req.OnMessage(ctx, msg))
+		select {
+		case resp := <-req.ResponseChan():
+			require.NoError(t, resp.Err)
+		case <-time.After(2 * time.Second):
+			t.Fatal("timed out waiting for response at 2F+1=5 threshold")
+		}
+	})
+}
+
