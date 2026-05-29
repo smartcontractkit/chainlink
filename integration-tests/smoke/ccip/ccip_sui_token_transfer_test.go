@@ -33,6 +33,7 @@ import (
 	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
 	module_fee_quoter "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/fee_quoter"
 	module_offramp "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_offramp/offramp"
+	suicodec "github.com/smartcontractkit/chainlink-sui/relayer/codec"
 	sui_deployment "github.com/smartcontractkit/chainlink-sui/deployment"
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
 	sui_ops "github.com/smartcontractkit/chainlink-sui/deployment/ops"
@@ -1636,7 +1637,11 @@ func Test_CCIPProgrammableTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) 
 	logSuiOffRampCommitDiagnostics(t, e, state, sourceChain, destChain)
 
 	// Diagnostics: distinguish "no commit tx submitted" from "commit tx reverted on Sui".
-	pollSuiOffRampCommitTxns(t, e, state, destChain, 4*time.Minute)
+	pollSuiOffRampCommitTxns(t, e, state, destChain, 2*time.Minute)
+
+	// Diagnostics: dump every CommitReportAccepted's contents to see whether a merkle root for
+	// the EVM source (seq 1) is ever committed, or only price updates are.
+	pollSuiCommitReportContents(t, e, state, destChain, sourceChain, 1, 4*time.Minute)
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,
@@ -1979,6 +1984,82 @@ func pollSuiOffRampCommitTxns(t *testing.T, e testhelpers.DeployedEnv, state sta
 
 	if len(seen) == 0 {
 		t.Logf("[DIAG] *** NO offRamp::commit transaction was ever submitted to Sui within %s -> commit OCR plugin is not transmitting (not a revert). Check the commit plugin observation/transmitter for the Sui dest. ***", maxWait)
+	}
+	return false
+}
+
+// pollSuiCommitReportContents queries every offRamp::CommitReportAccepted event and dumps its
+// contents (merkle roots + whether it carries price updates). This distinguishes the two flaky
+// outcomes we've seen:
+//
+//   - A report is emitted but carries ONLY price updates (empty blessed/unblessed roots) -> the
+//     commit plugin's TokenPrice/ChainFee processors work but the MerkleRoot processor produced
+//     no root for the EVM source message. That's the actual bug surface.
+//   - A report carries a root but for the wrong source/seq range -> mismatch in selector or range.
+//
+// Returns true once a root covering [wantSeq] from wantSource is observed.
+func pollSuiCommitReportContents(t *testing.T, e testhelpers.DeployedEnv, state stateview.CCIPOnChainState, destChain, wantSource, wantSeq uint64, maxWait time.Duration) bool {
+	t.Helper()
+
+	suiChain := e.Env.BlockChains.SuiChains()[destChain]
+	offRampPkg := state.SuiChains[destChain].OffRampAddress
+	eventType := fmt.Sprintf("%s::offramp::CommitReportAccepted", offRampPkg)
+
+	seen := map[string]bool{}
+	deadline := time.Now().Add(maxWait)
+	ctx := t.Context()
+
+	t.Logf("[DIAG] polling Sui for %s contents (want source=%d seq=%d) for up to %s", eventType, wantSource, wantSeq, maxWait)
+
+	for time.Now().Before(deadline) {
+		resp, err := suiChain.Client.SuiXQueryEvents(ctx, models.SuiXQueryEventsRequest{
+			SuiEventFilter:  models.EventFilterByMoveEventType{MoveEventType: eventType},
+			Limit:           50,
+			DescendingOrder: false,
+		})
+		if err != nil {
+			t.Logf("[DIAG] SuiXQueryEvents(CommitReportAccepted) error: %v", err)
+			time.Sleep(3 * time.Second)
+			continue
+		}
+
+		for _, ev := range resp.Data {
+			id := fmt.Sprintf("%s:%s", ev.Id.TxDigest, ev.Id.EventSeq)
+			if seen[id] {
+				continue
+			}
+			seen[id] = true
+
+			var report module_offramp.CommitReportAccepted
+			if derr := suicodec.DecodeSuiJsonValue(ev.ParsedJson, &report); derr != nil {
+				t.Logf("[DIAG] CommitReportAccepted %s decode error: %v; raw=%v", id, derr, ev.ParsedJson)
+				continue
+			}
+
+			nRoots := len(report.BlessedMerkleRoots) + len(report.UnblessedMerkleRoots)
+			nTokenPrices := len(report.PriceUpdates.TokenPriceUpdates)
+			nGasPrices := len(report.PriceUpdates.GasPriceUpdates)
+			t.Logf("[DIAG] *** CommitReportAccepted %s: merkleRoots=%d (blessed=%d unblessed=%d) tokenPriceUpdates=%d gasPriceUpdates=%d ***",
+				id, nRoots, len(report.BlessedMerkleRoots), len(report.UnblessedMerkleRoots), nTokenPrices, nGasPrices)
+			if nRoots == 0 {
+				t.Logf("[DIAG]     -> PRICE-ONLY report (no merkle root). The MerkleRoot processor produced no root for the message.")
+			}
+			for _, mr := range append(append([]module_offramp.MerkleRoot{}, report.BlessedMerkleRoots...), report.UnblessedMerkleRoots...) {
+				t.Logf("[DIAG]     root: source=%d minSeq=%d maxSeq=%d onRamp=0x%x", mr.SourceChainSelector, mr.MinSeqNr, mr.MaxSeqNr, mr.OnRampAddress)
+				if mr.SourceChainSelector == wantSource && mr.MinSeqNr <= wantSeq && wantSeq <= mr.MaxSeqNr {
+					t.Logf("[DIAG]     -> matches wanted source=%d seq=%d", wantSource, wantSeq)
+					return true
+				}
+			}
+		}
+
+		time.Sleep(3 * time.Second)
+	}
+
+	if len(seen) == 0 {
+		t.Logf("[DIAG] *** NO CommitReportAccepted event at all within %s. ***", maxWait)
+	} else {
+		t.Logf("[DIAG] *** Saw %d CommitReportAccepted event(s) but none carried a merkle root for source=%d seq=%d. ***", len(seen), wantSource, wantSeq)
 	}
 	return false
 }
