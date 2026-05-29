@@ -489,16 +489,9 @@ func TestWithReconnect(t *testing.T) {
 	receiveChannel := make(chan capabilities.CapabilityRequest, 1000)
 	require.NoError(t, mocksClient.HookExecutables(ctx, receiveChannel), "could not hook into executable")
 
-	labels := map[string]string{
-		"go_test_name": "Workflow DON Load Test",
-		"branch":       "profile-check",
-		"commit":       "profile-check",
-	}
-
-	sg := NewStreamsGun(mocksClient, kb, feedAddresses, "streams-trigger@2.0.0", receiveChannel, 600, 2)
 	// Wait until the capability has received at least one request, confirming
-	// the report has been generated and the capability is ready (same gate as before;
-	// the prior select+default only slept once and did not keep waiting on the channel).
+	// the report has been generated and the capability is ready. Must happen
+	// before NewStreamsGun so waitLoop does not compete for the same channel.
 	waitCtx, waitCancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer waitCancel()
 	select {
@@ -508,6 +501,13 @@ func TestWithReconnect(t *testing.T) {
 		require.FailNow(t, "timed out waiting for first capability request on receive channel")
 	}
 
+	labels := map[string]string{
+		"go_test_name": "Workflow DON Load Test",
+		"branch":       "profile-check",
+		"commit":       "profile-check",
+	}
+
+	sg := NewStreamsGun(mocksClient, kb, feedAddresses, "streams-trigger@2.0.0", receiveChannel, 600, 2)
 	_, err = wasp.NewProfile().
 		Add(wasp.NewGenerator(&wasp.Config{
 			CallTimeout: time.Minute * 5, // Give enough time for the workflow to execute
