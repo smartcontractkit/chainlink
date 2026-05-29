@@ -24,8 +24,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
-	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
+	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 	wfpb "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 )
 
