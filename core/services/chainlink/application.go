@@ -151,32 +151,32 @@ type Application interface {
 // and Store. The JobSubscriber and Scheduler are also available
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
-	relayers                 *CoreRelayerChainInteroperators
-	jobORM                   job.ORM
-	jobSpawner               job.Spawner
-	pipelineORM              pipeline.ORM
-	pipelineRunner           pipeline.Runner
-	bridgeORM                bridges.ORM
-	localAdminUsersORM       sessions.BasicAdminUsersORM
-	authenticationProvider   sessions.AuthenticationProvider // Note: this will be OIDC instance
-	txmStorageService        txmgr.EvmTxStore
-	FeedsService             feeds.Service
-	Config                   GeneralConfig
-	KeyStore      keystore.Master
-	SessionReaper *utils.SleeperTask
-	shutdownOnce             sync.Once
-	srvcs                    []services.ServiceCtx
-	HealthChecker            services.Checker
-	logger                   logger.SugaredLogger
-	AuditLogger              audit.AuditLogger
-	closeLogger              func() error
-	ds                       sqlutil.DataSource
-	secretGenerator          SecretGenerator
-	profiler                 *pyroscope.Profiler
-	loopRegistry             *plugins.LoopRegistry
-	loopRegistrarConfig      plugins.RegistrarConfig
-	capabilitiesRegistry     *capabilities.Registry
-	shardOrchestratorClient  shardorchestrator.ClientInterface
+	relayers                *CoreRelayerChainInteroperators
+	jobORM                  job.ORM
+	jobSpawner              job.Spawner
+	pipelineORM             pipeline.ORM
+	pipelineRunner          pipeline.Runner
+	bridgeORM               bridges.ORM
+	localAdminUsersORM      sessions.BasicAdminUsersORM
+	authenticationProvider  sessions.AuthenticationProvider // Note: this will be OIDC instance
+	txmStorageService       txmgr.EvmTxStore
+	FeedsService            feeds.Service
+	Config                  GeneralConfig
+	KeyStore                keystore.Master
+	SessionReaper           *utils.SleeperTask
+	shutdownOnce            sync.Once
+	srvcs                   []services.ServiceCtx
+	HealthChecker           services.Checker
+	logger                  logger.SugaredLogger
+	AuditLogger             audit.AuditLogger
+	closeLogger             func() error
+	ds                      sqlutil.DataSource
+	secretGenerator         SecretGenerator
+	profiler                *pyroscope.Profiler
+	loopRegistry            *plugins.LoopRegistry
+	loopRegistrarConfig     plugins.RegistrarConfig
+	capabilitiesRegistry    *capabilities.Registry
+	shardOrchestratorClient shardorchestrator.ClientInterface
 
 	started     bool
 	startStopMu sync.Mutex
@@ -186,26 +186,26 @@ type ApplicationOpts struct {
 	// CREOpts is the options for the CRE services
 	cre.Opts
 
-	Config                   GeneralConfig
-	Logger                   logger.Logger
-	Registerer               prometheus.Registerer
-	DS                       sqlutil.DataSource
-	KeyStore                 keystore.Master
-	AuditLogger              audit.AuditLogger
-	CloseLogger func() error
-	Version     string
-	VersionTag               string
-	DockerTag                string
-	RestrictedHTTPClient     *http.Client
-	UnrestrictedHTTPClient   *http.Client
-	SecretGenerator          SecretGenerator
-	GRPCOpts                 loop.GRPCOpts
-	MercuryPool              wsrpc.Pool
-	RetirementReportCache    retirement.RetirementReportCache
-	LLOTransmissionReaper    services.ServiceCtx
-	NewOracleFactoryFn       standardcapabilities.NewOracleFactoryFn
-	EVMFactoryConfigFn       func(*EVMFactoryConfig)
-	DonTimeStore             *dontime.Store
+	Config                 GeneralConfig
+	Logger                 logger.Logger
+	Registerer             prometheus.Registerer
+	DS                     sqlutil.DataSource
+	KeyStore               keystore.Master
+	AuditLogger            audit.AuditLogger
+	CloseLogger            func() error
+	Version                string
+	VersionTag             string
+	DockerTag              string
+	RestrictedHTTPClient   *http.Client
+	UnrestrictedHTTPClient *http.Client
+	SecretGenerator        SecretGenerator
+	GRPCOpts               loop.GRPCOpts
+	MercuryPool            wsrpc.Pool
+	RetirementReportCache  retirement.RetirementReportCache
+	LLOTransmissionReaper  services.ServiceCtx
+	NewOracleFactoryFn     standardcapabilities.NewOracleFactoryFn
+	EVMFactoryConfigFn     func(*EVMFactoryConfig)
+	DonTimeStore           *dontime.Store
 }
 
 // NewApplication initializes a new store if one is not already
@@ -819,30 +819,30 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	}
 
 	return &ChainlinkApplication{
-		relayers:                 relayChainInterops,
-		jobORM:                   jobORM,
-		jobSpawner:               jobSpawner,
-		pipelineRunner:           pipelineRunner,
-		pipelineORM:              pipelineORM,
-		bridgeORM:                bridgeORM,
-		localAdminUsersORM:       localAdminUsersORM,
-		authenticationProvider:   authenticationProvider,
-		txmStorageService:        txmORM,
-		FeedsService:             feedsService,
-		Config:                   cfg,
-		KeyStore:                 keyStore,
-		SessionReaper: sessionReaper,
-		HealthChecker: healthChecker,
-		logger:                   globalLogger,
-		AuditLogger:              auditLogger,
-		closeLogger:              opts.CloseLogger,
-		secretGenerator:          opts.SecretGenerator,
-		profiler:                 profiler,
-		loopRegistry:             loopRegistry,
-		loopRegistrarConfig:      loopRegistrarConfig,
-		capabilitiesRegistry:     opts.CapabilitiesRegistry,
-		ds:                       opts.DS,
-		shardOrchestratorClient:  shardOrchestratorClient,
+		relayers:                relayChainInterops,
+		jobORM:                  jobORM,
+		jobSpawner:              jobSpawner,
+		pipelineRunner:          pipelineRunner,
+		pipelineORM:             pipelineORM,
+		bridgeORM:               bridgeORM,
+		localAdminUsersORM:      localAdminUsersORM,
+		authenticationProvider:  authenticationProvider,
+		txmStorageService:       txmORM,
+		FeedsService:            feedsService,
+		Config:                  cfg,
+		KeyStore:                keyStore,
+		SessionReaper:           sessionReaper,
+		HealthChecker:           healthChecker,
+		logger:                  globalLogger,
+		AuditLogger:             auditLogger,
+		closeLogger:             opts.CloseLogger,
+		secretGenerator:         opts.SecretGenerator,
+		profiler:                profiler,
+		loopRegistry:            loopRegistry,
+		loopRegistrarConfig:     loopRegistrarConfig,
+		capabilitiesRegistry:    opts.CapabilitiesRegistry,
+		ds:                      opts.DS,
+		shardOrchestratorClient: shardOrchestratorClient,
 
 		srvcs: srvcs,
 	}, nil

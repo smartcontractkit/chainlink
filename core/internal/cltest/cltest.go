@@ -417,18 +417,18 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		Logger:   lggr,
 		// Don't use global registry here since otherwise multiple apps can create name conflicts.
 		// Could also potentially give a mock registry to test prometheus.
-		Registerer:               prometheus.NewRegistry(),
-		AuditLogger:              auditLogger,
-		CloseLogger:              lggr.Sync,
-		RestrictedHTTPClient: c,
-		UnrestrictedHTTPClient:   c,
-		SecretGenerator:          MockSecretGenerator{},
-		MercuryPool:              mercuryPool,
-		NewOracleFactoryFn:       newOracleFactoryFn,
-		RetirementReportCache:    retirement.NewRetirementReportCache(lggr, ds),
-		LLOTransmissionReaper:    llo.NewTransmissionReaper(ds, lggr, cfg.Mercury().Transmitter().ReaperFrequency(), cfg.Mercury().Transmitter().ReaperMaxAge()),
-		EVMFactoryConfigFn:       evmFactoryConfigFn,
-		DonTimeStore:             dontime.NewStore(dontime.DefaultRequestTimeout),
+		Registerer:             prometheus.NewRegistry(),
+		AuditLogger:            auditLogger,
+		CloseLogger:            lggr.Sync,
+		RestrictedHTTPClient:   c,
+		UnrestrictedHTTPClient: c,
+		SecretGenerator:        MockSecretGenerator{},
+		MercuryPool:            mercuryPool,
+		NewOracleFactoryFn:     newOracleFactoryFn,
+		RetirementReportCache:  retirement.NewRetirementReportCache(lggr, ds),
+		LLOTransmissionReaper:  llo.NewTransmissionReaper(ds, lggr, cfg.Mercury().Transmitter().ReaperFrequency(), cfg.Mercury().Transmitter().ReaperMaxAge()),
+		EVMFactoryConfigFn:     evmFactoryConfigFn,
+		DonTimeStore:           dontime.NewStore(dontime.DefaultRequestTimeout),
 	})
 
 	require.NoError(t, err)

@@ -911,7 +911,7 @@ VerboseLogging = true # Default
 ```toml
 ExternalInitiatorsEnabled = false # Default
 ```
-ExternalInitiatorsEnabled enables the External Initiator feature for legacy webhook job runs via external initiators. Webhook jobs can no longer be created; existing rows are read-only and runs are rejected.
+ExternalInitiatorsEnabled Unused: used to enables the External Initiator feature for legacy webhook job runs via external initiators
 
 ### MaxRunDuration
 ```toml
