@@ -22,6 +22,19 @@ type PipelineParamUnmarshaler interface {
 }
 
 func ResolveParam(out PipelineParamUnmarshaler, getters []GetterFunc) error {
+	val, err := resolveParamValue(getters)
+	if err != nil {
+		return err
+	}
+
+	err = out.UnmarshalPipelineParam(val)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func resolveParamValue(getters []GetterFunc) (any, error) {
 	var val any
 	var err error
 	var found bool
@@ -30,20 +43,16 @@ func ResolveParam(out PipelineParamUnmarshaler, getters []GetterFunc) error {
 		if errors.Is(errors.Cause(err), ErrParameterEmpty) {
 			continue
 		} else if err != nil {
-			return err
+			return nil, err
 		}
 		found = true
 		break
 	}
 	if !found {
-		return ErrParameterEmpty
+		return nil, ErrParameterEmpty
 	}
 
-	err = out.UnmarshalPipelineParam(val)
-	if err != nil {
-		return err
-	}
-	return nil
+	return val, nil
 }
 
 type StringParam string

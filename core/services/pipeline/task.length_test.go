@@ -1,6 +1,7 @@
 package pipeline_test
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/shopspring/decimal"
@@ -16,15 +17,21 @@ func TestLengthTask(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name  string
-		input any
-		want  decimal.Decimal
+		name       string
+		input      any
+		inputParam string
+		want       decimal.Decimal
 	}{
-		{"normal bytes", []byte{0xaa, 0xbb, 0xcc, 0xdd}, decimal.NewFromInt(4)},
-		{"empty bytes", []byte{}, decimal.NewFromInt(0)},
-		{"string as bytes", []byte("stevetoshi sergeymoto"), decimal.NewFromInt(21)},
-		{"string input gets converted to bytes", "stevetoshi sergeymoto", decimal.NewFromInt(21)},
-		{"empty string", "", decimal.NewFromInt(0)},
+		{"normal bytes", []byte{0xaa, 0xbb, 0xcc, 0xdd}, string([]byte{0xaa, 0xbb, 0xcc, 0xdd}), decimal.NewFromInt(4)},
+		{"empty bytes", []byte{}, "", decimal.NewFromInt(0)},
+		{"string as bytes", []byte("stevetoshi sergeymoto"), "stevetoshi sergeymoto", decimal.NewFromInt(21)},
+		{"string input gets converted to bytes", "stevetoshi sergeymoto", "stevetoshi sergeymoto", decimal.NewFromInt(21)},
+		{"empty string", "", "", decimal.NewFromInt(0)},
+		{"array input", []any{1, 2, 3}, "[1,2,3]", decimal.NewFromInt(3)},
+		{"empty array input", []any{}, "[]", decimal.NewFromInt(0)},
+		{"typed slice input", []*big.Int{big.NewInt(3), big.NewInt(11)}, "", decimal.NewFromInt(2)},
+		{"JSON array string", "[1,2,3]", "[1,2,3]", decimal.NewFromInt(3)},
+		{"empty JSON array string", "[]", "[]", decimal.NewFromInt(0)},
 	}
 
 	for _, test := range tests {
@@ -41,13 +48,7 @@ func TestLengthTask(t *testing.T) {
 				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}}))
 			})
 			t.Run("without vars through input param", func(t *testing.T) {
-				var inputStr string
-				if _, ok := test.input.([]byte); ok {
-					inputStr = string(test.input.([]byte))
-				} else {
-					inputStr = test.input.(string)
-				}
-				if inputStr == "" {
+				if test.inputParam == "" {
 					// empty input parameter is indistinguishable from not providing it at all
 					// in that case the task will use an input defined by the job DAG
 					return
@@ -55,7 +56,7 @@ func TestLengthTask(t *testing.T) {
 				vars := pipeline.NewVarsFrom(nil)
 				task := pipeline.LengthTask{
 					BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0),
-					Input:    inputStr,
+					Input:    test.inputParam,
 				}
 				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
 			})
