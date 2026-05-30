@@ -17,7 +17,7 @@ plugins:
     - moduleURI: "github.com/smartcontractkit/chainlink-sui"
       # IMP: consult chainlink-sui team before updating this version
       # current version is v0.0.0-20260427132612-76b9f754a556
-      gitRef: "v0.0.0-20260529202242-32be3d9cfc12"
+      gitRef: "v0.0.0-20260530003310-d7a1486b340b"
       installPath: "./relayer/cmd/chainlink-sui"
 
   cosmos:

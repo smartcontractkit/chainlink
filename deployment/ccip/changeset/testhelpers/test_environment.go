@@ -1250,6 +1250,10 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		ocrOverride := func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
 			// Commit
 			params.CommitOffChainConfig.RMNEnabled = false
+			// The Sui chain reader's dest-config batch read can exceed the default 12s async
+			// observer budget under load, causing OffRampNextSeqNums consensus to fail and the
+			// commit report to never land. Give it more headroom for the Sui dest commit DON.
+			params.CommitOffChainConfig.MerkleRootAsyncObserverSyncTimeout = 30 * time.Second
 
 			// Execute
 			params.ExecuteOffChainConfig.MultipleReportsEnabled = false
