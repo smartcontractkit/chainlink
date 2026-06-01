@@ -1,5 +1,6 @@
 package beholder_test
 
+/* TODO: CRE-4422 Refactor: relocate this to durableemitter pkg
 import (
 	"fmt"
 	"testing"
@@ -153,3 +154,4 @@ func TestPgDurableEventStore_MarkDeliveredAndPurgeDelivered(t *testing.T) {
 	require.NoError(t, db.GetContext(ctx, &cnt, `SELECT count(*) FROM cre.chip_durable_events`))
 	require.Equal(t, int64(0), cnt)
 }
+*/

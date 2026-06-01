@@ -17,8 +17,8 @@ import (
 	ccip_cs_sol_v0_1_1 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	ccip_cs_evm_v1_5_1 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	ccip_cs_evm_v1_6_0 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 )
 
 var _ cldf.ChangeSetV2[SetTokenTransferFeeConfigInput] = SetTokenTransferFeeConfig

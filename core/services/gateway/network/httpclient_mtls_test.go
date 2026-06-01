@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 )
 
 // pemKeyPair generates a fresh ECDSA P-256 key and a self-signed certificate for
@@ -67,7 +68,7 @@ func TestNewHTTPClientWithOptions_MtlsRejectsInvalidPEM(t *testing.T) {
 	lggr := logger.Test(t)
 
 	_, err := newHTTPClientWithOptions(HTTPClientConfig{}, HTTPClientOptions{
-		Mtls: &MtlsAuth{
+		Mtls: &gateway.MtlsAuth{
 			Certificate: []byte("not a pem certificate"),
 			PrivateKey:  []byte("not a pem key"),
 		},
@@ -85,7 +86,7 @@ func TestNewHTTPClientWithOptions_MtlsRejectsMismatchedKeyPair(t *testing.T) {
 	_, keyPEMOther, _ := pemKeyPair(t, "client-b")
 
 	_, err := newHTTPClientWithOptions(HTTPClientConfig{}, HTTPClientOptions{
-		Mtls: &MtlsAuth{
+		Mtls: &gateway.MtlsAuth{
 			Certificate: certPEM,
 			PrivateKey:  keyPEMOther,
 		},
@@ -101,7 +102,7 @@ func TestNewHTTPClientWithOptions_MtlsValidKeyPair(t *testing.T) {
 	certPEM, keyPEM, _ := pemKeyPair(t, "client")
 
 	client, err := newHTTPClientWithOptions(HTTPClientConfig{}, HTTPClientOptions{
-		Mtls: &MtlsAuth{Certificate: certPEM, PrivateKey: keyPEM},
+		Mtls: &gateway.MtlsAuth{Certificate: certPEM, PrivateKey: keyPEM},
 	}, lggr)
 	require.NoError(t, err)
 	require.NotNil(t, client)
@@ -122,7 +123,7 @@ func TestNewHTTPClientFactory_MtlsFlow(t *testing.T) {
 	t.Run("valid mtls options returns a working client", func(t *testing.T) {
 		certPEM, keyPEM, _ := pemKeyPair(t, "client")
 		client, err := factory(HTTPClientOptions{
-			Mtls: &MtlsAuth{Certificate: certPEM, PrivateKey: keyPEM},
+			Mtls: &gateway.MtlsAuth{Certificate: certPEM, PrivateKey: keyPEM},
 		})
 		require.NoError(t, err)
 		require.NotNil(t, client)
@@ -130,7 +131,7 @@ func TestNewHTTPClientFactory_MtlsFlow(t *testing.T) {
 
 	t.Run("invalid mtls options surface an error", func(t *testing.T) {
 		client, err := factory(HTTPClientOptions{
-			Mtls: &MtlsAuth{Certificate: []byte("garbage"), PrivateKey: []byte("garbage")},
+			Mtls: &gateway.MtlsAuth{Certificate: []byte("garbage"), PrivateKey: []byte("garbage")},
 		})
 		require.Error(t, err)
 		require.Nil(t, client)
@@ -162,8 +163,8 @@ func TestHTTPClient_MtlsPresentsCertificateToServer(t *testing.T) {
 
 	var peerCN string
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.NotNil(t, r.TLS, "request must arrive over TLS")
-		require.Len(t, r.TLS.PeerCertificates, 1, "client must present exactly one cert")
+		require.NotNil(t, r.TLS, "request must arrive over TLS")                          //nolint:testifylint // require should be allowed in a test file
+		require.Len(t, r.TLS.PeerCertificates, 1, "client must present exactly one cert") //nolint:testifylint // require should be allowed in a test file
 		peerCN = r.TLS.PeerCertificates[0].Subject.CommonName
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("mtls-ok"))
@@ -192,7 +193,7 @@ func TestHTTPClient_MtlsPresentsCertificateToServer(t *testing.T) {
 			AllowedPorts: []int{port},
 		},
 		HTTPClientOptions{
-			Mtls: &MtlsAuth{Certificate: clientCertPEM, PrivateKey: clientKeyPEM},
+			Mtls: &gateway.MtlsAuth{Certificate: clientCertPEM, PrivateKey: clientKeyPEM},
 		},
 		lggr,
 	)
@@ -287,7 +288,7 @@ func TestHTTPClient_MtlsDisablesKeepAlives(t *testing.T) {
 	certPEM, keyPEM, _ := pemKeyPair(t, "client")
 
 	client, err := newHTTPClientWithOptions(HTTPClientConfig{}, HTTPClientOptions{
-		Mtls: &MtlsAuth{Certificate: certPEM, PrivateKey: keyPEM},
+		Mtls: &gateway.MtlsAuth{Certificate: certPEM, PrivateKey: keyPEM},
 	}, lggr)
 	require.NoError(t, err)
 

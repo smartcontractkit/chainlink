@@ -26,10 +26,10 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 
+	evm "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 var (

@@ -509,8 +509,8 @@ func TestProposeJobSpec_VerifyPreconditions_Aptos(t *testing.T) {
 }
 
 func TestProposeJobSpec_Apply(t *testing.T) {
-	testEnv := test.SetupEnvV2(t, false)
-	env := testEnv.Env
+	h := test.NewTestHarness(t)
+	env := new(h.Runtime.Environment())
 
 	t.Run("successful cron job distribution", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
@@ -534,7 +534,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			},
 		}
 
-		allNodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+		allNodes, err := h.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
 		require.NoError(t, err)
 
 		for _, n := range allNodes.Nodes {
@@ -545,7 +545,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
@@ -589,7 +589,7 @@ perSenderBurst = 100
 			},
 		}
 
-		allNodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+		allNodes, err := h.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
 		require.NoError(t, err)
 
 		for _, n := range allNodes.Nodes {
@@ -600,7 +600,7 @@ perSenderBurst = 100
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
@@ -643,7 +643,7 @@ perSenderBurst = 100
 			},
 		}
 
-		allNodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+		allNodes, err := h.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
 		require.NoError(t, err)
 
 		for _, n := range allNodes.Nodes {
@@ -654,7 +654,7 @@ perSenderBurst = 100
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
@@ -696,7 +696,7 @@ PerSenderBurst = 100
 			},
 		}
 
-		allNodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+		allNodes, err := h.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
 		require.NoError(t, err)
 
 		for _, n := range allNodes.Nodes {
@@ -707,7 +707,7 @@ PerSenderBurst = 100
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
@@ -756,7 +756,7 @@ PerSenderBurst = 100
 			},
 		}
 
-		allNodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+		allNodes, err := h.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
 		require.NoError(t, err)
 
 		for _, n := range allNodes.Nodes {
@@ -767,7 +767,7 @@ PerSenderBurst = 100
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
@@ -810,7 +810,7 @@ PerSenderBurst = 100
 			},
 		}
 
-		allNodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+		allNodes, err := h.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
 		require.NoError(t, err)
 
 		for _, n := range allNodes.Nodes {
@@ -821,7 +821,7 @@ PerSenderBurst = 100
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
@@ -839,7 +839,7 @@ PerSenderBurst = 100
 	})
 
 	t.Run("successful aptos job distribution includes oracle factory", func(t *testing.T) {
-		chainSelector := testEnv.RegistrySelector
+		chainSelector := h.RegistrySelector
 		ds := datastore.NewMemoryDataStore()
 
 		err := ds.Addresses().Add(datastore.AddressRef{
@@ -869,7 +869,7 @@ PerSenderBurst = 100
 				"config":           `{"chainId":"4","network":"aptos","creForwarderAddress":"0x1111111111111111111111111111111111111111111111111111111111111111"}`,
 				"chainSelectorEVM": strconv.FormatUint(chainSelector, 10),
 				"chainSelectorAptos": strconv.FormatUint(
-					testEnv.AptosSelector,
+					h.AptosSelector,
 					10,
 				),
 				"bootstrapPeers": []string{
@@ -884,7 +884,7 @@ PerSenderBurst = 100
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
@@ -998,7 +998,7 @@ PerSenderBurst = 100
 		require.True(t, ok)
 		assert.Len(t, bootstrapOut.Specs, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		expectedChainID := chainsel.ETHEREUM_TESTNET_SEPOLIA.EvmChainID
@@ -1083,7 +1083,7 @@ PerSenderBurst = 100
 	})
 
 	t.Run("successful ocr3 job distribution", func(t *testing.T) {
-		chainSelector := testEnv.RegistrySelector
+		chainSelector := h.RegistrySelector
 		ds := datastore.NewMemoryDataStore()
 
 		err := ds.Addresses().Add(datastore.AddressRef{
@@ -1112,7 +1112,7 @@ PerSenderBurst = 100
 				"templateName":       "worker-ocr3",
 				"contractQualifier":  "ocr3-contract-qualifier",
 				"chainSelectorEVM":   strconv.FormatUint(chainSelector, 10),
-				"chainSelectorAptos": strconv.FormatUint(testEnv.AptosSelector, 10),
+				"chainSelectorAptos": strconv.FormatUint(h.AptosSelector, 10),
 				"bootstrapperOCR3Urls": []string{
 					"12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001",
 				},
@@ -1123,7 +1123,7 @@ PerSenderBurst = 100
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		expectedChainID := chainsel.TEST_90000001.EvmChainID
@@ -1148,7 +1148,7 @@ PerSenderBurst = 100
 	})
 
 	t.Run("failed ocr3 job distribution", func(t *testing.T) {
-		chainSelector := testEnv.RegistrySelector
+		chainSelector := h.RegistrySelector
 		ds := datastore.NewMemoryDataStore()
 
 		err := ds.Addresses().Add(datastore.AddressRef{
@@ -1220,7 +1220,7 @@ PerSenderBurst = 100
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		for _, req := range reqs {
@@ -1321,7 +1321,7 @@ PerSenderBurst = 100
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		for _, req := range reqs {
@@ -1360,7 +1360,7 @@ PerSenderBurst = 100
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 		for _, req := range reqs {
 			if !strings.Contains(req.Spec, `name = "http-action-job"`) {
@@ -1461,7 +1461,7 @@ PerSenderBurst = 100
 	})
 
 	t.Run("successful bootstrap distribution", func(t *testing.T) {
-		chainSelector := testEnv.RegistrySelector
+		chainSelector := h.RegistrySelector
 		ds := datastore.NewMemoryDataStore()
 
 		err := ds.Addresses().Add(datastore.AddressRef{
@@ -1528,7 +1528,7 @@ PerSenderBurst = 100
 			}
 		}
 
-		propJobs, err := testEnv.TestJD.ListProposedJobRequests()
+		propJobs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		foundSet := map[string]bool{}
@@ -1548,7 +1548,7 @@ PerSenderBurst = 100
 	})
 
 	t.Run("unsuccessful bootstrap distribution because contracts don't exist", func(t *testing.T) {
-		chainSelector := testEnv.RegistrySelector
+		chainSelector := h.RegistrySelector
 		ds := datastore.NewMemoryDataStore()
 
 		env.DataStore = ds.Seal()
@@ -1575,10 +1575,10 @@ PerSenderBurst = 100
 	})
 
 	t.Run("successful vault ocr3 job distribution", func(t *testing.T) {
-		testEnv := test.SetupEnvV2(t, false)
-		env := testEnv.Env
+		h2 := test.NewTestHarness(t)
+		env2 := new(h2.Runtime.Environment())
 
-		chainSelector := testEnv.RegistrySelector
+		chainSelector := h2.RegistrySelector
 		ds := datastore.NewMemoryDataStore()
 
 		err := ds.Addresses().Add(datastore.AddressRef{
@@ -1599,7 +1599,7 @@ PerSenderBurst = 100
 		})
 		require.NoError(t, err)
 
-		env.DataStore = ds.Seal()
+		env2.DataStore = ds.Seal()
 
 		input := jobs.ProposeJobSpecInput{
 			Environment: test.EnvironmentName,
@@ -1624,11 +1624,11 @@ PerSenderBurst = 100
 			},
 		}
 
-		out, err := jobs.ProposeJobSpec{}.Apply(*env, input)
+		out, err := jobs.ProposeJobSpec{}.Apply(*env2, input)
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h2.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		expectedChainID := chainsel.TEST_90000001.EvmChainID
@@ -1650,7 +1650,7 @@ PerSenderBurst = 100
 	})
 
 	t.Run("successful consensus job distribution", func(t *testing.T) {
-		chainSelector := testEnv.RegistrySelector
+		chainSelector := h.RegistrySelector
 		ds := datastore.NewMemoryDataStore()
 
 		err := ds.Addresses().Add(datastore.AddressRef{
@@ -1689,7 +1689,7 @@ PerSenderBurst = 100
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		expectedChainID := chainsel.TEST_90000001.EvmChainID
@@ -1716,7 +1716,7 @@ PerSenderBurst = 100
 	})
 
 	t.Run("successful consensus job distribution with aptos", func(t *testing.T) {
-		chainSelector := testEnv.RegistrySelector
+		chainSelector := h.RegistrySelector
 		ds := datastore.NewMemoryDataStore()
 
 		err := ds.Addresses().Add(datastore.AddressRef{
@@ -1745,7 +1745,7 @@ PerSenderBurst = 100
 				"command":            "consensus",
 				"contractQualifier":  "ocr3-contract-qualifier",
 				"chainSelectorEVM":   strconv.FormatUint(chainSelector, 10),
-				"chainSelectorAptos": strconv.FormatUint(testEnv.AptosSelector, 10),
+				"chainSelectorAptos": strconv.FormatUint(h.AptosSelector, 10),
 				"bootstrapPeers": []string{
 					"12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001",
 				},
@@ -1758,7 +1758,7 @@ PerSenderBurst = 100
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		expectedChainID := chainsel.TEST_90000001.EvmChainID
@@ -1785,7 +1785,7 @@ PerSenderBurst = 100
 	})
 
 	t.Run("failed consensus job distribution", func(t *testing.T) {
-		chainSelector := testEnv.RegistrySelector
+		chainSelector := h.RegistrySelector
 		ds := datastore.NewMemoryDataStore()
 
 		err := ds.Addresses().Add(datastore.AddressRef{

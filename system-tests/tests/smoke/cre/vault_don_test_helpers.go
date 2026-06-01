@@ -51,9 +51,10 @@ import (
 )
 
 const (
-	vaultDefaultConfigPath        = "/configs/workflow-gateway-capabilities-don.toml"
-	vaultJWTAuthEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
-	vaultJWTIssuerListenAddr      = "0.0.0.0:18123"
+	vaultDefaultConfigPath              = "/configs/workflow-gateway-capabilities-don.toml"
+	vaultJWTAuthEnabledConfigPath       = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
+	vaultOptimizationsEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"
+	vaultJWTIssuerListenAddr            = "0.0.0.0:18123"
 	// vaultJWTTestTenantID is the tenant_id / urn:chainlink:tenant_id claim for Vault JWT tests and
 	// matches the org_id passed to DeriveJWTAuthorizedVaultWorkflowOwner.
 	vaultJWTTestTenantID uint64 = 1
@@ -149,17 +150,35 @@ func sendVaultRequestToGatewayWithHeaders(t *testing.T, gatewayURL string, reque
 
 		framework.L.Info().Msgf("HTTP Response Body: %s", string(body))
 
-		if !isGatewayNotAllowlistedError(body) {
+		if !shouldRetryGatewayRequest(statusCode, body) {
 			return statusCode, body
 		}
 
 		if attempt < maxRetries {
-			framework.L.Warn().Msgf("Request not yet allowlisted, retrying in %s (attempt %d/%d)...", retryInterval, attempt+1, maxRetries)
+			framework.L.Warn().Msgf("Gateway request retryable (status=%d), retrying in %s (attempt %d/%d)...", statusCode, retryInterval, attempt+1, maxRetries)
 			time.Sleep(retryInterval)
 		}
 	}
 
 	return statusCode, body
+}
+
+func shouldRetryGatewayRequest(statusCode int, body []byte) bool {
+	if isGatewayNotAllowlistedError(body) {
+		return true
+	}
+	switch statusCode {
+	case http.StatusServiceUnavailable, http.StatusBadGateway, http.StatusGatewayTimeout:
+		// Gateway-to-DON timeout: the gateway gave up relaying the response, but the DON likely
+		// already processed the request. Retrying the same request body just hits the vault
+		// replay guard ("request was already authorized previously"). Don't retry these.
+		if bytes.Contains(body, []byte("Request timed out")) {
+			return false
+		}
+		return true
+	default:
+		return false
+	}
 }
 
 // isGatewayNotAllowlistedError checks whether the response is a gateway-level
@@ -218,8 +237,18 @@ func getVaultDefaultTestConfig(t *testing.T) *ttypes.TestConfig {
 	return t_helpers.GetTestConfig(t, vaultDefaultConfigPath)
 }
 
+func getVaultOptimizationsEnabledTestConfig(t *testing.T) *ttypes.TestConfig {
+	t.Helper()
+
+	return t_helpers.GetTestConfig(t, vaultOptimizationsEnabledConfigPath)
+}
+
 func isVaultJWTAuthEnabledTopology(topologyName string) bool {
 	return strings.Contains(topologyName, "vault-jwt_auth-enabled")
+}
+
+func isVaultOptimizationsEnabledTopology(topologyName string) bool {
+	return strings.Contains(topologyName, "vault-optimizations-enabled")
 }
 
 func setupVaultScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, usePerTestKeys bool) *vaultScenarioFixture {
@@ -397,6 +426,7 @@ func sendVaultSignedOCRRequestToGateway(t *testing.T, gatewayURL string, jsonReq
 	if jsonResponse.Error != nil {
 		require.Empty(t, jsonResponse.Error.Error())
 	}
+
 	require.Equal(t, jsonrpc.JsonRpcVersion, jsonResponse.Version)
 
 	return jsonResponse
@@ -875,7 +905,7 @@ func waitForVaultWorkflowPhase(
 		baseMessageCh,
 		t_helpers.WorkflowEngineInitErrorLog,
 		"Vault secret workflow phase completed: "+phaseName,
-		4*time.Minute,
+		1*time.Minute,
 		t_helpers.WithUserLogWorkflowID(workflowID),
 	)
 	testLogger.Info().Str("phase_name", phaseName).Msg("Vault secret workflow phase completed")
@@ -894,6 +924,33 @@ func executeVaultSecretsListTest(t *testing.T, secretID, requestOwner, expectedO
 func executeVaultSecretsDeleteTest(t *testing.T, secretID, requestOwner, expectedResponseOwner, gatewayURL string, namespaces []string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
 	auth := newAllowlistVaultRequestAuth(requestOwner, sethClient, wfRegistryContract)
 	executeVaultSecretsDeleteWithAuth(t, auth, secretID, expectedResponseOwner, gatewayURL, namespaces)
+}
+
+// executeVaultBinaryEncodedSharesSmokeTest verifies a workflow can fetch a secret when the vault
+// DON emits binary-encoded decryption shares (VaultOptimizationsEnabled). GetSecrets is not
+// exposed on the vault gateway; binary encoding is confirmed via vault node logs after the
+// workflow triggers a capability get.
+func executeVaultBinaryEncodedSharesSmokeTest(
+	t *testing.T,
+	testEnv *ttypes.TestEnvironment,
+	secretID, namespace, expectedPlaintext string,
+	userLogsCh chan *workflowevents.UserLogs,
+	baseMessageCh chan *commonevents.BaseMessage,
+) {
+	t.Helper()
+
+	framework.L.Info().Msg("Verifying workflow secret fetch and binary share encoding when optimizations are enabled...")
+
+	workflowID := startVaultSecretsWorkflowPhasesTest(t, testEnv, "binary-shares", []vaultWorkflowPhase{{
+		Name: "binary-shares-fetch",
+		Checks: []vaultWorkflowCheck{{
+			Name:            "binary-shares-main",
+			SecretKey:       secretID,
+			SecretNamespace: namespace,
+			ExpectedValue:   expectedPlaintext,
+		}},
+	}})
+	waitForVaultWorkflowPhase(t, workflowID, "binary-shares-fetch", userLogsCh, baseMessageCh)
 }
 
 // updateVaultCapabilityConfigInRegistry updates the on-chain capabilities registry

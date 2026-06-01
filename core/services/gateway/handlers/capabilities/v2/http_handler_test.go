@@ -967,6 +967,7 @@ func TestGatewayHandler_Send_MtlsBlockedByRateLimit(t *testing.T) {
 
 func TestGatewayHandler_Send_MtlsUsesFactory(t *testing.T) {
 	handler := createTestHandler(t)
+	handler.mtlsRequestRateLimiter = limits.GlobalRateLimiter(100, 100)
 
 	httpReq := network.HTTPRequest{Method: "GET", URL: "https://example.com/api"}
 	outboundReq := gateway_common.OutboundHTTPRequest{
@@ -1005,6 +1006,7 @@ func TestGatewayHandler_Send_MtlsUsesFactory(t *testing.T) {
 
 func TestGatewayHandler_Send_MtlsFactoryError(t *testing.T) {
 	handler := createTestHandler(t)
+	handler.mtlsRequestRateLimiter = limits.GlobalRateLimiter(100, 100)
 
 	httpReq := network.HTTPRequest{Method: "GET", URL: "https://example.com/api"}
 	outboundReq := gateway_common.OutboundHTTPRequest{
@@ -1031,6 +1033,7 @@ func TestGatewayHandler_Send_MtlsFactoryError(t *testing.T) {
 // leaking between users.
 func TestGatewayHandler_Send_MtlsRoutesThroughCallbackOnly_DefaultClientUntouched(t *testing.T) {
 	handler := createTestHandler(t)
+	handler.mtlsRequestRateLimiter = limits.GlobalRateLimiter(100, 100)
 
 	httpReq := network.HTTPRequest{Method: "GET", URL: "https://example.com/api", Timeout: 5 * time.Second}
 	outboundReq := gateway_common.OutboundHTTPRequest{
@@ -1073,4 +1076,29 @@ func TestGatewayHandler_Send_MtlsBlockedRequestIsValidationError(t *testing.T) {
 	require.True(t, resp.IsValidationError, "blocked mtls should be reported as a validation error")
 	require.False(t, resp.IsExternalEndpointError, "rate-limited requests are not external endpoint errors")
 	require.Equal(t, 0, resp.StatusCode)
+}
+
+// TestGatewayHandler_Send_MtlsRateLimitEnabledByDefault verifies that a handler
+// built from the default settings has the mtls request rate limiter wired up and
+// active, so mtls requests are gated without any per-test override. The default
+// rate (cresettings.Default.GatewayHTTPActionMtlsRequestRate) has a zero burst,
+// meaning mtls is blocked out of the box.
+func TestGatewayHandler_Send_MtlsRateLimitEnabledByDefault(t *testing.T) {
+	handler := createTestHandler(t)
+
+	httpReq := network.HTTPRequest{Method: "GET", URL: "https://example.com/api"}
+	outboundReq := gateway_common.OutboundHTTPRequest{
+		Method: "GET",
+		URL:    "https://example.com/api",
+		Mtls: &gateway_common.MtlsAuth{
+			PrivateKey:  []byte("private-key"),
+			Certificate: []byte("certificate"),
+		},
+	}
+
+	resp, err := handler.send(testutils.Context(t), httpReq, outboundReq)
+	require.Error(t, err)
+	require.Nil(t, resp)
+	require.ErrorIs(t, err, network.ErrBlockedRequest)
+	require.Contains(t, err.Error(), "global mtls request rate limit exceeded")
 }

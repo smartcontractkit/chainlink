@@ -48,6 +48,7 @@ type WorkflowStorage interface {
 
 type ModuleCache interface {
 	Enabled() bool
+	DiskMonitorEnabled() bool
 	IdleEviction() bool
 	IdleTimeout() time.Duration
 	MaxLoaded() int

@@ -31,7 +31,7 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	tron_keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/tron"
 
-	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	corevm "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 
 	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based/types"
 

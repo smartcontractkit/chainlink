@@ -287,8 +287,8 @@ func (h *gatewayHandler) send(ctx context.Context, httpReq network.HTTPRequest, 
 	// c) we apply per-owner rate limits in the action capability in the
 	// workflow node limiting the ability of users to abuse this flow by spamming Mtls requests.
 	client, err := h.httpClientFactory(network.HTTPClientOptions{
-		Mtls: &network.MtlsAuth{
-			PrivateKey:  network.Secret(req.Mtls.PrivateKey),
+		Mtls: &gateway_common.MtlsAuth{
+			PrivateKey:  req.Mtls.PrivateKey,
 			Certificate: req.Mtls.Certificate,
 		},
 	})

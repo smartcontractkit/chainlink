@@ -29,6 +29,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/urfave/cli"
+	prombridge "go.opentelemetry.io/contrib/bridges/prometheus"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
@@ -38,6 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/promutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc"
@@ -176,6 +178,14 @@ func newBeholderClient(
 			return nil, err
 		}
 	}
+	if pmCfg := cfgTelemetry.PrometheusBridge(); pmCfg.Enabled() {
+		var bridgeOpts []prombridge.Option
+		if prefixes := pmCfg.Prefixes(); len(prefixes) > 0 {
+			bridgeOpts = append(bridgeOpts, prombridge.WithGatherer(promutil.NewPrefixGatherer(prometheus.DefaultGatherer, prefixes)))
+		}
+		clientCfg.MetricProducers = append(clientCfg.MetricProducers, prombridge.NewMetricProducer(bridgeOpts...))
+	}
+
 	beholderClient, err := beholder.NewClient(clientCfg)
 	if err != nil {
 		return nil, err

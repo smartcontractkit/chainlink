@@ -20,6 +20,7 @@ import (
 	"github.com/doyensec/safeurl"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -243,16 +244,7 @@ func newHTTPClientWithOptions(config HTTPClientConfig, options HTTPClientOptions
 }
 
 type HTTPClientOptions struct {
-	Mtls *MtlsAuth
-}
-
-type Secret []byte
-
-func (s Secret) String() string { return "[REDACTED]" }
-
-type MtlsAuth struct {
-	PrivateKey  Secret
-	Certificate []byte
+	Mtls *gateway.MtlsAuth
 }
 
 func NewHTTPClientFactory(config HTTPClientConfig, lggr logger.Logger) HTTPClientFactory {

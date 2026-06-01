@@ -10,10 +10,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/bigint"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
-	"github.com/smartcontractkit/chainlink/deployment"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/aggregator_v3_interface"
 )
@@ -145,7 +144,7 @@ const (
 )
 
 var (
-	MockLinkPrice = deployment.E18Mult(500)
+	MockLinkPrice = bigint.E18Mult(500)
 	MockWethPrice = big.NewInt(9e8)
 	// DescriptionToTokenSymbols maps price feed description to token descriptor
 	DescriptionToTokenSymbols = map[string][]TokenSymbol{
