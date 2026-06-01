@@ -223,9 +223,17 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
 
-	// LocalNode gives the Workflow DON membership the request is verified against (and the
-	// DON identity used in request metadata below). A failure here is server-side, so it
-	// stays ErrInternal rather than being folded into the authorization check's client errors.
+	// LocalNode returns this node's view of its own Workflow DON from the capabilities
+	// registry. We need it for two things below. First, localNode.WorkflowDON.Members is the
+	// set of Workflow DON peer IDs that verifyWorkflowAuthorization checks the compute-request
+	// signatures against, and localNode.WorkflowDON.F is the fault tolerance that sets the
+	// signing quorum. Second, the DON ID and config version go into the vault request metadata
+	// further down. We fetch it once here and pass it into both.
+	//
+	// If the registry read itself fails, that is a node-side problem, not a malformed or
+	// unauthorized request, so it is returned as ErrInternal. Keeping this fetch out of
+	// verifyWorkflowAuthorization matters: that function's errors are all client errors
+	// (ErrInvalidParams), and a registry failure must not be misreported as one.
 	localNode, err := h.capRegistry.LocalNode(ctx)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get local node: %w", err))
