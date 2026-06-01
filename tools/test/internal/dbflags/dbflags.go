@@ -1,7 +1,7 @@
 // Package dbflags registers the tools/test database flags on testrig's root
 // command and builds the config the database helpers consume. The flags are
-// bound to package variables so the resource provider (which runs without a
-// cobra command in hand) and the persistent-db commands read the same values.
+// bound to package variables so the resource provider can read the same values
+// without holding a parsed command.
 package dbflags
 
 import (
@@ -31,7 +31,7 @@ func Register(flags *pflag.FlagSet) {
 // AppConfig builds the database configuration from the parsed flags and the
 // current working directory. The cwd is used as the repo root for preparetest,
 // so the tool must be run from the directory your package patterns are relative
-// to (the repository root). Call it after cobra has parsed flags.
+// to (the repository root). Call it after root flags are parsed.
 func AppConfig() (*config.App, error) {
 	cwd, err := os.Getwd()
 	if err != nil {

@@ -270,6 +270,10 @@ modgraph:
 test-short: ## Run 'go test -short' and suppress uninteresting output
 	go test -short ./... | grep -v "\[no test files\]" | grep -v "\(cached\)"
 
+.PHONY: test-core
+test-core: ## Run ./core/... tests via ./cltest
+	./cltest run ./core/...
+
 .PHONY: gocs
 gocs: ## Run gocs to generate changeset markdown files.
 	go run github.com/smartcontractkit/gocs/cmd/gocs@v0.2.0
