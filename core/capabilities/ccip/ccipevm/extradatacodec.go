@@ -86,20 +86,24 @@ func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[s
 	case suiV1DecodeStructName:
 		// NOTE: the cast only works with this exact struct layout and types, including the json tags
 		extraArgsStruct, ok := args["extraArgs"].(struct {
-			GasLimit                 *big.Int `json:"gasLimit"`
-			AllowOutOfOrderExecution bool     `json:"allowOutOfOrderExecution"`
-			TokenReceiver            [32]byte `json:"tokenReceiver"`
-			// revive:disable:var-naming
-			ReceiverObjectIds [][32]byte `json:"receiverObjectIds"`
-			// revive:enable:var-naming
+			GasLimit                 *big.Int    `json:"gasLimit"`
+			AllowOutOfOrderExecution bool        `json:"allowOutOfOrderExecution"`
+			TokenReceiver            [32]uint8   `json:"tokenReceiver"`
+			ReceiverObjectIds        [][32]uint8 `json:"receiverObjectIds"`
 		})
 		if !ok {
 			return nil, errors.New("sui extra args struct is not the equivalent of message_hasher.ClientSuiExtraArgsV1")
 		}
 		output["gasLimit"] = extraArgsStruct.GasLimit
 		output["allowOutOfOrderExecution"] = extraArgsStruct.AllowOutOfOrderExecution
-		output["tokenReceiver"] = extraArgsStruct.TokenReceiver
-		output["receiverObjectIds"] = extraArgsStruct.ReceiverObjectIds
+		var tokenReceiver [32]byte
+		copy(tokenReceiver[:], extraArgsStruct.TokenReceiver[:])
+		output["tokenReceiver"] = tokenReceiver
+		receiverObjectIDs := make([][32]byte, len(extraArgsStruct.ReceiverObjectIds))
+		for i, id := range extraArgsStruct.ReceiverObjectIds {
+			copy(receiverObjectIDs[i][:], id[:])
+		}
+		output["receiverObjectIds"] = receiverObjectIDs
 	default:
 		return nil, fmt.Errorf("unknown extra args method: %s", method)
 	}

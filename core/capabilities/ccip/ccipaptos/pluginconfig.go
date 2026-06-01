@@ -29,7 +29,7 @@ func initializePluginConfigFunc(chainselFamily string) ccipcommon.InitFunction {
 			cwProvider = ccipsui.ChainCWProvider{}
 			transmitterFactory = ocrimpls.NewSuiContractTransmitterFactory(extraDataCodec)
 			msgHasher = ccipsui.NewMessageHasherV2(logger.Sugared(lggr).Named(chainselFamily).Named("MessageHasherV2"), extraDataCodec)
-			executeCodec = ccipsui.NewExecutePluginCodecV1(extraDataCodec)
+			executeCodec = ccipsui.NewExecutePluginCodecV2(extraDataCodec)
 		}
 
 		return ccipcommon.PluginConfig{

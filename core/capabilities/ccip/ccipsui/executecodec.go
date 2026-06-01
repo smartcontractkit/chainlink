@@ -24,12 +24,41 @@ func NewExecutePluginCodecV1(extraDataCodec ccipocr3.ExtraDataCodecBundle) *Exec
 }
 
 func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report ccipocr3.ExecutePluginReport) ([]byte, error) {
+	return encodeSuiExecutePluginReport(e.extraDataCodec, report, false)
+}
+
+// ExecutePluginCodecV2 serializes execution reports for ccip_offramp V2 execute paths.
+// The report includes receiver_object_ids from decoded source ExtraArgs, matching
+// deserialize_execution_report_v2 in offramp.move.
+type ExecutePluginCodecV2 struct {
+	extraDataCodec ccipocr3.ExtraDataCodecBundle
+}
+
+func NewExecutePluginCodecV2(extraDataCodec ccipocr3.ExtraDataCodecBundle) *ExecutePluginCodecV2 {
+	return &ExecutePluginCodecV2{
+		extraDataCodec: extraDataCodec,
+	}
+}
+
+func (e *ExecutePluginCodecV2) Encode(ctx context.Context, report ccipocr3.ExecutePluginReport) ([]byte, error) {
+	return encodeSuiExecutePluginReport(e.extraDataCodec, report, true)
+}
+
+func (e *ExecutePluginCodecV2) Decode(ctx context.Context, encodedReport []byte) (ccipocr3.ExecutePluginReport, error) {
+	return decodeSuiExecutePluginReport(encodedReport, true)
+}
+
+func encodeSuiExecutePluginReport(
+	extraDataCodec ccipocr3.ExtraDataCodecBundle,
+	report ccipocr3.ExecutePluginReport,
+	includeReceiverObjectIDs bool,
+) ([]byte, error) {
 	if len(report.ChainReports) == 0 {
 		return nil, nil
 	}
 
 	if len(report.ChainReports) != 1 {
-		return nil, fmt.Errorf("ExecutePluginCodecV1 expects exactly one ChainReport, found %d", len(report.ChainReports))
+		return nil, fmt.Errorf("sui execute plugin codec expects exactly one ChainReport, found %d", len(report.ChainReports))
 	}
 
 	chainReport := report.ChainReports[0]
@@ -84,12 +113,11 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report ccipocr3.Execu
 	s.Struct(&receiverAddr)
 
 	// 10. gas_limit: u256
-	// Extract gas limit from ExtraArgs
-	decodedExtraArgsMap, err := e.extraDataCodec.DecodeExtraArgs(message.ExtraArgs, chainReport.SourceChainSelector)
+	decodedExtraArgsMap, err := extraDataCodec.DecodeExtraArgs(message.ExtraArgs, chainReport.SourceChainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode ExtraArgs: %w", err)
 	}
-	gasLimit, tokenReceiver, err := parseExtraDataMap(decodedExtraArgsMap) // Use a helper to extract the gas limit
+	gasLimit, tokenReceiver, err := parseExtraDataMap(decodedExtraArgsMap)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract values from decoded ExtraArgs map: %w", err)
 	}
@@ -100,7 +128,18 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report ccipocr3.Execu
 	copy(tokenReceiverAddr[:], tokenReceiver[:])
 	s.Struct(&tokenReceiverAddr)
 
-	// 11. token_amounts: vector<Any2AptosTokenTransfer>
+	if includeReceiverObjectIDs {
+		receiverObjectIDs, err := extractReceiverObjectIDsFromMap(decodedExtraArgsMap)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract receiver object ids from ExtraArgs: %w", err)
+		}
+		serializeReceiverObjectIDs(s, receiverObjectIDs)
+		if s.Error() != nil {
+			return nil, fmt.Errorf("failed to serialize receiver_object_ids: %w", s.Error())
+		}
+	}
+
+	// 12. token_amounts: vector<Any2SuiTokenTransfer>
 	bcs.SerializeSequenceWithFunction(message.TokenAmounts, s, func(s *bcs.Serializer, item ccipocr3.RampTokenAmount) {
 		// 11a. source_pool_address: vector<u8>
 		s.WriteBytes(item.SourcePoolAddress)
@@ -114,7 +153,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report ccipocr3.Execu
 
 		// 11c. dest_gas_amount: u32
 		// Extract dest gas amount from DestExecData
-		destExecDataDecodedMap, err2 := e.extraDataCodec.DecodeTokenAmountDestExecData(item.DestExecData, chainReport.SourceChainSelector)
+		destExecDataDecodedMap, err2 := extraDataCodec.DecodeTokenAmountDestExecData(item.DestExecData, chainReport.SourceChainSelector)
 		if err2 != nil {
 			s.SetError(fmt.Errorf("failed to decode DestExecData for token %s: %w", destTokenAddr.String(), err2))
 			return
@@ -136,10 +175,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report ccipocr3.Execu
 		}
 		s.U256(*item.Amount.Int)
 	})
-	if err != nil { // Check error from SerializeSequenceWithFunction itself
-		return nil, fmt.Errorf("failed during token_amounts serialization: %w", err)
-	}
-	if s.Error() != nil { // Check error set within the lambda
+	if s.Error() != nil {
 		return nil, fmt.Errorf("failed to serialize token_amounts: %w", s.Error())
 	}
 
@@ -147,10 +183,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report ccipocr3.Execu
 	bcs.SerializeSequenceWithFunction(offchainTokenData, s, func(s *bcs.Serializer, item []byte) {
 		s.WriteBytes(item)
 	})
-	if err != nil { // Check error from SerializeSequenceWithFunction itself
-		return nil, fmt.Errorf("failed during offchain_token_data serialization: %w", err)
-	}
-	if s.Error() != nil { // Check error set within the lambda (though unlikely here)
+	if s.Error() != nil {
 		return nil, fmt.Errorf("failed to serialize offchain_token_data: %w", s.Error())
 	}
 
@@ -162,10 +195,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report ccipocr3.Execu
 		}
 		s.FixedBytes(item[:])
 	})
-	if err != nil { // Check error from SerializeSequenceWithFunction itself
-		return nil, fmt.Errorf("failed during proofs serialization: %w", err)
-	}
-	if s.Error() != nil { // Check error set within the lambda
+	if s.Error() != nil {
 		return nil, fmt.Errorf("failed to serialize proofs: %w", s.Error())
 	}
 
@@ -178,6 +208,10 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report ccipocr3.Execu
 }
 
 func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte) (ccipocr3.ExecutePluginReport, error) {
+	return decodeSuiExecutePluginReport(encodedReport, false)
+}
+
+func decodeSuiExecutePluginReport(encodedReport []byte, includeReceiverObjectIDs bool) (ccipocr3.ExecutePluginReport, error) {
 	des := bcs.NewDeserializer(encodedReport)
 	report := ccipocr3.ExecutePluginReport{}
 	var chainReport ccipocr3.ExecutePluginReportSingleChain
@@ -258,7 +292,14 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 	// Hence, we set message.Receiver = tokenReceiverBytes.
 	message.Receiver = tokenReceiverBytes
 
-	// 11. token_amounts: vector<Any2AptosTokenTransfer>
+	if includeReceiverObjectIDs {
+		_ = deserializeReceiverObjectIDs(des)
+		if des.Error() != nil {
+			return report, fmt.Errorf("failed to deserialize receiver_object_ids: %w", des.Error())
+		}
+	}
+
+	// 12. token_amounts: vector<Any2SuiTokenTransfer>
 	message.TokenAmounts = bcs.DeserializeSequenceWithFunction(des, func(des *bcs.Deserializer, item *ccipocr3.RampTokenAmount) {
 		// 11a. source_pool_address: vector<u8>
 		item.SourcePoolAddress = des.ReadBytes()
@@ -352,5 +393,29 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 	return report, nil
 }
 
+func serializeReceiverObjectIDs(s *bcs.Serializer, receiverObjectIDs [][32]byte) {
+	bcs.SerializeSequenceWithFunction(receiverObjectIDs, s, func(s *bcs.Serializer, item [32]byte) {
+		var addr aptos.AccountAddress
+		copy(addr[:], item[:])
+		s.Struct(&addr)
+	})
+}
+
+func deserializeReceiverObjectIDs(des *bcs.Deserializer) [][32]byte {
+	addrs := bcs.DeserializeSequenceWithFunction(des, func(des *bcs.Deserializer, item *aptos.AccountAddress) {
+		des.Struct(item)
+	})
+	if des.Error() != nil {
+		return nil
+	}
+
+	result := make([][32]byte, len(addrs))
+	for i, addr := range addrs {
+		copy(result[i][:], addr[:])
+	}
+	return result
+}
+
 // Ensure ExecutePluginCodec implements the ExecutePluginCodec interface
 var _ ccipocr3.ExecutePluginCodec = (*ExecutePluginCodecV1)(nil)
+var _ ccipocr3.ExecutePluginCodec = (*ExecutePluginCodecV2)(nil)
