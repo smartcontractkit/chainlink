@@ -1,6 +1,7 @@
 package aptos_test
 
 import (
+	"crypto/ecdsa"
 	"math/big"
 	"testing"
 	"time"
@@ -13,34 +14,78 @@ import (
 	module_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
+	cldflogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	aptosconfig "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/operation/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
+
+// newAptosOnlyEnvWithCCIP spins up a single Aptos container via runtime.New, deploys CCIP on it,
+// and returns the resulting cldf.Environment. This is the lightweight alternative to
+// testhelpers.NewMemoryEnvironment for tests that don't need EVM chains or Chainlink nodes.
+func newAptosOnlyEnvWithCCIP(t *testing.T) (cldf.Environment, uint64) {
+	t.Helper()
+
+	selector := chain_selectors.APTOS_LOCALNET.Selector
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithAptosContainer(t, []uint64{selector}),
+		environment.WithLogger(cldflogger.Test(t)),
+	))
+	require.NoError(t, err)
+
+	ccipConfig := aptosconfig.DeployAptosChainConfig{
+		ContractParamsPerChain: map[uint64]aptosconfig.ChainContractParams{
+			selector: aptoscs.GetMockChainContractParams(t, selector),
+		},
+		MCMSDeployConfigPerChain: map[uint64]commontypes.MCMSWithTimelockConfigV2{
+			selector: {
+				Canceller:        cldftesthelpers.SingleGroupMCMS(t),
+				Proposer:         cldftesthelpers.SingleGroupMCMS(t),
+				Bypasser:         cldftesthelpers.SingleGroupMCMS(t),
+				TimelockMinDelay: big.NewInt(1),
+			},
+		},
+		MCMSTimelockConfigPerChain: map[uint64]cldfproposalutils.TimelockConfig{
+			selector: {
+				MinDelay:     time.Second,
+				MCMSAction:   mcmstypes.TimelockActionSchedule,
+				OverrideRoot: false,
+			},
+		},
+	}
+
+	err = rt.Exec(
+		runtime.ChangesetTask(aptoscs.DeployAptosChain{}, ccipConfig),
+		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
+	)
+	require.NoError(t, err)
+
+	return rt.Environment(), selector
+}
 
 func TestDynamicCS_Apply(t *testing.T) {
 	t.Parallel()
 
-	// Setup environment with Aptos chain and deployed contracts
-	deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(
-		t,
-		testhelpers.WithAptosChains(1),
-	)
-	env := deployedEnvironment.Env
+	env, aptosChainSel := newAptosOnlyEnvWithCCIP(t)
 
 	// Load onchain state to get deployed contract addresses
 	state, err := stateview.LoadOnchainState(env)
 	require.NoError(t, err, "must load onchain state")
 
-	aptosChainSel := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyAptos))[0]
+	require.Contains(t, env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyAptos)), aptosChainSel)
 	aptosState := state.AptosChains[aptosChainSel]
 	aptosChain := env.BlockChains.AptosChains()[aptosChainSel]
 

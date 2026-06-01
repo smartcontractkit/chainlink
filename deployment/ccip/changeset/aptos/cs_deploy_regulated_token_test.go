@@ -15,14 +15,12 @@ import (
 
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
 func TestDeployRegulatedToken_Apply(t *testing.T) {
 	t.Parallel()
-	deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithAptosChains(1))
-	env := deployedEnvironment.Env
+	env, _ := newAptosOnlyEnvWithCCIP(t)
 
 	aptosSelectors := env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyAptos))
 	require.Len(t, aptosSelectors, 1)

@@ -535,19 +535,18 @@ func TestRMNCurseUncurseAptos(t *testing.T) {
 		},
 	}
 
+	e, _ := testhelpers.NewMemoryEnvironment(
+		t,
+		testhelpers.WithNumOfChains(2),
+		testhelpers.WithAptosChains(1),
+	)
+
+	mapIDToSelector := func(id uint64) uint64 {
+		return v1_6.GetAllCursableChainsSelector(e.Env)[id]
+	}
+
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			e, _ := testhelpers.NewMemoryEnvironment(
-				t,
-				testhelpers.WithNumOfChains(2),
-				testhelpers.WithAptosChains(1),
-			)
-
-			mapIDToSelector := func(id uint64) uint64 {
-				return v1_6.GetAllCursableChainsSelector(e.Env)[id]
-			}
 
 			config := v1_6.RMNCurseConfig{
 				CurseActions:             tc.curseActionsBuilder(mapIDToSelector),

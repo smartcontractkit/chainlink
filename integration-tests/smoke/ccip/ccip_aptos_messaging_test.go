@@ -32,13 +32,24 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
-	lggr := logger.TestLogger(t)
+func Test_CCIP_Messaging_Aptos(t *testing.T) {
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithNumOfChains(2),
 		testhelpers.WithAptosChains(1),
 	)
+
+	t.Run("EVM2Aptos", func(t *testing.T) {
+		runMessagingEVM2Aptos(t, e)
+	})
+
+	t.Run("Aptos2EVM", func(t *testing.T) {
+		runMessagingAptos2EVM(t, e)
+	})
+}
+
+func runMessagingEVM2Aptos(t *testing.T, e testhelpers.DeployedEnv) {
+	lggr := logger.TestLogger(t)
 
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	aptosChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
@@ -397,14 +408,9 @@ func getLatestDummyReceiverEvent(t *testing.T, rpcClient aptos.AptosRpcClient, d
 	return nil, errors.Join(errs...)
 }
 
-func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
+func runMessagingAptos2EVM(t *testing.T, e testhelpers.DeployedEnv) {
 	ctx := testhelpers.Context(t)
 	lggr := logger.TestLogger(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(
-		t,
-		testhelpers.WithNumOfChains(2),
-		testhelpers.WithAptosChains(1),
-	)
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	aptosChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
 

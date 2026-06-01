@@ -24,6 +24,7 @@ func TestUpgradeAptosChain_Apply(t *testing.T) {
 	deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(
 		t,
 		testhelpers.WithAptosChains(1),
+		testhelpers.WithDONConfigurationSkipped(),
 	)
 	env := deployedEnvironment.Env
 

@@ -31,14 +31,9 @@ func assertAptosSourceRevertExpectedError(t *testing.T, err error, execRevertErr
 	require.Contains(t, err.Error(), execRevertCauseErrorMsg)
 }
 
-func Test_CCIP_TokenTransfer_EVM2Aptos(t *testing.T) {
+func runTokenTransferEVM2Aptos(t *testing.T, e testhelpers.DeployedEnv) {
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(
-		t,
-		testhelpers.WithNumOfChains(2),
-		testhelpers.WithAptosChains(1),
-	)
 
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	aptosChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
@@ -264,14 +259,9 @@ func Test_CCIP_TokenTransfer_EVM2Aptos(t *testing.T) {
 	})
 }
 
-func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
+func runTokenTransferAptos2EVM(t *testing.T, e testhelpers.DeployedEnv) {
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(
-		t,
-		testhelpers.WithNumOfChains(2),
-		testhelpers.WithAptosChains(1),
-	)
 
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	aptosChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
@@ -534,14 +524,9 @@ func Test_CCIP_TokenTransfer_Aptos2EVM(t *testing.T) {
 // # Burn Mint Token Pool #
 // ########################
 
-func Test_CCIP_TokenTransfer_BnM_EVM2Aptos(t *testing.T) {
+func runTokenTransferBnMEVM2Aptos(t *testing.T, e testhelpers.DeployedEnv) {
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(
-		t,
-		testhelpers.WithNumOfChains(2),
-		testhelpers.WithAptosChains(1),
-	)
 
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	aptosChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
@@ -767,14 +752,9 @@ func Test_CCIP_TokenTransfer_BnM_EVM2Aptos(t *testing.T) {
 	})
 }
 
-func Test_CCIP_TokenTransfer_BnM_Aptos2EVM(t *testing.T) {
+func runTokenTransferBnMAptos2EVM(t *testing.T, e testhelpers.DeployedEnv) {
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(
-		t,
-		testhelpers.WithNumOfChains(2),
-		testhelpers.WithAptosChains(1),
-	)
 
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	aptosChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
@@ -1037,14 +1017,9 @@ func Test_CCIP_TokenTransfer_BnM_Aptos2EVM(t *testing.T) {
 // # Lock Release Token Pool - with TransferRef #
 // ##############################################
 
-func Test_CCIP_TokenTransfer_LnR_EVM2Aptos(t *testing.T) {
+func runTokenTransferLnREVM2Aptos(t *testing.T, e testhelpers.DeployedEnv) {
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(
-		t,
-		testhelpers.WithNumOfChains(2),
-		testhelpers.WithAptosChains(1),
-	)
 
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	aptosChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
@@ -1294,14 +1269,9 @@ func Test_CCIP_TokenTransfer_LnR_EVM2Aptos(t *testing.T) {
 	})
 }
 
-func Test_CCIP_TokenTransfer_LnR_Aptos2EVM(t *testing.T) {
+func runTokenTransferLnRAptos2EVM(t *testing.T, e testhelpers.DeployedEnv) {
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(
-		t,
-		testhelpers.WithNumOfChains(2),
-		testhelpers.WithAptosChains(1),
-	)
 
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	aptosChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
@@ -1567,14 +1537,9 @@ func Test_CCIP_TokenTransfer_LnR_Aptos2EVM(t *testing.T) {
 // # Lock Release Token Pool - without TransferRef #
 // #################################################
 
-func Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos(t *testing.T) {
+func runTokenTransferLnRNoTransferRefEVM2Aptos(t *testing.T, e testhelpers.DeployedEnv) {
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(
-		t,
-		testhelpers.WithNumOfChains(2),
-		testhelpers.WithAptosChains(1),
-	)
 
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	aptosChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
@@ -1824,14 +1789,9 @@ func Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos(t *testing.T) {
 	})
 }
 
-func Test_CCIP_TokenTransfer_LnR_without_TransferRef_Aptos2EVM(t *testing.T) {
+func runTokenTransferLnRNoTransferRefAptos2EVM(t *testing.T, e testhelpers.DeployedEnv) {
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(
-		t,
-		testhelpers.WithNumOfChains(2),
-		testhelpers.WithAptosChains(1),
-	)
 
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	aptosChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyAptos))
@@ -2091,4 +2051,37 @@ func Test_CCIP_TokenTransfer_LnR_without_TransferRef_Aptos2EVM(t *testing.T) {
 		assertAptosSourceRevertExpectedError(t, err, "ABORTED", "invalid_input")
 		t.Log("Expected error: ", err)
 	})
+}
+
+func newAptosTokenTransferEnv(t *testing.T) testhelpers.DeployedEnv {
+	e, _, _ := testsetups.NewIntegrationEnvironment(
+		t,
+		testhelpers.WithNumOfChains(2),
+		testhelpers.WithAptosChains(1),
+	)
+	return e
+}
+
+func Test_CCIP_TokenTransfer_Aptos(t *testing.T) {
+	e := newAptosTokenTransferEnv(t)
+	t.Run("EVM2Aptos", func(t *testing.T) { runTokenTransferEVM2Aptos(t, e) })
+	t.Run("Aptos2EVM", func(t *testing.T) { runTokenTransferAptos2EVM(t, e) })
+}
+
+func Test_CCIP_TokenTransfer_BnM_Aptos(t *testing.T) {
+	e := newAptosTokenTransferEnv(t)
+	t.Run("EVM2Aptos", func(t *testing.T) { runTokenTransferBnMEVM2Aptos(t, e) })
+	t.Run("Aptos2EVM", func(t *testing.T) { runTokenTransferBnMAptos2EVM(t, e) })
+}
+
+func Test_CCIP_TokenTransfer_LnR_Aptos(t *testing.T) {
+	e := newAptosTokenTransferEnv(t)
+	t.Run("EVM2Aptos", func(t *testing.T) { runTokenTransferLnREVM2Aptos(t, e) })
+	t.Run("Aptos2EVM", func(t *testing.T) { runTokenTransferLnRAptos2EVM(t, e) })
+}
+
+func Test_CCIP_TokenTransfer_LnR_NoTransferRef_Aptos(t *testing.T) {
+	e := newAptosTokenTransferEnv(t)
+	t.Run("EVM2Aptos", func(t *testing.T) { runTokenTransferLnRNoTransferRefEVM2Aptos(t, e) })
+	t.Run("Aptos2EVM", func(t *testing.T) { runTokenTransferLnRNoTransferRefAptos2EVM(t, e) })
 }

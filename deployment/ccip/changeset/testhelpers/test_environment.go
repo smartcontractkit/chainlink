@@ -150,6 +150,11 @@ type TestConfigs struct {
 	// This is useful for tests that need to initialize DONs using different changesets.
 	SkipDONConfiguration bool
 
+	// SkipNodeStartup skips spinning up Chainlink nodes in MemoryEnvironment. Use only when the
+	// test consumes neither node state (e.NodeIDs, e.Offchain) nor DON configuration. Implies
+	// SkipDONConfiguration=true — there is no DON without nodes; mis-use is rejected by Validate.
+	SkipNodeStartup bool
+
 	// Solana Handle different contract versions
 	CCIPSolanaContractVersion ccipChangeSetSolanaV0_1_1.CCIPSolanaContractVersion
 
@@ -169,6 +174,9 @@ func (tc *TestConfigs) Validate() error {
 	}
 	if tc.Type == Memory && tc.RMNEnabled {
 		return errors.New("cannot run RMN tests in memory mode")
+	}
+	if tc.SkipNodeStartup && !tc.SkipDONConfiguration {
+		return errors.New("SkipNodeStartup requires SkipDONConfiguration: DON configuration cannot run without nodes")
 	}
 	return nil
 }
@@ -249,6 +257,16 @@ func WithStaticLink() TestOps {
 
 func WithDONConfigurationSkipped() TestOps {
 	return func(testCfg *TestConfigs) {
+		testCfg.SkipDONConfiguration = true
+	}
+}
+
+// WithNodeStartupSkipped skips spinning up Chainlink nodes in MemoryEnvironment. Implies
+// WithDONConfigurationSkipped — there is no DON without nodes. Only safe for tests that do
+// not consume node state (e.NodeIDs / e.Offchain).
+func WithNodeStartupSkipped() TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.SkipNodeStartup = true
 		testCfg.SkipDONConfiguration = true
 	}
 }
@@ -759,8 +777,10 @@ func NewEnvironment(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 	require.NotEmpty(t, dEnv.Env.BlockChains.EVMChains())
 	ab := cldf.NewMemoryAddressBook()
 	crConfig := DeployTestContracts(t, lggr, ab, dEnv.HomeChainSel, dEnv.FeedChainSel, dEnv.Env.BlockChains.EVMChains(), tc.LinkPrice, tc.WethPrice)
-	tEnv.StartNodes(t, crConfig)
-	dEnv = tEnv.DeployedEnvironment()
+	if !tc.SkipNodeStartup {
+		tEnv.StartNodes(t, crConfig)
+		dEnv = tEnv.DeployedEnvironment()
+	}
 	dEnv.Env.ExistingAddresses = ab
 	return dEnv
 }
