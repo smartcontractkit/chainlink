@@ -16,6 +16,10 @@ const (
 	// defaultPruneInterval is the default interval between pruning completed executions
 	defaultPruneInterval = 30 * time.Second
 
+	// defaultRecycleMapForGCInterval is the default interval between rebuilding the execution
+	// map so its old bucket storage becomes eligible for GC, even when no entries are deleted.
+	defaultRecycleMapForGCInterval = 1 * time.Hour
+
 	// maximumExecutionAge is the default maximum age of an execution before it is considered expired and eligible for pruning
 	// regardless of its status
 	maximumExecutionAge = 24 * time.Hour
@@ -42,16 +46,22 @@ type InMemoryStore struct {
 	// maximumExecutionAge is the maximum age of an execution before it is considered expired and eligible for pruning
 	// regardless of its status
 	maximumExecutionAge time.Duration
+
+	// recycleMapForGCInterval is the interval between rebuilding the execution map so old
+	// bucket storage becomes eligible for GC, independent of entry deletion.
+	recycleMapForGCInterval time.Duration
 }
 
 func NewInMemoryStore(lggr logger.Logger, clock clockwork.Clock) *InMemoryStore {
-	return NewInMemoryStoreWithPruneConfiguration(lggr, clock, defaultPruneInterval, maximumExecutionAge)
+	return NewInMemoryStoreWithPruneConfiguration(lggr, clock, defaultPruneInterval, maximumExecutionAge,
+		defaultRecycleMapForGCInterval)
 }
 
 func NewInMemoryStoreWithPruneConfiguration(lggr logger.Logger, clock clockwork.Clock, pruneFrequency time.Duration,
-	maximumExecutionAge time.Duration) *InMemoryStore {
+	maximumExecutionAge time.Duration, recycleMapForGCInterval time.Duration) *InMemoryStore {
 	return &InMemoryStore{lggr: lggr, idToExecution: map[string]*WorkflowExecution{}, clock: clock, chStop: make(chan struct{}),
-		pruneInterval: pruneFrequency, maximumExecutionAge: maximumExecutionAge}
+		pruneInterval: pruneFrequency, maximumExecutionAge: maximumExecutionAge,
+		recycleMapForGCInterval: recycleMapForGCInterval}
 }
 
 // Add adds a new execution state under the given executionID
@@ -180,38 +190,86 @@ func (s *InMemoryStore) DeleteByWorkflowID(_ context.Context, workflowID string)
 	return nil
 }
 
+// recycleMapLocked copies all entries into a fresh map and swaps it in.
+// Caller must hold s.mu.
+func (s *InMemoryStore) recycleMapLocked() {
+	if len(s.idToExecution) == 0 {
+		return
+	}
+	newMap := make(map[string]*WorkflowExecution, len(s.idToExecution))
+	for id, state := range s.idToExecution {
+		newMap[id] = state
+	}
+	s.idToExecution = newMap
+}
+
 func (s *InMemoryStore) pruneExpiredExecutionEntries() {
 	defer s.shutdownWaitGroup.Done()
-	ticker := s.clock.NewTicker(s.pruneInterval)
-	defer ticker.Stop()
+	pruneTicker := s.clock.NewTicker(s.pruneInterval)
+	defer pruneTicker.Stop()
+	recycleTicker := s.clock.NewTicker(s.recycleMapForGCInterval)
+	defer recycleTicker.Stop()
 	for {
 		select {
 		case <-s.chStop:
 			return
-		case <-ticker.Chan():
-			expirationTime := s.clock.Now().Add(-s.maximumExecutionAge)
-			s.mu.Lock()
-			for id, state := range s.idToExecution {
-				if isCompletedStatus(state.Status) {
-					delete(s.idToExecution, id)
-				}
-			}
-
-			// Prune non-terminated executions that are older than the maximum expiration time
-			// This shouldn't be necessary - erring on the side of caution for now as this pruning logic
-			// existed in the old store.
-			var prunedNonTerminatedExecutionIDs []string
-			for id, state := range s.idToExecution {
-				if state.UpdatedAt.Before(expirationTime) {
-					delete(s.idToExecution, id)
-					prunedNonTerminatedExecutionIDs = append(prunedNonTerminatedExecutionIDs, id)
-				}
-			}
-			s.mu.Unlock()
-			if len(prunedNonTerminatedExecutionIDs) > 0 {
-				s.lggr.Warnw("Found and pruned non completed workflow executions older than the maximum execution age",
-					"maximumExecutionAge", s.maximumExecutionAge, "pruned execution ids", prunedNonTerminatedExecutionIDs)
-			}
+		case <-pruneTicker.Chan():
+			s.pruneCompletedAndExpiredExecutions()
+		case <-recycleTicker.Chan():
+			s.recycleExecutionMapForGC()
 		}
+	}
+}
+
+func (s *InMemoryStore) pruneCompletedAndExpiredExecutions() {
+	expirationTime := s.clock.Now().Add(-s.maximumExecutionAge)
+	s.mu.Lock()
+	newMap := make(map[string]*WorkflowExecution, len(s.idToExecution))
+	prunedCompletedCount := 0
+
+	// Prune non-terminated executions that are older than the maximum expiration time
+	// This shouldn't be necessary - erring on the side of caution for now as this pruning logic
+	// existed in the old store.
+	var prunedNonTerminatedExecutionIDs []string
+	for id, state := range s.idToExecution {
+		if isCompletedStatus(state.Status) {
+			prunedCompletedCount++
+			continue
+		}
+		if state.UpdatedAt.Before(expirationTime) {
+			prunedNonTerminatedExecutionIDs = append(prunedNonTerminatedExecutionIDs, id)
+			continue
+		}
+		newMap[id] = state
+	}
+	prunedAny := prunedCompletedCount > 0 || len(prunedNonTerminatedExecutionIDs) > 0
+	if prunedAny {
+		// Rebuild the map to let old buckets become GC-eligible after churn-heavy periods.
+		s.idToExecution = newMap
+	}
+	remainingExecutions := len(s.idToExecution)
+	s.mu.Unlock()
+	if prunedAny {
+		s.lggr.Infow("Pruned workflow execution entries",
+			"prunedCompletedCount", prunedCompletedCount,
+			"prunedNonCompletedCount", len(prunedNonTerminatedExecutionIDs),
+			"remainingExecutions", remainingExecutions)
+	}
+	if len(prunedNonTerminatedExecutionIDs) > 0 {
+		s.lggr.Warnw("Found and pruned non completed workflow executions older than the maximum execution age",
+			"maximumExecutionAge", s.maximumExecutionAge, "pruned execution ids", prunedNonTerminatedExecutionIDs)
+	}
+}
+
+func (s *InMemoryStore) recycleExecutionMapForGC() {
+	s.mu.Lock()
+	remainingExecutions := len(s.idToExecution)
+	if remainingExecutions > 0 {
+		s.recycleMapLocked()
+	}
+	s.mu.Unlock()
+	if remainingExecutions > 0 {
+		s.lggr.Infow("Recycled workflow execution map for GC",
+			"remainingExecutions", remainingExecutions)
 	}
 }

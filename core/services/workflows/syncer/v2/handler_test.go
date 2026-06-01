@@ -1374,6 +1374,59 @@ func Test_workflowDeletedEvent_IgnoresErrAlreadyStopped(t *testing.T) {
 	assert.False(t, ok)
 }
 
+func Test_eventHandlerStart_StartsWorkflowStorePruning(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.TestLogger(t)
+	lf := limits.Factory{Logger: lggr}
+	limiters, err := v2.NewLimiters(lf, nil)
+	require.NoError(t, err)
+
+	fakeClock := clockwork.NewFakeClock()
+	wfStore := store.NewInMemoryStoreWithPruneConfiguration(lggr, fakeClock, 100*time.Millisecond, time.Hour, 24*time.Hour)
+	h := &eventHandler{
+		lggr:           lggr,
+		workflowStore:  wfStore,
+		engineRegistry: NewEngineRegistry(),
+		engineLimiters: limiters,
+	}
+	ctx := testutils.Context(t)
+	require.NoError(t, h.start(ctx))
+	t.Cleanup(func() {
+		require.NoError(t, h.close())
+	})
+
+	_, err = wfStore.Add(ctx, nil, "exec-1", "wf-1", store.StatusStarted)
+	require.NoError(t, err)
+	_, err = wfStore.FinishExecution(ctx, "exec-1", store.StatusCompleted)
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		fakeClock.Advance(200 * time.Millisecond)
+		_, getErr := wfStore.Get(ctx, "exec-1")
+		return getErr != nil
+	}, 2*time.Second, 10*time.Millisecond)
+}
+
+func Test_tryEngineCleanup_IgnoresErrAlreadyStopped(t *testing.T) {
+	t.Parallel()
+
+	workflowID := types.WorkflowID{9}
+	engine := &mockEngine{CloseErr: services.ErrAlreadyStopped}
+	registry := NewEngineRegistry()
+	require.NoError(t, registry.Add(workflowID, "test-source", engine))
+
+	h := &eventHandler{
+		lggr:           logger.TestLogger(t),
+		engineRegistry: registry,
+	}
+
+	err := h.tryEngineCleanup(workflowID)
+	require.NoError(t, err)
+	_, ok := registry.Get(workflowID)
+	assert.False(t, ok)
+}
+
 func Test_workflowRegisteredEvent_DrainingEngineNotTreatedAsHealthy(t *testing.T) {
 	t.Parallel()
 

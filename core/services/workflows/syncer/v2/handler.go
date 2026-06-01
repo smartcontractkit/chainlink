@@ -327,7 +327,10 @@ func NewEventHandler(
 	return eh, nil
 }
 
-func (h *eventHandler) start(_ context.Context) error {
+func (h *eventHandler) start(ctx context.Context) error {
+	if err := h.workflowStore.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start workflow store: %w", err)
+	}
 	if h.moduleLRU != nil {
 		h.moduleLRU.Start()
 	}
@@ -339,11 +342,12 @@ func (h *eventHandler) close() error {
 		h.moduleLRU.Close()
 	}
 	es := h.engineRegistry.PopAll()
-	cs := make([]io.Closer, 0, len(es)+1)
-	cs = append(cs, h.engineLimiters)
+	cs := make([]io.Closer, 0, len(es)+2)
 	for _, e := range es {
 		cs = append(cs, e)
 	}
+	cs = append(cs, h.workflowStore)
+	cs = append(cs, h.engineLimiters)
 	return services.CloseAll(cs...)
 }
 
@@ -891,7 +895,7 @@ func (h *eventHandler) tryEngineCleanup(workflowID types.WorkflowID) error {
 	e, ok := h.engineRegistry.Get(workflowID)
 	if ok {
 		// Stop the engine
-		if err := e.Close(); err != nil {
+		if err := e.Close(); err != nil && !errors.Is(err, services.ErrAlreadyStopped) {
 			return fmt.Errorf("failed to close workflow engine: %w", err)
 		}
 
