@@ -630,8 +630,11 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 
 	wfID := payload.WorkflowID.Hex()
 	owner := hex.EncodeToString(payload.WorkflowOwner)
-
-	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: owner, Workflow: wfID})
+	orgID, err := h.fetchOrganizationID(ctx, owner)
+	if err != nil {
+		h.lggr.Warnw("Failed to get organization from linking service", "workflowOwner", owner, "error", err)
+	}
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Org: orgID, Owner: owner, Workflow: wfID})
 
 	// With Workflow Registry contract v2 the BinaryURL and ConfigURL are expected to be identifiers that put through the Storage Service.
 	decodedBinary, config, err := h.workflowArtifactsStore.FetchWorkflowArtifacts(ctx, wfID, payload.BinaryURL, payload.ConfigURL)
