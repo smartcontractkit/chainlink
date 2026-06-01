@@ -130,6 +130,7 @@ func (e *Engine) buildLabels(localNode *capabilities.Node) []any {
 			int(localNode.WorkflowDON.F),
 		)),
 		platform.KeyP2PID, localNode.PeerID.String(),
+		platform.KeyZone, e.cfg.Zone,
 		platform.WorkflowRegistryAddress, e.cfg.WorkflowRegistryAddress,
 		platform.WorkflowRegistryChainSelector, e.cfg.WorkflowRegistryChainSelector,
 		platform.EngineVersion, platform.ValueWorkflowVersionV2,

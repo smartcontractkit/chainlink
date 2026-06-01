@@ -64,6 +64,10 @@ type EngineConfig struct {
 	// WorkflowRegistryChainSelector is the chain selector for the workflow registry
 	WorkflowRegistryChainSelector string
 
+	// Zone identifies the operational zone (e.g., "zone-a") of the DON this
+	// node belongs to. Sourced from Telemetry.ResourceAttributes.zone.
+	Zone string
+
 	// OrgResolver is used to resolve organization IDs from workflow owners
 	OrgResolver orgresolver.OrgResolver
 

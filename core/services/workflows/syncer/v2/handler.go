@@ -101,6 +101,10 @@ type eventHandler struct {
 	// WorkflowRegistryChainSelector is the chain selector for the workflow registry
 	workflowRegistryChainSelector string
 
+	// zone identifies the operational zone (e.g., "zone-a") of the DON this
+	// node belongs to. Sourced from Telemetry.ResourceAttributes.zone.
+	zone string
+
 	// debugMode enables additional OTel tracing for workflow engines and syncer.
 	// When enabled, traces are created for workflow execution and syncer events.
 	debugMode bool
@@ -169,6 +173,14 @@ func WithWorkflowRegistry(address, chainSelector string) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.workflowRegistryAddress = address
 		e.workflowRegistryChainSelector = chainSelector
+	}
+}
+
+// WithZone sets the operational zone label propagated to engine telemetry
+// (e.g., "zone-a"). Sourced from Telemetry.ResourceAttributes.zone.
+func WithZone(zone string) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.zone = zone
 	}
 }
 
@@ -1061,6 +1073,7 @@ func (h *eventHandler) newV2EngineConfig(
 
 		WorkflowRegistryAddress:       h.workflowRegistryAddress,
 		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
+		Zone:                          h.zone,
 		OrgResolver:                   h.orgResolver,
 		SecretsFetcher:                h.secretsFetcher,
 		OverrideFetcher:               h.overrideFetcherForOwner(owner),

@@ -25,6 +25,9 @@ const (
 	KeyDonN                = "N"
 	KeyDonQ                = "Q"
 	KeyP2PID               = "p2pID"
+	// KeyZone identifies the operational zone (e.g., "zone-a") of the DON
+	// this node belongs to. Sourced from Telemetry.ResourceAttributes.zone.
+	KeyZone                = "zone"
 	ValueWorkflowVersion   = "1.0.0"
 	ValueWorkflowVersionV2 = "2.0.0"
 	KeyCapabilityErrorCode = "capabilityErrorCode"

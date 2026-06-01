@@ -323,6 +323,7 @@ type Config interface {
 	CRE() config.CRE
 	P2P() config.P2P
 	Sharding() config.Sharding
+	Telemetry() config.Telemetry
 }
 
 // RelayerChainInterops is the minimal interface needed for relayer chain interops
@@ -1000,6 +1001,7 @@ func newWorkflowRegistrySyncerV2(
 	handlerOpts := []syncerV2.EventHandlerOption{
 		syncerV2.WithBillingClient(billingClient),
 		syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), selector),
+		syncerV2.WithZone(cfg.Telemetry().ResourceAttributes()["zone"]),
 		syncerV2.WithOrgResolver(orgResolver),
 		syncerV2.WithDebugMode(cfg.CRE().DebugMode()),
 		syncerV2.WithLocalSecretOverrides(lggr, cfg.CRE().LocalSecretOverrides()),
