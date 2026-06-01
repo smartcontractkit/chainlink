@@ -148,13 +148,13 @@ func TestExtraDataDecoder_DecodeExtraArgsToMap_SUIDestination(t *testing.T) {
 		gasLimit := big.NewInt(200000)
 		allowOOO := true
 		tokenReceiver := suiTestBytes32(t, "0000000000000000000000000000000000000000000000000000000000005678")
-		receiverObjectIds := [][32]byte{suiTestBytes32(t, "0000000000000000000000000000000000000000000000000000000000aabbcc")}
+		receiverObjectIDs := [][32]byte{suiTestBytes32(t, "0000000000000000000000000000000000000000000000000000000000aabbcc")}
 
 		encoded, err := SerializeClientSUIExtraArgsV1(sui_message_hasher.ClientSuiExtraArgsV1{
 			GasLimit:                 gasLimit,
 			AllowOutOfOrderExecution: allowOOO,
 			TokenReceiver:            tokenReceiver,
-			ReceiverObjectIds:        receiverObjectIds,
+			ReceiverObjectIds:        receiverObjectIDs,
 		})
 		require.NoError(t, err)
 		require.Equal(t, suiVMExtraArgsV1Tag, encoded[:4])
@@ -177,7 +177,7 @@ func TestExtraDataDecoder_DecodeExtraArgsToMap_SUIDestination(t *testing.T) {
 
 		ids, exist := m["receiverObjectIds"]
 		require.True(t, exist)
-		require.Equal(t, receiverObjectIds, ids)
+		require.Equal(t, receiverObjectIDs, ids)
 	})
 
 	t.Run("empty receiver object ids", func(t *testing.T) {
