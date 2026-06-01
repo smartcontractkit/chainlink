@@ -222,12 +222,18 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	if err := h.verifyAttestationHash(ctx, att, params, confidentialrelaytypes.DomainSecretsGet); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
+	// Fetch the local node once: it provides both the WorkflowDON snapshot for
+	// the enclave-config check below and the DON metadata on the vault request.
+	localNode, err := h.capRegistry.LocalNode(ctx)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get local node: %w", err))
+	}
 	// Verify the enclave's reported config matches the onchain DON state
-	// before treating the attested request as trusted. Sigma Prime CL112-01:
-	// the Nitro attestation binds the request hash, but a malicious host
-	// can produce a genuinely-attested request over a forged enclave config
-	// unless we compare the config value against an onchain reference.
-	if err := h.verifyEnclaveConfigMatchesDON(ctx, params.EnclaveConfig); err != nil {
+	// before treating the attested request as trusted: the Nitro attestation
+	// binds the request hash, but a malicious host can produce a
+	// genuinely-attested request over a forged enclave config unless we
+	// compare the config value against the DON reference.
+	if err := h.verifyEnclaveConfigMatchesDON(localNode, params.EnclaveConfig); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
 
@@ -263,11 +269,6 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	anypbReq, err := anypb.New(vaultReq)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to wrap vault request: %w", err))
-	}
-
-	localNode, err := h.capRegistry.LocalNode(ctx)
-	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get local node: %w", err))
 	}
 
 	metadata := capabilities.RequestMetadata{
@@ -399,7 +400,11 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 	if err := h.verifyAttestationHash(ctx, att, params, confidentialrelaytypes.DomainCapabilityExec); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
-	if err := h.verifyEnclaveConfigMatchesDON(ctx, params.EnclaveConfig); err != nil {
+	localNode, err := h.capRegistry.LocalNode(ctx)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get local node: %w", err))
+	}
+	if err := h.verifyEnclaveConfigMatchesDON(localNode, params.EnclaveConfig); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
 
@@ -479,20 +484,15 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 // relay DON runs on the same nodes as the workflow DON, so
 // localNode.WorkflowDON.Members is the right comparison target.
 //
-// Sigma Prime CL112-01 / PRIV-458: pool.go validates the Nitro attestation
-// cryptographically but a malicious host can still produce a
-// genuinely-attested request over a forged config. The fix is to compare
-// the attested config value against onchain DON state.
+// PRIV-458: the Nitro attestation binds the request hash but does not on its
+// own prove the config matches the DON, so a malicious host could produce a
+// genuinely-attested request over a forged config. Comparing the attested
+// config against onchain DON state closes that gap.
 //
-// LocalNode is an O(1) in-memory map lookup populated by the registry
-// syncer (background goroutine, default 12s tick); not an RPC on the hot
-// path. Up to a ~12s staleness window applies during DON membership
-// rotations and is acceptable: rotations are rare planned events.
-func (h *Handler) verifyEnclaveConfigMatchesDON(ctx context.Context, cfg confidentialrelaytypes.EnclaveConfig) error {
-	localNode, err := h.capRegistry.LocalNode(ctx)
-	if err != nil {
-		return fmt.Errorf("fetch LocalNode for enclave config check: %w", err)
-	}
+// localNode is passed in so each request fetches it once (it feeds request
+// metadata too); the caller's lookup is an O(1) in-memory read populated by
+// the registry syncer, so this stays off the RPC hot path.
+func (h *Handler) verifyEnclaveConfigMatchesDON(localNode capabilities.Node, cfg confidentialrelaytypes.EnclaveConfig) error {
 	expectedF := uint32(localNode.WorkflowDON.F)
 	if cfg.F != expectedF {
 		return fmt.Errorf("enclave config F mismatch: enclave reports %d, expected %d", cfg.F, expectedF)
