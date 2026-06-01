@@ -1,6 +1,7 @@
 package confidentialrelay
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"encoding/base64"
@@ -10,6 +11,7 @@ import (
 	"fmt"
 	"testing"
 
+	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -19,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	vault "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
+	confidentialworkflow "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
@@ -169,6 +172,47 @@ func makeRequest(t *testing.T, method string, params any) *jsonrpc.Request[json.
 	}
 }
 
+// testEnclaveConfig satisfies chainlink-common's validateEnclaveConfig (PRIV-458, pulled in
+// by the chainlink-common bump): non-empty Signers, F > 0, non-empty MasterPublicKey. The
+// relay binds these into the response-signature hash; the values are not otherwise checked.
+func testEnclaveConfig() confidentialrelaytypes.EnclaveConfig {
+	return confidentialrelaytypes.EnclaveConfig{
+		Signers:         [][]byte{[]byte("enclave-signer-1")},
+		MasterPublicKey: []byte("enclave-master-public-key"),
+		T:               1,
+		F:               1,
+	}
+}
+
+// testWorkflowDONKey returns the deterministic ed25519 key and matching PeerID for the
+// single Workflow DON signer used in secrets-get fixtures. P2P PeerIDs are ed25519 public
+// keys, so the relay verifies SignedComputeRequest signatures directly against member bytes.
+func testWorkflowDONKey(t *testing.T) (ed25519.PrivateKey, p2ptypes.PeerID) {
+	t.Helper()
+	priv := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0x07}, ed25519.SeedSize))
+	var peerID p2ptypes.PeerID
+	copy(peerID[:], priv.Public().(ed25519.PublicKey))
+	return priv, peerID
+}
+
+// signedComputeRequestsForParams builds the F+1 (here, one) Workflow-DON-signed compute
+// requests the enclave forwards to the relay. PublicData carries the WorkflowExecution
+// naming the owner and workflow that the secrets request must match.
+func signedComputeRequestsForParams(t *testing.T, params confidentialrelaytypes.SecretsRequestParams) []confidentialrelaytypes.SignedComputeRequest {
+	t.Helper()
+	priv, _ := testWorkflowDONKey(t)
+	publicData, err := proto.Marshal(&confidentialworkflow.WorkflowExecution{
+		Owner:      params.Owner,
+		WorkflowId: params.WorkflowID,
+	})
+	require.NoError(t, err)
+	cr := confidentialrelaytypes.ComputeRequest{PublicData: publicData}
+	payload := confidentialrelaytypes.SignedComputeRequestSignaturePayload(cr.Hash())
+	return []confidentialrelaytypes.SignedComputeRequest{
+		{ComputeRequest: cr, Signature: ed25519.Sign(priv, payload)},
+	}
+}
+
 // secretsGetTestRegistry builds a mock registry with a vault executable that
 // returns a valid GetSecretsResponse for the "API_KEY" secret.
 func secretsGetTestRegistry(t *testing.T) *mockCapRegistry {
@@ -201,6 +245,10 @@ func secretsGetTestRegistry(t *testing.T) *mockCapRegistry {
 	payload, err := anypb.New(vaultResp)
 	require.NoError(t, err)
 
+	// The relay verifies SignedComputeRequest signatures against the Workflow DON membership.
+	// F=0 makes the quorum (2*F+1) one signer, matched by the single fixture key.
+	_, workflowDONPeerID := testWorkflowDONKey(t)
+
 	return withEnclaveConfig(&mockCapRegistry{
 		executables: map[string]*mockExecutable{
 			vault.CapabilityID: {
@@ -208,7 +256,12 @@ func secretsGetTestRegistry(t *testing.T) *mockCapRegistry {
 			},
 		},
 		localNode: capabilities.Node{
-			WorkflowDON: capabilities.DON{ID: 42, ConfigVersion: 7},
+			WorkflowDON: capabilities.DON{
+				ID:            42,
+				ConfigVersion: 7,
+				Members:       []p2ptypes.PeerID{workflowDONPeerID},
+				F:             0,
+			},
 		},
 	})
 }
@@ -227,13 +280,17 @@ const testOwner = "0x0000000000000000000000000000000000000001"
 // drifts.
 func secretsGetTestRequest(t *testing.T) *jsonrpc.Request[json.RawMessage] {
 	t.Helper()
-	return makeRequest(t, confidentialrelaytypes.MethodSecretsGet, secretsGetTestParams())
+	return makeRequest(t, confidentialrelaytypes.MethodSecretsGet, secretsGetTestParams(t))
 }
 
 // secretsGetTestParams returns the canonical valid params used by both the request
-// builder and the response-signature-verification step.
-func secretsGetTestParams() confidentialrelaytypes.SecretsRequestParams {
-	return confidentialrelaytypes.SecretsRequestParams{
+// builder and the response-signature-verification step. EnclaveConfig and
+// SignedComputeRequests are excluded from the response hash, but the relay validates
+// both before serving (EnclaveConfig via Validate, SignedComputeRequests via the
+// PRIV-433 Workflow DON authorization check), so the fixture must populate them.
+func secretsGetTestParams(t *testing.T) confidentialrelaytypes.SecretsRequestParams {
+	t.Helper()
+	params := confidentialrelaytypes.SecretsRequestParams{
 		WorkflowID:       "wf-secrets-1",
 		Owner:            "0xab5801a7d398351b8be11c439e05c5b3259aec9b", // lowercase, should be normalized
 		ExecutionID:      "0000000000000000000000000000000000000000000000000000000000000001",
@@ -242,8 +299,11 @@ func secretsGetTestParams() confidentialrelaytypes.SecretsRequestParams {
 		Secrets: []confidentialrelaytypes.SecretIdentifier{
 			{Key: "API_KEY", Namespace: "main"},
 		},
-		Attestation: testAttestationB64,
+		EnclaveConfig: testEnclaveConfig(),
+		Attestation:   testAttestationB64,
 	}
+	params.SignedComputeRequests = signedComputeRequestsForParams(t, params)
+	return params
 }
 
 func TestHandler_HandleGatewayMessage(t *testing.T) {
@@ -270,24 +330,26 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			},
 			req: func(t *testing.T) *jsonrpc.Request[json.RawMessage] {
 				return makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
-					WorkflowID:   "wf-1",
-					Owner:        testOwner, // chainlink-common#2032 requires 0x-prefixed 20-byte hex
-					ExecutionID:  "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
-					ReferenceID:  "17",
-					CapabilityID: "my-cap@1.0.0",
-					Payload:      makeCapabilityPayload(t, map[string]any{"key": "val"}),
-					Attestation:  testAttestationB64,
+					WorkflowID:    "wf-1",
+					Owner:         testOwner, // chainlink-common#2032 requires 0x-prefixed 20-byte hex
+					ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+					ReferenceID:   "17",
+					CapabilityID:  "my-cap@1.0.0",
+					Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+					EnclaveConfig: testEnclaveConfig(),
+					Attestation:   testAttestationB64,
 				})
 			},
 			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
 				require.Nil(t, resp.Error)
 				params := confidentialrelaytypes.CapabilityRequestParams{
-					WorkflowID:   "wf-1",
-					Owner:        testOwner,
-					ExecutionID:  "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
-					ReferenceID:  "17",
-					CapabilityID: "my-cap@1.0.0",
-					Payload:      makeCapabilityPayload(t, map[string]any{"key": "val"}),
+					WorkflowID:    "wf-1",
+					Owner:         testOwner,
+					ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+					ReferenceID:   "17",
+					CapabilityID:  "my-cap@1.0.0",
+					Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+					EnclaveConfig: testEnclaveConfig(),
 				}
 				var result confidentialrelaytypes.SignedCapabilityResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
@@ -332,26 +394,28 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			},
 			req: func(t *testing.T) *jsonrpc.Request[json.RawMessage] {
 				return makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
-					WorkflowID:   "wf-1",
-					Owner:        testOwner,
-					ExecutionID:  "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
-					OrgID:        "org-relay-1",
-					ReferenceID:  "17",
-					CapabilityID: "my-cap@1.0.0",
-					Payload:      makeCapabilityPayload(t, map[string]any{"key": "val"}),
-					Attestation:  testAttestationB64,
+					WorkflowID:    "wf-1",
+					Owner:         testOwner,
+					ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+					OrgID:         "org-relay-1",
+					ReferenceID:   "17",
+					CapabilityID:  "my-cap@1.0.0",
+					Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+					EnclaveConfig: testEnclaveConfig(),
+					Attestation:   testAttestationB64,
 				})
 			},
 			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
 				require.Nil(t, resp.Error)
 				params := confidentialrelaytypes.CapabilityRequestParams{
-					WorkflowID:   "wf-1",
-					Owner:        testOwner,
-					ExecutionID:  "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
-					OrgID:        "org-relay-1",
-					ReferenceID:  "17",
-					CapabilityID: "my-cap@1.0.0",
-					Payload:      makeCapabilityPayload(t, map[string]any{"key": "val"}),
+					WorkflowID:    "wf-1",
+					Owner:         testOwner,
+					ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+					OrgID:         "org-relay-1",
+					ReferenceID:   "17",
+					CapabilityID:  "my-cap@1.0.0",
+					Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+					EnclaveConfig: testEnclaveConfig(),
 				}
 				var result confidentialrelaytypes.SignedCapabilityResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
@@ -377,13 +441,14 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			},
 			req: func(t *testing.T) *jsonrpc.Request[json.RawMessage] {
 				return makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
-					WorkflowID:   "wf-1",
-					Owner:        testOwner,
-					ExecutionID:  "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
-					ReferenceID:  "17",
-					CapabilityID: "my-cap@1.0.0",
-					Payload:      makeCapabilityPayload(t, map[string]any{"echo": "hello"}),
-					Attestation:  testAttestationB64,
+					WorkflowID:    "wf-1",
+					Owner:         testOwner,
+					ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+					ReferenceID:   "17",
+					CapabilityID:  "my-cap@1.0.0",
+					Payload:       makeCapabilityPayload(t, map[string]any{"echo": "hello"}),
+					EnclaveConfig: testEnclaveConfig(),
+					Attestation:   testAttestationB64,
 				})
 			},
 			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
@@ -427,10 +492,11 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			},
 			req: func(t *testing.T) *jsonrpc.Request[json.RawMessage] {
 				return makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
-					WorkflowID:   "wf-1",
-					CapabilityID: "missing-cap@1.0.0",
-					Payload:      base64.StdEncoding.EncodeToString([]byte("payload")),
-					Attestation:  testAttestationB64,
+					WorkflowID:    "wf-1",
+					CapabilityID:  "missing-cap@1.0.0",
+					Payload:       base64.StdEncoding.EncodeToString([]byte("payload")),
+					EnclaveConfig: testEnclaveConfig(),
+					Attestation:   testAttestationB64,
 				})
 			},
 			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
@@ -453,24 +519,26 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				b, err := proto.Marshal(sdkReq)
 				require.NoError(t, err)
 				return makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
-					WorkflowID:   "wf-1",
-					Owner:        testOwner,
-					ExecutionID:  "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
-					ReferenceID:  "17",
-					CapabilityID: "fail-cap@1.0.0",
-					Payload:      base64.StdEncoding.EncodeToString(b),
-					Attestation:  testAttestationB64,
+					WorkflowID:    "wf-1",
+					Owner:         testOwner,
+					ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+					ReferenceID:   "17",
+					CapabilityID:  "fail-cap@1.0.0",
+					Payload:       base64.StdEncoding.EncodeToString(b),
+					EnclaveConfig: testEnclaveConfig(),
+					Attestation:   testAttestationB64,
 				})
 			},
 			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
 				require.Nil(t, resp.Error)
 				params := confidentialrelaytypes.CapabilityRequestParams{
-					WorkflowID:   "wf-1",
-					Owner:        testOwner,
-					ExecutionID:  "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
-					ReferenceID:  "17",
-					CapabilityID: "fail-cap@1.0.0",
-					Payload:      base64.StdEncoding.EncodeToString(mustMarshalProto(t, &sdkpb.CapabilityRequest{Id: "fail-cap@1.0.0", Method: "Execute"})),
+					WorkflowID:    "wf-1",
+					Owner:         testOwner,
+					ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+					ReferenceID:   "17",
+					CapabilityID:  "fail-cap@1.0.0",
+					Payload:       base64.StdEncoding.EncodeToString(mustMarshalProto(t, &sdkpb.CapabilityRequest{Id: "fail-cap@1.0.0", Method: "Execute"})),
+					EnclaveConfig: testEnclaveConfig(),
 				}
 				var result confidentialrelaytypes.SignedCapabilityResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
@@ -488,7 +556,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				require.Nil(t, resp.Error)
 				// signSecretsResponse hashes against the request params (no Attestation),
 				// so we drop it here for the signature check.
-				params := secretsGetTestParams()
+				params := secretsGetTestParams(t)
 				params.Attestation = ""
 				var result confidentialrelaytypes.SignedSecretsResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
@@ -522,7 +590,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			},
 			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
 				require.Nil(t, resp.Error)
-				params := secretsGetTestParams()
+				params := secretsGetTestParams(t)
 				params.Attestation = ""
 				var result confidentialrelaytypes.SignedSecretsResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
@@ -695,4 +763,97 @@ func TestTranslateVaultResponse_HexShares(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, result.Secrets, 1)
 	require.Equal(t, base64.StdEncoding.EncodeToString(shareBytes), result.Secrets[0].EncryptedShares[0])
+}
+
+func TestVerifyWorkflowAuthorization(t *testing.T) {
+	priv, peerID := testWorkflowDONKey(t)
+	const (
+		owner      = "0xab5801a7d398351b8be11c439e05c5b3259aec9b"
+		workflowID = "wf-secrets-1"
+	)
+
+	// validParams builds a secrets request authorized by one Workflow DON signer over a
+	// compute request whose PublicData names the matching owner and workflow.
+	validParams := func(t *testing.T) confidentialrelaytypes.SecretsRequestParams {
+		t.Helper()
+		publicData, err := proto.Marshal(&confidentialworkflow.WorkflowExecution{
+			Owner:      owner,
+			WorkflowId: workflowID,
+		})
+		require.NoError(t, err)
+		cr := confidentialrelaytypes.ComputeRequest{PublicData: publicData}
+		payload := confidentialrelaytypes.SignedComputeRequestSignaturePayload(cr.Hash())
+		return confidentialrelaytypes.SecretsRequestParams{
+			WorkflowID: workflowID,
+			Owner:      owner,
+			SignedComputeRequests: []confidentialrelaytypes.SignedComputeRequest{
+				{ComputeRequest: cr, Signature: ed25519.Sign(priv, payload)},
+			},
+		}
+	}
+
+	// handlerWithDON returns a handler whose local node reports the given Workflow DON
+	// membership and fault tolerance, which the verifier checks signatures against.
+	handlerWithDON := func(t *testing.T, members []p2ptypes.PeerID, f uint8) *Handler {
+		t.Helper()
+		reg := &mockCapRegistry{localNode: capabilities.Node{
+			WorkflowDON: capabilities.DON{Members: members, F: f},
+		}}
+		return newTestHandler(t, reg, &mockGatewayConnector{})
+	}
+
+	t.Run("valid single signer meets 2F+1 quorum", func(t *testing.T) {
+		h := handlerWithDON(t, []p2ptypes.PeerID{peerID}, 0)
+		require.NoError(t, h.verifyWorkflowAuthorization(t.Context(), validParams(t)))
+	})
+
+	t.Run("missing signed compute requests", func(t *testing.T) {
+		h := handlerWithDON(t, []p2ptypes.PeerID{peerID}, 0)
+		params := validParams(t)
+		params.SignedComputeRequests = nil
+		err := h.verifyWorkflowAuthorization(t.Context(), params)
+		require.ErrorContains(t, err, "missing signed compute requests")
+	})
+
+	t.Run("insufficient signers for quorum", func(t *testing.T) {
+		// F=1 requires 2*1+1 = 3 unique signers, but only one signs.
+		h := handlerWithDON(t, []p2ptypes.PeerID{peerID}, 1)
+		err := h.verifyWorkflowAuthorization(t.Context(), validParams(t))
+		require.ErrorContains(t, err, "insufficient Workflow DON signatures")
+	})
+
+	t.Run("signer not in Workflow DON", func(t *testing.T) {
+		var stranger p2ptypes.PeerID
+		stranger[0] = 0xff
+		h := handlerWithDON(t, []p2ptypes.PeerID{stranger}, 0)
+		err := h.verifyWorkflowAuthorization(t.Context(), validParams(t))
+		require.ErrorContains(t, err, "insufficient Workflow DON signatures")
+	})
+
+	t.Run("owner mismatch", func(t *testing.T) {
+		h := handlerWithDON(t, []p2ptypes.PeerID{peerID}, 0)
+		params := validParams(t)
+		params.Owner = "0x0000000000000000000000000000000000000002"
+		err := h.verifyWorkflowAuthorization(t.Context(), params)
+		require.ErrorContains(t, err, "owner not authorized")
+	})
+
+	t.Run("workflow id mismatch", func(t *testing.T) {
+		h := handlerWithDON(t, []p2ptypes.PeerID{peerID}, 0)
+		params := validParams(t)
+		params.WorkflowID = "wf-other"
+		err := h.verifyWorkflowAuthorization(t.Context(), params)
+		require.ErrorContains(t, err, "workflow_id not authorized")
+	})
+
+	t.Run("forwarded requests disagree on compute request", func(t *testing.T) {
+		h := handlerWithDON(t, []p2ptypes.PeerID{peerID}, 0)
+		params := validParams(t)
+		params.SignedComputeRequests = append(params.SignedComputeRequests, confidentialrelaytypes.SignedComputeRequest{
+			ComputeRequest: confidentialrelaytypes.ComputeRequest{PublicData: []byte("different")},
+			Signature:      []byte("irrelevant"),
+		})
+		err := h.verifyWorkflowAuthorization(t.Context(), params)
+		require.ErrorContains(t, err, "do not share one compute request")
+	})
 }

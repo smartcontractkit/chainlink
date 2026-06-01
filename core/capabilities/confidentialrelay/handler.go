@@ -2,6 +2,7 @@ package confidentialrelay
 
 import (
 	"context"
+	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -19,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
+	confidentialworkflow "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -219,6 +221,14 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	params.Attestation = ""
 	if err := h.verifyAttestationHash(ctx, att, params, confidentialrelaytypes.DomainSecretsGet); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
+	}
+
+	// Beyond attestation, verify the Workflow DON authorized this request: the enclave
+	// forwards the F+1 Workflow-DON-signed compute requests, whose PublicData names the
+	// authorized owner. A TEE breach passes attestation but cannot forge F+1 Workflow DON
+	// signatures over a different owner (PRIV-433).
+	if err := h.verifyWorkflowAuthorization(ctx, params); err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, err)
 	}
 
 	vaultCap, err := h.capRegistry.GetExecutable(ctx, vault.CapabilityID)
@@ -552,6 +562,70 @@ func (h *Handler) verifyAttestationHash(ctx context.Context, attestationB64 stri
 		validationErr = errors.Join(validationErr, err)
 	}
 	return fmt.Errorf("no trusted measurement set matched: %w", validationErr)
+}
+
+// verifyWorkflowAuthorization is the PRIV-433 check beyond attestation. Attestation only
+// proves the request came from genuine enclave code; it does not prove the Workflow DON
+// authorized fetching this owner's secrets. A compromised TEE would still pass attestation
+// while self-asserting a victim's owner.
+//
+// The enclave forwards the F+1 Workflow-DON-signed compute requests it executed. Each node
+// signs the same ComputeRequest.Hash(); we reconstruct that hash, verify each signature
+// against the onchain Workflow DON signer set, and require a quorum of unique signers. The
+// signed PublicData names the authorized owner and workflow, which must match this request.
+// A breached enclave cannot forge a quorum of Workflow DON signatures over a different owner.
+func (h *Handler) verifyWorkflowAuthorization(ctx context.Context, params confidentialrelaytypes.SecretsRequestParams) error {
+	if len(params.SignedComputeRequests) == 0 {
+		return errors.New("missing signed compute requests")
+	}
+
+	localNode, err := h.capRegistry.LocalNode(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get local node: %w", err)
+	}
+	don := localNode.WorkflowDON
+
+	// Match the enclave's own quorum: server.go requires config.F+1 unique signers where
+	// the config-tracker sets config.F = 2*don.F, i.e. 2*F+1.
+	threshold := 2*int(don.F) + 1
+
+	// The F+1 forwarded requests differ only in their signature; they all sign one shared
+	// ComputeRequest hash. Reconstruct that hash once and verify each signature over it.
+	hash := params.SignedComputeRequests[0].ComputeRequest.Hash()
+	payload := confidentialrelaytypes.SignedComputeRequestSignaturePayload(hash)
+
+	signers := make(map[string]struct{})
+	for _, scr := range params.SignedComputeRequests {
+		if scr.ComputeRequest.Hash() != hash {
+			return errors.New("forwarded signed compute requests do not share one compute request")
+		}
+		for _, member := range don.Members {
+			if ed25519.Verify(ed25519.PublicKey(member[:]), payload, scr.Signature) {
+				signers[member.String()] = struct{}{}
+				break
+			}
+		}
+	}
+	if len(signers) < threshold {
+		return fmt.Errorf("insufficient Workflow DON signatures: %d unique signers, need %d", len(signers), threshold)
+	}
+
+	// The signed request authorizes a specific owner and workflow; the secrets request must
+	// match both, or a breached enclave could fetch another owner's secrets.
+	var execution confidentialworkflow.WorkflowExecution
+	if err := proto.Unmarshal(params.SignedComputeRequests[0].PublicData, &execution); err != nil {
+		return fmt.Errorf("failed to unmarshal workflow execution from public data: %w", err)
+	}
+	if !common.IsHexAddress(params.Owner) || !common.IsHexAddress(execution.GetOwner()) {
+		return errors.New("invalid owner address")
+	}
+	if common.HexToAddress(execution.GetOwner()) != common.HexToAddress(params.Owner) {
+		return fmt.Errorf("owner not authorized: request %q vs signed %q", params.Owner, execution.GetOwner())
+	}
+	if execution.GetWorkflowId() != params.WorkflowID {
+		return fmt.Errorf("workflow_id not authorized: request %q vs signed %q", params.WorkflowID, execution.GetWorkflowId())
+	}
+	return nil
 }
 
 func toSDKCapabilityResponse(capResp capabilities.CapabilityResponse) (*sdkpb.CapabilityResponse, error) {
