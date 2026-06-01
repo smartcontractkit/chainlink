@@ -217,6 +217,17 @@ func secretsGetTestRegistry(t *testing.T) *mockCapRegistry {
 // chainlink-common's confidentialrelay.validateOwnerAddress.
 const testOwner = "0x0000000000000000000000000000000000000001"
 
+// testEnclaveConfig satisfies chainlink-common's validateEnclaveConfig (PRIV-458).
+// Required on CapabilityRequestParams and SecretsRequestParams so Hash() succeeds when signing responses.
+func testEnclaveConfig() confidentialrelaytypes.EnclaveConfig {
+	return confidentialrelaytypes.EnclaveConfig{
+		Signers:         [][]byte{[]byte("enclave-signer-0"), []byte("enclave-signer-1")},
+		MasterPublicKey: []byte("test-master-public-key"),
+		T:               1,
+		F:               1,
+	}
+}
+
 // secretsGetTestRequest builds a secrets-get request with a known owner and org ID.
 //
 // Field formats are pinned by chainlink-common's confidentialrelay.Validate (introduced
@@ -242,7 +253,8 @@ func secretsGetTestParams() confidentialrelaytypes.SecretsRequestParams {
 		Secrets: []confidentialrelaytypes.SecretIdentifier{
 			{Key: "API_KEY", Namespace: "main"},
 		},
-		Attestation: testAttestationB64,
+		EnclaveConfig: testEnclaveConfig(),
+		Attestation:   testAttestationB64,
 	}
 }
 
@@ -275,19 +287,21 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 					ExecutionID:  "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
 					ReferenceID:  "17",
 					CapabilityID: "my-cap@1.0.0",
-					Payload:      makeCapabilityPayload(t, map[string]any{"key": "val"}),
-					Attestation:  testAttestationB64,
+					Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+					EnclaveConfig: testEnclaveConfig(),
+					Attestation:   testAttestationB64,
 				})
 			},
 			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
 				require.Nil(t, resp.Error)
 				params := confidentialrelaytypes.CapabilityRequestParams{
-					WorkflowID:   "wf-1",
-					Owner:        testOwner,
-					ExecutionID:  "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
-					ReferenceID:  "17",
-					CapabilityID: "my-cap@1.0.0",
-					Payload:      makeCapabilityPayload(t, map[string]any{"key": "val"}),
+					WorkflowID:    "wf-1",
+					Owner:         testOwner,
+					ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+					ReferenceID:   "17",
+					CapabilityID:  "my-cap@1.0.0",
+					Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+					EnclaveConfig: testEnclaveConfig(),
 				}
 				var result confidentialrelaytypes.SignedCapabilityResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
@@ -338,20 +352,22 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 					OrgID:        "org-relay-1",
 					ReferenceID:  "17",
 					CapabilityID: "my-cap@1.0.0",
-					Payload:      makeCapabilityPayload(t, map[string]any{"key": "val"}),
-					Attestation:  testAttestationB64,
+					Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+					EnclaveConfig: testEnclaveConfig(),
+					Attestation:   testAttestationB64,
 				})
 			},
 			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
 				require.Nil(t, resp.Error)
 				params := confidentialrelaytypes.CapabilityRequestParams{
-					WorkflowID:   "wf-1",
-					Owner:        testOwner,
-					ExecutionID:  "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
-					OrgID:        "org-relay-1",
-					ReferenceID:  "17",
-					CapabilityID: "my-cap@1.0.0",
-					Payload:      makeCapabilityPayload(t, map[string]any{"key": "val"}),
+					WorkflowID:    "wf-1",
+					Owner:         testOwner,
+					ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+					OrgID:         "org-relay-1",
+					ReferenceID:   "17",
+					CapabilityID:  "my-cap@1.0.0",
+					Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+					EnclaveConfig: testEnclaveConfig(),
 				}
 				var result confidentialrelaytypes.SignedCapabilityResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
@@ -382,8 +398,9 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 					ExecutionID:  "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
 					ReferenceID:  "17",
 					CapabilityID: "my-cap@1.0.0",
-					Payload:      makeCapabilityPayload(t, map[string]any{"echo": "hello"}),
-					Attestation:  testAttestationB64,
+					Payload:       makeCapabilityPayload(t, map[string]any{"echo": "hello"}),
+					EnclaveConfig: testEnclaveConfig(),
+					Attestation:   testAttestationB64,
 				})
 			},
 			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
@@ -458,19 +475,21 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 					ExecutionID:  "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
 					ReferenceID:  "17",
 					CapabilityID: "fail-cap@1.0.0",
-					Payload:      base64.StdEncoding.EncodeToString(b),
-					Attestation:  testAttestationB64,
+					Payload:       base64.StdEncoding.EncodeToString(b),
+					EnclaveConfig: testEnclaveConfig(),
+					Attestation:   testAttestationB64,
 				})
 			},
 			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
 				require.Nil(t, resp.Error)
 				params := confidentialrelaytypes.CapabilityRequestParams{
-					WorkflowID:   "wf-1",
-					Owner:        testOwner,
-					ExecutionID:  "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
-					ReferenceID:  "17",
-					CapabilityID: "fail-cap@1.0.0",
-					Payload:      base64.StdEncoding.EncodeToString(mustMarshalProto(t, &sdkpb.CapabilityRequest{Id: "fail-cap@1.0.0", Method: "Execute"})),
+					WorkflowID:    "wf-1",
+					Owner:         testOwner,
+					ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+					ReferenceID:   "17",
+					CapabilityID:  "fail-cap@1.0.0",
+					Payload:       base64.StdEncoding.EncodeToString(mustMarshalProto(t, &sdkpb.CapabilityRequest{Id: "fail-cap@1.0.0", Method: "Execute"})),
+					EnclaveConfig: testEnclaveConfig(),
 				}
 				var result confidentialrelaytypes.SignedCapabilityResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))

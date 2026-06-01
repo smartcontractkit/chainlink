@@ -23,14 +23,24 @@ const (
 	testEnclavePK   = "aabbcc"
 )
 
+func testEnclaveConfig() relaytypes.EnclaveConfig {
+	return relaytypes.EnclaveConfig{
+		Signers:         [][]byte{[]byte("enclave-signer-0"), []byte("enclave-signer-1")},
+		MasterPublicKey: []byte("test-master-public-key"),
+		T:               1,
+		F:               1,
+	}
+}
+
 func validCapParams(workflowID string) relaytypes.CapabilityRequestParams {
 	return relaytypes.CapabilityRequestParams{
-		WorkflowID:   workflowID,
-		Owner:        testOwner,
-		ExecutionID:  testExecutionID,
-		ReferenceID:  "ref-1",
-		CapabilityID: "cap-1",
-		Payload:      "in",
+		WorkflowID:    workflowID,
+		Owner:         testOwner,
+		ExecutionID:   testExecutionID,
+		ReferenceID:   "ref-1",
+		CapabilityID:  "cap-1",
+		Payload:       "in",
+		EnclaveConfig: testEnclaveConfig(),
 	}
 }
 
@@ -41,6 +51,7 @@ func validSecretsParams(workflowID string) relaytypes.SecretsRequestParams {
 		ExecutionID:      testExecutionID,
 		Secrets:          []relaytypes.SecretIdentifier{{Key: "k1", Namespace: "ns"}},
 		EnclavePublicKey: testEnclavePK,
+		EnclaveConfig:    testEnclaveConfig(),
 	}
 }
 
