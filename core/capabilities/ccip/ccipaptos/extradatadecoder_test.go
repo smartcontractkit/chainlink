@@ -46,6 +46,45 @@ func Test_decodeExtraData(t *testing.T) {
 		require.Equal(t, encodedAllowOOO, ooe)
 	})
 
+	t.Run("decode extra args into map sui v1", func(t *testing.T) {
+		ser := &bcs.Serializer{}
+		ser.U64(500000)
+		ser.Bool(true)
+		tokenReceiver := make([]byte, 32)
+		tokenReceiver[31] = 0x42
+		ser.WriteBytes(tokenReceiver)
+		objectId := make([]byte, 32)
+		objectId[31] = 0x11
+		bcs.SerializeSequenceWithFunction([][]byte{objectId}, ser, func(s *bcs.Serializer, item []byte) {
+			s.WriteBytes(item)
+		})
+		require.NoError(t, ser.Error())
+
+		encoded := append(suiExtraArgsV1Tag, ser.ToBytes()...)
+		m, err := extraDataDecoder.DecodeExtraArgsToMap(encoded)
+		require.NoError(t, err)
+
+		gl, ok := m["gasLimit"]
+		require.True(t, ok)
+		require.Equal(t, uint64(500000), gl.(*big.Int).Uint64())
+
+		ooe, ok := m["allowOutOfOrderExecution"]
+		require.True(t, ok)
+		require.True(t, ooe.(bool))
+
+		var expectedTokenReceiver [32]byte
+		expectedTokenReceiver[31] = 0x42
+		tr, ok := m["tokenReceiver"]
+		require.True(t, ok)
+		require.Equal(t, expectedTokenReceiver, tr)
+
+		var expectedObjectId [32]byte
+		expectedObjectId[31] = 0x11
+		ids, ok := m["receiverObjectIds"]
+		require.True(t, ok)
+		require.Equal(t, [][32]byte{expectedObjectId}, ids)
+	})
+
 	t.Run("decode extra args into map svm", func(t *testing.T) {
 		encodedComputeUnits := uint32(100000)
 		encodedBitmap := uint64(255)

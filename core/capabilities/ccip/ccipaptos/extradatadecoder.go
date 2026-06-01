@@ -2,6 +2,7 @@ package ccipaptos
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/aptos-labs/aptos-go-sdk/bcs"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -29,6 +30,9 @@ var (
 
 	// bytes4 public constant SVM_EXTRA_EXTRA_ARGS_V1_TAG = 0x1f3b3aba
 	svmExtraArgsV1Tag = hexutil.MustDecode("0x1f3b3aba")
+
+	// bytes4 public constant SUI_EXTRA_ARGS_V1_TAG = 0x21ea4ca9
+	suiExtraArgsV1Tag = hexutil.MustDecode("0x21ea4ca9")
 )
 
 // DecodeDestExecDataToMap reformats bytes into a chain agnostic map[string]interface{} representation for dest exec data
@@ -62,6 +66,8 @@ func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[s
 		return d.decodeGenericExtraArgsV2(des)
 	case string(svmExtraArgsV1Tag):
 		return d.decodeSvmExtraArgsV1(des)
+	case string(suiExtraArgsV1Tag):
+		return d.decodeSuiExtraArgsV1(des)
 	default:
 		return nil, fmt.Errorf("unknown extra args tag: %x", tag)
 	}
@@ -140,6 +146,52 @@ func (d ExtraDataDecoder) decodeSvmExtraArgsV1(des *bcs.Deserializer) (map[strin
 	} else {
 		extraArgs["accounts"] = accounts
 	}
+
+	return extraArgs, nil
+}
+
+func (d ExtraDataDecoder) decodeSuiExtraArgsV1(des *bcs.Deserializer) (map[string]any, error) {
+	extraArgs := make(map[string]any)
+
+	gasLimit := des.U64()
+	if des.Error() != nil {
+		return nil, fmt.Errorf("error whilst decoding sui extra args v1 gas limit: %w", des.Error())
+	}
+	extraArgs["gasLimit"] = new(big.Int).SetUint64(gasLimit)
+
+	allowOutOfOrderExecution := des.Bool()
+	if des.Error() != nil {
+		extraArgs["allowOutOfOrderExecution"] = false
+	} else {
+		extraArgs["allowOutOfOrderExecution"] = allowOutOfOrderExecution
+	}
+
+	tokenReceiver := des.ReadBytes()
+	if des.Error() != nil {
+		return nil, fmt.Errorf("error whilst decoding sui extra args v1 token receiver: %w", des.Error())
+	}
+	if len(tokenReceiver) != 32 {
+		return nil, fmt.Errorf("invalid sui extra args v1 token receiver length: expected 32, got %d", len(tokenReceiver))
+	}
+	var tokenReceiverArr [32]byte
+	copy(tokenReceiverArr[:], tokenReceiver)
+	extraArgs["tokenReceiver"] = tokenReceiverArr
+
+	receiverObjectIdBytes := bcs.DeserializeSequenceWithFunction(des, func(des *bcs.Deserializer, item *[]byte) {
+		*item = des.ReadBytes()
+	})
+	if des.Error() != nil {
+		return nil, fmt.Errorf("error whilst decoding sui extra args v1 receiver object ids: %w", des.Error())
+	}
+
+	receiverObjectIds := make([][32]byte, len(receiverObjectIdBytes))
+	for i, id := range receiverObjectIdBytes {
+		if len(id) != 32 {
+			return nil, fmt.Errorf("invalid sui extra args v1 receiver object id length at index %d: expected 32, got %d", i, len(id))
+		}
+		copy(receiverObjectIds[i][:], id)
+	}
+	extraArgs["receiverObjectIds"] = receiverObjectIds
 
 	return extraArgs, nil
 }
