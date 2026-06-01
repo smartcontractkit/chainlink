@@ -223,11 +223,19 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
 
+	// LocalNode gives the Workflow DON membership the request is verified against (and the
+	// DON identity used in request metadata below). A failure here is server-side, so it
+	// stays ErrInternal rather than being folded into the authorization check's client errors.
+	localNode, err := h.capRegistry.LocalNode(ctx)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get local node: %w", err))
+	}
+
 	// Beyond attestation, verify the Workflow DON authorized this request: the enclave
-	// forwards the F+1 Workflow-DON-signed compute requests, whose PublicData names the
-	// authorized owner. A TEE breach passes attestation but cannot forge F+1 Workflow DON
-	// signatures over a different owner (PRIV-433).
-	if err := h.verifyWorkflowAuthorization(ctx, params); err != nil {
+	// forwards the Workflow-DON-signed compute requests (a 2*F+1 quorum), whose PublicData
+	// names the authorized owner. A TEE breach passes attestation but cannot forge a Workflow
+	// DON quorum over a different owner (PRIV-433).
+	if err := h.verifyWorkflowAuthorization(localNode.WorkflowDON, params); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, err)
 	}
 
@@ -263,11 +271,6 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	anypbReq, err := anypb.New(vaultReq)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to wrap vault request: %w", err))
-	}
-
-	localNode, err := h.capRegistry.LocalNode(ctx)
-	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get local node: %w", err))
 	}
 
 	metadata := capabilities.RequestMetadata{
@@ -569,27 +572,25 @@ func (h *Handler) verifyAttestationHash(ctx context.Context, attestationB64 stri
 // authorized fetching this owner's secrets. A compromised TEE would still pass attestation
 // while self-asserting a victim's owner.
 //
-// The enclave forwards the F+1 Workflow-DON-signed compute requests it executed. Each node
-// signs the same ComputeRequest.Hash(); we reconstruct that hash, verify each signature
-// against the onchain Workflow DON signer set, and require a quorum of unique signers. The
-// signed PublicData names the authorized owner and workflow, which must match this request.
-// A breached enclave cannot forge a quorum of Workflow DON signatures over a different owner.
-func (h *Handler) verifyWorkflowAuthorization(ctx context.Context, params confidentialrelaytypes.SecretsRequestParams) error {
+// The enclave forwards the Workflow-DON-signed compute requests it executed (a 2*F+1 quorum,
+// where F is the Workflow DON fault tolerance). Each node signs the same ComputeRequest.Hash();
+// we reconstruct that hash, verify each signature against the onchain Workflow DON signer set,
+// and require the quorum of unique signers. The signed PublicData names the authorized owner
+// and workflow, which must match this request. A breached enclave cannot forge a Workflow DON
+// quorum over a different owner.
+//
+// All failures here are client errors: the request is unauthorized. The caller fetches the
+// Workflow DON (a server-side concern) and passes it in, so registry failures stay internal.
+func (h *Handler) verifyWorkflowAuthorization(don capabilities.DON, params confidentialrelaytypes.SecretsRequestParams) error {
 	if len(params.SignedComputeRequests) == 0 {
 		return errors.New("missing signed compute requests")
 	}
 
-	localNode, err := h.capRegistry.LocalNode(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get local node: %w", err)
-	}
-	don := localNode.WorkflowDON
-
-	// Match the enclave's own quorum: server.go requires config.F+1 unique signers where
-	// the config-tracker sets config.F = 2*don.F, i.e. 2*F+1.
+	// Match the enclave's own quorum: server.go requires config.F+1 unique signers where the
+	// config-tracker sets config.F = 2*don.F, i.e. 2*F+1.
 	threshold := 2*int(don.F) + 1
 
-	// The F+1 forwarded requests differ only in their signature; they all sign one shared
+	// The forwarded requests differ only in their signature; they all sign one shared
 	// ComputeRequest hash. Reconstruct that hash once and verify each signature over it.
 	hash := params.SignedComputeRequests[0].ComputeRequest.Hash()
 	payload := confidentialrelaytypes.SignedComputeRequestSignaturePayload(hash)

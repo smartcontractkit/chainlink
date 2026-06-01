@@ -195,9 +195,9 @@ func testWorkflowDONKey(t *testing.T) (ed25519.PrivateKey, p2ptypes.PeerID) {
 	return priv, peerID
 }
 
-// signedComputeRequestsForParams builds the F+1 (here, one) Workflow-DON-signed compute
-// requests the enclave forwards to the relay. PublicData carries the WorkflowExecution
-// naming the owner and workflow that the secrets request must match.
+// signedComputeRequestsForParams builds the Workflow-DON-signed compute requests the enclave
+// forwards to the relay (here a single signer; the relay enforces a 2*F+1 quorum). PublicData
+// carries the WorkflowExecution naming the owner and workflow that the secrets request must match.
 func signedComputeRequestsForParams(t *testing.T, params confidentialrelaytypes.SecretsRequestParams) []confidentialrelaytypes.SignedComputeRequest {
 	t.Helper()
 	priv, _ := testWorkflowDONKey(t)
@@ -792,68 +792,60 @@ func TestVerifyWorkflowAuthorization(t *testing.T) {
 		}
 	}
 
-	// handlerWithDON returns a handler whose local node reports the given Workflow DON
-	// membership and fault tolerance, which the verifier checks signatures against.
-	handlerWithDON := func(t *testing.T, members []p2ptypes.PeerID, f uint8) *Handler {
-		t.Helper()
-		reg := &mockCapRegistry{localNode: capabilities.Node{
-			WorkflowDON: capabilities.DON{Members: members, F: f},
-		}}
-		return newTestHandler(t, reg, &mockGatewayConnector{})
+	// donWith returns a Workflow DON with the given membership and fault tolerance, which the
+	// verifier checks signatures against. The verifier takes the DON directly, so no registry
+	// is needed.
+	donWith := func(members []p2ptypes.PeerID, f uint8) capabilities.DON {
+		return capabilities.DON{Members: members, F: f}
 	}
 
+	h := newTestHandler(t, &mockCapRegistry{}, &mockGatewayConnector{})
+
 	t.Run("valid single signer meets 2F+1 quorum", func(t *testing.T) {
-		h := handlerWithDON(t, []p2ptypes.PeerID{peerID}, 0)
-		require.NoError(t, h.verifyWorkflowAuthorization(t.Context(), validParams(t)))
+		require.NoError(t, h.verifyWorkflowAuthorization(donWith([]p2ptypes.PeerID{peerID}, 0), validParams(t)))
 	})
 
 	t.Run("missing signed compute requests", func(t *testing.T) {
-		h := handlerWithDON(t, []p2ptypes.PeerID{peerID}, 0)
 		params := validParams(t)
 		params.SignedComputeRequests = nil
-		err := h.verifyWorkflowAuthorization(t.Context(), params)
+		err := h.verifyWorkflowAuthorization(donWith([]p2ptypes.PeerID{peerID}, 0), params)
 		require.ErrorContains(t, err, "missing signed compute requests")
 	})
 
 	t.Run("insufficient signers for quorum", func(t *testing.T) {
 		// F=1 requires 2*1+1 = 3 unique signers, but only one signs.
-		h := handlerWithDON(t, []p2ptypes.PeerID{peerID}, 1)
-		err := h.verifyWorkflowAuthorization(t.Context(), validParams(t))
+		err := h.verifyWorkflowAuthorization(donWith([]p2ptypes.PeerID{peerID}, 1), validParams(t))
 		require.ErrorContains(t, err, "insufficient Workflow DON signatures")
 	})
 
 	t.Run("signer not in Workflow DON", func(t *testing.T) {
 		var stranger p2ptypes.PeerID
 		stranger[0] = 0xff
-		h := handlerWithDON(t, []p2ptypes.PeerID{stranger}, 0)
-		err := h.verifyWorkflowAuthorization(t.Context(), validParams(t))
+		err := h.verifyWorkflowAuthorization(donWith([]p2ptypes.PeerID{stranger}, 0), validParams(t))
 		require.ErrorContains(t, err, "insufficient Workflow DON signatures")
 	})
 
 	t.Run("owner mismatch", func(t *testing.T) {
-		h := handlerWithDON(t, []p2ptypes.PeerID{peerID}, 0)
 		params := validParams(t)
 		params.Owner = "0x0000000000000000000000000000000000000002"
-		err := h.verifyWorkflowAuthorization(t.Context(), params)
+		err := h.verifyWorkflowAuthorization(donWith([]p2ptypes.PeerID{peerID}, 0), params)
 		require.ErrorContains(t, err, "owner not authorized")
 	})
 
 	t.Run("workflow id mismatch", func(t *testing.T) {
-		h := handlerWithDON(t, []p2ptypes.PeerID{peerID}, 0)
 		params := validParams(t)
 		params.WorkflowID = "wf-other"
-		err := h.verifyWorkflowAuthorization(t.Context(), params)
+		err := h.verifyWorkflowAuthorization(donWith([]p2ptypes.PeerID{peerID}, 0), params)
 		require.ErrorContains(t, err, "workflow_id not authorized")
 	})
 
 	t.Run("forwarded requests disagree on compute request", func(t *testing.T) {
-		h := handlerWithDON(t, []p2ptypes.PeerID{peerID}, 0)
 		params := validParams(t)
 		params.SignedComputeRequests = append(params.SignedComputeRequests, confidentialrelaytypes.SignedComputeRequest{
 			ComputeRequest: confidentialrelaytypes.ComputeRequest{PublicData: []byte("different")},
 			Signature:      []byte("irrelevant"),
 		})
-		err := h.verifyWorkflowAuthorization(t.Context(), params)
+		err := h.verifyWorkflowAuthorization(donWith([]p2ptypes.PeerID{peerID}, 0), params)
 		require.ErrorContains(t, err, "do not share one compute request")
 	})
 }
