@@ -382,16 +382,16 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			InsecureConnection: cfg.Telemetry().ChipIngressInsecureConnection(),
 			Auth: durableemitter.AuthConfig{
 				AuthHeaders:      beholderAuthHeaders,
-				AuthHeadersTTL:     cfg.Telemetry().AuthHeadersTTL(),
-				AuthPublicKeyHex:   csaPubKeyHex,
-				AuthKeySigner:      csaKeystore,
+				AuthHeadersTTL:   cfg.Telemetry().AuthHeadersTTL(),
+				AuthPublicKeyHex: csaPubKeyHex,
+				AuthKeySigner:    csaKeystore,
 			},
 			RetransmitEnabled: true, // host process owns retransmit
 		}
 		pgStore := durableemitter.NewPgDurableEventStore(opts.DS)
-		durableEmitter, err := durableemitter.Setup(pgStore, durableCfg, globalLogger)
-		if err != nil {
-			return nil, fmt.Errorf("failed to set up chip durable emitter: %w", err)
+		durableEmitter, setupErr := durableemitter.Setup(pgStore, durableCfg, globalLogger)
+		if setupErr != nil {
+			return nil, fmt.Errorf("failed to set up chip durable emitter: %w", setupErr)
 		}
 		srvcs = append(srvcs, durableEmitter)
 	}
