@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
+	sui_message_hasher "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/message_hasher"
 )
 
 func Test_decodeExtraData(t *testing.T) {
@@ -138,4 +139,70 @@ func TestExtraDataDecoder_DecodeExtraArgsToMap_SVMDestination(t *testing.T) {
 			m["accounts"])
 		require.Equal(t, [32]byte{}, m["tokenReceiver"])
 	})
+}
+
+func TestExtraDataDecoder_DecodeExtraArgsToMap_SUIDestination(t *testing.T) {
+	extraDataDecoder := &ExtraDataDecoder{}
+
+	t.Run("decode extra args into map sui v1", func(t *testing.T) {
+		gasLimit := big.NewInt(200000)
+		allowOOO := true
+		tokenReceiver := suiTestBytes32(t, "0000000000000000000000000000000000000000000000000000000000005678")
+		receiverObjectIds := [][32]byte{suiTestBytes32(t, "0000000000000000000000000000000000000000000000000000000000aabbcc")}
+
+		encoded, err := SerializeClientSUIExtraArgsV1(sui_message_hasher.ClientSuiExtraArgsV1{
+			GasLimit:                 gasLimit,
+			AllowOutOfOrderExecution: allowOOO,
+			TokenReceiver:            tokenReceiver,
+			ReceiverObjectIds:        receiverObjectIds,
+		})
+		require.NoError(t, err)
+		require.Equal(t, suiVMExtraArgsV1Tag, encoded[:4])
+
+		m, err := extraDataDecoder.DecodeExtraArgsToMap(encoded)
+		require.NoError(t, err)
+		require.Len(t, m, 4)
+
+		gl, exist := m["gasLimit"]
+		require.True(t, exist)
+		require.Equal(t, gasLimit, gl)
+
+		ooe, exist := m["allowOutOfOrderExecution"]
+		require.True(t, exist)
+		require.Equal(t, allowOOO, ooe)
+
+		tr, exist := m["tokenReceiver"]
+		require.True(t, exist)
+		require.Equal(t, tokenReceiver, tr)
+
+		ids, exist := m["receiverObjectIds"]
+		require.True(t, exist)
+		require.Equal(t, receiverObjectIds, ids)
+	})
+
+	t.Run("empty receiver object ids", func(t *testing.T) {
+		encoded, err := SerializeClientSUIExtraArgsV1(sui_message_hasher.ClientSuiExtraArgsV1{
+			GasLimit:                 big.NewInt(500000),
+			AllowOutOfOrderExecution: false,
+			TokenReceiver:            [32]byte{},
+			ReceiverObjectIds:        [][32]byte{},
+		})
+		require.NoError(t, err)
+
+		m, err := extraDataDecoder.DecodeExtraArgsToMap(encoded)
+		require.NoError(t, err)
+
+		ids, exist := m["receiverObjectIds"]
+		require.True(t, exist)
+		require.Equal(t, [][32]byte{}, ids)
+	})
+}
+
+func suiTestBytes32(t *testing.T, hexStr string) [32]byte {
+	t.Helper()
+	b := hexutil.MustDecode("0x" + hexStr)
+	require.Len(t, b, 32)
+	var out [32]byte
+	copy(out[:], b)
+	return out
 }

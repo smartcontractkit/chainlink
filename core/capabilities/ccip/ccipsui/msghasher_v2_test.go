@@ -7,10 +7,14 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	ccipocr3 "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/message_hasher"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	ccipocr3 "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 )
 
 func TestMessageHasherV2_Deterministic_ParityWithMove(t *testing.T) {
@@ -19,20 +23,20 @@ func TestMessageHasherV2_Deterministic_ParityWithMove(t *testing.T) {
 	sender, err := hex.DecodeString("8765432109fedcba8765432109fedcba87654321")
 	require.NoError(t, err)
 	tokenReceiver := hexTo32Bytes(t, "0000000000000000000000000000000000000000000000000000000000005678")
-	objectId := hexTo32Bytes(t, "0000000000000000000000000000000000000000000000000000000000aabbcc")
+	objectID := hexTo32Bytes(t, "0000000000000000000000000000000000000000000000000000000000aabbcc")
 
 	metadataHash, err := computeMetadataHash(uint64(1000), uint64(2000), []byte("onramp"))
 	require.NoError(t, err)
 
 	hash1, err := computeMessageDataHashV2(
 		metadataHash, messageID, receiver, uint64(1), big.NewInt(200000), tokenReceiver, uint64(0),
-		sender, []byte("test payload"), []any2SuiTokenTransfer{}, [][32]byte{objectId},
+		sender, []byte("test payload"), []any2SuiTokenTransfer{}, [][32]byte{objectID},
 	)
 	require.NoError(t, err)
 
 	hash2, err := computeMessageDataHashV2(
 		metadataHash, messageID, receiver, uint64(1), big.NewInt(200000), tokenReceiver, uint64(0),
-		sender, []byte("test payload"), []any2SuiTokenTransfer{}, [][32]byte{objectId},
+		sender, []byte("test payload"), []any2SuiTokenTransfer{}, [][32]byte{objectID},
 	)
 	require.NoError(t, err)
 
@@ -48,28 +52,28 @@ func TestMessageHasherV2_DifferentObjectIds_DifferentHash(t *testing.T) {
 	sender, err := hex.DecodeString("8765432109fedcba8765432109fedcba87654321")
 	require.NoError(t, err)
 	tokenReceiver := hexTo32Bytes(t, "0000000000000000000000000000000000000000000000000000000000000000")
-	objectIdA := hexTo32Bytes(t, "0000000000000000000000000000000000000000000000000000000000001111")
-	objectIdB := hexTo32Bytes(t, "0000000000000000000000000000000000000000000000000000000000002222")
+	objectIDA := hexTo32Bytes(t, "0000000000000000000000000000000000000000000000000000000000001111")
+	objectIDB := hexTo32Bytes(t, "0000000000000000000000000000000000000000000000000000000000002222")
 
 	metadataHash, err := computeMetadataHash(uint64(123456789), uint64(987654321), []byte("source-onramp-address"))
 	require.NoError(t, err)
 
 	hashA, err := computeMessageDataHashV2(
 		metadataHash, messageID, receiver, uint64(42), big.NewInt(500000), tokenReceiver, uint64(0),
-		sender, []byte("sample message data"), []any2SuiTokenTransfer{}, [][32]byte{objectIdA},
+		sender, []byte("sample message data"), []any2SuiTokenTransfer{}, [][32]byte{objectIDA},
 	)
 	require.NoError(t, err)
 
 	hashB, err := computeMessageDataHashV2(
 		metadataHash, messageID, receiver, uint64(42), big.NewInt(500000), tokenReceiver, uint64(0),
-		sender, []byte("sample message data"), []any2SuiTokenTransfer{}, [][32]byte{objectIdB},
+		sender, []byte("sample message data"), []any2SuiTokenTransfer{}, [][32]byte{objectIDB},
 	)
 	require.NoError(t, err)
 
 	assert.NotEqual(t, hashA, hashB)
 }
 
-func TestExtractReceiverObjectIdsFromMap(t *testing.T) {
+func TestExtractReceiverObjectIDsFromMap(t *testing.T) {
 	idA := hexTo32Bytes(t, "0000000000000000000000000000000000000000000000000000000000001111")
 
 	tests := []struct {
@@ -102,7 +106,7 @@ func TestExtractReceiverObjectIdsFromMap(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := extractReceiverObjectIdsFromMap(tc.input)
+			result, err := extractReceiverObjectIDsFromMap(tc.input)
 			if tc.expectErr {
 				require.Error(t, err)
 				return
@@ -111,6 +115,59 @@ func TestExtractReceiverObjectIdsFromMap(t *testing.T) {
 			assert.Equal(t, tc.expected, result)
 		})
 	}
+}
+
+func TestMessageHasherV2_Hash_EVMSourceExtraArgs(t *testing.T) {
+	lggr := logger.Test(t)
+	const evmSourceSelector = ccipocr3.ChainSelector(5009297550715157269) // ETH mainnet
+
+	extraDataCodec := ccipocr3.ExtraDataCodecMap(map[string]ccipocr3.SourceChainExtraDataCodec{
+		chainsel.FamilyEVM: ccipevm.ExtraDataDecoder{},
+	})
+
+	tokenReceiver := hexTo32Bytes(t, "0000000000000000000000000000000000000000000000000000000000005678")
+	objectID := hexTo32Bytes(t, "0000000000000000000000000000000000000000000000000000000000aabbcc")
+
+	extraArgs, err := ccipevm.SerializeClientSUIExtraArgsV1(message_hasher.ClientSuiExtraArgsV1{
+		GasLimit:                 big.NewInt(200000),
+		AllowOutOfOrderExecution: true,
+		TokenReceiver:            tokenReceiver,
+		ReceiverObjectIds:        [][32]byte{objectID},
+	})
+	require.NoError(t, err)
+
+	decodedExtraArgs, err := extraDataCodec.DecodeExtraArgs(extraArgs, evmSourceSelector)
+	require.NoError(t, err)
+
+	ids, err := extractReceiverObjectIDsFromMap(decodedExtraArgs)
+	require.NoError(t, err)
+	assert.Equal(t, [][32]byte{objectID}, ids)
+
+	msg := ccipocr3.Message{
+		Header: ccipocr3.RampMessageHeader{
+			MessageID:           hexTo32Bytes(t, "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"),
+			SourceChainSelector: evmSourceSelector,
+			DestChainSelector:   2000,
+			SequenceNumber:      1,
+			Nonce:               0,
+			OnRamp:              []byte("onramp"),
+		},
+		Sender:    mustHexDecode(t, "8765432109fedcba8765432109fedcba87654321"),
+		Data:      []byte("test payload"),
+		Receiver:  mustLeftPad32(t, "1234"),
+		ExtraArgs: extraArgs,
+	}
+
+	hasher := NewMessageHasherV2(lggr, extraDataCodec)
+	hashFromEVMDecode, err := hasher.Hash(context.Background(), msg)
+	require.NoError(t, err)
+
+	hasherFromMap := NewMessageHasherV2(lggr, mockExtraDataCodec{extraArgs: decodedExtraArgs})
+	hashFromMap, err := hasherFromMap.Hash(context.Background(), msg)
+	require.NoError(t, err)
+
+	assert.Equal(t, hashFromMap, hashFromEVMDecode)
+	assert.NotEqual(t, [32]byte{}, hashFromEVMDecode)
 }
 
 func TestMessageHasherV2_Hash_UsesReceiverObjectIdsFromExtraArgs(t *testing.T) {

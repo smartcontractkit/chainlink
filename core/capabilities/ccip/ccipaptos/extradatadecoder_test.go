@@ -53,14 +53,14 @@ func Test_decodeExtraData(t *testing.T) {
 		tokenReceiver := make([]byte, 32)
 		tokenReceiver[31] = 0x42
 		ser.WriteBytes(tokenReceiver)
-		objectId := make([]byte, 32)
-		objectId[31] = 0x11
-		bcs.SerializeSequenceWithFunction([][]byte{objectId}, ser, func(s *bcs.Serializer, item []byte) {
+		objectID := make([]byte, 32)
+		objectID[31] = 0x11
+		bcs.SerializeSequenceWithFunction([][]byte{objectID}, ser, func(s *bcs.Serializer, item []byte) {
 			s.WriteBytes(item)
 		})
 		require.NoError(t, ser.Error())
 
-		encoded := append(suiExtraArgsV1Tag, ser.ToBytes()...)
+		encoded := append(append([]byte(nil), suiExtraArgsV1Tag...), ser.ToBytes()...)
 		m, err := extraDataDecoder.DecodeExtraArgsToMap(encoded)
 		require.NoError(t, err)
 
@@ -78,11 +78,11 @@ func Test_decodeExtraData(t *testing.T) {
 		require.True(t, ok)
 		require.Equal(t, expectedTokenReceiver, tr)
 
-		var expectedObjectId [32]byte
-		expectedObjectId[31] = 0x11
+		var expectedObjectID [32]byte
+		expectedObjectID[31] = 0x11
 		ids, ok := m["receiverObjectIds"]
 		require.True(t, ok)
-		require.Equal(t, [][32]byte{expectedObjectId}, ids)
+		require.Equal(t, [][32]byte{expectedObjectID}, ids)
 	})
 
 	t.Run("decode extra args into map svm", func(t *testing.T) {

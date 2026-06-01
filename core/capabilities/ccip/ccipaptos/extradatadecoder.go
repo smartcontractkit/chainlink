@@ -177,21 +177,21 @@ func (d ExtraDataDecoder) decodeSuiExtraArgsV1(des *bcs.Deserializer) (map[strin
 	copy(tokenReceiverArr[:], tokenReceiver)
 	extraArgs["tokenReceiver"] = tokenReceiverArr
 
-	receiverObjectIdBytes := bcs.DeserializeSequenceWithFunction(des, func(des *bcs.Deserializer, item *[]byte) {
+	receiverObjectIDBytes := bcs.DeserializeSequenceWithFunction(des, func(des *bcs.Deserializer, item *[]byte) {
 		*item = des.ReadBytes()
 	})
 	if des.Error() != nil {
 		return nil, fmt.Errorf("error whilst decoding sui extra args v1 receiver object ids: %w", des.Error())
 	}
 
-	receiverObjectIds := make([][32]byte, len(receiverObjectIdBytes))
-	for i, id := range receiverObjectIdBytes {
+	receiverObjectIDs := make([][32]byte, len(receiverObjectIDBytes))
+	for i, id := range receiverObjectIDBytes {
 		if len(id) != 32 {
 			return nil, fmt.Errorf("invalid sui extra args v1 receiver object id length at index %d: expected 32, got %d", i, len(id))
 		}
-		copy(receiverObjectIds[i][:], id)
+		copy(receiverObjectIDs[i][:], id)
 	}
-	extraArgs["receiverObjectIds"] = receiverObjectIds
+	extraArgs["receiverObjectIds"] = receiverObjectIDs
 
 	return extraArgs, nil
 }

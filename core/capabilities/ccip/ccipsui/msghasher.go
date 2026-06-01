@@ -242,7 +242,7 @@ func computeMessageDataHashV2(
 	sender []byte,
 	data []byte,
 	tokenAmounts []any2SuiTokenTransfer,
-	receiverObjectIds [][32]byte,
+	receiverObjectIDs [][32]byte,
 ) ([32]byte, error) {
 	uint64Type, err := abi.NewType("uint64", "", nil)
 	if err != nil {
@@ -287,12 +287,12 @@ func computeMessageDataHashV2(
 	}
 	tokenAmountsHash := crypto.Keccak256Hash(tokenHashData)
 
-	var objectIdsHashData []byte
-	objectIdsHashData = append(objectIdsHashData, encodeUint256(big.NewInt(int64(len(receiverObjectIds))))...)
-	for _, id := range receiverObjectIds {
-		objectIdsHashData = append(objectIdsHashData, id[:]...)
+	var objectIDsHashData []byte
+	objectIDsHashData = append(objectIDsHashData, encodeUint256(big.NewInt(int64(len(receiverObjectIDs))))...)
+	for _, id := range receiverObjectIDs {
+		objectIDsHashData = append(objectIDsHashData, id[:]...)
 	}
-	objectIdsHash := crypto.Keccak256Hash(objectIdsHashData)
+	objectIDsHash := crypto.Keccak256Hash(objectIDsHashData)
 
 	finalArgs := abi.Arguments{
 		{Type: bytes32Type},
@@ -311,7 +311,7 @@ func computeMessageDataHashV2(
 		senderHash,
 		dataHash,
 		tokenAmountsHash,
-		objectIdsHash,
+		objectIDsHash,
 	)
 	if err != nil {
 		return [32]byte{}, err
@@ -385,7 +385,7 @@ func (h *MessageHasherV2) Hash(ctx context.Context, msg ccipocr3common.Message) 
 		return [32]byte{}, fmt.Errorf("decode extra args to get gas limit: %w", err)
 	}
 
-	receiverObjectIds, err := extractReceiverObjectIdsFromMap(decodedExtraArgsMap)
+	receiverObjectIDs, err := extractReceiverObjectIDsFromMap(decodedExtraArgsMap)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("decode extra args to get receiver object ids: %w", err)
 	}
@@ -406,7 +406,7 @@ func (h *MessageHasherV2) Hash(ctx context.Context, msg ccipocr3common.Message) 
 		msg.Sender,
 		msg.Data,
 		rampTokenAmounts,
-		receiverObjectIds,
+		receiverObjectIDs,
 	)
 	if err != nil {
 		return [32]byte{}, err
@@ -414,13 +414,13 @@ func (h *MessageHasherV2) Hash(ctx context.Context, msg ccipocr3common.Message) 
 
 	lggr.Debugw("final message hash v2 result",
 		"msgHash", hexutil.Encode(msgHash[:]),
-		"receiverObjectIds", receiverObjectIds,
+		"receiverObjectIds", receiverObjectIDs,
 	)
 
 	return msgHash, nil
 }
 
-func extractReceiverObjectIdsFromMap(input map[string]any) ([][32]byte, error) {
+func extractReceiverObjectIDsFromMap(input map[string]any) ([][32]byte, error) {
 	raw, ok := input["receiverObjectIds"]
 	if !ok {
 		return [][32]byte{}, nil
