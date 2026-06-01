@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+TOOLS_TEST_BIN="$(pwd)/tools/test/.bin/cltest"
+
+# Build the testrig if needed
+go -C tools/test build -o "${TOOLS_TEST_BIN}" .
+
+# Forward all arguments to the cltest binary
+exec "${TOOLS_TEST_BIN}" "$@"

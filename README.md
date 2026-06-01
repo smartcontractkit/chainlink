@@ -236,10 +236,19 @@ make testdb-force
 go test ./...
 ```
 
+### New, Condensed Test Flow
+
+Use `./cltest` which handles most of the test DB setup for you in plain go (see [tools/test/README.md](tools/test/README.md) for details).
+
+```sh
+./cltest -h         # See full capabilities of the test harness
+./cltest ./core/... # Setup ephemeral test DB and run all tests in ./core
+```
+
 #### Notes
 
 - The `parallel` flag can be used to limit CPU usage, for running tests in the background (`-parallel=4`) - the default is `GOMAXPROCS`
-- The `p` flag can be used to limit the number of _packages_ tested concurrently, if they are interferring with one another (`-p=1`)
+- The `p` flag can be used to limit the number of _packages_ tested concurrently, if they are interfering with one another (`-p=1`)
 - The `-short` flag skips tests which depend on the database, for quickly spot checking simpler tests in around one minute
 
 #### Race Detector

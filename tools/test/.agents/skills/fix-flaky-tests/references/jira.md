@@ -10,7 +10,7 @@ These files are **includable references**, not user-facing skills (no `SKILL.md`
 <requirements>
 1. Atlassian MCP available.
 2. If MCP is unauthenticated prompt user to authenticate before proceeding.
-If Atlassian MCP is not available prompt the user to install it. If authentication fails STOP.
+If Atlassian MCP is not available prompt the user to [install it](https://github.com/atlassian/atlassian-mcp-server). If authentication fails STOP.
 </requirements>
 
 <operation_requirements>
