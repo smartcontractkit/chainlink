@@ -6,14 +6,15 @@ import (
 	"math/big"
 	"testing"
 
-	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/aptos-labs/aptos-go-sdk/bcs"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/message_hasher"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestExecutePluginCodecV2_IncludesReceiverObjectIds(t *testing.T) {
@@ -92,7 +93,7 @@ func TestExecutePluginCodecV2_EmptyReceiverObjectIds(t *testing.T) {
 	require.NoError(t, err)
 
 	des := bcs.NewDeserializer(v2Bytes)
-	skipToReceiverObjectIds(des)
+	skipToReceiverObjectIDs(des)
 	ids := deserializeReceiverObjectIDs(des)
 	require.NoError(t, des.Error())
 	assert.Empty(t, ids)
@@ -194,7 +195,7 @@ func singleMessageExecuteReport(
 	}
 }
 
-func skipToReceiverObjectIds(des *bcs.Deserializer) {
+func skipToReceiverObjectIDs(des *bcs.Deserializer) {
 	des.U64()
 	des.ReadFixedBytes(32)
 	des.U64()

@@ -89,7 +89,7 @@ func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[s
 			GasLimit                 *big.Int    `json:"gasLimit"`
 			AllowOutOfOrderExecution bool        `json:"allowOutOfOrderExecution"`
 			TokenReceiver            [32]uint8   `json:"tokenReceiver"`
-			ReceiverObjectIds        [][32]uint8 `json:"receiverObjectIds"`
+			ReceiverObjectIds        [][32]uint8 `json:"receiverObjectIds"` //nolint:revive // must match ABI-unpacked struct field name exactly
 		})
 		if !ok {
 			return nil, errors.New("sui extra args struct is not the equivalent of message_hasher.ClientSuiExtraArgsV1")
