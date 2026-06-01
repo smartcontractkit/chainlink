@@ -4,7 +4,6 @@ go 1.26.2
 
 require (
 	github.com/smartcontractkit/chain-selectors v1.0.100
-	github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/workflows/testing v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/cre-sdk-go v1.11.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.3.0
@@ -26,5 +25,3 @@ require (
 	golang.org/x/sys v0.40.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
-
-replace github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/workflows/testing => /Users/dh/go/src/github.com/smartcontractkit/chainlink-gen/chainlink-gen/system-tests/tests/test-helpers/workflows/testing

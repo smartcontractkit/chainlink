@@ -21,6 +21,7 @@ const solanaNetwork = "solana"
 // SolanaOverrideDefaultCfg holds optional per-node overrides for the Solana chain capability JSON config.
 // JSON field names match capabilities/chain_capabilities/solana/config.Config.
 type SolanaOverrideDefaultCfg struct {
+	ChainReadCapabilityConfig
 	CREForwarderAddress string        `json:"creForwarderAddress,omitempty" yaml:"creForwarderAddress,omitempty"`
 	CREForwarderState   string        `json:"creForwarderState,omitempty" yaml:"creForwarderState,omitempty"`
 	Transmitter         string        `json:"transmitter,omitempty" yaml:"transmitter,omitempty"`
@@ -39,6 +40,7 @@ type SolanaCapabilityInput struct {
 }
 
 type ProposeSolanaJobSpecInput struct {
+	ChainReadCapabilityJobSpecInput
 	Environment string `json:"environment" yaml:"environment"`
 	Zone        string `json:"zone" yaml:"zone"`
 	Domain      string `json:"domain" yaml:"domain"`
@@ -147,6 +149,11 @@ func (u ProposeSolanaJobSpec) VerifyPreconditions(e cldf.Environment, input Prop
 		return fmt.Errorf("failed to get chainID from selector: %w", err)
 	}
 
+	err = VerifyChainReadCapabilityPreconditions(e, input.ChainReadCapabilityJobSpecInput)
+	if err != nil {
+		return fmt.Errorf("chain read capability preconditions not met: %w", err)
+	}
+
 	for _, solIn := range input.SolanaCapabilityInputs {
 		ov := solIn.OverrideDefaultCfg
 		if ov.ChainID != "" && ov.ChainID != chainIDStr {
@@ -190,7 +197,12 @@ func (u ProposeSolanaJobSpec) Apply(e cldf.Environment, input ProposeSolanaJobSp
 	job := pkg.StandardCapabilityJob{
 		JobName:               jobName,
 		Command:               "/usr/local/bin/solana",
-		GenerateOracleFactory: false,
+		GenerateOracleFactory: true,
+		OCRChainSelector:      pkg.ChainSelector(input.OCRChainSelector),
+		ChainSelectorEVM:      pkg.ChainSelector(input.OCRChainSelector),
+		ContractQualifier:     input.OCRContractQualifier,
+		OCRSigningStrategy:    "single-chain",
+		BootstrapPeers:        input.BootstrapperOCR3Urls,
 	}
 
 	nodeIDToConfig := make(map[string]string, len(input.SolanaCapabilityInputs))

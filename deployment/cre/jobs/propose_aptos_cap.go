@@ -17,16 +17,13 @@ var _ cldf.ChangeSetV2[ProposeAptosCapJobSpecInput] = ProposeAptosCapJobSpec{}
 const aptosNetwork = "aptos"
 
 type AptosOverrideDefaultCfg struct {
-	CREForwarderAddress           string            `json:"creForwarderAddress,omitempty" yaml:"creForwarderAddress,omitempty"`
-	Network                       string            `json:"network,omitempty" yaml:"network,omitempty"`
-	ChainID                       string            `json:"chainId,omitempty" yaml:"chainId,omitempty"`
-	ObservationPollerWorkersCount uint              `json:"observationPollerWorkersCount,omitempty" yaml:"observationPollerWorkersCount,omitempty"`
-	ObservationPollPeriod         time.Duration     `json:"observationPollPeriod,omitempty" yaml:"observationPollPeriod,omitempty"`
-	ChainHeightPollPeriod         time.Duration     `json:"chainHeightPollPeriod,omitempty" yaml:"chainHeightPollPeriod,omitempty"`
-	UnknownRequestsTTL            time.Duration     `json:"unknownRequestsTTL,omitempty" yaml:"unknownRequestsTTL,omitempty"`
-	DeltaStage                    time.Duration     `json:"deltaStage" yaml:"deltaStage,omitempty"`
-	TxSearchStartingBuffer        time.Duration     `json:"txSearchStartingBuffer" yaml:"txSearchStartingBuffer,omitempty"`
-	P2PToTransmitterMap           map[string]string `json:"p2pToTransmitterMap,omitempty" yaml:"p2pToTransmitterMap,omitempty"`
+	ChainReadCapabilityConfig
+	CREForwarderAddress    string            `json:"creForwarderAddress,omitempty" yaml:"creForwarderAddress,omitempty"`
+	Network                string            `json:"network,omitempty" yaml:"network,omitempty"`
+	ChainID                string            `json:"chainId,omitempty" yaml:"chainId,omitempty"`
+	DeltaStage             time.Duration     `json:"deltaStage" yaml:"deltaStage,omitempty"`
+	TxSearchStartingBuffer time.Duration     `json:"txSearchStartingBuffer" yaml:"txSearchStartingBuffer,omitempty"`
+	P2PToTransmitterMap    map[string]string `json:"p2pToTransmitterMap,omitempty" yaml:"p2pToTransmitterMap,omitempty"`
 }
 
 type AptosCapabilityInput struct {
@@ -40,10 +37,8 @@ type ProposeAptosCapJobSpecInput struct {
 	Domain      string `json:"domain" yaml:"domain"`
 	DONName     string `json:"donName" yaml:"donName"`
 
-	ChainSelector        uint64   `json:"chainSelector" yaml:"chainSelector"`
-	BootstrapperOCR3Urls []string `json:"bootstrapperOCR3Urls" yaml:"bootstrapperOCR3Urls"`
-	OCRContractQualifier string   `json:"ocrContractQualifier" yaml:"ocrContractQualifier"`
-	OCRChainSelector     uint64   `json:"ocrChainSelector" yaml:"ocrChainSelector"`
+	ChainSelector uint64 `json:"chainSelector" yaml:"chainSelector"`
+	ChainReadCapabilityJobSpecInput
 
 	DeltaStage             time.Duration          `json:"deltaStage" yaml:"deltaStage,omitempty"`
 	TxSearchStartingBuffer time.Duration          `json:"txSearchStartingBuffer" yaml:"txSearchStartingBuffer,omitempty"`
@@ -65,15 +60,12 @@ func (u ProposeAptosCapJobSpec) VerifyPreconditions(e cldf.Environment, input Pr
 	}
 
 	if err := validateCommonFields(commonCapFields{
-		Environment:          input.Environment,
-		Domain:               input.Domain,
-		Zone:                 input.Zone,
-		DONName:              input.DONName,
-		ChainSelector:        input.ChainSelector,
-		OCRChainSelector:     input.OCRChainSelector,
-		BootstrapperOCR3Urls: input.BootstrapperOCR3Urls,
-		OCRContractQualifier: input.OCRContractQualifier,
-		DeltaStage:           input.DeltaStage,
+		Environment:   input.Environment,
+		Domain:        input.Domain,
+		Zone:          input.Zone,
+		DONName:       input.DONName,
+		ChainSelector: input.ChainSelector,
+		DeltaStage:    input.DeltaStage,
 	}); err != nil {
 		return err
 	}
@@ -97,9 +89,9 @@ func (u ProposeAptosCapJobSpec) VerifyPreconditions(e cldf.Environment, input Pr
 		return fmt.Errorf("failed to get chainID from selector: %w", err)
 	}
 
-	ocrAddrRefKey := pkg.GetOCR3CapabilityAddressRefKey(input.OCRChainSelector, input.OCRContractQualifier)
-	if _, err := e.DataStore.Addresses().Get(ocrAddrRefKey); err != nil {
-		return fmt.Errorf("failed to get OCR contract address for ref key %s: %w", ocrAddrRefKey, err)
+	err = VerifyChainReadCapabilityPreconditions(e, input.ChainReadCapabilityJobSpecInput)
+	if err != nil {
+		return fmt.Errorf("chain read capability preconditions not met: %w", err)
 	}
 
 	for _, aptosCapInput := range input.AptosCapabilityInputs {

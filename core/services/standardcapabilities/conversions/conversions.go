@@ -42,6 +42,18 @@ func GetCapabilityIDFromCommand(command string, config string) string {
 			return ""
 		}
 		return "aptos:ChainSelector:" + strconv.FormatUint(selector, 10) + "@1.0.0"
+	case "solana":
+		var cfg struct {
+			ChainID string `json:"chainId"`
+		}
+		if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+			return ""
+		}
+		selector, ok := chainselectors.SolanaChainIdToChainSelector()[cfg.ChainID]
+		if !ok {
+			return ""
+		}
+		return "solana:ChainSelector:" + strconv.FormatUint(selector, 10) + "@1.0.0"
 	case "consensus":
 		return "consensus@1.0.0-alpha"
 	case "cron":

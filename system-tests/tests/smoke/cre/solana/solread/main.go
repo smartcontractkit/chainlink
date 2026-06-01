@@ -15,8 +15,6 @@ import (
 	sdk "github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 
-	"github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/workflows/testing"
-
 	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread/config"
 )
 
@@ -46,7 +44,7 @@ func onReadTrigger(cfg config.Config, runtime sdk.Runtime, payload *cron.Payload
 			err = fmt.Errorf("panic: %v", r)
 		}
 	}()
-	t := testing.New(runtime.Logger())
+	t := &T{Logger: runtime.Logger()}
 	client := solana.Client{ChainSelector: chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector}
 	switch cfg.TestCase {
 	case config.TestCaseEVMReadAccountInfo:
@@ -59,7 +57,7 @@ func onReadTrigger(cfg config.Config, runtime sdk.Runtime, payload *cron.Payload
 	return
 }
 
-func requireAccountInfo(t *testing.T, runtime sdk.Runtime, cfg config.Config, client solana.Client) {
+func requireAccountInfo(t *T, runtime sdk.Runtime, cfg config.Config, client solana.Client) {
 	accountInfoReply, err := client.GetAccountInfoWithOpts(runtime, &solana.GetAccountInfoWithOptsRequest{
 		Account: cfg.AccountAddress,
 		Opts: &solana.GetAccountInfoOpts{
@@ -73,4 +71,16 @@ func requireAccountInfo(t *testing.T, runtime sdk.Runtime, cfg config.Config, cl
 	require.NotNil(t, accountInfoReply, "Account info should not be nil")
 	require.NotNil(t, accountInfoReply.Value, "Account info value should not be nil")
 	runtime.Logger().Info("Account info", "accountInfo", accountInfoReply.Value)
+}
+
+type T struct {
+	*slog.Logger
+}
+
+func (t *T) Errorf(format string, args ...interface{}) {
+	t.Logger.Error(fmt.Sprintf(format, args...))
+}
+
+func (t *T) FailNow() {
+	panic("Test failed. Panic to stop execution")
 }
