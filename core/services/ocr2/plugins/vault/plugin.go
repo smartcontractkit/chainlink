@@ -1267,14 +1267,19 @@ func (r *ReportingPlugin) validateSecretIdentifier(ctx context.Context, id *vaul
 		return nil, newUserError("secret identifier cannot be nil")
 	}
 
-	if err := r.validator.ValidateSecretIdentifier(ctx, id.Key, id.Owner, id.Namespace); err != nil {
+	namespace := id.Namespace
+	if namespace == "" {
+		namespace = vaulttypes.DefaultNamespace
+	}
+
+	if err := r.validator.ValidateSecretIdentifier(ctx, id.Key, id.Owner, namespace); err != nil {
 		return nil, newUserError(err.Error())
 	}
 
 	newID := &vaultcommon.SecretIdentifier{
 		Key:       id.Key,
 		Owner:     id.Owner,
-		Namespace: id.Namespace,
+		Namespace: namespace,
 	}
 
 	return newID, nil
@@ -1508,6 +1513,7 @@ func (r *ReportingPlugin) validateGetSecretsObservation(ctx context.Context, o *
 			continue
 		}
 
+		// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
 		innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: rsp.Id.Owner})
 		for _, ds := range d.GetEncryptedDecryptionKeyShares() {
 			if err := validateEncryptedSharesEntry(ds); err != nil {
@@ -1672,6 +1678,7 @@ func (r *ReportingPlugin) validateListSecretIdentifiersObservation(ctx context.C
 	}
 
 	if listResp.Success {
+		// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
 		ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: listReq.Owner})
 		if err := r.cfg.MaxSecretsPerOwner.Check(ctx, len(listResp.Identifiers)); err != nil {
 			var errBoundLimited limits.ErrorBoundLimited[int]
@@ -1939,6 +1946,17 @@ func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, seqNr
 		return bytes.Compare(sortKey(i.Id, salt), sortKey(j.Id, salt))
 	})
 
+	if !r.optimizationsEnabled(ctx) {
+		// Step 5: Apply batch size and write the latest batch to the store's pending queue.
+		if err := r.cfg.MaxBatchSize.Check(ctx, len(keptItems)); err != nil {
+			var errBoundLimited limits.ErrorBoundLimited[int]
+			if !errors.As(err, &errBoundLimited) {
+				return fmt.Errorf("failed to check batch size limit: %w", err)
+			}
+			keptItems = keptItems[:errBoundLimited.Limit]
+		}
+	}
+
 	r.metrics.trackPendingQueueWrittenSize(ctx, len(keptItems))
 	r.lggr.Infow("pending queue items persisted to storage", "seqNr", seqNr, "writtenCount", len(keptItems))
 
@@ -2009,6 +2027,7 @@ func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, chosen 
 					keyToShares[s.EncryptionKey] = s
 				}
 
+				// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
 				innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: rsp.Id.Owner})
 				for _, existing := range rsp.GetData().EncryptedDecryptionKeyShares {
 					if err := validateEncryptedSharesEntry(existing); err != nil {
@@ -2154,6 +2173,7 @@ func (r *ReportingPlugin) stateTransitionCreateSecretsRequest(ctx context.Contex
 		return nil, fmt.Errorf("failed to read secret identifiers count for owner: %w", err)
 	}
 
+	// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: req.Id.Owner})
 	if ierr := r.cfg.MaxSecretsPerOwner.Check(ctx, count+1); ierr != nil {
 		var errBoundLimited limits.ErrorBoundLimited[int]

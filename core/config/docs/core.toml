@@ -301,7 +301,7 @@ ListenIP = '0.0.0.0' # Default
 DisplayName = "cre-workflow-1-chainlinklabs" # Example
 
 [JobPipeline]
-# ExternalInitiatorsEnabled enables the External Initiator feature. If disabled, `webhook` jobs can ONLY be initiated by a logged-in user. If enabled, `webhook` jobs can be initiated by a whitelisted external initiator.
+# ExternalInitiatorsEnabled Unused: used to enables the External Initiator feature for legacy webhook job runs via external initiators
 ExternalInitiatorsEnabled = false # Default
 # MaxRunDuration is the maximum time allowed for a single job run. If it takes longer, it will exit early and be marked errored. If set to zero, disables the time limit completely.
 MaxRunDuration = '10m' # Default

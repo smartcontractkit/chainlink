@@ -911,7 +911,7 @@ VerboseLogging = true # Default
 ```toml
 ExternalInitiatorsEnabled = false # Default
 ```
-ExternalInitiatorsEnabled enables the External Initiator feature. If disabled, `webhook` jobs can ONLY be initiated by a logged-in user. If enabled, `webhook` jobs can be initiated by a whitelisted external initiator.
+ExternalInitiatorsEnabled Unused: used to enables the External Initiator feature for legacy webhook job runs via external initiators
 
 ### MaxRunDuration
 ```toml
