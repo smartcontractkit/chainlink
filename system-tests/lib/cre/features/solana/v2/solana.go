@@ -102,7 +102,7 @@ func (s *Solana) PreEnvStartup(
 	capabilityToExtraSignerFamilies := make(map[string][]string, len(capabilities))
 	ocrConfigs := map[string]*ocr3.OracleConfig{}
 	for _, capability := range capabilities {
-		capabilityToExtraSignerFamilies[capability.Capability.LabelledName] = []string{chainselectors.FamilySolana}
+		capabilityToExtraSignerFamilies[capability.Capability.LabelledName] = []string{chainselectors.FamilyEVM} // chain read OCR & DON2DON uses EVM signing schema for all chains, thus we need evm signers. 
 		ocrConfigs[capability.Capability.LabelledName] = crecontracts.DefaultChainCapabilityOCR3Config()
 	}
 
@@ -434,6 +434,7 @@ func patchNodeTOML(creEnv *cre.Environment, don *cre.DonMetadata, data input, se
 		if updErr != nil {
 			return errors.Wrapf(updErr, "failed to update node config for node index %d", workerNode.Index)
 		}
+		println("Updated cfg: " + *updatedConfig)
 		don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
 	}
 
