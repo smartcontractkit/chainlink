@@ -169,9 +169,10 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 				return
 			}
 
+			obsTimeout := 3 * osv.observationTimeout
 			time.Sleep(osv.observationTimeout)
 			startTS := time.Now()
-			ctx, cancel := context.WithTimeout(stopChanCtx, osv.observationTimeout)
+			ctx, cancel := context.WithTimeout(stopChanCtx, obsTimeout)
 			lggr := logger.With(d.lggr, "observationTimestamp", osv.opts.ObservationTimestamp(), "configDigest", osv.opts.ConfigDigest(), "seqNr", osv.opts.OutCtx().SeqNr)
 
 			if osv.opts.VerboseLogging() {
