@@ -272,7 +272,7 @@ test-short: ## Run 'go test -short' and suppress uninteresting output
 
 .PHONY: test-core
 test-core: ## Run ./core/... tests via ./cltest
-	./cltest run ./core/...
+	./cltest ./core/...
 
 .PHONY: gocs
 gocs: ## Run gocs to generate changeset markdown files.

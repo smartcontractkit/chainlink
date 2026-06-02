@@ -14,6 +14,7 @@ import (
 
 func resetDBFlags(t *testing.T) {
 	t.Helper()
+	t.Setenv("CL_DATABASE_URL", "")
 	t.Cleanup(func() {
 		databaseURL = ""
 		postgresVersion = ""
@@ -29,10 +30,11 @@ func parseDBFlags(t *testing.T, args ...string) {
 
 func TestAppConfig(t *testing.T) {
 	tests := []struct {
-		name            string
-		args            []string
-		wantDBURL       string
-		wantPGVersion   string
+		name          string
+		envDBURL      string
+		args          []string
+		wantDBURL     string
+		wantPGVersion string
 	}{
 		{
 			name:          "defaults",
@@ -42,6 +44,19 @@ func TestAppConfig(t *testing.T) {
 			name:          "database_url",
 			args:          []string{"--database-url", "postgres://example"},
 			wantDBURL:     "postgres://example",
+			wantPGVersion: config.DefaultPostgresVersion,
+		},
+		{
+			name:          "database_url_from_env",
+			envDBURL:      "postgres://from-env",
+			wantDBURL:     "postgres://from-env",
+			wantPGVersion: config.DefaultPostgresVersion,
+		},
+		{
+			name:          "database_url_flag_overrides_env",
+			envDBURL:      "postgres://from-env",
+			args:          []string{"--database-url", "postgres://from-flag"},
+			wantDBURL:     "postgres://from-flag",
 			wantPGVersion: config.DefaultPostgresVersion,
 		},
 		{
@@ -59,6 +74,9 @@ func TestAppConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			resetDBFlags(t)
+			if tt.envDBURL != "" {
+				t.Setenv("CL_DATABASE_URL", tt.envDBURL)
+			}
 			parseDBFlags(t, tt.args...)
 
 			dir := t.TempDir()

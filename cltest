@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 
-TOOLS_TEST_BIN="$(pwd)/tools/test/.bin/cltest"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TOOLS_TEST_BIN="${ROOT}/tools/test/.bin/cltest"
 
 mkdir -p "$(dirname "${TOOLS_TEST_BIN}")"
 
-# Build the testrig if needed
-go -C tools/test build -o "${TOOLS_TEST_BIN}" .
+go -C "${ROOT}/tools/test" build -o "${TOOLS_TEST_BIN}" .
 
-# Forward all arguments to the cltest binary
 exec "${TOOLS_TEST_BIN}" "$@"

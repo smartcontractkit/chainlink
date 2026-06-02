@@ -22,8 +22,8 @@ var (
 // Register adds the --database-url and --postgres-version persistent flags. Pass
 // it to testrig.WithRootFlags.
 func Register(flags *pflag.FlagSet) {
-	flags.StringVar(&databaseURL, "database-url", "",
-		"Provide a PostgreSQL connection string to use an existing database instead of an ephemeral one")
+	flags.StringVar(&databaseURL, "database-url", os.Getenv("CL_DATABASE_URL"),
+		"PostgreSQL connection string for an existing database (default: CL_DATABASE_URL; ephemeral container if unset)")
 	flags.StringVar(&postgresVersion, "postgres-version", config.DefaultPostgresVersion,
 		"PostgreSQL version to run tests against")
 }

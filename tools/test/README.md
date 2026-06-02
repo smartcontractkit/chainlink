@@ -18,7 +18,7 @@ From the repo root, `./cltest` builds the harness (into `tools/test/.bin/cltest`
 ./cltest diagnose --iterations 5 --parallel-iterations 2 -- --timeout=9m ./core/...
 ```
 
-`make test-core` is shorthand for `./cltest run ./core/...`.
+`make test-core` is shorthand for `./cltest ./core/...`.
 
 ### Direct binary (optional)
 
@@ -26,7 +26,7 @@ Rebuild only when you change harness code:
 
 ```sh
 go -C tools/test build -o tools/test/.bin/cltest .
-tools/test/.bin/cltest run -count=1 ./core/...
+tools/test/.bin/cltest -count=1 ./core/...
 ```
 
 ### Diagnose examples
