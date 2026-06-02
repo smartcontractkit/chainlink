@@ -56,7 +56,8 @@ const (
 		"isLocal":{{.IsLocal}},
 		"chainId":"{{.ChainID}}",
 		"network":"{{.Network}}",
-		"deltaStage":{{printf "%d" .DeltaStage}}
+		"deltaStage":{{printf "%d" .DeltaStage}},
+		"readsEnabled":{{.ReadsEnabled}}
 	}`
 	deltaStage          = 14*time.Second + 2*time.Second // finalization time + 2 seconds delta
 	requestTimeout      = 30 * time.Second
@@ -102,7 +103,7 @@ func (s *Solana) PreEnvStartup(
 	capabilityToExtraSignerFamilies := make(map[string][]string, len(capabilities))
 	ocrConfigs := map[string]*ocr3.OracleConfig{}
 	for _, capability := range capabilities {
-		capabilityToExtraSignerFamilies[capability.Capability.LabelledName] = []string{chainselectors.FamilyEVM} // chain read OCR & DON2DON uses EVM signing schema for all chains, thus we need evm signers. 
+		capabilityToExtraSignerFamilies[capability.Capability.LabelledName] = []string{chainselectors.FamilyEVM} // chain read OCR & DON2DON uses EVM signing schema for all chains, thus we need evm signers.
 		ocrConfigs[capability.Capability.LabelledName] = crecontracts.DefaultChainCapabilityOCR3Config()
 	}
 
@@ -234,6 +235,7 @@ func createJobs(
 				"Network":             "solana",
 				"ChainID":             chainID,
 				"DeltaStage":          deltaStage,
+				"ReadsEnabled":        true,
 			}
 
 			templateData, aErr := credon.ApplyRuntimeValues(maps.Clone(config.Values), runtimeFallbacks)
@@ -331,8 +333,8 @@ func registerSolanaCapability(selector uint64, nodeSet *cre.NodeSet) ([]keystone
 
 	return []keystone_changeset.DONCapabilityWithConfig{{
 		Capability: kcr.CapabilitiesRegistryCapability{
-			LabelledName: "solana" + ":ChainSelector:" + strconv.FormatUint(selector, 10),
-			Version:      "1.0.0",
+			LabelledName:   "solana" + ":ChainSelector:" + strconv.FormatUint(selector, 10),
+			Version:        "1.0.0",
 			CapabilityType: 1,
 		},
 		Config: &capabilitiespb.CapabilityConfig{

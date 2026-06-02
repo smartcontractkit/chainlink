@@ -61,7 +61,7 @@ func requireAccountInfo(t *T, runtime sdk.Runtime, cfg config.Config, client sol
 	accountInfoReply, err := client.GetAccountInfoWithOpts(runtime, &solana.GetAccountInfoWithOptsRequest{
 		Account: cfg.AccountAddress,
 		Opts: &solana.GetAccountInfoOpts{
-			Encoding:       solana.EncodingType_ENCODING_TYPE_JSON,
+			Encoding:       solana.EncodingType_ENCODING_TYPE_JSON_PARSED,
 			Commitment:     solana.CommitmentType_COMMITMENT_TYPE_CONFIRMED,
 			DataSlice:      nil,
 			MinContextSlot: 0,
