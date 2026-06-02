@@ -52,8 +52,7 @@ var defaultInitialize = func(ctx context.Context, cfg RunnerConfig) (*capabiliti
 	srvcs := []services.Service{}
 	if cfg.EnableBilling {
 		bs := NewBillingService(logger.Named(cfg.Lggr, "Fake_Billing_Client"))
-		err := bs.Start(ctx)
-		if err != nil {
+		if err := bs.Start(ctx); err != nil {
 			fmt.Printf("Failed to start billing service: %v\n", err)
 			os.Exit(1)
 		}
@@ -146,8 +145,11 @@ func (r *Runner) Run(
 	registry, services := r.hooks.Initialize(ctx, cfg)
 
 	billingAddress := ""
-	if cfg.EnableBilling {
-		billingAddress = "localhost:4319"
+	for _, svc := range services {
+		if bs, ok := svc.(*BillingService); ok {
+			billingAddress = bs.GRPCAddress()
+			break
+		}
 	}
 
 	engine, triggerSub, err := NewStandaloneEngine(ctx, cfg.Lggr, registry, binary, config, secrets, billingAddress, cfg.LifecycleHooks, workflowName, cfg.WorkflowSettingsCfgFn)

@@ -1456,7 +1456,6 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 	})
 }
 
-// TODO fix
 func TestEngine_WASMBinary_With_Config(t *testing.T) {
 	cmd := "core/services/workflows/test/wasm/v2/cmd/with_config"
 	binaryB := wasmtest.CreateTestBinary(cmd, false, t)
@@ -2333,26 +2332,25 @@ func requireEventsMessages(t *testing.T, beholderObserver beholdertest.Observer,
 }
 
 func requireUserLogs(t *testing.T, beholderObserver beholdertest.Observer, expectedSubstrings []string) {
-	msgs := beholderObserver.Messages(t)
-	nextToFind := 0
-	for _, msg := range msgs {
-		if msg.Attrs["beholder_entity"] == "workflows.v1.UserLogs" {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		nextToFind := 0
+		for _, msg := range beholderObserver.Messages(t) {
+			if msg.Attrs["beholder_entity"] != "workflows.v1.UserLogs" {
+				continue
+			}
 			var payload events.UserLogs
-			require.NoError(t, proto.Unmarshal(msg.Body, &payload))
-			if nextToFind >= len(expectedSubstrings) {
-				return
+			if err := proto.Unmarshal(msg.Body, &payload); err != nil {
+				return false
 			}
 			for _, log := range payload.LogLines {
-				if strings.Contains(log.Message, expectedSubstrings[nextToFind]) {
+				if nextToFind < len(expectedSubstrings) && strings.Contains(log.Message, expectedSubstrings[nextToFind]) {
 					nextToFind++
 				}
 			}
 		}
-	}
-
-	if nextToFind < len(expectedSubstrings) {
-		t.Errorf("log message not found: %s", expectedSubstrings[nextToFind])
-	}
+		return nextToFind >= len(expectedSubstrings)
+	}, 5*time.Second, 50*time.Millisecond, "expected user logs: %v", expectedSubstrings)
 }
 
 func newNode(t *testing.T, opts ...func(*capabilities.Node)) capabilities.Node {

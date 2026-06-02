@@ -20,8 +20,14 @@ type BillingService struct {
 
 	lggr   logger.Logger
 	server *grpc.Server
+	addr   string
 
 	billing.UnimplementedCreditReservationServiceServer
+}
+
+// GRPCAddress returns the listen address after Start.
+func (s *BillingService) GRPCAddress() string {
+	return s.addr
 }
 
 var _ services.Service = (*BillingService)(nil)
@@ -67,11 +73,12 @@ func (s *BillingService) SubmitWorkflowReceipt(
 }
 
 func (s *BillingService) start(ctx context.Context) error {
-	lis, err := net.Listen("tcp", "localhost:4319")
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		log.Fatalf("billing failed to listen: %v", err)
 		return err
 	}
+	s.addr = lis.Addr().String()
 
 	server := grpc.NewServer()
 

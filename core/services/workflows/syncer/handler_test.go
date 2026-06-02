@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -87,6 +88,47 @@ func (m *mockEngine) Start(_ context.Context) error {
 func (m *mockEngine) HealthReport() map[string]error { return nil }
 
 func (m *mockEngine) Name() string { return "mockEngine" }
+
+func mockEngineFactoryFn(_ context.Context, _ string, _ string, _ types.WorkflowName, _ []byte, _ []byte) (services.Service, error) {
+	return &mockEngine{}, nil
+}
+
+const simpleDAGTriggerID = "basic-test-trigger@1.0.0"
+
+type dagTestTrigger struct {
+	info capabilitiespb.CapabilityInfo
+}
+
+func newDAGTestTrigger() *dagTestTrigger {
+	return &dagTestTrigger{
+		info: capabilitiespb.MustNewCapabilityInfo(
+			simpleDAGTriggerID,
+			capabilitiespb.CapabilityTypeTrigger,
+			"test trigger for simple DAG workflows",
+		),
+	}
+}
+
+func (d *dagTestTrigger) Info(context.Context) (capabilitiespb.CapabilityInfo, error) {
+	return d.info, nil
+}
+
+func (d *dagTestTrigger) RegisterTrigger(context.Context, capabilitiespb.TriggerRegistrationRequest) (<-chan capabilitiespb.TriggerResponse, error) {
+	return make(chan capabilitiespb.TriggerResponse), nil
+}
+
+func (d *dagTestTrigger) UnregisterTrigger(context.Context, capabilitiespb.TriggerRegistrationRequest) error {
+	return nil
+}
+
+func (d *dagTestTrigger) AckEvent(context.Context, string, string, string) error {
+	return nil
+}
+
+func registerSimpleDAGWorkflowCapabilities(t *testing.T, registry *capabilities.Registry) {
+	t.Helper()
+	require.NoError(t, registry.Add(testutils.Context(t), newDAGTestTrigger()))
+}
 
 var rlConfig = ratelimiter.Config{
 	GlobalRPS:      1000.0,
@@ -799,6 +841,9 @@ func testRunningWorkflow(t *testing.T, tc testCase, workflowEncryptionKey workfl
 		store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+		if tc.engineFactoryFn == nil {
+			registerSimpleDAGWorkflowCapabilities(t, registry)
+		}
 		limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 		require.NoError(t, err)
 		featureFlags, err := v2.NewFeatureFlags(limits.Factory{}, nil)
@@ -883,6 +928,9 @@ func Test_workflowDeletedHandler(t *testing.T) {
 	t.Parallel()
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 	t.Run("success deleting existing engine and spec", func(t *testing.T) {
+		binary := wasmtest.CreateTestBinary(binaryCmd, true, t)
+		encodedBinary := []byte(base64.StdEncoding.EncodeToString(binary))
+
 		var (
 			ctx          = testutils.Context(t)
 			lggr         = logger.TestLogger(t)
@@ -890,9 +938,6 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			orm          = artifacts.NewWorkflowRegistryDS(db, lggr)
 			emitter      = custmsg.NewLabeler()
 			workflowName = testutils.RandomizeName(t.Name())
-
-			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
-			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
 			secretsURL    = "http://example.com/secrets/" + workflowName
 			binaryURL     = "http://example.com/binary"
@@ -937,7 +982,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
-		h, err := NewEventHandler(lggr, store, registry, donTime, true, NewEngineRegistry(), emitter, limiters, featureFlags, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{}, WithEngineRegistry(er))
+		h, err := NewEventHandler(lggr, store, registry, donTime, true, NewEngineRegistry(), emitter, limiters, featureFlags, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{}, WithEngineRegistry(er), WithEngineFactoryFn(mockEngineFactoryFn))
 		require.NoError(t, err)
 		err = h.workflowRegisteredEvent(ctx, active)
 		require.NoError(t, err)
@@ -1015,7 +1060,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
-		h, err := NewEventHandler(lggr, store, registry, donTime, true, NewEngineRegistry(), emitter, limiters, featureFlags, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{}, WithEngineRegistry(er))
+		h, err := NewEventHandler(lggr, store, registry, donTime, true, NewEngineRegistry(), emitter, limiters, featureFlags, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{}, WithEngineRegistry(er), WithEngineFactoryFn(mockEngineFactoryFn))
 		require.NoError(t, err)
 
 		deleteEvent := WorkflowDeletedV1{
@@ -1089,7 +1134,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		mockAS := newMockArtifactStore(artifactStore, errors.New(failWith))
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
-		h, err := NewEventHandler(lggr, store, registry, donTime, true, NewEngineRegistry(), emitter, limiters, featureFlags, rl, workflowLimits, mockAS, workflowEncryptionKey, &testDonNotifier{}, WithEngineRegistry(er))
+		h, err := NewEventHandler(lggr, store, registry, donTime, true, NewEngineRegistry(), emitter, limiters, featureFlags, rl, workflowLimits, mockAS, workflowEncryptionKey, &testDonNotifier{}, WithEngineRegistry(er), WithEngineFactoryFn(mockEngineFactoryFn))
 		require.NoError(t, err)
 		err = h.workflowRegisteredEvent(ctx, active)
 		require.NoError(t, err)
@@ -1129,6 +1174,9 @@ func Test_workflowDeletedHandler(t *testing.T) {
 func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 	t.Parallel()
 	t.Run("success pausing activating and updating existing engine and spec", func(t *testing.T) {
+		binary := wasmtest.CreateTestBinary(binaryCmd, true, t)
+		encodedBinary := []byte(base64.StdEncoding.EncodeToString(binary))
+
 		var (
 			ctx          = testutils.Context(t)
 			lggr         = logger.TestLogger(t)
@@ -1136,9 +1184,6 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 			orm          = artifacts.NewWorkflowRegistryDS(db, lggr)
 			emitter      = custmsg.NewLabeler()
 			workflowName = testutils.RandomizeName(t.Name())
-
-			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
-			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
 			updateConfig  = []byte("updated")
 			secretsURL    = "http://example.com/secrets/" + workflowName
@@ -1189,7 +1234,7 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
 		workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
-		h, err := NewEventHandler(lggr, store, registry, donTime, true, NewEngineRegistry(), emitter, limiters, featureFlags, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{}, WithEngineRegistry(er))
+		h, err := NewEventHandler(lggr, store, registry, donTime, true, NewEngineRegistry(), emitter, limiters, featureFlags, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{}, WithEngineRegistry(er), WithEngineFactoryFn(mockEngineFactoryFn))
 		require.NoError(t, err)
 
 		err = h.workflowRegisteredEvent(ctx, active)
@@ -1275,6 +1320,7 @@ func TestEngineFactoryFn_SuccessfulCreation(t *testing.T) {
 	workflowStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 	registry := capabilities.NewRegistry(lggr)
 	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+	registerSimpleDAGWorkflowCapabilities(t, registry)
 
 	limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 	require.NoError(t, err)
