@@ -5,11 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"math/big"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/pelletier/go-toml"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
@@ -21,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
@@ -39,6 +44,7 @@ const (
 	nodeSubmitterFieldFromAddresses                      = "fromAddresses"
 	nodeSubmitterFieldOracleFactoryTransmitterID         = "oracle_factory.transmitter_id"
 	nodeSubmitterFieldObservationSourceETHTxFrom         = "observationSource.ethtx.from"
+	nodeSubmitterFieldTransmitterKeys                    = "transmitterKeys"
 )
 
 type NodePlatformBuildInfoService struct {
@@ -165,24 +171,117 @@ type NodePlatformJobInfoService struct {
 }
 
 type NodePlatformJobInfoConfig struct {
-	Beat         time.Duration
-	Lggr         logger.Logger
-	CSAKeyStore  keystore.CSA
-	JobReader    NodePlatformJobReader
-	CSAPublicKey string
+	Beat               time.Duration
+	Lggr               logger.Logger
+	CSAKeyStore        keystore.CSA
+	JobReader          NodePlatformJobReader
+	SubmitterKeyReader NodePlatformSubmitterKeyReader
+	CSAPublicKey       string
 }
 
 type NodePlatformJobReader interface {
 	FindJobs(ctx context.Context, offset, limit int) ([]job.Job, int, error)
 }
 
-func NewNodePlatformJobInfoConfig(opts ApplicationOpts, jobReader NodePlatformJobReader) NodePlatformJobInfoConfig {
-	return NodePlatformJobInfoConfig{
+type NodePlatformSubmitterKeyReader interface {
+	SubmitterKeys(ctx context.Context) (map[commontypes.RelayID][]string, error)
+}
+
+type nodePlatformRelayerIDReader interface {
+	RelayIDs() []commontypes.RelayID
+}
+
+type relayerIDsReaderFunc func() []commontypes.RelayID
+
+func (f relayerIDsReaderFunc) RelayIDs() []commontypes.RelayID {
+	return f()
+}
+
+type nodePlatformSubmitterKeyReader struct {
+	keyStore keystore.Master
+	relayers nodePlatformRelayerIDReader
+}
+
+func (r nodePlatformSubmitterKeyReader) SubmitterKeys(ctx context.Context) (map[commontypes.RelayID][]string, error) {
+	if r.keyStore == nil || r.relayers == nil {
+		return nil, nil
+	}
+
+	out := make(map[commontypes.RelayID][]string)
+	for _, relayID := range r.relayers.RelayIDs() {
+		keys, err := r.submitterKeysForRelay(ctx, relayID)
+		if err != nil {
+			return nil, err
+		}
+		if len(keys) == 0 {
+			continue
+		}
+		out[relayID] = keys
+	}
+	return out, nil
+}
+
+func (r nodePlatformSubmitterKeyReader) submitterKeysForRelay(ctx context.Context, relayID commontypes.RelayID) ([]string, error) {
+	switch relayID.Network {
+	case relay.NetworkEVM:
+		chainID, ok := new(big.Int).SetString(relayID.ChainID, 10)
+		if !ok {
+			return nil, fmt.Errorf("error parsing chain ID, expected big int: %s", relayID.ChainID)
+		}
+		ethKeys, err := r.keyStore.Eth().EnabledAddressesForChain(ctx, chainID)
+		if err != nil {
+			return nil, fmt.Errorf("error getting enabled EVM addresses for chain %s: %w", chainID.String(), err)
+		}
+		keys := make([]string, 0, len(ethKeys))
+		for _, key := range ethKeys {
+			keys = append(keys, key.Hex())
+		}
+		return keys, nil
+	case relay.NetworkSolana:
+		return nodePlatformKeyIDs(r.keyStore.Solana())
+	case relay.NetworkAptos:
+		return nodePlatformKeyIDs(r.keyStore.Aptos())
+	case relay.NetworkCosmos:
+		return nodePlatformKeyIDs(r.keyStore.Cosmos())
+	case relay.NetworkStarkNet:
+		return nodePlatformKeyIDs(r.keyStore.StarkNet())
+	case relay.NetworkTON:
+		return nodePlatformKeyIDs(r.keyStore.TON())
+	case relay.NetworkSui:
+		return nodePlatformKeyIDs(r.keyStore.Sui())
+	default:
+		return nil, nil
+	}
+}
+
+func nodePlatformKeyIDs[K keystore.Key](ks interface{ GetAll() ([]K, error) }) ([]string, error) {
+	keys, err := ks.GetAll()
+	if err != nil {
+		return nil, fmt.Errorf("error getting all keys: %w", err)
+	}
+	out := make([]string, 0, len(keys))
+	for _, key := range keys {
+		out = append(out, key.ID())
+	}
+	return out, nil
+}
+
+func NewNodePlatformJobInfoConfig(opts ApplicationOpts, jobReader NodePlatformJobReader, relayerReader ...RelayerChainInteroperators) NodePlatformJobInfoConfig {
+	cfg := NodePlatformJobInfoConfig{
 		Beat:        nodePlatformBeat,
 		Lggr:        opts.Logger,
 		CSAKeyStore: opts.KeyStore.CSA(),
 		JobReader:   jobReader,
 	}
+	if opts.KeyStore != nil && len(relayerReader) > 0 && relayerReader[0] != nil {
+		cfg.SubmitterKeyReader = nodePlatformSubmitterKeyReader{
+			keyStore: opts.KeyStore,
+			relayers: relayerIDsReaderFunc(func() []commontypes.RelayID {
+				return slices.Collect(maps.Keys(relayerReader[0].GetIDToRelayerMap()))
+			}),
+		}
+	}
+	return cfg
 }
 
 func NewNodePlatformJobInfoService(cfg NodePlatformJobInfoConfig) NodePlatformJobInfoService {
@@ -255,6 +354,10 @@ func (s *NodePlatformJobInfoService) submitterAddresses(ctx context.Context) []*
 	}
 
 	builder := newNodeSubmitterAddressBuilder()
+	var (
+		submitterKeys       map[commontypes.RelayID][]string
+		submitterKeysLoaded bool
+	)
 	for offset := 0; ; {
 		jobs, count, err := s.opts.JobReader.FindJobs(ctx, offset, nodePlatformJobInfoPageSize)
 		if err != nil {
@@ -262,7 +365,16 @@ func (s *NodePlatformJobInfoService) submitterAddresses(ctx context.Context) []*
 			return nil
 		}
 
-		builder.addJobs(jobs)
+		if !submitterKeysLoaded && needsSubmitterKeys(jobs) && s.opts.SubmitterKeyReader != nil {
+			submitterKeys, err = s.opts.SubmitterKeyReader.SubmitterKeys(ctx)
+			if err != nil {
+				s.eng.Warnw("failed to resolve node-platform submitter keys", "err", err)
+				submitterKeys = nil
+			}
+			submitterKeysLoaded = true
+		}
+
+		builder.addJobs(jobs, submitterKeys)
 
 		offset += len(jobs)
 		if len(jobs) == 0 || offset >= count || len(jobs) < nodePlatformJobInfoPageSize {
@@ -271,6 +383,12 @@ func (s *NodePlatformJobInfoService) submitterAddresses(ctx context.Context) []*
 	}
 
 	return builder.build()
+}
+
+func needsSubmitterKeys(jobs []job.Job) bool {
+	return slices.ContainsFunc(jobs, func(jb job.Job) bool {
+		return jb.CCIPSpec != nil || jb.CCVExecutorSpec != nil
+	})
 }
 
 type nodeSubmitterAddressKey struct {
@@ -288,7 +406,7 @@ func newNodeSubmitterAddressBuilder() *nodeSubmitterAddressBuilder {
 	return &nodeSubmitterAddressBuilder{bySource: make(map[nodeSubmitterAddressKey]map[string]struct{})}
 }
 
-func (b *nodeSubmitterAddressBuilder) addJobs(jobs []job.Job) {
+func (b *nodeSubmitterAddressBuilder) addJobs(jobs []job.Job, submitterKeys map[commontypes.RelayID][]string) {
 	for _, jb := range jobs {
 		b.addOCRSubmitterAddress(jb)
 		b.addOCR2SubmitterAddresses(jb)
@@ -296,6 +414,8 @@ func (b *nodeSubmitterAddressBuilder) addJobs(jobs []job.Job) {
 		b.addBlockhashStoreSubmitterAddresses(jb)
 		b.addBlockHeaderFeederSubmitterAddresses(jb)
 		b.addStandardCapabilitiesSubmitterAddress(jb)
+		b.addCCIPSubmitterAddresses(jb, submitterKeys)
+		b.addCCVExecutorSubmitterAddresses(jb, submitterKeys)
 		b.addPipelineETHTxSubmitterAddresses(jb)
 	}
 }
@@ -379,6 +499,29 @@ func (b *nodeSubmitterAddressBuilder) addStandardCapabilitiesSubmitterAddress(jb
 	b.add(spec.OracleFactory.ChainID, jobType(jb, job.StandardCapabilities), "", nodeSubmitterFieldOracleFactoryTransmitterID, spec.OracleFactory.TransmitterID)
 }
 
+func (b *nodeSubmitterAddressBuilder) addCCIPSubmitterAddresses(jb job.Job, submitterKeys map[commontypes.RelayID][]string) {
+	if jb.CCIPSpec == nil || len(jb.CCIPSpec.P2PV2Bootstrappers) == 0 || len(submitterKeys) == 0 {
+		return
+	}
+	for relayID, addresses := range submitterKeys {
+		if len(addresses) == 0 {
+			continue
+		}
+		b.add(relayID.ChainID, jobType(jb, job.CCIP), "", nodeSubmitterFieldTransmitterKeys, addresses[0])
+	}
+}
+
+func (b *nodeSubmitterAddressBuilder) addCCVExecutorSubmitterAddresses(jb job.Job, submitterKeys map[commontypes.RelayID][]string) {
+	spec := jb.CCVExecutorSpec
+	if spec == nil || len(submitterKeys) == 0 {
+		return
+	}
+	for _, chainID := range ccvExecutorEVMChainIDs(spec.ExecutorConfig) {
+		relayID := commontypes.NewRelayID(relay.NetworkEVM, chainID)
+		b.add(chainID, jobType(jb, job.CCVExecutor), "", nodeSubmitterFieldFromAddresses, submitterKeys[relayID]...)
+	}
+}
+
 func (b *nodeSubmitterAddressBuilder) addPipelineETHTxSubmitterAddresses(jb job.Job) {
 	p, ok := jobPipeline(jb)
 	if !ok {
@@ -399,6 +542,31 @@ func (b *nodeSubmitterAddressBuilder) addPipelineETHTxSubmitterAddresses(jb job.
 		}
 		b.add(chainID, jobType(jb, ""), "", nodeSubmitterFieldObservationSourceETHTxFrom, addresses...)
 	}
+}
+
+func ccvExecutorEVMChainIDs(raw string) []string {
+	tree, err := toml.Load(strings.TrimSpace(raw))
+	if err != nil {
+		return nil
+	}
+	chainConfigRaw := tree.Get("chain_configuration")
+	chainConfig, ok := chainConfigRaw.(*toml.Tree)
+	if !ok || chainConfig == nil {
+		return nil
+	}
+	chainIDs := make([]string, 0, len(chainConfig.Keys()))
+	for _, selector := range chainConfig.Keys() {
+		selectorID, err := strconv.ParseUint(selector, 10, 64)
+		if err != nil {
+			continue
+		}
+		chainID, err := chainsel.GetChainIDFromSelector(selectorID)
+		if err != nil {
+			continue
+		}
+		chainIDs = append(chainIDs, chainID)
+	}
+	return chainIDs
 }
 
 func jobPipeline(jb job.Job) (*pipeline.Pipeline, bool) {

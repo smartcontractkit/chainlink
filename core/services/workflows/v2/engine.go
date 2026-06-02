@@ -18,6 +18,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -878,8 +879,32 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	// Track execution error for deferred event emission
 	var execErr error
+	var execHelper *ExecutionHelper
 	defer func() {
 		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, execErr, lggr)
+		if execHelper != nil {
+			endTime := e.cfg.Clock.Now()
+			profile, emitErr := events.EmitExecutionProfile(
+				ctx,
+				e.cfg.WorkflowID,
+				executionID,
+				startTime,
+				endTime,
+				executionStatus,
+				execHelper.executionProfile.stepInputs(),
+			)
+			if emitErr != nil {
+				lggr.Errorw("Failed to emit execution profile", "err", emitErr)
+			}
+			if profile != nil {
+				profileJSON, jsonErr := protojson.Marshal(profile)
+				if jsonErr != nil {
+					lggr.Errorw("Failed to marshal execution profile to JSON", "err", jsonErr)
+				} else {
+					lggr.Infow("Workflow execution profile", "executionProfile", string(profileJSON))
+				}
+			}
+		}
 		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
 		if execErr != nil {
 			e.cfg.Hooks.OnExecutionError(execErr.Error())
@@ -906,9 +931,10 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		triggerDrop(monitoring.TriggerDropReasonExecutionResponseLimitInvalid)
 		return
 	}
-	execHelper := &ExecutionHelper{
+	execHelper = &ExecutionHelper{
 		Engine: e, WorkflowExecutionID: executionID, ExecutionTimestamp: executionTimestamp,
 		UserLogChan: userLogChan, TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
+		executionProfile: newExecutionProfileCollector(),
 	}
 	execHelper.initLimiters(e.cfg.LocalLimiters)
 	e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).RecordTriggerPayloadBytes(ctx, int64(proto.Size(triggerEvent.Payload)))
