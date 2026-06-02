@@ -28,7 +28,7 @@ flowchart LR
   classDef group stroke-dasharray:6,fill:none;
   class chains,products group
 "
-go mod graph | go run github.com/jmank88/modgraph@v0.1.4 -prefix github.com/smartcontractkit/
+go mod graph | modgraph -prefix github.com/smartcontractkit/
 echo "\`\`\`"
 
 echo "## All modules
@@ -54,12 +54,5 @@ flowchart LR
   classDef group stroke-dasharray:6,fill:none;
   class chains,products group
 "
-# Find temp-repo directories to skip, removing leading "./"
-skips=$(find . -type d -name "temp-repo" | sed 's|^\./||' | paste -sd, -)
-if [ -n "$skips" ]; then
-  gomods -s "$skips" graph | go run github.com/jmank88/modgraph@v0.1.4 -prefix github.com/smartcontractkit/
-else
-  gomods graph | go run github.com/jmank88/modgraph@v0.1.4 -prefix github.com/smartcontractkit/
-fi
-echo "\`\`\`"
+gomods graph | modgraph -prefix github.com/smartcontractkit/
 
