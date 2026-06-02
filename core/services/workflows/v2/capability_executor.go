@@ -42,6 +42,8 @@ type ExecutionHelper struct {
 	callLimiters map[capCall]limits.BoundLimiter[int]
 	mu           sync.Mutex
 	callCounts   map[limits.Limiter[int]]int
+
+	executionProfile *executionProfileCollector
 }
 
 func (c *ExecutionHelper) initLimiters(limiters *EngineLimiters) {
@@ -224,9 +226,14 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	}
 	defer execCancel()
 
-	executionStart := time.Now()
+	executionStart := c.cfg.Clock.Now()
+	c.executionProfile.recordStepStart(meteringRef, request.Id, executionStart)
+
 	capResp, err := capability.Execute(execCtx, capReq)
-	executionDuration := time.Since(executionStart)
+	executionEnd := c.cfg.Clock.Now()
+	executionDuration := executionEnd.Sub(executionStart)
+	c.executionProfile.recordStepEnd(meteringRef, executionEnd, err != nil)
+
 	c.metrics.With(platform.KeyCapabilityID, request.Id).UpdateCapabilityExecutionDurationHistogram(ctx, int64(executionDuration.Seconds()))
 	if err != nil {
 		var capabilityError caperrors.Error
