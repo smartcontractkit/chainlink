@@ -54,5 +54,12 @@ flowchart LR
   classDef group stroke-dasharray:6,fill:none;
   class chains,products group
 "
-gomods graph | go run github.com/jmank88/modgraph@v0.1.4 -prefix github.com/smartcontractkit/
+# Find temp-repo directories to skip, removing leading "./"
+skips=$(find . -type d -name "temp-repo" | sed 's|^\./||' | paste -sd, -)
+if [ -n "$skips" ]; then
+  gomods -s "$skips" graph | go run github.com/jmank88/modgraph@v0.1.4 -prefix github.com/smartcontractkit/
+else
+  gomods graph | go run github.com/jmank88/modgraph@v0.1.4 -prefix github.com/smartcontractkit/
+fi
 echo "\`\`\`"
+
