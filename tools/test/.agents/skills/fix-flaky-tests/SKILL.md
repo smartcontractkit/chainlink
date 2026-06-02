@@ -47,6 +47,8 @@ If unknown, prompt user.
 
 <jira_reference>
 If JIRA issues are present read [jira.md](./references/jira.md) to understand how to claim tickets, find eligible flaky-test tickets, read and add comments and transition JIRA issues.
+
+After a FIXED outcome, the ticket must stay assigned to the investigator (`accountId` from `atlassianUserInfo`) when moved to In Review. Do not unassign on FIXED — see [transition-ticket.md](./references/transition-ticket.md) assignee policy.
 </jira_reference>
 
 <cli_reference>
@@ -56,6 +58,19 @@ Base Command: `go -C tools/test run . diagnose [harness_flags] -- [go_test_flags
 - Go test flags (after `--`): `--run '^TestName$'`, `--timeout 10m`, `--race`
 - Help: `go -C tools/test run . diagnose -h`
 </cli_reference>
+
+<diagnose-iterations>
+Use this table to determine how many diagnose iterations you should use to confirm behavior
+
+| Iterations | Chance you missed a flake |
+| ---------- | ------------------------- |
+| 5          | 50%                       |
+| 30         | 10%                       |
+| 60         | 5%                        |
+| 150        | 2%                        |
+| 300        | 1%                        |
+| 500+       | < 1%                      |
+</diagnose-iterations>
 
 <loop>
 1. If user doesn't have recent results, run `diagnose` command with min 5 iterations to gather initial info. On sandbox errors, follow `<possible_execution_issues>`.

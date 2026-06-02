@@ -37,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
@@ -83,7 +82,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
-	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -110,7 +108,6 @@ type Application interface {
 
 	GetCapabilitiesRegistry() *capabilities.Registry
 
-	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
 	GetRelayers() RelayerChainInteroperators
 	GetLoopRegistry() *plugins.LoopRegistry
 	GetLoopRegistrarConfig() plugins.RegistrarConfig
@@ -125,7 +122,6 @@ type Application interface {
 	TxmStorageService() txmgr.EvmTxStore
 	AddJobV2(ctx context.Context, job *job.Job) error
 	DeleteJob(ctx context.Context, jobID int32) error
-	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta jsonserializable.JSONSerializable) (int64, error)
 	ResumeJobV2(ctx context.Context, taskID uuid.UUID, result pipeline.Result) error
 	// Testing only
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]any) (int64, error)
@@ -152,34 +148,32 @@ type Application interface {
 // and Store. The JobSubscriber and Scheduler are also available
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
-	relayers                 *CoreRelayerChainInteroperators
-	jobORM                   job.ORM
-	jobSpawner               job.Spawner
-	pipelineORM              pipeline.ORM
-	pipelineRunner           pipeline.Runner
-	bridgeORM                bridges.ORM
-	localAdminUsersORM       sessions.BasicAdminUsersORM
-	authenticationProvider   sessions.AuthenticationProvider // Note: this will be OIDC instance
-	txmStorageService        txmgr.EvmTxStore
-	FeedsService             feeds.Service
-	webhookJobRunner         webhook.JobRunner
-	Config                   GeneralConfig
-	KeyStore                 keystore.Master
-	ExternalInitiatorManager webhook.ExternalInitiatorManager
-	SessionReaper            *utils.SleeperTask
-	shutdownOnce             sync.Once
-	srvcs                    []services.ServiceCtx
-	HealthChecker            services.Checker
-	logger                   logger.SugaredLogger
-	AuditLogger              audit.AuditLogger
-	closeLogger              func() error
-	ds                       sqlutil.DataSource
-	secretGenerator          SecretGenerator
-	profiler                 *pyroscope.Profiler
-	loopRegistry             *plugins.LoopRegistry
-	loopRegistrarConfig      plugins.RegistrarConfig
-	capabilitiesRegistry     *capabilities.Registry
-	shardOrchestratorClient  shardorchestrator.ClientInterface
+	relayers                *CoreRelayerChainInteroperators
+	jobORM                  job.ORM
+	jobSpawner              job.Spawner
+	pipelineORM             pipeline.ORM
+	pipelineRunner          pipeline.Runner
+	bridgeORM               bridges.ORM
+	localAdminUsersORM      sessions.BasicAdminUsersORM
+	authenticationProvider  sessions.AuthenticationProvider // Note: this will be OIDC instance
+	txmStorageService       txmgr.EvmTxStore
+	FeedsService            feeds.Service
+	Config                  GeneralConfig
+	KeyStore                keystore.Master
+	SessionReaper           *utils.SleeperTask
+	shutdownOnce            sync.Once
+	srvcs                   []services.ServiceCtx
+	HealthChecker           services.Checker
+	logger                  logger.SugaredLogger
+	AuditLogger             audit.AuditLogger
+	closeLogger             func() error
+	ds                      sqlutil.DataSource
+	secretGenerator         SecretGenerator
+	profiler                *pyroscope.Profiler
+	loopRegistry            *plugins.LoopRegistry
+	loopRegistrarConfig     plugins.RegistrarConfig
+	capabilitiesRegistry    *capabilities.Registry
+	shardOrchestratorClient shardorchestrator.ClientInterface
 
 	started     bool
 	startStopMu sync.Mutex
@@ -189,27 +183,26 @@ type ApplicationOpts struct {
 	// CREOpts is the options for the CRE services
 	cre.Opts
 
-	Config                   GeneralConfig
-	Logger                   logger.Logger
-	Registerer               prometheus.Registerer
-	DS                       sqlutil.DataSource
-	KeyStore                 keystore.Master
-	AuditLogger              audit.AuditLogger
-	CloseLogger              func() error
-	ExternalInitiatorManager webhook.ExternalInitiatorManager
-	Version                  string
-	VersionTag               string
-	DockerTag                string
-	RestrictedHTTPClient     *http.Client
-	UnrestrictedHTTPClient   *http.Client
-	SecretGenerator          SecretGenerator
-	GRPCOpts                 loop.GRPCOpts
-	MercuryPool              wsrpc.Pool
-	RetirementReportCache    retirement.RetirementReportCache
-	LLOTransmissionReaper    services.ServiceCtx
-	NewOracleFactoryFn       standardcapabilities.NewOracleFactoryFn
-	EVMFactoryConfigFn       func(*EVMFactoryConfig)
-	DonTimeStore             *dontime.Store
+	Config                 GeneralConfig
+	Logger                 logger.Logger
+	Registerer             prometheus.Registerer
+	DS                     sqlutil.DataSource
+	KeyStore               keystore.Master
+	AuditLogger            audit.AuditLogger
+	CloseLogger            func() error
+	Version                string
+	VersionTag             string
+	DockerTag              string
+	RestrictedHTTPClient   *http.Client
+	UnrestrictedHTTPClient *http.Client
+	SecretGenerator        SecretGenerator
+	GRPCOpts               loop.GRPCOpts
+	MercuryPool            wsrpc.Pool
+	RetirementReportCache  retirement.RetirementReportCache
+	LLOTransmissionReaper  services.ServiceCtx
+	NewOracleFactoryFn     standardcapabilities.NewOracleFactoryFn
+	EVMFactoryConfigFn     func(*EVMFactoryConfig)
+	DonTimeStore           *dontime.Store
 }
 
 // NewApplication initializes a new store if one is not already
@@ -226,7 +219,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	auditLogger := opts.AuditLogger
 	cfg := opts.Config
-	externalInitiatorManager := opts.ExternalInitiatorManager
 	globalLogger := logger.Sugared(opts.Logger)
 	keyStore := opts.KeyStore
 	restrictedHTTPClient := opts.RestrictedHTTPClient
@@ -574,10 +566,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				legacyEVMChains,
 				globalLogger,
 				mailMon),
-			job.Webhook: webhook.NewDelegate(
-				pipelineRunner,
-				externalInitiatorManager,
-				globalLogger),
+			job.Webhook: &job.DeprecatedDelegate{Type: job.Webhook},
 			job.Cron: cron.NewDelegate(
 				pipelineRunner,
 				globalLogger),
@@ -620,7 +609,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				relayChainInterops.LegacyEVMChains().Slice(),
 			),
 		}
-		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
 	)
 
 	delegates[job.Workflow] = workflows.NewDelegate(
@@ -830,32 +818,30 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	}
 
 	return &ChainlinkApplication{
-		relayers:                 relayChainInterops,
-		jobORM:                   jobORM,
-		jobSpawner:               jobSpawner,
-		pipelineRunner:           pipelineRunner,
-		pipelineORM:              pipelineORM,
-		bridgeORM:                bridgeORM,
-		localAdminUsersORM:       localAdminUsersORM,
-		authenticationProvider:   authenticationProvider,
-		txmStorageService:        txmORM,
-		FeedsService:             feedsService,
-		Config:                   cfg,
-		webhookJobRunner:         webhookJobRunner,
-		KeyStore:                 keyStore,
-		SessionReaper:            sessionReaper,
-		ExternalInitiatorManager: externalInitiatorManager,
-		HealthChecker:            healthChecker,
-		logger:                   globalLogger,
-		AuditLogger:              auditLogger,
-		closeLogger:              opts.CloseLogger,
-		secretGenerator:          opts.SecretGenerator,
-		profiler:                 profiler,
-		loopRegistry:             loopRegistry,
-		loopRegistrarConfig:      loopRegistrarConfig,
-		capabilitiesRegistry:     opts.CapabilitiesRegistry,
-		ds:                       opts.DS,
-		shardOrchestratorClient:  shardOrchestratorClient,
+		relayers:                relayChainInterops,
+		jobORM:                  jobORM,
+		jobSpawner:              jobSpawner,
+		pipelineRunner:          pipelineRunner,
+		pipelineORM:             pipelineORM,
+		bridgeORM:               bridgeORM,
+		localAdminUsersORM:      localAdminUsersORM,
+		authenticationProvider:  authenticationProvider,
+		txmStorageService:       txmORM,
+		FeedsService:            feedsService,
+		Config:                  cfg,
+		KeyStore:                keyStore,
+		SessionReaper:           sessionReaper,
+		HealthChecker:           healthChecker,
+		logger:                  globalLogger,
+		AuditLogger:             auditLogger,
+		closeLogger:             opts.CloseLogger,
+		secretGenerator:         opts.SecretGenerator,
+		profiler:                profiler,
+		loopRegistry:            loopRegistry,
+		loopRegistrarConfig:     loopRegistrarConfig,
+		capabilitiesRegistry:    opts.CapabilitiesRegistry,
+		ds:                      opts.DS,
+		shardOrchestratorClient: shardOrchestratorClient,
 
 		srvcs: srvcs,
 	}, nil
@@ -1034,10 +1020,6 @@ func (app *ChainlinkApplication) TxmStorageService() txmgr.EvmTxStore {
 	return app.txmStorageService
 }
 
-func (app *ChainlinkApplication) GetExternalInitiatorManager() webhook.ExternalInitiatorManager {
-	return app.ExternalInitiatorManager
-}
-
 func (app *ChainlinkApplication) GetCapabilitiesRegistry() *capabilities.Registry {
 	return app.capabilitiesRegistry
 }
@@ -1067,10 +1049,6 @@ func (app *ChainlinkApplication) DeleteJob(ctx context.Context, jobID int32) err
 	}
 
 	return app.jobSpawner.DeleteJob(ctx, nil, jobID)
-}
-
-func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta jsonserializable.JSONSerializable) (int64, error) {
-	return app.webhookJobRunner.RunJob(ctx, jobUUID, requestBody, meta)
 }
 
 // Only used for local testing, not supported by the UI.

@@ -60,7 +60,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.9
 	github.com/smartcontractkit/chainlink-ton v1.0.5-0.20260520103847-15ca4de9dba9
 	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20260520103847-15ca4de9dba9
-	github.com/smartcontractkit/cld-changesets v0.4.0
+	github.com/smartcontractkit/cld-changesets v0.5.0
 	github.com/smartcontractkit/freeport v0.1.3-0.20250828155247-add56fa28aad
 	github.com/smartcontractkit/libocr v0.0.0-20260508200755-99940c85383c
 	github.com/smartcontractkit/mcms v0.45.0
