@@ -165,7 +165,11 @@ func deployCapReg(
 		lggr.Errorw("Failed to deploy capreg", "chain", chain.String(), "err", err)
 		return nil, err
 	}
-	if err := shared.WaitForContractCode(context.Background(), chain.Client, capReg.Address); err != nil {
+	ctx := chain.DeployerKey.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := shared.WaitForContractCode(ctx, chain.Client, capReg.Address); err != nil {
 		lggr.Errorw("CapabilitiesRegistry code not available after deploy", "chain", chain.String(), "addr", capReg.Address, "err", err)
 		return nil, err
 	}

@@ -1474,7 +1474,11 @@ func deploySingleFeed(
 
 	lggr.Infow("deployed mockTokenFeed", "addr", mockTokenFeed.Address)
 
-	if err := shared.WaitForContractCode(context.Background(), chain.Client, mockTokenFeed.Address); err != nil {
+	ctx := chain.DeployerKey.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := shared.WaitForContractCode(ctx, chain.Client, mockTokenFeed.Address); err != nil {
 		lggr.Errorw("Contract code not available after deploy", "err", err, "symbol", symbol, "addr", mockTokenFeed.Address)
 		return common.Address{}, "", err
 	}
