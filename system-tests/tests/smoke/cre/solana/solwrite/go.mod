@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite
 
-go 1.26.2
+go 1.26.3
 
 require (
 	github.com/gagliardetto/anchor-go v1.0.0
