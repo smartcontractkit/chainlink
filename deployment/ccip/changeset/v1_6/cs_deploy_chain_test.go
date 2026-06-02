@@ -22,7 +22,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	linkchangesets "github.com/smartcontractkit/cld-changesets/link/changesets"
+	linkchangesets "github.com/smartcontractkit/cld-changesets/tokens/link/changesets"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deploylink"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -91,6 +93,10 @@ func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, 
 		})
 	}
 
+	evmLinkInputMap := make(map[uint64]linkchangesets.EVMLinkConfig, len(evmSelectors))
+	for _, sel := range evmSelectors {
+		evmLinkInputMap[sel] = linkchangesets.EVMLinkConfig{}
+	}
 	e, err = commonchangeset.Apply(t, e, commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
 		v1_6.DeployHomeChainConfig{
@@ -103,8 +109,8 @@ func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, 
 			},
 		},
 	), commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken),
-		evmSelectors,
+		deploylink.DeployLinkTokenChangeset{},
+		linkchangesets.DeployLinkTokenInput{EVM: evmLinkInputMap},
 	), commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
 		cfg,
