@@ -529,8 +529,8 @@ func emitRawMessage(ctx context.Context, body []byte, schema, entity string) err
 		return err
 	}
 
-	// Ignore error if durable emitter is not enabled
-	// TODO:CRE-4443 adjust durable emitter callsites
+	// Ignore error if durable emitter is not enabled (temporary for integration tests only).
+	// TODO: CRE-4443 will adjust durable emitter callsites
 	_ = durableemitter.GlobalEmit(ctx, body, "source", "platform", "type", entity)
 
 	return nil
