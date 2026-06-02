@@ -1,7 +1,6 @@
 package ocrcommon
 
 import (
-	"fmt"
 	"math/big"
 	"sync"
 	"testing"
@@ -13,6 +12,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -915,7 +915,7 @@ func TestCollectMercuryEnhancedTelemetryV1(t *testing.T) {
 		wg.Done()
 	})
 
-	lggr, logs := logger.TestLoggerObserved(t, zap.WarnLevel)
+	lggr, logs := logger.TestLoggerObserved(t, zap.DebugLevel)
 	chTelem := make(chan EnhancedTelemetryMercuryData, 100)
 	chDone := make(chan struct{})
 	feedID := common.HexToHash("0x111")
@@ -1015,8 +1015,9 @@ func TestCollectMercuryEnhancedTelemetryV1(t *testing.T) {
 	}
 
 	wg.Wait()
-	require.Equal(t, 1, logs.Len())
-	require.Contains(t, logs.All()[0].Message, "cannot parse EA telemetry")
+	parseFailures := logs.FilterMessageSnippet("cannot parse EA telemetry")
+	require.Equal(t, 1, parseFailures.Len())
+	require.Equal(t, zapcore.DebugLevel, parseFailures.All()[0].Level)
 	chDone <- struct{}{}
 }
 
@@ -1032,7 +1033,7 @@ func TestCollectMercuryEnhancedTelemetryV2(t *testing.T) {
 		wg.Done()
 	})
 
-	lggr, logs := logger.TestLoggerObserved(t, zap.WarnLevel)
+	lggr, logs := logger.TestLoggerObserved(t, zap.DebugLevel)
 	chTelem := make(chan EnhancedTelemetryMercuryData, 100)
 	chDone := make(chan struct{})
 	feedID := common.HexToHash("0x111")
@@ -1130,9 +1131,9 @@ func TestCollectMercuryEnhancedTelemetryV2(t *testing.T) {
 	}
 
 	wg.Wait()
-	require.Equal(t, 1, logs.Len())
-	fmt.Println(logs.All())
-	require.Contains(t, logs.All()[0].Message, "cannot parse EA telemetry")
+	parseFailures := logs.FilterMessageSnippet("cannot parse EA telemetry")
+	require.Equal(t, 1, parseFailures.Len())
+	require.Equal(t, zapcore.DebugLevel, parseFailures.All()[0].Level)
 	chDone <- struct{}{}
 }
 
