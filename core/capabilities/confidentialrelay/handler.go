@@ -233,7 +233,7 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	// binds the request hash, but a malicious host can produce a
 	// genuinely-attested request over a forged enclave config unless we
 	// compare the config value against the DON reference.
-	if err := h.verifyEnclaveConfigMatchesDON(localNode, params.EnclaveConfig); err != nil {
+	if err = h.verifyEnclaveConfigMatchesDON(localNode, params.EnclaveConfig); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
 
@@ -404,7 +404,7 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get local node: %w", err))
 	}
-	if err := h.verifyEnclaveConfigMatchesDON(localNode, params.EnclaveConfig); err != nil {
+	if err = h.verifyEnclaveConfigMatchesDON(localNode, params.EnclaveConfig); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
 
