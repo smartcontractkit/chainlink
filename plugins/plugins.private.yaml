@@ -9,41 +9,41 @@ defaults:
 plugins:
   cron:
     - moduleURI: "github.com/smartcontractkit/capabilities/cron"
-      gitRef: "45e774754b3f313d6d27ae493df5d29fffe717d6"
+      gitRef: "9dd7b288b86797ffae90cafe438370e098452c81"
       installPath: "."
       flags: "-tags timetzdata"
   readcontract:
     - moduleURI: "github.com/smartcontractkit/capabilities/readcontract"
-      gitRef: "45e774754b3f313d6d27ae493df5d29fffe717d6"
+      gitRef: "9dd7b288b86797ffae90cafe438370e098452c81"
       installPath: "."
   consensus:
     - moduleURI: "github.com/smartcontractkit/capabilities/consensus"
-      gitRef: "8bfe6517fb326f5b882977e7a04480feb9c64638"
+      gitRef: "9dd7b288b86797ffae90cafe438370e098452c81"
       installPath: "."
   workflowevent:
     - enabled: false
       moduleURI: "github.com/smartcontractkit/capabilities/workflowevent"
-      gitRef: "45e774754b3f313d6d27ae493df5d29fffe717d6"
+      gitRef: "9dd7b288b86797ffae90cafe438370e098452c81"
       installPath: "."
   httpaction:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_action"
-      gitRef: "45e774754b3f313d6d27ae493df5d29fffe717d6"
+      gitRef: "9dd7b288b86797ffae90cafe438370e098452c81"
       installPath: "."
   httptrigger:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_trigger"
-      gitRef: "45e774754b3f313d6d27ae493df5d29fffe717d6"
+      gitRef: "9dd7b288b86797ffae90cafe438370e098452c81"
       installPath: "."
   evm:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
-      gitRef: "0d6f28e2f175acb6c7360dcdfb34a397cd4a9fef"
+      gitRef: "9dd7b288b86797ffae90cafe438370e098452c81"
       installPath: "."
   solana:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/solana"
-      gitRef: "1693e2dd711a99563360e53b40ea0e90677164a0"
+      gitRef: "9dd7b288b86797ffae90cafe438370e098452c81"
       installPath: "."
   aptos:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/aptos"
-      gitRef: "ec5ce26a1b13ff2d8e51cd2e9d54dd562ebd13b9"
+      gitRef: "9dd7b288b86797ffae90cafe438370e098452c81"
       installPath: "."
   confidential-http:
     - moduleURI:

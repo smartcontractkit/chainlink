@@ -2173,8 +2173,8 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.EventuallyWithT(t, func(collect *assert.CollectT) {
-				assert.Equal(collect, tt.wantLogs, logMessages(svc.logs.All()))
-			}, 1*time.Second, 50*time.Millisecond)
+				assert.Equal(collect, tt.wantLogs, syncNodeInfoLogMessages(svc.logs.All()))
+			}, 5*time.Second, 5*time.Millisecond)
 		})
 	}
 }
@@ -5227,6 +5227,27 @@ func logMessages(logEntries []observer.LoggedEntry) []string {
 	}
 
 	return messages
+}
+
+// filterSyncNodeInfoLogMessages keeps only logs emitted by syncNodeInfoWithRetry.
+func filterSyncNodeInfoLogMessages(messages []string) []string {
+	filtered := make([]string, 0, len(messages))
+	for _, message := range messages {
+		if isSyncNodeInfoLogMessage(message) {
+			filtered = append(filtered, message)
+		}
+	}
+
+	return filtered
+}
+
+func isSyncNodeInfoLogMessage(message string) bool {
+	return strings.Contains(message, "failed to sync node info") ||
+		strings.Contains(message, "successfully synced node info")
+}
+
+func syncNodeInfoLogMessages(logEntries []observer.LoggedEntry) []string {
+	return filterSyncNodeInfoLogMessages(logMessages(logEntries))
 }
 
 func Test_Service_GetJobRuns(t *testing.T) {

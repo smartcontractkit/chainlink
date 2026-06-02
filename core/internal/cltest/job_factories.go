@@ -42,7 +42,7 @@ func MinimalOCRNonBootstrapSpec(contractAddress, transmitterAddress types.EIP55A
 	return fmt.Sprintf(minimalOCRNonBootstrapTemplate, contractAddress, testutils.FixtureChainID.String(), peerID, transmitterAddress.Hex(), keyBundleID)
 }
 
-func MustInsertWebhookSpec(t *testing.T, ds sqlutil.DataSource) (job.Job, job.WebhookSpec) {
+func MustInsertWebhookSpec(t *testing.T, ds sqlutil.DataSource, externalJobID ...uuid.UUID) (job.Job, job.WebhookSpec) {
 	ctx := testutils.Context(t)
 	jobORM, pipelineORM := getORMs(t, ds)
 	webhookSpec := job.WebhookSpec{}
@@ -52,8 +52,13 @@ func MustInsertWebhookSpec(t *testing.T, ds sqlutil.DataSource) (job.Job, job.We
 	pipelineSpecID, err := pipelineORM.CreateSpec(ctx, pSpec, 0)
 	require.NoError(t, err)
 
+	extID := uuid.New()
+	if len(externalJobID) > 0 {
+		extID = externalJobID[0]
+	}
+
 	createdJob := job.Job{WebhookSpecID: &webhookSpec.ID, WebhookSpec: &webhookSpec, SchemaVersion: 1, Type: "webhook",
-		ExternalJobID: uuid.New(), PipelineSpecID: pipelineSpecID}
+		ExternalJobID: extID, PipelineSpecID: pipelineSpecID}
 	require.NoError(t, jobORM.InsertJob(ctx, &createdJob))
 
 	return createdJob, webhookSpec

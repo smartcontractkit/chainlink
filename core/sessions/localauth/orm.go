@@ -240,9 +240,13 @@ func constantTimeEmailCompare(left, right string) bool {
 	return subtle.ConstantTimeCompare(leftBytes, rightBytes) == 1
 }
 
-// ClearNonCurrentSessions removes all sessions but the id passed in.
+// ClearNonCurrentSessions removes other sessions for the user tied to sessionID.
 func (o *orm) ClearNonCurrentSessions(ctx context.Context, sessionID string) error {
-	_, err := o.ds.ExecContext(ctx, "DELETE FROM sessions where id != $1", sessionID)
+	var email string
+	if err := o.ds.GetContext(ctx, &email, "SELECT email FROM sessions WHERE id = $1", sessionID); err != nil {
+		return err
+	}
+	_, err := o.ds.ExecContext(ctx, "DELETE FROM sessions WHERE email = lower($1) AND id != $2", email, sessionID)
 	return err
 }
 

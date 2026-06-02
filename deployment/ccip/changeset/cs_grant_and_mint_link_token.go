@@ -85,8 +85,11 @@ func GrantMintRoleAndMintLogic(e cldf.Environment, cfg GrantMintRoleAndMintConfi
 	chain := e.BlockChains.EVMChains()[cfg.Selector]
 
 	addresses, err := e.ExistingAddresses.AddressesForChain(cfg.Selector)
-	if err != nil {
+	if err != nil && !errors.Is(err, cldf.ErrChainNotFound) {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get addresses for chain %d: %w", cfg.Selector, err)
+	}
+	if addresses == nil {
+		addresses = make(map[string]cldf.TypeAndVersion)
 	}
 
 	linkState, err := evmstateview.MaybeLoadLinkTokenChainState(chain, addresses)
