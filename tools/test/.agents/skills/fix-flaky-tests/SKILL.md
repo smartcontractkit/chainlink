@@ -89,10 +89,8 @@ Use this table to pick `--iterations` (total independent runs; parallelism does 
 
 | Profile | `--iterations` | `--parallel-iterations` | Use when |
 | ------- | -------------- | ----------------------- | -------- |
-| Smoke | 5 | 2–5 | First local pass, no recent `report.json`, fast unit test (rough guide: prior p50 under 15s). |
-| Standard | 30 | 2–5 | Default confirm after smoke is clean or after a fix. |
-| Deep | 150-500 | 2–5 | Before FIXED / In Review on JIRA; rare flake or high stakes. |
-| Heavy | 5–15 | 1 | Slow package, integration-style tests, or iteration p50 over 30s. |
+| Standard | 30 | 2–5 | Default quick check |
+| Deep | 150-500 | 2–10 | Default to validate that a flake exists before fix, or no longer exists after fix |
 | Race pass | 30 | 1 | Verifying with `--race` after `--`. |
 | Debug | 1–5 | 1 | Reproducing a known failure mode; use `--fail-fast` if appropriate. |
 
@@ -104,18 +102,6 @@ Use this table to pick `--iterations` (total independent runs; parallelism does 
 
 **Wall-time estimate** (for background vs foreground):  
 `estimate ≈ ceil(iterations / parallel_iterations) * iteration_p50 + 30s` (Postgres pool setup). Use the last `report.json` `iteration_duration_p50` when available; otherwise assume 15s for unit tests and 60s+ for heavy packages.
-
-**Examples**
-```sh
-# Fast unit test — smoke
-./cltest diagnose --ai-output --iterations 5 --parallel-iterations 5 -- --run '^TestFoo$' ./core/path/
-
-# Confirm after fix
-./cltest diagnose --ai-output --iterations 30 --parallel-iterations 5 -- --run '^TestFoo$' ./core/path/
-
-# Race check (serial workers)
-./cltest diagnose --ai-output --iterations 30 --parallel-iterations 1 -- --race --run '^TestFoo$' ./core/path/
-```
 </diagnose-parallel-iterations>
 
 <loop>
