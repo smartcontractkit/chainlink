@@ -492,7 +492,14 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 // localNode is passed in so each request fetches it once (it feeds request
 // metadata too); the caller's lookup is an O(1) in-memory read populated by
 // the registry syncer, so this stays off the RPC hot path.
-func (h *Handler) verifyEnclaveConfigMatchesDON(localNode capabilities.Node, cfg confidentialrelaytypes.EnclaveConfig) error {
+//
+// cfg is optional: a nil EnclaveConfig (sender on an older protocol that does
+// not include it) is accepted and skips the check. The config is verified
+// only when present.
+func (h *Handler) verifyEnclaveConfigMatchesDON(localNode capabilities.Node, cfg *confidentialrelaytypes.EnclaveConfig) error {
+	if cfg == nil {
+		return nil
+	}
 	expectedF := uint32(localNode.WorkflowDON.F)
 	if cfg.F != expectedF {
 		return fmt.Errorf("enclave config F mismatch: enclave reports %d, expected %d", cfg.F, expectedF)

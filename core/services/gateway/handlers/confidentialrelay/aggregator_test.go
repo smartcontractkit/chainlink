@@ -36,6 +36,11 @@ func validEnclaveConfig() relaytypes.EnclaveConfig {
 	}
 }
 
+func validEnclaveConfigPtr() *relaytypes.EnclaveConfig {
+	c := validEnclaveConfig()
+	return &c
+}
+
 func validCapParams(workflowID string) relaytypes.CapabilityRequestParams {
 	return relaytypes.CapabilityRequestParams{
 		WorkflowID:    workflowID,
@@ -44,7 +49,7 @@ func validCapParams(workflowID string) relaytypes.CapabilityRequestParams {
 		ReferenceID:   "ref-1",
 		CapabilityID:  "cap-1",
 		Payload:       "in",
-		EnclaveConfig: validEnclaveConfig(),
+		EnclaveConfig: validEnclaveConfigPtr(),
 	}
 }
 
@@ -55,7 +60,7 @@ func validSecretsParams(workflowID string) relaytypes.SecretsRequestParams {
 		ExecutionID:      testExecutionID,
 		Secrets:          []relaytypes.SecretIdentifier{{Key: "k1", Namespace: "ns"}},
 		EnclavePublicKey: testEnclavePK,
-		EnclaveConfig:    validEnclaveConfig(),
+		EnclaveConfig:    validEnclaveConfigPtr(),
 	}
 }
 

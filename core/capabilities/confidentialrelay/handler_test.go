@@ -209,6 +209,11 @@ func testEnclaveConfig() confidentialrelaytypes.EnclaveConfig {
 	}
 }
 
+func testEnclaveConfigPtr() *confidentialrelaytypes.EnclaveConfig {
+	c := testEnclaveConfig()
+	return &c
+}
+
 // testWorkflowDONMembers returns []p2ptypes.PeerID whose [:] slices match
 // testEnclaveConfig().Signers byte-for-byte.
 func testWorkflowDONMembers() []p2ptypes.PeerID {
@@ -292,7 +297,7 @@ func secretsGetTestParams() confidentialrelaytypes.SecretsRequestParams {
 		ExecutionID:      "0000000000000000000000000000000000000000000000000000000000000001",
 		OrgID:            "org-123",
 		EnclavePublicKey: "aabbcc",
-		EnclaveConfig:    testEnclaveConfig(),
+		EnclaveConfig:    testEnclaveConfigPtr(),
 		Secrets: []confidentialrelaytypes.SecretIdentifier{
 			{Key: "API_KEY", Namespace: "main"},
 		},
@@ -330,7 +335,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 					ReferenceID:   "17",
 					CapabilityID:  "my-cap@1.0.0",
 					Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
-					EnclaveConfig: testEnclaveConfig(),
+					EnclaveConfig: testEnclaveConfigPtr(),
 					Attestation:   testAttestationB64,
 				})
 			},
@@ -343,7 +348,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 					ReferenceID:   "17",
 					CapabilityID:  "my-cap@1.0.0",
 					Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
-					EnclaveConfig: testEnclaveConfig(),
+					EnclaveConfig: testEnclaveConfigPtr(),
 				}
 				var result confidentialrelaytypes.SignedCapabilityResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
@@ -395,7 +400,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 					ReferenceID:   "17",
 					CapabilityID:  "my-cap@1.0.0",
 					Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
-					EnclaveConfig: testEnclaveConfig(),
+					EnclaveConfig: testEnclaveConfigPtr(),
 					Attestation:   testAttestationB64,
 				})
 			},
@@ -409,7 +414,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 					ReferenceID:   "17",
 					CapabilityID:  "my-cap@1.0.0",
 					Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
-					EnclaveConfig: testEnclaveConfig(),
+					EnclaveConfig: testEnclaveConfigPtr(),
 				}
 				var result confidentialrelaytypes.SignedCapabilityResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
@@ -441,7 +446,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 					ReferenceID:   "17",
 					CapabilityID:  "my-cap@1.0.0",
 					Payload:       makeCapabilityPayload(t, map[string]any{"echo": "hello"}),
-					EnclaveConfig: testEnclaveConfig(),
+					EnclaveConfig: testEnclaveConfigPtr(),
 					Attestation:   testAttestationB64,
 				})
 			},
@@ -489,7 +494,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 					WorkflowID:    "wf-1",
 					CapabilityID:  "missing-cap@1.0.0",
 					Payload:       base64.StdEncoding.EncodeToString([]byte("payload")),
-					EnclaveConfig: testEnclaveConfig(),
+					EnclaveConfig: testEnclaveConfigPtr(),
 					Attestation:   testAttestationB64,
 				})
 			},
@@ -519,7 +524,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 					ReferenceID:   "17",
 					CapabilityID:  "fail-cap@1.0.0",
 					Payload:       base64.StdEncoding.EncodeToString(b),
-					EnclaveConfig: testEnclaveConfig(),
+					EnclaveConfig: testEnclaveConfigPtr(),
 					Attestation:   testAttestationB64,
 				})
 			},
@@ -532,7 +537,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 					ReferenceID:   "17",
 					CapabilityID:  "fail-cap@1.0.0",
 					Payload:       base64.StdEncoding.EncodeToString(mustMarshalProto(t, &sdkpb.CapabilityRequest{Id: "fail-cap@1.0.0", Method: "Execute"})),
-					EnclaveConfig: testEnclaveConfig(),
+					EnclaveConfig: testEnclaveConfigPtr(),
 				}
 				var result confidentialrelaytypes.SignedCapabilityResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
@@ -725,7 +730,31 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 			ReferenceID:   "1",
 			CapabilityID:  "my-cap@1.0.0",
 			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
-			EnclaveConfig: testEnclaveConfig(),
+			EnclaveConfig: testEnclaveConfigPtr(),
+			Attestation:   testAttestationB64,
+		})
+		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
+		require.NoError(t, err)
+		resp := gwConn.lastResp
+		require.Nil(t, resp.Error)
+	})
+
+	t.Run("nil config accepted on capability execute (optional)", func(t *testing.T) {
+		reg := withEnclaveConfig(&mockCapRegistry{
+			executables: map[string]*mockExecutable{
+				"my-cap@1.0.0": {execResult: capabilities.CapabilityResponse{Payload: &anypb.Any{}}},
+			},
+		})
+		gwConn := &mockGatewayConnector{}
+		h := newTestHandler(t, reg, gwConn)
+		req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
+			WorkflowID:    "wf-1",
+			Owner:         testOwner,
+			ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+			ReferenceID:   "1",
+			CapabilityID:  "my-cap@1.0.0",
+			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+			EnclaveConfig: nil, // sender on older protocol; check is skipped
 			Attestation:   testAttestationB64,
 		})
 		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
@@ -751,7 +780,7 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 			ReferenceID:   "1",
 			CapabilityID:  "my-cap@1.0.0",
 			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
-			EnclaveConfig: badCfg,
+			EnclaveConfig: &badCfg,
 			Attestation:   testAttestationB64,
 		})
 		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
@@ -777,7 +806,7 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 			ReferenceID:   "1",
 			CapabilityID:  "my-cap@1.0.0",
 			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
-			EnclaveConfig: badCfg,
+			EnclaveConfig: &badCfg,
 			Attestation:   testAttestationB64,
 		})
 		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
@@ -808,7 +837,7 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 			ReferenceID:   "1",
 			CapabilityID:  "my-cap@1.0.0",
 			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
-			EnclaveConfig: badCfg,
+			EnclaveConfig: &badCfg,
 			Attestation:   testAttestationB64,
 		})
 		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
@@ -840,7 +869,7 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 			ReferenceID:   "1",
 			CapabilityID:  "my-cap@1.0.0",
 			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
-			EnclaveConfig: shuffled,
+			EnclaveConfig: &shuffled,
 			Attestation:   testAttestationB64,
 		})
 		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
