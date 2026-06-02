@@ -1,6 +1,5 @@
 package durableemitter_test
 
-/* TODO: CRE-4422 Refactor: relocate this to durableemitter pkg
 import (
 	"fmt"
 	"testing"
@@ -14,6 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
+
+// Note: Durable Emitter ORM lives in chainlink-common/pkg/durableemitter for reusability in LOOPs
 
 // truncateChipDurableEvents clears the table so ORM tests stay deterministic when using a
 // shared CL_DATABASE_URL (e.g. interrupted runs or parallel packages leaving rows behind).
@@ -153,4 +154,3 @@ func TestPgDurableEventStore_MarkDeliveredAndPurgeDelivered(t *testing.T) {
 	require.NoError(t, db.GetContext(ctx, &cnt, `SELECT count(*) FROM cre.chip_durable_events`))
 	require.Equal(t, int64(0), cnt)
 }
-*/
