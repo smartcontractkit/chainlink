@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOOLS_TEST_BIN="${ROOT}/tools/test/.bin/cltest"
