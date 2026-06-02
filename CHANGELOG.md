@@ -1,5 +1,11 @@
 # Changelog Chainlink Core
 
+## 2.40.2
+
+### Patch Changes
+
+- Hotfix line bootstrapped from `v2.40.0` for internal DON LLO timeout fix ([RANE-4813](https://smartcontract-it.atlassian.net/browse/RANE-4813)). Cherry-pick pending.
+
 ## 2.40.0
 
 ### Minor Changes
