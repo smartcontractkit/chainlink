@@ -51,7 +51,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
@@ -252,23 +251,21 @@ func TestORM(t *testing.T) {
 	})
 
 
-	t.Run("creates webhook specs along with external_initiator_webhook_specs", func(t *testing.T) {
-		ctx := testutils.Context(t)
+	t.Run("rejects webhook job creation with external initiators", func(t *testing.T) {
 		eiFoo := cltest.MustInsertExternalInitiator(t, borm)
 		eiBar := cltest.MustInsertExternalInitiator(t, borm)
 
-		eiWS := []webhook.TOMLWebhookSpecExternalInitiator{
+		eiWS := []testspecs.TOMLWebhookSpecExternalInitiator{
 			{Name: eiFoo.Name, Spec: cltest.JSONFromString(t, `{}`)},
 			{Name: eiBar.Name, Spec: cltest.JSONFromString(t, `{"bar": 1}`)},
 		}
-		eim := webhook.NewExternalInitiatorManager(db, nil)
-		jb, err := webhook.ValidatedWebhookSpec(ctx, testspecs.GenerateWebhookSpec(testspecs.WebhookSpecParams{ExternalInitiators: eiWS}).Toml(), eim)
+		_, err := job.ValidateSpec(testspecs.GenerateWebhookSpec(testspecs.WebhookSpecParams{ExternalInitiators: eiWS}).Toml())
 		require.NoError(t, err)
 
+		jb := job.Job{Type: job.Webhook, SchemaVersion: 1, WebhookSpec: &job.WebhookSpec{}}
 		err = orm.CreateJob(testutils.Context(t), &jb)
-		require.NoError(t, err)
-
-		cltest.AssertCount(t, db, "external_initiator_webhook_specs", 2)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, job.ErrJobTypeRemoved)
 	})
 
 	t.Run("it creates and deletes records for blockhash store jobs", func(t *testing.T) {
@@ -726,6 +723,16 @@ func TestORM_CreateJob_EVMChainID_Validation(t *testing.T) {
 		jb := job.Job{
 			Type:            job.FluxMonitor,
 			FluxMonitorSpec: &job.FluxMonitorSpec{},
+		}
+		err := jobORM.CreateJob(testutils.Context(t), &jb)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, job.ErrJobTypeRemoved)
+	})
+
+	t.Run("webhook job creation is rejected", func(t *testing.T) {
+		jb := job.Job{
+			Type:        job.Webhook,
+			WebhookSpec: &job.WebhookSpec{},
 		}
 		err := jobORM.CreateJob(testutils.Context(t), &jb)
 		require.Error(t, err)

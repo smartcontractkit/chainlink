@@ -257,10 +257,6 @@ packages:
       mockname: "Mock{{ .InterfaceName | camelcase }}"
     interfaces:
       MonitoringEndpointGenerator:
-  github.com/smartcontractkit/chainlink/v2/core/services/webhook:
-    interfaces:
-      ExternalInitiatorManager:
-      HTTPClient:
   github.com/smartcontractkit/chainlink/v2/core/sessions:
     interfaces:
       BasicAdminUsersORM:

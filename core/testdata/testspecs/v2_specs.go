@@ -16,8 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 var (
@@ -548,8 +548,13 @@ observationSource = """
 	}, toml: fmt.Sprintf(header, name, contractAddress, evmChainID, jobID, transmitterAddress, observationBlock)}
 }
 
+type TOMLWebhookSpecExternalInitiator struct {
+	Name string      `toml:"name"`
+	Spec models.JSON `toml:"spec"`
+}
+
 type WebhookSpecParams struct {
-	ExternalInitiators []webhook.TOMLWebhookSpecExternalInitiator
+	ExternalInitiators []TOMLWebhookSpecExternalInitiator
 }
 
 type WebhookSpec struct {
