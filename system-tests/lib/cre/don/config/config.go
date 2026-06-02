@@ -541,8 +541,12 @@ func addWorkerNodeConfig(
 		}
 
 		gateways := []coretoml.ConnectorGateway{}
-		if topology != nil && topology.GatewayConnectors != nil && len(topology.GatewayConnectors.Configurations) > 0 {
-			for _, gateway := range topology.GatewayConnectors.Configurations {
+		connectors := cre.GatewayConnectors{}
+		if topology != nil && topology.GatewayConnectors != nil {
+			connectors = topology.GatewayConnectorsForWorkflow(donMetadata.Name)
+		}
+		if len(connectors.Configurations) > 0 {
+			for _, gateway := range connectors.Configurations {
 				gateways = append(gateways, coretoml.ConnectorGateway{
 					ID: new(gateway.AuthGatewayID),
 					URL: new(fmt.Sprintf("ws://%s:%d%s",

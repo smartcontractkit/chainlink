@@ -55,7 +55,7 @@ func (o *HTTPAction) PreEnvStartup(
 		return nil, errors.Wrapf(hErr, "failed to add gateway handlers to gateway config for don %s ", don.Name)
 	}
 
-	cErr := don.ConfigureForGatewayAccess(registryChainID, *topology.GatewayConnectors)
+	cErr := don.ConfigureForGatewayAccess(registryChainID, topology.GatewayConnectorsForWorkflow(don.Name))
 	if cErr != nil {
 		return nil, errors.Wrapf(cErr, "failed to add gateway connectors to node's TOML config in for don %s", don.Name)
 	}

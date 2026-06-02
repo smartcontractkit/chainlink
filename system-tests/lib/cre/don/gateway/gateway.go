@@ -23,7 +23,7 @@ type WhitelistConfig struct {
 	ExtraAllowedIPsCIDR []string
 }
 
-func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, gatewayServiceConfigs []cre.GatewayServiceConfig, whitelistConfig WhitelistConfig) error {
+func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, topology *cre.Topology, gatewayServiceConfigs []cre.GatewayServiceConfig, whitelistConfig WhitelistConfig) error {
 	specs := make(map[string][]string)
 
 	if !dons.RequiresGateway() {
@@ -34,6 +34,11 @@ func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, ga
 		gatewayNode, ok := dons.NodeWithUUID(config.NodeUUID)
 		if !ok {
 			return fmt.Errorf("could not find gateway node with UUID %s in DON topology", config.NodeUUID)
+		}
+
+		services := gatewayServiceConfigs
+		if topology != nil {
+			services = topology.GatewayServiceConfigsForGateway(gatewayNode.DON.Name, gatewayServiceConfigs)
 		}
 
 		workerInput := cre_jobs.ProposeJobSpecInput{
@@ -52,7 +57,7 @@ func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, ga
 				"gatewayKeyChainSelector":     creEnv.RegistryChainSelector,
 				"authGatewayID":               config.AuthGatewayID,
 				"serviceCentricFormatEnabled": true,
-				"services":                    gatewayServiceConfigs,
+				"services":                    services,
 			},
 		}
 

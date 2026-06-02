@@ -100,6 +100,77 @@ func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs 
 	return topology, nil
 }
 
+// gatewayAndWorkflowDONNames returns gateway and workflow DON names in topology list order.
+func (t *Topology) gatewayAndWorkflowDONNames() (gatewayNames, workflowNames []string) {
+	for _, d := range t.DonsMetadata.List() {
+		if _, hasGateway := d.Gateway(); hasGateway {
+			gatewayNames = append(gatewayNames, d.Name)
+		}
+	}
+
+	wfDONs, err := t.DonsMetadata.WorkflowDONs()
+	if err != nil {
+		return gatewayNames, nil
+	}
+	for _, d := range wfDONs {
+		workflowNames = append(workflowNames, d.Name)
+	}
+	return gatewayNames, workflowNames
+}
+
+// shardedGatewayPairingEnabled is true when multiple gateway DONs match workflow DON count 1:1.
+// Single-gateway topologies keep legacy behavior (one gateway serves all workflow DONs).
+func (t *Topology) shardedGatewayPairingEnabled() bool {
+	gatewayNames, workflowNames := t.gatewayAndWorkflowDONNames()
+	return len(gatewayNames) > 1 && len(gatewayNames) == len(workflowNames)
+}
+
+// GatewayConnectorsForWorkflow returns gateway connectors for a workflow DON.
+// When sharded pairing is enabled, only the paired gateway is included.
+func (t *Topology) GatewayConnectorsForWorkflow(workflowDONName string) GatewayConnectors {
+	if t.GatewayConnectors == nil {
+		return GatewayConnectors{}
+	}
+	if !t.shardedGatewayPairingEnabled() {
+		return *t.GatewayConnectors
+	}
+
+	_, workflowNames := t.gatewayAndWorkflowDONNames()
+	for i, name := range workflowNames {
+		if name == workflowDONName {
+			return GatewayConnectors{Configurations: []*DonGatewayConfiguration{t.GatewayConnectors.Configurations[i]}}
+		}
+	}
+	return *t.GatewayConnectors
+}
+
+// GatewayServiceConfigsForGateway scopes service DON lists to the workflow DON paired with
+// the given gateway DON when sharded pairing is enabled.
+func (t *Topology) GatewayServiceConfigsForGateway(gatewayDONName string, services []GatewayServiceConfig) []GatewayServiceConfig {
+	if !t.shardedGatewayPairingEnabled() {
+		return services
+	}
+
+	gatewayNames, workflowNames := t.gatewayAndWorkflowDONNames()
+	pairedWorkflow := ""
+	for i, name := range gatewayNames {
+		if name == gatewayDONName {
+			pairedWorkflow = workflowNames[i]
+			break
+		}
+	}
+	if pairedWorkflow == "" {
+		return services
+	}
+
+	out := make([]GatewayServiceConfig, len(services))
+	for i, svc := range services {
+		out[i] = svc
+		out[i].DONs = []string{pairedWorkflow}
+	}
+	return out
+}
+
 func (t *Topology) NodeSets() []*NodeSet {
 	sets := make([]*NodeSet, len(t.DonsMetadata.List()))
 	for i, d := range t.DonsMetadata.List() {
