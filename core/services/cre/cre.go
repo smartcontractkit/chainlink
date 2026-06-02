@@ -1008,51 +1008,60 @@ func newWorkflowRegistrySyncerV2(
 	}
 
 	mc := capCfg.WorkflowRegistry().ModuleCache()
-	if mc.Enabled() {
-		cm, cmErr := syncerV2.NewCacheMetrics()
-		if cmErr != nil {
-			return nil, nil, fmt.Errorf("unable to create module cache metrics: %w", cmErr)
-		}
+	cacheEnabled := mc.Enabled()
+	diskMonitorEnabled := mc.DiskMonitorEnabled() || cacheEnabled
 
-		fileStore, fsErr := artifactsV2.NewFileModuleStore(mc.CacheDir(), true)
+	if diskMonitorEnabled || cacheEnabled {
+		fileStore, fsErr := artifactsV2.NewFileModuleStore(mc.CacheDir(), cacheEnabled)
 		if fsErr != nil {
 			return nil, nil, fmt.Errorf("unable to create file module store: %w", fsErr)
 		}
 
-		dm, dmErr := diskmonitor.NewDiskMonitor(
-			lggr,
-			fileStore.CacheDir(),
-			syncerV2.GaugeWorkflowModuleCacheDiskUsageBytes,
-			syncerV2.WorkflowModuleCacheDiskMonitorTickInterval,
-		)
-		if dmErr != nil {
-			return nil, nil, fmt.Errorf("unable to create module cache disk monitor: %w", dmErr)
-		}
-		srvcs = append(srvcs, dm)
+		if diskMonitorEnabled {
+			dm, dmErr := diskmonitor.NewDiskMonitor(
+				lggr,
+				fileStore.CacheDir(),
+				syncerV2.GaugeWorkflowModuleCacheDiskUsageBytes,
+				syncerV2.WorkflowModuleCacheDiskMonitorTickInterval,
+			)
+			if dmErr != nil {
+				return nil, nil, fmt.Errorf("unable to create module cache disk monitor: %w", dmErr)
+			}
+			srvcs = append(srvcs, dm)
 
-		lruOpts := []func(*syncerV2.ModuleLRU){
-			syncerV2.WithMaxLoadedModules(mc.MaxLoaded()),
-			syncerV2.WithCacheMetrics(cm),
+			lggr.Infow("Module cache disk monitor enabled", "cacheDir", fileStore.CacheDir())
 		}
-		if mc.IdleEviction() {
-			lruOpts = append(lruOpts, syncerV2.WithIdleTimeout(mc.IdleTimeout()))
-		} else {
-			lruOpts = append(lruOpts, syncerV2.WithIdleTimeout(0))
+
+		if cacheEnabled {
+			cm, cmErr := syncerV2.NewCacheMetrics()
+			if cmErr != nil {
+				return nil, nil, fmt.Errorf("unable to create module cache metrics: %w", cmErr)
+			}
+
+			lruOpts := []func(*syncerV2.ModuleLRU){
+				syncerV2.WithMaxLoadedModules(mc.MaxLoaded()),
+				syncerV2.WithCacheMetrics(cm),
+			}
+			if mc.IdleEviction() {
+				lruOpts = append(lruOpts, syncerV2.WithIdleTimeout(mc.IdleTimeout()))
+			} else {
+				lruOpts = append(lruOpts, syncerV2.WithIdleTimeout(0))
+			}
+			moduleLRU := syncerV2.NewModuleLRU(clockwork.NewRealClock(), lruOpts...)
+
+			handlerOpts = append(handlerOpts,
+				syncerV2.WithModuleLRU(moduleLRU),
+				syncerV2.WithModuleStore(fileStore),
+				syncerV2.WithModuleCacheMetrics(cm),
+			)
+
+			lggr.Infow("Module cache enabled",
+				"idleEviction", mc.IdleEviction(),
+				"idleTimeout", mc.IdleTimeout(),
+				"maxLoaded", mc.MaxLoaded(),
+				"cacheDir", fileStore.CacheDir(),
+			)
 		}
-		moduleLRU := syncerV2.NewModuleLRU(clockwork.NewRealClock(), lruOpts...)
-
-		handlerOpts = append(handlerOpts,
-			syncerV2.WithModuleLRU(moduleLRU),
-			syncerV2.WithModuleStore(fileStore),
-			syncerV2.WithModuleCacheMetrics(cm),
-		)
-
-		lggr.Infow("Module cache enabled",
-			"idleEviction", mc.IdleEviction(),
-			"idleTimeout", mc.IdleTimeout(),
-			"maxLoaded", mc.MaxLoaded(),
-			"cacheDir", mc.CacheDir(),
-		)
 	}
 
 	eventHandler, err := syncerV2.NewEventHandler(

@@ -177,6 +177,8 @@ func cloneSharedEnvironmentForTest(sharedEnv *ttypes.TestEnvironment, tconf *tty
 	}
 }
 
+// configurePerTestExecutionContext creates one funded, registry-authorized signer, swaps testEnv EVM blockchains
+// to per-test seth clients, and sets the CLDF deployer key (SetupTestEnvironmentWithPerTestKeys).
 func configurePerTestExecutionContext(t *testing.T, sharedEnv *ttypes.TestEnvironment, testEnv *ttypes.TestEnvironment) *ttypes.ExecutionContext {
 	t.Helper()
 
@@ -346,7 +348,7 @@ func createEnvironmentIfNotExists(ctx context.Context, relativePathToRepoRoot, e
 	if !envconfig.LocalCREStateFileExists(relativePathToRepoRoot) {
 		framework.L.Info().Str("CTF_CONFIGS", os.Getenv("CTF_CONFIGS")).Str("local CRE state file", envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)).Msg("Local CRE state file does not exist, starting environment...")
 
-		args := []string{"run", ".", "env", "start"}
+		args := []string{"run", ".", "env", "start"} //nolint:prealloc // prealloc here would read horribly
 		args = append(args, flags...)
 
 		cmd := exec.CommandContext(ctx, "go", args...)

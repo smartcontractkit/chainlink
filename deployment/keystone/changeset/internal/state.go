@@ -12,8 +12,7 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal/addrbook"
 
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
@@ -40,7 +39,7 @@ type GetContractSetsResponse struct {
 //
 // TODO: remove after CRE-227
 type ContractSet struct {
-	commonchangeset.MCMSWithTimelockState
+	MCMSWithTimelockState
 	OCR3                 map[common.Address]*ocr3_capability.OCR3Capability
 	Forwarder            *forwarder.KeystoneForwarder
 	CapabilitiesRegistry *capabilities_registry.CapabilitiesRegistry
@@ -74,7 +73,7 @@ func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContr
 
 		// TODO: we need to expand/refactor the way labeled addresses are filtered
 		// see: https://smartcontract-it.atlassian.net/browse/CRE-363
-		filtered := deployment.LabeledAddresses(addrs).And(req.Labels...)
+		filtered := addrbook.LabeledAddresses(addrs).And(req.Labels...)
 
 		maps.Copy(filtered, forwarderAddrs)
 
@@ -94,7 +93,7 @@ func loadContractSet(
 	addresses map[string]cldf.TypeAndVersion,
 ) (*ContractSet, error) {
 	var out ContractSet
-	mcmsWithTimelock, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
+	mcmsWithTimelock, err := MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load mcms contract: %w", err)
 	}

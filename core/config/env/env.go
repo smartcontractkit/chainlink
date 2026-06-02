@@ -28,16 +28,17 @@ var (
 
 // LOOPP commands and vars
 var (
-	MedianPlugin   = NewPlugin("median")
-	MercuryPlugin  = NewPlugin("mercury")
-	AptosPlugin    = NewPlugin("aptos")
-	EVMPlugin      = NewPlugin("evm")
-	CosmosPlugin   = NewPlugin("cosmos")
-	SolanaPlugin   = NewPlugin("solana")
-	StarknetPlugin = NewPlugin("starknet")
-	TronPlugin     = NewPlugin("tron")
-	TONPlugin      = NewPlugin("ton")
-	SuiPlugin      = NewPlugin("sui")
+	MedianPlugin       = NewPlugin("median")
+	MercuryPlugin      = NewPlugin("mercury")
+	AptosPlugin        = NewPlugin("aptos")
+	EVMPlugin          = NewPlugin("evm")
+	CosmosPlugin       = NewPlugin("cosmos")
+	SolanaPlugin       = NewPlugin("solana")
+	StarknetPlugin     = NewPlugin("starknet")
+	TronPlugin         = NewPlugin("tron")
+	TONPlugin          = NewPlugin("ton")
+	SuiPlugin          = NewPlugin("sui")
+	CapabilitiesPlugin = NewPlugin("capabilities")
 	// PrometheusDiscoveryHostName is the externally accessible hostname
 	// published by the node in the `/discovery` endpoint. Generally, it is expected to match
 	// the public hostname of node.

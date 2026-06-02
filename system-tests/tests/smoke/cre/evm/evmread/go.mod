@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread
 
-go 1.26.2
+go 1.26.3
 
 require (
 	github.com/ethereum/go-ethereum v1.17.1

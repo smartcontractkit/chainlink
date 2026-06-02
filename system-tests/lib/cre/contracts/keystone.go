@@ -166,15 +166,15 @@ func (d *dons) embedOCR3Config(capConfig *capabilitiespb.CapabilityConfig, don d
 }
 
 func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress string, capabilityToOCR3Config map[string]*ocr3.OracleConfig, capabilityToExtraSignerFamilies map[string][]string) cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput {
-	nops := make([]capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams, 0)
 	nodes := make([]contracts.NodesInput, 0)
-	capabilities := make([]contracts.RegisterableCapability, 0)
-	donParams := make([]capabilities_registry_v2.CapabilitiesRegistryNewDONParams, 0)
+	orderedDons := d.donsOrderedByID()
+	donParams := make([]capabilities_registry_v2.CapabilitiesRegistryNewDONParams, len(orderedDons))
 
 	// Collect unique capabilities and NOPs
+	i := 0
 	capabilityMap := make(map[string]capabilities_registry_v2.CapabilitiesRegistryCapability)
 	nopMap := make(map[string]capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams)
-	for _, don := range d.donsOrderedByID() {
+	for _, don := range orderedDons {
 		// Extract capabilities
 		capIDs := make([]string, 0, len(don.Capabilities))
 		for _, myCap := range don.Capabilities {
@@ -285,7 +285,7 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 			}
 		}
 
-		donParams = append(donParams, capabilities_registry_v2.CapabilitiesRegistryNewDONParams{
+		donParams[i] = capabilities_registry_v2.CapabilitiesRegistryNewDONParams{
 			Name:                     don.Name,
 			DonFamilies:              []string{DonFamily}, // Default empty
 			Config:                   []byte("{}"),
@@ -294,24 +294,34 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 			F:                        don.F,
 			IsPublic:                 true,
 			AcceptsWorkflows:         true,
-		})
+		}
+		i++
 	}
 
+	capabilities := make([]contracts.RegisterableCapability, len(capabilityMap))
+
 	// Convert maps to slices
+	i = 0
 	for _, cp := range capabilityMap {
 		var metadata map[string]any
 		err := json.Unmarshal(cp.Metadata, &metadata)
 		if err != nil {
 			panic(fmt.Sprintf("failed to unmarshal capability metadata: %s", err))
 		}
-		capabilities = append(capabilities, contracts.RegisterableCapability{
+		capabilities[i] = contracts.RegisterableCapability{
 			Metadata:              metadata,
 			CapabilityID:          cp.CapabilityId,
 			ConfigurationContract: cp.ConfigurationContract,
-		})
+		}
+		i++
 	}
+
+	nops := make([]capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams, len(nopMap))
+
+	i = 0
 	for _, nop := range nopMap {
-		nops = append(nops, nop)
+		nops[i] = nop
+		i++
 	}
 
 	return cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput{

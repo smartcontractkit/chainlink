@@ -1,6 +1,7 @@
 package changeset_test
 
 import (
+	"crypto/ecdsa"
 	"encoding/json"
 	"testing"
 	"time"
@@ -23,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
@@ -42,7 +42,7 @@ const (
 )
 
 type updFixture struct {
-	env        cldf.Environment
+	rt         *runtime.Runtime
 	selector   uint64
 	qualifier  string
 	address    string
@@ -138,42 +138,44 @@ func setupRegistryForUpdateDON(t *testing.T, isWorkflow, useMCMS bool) *updFixtu
 	donName := "upd-don-v2"
 
 	// Register everything using ConfigureCapabilitiesRegistry (no MCMS)
-	_, err = changeset.ConfigureCapabilitiesRegistry{}.Apply(rt.Environment(), changeset.ConfigureCapabilitiesRegistryInput{
-		ChainSelector:               selector,
-		CapabilitiesRegistryAddress: addr,
-		Nops: []changeset.CapabilitiesRegistryNodeOperator{
-			{Admin: common.HexToAddress("0x01"), Name: nop1},
-			{Admin: common.HexToAddress("0x02"), Name: nop2},
-		},
-		Capabilities: []changeset.CapabilitiesRegistryCapability{
-			{CapabilityID: writeChain.CapabilityId, Metadata: writeChainMeta},
-			{CapabilityID: trigger.CapabilityId, Metadata: triggerMeta},
-			{CapabilityID: capWithModifierID.CapabilityId, Metadata: aptosWriteChainMeta},
-		},
-		Nodes: nodes,
-		DONs: []changeset.CapabilitiesRegistryNewDONParams{
-			{
-				Name:        donName,
-				DonFamilies: []string{"upd-family"},
-				Config: map[string]any{
-					"defaultConfig": map[string]any{},
-				},
-				CapabilityConfigurations: []changeset.CapabilitiesRegistryCapabilityConfiguration{
-					{CapabilityID: writeChain.CapabilityId, Config: cfg},
-					{CapabilityID: capWithModifierID.CapabilityId, Config: cfg},
-				},
-				Nodes:            nodeSet,
-				F:                1,
-				IsPublic:         true,
-				AcceptsWorkflows: isWorkflow,
+	err = rt.Exec(
+		runtime.ChangesetTask(changeset.ConfigureCapabilitiesRegistry{}, changeset.ConfigureCapabilitiesRegistryInput{
+			ChainSelector:               selector,
+			CapabilitiesRegistryAddress: addr,
+			Nops: []changeset.CapabilitiesRegistryNodeOperator{
+				{Admin: common.HexToAddress("0x01"), Name: nop1},
+				{Admin: common.HexToAddress("0x02"), Name: nop2},
 			},
-		},
-	})
+			Capabilities: []changeset.CapabilitiesRegistryCapability{
+				{CapabilityID: writeChain.CapabilityId, Metadata: writeChainMeta},
+				{CapabilityID: trigger.CapabilityId, Metadata: triggerMeta},
+				{CapabilityID: capWithModifierID.CapabilityId, Metadata: aptosWriteChainMeta},
+			},
+			Nodes: nodes,
+			DONs: []changeset.CapabilitiesRegistryNewDONParams{
+				{
+					Name:        donName,
+					DonFamilies: []string{"upd-family"},
+					Config: map[string]any{
+						"defaultConfig": map[string]any{},
+					},
+					CapabilityConfigurations: []changeset.CapabilitiesRegistryCapabilityConfiguration{
+						{CapabilityID: writeChain.CapabilityId, Config: cfg},
+						{CapabilityID: capWithModifierID.CapabilityId, Config: cfg},
+					},
+					Nodes:            nodeSet,
+					F:                1,
+					IsPublic:         true,
+					AcceptsWorkflows: isWorkflow,
+				},
+			},
+		}),
+	)
 	require.NoError(t, err)
 
 	if !useMCMS {
 		return &updFixture{
-			env:        rt.Environment(),
+			rt:         rt,
 			selector:   selector,
 			qualifier:  qualifier,
 			address:    addr,
@@ -188,26 +190,29 @@ func setupRegistryForUpdateDON(t *testing.T, isWorkflow, useMCMS bool) *updFixtu
 		selector: cldftesthelpers.SingleGroupTimelockConfig(t),
 	}
 
-	updatedEnv, mcmsErr := commonchangeset.Apply(t, rt.Environment(), commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
-		timelockCfgs,
-	))
-	require.NoError(t, mcmsErr, "failed to deploy MCMS infrastructure")
+	err = rt.Exec(
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), timelockCfgs),
+	)
+	require.NoError(t, err, "failed to deploy MCMS infrastructure")
+
 	t.Log("MCMS infrastructure deployed successfully")
 
 	t.Log("Transferring ownership to MCMS...")
-	updatedEnv, mcmsErr = commonchangeset.Apply(t, updatedEnv, commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(keystonechangeset.AcceptAllOwnershipsProposal),
-		&keystonechangeset.AcceptAllOwnershipRequest{
-			ChainSelector: selector,
-			MinDelay:      0,
-		},
-	))
-	require.NoError(t, mcmsErr, "failed to transfer ownership to MCMS")
+	err = rt.Exec(
+		runtime.ChangesetTask(
+			cldf.CreateLegacyChangeSet(keystonechangeset.AcceptAllOwnershipsProposal),
+			&keystonechangeset.AcceptAllOwnershipRequest{
+				ChainSelector: selector,
+				MinDelay:      0,
+			},
+		),
+		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
+	)
+	require.NoError(t, err, "failed to transfer ownership to MCMS")
 	t.Log("Ownership transferred to MCMS successfully")
 
 	return &updFixture{
-		env:        updatedEnv,
+		rt:         rt,
 		selector:   selector,
 		qualifier:  qualifier,
 		address:    addr,
@@ -238,7 +243,7 @@ func TestUpdateDONChangeset_ByName_Direct_Succeeds(t *testing.T) {
 
 	newName := fx.donName + "-renamed"
 
-	out, err := changeset.UpdateDON{}.Apply(fx.env, changeset.UpdateDONInput{
+	task := runtime.ChangesetTask(changeset.UpdateDON{}, changeset.UpdateDONInput{
 		RegistryQualifier: fx.qualifier,
 		RegistryChainSel:  fx.selector,
 		DONName:           fx.donName, // required current name
@@ -249,8 +254,13 @@ func TestUpdateDONChangeset_ByName_Direct_Succeeds(t *testing.T) {
 		Force:      false,
 		MCMSConfig: nil,
 	})
+
+	err = fx.rt.Exec(task)
 	require.NoError(t, err)
+
+	out := fx.rt.State().Outputs[task.ID()]
 	require.NotNil(t, out)
+
 	assert.Empty(t, out.MCMSTimelockProposals, "no MCMS → proposals must be empty")
 	require.NotEmpty(t, out.Reports)
 
@@ -285,7 +295,7 @@ func TestUpdateDONChangeset_ByName_Direct_Succeeds_MCMS(t *testing.T) {
 
 	newName := fx.donName + "-renamed"
 
-	out, err := changeset.UpdateDON{}.Apply(fx.env, changeset.UpdateDONInput{
+	task := runtime.ChangesetTask(changeset.UpdateDON{}, changeset.UpdateDONInput{
 		RegistryQualifier: fx.qualifier,
 		RegistryChainSel:  fx.selector,
 		DONName:           fx.donName, // required current name
@@ -301,8 +311,11 @@ func TestUpdateDONChangeset_ByName_Direct_Succeeds_MCMS(t *testing.T) {
 			},
 		},
 	})
+
+	err := fx.rt.Exec(task)
 	require.NoError(t, err)
 
+	out := fx.rt.State().Outputs[task.ID()]
 	assert.NotNil(t, out)
 	assert.NotEmpty(t, out.Reports)
 	assert.NotEmpty(t, out.MCMSTimelockProposals, "MCMS → proposals must not be empty")
@@ -326,7 +339,7 @@ func TestUpdateDONChangeset_ByName_Workflow_Force_Succeeds(t *testing.T) {
 	wantProto, err := pkg.CapabilityConfig(newCfg).MarshalProto()
 	require.NoError(t, err)
 
-	out, err := changeset.UpdateDON{}.Apply(fx.env, changeset.UpdateDONInput{
+	task := runtime.ChangesetTask(changeset.UpdateDON{}, changeset.UpdateDONInput{
 		RegistryQualifier: fx.qualifier,
 		RegistryChainSel:  fx.selector,
 		DONName:           fx.donName, // required
@@ -336,8 +349,14 @@ func TestUpdateDONChangeset_ByName_Workflow_Force_Succeeds(t *testing.T) {
 		Force: true, // override
 	})
 	require.NoError(t, err)
+
+	err = fx.rt.Exec(task)
+	require.NoError(t, err)
+
+	out := fx.rt.State().Outputs[task.ID()]
 	require.NotNil(t, out)
-	assert.Empty(t, out.MCMSTimelockProposals)
+	assert.Empty(t, out.MCMSTimelockProposals, "no MCMS → proposals must be empty")
+	require.NotEmpty(t, out.Reports)
 
 	got, err := fx.registry.GetDONByName(nil, fx.donName)
 	require.NoError(t, err)
@@ -357,7 +376,7 @@ func TestUpdateDONChangeset_VerifyPreconditions_EmptyName(t *testing.T) {
 		DONName:           "", // invalid
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "must provide a non-empty DONName")
+	require.ErrorContains(t, err, "must provide a non-empty DONName")
 }
 
 // Chain not found: Apply should fail early with a clear message.
@@ -377,7 +396,7 @@ func TestUpdateDONChangeset_ByName_ChainNotFound(t *testing.T) {
 		CapabilityConfigs: nil,
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "chain not found for selector")
+	require.ErrorContains(t, err, "chain not found for selector")
 }
 
 // Qualifier not found in DataStore: Apply should fail when it cannot look up the registry address.
@@ -399,7 +418,7 @@ func TestUpdateDONChangeset_ByName_QualifierNotFound(t *testing.T) {
 		CapabilityConfigs: nil,
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to get registry address")
+	require.ErrorContains(t, err, "failed to get registry address")
 }
 
 // TestUpdateDON_FirstOCR3ConfigCapabilities exercises the first-config gate in
@@ -407,6 +426,7 @@ func TestUpdateDONChangeset_ByName_QualifierNotFound(t *testing.T) {
 func TestUpdateDON_FirstOCR3ConfigCapabilities(t *testing.T) {
 	t.Parallel()
 	fx := setupRegistryForUpdateDON(t, false, false)
+	env := fx.rt.Environment()
 
 	// A minimal ocr3Configs entry matching the proto structure: oracle config
 	// params are nested under the "offchainConfig" key.
@@ -439,13 +459,13 @@ func TestUpdateDON_FirstOCR3ConfigCapabilities(t *testing.T) {
 	}
 
 	t.Run("rejects when capability is not in FirstOCR3ConfigCapabilities", func(t *testing.T) {
-		_, err := changeset.UpdateDON{}.Apply(fx.env, makeInput(fx.capIDs[0], nil))
+		_, err := changeset.UpdateDON{}.Apply(env, makeInput(fx.capIDs[0], nil))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "firstOCR3ConfigCapabilities")
 	})
 
 	t.Run("passes first-config check when capability is listed", func(t *testing.T) {
-		_, err := changeset.UpdateDON{}.Apply(fx.env, makeInput(fx.capIDs[0], []string{fx.capIDs[0]}))
+		_, err := changeset.UpdateDON{}.Apply(env, makeInput(fx.capIDs[0], []string{fx.capIDs[0]}))
 		require.Error(t, err)
 		// Should fail later (e.g. ComputeOCR3Config), NOT at the first-config gate.
 		assert.NotContains(t, err.Error(), "firstOCR3ConfigCapabilities")
@@ -453,7 +473,7 @@ func TestUpdateDON_FirstOCR3ConfigCapabilities(t *testing.T) {
 
 	t.Run("rejects unlisted capability even when another is listed", func(t *testing.T) {
 		// List capIDs[0] but provide ocr3Configs for capIDs[1] → should fail
-		_, err := changeset.UpdateDON{}.Apply(fx.env, makeInput(fx.capIDs[1], []string{fx.capIDs[0]}))
+		_, err := changeset.UpdateDON{}.Apply(env, makeInput(fx.capIDs[1], []string{fx.capIDs[0]}))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "firstOCR3ConfigCapabilities")
 	})

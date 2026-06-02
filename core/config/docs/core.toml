@@ -301,7 +301,7 @@ ListenIP = '0.0.0.0' # Default
 DisplayName = "cre-workflow-1-chainlinklabs" # Example
 
 [JobPipeline]
-# ExternalInitiatorsEnabled enables the External Initiator feature. If disabled, `webhook` jobs can ONLY be initiated by a logged-in user. If enabled, `webhook` jobs can be initiated by a whitelisted external initiator.
+# ExternalInitiatorsEnabled Unused: used to enables the External Initiator feature for legacy webhook job runs via external initiators
 ExternalInitiatorsEnabled = false # Default
 # MaxRunDuration is the maximum time allowed for a single job run. If it takes longer, it will exit early and be marked errored. If set to zero, disables the time limit completely.
 MaxRunDuration = '10m' # Default
@@ -545,6 +545,10 @@ Name = 'my-workflow-source' # Example
 # Enabled activates the two-level module cache (LRU + disk). When true, compiled WASM modules
 # are kept in memory and persisted to disk, avoiding recompilation on subsequent activations.
 Enabled = false # Default
+# DiskMonitorEnabled exposes platform_workflow_module_cache_disk_usage_bytes for CacheDir without
+# enabling LRU/disk persistence. Set CacheDir to the production path during rollout; then set
+# Enabled = true for the full cache. Enabled = true also starts the disk monitor when this is false.
+DiskMonitorEnabled = false # Default
 # IdleEviction enables time-based eviction of modules unused for IdleTimeout.
 IdleEviction = true # Default
 # IdleTimeout is how long a module can remain idle before being evicted from memory.
@@ -870,9 +874,11 @@ AuthHeadersTTL = '0s' # Default
 ChipIngressEndpoint = '' # Default
 # ChipIngressInsecureConnection disables TLS when connecting to CHIP Ingress.
 ChipIngressInsecureConnection = false # Default
+# ChipIngressBatchEmitterEnabled enables batching for chip-ingress events.
+# When false, events are sent individually (legacy behavior).
+ChipIngressBatchEmitterEnabled = true # Default
 # DurableEmitterEnabled enables persisting outbound CHIP events to Postgres for at-least-once delivery.
 DurableEmitterEnabled = false # Default
-
 # HeartbeatInterval is the interval at which a the application heartbeat is sent to telemetry backends.
 HeartbeatInterval = '1s' # Default
 # LogLevel sets the log level for telemetry streaming (debug, info, warn, error, crit, panic, fatal)
@@ -894,6 +900,15 @@ LogMaxQueueSize = 2048 # Default
 [Telemetry.ResourceAttributes]
 # foo is an example resource attribute
 foo = "bar" # Example
+
+# The Prometheus bridge automatically forwards metrics through open telemetry.
+[Telemetry.PrometheusBridge]
+# **ADVANCED**
+# Enabled enables the Promtheus bridge.
+Enabled = false # Default
+# Prefixes is a set of filters to restrict which prometheus metrics are forwarded based on prefix matching.
+# By default, we only forward the go runtime metrics. Empty means forward everything.
+Prefixes = ["go_"] # Default
 
 [CRE.Streams]
 # WsURL is the websockets url for the streams sdk config

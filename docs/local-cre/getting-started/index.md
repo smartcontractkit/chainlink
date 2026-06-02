@@ -64,11 +64,13 @@ Start with the example workflow:
 go run . env start --with-example
 ```
 
-Start with Beholder:
+Start with Chip Ingress stack:
 
 ```bash
-go run . env start --with-beholder
+go run . env start --with-chip-ingress-stack
 ```
+
+(`--with-beholder` is deprecated but still accepted.)
 
 Set extra gateway ports when your workflow needs outbound access to local services:
 
@@ -84,13 +86,13 @@ Once the environment is up, run the CRE smoke package:
 go test ./system-tests/tests/smoke/cre -timeout 20m -run '^Test_CRE_'
 ```
 
-For the default smoke-test flow, start Local CRE without `--with-beholder`. Chip Router owns ingress on `50051`, and tests register downstream subscribers behind the router (test sink by default, Beholder for Beholder-backed scenarios).
+For the default smoke-test flow, start Local CRE without `--with-chip-ingress-stack`. Chip Router owns ingress on `50051`, and tests register downstream subscribers behind the router (test sink by default, Chip Ingress stack for stack-backed scenarios).
 
-Enable Beholder when:
+Enable the Chip Ingress stack when:
 
-- you are running Beholder-specific tests
-- you intentionally need the Beholder stack for debugging
-- you want to inspect workflow events in the Beholder stack during debugging
+- you are running Chip Ingress stack-specific tests
+- you intentionally need the stack for debugging
+- you want to inspect workflow events in Kafka / Red Panda during debugging
 
 The smoke tests default to the capability-enabled topology when you do not override `CTF_CONFIGS`, and the test helpers can start Local CRE automatically if the state file does not exist yet.
 

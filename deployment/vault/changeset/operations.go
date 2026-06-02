@@ -1,10 +1,13 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
@@ -33,14 +36,14 @@ type VaultDeps struct {
 	Environment cldf.Environment
 }
 
-// ValidateTransferInput validates that transfer recipients are whitelisted
-type ValidateTransferInput struct {
-	ChainSelector uint64                 `json:"chain_selector"`
-	Transfers     []types.NativeTransfer `json:"transfers"`
+// ValidateWhitelistAddressesInput validates that recipient addresses are whitelisted.
+type ValidateWhitelistAddressesInput struct {
+	ChainSelector uint64   `json:"chain_selector"`
+	Addresses     []string `json:"addresses"`
 }
 
-// ValidateTransferOutput contains validation results
-type ValidateTransferOutput struct {
+// WhitelistValidationOutput contains whitelist validation results.
+type WhitelistValidationOutput struct {
 	Valid  bool     `json:"valid"`
 	Errors []string `json:"errors,omitempty"`
 }
@@ -73,26 +76,27 @@ type ExecuteNativeTransferOutput struct {
 	TxHash        common.Hash `json:"tx_hash"`
 }
 
-var ValidateTransferOp = operations.NewOperation(
-	"validate-transfer",
+var ValidateWhitelistAddressesOp = operations.NewOperation(
+	"validate-whitelist-addresses",
 	semver.MustParse("1.0.0"),
-	"Validates that transfer recipients are whitelisted",
-	func(b operations.Bundle, deps VaultDeps, input ValidateTransferInput) (ValidateTransferOutput, error) {
-		b.Logger.Infow("Validating transfers against whitelist",
+	"Validates that recipient addresses are whitelisted",
+	func(b operations.Bundle, deps VaultDeps, input ValidateWhitelistAddressesInput) (WhitelistValidationOutput, error) {
+		b.Logger.Infow("Validating addresses against whitelist",
 			"chain", input.ChainSelector,
-			"transfers", len(input.Transfers))
+			"addresses", len(input.Addresses))
 
-		output := ValidateTransferOutput{Valid: true, Errors: []string{}}
+		output := WhitelistValidationOutput{Valid: true, Errors: []string{}}
 
 		whitelistMetadata, err := getChainWhitelistMutable(deps.DataStore, input.ChainSelector)
 		if err != nil {
 			return output, fmt.Errorf("failed to get whitelist for chain %d: %w", input.ChainSelector, err)
 		}
 
-		for _, transfer := range input.Transfers {
+		for _, address := range input.Addresses {
 			found := false
+			addrHex := common.HexToAddress(address).Hex()
 			for _, whitelistedAddr := range whitelistMetadata.Addresses {
-				if whitelistedAddr.Address == common.HexToAddress(transfer.To).Hex() {
+				if whitelistedAddr.Address == addrHex {
 					found = true
 					break
 				}
@@ -100,7 +104,7 @@ var ValidateTransferOp = operations.NewOperation(
 
 			if !found {
 				output.Valid = false
-				output.Errors = append(output.Errors, fmt.Sprintf("address %s not whitelisted on chain %d", transfer.To, input.ChainSelector))
+				output.Errors = append(output.Errors, fmt.Sprintf("address %s not whitelisted on chain %d", addrHex, input.ChainSelector))
 			}
 		}
 
@@ -108,13 +112,29 @@ var ValidateTransferOp = operations.NewOperation(
 			return output, fmt.Errorf("validation failed: %v", output.Errors)
 		}
 
-		b.Logger.Infow("Transfer validation completed successfully",
+		b.Logger.Infow("Whitelist validation completed successfully",
 			"chain", input.ChainSelector,
-			"transfers", len(input.Transfers))
+			"addresses", len(input.Addresses))
 
 		return output, nil
 	},
 )
+
+func executeWhitelistValidation(
+	b operations.Bundle,
+	deps VaultDeps,
+	chainSelector uint64,
+	addresses []string,
+) (WhitelistValidationOutput, error) {
+	report, err := operations.ExecuteOperation(b, ValidateWhitelistAddressesOp, deps, ValidateWhitelistAddressesInput{
+		ChainSelector: chainSelector,
+		Addresses:     addresses,
+	})
+	if err != nil {
+		return WhitelistValidationOutput{}, err
+	}
+	return report.Output, nil
+}
 
 // FundTimelockOp funds Timelock with native tokens
 var FundTimelockOp = operations.NewOperation(
@@ -249,7 +269,7 @@ type BatchNativeTransferSequenceInput struct {
 }
 
 type BatchNativeTransferSequenceOutput struct {
-	ValidationResults     map[uint64]ValidateTransferOutput        `json:"validation_results"`
+	ValidationResults     map[uint64]WhitelistValidationOutput     `json:"validation_results"`
 	FundingResults        map[uint64]FundTimelockOutput            `json:"funding_results,omitempty"`
 	TransferResults       map[uint64][]ExecuteNativeTransferOutput `json:"transfer_results,omitempty"`
 	MCMSTimelockProposals []mcms.TimelockProposal                  `json:"mcms_timelock_proposals,omitempty"`
@@ -270,7 +290,7 @@ var BatchNativeTransferSequence = operations.NewSequence(
 			"description", input.Description)
 
 		output := BatchNativeTransferSequenceOutput{
-			ValidationResults: make(map[uint64]ValidateTransferOutput),
+			ValidationResults: make(map[uint64]WhitelistValidationOutput),
 			FundingResults:    make(map[uint64]FundTimelockOutput),
 			TransferResults:   make(map[uint64][]ExecuteNativeTransferOutput),
 			Description:       input.Description,
@@ -278,19 +298,14 @@ var BatchNativeTransferSequence = operations.NewSequence(
 
 		b.Logger.Infow("Validating transfers against whitelist")
 		for chainSelector, transfers := range input.TransfersByChain {
-			validateInput := ValidateTransferInput{
-				ChainSelector: chainSelector,
-				Transfers:     transfers,
-			}
-
-			validateReport, err := operations.ExecuteOperation(
-				b, ValidateTransferOp, deps, validateInput,
+			validation, err := executeWhitelistValidation(
+				b, deps, chainSelector, recipientAddressesFromNativeTransfers(transfers),
 			)
 			if err != nil {
 				return BatchNativeTransferSequenceOutput{}, fmt.Errorf("validation failed for chain %d: %w", chainSelector, err)
 			}
 
-			output.ValidationResults[chainSelector] = validateReport.Output
+			output.ValidationResults[chainSelector] = validation
 		}
 
 		if input.MCMSConfig == nil {
@@ -428,6 +443,160 @@ func generateMCMSProposals(b operations.Bundle, deps VaultDeps, input BatchNativ
 	output.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
 
 	b.Logger.Infow("MCMS proposal generation completed successfully",
+		"chains", len(input.TransfersByChain),
+		"operations_count", len(proposal.Operations))
+
+	return output, nil
+}
+
+var erc20ABI = func() abi.ABI {
+	const abiJSON = `[{"name":"transfer","type":"function","inputs":[{"name":"to","type":"address"},{"name":"amount","type":"uint256"}],"outputs":[{"name":"","type":"bool"}]}]`
+	a, err := abi.JSON(strings.NewReader(abiJSON))
+	if err != nil {
+		panic(fmt.Sprintf("failed to parse ERC20 ABI: %v", err))
+	}
+	return a
+}()
+
+func encodeERC20TransferCalldata(tr types.ERC20Transfer) ([]byte, error) {
+	return erc20ABI.Pack("transfer", common.HexToAddress(tr.Payee), tr.Amount)
+}
+
+// TransferERC20SequenceInput is the input for the ERC20 transfer sequence.
+type TransferERC20SequenceInput struct {
+	TransfersByChain map[uint64][]types.ERC20Transfer  `json:"transfers_by_chain"`
+	MCMSConfig       *cldfproposalutils.TimelockConfig `json:"mcms_config"`
+	Description      string                            `json:"description"`
+}
+
+// TransferERC20SequenceOutput is the output of the ERC20 transfer sequence.
+type TransferERC20SequenceOutput struct {
+	ValidationResults     map[uint64]WhitelistValidationOutput `json:"validation_results"`
+	MCMSTimelockProposals []mcms.TimelockProposal              `json:"mcms_timelock_proposals,omitempty"`
+	Description           string                               `json:"description"`
+}
+
+// TransferERC20Sequence validates ERC20 transfers against the whitelist and builds MCMS proposals.
+var TransferERC20Sequence = operations.NewSequence(
+	"transfer-erc20-sequence",
+	semver.MustParse("1.0.0"),
+	"Validates ERC20 transfers and builds MCMS timelock proposals",
+	func(b operations.Bundle, deps VaultDeps, input TransferERC20SequenceInput) (TransferERC20SequenceOutput, error) {
+		b.Logger.Infow("Starting ERC20 transfer sequence",
+			"chains", len(input.TransfersByChain),
+			"description", input.Description)
+
+		output := TransferERC20SequenceOutput{
+			ValidationResults: make(map[uint64]WhitelistValidationOutput),
+			Description:       input.Description,
+		}
+
+		b.Logger.Infow("Validating ERC20 transfers against whitelist")
+		for chainSelector, transfers := range input.TransfersByChain {
+			validation, err := executeWhitelistValidation(
+				b, deps, chainSelector, recipientAddressesFromERC20Transfers(transfers),
+			)
+			if err != nil {
+				return TransferERC20SequenceOutput{}, fmt.Errorf("validation failed for chain %d: %w", chainSelector, err)
+			}
+			output.ValidationResults[chainSelector] = validation
+		}
+
+		if input.MCMSConfig == nil {
+			return TransferERC20SequenceOutput{}, errors.New("MCMSConfig is required for ERC20 transfers")
+		}
+
+		return generateERC20MCMSProposals(b, deps, input, output)
+	},
+)
+
+func generateERC20MCMSProposals(b operations.Bundle, deps VaultDeps, input TransferERC20SequenceInput, output TransferERC20SequenceOutput) (TransferERC20SequenceOutput, error) {
+	b.Logger.Infow("Generating ERC20 MCMS timelock proposals",
+		"chains", len(input.TransfersByChain))
+
+	var batches []mcmstypes.BatchOperation
+	timelockAddressByChain := make(map[uint64]string)
+	mcmAddressByChain := make(map[uint64]string)
+	inspectorPerChain := make(map[uint64]mcmssdk.Inspector)
+
+	evmChains := deps.Environment.BlockChains.EVMChains()
+
+	for chainSelector, transfers := range input.TransfersByChain {
+		chain, exists := evmChains[chainSelector]
+		if !exists {
+			return TransferERC20SequenceOutput{}, fmt.Errorf("chain %d not found in environment", chainSelector)
+		}
+
+		timelockAddr, err := GetContractAddressWithQualifier(deps.DataStore, chainSelector, commontypes.RBACTimelock, input.MCMSConfig.TimelockQualifierPerChain[chainSelector])
+		if err != nil {
+			return TransferERC20SequenceOutput{}, fmt.Errorf("timelock not found for chain %d: %w", chainSelector, err)
+		}
+
+		var mcmAddr string
+		var contractName string
+		if input.MCMSConfig.MCMSAction == mcmstypes.TimelockActionBypass {
+			mcmAddr, err = GetContractAddressWithQualifier(deps.DataStore, chainSelector, commontypes.BypasserManyChainMultisig, input.MCMSConfig.TimelockQualifierPerChain[chainSelector])
+			contractName = "bypasser"
+		} else {
+			mcmAddr, err = GetContractAddressWithQualifier(deps.DataStore, chainSelector, commontypes.ProposerManyChainMultisig, input.MCMSConfig.TimelockQualifierPerChain[chainSelector])
+			contractName = "proposer"
+		}
+		if err != nil {
+			return TransferERC20SequenceOutput{}, fmt.Errorf("%s not found for chain %d: %w", contractName, chainSelector, err)
+		}
+
+		timelockAddressByChain[chainSelector] = timelockAddr
+		mcmAddressByChain[chainSelector] = mcmAddr
+		inspectorPerChain[chainSelector] = mcmsevmsdk.NewInspector(chain.Client)
+
+		var transactions []mcmstypes.Transaction
+		for i, tr := range transfers {
+			data, err := encodeERC20TransferCalldata(tr)
+			if err != nil {
+				return TransferERC20SequenceOutput{}, fmt.Errorf("chain %d transfer %d: failed to encode calldata: %w", chainSelector, i, err)
+			}
+
+			tx, err := cldfproposalutils.TransactionForChain(
+				chainSelector,
+				tr.Token,
+				data,
+				nil,
+				"ERC20Transfer",
+				[]string{"vault", "erc20-transfer"},
+			)
+			if err != nil {
+				return TransferERC20SequenceOutput{}, fmt.Errorf("chain %d transfer %d: %w", chainSelector, i, err)
+			}
+			transactions = append(transactions, tx)
+		}
+
+		batches = append(batches, mcmstypes.BatchOperation{
+			ChainSelector: mcmstypes.ChainSelector(chainSelector),
+			Transactions:  transactions,
+		})
+	}
+
+	description := input.Description
+	if description == "" {
+		description = "Vault ERC20 Transfer"
+	}
+
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
+		deps.Environment,
+		timelockAddressByChain,
+		mcmAddressByChain,
+		inspectorPerChain,
+		batches,
+		description,
+		*input.MCMSConfig,
+	)
+	if err != nil {
+		return TransferERC20SequenceOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", err)
+	}
+
+	output.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
+
+	b.Logger.Infow("ERC20 MCMS proposal generation completed successfully",
 		"chains", len(input.TransfersByChain),
 		"operations_count", len(proposal.Operations))
 

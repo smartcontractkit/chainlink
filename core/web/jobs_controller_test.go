@@ -378,15 +378,8 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	})
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
 	defer cleanup()
-	require.Equal(t, http.StatusOK, response.StatusCode)
-	resource := presenters.JobResource{}
-	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resource)
-	require.NoError(t, err)
-	assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
-
-	jorm := app.JobORM()
-	_, err = jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
-	require.NoError(t, err)
+	cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
+	require.Contains(t, string(cltest.ParseResponseBody(t, response)), "job type webhook has been removed")
 }
 
 //go:embed webhook-spec-template.yml

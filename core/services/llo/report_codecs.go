@@ -4,9 +4,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
-
+	"github.com/smartcontractkit/chainlink-data-streams/llo/cre"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/cre"
 )
 
 // NOTE: All supported codecs must be specified here

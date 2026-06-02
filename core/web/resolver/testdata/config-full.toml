@@ -332,6 +332,7 @@ TLSEnabled = true
 
 [Capabilities.WorkflowRegistry.ModuleCache]
 Enabled = false
+DiskMonitorEnabled = false
 IdleEviction = true
 IdleTimeout = '10m0s'
 MaxLoaded = 200
@@ -360,6 +361,7 @@ EmitterExportTimeout = '1s'
 AuthHeadersTTL = '0s'
 ChipIngressEndpoint = 'example.com/chip-ingress'
 ChipIngressInsecureConnection = false
+ChipIngressBatchEmitterEnabled = true
 DurableEmitterEnabled = false
 HeartbeatInterval = '1s'
 LogLevel = 'info'
@@ -373,6 +375,10 @@ LogMaxQueueSize = 2048
 [Telemetry.ResourceAttributes]
 Baz = 'test'
 Foo = 'bar'
+
+[Telemetry.PrometheusBridge]
+Enabled = true
+Prefixes = ['ocr_']
 
 [Workflows]
 [Workflows.Limits]
@@ -536,6 +542,8 @@ SyncThreshold = 13
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
@@ -559,6 +567,7 @@ Fatal = '(: |^)fatal'
 ServiceUnavailable = '(: |^)service unavailable'
 TooManyResults = '(: |^)too many results'
 MissingBlocks = '(: |^)missing blocks'
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [EVM.OCR]
 ContractConfirmations = 11

@@ -48,8 +48,6 @@ const (
 	DirectRequest           Type = (Type)(pipeline.DirectRequestJobType)
 	FluxMonitor             Type = (Type)(pipeline.FluxMonitorJobType)
 	Gateway                 Type = (Type)(pipeline.GatewayJobType)
-	LegacyGasStationServer  Type = (Type)(pipeline.LegacyGasStationServerJobType)
-	LegacyGasStationSidecar Type = (Type)(pipeline.LegacyGasStationSidecarJobType)
 	OffchainReporting       Type = (Type)(pipeline.OffchainReportingJobType)
 	OffchainReporting2      Type = (Type)(pipeline.OffchainReporting2JobType)
 	Stream                  Type = (Type)(pipeline.StreamJobType)
@@ -91,8 +89,6 @@ var (
 		DirectRequest:           true,
 		FluxMonitor:             true,
 		Gateway:                 false,
-		LegacyGasStationServer:  false,
-		LegacyGasStationSidecar: false,
 		OffchainReporting2:      false, // bootstrap jobs do not require it
 		OffchainReporting:       false, // bootstrap jobs do not require it
 		Stream:                  true,
@@ -113,8 +109,6 @@ var (
 		DirectRequest:           true,
 		FluxMonitor:             false,
 		Gateway:                 false,
-		LegacyGasStationServer:  false,
-		LegacyGasStationSidecar: false,
 		OffchainReporting2:      false,
 		OffchainReporting:       false,
 		Stream:                  true,
@@ -135,8 +129,6 @@ var (
 		DirectRequest:           1,
 		FluxMonitor:             1,
 		Gateway:                 1,
-		LegacyGasStationServer:  1,
-		LegacyGasStationSidecar: 1,
 		OffchainReporting2:      1,
 		OffchainReporting:       1,
 		Stream:                  1,
@@ -170,10 +162,6 @@ type Job struct {
 	BlockHeaderFeederSpecID       *int32
 	BlockHeaderFeederSpec         *BlockHeaderFeederSpec
 	BALSpecID                     *int32
-	LegacyGasStationServerSpecID  *int32
-	LegacyGasStationServerSpec    *LegacyGasStationServerSpec
-	LegacyGasStationSidecarSpecID *int32
-	LegacyGasStationSidecarSpec   *LegacyGasStationSidecarSpec
 	BootstrapSpec                 *BootstrapSpec
 	BootstrapSpecID               *int32
 	GatewaySpec                   *GatewaySpec
@@ -709,64 +697,6 @@ type BlockHeaderFeederSpec struct {
 
 	// StoreBlockhashesBatchSize is the RPC call batch size for storing blockhashes
 	StoreBlockhashesBatchSize uint16 `toml:"storeBlockhashesBatchSize"`
-
-	// CreatedAt is the time this job was created.
-	CreatedAt time.Time `toml:"-"`
-
-	// UpdatedAt is the time this job was last updated.
-	UpdatedAt time.Time `toml:"-"`
-}
-
-// LegacyGasStationServerSpec defines the job spec for the legacy gas station server.
-type LegacyGasStationServerSpec struct {
-	ID int32
-
-	// ForwarderAddress is the address of EIP2771 forwarder that verifies signature
-	// and forwards requests to target contracts
-	ForwarderAddress evmtypes.EIP55Address `toml:"forwarderAddress"`
-
-	// EVMChainID defines the chain ID from which the meta-transaction request originates.
-	EVMChainID *sqlutil.Big `toml:"evmChainID"`
-
-	// CCIPChainSelector is the CCIP chain selector that corresponds to EVMChainID param.
-	// This selector is equivalent to (source) chainID specified in SendTransaction request
-	CCIPChainSelector *sqlutil.Big `toml:"ccipChainSelector"`
-
-	// FromAddress is the sender address that should be used to send meta-transactions
-	FromAddresses []evmtypes.EIP55Address `toml:"fromAddresses"`
-
-	// CreatedAt is the time this job was created.
-	CreatedAt time.Time `toml:"-"`
-
-	// UpdatedAt is the time this job was last updated.
-	UpdatedAt time.Time `toml:"-"`
-}
-
-// LegacyGasStationSidecarSpec defines the job spec for the legacy gas station sidecar.
-type LegacyGasStationSidecarSpec struct {
-	ID int32
-
-	// ForwarderAddress is the address of EIP2771 forwarder that verifies signature
-	// and forwards requests to target contracts
-	ForwarderAddress evmtypes.EIP55Address `toml:"forwarderAddress"`
-
-	// OffRampAddress is the address of CCIP OffRamp for the given chainID
-	OffRampAddress evmtypes.EIP55Address `toml:"offRampAddress"`
-
-	// LookbackBlocks defines the maximum number of blocks to search for on-chain events.
-	LookbackBlocks int32 `toml:"lookbackBlocks"`
-
-	// PollPeriod defines how frequently legacy gas station sidecar runs.
-	PollPeriod time.Duration `toml:"pollPeriod"`
-
-	// RunTimeout defines the timeout for a single run of the legacy gas station sidecar.
-	RunTimeout time.Duration `toml:"runTimeout"`
-
-	// EVMChainID defines the chain ID for the on-chain events tracked by sidecar
-	EVMChainID *sqlutil.Big `toml:"evmChainID"`
-
-	// CCIPChainSelector is the CCIP chain selector that corresponds to EVMChainID param
-	CCIPChainSelector *sqlutil.Big `toml:"ccipChainSelector"`
 
 	// CreatedAt is the time this job was created.
 	CreatedAt time.Time `toml:"-"`

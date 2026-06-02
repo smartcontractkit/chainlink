@@ -271,14 +271,40 @@ func (m *connectionManager) FinalizeHandshake(attemptId string, response []byte,
 	if err != nil || attempt.nodeAddress != "0x"+hex.EncodeToString(signer) {
 		return network.ErrChallengeInvalidSignature
 	}
+	// Set a read deadline so that half-open connections are detected and closed.
+	// The deadline is reset every time a pong is received. If PongTimeoutSec is
+	// 0, deadline enforcement is disabled.
+	pongWait := time.Duration(m.config.PongTimeoutSec) * time.Second
 	if conn != nil {
+		if pongWait > 0 {
+			if err := conn.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
+				m.lggr.Warnw("failed to set initial read deadline, connection may be unusable",
+					"nodeAddress", attempt.nodeAddress, "err", err)
+			}
+		}
 		conn.SetPongHandler(func(data string) error {
+			if pongWait > 0 {
+				if err := conn.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
+					m.lggr.Warnw("failed to reset read deadline on pong",
+						"nodeAddress", attempt.nodeAddress, "err", err)
+				}
+			}
 			m.lggr.Debugw("received keepalive pong from node", "nodeAddress", attempt.nodeAddress)
 			m.gMetrics.RecordKeepalivePongsReceived(context.Background(), attempt.nodeAddress, attempt.nodeState.name)
 			return nil
 		})
 	}
 	attempt.nodeState.conn.Reset(conn)
+	if conn != nil && pongWait > 0 {
+		// Send an immediate ping so the first pong arrives quickly (within
+		// milliseconds on a healthy connection) rather than waiting up to one
+		// full heartbeat interval for the keepalive ticker to fire.
+		ctx := context.Background()
+		if err := attempt.nodeState.conn.Write(ctx, websocket.PingMessage, []byte{}); err != nil {
+			m.lggr.Debugw("unable to send post-handshake ping to node",
+				"nodeAddress", attempt.nodeAddress, "name", attempt.nodeState.name, "err", err)
+		}
+	}
 	m.lggr.Infof("node %s connected", attempt.nodeAddress)
 	m.gMetrics.RecordNodeConnectedEvent(context.Background(), attempt.nodeAddress, attempt.nodeState.name)
 	return nil

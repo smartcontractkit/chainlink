@@ -357,6 +357,7 @@ TLSEnabled = true
 
 [Capabilities.WorkflowRegistry.ModuleCache]
 Enabled = false
+DiskMonitorEnabled = false
 IdleEviction = true
 IdleTimeout = '10m0s'
 MaxLoaded = 200
@@ -382,6 +383,7 @@ EmitterExportTimeout = '1s'
 AuthHeadersTTL = '0s'
 ChipIngressEndpoint = ''
 ChipIngressInsecureConnection = false
+ChipIngressBatchEmitterEnabled = true
 DurableEmitterEnabled = false
 HeartbeatInterval = '1s'
 LogLevel = 'info'
@@ -391,6 +393,10 @@ LogExportTimeout = '1s'
 LogExportMaxBatchSize = 512
 LogExportInterval = '1s'
 LogMaxQueueSize = 2048
+
+[Telemetry.PrometheusBridge]
+Enabled = false
+Prefixes = ['go_']
 
 [Workflows]
 [Workflows.Limits]

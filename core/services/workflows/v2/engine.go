@@ -18,6 +18,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -30,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
@@ -503,15 +505,12 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 				EngineVersion:                 platform.ValueWorkflowVersionV2,
 				// no WorkflowExecutionID needed (or available at this stage)
 			}
-			gate := e.cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled
-			if gate == nil {
-				return errors.New("vault org id gate is nil")
+			var creGetter settings.Getter
+			if e.cfg.LocalLimiters != nil {
+				creGetter = e.cfg.LocalLimiters.Settings
 			}
-			enabled, gateErr := gate.Limit(gCtx)
-			if gateErr != nil {
-				return gateErr
-			}
-			if enabled {
+			propagateOrgIDMeta, _ := cresettings.Default.PropagateOrgIDInRequestMetadata.GetOrDefault(gCtx, creGetter)
+			if propagateOrgIDMeta && e.orgID != "" {
 				metadata.OrgID = e.orgID
 			}
 			triggerEventCh, regErr := triggerCap.RegisterTrigger(gCtx, capabilities.TriggerRegistrationRequest{
@@ -880,8 +879,32 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	// Track execution error for deferred event emission
 	var execErr error
+	var execHelper *ExecutionHelper
 	defer func() {
 		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, execErr, lggr)
+		if execHelper != nil {
+			endTime := e.cfg.Clock.Now()
+			profile, emitErr := events.EmitExecutionProfile(
+				ctx,
+				e.cfg.WorkflowID,
+				executionID,
+				startTime,
+				endTime,
+				executionStatus,
+				execHelper.executionProfile.stepInputs(),
+			)
+			if emitErr != nil {
+				lggr.Errorw("Failed to emit execution profile", "err", emitErr)
+			}
+			if profile != nil {
+				profileJSON, jsonErr := protojson.Marshal(profile)
+				if jsonErr != nil {
+					lggr.Errorw("Failed to marshal execution profile to JSON", "err", jsonErr)
+				} else {
+					lggr.Infow("Workflow execution profile", "executionProfile", string(profileJSON))
+				}
+			}
+		}
 		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
 		if execErr != nil {
 			e.cfg.Hooks.OnExecutionError(execErr.Error())
@@ -908,9 +931,10 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		triggerDrop(monitoring.TriggerDropReasonExecutionResponseLimitInvalid)
 		return
 	}
-	execHelper := &ExecutionHelper{
+	execHelper = &ExecutionHelper{
 		Engine: e, WorkflowExecutionID: executionID, ExecutionTimestamp: executionTimestamp,
 		UserLogChan: userLogChan, TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
+		executionProfile: newExecutionProfileCollector(),
 	}
 	execHelper.initLimiters(e.cfg.LocalLimiters)
 	e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).RecordTriggerPayloadBytes(ctx, int64(proto.Size(triggerEvent.Payload)))
@@ -1017,7 +1041,7 @@ func (e *Engine) secretsFetcher(phaseID string) SecretsFetcher {
 		e.logger(),
 		e.cfg.LocalLimiters.SecretsConcurrency,
 		e.cfg.LocalLimiters.SecretsCalls,
-		e.cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled,
+		e.cfg.LocalLimiters.Settings,
 		e.orgID,
 		e.cfg.WorkflowOwner,
 		e.cfg.WorkflowName.String(),
@@ -1033,7 +1057,8 @@ func (e *Engine) secretsFetcher(phaseID string) SecretsFetcher {
 func (e *Engine) close() error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*time.Duration(e.cfg.LocalLimits.ShutdownTimeoutMs))
 	defer cancel()
-	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID}) // TODO org?
+
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID})
 	e.triggersRegMu.Lock()
 	e.unregisterAllTriggers(ctx)
 	e.triggersRegMu.Unlock()

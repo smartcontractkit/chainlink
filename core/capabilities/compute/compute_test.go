@@ -303,18 +303,19 @@ func TestComputeFetch(t *testing.T) {
 func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
 	t.Parallel()
 
-	// because we are using ms precision and test overhead can result in variance, we use a range of 400ms
-	// to apply assertions.
+	// Maximum acceptable WASM execution and goroutine-scheduling overhead above the
+	// artificial gateway delay. Generous enough for loaded CI runners while still
+	// catching runaway regressions.
+	const overheadCap = int64(1000)
+
 	tests := []struct {
-		time               time.Duration
-		expectedLowerLimit uint64
-		expectedUpperLimit uint64
+		delay time.Duration
 	}{
-		{time.Duration(0), 0, 400},
-		{time.Second, 1000, 1400},
-		{2 * time.Second, 2000, 2400},
-		{2_500 * time.Millisecond, 2500, 2900},
-		{3 * time.Second, 3000, 3400},
+		{0},
+		{time.Second},
+		{2 * time.Second},
+		{2_500 * time.Millisecond},
+		{3 * time.Second},
 	}
 
 	workflowID := "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
@@ -342,10 +343,8 @@ func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
 		},
 	}
 
-	for idx := range tests {
-		test := tests[idx]
-
-		t.Run(test.time.String(), func(t *testing.T) {
+	for _, test := range tests {
+		t.Run(test.delay.String(), func(t *testing.T) {
 			t.Parallel()
 
 			th := setup(t, defaultConfig)
@@ -366,7 +365,7 @@ func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
 					require.NoError(t, err, "failed to handle gateway message")
 				}).
 				Once().
-				After(test.time)
+				After(test.delay)
 
 			require.NoError(t, th.compute.Start(t.Context()))
 
@@ -375,11 +374,11 @@ func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
 
 			require.Len(t, response.Metadata.Metering, 1)
 
-			value, err := strconv.ParseUint(response.Metadata.Metering[0].SpendValue, 10, 64)
+			value, err := strconv.ParseInt(response.Metadata.Metering[0].SpendValue, 10, 64)
 			require.NoError(t, err)
 
-			assert.GreaterOrEqual(t, value, test.expectedLowerLimit)
-			assert.Less(t, value, test.expectedUpperLimit)
+			assert.GreaterOrEqual(t, value, test.delay.Milliseconds())
+			assert.Less(t, value, test.delay.Milliseconds()+overheadCap)
 		})
 	}
 }

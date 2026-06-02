@@ -27,6 +27,10 @@ type ConnectionManagerConfig struct {
 	AuthTimestampToleranceSec uint32
 	AuthChallengeLen          uint32
 	HeartbeatIntervalSec      uint32
+	// PongTimeoutSec is the maximum time to wait for a pong response before
+	// considering the connection dead. When 0 (default), read deadline enforcement
+	// is disabled and connections may remain half-open indefinitely.
+	PongTimeoutSec uint32
 }
 
 type DONConfig struct {
@@ -78,6 +82,15 @@ type Shard struct {
 }
 
 func (c *GatewayConfig) Validate() error {
+	if pong := c.ConnectionManagerConfig.PongTimeoutSec; pong != 0 {
+		if heartbeat := c.ConnectionManagerConfig.HeartbeatIntervalSec; heartbeat == 0 {
+			return errors.New("PongTimeoutSec requires HeartbeatIntervalSec > 0 (pong deadline needs periodic pings)")
+		} else if pong <= heartbeat {
+			return fmt.Errorf("PongTimeoutSec (%d) must be greater than HeartbeatIntervalSec (%d)",
+				pong, heartbeat)
+		}
+	}
+
 	if len(c.Dons) > 0 && (len(c.Services) > 0 || len(c.ShardedDONs) > 0) {
 		return errors.New("legacy Dons config and Services/ShardedDONs cannot be used together")
 	}

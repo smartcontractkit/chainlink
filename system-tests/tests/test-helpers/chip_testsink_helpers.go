@@ -650,8 +650,8 @@ func WatchWorkflowLogs(
 	testLogger zerolog.Logger,
 	userLogsCh <-chan *workflowevents.UserLogs,
 	baseMessageCh <-chan *commonevents.BaseMessage,
-	failingBeholderLog string,
-	expectedBeholderLog string,
+	failingChipIngressStackLog string,
+	expectedChipIngressStackLog string,
 	timeout time.Duration,
 	opts ...UserLogWatchOpt,
 ) {
@@ -665,16 +665,16 @@ func WatchWorkflowLogs(
 		opt(&userCfg)
 	}
 
-	if failingBeholderLog != "" {
+	if failingChipIngressStackLog != "" {
 		go func() {
 			if userCfg.workflowID != "" {
-				FailOnBaseMessage(cancelCtx, cancelCauseFn, t, testLogger, baseMessageCh, failingBeholderLog, WithBaseMessageWorkflowID(userCfg.workflowID))
+				FailOnBaseMessage(cancelCtx, cancelCauseFn, t, testLogger, baseMessageCh, failingChipIngressStackLog, WithBaseMessageWorkflowID(userCfg.workflowID))
 				return
 			}
-			FailOnBaseMessage(cancelCtx, cancelCauseFn, t, testLogger, baseMessageCh, failingBeholderLog)
+			FailOnBaseMessage(cancelCtx, cancelCauseFn, t, testLogger, baseMessageCh, failingChipIngressStackLog)
 		}()
 	}
-	_, err := WaitForUserLog(cancelCtx, testLogger, userLogsCh, expectedBeholderLog, opts...)
+	_, err := WaitForUserLog(cancelCtx, testLogger, userLogsCh, expectedChipIngressStackLog, opts...)
 	require.NoError(t, err, "failed to find expected user log message")
 }
 
