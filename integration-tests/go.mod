@@ -42,7 +42,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/v2 v2.29.0
-	github.com/smartcontractkit/cld-changesets v0.4.0
+	github.com/smartcontractkit/cld-changesets v0.5.0
 	github.com/smartcontractkit/libocr v0.0.0-20260508200755-99940c85383c
 	github.com/smartcontractkit/mcms v0.45.0
 	github.com/smartcontractkit/quarantine v0.0.0-20251203215908-fd0551c6adf9
