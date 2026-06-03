@@ -1,4 +1,4 @@
-FROM golang:1.26.4-bookworm AS builder
+FROM golang:1.26 AS builder
 
 ENV GOPRIVATE=github.com/smartcontractkit/*
 
