@@ -270,9 +270,19 @@ modgraph:
 test-short: ## Run 'go test -short' and suppress uninteresting output
 	go test -short ./... | grep -v "\[no test files\]" | grep -v "\(cached\)"
 
-.PHONY: test-core
-test-core: ## Run ./core/... tests via ./cltest
-	./cltest ./core/...
+TOOLS_TEST_BIN = tools/test/.bin/test
+TOOLS_TEST_SRCS = $(shell find tools/test -name "*.go" -not -path "*/.bin/*" 2>/dev/null)
+
+$(TOOLS_TEST_BIN): $(TOOLS_TEST_SRCS) tools/test/go.mod tools/test/go.sum
+	@go -C tools/test build -o .bin/test .
+
+.PHONY: test
+test: $(TOOLS_TEST_BIN) ## Run the testing harness. E.g. make test ARGS="./core/..."
+	@if [ -z "$(strip $(ARGS))" ]; then \
+		$(TOOLS_TEST_BIN) -h; \
+	else \
+		$(TOOLS_TEST_BIN) $(ARGS); \
+	fi
 
 .PHONY: gocs
 gocs: ## Run gocs to generate changeset markdown files.

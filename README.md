@@ -238,11 +238,11 @@ go test ./...
 
 ### New, Condensed Test Flow
 
-Use `./cltest` which handles most of the test DB setup for you in plain go (see [tools/test/README.md](tools/test/README.md) for details).
+Use `make test` which handles most of the test DB setup for you in plain go (see [tools/test/README.md](tools/test/README.md) for details).
 
 ```sh
-./cltest -h         # See full capabilities of the test harness
-./cltest ./core/... # Setup ephemeral test DB and run all tests in ./core
+make test ARGS="-h"         # See full capabilities of the test harness
+make test ./core/...       # Setup ephemeral test DB and run all tests in ./core
 ```
 
 #### Notes

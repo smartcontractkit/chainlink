@@ -4,17 +4,23 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"os"
 
 	"github.com/smartcontractkit/testrig"
 
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/db"
+	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/dbdetect"
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/dbflags"
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/output"
 )
 
 func main() {
 	testrig.Run(
-		testrig.WithRootCommand("./cltest"),
+		testrig.WithRootCommand("make test"),
+		testrig.WithHelpCommandFormatter(func(args string) string {
+			return fmt.Sprintf("make test ARGS=%q", args)
+		}),
 		// Add --database-url / --postgres-version to the root command.
 		testrig.WithRootFlags(dbflags.Register),
 		// Provide one prepared Postgres per diagnose worker (or one for run/gotestsum).
@@ -31,6 +37,23 @@ func dbProvider(ctx context.Context, count int) ([]testrig.Resource, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Statically check if Postgres is actually needed for the tests being run.
+	needsDB, err := dbdetect.NeedsPostgres(conf.RepoRoot, os.Args[1:])
+	if err != nil {
+		fmt.Printf("[dbdetect] Error checking DB need: %v. Defaulting to Postgres needed.\n", err)
+		needsDB = true
+	}
+
+	if !needsDB {
+		// Return count dummy resources so testrig has resources to assign to workers.
+		resources := make([]testrig.Resource, count)
+		for i := range count {
+			resources[i] = testrig.Resource{}
+		}
+		return resources, nil
+	}
+
 	conf.ParallelIterations = count
 	out := output.NewFromApp(conf)
 

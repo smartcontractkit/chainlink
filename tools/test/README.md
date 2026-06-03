@@ -7,34 +7,34 @@ A Go harness to run unit tests in /chainlink with a simpler flow and control sch
 The harness resolves `go test` package patterns relative to its working
 directory, so **run it from the repository root**.
 
-### `./cltest` (recommended)
+### `make test` (recommended)
 
-From the repo root, `./cltest` builds the harness (into `tools/test/.bin/cltest`, gitignored) and forwards arguments:
+From the repo root, `make test` builds the harness (into `tools/test/.bin/test`, gitignored) and forwards arguments:
 
 ```sh
-./cltest -h
-./cltest -count=1 ./core/...
-./cltest gotestsum --format=testname -- -count=1 ./core/...
-./cltest diagnose --iterations 5 --parallel-iterations 2 -- --timeout=9m ./core/...
+make test ARGS="-h"
+make test ARGS="./core/..."
+make test ARGS="diagnose ./core/..."
 ```
 
-`make test-core` is shorthand for `./cltest ./core/...`.
+`make test-core` is shorthand for `make test ARGS="./core/..."`.
+
 
 ### Direct binary (optional)
 
 Rebuild only when you change harness code:
 
 ```sh
-go -C tools/test build -o tools/test/.bin/cltest .
-tools/test/.bin/cltest -count=1 ./core/...
+go -C tools/test build -o tools/test/.bin/test .
+tools/test/.bin/test -count=1 ./core/...
 ```
 
 ### Diagnose examples
 
 ```sh
 # Stop diagnose early only when a specific signal appears
-./cltest diagnose --iterations 20 --fail-fast-on=timeout -- --timeout=9m ./core/...
-./cltest diagnose --iterations 20 --fail-fast-on=slow --slow-threshold=10s -- ./core/...
+make test ARGS="diagnose --iterations 20 --fail-fast-on=timeout -- --timeout=9m ./core/..."
+make test ARGS="diagnose --iterations 20 --fail-fast-on=slow --slow-threshold=10s -- ./core/..."
 ```
 
 > Always run from the repository root — patterns like `./core/...` are resolved
