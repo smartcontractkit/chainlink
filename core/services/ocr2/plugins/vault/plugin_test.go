@@ -108,6 +108,7 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 
 	typedRP := rp.(*ReportingPlugin)
 	assertLimit(t, cresettings.Default.VaultPluginBatchSizeLimit.DefaultValue, typedRP.cfg.MaxBatchSize)
+	assertLimit(t, cresettings.Default.VaultPendingQueueWriteSizeLimit.DefaultValue, typedRP.cfg.MaxPendingQueueWriteSize)
 	assert.NotNil(t, typedRP.cfg.PublicKey)
 	assert.NotNil(t, typedRP.cfg.PrivateKeyShare)
 	assertLimit(t, 100, typedRP.cfg.MaxSecretsPerOwner)
@@ -156,6 +157,7 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 
 	typedRP = rp.(*ReportingPlugin)
 	assertLimit(t, cresettings.Default.VaultPluginBatchSizeLimit.DefaultValue, typedRP.cfg.MaxBatchSize)
+	assertLimit(t, cresettings.Default.VaultPendingQueueWriteSizeLimit.DefaultValue, typedRP.cfg.MaxPendingQueueWriteSize)
 	assertLimit(t, 2, typedRP.cfg.MaxSecretsPerOwner)
 	assertLimit(t, 2000, typedRP.cfg.MaxCiphertextLengthBytes)
 	assertLimit(t, 64, typedRP.cfg.MaxIdentifierOwnerLengthBytes)
@@ -234,6 +236,7 @@ func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 
 	typedRP := rp.(*ReportingPlugin)
 	assertLimit(t, cresettings.Default.VaultPluginBatchSizeLimit.DefaultValue, typedRP.cfg.MaxBatchSize)
+	assertLimit(t, cresettings.Default.VaultPendingQueueWriteSizeLimit.DefaultValue, typedRP.cfg.MaxPendingQueueWriteSize)
 
 	pkBytes, err := typedRP.cfg.PublicKey.Marshal()
 	require.NoError(t, err)
