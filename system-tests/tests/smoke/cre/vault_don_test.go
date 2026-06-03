@@ -24,6 +24,7 @@ import (
 
 	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -908,6 +909,14 @@ func assertVaultOCRWireTruncationSignalsInDockerLogs(t *testing.T) {
 	if !sawObsTrunc && !sawOutcomeTrunc {
 		framework.L.Info().Msg("no observation: more pending queue items than can be observed or state transition: more observations than can be included in response in recent docker logs — observation and precursor outcome packing did not truncate in the sampled window (expected under default limits)")
 	}
+}
+
+func TestVaultOptimizationsEnabled_CRESettingDefaultsDisabled(t *testing.T) {
+	require.False(t, cresettings.Default.VaultOptimizationsEnabled.DefaultValue)
+}
+
+func TestVaultCiphertextlessObservationsEnabled_CRESettingDefaultsDisabled(t *testing.T) {
+	require.False(t, cresettings.Default.VaultCiphertextlessObservationsEnabled.DefaultValue)
 }
 
 func TestVaultStallPurgeTopology_LoadExpectedConfig(t *testing.T) {
