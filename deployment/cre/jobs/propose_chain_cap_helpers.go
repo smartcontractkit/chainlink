@@ -15,15 +15,12 @@ import (
 )
 
 type commonCapFields struct {
-	Environment          string
-	Domain               string
-	Zone                 string
-	DONName              string
-	ChainSelector        uint64
-	OCRChainSelector     uint64
-	BootstrapperOCR3Urls []string
-	OCRContractQualifier string
-	DeltaStage           time.Duration
+	Environment   string
+	Domain        string
+	Zone          string
+	DONName       string
+	ChainSelector uint64
+	DeltaStage    time.Duration
 }
 
 func validateCommonFields(f commonCapFields) error {
@@ -42,20 +39,6 @@ func validateCommonFields(f commonCapFields) error {
 	if f.ChainSelector == 0 {
 		return errors.New("chain selector is required")
 	}
-	if f.OCRChainSelector == 0 {
-		return errors.New("ocr chain selector is required")
-	}
-	if len(f.BootstrapperOCR3Urls) == 0 {
-		return errors.New("at least one bootstrapper OCR3 URL is required")
-	}
-	for i, u := range f.BootstrapperOCR3Urls {
-		if u == "" {
-			return fmt.Errorf("bootstrapper OCR3 URL at index %d is empty", i)
-		}
-	}
-	if f.OCRContractQualifier == "" {
-		return errors.New("ocr contract qualifier is required")
-	}
 	if f.DeltaStage <= 0 {
 		return fmt.Errorf("deltaStage (%s) must be greater than 0", f.DeltaStage)
 	}
@@ -68,16 +51,9 @@ type resolvedAddresses struct {
 
 func resolveContractAddresses(
 	e cldf.Environment,
-	ocrChainSelector uint64,
-	ocrQualifier string,
 	fwdChainSelector uint64,
 	fwdQualifier string,
 ) (resolvedAddresses, error) {
-	ocrAddrRefKey := pkg.GetOCR3CapabilityAddressRefKey(ocrChainSelector, ocrQualifier)
-	if _, err := e.DataStore.Addresses().Get(ocrAddrRefKey); err != nil {
-		return resolvedAddresses{}, fmt.Errorf("failed to get OCR contract address for ref key %s: %w", ocrAddrRefKey, err)
-	}
-
 	fwdAddrRefKey := pkg.GetKeystoneForwarderCapabilityAddressRefKey(fwdChainSelector, fwdQualifier)
 	fwdAddress, err := e.DataStore.Addresses().Get(fwdAddrRefKey)
 	if err != nil {
