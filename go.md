@@ -533,6 +533,7 @@ flowchart LR
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/evmread
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/httpaction
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger
+	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/solana/solread
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/solana/solwrite
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/vaultsecret
 	click chainlink/system-tests/tests href "https://github.com/smartcontractkit/chainlink"
@@ -574,6 +575,9 @@ flowchart LR
 	click chainlink/system-tests/tests/smoke/cre/httpaction href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger --> cre-sdk-go/capabilities/blockchain/solana
 	click chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests/smoke/cre/solana/solread --> cre-sdk-go/capabilities/blockchain/solana
+	chainlink/system-tests/tests/smoke/cre/solana/solread --> cre-sdk-go/capabilities/scheduler/cron
+	click chainlink/system-tests/tests/smoke/cre/solana/solread href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/smoke/cre/solana/solwrite --> cre-sdk-go/capabilities/blockchain/solana
 	chainlink/system-tests/tests/smoke/cre/solana/solwrite --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/smoke/cre/solana/solwrite href "https://github.com/smartcontractkit/chainlink"
@@ -656,6 +660,7 @@ flowchart LR
 		 chainlink/system-tests/tests/smoke/cre/evmread
 		 chainlink/system-tests/tests/smoke/cre/httpaction
 		 chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger
+		 chainlink/system-tests/tests/smoke/cre/solana/solread
 		 chainlink/system-tests/tests/smoke/cre/solana/solwrite
 		 chainlink/system-tests/tests/smoke/cre/vaultsecret
 		 chainlink/v2
