@@ -15,6 +15,7 @@ linters:
     - loggercheck
     - mirror
     - misspell
+    - modernize
     - noctx
     - nolintlint
     - perfsprint
