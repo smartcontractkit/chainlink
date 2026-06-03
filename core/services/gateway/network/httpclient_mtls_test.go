@@ -161,11 +161,11 @@ func TestHTTPClient_MtlsPresentsCertificateToServer(t *testing.T) {
 	serverPair, err := tls.X509KeyPair(serverCertPEM, serverKeyPEM)
 	require.NoError(t, err)
 
-	var peerCN string
+	peerCNCh := make(chan string, 1)
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.NotNil(t, r.TLS, "request must arrive over TLS")                          //nolint:testifylint // require should be allowed in a test file
 		require.Len(t, r.TLS.PeerCertificates, 1, "client must present exactly one cert") //nolint:testifylint // require should be allowed in a test file
-		peerCN = r.TLS.PeerCertificates[0].Subject.CommonName
+		peerCNCh <- r.TLS.PeerCertificates[0].Subject.CommonName
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("mtls-ok"))
 	}))
@@ -214,7 +214,7 @@ func TestHTTPClient_MtlsPresentsCertificateToServer(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, []byte("mtls-ok"), resp.Body)
-	require.Equal(t, "test-client", peerCN, "server must observe the supplied client certificate's CN")
+	require.Equal(t, "test-client", <-peerCNCh, "server must observe the supplied client certificate's CN")
 }
 
 // TestHTTPClient_NoMtls_RejectedByMtlsServer is the negative twin of the above:

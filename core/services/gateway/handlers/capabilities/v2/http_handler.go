@@ -138,7 +138,7 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 
 	mtlsRequestRateLimiter, err := lf.MakeRateLimiter(cresettings.Default.GatewayHTTPActionMtlsRequestRate)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create user rate limiter: %w", err)
+		return nil, fmt.Errorf("failed to create mtls rate limiter: %w", err)
 	}
 
 	metrics, err := metrics.NewMetrics(donConfig)
@@ -277,6 +277,10 @@ func (h *gatewayHandler) send(ctx context.Context, httpReq network.HTTPRequest, 
 	// The capability separately applies an org-specific check.
 	if !h.mtlsRequestRateLimiter.Allow(ctx) {
 		return nil, fmt.Errorf("global mtls request rate limit exceeded: %w", network.ErrBlockedRequest)
+	}
+
+	if h.httpClientFactory == nil {
+		return nil, errors.New("nil http client factory, cannot make mtls request")
 	}
 
 	// Instantiate a throwaway HTTP client with the provided Mtls client certificate provided.

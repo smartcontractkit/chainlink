@@ -179,7 +179,7 @@ type httpClient struct {
 }
 
 // NewHTTPClient creates a new NewHTTPClient
-// As of now, the client does not support TLS configuration but may be extended in the future
+// For mTLS support, use NewHTTPClientFactory with HTTPClientOptions.
 func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, error) {
 	return newHTTPClientWithOptions(config, HTTPClientOptions{}, lggr)
 }
@@ -194,10 +194,11 @@ func newHTTPClientWithOptions(config HTTPClientConfig, options HTTPClientOptions
 	}
 	config.ApplyDefaults()
 
-	defaultTransport, ok := http.DefaultTransport.(*http.Transport)
+	dt, ok := http.DefaultTransport.(*http.Transport)
 	if !ok {
 		return nil, errors.New("could not coerce http.DefaultTransport to *http.Transport")
 	}
+	defaultTransport := dt.Clone()
 
 	safeConfigBuilder := safeurl.
 		GetConfigBuilder().
@@ -211,23 +212,22 @@ func newHTTPClientWithOptions(config HTTPClientConfig, options HTTPClientOptions
 		SetTransport(defaultTransport)
 
 	if options.Mtls != nil {
-		dt := defaultTransport.Clone()
 		// Defence-in-depth protection against accidental reuse
 		// of the HTTP client leading to auth'd connections leaking across
 		// users.
-		dt.DisableKeepAlives = true
-		dt.TLSHandshakeTimeout = 10 * time.Second
+		defaultTransport.DisableKeepAlives = true
+		defaultTransport.TLSHandshakeTimeout = 10 * time.Second
 
 		cert, err := tls.X509KeyPair(options.Mtls.Certificate, options.Mtls.PrivateKey)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse MtlsAuth into KeyPair: %w", err)
 		}
 
-		dt.TLSClientConfig = &tls.Config{
+		defaultTransport.TLSClientConfig = &tls.Config{
 			Certificates: []tls.Certificate{cert},
 			MinVersion:   tls.VersionTLS12,
 		}
-		safeConfigBuilder.SetTransport(dt)
+		safeConfigBuilder.SetTransport(defaultTransport)
 	}
 
 	metrics, err := newHTTPClientMetrics()
