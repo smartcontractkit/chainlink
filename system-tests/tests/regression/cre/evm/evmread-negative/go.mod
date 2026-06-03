@@ -3,10 +3,10 @@ module github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/e
 go 1.26.4
 
 require (
-	github.com/ethereum/go-ethereum v1.17.1
+	github.com/ethereum/go-ethereum v1.17.2
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251022073203-7d8ae8cf67c1
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260505131349-78e491b80735
-	github.com/smartcontractkit/cre-sdk-go v1.5.0
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260521152427-d3f6dc93de42
+	github.com/smartcontractkit/cre-sdk-go v1.11.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm v0.10.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.3.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -21,7 +21,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cockroachdb/fifo v0.0.0-20240816210425-c5d0cb0b6fc0 // indirect
 	github.com/consensys/gnark-crypto v0.19.2 // indirect
-	github.com/crate-crypto/go-eth-kzg v1.4.0 // indirect
+	github.com/crate-crypto/go-eth-kzg v1.5.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/deckarep/golang-set/v2 v2.8.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
