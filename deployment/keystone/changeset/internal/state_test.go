@@ -19,7 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
 func Test_GetContractSet(t *testing.T) {
@@ -68,7 +67,7 @@ func Test_GetContractSet(t *testing.T) {
 			wantResp: &GetContractSetsResponse{
 				ContractSets: map[uint64]ContractSet{
 					chain.Selector: {
-						MCMSWithTimelockState: commonchangeset.MCMSWithTimelockState{
+						MCMSWithTimelockState: MCMSWithTimelockState{
 							MCMSWithTimelockContracts: &cldfproposalutils.MCMSWithTimelockContracts{},
 						},
 						CapabilitiesRegistry: func() *kcr.CapabilitiesRegistry {
@@ -116,7 +115,7 @@ func Test_GetContractSet(t *testing.T) {
 			wantResp: &GetContractSetsResponse{
 				ContractSets: map[uint64]ContractSet{
 					chain.Selector: {
-						MCMSWithTimelockState: commonchangeset.MCMSWithTimelockState{
+						MCMSWithTimelockState: MCMSWithTimelockState{
 							MCMSWithTimelockContracts: &cldfproposalutils.MCMSWithTimelockContracts{},
 						},
 						CapabilitiesRegistry: func() *kcr.CapabilitiesRegistry {

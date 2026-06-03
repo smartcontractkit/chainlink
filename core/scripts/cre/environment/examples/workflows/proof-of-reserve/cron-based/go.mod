@@ -1,12 +1,12 @@
 module github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based
 
-go 1.26.2
+go 1.26.3
 
 require (
 	github.com/ethereum/go-ethereum v1.17.1
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260421191147-d10b9943ac71
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260521212707-223a934ccc7a
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251222115927-36a18321243c
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260505131349-78e491b80735
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260514104516-a827acdffe43
 	github.com/smartcontractkit/cre-sdk-go v1.5.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm v0.10.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v1.3.0

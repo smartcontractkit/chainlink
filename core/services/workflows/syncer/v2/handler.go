@@ -50,7 +50,7 @@ type ORM interface {
 }
 
 // engineFactoryFn creates a workflow engine. The initDone channel is used to signal when the engine
-// has completed initialization (including trigger subscriptions). For v2 engines, this is wired to
+// has completed initialization (including capture subscriptions). For v2 engines, this is wired to
 // the OnInitialized lifecycle hook. For v1 legacy DAG engines, nil is sent immediately after engine
 // creation since they don't support async initialization hooks.
 type engineFactoryFn func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error)
@@ -907,8 +907,8 @@ func (h *eventHandler) cleanupModuleCache(workflowID string) {
 }
 
 // tryEngineCreate attempts to create a new workflow engine, start it, and register it with the engine registry.
-// This function waits for the engine to complete initialization (including trigger subscriptions) before returning,
-// ensuring that the workflowActivated event accurately reflects the deployment status including trigger registration.
+// This function waits for the engine to complete initialization (including capture subscriptions) before returning,
+// ensuring that the workflowActivated event accurately reflects the deployment status including capture registration.
 func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSpec, source string) error {
 	ctx, span := h.tracer.Start(ctx, "engine_create",
 		trace.WithAttributes(
@@ -960,7 +960,7 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	}
 
 	// Create a channel to receive the initialization result.
-	// This allows us to wait for the engine to complete initialization (including trigger subscriptions)
+	// This allows us to wait for the engine to complete initialization (including capture subscriptions)
 	// before emitting the workflowActivated event, ensuring the event accurately reflects deployment status.
 	initDone := make(chan error, 1)
 	var engine services.Service
@@ -974,7 +974,7 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		return fmt.Errorf("failed to start workflow engine: %w", err)
 	}
 
-	// Wait for the engine to complete initialization (including trigger subscriptions).
+	// Wait for the engine to complete initialization (including capture subscriptions).
 	// This ensures we don't emit workflowActivated events before the engine initializes successfully.
 	select {
 	case <-ctx.Done():
@@ -985,10 +985,10 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		return fmt.Errorf("context cancelled while waiting for engine initialization: %w", ctx.Err())
 	case initErr := <-initDone:
 		if initErr != nil {
-			// Engine initialization failed (e.g., trigger subscription failed)
+			// Engine initialization failed (e.g., capture subscription failed)
 			// TODO (cre-1482) add logic to mark a deployment as failed to avoid churn.
 			// Currently, failed deployments will be retried on each poll cycle (with exponential backoff).
-			// If the failure is due to user error (e.g., invalid trigger config), this causes unnecessary retries.
+			// If the failure is due to user error (e.g., invalid capture config), this causes unnecessary retries.
 			// Consider marking the workflow spec as "failed" in the database and requiring workflow redeployment.
 			if closeErr := engine.Close(); closeErr != nil {
 				h.lggr.Errorw("failed to close engine after initialization failure", "error", closeErr, "workflowID", spec.WorkflowID)
@@ -1089,7 +1089,7 @@ func (h *eventHandler) newV2EngineConfig(
 }
 
 // wireInitDoneHook wires the initDone channel to the OnInitialized lifecycle hook.
-// This will be called when the engine completes initialization (including trigger subscriptions).
+// This will be called when the engine completes initialization (including capture subscriptions).
 // We compose with any existing hook to avoid overwriting test hooks or other user-provided hooks.
 func (h *eventHandler) wireInitDoneHook(cfg *v2.EngineConfig, initDone chan<- error) {
 	if initDone == nil {

@@ -1,7 +1,6 @@
 package vault
 
 import (
-	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"testing"
@@ -14,7 +13,6 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
 
@@ -28,13 +26,6 @@ func generateTestKeys(t *testing.T) (*tdh2easy.PublicKey, []*tdh2easy.PrivateSha
 func encryptWithEthAddressLabel(t *testing.T, pk *tdh2easy.PublicKey, owner string) string {
 	t.Helper()
 	encrypted, err := vaultutils.EncryptSecretWithWorkflowOwner("test-secret", pk, common.HexToAddress(owner))
-	require.NoError(t, err)
-	return encrypted
-}
-
-func encryptWithOrgIDLabel(t *testing.T, pk *tdh2easy.PublicKey, orgID string) string {
-	t.Helper()
-	encrypted, err := vaultutils.EncryptSecretWithOrgID("test-secret", pk, orgID)
 	require.NoError(t, err)
 	return encrypted
 }
@@ -68,88 +59,34 @@ func TestWorkflowOwnerToLabel(t *testing.T) {
 	})
 }
 
-func TestOrgIDToLabel(t *testing.T) {
-	t.Run("org_id produces SHA256 label", func(t *testing.T) {
-		orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
-		label := vaultutils.OrgIDToLabel(orgID)
-
-		expected := sha256.Sum256([]byte(orgID))
-		assert.Equal(t, expected, label)
-	})
-
-	t.Run("short string", func(t *testing.T) {
-		orgID := "my-org-id"
-		label := vaultutils.OrgIDToLabel(orgID)
-
-		expected := sha256.Sum256([]byte(orgID))
-		assert.Equal(t, expected, label)
-	})
-}
-
 func TestEnsureRightLabelOnSecret_WorkflowOwnerOnly(t *testing.T) {
 	pk, _ := generateTestKeys(t)
 	owner := "0x0001020304050607080900010203040506070809"
 	secret := encryptWithEthAddressLabel(t, pk, owner)
 
-	err := EnsureRightLabelOnSecret(pk, secret, owner, "")
+	err := EnsureRightLabelOnSecret(pk, secret, owner)
 	assert.NoError(t, err)
 }
 
-func TestEnsureRightLabelOnSecret_OrgIDOnly(t *testing.T) {
-	pk, _ := generateTestKeys(t)
-	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
-	secret := encryptWithOrgIDLabel(t, pk, orgID)
-
-	err := EnsureRightLabelOnSecret(pk, secret, "", orgID)
-	assert.NoError(t, err)
-}
-
-func TestEnsureRightLabelOnSecret_DualMatchesWorkflowOwner(t *testing.T) {
-	pk, _ := generateTestKeys(t)
-	ethAddr := "0x0001020304050607080900010203040506070809"
-	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
-	secret := encryptWithEthAddressLabel(t, pk, ethAddr)
-
-	err := EnsureRightLabelOnSecret(pk, secret, ethAddr, orgID)
-	assert.NoError(t, err)
-}
-
-func TestEnsureRightLabelOnSecret_DualMatchesOrgID(t *testing.T) {
-	pk, _ := generateTestKeys(t)
-	ethAddr := "0x0001020304050607080900010203040506070809"
-	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
-	secret := encryptWithOrgIDLabel(t, pk, orgID)
-
-	err := EnsureRightLabelOnSecret(pk, secret, ethAddr, orgID)
-	assert.NoError(t, err)
-}
-
-func TestEnsureRightLabelOnSecret_NeitherMatches(t *testing.T) {
+func TestEnsureRightLabelOnSecret_WrongOwner(t *testing.T) {
 	pk, _ := generateTestKeys(t)
 	ethAddr := "0x0001020304050607080900010203040506070809"
 	wrongAddr := "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-	wrongOrgID := "org_wrong"
 	secret := encryptWithEthAddressLabel(t, pk, ethAddr)
-	expectedWorkflowOwnerLabelBytes := vaultutils.WorkflowOwnerToLabel(wrongAddr)
-	expectedOrgIDLabelBytes := vaultutils.OrgIDToLabel(wrongOrgID)
-	expectedWorkflowOwnerLabel := hex.EncodeToString(expectedWorkflowOwnerLabelBytes[:])
-	expectedOrgIDLabel := hex.EncodeToString(expectedOrgIDLabelBytes[:])
 
-	err := EnsureRightLabelOnSecret(pk, secret, wrongAddr, wrongOrgID)
+	err := EnsureRightLabelOnSecret(pk, secret, wrongAddr)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "does not match any of the provided owner labels")
-	assert.Contains(t, err.Error(), "expectedLabels=["+expectedWorkflowOwnerLabel+", "+expectedOrgIDLabel+"]")
+	assert.Contains(t, err.Error(), "does not match workflow owner label")
 }
 
-func TestEnsureRightLabelOnSecret_BothEmpty(t *testing.T) {
+func TestEnsureRightLabelOnSecret_EmptyOwnerRejected(t *testing.T) {
 	pk, _ := generateTestKeys(t)
 	ethAddr := "0x0001020304050607080900010203040506070809"
 	secret := encryptWithEthAddressLabel(t, pk, ethAddr)
 
-	err := EnsureRightLabelOnSecret(pk, secret, "", "")
+	err := EnsureRightLabelOnSecret(pk, secret, "")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "does not match any of the provided owner labels")
-	assert.Contains(t, err.Error(), "expectedLabels=[]")
+	assert.Contains(t, err.Error(), "owner must not be empty")
 }
 
 func TestEnsureRightLabelOnSecret_NilPublicKey(t *testing.T) {
@@ -157,14 +94,14 @@ func TestEnsureRightLabelOnSecret_NilPublicKey(t *testing.T) {
 	ethAddr := "0x0001020304050607080900010203040506070809"
 	secret := encryptWithEthAddressLabel(t, pk, ethAddr)
 
-	err := EnsureRightLabelOnSecret(nil, secret, ethAddr, "")
+	err := EnsureRightLabelOnSecret(nil, secret, ethAddr)
 	assert.NoError(t, err)
 }
 
 func TestEnsureRightLabelOnSecret_InvalidHexSecret(t *testing.T) {
 	pk, _ := generateTestKeys(t)
 
-	err := EnsureRightLabelOnSecret(pk, "not-valid-hex!", "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "")
+	err := EnsureRightLabelOnSecret(pk, "not-valid-hex!", "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to decode encrypted value")
 }
@@ -172,7 +109,7 @@ func TestEnsureRightLabelOnSecret_InvalidHexSecret(t *testing.T) {
 func TestEnsureRightLabelOnSecret_InvalidCiphertext(t *testing.T) {
 	pk, _ := generateTestKeys(t)
 
-	err := EnsureRightLabelOnSecret(pk, hex.EncodeToString([]byte("garbage")), "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "")
+	err := EnsureRightLabelOnSecret(pk, hex.EncodeToString([]byte("garbage")), "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to verify encrypted value")
 }
@@ -183,7 +120,7 @@ func TestEnsureRightLabelOnSecret_WrongPublicKey(t *testing.T) {
 	ethAddr := "0x0001020304050607080900010203040506070809"
 	secret := encryptWithEthAddressLabel(t, pk, ethAddr)
 
-	err := EnsureRightLabelOnSecret(wrongPK, secret, ethAddr, "")
+	err := EnsureRightLabelOnSecret(wrongPK, secret, ethAddr)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to verify encrypted value")
 }
@@ -193,27 +130,7 @@ func TestEnsureRightLabelOnSecret_BackwardCompatSingleOwner(t *testing.T) {
 	owner := "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"
 	secret := encryptWithEthAddressLabel(t, pk, owner)
 
-	err := EnsureRightLabelOnSecret(pk, secret, owner, "")
-	assert.NoError(t, err)
-}
-
-func TestEnsureRightLabelOnSecret_LegacySecretReadViaNewFlow(t *testing.T) {
-	pk, _ := generateTestKeys(t)
-	workflowOwner := "0x0001020304050607080900010203040506070809"
-	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
-
-	secret := encryptWithEthAddressLabel(t, pk, workflowOwner)
-	err := EnsureRightLabelOnSecret(pk, secret, workflowOwner, orgID)
-	assert.NoError(t, err)
-}
-
-func TestEnsureRightLabelOnSecret_NewSecretReadViaNewFlow(t *testing.T) {
-	pk, _ := generateTestKeys(t)
-	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
-	workflowOwner := "0x0001020304050607080900010203040506070809"
-
-	secret := encryptWithOrgIDLabel(t, pk, orgID)
-	err := EnsureRightLabelOnSecret(pk, secret, workflowOwner, orgID)
+	err := EnsureRightLabelOnSecret(pk, secret, owner)
 	assert.NoError(t, err)
 }
 
@@ -388,39 +305,6 @@ func TestRequestValidator_CiphertextSizeLimit(t *testing.T) {
 	}
 }
 
-func TestRequestValidator_ValidateCreateSecretsRequest_UsesRequestIdentityForOrgLabels(t *testing.T) {
-	pk, _ := generateTestKeys(t)
-	validator := NewRequestValidator(
-		limits.NewUpperBoundLimiter(10),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](10*pkgconfig.KByte),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
-	)
-
-	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
-	workflowOwner := "0x0001020304050607080900010203040506070809"
-	encrypted := encryptWithOrgIDLabel(t, pk, orgID)
-
-	err := validator.ValidateCreateSecretsRequest(t.Context(), pk, &vaultcommon.CreateSecretsRequest{
-		RequestId:     "request-id",
-		OrgId:         orgID,
-		WorkflowOwner: workflowOwner,
-		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
-			{
-				Id: &vaultcommon.SecretIdentifier{
-					Key:       "key",
-					Namespace: "namespace",
-					Owner:     orgID,
-				},
-				EncryptedValue: encrypted,
-			},
-		},
-	}, false)
-
-	require.NoError(t, err)
-}
-
 func TestRequestValidator_ValidateCreateSecretsRequest_FallsBackToSecretOwnerForLegacyRequests(t *testing.T) {
 	pk, _ := generateTestKeys(t)
 	validator := NewRequestValidator(
@@ -479,11 +363,10 @@ func TestValidateSecretIdentifier(t *testing.T) {
 			namespace: "main",
 		},
 		{
-			name:      "empty namespace is rejected",
+			name:      "empty namespace is allowed",
 			key:       "mykey",
 			owner:     "owner1",
 			namespace: "",
-			errSubstr: "namespace cannot be empty",
 		},
 		{
 			name:      "empty key",
@@ -1021,18 +904,18 @@ func TestRequestValidator_ValidateCreateSecretsRequest_SkipsLabelValidationWithB
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
 	)
 
-	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
-	workflowOwner := "0x0001020304050607080900010203040506070809"
-	encrypted := encryptWithOrgIDLabel(t, pk, orgID)
+	ownerA := "0x0001020304050607080900010203040506070809"
+	ownerB := "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+	// Ciphertext labeled for ownerB, but the request claims workflow owner ownerA.
+	encrypted := encryptWithEthAddressLabel(t, pk, ownerB)
 	request := &vaultcommon.CreateSecretsRequest{
-		RequestId:     "request-id",
-		WorkflowOwner: workflowOwner,
+		RequestId: "request-id",
 		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{
 				Id: &vaultcommon.SecretIdentifier{
 					Key:       "key",
 					Namespace: "namespace",
-					Owner:     workflowOwner,
+					Owner:     ownerA,
 				},
 				EncryptedValue: encrypted,
 			},
@@ -1046,7 +929,7 @@ func TestRequestValidator_ValidateCreateSecretsRequest_SkipsLabelValidationWithB
 	require.NoError(t, err)
 }
 
-func TestRequestValidator_NormalizesEmptyNamespaceOnStructs(t *testing.T) {
+func TestRequestValidator_PreservesEmptyNamespaceOnStructs(t *testing.T) {
 	validator := NewRequestValidator(
 		limits.NewUpperBoundLimiter(10),
 		limits.NewUpperBoundLimiter(1024*pkgconfig.Byte),
@@ -1059,7 +942,7 @@ func TestRequestValidator_NormalizesEmptyNamespaceOnStructs(t *testing.T) {
 		id := &vaultcommon.SecretIdentifier{Key: "k", Owner: "owner1", Namespace: ""}
 		req := &vaultcommon.GetSecretsRequest{Requests: []*vaultcommon.SecretRequest{{Id: id}}}
 		require.NoError(t, validator.ValidateGetSecretsRequest(t.Context(), req))
-		assert.Equal(t, vaulttypes.DefaultNamespace, id.Namespace)
+		assert.Empty(t, id.Namespace)
 	})
 
 	t.Run("CreateSecretsRequest", func(t *testing.T) {
@@ -1072,19 +955,19 @@ func TestRequestValidator_NormalizesEmptyNamespaceOnStructs(t *testing.T) {
 			},
 		}
 		require.NoError(t, validator.ValidateCreateSecretsRequest(t.Context(), nil, req, true))
-		assert.Equal(t, vaulttypes.DefaultNamespace, id.Namespace)
+		assert.Empty(t, id.Namespace)
 	})
 
 	t.Run("DeleteSecretsRequest", func(t *testing.T) {
 		id := &vaultcommon.SecretIdentifier{Key: "k", Owner: "owner1", Namespace: ""}
 		req := &vaultcommon.DeleteSecretsRequest{RequestId: "rid", Ids: []*vaultcommon.SecretIdentifier{id}}
 		require.NoError(t, validator.ValidateDeleteSecretsRequest(t.Context(), req))
-		assert.Equal(t, vaulttypes.DefaultNamespace, id.Namespace)
+		assert.Empty(t, id.Namespace)
 	})
 
 	t.Run("ListSecretIdentifiersRequest", func(t *testing.T) {
 		req := &vaultcommon.ListSecretIdentifiersRequest{RequestId: "rid", Owner: "owner1", Namespace: ""}
 		require.NoError(t, validator.ValidateListSecretIdentifiersRequest(t.Context(), req))
-		assert.Equal(t, vaulttypes.DefaultNamespace, req.Namespace)
+		assert.Empty(t, req.Namespace)
 	})
 }

@@ -15,7 +15,7 @@ Start with:
 ```bash
 cd core/scripts/cre/environment
 go run . env setup
-go run . env start --with-beholder
+go run . env start --with-chip-ingress-stack
 
 go test ./system-tests/tests/smoke/cre -timeout 20m -run '^Test_CRE_'
 ```

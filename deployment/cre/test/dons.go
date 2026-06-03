@@ -69,3 +69,12 @@ func (d *viewOnlyDon) AllNodes() (map[string]node, error) {
 	}
 	return out, nil
 }
+
+func (d *viewOnlyDon) Nodes() deployment.Nodes {
+	out := make(deployment.Nodes, 0, len(d.m))
+	for _, n := range d.m {
+		out = append(out, *n)
+	}
+
+	return out
+}

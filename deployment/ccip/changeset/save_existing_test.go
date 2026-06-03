@@ -5,15 +5,16 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
+
+	chainsel "github.com/smartcontractkit/chain-selectors"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	changeset2 "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -138,7 +139,7 @@ func TestSaveExistingMCMSAddressWithLabels(t *testing.T) {
 	require.True(t, exists)
 	require.Len(t, addressForChain1, 1)
 	// load mcms state
-	mcmsState, err := changeset2.MaybeLoadMCMSWithTimelockChainState(dummyEnv.BlockChains.EVMChains()[chainsel.TEST_90000001.Selector], addressForChain1)
+	mcmsState, err := evmstate.MaybeLoadMCMSWithTimelockChainState(dummyEnv.BlockChains.EVMChains()[chainsel.TEST_90000001.Selector], addressForChain1)
 	require.NoError(t, err)
 	require.NotNil(t, mcmsState)
 	require.NotNil(t, mcmsState.ProposerMcm)

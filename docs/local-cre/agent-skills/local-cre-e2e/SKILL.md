@@ -51,7 +51,7 @@ go run . env start
 go run . obs up
 ```
 
-Use `--with-beholder` on `env start` only when the test depends on the real Beholder stack or when you want Red Panda Console to debug workflow events.
+Use `--with-chip-ingress-stack` on `env start` when the test depends on the real stack, or when you want Red Panda Console to debug workflow events. (`--with-beholder` is deprecated.)
 
 ## Running E2E Tests On The Default Topology
 

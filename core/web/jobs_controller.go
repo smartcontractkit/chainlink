@@ -30,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -237,14 +236,14 @@ func (jc *JobsController) validateJobSpec(ctx context.Context, tomlString string
 		return jb, http.StatusUnprocessableEntity, errors.New("job type directrequest has been removed and is no longer supported")
 	case job.FluxMonitor:
 		return jb, http.StatusUnprocessableEntity, errors.New("job type fluxmonitor has been removed and is no longer supported")
+	case job.Webhook:
+		return jb, http.StatusUnprocessableEntity, errors.New("job type webhook has been removed and is no longer supported")
 	case job.CRESettings:
 		jb, err = cresettings.ValidatedCRESettingsSpec(tomlString)
 	case job.Cron:
 		jb, err = cron.ValidatedCronSpec(tomlString)
 	case job.VRF:
 		jb, err = vrfcommon.ValidatedVRFSpec(tomlString)
-	case job.Webhook:
-		jb, err = webhook.ValidatedWebhookSpec(ctx, tomlString, jc.App.GetExternalInitiatorManager())
 	case job.BlockhashStore:
 		jb, err = blockhashstore.ValidatedSpec(tomlString)
 	case job.BlockHeaderFeeder:

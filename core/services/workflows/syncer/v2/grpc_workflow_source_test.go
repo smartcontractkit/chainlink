@@ -398,7 +398,7 @@ func TestGRPCWorkflowSource_ContextCancellation(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx, cancel := context.WithCancel(t.Context())
 
-	// Always return unavailable to trigger retries
+	// Always return unavailable to capture retries
 	mockClient := &mockGRPCClient{
 		err: status.Error(codes.Unavailable, "server unavailable"),
 	}

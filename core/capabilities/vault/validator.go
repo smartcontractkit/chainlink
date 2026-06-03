@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
-	"strings"
 
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
@@ -32,16 +31,16 @@ type RequestValidator struct {
 }
 
 func (r *RequestValidator) ValidateCreateSecretsRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, request *vaultcommon.CreateSecretsRequest, skipLabelValidation bool) error {
-	return r.validateWriteRequest(ctx, publicKey, request.RequestId, request.OrgId, request.WorkflowOwner, request.EncryptedSecrets, skipLabelValidation)
+	return r.validateWriteRequest(ctx, publicKey, request.RequestId, request.EncryptedSecrets, skipLabelValidation)
 }
 
 func (r *RequestValidator) ValidateUpdateSecretsRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, request *vaultcommon.UpdateSecretsRequest, skipLabelValidation bool) error {
-	return r.validateWriteRequest(ctx, publicKey, request.RequestId, request.OrgId, request.WorkflowOwner, request.EncryptedSecrets, skipLabelValidation)
+	return r.validateWriteRequest(ctx, publicKey, request.RequestId, request.EncryptedSecrets, skipLabelValidation)
 }
 
 // validateWriteRequest performs common validation for CreateSecrets and UpdateSecrets requests.
 // It treats publicKey as optional, since it can be nil if the gateway nodes don't have the public key cached yet.
-func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, id string, orgID string, workflowOwner string, encryptedSecrets []*vaultcommon.EncryptedSecret, skipLabelValidation bool) error {
+func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, id string, encryptedSecrets []*vaultcommon.EncryptedSecret, skipLabelValidation bool) error {
 	if id == "" {
 		return errors.New("request ID must not be empty")
 	}
@@ -69,8 +68,6 @@ func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *
 			return errors.New("secret must have encrypted value set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
 		}
 
-		req.Id.Namespace = vaulttypes.NormalizeNamespace(req.Id.Namespace)
-
 		if err := r.ValidateSecretIdentifier(ctx, req.Id.Key, req.Id.Owner, req.Id.Namespace); err != nil {
 			return fmt.Errorf("invalid secret identifier at index %d: %w", idx, err)
 		}
@@ -82,11 +79,7 @@ func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *
 				return errors.New("Encrypted Secret at index [" + strconv.Itoa(idx) + "] is invalid. Error: " + err.Error())
 			}
 		} else {
-			expectedWorkflowOwner := workflowOwner
-			if expectedWorkflowOwner == "" && orgID == "" {
-				expectedWorkflowOwner = req.Id.Owner
-			}
-			err := EnsureRightLabelOnSecret(publicKey, req.EncryptedValue, expectedWorkflowOwner, orgID)
+			err := EnsureRightLabelOnSecret(publicKey, req.EncryptedValue, req.Id.Owner)
 			if err != nil {
 				return errors.New("Encrypted Secret at index [" + strconv.Itoa(idx) + "] doesn't have owner as the label. Error: " + err.Error())
 			}
@@ -107,6 +100,7 @@ func (r *RequestValidator) ValidateCiphertextSize(ctx context.Context, owner str
 	if err != nil {
 		return fmt.Errorf("failed to decode encrypted value: %w", err)
 	}
+	// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
 	innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: owner})
 	if err := r.MaxCiphertextLengthLimiter.Check(innerCtx, pkgconfig.Size(len(rawCiphertext))*pkgconfig.Byte); err != nil {
 		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
@@ -125,14 +119,12 @@ func (r *RequestValidator) ValidateSecretIdentifier(ctx context.Context, idKey s
 	if idOwner == "" {
 		return errors.New("owner cannot be empty")
 	}
-	if idNamespace == "" {
-		return errors.New("namespace cannot be empty")
-	}
 
-	if !isValidIDComponent(idKey) || !isValidIDComponent(idOwner) || !isValidIDComponent(idNamespace) {
+	if !isValidIDComponent(idKey) || !isValidIDComponent(idOwner) || (idNamespace != "" && !isValidIDComponent(idNamespace)) {
 		return errors.New("key, owner and namespace must only contain alphanumeric characters")
 	}
 
+	// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: idOwner})
 	if err := r.MaxIdentifierOwnerLengthLimiter.Check(ctx, pkgconfig.Size(len(idOwner))); err != nil {
 		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
@@ -176,7 +168,6 @@ func (r *RequestValidator) ValidateGetSecretsRequest(ctx context.Context, reques
 		if req.Id.Key == "" {
 			return errors.New("secret ID must have key set at index " + strconv.Itoa(idx) + ": " + req.Id.String())
 		}
-		req.Id.Namespace = vaulttypes.NormalizeNamespace(req.Id.Namespace)
 		if err := r.ValidateSecretIdentifier(ctx, req.Id.Key, req.Id.Owner, req.Id.Namespace); err != nil {
 			return fmt.Errorf("invalid secret identifier at index %d: %w", idx, err)
 		}
@@ -186,7 +177,6 @@ func (r *RequestValidator) ValidateGetSecretsRequest(ctx context.Context, reques
 }
 
 func (r *RequestValidator) ValidateListSecretIdentifiersRequest(ctx context.Context, request *vaultcommon.ListSecretIdentifiersRequest) error {
-	request.Namespace = vaulttypes.NormalizeNamespace(request.Namespace)
 	if request.RequestId == "" || request.Owner == "" {
 		return errors.New("requestID or owner must not be empty")
 	}
@@ -209,7 +199,6 @@ func (r *RequestValidator) ValidateDeleteSecretsRequest(ctx context.Context, req
 		if id == nil {
 			return errors.New("secret ID must not be nil at index " + strconv.Itoa(idx))
 		}
-		id.Namespace = vaulttypes.NormalizeNamespace(id.Namespace)
 		if err := r.ValidateSecretIdentifier(ctx, id.Key, id.Owner, id.Namespace); err != nil {
 			return fmt.Errorf("invalid secret identifier at index %d: %w", idx, err)
 		}
@@ -240,11 +229,11 @@ func NewRequestValidator(
 	}
 }
 
-// EnsureRightLabelOnSecret verifies that the TDH2 ciphertext label matches either the
-// workflowOwner (Ethereum address, left-padded) or the orgID (SHA256 hash). Either
-// parameter can be empty to skip that check. The function succeeds if the label matches
-// at least one non-empty owner.
-func EnsureRightLabelOnSecret(publicKey *tdh2easy.PublicKey, secret string, workflowOwner string, orgID string) error {
+// EnsureRightLabelOnSecret verifies that the TDH2 ciphertext label matches the workflow
+// owner label (Ethereum address, left-padded to 32 bytes). owner must be non-empty;
+// when the public key is nil, verification is skipped for the same reasons as
+// verifyEncryptedSecret.
+func EnsureRightLabelOnSecret(publicKey *tdh2easy.PublicKey, secret string, owner string) error {
 	cipherText, err := verifyEncryptedSecret(publicKey, secret)
 	if err != nil {
 		return err
@@ -252,26 +241,18 @@ func EnsureRightLabelOnSecret(publicKey *tdh2easy.PublicKey, secret string, work
 	if cipherText == nil {
 		return nil
 	}
+	if owner == "" {
+		return errors.New("owner must not be empty for secret label verification")
+	}
+
+	expected := vaultutils.WorkflowOwnerToLabel(owner)
 	secretLabel := cipherText.Label()
-	expectedLabels := make([]string, 0, 2)
-
-	if workflowOwner != "" {
-		expected := vaultutils.WorkflowOwnerToLabel(workflowOwner)
-		expectedLabels = append(expectedLabels, hex.EncodeToString(expected[:]))
-		if secretLabel == expected {
-			return nil
-		}
+	if secretLabel == expected {
+		return nil
 	}
 
-	if orgID != "" {
-		expected := vaultutils.OrgIDToLabel(orgID)
-		expectedLabels = append(expectedLabels, hex.EncodeToString(expected[:]))
-		if secretLabel == expected {
-			return nil
-		}
-	}
-
-	return errors.New("secret label [" + hex.EncodeToString(secretLabel[:]) + "] does not match any of the provided owner labels; expectedLabels=[" + strings.Join(expectedLabels, ", ") + "]")
+	return fmt.Errorf("secret label [%s] does not match workflow owner label [%s]",
+		hex.EncodeToString(secretLabel[:]), hex.EncodeToString(expected[:]))
 }
 
 func verifyEncryptedSecret(publicKey *tdh2easy.PublicKey, secret string) (*tdh2easy.Ciphertext, error) {

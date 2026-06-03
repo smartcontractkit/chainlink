@@ -103,7 +103,7 @@ func HTTPTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpNeg
 		}
 	}()
 
-	// Start Beholder listener to capture error messages
+	// Start Chip Ingress stack listener to capture error messages
 	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 

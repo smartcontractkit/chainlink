@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basicaction"
 	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basictrigger"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -218,7 +219,7 @@ func Test_Handler(t *testing.T) {
 const (
 	binaryLocation = "test/simple/cmd/testmodule.wasm"
 	binaryCmd      = "core/capabilities/compute/test/simple/cmd"
-	noTeeV2Cmd     = "core/services/workflows/test/wasm/v2/cmd"
+	noTeeV2Cmd     = "core/services/workflows/test/wasm/v2/cmd/without_tee"
 	withTeeV2Cmd   = "core/services/workflows/test/wasm/v2/cmd/with_tee"
 )
 
@@ -671,6 +672,17 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 }
 
 func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
+	payload, err := anypb.New(&basictrigger.Outputs{CoolOutput: "foo"})
+	require.NoError(t, err)
+
+	triggerResponse := commoncap.TriggerResponse{
+		Event: commoncap.TriggerEvent{
+			TriggerType: "basic-test-capture",
+			ID:          "id",
+			Payload:     payload,
+		},
+	}
+
 	t.Run("confidential workflow module is hooked correctly", func(t *testing.T) {
 		var (
 			ctx                   = t.Context()
@@ -713,25 +725,31 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 		wfStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
-		trigger := &captureTrigger{CapabilityInfo: commoncap.MustNewCapabilityInfo("basic-test-trigger@1.0.0", commoncap.CapabilityTypeCombined, "test trigger"), t: t, shouldRun: false}
+		trigger := &fireOnceTrigger{testActionBase{CapabilityInfo: commoncap.MustNewCapabilityInfo("basic-test-trigger@1.0.0", commoncap.CapabilityTypeCombined, "test capture")}, triggerResponse}
 		require.NoError(t, registry.Add(ctx, trigger))
+		action := &captureAction{
+			t:              t,
+			testActionBase: testActionBase{CapabilityInfo: commoncap.MustNewCapabilityInfo("basic-test-action@1.0.0", commoncap.CapabilityTypeCombined, "test action")},
+		}
+		require.NoError(t, registry.Add(ctx, action))
 
 		executeRequest := &sdk.ExecuteRequest{
 			Config:          config,
-			Request:         &sdk.ExecuteRequest_Subscribe{Subscribe: &emptypb.Empty{}},
+			Request:         &sdk.ExecuteRequest_Trigger{Trigger: &sdk.Trigger{Payload: payload}},
 			MaxResponseSize: 100000,
 		}
 
 		confidential := &confidentialCap{
 			CapabilityInfo: commoncap.MustNewCapabilityInfo("confidential-workflows@1.0.0-alpha", commoncap.CapabilityTypeCombined, "test confidential cap"),
 			t:              t,
-			trigger:        trigger,
 			expected: &confworkflowtypes.ConfidentialWorkflowRequest{
 				Execution: &confworkflowtypes.WorkflowExecution{
-					WorkflowId:     wfIDString,
-					BinaryHash:     v2.ComputeBinaryHash(binary),
-					ExecuteRequest: executeRequest,
-					Owner:          hex.EncodeToString(wfOwner),
+					WorkflowId:        wfIDString,
+					BinaryHash:        v2.ComputeBinaryHash(binary),
+					SdkExecuteRequest: executeRequest,
+					Owner:             hex.EncodeToString(wfOwner),
+					BinaryUrl:         binaryURL,
+					Requirements:      &sdk.Requirements{Tee: &sdk.Tee{Item: &sdk.Tee_AnyRegions{}}},
 				},
 				BinaryUrl: binaryURL,
 			},
@@ -767,7 +785,11 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 		err = h.workflowRegisteredEvent(ctx, event)
 		require.NoError(t, err)
 
-		assert.True(t, trigger.ran, "expected confidential capability to invoke the trigger")
+		assert.Eventually(t, confidential.ran.Load, 10*time.Second, time.Millisecond)
+
+		// The workflow run is delegated, and we simulate that delegation.
+		// Therefore, no callback is made during this test unless something went wrong.
+		assert.False(t, action.ran.Load())
 	})
 
 	t.Run("non-confidential workflow module is hooked correctly", func(t *testing.T) {
@@ -813,8 +835,14 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 		wfStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
-		trigger := &captureTrigger{CapabilityInfo: commoncap.MustNewCapabilityInfo("basic-test-trigger@1.0.0", commoncap.CapabilityTypeCombined, "test trigger"), t: t, shouldRun: true}
+		trigger := &fireOnceTrigger{testActionBase{CapabilityInfo: commoncap.MustNewCapabilityInfo("basic-test-trigger@1.0.0", commoncap.CapabilityTypeCombined, "test capture")}, triggerResponse}
 		require.NoError(t, registry.Add(ctx, trigger))
+		action := &captureAction{
+			t:              t,
+			testActionBase: testActionBase{CapabilityInfo: commoncap.MustNewCapabilityInfo("basic-test-action@1.0.0", commoncap.CapabilityTypeCombined, "test action")},
+		}
+		action.shouldRun.Store(true)
+		require.NoError(t, registry.Add(ctx, action))
 
 		limiters, err := v2.NewLimiters(lf, nil)
 		require.NoError(t, err)
@@ -845,81 +873,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 		err = h.workflowRegisteredEvent(ctx, event)
 		require.NoError(t, err)
 
-		assert.True(t, trigger.ran, "expected trigger to be registered for non-confidential workflow")
-	})
-
-	t.Run("malformed attributes returns error", func(t *testing.T) {
-		var (
-			ctx     = testutils.Context(t)
-			lggr    = logger.TestLogger(t)
-			lf      = limits.Factory{Logger: lggr}
-			db      = pgtest.NewSqlxDB(t)
-			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
-			emitter = custmsg.NewLabeler()
-
-			binary                = wasmtest.CreateTestBinary(binaryCmd, true, t)
-			encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
-			config                = []byte("")
-			workflowName          = testutils.RandomizeName(t.Name())
-			workflowEncryptionKey = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
-		)
-		wfOwner := testutils.NewAddress().Bytes()
-
-		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, workflowName, binary, config, "")
-		require.NoError(t, err)
-		wfIDString := hex.EncodeToString(giveWFID[:])
-
-		binaryURL := "http://example.com/" + wfIDString + "/binary"
-		configURL := "http://example.com/" + wfIDString + "/config"
-		signedURLParameter := "?auth=abc123"
-		signedBinaryURL := binaryURL + signedURLParameter
-		signedConfigURL := configURL + signedURLParameter
-
-		fetcher := newMockFetcher(map[string]mockFetchResp{
-			wfIDString + "-ARTIFACT_TYPE_BINARY": {Body: []byte(signedBinaryURL), Err: nil},
-			wfIDString + "-ARTIFACT_TYPE_CONFIG": {Body: []byte(signedConfigURL), Err: nil},
-			signedBinaryURL:                      {Body: encodedBinary, Err: nil},
-			signedConfigURL:                      {Body: config, Err: nil},
-		})
-		artifactStore, err := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), lf, artifacts.WithConfig(artifacts.StoreConfig{
-			ArtifactStorageHost: "example.com",
-		}))
-		require.NoError(t, err)
-
-		er := NewEngineRegistry()
-		wfStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
-		registry := capabilities.NewRegistry(lggr)
-		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
-		limiters, err := v2.NewLimiters(lf, nil)
-		require.NoError(t, err)
-		rl, err := ratelimiter.NewRateLimiter(rlConfig)
-		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
-		require.NoError(t, err)
-
-		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, er, emitter, limiters, nil, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
-			WithEngineRegistry(er),
-			WithEngineFactoryFn(mockEngineFactory),
-		)
-		require.NoError(t, err)
-		servicetest.Run(t, h)
-
-		event := WorkflowRegisteredEvent{
-			Status:        WorkflowStatusActive,
-			WorkflowID:    giveWFID,
-			WorkflowOwner: wfOwner,
-			WorkflowName:  workflowName,
-			WorkflowTag:   "workflow-tag",
-			BinaryURL:     binaryURL,
-			ConfigURL:     configURL,
-			Attributes:    []byte(`{not valid json`),
-		}
-
-		ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: hex.EncodeToString(wfOwner), Workflow: wfIDString})
-		err = h.workflowRegisteredEvent(ctx, event)
-
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to parse workflow attributes")
+		assert.Eventually(t, action.ran.Load, 10*time.Second, time.Millisecond)
 	})
 }
 
@@ -1634,48 +1588,74 @@ func Test_Handler_OrganizationID(t *testing.T) {
 	})
 }
 
-type captureTrigger struct {
+type testActionBase struct {
 	commoncap.CapabilityInfo
-	ran       bool
-	shouldRun bool
-	t         *testing.T
 }
 
-var _ commoncap.ExecutableAndTriggerCapability = (*captureTrigger)(nil)
+var _ commoncap.ExecutableAndTriggerCapability = (*testActionBase)(nil)
 
-func (t *captureTrigger) AckEvent(_ context.Context, _ string, _ string, _ string) error { return nil }
-func (t *captureTrigger) RegisterTrigger(_ context.Context, _ commoncap.TriggerRegistrationRequest) (<-chan commoncap.TriggerResponse, error) {
-	assert.True(t.t, t.shouldRun)
-	t.ran = true
+func (t *testActionBase) AckEvent(_ context.Context, _ string, _ string, _ string) error { return nil }
+func (t *testActionBase) RegisterTrigger(_ context.Context, _ commoncap.TriggerRegistrationRequest) (<-chan commoncap.TriggerResponse, error) {
+	panic("not implemented for this test")
+}
+func (t *testActionBase) UnregisterTrigger(_ context.Context, _ commoncap.TriggerRegistrationRequest) error {
+	return nil
+}
+
+func (t *testActionBase) RegisterToWorkflow(_ context.Context, _ commoncap.RegisterToWorkflowRequest) error {
+	return nil
+}
+
+func (t *testActionBase) UnregisterFromWorkflow(_ context.Context, _ commoncap.UnregisterFromWorkflowRequest) error {
+	return nil
+}
+
+func (t *testActionBase) Execute(_ context.Context, _ commoncap.CapabilityRequest) (commoncap.CapabilityResponse, error) {
+	panic("not implemented for this test")
+}
+
+type fireOnceTrigger struct {
+	testActionBase
+	triggerResponse commoncap.TriggerResponse
+}
+
+func (t *fireOnceTrigger) RegisterTrigger(_ context.Context, _ commoncap.TriggerRegistrationRequest) (<-chan commoncap.TriggerResponse, error) {
 	ch := make(chan commoncap.TriggerResponse, 1)
+	ch <- t.triggerResponse
 	return ch, nil
 }
-func (t *captureTrigger) UnregisterTrigger(_ context.Context, _ commoncap.TriggerRegistrationRequest) error {
-	return nil
+
+type captureAction struct {
+	ran       atomic.Bool
+	shouldRun atomic.Bool
+	t         *testing.T
+	testActionBase
 }
 
-func (t *captureTrigger) RegisterToWorkflow(_ context.Context, _ commoncap.RegisterToWorkflowRequest) error {
-	return nil
-}
+var _ commoncap.ExecutableAndTriggerCapability = (*captureAction)(nil)
 
-func (t *captureTrigger) UnregisterFromWorkflow(_ context.Context, _ commoncap.UnregisterFromWorkflowRequest) error {
-	return nil
-}
-
-func (t *captureTrigger) Execute(_ context.Context, _ commoncap.CapabilityRequest) (commoncap.CapabilityResponse, error) {
-	panic("not implemented for this test")
+func (t *captureAction) Execute(_ context.Context, _ commoncap.CapabilityRequest) (commoncap.CapabilityResponse, error) {
+	assert.True(t.t, t.shouldRun.Load(), "Execute was called when it should not have been")
+	t.ran.Store(true)
+	result, err := anypb.New(&basicaction.Outputs{AdaptedThing: "result"})
+	require.NoError(t.t, err)
+	return commoncap.CapabilityResponse{Payload: result}, nil
 }
 
 type confidentialCap struct {
 	commoncap.CapabilityInfo
 	t        *testing.T
-	trigger  *captureTrigger
+	ran      atomic.Bool
 	expected *confworkflowtypes.ConfidentialWorkflowRequest
 }
 
 func (c *confidentialCap) Execute(_ context.Context, _ commoncap.RequestMetadata, input *confworkflowtypes.ConfidentialWorkflowRequest) (*commoncap.ResponseAndMetadata[*confworkflowtypes.ConfidentialWorkflowResponse], caperrors.Error) {
+	// execution ID differs on every run.
+	assert.NotEmpty(c.t, input.Execution.ExecutionId)
+	input.Execution.ExecutionId = ""
+
 	assert.True(c.t, proto.Equal(c.expected, input), "WorkflowExecution mismatch")
-	c.trigger.ran = true
+	c.ran.Store(true)
 
 	triggerPayload, err := anypb.New(&basictrigger.Config{Name: "test", Number: 0})
 	require.NoError(c.t, err)
@@ -1684,7 +1664,7 @@ func (c *confidentialCap) Execute(_ context.Context, _ commoncap.RequestMetadata
 			TriggerSubscriptions: &sdk.TriggerSubscriptionRequest{
 				Subscriptions: []*sdk.TriggerSubscription{
 					{
-						Id:      "basic-test-trigger@1.0.0",
+						Id:      "basic-test-capture@1.0.0",
 						Payload: triggerPayload,
 						Method:  "Trigger",
 					},
@@ -1694,7 +1674,7 @@ func (c *confidentialCap) Execute(_ context.Context, _ commoncap.RequestMetadata
 	}
 
 	return &commoncap.ResponseAndMetadata[*confworkflowtypes.ConfidentialWorkflowResponse]{
-		Response: &confworkflowtypes.ConfidentialWorkflowResponse{ExecutionResult: execResult},
+		Response: &confworkflowtypes.ConfidentialWorkflowResponse{SdkExecutionResult: execResult},
 	}, nil
 }
 

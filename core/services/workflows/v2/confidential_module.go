@@ -98,13 +98,14 @@ func (m *ConfidentialModule) Execute(
 
 	capInput := &confworkflowtypes.ConfidentialWorkflowRequest{
 		Execution: &confworkflowtypes.WorkflowExecution{
-			WorkflowId:     m.workflowID,
-			BinaryHash:     m.binaryHash,
-			ExecuteRequest: request,
-			Owner:          m.workflowOwner,
-			ExecutionId:    helper.GetWorkflowExecutionID(),
-			OrgId:          contexts.CREValue(ctx).Org,
-			Requirements:   requirements,
+			WorkflowId:        m.workflowID,
+			BinaryHash:        m.binaryHash,
+			SdkExecuteRequest: request,
+			Owner:             m.workflowOwner,
+			ExecutionId:       helper.GetWorkflowExecutionID(),
+			OrgId:             contexts.CREValue(ctx).Org,
+			Requirements:      requirements,
+			BinaryUrl:         m.binaryURL,
 		},
 		BinaryUrl: m.binaryURL,
 	}
@@ -114,7 +115,7 @@ func (m *ConfidentialModule) Execute(
 		return nil, err
 	}
 
-	return capOutput.ExecutionResult, nil
+	return capOutput.SdkExecutionResult, nil
 }
 
 func (m *ConfidentialModule) SetRequirements(executionId string, requirements *sdkpb.Requirements) {

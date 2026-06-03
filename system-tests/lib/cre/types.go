@@ -393,6 +393,7 @@ func (c *ConfigureCapabilityRegistryInput) Validate() error {
 type GatewayServiceAuth0Config struct {
 	IssuerURL string `yaml:"issuerURL" toml:"issuerURL" json:"issuerURL"`
 	Audience  string `yaml:"audience" toml:"audience" json:"audience"`
+	TenantID  uint64 `yaml:"tenantID" toml:"tenantID" json:"tenantID"`
 }
 
 type GatewayServiceConfig struct {

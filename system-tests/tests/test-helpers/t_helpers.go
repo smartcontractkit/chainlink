@@ -52,6 +52,7 @@ import (
 	aptoswriteroundtrip_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip/config"
 	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
 	logtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/logtrigger/config"
+	sollogtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger/config"
 	solwrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite/config"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 
@@ -131,14 +132,14 @@ func GetEVMEnabledChains(t *testing.T, testEnv *ttypes.TestEnvironment) map[stri
 }
 
 /*
-Starts Beholder
-Recommendation: Use it in tests that need to listen for Beholder messages.
+Starts ChipIngressStack (Kafka listener for workflow messages from the local Chip Ingress stack).
+Recommendation: Use it in tests that need to listen for Chip Ingress stack messages.
 */
-func StartBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.TestEnvironment) (context.Context, <-chan proto.Message, <-chan error) {
+func StartChipIngressStack(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.TestEnvironment) (context.Context, <-chan proto.Message, <-chan error) {
 	t.Helper()
 
-	beholder, err := NewBeholder(framework.L, testEnv.TestConfig)
-	require.NoError(t, err, "failed to create beholder instance")
+	stack, err := NewChipIngressStack(framework.L, testEnv.TestConfig)
+	require.NoError(t, err, "failed to create chip ingress stack instance")
 
 	// We are interested in UserLogs (successful execution)
 	// or BaseMessage with specific error message (engine initialization failure)
@@ -152,32 +153,32 @@ func StartBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.Test
 	}
 
 	timeout := 5 * time.Minute
-	testLogger.Info().Dur("timeout", timeout).Msg("Starting Beholder listener...")
+	testLogger.Info().Dur("timeout", timeout).Msg("Starting Chip Ingress stack listener...")
 	listenerCtx, cancelListener := context.WithTimeout(t.Context(), timeout)
 	t.Cleanup(func() {
 		cancelListener()
-		testLogger.Info().Msg("Beholder listener stopped.")
+		testLogger.Info().Msg("Chip Ingress stack listener stopped.")
 	})
 
-	beholderMsgChan, beholderErrChan := beholder.SubscribeToBeholderMessages(listenerCtx, messageTypes)
+	msgChan, errChan := stack.SubscribeToChipIngressStackMessages(listenerCtx, messageTypes)
 
 	// Fail fast if there is an error from the heartbeat validation subscription
 	select {
-	case err := <-beholderErrChan:
-		require.NoError(t, err, "Beholder subscription failed during initialization")
+	case err := <-errChan:
+		require.NoError(t, err, "Chip Ingress stack subscription failed during initialization")
 	default:
 		// No immediate error, proceed
 	}
 
-	testLogger.Info().Msg("Beholder listener ready")
-	return listenerCtx, beholderMsgChan, beholderErrChan
+	testLogger.Info().Msg("Chip Ingress stack listener ready")
+	return listenerCtx, msgChan, errChan
 }
 
 /*
-Asserts that a specific log message is received from a Beholder within a timeout period.
+Asserts that a specific log message is received from the Chip Ingress stack within a timeout period.
 Returns an error if found in error channel or timeouts if a log message is not received.
 */
-func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string, testLogger zerolog.Logger, messageChan <-chan proto.Message, kafkaErrChan <-chan error, timeout time.Duration) error {
+func AssertChipIngressStackMessage(ctx context.Context, t *testing.T, expectedLog string, testLogger zerolog.Logger, messageChan <-chan proto.Message, kafkaErrChan <-chan error, timeout time.Duration) error {
 	foundExpectedLog := make(chan bool, 1) // Channel to signal when expected log is found
 	foundErrorLog := make(chan bool, 1)    // Channel to signal when engine initialization failure is detected
 	receivedUserLogs := 0
@@ -196,7 +197,7 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 						foundErrorLog <- true
 					}
 				case *workflowevents.UserLogs:
-					testLogger.Info().Msg("➡️ Beholder message received in test. Asserting...")
+					testLogger.Info().Msg("➡️ Chip Ingress stack message received in test. Asserting...")
 					receivedUserLogs++
 
 					for _, logLine := range typedMsg.LogLines {
@@ -237,8 +238,8 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 		testLogger.Info().Str("expected_log", expectedLog).Msg("✅ Test completed successfully - found expected user log message!")
 		return nil
 	case <-foundErrorLog:
-		testLogger.Warn().Msg("beholder found engine initialization failure message! (may be expected in negative tests)")
-		return errors.New("beholder message validation completed with error: found engine initialization failure message")
+		testLogger.Warn().Msg("chip ingress stack found engine initialization failure message! (may be expected in negative tests)")
+		return errors.New("chip ingress stack message validation completed with error: found engine initialization failure message")
 	case <-time.After(timeout):
 		testLogger.Error().Str("expected_log", expectedLog).Msg("Timed out waiting for expected user log message")
 		if receivedUserLogs > 0 {
@@ -248,7 +249,7 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 		}
 		require.Failf(t, "Timed out waiting for the expected user log message (or error)", "Expected user log message: '%s' not found after %s", expectedLog, timeout.String())
 	case err := <-kafkaErrChan:
-		testLogger.Error().Err(err).Msg("Kafka listener encountered an error during execution. Ensure Beholder is running and accessible.")
+		testLogger.Error().Err(err).Msg("Kafka listener encountered an error during execution. Ensure Chip Ingress stack is running and accessible.")
 		require.Fail(t, "Kafka listener failed", err.Error())
 	}
 	return nil
@@ -306,6 +307,7 @@ type WorkflowConfig interface {
 		httpaction_smoke_config.Config |
 		httpaction_negative_config.Config |
 		solwrite_config.Config |
+		sollogtrigger_config.Config |
 		vaultsecret_config.Config
 }
 
@@ -490,7 +492,11 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create solwrite workflow config file")
 			testLogger.Info().Msg("Solana write workflow config file created.")
-
+		case *sollogtrigger_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create solana logtrigger workflow config file")
+			testLogger.Info().Msg("Solana log trigger workflow config file created.")
 		case *vaultsecret_config.Config:
 			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath

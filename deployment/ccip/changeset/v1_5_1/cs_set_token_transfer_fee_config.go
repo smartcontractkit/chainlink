@@ -14,9 +14,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 )
 
 var _ cldf.ChangeSetV2[SetTokenTransferFeeConfig] = SetTokenTransferFeeConfigChangeset

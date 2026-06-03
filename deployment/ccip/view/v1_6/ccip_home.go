@@ -7,8 +7,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	libocrtypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
@@ -234,20 +232,7 @@ func populateDecodedOCRParams(config *CCIPHomeOCR3Config, ccipHomeCfg ccip_home.
 	if ccipHomeCfg.ConfigDigest == [32]byte{} {
 		return nil
 	}
-	signers := make([]ocrtypes.OnchainPublicKey, 0)
-	transmitters := make([]ocrtypes.Account, 0)
-	for _, node := range ccipHomeCfg.Config.Nodes {
-		signers = append(signers, node.SignerKey)
-		transmitters = append(transmitters, ocrtypes.Account(node.TransmitterKey))
-	}
-	publicConfig, err := ocr3confighelper.PublicConfigFromContractConfig(false, ocrtypes.ContractConfig{
-		Signers:               signers,
-		Transmitters:          transmitters,
-		F:                     config.FRoleDON,
-		OnchainConfig:         []byte{}, // empty OnChainConfig
-		OffchainConfigVersion: config.OffchainConfigVersion,
-		OffchainConfig:        ccipHomeCfg.Config.OffchainConfig,
-	})
+	publicConfig, err := PublicConfigFromCCIPHome(ccipHomeCfg)
 	if err != nil {
 		return fmt.Errorf("failed to decode offchain config: %w", err)
 	}

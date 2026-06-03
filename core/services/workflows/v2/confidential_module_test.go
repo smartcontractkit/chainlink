@@ -112,7 +112,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 		},
 	}
 
-	confResp := &confworkflowtypes.ConfidentialWorkflowResponse{ExecutionResult: expectedResult}
+	confResp := &confworkflowtypes.ConfidentialWorkflowResponse{SdkExecutionResult: expectedResult}
 	respPayload, err := anypb.New(confResp)
 	require.NoError(t, err)
 
@@ -231,7 +231,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 		assert.Equal(t, "https://example.com/wasm", confReq.Execution.BinaryUrl)
 		assert.Equal(t, binaryHash, confReq.Execution.BinaryHash)
 
-		assert.Equal(t, execReq.GetConfig(), confReq.Execution.ExecuteRequest.GetConfig())
+		assert.Equal(t, execReq.GetConfig(), confReq.Execution.SdkExecuteRequest.GetConfig())
 	})
 }
 
@@ -398,7 +398,7 @@ func TestConfidentialModule_SetRequirements(t *testing.T) {
 		},
 	}
 
-	confResp := &confworkflowtypes.ConfidentialWorkflowResponse{ExecutionResult: expectedResult}
+	confResp := &confworkflowtypes.ConfidentialWorkflowResponse{SdkExecutionResult: expectedResult}
 	respPayload, err := anypb.New(confResp)
 	require.NoError(t, err)
 

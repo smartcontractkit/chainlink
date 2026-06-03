@@ -130,9 +130,17 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		require.NoError(t, err)
 
 		select {
-		case <-req.ResponseChan():
-			t.Fatal("expected no response")
+		case resp := <-req.ResponseChan():
+			require.Error(t, resp.Err)
+			var capErr caperrors.Error
+			require.ErrorAs(t, resp.Err, &capErr)
+			require.Equal(t, caperrors.OriginSystem, capErr.Origin())
+			require.Equal(t, caperrors.ConsensusFailed, capErr.Code())
+			assert.Contains(t, capErr.Error(),
+				"[100]ConsensusFailed: response quorum unreachable: not enough matching capability responses: received 2/2 peer responses with 2 unique payloads; best match count 1, need 2 (0 responses pending)")
+
 		default:
+			t.Fatal("expected early quorum unreachable response")
 		}
 	})
 
