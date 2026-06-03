@@ -18,9 +18,6 @@ import (
 func main() {
 	testrig.Run(
 		testrig.WithRootCommand("make test"),
-		testrig.WithHelpCommandFormatter(func(args string) string {
-			return fmt.Sprintf("make test ARGS=%q", args)
-		}),
 		// Add --database-url / --postgres-version to the root command.
 		testrig.WithRootFlags(dbflags.Register),
 		// Provide one prepared Postgres per diagnose worker (or one for run/gotestsum).

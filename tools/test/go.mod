@@ -1,15 +1,12 @@
 module github.com/smartcontractkit/chainlink/v2/tools/test
 
-go 1.26.3
-
-// DEBUG: Local check
-replace github.com/smartcontractkit/testrig => /Users/adamhamrick/Projects/testrig
+go 1.26.4
 
 require (
 	charm.land/lipgloss/v2 v2.0.3
 	github.com/charmbracelet/x/term v0.2.2
 	github.com/jackc/pgx/v5 v5.9.2
-	github.com/smartcontractkit/testrig v0.0.2
+	github.com/smartcontractkit/testrig v0.0.4
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.42.0
