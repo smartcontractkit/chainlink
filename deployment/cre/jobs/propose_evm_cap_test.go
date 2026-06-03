@@ -42,14 +42,6 @@ type evmCapTestSetup struct {
 	baseInput    jobs.ProposeEVMCapJobSpecInput
 }
 
-func freshChainReadBase(ocrSel uint64) jobs.ChainReadCapabilityJobSpecInput {
-	return jobs.ChainReadCapabilityJobSpecInput{
-		OCRChainSelector:     ocrSel,
-		BootstrapperOCR3Urls: []string{"12D3KooWabc@127.0.0.1:5001"},
-		OCRContractQualifier: testOCRQualifier,
-	}
-}
-
 func setupEVMCapTest(t *testing.T) evmCapTestSetup {
 	t.Helper()
 
@@ -94,16 +86,18 @@ func setupEVMCapTest(t *testing.T) evmCapTestSetup {
 	rt := runtime.NewFromEnvironment(env)
 
 	baseInput := jobs.ProposeEVMCapJobSpecInput{
-		Environment:                     test.EnvironmentName,
-		Zone:                            test.Zone,
-		Domain:                          "cre",
-		DONName:                         test.DONName,
-		ChainSelector:                   selector,
-		ChainReadCapabilityJobSpecInput: freshChainReadBase(h.RegistrySelector),
-		ForwardersQualifier:             testForwarderQualifier,
-		ForwarderLookbackBlocks:         123,
-		DeltaStage:                      time.Second,
-		EVMCapabilityInputs:             evmCapInputs,
+		Environment:             test.EnvironmentName,
+		Zone:                    test.Zone,
+		Domain:                  "cre",
+		DONName:                 test.DONName,
+		ChainSelector:           selector,
+		OCRChainSelector:        selector,
+		BootstrapperOCR3Urls:    []string{"12D3KooWabc@127.0.0.1:5001"},
+		OCRContractQualifier:    testOCRQualifier,
+		ForwardersQualifier:     testForwarderQualifier,
+		ForwarderLookbackBlocks: 123,
+		DeltaStage:              time.Second,
+		EVMCapabilityInputs:     evmCapInputs,
 	}
 
 	return evmCapTestSetup{
@@ -131,23 +125,21 @@ func deepCloneInput(in jobs.ProposeEVMCapJobSpecInput) jobs.ProposeEVMCapJobSpec
 
 func freshBase(selector uint64) jobs.ProposeEVMCapJobSpecInput {
 	return jobs.ProposeEVMCapJobSpecInput{
-		Environment:   test.EnvironmentName,
-		Zone:          test.Zone,
-		Domain:        "cre",
-		DONName:       test.DONName,
-		ChainSelector: selector,
-		ChainReadCapabilityJobSpecInput: jobs.ChainReadCapabilityJobSpecInput{
-			OCRChainSelector:     selector,
-			BootstrapperOCR3Urls: []string{"12D3KooWxyz@127.0.0.1:5001"},
-			OCRContractQualifier: testOCRQualifier,
-		},
-		ForwardersQualifier: testForwarderQualifier,
-		DeltaStage:          time.Second,
-		EVMCapabilityInputs: []jobs.EVMCapabilityInput{minimalEVMCapInput("peer-1")},
+		Environment:          test.EnvironmentName,
+		Zone:                 test.Zone,
+		Domain:               "cre",
+		DONName:              test.DONName,
+		ChainSelector:        selector,
+		OCRChainSelector:     selector,
+		BootstrapperOCR3Urls: []string{"12D3KooWxyz@127.0.0.1:5001"},
+		OCRContractQualifier: testOCRQualifier,
+		ForwardersQualifier:  testForwarderQualifier,
+		DeltaStage:           time.Second,
+		EVMCapabilityInputs:  []jobs.EVMCapabilityInput{minimalEVMCapInput("peer-1")},
 	}
 }
 
-func seedOCRContract(t *testing.T, ds *datastore.MemoryDataStore, sel uint64, ocrAddr string) {
+func seedAddressesForSelector(t *testing.T, ds *datastore.MemoryDataStore, sel uint64, ocrAddr, fwdAddr string) {
 	t.Helper()
 	require.NoError(t, ds.Addresses().Add(datastore.AddressRef{
 		ChainSelector: sel,
@@ -156,11 +148,6 @@ func seedOCRContract(t *testing.T, ds *datastore.MemoryDataStore, sel uint64, oc
 		Address:       ocrAddr,
 		Qualifier:     testOCRQualifier,
 	}))
-}
-
-func seedAddressesForSelector(t *testing.T, ds *datastore.MemoryDataStore, sel uint64, ocrAddr, fwdAddr string) {
-	t.Helper()
-	seedOCRContract(t, ds, sel, ocrAddr)
 	require.NoError(t, ds.Addresses().Add(datastore.AddressRef{
 		ChainSelector: sel,
 		Type:          testForwarderContractType,
@@ -181,18 +168,16 @@ func TestProposeEVMCapJobSpec_VerifyPreconditions_success(t *testing.T) {
 	env.DataStore = ds.Seal()
 
 	in := jobs.ProposeEVMCapJobSpecInput{
-		Environment:   test.EnvironmentName,
-		Zone:          test.Zone,
-		Domain:        "cre",
-		DONName:       test.DONName,
-		ChainSelector: chain.Selector,
-		ChainReadCapabilityJobSpecInput: jobs.ChainReadCapabilityJobSpecInput{
-			OCRChainSelector:     chain.Selector,
-			BootstrapperOCR3Urls: []string{"12D3KooWxyz@127.0.0.1:5001"},
-			OCRContractQualifier: testOCRQualifier,
-		},
-		ForwardersQualifier: testForwarderQualifier,
-		DeltaStage:          time.Second,
+		Environment:          test.EnvironmentName,
+		Zone:                 test.Zone,
+		Domain:               "cre",
+		DONName:              test.DONName,
+		ChainSelector:        chain.Selector,
+		OCRChainSelector:     chain.Selector,
+		BootstrapperOCR3Urls: []string{"12D3KooWxyz@127.0.0.1:5001"},
+		OCRContractQualifier: testOCRQualifier,
+		ForwardersQualifier:  testForwarderQualifier,
+		DeltaStage:           time.Second,
 		EVMCapabilityInputs: []jobs.EVMCapabilityInput{
 			minimalEVMCapInput("peer-1"),
 			minimalEVMCapInput("peer-2"),

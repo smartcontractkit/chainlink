@@ -5,10 +5,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 	tenv "github.com/smartcontractkit/chainlink/deployment/environment/test"
 
@@ -22,6 +24,8 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 )
 
+const testAptosOCRQualifier = "aptos-ocr-qualifier"
+
 func minimalAptosCapInput(nodeID string) jobs.AptosCapabilityInput {
 	return jobs.AptosCapabilityInput{
 		NodeID:             nodeID,
@@ -31,19 +35,27 @@ func minimalAptosCapInput(nodeID string) jobs.AptosCapabilityInput {
 
 func seedAptosAddresses(t *testing.T, ds *datastore.MemoryDataStore, ocrSel uint64, ocrAddr string) {
 	t.Helper()
-	seedOCRContract(t, ds, ocrSel, ocrAddr)
+	require.NoError(t, ds.Addresses().Add(datastore.AddressRef{
+		ChainSelector: ocrSel,
+		Type:          datastore.ContractType(ocr3.OCR3Capability),
+		Version:       semver.MustParse("1.0.0"),
+		Address:       ocrAddr,
+		Qualifier:     testAptosOCRQualifier,
+	}))
 }
 
 func freshAptosBase(ocrSel, aptosSel uint64) jobs.ProposeAptosCapJobSpecInput {
 	return jobs.ProposeAptosCapJobSpecInput{
-		Environment:                     test.EnvironmentName,
-		Zone:                            test.Zone,
-		Domain:                          "cre",
-		DONName:                         test.DONName,
-		ChainSelector:                   aptosSel,
-		ChainReadCapabilityJobSpecInput: freshChainReadBase(ocrSel),
-		CREForwarderAddress:             "0x2222222222222222222222222222222222222222222222222222222222222222",
-		DeltaStage:                      10 * time.Second,
+		Environment:          test.EnvironmentName,
+		Zone:                 test.Zone,
+		Domain:               "cre",
+		DONName:              test.DONName,
+		ChainSelector:        aptosSel,
+		OCRChainSelector:     ocrSel,
+		BootstrapperOCR3Urls: []string{"12D3KooWxyz@127.0.0.1:5001"},
+		OCRContractQualifier: testAptosOCRQualifier,
+		CREForwarderAddress:  "0x2222222222222222222222222222222222222222222222222222222222222222",
+		DeltaStage:           10 * time.Second,
 		AptosCapabilityInputs: []jobs.AptosCapabilityInput{
 			minimalAptosCapInput("peer-1"),
 		},
@@ -241,16 +253,18 @@ func setupAptosCapTest(t *testing.T) aptosCapTestSetup {
 	rt := runtime.NewFromEnvironment(env)
 
 	baseInput := jobs.ProposeAptosCapJobSpecInput{
-		Environment:                     test.EnvironmentName,
-		Zone:                            test.Zone,
-		Domain:                          "cre",
-		DONName:                         test.DONName,
-		ChainSelector:                   aptosSel,
-		ChainReadCapabilityJobSpecInput: freshChainReadBase(ocrSel),
-		CREForwarderAddress:             "0x2222222222222222222222222222222222222222222222222222222222222222",
-		DeltaStage:                      time.Second,
-		TxSearchStartingBuffer:          30 * time.Second,
-		AptosCapabilityInputs:           aptosCapInputs,
+		Environment:            test.EnvironmentName,
+		Zone:                   test.Zone,
+		Domain:                 "cre",
+		DONName:                test.DONName,
+		ChainSelector:          aptosSel,
+		OCRChainSelector:       ocrSel,
+		BootstrapperOCR3Urls:   []string{"12D3KooWabc@127.0.0.1:5001"},
+		OCRContractQualifier:   testAptosOCRQualifier,
+		CREForwarderAddress:    "0x2222222222222222222222222222222222222222222222222222222222222222",
+		DeltaStage:             time.Second,
+		TxSearchStartingBuffer: 30 * time.Second,
+		AptosCapabilityInputs:  aptosCapInputs,
 	}
 
 	return aptosCapTestSetup{

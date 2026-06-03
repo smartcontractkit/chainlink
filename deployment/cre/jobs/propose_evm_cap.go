@@ -25,7 +25,6 @@ const (
 )
 
 type OverrideDefaultCfg struct {
-	ChainReadCapabilityConfig
 	ChainID                         uint64 `json:"chainId,omitempty" yaml:"chainId,omitempty"`
 	Network                         string `json:"network,omitempty" yaml:"network,omitempty"`
 	LogTriggerPollInterval          uint64 `json:"logTriggerPollInterval,omitempty" yaml:"logTriggerPollInterval,omitempty"`
@@ -38,8 +37,12 @@ type OverrideDefaultCfg struct {
 	DeltaStage time.Duration `json:"deltaStage" yaml:"deltaStage,omitempty"`
 	// ReceiverGasMinimum is the minimum amount of gas that the receiver contract must get to process the forwarder report.
 	// This is the default value used when the user doesn't specify a gas limit when invoking WriteReport.
-	ReceiverGasMinimum uint64 `json:"receiverGasMinimum,omitempty" yaml:"receiverGasMinimum,omitempty"`
-	NodeAddress        string `json:"nodeAddress,omitempty" yaml:"nodeAddress,omitempty"`
+	ReceiverGasMinimum            uint64        `json:"receiverGasMinimum,omitempty" yaml:"receiverGasMinimum,omitempty"`
+	NodeAddress                   string        `json:"nodeAddress,omitempty" yaml:"nodeAddress,omitempty"`
+	ObservationPollerWorkersCount uint          `json:"observationPollerWorkersCount,omitempty" yaml:"observationPollerWorkersCount,omitempty"`
+	ObservationPollPeriod         time.Duration `json:"observationPollPeriod,omitempty" yaml:"observationPollPeriod,omitempty"`
+	ChainHeightPollPeriod         time.Duration `json:"chainHeightPollPeriod,omitempty" yaml:"chainHeightPollPeriod,omitempty"`
+	UnknownRequestsTTL            time.Duration `json:"unknownRequestsTTL,omitempty" yaml:"unknownRequestsTTL,omitempty"`
 }
 
 type EVMCapabilityInput struct {
@@ -53,9 +56,11 @@ type ProposeEVMCapJobSpecInput struct {
 	Domain      string `json:"domain" yaml:"domain"`
 	DONName     string `json:"donName" yaml:"donName"`
 
-	ChainReadCapabilityJobSpecInput
-	ChainSelector       uint64 `json:"chainSelector" yaml:"chainSelector"`
-	ForwardersQualifier string `json:"forwardersContractQualifier" yaml:"forwardersContractQualifier"`
+	ChainSelector        uint64   `json:"chainSelector" yaml:"chainSelector"`
+	BootstrapperOCR3Urls []string `json:"bootstrapperOCR3Urls" yaml:"bootstrapperOCR3Urls"`
+	OCRContractQualifier string   `json:"ocrContractQualifier" yaml:"ocrContractQualifier"`
+	OCRChainSelector     uint64   `json:"ocrChainSelector" yaml:"ocrChainSelector"`
+	ForwardersQualifier  string   `json:"forwardersContractQualifier" yaml:"forwardersContractQualifier"`
 	// ForwarderLookbackBlocks defines how many blocks back to search for the ReportProcessed event (default 100)
 	ForwarderLookbackBlocks int64 `json:"forwarderLookbackBlocks" yaml:"forwarderLookbackBlocks,omitempty"`
 	// DeltaStage is the time delay between sequential transmissions in staggered transmission scheduling.
@@ -77,12 +82,15 @@ func (u ProposeEVMCapJobSpec) VerifyPreconditions(e cldf.Environment, input Prop
 	}
 
 	if err := validateCommonFields(commonCapFields{
-		Environment:   input.Environment,
-		Domain:        input.Domain,
-		Zone:          input.Zone,
-		DONName:       input.DONName,
-		ChainSelector: input.ChainSelector,
-		DeltaStage:    input.DeltaStage,
+		Environment:          input.Environment,
+		Domain:               input.Domain,
+		Zone:                 input.Zone,
+		DONName:              input.DONName,
+		ChainSelector:        input.ChainSelector,
+		OCRChainSelector:     input.OCRChainSelector,
+		BootstrapperOCR3Urls: input.BootstrapperOCR3Urls,
+		OCRContractQualifier: input.OCRContractQualifier,
+		DeltaStage:           input.DeltaStage,
 	}); err != nil {
 		return err
 	}
@@ -96,14 +104,9 @@ func (u ProposeEVMCapJobSpec) VerifyPreconditions(e cldf.Environment, input Prop
 		return fmt.Errorf("failed to get chainID from selector: %w", err)
 	}
 
-	resolved, err := resolveContractAddresses(e, input.ChainSelector, input.ForwardersQualifier)
+	resolved, err := resolveContractAddresses(e, input.OCRChainSelector, input.OCRContractQualifier, input.ChainSelector, input.ForwardersQualifier)
 	if err != nil {
 		return err
-	}
-
-	err = VerifyChainReadCapabilityPreconditions(e, input.ChainReadCapabilityJobSpecInput)
-	if err != nil {
-		return fmt.Errorf("chain read capability preconditions not met: %w", err)
 	}
 
 	for _, evmCapInput := range input.EVMCapabilityInputs {
@@ -173,7 +176,7 @@ func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSp
 		BootstrapPeers:        input.BootstrapperOCR3Urls,
 	}
 
-	resolved, err := resolveContractAddresses(e, input.ChainSelector, input.ForwardersQualifier)
+	resolved, err := resolveContractAddresses(e, input.OCRChainSelector, input.OCRContractQualifier, input.ChainSelector, input.ForwardersQualifier)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

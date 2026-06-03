@@ -59,17 +59,16 @@ func solanaCapInput(nodeID, transmitter string) jobs.SolanaCapabilityInput {
 	}
 }
 
-func freshSolanaBase(registrySel, solSel uint64) jobs.ProposeSolanaJobSpecInput {
+func freshSolanaBase(solSel uint64) jobs.ProposeSolanaJobSpecInput {
 	return jobs.ProposeSolanaJobSpecInput{
-		Environment:                     test.EnvironmentName,
-		Zone:                            test.Zone,
-		Domain:                          "cre",
-		DONName:                         test.DONName,
-		ChainSelector:                   solSel,
-		DeltaStage:                      10 * time.Second,
-		ForwardersQualifier:             testSolSolanaFwdQualifier,
-		ForwarderVersion:                testSolanaForwarderVersion,
-		ChainReadCapabilityJobSpecInput: freshChainReadBase(registrySel),
+		Environment:         test.EnvironmentName,
+		Zone:                test.Zone,
+		Domain:              "cre",
+		DONName:             test.DONName,
+		ChainSelector:       solSel,
+		DeltaStage:          10 * time.Second,
+		ForwardersQualifier: testSolSolanaFwdQualifier,
+		ForwarderVersion:    testSolanaForwarderVersion,
 		SolanaCapabilityInputs: []jobs.SolanaCapabilityInput{
 			solanaCapInput("peer-1", testSolanaTransmitter),
 		},
@@ -86,13 +85,11 @@ func deepCloneSolanaInput(in jobs.ProposeSolanaJobSpecInput) jobs.ProposeSolanaJ
 
 func TestProposeSolanaJobSpec_VerifyPreconditions_success(t *testing.T) {
 	solSel := chainsel.SOLANA_DEVNET.Selector
-	registrySel := chainsel.ETHEREUM_MAINNET.Selector
 	ds := datastore.NewMemoryDataStore()
 	seedSolanaForwarderAddresses(t, ds, solSel, testSolSolanaFwdQualifier, testSolanaForwarderProgram, testSolanaForwarderState)
-	seedOCRContract(t, ds, registrySel, "0x0000000000000000000000000000000000000001")
 	env := cldf.Environment{DataStore: ds.Seal()}
 
-	in := freshSolanaBase(registrySel, solSel)
+	in := freshSolanaBase(solSel)
 	in.SolanaCapabilityInputs = []jobs.SolanaCapabilityInput{
 		solanaCapInput("peer-1", testSolanaTransmitter),
 		solanaCapInput("peer-2", testSolanaTransmitter),
@@ -104,12 +101,10 @@ func TestProposeSolanaJobSpec_VerifyPreconditions_success(t *testing.T) {
 
 func TestProposeSolanaJobSpec_VerifyPreconditions_requiredFields(t *testing.T) {
 	solSel := chainsel.SOLANA_DEVNET.Selector
-	registrySel := chainsel.ETHEREUM_MAINNET.Selector
 	ds := datastore.NewMemoryDataStore()
 	seedSolanaForwarderAddresses(t, ds, solSel, testSolSolanaFwdQualifier, testSolanaForwarderProgram, testSolanaForwarderState)
-	seedOCRContract(t, ds, registrySel, "0x0000000000000000000000000000000000000001")
 	env := cldf.Environment{DataStore: ds.Seal()}
-	base := freshSolanaBase(registrySel, solSel)
+	base := freshSolanaBase(solSel)
 
 	cases := []struct {
 		name    string
@@ -149,8 +144,7 @@ func TestProposeSolanaJobSpec_VerifyPreconditions_missingDatastore(t *testing.T)
 	solSel := chainsel.SOLANA_DEVNET.Selector
 	ds := datastore.NewMemoryDataStore()
 	env := cldf.Environment{DataStore: ds.Seal()}
-	h := test.NewTestHarness(t, test.WithDatastore(ds))
-	in := freshSolanaBase(h.RegistrySelector, solSel)
+	in := freshSolanaBase(solSel)
 
 	err := jobs.ProposeSolanaJobSpec{}.VerifyPreconditions(env, in)
 	require.Error(t, err)
@@ -159,12 +153,10 @@ func TestProposeSolanaJobSpec_VerifyPreconditions_missingDatastore(t *testing.T)
 
 func TestProposeSolanaJobSpec_VerifyPreconditions_overrideMismatches(t *testing.T) {
 	solSel := chainsel.SOLANA_DEVNET.Selector
-	registrySel := chainsel.ETHEREUM_MAINNET.Selector
 	ds := datastore.NewMemoryDataStore()
 	seedSolanaForwarderAddresses(t, ds, solSel, testSolSolanaFwdQualifier, testSolanaForwarderProgram, testSolanaForwarderState)
 	env := cldf.Environment{DataStore: ds.Seal()}
-	seedOCRContract(t, ds, registrySel, "0x0000000000000000000000000000000000000001")
-	base := freshSolanaBase(registrySel, solSel)
+	base := freshSolanaBase(solSel)
 
 	t.Run("chainID mismatch when provided", func(t *testing.T) {
 		in := deepCloneSolanaInput(base)
@@ -201,13 +193,11 @@ func setupSolanaJobTest(t *testing.T) solanaJobTestSetup {
 	t.Helper()
 
 	var (
-		solSel      = chainsel.SOLANA_DEVNET.Selector
-		ds          = datastore.NewMemoryDataStore()
-		registrySel = test.DefaultRegistrySelector
+		solSel = chainsel.SOLANA_DEVNET.Selector
+		ds     = datastore.NewMemoryDataStore()
 	)
 
 	seedSolanaForwarderAddresses(t, ds, solSel, testSolSolanaFwdQualifier, testSolanaForwarderProgram, testSolanaForwarderState)
-	seedOCRContract(t, ds, registrySel, "0x0000000000000000000000000000000000000001")
 
 	// Inject a new Job Distributor into the environment for testing
 	h := test.NewTestHarness(t, test.WithDatastore(ds))
@@ -243,16 +233,15 @@ func setupSolanaJobTest(t *testing.T) solanaJobTestSetup {
 	h.Runtime = runtime.NewFromEnvironment(env)
 
 	baseInput := jobs.ProposeSolanaJobSpecInput{
-		Environment:                     test.EnvironmentName,
-		Zone:                            test.Zone,
-		Domain:                          "cre",
-		DONName:                         test.DONName,
-		ChainSelector:                   solSel,
-		DeltaStage:                      time.Second,
-		ForwardersQualifier:             testSolSolanaFwdQualifier,
-		ForwarderVersion:                testSolanaForwarderVersion,
-		SolanaCapabilityInputs:          solanaCapInputs,
-		ChainReadCapabilityJobSpecInput: freshChainReadBase(registrySel),
+		Environment:            test.EnvironmentName,
+		Zone:                   test.Zone,
+		Domain:                 "cre",
+		DONName:                test.DONName,
+		ChainSelector:          solSel,
+		DeltaStage:             time.Second,
+		ForwardersQualifier:    testSolSolanaFwdQualifier,
+		ForwarderVersion:       testSolanaForwarderVersion,
+		SolanaCapabilityInputs: solanaCapInputs,
 	}
 
 	return solanaJobTestSetup{
