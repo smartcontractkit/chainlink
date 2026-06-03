@@ -23,9 +23,9 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 
+	opsutil "github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	ccipopsv1_2 "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_2"
 	ccipopsv1_6 "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
 
 type ChainContractParams struct {
