@@ -242,7 +242,7 @@ Use `make test` which handles most of the test DB setup for you in plain go (see
 
 ```sh
 make test ARGS="-h"         # See full capabilities of the test harness
-make test ./core/...       # Setup ephemeral test DB and run all tests in ./core
+make test ARGS="./core/..." # Setup ephemeral test DB and run all tests in ./core
 ```
 
 #### Notes
