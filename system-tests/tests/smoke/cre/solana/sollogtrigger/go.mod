@@ -6,7 +6,7 @@ require (
 	github.com/gagliardetto/solana-go v1.14.0
 	github.com/smartcontractkit/chain-selectors v1.0.100
 	github.com/smartcontractkit/cre-sdk-go v1.9.0-capdev.1.0.20260526211007-043b75d05749
-	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.1-0.20260603174326-38a1c95663fe
+	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.1-0.20260603191831-01e77bc29de7
 	gopkg.in/yaml.v3 v3.0.1
 )
 
