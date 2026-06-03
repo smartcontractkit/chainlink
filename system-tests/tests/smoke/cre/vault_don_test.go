@@ -746,6 +746,10 @@ func TestVaultOptimizationsEnabled_CRESettingDefaultsDisabled(t *testing.T) {
 	require.False(t, cresettings.Default.VaultOptimizationsEnabled.DefaultValue)
 }
 
+func TestVaultCiphertextlessObservationsEnabled_CRESettingDefaultsDisabled(t *testing.T) {
+	require.False(t, cresettings.Default.VaultCiphertextlessObservationsEnabled.DefaultValue)
+}
+
 func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 	t.Parallel()
 	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
@@ -804,9 +808,13 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 					require.NoError(t, json.Unmarshal([]byte(settingsRaw), &settings))
 					if tc.wantOptimizationsGate == "true" {
 						require.Equal(t, "true", settings["VaultOptimizationsEnabled"])
+						require.Equal(t, "true", settings["VaultCiphertextlessObservationsEnabled"])
 					} else {
 						require.Equal(t, tc.wantJWTGate, settings["VaultJWTAuthEnabled"])
 						if v, ok := settings["VaultOptimizationsEnabled"]; ok {
+							require.Equal(t, "false", v)
+						}
+						if v, ok := settings["VaultCiphertextlessObservationsEnabled"]; ok {
 							require.Equal(t, "false", v)
 						}
 					}
