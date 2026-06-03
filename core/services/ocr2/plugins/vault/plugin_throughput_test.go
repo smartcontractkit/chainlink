@@ -29,27 +29,27 @@ func TestPlugin_ThroughputAnalysis(t *testing.T) {
 	const (
 		donN           = 10
 		donF           = 3
-		byzQuorumSize  = 2*donF + 1 // 7 — chosen observations for GetSecrets
-		fPlusOne       = donF + 1   // 4 — chosen observations for all other types
-		maxBatchSize   = 200        // VaultPluginBatchSizeLimit
-		maxPendingBlob = 20         // max blob *handles* per Observation(); each handle may cover many requests via PendingQueueBlobItems
+		byzQuorumSize  = 2*donF + 1       // 7 — chosen observations for GetSecrets
+		fPlusOne       = donF + 1         // 4 — chosen observations for all other types
+		maxBatchSize   = 12               // VaultPluginBatchSizeLimit
+		maxPendingBlob = 2 * maxBatchSize // max blob *handles* per Observation(); each handle may cover many requests via PendingQueueBlobItems
 	)
 
 	// --- Per-secret limits (from cresettings defaults and plugin config) ---
 	const (
-		maxSecretsPerRequest = 1          // VaultRequestBatchSizeLimit (GetSecrets cap)
+		maxSecretsPerRequest = 5          // VaultRequestBatchSizeLimit (GetSecrets cap)
 		maxEncryptionKeysWC  = 2*donF + 1 // max encryption keys per secret request
-		maxCiphertextBytes   = 0          // MaxCiphertextLengthBytes
+		maxCiphertextBytes   = 2000       // MaxCiphertextLengthBytes
 		// Shares are base64 strings.
 		// Current base64 string limit = 600 bytes → raw binary = 600 * 3/4 = 450 bytes.
-		maxShareBytes      = 300
+		maxShareBytes      = 600
 		maxIdentifierBytes = 64 // key / namespace / owner each
 	)
 
 	// --- Size limits under test ---
 	const (
 		maxObservationBytes     = 512 * 1024      // 512 KB
-		maxStateTransitionBytes = 2 * 1024 * 1024 // 5 MB
+		maxStateTransitionBytes = 5 * 1024 * 1024 // 5 MB
 	)
 
 	// --- BlobHandle wire size for this DON (n=10, f=3, byzQuorumSize=7) ---
