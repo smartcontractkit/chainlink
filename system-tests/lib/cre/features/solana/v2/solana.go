@@ -435,7 +435,6 @@ func patchNodeTOML(creEnv *cre.Environment, don *cre.DonMetadata, data input, se
 		if updErr != nil {
 			return errors.Wrapf(updErr, "failed to update node config for node index %d", workerNode.Index)
 		}
-		println("Updated cfg: " + *updatedConfig)
 		don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
 	}
 

@@ -867,7 +867,7 @@ func appendSolanaChain(existingConfig *corechainlink.RawConfigs, solChain *solan
 			},
 		},
 		"MultiNode": map[string]any{
-			"VerifyChainID": false, // disable chainID verification as Solana uses hash of genesis hash as chainID, but we want to use a hardcoded chainID that has corresponding chainSelector
+			"VerifyChainID": false, // disable chainID verification as Solana uses hash of genesis block as chainID, but we want to use a hardcoded chainID that has corresponding chain selector
 		},
 	})
 }
