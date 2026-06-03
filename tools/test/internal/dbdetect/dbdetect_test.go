@@ -77,6 +77,19 @@ func TestNeedsPostgres(t *testing.T) {
 			},
 			want: false,
 		},
+		{
+			name: "custom tag unlocks pgtest dependency",
+			args: []string{
+				"-tags", "dbdetecttag",
+				"./core/internal/testutils/dbdetectfixture",
+			},
+			want: true,
+		},
+		{
+			name: "without custom tag skips pgtest dependency",
+			args: []string{"./core/internal/testutils/dbdetectfixture"},
+			want: false,
+		},
 	}
 
 	for _, tt := range tests {

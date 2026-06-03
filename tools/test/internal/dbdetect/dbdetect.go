@@ -26,6 +26,15 @@ var testBinaryTwoArgSuffixFlags = map[string]bool{
 	"-parallel": true,
 }
 
+// goListTwoArgFlags are forwarded to `go list` so build tags and module
+// settings match the test invocation.
+var goListTwoArgFlags = map[string]bool{
+	"tags":    true,
+	"mod":     true,
+	"modfile": true,
+	"overlay": true,
+}
+
 // harnessRootValueFlags are testrig root flags (see dbflags.Register) that take a
 // separate value token and must not be treated as Go package patterns.
 var harnessRootValueFlags = map[string]bool{
@@ -54,6 +63,46 @@ func extractPackagePatterns(args []string) []string {
 	return patterns
 }
 
+func extractGoListFlags(args []string) []string {
+	var flags []string
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if !strings.HasPrefix(arg, "-") {
+			continue
+		}
+		name := strings.TrimLeft(arg, "-")
+		if strings.HasPrefix(name, "-") {
+			name = strings.TrimLeft(name, "-")
+		}
+		value, hasEq := "", false
+		if eq := strings.Index(name, "="); eq >= 0 {
+			value = name[eq+1:]
+			name = name[:eq]
+			hasEq = true
+		}
+		if !goListTwoArgFlags[name] {
+			continue
+		}
+		if hasEq {
+			flags = append(flags, "-"+name+"="+value)
+			continue
+		}
+		if i+1 >= len(args) {
+			continue
+		}
+		flags = append(flags, "-"+name, args[i+1])
+		i++
+	}
+	return flags
+}
+
+func buildGoListArgs(patterns, args []string) []string {
+	goArgs := []string{"list", "-deps", "-test"}
+	goArgs = append(goArgs, extractGoListFlags(args)...)
+	goArgs = append(goArgs, patterns...)
+	return goArgs
+}
+
 // NeedsPostgres checks if Postgres is needed for the given arguments and repository root.
 func NeedsPostgres(repoRoot string, args []string) (bool, error) {
 	// 1. Check for -short flag.
@@ -70,9 +119,7 @@ func NeedsPostgres(repoRoot string, args []string) (bool, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	// 2. Run go list -deps -test
-	goArgs := append([]string{"list", "-deps", "-test"}, patterns...)
-	cmd := exec.CommandContext(ctx, "go", goArgs...)
+	cmd := exec.CommandContext(ctx, "go", buildGoListArgs(patterns, args)...)
 	cmd.Dir = repoRoot
 
 	var stdout, stderr bytes.Buffer

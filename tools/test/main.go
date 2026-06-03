@@ -30,25 +30,24 @@ func main() {
 // external database is reused and count>1 is rejected; otherwise each worker
 // gets an isolated ephemeral container with a snapshot for fast Reset.
 func dbProvider(ctx context.Context, count int) ([]testrig.Resource, error) {
+	return dbProviderForArgs(ctx, count, os.Args[1:])
+}
+
+func dbProviderForArgs(ctx context.Context, count int, args []string) ([]testrig.Resource, error) {
 	conf, err := dbflags.AppConfig()
 	if err != nil {
 		return nil, err
 	}
 
 	// Statically check if Postgres is actually needed for the tests being run.
-	needsDB, err := dbdetect.NeedsPostgres(conf.RepoRoot, os.Args[1:])
+	needsDB, err := dbdetect.NeedsPostgres(conf.RepoRoot, args)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[dbdetect] Error checking DB need: %v. Defaulting to Postgres needed.\n", err)
 		needsDB = true
 	}
 
 	if !needsDB {
-		// Return count dummy resources so testrig has resources to assign to workers.
-		resources := make([]testrig.Resource, count)
-		for i := range count {
-			resources[i] = testrig.Resource{}
-		}
-		return resources, nil
+		return noopResources(count), nil
 	}
 
 	conf.ParallelIterations = count
@@ -70,4 +69,16 @@ func dbProvider(ctx context.Context, count int) ([]testrig.Resource, error) {
 		})
 	}
 	return resources, nil
+}
+
+// noopResources returns empty testrig.Resource values for runs that do not need
+// Postgres. testrig treats all Resource fields as optional (see testrig
+// hooks.Resource); Reset, DumpDiagnostics, and Cleanup are only invoked when
+// non-nil.
+func noopResources(count int) []testrig.Resource {
+	resources := make([]testrig.Resource, count)
+	for i := range count {
+		resources[i] = testrig.Resource{}
+	}
+	return resources
 }
