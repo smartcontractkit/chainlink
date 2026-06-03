@@ -311,25 +311,25 @@ func createAndFundAddresses[T interface{ String() string }](t *testing.T, testLo
 // Register your workflow configuration types here
 type WorkflowConfig interface {
 	None |
-	portypes.WorkflowConfig |
-	AptosReadWorkflowConfig |
-	aptoswrite_config.Config |
-	aptoswriteroundtrip_config.Config |
-	crontypes.WorkflowConfig |
-	HTTPWorkflowConfig |
-	consensus_negative_config.Config |
-	evmread_config.Config |
-	logtrigger_config.Config |
-	evmread_negative_config.Config |
-	evmwrite_negative_config.Config |
-	logtrigger_negative_config.Config |
-	http_config.Config |
-	httpaction_smoke_config.Config |
-	httpaction_negative_config.Config |
-	solwrite_config.Config |
-	sollogtrigger_config.Config |
-	vaultsecret_config.Config |
-	solread_config.Config
+		portypes.WorkflowConfig |
+		AptosReadWorkflowConfig |
+		aptoswrite_config.Config |
+		aptoswriteroundtrip_config.Config |
+		crontypes.WorkflowConfig |
+		HTTPWorkflowConfig |
+		consensus_negative_config.Config |
+		evmread_config.Config |
+		logtrigger_config.Config |
+		evmread_negative_config.Config |
+		evmwrite_negative_config.Config |
+		logtrigger_negative_config.Config |
+		http_config.Config |
+		httpaction_smoke_config.Config |
+		httpaction_negative_config.Config |
+		solwrite_config.Config |
+		sollogtrigger_config.Config |
+		vaultsecret_config.Config |
+		solread_config.Config
 }
 
 // None represents an empty workflow configuration

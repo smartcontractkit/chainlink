@@ -38,7 +38,6 @@ import (
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
@@ -104,7 +103,7 @@ func (s *Solana) PreEnvStartup(
 	ocrConfigs := map[string]*ocr3.OracleConfig{}
 	for _, capability := range capabilities {
 		capabilityToExtraSignerFamilies[capability.Capability.LabelledName] = []string{chainselectors.FamilyEVM} // chain read OCR & DON2DON uses EVM signing schema for all chains, thus we need evm signers.
-		ocrConfigs[capability.Capability.LabelledName] = crecontracts.DefaultChainCapabilityOCR3Config()
+		ocrConfigs[capability.Capability.LabelledName] = contracts.DefaultChainCapabilityOCR3Config()
 	}
 
 	return &cre.PreEnvStartupOutput{

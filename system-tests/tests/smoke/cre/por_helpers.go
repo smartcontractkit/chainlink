@@ -455,9 +455,9 @@ func validateTronPrices(t *testing.T, testEnv *ttypes.TestEnvironment, blockchai
 		testEnv.Logger.Info().Msgf("Tron chain %d: Calling getLatestAnswer for feed %s on contract %s", blockchain.ChainSelector(), feedID, cacheAddr.String())
 
 		result, err := tronChain.Client.TriggerConstantContract(
-			tronChain.Address,                                    // caller address
-			cacheAddr,                                            // contract address
-			"getLatestAnswer(bytes16)",                           // function signature
+			tronChain.Address,          // caller address
+			cacheAddr,                  // contract address
+			"getLatestAnswer(bytes16)", // function signature
 			[]any{"bytes16", [16]byte(common.Hex2Bytes(feedID))}, // parameters
 		)
 		if err != nil {
