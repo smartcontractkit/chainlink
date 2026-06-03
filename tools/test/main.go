@@ -38,7 +38,7 @@ func dbProvider(ctx context.Context, count int) ([]testrig.Resource, error) {
 	// Statically check if Postgres is actually needed for the tests being run.
 	needsDB, err := dbdetect.NeedsPostgres(conf.RepoRoot, os.Args[1:])
 	if err != nil {
-		fmt.Printf("[dbdetect] Error checking DB need: %v. Defaulting to Postgres needed.\n", err)
+		fmt.Fprintf(os.Stderr, "[dbdetect] Error checking DB need: %v. Defaulting to Postgres needed.\n", err)
 		needsDB = true
 	}
 

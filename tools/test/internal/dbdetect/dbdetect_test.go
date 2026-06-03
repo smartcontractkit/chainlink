@@ -68,6 +68,15 @@ func TestNeedsPostgres(t *testing.T) {
 			args: []string{"./core/config/..."},
 			want: false,
 		},
+		{
+			name: "database-url value is not a package pattern",
+			args: []string{
+				"--database-url",
+				"postgres://user:pass@localhost:5432/chainlink_test?sslmode=disable",
+				"./core/config/...",
+			},
+			want: false,
+		},
 	}
 
 	for _, tt := range tests {

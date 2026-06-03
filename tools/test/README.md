@@ -17,9 +17,6 @@ make test ARGS="./core/..."
 make test ARGS="diagnose ./core/..."
 ```
 
-`make test-core` is shorthand for `make test ARGS="./core/..."`.
-
-
 ### Direct binary (optional)
 
 Rebuild only when you change harness code:

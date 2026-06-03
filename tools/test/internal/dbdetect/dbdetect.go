@@ -3,6 +3,7 @@ package dbdetect
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os/exec"
 	"strings"
 	"time"
@@ -25,13 +26,20 @@ var testBinaryTwoArgSuffixFlags = map[string]bool{
 	"-parallel": true,
 }
 
+// harnessRootValueFlags are testrig root flags (see dbflags.Register) that take a
+// separate value token and must not be treated as Go package patterns.
+var harnessRootValueFlags = map[string]bool{
+	"database-url":     true,
+	"postgres-version": true,
+}
+
 func extractPackagePatterns(args []string) []string {
 	var patterns []string
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if strings.HasPrefix(arg, "-") {
 			name := strings.Split(strings.TrimLeft(arg, "-"), "=")[0]
-			if testBinaryTwoArgSuffixFlags["-"+name] && !strings.Contains(arg, "=") {
+			if (testBinaryTwoArgSuffixFlags["-"+name] || harnessRootValueFlags[name]) && !strings.Contains(arg, "=") {
 				i++
 			}
 			continue
@@ -72,7 +80,7 @@ func NeedsPostgres(repoRoot string, args []string) (bool, error) {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return true, nil // Default safe
+		return true, fmt.Errorf("go list: %w: %s", err, strings.TrimSpace(stderr.String()))
 	}
 
 	targetDep := "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"

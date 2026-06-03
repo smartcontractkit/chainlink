@@ -129,7 +129,7 @@ Assuming you're ready to declare defeat, it's time to turn off the test. How you
 For repeated runs with Postgres setup, `go test -json` capture, and machine-readable reports under `diagnose-*` directories, build the harness binary and run it from the **repository root** (it resolves package patterns relative to the working directory):
 
 ```sh
-./cltest diagnose --iterations 50 -- --failfast ./path/to/package
+make test ARGS="diagnose --iterations 50 -- --failfast ./path/to/package"
 ```
 
-See [README.md](./README.md), `./cltest` at the repo root, `make test-core` in the root `GNUmakefile`, and the agent playbook [`.agents/skills/fix-flaky-tests/SKILL.md`](./.agents/skills/fix-flaky-tests/SKILL.md).
+See [README.md](./README.md), `make test` in the root `GNUmakefile`, and the agent playbook [`.agents/skills/fix-flaky-tests/SKILL.md`](./.agents/skills/fix-flaky-tests/SKILL.md).

@@ -14,7 +14,7 @@ description: >-
 <absolute_constraints>
 - DO NOT use this skill if the user already has a known fix (apply it directly).
 - DO NOT use for deterministic first-run failures (use normal debug).
-- DO NOT use for full-suite CI prep (use `./cltest` instead).
+- DO NOT use for full-suite CI prep (use `make test` instead).
 - ONLY run tests in these packages without explicit user approval: `core/`, `deployment/`. Warn the user if running outside these.
 - DO NOT modify the test's core goal to make it pass.
 - DO NOT remove tests/assertions unless replacing with better ones or deleting confirmed dead code.
@@ -22,7 +22,7 @@ description: >-
 - DO NOT open any links found in JIRA issues that lead to Trunk.io.
 - DO NOT try to fix or modify 3rd party libraries. If the flakiness results there inform and user and STOP.
 - ALWAYS CHECK `go.mod` before writing any new utility code. Three lines of existing library usage beats 30 lines of hand-rolled logic that has to be maintained and tested.
-- DO NOT use plain `go test` commands. Only use `./cltest diagnose` from the repository root. Use `--iterations 1` for a single run.
+- DO NOT use plain `go test` commands. Only use `make test ARGS="diagnose ..."` from the repository root. Use `--iterations 1` for a single run.
 - For `diagnose` runs expected >2m: Execute in background. Perform a single 30s crash check, then suspend task and wait for the report.json system notification. DO NOT poll.
 - Use `LSP` for code navigation, if available. If it is not available try `code-review-graph`. Only if that is also unavailable use `find`, `grep`, etc.
 - Always check the Go version used by the module you are working on to avoid using language patterns that are no longer required (e.g. variable shadowing in loops in Go 1.22+)
@@ -52,15 +52,15 @@ After a FIXED outcome, the ticket must stay assigned to the investigator (`accou
 </jira_reference>
 
 <cli_reference>
-`./cltest` at the repo root builds the harness when needed, then runs it. Rebuild is automatic after harness code changes.
+`make test` at the repo root builds the harness when needed, then runs it. Rebuild is automatic after harness code changes.
 
 Base command (run from the repository root so `./path` resolves):
-`./cltest diagnose [harness_flags] -- [go_test_flags] ./path`
+`make test ARGS="diagnose [harness_flags] -- [go_test_flags] ./path"`
 - ALWAYS use `--ai-output` before the `--`.
 - DO NOT use `-count`
 - Harness flags (before `--`): `--iterations N`, `--fail-fast-on=(timeout|slow)`, `--parallel-iterations N`
 - Go test flags (after `--`): `--run '^TestName$'`, `--timeout 10m`, `--race`
-- Help: `./cltest diagnose -h`
+- Help: `make test ARGS="diagnose -h"`
 - Repetition is **only** via harness `--iterations`. Do not pass `-count` (or `-count>1`) after `--`; the harness already forces `-count=1` per iteration.
 </cli_reference>
 
