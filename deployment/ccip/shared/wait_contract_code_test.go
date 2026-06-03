@@ -40,7 +40,7 @@ func TestWaitForContractCode(t *testing.T) {
 		t.Parallel()
 		stub := &codeAtStub{readyOn: 1, code: bytecode}
 
-		err := waitForContractCode(context.Background(), stub, addr)
+		err := retryUntilContractCode(context.Background(), stub, addr)
 		require.NoError(t, err)
 		assert.Equal(t, 1, stub.calls)
 	})
@@ -49,7 +49,7 @@ func TestWaitForContractCode(t *testing.T) {
 		t.Parallel()
 		stub := &codeAtStub{readyOn: 2, code: bytecode}
 
-		err := waitForContractCode(context.Background(), stub, addr)
+		err := retryUntilContractCode(context.Background(), stub, addr)
 		require.NoError(t, err)
 		assert.Equal(t, 2, stub.calls)
 	})
@@ -59,7 +59,7 @@ func TestWaitForContractCode(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 750*time.Millisecond)
 		t.Cleanup(cancel)
 
-		err := waitForContractCode(ctx, &codeAtStub{readyOn: 100}, addr)
+		err := retryUntilContractCode(ctx, &codeAtStub{readyOn: 100}, addr)
 		require.Error(t, err)
 		assert.ErrorIs(t, err, context.DeadlineExceeded)
 	})
@@ -72,7 +72,7 @@ func TestWaitForContractCode(t *testing.T) {
 			err:     errors.New("rpc unavailable"),
 		}
 
-		err := waitForContractCode(context.Background(), stub, addr)
+		err := retryUntilContractCode(context.Background(), stub, addr)
 		require.NoError(t, err)
 		assert.Equal(t, 2, stub.calls)
 	})

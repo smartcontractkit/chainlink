@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestExtractGoListFlags(t *testing.T) {
@@ -61,4 +62,23 @@ func TestBuildGoListArgs(t *testing.T) {
 		"-tags", "dbdetecttag",
 		"./core/internal/testutils/dbdetectfixture",
 	}, got)
+}
+
+func TestValidateGoListArgs(t *testing.T) {
+	t.Parallel()
+
+	t.Run("accepts buildGoListArgs output", func(t *testing.T) {
+		t.Parallel()
+		goArgs := buildGoListArgs(
+			[]string{"./core/..."},
+			[]string{"-tags", "integration,unit"},
+		)
+		require.NoError(t, validateGoListArgs(goArgs))
+	})
+
+	t.Run("rejects shell metacharacters", func(t *testing.T) {
+		t.Parallel()
+		err := validateGoListArgs([]string{"list", "-deps", "-test", "; rm -rf /"})
+		require.Error(t, err)
+	})
 }

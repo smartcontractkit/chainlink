@@ -19,10 +19,10 @@ type contractCodeReader interface {
 // WaitForContractCode retries until bytecode is visible at addr. Geth in Docker CI can
 // return a mined receipt before eth_getCode serves the deployment on all RPC paths.
 func WaitForContractCode(ctx context.Context, client cldf_evm.OnchainClient, addr common.Address) error {
-	return waitForContractCode(ctx, client, addr)
+	return retryUntilContractCode(ctx, client, addr)
 }
 
-func waitForContractCode(ctx context.Context, client contractCodeReader, addr common.Address) error {
+func retryUntilContractCode(ctx context.Context, client contractCodeReader, addr common.Address) error {
 	return retry.Do(ctx, retry.WithMaxDuration(30*time.Second, retry.WithCappedDuration(2*time.Second, retry.NewFibonacci(500*time.Millisecond))), func(ctx context.Context) error {
 		code, err := client.CodeAt(ctx, addr, nil)
 		if err != nil {

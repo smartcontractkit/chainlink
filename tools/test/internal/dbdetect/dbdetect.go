@@ -5,9 +5,13 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 )
+
+// safeGoListArg matches argv tokens built from allowlisted go list flags and package patterns.
+var safeGoListArg = regexp.MustCompile(`^[\w./@=,\-*:+$%()\[\]!~]+$`)
 
 func looksLikeGoPackagePattern(arg string) bool {
 	return strings.Contains(arg, ".") ||
@@ -97,10 +101,21 @@ func extractGoListFlags(args []string) []string {
 }
 
 func buildGoListArgs(patterns, args []string) []string {
-	goArgs := []string{"list", "-deps", "-test"}
-	goArgs = append(goArgs, extractGoListFlags(args)...)
+	listFlags := extractGoListFlags(args)
+	goArgs := make([]string, 0, 3+len(listFlags)+len(patterns))
+	goArgs = append(goArgs, "list", "-deps", "-test")
+	goArgs = append(goArgs, listFlags...)
 	goArgs = append(goArgs, patterns...)
 	return goArgs
+}
+
+func validateGoListArgs(goArgs []string) error {
+	for _, arg := range goArgs {
+		if arg == "" || !safeGoListArg.MatchString(arg) {
+			return fmt.Errorf("invalid go list argument %q", arg)
+		}
+	}
+	return nil
 }
 
 // NeedsPostgres checks if Postgres is needed for the given arguments and repository root.
@@ -117,9 +132,14 @@ func NeedsPostgres(repoRoot string, args []string) (bool, error) {
 		return true, nil
 	}
 
+	goArgs := buildGoListArgs(patterns, args)
+	if err := validateGoListArgs(goArgs); err != nil {
+		return true, err
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "go", buildGoListArgs(patterns, args)...)
+	cmd := exec.CommandContext(ctx, "go", goArgs...)
 	cmd.Dir = repoRoot
 
 	var stdout, stderr bytes.Buffer
