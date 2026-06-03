@@ -120,6 +120,11 @@ func (t *Topology) gatewayAndWorkflowDONNames() (gatewayNames, workflowNames []s
 
 // shardedGatewayPairingEnabled is true when multiple gateway DONs match workflow DON count 1:1.
 // Single-gateway topologies keep legacy behavior (one gateway serves all workflow DONs).
+//
+// Pairing is index-based: the i-th workflow DON (topology file order among workflow
+// nodesets) is paired with the i-th gateway DON (topology file order among gateway
+// nodesets). Name suffixes such as feeds-zone-a / gateway-zone-a are not matched
+// automatically — keep workflow and gateway nodesets in aligned order in the TOML.
 func (t *Topology) shardedGatewayPairingEnabled() bool {
 	gatewayNames, workflowNames := t.gatewayAndWorkflowDONNames()
 	return len(gatewayNames) > 1 && len(gatewayNames) == len(workflowNames)
@@ -141,7 +146,7 @@ func (t *Topology) GatewayConnectorsForWorkflow(workflowDONName string) GatewayC
 			return GatewayConnectors{Configurations: []*DonGatewayConfiguration{t.GatewayConnectors.Configurations[i]}}
 		}
 	}
-	return *t.GatewayConnectors
+	return GatewayConnectors{}
 }
 
 // GatewayServiceConfigsForGateway scopes service DON lists to the workflow DON paired with
