@@ -800,20 +800,19 @@ runner-test-matrix:
   #   install_plugins_public: true
   #   free_disk_space: true
 
-  # Skipping Sui zero receiver test due to flakiness
-  # - id: smoke/ccip/ccip_sui_messaging_test.go:Test_CCIP_EVM2Sui_ZeroReceiver
-  #   path: integration-tests/smoke/ccip/ccip_sui_messaging_test.go
-  #   test_env_type: in-memory
-  #   runs_on: ubuntu-latest
-  #   triggers:
-  #     - PR Integration CCIP Tests
-  #     - Nightly Integration CCIP Tests
-  #   test_cmd: |
-  #     go test ./smoke/ccip -run "Test_CCIP_EVM2Sui_ZeroReceiver" -timeout 25m -test.parallel=1 -count=1 -json
-  #   test_go_project_path: integration-tests
-  #   sui_cli_version: mainnet-1.60.1
-  #   install_plugins_public: true
-  #   free_disk_space: true
+  - id: smoke/ccip/ccip_sui_messaging_test.go:Test_CCIP_EVM2Sui_ZeroReceiver
+    path: integration-tests/smoke/ccip/ccip_sui_messaging_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: |
+      go test ./smoke/ccip -run "Test_CCIP_EVM2Sui_ZeroReceiver" -timeout 25m -test.parallel=1 -count=1 -json
+    test_go_project_path: integration-tests
+    sui_cli_version: mainnet-1.60.1
+    install_plugins_public: true
+    free_disk_space: true
 
   - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool
     path: integration-tests/smoke/ccip/ccip_sui_token_transfer_test.go
