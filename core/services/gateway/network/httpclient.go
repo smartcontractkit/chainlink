@@ -47,6 +47,58 @@ type HTTPClientConfig struct {
 	AllowedIPsCIDR    []string
 	AllowedMethods    []string
 	BlockedHeaders    []string
+
+	// Mtls, when set, configures the client to present the supplied client
+	// certificate for mutual TLS.
+	Mtls *gateway.MtlsAuth
+}
+
+// merge returns a copy of c with any set fields from override applied on top.
+// A field in override is only applied when it holds a non-zero value, so the
+// static base config supplies defaults that the dynamic config can selectively
+// override.
+func (c HTTPClientConfig) merge(override HTTPClientConfig) HTTPClientConfig {
+	merged := c
+	if override.MaxResponseBytes != 0 {
+		merged.MaxResponseBytes = override.MaxResponseBytes
+	}
+	if override.DefaultTimeout != 0 {
+		merged.DefaultTimeout = override.DefaultTimeout
+	}
+	if override.maxRequestDuration != 0 {
+		merged.maxRequestDuration = override.maxRequestDuration
+	}
+	if len(override.BlockedIPs) > 0 {
+		merged.BlockedIPs = override.BlockedIPs
+	}
+	if len(override.BlockedIPsCIDR) > 0 {
+		merged.BlockedIPsCIDR = override.BlockedIPsCIDR
+	}
+	if len(override.AllowedPorts) > 0 {
+		merged.AllowedPorts = override.AllowedPorts
+	}
+	if len(override.AllowedPortRanges) > 0 {
+		merged.AllowedPortRanges = override.AllowedPortRanges
+	}
+	if len(override.AllowedSchemes) > 0 {
+		merged.AllowedSchemes = override.AllowedSchemes
+	}
+	if len(override.AllowedIPs) > 0 {
+		merged.AllowedIPs = override.AllowedIPs
+	}
+	if len(override.AllowedIPsCIDR) > 0 {
+		merged.AllowedIPsCIDR = override.AllowedIPsCIDR
+	}
+	if len(override.AllowedMethods) > 0 {
+		merged.AllowedMethods = override.AllowedMethods
+	}
+	if len(override.BlockedHeaders) > 0 {
+		merged.BlockedHeaders = override.BlockedHeaders
+	}
+	if override.Mtls != nil {
+		merged.Mtls = override.Mtls
+	}
+	return merged
 }
 
 var (
@@ -178,13 +230,9 @@ type httpClient struct {
 	metrics *httpClientMetrics
 }
 
-// NewHTTPClient creates a new NewHTTPClient
-// For mTLS support, use NewHTTPClientFactory with HTTPClientOptions.
+// NewHTTPClient creates a new HTTPClient. For mTLS support, set Mtls on the
+// config, or use NewHTTPClientFactory to merge a dynamic config carrying it.
 func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, error) {
-	return newHTTPClientWithOptions(config, HTTPClientOptions{}, lggr)
-}
-
-func newHTTPClientWithOptions(config HTTPClientConfig, options HTTPClientOptions, lggr logger.Logger) (HTTPClient, error) {
 	if len(config.AllowedPortRanges) > 0 {
 		expanded, err := expandPortRanges(config.AllowedPortRanges)
 		if err != nil {
@@ -211,14 +259,14 @@ func newHTTPClientWithOptions(config HTTPClientConfig, options HTTPClientOptions
 		SetCheckRedirect(disableRedirects).
 		SetTransport(defaultTransport)
 
-	if options.Mtls != nil {
+	if config.Mtls != nil {
 		// Defence-in-depth protection against accidental reuse
 		// of the HTTP client leading to auth'd connections leaking across
 		// users.
 		defaultTransport.DisableKeepAlives = true
 		defaultTransport.TLSHandshakeTimeout = 10 * time.Second
 
-		cert, err := tls.X509KeyPair(options.Mtls.Certificate, options.Mtls.PrivateKey)
+		cert, err := tls.X509KeyPair(config.Mtls.Certificate, config.Mtls.PrivateKey)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse MtlsAuth into KeyPair: %w", err)
 		}
@@ -243,17 +291,21 @@ func newHTTPClientWithOptions(config HTTPClientConfig, options HTTPClientOptions
 	}, nil
 }
 
-type HTTPClientOptions struct {
-	Mtls *gateway.MtlsAuth
-}
-
+// NewHTTPClientFactory returns a factory that builds an HTTPClient by merging
+// the supplied dynamic config on top of the static base config. The dynamic
+// config typically carries per-request settings such as Mtls.
 func NewHTTPClientFactory(config HTTPClientConfig, lggr logger.Logger) HTTPClientFactory {
-	return func(opts HTTPClientOptions) (HTTPClient, error) {
-		return newHTTPClientWithOptions(config, opts, lggr)
+	return func(dynamic HTTPClientConfig) (HTTPClient, error) {
+		return NewHTTPClient(config.merge(dynamic), lggr)
 	}
 }
 
-type HTTPClientFactory func(opts HTTPClientOptions) (HTTPClient, error)
+// HTTPClientFactory builds an HTTPClient from a dynamic config that is merged
+// onto the factory's static base config. Only fields holding a non-zero value
+// in the dynamic config override the base; zero-valued fields fall through to
+// the base, so the dynamic config can add or override settings but cannot unset
+// one already populated by the base.
+type HTTPClientFactory func(config HTTPClientConfig) (HTTPClient, error)
 
 func disableRedirects(req *http.Request, via []*http.Request) error {
 	return &redirectsDisabledError{}

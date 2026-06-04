@@ -925,7 +925,7 @@ func TestGatewayHandler_MakeOutgoingRequest_NodeRateLimiting(t *testing.T) {
 
 // defaultTestHTTPClientFactory returns a factory that always errors. Tests that
 // exercise the mTLS path inject their own factory via handler.httpClientFactory.
-var defaultTestHTTPClientFactory network.HTTPClientFactory = func(opts network.HTTPClientOptions) (network.HTTPClient, error) {
+var defaultTestHTTPClientFactory network.HTTPClientFactory = func(config network.HTTPClientConfig) (network.HTTPClient, error) {
 	return nil, errors.New("httpClientFactory not configured for this test")
 }
 
@@ -983,11 +983,11 @@ func TestGatewayHandler_Send_MtlsUsesFactory(t *testing.T) {
 	mtlsClient := httpmocks.NewHTTPClient(t)
 	mtlsClient.EXPECT().Send(mock.Anything, httpReq).Return(expectedResp, nil).Once()
 
-	var capturedOpts network.HTTPClientOptions
+	var capturedConfig network.HTTPClientConfig
 	var factoryCalls int
-	handler.httpClientFactory = func(opts network.HTTPClientOptions) (network.HTTPClient, error) {
+	handler.httpClientFactory = func(config network.HTTPClientConfig) (network.HTTPClient, error) {
 		factoryCalls++
-		capturedOpts = opts
+		capturedConfig = config
 		return mtlsClient, nil
 	}
 
@@ -995,9 +995,9 @@ func TestGatewayHandler_Send_MtlsUsesFactory(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, expectedResp, resp)
 	require.Equal(t, 1, factoryCalls, "factory should be called exactly once per mtls request")
-	require.NotNil(t, capturedOpts.Mtls)
-	require.Equal(t, []byte("private-key-bytes"), []byte(capturedOpts.Mtls.PrivateKey))
-	require.Equal(t, []byte("certificate-bytes"), capturedOpts.Mtls.Certificate)
+	require.NotNil(t, capturedConfig.Mtls)
+	require.Equal(t, []byte("private-key-bytes"), []byte(capturedConfig.Mtls.PrivateKey))
+	require.Equal(t, []byte("certificate-bytes"), capturedConfig.Mtls.Certificate)
 
 	// Default httpClient must not be used for mtls requests.
 	mockDefault := handler.httpClient.(*httpmocks.HTTPClient)
@@ -1016,7 +1016,7 @@ func TestGatewayHandler_Send_MtlsFactoryError(t *testing.T) {
 	}
 
 	factoryErr := errors.New("bad cert material")
-	handler.httpClientFactory = func(opts network.HTTPClientOptions) (network.HTTPClient, error) {
+	handler.httpClientFactory = func(config network.HTTPClientConfig) (network.HTTPClient, error) {
 		return nil, factoryErr
 	}
 
@@ -1045,7 +1045,7 @@ func TestGatewayHandler_Send_MtlsRoutesThroughCallbackOnly_DefaultClientUntouche
 	mtlsClient := httpmocks.NewHTTPClient(t)
 	mtlsClient.EXPECT().Send(mock.Anything, mock.Anything).
 		Return(&network.HTTPResponse{StatusCode: 200, Body: []byte("body")}, nil).Once()
-	handler.httpClientFactory = func(opts network.HTTPClientOptions) (network.HTTPClient, error) {
+	handler.httpClientFactory = func(config network.HTTPClientConfig) (network.HTTPClient, error) {
 		return mtlsClient, nil
 	}
 

@@ -67,7 +67,7 @@ func TestNewHTTPClientWithOptions_MtlsRejectsInvalidPEM(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 
-	_, err := newHTTPClientWithOptions(HTTPClientConfig{}, HTTPClientOptions{
+	_, err := NewHTTPClient(HTTPClientConfig{
 		Mtls: &gateway.MtlsAuth{
 			Certificate: []byte("not a pem certificate"),
 			PrivateKey:  []byte("not a pem key"),
@@ -85,7 +85,7 @@ func TestNewHTTPClientWithOptions_MtlsRejectsMismatchedKeyPair(t *testing.T) {
 	certPEM, _, _ := pemKeyPair(t, "client-a")
 	_, keyPEMOther, _ := pemKeyPair(t, "client-b")
 
-	_, err := newHTTPClientWithOptions(HTTPClientConfig{}, HTTPClientOptions{
+	_, err := NewHTTPClient(HTTPClientConfig{
 		Mtls: &gateway.MtlsAuth{
 			Certificate: certPEM,
 			PrivateKey:  keyPEMOther,
@@ -101,7 +101,7 @@ func TestNewHTTPClientWithOptions_MtlsValidKeyPair(t *testing.T) {
 
 	certPEM, keyPEM, _ := pemKeyPair(t, "client")
 
-	client, err := newHTTPClientWithOptions(HTTPClientConfig{}, HTTPClientOptions{
+	client, err := NewHTTPClient(HTTPClientConfig{
 		Mtls: &gateway.MtlsAuth{Certificate: certPEM, PrivateKey: keyPEM},
 	}, lggr)
 	require.NoError(t, err)
@@ -114,23 +114,23 @@ func TestNewHTTPClientFactory_MtlsFlow(t *testing.T) {
 
 	factory := NewHTTPClientFactory(HTTPClientConfig{}, lggr)
 
-	t.Run("nil options returns a working non-mtls client", func(t *testing.T) {
-		client, err := factory(HTTPClientOptions{})
+	t.Run("nil config returns a working non-mtls client", func(t *testing.T) {
+		client, err := factory(HTTPClientConfig{})
 		require.NoError(t, err)
 		require.NotNil(t, client)
 	})
 
-	t.Run("valid mtls options returns a working client", func(t *testing.T) {
+	t.Run("valid mtls config returns a working client", func(t *testing.T) {
 		certPEM, keyPEM, _ := pemKeyPair(t, "client")
-		client, err := factory(HTTPClientOptions{
+		client, err := factory(HTTPClientConfig{
 			Mtls: &gateway.MtlsAuth{Certificate: certPEM, PrivateKey: keyPEM},
 		})
 		require.NoError(t, err)
 		require.NotNil(t, client)
 	})
 
-	t.Run("invalid mtls options surface an error", func(t *testing.T) {
-		client, err := factory(HTTPClientOptions{
+	t.Run("invalid mtls config surface an error", func(t *testing.T) {
+		client, err := factory(HTTPClientConfig{
 			Mtls: &gateway.MtlsAuth{Certificate: []byte("garbage"), PrivateKey: []byte("garbage")},
 		})
 		require.Error(t, err)
@@ -187,13 +187,11 @@ func TestHTTPClient_MtlsPresentsCertificateToServer(t *testing.T) {
 	port, err := strconv.Atoi(portStr)
 	require.NoError(t, err)
 
-	client, err := newHTTPClientWithOptions(
+	client, err := NewHTTPClient(
 		HTTPClientConfig{
 			AllowedIPs:   []string{host},
 			AllowedPorts: []int{port},
-		},
-		HTTPClientOptions{
-			Mtls: &gateway.MtlsAuth{Certificate: clientCertPEM, PrivateKey: clientKeyPEM},
+			Mtls:         &gateway.MtlsAuth{Certificate: clientCertPEM, PrivateKey: clientKeyPEM},
 		},
 		lggr,
 	)
@@ -249,12 +247,11 @@ func TestHTTPClient_NoMtls_RejectedByMtlsServer(t *testing.T) {
 	port, err := strconv.Atoi(portStr)
 	require.NoError(t, err)
 
-	client, err := newHTTPClientWithOptions(
+	client, err := NewHTTPClient(
 		HTTPClientConfig{
 			AllowedIPs:   []string{host},
 			AllowedPorts: []int{port},
-		},
-		HTTPClientOptions{}, // no Mtls
+		}, // no Mtls
 		lggr,
 	)
 	require.NoError(t, err)
@@ -287,7 +284,7 @@ func TestHTTPClient_MtlsDisablesKeepAlives(t *testing.T) {
 
 	certPEM, keyPEM, _ := pemKeyPair(t, "client")
 
-	client, err := newHTTPClientWithOptions(HTTPClientConfig{}, HTTPClientOptions{
+	client, err := NewHTTPClient(HTTPClientConfig{
 		Mtls: &gateway.MtlsAuth{Certificate: certPEM, PrivateKey: keyPEM},
 	}, lggr)
 	require.NoError(t, err)
