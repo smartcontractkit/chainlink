@@ -287,18 +287,22 @@ func baseNodeConfig(commonInputs *commonInputs, donMetadata *cre.DonMetadata, no
 
 	if commonInputs.provider.IsDocker() {
 		nodeIdentifier := donMetadata.Name + "-node-" + strconv.Itoa(nodeMetadata.Index)
+		resourceAttributes := map[string]string{
+			"service.name":     "chainlink-node",
+			"service.instance": nodeIdentifier,
+			"node.don":         donMetadata.Name,
+			"node.index":       strconv.Itoa(nodeMetadata.Index),
+		}
+		if zone := zoneFromDonName(donMetadata.Name); zone != "" {
+			resourceAttributes["zone"] = zone
+		}
 		c.Telemetry = coretoml.Telemetry{
 			Enabled:             new(true),
 			Endpoint:            new(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":4317"),
 			InsecureConnection:  new(true),
 			LogStreamingEnabled: new(true),
 			TraceSampleRatio:    new(0.0), // Set to > 0 to enable tracing
-			ResourceAttributes: map[string]string{
-				"service.name":     "chainlink-node",
-				"service.instance": nodeIdentifier,
-				"node.don":         donMetadata.Name,
-				"node.index":       strconv.Itoa(nodeMetadata.Index),
-			},
+			ResourceAttributes:  resourceAttributes,
 		}
 		// Note: OTEL_SERVICE_NAME env var should also be set on nodes to ensure
 		// the service name is applied correctly. The ResourceAttributes above may
@@ -313,6 +317,17 @@ func baseNodeConfig(commonInputs *commonInputs, donMetadata *cre.DonMetadata, no
 	}
 
 	return c
+}
+
+// zoneFromDonName extracts an operational zone label from local CRE DON names
+// (e.g. feeds-zone-a, gateway-zone-b). Returns empty when no zone suffix is present.
+func zoneFromDonName(donName string) string {
+	for _, zone := range []string{"zone-a", "zone-b"} {
+		if strings.HasSuffix(donName, zone) {
+			return zone
+		}
+	}
+	return ""
 }
 
 func addBootstrapNodeConfig(
@@ -541,8 +556,12 @@ func addWorkerNodeConfig(
 		}
 
 		gateways := []coretoml.ConnectorGateway{}
-		if topology != nil && topology.GatewayConnectors != nil && len(topology.GatewayConnectors.Configurations) > 0 {
-			for _, gateway := range topology.GatewayConnectors.Configurations {
+		connectors := cre.GatewayConnectors{}
+		if topology != nil && topology.GatewayConnectors != nil {
+			connectors = topology.GatewayConnectorsForWorkflow(donMetadata.Name)
+		}
+		if len(connectors.Configurations) > 0 {
+			for _, gateway := range connectors.Configurations {
 				gateways = append(gateways, coretoml.ConnectorGateway{
 					ID: new(gateway.AuthGatewayID),
 					URL: new(fmt.Sprintf("ws://%s:%d%s",
