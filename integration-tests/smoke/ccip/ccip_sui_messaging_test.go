@@ -15,9 +15,8 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-
 	module_fee_quoter "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/fee_quoter"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
@@ -546,7 +545,6 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 }
 
 func Test_CCIP_EVM2Sui_ZeroReceiver(t *testing.T) {
-	t.Skip("Skipping Sui zero receiver test due to flakiness")
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithNumOfChains(2),
