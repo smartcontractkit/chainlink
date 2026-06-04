@@ -1736,7 +1736,6 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		Outcomes: []*vaultcommon.Outcome{},
 	}
 
-outcomePackLoop:
 	for _, id := range slices.Sorted(maps.Keys(obsMap)) {
 		obs := obsMap[id]
 		// For each observation we've received for a given Id,
@@ -1823,7 +1822,7 @@ outcomePackLoop:
 				"packedOutcomeCount", len(os.Outcomes),
 				"scheduledRequestIDs", len(obsMap),
 			)
-			break outcomePackLoop
+			break
 		}
 	}
 

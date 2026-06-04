@@ -11,4 +11,4 @@ BUILD_DIR="${HOME}/wasmd-build"
 git clone https://github.com/CosmWasm/wasmd --branch "${GIT_TAG}" "${CHECKOUT_DIR}"
 cd "${CHECKOUT_DIR}"
 git checkout "${GIT_TAG}"
-GOTOOLCHAIN=go1.25.8 GOPATH="${BUILD_DIR}" make install
+GOTOOLCHAIN=go1.26.4 GOPATH="${BUILD_DIR}" make install

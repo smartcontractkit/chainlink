@@ -246,7 +246,7 @@ func (o *orm) ClearNonCurrentSessions(ctx context.Context, sessionID string) err
 	if err := o.ds.GetContext(ctx, &email, "SELECT email FROM sessions WHERE id = $1", sessionID); err != nil {
 		return err
 	}
-	_, err := o.ds.ExecContext(ctx, "DELETE FROM sessions WHERE email = lower($1) AND id != $2", email, sessionID)
+	_, err := o.ds.ExecContext(ctx, "DELETE FROM sessions WHERE lower(email) = lower($1) AND id != $2", email, sessionID)
 	return err
 }
 

@@ -253,7 +253,6 @@ func Test_CRE_V2_Beholder_Suite(t *testing.T) {
 }
 
 func Test_CRE_V2_DurableEmitter(t *testing.T) {
-	t.Skip("CRE-4315 fix CRE_V2_DurableEmitter test on CI")
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 	ExecuteDurableEmitterTest(t, testEnv)
 }
