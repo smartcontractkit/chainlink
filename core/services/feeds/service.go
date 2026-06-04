@@ -1642,7 +1642,7 @@ func (s *service) newOCR2ConfigMsg(cfg OCR2ConfigModel) (*pb.OCR2Config, error) 
 			OnchainSigningAddress: ocrKey.OnChainPublicKey(),
 		}
 		if rawPubKey, ok := ocr2key.RawEVMOnChainPublicKey(ocrKey); ok {
-			msg.OcrKeyBundle.OnchainSigningAddressPubKey = rawPubKey
+			msg.OcrKeyBundle.OnchainSigningPubKey = rawPubKey
 		}
 	}
 
