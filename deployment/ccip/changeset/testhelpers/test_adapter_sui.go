@@ -16,6 +16,7 @@ import (
 	module_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp/offramp"
 	"github.com/smartcontractkit/chainlink-aptos/relayer/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+
 	sui_module_offramp "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_offramp/offramp"
 	sui_ccip_offramp "github.com/smartcontractkit/chainlink-sui/bindings/packages/offramp"
 
@@ -24,6 +25,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	suistate "github.com/smartcontractkit/chainlink-sui/deployment"
 )
 
