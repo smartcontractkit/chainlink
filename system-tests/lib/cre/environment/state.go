@@ -74,7 +74,7 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		return nil, nil, errors.Wrap(offChainErr, "failed to create offchain client")
 	}
 
-	topology, tErr := cre.NewTopology(cachedInput.NodeSets, *cachedInput.Infra, cachedInput.CapabilityConfigs)
+	topology, tErr := cre.NewTopology(cachedInput.NodeSets, *cachedInput.Infra, cachedInput.CapabilityConfigs, cachedInput.CRETopology.GatewayDONPairing)
 	if tErr != nil {
 		return nil, nil, errors.Wrap(tErr, "failed to recreate topology from artifact")
 	}

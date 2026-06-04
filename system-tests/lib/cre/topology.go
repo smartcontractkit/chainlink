@@ -22,9 +22,10 @@ type Topology struct {
 	DonsMetadata          *DonsMetadata          `toml:"dons_metadata" json:"dons_metadata"`
 	GatewayServiceConfigs []GatewayServiceConfig `toml:"gateway_service_configs" json:"gateway_service_configs"`
 	GatewayConnectors     *GatewayConnectors     `toml:"gateway_connectors" json:"gateway_connectors"`
+	GatewayDONPairing     bool                   `toml:"gateway_don_pairing" json:"gateway_don_pairing"`
 }
 
-func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs map[CapabilityFlag]CapabilityConfig) (*Topology, error) {
+func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs map[CapabilityFlag]CapabilityConfig, gatewayDONPairing bool) (*Topology, error) {
 	dm := make([]*DonMetadata, len(nodeSet))
 	for i := range nodeSet {
 		// Use ContractDonID from NodeSet when set (resolved from Capabilities Registry contract).
@@ -51,8 +52,9 @@ func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs 
 	}
 
 	topology := &Topology{
-		WorkflowDONIDs: []uint64{},
-		DonsMetadata:   donsMetadata,
+		WorkflowDONIDs:    []uint64{},
+		DonsMetadata:      donsMetadata,
+		GatewayDONPairing: gatewayDONPairing,
 	}
 
 	donNames := make([]string, 0, len(wfDONs))
@@ -97,6 +99,10 @@ func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs 
 		return nil, errors.New("multiple bootstrap nodes found in topology. Only one bootstrap node is supported due to the limitations of the local environment")
 	}
 
+	if err := topology.validateGatewayDONPairing(); err != nil {
+		return nil, err
+	}
+
 	return topology, nil
 }
 
@@ -118,25 +124,68 @@ func (t *Topology) gatewayAndWorkflowDONNames() (gatewayNames, workflowNames []s
 	return gatewayNames, workflowNames
 }
 
-// shardedGatewayPairingEnabled is true when multiple gateway DONs match workflow DON count 1:1.
-// Single-gateway topologies keep legacy behavior (one gateway serves all workflow DONs).
-//
-// Pairing is index-based: the i-th workflow DON (topology file order among workflow
-// nodesets) is paired with the i-th gateway DON (topology file order among gateway
-// nodesets). Name suffixes such as feeds-zone-a / gateway-zone-a are not matched
-// automatically — keep workflow and gateway nodesets in aligned order in the TOML.
-func (t *Topology) shardedGatewayPairingEnabled() bool {
+func (t *Topology) gatewayDonPairingEnabled() bool {
+	return t.GatewayDONPairing
+}
+
+func (t *Topology) validateGatewayDONPairing() error {
+	if !t.gatewayDonPairingEnabled() {
+		return nil
+	}
+
 	gatewayNames, workflowNames := t.gatewayAndWorkflowDONNames()
-	return len(gatewayNames) > 1 && len(gatewayNames) == len(workflowNames)
+	if len(gatewayNames) == 0 {
+		return errors.New("cre_topology.gateway_don_pairing is enabled but topology has no gateway DONs")
+	}
+	if len(workflowNames) == 0 {
+		return errors.New("cre_topology.gateway_don_pairing is enabled but topology has no workflow DONs")
+	}
+	if len(gatewayNames) != len(workflowNames) {
+		return fmt.Errorf(
+			"cre_topology.gateway_don_pairing requires equal workflow and gateway DON counts; got %d workflow DON(s) (%v) and %d gateway DON(s) (%v)",
+			len(workflowNames), workflowNames, len(gatewayNames), gatewayNames,
+		)
+	}
+	return nil
+}
+
+// GatewayDONPairings returns workflow→gateway pairs when gateway_don_pairing is enabled.
+// Pairing is index-based: the i-th workflow DON (topology file order among workflow
+// nodesets) maps to the i-th gateway DON (file order among gateway nodesets). DON names
+// are not matched automatically.
+func (t *Topology) GatewayDONPairings() [][2]string {
+	if !t.gatewayDonPairingEnabled() {
+		return nil
+	}
+
+	gatewayNames, workflowNames := t.gatewayAndWorkflowDONNames()
+	pairs := make([][2]string, len(workflowNames))
+	for i := range workflowNames {
+		pairs[i] = [2]string{workflowNames[i], gatewayNames[i]}
+	}
+	return pairs
+}
+
+// LogGatewayDONPairing prints resolved workflow→gateway pairs at env start.
+func (t *Topology) LogGatewayDONPairing() {
+	if !t.gatewayDonPairingEnabled() {
+		return
+	}
+
+	parts := make([]string, 0, len(t.GatewayDONPairings()))
+	for _, pair := range t.GatewayDONPairings() {
+		parts = append(parts, fmt.Sprintf("%s → %s", pair[0], pair[1]))
+	}
+	fmt.Printf("Gateway DON pairing enabled: %s\n", strings.Join(parts, ", "))
 }
 
 // GatewayConnectorsForWorkflow returns gateway connectors for a workflow DON.
-// When sharded pairing is enabled, only the paired gateway is included.
+// When gateway_don_pairing is enabled, only the paired gateway is included.
 func (t *Topology) GatewayConnectorsForWorkflow(workflowDONName string) GatewayConnectors {
 	if t.GatewayConnectors == nil {
 		return GatewayConnectors{}
 	}
-	if !t.shardedGatewayPairingEnabled() {
+	if !t.gatewayDonPairingEnabled() {
 		return *t.GatewayConnectors
 	}
 
@@ -150,9 +199,9 @@ func (t *Topology) GatewayConnectorsForWorkflow(workflowDONName string) GatewayC
 }
 
 // GatewayServiceConfigsForGateway scopes service DON lists to the workflow DON paired with
-// the given gateway DON when sharded pairing is enabled.
+// the given gateway DON when gateway_don_pairing is enabled.
 func (t *Topology) GatewayServiceConfigsForGateway(gatewayDONName string, services []GatewayServiceConfig) []GatewayServiceConfig {
-	if !t.shardedGatewayPairingEnabled() {
+	if !t.gatewayDonPairingEnabled() {
 		return services
 	}
 

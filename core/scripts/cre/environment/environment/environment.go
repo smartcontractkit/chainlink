@@ -853,6 +853,7 @@ func StartCLIEnvironment(
 		Provider:                *in.Infra,
 		S3ProviderInput:         in.S3ProviderInput,
 		CapabilityConfigs:       in.CapabilityConfigs,
+		GatewayDONPairing:       in.CRETopology.GatewayDONPairing,
 		Capabilities:            capabilities,
 		JobSpecFactoryFunctions: extraJobSpecFunctions,
 		StageGen:                initLocalCREStageGen(in),
