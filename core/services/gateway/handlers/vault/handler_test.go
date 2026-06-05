@@ -445,15 +445,19 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	})
 
 	t.Run("nil EncryptedSecrets inside CreateSecrets body", func(t *testing.T) {
-		var wg sync.WaitGroup
 		h, callback, _, _ := setupHandler(t)
 		emptyCreateSecretsRequest := &vaultcommon.CreateSecretsRequest{
 			RequestId: "test_request_id",
 			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
-				nil,
 				{
-					EncryptedValue: "abc123", // should be a valid hex string
+					Id: &vaultcommon.SecretIdentifier{
+						Key:       "k",
+						Namespace: "default",
+						Owner:     owner,
+					},
+					EncryptedValue: "abc123",
 				},
+				nil,
 			},
 		}
 		emptyParams, err := json.Marshal(emptyCreateSecretsRequest)
@@ -466,30 +470,24 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			Params: (*json.RawMessage)(&emptyParams),
 		}
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			resp, err2 := callback.Wait(t.Context())
-			assert.NoError(t, err2)
-			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
-			err2 = json.Unmarshal(resp.RawResponse, &secretsResponse)
-			assert.NoError(t, err2)
-			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
-			assert.ErrorContains(t, secretsResponse.Error, "encrypted secret at index 0 must include an identifier")
-		}()
-
+		// A valid secret with matching owner precedes the nil entry so authorization
+		// passes owner binding and rejects the nil element at index 1.
 		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
-		require.NoError(t, err)
-		wg.Wait()
+		require.ErrorContains(t, err, "encrypted secret at index 1 must include an identifier")
 	})
 
 	t.Run("no id inside CreateSecrets.EncryptedSecrets body", func(t *testing.T) {
 		var wg sync.WaitGroup
-		h, callback, _, _ := setupHandler(t)
+		h, callback, don, _ := setupHandler(t)
+		don.AssertNotCalled(t, "SendToNode")
+
+		// Id is present with the authorized owner so authorization passes owner binding;
+		// key is omitted so validation fails on the incomplete identifier, not owner mismatch.
 		emptyCreateSecretsRequest := &vaultcommon.CreateSecretsRequest{
 			RequestId: "test_request_id",
 			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 				{
+					Id:             &vaultcommon.SecretIdentifier{Owner: owner},
 					EncryptedValue: "abc123", // should be a valid hex string
 				},
 			},
@@ -513,7 +511,8 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			err2 = json.Unmarshal(resp.RawResponse, &secretsResponse)
 			assert.NoError(t, err2)
 			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
-			assert.ErrorContains(t, secretsResponse.Error, "encrypted secret at index 0 must include an identifier")
+			assert.Contains(t, secretsResponse.Error.Message, "key cannot be empty")
+			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
 		}()
 
 		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
@@ -586,19 +585,13 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	})
 
 	t.Run("nil id in delete secrets", func(t *testing.T) {
-		var wg sync.WaitGroup
 		h, callback, _, _ := setupHandler(t)
 
-		id := &vaultcommon.SecretIdentifier{
-			Key:       "foo",
-			Namespace: "default",
-			Owner:     owner,
-		}
 		reqData := &vaultcommon.DeleteSecretsRequest{
 			RequestId: "id",
 			Ids: []*vaultcommon.SecretIdentifier{
+				{Key: "foo", Namespace: "default", Owner: owner},
 				nil,
-				id,
 			},
 		}
 		reqDataBytes, err := json.Marshal(reqData)
@@ -610,43 +603,10 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			Params: (*json.RawMessage)(&reqDataBytes),
 		}
 
-		responseData := &vaultcommon.DeleteSecretsResponse{
-			Responses: []*vaultcommon.DeleteSecretResponse{
-				{
-					Id:      id,
-					Success: true,
-				},
-			},
-		}
-		resultBytes, err := json.Marshal(responseData)
-		require.NoError(t, err)
-		expectedRequestID := owner + vaulttypes.RequestIDSeparator + requestID
-		response := jsonrpc.Response[json.RawMessage]{
-			ID:     expectedRequestID,
-			Result: (*json.RawMessage)(&resultBytes),
-			Method: vaulttypes.MethodSecretsDelete,
-		}
-		resultBytes, err = json.Marshal(responseData)
-		require.NoError(t, err)
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			resp, err2 := callback.Wait(t.Context())
-			assert.NoError(t, err2)
-			var secretsResponse jsonrpc.Response[vaultcommon.DeleteSecretsResponse]
-			err2 = json.Unmarshal(resp.RawResponse, &secretsResponse)
-			assert.NoError(t, err2)
-			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
-			assert.ErrorContains(t, secretsResponse.Error, "secret identifier at index 0 must not be nil")
-		}()
-
+		// A valid identifier with matching owner precedes the nil entry so authorization
+		// passes owner binding and rejects the nil element at index 1.
 		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
-		require.NoError(t, err)
-
-		err = h.HandleNodeMessage(t.Context(), &response, NodeOne.Address)
-		require.NoError(t, err)
-		wg.Wait()
+		require.ErrorContains(t, err, "secret identifier at index 1 must not be nil")
 	})
 
 	t.Run("happy path - list secret identifiers", func(t *testing.T) {
@@ -841,7 +801,6 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	})
 
 	t.Run("empty params error", func(t *testing.T) {
-		var wg sync.WaitGroup
 		h, callback, don, _ := setupHandler(t)
 		// Don't expect SendToNode to be called for parse errors
 		don.AssertNotCalled(t, "SendToNode")
@@ -852,26 +811,13 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			Params: &json.RawMessage{},
 		}
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			resp, err := callback.Wait(t.Context())
-			assert.NoError(t, err)
-			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
-			err = json.Unmarshal(resp.RawResponse, &secretsResponse)
-			assert.NoError(t, err)
-			assert.Equal(t, emptyParamsRequest.ID, secretsResponse.ID, "Request ID should match")
-			assert.Equal(t, "user message parse error: unexpected end of JSON input", secretsResponse.Error.Message, "Error message should match")
-			assert.Equal(t, api.ToJSONRPCErrorCode(api.UserMessageParseError), secretsResponse.Error.Code, "Error code should match")
-		}()
-
+		// Owner binding is enforced during authorization, before a callback is registered.
+		// HandleJSONRPCUserMessage returns the error directly.
 		err := h.HandleJSONRPCUserMessage(t.Context(), emptyParamsRequest, callback)
-		require.NoError(t, err)
-		wg.Wait()
+		require.ErrorContains(t, err, "failed to parse create secrets request")
 	})
 
 	t.Run("no request inside the batch request", func(t *testing.T) {
-		var wg sync.WaitGroup
 		h, callback, don, _ := setupHandler(t)
 		// Don't expect SendToNode to be called for invalid params
 		don.AssertNotCalled(t, "SendToNode")
@@ -883,22 +829,10 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			Params: &invalidParams,
 		}
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			resp, err := callback.Wait(t.Context())
-			assert.NoError(t, err)
-			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
-			err = json.Unmarshal(resp.RawResponse, &secretsResponse)
-			assert.NoError(t, err)
-			assert.Equal(t, invalidParamsRequest.ID, secretsResponse.ID, "Request ID should match")
-			assert.Equal(t, "invalid params error: encrypted secrets must contain at least one identifier", secretsResponse.Error.Message, "Error message should match")
-			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
-		}()
-
+		// Owner binding is enforced during authorization, before a callback is registered.
+		// HandleJSONRPCUserMessage returns the error directly.
 		err := h.HandleJSONRPCUserMessage(t.Context(), invalidParamsRequest, callback)
-		require.NoError(t, err)
-		wg.Wait()
+		require.ErrorContains(t, err, "encrypted secrets must contain at least one identifier")
 	})
 
 	t.Run("invalid params error", func(t *testing.T) {

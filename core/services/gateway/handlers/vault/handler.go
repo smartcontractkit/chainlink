@@ -604,10 +604,6 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) er
 	if unmarshalErr := json.Unmarshal(*ar.req.Params, &createSecretsRequest); unmarshalErr != nil {
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, unmarshalErr, nil))
 	}
-	if ownerErr := vaultcap.ValidatePreparedVaultOwners(ar.req, authorizedOwnerFromRequestID(ar.req.ID)); ownerErr != nil {
-		l.Errorw("owner binding failed", "error", ownerErr)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, ownerErr, nil))
-	}
 	createSecretsRequest.RequestId = ar.req.ID
 	for _, secretItem := range createSecretsRequest.EncryptedSecrets {
 		if secretItem != nil && secretItem.Id != nil && secretItem.Id.Namespace == "" {
@@ -649,10 +645,6 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar *activeRequest) er
 	if unmarshalErr := json.Unmarshal(*ar.req.Params, updateSecretsRequest); unmarshalErr != nil {
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, unmarshalErr, nil))
 	}
-	if ownerErr := vaultcap.ValidatePreparedVaultOwners(ar.req, authorizedOwnerFromRequestID(ar.req.ID)); ownerErr != nil {
-		l.Errorw("owner binding failed", "error", ownerErr)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, ownerErr, nil))
-	}
 	updateSecretsRequest.RequestId = ar.req.ID
 	for _, secretItem := range updateSecretsRequest.EncryptedSecrets {
 		if secretItem != nil && secretItem.Id != nil && secretItem.Id.Namespace == "" {
@@ -693,10 +685,6 @@ func (h *handler) handleSecretsDelete(ctx context.Context, ar *activeRequest) er
 	if unmarshalErr := json.Unmarshal(*ar.req.Params, deleteSecretsRequest); unmarshalErr != nil {
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, unmarshalErr, nil))
 	}
-	if ownerErr := vaultcap.ValidatePreparedVaultOwners(ar.req, authorizedOwnerFromRequestID(ar.req.ID)); ownerErr != nil {
-		l.Errorw("owner binding failed", "error", ownerErr)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, ownerErr, nil))
-	}
 	deleteSecretsRequest.RequestId = ar.req.ID
 	for _, id := range deleteSecretsRequest.Ids {
 		if id != nil && id.Namespace == "" {
@@ -725,10 +713,6 @@ func (h *handler) handleSecretsList(ctx context.Context, ar *activeRequest) erro
 	req := &vaultcommon.ListSecretIdentifiersRequest{}
 	if err := json.Unmarshal(*ar.req.Params, req); err != nil {
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err, nil))
-	}
-	if ownerErr := vaultcap.ValidatePreparedVaultOwners(ar.req, authorizedOwnerFromRequestID(ar.req.ID)); ownerErr != nil {
-		l.Errorw("owner binding failed", "error", ownerErr)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, ownerErr, nil))
 	}
 	req.RequestId = ar.req.ID
 	if req.Namespace == "" {
@@ -871,16 +855,6 @@ func (h *handler) errorResponse(
 		),
 		ErrorCode: errorCode,
 	}
-}
-
-// authorizedOwnerFromRequestID extracts the owner prefix that was stamped onto
-// the request ID after authorization (format: "<owner>::<original-id>").
-func authorizedOwnerFromRequestID(requestID string) string {
-	idx := strings.Index(requestID, vaulttypes.RequestIDSeparator)
-	if idx == -1 {
-		return ""
-	}
-	return requestID[:idx]
 }
 
 func (h *handler) sendResponse(ctx context.Context, userRequest *activeRequest, resp gwhandlers.UserCallbackPayload) error {
