@@ -1,6 +1,7 @@
 package job_types_test
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -118,5 +119,50 @@ func TestJobSpecInput_ToStandardCapabilityJob(t *testing.T) {
 		_, err := input.ToStandardCapabilityJob(jobName)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "cannot unmarshal !!str")
+	})
+}
+
+func TestJobSpecInput_UnmarshalTo_JSONNumber(t *testing.T) {
+	t.Parallel()
+
+	t.Run("json.Number unmarshals into uint64 field", func(t *testing.T) {
+		// This simulates what happens when the durable pipeline framework parses
+		// YAML integers via YamlNodeToAny → they become json.Number in the map.
+		input := job_types.JobSpecInput{
+			"templateName":      "worker-vault",
+			"chainSelectorEVM":  json.Number("5009297550715157269"),
+			"contractQualifier": "unused-ocr3-contract",
+			"auth0": map[string]any{
+				"issuerURL": "https://login.chain.link/",
+				"audience":  "urn:chainlink:vault-don:production:cre-enterprise",
+				"tenantID":  json.Number("3"),
+			},
+		}
+
+		var out pkg.OCR3JobConfigInput
+		err := input.UnmarshalTo(&out)
+		require.NoError(t, err)
+		assert.Equal(t, "worker-vault", out.TemplateName)
+		require.NotNil(t, out.Auth0)
+		assert.Equal(t, uint64(3), out.Auth0.TenantID)
+		assert.Equal(t, "https://login.chain.link/", out.Auth0.IssuerURL)
+	})
+
+	t.Run("native int still works", func(t *testing.T) {
+		input := job_types.JobSpecInput{
+			"templateName":      "worker-vault",
+			"contractQualifier": "unused-ocr3-contract",
+			"auth0": map[string]any{
+				"issuerURL": "https://login.chain.link/",
+				"audience":  "urn:chainlink:vault-don:production:cre-enterprise",
+				"tenantID":  3,
+			},
+		}
+
+		var out pkg.OCR3JobConfigInput
+		err := input.UnmarshalTo(&out)
+		require.NoError(t, err)
+		require.NotNil(t, out.Auth0)
+		assert.Equal(t, uint64(3), out.Auth0.TenantID)
 	})
 }

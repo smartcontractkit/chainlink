@@ -1,6 +1,7 @@
 package job_types
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -13,12 +14,43 @@ import (
 type JobSpecInput map[string]any
 
 func (j JobSpecInput) UnmarshalTo(target any) error {
-	bytes, err := yaml.Marshal(j)
+	bytes, err := yaml.Marshal(convertJSONNumbers(map[string]any(j)))
 	if err != nil {
 		return fmt.Errorf("failed to marshal job spec input to json: %w", err)
 	}
 
 	return yaml.Unmarshal(bytes, target)
+}
+
+// convertJSONNumbers recursively converts json.Number values to native Go
+// numeric types (int64 or float64). This prevents yaml.Marshal from emitting
+// them as quoted strings which would then fail to unmarshal into numeric struct
+// fields.
+func convertJSONNumbers(v any) any {
+	switch val := v.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(val))
+		for k, elem := range val {
+			out[k] = convertJSONNumbers(elem)
+		}
+		return out
+	case []any:
+		out := make([]any, len(val))
+		for i, elem := range val {
+			out[i] = convertJSONNumbers(elem)
+		}
+		return out
+	case json.Number:
+		if n, err := val.Int64(); err == nil {
+			return n
+		}
+		if f, err := val.Float64(); err == nil {
+			return f
+		}
+		return val.String()
+	default:
+		return v
+	}
 }
 
 func (j JobSpecInput) UnmarshalFrom(source any) error {
