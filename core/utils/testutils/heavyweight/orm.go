@@ -26,7 +26,7 @@ import (
 // unit tests, so you can do things like use other Postgres connection types with it.
 func FullTestDBV2(t testing.TB, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
 	cfg, db := FullTestDBNoFixturesV2(t, overrideFn)
-	_, err := db.Exec(store.FixturesSQL())
+	_, err := db.ExecContext(t.Context(), store.FixturesSQL())
 	require.NoError(t, err)
 	return cfg, db
 }

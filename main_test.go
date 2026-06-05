@@ -120,7 +120,7 @@ func commonEnv(t testing.TB) func(*testscript.Env) error {
 			envVarName := strings.TrimSpace(string(b))
 			te.T().Log("test database requested:", envVarName)
 
-			u2 := newDB(t)
+			u2 := testdb.New(t, true).String()
 
 			te.Setenv(envVarName, u2)
 		}
@@ -136,7 +136,3 @@ func takeFreePort() (int, func(), error) {
 	return ports[0], func() { freeport.Return(ports) }, nil
 }
 
-func newDB(t testing.TB) string {
-	u2 := testdb.New(t, true)
-	return u2.String()
-}

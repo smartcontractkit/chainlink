@@ -30,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
 )
 
-
 //go:embed fixtures/fixtures.sql
 var fixturesSQL string
 
@@ -265,7 +264,7 @@ func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
 	}
 	for _, dbname := range dbs {
 		if (strings.HasPrefix(dbname, "chainlink_test_") && !strings.HasSuffix(dbname, "_pristine")) ||
-			(strings.HasPrefix(dbname, "testdb_") && !strings.HasPrefix(dbname, "testdb_tpl_")) {
+			(strings.HasPrefix(dbname, "testdb_") && (!strings.HasPrefix(dbname, "testdb_tpl_") || strings.Contains(dbname, "_inst_"))) {
 			ch <- dbname
 		}
 	}

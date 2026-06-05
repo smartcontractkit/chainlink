@@ -31,7 +31,7 @@ func New(t testing.TB, withTemplate bool) *url.URL {
 	dbURL, err := url.Parse(rawDBURL)
 	require.NoError(t, err)
 
-	migrator := Migrator(withTemplate)
+	migrator := migratorConfig(withTemplate)
 	conf := pgtestdb.Config{
 		DriverName:                pgcommon.DriverPostgres,
 		User:                      dbURL.User.Username(),
@@ -60,8 +60,19 @@ func (m *migrator) Hash() (string, error) {
 	if !m.withTemplate {
 		return "empty", nil
 	}
-	// Hash the embedded migration files so template databases rebuild if schemas change.
-	return common.HashDirs(migrate.EmbedMigrations, "*.sql", migrate.MigrationsDir)
+	h1, err := common.HashDirs(migrate.EmbedMigrations, "*.sql", migrate.MigrationsDir)
+	if err != nil {
+		return "", err
+	}
+	h2, err := common.HashDirs(migrate.EmbedMigrations, "*.go", migrate.MigrationsDir)
+	if err != nil {
+		return "", err
+	}
+	hash := common.NewRecursiveHash(
+		common.Field("sql", h1),
+		common.Field("go", h2),
+	)
+	return hash.String(), nil
 }
 
 func (m *migrator) Migrate(ctx context.Context, db *sql.DB, config pgtestdb.Config) error {
@@ -73,6 +84,6 @@ func (m *migrator) Migrate(ctx context.Context, db *sql.DB, config pgtestdb.Conf
 	return migrate.Migrate(ctx, db)
 }
 
-func Migrator(withTemplate bool) pgtestdb.Migrator {
+func migratorConfig(withTemplate bool) pgtestdb.Migrator {
 	return &migrator{withTemplate: withTemplate}
 }
