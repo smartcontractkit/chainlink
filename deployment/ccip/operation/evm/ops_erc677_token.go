@@ -11,8 +11,8 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	opsutil "github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	cciptypes "github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
 
 type MintERC677Config struct {

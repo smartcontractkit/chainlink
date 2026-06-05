@@ -80,8 +80,6 @@ type ORM interface {
 	FindJobIDByCapabilityNameAndVersion(ctx context.Context, spec CCIPSpec) (int32, error)
 	FindStandardCapabilityJobID(ctx context.Context, spec StandardCapabilitiesSpec) (int32, error)
 	FindGatewayJobID(ctx context.Context, spec GatewaySpec) (int32, error)
-
-	FindJobIDByStreamID(ctx context.Context, streamID uint32) (int32, error)
 }
 
 type ORMConfig interface {
@@ -1048,15 +1046,15 @@ func (o *orm) FindOCR2JobIDByAddress(ctx context.Context, relay string, chainID 
 	stmt := `
 SELECT jobs.id
 FROM jobs
-LEFT JOIN ocr2_oracle_specs ocr2spec on 
-	ocr2spec.contract_id = $1 AND 
-	ocr2spec.feed_id IS NOT DISTINCT FROM $2 AND 
+LEFT JOIN ocr2_oracle_specs ocr2spec on
+	ocr2spec.contract_id = $1 AND
+	ocr2spec.feed_id IS NOT DISTINCT FROM $2 AND
 	ocr2spec.id = jobs.ocr2_oracle_spec_id AND
 	ocr2spec.relay = $3 AND
 	ocr2spec.relay_config->'chainID' = $4
-LEFT JOIN bootstrap_specs bs on 
-	bs.contract_id = $1 AND 
-	bs.feed_id IS NOT DISTINCT FROM $2 AND 
+LEFT JOIN bootstrap_specs bs on
+	bs.contract_id = $1 AND
+	bs.feed_id IS NOT DISTINCT FROM $2 AND
 	bs.id = jobs.bootstrap_spec_id AND
 	bs.relay = $3 AND
 	bs.relay_config->'chainID' = $4
@@ -1393,20 +1391,6 @@ func (o *orm) FindJobsByPipelineSpecIDs(ctx context.Context, ids []int32) ([]Job
 	})
 
 	return jbs, errors.Wrap(err, "FindJobsByPipelineSpecIDs failed")
-}
-
-func (o *orm) FindJobIDByStreamID(ctx context.Context, streamID uint32) (jobID int32, err error) {
-	stmt := `SELECT id FROM jobs WHERE type = 'stream' AND stream_id = $1`
-	err = o.ds.GetContext(ctx, &jobID, stmt, streamID)
-	if err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
-			err = errors.Wrap(err, "error searching for job by stream id")
-		}
-		err = errors.Wrap(err, "FindJobIDByStreamID failed")
-		return
-	}
-
-	return
 }
 
 // PipelineRuns returns pipeline runs for a job, with spec and taskruns loaded, latest first

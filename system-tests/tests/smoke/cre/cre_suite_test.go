@@ -9,6 +9,7 @@ import (
 
 	suite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/config"
 	evm_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
+	solana_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 )
 
@@ -216,14 +217,32 @@ func runEVMReadBucket(t *testing.T, bucket evm_config.ReadBucket) {
 	})
 }
 
+const solanaConfigPath = "/configs/workflow-don-solana.toml"
+
 func Test_CRE_V2_Solana_Suite(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-don-solana.toml"))
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, solanaConfigPath))
 	t.Run("Solana Write", func(t *testing.T) {
 		ExecuteSolanaWriteTest(t, testEnv)
 	})
 	t.Run("[v2] Solana LogTrigger", func(t *testing.T) {
 		ExecuteSolanaLogTriggerTest(t, testEnv)
 		ExecuteSolanaLogTriggerCPITest(t, testEnv)
+	})
+}
+
+func Test_CRE_V2_Solana_Read_Accounts(t *testing.T) {
+	runSolanaReadBucket(t, solana_config.ReadBucketAccountCalls)
+}
+
+func runSolanaReadBucket(t *testing.T, bucket solana_config.ReadBucket) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, solanaConfigPath))
+	require.NoError(t, solana_config.ValidateReadBucketRegistry(), "invalid Solana read bucket registry")
+
+	testCases, err := solana_config.CasesForReadBucket(bucket)
+	require.NoErrorf(t, err, "failed to load Solana read bucket %q", bucket)
+
+	t.Run(fmt.Sprintf("Solana Read (%s) - %s", bucket, topology), func(t *testing.T) {
+		ExecuteSolanaReadTestForCases(t, testEnv, testCases)
 	})
 }
 

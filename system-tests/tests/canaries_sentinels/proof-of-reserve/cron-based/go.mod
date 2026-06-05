@@ -1,6 +1,6 @@
 module main
 
-go 1.26.3
+go 1.26.4
 
 require (
 	github.com/ethereum/go-ethereum v1.17.1
