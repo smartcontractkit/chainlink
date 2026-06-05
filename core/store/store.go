@@ -42,10 +42,7 @@ func PrepareTestDB(lggr logger.Logger, dbURL url.URL, userOnly bool) error {
 		return err
 	}
 	defer db.Close()
-	templateDB := strings.Trim(dbURL.Path, "/")
-	if err = dropAndCreatePristineDB(db, templateDB); err != nil {
-		return err
-	}
+	// we no longer create chainlink_test_pristine since pgtestdb handles template caching
 
 	fixturePath := "../store/fixtures/fixtures.sql"
 	if userOnly {
@@ -137,29 +134,13 @@ func dropAndCreateDB(parsed url.URL, _ bool) (err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	// PostgreSQL does not support bound parameters for database names; pq.QuoteIdentifier is the supported escape.
-	_, err = db.ExecContext(ctx, "DROP DATABASE IF EXISTS "+pq.QuoteIdentifier(dbname)+" WITH (FORCE)") //nolint:gosec // G701 false positive: identifier from pq.QuoteIdentifier only
+	_, err = db.ExecContext(ctx, "DROP DATABASE IF EXISTS "+pq.QuoteIdentifier(dbname)+" WITH (FORCE)")
 	if err != nil {
 		return fmt.Errorf("unable to drop postgres database: %w", err)
 	}
 	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_, err = db.ExecContext(ctx, "CREATE DATABASE "+pq.QuoteIdentifier(dbname)) //nolint:gosec // G701 false positive: identifier from pq.QuoteIdentifier only
-	if err != nil {
-		return fmt.Errorf("unable to create postgres database: %w", err)
-	}
-	return nil
-}
-
-func dropAndCreatePristineDB(db *sqlx.DB, template string) (err error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	_, err = db.ExecContext(ctx, "DROP DATABASE IF EXISTS "+pq.QuoteIdentifier(testdb.PristineDBName)+" WITH (FORCE)")
-	if err != nil {
-		return fmt.Errorf("unable to drop postgres database: %w", err)
-	}
-	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	_, err = db.ExecContext(ctx, "CREATE DATABASE "+pq.QuoteIdentifier(testdb.PristineDBName)+" WITH TEMPLATE "+pq.QuoteIdentifier(template)) //nolint:gosec // G701 false positive: identifiers from pq.QuoteIdentifier only
+	_, err = db.ExecContext(ctx, "CREATE DATABASE "+pq.QuoteIdentifier(dbname))
 	if err != nil {
 		return fmt.Errorf("unable to create postgres database: %w", err)
 	}
@@ -229,6 +210,7 @@ func checkSchema(dbURL url.URL, prevSchema string, restrictKey string) error {
 	}
 	return nil
 }
+
 func insertFixtures(dbURL url.URL, pathToFixtures string) (err error) {
 	db, err := sql.Open(pgcommon.DriverPostgres, dbURL.String())
 	if err != nil {

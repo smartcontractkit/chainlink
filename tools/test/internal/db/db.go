@@ -217,7 +217,11 @@ func EnsurePool(ctx context.Context, conf *config.App, out *output.Printer, size
 			if size > 1 {
 				workerOut = output.New(conf.AIOutput, io.Discard, io.Discard, output.SkipFD)
 			}
-			h, err := ensure(poolCtx, conf, workerOut, size == 1)
+			workerConf := *conf
+			if conf.DiagnoseMode {
+				workerConf.WorkerIndex = i + 1
+			}
+			h, err := ensure(poolCtx, &workerConf, workerOut, size == 1)
 			if err != nil {
 				cancel()
 				errs <- err

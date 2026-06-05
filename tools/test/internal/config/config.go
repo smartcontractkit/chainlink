@@ -23,18 +23,28 @@ type App struct {
 	// ParallelIterations records the requested diagnose worker count (used only
 	// to reject external databases with parallel runs).
 	ParallelIterations int
-	// DiagnoseMode is true when the app is running in diagnose mode.
+	// DiagnoseMode is true when the harness is running testrig diagnose.
 	DiagnoseMode bool
-	// WorkerIndex is the index of the diagnose worker.
+	// WorkerIndex is the 1-based diagnose worker slot when DiagnoseMode is set.
 	WorkerIndex int
-	// PackageSlug is the slug of the package being tested.
+	// PackageSlug is a short, docker-safe token derived from the package patterns
+	// under test (e.g. core_services).
 	PackageSlug string
 }
 
-// PostgresContainerName returns the name of the Postgres container for the app.
-func (a *App) PostgresContainerName() string {
-	if a.DiagnoseMode {
-		return fmt.Sprintf("iteration_%d_%s", a.WorkerIndex, a.PackageSlug)
+// PostgresContainerName returns the docker container name for an ephemeral
+// Postgres instance. Non-diagnose runs use test_<slug>; diagnose workers use
+// iteration_<n>_<slug>.
+func (c *App) PostgresContainerName() string {
+	if c == nil {
+		return "test_pkgs"
 	}
-	return fmt.Sprintf("test_%s", a.PackageSlug)
+	slug := c.PackageSlug
+	if slug == "" {
+		slug = "pkgs"
+	}
+	if c.DiagnoseMode {
+		return fmt.Sprintf("iteration_%d_%s", max(c.WorkerIndex, 1), slug)
+	}
+	return "test_" + slug
 }

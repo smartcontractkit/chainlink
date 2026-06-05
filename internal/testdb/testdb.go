@@ -1,10 +1,11 @@
 package testdb
 
 import (
-	"net/url"
-	"testing"
+	"context"
+	"database/sql"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil/sqltest"
+	"github.com/peterldowns/pgtestdb"
+	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
 )
 
 const (
@@ -14,15 +15,24 @@ const (
 	TestDBNamePrefix = "chainlink_test_"
 )
 
-// CreateOrReplace creates a database named with a common prefix and the given suffix, and returns the URL.
-// If the database already exists, it will be dropped and re-created.
-// If withTemplate is true, the pristine DB will be used as a template.
-func CreateOrReplace(t testing.TB, parsed url.URL, suffix string, withTemplate bool) url.URL {
-	// Match the naming schema that our dangling DB cleanup methods expect
-	dbname := TestDBNamePrefix + suffix
-	var template string
-	if withTemplate {
-		template = PristineDBName
+type migrator struct {
+	withTemplate bool
+}
+
+func (m *migrator) Hash() (string, error) {
+	if m.withTemplate {
+		return "withTemplate", nil
 	}
-	return sqltest.CreateOrReplace(t, parsed, dbname, template)
+	return "empty", nil
+}
+
+func (m *migrator) Migrate(ctx context.Context, db *sql.DB, config pgtestdb.Config) error {
+	if !m.withTemplate {
+		return nil
+	}
+	return migrate.Migrate(ctx, db)
+}
+
+func Migrator(withTemplate bool) pgtestdb.Migrator {
+	return &migrator{withTemplate: withTemplate}
 }

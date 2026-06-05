@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os/exec"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 )
@@ -44,6 +45,62 @@ var goListTwoArgFlags = map[string]bool{
 var harnessRootValueFlags = map[string]bool{
 	"database-url":     true,
 	"postgres-version": true,
+}
+
+// IsDiagnoseCommand reports whether argv invokes the testrig diagnose subcommand.
+func IsDiagnoseCommand(args []string) bool {
+	return slices.Contains(args, "diagnose")
+}
+
+// PackageSlug returns a short docker-safe name for the package patterns in argv
+// (e.g. ./core/services/... -> core_services).
+func PackageSlug(args []string) string {
+	patterns := extractPackagePatterns(args)
+	switch len(patterns) {
+	case 0:
+		return "pkgs"
+	case 1:
+		return patternToSlug(patterns[0])
+	default:
+		slugs := make([]string, len(patterns))
+		for i, p := range patterns {
+			slugs[i] = patternToSlug(p)
+		}
+		return strings.Join(slugs, "__")
+	}
+}
+
+func patternToSlug(pattern string) string {
+	t := strings.TrimPrefix(pattern, "./")
+	switch {
+	case t == "...":
+		return "pkgs"
+	case strings.HasSuffix(t, "/..."):
+		t = strings.TrimSuffix(t, "/...")
+	}
+	t = strings.ReplaceAll(t, "/", "_")
+	return sanitizeSlugToken(t)
+}
+
+func sanitizeSlugToken(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range s {
+		switch {
+		case r >= 'a' && r <= 'z',
+			r >= 'A' && r <= 'Z',
+			r >= '0' && r <= '9',
+			r == '_', r == '-', r == '.':
+			b.WriteRune(r)
+		default:
+			b.WriteByte('_')
+		}
+	}
+	out := b.String()
+	if out == "" {
+		return "pkgs"
+	}
+	return out
 }
 
 func extractPackagePatterns(args []string) []string {
