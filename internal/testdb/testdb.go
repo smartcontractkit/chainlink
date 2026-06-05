@@ -5,6 +5,7 @@ import (
 	"database/sql"
 
 	"github.com/peterldowns/pgtestdb"
+
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
 )
 
