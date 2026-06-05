@@ -241,6 +241,11 @@ func (h *GatewayHandler) authorizeAndPrefixRequest(ctx context.Context, req *jso
 	}
 	authorizedOwner := authResult.AuthorizedOwner()
 
+	if ownerErr := ValidatePreparedVaultOwners(authReq, authorizedOwner); ownerErr != nil {
+		h.lggr.Errorw("gateway request owner binding failed", "method", req.Method, "requestID", originalRequestID, "authorizedOwner", authorizedOwner, "error", ownerErr)
+		return nil, fmt.Errorf("request not authorized: %w", ownerErr)
+	}
+
 	req.ID = authorizedOwner + vaulttypes.RequestIDSeparator + originalRequestID
 	h.lggr.Debugw("authorized gateway request", "method", req.Method, "requestID", req.ID, "owner", authorizedOwner, "orgID", authResult.OrgID(), "workflowOwner", authResult.WorkflowOwner())
 	return authResult, nil

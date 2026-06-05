@@ -265,7 +265,7 @@ func (v *jwtBasedAuth) AuthorizeRequest(ctx context.Context, req jsonrpc.Request
 		return nil, fmt.Errorf("invalid JWT auth token: %w", err)
 	}
 
-	if ownerErr := validateJWTPreparedVaultOwners(req, derivedWorkflowOwner); ownerErr != nil {
+	if ownerErr := ValidatePreparedVaultOwners(req, derivedWorkflowOwner); ownerErr != nil {
 		v.lggr.Debugw("JWTBasedAuth secret owners rejected prepared request", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "workflowOwner", derivedWorkflowOwner, "error", ownerErr)
 		return nil, fmt.Errorf("invalid JWT auth token: %w", ownerErr)
 	}
@@ -442,7 +442,10 @@ func extractAuthorizationDetails(claims jwt.MapClaims) (workflowOwner, requestDi
 	return workflowOwner, requestDigest, nil
 }
 
-func validateJWTPreparedVaultOwners(req jsonrpc.Request[json.RawMessage], workflowOwner string) error {
+// ValidatePreparedVaultOwners checks that every secret identifier in the request
+// payload belongs to workflowOwner. It is used by both the JWT and allowlist auth
+// paths so that neither can be exploited to mutate another owner's secrets.
+func ValidatePreparedVaultOwners(req jsonrpc.Request[json.RawMessage], workflowOwner string) error {
 	switch req.Method {
 	case vaulttypes.MethodSecretsCreate:
 		parsed := &vaultcommon.CreateSecretsRequest{}
