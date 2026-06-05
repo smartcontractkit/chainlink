@@ -24,12 +24,10 @@ func New(t testing.TB, withTemplate bool) *url.URL {
 	t.Helper()
 
 	rawDBURL := string(env.DatabaseURL.Get())
-	if rawDBURL == "" {
-		t.Fatalf("you must provide a CL_DATABASE_URL environment variable")
-	}
-
+	require.NotEmpty(t, rawDBURL, "CL_DATABASE_URL environment variable is required")
 	dbURL, err := url.Parse(rawDBURL)
 	require.NoError(t, err)
+	require.NotEmpty(t, dbURL.String(), "CL_DATABASE_URL environment variable is required")
 
 	migrator := migratorConfig(withTemplate)
 	conf := pgtestdb.Config{
