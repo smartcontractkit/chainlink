@@ -359,7 +359,7 @@ func TestConfidentialModule_Tee(t *testing.T) {
 		assert.Equal(t, "0xowner", capturedReq.Metadata.WorkflowOwner)
 		assert.Equal(t, "my-workflow", capturedReq.Metadata.WorkflowName)
 		assert.Equal(t, "v3", capturedReq.Metadata.WorkflowTag)
-		assert.Equal(t, "", capturedReq.Metadata.WorkflowExecutionID)
+		assert.Empty(t, capturedReq.Metadata.WorkflowExecutionID)
 
 		var emptyMsg emptypb.Empty
 		require.NoError(t, capturedReq.Payload.UnmarshalTo(&emptyMsg))

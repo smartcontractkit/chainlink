@@ -367,7 +367,7 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 
 type simulationModuleWrapper struct {
 	generichost.Module
-	requirementsSet func(executionId string, requirements *sdkpb.Requirements)
+	requirementsSet func(executionID string, requirements *sdkpb.Requirements)
 }
 
 var _ generichost.RequirementEnforcingModule = &simulationModuleWrapper{}

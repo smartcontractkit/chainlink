@@ -118,8 +118,8 @@ func (m *ConfidentialModule) Execute(
 	return capOutput.SdkExecutionResult, nil
 }
 
-func (m *ConfidentialModule) SetRequirements(executionId string, requirements *sdkpb.Requirements) {
-	m.requirements.Store(executionId, requirements)
+func (m *ConfidentialModule) SetRequirements(executionID string, requirements *sdkpb.Requirements) {
+	m.requirements.Store(executionID, requirements)
 }
 
 func (m *ConfidentialModule) providedTees(ctx context.Context) []*sdkpb.TeeTypeAndRegions {
