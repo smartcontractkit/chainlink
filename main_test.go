@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/uuid"
+	"github.com/peterldowns/pgtestdb"
 	"github.com/rogpeppe/go-internal/testscript"
 	"github.com/stretchr/testify/require"
 
@@ -40,9 +40,9 @@ const (
 )
 
 func TestMain(m *testing.M) {
-	os.Exit(testscript.RunMain(m, map[string]func() int{
-		"chainlink": core.Main,
-	}))
+	testscript.Main(m, map[string]func(){
+		"chainlink": func() { os.Exit(core.Main()) },
+	})
 }
 
 var (
@@ -145,7 +145,21 @@ func newDB(t testing.TB) string {
 		t.Fatalf("failed to parse url: %v", err)
 	}
 
-	name := strings.ReplaceAll(uuid.NewString(), "-", "_") + "_test"
-	u2 := testdb.CreateOrReplace(t, *u, name, true)
-	return u2.String()
+	migrator := testdb.Migrator(true)
+	conf := pgtestdb.Config{
+		DriverName:                "postgres",
+		User:                      u.User.Username(),
+		Host:                      u.Hostname(),
+		Port:                      u.Port(),
+		Database:                  strings.TrimLeft(u.Path, "/"),
+		Options:                   u.RawQuery,
+		ForceTerminateConnections: true,
+	}
+	if pass, ok := u.User.Password(); ok {
+		conf.Password = pass
+	}
+	newConf := pgtestdb.Custom(t, conf, migrator)
+
+	u.Path = "/" + newConf.Database
+	return u.String()
 }
