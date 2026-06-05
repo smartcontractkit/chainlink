@@ -114,6 +114,12 @@ jobs:
           "Test_CRE_V2_Solana_Read_Accounts": [
                {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
              ],
+          "Test_CRE_V2_Solana_Read_Block": [
+               {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
+             ],
+          "Test_CRE_V2_Solana_Read_Tx": [
+               {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
+             ],
             "Test_CRE_V2_Sharding": [
                {"topology":"workflow-gateway-sharded","configs":"configs/workflow-gateway-sharded-don.toml"}
              ],
