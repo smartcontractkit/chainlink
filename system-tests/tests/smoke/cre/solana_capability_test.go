@@ -14,6 +14,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	solgo "github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/rs/zerolog"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -171,21 +172,97 @@ func ExecuteSolanaReadTestForCases(t *testing.T, testEnv *configuration.TestEnvi
 
 func configureSolanaReadWorkflow(t *testing.T, lggr zerolog.Logger, chain *solana.Blockchain, testCase solana_config.TestCase, workflowName string) solana_config.Config {
 	t.Helper()
-	// create and fund an address to be used by the workflow
-	amountToFund := big.NewInt(0).SetUint64(1_000_000_000) // 1 SOL
-	numberOfAddressesToCreate := 1
-	addresses, addrErr := t_helpers.CreateAndFundAddressesSolana(t, lggr, numberOfAddressesToCreate, amountToFund, chain)
-	require.NoError(t, addrErr, "failed to create and fund new addresses")
-	require.Len(t, addresses, numberOfAddressesToCreate, "failed to create the correct number of addresses")
 
-	accountAddress := addresses[0].Bytes()
-	return solana_config.Config{
-		TestCase:        testCase,
-		WorkflowName:    workflowName,
-		ChainSelector:   chain.ChainSelector(),
-		AccountAddress:  accountAddress,
-		ExpectedBalance: amountToFund,
+	cfg := solana_config.Config{
+		TestCase:      testCase,
+		WorkflowName:  workflowName,
+		ChainSelector: chain.ChainSelector(),
 	}
+
+	switch testCase {
+	case solana_config.TestCaseSolanaReadAccountInfo,
+		solana_config.TestCaseSolanaGetBalance,
+		solana_config.TestCaseSolanaGetMultipleAccounts:
+		amountToFund := big.NewInt(0).SetUint64(1_000_000_000) // 1 SOL
+		addresses, addrErr := t_helpers.CreateAndFundAddressesSolana(t, lggr, 1, amountToFund, chain)
+		require.NoError(t, addrErr, "failed to create and fund new addresses")
+		require.Len(t, addresses, 1, "failed to create the correct number of addresses")
+		cfg.AccountAddress = addresses[0].Bytes()
+		cfg.ExpectedBalance = amountToFund
+
+	case solana_config.TestCaseSolanaGetProgramAccounts:
+		// Use the log-read test program which has a small, bounded set of accounts.
+		cfg.ProgramAddress = solgo.MustPublicKeyFromBase58("J1zQwrBNBngz26jRPNWsUSZMHJwBwpkoDitXRV95LdK4").Bytes()
+
+	case solana_config.TestCaseSolanaGetTransaction,
+		solana_config.TestCaseSolanaGetSignatureStatuses:
+		cfg.TxSignature = submitSolanaTransferAndGetSignature(t, chain)
+
+	case solana_config.TestCaseSolanaGetFeeForMessage:
+		cfg.EncodedMessage = buildEncodedMessage(t, chain)
+
+	// GetBlock and GetSlotHeight fetch what they need dynamically inside the workflow.
+	case solana_config.TestCaseSolanaGetBlock,
+		solana_config.TestCaseSolanaGetSlotHeight:
+	}
+
+	return cfg
+}
+
+// submitSolanaTransferAndGetSignature sends a tiny self-transfer on-chain and returns the 64-byte
+// transaction signature so the workflow can look it up via GetTransaction / GetSignatureStatuses.
+func submitSolanaTransferAndGetSignature(t *testing.T, chain *solana.Blockchain) []byte {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+
+	transferIx := system.NewTransferInstruction(
+		5000, // 5000 lamports
+		chain.PrivateKey.PublicKey(),
+		chain.PrivateKey.PublicKey(),
+	).Build()
+
+	result, err := solCommonUtil.SendAndConfirm(
+		ctx,
+		chain.SolClient,
+		[]solgo.Instruction{transferIx},
+		chain.PrivateKey,
+		rpc.CommitmentConfirmed,
+	)
+	require.NoError(t, err, "failed to submit Solana self-transfer for read test setup")
+	require.NotNil(t, result, "transaction result should not be nil")
+
+	tx, err := result.Transaction.GetTransaction()
+	require.NoError(t, err, "failed to decode submitted transaction")
+	require.NotEmpty(t, tx.Signatures, "transaction should have at least one signature")
+	return tx.Signatures[0][:]
+}
+
+// buildEncodedMessage constructs a minimal Solana transaction message and returns its
+// base64 encoding, which is what GetFeeForMessage expects.
+func buildEncodedMessage(t *testing.T, chain *solana.Blockchain) string {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	blockhashResp, err := chain.SolClient.GetLatestBlockhash(ctx, rpc.CommitmentConfirmed)
+	require.NoError(t, err, "failed to get latest blockhash for fee estimation")
+	require.NotNil(t, blockhashResp, "blockhash response should not be nil")
+
+	transferIx := system.NewTransferInstruction(
+		5000,
+		chain.PrivateKey.PublicKey(),
+		chain.PrivateKey.PublicKey(),
+	).Build()
+
+	tx, err := solgo.NewTransaction(
+		[]solgo.Instruction{transferIx},
+		blockhashResp.Value.Blockhash,
+		solgo.TransactionPayer(chain.PrivateKey.PublicKey()),
+	)
+	require.NoError(t, err, "failed to build transaction for fee estimation")
+
+	return tx.Message.ToBase64()
 }
 
 func getSolChain(t *testing.T, bcs []blockchains.Blockchain) *solana.Blockchain {

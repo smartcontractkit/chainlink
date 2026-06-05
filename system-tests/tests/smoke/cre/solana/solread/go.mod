@@ -4,8 +4,8 @@ go 1.26.2
 
 require (
 	github.com/smartcontractkit/chain-selectors v1.0.100
-	github.com/smartcontractkit/cre-sdk-go v1.11.0
-	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.0
+	github.com/smartcontractkit/cre-sdk-go v1.9.0-capdev.1.0.20260604190002-3650885b31f6
+	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.1-0.20260604190002-3650885b31f6
 	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.3.0
 	github.com/stretchr/testify v1.11.1
 	gopkg.in/yaml.v3 v3.0.1
@@ -21,7 +21,7 @@ require (
 	github.com/mr-tron/base58 v1.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260522145417-85c85baa73cf // indirect
-	golang.org/x/sys v0.40.0 // indirect
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260604171908-6734db2d444f // indirect
+	golang.org/x/sys v0.41.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
