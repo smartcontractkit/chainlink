@@ -4,9 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
 // AuthResult is the normalized authorization output shared by
@@ -106,6 +110,10 @@ func (a *authorizer) AuthorizeRequest(ctx context.Context, req jsonrpc.Request[j
 		a.lggr.Debugw("replay guard rejected request", "method", req.Method, "requestID", req.ID, "owner", authResult.AuthorizedOwner(), "digest", authResult.Digest(), "expiresAt", authResult.ExpiresAt(), "hasAuth", req.Auth != "", "error", err)
 		return nil, err
 	}
+	if ownerErr := validatePreparedVaultOwners(req, authResult.AuthorizedOwner()); ownerErr != nil {
+		a.lggr.Errorw("owner binding rejected request", "method", req.Method, "requestID", req.ID, "owner", authResult.AuthorizedOwner(), "hasAuth", req.Auth != "", "error", ownerErr)
+		return nil, ownerErr
+	}
 	a.lggr.Debugw("request authorized", "method", req.Method, "requestID", req.ID, "owner", authResult.AuthorizedOwner(), "digest", authResult.Digest(), "expiresAt", authResult.ExpiresAt(), "hasAuth", req.Auth != "")
 	return authResult, nil
 }
@@ -135,4 +143,71 @@ func (a *authorizer) authorizeJWTBasedAuth(ctx context.Context, req jsonrpc.Requ
 		return nil, err
 	}
 	return a.jwtBasedAuth.AuthorizeRequest(ctx, req)
+}
+
+// validatePreparedVaultOwners checks that every secret identifier in the request
+// payload belongs to workflowOwner. It runs after allowlist or JWT authentication
+// so neither path can be exploited to mutate another owner's secrets.
+func validatePreparedVaultOwners(req jsonrpc.Request[json.RawMessage], workflowOwner string) error {
+	switch req.Method {
+	case vaulttypes.MethodSecretsCreate:
+		parsed := &vaultcommon.CreateSecretsRequest{}
+		if err := json.Unmarshal(*req.Params, parsed); err != nil {
+			return fmt.Errorf("failed to parse create secrets request: %w", err)
+		}
+		return validateEncryptedSecretOwnersMatchWorkflowOwner(parsed.EncryptedSecrets, workflowOwner)
+	case vaulttypes.MethodSecretsUpdate:
+		parsed := &vaultcommon.UpdateSecretsRequest{}
+		if err := json.Unmarshal(*req.Params, parsed); err != nil {
+			return fmt.Errorf("failed to parse update secrets request: %w", err)
+		}
+		return validateEncryptedSecretOwnersMatchWorkflowOwner(parsed.EncryptedSecrets, workflowOwner)
+	case vaulttypes.MethodSecretsDelete:
+		parsed := &vaultcommon.DeleteSecretsRequest{}
+		if err := json.Unmarshal(*req.Params, parsed); err != nil {
+			return fmt.Errorf("failed to parse delete secrets request: %w", err)
+		}
+		return validateSecretIdentifierOwnersMatchWorkflowOwner(parsed.Ids, workflowOwner)
+	case vaulttypes.MethodSecretsList:
+		parsed := &vaultcommon.ListSecretIdentifiersRequest{}
+		if err := json.Unmarshal(*req.Params, parsed); err != nil {
+			return fmt.Errorf("failed to parse list secrets request: %w", err)
+		}
+		if normalizeOwner(parsed.Owner) != normalizeOwner(workflowOwner) {
+			return fmt.Errorf("list secrets owner %q does not match authorized workflow owner %q", parsed.Owner, workflowOwner)
+		}
+		return nil
+	default:
+		return nil
+	}
+}
+
+func validateEncryptedSecretOwnersMatchWorkflowOwner(encryptedSecrets []*vaultcommon.EncryptedSecret, workflowOwner string) error {
+	if len(encryptedSecrets) == 0 {
+		return errors.New("encrypted secrets must contain at least one identifier")
+	}
+	for idx, encryptedSecret := range encryptedSecrets {
+		if encryptedSecret == nil || encryptedSecret.Id == nil {
+			return fmt.Errorf("encrypted secret at index %d must include an identifier", idx)
+		}
+		if normalizeOwner(encryptedSecret.Id.Owner) != normalizeOwner(workflowOwner) {
+			return fmt.Errorf("encrypted secret owner at index %d %q does not match authorized workflow owner %q", idx, encryptedSecret.Id.Owner, workflowOwner)
+		}
+	}
+	return nil
+}
+
+func validateSecretIdentifierOwnersMatchWorkflowOwner(ids []*vaultcommon.SecretIdentifier, workflowOwner string) error {
+	if len(ids) == 0 {
+		return errors.New("secret identifiers must not be empty")
+	}
+	for idx, id := range ids {
+		if id == nil {
+			return fmt.Errorf("secret identifier at index %d must not be nil", idx)
+		}
+		if normalizeOwner(id.Owner) != normalizeOwner(workflowOwner) {
+			return fmt.Errorf("secret identifier owner at index %d %q does not match authorized workflow owner %q", idx, id.Owner, workflowOwner)
+		}
+	}
+	return nil
 }

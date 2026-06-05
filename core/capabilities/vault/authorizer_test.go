@@ -38,7 +38,11 @@ func TestAuthorizer_RejectsJWTBasedAuthWhenUnavailable(t *testing.T) {
 }
 
 func TestAuthorizer_UsesJWTWhenGateEnabled(t *testing.T) {
-	params, err := json.Marshal(vaultcommon.CreateSecretsRequest{})
+	params, err := json.Marshal(vaultcommon.CreateSecretsRequest{
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{Id: &vaultcommon.SecretIdentifier{Owner: "0xworkflow", Namespace: "ns", Key: "k"}, EncryptedValue: "cipher"},
+		},
+	})
 	require.NoError(t, err)
 
 	req := jsonrpc.Request[json.RawMessage]{
@@ -63,13 +67,11 @@ func TestAuthorizer_UsesJWTWhenGateEnabled(t *testing.T) {
 }
 
 func TestAuthorizer_DelegatesDigestVerificationToJWTAuth(t *testing.T) {
-	params, err := json.Marshal(vaultcommon.CreateSecretsRequest{})
-	require.NoError(t, err)
-
+	// Use a method that does not carry secret identifiers so the owner-binding
+	// check is a no-op; the test's focus is digest delegation, not owner binding.
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "1",
-		Method: vaulttypes.MethodSecretsCreate,
-		Params: (*json.RawMessage)(&params),
+		Method: vaulttypes.MethodPublicKeyGet,
 		Auth:   "jwt-token",
 	}
 
@@ -86,13 +88,11 @@ func TestAuthorizer_DelegatesDigestVerificationToJWTAuth(t *testing.T) {
 }
 
 func TestAuthorizer_RejectsJWTReplay(t *testing.T) {
-	params, err := json.Marshal(vaultcommon.CreateSecretsRequest{})
-	require.NoError(t, err)
-
+	// Use a method that does not carry secret identifiers so the owner-binding
+	// check is a no-op; the test's focus is replay protection.
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "1",
-		Method: vaulttypes.MethodSecretsCreate,
-		Params: (*json.RawMessage)(&params),
+		Method: vaulttypes.MethodPublicKeyGet,
 		Auth:   "jwt-token",
 	}
 	digest, err := req.Digest()
@@ -114,7 +114,8 @@ func TestAuthorizer_RejectsJWTReplay(t *testing.T) {
 
 func TestAuthorizer_RejectsAllowListBasedAuthReplay(t *testing.T) {
 	allowListBasedAuth := vaultmocks.NewAuthorizer(t)
-	req := jsonrpc.Request[json.RawMessage]{ID: "1", Method: vaulttypes.MethodSecretsCreate}
+	// Use a method without secret identifiers so the owner-binding check is a no-op.
+	req := jsonrpc.Request[json.RawMessage]{ID: "1", Method: vaulttypes.MethodPublicKeyGet}
 	allowListBasedAuth.EXPECT().AuthorizeRequest(mock.Anything, req).Return(vault.NewAuthResult("", "0xabc", "digest-1", time.Now().Add(time.Minute).Unix()), nil).Twice()
 
 	a := vault.NewAuthorizer(allowListBasedAuth, nil, logger.TestLogger(t))
