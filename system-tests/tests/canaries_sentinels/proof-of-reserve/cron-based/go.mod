@@ -5,7 +5,7 @@ go 1.26.4
 require (
 	github.com/ethereum/go-ethereum v1.17.1
 	github.com/smartcontractkit/chain-selectors v1.0.100
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260604234426-27a72f7f8cf8
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260605160954-5402cc87ccab
 	github.com/smartcontractkit/chainlink-common/pkg/values v0.0.0-20250806152407-159881c7589c
 	github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk/v2/pb v0.0.0-20250806155403-1d805e639a0f
 	github.com/smartcontractkit/cre-sdk-go v1.5.0
