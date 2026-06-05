@@ -207,8 +207,20 @@ func NeedsPostgres(repoRoot string, args []string) (bool, error) {
 		return true, fmt.Errorf("go list: %w: %s", err, strings.TrimSpace(stderr.String()))
 	}
 
-	targetDep := "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	needsDB := strings.Contains(stdout.String(), targetDep)
+	deps := stdout.String()
+	for _, targetDep := range postgresTestDeps {
+		if strings.Contains(deps, targetDep) {
+			return true, nil
+		}
+	}
 
-	return needsDB, nil
+	return false, nil
+}
+
+// postgresTestDeps lists packages that imply a real Postgres server (CL_DATABASE_URL).
+// go list -deps -test must match at least one for the testrig harness to start Postgres.
+var postgresTestDeps = []string{
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest",
+	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight",
+	"github.com/smartcontractkit/chainlink/v2/internal/testdb",
 }

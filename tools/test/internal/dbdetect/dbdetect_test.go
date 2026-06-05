@@ -141,6 +141,16 @@ func TestNeedsPostgres(t *testing.T) {
 			args: []string{"./core/internal/testutils/dbdetectfixture"},
 			want: false,
 		},
+		{
+			name: "heavyweight benchmarks need DB",
+			args: []string{
+				"-bench=BenchmarkFullTestDB",
+				"-benchtime=5x",
+				"-benchmem",
+				"./core/utils/testutils/heavyweight/",
+			},
+			want: true,
+		},
 	}
 
 	for _, tt := range tests {
