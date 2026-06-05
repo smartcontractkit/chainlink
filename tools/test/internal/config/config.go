@@ -2,6 +2,8 @@
 // tools/test database helpers.
 package config
 
+import "fmt"
+
 // DefaultPostgresVersion is the Postgres major version used for ephemeral and
 // persistent test databases when none is specified.
 const DefaultPostgresVersion = "16"
@@ -21,4 +23,18 @@ type App struct {
 	// ParallelIterations records the requested diagnose worker count (used only
 	// to reject external databases with parallel runs).
 	ParallelIterations int
+	// DiagnoseMode is true when the app is running in diagnose mode.
+	DiagnoseMode bool
+	// WorkerIndex is the index of the diagnose worker.
+	WorkerIndex int
+	// PackageSlug is the slug of the package being tested.
+	PackageSlug string
+}
+
+// PostgresContainerName returns the name of the Postgres container for the app.
+func (a *App) PostgresContainerName() string {
+	if a.DiagnoseMode {
+		return fmt.Sprintf("iteration_%d_%s", a.WorkerIndex, a.PackageSlug)
+	}
+	return fmt.Sprintf("test_%s", a.PackageSlug)
 }

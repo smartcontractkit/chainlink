@@ -121,6 +121,7 @@ func ensure(ctx context.Context, conf *config.App, out *output.Printer, setGloba
 		postgres.WithDatabase(postgresDBName),
 		postgres.WithUsername(postgresUser),
 		postgres.WithPassword(postgresPassword),
+		testcontainers.WithName(conf.PostgresContainerName()),
 		testcontainers.WithCmdArgs(
 			"-c", "max_connections=1000",
 			"-c", "shared_buffers=128MB",
