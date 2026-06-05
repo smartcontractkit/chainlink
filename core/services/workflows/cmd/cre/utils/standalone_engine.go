@@ -372,8 +372,8 @@ type simulationModuleWrapper struct {
 
 var _ generichost.RequirementEnforcingModule = &simulationModuleWrapper{}
 
-func (s *simulationModuleWrapper) SetRequirements(executionId string, requirements *sdkpb.Requirements) {
+func (s *simulationModuleWrapper) SetRequirements(executionID string, requirements *sdkpb.Requirements) {
 	if s.requirementsSet != nil {
-		s.requirementsSet(executionId, requirements)
+		s.requirementsSet(executionID, requirements)
 	}
 }
