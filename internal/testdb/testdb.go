@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/peterldowns/pgtestdb"
@@ -54,23 +55,35 @@ type migrator struct {
 	withTemplate bool
 }
 
+// templateHash is computed once per process from embedded migration files.
+// Migrations are compile-time constants (go:embed), so the hash is safe to cache.
+var (
+	templateHashOnce sync.Once
+	templateHash     string
+	templateHashErr  error
+)
+
 func (m *migrator) Hash() (string, error) {
 	if !m.withTemplate {
 		return "empty", nil
 	}
-	h1, err := common.HashDirs(migrate.EmbedMigrations, "*.sql", migrate.MigrationsDir)
-	if err != nil {
-		return "", err
-	}
-	h2, err := common.HashDirs(migrate.EmbedMigrations, "*.go", migrate.MigrationsDir)
-	if err != nil {
-		return "", err
-	}
-	hash := common.NewRecursiveHash(
-		common.Field("sql", h1),
-		common.Field("go", h2),
-	)
-	return hash.String(), nil
+	templateHashOnce.Do(func() {
+		h1, err := common.HashDirs(migrate.EmbedMigrations, "*.sql", migrate.MigrationsDir)
+		if err != nil {
+			templateHashErr = err
+			return
+		}
+		h2, err := common.HashDirs(migrate.EmbedMigrations, "*.go", migrate.MigrationsDir)
+		if err != nil {
+			templateHashErr = err
+			return
+		}
+		templateHash = common.NewRecursiveHash(
+			common.Field("sql", h1),
+			common.Field("go", h2),
+		).String()
+	})
+	return templateHash, templateHashErr
 }
 
 func (m *migrator) Migrate(ctx context.Context, db *sql.DB, config pgtestdb.Config) error {

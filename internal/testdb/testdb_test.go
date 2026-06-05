@@ -23,4 +23,25 @@ func TestMigrator_Hash(t *testing.T) {
 		require.NotEmpty(t, hash)
 		require.NotEqual(t, "empty", hash)
 	})
+
+	t.Run("withTemplate returns same hash from new migrator instances", func(t *testing.T) {
+		hash1, err := migratorConfig(true).Hash()
+		require.NoError(t, err)
+
+		hash2, err := migratorConfig(true).Hash()
+		require.NoError(t, err)
+		require.Equal(t, hash1, hash2)
+	})
+}
+
+func TestMigrator_HashCachedNoAllocs(t *testing.T) {
+	m := migratorConfig(true)
+	_, err := m.Hash()
+	require.NoError(t, err)
+
+	allocs := testing.AllocsPerRun(5, func() {
+		_, err := m.Hash()
+		require.NoError(t, err)
+	})
+	require.Zero(t, allocs)
 }
