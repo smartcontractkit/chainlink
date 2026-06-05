@@ -357,6 +357,7 @@ func getMethodConfigs(nodeSet *cre.NodeSet) (map[string]*capabilitiespb.Capabili
 		"GetSignatureStatuses",
 		"GetSlotHeight",
 		"GetTransaction",
+		"GetProgramAccounts",
 	}
 	for _, action := range readActions {
 		methodConfigs[action] = readActionConfig()
