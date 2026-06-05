@@ -135,7 +135,7 @@ func (e *loadedModule) release() { e.refCount.Add(-1) }
 
 // EvictableModule wraps a host.ModuleV2 with idle-eviction and on-demand reload.
 // Trigger registrations and event channels are owned by the engine, not by this module,
-// so evicting the inner module only frees WASM memory without losing capture connectivity.
+// so evicting the inner module only frees WASM memory without losing trigger connectivity.
 type EvictableModule struct {
 	current       atomic.Pointer[loadedModule] // L1: strong, refcounted; cleared by Evict and Close
 	weakInner     weak.Pointer[loadedModule]   // L2: survives eviction until GC reclaims the holder

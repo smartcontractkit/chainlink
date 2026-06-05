@@ -306,14 +306,14 @@ func TestContractWorkflowSource_tryInitialize_Success(t *testing.T) {
 		"test-chain-selector",
 	)
 
-	// Initially not shouldRun
+	// Initially not ready
 	require.Error(t, source.Ready())
 
 	// Try to initialize
 	result := source.tryInitialize(ctx)
 	assert.True(t, result)
 
-	// Now should be shouldRun
+	// Now should be ready
 	assert.NoError(t, source.Ready())
 }
 

@@ -16,8 +16,8 @@ import (
 
 func CreateTestBinary(outputPath string, compress bool, t *testing.T) []byte {
 	filePath := filepath.Join(t.TempDir(), uuid.New().String()+".wasm")
-	cmd := exec.Command("/opt/homebrew/opt/go/libexec/bin/go", "build", "-o", filePath, "github.com/smartcontractkit/chainlink/v2/"+outputPath) // #nosec
-	cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm", "CGO_ENABLED=0")
+	cmd := exec.Command("go", "build", "-o", filePath, "github.com/smartcontractkit/chainlink/v2/"+outputPath) // #nosec
+	cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
 
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, string(output))

@@ -12,14 +12,13 @@ import (
 	solgo "github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite/config"
+	dfcache "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite/data_feeds_cache"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
 	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 	"gopkg.in/yaml.v3"
-
-	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite/config"
-	dfcache "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite/data_feeds_cache"
 )
 
 func RunSolWriteWorkflow(cfg config.Config, logger *slog.Logger, secretsProvider cre.SecretsProvider) (cre.Workflow[config.Config], error) {

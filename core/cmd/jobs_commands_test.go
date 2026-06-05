@@ -275,6 +275,7 @@ func TestJob_ToRows(t *testing.T) {
 	}, job.ToRows())
 }
 
+
 //go:embed ocr-bootstrap-spec.yml
 var ocrBootstrapSpec string
 
@@ -315,6 +316,7 @@ func TestShell_CreateJobV2(t *testing.T) {
 	assert.Equal(t, uint32(1), output.SchemaVersion)
 	assert.Equal(t, "0x27548a32b9aD5D64c5945EaE9Da5337bc3169D15", output.OffChainReportingSpec.ContractAddress.String())
 }
+
 
 func requireJobsCount(t *testing.T, orm job.ORM, expected int) {
 	ctx := testutils.Context(t)

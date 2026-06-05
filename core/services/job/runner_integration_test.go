@@ -791,6 +791,7 @@ func TestRunner_WebhookJobRemoved(t *testing.T) {
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
+
 	var (
 		eiName    = "substrate-ei"
 		eiSpec    = map[string]any{"foo": "bar"}

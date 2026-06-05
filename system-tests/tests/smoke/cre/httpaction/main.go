@@ -8,14 +8,13 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction/config"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
 	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"gopkg.in/yaml.v3"
-
-	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction/config"
 )
 
 const bothSetRegressionSuccess = "HTTP Action multi-headers regression completed"
