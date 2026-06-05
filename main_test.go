@@ -2,21 +2,18 @@ package main
 
 import (
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
 
-	"github.com/peterldowns/pgtestdb"
 	"github.com/rogpeppe/go-internal/testscript"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/freeport"
 
 	"github.com/smartcontractkit/chainlink/v2/core"
-	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/internal/testdb"
 	"github.com/smartcontractkit/chainlink/v2/tools/txtar"
@@ -40,9 +37,9 @@ const (
 )
 
 func TestMain(m *testing.M) {
-	testscript.Main(m, map[string]func(){
-		"chainlink": func() { os.Exit(core.Main()) },
-	})
+	os.Exit(testscript.RunMain(m, map[string]func() int{
+		"chainlink": core.Main,
+	}))
 }
 
 var (
@@ -140,26 +137,6 @@ func takeFreePort() (int, func(), error) {
 }
 
 func newDB(t testing.TB) string {
-	u, err := url.Parse(string(env.DatabaseURL.Get()))
-	if err != nil {
-		t.Fatalf("failed to parse url: %v", err)
-	}
-
-	migrator := testdb.Migrator(true)
-	conf := pgtestdb.Config{
-		DriverName:                "postgres",
-		User:                      u.User.Username(),
-		Host:                      u.Hostname(),
-		Port:                      u.Port(),
-		Database:                  strings.TrimLeft(u.Path, "/"),
-		Options:                   u.RawQuery,
-		ForceTerminateConnections: true,
-	}
-	if pass, ok := u.User.Password(); ok {
-		conf.Password = pass
-	}
-	newConf := pgtestdb.Custom(t, conf, migrator)
-
-	u.Path = "/" + newConf.Database
-	return u.String()
+	u2 := testdb.New(t, true)
+	return u2.String()
 }

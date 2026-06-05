@@ -3,21 +3,18 @@
 package heavyweight
 
 import (
-	"net/url"
 	"os"
-	"strings"
 	"testing"
 
-	"github.com/jmoiron/sqlx"
-	"github.com/peterldowns/pgtestdb"
 	"github.com/stretchr/testify/require"
+
+	"github.com/jmoiron/sqlx"
 
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/store"
 
-	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -29,8 +26,7 @@ import (
 // unit tests, so you can do things like use other Postgres connection types with it.
 func FullTestDBV2(t testing.TB, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
 	cfg, db := FullTestDBNoFixturesV2(t, overrideFn)
-	ctx := t.Context()
-	_, err := db.ExecContext(ctx, store.FixturesSQL())
+	_, err := db.Exec(store.FixturesSQL())
 	require.NoError(t, err)
 	return cfg, db
 }
@@ -48,39 +44,15 @@ func FullTestDBEmptyV2(t testing.TB, overrideFn func(c *chainlink.Config, s *cha
 func prepareDB(t testing.TB, withTemplate bool, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
 	tests.SkipShort(t, "FullTestDB")
 
-	// Read env.DatabaseURL directly to get the base connection
-	rawDBURL := string(env.DatabaseURL.Get())
-	if rawDBURL == "" {
-		t.Fatalf("you must provide a CL_DATABASE_URL environment variable")
-	}
-
-	dbURL, err := url.Parse(rawDBURL)
-	require.NoError(t, err)
-
-	migrator := testdb.Migrator(withTemplate)
-	conf := pgtestdb.Config{
-		DriverName:                pgcommon.DriverPostgres,
-		User:                      dbURL.User.Username(),
-		Host:                      dbURL.Hostname(),
-		Port:                      dbURL.Port(),
-		Database:                  strings.TrimLeft(dbURL.Path, "/"),
-		Options:                   dbURL.RawQuery,
-		ForceTerminateConnections: true,
-	}
-	if pass, ok := dbURL.User.Password(); ok {
-		conf.Password = pass
-	}
-	newConf := pgtestdb.Custom(t, conf, migrator)
-
-	migrationTestDBURL := *dbURL
-	migrationTestDBURL.Path = "/" + newConf.Database
-	dbStr := migrationTestDBURL.String()
+	dbURL := testdb.New(t, withTemplate)
+	dbStr := dbURL.String()
 
 	gcfg := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.DriverName = pgcommon.DriverPostgres
-		s.Database.URL = models.NewSecretURL((*commoncfg.URL)(&migrationTestDBURL))
-		// Explicitly allow simple passwords since tests use `postgres` password
-		s.Database.AllowSimplePasswords = new(true)
+		s.Database.URL = models.NewSecretURL((*commoncfg.URL)(dbURL))
+		// Explicitly allow simple passwords since test DB users often have simple passwords like `pgtdbpass`
+		s.Database.AllowSimplePasswords = new(bool)
+		*s.Database.AllowSimplePasswords = true
 		if overrideFn != nil {
 			overrideFn(c, s)
 		}

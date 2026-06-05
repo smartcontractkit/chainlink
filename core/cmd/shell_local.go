@@ -916,7 +916,7 @@ func (s *Shell) PrepareTestDatabase(c *cli.Context) error {
 	}
 	cfg := s.Config
 
-	// Creating pristine DB copy to speed up FullTestDB
+
 	dbUrl := cfg.Database().URL()
 	userOnly := c.Bool("user-only")
 	if err := store.PrepareTestDB(s.Logger, dbUrl, userOnly); err != nil {
