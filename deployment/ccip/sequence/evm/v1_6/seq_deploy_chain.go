@@ -7,10 +7,8 @@ import (
 	"sync"
 
 	"github.com/Masterminds/semver/v3"
-
-	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
-
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
