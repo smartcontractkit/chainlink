@@ -26,11 +26,18 @@ func requireBenchDB(b *testing.B) {
 // Run: CL_DATABASE_URL='postgres://...' go test -bench=BenchmarkFullTestDB -benchtime=5x -benchmem ./core/utils/testutils/heavyweight/
 func BenchmarkFullTestDBNoFixturesV2(b *testing.B) {
 	requireBenchDB(b)
-	b.ReportAllocs()
 
+	// Warm up template; cost excluded from timer.
+	_, db := FullTestDBNoFixturesV2(b, nil)
+	_, err := db.ExecContext(b.Context(), "SELECT 1")
+	require.NoError(b, err)
+	require.NoError(b, db.Close())
+
+	b.ReportAllocs()
+	b.ResetTimer()
 	for b.Loop() {
 		_, db := FullTestDBNoFixturesV2(b, nil)
-		_, err := db.Exec("SELECT 1")
+		_, err := db.ExecContext(b.Context(), "SELECT 1")
 		require.NoError(b, err)
 		require.NoError(b, db.Close())
 	}
@@ -41,9 +48,15 @@ func BenchmarkFullTestDBEmptyV2(b *testing.B) {
 	requireBenchDB(b)
 	b.ReportAllocs()
 
+	// Warm up template; cost excluded from timer.
+	_, db := FullTestDBEmptyV2(b, nil)
+	_, err := db.ExecContext(b.Context(), "SELECT 1")
+	require.NoError(b, err)
+	require.NoError(b, db.Close())
+
 	for b.Loop() {
 		_, db := FullTestDBEmptyV2(b, nil)
-		_, err := db.Exec("SELECT 1")
+		_, err := db.ExecContext(b.Context(), "SELECT 1")
 		require.NoError(b, err)
 		require.NoError(b, db.Close())
 	}
