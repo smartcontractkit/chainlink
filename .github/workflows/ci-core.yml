@@ -633,6 +633,10 @@ jobs:
         uses: ./.github/actions/setup-go
         with:
           only-modules: "true"
+          # This job runs `make generate` and `make gomodtidy` across all modules,
+          # which include modules requiring go >= 1.26.4. The root go.mod (the default
+          # version source) is still on 1.26.3, so pin to a 1.26.4 module here.
+          go-version-file: core/scripts/go.mod
       - name: Install protoc-gen-go-wsrpc
         run: curl
           https://github.com/smartcontractkit/wsrpc/raw/main/cmd/protoc-gen-go-wsrpc/protoc-gen-go-wsrpc
