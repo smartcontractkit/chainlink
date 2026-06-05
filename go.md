@@ -593,6 +593,8 @@ flowchart LR
 	chainlink/v2 --> quarantine
 	chainlink/v2 --> tdh2/go/ocr2/decryptionplugin
 	click chainlink/v2 href "https://github.com/smartcontractkit/chainlink"
+	chainlink/v2/tools/test --> testrig
+	click chainlink/v2/tools/test href "https://github.com/smartcontractkit/chainlink"
 	cld-changesets --> chainlink-deployments-framework
 	cld-changesets --> quarantine
 	click cld-changesets href "https://github.com/smartcontractkit/cld-changesets"
@@ -632,6 +634,10 @@ flowchart LR
 	click tdh2/go/ocr2/decryptionplugin href "https://github.com/smartcontractkit/tdh2"
 	tdh2/go/tdh2
 	click tdh2/go/tdh2 href "https://github.com/smartcontractkit/tdh2"
+	testrig --> testrig/tools/test
+	click testrig href "https://github.com/smartcontractkit/testrig"
+	testrig/tools/test
+	click testrig/tools/test href "https://github.com/smartcontractkit/testrig"
 	wsrpc
 	click wsrpc href "https://github.com/smartcontractkit/wsrpc"
 
@@ -664,6 +670,7 @@ flowchart LR
 		 chainlink/system-tests/tests/smoke/cre/solana/solwrite
 		 chainlink/system-tests/tests/smoke/cre/vaultsecret
 		 chainlink/v2
+		 chainlink/v2/tools/test
 	end
 	click chainlink-repo href "https://github.com/smartcontractkit/chainlink"
 
@@ -778,6 +785,12 @@ flowchart LR
 	end
 	click tdh2-repo href "https://github.com/smartcontractkit/tdh2"
 
+	subgraph testrig-repo[testrig]
+		 testrig
+		 testrig/tools/test
+	end
+	click testrig-repo href "https://github.com/smartcontractkit/testrig"
+
 	classDef outline stroke-dasharray:6,fill:none;
-	class chainlink-repo,chainlink-ccip-repo,chainlink-ccv-repo,chainlink-common-repo,chainlink-evm-repo,chainlink-framework-repo,chainlink-protos-repo,chainlink-solana-repo,chainlink-sui-repo,chainlink-testing-framework-repo,chainlink-ton-repo,cre-sdk-go-repo,tdh2-repo outline
+	class chainlink-repo,chainlink-ccip-repo,chainlink-ccv-repo,chainlink-common-repo,chainlink-evm-repo,chainlink-framework-repo,chainlink-protos-repo,chainlink-solana-repo,chainlink-sui-repo,chainlink-testing-framework-repo,chainlink-ton-repo,cre-sdk-go-repo,tdh2-repo,testrig-repo outline
 ```

@@ -12,14 +12,24 @@ import (
 	"sync"
 	"time"
 
+	_ "github.com/jackc/pgx/v5/stdlib" // registers pgx for postgres.WithSQLDriver snapshot/restore
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/config"
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/output"
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/termstyle"
 )
+
+const (
+	postgresDBName   = "chainlink_test"
+	postgresUser     = "postgres"
+	postgresPassword = "postgres"
+)
+
+func postgresImage(version string) string {
+	return fmt.Sprintf("postgres:%s-alpine", version)
+}
 
 // Handle owns the ephemeral Postgres used for a run. When the user supplied
 // CL_DATABASE_URL the container is nil and Reset/Cleanup are no-ops.
@@ -107,10 +117,10 @@ func ensure(ctx context.Context, conf *config.App, out *output.Printer, setGloba
 	// Turned off some prod-protections to make postgres go brrr
 	// https://github.com/peterldowns/pgtestdb#how-do-i-make-it-go-faster
 	c, err := postgres.Run(ctx,
-		fmt.Sprintf("docker.io/postgres:%s-alpine", conf.PostgresVersion),
-		postgres.WithDatabase("chainlink_test"),
-		postgres.WithUsername("postgres"),
-		postgres.WithPassword("postgres"),
+		postgresImage(conf.PostgresVersion),
+		postgres.WithDatabase(postgresDBName),
+		postgres.WithUsername(postgresUser),
+		postgres.WithPassword(postgresPassword),
 		testcontainers.WithCmdArgs(
 			"-c", "max_connections=1000",
 			"-c", "shared_buffers=128MB",
@@ -122,10 +132,8 @@ func ensure(ctx context.Context, conf *config.App, out *output.Printer, setGloba
 		testcontainers.WithTmpfs(map[string]string{
 			"/var/lib/postgresql/data": "rw",
 		}),
-		testcontainers.WithWaitStrategy(
-			wait.ForLog("database system is ready to accept connections").
-				WithOccurrence(2).
-				WithStartupTimeout(60*time.Second)),
+		postgres.BasicWaitStrategies(),
+		postgres.WithSQLDriver("pgx"),
 	)
 	if err != nil {
 		return &Handle{conf: conf, out: out}, fmt.Errorf("postgres testcontainer: %w", err)
@@ -362,8 +370,8 @@ func (h *Handle) DumpDiagnostics(ctx context.Context, dir string, iteration int)
 	queries := []query{
 		{
 			"Active Connections (pg_stat_activity)",
-			`SELECT pid, state, wait_event_type, wait_event, query_start, left(query,120) AS query ` +
-				`FROM pg_stat_activity WHERE datname='chainlink_test' ORDER BY query_start;`,
+			fmt.Sprintf(`SELECT pid, state, wait_event_type, wait_event, query_start, left(query,120) AS query `+
+				`FROM pg_stat_activity WHERE datname='%s' ORDER BY query_start;`, postgresDBName),
 		},
 		{
 			"Locks (pg_locks + pg_stat_activity)",
@@ -378,14 +386,14 @@ func (h *Handle) DumpDiagnostics(ctx context.Context, dir string, iteration int)
 		},
 		{
 			"Database Size",
-			`SELECT pg_size_pretty(pg_database_size('chainlink_test')) AS db_size;`,
+			fmt.Sprintf(`SELECT pg_size_pretty(pg_database_size('%s')) AS db_size;`, postgresDBName),
 		},
 	}
 
 	for _, q := range queries {
 		fmt.Fprintf(f, "## %s\n\n```\n", q.heading)
 		exitCode, out, execErr := h.container.Exec(ctx,
-			[]string{"psql", "-U", "postgres", "-d", "chainlink_test", "-P", "pager=off", "-c", q.sql},
+			[]string{"psql", "-v", "ON_ERROR_STOP=1", "-U", postgresUser, "-d", postgresDBName, "-P", "pager=off", "-c", q.sql},
 		)
 		if execErr != nil {
 			fmt.Fprintf(f, "error: %v\n```\n\n", execErr)
@@ -419,7 +427,11 @@ func (h *Handle) Cleanup() error {
 	}
 	termCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err := h.container.Terminate(termCtx); err != nil {
+	if err := testcontainers.TerminateContainer(
+		h.container,
+		testcontainers.StopContext(termCtx),
+		testcontainers.StopTimeout(30*time.Second),
+	); err != nil {
 		if h.out != nil {
 			h.out.IfHuman(func() {
 				h.out.HumanStderr(" " + termstyle.Bad.Render("❌"))

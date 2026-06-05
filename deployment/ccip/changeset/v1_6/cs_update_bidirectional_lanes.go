@@ -29,9 +29,9 @@ import (
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
+	opsutil "github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
 
 // UpdateBidirectionalLanesChangeset enables or disables multiple bidirectional lanes on CCIP.

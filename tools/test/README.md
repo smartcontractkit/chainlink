@@ -4,39 +4,43 @@ A Go harness to run unit tests in /chainlink with a simpler flow and control sch
 
 ## Run
 
-You can run using `go -C tools/test run .` or through make targets.
+The harness resolves `go test` package patterns relative to its working
+directory, so **run it from the repository root**.
+
+### `make test` (recommended)
+
+From the repo root, `make test` builds the harness (into `tools/test/.bin/test`, gitignored) and forwards arguments:
 
 ```sh
-go -C tools/test run . -h # Help menu
+make test ARGS="-h"
+make test ARGS="./core/..."
+make test ARGS="diagnose ./core/..."
+```
 
-# Use plain go test
-go -C tools/test run . run -count=1 ./core/... 
-make new_test ARGS="-count=1 ./core/..."
+### Direct binary (optional)
 
-# Use gotestsum
-go -C tools/test run . gotestsum --format=testname -- -count=1 ./core/...
-make new_gotestsum ARGS="--format=testname -- -count=1 ./core/..."
+Rebuild only when you change harness code:
 
-# Diagnose and fix flaky tests
-go -C tools/test run . diagnose --iterations 5 -- --timeout=9m ./core/...
-make new_test_diagnose ARGS="--iterations 5 -- --timeout=9m ./core/..."
+```sh
+go -C tools/test build -o tools/test/.bin/test .
+tools/test/.bin/test -count=1 ./core/...
+```
 
+### Diagnose examples
+
+```sh
 # Stop diagnose early only when a specific signal appears
-go -C tools/test run . diagnose --iterations 20 --fail-fast-on=timeout -- --timeout=9m ./core/...
-go -C tools/test run . diagnose --iterations 20 --fail-fast-on=slow --slow-threshold=10s -- ./core/...
+make test ARGS="diagnose --iterations 20 --fail-fast-on=timeout -- --timeout=9m ./core/..."
+make test ARGS="diagnose --iterations 20 --fail-fast-on=slow --slow-threshold=10s -- ./core/..."
 ```
 
-When **developing only inside this directory** (nested module), use `go run .` instead of `go -C tools/test`:
-
-```sh
-go run . -h
-go run . run -count=1 ./core/...
-go run . diagnose --iterations 5 -- ./core/...
-```
+> Always run from the repository root — patterns like `./core/...` are resolved
+> from the current directory, not the module. Do not use `go -C tools/test run .`;
+> that forces the working directory to `tools/test` and breaks relative patterns.
 
 ### AI Skill
 
-Use the [chainlink-test-diagnosis](./.agents/skills/chainlink-test-diagnosis/SKILL.md) skill with your favorite agent to find, diagnose, and fix flaky, slow, and otherwise unstable tests.
+Use the [fix-flaky-tests](./.agents/skills/fix-flaky-tests/SKILL.md) skill with your favorite agent to find, diagnose, and fix flaky, slow, and otherwise unstable tests.
 
 ## Why not just `go test`?
 

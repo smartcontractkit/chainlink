@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/deployment
 
-go 1.26.3
+go 1.26.4
 
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../
@@ -58,8 +58,8 @@ require (
 	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260427132612-76b9f754a556
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.1
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.9
-	github.com/smartcontractkit/chainlink-ton v1.0.5-0.20260520103847-15ca4de9dba9
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20260520103847-15ca4de9dba9
+	github.com/smartcontractkit/chainlink-ton v1.0.5-0.20260601214705-1ab0adfd785f
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20260601214705-1ab0adfd785f
 	github.com/smartcontractkit/cld-changesets v0.5.0
 	github.com/smartcontractkit/freeport v0.1.3-0.20250828155247-add56fa28aad
 	github.com/smartcontractkit/libocr v0.0.0-20260508200755-99940c85383c
@@ -213,7 +213,7 @@ require (
 	github.com/docker/go-connections v0.6.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dominikbraun/graph v0.23.0 // indirect
-	github.com/doyensec/safeurl v0.2.1 // indirect
+	github.com/doyensec/safeurl v0.2.3 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/dvsekhvalnov/jose2go v1.7.0 // indirect
 	github.com/ebitengine/purego v0.10.0 // indirect
@@ -551,6 +551,3 @@ require (
 
 // gotron-sdk is not longer maintained
 replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20260218133534-cbd44da2856b
-
-// to be removed after https://github.com/doyensec/safeurl/pull/11 is merged
-replace github.com/doyensec/safeurl => github.com/cedric-cordenier/safeurl v0.0.0-20260525105509-613a4d94ca55
