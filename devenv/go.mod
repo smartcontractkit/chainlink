@@ -40,7 +40,10 @@ require (
 	gopkg.in/guregu/null.v4 v4.0.0
 )
 
-require github.com/go-errors/errors v1.5.1 // indirect
+require (
+	github.com/go-errors/errors v1.5.1 // indirect
+	github.com/jackc/pgx/v4 v4.18.3 // indirect
+)
 
 require (
 	cloud.google.com/go/auth v0.18.2 // indirect
