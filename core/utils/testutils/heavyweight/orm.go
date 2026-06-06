@@ -50,7 +50,7 @@ func prepareDB(t testing.TB, withTemplate bool, overrideFn func(c *chainlink.Con
 	gcfg := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.DriverName = pgcommon.DriverPostgres
 		s.Database.URL = models.NewSecretURL((*commoncfg.URL)(dbURL))
-		// Explicitly allow simple passwords since test DB users often have simple passwords like `pgtdbpass`
+		// pgtestdb URLs use short passwords; validateDBURL exempts testdb_* database names.
 		s.Database.AllowSimplePasswords = new(false)
 		if overrideFn != nil {
 			overrideFn(c, s)
