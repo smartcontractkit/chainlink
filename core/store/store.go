@@ -132,15 +132,13 @@ func dropAndCreateDB(parsed url.URL, _ bool) (err error) {
 	// Second parameter kept for ResetDatabase API compatibility (preparetest --force).
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	// PostgreSQL does not support bound parameters for database names; pq.QuoteIdentifier is the supported escape.
-	_, err = db.ExecContext(ctx, "DROP DATABASE IF EXISTS "+pq.QuoteIdentifier(dbname)+" WITH (FORCE)")
-	if err != nil {
+	// PostgreSQL does not support bound parameters for database names; quotePostgresDBName validates and escapes.
+	if err = execDropDatabase(ctx, db, dbname); err != nil {
 		return fmt.Errorf("unable to drop postgres database: %w", err)
 	}
 	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_, err = db.ExecContext(ctx, "CREATE DATABASE "+pq.QuoteIdentifier(dbname))
-	if err != nil {
+	if err = execCreateDatabase(ctx, db, dbname); err != nil {
 		return fmt.Errorf("unable to create postgres database: %w", err)
 	}
 	return nil
@@ -257,7 +255,7 @@ func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
 				errCh <- func() error {
 					ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 					defer cancel()
-					return cutils.JustError(db.ExecContext(ctx, "DROP DATABASE IF EXISTS "+pq.QuoteIdentifier(dbname)+" WITH (FORCE)"))
+					return execDropDatabase(ctx, db.DB, dbname)
 				}()
 			}
 		}()

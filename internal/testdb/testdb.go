@@ -12,7 +12,7 @@ import (
 	"github.com/peterldowns/pgtestdb/migrators/common"
 	"github.com/stretchr/testify/require"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
+	_ "github.com/jackc/pgx/v5/stdlib" // registers pgx driver for pgcommon.DriverPostgres
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
@@ -60,7 +60,7 @@ type migrator struct {
 var (
 	templateHashOnce sync.Once
 	templateHash     string
-	templateHashErr  error
+	errTemplateHash  error
 )
 
 func (m *migrator) Hash() (string, error) {
@@ -70,12 +70,12 @@ func (m *migrator) Hash() (string, error) {
 	templateHashOnce.Do(func() {
 		h1, err := common.HashDirs(migrate.EmbedMigrations, "*.sql", migrate.MigrationsDir)
 		if err != nil {
-			templateHashErr = err
+			errTemplateHash = err
 			return
 		}
 		h2, err := common.HashDirs(migrate.EmbedMigrations, "*.go", migrate.MigrationsDir)
 		if err != nil {
-			templateHashErr = err
+			errTemplateHash = err
 			return
 		}
 		templateHash = common.NewRecursiveHash(
@@ -83,7 +83,7 @@ func (m *migrator) Hash() (string, error) {
 			common.Field("go", h2),
 		).String()
 	})
-	return templateHash, templateHashErr
+	return templateHash, errTemplateHash
 }
 
 func (m *migrator) Migrate(ctx context.Context, db *sql.DB, config pgtestdb.Config) error {

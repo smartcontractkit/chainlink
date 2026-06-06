@@ -915,8 +915,6 @@ func (s *Shell) PrepareTestDatabase(c *cli.Context) error {
 		return s.errorOut(err)
 	}
 	cfg := s.Config
-
-
 	dbUrl := cfg.Database().URL()
 	userOnly := c.Bool("user-only")
 	if err := store.PrepareTestDB(s.Logger, dbUrl, userOnly); err != nil {
