@@ -8,11 +8,11 @@ import (
 	"sync"
 	"testing"
 
+	_ "github.com/jackc/pgx/v5/stdlib" // registers pgx driver for pgcommon.DriverPostgres
 	"github.com/peterldowns/pgtestdb"
 	"github.com/peterldowns/pgtestdb/migrators/common"
 	"github.com/stretchr/testify/require"
 
-	_ "github.com/jackc/pgx/v5/stdlib" // registers pgx driver for pgcommon.DriverPostgres
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
