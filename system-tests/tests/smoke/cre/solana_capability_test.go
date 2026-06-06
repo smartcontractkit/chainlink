@@ -204,6 +204,8 @@ func configureSolanaReadWorkflow(t *testing.T, lggr zerolog.Logger, chain *solan
 	// GetBlock and GetSlotHeight fetch what they need dynamically inside the workflow.
 	case solana_config.TestCaseSolanaGetBlock,
 		solana_config.TestCaseSolanaGetSlotHeight:
+	case solana_config.TestCaseLen:
+		require.Fail(t, "TestCaseLen is not a valid test case")
 	}
 
 	return cfg
