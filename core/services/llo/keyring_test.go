@@ -63,6 +63,7 @@ func (m *mockKey) reset(format llotypes.ReportFormat) {
 }
 
 func Test_Keyring(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 
 	ks := map[llotypes.ReportFormat]Key{
@@ -91,8 +92,10 @@ func Test_Keyring(t *testing.T) {
 	require.NoError(t, err)
 	seqNr := rand.Uint64N(math.MaxUint32 << 8)
 	t.Run("Sign+Verify", func(t *testing.T) {
+		t.Parallel()
 		for _, tc := range cases {
 			t.Run(tc.format.String(), func(t *testing.T) {
+				t.Parallel()
 				k := ks[tc.format]
 				defer k.(*mockKey).reset(tc.format)
 
@@ -109,9 +112,11 @@ func Test_Keyring(t *testing.T) {
 	})
 
 	t.Run("MaxSignatureLength", func(t *testing.T) {
+		t.Parallel()
 		assert.Equal(t, 6+2+1, kr.MaxSignatureLength())
 	})
 	t.Run("PublicKey", func(t *testing.T) {
+		t.Parallel()
 		b := make([]byte, 6+2+1)
 		for i := range b {
 			b[i] = byte(255)

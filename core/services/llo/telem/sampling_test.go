@@ -98,6 +98,7 @@ func TestFingerprint(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			fp, ts, err := fingerprint(test.typ, test.msg)
 			if test.err != nil {
 				assert.EqualError(t, err, test.err.Error())

@@ -1550,6 +1550,7 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 }
 
 func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(t *testing.T) {
+	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 0)
 	testSingleConsumerAlwaysRevertingCallbackStillFulfilled(
@@ -1564,6 +1565,7 @@ func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(
 }
 
 func TestVRFV2Integration_ConsumerProxy_HappyPath(t *testing.T) {
+	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 0)
 	testConsumerProxyHappyPath(
@@ -1577,6 +1579,7 @@ func TestVRFV2Integration_ConsumerProxy_HappyPath(t *testing.T) {
 }
 
 func TestVRFV2Integration_ConsumerProxy_CoordinatorZeroAddress(t *testing.T) {
+	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 0)
 	testConsumerProxyCoordinatorZeroAddress(t, uni.coordinatorV2UniverseCommon)
@@ -1629,6 +1632,7 @@ func registerProvingKeyHelper(t *testing.T, uni coordinatorV2UniverseCommon, coo
 }
 
 func TestExternalOwnerConsumerExample(t *testing.T) {
+	t.Parallel()
 	owner := evmtestutils.MustNewSimTransactor(t)
 	random := evmtestutils.MustNewSimTransactor(t)
 	genesisData := gethtypes.GenesisAlloc{
@@ -1693,6 +1697,7 @@ func TestExternalOwnerConsumerExample(t *testing.T) {
 }
 
 func TestSimpleConsumerExample(t *testing.T) {
+	t.Parallel()
 	owner := evmtestutils.MustNewSimTransactor(t)
 	random := evmtestutils.MustNewSimTransactor(t)
 	genesisData := gethtypes.GenesisAlloc{
@@ -1948,6 +1953,7 @@ func TestMaliciousConsumer(t *testing.T) {
 }
 
 func TestRequestCost(t *testing.T) {
+	t.Parallel()
 	ctx := testutils.Context(t)
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key, 1)
@@ -2020,6 +2026,7 @@ func TestRequestCost(t *testing.T) {
 }
 
 func TestMaxConsumersCost(t *testing.T) {
+	t.Parallel()
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key, 1)
 	carol := uni.vrfConsumers[0]
@@ -2055,6 +2062,7 @@ func TestMaxConsumersCost(t *testing.T) {
 }
 
 func TestFulfillmentCost(t *testing.T) {
+	t.Parallel()
 	ctx := testutils.Context(t)
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key, 1)
@@ -2158,6 +2166,7 @@ func TestFulfillmentCost(t *testing.T) {
 }
 
 func TestStartingCountsV1(t *testing.T) {
+	t.Parallel()
 	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, nil)
 
 	ctx := t.Context()

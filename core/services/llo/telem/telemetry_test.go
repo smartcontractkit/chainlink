@@ -140,6 +140,7 @@ var trrs = pipeline.TaskRunResults{
 }
 
 func Test_Telemeter_v3PremiumLegacy(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	m := &mockMonitoringEndpoint{}
 
@@ -277,6 +278,7 @@ func Test_Telemeter_observationScopedTelemetry(t *testing.T) {
 	opts := &mockOpts{}
 
 	t.Run("if both CaptureEATelemetry and CaptureObservationTelemetry are false, returns nil channel", func(t *testing.T) {
+		t.Parallel()
 		tm := newTelemeter(TelemeterParams{
 			Logger: lggr,
 			DonID:  donID,
@@ -411,6 +413,7 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 	donID := uint32(1)
 
 	t.Run("returns nil channel if CaptureOutcomeTelemetry is false", func(t *testing.T) {
+		t.Parallel()
 		tm := newTelemeter(TelemeterParams{
 			Logger: lggr,
 			DonID:  donID,
@@ -420,6 +423,7 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 	})
 
 	t.Run("transmits *datastreamsllo.LLOOutcomeTelemetry", func(t *testing.T) {
+		t.Parallel()
 		m := &mockMonitoringEndpoint{chTypedLogs: make(chan typedLog, 100)}
 		tm := newTelemeter(TelemeterParams{
 			Logger:                  lggr,
@@ -531,6 +535,7 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 	})
 
 	t.Run("overwrites previous outcome for same seqNr (epoch transition)", func(t *testing.T) {
+		t.Parallel()
 		// Simulates the bug scenario: Outcome() is called twice for the
 		// same seqNr across two epochs (first epoch fails prepare-quorum,
 		// second commits). Only the last outcome should survive in the
@@ -623,6 +628,7 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 	donID := uint32(1)
 
 	t.Run("returns nil channel if CaptureReportTelemetry is false", func(t *testing.T) {
+		t.Parallel()
 		tm := newTelemeter(TelemeterParams{
 			Logger: lggr,
 			DonID:  donID,
@@ -632,6 +638,7 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 	})
 
 	t.Run("transmits *datastreamsllo.LLOReportTelemetry", func(t *testing.T) {
+		t.Parallel()
 		m := &mockMonitoringEndpoint{chTypedLogs: make(chan typedLog, 100)}
 		tm := newTelemeter(TelemeterParams{
 			Logger:                 lggr,
@@ -732,6 +739,7 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 	})
 
 	t.Run("appends multiple reports for same seqNr (one per channel)", func(t *testing.T) {
+		t.Parallel()
 		// Report telemetry must append, not overwrite. Reports() generates
 		// one report per reportable channel (up to ~1000+), all sharing
 		// the same seqNr. Overwriting would lose all but the last channel.
@@ -830,6 +838,7 @@ func Test_Telemeter_outcomeTelemetry_samplingAtFlushTime(t *testing.T) {
 	cd := (&mockOpts{}).ConfigDigest()
 
 	t.Run("with sampling enabled emits ~1 outcome per second despite seqNr/transmit mismatch", func(t *testing.T) {
+		t.Parallel()
 		m := &mockMonitoringEndpoint{chTypedLogs: make(chan typedLog, 100)}
 		tm := newTelemeter(TelemeterParams{
 			Logger:                  lggr,
@@ -902,6 +911,7 @@ func Test_Telemeter_outcomeTelemetry_samplingAtFlushTime(t *testing.T) {
 	})
 
 	t.Run("with sampling disabled emits one outcome per transmitting seqNr", func(t *testing.T) {
+		t.Parallel()
 		m := &mockMonitoringEndpoint{chTypedLogs: make(chan typedLog, 100)}
 		tm := newTelemeter(TelemeterParams{
 			Logger:                  lggr,
@@ -986,6 +996,7 @@ func Test_Telemeter_reportTelemetry_samplingAtFlushTime(t *testing.T) {
 	cd := (&mockOpts{}).ConfigDigest()
 
 	t.Run("with sampling enabled emits ~1 report per channel per second despite seqNr/transmit mismatch", func(t *testing.T) {
+		t.Parallel()
 		m := &mockMonitoringEndpoint{chTypedLogs: make(chan typedLog, 100)}
 		tm := newTelemeter(TelemeterParams{
 			Logger:                 lggr,
@@ -1067,6 +1078,7 @@ func Test_Telemeter_reportTelemetry_samplingAtFlushTime(t *testing.T) {
 	})
 
 	t.Run("with sampling disabled emits all reports for transmitting seqNrs", func(t *testing.T) {
+		t.Parallel()
 		m := &mockMonitoringEndpoint{chTypedLogs: make(chan typedLog, 100)}
 		tm := newTelemeter(TelemeterParams{
 			Logger:                 lggr,
@@ -1133,6 +1145,7 @@ func Test_Telemeter_reportTelemetry_samplingAtFlushTime(t *testing.T) {
 	})
 
 	t.Run("with sampling enabled multiple reports per channel at same transmitting seqNr keep one per second", func(t *testing.T) {
+		t.Parallel()
 		// Reports() emits one report per channel for a given seqNr. When
 		// that seqNr does transmit, the per-channel reports should be
 		// admitted (different fingerprints). This test verifies the

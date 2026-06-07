@@ -132,6 +132,7 @@ func TestVRFV2Integration_CanceledSubForceFulfillmentRevertedTxn_Retry(t *testin
 }
 
 func TestUniqueReqById_NoPendingReceipts(t *testing.T) {
+	t.Parallel()
 	revertedForceTxns := []v2.TxnReceiptDB{
 		{RequestID: common.BigToHash(big.NewInt(1)).Hex(),
 			ForceFulfillmentAttempt: 1, EVMReceipt: types.Receipt{Status: 0}},
@@ -160,6 +161,7 @@ func TestUniqueReqById_NoPendingReceipts(t *testing.T) {
 }
 
 func TestUniqueReqById_WithPendingReceipts(t *testing.T) {
+	t.Parallel()
 	revertedForceTxns := []v2.TxnReceiptDB{
 		{RequestID: common.BigToHash(big.NewInt(1)).Hex(),
 			ForceFulfillmentAttempt: 1, EVMReceipt: types.Receipt{Status: 0}},

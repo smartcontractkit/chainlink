@@ -90,6 +90,7 @@ func TestFilterNamesFromSpec21(t *testing.T) {
 }
 
 func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
+	t.Parallel()
 	g := gomega.NewWithT(t)
 	lggr := logger.TestLogger(t)
 
@@ -126,8 +127,6 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 	registry := deployKeeper21Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
 
 	setupNodes(t, nodeKeys, registry, backend, steve)
-
-	<-time.After(time.Second * 5)
 
 	upkeeps := 1
 
@@ -402,6 +401,7 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 }
 
 func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
+	t.Parallel()
 	g := gomega.NewWithT(t)
 
 	// setup blockchain
@@ -661,7 +661,7 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
 		schemaVersion                     = 1
 		name                              = "boot"
 		contractID                        = "%s"
-		contractConfigTrackerPollInterval = "15s"
+		contractConfigTrackerPollInterval = "1s"
 
 		[relayConfig]
 		chainID = 1337
@@ -676,7 +676,7 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
 		name = "ocr2keepers-%d"
 		schemaVersion = 1
 		contractID = "%s"
-		contractConfigTrackerPollInterval = "15s"
+		contractConfigTrackerPollInterval = "1s"
 		ocrKeyBundleID = "%s"
 		transmitterID = "%s"
 		p2pv2Bootstrappers = [

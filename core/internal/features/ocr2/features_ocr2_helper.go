@@ -154,7 +154,7 @@ func SetupNodeOCR2(
 		}
 
 		c.EVM[0].Nodes = toml.EVMNodes{nodeConfig}
-		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(5 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 		c.EVM[0].Transactions.ForwardersEnabled = &useForwarder
 	})
 
@@ -223,6 +223,7 @@ func RunTestIntegrationOCR2(t *testing.T) {
 		{"chain-reader", true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			owner, b, ocrContractAddress, ocrContract, nodeConfig := SetupOCR2Contracts(t)
 
 			lggr := logger.TestLogger(t)

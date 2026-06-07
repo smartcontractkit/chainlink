@@ -281,7 +281,7 @@ func runKeeperPluginBasic(t *testing.T) {
 		schemaVersion                     = 1
 		name                              = "boot"
 		contractID                        = "%s"
-		contractConfigTrackerPollInterval = "15s"
+		contractConfigTrackerPollInterval = "1s"
 
 		[relayConfig]
 		chainID = 1337
@@ -296,7 +296,7 @@ func runKeeperPluginBasic(t *testing.T) {
 		name = "ocr2keepers-%d"
 		schemaVersion = 1
 		contractID = "%s"
-		contractConfigTrackerPollInterval = "15s"
+		contractConfigTrackerPollInterval = "1s"
 		ocrKeyBundleID = "%s"
 		transmitterID = "%s"
 		p2pv2Bootstrappers = [
@@ -465,6 +465,7 @@ func setupForwarderForNode(
 }
 
 func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
+	t.Parallel()
 	g := gomega.NewWithT(t)
 	lggr := logger.TestLogger(t)
 
@@ -544,7 +545,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 		schemaVersion                     = 1
 		name                              = "boot"
 		contractID                        = "%s"
-		contractConfigTrackerPollInterval = "15s"
+		contractConfigTrackerPollInterval = "1s"
 
 		[relayConfig]
 		chainID = 1337
@@ -559,7 +560,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 		name = "ocr2keepers-%d"
 		schemaVersion = 1
 		contractID = "%s"
-		contractConfigTrackerPollInterval = "15s"
+		contractConfigTrackerPollInterval = "1s"
 		ocrKeyBundleID = "%s"
 		transmitterID = "%s"
 		p2pv2Bootstrappers = [
