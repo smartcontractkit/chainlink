@@ -391,7 +391,7 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 		// only 1 event is necessary to make all 10 upkeeps eligible
 		_ = feeds.EmitEvents(t, backend, 1, func() {
 			// pause per emit for expected block production time
-			time.Sleep(3 * time.Second)
+			time.Sleep(100 * time.Millisecond)
 		})
 	}()
 
@@ -493,7 +493,7 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 		// only 1 event is necessary to make all 10 upkeeps eligible
 		_ = feeds.EmitEvents(t, backend, 1, func() {
 			// pause per emit for expected block production time
-			time.Sleep(3 * time.Second)
+			time.Sleep(100 * time.Millisecond)
 		})
 	}()
 
@@ -595,7 +595,7 @@ func listenPerformedN(t *testing.T, backend evmtypes.Backend, registry *iregistr
 
 			require.NoError(t, iter.Close())
 
-			time.Sleep(time.Second)
+			time.Sleep(100 * time.Millisecond)
 		}
 	}()
 
@@ -779,7 +779,7 @@ func deployUpkeeps(t *testing.T, backend evmtypes.Backend, carrol, steve *bind.T
 	contracts := make([]*log_upkeep_counter_wrapper.LogUpkeepCounter, n)
 	for i := range n {
 		backend.Commit()
-		time.Sleep(1 * time.Second)
+		time.Sleep(100 * time.Millisecond)
 		upkeepAddr, _, upkeepContract, err := log_upkeep_counter_wrapper.DeployLogUpkeepCounter(
 			carrol, backend.Client(),
 			big.NewInt(100000),

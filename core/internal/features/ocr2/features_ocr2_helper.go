@@ -271,7 +271,7 @@ fromBlock = %d
 `, ocrContractAddress, blockNum)
 			})
 
-			tick := time.NewTicker(1 * time.Second)
+			tick := time.NewTicker(100 * time.Millisecond)
 			defer tick.Stop()
 			go func() {
 				for range tick.C {
@@ -298,7 +298,10 @@ fromBlock = %d
 
 				// API speed is > observation timeout set in ContractSetConfigArgsForIntegrationTest
 				slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-					time.Sleep(5 * time.Second)
+					select {
+					case <-req.Context().Done():
+					case <-time.After(5 * time.Second):
+					}
 					var result string
 					metaLock.Lock()
 					result = fmt.Sprintf(`{"data":%d}`, returnData)

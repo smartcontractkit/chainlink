@@ -100,7 +100,7 @@ chainID 			= 1337
 `, ocrContractAddress)
 	})
 
-	tick := time.NewTicker(1 * time.Second)
+	tick := time.NewTicker(100 * time.Millisecond)
 	defer tick.Stop()
 	go func() {
 		for range tick.C {
@@ -127,7 +127,10 @@ chainID 			= 1337
 
 		// API speed is > observation timeout set in ContractSetConfigArgsForIntegrationTest
 		slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-			time.Sleep(5 * time.Second)
+			select {
+			case <-req.Context().Done():
+			case <-time.After(5 * time.Second):
+			}
 			res.WriteHeader(http.StatusOK)
 			_, err := res.Write([]byte(`{"data":10}`))
 			require.NoError(t, err)
