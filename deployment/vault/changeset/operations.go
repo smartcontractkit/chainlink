@@ -27,10 +27,8 @@ import (
 
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
-	evmsdk "github.com/smartcontractkit/mcms/sdk/evm"
-
 )
-typeTest evmsdk
+
 type VaultDeps struct {
 	Chain       cldf_evm.Chain
 	Auth        *bind.TransactOpts
