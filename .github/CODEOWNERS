@@ -24,6 +24,7 @@
 /core/capabilities/ccip/ccipsolana/ @smartcontractkit/bix-build
 /core/capabilities/ccip/ccipnoop/ @smartcontractkit/bix-build
 /core/capabilities/ccip/ccipton/ @smartcontractkit/bix-build
+/core/capabilities/confidentialrelay/ @smartcontractkit/privacy @smartcontractkit/keystone @smartcontractkit/capabilities-team
 
 # To be deprecated in Chainlink V3
 /core/services/job/ @smartcontractkit/foundations @smartcontractkit/core
