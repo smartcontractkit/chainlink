@@ -18,7 +18,7 @@ func validateConnectorConfig(cfg *ConnectorConfig) error {
 	}
 
 	for _, g := range cfg.Gateways {
-		if g.DonId == "" {
+		if g.DonID == "" {
 			return errors.New("all gateways must set DonID when multi-DON mode is enabled")
 		}
 	}
@@ -27,6 +27,6 @@ func validateConnectorConfig(cfg *ConnectorConfig) error {
 
 func multiDonMode(cfg *ConnectorConfig) bool {
 	return slices.ContainsFunc(cfg.Gateways, func(g ConnectorGatewayConfig) bool {
-		return g.DonId != ""
+		return g.DonID != ""
 	})
 }

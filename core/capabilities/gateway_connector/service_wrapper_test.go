@@ -23,8 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func ptr[T any](t T) *T { return &t }
-
 func TestConnectorGatewayConfig_DonIDFromTOML(t *testing.T) {
 	t.Parallel()
 
@@ -33,17 +31,17 @@ func TestConnectorGatewayConfig_DonIDFromTOML(t *testing.T) {
 			Core: toml.Core{
 				Capabilities: toml.Capabilities{
 					GatewayConnector: toml.GatewayConnector{
-						ChainIDForNodeKey:         ptr("1"),
-						NodeAddress:               ptr("0x68902d681c28119f9b2531473a417088bf008e59"),
-						DonID:                     ptr("workflow_don"),
-						WSHandshakeTimeoutMillis:  ptr[uint32](100),
-						AuthMinChallengeLen:       ptr(0),
-						AuthTimestampToleranceSec: ptr[uint32](10),
+						ChainIDForNodeKey:         new("1"),
+						NodeAddress:               new("0x68902d681c28119f9b2531473a417088bf008e59"),
+						DonID:                     new("workflow_don"),
+						WSHandshakeTimeoutMillis:  new(uint32(100)),
+						AuthMinChallengeLen:       new(0),
+						AuthTimestampToleranceSec: new(uint32(10)),
 						Gateways: []toml.ConnectorGateway{
 							{
-								ID:    ptr("gateway_one"),
-								DonID: ptr("gateway_don_one"),
-								URL:   ptr("wss://localhost:8081/node"),
+								ID:    new("gateway_one"),
+								DonID: new("gateway_don_one"),
+								URL:   new("wss://localhost:8081/node"),
 							},
 						},
 					},
@@ -88,13 +86,13 @@ func generateWrapper(t *testing.T, privateKey *ecdsa.PrivateKey, keystoreKey *ec
 			Core: toml.Core{
 				Capabilities: toml.Capabilities{
 					GatewayConnector: toml.GatewayConnector{
-						ChainIDForNodeKey:         ptr("1"),
-						NodeAddress:               ptr(addr.Hex()),
-						DonID:                     ptr("5"),
-						WSHandshakeTimeoutMillis:  ptr[uint32](100),
-						AuthMinChallengeLen:       ptr[int](0),
-						AuthTimestampToleranceSec: ptr[uint32](10),
-						Gateways:                  []toml.ConnectorGateway{{ID: ptr("example_gateway"), URL: ptr("wss://localhost:8081/node")}},
+						ChainIDForNodeKey:         new("1"),
+						NodeAddress:               new(addr.Hex()),
+						DonID:                     new("5"),
+						WSHandshakeTimeoutMillis:  new(uint32(100)),
+						AuthMinChallengeLen:       new(0),
+						AuthTimestampToleranceSec: new(uint32(10)),
+						Gateways:                  []toml.ConnectorGateway{{ID: new("example_gateway"), URL: new("wss://localhost:8081/node")}},
 					},
 				},
 			},
@@ -122,13 +120,13 @@ func setupAutoDiscoverTest(
 			Core: toml.Core{
 				Capabilities: toml.Capabilities{
 					GatewayConnector: toml.GatewayConnector{
-						ChainIDForNodeKey:         ptr("1"),
+						ChainIDForNodeKey:         new("1"),
 						NodeAddress:               nodeAddress,
-						DonID:                     ptr("5"),
-						WSHandshakeTimeoutMillis:  ptr[uint32](100),
-						AuthMinChallengeLen:       ptr[int](0),
-						AuthTimestampToleranceSec: ptr[uint32](10),
-						Gateways:                  []toml.ConnectorGateway{{ID: ptr("example_gateway"), URL: ptr("wss://localhost:8081/node")}},
+						DonID:                     new("5"),
+						WSHandshakeTimeoutMillis:  new(uint32(100)),
+						AuthMinChallengeLen:       new(0),
+						AuthTimestampToleranceSec: new(uint32(10)),
+						Gateways:                  []toml.ConnectorGateway{{ID: new("example_gateway"), URL: new("wss://localhost:8081/node")}},
 					},
 				},
 			},

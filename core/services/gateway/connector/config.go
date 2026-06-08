@@ -14,7 +14,7 @@ type ConnectorConfig struct {
 }
 
 type ConnectorGatewayConfig struct {
-	Id    string
-	DonId string
+	ID    string `toml:"Id"`
+	DonID string `toml:"DonId"`
 	URL   string
 }

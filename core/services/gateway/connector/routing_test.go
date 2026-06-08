@@ -10,17 +10,17 @@ func TestGatewayConnector_GatewayIDsForDon(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
+		name     string
 		gateways []ConnectorGatewayConfig
-		donID   string
-		want    []string
-		wantErr string
+		donID    string
+		want     []string
+		wantErr  string
 	}{
 		{
 			name: "legacy empty donID returns all gateways",
 			gateways: []ConnectorGatewayConfig{
-				{Id: "gateway_a", URL: "ws://localhost:8081/a"},
-				{Id: "gateway_b", URL: "ws://localhost:8081/b"},
+				{ID: "gateway_a", URL: "ws://localhost:8081/a"},
+				{ID: "gateway_b", URL: "ws://localhost:8081/b"},
 			},
 			donID: "",
 			want:  []string{"gateway_a", "gateway_b"},
@@ -28,7 +28,7 @@ func TestGatewayConnector_GatewayIDsForDon(t *testing.T) {
 		{
 			name: "legacy non-empty donID returns no matches",
 			gateways: []ConnectorGatewayConfig{
-				{Id: "gateway_a", URL: "ws://localhost:8081/a"},
+				{ID: "gateway_a", URL: "ws://localhost:8081/a"},
 			},
 			donID: "gateway_don_us",
 			want:  nil,
@@ -36,9 +36,9 @@ func TestGatewayConnector_GatewayIDsForDon(t *testing.T) {
 		{
 			name: "multi-DON filters by gateway DON",
 			gateways: []ConnectorGatewayConfig{
-				{Id: "gateway_us_1", DonId: "gateway_don_us", URL: "ws://localhost:8081/us-1"},
-				{Id: "gateway_us_2", DonId: "gateway_don_us", URL: "ws://localhost:8081/us-2"},
-				{Id: "gateway_eu_1", DonId: "gateway_don_eu", URL: "ws://localhost:8081/eu-1"},
+				{ID: "gateway_us_1", DonID: "gateway_don_us", URL: "ws://localhost:8081/us-1"},
+				{ID: "gateway_us_2", DonID: "gateway_don_us", URL: "ws://localhost:8081/us-2"},
+				{ID: "gateway_eu_1", DonID: "gateway_don_eu", URL: "ws://localhost:8081/eu-1"},
 			},
 			donID: "gateway_don_us",
 			want:  []string{"gateway_us_1", "gateway_us_2"},
@@ -46,8 +46,8 @@ func TestGatewayConnector_GatewayIDsForDon(t *testing.T) {
 		{
 			name: "multi-DON empty donID returns all gateways",
 			gateways: []ConnectorGatewayConfig{
-				{Id: "gateway_us_1", DonId: "gateway_don_us", URL: "ws://localhost:8081/us-1"},
-				{Id: "gateway_eu_1", DonId: "gateway_don_eu", URL: "ws://localhost:8081/eu-1"},
+				{ID: "gateway_us_1", DonID: "gateway_don_us", URL: "ws://localhost:8081/us-1"},
+				{ID: "gateway_eu_1", DonID: "gateway_don_eu", URL: "ws://localhost:8081/eu-1"},
 			},
 			donID: "",
 			want:  []string{"gateway_us_1", "gateway_eu_1"},
@@ -86,13 +86,13 @@ func TestGatewayConnector_DonIDForGateway(t *testing.T) {
 			NodeAddress: "0x68902d681c28119f9b2531473a417088bf008e59",
 			DonId:       "example_don",
 			Gateways: []ConnectorGatewayConfig{
-				{Id: "gateway_legacy", URL: "ws://localhost:8081/legacy"},
+				{ID: "gateway_legacy", URL: "ws://localhost:8081/legacy"},
 			},
 		})
 
 		donID, err := connector.DonIDForGateway(t.Context(), "gateway_legacy")
 		require.NoError(t, err)
-		require.Equal(t, "", donID)
+		require.Empty(t, donID)
 	})
 
 	t.Run("multi-DON gateway", func(t *testing.T) {
@@ -102,7 +102,7 @@ func TestGatewayConnector_DonIDForGateway(t *testing.T) {
 			NodeAddress: "0x68902d681c28119f9b2531473a417088bf008e59",
 			DonId:       "example_don",
 			Gateways: []ConnectorGatewayConfig{
-				{Id: "gateway_us", DonId: "gateway_don_us", URL: "ws://localhost:8081/us"},
+				{ID: "gateway_us", DonID: "gateway_don_us", URL: "ws://localhost:8081/us"},
 			},
 		})
 
@@ -129,7 +129,7 @@ func TestGatewayConnector_PrimaryDonIDNotImplemented(t *testing.T) {
 		NodeAddress: "0x68902d681c28119f9b2531473a417088bf008e59",
 		DonId:       "example_don",
 		Gateways: []ConnectorGatewayConfig{
-			{Id: "gateway_us", DonId: "gateway_don_us", URL: "ws://localhost:8081/us"},
+			{ID: "gateway_us", DonID: "gateway_don_us", URL: "ws://localhost:8081/us"},
 		},
 	})
 
@@ -145,7 +145,7 @@ func TestGatewayConnector_DonIDReturnsSourceDON(t *testing.T) {
 		NodeAddress: "0x68902d681c28119f9b2531473a417088bf008e59",
 		DonId:       "workflow_don",
 		Gateways: []ConnectorGatewayConfig{
-			{Id: "gateway_us", DonId: "gateway_don_us", URL: "ws://localhost:8081/us"},
+			{ID: "gateway_us", DonID: "gateway_don_us", URL: "ws://localhost:8081/us"},
 		},
 	})
 

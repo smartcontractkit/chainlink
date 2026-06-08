@@ -15,8 +15,8 @@ func validConnectorConfig() *ConnectorConfig {
 		NodeAddress: "0x68902d681c28119f9b2531473a417088bf008e59",
 		DonId:       "example_don",
 		Gateways: []ConnectorGatewayConfig{
-			{Id: "gateway_a", URL: "ws://localhost:8081/a"},
-			{Id: "gateway_b", URL: "ws://localhost:8081/b"},
+			{ID: "gateway_a", URL: "ws://localhost:8081/a"},
+			{ID: "gateway_b", URL: "ws://localhost:8081/b"},
 		},
 	}
 }
@@ -43,7 +43,7 @@ func TestValidateConnectorConfig(t *testing.T) {
 			name: "legacy ignores unset per-gateway DonID on all gateways",
 			modify: func(cfg *ConnectorConfig) {
 				for i := range cfg.Gateways {
-					cfg.Gateways[i].DonId = ""
+					cfg.Gateways[i].DonID = ""
 				}
 			},
 			wantErr: false,
@@ -52,7 +52,7 @@ func TestValidateConnectorConfig(t *testing.T) {
 			name: "multi-DON single gateway",
 			modify: func(cfg *ConnectorConfig) {
 				cfg.Gateways = []ConnectorGatewayConfig{
-					{Id: "gateway_us", DonId: "gateway_don_us", URL: "ws://localhost:8081/us"},
+					{ID: "gateway_us", DonID: "gateway_don_us", URL: "ws://localhost:8081/us"},
 				}
 			},
 			wantErr: false,
@@ -61,9 +61,9 @@ func TestValidateConnectorConfig(t *testing.T) {
 			name: "multi-DON all gateways set DonID",
 			modify: func(cfg *ConnectorConfig) {
 				cfg.Gateways = []ConnectorGatewayConfig{
-					{Id: "gateway_us_1", DonId: "gateway_don_us", URL: "ws://localhost:8081/us-1"},
-					{Id: "gateway_us_2", DonId: "gateway_don_us", URL: "ws://localhost:8081/us-2"},
-					{Id: "gateway_eu_1", DonId: "gateway_don_eu", URL: "ws://localhost:8081/eu-1"},
+					{ID: "gateway_us_1", DonID: "gateway_don_us", URL: "ws://localhost:8081/us-1"},
+					{ID: "gateway_us_2", DonID: "gateway_don_us", URL: "ws://localhost:8081/us-2"},
+					{ID: "gateway_eu_1", DonID: "gateway_don_eu", URL: "ws://localhost:8081/eu-1"},
 				}
 			},
 			wantErr: false,
@@ -88,8 +88,8 @@ func TestValidateConnectorConfig(t *testing.T) {
 			name: "partial per-gateway DonID",
 			modify: func(cfg *ConnectorConfig) {
 				cfg.Gateways = []ConnectorGatewayConfig{
-					{Id: "gateway_us", DonId: "gateway_don_us", URL: "ws://localhost:8081/us"},
-					{Id: "gateway_eu", URL: "ws://localhost:8081/eu"},
+					{ID: "gateway_us", DonID: "gateway_don_us", URL: "ws://localhost:8081/us"},
+					{ID: "gateway_eu", URL: "ws://localhost:8081/eu"},
 				}
 			},
 			wantErr:    true,
@@ -99,8 +99,8 @@ func TestValidateConnectorConfig(t *testing.T) {
 			name: "partial per-gateway DonID with legacy gateway first",
 			modify: func(cfg *ConnectorConfig) {
 				cfg.Gateways = []ConnectorGatewayConfig{
-					{Id: "gateway_legacy", URL: "ws://localhost:8081/legacy"},
-					{Id: "gateway_us", DonId: "gateway_don_us", URL: "ws://localhost:8081/us"},
+					{ID: "gateway_legacy", URL: "ws://localhost:8081/legacy"},
+					{ID: "gateway_us", DonID: "gateway_don_us", URL: "ws://localhost:8081/us"},
 				}
 			},
 			wantErr:    true,
@@ -147,8 +147,8 @@ func TestNewGatewayConnector_ConfigValidation(t *testing.T) {
 
 		cfg := validConnectorConfig()
 		cfg.Gateways = []ConnectorGatewayConfig{
-			{Id: "gateway_us_1", DonId: "gateway_don_us", URL: "ws://localhost:8081/us-1"},
-			{Id: "gateway_eu_1", DonId: "gateway_don_eu", URL: "ws://localhost:8081/eu-1"},
+			{ID: "gateway_us_1", DonID: "gateway_don_us", URL: "ws://localhost:8081/us-1"},
+			{ID: "gateway_eu_1", DonID: "gateway_don_eu", URL: "ws://localhost:8081/eu-1"},
 		}
 
 		_, err := NewGatewayConnector(cfg, signer, clock, lggr)
@@ -160,8 +160,8 @@ func TestNewGatewayConnector_ConfigValidation(t *testing.T) {
 
 		cfg := validConnectorConfig()
 		cfg.Gateways = []ConnectorGatewayConfig{
-			{Id: "gateway_us", DonId: "gateway_don_us", URL: "ws://localhost:8081/us"},
-			{Id: "gateway_eu", URL: "ws://localhost:8081/eu"},
+			{ID: "gateway_us", DonID: "gateway_don_us", URL: "ws://localhost:8081/us"},
+			{ID: "gateway_eu", URL: "ws://localhost:8081/eu"},
 		}
 
 		_, err := NewGatewayConnector(cfg, signer, clock, lggr)
