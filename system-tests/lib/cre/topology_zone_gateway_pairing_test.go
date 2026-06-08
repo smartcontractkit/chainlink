@@ -17,7 +17,7 @@ func TestResolveNodesetZone_explicit(t *testing.T) {
 func TestResolveNodesetZone_nameSuffix(t *testing.T) {
 	t.Parallel()
 	require.Equal(t, "zone-b", ResolveNodesetZone("gateway-zone-b", ""))
-	require.Equal(t, "", ResolveNodesetZone("gateway", ""))
+	require.Empty(t, ResolveNodesetZone("gateway", ""))
 }
 
 func TestGatewayConnectorsForWorkflow_zonePairing(t *testing.T) {
