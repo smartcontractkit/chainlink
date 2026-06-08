@@ -105,8 +105,8 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, clock clockwork
 	if config == nil || signer == nil || clock == nil || lggr == nil {
 		return nil, errors.New("nil dependency")
 	}
-	if len(config.DonId) == 0 || len(config.DonId) > network.HandshakeDonIdLen {
-		return nil, errors.New("invalid DON ID")
+	if err := validateConnectorConfig(config); err != nil {
+		return nil, err
 	}
 	addressBytes, err := commonhex.DecodeString(config.NodeAddress)
 	if err != nil {
