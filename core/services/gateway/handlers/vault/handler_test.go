@@ -975,6 +975,84 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	})
 }
 
+func TestVaultHandler_HandleNodeMessage_SignatureValidatedResponse_RejectsUnknownFields(t *testing.T) {
+	h, callback, _, _ := setupHandler(t)
+
+	// Same signer addresses, payload, context and signatures used by TestAggregator_Valid_Signatures,
+	// so the SignedOCRResponse genuinely passes signature validation (F=1 => needs F+1=2 valid signers).
+	signers := []string{
+		"d6da96fe596705b32bc3a0e11cdefad77feaad79000000000000000000000000",
+		"327aa349c9718cd36c877d1e90458fe1929768ad000000000000000000000000",
+		"e9bf394856d73402b30e160d0e05c847796f0e29000000000000000000000000",
+		"efd5bdb6c3256f04489a6ca32654d547297f48b9000000000000000000000000",
+	}
+	nodes := makeNodes(t, signers)
+	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
+	h.(*handler).aggregator = &baseAggregator{
+		capabilitiesRegistry: mcr,
+		vaultHandlerDonID:    h.(*handler).donConfig.DonId,
+	}
+
+	ocrContext, err := hex.DecodeString("000ec4f6a2ba011e909eccf64628855b848e08876a1edd938a1372a9e51adff100000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000000")
+	require.NoError(t, err)
+	sig1, err := hex.DecodeString("d1067844e2849b404d903730c4cae19f090d53a578a1e8dc16ecbdc0285c1f186599108abbe0073b78bc148a6504907474ed3a6881df917e6d142cff70acfb5900")
+	require.NoError(t, err)
+	sig2, err := hex.DecodeString("c7517c188d297093a6f602046fad7feafe19454ee9dc269b19c8e6c01268037d1f7b423eeecbc495dd2d9a65e106bc3eab849ddfd74a10cbd4ad50c7d953bd4b01")
+	require.NoError(t, err)
+	payload := json.RawMessage([]byte(`{"responses":[{"error":"failed to verify ciphertext: cannot unmarshal data: unexpected end of JSON input","id":{"key":"W","namespace":"","owner":"foo"},"success":false}]}`))
+
+	// The attacker's master public key. The signatures cover only payload+context, so adding this field
+	// does not invalidate them.
+	_, attackerPK, _, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	attackerPKBytes, err := attackerPK.Marshal()
+	require.NoError(t, err)
+	attackerPKHex := hex.EncodeToString(attackerPKBytes)
+
+	// A SignedOCRResponse body with an extra, out-of-schema "publicKey" field.
+	result, err := json.Marshal(struct {
+		Error      string          `json:"error"`
+		Payload    json.RawMessage `json:"payload"`
+		Context    []byte          `json:"context"`
+		Signatures [][]byte        `json:"signatures"`
+		PublicKey  string          `json:"publicKey"`
+	}{
+		Payload:    payload,
+		Context:    ocrContext,
+		Signatures: [][]byte{sig1, sig2},
+		PublicKey:  attackerPKHex,
+	})
+	require.NoError(t, err)
+
+	// Sanity check: nothing cached yet.
+	cached, cachedObj := h.(*handler).getCachedPublicKey()
+	require.Nil(t, cached)
+	require.Nil(t, cachedObj)
+
+	requestID := "request_id"
+	req := jsonrpc.Request[json.RawMessage]{
+		ID:     requestID,
+		Method: vaulttypes.MethodPublicKeyGet,
+	}
+	_, err = h.(*handler).newActiveRequest(req, callback)
+	require.NoError(t, err)
+
+	response := jsonrpc.Response[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      requestID,
+		Method:  vaulttypes.MethodPublicKeyGet,
+		Result:  (*json.RawMessage)(&result),
+	}
+
+	err = h.HandleNodeMessage(t.Context(), &response, NodeOne.Address)
+	require.NoError(t, err)
+
+	// The gateway has cached the attacker-controlled master public key, purely on the basis of a
+	// signature-validated response.
+	_, cachedPublicKey := h.(*handler).getCachedPublicKey()
+	require.Nil(t, cachedPublicKey, "expected the master public key not to be cached")
+}
+
 func TestVaultHandler_PublicKeyGet(t *testing.T) {
 	h, callback, don, _ := setupHandler(t)
 	signers := []string{
