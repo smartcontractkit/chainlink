@@ -239,7 +239,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 		commit()
 	})
 
-	listener, done := listenPerformed(t, backend, registry, ids, int64(1))
+	listener, done := listenPerformed(t, backend, registry, ids, 1)
 	require.Eventually(t, listener, testutils.WaitTimeout(t), cltest.DBPollingInterval)
 	done()
 
@@ -272,7 +272,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 
 		t.Logf("Mined %d blocks, waiting for logs to be recovered", dummyBlocks)
 
-		listener, done := listenPerformedN(t, backend, registry, ids, int64(beforeDummyBlocks), recoverEmits)
+		listener, done := listenPerformedN(t, backend, registry, ids, beforeDummyBlocks, recoverEmits)
 		defer done()
 		require.Eventually(t, listener, testutils.WaitTimeout(t), cltest.DBPollingInterval)
 	})
@@ -394,7 +394,7 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 		})
 	}()
 
-	listener, done := listenPerformed(t, backend, registry, feeds.UpkeepsIds(), int64(1))
+	listener, done := listenPerformed(t, backend, registry, feeds.UpkeepsIds(), 1)
 	defer done()
 	require.Eventually(t, listener, testutils.WaitTimeout(t)-(5*time.Second), cltest.DBPollingInterval)
 }
@@ -483,7 +483,7 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 
 	h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
-	startBlock := h.Number.Int64()
+	startBlock := h.Number.Uint64()
 	// start emitting events in a separate go-routine
 	// feed lookup relies on a single contract event log to perform multiple
 	// listener contracts
@@ -537,7 +537,7 @@ func emitEvents(ctx context.Context, t *testing.T, n int, contracts []*log_upkee
 	}
 }
 
-func listenPerformedN(t *testing.T, backend evmtypes.Backend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int, startBlock int64, expectedCount int) (func() bool, func()) {
+func listenPerformedN(t *testing.T, backend evmtypes.Backend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int, startBlock uint64, expectedCount int) (func() bool, func()) {
 	return func() bool {
 		h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
 		if err != nil {
@@ -551,7 +551,7 @@ func listenPerformedN(t *testing.T, backend evmtypes.Backend, registry *iregistr
 		}
 
 		iter, err := registry.FilterUpkeepPerformed(&bind.FilterOpts{
-			Start:   uint64(startBlock),
+			Start:   startBlock,
 			End:     &currentBlock,
 			Context: testutils.Context(t),
 		}, ids, success)
@@ -580,7 +580,7 @@ func listenPerformedN(t *testing.T, backend evmtypes.Backend, registry *iregistr
 	}, func() {}
 }
 
-func listenPerformed(t *testing.T, backend evmtypes.Backend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int, startBlock int64) (func() bool, func()) {
+func listenPerformed(t *testing.T, backend evmtypes.Backend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int, startBlock uint64) (func() bool, func()) {
 	return listenPerformedN(t, backend, registry, ids, startBlock, 0)
 }
 

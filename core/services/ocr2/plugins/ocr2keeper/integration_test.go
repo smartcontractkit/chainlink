@@ -707,9 +707,6 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload2))
 }
 
-//go:fix inline
-func ptr[T any](v T) *T { return new(v) }
-
 func TestFilterNamesFromSpec20(t *testing.T) {
 	b := make([]byte, 20)
 	_, err := rand.Read(b)
