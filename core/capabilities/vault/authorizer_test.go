@@ -26,12 +26,13 @@ func TestAuthorizer_RejectsJWTBasedAuthWhenUnavailable(t *testing.T) {
 
 	a := vault.NewAuthorizer(allowListBasedAuth, nil, logger.TestLogger(t))
 
-	authResult, err := a.AuthorizeRequest(t.Context(), jsonrpc.Request[json.RawMessage]{
+	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "1",
 		Method: vaulttypes.MethodSecretsCreate,
 		Params: (*json.RawMessage)(&params),
 		Auth:   "jwt-token",
-	})
+	}
+	authResult, err := a.AuthorizeRequest(t.Context(), req)
 	require.Nil(t, authResult)
 	require.ErrorContains(t, err, "JWTBasedAuth is nil")
 	allowListBasedAuth.AssertNotCalled(t, "AuthorizeRequest", mock.Anything, mock.Anything)
@@ -110,7 +111,6 @@ func TestAuthorizer_RejectsJWTReplay(t *testing.T) {
 
 func TestAuthorizer_RejectsAllowListBasedAuthReplay(t *testing.T) {
 	allowListBasedAuth := vaultmocks.NewAuthorizer(t)
-	// Use a method without secret identifiers so the owner-binding check is a no-op.
 	req := jsonrpc.Request[json.RawMessage]{ID: "1", Method: vaulttypes.MethodPublicKeyGet}
 	allowListBasedAuth.EXPECT().AuthorizeRequest(mock.Anything, req).Return(vault.NewAuthResult("", "0xabc", "digest-1", time.Now().Add(time.Minute).Unix()), nil).Twice()
 
@@ -128,7 +128,6 @@ func TestAuthorizer_RejectsAllowListBasedAuthReplay(t *testing.T) {
 }
 
 func TestAuthorizer_PropagatesJWTValidationErrors(t *testing.T) {
-	// JWT mock fails before owner binding; params are irrelevant here.
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "1",
 		Method: vaulttypes.MethodSecretsCreate,
@@ -145,7 +144,7 @@ func TestAuthorizer_PropagatesJWTValidationErrors(t *testing.T) {
 	require.ErrorContains(t, err, "bad token")
 }
 
-func TestAuthorizer_AllowListPath_RejectsCreateOwnerMismatch(t *testing.T) {
+func TestAuthorizer_AllowListPath_DoesNotStampCreateOwnerMismatch(t *testing.T) {
 	params, err := json.Marshal(vaultcommon.CreateSecretsRequest{
 		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{Id: &vaultcommon.SecretIdentifier{Owner: "0xother", Namespace: "ns", Key: "k"}, EncryptedValue: "cipher"},
@@ -165,11 +164,15 @@ func TestAuthorizer_AllowListPath_RejectsCreateOwnerMismatch(t *testing.T) {
 	a := vault.NewAuthorizer(allowListBasedAuth, nil, logger.TestLogger(t))
 
 	authResult, err := a.AuthorizeRequest(t.Context(), req)
-	require.Nil(t, authResult)
-	require.ErrorContains(t, err, "encrypted secret owner at index 0 \"0xother\" does not match authorized workflow owner \"0xauthorized\"")
+	require.NoError(t, err)
+	require.Equal(t, "0xauthorized", authResult.AuthorizedOwner())
+
+	parsed := &vaultcommon.CreateSecretsRequest{}
+	require.NoError(t, json.Unmarshal(*req.Params, parsed))
+	require.Equal(t, "0xother", parsed.EncryptedSecrets[0].Id.Owner)
 }
 
-func TestAuthorizer_AllowListPath_RejectsUpdateOwnerMismatch(t *testing.T) {
+func TestAuthorizer_AllowListPath_DoesNotStampUpdateOwnerMismatch(t *testing.T) {
 	params, err := json.Marshal(vaultcommon.UpdateSecretsRequest{
 		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{Id: &vaultcommon.SecretIdentifier{Owner: "0xother", Namespace: "ns", Key: "k"}, EncryptedValue: "cipher"},
@@ -189,11 +192,15 @@ func TestAuthorizer_AllowListPath_RejectsUpdateOwnerMismatch(t *testing.T) {
 	a := vault.NewAuthorizer(allowListBasedAuth, nil, logger.TestLogger(t))
 
 	authResult, err := a.AuthorizeRequest(t.Context(), req)
-	require.Nil(t, authResult)
-	require.ErrorContains(t, err, "encrypted secret owner at index 0 \"0xother\" does not match authorized workflow owner \"0xauthorized\"")
+	require.NoError(t, err)
+	require.Equal(t, "0xauthorized", authResult.AuthorizedOwner())
+
+	parsed := &vaultcommon.UpdateSecretsRequest{}
+	require.NoError(t, json.Unmarshal(*req.Params, parsed))
+	require.Equal(t, "0xother", parsed.EncryptedSecrets[0].Id.Owner)
 }
 
-func TestAuthorizer_AllowListPath_RejectsDeleteOwnerMismatch(t *testing.T) {
+func TestAuthorizer_AllowListPath_DoesNotStampDeleteOwnerMismatch(t *testing.T) {
 	params, err := json.Marshal(vaultcommon.DeleteSecretsRequest{
 		Ids: []*vaultcommon.SecretIdentifier{
 			{Owner: "0xother", Namespace: "ns", Key: "k"},
@@ -213,11 +220,15 @@ func TestAuthorizer_AllowListPath_RejectsDeleteOwnerMismatch(t *testing.T) {
 	a := vault.NewAuthorizer(allowListBasedAuth, nil, logger.TestLogger(t))
 
 	authResult, err := a.AuthorizeRequest(t.Context(), req)
-	require.Nil(t, authResult)
-	require.ErrorContains(t, err, "secret identifier owner at index 0 \"0xother\" does not match authorized workflow owner \"0xauthorized\"")
+	require.NoError(t, err)
+	require.Equal(t, "0xauthorized", authResult.AuthorizedOwner())
+
+	parsed := &vaultcommon.DeleteSecretsRequest{}
+	require.NoError(t, json.Unmarshal(*req.Params, parsed))
+	require.Equal(t, "0xother", parsed.Ids[0].Owner)
 }
 
-func TestAuthorizer_AllowListPath_RejectsListOwnerMismatch(t *testing.T) {
+func TestAuthorizer_AllowListPath_DoesNotStampListOwnerMismatch(t *testing.T) {
 	params, err := json.Marshal(vaultcommon.ListSecretIdentifiersRequest{
 		Owner:     "0xother",
 		Namespace: "ns",
@@ -236,20 +247,26 @@ func TestAuthorizer_AllowListPath_RejectsListOwnerMismatch(t *testing.T) {
 	a := vault.NewAuthorizer(allowListBasedAuth, nil, logger.TestLogger(t))
 
 	authResult, err := a.AuthorizeRequest(t.Context(), req)
-	require.Nil(t, authResult)
-	require.ErrorContains(t, err, "list secrets owner \"0xother\" does not match authorized workflow owner \"0xauthorized\"")
+	require.NoError(t, err)
+	require.Equal(t, "0xauthorized", authResult.AuthorizedOwner())
+
+	parsed := &vaultcommon.ListSecretIdentifiersRequest{}
+	require.NoError(t, json.Unmarshal(*req.Params, parsed))
+	require.Equal(t, "0xother", parsed.Owner)
 }
 
-func TestAuthorizer_SkipsOwnerBindingWhenParamsMissing(t *testing.T) {
+func TestAuthorizer_DoesNotStampWhenParamsMissing(t *testing.T) {
 	allowListBasedAuth := vaultmocks.NewAuthorizer(t)
 	allowListBasedAuth.EXPECT().AuthorizeRequest(mock.Anything, mock.Anything).Return(vault.NewAuthResult("", "0xauthorized", "digest-1", time.Now().Add(time.Minute).Unix()), nil).Once()
 
 	a := vault.NewAuthorizer(allowListBasedAuth, nil, logger.TestLogger(t))
 
-	authResult, err := a.AuthorizeRequest(t.Context(), jsonrpc.Request[json.RawMessage]{
+	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "1",
 		Method: vaulttypes.MethodSecretsCreate,
-	})
+	}
+	authResult, err := a.AuthorizeRequest(t.Context(), req)
 	require.NoError(t, err)
 	require.Equal(t, "0xauthorized", authResult.AuthorizedOwner())
+	require.Nil(t, req.Params)
 }

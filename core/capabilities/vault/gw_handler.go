@@ -239,6 +239,9 @@ func (h *GatewayHandler) authorizeAndPrefixRequest(ctx context.Context, req *jso
 		h.lggr.Errorw("gateway request authorization failed", "method", req.Method, "requestID", originalRequestID, "hasAuth", req.Auth != "", "incomingOwner", incomingOwner, "error", authErr)
 		return nil, authErr
 	}
+	if authReq.Params != nil {
+		req.Params = authReq.Params
+	}
 	authorizedOwner := authResult.AuthorizedOwner()
 
 	req.ID = authorizedOwner + vaulttypes.RequestIDSeparator + originalRequestID
@@ -285,16 +288,6 @@ func stripPrefixedRequestIDFromParams(req *jsonrpc.Request[json.RawMessage], ori
 	}
 }
 
-func rewriteRequestParams(req *jsonrpc.Request[json.RawMessage], payload any) error {
-	params, err := json.Marshal(payload)
-	if err != nil {
-		return err
-	}
-	raw := json.RawMessage(params)
-	req.Params = &raw
-	return nil
-}
-
 func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage], authResult *AuthResult) *jsonrpc.Response[json.RawMessage] {
 	vaultCapRequest := vaultcommon.CreateSecretsRequest{}
 	if err := json.Unmarshal(*req.Params, &vaultCapRequest); err != nil {
@@ -302,6 +295,7 @@ func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID stri
 	}
 
 	vaultCapRequest.RequestId = req.ID
+	StampAuthorizedOwnerFromRequestID(vaultCapRequest.RequestId, &vaultCapRequest)
 
 	h.lggr.Debugw("Processing authorized create secrets request", "request", vaultCapRequest.String())
 	vaultCapResponse, err := h.secretsService.CreateSecrets(ctx, &vaultCapRequest)
@@ -322,6 +316,7 @@ func (h *GatewayHandler) handleSecretsUpdate(ctx context.Context, gatewayID stri
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
 	}
 	vaultCapRequest.RequestId = req.ID
+	StampAuthorizedOwnerFromRequestID(vaultCapRequest.RequestId, &vaultCapRequest)
 
 	h.lggr.Debugw("Processing authorized update secrets request", "request", vaultCapRequest.String())
 	vaultCapResponse, err := h.secretsService.UpdateSecrets(ctx, &vaultCapRequest)
@@ -342,6 +337,7 @@ func (h *GatewayHandler) handleSecretsDelete(ctx context.Context, gatewayID stri
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
 	}
 	r.RequestId = req.ID
+	StampAuthorizedOwnerFromRequestID(r.RequestId, r)
 
 	h.lggr.Debugw("Processing authorized delete secrets request", "request", r.String())
 	resp, err := h.secretsService.DeleteSecrets(ctx, r)
@@ -368,7 +364,7 @@ func (h *GatewayHandler) handleSecretsList(ctx context.Context, gatewayID string
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
 	}
 	r.RequestId = req.ID
-	r.Owner = authResult.AuthorizedOwner()
+	StampAuthorizedOwnerFromRequestID(r.RequestId, r)
 
 	h.lggr.Debugw("Processing authorized list secrets request", "request", r.String())
 	resp, err := h.secretsService.ListSecretIdentifiers(ctx, r)

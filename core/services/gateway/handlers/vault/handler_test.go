@@ -395,6 +395,165 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		require.Equal(t, owner+vaulttypes.RequestIDSeparator+req.ID, forwardedCreateRequest.RequestId)
 	})
 
+	t.Run("stamps mismatched identifier owner to authorized owner on forwarded create", func(t *testing.T) {
+		_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
+		require.NoError(t, err)
+		foreignOwner := "0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("test_secret", pk, ethcommon.HexToAddress(owner))
+		require.NoError(t, err)
+
+		h, _, don, clock := setupHandlerWithLimitsFactory(t, limits.Factory{Settings: cresettings.DefaultGetter})
+		h.(*handler).authorizer = &stubAuthorizer{result: vaultcap.NewAuthResult("org-1", owner, "digest-1", clock.Now().Add(time.Minute).Unix())}
+		cacheVaultPublicKeyForTest(t, h.(*handler), pk)
+
+		reqData := &vaultcommon.CreateSecretsRequest{
+			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+				{
+					Id: &vaultcommon.SecretIdentifier{
+						Key:   "test_id",
+						Owner: foreignOwner,
+					},
+					EncryptedValue: encryptedSecret,
+				},
+			},
+		}
+		reqDataBytes, err := json.Marshal(reqData)
+		require.NoError(t, err)
+
+		req := jsonrpc.Request[json.RawMessage]{
+			ID:     "stamp-create",
+			Method: vaulttypes.MethodSecretsCreate,
+			Params: (*json.RawMessage)(&reqDataBytes),
+		}
+
+		var forwarded jsonrpc.Request[json.RawMessage]
+		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			forwarded = *args.Get(2).(*jsonrpc.Request[json.RawMessage])
+		}).Return(nil).Once()
+
+		err = h.HandleJSONRPCUserMessage(t.Context(), req, common.NewCallback())
+		require.NoError(t, err)
+		don.AssertExpectations(t)
+
+		var forwardedCreate vaultcommon.CreateSecretsRequest
+		require.NoError(t, json.Unmarshal(*forwarded.Params, &forwardedCreate))
+		require.Equal(t, owner, forwardedCreate.EncryptedSecrets[0].Id.Owner)
+		require.Equal(t, owner+vaulttypes.RequestIDSeparator+req.ID, forwardedCreate.RequestId)
+	})
+
+	t.Run("stamps mismatched identifier owner to authorized owner on forwarded update", func(t *testing.T) {
+		_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
+		require.NoError(t, err)
+		foreignOwner := "0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("test_secret", pk, ethcommon.HexToAddress(owner))
+		require.NoError(t, err)
+
+		h, _, don, clock := setupHandlerWithLimitsFactory(t, limits.Factory{Settings: cresettings.DefaultGetter})
+		h.(*handler).authorizer = &stubAuthorizer{result: vaultcap.NewAuthResult("org-1", owner, "digest-1", clock.Now().Add(time.Minute).Unix())}
+		cacheVaultPublicKeyForTest(t, h.(*handler), pk)
+
+		reqData := &vaultcommon.UpdateSecretsRequest{
+			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+				{
+					Id: &vaultcommon.SecretIdentifier{
+						Key:   "test_id",
+						Owner: foreignOwner,
+					},
+					EncryptedValue: encryptedSecret,
+				},
+			},
+		}
+		reqDataBytes, err := json.Marshal(reqData)
+		require.NoError(t, err)
+
+		req := jsonrpc.Request[json.RawMessage]{
+			ID:     "stamp-update",
+			Method: vaulttypes.MethodSecretsUpdate,
+			Params: (*json.RawMessage)(&reqDataBytes),
+		}
+
+		var forwarded jsonrpc.Request[json.RawMessage]
+		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			forwarded = *args.Get(2).(*jsonrpc.Request[json.RawMessage])
+		}).Return(nil).Once()
+
+		err = h.HandleJSONRPCUserMessage(t.Context(), req, common.NewCallback())
+		require.NoError(t, err)
+		don.AssertExpectations(t)
+
+		var forwardedUpdate vaultcommon.UpdateSecretsRequest
+		require.NoError(t, json.Unmarshal(*forwarded.Params, &forwardedUpdate))
+		require.Equal(t, owner, forwardedUpdate.EncryptedSecrets[0].Id.Owner)
+		require.Equal(t, owner+vaulttypes.RequestIDSeparator+req.ID, forwardedUpdate.RequestId)
+	})
+
+	t.Run("stamps mismatched identifier owner to authorized owner on forwarded delete", func(t *testing.T) {
+		h, _, don, clock := setupHandlerWithLimitsFactory(t, limits.Factory{Settings: cresettings.DefaultGetter})
+		h.(*handler).authorizer = &stubAuthorizer{result: vaultcap.NewAuthResult("org-1", owner, "digest-1", clock.Now().Add(time.Minute).Unix())}
+
+		foreignOwner := "0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+		reqData := &vaultcommon.DeleteSecretsRequest{
+			Ids: []*vaultcommon.SecretIdentifier{
+				{Key: "test_id", Namespace: "default", Owner: foreignOwner},
+			},
+		}
+		reqDataBytes, err := json.Marshal(reqData)
+		require.NoError(t, err)
+
+		req := jsonrpc.Request[json.RawMessage]{
+			ID:     "stamp-delete",
+			Method: vaulttypes.MethodSecretsDelete,
+			Params: (*json.RawMessage)(&reqDataBytes),
+		}
+
+		var forwarded jsonrpc.Request[json.RawMessage]
+		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			forwarded = *args.Get(2).(*jsonrpc.Request[json.RawMessage])
+		}).Return(nil).Once()
+
+		err = h.HandleJSONRPCUserMessage(t.Context(), req, common.NewCallback())
+		require.NoError(t, err)
+		don.AssertExpectations(t)
+
+		var forwardedDelete vaultcommon.DeleteSecretsRequest
+		require.NoError(t, json.Unmarshal(*forwarded.Params, &forwardedDelete))
+		require.Equal(t, owner, forwardedDelete.Ids[0].Owner)
+		require.Equal(t, owner+vaulttypes.RequestIDSeparator+req.ID, forwardedDelete.RequestId)
+	})
+
+	t.Run("stamps mismatched list owner to authorized owner on forwarded list", func(t *testing.T) {
+		h, _, don, clock := setupHandlerWithLimitsFactory(t, limits.Factory{Settings: cresettings.DefaultGetter})
+		h.(*handler).authorizer = &stubAuthorizer{result: vaultcap.NewAuthResult("org-1", owner, "digest-1", clock.Now().Add(time.Minute).Unix())}
+
+		foreignOwner := "0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+		reqData := &vaultcommon.ListSecretIdentifiersRequest{
+			Owner:     foreignOwner,
+			Namespace: "default",
+		}
+		reqDataBytes, err := json.Marshal(reqData)
+		require.NoError(t, err)
+
+		req := jsonrpc.Request[json.RawMessage]{
+			ID:     "stamp-list",
+			Method: vaulttypes.MethodSecretsList,
+			Params: (*json.RawMessage)(&reqDataBytes),
+		}
+
+		var forwarded jsonrpc.Request[json.RawMessage]
+		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			forwarded = *args.Get(2).(*jsonrpc.Request[json.RawMessage])
+		}).Return(nil).Once()
+
+		err = h.HandleJSONRPCUserMessage(t.Context(), req, common.NewCallback())
+		require.NoError(t, err)
+		don.AssertExpectations(t)
+
+		var forwardedList vaultcommon.ListSecretIdentifiersRequest
+		require.NoError(t, json.Unmarshal(*forwarded.Params, &forwardedList))
+		require.Equal(t, owner, forwardedList.Owner)
+		require.Equal(t, owner+vaulttypes.RequestIDSeparator+req.ID, forwardedList.RequestId)
+	})
+
 	t.Run("rejects JWT create when ciphertext label does not match identifier owner", func(t *testing.T) {
 		_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
 		require.NoError(t, err)

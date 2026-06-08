@@ -425,6 +425,14 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		return h.handlePublicKeyGetSynchronously(ctx, req, publicKeyResponseBytes, callback)
 	}
 
+	if !isSupportedAuthorizedVaultMethod(req.Method) {
+		ar, err := h.newActiveRequest(req, callback)
+		if err != nil {
+			return err
+		}
+		return h.sendResponse(ctx, ar, h.errorResponse(req, api.UnsupportedMethodError, fmt.Errorf("unsupported method(%s): this method is unsupported: %s", req.Method, req.Method), nil))
+	}
+
 	authResult, authErr := h.authorizer.AuthorizeRequest(ctx, req)
 	if authErr != nil {
 		h.lggr.Errorw("request not authorized", "method", req.Method, "requestID", req.ID, "hasAuth", req.Auth != "", "error", authErr)
@@ -453,7 +461,19 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	case vaulttypes.MethodSecretsList:
 		return h.handleSecretsList(ctx, ar)
 	default:
-		return h.sendResponse(ctx, ar, h.errorResponse(req, api.UnsupportedMethodError, errors.New("this method is unsupported: "+req.Method), nil))
+		return h.sendResponse(ctx, ar, h.errorResponse(req, api.UnsupportedMethodError, fmt.Errorf("unsupported method(%s): this method is unsupported: %s", req.Method, req.Method), nil))
+	}
+}
+
+func isSupportedAuthorizedVaultMethod(method string) bool {
+	switch method {
+	case vaulttypes.MethodSecretsCreate,
+		vaulttypes.MethodSecretsUpdate,
+		vaulttypes.MethodSecretsDelete,
+		vaulttypes.MethodSecretsList:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -610,6 +630,7 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) er
 			secretItem.Id.Namespace = vaulttypes.DefaultNamespace
 		}
 	}
+	vaultcap.StampAuthorizedOwnerFromRequestID(createSecretsRequest.RequestId, createSecretsRequest)
 	_, cachedPublicKey := h.getCachedPublicKey()
 	skipLabelValidation := cachedPublicKey == nil
 	err = h.ValidateCreateSecretsRequest(ctx, cachedPublicKey, createSecretsRequest, skipLabelValidation)
@@ -651,6 +672,7 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar *activeRequest) er
 			secretItem.Id.Namespace = vaulttypes.DefaultNamespace
 		}
 	}
+	vaultcap.StampAuthorizedOwnerFromRequestID(updateSecretsRequest.RequestId, updateSecretsRequest)
 	_, cachedPublicKey := h.getCachedPublicKey()
 	skipLabelValidation := cachedPublicKey == nil
 	vaultCapErr := h.ValidateUpdateSecretsRequest(ctx, cachedPublicKey, updateSecretsRequest, skipLabelValidation)
@@ -691,6 +713,7 @@ func (h *handler) handleSecretsDelete(ctx context.Context, ar *activeRequest) er
 			id.Namespace = vaulttypes.DefaultNamespace
 		}
 	}
+	vaultcap.StampAuthorizedOwnerFromRequestID(deleteSecretsRequest.RequestId, deleteSecretsRequest)
 	err = h.ValidateDeleteSecretsRequest(ctx, deleteSecretsRequest)
 	if err != nil {
 		l.Warnw("failed to validate delete secrets request", "error", err)
@@ -718,6 +741,7 @@ func (h *handler) handleSecretsList(ctx context.Context, ar *activeRequest) erro
 	if req.Namespace == "" {
 		req.Namespace = vaulttypes.DefaultNamespace
 	}
+	vaultcap.StampAuthorizedOwnerFromRequestID(req.RequestId, req)
 	err := h.ValidateListSecretIdentifiersRequest(ctx, req)
 	if err != nil {
 		l.Warnw("failed to validate list secret identifiers request", "error", err)

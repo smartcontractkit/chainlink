@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
@@ -880,7 +881,7 @@ func TestJWTBasedAuth_AuthorizeCreateRequestWithoutWorkflowOwnerWhenIdentifiersU
 	require.Equal(t, digest, authResult.Digest())
 }
 
-func TestJWTBasedAuth_RejectsCreateRequestWithoutWorkflowOwnerWhenIdentifierOwnerDiffers(t *testing.T) {
+func TestJWTBasedAuth_AuthorizesCreateRequestWhenIdentifierOwnerDiffers(t *testing.T) {
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -915,12 +916,15 @@ func TestJWTBasedAuth_RejectsCreateRequestWithoutWorkflowOwnerWhenIdentifierOwne
 	req, err = jsonrpc.DecodeRequest[json.RawMessage](rawRequest, token)
 	require.NoError(t, err)
 
-	// Owner binding is enforced by the composite Authorizer, not the JWT layer directly.
+	// Owner stamping is enforced by gateway handlers and capability entrypoints, not the authorizer.
 	a := NewAuthorizer(nil, v, logger.TestLogger(t))
 	authResult, err := a.AuthorizeRequest(t.Context(), req)
-	require.Nil(t, authResult)
-	require.Error(t, err)
-	require.ErrorContains(t, err, "encrypted secret owner at index 0 \"0xAbCd\" does not match authorized workflow owner")
+	require.NoError(t, err)
+	require.NotEmpty(t, authResult.AuthorizedOwner())
+
+	parsed := &vaultcommon.CreateSecretsRequest{}
+	require.NoError(t, json.Unmarshal(*req.Params, parsed))
+	require.Equal(t, "0xAbCd", parsed.EncryptedSecrets[0].Id.Owner)
 }
 
 func TestJWTBasedAuth_AuthorizeRequest_RejectsMissingTenantClaim(t *testing.T) {
