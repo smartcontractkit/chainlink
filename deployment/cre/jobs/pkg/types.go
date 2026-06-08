@@ -48,6 +48,7 @@ func (i Int) MarshalYAML() ([]byte, error) {
 
 // Uint64 wraps uint64 so that YAML fields can be populated from either a numeric
 // literal or a quoted string (e.g. after environment-variable substitution).
+// Only unmarshal methods are provided so TOML/JSON output remains numeric.
 type Uint64 uint64
 
 func (u *Uint64) UnmarshalText(data []byte) error {
@@ -60,10 +61,6 @@ func (u *Uint64) UnmarshalText(data []byte) error {
 	return nil
 }
 
-func (u Uint64) MarshalText() ([]byte, error) {
-	return []byte(strconv.FormatUint(uint64(u), 10)), nil
-}
-
 func (u *Uint64) UnmarshalYAML(node *yaml.Node) error {
 	ui, err := strconv.ParseUint(node.Value, 10, 64)
 	if err != nil {
@@ -72,10 +69,6 @@ func (u *Uint64) UnmarshalYAML(node *yaml.Node) error {
 
 	*u = Uint64(ui)
 	return nil
-}
-
-func (u Uint64) MarshalYAML() ([]byte, error) {
-	return []byte(strconv.FormatUint(uint64(u), 10)), nil
 }
 
 type ChainSelector = Uint64
