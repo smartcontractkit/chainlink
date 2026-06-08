@@ -10,12 +10,14 @@ import (
 )
 
 type mockConnectorGateway struct {
-	id  string
-	url string
+	id    string
+	donID string
+	url   string
 }
 
-func (m mockConnectorGateway) ID() string  { return m.id }
-func (m mockConnectorGateway) URL() string { return m.url }
+func (m mockConnectorGateway) ID() string    { return m.id }
+func (m mockConnectorGateway) DonID() string { return m.donID }
+func (m mockConnectorGateway) URL() string   { return m.url }
 
 type mockGatewayConnector struct {
 	nodeAddress               string
@@ -44,8 +46,8 @@ func TestTranslateConfigs(t *testing.T) {
 		authMinChallengeLen:       10,
 		authTimestampToleranceSec: 5,
 		gateways: []config.ConnectorGateway{
-			mockConnectorGateway{id: "example_gateway", url: "wss://localhost:8081/node"},
-			mockConnectorGateway{id: "another_gateway", url: "wss://example.com:8090/node"},
+			mockConnectorGateway{id: "example_gateway", donID: "example_gateway_don", url: "wss://localhost:8081/node"},
+			mockConnectorGateway{id: "another_gateway", donID: "another_gateway_don", url: "wss://example.com:8090/node"},
 		},
 	})
 
@@ -56,7 +58,9 @@ func TestTranslateConfigs(t *testing.T) {
 	assert.Equal(t, uint32(5), translated.AuthTimestampToleranceSec)
 	require.Len(t, translated.Gateways, 2)
 	assert.Equal(t, "example_gateway", translated.Gateways[0].Id)
+	assert.Equal(t, "example_gateway_don", translated.Gateways[0].DonId)
 	assert.Equal(t, "wss://localhost:8081/node", translated.Gateways[0].URL)
 	assert.Equal(t, "another_gateway", translated.Gateways[1].Id)
+	assert.Equal(t, "another_gateway_don", translated.Gateways[1].DonId)
 	assert.Equal(t, "wss://example.com:8090/node", translated.Gateways[1].URL)
 }

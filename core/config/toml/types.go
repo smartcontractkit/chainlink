@@ -2582,8 +2582,9 @@ func (r *GatewayConnector) setFrom(f *GatewayConnector) {
 }
 
 type ConnectorGateway struct {
-	ID  *string
-	URL *string
+	ID    *string
+	DonID *string
+	URL   *string
 }
 
 type SharedPeering struct {

@@ -52,7 +52,11 @@ func translateConfigs(f config.GatewayConnector) connector.ConnectorConfig {
 	if len(f.Gateways()) != 0 {
 		r.Gateways = make([]connector.ConnectorGatewayConfig, len(f.Gateways()))
 		for index, element := range f.Gateways() {
-			r.Gateways[index] = connector.ConnectorGatewayConfig{Id: element.ID(), URL: element.URL()}
+			r.Gateways[index] = connector.ConnectorGatewayConfig{
+				Id:    element.ID(),
+				DonId: element.DonID(),
+				URL:   element.URL(),
+			}
 		}
 	}
 

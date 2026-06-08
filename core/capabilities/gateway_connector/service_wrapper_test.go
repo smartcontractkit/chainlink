@@ -25,6 +25,41 @@ import (
 
 func ptr[T any](t T) *T { return &t }
 
+func TestConnectorGatewayConfig_DonIDFromTOML(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := chainlink.GeneralConfigOpts{
+		Config: chainlink.Config{
+			Core: toml.Core{
+				Capabilities: toml.Capabilities{
+					GatewayConnector: toml.GatewayConnector{
+						ChainIDForNodeKey:         ptr("1"),
+						NodeAddress:               ptr("0x68902d681c28119f9b2531473a417088bf008e59"),
+						DonID:                     ptr("workflow_don"),
+						WSHandshakeTimeoutMillis:  ptr[uint32](100),
+						AuthMinChallengeLen:       ptr(0),
+						AuthTimestampToleranceSec: ptr[uint32](10),
+						Gateways: []toml.ConnectorGateway{
+							{
+								ID:    ptr("gateway_one"),
+								DonID: ptr("gateway_don_one"),
+								URL:   ptr("wss://localhost:8081/node"),
+							},
+						},
+					},
+				},
+			},
+		},
+	}.New()
+	require.NoError(t, err)
+
+	gateways := cfg.Capabilities().GatewayConnector().Gateways()
+	require.Len(t, gateways, 1)
+	assert.Equal(t, "gateway_one", gateways[0].ID())
+	assert.Equal(t, "gateway_don_one", gateways[0].DonID())
+	assert.Equal(t, "wss://localhost:8081/node", gateways[0].URL())
+}
+
 // fakeOrderedKeyProvider is a simple fake implementation for testing
 type fakeOrderedKeyProvider struct {
 	keys    []ethkey.KeyV2
