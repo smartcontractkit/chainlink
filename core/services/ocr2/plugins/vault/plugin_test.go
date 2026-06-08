@@ -7921,7 +7921,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 
 func TestProperty_broadcastBlobPayloads_MaxSizePayloadsWithinBlobLimit(t *testing.T) {
 	maxRequestBatchSize := cresettings.Default.VaultRequestBatchSizeLimit.DefaultValue
-	maxCiphertextBytes := cresettings.Default.VaultCiphertextSizeLimit.DefaultValue
+	maxCiphertextBytes := cresettings.Default.PerOwner.VaultCiphertextSizeLimit.DefaultValue
 	maxIDKeySize := cresettings.Default.VaultIdentifierKeySizeLimit.DefaultValue
 	maxIDOwnerSize := cresettings.Default.VaultIdentifierOwnerSizeLimit.DefaultValue
 	maxIDNamespaceSize := cresettings.Default.VaultIdentifierNamespaceSizeLimit.DefaultValue

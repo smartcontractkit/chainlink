@@ -174,7 +174,7 @@ func (r *ReportingPluginFactory) pollForKeyMaterial(ctx context.Context, instanc
 }
 
 func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginConfig, error) {
-	maxCiphertextLengthBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultCiphertextSizeLimit)
+	maxCiphertextLengthBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.PerOwner.VaultCiphertextSizeLimit)
 	if err != nil {
 		return nil, fmt.Errorf("VaultCiphertextSizeLimit: %w", err)
 	}
