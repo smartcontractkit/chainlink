@@ -1868,7 +1868,7 @@ ID of the Gateway
 ```toml
 DonID = 'example_gateway_don' # Example
 ```
-DonID is the DON that owns this gateway; used for multi-gateway routing
+DonID is the DON that owns this gateway; used for multi-gateway routing.  All or none of the gateways must have a DonID.
 
 ### URL
 ```toml
