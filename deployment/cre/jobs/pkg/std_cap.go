@@ -26,17 +26,17 @@ type StandardCapabilityJob struct {
 	OracleFactory *OracleFactory `yaml:"oracleFactory"`
 
 	// Additional fields used to drive oracle factory creation/config
-	GenerateOracleFactory bool          // if true, an oracle factory will be generated using the fields below
-	OCRSigningStrategy    string        `yaml:"ocrSigningStrategy"` // used to set the signing strategy in the oracle factory
-	ContractQualifier     string        `yaml:"contractQualifier"`  // qualifier for the OCR3 contract or CapabilitiesRegistry (when capRegVersion is set)
+	GenerateOracleFactory bool   // if true, an oracle factory will be generated using the fields below
+	OCRSigningStrategy    string `yaml:"ocrSigningStrategy"` // used to set the signing strategy in the oracle factory
+	ContractQualifier     string `yaml:"contractQualifier"`  // qualifier for the OCR3 contract or CapabilitiesRegistry (when capRegVersion is set)
 	OCRChainSelector      Uint64 `yaml:"ocrChainSelector"`   // contract chain selector, doesn't have to live on the same chain as the evm selector
 	UseCapRegOCRConfig    bool   `yaml:"useCapRegOCRConfig"` // if true, use CapabilitiesRegistry instead of legacy OCR3 contract for oracle factory config
 	CapRegVersion         string `yaml:"capRegVersion"`      // CapabilitiesRegistry contract version (e.g. "2.0.0"); required when useCapRegOCRConfig is true
 
-	ChainSelectorEVM    Uint64 `yaml:"chainSelectorEVM"`    // used to fetch OCR EVM configs from nodes
-	ChainSelectorAptos  Uint64 `yaml:"chainSelectorAptos"`  // used to fetch OCR Aptos configs from nodes - optional
-	ChainSelectorSolana Uint64 `yaml:"chainSelectorSolana"` // used to fetch OCR Solana configs from nodes - optional
-	BootstrapPeers      []string      `yaml:"bootstrapPeers"`      // set as value in the oracle factory
+	ChainSelectorEVM    Uint64   `yaml:"chainSelectorEVM"`    // used to fetch OCR EVM configs from nodes
+	ChainSelectorAptos  Uint64   `yaml:"chainSelectorAptos"`  // used to fetch OCR Aptos configs from nodes - optional
+	ChainSelectorSolana Uint64   `yaml:"chainSelectorSolana"` // used to fetch OCR Solana configs from nodes - optional
+	BootstrapPeers      []string `yaml:"bootstrapPeers"`      // set as value in the oracle factory
 }
 
 func (s *StandardCapabilityJob) Resolve() (string, error) {
