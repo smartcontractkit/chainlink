@@ -287,18 +287,22 @@ func baseNodeConfig(commonInputs *commonInputs, donMetadata *cre.DonMetadata, no
 
 	if commonInputs.provider.IsDocker() {
 		nodeIdentifier := donMetadata.Name + "-node-" + strconv.Itoa(nodeMetadata.Index)
+		resourceAttributes := map[string]string{
+			"service.name":     "chainlink-node",
+			"service.instance": nodeIdentifier,
+			"node.don":         donMetadata.Name,
+			"node.index":       strconv.Itoa(nodeMetadata.Index),
+		}
+		if donMetadata.Zone != "" {
+			resourceAttributes["zone"] = donMetadata.Zone
+		}
 		c.Telemetry = coretoml.Telemetry{
 			Enabled:             new(true),
 			Endpoint:            new(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":4317"),
 			InsecureConnection:  new(true),
 			LogStreamingEnabled: new(true),
 			TraceSampleRatio:    new(0.0), // Set to > 0 to enable tracing
-			ResourceAttributes: map[string]string{
-				"service.name":     "chainlink-node",
-				"service.instance": nodeIdentifier,
-				"node.don":         donMetadata.Name,
-				"node.index":       strconv.Itoa(nodeMetadata.Index),
-			},
+			ResourceAttributes:  resourceAttributes,
 		}
 		// Note: OTEL_SERVICE_NAME env var should also be set on nodes to ensure
 		// the service name is applied correctly. The ResourceAttributes above may

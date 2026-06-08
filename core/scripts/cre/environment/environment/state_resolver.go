@@ -43,7 +43,7 @@ func NewLocalCREStateResolver(configPath string) (*LocalCREStateResolver, error)
 		return nil, errors.Wrap(err, "failed to load local CRE state")
 	}
 
-	topology, err := cre.NewTopology(cfg.NodeSets, *cfg.Infra, toCapabilityConfigMap(cfg.CapabilityConfigs), cfg.CRETopology.GatewayDONPairing)
+	topology, err := cre.NewTopology(cfg.NodeSets, *cfg.Infra, toCapabilityConfigMap(cfg.CapabilityConfigs))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to rebuild topology from local CRE state")
 	}

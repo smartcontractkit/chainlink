@@ -69,9 +69,6 @@ type Config struct {
 	ChipRouter        *ctfchiprouter.Input            `toml:"chip_router" validate:"required"`
 	S3ProviderInput   *s3provider.Input               `toml:"s3provider"`
 	CapabilityConfigs map[string]cre.CapabilityConfig `toml:"capability_configs"` // capability flag -> capability config
-	CRETopology       struct {
-		GatewayDONPairing bool `toml:"gateway_don_pairing"`
-	} `toml:"cre_topology"`
 	Addresses         []string                        `toml:"addresses"`
 
 	mu     sync.Mutex

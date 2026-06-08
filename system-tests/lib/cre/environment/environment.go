@@ -61,7 +61,6 @@ type SetupInput struct {
 	VaultOCR3Config        *keystone_changeset.OracleConfig
 	S3ProviderInput        *s3provider.Input
 	CapabilityConfigs      cre.CapabilityConfigs
-	GatewayDONPairing      bool
 	Capabilities           []cre.InstallableCapability //nolint:staticcheck //SA1019 - We can't remove until other repos are updated
 	Features               cre.Features
 	GatewayWhitelistConfig gateway.WhitelistConfig
@@ -158,11 +157,11 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow and Capability Registry contracts deployed in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Preparing DONs configuration")))
 
-	topology, tErr := cre.NewTopology(input.NodeSets, creEnvironment.Provider, input.CapabilityConfigs, input.GatewayDONPairing)
+	topology, tErr := cre.NewTopology(input.NodeSets, creEnvironment.Provider, input.CapabilityConfigs)
 	if tErr != nil {
 		return nil, pkgerrors.Wrap(tErr, "failed to create topology")
 	}
-	topology.LogGatewayDONPairing()
+	topology.LogGatewayZonePairing()
 
 	updatedNodeSets, topoErr := donconfig.PrepareNodeTOMLs(
 		ctx,
