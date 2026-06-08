@@ -23,9 +23,9 @@ import (
 type OCR3JobConfigInput struct {
 	TemplateName         string        `yaml:"templateName"`
 	ContractQualifier    string        `yaml:"contractQualifier"`
-	ChainSelectorEVM     ChainSelector `yaml:"chainSelectorEVM"`
-	ChainSelectorAptos   ChainSelector `yaml:"chainSelectorAptos"`
-	ChainSelectorSolana  ChainSelector `yaml:"chainSelectorSolana"` // used to fetch OCR Solana configs from nodes - optional
+	ChainSelectorEVM     Uint64 `yaml:"chainSelectorEVM"`
+	ChainSelectorAptos   Uint64 `yaml:"chainSelectorAptos"`
+	ChainSelectorSolana  Uint64 `yaml:"chainSelectorSolana"` // used to fetch OCR Solana configs from nodes - optional
 	BootstrapperOCR3Urls []string      `yaml:"bootstrapperOCR3Urls"`
 
 	// When set, resolve the CapabilitiesRegistry address instead of the OCR3 contract address.
@@ -41,7 +41,7 @@ type OCR3JobConfigInput struct {
 type Auth0Config struct {
 	IssuerURL string `yaml:"issuerURL" toml:"issuerURL" json:"issuerURL"`
 	Audience  string `yaml:"audience" toml:"audience" json:"audience"`
-	TenantID  uint64 `yaml:"tenantID" toml:"tenantID" json:"tenantID"`
+	TenantID  Uint64 `yaml:"tenantID" toml:"tenantID" json:"tenantID"`
 }
 
 type OCR3JobConfig struct {

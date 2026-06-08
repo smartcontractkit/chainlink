@@ -477,7 +477,7 @@ func TestProposeStandardCapabilityJob_ReusesUUIDWithLegacyNameFormat(t *testing.
 		},
 		GenerateOracleFactory: true,
 		ContractQualifier:     testOCRQualifier,
-		ChainSelectorEVM:      pkg.ChainSelector(baseInput.ChainSelector),
+		ChainSelectorEVM:      pkg.Uint64(baseInput.ChainSelector),
 		BootstrapPeers:        baseInput.BootstrapperOCR3Urls,
 	}
 
