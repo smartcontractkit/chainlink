@@ -51,11 +51,17 @@ func (m *testEvtHandler) Handle(ctx context.Context, event Event) error {
 			}
 		case WorkflowDeleted:
 			if data, ok := event.Data.(WorkflowDeletedEvent); ok {
-				m.engineRegistry.Pop(data.WorkflowID)
+				_, err := m.engineRegistry.Pop(data.WorkflowID)
+				if err != nil {
+					return err
+				}
 			}
 		case WorkflowPaused:
 			if data, ok := event.Data.(WorkflowPausedEvent); ok {
-				m.engineRegistry.Pop(data.WorkflowID)
+				_, err := m.engineRegistry.Pop(data.WorkflowID)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}

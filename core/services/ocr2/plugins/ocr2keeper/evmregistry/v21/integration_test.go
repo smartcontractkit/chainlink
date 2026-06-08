@@ -504,7 +504,8 @@ func setupBackend(t *testing.T) (backend evmtypes.Backend, stop func(), opts []*
 	return
 }
 
-func ptr[T any](v T) *T { return &v }
+//go:fix inline
+func ptr[T any](v T) *T { return new(v) }
 
 func setupDB(t *testing.T) *sqlx.DB {
 	_, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {

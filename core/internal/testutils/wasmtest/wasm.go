@@ -33,7 +33,7 @@ func CreateTestBinary(outputPath string, compress bool, t *testing.T) []byte {
 		return cached
 	}
 
-	v, err, _ := binaryGroup.Do(cacheKey, func() (interface{}, error) {
+	v, err, _ := binaryGroup.Do(cacheKey, func() (any, error) {
 		// Recheck cache just in case
 		binaryCacheMu.RLock()
 		if cached, ok := binaryCache[cacheKey]; ok {
@@ -43,7 +43,7 @@ func CreateTestBinary(outputPath string, compress bool, t *testing.T) []byte {
 		binaryCacheMu.RUnlock()
 
 		filePath := filepath.Join(t.TempDir(), uuid.New().String()+".wasm")
-		cmd := exec.Command("go", "build", "-o", filePath, "github.com/smartcontractkit/chainlink/v2/"+outputPath) // #nosec
+		cmd := exec.CommandContext(t.Context(), "go", "build", "-o", filePath, "github.com/smartcontractkit/chainlink/v2/"+outputPath)
 		cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
 
 		output, err := cmd.CombinedOutput()
