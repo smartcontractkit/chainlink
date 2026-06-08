@@ -977,12 +977,15 @@ func newWorkflowRegistrySyncerV2(
 	if opts.ShardOrchestratorClient != nil {
 		shardOrchestratorClient = opts.ShardOrchestratorClient
 	} else {
-		var c shardorchestrator.ClientInterface
-		c, err = newShardOrchestratorClient(cfg, lggr)
-		if err != nil {
-			return nil, nil, err
+		c, clientErr := newShardOrchestratorClient(cfg, lggr)
+		if clientErr != nil {
+			return nil, nil, clientErr
 		}
-		shardOrchestratorClient = c
+		if c != nil {
+			shardOrchestratorClient = c
+		} else {
+			lggr.Debugw("ShardOrchestrator client not created (shard 0 runs the server)")
+		}
 	}
 
 	shardingEnabled := cfg.Sharding().ShardingEnabled()

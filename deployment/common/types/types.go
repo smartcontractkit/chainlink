@@ -5,7 +5,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
@@ -50,14 +49,6 @@ const (
 
 func (role MCMSRole) String() string {
 	return string(role)
-}
-
-type MCMSWithTimelockConfig struct {
-	Canceller        config.Config `json:"canceller"`
-	Bypasser         config.Config `json:"bypasser"`
-	Proposer         config.Config `json:"proposer"`
-	TimelockMinDelay *big.Int      `json:"timelockMinDelay"`
-	Label            *string       `json:"label"`
 }
 
 // MCMSWithTimelockConfigV2 holds the configuration for an MCMS with timelock.
@@ -125,13 +116,4 @@ func (params OCRParameters) Validate() error {
 		return errors.New("maxDurationShouldTransmitAcceptedReport must be positive")
 	}
 	return nil
-}
-
-// GasBoostConfig defines the configuration for EVM gas boosting during retries.
-// It allows customization of the initial gas limit, gas limit increment, initial gas price, and gas price increment.
-type GasBoostConfig struct {
-	InitialGasLimit   uint64
-	GasLimitIncrement uint64
-	InitialGasPrice   uint64
-	GasPriceIncrement uint64
 }

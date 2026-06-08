@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	migration_ops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_5"
 
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
+	opsutil "github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 )
 
 type OnRampToFeeQuoterDestChainConfigInput struct {

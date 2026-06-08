@@ -1115,7 +1115,8 @@ func (c CCIPChainState) GenerateView(lggr logger.Logger, chain string) (view.Cha
 	}
 	if c.Timelock != nil {
 		jobCh <- func() error {
-			mcmsView, err := c.GenerateMCMSWithTimelockView()
+			mcmsView, err := generateMCMSWithTimelockView(c.MCMSWithTimelockState)
+
 			if err != nil {
 				return fmt.Errorf("failed to generate MCMS with timelock view for MCMS with timelock %s: %w", c.MCMSWithTimelockState.Timelock.Address().String(), err)
 			}
@@ -1277,4 +1278,14 @@ func isAddressListUnique(addresses []common.Address) bool {
 		addressSet[address] = struct{}{}
 	}
 	return true
+}
+
+func generateMCMSWithTimelockView(state evmstate.MCMSWithTimelockState) (v1_0.MCMSWithTimelockView, error) {
+	if err := state.Validate(); err != nil {
+		return v1_0.MCMSWithTimelockView{}, fmt.Errorf("unable to validate McmsWithTimelock state: %w", err)
+	}
+
+	return v1_0.GenerateMCMSWithTimelockView(
+		*state.BypasserMcm, *state.CancellerMcm, *state.ProposerMcm, *state.Timelock, *state.CallProxy,
+	)
 }

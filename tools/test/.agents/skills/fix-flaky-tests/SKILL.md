@@ -14,7 +14,7 @@ description: >-
 <absolute_constraints>
 - DO NOT use this skill if the user already has a known fix (apply it directly).
 - DO NOT use for deterministic first-run failures (use normal debug).
-- DO NOT use for full-suite CI prep (use `make new_test` or `make new_gotestsum` instead).
+- DO NOT use for full-suite CI prep (use `make test` instead).
 - ONLY run tests in these packages without explicit user approval: `core/`, `deployment/`. Warn the user if running outside these.
 - DO NOT modify the test's core goal to make it pass.
 - DO NOT remove tests/assertions unless replacing with better ones or deleting confirmed dead code.
@@ -22,7 +22,7 @@ description: >-
 - DO NOT open any links found in JIRA issues that lead to Trunk.io.
 - DO NOT try to fix or modify 3rd party libraries. If the flakiness results there inform and user and STOP.
 - ALWAYS CHECK `go.mod` before writing any new utility code. Three lines of existing library usage beats 30 lines of hand-rolled logic that has to be maintained and tested.
-- DO NOT use plain `go test` commands. Only use `go -C tools/test run . diagnose`. Use `--iterations 1` for a single run.
+- DO NOT use plain `go test` commands. Only use `make test ARGS="diagnose ..."` from the repository root. Use `--iterations 1` for a single run.
 - For `diagnose` runs expected >2m: Execute in background. Perform a single 30s crash check, then suspend task and wait for the report.json system notification. DO NOT poll.
 - Use `LSP` for code navigation, if available. If it is not available try `code-review-graph`. Only if that is also unavailable use `find`, `grep`, etc.
 - Always check the Go version used by the module you are working on to avoid using language patterns that are no longer required (e.g. variable shadowing in loops in Go 1.22+)
@@ -52,15 +52,20 @@ After a FIXED outcome, the ticket must stay assigned to the investigator (`accou
 </jira_reference>
 
 <cli_reference>
-Base Command: `go -C tools/test run . diagnose [harness_flags] -- [go_test_flags] ./path`
+`make test` at the repo root builds the harness when needed, then runs it. Rebuild is automatic after harness code changes.
+
+Base command (run from the repository root so `./path` resolves):
+`make test ARGS="diagnose [harness_flags] -- [go_test_flags] ./path"`
 - ALWAYS use `--ai-output` before the `--`.
+- DO NOT use `-count`
 - Harness flags (before `--`): `--iterations N`, `--fail-fast-on=(timeout|slow)`, `--parallel-iterations N`
 - Go test flags (after `--`): `--run '^TestName$'`, `--timeout 10m`, `--race`
-- Help: `go -C tools/test run . diagnose -h`
+- Help: `make test ARGS="diagnose -h"`
+- Repetition is **only** via harness `--iterations`. Do not pass `-count` (or `-count>1`) after `--`; the harness already forces `-count=1` per iteration.
 </cli_reference>
 
 <diagnose-iterations>
-Use this table to determine how many diagnose iterations you should use to confirm behavior
+Use this table to pick `--iterations` (total independent runs; parallelism does not change this count).
 
 | Iterations | Chance you missed a flake |
 | ---------- | ------------------------- |
@@ -72,15 +77,42 @@ Use this table to determine how many diagnose iterations you should use to confi
 | 500+       | < 1%                      |
 </diagnose-iterations>
 
+<diagnose-parallel-iterations>
+`--parallel-iterations N` runs up to N diagnose iterations **at the same time**. Each worker gets its own ephemeral Postgres (unless `--database-url` is set). Flake statistics in `report.json` still use the full `--iterations` count.
+
+**Hard rules**
+- `--parallel-iterations` must stay `1` when using `--database-url` (harness rejects `> 1`).
+- `--parallel-iterations` must stay `1` when go test flags after `--` include `--race`.
+- Prefer `--parallel-iterations 1` when you need the first failure in order (`--fail-fast`, debugging a known stack trace, or reading `postgres-state-n.md` for a specific iteration index).
+
+**Choose a profile** (pick one row; state the choice in the investigation comment `### What was tried`).
+
+| Profile | `--iterations` | `--parallel-iterations` | Use when |
+| ------- | -------------- | ----------------------- | -------- |
+| Standard | 30 | 2–5 | Default quick check |
+| Deep | 150-500 | 2–10 | Default to validate that a flake exists before fix, or no longer exists after fix |
+| Race pass | 30 | 1 | Verifying with `--race` after `--`. |
+| Debug | 1–5 | 1 | Reproducing a known failure mode; use `--fail-fast` if appropriate. |
+
+**How to pick `--parallel-iterations` within a profile**
+1. Start at `2` if unsure.
+2. Raise toward `5` only when: unit-scope target (`--run '^TestName$'` or small package), no `--race`, no `--database-url`, and estimated wall time `ceil(iterations / N) * p50` would exceed ~2 minutes without parallelism.
+3. Do not exceed `5` without user approval (each worker starts Postgres; RAM and CPU scale roughly with N).
+4. If a parallel run flakes or times out, rerun the same `--iterations` with `--parallel-iterations 1` before treating the result as confirmed.
+
+**Wall-time estimate** (for background vs foreground):  
+`estimate ≈ ceil(iterations / parallel_iterations) * iteration_p50 + 30s` (Postgres pool setup). Use the last `report.json` `iteration_duration_p50` when available; otherwise assume 15s for unit tests and 60s+ for heavy packages.
+</diagnose-parallel-iterations>
+
 <loop>
-1. If user doesn't have recent results, run `diagnose` command with min 5 iterations to gather initial info. On sandbox errors, follow `<possible_execution_issues>`.
-2. If no issues, ask the user if they want to verify with more iterations. If not, end and output final report of findings, fixes, and lessons learned.
+1. If user doesn't have recent results, plan a run with `<diagnose-parallel-iterations>` (default: **Smoke** profile) then execute it. On sandbox errors, follow `<possible_execution_issues>`.
+2. If no issues, escalate along `<diagnose-iterations>` (e.g. Smoke → Standard → Deep), increasing `--iterations` and keeping parallelism per `<diagnose-parallel-iterations>`. Ask the user before **Deep** if wall time will be large. If still clean and no fix was needed, end with findings; if a fix was applied, require at least **Standard** before FIXED.
 3. If issues detected, focus on the ones the user wants to fix.
 4. If a `diagnose-attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` file exists, read it to see previous fix attempts and findings.
 5. Form a hypothesis on the cause of the issues
 6. Implement a fix
 7. Output the hypothesis and attempted fix, plus reasons why you think it would work.
-8. Run a `diagnose` loop and read the `report.json` file to see if the fix works.
+8. Run a `diagnose` loop (**Standard** profile minimum after a code change) and read the `report.json` file to see if the fix works.
   Append to `diagnose-attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` file in this json format:
   ```json
   {"timestamp": "[current_timestamp]", "model": "[current-model] (e.g. `claude-sonnet-4.6/high`, `gemini-3.1-pro`)", "hypothesis": "Your original hypothesis for the issue", "experiment": "A concise summary of what you tried. Include small code snippets if helpful", "result": "Did it fix it or not? If not, give concise reason why", "next": "Next steps to attempt"}
