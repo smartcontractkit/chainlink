@@ -5,6 +5,7 @@ VERSION = $(shell jq -r '.version' package.json)
 VERSION_TAG ?= $(shell git describe --always)
 GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
+unexport GOFLAGS
 GCFLAGS = -gcflags "$(GO_GCFLAGS)"
 # Set to true to install private plugins (will require GitHub auth).
 CL_INSTALL_PRIVATE_PLUGINS ?= false
