@@ -521,6 +521,68 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		require.Equal(t, owner+vaulttypes.RequestIDSeparator+req.ID, forwardedDelete.RequestId)
 	})
 
+	t.Run("rejects create with empty encrypted secrets after owner stamping", func(t *testing.T) {
+		h, callback, don, clock := setupHandlerWithLimitsFactory(t, limits.Factory{Settings: cresettings.DefaultGetter})
+		h.(*handler).authorizer = &stubAuthorizer{result: vaultcap.NewAuthResult("org-1", owner, "digest-1", clock.Now().Add(time.Minute).Unix())}
+
+		reqData := &vaultcommon.CreateSecretsRequest{
+			EncryptedSecrets: []*vaultcommon.EncryptedSecret{},
+		}
+		reqDataBytes, err := json.Marshal(reqData)
+		require.NoError(t, err)
+
+		req := jsonrpc.Request[json.RawMessage]{
+			ID:     "empty-create",
+			Method: vaulttypes.MethodSecretsCreate,
+			Params: (*json.RawMessage)(&reqDataBytes),
+		}
+
+		err = h.HandleJSONRPCUserMessage(t.Context(), req, callback)
+		require.NoError(t, err)
+
+		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+		defer cancel()
+		resp, err := callback.Wait(ctx)
+		require.NoError(t, err)
+		var createResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
+		require.NoError(t, json.Unmarshal(resp.RawResponse, &createResponse))
+		require.ErrorContains(t, createResponse.Error, "request batch must contain at least 1 item")
+		require.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), createResponse.Error.Code)
+		don.AssertNotCalled(t, "SendToNode", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("rejects create with nil secret identifier after owner stamping", func(t *testing.T) {
+		h, callback, don, clock := setupHandlerWithLimitsFactory(t, limits.Factory{Settings: cresettings.DefaultGetter})
+		h.(*handler).authorizer = &stubAuthorizer{result: vaultcap.NewAuthResult("org-1", owner, "digest-1", clock.Now().Add(time.Minute).Unix())}
+
+		reqData := &vaultcommon.CreateSecretsRequest{
+			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+				{EncryptedValue: "abc123"},
+			},
+		}
+		reqDataBytes, err := json.Marshal(reqData)
+		require.NoError(t, err)
+
+		req := jsonrpc.Request[json.RawMessage]{
+			ID:     "nil-id-create",
+			Method: vaulttypes.MethodSecretsCreate,
+			Params: (*json.RawMessage)(&reqDataBytes),
+		}
+
+		err = h.HandleJSONRPCUserMessage(t.Context(), req, callback)
+		require.NoError(t, err)
+
+		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+		defer cancel()
+		resp, err := callback.Wait(ctx)
+		require.NoError(t, err)
+		var createResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
+		require.NoError(t, json.Unmarshal(resp.RawResponse, &createResponse))
+		require.ErrorContains(t, createResponse.Error, "secret ID must not be nil")
+		require.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), createResponse.Error.Code)
+		don.AssertNotCalled(t, "SendToNode", mock.Anything, mock.Anything, mock.Anything)
+	})
+
 	t.Run("stamps mismatched list owner to authorized owner on forwarded list", func(t *testing.T) {
 		h, _, don, clock := setupHandlerWithLimitsFactory(t, limits.Factory{Settings: cresettings.DefaultGetter})
 		h.(*handler).authorizer = &stubAuthorizer{result: vaultcap.NewAuthResult("org-1", owner, "digest-1", clock.Now().Add(time.Minute).Unix())}

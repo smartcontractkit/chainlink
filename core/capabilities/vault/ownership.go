@@ -2,6 +2,7 @@ package vault
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
@@ -56,10 +57,10 @@ func StampAuthorizedOwnerOnList(request *vaultcommon.ListSecretIdentifiersReques
 
 // StampAuthorizedOwnerFromRequestID stamps owner fields using the owner prefix in a
 // gateway-prefixed request ID (owner::userRequestID). No-op when the ID has no prefix.
-func StampAuthorizedOwnerFromRequestID(requestID string, request any) {
+func StampAuthorizedOwnerFromRequestID(requestID string, request any) error {
 	authorizedOwner := AuthorizedOwnerFromRequestID(requestID)
 	if authorizedOwner == "" {
-		return
+		return nil
 	}
 	switch r := request.(type) {
 	case *vaultcommon.CreateSecretsRequest:
@@ -70,7 +71,10 @@ func StampAuthorizedOwnerFromRequestID(requestID string, request any) {
 		StampAuthorizedOwnerOnDelete(r, authorizedOwner)
 	case *vaultcommon.ListSecretIdentifiersRequest:
 		StampAuthorizedOwnerOnList(r, authorizedOwner)
+	default:
+		return fmt.Errorf("unsupported request type %T for owner stamping", request)
 	}
+	return nil
 }
 
 // AuthorizedOwnerFromRequestID returns the owner prefix from a gateway request ID of the

@@ -571,6 +571,73 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 	}
 }
 
+func TestGatewayHandler_NormalizesPrefixedRequestParamsBeforeAuthorization(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	ctx := t.Context()
+	authResult := vaultcap.NewAuthResult("", "0xabc", "digest-0xabc", time.Now().Add(time.Minute).Unix())
+
+	secretsService := vaulttypesmocks.NewSecretsService(t)
+	gwConnector := connector_mocks.NewGatewayConnector(t)
+	allowListBasedAuth := vaultcapmocks.NewAuthorizer(t)
+
+	allowListBasedAuth.EXPECT().AuthorizeRequest(mock.Anything, mock.MatchedBy(func(req jsonrpc.Request[json.RawMessage]) bool {
+		if req.Method != vaulttypes.MethodSecretsCreate || req.ID != "1" || req.Params == nil {
+			return false
+		}
+		var parsed vaultcommon.CreateSecretsRequest
+		if err := json.Unmarshal(*req.Params, &parsed); err != nil {
+			return false
+		}
+		return parsed.RequestId == "1" &&
+			len(parsed.EncryptedSecrets) == 1 &&
+			parsed.EncryptedSecrets[0].Id != nil &&
+			parsed.EncryptedSecrets[0].Id.Owner == "0xAbC"
+	})).Return(authResult, nil).Once()
+
+	secretsService.EXPECT().CreateSecrets(mock.Anything, mock.MatchedBy(func(req *vaultcommon.CreateSecretsRequest) bool {
+		return req.RequestId == "0xabc"+vaulttypes.RequestIDSeparator+"1" &&
+			req.EncryptedSecrets[0].Id.Owner == "0xabc"
+	})).Return(&vaulttypes.Response{ID: "test-secret"}, nil).Once()
+
+	gwConnector.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
+		return resp.Error == nil
+	})).Return(nil).Once()
+
+	handler, err := vaultcap.NewGatewayHandler(
+		secretsService,
+		gwConnector,
+		nil,
+		lggr,
+		limits.Factory{Settings: cresettings.DefaultGetter},
+		vaultcap.NewAuthorizer(allowListBasedAuth, nil, lggr),
+		nil,
+	)
+	require.NoError(t, err)
+
+	params, err := json.Marshal(vaultcommon.CreateSecretsRequest{
+		RequestId: "0xDef" + vaulttypes.RequestIDSeparator + "1",
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{
+				Id: &vaultcommon.SecretIdentifier{
+					Key:   "test-secret",
+					Owner: "0xAbC",
+				},
+				EncryptedValue: "encrypted-value",
+			},
+		},
+	})
+	require.NoError(t, err)
+	raw := json.RawMessage(params)
+
+	req := &jsonrpc.Request[json.RawMessage]{
+		Method: vaulttypes.MethodSecretsCreate,
+		ID:     "0xDef" + vaulttypes.RequestIDSeparator + "1",
+		Params: &raw,
+	}
+
+	require.NoError(t, handler.HandleGatewayMessage(ctx, "gateway-1", req))
+}
+
 func TestGatewayHandler_Lifecycle(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
