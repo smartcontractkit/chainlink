@@ -25,7 +25,7 @@ type RingJobConfigInput struct {
 	// ContractQualifier is the qualifier for the OCR3 capability contract.
 	ContractQualifier string `yaml:"contractQualifier"`
 	// ChainSelectorEVM is the EVM chain selector for the target chain.
-	ChainSelectorEVM Uint64 `yaml:"chainSelectorEVM"`
+	ChainSelectorEVM ChainSelector `yaml:"chainSelectorEVM"`
 	// ShardConfigAddr is the address of the ShardConfig contract on-chain.
 	ShardConfigAddr string `yaml:"shardConfigAddr"`
 	// BootstrapperRingUrls are the P2P URLs of the bootstrapper nodes for Ring.

@@ -139,8 +139,8 @@ func (u ProposeAptosCapJobSpec) Apply(e cldf.Environment, input ProposeAptosCapJ
 		GenerateOracleFactory: true,
 		ContractQualifier:     input.OCRContractQualifier,
 		OCRSigningStrategy:    "multi-chain",
-		OCRChainSelector:      pkg.Uint64(input.OCRChainSelector),
-		ChainSelectorEVM:      pkg.Uint64(input.OCRChainSelector),
+		OCRChainSelector:      pkg.ChainSelector(input.OCRChainSelector),
+		ChainSelectorEVM:      pkg.ChainSelector(input.OCRChainSelector),
 		BootstrapPeers:        input.BootstrapperOCR3Urls,
 	}
 

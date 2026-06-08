@@ -77,3 +77,5 @@ func (u *Uint64) UnmarshalYAML(node *yaml.Node) error {
 func (u Uint64) MarshalYAML() ([]byte, error) {
 	return []byte(strconv.FormatUint(uint64(u), 10)), nil
 }
+
+type ChainSelector = Uint64

@@ -27,8 +27,8 @@ type ProposeStandardCapabilityJobInput struct {
 
 	GenerateOracleFactory bool              `json:"generateOracleFactory" yaml:"generateOracleFactory"` // Optional
 	ContractQualifier     string            `yaml:"contractQualifier"`                                  // used to fetch the OCR contract address
-	ChainSelectorEVM      pkg.Uint64 `yaml:"chainSelectorEVM"`                                   // used to fetch OCR EVM configs from nodes
-	ChainSelectorAptos    pkg.Uint64 `yaml:"chainSelectorAptos"`                                 // used to fetch OCR Aptos configs from nodes - optional
+	ChainSelectorEVM      pkg.ChainSelector `yaml:"chainSelectorEVM"`                                   // used to fetch OCR EVM configs from nodes
+	ChainSelectorAptos    pkg.ChainSelector `yaml:"chainSelectorAptos"`                                 // used to fetch OCR Aptos configs from nodes - optional
 	BootstrapPeers        []string          `yaml:"bootstrapPeers"`                                     // set as value in the oracle factory
 
 	DONFilters  []offchain.TargetDONFilter `json:"donFilters" yaml:"donFilters"`

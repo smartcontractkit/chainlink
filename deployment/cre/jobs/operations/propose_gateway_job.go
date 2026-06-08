@@ -31,7 +31,7 @@ type ProposeGatewayJobInput struct {
 	AllowedSchemes              []string          `yaml:"allowedSchemes"`
 	AllowedIPsCIDR              []string          `yaml:"allowedIPsCIDR"`
 	AuthGatewayID               string            `yaml:"authGatewayID"`
-	GatewayKeyChainSelector     pkg.Uint64 `yaml:"gatewayKeyChainSelector"`
+	GatewayKeyChainSelector     pkg.ChainSelector `yaml:"gatewayKeyChainSelector"`
 	JobLabels                   map[string]string
 }
 

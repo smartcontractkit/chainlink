@@ -23,9 +23,9 @@ import (
 type OCR3JobConfigInput struct {
 	TemplateName         string        `yaml:"templateName"`
 	ContractQualifier    string        `yaml:"contractQualifier"`
-	ChainSelectorEVM     Uint64 `yaml:"chainSelectorEVM"`
-	ChainSelectorAptos   Uint64 `yaml:"chainSelectorAptos"`
-	ChainSelectorSolana  Uint64 `yaml:"chainSelectorSolana"` // used to fetch OCR Solana configs from nodes - optional
+	ChainSelectorEVM     ChainSelector `yaml:"chainSelectorEVM"`
+	ChainSelectorAptos   ChainSelector `yaml:"chainSelectorAptos"`
+	ChainSelectorSolana  ChainSelector `yaml:"chainSelectorSolana"` // used to fetch OCR Solana configs from nodes - optional
 	BootstrapperOCR3Urls []string      `yaml:"bootstrapperOCR3Urls"`
 
 	// When set, resolve the CapabilitiesRegistry address instead of the OCR3 contract address.

@@ -171,8 +171,8 @@ func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSp
 		GenerateOracleFactory: true,
 		ContractQualifier:     input.OCRContractQualifier,
 		OCRSigningStrategy:    "single-chain",
-		OCRChainSelector:      pkg.Uint64(input.OCRChainSelector),
-		ChainSelectorEVM:      pkg.Uint64(input.ChainSelector),
+		OCRChainSelector:      pkg.ChainSelector(input.OCRChainSelector),
+		ChainSelectorEVM:      pkg.ChainSelector(input.ChainSelector),
 		BootstrapPeers:        input.BootstrapperOCR3Urls,
 	}
 
