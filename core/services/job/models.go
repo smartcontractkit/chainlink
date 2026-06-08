@@ -839,8 +839,8 @@ type WorkflowSpec struct {
 	BinaryURL     string             `db:"binary_url"`
 	ConfigURL     string             `db:"config_url"`
 	SecretsID     sql.NullInt64      `db:"secrets_id"`
-	CreatedAt     time.Time          `toml:"-"`
-	UpdatedAt     time.Time          `toml:"-"`
+	CreatedAt     time.Time          `toml:"-" db:"created_at"`
+	UpdatedAt     time.Time          `toml:"-" db:"updated_at"`
 	SpecType      WorkflowSpecType   `toml:"spec_type" db:"spec_type"`
 	Attributes    []byte             `db:"attributes"`
 	sdkWorkflow   *sdk.WorkflowSpec

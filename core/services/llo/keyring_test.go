@@ -96,15 +96,20 @@ func Test_Keyring(t *testing.T) {
 		for _, tc := range cases {
 			t.Run(tc.format.String(), func(t *testing.T) {
 				t.Parallel()
-				k := ks[tc.format]
-				defer k.(*mockKey).reset(tc.format)
+				ksLocal := map[llotypes.ReportFormat]Key{
+					llotypes.ReportFormatEVMPremiumLegacy: &mockKey{format: llotypes.ReportFormatEVMPremiumLegacy, maxSignatureLen: 1, sig: []byte("sig-1")},
+					llotypes.ReportFormatJSON:             &mockKey{format: llotypes.ReportFormatJSON, maxSignatureLen: 2, sig: []byte("sig-2")},
+					llotypes.ReportFormatEVMStreamlined:   &mockKey{format: llotypes.ReportFormatEVMStreamlined, maxSignatureLen: 6, sig: []byte("sig-6")},
+				}
+				krLocal := NewOnchainKeyring(lggr, ksLocal, 2)
+				k := ksLocal[tc.format]
 
-				sig, err := kr.Sign(cd, seqNr, ocr3types.ReportWithInfo[llotypes.ReportInfo]{Info: llotypes.ReportInfo{ReportFormat: tc.format}})
+				sig, err := krLocal.Sign(cd, seqNr, ocr3types.ReportWithInfo[llotypes.ReportInfo]{Info: llotypes.ReportInfo{ReportFormat: tc.format}})
 				require.NoError(t, err)
 
 				assert.Equal(t, fmt.Appendf(nil, "sig-%d", tc.format), sig)
 
-				assert.False(t, kr.Verify(nil, cd, seqNr, ocr3types.ReportWithInfo[llotypes.ReportInfo]{Info: llotypes.ReportInfo{ReportFormat: tc.format}}, sig))
+				assert.False(t, krLocal.Verify(nil, cd, seqNr, ocr3types.ReportWithInfo[llotypes.ReportInfo]{Info: llotypes.ReportInfo{ReportFormat: tc.format}}, sig))
 
 				k.(*mockKey).verify = true
 			})

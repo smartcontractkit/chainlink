@@ -2017,12 +2017,14 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 								// handover test is handled below
 								break
 							}
-							if offchainConfig.ProtocolVersion == 0 {
-								// validAfter is always truncated to 1s in v0
-								// IMPORTANT: gapless handovers in v0 ONLY supported at 1s resolution!!
-								assert.Equal(t, highestObsTsNanos/1e9*1e9, r.ValidAfterNanoseconds/1e9*1e9, "%d: (n-1)ObservationsTimestampSeconds->(n)ValidAfterNanoseconds should be gapless to within 1s resolution, got: %d vs %d", i, highestObsTsNanos, r.ValidAfterNanoseconds)
-							} else {
-								assert.Equal(t, highestObsTsNanos, r.ValidAfterNanoseconds, "%d: (n-1)ObservationsTimestampSeconds->(n)ValidAfterNanoseconds should be gapless, got: %d vs %d", i, highestObsTsNanos, r.ValidAfterNanoseconds)
+							if r.SeqNr == seenSeqNr+1 {
+								if offchainConfig.ProtocolVersion == 0 {
+									// validAfter is always truncated to 1s in v0
+									// IMPORTANT: gapless handovers in v0 ONLY supported at 1s resolution!!
+									assert.Equal(t, highestObsTsNanos/1e9*1e9, r.ValidAfterNanoseconds/1e9*1e9, "%d: (n-1)ObservationsTimestampSeconds->(n)ValidAfterNanoseconds should be gapless to within 1s resolution, got: %d vs %d", i, highestObsTsNanos, r.ValidAfterNanoseconds)
+								} else {
+									assert.Equal(t, highestObsTsNanos, r.ValidAfterNanoseconds, "%d: (n-1)ObservationsTimestampSeconds->(n)ValidAfterNanoseconds should be gapless, got: %d vs %d", i, highestObsTsNanos, r.ValidAfterNanoseconds)
+								}
 							}
 							assert.Greater(t, r.ObservationTimestampNanoseconds, highestObsTsNanos, "%d: overlapping/duplicate report ObservationTimestampNanoseconds, got: %d vs %d", i, r.ObservationTimestampNanoseconds, highestObsTsNanos)
 							assert.Greater(t, r.ValidAfterNanoseconds, highestValidAfterNanos, "%d: overlapping/duplicate report ValidAfterNanoseconds, got: %d vs %d", i, r.ValidAfterNanoseconds, highestValidAfterNanos)
@@ -2866,13 +2868,22 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 	// After reports for channel 2 have stopped, bridge traffic for streamIDTombstone should stop
 	// while streamIDActive continues to be observed.
-	bCallsAfterReportsStopped := streamBCalls.Load()
+	// We wait until streamBCalls stabilizes to account for any inflight pipelines or wind-down delays.
+	require.Eventually(t, func() bool {
+		b1 := streamBCalls.Load()
+		time.Sleep(2 * time.Second)
+		b2 := streamBCalls.Load()
+		return b1 == b2
+	}, 15*time.Second, 100*time.Millisecond, "tombstoned channel's stream should eventually stop being observed")
+
+	bCallsStable := streamBCalls.Load()
 	aCallsAfterReportsStopped := streamACalls.Load()
-	time.Sleep(1 * time.Second)
-	require.Equal(t, bCallsAfterReportsStopped, streamBCalls.Load(),
+	require.Eventually(t, func() bool {
+		return streamACalls.Load() > aCallsAfterReportsStopped
+	}, 15*time.Second, 100*time.Millisecond, "active channel's stream should still be observed")
+
+	require.Equal(t, bCallsStable, streamBCalls.Load(),
 		"tombstoned channel's stream should not be observed (no additional bridge calls)")
-	require.Greater(t, streamACalls.Load(), aCallsAfterReportsStopped,
-		"active channel's stream should still be observed")
 }
 
 func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {

@@ -7,6 +7,7 @@ import (
 
 	"github.com/lib/pq"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -96,14 +97,17 @@ func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) 
 			RETURNING id
 		`
 
-		stmt, err := orm.ds.PrepareNamedContext(ctx, query)
+		now := time.Now()
+		spec.UpdatedAt = now
+		if spec.CreatedAt.IsZero() {
+			spec.CreatedAt = now
+		}
+		q, args, err := sqlx.Named(query, spec)
 		if err != nil {
 			return err
 		}
-		defer stmt.Close()
-
-		spec.UpdatedAt = time.Now()
-		return stmt.QueryRowxContext(ctx, spec).Scan(&id)
+		q = sqlx.Rebind(sqlx.DOLLAR, q)
+		return tx.QueryRowxContext(ctx, q, args...).Scan(&id)
 	})
 
 	return id, err

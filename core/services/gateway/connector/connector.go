@@ -221,13 +221,13 @@ func (c *gatewayConnector) DonID(context.Context) (string, error) {
 }
 
 func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
+	defer c.closeWait.Done()
 	ctx, cancel := c.shutdownCh.NewCtx()
 	defer cancel()
 
 	for {
 		select {
 		case <-c.shutdownCh:
-			c.closeWait.Done()
 			return
 		case item := <-gatewayState.conn.ReadChannel():
 			var req jsonrpc.Request[json.RawMessage]
@@ -252,6 +252,7 @@ func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
 }
 
 func (c *gatewayConnector) reconnectLoop(gatewayState *gatewayState) {
+	defer c.closeWait.Done()
 	redialBackoff := utils.NewRedialBackoff()
 	ctx, cancel := c.shutdownCh.NewCtx()
 	defer cancel()
@@ -277,7 +278,6 @@ func (c *gatewayConnector) reconnectLoop(gatewayState *gatewayState) {
 		}
 		select {
 		case <-c.shutdownCh:
-			c.closeWait.Done()
 			return
 		case <-time.After(redialBackoff.Duration()):
 			c.lggr.Info("reconnecting ...")

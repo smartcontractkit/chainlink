@@ -114,7 +114,8 @@ Optimize slow tests. Exclude non-deterministic flakes/panics.
 3. Profile: Run diagnose with `-cpuprofile cpu.prof -trace trace.out` if bottleneck unclear.
 4. Implement: Replace `time.Sleep` with dynamic polling (`gomega.Eventually`, `testutils.WaitFor`). Reduce tick intervals. Apply `t.Parallel()` safely. Reuse read-only setup safely to prevent state leakage.
 5. Validate: Rerun diagnose identical iterations. Compare `p50`, `max_elapsed` to baseline. Verify no flakes.
-6. Document: Report percentage speedup. Update `diagnose-attempted-fixes-[test/package]-slow.jsonl` with metrics.
+6. When adding `t.Parallel()`, validate no new races with a `-race` run on the whole package.
+7. Document: Report percentage speedup. Update `diagnose-attempted-fixes-[test/package]-slow.jsonl` with metrics.
 </slow-test-flow>
 
 <flaky-test-flow>

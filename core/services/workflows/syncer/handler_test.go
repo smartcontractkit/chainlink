@@ -1260,6 +1260,10 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		require.NoError(t, err)
 		// old engine is no longer running
 		require.Equal(t, types.WorkflowID(updatedWFID), engine.WorkflowID)
+
+		// Clean up the new engine created by workflowUpdatedEvent to avoid goroutine leaks
+		err = h.tryEngineCleanup(wfOwner, workflowName)
+		require.NoError(t, err)
 	})
 }
 
