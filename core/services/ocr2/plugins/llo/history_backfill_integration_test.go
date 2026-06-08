@@ -207,7 +207,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	_, err := configStore.SetChannelDefinitions(steve, donID, url, sha)
 	require.NoError(t, err)
 	backend.Commit()
-	time.Sleep(3 * time.Second)
 
 	setProductionConfig(
 		t, donID, steve, backend, configurator, configuratorAddress, nodes,
@@ -292,7 +291,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	_, err = configStore.SetChannelDefinitions(steve, donID, url2, sha2)
 	require.NoError(t, err)
 	backend.Commit()
-	time.Sleep(3 * time.Second)
 
 	histByObsTs := make(map[uint32]*big.Int)
 	require.Eventually(t, func() bool {

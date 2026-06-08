@@ -579,7 +579,7 @@ updateInterval = "1m"
 							return
 						}
 						// Want at least 2 runs so we see all the metadata.
-						pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], len(completedRuns)+2, 7, apps[ic].JobORM(), 2*time.Minute, 5*time.Second)
+						pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], len(completedRuns)+2, 7, apps[ic].JobORM(), 2*time.Minute, 100*time.Millisecond)
 						jb, err2 := pr[0].Outputs.MarshalJSON()
 						if !assert.NoError(t, err2) {
 							return

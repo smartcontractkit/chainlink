@@ -2670,12 +2670,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			require.NoError(t, err)
 			backend.Commit()
 
-			// Wait for processing
-			time.Sleep(3 * time.Second)
-
 			// Verify channel 11 still produces reports (adder cannot remove it)
 			foundChannel11Report := false
-			deadline := time.Now().Add(5 * time.Second)
+			deadline := time.Now().Add(8 * time.Second)
 			for time.Now().Before(deadline) && !foundChannel11Report {
 				pckt, err := receiveWithTimeout(t, packetCh, 1*time.Second)
 				if err != nil {
@@ -2869,11 +2866,16 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	// After reports for channel 2 have stopped, bridge traffic for streamIDTombstone should stop
 	// while streamIDActive continues to be observed.
 	// We wait until streamBCalls stabilizes to account for any inflight pipelines or wind-down delays.
+	var lastB uint64
+	var stableSince time.Time
 	require.Eventually(t, func() bool {
-		b1 := streamBCalls.Load()
-		time.Sleep(2 * time.Second)
-		b2 := streamBCalls.Load()
-		return b1 == b2
+		b := streamBCalls.Load()
+		if b != lastB {
+			lastB = b
+			stableSince = time.Now()
+			return false
+		}
+		return time.Since(stableSince) > 2*time.Second
 	}, 15*time.Second, 100*time.Millisecond, "tombstoned channel's stream should eventually stop being observed")
 
 	bCallsStable := streamBCalls.Load()

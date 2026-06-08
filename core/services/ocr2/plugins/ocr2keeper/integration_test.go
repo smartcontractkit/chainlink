@@ -22,7 +22,6 @@ import (
 	"github.com/umbracle/ethgo/abi"
 
 	"github.com/smartcontractkit/freeport"
-
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
