@@ -19,6 +19,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
@@ -293,10 +294,15 @@ func emitTransmissionScheduleEvent(ctx context.Context, scheduleType, workflowEx
 	}
 
 	// emit transmission schedule event to track which nodes are successful when called to emit
-	return beholder.GetEmitter().Emit(ctx, b,
+	entity := fmt.Sprintf("%s.%s", TransmissionEventProtoPkg, TransmissionEventEntity)
+	if err := beholder.GetEmitter().Emit(ctx, b,
 		"beholder_data_schema", TransmissionEventSchema, // required
 		"beholder_domain", "platform", // required
-		"beholder_entity", fmt.Sprintf("%s.%s", TransmissionEventProtoPkg, TransmissionEventEntity)) // required
+		"beholder_entity", entity); err != nil { // required
+		return err
+	}
+
+	return durableemitter.GlobalEmit(ctx, b, "source", "platform", "type", entity)
 }
 
 func (c *ClientRequest) ID() string {
