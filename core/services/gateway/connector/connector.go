@@ -29,9 +29,8 @@ var _ GatewayConnector = (*gatewayConnector)(nil)
 type GatewayConnector interface {
 	services.Service
 	network.ConnectionInitiator
-	// core.GatewayConnector is a narrow interface that provides methods to interact with the Gateway.
-	// This interface is used by LOOP plugins to interact with the Gateway over gRPC
-	core.GatewayConnector
+	// core.MultiGatewayConnector is used by LOOP plugins to interact with the Gateway over gRPC.
+	core.MultiGatewayConnector
 }
 
 // Signer implementation needs to be provided by a GatewayConnector user (node)
@@ -208,12 +207,46 @@ func (c *gatewayConnector) SignMessage(ctx context.Context, msg []byte) ([]byte,
 	return c.signer.Sign(ctx, msg)
 }
 
-func (c *gatewayConnector) GatewayIDs(context.Context) ([]string, error) {
+func (c *gatewayConnector) GatewayIDs(ctx context.Context) ([]string, error) {
+	return c.gatewayIDsForDon(ctx, "")
+}
+
+func (c *gatewayConnector) gatewayIDsForDon(_ context.Context, donID string) ([]string, error) {
+	if donID == "" {
+		return c.allGatewayIDs(), nil
+	}
+
+	if !multiDonMode(c.config) {
+		return nil, nil
+	}
+
 	var gids []string
+	for _, gw := range c.config.Gateways {
+		if gw.DonId == donID {
+			gids = append(gids, gw.Id)
+		}
+	}
+	return gids, nil
+}
+
+func (c *gatewayConnector) GatewayIDsForDon(ctx context.Context, donID string) ([]string, error) {
+	return c.gatewayIDsForDon(ctx, donID)
+}
+
+func (c *gatewayConnector) DonIDForGateway(_ context.Context, gatewayID string) (string, error) {
+	gateway, ok := c.gateways[gatewayID]
+	if !ok {
+		return "", fmt.Errorf("invalid Gateway ID %s", gatewayID)
+	}
+	return gateway.config.DonId, nil
+}
+
+func (c *gatewayConnector) allGatewayIDs() []string {
+	gids := make([]string, 0, len(c.gateways))
 	for gid := range c.gateways {
 		gids = append(gids, gid)
 	}
-	return gids, nil
+	return gids
 }
 
 func (c *gatewayConnector) DonID(context.Context) (string, error) {

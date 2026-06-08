@@ -12,9 +12,7 @@ func validateConnectorConfig(cfg *ConnectorConfig) error {
 		return errors.New("invalid DON ID")
 	}
 
-	multiDonMode := slices.ContainsFunc(cfg.Gateways, func(g ConnectorGatewayConfig) bool {
-		return g.DonId != ""
-	})
+	multiDonMode := multiDonMode(cfg)
 	if !multiDonMode {
 		return nil
 	}
@@ -25,4 +23,10 @@ func validateConnectorConfig(cfg *ConnectorConfig) error {
 		}
 	}
 	return nil
+}
+
+func multiDonMode(cfg *ConnectorConfig) bool {
+	return slices.ContainsFunc(cfg.Gateways, func(g ConnectorGatewayConfig) bool {
+		return g.DonId != ""
+	})
 }
