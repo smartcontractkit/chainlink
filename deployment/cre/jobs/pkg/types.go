@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"encoding/json"
 	"strconv"
 
 	"gopkg.in/yaml.v3"
@@ -46,7 +47,7 @@ func (i Int) MarshalYAML() ([]byte, error) {
 	return []byte(strconv.Itoa(int(i))), nil
 }
 
-// Uint64 wraps uint64 so that YAML fields can be populated from either a numeric
+// Uint64 wraps uint64 so that YAML/JSON fields can be populated from either a numeric
 // literal or a quoted string (e.g. after environment-variable substitution).
 // Only unmarshal methods are provided so TOML/JSON output remains numeric.
 type Uint64 uint64
@@ -59,6 +60,28 @@ func (u *Uint64) UnmarshalText(data []byte) error {
 
 	*u = Uint64(ui)
 	return nil
+}
+
+func (u *Uint64) UnmarshalJSON(data []byte) error {
+	if len(data) == 0 {
+		return json.Unmarshal(data, (*uint64)(u))
+	}
+
+	switch data[0] {
+	case '"':
+		var s string
+		if err := json.Unmarshal(data, &s); err != nil {
+			return err
+		}
+		return u.UnmarshalText([]byte(s))
+	default:
+		var n uint64
+		if err := json.Unmarshal(data, &n); err != nil {
+			return err
+		}
+		*u = Uint64(n)
+		return nil
+	}
 }
 
 func (u *Uint64) UnmarshalYAML(node *yaml.Node) error {
