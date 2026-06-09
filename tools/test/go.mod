@@ -6,7 +6,7 @@ require (
 	charm.land/lipgloss/v2 v2.0.3
 	github.com/charmbracelet/x/term v0.2.2
 	github.com/jackc/pgx/v5 v5.10.0
-	github.com/smartcontractkit/testrig v0.0.6-0.20260609030905-e799bf44e9cf
+	github.com/smartcontractkit/testrig v0.0.6
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.42.0
