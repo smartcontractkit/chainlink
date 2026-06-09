@@ -5,7 +5,6 @@ description: >-
 ---
 
 <absolute_constraints>
-
 - DO NOT use this skill if the user already has a known fix (apply it directly).
 - DO NOT use for deterministic first-run failures (use normal debug).
 - DO NOT use for full-suite CI prep (use `make test` instead).
@@ -51,7 +50,7 @@ Execute from repository root.
 - Go test flags: `--run '^TestName$'`, `--timeout 10m`, `--race`.
 - Help: `make test ARGS="diagnose -h"`.
 - Repetition strictly via `--iterations`.
-  </cli_reference>
+</cli_reference>
 
 <diagnose-iterations>
 Use iterations for run count. Parallelism does not alter total.
@@ -135,7 +134,7 @@ Optimize slow tests. Exclude non-deterministic flakes/panics.
 5. Validate: Rerun diagnose identical iterations. Compare `p50`, `max_elapsed` to baseline. Verify no flakes.
 6. When adding `t.Parallel()`, validate no new races with a `-race` run on the whole package.
 7. Document: Report percentage speedup. Update `diagnose-attempted-fixes-[test/package]-slow.jsonl` with metrics.
-   </slow-test-flow>
+</slow-test-flow>
 
 <flaky-test-flow>
 Output hypothesis first. Show diffs. Do not abstract fixes.
@@ -148,7 +147,7 @@ Approaches:
 4. Race: Weird stack traces, nil pointers.
 5. Timeout: Check logs for blocking ops, bad channel close, backpressure.
 6. Resources: CI-only load failure. Check CPU, Mem. Use `go test` profiles (`-race`, `-cpuprofile`, `-trace`).
-   </flaky-test-flow>
+</flaky-test-flow>
 
 <context_compaction>
 Reference `diagnose-attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` when summarizing.
@@ -175,4 +174,4 @@ Reference `diagnose-attempted-fixes-[test/package]-[flake/broken/timeout/slow].j
 1. Spawn `LogAnalyzer` when reading `logs/` or `iteration-n.log.jsonl`. Read ./references/log-analyzer-subagent.md.
 2. Spawn `GithubFailureAnalyzer` when inspecting CI failure. Read ./references/github-failure-analyzer.md.
 3. Spawn `JiraManager` when interacting with JIRA. Read ./references/jira-mananger-subagent.md.
-   </sub_agent_protocol>
+</sub_agent_protocol>
