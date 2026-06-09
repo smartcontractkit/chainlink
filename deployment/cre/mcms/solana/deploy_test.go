@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-	testenv "github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/mcms/pkg"
 	cresolmcms "github.com/smartcontractkit/chainlink/deployment/cre/mcms/solana"
@@ -59,8 +59,7 @@ func assertQualifierEqual(t *testing.T, expected, actual string) {
 func TestDeploySolanaMCMS_VerifyPreconditions(t *testing.T) {
 	t.Parallel()
 
-	loader := testenv.NewLoader()
-	env, err := loader.Load(t.Context(), testenv.WithEVMSimulatedN(t, 1))
+	env, err := environment.New(t.Context())
 	require.NoError(t, err)
 
 	cs := cresolmcms.DeploySolanaMCMS{}
