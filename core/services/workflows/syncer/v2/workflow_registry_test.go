@@ -1734,3 +1734,25 @@ func TestWorkflowRegistry_filterWorkflowsByShard(t *testing.T) {
 	require.Len(t, filtered, 1)
 	require.Equal(t, wf2.Hex(), filtered[0].WorkflowID.Hex())
 }
+
+func TestWorkflowRegistry_getTicker_nonPositiveDuration(t *testing.T) {
+	wr := &workflowRegistry{
+		clock: clockwork.NewRealClock(),
+	}
+	
+	// This should not panic under the new implementation. Under the old one, it panics.
+	tickerCh := wr.getTicker(-1 * time.Second)
+	require.NotNil(t, tickerCh)
+}
+
+func TestWorkflowRegistry_getTicker_WithTickerOverride(t *testing.T) {
+	customCh := make(chan time.Time)
+	wr := &workflowRegistry{
+		ticker: customCh,
+		clock:  clockwork.NewRealClock(),
+	}
+	
+	tickerCh := wr.getTicker(10 * time.Second)
+	require.Equal(t, (<-chan time.Time)(customCh), tickerCh)
+}
+

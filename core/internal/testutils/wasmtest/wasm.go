@@ -2,6 +2,7 @@ package wasmtest
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/andybalholm/brotli"
 
@@ -37,8 +39,10 @@ func CreateTestBinary(outputPath string, compress bool, t *testing.T) []byte {
 			}
 			defer os.RemoveAll(tmpDir)
 
+			cmdCtx, cancel := context.WithTimeout(t.Context(), time.Minute)
+			defer cancel()
 			filePath := filepath.Join(tmpDir, "output.wasm")
-			cmd := exec.CommandContext(t.Context(), "go", "build", "-o", filePath, "github.com/smartcontractkit/chainlink/v2/"+outputPath) // #nosec
+			cmd := exec.CommandContext(cmdCtx, "go", "build", "-o", filePath, "github.com/smartcontractkit/chainlink/v2/"+outputPath) // #nosec
 			cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
 
 			output, err := cmd.CombinedOutput()
