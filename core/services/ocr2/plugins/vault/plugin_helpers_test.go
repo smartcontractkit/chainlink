@@ -220,8 +220,8 @@ func makeReportingPluginConfig(
 	require.NoError(t, err)
 
 	return &ReportingPluginConfig{
-		MaxBatchSize:                      bsl,
-		MaxPendingQueueWriteSize:          maxPendingQueueWriteSizeLimiter,
+		MaxBatchSize:             bsl,
+		MaxPendingQueueWriteSize: maxPendingQueueWriteSizeLimiter,
 
 		PublicKey:                         publicKey,
 		PrivateKeyShare:                   privateKeyShare,

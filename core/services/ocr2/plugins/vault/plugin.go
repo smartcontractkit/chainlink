@@ -1962,17 +1962,12 @@ func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, seqNr
 			keptItems = keptItems[:errBoundLimited.Limit]
 		}
 	} else {
-		limit, err := r.cfg.MaxPendingQueueWriteSize.Limit(ctx)
-		if err != nil {
-			return fmt.Errorf("could not fetch pending queue write size limit: %w", err)
-		}
-		if len(keptItems) > limit {
-			r.lggr.Warnw("pending queue write size limit reached, truncating",
-				"seqNr", seqNr,
-				"keptItemCount", len(keptItems),
-				"limit", limit,
-			)
-			keptItems = keptItems[:limit]
+		if err := r.cfg.MaxPendingQueueWriteSize.Check(ctx, len(keptItems)); err != nil {
+			var errBoundLimited limits.ErrorBoundLimited[int]
+			if !errors.As(err, &errBoundLimited) {
+				return fmt.Errorf("failed to check pending queue write size limit: %w", err)
+			}
+			keptItems = keptItems[:errBoundLimited.Limit]
 		}
 	}
 
