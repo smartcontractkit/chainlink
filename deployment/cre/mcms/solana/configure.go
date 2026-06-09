@@ -2,9 +2,7 @@ package solana
 
 import (
 	"errors"
-	"fmt"
 
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
@@ -38,17 +36,11 @@ func (ConfigureSolanaMCMS) VerifyPreconditions(env cldf.Environment, cfg Configu
 		return errors.New("no chain selectors provided")
 	}
 	for _, sel := range cfg.ChainSelectors {
-		family, err := chain_selectors.GetSelectorFamily(sel)
-		if err != nil {
+		if err := verifySelector(env, sel); err != nil {
 			return err
 		}
-		if family != chain_selectors.FamilySolana {
-			return fmt.Errorf("chain selector %d is not a solana chain", sel)
-		}
-		if _, ok := env.BlockChains.SolanaChains()[sel]; !ok {
-			return fmt.Errorf("solana chain not found for chain selector %d", sel)
-		}
 	}
+
 	return nil
 }
 

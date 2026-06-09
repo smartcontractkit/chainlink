@@ -57,25 +57,16 @@ func (c DeploySolanaMCMSConfig) Qualifier() string {
 }
 
 func (DeploySolanaMCMS) VerifyPreconditions(env cldf.Environment, cfg DeploySolanaMCMSConfig) error {
-	if cfg.ChainSelector == 0 {
-		return errors.New("chainSelector is required")
-	}
-	if cfg.ConfigID == "" {
-		return errors.New("configId is required")
-	}
 	if cfg.MCMSWithTimelockConfig == nil {
 		return errors.New("mcmsWithTimelockConfig is required")
 	}
 
-	family, err := chain_selectors.GetSelectorFamily(cfg.ChainSelector)
-	if err != nil {
+	if cfg.ConfigID == "" {
+		return errors.New("configId is required")
+	}
+
+	if err := verifySelector(env, cfg.ChainSelector); err != nil {
 		return err
-	}
-	if family != chain_selectors.FamilySolana {
-		return fmt.Errorf("chain selector %d is not a solana chain", cfg.ChainSelector)
-	}
-	if _, ok := env.BlockChains.SolanaChains()[cfg.ChainSelector]; !ok {
-		return fmt.Errorf("solana chain not found for chain selector %d", cfg.ChainSelector)
 	}
 
 	qualifier := cfg.Qualifier()
@@ -147,6 +138,24 @@ func tagMCMSAddresses(ds datastore.MutableDataStore, cfg DeploySolanaMCMSConfig)
 			return fmt.Errorf("failed to upsert address %s: %w", addr.Qualifier, err)
 		}
 	}
+	return nil
+}
+
+func verifySelector(env cldf.Environment, selector uint64) error {
+	if selector == 0 {
+		return errors.New("chainSelector is required")
+	}
+	family, err := chain_selectors.GetSelectorFamily(selector)
+	if err != nil {
+		return err
+	}
+	if family != chain_selectors.FamilySolana {
+		return fmt.Errorf("chain selector %d is not a solana chain", selector)
+	}
+	if _, ok := env.BlockChains.SolanaChains()[selector]; !ok {
+		return fmt.Errorf("solana chain not found for chain selector %d", selector)
+	}
+
 	return nil
 }
 

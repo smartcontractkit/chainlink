@@ -66,7 +66,10 @@ func TestDeploySolanaMCMS_VerifyPreconditions(t *testing.T) {
 	cs := cresolmcms.DeploySolanaMCMS{}
 	stagingCfg := testStagingMCMSConfig()
 
-	err = cs.VerifyPreconditions(*env, cresolmcms.DeploySolanaMCMSConfig{})
+	err = cs.VerifyPreconditions(*env, cresolmcms.DeploySolanaMCMSConfig{
+		ConfigID:               "staging",
+		MCMSWithTimelockConfig: &stagingCfg,
+	})
 	require.ErrorContains(t, err, "chainSelector is required")
 
 	err = cs.VerifyPreconditions(*env, cresolmcms.DeploySolanaMCMSConfig{
