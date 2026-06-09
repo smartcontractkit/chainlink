@@ -138,11 +138,11 @@ func TestResolveModulePatterns(t *testing.T) {
 	depDir := filepath.Join(root, "deployment")
 
 	tests := []struct {
-		name        string
-		patterns    []string
-		wantDir     string
-		wantPats    []string
-		wantErr     bool
+		name     string
+		patterns []string
+		wantDir  string
+		wantPats []string
+		wantErr  bool
 	}{
 		{
 			name:     "core patterns stay at root",
@@ -169,9 +169,9 @@ func TestResolveModulePatterns(t *testing.T) {
 			wantPats: []string{"github.com/foo/bar"},
 		},
 		{
-			name:    "cross-module patterns error",
+			name:     "cross-module patterns error",
 			patterns: []string{"./core/...", "./deployment/..."},
-			wantErr: true,
+			wantErr:  true,
 		},
 	}
 
