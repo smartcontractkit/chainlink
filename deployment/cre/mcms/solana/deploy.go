@@ -14,7 +14,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
 
@@ -102,7 +101,7 @@ func (DeploySolanaMCMS) Apply(env cldf.Environment, cfg DeploySolanaMCMSConfig) 
 		return out, fmt.Errorf("solana chain not found for chain selector %d", cfg.ChainSelector)
 	}
 
-	mcmsCfg := toMCMSConfigV2(*cfg.MCMSWithTimelockConfig)
+	mcmsCfg := *cfg.MCMSWithTimelockConfig
 	qualifier := cfg.Qualifier()
 	mcmsCfg.Qualifier = &qualifier
 
@@ -157,16 +156,4 @@ func verifySelector(env cldf.Environment, selector uint64) error {
 	}
 
 	return nil
-}
-
-func toMCMSConfigV2(cfg cldfproposalutils.MCMSWithTimelockConfig) commontypes.MCMSWithTimelockConfigV2 {
-	return commontypes.MCMSWithTimelockConfigV2{
-		Proposer:         cfg.Proposer,
-		Bypasser:         cfg.Bypasser,
-		Canceller:        cfg.Canceller,
-		TimelockMinDelay: cfg.TimelockMinDelay,
-		Label:            cfg.Label,
-		GasBoostConfig:   cfg.GasBoostConfig,
-		Qualifier:        cfg.Qualifier,
-	}
 }
