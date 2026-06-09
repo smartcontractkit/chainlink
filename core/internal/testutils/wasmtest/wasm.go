@@ -38,7 +38,7 @@ func CreateTestBinary(outputPath string, compress bool, t *testing.T) []byte {
 			defer os.RemoveAll(tmpDir)
 
 			filePath := filepath.Join(tmpDir, "output.wasm")
-			cmd := exec.Command("go", "build", "-o", filePath, "github.com/smartcontractkit/chainlink/v2/"+outputPath) // #nosec
+			cmd := exec.CommandContext(t.Context(), "go", "build", "-o", filePath, "github.com/smartcontractkit/chainlink/v2/"+outputPath) // #nosec
 			cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
 
 			output, err := cmd.CombinedOutput()
