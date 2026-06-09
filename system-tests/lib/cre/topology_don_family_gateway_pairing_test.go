@@ -6,6 +6,34 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestGatewayConnectorsForDonFamily_legacyWithoutFamilies(t *testing.T) {
+	t.Parallel()
+
+	topology := &Topology{
+		DonsMetadata: &DonsMetadata{
+			dons: []*DonMetadata{
+				{Name: "workflow", ns: &NodeSet{DONTypes: []string{WorkflowDON}}, Flags: []string{WorkflowDON, HTTPActionCapability}},
+				{Name: "bootstrap-gateway", ns: &NodeSet{}, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
+			},
+		},
+		GatewayConnectors: &GatewayConnectors{
+			Configurations: []*DonGatewayConfiguration{
+				{GatewayConfiguration: &GatewayConfiguration{AuthGatewayID: "gateway-node-0"}},
+			},
+		},
+		gatewayConnectorsByDon: map[string]*DonGatewayConfiguration{
+			"bootstrap-gateway": {GatewayConfiguration: &GatewayConfiguration{AuthGatewayID: "gateway-node-0"}},
+		},
+	}
+
+	require.False(t, topology.DonFamilyGatewayPairingEnabled())
+	require.NoError(t, topology.validateDonFamilyGatewayPairing())
+
+	conn := topology.GatewayConnectorsForDonFamily("")
+	require.Len(t, conn.Configurations, 1)
+	require.Equal(t, "gateway-node-0", conn.Configurations[0].AuthGatewayID)
+}
+
 func TestGatewayConnectorsForDonFamily_pairing(t *testing.T) {
 	t.Parallel()
 

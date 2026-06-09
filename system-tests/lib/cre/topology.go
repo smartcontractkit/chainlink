@@ -124,8 +124,28 @@ func (t *Topology) donByName(name string) *DonMetadata {
 	return nil
 }
 
-func (t *Topology) validateDonFamilyGatewayPairing() error {
+// DonFamilyGatewayPairingEnabled is true when any workflow or gateway DON has don_family set.
+// When false, legacy all-to-all gateway wiring is used (single shared gateway topologies).
+func (t *Topology) DonFamilyGatewayPairingEnabled() bool {
 	if !t.DonsMetadata.RequiresGateway() {
+		return false
+	}
+	for _, d := range t.DonsMetadata.List() {
+		if d.DonFamily == "" {
+			continue
+		}
+		if d.IsWorkflowDON() {
+			return true
+		}
+		if _, hasGateway := d.Gateway(); hasGateway {
+			return true
+		}
+	}
+	return false
+}
+
+func (t *Topology) validateDonFamilyGatewayPairing() error {
+	if !t.DonFamilyGatewayPairingEnabled() {
 		return nil
 	}
 
@@ -159,7 +179,7 @@ func (t *Topology) validateDonFamilyGatewayPairing() error {
 
 // GatewayDonFamilyPairings returns workflow→gateway pairs grouped by don_family.
 func (t *Topology) GatewayDonFamilyPairings() []DonFamilyGatewayPair {
-	if !t.DonsMetadata.RequiresGateway() {
+	if !t.DonFamilyGatewayPairingEnabled() {
 		return nil
 	}
 
@@ -202,7 +222,13 @@ func (t *Topology) LogGatewayDonFamilyPairing() {
 
 // GatewayConnectorsForDonFamily returns gateway connectors for workflow DONs in a don_family.
 func (t *Topology) GatewayConnectorsForDonFamily(donFamily string) GatewayConnectors {
-	if t.GatewayConnectors == nil || donFamily == "" {
+	if t.GatewayConnectors == nil {
+		return GatewayConnectors{}
+	}
+	if !t.DonFamilyGatewayPairingEnabled() {
+		return *t.GatewayConnectors
+	}
+	if donFamily == "" {
 		return GatewayConnectors{}
 	}
 
@@ -220,6 +246,9 @@ func (t *Topology) GatewayConnectorsForDonFamily(donFamily string) GatewayConnec
 
 // GatewayServiceConfigsForDonFamily scopes service DON lists to workflow DONs in don_family.
 func (t *Topology) GatewayServiceConfigsForDonFamily(donFamily string, services []GatewayServiceConfig) []GatewayServiceConfig {
+	if !t.DonFamilyGatewayPairingEnabled() {
+		return services
+	}
 	if donFamily == "" {
 		return services
 	}
