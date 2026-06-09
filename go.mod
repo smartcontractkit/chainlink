@@ -430,6 +430,9 @@ require (
 
 replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20260218133534-cbd44da2856b
 
+// to be removed after https://github.com/doyensec/safeurl/pull/13 is merged
+replace github.com/doyensec/safeurl => github.com/cedric-cordenier/safeurl v0.0.0-20260609130317-eddfd657b6e3
+
 tool github.com/smartcontractkit/chainlink-common/pkg/loop/cmd/loopinstall
 
 tool github.com/smartcontractkit/chainlink-common/script/cmd/dependabot
