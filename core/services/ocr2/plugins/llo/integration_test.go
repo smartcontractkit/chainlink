@@ -30,7 +30,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/freeport"
-
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -2360,8 +2359,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			require.NoError(t, err)
 			backend.Commit()
 
-
-
 			// Wait for reports from all owner channels
 			expectedChannels := map[uint32]bool{1: true, 2: true, 3: true}
 			waitForReportsFromChannels(t, expectedChannels, reportTimeout)
@@ -2471,7 +2468,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			_, err = configStore.AddChannelDefinitions(adder2, donID, adder2ID, adder2Server.URL, adder2DefinitionsSHA)
 			require.NoError(t, err)
 			backend.Commit()
-
 
 			// Wait for reports from all channels (owner + adders)
 			expectedChannels := map[uint32]bool{1: true, 2: true, 3: true, 10: true, 11: true, 20: true, 21: true}
@@ -2601,7 +2597,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			_, err := configStore.SetChannelDefinitions(steve, donID, url, sha)
 			require.NoError(t, err)
 			backend.Commit()
-
 
 			// Wait for reports from channel 10 and verify it eventually uses owner's configuration (linkStreamID)
 			// The owner's definition should take precedence over the adder's definition
