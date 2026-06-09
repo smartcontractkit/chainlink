@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -108,7 +110,7 @@ func extractPackagePatterns(args []string) []string {
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if strings.HasPrefix(arg, "-") {
-			name := strings.Split(strings.TrimLeft(arg, "-"), "=")[0]
+			name, _, _ := strings.Cut(strings.TrimLeft(arg, "-"), "=")
 			if (testBinaryTwoArgSuffixFlags["-"+name] || harnessRootValueFlags[name]) && !strings.Contains(arg, "=") {
 				i++
 			}
@@ -175,6 +177,98 @@ func validateGoListArgs(goArgs []string) error {
 	return nil
 }
 
+// nearestGoModDir walks up from dir toward stopAt looking for a go.mod.
+// Returns stopAt if no intermediate go.mod is found.
+func nearestGoModDir(dir, stopAt string) string {
+	d := filepath.Clean(dir)
+	stop := filepath.Clean(stopAt)
+	for d != stop {
+		if _, err := os.Stat(filepath.Join(d, "go.mod")); err == nil {
+			return d
+		}
+		parent := filepath.Dir(d)
+		if parent == d {
+			return stop
+		}
+		d = parent
+	}
+	return stop
+}
+
+// patternToBaseDir strips trailing /... and /. wildcards to get the directory part.
+func patternToBaseDir(p string) string {
+	if s, ok := strings.CutSuffix(p, "/..."); ok {
+		return s
+	}
+	if s, ok := strings.CutSuffix(p, "/."); ok {
+		return s
+	}
+	return p
+}
+
+// rewritePatterns rewrites each relative package pattern so it is expressed
+// relative to moduleDir instead of repoRoot.
+func rewritePatterns(repoRoot, moduleDir string, patterns []string) []string {
+	result := make([]string, len(patterns))
+	for i, p := range patterns {
+		if !strings.HasPrefix(p, "./") && !strings.HasPrefix(p, "../") && p != "." && p != ".." {
+			result[i] = p
+			continue
+		}
+		base := patternToBaseDir(p)
+		suffix := p[len(base):]
+		abs := filepath.Join(repoRoot, base)
+		rel, err := filepath.Rel(moduleDir, abs)
+		if err != nil {
+			result[i] = p
+			continue
+		}
+		if rel == "." {
+			result[i] = "." + suffix
+		} else {
+			result[i] = "./" + rel + suffix
+		}
+	}
+	return result
+}
+
+// resolveModulePatterns returns the Go module root and rewritten package patterns
+// for the given relative patterns. When patterns target a sub-directory that owns
+// its own go.mod, the returned dir is that sub-module root and patterns are
+// rewritten relative to it. Returns an error when patterns span multiple modules.
+func resolveModulePatterns(repoRoot string, patterns []string) (string, []string, error) {
+	var relPatterns []string
+	for _, p := range patterns {
+		if strings.HasPrefix(p, "./") || strings.HasPrefix(p, "../") || p == "." || p == ".." {
+			relPatterns = append(relPatterns, p)
+		}
+	}
+	if len(relPatterns) == 0 {
+		return repoRoot, patterns, nil
+	}
+
+	var moduleDir string
+	for _, p := range relPatterns {
+		base := patternToBaseDir(p)
+		abs := filepath.Join(repoRoot, base)
+		mod := nearestGoModDir(abs, repoRoot)
+		if moduleDir == "" {
+			moduleDir = mod
+		} else if moduleDir != mod {
+			return "", nil, fmt.Errorf(
+				"package patterns span multiple Go modules (%s and %s): run go test for each module separately",
+				moduleDir, mod,
+			)
+		}
+	}
+
+	if moduleDir == repoRoot {
+		return repoRoot, patterns, nil
+	}
+
+	return moduleDir, rewritePatterns(repoRoot, moduleDir, patterns), nil
+}
+
 // NeedsPostgres checks if Postgres is needed for the given arguments and repository root.
 func NeedsPostgres(repoRoot string, args []string) (bool, error) {
 	// 1. Check for -short flag.
@@ -189,7 +283,12 @@ func NeedsPostgres(repoRoot string, args []string) (bool, error) {
 		return true, nil
 	}
 
-	goArgs := buildGoListArgs(patterns, args)
+	moduleDir, adjustedPatterns, err := resolveModulePatterns(repoRoot, patterns)
+	if err != nil {
+		return true, err
+	}
+
+	goArgs := buildGoListArgs(adjustedPatterns, args)
 	if err := validateGoListArgs(goArgs); err != nil {
 		return true, err
 	}
@@ -197,7 +296,7 @@ func NeedsPostgres(repoRoot string, args []string) (bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "go", goArgs...)
-	cmd.Dir = repoRoot
+	cmd.Dir = moduleDir
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
