@@ -13,7 +13,6 @@ import (
 
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
@@ -139,7 +138,7 @@ func validateMCMSConfig(e cldf.Environment, mcmsConfig *cldfproposalutils.Timelo
 	}
 	const emptyQualifier = ""
 	for chainSelector := range transfersByChain {
-		addresses, err := state.GetAddressTypeVersionByQualifier(e.DataStore.Addresses(), chainSelector, emptyQualifier)
+		addresses, err := evmstate.GetAddressTypeVersionByQualifier(e.DataStore.Addresses(), chainSelector, emptyQualifier)
 		if err != nil {
 			return fmt.Errorf("failed to get addresses from datastore for chain %d: %w", chainSelector, err)
 		}
@@ -300,7 +299,7 @@ func ValidateDeployEthBalMonConfig(ctx context.Context, env cldf.Environment, cf
 // exist in the datastore — matching DeployEthBalMonSequence and BuildAcceptOwnershipTimelockProposal.
 func validateDeployEthBalMonMCMSInDatastore(e cldf.Environment, chainSelector uint64, mcmsCfg *cldfproposalutils.TimelockConfig) error {
 	const emptyQualifier = ""
-	addresses, err := state.GetAddressTypeVersionByQualifier(e.DataStore.Addresses(), chainSelector, emptyQualifier)
+	addresses, err := evmstate.GetAddressTypeVersionByQualifier(e.DataStore.Addresses(), chainSelector, emptyQualifier)
 	if err != nil {
 		return fmt.Errorf("failed to get addresses from datastore: %w", err)
 	}
@@ -412,7 +411,7 @@ func validateERC20MCMSConfig(e cldf.Environment, mcmsConfig *cldfproposalutils.T
 	}
 
 	for chainSelector := range transfersByChain {
-		addresses, err := state.GetAddressTypeVersionByQualifier(e.DataStore.Addresses(), chainSelector, qualifierMap[chainSelector])
+		addresses, err := evmstate.GetAddressTypeVersionByQualifier(e.DataStore.Addresses(), chainSelector, qualifierMap[chainSelector])
 		if err != nil {
 			return fmt.Errorf("failed to get addresses from datastore for chain %d: %w", chainSelector, err)
 		}

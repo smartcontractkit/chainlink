@@ -13,8 +13,9 @@ import (
 	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 	"golang.org/x/sync/errgroup"
 
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -51,8 +52,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
+	opsutil "github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/pointer"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )

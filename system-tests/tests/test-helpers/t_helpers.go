@@ -35,12 +35,14 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gagliardetto/solana-go"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"gopkg.in/yaml.v3"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/solkey"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
@@ -53,6 +55,7 @@ import (
 	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
 	logtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/logtrigger/config"
 	sollogtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger/config"
+	solread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread/config"
 	solwrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite/config"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 
@@ -259,28 +262,45 @@ func AssertChipIngressStackMessage(ctx context.Context, t *testing.T, expectedLo
 //      CRYPTO HELPERS      //
 //////////////////////////////
 
-// Creates and funds a specified number of new Ethereum addresses on a given chain.
-func CreateAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAddressesToCreate int, amountToFund *big.Int, bcOutput blockchains.Blockchain, fullCldEnvOutput *cre.Environment) ([]common.Address, error) {
+// CreateAndFundAddressesEVM - creates and funds a specified number of new Ethereum addresses on a given chain.
+func CreateAndFundAddressesEVM(t *testing.T, testLogger zerolog.Logger, numberOfAddressesToCreate int, amountToFund *big.Int, bcOutput blockchains.Blockchain) ([]common.Address, error) {
+	t.Helper()
+	return createAndFundAddresses(t, testLogger, numberOfAddressesToCreate, amountToFund, bcOutput, func() (common.Address, error) {
+		addr, _, err := crecrypto.GenerateNewKeyPair()
+		return addr, err
+	})
+}
+
+// CreateAndFundAddressesSolana - creates and funds a specified number of new Solana addresses on a given chain.
+func CreateAndFundAddressesSolana(t *testing.T, testLogger zerolog.Logger, numberOfAddressesToCreate int, amountToFund *big.Int, bcOutput blockchains.Blockchain) ([]solana.PublicKey, error) {
+	t.Helper()
+	return createAndFundAddresses(t, testLogger, numberOfAddressesToCreate, amountToFund, bcOutput, func() (solana.PublicKey, error) {
+		key, err := solkey.New()
+		return key.PublicKey(), err
+	})
+}
+
+func createAndFundAddresses[T interface{ String() string }](t *testing.T, testLogger zerolog.Logger, numberOfAddressesToCreate int, amountToFund *big.Int, bcOutput blockchains.Blockchain, generateKey func() (T, error)) ([]T, error) {
 	t.Helper()
 
 	testLogger.Info().Msgf("Creating and funding %d addresses...", numberOfAddressesToCreate)
-	addressesToRead := []common.Address{}
+	var addrs []T
 
 	for i := range numberOfAddressesToCreate {
-		addressToRead, _, addrErr := crecrypto.GenerateNewKeyPair()
-		require.NoError(t, addrErr, "failed to generate address to read")
+		addr, addrErr := generateKey()
+		require.NoError(t, addrErr, "failed to generate address")
 		orderNum := i + 1
-		testLogger.Info().Msgf("Generated address #%d: %s", orderNum, addressToRead.Hex())
+		testLogger.Info().Msgf("Generated address #%d: %s", orderNum, addr.String())
 
-		testLogger.Info().Msgf("Funding address '%s' with amount of '%s' wei", addressToRead.Hex(), amountToFund.String())
-		if err := bcOutput.Fund(t.Context(), addressToRead.Hex(), amountToFund.Uint64()); err != nil {
+		testLogger.Info().Msgf("Funding address '%s' with amount of '%s' wei", addr.String(), amountToFund.String())
+		if err := bcOutput.Fund(t.Context(), addr.String(), amountToFund.Uint64()); err != nil {
 			return nil, err
 		}
 
-		addressesToRead = append(addressesToRead, addressToRead)
+		addrs = append(addrs, addr)
 	}
 
-	return addressesToRead, nil
+	return addrs, nil
 }
 
 //////////////////////////////
@@ -308,7 +328,8 @@ type WorkflowConfig interface {
 		httpaction_negative_config.Config |
 		solwrite_config.Config |
 		sollogtrigger_config.Config |
-		vaultsecret_config.Config
+		vaultsecret_config.Config |
+		solread_config.Config
 }
 
 // None represents an empty workflow configuration
@@ -497,6 +518,11 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create solana logtrigger workflow config file")
 			testLogger.Info().Msg("Solana log trigger workflow config file created.")
+		case *solread_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create solana read workflow config file")
+			testLogger.Info().Msg("Solana read workflow config file created.")
 		case *vaultsecret_config.Config:
 			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath

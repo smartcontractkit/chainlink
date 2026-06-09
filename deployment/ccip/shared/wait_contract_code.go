@@ -3,6 +3,7 @@ package shared
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -11,9 +12,17 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 )
 
+type contractCodeReader interface {
+	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
+}
+
 // WaitForContractCode retries until bytecode is visible at addr. Geth in Docker CI can
 // return a mined receipt before eth_getCode serves the deployment on all RPC paths.
 func WaitForContractCode(ctx context.Context, client cldf_evm.OnchainClient, addr common.Address) error {
+	return retryUntilContractCode(ctx, client, addr)
+}
+
+func retryUntilContractCode(ctx context.Context, client contractCodeReader, addr common.Address) error {
 	return retry.Do(ctx, retry.WithMaxDuration(30*time.Second, retry.WithCappedDuration(2*time.Second, retry.NewFibonacci(500*time.Millisecond))), func(ctx context.Context) error {
 		code, err := client.CodeAt(ctx, addr, nil)
 		if err != nil {

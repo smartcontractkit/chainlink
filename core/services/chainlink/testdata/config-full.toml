@@ -352,6 +352,7 @@ AuthTimestampToleranceSec = 10
 
 [[Capabilities.GatewayConnector.Gateways]]
 ID = 'example_gateway'
+DonID = 'example_gateway_don'
 URL = 'wss://localhost:8081/node'
 
 [Capabilities.Local]

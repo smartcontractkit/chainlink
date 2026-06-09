@@ -77,6 +77,23 @@ func TestGatewayConnector_NewGatewayConnector_InvalidConfig(t *testing.T) {
 NodeAddress = "0x68902d681c28119f9b2531473a417088bf008e59"
 DonId = ""
 `,
+		"invalid DON ID length": `
+NodeAddress = "0x68902d681c28119f9b2531473a417088bf008e59"
+DonId = "012345678901234567890123456789012345678901234567890123456789012345"
+`,
+		"partial per-gateway DonID": `
+NodeAddress = "0x68902d681c28119f9b2531473a417088bf008e59"
+DonId = "example_don"
+
+[[Gateways]]
+Id = "gateway_us"
+DonId = "gateway_don_us"
+URL = "ws://localhost:8081/us"
+
+[[Gateways]]
+Id = "gateway_eu"
+URL = "ws://localhost:8081/eu"
+`,
 		"invalid node address": `
 NodeAddress = "2531473a417088bf008e59"
 DonId = "example_don"
