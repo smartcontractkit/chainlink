@@ -106,6 +106,13 @@ func TestGatewayServiceConfigsForDonFamily_pairing(t *testing.T) {
 	require.Equal(t, []string{"feeds-zone-b"}, scopedB[0].DONs)
 }
 
+func TestWorkflowDONFamilies(t *testing.T) {
+	t.Parallel()
+
+	topology := donFamilyGatewayPairingTestTopology()
+	require.ElementsMatch(t, []string{"feeds-zone-a", "feeds-zone-b"}, topology.WorkflowDONFamilies())
+}
+
 func donFamilyGatewayPairingTestTopology() *Topology {
 	return &Topology{
 		DonsMetadata: &DonsMetadata{

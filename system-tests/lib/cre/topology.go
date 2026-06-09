@@ -206,6 +206,29 @@ func (t *Topology) GatewayDonFamilyPairings() []DonFamilyGatewayPair {
 	return pairs
 }
 
+// WorkflowDONFamilies returns distinct non-empty don_family values from workflow DONs.
+// Legacy topologies without don_family leave this empty; callers fall back to DefaultDONFamily.
+func (t *Topology) WorkflowDONFamilies() []string {
+	wfDONs, err := t.DonsMetadata.WorkflowDONs()
+	if err != nil {
+		return nil
+	}
+
+	seen := make(map[string]struct{}, len(wfDONs))
+	families := make([]string, 0, len(wfDONs))
+	for _, wf := range wfDONs {
+		if wf.DonFamily == "" {
+			continue
+		}
+		if _, ok := seen[wf.DonFamily]; ok {
+			continue
+		}
+		seen[wf.DonFamily] = struct{}{}
+		families = append(families, wf.DonFamily)
+	}
+	return families
+}
+
 // LogGatewayDonFamilyPairing prints resolved workflow→gateway pairs at env start.
 func (t *Topology) LogGatewayDonFamilyPairing() {
 	pairs := t.GatewayDonFamilyPairings()

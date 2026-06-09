@@ -219,6 +219,7 @@ type WorkflowRegistryInput struct {
 	ChainSelector   uint64                  `toml:"-"`
 	CldEnv          *cldf.Environment       `toml:"-"`
 	AllowedDonIDs   []uint64                `toml:"-"`
+	DONFamilies     []string                `toml:"-"`
 	WorkflowOwners  []common.Address        `toml:"-"`
 	Out             *WorkflowRegistryOutput `toml:"out"`
 }

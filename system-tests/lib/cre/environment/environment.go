@@ -376,6 +376,7 @@ func SetupTestEnvironment(
 			ChainSelector:   deployedBlockchains.RegistryChain().ChainSelector(),
 			CldEnv:          deployKeystoneContractsOutput.Env,
 			AllowedDonIDs:   topology.WorkflowDONIDs,
+			DONFamilies:     topology.WorkflowDONFamilies(),
 			WorkflowOwners:  []common.Address{deployedBlockchains.RegistryChain().(*evm.Blockchain).SethClient.MustGetRootKeyAddress()}, // registry chain is always EVM
 		},
 	)

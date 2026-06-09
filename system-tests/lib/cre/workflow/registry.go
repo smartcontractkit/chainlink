@@ -196,23 +196,29 @@ func ConfigureWorkflowRegistry(
 		return nil, errors.Wrap(err, fmt.Sprintf("failed to update allowed signers on workflow registry %s", input.ContractVersion.Version))
 	}
 
-	donLimitReport, err := operations.ExecuteOperation(
-		input.CldEnv.OperationsBundle,
-		wf_reg_v2_op.SetDONLimitOp,
-		wf_reg_v2_op.WorkflowRegistryOpDeps{
-			Env:      input.CldEnv,
-			Registry: contract,
-			Strategy: strategy,
-		},
-		wf_reg_v2_op.SetDONLimitOpInput{
-			ChainSelector:    input.ChainSelector,
-			DONFamily:        config.DefaultDONFamily,
-			DONLimit:         libc.MustSafeUint32(defaultWorkflowRegistryDONLimit),
-			UserDefaultLimit: libc.MustSafeUint32(defaultWorkflowRegistryUserDefaultLimit),
-		},
-	)
-	if err != nil || !donLimitReport.Output.Success {
-		return nil, errors.Wrap(err, fmt.Sprintf("failed to set DON Limit on workflow registry %s", input.ContractVersion.Version))
+	donFamilies := input.DONFamilies
+	if len(donFamilies) == 0 {
+		donFamilies = []string{config.DefaultDONFamily}
+	}
+	for _, donFamily := range donFamilies {
+		donLimitReport, err := operations.ExecuteOperation(
+			input.CldEnv.OperationsBundle,
+			wf_reg_v2_op.SetDONLimitOp,
+			wf_reg_v2_op.WorkflowRegistryOpDeps{
+				Env:      input.CldEnv,
+				Registry: contract,
+				Strategy: strategy,
+			},
+			wf_reg_v2_op.SetDONLimitOpInput{
+				ChainSelector:    input.ChainSelector,
+				DONFamily:        donFamily,
+				DONLimit:         libc.MustSafeUint32(defaultWorkflowRegistryDONLimit),
+				UserDefaultLimit: libc.MustSafeUint32(defaultWorkflowRegistryUserDefaultLimit),
+			},
+		)
+		if err != nil || !donLimitReport.Output.Success {
+			return nil, errors.Wrap(err, fmt.Sprintf("failed to set DON limit for family %q on workflow registry %s", donFamily, input.ContractVersion.Version))
+		}
 	}
 
 	return &cre.WorkflowRegistryOutput{
