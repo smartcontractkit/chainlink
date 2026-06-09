@@ -3,8 +3,9 @@ package solana_test
 import (
 	"testing"
 
-	testenv "github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/stretchr/testify/require"
+
+	testenv "github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
 	cresolmcms "github.com/smartcontractkit/chainlink/deployment/cre/mcms/solana"
 )

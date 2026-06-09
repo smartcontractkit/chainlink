@@ -67,26 +67,26 @@ func TestDeploySolanaMCMS_VerifyPreconditions(t *testing.T) {
 	stagingCfg := testStagingMCMSConfig()
 
 	err = cs.VerifyPreconditions(*env, cresolmcms.DeploySolanaMCMSConfig{})
-	assert.ErrorContains(t, err, "chainSelector is required")
+	require.ErrorContains(t, err, "chainSelector is required")
 
 	err = cs.VerifyPreconditions(*env, cresolmcms.DeploySolanaMCMSConfig{
 		ChainSelector:          5009297550715157269,
 		ConfigID:               "staging",
 		MCMSWithTimelockConfig: &stagingCfg,
 	})
-	assert.ErrorContains(t, err, "not a solana chain")
+	require.ErrorContains(t, err, "not a solana chain")
 
 	err = cs.VerifyPreconditions(*env, cresolmcms.DeploySolanaMCMSConfig{
 		ChainSelector:          16423721717087811551,
 		MCMSWithTimelockConfig: &stagingCfg,
 	})
-	assert.ErrorContains(t, err, "configId is required")
+	require.ErrorContains(t, err, "configId is required")
 
 	err = cs.VerifyPreconditions(*env, cresolmcms.DeploySolanaMCMSConfig{
 		ChainSelector: 16423721717087811551,
 		ConfigID:      "staging",
 	})
-	assert.ErrorContains(t, err, "mcmsWithTimelockConfig is required")
+	require.ErrorContains(t, err, "mcmsWithTimelockConfig is required")
 }
 
 func testStagingMCMSConfig() cldfproposalutils.MCMSWithTimelockConfig {
