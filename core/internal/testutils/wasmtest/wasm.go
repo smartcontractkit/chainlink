@@ -26,7 +26,8 @@ var (
 // Results are cached for the lifetime of the test process keyed by (outputPath, compress)
 // via sync.OnceValues — the build runs exactly once per key regardless of concurrency.
 // This assumes source at outputPath does not change during a single `go test` invocation.
-func CreateTestBinary(outputPath string, compress bool, t *testing.T) []byte {
+func CreateTestBinary(tb testing.TB, outputPath string, compress bool) []byte {
+	tb.Helper()
 	cacheKey := fmt.Sprintf("%s-%t", outputPath, compress)
 
 	binaryOnceMu.Lock()
@@ -39,7 +40,7 @@ func CreateTestBinary(outputPath string, compress bool, t *testing.T) []byte {
 			}
 			defer os.RemoveAll(tmpDir)
 
-			cmdCtx, cancel := context.WithTimeout(t.Context(), time.Minute)
+			cmdCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
 			defer cancel()
 			filePath := filepath.Join(tmpDir, "output.wasm")
 			cmd := exec.CommandContext(cmdCtx, "go", "build", "-o", filePath, "github.com/smartcontractkit/chainlink/v2/"+outputPath) // #nosec
@@ -79,6 +80,6 @@ func CreateTestBinary(outputPath string, compress bool, t *testing.T) []byte {
 	binaryOnceMu.Unlock()
 
 	result, err := once()
-	require.NoError(t, err)
+	require.NoError(tb, err)
 	return result
 }

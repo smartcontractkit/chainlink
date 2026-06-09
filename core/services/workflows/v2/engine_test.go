@@ -1376,7 +1376,7 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 func TestEngine_WASMBinary_Simple(t *testing.T) {
 	cmd := "core/services/workflows/test/wasm/v2/cmd"
 	log := logger.Test(t)
-	binaryB := wasmtest.CreateTestBinary(cmd, false, t)
+	binaryB := wasmtest.CreateTestBinary(t, cmd, false)
 	module, err := host.NewModule(t.Context(), &host.ModuleConfig{
 		Logger:         log,
 		IsUncompressed: true,
@@ -1459,7 +1459,7 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 // TODO fix
 func TestEngine_WASMBinary_With_Config(t *testing.T) {
 	cmd := "core/services/workflows/test/wasm/v2/cmd/with_config"
-	binaryB := wasmtest.CreateTestBinary(cmd, false, t)
+	binaryB := wasmtest.CreateTestBinary(t, cmd, false)
 
 	// Define a custom config to validate against
 	giveName := "Foo"
@@ -1554,7 +1554,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 
 func TestSecretsFetcher_Integration(t *testing.T) {
 	cmd := "core/services/workflows/test/wasm/v2/cmd/with_secrets"
-	binaryB := wasmtest.CreateTestBinary(cmd, false, t)
+	binaryB := wasmtest.CreateTestBinary(t, cmd, false)
 
 	// Define a custom config to validate against
 	giveName := "Foo"
