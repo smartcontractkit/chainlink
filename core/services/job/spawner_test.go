@@ -2,6 +2,7 @@ package job_test
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -18,10 +20,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-
+	evmrelayer "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -32,12 +35,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	evmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	coreevmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -67,10 +73,11 @@ func clearDB(t *testing.T, db *sqlx.DB) {
 
 type relayGetter struct {
 	r *evmrelayer.Relayer
+	c legacyevm.Chain
 }
 
 func (g *relayGetter) Get(id types.RelayID) (loop.Relayer, error) {
-	return evmrelayer.NewLegacyAdapter(g.r), nil
+	return coreevmrelayer.NewLegacyAdapter(g.r, g.c), nil
 }
 
 func (g *relayGetter) GetIDToRelayerMap() map[types.RelayID]loop.Relayer {
@@ -133,7 +140,9 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	})
 
 	t.Run("starts and stops job services when jobs are added and removed", func(t *testing.T) {
-		jobA := cltest.MakeDirectRequestJobSpec(t)
+		cronJobTmp, cronErr := cron.ValidatedCronSpec(fmt.Sprintf(testspecs.CronSpecTemplate, uuid.New()))
+		require.NoError(t, cronErr)
+		jobA := &cronJobTmp
 		jobB := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
 
 		lggr := logger.TestLogger(t)
@@ -317,6 +326,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		testRelayGetter := &relayGetter{
 			r: evmRelayer,
+			c: chain,
 		}
 
 		jobOCR2Keeper := makeOCR2Keeper21JobSpec(t, keyStore, address, chain.ID())

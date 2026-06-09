@@ -12,16 +12,16 @@ import (
 	"github.com/smartcontractkit/wsrpc/logger"
 	"github.com/stretchr/testify/require"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	cldfchain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
@@ -37,50 +37,47 @@ const (
 // so we disable them in CI since it will take too long to run
 func TestDeployForwarder(t *testing.T) {
 	skipInCI(t)
+
 	t.Parallel()
 
 	selector := chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector
-	env, err := environment.New(t.Context(),
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
 		environment.WithSolanaContainer(t, []uint64{selector}, t.TempDir(), map[string]string{}),
 		environment.WithLogger(logger.Test(t)),
-	)
+	))
 	require.NoError(t, err)
 
-	chain := env.BlockChains.SolanaChains()[selector]
+	chain := rt.Environment().BlockChains.SolanaChains()[selector]
 
 	t.Run("should deploy forwarder", func(t *testing.T) {
-		configuredChangeset := commonchangeset.Configure(DeployForwarder{},
-			&DeployForwarderRequest{
-				ChainSel:  selector,
-				Qualifier: testQualifier,
-				Version:   "1.0.0",
-				BuildConfig: &helpers.BuildSolanaConfig{
-					GitCommitSha:   "3305b4d55b5469e110133e5a36e5600aadf436fb",
-					DestinationDir: chain.ProgramsPath,
-					LocalBuild:     helpers.LocalBuildConfig{BuildLocally: true, CreateDestinationDir: true},
+		err := rt.Exec(
+			runtime.ChangesetTask(DeployForwarder{},
+				&DeployForwarderRequest{
+					ChainSel:  selector,
+					Qualifier: testQualifier,
+					Version:   "1.0.0",
+					BuildConfig: &helpers.BuildSolanaConfig{
+						GitCommitSha:   "3305b4d55b5469e110133e5a36e5600aadf436fb",
+						DestinationDir: chain.ProgramsPath,
+						LocalBuild:     helpers.LocalBuildConfig{BuildLocally: true, CreateDestinationDir: true},
+					},
 				},
-			},
+			),
 		)
-
-		// deploy
-		var err error
-		_, _, err = commonchangeset.ApplyChangesets(t, *env, []commonchangeset.ConfiguredChangeSet{configuredChangeset})
 		require.NoError(t, err)
 	})
 
 	t.Run("should pass upgrade authority", func(t *testing.T) {
-		configuredChangeset := commonchangeset.Configure(SetForwarderUpgradeAuthority{},
-			&SetForwarderUpgradeAuthorityRequest{
-				ChainSel:            selector,
-				Qualifier:           testQualifier,
-				Version:             "1.0.0",
-				NewUpgradeAuthority: chain.DeployerKey.PublicKey(),
-			},
+		err := rt.Exec(
+			runtime.ChangesetTask(SetForwarderUpgradeAuthority{},
+				&SetForwarderUpgradeAuthorityRequest{
+					ChainSel:            selector,
+					Qualifier:           testQualifier,
+					Version:             "1.0.0",
+					NewUpgradeAuthority: chain.DeployerKey.PublicKey(),
+				},
+			),
 		)
-
-		// deploy
-		var err error
-		_, _, err = commonchangeset.ApplyChangesets(t, *env, []commonchangeset.ConfiguredChangeSet{configuredChangeset})
 		require.NoError(t, err)
 	})
 }
@@ -177,12 +174,17 @@ func TestConfigureForwarder(t *testing.T) {
 			NumChains:       1,
 		})
 
-		// Inject the solana chain into the environment
+		solChainsBySel := cldfchain.NewBlockChainsFromSlice(solChains).SolanaChains()
+		solChain, ok := solChainsBySel[solSel]
+		require.True(t, ok, "solana loader must return a solana chain for selector %d", solSel)
+		require.NotEmpty(t, solChain.ProgramsPath, "programs dir required for solana program deploy CLI")
+
+		// Inject the solana chain into the environment (merge EVM first, then sol so sol is never overwritten).
 		blockchains := make(map[uint64]cldfchain.BlockChain)
-		blockchains[solSel] = solChains[0]
 		for _, ch := range te.Env.BlockChains.All() {
 			blockchains[ch.ChainSelector()] = ch
 		}
+		blockchains[solSel] = solChain
 		te.Env.BlockChains = cldfchain.NewBlockChains(blockchains)
 
 		ds := datastore.NewMemoryDataStore()
@@ -205,18 +207,17 @@ func TestConfigureForwarder(t *testing.T) {
 		mcmsState, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolanaV2(
 			rt.Environment(),
 			ds,
-			rt.Environment().BlockChains.SolanaChains()[solSel],
-			commontypes.MCMSWithTimelockConfigV2{
-				Canceller:        proposalutils.SingleGroupMCMSV2(t),
-				Proposer:         proposalutils.SingleGroupMCMSV2(t),
-				Bypasser:         proposalutils.SingleGroupMCMSV2(t),
+			solChain,
+			cldfproposalutils.MCMSWithTimelockConfig{
+				Canceller:        cldftesthelpers.SingleGroupMCMS(t),
+				Proposer:         cldftesthelpers.SingleGroupMCMS(t),
+				Bypasser:         cldftesthelpers.SingleGroupMCMS(t),
 				TimelockMinDelay: big.NewInt(0),
 			},
 		)
 		require.NoError(t, err)
 
-		chain := te.Env.BlockChains.SolanaChains()[solSel]
-		soltestutils.FundSignerPDAs(t, chain, mcmsState)
+		soltestutils.FundSignerPDAs(t, solChain, mcmsState)
 
 		var wfNodes []string
 		for _, id := range te.GetP2PIDs("wfDon") {
@@ -235,12 +236,12 @@ func TestConfigureForwarder(t *testing.T) {
 			runtime.ChangesetTask(TransferOwnershipForwarder{},
 				&TransferOwnershipForwarderRequest{
 					ChainSel:  solSel,
-					MCMSCfg:   proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+					MCMSCfg:   cldfproposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 					Qualifier: testQualifier,
 					Version:   "1.0.0",
 				},
 			),
-			runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
+			runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
 		)
 		require.NoError(t, err)
 
@@ -259,12 +260,12 @@ func TestConfigureForwarder(t *testing.T) {
 					DON:       donConfig,
 					Version:   "1.0.0",
 					Qualifier: testQualifier,
-					MCMS: &proposalutils.TimelockConfig{
+					MCMS: &cldfproposalutils.TimelockConfig{
 						MinDelay: time.Second,
 					},
 				},
 			),
-			runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
+			runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
 		)
 		require.NoError(t, err)
 	})

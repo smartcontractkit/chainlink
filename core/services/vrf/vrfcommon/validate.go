@@ -81,7 +81,7 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 
 	var foundVRFTask bool
 	for _, t := range jb.Pipeline.Tasks {
-		if t.Type() == pipeline.TaskTypeVRF || t.Type() == pipeline.TaskTypeVRFV2 || t.Type() == pipeline.TaskTypeVRFV2Plus {
+		if t.Type() == pipeline.TaskTypeVRFV2 || t.Type() == pipeline.TaskTypeVRFV2Plus {
 			foundVRFTask = true
 		}
 
@@ -92,7 +92,7 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 		}
 	}
 	if !foundVRFTask {
-		return jb, errors.Wrapf(ErrKeyNotSet, "invalid pipeline, expected a vrf task")
+		return jb, errors.Wrapf(ErrKeyNotSet, "invalid pipeline, expected a vrfv2 or vrfv2plus task")
 	}
 
 	jb.VRFSpec = &spec

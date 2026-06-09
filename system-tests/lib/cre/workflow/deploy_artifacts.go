@@ -3,6 +3,8 @@ package workflow
 import (
 	"context"
 	"fmt"
+
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/internal/dockerops"
 )
 
 type ArtifactDeployMode string
@@ -37,6 +39,6 @@ func DeployArtifacts(ctx context.Context, opts DeployArtifactsOptions) error {
 		if opts.ContainerNamePattern == "" {
 			return fmt.Errorf("container name pattern is required for mode=%s", opts.Mode)
 		}
-		return CopyArtifactsToDockerContainers(opts.ContainerTargetDir, opts.ContainerNamePattern, opts.Files...)
+		return dockerops.CopyFilesToContainers(ctx, opts.ContainerNamePattern, opts.ContainerTargetDir, opts.Files)
 	}
 }

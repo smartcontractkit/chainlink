@@ -832,7 +832,7 @@ func TestGetUnfulfilled_NoVRFReqs(t *testing.T) {
 
 	listener, chainID := SetupGetUnfulfilledTH(t)
 
-	logs := []logpoller.Log{}
+	logs := make([]logpoller.Log, 0, 10)
 	for i := range 10 {
 		logs = append(logs, logpoller.Log{
 			EVMChainID:     chainID,
@@ -919,7 +919,7 @@ func TestGetUnfulfilled_OneUnfulfilledVRFReq(t *testing.T) {
 
 	listener, chainID := SetupGetUnfulfilledTH(t)
 
-	logs := []logpoller.Log{}
+	logs := make([]logpoller.Log, 0, 10)
 	for i := range 10 {
 		eventSig := emitterABI.Events["Log1"].ID
 		topics := [][]byte{
@@ -960,7 +960,7 @@ func TestGetUnfulfilled_SomeUnfulfilledVRFReq(t *testing.T) {
 
 	listener, chainID := SetupGetUnfulfilledTH(t)
 
-	logs := []logpoller.Log{}
+	logs := make([]logpoller.Log, 0, 10)
 	for i := range 10 {
 		eventSig := emitterABI.Events["Log1"].ID
 		topics := [][]byte{

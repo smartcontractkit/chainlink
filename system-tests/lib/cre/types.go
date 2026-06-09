@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
+	ks_sol "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/solana"
 	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
@@ -39,7 +39,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 )
 
 const EnvironmentName = "local-cre"
@@ -57,51 +56,22 @@ const (
 
 // Capabilities
 const (
-	ConsensusCapability       CapabilityFlag = "ocr3"
-	DONTimeCapability         CapabilityFlag = "don-time"
-	ConsensusCapabilityV2     CapabilityFlag = "consensus" // v2
-	CronCapability            CapabilityFlag = "cron"
-	EVMCapability             CapabilityFlag = "evm"
-	CustomComputeCapability   CapabilityFlag = "custom-compute"
-	WriteEVMCapability        CapabilityFlag = "write-evm"
-	ReadContractCapability    CapabilityFlag = "read-contract"
-	LogEventTriggerCapability CapabilityFlag = "log-event-trigger"
-	WebAPITargetCapability    CapabilityFlag = "web-api-target"
-	WebAPITriggerCapability   CapabilityFlag = "web-api-trigger"
-	MockCapability            CapabilityFlag = "mock"
-	VaultCapability           CapabilityFlag = "vault"
-	HTTPTriggerCapability     CapabilityFlag = "http-trigger"
-	HTTPActionCapability      CapabilityFlag = "http-action"
-	SolanaCapability          CapabilityFlag = "solana"
-	AptosCapability           CapabilityFlag = "aptos"
+	DONTimeCapability           CapabilityFlag = "don-time"
+	ConsensusCapability         CapabilityFlag = "consensus"
+	CronCapability              CapabilityFlag = "cron"
+	EVMCapability               CapabilityFlag = "evm"
+	VaultCapability             CapabilityFlag = "vault"
+	HTTPTriggerCapability       CapabilityFlag = "http-trigger"
+	HTTPActionCapability        CapabilityFlag = "http-action"
+	SolanaCapability            CapabilityFlag = "solana"
+	ConfidentialRelayCapability CapabilityFlag = "confidential-relay"
+	AptosCapability             CapabilityFlag = "aptos"
 	// Add more capabilities as needed
 )
 
 type CLIEnvironmentDependencies interface {
 	CapabilityFlagsProvider
 	ContractVersionsProvider
-	CLIFlagsProvider
-}
-
-// CLIFlagsProvider provides access to select command line flags passed to the
-// start command of the environment script.
-type CLIFlagsProvider interface {
-	// If true, then use V2 Capability and Workflow Registries.
-	WithV2Registries() bool
-}
-
-func NewCLIFlagsProvider(withV2Registries bool) *cliFlagsProvider {
-	return &cliFlagsProvider{
-		withV2Registries: withV2Registries,
-	}
-}
-
-type cliFlagsProvider struct {
-	withV2Registries bool
-}
-
-func (cfp *cliFlagsProvider) WithV2Registries() bool {
-	return cfp.withV2Registries
 }
 
 type ContractVersionsProvider interface {
@@ -168,23 +138,16 @@ type CapabilityFlagsProvider interface {
 func NewEnvironmentDependencies(
 	cfp CapabilityFlagsProvider,
 	cvp ContractVersionsProvider,
-	cliFlagsProvider CLIFlagsProvider,
 ) *envionmentDependencies {
 	return &envionmentDependencies{
 		flagsProvider:       cfp,
 		contractSetProvider: cvp,
-		cliFlagsProvider:    cliFlagsProvider,
 	}
 }
 
 type envionmentDependencies struct {
 	flagsProvider       CapabilityFlagsProvider
 	contractSetProvider ContractVersionsProvider
-	cliFlagsProvider    CLIFlagsProvider
-}
-
-func (e *envionmentDependencies) WithV2Registries() bool {
-	return e.cliFlagsProvider.WithV2Registries()
 }
 
 func (e *envionmentDependencies) ContractVersions() map[ContractType]*semver.Version {
@@ -394,8 +357,6 @@ type ConfigureCapabilityRegistryInput struct {
 
 	CapabilitiesRegistryAddress *common.Address
 
-	WithV2Registries bool
-
 	DONCapabilityWithConfigs map[uint64][]keystone_changeset.DONCapabilityWithConfig
 
 	// keyed by LabelledName
@@ -429,10 +390,17 @@ func (c *ConfigureCapabilityRegistryInput) Validate() error {
 
 // GatewayServiceConfig represents a service in the service-centric gateway format.
 // Each service groups handlers and references the DON names it operates on.
+type GatewayServiceAuth0Config struct {
+	IssuerURL string `yaml:"issuerURL" toml:"issuerURL" json:"issuerURL"`
+	Audience  string `yaml:"audience" toml:"audience" json:"audience"`
+	TenantID  uint64 `yaml:"tenantID" toml:"tenantID" json:"tenantID"`
+}
+
 type GatewayServiceConfig struct {
-	ServiceName string   `yaml:"servicename"`
-	Handlers    []string `yaml:"handlers"`
-	DONs        []string `yaml:"dons"`
+	ServiceName string                     `yaml:"servicename"`
+	Handlers    []string                   `yaml:"handlers"`
+	DONs        []string                   `yaml:"dons"`
+	Auth0       *GatewayServiceAuth0Config `yaml:"auth0,omitempty"`
 }
 
 type GatewayConnectors struct {
@@ -481,6 +449,7 @@ type GenerateConfigsInput struct {
 	ContractVersions              map[ContractType]*semver.Version
 	Topology                      *Topology
 	Provider                      infra.Provider
+	ChipRouterInternalGRPCURL     string
 }
 
 func (g *GenerateConfigsInput) Validate() error {
@@ -516,7 +485,9 @@ func (g *GenerateConfigsInput) Validate() error {
 	if len(h) == 0 {
 		return fmt.Errorf("no addresses found for home chain %d in datastore", g.RegistryChainSelector)
 	}
-	// TODO check for required registry contracts by type and version
+	if g.ChipRouterInternalGRPCURL == "" {
+		return errors.New("chip router internal grpc url not set")
+	}
 	return nil
 }
 
@@ -604,7 +575,7 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 	framework.L.Info().
 		Str("don", c.Name).
 		Int("nodes", len(cfgs)).
-		Float64("duration_s", roundSeconds(time.Since(newNodesStart))).
+		Float64("duration_s", time.Since(newNodesStart).Seconds()).
 		Msg("Node metadata generation completed")
 
 	capConfigs, capErr := processCapabilityConfigs(c, capabilityConfigs)
@@ -639,8 +610,8 @@ func processCapabilityConfigs(c *NodeSet, defaults CapabilityConfigs) (Capabilit
 
 	chainCapabilitiesFound := []string{}
 
-	// For chain-specific capabilities (e.g., "write-evm-1337"), inherit defaults from
-	// the base capability (e.g., "write-evm") if no explicit config exists.
+	// For chain-specific capabilities (e.g., "evm-1337"), inherit defaults from
+	// the base capability (e.g., "evm") if no explicit config exists.
 	for _, flag := range c.Capabilities {
 		if !isChainCapability(flag) {
 			continue
@@ -673,8 +644,8 @@ func processCapabilityConfigs(c *NodeSet, defaults CapabilityConfigs) (Capabilit
 	maps.Copy(capConfigs, c.CapabilityConfigs)
 	mergeCapabilityConfigs(capConfigs, defaults)
 
-	// Remove base capability configs (e.g., "write-evm") when chain-specific variants
-	// exist (e.g., "write-evm-1337") to prevent accidental access to stale configs
+	// Remove base capability configs (e.g., "evm") when chain-specific variants
+	// exist (e.g., "evm-1337") to prevent accidental access to stale configs
 	// Remove configs for capabilities that DON doesn't have
 	for cap := range capConfigs {
 		if !slices.Contains(c.Capabilities, cap) || slices.Contains(chainCapabilitiesFound, cap) {
@@ -752,7 +723,7 @@ func (m *DonMetadata) SolanaChains() []string {
 }
 
 func (m *DonMetadata) RequiresOCR() bool {
-	return slices.Contains(m.Flags, ConsensusCapability) || slices.Contains(m.Flags, ConsensusCapabilityV2) ||
+	return slices.Contains(m.Flags, ConsensusCapability) ||
 		slices.Contains(m.Flags, VaultCapability) || slices.Contains(m.Flags, EVMCapability) || slices.Contains(m.Flags, SolanaCapability)
 }
 
@@ -780,10 +751,7 @@ func (m *DonMetadata) ResolveNodeOCR2AnnouncePort(nodeIndex int) int {
 }
 
 func (m *DonMetadata) RequiresGateway() bool {
-	return HasFlag(m.Flags, CustomComputeCapability) ||
-		HasFlag(m.Flags, WebAPITriggerCapability) ||
-		HasFlag(m.Flags, WebAPITargetCapability) ||
-		HasFlag(m.Flags, VaultCapability) ||
+	return HasFlag(m.Flags, VaultCapability) ||
 		HasFlag(m.Flags, HTTPActionCapability) ||
 		HasFlag(m.Flags, HTTPTriggerCapability)
 }
@@ -838,9 +806,9 @@ func (m *DonMetadata) ConfigureForGatewayAccess(chainID uint64, connectors Gatew
 		// if no gateways are configured, then gateway connector config is most probably also not configured
 		if len(typedConfig.Capabilities.GatewayConnector.Gateways) == 0 {
 			typedConfig.Capabilities.GatewayConnector = coretoml.GatewayConnector{
-				DonID:             ptr.Ptr(m.Name),
-				ChainIDForNodeKey: ptr.Ptr(strconv.FormatUint(chainID, 10)),
-				NodeAddress:       ptr.Ptr(evmKey.PublicAddress.Hex()),
+				DonID:             new(m.Name),
+				ChainIDForNodeKey: new(strconv.FormatUint(chainID, 10)),
+				NodeAddress:       new(evmKey.PublicAddress.Hex()),
 			}
 		}
 
@@ -856,8 +824,8 @@ func (m *DonMetadata) ConfigureForGatewayAccess(chainID uint64, connectors Gatew
 
 			if !alreadyPresent {
 				typedConfig.Capabilities.GatewayConnector.Gateways = append(typedConfig.Capabilities.GatewayConnector.Gateways, coretoml.ConnectorGateway{
-					ID: ptr.Ptr(gatewayConnector.AuthGatewayID),
-					URL: ptr.Ptr(fmt.Sprintf("ws://%s:%d%s",
+					ID: new(gatewayConnector.AuthGatewayID),
+					URL: new(fmt.Sprintf("ws://%s:%d%s",
 						gatewayConnector.Outgoing.Host,
 						gatewayConnector.Outgoing.Port,
 						gatewayConnector.Outgoing.Path)),
@@ -1059,7 +1027,7 @@ func (m DonsMetadata) validate() error {
 
 		// Validate in a single pass: must start at 0, be sequential, and have no duplicates
 		for i, shardIdx := range shardIndexes {
-			expectedIdx := uint(i) //nolint:gosec // disable G115 overflow is unrealistic
+			expectedIdx := uint(i)
 
 			if shardIdx != expectedIdx {
 				if i > 0 && shardIdx == shardIndexes[i-1] {
@@ -1276,14 +1244,14 @@ type NodeSet struct {
 	// Our role-aware node specs (shadows ns.Input.NodeSpecs)
 	NodeSpecs []*NodeSpecWithRole `toml:"node_specs" validate:"required"`
 
-	Capabilities []string `toml:"capabilities"` // global capabilities that have no chain-specific configuration (like cron, web-api-target, web-api-trigger, etc.)
+	Capabilities []string `toml:"capabilities"` // global capabilities that have no chain-specific configuration (e.g. cron, http-trigger)
 	DONTypes     []string `toml:"don_types"`    // workflow, capabilities, gateway
 	// SupportedEVMChains is filter. Use EVMChains() to get the actual list of chains supported by the nodeset.
 	SupportedEVMChains []uint64          `toml:"supported_evm_chains"` // chain IDs that the DON supports, empty means all chains
 	EnvVars            map[string]string `toml:"env_vars"`             // additional environment variables to be set on each node
 
 	// CapabilityConfigs allows overriding global capability configuration per DON.
-	// Example: [nodesets.capability_configs.web-api-target.config] GlobalRPS = 2000.0
+	// Example: [nodesets.capability_configs.http-action.values] IncomingGlobalRPS = 2000.0
 	CapabilityConfigs map[CapabilityFlag]CapabilityConfig `toml:"capability_configs"`
 
 	SupportedSolChains []string `toml:"supported_sol_chains"` // sol chain IDs that the DON supports
@@ -1363,9 +1331,12 @@ func (c *NodeSet) ChainCapabilityChainIDs() []uint64 {
 }
 
 func (c *NodeSet) Flags() []string {
-	var stringCaps []string
-
-	return append(stringCaps, append(c.Capabilities, c.DONTypes...)...)
+	var stringCaps = make([]string, len(c.Capabilities)+len(c.DONTypes))
+	copy(stringCaps, c.Capabilities)
+	for i, donType := range c.DONTypes {
+		stringCaps[len(c.Capabilities)+i] = donType
+	}
+	return stringCaps
 }
 
 func (c *NodeSet) GetEnabledChainIDsForCapability(flag CapabilityFlag) ([]uint64, error) {
@@ -1560,8 +1531,7 @@ func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 	framework.L.Debug().
 		Int("evm_chains", len(input.EVMChainIDs)).
 		Int("solana_chains", len(input.SolanaChainIDs)).
-		Bool("imported", input.ImportedSecrets != "").
-		Float64("duration_s", roundSeconds(time.Since(start))).
+		Float64("duration_s", time.Since(start).Seconds()).
 		Msg("Node key generation completed")
 	return out, nil
 }
@@ -1621,7 +1591,7 @@ type CapabilityScope struct {
 
 // ChainCapabilityScope creates a scope value that targets a specific chain ID.
 func ChainCapabilityScope(chainID uint64) CapabilityScope {
-	return CapabilityScope{chainID: ptr.Ptr(chainID)}
+	return CapabilityScope{chainID: new(chainID)}
 }
 
 // DonCapabilityScope creates a scope value for DON-level capabilities with no chain ID.
@@ -1657,6 +1627,7 @@ func ResolveCapabilityConfig(nodeSet NodeSetWithCapabilityConfigs, flag Capabili
 // InstallableCapability defines the interface for capabilities that can be dynamically
 // registered and deployed across DONs. This interface enables plug-and-play capability
 // extension without modifying core infrastructure code.
+
 // Deprecated: Use Feature interface instead for new capabilities.
 type InstallableCapability interface {
 	// Flag returns the unique identifier used in TOML configurations and internal references
@@ -1664,7 +1635,7 @@ type InstallableCapability interface {
 
 	// JobSpecFn returns a function that generates job specifications for this capability
 	// based on the provided input configuration and topology. Most capabilities need this.
-	// Exceptions include capabilities that are configured via the node config, like write-evm, aptos, tron or solana.
+	// Exceptions include capabilities that are configured via the node config, like aptos or solana.
 	JobSpecFn() JobSpecFn
 
 	// NodeConfigTransformerFn returns a function to modify node-level configuration,
@@ -1675,10 +1646,6 @@ type InstallableCapability interface {
 	// or nil if no gateway handler configuration is required for this capability. Only capabilities
 	// that need to connect to external resources might need this.
 	GatewayJobHandlerConfigFn() GatewayHandlerConfigFn
-
-	// CapabilityRegistryV1ConfigFn returns a function to generate capability registry
-	// configuration for the v1 registry format
-	CapabilityRegistryV1ConfigFn() CapabilityRegistryConfigFn
 
 	// CapabilityRegistryV2ConfigFn returns a function to generate capability registry
 	// configuration for the v2 registry format

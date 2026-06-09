@@ -12,14 +12,16 @@ import (
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 var _ cldf.ChangeSet[AddRegistryModuleConfig] = AddRegistryModuleChangeset
@@ -28,7 +30,7 @@ type AddRegistryModuleConfig struct {
 	// Map of chain selector to registry module 1.6 address
 	RegistryModuleAddrs map[uint64]common.Address
 	// MCMS config
-	MCMSConfig *proposalutils.TimelockConfig
+	MCMSConfig *cldfproposalutils.TimelockConfig
 }
 
 func (c AddRegistryModuleConfig) Validate(e cldf.Environment) error {
@@ -93,7 +95,7 @@ func AddRegistryModuleChangeset(e cldf.Environment, cfg AddRegistryModuleConfig)
 		chainState := state.Chains[chainSel]
 		timelocks[chainSel] = chainState.Timelock.Address().Hex()
 
-		inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
+		inspectors[chainSel], err = cldfproposalutils.McmsInspectorForChain(e, chainSel)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
 		}
@@ -125,7 +127,7 @@ func AddRegistryModuleChangeset(e cldf.Environment, cfg AddRegistryModuleConfig)
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to encode addRegistryModule call data on chain %d: %w", chainSel, err)
 		}
 
-		op, err := proposalutils.BatchOperationForChain(
+		op, err := cldfproposalutils.BatchOperationForChain(
 			chainSel, chainState.TokenAdminRegistry.Address().String(), callData, big.NewInt(0), shared.TokenAdminRegistry.String(), nil)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for chain %d: %w", chainSel, err)
@@ -154,14 +156,14 @@ func AddRegistryModuleChangeset(e cldf.Environment, cfg AddRegistryModuleConfig)
 		// Safe to access Timelock here because validation already checked it exists
 		timelocks[chainSel] = chainState.Timelock.Address().Hex()
 
-		inspector, err := proposalutils.McmsInspectorForChain(e, chainSel)
+		inspector, err := cldfproposalutils.McmsInspectorForChain(e, chainSel)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
 		}
 		inspectors[chainSel] = inspector
 	}
 
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
 		mcmsContractByChain,

@@ -19,12 +19,8 @@ import (
 	"time"
 
 	cerrdefs "github.com/containerd/errdefs"
-	"github.com/docker/docker/api/types/container"
-	dockerevents "github.com/docker/docker/api/types/events"
-	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/api/types/volume"
-	dockerclient "github.com/docker/docker/client"
+	"github.com/moby/moby/api/types/mount"
+	dockerclient "github.com/moby/moby/client"
 	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -34,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/chipsink"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/internal/dockerops"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 const (
@@ -213,6 +210,7 @@ type inFlightOperation struct {
 
 type Server struct {
 	lggr          zerolog.Logger
+	commonLogger  logger.Logger
 	deployers     map[blockchain.ChainFamily]blockchains.Deployer
 	startedAt     time.Time
 	lifecycleMu   sync.Mutex
@@ -250,9 +248,10 @@ type chipTestSinkRuntime struct {
 	runErrCh         chan error
 }
 
-func NewServer(lggr zerolog.Logger, deployers map[blockchain.ChainFamily]blockchains.Deployer) *Server {
+func NewServer(lggr zerolog.Logger, commonLogger logger.Logger, deployers map[blockchain.ChainFamily]blockchains.Deployer) *Server {
 	return &Server{
 		lggr:          lggr,
+		commonLogger:  commonLogger,
 		deployers:     deployers,
 		startedAt:     time.Now(),
 		cache:         make(map[string]cachedStart),
@@ -292,15 +291,15 @@ func (s *Server) listCTFResources(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client, err := dockerclient.NewClientWithOpts(dockerclient.WithAPIVersionNegotiation())
+	client, err := dockerclient.New(dockerclient.FromEnv)
 	if err != nil {
 		s.respondError(w, http.StatusInternalServerError, ErrCodeDeployFailed, fmt.Sprintf("failed to create docker client: %v", err), nil)
 		return
 	}
 	defer client.Close()
 
-	filterArgs := filters.NewArgs(filters.Arg("label", "framework=ctf"))
-	containers, err := client.ContainerList(r.Context(), container.ListOptions{
+	filterArgs := make(dockerclient.Filters).Add("label", "framework=ctf")
+	listRes, err := client.ContainerList(r.Context(), dockerclient.ContainerListOptions{
 		All:     true,
 		Filters: filterArgs,
 	})
@@ -308,8 +307,8 @@ func (s *Server) listCTFResources(w http.ResponseWriter, r *http.Request) {
 		s.respondError(w, http.StatusInternalServerError, ErrCodeDeployFailed, fmt.Sprintf("failed to list ctf containers: %v", err), nil)
 		return
 	}
-	containerNames := make([]string, 0, len(containers))
-	for _, c := range containers {
+	containerNames := make([]string, 0, len(listRes.Items))
+	for _, c := range listRes.Items {
 		if len(c.Names) > 0 {
 			containerNames = append(containerNames, strings.TrimPrefix(c.Names[0], "/"))
 			continue
@@ -318,16 +317,16 @@ func (s *Server) listCTFResources(w http.ResponseWriter, r *http.Request) {
 	}
 	slices.Sort(containerNames)
 
-	volResp, err := client.VolumeList(r.Context(), volume.ListOptions{
+	volResp, err := client.VolumeList(r.Context(), dockerclient.VolumeListOptions{
 		Filters: filterArgs,
 	})
 	if err != nil {
 		s.respondError(w, http.StatusInternalServerError, ErrCodeDeployFailed, fmt.Sprintf("failed to list ctf volumes: %v", err), nil)
 		return
 	}
-	volumeNames := make([]string, 0, len(volResp.Volumes))
-	for _, v := range volResp.Volumes {
-		if v == nil || strings.TrimSpace(v.Name) == "" {
+	volumeNames := make([]string, 0, len(volResp.Items))
+	for _, v := range volResp.Items {
+		if strings.TrimSpace(v.Name) == "" {
 			continue
 		}
 		volumeNames = append(volumeNames, v.Name)
@@ -525,17 +524,6 @@ func (s *Server) deployArtifacts(w http.ResponseWriter, r *http.Request, rawPayl
 		return
 	}
 
-	containerPrefix := ns.NodeNamePrefix(payload.NodeSetName)
-	containerNames, err := dockerops.FindContainerNames(r.Context(), containerPrefix)
-	if err != nil {
-		s.respondError(w, http.StatusInternalServerError, ErrCodeDeployFailed, fmt.Sprintf("failed to list nodeset containers: %v", err), nil)
-		return
-	}
-	if len(containerNames) == 0 {
-		s.respondError(w, http.StatusNotFound, ErrCodeDeployFailed, "no nodeset containers found for pattern "+containerPrefix, nil)
-		return
-	}
-
 	tmpDir, err := os.MkdirTemp("", "cre-agent-artifacts")
 	if err != nil {
 		s.respondError(w, http.StatusInternalServerError, ErrCodeDeployFailed, fmt.Sprintf("failed to create temp dir: %v", err), nil)
@@ -562,18 +550,19 @@ func (s *Server) deployArtifacts(w http.ResponseWriter, r *http.Request, rawPayl
 		filePaths = append(filePaths, target)
 	}
 
-	if err := dockerops.CopyFilesToContainers(r.Context(), containerNames, payload.TargetDir, filePaths); err != nil {
+	containerPrefix := ns.NodeNamePrefix(payload.NodeSetName)
+	if err := dockerops.CopyFilesToContainers(r.Context(), containerPrefix, payload.TargetDir, filePaths); err != nil {
 		s.respondError(w, http.StatusInternalServerError, ErrCodeDeployFailed, fmt.Sprintf("failed to copy artifacts to containers: %v", err), nil)
 		return
 	}
 
 	s.respondJSON(w, http.StatusOK, StartComponentResponse{
 		AgentLogs: []string{
-			fmt.Sprintf("[cre-agent] copied %d artifact(s) to %d container(s) for nodeset %s", len(filePaths), len(containerNames), payload.NodeSetName),
+			fmt.Sprintf("[cre-agent] copied %d artifact(s) to all containers for nodeset %s", len(filePaths), payload.NodeSetName),
 		},
 	})
 	s.appendComponentLogs(fmt.Sprintf("%s:%s", ComponentTypeNodeSet, payload.NodeSetName), []string{
-		fmt.Sprintf("[cre-agent] copied %d artifact(s) to %d container(s) for nodeset %s", len(filePaths), len(containerNames), payload.NodeSetName),
+		fmt.Sprintf("[cre-agent] copied %d artifact(s) to all containers for nodeset %s", len(filePaths), payload.NodeSetName),
 	})
 }
 
@@ -693,7 +682,7 @@ func (s *Server) stopTrackedComponentLocked(ctx context.Context, componentKey st
 }
 
 func (s *Server) discoverOwnedContainers(ctx context.Context, fn func() error) ([]string, error) {
-	client, err := dockerclient.NewClientWithOpts(dockerclient.WithAPIVersionNegotiation())
+	client, err := dockerclient.New(dockerclient.FromEnv)
 	if err != nil {
 		s.lggr.Warn().Err(err).Msg("Docker unavailable for component ownership tracking; continuing without tracked dependencies")
 		if runErr := fn(); runErr != nil {
@@ -710,9 +699,11 @@ func (s *Server) discoverOwnedContainers(ctx context.Context, fn func() error) (
 
 	eventsCtx, cancelEvents := context.WithCancel(ctx)
 	defer cancelEvents()
-	events, errs := client.Events(eventsCtx, dockerevents.ListOptions{
-		Filters: filters.NewArgs(filters.Arg("type", "container")),
+	eventsResult := client.Events(eventsCtx, dockerclient.EventsListOptions{
+		Filters: make(dockerclient.Filters).Add("type", "container"),
 	})
+	events := eventsResult.Messages
+	errs := eventsResult.Err
 
 	var wg sync.WaitGroup
 	eventIDs := make([]string, 0)
@@ -784,12 +775,12 @@ func (s *Server) discoverOwnedContainers(ctx context.Context, fn func() error) (
 }
 
 func listContainerIDSet(ctx context.Context, client *dockerclient.Client) (map[string]struct{}, error) {
-	containers, err := client.ContainerList(ctx, container.ListOptions{All: true})
+	listRes, err := client.ContainerList(ctx, dockerclient.ContainerListOptions{All: true})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list docker containers: %w", err)
 	}
-	ids := make(map[string]struct{}, len(containers))
-	for _, c := range containers {
+	ids := make(map[string]struct{}, len(listRes.Items))
+	for _, c := range listRes.Items {
 		ids[c.ID] = struct{}{}
 	}
 	return ids, nil
@@ -799,7 +790,7 @@ func stopContainers(ctx context.Context, ids []string) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	client, err := dockerclient.NewClientWithOpts(dockerclient.WithAPIVersionNegotiation())
+	client, err := dockerclient.New(dockerclient.FromEnv)
 	if err != nil {
 		return fmt.Errorf("failed to create docker client for stop: %w", err)
 	}
@@ -811,7 +802,7 @@ func stopContainers(ctx context.Context, ids []string) error {
 	}
 
 	for i := len(ids) - 1; i >= 0; i-- {
-		err := client.ContainerRemove(ctx, ids[i], container.RemoveOptions{
+		_, err := client.ContainerRemove(ctx, ids[i], dockerclient.ContainerRemoveOptions{
 			Force:         true,
 			RemoveVolumes: true,
 		})
@@ -822,7 +813,7 @@ func stopContainers(ctx context.Context, ids []string) error {
 
 	var removeVolumeErrors []error
 	for _, volumeName := range namedVolumes {
-		err := client.VolumeRemove(ctx, volumeName, true)
+		_, err := client.VolumeRemove(ctx, volumeName, dockerclient.VolumeRemoveOptions{Force: true})
 		if err != nil && !cerrdefs.IsNotFound(err) {
 			removeVolumeErrors = append(removeVolumeErrors, fmt.Errorf("remove volume %s: %w", volumeName, err))
 		}
@@ -836,14 +827,14 @@ func stopContainers(ctx context.Context, ids []string) error {
 func discoverNamedVolumesForContainers(ctx context.Context, client *dockerclient.Client, ids []string) ([]string, error) {
 	volumes := make(map[string]struct{})
 	for _, id := range ids {
-		inspect, err := client.ContainerInspect(ctx, id)
+		inspectRes, err := client.ContainerInspect(ctx, id, dockerclient.ContainerInspectOptions{})
 		if err != nil {
 			if cerrdefs.IsNotFound(err) {
 				continue
 			}
 			return nil, fmt.Errorf("inspect container %s before removal: %w", id, err)
 		}
-		for _, mountPoint := range inspect.Mounts {
+		for _, mountPoint := range inspectRes.Container.Mounts {
 			if mountPoint.Type != mount.TypeVolume {
 				continue
 			}

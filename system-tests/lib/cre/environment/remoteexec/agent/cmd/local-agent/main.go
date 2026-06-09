@@ -10,6 +10,7 @@ import (
 
 	"github.com/rs/zerolog"
 
+	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 	blockchainsets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/agent"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/runtimecfg"
@@ -29,8 +30,9 @@ func run() int {
 	flag.Parse()
 
 	lggr := zerolog.New(os.Stderr).With().Timestamp().Logger()
+	commonLogger := cldlogger.NewSingleFileLogger(nil)
 	provider := &infra.Provider{Type: infra.Docker}
-	server := agent.NewServer(lggr, blockchainsets.NewDeployerSet(lggr, provider))
+	server := agent.NewServer(lggr, commonLogger, blockchainsets.NewDeployerSet(lggr, provider))
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()

@@ -108,6 +108,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 			job_ops.ProposeStandardCapabilityJobInput{
 				Job:         job,
 				Domain:      input.Domain,
+				Environment: input.Environment,
 				DONName:     input.DONName,
 				DONFilters:  input.DONFilters,
 				ExtraLabels: input.ExtraLabels,
@@ -196,6 +197,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 				BootstrapperOCR3Urls:       jobInput.BootstrapperOCR3Urls,
 				DKGContractAddress:         dkgContractAddr,
 				VaultRequestExpiryDuration: jobInput.VaultRequestExpiryDuration,
+				Auth0:                      jobInput.Auth0,
 				DONFilters:                 input.DONFilters,
 				ExtraLabels:                input.ExtraLabels,
 			},
@@ -268,6 +270,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 			job_ops.ProposeCRESettingsJobsDeps{Env: e},
 			job_ops.ProposeCRESettingsJobsInput{
 				Domain:      input.Domain,
+				Environment: input.Environment,
 				DONName:     input.DONName,
 				DONFilters:  input.DONFilters,
 				ExtraLabels: input.ExtraLabels,
@@ -334,13 +337,10 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 }
 
 func requiresOracleFactory(template job_types.JobSpecTemplate) bool {
-	if template == job_types.Consensus {
+	switch template {
+	case job_types.Consensus, job_types.Aptos, job_types.Solana:
 		return true
+	default:
+		return false
 	}
-
-	if template == job_types.Aptos {
-		return true
-	}
-
-	return false
 }

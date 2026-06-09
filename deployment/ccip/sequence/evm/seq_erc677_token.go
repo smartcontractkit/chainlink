@@ -5,18 +5,18 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
 
 // GrantMintRoleSeqInp defines inputs for granting mint role across multiple chains
 type GrantMintRoleSeqInp struct {
 	// UpdatesByChain maps chain selector to the EVM call input for that chain
-	UpdatesByChain map[uint64]opsutil.EVMCallInput[common.Address]
+	UpdatesByChain map[uint64]opsevm.EVMCallInput[common.Address]
 }
 
 var (
@@ -25,8 +25,8 @@ var (
 		"GrantMintAndBurnRoleSequence",
 		semver.MustParse("1.0.0"),
 		"Grant mint & Burn role on ERC677 token contracts across multiple EVM chains",
-		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, inputs GrantMintRoleSeqInp) (map[uint64][]opsutil.EVMCallOutput, error) {
-			opOutputs := make(map[uint64][]opsutil.EVMCallOutput, len(inputs.UpdatesByChain))
+		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, inputs GrantMintRoleSeqInp) (map[uint64][]opsevm.EVMCallOutput, error) {
+			opOutputs := make(map[uint64][]opsevm.EVMCallOutput, len(inputs.UpdatesByChain))
 			for chainSel, input := range inputs.UpdatesByChain {
 				chain, ok := chains[chainSel]
 				if !ok {
@@ -36,7 +36,7 @@ var (
 				if err != nil {
 					return nil, fmt.Errorf("failed to execute GrantMintAndBurnRolesERC677Op on %s: %w", chain, err)
 				}
-				opOutputs[chainSel] = []opsutil.EVMCallOutput{report.Output}
+				opOutputs[chainSel] = []opsevm.EVMCallOutput{report.Output}
 			}
 			return opOutputs, nil
 		})

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	dockerclient "github.com/docker/docker/client"
+	dockerclient "github.com/moby/moby/client"
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
@@ -64,9 +64,6 @@ func DeployNodeSetComponent(ctx context.Context, input *ns.Input, registryChain 
 
 func buildRemoteJDInput(input *jd.Input) (*jd.Input, error) {
 	jdInput := *input
-	// Remote agent deployments require Docker service discovery (jd -> jd-db),
-	// so keep Docker embedded DNS instead of isolated localhost DNS.
-	jdInput.DisableDNSIsolation = true
 
 	return &jdInput, nil
 }
@@ -76,7 +73,7 @@ func ensureJDImagePresent(ctx context.Context, image string) error {
 		return nil
 	}
 
-	client, err := dockerclient.NewClientWithOpts(dockerclient.WithAPIVersionNegotiation())
+	client, err := dockerclient.New(dockerclient.FromEnv)
 	if err != nil {
 		return pkgerrors.Wrap(err, "failed to create docker client for jd image check")
 	}

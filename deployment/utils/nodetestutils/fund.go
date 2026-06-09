@@ -11,8 +11,6 @@ import (
 	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/stretchr/testify/require"
-	"github.com/xssnick/tonutils-go/tlb"
-	"github.com/xssnick/tonutils-go/ton/wallet"
 
 	"github.com/smartcontractkit/chainlink/deployment/internal/aptostestutils"
 
@@ -21,29 +19,7 @@ import (
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
-	cldf_ton "github.com/smartcontractkit/chainlink-deployments-framework/chain/ton"
 )
-
-var (
-	// tonTransmitterFundAmount is the amount of TON to fund the transmitter address.
-	tonTransmitterFundAmount = tlb.MustFromTON("200")
-)
-
-// fundNodesTon funds the given nodes with the given amount of TON.
-func fundNodesTon(t *testing.T, tonChain cldf_ton.Chain, nodes []*Node) {
-	messages := make([]*wallet.Message, 0, len(nodes))
-	for _, node := range nodes {
-		tonkeys, err := node.App.GetKeyStore().TON().GetAll()
-		require.NoError(t, err)
-		require.Len(t, tonkeys, 1)
-		transmitter := tonkeys[0].PubkeyToAddress()
-		msg, err := tonChain.Wallet.BuildTransfer(transmitter, tonTransmitterFundAmount, false, "")
-		require.NoError(t, err)
-		messages = append(messages, msg)
-	}
-	_, _, err := tonChain.Wallet.SendManyWaitTransaction(t.Context(), messages)
-	require.NoError(t, err)
-}
 
 // fundNodesAptos funds the given nodes with the given amount of APT.
 func fundNodesAptos(t *testing.T, aptosChain cldf_aptos.Chain, nodes []*Node) {

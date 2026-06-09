@@ -8,6 +8,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
@@ -52,6 +53,7 @@ func validateRemoteBlockchainInput(input *blockchain.Input) error {
 func startBlockchains(
 	ctx context.Context,
 	testLogger zerolog.Logger,
+	commonLogger logger.Logger,
 	configuredBlockchains []*config.Blockchain,
 	deployers map[blockchain.ChainFamily]blockchains.Deployer,
 	remoteRuntime *remoteclient.Runtime,

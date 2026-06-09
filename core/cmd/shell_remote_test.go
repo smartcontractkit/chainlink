@@ -21,11 +21,10 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/freeport"
-	"github.com/smartcontractkit/quarantine"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -123,13 +122,6 @@ func TestShell_ReplayBlocks(t *testing.T) {
 		c.EVM[0].NonceAutoSync = ptr(false)
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
 		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
-
-		solCfg := &config.TOMLConfig{
-			ChainID: ptr("devnet"),
-			Enabled: ptr(true),
-		}
-		solCfg.SetDefaults()
-		c.Solana = config.TOMLConfigs{solCfg}
 	})
 	client, _ := app.NewShellAndRenderer()
 
@@ -144,10 +136,6 @@ func TestShell_ReplayBlocks(t *testing.T) {
 
 	require.NoError(t, set.Set("chain-id", testutils.FixtureChainID.String()))
 	c = cli.NewContext(nil, set, nil)
-	assert.NoError(t, client.ReplayFromBlock(c))
-
-	require.NoError(t, set.Set("chain-id", "devnet"))
-	require.NoError(t, set.Set("family", "solana"))
 	assert.NoError(t, client.ReplayFromBlock(c))
 }
 
@@ -479,7 +467,6 @@ func TestShell_ChangePassword(t *testing.T) {
 }
 
 func TestShell_Profile(t *testing.T) {
-	quarantine.Flaky(t, "DX-1796")
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)

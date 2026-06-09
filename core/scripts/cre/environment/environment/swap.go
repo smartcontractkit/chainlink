@@ -8,8 +8,7 @@ import (
 	"strings"
 	"time"
 
-	ctypes "github.com/docker/docker/api/types/container"
-	dc "github.com/docker/docker/client"
+	mobyclient "github.com/moby/moby/client"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
@@ -46,7 +45,6 @@ func capabilitySwapCmd() *cobra.Command {
 	var (
 		capabilityFlag string
 		binaryPath     string
-		forceFlag      bool
 	)
 
 	cmd := &cobra.Command{
@@ -75,7 +73,7 @@ func capabilitySwapCmd() *cobra.Command {
 				}
 			}()
 
-			swapErr = swapCapability(cmd.Context(), capabilityFlag, binaryPath, forceFlag)
+			swapErr = swapCapability(cmd.Context(), capabilityFlag, binaryPath)
 
 			return swapErr
 		},
@@ -83,14 +81,13 @@ func capabilitySwapCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&capabilityFlag, "name", "n", "", "Name of the capability to swap (need to mach the value of capability flag used in the environment TOML config)")
 	cmd.Flags().StringVarP(&binaryPath, "binary", "b", "", "Location of the binary to swap on the host machine")
-	cmd.Flags().BoolVarP(&forceFlag, "force", "f", true, "Force removal of Docker containers. Set to false to enable graceful shutdown of the containers (be mindful that it will take longer to remove the them)")
 	_ = cmd.MarkFlagRequired("binary")
 	_ = cmd.MarkFlagRequired("name")
 
 	return cmd
 }
 
-func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forceFlag bool) error {
+func swapCapability(ctx context.Context, capabilityFlag, binaryPath string) error {
 	swappableapabilities := flags.NewSwappableCapabilityFlagsProvider()
 	if !slices.Contains(swappableapabilities.SupportedCapabilityFlags(), capabilityFlag) {
 		return fmt.Errorf("capability %s cannot be hot-reloaded. Supported capabilities: %s", capabilityFlag, strings.Join(swappableapabilities.SupportedCapabilityFlags(), ", "))
@@ -266,19 +263,19 @@ func swapNodes(ctx context.Context, forceFlag bool, waitTime time.Duration) erro
 			for _, id := range containerIDs {
 				cerrg.Go(func() error {
 					framework.L.Debug().Msgf("Removing Docker container %s", id)
-					dockerClient, dockerClientErr := dc.NewClientWithOpts(dc.FromEnv, dc.WithAPIVersionNegotiation())
+					dockerClient, dockerClientErr := mobyclient.New(mobyclient.FromEnv)
 					if dockerClientErr != nil {
 						return errors.Wrap(dockerClientErr, "failed to create Docker client")
 					}
 
 					if !forceFlag {
-						stopErr := dockerClient.ContainerStop(ctx, id, ctypes.StopOptions{})
-						if stopErr != nil {
+						if _, stopErr := dockerClient.ContainerStop(ctx, id, mobyclient.ContainerStopOptions{}); stopErr != nil {
 							return errors.Wrapf(stopErr, "failed to stop Docker container %s", id)
 						}
 					}
 
-					return dockerClient.ContainerRemove(ctx, id, ctypes.RemoveOptions{Force: forceFlag})
+					_, rmErr := dockerClient.ContainerRemove(ctx, id, mobyclient.ContainerRemoveOptions{Force: forceFlag})
+					return rmErr
 				})
 			}
 
@@ -311,21 +308,21 @@ func swapNodes(ctx context.Context, forceFlag bool, waitTime time.Duration) erro
 }
 
 func findAllDockerContainerIDs(ctx context.Context, pattern string) ([]string, error) {
-	dockerClient, dockerClientErr := dc.NewClientWithOpts(dc.FromEnv, dc.WithAPIVersionNegotiation())
+	dockerClient, dockerClientErr := mobyclient.New(mobyclient.FromEnv)
 	if dockerClientErr != nil {
 		return nil, errors.Wrap(dockerClientErr, "failed to create Docker client")
 	}
 
-	containers, containersErr := dockerClient.ContainerList(ctx, ctypes.ListOptions{})
+	listRes, containersErr := dockerClient.ContainerList(ctx, mobyclient.ContainerListOptions{})
 	if containersErr != nil {
 		return nil, errors.Wrap(containersErr, "failed to list Docker containers")
 	}
 
 	containerIDs := []string{}
-	for _, container := range containers {
-		for _, name := range container.Names {
+	for _, ctr := range listRes.Items {
+		for _, name := range ctr.Names {
 			if strings.Contains(name, pattern) {
-				containerIDs = append(containerIDs, container.ID)
+				containerIDs = append(containerIDs, ctr.ID)
 			}
 		}
 	}

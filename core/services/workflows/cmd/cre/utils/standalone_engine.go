@@ -181,10 +181,10 @@ func NewStandaloneEngine(
 		WorkflowName:  name,
 		WorkflowTag:   "workflowTag",
 
-		LocalLimits:                       v2.EngineLimits{},
-		LocalLimiters:                     limiters,
-		FeatureFlags:                      featureFlags,
-		GlobalExecutionConcurrencyLimiter: workflowLimits,
+		LocalLimits:         v2.EngineLimits{},
+		LocalLimiters:       limiters,
+		FeatureFlags:        featureFlags,
+		GlobalWorkflowLimit: workflowLimits,
 
 		BeholderEmitter: custmsg.NewLabeler(),
 
@@ -209,7 +209,7 @@ func NewStandaloneEngine(
 	}
 	result, err := module.Execute(ctx, &sdkpb.ExecuteRequest{
 		Request:         &sdkpb.ExecuteRequest_Subscribe{},
-		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes), //nolint:gosec // G115
+		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes),
 		Config:          config,
 	}, v2.NewDisallowedExecutionHelper(lggr, nil, &types.LocalTimeProvider{}, secretsFetcher))
 	if err != nil {

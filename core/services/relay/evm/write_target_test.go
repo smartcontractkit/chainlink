@@ -32,6 +32,7 @@ import (
 	gasmocks "github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	evm "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	"github.com/smartcontractkit/chainlink-evm/pkg/report/datafeeds"
 	df_processor "github.com/smartcontractkit/chainlink-evm/pkg/report/datafeeds/processor"
 	por_processor "github.com/smartcontractkit/chainlink-evm/pkg/report/por/processor"
@@ -48,7 +49,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 var forwardABI = evmtypes.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
@@ -125,6 +125,7 @@ func TestEvmWrite(t *testing.T) {
 	ht.On("LatestAndFinalizedBlock", mock.Anything).Return(&evmtypes.Head{Number: 99}, &evmtypes.Head{}, nil)
 	chain.On("HeadTracker").Return(ht)
 
+	evmClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(big.NewInt(0), nil)
 	chain.On("Client").Return(evmClient)
 
 	evmCfg := configtest.NewChainScopedConfig(t, func(c *toml.EVMConfig) {

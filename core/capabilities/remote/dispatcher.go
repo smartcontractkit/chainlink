@@ -51,9 +51,11 @@ type dispatcherMetrics struct {
 	sharedPeerMsgsRcvdCounter   metric.Int64Counter
 	rateLimitedMsgsCounter      metric.Int64Counter
 	invalidMsgsCounter          metric.Int64Counter
-	unregisteredCapMsgsCounter  metric.Int64Counter
+	unknownCapMsgsCounter       metric.Int64Counter
 	receiveChannelUsageGauge    metric.Float64Gauge
 	receiverDroppedMsgsCounter  metric.Int64Counter
+	messagesSentCounter         metric.Int64Counter
+	sendErrorsCounter           metric.Int64Counter
 }
 
 var _ types.Dispatcher = &dispatcher{}
@@ -107,9 +109,9 @@ func (d *dispatcher) initMetrics() error {
 	if err != nil {
 		return fmt.Errorf("failed to register platform_don2don_dispatcher_invalid_msgs_total: %w", err)
 	}
-	d.metrics.unregisteredCapMsgsCounter, err = beholder.GetMeter().Int64Counter("platform_don2don_dispatcher_unregistered_capability_msgs_total")
+	d.metrics.unknownCapMsgsCounter, err = beholder.GetMeter().Int64Counter("platform_don2don_dispatcher_unknown_capability_msgs_total")
 	if err != nil {
-		return fmt.Errorf("failed to register platform_don2don_dispatcher_unregistered_capability_msgs_total: %w", err)
+		return fmt.Errorf("failed to register platform_don2don_dispatcher_unknown_capability_msgs_total: %w", err)
 	}
 	d.metrics.receiveChannelUsageGauge, err = beholder.GetMeter().Float64Gauge("platform_don2don_dispatcher_receive_channel_usage")
 	if err != nil {
@@ -118,6 +120,14 @@ func (d *dispatcher) initMetrics() error {
 	d.metrics.receiverDroppedMsgsCounter, err = beholder.GetMeter().Int64Counter("platform_don2don_dispatcher_receiver_dropped_msgs_total")
 	if err != nil {
 		return fmt.Errorf("failed to register platform_don2don_dispatcher_receiver_dropped_msgs_total: %w", err)
+	}
+	d.metrics.messagesSentCounter, err = beholder.GetMeter().Int64Counter("platform_don2don_dispatcher_messages_sent_total")
+	if err != nil {
+		return fmt.Errorf("failed to register platform_don2don_dispatcher_messages_sent_total: %w", err)
+	}
+	d.metrics.sendErrorsCounter, err = beholder.GetMeter().Int64Counter("platform_don2don_dispatcher_send_errors_total")
+	if err != nil {
+		return fmt.Errorf("failed to register platform_don2don_dispatcher_send_errors_total: %w", err)
 	}
 	return nil
 }
@@ -195,7 +205,21 @@ func (d *dispatcher) setReceiver(k key, rec types.Receiver) error {
 			case <-ctx.Done():
 				return
 			case msg := <-receiverCh:
-				rec.Receive(ctx, msg)
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							d.lggr.Errorw("Recovered goroutine panic",
+								"panic", r,
+								"capabilityId", SanitizeLogString(k.capID),
+								"donId", k.donID,
+								"methodName", k.methodName,
+								"msgMethod", msg.Method,
+								"sender", msg.Sender,
+							)
+						}
+					}()
+					rec.Receive(ctx, msg)
+				}()
 			}
 		}
 	}()
@@ -247,13 +271,25 @@ func (d *dispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) er
 	if err != nil {
 		return err
 	}
+
+	var sendErr error
 	if d.cfg.SendToSharedPeer() {
-		return d.don2donSharedPeer.Send(peerID, rawMsg)
+		sendErr = d.don2donSharedPeer.Send(peerID, rawMsg)
+	} else if d.peer != nil {
+		sendErr = d.peer.Send(peerID, rawMsg)
+	} else {
+		sendErr = errors.New("no peer available to send message")
 	}
-	if d.peer != nil {
-		return d.peer.Send(peerID, rawMsg)
+
+	ctx, cancel := d.stopCh.NewCtx()
+	defer cancel()
+	methodAttr := attribute.String("method", msgBody.Method)
+	if sendErr != nil {
+		d.metrics.sendErrorsCounter.Add(ctx, 1, metric.WithAttributes(methodAttr))
+		return sendErr
 	}
-	return errors.New("no peer available to send message")
+	d.metrics.messagesSentCounter.Add(ctx, 1, metric.WithAttributes(methodAttr))
+	return nil
 }
 
 func (d *dispatcher) receive() {
@@ -310,12 +346,12 @@ func (d *dispatcher) handleMessage(ctx context.Context, msg *p2ptypes.Message) {
 	receiver, ok := d.receivers[k]
 	d.mu.RUnlock()
 	if !ok {
-		d.metrics.unregisteredCapMsgsCounter.Add(ctx, 1, metric.WithAttributes(
+		d.metrics.unknownCapMsgsCounter.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("capabilityId", k.capID),
 			attribute.String("donId", strconv.FormatUint(uint64(k.donID), 10)),
 			attribute.String("method", k.methodName),
 		))
-		d.lggr.Debugw("received message for unregistered capability or method", "capabilityId", SanitizeLogString(k.capID), "donId", k.donID, "method", k.methodName)
+		d.lggr.Debugw("received message for unknown capability or method", "capabilityId", SanitizeLogString(k.capID), "donId", k.donID, "method", k.methodName)
 		d.tryRespondWithError(msg.Sender, body, types.Error_CAPABILITY_NOT_FOUND)
 		return
 	}

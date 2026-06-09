@@ -22,16 +22,6 @@ func (d *fakeStarterDeployer) Start(context.Context, *blockchain.Input) (*blockc
 	return &blockchain.Output{ChainID: "1337", Type: blockchain.TypeAnvil}, nil
 }
 
-func TestBuildRemoteJDInputEnablesDNSIsolationOverride(t *testing.T) {
-	original := &jd.Input{Image: "job-distributor:0.22.1", DisableDNSIsolation: false}
-
-	effective, err := buildRemoteJDInput(original)
-	require.NoError(t, err)
-	require.NotSame(t, original, effective, "expected a defensive copy")
-	require.True(t, effective.DisableDNSIsolation, "remote agent input should force Docker DNS")
-	require.False(t, original.DisableDNSIsolation, "original input should remain unchanged")
-}
-
 func TestDeployBlockchainComponentNilInputFails(t *testing.T) {
 	_, err := DeployBlockchainComponent(context.Background(), nil, nil)
 	require.Error(t, err)
@@ -84,14 +74,12 @@ func TestDeployJDComponentSuccessUsesSeams(t *testing.T) {
 	}
 
 	out, err := DeployJDComponent(context.Background(), &jd.Input{
-		Image:               "job-distributor:0.22.1",
-		DisableDNSIsolation: false,
+		Image: "job-distributor:0.22.1",
 	})
 	require.NoError(t, err)
 	require.Same(t, expectedOutput, out)
 	require.Equal(t, "job-distributor:0.22.1", imageChecked)
 	require.NotNil(t, captured)
-	require.True(t, captured.DisableDNSIsolation, "remote JD deploy should force Docker DNS")
 }
 
 func TestDeployJDComponentImageCheckFailureStopsEarly(t *testing.T) {

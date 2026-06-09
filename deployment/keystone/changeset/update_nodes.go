@@ -9,13 +9,17 @@ import (
 	"github.com/smartcontractkit/mcms/sdk"
 	"github.com/smartcontractkit/mcms/types"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
@@ -100,7 +104,7 @@ func UpdateNodes(env cldf.Environment, req *UpdateNodesRequest) (cldf.ChangesetO
 		proposerMCMSes := map[uint64]string{
 			req.RegistryChainSel: capReg.McmsContracts.ProposerMcm.Address().Hex(),
 		}
-		inspector, err := proposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
+		inspector, err := cldfproposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -108,7 +112,7 @@ func UpdateNodes(env cldf.Environment, req *UpdateNodesRequest) (cldf.ChangesetO
 			req.RegistryChainSel: inspector,
 		}
 
-		proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		proposal, err := proposeutils.BuildProposalFromBatchesV2(
 			env,
 			timelocksPerChain,
 			proposerMCMSes,

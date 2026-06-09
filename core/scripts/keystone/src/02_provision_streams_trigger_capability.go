@@ -34,15 +34,14 @@ import (
 
 	mercurytypes "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	datastreamsmercury "github.com/smartcontractkit/chainlink-data-streams/mercury"
-	"github.com/smartcontractkit/chainlink-evm/pkg/mercury"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	verifierContract "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy"
+	evm "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -113,7 +112,7 @@ func setupStreamsTrigger(
 		latestConfigDigest, err := ocrtypes.BytesToConfigDigest(latestConfigDetails.ConfigDigest[:])
 		PanicErr(err)
 
-		digester := mercury.NewOffchainConfigDigester(
+		digester := datastreamsmercury.NewOffchainConfigDigester(
 			feed.id,
 			big.NewInt(chainID),
 			verifier.Address(),

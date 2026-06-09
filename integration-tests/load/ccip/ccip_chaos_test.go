@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
@@ -35,15 +36,16 @@ func a(ns, text string, dashboardUIDs []string, from, to *time.Time) framework.A
 }
 
 func prepareChaos(t *testing.T) (*ccip.Config, *havoc.NamespaceScopedChaosRunner, *framework.GrafanaClient) {
+	t.Helper()
 	l := log.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(zerolog.DebugLevel)
 	c, err := havoc.NewChaosMeshClient()
 	if err != nil {
-		t.Error("Failed to create chaos mesh client", err)
+		t.Fatalf("Failed to create chaos mesh client: %v", err)
 	}
 
 	config, err := tc.GetConfig([]string{"Load"}, tc.CCIP)
 	if err != nil {
-		t.Error("Failed to get config", err)
+		t.Fatalf("Failed to get config: %v", err)
 	}
 	cfg := config.CCIP
 	cr := havoc.NewNamespaceRunner(l, c, false)
@@ -108,10 +110,12 @@ type cribNetworkConfig []struct {
 }
 
 func readCRIBConfig(t *testing.T, cfg *ccip.Config) cribNetworkConfig {
-	f, _ := os.ReadFile(*cfg.Load.CribEnvDirectory + "/ccip-v2-scripts-chains-details.json")
+	t.Helper()
+	f, err := os.ReadFile(*cfg.Load.CribEnvDirectory + "/ccip-v2-scripts-chains-details.json")
+	require.NoError(t, err, "Failed to read CRIB config file")
 	var cribConfig cribNetworkConfig
-	err := json.Unmarshal(f, &cribConfig)
-	assert.NoError(t, err)
+	err = json.Unmarshal(f, &cribConfig)
+	require.NoError(t, err, "Failed to unmarshal CRIB config")
 	return cribConfig
 }
 

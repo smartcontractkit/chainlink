@@ -15,6 +15,7 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
@@ -235,7 +236,9 @@ func buildDONsConcurrently(
 
 	if err := errGroup.Wait(); err != nil {
 		if printFailedContainerLogs {
-			infra.PrintFailedContainerLogs(lggr, 30)
+			if logsErr := framework.PrintFailedContainerLogs(30); logsErr != nil {
+				lggr.Error().Err(logsErr).Msg("failed to print failed Docker container logs")
+			}
 		}
 		return nil, err
 	}

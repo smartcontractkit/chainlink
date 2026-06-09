@@ -8,30 +8,32 @@ import (
 	"strings"
 	"time"
 
-	ctypes "github.com/docker/docker/api/types/container"
-	dc "github.com/docker/docker/client"
+	dc "github.com/moby/moby/client"
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 )
 
-func FindContainerNames(ctx context.Context, pattern string) ([]string, error) {
-	dockerClient, dockerClientErr := dc.NewClientWithOpts(dc.FromEnv, dc.WithAPIVersionNegotiation())
+func FindDockerContainerNames(ctx context.Context, pattern string) ([]string, error) {
+	dockerClient, dockerClientErr := dc.New(dc.FromEnv)
 	if dockerClientErr != nil {
 		return nil, errors.Wrap(dockerClientErr, "failed to create Docker client")
 	}
 	defer dockerClient.Close()
 
-	containers, containersErr := dockerClient.ContainerList(ctx, ctypes.ListOptions{})
+	listRes, containersErr := dockerClient.ContainerList(context.Background(), dc.ContainerListOptions{})
 	if containersErr != nil {
 		return nil, errors.Wrap(containersErr, "failed to list Docker containers")
 	}
 
-	containerNames := make([]string, 0)
-	for _, container := range containers {
-		for _, name := range container.Names {
+	containerNames := []string{}
+	for _, ctr := range listRes.Items {
+		for _, name := range ctr.Names {
 			if strings.Contains(name, pattern) {
-				containerNames = append(containerNames, strings.TrimPrefix(name, "/"))
+				// Remove leading slash from container name
+				cleanName := strings.TrimPrefix(name, "/")
+				containerNames = append(containerNames, cleanName)
 			}
 		}
 	}
@@ -39,60 +41,74 @@ func FindContainerNames(ctx context.Context, pattern string) ([]string, error) {
 	return containerNames, nil
 }
 
-func CopyFilesToContainers(ctx context.Context, containerNames []string, targetDir string, files []string) error {
-	frameworkDockerClient, frameworkDockerClientErr := framework.NewDockerClient()
-	if frameworkDockerClientErr != nil {
-		return errors.Wrap(frameworkDockerClientErr, "failed to create framework Docker client")
+func CopyFilesToContainers(ctx context.Context, containerNamePattern string, targetDir string, files []string) error {
+	containerNames, err := FindDockerContainerNames(context.Background(), containerNamePattern)
+	if err != nil {
+		return errors.Wrap(err, "failed to find Docker containers")
+	}
+	if len(containerNames) == 0 {
+		return fmt.Errorf("no Docker containers found with name pattern %s", containerNamePattern)
 	}
 
-	dockerClient, dockerClientErr := dc.NewClientWithOpts(dc.FromEnv, dc.WithAPIVersionNegotiation())
-	if dockerClientErr != nil {
-		return errors.Wrap(dockerClientErr, "failed to create Docker client")
+	frameworkDockerClient, err := framework.NewDockerClient()
+	if err != nil {
+		return errors.Wrap(err, "failed to create framework Docker client")
+	}
+	dockerClient, err := dc.New(dc.FromEnv)
+	if err != nil {
+		return errors.Wrap(err, "failed to create Docker client")
 	}
 	defer dockerClient.Close()
 
+	eg := errgroup.Group{}
+	eg.SetLimit(4)
 	for _, containerName := range containerNames {
-		execOutput, execOutputErr := frameworkDockerClient.ExecContainer(containerName, []string{"mkdir", "-p", targetDir})
-		if execOutputErr != nil {
-			fmt.Fprint(os.Stderr, execOutput)
-			return errors.Wrap(execOutputErr, "failed to execute mkdir command in Docker container")
-		}
-
-		for _, filePath := range files {
-			framework.L.Info().Msgf("Copying file '%s' to Docker container %s", filePath, containerName)
-			copyErr := frameworkDockerClient.CopyFile(containerName, filePath, targetDir)
-			if copyErr != nil {
+		eg.Go(func() error {
+			execOutput, execErr := frameworkDockerClient.ExecContainer(containerName, []string{"mkdir", "-p", targetDir})
+			if execErr != nil {
 				fmt.Fprint(os.Stderr, execOutput)
-				return errors.Wrap(copyErr, "failed to copy artifact to Docker container")
+				return errors.Wrap(execErr, "failed to execute mkdir command in Docker container")
 			}
-		}
 
-		inspectCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-		containerJSON, inspectErr := dockerClient.ContainerInspect(inspectCtx, containerName)
-		cancel()
-		if inspectErr != nil {
-			return errors.Wrap(inspectErr, "failed to inspect Docker container")
-		}
+			for _, filePath := range files {
+				framework.L.Info().Msgf("Copying file '%s' to Docker container %s", filePath, containerName)
+				copyErr := frameworkDockerClient.CopyFile(containerName, filePath, targetDir)
+				if copyErr != nil {
+					fmt.Fprint(os.Stderr, execOutput)
+					return errors.Wrap(copyErr, "failed to copy artifact to Docker container")
+				}
+			}
 
-		user := containerJSON.Config.User
-		if user == "" {
-			continue
-		}
-		for _, filePath := range files {
-			targetFilePath := filepath.Join(targetDir, filepath.Base(filePath))
-			execConfig := ctypes.ExecOptions{
-				Cmd:          []string{"chown", user, targetFilePath},
-				AttachStdout: true,
-				AttachStderr: true,
-				User:         "root",
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			inspectRes, inspectErr := dockerClient.ContainerInspect(ctx, containerName, dc.ContainerInspectOptions{})
+			if inspectErr != nil {
+				return errors.Wrap(inspectErr, "failed to inspect Docker container")
 			}
-			execOutput, execOutputErr := frameworkDockerClient.ExecContainerOptions(containerName, execConfig)
-			if execOutputErr != nil {
-				fmt.Fprint(os.Stderr, execOutput)
-				return errors.Wrap(execOutputErr, "failed to execute chown command in Docker container")
+			user := inspectRes.Container.Config.User
+
+			// if not running as root, change ownership to user that is running the container to avoid permission issues
+			if user == "" {
+				return nil
 			}
-		}
+
+			for _, filePath := range files {
+				targetFilePath := filepath.Join(targetDir, filepath.Base(filePath))
+				execConfig := dc.ExecCreateOptions{
+					Cmd:          []string{"chown", user, targetFilePath},
+					AttachStdout: true,
+					AttachStderr: true,
+					User:         "root",
+				}
+				execOutput, execErr = frameworkDockerClient.ExecContainerOptions(containerName, execConfig)
+				if execErr != nil {
+					fmt.Fprint(os.Stderr, execOutput)
+					return errors.Wrap(execErr, "failed to execute chown command in Docker container")
+				}
+				framework.L.Debug().Str("container", containerName).Msgf("chown output: %s", execOutput)
+			}
+			return nil
+		})
 	}
-
-	return nil
+	return eg.Wait()
 }

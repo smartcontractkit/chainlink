@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"encoding/json"
 	"strconv"
 
 	"gopkg.in/yaml.v3"
@@ -46,32 +47,51 @@ func (i Int) MarshalYAML() ([]byte, error) {
 	return []byte(strconv.Itoa(int(i))), nil
 }
 
-type ChainSelector uint64
+// Uint64 wraps uint64 so that YAML/JSON fields can be populated from either a numeric
+// literal or a quoted string (e.g. after environment-variable substitution).
+// Only unmarshal methods are provided so TOML/JSON output remains numeric.
+type Uint64 uint64
 
-func (cs *ChainSelector) UnmarshalText(data []byte) error {
+func (u *Uint64) UnmarshalText(data []byte) error {
 	ui, err := strconv.ParseUint(string(data), 10, 64)
 	if err != nil {
 		return err
 	}
 
-	*cs = ChainSelector(ui)
+	*u = Uint64(ui)
 	return nil
 }
 
-func (cs ChainSelector) MarshalText() ([]byte, error) {
-	return []byte(strconv.FormatUint(uint64(cs), 10)), nil
+func (u *Uint64) UnmarshalJSON(data []byte) error {
+	if len(data) == 0 {
+		return json.Unmarshal(data, (*uint64)(u))
+	}
+
+	switch data[0] {
+	case '"':
+		var s string
+		if err := json.Unmarshal(data, &s); err != nil {
+			return err
+		}
+		return u.UnmarshalText([]byte(s))
+	default:
+		var n uint64
+		if err := json.Unmarshal(data, &n); err != nil {
+			return err
+		}
+		*u = Uint64(n)
+		return nil
+	}
 }
 
-func (cs *ChainSelector) UnmarshalYAML(node *yaml.Node) error {
+func (u *Uint64) UnmarshalYAML(node *yaml.Node) error {
 	ui, err := strconv.ParseUint(node.Value, 10, 64)
 	if err != nil {
 		return err
 	}
 
-	*cs = ChainSelector(ui)
+	*u = Uint64(ui)
 	return nil
 }
 
-func (cs ChainSelector) MarshalYAML() ([]byte, error) {
-	return []byte(strconv.FormatUint(uint64(cs), 10)), nil
-}
+type ChainSelector = Uint64

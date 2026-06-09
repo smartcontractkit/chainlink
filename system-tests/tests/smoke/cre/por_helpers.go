@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/big"
 	"slices"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -22,18 +21,19 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+
 	tron_df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/tron"
 	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/cldfutil/changeset"
+
 	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	tron_keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/tron"
 
-	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	corevm "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 
-	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
-	porV2types "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based/types"
+	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based/types"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -43,18 +43,17 @@ import (
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
-const PoRWFV1Location = "../../../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/main.go"
-const PoRWFV2Location = "../../../../core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based/main.go"
+const PoRWFLocation = "../../../../core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based/main.go"
 
 // WorkflowTestConfig holds per-test workflow configuration for PoR tests.
 // CronSchedule is optional; when non-empty it overrides the default "*/30 * * * * *"
-// schedule embedded in the V2 workflow binary. Leave empty for smoke tests so the
+// schedule embedded in the workflow binary. Leave empty for smoke tests so the
 // existing behaviour is unchanged.
 type WorkflowTestConfig struct {
 	WorkflowName         string
 	WorkflowFileLocation string
 	FeedIDs              []string
-	CronSchedule         string // optional; V2 only
+	CronSchedule         string // optional
 }
 
 // BeforePoRTest creates a FakePriceProvider and a WorkflowTestConfig pre-populated with
@@ -92,7 +91,7 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 	}
 
 	writeableChains := t_helpers.GetWritableChainsFromSavedEnvironmentState(t, testEnv)
-	require.Len(t, cfg.FeedIDs, len(writeableChains), "a number of writeable chains must match the number of feed IDs (check what chains 'evm' and 'write-evm' capabilities are enabled for)")
+	require.Len(t, cfg.FeedIDs, len(writeableChains), "a number of writeable chains must match the number of feed IDs (check what chains 'evm' capability is enabled for)")
 
 	/*
 		DEPLOY DATA FEEDS CACHE + READ BALANCES CONTRACTS ON ALL CHAINS (except read-only ones)
@@ -151,7 +150,7 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 
 		// reset to avoid incrementing on each iteration
 		amountToFund = big.NewInt(0).SetUint64(10) // 10 wei
-		addressesToRead, addrErr := t_helpers.CreateAndFundAddresses(t, testLogger, numberOfAddressesToCreate, amountToFund, bcOutput, creEnvironment)
+		addressesToRead, addrErr := t_helpers.CreateAndFundAddressesEVM(t, testLogger, numberOfAddressesToCreate, amountToFund, bcOutput)
 		require.NoError(t, addrErr, "failed to create and fund addresses to read")
 
 		testLogger.Info().Msg("Creating PoR workflow configuration file...")
@@ -159,8 +158,6 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 		testLogger.Info().Msgf("Generated WriteTargetName for chain %d (%s): %s", chainID, chainFamily, writeTargetName)
 
 		workflowConfig := portypes.WorkflowConfig{
-			ChainFamily:   chainFamily,
-			ChainID:       strconv.FormatUint(chainID, 10),
 			ChainSelector: chainSelector,
 			BalanceReaderConfig: portypes.BalanceReaderConfig{
 				BalanceReaderAddress: readBalancesAddress.Hex(),
@@ -193,7 +190,7 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 }
 
 // SetupPoRWorkflowForSoak deploys DataFeedsCache + ReadBalances on the first writable EVM
-// chain, compiles and registers the V2 PoR workflow using the supplied WorkflowTestConfig,
+// chain, compiles and registers the PoR workflow using the supplied WorkflowTestConfig,
 // and returns the DataFeedsCache contract address so the soak loop can poll it directly.
 //
 // Workflow cleanup (unregistration) is registered automatically via t.Cleanup inside
@@ -240,21 +237,21 @@ func SetupPoRWorkflowForSoak(t *testing.T, testEnv *ttypes.TestEnvironment, pric
 
 	numberOfAddressesToCreate := 2
 	amountToFund := big.NewInt(10) // 10 wei
-	addressesToRead, addrErr := t_helpers.CreateAndFundAddresses(t, testLogger, numberOfAddressesToCreate, amountToFund, bcOutput, creEnvironment)
+	addressesToRead, addrErr := t_helpers.CreateAndFundAddressesEVM(t, testLogger, numberOfAddressesToCreate, amountToFund, bcOutput)
 	require.NoError(t, addrErr, "failed to create and fund addresses for soak workflow %s", wfConfig.WorkflowName)
 
 	writeTargetName := corevm.GenerateWriteTargetName(chainID)
 	testLogger.Info().Msgf("SetupPoRWorkflowForSoak: chain=%d writeTarget=%s cache=%s feedID=%s cron=%q",
 		chainID, writeTargetName, dataFeedsCacheAddress.Hex(), feedID, wfConfig.CronSchedule)
 
-	workflowConfig := porV2types.WorkflowConfig{
+	workflowConfig := portypes.WorkflowConfig{
 		ChainSelector: chainSelector,
 		CronSchedule:  wfConfig.CronSchedule,
-		BalanceReaderConfig: porV2types.BalanceReaderConfig{
+		BalanceReaderConfig: portypes.BalanceReaderConfig{
 			BalanceReaderAddress: readBalancesAddress.Hex(),
 			AddressesToRead:      addressesToRead,
 		},
-		ComputeConfig: porV2types.ComputeConfig{
+		ComputeConfig: portypes.ComputeConfig{
 			FeedID:                feedID,
 			URL:                   priceProvider.URL(),
 			DataFeedsCacheAddress: dataFeedsCacheAddress.Hex(),
@@ -343,10 +340,10 @@ func deployAndConfigureTronContracts(t *testing.T, testLogger zerolog.Logger, ch
 		DeployOptions:  deployOptions,
 	}
 
-	dfOutput, dfErr := changeset.RunChangeset(tron_df_changeset.DeployCacheChangeset, *creEnvironment.CldfEnvironment, tronDeployConfig)
+	dfOutput, dfErr := cldchangeset.RunChangeset(tron_df_changeset.DeployCacheChangeset, *creEnvironment.CldfEnvironment, tronDeployConfig)
 	require.NoError(t, dfErr, "failed to deploy Data Feeds Cache contract on chain %d", chainSelector)
 
-	rbOutput, rbErr := changeset.RunChangeset(tron_keystone_changeset.DeployReadBalanceChangeset, *creEnvironment.CldfEnvironment, tronDeployConfig)
+	rbOutput, rbErr := cldchangeset.RunChangeset(tron_keystone_changeset.DeployReadBalanceChangeset, *creEnvironment.CldfEnvironment, tronDeployConfig)
 	require.NoError(t, rbErr, "failed to deploy Read Balances contract on chain %d", chainSelector)
 
 	crecontracts.MergeAllDataStores(creEnvironment, dfOutput, rbOutput)
@@ -385,7 +382,7 @@ func deployAndConfigureTronContracts(t *testing.T, testLogger zerolog.Logger, ch
 		TriggerOptions: triggerOptions,
 	}
 
-	_, setDeployerAdminErr := changeset.RunChangeset(tron_df_changeset.SetFeedAdminChangeset, *creEnvironment.CldfEnvironment, setDeployerAdminConfig)
+	_, setDeployerAdminErr := cldchangeset.RunChangeset(tron_df_changeset.SetFeedAdminChangeset, *creEnvironment.CldfEnvironment, setDeployerAdminConfig)
 	require.NoError(t, setDeployerAdminErr, "failed to set deployer as admin for Tron chain")
 
 	workflowNameBytes := df_changeset.HashedWorkflowName(uniqueWorkflowName)
@@ -413,7 +410,7 @@ func deployAndConfigureTronContracts(t *testing.T, testLogger zerolog.Logger, ch
 		TriggerOptions:   triggerOptions,
 	}
 
-	_, setConfigErr := changeset.RunChangeset(tron_df_changeset.SetFeedConfigChangeset, *creEnvironment.CldfEnvironment, setFeedConfigConfig)
+	_, setConfigErr := cldchangeset.RunChangeset(tron_df_changeset.SetFeedConfigChangeset, *creEnvironment.CldfEnvironment, setFeedConfigConfig)
 	require.NoError(t, setConfigErr, "failed to set feed config for Tron chain")
 
 	testLogger.Info().Msgf("Successfully configured Tron data feeds cache for chain %d", chainSelector)

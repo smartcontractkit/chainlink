@@ -18,11 +18,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/cre"
 	feeds_consumer "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/feeds_consumer_1_0_0"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/cre"
 )
 
 func Test_runLLOWorkflow(t *testing.T) {
@@ -53,7 +53,7 @@ func Test_runLLOWorkflow(t *testing.T) {
 
 	// create the test trigger event in the same format as the llo asset don
 	ts := time.Now()
-	tsUnixNano := uint64(ts.UnixNano()) //nolint: gosec // G115
+	tsUnixNano := uint64(ts.UnixNano())
 	e := newLLoTriggerEvent(t, tsUnixNano, updates)
 	ocrTrigger, eventID, err := MakeOCRTriggerEvent(lggr, e, triggerDonConfiguration.KeyBundles)
 	require.NoError(t, err)
@@ -152,7 +152,7 @@ func MakeOCRTriggerEvent(lggr logger.Logger, reports *datastreams.LLOStreamsTrig
 			return nil, "", fmt.Errorf("failed to sign report with key %s: %w", key, err)
 		}
 		event.Sigs = append(event.Sigs, commoncap.OCRAttributedOnchainSignature{
-			Signer:    uint32(i), //nolint:gosec // G115
+			Signer:    uint32(i),
 			Signature: sig,
 		})
 	}
@@ -164,7 +164,7 @@ func generateSteamUpdates(t *testing.T, count int) []streamUpdate {
 	var result []streamUpdate
 	for i := 1; i <= count; i++ {
 		result = append(result, streamUpdate{
-			id:         uint32(i), //nolint:gosec // G115
+			id:         uint32(i),
 			remappedID: newFeedID(t),
 			price:      decimal.NewFromFloat(float64(i)),
 		})

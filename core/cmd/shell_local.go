@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
@@ -185,7 +186,7 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 						},
 						cli.BoolFlag{
 							Name:  "force",
-							Usage: "set to true to force the reset by dropping any existing connections to the database",
+							Usage: "legacy flag (ignored for drop); reset uses DROP DATABASE ... WITH (FORCE) (PostgreSQL 13+)",
 						},
 					},
 				},
@@ -202,7 +203,7 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 						},
 						cli.BoolFlag{
 							Name:  "force",
-							Usage: "set to true to force the reset by dropping any existing connections to the database",
+							Usage: "legacy flag (ignored for drop); reset uses DROP DATABASE ... WITH (FORCE) (PostgreSQL 13+)",
 						},
 					},
 				},
@@ -394,18 +395,18 @@ func (s *Shell) runNode(c *cli.Context) error {
 
 	// cleanExit is used to skip "fail fast" routine
 	cleanExit := make(chan struct{})
-	var shutdownStartTime time.Time
+	var shutdownStartTime atomic.Value // time.Time
 	defer func() {
 		close(cleanExit)
-		if !shutdownStartTime.IsZero() {
-			log.Printf("Graceful shutdown time: %s", time.Since(shutdownStartTime))
+		if val := shutdownStartTime.Load(); val != nil {
+			log.Printf("Graceful shutdown time: %s", time.Since(val.(time.Time)))
 		}
 	}()
 
 	go shutdown.HandleShutdown(func(sig string) {
 		lggr.Infof("Shutting down due to %s signal received...", sig)
 
-		shutdownStartTime = time.Now()
+		shutdownStartTime.Store(time.Now())
 		cancelRootCtx()
 
 		select {
@@ -914,8 +915,6 @@ func (s *Shell) PrepareTestDatabase(c *cli.Context) error {
 		return s.errorOut(err)
 	}
 	cfg := s.Config
-
-	// Creating pristine DB copy to speed up FullTestDB
 	dbUrl := cfg.Database().URL()
 	userOnly := c.Bool("user-only")
 	if err := store.PrepareTestDB(s.Logger, dbUrl, userOnly); err != nil {
@@ -1195,30 +1194,52 @@ func (s *Shell) beforeNode(c *cli.Context) error {
 		return fmt.Errorf("failed to build Beholder auth: %w", err)
 	}
 
-	// Initialize globals with beholder and telemetry
-	err = initGlobals(s.Config.Prometheus(), s.Config.Tracing(), s.Config.Telemetry(), s.Logger, csaPubKeyHex, beholderAuthHeaders)
-	if err != nil {
+	// Build Beholder client: a real one when telemetry is enabled, otherwise a
+	// no-op so that downstream code never needs to nil-check.
+	if s.Config.Telemetry().Enabled() {
+		var beholderErr error
+		s.BeholderClient, beholderErr = newBeholderClient(s.Logger, keyStore, s.Config.Tracing(), s.Config.Telemetry(), csaPubKeyHex, beholderAuthHeaders)
+		if beholderErr != nil {
+			return fmt.Errorf("failed creating beholder client: %w", beholderErr)
+		}
+	} else {
+		s.BeholderClient = beholder.NewNoopClient()
+	}
+
+	// Prometheus, grpc, tracing, and (when telemetry is on) Beholder OTel globals.
+	if err = initGlobals(s.Config.Prometheus(), s.Config.Telemetry(), s.Config.Tracing(), s.Logger, s.BeholderClient); err != nil {
 		return fmt.Errorf("failed initializing globals: %w", err)
 	}
 
-	// Set the signing mechanism for beholder auth headers
-	// if the TTL is 0, we will use the static headers, and this signer will never be called.
-	beholder.GetClient().SetSigner(&keystore.CSASigner{CSA: keyStore.CSA()})
-	// Emit node configuration through beholder
-	s.EmitNodeConfig(ctx)
-	// If log streaming is enabled swap core to add Otel
-	if s.Config.Telemetry().LogStreamingEnabled() {
-		if s.SetOtelCore == nil {
-			return errors.New("Shell.SetOtelCore is nil")
-		}
-		otelLogger := beholder.GetLogger()
-		logLevel := s.Config.Telemetry().LogLevel()
-		otelCore := otelzap.NewCore(otelLogger, otelzap.WithLevel(logLevel))
-
-		s.SetOtelCore(otelCore)
-		lggr.Info("Log streaming enabled")
+	// Wire log streaming before Start so ChipIngressLogger and other internals
+	// see the OTel-backed logger core.
+	if err = s.setupLogStreaming(); err != nil {
+		return err
 	}
 
+	// Start the beholder client after log streaming is wired.
+	if err = s.BeholderClient.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start beholder client: %w", err)
+	}
+
+	if s.Config.Telemetry().Enabled() {
+		s.EmitNodeConfig(ctx)
+	}
+
+	return nil
+}
+
+func (s *Shell) setupLogStreaming() error {
+	if !s.Config.Telemetry().LogStreamingEnabled() {
+		return nil
+	}
+	if s.SetOtelCore == nil {
+		return errors.New("Shell.SetOtelCore is nil")
+	}
+	logLevel := s.Config.Telemetry().LogLevel()
+	otelCore := otelzap.NewCore(s.BeholderClient.Logger, otelzap.WithLevel(logLevel))
+	s.SetOtelCore(otelCore)
+	s.Logger.Info("Log streaming enabled")
 	return nil
 }
 
@@ -1241,8 +1262,13 @@ func (s *Shell) afterNode(lggr logger.SugaredLogger) {
 		}
 		lggr.Debug("Closed DB")
 
-		if err := s.CloseLogger(); err != nil {
-			log.Printf("Failed to close Logger: %v", err)
+		if s.CloseLogger != nil {
+			if err := s.CloseLogger(); err != nil {
+				log.Printf("Failed to close Logger: %v", err)
+			}
+		}
+		if err := s.BeholderClient.Close(); err != nil {
+			log.Printf("Failed to close Beholder client: %v", err)
 		}
 	})
 }

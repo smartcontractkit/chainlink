@@ -1,7 +1,6 @@
 package vrfv2
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"testing"
@@ -22,8 +21,8 @@ import (
 
 func TestVRFv2MultipleSendingKeys(t *testing.T) {
 	t.Cleanup(func() {
-		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-		require.NoError(t, cErr, "failed to save container logs")
+		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
+		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
 	})
 
 	outputFile := "../../env-vrfv2-out.toml"

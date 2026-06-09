@@ -195,9 +195,9 @@ func stopLocalResources(ctx context.Context, relativePathToRepoRoot string, remo
 	}
 
 	if removeAllState {
-		stopBeholderErr := stopBeholder()
-		if stopBeholderErr != nil {
-			framework.L.Warn().Msgf("failed to stop Beholder: %s", stopBeholderErr)
+		stopChipIngressStackErr := stopChipIngressStack()
+		if stopChipIngressStackErr != nil {
+			framework.L.Warn().Msgf("failed to stop Chip Ingress stack: %s", stopChipIngressStackErr)
 		}
 
 		stopBillingErr := stopBilling()

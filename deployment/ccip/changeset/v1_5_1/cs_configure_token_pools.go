@@ -20,16 +20,18 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
 	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
@@ -52,12 +54,24 @@ var (
 )
 
 // RateLimiterConfig defines the inbound and outbound rate limits for a remote chain.
+//
+// Inbound and Outbound are pointer-typed and optional at the input layer:
+//   - For EVM ChainUpdates (RateLimiterPerChain): at least one of Inbound or Outbound must be
+//     provided. When the remote chain is already supported by the pool, the missing side is
+//     read from on-chain at apply time and left unchanged. When the remote chain is not yet
+//     supported, both sides MUST be provided (we have no on-chain value to fall back to).
+//   - For Solana, Aptos, and Sui chain updates the partial-update semantics do NOT apply;
+//     both Inbound and Outbound are required.
 type RateLimiterConfig struct {
 	// Inbound is the rate limiter config for inbound transfers from a remote chain.
-	Inbound token_pool.RateLimiterConfig `json:"inbound"`
+	// When nil for an EVM ChainUpdates entry against an already-supported remote chain, the
+	// existing on-chain inbound config is preserved.
+	Inbound *token_pool.RateLimiterConfig `json:"inbound,omitempty"`
 
 	// Outbound is the rate limiter config for outbound transfers to a remote chain.
-	Outbound token_pool.RateLimiterConfig `json:"outbound"`
+	// When nil for an EVM ChainUpdates entry against an already-supported remote chain, the
+	// existing on-chain outbound config is preserved.
+	Outbound *token_pool.RateLimiterConfig `json:"outbound,omitempty"`
 }
 
 // validateRateLimterConfig validates rate and capacity in accordance with on-chain code.
@@ -76,18 +90,99 @@ func validateRateLimiterConfig(rateLimiterConfig token_pool.RateLimiterConfig) e
 	return nil
 }
 
+// validateBidirectional ensures both Inbound and Outbound are set and individually valid.
+// Used by chain families (Solana, Aptos, Sui) that require both sides to be supplied.
+func (c RateLimiterConfig) validateBidirectional() error {
+	if c.Inbound == nil {
+		return errors.New("inbound rate limiter config must be set")
+	}
+
+	if c.Outbound == nil {
+		return errors.New("outbound rate limiter config must be set")
+	}
+
+	if err := validateRateLimiterConfig(*c.Inbound); err != nil {
+		return fmt.Errorf("validation of inbound rate limiter config failed: %w", err)
+	}
+
+	if err := validateRateLimiterConfig(*c.Outbound); err != nil {
+		return fmt.Errorf("validation of outbound rate limiter config failed: %w", err)
+	}
+
+	return nil
+}
+
+// resolvePartialRateLimiterConfig returns the inbound and outbound rate limiter configs to
+// pass to SetChainRateLimiterConfigs for an already-supported remote chain. When either side
+// of the supplied chainUpdate is nil, the corresponding side is fetched from on-chain so that
+// it remains unchanged after the call. At least one of Inbound/Outbound MUST be non-nil; this
+// is enforced by RateLimiterPerChain.Validate prior to reaching this point, but we re-check
+// defensively to surface a clear error if invoked elsewhere.
+func resolvePartialRateLimiterConfig(
+	ctx context.Context,
+	tokenPool *token_pool.TokenPool,
+	remoteChainSelector uint64,
+	chainUpdate RateLimiterConfig,
+) (inbound token_pool.RateLimiterConfig, outbound token_pool.RateLimiterConfig, err error) {
+	if chainUpdate.Inbound == nil && chainUpdate.Outbound == nil {
+		return token_pool.RateLimiterConfig{}, token_pool.RateLimiterConfig{}, errors.New("at least one of inbound or outbound rate limiter config must be set")
+	}
+
+	if chainUpdate.Inbound != nil {
+		inbound = *chainUpdate.Inbound
+	} else {
+		state, fetchErr := tokenPool.GetCurrentInboundRateLimiterState(&bind.CallOpts{Context: ctx}, remoteChainSelector)
+		if fetchErr != nil {
+			return token_pool.RateLimiterConfig{}, token_pool.RateLimiterConfig{}, fmt.Errorf("failed to fetch on-chain inbound rate limiter state: %w", fetchErr)
+		}
+
+		inbound = token_pool.RateLimiterConfig{
+			IsEnabled: state.IsEnabled,
+			Capacity:  state.Capacity,
+			Rate:      state.Rate,
+		}
+	}
+
+	if chainUpdate.Outbound != nil {
+		outbound = *chainUpdate.Outbound
+	} else {
+		state, fetchErr := tokenPool.GetCurrentOutboundRateLimiterState(&bind.CallOpts{Context: ctx}, remoteChainSelector)
+		if fetchErr != nil {
+			return token_pool.RateLimiterConfig{}, token_pool.RateLimiterConfig{}, fmt.Errorf("failed to fetch on-chain outbound rate limiter state: %w", fetchErr)
+		}
+
+		outbound = token_pool.RateLimiterConfig{
+			IsEnabled: state.IsEnabled,
+			Capacity:  state.Capacity,
+			Rate:      state.Rate,
+		}
+	}
+
+	return inbound, outbound, nil
+}
+
 // RateLimiterPerChain defines rate limits for remote chains.
 type RateLimiterPerChain map[uint64]RateLimiterConfig
 
 func (c RateLimiterPerChain) Validate() error {
 	for chainSelector, chainConfig := range c {
-		if err := validateRateLimiterConfig(chainConfig.Inbound); err != nil {
-			return fmt.Errorf("validation of inbound rate limiter config for remote chain with selector %d failed: %w", chainSelector, err)
+		if chainConfig.Inbound == nil && chainConfig.Outbound == nil {
+			return fmt.Errorf("rate limiter config for remote chain with selector %d must define at least one of inbound or outbound", chainSelector)
 		}
-		if err := validateRateLimiterConfig(chainConfig.Outbound); err != nil {
-			return fmt.Errorf("validation of outbound rate limiter config for remote chain with selector %d failed: %w", chainSelector, err)
+
+		if chainConfig.Inbound != nil {
+			if err := validateRateLimiterConfig(*chainConfig.Inbound); err != nil {
+				return fmt.Errorf("validation of inbound rate limiter config for remote chain with selector %d failed: %w", chainSelector, err)
+			}
+		}
+
+		if chainConfig.Outbound != nil {
+			if err := validateRateLimiterConfig(*chainConfig.Outbound); err != nil {
+				return fmt.Errorf("validation of outbound rate limiter config for remote chain with selector %d failed: %w", chainSelector, err)
+			}
 		}
 	}
+
 	return nil
 }
 
@@ -146,12 +241,10 @@ func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state solanastateview.CCIPCha
 }
 
 func (c SolChainUpdate) Validate(state solanastateview.CCIPChainState) error {
-	if err := validateRateLimiterConfig(c.RateLimiterConfig.Inbound); err != nil {
-		return fmt.Errorf("validation of inbound rate limiter config for solana chain failed: %w", err)
+	if err := c.RateLimiterConfig.validateBidirectional(); err != nil {
+		return fmt.Errorf("rate limiter config for solana chain is invalid: %w", err)
 	}
-	if err := validateRateLimiterConfig(c.RateLimiterConfig.Outbound); err != nil {
-		return fmt.Errorf("validation of outbound rate limiter config for solana chain failed: %w", err)
-	}
+
 	_, _, err := c.GetSolanaTokenAndTokenPool(state)
 	if err != nil {
 		return fmt.Errorf("failed to get solana token and token pool: %w", err)
@@ -190,6 +283,19 @@ func (c AptosChainUpdate) GetAptosTokenAndTokenPool(state aptosstate.CCIPChainSt
 		return aptos.AccountAddress{}, aptos.AccountAddress{}, fmt.Errorf("no token pool found for token: %s", token.StringLong())
 	}
 	return token, tokenPoolAddress, nil
+}
+
+func (c AptosChainUpdate) Validate(state aptosstate.CCIPChainState) error {
+	if err := c.RateLimiterConfig.validateBidirectional(); err != nil {
+		return fmt.Errorf("rate limiter config for aptos chain is invalid: %w", err)
+	}
+
+	_, _, err := c.GetAptosTokenAndTokenPool(state)
+	if err != nil {
+		return fmt.Errorf("failed to get aptos token and token pool: %w", err)
+	}
+
+	return nil
 }
 
 // SuiChainUpdate defines the rate limits and token address for an Sui chain.
@@ -235,8 +341,24 @@ func (c SuiChainUpdate) GetSuiTokenAndTokenPool(state suistate.CCIPChainState) (
 	return c.TokenAddress, tpAddress, nil
 }
 
+func (c SuiChainUpdate) Validate(state suistate.CCIPChainState) error {
+	if err := c.RateLimiterConfig.validateBidirectional(); err != nil {
+		return fmt.Errorf("rate limiter config for sui chain is invalid: %w", err)
+	}
+
+	_, _, err := c.GetSuiTokenAndTokenPool(state)
+	if err != nil {
+		return fmt.Errorf("failed to get sui token and token pool: %w", err)
+	}
+
+	return nil
+}
+
 // TokenPoolConfig defines all the information required of the user to configure a token pool.
 type TokenPoolConfig struct {
+	// Address targets specific pool on-chain without looking it up based on the provided token.
+	Address common.Address
+
 	// ChainUpdates defines the chains and corresponding rate limits that should be defined on the token pool.
 	ChainUpdates RateLimiterPerChain `json:"chainUpdates"`
 
@@ -282,15 +404,34 @@ func (c TokenPoolConfig) Validate(ctx context.Context, chain cldf_evm.Chain, cci
 		return fmt.Errorf("%s is not a known token pool version", c.Version)
 	}
 
-	if c.OverrideTokenSymbol != "" {
+	if c.Address == (common.Address{}) && tokenSymbol == "" {
+		return errors.New("address or token symbol must be defined")
+	}
+
+	if c.Address != (common.Address{}) && tokenSymbol != "" {
+		return errors.New("address and token symbol cannot both be defined")
+	}
+
+	if c.Address != (common.Address{}) && c.OverrideTokenSymbol != "" {
+		return errors.New("cannot use both address and override token symbol to identify the token pool")
+	} else if c.OverrideTokenSymbol != "" {
 		tokenSymbol = c.OverrideTokenSymbol
 	}
 
-	// Ensure that a pool with given symbol, type and version is known to the environment
-	tokenPoolAddress, ok := GetTokenPoolAddressFromSymbolTypeAndVersion(chainState, chain, tokenSymbol, c.Type, c.Version)
-	if !ok {
-		return fmt.Errorf("token pool does not exist on %s with symbol %s, type %s, and version %s", chain.String(), tokenSymbol, c.Type, c.Version)
+	var tokenPoolAddress common.Address
+
+	if tokenSymbol != "" {
+		// Ensure that a pool with given symbol, type and version is known to the environment
+		tokenPoolFromTokenSymbol, ok := GetTokenPoolAddressFromSymbolTypeAndVersion(chainState, chain, tokenSymbol, c.Type, c.Version)
+		if !ok {
+			return fmt.Errorf("token pool does not exist on %s with symbol %s, type %s, and version %s", chain.String(), tokenSymbol, c.Type, c.Version)
+		}
+
+		tokenPoolAddress = tokenPoolFromTokenSymbol
+	} else {
+		tokenPoolAddress = c.Address
 	}
+
 	// skips ownership check while running e2e token pool deployment + configuration, as the pool isn't yet owned by timelock
 	if !c.SkipOwnershipValidation {
 		tokenPool, err := token_pool.NewTokenPool(tokenPoolAddress, chain.Client)
@@ -299,7 +440,7 @@ func (c TokenPoolConfig) Validate(ctx context.Context, chain cldf_evm.Chain, cci
 		}
 
 		// Validate that the token pool is owned by the address that will be actioning the transactions (i.e. Timelock or deployer key)
-		if err := commoncs.ValidateOwnership(ctx, useMcms, chain.DeployerKey.From, chainState.Timelock.Address(), tokenPool); err != nil {
+		if err := mcmschangesets.ValidateOwnership(ctx, useMcms, chain.DeployerKey.From, chainState.Timelock.Address(), tokenPool); err != nil {
 			return fmt.Errorf("token pool with address %s on %s failed ownership validation: %w", tokenPoolAddress, chain.String(), err)
 		}
 	}
@@ -320,26 +461,48 @@ func (c TokenPoolConfig) Validate(ctx context.Context, chain cldf_evm.Chain, cci
 		}
 	}
 
+	// Validate Aptos chain configurations
+	for remoteChainSelector, aptosChainUpdate := range c.AptosChainUpdates {
+		aptosChain, ok := ccipState.AptosChains[remoteChainSelector]
+		if !ok {
+			return fmt.Errorf("aptos chain with selector %d does not exist in environment", remoteChainSelector)
+		}
+		if err := aptosChainUpdate.Validate(aptosChain); err != nil {
+			return fmt.Errorf("failed to validate aptos chain update for chain with selector %d: %w", remoteChainSelector, err)
+		}
+	}
+
+	// Validate Sui chain configurations
+	for remoteChainSelector, suiChainUpdate := range c.SuiChainUpdates {
+		suiChain, ok := ccipState.SuiChains[remoteChainSelector]
+		if !ok {
+			return fmt.Errorf("sui chain with selector %d does not exist in environment", remoteChainSelector)
+		}
+		if err := suiChainUpdate.Validate(suiChain); err != nil {
+			return fmt.Errorf("failed to validate sui chain update for chain with selector %d: %w", remoteChainSelector, err)
+		}
+	}
+
 	return nil
 }
 
 // ConfigureTokenPoolContractsConfig is the configuration for the ConfigureTokenPoolContractsConfig changeset.
 type ConfigureTokenPoolContractsConfig struct {
 	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
-	MCMS *proposalutils.TimelockConfig
+	MCMS *cldfproposalutils.TimelockConfig
+
 	// PoolUpdates defines the changes that we want to make to the token pool on a chain
 	PoolUpdates map[uint64]TokenPoolConfig
+
 	// Symbol is the symbol of the token of interest.
 	TokenSymbol shared.TokenSymbol
+
 	// Unidirectional indicates whether the rate limit applies in only one direction.
 	// If false (default), validation enforces bidirectional limits.
 	Unidirectional bool
 }
 
 func (c ConfigureTokenPoolContractsConfig) Validate(env cldf.Environment) error {
-	if c.TokenSymbol == "" {
-		return errors.New("token symbol must be defined")
-	}
 	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -446,9 +609,18 @@ func configureTokenPool(
 		tokenSymbol = poolUpdate.OverrideTokenSymbol
 	}
 	chain := chains[chainSelector]
-	tokenPool, _, tokenConfig, err := GetTokenStateFromPoolEVM(ctx, tokenSymbol, poolUpdate.Type, poolUpdate.Version, chain, state.Chains[chainSelector])
-	if err != nil {
-		return fmt.Errorf("failed to get token state from pool with address %s on %s: %w", tokenPool.Address(), chain.String(), err)
+
+	var tokenPool *token_pool.TokenPool
+	var tokenConfig token_admin_registry.TokenAdminRegistryTokenConfig
+
+	if tokenSymbol != "" {
+		tokenPoolFromTokenSymbol, _, tokenConfigFromTokenSymbol, err := GetTokenStateFromPoolEVM(ctx, tokenSymbol, poolUpdate.Type, poolUpdate.Version, chain, state.Chains[chainSelector])
+		if err != nil {
+			return fmt.Errorf("failed to get token state from pool with address %s on %s: %w", tokenPoolFromTokenSymbol.Address(), chain.String(), err)
+		}
+
+		tokenPool = tokenPoolFromTokenSymbol
+		tokenConfig = tokenConfigFromTokenSymbol
 	}
 
 	// For adding chain support
@@ -462,6 +634,15 @@ func configureTokenPool(
 	remotePoolAddressAdditions := make(map[uint64][]byte)
 
 	for remoteChainSelector, chainUpdate := range poolUpdate.SolChainUpdates {
+		// Solana does not support partial rate limiter updates; both Inbound and Outbound
+		// are required and must each pass on-chain validation rules.
+		if err := chainUpdate.RateLimiterConfig.validateBidirectional(); err != nil {
+			return fmt.Errorf("rate limiter config for solana remote chain with selector %d is invalid: %w", remoteChainSelector, err)
+		}
+
+		inboundCfg := *chainUpdate.RateLimiterConfig.Inbound
+		outboundCfg := *chainUpdate.RateLimiterConfig.Outbound
+
 		remoteTokenAddress, remotePoolAddress, err := chainUpdate.GetSolanaTokenAndTokenPool(state.SolChains[remoteChainSelector])
 		if err != nil {
 			return fmt.Errorf("failed to get solana token and token pool for chain with selector %d: %w", remoteChainSelector, err)
@@ -502,8 +683,8 @@ func configureTokenPool(
 					remotePoolAddressAdditions[remoteChainSelector] = common.LeftPadBytes(remotePoolAddress.Bytes(), 32)
 					// Also update rate limits
 					remoteChainSelectorsToUpdate = append(remoteChainSelectorsToUpdate, remoteChainSelector)
-					updatedOutboundConfigs = append(updatedOutboundConfigs, chainUpdate.RateLimiterConfig.Outbound)
-					updatedInboundConfigs = append(updatedInboundConfigs, chainUpdate.RateLimiterConfig.Inbound)
+					updatedOutboundConfigs = append(updatedOutboundConfigs, outboundCfg)
+					updatedInboundConfigs = append(updatedInboundConfigs, inboundCfg)
 				} else {
 					// Default behavior: Remove & later re-add the chain (spot replacement)
 					chainRemovals = append(chainRemovals, remoteChainSelector)
@@ -512,16 +693,16 @@ func configureTokenPool(
 			default:
 				// Remote pool is already supported, just update the rate limits
 				remoteChainSelectorsToUpdate = append(remoteChainSelectorsToUpdate, remoteChainSelector)
-				updatedOutboundConfigs = append(updatedOutboundConfigs, chainUpdate.RateLimiterConfig.Outbound)
-				updatedInboundConfigs = append(updatedInboundConfigs, chainUpdate.RateLimiterConfig.Inbound)
+				updatedOutboundConfigs = append(updatedOutboundConfigs, outboundCfg)
+				updatedInboundConfigs = append(updatedInboundConfigs, inboundCfg)
 			}
 		}
 
 		if addChain {
 			chainAdditions = append(chainAdditions, token_pool.TokenPoolChainUpdate{
 				RemoteChainSelector:       remoteChainSelector,
-				InboundRateLimiterConfig:  chainUpdate.RateLimiterConfig.Inbound,
-				OutboundRateLimiterConfig: chainUpdate.RateLimiterConfig.Outbound,
+				InboundRateLimiterConfig:  inboundCfg,
+				OutboundRateLimiterConfig: outboundCfg,
 				RemoteTokenAddress:        common.LeftPadBytes(remoteTokenAddress.Bytes(), 32),
 				RemotePoolAddresses:       [][]byte{common.LeftPadBytes(remotePoolAddress.Bytes(), 32)},
 			})
@@ -529,6 +710,14 @@ func configureTokenPool(
 	}
 
 	for remoteChainSelector, chainUpdate := range poolUpdate.AptosChainUpdates {
+		// Aptos does not support partial rate limiter updates; both Inbound and Outbound
+		// are required and must each pass on-chain validation rules.
+		if err := chainUpdate.RateLimiterConfig.validateBidirectional(); err != nil {
+			return fmt.Errorf("rate limiter config for aptos remote chain with selector %d is invalid: %w", remoteChainSelector, err)
+		}
+		inboundCfg := *chainUpdate.RateLimiterConfig.Inbound
+		outboundCfg := *chainUpdate.RateLimiterConfig.Outbound
+
 		remoteTokenAddress, remotePoolAddress, err := chainUpdate.GetAptosTokenAndTokenPool(state.AptosChains[remoteChainSelector])
 		if err != nil {
 			return fmt.Errorf("failed to get Aptos token and token pool for chain with selector %d: %w", remoteChainSelector, err)
@@ -540,8 +729,8 @@ func configureTokenPool(
 		if isSupportedChain {
 			// Just update the rate limits if the chain is already supported
 			remoteChainSelectorsToUpdate = append(remoteChainSelectorsToUpdate, remoteChainSelector)
-			updatedOutboundConfigs = append(updatedOutboundConfigs, chainUpdate.RateLimiterConfig.Outbound)
-			updatedInboundConfigs = append(updatedInboundConfigs, chainUpdate.RateLimiterConfig.Inbound)
+			updatedOutboundConfigs = append(updatedOutboundConfigs, outboundCfg)
+			updatedInboundConfigs = append(updatedInboundConfigs, inboundCfg)
 
 			// Also, add a new remote pool if the token pool on the remote chain is being updated
 			configuredRemotePools, err := tokenPool.GetRemotePools(&bind.CallOpts{Context: ctx}, remoteChainSelector)
@@ -562,8 +751,8 @@ func configureTokenPool(
 		} else {
 			chainAdditions = append(chainAdditions, token_pool.TokenPoolChainUpdate{
 				RemoteChainSelector:       remoteChainSelector,
-				InboundRateLimiterConfig:  chainUpdate.RateLimiterConfig.Inbound,
-				OutboundRateLimiterConfig: chainUpdate.RateLimiterConfig.Outbound,
+				InboundRateLimiterConfig:  inboundCfg,
+				OutboundRateLimiterConfig: outboundCfg,
 				RemoteTokenAddress:        common.LeftPadBytes(remoteTokenAddress[:], 32),
 				RemotePoolAddresses:       [][]byte{common.LeftPadBytes(remotePoolAddress[:], 32)},
 			})
@@ -571,6 +760,14 @@ func configureTokenPool(
 	}
 
 	for remoteChainSelector, chainUpdate := range poolUpdate.SuiChainUpdates {
+		// Sui does not support partial rate limiter updates; both Inbound and Outbound
+		// are required and must each pass on-chain validation rules.
+		if err := chainUpdate.RateLimiterConfig.validateBidirectional(); err != nil {
+			return fmt.Errorf("rate limiter config for sui remote chain with selector %d is invalid: %w", remoteChainSelector, err)
+		}
+		inboundCfg := *chainUpdate.RateLimiterConfig.Inbound
+		outboundCfg := *chainUpdate.RateLimiterConfig.Outbound
+
 		remoteTokenAddressStr, remotePoolAddressStr, err := chainUpdate.GetSuiTokenAndTokenPool(state.SuiChains[remoteChainSelector])
 		if err != nil {
 			return fmt.Errorf("failed to get Sui token and token pool for chain with selector %d: %w", remoteChainSelector, err)
@@ -593,8 +790,8 @@ func configureTokenPool(
 		if isSupportedChain {
 			// Just update the rate limits if the chain is already supported
 			remoteChainSelectorsToUpdate = append(remoteChainSelectorsToUpdate, remoteChainSelector)
-			updatedOutboundConfigs = append(updatedOutboundConfigs, chainUpdate.RateLimiterConfig.Outbound)
-			updatedInboundConfigs = append(updatedInboundConfigs, chainUpdate.RateLimiterConfig.Inbound)
+			updatedOutboundConfigs = append(updatedOutboundConfigs, outboundCfg)
+			updatedInboundConfigs = append(updatedInboundConfigs, inboundCfg)
 
 			// Also, add a new remote pool if the token pool on the remote chain is being updated
 			configuredRemotePools, err := tokenPool.GetRemotePools(&bind.CallOpts{Context: ctx}, remoteChainSelector)
@@ -617,12 +814,22 @@ func configureTokenPool(
 		} else {
 			chainAdditions = append(chainAdditions, token_pool.TokenPoolChainUpdate{
 				RemoteChainSelector:       remoteChainSelector,
-				InboundRateLimiterConfig:  chainUpdate.RateLimiterConfig.Inbound,
-				OutboundRateLimiterConfig: chainUpdate.RateLimiterConfig.Outbound,
+				InboundRateLimiterConfig:  inboundCfg,
+				OutboundRateLimiterConfig: outboundCfg,
 				RemoteTokenAddress:        common.LeftPadBytes(remoteTokenAddress, 32),
 				RemotePoolAddresses:       [][]byte{common.LeftPadBytes(remotePoolAddress, 32)},
 			})
 		}
+	}
+
+	if poolUpdate.Address != (common.Address{}) {
+		tokenPoolFromAddress, _, tokenConfigFromAddress, err := GetTokenStateFromPoolByAddressEVM(ctx, poolUpdate.Address, poolUpdate.Type, poolUpdate.Version, chain, state.Chains[chainSelector])
+		if err != nil {
+			return fmt.Errorf("failed to get token state from pool with address %s on %s: %w", tokenPoolFromAddress.Address(), chain.String(), err)
+		}
+
+		tokenPool = tokenPoolFromAddress
+		tokenConfig = tokenConfigFromAddress
 	}
 
 	for remoteChainSelector, chainUpdate := range poolUpdate.ChainUpdates {
@@ -636,20 +843,52 @@ func configureTokenPool(
 		if remotePoolUpdate.OverrideTokenSymbol != "" {
 			tokenSymbol = remotePoolUpdate.OverrideTokenSymbol
 		}
-		remoteTokenPool, remoteTokenAddress, remoteTokenConfig, err := GetTokenStateFromPoolEVM(ctx, tokenSymbol, remotePoolUpdate.Type, remotePoolUpdate.Version, remoteChain, state.Chains[remoteChainSelector])
-		if err != nil {
-			return fmt.Errorf("failed to get token state from pool with address %s on %s: %w", tokenPool.Address(), chain.String(), err)
+
+		var remoteTokenPool *token_pool.TokenPool
+		var remoteTokenAddress common.Address
+		var remoteTokenConfig token_admin_registry.TokenAdminRegistryTokenConfig
+
+		if tokenSymbol != "" {
+			remoteTokenPoolFromSymbol, remoteTokenAddressFromSymbol, remoteTokenConfigFromSymbol, err := GetTokenStateFromPoolEVM(ctx, tokenSymbol, remotePoolUpdate.Type, remotePoolUpdate.Version, remoteChain, state.Chains[remoteChainSelector])
+			if err != nil {
+				return fmt.Errorf("failed to get token state from pool with address %s on %s: %w", remoteTokenPoolFromSymbol.Address(), chain.String(), err)
+			}
+
+			remoteTokenPool = remoteTokenPoolFromSymbol
+			remoteTokenAddress = remoteTokenAddressFromSymbol
+			remoteTokenConfig = remoteTokenConfigFromSymbol
+		} else {
+			remoteTokenPoolFromAddress, remoteTokenAddressFromAddress, remoteTokenConfigFromAddress, err := GetTokenStateFromPoolByAddressEVM(ctx, remotePoolUpdate.Address, remotePoolUpdate.Type, remotePoolUpdate.Version, remoteChain, state.Chains[remoteChainSelector])
+			if err != nil {
+				return fmt.Errorf("failed to get token state from pool with address %s on %s: %w", remoteTokenPoolFromAddress.Address(), chain.String(), err)
+			}
+
+			remoteTokenPool = remoteTokenPoolFromAddress
+			remoteTokenAddress = remoteTokenAddressFromAddress
+			remoteTokenConfig = remoteTokenConfigFromAddress
 		}
+
 		if isSupportedChain {
-			// Just update the rate limits if the chain is already supported
+			// Just update the rate limits if the chain is already supported.
+			// If only one of Inbound/Outbound is provided, fetch the other from on-chain so
+			// that the unspecified side is left unchanged.
+			inboundCfg, outboundCfg, err := resolvePartialRateLimiterConfig(ctx, tokenPool, remoteChainSelector, chainUpdate)
+			if err != nil {
+				return fmt.Errorf("failed to resolve rate limiter config for chain with selector %d on pool with address %s on %s: %w", remoteChainSelector, tokenPool.Address(), chain.String(), err)
+			}
+
 			remoteChainSelectorsToUpdate = append(remoteChainSelectorsToUpdate, remoteChainSelector)
-			updatedOutboundConfigs = append(updatedOutboundConfigs, chainUpdate.Outbound)
-			updatedInboundConfigs = append(updatedInboundConfigs, chainUpdate.Inbound)
+			updatedOutboundConfigs = append(updatedOutboundConfigs, outboundCfg)
+			updatedInboundConfigs = append(updatedInboundConfigs, inboundCfg)
 			// Also, add a new remote pool if the token pool on the remote chain is being updated
 			if remoteTokenConfig.TokenPool != utils.ZeroAddress && remoteTokenConfig.TokenPool != remoteTokenPool.Address() {
 				remotePoolAddressAdditions[remoteChainSelector] = common.LeftPadBytes(remoteTokenPool.Address().Bytes(), 32)
 			}
 		} else {
+			// Adding chain support requires both sides; we have no on-chain value to fall back to.
+			if chainUpdate.Inbound == nil || chainUpdate.Outbound == nil {
+				return fmt.Errorf("both inbound and outbound rate limiter configs must be set when adding new chain support for remote chain with selector %d on pool with address %s on %s", remoteChainSelector, tokenPool.Address(), chain.String())
+			}
 			// Add chain support if it doesn't yet exist
 			// First, we need to assemble a list of valid remote pools
 			// The desired token pool on the remote chain is added by default
@@ -674,8 +913,8 @@ func configureTokenPool(
 			}
 			chainAdditions = append(chainAdditions, token_pool.TokenPoolChainUpdate{
 				RemoteChainSelector:       remoteChainSelector,
-				InboundRateLimiterConfig:  chainUpdate.Inbound,
-				OutboundRateLimiterConfig: chainUpdate.Outbound,
+				InboundRateLimiterConfig:  *chainUpdate.Inbound,
+				OutboundRateLimiterConfig: *chainUpdate.Outbound,
 				RemoteTokenAddress:        common.LeftPadBytes(remoteTokenAddress.Bytes(), 32),
 				RemotePoolAddresses:       remotePoolAddresses,
 			})
@@ -709,7 +948,7 @@ func configureTokenPool(
 	return nil
 }
 
-// getTokenStateFromPool fetches the token config from the registry given the pool address
+// GetTokenStateFromPoolEVM fetches the token config from the registry given the pool address
 func GetTokenStateFromPoolEVM(
 	ctx context.Context,
 	symbol shared.TokenSymbol,
@@ -738,9 +977,33 @@ func GetTokenStateFromPoolEVM(
 	return tokenPool, tokenAddress, tokenConfig, nil
 }
 
+func GetTokenStateFromPoolByAddressEVM(
+	ctx context.Context,
+	address common.Address,
+	poolType cldf.ContractType,
+	version semver.Version,
+	chain cldf_evm.Chain,
+	state evm.CCIPChainState,
+) (*token_pool.TokenPool, common.Address, token_admin_registry.TokenAdminRegistryTokenConfig, error) {
+	tokenPool, err := token_pool.NewTokenPool(address, chain.Client)
+	if err != nil {
+		return nil, utils.ZeroAddress, token_admin_registry.TokenAdminRegistryTokenConfig{}, fmt.Errorf("failed to connect token pool with address %s on chain %s to token pool bindings: %w", address, chain, err)
+	}
+	tokenAddress, err := tokenPool.GetToken(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, utils.ZeroAddress, token_admin_registry.TokenAdminRegistryTokenConfig{}, fmt.Errorf("failed to get token from pool with address %s on %s: %w", tokenPool.Address(), chain.String(), err)
+	}
+	tokenAdminRegistry := state.TokenAdminRegistry
+	tokenConfig, err := tokenAdminRegistry.GetTokenConfig(&bind.CallOpts{Context: ctx}, tokenAddress)
+	if err != nil {
+		return nil, utils.ZeroAddress, token_admin_registry.TokenAdminRegistryTokenConfig{}, fmt.Errorf("failed to get config of token with address %s from registry on %s: %w", tokenAddress, chain.String(), err)
+	}
+	return tokenPool, tokenAddress, tokenConfig, nil
+}
+
 type ConfigureMultipleTokenPoolsConfig struct {
 	Tokens []*ConfigureTokenPoolContractsConfig
-	MCMS   *proposalutils.TimelockConfig // this will override the MCMS in the token pool configs
+	MCMS   *cldfproposalutils.TimelockConfig // this will override the MCMS in the token pool configs
 }
 
 func configureMultiplePoolPreconditionValidation(env cldf.Environment, c ConfigureMultipleTokenPoolsConfig) error {
@@ -779,9 +1042,14 @@ func ConfigureMultiplePoolLogic(env cldf.Environment, c ConfigureMultipleTokenPo
 	}
 	// if there are multiple proposals, aggregate them so that we don't have to propose them separately
 	if len(finalOutput.MCMSTimelockProposals) > 1 {
-		aggregatedProposals, err := proposalutils.AggregateProposals(
-			env, state.EVMMCMSStateByChain(), nil, finalOutput.MCMSTimelockProposals,
-			"Add Tokens E2E", c.MCMS)
+		aggregatedProposals, err := proposeutils.AggregateProposals( //nolint:staticcheck // SA1019: not migrating to AggregateProposalsV2 in this PR
+			env,
+			state.EVMMCMSStateByChain(),
+			nil,
+			finalOutput.MCMSTimelockProposals,
+			"Add Tokens E2E",
+			c.MCMS,
+		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
 		}

@@ -14,19 +14,20 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
-	changeset2 "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // TokenAdminRegistryChangesetConfig defines a config for all token admin registry actions.
 type TokenAdminRegistryChangesetConfig struct {
 	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
-	MCMS *proposalutils.TimelockConfig
+	MCMS *cldfproposalutils.TimelockConfig
 	// Pools defines the pools corresponding to the tokens we want to accept admin role for.
 	Pools map[uint64]map[shared.TokenSymbol]TokenPoolInfo
 	// SkipOwnershipValidation indicates whether or not to skip admin ownership validation of token in the registry.
@@ -74,7 +75,7 @@ func (c TokenAdminRegistryChangesetConfig) Validate(
 		// Validate that the token admin registry is owned by the address that will be actioning the transactions (i.e. Timelock or deployer key)
 		// However, most token admin registry actions aren't owner-protected. They just require you to be the admin.
 		if mustBeOwner {
-			if err := changeset2.ValidateOwnership(env.GetContext(), c.MCMS != nil, chain.DeployerKey.From, chainState.Timelock.Address(), chainState.TokenAdminRegistry); err != nil {
+			if err := mcmschangesets.ValidateOwnership(env.GetContext(), c.MCMS != nil, chain.DeployerKey.From, chainState.Timelock.Address(), chainState.TokenAdminRegistry); err != nil {
 				return fmt.Errorf("token admin registry failed ownership validation on %s: %w", chain, err)
 			}
 		}

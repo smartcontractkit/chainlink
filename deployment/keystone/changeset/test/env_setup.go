@@ -10,6 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -24,8 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	envtest "github.com/smartcontractkit/chainlink/deployment/environment/test"
@@ -142,7 +145,7 @@ func loadOneContract[T contracts.Ownable](t *testing.T, env cldf.Environment, ch
 	t.Helper()
 	addrs := env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(qualifier))
 	require.Len(t, addrs, 1)
-	c, err := contracts.GetOwnedContractV2[T](env.DataStore.Addresses(), chain, addrs[0].Address)
+	c, err := contracts.GetOwnedContractV2[T](env.DataStore.Addresses(), chain, addrs[0].Address, addrs[0].Qualifier)
 	require.NoError(t, err)
 	require.NotNil(t, c)
 	return c
@@ -155,7 +158,7 @@ func (te EnvWrapper) CapabilityRegistryAddressRef() datastore.AddressRefKey {
 }
 
 func (te EnvWrapper) ForwarderAddressRefs() []datastore.AddressRefKey {
-	addrs := te.Env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(forwarderQualifier))
+	addrs := te.Env.DataStore.Addresses().Filter(datastore.AddressRefByType(datastore.ContractType(contracts.KeystoneForwarder)), datastore.AddressRefByQualifier(forwarderQualifier))
 	require.NotEmpty(te.t, addrs)
 	out := make([]datastore.AddressRefKey, len(addrs))
 	for i, addr := range addrs {
@@ -164,12 +167,16 @@ func (te EnvWrapper) ForwarderAddressRefs() []datastore.AddressRefKey {
 	return out
 }
 
+func (te EnvWrapper) ForwarderQualifier() string {
+	return forwarderQualifier
+}
+
 func (te EnvWrapper) OwnedForwarders() map[uint64][]*contracts.OwnedContract[*forwarder.KeystoneForwarder] { // chain selector -> forwarders
-	addrs := te.Env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(forwarderQualifier))
+	addrs := te.Env.DataStore.Addresses().Filter(datastore.AddressRefByType(datastore.ContractType(contracts.KeystoneForwarder)), datastore.AddressRefByQualifier(forwarderQualifier))
 	require.NotEmpty(te.t, addrs)
 	out := make(map[uint64][]*contracts.OwnedContract[*forwarder.KeystoneForwarder])
 	for _, addr := range addrs {
-		c, err := contracts.GetOwnedContractV2[*forwarder.KeystoneForwarder](te.Env.DataStore.Addresses(), te.Env.BlockChains.EVMChains()[addr.ChainSelector], addr.Address)
+		c, err := contracts.GetOwnedContractV2[*forwarder.KeystoneForwarder](te.Env.DataStore.Addresses(), te.Env.BlockChains.EVMChains()[addr.ChainSelector], addr.Address, addr.Qualifier)
 		require.NoError(te.t, err)
 		require.NotNil(te.t, c)
 		out[addr.ChainSelector] = append(out[addr.ChainSelector], c)
@@ -374,14 +381,14 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 
 	if c.UseMCMS {
 		// deploy, configure and xfer ownership of MCMS on all chains
-		timelockCfgs := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
+		timelockCfgs := make(map[uint64]cldfproposalutils.MCMSWithTimelockConfig)
 		for sel := range evmChains {
 			t.Logf("Enabling MCMS on chain %d", sel)
-			timelockCfgs[sel] = proposalutils.SingleGroupTimelockConfigV2(t)
+			timelockCfgs[sel] = cldftesthelpers.SingleGroupTimelockConfig(t)
 		}
 		env, err = commonchangeset.Apply(t, env,
 			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+				cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
 				timelockCfgs,
 			),
 		)
