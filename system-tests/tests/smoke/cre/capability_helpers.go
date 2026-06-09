@@ -70,14 +70,14 @@ func scanOneContainerForTriggerEventACK(ctx context.Context, cancel context.Canc
 			return
 		}
 	}
-	if err := scanner.Err(); err != nil && !isExpectedLogStreamCloseErr(err, ctx) {
+	if err := scanner.Err(); err != nil && !isExpectedLogStreamCloseErr(ctx, err) {
 		lggr.Error().Err(err).Str("container", containerName).Msg("error reading container logs while scanning for Event ACK")
 	}
 }
 
 // isExpectedLogStreamCloseErr returns true when a follower goroutine exits because cleanup
 // closed the Docker log stream or cancelled the scan context after another container matched.
-func isExpectedLogStreamCloseErr(err error, ctx context.Context) bool {
+func isExpectedLogStreamCloseErr(ctx context.Context, err error) bool {
 	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrClosedPipe) || ctx.Err() != nil {
 		return true
 	}

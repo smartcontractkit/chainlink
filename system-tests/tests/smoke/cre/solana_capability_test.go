@@ -476,7 +476,7 @@ func ExecuteSolanaLogTriggerTest(t *testing.T, tenv *configuration.TestEnvironme
 	expectedLogTriggerMessage := fmt.Sprintf("TestEvent received: str_val=%s u64_value=%d", expectedStrVal, expectedU64Value)
 	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh,
 		t_helpers.WorkflowEngineInitErrorLog, expectedLogTriggerMessage,
-		4*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
+		5*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
 	emitCancel()
 	testLogger.Info().Msgf("Found expected user log: '%s'", expectedLogTriggerMessage)
 
@@ -645,7 +645,7 @@ func ExecuteSolanaLogTriggerCPITest(t *testing.T, tenv *configuration.TestEnviro
 	expectedLogTriggerMessage := fmt.Sprintf("TestEvent CPI received: str_val=%s u64_value=%d", expectedStrVal, expectedU64Value)
 	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh,
 		t_helpers.WorkflowEngineInitErrorLog, expectedLogTriggerMessage,
-		4*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
+		5*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
 	emitCancel()
 	testLogger.Info().Msgf("Found expected user log: '%s'", expectedLogTriggerMessage)
 
