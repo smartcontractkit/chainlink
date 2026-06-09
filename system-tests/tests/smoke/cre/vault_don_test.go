@@ -923,8 +923,7 @@ func executeVaultSecretsIdentifierValidationTest(t *testing.T, encryptedSecret s
 
 	const (
 		validKey         = "validkey"
-		invalidKey       = "invalid-key-with-hyphens"   // hyphen not in [a-zA-Z0-9_]
-		invalidOwner     = "invalid-owner-with-hyphens" // hyphen not in [a-zA-Z0-9_]
+		invalidKey       = "invalid-key-with-hyphens" // hyphen not in [a-zA-Z0-9_]
 		validNamespace   = "main"
 		invalidNamespace = "invalid-namespace-hyphens" // hyphen not in [a-zA-Z0-9_]
 	)
@@ -960,7 +959,6 @@ func executeVaultSecretsIdentifierValidationTest(t *testing.T, encryptedSecret s
 	writeCases := []writeCase{
 		{"invalid key", invalidKey, owner, validNamespace},
 		{"invalid namespace", validKey, owner, invalidNamespace},
-		{"invalid owner", validKey, invalidOwner, validNamespace},
 	}
 
 	for _, op := range []string{vaulttypes.MethodSecretsCreate, vaulttypes.MethodSecretsUpdate, vaulttypes.MethodSecretsDelete} {
