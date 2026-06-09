@@ -90,6 +90,7 @@ func TestFilterNamesFromSpec21(t *testing.T) {
 }
 
 func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
+	t.Parallel()
 	g := gomega.NewWithT(t)
 	lggr := logger.TestLogger(t)
 

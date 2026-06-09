@@ -104,6 +104,7 @@ func TestORM_FindBridge(t *testing.T) {
 	}
 }
 func TestORM_UpdateBridgeType(t *testing.T) {
+	t.Parallel()
 	ctx := testutils.Context(t)
 	_, orm := setupORM(t)
 
@@ -139,6 +140,7 @@ func TestORM_UpdateBridgeType(t *testing.T) {
 }
 
 func TestORM_TestCachedResponse(t *testing.T) {
+	t.Parallel()
 	ctx := testutils.Context(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	db := pgtest.NewSqlxDB(t)
@@ -161,6 +163,7 @@ func TestORM_TestCachedResponse(t *testing.T) {
 }
 
 func TestORM_CreateExternalInitiator(t *testing.T) {
+	t.Parallel()
 	ctx := testutils.Context(t)
 	_, orm := setupORM(t)
 
@@ -179,6 +182,7 @@ func TestORM_CreateExternalInitiator(t *testing.T) {
 }
 
 func TestORM_DeleteExternalInitiator(t *testing.T) {
+	t.Parallel()
 	ctx := testutils.Context(t)
 	_, orm := setupORM(t)
 

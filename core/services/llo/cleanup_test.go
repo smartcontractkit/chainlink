@@ -55,6 +55,7 @@ func makeSampleTransmission(seqNr uint64, sURL string) *mercurytransmitter.Trans
 }
 
 func Test_Cleanup(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	lp := &mockLogPoller{}
@@ -95,9 +96,11 @@ func Test_Cleanup(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("unregisters filter", func(t *testing.T) {
+		t.Parallel()
 		assert.Equal(t, []string{"OCR3 LLO ChannelDefinitionCachePoller - 0x0102030000000000000000000000000000000000:1"}, lp.unregisteredFilterNames)
 	})
 	t.Run("removes channel definitions", func(t *testing.T) {
+		t.Parallel()
 		pd, err := cdcorm.LoadChannelDefinitions(ctx, addr1, donID1)
 		require.NoError(t, err)
 		assert.Nil(t, pd)
@@ -106,6 +109,7 @@ func Test_Cleanup(t *testing.T) {
 		assert.NotNil(t, pd)
 	})
 	t.Run("does not remove transmissions", func(t *testing.T) {
+		t.Parallel()
 		trs, err := torm1.Get(ctx, srvURL1, 10, 0)
 		require.NoError(t, err)
 		assert.Len(t, trs, 1)
@@ -123,6 +127,7 @@ func Test_Cleanup(t *testing.T) {
 }
 
 func Test_StaleTransmissionReaper(t *testing.T) {
+	t.Parallel()
 	ds := pgtest.NewSqlxDB(t)
 	lggr := logger.Test(t)
 	tr := &transmissionReaper{ds: ds, lggr: lggr, maxAge: 24 * time.Hour}
@@ -156,6 +161,7 @@ WHERE transmission_hash IN (
 }
 
 func Test_OrphanedTransmissionReaper(t *testing.T) {
+	t.Parallel()
 	ds := pgtest.NewSqlxDB(t)
 	lggr := logger.Test(t)
 	tr := &transmissionReaper{ds: ds, lggr: lggr, maxAge: 24 * time.Hour}

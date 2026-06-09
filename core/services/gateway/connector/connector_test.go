@@ -111,6 +111,7 @@ URL = "ws://localhost:8081/node"
 	clock := clockwork.NewFakeClock()
 	for name, config := range invalidCases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			_, err := NewGatewayConnector(parseTOMLConfig(t, config), signer, clock, logger.Test(t))
 			require.Error(t, err)
 		})

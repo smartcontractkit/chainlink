@@ -465,6 +465,7 @@ func setupForwarderForNode(
 }
 
 func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
+	t.Parallel()
 	g := gomega.NewWithT(t)
 	lggr := logger.TestLogger(t)
 

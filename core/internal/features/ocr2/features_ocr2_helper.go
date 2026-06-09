@@ -223,6 +223,7 @@ func RunTestIntegrationOCR2(t *testing.T) {
 		{"chain-reader", true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			owner, b, ocrContractAddress, ocrContract, nodeConfig := SetupOCR2Contracts(t)
 
 			lggr := logger.TestLogger(t)

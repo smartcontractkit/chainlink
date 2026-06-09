@@ -1374,6 +1374,7 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 }
 
 func TestEngine_WASMBinary_Simple(t *testing.T) {
+	t.Parallel()
 	cmd := "core/services/workflows/test/wasm/v2/cmd"
 	log := logger.Test(t)
 	binaryB := wasmtest.CreateTestBinary(cmd, false, t)
@@ -1553,6 +1554,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 }
 
 func TestSecretsFetcher_Integration(t *testing.T) {
+	t.Parallel()
 	cmd := "core/services/workflows/test/wasm/v2/cmd/with_secrets"
 	binaryB := wasmtest.CreateTestBinary(cmd, false, t)
 
