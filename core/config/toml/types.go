@@ -390,8 +390,20 @@ type DatabaseSecrets struct {
 	AllowSimplePasswords *bool
 }
 
+func isTestDatabaseURL(dbURI url.URL) bool {
+	dbname := strings.TrimPrefix(dbURI.Path, "/")
+	if strings.Contains(dbname, "_test") {
+		return true
+	}
+	// pgtestdb template/instance databases (testdb_tpl_*_inst_*).
+	if strings.HasPrefix(dbname, "testdb_") {
+		return true
+	}
+	return false
+}
+
 func validateDBURL(dbURI url.URL) error {
-	if strings.Contains(dbURI.Redacted(), "_test") {
+	if isTestDatabaseURL(dbURI) {
 		return nil
 	}
 

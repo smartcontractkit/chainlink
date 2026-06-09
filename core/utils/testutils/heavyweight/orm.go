@@ -4,10 +4,8 @@ package heavyweight
 
 import (
 	"os"
-	"strings"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/jmoiron/sqlx"
@@ -28,7 +26,7 @@ import (
 // unit tests, so you can do things like use other Postgres connection types with it.
 func FullTestDBV2(t testing.TB, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
 	cfg, db := FullTestDBNoFixturesV2(t, overrideFn)
-	_, err := db.Exec(store.FixturesSQL())
+	_, err := db.ExecContext(t.Context(), store.FixturesSQL())
 	require.NoError(t, err)
 	return cfg, db
 }
@@ -43,15 +41,17 @@ func FullTestDBEmptyV2(t testing.TB, overrideFn func(c *chainlink.Config, s *cha
 	return prepareDB(t, false, overrideFn)
 }
 
-func generateName() string {
-	return strings.ReplaceAll(uuid.NewString(), "-", "")
-}
-
 func prepareDB(t testing.TB, withTemplate bool, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
 	tests.SkipShort(t, "FullTestDB")
 
+	dbURL := testdb.New(t, withTemplate)
+	dbStr := dbURL.String()
+
 	gcfg := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.DriverName = pgcommon.DriverPostgres
+		s.Database.URL = models.NewSecretURL((*commoncfg.URL)(dbURL))
+		// pgtestdb URLs use short passwords; validateDBURL exempts testdb_* database names.
+		s.Database.AllowSimplePasswords = new(false)
 		if overrideFn != nil {
 			overrideFn(c, s)
 		}
@@ -60,19 +60,9 @@ func prepareDB(t testing.TB, withTemplate bool, overrideFn func(c *chainlink.Con
 	require.NoError(t, os.MkdirAll(gcfg.RootDir(), 0700))
 	t.Cleanup(func() { os.RemoveAll(gcfg.RootDir()) })
 
-	migrationTestDBURL := testdb.CreateOrReplace(t, gcfg.Database().URL(), generateName(), withTemplate)
-	db, err := pg.NewConnection(t.Context(), migrationTestDBURL.String(), pgcommon.DriverPostgres, gcfg.Database())
+	db, err := pg.NewConnection(t.Context(), dbStr, pgcommon.DriverPostgres, gcfg.Database())
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, db.Close()) }) // must close before dropping
-
-	// reset with new URL
-	gcfg = configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Database.DriverName = pgcommon.DriverPostgres
-		s.Database.URL = models.NewSecretURL((*commoncfg.URL)(&migrationTestDBURL))
-		if overrideFn != nil {
-			overrideFn(c, s)
-		}
-	})
 
 	return gcfg, db
 }

@@ -52,7 +52,7 @@ func ExecuteModuleCacheTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	}
 
 	const numWorkflows = 10
-	for i := 0; i < numWorkflows; i++ {
+	for i := range numWorkflows {
 		t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, fmt.Sprintf("cachetest%d", i), &workflowConfig, workflowFileLocation)
 	}
 	testLogger.Info().Int("count", numWorkflows).Msg("All cache-test workflows deployed")
