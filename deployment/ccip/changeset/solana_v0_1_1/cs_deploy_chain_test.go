@@ -9,9 +9,11 @@ import (
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
-	linkchangesets "github.com/smartcontractkit/cld-changesets/link/changesets"
+	linkchangesets "github.com/smartcontractkit/cld-changesets/tokens/link/changesets"
 	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deploylink"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
@@ -58,12 +60,10 @@ func initialDeployCS(t *testing.T, e cldf.Environment, buildConfig *ccipChangese
 			},
 		),
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(linkchangesets.DeploySolanaLinkToken),
-			linkchangesets.DeploySolanaLinkTokenConfig{
-				ChainSelector: solChainSelectors[0],
-				TokenPrivKey:  solLinkTokenPrivKey,
-				TokenDecimals: 9,
-			},
+			deploylink.DeployLinkTokenChangeset{},
+			linkchangesets.DeployLinkTokenInput{Solana: map[uint64]linkchangesets.SolanaLinkConfig{
+				solChainSelectors[0]: {TokenPrivKey: solLinkTokenPrivKey, TokenDecimals: 9},
+			}},
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),

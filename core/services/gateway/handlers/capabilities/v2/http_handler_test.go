@@ -38,7 +38,7 @@ func TestNewGatewayHandler(t *testing.T) {
 		mockHTTPClient := httpmocks.NewHTTPClient(t)
 		lggr := logger.Test(t)
 
-		handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr})
+		handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory)
 		require.NoError(t, err)
 		require.NotNil(t, handler)
 		require.NotNil(t, handler.responseCache)
@@ -53,7 +53,7 @@ func TestNewGatewayHandler(t *testing.T) {
 		mockHTTPClient := httpmocks.NewHTTPClient(t)
 		lggr := logger.Test(t)
 
-		handler, err := NewGatewayHandler(invalidConfig, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr})
+		handler, err := NewGatewayHandler(invalidConfig, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory)
 		require.Error(t, err)
 		require.Nil(t, handler)
 	})
@@ -70,7 +70,7 @@ func TestNewGatewayHandler(t *testing.T) {
 		mockHTTPClient := httpmocks.NewHTTPClient(t)
 		lggr := logger.Test(t)
 
-		handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr})
+		handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory)
 		require.NoError(t, err)
 		require.NotNil(t, handler)
 		require.Equal(t, defaultCleanUpPeriodMs, handler.config.CleanUpPeriodMs) // Default value
@@ -431,7 +431,7 @@ func TestGatewayHandler_Start_CallsDeleteExpired(t *testing.T) {
 	mockHTTPClient := httpmocks.NewHTTPClient(t)
 	lggr := logger.Test(t)
 
-	handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr})
+	handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory)
 	require.NoError(t, err)
 	require.NotNil(t, handler)
 	mockCache := newMockResponseCache()
@@ -484,7 +484,7 @@ func createTestHandlerWithConfig(t *testing.T, cfg ServiceConfig) *gatewayHandle
 	mockHTTPClient := httpmocks.NewHTTPClient(t)
 	lggr := logger.Test(t)
 
-	handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr})
+	handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory)
 	require.NoError(t, err)
 	require.NotNil(t, handler)
 
@@ -921,4 +921,184 @@ func TestGatewayHandler_MakeOutgoingRequest_NodeRateLimiting(t *testing.T) {
 		require.Contains(t, err.Error(), "global rate limit exceeded")
 		handler.wg.Wait()
 	})
+}
+
+// defaultTestHTTPClientFactory returns a factory that always errors. Tests that
+// exercise the mTLS path inject their own factory via handler.httpClientFactory.
+var defaultTestHTTPClientFactory network.HTTPClientFactory = func(config network.HTTPClientConfig) (network.HTTPClient, error) {
+	return nil, errors.New("httpClientFactory not configured for this test")
+}
+
+func TestGatewayHandler_Send_NoMtls_UsesDefaultClient(t *testing.T) {
+	handler := createTestHandler(t)
+	mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
+
+	httpReq := network.HTTPRequest{Method: "GET", URL: "https://example.com/api"}
+	outboundReq := gateway_common.OutboundHTTPRequest{Method: "GET", URL: "https://example.com/api"}
+
+	expectedResp := &network.HTTPResponse{StatusCode: 200, Body: []byte("ok")}
+	mockHTTPClient.EXPECT().Send(mock.Anything, httpReq).Return(expectedResp, nil).Once()
+
+	resp, err := handler.send(testutils.Context(t), httpReq, outboundReq)
+	require.NoError(t, err)
+	require.Equal(t, expectedResp, resp)
+}
+
+func TestGatewayHandler_Send_MtlsBlockedByRateLimit(t *testing.T) {
+	handler := createTestHandler(t)
+	handler.mtlsRequestRateLimiter = limits.GlobalRateLimiter(0, 0)
+
+	httpReq := network.HTTPRequest{Method: "GET", URL: "https://example.com/api"}
+	outboundReq := gateway_common.OutboundHTTPRequest{
+		Method: "GET",
+		URL:    "https://example.com/api",
+		Mtls: &gateway_common.MtlsAuth{
+			PrivateKey:  []byte("private-key"),
+			Certificate: []byte("certificate"),
+		},
+	}
+
+	resp, err := handler.send(testutils.Context(t), httpReq, outboundReq)
+	require.Error(t, err)
+	require.Nil(t, resp)
+	require.ErrorIs(t, err, network.ErrBlockedRequest)
+	require.Contains(t, err.Error(), "global mtls request rate limit exceeded")
+}
+
+func TestGatewayHandler_Send_MtlsUsesFactory(t *testing.T) {
+	handler := createTestHandler(t)
+	handler.mtlsRequestRateLimiter = limits.GlobalRateLimiter(100, 100)
+
+	httpReq := network.HTTPRequest{Method: "GET", URL: "https://example.com/api"}
+	outboundReq := gateway_common.OutboundHTTPRequest{
+		Method: "GET",
+		URL:    "https://example.com/api",
+		Mtls: &gateway_common.MtlsAuth{
+			PrivateKey:  []byte("private-key-bytes"),
+			Certificate: []byte("certificate-bytes"),
+		},
+	}
+
+	expectedResp := &network.HTTPResponse{StatusCode: 200, Body: []byte("mtls-ok")}
+	mtlsClient := httpmocks.NewHTTPClient(t)
+	mtlsClient.EXPECT().Send(mock.Anything, httpReq).Return(expectedResp, nil).Once()
+
+	var capturedConfig network.HTTPClientConfig
+	var factoryCalls int
+	handler.httpClientFactory = func(config network.HTTPClientConfig) (network.HTTPClient, error) {
+		factoryCalls++
+		capturedConfig = config
+		return mtlsClient, nil
+	}
+
+	resp, err := handler.send(testutils.Context(t), httpReq, outboundReq)
+	require.NoError(t, err)
+	require.Equal(t, expectedResp, resp)
+	require.Equal(t, 1, factoryCalls, "factory should be called exactly once per mtls request")
+	require.NotNil(t, capturedConfig.Mtls)
+	require.Equal(t, []byte("private-key-bytes"), []byte(capturedConfig.Mtls.PrivateKey))
+	require.Equal(t, []byte("certificate-bytes"), capturedConfig.Mtls.Certificate)
+
+	// Default httpClient must not be used for mtls requests.
+	mockDefault := handler.httpClient.(*httpmocks.HTTPClient)
+	mockDefault.AssertNotCalled(t, "Send", mock.Anything, mock.Anything)
+}
+
+func TestGatewayHandler_Send_MtlsFactoryError(t *testing.T) {
+	handler := createTestHandler(t)
+	handler.mtlsRequestRateLimiter = limits.GlobalRateLimiter(100, 100)
+
+	httpReq := network.HTTPRequest{Method: "GET", URL: "https://example.com/api"}
+	outboundReq := gateway_common.OutboundHTTPRequest{
+		Method: "GET",
+		URL:    "https://example.com/api",
+		Mtls:   &gateway_common.MtlsAuth{PrivateKey: []byte("k"), Certificate: []byte("c")},
+	}
+
+	factoryErr := errors.New("bad cert material")
+	handler.httpClientFactory = func(config network.HTTPClientConfig) (network.HTTPClient, error) {
+		return nil, factoryErr
+	}
+
+	resp, err := handler.send(testutils.Context(t), httpReq, outboundReq)
+	require.Error(t, err)
+	require.Nil(t, resp)
+	require.ErrorIs(t, err, factoryErr, "factory error should be wrapped and discoverable via errors.Is")
+}
+
+// TestGatewayHandler_Send_MtlsRoutesThroughCallbackOnly_DefaultClientUntouched
+// verifies that an mTLS request flowing through the full callback path does not
+// touch the default (shared) http client even when the factory returns a working
+// client. This is the core property that prevents auth'd connections from
+// leaking between users.
+func TestGatewayHandler_Send_MtlsRoutesThroughCallbackOnly_DefaultClientUntouched(t *testing.T) {
+	handler := createTestHandler(t)
+	handler.mtlsRequestRateLimiter = limits.GlobalRateLimiter(100, 100)
+
+	httpReq := network.HTTPRequest{Method: "GET", URL: "https://example.com/api", Timeout: 5 * time.Second}
+	outboundReq := gateway_common.OutboundHTTPRequest{
+		Method: "GET",
+		URL:    "https://example.com/api",
+		Mtls:   &gateway_common.MtlsAuth{PrivateKey: []byte("k"), Certificate: []byte("c")},
+	}
+
+	mtlsClient := httpmocks.NewHTTPClient(t)
+	mtlsClient.EXPECT().Send(mock.Anything, mock.Anything).
+		Return(&network.HTTPResponse{StatusCode: 200, Body: []byte("body")}, nil).Once()
+	handler.httpClientFactory = func(config network.HTTPClientConfig) (network.HTTPClient, error) {
+		return mtlsClient, nil
+	}
+
+	callback := handler.createHTTPRequestCallback(testutils.Context(t), "req-id", httpReq, outboundReq)
+	resp := callback()
+	require.Empty(t, resp.ErrorMessage)
+	require.Equal(t, 200, resp.StatusCode)
+	require.Equal(t, []byte("body"), resp.Body)
+
+	mockDefault := handler.httpClient.(*httpmocks.HTTPClient)
+	mockDefault.AssertNotCalled(t, "Send", mock.Anything, mock.Anything)
+}
+
+func TestGatewayHandler_Send_MtlsBlockedRequestIsValidationError(t *testing.T) {
+	handler := createTestHandler(t)
+	handler.mtlsRequestRateLimiter = limits.GlobalRateLimiter(0, 0)
+
+	httpReq := network.HTTPRequest{Method: "GET", URL: "https://example.com/api", Timeout: 5 * time.Second}
+	outboundReq := gateway_common.OutboundHTTPRequest{
+		Method: "GET",
+		URL:    "https://example.com/api",
+		Mtls:   &gateway_common.MtlsAuth{PrivateKey: []byte("k"), Certificate: []byte("c")},
+	}
+
+	callback := handler.createHTTPRequestCallback(testutils.Context(t), "req-id", httpReq, outboundReq)
+	resp := callback()
+	require.NotEmpty(t, resp.ErrorMessage)
+	require.True(t, resp.IsValidationError, "blocked mtls should be reported as a validation error")
+	require.False(t, resp.IsExternalEndpointError, "rate-limited requests are not external endpoint errors")
+	require.Equal(t, 0, resp.StatusCode)
+}
+
+// TestGatewayHandler_Send_MtlsRateLimitEnabledByDefault verifies that a handler
+// built from the default settings has the mtls request rate limiter wired up and
+// active, so mtls requests are gated without any per-test override. The default
+// rate (cresettings.Default.GatewayHTTPActionMtlsRequestRate) has a zero burst,
+// meaning mtls is blocked out of the box.
+func TestGatewayHandler_Send_MtlsRateLimitEnabledByDefault(t *testing.T) {
+	handler := createTestHandler(t)
+
+	httpReq := network.HTTPRequest{Method: "GET", URL: "https://example.com/api"}
+	outboundReq := gateway_common.OutboundHTTPRequest{
+		Method: "GET",
+		URL:    "https://example.com/api",
+		Mtls: &gateway_common.MtlsAuth{
+			PrivateKey:  []byte("private-key"),
+			Certificate: []byte("certificate"),
+		},
+	}
+
+	resp, err := handler.send(testutils.Context(t), httpReq, outboundReq)
+	require.Error(t, err)
+	require.Nil(t, resp)
+	require.ErrorIs(t, err, network.ErrBlockedRequest)
+	require.Contains(t, err.Error(), "global mtls request rate limit exceeded")
 }

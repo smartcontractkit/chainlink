@@ -11,7 +11,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-
 	"testing"
 	"time"
 
@@ -191,7 +190,7 @@ func configureEVMReadWorkflow(t *testing.T, lggr zerolog.Logger, chain *evm.Bloc
 	// create and fund an address to be used by the workflow
 	amountToFund := big.NewInt(0).SetUint64(10) // 10 wei
 	numberOfAddressesToCreate := 1
-	addresses, addrErr := t_helpers.CreateAndFundAddresses(t, lggr, numberOfAddressesToCreate, amountToFund, chain, nil)
+	addresses, addrErr := t_helpers.CreateAndFundAddressesEVM(t, lggr, numberOfAddressesToCreate, amountToFund, chain)
 	require.NoError(t, addrErr, "failed to create and fund new addresses")
 	require.Len(t, addresses, numberOfAddressesToCreate, "failed to create the correct number of addresses")
 

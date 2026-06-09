@@ -62,11 +62,11 @@ import (
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
+	evm "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 var (

@@ -11,9 +11,9 @@ import (
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	opsutil "github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 
 	migrate_seq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/migration"
 	ccipseqs "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"

@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -150,6 +151,39 @@ func Test_Client_TimesOutIfInsufficientCapabilityPeerResponses(t *testing.T) {
 		assert.ErrorIs(t, responseError, executable.ErrRequestExpired)
 	}
 
+	// Peers respond after requestTimeout; quorum (F+1=4) is still theoretically reachable.
+	capability := &TestSlowExecutionCapability{
+		workflowIDToPause: map[string]time.Duration{
+			workflowID1: 2 * time.Second,
+		},
+	}
+
+	transmissionSchedule, err := values.NewMap(map[string]any{
+		"schedule":   transmission.Schedule_AllAtOnce,
+		"deltaStage": "10ms",
+	})
+	require.NoError(t, err)
+
+	testClient(t, 10, 500*time.Millisecond, 10, 3,
+		capability,
+		func(caller commoncap.ExecutableCapability) {
+			executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
+			if assert.NoError(t, err) {
+				executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
+			}
+		})
+}
+
+func Test_Client_ConsensusFailedIfInsufficientCapabilityPeerResponses(t *testing.T) {
+	ctx := testutils.Context(t)
+
+	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
+		var capErr caperrors.Error
+		require.ErrorAs(t, responseError, &capErr)
+		require.Equal(t, caperrors.ConsensusFailed, capErr.Code())
+		require.Contains(t, capErr.Error(), "[100]ConsensusFailed: response quorum unreachable: not enough matching capability responses: received 1/10 peer responses with 1 unique payloads; best match count 1, need 12 (9 responses pending)")
+	}
+
 	capability := &TestCapability{}
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
@@ -158,7 +192,7 @@ func Test_Client_TimesOutIfInsufficientCapabilityPeerResponses(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// number of capability peers is less than F + 1
+	// F+1 exceeds peer count; first divergent response makes quorum unreachable.
 
 	testClient(t, 10, 1*time.Second, 10, 11,
 		capability,

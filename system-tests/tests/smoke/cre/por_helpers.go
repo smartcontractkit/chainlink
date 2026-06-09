@@ -31,7 +31,7 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	tron_keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/tron"
 
-	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	corevm "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 
 	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based/types"
 
@@ -149,7 +149,7 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 
 		// reset to avoid incrementing on each iteration
 		amountToFund = big.NewInt(0).SetUint64(10) // 10 wei
-		addressesToRead, addrErr := t_helpers.CreateAndFundAddresses(t, testLogger, numberOfAddressesToCreate, amountToFund, bcOutput, creEnvironment)
+		addressesToRead, addrErr := t_helpers.CreateAndFundAddressesEVM(t, testLogger, numberOfAddressesToCreate, amountToFund, bcOutput)
 		require.NoError(t, addrErr, "failed to create and fund addresses to read")
 
 		testLogger.Info().Msg("Creating PoR workflow configuration file...")
@@ -236,7 +236,7 @@ func SetupPoRWorkflowForSoak(t *testing.T, testEnv *ttypes.TestEnvironment, pric
 
 	numberOfAddressesToCreate := 2
 	amountToFund := big.NewInt(10) // 10 wei
-	addressesToRead, addrErr := t_helpers.CreateAndFundAddresses(t, testLogger, numberOfAddressesToCreate, amountToFund, bcOutput, creEnvironment)
+	addressesToRead, addrErr := t_helpers.CreateAndFundAddressesEVM(t, testLogger, numberOfAddressesToCreate, amountToFund, bcOutput)
 	require.NoError(t, addrErr, "failed to create and fund addresses for soak workflow %s", wfConfig.WorkflowName)
 
 	writeTargetName := corevm.GenerateWriteTargetName(chainID)

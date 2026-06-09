@@ -92,7 +92,7 @@ func resetDurableEventQueue(ctx context.Context, t *testing.T, db *sql.DB) {
 // that chip_durable_events sees sustained insert+delete activity over time.
 func ExecuteDurableEmitterTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	lggr := framework.L
-	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/cron/main.go"
+	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/cron/main.go"
 
 	db := connectWorkflowDONDB(t, testEnv.Config.NodeSets)
 

@@ -40,8 +40,8 @@ import (
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	verifierContract "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy"
+	evm "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"

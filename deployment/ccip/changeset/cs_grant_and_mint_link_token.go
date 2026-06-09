@@ -14,7 +14,7 @@ import (
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
+	opsutil "github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm"
 	ccipseqs "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm"
@@ -85,8 +85,11 @@ func GrantMintRoleAndMintLogic(e cldf.Environment, cfg GrantMintRoleAndMintConfi
 	chain := e.BlockChains.EVMChains()[cfg.Selector]
 
 	addresses, err := e.ExistingAddresses.AddressesForChain(cfg.Selector)
-	if err != nil {
+	if err != nil && !errors.Is(err, cldf.ErrChainNotFound) {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get addresses for chain %d: %w", cfg.Selector, err)
+	}
+	if addresses == nil {
+		addresses = make(map[string]cldf.TypeAndVersion)
 	}
 
 	linkState, err := evmstateview.MaybeLoadLinkTokenChainState(chain, addresses)

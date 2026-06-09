@@ -29,6 +29,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/urfave/cli"
+	prombridge "go.opentelemetry.io/contrib/bridges/prometheus"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
@@ -38,6 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/promutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc"
@@ -60,7 +62,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
-	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	workflowsmonitoring "github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -176,6 +177,14 @@ func newBeholderClient(
 			return nil, err
 		}
 	}
+	if pmCfg := cfgTelemetry.PrometheusBridge(); pmCfg.Enabled() {
+		var bridgeOpts []prombridge.Option
+		if prefixes := pmCfg.Prefixes(); len(prefixes) > 0 {
+			bridgeOpts = append(bridgeOpts, prombridge.WithGatherer(promutil.NewPrefixGatherer(prometheus.DefaultGatherer, prefixes)))
+		}
+		clientCfg.MetricProducers = append(clientCfg.MetricProducers, prombridge.NewMetricProducer(bridgeOpts...))
+	}
+
 	beholderClient, err := beholder.NewClient(clientCfg)
 	if err != nil {
 		return nil, err
@@ -288,24 +297,23 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	}
 
 	return chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
-		Opts:                     creOpts,
-		Config:                   cfg,
-		DS:                       ds,
-		KeyStore:                 keyStore,
-		Logger:                   appLggr,
-		Registerer:               appRegisterer,
-		AuditLogger:              auditLogger,
-		ExternalInitiatorManager: webhook.NewExternalInitiatorManager(ds, unrestrictedClient),
-		Version:                  static.Version,
-		VersionTag:               static.VersionTag,
-		DockerTag:                dockerTag,
-		RestrictedHTTPClient:     clhttp.NewRestrictedClient(cfg.Database(), appLggr),
-		UnrestrictedHTTPClient:   unrestrictedClient,
-		SecretGenerator:          chainlink.FilePersistedSecretGenerator{},
-		GRPCOpts:                 grpcOpts,
-		MercuryPool:              mercuryPool,
-		RetirementReportCache:    retirement.NewRetirementReportCache(appLggr, ds),
-		LLOTransmissionReaper:    llo.NewTransmissionReaper(ds, appLggr, cfg.Mercury().Transmitter().ReaperFrequency(), cfg.Mercury().Transmitter().ReaperMaxAge()),
+		Opts:                   creOpts,
+		Config:                 cfg,
+		DS:                     ds,
+		KeyStore:               keyStore,
+		Logger:                 appLggr,
+		Registerer:             appRegisterer,
+		AuditLogger:            auditLogger,
+		Version:                static.Version,
+		VersionTag:             static.VersionTag,
+		DockerTag:              dockerTag,
+		RestrictedHTTPClient:   clhttp.NewRestrictedClient(cfg.Database(), appLggr),
+		UnrestrictedHTTPClient: unrestrictedClient,
+		SecretGenerator:        chainlink.FilePersistedSecretGenerator{},
+		GRPCOpts:               grpcOpts,
+		MercuryPool:            mercuryPool,
+		RetirementReportCache:  retirement.NewRetirementReportCache(appLggr, ds),
+		LLOTransmissionReaper:  llo.NewTransmissionReaper(ds, appLggr, cfg.Mercury().Transmitter().ReaperFrequency(), cfg.Mercury().Transmitter().ReaperMaxAge()),
 	})
 }
 

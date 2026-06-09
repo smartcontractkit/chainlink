@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -71,7 +72,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc/cache"
-	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -92,10 +92,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
-	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
@@ -258,10 +256,6 @@ func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, fla
 	return app
 }
 
-const (
-	UseRealExternalInitiatorManager = "UseRealExternalInitiatorManager"
-)
-
 // NewApplicationWithConfig creates a New TestApplication with specified test config.
 // This should only be used in full integration tests. For controller tests, see NewApplicationEVMDisabled.
 func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAndDeps ...any) *TestApplication {
@@ -361,21 +355,10 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	ds := sqlutil.WrapDataSource(db, lggr, sqlutil.TimeoutHook(cfg.Database().DefaultQueryTimeout))
 
 	var ethClient evmclient.Client
-	var externalInitiatorManager webhook.ExternalInitiatorManager
-	externalInitiatorManager = &webhook.NullExternalInitiatorManager{}
-	var useRealExternalInitiatorManager bool
 
 	for _, flag := range flagsAndDeps {
-		switch dep := flag.(type) {
-		case evmclient.Client:
+		if dep, ok := flag.(evmclient.Client); ok {
 			ethClient = dep
-		case webhook.ExternalInitiatorManager:
-			externalInitiatorManager = dep
-		default:
-			switch flag {
-			case UseRealExternalInitiatorManager:
-				externalInitiatorManager = webhook.NewExternalInitiatorManager(ds, clhttptest.NewTestLocalOnlyHTTPClient())
-			}
 		}
 	}
 
@@ -434,19 +417,18 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		Logger:   lggr,
 		// Don't use global registry here since otherwise multiple apps can create name conflicts.
 		// Could also potentially give a mock registry to test prometheus.
-		Registerer:               prometheus.NewRegistry(),
-		AuditLogger:              auditLogger,
-		CloseLogger:              lggr.Sync,
-		ExternalInitiatorManager: externalInitiatorManager,
-		RestrictedHTTPClient:     c,
-		UnrestrictedHTTPClient:   c,
-		SecretGenerator:          MockSecretGenerator{},
-		MercuryPool:              mercuryPool,
-		NewOracleFactoryFn:       newOracleFactoryFn,
-		RetirementReportCache:    retirement.NewRetirementReportCache(lggr, ds),
-		LLOTransmissionReaper:    llo.NewTransmissionReaper(ds, lggr, cfg.Mercury().Transmitter().ReaperFrequency(), cfg.Mercury().Transmitter().ReaperMaxAge()),
-		EVMFactoryConfigFn:       evmFactoryConfigFn,
-		DonTimeStore:             dontime.NewStore(dontime.DefaultRequestTimeout),
+		Registerer:             prometheus.NewRegistry(),
+		AuditLogger:            auditLogger,
+		CloseLogger:            lggr.Sync,
+		RestrictedHTTPClient:   c,
+		UnrestrictedHTTPClient: c,
+		SecretGenerator:        MockSecretGenerator{},
+		MercuryPool:            mercuryPool,
+		NewOracleFactoryFn:     newOracleFactoryFn,
+		RetirementReportCache:  retirement.NewRetirementReportCache(lggr, ds),
+		LLOTransmissionReaper:  llo.NewTransmissionReaper(ds, lggr, cfg.Mercury().Transmitter().ReaperFrequency(), cfg.Mercury().Transmitter().ReaperMaxAge()),
+		EVMFactoryConfigFn:     evmFactoryConfigFn,
+		DonTimeStore:           dontime.NewStore(dontime.DefaultRequestTimeout),
 	})
 
 	require.NoError(t, err)
@@ -466,10 +448,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	srvr.Config.WriteTimeout = cfg.WebServer().HTTPWriteTimeout()
 	srvr.Start()
 	ta.Server = srvr
-
-	if !useRealExternalInitiatorManager {
-		app.ExternalInitiatorManager = externalInitiatorManager
-	}
 
 	return ta
 }
@@ -984,42 +962,17 @@ func AwaitJobActive(t testing.TB, jobSpawner job.Spawner, jobID int32, waitFor t
 	}, waitFor, 100*time.Millisecond)
 }
 
-func CreateJobRunViaExternalInitiatorV2(
+func CreateJobRunViaUserByID(
 	t testing.TB,
 	app *TestApplication,
-	jobID uuid.UUID,
-	eia auth.Token,
-	body string,
-) webpresenters.PipelineRunResource {
-	t.Helper()
-
-	headers := make(map[string]string)
-	headers[static.ExternalInitiatorAccessKeyHeader] = eia.AccessKey
-	headers[static.ExternalInitiatorSecretHeader] = eia.Secret
-
-	url := app.Server.URL + "/v2/jobs/" + jobID.String() + "/runs"
-	bodyBuf := bytes.NewBufferString(body)
-	resp, cleanup := UnauthenticatedPost(t, url, bodyBuf, headers)
-	defer cleanup()
-	AssertServerResponse(t, resp, 200)
-	var pr webpresenters.PipelineRunResource
-	ParseJSONAPIResponse(t, resp, &pr)
-
-	// assert.Equal(t, j.ID, pr.JobSpecID)
-	return pr
-}
-
-func CreateJobRunViaUser(
-	t testing.TB,
-	app *TestApplication,
-	jobID uuid.UUID,
+	jobID int32,
 	body string,
 ) webpresenters.PipelineRunResource {
 	t.Helper()
 
 	bodyBuf := bytes.NewBufferString(body)
 	client := app.NewHTTPClient(nil)
-	resp, cleanup := client.Post("/v2/jobs/"+jobID.String()+"/runs", bodyBuf)
+	resp, cleanup := client.Post("/v2/jobs/"+strconv.Itoa(int(jobID))+"/runs", bodyBuf)
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
 	var pr webpresenters.PipelineRunResource

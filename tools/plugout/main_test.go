@@ -429,6 +429,51 @@ func TestRunSync_IgnoreModules_SkipsChecks(t *testing.T) {
 	}
 }
 
+func TestRunSync_SkipsIndirectDependencies(t *testing.T) {
+	dir := t.TempDir()
+	goMod := writeFile(t, dir, "go.mod", "module github.com/example/repo\n")
+
+	t.Run("CheckMode_NoMismatch", func(t *testing.T) {
+		plugins := writeFile(t, dir, "plugins-check.yaml", samplePluginsYAML())
+		opts := Options{
+			GoModPath:   goMod,
+			PluginPaths: []string{plugins},
+			Update:      false,
+			GetModVersion: func(goModPath, module string) (ModuleVersion, error) {
+				// All modules resolve to a different version, but as indirect deps
+				// they must be skipped rather than flagged as mismatches.
+				return ModuleVersion{Tag: "v9.9.9", Raw: "v9.9.9", Indirect: true}, nil
+			},
+		}
+		hasMismatch, err := runSync(opts)
+		if err != nil {
+			t.Fatalf("runSync error: %v", err)
+		}
+		if hasMismatch {
+			t.Fatalf("did not expect mismatch when all modules are indirect")
+		}
+	})
+
+	t.Run("UpdateMode_LeavesFileUnchanged", func(t *testing.T) {
+		plugins := writeFile(t, dir, "plugins-update.yaml", samplePluginsYAML())
+		before := readFile(t, plugins)
+		opts := Options{
+			GoModPath:   goMod,
+			PluginPaths: []string{plugins},
+			Update:      true,
+			GetModVersion: func(goModPath, module string) (ModuleVersion, error) {
+				return ModuleVersion{Tag: "v9.9.9", Raw: "v9.9.9", Indirect: true}, nil
+			},
+		}
+		if _, err := runSync(opts); err != nil {
+			t.Fatalf("runSync error: %v", err)
+		}
+		if after := readFile(t, plugins); after != before {
+			t.Fatalf("expected file unchanged for indirect deps, got:\n%s", after)
+		}
+	})
+}
+
 func TestRunSync_FileValidation(t *testing.T) {
 	dir := t.TempDir()
 	// Missing go.mod

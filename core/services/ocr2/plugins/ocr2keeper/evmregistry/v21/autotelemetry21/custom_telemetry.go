@@ -14,8 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
+	"github.com/smartcontractkit/chainlink-evm/pkg/automation/v21/threadcontrol"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/threadcontrol"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
