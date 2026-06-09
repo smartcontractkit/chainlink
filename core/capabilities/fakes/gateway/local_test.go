@@ -64,7 +64,7 @@ func TestListenForTriggerPayload_HappyPath(t *testing.T) {
 	// directly, the []byte field would be base64-encoded by json.Marshal,
 	// which is not what a real HTTP client sends.
 	inputJSON := json.RawMessage(`{"order":"pizza","size":"large"}`)
-	rawBody := map[string]interface{}{
+	rawBody := map[string]any{
 		"input": inputJSON,
 	}
 	body, err := json.Marshal(rawBody)
