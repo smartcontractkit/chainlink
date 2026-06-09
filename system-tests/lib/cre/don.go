@@ -114,6 +114,7 @@ type Don struct {
 	ID         uint64 `toml:"id" json:"id"`
 	F          uint8  `toml:"f" json:"f"` // max faulty nodes
 	ShardIndex uint   `toml:"shard_index" json:"shard_index"`
+	DonFamily  string `toml:"don_family" json:"don_family"`
 
 	Nodes []*Node `toml:"nodes" json:"nodes"`
 
@@ -129,6 +130,7 @@ func (d *Don) Metadata() *DonMetadata {
 		ID:                d.ID,
 		Flags:             d.Flags,
 		ShardIndex:        d.ShardIndex,
+		DonFamily:         d.DonFamily,
 		NodesMetadata:     make([]*NodeMetadata, len(d.Nodes)),
 		CapabilityConfigs: d.capabilityConfigs,
 		// caution: missing NodeSet field, since we don't have it here
@@ -238,6 +240,7 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 		ID:                   donMetadata.ID,
 		Flags:                donMetadata.Flags,
 		ShardIndex:           donMetadata.ShardIndex,
+		DonFamily:            donMetadata.DonFamily,
 		capabilityConfigs:    donMetadata.ns.CapabilityConfigs,
 		chainCapabilityIndex: donMetadata.ns.chainCapabilityIndex,
 	}

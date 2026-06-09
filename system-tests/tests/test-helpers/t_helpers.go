@@ -65,6 +65,7 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -606,13 +607,18 @@ func registerWorkflowErr(ctx context.Context, wfRegCfg *WorkflowRegistrationConf
 	binaryURL := "file://" + wfRegCfg.CompressedWasmPath
 	containerTargetDir := &wfRegCfg.ContainerTargetDir
 
+	donFamily := wfRegCfg.DonFamily
+	if donFamily == "" {
+		donFamily = envconfig.DefaultDONFamily
+	}
+
 	return creworkflow.RegisterWithContract(
 		ctx,
 		sethClient,
 		wfRegCfg.WorkflowRegistryAddr,
 		wfRegCfg.WorkflowRegistryVersion,
 		wfRegCfg.DonID,
-		wfRegCfg.DonFamily,
+		donFamily,
 		wfRegCfg.WorkflowName,
 		binaryURL,
 		configURL,
