@@ -65,6 +65,7 @@
 /core/services/workflows/ @smartcontractkit/keystone
 /core/services/standardcapabilities/ @smartcontractkit/keystone
 /core/services/gateway/handlers/confidentialrelay/ @smartcontractkit/privacy
+/system-tests/lib/cre/features/confidentialrelay/ @smartcontractkit/privacy
 /core/scripts/keystone/ @smartcontractkit/keystone
 
 # GQL API
