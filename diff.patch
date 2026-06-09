@@ -1,0 +1,3707 @@
+diff --git c/core/bridges/bridge_type_test.go w/core/bridges/bridge_type_test.go
+index 344ff931db..26b7959982 100644
+--- c/core/bridges/bridge_type_test.go
++++ w/core/bridges/bridge_type_test.go
+@@ -20,6 +20,7 @@ import (
+ )
+ 
+ func TestBridgeTypeRequest(t *testing.T) {
++	t.Parallel()
+ 	u, err := url.Parse("http://example.com/test")
+ 	require.NoError(t, err)
+ 	r := bridges.BridgeTypeRequest{
+@@ -84,6 +85,7 @@ func BenchmarkParseBridgeName(b *testing.B) {
+ }
+ 
+ func TestBridgeName_UnmarshalJSON(t *testing.T) {
++	t.Parallel()
+ 	var b bridges.BridgeName
+ 	require.NoError(t, json.Unmarshal([]byte(`"asdf123test"`), &b))
+ 	require.Equal(t, "asdf123test", b.String())
+@@ -118,6 +120,7 @@ func TestMarshalBridgeMetaData(t *testing.T) {
+ 	}
+ 	for _, tt := range tests {
+ 		t.Run(tt.name, func(t *testing.T) {
++			t.Parallel()
+ 			got, err := bridges.MarshalBridgeMetaData(tt.latestAnswer, tt.updatedAt)
+ 			require.NoError(t, err)
+ 			assert.Equalf(t, tt.want, got, "MarshalBridgeMetaData(%v, %v)", tt.latestAnswer, tt.updatedAt)
+diff --git c/core/bridges/external_initiator_test.go w/core/bridges/external_initiator_test.go
+index 9f59c8e003..bc9dda3c4b 100644
+--- c/core/bridges/external_initiator_test.go
++++ w/core/bridges/external_initiator_test.go
+@@ -14,6 +14,7 @@ import (
+ )
+ 
+ func TestNewExternalInitiator(t *testing.T) {
++	t.Parallel()
+ 	eia := auth.NewToken()
+ 	assert.Len(t, eia.AccessKey, 32)
+ 	assert.Len(t, eia.Secret, 64)
+@@ -31,6 +32,7 @@ func TestNewExternalInitiator(t *testing.T) {
+ }
+ 
+ func TestAuthenticateExternalInitiator(t *testing.T) {
++	t.Parallel()
+ 	eia := auth.NewToken()
+ 	ok, err := bridges.AuthenticateExternalInitiator(eia, &bridges.ExternalInitiator{
+ 		Salt:         "salt",
+diff --git c/core/bridges/orm_test.go w/core/bridges/orm_test.go
+index 3969e226ae..2a8f07c861 100644
+--- c/core/bridges/orm_test.go
++++ w/core/bridges/orm_test.go
+@@ -14,7 +14,6 @@ import (
+ 	"github.com/smartcontractkit/chainlink/v2/core/auth"
+ 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+ 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+ 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+ 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+ 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+@@ -38,7 +37,7 @@ func TestORM_FindBridges(t *testing.T) {
+ 		Name: "bridge1",
+ 		URL:  cltest.WebURL(t, "https://bridge1.com"),
+ 	}
+-	ctx := testutils.Context(t)
++	ctx := t.Context()
+ 	assert.NoError(t, orm.CreateBridgeType(ctx, &bt))
+ 	bt2 := bridges.BridgeType{
+ 		Name: "bridge2",
+@@ -69,7 +68,7 @@ func TestORM_FindBridges(t *testing.T) {
+ 
+ func TestORM_FindBridge(t *testing.T) {
+ 	t.Parallel()
+-	ctx := testutils.Context(t)
++	ctx := t.Context()
+ 
+ 	_, orm := setupORM(t)
+ 
+@@ -104,7 +103,8 @@ func TestORM_FindBridge(t *testing.T) {
+ 	}
+ }
+ func TestORM_UpdateBridgeType(t *testing.T) {
+-	ctx := testutils.Context(t)
++	t.Parallel()
++	ctx := t.Context()
+ 	_, orm := setupORM(t)
+ 
+ 	bridgeName := bridges.BridgeName("bridge-" + uuid.New().String()[:8])
+@@ -139,7 +139,8 @@ func TestORM_UpdateBridgeType(t *testing.T) {
+ }
+ 
+ func TestORM_TestCachedResponse(t *testing.T) {
+-	ctx := testutils.Context(t)
++	t.Parallel()
++	ctx := t.Context()
+ 	cfg := configtest.NewGeneralConfig(t, nil)
+ 	db := pgtest.NewSqlxDB(t)
+ 	orm := bridges.NewORM(db)
+@@ -161,7 +162,8 @@ func TestORM_TestCachedResponse(t *testing.T) {
+ }
+ 
+ func TestORM_CreateExternalInitiator(t *testing.T) {
+-	ctx := testutils.Context(t)
++	t.Parallel()
++	ctx := t.Context()
+ 	_, orm := setupORM(t)
+ 
+ 	token := auth.NewToken()
+@@ -179,7 +181,8 @@ func TestORM_CreateExternalInitiator(t *testing.T) {
+ }
+ 
+ func TestORM_DeleteExternalInitiator(t *testing.T) {
+-	ctx := testutils.Context(t)
++	t.Parallel()
++	ctx := t.Context()
+ 	_, orm := setupORM(t)
+ 
+ 	token := auth.NewToken()
+diff --git c/core/capabilities/ccip/ocrimpls/contract_transmitter_test.go w/core/capabilities/ccip/ocrimpls/contract_transmitter_test.go
+index ff1ba20c74..bd7795f64f 100644
+--- c/core/capabilities/ccip/ocrimpls/contract_transmitter_test.go
++++ w/core/capabilities/ccip/ocrimpls/contract_transmitter_test.go
+@@ -2,6 +2,7 @@ package ocrimpls_test
+ 
+ import (
+ 	"crypto/rand"
++	"hash/fnv"
+ 	"math/big"
+ 	"net/url"
+ 	"testing"
+@@ -97,7 +98,7 @@ func Test_ContractTransmitter_TransmitWithoutSignatures(t *testing.T) {
+ 	}
+ 	for _, tc := range testCases {
+ 		t.Run(tc.name, func(t *testing.T) {
+-			tc := tc
++			t.Parallel()
+ 			testTransmitter(t, tc.pluginType, tc.withSigs, tc.expectedSigsEnabled, tc.report)
+ 		})
+ 	}
+@@ -588,10 +589,16 @@ func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient client.Client, keyStore
+ 		KeepFinalizedBlocksDepth: 1000,
+ 	}
+ 
+-	chainID := big.NewInt(1337)
++	// Derive a unique chain ID for DB-keyed ORM tables (evm.heads, evm.log_poller_blocks).
++	// The actual client chain ID (1337) stays unchanged. Without this, parallel subtests
++	// sharing the same Postgres instance contend on (block_number, evm_chain_id) primary keys.
++	h := fnv.New64a()
++	h.Write([]byte(t.Name()))
++	ormChainID := new(big.Int).SetUint64(h.Sum64())
++
+ 	headSaver := heads.NewSaver(
+ 		logger.Nop(),
+-		heads.NewORM(*chainID, db, 0),
++		heads.NewORM(*ormChainID, db, 0),
+ 		evmConfig,
+ 		evmConfig.HeadTrackerConfig,
+ 	)
+@@ -612,7 +619,7 @@ func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient client.Client, keyStore
+ 	require.NoError(t, ht.Start(testutils.Context(t)), "failed to start head tracker")
+ 	t.Cleanup(func() { require.NoError(t, ht.Close()) })
+ 
+-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, logger.Nop()),
++	lp := logpoller.NewLogPoller(logpoller.NewORM(ormChainID, db, logger.Nop()),
+ 		ethClient, logger.Nop(), ht, lpOpts)
+ 	require.NoError(t, lp.Start(testutils.Context(t)), "failed to start log poller")
+ 	t.Cleanup(func() { require.NoError(t, lp.Close()) })
+diff --git c/core/capabilities/compute/cache_test.go w/core/capabilities/compute/cache_test.go
+index 84e38a005e..2a5293abed 100644
+--- c/core/capabilities/compute/cache_test.go
++++ w/core/capabilities/compute/cache_test.go
+@@ -34,7 +34,7 @@ func TestCache(t *testing.T) {
+ 	cache.start()
+ 	defer cache.close()
+ 
+-	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, false, t)
++	binary := wasmtest.CreateTestBinary(t, simpleBinaryCmd, false)
+ 	hmod, err := host.NewModule(t.Context(), &host.ModuleConfig{
+ 		Logger:         logger.Test(t),
+ 		IsUncompressed: true,
+@@ -73,7 +73,7 @@ func TestCache_EvictAfterSize(t *testing.T) {
+ 	cache.start()
+ 	defer cache.close()
+ 
+-	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, false, t)
++	binary := wasmtest.CreateTestBinary(t, simpleBinaryCmd, false)
+ 	hmod, err := host.NewModule(t.Context(), &host.ModuleConfig{
+ 		Logger:         logger.Test(t),
+ 		IsUncompressed: true,
+@@ -116,7 +116,7 @@ func TestCache_AddDuplicatedModule(t *testing.T) {
+ 	cache.start()
+ 	defer cache.close()
+ 
+-	simpleBinary := wasmtest.CreateTestBinary(simpleBinaryCmd, false, t)
++	simpleBinary := wasmtest.CreateTestBinary(t, simpleBinaryCmd, false)
+ 	shmod, err := host.NewModule(t.Context(), &host.ModuleConfig{
+ 		Logger:         logger.Test(t),
+ 		IsUncompressed: true,
+@@ -136,7 +136,7 @@ func TestCache_AddDuplicatedModule(t *testing.T) {
+ 	assert.Equal(t, got, smod)
+ 
+ 	// Adding a different module but with the same id should not overwrite the existing module
+-	fetchBinary := wasmtest.CreateTestBinary(fetchBinaryCmd, false, t)
++	fetchBinary := wasmtest.CreateTestBinary(t, fetchBinaryCmd, false)
+ 	fhmod, err := host.NewModule(t.Context(), &host.ModuleConfig{
+ 		Logger:         logger.Test(t),
+ 		IsUncompressed: true,
+diff --git c/core/capabilities/compute/compute_test.go w/core/capabilities/compute/compute_test.go
+index a80d74617e..439e4d3d17 100644
+--- c/core/capabilities/compute/compute_test.go
++++ w/core/capabilities/compute/compute_test.go
+@@ -110,7 +110,7 @@ func TestComputeExecuteMissingConfig(t *testing.T) {
+ 	th := setup(t, defaultConfig)
+ 	require.NoError(t, th.compute.Start(t.Context()))
+ 
+-	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, true, t)
++	binary := wasmtest.CreateTestBinary(t, simpleBinaryCmd, true)
+ 
+ 	config, err := values.WrapMap(map[string]any{
+ 		"binary": binary,
+@@ -153,7 +153,7 @@ func TestComputeExecute(t *testing.T) {
+ 
+ 	require.NoError(t, th.compute.Start(t.Context()))
+ 
+-	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, true, t)
++	binary := wasmtest.CreateTestBinary(t, simpleBinaryCmd, true)
+ 
+ 	config, err := values.WrapMap(map[string]any{
+ 		"config": []byte(""),
+@@ -239,7 +239,7 @@ func TestComputeFetch(t *testing.T) {
+ 
+ 	require.NoError(t, th.compute.Start(t.Context()))
+ 
+-	binary := wasmtest.CreateTestBinary(fetchBinaryCmd, true, t)
++	binary := wasmtest.CreateTestBinary(t, fetchBinaryCmd, true)
+ 
+ 	config, err := values.WrapMap(map[string]any{
+ 		"config": []byte(""),
+@@ -326,7 +326,7 @@ func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
+ 		validRequestUUID,
+ 	}, "/")
+ 	gatewayResp := gatewayResponse(t, msgID, []byte("response body"), privateKey)
+-	binary := wasmtest.CreateTestBinary(fetchBinaryCmd, true, t)
++	binary := wasmtest.CreateTestBinary(t, fetchBinaryCmd, true)
+ 
+ 	config, err := values.WrapMap(map[string]any{
+ 		"config": []byte(""),
+@@ -426,7 +426,7 @@ func TestComputeFetchMaxResponseSizeBytes(t *testing.T) {
+ 
+ 	require.NoError(t, th.compute.Start(t.Context()))
+ 
+-	binary := wasmtest.CreateTestBinary(fetchBinaryCmd, true, t)
++	binary := wasmtest.CreateTestBinary(t, fetchBinaryCmd, true)
+ 
+ 	config, err := values.WrapMap(map[string]any{
+ 		"config": []byte(""),
+diff --git c/core/internal/features/ocr2/features_ocr2_helper.go w/core/internal/features/ocr2/features_ocr2_helper.go
+index 0c40b4fdfe..d79d2a2466 100644
+--- c/core/internal/features/ocr2/features_ocr2_helper.go
++++ w/core/internal/features/ocr2/features_ocr2_helper.go
+@@ -154,7 +154,7 @@ func SetupNodeOCR2(
+ 		}
+ 
+ 		c.EVM[0].Nodes = toml.EVMNodes{nodeConfig}
+-		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(5 * time.Second)
++		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
+ 		c.EVM[0].Transactions.ForwardersEnabled = &useForwarder
+ 	})
+ 
+@@ -223,6 +223,7 @@ func RunTestIntegrationOCR2(t *testing.T) {
+ 		{"chain-reader", true},
+ 	} {
+ 		t.Run(test.name, func(t *testing.T) {
++			t.Parallel()
+ 			owner, b, ocrContractAddress, ocrContract, nodeConfig := SetupOCR2Contracts(t)
+ 
+ 			lggr := logger.TestLogger(t)
+@@ -297,7 +298,7 @@ fromBlock = %d
+ 
+ 				// API speed is > observation timeout set in ContractSetConfigArgsForIntegrationTest
+ 				slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+-					time.Sleep(5 * time.Second)
++					<-req.Context().Done()
+ 					var result string
+ 					metaLock.Lock()
+ 					result = fmt.Sprintf(`{"data":%d}`, returnData)
+@@ -578,7 +579,7 @@ updateInterval = "1m"
+ 							return
+ 						}
+ 						// Want at least 2 runs so we see all the metadata.
+-						pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], len(completedRuns)+2, 7, apps[ic].JobORM(), 2*time.Minute, 5*time.Second)
++						pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], len(completedRuns)+2, 7, apps[ic].JobORM(), 2*time.Minute, 100*time.Millisecond)
+ 						jb, err2 := pr[0].Outputs.MarshalJSON()
+ 						if !assert.NoError(t, err2) {
+ 							return
+diff --git c/core/internal/features/ocr2/features_ocr2_test.go w/core/internal/features/ocr2/features_ocr2_test.go
+index 7ad413fe2c..7e412ee626 100644
+--- c/core/internal/features/ocr2/features_ocr2_test.go
++++ w/core/internal/features/ocr2/features_ocr2_test.go
+@@ -127,7 +127,7 @@ chainID 			= 1337
+ 
+ 		// API speed is > observation timeout set in ContractSetConfigArgsForIntegrationTest
+ 		slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+-			time.Sleep(5 * time.Second)
++			<-req.Context().Done()
+ 			res.WriteHeader(http.StatusOK)
+ 			_, err := res.Write([]byte(`{"data":10}`))
+ 			require.NoError(t, err)
+@@ -233,7 +233,7 @@ updateInterval = "1m"
+ 		go func() {
+ 			defer wg.Done()
+ 			// Want at least 2 runs so we see all the metadata.
+-			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, 7, apps[ic].JobORM(), 2*time.Minute, 5*time.Second)
++			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, 7, apps[ic].JobORM(), 2*time.Minute, 100*time.Millisecond)
+ 			jb, err := pr[0].Outputs.MarshalJSON()
+ 			require.NoError(t, err)
+ 			assert.Equal(t, fmt.Appendf(nil, "[\"%d\"]", 10*ic), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1])
+diff --git c/core/internal/testutils/testutils.go w/core/internal/testutils/testutils.go
+index 3af271e5ec..d0e906e541 100644
+--- c/core/internal/testutils/testutils.go
++++ w/core/internal/testutils/testutils.go
+@@ -120,8 +120,10 @@ func WaitTimeoutCustom(t *testing.T, requested time.Duration) time.Duration {
+ }
+ 
+ // Context returns a context with the test's deadline, if available.
++//
+ // Deprecated: use [testing.TB.Context] directly
+ func Context(tb testing.TB) context.Context {
++	tb.Helper()
+ 	return tb.Context()
+ }
+ 
+@@ -146,11 +148,13 @@ const TestInterval = 100 * time.Millisecond
+ 
+ // AssertEventually calls assert.Eventually with default wait and tick durations.
+ func AssertEventually(t *testing.T, f func() bool) bool {
++	t.Helper()
+ 	return assert.Eventually(t, f, WaitTimeout(t), TestInterval/2)
+ }
+ 
+-// RequireEventually calls assert.Eventually with default wait and tick durations.
++// RequireEventually calls require.Eventually with default wait and tick durations.
+ func RequireEventually(t *testing.T, f func() bool) {
++	t.Helper()
+ 	require.Eventually(t, f, WaitTimeout(t), TestInterval/2)
+ }
+ 
+diff --git c/core/internal/testutils/wasmtest/wasm.go w/core/internal/testutils/wasmtest/wasm.go
+index 195cb1a543..bbea319f9c 100644
+--- c/core/internal/testutils/wasmtest/wasm.go
++++ w/core/internal/testutils/wasmtest/wasm.go
+@@ -2,40 +2,84 @@ package wasmtest
+ 
+ import (
+ 	"bytes"
++	"context"
++	"fmt"
+ 	"io"
+ 	"os"
+ 	"os/exec"
+ 	"path/filepath"
++	"sync"
+ 	"testing"
++	"time"
+ 
+ 	"github.com/andybalholm/brotli"
+-	"github.com/google/uuid"
+ 
+ 	"github.com/stretchr/testify/require"
+ )
+ 
+-func CreateTestBinary(outputPath string, compress bool, t *testing.T) []byte {
+-	filePath := filepath.Join(t.TempDir(), uuid.New().String()+".wasm")
+-	cmd := exec.Command("go", "build", "-o", filePath, "github.com/smartcontractkit/chainlink/v2/"+outputPath) // #nosec
+-	cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
++var (
++	binaryOnce   = make(map[string]func() ([]byte, error))
++	binaryOnceMu sync.Mutex
++)
+ 
+-	output, err := cmd.CombinedOutput()
+-	require.NoError(t, err, string(output))
++// CreateTestBinary compiles a WASM binary from outputPath and optionally brotli-compresses it.
++// Results are cached for the lifetime of the test process keyed by (outputPath, compress)
++// via sync.OnceValues — the build runs exactly once per key regardless of concurrency.
++// This assumes source at outputPath does not change during a single `go test` invocation.
++func CreateTestBinary(tb testing.TB, outputPath string, compress bool) []byte {
++	tb.Helper()
++	cacheKey := fmt.Sprintf("%s-%t", outputPath, compress)
+ 
+-	binary, err := os.ReadFile(filePath)
+-	require.NoError(t, err)
++	binaryOnceMu.Lock()
++	once, ok := binaryOnce[cacheKey]
++	if !ok {
++		once = sync.OnceValues(func() ([]byte, error) {
++			tmpDir, err := os.MkdirTemp("", "wasmtest-*")
++			if err != nil {
++				return nil, fmt.Errorf("create temp dir: %w", err)
++			}
++			defer os.RemoveAll(tmpDir)
+ 
+-	if !compress {
+-		return binary
++			cmdCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
++			defer cancel()
++			filePath := filepath.Join(tmpDir, "output.wasm")
++			cmd := exec.CommandContext(cmdCtx, "go", "build", "-o", filePath, "github.com/smartcontractkit/chainlink/v2/"+outputPath) // #nosec
++			cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
++
++			output, err := cmd.CombinedOutput()
++			if err != nil {
++				return nil, fmt.Errorf("build failed: %s %w", string(output), err)
++			}
++
++			binary, err := os.ReadFile(filePath)
++			if err != nil {
++				return nil, fmt.Errorf("read file failed: %w", err)
++			}
++
++			if compress {
++				var b bytes.Buffer
++				bwr := brotli.NewWriter(&b)
++				if _, err = bwr.Write(binary); err != nil {
++					return nil, err
++				}
++				if err = bwr.Close(); err != nil {
++					return nil, err
++				}
++
++				cb, err := io.ReadAll(&b)
++				if err != nil {
++					return nil, err
++				}
++				binary = cb
++			}
++
++			return binary, nil
++		})
++		binaryOnce[cacheKey] = once
+ 	}
++	binaryOnceMu.Unlock()
+ 
+-	var b bytes.Buffer
+-	bwr := brotli.NewWriter(&b)
+-	_, err = bwr.Write(binary)
+-	require.NoError(t, err)
+-	require.NoError(t, bwr.Close())
+-
+-	cb, err := io.ReadAll(&b)
+-	require.NoError(t, err)
+-	return cb
++	result, err := once()
++	require.NoError(tb, err)
++	return result
+ }
+diff --git c/core/services/gateway/connector/connector.go w/core/services/gateway/connector/connector.go
+index f1cb4d4abc..87e82b85a4 100644
+--- c/core/services/gateway/connector/connector.go
++++ w/core/services/gateway/connector/connector.go
+@@ -221,13 +221,13 @@ func (c *gatewayConnector) DonID(context.Context) (string, error) {
+ }
+ 
+ func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
++	defer c.closeWait.Done()
+ 	ctx, cancel := c.shutdownCh.NewCtx()
+ 	defer cancel()
+ 
+ 	for {
+ 		select {
+ 		case <-c.shutdownCh:
+-			c.closeWait.Done()
+ 			return
+ 		case item := <-gatewayState.conn.ReadChannel():
+ 			var req jsonrpc.Request[json.RawMessage]
+@@ -252,6 +252,7 @@ func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
+ }
+ 
+ func (c *gatewayConnector) reconnectLoop(gatewayState *gatewayState) {
++	defer c.closeWait.Done()
+ 	redialBackoff := utils.NewRedialBackoff()
+ 	ctx, cancel := c.shutdownCh.NewCtx()
+ 	defer cancel()
+@@ -277,7 +278,6 @@ func (c *gatewayConnector) reconnectLoop(gatewayState *gatewayState) {
+ 		}
+ 		select {
+ 		case <-c.shutdownCh:
+-			c.closeWait.Done()
+ 			return
+ 		case <-time.After(redialBackoff.Duration()):
+ 			c.lggr.Info("reconnecting ...")
+diff --git c/core/services/gateway/connector/connector_test.go w/core/services/gateway/connector/connector_test.go
+index 4c1cc0d04b..982e4bfc7a 100644
+--- c/core/services/gateway/connector/connector_test.go
++++ w/core/services/gateway/connector/connector_test.go
+@@ -111,6 +111,7 @@ URL = "ws://localhost:8081/node"
+ 	clock := clockwork.NewFakeClock()
+ 	for name, config := range invalidCases {
+ 		t.Run(name, func(t *testing.T) {
++			t.Parallel()
+ 			_, err := NewGatewayConnector(parseTOMLConfig(t, config), signer, clock, logger.Test(t))
+ 			require.Error(t, err)
+ 		})
+@@ -121,7 +122,7 @@ func TestGatewayConnector_CleanStartAndClose(t *testing.T) {
+ 	t.Parallel()
+ 
+ 	connector, signer, _ := newTestConnector(t, parseTOMLConfig(t, defaultConfig))
+-	signer.On("Sign", mock.AnythingOfType("*context.cancelCtx"), mock.Anything).Return(nil, errors.New("cannot sign"))
++	signer.On("Sign", mock.Anything, mock.Anything).Return(nil, errors.New("cannot sign"))
+ 	servicetest.Run(t, connector)
+ }
+ 
+@@ -129,7 +130,7 @@ func TestGatewayConnector_NewAuthHeader_SignerError(t *testing.T) {
+ 	t.Parallel()
+ 
+ 	connector, signer, _ := newTestConnector(t, parseTOMLConfig(t, defaultConfig))
+-	signer.On("Sign", mock.AnythingOfType("*context.cancelCtx"), mock.Anything).Return(nil, errors.New("cannot sign"))
++	signer.On("Sign", mock.Anything, mock.Anything).Return(nil, errors.New("cannot sign"))
+ 
+ 	url, err := url.Parse("ws://localhost:8081/node")
+ 	require.NoError(t, err)
+@@ -143,7 +144,7 @@ func TestGatewayConnector_NewAuthHeader_Success(t *testing.T) {
+ 	testSignature := make([]byte, network.HandshakeSignatureLen)
+ 	testSignature[1] = 0xfa
+ 	connector, signer, _ := newTestConnector(t, parseTOMLConfig(t, defaultConfig))
+-	signer.On("Sign", mock.AnythingOfType("*context.cancelCtx"), mock.Anything).Return(testSignature, nil)
++	signer.On("Sign", mock.Anything, mock.Anything).Return(testSignature, nil)
+ 	url, err := url.Parse("ws://localhost:8081/node")
+ 	require.NoError(t, err)
+ 
+@@ -159,7 +160,7 @@ func TestGatewayConnector_ChallengeResponse(t *testing.T) {
+ 	testSignature[1] = 0xfa
+ 	now := time.Now()
+ 	connector, signer, _ := newTestConnector(t, parseTOMLConfig(t, defaultConfig))
+-	signer.On("Sign", mock.AnythingOfType("*context.cancelCtx"), mock.Anything).Return(testSignature, nil)
++	signer.On("Sign", mock.Anything, mock.Anything).Return(testSignature, nil)
+ 	url, err := url.Parse("ws://localhost:8081/node")
+ 	require.NoError(t, err)
+ 
+diff --git c/core/services/gateway/network/httpserver_test.go w/core/services/gateway/network/httpserver_test.go
+index 682808661c..746e1d523f 100644
+--- c/core/services/gateway/network/httpserver_test.go
++++ w/core/services/gateway/network/httpserver_test.go
+@@ -14,7 +14,6 @@ import (
+ 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+ 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+ 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+ 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
+ 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network/mocks"
+ )
+@@ -25,6 +24,7 @@ const (
+ )
+ 
+ func startNewServer(t *testing.T, maxRequestBytes int64, readTimeoutMillis uint32, enabledCORS bool, allowedOrigins []string) (server network.HTTPServer, handler *mocks.HTTPRequestHandler, url string) {
++	t.Helper()
+ 	config := &network.HTTPServerConfig{
+ 		Host:                 HTTPTestHost,
+ 		Port:                 0,
+@@ -51,8 +51,9 @@ func startNewServer(t *testing.T, maxRequestBytes int64, readTimeoutMillis uint3
+ 	return
+ }
+ 
+-func sendRequest(t *testing.T, url string, body []byte, httpMethod string, origin *string) *http.Response {
+-	req, err := http.NewRequestWithContext(testutils.Context(t), httpMethod, url, bytes.NewBuffer(body))
++func sendRequest(t *testing.T, url string, body []byte, httpMethod string, origin *string) (*http.Response, []byte) {
++	t.Helper()
++	req, err := http.NewRequestWithContext(t.Context(), httpMethod, url, bytes.NewBuffer(body))
+ 	if origin != nil {
+ 		req.Header.Set("Origin", *origin)
+ 	}
+@@ -60,7 +61,10 @@ func sendRequest(t *testing.T, url string, body []byte, httpMethod string, origi
+ 	client := &http.Client{}
+ 	resp, err := client.Do(req)
+ 	require.NoError(t, err)
+-	return resp
++	defer resp.Body.Close()
++	respBytes, err := io.ReadAll(resp.Body)
++	require.NoError(t, err)
++	return resp, respBytes
+ }
+ 
+ func TestHTTPServer_HandleRequest_Correct(t *testing.T) {
+@@ -69,9 +73,7 @@ func TestHTTPServer_HandleRequest_Correct(t *testing.T) {
+ 
+ 	handler.On("ProcessRequest", mock.Anything, mock.Anything, mock.Anything).Return([]byte("response"), 200)
+ 
+-	resp := sendRequest(t, url, []byte("0123456789"), http.MethodPost, nil)
+-	respBytes, err := io.ReadAll(resp.Body)
+-	require.NoError(t, err)
++	resp, respBytes := sendRequest(t, url, []byte("0123456789"), http.MethodPost, nil)
+ 	require.Equal(t, http.StatusOK, resp.StatusCode)
+ 	require.Equal(t, []byte("response"), respBytes)
+ }
+@@ -80,7 +82,7 @@ func TestHTTPServer_HandleRequest_RequestBodyTooBig(t *testing.T) {
+ 	t.Parallel()
+ 	_, _, url := startNewServer(t, 5, 100_000, false, nil)
+ 
+-	resp := sendRequest(t, url, []byte("0123456789"), http.MethodPost, nil)
++	resp, _ := sendRequest(t, url, []byte("0123456789"), http.MethodPost, nil)
+ 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+ }
+ 
+@@ -89,9 +91,7 @@ func TestHTTPServer_HandleHealthCheck(t *testing.T) {
+ 	_, _, url := startNewServer(t, 100_000, 100_000, false, nil)
+ 
+ 	url = strings.Replace(url, HTTPTestPath, network.HealthCheckPath, 1)
+-	resp := sendRequest(t, url, []byte{}, http.MethodPost, nil)
+-	respBytes, err := io.ReadAll(resp.Body)
+-	require.NoError(t, err)
++	resp, respBytes := sendRequest(t, url, []byte{}, http.MethodPost, nil)
+ 	require.Equal(t, http.StatusOK, resp.StatusCode)
+ 	require.Equal(t, []byte(network.HealthCheckResponse), respBytes)
+ }
+@@ -104,9 +104,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin(t *testing.T) {
+ 	handler.On("ProcessRequest", mock.Anything, mock.Anything, mock.Anything).Return([]byte("response"), 200)
+ 
+ 	origin := "https://remix.ethereum.org"
+-	resp := sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+-	respBytes, err := io.ReadAll(resp.Body)
+-	require.NoError(t, err)
++	resp, respBytes := sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+ 	require.Equal(t, http.StatusOK, resp.StatusCode)
+ 	require.Equal(t, []byte("response"), respBytes)
+ 	require.Equal(t, origin, resp.Header.Get("Access-Control-Allow-Origin"))
+@@ -122,9 +120,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOriginWildcards(t *test
+ 	handler.On("ProcessRequest", mock.Anything, mock.Anything, mock.Anything).Return([]byte("response"), 200)
+ 
+ 	origin := "https://remix.ethereum.org"
+-	resp := sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+-	respBytes, err := io.ReadAll(resp.Body)
+-	require.NoError(t, err)
++	resp, respBytes := sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+ 	require.Equal(t, http.StatusOK, resp.StatusCode)
+ 	require.Equal(t, []byte("response"), respBytes)
+ 	require.Equal(t, origin, resp.Header.Get("Access-Control-Allow-Origin"))
+@@ -134,9 +130,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOriginWildcards(t *test
+ 	handler.On("ProcessRequest", mock.Anything, mock.Anything, mock.Anything).Return([]byte("response"), 200)
+ 
+ 	origin = "https://another.valid.domain.com"
+-	resp = sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+-	respBytes, err = io.ReadAll(resp.Body)
+-	require.NoError(t, err)
++	resp, respBytes = sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+ 	require.Equal(t, http.StatusOK, resp.StatusCode)
+ 	require.Equal(t, []byte("response"), respBytes)
+ 	require.Equal(t, origin, resp.Header.Get("Access-Control-Allow-Origin"))
+@@ -146,9 +140,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOriginWildcards(t *test
+ 	handler.On("ProcessRequest", mock.Anything, mock.Anything, mock.Anything).Return([]byte("response"), 200)
+ 
+ 	origin = "http://example.gov"
+-	resp = sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+-	respBytes, err = io.ReadAll(resp.Body)
+-	require.NoError(t, err)
++	resp, respBytes = sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+ 	require.Equal(t, http.StatusOK, resp.StatusCode)
+ 	require.Equal(t, []byte("response"), respBytes)
+ 	require.Equal(t, origin, resp.Header.Get("Access-Control-Allow-Origin"))
+@@ -162,9 +154,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin_PreflightRequest
+ 		[]string{"https://remix.ethereum.org", "https://another.valid.origin.com"})
+ 
+ 	origin := "https://remix.ethereum.org"
+-	resp := sendRequest(t, url, []byte("0123456789"), http.MethodOptions, &origin)
+-	respBytes, err := io.ReadAll(resp.Body)
+-	require.NoError(t, err)
++	resp, respBytes := sendRequest(t, url, []byte("0123456789"), http.MethodOptions, &origin)
+ 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
+ 	require.Empty(t, respBytes)
+ 	require.Equal(t, origin, resp.Header.Get("Access-Control-Allow-Origin"))
+@@ -180,9 +170,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromNotAllowedOrigin(t *testing.T)
+ 	handler.On("ProcessRequest", mock.Anything, mock.Anything, mock.Anything).Return([]byte("response"), 200)
+ 
+ 	origin := "https://not.allowed.origin.com"
+-	resp := sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+-	respBytes, err := io.ReadAll(resp.Body)
+-	require.NoError(t, err)
++	resp, respBytes := sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+ 	require.Equal(t, http.StatusOK, resp.StatusCode)
+ 	require.Equal(t, []byte("response"), respBytes)
+ 	require.Empty(t, resp.Header.Get("Access-Control-Allow-Origin"))
+@@ -198,9 +186,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromNotAllowedOriginWildcards(t *t
+ 	handler.On("ProcessRequest", mock.Anything, mock.Anything, mock.Anything).Return([]byte("response"), 200)
+ 
+ 	origin := "https://ethereum.remix.org" // doesn't end with ethereum.org
+-	resp := sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+-	respBytes, err := io.ReadAll(resp.Body)
+-	require.NoError(t, err)
++	resp, respBytes := sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+ 	require.Equal(t, http.StatusOK, resp.StatusCode)
+ 	require.Equal(t, []byte("response"), respBytes)
+ 	require.Empty(t, resp.Header.Get("Access-Control-Allow-Origin"))
+@@ -210,9 +196,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromNotAllowedOriginWildcards(t *t
+ 	handler.On("ProcessRequest", mock.Anything, mock.Anything, mock.Anything).Return([]byte("response"), 200)
+ 
+ 	origin = "http://another.valid.domain.org" // http instead of https
+-	resp = sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+-	respBytes, err = io.ReadAll(resp.Body)
+-	require.NoError(t, err)
++	resp, respBytes = sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+ 	require.Equal(t, http.StatusOK, resp.StatusCode)
+ 	require.Equal(t, []byte("response"), respBytes)
+ 	require.Empty(t, resp.Header.Get("Access-Control-Allow-Origin"))
+@@ -222,9 +206,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromNotAllowedOriginWildcards(t *t
+ 	handler.On("ProcessRequest", mock.Anything, mock.Anything, mock.Anything).Return([]byte("response"), 200)
+ 
+ 	origin = "http://example.gov" // port missing
+-	resp = sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+-	respBytes, err = io.ReadAll(resp.Body)
+-	require.NoError(t, err)
++	resp, respBytes = sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+ 	require.Equal(t, http.StatusOK, resp.StatusCode)
+ 	require.Equal(t, []byte("response"), respBytes)
+ 	require.Empty(t, resp.Header.Get("Access-Control-Allow-Origin"))
+diff --git c/core/services/job/models.go w/core/services/job/models.go
+index 7bbf3b47a0..a669cd947e 100644
+--- c/core/services/job/models.go
++++ w/core/services/job/models.go
+@@ -839,8 +839,8 @@ type WorkflowSpec struct {
+ 	BinaryURL     string             `db:"binary_url"`
+ 	ConfigURL     string             `db:"config_url"`
+ 	SecretsID     sql.NullInt64      `db:"secrets_id"`
+-	CreatedAt     time.Time          `toml:"-"`
+-	UpdatedAt     time.Time          `toml:"-"`
++	CreatedAt     time.Time          `toml:"-" db:"created_at"`
++	UpdatedAt     time.Time          `toml:"-" db:"updated_at"`
+ 	SpecType      WorkflowSpecType   `toml:"spec_type" db:"spec_type"`
+ 	Attributes    []byte             `db:"attributes"`
+ 	sdkWorkflow   *sdk.WorkflowSpec
+diff --git c/core/services/llo/cleanup_test.go w/core/services/llo/cleanup_test.go
+index 10f586e24e..58f4e6b7a1 100644
+--- c/core/services/llo/cleanup_test.go
++++ w/core/services/llo/cleanup_test.go
+@@ -55,6 +55,7 @@ func makeSampleTransmission(seqNr uint64, sURL string) *mercurytransmitter.Trans
+ }
+ 
+ func Test_Cleanup(t *testing.T) {
++	t.Parallel()
+ 	ctx := t.Context()
+ 
+ 	lp := &mockLogPoller{}
+@@ -95,9 +96,11 @@ func Test_Cleanup(t *testing.T) {
+ 	require.NoError(t, err)
+ 
+ 	t.Run("unregisters filter", func(t *testing.T) {
++		t.Parallel()
+ 		assert.Equal(t, []string{"OCR3 LLO ChannelDefinitionCachePoller - 0x0102030000000000000000000000000000000000:1"}, lp.unregisteredFilterNames)
+ 	})
+ 	t.Run("removes channel definitions", func(t *testing.T) {
++		t.Parallel()
+ 		pd, err := cdcorm.LoadChannelDefinitions(ctx, addr1, donID1)
+ 		require.NoError(t, err)
+ 		assert.Nil(t, pd)
+@@ -106,6 +109,7 @@ func Test_Cleanup(t *testing.T) {
+ 		assert.NotNil(t, pd)
+ 	})
+ 	t.Run("does not remove transmissions", func(t *testing.T) {
++		t.Parallel()
+ 		trs, err := torm1.Get(ctx, srvURL1, 10, 0)
+ 		require.NoError(t, err)
+ 		assert.Len(t, trs, 1)
+@@ -123,6 +127,7 @@ func Test_Cleanup(t *testing.T) {
+ }
+ 
+ func Test_StaleTransmissionReaper(t *testing.T) {
++	t.Parallel()
+ 	ds := pgtest.NewSqlxDB(t)
+ 	lggr := logger.Test(t)
+ 	tr := &transmissionReaper{ds: ds, lggr: lggr, maxAge: 24 * time.Hour}
+@@ -156,6 +161,7 @@ WHERE transmission_hash IN (
+ }
+ 
+ func Test_OrphanedTransmissionReaper(t *testing.T) {
++	t.Parallel()
+ 	ds := pgtest.NewSqlxDB(t)
+ 	lggr := logger.Test(t)
+ 	tr := &transmissionReaper{ds: ds, lggr: lggr, maxAge: 24 * time.Hour}
+diff --git c/core/services/llo/keyring_test.go w/core/services/llo/keyring_test.go
+index faf5a7e6f9..61ad9bb3a2 100644
+--- c/core/services/llo/keyring_test.go
++++ w/core/services/llo/keyring_test.go
+@@ -63,6 +63,7 @@ func (m *mockKey) reset(format llotypes.ReportFormat) {
+ }
+ 
+ func Test_Keyring(t *testing.T) {
++	t.Parallel()
+ 	lggr := logger.Test(t)
+ 
+ 	ks := map[llotypes.ReportFormat]Key{
+@@ -91,17 +92,24 @@ func Test_Keyring(t *testing.T) {
+ 	require.NoError(t, err)
+ 	seqNr := rand.Uint64N(math.MaxUint32 << 8)
+ 	t.Run("Sign+Verify", func(t *testing.T) {
++		t.Parallel()
+ 		for _, tc := range cases {
+ 			t.Run(tc.format.String(), func(t *testing.T) {
+-				k := ks[tc.format]
+-				defer k.(*mockKey).reset(tc.format)
++				t.Parallel()
++				ksLocal := map[llotypes.ReportFormat]Key{
++					llotypes.ReportFormatEVMPremiumLegacy: &mockKey{format: llotypes.ReportFormatEVMPremiumLegacy, maxSignatureLen: 1, sig: []byte("sig-1")},
++					llotypes.ReportFormatJSON:             &mockKey{format: llotypes.ReportFormatJSON, maxSignatureLen: 2, sig: []byte("sig-2")},
++					llotypes.ReportFormatEVMStreamlined:   &mockKey{format: llotypes.ReportFormatEVMStreamlined, maxSignatureLen: 6, sig: []byte("sig-6")},
++				}
++				krLocal := NewOnchainKeyring(lggr, ksLocal, 2)
++				k := ksLocal[tc.format]
+ 
+-				sig, err := kr.Sign(cd, seqNr, ocr3types.ReportWithInfo[llotypes.ReportInfo]{Info: llotypes.ReportInfo{ReportFormat: tc.format}})
++				sig, err := krLocal.Sign(cd, seqNr, ocr3types.ReportWithInfo[llotypes.ReportInfo]{Info: llotypes.ReportInfo{ReportFormat: tc.format}})
+ 				require.NoError(t, err)
+ 
+ 				assert.Equal(t, fmt.Appendf(nil, "sig-%d", tc.format), sig)
+ 
+-				assert.False(t, kr.Verify(nil, cd, seqNr, ocr3types.ReportWithInfo[llotypes.ReportInfo]{Info: llotypes.ReportInfo{ReportFormat: tc.format}}, sig))
++				assert.False(t, krLocal.Verify(nil, cd, seqNr, ocr3types.ReportWithInfo[llotypes.ReportInfo]{Info: llotypes.ReportInfo{ReportFormat: tc.format}}, sig))
+ 
+ 				k.(*mockKey).verify = true
+ 			})
+@@ -109,9 +117,11 @@ func Test_Keyring(t *testing.T) {
+ 	})
+ 
+ 	t.Run("MaxSignatureLength", func(t *testing.T) {
++		t.Parallel()
+ 		assert.Equal(t, 6+2+1, kr.MaxSignatureLength())
+ 	})
+ 	t.Run("PublicKey", func(t *testing.T) {
++		t.Parallel()
+ 		b := make([]byte, 6+2+1)
+ 		for i := range b {
+ 			b[i] = byte(255)
+diff --git c/core/services/llo/observation/cache_test.go w/core/services/llo/observation/cache_test.go
+index 501ecd66fe..b645363531 100644
+--- c/core/services/llo/observation/cache_test.go
++++ w/core/services/llo/observation/cache_test.go
+@@ -50,6 +50,7 @@ func (m *mockStreamValue) Type() llo.LLOStreamValue_Type {
+ }
+ 
+ func TestNewCache(t *testing.T) {
++	t.Parallel()
+ 	tests := []struct {
+ 		name            string
+ 		cleanupInterval time.Duration
+@@ -69,6 +70,7 @@ func TestNewCache(t *testing.T) {
+ 
+ 	for _, tt := range tests {
+ 		t.Run(tt.name, func(t *testing.T) {
++			t.Parallel()
+ 			cache := NewCache(tt.cleanupInterval)
+ 			defer cache.Close()
+ 			require.NotNil(t, cache)
+@@ -81,7 +83,9 @@ func TestNewCache(t *testing.T) {
+ }
+ 
+ func TestCache_AddMany(t *testing.T) {
++	t.Parallel()
+ 	t.Run("adds multiple values with same TTL", func(t *testing.T) {
++		t.Parallel()
+ 		cache := NewCache(0)
+ 		defer cache.Close()
+ 		ttl := time.Second
+@@ -99,6 +103,7 @@ func TestCache_AddMany(t *testing.T) {
+ 	})
+ 
+ 	t.Run("empty map is a no-op", func(t *testing.T) {
++		t.Parallel()
+ 		cache := NewCache(0)
+ 		defer cache.Close()
+ 		cache.AddMany(map[llotypes.StreamID]llo.StreamValue{}, time.Second)
+@@ -107,6 +112,7 @@ func TestCache_AddMany(t *testing.T) {
+ 	})
+ 
+ 	t.Run("single entry", func(t *testing.T) {
++		t.Parallel()
+ 		cache := NewCache(0)
+ 		defer cache.Close()
+ 		cache.AddMany(map[llotypes.StreamID]llo.StreamValue{
+@@ -117,6 +123,7 @@ func TestCache_AddMany(t *testing.T) {
+ 	})
+ 
+ 	t.Run("overwrites existing entries", func(t *testing.T) {
++		t.Parallel()
+ 		cache := NewCache(0)
+ 		defer cache.Close()
+ 		cache.Add(1, &mockStreamValue{value: []byte{0}}, time.Second)
+@@ -129,7 +136,9 @@ func TestCache_AddMany(t *testing.T) {
+ }
+ 
+ func TestCache_UpdateStreamValues(t *testing.T) {
++	t.Parallel()
+ 	t.Run("fills map with cached values", func(t *testing.T) {
++		t.Parallel()
+ 		cache := NewCache(0)
+ 		defer cache.Close()
+ 		cache.AddMany(map[llotypes.StreamID]llo.StreamValue{
+@@ -147,6 +156,7 @@ func TestCache_UpdateStreamValues(t *testing.T) {
+ 	})
+ 
+ 	t.Run("misses remain nil", func(t *testing.T) {
++		t.Parallel()
+ 		cache := NewCache(0)
+ 		defer cache.Close()
+ 		cache.Add(1, &mockStreamValue{value: []byte{1}}, time.Second)
+@@ -160,6 +170,7 @@ func TestCache_UpdateStreamValues(t *testing.T) {
+ 	})
+ 
+ 	t.Run("empty map is a no-op", func(t *testing.T) {
++		t.Parallel()
+ 		cache := NewCache(0)
+ 		defer cache.Close()
+ 		cache.Add(1, &mockStreamValue{value: []byte{1}}, time.Second)
+@@ -169,6 +180,7 @@ func TestCache_UpdateStreamValues(t *testing.T) {
+ 	})
+ 
+ 	t.Run("expired entries are filled with nil", func(t *testing.T) {
++		t.Parallel()
+ 		cache := NewCache(0)
+ 		defer cache.Close()
+ 		cache.Add(1, &mockStreamValue{value: []byte{1}}, time.Nanosecond*100)
+@@ -180,6 +192,7 @@ func TestCache_UpdateStreamValues(t *testing.T) {
+ 	})
+ 
+ 	t.Run("overwrites existing values in map", func(t *testing.T) {
++		t.Parallel()
+ 		cache := NewCache(0)
+ 		defer cache.Close()
+ 		cache.Add(1, &mockStreamValue{value: []byte{100}}, time.Second)
+@@ -215,6 +228,7 @@ func TestCache_UpdateStreamValues_RecordsHitEntryAge(t *testing.T) {
+ }
+ 
+ func TestCache_Add_Get(t *testing.T) {
++	t.Parallel()
+ 	tests := []struct {
+ 		name      string
+ 		streamID  llotypes.StreamID
+@@ -250,6 +264,7 @@ func TestCache_Add_Get(t *testing.T) {
+ 
+ 	for _, tt := range tests {
+ 		t.Run(tt.name, func(t *testing.T) {
++			t.Parallel()
+ 			cache := NewCache(0)
+ 			defer cache.Close()
+ 
+@@ -268,6 +283,7 @@ func TestCache_Add_Get(t *testing.T) {
+ }
+ 
+ func TestCache_Cleanup(t *testing.T) {
++	t.Parallel()
+ 	cache := NewCache(time.Millisecond)
+ 	defer cache.Close()
+ 	streamID := llotypes.StreamID(1)
+@@ -281,7 +297,9 @@ func TestCache_Cleanup(t *testing.T) {
+ }
+ 
+ func TestCache_Close(t *testing.T) {
++	t.Parallel()
+ 	t.Run("double close does not panic", func(t *testing.T) {
++		t.Parallel()
+ 		cache := NewCache(time.Millisecond)
+ 		cache.Add(1, &mockStreamValue{value: []byte{1}}, time.Second)
+ 
+@@ -292,6 +310,7 @@ func TestCache_Close(t *testing.T) {
+ 	})
+ 
+ 	t.Run("nils values on close", func(t *testing.T) {
++		t.Parallel()
+ 		cache := NewCache(0)
+ 		cache.Add(1, &mockStreamValue{value: []byte{1}}, time.Second)
+ 		require.NoError(t, cache.Close())
+@@ -300,6 +319,7 @@ func TestCache_Close(t *testing.T) {
+ }
+ 
+ func TestCache_ConcurrentAccess(t *testing.T) {
++	t.Parallel()
+ 	cache := NewCache(0)
+ 	defer cache.Close()
+ 	const numGoroutines = 10
+@@ -331,6 +351,7 @@ func TestCache_ConcurrentAccess(t *testing.T) {
+ }
+ 
+ func TestCache_ConcurrentReadWrite(t *testing.T) {
++	t.Parallel()
+ 	cache := NewCache(0)
+ 	defer cache.Close()
+ 	const numGoroutines = 10
+@@ -365,6 +386,7 @@ func TestCache_ConcurrentReadWrite(t *testing.T) {
+ }
+ 
+ func TestCache_ConcurrentAddGet(t *testing.T) {
++	t.Parallel()
+ 	cache := NewCache(0)
+ 	defer cache.Close()
+ 	const numGoroutines = 10
+@@ -399,6 +421,7 @@ func TestCache_ConcurrentAddGet(t *testing.T) {
+ }
+ 
+ func TestCache_ConcurrentAddMany(t *testing.T) {
++	t.Parallel()
+ 	cache := NewCache(0)
+ 	defer cache.Close()
+ 	const numGoroutines = 10
+@@ -435,6 +458,7 @@ func TestCache_ConcurrentAddMany(t *testing.T) {
+ }
+ 
+ func TestCache_ConcurrentAddManyUpdateStreamValues(t *testing.T) {
++	t.Parallel()
+ 	cache := NewCache(0)
+ 	defer cache.Close()
+ 	const numWriters = 5
+diff --git c/core/services/llo/observation/data_source_test.go w/core/services/llo/observation/data_source_test.go
+index 0970ab079b..3b98c5a499 100644
+--- c/core/services/llo/observation/data_source_test.go
++++ w/core/services/llo/observation/data_source_test.go
+@@ -182,7 +182,7 @@ func (m *mockTelemeter) GetReportTelemetryCh() chan<- *llo.LLOReportTelemetry {
+ func (m *mockTelemeter) CaptureEATelemetry() bool                             { return true }
+ func (m *mockTelemeter) CaptureObservationTelemetry() bool                    { return true }
+ 
+-var observationTimeout = 100 * time.Millisecond
++var observationTimeout = 500 * time.Millisecond
+ 
+ type addManyCall struct {
+ 	values map[llotypes.StreamID]llo.StreamValue
+@@ -213,12 +213,15 @@ func (s *mockCache) AddMany(values map[llotypes.StreamID]llo.StreamValue, ttl ti
+ }
+ 
+ func Test_DataSource(t *testing.T) {
++	t.Parallel()
+ 	lggr := logger.NullLogger
+ 	mainCtx := testutils.Context(t)
+ 	opts := &mockOpts{}
+ 
+ 	t.Run("Observe", func(t *testing.T) {
++		t.Parallel()
+ 		t.Run("doesn't set any values if no streams are defined", func(t *testing.T) {
++			t.Parallel()
+ 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
+ 			ds := newDataSource(lggr, reg, telem.NullTelemeter)
+ 
+@@ -233,6 +236,7 @@ func Test_DataSource(t *testing.T) {
+ 		})
+ 
+ 		t.Run("observes each stream with success and returns values matching map argument", func(t *testing.T) {
++			t.Parallel()
+ 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
+ 			ds := newDataSource(lggr, reg, telem.NullTelemeter)
+ 
+@@ -263,6 +267,7 @@ func Test_DataSource(t *testing.T) {
+ 		})
+ 
+ 		t.Run("observes each stream and returns success/errors", func(t *testing.T) {
++			t.Parallel()
+ 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
+ 			ds := newDataSource(lggr, reg, telem.NullTelemeter)
+ 
+@@ -288,6 +293,7 @@ func Test_DataSource(t *testing.T) {
+ 		})
+ 
+ 		t.Run("records telemetry", func(t *testing.T) {
++			t.Parallel()
+ 			tm := &mockTelemeter{}
+ 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
+ 			ds := newDataSource(lggr, reg, tm)
+@@ -318,6 +324,7 @@ func Test_DataSource(t *testing.T) {
+ 
+ 			// Get only the last 3 packets, as those would be the result of the first round of observations.
+ 			tm.mu.Lock()
++			require.GreaterOrEqual(t, len(tm.v3PremiumLegacyPackets), 3)
+ 			packets := tm.v3PremiumLegacyPackets[:3]
+ 			tm.mu.Unlock()
+ 			m := make(map[int]v3PremiumLegacyPacket)
+@@ -342,7 +349,7 @@ func Test_DataSource(t *testing.T) {
+ 				}
+ 			}
+ 
+-			require.Len(t, telems[:3], 3)
++			require.Len(t, telems, 3)
+ 			sort.Slice(telems, func(i, j int) bool {
+ 				return telems[i].(*telem.LLOObservationTelemetry).StreamId < telems[j].(*telem.LLOObservationTelemetry).StreamId
+ 			})
+@@ -361,6 +368,7 @@ func Test_DataSource(t *testing.T) {
+ 		})
+ 
+ 		t.Run("records telemetry for errors", func(t *testing.T) {
++			t.Parallel()
+ 			tm := &mockTelemeter{}
+ 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
+ 			ds := newDataSource(lggr, reg, tm)
+@@ -400,6 +408,7 @@ func Test_DataSource(t *testing.T) {
+ 		})
+ 
+ 		t.Run("uses cached values when available", func(t *testing.T) {
++			t.Parallel()
+ 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
+ 			ds := newDataSource(lggr, reg, telem.NullTelemeter)
+ 
+@@ -453,6 +462,7 @@ func Test_DataSource(t *testing.T) {
+ 		})
+ 
+ 		t.Run("refreshes cache after expiration", func(t *testing.T) {
++			t.Parallel()
+ 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
+ 			ds := newDataSource(lggr, reg, telem.NullTelemeter)
+ 
+@@ -486,6 +496,7 @@ func Test_DataSource(t *testing.T) {
+ 		})
+ 
+ 		t.Run("handles concurrent cache access", func(t *testing.T) {
++			t.Parallel()
+ 			// Create a new data source
+ 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
+ 			ds := newDataSource(lggr, reg, telem.NullTelemeter)
+@@ -522,6 +533,7 @@ func Test_DataSource(t *testing.T) {
+ 		})
+ 
+ 		t.Run("cache writes are atomic per pipeline group across observation cycles", func(t *testing.T) {
++			t.Parallel()
+ 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
+ 			ds := newDataSource(lggr, reg, telem.NullTelemeter)
+ 			mc := newMockCache(ds.cache)
+@@ -598,6 +610,7 @@ func Test_DataSource(t *testing.T) {
+ 		})
+ 
+ 		t.Run("handles cache errors gracefully", func(t *testing.T) {
++			t.Parallel()
+ 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
+ 			ds := newDataSource(lggr, reg, telem.NullTelemeter)
+ 
+@@ -660,6 +673,7 @@ func Test_DataSource_ObservationLoopWakeSkipsPacing(t *testing.T) {
+ }
+ 
+ func Test_DataSource_ObserveWakeManyConcurrent(t *testing.T) {
++	t.Parallel()
+ 	lggr := logger.NullLogger
+ 	mainCtx := testutils.Context(t)
+ 	opts := &mockOpts{}
+@@ -700,6 +714,7 @@ func Test_DataSource_ObserveWakeManyConcurrent(t *testing.T) {
+ }
+ 
+ func Test_buildStreamsRefreshPlan(t *testing.T) {
++	t.Parallel()
+ 	lggr := logger.NullLogger
+ 	timeout := 100 * time.Millisecond
+ 
+@@ -714,6 +729,7 @@ func Test_buildStreamsRefreshPlan(t *testing.T) {
+ 	}}
+ 
+ 	t.Run("all streams stale returns all", func(t *testing.T) {
++		t.Parallel()
+ 		cache := NewCache(0)
+ 		staleTTL := 1 * time.Millisecond
+ 		cache.Add(1, llo.ToDecimal(decimal.NewFromInt(100)), staleTTL)
+@@ -731,6 +747,7 @@ func Test_buildStreamsRefreshPlan(t *testing.T) {
+ 	})
+ 
+ 	t.Run("all streams fresh in cache, returns none", func(t *testing.T) {
++		t.Parallel()
+ 		cache := NewCache(0)
+ 		cache.Add(1, llo.ToDecimal(decimal.NewFromInt(100)), time.Hour)
+ 		cache.Add(2, llo.ToDecimal(decimal.NewFromInt(200)), time.Hour)
+@@ -744,6 +761,7 @@ func Test_buildStreamsRefreshPlan(t *testing.T) {
+ 	})
+ 
+ 	t.Run("one stale driver lists only stale IDs; worker observes all requested streams on that pipeline", func(t *testing.T) {
++		t.Parallel()
+ 		cache := NewCache(0)
+ 		cache.Add(1, llo.ToDecimal(decimal.NewFromInt(100)), time.Hour)
+ 		cache.Add(2, llo.ToDecimal(decimal.NewFromInt(200)), 1*time.Millisecond)
+@@ -761,6 +779,7 @@ func Test_buildStreamsRefreshPlan(t *testing.T) {
+ 	})
+ 
+ 	t.Run("staleStreamIDs lists only stale keys; groups intersect pipeline with plugin scope", func(t *testing.T) {
++		t.Parallel()
+ 		cache := NewCache(0)
+ 		cache.Add(1, llo.ToDecimal(decimal.NewFromInt(100)), 1*time.Millisecond)
+ 		cache.Add(2, llo.ToDecimal(decimal.NewFromInt(200)), time.Hour)
+@@ -779,6 +798,7 @@ func Test_buildStreamsRefreshPlan(t *testing.T) {
+ 	})
+ 
+ 	t.Run("stream not in registry is stale driver only; no pipeline worker", func(t *testing.T) {
++		t.Parallel()
+ 		ds := &dataSource{lggr: lggr, registry: reg, cache: NewCache(0)}
+ 		sv := llo.StreamValues{999: nil} // plugin requested streamId not yet in registry
+ 
+@@ -790,6 +810,7 @@ func Test_buildStreamsRefreshPlan(t *testing.T) {
+ 	})
+ 
+ 	t.Run("empty streamValues returns empty set", func(t *testing.T) {
++		t.Parallel()
+ 		ds := &dataSource{lggr: lggr, registry: reg, cache: NewCache(0)}
+ 		sv := llo.StreamValues{}
+ 
+@@ -799,6 +820,7 @@ func Test_buildStreamsRefreshPlan(t *testing.T) {
+ 	})
+ 
+ 	t.Run("multiple pipelines: only stale keys appear in streamIDsToRefresh", func(t *testing.T) {
++		t.Parallel()
+ 		cache := NewCache(0)
+ 		// Pipeline {10}: all fresh
+ 		cache.Add(10, llo.ToDecimal(decimal.NewFromInt(100)), time.Hour)
+diff --git c/core/services/llo/observation/observation_context_test.go w/core/services/llo/observation/observation_context_test.go
+index 3de7c0c136..6980715044 100644
+--- c/core/services/llo/observation/observation_context_test.go
++++ w/core/services/llo/observation/observation_context_test.go
+@@ -59,6 +59,7 @@ func makePipelineWithMultipleStreamResults(streamIDs []streams.StreamID, results
+ }
+ 
+ func TestObservationContext_Observe(t *testing.T) {
++	t.Parallel()
+ 	ctx := t.Context()
+ 	r := &mockRegistry{}
+ 	telem := &mockTelemeter{}
+@@ -174,6 +175,7 @@ func TestObservationContext_Observe(t *testing.T) {
+ }
+ 
+ func TestObservationContext_Observe_concurrencyStressTest(t *testing.T) {
++	t.Parallel()
+ 	ctx := t.Context()
+ 	r := &mockRegistry{}
+ 	telem := &mockTelemeter{}
+@@ -249,6 +251,7 @@ func createBridge(t testing.TB, name string, val string, borm bridges.ORM, maxCa
+ }
+ 
+ func TestObservationContext_Observe_integrationRealPipeline(t *testing.T) {
++	t.Parallel()
+ 	ctx := t.Context()
+ 	lggr := logger.TestLogger(t)
+ 	db := pgtest.NewSqlxDB(t)
+@@ -276,6 +279,7 @@ func TestObservationContext_Observe_integrationRealPipeline(t *testing.T) {
+ 	jobStreamID := streams.StreamID(5)
+ 
+ 	t.Run("using only streamID attributes", func(t *testing.T) {
++		t.Parallel()
+ 		jb := job.Job{
+ 			Type:     job.Stream,
+ 			StreamID: &jobStreamID,
+@@ -326,6 +330,7 @@ result3 -> result3_parse -> multiply3;
+ }
+ 
+ func TestObservationContext_Observe_concurrentAtomicOutput(t *testing.T) {
++	t.Parallel()
+ 	ctx := t.Context()
+ 	const n = 20
+ 
+diff --git c/core/services/llo/report_codecs_test.go w/core/services/llo/report_codecs_test.go
+index bb716dc8bd..0640e68083 100644
+--- c/core/services/llo/report_codecs_test.go
++++ w/core/services/llo/report_codecs_test.go
+@@ -10,6 +10,7 @@ import (
+ )
+ 
+ func Test_NewReportCodecs(t *testing.T) {
++	t.Parallel()
+ 	c := NewReportCodecs(logger.Test(t), 1)
+ 
+ 	_, ok := c[llotypes.ReportFormatJSON]
+diff --git c/core/services/llo/telem/sampling_test.go w/core/services/llo/telem/sampling_test.go
+index 8e71b3d0e8..a4e00b63d8 100644
+--- c/core/services/llo/telem/sampling_test.go
++++ w/core/services/llo/telem/sampling_test.go
+@@ -98,6 +98,7 @@ func TestFingerprint(t *testing.T) {
+ 
+ 	for _, test := range tests {
+ 		t.Run(test.name, func(t *testing.T) {
++			t.Parallel()
+ 			fp, ts, err := fingerprint(test.typ, test.msg)
+ 			if test.err != nil {
+ 				assert.EqualError(t, err, test.err.Error())
+@@ -120,7 +121,7 @@ func TestSample(t *testing.T) {
+ 	samplr := newSampler(lggr, true)
+ 	samplr.StartPruningLoop(ctx, &sync.WaitGroup{})
+ 
+-	t0 := time.Now()
++	t0 := time.Unix(1600000000, 0)
+ 	msg0 := &llo.LLOOutcomeTelemetry{
+ 		DonId:                           2,
+ 		ConfigDigest:                    []byte("digest"),
+diff --git c/core/services/llo/telem/telemetry_test.go w/core/services/llo/telem/telemetry_test.go
+index 2c1a4bf8e9..41dff1bcf0 100644
+--- c/core/services/llo/telem/telemetry_test.go
++++ w/core/services/llo/telem/telemetry_test.go
+@@ -140,6 +140,7 @@ var trrs = pipeline.TaskRunResults{
+ }
+ 
+ func Test_Telemeter_v3PremiumLegacy(t *testing.T) {
++	t.Parallel()
+ 	lggr := logger.TestLogger(t)
+ 	m := &mockMonitoringEndpoint{}
+ 
+@@ -277,6 +278,7 @@ func Test_Telemeter_observationScopedTelemetry(t *testing.T) {
+ 	opts := &mockOpts{}
+ 
+ 	t.Run("if both CaptureEATelemetry and CaptureObservationTelemetry are false, returns nil channel", func(t *testing.T) {
++		t.Parallel()
+ 		tm := newTelemeter(TelemeterParams{
+ 			Logger: lggr,
+ 			DonID:  donID,
+@@ -411,6 +413,7 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
+ 	donID := uint32(1)
+ 
+ 	t.Run("returns nil channel if CaptureOutcomeTelemetry is false", func(t *testing.T) {
++		t.Parallel()
+ 		tm := newTelemeter(TelemeterParams{
+ 			Logger: lggr,
+ 			DonID:  donID,
+@@ -420,6 +423,7 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
+ 	})
+ 
+ 	t.Run("transmits *datastreamsllo.LLOOutcomeTelemetry", func(t *testing.T) {
++		t.Parallel()
+ 		m := &mockMonitoringEndpoint{chTypedLogs: make(chan typedLog, 100)}
+ 		tm := newTelemeter(TelemeterParams{
+ 			Logger:                  lggr,
+@@ -531,6 +535,7 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
+ 	})
+ 
+ 	t.Run("overwrites previous outcome for same seqNr (epoch transition)", func(t *testing.T) {
++		t.Parallel()
+ 		// Simulates the bug scenario: Outcome() is called twice for the
+ 		// same seqNr across two epochs (first epoch fails prepare-quorum,
+ 		// second commits). Only the last outcome should survive in the
+@@ -623,6 +628,7 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
+ 	donID := uint32(1)
+ 
+ 	t.Run("returns nil channel if CaptureReportTelemetry is false", func(t *testing.T) {
++		t.Parallel()
+ 		tm := newTelemeter(TelemeterParams{
+ 			Logger: lggr,
+ 			DonID:  donID,
+@@ -632,6 +638,7 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
+ 	})
+ 
+ 	t.Run("transmits *datastreamsllo.LLOReportTelemetry", func(t *testing.T) {
++		t.Parallel()
+ 		m := &mockMonitoringEndpoint{chTypedLogs: make(chan typedLog, 100)}
+ 		tm := newTelemeter(TelemeterParams{
+ 			Logger:                 lggr,
+@@ -732,6 +739,7 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
+ 	})
+ 
+ 	t.Run("appends multiple reports for same seqNr (one per channel)", func(t *testing.T) {
++		t.Parallel()
+ 		// Report telemetry must append, not overwrite. Reports() generates
+ 		// one report per reportable channel (up to ~1000+), all sharing
+ 		// the same seqNr. Overwriting would lose all but the last channel.
+@@ -830,6 +838,7 @@ func Test_Telemeter_outcomeTelemetry_samplingAtFlushTime(t *testing.T) {
+ 	cd := (&mockOpts{}).ConfigDigest()
+ 
+ 	t.Run("with sampling enabled emits ~1 outcome per second despite seqNr/transmit mismatch", func(t *testing.T) {
++		t.Parallel()
+ 		m := &mockMonitoringEndpoint{chTypedLogs: make(chan typedLog, 100)}
+ 		tm := newTelemeter(TelemeterParams{
+ 			Logger:                  lggr,
+@@ -902,6 +911,7 @@ func Test_Telemeter_outcomeTelemetry_samplingAtFlushTime(t *testing.T) {
+ 	})
+ 
+ 	t.Run("with sampling disabled emits one outcome per transmitting seqNr", func(t *testing.T) {
++		t.Parallel()
+ 		m := &mockMonitoringEndpoint{chTypedLogs: make(chan typedLog, 100)}
+ 		tm := newTelemeter(TelemeterParams{
+ 			Logger:                  lggr,
+@@ -986,6 +996,7 @@ func Test_Telemeter_reportTelemetry_samplingAtFlushTime(t *testing.T) {
+ 	cd := (&mockOpts{}).ConfigDigest()
+ 
+ 	t.Run("with sampling enabled emits ~1 report per channel per second despite seqNr/transmit mismatch", func(t *testing.T) {
++		t.Parallel()
+ 		m := &mockMonitoringEndpoint{chTypedLogs: make(chan typedLog, 100)}
+ 		tm := newTelemeter(TelemeterParams{
+ 			Logger:                 lggr,
+@@ -1067,6 +1078,7 @@ func Test_Telemeter_reportTelemetry_samplingAtFlushTime(t *testing.T) {
+ 	})
+ 
+ 	t.Run("with sampling disabled emits all reports for transmitting seqNrs", func(t *testing.T) {
++		t.Parallel()
+ 		m := &mockMonitoringEndpoint{chTypedLogs: make(chan typedLog, 100)}
+ 		tm := newTelemeter(TelemeterParams{
+ 			Logger:                 lggr,
+@@ -1133,6 +1145,7 @@ func Test_Telemeter_reportTelemetry_samplingAtFlushTime(t *testing.T) {
+ 	})
+ 
+ 	t.Run("with sampling enabled multiple reports per channel at same transmitting seqNr keep one per second", func(t *testing.T) {
++		t.Parallel()
+ 		// Reports() emits one report per channel for a given seqNr. When
+ 		// that seqNr does transmit, the per-channel reports should be
+ 		// admitted (different fingerprints). This test verifies the
+diff --git c/core/services/ocr/contract_tracker_test.go w/core/services/ocr/contract_tracker_test.go
+index 4573129028..a152058ed8 100644
+--- c/core/services/ocr/contract_tracker_test.go
++++ w/core/services/ocr/contract_tracker_test.go
+@@ -105,7 +105,7 @@ func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
+ 
+ 	t.Run("before first head incoming, looks up on-chain", func(t *testing.T) {
+ 		uni := newContractTrackerUni(t)
+-		uni.ec.On("HeadByNumber", mock.AnythingOfType("*context.cancelCtx"), (*big.Int)(nil)).Return(&evmtypes.Head{Number: 42}, nil)
++		uni.ec.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&evmtypes.Head{Number: 42}, nil)
+ 
+ 		l, err := uni.tracker.LatestBlockHeight(testutils.Context(t))
+ 		require.NoError(t, err)
+@@ -115,12 +115,12 @@ func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
+ 
+ 	t.Run("Before first head incoming, on client error returns error", func(t *testing.T) {
+ 		uni := newContractTrackerUni(t)
+-		uni.ec.On("HeadByNumber", mock.AnythingOfType("*context.cancelCtx"), (*big.Int)(nil)).Return(nil, nil).Once()
++		uni.ec.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, nil).Once()
+ 
+ 		_, err := uni.tracker.LatestBlockHeight(testutils.Context(t))
+ 		assert.EqualError(t, err, "got nil head")
+ 
+-		uni.ec.On("HeadByNumber", mock.AnythingOfType("*context.cancelCtx"), (*big.Int)(nil)).Return(nil, errors.New("bar")).Once()
++		uni.ec.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, errors.New("bar")).Once()
+ 
+ 		_, err = uni.tracker.LatestBlockHeight(testutils.Context(t))
+ 		assert.EqualError(t, err, "bar")
+diff --git c/core/services/ocr2/plugins/llo/helpers_test.go w/core/services/ocr2/plugins/llo/helpers_test.go
+index 8e21ba57fd..203e2c70e6 100644
+--- c/core/services/ocr2/plugins/llo/helpers_test.go
++++ w/core/services/ocr2/plugins/llo/helpers_test.go
+@@ -262,7 +262,7 @@ name = "strm-spec-%d"
+ streamID = %d
+ observationSource = """
+ 	// Benchmark Price
+-	price1          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
++	price1          [type=bridge name="%s" timeout="10s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
+ 	price1_parse    [type=jsonparse path="result"];
+ 
+ 	price1 -> price1_parse;
+@@ -313,19 +313,19 @@ name = "strm-spec-%d"
+ streamID = %d
+ observationSource = """
+ 	// Benchmark Price
+-	price1          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
++	price1          [type=bridge name="%s" timeout="10s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
+ 	price1_parse    [type=jsonparse path="result" index=0];
+ 
+ 	price1 -> price1_parse;
+ 
+ 	// Bid
+-	price2          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
++	price2          [type=bridge name="%s" timeout="10s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
+ 	price2_parse    [type=jsonparse path="result" index=1];
+ 
+ 	price2 -> price2_parse;
+ 
+ 	// Ask
+-	price3          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
++	price3          [type=bridge name="%s" timeout="10s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
+ 	price3_parse    [type=jsonparse path="result" index=2];
+ 
+ 	price3 -> price3_parse;
+@@ -370,7 +370,7 @@ type = "offchainreporting2"
+ schemaVersion = 1
+ name = "%s"
+ forwardingAllowed = false
+-maxTaskDuration = "1s"
++maxTaskDuration = "10s"
+ contractID = "%s"
+ contractConfigTrackerPollInterval = "1s"
+ ocrKeyBundleID = "%s"
+diff --git c/core/services/ocr2/plugins/llo/history_backfill_integration_test.go w/core/services/ocr2/plugins/llo/history_backfill_integration_test.go
+index aa0ba0b411..5a76c564cf 100644
+--- c/core/services/ocr2/plugins/llo/history_backfill_integration_test.go
++++ w/core/services/ocr2/plugins/llo/history_backfill_integration_test.go
+@@ -6,7 +6,7 @@ import (
+ 	"encoding/json"
+ 	"fmt"
+ 	"math/big"
+-	"sort"
++	"slices"
+ 	"strconv"
+ 	"strings"
+ 	"testing"
+@@ -40,7 +40,7 @@ func historyBackfillOptsJSON(targetChannelID llotypes.ChannelID, observations ma
+ 	for ts := range observations {
+ 		tsKeys = append(tsKeys, ts)
+ 	}
+-	sort.Slice(tsKeys, func(i, j int) bool { return tsKeys[i] < tsKeys[j] })
++	slices.Sort(tsKeys)
+ 
+ 	var b strings.Builder
+ 	// Field order must match json.Marshal / channel cache (lexicographic): observations before targetChannelId.
+@@ -57,7 +57,7 @@ func historyBackfillOptsJSON(targetChannelID llotypes.ChannelID, observations ma
+ 		for sid := range row {
+ 			sids = append(sids, sid)
+ 		}
+-		sort.Slice(sids, func(i, j int) bool { return sids[i] < sids[j] })
++		slices.Sort(sids)
+ 		for j, sid := range sids {
+ 			if j > 0 {
+ 				b.WriteByte(',')
+@@ -207,7 +207,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
+ 	_, err := configStore.SetChannelDefinitions(steve, donID, url, sha)
+ 	require.NoError(t, err)
+ 	backend.Commit()
+-	time.Sleep(3 * time.Second)
+ 
+ 	setProductionConfig(
+ 		t, donID, steve, backend, configurator, configuratorAddress, nodes,
+@@ -292,7 +291,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
+ 	_, err = configStore.SetChannelDefinitions(steve, donID, url2, sha2)
+ 	require.NoError(t, err)
+ 	backend.Commit()
+-	time.Sleep(3 * time.Second)
+ 
+ 	histByObsTs := make(map[uint32]*big.Int)
+ 	require.Eventually(t, func() bool {
+@@ -322,7 +320,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
+ 	for ts := range histByObsTs {
+ 		histTs = append(histTs, ts)
+ 	}
+-	sort.Slice(histTs, func(i, j int) bool { return histTs[i] < histTs[j] })
++	slices.Sort(histTs)
+ 	require.Equal(t, []uint32{100, 150, 200}, histTs)
+ 	for _, ts := range histTs {
+ 		bench := histBenchmarks[uint64(ts)]
+diff --git c/core/services/ocr2/plugins/llo/integration_test.go w/core/services/ocr2/plugins/llo/integration_test.go
+index b644124868..4f93a9c928 100644
+--- c/core/services/ocr2/plugins/llo/integration_test.go
++++ w/core/services/ocr2/plugins/llo/integration_test.go
+@@ -30,7 +30,6 @@ import (
+ 	"google.golang.org/protobuf/proto"
+ 
+ 	"github.com/smartcontractkit/freeport"
+-
+ 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+ 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+ 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+@@ -2017,12 +2016,14 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
+ 								// handover test is handled below
+ 								break
+ 							}
+-							if offchainConfig.ProtocolVersion == 0 {
+-								// validAfter is always truncated to 1s in v0
+-								// IMPORTANT: gapless handovers in v0 ONLY supported at 1s resolution!!
+-								assert.Equal(t, highestObsTsNanos/1e9*1e9, r.ValidAfterNanoseconds/1e9*1e9, "%d: (n-1)ObservationsTimestampSeconds->(n)ValidAfterNanoseconds should be gapless to within 1s resolution, got: %d vs %d", i, highestObsTsNanos, r.ValidAfterNanoseconds)
+-							} else {
+-								assert.Equal(t, highestObsTsNanos, r.ValidAfterNanoseconds, "%d: (n-1)ObservationsTimestampSeconds->(n)ValidAfterNanoseconds should be gapless, got: %d vs %d", i, highestObsTsNanos, r.ValidAfterNanoseconds)
++							if r.SeqNr == seenSeqNr+1 {
++								if offchainConfig.ProtocolVersion == 0 {
++									// validAfter is always truncated to 1s in v0
++									// IMPORTANT: gapless handovers in v0 ONLY supported at 1s resolution!!
++									assert.Equal(t, highestObsTsNanos/1e9*1e9, r.ValidAfterNanoseconds/1e9*1e9, "%d: (n-1)ObservationsTimestampSeconds->(n)ValidAfterNanoseconds should be gapless to within 1s resolution, got: %d vs %d", i, highestObsTsNanos, r.ValidAfterNanoseconds)
++								} else {
++									assert.Equal(t, highestObsTsNanos, r.ValidAfterNanoseconds, "%d: (n-1)ObservationsTimestampSeconds->(n)ValidAfterNanoseconds should be gapless, got: %d vs %d", i, highestObsTsNanos, r.ValidAfterNanoseconds)
++								}
+ 							}
+ 							assert.Greater(t, r.ObservationTimestampNanoseconds, highestObsTsNanos, "%d: overlapping/duplicate report ObservationTimestampNanoseconds, got: %d vs %d", i, r.ObservationTimestampNanoseconds, highestObsTsNanos)
+ 							assert.Greater(t, r.ValidAfterNanoseconds, highestValidAfterNanos, "%d: overlapping/duplicate report ValidAfterNanoseconds, got: %d vs %d", i, r.ValidAfterNanoseconds, highestValidAfterNanos)
+@@ -2358,9 +2359,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
+ 			require.NoError(t, err)
+ 			backend.Commit()
+ 
+-			// Wait for channel definitions to be processed (give time for log polling and fetching)
+-			time.Sleep(3 * time.Second)
+-
+ 			// Wait for reports from all owner channels
+ 			expectedChannels := map[uint32]bool{1: true, 2: true, 3: true}
+ 			waitForReportsFromChannels(t, expectedChannels, reportTimeout)
+@@ -2471,9 +2469,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
+ 			require.NoError(t, err)
+ 			backend.Commit()
+ 
+-			// Wait for channel definitions to be processed (give time for log polling and fetching)
+-			time.Sleep(3 * time.Second)
+-
+ 			// Wait for reports from all channels (owner + adders)
+ 			expectedChannels := map[uint32]bool{1: true, 2: true, 3: true, 10: true, 11: true, 20: true, 21: true}
+ 			waitForReportsFromChannels(t, expectedChannels, reportTimeout)
+@@ -2603,9 +2598,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
+ 			require.NoError(t, err)
+ 			backend.Commit()
+ 
+-			// Wait for channel definitions to be processed
+-			time.Sleep(10 * time.Second)
+-
+ 			// Wait for reports from channel 10 and verify it eventually uses owner's configuration (linkStreamID)
+ 			// The owner's definition should take precedence over the adder's definition
+ 			foundOwnerReport := false
+@@ -2668,12 +2660,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
+ 			require.NoError(t, err)
+ 			backend.Commit()
+ 
+-			// Wait for processing
+-			time.Sleep(3 * time.Second)
+-
+ 			// Verify channel 11 still produces reports (adder cannot remove it)
+ 			foundChannel11Report := false
+-			deadline := time.Now().Add(5 * time.Second)
++			deadline := time.Now().Add(8 * time.Second)
+ 			for time.Now().Before(deadline) && !foundChannel11Report {
+ 				pckt, err := receiveWithTimeout(t, packetCh, 1*time.Second)
+ 				if err != nil {
+@@ -2866,13 +2855,27 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
+ 
+ 	// After reports for channel 2 have stopped, bridge traffic for streamIDTombstone should stop
+ 	// while streamIDActive continues to be observed.
+-	bCallsAfterReportsStopped := streamBCalls.Load()
++	// We wait until streamBCalls stabilizes to account for any inflight pipelines or wind-down delays.
++	var lastB uint64
++	var stableSince time.Time
++	require.Eventually(t, func() bool {
++		b := streamBCalls.Load()
++		if b != lastB {
++			lastB = b
++			stableSince = time.Now()
++			return false
++		}
++		return time.Since(stableSince) > 2*time.Second
++	}, 15*time.Second, 100*time.Millisecond, "tombstoned channel's stream should eventually stop being observed")
++
++	bCallsStable := streamBCalls.Load()
+ 	aCallsAfterReportsStopped := streamACalls.Load()
+-	time.Sleep(1 * time.Second)
+-	require.Equal(t, bCallsAfterReportsStopped, streamBCalls.Load(),
++	require.Eventually(t, func() bool {
++		return streamACalls.Load() > aCallsAfterReportsStopped
++	}, 15*time.Second, 100*time.Millisecond, "active channel's stream should still be observed")
++
++	require.Equal(t, bCallsStable, streamBCalls.Load(),
+ 		"tombstoned channel's stream should not be observed (no additional bridge calls)")
+-	require.Greater(t, streamACalls.Load(), aCallsAfterReportsStopped,
+-		"active channel's stream should still be observed")
+ }
+ 
+ func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
+diff --git c/core/services/ocr2/plugins/llo/onchain_channel_definition_cache_integration_test.go w/core/services/ocr2/plugins/llo/onchain_channel_definition_cache_integration_test.go
+index 0cc68170f2..3c48f1090b 100644
+--- c/core/services/ocr2/plugins/llo/onchain_channel_definition_cache_integration_test.go
++++ w/core/services/ocr2/plugins/llo/onchain_channel_definition_cache_integration_test.go
+@@ -865,12 +865,9 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
+ 		require.NoError(t, err)
+ 		backend.Commit()
+ 
+-		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
++		testutils.WaitForLogMessageWithField(t, observedLogs, "Set channel definitions for source",
+ 			"url", url2)
+ 
+-		// Wait a bit for processing
+-		time.Sleep(500 * time.Millisecond)
+-
+ 		// Verify adder's definition was skipped - owner's definition should still be there
+ 		defs := cdc.Definitions(llotypes.ChannelDefinitions{})
+ 		assert.Equal(t, channeldefinitions.SourceOwner, defs[200].Source, "channel 200 should still be from owner")
+@@ -946,12 +943,9 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
+ 		require.NoError(t, err)
+ 		backend.Commit()
+ 
+-		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
++		testutils.WaitForLogMessageWithField(t, observedLogs, "Set channel definitions for source",
+ 			"url", url2)
+ 
+-		// Wait a bit for processing
+-		time.Sleep(500 * time.Millisecond)
+-
+ 		// Verify second adder's definition was skipped
+ 		defs := cdc.Definitions(llotypes.ChannelDefinitions{})
+ 		assert.Equal(t, adder1ID, defs[300].Source, "channel 300 should still be from adder1")
+@@ -991,12 +985,9 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
+ 		require.NoError(t, err)
+ 		backend.Commit()
+ 
+-		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
++		testutils.WaitForLogMessageWithField(t, observedLogs, "Set channel definitions for source",
+ 			"url", url)
+ 
+-		// Wait a bit for processing
+-		time.Sleep(500 * time.Millisecond)
+-
+ 		// Verify tombstone channel was skipped
+ 		defs := cdc.Definitions(llotypes.ChannelDefinitions{})
+ 		_, exists := defs[400]
+@@ -1514,12 +1505,9 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
+ 		require.NoError(t, err)
+ 		backend.Commit()
+ 
+-		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
++		testutils.WaitForLogMessageWithField(t, observedLogs, "Set channel definitions for source",
+ 			"url", url)
+ 
+-		// Wait a bit for processing
+-		time.Sleep(500 * time.Millisecond)
+-
+ 		// Call Definitions() to trigger the merge and error logging
+ 		_ = cdc.Definitions(llotypes.ChannelDefinitions{})
+ 
+diff --git c/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/integration_test.go w/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/integration_test.go
+index 68b256ef09..b7d93ddaae 100644
+--- c/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/integration_test.go
++++ w/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/integration_test.go
+@@ -13,8 +13,6 @@ import (
+ 	"github.com/jmoiron/sqlx"
+ 	"github.com/stretchr/testify/require"
+ 
+-	"github.com/smartcontractkit/quarantine"
+-
+ 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+ 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+ 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+@@ -125,7 +123,6 @@ func TestIntegration_LogEventProvider(t *testing.T) {
+ }
+ 
+ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
+-	quarantine.Flaky(t, "DX-1779")
+ 	ctx := t.Context()
+ 
+ 	backend, stopMining, accounts := setupBackend(t)
+@@ -251,7 +248,6 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
+ }
+ 
+ func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
+-	quarantine.Flaky(t, "DX-1889")
+ 	ctx := t.Context()
+ 
+ 	backend, stopMining, accounts := setupBackend(t)
+@@ -504,8 +500,6 @@ func setupBackend(t *testing.T) (backend evmtypes.Backend, stop func(), opts []*
+ 	return
+ }
+ 
+-func ptr[T any](v T) *T { return &v }
+-
+ func setupDB(t *testing.T) *sqlx.DB {
+ 	_, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+ 		c.Feature.LogPoller = new(true)
+diff --git c/core/services/ocr2/plugins/ocr2keeper/integration_21_test.go w/core/services/ocr2/plugins/ocr2keeper/integration_21_test.go
+index 669940d9e3..d024b28cbb 100644
+--- c/core/services/ocr2/plugins/ocr2keeper/integration_21_test.go
++++ w/core/services/ocr2/plugins/ocr2keeper/integration_21_test.go
+@@ -1,6 +1,7 @@
+ package ocr2keeper_test
+ 
+ import (
++	"bytes"
+ 	"context"
+ 	crand "crypto/rand"
+ 	"encoding/hex"
+@@ -20,13 +21,11 @@ import (
+ 	"github.com/ethereum/go-ethereum/common/hexutil"
+ 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+ 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+-	"github.com/onsi/gomega"
+ 	"github.com/stretchr/testify/assert"
+ 	"github.com/stretchr/testify/require"
+ 	"github.com/umbracle/ethgo/abi"
+ 
+ 	"github.com/smartcontractkit/freeport"
+-
+ 	"github.com/smartcontractkit/libocr/commontypes"
+ 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+ 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+@@ -34,7 +33,6 @@ import (
+ 
+ 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
+ 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+ 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+ 
+ 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
+@@ -89,8 +87,9 @@ func TestFilterNamesFromSpec21(t *testing.T) {
+ 	require.ErrorContains(t, err, "not a valid EIP55 formatted address")
+ }
+ 
+-func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
+-	g := gomega.NewWithT(t)
++func TestIntegration_KeeperPlugin_PerformAndUpkeepPrivilegeConfig(t *testing.T) {
++	t.Parallel()
++
+ 	lggr := logger.TestLogger(t)
+ 
+ 	// setup blockchain
+@@ -127,8 +126,6 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
+ 
+ 	setupNodes(t, nodeKeys, registry, backend, steve)
+ 
+-	<-time.After(time.Second * 5)
+-
+ 	upkeeps := 1
+ 
+ 	_, err = linkToken.Transfer(sergey, carrol.From, big.NewInt(0).Mul(oneHunEth, big.NewInt(int64(upkeeps+1))))
+@@ -166,12 +163,11 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
+ 	lggr.Infow("Upkeep registered and funded", "upkeepID", upkeepID.String())
+ 
+ 	// keeper job is triggered and payload is received
+-	receivedBytes := func() []byte {
++	require.Eventually(t, func() bool {
+ 		received, err2 := upkeepContract.ReceivedBytes(nil)
+ 		require.NoError(t, err2)
+-		return received
+-	}
+-	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload1))
++		return bytes.Equal(received, payload1)
++	}, testutils.WaitTimeout(t), cltest.DBPollingInterval)
+ 
+ 	// change payload
+ 	_, err = upkeepContract.SetBytesToSend(carrol, payload2)
+@@ -182,12 +178,15 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
+ 	backend.Commit()
+ 
+ 	// observe 2nd job run and received payload changes
+-	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload2))
++	require.Eventually(t, func() bool {
++		received, err2 := upkeepContract.ReceivedBytes(nil)
++		require.NoError(t, err2)
++		return bytes.Equal(received, payload2)
++	}, testutils.WaitTimeout(t), cltest.DBPollingInterval)
+ }
+ 
+ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
+ 	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809; DEPENDENT ON SPECIFIC BLOCK PATTTERN?")
+-	g := gomega.NewWithT(t)
+ 
+ 	// setup blockchain
+ 	sergey := evmtestutils.MustNewSimTransactor(t) // owns all the link
+@@ -240,8 +239,8 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
+ 		commit()
+ 	})
+ 
+-	listener, done := listenPerformed(t, backend, registry, ids, int64(1))
+-	g.Eventually(listener, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
++	listener, done := listenPerformed(t, backend, registry, ids, 1)
++	require.Eventually(t, listener, testutils.WaitTimeout(t), cltest.DBPollingInterval)
+ 	done()
+ 
+ 	t.Run("recover logs", func(t *testing.T) {
+@@ -273,16 +272,15 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
+ 
+ 		t.Logf("Mined %d blocks, waiting for logs to be recovered", dummyBlocks)
+ 
+-		listener, done := listenPerformedN(t, backend, registry, ids, int64(beforeDummyBlocks), recoverEmits)
++		listener, done := listenPerformedN(t, backend, registry, ids, beforeDummyBlocks, recoverEmits)
+ 		defer done()
+-		g.Eventually(listener, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
++		require.Eventually(t, listener, testutils.WaitTimeout(t), cltest.DBPollingInterval)
+ 	})
+ }
+ 
+ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
+-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-575")
+-
+-	g := gomega.NewWithT(t)
++	t.Skip("Flakey https://smartcontract-it.atlassian.net/browse/DX-575")
++	t.Parallel()
+ 
+ 	// setup blockchain
+ 	linkOwner := evmtestutils.MustNewSimTransactor(t)     // owns all the link
+@@ -392,17 +390,17 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
+ 		// only 1 event is necessary to make all 10 upkeeps eligible
+ 		_ = feeds.EmitEvents(t, backend, 1, func() {
+ 			// pause per emit for expected block production time
+-			time.Sleep(3 * time.Second)
++			time.Sleep(100 * time.Millisecond)
+ 		})
+ 	}()
+ 
+-	listener, done := listenPerformed(t, backend, registry, feeds.UpkeepsIds(), int64(1))
++	listener, done := listenPerformed(t, backend, registry, feeds.UpkeepsIds(), 1)
+ 	defer done()
+-	g.Eventually(listener, testutils.WaitTimeout(t)-(5*time.Second), cltest.DBPollingInterval).Should(gomega.BeTrue())
++	require.Eventually(t, listener, testutils.WaitTimeout(t)-(5*time.Second), cltest.DBPollingInterval)
+ }
+ 
+ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
+-	g := gomega.NewWithT(t)
++	t.Parallel()
+ 
+ 	// setup blockchain
+ 	linkOwner := evmtestutils.MustNewSimTransactor(t)     // owns all the link
+@@ -485,7 +483,7 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
+ 
+ 	h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
+ 	require.NoError(t, err)
+-	startBlock := h.Number.Int64()
++	startBlock := h.Number.Uint64()
+ 	// start emitting events in a separate go-routine
+ 	// feed lookup relies on a single contract event log to perform multiple
+ 	// listener contracts
+@@ -493,7 +491,7 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
+ 		// only 1 event is necessary to make all 10 upkeeps eligible
+ 		_ = feeds.EmitEvents(t, backend, 1, func() {
+ 			// pause per emit for expected block production time
+-			time.Sleep(3 * time.Second)
++			time.Sleep(100 * time.Millisecond)
+ 		})
+ 	}()
+ 
+@@ -506,7 +504,7 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
+ 
+ 	listener, done := listenPerformed(t, backend, registry, idsToCheck, startBlock)
+ 	defer done()
+-	g.Eventually(listener, testutils.WaitTimeout(t)-(5*time.Second), cltest.DBPollingInterval).Should(gomega.BeTrue())
++	require.Eventually(t, listener, testutils.WaitTimeout(t)-(5*time.Second), cltest.DBPollingInterval)
+ }
+ 
+ func startMercuryServer(t *testing.T, mercuryServer *mercury.SimulatedMercuryServer, responder func(i int) (int, []byte)) {
+@@ -539,70 +537,56 @@ func emitEvents(ctx context.Context, t *testing.T, n int, contracts []*log_upkee
+ 	}
+ }
+ 
+-func mapListener(m *sync.Map, n int) func() bool {
+-	return func() bool {
+-		count := 0
+-		m.Range(func(key, value any) bool {
+-			count += value.(int)
+-			return true
+-		})
+-		return count > n
++// listenPerformedN returns a poll func that checks whether every ID in ids has
++// at least minPerID performed-events (minimum 1). This is a per-ID threshold,
++// not a total across all IDs.
++func listenPerformedN(t *testing.T, backend evmtypes.Backend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int, startBlock uint64, minPerID int) (func() bool, func()) {
++	if minPerID < 1 {
++		minPerID = 1
+ 	}
+-}
+-
+-func listenPerformedN(t *testing.T, backend evmtypes.Backend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int, startBlock int64, count int) (func() bool, func()) {
+-	cache := &sync.Map{}
+-	ctx, cancel := context.WithCancel(testutils.Context(t))
+-	start := startBlock
+-
+-	go func() {
+-		for ctx.Err() == nil {
+-			h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
+-			assert.NoError(t, err)
+-			currentBlock := h.Number.Uint64()
+-
+-			success := make([]bool, len(ids))
+-			for i := range success {
+-				success[i] = true
+-			}
+-
+-			iter, err := registry.FilterUpkeepPerformed(&bind.FilterOpts{
+-				Start:   uint64(start),
+-				End:     &currentBlock,
+-				Context: ctx,
+-			}, ids, success)
+-
+-			if ctx.Err() != nil {
+-				return
+-			}
+-
+-			require.NoError(t, err)
+-
+-			for iter.Next() {
+-				if iter.Event != nil {
+-					t.Logf("[automation-ocr3 | EvmRegistry] upkeep performed event emitted for id %s", iter.Event.Id.String())
+-
+-					// cache.Store(iter.Event.Id.String(), true)
+-					count, ok := cache.Load(iter.Event.Id.String())
+-					if !ok {
+-						cache.Store(iter.Event.Id.String(), 1)
+-						continue
+-					}
+-					countI := count.(int)
+-					cache.Store(iter.Event.Id.String(), countI+1)
+-				}
+-			}
+-
+-			require.NoError(t, iter.Close())
+-
+-			time.Sleep(time.Second)
++	return func() bool {
++		h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
++		if err != nil {
++			return false
+ 		}
+-	}()
++		currentBlock := h.Number.Uint64()
+ 
+-	return mapListener(cache, count), cancel
++		success := make([]bool, len(ids))
++		for i := range success {
++			success[i] = true
++		}
++
++		iter, err := registry.FilterUpkeepPerformed(&bind.FilterOpts{
++			Start:   startBlock,
++			End:     &currentBlock,
++			Context: testutils.Context(t),
++		}, ids, success)
++
++		if err != nil {
++			return false
++		}
++		defer iter.Close()
++
++		cache := make(map[string]int)
++		for iter.Next() {
++			if iter.Event != nil {
++				cache[iter.Event.Id.String()]++
++			}
++		}
++
++		if len(cache) != len(ids) {
++			return false
++		}
++		for _, count := range cache {
++			if count < minPerID {
++				return false
++			}
++		}
++		return true
++	}, func() {}
+ }
+ 
+-func listenPerformed(t *testing.T, backend evmtypes.Backend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int, startBlock int64) (func() bool, func()) {
++func listenPerformed(t *testing.T, backend evmtypes.Backend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int, startBlock uint64) (func() bool, func()) {
+ 	return listenPerformedN(t, backend, registry, ids, startBlock, 0)
+ }
+ 
+@@ -661,7 +645,7 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
+ 		schemaVersion                     = 1
+ 		name                              = "boot"
+ 		contractID                        = "%s"
+-		contractConfigTrackerPollInterval = "15s"
++		contractConfigTrackerPollInterval = "1s"
+ 
+ 		[relayConfig]
+ 		chainID = 1337
+@@ -676,7 +660,7 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
+ 		name = "ocr2keepers-%d"
+ 		schemaVersion = 1
+ 		contractID = "%s"
+-		contractConfigTrackerPollInterval = "15s"
++		contractConfigTrackerPollInterval = "1s"
+ 		ocrKeyBundleID = "%s"
+ 		transmitterID = "%s"
+ 		p2pv2Bootstrappers = [
+@@ -779,7 +763,7 @@ func deployUpkeeps(t *testing.T, backend evmtypes.Backend, carrol, steve *bind.T
+ 	contracts := make([]*log_upkeep_counter_wrapper.LogUpkeepCounter, n)
+ 	for i := range n {
+ 		backend.Commit()
+-		time.Sleep(1 * time.Second)
++		time.Sleep(100 * time.Millisecond)
+ 		upkeepAddr, _, upkeepContract, err := log_upkeep_counter_wrapper.DeployLogUpkeepCounter(
+ 			carrol, backend.Client(),
+ 			big.NewInt(100000),
+diff --git c/core/services/ocr2/plugins/ocr2keeper/integration_test.go w/core/services/ocr2/plugins/ocr2keeper/integration_test.go
+index ed65625853..8cd250b21b 100644
+--- c/core/services/ocr2/plugins/ocr2keeper/integration_test.go
++++ w/core/services/ocr2/plugins/ocr2keeper/integration_test.go
+@@ -22,7 +22,6 @@ import (
+ 	"github.com/umbracle/ethgo/abi"
+ 
+ 	"github.com/smartcontractkit/freeport"
+-
+ 	"github.com/smartcontractkit/libocr/commontypes"
+ 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+ 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+@@ -281,7 +280,7 @@ func runKeeperPluginBasic(t *testing.T) {
+ 		schemaVersion                     = 1
+ 		name                              = "boot"
+ 		contractID                        = "%s"
+-		contractConfigTrackerPollInterval = "15s"
++		contractConfigTrackerPollInterval = "1s"
+ 
+ 		[relayConfig]
+ 		chainID = 1337
+@@ -296,7 +295,7 @@ func runKeeperPluginBasic(t *testing.T) {
+ 		name = "ocr2keepers-%d"
+ 		schemaVersion = 1
+ 		contractID = "%s"
+-		contractConfigTrackerPollInterval = "15s"
++		contractConfigTrackerPollInterval = "1s"
+ 		ocrKeyBundleID = "%s"
+ 		transmitterID = "%s"
+ 		p2pv2Bootstrappers = [
+@@ -465,6 +464,7 @@ func setupForwarderForNode(
+ }
+ 
+ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
++	t.Parallel()
+ 	g := gomega.NewWithT(t)
+ 	lggr := logger.TestLogger(t)
+ 
+@@ -544,7 +544,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
+ 		schemaVersion                     = 1
+ 		name                              = "boot"
+ 		contractID                        = "%s"
+-		contractConfigTrackerPollInterval = "15s"
++		contractConfigTrackerPollInterval = "1s"
+ 
+ 		[relayConfig]
+ 		chainID = 1337
+@@ -559,7 +559,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
+ 		name = "ocr2keepers-%d"
+ 		schemaVersion = 1
+ 		contractID = "%s"
+-		contractConfigTrackerPollInterval = "15s"
++		contractConfigTrackerPollInterval = "1s"
+ 		ocrKeyBundleID = "%s"
+ 		transmitterID = "%s"
+ 		p2pv2Bootstrappers = [
+@@ -706,8 +706,6 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
+ 	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload2))
+ }
+ 
+-func ptr[T any](v T) *T { return &v }
+-
+ func TestFilterNamesFromSpec20(t *testing.T) {
+ 	b := make([]byte, 20)
+ 	_, err := rand.Read(b)
+diff --git c/core/services/pipeline/task.bridge_test.go w/core/services/pipeline/task.bridge_test.go
+index bed32e0165..0557d0ee48 100644
+--- c/core/services/pipeline/task.bridge_test.go
++++ w/core/services/pipeline/task.bridge_test.go
+@@ -1310,7 +1310,7 @@ func TestBridgeTask_PipelineAdapterLWBAError(t *testing.T) {
+ 	t.Parallel()
+ 
+ 	dag := `
+-ds [type=bridge name="adapter-error-bridge" timeout="50ms" requestData="{\"data\":{\"from\":\"ETH\",\"to\":\"USD\"}}"];
++ds [type=bridge name="adapter-error-bridge" timeout="5s" requestData="{\"data\":{\"from\":\"ETH\",\"to\":\"USD\"}}"];
+ `
+ 
+ 	ctx := testutils.Context(t)
+diff --git c/core/services/vrf/v2/integration_helpers_test.go w/core/services/vrf/v2/integration_helpers_test.go
+index 9ff4da31a5..b827808178 100644
+--- c/core/services/vrf/v2/integration_helpers_test.go
++++ w/core/services/vrf/v2/integration_helpers_test.go
+@@ -1715,7 +1715,15 @@ func testMaliciousConsumer(
+ 	require.NoError(t, err)
+ 	err = app.JobSpawner().CreateJob(ctx, nil, &jb)
+ 	require.NoError(t, err)
+-	time.Sleep(1 * time.Second)
++	require.Eventually(t, func() bool {
++		jbs := app.JobSpawner().ActiveJobs()
++		for _, j := range jbs {
++			if j.ID == jb.ID {
++				return true
++			}
++		}
++		return false
++	}, testutils.WaitTimeout(t), 100*time.Millisecond)
+ 
+ 	// Register a proving key associated with the VRF job.
+ 	registerProvingKeyHelper(t, uni, uni.rootContract, vrfkey, &defaultMaxGasPrice)
+diff --git c/core/services/vrf/v2/integration_v2_plus_test.go w/core/services/vrf/v2/integration_v2_plus_test.go
+index a5f898c169..8a9758dedf 100644
+--- c/core/services/vrf/v2/integration_v2_plus_test.go
++++ w/core/services/vrf/v2/integration_v2_plus_test.go
+@@ -689,6 +689,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_MultipleGasLanes(t *testing.T) {
+ }
+ 
+ func TestVRFV2PlusIntegration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(t *testing.T) {
++	t.Parallel()
+ 	quarantine.Flaky(t, "DX-1730")
+ 	ownerKey := cltest.MustGenerateRandomKey(t)
+ 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 0, false)
+@@ -704,6 +705,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_AlwaysRevertingCallback_StillFulfil
+ }
+ 
+ func TestVRFV2PlusIntegration_ConsumerProxy_HappyPath(t *testing.T) {
++	t.Parallel()
+ 	ownerKey := cltest.MustGenerateRandomKey(t)
+ 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 0, false)
+ 	testConsumerProxyHappyPath(
+@@ -717,12 +719,14 @@ func TestVRFV2PlusIntegration_ConsumerProxy_HappyPath(t *testing.T) {
+ }
+ 
+ func TestVRFV2PlusIntegration_ConsumerProxy_CoordinatorZeroAddress(t *testing.T) {
++	t.Parallel()
+ 	ownerKey := cltest.MustGenerateRandomKey(t)
+ 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 0, false)
+ 	testConsumerProxyCoordinatorZeroAddress(t, uni.coordinatorV2UniverseCommon)
+ }
+ 
+ func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
++	t.Parallel()
+ 	quarantine.Flaky(t, "DX-2222")
+ 	owner := evmtestutils.MustNewSimTransactor(t)
+ 	random := evmtestutils.MustNewSimTransactor(t)
+@@ -806,6 +810,7 @@ func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
+ }
+ 
+ func TestVRFV2PlusIntegration_SimpleConsumerExample(t *testing.T) {
++	t.Parallel()
+ 	owner := evmtestutils.MustNewSimTransactor(t)
+ 	random := evmtestutils.MustNewSimTransactor(t)
+ 	genesisData := gethtypes.GenesisAlloc{
+@@ -869,6 +874,7 @@ func TestVRFV2PlusIntegration_TestMaliciousConsumer(t *testing.T) {
+ }
+ 
+ func TestVRFV2PlusIntegration_RequestCost(t *testing.T) {
++	t.Parallel()
+ 	ctx := testutils.Context(t)
+ 	key := cltest.MustGenerateRandomKey(t)
+ 	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1, false)
+@@ -945,6 +951,7 @@ func TestVRFV2PlusIntegration_RequestCost(t *testing.T) {
+ }
+ 
+ func TestVRFV2PlusIntegration_MaxConsumersCost(t *testing.T) {
++	t.Parallel()
+ 	key := cltest.MustGenerateRandomKey(t)
+ 	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1, false)
+ 	carol := uni.vrfConsumers[0]
+@@ -1025,6 +1032,7 @@ func requestAndEstimateFulfillmentCost(
+ }
+ 
+ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
++	t.Parallel()
+ 	ctx := testutils.Context(t)
+ 	key := cltest.MustGenerateRandomKey(t)
+ 	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1, false)
+@@ -1347,6 +1355,7 @@ func requestRandomnessAndValidate(t *testing.T,
+ }
+ 
+ func TestVRFV2PlusIntegration_CancelSubscription(t *testing.T) {
++	t.Parallel()
+ 	key := cltest.MustGenerateRandomKey(t)
+ 	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1, false)
+ 	consumer := uni.vrfConsumers[0]
+diff --git c/core/services/vrf/v2/integration_v2_reverted_txns_test.go w/core/services/vrf/v2/integration_v2_reverted_txns_test.go
+index dbc21f4171..dbfecf2a00 100644
+--- c/core/services/vrf/v2/integration_v2_reverted_txns_test.go
++++ w/core/services/vrf/v2/integration_v2_reverted_txns_test.go
+@@ -132,6 +132,7 @@ func TestVRFV2Integration_CanceledSubForceFulfillmentRevertedTxn_Retry(t *testin
+ }
+ 
+ func TestUniqueReqById_NoPendingReceipts(t *testing.T) {
++	t.Parallel()
+ 	revertedForceTxns := []v2.TxnReceiptDB{
+ 		{RequestID: common.BigToHash(big.NewInt(1)).Hex(),
+ 			ForceFulfillmentAttempt: 1, EVMReceipt: types.Receipt{Status: 0}},
+@@ -160,6 +161,7 @@ func TestUniqueReqById_NoPendingReceipts(t *testing.T) {
+ }
+ 
+ func TestUniqueReqById_WithPendingReceipts(t *testing.T) {
++	t.Parallel()
+ 	revertedForceTxns := []v2.TxnReceiptDB{
+ 		{RequestID: common.BigToHash(big.NewInt(1)).Hex(),
+ 			ForceFulfillmentAttempt: 1, EVMReceipt: types.Receipt{Status: 0}},
+@@ -478,7 +480,6 @@ func createVRFJobsNew(
+ 	// TODO: it could just backfill immediately upon receiving a new subscriber? (though would
+ 	// only be useful for tests, probably a more robust way is to have the job spawner accept a signal that a
+ 	// job is fully up and running and not add it to the active jobs list before then)
+-	time.Sleep(2 * time.Second)
+ 	return
+ }
+ 
+diff --git c/core/services/vrf/v2/integration_v2_test.go w/core/services/vrf/v2/integration_v2_test.go
+index 57fbecc90f..ade0f5c944 100644
+--- c/core/services/vrf/v2/integration_v2_test.go
++++ w/core/services/vrf/v2/integration_v2_test.go
+@@ -631,7 +631,6 @@ func createVRFJobs(
+ 	// TODO: it could just backfill immediately upon receiving a new subscriber? (though would
+ 	// only be useful for tests, probably a more robust way is to have the job spawner accept a signal that a
+ 	// job is fully up and running and not add it to the active jobs list before then)
+-	time.Sleep(2 * time.Second)
+ 
+ 	return
+ }
+@@ -819,29 +818,18 @@ func assertRandomWordsFulfilled(
+ 	coordinator v22.CoordinatorV2_X,
+ 	nativePayment bool,
+ ) (rwfe v22.RandomWordsFulfilled) {
+-	// Check many times in case there are delays processing the event
+-	// this could happen occasionally and cause flaky tests.
+-	numChecks := 3
+-	found := false
+-	for range numChecks {
++	require.Eventually(t, func() bool {
+ 		filter, err := coordinator.FilterRandomWordsFulfilled(nil, []*big.Int{requestID}, nil)
+ 		require.NoError(t, err)
+ 		for filter.Next() {
+ 			require.Equal(t, expectedSuccess, filter.Event().Success(), "fulfillment event success not correct, expected: %+v, actual: %+v", expectedSuccess, filter.Event().Success())
+ 			require.Equal(t, requestID, filter.Event().RequestID())
+ 			require.Equal(t, nativePayment, filter.Event().NativePayment())
+-			found = true
+ 			rwfe = filter.Event()
++			return true
+ 		}
+-
+-		if found {
+-			break
+-		}
+-
+-		// Wait a bit and try again.
+-		time.Sleep(time.Second)
+-	}
+-	require.True(t, found, "RandomWordsFulfilled event not found")
++		return false
++	}, 3*time.Second, 100*time.Millisecond, "RandomWordsFulfilled event not found")
+ 	return
+ }
+ 
+@@ -1550,6 +1538,7 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
+ }
+ 
+ func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(t *testing.T) {
++	t.Parallel()
+ 	ownerKey := cltest.MustGenerateRandomKey(t)
+ 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 0)
+ 	testSingleConsumerAlwaysRevertingCallbackStillFulfilled(
+@@ -1564,6 +1553,7 @@ func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(
+ }
+ 
+ func TestVRFV2Integration_ConsumerProxy_HappyPath(t *testing.T) {
++	t.Parallel()
+ 	ownerKey := cltest.MustGenerateRandomKey(t)
+ 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 0)
+ 	testConsumerProxyHappyPath(
+@@ -1577,6 +1567,7 @@ func TestVRFV2Integration_ConsumerProxy_HappyPath(t *testing.T) {
+ }
+ 
+ func TestVRFV2Integration_ConsumerProxy_CoordinatorZeroAddress(t *testing.T) {
++	t.Parallel()
+ 	ownerKey := cltest.MustGenerateRandomKey(t)
+ 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 0)
+ 	testConsumerProxyCoordinatorZeroAddress(t, uni.coordinatorV2UniverseCommon)
+@@ -1629,6 +1620,7 @@ func registerProvingKeyHelper(t *testing.T, uni coordinatorV2UniverseCommon, coo
+ }
+ 
+ func TestExternalOwnerConsumerExample(t *testing.T) {
++	t.Parallel()
+ 	owner := evmtestutils.MustNewSimTransactor(t)
+ 	random := evmtestutils.MustNewSimTransactor(t)
+ 	genesisData := gethtypes.GenesisAlloc{
+@@ -1693,6 +1685,7 @@ func TestExternalOwnerConsumerExample(t *testing.T) {
+ }
+ 
+ func TestSimpleConsumerExample(t *testing.T) {
++	t.Parallel()
+ 	owner := evmtestutils.MustNewSimTransactor(t)
+ 	random := evmtestutils.MustNewSimTransactor(t)
+ 	genesisData := gethtypes.GenesisAlloc{
+@@ -1948,6 +1941,7 @@ func TestMaliciousConsumer(t *testing.T) {
+ }
+ 
+ func TestRequestCost(t *testing.T) {
++	t.Parallel()
+ 	ctx := testutils.Context(t)
+ 	key := cltest.MustGenerateRandomKey(t)
+ 	uni := newVRFCoordinatorV2Universe(t, key, 1)
+@@ -2020,6 +2014,7 @@ func TestRequestCost(t *testing.T) {
+ }
+ 
+ func TestMaxConsumersCost(t *testing.T) {
++	t.Parallel()
+ 	key := cltest.MustGenerateRandomKey(t)
+ 	uni := newVRFCoordinatorV2Universe(t, key, 1)
+ 	carol := uni.vrfConsumers[0]
+@@ -2055,6 +2050,7 @@ func TestMaxConsumersCost(t *testing.T) {
+ }
+ 
+ func TestFulfillmentCost(t *testing.T) {
++	t.Parallel()
+ 	ctx := testutils.Context(t)
+ 	key := cltest.MustGenerateRandomKey(t)
+ 	uni := newVRFCoordinatorV2Universe(t, key, 1)
+@@ -2158,6 +2154,7 @@ func TestFulfillmentCost(t *testing.T) {
+ }
+ 
+ func TestStartingCountsV1(t *testing.T) {
++	t.Parallel()
+ 	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, nil)
+ 
+ 	ctx := t.Context()
+diff --git c/core/services/vrf/v2/listener_v2_test.go w/core/services/vrf/v2/listener_v2_test.go
+index 6f7bcede47..103e72f8fc 100644
+--- c/core/services/vrf/v2/listener_v2_test.go
++++ w/core/services/vrf/v2/listener_v2_test.go
+@@ -267,10 +267,12 @@ func testMaybeSubtractReservedLink(t *testing.T, vrfVersion vrfcommon.Version) {
+ }
+ 
+ func TestMaybeSubtractReservedLinkV2(t *testing.T) {
++	t.Parallel()
+ 	testMaybeSubtractReservedLink(t, vrfcommon.V2)
+ }
+ 
+ func TestMaybeSubtractReservedLinkV2Plus(t *testing.T) {
++	t.Parallel()
+ 	testMaybeSubtractReservedLink(t, vrfcommon.V2Plus)
+ }
+ 
+@@ -348,10 +350,12 @@ func testMaybeSubtractReservedNative(t *testing.T, vrfVersion vrfcommon.Version)
+ }
+ 
+ func TestMaybeSubtractReservedNativeV2Plus(t *testing.T) {
++	t.Parallel()
+ 	testMaybeSubtractReservedNative(t, vrfcommon.V2Plus)
+ }
+ 
+ func TestMaybeSubtractReservedNativeV2(t *testing.T) {
++	t.Parallel()
+ 	ctx := testutils.Context(t)
+ 	db := pgtest.NewSqlxDB(t)
+ 	lggr := logger.TestLogger(t)
+@@ -380,6 +384,7 @@ func TestMaybeSubtractReservedNativeV2(t *testing.T) {
+ }
+ 
+ func TestListener_GetConfirmedAt(t *testing.T) {
++	t.Parallel()
+ 	j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+ 		RequestedConfsDelay: 10,
+ 	}).Toml())
+@@ -420,6 +425,7 @@ func TestListener_GetConfirmedAt(t *testing.T) {
+ }
+ 
+ func TestListener_Backoff(t *testing.T) {
++	t.Parallel()
+ 	var tests = []struct {
+ 		name     string
+ 		initial  time.Duration
+@@ -492,6 +498,7 @@ func TestListener_Backoff(t *testing.T) {
+ 
+ 	for _, test := range tests {
+ 		t.Run(test.name, func(t *testing.T) {
++			t.Parallel()
+ 			lsn := &listenerV2{job: job.Job{
+ 				VRFSpec: &job.VRFSpec{
+ 					BackoffInitialDelay: test.initial,
+diff --git c/core/services/vrf/v2/listener_v2_types_test.go w/core/services/vrf/v2/listener_v2_types_test.go
+index a60a92f8ed..166d90e81d 100644
+--- c/core/services/vrf/v2/listener_v2_types_test.go
++++ w/core/services/vrf/v2/listener_v2_types_test.go
+@@ -16,6 +16,7 @@ import (
+ )
+ 
+ func Test_BatchFulfillments_AddRun(t *testing.T) {
++	t.Parallel()
+ 	batchLimit := uint32(2500)
+ 	bfs := newBatchFulfillments(batchLimit, vrfcommon.V2)
+ 	fromAddress := testutils.NewAddress()
+@@ -54,6 +55,7 @@ func Test_BatchFulfillments_AddRun(t *testing.T) {
+ }
+ 
+ func Test_BatchFulfillments_AddRun_V2Plus(t *testing.T) {
++	t.Parallel()
+ 	batchLimit := uint32(2500)
+ 	bfs := newBatchFulfillments(batchLimit, vrfcommon.V2Plus)
+ 	fromAddress := testutils.NewAddress()
+diff --git c/core/services/workflows/artifacts/orm.go w/core/services/workflows/artifacts/orm.go
+index 5ee3b4fbf2..679d02424a 100644
+--- c/core/services/workflows/artifacts/orm.go
++++ w/core/services/workflows/artifacts/orm.go
+@@ -7,6 +7,8 @@ import (
+ 	"fmt"
+ 	"time"
+ 
++	"github.com/jmoiron/sqlx"
++
+ 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+ 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+ 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+@@ -269,14 +271,17 @@ func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec)
+ 			RETURNING id
+ 		`
+ 
+-		stmt, err := orm.ds.PrepareNamedContext(ctx, query)
+-		if err != nil {
+-			return err
++		now := time.Now().UTC()
++		spec.UpdatedAt = now
++		if spec.CreatedAt.IsZero() {
++			spec.CreatedAt = now
+ 		}
+-		defer stmt.Close()
+-
+-		spec.UpdatedAt = time.Now()
+-		return stmt.QueryRowxContext(ctx, spec).Scan(&id)
++		q, args, namedErr := sqlx.Named(query, spec)
++		if namedErr != nil {
++			return namedErr
++		}
++		q = sqlx.Rebind(sqlx.DOLLAR, q)
++		return tx.QueryRowxContext(ctx, q, args...).Scan(&id)
+ 	})
+ 
+ 	return id, err
+@@ -361,14 +366,17 @@ func (orm *orm) UpsertWorkflowSpecWithSecrets(
+ 			RETURNING id
+ 		`
+ 
+-		stmt, txErr := tx.PrepareNamedContext(ctx, query)
+-		if txErr != nil {
+-			return txErr
++		now := time.Now().UTC()
++		spec.UpdatedAt = now
++		if spec.CreatedAt.IsZero() {
++			spec.CreatedAt = now
+ 		}
+-		defer stmt.Close()
+-
+-		spec.UpdatedAt = time.Now()
+-		return stmt.QueryRowxContext(ctx, spec).Scan(&id)
++		q, args, namedErr := sqlx.Named(query, spec)
++		if namedErr != nil {
++			return namedErr
++		}
++		q = sqlx.Rebind(sqlx.DOLLAR, q)
++		return tx.QueryRowxContext(ctx, q, args...).Scan(&id)
+ 	})
+ 	return id, err
+ }
+diff --git c/core/services/workflows/artifacts/v2/orm.go w/core/services/workflows/artifacts/v2/orm.go
+index 6d8887dbe0..31395bce8f 100644
+--- c/core/services/workflows/artifacts/v2/orm.go
++++ w/core/services/workflows/artifacts/v2/orm.go
+@@ -5,6 +5,7 @@ import (
+ 	"database/sql"
+ 	"time"
+ 
++	"github.com/jmoiron/sqlx"
+ 	"github.com/lib/pq"
+ 
+ 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+@@ -96,14 +97,17 @@ func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec)
+ 			RETURNING id
+ 		`
+ 
+-		stmt, err := orm.ds.PrepareNamedContext(ctx, query)
+-		if err != nil {
+-			return err
++		now := time.Now().UTC()
++		spec.UpdatedAt = now
++		if spec.CreatedAt.IsZero() {
++			spec.CreatedAt = now
+ 		}
+-		defer stmt.Close()
+-
+-		spec.UpdatedAt = time.Now()
+-		return stmt.QueryRowxContext(ctx, spec).Scan(&id)
++		q, args, namedErr := sqlx.Named(query, spec)
++		if namedErr != nil {
++			return namedErr
++		}
++		q = sqlx.Rebind(sqlx.DOLLAR, q)
++		return tx.QueryRowxContext(ctx, q, args...).Scan(&id)
+ 	})
+ 
+ 	return id, err
+diff --git c/core/services/workflows/cmd/cre/examples/compile_test.go w/core/services/workflows/cmd/cre/examples/compile_test.go
+index cc1abb934b..1f100af498 100644
+--- c/core/services/workflows/cmd/cre/examples/compile_test.go
++++ w/core/services/workflows/cmd/cre/examples/compile_test.go
+@@ -23,7 +23,7 @@ func Test_AllExampleWorkflowsCompileToWASM(t *testing.T) {
+ 	for _, path := range paths {
+ 		t.Run(path, func(t *testing.T) {
+ 			t.Parallel()
+-			binary := wasmtest.CreateTestBinary(filepath.Join(pathPrefix, path), false, t)
++			binary := wasmtest.CreateTestBinary(t, filepath.Join(pathPrefix, path), false)
+ 			require.NotEmpty(t, binary)
+ 		})
+ 	}
+diff --git c/core/services/workflows/cmd/cre/utils/runner_test.go w/core/services/workflows/cmd/cre/utils/runner_test.go
+index 37aa21eb08..b976dbac3f 100644
+--- c/core/services/workflows/cmd/cre/utils/runner_test.go
++++ w/core/services/workflows/cmd/cre/utils/runner_test.go
+@@ -33,7 +33,7 @@ func TestRunner(t *testing.T) {
+ 			}
+ 		}
+ 
+-		binary := wasmtest.CreateTestBinary(filepath.Join("core/services/workflows/cmd/cre/examples/v2", "empty"), false, t)
++		binary := wasmtest.CreateTestBinary(t, filepath.Join("core/services/workflows/cmd/cre/examples/v2", "empty"), false)
+ 
+ 		runner := NewRunner(hooks)
+ 		runner.Run(ctx, "", binary, []byte{}, []byte{}, RunnerConfig{
+diff --git c/core/services/workflows/engine_test.go w/core/services/workflows/engine_test.go
+index 6c3c896cfa..6923d57af6 100644
+--- c/core/services/workflows/engine_test.go
++++ w/core/services/workflows/engine_test.go
+@@ -868,7 +868,7 @@ func TestEngine_WriteStepHasZeroStepTimeout(t *testing.T) {
+ 
+ 	ctx := t.Context()
+ 	log := logger.TestLogger(t)
+-	binaryB := wasmtest.CreateTestBinary(cmd, true, t)
++	binaryB := wasmtest.CreateTestBinary(t, cmd, true)
+ 
+ 	spec, err := host.GetWorkflowSpec(
+ 		ctx,
+@@ -2234,7 +2234,7 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
+ 	trigger := basicTestTrigger(t)
+ 	require.NoError(t, reg.Add(ctx, trigger))
+ 
+-	binaryB := wasmtest.CreateTestBinary(cmd, true, t)
++	binaryB := wasmtest.CreateTestBinary(t, cmd, true)
+ 
+ 	spec, err := host.GetWorkflowSpec(
+ 		ctx,
+@@ -2308,7 +2308,7 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
+ 	trigger := basicTestTrigger(t)
+ 	require.NoError(t, reg.Add(ctx, trigger))
+ 
+-	binaryB := wasmtest.CreateTestBinary(cmd, true, t)
++	binaryB := wasmtest.CreateTestBinary(t, cmd, true)
+ 
+ 	spec, err := host.GetWorkflowSpec(
+ 		ctx,
+diff --git c/core/services/workflows/syncer/handler_test.go w/core/services/workflows/syncer/handler_test.go
+index 1969ae87a0..5f9c25f628 100644
+--- c/core/services/workflows/syncer/handler_test.go
++++ w/core/services/workflows/syncer/handler_test.go
+@@ -333,7 +333,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
+ 	config := []byte("")
+ 	wfOwner := testutils.NewAddress().Bytes()
+ 
+-	binary := wasmtest.CreateTestBinary(binaryCmd, true, t)
++	binary := wasmtest.CreateTestBinary(t, binaryCmd, true)
+ 	encodedBinary := []byte(base64.StdEncoding.EncodeToString(binary))
+ 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+ 
+@@ -891,7 +891,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
+ 			emitter      = custmsg.NewLabeler()
+ 			workflowName = testutils.RandomizeName(t.Name())
+ 
+-			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
++			binary        = wasmtest.CreateTestBinary(t, binaryCmd, true)
+ 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
+ 			config        = []byte("")
+ 			secretsURL    = "http://example.com/secrets/" + workflowName
+@@ -981,7 +981,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
+ 			emitter      = custmsg.NewLabeler()
+ 			workflowName = testutils.RandomizeName(t.Name())
+ 
+-			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
++			binary        = wasmtest.CreateTestBinary(t, binaryCmd, true)
+ 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
+ 			config        = []byte("")
+ 			secretsURL    = "http://example.com/secrets/" + workflowName
+@@ -1040,7 +1040,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
+ 			emitter      = custmsg.NewLabeler()
+ 			workflowName = testutils.RandomizeName(t.Name())
+ 
+-			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
++			binary        = wasmtest.CreateTestBinary(t, binaryCmd, true)
+ 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
+ 			config        = []byte("")
+ 			secretsURL    = "http://example.com/secrets/" + workflowName
+@@ -1137,7 +1137,7 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
+ 			emitter      = custmsg.NewLabeler()
+ 			workflowName = testutils.RandomizeName(t.Name())
+ 
+-			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
++			binary        = wasmtest.CreateTestBinary(t, binaryCmd, true)
+ 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
+ 			config        = []byte("")
+ 			updateConfig  = []byte("updated")
+@@ -1260,6 +1260,10 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
+ 		require.NoError(t, err)
+ 		// old engine is no longer running
+ 		require.Equal(t, types.WorkflowID(updatedWFID), engine.WorkflowID)
++
++		// Clean up the new engine created by workflowUpdatedEvent to avoid goroutine leaks
++		err = h.tryEngineCleanup(wfOwner, workflowName)
++		require.NoError(t, err)
+ 	})
+ }
+ 
+@@ -1318,7 +1322,7 @@ func TestEngineFactoryFn_SuccessfulCreation(t *testing.T) {
+ 	wfOwner := hex.EncodeToString(wfOwnerBytes)
+ 
+ 	t.Run("DAG workflow", func(t *testing.T) {
+-		binary := wasmtest.CreateTestBinary(binaryCmd, true, t)
++		binary := wasmtest.CreateTestBinary(t, binaryCmd, true)
+ 		workflowID, err := pkgworkflows.GenerateWorkflowID(wfOwnerBytes, testutils.RandomizeName(t.Name()), binary, config, secretsURL)
+ 		require.NoError(t, err)
+ 		engine, err := eventHandler.engineFactoryFn(ctx, hex.EncodeToString(workflowID[:]), wfOwner, workflowName, config, binary)
+@@ -1327,7 +1331,7 @@ func TestEngineFactoryFn_SuccessfulCreation(t *testing.T) {
+ 	})
+ 
+ 	t.Run("NoDAG workflow", func(t *testing.T) {
+-		binary := wasmtest.CreateTestBinary(noDagBinaryCmd, true, t)
++		binary := wasmtest.CreateTestBinary(t, noDagBinaryCmd, true)
+ 		workflowID, err := pkgworkflows.GenerateWorkflowID(wfOwnerBytes, testutils.RandomizeName(t.Name()), binary, config, secretsURL)
+ 		require.NoError(t, err)
+ 		engine, err := eventHandler.engineFactoryFn(ctx, hex.EncodeToString(workflowID[:]), wfOwner, workflowName, config, binary)
+diff --git c/core/services/workflows/syncer/v2/handler_test.go w/core/services/workflows/syncer/v2/handler_test.go
+index d0e53db99d..dd3940d28b 100644
+--- c/core/services/workflows/syncer/v2/handler_test.go
++++ w/core/services/workflows/syncer/v2/handler_test.go
+@@ -218,7 +218,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
+ 	config := []byte("")
+ 	wfOwner := testutils.NewAddress().Bytes()
+ 
+-	binary := wasmtest.CreateTestBinary(binaryCmd, true, t)
++	binary := wasmtest.CreateTestBinary(t, binaryCmd, true)
+ 	encodedBinary := []byte(base64.StdEncoding.EncodeToString(binary))
+ 	workflowTag := "workflow-tag"
+ 	signedURLParameter := "?auth=abc123"
+@@ -665,7 +665,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
+ 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
+ 			emitter = custmsg.NewLabeler()
+ 
+-			binary                = wasmtest.CreateTestBinary(binaryCmd, true, t)
++			binary                = wasmtest.CreateTestBinary(t, binaryCmd, true)
+ 			encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
+ 			config                = []byte("")
+ 			workflowName          = testutils.RandomizeName(t.Name())
+@@ -762,7 +762,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
+ 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
+ 			emitter = custmsg.NewLabeler()
+ 
+-			binary                = wasmtest.CreateTestBinary(binaryCmd, true, t)
++			binary                = wasmtest.CreateTestBinary(t, binaryCmd, true)
+ 			encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
+ 			config                = []byte("")
+ 			workflowName          = testutils.RandomizeName(t.Name())
+@@ -850,7 +850,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
+ 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
+ 			emitter = custmsg.NewLabeler()
+ 
+-			binary                = wasmtest.CreateTestBinary(binaryCmd, true, t)
++			binary                = wasmtest.CreateTestBinary(t, binaryCmd, true)
+ 			encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
+ 			config                = []byte("")
+ 			workflowName          = testutils.RandomizeName(t.Name())
+@@ -1067,7 +1067,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
+ 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
+ 			emitter = custmsg.NewLabeler()
+ 
+-			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
++			binary        = wasmtest.CreateTestBinary(t, binaryCmd, true)
+ 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
+ 			config        = []byte("")
+ 			workflowName  = testutils.RandomizeName(t.Name())
+@@ -1168,7 +1168,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
+ 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
+ 			emitter = custmsg.NewLabeler()
+ 
+-			binary                = wasmtest.CreateTestBinary(binaryCmd, true, t)
++			binary                = wasmtest.CreateTestBinary(t, binaryCmd, true)
+ 			config                = []byte("")
+ 			workflowName          = testutils.RandomizeName(t.Name())
+ 			workflowEncryptionKey = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+@@ -1218,7 +1218,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
+ 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
+ 			emitter = custmsg.NewLabeler()
+ 
+-			binary                = wasmtest.CreateTestBinary(binaryCmd, true, t)
++			binary                = wasmtest.CreateTestBinary(t, binaryCmd, true)
+ 			encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
+ 			config                = []byte("")
+ 			workflowName          = testutils.RandomizeName(t.Name())
+@@ -1462,7 +1462,7 @@ func Test_Handler_OrganizationID(t *testing.T) {
+ 		lggr          = logger.TestLogger(t)
+ 		lf            = limits.Factory{Logger: lggr}
+ 		mockORM       = mocks.NewORM(t)
+-		binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
++		binary        = wasmtest.CreateTestBinary(t, binaryCmd, true)
+ 		encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
+ 		config        = []byte("")
+ 		workflowName  = testutils.RandomizeName(t.Name())
+diff --git c/core/services/workflows/syncer/v2/helpers.go w/core/services/workflows/syncer/v2/helpers.go
+index a7b709ce1f..eb1f8f29c4 100644
+--- c/core/services/workflows/syncer/v2/helpers.go
++++ w/core/services/workflows/syncer/v2/helpers.go
+@@ -29,9 +29,10 @@ var wlConfig = syncerlimiter.Config{
+ var ErrCouldNotDecode = errors.New("failed to decode revert data")
+ 
+ type testEvtHandler struct {
+-	events []Event
+-	mux    sync.Mutex
+-	errFn  func() error
++	events         []Event
++	mux            sync.Mutex
++	errFn          func() error
++	engineRegistry *EngineRegistry
+ }
+ 
+ func (m *testEvtHandler) Close() error { return nil }
+@@ -42,6 +43,30 @@ func (m *testEvtHandler) Handle(ctx context.Context, event Event) error {
+ 	m.mux.Lock()
+ 	defer m.mux.Unlock()
+ 	m.events = append(m.events, event)
++	if m.engineRegistry != nil {
++		switch event.Name {
++		case WorkflowActivated:
++			if data, ok := event.Data.(WorkflowActivatedEvent); ok {
++				if err := m.engineRegistry.Add(data.WorkflowID, data.Source, &mockService{}); err != nil {
++					return err
++				}
++			}
++		case WorkflowDeleted:
++			if data, ok := event.Data.(WorkflowDeletedEvent); ok {
++				_, err := m.engineRegistry.Pop(data.WorkflowID)
++				if err != nil {
++					return err
++				}
++			}
++		case WorkflowPaused:
++			if data, ok := event.Data.(WorkflowPausedEvent); ok {
++				_, err := m.engineRegistry.Pop(data.WorkflowID)
++				if err != nil {
++					return err
++				}
++			}
++		}
++	}
+ 	if m.errFn != nil {
+ 		return m.errFn()
+ 	}
+@@ -71,6 +96,12 @@ func newTestEvtHandler(errFn func() error) *testEvtHandler {
+ 	}
+ }
+ 
++func newTestEvtHandlerWithRegistry(errFn func() error, registry *EngineRegistry) *testEvtHandler {
++	h := newTestEvtHandler(errFn)
++	h.engineRegistry = registry
++	return h
++}
++
+ type testDonNotifier struct {
+ 	don capabilities.DON
+ 	err error
+diff --git c/core/services/workflows/syncer/v2/workflow_registry.go w/core/services/workflows/syncer/v2/workflow_registry.go
+index 23a4aaa9f6..3e89653a35 100644
+--- c/core/services/workflows/syncer/v2/workflow_registry.go
++++ w/core/services/workflows/syncer/v2/workflow_registry.go
+@@ -106,6 +106,7 @@ type workflowRegistry struct {
+ 	maxRetryInterval time.Duration
+ 	maxConcurrency   int
+ 	clock            clockwork.Clock
++	syncTickInterval time.Duration
+ 
+ 	hooks Hooks
+ 
+@@ -151,6 +152,16 @@ func WithRetryInterval(retryInterval time.Duration) func(*workflowRegistry) {
+ 	}
+ }
+ 
++// WithSyncTickInterval overrides the default 12s reconciliation/init polling interval.
++// Intended for tests where waiting 12s per cycle is unacceptable.
++func WithSyncTickInterval(d time.Duration) func(*workflowRegistry) {
++	return func(wr *workflowRegistry) {
++		if d > 0 {
++			wr.syncTickInterval = d
++		}
++	}
++}
++
+ func WithMaxConcurrency(maxConcurrency int) func(*workflowRegistry) {
+ 	return func(wr *workflowRegistry) {
+ 		if maxConcurrency > 0 {
+@@ -313,6 +324,7 @@ func NewWorkflowRegistry(
+ 		maxRetryInterval:                 defaultMaxRetryInterval,
+ 		maxConcurrency:                   defaultMaxConcurrency,
+ 		clock:                            clockwork.NewRealClock(),
++		syncTickInterval:                 defaultTickInterval,
+ 		hooks: Hooks{
+ 			OnStartFailure: func(_ error) {},
+ 		},
+@@ -347,7 +359,7 @@ func (w *workflowRegistry) Start(_ context.Context) error {
+ 			defer w.lggr.Debugw("Successfully set ContractReader")
+ 			defer close(initDoneCh)
+ 
+-			ticker := w.getTicker(defaultTickInterval)
++			ticker := w.getTicker(w.syncTickInterval)
+ 			for w.contractReader == nil {
+ 				select {
+ 				case <-ctx.Done():
+@@ -724,7 +736,7 @@ func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, workflows
+ // NOTE: In this mode paused states will be treated as a deleted workflow. Workflows will not be registered as paused.
+ // This function processes each source independently to ensure that failure in one source doesn't affect workflows from other sources.
+ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) {
+-	ticker := w.getTicker(defaultTickInterval)
++	ticker := w.getTicker(w.syncTickInterval)
+ 	pendingEventsBySource := make(map[string]map[string]*reconciliationEvent)
+ 	w.lggr.Debug("running readRegistryStateLoop")
+ 	for {
+@@ -911,6 +923,9 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context)
+ // is nil, then a default ticker is returned.
+ func (w *workflowRegistry) getTicker(d time.Duration) <-chan time.Time {
+ 	if w.ticker == nil {
++		if d <= 0 {
++			d = defaultTickInterval
++		}
+ 		return time.NewTicker(d).C
+ 	}
+ 
+diff --git c/core/services/workflows/syncer/v2/workflow_registry_test.go w/core/services/workflows/syncer/v2/workflow_registry_test.go
+index 1a8e208cd5..ae3b7126fe 100644
+--- c/core/services/workflows/syncer/v2/workflow_registry_test.go
++++ w/core/services/workflows/syncer/v2/workflow_registry_test.go
+@@ -21,7 +21,6 @@ import (
+ 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+ 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
+ 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+ 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+ 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
+ 	wfTypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+@@ -29,12 +28,14 @@ import (
+ )
+ 
+ func Test_generateReconciliationEventsV2(t *testing.T) {
++	t.Parallel()
+ 	// Validate that if no engines are on the node in the registry,
+ 	// and we see that the contract has workflow state,
+ 	// that we generate a WorkflowActivatedEvent
+ 	t.Run("WorkflowActivatedEvent_whenNoEnginesInRegistry", func(t *testing.T) {
++		t.Parallel()
+ 		lggr := logger.TestLogger(t)
+-		ctx := testutils.Context(t)
++		ctx := t.Context()
+ 		workflowDonNotifier := capabilities.NewDonNotifier()
+ 		// No engines are in the workflow registry
+ 		er := NewEngineRegistry()
+@@ -102,8 +103,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
+ 	})
+ 
+ 	t.Run("WorkflowUpdatedEvent", func(t *testing.T) {
++		t.Parallel()
+ 		lggr := logger.TestLogger(t)
+-		ctx := testutils.Context(t)
++		ctx := t.Context()
+ 		workflowDonNotifier := capabilities.NewDonNotifier()
+ 		// Engine already in the workflow registry
+ 		er := NewEngineRegistry()
+@@ -180,8 +182,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
+ 	})
+ 
+ 	t.Run("WorkflowDeletedEvent", func(t *testing.T) {
++		t.Parallel()
+ 		lggr := logger.TestLogger(t)
+-		ctx := testutils.Context(t)
++		ctx := t.Context()
+ 		workflowDonNotifier := capabilities.NewDonNotifier()
+ 		// Engine already in the workflow registry
+ 		er := NewEngineRegistry()
+@@ -223,8 +226,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
+ 	})
+ 
+ 	t.Run("generateReconciliationEvents is side-effect free; pre-dispatch drains delete targets", func(t *testing.T) {
++		t.Parallel()
+ 		lggr := logger.TestLogger(t)
+-		ctx := testutils.Context(t)
++		ctx := t.Context()
+ 		workflowDonNotifier := capabilities.NewDonNotifier()
+ 		er := NewEngineRegistry()
+ 		wfID := [32]byte{1}
+@@ -264,8 +268,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
+ 	})
+ 
+ 	t.Run("No change", func(t *testing.T) {
++		t.Parallel()
+ 		lggr := logger.TestLogger(t)
+-		ctx := testutils.Context(t)
++		ctx := t.Context()
+ 		workflowDonNotifier := capabilities.NewDonNotifier()
+ 		// No engines are in the workflow registry
+ 		er := NewEngineRegistry()
+@@ -342,8 +347,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
+ 	})
+ 
+ 	t.Run("A paused workflow doesn't start a new workflow", func(t *testing.T) {
++		t.Parallel()
+ 		lggr := logger.TestLogger(t)
+-		ctx := testutils.Context(t)
++		ctx := t.Context()
+ 		workflowDonNotifier := capabilities.NewDonNotifier()
+ 		// No engines are in the workflow registry
+ 		er := NewEngineRegistry()
+@@ -397,8 +403,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
+ 	})
+ 
+ 	t.Run("A paused workflow deletes a running workflow", func(t *testing.T) {
++		t.Parallel()
+ 		lggr := logger.TestLogger(t)
+-		ctx := testutils.Context(t)
++		ctx := t.Context()
+ 		workflowDonNotifier := capabilities.NewDonNotifier()
+ 		// Engine already in the workflow registry
+ 		er := NewEngineRegistry()
+@@ -461,8 +468,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
+ 	})
+ 
+ 	t.Run("reconciles with a pending event if it has the same signature", func(t *testing.T) {
++		t.Parallel()
+ 		lggr := logger.TestLogger(t)
+-		ctx := testutils.Context(t)
++		ctx := t.Context()
+ 		workflowDonNotifier := capabilities.NewDonNotifier()
+ 		// Engine already in the workflow registry
+ 		er := NewEngineRegistry()
+@@ -551,8 +559,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
+ 	})
+ 
+ 	t.Run("a paused workflow clears a pending activated event", func(t *testing.T) {
++		t.Parallel()
+ 		lggr := logger.TestLogger(t)
+-		ctx := testutils.Context(t)
++		ctx := t.Context()
+ 		workflowDonNotifier := capabilities.NewDonNotifier()
+ 		// Engine already in the workflow registry
+ 		er := NewEngineRegistry()
+@@ -635,8 +644,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
+ 	})
+ 
+ 	t.Run("delete events are handled before any other events", func(t *testing.T) {
++		t.Parallel()
+ 		lggr := logger.TestLogger(t)
+-		ctx := testutils.Context(t)
++		ctx := t.Context()
+ 		workflowDonNotifier := capabilities.NewDonNotifier()
+ 		// Engine already in the workflow registry
+ 		er := NewEngineRegistry()
+@@ -697,8 +707,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
+ 	})
+ 
+ 	t.Run("pending delete events are handled when workflow metadata no longer exists", func(t *testing.T) {
++		t.Parallel()
+ 		lggr := logger.TestLogger(t)
+-		ctx := testutils.Context(t)
++		ctx := t.Context()
+ 		workflowDonNotifier := capabilities.NewDonNotifier()
+ 		// Engine already in the workflow registry
+ 		er := NewEngineRegistry()
+@@ -758,8 +769,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
+ 	// the registry. The Active+engineFound branch must drop the stale pending entry,
+ 	// otherwise generateReconciliationEvents trips its end-of-loop invariant check.
+ 	t.Run("active workflow with running engine clears stale pending WorkflowDeleted", func(t *testing.T) {
++		t.Parallel()
+ 		lggr := logger.TestLogger(t)
+-		ctx := testutils.Context(t)
++		ctx := t.Context()
+ 		workflowDonNotifier := capabilities.NewDonNotifier()
+ 		er := NewEngineRegistry()
+ 		wfID := [32]byte{1}
+@@ -811,8 +823,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
+ 	// fix should still clear the stale pending entry without panicking; this guards against
+ 	// regressions if the branch is later extended to emit a replacement WorkflowActivated.
+ 	t.Run("active workflow with draining engine clears stale pending WorkflowDeleted", func(t *testing.T) {
++		t.Parallel()
+ 		lggr := logger.TestLogger(t)
+-		ctx := testutils.Context(t)
++		ctx := t.Context()
+ 		workflowDonNotifier := capabilities.NewDonNotifier()
+ 		er := NewEngineRegistry()
+ 		wfID := [32]byte{1}
+@@ -863,8 +876,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
+ 	})
+ 
+ 	t.Run("pending activate events are handled when workflow metadata no longer exists", func(t *testing.T) {
++		t.Parallel()
+ 		lggr := logger.TestLogger(t)
+-		ctx := testutils.Context(t)
++		ctx := t.Context()
+ 		workflowDonNotifier := capabilities.NewDonNotifier()
+ 		er := NewEngineRegistry()
+ 		wr, err := NewWorkflowRegistry(
+@@ -930,7 +944,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
+ }
+ 
+ func Test_Start(t *testing.T) {
++	t.Parallel()
+ 	t.Run("successful start and close", func(t *testing.T) {
++		t.Parallel()
+ 		lggr := logger.TestLogger(t)
+ 		workflowDonNotifier := capabilities.NewDonNotifier()
+ 		mockReader := &mockContractReader{startErr: nil}
+@@ -972,8 +988,9 @@ func Test_Start(t *testing.T) {
+ }
+ 
+ func Test_GetAllowlistedRequests(t *testing.T) {
++	t.Parallel()
+ 	lggr := logger.TestLogger(t)
+-	ctx := testutils.Context(t)
++	ctx := t.Context()
+ 	workflowDonNotifier := capabilities.NewDonNotifier()
+ 	er := NewEngineRegistry()
+ 
+@@ -1063,9 +1080,11 @@ func (m *mockContractReader) Start(
+ }
+ 
+ func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
++	t.Parallel()
+ 	t.Run("only deletes engines from specified source", func(t *testing.T) {
++		t.Parallel()
+ 		lggr := logger.TestLogger(t)
+-		ctx := testutils.Context(t)
++		ctx := t.Context()
+ 		workflowDonNotifier := capabilities.NewDonNotifier()
+ 
+ 		// Setup: engines from two sources
+@@ -1107,8 +1126,9 @@ func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
+ 	})
+ 
+ 	t.Run("activates workflows tagged with source", func(t *testing.T) {
++		t.Parallel()
+ 		lggr := logger.TestLogger(t)
+-		ctx := testutils.Context(t)
++		ctx := t.Context()
+ 		workflowDonNotifier := capabilities.NewDonNotifier()
+ 		er := NewEngineRegistry()
+ 
+@@ -1154,8 +1174,9 @@ func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
+ 	})
+ 
+ 	t.Run("does not delete engines from other sources when source returns empty", func(t *testing.T) {
++		t.Parallel()
+ 		lggr := logger.TestLogger(t)
+-		ctx := testutils.Context(t)
++		ctx := t.Context()
+ 		workflowDonNotifier := capabilities.NewDonNotifier()
+ 
+ 		// Setup: engines from two sources
+@@ -1199,8 +1220,9 @@ func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
+ 	})
+ 
+ 	t.Run("handles paused workflow from source", func(t *testing.T) {
++		t.Parallel()
+ 		lggr := logger.TestLogger(t)
+-		ctx := testutils.Context(t)
++		ctx := t.Context()
+ 		workflowDonNotifier := capabilities.NewDonNotifier()
+ 
+ 		// Setup: engine exists for a workflow
+@@ -1247,8 +1269,9 @@ func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
+ 	})
+ 
+ 	t.Run("no events when source has no engines and returns empty metadata", func(t *testing.T) {
++		t.Parallel()
+ 		lggr := logger.TestLogger(t)
+-		ctx := testutils.Context(t)
++		ctx := t.Context()
+ 		workflowDonNotifier := capabilities.NewDonNotifier()
+ 
+ 		// Setup: engine only from contract source
+@@ -1287,9 +1310,11 @@ func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
+ // Test_PerSourceReconciliation_FailureIsolation validates the main bug fix:
+ // when a source fails to fetch, engines from that source should NOT be deleted.
+ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
++	t.Parallel()
+ 	t.Run("source failure does not delete engines from that source", func(t *testing.T) {
++		t.Parallel()
+ 		lggr := logger.TestLogger(t)
+-		ctx := testutils.Context(t)
++		ctx := t.Context()
+ 		workflowDonNotifier := capabilities.NewDonNotifier()
+ 
+ 		// Setup: engines from ContractWorkflowSource and GRPCWorkflowSource
+@@ -1346,8 +1371,9 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
+ 	})
+ 
+ 	t.Run("source recovers after failure - normal reconciliation resumes", func(t *testing.T) {
++		t.Parallel()
+ 		lggr := logger.TestLogger(t)
+-		ctx := testutils.Context(t)
++		ctx := t.Context()
+ 		workflowDonNotifier := capabilities.NewDonNotifier()
+ 
+ 		// Setup: engines from GRPCWorkflowSource
+@@ -1401,6 +1427,7 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
+ 	})
+ 
+ 	t.Run("all sources fail - no deletions", func(t *testing.T) {
++		t.Parallel()
+ 		// This test validates that when all sources fail, no deletion events are generated
+ 		// because we skip reconciliation for each failed source.
+ 		lggr := logger.TestLogger(t)
+@@ -1438,8 +1465,9 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
+ 	})
+ 
+ 	t.Run("independent source reconciliation preserves isolation", func(t *testing.T) {
++		t.Parallel()
+ 		lggr := logger.TestLogger(t)
+-		ctx := testutils.Context(t)
++		ctx := t.Context()
+ 		workflowDonNotifier := capabilities.NewDonNotifier()
+ 
+ 		// Setup: multiple workflows from each source
+@@ -1511,36 +1539,44 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
+ }
+ 
+ func Test_isZeroOwner(t *testing.T) {
++	t.Parallel()
+ 	t.Run("returns true for nil slice", func(t *testing.T) {
++		t.Parallel()
+ 		require.True(t, isZeroOwner(nil))
+ 	})
+ 
+ 	t.Run("returns true for empty slice", func(t *testing.T) {
++		t.Parallel()
+ 		require.True(t, isZeroOwner([]byte{}))
+ 	})
+ 
+ 	t.Run("returns true for all zeros (20 bytes - Ethereum address)", func(t *testing.T) {
++		t.Parallel()
+ 		zeroAddress := make([]byte, 20)
+ 		require.True(t, isZeroOwner(zeroAddress))
+ 	})
+ 
+ 	t.Run("returns true for all zeros (arbitrary length)", func(t *testing.T) {
++		t.Parallel()
+ 		zeros := make([]byte, 32)
+ 		require.True(t, isZeroOwner(zeros))
+ 	})
+ 
+ 	t.Run("returns false for valid owner address", func(t *testing.T) {
++		t.Parallel()
+ 		validOwner, _ := hex.DecodeString("1234567890123456789012345678901234567890")
+ 		require.False(t, isZeroOwner(validOwner))
+ 	})
+ 
+ 	t.Run("returns false for address with single non-zero byte", func(t *testing.T) {
++		t.Parallel()
+ 		almostZero := make([]byte, 20)
+ 		almostZero[19] = 1 // last byte is 1
+ 		require.False(t, isZeroOwner(almostZero))
+ 	})
+ 
+ 	t.Run("returns false for address with non-zero first byte", func(t *testing.T) {
++		t.Parallel()
+ 		almostZero := make([]byte, 20)
+ 		almostZero[0] = 1 // first byte is 1
+ 		require.False(t, isZeroOwner(almostZero))
+@@ -1548,9 +1584,11 @@ func Test_isZeroOwner(t *testing.T) {
+ }
+ 
+ func Test_ParallelEventHandling(t *testing.T) {
++	t.Parallel()
+ 	t.Run("processes multiple delete events concurrently", func(t *testing.T) {
++		t.Parallel()
+ 		lggr := logger.TestLogger(t)
+-		ctx := testutils.Context(t)
++		ctx := t.Context()
+ 		workflowDonNotifier := capabilities.NewDonNotifier()
+ 		er := NewEngineRegistry()
+ 
+@@ -1593,16 +1631,14 @@ func Test_ParallelEventHandling(t *testing.T) {
+ 			reconcileReport.NumEventsByType[string(event.Name)]++
+ 			mu.Unlock()
+ 
+-			wg.Add(1)
+-			go func(evt *reconciliationEvent) {
+-				defer wg.Done()
+-				handleErr := wr.handleWithMetrics(ctx, evt.Event)
++			wg.Go(func() {
++				handleErr := wr.handleWithMetrics(ctx, event.Event)
+ 				if handleErr != nil {
+ 					mu.Lock()
+-					pendingEventsBySource[sourceIdentifier][evt.id] = evt
++					pendingEventsBySource[sourceIdentifier][event.id] = event
+ 					mu.Unlock()
+ 				}
+-			}(event)
++			})
+ 		}
+ 		wg.Wait()
+ 
+@@ -1623,8 +1659,9 @@ func Test_ParallelEventHandling(t *testing.T) {
+ 	})
+ 
+ 	t.Run("processes mixed event types concurrently", func(t *testing.T) {
++		t.Parallel()
+ 		lggr := logger.TestLogger(t)
+-		ctx := testutils.Context(t)
++		ctx := t.Context()
+ 		workflowDonNotifier := capabilities.NewDonNotifier()
+ 		er := NewEngineRegistry()
+ 
+@@ -1707,7 +1744,8 @@ func (m *mockShardMappingClient) Close() error { return nil }
+ var _ shardorchestrator.ClientInterface = (*mockShardMappingClient)(nil)
+ 
+ func TestWorkflowRegistry_filterWorkflowsByShard(t *testing.T) {
+-	ctx := testutils.Context(t)
++	t.Parallel()
++	ctx := t.Context()
+ 	wf1 := wfTypes.WorkflowID([32]byte{1})
+ 	wf2 := wfTypes.WorkflowID([32]byte{2})
+ 	wf3 := wfTypes.WorkflowID([32]byte{3})
+@@ -1734,3 +1772,27 @@ func TestWorkflowRegistry_filterWorkflowsByShard(t *testing.T) {
+ 	require.Len(t, filtered, 1)
+ 	require.Equal(t, wf2.Hex(), filtered[0].WorkflowID.Hex())
+ }
++
++func TestWorkflowRegistry_getTicker_nonPositiveDuration(t *testing.T) {
++	t.Parallel()
++	wr := &workflowRegistry{
++		clock: clockwork.NewRealClock(),
++	}
++
++	require.NotPanics(t, func() {
++		tickerCh := wr.getTicker(-1 * time.Second)
++		require.NotNil(t, tickerCh)
++	})
++}
++
++func TestWorkflowRegistry_getTicker_WithTickerOverride(t *testing.T) {
++	t.Parallel()
++	customCh := make(chan time.Time)
++	wr := &workflowRegistry{
++		ticker: customCh,
++		clock:  clockwork.NewRealClock(),
++	}
++
++	tickerCh := wr.getTicker(10 * time.Second)
++	require.Equal(t, (<-chan time.Time)(customCh), tickerCh)
++}
+diff --git c/core/services/workflows/syncer/v2/workflow_syncer_v2_test.go w/core/services/workflows/syncer/v2/workflow_syncer_v2_test.go
+index 5fe6838300..b61846e8c1 100644
+--- c/core/services/workflows/syncer/v2/workflow_syncer_v2_test.go
++++ w/core/services/workflows/syncer/v2/workflow_syncer_v2_test.go
+@@ -110,7 +110,8 @@ func Test_InitialStateSyncV2(t *testing.T) {
+ 		workflow.ID = workflowID
+ 		upsertWorkflowV2(t, backendTH, wfRegistryC, workflow)
+ 	}
+-	testEventHandler := newTestEvtHandler(nil)
++	engineRegistry := NewEngineRegistry()
++	testEventHandler := newTestEvtHandlerWithRegistry(nil, engineRegistry)
+ 
+ 	// Create the worker
+ 	worker, err := NewWorkflowRegistry(
+@@ -132,7 +133,8 @@ func Test_InitialStateSyncV2(t *testing.T) {
+ 			},
+ 			err: nil,
+ 		},
+-		NewEngineRegistry(),
++		engineRegistry,
++		WithSyncTickInterval(50*time.Millisecond),
+ 	)
+ 	require.NoError(t, err)
+ 
+@@ -140,17 +142,15 @@ func Test_InitialStateSyncV2(t *testing.T) {
+ 
+ 	require.Eventually(t, func() bool {
+ 		return len(testEventHandler.GetEvents()) == numberWorkflows
+-	}, tests.WaitTimeout(t), time.Second)
++	}, tests.WaitTimeout(t), 100*time.Millisecond)
+ 
+ 	for _, event := range testEventHandler.GetEvents() {
+ 		assert.Equal(t, WorkflowActivated, event.Name)
+ 	}
+ 
+-	assert.Len(t,
+-		worker.GetAllowlistedRequests(t.Context()),
+-		activeAllowlistedRequestsCount,
+-		"synced allowlisted requests do not match expectations",
+-	)
++	require.Eventually(t, func() bool {
++		return len(worker.GetAllowlistedRequests(t.Context())) == activeAllowlistedRequestsCount
++	}, tests.WaitTimeout(t), 100*time.Millisecond, "synced allowlisted requests do not match expectations")
+ }
+ 
+ func Test_RegistrySyncer_SkipsEventsNotBelongingToDONV2(t *testing.T) {
+@@ -487,7 +487,8 @@ func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
+ 			upsertWorkflowV2(t, backendTH, wfRegistryC, workflow)
+ 		}
+ 
+-		testEventHandler := newTestEvtHandler(nil)
++		engineRegistry := NewEngineRegistry()
++		testEventHandler := newTestEvtHandlerWithRegistry(nil, engineRegistry)
+ 
+ 		// Create the worker
+ 		worker, err := NewWorkflowRegistry(
+@@ -509,8 +510,9 @@ func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
+ 				},
+ 				err: nil,
+ 			},
+-			NewEngineRegistry(),
++			engineRegistry,
+ 			WithRetryInterval(1*time.Second),
++			WithSyncTickInterval(50*time.Millisecond),
+ 		)
+ 		require.NoError(t, err)
+ 
+@@ -518,7 +520,7 @@ func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
+ 
+ 		require.Eventually(t, func() bool {
+ 			return len(testEventHandler.GetEvents()) == numberWorkflows
+-		}, 30*time.Second, 1*time.Second)
++		}, tests.WaitTimeout(t), 100*time.Millisecond)
+ 
+ 		for _, event := range testEventHandler.GetEvents() {
+ 			assert.Equal(t, WorkflowActivated, event.Name)
+@@ -559,9 +561,9 @@ func Test_RegistrySyncer_DONUpdate(t *testing.T) {
+ 		upsertWorkflowV2(t, backendTH, wfRegistryC, workflow)
+ 	}
+ 
+-	testEventHandler := newTestEvtHandler(nil)
+-	donNotifier := corecaps.NewDonNotifier()
+ 	engineRegistry := NewEngineRegistry()
++	testEventHandler := newTestEvtHandlerWithRegistry(nil, engineRegistry)
++	donNotifier := corecaps.NewDonNotifier()
+ 
+ 	// Create the worker
+ 	worker, err := NewWorkflowRegistry(
+@@ -579,6 +581,7 @@ func Test_RegistrySyncer_DONUpdate(t *testing.T) {
+ 		donNotifier,
+ 		engineRegistry,
+ 		WithRetryInterval(1*time.Second),
++		WithSyncTickInterval(50*time.Millisecond),
+ 	)
+ 	require.NoError(t, err)
+ 
+@@ -592,19 +595,12 @@ func Test_RegistrySyncer_DONUpdate(t *testing.T) {
+ 
+ 	require.Eventually(t, func() bool {
+ 		return len(testEventHandler.GetEvents()) == numberWorkflows
+-	}, 60*time.Second, 1*time.Second)
++	}, 60*time.Second, 100*time.Millisecond)
+ 
+ 	for _, event := range testEventHandler.GetEvents() {
+ 		assert.Equal(t, WorkflowActivated, event.Name)
+ 	}
+ 
+-	// Fill in some placeholder engines that the actual event handler would have created
+-	for _, event := range testEventHandler.GetEvents() {
+-		data := event.Data.(WorkflowActivatedEvent)
+-		err := engineRegistry.Add(data.WorkflowID, data.Source, &mockService{})
+-		require.NoError(t, err)
+-	}
+-
+ 	// Change the DON to have no family, so workflows should be removed
+ 	testEventHandler.ClearEvents()
+ 
+@@ -615,7 +611,7 @@ func Test_RegistrySyncer_DONUpdate(t *testing.T) {
+ 
+ 	require.Eventually(t, func() bool {
+ 		return len(testEventHandler.GetEvents()) == numberWorkflows
+-	}, 60*time.Second, 1*time.Second)
++	}, 60*time.Second, 100*time.Millisecond)
+ 
+ 	for _, event := range testEventHandler.GetEvents() {
+ 		assert.Equal(t, WorkflowDeleted, event.Name)
+diff --git c/core/services/workflows/v2/engine_test.go w/core/services/workflows/v2/engine_test.go
+index 4a1dd6549b..1894f82983 100644
+--- c/core/services/workflows/v2/engine_test.go
++++ w/core/services/workflows/v2/engine_test.go
+@@ -13,6 +13,7 @@ import (
+ 	"time"
+ 
+ 	"github.com/ethereum/go-ethereum/common"
++	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
+ 	"github.com/stretchr/testify/assert"
+ 	"github.com/stretchr/testify/mock"
+ 	"github.com/stretchr/testify/require"
+@@ -22,9 +23,7 @@ import (
+ 	"google.golang.org/protobuf/types/known/anypb"
+ 	"google.golang.org/protobuf/types/known/emptypb"
+ 
+-	"github.com/smartcontractkit/quarantine"
+-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
+-
++	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+ 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
+ 	beholderpb "github.com/smartcontractkit/chainlink-common/pkg/beholder/pb"
+ 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+@@ -648,8 +647,7 @@ func (m *mockOrgResolver) Ready() error {
+ 	return nil
+ }
+ 
+-func TestEngine_Execution(t *testing.T) {
+-	quarantine.Flaky(t, "DX-1725")
++func TestEngine_Execution(t *testing.T) { //nolint:paralleltest // Can't use t.Parallel() with beholdertest.NewObserver(t)
+ 	module := modulemocks.NewModuleV2(t)
+ 	module.EXPECT().Start()
+ 	module.EXPECT().Close()
+@@ -1374,9 +1372,10 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
+ }
+ 
+ func TestEngine_WASMBinary_Simple(t *testing.T) {
++	t.Parallel()
+ 	cmd := "core/services/workflows/test/wasm/v2/cmd"
+ 	log := logger.Test(t)
+-	binaryB := wasmtest.CreateTestBinary(cmd, false, t)
++	binaryB := wasmtest.CreateTestBinary(t, cmd, false)
+ 	module, err := host.NewModule(t.Context(), &host.ModuleConfig{
+ 		Logger:         log,
+ 		IsUncompressed: true,
+@@ -1456,10 +1455,9 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
+ 	})
+ }
+ 
+-// TODO fix
+-func TestEngine_WASMBinary_With_Config(t *testing.T) {
++func TestEngine_WASMBinary_With_Config(t *testing.T) { //nolint:paralleltest // Can't use t.Parallel() with beholdertest.NewObserver(t)
+ 	cmd := "core/services/workflows/test/wasm/v2/cmd/with_config"
+-	binaryB := wasmtest.CreateTestBinary(cmd, false, t)
++	binaryB := wasmtest.CreateTestBinary(t, cmd, false)
+ 
+ 	// Define a custom config to validate against
+ 	giveName := "Foo"
+@@ -1553,8 +1551,9 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
+ }
+ 
+ func TestSecretsFetcher_Integration(t *testing.T) {
++	t.Parallel()
+ 	cmd := "core/services/workflows/test/wasm/v2/cmd/with_secrets"
+-	binaryB := wasmtest.CreateTestBinary(cmd, false, t)
++	binaryB := wasmtest.CreateTestBinary(t, cmd, false)
+ 
+ 	// Define a custom config to validate against
+ 	giveName := "Foo"
+@@ -2299,60 +2298,191 @@ func setupMockBillingClient(t *testing.T) *metmocks.BillingClient {
+ 	return billingClient
+ }
+ 
+-func requireEventsLabels(t *testing.T, beholderObserver beholdertest.Observer, want map[string]string) {
+-	msgs := beholderObserver.Messages(t)
+-	for _, msg := range msgs {
+-		if msg.Attrs["beholder_entity"] == "BaseMessage" {
+-			var payload beholderpb.BaseMessage
+-			require.NoError(t, proto.Unmarshal(msg.Body, &payload))
+-			for k, v := range want {
+-				require.Equal(t, v, payload.Labels[k], "label %s does not match", k)
+-			}
+-		}
+-	}
++type observedBaseMessage struct {
++	Msg    string
++	Labels map[string]string
+ }
+ 
+-// requireEventsMessages checks that all expected messages are present in the beholder observer.
+-// It does not check the order of messages.
+-func requireEventsMessages(t *testing.T, beholderObserver beholdertest.Observer, expected []string) {
+-	msgs := beholderObserver.Messages(t)
+-	// map to handle presence of out-of-order messages
+-	want := map[string]struct{}{}
++// eventLabelsMatchStatus returns observed BaseMessages and the label set still being
++// searched for. missing is nil when a message with all expected labels is found.
++func eventLabelsMatchStatus(msgs []beholder.Message, want map[string]string) (observed []observedBaseMessage, missing map[string]string) {
++	if len(want) == 0 {
++		return nil, nil
++	}
++
++	for _, msg := range msgs {
++		if msg.Attrs["beholder_entity"] != "BaseMessage" {
++			continue
++		}
++		var payload beholderpb.BaseMessage
++		if err := proto.Unmarshal(msg.Body, &payload); err != nil {
++			continue
++		}
++		observed = append(observed, observedBaseMessage{
++			Msg:    payload.Msg,
++			Labels: payload.Labels,
++		})
++
++		match := true
++		for k, v := range want {
++			if payload.Labels[k] != v {
++				match = false
++				break
++			}
++		}
++		if match {
++			return observed, nil
++		}
++	}
++	return observed, want
++}
++
++func requireEventsLabels(t *testing.T, beholderObserver beholdertest.Observer, want map[string]string) {
++	t.Helper()
++	if len(want) == 0 {
++		return
++	}
++
++	require.EventuallyWithT(t, func(c *assert.CollectT) {
++		observed, missing := eventLabelsMatchStatus(beholderObserver.Messages(t), want)
++		if missing != nil {
++			assert.Fail(c, fmt.Sprintf(
++				"event labels not found\n  expected labels: %v\n  observed base messages (%d):\n%s",
++				want,
++				len(observed),
++				formatObservedBaseMessages(observed),
++			))
++		}
++	}, 10*time.Second, 100*time.Millisecond)
++}
++
++// eventMessagesMatchStatus returns observed BaseMessage texts and which expected
++// messages are still missing. Order does not matter.
++func eventMessagesMatchStatus(msgs []beholder.Message, expected []string) (observed []string, missing []string) {
++	want := make(map[string]struct{}, len(expected))
+ 	for _, e := range expected {
+ 		want[e] = struct{}{}
+ 	}
+ 
+ 	for _, msg := range msgs {
+-		if msg.Attrs["beholder_entity"] == "BaseMessage" {
+-			var payload beholderpb.BaseMessage
+-			require.NoError(t, proto.Unmarshal(msg.Body, &payload))
+-			delete(want, payload.Msg)
++		if msg.Attrs["beholder_entity"] != "BaseMessage" {
++			continue
++		}
++		var payload beholderpb.BaseMessage
++		if err := proto.Unmarshal(msg.Body, &payload); err != nil {
++			continue
++		}
++		observed = append(observed, payload.Msg)
++		delete(want, payload.Msg)
++	}
++
++	for _, e := range expected {
++		if _, stillMissing := want[e]; stillMissing {
++			missing = append(missing, e)
+ 		}
+ 	}
+-	assert.Empty(t, want, "not all expected messages were found missing %v", want)
++	return observed, missing
+ }
+ 
+-func requireUserLogs(t *testing.T, beholderObserver beholdertest.Observer, expectedSubstrings []string) {
+-	msgs := beholderObserver.Messages(t)
++// requireEventsMessages checks that all expected messages are present in the beholder observer.
++// It does not check the order of messages.
++func requireEventsMessages(t *testing.T, beholderObserver beholdertest.Observer, expected []string) {
++	t.Helper()
++	if len(expected) == 0 {
++		return
++	}
++
++	require.EventuallyWithT(t, func(c *assert.CollectT) {
++		observed, missing := eventMessagesMatchStatus(beholderObserver.Messages(t), expected)
++		if len(missing) > 0 {
++			found := expected[:len(expected)-len(missing)]
++			assert.Fail(c, fmt.Sprintf(
++				"event messages not found (order does not matter)\n  expected: %q\n  found:    %q\n  missing:  %q\n  observed base messages (%d):\n%s",
++				expected,
++				found,
++				missing,
++				len(observed),
++				formatBulletList(observed),
++			))
++		}
++	}, 10*time.Second, 100*time.Millisecond)
++}
++
++// userLogMatchStatus returns user log lines observed via beholder and which expected
++// substrings (matched in order) are still missing.
++func userLogMatchStatus(msgs []beholder.Message, expectedSubstrings []string) (observed []string, missing []string) {
+ 	nextToFind := 0
+ 	for _, msg := range msgs {
+-		if msg.Attrs["beholder_entity"] == "workflows.v1.UserLogs" {
+-			var payload events.UserLogs
+-			require.NoError(t, proto.Unmarshal(msg.Body, &payload))
+-			if nextToFind >= len(expectedSubstrings) {
+-				return
+-			}
+-			for _, log := range payload.LogLines {
+-				if strings.Contains(log.Message, expectedSubstrings[nextToFind]) {
+-					nextToFind++
+-				}
++		if msg.Attrs["beholder_entity"] != "workflows.v1.UserLogs" {
++			continue
++		}
++		var payload events.UserLogs
++		if err := proto.Unmarshal(msg.Body, &payload); err != nil {
++			continue
++		}
++		for _, log := range payload.LogLines {
++			observed = append(observed, log.Message)
++			if nextToFind < len(expectedSubstrings) &&
++				strings.Contains(log.Message, expectedSubstrings[nextToFind]) {
++				nextToFind++
+ 			}
+ 		}
+ 	}
++	return observed, expectedSubstrings[nextToFind:]
++}
+ 
+-	if nextToFind < len(expectedSubstrings) {
+-		t.Errorf("log message not found: %s", expectedSubstrings[nextToFind])
++// requireUserLogs fails the test if the expected user log messages are not eventually found in the beholder observer.
++func requireUserLogs(t *testing.T, beholderObserver beholdertest.Observer, expectedSubstrings []string) {
++	t.Helper()
++	if len(expectedSubstrings) == 0 {
++		return
+ 	}
++
++	require.EventuallyWithT(t, func(c *assert.CollectT) {
++		observed, missing := userLogMatchStatus(
++			beholderObserver.Messages(t),
++			expectedSubstrings,
++		)
++		if len(missing) > 0 {
++			found := expectedSubstrings[:len(expectedSubstrings)-len(missing)]
++			assert.Fail(c, fmt.Sprintf(
++				"log messages not found (order matters)\n  expected: %q\n  found:    %q\n  missing:  %q\n  observed user logs (%d):\n%s",
++				expectedSubstrings,
++				found,
++				missing,
++				len(observed),
++				formatBulletList(observed),
++			))
++		}
++	}, 10*time.Second, 100*time.Millisecond)
++}
++
++func formatBulletList(items []string) string {
++	if len(items) == 0 {
++		return "    (none)"
++	}
++	var b strings.Builder
++	for _, item := range items {
++		b.WriteString("    - ")
++		b.WriteString(item)
++		b.WriteByte('\n')
++	}
++	return strings.TrimSuffix(b.String(), "\n")
++}
++
++func formatObservedBaseMessages(observed []observedBaseMessage) string {
++	if len(observed) == 0 {
++		return "    (none)"
++	}
++	var b strings.Builder
++	for _, msg := range observed {
++		b.WriteString("    - msg=")
++		b.WriteString(msg.Msg)
++		b.WriteString(" labels=")
++		fmt.Fprint(&b, msg.Labels)
++		b.WriteByte('\n')
++	}
++	return strings.TrimSuffix(b.String(), "\n")
+ }
+ 
+ func newNode(t *testing.T, opts ...func(*capabilities.Node)) capabilities.Node {

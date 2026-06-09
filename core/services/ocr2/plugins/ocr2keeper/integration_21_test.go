@@ -235,7 +235,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	commit()
 
 	emits := 1
-	go emitEvents(testutils.Context(t), t, emits, contracts, carrol, func() {
+	go emitEvents(t.Context(), t, emits, contracts, carrol, func() {
 		commit()
 	})
 
@@ -251,7 +251,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 		// Emit 100 logs in a burst
 		recoverEmits := 100
 		i := 0
-		emitEvents(testutils.Context(t), t, 100, []*log_upkeep_counter_wrapper.LogUpkeepCounter{contract}, carrol, func() {
+		emitEvents(t.Context(), t, 100, []*log_upkeep_counter_wrapper.LogUpkeepCounter{contract}, carrol, func() {
 			i++
 			if i%(recoverEmits/4) == 0 {
 				commit()
@@ -259,7 +259,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 			}
 		})
 
-		h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
+		h, err := backend.Client().HeaderByNumber(t.Context(), nil)
 		require.NoError(t, err)
 		beforeDummyBlocks := h.Number.Uint64()
 
@@ -481,7 +481,7 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 	require.NoError(t, feeds.EnableMercury(t, backend, commit, registry, registryOwner))
 	require.NoError(t, feeds.VerifyEnv(t, registry, registryOwner))
 
-	h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
+	h, err := backend.Client().HeaderByNumber(t.Context(), nil)
 	require.NoError(t, err)
 	startBlock := h.Number.Uint64()
 	// start emitting events in a separate go-routine
@@ -545,7 +545,7 @@ func listenPerformedN(t *testing.T, backend evmtypes.Backend, registry *iregistr
 		minPerID = 1
 	}
 	return func() bool {
-		h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
+		h, err := backend.Client().HeaderByNumber(t.Context(), nil)
 		if err != nil {
 			return false
 		}
@@ -559,7 +559,7 @@ func listenPerformedN(t *testing.T, backend evmtypes.Backend, registry *iregistr
 		iter, err := registry.FilterUpkeepPerformed(&bind.FilterOpts{
 			Start:   startBlock,
 			End:     &currentBlock,
-			Context: testutils.Context(t),
+			Context: t.Context(),
 		}, ids, success)
 
 		if err != nil {
@@ -853,7 +853,7 @@ func deployKeeper21Registry(
 }
 
 func getUpkeepIDFromTx21(t *testing.T, registry *iregistry21.IKeeperRegistryMaster, registrationTx *gethtypes.Transaction, backend evmtypes.Backend) *big.Int {
-	receipt, err := backend.Client().TransactionReceipt(testutils.Context(t), registrationTx.Hash())
+	receipt, err := backend.Client().TransactionReceipt(t.Context(), registrationTx.Hash())
 	require.NoError(t, err)
 	parsedLog, err := registry.ParseUpkeepRegistered(*receipt.Logs[0])
 	require.NoError(t, err)
@@ -885,7 +885,7 @@ func registerAndFund(
 
 		backend.Commit()
 
-		receipt, err := backend.Client().TransactionReceipt(testutils.Context(t), registrationTx.Hash())
+		receipt, err := backend.Client().TransactionReceipt(t.Context(), registrationTx.Hash())
 		require.NoError(t, err)
 
 		parsedLog, err := registry.ParseUpkeepRegistered(*receipt.Logs[0])
@@ -1026,7 +1026,7 @@ func (c *feedLookupUpkeepController) EnableMercury(
 		MercuryEnabled: true,
 	})
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	for _, id := range c.upkeepIds {
 		if _, err := registry.SetUpkeepPrivilegeConfig(registryOwner, id, adminBytes); err != nil {
 			require.NoError(t, err)
@@ -1058,7 +1058,7 @@ func (c *feedLookupUpkeepController) EnableMercury(
 		require.True(t, checkBytes.MercuryEnabled)
 	}
 
-	bl, _ := backend.Client().BlockByHash(testutils.Context(t), backend.Commit())
+	bl, _ := backend.Client().BlockByHash(t.Context(), backend.Commit())
 	t.Logf("block number after mercury enabled: %d", bl.NumberU64())
 
 	return nil
@@ -1072,7 +1072,7 @@ func (c *feedLookupUpkeepController) VerifyEnv(
 	t.Log("verifying number of active upkeeps")
 
 	ids, err := registry.GetActiveUpkeepIDs(&bind.CallOpts{
-		Context: testutils.Context(t),
+		Context: t.Context(),
 		From:    registryOwner.From,
 	}, big.NewInt(0), big.NewInt(100))
 
@@ -1113,7 +1113,7 @@ func (c *feedLookupUpkeepController) EmitEvents(
 	count int,
 	afterEmit func(),
 ) error {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	for i := 0; i < count && ctx.Err() == nil; i++ {
 		blockBeforeOrder, _ := backend.Client().BlockByHash(ctx, backend.Commit())
@@ -1132,7 +1132,7 @@ func (c *feedLookupUpkeepController) EmitEvents(
 
 		iter, _ := c.protocol.FilterLimitOrderExecuted(
 			&bind.FilterOpts{
-				Context: testutils.Context(t),
+				Context: t.Context(),
 				Start:   blockBeforeOrder.NumberU64() - 1,
 			},
 			[]*big.Int{big.NewInt(1000)},
