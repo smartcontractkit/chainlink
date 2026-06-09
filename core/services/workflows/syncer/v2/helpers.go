@@ -29,9 +29,10 @@ var wlConfig = syncerlimiter.Config{
 var ErrCouldNotDecode = errors.New("failed to decode revert data")
 
 type testEvtHandler struct {
-	events []Event
-	mux    sync.Mutex
-	errFn  func() error
+	events         []Event
+	mux            sync.Mutex
+	errFn          func() error
+	engineRegistry *EngineRegistry
 }
 
 func (m *testEvtHandler) Close() error { return nil }
@@ -42,6 +43,30 @@ func (m *testEvtHandler) Handle(ctx context.Context, event Event) error {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	m.events = append(m.events, event)
+	if m.engineRegistry != nil {
+		switch event.Name {
+		case WorkflowActivated:
+			if data, ok := event.Data.(WorkflowActivatedEvent); ok {
+				if err := m.engineRegistry.Add(data.WorkflowID, data.Source, &mockService{}); err != nil {
+					return err
+				}
+			}
+		case WorkflowDeleted:
+			if data, ok := event.Data.(WorkflowDeletedEvent); ok {
+				_, err := m.engineRegistry.Pop(data.WorkflowID)
+				if err != nil {
+					return err
+				}
+			}
+		case WorkflowPaused:
+			if data, ok := event.Data.(WorkflowPausedEvent); ok {
+				_, err := m.engineRegistry.Pop(data.WorkflowID)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
 	if m.errFn != nil {
 		return m.errFn()
 	}
@@ -69,6 +94,12 @@ func newTestEvtHandler(errFn func() error) *testEvtHandler {
 		errFn:  errFn,
 		events: make([]Event, 0),
 	}
+}
+
+func newTestEvtHandlerWithRegistry(errFn func() error, registry *EngineRegistry) *testEvtHandler {
+	h := newTestEvtHandler(errFn)
+	h.engineRegistry = registry
+	return h
 }
 
 type testDonNotifier struct {
