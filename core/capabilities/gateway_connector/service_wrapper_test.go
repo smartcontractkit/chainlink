@@ -23,8 +23,29 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func TestConnectorGatewayConfig_DonIDFromTOML(t *testing.T) {
+func TestGatewayConnectorConfigFromTOML(t *testing.T) {
 	t.Parallel()
+
+	cfg := newTestGatewayConnectorConfig(t)
+	gc := cfg.Capabilities().GatewayConnector()
+	assert.Equal(t, "0x68902d681c28119f9b2531473a417088bf008e59", gc.NodeAddress())
+	assert.Equal(t, "example_don", gc.DonID())
+	assert.Equal(t, uint32(100), gc.WSHandshakeTimeoutMillis())
+	assert.Equal(t, 10, gc.AuthMinChallengeLen())
+	assert.Equal(t, uint32(5), gc.AuthTimestampToleranceSec())
+
+	gateways := gc.Gateways()
+	require.Len(t, gateways, 2)
+	assert.Equal(t, "example_gateway", gateways[0].ID())
+	assert.Equal(t, "example_gateway_don", gateways[0].DonID())
+	assert.Equal(t, "wss://localhost:8081/node", gateways[0].URL())
+	assert.Equal(t, "another_gateway", gateways[1].ID())
+	assert.Equal(t, "another_gateway_don", gateways[1].DonID())
+	assert.Equal(t, "wss://example.com:8090/node", gateways[1].URL())
+}
+
+func newTestGatewayConnectorConfig(t *testing.T) chainlink.GeneralConfig {
+	t.Helper()
 
 	cfg, err := chainlink.GeneralConfigOpts{
 		Config: chainlink.Config{
@@ -33,15 +54,20 @@ func TestConnectorGatewayConfig_DonIDFromTOML(t *testing.T) {
 					GatewayConnector: toml.GatewayConnector{
 						ChainIDForNodeKey:         new("1"),
 						NodeAddress:               new("0x68902d681c28119f9b2531473a417088bf008e59"),
-						DonID:                     new("workflow_don"),
+						DonID:                     new("example_don"),
 						WSHandshakeTimeoutMillis:  new(uint32(100)),
-						AuthMinChallengeLen:       new(0),
-						AuthTimestampToleranceSec: new(uint32(10)),
+						AuthMinChallengeLen:       new(10),
+						AuthTimestampToleranceSec: new(uint32(5)),
 						Gateways: []toml.ConnectorGateway{
 							{
-								ID:    new("gateway_one"),
-								DonID: new("gateway_don_one"),
+								ID:    new("example_gateway"),
+								DonID: new("example_gateway_don"),
 								URL:   new("wss://localhost:8081/node"),
+							},
+							{
+								ID:    new("another_gateway"),
+								DonID: new("another_gateway_don"),
+								URL:   new("wss://example.com:8090/node"),
 							},
 						},
 					},
@@ -50,12 +76,7 @@ func TestConnectorGatewayConfig_DonIDFromTOML(t *testing.T) {
 		},
 	}.New()
 	require.NoError(t, err)
-
-	gateways := cfg.Capabilities().GatewayConnector().Gateways()
-	require.Len(t, gateways, 1)
-	assert.Equal(t, "gateway_one", gateways[0].ID())
-	assert.Equal(t, "gateway_don_one", gateways[0].DonID())
-	assert.Equal(t, "wss://localhost:8081/node", gateways[0].URL())
+	return cfg
 }
 
 // fakeOrderedKeyProvider is a simple fake implementation for testing
