@@ -10,11 +10,10 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms/sequence"
@@ -118,7 +117,7 @@ func DeployMCMSWithTimelockProgramsSolanaV2(
 	e cldf.Environment,
 	ds datastore.MutableDataStore,
 	chain cldf_solana.Chain,
-	config commontypes.MCMSWithTimelockConfigV2) (*solstate.MCMSWithTimelockState, error) {
+	config cldfproposalutils.MCMSWithTimelockConfig) (*solstate.MCMSWithTimelockState, error) {
 	chainstate, err := solstate.MaybeLoadMCMSWithTimelockChainStateV2(e.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(chain.Selector)))
 	if err != nil {
 		return nil, err

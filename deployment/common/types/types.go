@@ -2,12 +2,7 @@ package types
 
 import (
 	"errors"
-	"math/big"
 	"time"
-
-	mcmstypes "github.com/smartcontractkit/mcms/types"
-
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
@@ -49,18 +44,6 @@ const (
 
 func (role MCMSRole) String() string {
 	return string(role)
-}
-
-// MCMSWithTimelockConfigV2 holds the configuration for an MCMS with timelock.
-// Note that this type already exists in types.go, but this one is using the new lib version.
-type MCMSWithTimelockConfigV2 struct {
-	Canceller        mcmstypes.Config                  `json:"canceller"`
-	Bypasser         mcmstypes.Config                  `json:"bypasser"`
-	Proposer         mcmstypes.Config                  `json:"proposer"`
-	TimelockMinDelay *big.Int                          `json:"timelockMinDelay"`
-	Label            *string                           `json:"label"`
-	GasBoostConfig   *cldfproposalutils.GasBoostConfig `json:"gasBoostConfig"`
-	Qualifier        *string                           `json:"qualifier"`
 }
 
 type OCRParameters struct {

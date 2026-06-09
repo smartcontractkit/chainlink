@@ -5,10 +5,10 @@ import (
 	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
-	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 // Deploy MCMS Sequence
@@ -24,7 +24,7 @@ var DeployMCMSSequence = operations.NewSequence(
 	deployMCMSSequence,
 )
 
-func deployMCMSSequence(b operations.Bundle, deps dependency.AptosDeps, configMCMS types.MCMSWithTimelockConfigV2) (DeployMCMSSeqOutput, error) {
+func deployMCMSSequence(b operations.Bundle, deps dependency.AptosDeps, configMCMS cldfproposalutils.MCMSWithTimelockConfig) (DeployMCMSSeqOutput, error) {
 	// Check if MCMS package is already deployed
 	onChainState := deps.CCIPOnChainState.AptosChains[deps.AptosChain.Selector]
 	if onChainState.MCMSAddress != (aptos.AccountAddress{}) {
