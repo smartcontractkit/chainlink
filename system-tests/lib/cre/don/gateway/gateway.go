@@ -38,7 +38,7 @@ func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, to
 
 		services := gatewayServiceConfigs
 		if topology != nil {
-			services = topology.GatewayServiceConfigsForGateway(gatewayNode.DON.Name, gatewayServiceConfigs)
+			services = topology.GatewayServiceConfigsForDonFamily(topology.DonFamilyForDON(gatewayNode.DON.Name), gatewayServiceConfigs)
 		}
 
 		workerInput := cre_jobs.ProposeJobSpecInput{

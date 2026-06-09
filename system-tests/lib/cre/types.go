@@ -424,7 +424,6 @@ func NewGatewayConnectorOutput() *GatewayConnectors {
 
 type DonGatewayConfiguration struct {
 	*GatewayConfiguration
-	DONName string `toml:"don_name" json:"don_name"`
 }
 
 type NodeConfigTransformerFn = func(input GenerateConfigsInput, existingConfigs NodeIndexToConfigOverride) (NodeIndexToConfigOverride, error)
@@ -528,7 +527,7 @@ type DonMetadata struct {
 	Flags                        []string                            `toml:"flags" json:"flags"`
 	ID                           uint64                              `toml:"id" json:"id"`
 	Name                         string                              `toml:"name" json:"name"`
-	Zone                         string                              `toml:"zone" json:"zone"`
+	DonFamily                    string                              `toml:"don_family" json:"don_family"`
 	ExposesRemoteCapabilities    bool                                `toml:"exposes_remote_capabilities" json:"exposes_remote_capabilities"`
 	ShardIndex                   uint                                `toml:"shard_index" json:"shard_index"`
 	CapabilityConfigs            map[CapabilityFlag]CapabilityConfig `toml:"capability_configs" json:"capability_configs"`
@@ -583,7 +582,7 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 		Flags:                        c.Flags(),
 		NodesMetadata:                nodes,
 		Name:                         c.Name,
-		Zone:                         ResolveNodesetZone(c.Name, c.Zone),
+		DonFamily:                    strings.TrimSpace(c.DonFamily),
 		ns:                           c,
 		ExposesRemoteCapabilities:    c.ExposesRemoteCapabilities,
 		ShardIndex:                   c.ShardIndex,
@@ -657,7 +656,6 @@ func (m *DonMetadata) GatewayConfig(p infra.Provider, gatewayNodeIdx int) (*DonG
 
 	return &DonGatewayConfiguration{
 		GatewayConfiguration: NewGatewayConfig(p, gatewayNode.Index, gatewayNodeIdx, gatewayNode.HasRole(BootstrapNode), gatewayNode.UUID, m.Name),
-		DONName:              m.Name,
 	}, nil
 }
 
@@ -1214,8 +1212,8 @@ type NodeSet struct {
 
 	Capabilities []string `toml:"capabilities"` // global capabilities that have no chain-specific configuration (e.g. cron, http-trigger)
 	DONTypes     []string `toml:"don_types"`    // workflow, capabilities, gateway
-	// Zone groups workflow and gateway DONs for per-zone gateway pairing in local CRE.
-	Zone string `toml:"zone"`
+	// DonFamily groups workflow and gateway DONs for per-family gateway pairing in local CRE.
+	DonFamily string `toml:"don_family"`
 	// SupportedEVMChains is filter. Use EVMChains() to get the actual list of chains supported by the nodeset.
 	SupportedEVMChains []uint64          `toml:"supported_evm_chains"` // chain IDs that the DON supports, empty means all chains
 	EnvVars            map[string]string `toml:"env_vars"`             // additional environment variables to be set on each node

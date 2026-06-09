@@ -95,7 +95,7 @@ func (o *Vault) PreEnvStartup(
 		}
 	}
 
-	cErr := don.ConfigureForGatewayAccess(registryChainID, topology.GatewayConnectorsForWorkflow(don.Name))
+	cErr := don.ConfigureForGatewayAccess(registryChainID, topology.GatewayConnectorsForDonFamily(don.DonFamily))
 	if cErr != nil {
 		return nil, errors.Wrapf(cErr, "failed to add gateway connectors to node's TOML config in for don %s", don.Name)
 	}

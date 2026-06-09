@@ -3,6 +3,7 @@ package environment
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
@@ -115,6 +116,107 @@ func (r *LocalCREStateResolver) WorkflowDONID() (uint32, error) {
 	}
 
 	return libc.MustSafeUint32FromUint64(workflowDON.ID), nil
+}
+
+func (r *LocalCREStateResolver) WorkflowDONFamily() (string, error) {
+	workflowDON, err := r.WorkflowDONMetadata()
+	if err != nil {
+		return "", err
+	}
+
+	return workflowDON.DonFamily, nil
+}
+
+// WorkflowDONMetadataForContainerPattern returns the workflow DON whose name matches
+// containerNamePattern (e.g. "feeds-zone-a-node" matches DON "feeds-zone-a").
+func (r *LocalCREStateResolver) WorkflowDONMetadataForContainerPattern(containerNamePattern string) (*cre.DonMetadata, error) {
+	workflowDONs, err := r.topology.DonsMetadata.WorkflowDONs()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get workflow DONs from local CRE state")
+	}
+
+	pattern := strings.TrimSuffix(containerNamePattern, "-node")
+	for _, wf := range workflowDONs {
+		if wf.Name == pattern || strings.HasPrefix(containerNamePattern, wf.Name+"-") {
+			return wf, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no workflow DON matches container pattern %q", containerNamePattern)
+}
+
+func (r *LocalCREStateResolver) WorkflowDONIDForContainerPattern(containerNamePattern string) (uint32, error) {
+	workflowDON, err := r.WorkflowDONMetadataForContainerPattern(containerNamePattern)
+	if err != nil {
+		return 0, err
+	}
+
+	return libc.MustSafeUint32FromUint64(workflowDON.ID), nil
+}
+
+func (r *LocalCREStateResolver) WorkflowDONFamilyForContainerPattern(containerNamePattern string) (string, error) {
+	workflowDON, err := r.WorkflowDONMetadataForContainerPattern(containerNamePattern)
+	if err != nil {
+		return "", err
+	}
+
+	if workflowDON.DonFamily == "" {
+		return "", fmt.Errorf("workflow DON %q has no don_family in local CRE state", workflowDON.Name)
+	}
+
+	return workflowDON.DonFamily, nil
+}
+
+func (r *LocalCREStateResolver) GatewayURLForDonFamily(donFamily string) (string, error) {
+	connectors := r.topology.GatewayConnectorsForDonFamily(donFamily)
+	if len(connectors.Configurations) == 0 {
+		return "", fmt.Errorf("no gateway connector found for don_family %q", donFamily)
+	}
+
+	cfg := connectors.Configurations[0]
+	host := cfg.Incoming.Host
+	if host == "" {
+		host = r.cfg.Infra.ExternalGatewayHost()
+	}
+
+	return fmt.Sprintf("%s://%s:%d%s", cfg.Incoming.Protocol, host, cfg.Incoming.ExternalPort, cfg.Incoming.Path), nil
+}
+
+// WorkflowDONNodeInfoForContainerPattern returns DB port and worker count for the workflow
+// DON matched by containerNamePattern.
+func (r *LocalCREStateResolver) WorkflowDONNodeInfoForContainerPattern(containerNamePattern string) (dbPort int, nodeCount int, err error) {
+	if r.cfg.Infra == nil {
+		return 0, 0, errors.New("infra section is missing from local CRE state file")
+	}
+	if r.cfg.Infra.IsKubernetes() {
+		return 0, 0, errors.New("direct DB polling is not supported for Kubernetes provider; vault config propagation requires a static wait on Kubernetes")
+	}
+
+	donMeta, err := r.WorkflowDONMetadataForContainerPattern(containerNamePattern)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	var nodeSet *cre.NodeSet
+	for _, ns := range r.cfg.NodeSets {
+		if ns.Name == donMeta.Name {
+			nodeSet = ns
+			break
+		}
+	}
+	if nodeSet == nil {
+		return 0, 0, fmt.Errorf("no nodeset found for workflow DON %q in local CRE state", donMeta.Name)
+	}
+	if nodeSet.DbInput == nil {
+		return 0, 0, fmt.Errorf("nodeset %q has no DbInput in local CRE state", donMeta.Name)
+	}
+
+	workers, err := donMeta.Workers()
+	if err != nil {
+		return 0, 0, errors.Wrap(err, "failed to get workflow DON workers")
+	}
+
+	return nodeSet.DbInput.Port, len(workers), nil
 }
 
 func (r *LocalCREStateResolver) WorkflowDONName() (string, error) {

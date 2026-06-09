@@ -93,10 +93,11 @@ func DeployKeystoneContracts(
 	}, nil
 }
 
-const DonFamily = "test-don-family"
+const DonFamily = "test-don-family" // Deprecated: use DonMetadata.DonFamily from topology TOML.
 
 type donConfig struct {
-	id uint32 // the DON id as registered in the capabilities registry
+	id        uint32 // the DON id as registered in the capabilities registry
+	donFamily string
 	keystone_changeset.DonCapabilities
 	flags []cre.CapabilityFlag
 }
@@ -285,9 +286,14 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 			}
 		}
 
+		donFamily := don.donFamily
+		if donFamily == "" {
+			donFamily = DonFamily
+		}
+
 		donParams[i] = capabilities_registry_v2.CapabilitiesRegistryNewDONParams{
 			Name:                     don.Name,
-			DonFamilies:              []string{DonFamily}, // Default empty
+			DonFamilies:              []string{donFamily},
 			Config:                   []byte("{}"),
 			CapabilityConfigurations: capConfigs,
 			Nodes:                    donNodes,
@@ -434,6 +440,7 @@ func toDons(input cre.ConfigureCapabilityRegistryInput) (*dons, error) {
 
 		dons.c[donName] = donConfig{
 			id:              uint32(donMetadata.ID), //nolint:gosec // G115
+			donFamily:       donMetadata.DonFamily,
 			DonCapabilities: c,
 			flags:           donMetadata.Flags,
 		}

@@ -337,6 +337,7 @@ type WorkflowRegistrationConfig struct {
 	WorkflowRegistryVersion *semver.Version
 	ChainID                 uint64
 	DonID                   uint64
+	DonFamily               string
 	ContainerTargetDir      string
 	SethClient              *seth.Client
 	Attributes              []byte
@@ -611,6 +612,7 @@ func registerWorkflowErr(ctx context.Context, wfRegCfg *WorkflowRegistrationConf
 		wfRegCfg.WorkflowRegistryAddr,
 		wfRegCfg.WorkflowRegistryVersion,
 		wfRegCfg.DonID,
+		wfRegCfg.DonFamily,
 		wfRegCfg.WorkflowName,
 		binaryURL,
 		configURL,
@@ -704,6 +706,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		WorkflowRegistryVersion: workflowRegistryAddress.Version,
 		ChainID:                 registryChainSelector,
 		DonID:                   testEnv.Dons.MustWorkflowDON().ID,
+		DonFamily:               testEnv.Dons.MustWorkflowDON().DonFamily,
 		ContainerTargetDir:      creworkflow.DefaultWorkflowTargetDir,
 		SethClient:              testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient,
 		Attributes:              cfg.attributes,

@@ -26,6 +26,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
@@ -348,6 +349,7 @@ func registerNTimesWorkflowsParallel(
 					WorkflowRegistryVersion: registryVersion,
 					ChainID:                 registryChainSelector,
 					DonID:                   donID,
+					DonFamily:               envconfig.DefaultDONFamily,
 					ContainerTargetDir:      creworkflow.DefaultWorkflowTargetDir,
 					SethClient:              sc,
 					Attributes:              attributes,

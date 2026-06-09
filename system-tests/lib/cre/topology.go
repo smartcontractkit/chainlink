@@ -26,18 +26,11 @@ type Topology struct {
 	gatewayConnectorsByDon map[string]*DonGatewayConfiguration
 }
 
-// ResolveNodesetZone returns the explicit nodeset zone when set, otherwise derives
-// zone-a / zone-b from DON names ending in those suffixes (legacy convenience).
-func ResolveNodesetZone(donName, explicitZone string) string {
-	if z := strings.TrimSpace(explicitZone); z != "" {
-		return z
-	}
-	for _, zone := range []string{"zone-a", "zone-b"} {
-		if strings.HasSuffix(donName, zone) {
-			return zone
-		}
-	}
-	return ""
+// DonFamilyGatewayPair links a workflow DON to a gateway DON in the same DON family.
+type DonFamilyGatewayPair struct {
+	DonFamily       string
+	WorkflowDONName string
+	GatewayDONName  string
 }
 
 func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs map[CapabilityFlag]CapabilityConfig) (*Topology, error) {
@@ -115,7 +108,7 @@ func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs 
 		return nil, errors.New("multiple bootstrap nodes found in topology. Only one bootstrap node is supported due to the limitations of the local environment")
 	}
 
-	if err := topology.validateZoneGatewayPairing(); err != nil {
+	if err := topology.validateDonFamilyGatewayPairing(); err != nil {
 		return nil, err
 	}
 
@@ -131,32 +124,8 @@ func (t *Topology) donByName(name string) *DonMetadata {
 	return nil
 }
 
-func (t *Topology) zoneGatewayPairingEnabled() bool {
-	hasZonedWorkflow := false
-	hasZonedGateway := false
-
-	wfDONs, err := t.DonsMetadata.WorkflowDONs()
-	if err == nil {
-		for _, d := range wfDONs {
-			if d.Zone != "" {
-				hasZonedWorkflow = true
-				break
-			}
-		}
-	}
-
-	for _, d := range t.DonsMetadata.List() {
-		if _, hasGateway := d.Gateway(); hasGateway && d.Zone != "" {
-			hasZonedGateway = true
-			break
-		}
-	}
-
-	return hasZonedWorkflow && hasZonedGateway
-}
-
-func (t *Topology) validateZoneGatewayPairing() error {
-	if !t.zoneGatewayPairingEnabled() {
+func (t *Topology) validateDonFamilyGatewayPairing() error {
+	if !t.DonsMetadata.RequiresGateway() {
 		return nil
 	}
 
@@ -165,32 +134,32 @@ func (t *Topology) validateZoneGatewayPairing() error {
 		return err
 	}
 
-	gatewayZones := make(map[string][]string)
+	gatewayFamilies := make(map[string][]string)
 	for _, d := range t.DonsMetadata.List() {
 		if _, hasGateway := d.Gateway(); !hasGateway {
 			continue
 		}
-		if d.Zone == "" {
-			return fmt.Errorf("gateway DON %q has no zone; set nodesets.zone when using per-zone gateway pairing", d.Name)
+		if d.DonFamily == "" {
+			return fmt.Errorf("gateway DON %q has no don_family; set nodesets.don_family on workflow and gateway nodesets", d.Name)
 		}
-		gatewayZones[d.Zone] = append(gatewayZones[d.Zone], d.Name)
+		gatewayFamilies[d.DonFamily] = append(gatewayFamilies[d.DonFamily], d.Name)
 	}
 
 	for _, wf := range wfDONs {
-		if wf.Zone == "" {
-			return fmt.Errorf("workflow DON %q has no zone; set nodesets.zone when using per-zone gateway pairing", wf.Name)
+		if wf.DonFamily == "" {
+			return fmt.Errorf("workflow DON %q has no don_family; set nodesets.don_family on workflow and gateway nodesets", wf.Name)
 		}
-		if len(gatewayZones[wf.Zone]) == 0 {
-			return fmt.Errorf("workflow DON %q is in zone %q but no gateway DON is defined for that zone", wf.Name, wf.Zone)
+		if len(gatewayFamilies[wf.DonFamily]) == 0 {
+			return fmt.Errorf("workflow DON %q is in don_family %q but no gateway DON is defined for that family", wf.Name, wf.DonFamily)
 		}
 	}
 
 	return nil
 }
 
-// GatewayZonePairings returns workflow→gateway pairs grouped by zone.
-func (t *Topology) GatewayZonePairings() [][2]string {
-	if !t.zoneGatewayPairingEnabled() {
+// GatewayDonFamilyPairings returns workflow→gateway pairs grouped by don_family.
+func (t *Topology) GatewayDonFamilyPairings() []DonFamilyGatewayPair {
+	if !t.DonsMetadata.RequiresGateway() {
 		return nil
 	}
 
@@ -199,51 +168,47 @@ func (t *Topology) GatewayZonePairings() [][2]string {
 		return nil
 	}
 
-	var pairs [][2]string
+	var pairs []DonFamilyGatewayPair
 	for _, wf := range wfDONs {
 		for _, gw := range t.DonsMetadata.List() {
 			if _, hasGateway := gw.Gateway(); !hasGateway {
 				continue
 			}
-			if gw.Zone == wf.Zone {
-				pairs = append(pairs, [2]string{wf.Name, gw.Name})
+			if gw.DonFamily == wf.DonFamily {
+				pairs = append(pairs, DonFamilyGatewayPair{
+					DonFamily:       wf.DonFamily,
+					WorkflowDONName: wf.Name,
+					GatewayDONName:  gw.Name,
+				})
 			}
 		}
 	}
 	return pairs
 }
 
-// LogGatewayZonePairing prints resolved workflow→gateway pairs at env start.
-func (t *Topology) LogGatewayZonePairing() {
-	if !t.zoneGatewayPairingEnabled() {
+// LogGatewayDonFamilyPairing prints resolved workflow→gateway pairs at env start.
+func (t *Topology) LogGatewayDonFamilyPairing() {
+	pairs := t.GatewayDonFamilyPairings()
+	if len(pairs) == 0 {
 		return
 	}
 
-	parts := make([]string, 0, len(t.GatewayZonePairings()))
-	for _, pair := range t.GatewayZonePairings() {
-		parts = append(parts, fmt.Sprintf("%s → %s", pair[0], pair[1]))
+	parts := make([]string, 0, len(pairs))
+	for _, pair := range pairs {
+		parts = append(parts, fmt.Sprintf("%s → %s (don_family=%s)", pair.WorkflowDONName, pair.GatewayDONName, pair.DonFamily))
 	}
-	fmt.Printf("Gateway zone pairing enabled: %s\n", strings.Join(parts, ", "))
+	fmt.Printf("Gateway don_family pairing enabled: %s\n", strings.Join(parts, ", "))
 }
 
-// GatewayConnectorsForWorkflow returns gateway connectors for a workflow DON.
-// When zone pairing is active, only gateway DONs in the same zone are included.
-func (t *Topology) GatewayConnectorsForWorkflow(workflowDONName string) GatewayConnectors {
-	if t.GatewayConnectors == nil {
-		return GatewayConnectors{}
-	}
-	if !t.zoneGatewayPairingEnabled() {
-		return *t.GatewayConnectors
-	}
-
-	wf := t.donByName(workflowDONName)
-	if wf == nil || wf.Zone == "" {
+// GatewayConnectorsForDonFamily returns gateway connectors for workflow DONs in a don_family.
+func (t *Topology) GatewayConnectorsForDonFamily(donFamily string) GatewayConnectors {
+	if t.GatewayConnectors == nil || donFamily == "" {
 		return GatewayConnectors{}
 	}
 
 	configs := make([]*DonGatewayConfiguration, 0)
 	for _, d := range t.DonsMetadata.List() {
-		if _, hasGateway := d.Gateway(); !hasGateway || d.Zone != wf.Zone {
+		if _, hasGateway := d.Gateway(); !hasGateway || d.DonFamily != donFamily {
 			continue
 		}
 		if cfg, ok := t.gatewayConnectorsByDon[d.Name]; ok {
@@ -253,15 +218,9 @@ func (t *Topology) GatewayConnectorsForWorkflow(workflowDONName string) GatewayC
 	return GatewayConnectors{Configurations: configs}
 }
 
-// GatewayServiceConfigsForGateway scopes service DON lists to workflow DONs in the
-// same zone as the given gateway DON when zone pairing is active.
-func (t *Topology) GatewayServiceConfigsForGateway(gatewayDONName string, services []GatewayServiceConfig) []GatewayServiceConfig {
-	if !t.zoneGatewayPairingEnabled() {
-		return services
-	}
-
-	gw := t.donByName(gatewayDONName)
-	if gw == nil || gw.Zone == "" {
+// GatewayServiceConfigsForDonFamily scopes service DON lists to workflow DONs in don_family.
+func (t *Topology) GatewayServiceConfigsForDonFamily(donFamily string, services []GatewayServiceConfig) []GatewayServiceConfig {
+	if donFamily == "" {
 		return services
 	}
 
@@ -272,7 +231,7 @@ func (t *Topology) GatewayServiceConfigsForGateway(gatewayDONName string, servic
 
 	workflowNames := make([]string, 0)
 	for _, wf := range wfDONs {
-		if wf.Zone == gw.Zone {
+		if wf.DonFamily == donFamily {
 			workflowNames = append(workflowNames, wf.Name)
 		}
 	}
@@ -286,6 +245,14 @@ func (t *Topology) GatewayServiceConfigsForGateway(gatewayDONName string, servic
 		out[i].DONs = slices.Clone(workflowNames)
 	}
 	return out
+}
+
+// DonFamilyForDON returns don_family for a DON name in the topology.
+func (t *Topology) DonFamilyForDON(donName string) string {
+	if d := t.donByName(donName); d != nil {
+		return d.DonFamily
+	}
+	return ""
 }
 
 func (t *Topology) NodeSets() []*NodeSet {

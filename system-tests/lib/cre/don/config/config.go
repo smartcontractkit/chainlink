@@ -293,8 +293,8 @@ func baseNodeConfig(commonInputs *commonInputs, donMetadata *cre.DonMetadata, no
 			"node.don":         donMetadata.Name,
 			"node.index":       strconv.Itoa(nodeMetadata.Index),
 		}
-		if donMetadata.Zone != "" {
-			resourceAttributes["zone"] = donMetadata.Zone
+		if donMetadata.DonFamily != "" {
+			resourceAttributes["don_family"] = donMetadata.DonFamily
 		}
 		c.Telemetry = coretoml.Telemetry{
 			Enabled:             new(true),
@@ -547,7 +547,7 @@ func addWorkerNodeConfig(
 		gateways := []coretoml.ConnectorGateway{}
 		connectors := cre.GatewayConnectors{}
 		if topology != nil && topology.GatewayConnectors != nil {
-			connectors = topology.GatewayConnectorsForWorkflow(donMetadata.Name)
+			connectors = topology.GatewayConnectorsForDonFamily(donMetadata.DonFamily)
 		}
 		if len(connectors.Configurations) > 0 {
 			for _, gateway := range connectors.Configurations {
