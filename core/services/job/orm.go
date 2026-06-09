@@ -80,8 +80,6 @@ type ORM interface {
 	FindJobIDByCapabilityNameAndVersion(ctx context.Context, spec CCIPSpec) (int32, error)
 	FindStandardCapabilityJobID(ctx context.Context, spec StandardCapabilitiesSpec) (int32, error)
 	FindGatewayJobID(ctx context.Context, spec GatewaySpec) (int32, error)
-
-	FindJobIDByStreamID(ctx context.Context, streamID uint32) (int32, error)
 }
 
 type ORMConfig interface {
@@ -176,12 +174,8 @@ var ErrJobTypeRemoved = fmt.Errorf("job type has been removed and is no longer s
 func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 	// Permanently removed job types: reject all new submissions regardless of
 	// which code path reaches here (REST API, GraphQL, feeds manager, etc.).
-	if jb.Type == DirectRequest || jb.Type == FluxMonitor {
+	if jb.Type == DirectRequest || jb.Type == FluxMonitor || jb.Type == Webhook {
 		return fmt.Errorf("cannot create job of type %q: %w", jb.Type, ErrJobTypeRemoved)
-	}
-
-	if jb.Type == Webhook {
-		o.lggr.Warnw("Job of this type will not be supported in chainlink v3", "type", jb.Type)
 	}
 
 	p := jb.Pipeline
@@ -400,23 +394,6 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 				return fmt.Errorf("failed to create VRFSpec for jobSpec: %w", err)
 			}
 			jb.VRFSpecID = &specID
-		case Webhook:
-			err := tx.InsertWebhookSpec(ctx, jb.WebhookSpec)
-			if err != nil {
-				return errors.Wrap(err, "failed to create WebhookSpec")
-			}
-			jb.WebhookSpecID = &jb.WebhookSpec.ID
-
-			if len(jb.WebhookSpec.ExternalInitiatorWebhookSpecs) > 0 {
-				for i := range jb.WebhookSpec.ExternalInitiatorWebhookSpecs {
-					jb.WebhookSpec.ExternalInitiatorWebhookSpecs[i].WebhookSpecID = jb.WebhookSpec.ID
-				}
-				sql := `INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec)
-			VALUES (:external_initiator_id, :webhook_spec_id, :spec);`
-				if _, err := tx.ds.NamedExecContext(ctx, sql, jb.WebhookSpec.ExternalInitiatorWebhookSpecs); err != nil {
-					return errors.Wrap(err, "failed to create ExternalInitiatorWebhookSpecs")
-				}
-			}
 		case BlockhashStore:
 			if jb.BlockhashStoreSpec.EVMChainID == nil {
 				return errors.New("evm chain id must be defined")
@@ -1069,15 +1046,15 @@ func (o *orm) FindOCR2JobIDByAddress(ctx context.Context, relay string, chainID 
 	stmt := `
 SELECT jobs.id
 FROM jobs
-LEFT JOIN ocr2_oracle_specs ocr2spec on 
-	ocr2spec.contract_id = $1 AND 
-	ocr2spec.feed_id IS NOT DISTINCT FROM $2 AND 
+LEFT JOIN ocr2_oracle_specs ocr2spec on
+	ocr2spec.contract_id = $1 AND
+	ocr2spec.feed_id IS NOT DISTINCT FROM $2 AND
 	ocr2spec.id = jobs.ocr2_oracle_spec_id AND
 	ocr2spec.relay = $3 AND
 	ocr2spec.relay_config->'chainID' = $4
-LEFT JOIN bootstrap_specs bs on 
-	bs.contract_id = $1 AND 
-	bs.feed_id IS NOT DISTINCT FROM $2 AND 
+LEFT JOIN bootstrap_specs bs on
+	bs.contract_id = $1 AND
+	bs.feed_id IS NOT DISTINCT FROM $2 AND
 	bs.id = jobs.bootstrap_spec_id AND
 	bs.relay = $3 AND
 	bs.relay_config->'chainID' = $4
@@ -1414,20 +1391,6 @@ func (o *orm) FindJobsByPipelineSpecIDs(ctx context.Context, ids []int32) ([]Job
 	})
 
 	return jbs, errors.Wrap(err, "FindJobsByPipelineSpecIDs failed")
-}
-
-func (o *orm) FindJobIDByStreamID(ctx context.Context, streamID uint32) (jobID int32, err error) {
-	stmt := `SELECT id FROM jobs WHERE type = 'stream' AND stream_id = $1`
-	err = o.ds.GetContext(ctx, &jobID, stmt, streamID)
-	if err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
-			err = errors.Wrap(err, "error searching for job by stream id")
-		}
-		err = errors.Wrap(err, "FindJobIDByStreamID failed")
-		return
-	}
-
-	return
 }
 
 // PipelineRuns returns pipeline runs for a job, with spec and taskruns loaded, latest first

@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
@@ -51,57 +52,58 @@ func TestProposeStandardCapabilityJob_VerifyPreconditions(t *testing.T) {
 }
 
 func TestProposeStandardCapabilityJob_Apply(t *testing.T) {
-	testEnv := test.SetupEnvV2(t, false)
+	h := test.NewTestHarness(t)
 
-	// Build minimal environment
-	env := testEnv.Env
-
-	input := jobs.ProposeStandardCapabilityJobInput{
+	task := runtime.ChangesetTask(jobs.ProposeStandardCapabilityJob{}, jobs.ProposeStandardCapabilityJobInput{
 		JobName:     "cron-cap-job",
 		Command:     "cron",
 		DONName:     "test-don",
 		Domain:      offchain.ProductLabel,
-		Environment: "test",
+		Environment: test.EnvironmentName,
 		DONFilters: []offchain.TargetDONFilter{
 			{Key: offchain.FilterKeyDONName, Value: test.DONName},
-			{Key: "environment", Value: "test"},
+			{Key: "environment", Value: test.EnvironmentName},
 			{Key: "product", Value: offchain.ProductLabel},
 		},
-	}
+	})
 
-	out, err := jobs.ProposeStandardCapabilityJob{}.Apply(*env, input)
+	err := h.Runtime.Exec(task)
+	require.NoError(t, err)
+
+	out := h.Runtime.State().Outputs[task.ID()]
 	require.NoError(t, err)
 	assert.Len(t, out.Reports, 1)
 
-	reqs, err := testEnv.TestJD.ListProposedJobRequests()
+	reqs, err := h.TestJD.ListProposedJobRequests()
 	require.NoError(t, err)
 	assert.Len(t, reqs, 4)
 }
 
 func TestProposeStandardCapabilityJob_Apply_HTTPTrigger(t *testing.T) {
-	testEnv := test.SetupEnvV2(t, false)
-	env := testEnv.Env
+	h := test.NewTestHarness(t)
 
-	input := jobs.ProposeStandardCapabilityJobInput{
+	task := runtime.ChangesetTask(jobs.ProposeStandardCapabilityJob{}, jobs.ProposeStandardCapabilityJobInput{
 		JobName:       "http-trigger-job",
 		Command:       "http_trigger",
 		Config:        `{}`,
 		ExternalJobID: "http-trigger-external-id",
 		DONName:       test.DONName,
 		Domain:        offchain.ProductLabel,
-		Environment:   "test",
+		Environment:   test.EnvironmentName,
 		DONFilters: []offchain.TargetDONFilter{
 			{Key: offchain.FilterKeyDONName, Value: test.DONName},
-			{Key: "environment", Value: "test"},
+			{Key: "environment", Value: test.EnvironmentName},
 			{Key: "product", Value: offchain.ProductLabel},
 		},
-	}
+	})
 
-	out, err := jobs.ProposeStandardCapabilityJob{}.Apply(*env, input)
+	err := h.Runtime.Exec(task)
 	require.NoError(t, err)
+	out := h.Runtime.State().Outputs[task.ID()]
+
 	assert.Len(t, out.Reports, 1)
 
-	reqs, err := testEnv.TestJD.ListProposedJobRequests()
+	reqs, err := h.TestJD.ListProposedJobRequests()
 	require.NoError(t, err)
 
 	// Verify the job specs contain expected HTTP trigger configuration
@@ -117,29 +119,31 @@ func TestProposeStandardCapabilityJob_Apply_HTTPTrigger(t *testing.T) {
 }
 
 func TestProposeStandardCapabilityJob_Apply_HTTPAction(t *testing.T) {
-	testEnv := test.SetupEnvV2(t, false)
-	env := testEnv.Env
+	h := test.NewTestHarness(t)
 
-	input := jobs.ProposeStandardCapabilityJobInput{
+	task := runtime.ChangesetTask(jobs.ProposeStandardCapabilityJob{}, jobs.ProposeStandardCapabilityJobInput{
 		JobName:       "http-action-job",
 		Command:       "http_action",
 		Config:        `{"proxyMode": "direct"}`,
 		ExternalJobID: "http-action-external-id",
 		DONName:       test.DONName,
 		Domain:        offchain.ProductLabel,
-		Environment:   "test",
+		Environment:   test.EnvironmentName,
 		DONFilters: []offchain.TargetDONFilter{
 			{Key: offchain.FilterKeyDONName, Value: test.DONName},
-			{Key: "environment", Value: "test"},
+			{Key: "environment", Value: test.EnvironmentName},
 			{Key: "product", Value: offchain.ProductLabel},
 		},
-	}
+	})
 
-	out, err := jobs.ProposeStandardCapabilityJob{}.Apply(*env, input)
+	err := h.Runtime.Exec(task)
+	require.NoError(t, err)
+
+	out := h.Runtime.State().Outputs[task.ID()]
 	require.NoError(t, err)
 	assert.Len(t, out.Reports, 1)
 
-	reqs, err := testEnv.TestJD.ListProposedJobRequests()
+	reqs, err := h.TestJD.ListProposedJobRequests()
 	require.NoError(t, err)
 
 	// Verify the job specs contain expected HTTP action configuration

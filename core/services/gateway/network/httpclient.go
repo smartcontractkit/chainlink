@@ -3,11 +3,13 @@ package network
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
 	"maps"
 	"net/http"
+	"net/http/httptrace"
 	"slices"
 	"strings"
 
@@ -18,6 +20,7 @@ import (
 	"github.com/doyensec/safeurl"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -44,6 +47,58 @@ type HTTPClientConfig struct {
 	AllowedIPsCIDR    []string
 	AllowedMethods    []string
 	BlockedHeaders    []string
+
+	// Mtls, when set, configures the client to present the supplied client
+	// certificate for mutual TLS.
+	Mtls *gateway.MtlsAuth
+}
+
+// merge returns a copy of c with any set fields from override applied on top.
+// A field in override is only applied when it holds a non-zero value, so the
+// static base config supplies defaults that the dynamic config can selectively
+// override.
+func (c HTTPClientConfig) merge(override HTTPClientConfig) HTTPClientConfig {
+	merged := c
+	if override.MaxResponseBytes != 0 {
+		merged.MaxResponseBytes = override.MaxResponseBytes
+	}
+	if override.DefaultTimeout != 0 {
+		merged.DefaultTimeout = override.DefaultTimeout
+	}
+	if override.maxRequestDuration != 0 {
+		merged.maxRequestDuration = override.maxRequestDuration
+	}
+	if len(override.BlockedIPs) > 0 {
+		merged.BlockedIPs = override.BlockedIPs
+	}
+	if len(override.BlockedIPsCIDR) > 0 {
+		merged.BlockedIPsCIDR = override.BlockedIPsCIDR
+	}
+	if len(override.AllowedPorts) > 0 {
+		merged.AllowedPorts = override.AllowedPorts
+	}
+	if len(override.AllowedPortRanges) > 0 {
+		merged.AllowedPortRanges = override.AllowedPortRanges
+	}
+	if len(override.AllowedSchemes) > 0 {
+		merged.AllowedSchemes = override.AllowedSchemes
+	}
+	if len(override.AllowedIPs) > 0 {
+		merged.AllowedIPs = override.AllowedIPs
+	}
+	if len(override.AllowedIPsCIDR) > 0 {
+		merged.AllowedIPsCIDR = override.AllowedIPsCIDR
+	}
+	if len(override.AllowedMethods) > 0 {
+		merged.AllowedMethods = override.AllowedMethods
+	}
+	if len(override.BlockedHeaders) > 0 {
+		merged.BlockedHeaders = override.BlockedHeaders
+	}
+	if override.Mtls != nil {
+		merged.Mtls = override.Mtls
+	}
+	return merged
 }
 
 var (
@@ -169,13 +224,14 @@ func responseHeadersFromNetHeader(h http.Header) (map[string]string, map[string]
 }
 
 type httpClient struct {
-	client *safeurl.WrappedClient
-	config HTTPClientConfig
-	lggr   logger.Logger
+	client  *safeurl.WrappedClient
+	config  HTTPClientConfig
+	lggr    logger.Logger
+	metrics *httpClientMetrics
 }
 
-// NewHTTPClient creates a new NewHTTPClient
-// As of now, the client does not support TLS configuration but may be extended in the future
+// NewHTTPClient creates a new HTTPClient. For mTLS support, set Mtls on the
+// config, or use NewHTTPClientFactory to merge a dynamic config carrying it.
 func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, error) {
 	if len(config.AllowedPortRanges) > 0 {
 		expanded, err := expandPortRanges(config.AllowedPortRanges)
@@ -185,7 +241,14 @@ func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, err
 		config.AllowedPorts = append(config.AllowedPorts, expanded...)
 	}
 	config.ApplyDefaults()
-	safeConfig := safeurl.
+
+	dt, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		return nil, errors.New("could not coerce http.DefaultTransport to *http.Transport")
+	}
+	defaultTransport := dt.Clone()
+
+	safeConfigBuilder := safeurl.
 		GetConfigBuilder().
 		SetAllowedIPs(config.AllowedIPs...).
 		SetAllowedIPsCIDR(config.AllowedIPsCIDR...).
@@ -194,14 +257,55 @@ func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, err
 		SetBlockedIPs(config.BlockedIPs...).
 		SetBlockedIPsCIDR(config.BlockedIPsCIDR...).
 		SetCheckRedirect(disableRedirects).
-		Build()
+		SetTransport(defaultTransport)
+
+	if config.Mtls != nil {
+		// Defence-in-depth protection against accidental reuse
+		// of the HTTP client leading to auth'd connections leaking across
+		// users.
+		defaultTransport.DisableKeepAlives = true
+		defaultTransport.TLSHandshakeTimeout = 10 * time.Second
+
+		cert, err := tls.X509KeyPair(config.Mtls.Certificate, config.Mtls.PrivateKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse MtlsAuth into KeyPair: %w", err)
+		}
+
+		defaultTransport.TLSClientConfig = &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS12,
+		}
+		safeConfigBuilder.SetTransport(defaultTransport)
+	}
+
+	metrics, err := newHTTPClientMetrics()
+	if err != nil {
+		return nil, err
+	}
 
 	return &httpClient{
-		config: config,
-		client: safeurl.Client(safeConfig),
-		lggr:   lggr,
+		config:  config,
+		client:  safeurl.Client(safeConfigBuilder.Build()),
+		lggr:    lggr,
+		metrics: metrics,
 	}, nil
 }
+
+// NewHTTPClientFactory returns a factory that builds an HTTPClient by merging
+// the supplied dynamic config on top of the static base config. The dynamic
+// config typically carries per-request settings such as Mtls.
+func NewHTTPClientFactory(config HTTPClientConfig, lggr logger.Logger) HTTPClientFactory {
+	return func(dynamic HTTPClientConfig) (HTTPClient, error) {
+		return NewHTTPClient(config.merge(dynamic), lggr)
+	}
+}
+
+// HTTPClientFactory builds an HTTPClient from a dynamic config that is merged
+// onto the factory's static base config. Only fields holding a non-zero value
+// in the dynamic config override the base; zero-valued fields fall through to
+// the base, so the dynamic config can add or override settings but cannot unset
+// one already populated by the base.
+type HTTPClientFactory func(config HTTPClientConfig) (HTTPClient, error)
 
 func disableRedirects(req *http.Request, via []*http.Request) error {
 	return &redirectsDisabledError{}
@@ -297,8 +401,13 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 	timeoutCtx, cancel := context.WithTimeout(ctx, to)
 	defer cancel()
 
+	requestStart := time.Now()
+	trace, traceState := newClientTrace(ctx, req.Method, requestStart, c.metrics)
+	timeoutCtx = httptrace.WithClientTrace(timeoutCtx, trace)
+
 	r, err := http.NewRequestWithContext(timeoutCtx, req.Method, req.URL, bytes.NewBuffer(req.Body))
 	if err != nil {
+		c.metrics.recordTotal(ctx, req.Method, 0, false, false, time.Since(requestStart))
 		return nil, err
 	}
 	for k, values := range requestToNetHeader(req) {
@@ -309,6 +418,7 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 
 	resp, err := c.client.Do(r)
 	if err != nil {
+		c.metrics.recordTotal(ctx, req.Method, 0, false, traceState.connReused.Load(), time.Since(requestStart))
 		if isBlockedRequest(err) {
 			c.lggr.Warnw("HTTP request blocked", "err", err)
 			return nil, fmt.Errorf("%w: %w", ErrBlockedRequest, err)
@@ -324,9 +434,12 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 	reader := http.MaxBytesReader(nil, resp.Body, int64(n))
 	body, err := io.ReadAll(reader)
 	if err != nil {
+		c.metrics.recordTotal(ctx, req.Method, resp.StatusCode, false, traceState.connReused.Load(), time.Since(requestStart))
 		c.lggr.Errorw("failed to read HTTP response body", "err", err)
 		return nil, errors.Join(err, ErrHTTPRead)
 	}
+
+	c.metrics.recordTotal(ctx, req.Method, resp.StatusCode, true, traceState.connReused.Load(), time.Since(requestStart))
 
 	headers, multiHeaders := responseHeadersFromNetHeader(resp.Header)
 	c.lggr.Debugw("received HTTP response", "statusCode", resp.StatusCode)

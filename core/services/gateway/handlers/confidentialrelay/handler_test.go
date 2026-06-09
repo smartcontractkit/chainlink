@@ -211,6 +211,7 @@ func TestConfidentialRelayHandler_FanOutAndQuorumSuccess(t *testing.T) {
 }
 
 func TestConfidentialRelayHandler_QuorumWithRealAggregator(t *testing.T) {
+	//	t.Skip("Continuously timing out - see https://github.com/smartcontractkit/chainlink/actions/runs/26809108446/job/79046763185 for example. Re-enable after investigation.")
 	h, cb, don, _ := setupHandler(t, 4)
 	// Use the real aggregator; DON F=1 so quorum = F+1 = 2
 	h.aggregator = &aggregator{}

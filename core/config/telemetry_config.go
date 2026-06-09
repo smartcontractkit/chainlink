@@ -28,4 +28,10 @@ type Telemetry interface {
 	LogExportMaxBatchSize() int
 	LogExportInterval() time.Duration
 	LogMaxQueueSize() int
+	PrometheusBridge() PrometheusBridge
+}
+
+type PrometheusBridge interface {
+	Enabled() bool
+	Prefixes() []string
 }

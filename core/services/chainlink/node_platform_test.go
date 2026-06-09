@@ -50,6 +50,18 @@ func (f fakeNodePlatformJobReader) FindJobs(_ context.Context, offset, limit int
 	return f.jobs[offset:end], len(f.jobs), nil
 }
 
+type fakeNodePlatformSubmitterKeyReader struct {
+	keys map[commontypes.RelayID][]string
+	err  error
+}
+
+func (f fakeNodePlatformSubmitterKeyReader) SubmitterKeys(context.Context) (map[commontypes.RelayID][]string, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.keys, nil
+}
+
 func eip55Address(raw string) evmtypes.EIP55Address {
 	return evmtypes.MustEIP55Address(raw)
 }
@@ -259,6 +271,140 @@ func TestNodePlatformJobInfo_EmitsSubmitterAddressesFromJobFields(t *testing.T) 
 				ChainId:   "8",
 				JobType:   "standardcapabilities",
 				FieldPath: "oracle_factory.transmitter_id",
+				Addresses: []string{"0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+			},
+		},
+	}
+	require.Truef(t, proto.Equal(expected, &payload), "expected:\n%sgot:\n%s", prototext.Format(expected), prototext.Format(&payload))
+}
+
+func TestNodePlatformJobInfo_EmitsSubmitterAddressesForCCIPJobs(t *testing.T) {
+	obs := beholdertest.NewObserver(t)
+
+	servicetest.Run(t, chainlink.NewNodePlatformJobInfoService(chainlink.NodePlatformJobInfoConfig{
+		Beat:         10 * time.Millisecond,
+		Lggr:         logger.TestLogger(t),
+		CSAPublicKey: "csa-public-key",
+		JobReader: fakeNodePlatformJobReader{
+			jobs: []job.Job{
+				{
+					Type: job.CCIP,
+					CCIPSpec: &job.CCIPSpec{
+						P2PV2Bootstrappers: []string{"bootstrap-peer"},
+					},
+				},
+			},
+		},
+		SubmitterKeyReader: fakeNodePlatformSubmitterKeyReader{
+			keys: map[commontypes.RelayID][]string{
+				commontypes.NewRelayID("evm", "9"): {
+					"0x9999999999999999999999999999999999999999",
+					"0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				},
+				commontypes.NewRelayID("solana", "mainnet"): {"solana-key"},
+			},
+		},
+	}))
+
+	require.Eventually(t, func() bool {
+		return obs.Len(t, beholder.AttrKeyEntity, "common.v1.NodeJobInfo") > 0
+	}, time.Second, 10*time.Millisecond)
+
+	msg := obs.Messages(t, beholder.AttrKeyEntity, "common.v1.NodeJobInfo")[0]
+	var payload commonv1.NodeJobInfo
+	require.NoError(t, proto.Unmarshal(msg.Body, &payload))
+	expected := &commonv1.NodeJobInfo{
+		CsaPublicKey: "csa-public-key",
+		SubmitterAddresses: []*commonv1.NodeSubmitterAddress{
+			{
+				ChainId:   "9",
+				JobType:   "ccip",
+				FieldPath: "transmitterKeys",
+				Addresses: []string{"0x9999999999999999999999999999999999999999"},
+			},
+			{
+				ChainId:   "mainnet",
+				JobType:   "ccip",
+				FieldPath: "transmitterKeys",
+				Addresses: []string{"solana-key"},
+			},
+		},
+	}
+	require.Truef(t, proto.Equal(expected, &payload), "expected:\n%sgot:\n%s", prototext.Format(expected), prototext.Format(&payload))
+}
+
+func TestNodePlatformJobInfo_DoesNotEmitSubmitterAddressesForCCIPBootstrapJobs(t *testing.T) {
+	obs := beholdertest.NewObserver(t)
+
+	servicetest.Run(t, chainlink.NewNodePlatformJobInfoService(chainlink.NodePlatformJobInfoConfig{
+		Beat:         10 * time.Millisecond,
+		Lggr:         logger.TestLogger(t),
+		CSAPublicKey: "csa-public-key",
+		JobReader: fakeNodePlatformJobReader{
+			jobs: []job.Job{
+				{
+					Type:     job.CCIP,
+					CCIPSpec: &job.CCIPSpec{},
+				},
+			},
+		},
+		SubmitterKeyReader: fakeNodePlatformSubmitterKeyReader{
+			keys: map[commontypes.RelayID][]string{
+				commontypes.NewRelayID("evm", "9"): {"0x9999999999999999999999999999999999999999"},
+			},
+		},
+	}))
+
+	require.Eventually(t, func() bool {
+		return obs.Len(t, beholder.AttrKeyEntity, "common.v1.NodeJobInfo") > 0
+	}, time.Second, 10*time.Millisecond)
+
+	msg := obs.Messages(t, beholder.AttrKeyEntity, "common.v1.NodeJobInfo")[0]
+	var payload commonv1.NodeJobInfo
+	require.NoError(t, proto.Unmarshal(msg.Body, &payload))
+	require.Empty(t, payload.SubmitterAddresses)
+}
+
+func TestNodePlatformJobInfo_EmitsSubmitterAddressesForCCVExecutorJobs(t *testing.T) {
+	obs := beholdertest.NewObserver(t)
+
+	servicetest.Run(t, chainlink.NewNodePlatformJobInfoService(chainlink.NodePlatformJobInfoConfig{
+		Beat:         10 * time.Millisecond,
+		Lggr:         logger.TestLogger(t),
+		CSAPublicKey: "csa-public-key",
+		JobReader: fakeNodePlatformJobReader{
+			jobs: []job.Job{
+				{
+					Type: job.CCVExecutor,
+					CCVExecutorSpec: &job.CCVExecutorSpec{
+						ExecutorConfig: `
+[chain_configuration."2664363617261496610"]
+`,
+					},
+				},
+			},
+		},
+		SubmitterKeyReader: fakeNodePlatformSubmitterKeyReader{
+			keys: map[commontypes.RelayID][]string{
+				commontypes.NewRelayID("evm", "420"): {"0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+			},
+		},
+	}))
+
+	require.Eventually(t, func() bool {
+		return obs.Len(t, beholder.AttrKeyEntity, "common.v1.NodeJobInfo") > 0
+	}, time.Second, 10*time.Millisecond)
+
+	msg := obs.Messages(t, beholder.AttrKeyEntity, "common.v1.NodeJobInfo")[0]
+	var payload commonv1.NodeJobInfo
+	require.NoError(t, proto.Unmarshal(msg.Body, &payload))
+	expected := &commonv1.NodeJobInfo{
+		CsaPublicKey: "csa-public-key",
+		SubmitterAddresses: []*commonv1.NodeSubmitterAddress{
+			{
+				ChainId:   "420",
+				JobType:   "ccvexecutor",
+				FieldPath: "fromAddresses",
 				Addresses: []string{"0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
 			},
 		},

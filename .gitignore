@@ -4,6 +4,7 @@ tmp/
 .pnp
 .pnp.js
 tools/bin/abigen
+tools/test/.bin/
 
 /chainlink
 core/chainlink

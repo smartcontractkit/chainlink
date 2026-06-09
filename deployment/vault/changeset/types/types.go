@@ -74,6 +74,25 @@ type BatchNativeTransferState struct {
 	ValidationErrors []TransferValidationError `json:"validation_errors"`
 }
 
+// ERC20Transfer is a single ERC20 transfer (payee, token, amount in token units)
+type ERC20Transfer struct {
+	Payee  string   `json:"payee"`  // Destination address
+	Token  string   `json:"token"`  // ERC20 token contract address
+	Amount *big.Int `json:"amount"` // Amount in token units (not wei)
+}
+
+// TransferERC20Config configures batch ERC20 transfers from timelocks across multiple chains
+type TransferERC20Config struct {
+	// TransfersByChain maps chain selector to ERC20 transfers for that chain
+	TransfersByChain map[uint64][]ERC20Transfer `json:"transfers_by_chain"`
+
+	// MCMSConfig contains timelock and MCMS configuration for building the proposal
+	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config"`
+
+	// Description for the MCMS proposal
+	Description string `json:"description"`
+}
+
 // DeployEthBalMonChainConfig is deployment-time configuration for EthBalMon on one chain.
 type DeployEthBalMonChainConfig struct {
 	// SetKeeperRegistryAddress is the Chainlink Automation registry forwarder (the upkeep

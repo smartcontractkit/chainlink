@@ -22,7 +22,6 @@ import (
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 )
@@ -285,7 +284,7 @@ func TestConfigureCache(t *testing.T) {
 
 		// deploy mcms
 		mcmsState, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolanaV2(env, ds, chain,
-			commontypes.MCMSWithTimelockConfigV2{
+			cldfproposalutils.MCMSWithTimelockConfig{
 				Canceller:        cldftesthelpers.SingleGroupMCMS(t),
 				Proposer:         cldftesthelpers.SingleGroupMCMS(t),
 				Bypasser:         cldftesthelpers.SingleGroupMCMS(t),

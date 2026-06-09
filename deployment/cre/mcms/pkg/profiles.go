@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 )
 
 var (
@@ -15,10 +15,10 @@ var (
 )
 
 type MCMSConfigStore struct {
-	m map[string]*commontypes.MCMSWithTimelockConfigV2
+	m map[string]*cldfproposalutils.MCMSWithTimelockConfig
 }
 
-func (r *MCMSConfigStore) Get(profileID string) (*commontypes.MCMSWithTimelockConfigV2, error) {
+func (r *MCMSConfigStore) Get(profileID string) (*cldfproposalutils.MCMSWithTimelockConfig, error) {
 	profile, exists := r.m[profileID]
 	if !exists {
 		return nil, errors.New("mcms profile not found: " + profileID)
@@ -35,12 +35,12 @@ func (r *MCMSConfigStore) List() []string {
 	return profiles
 }
 
-func (r *MCMSConfigStore) Put(profileID string, config commontypes.MCMSWithTimelockConfigV2) {
+func (r *MCMSConfigStore) Put(profileID string, config cldfproposalutils.MCMSWithTimelockConfig) {
 	r.m[profileID] = &config
 }
 
 func init() {
-	ConfigStore = MCMSConfigStore{m: make(map[string]*commontypes.MCMSWithTimelockConfigV2)}
+	ConfigStore = MCMSConfigStore{m: make(map[string]*cldfproposalutils.MCMSWithTimelockConfig)}
 }
 
 func MustGetMCMSConfig(quorum uint8, signers []common.Address, groupSigners []mcmstypes.Config) mcmstypes.Config {

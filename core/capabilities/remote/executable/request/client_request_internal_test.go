@@ -2,9 +2,11 @@ package request
 
 import (
 	"crypto/rand"
+	"fmt"
 	"testing"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -12,8 +14,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
 func Test_ClientRequest_VerifyAttestation(t *testing.T) {
@@ -188,4 +192,115 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 		err := c.verifyAttestation(validResp)
 		require.NoError(t, err)
 	})
+}
+
+func newReqForQuorumTest(t *testing.T, remoteNodeCount, required, responsesReceived int, responseIDCount map[[32]byte]int) *ClientRequest {
+	t.Helper()
+
+	responseReceived := make(map[p2ptypes.PeerID]bool, responsesReceived)
+	for i := 0; i < responsesReceived; i++ {
+		var peer p2ptypes.PeerID
+		peer[0] = byte(i)
+		responseReceived[peer] = true
+	}
+
+	return &ClientRequest{
+		lggr:                          logger.Test(t),
+		requiredResponseConfirmations: required,
+		remoteNodeCount:               remoteNodeCount,
+		responseIDCount:               responseIDCount,
+		responseReceived:              responseReceived,
+	}
+}
+
+func TestClientRequest_quorumStillPossible(t *testing.T) {
+	t.Parallel()
+
+	// 7-node DON, F+1 = 3: six unique responses, one pending → max 2 matches possible.
+	t.Run("7 DON 6 unique 1 pending unreachable", func(t *testing.T) {
+		t.Parallel()
+		counts := make(map[[32]byte]int)
+		for i := 0; i < 6; i++ {
+			counts[[32]byte{byte(i)}] = 1
+		}
+		c := newReqForQuorumTest(t, 7, 3, 6, counts)
+		pending := c.pending()
+		require.False(t, c.quorumStillPossible(pending))
+	})
+
+	t.Run("7 DON 5 unique 2 pending still possible", func(t *testing.T) {
+		t.Parallel()
+		counts := make(map[[32]byte]int)
+		for i := 0; i < 5; i++ {
+			counts[[32]byte{byte(i)}] = 1
+		}
+		c := newReqForQuorumTest(t, 7, 3, 5, counts)
+		pending := c.pending()
+		require.True(t, c.quorumStillPossible(pending))
+	})
+
+	t.Run("7 DON 7 unique all received unreachable", func(t *testing.T) {
+		t.Parallel()
+		counts := make(map[[32]byte]int)
+		for i := 0; i < 7; i++ {
+			counts[[32]byte{byte(i)}] = 1
+		}
+		c := newReqForQuorumTest(t, 7, 3, 7, counts)
+		pending := c.pending()
+		require.False(t, c.quorumStillPossible(pending))
+	})
+
+	t.Run("7 DON 2 matching 5 unique still possible with 2 pending", func(t *testing.T) {
+		t.Parallel()
+		counts := map[[32]byte]int{
+			{1}: 2,
+			{2}: 1,
+			{3}: 1,
+			{4}: 1,
+			{5}: 1,
+			{6}: 1,
+		}
+		c := newReqForQuorumTest(t, 7, 3, 6, counts)
+		pending := c.pending()
+		require.True(t, c.quorumStillPossible(pending))
+	})
+}
+
+func TestClientRequest_trySendQuorumUnreachableError(t *testing.T) {
+	t.Parallel()
+
+	counts := make(map[[32]byte]int)
+	for i := 0; i < 6; i++ {
+		counts[[32]byte{byte(i)}] = 1
+	}
+
+	c := newReqForQuorumTest(t, 7, 3, 6, counts)
+	c.responseCh = make(chan clientResponse, 1)
+
+	c.trySendQuorumUnreachableError()
+	require.True(t, c.respSent)
+
+	var respErr error
+	select {
+	case resp := <-c.responseCh:
+		require.Error(t, resp.Err)
+		respErr = resp.Err
+	default:
+		t.Fatal("expected error response on channel")
+	}
+
+	var capErr caperrors.Error
+	require.ErrorAs(t, respErr, &capErr)
+	require.Equal(t, caperrors.OriginSystem, capErr.Origin())
+	require.Equal(t, caperrors.ConsensusFailed, capErr.Code())
+	assert.Contains(t, capErr.Error(),
+		"[100]ConsensusFailed: response quorum unreachable: not enough matching capability responses: received 6/7 peer responses with 6 unique payloads; best match count 1, need 3 (1 responses pending)")
+
+	// Same unwrap chain as capability_executor after client.Execute wraps with %w.
+	wrapped := fmt.Errorf("error executing request: %w", respErr)
+	var capErrFromWrapped caperrors.Error
+	require.ErrorAs(t, wrapped, &capErrFromWrapped)
+	require.Equal(t, caperrors.ConsensusFailed, capErrFromWrapped.Code())
+	assert.Contains(t, capErrFromWrapped.Error(),
+		"[100]ConsensusFailed: response quorum unreachable: not enough matching capability responses: received 6/7 peer responses with 6 unique payloads; best match count 1, need 3 (1 responses pending)")
 }
