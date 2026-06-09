@@ -302,7 +302,11 @@ func emitTransmissionScheduleEvent(ctx context.Context, scheduleType, workflowEx
 		return err
 	}
 
-	return durableemitter.GlobalEmit(ctx, b, "source", "platform", "type", entity)
+	err = durableemitter.GlobalEmit(ctx, b, "source", "platform", "type", entity)
+	if err != nil && !errors.Is(err, durableemitter.ErrNotInitialized) {
+		return err
+	}
+	return nil
 }
 
 func (c *ClientRequest) ID() string {

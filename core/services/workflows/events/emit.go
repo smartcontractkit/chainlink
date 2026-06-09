@@ -528,7 +528,11 @@ func emitRawMessage(ctx context.Context, body []byte, schema, entity string) err
 		return err
 	}
 
-	return durableemitter.GlobalEmit(ctx, body, "source", "platform", "type", entity)
+	err := durableemitter.GlobalEmit(ctx, body, "source", "platform", "type", entity)
+	if err != nil && !errors.Is(err, durableemitter.ErrNotInitialized) {
+		return err
+	}
+	return nil
 }
 
 // buildWorkflowMetadata populates a WorkflowMetadata from kvs (map[string]string).
