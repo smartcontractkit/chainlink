@@ -28,6 +28,57 @@ func findRepoRoot(t *testing.T) string {
 	return cwd
 }
 
+func TestPackageSlug(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{
+			name: "services tree",
+			args: []string{"run", "./core/services/..."},
+			want: "core_services",
+		},
+		{
+			name: "diagnose subcommand ignored for slug",
+			args: []string{"diagnose", "--iterations", "5", "./core/services/..."},
+			want: "core_services",
+		},
+		{
+			name: "specific package",
+			args: []string{"./core/services/gateway/connector"},
+			want: "core_services_gateway_connector",
+		},
+		{
+			name: "no patterns",
+			args: []string{"diagnose"},
+			want: "pkgs",
+		},
+		{
+			name: "multiple patterns",
+			args: []string{"./core/services/...", "./core/store/..."},
+			want: "core_services__core_store",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, PackageSlug(tt.args))
+		})
+	}
+}
+
+func TestIsDiagnoseCommand(t *testing.T) {
+	t.Parallel()
+
+	assert.True(t, IsDiagnoseCommand([]string{"diagnose", "./core/..."}))
+	assert.False(t, IsDiagnoseCommand([]string{"run", "./core/..."}))
+	assert.False(t, IsDiagnoseCommand([]string{"gotestsum", "./core/..."}))
+}
+
 func TestNeedsPostgres(t *testing.T) {
 	repoRoot := findRepoRoot(t)
 	t.Logf("repoRoot: %q", repoRoot)
@@ -89,6 +140,16 @@ func TestNeedsPostgres(t *testing.T) {
 			name: "without custom tag skips pgtest dependency",
 			args: []string{"./core/internal/testutils/dbdetectfixture"},
 			want: false,
+		},
+		{
+			name: "heavyweight benchmarks need DB",
+			args: []string{
+				"-bench=BenchmarkFullTestDB",
+				"-benchtime=5x",
+				"-benchmem",
+				"./core/utils/testutils/heavyweight/",
+			},
+			want: true,
 		},
 	}
 
