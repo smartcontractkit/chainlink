@@ -1,6 +1,7 @@
 package v1_0
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -9,9 +10,9 @@ import (
 	"github.com/smartcontractkit/mcms/sdk/evm/bindings"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/cldfutil"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+
+	"github.com/smartcontractkit/cld-changesets/pkg/cldfutil"
 )
 
 type Role struct {
@@ -20,42 +21,42 @@ type Role struct {
 }
 
 const (
-	EXECUTOR_ROLE_STR  = "EXECUTOR_ROLE"
-	BYPASSER_ROLE_STR  = "BYPASSER_ROLE"
-	CANCELLER_ROLE_STR = "CANCELLER_ROLE"
-	PROPOSER_ROLE_STR  = "PROPOSER_ROLE"
-	ADMIN_ROLE_STR     = "ADMIN_ROLE"
+	executorRoleStr  = "EXECUTOR_ROLE"
+	bypasserRoleStr  = "BYPASSER_ROLE"
+	cancellerRoleStr = "CANCELLER_ROLE"
+	proposerRoleStr  = "PROPOSER_ROLE"
+	adminRoleStr     = "ADMIN_ROLE"
 )
 
 // https://github.com/smartcontractkit/ccip-owner-contracts/blob/9d81692b324ce7ea2ef8a75e683889edbc7e2dd0/src/RBACTimelock.sol#L71
 // Just to avoid invoking the Go binding to get these.
 var (
-	ADMIN_ROLE = Role{
-		ID:   utils.MustHash(ADMIN_ROLE_STR),
-		Name: ADMIN_ROLE_STR,
+	adminRole = Role{
+		ID:   utils.MustHash(adminRoleStr),
+		Name: adminRoleStr,
 	}
-	PROPOSER_ROLE = Role{
-		ID:   utils.MustHash(PROPOSER_ROLE_STR),
-		Name: PROPOSER_ROLE_STR,
+	proposerRole = Role{
+		ID:   utils.MustHash(proposerRoleStr),
+		Name: proposerRoleStr,
 	}
-	BYPASSER_ROLE = Role{
-		ID:   utils.MustHash(BYPASSER_ROLE_STR),
-		Name: BYPASSER_ROLE_STR,
+	bypasserRole = Role{
+		ID:   utils.MustHash(bypasserRoleStr),
+		Name: bypasserRoleStr,
 	}
-	CANCELLER_ROLE = Role{
-		ID:   utils.MustHash(CANCELLER_ROLE_STR),
-		Name: CANCELLER_ROLE_STR,
+	cancellerRole = Role{
+		ID:   utils.MustHash(cancellerRoleStr),
+		Name: cancellerRoleStr,
 	}
-	EXECUTOR_ROLE = Role{
-		ID:   utils.MustHash(EXECUTOR_ROLE_STR),
-		Name: EXECUTOR_ROLE_STR,
+	executorRole = Role{
+		ID:   utils.MustHash(executorRoleStr),
+		Name: executorRoleStr,
 	}
 )
 
 // --- evm ---
 
 type MCMSView struct {
-	commoncldchangesets.ContractMetaData
+	cldfutil.ContractMetaData
 	// Note config is json marshallable.
 	Config mcmstypes.Config `json:"config"`
 }
@@ -75,6 +76,7 @@ func GenerateMCMSView(mcms owner_helpers.ManyChainMultiSig) (MCMSView, error) {
 		for i, s := range in {
 			out[i] = bindings.ManyChainMultiSigSigner{Addr: s.Addr, Index: s.Index, Group: s.Group}
 		}
+
 		return out
 	}
 
@@ -86,9 +88,10 @@ func GenerateMCMSView(mcms owner_helpers.ManyChainMultiSig) (MCMSView, error) {
 	if err != nil {
 		return MCMSView{}, err
 	}
+
 	return MCMSView{
 		// Has no type and version on the contract
-		ContractMetaData: commoncldchangesets.ContractMetaData{
+		ContractMetaData: cldfutil.ContractMetaData{
 			Owner:   owner,
 			Address: mcms.Address(),
 		},
@@ -97,28 +100,30 @@ func GenerateMCMSView(mcms owner_helpers.ManyChainMultiSig) (MCMSView, error) {
 }
 
 type TimelockView struct {
-	commoncldchangesets.ContractMetaData
+	cldfutil.ContractMetaData
 	MembersByRole map[string][]common.Address `json:"membersByRole"`
 }
 
 func GenerateTimelockView(tl owner_helpers.RBACTimelock) (TimelockView, error) {
 	membersByRole := make(map[string][]common.Address)
-	for _, role := range []Role{ADMIN_ROLE, PROPOSER_ROLE, BYPASSER_ROLE, CANCELLER_ROLE, EXECUTOR_ROLE} {
+	for _, role := range []Role{adminRole, proposerRole, bypasserRole, cancellerRole, executorRole} {
 		numMembers, err := tl.GetRoleMemberCount(nil, role.ID)
 		if err != nil {
-			return TimelockView{}, nil
+			return TimelockView{}, fmt.Errorf("get role member count for role %s (%s): %w", role.Name, role.ID.Hex(), err)
 		}
-		for i := int64(0); i < numMembers.Int64(); i++ {
+		memberCount := numMembers.Int64()
+		for i := range memberCount {
 			member, err2 := tl.GetRoleMember(nil, role.ID, big.NewInt(i))
 			if err2 != nil {
-				return TimelockView{}, nil
+				return TimelockView{}, fmt.Errorf("get role member for role %s (%s) at index %d: %w", role.Name, role.ID.Hex(), i, err2)
 			}
 			membersByRole[role.Name] = append(membersByRole[role.Name], member)
 		}
 	}
+
 	return TimelockView{
 		// Has no type and version or owner.
-		ContractMetaData: commoncldchangesets.ContractMetaData{
+		ContractMetaData: cldfutil.ContractMetaData{
 			Address: tl.Address(),
 		},
 		MembersByRole: membersByRole,
@@ -126,12 +131,12 @@ func GenerateTimelockView(tl owner_helpers.RBACTimelock) (TimelockView, error) {
 }
 
 type CallProxyView struct {
-	commoncldchangesets.ContractMetaData
+	cldfutil.ContractMetaData
 }
 
 func GenerateCallProxyView(cp owner_helpers.CallProxy) (CallProxyView, error) {
 	return CallProxyView{
-		ContractMetaData: commoncldchangesets.ContractMetaData{
+		ContractMetaData: cldfutil.ContractMetaData{
 			Address: cp.Address(),
 		},
 	}, nil

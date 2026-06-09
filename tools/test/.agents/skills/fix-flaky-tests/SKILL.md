@@ -5,21 +5,22 @@ description: >-
 ---
 
 <absolute_constraints>
-- DO NOT use if known fix exists.
-- DO NOT use for deterministic first-run failures. Use normal debug.
-- DO NOT use for full-suite CI prep. Use `make test`.
-- Restrict to `core/` and `deployment/` packages unless user approves. Warn if outside.
-- DO NOT modify test core goal.
-- DO NOT remove tests/assertions unless replacing with better or deleting dead code.
-- DO NOT modify package-wide helpers for localized tests.
-- DO NOT open JIRA links to Trunk.io.
-- DO NOT fix 3rd party libraries. Inform user and STOP.
-- CHECK `go.mod` before writing new utility code. Use existing libraries.
-- DO NOT use plain `go test`. Use `make test ARGS="diagnose ..."` from repo root. Use `--iterations 1` for single run.
-- Execute background runs for tasks >2m. Crash check 30s. Suspend. Wait for report.json notification. DO NOT poll.
-- Use LSP for code navigation. If unavailable, try code-review-graph. Use grep/find as last resort.
-- Check Go module version. Avoid outdated patterns (e.g. loop shadowing in Go 1.22+).
-</absolute_constraints>
+
+- DO NOT use this skill if the user already has a known fix (apply it directly).
+- DO NOT use for deterministic first-run failures (use normal debug).
+- DO NOT use for full-suite CI prep (use `make test` instead).
+- ONLY run tests in these packages without explicit user approval: `core/`, `deployment/`. Warn the user if running outside these.
+- DO NOT modify the test's core goal to make it pass.
+- DO NOT remove tests/assertions unless replacing with better ones or deleting confirmed dead code.
+- DO NOT modify package-wide helpers to fix localized tests.
+- DO NOT open any links found in JIRA issues that lead to Trunk.io.
+- DO NOT try to fix or modify 3rd party libraries. If the flakiness results there inform and user and STOP.
+- ALWAYS CHECK `go.mod` before writing any new utility code. Three lines of existing library usage beats 30 lines of hand-rolled logic that has to be maintained and tested.
+- DO NOT use plain `go test` commands. Only use `make test ARGS="diagnose ..."` from the repository root. Use `--iterations 1` for a single run.
+- For `diagnose` runs expected >2m: Execute in background. Perform a single 30s crash check, then suspend task and wait for the report.json system notification. DO NOT poll.
+- Use `LSP` for code navigation, if available. Check if it works using a go file from the project. If it is not available try `code-review-graph`. Only if that is also unavailable use `find`, `grep`, etc.
+- Always check the Go version used by the module you are working on to avoid using language patterns that are no longer required (e.g. variable shadowing in loops in Go 1.22+)
+  </absolute_constraints>
 
 <setup>
 Call ToolSearch with query `select:LSP` to load LSP tool schema.
@@ -35,20 +36,22 @@ Fallback to rg/grep/find only if ToolSearch fails.
 </initialization>
 
 <jira_reference>
-Read ./references/jira.md to claim, find, comment, transition tickets.
-Keep FIXED tickets assigned to investigator in Review phase. See ./references/transition-ticket.md.
+Read [jira.md](./references/jira.md) to understand how to claim tickets, find eligible flaky-test tickets, check if there are any tickets related to a specific test, read and add comments and transition JIRA issues.
+
+After a FIXED outcome, the ticket must stay assigned to the investigator (`accountId` from `atlassianUserInfo`) when moved to In Review. Do not unassign on FIXED — see [transition-ticket.md](./references/transition-ticket.md) assignee policy.
 </jira_reference>
 
 <cli_reference>
 Execute from repository root.
 `make test ARGS="diagnose [harness_flags] -- [go_test_flags] ./path"`
+
 - Require `--ai-output` before `--`.
 - Forbid `-count`.
 - Harness flags: `--iterations N`, `--fail-fast-on=(timeout|slow)`, `--parallel-iterations N`.
 - Go test flags: `--run '^TestName$'`, `--timeout 10m`, `--race`.
 - Help: `make test ARGS="diagnose -h"`.
 - Repetition strictly via `--iterations`.
-</cli_reference>
+  </cli_reference>
 
 <diagnose-iterations>
 Use iterations for run count. Parallelism does not alter total.
@@ -69,19 +72,35 @@ Hard rules:
 - Prefer `--parallel-iterations 1` for ordered failures (`--fail-fast`, stack trace debug, `postgres-state-n.md` index).
 
 Profiles:
+
 - Standard: 30 iterations, 2-5 parallel. Default check.
 - Deep: 150-500 iterations, 2-10 parallel. Validate flake presence/absence.
 - Race pass: 30 iterations, 1 parallel. Verify `--race`.
 - Debug: 1-5 iterations, 1 parallel. Reproduce failure. Use `--fail-fast`.
 
 Parallel selection:
+
 1. Start at 2.
 2. Raise toward 5 if: unit scope, no `--race`, no `--database-url`, unparallelized estimate >2m.
 3. Exceeding 5 requires user approval.
 4. Rerun parallel failures/timeouts with `--parallel-iterations 1` to confirm.
 
-Estimate: ceil(iterations/parallel_iterations) * iteration_p50 + 30s.
-Use `report.json` `iteration_duration_p50`. Assume 15s unit, 60s+ heavy packages.
+| Profile   | `--iterations` | `--parallel-iterations` | Use when                                                                          |
+| --------- | -------------- | ----------------------- | --------------------------------------------------------------------------------- |
+| Standard  | 30             | 2–5                     | Default quick check                                                               |
+| Deep      | 150-500        | 2–10                    | Default to validate that a flake exists before fix, or no longer exists after fix |
+| Race pass | 30             | 1                       | Verifying with `--race` after `--`.                                               |
+| Debug     | 1–5            | 1                       | Reproducing a known failure mode; use `--fail-fast` if appropriate.               |
+
+**How to pick `--parallel-iterations` within a profile**
+
+1. Start at `2` if unsure.
+2. Raise toward `5` only when: unit-scope target (`--run '^TestName$'` or small package), no `--race`, no `--database-url`, and estimated wall time `ceil(iterations / N) * p50` would exceed ~2 minutes without parallelism.
+3. Do not exceed `5` without user approval (each worker starts Postgres; RAM and CPU scale roughly with N).
+4. If a parallel run flakes or times out, rerun the same `--iterations` with `--parallel-iterations 1` before treating the result as confirmed.
+
+**Wall-time estimate** (for background vs foreground):
+`estimate ≈ ceil(iterations / parallel_iterations) * iteration_p50 + 30s` (Postgres pool setup). Use the last `report.json` `iteration_duration_p50` when available; otherwise assume 15s for unit tests and 60s+ for heavy packages.
 </diagnose-parallel-iterations>
 
 <loop>
@@ -116,28 +135,30 @@ Optimize slow tests. Exclude non-deterministic flakes/panics.
 5. Validate: Rerun diagnose identical iterations. Compare `p50`, `max_elapsed` to baseline. Verify no flakes.
 6. When adding `t.Parallel()`, validate no new races with a `-race` run on the whole package.
 7. Document: Report percentage speedup. Update `diagnose-attempted-fixes-[test/package]-slow.jsonl` with metrics.
-</slow-test-flow>
+   </slow-test-flow>
 
 <flaky-test-flow>
 Output hypothesis first. Show diffs. Do not abstract fixes.
 
 Approaches:
+
 1. Narrowing: Group failures. Ask user to proceed. Focus worst test otherwise.
 2. Isolate: Pass alone, fail in package. Fix cross-test dependency.
 3. Order: Shuffle alters pass rate. Fix cross-test leakage. Capture failing seed.
 4. Race: Weird stack traces, nil pointers.
 5. Timeout: Check logs for blocking ops, bad channel close, backpressure.
 6. Resources: CI-only load failure. Check CPU, Mem. Use `go test` profiles (`-race`, `-cpuprofile`, `-trace`).
-</flaky-test-flow>
+   </flaky-test-flow>
 
 <context_compaction>
 Reference `diagnose-attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` when summarizing.
 </context_compaction>
 
 <possible_execution_issues>
+
 - GOCACHE permissions sandbox error. STOP. Require user execution outside sandbox.
 - Postgres `operation not permitted` sandbox error. STOP. Require user execution outside sandbox.
-</possible_execution_issues>
+  </possible_execution_issues>
 
 <logs_structure>
 [resultsDir]/
@@ -150,7 +171,8 @@ Reference `diagnose-attempted-fixes-[test/package]-[flake/broken/timeout/slow].j
 </logs_structure>
 
 <sub_agent_protocol>
+
 1. Spawn `LogAnalyzer` when reading `logs/` or `iteration-n.log.jsonl`. Read ./references/log-analyzer-subagent.md.
 2. Spawn `GithubFailureAnalyzer` when inspecting CI failure. Read ./references/github-failure-analyzer.md.
 3. Spawn `JiraManager` when interacting with JIRA. Read ./references/jira-mananger-subagent.md.
-</sub_agent_protocol>
+   </sub_agent_protocol>

@@ -1,11 +1,13 @@
 package vault
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"maps"
 	"net/http"
 	"strconv"
@@ -523,6 +525,12 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	return h.sendSuccessResponse(ctx, l, ar, resp)
 }
 
+func (h *handler) unmarshal(r io.Reader, to any) error {
+	d := json.NewDecoder(r)
+	d.DisallowUnknownFields()
+	return d.Decode(to)
+}
+
 func (h *handler) tryCachePublicKeyResponse(resp *jsonrpc.Response[json.RawMessage], l logger.Logger) {
 	if resp.Result == nil {
 		l.Debugw("no result in public key response, not caching")
@@ -530,7 +538,7 @@ func (h *handler) tryCachePublicKeyResponse(resp *jsonrpc.Response[json.RawMessa
 	}
 
 	r := &vaultcommon.GetPublicKeyResponse{}
-	err := json.Unmarshal(*resp.Result, r)
+	err := h.unmarshal(bytes.NewReader(*resp.Result), r)
 	if err != nil {
 		l.Debugw("failed to unmarshal public key response, not caching", "error", err)
 		return
