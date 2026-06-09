@@ -537,7 +537,13 @@ func emitEvents(ctx context.Context, t *testing.T, n int, contracts []*log_upkee
 	}
 }
 
-func listenPerformedN(t *testing.T, backend evmtypes.Backend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int, startBlock uint64, expectedCount int) (func() bool, func()) {
+// listenPerformedN returns a poll func that checks whether every ID in ids has
+// at least minPerID performed-events (minimum 1). This is a per-ID threshold,
+// not a total across all IDs.
+func listenPerformedN(t *testing.T, backend evmtypes.Backend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int, startBlock uint64, minPerID int) (func() bool, func()) {
+	if minPerID < 1 {
+		minPerID = 1
+	}
 	return func() bool {
 		h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
 		if err != nil {
@@ -572,7 +578,7 @@ func listenPerformedN(t *testing.T, backend evmtypes.Backend, registry *iregistr
 			return false
 		}
 		for _, count := range cache {
-			if count < expectedCount {
+			if count < minPerID {
 				return false
 			}
 		}

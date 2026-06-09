@@ -11,75 +11,70 @@ import (
 	"testing"
 
 	"github.com/andybalholm/brotli"
-	"github.com/google/uuid"
-	"golang.org/x/sync/singleflight"
 
 	"github.com/stretchr/testify/require"
 )
 
 var (
-	binaryCache   = make(map[string][]byte)
-	binaryCacheMu sync.RWMutex
-	binaryGroup   singleflight.Group
+	binaryOnce   = make(map[string]func() ([]byte, error))
+	binaryOnceMu sync.Mutex
 )
 
+// CreateTestBinary compiles a WASM binary from outputPath and optionally brotli-compresses it.
+// Results are cached for the lifetime of the test process keyed by (outputPath, compress)
+// via sync.OnceValues — the build runs exactly once per key regardless of concurrency.
+// This assumes source at outputPath does not change during a single `go test` invocation.
 func CreateTestBinary(outputPath string, compress bool, t *testing.T) []byte {
 	cacheKey := fmt.Sprintf("%s-%t", outputPath, compress)
 
-	binaryCacheMu.RLock()
-	cached, ok := binaryCache[cacheKey]
-	binaryCacheMu.RUnlock()
-	if ok {
-		return cached
-	}
-
-	v, err, _ := binaryGroup.Do(cacheKey, func() (any, error) {
-		// Recheck cache just in case
-		binaryCacheMu.RLock()
-		if cached, ok := binaryCache[cacheKey]; ok {
-			binaryCacheMu.RUnlock()
-			return cached, nil
-		}
-		binaryCacheMu.RUnlock()
-
-		filePath := filepath.Join(t.TempDir(), uuid.New().String()+".wasm")
-		cmd := exec.CommandContext(t.Context(), "go", "build", "-o", filePath, "github.com/smartcontractkit/chainlink/v2/"+outputPath)
-		cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
-
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			return nil, fmt.Errorf("build failed: %s %w", string(output), err)
-		}
-
-		binary, err := os.ReadFile(filePath)
-		if err != nil {
-			return nil, fmt.Errorf("read file failed: %w", err)
-		}
-
-		if compress {
-			var b bytes.Buffer
-			bwr := brotli.NewWriter(&b)
-			if _, err = bwr.Write(binary); err != nil {
-				return nil, err
-			}
-			if err = bwr.Close(); err != nil {
-				return nil, err
-			}
-
-			cb, err := io.ReadAll(&b)
+	binaryOnceMu.Lock()
+	once, ok := binaryOnce[cacheKey]
+	if !ok {
+		once = sync.OnceValues(func() ([]byte, error) {
+			tmpDir, err := os.MkdirTemp("", "wasmtest-*")
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("create temp dir: %w", err)
 			}
-			binary = cb
-		}
+			defer os.RemoveAll(tmpDir)
 
-		binaryCacheMu.Lock()
-		binaryCache[cacheKey] = binary
-		binaryCacheMu.Unlock()
+			filePath := filepath.Join(tmpDir, "output.wasm")
+			cmd := exec.Command("go", "build", "-o", filePath, "github.com/smartcontractkit/chainlink/v2/"+outputPath) // #nosec
+			cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
 
-		return binary, nil
-	})
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				return nil, fmt.Errorf("build failed: %s %w", string(output), err)
+			}
 
+			binary, err := os.ReadFile(filePath)
+			if err != nil {
+				return nil, fmt.Errorf("read file failed: %w", err)
+			}
+
+			if compress {
+				var b bytes.Buffer
+				bwr := brotli.NewWriter(&b)
+				if _, err = bwr.Write(binary); err != nil {
+					return nil, err
+				}
+				if err = bwr.Close(); err != nil {
+					return nil, err
+				}
+
+				cb, err := io.ReadAll(&b)
+				if err != nil {
+					return nil, err
+				}
+				binary = cb
+			}
+
+			return binary, nil
+		})
+		binaryOnce[cacheKey] = once
+	}
+	binaryOnceMu.Unlock()
+
+	result, err := once()
 	require.NoError(t, err)
-	return v.([]byte)
+	return result
 }

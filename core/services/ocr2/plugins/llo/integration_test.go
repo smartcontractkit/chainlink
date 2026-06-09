@@ -2360,8 +2360,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			require.NoError(t, err)
 			backend.Commit()
 
-			// Wait for channel definitions to be processed (give time for log polling and fetching)
-			// time.Sleep removed for performance
+
 
 			// Wait for reports from all owner channels
 			expectedChannels := map[uint32]bool{1: true, 2: true, 3: true}
@@ -2473,8 +2472,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			require.NoError(t, err)
 			backend.Commit()
 
-			// Wait for channel definitions to be processed (give time for log polling and fetching)
-			// time.Sleep removed for performance
 
 			// Wait for reports from all channels (owner + adders)
 			expectedChannels := map[uint32]bool{1: true, 2: true, 3: true, 10: true, 11: true, 20: true, 21: true}
@@ -2605,8 +2602,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			require.NoError(t, err)
 			backend.Commit()
 
-			// Wait for channel definitions to be processed
-			// time.Sleep removed for performance
 
 			// Wait for reports from channel 10 and verify it eventually uses owner's configuration (linkStreamID)
 			// The owner's definition should take precedence over the adder's definition

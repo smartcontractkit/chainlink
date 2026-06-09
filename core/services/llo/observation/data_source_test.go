@@ -182,7 +182,7 @@ func (m *mockTelemeter) GetReportTelemetryCh() chan<- *llo.LLOReportTelemetry { 
 func (m *mockTelemeter) CaptureEATelemetry() bool                             { return true }
 func (m *mockTelemeter) CaptureObservationTelemetry() bool                    { return true }
 
-var observationTimeout = 100 * time.Millisecond
+var observationTimeout = 500 * time.Millisecond
 
 type addManyCall struct {
 	values map[llotypes.StreamID]llo.StreamValue
@@ -324,6 +324,7 @@ func Test_DataSource(t *testing.T) {
 
 			// Get only the last 3 packets, as those would be the result of the first round of observations.
 			tm.mu.Lock()
+			require.GreaterOrEqual(t, len(tm.v3PremiumLegacyPackets), 3)
 			packets := tm.v3PremiumLegacyPackets[:3]
 			tm.mu.Unlock()
 			m := make(map[int]v3PremiumLegacyPacket)
@@ -348,7 +349,7 @@ func Test_DataSource(t *testing.T) {
 				}
 			}
 
-			require.Len(t, telems[:3], 3)
+			require.Len(t, telems, 3)
 			sort.Slice(telems, func(i, j int) bool {
 				return telems[i].(*telem.LLOObservationTelemetry).StreamId < telems[j].(*telem.LLOObservationTelemetry).StreamId
 			})

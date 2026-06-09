@@ -298,7 +298,7 @@ fromBlock = %d
 
 				// API speed is > observation timeout set in ContractSetConfigArgsForIntegrationTest
 				slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-					time.Sleep(5 * time.Second)
+					<-req.Context().Done()
 					var result string
 					metaLock.Lock()
 					result = fmt.Sprintf(`{"data":%d}`, returnData)

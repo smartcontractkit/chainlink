@@ -480,7 +480,6 @@ func createVRFJobsNew(
 	// TODO: it could just backfill immediately upon receiving a new subscriber? (though would
 	// only be useful for tests, probably a more robust way is to have the job spawner accept a signal that a
 	// job is fully up and running and not add it to the active jobs list before then)
-	time.Sleep(2 * time.Second)
 	return
 }
 

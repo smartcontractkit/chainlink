@@ -47,7 +47,9 @@ func (m *testEvtHandler) Handle(ctx context.Context, event Event) error {
 		switch event.Name {
 		case WorkflowActivated:
 			if data, ok := event.Data.(WorkflowActivatedEvent); ok {
-				_ = m.engineRegistry.Add(data.WorkflowID, data.Source, &mockService{})
+				if err := m.engineRegistry.Add(data.WorkflowID, data.Source, &mockService{}); err != nil {
+					return err
+				}
 			}
 		case WorkflowDeleted:
 			if data, ok := event.Data.(WorkflowDeletedEvent); ok {

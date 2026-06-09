@@ -97,14 +97,14 @@ func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) 
 			RETURNING id
 		`
 
-		now := time.Now()
+		now := time.Now().UTC()
 		spec.UpdatedAt = now
 		if spec.CreatedAt.IsZero() {
 			spec.CreatedAt = now
 		}
-		q, args, err := sqlx.Named(query, spec)
-		if err != nil {
-			return err
+		q, args, namedErr := sqlx.Named(query, spec)
+		if namedErr != nil {
+			return namedErr
 		}
 		q = sqlx.Rebind(sqlx.DOLLAR, q)
 		return tx.QueryRowxContext(ctx, q, args...).Scan(&id)

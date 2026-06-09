@@ -631,7 +631,6 @@ func createVRFJobs(
 	// TODO: it could just backfill immediately upon receiving a new subscriber? (though would
 	// only be useful for tests, probably a more robust way is to have the job spawner accept a signal that a
 	// job is fully up and running and not add it to the active jobs list before then)
-	time.Sleep(2 * time.Second)
 
 	return
 }
@@ -819,29 +818,18 @@ func assertRandomWordsFulfilled(
 	coordinator v22.CoordinatorV2_X,
 	nativePayment bool,
 ) (rwfe v22.RandomWordsFulfilled) {
-	// Check many times in case there are delays processing the event
-	// this could happen occasionally and cause flaky tests.
-	numChecks := 3
-	found := false
-	for range numChecks {
+	require.Eventually(t, func() bool {
 		filter, err := coordinator.FilterRandomWordsFulfilled(nil, []*big.Int{requestID}, nil)
 		require.NoError(t, err)
 		for filter.Next() {
 			require.Equal(t, expectedSuccess, filter.Event().Success(), "fulfillment event success not correct, expected: %+v, actual: %+v", expectedSuccess, filter.Event().Success())
 			require.Equal(t, requestID, filter.Event().RequestID())
 			require.Equal(t, nativePayment, filter.Event().NativePayment())
-			found = true
 			rwfe = filter.Event()
+			return true
 		}
-
-		if found {
-			break
-		}
-
-		// Wait a bit and try again.
-		time.Sleep(time.Second)
-	}
-	require.True(t, found, "RandomWordsFulfilled event not found")
+		return false
+	}, 3*time.Second, 100*time.Millisecond, "RandomWordsFulfilled event not found")
 	return
 }
 

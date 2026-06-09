@@ -127,7 +127,7 @@ chainID 			= 1337
 
 		// API speed is > observation timeout set in ContractSetConfigArgsForIntegrationTest
 		slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-			time.Sleep(5 * time.Second)
+			<-req.Context().Done()
 			res.WriteHeader(http.StatusOK)
 			_, err := res.Write([]byte(`{"data":10}`))
 			require.NoError(t, err)

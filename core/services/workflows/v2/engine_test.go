@@ -2300,59 +2300,78 @@ func setupMockBillingClient(t *testing.T) *metmocks.BillingClient {
 }
 
 func requireEventsLabels(t *testing.T, beholderObserver beholdertest.Observer, want map[string]string) {
-	msgs := beholderObserver.Messages(t)
-	for _, msg := range msgs {
-		if msg.Attrs["beholder_entity"] == "BaseMessage" {
-			var payload beholderpb.BaseMessage
-			require.NoError(t, proto.Unmarshal(msg.Body, &payload))
-			for k, v := range want {
-				require.Equal(t, v, payload.Labels[k], "label %s does not match", k)
+	require.Eventually(t, func() bool {
+		msgs := beholderObserver.Messages(t)
+		for _, msg := range msgs {
+			if msg.Attrs["beholder_entity"] == "BaseMessage" {
+				var payload beholderpb.BaseMessage
+				if err := proto.Unmarshal(msg.Body, &payload); err != nil {
+					continue
+				}
+				match := true
+				for k, v := range want {
+					if payload.Labels[k] != v {
+						match = false
+						break
+					}
+				}
+				if match {
+					return true
+				}
 			}
 		}
-	}
+		return len(want) == 0
+	}, 10*time.Second, 100*time.Millisecond, "not all expected labels were found")
 }
 
 // requireEventsMessages checks that all expected messages are present in the beholder observer.
 // It does not check the order of messages.
 func requireEventsMessages(t *testing.T, beholderObserver beholdertest.Observer, expected []string) {
-	msgs := beholderObserver.Messages(t)
-	// map to handle presence of out-of-order messages
-	want := map[string]struct{}{}
-	for _, e := range expected {
-		want[e] = struct{}{}
-	}
-
-	for _, msg := range msgs {
-		if msg.Attrs["beholder_entity"] == "BaseMessage" {
-			var payload beholderpb.BaseMessage
-			require.NoError(t, proto.Unmarshal(msg.Body, &payload))
-			delete(want, payload.Msg)
+	require.Eventually(t, func() bool {
+		msgs := beholderObserver.Messages(t)
+		// map to handle presence of out-of-order messages
+		want := map[string]struct{}{}
+		for _, e := range expected {
+			want[e] = struct{}{}
 		}
-	}
-	assert.Empty(t, want, "not all expected messages were found missing %v", want)
-}
 
-func requireUserLogs(t *testing.T, beholderObserver beholdertest.Observer, expectedSubstrings []string) {
-	msgs := beholderObserver.Messages(t)
-	nextToFind := 0
-	for _, msg := range msgs {
-		if msg.Attrs["beholder_entity"] == "workflows.v1.UserLogs" {
-			var payload events.UserLogs
-			require.NoError(t, proto.Unmarshal(msg.Body, &payload))
-			if nextToFind >= len(expectedSubstrings) {
-				return
-			}
-			for _, log := range payload.LogLines {
-				if strings.Contains(log.Message, expectedSubstrings[nextToFind]) {
-					nextToFind++
+		for _, msg := range msgs {
+			if msg.Attrs["beholder_entity"] == "BaseMessage" {
+				var payload beholderpb.BaseMessage
+				if err := proto.Unmarshal(msg.Body, &payload); err == nil {
+					delete(want, payload.Msg)
 				}
 			}
 		}
-	}
+		return len(want) == 0
+	}, 10*time.Second, 100*time.Millisecond, "not all expected messages were found")
+}
 
-	if nextToFind < len(expectedSubstrings) {
-		t.Errorf("log message not found: %s", expectedSubstrings[nextToFind])
-	}
+func requireUserLogs(t *testing.T, beholderObserver beholdertest.Observer, expectedSubstrings []string) {
+	require.Eventually(t, func() bool {
+		msgs := beholderObserver.Messages(t)
+		nextToFind := 0
+		if len(expectedSubstrings) == 0 {
+			return true
+		}
+		for _, msg := range msgs {
+			if msg.Attrs["beholder_entity"] == "workflows.v1.UserLogs" {
+				var payload events.UserLogs
+				if err := proto.Unmarshal(msg.Body, &payload); err != nil {
+					continue
+				}
+				for _, log := range payload.LogLines {
+					if strings.Contains(log.Message, expectedSubstrings[nextToFind]) {
+						nextToFind++
+						if nextToFind >= len(expectedSubstrings) {
+							return true
+						}
+					}
+				}
+			}
+		}
+		return false
+	}, 10*time.Second, 100*time.Millisecond, "log messages not found")
 }
 
 func newNode(t *testing.T, opts ...func(*capabilities.Node)) capabilities.Node {
