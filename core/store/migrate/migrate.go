@@ -23,9 +23,9 @@ import (
 )
 
 //go:embed migrations/*.sql migrations/*.go
-var embedMigrations embed.FS
+var EmbedMigrations embed.FS
 
-const MIGRATIONS_DIR string = "migrations"
+const MigrationsDir string = "migrations"
 
 func NewProvider(ctx context.Context, db *sql.DB) (*goose.Provider, error) {
 	// Set this to override how Goose resolves the schema for the `goose_migrations` table.
@@ -56,7 +56,7 @@ func NewProvider(ctx context.Context, db *sql.DB) (*goose.Provider, error) {
 	logMigrations := os.Getenv("CL_LOG_SQL_MIGRATIONS")
 	verbose, _ := strconv.ParseBool(logMigrations)
 
-	fys, err := fs.Sub(embedMigrations, MIGRATIONS_DIR)
+	fys, err := fs.Sub(EmbedMigrations, MigrationsDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get sub filesystem for embedded migration dir: %w", err)
 	}
@@ -126,13 +126,13 @@ func ensureMigrated(ctx context.Context, db *sql.DB, p *goose.Provider, provider
 			if name == "1611847145" {
 				id = 1
 			} else {
-				idx := strings.Index(name, "_")
-				if idx < 0 {
+				before, _, ok := strings.Cut(name, "_")
+				if !ok {
 					// old migration we don't care about
 					continue
 				}
 
-				id, err = strconv.ParseInt(name[:idx], 10, 64)
+				id, err = strconv.ParseInt(before, 10, 64)
 				if err == nil && id <= 0 {
 					return pkgerrors.New("migration IDs must be greater than zero")
 				}

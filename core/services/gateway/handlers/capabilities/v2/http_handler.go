@@ -43,18 +43,20 @@ const (
 
 type gatewayHandler struct {
 	services.StateMachine
-	config                ServiceConfig
-	don                   handlers.DON
-	lggr                  logger.Logger
-	httpClient            network.HTTPClient
-	globalNodeRateLimiter limits.RateLimiter            // Global rate limiter shared across all incoming node requests from workflow DON
-	perNodeRateLimiters   map[string]limits.RateLimiter // Per-node rate limiters keyed by node address, one independent bucket per DON member
-	wg                    sync.WaitGroup
-	stopCh                services.StopChan
-	responseCache         ResponseCache // Caches HTTP responses to avoid redundant requests for outbound HTTP actions
-	triggerHandler        HTTPTriggerHandler
-	metadataHandler       *WorkflowMetadataHandler // Handles authorization for HTTP trigger requests
-	metrics               *metrics.Metrics
+	config                 ServiceConfig
+	don                    handlers.DON
+	lggr                   logger.Logger
+	httpClient             network.HTTPClient
+	globalNodeRateLimiter  limits.RateLimiter            // Global rate limiter shared across all incoming node requests from workflow DON
+	perNodeRateLimiters    map[string]limits.RateLimiter // Per-node rate limiters keyed by node address, one independent bucket per DON member
+	mtlsRequestRateLimiter limits.RateLimiter
+	wg                     sync.WaitGroup
+	stopCh                 services.StopChan
+	responseCache          ResponseCache // Caches HTTP responses to avoid redundant requests for outbound HTTP actions
+	triggerHandler         HTTPTriggerHandler
+	metadataHandler        *WorkflowMetadataHandler // Handles authorization for HTTP trigger requests
+	metrics                *metrics.Metrics
+	httpClientFactory      network.HTTPClientFactory
 }
 
 type ResponseCache interface {
@@ -107,7 +109,7 @@ type RetryConfig struct {
 	Multiplier float64 `json:"multiplier"`
 }
 
-func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, httpClient network.HTTPClient, lggr logger.Logger, lf limits.Factory) (*gatewayHandler, error) {
+func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, httpClient network.HTTPClient, lggr logger.Logger, lf limits.Factory, httpClientFactory network.HTTPClientFactory) (*gatewayHandler, error) {
 	var cfg ServiceConfig
 	err := json.Unmarshal(handlerConfig, &cfg)
 	if err != nil {
@@ -134,6 +136,11 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 		return nil, fmt.Errorf("failed to create user rate limiter: %w", err)
 	}
 
+	mtlsRequestRateLimiter, err := lf.MakeRateLimiter(cresettings.Default.GatewayHTTPActionMtlsRequestRate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create mtls rate limiter: %w", err)
+	}
+
 	metrics, err := metrics.NewMetrics(donConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize metrics: %w", err)
@@ -142,17 +149,19 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, don, donConfig, metrics)
 	triggerHandler := NewHTTPTriggerHandler(lggr, cfg, donConfig, don, metadataHandler, userRateLimiter, metrics)
 	return &gatewayHandler{
-		config:                cfg,
-		don:                   don,
-		lggr:                  logger.With(logger.Named(lggr, handlerName), "donId", donConfig.DonId),
-		httpClient:            httpClient,
-		globalNodeRateLimiter: globalNodeRateLimiter,
-		perNodeRateLimiters:   perNodeRateLimiters,
-		stopCh:                make(services.StopChan),
-		responseCache:         newResponseCache(lggr, cfg.OutboundRequestCacheTTLMs, metrics),
-		triggerHandler:        triggerHandler,
-		metadataHandler:       metadataHandler,
-		metrics:               metrics,
+		config:                 cfg,
+		don:                    don,
+		lggr:                   logger.With(logger.Named(lggr, handlerName), "donId", donConfig.DonId),
+		httpClient:             httpClient,
+		globalNodeRateLimiter:  globalNodeRateLimiter,
+		perNodeRateLimiters:    perNodeRateLimiters,
+		mtlsRequestRateLimiter: mtlsRequestRateLimiter,
+		stopCh:                 make(services.StopChan),
+		responseCache:          newResponseCache(lggr, cfg.OutboundRequestCacheTTLMs, metrics),
+		triggerHandler:         triggerHandler,
+		metadataHandler:        metadataHandler,
+		metrics:                metrics,
+		httpClientFactory:      httpClientFactory,
 	}, nil
 }
 
@@ -258,13 +267,49 @@ func (h *gatewayHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Re
 	return h.triggerHandler.HandleNodeTriggerResponse(ctx, resp, nodeAddr)
 }
 
+func (h *gatewayHandler) send(ctx context.Context, httpReq network.HTTPRequest, req gateway_common.OutboundHTTPRequest) (*network.HTTPResponse, error) {
+	if req.Mtls == nil {
+		return h.httpClient.Send(ctx, httpReq)
+	}
+
+	// We don't have access to the org here, so this will fall back to the environment default (=false).
+	// That's appropriate because all fields set on the request come from untrusted nodes.
+	// The capability separately applies an org-specific check.
+	if !h.mtlsRequestRateLimiter.Allow(ctx) {
+		return nil, fmt.Errorf("global mtls request rate limit exceeded: %w", network.ErrBlockedRequest)
+	}
+
+	if h.httpClientFactory == nil {
+		return nil, errors.New("nil http client factory, cannot make mtls request")
+	}
+
+	// Instantiate a throwaway HTTP client with the provided Mtls client certificate provided.
+	// We do this to ensure that we don't accidentally leak auth'd connections to other users.
+	// Note: this isn't a DOS vector because
+	// a) we have a global rate limit above which limits abuse
+	// b) we apply rate limits limiting the ability of sending nodes to spam requests
+	// c) we apply per-owner rate limits in the action capability in the
+	// workflow node limiting the ability of users to abuse this flow by spamming Mtls requests.
+	client, err := h.httpClientFactory(network.HTTPClientConfig{
+		Mtls: &gateway_common.MtlsAuth{
+			PrivateKey:  req.Mtls.PrivateKey,
+			Certificate: req.Mtls.Certificate,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate http client for mtls request: %w", err)
+	}
+
+	return client.Send(ctx, httpReq)
+}
+
 // createHTTPRequestCallback creates a callback function that makes the actual HTTP request
 func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestID string, httpReq network.HTTPRequest, req gateway_common.OutboundHTTPRequest) func() gateway_common.OutboundHTTPResponse {
 	return func() gateway_common.OutboundHTTPResponse {
 		l := logger.With(h.lggr, "requestID", requestID, "method", req.Method, "timeout", req.TimeoutMs)
 		l.Debugw("Sending request to client", "requestBodySize", len(httpReq.Body), "numHeaders", len(httpReq.Headers))
 		start := time.Now()
-		resp, err := h.httpClient.Send(ctx, httpReq)
+		resp, err := h.send(ctx, httpReq, req)
 		externalEndpointLatency := time.Since(start)
 		if err != nil {
 			isBlockedRequest := errors.Is(err, network.ErrBlockedRequest)

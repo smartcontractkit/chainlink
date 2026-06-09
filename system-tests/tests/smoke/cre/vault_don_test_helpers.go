@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"maps"
 	"math/big"
 	"math/rand"
 	"net/http"
@@ -754,9 +755,7 @@ func mustMintVaultJWTForRequestWithExtraClaims(t *testing.T, issuer *stvault.Tes
 	merged := map[string]any{
 		vaultjwt.ClaimChainlinkTenantID: strconv.FormatUint(vaultJWTTestTenantID, 10),
 	}
-	for k, v := range extraClaims {
-		merged[k] = v
-	}
+	maps.Copy(merged, extraClaims)
 
 	token, err := issuer.MintToken(stvault.JWTTokenClaims{
 		KeyID:         stvault.DefaultJWTIssuerKeyID,
@@ -1011,7 +1010,7 @@ func updateVaultCapabilityConfigInRegistry(t *testing.T, testEnv *ttypes.TestEnv
 				require.NoError(t, proto.Unmarshal(cc.Config, existingConfig), "failed to unmarshal existing vault capability config")
 			}
 
-			vaultCfg := map[string]interface{}{
+			vaultCfg := map[string]any{
 				"VaultPublicKey": vaultPublicKey,
 				"Threshold":      1,
 			}

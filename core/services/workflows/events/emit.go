@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
@@ -520,10 +521,19 @@ func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 }
 
 func emitRawMessage(ctx context.Context, body []byte, schema, entity string) error {
-	return beholder.GetEmitter().Emit(ctx, body,
+	err := beholder.GetEmitter().Emit(ctx, body,
 		"beholder_data_schema", schema, // required
 		"beholder_domain", "platform", // required
 		"beholder_entity", entity) // required
+	if err != nil {
+		return err
+	}
+
+	// Ignore error if durable emitter is not enabled (temporary for integration tests only).
+	// TODO: CRE-4443 will adjust durable emitter callsites
+	_ = durableemitter.GlobalEmit(ctx, body, "source", "platform", "type", entity)
+
+	return nil
 }
 
 // buildWorkflowMetadata populates a WorkflowMetadata from kvs (map[string]string).

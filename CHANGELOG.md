@@ -1,5 +1,19 @@
 # Changelog Chainlink Core
 
+## 2.50.0
+
+### Minor Changes
+
+- [#22617](https://github.com/smartcontractkit/chainlink/pull/22617) [`1cb63f7`](https://github.com/smartcontractkit/chainlink/commit/1cb63f7c1476b871b60c4ffdd5b59962970e14fd) - #removed Removed support for the Webhook job. Database tables and the front end related logic have not been removed, but jobs will no longer start.
+
+- [#22658](https://github.com/smartcontractkit/chainlink/pull/22658) [`8c502f6`](https://github.com/smartcontractkit/chainlink/commit/8c502f617fcf97f21565a47e2f3b985860d45fad) - Add Telemetry.PrometheusBridge to TOML config to support forwarding Prometheus metrics through Open Telemetry
+
+- [#22652](https://github.com/smartcontractkit/chainlink/pull/22652) [`6ce4009`](https://github.com/smartcontractkit/chainlink/commit/6ce40099a6d0fd33a0ed84d8ac69144df6a788d4) - Minor bump to start next version
+
+### Patch Changes
+
+- [#22548](https://github.com/smartcontractkit/chainlink/pull/22548) [`9845119`](https://github.com/smartcontractkit/chainlink/commit/984511933d8cdf52fe5d0c1ea883041322c1d4d4) - #bugfix fix llo buffered telemetry sampling
+
 ## 2.49.0
 
 ### Minor Changes

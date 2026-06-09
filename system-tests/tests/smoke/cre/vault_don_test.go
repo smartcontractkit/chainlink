@@ -526,8 +526,8 @@ func assertVaultOCRPendingPackObservedInDockerLogs(t *testing.T) {
 			}
 			continue
 		}
-		names := strings.Split(strings.TrimSpace(string(psOut)), "\n")
-		for _, name := range names {
+		names := strings.SplitSeq(strings.TrimSpace(string(psOut)), "\n")
+		for name := range names {
 			if name == "" {
 				continue
 			}
@@ -539,7 +539,7 @@ func assertVaultOCRPendingPackObservedInDockerLogs(t *testing.T) {
 			if err != nil {
 				continue
 			}
-			for _, line := range strings.Split(string(logs), "\n") {
+			for line := range strings.SplitSeq(string(logs), "\n") {
 				if !strings.Contains(line, "observation packed local items into blob payloads") {
 					continue
 				}
@@ -597,8 +597,8 @@ func assertVaultOCRStateTransitionPendingWriteObservedInDockerLogs(t *testing.T)
 			}
 			continue
 		}
-		names := strings.Split(strings.TrimSpace(string(psOut)), "\n")
-		for _, name := range names {
+		names := strings.SplitSeq(strings.TrimSpace(string(psOut)), "\n")
+		for name := range names {
 			if name == "" {
 				continue
 			}
@@ -610,7 +610,7 @@ func assertVaultOCRStateTransitionPendingWriteObservedInDockerLogs(t *testing.T)
 			if err != nil {
 				continue
 			}
-			for _, line := range strings.Split(string(logs), "\n") {
+			for line := range strings.SplitSeq(string(logs), "\n") {
 				if !strings.Contains(line, "pending queue items persisted to storage") {
 					continue
 				}
@@ -660,8 +660,8 @@ func assertVaultOCRWireTruncationSignalsInDockerLogs(t *testing.T) {
 		t.Fatalf("docker ps: %v", err)
 	}
 	var combined strings.Builder
-	names := strings.Split(strings.TrimSpace(string(psOut)), "\n")
-	for _, name := range names {
+	names := strings.SplitSeq(strings.TrimSpace(string(psOut)), "\n")
+	for name := range names {
 		if name == "" {
 			continue
 		}
@@ -679,7 +679,7 @@ func assertVaultOCRWireTruncationSignalsInDockerLogs(t *testing.T) {
 	s := combined.String()
 
 	sawObsTrunc := false
-	for _, line := range strings.Split(s, "\n") {
+	for line := range strings.SplitSeq(s, "\n") {
 		if !strings.Contains(line, "observation: more pending queue items than can be observed") {
 			continue
 		}
@@ -697,7 +697,7 @@ func assertVaultOCRWireTruncationSignalsInDockerLogs(t *testing.T) {
 	}
 
 	sawOutcomeTrunc := false
-	for _, line := range strings.Split(s, "\n") {
+	for line := range strings.SplitSeq(s, "\n") {
 		if !strings.Contains(line, "state transition: more observations than can be included in response") {
 			continue
 		}
@@ -846,12 +846,12 @@ func TestMustMintVaultJWTForRequest_UsesRawRequestDigest(t *testing.T) {
 
 	claims, ok := parsedToken.Claims.(jwt.MapClaims)
 	require.True(t, ok)
-	authorizationDetails, ok := claims["authorization_details"].([]interface{})
+	authorizationDetails, ok := claims["authorization_details"].([]any)
 	require.True(t, ok)
 
 	var claimedDigest string
 	for _, detail := range authorizationDetails {
-		entry, ok := detail.(map[string]interface{})
+		entry, ok := detail.(map[string]any)
 		require.True(t, ok)
 		if entry["type"] == "request_digest" {
 			claimedDigest, ok = entry["value"].(string)

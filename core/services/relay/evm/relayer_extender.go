@@ -14,9 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
-// ErrNoChains indicates that no EVM chains have been started
-var ErrNoChains = errors.New("no EVM chains loaded")
-
 type LegacyChainsAndConfig struct {
 	rs []legacyevm.Chain
 }

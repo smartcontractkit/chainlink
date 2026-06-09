@@ -206,8 +206,15 @@ func runFilterLogsWithInvalidAddresses(client evm.Client, runtime sdk.Runtime, w
 		},
 	}).Await()
 	runtime.Logger().Info("FilterLogs completed", "filtered_logs_output", filterLogsOutput)
-	if err != nil || len(filterLogsOutput.Logs) == 0 {
-		runtime.Logger().Error("got expected error or empty logs for FilterLogs with invalid addresses", "invalid_address", invalidAddress, "filter_logs_output", filterLogsOutput.Logs, "error", err)
+	if err != nil || filterLogsOutput == nil || len(filterLogsOutput.Logs) == 0 {
+		logsOutput := make([]string, 0)
+		if filterLogsOutput != nil {
+			logsOutput = make([]string, len(filterLogsOutput.Logs))
+			for i, log := range filterLogsOutput.Logs {
+				logsOutput[i] = log.String()
+			}
+		}
+		runtime.Logger().Error("got expected error or empty logs for FilterLogs with invalid addresses", "invalid_address", invalidAddress, "filter_logs_output", logsOutput, "error", err)
 		return filterLogsOutput, fmt.Errorf("expected error or empty logs for FilterLogs with invalid address '%s': %w", invalidAddress, err)
 	}
 
