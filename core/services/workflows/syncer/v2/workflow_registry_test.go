@@ -1779,9 +1779,10 @@ func TestWorkflowRegistry_getTicker_nonPositiveDuration(t *testing.T) {
 		clock: clockwork.NewRealClock(),
 	}
 
-	// This should not panic under the new implementation. Under the old one, it panics.
-	tickerCh := wr.getTicker(-1 * time.Second)
-	require.NotNil(t, tickerCh)
+	require.NotPanics(t, func() {
+		tickerCh := wr.getTicker(-1 * time.Second)
+		require.NotNil(t, tickerCh)
+	})
 }
 
 func TestWorkflowRegistry_getTicker_WithTickerOverride(t *testing.T) {
