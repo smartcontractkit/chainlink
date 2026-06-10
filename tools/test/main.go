@@ -51,6 +51,8 @@ func dbProviderForArgs(ctx context.Context, count int, args []string) ([]testrig
 	}
 
 	conf.ParallelIterations = count
+	conf.DiagnoseMode = dbdetect.IsDiagnoseCommand(args)
+	conf.PackageSlug = dbdetect.PackageSlug(args)
 	out := output.NewFromApp(conf)
 
 	pool, err := db.EnsurePool(ctx, conf, out, count)

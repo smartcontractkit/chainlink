@@ -29,9 +29,8 @@ var _ GatewayConnector = (*gatewayConnector)(nil)
 type GatewayConnector interface {
 	services.Service
 	network.ConnectionInitiator
-	// core.GatewayConnector is a narrow interface that provides methods to interact with the Gateway.
-	// This interface is used by LOOP plugins to interact with the Gateway over gRPC
-	core.GatewayConnector
+	// core.MultiGatewayConnector is used by LOOP plugins to interact with the Gateway over gRPC.
+	core.MultiGatewayConnector
 }
 
 // Signer implementation needs to be provided by a GatewayConnector user (node)
@@ -105,8 +104,8 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, clock clockwork
 	if config == nil || signer == nil || clock == nil || lggr == nil {
 		return nil, errors.New("nil dependency")
 	}
-	if len(config.DonId) == 0 || len(config.DonId) > network.HandshakeDonIdLen {
-		return nil, errors.New("invalid DON ID")
+	if err := validateConnectorConfig(config); err != nil {
+		return nil, err
 	}
 	addressBytes, err := commonhex.DecodeString(config.NodeAddress)
 	if err != nil {
@@ -124,8 +123,8 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, clock clockwork
 	gateways := make(map[string]*gatewayState)
 	urlToId := make(map[string]string)
 	for _, gw := range config.Gateways {
-		if _, exists := gateways[gw.Id]; exists {
-			return nil, fmt.Errorf("duplicate Gateway ID %s", gw.Id)
+		if _, exists := gateways[gw.ID]; exists {
+			return nil, fmt.Errorf("duplicate Gateway ID %s", gw.ID)
 		}
 		if _, exists := urlToId[gw.URL]; exists {
 			return nil, fmt.Errorf("duplicate Gateway URL %s", gw.URL)
@@ -142,8 +141,8 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, clock clockwork
 			wsClient: network.NewWebSocketClient(config.WsClientConfig, connector, lggr),
 			signalCh: make(chan struct{}),
 		}
-		gateways[gw.Id] = gateway
-		urlToId[gw.URL] = gw.Id
+		gateways[gw.ID] = gateway
+		urlToId[gw.URL] = gw.ID
 	}
 	connector.gateways = gateways
 	connector.urlToId = urlToId
@@ -208,12 +207,46 @@ func (c *gatewayConnector) SignMessage(ctx context.Context, msg []byte) ([]byte,
 	return c.signer.Sign(ctx, msg)
 }
 
-func (c *gatewayConnector) GatewayIDs(context.Context) ([]string, error) {
+func (c *gatewayConnector) GatewayIDs(ctx context.Context) ([]string, error) {
+	return c.gatewayIDsForDon(ctx, "")
+}
+
+func (c *gatewayConnector) gatewayIDsForDon(_ context.Context, donID string) ([]string, error) {
+	if donID == "" {
+		return c.allGatewayIDs(), nil
+	}
+
+	if !multiDonMode(c.config) {
+		return nil, nil
+	}
+
 	var gids []string
+	for _, gw := range c.config.Gateways {
+		if gw.DonID == donID {
+			gids = append(gids, gw.ID)
+		}
+	}
+	return gids, nil
+}
+
+func (c *gatewayConnector) GatewayIDsForDon(ctx context.Context, donID string) ([]string, error) {
+	return c.gatewayIDsForDon(ctx, donID)
+}
+
+func (c *gatewayConnector) DonIDForGateway(_ context.Context, gatewayID string) (string, error) {
+	gateway, ok := c.gateways[gatewayID]
+	if !ok {
+		return "", fmt.Errorf("invalid Gateway ID %s", gatewayID)
+	}
+	return gateway.config.DonID, nil
+}
+
+func (c *gatewayConnector) allGatewayIDs() []string {
+	gids := make([]string, 0, len(c.gateways))
 	for gid := range c.gateways {
 		gids = append(gids, gid)
 	}
-	return gids, nil
+	return gids
 }
 
 func (c *gatewayConnector) DonID(context.Context) (string, error) {
@@ -233,19 +266,19 @@ func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
 			var req jsonrpc.Request[json.RawMessage]
 			err := json.Unmarshal(item.Data, &req)
 			if err != nil {
-				c.lggr.Errorw("parse error when reading from Gateway", "id", gatewayState.config.Id, "err", err)
+				c.lggr.Errorw("parse error when reading from Gateway", "id", gatewayState.config.ID, "err", err)
 				break
 			}
 			handler, exists := c.handlers[req.Method]
 			if !exists {
-				c.lggr.Errorw("no handler for method", "id", gatewayState.config.Id, "method", req.Method)
+				c.lggr.Errorw("no handler for method", "id", gatewayState.config.ID, "method", req.Method)
 				break
 			}
 			// do not break on error. HandleGatewayMessage handles errors
 			// by sending a response back to the Gateway.
-			err = handler.HandleGatewayMessage(ctx, gatewayState.config.Id, &req)
+			err = handler.HandleGatewayMessage(ctx, gatewayState.config.ID, &req)
 			if err != nil {
-				c.lggr.Warnw("failed to handle message from Gateway", "id", gatewayState.config.Id, "method", req.Method, "err", err)
+				c.lggr.Warnw("failed to handle message from Gateway", "id", gatewayState.config.ID, "method", req.Method, "err", err)
 			}
 		}
 	}

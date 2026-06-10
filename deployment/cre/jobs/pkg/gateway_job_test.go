@@ -3,6 +3,7 @@ package pkg
 import (
 	"testing"
 
+	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -619,4 +620,60 @@ func TestGateway_Resolve_DONCentric(t *testing.T) {
 	spec, err := g.Resolve(1)
 	require.NoError(t, err)
 	assert.Equal(t, expectedDONCentric, spec)
+}
+
+func TestGateway_Resolve_VaultHandlerAuth0TenantIDIsNumeric(t *testing.T) {
+	t.Parallel()
+
+	g := GatewayJob{
+		ServiceCentricFormatEnabled: true,
+		JobName:                     "GatewayAuth0",
+		RequestTimeoutSec:           15,
+		DONs: []TargetDON{
+			{
+				ID: "workflow_1",
+				F:  1,
+				Members: []TargetDONMember{
+					{Address: "0xabc", Name: "Node 1"},
+				},
+			},
+		},
+		Services: []GatewayServiceConfig{
+			{
+				ServiceName: ServiceNameVault,
+				Handlers:    []string{GatewayHandlerTypeVault},
+				DONs:        []string{"workflow_1"},
+				Auth0: &Auth0Config{
+					IssuerURL: "https://example.auth0.com/",
+					Audience:  "https://vault.example.com",
+					TenantID:  3,
+				},
+			},
+		},
+	}
+
+	spec, err := g.Resolve(1)
+	require.NoError(t, err)
+	assert.Contains(t, spec, "tenantID = 3")
+	assert.NotContains(t, spec, "tenantID = '3'")
+
+	var decoded struct {
+		GatewayConfig struct {
+			Services []struct {
+				Handlers []struct {
+					Config struct {
+						Auth0 struct {
+							IssuerURL string `toml:"issuerURL"`
+							Audience  string `toml:"audience"`
+							TenantID  uint64 `toml:"tenantID"`
+						} `toml:"auth0"`
+					} `toml:"Config"`
+				} `toml:"Handlers"`
+			} `toml:"Services"`
+		} `toml:"gatewayConfig"`
+	}
+	require.NoError(t, toml.Unmarshal([]byte(spec), &decoded))
+	require.Len(t, decoded.GatewayConfig.Services, 1)
+	require.Len(t, decoded.GatewayConfig.Services[0].Handlers, 1)
+	assert.Equal(t, uint64(3), decoded.GatewayConfig.Services[0].Handlers[0].Config.Auth0.TenantID)
 }

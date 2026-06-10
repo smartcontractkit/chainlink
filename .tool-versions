@@ -1,4 +1,4 @@
-golang        1.26.4
+golang 1.26.3
 mockery       2.53.0
 nodejs        20.13.1
 pnpm          10.6.5
