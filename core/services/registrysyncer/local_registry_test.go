@@ -2,6 +2,9 @@ package registrysyncer
 
 import (
 	"context"
+	"encoding/hex"
+	"encoding/json"
+	"strings"
 	"testing"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -13,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 )
 
@@ -353,4 +357,61 @@ func TestCapabilityConfiguration_Unmarshal(t *testing.T) {
 		assert.Len(t, got.OracleFactoryConfigs, 1)
 		assert.True(t, got.LocalOnly)
 	})
+}
+
+// rawCapabilityConfigHex is the serialized capabilitiespb.CapabilityConfig taken
+// from the "test value" comment above CapabilityConfiguration.Unmarshal in
+// local_registry.go. It carries a nested DefaultConfig values.Map.
+const rawCapabilityConfigHex = "0x0acd080aca080a08456e636c6176657312bd082aba081299042296040ada020a0d5472757374656456616c75657312c8022ac50212c2021abf027b2270637230223a22336130646135323235666439323134323666633864613065376139316534323631623431333137336239626530303237616462326666626231616661653430616462613662663431626133663066653537386339303032646134653565613237222c2270637231223a22346234643562333636316233656663313239323039303063383065313236653463653738336335323264653663303261326135626637616633613262393332376238363737366631383865346265316331633430346131323964626461343933222c2270637232223a22643938306538363964333066303333353130356563373236623234393430633636633130383130376362386636653661363638363561323562646464303537303363393231373964303334386661323936636166336332663633313036393631227d0a170a11456e636c6176654175746848656164657212020a000a160a10456e636c61766545787472614461746112021a000a2f0a09456e636c617665494412221a2066338ab3ebe1d246feb5849330e92022b9d66b0c0753b1f2ac6e356acbff20fc0a160a0b456e636c6176655479706512070a054e4954524f0a3d0a0a456e636c61766555524c122f0a2d68747470733a2f2f636f6e666964656e7469616c2d687474702e656e636c617665732e636861696e2e6c696e6b129b042298040a170a11456e636c6176654175746848656164657212020a000a160a10456e636c61766545787472614461746112021a000a2f0a09456e636c617665494412221a206401f4177859d87613cdc14bd3841049840abaf6d0163cf77080227b8866ebe20a160a0b456e636c6176655479706512070a054e4954524f0a3f0a0a456e636c61766555524c12310a2f68747470733a2f2f636f6e666964656e7469616c2d687474702d322e656e636c617665732e636861696e2e6c696e6b0ada020a0d5472757374656456616c75657312c8022ac50212c2021abf027b2270637230223a22336130646135323235666439323134323666633864613065376139316534323631623431333137336239626530303237616462326666626231616661653430616462613662663431626133663066653537386339303032646134653565613237222c2270637231223a22346234643562333636316233656663313239323039303063383065313236653463653738336335323264653663303261326135626637616633613262393332376238363737366631383865346265316331633430346131323964626461343933222c2270637232223a22643938306538363964333066303333353130356563373236623234393430633636633130383130376362386636653661363638363561323562646464303537303363393231373964303334386661323936636166336332663633313036393631227d4001"
+
+func TestCapabilityConfiguration_Unmarshal_RawBytes(t *testing.T) {
+	raw, err := hex.DecodeString(strings.TrimPrefix(rawCapabilityConfigHex, "0x"))
+	require.NoError(t, err)
+
+	cc := CapabilityConfiguration{Config: raw}
+	got, err := cc.Unmarshal()
+	require.NoError(t, err)
+
+	t.Logf("LocalOnly: %v", got.LocalOnly)
+	t.Logf("RestrictedKeys: %v", got.RestrictedKeys)
+	t.Logf("DefaultConfig:\n%s", prettyValueMap(t, got.DefaultConfig))
+	t.Logf("RestrictedConfig:\n%s", prettyValueMap(t, got.RestrictedConfig))
+	t.Logf("SpecConfig:\n%s", prettyValueMap(t, got.SpecConfig))
+
+	if len(got.OracleFactoryConfigs) == 0 {
+		t.Log("OracleFactoryConfigs: <none>")
+	}
+	for name, m := range got.OracleFactoryConfigs {
+		m := m
+		t.Logf("OracleFactoryConfig[%q]:\n%s", name, prettyValueMap(t, &m))
+	}
+
+	if len(got.Ocr3Configs) == 0 {
+		t.Log("Ocr3Configs: <none>")
+	}
+	for name, cfg := range got.Ocr3Configs {
+		t.Logf("Ocr3Config[%q]: %+v", name, cfg)
+	}
+
+	// The raw bytes encode a DefaultConfig values.Map; assert we decoded it and
+	// can fully traverse its nested keys/values.
+	require.NotNil(t, got.DefaultConfig)
+	unwrapped, err := got.DefaultConfig.Unwrap()
+	require.NoError(t, err)
+	assert.NotEmpty(t, unwrapped)
+}
+
+// prettyValueMap unwraps a values.Map into a fully-resolved map[string]any and
+// renders it as indented JSON so every nested key/value is visible. Byte-slice
+// leaves are rendered as base64 by encoding/json.
+func prettyValueMap(t *testing.T, m *values.Map) string {
+	t.Helper()
+	if m == nil {
+		return "<nil>"
+	}
+	unwrapped, err := m.Unwrap()
+	require.NoError(t, err)
+	b, err := json.MarshalIndent(unwrapped, "", "  ")
+	require.NoError(t, err)
+	return string(b)
 }
