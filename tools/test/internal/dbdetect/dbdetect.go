@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os/exec"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 )
@@ -44,6 +45,62 @@ var goListTwoArgFlags = map[string]bool{
 var harnessRootValueFlags = map[string]bool{
 	"database-url":     true,
 	"postgres-version": true,
+}
+
+// IsDiagnoseCommand reports whether argv invokes the testrig diagnose subcommand.
+func IsDiagnoseCommand(args []string) bool {
+	return slices.Contains(args, "diagnose")
+}
+
+// PackageSlug returns a short docker-safe name for the package patterns in argv
+// (e.g. ./core/services/... -> core_services).
+func PackageSlug(args []string) string {
+	patterns := extractPackagePatterns(args)
+	switch len(patterns) {
+	case 0:
+		return "pkgs"
+	case 1:
+		return patternToSlug(patterns[0])
+	default:
+		slugs := make([]string, len(patterns))
+		for i, p := range patterns {
+			slugs[i] = patternToSlug(p)
+		}
+		return strings.Join(slugs, "__")
+	}
+}
+
+func patternToSlug(pattern string) string {
+	t := strings.TrimPrefix(pattern, "./")
+	switch {
+	case t == "...":
+		return "pkgs"
+	case strings.HasSuffix(t, "/..."):
+		t = strings.TrimSuffix(t, "/...")
+	}
+	t = strings.ReplaceAll(t, "/", "_")
+	return sanitizeSlugToken(t)
+}
+
+func sanitizeSlugToken(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range s {
+		switch {
+		case r >= 'a' && r <= 'z',
+			r >= 'A' && r <= 'Z',
+			r >= '0' && r <= '9',
+			r == '_', r == '-', r == '.':
+			b.WriteRune(r)
+		default:
+			b.WriteByte('_')
+		}
+	}
+	out := b.String()
+	if out == "" {
+		return "pkgs"
+	}
+	return out
 }
 
 func extractPackagePatterns(args []string) []string {
@@ -150,8 +207,20 @@ func NeedsPostgres(repoRoot string, args []string) (bool, error) {
 		return true, fmt.Errorf("go list: %w: %s", err, strings.TrimSpace(stderr.String()))
 	}
 
-	targetDep := "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	needsDB := strings.Contains(stdout.String(), targetDep)
+	deps := stdout.String()
+	for _, targetDep := range postgresTestDeps {
+		if strings.Contains(deps, targetDep) {
+			return true, nil
+		}
+	}
 
-	return needsDB, nil
+	return false, nil
+}
+
+// postgresTestDeps lists packages that imply a real Postgres server (CL_DATABASE_URL).
+// go list -deps -test must match at least one for the testrig harness to start Postgres.
+var postgresTestDeps = []string{
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest",
+	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight",
+	"github.com/smartcontractkit/chainlink/v2/internal/testdb",
 }

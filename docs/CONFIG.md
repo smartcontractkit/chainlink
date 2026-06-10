@@ -1853,6 +1853,7 @@ AuthTimestampToleranceSec is Authentication timestamp tolerance
 ```toml
 [[Capabilities.GatewayConnector.Gateways]]
 ID = 'example_gateway' # Example
+DonID = 'example_gateway_don' # Example
 URL = 'wss://localhost:8081/node' # Example
 ```
 
@@ -1862,6 +1863,12 @@ URL = 'wss://localhost:8081/node' # Example
 ID = 'example_gateway' # Example
 ```
 ID of the Gateway
+
+### DonID
+```toml
+DonID = 'example_gateway_don' # Example
+```
+DonID is the DON that owns this gateway; used for multi-gateway routing.  All or none of the gateways must have a DonID.
 
 ### URL
 ```toml

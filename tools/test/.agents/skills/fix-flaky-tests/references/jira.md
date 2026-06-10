@@ -25,9 +25,10 @@ All operations require:
 <available_operations>
 1. [investigation-comment](./investigation-comment.md) - Comment format for Investigation Updates; parsing prior-attempt comments or adding new comments
 2. [fetch-flaky-tickets](./fetch-flaky-tickets.md) | JQL search loop: fetch N eligible flaky-test tickets for a project key
-3. [transition-ticket](./transition-ticket.md) - Transition a ticket to a semantic target state
-4. [claim-ticket](./claim-ticket.md) - Claim one or more explicitly provided JIRA tickets for work
-5. [abandon-ticket](./abandon-ticket.md) - Mid-flight abandonment: unassign → Open → Investigation Update comment
+3. [find-flaky-test-ticket][./find-flaky-test-ticket.md] | JQL search for flaky test ticket by test name
+4. [transition-ticket](./transition-ticket.md) - Transition a ticket to a semantic target state
+5. [claim-ticket](./claim-ticket.md) - Claim one or more explicitly provided JIRA tickets for work
+6. [abandon-ticket](./abandon-ticket.md) - Mid-flight abandonment: unassign → Open → Investigation Update comment
 </available_operations>
 
 <canonical_slim_record>
@@ -37,6 +38,7 @@ You MUST use [this](./slim-record.md) JSON structure to pass data around in orde
 <logic>
 1. If user provided specific JIRA tickets execute the [claim-ticket](./claim-ticket.md) process.
 2. If user asked to work on N eligible tickets execute the [fetch-flaky-tickets](./fetch-flaky-tickets.md) loop.
+3. Otherwise try to find a JIRA ticket related to the tests user wants to fix using [find-flaky-test-ticket](./find-flaky-test-ticket) process.
 3. Prepare and return slim records.
 4. Once the work on flaky tests has finished, regardless of the result, for each ticket:
     a. Update the ticket with investigation comment

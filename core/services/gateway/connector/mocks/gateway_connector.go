@@ -281,6 +281,63 @@ func (_c *BaseGatewayConnector_DonID_Call) RunAndReturn(run func(context.Context
 	return _c
 }
 
+// DonIDForGateway provides a mock function with given fields: ctx, gatewayID
+func (_m *BaseGatewayConnector) DonIDForGateway(ctx context.Context, gatewayID string) (string, error) {
+	ret := _m.Called(ctx, gatewayID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DonIDForGateway")
+	}
+
+	var r0 string
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (string, error)); ok {
+		return rf(ctx, gatewayID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) string); ok {
+		r0 = rf(ctx, gatewayID)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, gatewayID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// BaseGatewayConnector_DonIDForGateway_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DonIDForGateway'
+type BaseGatewayConnector_DonIDForGateway_Call struct {
+	*mock.Call
+}
+
+// DonIDForGateway is a helper method to define mock.On call
+//   - ctx context.Context
+//   - gatewayID string
+func (_e *BaseGatewayConnector_Expecter) DonIDForGateway(ctx interface{}, gatewayID interface{}) *BaseGatewayConnector_DonIDForGateway_Call {
+	return &BaseGatewayConnector_DonIDForGateway_Call{Call: _e.mock.On("DonIDForGateway", ctx, gatewayID)}
+}
+
+func (_c *BaseGatewayConnector_DonIDForGateway_Call) Run(run func(ctx context.Context, gatewayID string)) *BaseGatewayConnector_DonIDForGateway_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *BaseGatewayConnector_DonIDForGateway_Call) Return(_a0 string, _a1 error) *BaseGatewayConnector_DonIDForGateway_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *BaseGatewayConnector_DonIDForGateway_Call) RunAndReturn(run func(context.Context, string) (string, error)) *BaseGatewayConnector_DonIDForGateway_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GatewayIDs provides a mock function with given fields: ctx
 func (_m *BaseGatewayConnector) GatewayIDs(ctx context.Context) ([]string, error) {
 	ret := _m.Called(ctx)
@@ -335,6 +392,65 @@ func (_c *BaseGatewayConnector_GatewayIDs_Call) Return(_a0 []string, _a1 error) 
 }
 
 func (_c *BaseGatewayConnector_GatewayIDs_Call) RunAndReturn(run func(context.Context) ([]string, error)) *BaseGatewayConnector_GatewayIDs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GatewayIDsForDon provides a mock function with given fields: ctx, donID
+func (_m *BaseGatewayConnector) GatewayIDsForDon(ctx context.Context, donID string) ([]string, error) {
+	ret := _m.Called(ctx, donID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GatewayIDsForDon")
+	}
+
+	var r0 []string
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) ([]string, error)); ok {
+		return rf(ctx, donID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) []string); ok {
+		r0 = rf(ctx, donID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]string)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, donID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// BaseGatewayConnector_GatewayIDsForDon_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GatewayIDsForDon'
+type BaseGatewayConnector_GatewayIDsForDon_Call struct {
+	*mock.Call
+}
+
+// GatewayIDsForDon is a helper method to define mock.On call
+//   - ctx context.Context
+//   - donID string
+func (_e *BaseGatewayConnector_Expecter) GatewayIDsForDon(ctx interface{}, donID interface{}) *BaseGatewayConnector_GatewayIDsForDon_Call {
+	return &BaseGatewayConnector_GatewayIDsForDon_Call{Call: _e.mock.On("GatewayIDsForDon", ctx, donID)}
+}
+
+func (_c *BaseGatewayConnector_GatewayIDsForDon_Call) Run(run func(ctx context.Context, donID string)) *BaseGatewayConnector_GatewayIDsForDon_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *BaseGatewayConnector_GatewayIDsForDon_Call) Return(_a0 []string, _a1 error) *BaseGatewayConnector_GatewayIDsForDon_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *BaseGatewayConnector_GatewayIDsForDon_Call) RunAndReturn(run func(context.Context, string) ([]string, error)) *BaseGatewayConnector_GatewayIDsForDon_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -486,6 +602,62 @@ func (_c *BaseGatewayConnector_NewAuthHeader_Call) Return(_a0 []byte, _a1 error)
 }
 
 func (_c *BaseGatewayConnector_NewAuthHeader_Call) RunAndReturn(run func(context.Context, *url.URL) ([]byte, error)) *BaseGatewayConnector_NewAuthHeader_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// PrimaryDonID provides a mock function with given fields: ctx
+func (_m *BaseGatewayConnector) PrimaryDonID(ctx context.Context) (string, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PrimaryDonID")
+	}
+
+	var r0 string
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (string, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) string); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// BaseGatewayConnector_PrimaryDonID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PrimaryDonID'
+type BaseGatewayConnector_PrimaryDonID_Call struct {
+	*mock.Call
+}
+
+// PrimaryDonID is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *BaseGatewayConnector_Expecter) PrimaryDonID(ctx interface{}) *BaseGatewayConnector_PrimaryDonID_Call {
+	return &BaseGatewayConnector_PrimaryDonID_Call{Call: _e.mock.On("PrimaryDonID", ctx)}
+}
+
+func (_c *BaseGatewayConnector_PrimaryDonID_Call) Run(run func(ctx context.Context)) *BaseGatewayConnector_PrimaryDonID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *BaseGatewayConnector_PrimaryDonID_Call) Return(_a0 string, _a1 error) *BaseGatewayConnector_PrimaryDonID_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *BaseGatewayConnector_PrimaryDonID_Call) RunAndReturn(run func(context.Context) (string, error)) *BaseGatewayConnector_PrimaryDonID_Call {
 	_c.Call.Return(run)
 	return _c
 }
