@@ -17,6 +17,7 @@ import (
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
+// clNodeContainerNames returns sorted Docker container names for every Chainlink node in testEnv.
 func clNodeContainerNames(t *testing.T, testEnv *ttypes.TestEnvironment) []string {
 	t.Helper()
 
@@ -40,6 +41,7 @@ func clNodeContainerNames(t *testing.T, testEnv *ttypes.TestEnvironment) []strin
 	return out
 }
 
+// nodesetContainerNames returns sorted Docker container names for the nodeset named nodesetName.
 func nodesetContainerNames(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName string) []string {
 	t.Helper()
 
@@ -59,6 +61,7 @@ func nodesetContainerNames(t *testing.T, testEnv *ttypes.TestEnvironment, nodese
 	return names
 }
 
+// assertContainerLogs scans stdout/stderr of containerNames and checks whether needle appears.
 func assertContainerLogs(t *testing.T, containerNames []string, needle string, wantFound bool) {
 	t.Helper()
 
@@ -97,16 +100,19 @@ func assertContainerLogs(t *testing.T, containerNames []string, needle string, w
 	assert.False(t, found, "expected none of %v to contain %q", containerNames, needle)
 }
 
+// AssertNodeLogs requires needle to appear in at least one Chainlink node container log.
 func AssertNodeLogs(t *testing.T, testEnv *ttypes.TestEnvironment, needle string) {
 	t.Helper()
 	assertContainerLogs(t, clNodeContainerNames(t, testEnv), needle, true)
 }
 
+// AssertContainerLogsForNodeset requires needle in at least one container log for nodesetName.
 func AssertContainerLogsForNodeset(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName, needle string) {
 	t.Helper()
 	assertContainerLogs(t, nodesetContainerNames(t, testEnv, nodesetName), needle, true)
 }
 
+// AssertContainerLogsAbsentForNodeset requires needle in no container logs for nodesetName.
 func AssertContainerLogsAbsentForNodeset(t *testing.T, testEnv *ttypes.TestEnvironment, nodesetName, needle string) {
 	t.Helper()
 	assertContainerLogs(t, nodesetContainerNames(t, testEnv, nodesetName), needle, false)
