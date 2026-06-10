@@ -14,8 +14,8 @@ import (
 	retry "github.com/avast/retry-go/v5"
 	"github.com/pkg/errors"
 
-	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
+	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
 const (
