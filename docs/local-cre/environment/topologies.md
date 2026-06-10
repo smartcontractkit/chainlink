@@ -48,6 +48,8 @@ Use them for:
 
 In particular, the generated matrix for `workflow-gateway-capabilities-don.toml` is the most useful reference for the default local smoke-test topology.
 
+For multi-gateway DON routing smoke tests, use `configs/workflow-gateway-capabilities-multi-gateway-don.toml`. It adds a second gateway nodeset (`gateway-eu`) with a distinct `gateway_don_id` alongside the US bootstrap gateway (`bootstrap-gateway-us` / `gateway_don_us`).
+
 ## Multiple DONs
 
 Use a multi-DON topology when the workflow stack needs responsibilities split across separate DONs instead of running everything in one place.

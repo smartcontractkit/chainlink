@@ -27,7 +27,7 @@ plugins:
       installPath: "."
   httpaction:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_action"
-      gitRef: "69e882e0f24cf9ae897366c4dcbbd3c7e035ae33"
+      gitRef: "78f22db50d700d9b369578aebafd7d239daee8d1"
       installPath: "."
   httptrigger:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_trigger"
