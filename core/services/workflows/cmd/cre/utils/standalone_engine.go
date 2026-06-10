@@ -11,6 +11,8 @@ import (
 	"google.golang.org/grpc/credentials"
 	"gopkg.in/yaml.v3"
 
+	generichost "github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
+
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -73,10 +75,20 @@ func NewStandaloneEngine(
 		Timeout:                 &defaultTimeout,
 	}
 
-	module, err := host.NewModule(ctx, moduleConfig, binary, host.WithDeterminism())
+	mainModule, err := host.NewModule(ctx, moduleConfig, binary, host.WithDeterminism())
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create module from config: %w", err)
 	}
+
+	handler := generichost.RequirementsHandler{Tee: func(ctx context.Context, tee *sdkpb.Tee) bool {
+		return true
+	}}
+
+	swm := &simulationModuleWrapper{Module: mainModule, requirementsSet: lifecycleHooks.OnRequirementsSet}
+	module := generichost.NewRequirementSelectingModule(
+		generichost.ModuleAndHandler{Module: swm, RequirementsHandler: handler},
+		[]generichost.ModuleAndHandler{},
+	)
 
 	if workflowName == "" {
 		workflowName = defaultName
@@ -351,4 +363,17 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 	}
 
 	return caps, nil
+}
+
+type simulationModuleWrapper struct {
+	generichost.Module
+	requirementsSet func(executionID string, requirements *sdkpb.Requirements)
+}
+
+var _ generichost.RequirementEnforcingModule = &simulationModuleWrapper{}
+
+func (s *simulationModuleWrapper) SetRequirements(executionID string, requirements *sdkpb.Requirements) {
+	if s.requirementsSet != nil {
+		s.requirementsSet(executionID, requirements)
+	}
 }
