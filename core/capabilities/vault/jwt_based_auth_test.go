@@ -226,7 +226,7 @@ func TestJWTBasedAuth_AuthResultExpiryIncludesValidationLeeway(t *testing.T) {
 	v := newTestValidator(t, issuer, audience)
 
 	derivedOrg123Owner := testJWTExpectedWorkflowOwner(t, 1, "org-123")
-	rawRequest := []byte(fmt.Sprintf(`{"jsonrpc":"2.0","id":"req-1","method":"vault.secrets.list","params":{"request_id":"req-1","owner":"%s","namespace":"main"}}`, derivedOrg123Owner))
+	rawRequest := fmt.Appendf(nil, `{"jsonrpc":"2.0","id":"req-1","method":"vault.secrets.list","params":{"request_id":"req-1","owner":"%s","namespace":"main"}}`, derivedOrg123Owner)
 	req, err := jsonrpc.DecodeRequest[json.RawMessage](rawRequest, "")
 	require.NoError(t, err)
 
@@ -243,8 +243,8 @@ func TestJWTBasedAuth_AuthResultExpiryIncludesValidationLeeway(t *testing.T) {
 		ClaimVaultSecretManagementEnabled: "true",
 		ClaimChainlinkTenantID:            "1",
 		"scope":                           OAuthScopeVaultSecretsList,
-		"authorization_details": []interface{}{
-			map[string]interface{}{
+		"authorization_details": []any{
+			map[string]any{
 				"type":  "request_digest",
 				"value": digest,
 			},
@@ -268,7 +268,7 @@ func TestAuthorizer_RejectsJWTReplayDuringValidationLeewayWindow(t *testing.T) {
 	v := newTestValidator(t, issuer, audience)
 
 	derivedOrg123Owner := testJWTExpectedWorkflowOwner(t, 1, "org-123")
-	rawRequest := []byte(fmt.Sprintf(`{"jsonrpc":"2.0","id":"req-1","method":"vault.secrets.list","params":{"request_id":"req-1","owner":"%s","namespace":"main"}}`, derivedOrg123Owner))
+	rawRequest := fmt.Appendf(nil, `{"jsonrpc":"2.0","id":"req-1","method":"vault.secrets.list","params":{"request_id":"req-1","owner":"%s","namespace":"main"}}`, derivedOrg123Owner)
 	req, err := jsonrpc.DecodeRequest[json.RawMessage](rawRequest, "")
 	require.NoError(t, err)
 
@@ -286,8 +286,8 @@ func TestAuthorizer_RejectsJWTReplayDuringValidationLeewayWindow(t *testing.T) {
 		ClaimVaultSecretManagementEnabled: "true",
 		ClaimChainlinkTenantID:            "1",
 		"scope":                           OAuthScopeVaultSecretsList,
-		"authorization_details": []interface{}{
-			map[string]interface{}{
+		"authorization_details": []any{
+			map[string]any{
 				"type":  "request_digest",
 				"value": digest,
 			},
