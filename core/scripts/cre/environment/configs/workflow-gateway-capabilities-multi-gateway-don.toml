@@ -122,5 +122,6 @@ TLSEnabled = false
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      custom_ports = ["5002:5002", "15002:15002"]
+      # Distinct host ports; container still listens on 5002/15002 for in-network routing.
+      custom_ports = ["5004:5002", "15004:15002"]
       user_config_overrides = ""

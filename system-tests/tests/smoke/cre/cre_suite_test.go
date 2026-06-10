@@ -153,6 +153,17 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteHTTPActionCRUDSuccessTest(t, testEnv)
 		})
+	case suite_config.SuiteScenarioHTTPActionMultiGateway:
+		t.Run("HTTP Action Multi Gateway - "+topology, func(t *testing.T) {
+			if !isMultiGatewayTopology(topology) {
+				t.Skipf("skipping multi-gateway HTTP action test on topology %q", topology)
+			}
+			if parallelEnabled {
+				t.Parallel()
+			}
+			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, getMultiGatewayTestConfig(t))
+			ExecuteHTTPActionMultiGatewayRoutingTest(t, testEnv)
+		})
 	case suite_config.SuiteScenarioDONTime:
 		t.Run("DON Time - "+topology, func(t *testing.T) {
 			if parallelEnabled {

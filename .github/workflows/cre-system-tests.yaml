@@ -119,6 +119,9 @@ jobs:
              ],
             "Test_CRE_V2_Module_Cache": [
                {"topology":"workflow-gateway-cache-test","configs":"configs/workflow-gateway-don-cache-test.toml"}
+             ],
+            "Test_CRE_V2_HTTP_Action_Multi_Gateway": [
+               {"topology":"workflow-gateway-capabilities-multi-gateway","configs":"configs/workflow-gateway-capabilities-multi-gateway-don.toml"}
              ]
               }'}
           PER_TEST_MODE=${PER_TEST_MODE:-append}

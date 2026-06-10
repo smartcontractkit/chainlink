@@ -106,7 +106,14 @@ Those buckets are defined in `system-tests/tests/smoke/cre/config/bucketing.go`:
 
 - `suite-bucket-a`: ProofOfReserve, HTTPTriggerAction, DONTime, Consensus
 - `suite-bucket-b`: VaultDON
-- `suite-bucket-c`: CronChipIngressStack, HTTPActionCRUD
+- `suite-bucket-c`: CronChipIngressStack, HTTPActionCRUD, HTTPActionMultiGateway (skips unless `TOPOLOGY_NAME` contains `multi-gateway`)
+
+For multi-gateway HTTP action routing, start Local CRE with `configs/workflow-gateway-capabilities-multi-gateway-don.toml` and run:
+
+```bash
+TOPOLOGY_NAME=workflow-gateway-capabilities-multi-gateway \
+go test ./system-tests/tests/smoke/cre -timeout 20m -run '^Test_CRE_V2_HTTP_Action_Multi_Gateway$'
+```
 
 The EVM read suite uses a separate bucket registry in `system-tests/tests/smoke/cre/evm/evmread/config/bucketing.go`:
 
