@@ -24,6 +24,7 @@
 /core/capabilities/ccip/ccipsolana/ @smartcontractkit/bix-build
 /core/capabilities/ccip/ccipnoop/ @smartcontractkit/bix-build
 /core/capabilities/ccip/ccipton/ @smartcontractkit/bix-build
+/core/capabilities/confidentialrelay/ @smartcontractkit/privacy
 
 # To be deprecated in Chainlink V3
 /core/services/job/ @smartcontractkit/foundations @smartcontractkit/core
@@ -63,6 +64,8 @@
 /core/services/registrysyncer/ @smartcontractkit/keystone
 /core/services/workflows/ @smartcontractkit/keystone
 /core/services/standardcapabilities/ @smartcontractkit/keystone
+/core/services/gateway/handlers/confidentialrelay/ @smartcontractkit/privacy
+/system-tests/lib/cre/features/confidentialrelay/ @smartcontractkit/privacy
 /core/scripts/keystone/ @smartcontractkit/keystone
 
 # GQL API

@@ -24,7 +24,7 @@ description: >-
 - ALWAYS CHECK `go.mod` before writing any new utility code. Three lines of existing library usage beats 30 lines of hand-rolled logic that has to be maintained and tested.
 - DO NOT use plain `go test` commands. Only use `make test ARGS="diagnose ..."` from the repository root. Use `--iterations 1` for a single run.
 - For `diagnose` runs expected >2m: Execute in background. Perform a single 30s crash check, then suspend task and wait for the report.json system notification. DO NOT poll.
-- Use `LSP` for code navigation, if available. If it is not available try `code-review-graph`. Only if that is also unavailable use `find`, `grep`, etc.
+- Use `LSP` for code navigation, if available. Check if it works using a go file from the project. If it is not available try `code-review-graph`. Only if that is also unavailable use `find`, `grep`, etc.
 - Always check the Go version used by the module you are working on to avoid using language patterns that are no longer required (e.g. variable shadowing in loops in Go 1.22+)
 </absolute_constraints>
 
@@ -46,7 +46,7 @@ If unknown, prompt user.
 5. Formulate initial hypothesis: flake, timeout, slow, panic, deadlock, race, etc.
 
 <jira_reference>
-If JIRA issues are present read [jira.md](./references/jira.md) to understand how to claim tickets, find eligible flaky-test tickets, read and add comments and transition JIRA issues.
+Read [jira.md](./references/jira.md) to understand how to claim tickets, find eligible flaky-test tickets, check if there are any tickets related to a specific test, read and add comments and transition JIRA issues.
 
 After a FIXED outcome, the ticket must stay assigned to the investigator (`accountId` from `atlassianUserInfo`) when moved to In Review. Do not unassign on FIXED — see [transition-ticket.md](./references/transition-ticket.md) assignee policy.
 </jira_reference>

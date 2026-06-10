@@ -701,6 +701,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		MaxCompressedBinaryLimiter:           h.engineLimiters.WASMCompressedBinarySize,
 		MaxDecompressedBinaryLimiter:         h.engineLimiters.WASMBinarySize,
 		MaxResponseSizeLimiter:               h.engineLimiters.ExecutionResponse,
+		PendingCallsLimiter:                  h.engineLimiters.CapabilityConcurrency,
 		EnableUserMetricsLimiter:             h.engineLimiters.UserMetricEnabled,
 		MaxUserMetricPayloadLimiter:          h.engineLimiters.UserMetricPayload,
 		MaxUserMetricNameLengthLimiter:       h.engineLimiters.UserMetricNameLength,
