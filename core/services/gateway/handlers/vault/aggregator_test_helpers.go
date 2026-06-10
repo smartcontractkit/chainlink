@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
-	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
@@ -84,7 +84,8 @@ func makeSignedVaultResponse(t *testing.T, method, requestID string, payload jso
 
 	signatures := make([][]byte, numSigners)
 	for i, key := range keys {
-		sig, err := crypto.Sign(fullHash, key)
+		var sig []byte
+		sig, err = crypto.Sign(fullHash, key)
 		require.NoError(t, err)
 		signatures[i] = sig
 	}
