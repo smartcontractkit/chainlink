@@ -295,7 +295,7 @@ func emitTransmissionScheduleEvent(ctx context.Context, scheduleType, workflowEx
 
 	// emit transmission schedule event to track which nodes are successful when called to emit
 	entity := fmt.Sprintf("%s.%s", TransmissionEventProtoPkg, TransmissionEventEntity)
-	if err := beholder.GetEmitter().Emit(ctx, b,
+	if err = beholder.GetEmitter().Emit(ctx, b,
 		"beholder_data_schema", TransmissionEventSchema, // required
 		"beholder_domain", "platform", // required
 		"beholder_entity", entity); err != nil { // required
