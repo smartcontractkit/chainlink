@@ -772,6 +772,33 @@ func mustMintVaultJWTForRequestWithExtraClaims(t *testing.T, issuer *stvault.Tes
 	return token
 }
 
+// executeVaultSecretsCreateOwnerMismatchRejectedTest sends a create request whose
+// SecretIdentifier.Owner does not match the authenticated workflow owner and expects
+// gateway authorization rejection (owner binding in the composite Authorizer).
+func executeVaultSecretsCreateOwnerMismatchRejectedTest(
+	t *testing.T,
+	auth vaultRequestAuth,
+	authorizedOwner, mismatchedIdentifierOwner, encryptedSecret, secretID, gatewayURL string,
+) {
+	t.Helper()
+
+	uniqueRequestID := uuid.New().String()
+	secretsCreateRequest := vault_helpers.CreateSecretsRequest{
+		RequestId:        uniqueRequestID,
+		EncryptedSecrets: buildEncryptedSecrets(secretID, mismatchedIdentifierOwner, encryptedSecret, []string{"main"}),
+	}
+	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsCreate, &secretsCreateRequest)
+	auth.apply(t, &jsonRequest)
+
+	jsonResponse := sendVaultJWTRequestToGatewayExpectError(t, gatewayURL, jsonRequest, http.StatusBadRequest)
+	require.Equal(t, uniqueRequestID, jsonResponse.ID)
+	require.NotNil(t, jsonResponse.Error)
+	require.Contains(t, jsonResponse.Error.Error(), "request not authorized")
+	require.Contains(t, jsonResponse.Error.Error(), "does not match authorized workflow owner")
+	require.Contains(t, jsonResponse.Error.Error(), mismatchedIdentifierOwner)
+	require.Contains(t, jsonResponse.Error.Error(), authorizedOwner)
+}
+
 func sendVaultJWTRequestToGatewayExpectError(t *testing.T, gatewayURL string, jsonRequest jsonrpc.Request[json.RawMessage], wantStatus int) jsonrpc.Response[json.RawMessage] {
 	t.Helper()
 
