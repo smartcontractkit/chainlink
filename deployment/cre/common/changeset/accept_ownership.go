@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -32,7 +33,7 @@ func (AcceptOwnershipEOA) VerifyPreconditions(e cldf.Environment, input AcceptOw
 		return fmt.Errorf("chain selector %d not found in environment", input.ChainSelector)
 	}
 	if input.ContractAddress == "" {
-		return fmt.Errorf("contractAddress is required")
+		return errors.New("contractAddress is required")
 	}
 	return nil
 }
