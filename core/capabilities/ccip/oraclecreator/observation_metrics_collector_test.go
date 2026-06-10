@@ -95,17 +95,7 @@ func TestObservationMetricsCollector(t *testing.T) {
 
 	// Increment the counters (simulating what libocr does)
 	sentCounter.Inc()
-
-	// Trigger a collection to detect the increment
-	metricChan := make(chan prometheus.Metric, 10)
-	collector.sentObservationsCounter.Collect(metricChan)
-	close(metricChan)
-	// Drain the channel
-	for range metricChan { //nolint:revive // Intentionally draining channel
-	}
-
-	// Wait for async publishing
-	time.Sleep(100 * time.Millisecond)
+	collector.sentObservationsCounter.readAndPublish()
 
 	// Check that the metric was published with Beholder labels
 	metrics := mockPub.getMetrics()
@@ -124,27 +114,13 @@ func TestObservationMetricsCollector(t *testing.T) {
 
 	// Increment multiple times and trigger collections
 	sentCounter.Inc()
-	metricChan = make(chan prometheus.Metric, 10)
-	collector.sentObservationsCounter.Collect(metricChan)
-	close(metricChan)
-	for range metricChan { //nolint:revive // Intentionally draining channel
-	}
+	collector.sentObservationsCounter.readAndPublish()
 
 	includedCounter.Inc()
-	metricChan = make(chan prometheus.Metric, 10)
-	collector.includedObservationsCounter.Collect(metricChan)
-	close(metricChan)
-	for range metricChan { //nolint:revive // Intentionally draining channel
-	}
+	collector.includedObservationsCounter.readAndPublish()
 
 	includedCounter.Inc()
-	metricChan = make(chan prometheus.Metric, 10)
-	collector.includedObservationsCounter.Collect(metricChan)
-	close(metricChan)
-	for range metricChan { //nolint:revive // Intentionally draining channel
-	}
-
-	time.Sleep(100 * time.Millisecond)
+	collector.includedObservationsCounter.readAndPublish()
 
 	metrics = mockPub.getMetrics()
 	assert.GreaterOrEqual(t, len(metrics), 3, "Expected at least 3 metrics to be published")
@@ -202,12 +178,7 @@ func TestWrappedCounter(t *testing.T) {
 
 	// Test Inc() - increment the base counter and trigger collection
 	baseCounter.Inc()
-	metricChan := make(chan prometheus.Metric, 10)
-	wrapped.Collect(metricChan)
-	close(metricChan)
-	for range metricChan { //nolint:revive // Intentionally draining channel
-	}
-	time.Sleep(50 * time.Millisecond)
+	wrapped.readAndPublish()
 
 	metrics := mockPub.getMetrics()
 	require.Len(t, metrics, 1)
@@ -222,12 +193,7 @@ func TestWrappedCounter(t *testing.T) {
 
 	// Test Add() - increment by 5 and trigger collection
 	baseCounter.Add(5.0)
-	metricChan = make(chan prometheus.Metric, 10)
-	wrapped.Collect(metricChan)
-	close(metricChan)
-	for range metricChan { //nolint:revive // Intentionally draining channel
-	}
-	time.Sleep(50 * time.Millisecond)
+	wrapped.readAndPublish()
 
 	metrics = mockPub.getMetrics()
 	require.Len(t, metrics, 2)
@@ -240,8 +206,9 @@ func TestWrappedCounter(t *testing.T) {
 	assert.Equal(t, "Arbitrum", metrics[1].labels["networkName"])
 }
 
-// TestWrappedCounter_AtomicOperations verifies that atomic operations work correctly under concurrent access
-func TestWrappedCounter_AtomicOperations(t *testing.T) {
+// TestWrappedCounter_ConcurrentIncrements verifies that the total delta is correctly published
+// when the underlying counter is incremented concurrently from multiple goroutines.
+func TestWrappedCounter_ConcurrentIncrements(t *testing.T) {
 	lggr, err := logger.New()
 	require.NoError(t, err)
 
@@ -279,14 +246,7 @@ func TestWrappedCounter_AtomicOperations(t *testing.T) {
 		<-done
 	}
 
-	// Trigger a collection to detect all the increments
-	metricChan := make(chan prometheus.Metric, 10)
-	wrapped.Collect(metricChan)
-	close(metricChan)
-	for range metricChan { //nolint:revive // Intentionally draining channel
-	}
-
-	time.Sleep(100 * time.Millisecond)
+	wrapped.readAndPublish()
 
 	// Verify that we published the total delta
 	metrics := mockPub.getMetrics()
@@ -316,15 +276,7 @@ func TestWrappedCounter_DeltaPublishing(t *testing.T) {
 		logger:     lggr,
 	}
 
-	// Helper function to increment and collect
-	collectMetrics := func() {
-		metricChan := make(chan prometheus.Metric, 10)
-		wrapped.Collect(metricChan)
-		close(metricChan)
-		for range metricChan { //nolint:revive // Intentionally draining channel
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	collectMetrics := func() { wrapped.readAndPublish() }
 
 	// Test sequence: Inc(), Inc(), Add(5), Inc(), Add(10)
 	baseCounter.Inc() // Should publish 1
@@ -380,15 +332,7 @@ func TestWrappedCounter_AddWithFractionalValues(t *testing.T) {
 		logger:     lggr,
 	}
 
-	// Helper function to collect metrics
-	collectMetrics := func() {
-		metricChan := make(chan prometheus.Metric, 10)
-		wrapped.Collect(metricChan)
-		close(metricChan)
-		for range metricChan { //nolint:revive // Intentionally draining channel
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	collectMetrics := func() { wrapped.readAndPublish() }
 
 	// Test with fractional values
 	baseCounter.Add(2.7)
@@ -447,6 +391,97 @@ func TestObservationMetricsCollector_NonTargetMetrics(t *testing.T) {
 	assert.Nil(t, collector.includedObservationsCounter)
 }
 
+// TestObservationMetricsCollector_BackgroundPolling verifies that Start publishes metrics
+// on a timer without any explicit Collect call from the outside (i.e. without a Prometheus scrape).
+func TestObservationMetricsCollector_BackgroundPolling(t *testing.T) {
+	lggr, err := logger.New()
+	require.NoError(t, err)
+
+	mockPub := &mockPublisher{}
+	collector := NewObservationMetricsCollector(lggr, mockPub,
+		map[string]string{"name": "commit-1234"},
+		map[string]string{"pluginType": "commit"},
+	)
+	defer func() { _ = collector.Close() }()
+
+	registry := prometheus.NewRegistry()
+	wrappedRegisterer := collector.CreateWrappedRegisterer(registry)
+
+	sentCounter := prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "ocr3_sent_observations_total",
+		Help: "Test counter",
+	})
+	require.NoError(t, wrappedRegisterer.Register(sentCounter))
+
+	sentCounter.Add(3)
+
+	// Start with a short interval — no external Collect call is made.
+	const pollInterval = 50 * time.Millisecond
+	collector.Start(pollInterval)
+
+	// Wait for at least one poll to fire.
+	require.Eventually(t, func() bool {
+		return len(mockPub.getMetrics()) > 0
+	}, 500*time.Millisecond, 10*time.Millisecond)
+
+	metrics := mockPub.getMetrics()
+	require.Len(t, metrics, 1)
+	assert.Equal(t, "ocr3_sent_observations_total", metrics[0].name)
+	assert.InEpsilon(t, 3.0, metrics[0].value, 0.01)
+
+	// Subsequent polls with no new increments should not publish.
+	time.Sleep(3 * pollInterval)
+	assert.Len(t, mockPub.getMetrics(), 1, "no new publishes expected when counter has not changed")
+
+	// A new increment should be picked up on the next poll.
+	sentCounter.Inc()
+	require.Eventually(t, func() bool {
+		return len(mockPub.getMetrics()) >= 2
+	}, 500*time.Millisecond, 10*time.Millisecond)
+
+	assert.InEpsilon(t, 1.0, mockPub.getMetrics()[1].value, 0.01)
+}
+
+// TestObservationMetricsCollector_CloseStopsPolling verifies that Close stops the background
+// goroutine and no further publishes occur even if the counter keeps incrementing.
+func TestObservationMetricsCollector_CloseStopsPolling(t *testing.T) {
+	lggr, err := logger.New()
+	require.NoError(t, err)
+
+	mockPub := &mockPublisher{}
+	collector := NewObservationMetricsCollector(lggr, mockPub,
+		map[string]string{"name": "commit-1234"},
+		map[string]string{"pluginType": "commit"},
+	)
+
+	registry := prometheus.NewRegistry()
+	wrappedRegisterer := collector.CreateWrappedRegisterer(registry)
+
+	sentCounter := prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "ocr3_sent_observations_total",
+		Help: "Test counter",
+	})
+	require.NoError(t, wrappedRegisterer.Register(sentCounter))
+
+	sentCounter.Inc()
+
+	const pollInterval = 50 * time.Millisecond
+	collector.Start(pollInterval)
+
+	// Wait for the first publish.
+	require.Eventually(t, func() bool {
+		return len(mockPub.getMetrics()) > 0
+	}, 500*time.Millisecond, 10*time.Millisecond)
+
+	require.NoError(t, collector.Close())
+
+	// Increment again after Close — the poller should no longer be running.
+	sentCounter.Inc()
+	time.Sleep(3 * pollInterval)
+
+	assert.Len(t, mockPub.getMetrics(), 1, "no new publishes expected after Close")
+}
+
 // TestObservationMetricsCollector_Close verifies proper cleanup
 func TestObservationMetricsCollector_Close(t *testing.T) {
 	lggr, err := logger.New()
@@ -494,12 +529,6 @@ func TestWrappedCounter_NilPublisher(t *testing.T) {
 	require.NotPanics(t, func() {
 		baseCounter.Inc()
 		baseCounter.Add(5.0)
-
-		// Trigger collection
-		metricChan := make(chan prometheus.Metric, 10)
-		wrapped.Collect(metricChan)
-		close(metricChan)
-		for range metricChan { //nolint:revive // Intentionally draining channel
-		}
+		wrapped.readAndPublish()
 	})
 }

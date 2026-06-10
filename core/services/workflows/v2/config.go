@@ -9,20 +9,23 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
@@ -37,6 +40,7 @@ type EngineConfig struct {
 	ExecutionsStore      store.Store
 	Clock                clockwork.Clock
 	SecretsFetcher       SecretsFetcher
+	OverrideFetcher      SecretsFetcher // Optional local secrets overrides
 	DonSubscriber        capabilities.DonSubscriber
 
 	WorkflowID            string // hex-encoded [32]byte, no "0x" prefix
@@ -45,10 +49,10 @@ type EngineConfig struct {
 	WorkflowTag           string // workflow tag is required during workflow registration. owner + name + tag uniquely identifies a workflow.
 	WorkflowEncryptionKey workflowkey.Key
 
-	LocalLimits                       EngineLimits
-	LocalLimiters                     *EngineLimiters
-	FeatureFlags                      *EngineFeatureFlags
-	GlobalExecutionConcurrencyLimiter limits.ResourceLimiter[int] // global + per owner WorkflowExecutionConcurrencyLimit
+	LocalLimits         EngineLimits
+	LocalLimiters       *EngineLimiters
+	FeatureFlags        *EngineFeatureFlags
+	GlobalWorkflowLimit limits.ResourceLimiter[int] // global + PerOwner.WorkflowLimit
 
 	BeholderEmitter custmsg.MessageEmitter
 
@@ -68,9 +72,17 @@ type EngineConfig struct {
 
 	// SdkName is the name of the SDK used to build the workflow binary, discovered during module creation.
 	SdkName string
+
+	ShardOrchestratorClient shardorchestrator.ClientInterface
+	ShardingEnabled         bool
+	MyShardID               uint32
+	ShardRoutingSteady      *shardownership.SteadySignal
 }
 
 type EngineLimiters struct {
+	// Settings is the CRE dynamic settings getter from [limits.Factory.Settings] (optional).
+	Settings settings.Getter
+
 	ExecutionResponse        limits.BoundLimiter[config.Size]
 	TriggerSubscriptionTime  limits.TimeLimiter
 	TriggerRegistrationsTime limits.TimeLimiter
@@ -98,6 +110,12 @@ type EngineLimiters struct {
 	ConfidentialHTTPCalls limits.BoundLimiter[int]
 	SecretsCalls          limits.BoundLimiter[int]
 
+	UserMetricEnabled          limits.GateLimiter
+	UserMetricPayload          limits.BoundLimiter[config.Size]
+	UserMetricNameLength       limits.BoundLimiter[int]
+	UserMetricLabelsPerMetric  limits.BoundLimiter[int]
+	UserMetricLabelValueLength limits.BoundLimiter[int]
+
 	ExecutionTimestampsEnabled limits.GateLimiter
 }
 
@@ -109,6 +127,8 @@ func NewLimiters(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*Engine
 }
 
 func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (err error) {
+	l.Settings = lf.Settings
+
 	cfg := cresettings.Default.PerWorkflow // make copy
 	if cfgFn != nil {
 		cfgFn(&cfg)
@@ -137,10 +157,25 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
-	l.ExecutionConcurrency, err = limits.MakeResourcePoolLimiter(lf, cfg.ExecutionConcurrencyLimit)
+
+	globalExec, err := limits.MakeResourcePoolLimiter(lf, cresettings.Default.WorkflowExecutionConcurrencyLimit)
 	if err != nil {
 		return
 	}
+	orgExec, err := limits.MakeResourcePoolLimiter(lf, cresettings.Default.PerOrg.WorkflowExecutionConcurrencyLimit)
+	if err != nil {
+		return
+	}
+	ownerExec, err := limits.MakeResourcePoolLimiter(lf, cresettings.Default.PerOwner.WorkflowExecutionConcurrencyLimit)
+	if err != nil {
+		return
+	}
+	wfExec, err := limits.MakeResourcePoolLimiter(lf, cfg.ExecutionConcurrencyLimit)
+	if err != nil {
+		return
+	}
+	l.ExecutionConcurrency = limits.MultiResourcePoolLimiter[int]{wfExec, ownerExec, orgExec, globalExec}
+
 	l.WASMBinarySize, err = limits.MakeUpperBoundLimiter(lf, cfg.WASMBinarySizeLimit)
 	if err != nil {
 		return
@@ -174,6 +209,26 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 		return
 	}
 	l.LogLine, err = limits.MakeUpperBoundLimiter(lf, cfg.LogLineLimit)
+	if err != nil {
+		return
+	}
+	l.UserMetricEnabled, err = limits.MakeGateLimiter(lf, cfg.UserMetricEnabled)
+	if err != nil {
+		return
+	}
+	l.UserMetricPayload, err = limits.MakeUpperBoundLimiter(lf, cfg.UserMetricPayloadLimit)
+	if err != nil {
+		return
+	}
+	l.UserMetricNameLength, err = limits.MakeUpperBoundLimiter(lf, cfg.UserMetricNameLengthLimit)
+	if err != nil {
+		return
+	}
+	l.UserMetricLabelsPerMetric, err = limits.MakeUpperBoundLimiter(lf, cfg.UserMetricLabelsPerMetric)
+	if err != nil {
+		return
+	}
+	l.UserMetricLabelValueLength, err = limits.MakeUpperBoundLimiter(lf, cfg.UserMetricLabelValueLength)
 	if err != nil {
 		return
 	}
@@ -234,6 +289,11 @@ func (l *EngineLimiters) EvictWorkflow(workflowID string) error {
 		l.CapabilityCallTime,
 		l.LogEvent,
 		l.LogLine,
+		l.UserMetricEnabled,
+		l.UserMetricPayload,
+		l.UserMetricNameLength,
+		l.UserMetricLabelsPerMetric,
+		l.UserMetricLabelValueLength,
 		l.ChainAllowed,
 		l.ChainWriteTargets,
 		l.ChainReadCalls,
@@ -270,6 +330,11 @@ func (l *EngineLimiters) Close() error {
 		l.CapabilityCallTime,
 		l.LogEvent,
 		l.LogLine,
+		l.UserMetricEnabled,
+		l.UserMetricPayload,
+		l.UserMetricNameLength,
+		l.UserMetricLabelsPerMetric,
+		l.UserMetricLabelValueLength,
 		l.ChainAllowed,
 		l.ChainWriteTargets,
 		l.ChainReadCalls,
@@ -316,6 +381,7 @@ type LifecycleHooks struct {
 	// has completed initialization. It is also helpful for testing.
 	OnInitialized          func(err error)
 	OnSubscribedToTriggers func(triggerIDs []string)
+	OnTriggerEventDropped  func(triggerID, eventID, reason string)
 	OnExecutionFinished    func(executionID string, status string)
 	OnExecutionError       func(msg string)
 	OnResultReceived       func(*sdkpb.ExecutionResult)
@@ -356,7 +422,7 @@ func (c *EngineConfig) Validate() error {
 	}
 
 	c.LocalLimits.setDefaultLimits()
-	if c.GlobalExecutionConcurrencyLimiter == nil {
+	if c.GlobalWorkflowLimit == nil {
 		return errors.New("execution concurrency limiter not set")
 	}
 
@@ -391,6 +457,9 @@ func (h *LifecycleHooks) setDefaultHooks() {
 	}
 	if h.OnSubscribedToTriggers == nil {
 		h.OnSubscribedToTriggers = func(triggerIDs []string) {}
+	}
+	if h.OnTriggerEventDropped == nil {
+		h.OnTriggerEventDropped = func(triggerID, eventID, reason string) {}
 	}
 	if h.OnResultReceived == nil {
 		h.OnResultReceived = func(res *sdkpb.ExecutionResult) {}

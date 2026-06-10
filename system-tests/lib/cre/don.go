@@ -3,40 +3,44 @@ package cre
 import (
 	"context"
 	"fmt"
-	"math"
+	"math/big"
 	"net/url"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/avast/retry-go/v5"
+	"github.com/cosmos/gogoproto/proto"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/sethvargo/go-retry"
-
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
-	cre_offchain "github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
-	offchain_ops "github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain/changeset/operations"
-	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
-	"github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/client"
-
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
+	cre_offchain "github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
+	offchain_ops "github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain/changeset/operations"
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
+
+	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
+	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+	"github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/client"
 )
 
 const (
@@ -198,9 +202,9 @@ func (d *Don) Workers() ([]*Node, error) {
 }
 
 func (d *Don) JDNodeIDs() []string {
-	nodeIDs := []string{}
-	for _, n := range d.Nodes {
-		nodeIDs = append(nodeIDs, n.JobDistributorDetails.NodeID)
+	nodeIDs := make([]string, len(d.Nodes))
+	for i, n := range d.Nodes {
+		nodeIDs[i] = n.JobDistributorDetails.NodeID
 	}
 	return nodeIDs
 }
@@ -258,14 +262,14 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 
 	forwarderF := (don.WorkersCount() - 1) / 3
 	if forwarderF == 0 {
-		if don.HasFlag(ConsensusCapability) || don.HasFlag(ConsensusCapabilityV2) {
+		if don.HasFlag(ConsensusCapability) {
 			return nil, fmt.Errorf("incorrect number of worker nodes: %d. Resulting F must conform to formula: mod((N-1)/3) > 0", don.WorkersCount())
 		}
 		// for other capabilities, we can use 1 as F
 		forwarderF = 1
 	}
 
-	don.F = uint8(forwarderF) //nolint:gosec //will never happen, we don't use more than 31 nodes
+	don.F = uint8(forwarderF)
 
 	return don, nil
 }
@@ -288,15 +292,9 @@ func registerWithJD(ctx context.Context, d *Don, supportedChains []blockchains.B
 			for _, role := range node.Roles {
 				switch role {
 				case RoleWorker, RoleBootstrap:
-					chainConfigStart := time.Now()
 					if err := createJDChainConfigs(ctx, node, supportedChains, jd); err != nil {
 						return fmt.Errorf("failed to create supported chains in node %s: %w", node.Name, err)
 					}
-					framework.L.Info().
-						Str("don", d.Name).
-						Str("node", node.Name).
-						Float64("duration_s", roundSeconds(time.Since(chainConfigStart))).
-						Msg("JD chain-config setup completed")
 				case RoleGateway:
 					// no chains configuration needed for gateway nodes
 				default:
@@ -373,7 +371,7 @@ func NewNode(ctx context.Context, name string, nodeMetadata *NodeMetadata, ctfNo
 		Email:       ctfNode.Node.APIAuthUser,
 		Password:    ctfNode.Node.APIAuthPassword,
 		InternalIP:  ctfNode.Node.InternalIP,
-		HTTPTimeout: ptr.Ptr(10 * time.Second),
+		HTTPTimeout: new(10 * time.Second),
 	})
 	if cErr != nil {
 		return nil, fmt.Errorf("failed to create node rest client: %w", cErr)
@@ -436,8 +434,6 @@ type JobDistributorDetails struct {
 type Addresses struct {
 	AdminAddress string `toml:"admin_address" json:"admin_address"` // address used to pay for transactions, applicable only for worker nodes
 	MultiAddress string `toml:"multi_address" json:"multi_address"` // multi address used by OCR2, applicable only for bootstrap nodes
-
-	// maybe in the future add public addresses per chain to avoid the need to access node's keys every time?
 }
 
 type NodeClients struct {
@@ -461,9 +457,11 @@ var (
 
 func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockchains.Blockchain, jd nodeChainConfigLister) error {
 	ocr2BundleIDsByType := make(map[string]string)
-
+	// Dedupe by (chain ID, chain type) so we never create the same config twice.
+	seen := make(map[string]struct{})
 	for _, chain := range supportedChains {
 		var account string
+		var accountAddrPubKey string
 		chainIDStr := strconv.FormatUint(chain.ChainID(), 10)
 
 		switch strings.ToLower(chain.ChainFamily()) {
@@ -500,15 +498,14 @@ func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 				account = accounts[0]
 			}
 		case chainselectors.FamilyAptos:
-			// always fetch; currently Node doesn't have Aptos keys
-			accounts, err := n.Clients.GQLClient.FetchKeys(ctx, strings.ToUpper(chain.ChainFamily()))
-			if err != nil {
-				return fmt.Errorf("failed to fetch account address for node %s and chain %s: %w", n.Name, chain.ChainFamily(), err)
+			aptosAccount, aptosErr := aptosAccountForNode(n)
+			if aptosErr != nil {
+				return fmt.Errorf("failed to fetch aptos account address for node %s: %w", n.Name, aptosErr)
 			}
-			if len(accounts) == 0 {
-				return fmt.Errorf("failed to fetch account address for node %s and chain %s", n.Name, chain.ChainFamily())
-			}
-			account = accounts[0]
+			account = aptosAccount
+			// Deployment parsing prefers AccountAddressPublicKey for Aptos chain configs.
+			// Mirror transmitter into this field so OCRConfigForChainSelector always resolves it.
+			accountAddrPubKey = account
 		default:
 			return fmt.Errorf("unsupported chainType %v", chain.ChainFamily())
 		}
@@ -517,6 +514,11 @@ func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 		if chain.IsFamily(blockchain.FamilyTron) {
 			chainType = strings.ToUpper(blockchain.FamilyEVM)
 		}
+		dedupeKey := chainIDStr + "\x00" + chainType
+		if _, exists := seen[dedupeKey]; exists {
+			continue
+		}
+		seen[dedupeKey] = struct{}{}
 
 		ocr2BundleID, ok := ocr2BundleIDsByType[chainType]
 		if !ok {
@@ -536,33 +538,46 @@ func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 		n.Keys.OCR2BundleIDs[strings.ToLower(chainType)] = ocr2BundleID
 
 		// Retry create+observe to preserve the original JD behavior.
-		retryErr := retry.Do(ctx, retry.WithMaxDuration(jdChainConfigPollTimeout, retry.NewConstant(3*time.Second)), func(ctx context.Context) error {
+		retryErr := retry.New(
+			retry.Context(ctx),
+			retry.Delay(500*time.Millisecond),
+			retry.Attempts(5),
+			retry.DelayType(retry.BackOffDelay),
+		).Do(func() error {
 			nodeChainConfigIDs, err := listNodeChainConfigIDs(ctx, jd, n.JobDistributorDetails.NodeID)
 			if err != nil {
-				return retry.RetryableError(fmt.Errorf("failed to list node chain configs for node %s: %w", n.Name, err))
+				return fmt.Errorf("failed to list node chain configs for node %s: %w", n.Name, err)
 			}
 			if _, exists := nodeChainConfigIDs[chainIDStr]; exists {
 				return nil
 			}
 
+			// We need a JD chain config for each chain because later changesets ask the
+			// node for chain data. Each node also needs OCR2 enabled because p2pIDs are
+			// used by some contracts to identify nodes (e.g. capability registry).
 			_, err = n.Clients.GQLClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
-				JobDistributorID: n.JobDistributorDetails.JDID,
-				ChainID:          chainIDStr,
-				ChainType:        chainType,
-				AccountAddr:      account,
-				AdminAddr:        n.Addresses.AdminAddress,
-				Ocr2Enabled:      true,
-				Ocr2IsBootstrap:  n.HasRole(RoleBootstrap),
-				Ocr2Multiaddr:    n.Addresses.MultiAddress,
-				Ocr2P2PPeerID:    n.Keys.P2PKey.PeerID.String(),
-				Ocr2KeyBundleID:  ocr2BundleID,
-				Ocr2Plugins:      `{}`,
+				JobDistributorID:  n.JobDistributorDetails.JDID,
+				ChainID:           chainIDStr,
+				ChainType:         chainType,
+				AccountAddr:       account,
+				AccountAddrPubKey: accountAddrPubKey,
+				AdminAddr:         n.Addresses.AdminAddress,
+				Ocr2Enabled:       true,
+				Ocr2IsBootstrap:   n.HasRole(RoleBootstrap),
+				Ocr2Multiaddr:     n.Addresses.MultiAddress,
+				Ocr2P2PPeerID:     n.Keys.P2PKey.PeerID.String(),
+				Ocr2KeyBundleID:   ocr2BundleID,
+				Ocr2Plugins:       `{}`,
 			})
 			if err != nil {
+				// Config may already exist (e.g. duplicate key from prior run or concurrent node registration); treat as success.
+				if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "23505") {
+					return nil
+				}
 				return err
 			}
 
-			return retry.RetryableError(errors.New("retrying CreateChainConfig in JD"))
+			return errors.New("retrying CreateChainConfig in JD")
 		})
 		if retryErr != nil {
 			return fmt.Errorf("failed to create JD chain configuration for node %s: %w", n.Name, retryErr)
@@ -598,6 +613,38 @@ func listNodeChainConfigIDs(ctx context.Context, jd nodeChainConfigLister, nodeI
 	}
 
 	return chainIDs, nil
+}
+
+func aptosAccountForNode(n *Node) (string, error) {
+	if n.Keys != nil && n.Keys.Aptos != nil && n.Keys.Aptos.Account != "" {
+		return n.Keys.Aptos.Account, nil
+	}
+
+	// Prefer Aptos account from node metadata when available. Falling back to the
+	// framework helper here is only to backfill older metadata shapes, and we
+	// cache the normalized account back into n.Keys.Aptos below so later callers
+	// can reuse it.
+	runtimeAccounts, err := n.Clients.RestClient.MustReadAptosAccounts()
+	if err != nil {
+		return "", fmt.Errorf("failed to read Aptos keys from node API: %w", err)
+	}
+	if len(runtimeAccounts) == 0 {
+		return "", fmt.Errorf("no Aptos keys found on node %s", n.Name)
+	}
+
+	account, err := crypto.NormalizeAptosAccount(runtimeAccounts[0])
+	if err != nil {
+		return "", fmt.Errorf("invalid Aptos account returned by node API: %w", err)
+	}
+
+	if n.Keys != nil {
+		if n.Keys.Aptos == nil {
+			n.Keys.Aptos = &crypto.AptosKey{}
+		}
+		n.Keys.Aptos.Account = account
+	}
+
+	return account, nil
 }
 
 // AcceptJob accepts the job proposal for the given job proposal spec
@@ -654,6 +701,7 @@ func (n *Node) RegisterNodeToJobDistributor(ctx context.Context, cldfEnv *cldf.E
 
 	in := offchain_ops.JDRegisterNodeOpInput{
 		Domain:      cre_offchain.ProductLabel,
+		Environment: cldfEnv.Name,
 		Name:        n.Name,
 		CSAKey:      strings.TrimPrefix(n.Keys.CSAKey.Key, "csa_"),
 		P2PID:       n.PeerID(),
@@ -725,21 +773,28 @@ func (n *Node) setUpAndLinkJobDistributor(ctx context.Context, cldfEnv *cldf.Env
 		return fmt.Errorf("failed to create job distributor in node %s: %w", n.Name, err)
 	}
 	// wait for the node to connect to the job distributor
-	err = retry.Do(ctx, retry.WithMaxDuration(1*time.Minute, retry.NewFibonacci(1*time.Second)), func(ctx context.Context) error {
+	err = retry.New(
+		retry.Context(ctx),
+		retry.Delay(500*time.Millisecond),
+		retry.Attempts(5),
+		retry.DelayType(retry.BackOffDelay),
+	).Do(func() error {
 		getRes, getErr := jd.GetNode(ctx, &nodev1.GetNodeRequest{
 			Id: n.JobDistributorDetails.NodeID,
 		})
 		if getErr != nil {
-			return retry.RetryableError(fmt.Errorf("failed to get node %s: %w", n.Name, getErr))
+			return fmt.Errorf("failed to get node %s: %w", n.Name, getErr)
 		}
 		if getRes.GetNode() == nil {
 			return fmt.Errorf("no node found for node id %s", n.JobDistributorDetails.NodeID)
 		}
 		if !getRes.GetNode().IsConnected {
-			return retry.RetryableError(fmt.Errorf("node %s not connected to job distributor", n.Name))
+			return fmt.Errorf("node %s not connected to job distributor", n.Name)
 		}
 		return nil
-	})
+	},
+	)
+
 	if err != nil {
 		return fmt.Errorf("failed to connect node %s to job distributor: %w", n.Name, err)
 	}
@@ -802,7 +857,6 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) error {
 		return errors.New("input is nil")
 	}
 
-	start := time.Now()
 	dons := input.Dons.List()
 	donMetadata := input.Topology.DonsMetadata.List()
 	nodeIDsByDON := make([][]string, len(dons))
@@ -810,7 +864,6 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) error {
 	errGroup, groupCtx := errgroup.WithContext(ctx)
 	for idx, don := range dons {
 		errGroup.Go(func() error {
-			donStart := time.Now()
 			supportedChains, schErr := findDonSupportedChains(donMetadata[idx], input.Blockchains)
 			if schErr != nil {
 				return errors.Wrap(schErr, "failed to find supported chains for DON")
@@ -821,10 +874,6 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) error {
 			}
 
 			nodeIDsByDON[idx] = don.JDNodeIDs()
-			framework.L.Info().
-				Str("don", don.Name).
-				Float64("duration_s", roundSeconds(time.Since(donStart))).
-				Msg("JD registration completed for DON")
 			return nil
 		})
 	}
@@ -840,7 +889,6 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) error {
 
 	input.CldfEnvironment.NodeIDs = nodeIDs
 	framework.L.Info().
-		Float64("duration_s", roundSeconds(time.Since(start))).
 		Msg("Post-start JD linking completed")
 
 	return nil
@@ -863,12 +911,23 @@ func HasFlag(values []string, capability string) bool {
 
 func findDonSupportedChains(donMetadata *DonMetadata, bcs []blockchains.Blockchain) ([]blockchains.Blockchain, error) {
 	chains := make([]blockchains.Blockchain, 0)
+	chainCapabilityIDs := donMetadata.MustNodeSet().ChainCapabilityChainIDs()
 
 	for _, bc := range bcs {
-		hasEVMChainEnabled := slices.Contains(donMetadata.EVMChains(), bc.ChainID())
-		chainIsSolana := bc.IsFamily(chainselectors.FamilySolana)
+		hasEVMChainEnabled := slices.Contains(donMetadata.EVMChains(), bc.ChainID()) || len(donMetadata.EVMChains()) == 0
+		hasChainCapabilityEnabled := slices.Contains(chainCapabilityIDs, bc.ChainID())
+		hasSolanaChainEnabled := false
+		if bc.IsFamily(chainselectors.FamilySolana) {
+			solChain, ok := bc.(*solana.Blockchain)
+			if !ok {
+				return nil, fmt.Errorf("expected solana blockchain, got %T", bc)
+			}
+			hasSolanaChainEnabled = slices.Contains(donMetadata.SolanaChains(), solChain.SolanaChainID)
+		}
 
-		if !hasEVMChainEnabled && (!chainIsSolana) {
+		// Keep legacy EVM/Solana behavior, and also include chains that are explicitly
+		// referenced by chain-scoped capabilities (e.g. aptos-4).
+		if !hasEVMChainEnabled && !hasChainCapabilityEnabled && !hasSolanaChainEnabled {
 			continue
 		}
 
@@ -876,10 +935,6 @@ func findDonSupportedChains(donMetadata *DonMetadata, bcs []blockchains.Blockcha
 	}
 
 	return chains, nil
-}
-
-func roundSeconds(d time.Duration) float64 {
-	return math.Round(d.Seconds()*10) / 10
 }
 
 // Make DonMetadata also implement it, just in case?
@@ -906,4 +961,58 @@ func (d *Don) ResolveORC3Config(config *keystone_changeset.OracleConfig) *keysto
 	config.TransmissionSchedule = []int{d.WorkersCount()}
 
 	return config
+}
+
+// GetVaultCapabilityDON returns the DON that has the vault capability registered,
+// along with the current decoded CapabilityConfig for the vault entry.
+func GetVaultCapabilityDON(ctx context.Context, sethClient *seth.Client, capabilitiesRegistryAddr string) (*capabilities_registry_v2.CapabilitiesRegistryDONInfo, *capabilitiespb.CapabilityConfig, error) {
+	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
+		common.HexToAddress(capabilitiesRegistryAddr), sethClient.Client,
+	)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to create capabilities registry wrapper")
+	}
+
+	const pageSize int64 = 100
+
+	var (
+		targetDON *capabilities_registry_v2.CapabilitiesRegistryDONInfo
+		targetCC  capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration
+	)
+	for start := int64(0); targetDON == nil; start += pageSize {
+		donsPage, getErr := capReg.GetDONs(&bind.CallOpts{Context: ctx}, big.NewInt(start), big.NewInt(pageSize))
+		if getErr != nil {
+			return nil, nil, errors.Wrap(getErr, "failed to get DONs from capabilities registry")
+		}
+
+		for i := range donsPage {
+			for _, cc := range donsPage[i].CapabilityConfigurations {
+				if cc.CapabilityId == vault_helpers.CapabilityID {
+					don := donsPage[i]
+					targetDON = &don
+					targetCC = cc
+					break
+				}
+			}
+			if targetDON != nil {
+				break
+			}
+		}
+
+		if len(donsPage) < int(pageSize) {
+			break
+		}
+	}
+	if targetDON == nil {
+		return nil, nil, fmt.Errorf("no DON with %s capability found in capabilities registry", vault_helpers.CapabilityID)
+	}
+
+	existingCfg := &capabilitiespb.CapabilityConfig{}
+	if len(targetCC.Config) > 0 {
+		if unmarshalErr := proto.Unmarshal(targetCC.Config, existingCfg); unmarshalErr != nil {
+			return nil, nil, errors.Wrap(unmarshalErr, "failed to unmarshal existing vault capability config")
+		}
+	}
+
+	return targetDON, existingCfg, nil
 }

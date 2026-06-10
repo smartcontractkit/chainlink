@@ -5,10 +5,10 @@ import (
 
 	"dario.cat/mergo"
 	"github.com/Masterminds/semver/v3"
+	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
 
 type UpdateLanesSequenceInput struct {
@@ -17,14 +17,15 @@ type UpdateLanesSequenceInput struct {
 	OffRampApplySourceChainConfigUpdatesSequenceInput
 	OnRampApplyDestChainConfigUpdatesSequenceInput
 	RouterApplyRampUpdatesSequenceInput
+	NonceManagerUpdatesSequenceInput
 }
 
 var UpdateLanesSequence = operations.NewSequence(
 	"UpdateLanesSequence",
 	semver.MustParse("1.0.0"),
 	"Updates lanes on CCIP 1.6.0",
-	func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input UpdateLanesSequenceInput) (map[uint64][]opsutil.EVMCallOutput, error) {
-		result := make(map[uint64][]opsutil.EVMCallOutput)
+	func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input UpdateLanesSequenceInput) (map[uint64][]opsevm.EVMCallOutput, error) {
+		result := make(map[uint64][]opsevm.EVMCallOutput)
 
 		result, err := runAndMergeSequence(b, chains, FeeQuoterApplyDestChainConfigUpdatesSequence, input.FeeQuoterApplyDestChainConfigUpdatesSequenceInput, result)
 		if err != nil {
@@ -56,6 +57,14 @@ var UpdateLanesSequence = operations.NewSequence(
 		}
 		b.Logger.Info("Ramps updated on Routers")
 
+		if len(input.NonceManagerUpdatesSequenceInput.UpdatesByChain) > 0 {
+			result, err = runAndMergeSequence(b, chains, UpdateNonceManagerSequence, input.NonceManagerUpdatesSequenceInput, result)
+			if err != nil {
+				return nil, err
+			}
+			b.Logger.Info("Previous ramps updated on NonceManagers")
+		}
+
 		return result, nil
 	},
 )
@@ -63,12 +72,12 @@ var UpdateLanesSequence = operations.NewSequence(
 func runAndMergeSequence[IN any](
 	b operations.Bundle,
 	chains map[uint64]cldf_evm.Chain,
-	seq *operations.Sequence[IN, map[uint64][]opsutil.EVMCallOutput, map[uint64]cldf_evm.Chain],
+	seq *operations.Sequence[IN, map[uint64][]opsevm.EVMCallOutput, map[uint64]cldf_evm.Chain],
 	input IN,
-	agg map[uint64][]opsutil.EVMCallOutput,
-) (map[uint64][]opsutil.EVMCallOutput, error) {
+	agg map[uint64][]opsevm.EVMCallOutput,
+) (map[uint64][]opsevm.EVMCallOutput, error) {
 	if agg == nil {
-		agg = make(map[uint64][]opsutil.EVMCallOutput)
+		agg = make(map[uint64][]opsevm.EVMCallOutput)
 	}
 	report, err := operations.ExecuteSequence(b, seq, chains, input)
 	if err != nil {

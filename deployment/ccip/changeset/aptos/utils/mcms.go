@@ -12,11 +12,14 @@ import (
 	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/compile"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 const MCMSProposalVersion = "v1"
@@ -27,16 +30,16 @@ func GenerateProposal(
 	chainSel uint64,
 	operations []mcmstypes.BatchOperation,
 	description string,
-	mcmsCfg proposalutils.TimelockConfig,
+	mcmsCfg cldfproposalutils.TimelockConfig,
 ) (*mcms.TimelockProposal, error) {
 	// Get role from action
-	role, err := proposalutils.GetAptosRoleFromAction(mcmsCfg.MCMSAction)
+	role, err := cldfproposalutils.GetAptosRoleFromAction(mcmsCfg.MCMSAction)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role from action: %w", err)
 	}
 	inspector := aptosmcms.NewInspector(env.BlockChains.AptosChains()[chainSel].Client, role)
 
-	return proposalutils.BuildProposalFromBatchesV2(
+	return proposeutils.BuildProposalFromBatchesV2(
 		env,
 		map[uint64]string{chainSel: mcmsAddress.StringLong()},
 		map[uint64]string{chainSel: mcmsAddress.StringLong()},
@@ -58,15 +61,15 @@ func GenerateCurseMCMSProposal(
 	chainSel uint64,
 	operations []mcmstypes.BatchOperation,
 	description string,
-	mcmsCfg proposalutils.TimelockConfig,
+	mcmsCfg cldfproposalutils.TimelockConfig,
 ) (*mcms.TimelockProposal, error) {
-	role, err := proposalutils.GetAptosRoleFromAction(mcmsCfg.MCMSAction)
+	role, err := cldfproposalutils.GetAptosRoleFromAction(mcmsCfg.MCMSAction)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role from action: %w", err)
 	}
 	inspector := aptosmcms.NewInspectorWithMCMSType(env.BlockChains.AptosChains()[chainSel].Client, role, aptosmcms.MCMSTypeCurse)
 
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		env,
 		map[uint64]string{chainSel: curseMCMSAddress.StringLong()},
 		map[uint64]string{chainSel: curseMCMSAddress.StringLong()},

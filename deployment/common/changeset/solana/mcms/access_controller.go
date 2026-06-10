@@ -7,6 +7,8 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/rpc"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
@@ -18,13 +20,12 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
 func deployAccessControllerProgram(
-	e cldf.Environment, chainState *state.MCMSWithTimelockStateSolana,
+	e cldf.Environment, chainState *solstate.MCMSWithTimelockState,
 	chain cldf_solana.Chain, addressBook cldf.AddressBook,
 ) error {
 	typeAndVersion := cldf.NewTypeAndVersion(commontypes.AccessControllerProgram, deployment.Version1_0_0)
@@ -54,7 +55,7 @@ func deployAccessControllerProgram(
 			return fmt.Errorf("failed to save address: %w", err)
 		}
 
-		err = chainState.SetState(commontypes.AccessControllerProgram, programID, state.PDASeed{})
+		err = chainState.SetState(commontypes.AccessControllerProgram, programID, solstate.PDASeed{})
 		if err != nil {
 			return fmt.Errorf("failed to save onchain state: %w", err)
 		}
@@ -68,7 +69,7 @@ func deployAccessControllerProgram(
 }
 
 func initAccessController(
-	e cldf.Environment, chainState *state.MCMSWithTimelockStateSolana, contractType cldf.ContractType,
+	e cldf.Environment, chainState *solstate.MCMSWithTimelockState, contractType cldf.ContractType,
 	chain cldf_solana.Chain, addressBook cldf.AddressBook,
 ) error {
 	if chainState.AccessControllerProgram.IsZero() {
@@ -115,7 +116,7 @@ func initAccessController(
 		return fmt.Errorf("failed to save address: %w", err)
 	}
 
-	err = chainState.SetState(contractType, account.PublicKey(), state.PDASeed{})
+	err = chainState.SetState(contractType, account.PublicKey(), solstate.PDASeed{})
 	if err != nil {
 		return fmt.Errorf("failed to save onchain state: %w", err)
 	}
@@ -164,10 +165,10 @@ func initializeAccessController(
 	return nil
 }
 
-func setupRoles(chainState *state.MCMSWithTimelockStateSolana, chain cldf_solana.Chain) error {
-	proposerPDA := state.GetMCMSignerPDA(chainState.McmProgram, chainState.ProposerMcmSeed)
-	cancellerPDA := state.GetMCMSignerPDA(chainState.McmProgram, chainState.CancellerMcmSeed)
-	bypasserPDA := state.GetMCMSignerPDA(chainState.McmProgram, chainState.BypasserMcmSeed)
+func setupRoles(chainState *solstate.MCMSWithTimelockState, chain cldf_solana.Chain) error {
+	proposerPDA := pdasol.GetMCMSignerPDA(chainState.McmProgram, chainState.ProposerMcmSeed)
+	cancellerPDA := pdasol.GetMCMSignerPDA(chainState.McmProgram, chainState.CancellerMcmSeed)
+	bypasserPDA := pdasol.GetMCMSignerPDA(chainState.McmProgram, chainState.BypasserMcmSeed)
 
 	err := addAccess(chain, chainState, timelockBindings.Proposer_Role, proposerPDA)
 	if err != nil {
@@ -193,10 +194,10 @@ func setupRoles(chainState *state.MCMSWithTimelockStateSolana, chain cldf_solana
 }
 
 func addAccess(
-	chain cldf_solana.Chain, chainState *state.MCMSWithTimelockStateSolana,
+	chain cldf_solana.Chain, chainState *solstate.MCMSWithTimelockState,
 	role timelockBindings.Role, accounts ...solana.PublicKey,
 ) error {
-	timelockConfigPDA := state.GetTimelockConfigPDA(chainState.TimelockProgram, chainState.TimelockSeed)
+	timelockConfigPDA := pdasol.GetTimelockConfigPDA(chainState.TimelockProgram, chainState.TimelockSeed)
 
 	instructionBuilder := timelockBindings.NewBatchAddAccessInstruction([32]uint8(chainState.TimelockSeed), role,
 		timelockConfigPDA, chainState.AccessControllerProgram, chainState.RoleAccount(role), chain.DeployerKey.PublicKey())

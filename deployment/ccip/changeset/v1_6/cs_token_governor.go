@@ -11,12 +11,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/token_governor"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -58,7 +58,7 @@ type TokenGovernor struct {
 
 type TokenGovernorChangesetConfig struct {
 	Tokens map[uint64]map[shared.TokenSymbol]TokenGovernor
-	MCMS   *proposalutils.TimelockConfig
+	MCMS   *cldfproposalutils.TimelockConfig
 }
 
 type TokenGovernorGrantRole struct {
@@ -68,7 +68,7 @@ type TokenGovernorGrantRole struct {
 
 type TokenGovernorRoleChangesetConfig struct {
 	Tokens map[uint64]map[shared.TokenSymbol]TokenGovernorGrantRole
-	MCMS   *proposalutils.TimelockConfig
+	MCMS   *cldfproposalutils.TimelockConfig
 }
 
 // String returns the string representation of the TokenGovernorRole.

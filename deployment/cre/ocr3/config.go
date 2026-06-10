@@ -26,10 +26,10 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 
+	evm "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 var (
@@ -299,6 +299,7 @@ type ConfigureOCR3Config struct {
 	DryRun     bool
 
 	ReportingPluginConfigOverride []byte
+	ExtraSignerFamilies           []string
 
 	UseMCMS  bool
 	Strategy strategies.TransactionStrategy
@@ -327,7 +328,7 @@ func ConfigureOCR3ContractFromJD(env *cldf.Environment, cfg ConfigureOCR3Config)
 		return nil, err
 	}
 
-	config, err := GenerateOCR3ConfigFromNodes(*cfg.OCR3Config, nodes, cfg.ChainSel, env.OCRSecrets, cfg.ReportingPluginConfigOverride, nil)
+	config, err := GenerateOCR3ConfigFromNodes(*cfg.OCR3Config, nodes, cfg.ChainSel, env.OCRSecrets, cfg.ReportingPluginConfigOverride, cfg.ExtraSignerFamilies)
 	if err != nil {
 		return nil, err
 	}

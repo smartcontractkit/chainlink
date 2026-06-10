@@ -16,9 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_1"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_2"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_3"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
@@ -56,20 +53,16 @@ func GetRegistryContractABI(version KeeperRegistryVersion) (*abi.ABI, error) {
 		err         error
 	)
 	switch version {
-	case RegistryVersion_1_0, RegistryVersion_1_1:
-		contractABI, err = keeper_registry_wrapper1_1.KeeperRegistryMetaData.GetAbi()
-	case RegistryVersion_1_2:
-		contractABI, err = keeper_registry_wrapper1_2.KeeperRegistryMetaData.GetAbi()
-	case RegistryVersion_1_3:
-		contractABI, err = keeper_registry_wrapper1_3.KeeperRegistryMetaData.GetAbi()
 	case RegistryVersion_2_0:
 		contractABI, err = keeper_registry_wrapper2_0.KeeperRegistryMetaData.GetAbi()
 	case RegistryVersion_2_1:
 		contractABI, err = i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterMetaData.GetAbi()
 	case RegistryVersion_2_2:
 		contractABI, err = i_automation_registry_master_wrapper_2_2.IAutomationRegistryMasterMetaData.GetAbi()
+	case RegistryVersion_2_3:
+		contractABI, err = i_automation_registry_master_wrapper_2_3.IAutomationRegistryMaster23MetaData.GetAbi()
 	default:
-		contractABI, err = keeper_registry_wrapper2_0.KeeperRegistryMetaData.GetAbi()
+		return nil, fmt.Errorf("unsupported keeper registry version: %v", version)
 	}
 
 	return contractABI, err

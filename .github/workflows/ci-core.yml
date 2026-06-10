@@ -1,5 +1,5 @@
 name: CI Core
-run-name: CI Core ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}
+run-name: CI Core
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
@@ -14,7 +14,7 @@ on:
   merge_group:
   pull_request:
   schedule:
-    - cron: "0 0,6,12,18 * * *"
+    - cron: "0 0,1,2,3,4,5,6,20,21,22,23 * * *" # Run regularly at night to get better flaky test data
   workflow_dispatch:
 
 jobs:
@@ -24,15 +24,6 @@ jobs:
       pull-requests: read
     outputs:
       affected-modules: ${{ steps.changed-modules.outputs.modules-json }}
-      # Runs on workflow changes, any deployment change, or any (non-ignored) core change
-      should-run-deployment-tests: >-
-        ${{
-          steps.match-some.outputs.workflow == 'true' ||
-          steps.match-some.outputs.deployment == 'true' ||
-          steps.match-every.outputs.core-non-ignored == 'true' ||
-          github.event_name == 'schedule' ||
-          github.event_name == 'workflow_dispatch'
-        }}
       # Runs on workflow changes, and any (non-ignored) core changes
       should-run-core-tests: >-
         ${{
@@ -44,25 +35,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: match-some
         with:
           # "if any changed file matches one or more of the conditions" (https://github.com/dorny/paths-filter/issues/225)
           predicate-quantifier: some
-          # deployment - any changes in the deployment module
           # workflow - any changes that could affect this workflow definition
           #  - Assume any repository action changes affect this workflow
           filters: |
-            deployment:
-              - 'deployment/**'
             workflow:
               - '.github/workflows/ci-core.yml'
               - '.github/actions/**'
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: match-every
         with:
           # "if any changed file match all of the conditions" (https://github.com/dorny/paths-filter/issues/225)
@@ -96,6 +84,65 @@ jobs:
             all:
               - '**'
 
+      - name: Decide which tests to run (rollout-only)
+        # To validate that this properly tests, we will run this beside the dorny/paths-filter actions
+        # before using its output to actually gate any jobs.
+        id: triggers
+        uses: smartcontractkit/.github/actions/advanced-triggers@advanced-triggers/v1
+        continue-on-error: true
+        with:
+          file-sets: |
+            go-files:
+              - "**/*.go"
+              - "**/go.mod"
+              - "**/go.sum"
+            core-files:
+              - "core/**"
+            all-test-files:
+              - "**/testdata/**"
+              - "**/*_test.go"
+            core-test-files:
+              - "testdata/**"
+              - "core/**/testdata/**"
+              - "core/**/*_test.go"
+            e2e-tests-files:
+              - "system-tests/**"
+              - "integration-tests/**"
+            workflow-files:
+              - ".github/workflows/ci-core.yml"
+              - ".github/actions/**"
+            deployment-files:
+              - "deployment/**"
+            ignored-files:
+              - "core/scripts/cre/environment/examples/workflows/**"
+          # Note:
+          # - for pull_request, merge_group, and push events, a trigger will resolve to true if any changed files match the path/glob patterns
+          #     - exclusion-sets/negations are applied first, and therefore filter all changed files before inclusion sets are applied
+          # - by default these will resolve to true for schedule, and workflow_dispatch events
+          triggers: |
+            core-tests:
+              exclusion-sets: [ e2e-tests-files, deployment-files, ignored-files ]
+              inclusion-sets: [ go-files, core-files, all-test-files, workflow-files ]
+              paths:
+                - "tools/bin/go_core_tests"
+            core-fuzz-tests:
+              exclusion-sets: [ e2e-tests-files, deployment-files, ignored-files ]
+              inclusion-sets: [ go-files, core-files, all-test-files, workflow-files ]
+              paths:
+                - "!**/testdata/**"
+                - "**/fuzz/**"
+                - "tools/bin/go_core_fuzz"
+            core-race-tests:
+              exclusion-sets: [ e2e-tests-files, deployment-files, ignored-files ]
+              inclusion-sets: [ go-files, core-files, all-test-files, workflow-files ]
+              paths:
+                - "tools/bin/go_core_race_tests"
+            core-integration-tests:
+              exclusion-sets: [ e2e-tests-files, deployment-files, ignored-files ]
+              inclusion-sets: [ go-files, core-files, all-test-files, workflow-files ]
+              paths:
+                - "tools/bin/go_core_tests_integration"
+
       - name: Changed modules
         id: changed-modules
         uses: smartcontractkit/.github/actions/changed-modules-go@changed-modules-go/v1
@@ -106,22 +153,26 @@ jobs:
             **/*.go
             **/go.mod
             **/go.sum
+            **/.golangci.yml
           module-patterns: |
             **
             !core/scripts/cre/environment/examples/workflows/**
 
   golangci:
     name: GolangCI Lint
-    needs: [filter, run-frequency ]
+    needs: [filter, run-frequency]
     # We don't directly merge dependabot PRs to not waste the resources.
-    if: ${{ needs.filter.outputs.affected-modules != '[]' && github.event_name != 'merge_group' && github.actor != 'dependabot[bot]' }}
+    if:
+      ${{ needs.filter.outputs.affected-modules != '[]' && github.event_name !=
+      'merge_group' && github.actor != 'dependabot[bot]' }}
     permissions:
       # To annotate code in the PR.
       checks: write
       contents: read
       # For golangci-lint-action's `only-new-issues` option.
       pull-requests: read
-    runs-on: runs-on=${{ github.run_id }}-${{ strategy.job-index }}/cpu=16/ram=32/family=c6gd/spot=false/image=ubuntu24-full-arm64/extras=s3-cache
+    runs-on: runs-on=${{ github.run_id }}-${{ strategy.job-index
+      }}/cpu=16/ram=32/family=c6gd/spot=false/image=ubuntu24-full-arm64/extras=s3-cache
     strategy:
       fail-fast: false
       matrix:
@@ -133,7 +184,7 @@ jobs:
           metrics: cpu,network,memory,disk
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
 
@@ -146,8 +197,7 @@ jobs:
 
       - name: Notify Slack
         # Skip for now as it's always failing on scheduled runs
-        if: false
-        # if: ${{ failure() && needs.run-frequency.outputs.one-per-day-frequency == 'true' }}
+        if: ${{ failure() && needs.run-frequency.outputs.one-per-day-frequency == 'true' && 'false' == 'true' }}
         uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
         with:
           method: chat.postMessage
@@ -168,7 +218,9 @@ jobs:
       - name: Check Golangci-lint Matrix Results
         env:
           GOLANGCI_RESULT: ${{ needs.golangci.result }}
-          ALLOW_FAILURE: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'allow-lint-issues') }}
+          ALLOW_FAILURE:
+            ${{ contains(join(github.event.pull_request.labels.*.name, ' '),
+            'allow-lint-issues') }}
           SKIPPED: ${{ needs.filter.outputs.affected-modules == '[]' }}
         run: |
           if [[ "${GOLANGCI_RESULT}" == "success" ]]; then
@@ -206,42 +258,57 @@ jobs:
       matrix:
         type:
           - cmd: go_core_tests
-            os: runs-on=${{ github.run_id }}-unit/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+            os: runs-on=${{ github.run_id
+              }}-unit/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             trunk-auto-quarantine: "true"
+            go-mod-directory: ""
+            setup-solana: "false"
+            setup-aptos: "false"
+            setup-sui: "false"
+            install-loopps: "false"
 
           - cmd: go_core_tests_integration
-            os: runs-on=${{ github.run_id }}-integ/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+            os: runs-on=${{ github.run_id
+              }}-integ/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             trunk-auto-quarantine: "true"
             setup-solana: "true"
             install-loopps: "true"
+            go-mod-directory: ""
+            setup-aptos: "false"
+            setup-sui: "false"
 
           - cmd: go_core_fuzz
-            os: runs-on=${{ github.run_id}}-fuzz/cpu=8/ram=32/family=m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+            os: runs-on=${{
+              github.run_id}}-fuzz/cpu=8/ram=32/family=m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
+            trunk-auto-quarantine: "false"
+            go-mod-directory: ""
+            setup-solana: "false"
+            setup-aptos: "false"
+            setup-sui: "false"
+            install-loopps: "false"
 
           - cmd: go_core_race_tests
-            os: runs-on=${{ github.run_id}}-race/cpu=64/ram=128/family=c7i/volume=80gb/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+            os: runs-on=${{
+              github.run_id}}-race/cpu=64/ram=128/family=c7i/volume=80gb/spot=false/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
-
-          - cmd: go_core_ccip_deployment_tests
-            os: runs-on=${{ github.run_id }}-deployment/cpu=64/ram=128/family=c6i+c7i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
-            should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
-            trunk-auto-quarantine: "true"
-            go-mod-directory: "deployment/"
-            setup-solana: "true"
-            setup-aptos: "true"
-            install-loopps: "true"
-            setup-sui: "true"
+            trunk-auto-quarantine: "false"
+            go-mod-directory: ""
+            setup-solana: "false"
+            setup-aptos: "false"
+            setup-sui: "false"
+            install-loopps: "false"
 
     name: Core Tests (${{ matrix.type.cmd }}) # Be careful modifying the job name, as it is used to fetch the job URL
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: ${{ github.actor != 'dependabot[bot]' }}
-    needs: [filter, run-frequency ]
+    needs: [filter, run-frequency]
     timeout-minutes: 60
     # Use ubuntu-latest for jobs that will be skipped
-    runs-on: ${{ matrix.type.should-run == 'true' && matrix.type.os || 'ubuntu-latest' }}
+    runs-on: ${{ matrix.type.should-run == 'true' && matrix.type.os ||
+      'ubuntu-latest' }}
     permissions:
       id-token: write
       contents: read
@@ -254,7 +321,7 @@ jobs:
 
       - name: Checkout the repo
         if: ${{ matrix.type.should-run == 'true' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
 
@@ -263,13 +330,16 @@ jobs:
         uses: ./.github/actions/setup-go
         with:
           # race/fuzz tests don't benefit repeated caching, so restore from develop's build cache
-          restore-build-cache-only: ${{ matrix.type.cmd == 'go_core_fuzz' || matrix.type.cmd == 'go_core_race_tests' }}
+          restore-build-cache-only: ${{ matrix.type.cmd == 'go_core_fuzz' ||
+            matrix.type.cmd == 'go_core_race_tests' }}
           build-cache-version: ${{ matrix.type.cmd }}
           go-version-file: ${{ matrix.type.go-mod-directory }}go.mod
           go-module-file: ${{ matrix.type.go-mod-directory }}go.sum
 
       - name: Setup Solana
-        if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-solana == 'true' }}
+        if:
+          ${{ matrix.type.should-run == 'true' && matrix.type.setup-solana == 'true'
+          }}
         uses: ./.github/actions/setup-solana
 
       - name: Setup Aptos
@@ -278,12 +348,12 @@ jobs:
         with:
           CLI_VERSION: 8.1.0
 
-      - name: Setup Sui CLI v1.61.2
+      - name: Setup Sui CLI v1.72.2
         if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-sui == 'true' }}
         uses: ./.github/actions/setup-sui
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          version: mainnet-v1.61.2
+          version: mainnet-v1.72.2
 
       - name: Setup wasmd
         if: ${{ matrix.type.should-run == 'true' }}
@@ -295,6 +365,7 @@ jobs:
         with:
           tmpfs: "true"
           image-tag: "16-alpine"
+          postgres-options: "-c max_connections=1000 -c shared_buffers=2GB -c fsync=off -c synchronous_commit=off -c full_page_writes=off -c client_min_messages=warning" # Turn off some prod-protections to make postgres go brrr. https://github.com/peterldowns/pgtestdb#how-do-i-make-it-go-faster
 
       - name: Touching core/web/assets/index.html
         if: ${{ matrix.type.should-run == 'true' }}
@@ -311,16 +382,18 @@ jobs:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
       - name: Install LOOP Plugins
-        if: ${{ matrix.type.should-run == 'true' && matrix.type.install-loopps == 'true' }}
+        if:
+          ${{ matrix.type.should-run == 'true' && matrix.type.install-loopps == 'true'
+          }}
         run: make install-plugins
 
       - name: Increase Timeouts for Fuzz/Race
         # Increase timeouts for scheduled runs only
         if: ${{ github.event.schedule != '' && matrix.type.should-run == 'true' }}
         run: |
-          echo "TIMEOUT=10m" >> $GITHUB_ENV
-          echo "COUNT=50" >> $GITHUB_ENV
-          echo "FUZZ_TIMEOUT_MINUTES=10">> $GITHUB_ENV
+          echo "TIMEOUT=10m" >> "$GITHUB_ENV"
+          echo "COUNT=50" >> "$GITHUB_ENV"
+          echo "FUZZ_TIMEOUT_MINUTES=10" >> "$GITHUB_ENV"
 
       - name: Run tests
         if: ${{ matrix.type.should-run == 'true' }}
@@ -340,7 +413,9 @@ jobs:
           # See: https://github.com/golang/go/issues/69179
 
       - name: Analyze and upload test results
-        if: ${{ matrix.type.should-run == 'true' && matrix.type.trunk-auto-quarantine == 'true' && !cancelled() }}
+        if:
+          ${{ matrix.type.should-run == 'true' && matrix.type.trunk-auto-quarantine ==
+          'true' && !cancelled() }}
         uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/v1
         with:
           junit-file-path: "./junit.xml"
@@ -349,18 +424,21 @@ jobs:
           trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
           # when auto-quarantine is enabled, allow this to determine test failures
           trunk-upload-only: ${{ matrix.type.trunk-auto-quarantine != 'true' }}
+          # unique name per matrix job to avoid 409 conflict when multiple jobs upload in the same workflow run
+          artifact-name: ${{ matrix.type.cmd }}_test_logs
 
       - name: Print Races
         id: print-races
-        if: ${{ failure() && matrix.type.cmd == 'go_core_race_tests' && matrix.type.should-run == 'true' }}
+        if: ${{ failure() && matrix.type.cmd == 'go_core_race_tests' &&
+          matrix.type.should-run == 'true' }}
         env:
           GH_REPO: ${{ github.repository }}
           GH_RUN_ID: ${{ github.run_id }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          find race.* | xargs cat > race.txt
-          if [[ -s race.txt ]]; then
-            cat race.txt
+          find . -name 'race.*' -type f -exec cat {} + >> races.txt
+          if [[ -s races.txt ]]; then
+            cat races.txt
             echo "post_to_slack=true" | tee -a "$GITHUB_OUTPUT"
           else
             echo "post_to_slack=false" | tee -a "$GITHUB_OUTPUT"
@@ -376,7 +454,7 @@ jobs:
 
       - name: Store logs artifacts
         if: ${{ always() && matrix.type.should-run == 'true' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.type.cmd }}_logs
           path: |
@@ -386,7 +464,6 @@ jobs:
             ./coverage.txt
             ./postgres_logs.txt
             ./junit.xml
-            ./deployment/junit.xml
           retention-days: 7
 
       - name: Notify Slack on Race Test Failure
@@ -411,7 +488,7 @@ jobs:
     if: ${{  needs.filter.outputs.should-run-core-tests == 'true' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -426,7 +503,7 @@ jobs:
 
       - name: Store test report artifacts
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: go_core_scripts_tests_logs
           path: |
@@ -442,7 +519,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
           fetch-depth: 0 # fetches all history for all tags and branches to provide more metadata for sonar reports
@@ -457,8 +534,8 @@ jobs:
           core_artifact="go_core_tests_logs"
           if [ -d "$core_artifact" ]; then
             echo "Found $core_artifact"
-            sonarqube_coverage_report_paths=$(find "$core_artifact" -name coverage.txt | paste -sd "," -)
-            sonarqube_tests_report_paths=$(find "$core_artifact" -name output.txt | paste -sd "," -)
+            sonarqube_coverage_report_paths=$(find "./${core_artifact}" -name coverage.txt | paste -sd "," -)
+            sonarqube_tests_report_paths=$(find "./${core_artifact}" -name output.txt | paste -sd "," -)
             echo "Coverage report paths: $sonarqube_coverage_report_paths"
             echo "Tests report paths: $sonarqube_tests_report_paths"
           else
@@ -471,8 +548,8 @@ jobs:
           integration_tests_artifact="go_core_tests_integration_logs"
           if [ -d "$integration_tests_artifact" ]; then
             echo "Found $integration_tests_artifact"
-            integration_coverage_paths=$(find "$integration_tests_artifact" -name coverage.txt | paste -sd "," -)
-            integration_tests_paths=$(find "$integration_tests_artifact" -name output.txt | paste -sd "," -)
+            integration_coverage_paths=$(find "./${integration_tests_artifact}" -name coverage.txt | paste -sd "," -)
+            integration_tests_paths=$(find "./${integration_tests_artifact}" -name output.txt | paste -sd "," -)
 
             # Append to existing paths if they are set, otherwise assign directly
             sonarqube_coverage_report_paths="${sonarqube_coverage_report_paths:+$sonarqube_coverage_report_paths,}$integration_coverage_paths"
@@ -483,8 +560,8 @@ jobs:
           scripts_tests_artifact="go_core_scripts_tests_logs"
           if [ -d "$scripts_tests_artifact" ]; then
               echo "Found $scripts_tests_artifact"
-              scripts_coverage_paths=$(find "$scripts_tests_artifact" -name coverage.txt | paste -sd "," -)
-              scripts_tests_paths=$(find "$scripts_tests_artifact" -name output.txt | paste -sd "," -)
+              scripts_coverage_paths=$(find "./${scripts_tests_artifact}" -name coverage.txt | paste -sd "," -)
+              scripts_tests_paths=$(find "./${scripts_tests_artifact}" -name output.txt | paste -sd "," -)
 
               # Append to existing paths if they are set, otherwise assign directly
               sonarqube_coverage_report_paths="${sonarqube_coverage_report_paths:+$sonarqube_coverage_report_paths,}$scripts_coverage_paths"
@@ -494,13 +571,17 @@ jobs:
           # Check and assign paths for lint reports
           # To find reports in the folders named differently (because of the matrix strategy),
           # We need to loop through the artifacts. It allows usage of RegExp folders (skipped if not found).
+          sonarqube_lint_report_paths=""
+          shopt -s nullglob
           for golang_lint_artifact in golangci-lint-report*
           do
-              echo "Found golangci-lint-report artifacts"
-              sonarqube_lint_report_paths=$(find -type f -name 'golangci-lint-report.xml' -printf "%p,")
-              echo "Lint report paths: $sonarqube_lint_report_paths"
-              break
+              [[ -d "$golang_lint_artifact" ]] || continue
+              echo "Found golangci-lint-report artifact: $golang_lint_artifact"
+              part=$(find "$golang_lint_artifact" -type f -name 'golangci-lint-report.xml' -printf '%p,')
+              sonarqube_lint_report_paths+="$part"
           done
+          shopt -u nullglob
+          echo "Lint report paths: $sonarqube_lint_report_paths"
 
           ARGS=""
           if [[ -z "$sonarqube_tests_report_paths" ]]; then
@@ -525,7 +606,7 @@ jobs:
           fi
 
           echo "Final SONARQUBE_ARGS: $ARGS"
-          echo "SONARQUBE_ARGS=$ARGS" >> $GITHUB_ENV
+          echo "SONARQUBE_ARGS=$ARGS" >> "$GITHUB_ENV"
 
       - name: SonarQube Scan
         if: ${{ env.SONARQUBE_ARGS != '' }}
@@ -545,7 +626,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Setup Go
@@ -553,7 +634,10 @@ jobs:
         with:
           only-modules: "true"
       - name: Install protoc-gen-go-wsrpc
-        run: curl https://github.com/smartcontractkit/wsrpc/raw/main/cmd/protoc-gen-go-wsrpc/protoc-gen-go-wsrpc --output $HOME/go/bin/protoc-gen-go-wsrpc && chmod +x $HOME/go/bin/protoc-gen-go-wsrpc
+        run: curl
+          https://github.com/smartcontractkit/wsrpc/raw/main/cmd/protoc-gen-go-wsrpc/protoc-gen-go-wsrpc
+          --output "$HOME/go/bin/protoc-gen-go-wsrpc" && chmod +x
+          "$HOME/go/bin/protoc-gen-go-wsrpc"
       - name: make generate
         run: |
           make rm-mocked
@@ -596,7 +680,7 @@ jobs:
 
           # Check if the current hour is 00 (one per day)
           if [ "$current_hour" -eq "00" ]; then
-            echo "one-per-day-frequency=true" | tee -a $GITHUB_OUTPUT
+            echo "one-per-day-frequency=true" | tee -a "$GITHUB_OUTPUT"
           fi
 
   misc:
@@ -604,7 +688,7 @@ jobs:
     name: Misc
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Setup go

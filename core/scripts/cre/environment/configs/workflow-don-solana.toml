@@ -1,9 +1,12 @@
 
+[chip_router]
+  image = "local-cre-chip-router:v1.0.1"
+
 [[blockchains]]
   type = "anvil"
   chain_id = "1337"
   container_name = "anvil-1337"
-  docker_cmd_params = ["-b", "5"]
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
 
 [[blockchains]]
   chain_id = "22222222222222222222222222222222222222222222"
@@ -14,6 +17,7 @@
   [blockchains.solana_programs]
     keystone_forwarder = "whV7Q5pi17hPPyaPksToDw1nMx6Lh8qmNWKFaLRQ4wz"
     data_feeds_cache = "3kX63udXtYcsdj2737Wi2KGd2PhqiKPgAFAxstrjtRUa"
+    log_read_test = "J1zQwrBNBngz26jRPNWsUSZMHJwBwpkoDitXRV95LdK4"
 
 [jd]
   csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
@@ -45,8 +49,8 @@
   supported_evm_chains = [1337]
   supported_sol_chains = ["22222222222222222222222222222222222222222222"]
 
-  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
-  capabilities = ["ocr3", "custom-compute", "web-api-trigger", "cron", "http-action", "http-trigger", "consensus", "don-time"]
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS_DEFAULT = '{"PerWorkflow":{"LogLineLimit":"100kb"}}' }
+  capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time"]
   registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
@@ -73,12 +77,12 @@
   http_port_range_start = 10200
 
   # we need to have chain 1337 configured (even if no capability uses it), because we use node addresses on chain 1337
-  # to identify nodes in the gateway configuration (required by both web-api-target and vault capabilities)
+  # to identify nodes in the gateway configuration (required by vault and some gateway-based capabilities)
   supported_evm_chains = [1337]
   supported_sol_chains = ["22222222222222222222222222222222222222222222"]
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
-  capabilities = ["web-api-target", "vault", "solana"]
+  capabilities = ["vault", "solana"]
 
   [nodesets.db]
     image = "postgres:12.0"
@@ -113,8 +117,8 @@
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      # image = "chainlink-tmp:latest"
       # 5002 is the web API capabilities port for incoming requests
       # 15002 is the vault port for incoming requests
       custom_ports = ["5002:5002","15002:15002"]
-      # image = "chainlink-tmp:latest"
       user_config_overrides = ""

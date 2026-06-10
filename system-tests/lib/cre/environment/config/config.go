@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	ctfchiprouter "github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter"
 	billingplatformservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/billing_platform_service"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
@@ -56,13 +57,16 @@ func (c *Config) SetAddresses(refs []datastore.AddressRef) error {
 	return nil
 }
 
+const CTFChipRouterImageEnvVar = "CTF_CHIP_ROUTER_IMAGE"
+
 type Config struct {
-	Blockchains       []*blockchain.Input             `toml:"blockchains" validate:"required"`
-	NodeSets          []*cre.NodeSet                  `toml:"nodesets" validate:"required"`
+	Blockchains       []*blockchain.Input             `toml:"blockchains" validate:"required,min=1"`
+	NodeSets          []*cre.NodeSet                  `toml:"nodesets" validate:"required,min=1"`
 	JD                *jd.Input                       `toml:"jd" validate:"required"`
 	Infra             *infra.Provider                 `toml:"infra" validate:"required"`
-	Fake              *fake.Input                     `toml:"fake" validate:"required"`
-	FakeHTTP          *fake.Input                     `toml:"fake_http" validate:"required"`
+	Fake              *fake.Input                     `toml:"fake"`
+	FakeHTTP          *fake.Input                     `toml:"fake_http"`
+	ChipRouter        *ctfchiprouter.Input            `toml:"chip_router" validate:"required"`
 	S3ProviderInput   *s3provider.Input               `toml:"s3provider"`
 	CapabilityConfigs map[string]cre.CapabilityConfig `toml:"capability_configs"` // capability flag -> capability config
 	Addresses         []string                        `toml:"addresses"`
@@ -76,18 +80,6 @@ type Config struct {
 func (c *Config) Validate(envDependencies cre.CLIEnvironmentDependencies) error {
 	if c.JD.CSAEncryptionKey == "" {
 		return errors.New("jd.csa_encryption_key must be provided")
-	}
-
-	if len(c.Blockchains) == 0 {
-		return errors.New("at least one blockchain must be configured")
-	}
-
-	if len(c.NodeSets) == 0 {
-		return errors.New("at least one nodeset must be configured")
-	}
-
-	if c.Infra == nil {
-		return errors.New("infra configuration must be provided")
 	}
 
 	for _, nodeSet := range c.NodeSets {
@@ -122,7 +114,7 @@ func removeChainIDFromFlag(flag string) string {
 }
 
 func validateContractVersions(envDependencies cre.CLIEnvironmentDependencies) error {
-	supportedSet := DefaultContractSet(envDependencies.WithV2Registries())
+	supportedSet := DefaultContractSet()
 	cv := envDependencies.ContractVersions()
 	for k, v := range supportedSet {
 		version, ok := cv[k]
@@ -146,20 +138,13 @@ const (
 	DefaultDONFamily = "test-don-family"
 )
 
-func DefaultContractSet(withV2Registries bool) map[cre.ContractType]*semver.Version {
-	supportedSet := map[cre.ContractType]*semver.Version{
+func DefaultContractSet() map[cre.ContractType]*semver.Version {
+	return map[cre.ContractType]*semver.Version{
 		keystone_changeset.OCR3Capability.String():       semver.MustParse("1.0.0"),
-		keystone_changeset.WorkflowRegistry.String():     semver.MustParse("1.0.0"),
-		keystone_changeset.CapabilitiesRegistry.String(): semver.MustParse("1.1.0"),
+		keystone_changeset.WorkflowRegistry.String():     WorkflowRegistryV2Semver,
+		keystone_changeset.CapabilitiesRegistry.String(): CapabilityRegistryV2Semver,
 		keystone_changeset.KeystoneForwarder.String():    semver.MustParse("1.0.0"),
 	}
-
-	if withV2Registries {
-		supportedSet[keystone_changeset.WorkflowRegistry.String()] = WorkflowRegistryV2Semver
-		supportedSet[keystone_changeset.CapabilitiesRegistry.String()] = CapabilityRegistryV2Semver
-	}
-
-	return supportedSet
 }
 
 func (c *Config) Load(absPath string) error {
@@ -182,6 +167,8 @@ func (c *Config) Load(absPath string) error {
 		return errors.Wrap(loadErr, "failed to load environment configuration")
 	}
 
+	transformHostDockerInternalReferences(in)
+
 	for _, nodeSet := range in.NodeSets {
 		if err := nodeSet.ValidateChainCapabilities(in.Blockchains); err != nil {
 			return errors.Wrap(err, "failed to validate chain capabilities")
@@ -192,6 +179,78 @@ func (c *Config) Load(absPath string) error {
 	c.loaded = true
 
 	return nil
+}
+
+func transformHostDockerInternalReferences(cfg *Config) {
+	if cfg == nil {
+		return
+	}
+
+	for _, nodeSet := range cfg.NodeSets {
+		if nodeSet == nil {
+			continue
+		}
+
+		for _, nodeSpec := range nodeSet.NodeSpecs {
+			if nodeSpec == nil || nodeSpec.Node == nil || nodeSpec.Node.UserConfigOverrides == "" {
+				continue
+			}
+			nodeSpec.Node.UserConfigOverrides = replaceHostDockerInternal(nodeSpec.Node.UserConfigOverrides)
+		}
+
+		transformCapabilityConfigs(nodeSet.CapabilityConfigs)
+	}
+
+	transformCapabilityConfigs(cfg.CapabilityConfigs)
+}
+
+func transformCapabilityConfigs(capabilityConfigs map[string]cre.CapabilityConfig) {
+	if len(capabilityConfigs) == 0 {
+		return
+	}
+
+	for key, cfg := range capabilityConfigs {
+		cfg.Values = transformCapabilityConfigValues(cfg.Values)
+		capabilityConfigs[key] = cfg
+	}
+}
+
+func transformCapabilityConfigValues(values map[string]any) map[string]any {
+	if len(values) == 0 {
+		return values
+	}
+
+	transformed := make(map[string]any, len(values))
+	for key, value := range values {
+		transformed[key] = transformCapabilityConfigValue(value)
+	}
+
+	return transformed
+}
+
+func transformCapabilityConfigValue(value any) any {
+	switch typed := value.(type) {
+	case string:
+		return replaceHostDockerInternal(typed)
+	case map[string]any:
+		return transformCapabilityConfigValues(typed)
+	case []any:
+		transformed := make([]any, len(typed))
+		for i, element := range typed {
+			transformed[i] = transformCapabilityConfigValue(element)
+		}
+		return transformed
+	default:
+		return value
+	}
+}
+
+func replaceHostDockerInternal(value string) string {
+	if value == "" {
+		return value
+	}
+
+	return strings.ReplaceAll(value, "host.docker.internal", strings.TrimPrefix(framework.HostDockerInternal(), "http://"))
 }
 
 const (

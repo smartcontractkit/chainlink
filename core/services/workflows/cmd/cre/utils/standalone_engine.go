@@ -92,6 +92,13 @@ func NewStandaloneEngine(
 	if err != nil {
 		return nil, nil, err
 	}
+
+	moduleConfig.EnableUserMetricsLimiter = limiters.UserMetricEnabled
+	moduleConfig.MaxUserMetricPayloadLimiter = limiters.UserMetricPayload
+	moduleConfig.MaxUserMetricNameLengthLimiter = limiters.UserMetricNameLength
+	moduleConfig.MaxUserMetricLabelsPerMetricLimiter = limiters.UserMetricLabelsPerMetric
+	moduleConfig.MaxUserMetricLabelValueLengthLimiter = limiters.UserMetricLabelValueLength
+
 	featureFlags, err := v2.NewFeatureFlags(lf, workflowSettingsCfgFn)
 	if err != nil {
 		return nil, nil, err
@@ -174,10 +181,10 @@ func NewStandaloneEngine(
 		WorkflowName:  name,
 		WorkflowTag:   "workflowTag",
 
-		LocalLimits:                       v2.EngineLimits{},
-		LocalLimiters:                     limiters,
-		FeatureFlags:                      featureFlags,
-		GlobalExecutionConcurrencyLimiter: workflowLimits,
+		LocalLimits:         v2.EngineLimits{},
+		LocalLimiters:       limiters,
+		FeatureFlags:        featureFlags,
+		GlobalWorkflowLimit: workflowLimits,
 
 		BeholderEmitter: custmsg.NewLabeler(),
 
@@ -202,7 +209,7 @@ func NewStandaloneEngine(
 	}
 	result, err := module.Execute(ctx, &sdkpb.ExecuteRequest{
 		Request:         &sdkpb.ExecuteRequest_Subscribe{},
-		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes), //nolint:gosec // G115
+		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes),
 		Config:          config,
 	}, v2.NewDisallowedExecutionHelper(lggr, nil, &types.LocalTimeProvider{}, secretsFetcher))
 	if err != nil {
@@ -322,11 +329,11 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 
 	// generate deterministic signers - need to be configured on the Forwarder contract
 	nSigners := 4
-	signers := []ocr2key.KeyBundle{}
-	for range nSigners {
+	signers := make([]ocr2key.KeyBundle, nSigners)
+	for i := range nSigners {
 		signer := ocr2key.MustNewInsecure(fakes.SeedForKeys(), corekeys.EVM)
 		lggr.Infow("Generated new consensus signer", "addrss", common.BytesToAddress(signer.PublicKey()))
-		signers = append(signers, signer)
+		signers[i] = signer
 	}
 	fakeConsensusNoDAG := fakes.NewFakeConsensusNoDAG(signers, lggr)
 	if err := registry.Add(ctx, consensusserver.NewConsensusServer(fakeConsensusNoDAG)); err != nil {

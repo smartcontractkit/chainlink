@@ -53,6 +53,9 @@ type Blockchain struct {
 	SolanaChainID string
 	PrivateKey    solana.PrivateKey
 	ArtifactsDir  string
+
+	genesisHashMu sync.RWMutex
+	genesisHash   string
 }
 
 func (s *Blockchain) ChainSelector() uint64 {
@@ -72,6 +75,32 @@ func (s *Blockchain) IsFamily(chainFamily string) bool {
 
 func (s *Blockchain) ChainFamily() string {
 	return s.ctfOutput.Family
+}
+
+func (s *Blockchain) GenesisHash(ctx context.Context) (string, error) {
+	s.genesisHashMu.RLock()
+	if s.genesisHash != "" {
+		hash := s.genesisHash
+		s.genesisHashMu.RUnlock()
+		return hash, nil
+	}
+	s.genesisHashMu.RUnlock()
+
+	s.genesisHashMu.Lock()
+	defer s.genesisHashMu.Unlock()
+
+	// Double-check in case another goroutine cached it while we waited.
+	if s.genesisHash != "" {
+		return s.genesisHash, nil
+	}
+
+	genesisHash, err := s.SolClient.GetGenesisHash(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	s.genesisHash = genesisHash.String()
+	return s.genesisHash, nil
 }
 
 func (s *Blockchain) Fund(ctx context.Context, address string, amount uint64) error {
@@ -193,7 +222,7 @@ func initSolanaInput(bi *blockchain.Input) error {
 			}
 
 			// TODO PLEX-1718 use latest contracts sha for now. Derive commit sha from go.mod once contracts are in a separate go module
-			err2 = solutils.DownloadChainlinkSolanaProgramArtifacts(context.Background(), bi.ContractsDir, "b18eed21017b", logger.Nop())
+			err2 = solutils.DownloadChainlinkSolanaProgramArtifacts(context.Background(), bi.ContractsDir, "ea62f88cbdb4", logger.Nop())
 		})
 		if err2 != nil {
 			return fmt.Errorf("failed to download solana artifacts: %w", err2)

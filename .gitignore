@@ -4,6 +4,7 @@ tmp/
 .pnp
 .pnp.js
 tools/bin/abigen
+tools/test/.bin/
 
 /chainlink
 core/chainlink
@@ -59,6 +60,8 @@ race.*
 core/services/job/testdata/wasm/testmodule.wasm
 core/services/job/testdata/wasm/testmodule.br
 temp-repo
+diagnose-*/
+diagnose-attempted-fixes-*.jsonl
 
 # DB state
 ./db/

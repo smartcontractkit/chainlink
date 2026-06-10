@@ -13,11 +13,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 
-	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/confidentialrelay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
@@ -25,11 +25,12 @@ import (
 )
 
 const (
-	FunctionsHandlerType   HandlerType = "functions"
-	DummyHandlerType       HandlerType = "dummy"
-	WebAPICapabilitiesType HandlerType = "web-api-capabilities" //  Handler for v0.1 HTTP capabilities for DAG workflows
-	HTTPCapabilityType     HandlerType = "http-capabilities"    // Handler for v1.0 HTTP capabilities for NoDAG workflows
-	VaultHandlerType       HandlerType = "vault"
+	FunctionsHandlerType         HandlerType = "functions"
+	DummyHandlerType             HandlerType = "dummy"
+	WebAPICapabilitiesType       HandlerType = "web-api-capabilities" //  Handler for v0.1 HTTP capabilities for DAG workflows
+	HTTPCapabilityType           HandlerType = "http-capabilities"    // Handler for v1.0 HTTP capabilities for NoDAG workflows
+	VaultHandlerType             HandlerType = "vault"
+	ConfidentialRelayHandlerType HandlerType = "confidential-compute-relay"
 )
 
 type handlerFactory struct {
@@ -40,11 +41,12 @@ type handlerFactory struct {
 	capabilitiesRegistry   core.CapabilitiesRegistry
 	workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer
 	lf                     limits.Factory
+	httpClientFactory      network.HTTPClientFactory
 }
 
 var _ HandlerFactory = (*handlerFactory)(nil)
 
-func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, ds sqlutil.DataSource, httpClient network.HTTPClient, capabilitiesRegistry core.CapabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, lf limits.Factory) HandlerFactory {
+func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, ds sqlutil.DataSource, httpClient network.HTTPClient, capabilitiesRegistry core.CapabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, lf limits.Factory, httpClientFactory network.HTTPClientFactory) HandlerFactory {
 	return &handlerFactory{
 		legacyChains,
 		ds,
@@ -53,6 +55,7 @@ func NewHandlerFactory(legacyChains legacyevm.LegacyChainContainer, ds sqlutil.D
 		capabilitiesRegistry,
 		workflowRegistrySyncer,
 		lf,
+		httpClientFactory,
 	}
 }
 
@@ -83,10 +86,11 @@ func (hf *handlerFactory) NewHandler(
 	case WebAPICapabilitiesType:
 		return capabilities.NewHandler(handlerConfig, donConfig, don, hf.httpClient, hf.lggr)
 	case HTTPCapabilityType:
-		return v2.NewGatewayHandler(handlerConfig, donConfig, don, hf.httpClient, hf.lggr, hf.lf)
+		return v2.NewGatewayHandler(handlerConfig, donConfig, don, hf.httpClient, hf.lggr, hf.lf, hf.httpClientFactory)
 	case VaultHandlerType:
-		requestAuthorizer := vaultcap.NewRequestAuthorizer(hf.lggr, hf.workflowRegistrySyncer)
-		return vault.NewHandler(handlerConfig, donConfig, don, hf.capabilitiesRegistry, requestAuthorizer, hf.lggr, clockwork.NewRealClock(), hf.lf)
+		return vault.NewHandler(handlerConfig, donConfig, don, hf.capabilitiesRegistry, hf.workflowRegistrySyncer, hf.lggr, clockwork.NewRealClock(), hf.lf)
+	case ConfidentialRelayHandlerType:
+		return confidentialrelay.NewHandler(handlerConfig, donConfig, don, hf.lggr, clockwork.NewRealClock(), hf.lf)
 	default:
 		return nil, fmt.Errorf("unsupported handler type %s", handlerType)
 	}

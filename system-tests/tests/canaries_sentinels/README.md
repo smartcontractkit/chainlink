@@ -40,7 +40,7 @@ This matrix shows which capabilities are covered by each canary test, making it 
 
 from the `core/scripts/cre/environment` directory:
 
-1. **Start the environment with contracts (defaults to v2):**
+1. **Start the environment with contracts:**
    ```bash
    go run . env start
    ```
@@ -50,9 +50,9 @@ from the `core/scripts/cre/environment` directory:
    ./ctf obs up
    ```
 
-3. **Start beholder:**
+3. **Start Chip Ingress stack:**
    ```bash
-   go run . env beholder start
+   go run . env chip-ingress-stack start
    ```
 
 4. **Deploy required contracts:**
@@ -96,8 +96,6 @@ from the `core/scripts/cre/environment` directory:
      --compile \
      -c ./../../../../system-tests/tests/canaries_sentinels/proof-of-reserve/cron-based/config.yaml
    ```
-
-If you need legacy registries for troubleshooting, pass `--with-contracts-version v1` explicitly.
 
 ## Monitoring and Alerting
 

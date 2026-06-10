@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gagliardetto/solana-go"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -24,9 +23,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
-	mnCfg "github.com/smartcontractkit/chainlink-framework/multinode/config"
-	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
@@ -47,10 +45,6 @@ var (
 	fullTOML string
 	//go:embed testdata/config-multi-chain.toml
 	multiChainTOML string
-
-	second        = *commoncfg.MustNewDuration(time.Second)
-	minute        = *commoncfg.MustNewDuration(time.Minute)
-	selectionMode = multinode.NodeSelectionModeHighestHead
 
 	multiChain = Config{
 		Core: toml.Core{
@@ -94,9 +88,6 @@ var (
 			},
 			P2P: toml.P2P{
 				IncomingMessageBufferSize: ptr[int64](999),
-			},
-			Keeper: toml.Keeper{
-				GasPriceBufferPercent: ptr[uint16](10),
 			},
 			AutoPprof: toml.AutoPprof{
 				CPUProfileRate: ptr[int64](7),
@@ -155,68 +146,6 @@ var (
 						WSURL: mustURL("wss://web.socket/test/bar"),
 					},
 				}},
-		},
-		Solana: []*solcfg.TOMLConfig{
-			{
-				ChainID: ptr("mainnet"),
-				Chain: solcfg.Chain{
-					MaxRetries: ptr[int64](12),
-				},
-				MultiNode: mnCfg.MultiNodeConfig{
-					MultiNode: mnCfg.MultiNode{
-						Enabled:                      ptr(false),
-						PollFailureThreshold:         ptr[uint32](5),
-						PollInterval:                 &second,
-						SelectionMode:                &selectionMode,
-						SyncThreshold:                ptr[uint32](5),
-						NodeIsSyncingEnabled:         ptr(false),
-						LeaseDuration:                &minute,
-						NewHeadsPollInterval:         &second,
-						FinalizedBlockPollInterval:   &second,
-						EnforceRepeatableRead:        ptr(true),
-						DeathDeclarationDelay:        &minute,
-						VerifyChainID:                ptr(true),
-						NodeNoNewHeadsThreshold:      &minute,
-						NoNewFinalizedHeadsThreshold: &minute,
-						FinalityDepth:                ptr[uint32](0),
-						FinalityTagEnabled:           ptr(true),
-						FinalizedBlockOffset:         ptr[uint32](0),
-					},
-				},
-				Nodes: []*solcfg.Node{
-					{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://mainnet.solana.com"), Order: ptr(int32(1))},
-				},
-			},
-			{
-				ChainID: ptr("testnet"),
-				Chain: solcfg.Chain{
-					OCR2CachePollPeriod: commoncfg.MustNewDuration(time.Minute),
-				},
-				MultiNode: mnCfg.MultiNodeConfig{
-					MultiNode: mnCfg.MultiNode{
-						Enabled:                      ptr(false),
-						PollFailureThreshold:         ptr[uint32](5),
-						PollInterval:                 &second,
-						SelectionMode:                &selectionMode,
-						SyncThreshold:                ptr[uint32](5),
-						NodeIsSyncingEnabled:         ptr(false),
-						LeaseDuration:                &minute,
-						NewHeadsPollInterval:         &second,
-						FinalizedBlockPollInterval:   &second,
-						EnforceRepeatableRead:        ptr(true),
-						DeathDeclarationDelay:        &minute,
-						VerifyChainID:                ptr(true),
-						NodeNoNewHeadsThreshold:      &minute,
-						NoNewFinalizedHeadsThreshold: &minute,
-						FinalityDepth:                ptr[uint32](0),
-						FinalityTagEnabled:           ptr(true),
-						FinalizedBlockOffset:         ptr[uint32](0),
-					},
-				},
-				Nodes: []*solcfg.Node{
-					{Name: ptr("secondary"), URL: commoncfg.MustParseURL("http://testnet.solana.com"), Order: ptr(int32(2))},
-				},
-			},
 		},
 	}
 )
@@ -420,9 +349,9 @@ func TestConfig_Marshal(t *testing.T) {
 			DefaultTimeout: commoncfg.MustNewDuration(time.Minute),
 		},
 	}
-	full.FluxMonitor = toml.FluxMonitor{
-		DefaultTransactionQueueDepth: ptr[uint32](100),
-		SimulateTransactions:         ptr(true),
+	full.FluxMonitor = toml.FluxMonitor{ //nolint:staticcheck // deprecated config surface must match embedded config-full.toml
+		DefaultTransactionQueueDepth: ptr[uint32](1),
+		SimulateTransactions:         ptr(false),
 	}
 	full.OCR2 = toml.OCR2{
 		Enabled:                            ptr(true),
@@ -537,6 +466,14 @@ func TestConfig_Marshal(t *testing.T) {
 				URL:                 ptr(""),
 				TLSEnabled:          ptr(true),
 			},
+			ModuleCache: toml.ModuleCache{
+				Enabled:            ptr(false),
+				DiskMonitorEnabled: ptr(false),
+				IdleEviction:       ptr(true),
+				IdleTimeout:        commoncfg.MustNewDuration(10 * time.Minute),
+				MaxLoaded:          ptr(200),
+				CacheDir:           ptr(""),
+			},
 			AdditionalSourcesConfig: []toml.AdditionalWorkflowSource{
 				{
 					URL:        ptr("localhost:50051"),
@@ -564,7 +501,7 @@ func TestConfig_Marshal(t *testing.T) {
 			AuthMinChallengeLen:       ptr[int](10),
 			AuthTimestampToleranceSec: ptr[uint32](10),
 			Gateways: []toml.ConnectorGateway{
-				{ID: ptr("example_gateway"), URL: ptr("wss://localhost:8081/node")},
+				{ID: new("example_gateway"), DonID: new("example_gateway_don"), URL: new("wss://localhost:8081/node")},
 			},
 		},
 		Local: toml.LocalCapabilities{
@@ -585,21 +522,6 @@ func TestConfig_Marshal(t *testing.T) {
 		Limits: toml.Limits{
 			Global:   ptr(int32(200)),
 			PerOwner: ptr(int32(200)),
-		},
-	}
-	full.Keeper = toml.Keeper{
-		DefaultTransactionQueueDepth: ptr[uint32](17),
-		GasPriceBufferPercent:        ptr[uint16](12),
-		GasTipCapBufferPercent:       ptr[uint16](43),
-		BaseFeeBufferPercent:         ptr[uint16](89),
-		MaxGracePeriod:               ptr[int64](31),
-		TurnLookBack:                 ptr[int64](91),
-		Registry: toml.KeeperRegistry{
-			CheckGasOverhead:    ptr[uint32](90),
-			PerformGasOverhead:  ptr[uint32](math.MaxUint32),
-			SyncInterval:        commoncfg.MustNewDuration(time.Hour),
-			SyncUpkeepQueueSize: ptr[uint32](31),
-			MaxPerformDataSize:  ptr[uint32](5000),
 		},
 	}
 	full.AutoPprof = toml.AutoPprof{
@@ -628,25 +550,32 @@ func TestConfig_Marshal(t *testing.T) {
 		Release:     ptr("v1.2.3"),
 	}
 	full.Telemetry = toml.Telemetry{
-		Enabled:                       ptr(true),
-		CACertFile:                    ptr("cert-file"),
-		Endpoint:                      ptr("example.com/collector"),
-		InsecureConnection:            ptr(true),
-		ResourceAttributes:            map[string]string{"Baz": "test", "Foo": "bar"},
-		TraceSampleRatio:              ptr(0.01),
-		EmitterBatchProcessor:         ptr(true),
-		EmitterExportTimeout:          commoncfg.MustNewDuration(1 * time.Second),
-		AuthHeadersTTL:                commoncfg.MustNewDuration(0 * time.Second),
-		ChipIngressEndpoint:           ptr("example.com/chip-ingress"),
-		ChipIngressInsecureConnection: ptr(false),
-		HeartbeatInterval:             commoncfg.MustNewDuration(1 * time.Second),
-		LogStreamingEnabled:           ptr(false),
-		LogLevel:                      ptr("info"),
-		LogBatchProcessor:             ptr(true),
-		LogExportTimeout:              commoncfg.MustNewDuration(1 * time.Second),
-		LogExportMaxBatchSize:         ptr[int](512),
-		LogExportInterval:             ptrDuration(1 * time.Second),
-		LogMaxQueueSize:               ptrInt(2048),
+		Enabled:                        ptr(true),
+		CACertFile:                     ptr("cert-file"),
+		Endpoint:                       ptr("example.com/collector"),
+		InsecureConnection:             ptr(true),
+		ResourceAttributes:             map[string]string{"Baz": "test", "Foo": "bar"},
+		TraceSampleRatio:               ptr(0.01),
+		EmitterBatchProcessor:          ptr(true),
+		EmitterExportTimeout:           commoncfg.MustNewDuration(1 * time.Second),
+		AuthHeadersTTL:                 commoncfg.MustNewDuration(0 * time.Second),
+		ChipIngressEndpoint:            ptr("example.com/chip-ingress"),
+		ChipIngressInsecureConnection:  ptr(false),
+		ChipIngressBatchEmitterEnabled: ptr(true),
+		DurableEmitterEnabled:          ptr(false),
+		HeartbeatInterval:              commoncfg.MustNewDuration(1 * time.Second),
+		LogStreamingEnabled:            ptr(false),
+		LogLevel:                       ptr("info"),
+		LogBatchProcessor:              ptr(true),
+		LogExportTimeout:               commoncfg.MustNewDuration(1 * time.Second),
+		LogExportMaxBatchSize:          ptr[int](512),
+		LogExportInterval:              ptrDuration(1 * time.Second),
+		LogMaxQueueSize:                ptrInt(2048),
+
+		PrometheusBridge: toml.PrometheusBridge{
+			Enabled:  ptr(true),
+			Prefixes: []string{"ocr_"},
+		},
 	}
 	full.CRE = toml.CreConfig{
 		UseLocalTimeProvider: ptr(true),
@@ -663,6 +592,9 @@ func TestConfig_Marshal(t *testing.T) {
 			URL:        ptr(""),
 			TLSEnabled: ptr(true),
 		},
+		ConfidentialRelay: &toml.ConfidentialRelayConfig{
+			Enabled: ptr(false),
+		},
 	}
 	full.Billing = toml.Billing{
 		URL:        ptr("localhost:4319"),
@@ -674,6 +606,12 @@ func TestConfig_Marshal(t *testing.T) {
 		PollingInterval:      commoncfg.MustNewDuration(5 * time.Minute),
 		IgnoreInvalidBridges: ptr(true),
 		IgnoreJoblessBridges: ptr(false),
+	}
+	enabledOCR2PluginTypes := []string{"median"}
+	full.JobSpecReporter = toml.JobSpecReporter{
+		Enabled:                ptr(true),
+		PollingInterval:        commoncfg.MustNewDuration(time.Hour),
+		EnabledOCR2PluginTypes: &enabledOCR2PluginTypes,
 	}
 	full.Sharding = toml.Sharding{
 		ShardingEnabled:          ptr(false),
@@ -763,6 +701,7 @@ func TestConfig_Marshal(t *testing.T) {
 				LogBackfillBatchSize:         ptr[uint32](17),
 				LogPollInterval:              &minute,
 				LogKeepBlocksDepth:           ptr[uint32](100000),
+				LogPollerSkipEmptyBlocks:     ptr(false),
 				LogPrunePageSize:             ptr[uint32](0),
 				BackupLogPollerBlockDelay:    ptr[uint64](532),
 				MinContractPayment:           commonassets.NewLinkFromJuels(math.MaxInt64),
@@ -805,18 +744,21 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 
 				NodePool: evmcfg.NodePool{
-					PollFailureThreshold:           ptr[uint32](5),
-					PollInterval:                   &minute,
-					SelectionMode:                  &selectionMode,
-					SyncThreshold:                  ptr[uint32](13),
-					LeaseDuration:                  &zeroSeconds,
-					NodeIsSyncingEnabled:           ptr(true),
-					FinalizedBlockPollInterval:     &second,
-					EnforceRepeatableRead:          ptr(true),
-					DeathDeclarationDelay:          &minute,
-					VerifyChainID:                  ptr(true),
-					NewHeadsPollInterval:           &zeroSeconds,
-					ExternalRequestMaxResponseSize: ptr[uint32](10),
+					PollFailureThreshold:                ptr[uint32](5),
+					PollSuccessThreshold:                ptr[uint32](0),
+					PollInterval:                        &minute,
+					SelectionMode:                       &selectionMode,
+					SyncThreshold:                       ptr[uint32](13),
+					LeaseDuration:                       &zeroSeconds,
+					NodeIsSyncingEnabled:                ptr(true),
+					FinalizedBlockPollInterval:          &second,
+					HistoricalBalanceCheckAddress:       ptr(types.MustEIP55Address("0x0000000000000000000000000000000000000000")),
+					EnforceRepeatableRead:               ptr(true),
+					DeathDeclarationDelay:               &minute,
+					VerifyChainID:                       ptr(true),
+					NewHeadsPollInterval:                &zeroSeconds,
+					ExternalRequestMaxResponseSize:      ptr[uint32](10),
+					FinalizedStateCheckFailureThreshold: ptr[uint32](0),
 					Errors: evmcfg.ClientErrors{
 						NonceTooLow:                       ptr[string]("(: |^)nonce too low"),
 						NonceTooHigh:                      ptr[string]("(: |^)nonce too high"),
@@ -834,6 +776,7 @@ func TestConfig_Marshal(t *testing.T) {
 						ServiceUnavailable:                ptr[string]("(: |^)service unavailable"),
 						TooManyResults:                    ptr[string]("(: |^)too many results"),
 						MissingBlocks:                     ptr[string]("(: |^)missing blocks"),
+						FinalizedStateUnavailable:         ptr[string]("(: |^)(missing trie node|state not available|historical state unavailable)"),
 					},
 				},
 				OCR: evmcfg.OCR{
@@ -875,75 +818,6 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 			}},
 	}
-	full.Solana = []*solcfg.TOMLConfig{
-		{
-			ChainID: ptr("mainnet"),
-			Enabled: ptr(false),
-			Chain: solcfg.Chain{
-				BlockTime:                 commoncfg.MustNewDuration(500 * time.Millisecond),
-				BalancePollPeriod:         commoncfg.MustNewDuration(time.Minute),
-				ConfirmPollPeriod:         commoncfg.MustNewDuration(time.Second),
-				OCR2CachePollPeriod:       commoncfg.MustNewDuration(time.Minute),
-				OCR2CacheTTL:              commoncfg.MustNewDuration(time.Hour),
-				TxTimeout:                 commoncfg.MustNewDuration(time.Hour),
-				TxRetryTimeout:            commoncfg.MustNewDuration(time.Minute),
-				TxConfirmTimeout:          commoncfg.MustNewDuration(time.Second),
-				TxExpirationRebroadcast:   ptr(false),
-				TxRetentionTimeout:        commoncfg.MustNewDuration(0 * time.Second),
-				SkipPreflight:             ptr(true),
-				Commitment:                ptr("banana"),
-				MaxRetries:                ptr[int64](7),
-				FeeEstimatorMode:          ptr("fixed"),
-				ComputeUnitPriceMax:       ptr[uint64](1000),
-				ComputeUnitPriceMin:       ptr[uint64](10),
-				ComputeUnitPriceDefault:   ptr[uint64](100),
-				FeeBumpPeriod:             commoncfg.MustNewDuration(time.Minute),
-				BlockHistoryPollPeriod:    commoncfg.MustNewDuration(time.Minute),
-				BlockHistorySize:          ptr[uint64](1),
-				BlockHistoryBatchLoadSize: ptr[uint64](20),
-				ComputeUnitLimitDefault:   ptr[uint32](100_000),
-				EstimateComputeUnitLimit:  ptr(false),
-				LogPollerStartingLookback: commoncfg.MustNewDuration(24 * time.Hour),
-				LogPollerCPIEventsEnabled: ptr(true),
-			},
-			MultiNode: mnCfg.MultiNodeConfig{
-				MultiNode: mnCfg.MultiNode{
-					Enabled:                      ptr(false),
-					PollFailureThreshold:         ptr[uint32](5),
-					PollInterval:                 &second,
-					SelectionMode:                &selectionMode,
-					SyncThreshold:                ptr[uint32](5),
-					NodeIsSyncingEnabled:         ptr(false),
-					LeaseDuration:                &minute,
-					NewHeadsPollInterval:         &second,
-					FinalizedBlockPollInterval:   &second,
-					EnforceRepeatableRead:        ptr(true),
-					DeathDeclarationDelay:        &minute,
-					VerifyChainID:                ptr(true),
-					NodeNoNewHeadsThreshold:      &minute,
-					NoNewFinalizedHeadsThreshold: &minute,
-					FinalityDepth:                ptr[uint32](0),
-					FinalityTagEnabled:           ptr(true),
-					FinalizedBlockOffset:         ptr[uint32](0),
-				},
-			},
-			Nodes: []*solcfg.Node{
-				{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://solana.web"), Order: ptr(int32(1))},
-				{Name: ptr("foo"), URL: commoncfg.MustParseURL("http://solana.foo"), SendOnly: true, Order: ptr(int32(2))},
-				{Name: ptr("bar"), URL: commoncfg.MustParseURL("http://solana.bar"), SendOnly: true, Order: ptr(int32(3))},
-			},
-			Workflow: solcfg.WorkflowConfig{
-				AcceptanceTimeout: commoncfg.MustNewDuration(time.Second * 45),
-				FromAddress:       ptr(solana.MustPublicKeyFromBase58("4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e")),
-				ForwarderAddress:  ptr(solana.MustPublicKeyFromBase58("14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5")),
-				ForwarderState:    ptr(solana.MustPublicKeyFromBase58("14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5")),
-				TxAcceptanceState: ptr(commontypes.Finalized),
-				PollPeriod:        commoncfg.MustNewDuration(time.Second * 3),
-				Local:             ptr(true),
-				GasLimitDefault:   ptr(uint64(0)),
-			},
-		},
-	}
 	full.Mercury = toml.Mercury{
 		Cache: toml.MercuryCache{
 			LatestReportTTL:      commoncfg.MustNewDuration(100 * time.Second),
@@ -954,7 +828,7 @@ func TestConfig_Marshal(t *testing.T) {
 			CertFile: ptr("/path/to/cert.pem"),
 		},
 		Transmitter: toml.MercuryTransmitter{
-			Protocol:             ptr(config.MercuryTransmitterProtocolGRPC),
+			Protocol:             ptr(mercurytransmitter.MercuryTransmitterProtocolGRPC),
 			TransmitQueueMaxSize: ptr(uint32(123)),
 			TransmitTimeout:      commoncfg.MustNewDuration(234 * time.Second),
 			TransmitConcurrency:  ptr(uint32(456)),
@@ -1123,10 +997,6 @@ HTTPSPort = 6789
 KeyPath = 'tls/key/path'
 ListenIP = '192.158.1.38'
 `},
-		{"FluxMonitor", Config{Core: toml.Core{FluxMonitor: full.FluxMonitor}}, `[FluxMonitor]
-DefaultTransactionQueueDepth = 100
-SimulateTransactions = true
-`},
 		{"JobPipeline", Config{Core: toml.Core{JobPipeline: full.JobPipeline}}, `[JobPipeline]
 ExternalInitiatorsEnabled = true
 MaxRunDuration = '1h0m0s'
@@ -1190,21 +1060,6 @@ DeltaDial = '1m0s'
 DeltaReconcile = '1s'
 ListenAddresses = ['foo', 'bar']
 `},
-		{"Keeper", Config{Core: toml.Core{Keeper: full.Keeper}}, `[Keeper]
-DefaultTransactionQueueDepth = 17
-GasPriceBufferPercent = 12
-GasTipCapBufferPercent = 43
-BaseFeeBufferPercent = 89
-MaxGracePeriod = 31
-TurnLookBack = 91
-
-[Keeper.Registry]
-CheckGasOverhead = 90
-PerformGasOverhead = 4294967295
-MaxPerformDataSize = 5000
-SyncInterval = '1h0m0s'
-SyncUpkeepQueueSize = 31
-`},
 		{"AutoPprof", Config{Core: toml.Core{AutoPprof: full.AutoPprof}}, `[AutoPprof]
 Enabled = true
 ProfileRoot = 'prof/root'
@@ -1245,6 +1100,7 @@ FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
 LogPollInterval = '1m0s'
+LogPollerSkipEmptyBlocks = false
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
 BackupLogPollerBlockDelay = 532
@@ -1335,12 +1191,15 @@ PriceMax = '79.228162514264337593543950335 gether'
 
 [EVM.NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 13
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = true
 FinalizedBlockPollInterval = '1s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
@@ -1364,6 +1223,7 @@ Fatal = '(: |^)fatal'
 ServiceUnavailable = '(: |^)service unavailable'
 TooManyResults = '(: |^)too many results'
 MissingBlocks = '(: |^)missing blocks'
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [EVM.OCR]
 ContractConfirmations = 11
@@ -1398,82 +1258,6 @@ HTTPURL = 'https://bar.com'
 Name = 'broadcast'
 HTTPURL = 'http://broadcast.mirror'
 SendOnly = true
-`},
-		{"Solana", Config{Solana: full.Solana}, `[[Solana]]
-ChainID = 'mainnet'
-Enabled = false
-BlockTime = '500ms'
-BalancePollPeriod = '1m0s'
-ConfirmPollPeriod = '1s'
-OCR2CachePollPeriod = '1m0s'
-OCR2CacheTTL = '1h0m0s'
-TxTimeout = '1h0m0s'
-TxRetryTimeout = '1m0s'
-TxConfirmTimeout = '1s'
-TxExpirationRebroadcast = false
-TxRetentionTimeout = '0s'
-SkipPreflight = true
-Commitment = 'banana'
-MaxRetries = 7
-FeeEstimatorMode = 'fixed'
-ComputeUnitPriceMax = 1000
-ComputeUnitPriceMin = 10
-ComputeUnitPriceDefault = 100
-FeeBumpPeriod = '1m0s'
-BlockHistoryPollPeriod = '1m0s'
-BlockHistorySize = 1
-BlockHistoryBatchLoadSize = 20
-ComputeUnitLimitDefault = 100000
-EstimateComputeUnitLimit = false
-LogPollerStartingLookback = '24h0m0s'
-LogPollerCPIEventsEnabled = true
-
-[Solana.Workflow]
-AcceptanceTimeout = '45s'
-ForwarderAddress = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5'
-ForwarderState = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5'
-FromAddress = '4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e'
-GasLimitDefault = 0
-Local = true
-PollPeriod = '3s'
-TxAcceptanceState = 3
-
-[Solana.MultiNode]
-Enabled = false
-PollFailureThreshold = 5
-PollInterval = '1s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 5
-NodeIsSyncingEnabled = false
-LeaseDuration = '1m0s'
-NewHeadsPollInterval = '1s'
-FinalizedBlockPollInterval = '1s'
-EnforceRepeatableRead = true
-DeathDeclarationDelay = '1m0s'
-VerifyChainID = true
-NodeNoNewHeadsThreshold = '1m0s'
-NoNewFinalizedHeadsThreshold = '1m0s'
-FinalityDepth = 0
-FinalityTagEnabled = true
-FinalizedBlockOffset = 0
-
-[[Solana.Nodes]]
-Name = 'primary'
-URL = 'http://solana.web'
-SendOnly = false
-Order = 1
-
-[[Solana.Nodes]]
-Name = 'foo'
-URL = 'http://solana.foo'
-SendOnly = true
-Order = 2
-
-[[Solana.Nodes]]
-Name = 'bar'
-URL = 'http://solana.bar'
-SendOnly = true
-Order = 3
 `},
 		{"Mercury", Config{Core: toml.Core{Mercury: full.Mercury}}, `[Mercury]
 VerboseLogging = true
@@ -1564,6 +1348,9 @@ func TestConfig_full(t *testing.T) {
 		if got.EVM[c].Transactions.TransactionManagerV2.FastlaneAuctionRequestTimeout == nil {
 			got.EVM[c].Transactions.TransactionManagerV2.FastlaneAuctionRequestTimeout = new(commoncfg.Duration)
 		}
+		if got.EVM[c].Transactions.TransactionManagerV2.FeeBoost == nil {
+			got.EVM[c].Transactions.TransactionManagerV2.FeeBoost = ptr(false)
+		}
 		if got.EVM[c].Transactions.AutoPurge.Threshold == nil {
 			got.EVM[c].Transactions.AutoPurge.Threshold = ptr(uint32(0))
 		}
@@ -1585,14 +1372,6 @@ func TestConfig_full(t *testing.T) {
 		}
 		if got.EVM[c].GasEstimator.SenderAddress == nil {
 			got.EVM[c].GasEstimator.SenderAddress = new(types.EIP55Address)
-		}
-	}
-
-	for c := range got.Solana {
-		for n := range got.Solana[c].Nodes {
-			if got.Solana[c].Nodes[n].IsLoadBalancedRPC == nil {
-				got.Solana[c].Nodes[n].IsLoadBalancedRPC = ptr(false)
-			}
 		}
 	}
 
@@ -1686,11 +1465,11 @@ func TestConfig_Validate(t *testing.T) {
 			- Nodes: missing: expected at least one node
 	- Solana: 4 errors:
 		- 1.ChainID: invalid value (mainnet): duplicate - must be unique
-		- 0.Nodes: missing: must have at least one node
-		- 1.Nodes.0.URL: missing: required for all nodes
+		- 1.Nodes.1.Name: invalid value (bar): duplicate - must be unique
+		- 0.Nodes: missing: expected at least one node
 		- 2: 2 errors:
-			- ChainID: empty: required for all chains
-			- Nodes: missing: must have at least one node
+			- ChainID: missing: required for all chains
+			- Nodes: missing: expected at least one node
 	- Starknet: 3 errors:
 		- 0.Nodes.1.Name: invalid value (primary): duplicate - must be unique
 		- 0.ChainID: missing: required for all chains
@@ -1852,10 +1631,10 @@ Dev = true`
 
 func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	// Provide a keystore password file and an env var with DB URL
-	const PWD_OVERRIDE = "great_password"
-	const DBURL_OVERRIDE = "http://user@db"
+	const pwdOverride = "great_password"
+	const dbURLOverride = "http://user@db"
 
-	t.Setenv("CL_DATABASE_URL", DBURL_OVERRIDE)
+	t.Setenv("CL_DATABASE_URL", dbURLOverride)
 
 	// Check for two overrides
 	opts := GeneralConfigOpts{
@@ -1863,11 +1642,11 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 		SecretsStrings: []string{secretsFullTOML},
 	}
 	c, err := opts.New()
-	assert.NoError(t, err)
-	c.SetPasswords(ptr(PWD_OVERRIDE), nil)
-	assert.Equal(t, PWD_OVERRIDE, c.Password().Keystore())
+	require.NoError(t, err)
+	c.SetPasswords(ptr(pwdOverride), nil)
+	assert.Equal(t, pwdOverride, c.Password().Keystore())
 	dbURL := c.Database().URL()
-	assert.Equal(t, DBURL_OVERRIDE, (&dbURL).String())
+	assert.Equal(t, dbURLOverride, (&dbURL).String())
 }
 
 func TestSecrets_Validate(t *testing.T) {
@@ -1938,26 +1717,27 @@ func TestConfig_setDefaults(t *testing.T) {
 	var c Config
 	c.EVM = evmcfg.EVMConfigs{{ChainID: sqlutil.NewI(99999133712345)}}
 	c.Cosmos = RawConfigs{{"ChainID": ptr("unknown cosmos chain")}}
-	c.Solana = solcfg.TOMLConfigs{{ChainID: ptr("unknown solana chain")}}
+	c.Solana = RawConfigs{{"ChainID": ptr("unknown solana chain")}}
 	c.Starknet = RawConfigs{{"ChainID": ptr("unknown starknet chain")}}
 	c.setDefaults()
 
-	if s, err := c.TOMLString(); assert.NoError(t, err) {
-		t.Log(s, err)
-	}
+	s, err := c.TOMLString()
+	require.NoError(t, err)
+	t.Log(s)
+
 	configtest.AssertFieldsNotNil(t, c.Core)
 }
 
 func Test_validateEnv(t *testing.T) {
 	t.Setenv("LOG_LEVEL", "warn")
 	t.Setenv("DATABASE_URL", "foo")
-	assert.ErrorContains(t, validateEnv(), `invalid environment: 2 errors:
+	require.ErrorContains(t, validateEnv(), `invalid environment: 2 errors:
 	- environment variable DATABASE_URL must not be set: unsupported with config v2
 	- environment variable LOG_LEVEL must not be set: unsupported with config v2`)
 
 	t.Setenv("GAS_UPDATER_ENABLED", "true")
 	t.Setenv("ETH_GAS_BUMP_TX_DEPTH", "7")
-	assert.ErrorContains(t, validateEnv(), `invalid environment: 4 errors:
+	require.ErrorContains(t, validateEnv(), `invalid environment: 4 errors:
 	- environment variable DATABASE_URL must not be set: unsupported with config v2
 	- environment variable LOG_LEVEL must not be set: unsupported with config v2
 	- environment variable ETH_GAS_BUMP_TX_DEPTH must not be set: unsupported with config v2

@@ -1,6 +1,7 @@
 package registrysyncer
 
 import (
+	"context"
 	"testing"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -14,6 +15,57 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 )
+
+func TestLocalRegistry_LocalNode(t *testing.T) {
+	lggr := logger.Test(t)
+	localPeer := types.PeerID{0: 7}
+	getPeerID := func() (types.PeerID, error) {
+		return localPeer, nil
+	}
+	idsToDons := map[DonID]DON{
+		1: {
+			DON: capabilities.DON{
+				ID:               1,
+				F:                1,
+				Members:          []types.PeerID{localPeer},
+				AcceptsWorkflows: true,
+			},
+			CapabilityConfigurations: map[string]CapabilityConfiguration{
+				"capabilityID@1.0.0": {},
+			},
+		},
+	}
+	idsToNodes := map[types.PeerID]NodeInfo{
+		localPeer: {NodeOperatorID: 42},
+	}
+	idsToCapabilities := map[string]Capability{
+		"capabilityID@1.0.0": {
+			ID:             "capabilityID@1.0.0",
+			CapabilityType: capabilities.CapabilityTypeAction,
+		},
+	}
+	lr := NewLocalRegistry(lggr, getPeerID, idsToDons, idsToNodes, idsToCapabilities)
+
+	ctx := t.Context()
+	want, err := lr.NodeByPeerID(ctx, localPeer)
+	require.NoError(t, err)
+
+	got, err := lr.LocalNode(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, want, got)
+
+	gotAgain, err := lr.LocalNode(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, want, gotAgain)
+
+	t.Run("GetPeerID error", func(t *testing.T) {
+		broken := NewLocalRegistry(lggr, func() (types.PeerID, error) {
+			return types.PeerID{}, assert.AnError
+		}, idsToDons, idsToNodes, idsToCapabilities)
+		_, err := broken.LocalNode(context.Background())
+		require.ErrorContains(t, err, "unable to get local node: peerWrapper hasn't started yet")
+	})
+}
 
 func TestLocalRegistry_DONsForCapability(t *testing.T) {
 	lggr := logger.Test(t)
@@ -186,7 +238,7 @@ func TestCapabilityConfiguration_Unmarshal(t *testing.T) {
 
 	t.Run("Ocr3Configs", func(t *testing.T) {
 		signer := []byte{0x01, 0x02, 0x03}
-		transmitter := []byte("0xabc")
+		transmitter := []byte{0xde, 0xad, 0xbe, 0xef}
 
 		raw := mustMarshalProto(t, &capabilitiespb.CapabilityConfig{
 			Ocr3Configs: map[string]*capabilitiespb.OCR3Config{
@@ -209,12 +261,39 @@ func TestCapabilityConfiguration_Unmarshal(t *testing.T) {
 		require.Contains(t, got.Ocr3Configs, "__default__")
 		cfg := got.Ocr3Configs["__default__"]
 		assert.Equal(t, []ocrtypes.OnchainPublicKey{signer}, cfg.Signers)
-		assert.Equal(t, []ocrtypes.Account{ocrtypes.Account(transmitter)}, cfg.Transmitters)
+		assert.Equal(t, []ocrtypes.Account{ocrtypes.Account("deadbeef")}, cfg.Transmitters)
 		assert.Equal(t, uint8(2), cfg.F)
 		assert.Equal(t, []byte("onchain"), cfg.OnchainConfig)
 		assert.Equal(t, uint64(5), cfg.OffchainConfigVersion)
 		assert.Equal(t, []byte("offchain"), cfg.OffchainConfig)
 		assert.Equal(t, uint64(3), cfg.ConfigCount)
+	})
+
+	t.Run("Ocr3Configs normalizes transmitters to hex text", func(t *testing.T) {
+		raw := mustMarshalProto(t, &capabilitiespb.CapabilityConfig{
+			Ocr3Configs: map[string]*capabilitiespb.OCR3Config{
+				"aptos": {
+					Transmitters: [][]byte{
+						{0x00, 0xff},
+						[]byte("ascii-bytes"),
+					},
+				},
+			},
+		})
+		cc := CapabilityConfiguration{Config: raw}
+
+		got, err := cc.Unmarshal()
+		require.NoError(t, err)
+
+		require.Contains(t, got.Ocr3Configs, "aptos")
+		cfg := got.Ocr3Configs["aptos"]
+		assert.Equal(t,
+			[]ocrtypes.Account{
+				ocrtypes.Account("00ff"),
+				ocrtypes.Account("61736369692d6279746573"),
+			},
+			cfg.Transmitters,
+		)
 	})
 
 	t.Run("OracleFactoryConfigs", func(t *testing.T) {

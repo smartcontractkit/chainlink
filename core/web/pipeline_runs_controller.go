@@ -2,7 +2,7 @@ package web
 
 import (
 	"encoding/json"
-	"io"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -10,12 +10,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/web/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -100,41 +98,15 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 		jsonAPIResponse(c, res, "pipelineRun")
 	}
 
-	bodyBytes, err := io.ReadAll(c.Request.Body)
-	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-		return
-	}
 	idStr := c.Param("ID")
 
-	user, isUser := auth.GetAuthenticatedUser(c)
-	ei, _ := auth.GetAuthenticatedExternalInitiator(c)
-	authorizer := webhook.NewAuthorizer(prc.App.GetDB(), user, ei)
-
-	// Is it a UUID? Then process it as a webhook job
-	jobUUID, err := uuid.Parse(idStr)
-	if err == nil {
-		canRun, err2 := authorizer.CanRun(ctx, prc.App.GetConfig().JobPipeline(), jobUUID)
-		if err2 != nil {
-			jsonAPIError(c, http.StatusInternalServerError, err2)
-			return
-		}
-		if canRun {
-			jobRunID, err3 := prc.App.RunWebhookJobV2(ctx, jobUUID, string(bodyBytes), jsonserializable.JSONSerializable{})
-			if errors.Is(err3, webhook.ErrJobNotExists) {
-				jsonAPIError(c, http.StatusNotFound, err3)
-				return
-			} else if err3 != nil {
-				jsonAPIError(c, http.StatusInternalServerError, err3)
-				return
-			}
-			respondWithPipelineRun(jobRunID)
-		} else {
-			jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("external initiator %s is not allowed to run job %s", ei.Name, jobUUID))
-		}
+	// Webhook runs used external job UUIDs; that job type has been removed.
+	if _, err := uuid.Parse(idStr); err == nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, fmt.Errorf("cannot run job of type %q: %w", job.Webhook, job.ErrJobTypeRemoved))
 		return
 	}
 
+	_, isUser := auth.GetAuthenticatedUser(c)
 	// only users are allowed to run jobs using int IDs - EIs not allowed
 	if isUser {
 		// Is it an int32? Then process it regardless of type

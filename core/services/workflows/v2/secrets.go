@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,10 +21,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
@@ -42,6 +46,9 @@ type secretsFetcher struct {
 	secretsCalled     int
 	mu                sync.Mutex
 
+	creSettingsGetter settings.Getter
+
+	orgID                 string
 	workflowOwner         string
 	workflowName          string
 	workflowID            string
@@ -49,6 +56,11 @@ type secretsFetcher struct {
 	workflowEncryptionKey workflowkey.Key
 
 	metrics *monitoring.WorkflowsMetricLabeler
+
+	// overrideFetcher is an optional static map fetcher.
+	// When set, Vault is called first; on whole-batch failure or per-secret SecretResponse errors,
+	// local overrides are tried for the failed request(s).
+	overrideFetcher SecretsFetcher
 }
 
 func NewSecretsFetcher(
@@ -57,11 +69,14 @@ func NewSecretsFetcher(
 	lggr logger.Logger,
 	semaphore limits.ResourcePoolLimiter[int],
 	secretsCalls limits.BoundLimiter[int],
+	creSettingsGetter settings.Getter,
+	orgID string,
 	workflowOwner string,
 	workflowName string,
 	workflowID string,
 	phaseID string,
 	workflowEncryptionKey workflowkey.Key,
+	overrideFetcher SecretsFetcher,
 ) *secretsFetcher {
 	lggr = logger.Named(lggr, "WorkflowEngine.SecretsFetcher")
 	lggr = logger.With(lggr, "workflowID", workflowID, "workflowName", workflowName, "workflowOwner", workflowOwner, "phaseID", phaseID)
@@ -70,11 +85,15 @@ func NewSecretsFetcher(
 		lggr:                  lggr,
 		semaphore:             semaphore,
 		secretsCallsLimit:     secretsCalls,
+		creSettingsGetter:     creSettingsGetter,
+		orgID:                 orgID,
 		workflowOwner:         workflowOwner,
 		workflowName:          workflowName,
+		workflowID:            workflowID,
 		phaseID:               phaseID,
 		workflowEncryptionKey: workflowEncryptionKey,
 		metrics:               metrics,
+		overrideFetcher:       overrideFetcher,
 	}
 }
 
@@ -84,8 +103,9 @@ func keyFor(owner, namespace, id string) string {
 
 func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
 	ctx = contexts.WithCRE(ctx, contexts.CRE{
+		Org:      s.orgID,
 		Owner:    s.workflowOwner,
-		Workflow: s.workflowName,
+		Workflow: s.workflowID,
 	})
 	s.mu.Lock()
 	secretsCalled := s.secretsCalled + 1
@@ -102,7 +122,7 @@ func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecre
 			return nil, err
 		}
 		defer free()
-		return s.getSecretsForBatch(ctx, request)
+		return s.getSecretsForBatchWithLocalFallback(ctx, request)
 	}()
 	getSecretsDuration := time.Since(start).Milliseconds()
 	if err != nil {
@@ -138,7 +158,79 @@ func normalizeOwner(owner string) (string, error) {
 	return common.HexToAddress(owner).Hex(), nil
 }
 
-func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
+func LocalSecretOverrideOwnerKey(owner string) (string, error) {
+	owner = strings.TrimPrefix(strings.ToLower(owner), "0x")
+	if err := types.ValidateWorkflowOwner(owner); err != nil {
+		return "", err
+	}
+	return owner, nil
+}
+
+// getSecretsForBatchWithLocalFallback calls Vault first. If the batch fails entirely or any
+// SecretResponse carries an error, those request(s) are retried via overrideFetcher.
+func (s *secretsFetcher) getSecretsForBatchWithLocalFallback(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
+	if s.overrideFetcher == nil {
+		return s.getVaultSecretsForBatch(ctx, request)
+	}
+	// overrideFetcher is set
+	if request == nil || len(request.Requests) == 0 {
+		return nil, nil
+	}
+	vaultResp, err := s.getVaultSecretsForBatch(ctx, request)
+	if err != nil {
+		s.lggr.Debugw("vault secrets batch failed, trying local override fetcher for full batch", "error", err)
+		return s.overrideFetcher.GetSecrets(ctx, request)
+	}
+
+	var forLocal []*sdkpb.SecretRequest
+	var failedIdx []int
+	for i, r := range request.Requests {
+		ns := r.Namespace
+		if ns == "" {
+			ns = vaulttypes.DefaultNamespace
+		}
+		nsID := ns + "::" + r.Id
+		if vaultResp[i].GetError() != nil {
+			s.lggr.Debugw("vault returned error for secret, trying local override fetcher", "error", vaultResp[i].GetError(), "nsID", nsID)
+			forLocal = append(forLocal, r)
+			failedIdx = append(failedIdx, i)
+		}
+	}
+	if len(forLocal) == 0 {
+		return vaultResp, nil
+	}
+
+	overrideResp, err := s.overrideFetcher.GetSecrets(ctx, &sdkpb.GetSecretsRequest{
+		Requests:   forLocal,
+		CallbackId: request.CallbackId,
+	})
+	if err != nil {
+		s.lggr.Errorw("local override fetcher failed - this should never happen", "error", err)
+		return nil, err
+	}
+
+	combined := make([]*sdkpb.SecretResponse, len(vaultResp))
+	copy(combined, vaultResp)
+	for j, origIdx := range failedIdx {
+		ns := forLocal[j].Namespace
+		if ns == "" {
+			ns = vaulttypes.DefaultNamespace
+		}
+		nsID := ns + "::" + forLocal[j].Id
+		if overrideResp[j].GetError() != nil {
+			s.lggr.Debugw("local override fetcher did not resolve secret after vault error", "error", overrideResp[j].GetError(), "nsID", nsID)
+		} else {
+			s.lggr.Debugw("secret resolved from local override fetcher after vault error", "nsID", nsID)
+		}
+		combined[origIdx] = overrideResp[j]
+	}
+	return combined, nil
+}
+
+func (s *secretsFetcher) getVaultSecretsForBatch(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
+	if request == nil || len(request.Requests) == 0 {
+		return nil, nil
+	}
 	vaultCap, err := s.capRegistry.GetExecutable(ctx, vault.CapabilityID)
 	if err != nil {
 		return nil, errors.New("failed to get vault capability: " + err.Error())
@@ -178,6 +270,17 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 	if err != nil {
 		return nil, fmt.Errorf("failed to get encryption keys: %w", err)
 	}
+	metadata := capabilities.RequestMetadata{
+		WorkflowOwner:       s.workflowOwner,
+		WorkflowName:        s.workflowName,
+		WorkflowExecutionID: sha(s.phaseID, strconv.FormatInt(int64(request.CallbackId), 10)),
+		ReferenceID:         strconv.FormatInt(int64(request.CallbackId), 10),
+	}
+	if propagateOrgIDMeta, _ := cresettings.Default.PropagateOrgIDInRequestMetadata.GetOrDefault(ctx, s.creSettingsGetter); propagateOrgIDMeta && s.orgID != "" {
+		metadata.OrgID = s.orgID
+		// WorkflowID is under this gate because we previously skipped setting workflowID on SecretsFetcher entirely. Now setting it safely.
+		metadata.WorkflowID = s.workflowID
+	}
 	vp := &vault.GetSecretsRequest{
 		Requests: make([]*vault.SecretRequest, 0),
 	}
@@ -186,6 +289,7 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 	if err != nil {
 		return nil, fmt.Errorf("could not normalize workflowOwner: %w", err)
 	}
+	responseOwner := owner
 
 	logKeys := make([]string, 0, len(request.Requests))
 	for _, r := range request.Requests {
@@ -209,20 +313,14 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 		return nil, fmt.Errorf("failed to convert vault request to any: %w", err)
 	}
 
-	lggr := logger.With(s.lggr, "requestedKeys", logKeys)
+	lggr := logger.With(s.lggr, "requestedKeys", logKeys, "metadata", metadata)
 	lggr.Debug("fetching secrets...")
 
 	capabilityResponse, err := vaultCap.Execute(ctx, capabilities.CapabilityRequest{
 		Payload:      anypbReq,
 		Method:       vault.MethodGetSecrets,
 		CapabilityId: vault.CapabilityID,
-		Metadata: capabilities.RequestMetadata{
-			WorkflowID:          s.workflowID,
-			WorkflowOwner:       s.workflowOwner,
-			WorkflowName:        s.workflowName,
-			WorkflowExecutionID: sha(s.phaseID, strconv.FormatInt(int64(request.CallbackId), 10)),
-			ReferenceID:         strconv.FormatInt(int64(request.CallbackId), 10),
-		},
+		Metadata:     metadata,
 	})
 	if err != nil {
 		lggr.Errorw("failed to fetch secrets", "err", err)
@@ -250,15 +348,15 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 		if namespace == "" {
 			namespace = vaulttypes.DefaultNamespace
 		}
-		key := keyFor(owner, namespace, r.Id)
+		key := keyFor(responseOwner, namespace, r.Id)
 		resp, ok := m[key]
 		if !ok {
 			errorMessage := "could not find response for the request: " + key
-			errorResponse := s.wrapErrorResponse(lggr, r.Id, namespace, owner, errorMessage)
+			errorResponse := s.wrapErrorResponse(lggr, r.Id, namespace, responseOwner, errorMessage)
 			sdkResp = append(sdkResp, &errorResponse)
 			continue
 		}
-		response := s.getSecretForSingleRequest(logger.With(lggr, "key", key), r.Id, owner, namespace, cfg, resp)
+		response := s.getSecretForSingleRequest(logger.With(lggr, "key", key), r.Id, responseOwner, namespace, cfg, resp)
 		sdkResp = append(sdkResp, &response)
 	}
 	return sdkResp, nil
@@ -281,14 +379,19 @@ func (s *secretsFetcher) getSecretForSingleRequest(lggr logger.Logger, id, owner
 		return s.wrapErrorResponse(lggr, id, namespace, owner, errorMessage)
 	}
 
+	var localNodeBinaryShares [][]byte
 	var localNodeShares []string
 	workflowNodeEncryptionPublicKeyStr := s.workflowEncryptionKey.PublicKeyString()
 	for _, share := range response.GetData().GetEncryptedDecryptionKeyShares() {
 		if share.EncryptionKey == workflowNodeEncryptionPublicKeyStr {
-			localNodeShares = share.Shares
+			if len(share.BinaryShares) > 0 {
+				localNodeBinaryShares = share.BinaryShares
+			} else {
+				localNodeShares = share.Shares
+			}
 		}
 	}
-	if len(localNodeShares) == 0 {
+	if len(localNodeBinaryShares) == 0 && len(localNodeShares) == 0 {
 		errorMessage := "no shares found for this node's encryption key: " + workflowNodeEncryptionPublicKeyStr
 		return s.wrapErrorResponse(lggr, id, namespace, owner, errorMessage)
 	}
@@ -299,7 +402,13 @@ func (s *secretsFetcher) getSecretForSingleRequest(lggr logger.Logger, id, owner
 		return s.wrapErrorResponse(lggr, id, namespace, owner, errorMessage)
 	}
 
-	secret, err := s.decryptSecret(lggr, encryptedSecretBytes, localNodeShares, cfg)
+	encryptedDecryptionShares, err := encryptedDecryptionShareBytes(localNodeBinaryShares, localNodeShares)
+	if err != nil {
+		errorMessage := "failed to decode encrypted decryption shares: " + err.Error()
+		return s.wrapErrorResponse(lggr, id, namespace, owner, errorMessage)
+	}
+
+	secret, err := s.decryptSecret(lggr, encryptedSecretBytes, encryptedDecryptionShares, cfg)
 	if err != nil {
 		errorMessage := "failed to decrypt secret: " + err.Error()
 		return s.wrapErrorResponse(lggr, id, namespace, owner, errorMessage)
@@ -331,7 +440,22 @@ func (s *secretsFetcher) wrapErrorResponse(lggr logger.Logger, id, namespace, ow
 	}
 }
 
-func (s *secretsFetcher) decryptSecret(lggr logger.Logger, encryptedSecretBytes []byte, encryptedDecryptionShares []string, cfg *vaultConfig) (string, error) {
+func encryptedDecryptionShareBytes(binaryShares [][]byte, hexShares []string) ([][]byte, error) {
+	if len(binaryShares) > 0 {
+		return binaryShares, nil
+	}
+	out := make([][]byte, 0, len(hexShares))
+	for _, share := range hexShares {
+		shareBytes, err := hex.DecodeString(share)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, shareBytes)
+	}
+	return out, nil
+}
+
+func (s *secretsFetcher) decryptSecret(lggr logger.Logger, encryptedSecretBytes []byte, encryptedDecryptionShares [][]byte, cfg *vaultConfig) (string, error) {
 	lggr.Debug("decrypting secret...")
 
 	cipherText := &tdh2easy.Ciphertext{}
@@ -341,12 +465,7 @@ func (s *secretsFetcher) decryptSecret(lggr logger.Logger, encryptedSecretBytes 
 	}
 
 	decryptionShares := make([]*tdh2easy.DecryptionShare, 0, len(encryptedDecryptionShares))
-	for i, encryptedDecryptionShare := range encryptedDecryptionShares {
-		encryptedDecryptionShareBytes, err := hex.DecodeString(encryptedDecryptionShare)
-		if err != nil {
-			lggr.Debugw("failed to hex decode the encryptedDecryptionShare", "index", i)
-			continue
-		}
+	for i, encryptedDecryptionShareBytes := range encryptedDecryptionShares {
 		decryptionShareBytes, err := s.workflowEncryptionKey.Decrypt(encryptedDecryptionShareBytes)
 		if err != nil {
 			lggr.Debugw("failed to decrypt the encryptedDecryptionShare", "index", i)

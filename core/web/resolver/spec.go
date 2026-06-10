@@ -42,14 +42,6 @@ func (r *SpecResolver) ToFluxMonitorSpec() (*FluxMonitorSpecResolver, bool) {
 	return &FluxMonitorSpecResolver{spec: *r.j.FluxMonitorSpec}, true
 }
 
-func (r *SpecResolver) ToKeeperSpec() (*KeeperSpecResolver, bool) {
-	if r.j.Type != job.Keeper {
-		return nil, false
-	}
-
-	return &KeeperSpecResolver{spec: *r.j.KeeperSpec}, true
-}
-
 func (r *SpecResolver) ToOCRSpec() (*OCRSpecResolver, bool) {
 	if r.j.Type != job.OffchainReporting {
 		return nil, false
@@ -342,44 +334,6 @@ func (r *FluxMonitorSpecResolver) PollTimerPeriod() string {
 // Threshold resolves the spec's deviation threshold.
 func (r *FluxMonitorSpecResolver) Threshold() float64 {
 	return float64(r.spec.Threshold)
-}
-
-type KeeperSpecResolver struct {
-	spec job.KeeperSpec
-}
-
-// ContractAddress resolves the spec's contract address.
-func (r *KeeperSpecResolver) ContractAddress() string {
-	return r.spec.ContractAddress.String()
-}
-
-// CreatedAt resolves the spec's created at timestamp.
-func (r *KeeperSpecResolver) CreatedAt() graphql.Time {
-	return graphql.Time{Time: r.spec.CreatedAt}
-}
-
-// EVMChainID resolves the spec's evm chain id.
-func (r *KeeperSpecResolver) EVMChainID() *string {
-	if r.spec.EVMChainID == nil {
-		return nil
-	}
-
-	chainID := r.spec.EVMChainID.String()
-
-	return &chainID
-}
-
-// FromAddress resolves the spec's from contract address.
-//
-// Because VRF has an non required field of the same name, we have to be
-// consistent in our return value of using a *string instead of a string even
-// though this is a required field for the KeeperSpec.
-//
-// http://spec.graphql.org/draft/#sec-Field-Selection-Merging
-func (r *KeeperSpecResolver) FromAddress() *string {
-	addr := r.spec.FromAddress.String()
-
-	return &addr
 }
 
 type OCRSpecResolver struct {
@@ -771,7 +725,7 @@ type BlockhashStoreSpecResolver struct {
 	spec job.BlockhashStoreSpec
 }
 
-// CoordinatorV1Address returns the address of the V1 Coordinator, if any.
+// CoordinatorV1Address returns the legacy V1 coordinator address from persisted jobs, if any.
 func (b *BlockhashStoreSpecResolver) CoordinatorV1Address() *string {
 	if b.spec.CoordinatorV1Address == nil {
 		return nil
@@ -870,7 +824,7 @@ type BlockHeaderFeederSpecResolver struct {
 	spec job.BlockHeaderFeederSpec
 }
 
-// CoordinatorV1Address returns the address of the V1 Coordinator, if any.
+// CoordinatorV1Address returns the legacy V1 coordinator address from persisted jobs, if any.
 func (b *BlockHeaderFeederSpecResolver) CoordinatorV1Address() *string {
 	if b.spec.CoordinatorV1Address == nil {
 		return nil

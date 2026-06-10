@@ -1,19 +1,20 @@
 package features
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	de "github.com/smartcontractkit/chainlink/devenv"
+	"github.com/smartcontractkit/chainlink/devenv/products"
 )
 
 func TestReorgHeadTrackerFinalityViolation(t *testing.T) {
@@ -23,8 +24,14 @@ func TestReorgHeadTrackerFinalityViolation(t *testing.T) {
 	l := framework.L
 
 	t.Cleanup(func() {
-		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-		require.NoError(t, cErr)
+		reorgMessage := products.NewAllowedLogMessage(
+			"Got very old block. Either a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers.",
+			"this test causes reorg so this message is expected",
+			zapcore.DPanicLevel,
+			products.WarnAboutAllowedMsgs_No,
+		)
+		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings(reorgMessage))
+		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
 	})
 
 	rpcClient := rpc.New(in.Blockchains[0].Out.Nodes[0].ExternalHTTPUrl, nil)

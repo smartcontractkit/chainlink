@@ -14,6 +14,8 @@ const (
 	WorkflowExecutionStarted string = "WorkflowExecutionStarted"
 	// WorkflowExecutionFinished represents a workflow execution finished event
 	WorkflowExecutionFinished string = "WorkflowExecutionFinished"
+	// WorkflowExecutionProfile represents an aggregated workflow execution profile event
+	WorkflowExecutionProfile string = "WorkflowExecutionProfile"
 	// CapabilityExecutionStarted represents a capability execution started event
 	CapabilityExecutionStarted string = "CapabilityExecutionStarted"
 	// CapabilityExecutionFinished represents a capability execution finished event
@@ -22,6 +24,8 @@ const (
 	TriggerExecutionStarted string = "TriggerExecutionStarted"
 	// WorkflowUserLog represents user log events
 	WorkflowUserLog string = "WorkflowUserLog"
+	// WorkflowUserMetric represents user metric events
+	WorkflowUserMetric string = "WorkflowUserMetric"
 	// UserLogs represents user logs events (v1 event type)
 	UserLogs string = "UserLogs"
 
@@ -40,11 +44,13 @@ const (
 
 	// V2 schema constants
 	SchemaWorkflowStartedV2    string = "/cre-events-workflow-started/v2"
-	SchemaWorkflowFinishedV2   string = "/cre-events-workflow-finished/v2"
+	SchemaWorkflowFinishedV2            string = "/cre-events-workflow-finished/v2"
+	SchemaWorkflowExecutionProfileV2    string = "/cre-events-workflow-execution-profile/v2"
 	SchemaCapabilityStartedV2  string = "/cre-events-capability-started/v2"
 	SchemaCapabilityFinishedV2 string = "/cre-events-capability-finished/v2"
 	SchemaTriggerStartedV2     string = "/cre-events-trigger-started/v2"
 	SchemaUserLogsV2           string = "/cre-events-user-logs/v2"
+	SchemaUserMetricV2         string = "/cre-events-user-metric/v2"
 	SchemaWorkflowActivatedV2  string = "/cre-events-workflow-activated/v2"
 	SchemaWorkflowPausedV2     string = "/cre-events-workflow-paused/v2"
 	SchemaWorkflowDeletedV2    string = "/cre-events-workflow-deleted/v2"

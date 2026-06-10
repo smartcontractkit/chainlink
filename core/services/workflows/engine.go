@@ -28,9 +28,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
+	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
@@ -147,10 +149,15 @@ type Engine struct {
 	ratelimiter    *ratelimiter.RateLimiter
 	workflowLimits limits.ResourceLimiter[int]
 	meterReports   *metering.Reports
+
+	shardOrchestratorClient shardorchestrator.ClientInterface
+	shardingEnabled         bool
+	myShardID               uint32
+	shardRoutingSteady      *shardownership.SteadySignal
 }
 
 func (e *Engine) Start(ctx context.Context) error {
-	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: e.workflow.owner, Workflow: e.workflow.id}) // TODO org from cache
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: e.workflow.owner, Workflow: e.workflow.id})
 	return e.StartOnce("Engine", func() error {
 		// validate if adding another workflow would exceed either the global or per owner engine count limit
 		if err := e.workflowLimits.Use(ctx, 1); err != nil {
@@ -513,6 +520,22 @@ func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpd
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, triggerEventID string, event *values.Map) error {
+	needShardOwnerCheck := e.shardRoutingSteady == nil || !e.shardRoutingSteady.SkipCommittedOwnerCheck()
+	if e.shardingEnabled && e.shardOrchestratorClient != nil && needShardOwnerCheck {
+		verdict, _, ownErr := shardownership.CheckCommittedOwner(ctx, e.shardOrchestratorClient, e.workflow.id, e.myShardID)
+		switch verdict {
+		case shardownership.Allow:
+		case shardownership.DenyOrchestratorError:
+			e.logger.Warnw("Shard ownership check failed (orchestrator error); skipping execution", "err", ownErr, platform.KeyWorkflowExecutionID, executionID)
+			e.metrics.IncrementShardExecutionDeniedOrchestratorErrorCounter(ctx)
+			return nil
+		case shardownership.DenyNotOwner:
+			e.logger.Infow("Skipping execution: workflow not owned by this shard per orchestrator", platform.KeyWorkflowExecutionID, executionID, "myShardID", e.myShardID)
+			e.metrics.IncrementShardExecutionDeniedNotOwnerCounter(ctx)
+			return nil
+		}
+	}
+
 	meteringReport, err := e.meterReports.Start(ctx, executionID)
 	switch {
 	case err != nil:
@@ -1217,7 +1240,7 @@ func (e *Engine) heartbeat(ctx context.Context) {
 func (e *Engine) Close() error {
 	return e.StopOnce("Engine", func() error {
 		e.logger.Info("shutting down engine")
-		ctx := contexts.WithCRE(context.Background(), contexts.CRE{Owner: e.workflow.owner, Workflow: e.workflow.id}) // TODO org from cache
+		ctx := contexts.WithCRE(context.Background(), contexts.CRE{Owner: e.workflow.owner, Workflow: e.workflow.id})
 		// To shut down the engine, we'll start by deregistering
 		// any triggers to ensure no new executions are triggered,
 		// then we'll close down any background goroutines,
@@ -1328,6 +1351,11 @@ type Config struct {
 	// WorkflowLimits specifies an upper limit on the count of workflows that can be
 	// running globally and per workflow owner.
 	WorkflowLimits limits.ResourceLimiter[int]
+
+	ShardOrchestratorClient shardorchestrator.ClientInterface
+	ShardingEnabled         bool
+	MyShardID               uint32
+	ShardRoutingSteady      *shardownership.SteadySignal
 
 	// For testing purposes only
 	maxRetries          int
@@ -1506,25 +1534,29 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 			Config: cfg.Config,
 			Binary: cfg.Binary,
 		},
-		executionsStore:      cfg.Store,
-		pendingStepRequests:  make(chan stepRequest, cfg.QueueSize),
-		stepUpdatesChMap:     stepUpdateManager{m: map[string]stepUpdateChannel{}},
-		triggerEvents:        make(chan capabilities.TriggerResponse),
-		stopCh:               make(chan struct{}),
-		newWorkerTimeout:     cfg.NewWorkerTimeout,
-		stepTimeoutDuration:  cfg.StepTimeout,
-		maxExecutionDuration: cfg.MaxExecutionDuration,
-		heartbeatCadence:     cfg.HeartbeatCadence,
-		onExecutionFinished:  cfg.onExecutionFinished,
-		onRateLimit:          cfg.onRateLimit,
-		afterInit:            cfg.afterInit,
-		maxRetries:           cfg.maxRetries,
-		retryMs:              cfg.retryMs,
-		maxWorkerLimit:       cfg.MaxWorkerLimit,
-		clock:                cfg.clock,
-		ratelimiter:          cfg.RateLimiter,
-		workflowLimits:       cfg.WorkflowLimits,
-		meterReports:         metering.NewReports(cfg.BillingClient, workflow.owner, workflow.id, lggr, cma.Labels(), metrics, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV1),
+		executionsStore:         cfg.Store,
+		pendingStepRequests:     make(chan stepRequest, cfg.QueueSize),
+		stepUpdatesChMap:        stepUpdateManager{m: map[string]stepUpdateChannel{}},
+		triggerEvents:           make(chan capabilities.TriggerResponse),
+		stopCh:                  make(chan struct{}),
+		newWorkerTimeout:        cfg.NewWorkerTimeout,
+		stepTimeoutDuration:     cfg.StepTimeout,
+		maxExecutionDuration:    cfg.MaxExecutionDuration,
+		heartbeatCadence:        cfg.HeartbeatCadence,
+		onExecutionFinished:     cfg.onExecutionFinished,
+		onRateLimit:             cfg.onRateLimit,
+		afterInit:               cfg.afterInit,
+		maxRetries:              cfg.maxRetries,
+		retryMs:                 cfg.retryMs,
+		maxWorkerLimit:          cfg.MaxWorkerLimit,
+		clock:                   cfg.clock,
+		ratelimiter:             cfg.RateLimiter,
+		workflowLimits:          cfg.WorkflowLimits,
+		meterReports:            metering.NewReports(cfg.BillingClient, workflow.owner, workflow.id, lggr, cma.Labels(), metrics, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV1),
+		shardOrchestratorClient: cfg.ShardOrchestratorClient,
+		shardingEnabled:         cfg.ShardingEnabled,
+		myShardID:               cfg.MyShardID,
+		shardRoutingSteady:      cfg.ShardRoutingSteady,
 	}
 
 	return engine, nil

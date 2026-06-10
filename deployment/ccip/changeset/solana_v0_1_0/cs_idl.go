@@ -12,16 +12,16 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/pelletier/go-toml"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
@@ -40,17 +40,17 @@ const IdlIxTag uint64 = 0x0a69e9a778bcf440
 // IDL
 type IDLConfig struct {
 	ChainSelector                uint64
-	GitCommitSha                 string                        // this will be used to download the correct artifacts (idls) -> best if same as what was used to deploy the programs
-	Router                       bool                          // whether to upload the IDL for the router
-	FeeQuoter                    bool                          // whether to upload the IDL for the fee quoter
-	OffRamp                      bool                          // whether to upload the IDL for the off ramp
-	RMNRemote                    bool                          // whether to upload the IDL for the rmn remote
-	AccessController             bool                          // whether to upload the IDL for the access controller
-	MCM                          bool                          // whether to upload the IDL for the mcm
-	Timelock                     bool                          // whether to upload the IDL for the timelock
-	BurnMintTokenPoolMetadata    []string                      // whether to upload the IDL for the token pool (keyed my client identifier (metadata))
-	LockReleaseTokenPoolMetadata []string                      // metadata for the lock release token pool (keyed my client identifier (metadata))
-	MCMS                         *proposalutils.TimelockConfig // timelock config for mcms
+	GitCommitSha                 string                            // this will be used to download the correct artifacts (idls) -> best if same as what was used to deploy the programs
+	Router                       bool                              // whether to upload the IDL for the router
+	FeeQuoter                    bool                              // whether to upload the IDL for the fee quoter
+	OffRamp                      bool                              // whether to upload the IDL for the off ramp
+	RMNRemote                    bool                              // whether to upload the IDL for the rmn remote
+	AccessController             bool                              // whether to upload the IDL for the access controller
+	MCM                          bool                              // whether to upload the IDL for the mcm
+	Timelock                     bool                              // whether to upload the IDL for the timelock
+	BurnMintTokenPoolMetadata    []string                          // whether to upload the IDL for the token pool (keyed my client identifier (metadata))
+	LockReleaseTokenPoolMetadata []string                          // metadata for the lock release token pool (keyed my client identifier (metadata))
+	MCMS                         *cldfproposalutils.TimelockConfig // timelock config for mcms
 }
 
 // parse anchor version from running anchor --version
@@ -345,7 +345,7 @@ func (c IDLConfig) Validate(e cldf.Environment) error {
 	if err != nil {
 		return fmt.Errorf("failed to get existing addresses: %w", err)
 	}
-	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(e.BlockChains.SolanaChains()[c.ChainSelector], addresses)
+	mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(e.BlockChains.SolanaChains()[c.ChainSelector], addresses)
 	if err != nil {
 		return fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}
@@ -414,7 +414,7 @@ func UploadIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 	}
-	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(e.BlockChains.SolanaChains()[c.ChainSelector], addresses)
+	mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(e.BlockChains.SolanaChains()[c.ChainSelector], addresses)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}
@@ -498,7 +498,7 @@ func SetAuthorityIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, err
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 	}
-	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}
@@ -600,7 +600,7 @@ func UpgradeIDL(e cldf.Environment, c IDLConfig) (cldf.ChangesetOutput, error) {
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 	}
-	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}

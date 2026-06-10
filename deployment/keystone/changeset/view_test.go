@@ -245,7 +245,7 @@ func TestKeystoneView(t *testing.T) {
 			}
 			var allDons = []internal.DonCapabilities{wfDonCapabilities}
 			cr, err := contracts.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](
-				env.Env.DataStore.Addresses(), env.Env.BlockChains.EVMChains()[env.RegistrySelector], capabilityRegistryAddr,
+				env.Env.DataStore.Addresses(), env.Env.BlockChains.EVMChains()[env.RegistrySelector], capabilityRegistryAddr, "",
 			)
 			require.NoError(t, err)
 

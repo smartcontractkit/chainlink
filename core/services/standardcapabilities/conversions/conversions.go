@@ -9,8 +9,9 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 )
 
-// WARNING: Hacky and brittle - used only during migration to map job specs to capability IDs
-// before executing the LOOPP. When std cap job specs are deprecated, capability IDs will be known upfront.
+// WARNING: Hacky and brittle - used during the current std-capability transition to map
+// job commands back to capability IDs. The standard-capability delegate still needs this
+// for registry-based launch allowlisting and OCR config wiring, including remote caps like Aptos.
 func GetCapabilityIDFromCommand(command string, config string) string {
 	switch filepath.Base(command) {
 	case "evm":
@@ -25,6 +26,34 @@ func GetCapabilityIDFromCommand(command string, config string) string {
 			return ""
 		}
 		return "evm:ChainSelector:" + strconv.FormatUint(selector, 10) + "@1.0.0"
+	case "aptos":
+		var cfg struct {
+			ChainID string `json:"chainId"`
+		}
+		if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+			return ""
+		}
+		chainID, err := strconv.ParseUint(cfg.ChainID, 10, 64)
+		if err != nil {
+			return ""
+		}
+		selector, ok := chainselectors.AptosChainIdToChainSelector()[chainID]
+		if !ok {
+			return ""
+		}
+		return "aptos:ChainSelector:" + strconv.FormatUint(selector, 10) + "@1.0.0"
+	case "solana":
+		var cfg struct {
+			ChainID string `json:"chainId"`
+		}
+		if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+			return ""
+		}
+		selector, ok := chainselectors.SolanaChainIdToChainSelector()[cfg.ChainID]
+		if !ok {
+			return ""
+		}
+		return "solana:ChainSelector:" + strconv.FormatUint(selector, 10) + "@1.0.0"
 	case "consensus":
 		return "consensus@1.0.0-alpha"
 	case "cron":
@@ -33,6 +62,8 @@ func GetCapabilityIDFromCommand(command string, config string) string {
 		return "http-trigger@1.0.0-alpha"
 	case "http_action":
 		return "http-actions@1.0.0-alpha" // plural "actions"
+	case "mock":
+		return "mock@1.0.0"
 	default:
 		return ""
 	}
@@ -44,6 +75,8 @@ func GetCommandFromCapabilityID(capabilityID string) string {
 	switch {
 	case strings.HasPrefix(capabilityID, "evm"):
 		return "evm"
+	case strings.HasPrefix(capabilityID, "aptos:ChainSelector:"):
+		return "aptos"
 	case strings.HasPrefix(capabilityID, "consensus"):
 		return "consensus"
 	case strings.HasPrefix(capabilityID, "cron-trigger"):
@@ -52,6 +85,8 @@ func GetCommandFromCapabilityID(capabilityID string) string {
 		return "http_trigger"
 	case strings.HasPrefix(capabilityID, "http-actions"):
 		return "http_action"
+	case strings.HasPrefix(capabilityID, "mock"):
+		return "mock"
 	default:
 		return ""
 	}

@@ -43,6 +43,18 @@ func (g *GatewayConnector) DonID(ctx context.Context) (string, error) {
 	return g.BaseGatewayConnector.DonID(ctx)
 }
 
+func (g *GatewayConnector) GatewayIDsForDon(ctx context.Context, donID string) ([]string, error) {
+	return g.BaseGatewayConnector.GatewayIDsForDon(ctx, donID)
+}
+
+func (g *GatewayConnector) DonIDForGateway(ctx context.Context, gatewayID string) (string, error) {
+	return g.BaseGatewayConnector.DonIDForGateway(ctx, gatewayID)
+}
+
+func (g *GatewayConnector) PrimaryDonID(ctx context.Context) (string, error) {
+	return g.BaseGatewayConnector.PrimaryDonID(ctx)
+}
+
 func (g *GatewayConnector) AwaitConnection(ctx context.Context, gatewayID string) error {
 	return g.BaseGatewayConnector.AwaitConnection(ctx, gatewayID)
 }

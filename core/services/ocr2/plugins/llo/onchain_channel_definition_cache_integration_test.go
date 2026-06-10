@@ -2,11 +2,13 @@ package llo_test
 
 import (
 	"bytes"
+	sha3 "crypto/sha3"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"math/rand"
 	"net/http"
 	"strconv"
@@ -19,26 +21,25 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/crypto/sha3"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
+	llotypes2 "github.com/smartcontractkit/chainlink-data-streams/llo/types"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/llo"
+	"github.com/smartcontractkit/chainlink-evm/pkg/llo/channeldefinitions"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
-	llotypes2 "github.com/smartcontractkit/chainlink/v2/core/services/llo/types"
 )
 
 type mockHTTPClient struct {
@@ -120,9 +121,7 @@ func extractChannelDefinitions(defsJSON json.RawMessage) llotypes.ChannelDefinit
 	}
 	result := make(llotypes.ChannelDefinitions)
 	for _, sourceDef := range sourceDefs {
-		for channelID, def := range sourceDef.Definitions {
-			result[channelID] = def
-		}
+		maps.Copy(result, sourceDef.Definitions)
 	}
 	return result
 }
@@ -1292,7 +1291,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, ownerDefsDroppedSHA)))
 		backend.Commit()
 
-		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Set channel definitions for source",
 			"url", url)
 
 		// Build a prev that contains the tombstoned channel 600 (simulating the
@@ -1323,6 +1322,84 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 			return !has600 && has601
 		}, 5*time.Second, 100*time.Millisecond,
 			"tombstoned channel 600 should be dropped, channel 601 should remain")
+	})
+
+	// After the owner omits a tombstoned channel from their on-chain definitions, the in-memory
+	// cache no longer carries that channel for the owner source. The merged map returned by
+	// Definitions(prevOutcome) is what the LLO plugin treats as channel definitions for the OCR
+	// outcome; it must stay free of the dropped channel on later rounds too.
+	//
+	// Depends on prior subtests in this test (owner tombstone + omit flow); do not run in
+	// isolation with go test -run matching only this subtest name.
+	t.Run("dropped tombstoned channel stays out of merged outcome after cache update", func(t *testing.T) {
+		observedLogs.TakeAll()
+
+		prevSimulatingOCROutcome := llotypes.ChannelDefinitions{
+			600: {
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams: []llotypes.Stream{
+					{StreamID: 1, Aggregator: llotypes.AggregatorMedian},
+				},
+				Source:    channeldefinitions.SourceOwner,
+				Tombstone: true,
+			},
+			601: {
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams: []llotypes.Stream{
+					{StreamID: 2, Aggregator: llotypes.AggregatorMode},
+				},
+				Source:    channeldefinitions.SourceOwner,
+				Tombstone: false,
+			},
+			602: {
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams: []llotypes.Stream{
+					{StreamID: 3, Aggregator: llotypes.AggregatorMedian},
+				},
+				Source:    adder1ID,
+				Tombstone: false,
+			},
+		}
+
+		var mergedOutcome llotypes.ChannelDefinitions
+		require.Eventually(t, func() bool {
+			mergedOutcome = cdc.Definitions(prevSimulatingOCROutcome)
+			_, has600 := mergedOutcome[600]
+			return !has600
+		}, 5*time.Second, 100*time.Millisecond,
+			"merged outcome should not contain dropped tombstoned channel 600")
+		_, has601 := mergedOutcome[601]
+		require.True(t, has601, "merged outcome should still contain channel 601")
+		_, has602 := mergedOutcome[602]
+		require.True(t, has602, "merged outcome should still contain adder channel 602")
+
+		// Simulate the next observation round: prev is the prior merged channel definitions.
+		mergedAgain := cdc.Definitions(mergedOutcome)
+		_, still600 := mergedAgain[600]
+		require.False(t, still600, "channel 600 must not reappear in merged outcome on subsequent Definitions(prev) calls")
+		require.Contains(t, mergedAgain, llotypes.ChannelID(601))
+		require.Contains(t, mergedAgain, llotypes.ChannelID(602))
+
+		require.Eventually(t, func() bool {
+			loaded, err := orm.LoadChannelDefinitions(testutils.Context(t), configStoreAddress, donID)
+			if err != nil || loaded == nil {
+				return false
+			}
+			if loaded.Format != channeldefinitions.MultiChannelDefinitionsFormat {
+				return false
+			}
+			var sources map[uint32]llotypes2.SourceDefinition
+			if err = json.Unmarshal(loaded.Definitions, &sources); err != nil {
+				return false
+			}
+			ownerSrc, ok := sources[channeldefinitions.SourceOwner]
+			if !ok {
+				return false
+			}
+			_, ownerHas600 := ownerSrc.Definitions[600]
+			return !ownerHas600 && len(ownerSrc.Definitions) > 0
+		}, 5*time.Second, 100*time.Millisecond,
+			"persisted owner source definitions should not list channel 600 after owner omitted it from the cache")
 	})
 
 	t.Run("multiple adders can add different channels", func(t *testing.T) {
@@ -1357,6 +1434,8 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
 			"url", url)
 
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Set channel definitions for source", "source", strconv.FormatUint(uint64(adder1ID), 10))
+
 		// Adder2 adds different channels
 		observedLogs.TakeAll()
 
@@ -1387,6 +1466,8 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 
 		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
 			"url", url2)
+
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Set channel definitions for source", "source", strconv.FormatUint(uint64(adder2ID), 10))
 
 		require.Eventually(t, func() bool {
 			defs := cdc.Definitions(llotypes.ChannelDefinitions{})

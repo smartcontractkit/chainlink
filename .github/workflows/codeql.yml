@@ -13,7 +13,7 @@ on:
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
-    needs: [ runner-config ]
+    needs: [runner-config]
     runs-on: ${{ matrix.runs-on || 'ubuntu-latest' }}
     permissions:
       # required for all workflows
@@ -48,7 +48,7 @@ jobs:
           metrics: cpu,network,memory,disk
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Go
         if: matrix.language == 'go'
@@ -78,7 +78,7 @@ jobs:
       - name: Build go code manually
         if: matrix.language == 'go'
         run: |
-          echo "::group::Builing all go code (go build ./...)"
+          echo "::group::Building all go code (go build ./...)"
           go build ./...
           echo "::endgroup::"
 
@@ -113,10 +113,10 @@ jobs:
         run: |
           if [[ "$OPT_OUT" == "true" ]]; then
             echo "Opt-out is true for current run. Using gh-hosted runner for Go codeql."
-            echo "go-runner=${GH_GO_RUNNER}" | tee -a $GITHUB_OUTPUT
+            echo "go-runner=${GH_GO_RUNNER}" | tee -a "${GITHUB_OUTPUT}"
             exit 0
           fi
 
           echo "Opt-out is false for current run. Using self-hosted runner for Go codeql."
-          echo "go-is-self-hosted=true" | tee -a $GITHUB_OUTPUT
-          echo "go-runner=${SH_GO_RUNNER}" | tee -a $GITHUB_OUTPUT
+          echo "go-is-self-hosted=true" | tee -a "${GITHUB_OUTPUT}"
+          echo "go-runner=${SH_GO_RUNNER}" | tee -a "${GITHUB_OUTPUT}"

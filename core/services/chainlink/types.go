@@ -1,18 +1,15 @@
 package chainlink
 
 import (
-	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 type GeneralConfig interface {
-	config.AppConfig
+	coreconfig.AppConfig
 	toml.HasEVMConfigs
 	CosmosConfigs() RawConfigs
-	SolanaConfigs() solcfg.TOMLConfigs
+	SolanaConfigs() RawConfigs
 	StarknetConfigs() RawConfigs
 	AptosConfigs() RawConfigs
 	TronConfigs() RawConfigs
@@ -29,5 +26,6 @@ type ImportedSecretConfig interface {
 	ImportedP2PKey() coreconfig.ImportableKey
 	ImportedEthKeys() coreconfig.ImportableChainKeyLister
 	ImportedSolKeys() coreconfig.ImportableChainKeyLister
+	ImportedAptosKeys() coreconfig.ImportableChainKeyLister
 	ImportedDKGRecipientKey() coreconfig.ImportableKey
 }

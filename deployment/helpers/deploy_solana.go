@@ -6,17 +6,19 @@ import (
 	"time"
 
 	"github.com/gagliardetto/solana-go"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
-
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 func BuildMCMSTxn(ixn solana.Instruction, programID string, contractType cldf.ContractType) (*mcmsTypes.Transaction, error) {
@@ -88,7 +90,7 @@ func BuildProposalsForTxns(
 	batches := make([]mcmsTypes.BatchOperation, 0)
 	chain := e.BlockChains.SolanaChains()[chainSelector]
 	addresses := e.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(chainSelector))
-	mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolanaV2(addresses)
+	mcmState, _ := solstate.MaybeLoadMCMSWithTimelockChainStateV2(addresses)
 
 	timelocks[chainSelector] = mcmsSolana.ContractAddress(
 		mcmState.TimelockProgram,
@@ -100,14 +102,14 @@ func BuildProposalsForTxns(
 		ChainSelector: mcmsTypes.ChainSelector(chainSelector),
 		Transactions:  txns,
 	})
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
 		proposers,
 		inspectors,
 		batches,
 		description,
-		proposalutils.TimelockConfig{MinDelay: minDelay})
+		cldfproposalutils.TimelockConfig{MinDelay: minDelay})
 	if err != nil {
 		return nil, fmt.Errorf("failed to build proposal: %w", err)
 	}
@@ -115,10 +117,10 @@ func BuildProposalsForTxns(
 }
 
 func FetchTimelockSigner(refs []datastore.AddressRef) (solana.PublicKey, error) {
-	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolanaV2(refs)
+	mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainStateV2(refs)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to load mcm state: %w", err)
 	}
-	timelockSignerPDA := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	timelockSignerPDA := pdasol.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 	return timelockSignerPDA, nil
 }

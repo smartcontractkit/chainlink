@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/jmoiron/sqlx"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -109,6 +110,7 @@ func testTransmitter(
 	expectedSigsEnabled bool,
 	report []byte,
 ) {
+	ctx := t.Context()
 	uni := newTestUniverse(t, nil)
 
 	c, err := uni.wrapper.LatestConfigDetails(nil, pluginType)
@@ -131,48 +133,40 @@ func testTransmitter(
 	seqNr := uint64(1)
 	attributedSigs := uni.SignReport(t, configDigest, rwi, seqNr)
 
-	account, err := uni.transmitterWithSigs.FromAccount(t.Context())
+	account, err := uni.transmitterWithSigs.FromAccount(ctx)
 	require.NoError(t, err, "failed to get from account")
 	require.Equal(t, ocrtypes.Account(uni.transmitters[0].Hex()), account, "from account mismatch")
 	if withSigs {
-		err = uni.transmitterWithSigs.Transmit(testutils.Context(t), configDigest, seqNr, rwi, attributedSigs)
+		err = uni.transmitterWithSigs.Transmit(ctx, configDigest, seqNr, rwi, attributedSigs)
 	} else {
-		err = uni.transmitterWithoutSigs.Transmit(testutils.Context(t), configDigest, seqNr, rwi, attributedSigs)
+		err = uni.transmitterWithoutSigs.Transmit(ctx, configDigest, seqNr, rwi, attributedSigs)
 	}
 	require.NoError(t, err, "failed to transmit")
 	uni.backend.Commit()
 
 	var txStatus uint64
-	require.Eventually(t, func() bool {
+	// testing.T should not be used within the callbacks below, as it may cause a race.
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		uni.backend.Commit()
-		rows, err := uni.db.QueryContext(testutils.Context(t), `SELECT hash FROM evm.tx_attempts LIMIT 1`)
-		require.NoError(t, err, "failed to query txes")
+		rows, err := uni.db.QueryContext(ctx, `SELECT hash FROM evm.tx_attempts LIMIT 1`)
+		require.NoError(c, err, "failed to query txes")
 		defer rows.Close()
 		var txHash []byte
 		for rows.Next() {
-			require.NoError(t, rows.Scan(&txHash), "failed to scan")
+			require.NoError(c, rows.Scan(&txHash), "failed to scan")
 		}
-		t.Log("txHash:", txHash)
-		receipt, err := uni.simClient.TransactionReceipt(testutils.Context(t), common.BytesToHash(txHash))
-		if err != nil {
-			t.Log("tx not found yet:", hexutil.Encode(txHash))
-			return false
-		}
-		t.Log("tx found:", hexutil.Encode(txHash), "status:", receipt.Status)
+		receipt, err := uni.simClient.TransactionReceipt(ctx, common.BytesToHash(txHash))
+		require.NoError(c, err)
 		txStatus = receipt.Status
-		return true
 	}, testutils.WaitTimeout(t), 1*time.Second)
 
 	// wait for receipt to be written to the db
-	require.Eventually(t, func() bool {
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		uni.backend.Commit()
 		var count uint32
-		err := uni.db.GetContext(testutils.Context(t), &count, `SELECT count(*) as cnt FROM evm.receipts LIMIT 1`)
-		require.NoError(t, err)
-		if count == 1 {
-			t.Log("tx receipt found in db")
-		}
-		return count == 1
+		err := uni.db.GetContext(ctx, &count, `SELECT count(*) as cnt FROM evm.receipts LIMIT 1`)
+		require.NoError(c, err)
+		require.Equal(c, uint32(1), count)
 	}, testutils.WaitTimeout(t), 2*time.Second)
 
 	require.Equal(t, uint64(1), txStatus, "tx status should be success")
@@ -658,8 +652,6 @@ func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient client.Client, keyStore
 
 // Code below copied/pasted and slightly modified in order to work from core/chains/evm/txmgr/test_helpers.go.
 
-func ptr[T any](t T) *T { return &t }
-
 type TestDatabaseConfig struct {
 	config.Database
 	defaultQueryTimeout time.Duration
@@ -834,12 +826,12 @@ func (e *TestEvmConfig) GasEstimator() evmconfig.GasEstimator {
 type TestLimitJobTypeConfig struct {
 }
 
-func (l *TestLimitJobTypeConfig) OCR() *uint32    { return ptr(uint32(0)) }
-func (l *TestLimitJobTypeConfig) OCR2() *uint32   { return ptr(uint32(0)) }
-func (l *TestLimitJobTypeConfig) DR() *uint32     { return ptr(uint32(0)) }
-func (l *TestLimitJobTypeConfig) FM() *uint32     { return ptr(uint32(0)) }
-func (l *TestLimitJobTypeConfig) Keeper() *uint32 { return ptr(uint32(0)) }
-func (l *TestLimitJobTypeConfig) VRF() *uint32    { return ptr(uint32(0)) }
+func (l *TestLimitJobTypeConfig) OCR() *uint32    { return new(uint32(0)) }
+func (l *TestLimitJobTypeConfig) OCR2() *uint32   { return new(uint32(0)) }
+func (l *TestLimitJobTypeConfig) DR() *uint32     { return new(uint32(0)) }
+func (l *TestLimitJobTypeConfig) FM() *uint32     { return new(uint32(0)) }
+func (l *TestLimitJobTypeConfig) Keeper() *uint32 { return new(uint32(0)) }
+func (l *TestLimitJobTypeConfig) VRF() *uint32    { return new(uint32(0)) }
 
 type TestBlockHistoryConfig struct {
 	evmconfig.BlockHistory

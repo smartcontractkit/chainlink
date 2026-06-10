@@ -96,9 +96,9 @@ func (o *orm) UpsertSubscription(ctx context.Context, subscription StoredSubscri
 		subscription.BlockedBalance = big.NewInt(0)
 	}
 
-	var consumers [][]byte
-	for _, c := range subscription.Consumers {
-		consumers = append(consumers, c.Bytes())
+	consumers := make([][]byte, len(subscription.Consumers))
+	for i, c := range subscription.Consumers {
+		consumers[i] = c.Bytes()
 	}
 
 	_, err := o.ds.ExecContext(
@@ -123,9 +123,9 @@ func (o *orm) UpsertSubscription(ctx context.Context, subscription StoredSubscri
 }
 
 func (cs *storedSubscriptionRow) encode() StoredSubscription {
-	consumers := make([]common.Address, 0)
-	for _, csc := range cs.Consumers {
-		consumers = append(consumers, common.BytesToAddress(csc))
+	consumers := make([]common.Address, len(cs.Consumers))
+	for i, csc := range cs.Consumers {
+		consumers[i] = common.BytesToAddress(csc)
 	}
 
 	return StoredSubscription{

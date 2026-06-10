@@ -866,7 +866,6 @@ type SolanaKeysPayload {
 union JobSpec =
     CronSpec |
     DirectRequestSpec |
-    KeeperSpec |
     FluxMonitorSpec |
     OCRSpec |
     OCR2Spec |
@@ -879,7 +878,9 @@ union JobSpec =
     WorkflowSpec |
     StandardCapabilitiesSpec |
     StreamSpec |
-    CCIPSpec
+    CCIPSpec |
+    CCVCommitteeVerifierSpec |
+    CCVExecutorSpec
 
 type CronSpec {
     schedule: String!
@@ -910,13 +911,6 @@ type FluxMonitorSpec {
     pollTimerDisabled: Boolean!
     pollTimerPeriod: String!
     threshold: Float!
-}
-
-type KeeperSpec {
-    contractAddress: String!
-    createdAt: Time!
-    evmChainID: String
-    fromAddress: String
 }
 
 type OCRSpec {
@@ -1060,6 +1054,21 @@ type CCIPSpec {
     capabilityLabelledName: String!
     ocrKeyBundleIDs: Map!
     p2pKeyID: String!
+    p2pv2Bootstrappers: [String!]
+    pluginConfig: Map!
+    relayConfigs: Map!
+}
+
+type CCVCommitteeVerifierSpec {
+    createdAt: Time!
+    updatedAt: Time!
+    committeeVerifierConfig: String!
+}
+
+type CCVExecutorSpec {
+    createdAt: Time!
+    updatedAt: Time!
+    executorConfig: String!
 }
 type StarkNetKey {
 	id: ID!

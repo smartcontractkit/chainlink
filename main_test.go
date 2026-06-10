@@ -2,21 +2,18 @@ package main
 
 import (
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/rogpeppe/go-internal/testscript"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/freeport"
 
 	"github.com/smartcontractkit/chainlink/v2/core"
-	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/internal/testdb"
 	"github.com/smartcontractkit/chainlink/v2/tools/txtar"
@@ -123,7 +120,7 @@ func commonEnv(t testing.TB) func(*testscript.Env) error {
 			envVarName := strings.TrimSpace(string(b))
 			te.T().Log("test database requested:", envVarName)
 
-			u2 := newDB(t)
+			u2 := testdb.New(t, true).String()
 
 			te.Setenv(envVarName, u2)
 		}
@@ -139,13 +136,3 @@ func takeFreePort() (int, func(), error) {
 	return ports[0], func() { freeport.Return(ports) }, nil
 }
 
-func newDB(t testing.TB) string {
-	u, err := url.Parse(string(env.DatabaseURL.Get()))
-	if err != nil {
-		t.Fatalf("failed to parse url: %v", err)
-	}
-
-	name := strings.ReplaceAll(uuid.NewString(), "-", "_") + "_test"
-	u2 := testdb.CreateOrReplace(t, *u, name, true)
-	return u2.String()
-}

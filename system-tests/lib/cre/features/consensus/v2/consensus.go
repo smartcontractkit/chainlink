@@ -31,7 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
 )
 
-const flag = cre.ConsensusCapabilityV2
+const flag = cre.ConsensusCapability
 const consensusLabelledName = "consensus"
 
 type Consensus struct{}
@@ -65,6 +65,10 @@ func (c *Consensus) PreEnvStartup(
 		CapabilityToOCR3Config: map[string]*ocr3.OracleConfig{
 			consensusLabelledName: contracts.DefaultOCR3Config(),
 		},
+		CapabilityToExtraSignerFamilies: cre.CapabilityToExtraSignerFamilies(
+			cre.OCRExtraSignerFamilies(creEnv.Blockchains),
+			consensusLabelledName,
+		),
 	}, nil
 }
 
@@ -145,7 +149,7 @@ func createJobs(
 	}
 
 	if err := jobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs); err != nil {
-		return fmt.Errorf("failed to approve Consensus v2 jobs: %w", err)
+		return fmt.Errorf("failed to approve Consensus jobs: %w", err)
 	}
 
 	return nil
@@ -220,8 +224,13 @@ func proposeNodeJob(creEnv *cre.Environment, don *cre.Don, command string, boots
 		inputs["config"] = configStr
 	}
 
-	// Add Solana chain selector if present
+	// Add non-EVM OCR selectors when present so consensus can select the correct
+	// offchain key bundle path for report generation.
 	for _, blockchain := range creEnv.Blockchains {
+		if blockchain.IsFamily(chainselectors.FamilyAptos) {
+			inputs["chainSelectorAptos"] = blockchain.ChainSelector()
+			continue
+		}
 		if blockchain.IsFamily(chainselectors.FamilySolana) {
 			inputs["chainSelectorSolana"] = blockchain.ChainSelector()
 			break
@@ -232,7 +241,7 @@ func proposeNodeJob(creEnv *cre.Environment, don *cre.Don, command string, boots
 		Domain:      offchain.ProductLabel,
 		Environment: cre.EnvironmentName,
 		DONName:     don.Name,
-		JobName:     "consensus-v2-worker",
+		JobName:     "consensus-worker",
 		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
 		DONFilters: []offchain.TargetDONFilter{
 			{Key: offchain.FilterKeyDONName, Value: don.Name},
@@ -243,12 +252,18 @@ func proposeNodeJob(creEnv *cre.Environment, don *cre.Don, command string, boots
 
 	proposer := cre_jobs.ProposeJobSpec{}
 	if verErr := proposer.VerifyPreconditions(*creEnv.CldfEnvironment, input); verErr != nil {
-		return nil, fmt.Errorf("precondition verification failed for Consensus v2 node job: %w", verErr)
+		return nil, fmt.Errorf("precondition verification failed for Consensus node job: %w", verErr)
 	}
 
 	report, applyErr := proposer.Apply(*creEnv.CldfEnvironment, input)
 	if applyErr != nil {
-		return nil, fmt.Errorf("failed to propose Consensus v2 node job spec: %w", applyErr)
+		if strings.Contains(applyErr.Error(), "no aptos ocr2 config for node") {
+			return nil, fmt.Errorf(
+				"failed to propose Consensus node job spec: %w; Aptos workflows require Aptos OCR2 key bundles on all workflow DON nodes",
+				applyErr,
+			)
+		}
+		return nil, fmt.Errorf("failed to propose Consensus node job spec: %w", applyErr)
 	}
 
 	specs := make(map[string][]string)

@@ -7,15 +7,18 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	"github.com/stretchr/testify/require"
+
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
@@ -231,15 +234,15 @@ func TestBatchNativeTransferIntegration(t *testing.T) {
 func setupMCMSInfrastructure(t *testing.T, rt *runtime.Runtime, chainSelectors []uint64) {
 	t.Log("Setting up MCMS infrastructure with real deployment")
 
-	timelockCfgs := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
+	timelockCfgs := make(map[uint64]cldfproposalutils.MCMSWithTimelockConfig)
 	for _, sel := range chainSelectors {
 		t.Logf("Enabling MCMS on chain %d", sel)
-		timelockCfgs[sel] = proposalutils.SingleGroupTimelockConfigV2(t)
+		timelockCfgs[sel] = cldftesthelpers.SingleGroupTimelockConfig(t)
 	}
 
 	err := rt.Exec(
 		runtime.ChangesetTask(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
 			timelockCfgs,
 		),
 	)
@@ -368,7 +371,7 @@ func executeBatchTransfersWithMCMS(t *testing.T, rt *runtime.Runtime, chainSelec
 
 	transferConfig := types.BatchNativeTransferConfig{
 		TransfersByChain: make(map[uint64][]types.NativeTransfer),
-		MCMSConfig: &proposalutils.TimelockConfig{
+		MCMSConfig: &cldfproposalutils.TimelockConfig{
 			MinDelay: 0,
 		},
 		Description: "Integration test batch transfer",
@@ -414,7 +417,7 @@ func executeBatchTransfersWithMCMS(t *testing.T, rt *runtime.Runtime, chainSelec
 	}
 
 	err = rt.Exec(
-		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
+		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
 	)
 	require.NoError(t, err)
 

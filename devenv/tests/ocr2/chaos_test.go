@@ -1,16 +1,15 @@
 package ocr2
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
 	de "github.com/smartcontractkit/chainlink/devenv"
 	"github.com/smartcontractkit/chainlink/devenv/products"
@@ -27,8 +26,13 @@ func TestOCR2Chaos(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-		require.NoError(t, cErr)
+		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings(products.NewAllowedLogMessage(
+			"SLOW SQL QUERY",
+			"It is expected, because we are messing with the containers during the test",
+			zapcore.DPanicLevel,
+			products.WarnAboutAllowedMsgs_No,
+		)))
+		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
 	})
 	c, _, _, err := products.ETHClient(t.Context(), in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, pdConfig.Config[0].GasSettings.FeeCapMultiplier, pdConfig.Config[0].GasSettings.TipCapMultiplier)
 	require.NoError(t, err)
