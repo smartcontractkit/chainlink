@@ -289,6 +289,8 @@ github.com/bytedance/sonic/loader v0.2.0 h1:zNprn+lsIP06C/IqCHs3gPQIvnvpKbbxyXQP
 github.com/bytedance/sonic/loader v0.2.0/go.mod h1:ncP89zfokxS5LZrJxl5z0UJcsk4M4yY2JpfqGeCtNLU=
 github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.70.2 h1:6khni3TG7XJsyXgg5gdbY/IZCiBnpAi8XVZZUBizGUc=
 github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.70.2/go.mod h1:JFGcyqRE2qXgHsBw27/L0D1uEJtLhUm2Vqx4dFOHSzA=
+github.com/cedric-cordenier/safeurl v0.0.0-20260525105509-613a4d94ca55 h1:bKSgGLjcsXeBZfbs6NkJroOThrx2KzZk7h5CyBE2yac=
+github.com/cedric-cordenier/safeurl v0.0.0-20260525105509-613a4d94ca55/go.mod h1:3H0cgRpPYPSpgxRRn5yGD35Ns/LgGX/BVWSBbzUqXtY=
 github.com/cenkalti/backoff v2.2.1+incompatible h1:tNowT99t7UNflLxfYYSlKYsBpXdEet03Pg2g16Swow4=
 github.com/cenkalti/backoff v2.2.1+incompatible/go.mod h1:90ReRw6GdpyfrHakVjL/QHaoyV4aDUVVkXQJJJ3NXXM=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
@@ -507,8 +509,6 @@ github.com/docker/go-units v0.5.0 h1:69rxXcBk27SvSaaxTtLh/8llcHD8vYHT7WSdRZ/jvr4
 github.com/docker/go-units v0.5.0/go.mod h1:fgPhTUdO+D/Jk86RDLlptpiXQzgHJF7gydDDbaIK4Dk=
 github.com/dominikbraun/graph v0.23.0 h1:TdZB4pPqCLFxYhdyMFb1TBdFxp8XLcJfTTBQucVPgCo=
 github.com/dominikbraun/graph v0.23.0/go.mod h1:yOjYyogZLY1LSG9E33JWZJiq5k83Qy2C6POAuiViluc=
-github.com/doyensec/safeurl v0.2.3 h1:KJZHxTUMI17yUSy5umKmDLtzYBUxN6MkdSIyRI81DvY=
-github.com/doyensec/safeurl v0.2.3/go.mod h1:3H0cgRpPYPSpgxRRn5yGD35Ns/LgGX/BVWSBbzUqXtY=
 github.com/dustin/go-humanize v1.0.1 h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=
 github.com/dustin/go-humanize v1.0.1/go.mod h1:Mu1zIs6XwVuF/gI1OepvI0qD18qycQx+mFykh5fBlto=
 github.com/dvsekhvalnov/jose2go v1.7.0 h1:bnQc8+GMnidJZA8zc6lLEAb4xNrIqHwO+9TzqvtQZPo=
@@ -1642,6 +1642,8 @@ github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.202602181
 github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20260218133534-cbd44da2856b/go.mod h1:ea1LESxlSSOgc2zZBqf1RTkXTMthHaspdqUHd7W4lF0=
 github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread v0.0.0-20250917232237-c4ecf802c6f8 h1:ZhpUCMDFATsyS1B+6YaAxWYfh/WsVx9WWtYSOkl5V0g=
 github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread v0.0.0-20250917232237-c4ecf802c6f8/go.mod h1:96T5PZe9IRPcuMTnS2I2VGAtyDdkL5U9aWUykLtAYb8=
+github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread v0.0.0-20260609191154-1ecc282df958 h1:6IubvWL0Oq7KGNEieSSsxPb5qfUub4axim/d/JV9xiQ=
+github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread v0.0.0-20260609191154-1ecc282df958/go.mod h1:9buiD3HZFvaHWx9HrJif2PwNYQwE8dX+e8bN5pJvHSs=
 github.com/smartcontractkit/cld-changesets v0.5.0 h1:JfiS3k8uijw1zcoFBTAHOzI1LxkhZVjPT4YoxI7zTxQ=
 github.com/smartcontractkit/cld-changesets v0.5.0/go.mod h1:SYJTJw3tyi+bIVFApQ7RSe7jQD2cyEM1bmypbKF2dcg=
 github.com/smartcontractkit/cre-sdk-go v1.11.0 h1:E3MG0j8O9qDv6lDz71HPD3/WRKh/PX2/hfxO1+9YL2w=
