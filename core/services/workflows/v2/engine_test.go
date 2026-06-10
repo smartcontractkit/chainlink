@@ -614,6 +614,143 @@ func TestEngine_OrganizationIdLogger_OrgResolverFailure(t *testing.T) {
 	require.NoError(t, engine.Close())
 }
 
+// TestEngine_OrganizationIdPreservedAfterLocalNodeSync verifies that the org ID
+// resolved at engine startup survives a localNodeSync label rebuild.
+//
+// localNodeSync rebuilds logger labels from DON state without re-resolving the org.
+// The org ID must still propagate into capability request metadata on subsequent executions.
+//
+// Test flow:
+// 1. Start the engine and resolve org ID from the workflow owner
+// 2. Trigger localNodeSync via a DON update (ConfigVersion 1 -> 2)
+// 3. Run a workflow execution that calls a capability
+// 4. Assert the capability receives Metadata.OrgID matching the resolved org
+func TestEngine_OrganizationIdPreservedAfterLocalNodeSync(t *testing.T) {
+	t.Parallel()
+
+	const (
+		wantOrgID    = "test-org-123"
+		capabilityID = "org-test-cap@1.0.0"
+	)
+
+	module := modulemocks.NewModuleV2(t)
+	module.EXPECT().Start()
+	module.EXPECT().Close()
+	capreg := regmocks.NewCapabilitiesRegistry(t)
+	billingClient := setupMockBillingClient(t)
+
+	initialNode := newNode(t, func(n *capabilities.Node) {
+		n.WorkflowDON.ConfigVersion = 1
+	})
+	updatedNode := newNode(t, func(n *capabilities.Node) {
+		n.WorkflowDON.ConfigVersion = 2
+	})
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(initialNode, nil).Once()
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(updatedNode, nil).Once()
+
+	mockOrgResolver := &mockOrgResolver{orgID: wantOrgID}
+
+	initDoneCh := make(chan error)
+	subscribedToTriggersCh := make(chan []string, 1)
+	executionFinishedCh := make(chan string)
+	donCh := make(chan capabilities.DON)
+	nodeSyncedCh := make(chan capabilities.Node, 1)
+
+	subscriberMock := capmocks.NewDonSubscriber(t)
+	subscriberMock.EXPECT().Subscribe(matches.AnyContext).Return(donCh, func() {}, nil)
+
+	cfg := defaultTestConfig(t, nil)
+	propagateOrgIDGetter, err := settings.NewJSONGetter([]byte(`{"global":{"PropagateOrgIDInRequestMetadata":"true"}}`))
+	require.NoError(t, err)
+	cfg.LocalLimiters.Settings = propagateOrgIDGetter
+	cfg.DonSubscriber = subscriberMock
+	cfg.Module = module
+	cfg.CapRegistry = capreg
+	cfg.BillingClient = billingClient
+	cfg.OrgResolver = mockOrgResolver
+	cfg.Hooks = v2.LifecycleHooks{
+		OnInitialized: func(err error) {
+			initDoneCh <- err
+		},
+		OnSubscribedToTriggers: func(triggerIDs []string) {
+			subscribedToTriggersCh <- triggerIDs
+		},
+		OnExecutionFinished: func(executionID string, _ string) {
+			executionFinishedCh <- executionID
+		},
+		OnNodeSynced: func(node capabilities.Node, err error) {
+			require.NoError(t, err)
+			nodeSyncedCh <- node
+		},
+	}
+
+	engine, err := v2.NewEngine(cfg)
+	require.NoError(t, err)
+
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
+	trigger := capmocks.NewTriggerCapability(t)
+	capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil).Once()
+	eventCh := make(chan capabilities.TriggerResponse)
+	trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(eventCh, nil).Once()
+	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+	trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	require.NoError(t, engine.Start(t.Context()))
+	require.NoError(t, <-initDoneCh)
+	require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
+	require.True(t, mockOrgResolver.getCalled, "expected org resolver to be called during engine start")
+
+	donCh <- capabilities.DON{}
+	syncedNode := <-nodeSyncedCh
+	require.Equal(t, uint32(2), syncedNode.WorkflowDON.ConfigVersion)
+
+	capabilityOrgIDCh := make(chan string, 1)
+	capability := capmocks.NewExecutableCapability(t)
+	capreg.EXPECT().GetExecutable(matches.AnyContext, capabilityID).Return(capability, nil).Once()
+	capreg.EXPECT().ConfigForCapability(mock.Anything, mock.Anything, mock.Anything).
+		Return(capabilities.CapabilityConfiguration{}, nil).
+		Once()
+	capability.EXPECT().
+		Info(matches.AnyContext).
+		Return(capabilities.CapabilityInfo{IsLocal: true}, nil).
+		Once()
+	capability.EXPECT().
+		Execute(matches.AnyContext, mock.Anything).
+		Run(func(_ context.Context, req capabilities.CapabilityRequest) {
+			capabilityOrgIDCh <- req.Metadata.OrgID
+		}).
+		Return(capabilities.CapabilityResponse{}, nil).
+		Once()
+
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
+		Run(func(ctx context.Context, _ *sdkpb.ExecuteRequest, executor host.ExecutionHelper) {
+			_, errCap := executor.CallCapability(ctx, &sdkpb.CapabilityRequest{
+				Id:         capabilityID,
+				Method:     "execute",
+				CallbackId: 1,
+			})
+			require.NoError(t, errCap)
+		}).
+		Return(nil, nil).
+		Once()
+
+	mockTriggerEvent := capabilities.TriggerEvent{
+		TriggerType: "basic-trigger@1.0.0",
+		ID:          "post_local_node_sync_event",
+	}
+	eventCh <- capabilities.TriggerResponse{Event: mockTriggerEvent}
+
+	executionID := <-executionFinishedCh
+	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
+	require.NoError(t, err)
+	require.Equal(t, wantExecID, executionID)
+
+	// The capability call after localNodeSync must carry the org ID resolved at startup.
+	require.Equal(t, wantOrgID, <-capabilityOrgIDCh, "capability request metadata must include org ID after local node sync")
+
+	require.NoError(t, engine.Close())
+}
+
 // mockOrgResolver is a test implementation of orgresolver.OrgResolver
 type mockOrgResolver struct {
 	orgID           string
