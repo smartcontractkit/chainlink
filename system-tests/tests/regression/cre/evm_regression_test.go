@@ -218,6 +218,14 @@ func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegative
 			continue
 		}
 
+		// Wait until the EVM capability LOOP plugin has fully started on all nodes that are
+		// configured to run it before deploying the workflow. A startup race can cause
+		// nodes to fail initDON() (empty local registry) and never register the capability,
+		// resulting in all requests returning a generic Private:System:Unknown error.
+		//
+		// Remove this once https://smartcontract-it.atlassian.net/browse/PLEX-3130 is fixed.
+		t_helpers.WaitForEVMCapabilityStartup(t, testEnv.Dons, bcOutput.ChainSelector())
+
 		testLogger.Info().Msgf("Deploying additional contracts to chain %s (%d)", chainID, chainSelector)
 		readBalancesAddress, rbErr := contracts.DeployReadBalancesContract(testLogger, chainSelector, creEnvironment)
 		require.NoError(t, rbErr, "failed to deploy Read Balances contract on chain %d", chainSelector)
@@ -290,6 +298,14 @@ func EVMLogTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNe
 			testLogger.Info().Msgf("Skipping chain %s as it is not enabled for EVM LogTrigger workflow test", chainID)
 			continue
 		}
+
+		// Wait until the EVM capability LOOP plugin has fully started on all nodes that are
+		// configured to run it before deploying the workflow. A startup race can cause
+		// nodes to fail initDON() (empty local registry) and never register the capability,
+		// resulting in all requests returning a generic Private:System:Unknown error.
+		//
+		// Remove this once https://smartcontract-it.atlassian.net/browse/PLEX-3130 is fixed.
+		t_helpers.WaitForEVMCapabilityStartup(t, testEnv.Dons, bcOutput.ChainSelector())
 
 		testLogger.Info().Msg("Creating EVM LogTrigger Fail workflow configuration...")
 
@@ -392,6 +408,14 @@ func EVMWriteFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativ
 			testLogger.Info().Msgf("Skipping chain %d as it is not enabled for EVM Read workflow test", chainID)
 			continue
 		}
+
+		// Wait until the EVM capability LOOP plugin has fully started on all nodes that are
+		// configured to run it before deploying the workflow. A startup race can cause
+		// nodes to fail initDON() (empty local registry) and never register the capability,
+		// resulting in all requests returning a generic Private:System:Unknown error.
+		//
+		// Remove this once https://smartcontract-it.atlassian.net/browse/PLEX-3130 is fixed.
+		t_helpers.WaitForEVMCapabilityStartup(t, testEnv.Dons, bcOutput.ChainSelector())
 
 		forwarderAddress := contracts.MustGetAddressFromDataStore(creEnvironment.CldfEnvironment.DataStore, chainSelector, keystone_changeset.KeystoneForwarder.String(), creEnvironment.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "")
 		workflowOwner := bcOutput.(*evm.Blockchain).SethClient.MustGetRootKeyAddress()

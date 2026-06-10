@@ -113,7 +113,7 @@ func (o *EVM) PreEnvStartup(
 
 		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 			Capability: kcr.CapabilitiesRegistryCapability{
-				LabelledName: "evm" + ":ChainSelector:" + strconv.FormatUint(selector, 10),
+				LabelledName: CapabilityLabelledName(selector),
 				Version:      "1.0.0",
 			},
 			Config: &capabilitiespb.CapabilityConfig{
@@ -633,4 +633,8 @@ func chainsWithForwarders(blockchains []blockchains.Blockchain, nodeSets []cre.N
 	}
 
 	return chainsWithForwarders
+}
+
+func CapabilityLabelledName(chainSelector uint64) string {
+	return "evm:ChainSelector:" + strconv.FormatUint(chainSelector, 10)
 }

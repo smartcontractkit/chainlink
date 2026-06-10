@@ -7,7 +7,9 @@ import (
 	"io"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/moby/moby/client"
 	"github.com/stretchr/testify/assert"
@@ -38,6 +40,94 @@ func clNodeContainerNames(t *testing.T, testEnv *ttypes.TestEnvironment) []strin
 	}
 	slices.Sort(out)
 	return out
+}
+
+// waitForStandardCapabilityStartup polls the given container logs until every container has
+// emitted "Started standard capabilities" with capabilityLabelledName in the same log line. Container logs are
+// read in parallel for speed. The caller is responsible for selecting which containers to check —
+// different capabilities run on different node sets (e.g. evm-worker-1337 on workflow nodes,
+// evm-worker-2337 on capabilities nodes), so the caller must resolve the correct set beforehand.
+//
+// "Started standard capabilities" is logged by standardcapabilities/standard_capabilities.go after
+// Initialise() and Infos() both succeed. It is not specific to any capability type.
+//
+// Background: on startup a race between CRE.RegistrySyncerORM persisting the local DON registry
+// and the LOOP plugin calling GetLocalNode() can leave 3 of 4 nodes with a permanently unregistered
+// capability. Waiting for this log on every expected container ensures the capability is serving
+// before any dependent workflow is deployed.
+func waitForStandardCapabilityStartup(t *testing.T, containerNames []string, capabilityLabelledName string, timeout time.Duration) {
+	t.Helper()
+	if len(containerNames) == 0 {
+		framework.L.Warn().Msgf("WaitForStandardCapabilityStartup: no containers to check for capability %s, skipping", capabilityLabelledName)
+		return
+	}
+
+	expected := make(map[string]struct{}, len(containerNames))
+	for _, name := range containerNames {
+		expected[name] = struct{}{}
+	}
+
+	deadline := time.Now().Add(timeout)
+	for {
+		logStreams, err := framework.StreamContainerLogs(
+			client.ContainerListOptions{All: true},
+			client.ContainerLogsOptions{ShowStdout: true, ShowStderr: true},
+		)
+		if err != nil {
+			framework.L.Warn().Err(err).Msg("WaitForStandardCapabilityStartup: error streaming container logs, retrying")
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		// Read all relevant container logs in parallel.
+		var mu sync.Mutex
+		ready := make(map[string]struct{})
+		var wg sync.WaitGroup
+		for containerName, reader := range logStreams {
+			if _, ok := expected[containerName]; !ok {
+				_ = reader.Close()
+				continue
+			}
+			wg.Add(1)
+			go func(name string, r io.ReadCloser) {
+				defer wg.Done()
+				content, readErr := readContainerLogs(r)
+				if readErr != nil {
+					framework.L.Warn().Str("container", name).Err(readErr).Msg("WaitForStandardCapabilityStartup: could not read logs")
+					return
+				}
+
+				for line := range strings.SplitSeq(content, "\n") {
+					if strings.Contains(line, "Started standard capabilities") && strings.Contains(line, capabilityLabelledName) {
+						mu.Lock()
+						ready[name] = struct{}{}
+						mu.Unlock()
+						return
+					}
+				}
+			}(containerName, reader)
+		}
+		wg.Wait()
+
+		if len(ready) >= len(expected) {
+			framework.L.Info().Msgf("WaitForStandardCapabilityStartup: %s ready on all %d expected containers", capabilityLabelledName, len(expected))
+			return
+		}
+
+		framework.L.Info().Msgf("WaitForStandardCapabilityStartup: %s ready on %d/%d containers", capabilityLabelledName, len(ready), len(expected))
+
+		if time.Now().After(deadline) {
+			missing := make([]string, 0, len(expected)-len(ready))
+			for name := range expected {
+				if _, ok := ready[name]; !ok {
+					missing = append(missing, name)
+				}
+			}
+			require.FailNowf(t, "capability startup timeout",
+				"standard capability %s did not start within %s on containers: %v", capabilityLabelledName, timeout, missing)
+		}
+		time.Sleep(5 * time.Second)
+	}
 }
 
 func AssertNodeLogs(t *testing.T, testEnv *ttypes.TestEnvironment, needle string) {

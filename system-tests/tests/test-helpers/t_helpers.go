@@ -42,10 +42,13 @@ import (
 	"google.golang.org/protobuf/proto"
 	"gopkg.in/yaml.v3"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/solkey"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
+	evm_v2 "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm/v2"
 	consensus_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/consensus/config"
 	evmread_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative/config"
 	evmwrite_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative/config"
@@ -844,4 +847,31 @@ func truncateWorkflowName(name, uniquenessSeed string) string {
 func ParallelEnabled() bool {
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("CRE_TEST_PARALLEL_ENABLED")))
 	return v == "1" || v == "true" || v == "yes"
+}
+
+func WaitForEVMCapabilityStartup(t *testing.T, dons *cre.Dons, chainSelector uint64) {
+	// Wait until the EVM capability LOOP plugin has fully started on all nodes that are
+	// configured to run it before deploying the workflow. A startup race can cause
+	// nodes to fail initDON() (empty local registry) and never register the capability,
+	// resulting in all requests returning a generic Private:System:Unknown error.
+	//
+	// Remove this once https://smartcontract-it.atlassian.net/browse/PLEX-3130 is fixed.
+	var capContainers []string
+
+	for _, don := range dons.List() {
+		enabledChainIDs, eErr := don.GetEnabledChainIDsForCapability(cre.EVMCapability)
+		require.NoError(t, eErr, "failed to get enabled chain IDs for EVM capability on DON %s", don.Name)
+
+		chainID, err := chain_selectors.ChainIdFromSelector(chainSelector)
+		require.NoError(t, err, "failed to get chain ID from chain selector %d", chainSelector)
+
+		if !slices.Contains(enabledChainIDs, chainID) {
+			continue
+		}
+
+		for _, node := range don.Nodes {
+			capContainers = append(capContainers, node.Name)
+		}
+	}
+	waitForStandardCapabilityStartup(t, capContainers, evm_v2.CapabilityLabelledName(chainSelector), 2*time.Minute)
 }
