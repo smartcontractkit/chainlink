@@ -404,7 +404,61 @@ func buildSecretIdentifiers(secretID, owner string, namespaces []string) []*vaul
 	return identifiers
 }
 
-func sendVaultSignedOCRRequestToGateway(t *testing.T, gatewayURL string, jsonRequest jsonrpc.Request[json.RawMessage]) jsonrpc.Response[vaulttypes.SignedOCRResponse] {
+func signedPayloadRequestIDFromPayload(t *testing.T, method string, payload json.RawMessage) string {
+	t.Helper()
+
+	unmarshal := protojson.UnmarshalOptions{DiscardUnknown: true}
+	switch method {
+	case vaulttypes.MethodSecretsCreate:
+		var resp vault_helpers.CreateSecretsResponse
+		require.NoError(t, unmarshal.Unmarshal(payload, &resp), "failed to decode CreateSecretsResponse from signed payload")
+		return resp.RequestId
+	case vaulttypes.MethodSecretsUpdate:
+		var resp vault_helpers.UpdateSecretsResponse
+		require.NoError(t, unmarshal.Unmarshal(payload, &resp), "failed to decode UpdateSecretsResponse from signed payload")
+		return resp.RequestId
+	case vaulttypes.MethodSecretsDelete:
+		var resp vault_helpers.DeleteSecretsResponse
+		require.NoError(t, unmarshal.Unmarshal(payload, &resp), "failed to decode DeleteSecretsResponse from signed payload")
+		return resp.RequestId
+	case vaulttypes.MethodSecretsList:
+		var resp vault_helpers.ListSecretIdentifiersResponse
+		require.NoError(t, unmarshal.Unmarshal(payload, &resp), "failed to decode ListSecretIdentifiersResponse from signed payload")
+		return resp.RequestId
+	default:
+		t.Fatalf("unsupported method for signed payload request id assertion: %s", method)
+		return ""
+	}
+}
+
+// requireSignedPayloadRequestID asserts the vault OCR signed payload carries the gateway
+// request ID inside the signed bytes. The gateway prefixes authorizedOwner to the user
+// request ID (owner::requestID) before forwarding to the vault DON; OCR signs that value.
+// JSON-RPC response ID is stripped back to the user request ID and is not signature-covered.
+func requireSignedPayloadRequestID(t *testing.T, method, userRequestID, authorizedOwner string, payload json.RawMessage) {
+	t.Helper()
+
+	require.NotEmpty(t, userRequestID)
+	require.NotEmpty(t, payload)
+
+	signedRequestID := signedPayloadRequestIDFromPayload(t, method, payload)
+	require.NotEmpty(t, signedRequestID, "signed payload requestId must be present")
+
+	expectedSuffix := vaulttypes.RequestIDSeparator + userRequestID
+	require.True(t, strings.HasSuffix(signedRequestID, expectedSuffix),
+		"signed payload requestId %q should end with gateway user request ID suffix %q", signedRequestID, expectedSuffix)
+
+	if authorizedOwner != "" {
+		require.Equal(t, authorizedOwner+expectedSuffix, signedRequestID,
+			"signed payload requestId must match gateway-prefixed request ID")
+		return
+	}
+
+	ownerPrefix := strings.TrimSuffix(signedRequestID, expectedSuffix)
+	require.NotEmpty(t, ownerPrefix, "signed payload requestId should include gateway authorized owner prefix")
+}
+
+func sendVaultSignedOCRRequestToGateway(t *testing.T, gatewayURL string, jsonRequest jsonrpc.Request[json.RawMessage], authorizedOwner string) jsonrpc.Response[vaulttypes.SignedOCRResponse] {
 	t.Helper()
 
 	authToken := jsonRequest.Auth
@@ -429,6 +483,7 @@ func sendVaultSignedOCRRequestToGateway(t *testing.T, gatewayURL string, jsonReq
 	}
 
 	require.Equal(t, jsonrpc.JsonRpcVersion, jsonResponse.Version)
+	requireSignedPayloadRequestID(t, jsonRequest.Method, jsonRequest.ID, authorizedOwner, jsonResponse.Result.Payload)
 
 	return jsonResponse
 }
@@ -459,7 +514,7 @@ func executeVaultSecretsCreateWithAuthExpectOwnersAndIdentifierOwner(t *testing.
 	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsCreate, &secretsCreateRequest)
 	auth.apply(t, &jsonRequest)
 
-	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest)
+	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest, auth.requestOwner)
 	require.Equal(t, uniqueRequestID, jsonResponse.ID)
 	require.Equal(t, vaulttypes.MethodSecretsCreate, jsonResponse.Method)
 
@@ -549,7 +604,7 @@ func executeVaultSecretsUpdateWithAuthAndIdentifierOwner(t *testing.T, auth vaul
 	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsUpdate, &secretsUpdateRequest)
 	auth.apply(t, &jsonRequest)
 
-	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest)
+	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest, auth.requestOwner)
 	require.Equal(t, uniqueRequestID, jsonResponse.ID)
 	require.Equal(t, vaulttypes.MethodSecretsUpdate, jsonResponse.Method)
 
@@ -598,7 +653,7 @@ func executeVaultSecretsListWithAuthAndOwner(t *testing.T, auth vaultRequestAuth
 	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsList, &secretsListRequest)
 	auth.apply(t, &jsonRequest)
 
-	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest)
+	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest, auth.requestOwner)
 	require.Equal(t, uniqueRequestID, jsonResponse.ID)
 	require.Equal(t, vaulttypes.MethodSecretsList, jsonResponse.Method)
 
@@ -635,7 +690,7 @@ func executeVaultJWTSecretsListAbsentFromNamespace(t *testing.T, issuer *stvault
 	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsList, &secretsListRequest)
 	auth.apply(t, &jsonRequest)
 
-	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest)
+	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest, auth.requestOwner)
 	require.Equal(t, uniqueRequestID, jsonResponse.ID)
 	require.Equal(t, vaulttypes.MethodSecretsList, jsonResponse.Method)
 
@@ -680,7 +735,7 @@ func executeVaultSecretsDeleteWithAuthAndIdentifierOwner(t *testing.T, auth vaul
 	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsDelete, &secretsDeleteRequest)
 	auth.apply(t, &jsonRequest)
 
-	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest)
+	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest, auth.requestOwner)
 	require.Equal(t, uniqueRequestID, jsonResponse.ID)
 	require.Equal(t, vaulttypes.MethodSecretsDelete, jsonResponse.Method)
 
