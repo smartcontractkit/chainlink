@@ -42,6 +42,7 @@
   don_types = ["workflow"]
   override_mode = "all"
   http_port_range_start = 10100
+  ocr2_p2p_port_range_start = 15020
 
   # even though this DON is not using any capability for chain with ID 2337 we still need it to be connected to it,
   # because bootstrap job for capability DON will be created on the boostrap node from this DON
@@ -73,7 +74,7 @@
   exposes_remote_capabilities = true
   override_mode = "all"
   http_port_range_start = 10200
-  ocr2_p2p_port_range_start = 15010
+  ocr2_p2p_port_range_start = 15030
 
   # we need to have chain 1337 configured (even if no capability uses it), because we use node addresses on chain 1337
   # to identify nodes in the gateway configuration (required by vault and gateway-based HTTP capabilities)
@@ -101,7 +102,7 @@
   don_types = ["bootstrap", "gateway"]
   override_mode = "each"
   http_port_range_start = 10300
-  ocr2_p2p_port_range_start = 15020
+  ocr2_p2p_port_range_start = 15040
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
   supported_evm_chains = [1337, 2337]

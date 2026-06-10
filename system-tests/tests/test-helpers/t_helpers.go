@@ -383,6 +383,11 @@ func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.
 	require.NoError(t, compileErr, "failed to compile workflow '%s'", workflowFileLocation)
 	testLogger.Info().Msg("Workflow compiled successfully.")
 
+	files := []string{compressedWorkflowWasmPath}
+	if workflowConfigFilePath != "" {
+		files = append(files, workflowConfigFilePath)
+	}
+
 	// Copy workflow artifacts to Docker containers to use blockchain client running inside for workflow registration
 	testLogger.Info().Msg("Copying workflow artifacts to Docker containers.")
 	for _, don := range workflowDONs {
@@ -394,7 +399,7 @@ func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.
 				NodeSetName:          nodeSetName,
 				ContainerNamePattern: ns.NodeNamePrefix(don.Name),
 				ContainerTargetDir:   creworkflow.DefaultWorkflowTargetDir,
-				Files:                []string{compressedWorkflowWasmPath, workflowConfigFilePath},
+				Files:                files,
 				RemoteDeployer: func(ctx context.Context, nodeSetName, containerTargetDir string, files []string) error {
 					return remoteclient.DeployArtifactsToRemoteNodeSet(ctx, testLogger, nodeSetName, containerTargetDir, files)
 				},

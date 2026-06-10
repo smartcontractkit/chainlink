@@ -30,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/remoteexec/chipsink"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/internal/dockerops"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 const (
@@ -210,7 +209,6 @@ type inFlightOperation struct {
 
 type Server struct {
 	lggr          zerolog.Logger
-	commonLogger  logger.Logger
 	deployers     map[blockchain.ChainFamily]blockchains.Deployer
 	startedAt     time.Time
 	lifecycleMu   sync.Mutex
@@ -248,10 +246,9 @@ type chipTestSinkRuntime struct {
 	runErrCh         chan error
 }
 
-func NewServer(lggr zerolog.Logger, commonLogger logger.Logger, deployers map[blockchain.ChainFamily]blockchains.Deployer) *Server {
+func NewServer(lggr zerolog.Logger, deployers map[blockchain.ChainFamily]blockchains.Deployer) *Server {
 	return &Server{
 		lggr:          lggr,
-		commonLogger:  commonLogger,
 		deployers:     deployers,
 		startedAt:     time.Now(),
 		cache:         make(map[string]cachedStart),
