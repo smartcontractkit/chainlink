@@ -1,0 +1,63 @@
+# Standalone local validation stack for the DurableEmitter.
+# Brings up Postgres + OTel Collector + Prometheus + Grafana so a driver
+# program on the host can exercise the durable emitter and have its metrics
+# show up in a pre-provisioned Grafana dashboard.
+#
+# No Chainlink Testing Framework (ctf) dependency. Just docker compose.
+services:
+
+  postgres:
+    image: postgres:14
+    container_name: de-postgres
+    environment:
+      POSTGRES_USER: chainlink
+      POSTGRES_PASSWORD: chainlink
+      POSTGRES_DB: chainlink_test
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/00_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chainlink -d chainlink_test"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.111.0
+    container_name: de-otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC (driver pushes metrics here)
+      - "4318:4318"   # OTLP HTTP
+      - "8889:8889"   # Prometheus exporter scrape endpoint
+
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    container_name: de-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=2h
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - otel-collector
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: de-grafana
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus

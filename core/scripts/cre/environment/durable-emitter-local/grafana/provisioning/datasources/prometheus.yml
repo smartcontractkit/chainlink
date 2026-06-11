@@ -1,0 +1,12 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    # UID matches the datasource reference emitted by chainlink-observability
+    # dashboard-as-code (resources/durable_emitter).
+    uid: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false

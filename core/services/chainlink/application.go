@@ -370,6 +370,13 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	// Wire DurableEmitter for persistent chip ingress delivery when enabled.
 	if cfg.Telemetry().DurableEmitterEnabled() && cfg.Telemetry().ChipIngressEndpoint() != "" {
+		emitterCfg := durableemitter.DefaultConfig()
+		emitterCfg.Metrics = &durableemitter.DurableEmitterMetricsConfig{
+			// MaxQueuePayloadBytes enables queue.capacity_usage_ratio. Starting
+			// value is operational guidance, not a hard limit — CRE-4868 tune once
+			// stage/prod queue sizes are observed.
+			MaxQueuePayloadBytes: 512 << 20, // 512 MiB
+		}
 		durableCfg := durableemitter.SetupConfig{
 			Endpoint:           cfg.Telemetry().ChipIngressEndpoint(),
 			InsecureConnection: cfg.Telemetry().ChipIngressInsecureConnection(),
@@ -380,6 +387,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				AuthKeySigner:    csaKeystore,
 			},
 			RetransmitEnabled: true, // host process owns retransmit
+			Meter:             beholder.GetMeter(),
+			EmitterConfig:     &emitterCfg,
 		}
 		pgStore := durableemitter.NewPgDurableEventStore(opts.DS)
 		durableEmitter, setupErr := durableemitter.Setup(pgStore, durableCfg, globalLogger)

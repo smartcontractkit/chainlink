@@ -1,0 +1,1362 @@
+{
+  "Dashboard": {
+    "title": "Durable Emitter Load Test",
+    "tags": [
+      "beholder",
+      "durable-emitter",
+      "load-test"
+    ],
+    "timezone": "browser",
+    "editable": true,
+    "graphTooltip": 0,
+    "time": {
+      "from": "now-15m",
+      "to": "now"
+    },
+    "fiscalYearStartMonth": 0,
+    "refresh": "5s",
+    "schemaVersion": 42,
+    "panels": [
+      {
+        "type": "stat",
+        "id": 1,
+        "targets": [
+          {
+            "expr": "durable_emitter_queue_depth{exported_job=\"durable-emitter-driver\"}",
+            "format": "",
+            "legendFormat": "queue depth"
+          }
+        ],
+        "title": "Queue Depth",
+        "description": "Current pending events in the durable queue (atomic counter)",
+        "transparent": false,
+        "datasource": {
+          "uid": "Prometheus"
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 4,
+          "x": 0,
+          "y": 0
+        },
+        "repeatDirection": "h",
+        "options": {
+          "graphMode": "none",
+          "colorMode": "background",
+          "justifyMode": "auto",
+          "textMode": "value",
+          "wideLayout": true,
+          "showPercentChange": false,
+          "reduceOptions": {
+            "calcs": [
+              "last"
+            ]
+          },
+          "text": {
+            "titleSize": 10,
+            "valueSize": 18
+          },
+          "percentChangeColorMode": "standard",
+          "orientation": "auto"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "value": null,
+                  "color": "green"
+                },
+                {
+                  "value": 1000,
+                  "color": "yellow"
+                },
+                {
+                  "value": 50000,
+                  "color": "red"
+                }
+              ]
+            },
+            "noValue": "No data",
+            "fieldMinMax": false
+          },
+          "overrides": []
+        }
+      },
+      {
+        "type": "stat",
+        "id": 2,
+        "targets": [
+          {
+            "expr": "durable_emitter_queue_depth_max{exported_job=\"durable-emitter-driver\"}",
+            "format": "",
+            "legendFormat": "max queue depth"
+          }
+        ],
+        "title": "Max Queue Depth",
+        "description": "All-time peak queue depth (atomic high-water mark, never misses spikes between scrapes)",
+        "transparent": false,
+        "datasource": {
+          "uid": "Prometheus"
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 4,
+          "x": 4,
+          "y": 0
+        },
+        "repeatDirection": "h",
+        "options": {
+          "graphMode": "none",
+          "colorMode": "background",
+          "justifyMode": "auto",
+          "textMode": "value",
+          "wideLayout": true,
+          "showPercentChange": false,
+          "reduceOptions": {
+            "calcs": [
+              "last"
+            ]
+          },
+          "text": {
+            "titleSize": 10,
+            "valueSize": 18
+          },
+          "percentChangeColorMode": "standard",
+          "orientation": "auto"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "value": null,
+                  "color": "green"
+                },
+                {
+                  "value": 1000,
+                  "color": "yellow"
+                },
+                {
+                  "value": 50000,
+                  "color": "red"
+                }
+              ]
+            },
+            "noValue": "No data",
+            "fieldMinMax": false
+          },
+          "overrides": []
+        }
+      },
+      {
+        "type": "timeseries",
+        "id": 3,
+        "targets": [
+          {
+            "expr": "durable_emitter_queue_depth{exported_job=\"durable-emitter-driver\"}",
+            "format": "",
+            "legendFormat": "queue depth"
+          },
+          {
+            "expr": "durable_emitter_queue_depth_max{exported_job=\"durable-emitter-driver\"}",
+            "format": "",
+            "legendFormat": "depth max (high-water)"
+          }
+        ],
+        "title": "Queue Depth Over Time",
+        "description": "Queue depth over time (current + high-water mark)",
+        "transparent": false,
+        "datasource": {
+          "uid": "Prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 16,
+          "x": 8,
+          "y": 0
+        },
+        "repeatDirection": "h",
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true,
+            "calcs": [
+              "lastNotNull",
+              "max"
+            ]
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "",
+            "noValue": "No data",
+            "custom": {
+              "lineWidth": 1,
+              "fillOpacity": 0,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "stacking": {
+                "mode": "none"
+              }
+            },
+            "fieldMinMax": false
+          },
+          "overrides": []
+        }
+      },
+      {
+        "type": "row",
+        "collapsed": false,
+        "title": "Operations",
+        "gridPos": {
+          "h": 1,
+          "w": 24,
+          "x": 0,
+          "y": 8
+        },
+        "id": 0,
+        "panels": []
+      },
+      {
+        "type": "stat",
+        "id": 4,
+        "targets": [
+          {
+            "expr": "sum(durable_emitter_emit_success_total{exported_job=\"durable-emitter-driver\"})",
+            "format": "",
+            "legendFormat": "total"
+          }
+        ],
+        "title": "Total Insert Messages",
+        "description": "Total events emitted (DB inserts) since test start",
+        "transparent": false,
+        "datasource": {
+          "uid": "Prometheus"
+        },
+        "gridPos": {
+          "h": 5,
+          "w": 4,
+          "x": 0,
+          "y": 9
+        },
+        "repeatDirection": "h",
+        "options": {
+          "graphMode": "none",
+          "colorMode": "value",
+          "justifyMode": "auto",
+          "textMode": "value",
+          "wideLayout": true,
+          "showPercentChange": false,
+          "reduceOptions": {
+            "calcs": [
+              "last"
+            ]
+          },
+          "text": {
+            "titleSize": 10,
+            "valueSize": 18
+          },
+          "percentChangeColorMode": "standard",
+          "orientation": "auto"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "",
+            "noValue": "No data",
+            "fieldMinMax": false
+          },
+          "overrides": []
+        }
+      },
+      {
+        "type": "timeseries",
+        "id": 5,
+        "targets": [
+          {
+            "expr": "sum(durable_emitter_emit_success_total{exported_job=\"durable-emitter-driver\"})",
+            "format": "",
+            "legendFormat": "emit_success"
+          },
+          {
+            "expr": "sum(durable_emitter_delivery_completed_total{exported_job=\"durable-emitter-driver\"})",
+            "format": "",
+            "legendFormat": "delivery_completed"
+          }
+        ],
+        "title": "Insert Messages",
+        "description": "Cumulative emit (insert) count over time",
+        "transparent": false,
+        "datasource": {
+          "uid": "Prometheus"
+        },
+        "gridPos": {
+          "h": 5,
+          "w": 20,
+          "x": 4,
+          "y": 9
+        },
+        "repeatDirection": "h",
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true,
+            "calcs": [
+              "lastNotNull"
+            ]
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "",
+            "noValue": "No data",
+            "custom": {
+              "lineWidth": 1,
+              "fillOpacity": 0,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "stacking": {
+                "mode": "none"
+              }
+            },
+            "fieldMinMax": false
+          },
+          "overrides": []
+        }
+      },
+      {
+        "type": "row",
+        "collapsed": false,
+        "title": "Latency",
+        "gridPos": {
+          "h": 1,
+          "w": 24,
+          "x": 0,
+          "y": 14
+        },
+        "id": 0,
+        "panels": []
+      },
+      {
+        "type": "timeseries",
+        "id": 6,
+        "targets": [
+          {
+            "expr": "(histogram_quantile(0.50, sum by (le) (rate(durable_emitter_emit_duration_seconds_bucket{exported_job=\"durable-emitter-driver\"}[$__rate_interval])))) \u003e 0",
+            "format": "",
+            "legendFormat": "p50"
+          },
+          {
+            "expr": "(histogram_quantile(0.99, sum by (le) (rate(durable_emitter_emit_duration_seconds_bucket{exported_job=\"durable-emitter-driver\"}[$__rate_interval])))) \u003e 0",
+            "format": "",
+            "legendFormat": "p99"
+          },
+          {
+            "expr": "rate(durable_emitter_emit_duration_seconds_sum{exported_job=\"durable-emitter-driver\"}[$__rate_interval]) / clamp_min(rate(durable_emitter_emit_duration_seconds_count{exported_job=\"durable-emitter-driver\"}[$__rate_interval]), 1e-15)",
+            "format": "",
+            "legendFormat": "mean"
+          }
+        ],
+        "title": "Emit Latency (DB Insert)",
+        "description": "Emit() latency — time to insert event into Postgres",
+        "transparent": false,
+        "datasource": {
+          "uid": "Prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 15
+        },
+        "repeatDirection": "h",
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true,
+            "calcs": [
+              "lastNotNull",
+              "mean",
+              "max"
+            ]
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "noValue": "No data",
+            "custom": {
+              "lineWidth": 1,
+              "fillOpacity": 0,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "stacking": {
+                "mode": "none"
+              }
+            },
+            "fieldMinMax": false
+          },
+          "overrides": []
+        }
+      },
+      {
+        "type": "timeseries",
+        "id": 7,
+        "targets": [
+          {
+            "expr": "(histogram_quantile(0.50, sum by (le) (rate(durable_emitter_publish_duration_seconds_bucket{exported_job=\"durable-emitter-driver\", error=\"false\"}[$__rate_interval])))) \u003e 0",
+            "format": "",
+            "legendFormat": "p50"
+          },
+          {
+            "expr": "(histogram_quantile(0.99, sum by (le) (rate(durable_emitter_publish_duration_seconds_bucket{exported_job=\"durable-emitter-driver\", error=\"false\"}[$__rate_interval])))) \u003e 0",
+            "format": "",
+            "legendFormat": "p99"
+          },
+          {
+            "expr": "rate(durable_emitter_publish_duration_seconds_sum{exported_job=\"durable-emitter-driver\", error=\"false\"}[$__rate_interval]) / clamp_min(rate(durable_emitter_publish_duration_seconds_count{exported_job=\"durable-emitter-driver\", error=\"false\"}[$__rate_interval]), 1e-15)",
+            "format": "",
+            "legendFormat": "mean"
+          }
+        ],
+        "title": "Batch Process Latency (Chip Publish)",
+        "description": "PublishBatch / individual Publish gRPC latency to Chip server",
+        "transparent": false,
+        "datasource": {
+          "uid": "Prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 15
+        },
+        "repeatDirection": "h",
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true,
+            "calcs": [
+              "lastNotNull",
+              "mean",
+              "max"
+            ]
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "noValue": "No data",
+            "custom": {
+              "lineWidth": 1,
+              "fillOpacity": 0,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "stacking": {
+                "mode": "none"
+              }
+            },
+            "fieldMinMax": false
+          },
+          "overrides": []
+        }
+      },
+      {
+        "type": "row",
+        "collapsed": false,
+        "title": "Throughput",
+        "gridPos": {
+          "h": 1,
+          "w": 24,
+          "x": 0,
+          "y": 23
+        },
+        "id": 0,
+        "panels": []
+      },
+      {
+        "type": "timeseries",
+        "id": 8,
+        "targets": [
+          {
+            "expr": "sum(rate(durable_emitter_emit_success_total{exported_job=\"durable-emitter-driver\"}[$__rate_interval]))",
+            "format": "",
+            "legendFormat": "producer publishing rate"
+          },
+          {
+            "expr": "sum(rate(durable_emitter_delivery_completed_total{exported_job=\"durable-emitter-driver\"}[$__rate_interval]))",
+            "format": "",
+            "legendFormat": "consumer throughput"
+          }
+        ],
+        "title": "Ingestion Rate (msg/s)",
+        "description": "Producer publishing rate vs consumer throughput — gap between the two lines is the current queue build-up rate",
+        "transparent": false,
+        "datasource": {
+          "uid": "Prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 24,
+          "x": 0,
+          "y": 24
+        },
+        "repeatDirection": "h",
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true,
+            "calcs": [
+              "mean",
+              "lastNotNull",
+              "max"
+            ]
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "noValue": "No data",
+            "custom": {
+              "lineWidth": 1,
+              "fillOpacity": 0,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "stacking": {
+                "mode": "none"
+              }
+            },
+            "fieldMinMax": false
+          },
+          "overrides": []
+        }
+      },
+      {
+        "type": "timeseries",
+        "id": 9,
+        "targets": [
+          {
+            "expr": "sum(rate(durable_emitter_publish_retransmit_events_success_total{exported_job=\"durable-emitter-driver\"}[$__rate_interval]))",
+            "format": "",
+            "legendFormat": "retransmit success"
+          },
+          {
+            "expr": "sum(rate(durable_emitter_publish_retransmit_events_failure_total{exported_job=\"durable-emitter-driver\"}[$__rate_interval]))",
+            "format": "",
+            "legendFormat": "retransmit failure"
+          }
+        ],
+        "title": "Insert Retry Rate (retries/s)",
+        "description": "Retransmit loop event rate (retry delivery attempts)",
+        "transparent": false,
+        "datasource": {
+          "uid": "Prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 32
+        },
+        "repeatDirection": "h",
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true,
+            "calcs": [
+              "lastNotNull"
+            ]
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "noValue": "No data",
+            "custom": {
+              "lineWidth": 1,
+              "fillOpacity": 0,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "stacking": {
+                "mode": "none"
+              }
+            },
+            "fieldMinMax": false
+          },
+          "overrides": []
+        }
+      },
+      {
+        "type": "timeseries",
+        "id": 10,
+        "targets": [
+          {
+            "expr": "sum(rate(durable_emitter_expired_purged_total{exported_job=\"durable-emitter-driver\"}[$__rate_interval]))",
+            "format": "",
+            "legendFormat": "expired purged"
+          },
+          {
+            "expr": "durable_emitter_queue_near_ttl{exported_job=\"durable-emitter-driver\"}",
+            "format": "",
+            "legendFormat": "near TTL count"
+          }
+        ],
+        "title": "DLQ Rate (expired/s)",
+        "description": "Events expired/purged by TTL (DLQ equivalent)",
+        "transparent": false,
+        "datasource": {
+          "uid": "Prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 32
+        },
+        "repeatDirection": "h",
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true,
+            "calcs": [
+              "lastNotNull"
+            ]
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "noValue": "No data",
+            "custom": {
+              "lineWidth": 1,
+              "fillOpacity": 0,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "stacking": {
+                "mode": "none"
+              }
+            },
+            "fieldMinMax": false
+          },
+          "overrides": []
+        }
+      },
+      {
+        "type": "row",
+        "collapsed": false,
+        "title": "Resources",
+        "gridPos": {
+          "h": 1,
+          "w": 24,
+          "x": 0,
+          "y": 40
+        },
+        "id": 0,
+        "panels": []
+      },
+      {
+        "type": "timeseries",
+        "id": 11,
+        "targets": [
+          {
+            "expr": "rate(durable_emitter_emit_total_duration_seconds_sum{exported_job=\"durable-emitter-driver\"}[$__rate_interval]) / 12 * 100",
+            "format": "",
+            "legendFormat": "Producer (Emit)"
+          },
+          {
+            "expr": "(rate(durable_emitter_publish_duration_seconds_sum{exported_job=\"durable-emitter-driver\", error=\"false\"}[$__rate_interval]) + rate(durable_emitter_store_operation_duration_seconds_sum{exported_job=\"durable-emitter-driver\", operation=~\"mark_delivered.*\"}[$__rate_interval])) / 12 * 100",
+            "format": "",
+            "legendFormat": "Consumer (Publish + MarkDelivered)"
+          }
+        ],
+        "title": "Wall-Time Attribution %",
+        "description": "Wall-time utilization as % of available CPU (GOMAXPROCS cores). Producer = full Emit() call (event build + DB insert + enqueue). Consumer = PublishBatch gRPC + MarkDelivered DB combined. Dominated by I/O wait, not compute.",
+        "transparent": false,
+        "datasource": {
+          "uid": "Prometheus"
+        },
+        "gridPos": {
+          "h": 7,
+          "w": 6,
+          "x": 0,
+          "y": 41
+        },
+        "repeatDirection": "h",
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true,
+            "calcs": [
+              "lastNotNull",
+              "mean",
+              "max"
+            ]
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "noValue": "No data",
+            "custom": {
+              "lineWidth": 1,
+              "fillOpacity": 15,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "stacking": {
+                "mode": "normal"
+              }
+            },
+            "fieldMinMax": false
+          },
+          "overrides": []
+        }
+      },
+      {
+        "type": "timeseries",
+        "id": 12,
+        "targets": [
+          {
+            "expr": "rate(durable_emitter_process_cpu_user_seconds{exported_job=\"durable-emitter-driver\"}[$__rate_interval]) + rate(durable_emitter_process_cpu_system_seconds{exported_job=\"durable-emitter-driver\"}[$__rate_interval])",
+            "format": "",
+            "legendFormat": "total (user + system)"
+          },
+          {
+            "expr": "rate(durable_emitter_process_cpu_user_seconds{exported_job=\"durable-emitter-driver\"}[$__rate_interval])",
+            "format": "",
+            "legendFormat": "user"
+          },
+          {
+            "expr": "rate(durable_emitter_process_cpu_system_seconds{exported_job=\"durable-emitter-driver\"}[$__rate_interval])",
+            "format": "",
+            "legendFormat": "system"
+          }
+        ],
+        "title": "Real CPU % (getrusage)",
+        "description": "Real CPU utilization from getrusage (user + system). This measures actual CPU cycles consumed by the Go process only — does NOT include Postgres or Chip Ingress CPU.",
+        "transparent": false,
+        "datasource": {
+          "uid": "Prometheus"
+        },
+        "gridPos": {
+          "h": 7,
+          "w": 6,
+          "x": 6,
+          "y": 41
+        },
+        "repeatDirection": "h",
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true,
+            "calcs": [
+              "lastNotNull",
+              "mean",
+              "max"
+            ]
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0,
+            "noValue": "No data",
+            "custom": {
+              "lineWidth": 1,
+              "fillOpacity": 0,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "stacking": {
+                "mode": "none"
+              }
+            },
+            "fieldMinMax": false
+          },
+          "overrides": []
+        }
+      },
+      {
+        "type": "timeseries",
+        "id": 13,
+        "targets": [
+          {
+            "expr": "durable_emitter_process_memory_heap_inuse_bytes{exported_job=\"durable-emitter-driver\"}",
+            "format": "",
+            "legendFormat": "in-use (live objects)"
+          },
+          {
+            "expr": "durable_emitter_process_memory_heap_sys_bytes{exported_job=\"durable-emitter-driver\"}",
+            "format": "",
+            "legendFormat": "reserved from OS (includes free pages)"
+          }
+        ],
+        "title": "Heap Memory",
+        "description": "Heap Inuse = memory holding live Go objects. Heap Sys = total memory obtained from the OS (includes freed-but-unreturned pages).",
+        "transparent": false,
+        "datasource": {
+          "uid": "Prometheus"
+        },
+        "gridPos": {
+          "h": 7,
+          "w": 6,
+          "x": 12,
+          "y": 41
+        },
+        "repeatDirection": "h",
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true,
+            "calcs": [
+              "lastNotNull",
+              "mean",
+              "max"
+            ]
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "bytes",
+            "noValue": "No data",
+            "custom": {
+              "lineWidth": 1,
+              "fillOpacity": 0,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "stacking": {
+                "mode": "none"
+              }
+            },
+            "fieldMinMax": false
+          },
+          "overrides": []
+        }
+      },
+      {
+        "type": "timeseries",
+        "id": 14,
+        "targets": [
+          {
+            "expr": "sum by (operation) (rate(durable_emitter_store_operations_total{exported_job=\"durable-emitter-driver\"}[$__rate_interval]))",
+            "format": "",
+            "legendFormat": "{{operation}}"
+          }
+        ],
+        "title": "DB Write IOPs",
+        "description": "DB operations per second (insert, mark_delivered, list_pending, etc.)",
+        "transparent": false,
+        "datasource": {
+          "uid": "Prometheus"
+        },
+        "gridPos": {
+          "h": 7,
+          "w": 6,
+          "x": 18,
+          "y": 41
+        },
+        "repeatDirection": "h",
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true,
+            "calcs": [
+              "lastNotNull",
+              "mean",
+              "max"
+            ]
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "noValue": "No data",
+            "custom": {
+              "lineWidth": 1,
+              "fillOpacity": 0,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "stacking": {
+                "mode": "none"
+              }
+            },
+            "fieldMinMax": false
+          },
+          "overrides": []
+        }
+      },
+      {
+        "type": "timeseries",
+        "id": 15,
+        "targets": [
+          {
+            "expr": "rate(container_cpu_usage_seconds_total{name=\"chip-ingress\"}[$__rate_interval])",
+            "format": "",
+            "legendFormat": "chip-ingress"
+          }
+        ],
+        "title": "Chip Ingress CPU",
+        "description": "CPU usage of Chip Ingress container (via cAdvisor). Main Postgres runs on the host so is not captured here. Chip Ingress processes all PublishBatch gRPC calls.",
+        "transparent": false,
+        "datasource": {
+          "uid": "Prometheus"
+        },
+        "gridPos": {
+          "h": 7,
+          "w": 12,
+          "x": 0,
+          "y": 48
+        },
+        "repeatDirection": "h",
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true,
+            "calcs": [
+              "lastNotNull",
+              "mean",
+              "max"
+            ]
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0,
+            "noValue": "No data",
+            "custom": {
+              "lineWidth": 1,
+              "fillOpacity": 0,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "stacking": {
+                "mode": "none"
+              }
+            },
+            "fieldMinMax": false
+          },
+          "overrides": []
+        }
+      },
+      {
+        "type": "timeseries",
+        "id": 16,
+        "targets": [
+          {
+            "expr": "rate(durable_emitter_process_cpu_user_seconds{exported_job=\"durable-emitter-driver\"}[$__rate_interval]) + rate(durable_emitter_process_cpu_system_seconds{exported_job=\"durable-emitter-driver\"}[$__rate_interval])",
+            "format": "",
+            "legendFormat": "Go process (DurableEmitter)"
+          },
+          {
+            "expr": "rate(container_cpu_usage_seconds_total{name=\"chip-ingress\"}[$__rate_interval])",
+            "format": "",
+            "legendFormat": "Chip Ingress"
+          }
+        ],
+        "title": "Total System CPU (stacked)",
+        "description": "Total system CPU = Go process (getrusage) + Chip Ingress (cAdvisor). Main Postgres runs on the host and is NOT included. Compare stacked total against coworker's producer + consumer + Kafka broker.",
+        "transparent": false,
+        "datasource": {
+          "uid": "Prometheus"
+        },
+        "gridPos": {
+          "h": 7,
+          "w": 12,
+          "x": 12,
+          "y": 48
+        },
+        "repeatDirection": "h",
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true,
+            "calcs": [
+              "lastNotNull",
+              "mean",
+              "max"
+            ]
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0,
+            "noValue": "No data",
+            "custom": {
+              "lineWidth": 1,
+              "fillOpacity": 15,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "stacking": {
+                "mode": "normal"
+              }
+            },
+            "fieldMinMax": false
+          },
+          "overrides": []
+        }
+      },
+      {
+        "type": "row",
+        "collapsed": false,
+        "title": "Load Test",
+        "gridPos": {
+          "h": 1,
+          "w": 24,
+          "x": 0,
+          "y": 55
+        },
+        "id": 0,
+        "panels": []
+      },
+      {
+        "type": "timeseries",
+        "id": 17,
+        "targets": [
+          {
+            "expr": "sum(rate(durable_emitter_emit_success_total{exported_job=\"durable-emitter-driver\"}[$__rate_interval]))",
+            "format": "",
+            "legendFormat": "produce rate"
+          },
+          {
+            "expr": "sum(rate(durable_emitter_delivery_completed_total{exported_job=\"durable-emitter-driver\"}[$__rate_interval]))",
+            "format": "",
+            "legendFormat": "consumer ingestion rate"
+          }
+        ],
+        "title": "Throughput (events/s)",
+        "description": "Produce rate vs consumer rate (events/s)",
+        "transparent": false,
+        "datasource": {
+          "uid": "Prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 56
+        },
+        "repeatDirection": "h",
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true,
+            "calcs": [
+              "lastNotNull",
+              "mean",
+              "max"
+            ]
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "noValue": "No data",
+            "custom": {
+              "lineWidth": 1,
+              "fillOpacity": 0,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "stacking": {
+                "mode": "none"
+              }
+            },
+            "fieldMinMax": false
+          },
+          "overrides": []
+        }
+      },
+      {
+        "type": "timeseries",
+        "id": 18,
+        "targets": [
+          {
+            "expr": "durable_emitter_queue_depth{exported_job=\"durable-emitter-driver\"}",
+            "format": "",
+            "legendFormat": "queue depth"
+          },
+          {
+            "expr": "durable_emitter_queue_depth_max{exported_job=\"durable-emitter-driver\"}",
+            "format": "",
+            "legendFormat": "depth max (high-water)"
+          }
+        ],
+        "title": "Queue Depth \u0026 Txn/Rollback",
+        "description": "Queue depth and payload bytes during load test",
+        "transparent": false,
+        "datasource": {
+          "uid": "Prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 56
+        },
+        "repeatDirection": "h",
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true,
+            "calcs": [
+              "lastNotNull",
+              "max"
+            ]
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "",
+            "noValue": "No data",
+            "custom": {
+              "lineWidth": 1,
+              "fillOpacity": 0,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "stacking": {
+                "mode": "none"
+              }
+            },
+            "fieldMinMax": false
+          },
+          "overrides": []
+        }
+      },
+      {
+        "type": "timeseries",
+        "id": 19,
+        "targets": [
+          {
+            "expr": "(histogram_quantile(0.50, sum by (le) (rate(durable_emitter_emit_duration_seconds_bucket{exported_job=\"durable-emitter-driver\"}[$__rate_interval])))) \u003e 0",
+            "format": "",
+            "legendFormat": "p50"
+          },
+          {
+            "expr": "(histogram_quantile(0.99, sum by (le) (rate(durable_emitter_emit_duration_seconds_bucket{exported_job=\"durable-emitter-driver\"}[$__rate_interval])))) \u003e 0",
+            "format": "",
+            "legendFormat": "p99"
+          },
+          {
+            "expr": "rate(durable_emitter_emit_duration_seconds_sum{exported_job=\"durable-emitter-driver\"}[$__rate_interval]) / clamp_min(rate(durable_emitter_emit_duration_seconds_count{exported_job=\"durable-emitter-driver\"}[$__rate_interval]), 1e-15)",
+            "format": "",
+            "legendFormat": "mean"
+          }
+        ],
+        "title": "Insert Latency",
+        "description": "Emit (DB insert) latency percentiles",
+        "transparent": false,
+        "datasource": {
+          "uid": "Prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 64
+        },
+        "repeatDirection": "h",
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true,
+            "calcs": [
+              "lastNotNull",
+              "mean",
+              "max"
+            ]
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "noValue": "No data",
+            "custom": {
+              "lineWidth": 1,
+              "fillOpacity": 0,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "stacking": {
+                "mode": "none"
+              }
+            },
+            "fieldMinMax": false
+          },
+          "overrides": []
+        }
+      },
+      {
+        "type": "timeseries",
+        "id": 20,
+        "targets": [
+          {
+            "expr": "rate(durable_emitter_publish_duration_seconds_sum{exported_job=\"durable-emitter-driver\", error=\"false\"}[$__rate_interval]) / clamp_min(rate(durable_emitter_publish_duration_seconds_count{exported_job=\"durable-emitter-driver\", error=\"false\"}[$__rate_interval]), 1e-15)",
+            "format": "",
+            "legendFormat": "publish_batch mean"
+          },
+          {
+            "expr": "rate(durable_emitter_store_operation_duration_seconds_sum{exported_job=\"durable-emitter-driver\", operation=~\"mark_delivered.*\"}[$__rate_interval]) / clamp_min(rate(durable_emitter_store_operation_duration_seconds_count{exported_job=\"durable-emitter-driver\", operation=~\"mark_delivered.*\"}[$__rate_interval]), 1e-15)",
+            "format": "",
+            "legendFormat": "mark_delivered mean"
+          },
+          {
+            "expr": "rate(durable_emitter_store_operation_duration_seconds_sum{exported_job=\"durable-emitter-driver\", operation=\"insert\"}[$__rate_interval]) / clamp_min(rate(durable_emitter_store_operation_duration_seconds_count{exported_job=\"durable-emitter-driver\", operation=\"insert\"}[$__rate_interval]), 1e-15)",
+            "format": "",
+            "legendFormat": "insert mean"
+          }
+        ],
+        "title": "Consumer Batch Latency (ms)",
+        "description": "Chip Publish gRPC batch latency + MarkDelivered DB latency",
+        "transparent": false,
+        "datasource": {
+          "uid": "Prometheus"
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 64
+        },
+        "repeatDirection": "h",
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": true,
+            "calcs": [
+              "lastNotNull",
+              "mean",
+              "max"
+            ]
+          },
+          "tooltip": {
+            "mode": "single",
+            "sort": "none"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "noValue": "No data",
+            "custom": {
+              "lineWidth": 1,
+              "fillOpacity": 0,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "stacking": {
+                "mode": "none"
+              }
+            },
+            "fieldMinMax": false
+          },
+          "overrides": []
+        }
+      }
+    ],
+    "templating": {},
+    "annotations": {}
+  },
+  "Alerts": null,
+  "AlertGroups": null,
+  "ContactPoints": null,
+  "NotificationPolicies": null
+}
