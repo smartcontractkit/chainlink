@@ -2016,6 +2016,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 								// handover test is handled below
 								break
 							}
+							// Only assert gapless ValidAfter when seq numbers are consecutive;
+							// staging handover can produce gaps (see rs[i-1].SeqNr+1 check above).
 							if r.SeqNr == seenSeqNr+1 {
 								if offchainConfig.ProtocolVersion == 0 {
 									// validAfter is always truncated to 1s in v0
