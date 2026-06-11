@@ -40,13 +40,21 @@ type CapturedEvent struct {
 }
 
 // Stats summarizes server state for HTTP inspection and tests.
+//
+// Captured counts only events that carry the DurableEmitter extension
+// (`emitter=durable`). Events that arrive without it (Beholder traffic, ad-hoc
+// chipingress.NewClient.Publish callers) are still acknowledged with success
+// — and rejected during an outage — but counted in NonDurableDropped instead
+// of being stored. This keeps the inspection list focused on DurableEmitter
+// without changing how a simulated outage hits the rest of the chip pipeline.
 type Stats struct {
-	Captured        int   `json:"captured"`
-	PublishCalls    int64 `json:"publish_calls"`
-	BatchCalls      int64 `json:"batch_calls"`
-	FailedCalls     int64 `json:"failed_calls"`
-	OutageActive    bool  `json:"outage_active"`
-	OutageDurations int64 `json:"outage_count"`
+	Captured          int   `json:"captured"`
+	NonDurableDropped int64 `json:"non_durable_dropped"`
+	PublishCalls      int64 `json:"publish_calls"`
+	BatchCalls        int64 `json:"batch_calls"`
+	FailedCalls       int64 `json:"failed_calls"`
+	OutageActive      bool  `json:"outage_active"`
+	OutageDurations   int64 `json:"outage_count"`
 }
 
 // Server is a mock ChipIngress endpoint. It implements chippb.ChipIngressServer
@@ -60,11 +68,12 @@ type Server struct {
 	mu       sync.Mutex
 	captured []CapturedEvent
 
-	outage           atomic.Bool
-	publishCalls     atomic.Int64
-	batchCalls       atomic.Int64
-	failedCalls      atomic.Int64
-	outageActivation atomic.Int64
+	outage            atomic.Bool
+	publishCalls      atomic.Int64
+	batchCalls        atomic.Int64
+	failedCalls       atomic.Int64
+	nonDurableDropped atomic.Int64
+	outageActivation  atomic.Int64
 }
 
 // NewServer constructs a Server. The server is not started — call Start.
@@ -158,17 +167,19 @@ func (s *Server) Reset() {
 	s.publishCalls.Store(0)
 	s.batchCalls.Store(0)
 	s.failedCalls.Store(0)
+	s.nonDurableDropped.Store(0)
 }
 
 // Stats returns a snapshot of counters.
 func (s *Server) Stats() Stats {
 	return Stats{
-		Captured:        s.CapturedCount(),
-		PublishCalls:    s.publishCalls.Load(),
-		BatchCalls:      s.batchCalls.Load(),
-		FailedCalls:     s.failedCalls.Load(),
-		OutageActive:    s.outage.Load(),
-		OutageDurations: s.outageActivation.Load(),
+		Captured:          s.CapturedCount(),
+		NonDurableDropped: s.nonDurableDropped.Load(),
+		PublishCalls:      s.publishCalls.Load(),
+		BatchCalls:        s.batchCalls.Load(),
+		FailedCalls:       s.failedCalls.Load(),
+		OutageActive:      s.outage.Load(),
+		OutageDurations:   s.outageActivation.Load(),
 	}
 }
 
@@ -227,8 +238,15 @@ func (s *Server) Ping(_ context.Context, _ *chippb.EmptyRequest) (*chippb.PingRe
 	return &chippb.PingResponse{Message: "pong"}, nil
 }
 
+// appendEvent stores the CloudEvent only if it carries the DurableEmitter
+// extension. Other events (Beholder, ad-hoc clients) are silently dropped from
+// the capture list — the RPC has already been acknowledged at this point.
 func (s *Server) appendEvent(event *cepb.CloudEvent) {
 	if event == nil {
+		return
+	}
+	if !isDurableEmitterEvent(event) {
+		s.nonDurableDropped.Add(1)
 		return
 	}
 	s.mu.Lock()
@@ -237,4 +255,19 @@ func (s *Server) appendEvent(event *cepb.CloudEvent) {
 		Event:      event,
 	})
 	s.mu.Unlock()
+}
+
+// isDurableEmitterEvent reports whether ev carries the `emitter=DurableEmitter`
+// CloudEvent extension that chainlink-common DurableEmitter stamps on every
+// event it produces. The CloudEvent protobuf wire format carries extensions
+// alongside the well-known attributes in CloudEvent.attributes.
+func isDurableEmitterEvent(ev *cepb.CloudEvent) bool {
+	if ev == nil {
+		return false
+	}
+	v, ok := ev.GetAttributes()["emitter"]
+	if !ok || v == nil {
+		return false
+	}
+	return v.GetCeString() == "DurableEmitter"
 }
