@@ -43,6 +43,7 @@ type ModuleVersion struct {
 	SHA       string // extracted commit SHA if available (7..40 lower-hex)
 	Tag       string // tag like v0.1.5 (without any subdir prefix)
 	TagPrefix string // if raw looked like "sub/dir/vX.Y.Z", TagPrefix is "sub/dir"
+	Indirect  bool   // true if go.mod resolves this module as an indirect dependency
 }
 
 func main() {
@@ -159,6 +160,15 @@ func runSync(opts Options) (bool, error) {
 			goModVersion, err := get(opts.GoModPath, module)
 			if err != nil || goModVersion.Raw == "" {
 				fmt.Printf("  - No version found in go.mod for %s: %v\n", module, err)
+				continue
+			}
+
+			// Indirect dependencies are resolved to the minimal version selected by
+			// the module graph, which has no authoritative relationship to the version
+			// this plugin should build against. Skip them entirely: don't sync and
+			// don't flag a mismatch.
+			if goModVersion.Indirect {
+				fmt.Printf("  - Skipping %s: resolved as an indirect dependency in go.mod\n", module)
 				continue
 			}
 
@@ -336,9 +346,10 @@ func getGoModVersion(goModPath, module string) (ModuleVersion, error) {
 	}
 
 	var m struct {
-		Path    string
-		Version string
-		Replace *struct {
+		Path     string
+		Version  string
+		Indirect bool
+		Replace  *struct {
 			Path    string
 			Version string
 		}
@@ -353,6 +364,7 @@ func getGoModVersion(goModPath, module string) (ModuleVersion, error) {
 	}
 
 	mv := normalizeVersion(version)
+	mv.Indirect = m.Indirect
 	fmt.Printf("  - Version in go.mod: %s (%s)\n", version, mv.toString())
 	return mv, nil
 }

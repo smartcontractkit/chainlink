@@ -175,8 +175,8 @@ func makeRequest(t *testing.T, method string, params any) *jsonrpc.Request[json.
 // testEnclaveConfig satisfies chainlink-common's validateEnclaveConfig (PRIV-458, pulled in
 // by the chainlink-common bump): non-empty Signers, F > 0, non-empty MasterPublicKey. The
 // relay binds these into the response-signature hash; the values are not otherwise checked.
-func testEnclaveConfig() confidentialrelaytypes.EnclaveConfig {
-	return confidentialrelaytypes.EnclaveConfig{
+func testEnclaveConfig() *confidentialrelaytypes.EnclaveConfig {
+	return &confidentialrelaytypes.EnclaveConfig{
 		Signers:         [][]byte{[]byte("enclave-signer-1")},
 		MasterPublicKey: []byte("enclave-master-public-key"),
 		T:               1,

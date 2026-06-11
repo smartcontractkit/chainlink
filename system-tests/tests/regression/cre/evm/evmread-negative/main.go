@@ -9,12 +9,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
 	sdk "github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 	"gopkg.in/yaml.v3"
+
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/balance_reader"
 	"github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative/config"
@@ -206,8 +207,15 @@ func runFilterLogsWithInvalidAddresses(client evm.Client, runtime sdk.Runtime, w
 		},
 	}).Await()
 	runtime.Logger().Info("FilterLogs completed", "filtered_logs_output", filterLogsOutput)
-	if err != nil || len(filterLogsOutput.Logs) == 0 {
-		runtime.Logger().Error("got expected error or empty logs for FilterLogs with invalid addresses", "invalid_address", invalidAddress, "filter_logs_output", filterLogsOutput.Logs, "error", err)
+	if err != nil || filterLogsOutput == nil || len(filterLogsOutput.Logs) == 0 {
+		logsOutput := make([]string, 0)
+		if filterLogsOutput != nil {
+			logsOutput = make([]string, len(filterLogsOutput.Logs))
+			for i, log := range filterLogsOutput.Logs {
+				logsOutput[i] = log.String()
+			}
+		}
+		runtime.Logger().Error("got expected error or empty logs for FilterLogs with invalid addresses", "invalid_address", invalidAddress, "filter_logs_output", logsOutput, "error", err)
 		return filterLogsOutput, fmt.Errorf("expected error or empty logs for FilterLogs with invalid address '%s': %w", invalidAddress, err)
 	}
 

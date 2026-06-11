@@ -31,6 +31,28 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
+	burn_from_mint_token_pool_v2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v2_0_0/burn_from_mint_token_pool"
+	burn_mint_token_pool_v2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v2_0_0/burn_mint_token_pool"
+	burn_mint_with_lock_release_flag_token_pool_v2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v2_0_0/burn_mint_with_lock_release_flag_token_pool"
+	burn_to_address_mint_token_pool_v2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v2_0_0/burn_to_address_mint_token_pool"
+	burn_with_from_mint_token_pool_v2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v2_0_0/burn_with_from_mint_token_pool"
+	cctp_message_transmitter_proxy_v2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v2_0_0/cctp_message_transmitter_proxy"
+	cctp_through_ccv_token_pool_v2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v2_0_0/cctp_through_ccv_token_pool"
+	cctp_verifier_v2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v2_0_0/cctp_verifier"
+	committee_verifier_v2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v2_0_0/committee_verifier"
+	executor_v2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v2_0_0/executor"
+	fee_quoter_v2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v2_0_0/fee_quoter"
+	lock_release_token_pool_v2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v2_0_0/lock_release_token_pool"
+	lombard_token_pool_v2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v2_0_0/lombard_token_pool"
+	lombard_verifier_v2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v2_0_0/lombard_verifier"
+	maybe_revert_message_receiver_v2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v2_0_0/maybe_revert_message_receiver"
+	message_hasher_v2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v2_0_0/message_hasher"
+	offramp_v2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v2_0_0/offramp"
+	onramp_v2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v2_0_0/onramp"
+	siloed_lock_release_token_pool_v2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v2_0_0/siloed_lock_release_token_pool"
+	siloed_usdc_token_pool_v2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v2_0_0/siloed_usdc_token_pool"
+	token_pool_v2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v2_0_0/token_pool"
+	usdc_token_pool_proxy_v2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v2_0_0/usdc_token_pool_proxy"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
 )
@@ -161,6 +183,28 @@ func getAllABIs() []string {
 		offramp.OffRampABI,
 		maybe_revert_message_receiver.MaybeRevertMessageReceiverABI,
 		price_registry.PriceRegistryABI,
+		onramp_v2.OnRampABI,
+		offramp_v2.OffRampABI,
+		message_hasher_v2.MessageHasherABI,
+		fee_quoter_v2.FeeQuoterABI,
+		burn_mint_token_pool_v2.BurnMintTokenPoolABI,
+		burn_from_mint_token_pool_v2.BurnFromMintTokenPoolABI,
+		burn_with_from_mint_token_pool_v2.BurnWithFromMintTokenPoolABI,
+		burn_to_address_mint_token_pool_v2.BurnToAddressMintTokenPoolABI,
+		burn_mint_with_lock_release_flag_token_pool_v2.BurnMintWithLockReleaseFlagTokenPoolABI,
+		lock_release_token_pool_v2.LockReleaseTokenPoolABI,
+		siloed_lock_release_token_pool_v2.SiloedLockReleaseTokenPoolABI,
+		siloed_usdc_token_pool_v2.SiloedUSDCTokenPoolABI,
+		usdc_token_pool_proxy_v2.USDCTokenPoolProxyABI,
+		token_pool_v2.TokenPoolABI,
+		executor_v2.ExecutorABI,
+		committee_verifier_v2.CommitteeVerifierABI,
+		maybe_revert_message_receiver_v2.MaybeRevertMessageReceiverABI,
+		lombard_token_pool_v2.LombardTokenPoolABI,
+		lombard_verifier_v2.LombardVerifierABI,
+		cctp_through_ccv_token_pool_v2.CCTPThroughCCVTokenPoolABI,
+		cctp_verifier_v2.CCTPVerifierABI,
+		cctp_message_transmitter_proxy_v2.CCTPMessageTransmitterProxyABI,
 	}
 }
 

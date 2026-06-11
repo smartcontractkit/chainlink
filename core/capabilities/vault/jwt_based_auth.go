@@ -18,13 +18,11 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
 var (
@@ -265,11 +263,6 @@ func (v *jwtBasedAuth) AuthorizeRequest(ctx context.Context, req jsonrpc.Request
 		return nil, fmt.Errorf("invalid JWT auth token: %w", err)
 	}
 
-	if ownerErr := validateJWTPreparedVaultOwners(req, derivedWorkflowOwner); ownerErr != nil {
-		v.lggr.Debugw("JWTBasedAuth secret owners rejected prepared request", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "workflowOwner", derivedWorkflowOwner, "error", ownerErr)
-		return nil, fmt.Errorf("invalid JWT auth token: %w", ownerErr)
-	}
-
 	v.lggr.Debugw("JWTBasedAuth authorization succeeded", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "workflowOwner", derivedWorkflowOwner, "digest", requestDigest, "expiresAt", claims.ExpiresAt.UTC().Unix())
 	return &AuthResult{
 		orgID:         claims.OrgID,
@@ -440,70 +433,6 @@ func extractAuthorizationDetails(claims jwt.MapClaims) (workflowOwner, requestDi
 	}
 
 	return workflowOwner, requestDigest, nil
-}
-
-func validateJWTPreparedVaultOwners(req jsonrpc.Request[json.RawMessage], workflowOwner string) error {
-	switch req.Method {
-	case vaulttypes.MethodSecretsCreate:
-		parsed := &vaultcommon.CreateSecretsRequest{}
-		if err := json.Unmarshal(*req.Params, parsed); err != nil {
-			return fmt.Errorf("failed to parse create secrets request: %w", err)
-		}
-		return validateEncryptedSecretOwnersMatchWorkflowOwner(parsed.EncryptedSecrets, workflowOwner)
-	case vaulttypes.MethodSecretsUpdate:
-		parsed := &vaultcommon.UpdateSecretsRequest{}
-		if err := json.Unmarshal(*req.Params, parsed); err != nil {
-			return fmt.Errorf("failed to parse update secrets request: %w", err)
-		}
-		return validateEncryptedSecretOwnersMatchWorkflowOwner(parsed.EncryptedSecrets, workflowOwner)
-	case vaulttypes.MethodSecretsDelete:
-		parsed := &vaultcommon.DeleteSecretsRequest{}
-		if err := json.Unmarshal(*req.Params, parsed); err != nil {
-			return fmt.Errorf("failed to parse delete secrets request: %w", err)
-		}
-		return validateSecretIdentifierOwnersMatchWorkflowOwner(parsed.Ids, workflowOwner)
-	case vaulttypes.MethodSecretsList:
-		parsed := &vaultcommon.ListSecretIdentifiersRequest{}
-		if err := json.Unmarshal(*req.Params, parsed); err != nil {
-			return fmt.Errorf("failed to parse list secrets request: %w", err)
-		}
-		if normalizeOwner(parsed.Owner) != normalizeOwner(workflowOwner) {
-			return fmt.Errorf("list secrets owner %q does not match authorized workflow owner %q", parsed.Owner, workflowOwner)
-		}
-		return nil
-	default:
-		return fmt.Errorf("method %q does not carry vault secret identifiers", req.Method)
-	}
-}
-
-func validateEncryptedSecretOwnersMatchWorkflowOwner(encryptedSecrets []*vaultcommon.EncryptedSecret, workflowOwner string) error {
-	if len(encryptedSecrets) == 0 {
-		return errors.New("encrypted secrets must contain at least one identifier")
-	}
-	for idx, encryptedSecret := range encryptedSecrets {
-		if encryptedSecret == nil || encryptedSecret.Id == nil {
-			return fmt.Errorf("encrypted secret at index %d must include an identifier", idx)
-		}
-		if normalizeOwner(encryptedSecret.Id.Owner) != normalizeOwner(workflowOwner) {
-			return fmt.Errorf("encrypted secret owner at index %d %q does not match authorized workflow owner %q", idx, encryptedSecret.Id.Owner, workflowOwner)
-		}
-	}
-	return nil
-}
-
-func validateSecretIdentifierOwnersMatchWorkflowOwner(ids []*vaultcommon.SecretIdentifier, workflowOwner string) error {
-	if len(ids) == 0 {
-		return errors.New("secret identifiers must not be empty")
-	}
-	for idx, id := range ids {
-		if id == nil {
-			return fmt.Errorf("secret identifier at index %d must not be nil", idx)
-		}
-		if normalizeOwner(id.Owner) != normalizeOwner(workflowOwner) {
-			return fmt.Errorf("secret identifier owner at index %d %q does not match authorized workflow owner %q", idx, id.Owner, workflowOwner)
-		}
-	}
-	return nil
 }
 
 // resolveSigningKey looks up the RSA public key for the given kid from the

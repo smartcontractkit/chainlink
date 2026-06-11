@@ -55,7 +55,7 @@ func (h *handlerFactory) NewHandler(handlerType gateway.HandlerType, _ json.RawM
 
 func newGatewayHandler(t *testing.T) gateway.HandlerFactory {
 	lggr := logger.Test(t)
-	return gateway.NewHandlerFactory(nil, nil, nil, nil, nil, lggr, limits.Factory{Logger: lggr})
+	return gateway.NewHandlerFactory(nil, nil, nil, nil, nil, lggr, limits.Factory{Logger: lggr}, nil)
 }
 
 func TestGateway_NewGatewayFromConfig_NoServicesOrDONs(t *testing.T) {

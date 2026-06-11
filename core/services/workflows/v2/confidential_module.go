@@ -6,17 +6,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 
 	confworkflowtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
@@ -49,58 +49,35 @@ func ParseWorkflowAttributes(data []byte) (WorkflowAttributes, error) {
 	return attrs, nil
 }
 
-// IsConfidential returns true if the Attributes JSON has "confidential": true.
-// Returns an error if the attributes contain malformed JSON, so callers can
-// fail loudly rather than silently falling through to non-confidential execution.
-func IsConfidential(data []byte) (bool, error) {
-	attrs, err := ParseWorkflowAttributes(data)
-	if err != nil {
-		return false, err
-	}
-	return attrs.Confidential, nil
-}
-
 // ConfidentialModule implements host.ModuleV2 for confidential workflows.
 // Instead of running WASM locally, it delegates execution to the
 // confidential-workflows capability via the CapabilitiesRegistry.
 type ConfidentialModule struct {
-	capRegistry       core.CapabilitiesRegistry
-	binaryURL         string
-	binaryHash        []byte
-	workflowID        string
-	workflowOwner     string
-	workflowName      string
-	workflowTag       string
-	vaultDonSecrets   []SecretIdentifier
-	creSettingsGetter settings.Getter
-	orgID             string // resolved via org resolver at construction; stable for module lifetime
-	lggr              logger.Logger
+	capRegistry   core.CapabilitiesRegistry
+	binaryURL     string
+	binaryHash    []byte
+	workflowID    string
+	workflowOwner string
+	workflowName  string
+	workflowTag   string
+	lggr          logger.Logger
+	requirements  sync.Map
+	infoOnce      sync.Once
+	provider      func(tee *sdkpb.Tee) bool
 }
 
-var _ host.ModuleV2 = (*ConfidentialModule)(nil)
+var _ host.RequirementEnforcingModule = (*ConfidentialModule)(nil)
 
-func NewConfidentialModule(
-	capRegistry core.CapabilitiesRegistry,
-	binaryURL string,
-	binaryHash []byte,
-	workflowID, workflowOwner, workflowName, workflowTag string,
-	vaultDonSecrets []SecretIdentifier,
-	creSettingsGetter settings.Getter,
-	orgID string,
-	lggr logger.Logger,
-) *ConfidentialModule {
+func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, lggr logger.Logger) *ConfidentialModule {
 	return &ConfidentialModule{
-		capRegistry:       capRegistry,
-		binaryURL:         binaryURL,
-		binaryHash:        binaryHash,
-		workflowID:        workflowID,
-		workflowOwner:     workflowOwner,
-		workflowName:      workflowName,
-		workflowTag:       workflowTag,
-		vaultDonSecrets:   vaultDonSecrets,
-		creSettingsGetter: creSettingsGetter,
-		orgID:             orgID,
-		lggr:              lggr,
+		capRegistry:   capRegistry,
+		binaryURL:     binaryURL,
+		binaryHash:    binaryHash,
+		workflowID:    workflowID,
+		workflowOwner: workflowOwner,
+		workflowName:  workflowName,
+		workflowTag:   workflowTag,
+		lggr:          lggr,
 	}
 }
 
@@ -113,84 +90,104 @@ func (m *ConfidentialModule) Execute(
 	request *sdkpb.ExecuteRequest,
 	helper host.ExecutionHelper,
 ) (*sdkpb.ExecutionResult, error) {
-	execReqBytes, err := proto.Marshal(request)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal ExecuteRequest: %w", err)
-	}
-
-	protoSecrets := make([]*confworkflowtypes.SecretIdentifier, len(m.vaultDonSecrets))
-	for i, s := range m.vaultDonSecrets {
-		// VaultDON treats "main" as the default namespace for secrets.
-		ns := s.Namespace
-		if ns == "" {
-			ns = "main"
-		}
-		protoSecrets[i] = &confworkflowtypes.SecretIdentifier{
-			Key:       s.Key,
-			Namespace: &ns,
-		}
+	var requirements *sdkpb.Requirements
+	rawRequirements, loaded := m.requirements.LoadAndDelete(helper.GetWorkflowExecutionID())
+	if loaded {
+		requirements = rawRequirements.(*sdkpb.Requirements)
 	}
 
 	capInput := &confworkflowtypes.ConfidentialWorkflowRequest{
-		VaultDonSecrets: protoSecrets,
 		Execution: &confworkflowtypes.WorkflowExecution{
-			WorkflowId:     m.workflowID,
-			BinaryUrl:      m.binaryURL,
-			BinaryHash:     m.binaryHash,
-			ExecuteRequest: execReqBytes,
-			Owner:          m.workflowOwner,
-			ExecutionId:    helper.GetWorkflowExecutionID(),
-			OrgId:          contexts.CREValue(ctx).Org,
+			WorkflowId:        m.workflowID,
+			BinaryHash:        m.binaryHash,
+			SdkExecuteRequest: request,
+			Owner:             m.workflowOwner,
+			ExecutionId:       helper.GetWorkflowExecutionID(),
+			OrgId:             contexts.CREValue(ctx).Org,
+			Requirements:      requirements,
+			BinaryUrl:         m.binaryURL,
 		},
+		BinaryUrl: m.binaryURL,
 	}
 
+	capOutput := &confworkflowtypes.ConfidentialWorkflowResponse{}
+	if err := doRequest(ctx, m, helper.GetWorkflowExecutionID(), "Execute", capInput, capOutput); err != nil {
+		return nil, err
+	}
+
+	return capOutput.SdkExecutionResult, nil
+}
+
+func (m *ConfidentialModule) SetRequirements(executionID string, requirements *sdkpb.Requirements) {
+	m.requirements.Store(executionID, requirements)
+}
+
+func (m *ConfidentialModule) providedTees(ctx context.Context) []*sdkpb.TeeTypeAndRegions {
+	capOutput := &confworkflowtypes.ProvidedTeesResponse{}
+	// use an empty execution ID, it's not during an execution.
+	if err := doRequest(ctx, m, "", "ProvidedTees", &emptypb.Empty{}, capOutput); err != nil {
+		m.lggr.Errorf("failed to get regions from confidential-workflows capability, assuming no supported regions: %v", err)
+		return []*sdkpb.TeeTypeAndRegions{}
+	}
+
+	return capOutput.Tee
+}
+
+func (m *ConfidentialModule) Tee(ctx context.Context, tee *sdkpb.Tee) bool {
+	m.infoOnce.Do(func() {
+		m.provider = host.NewProviderFromSelection(m.providedTees(ctx))
+	})
+
+	return m.provider(tee)
+}
+
+func doRequest[I, O proto.Message](
+	ctx context.Context,
+	m *ConfidentialModule,
+	execID string,
+	method string,
+	capInput I,
+	capOutput O) error {
 	payload, err := anypb.New(capInput)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal capability payload: %w", err)
+		return fmt.Errorf("failed to marshal capability payload: %w", err)
 	}
 
 	executable, err := m.capRegistry.GetExecutable(ctx, confidentialWorkflowsCapabilityID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get confidential-workflows capability: %w", err)
+		return fmt.Errorf("failed to get confidential-workflows capability: %w", err)
 	}
 
+	config, _ := anypb.New(&emptypb.Empty{})
+
 	capReq := capabilities.CapabilityRequest{
-		Payload:      payload,
-		Method:       "Execute",
-		CapabilityId: confidentialWorkflowsCapabilityID,
+		Payload:       payload,
+		ConfigPayload: config,
+		Method:        method,
+		CapabilityId:  confidentialWorkflowsCapabilityID,
 		Metadata: capabilities.RequestMetadata{
-			WorkflowOwner:       m.workflowOwner,
 			WorkflowID:          m.workflowID,
+			WorkflowOwner:       m.workflowOwner,
 			WorkflowName:        m.workflowName,
 			WorkflowTag:         m.workflowTag,
-			WorkflowExecutionID: helper.GetWorkflowExecutionID(),
+			WorkflowExecutionID: execID,
 		},
-	}
-	propagateOrgIDMeta, _ := cresettings.Default.PropagateOrgIDInRequestMetadata.GetOrDefault(ctx, m.creSettingsGetter)
-	if propagateOrgIDMeta && m.orgID != "" {
-		capReq.Metadata.OrgID = m.orgID
 	}
 
 	capResp, err := executable.Execute(ctx, capReq)
 	if err != nil {
-		return nil, fmt.Errorf("confidential-workflows capability execution failed: %w", err)
+		return fmt.Errorf("confidential-workflows capability execution failed: %w", err)
 	}
 
 	if capResp.Payload == nil {
-		return nil, errors.New("confidential-workflows capability returned nil payload")
+		return errors.New("confidential-workflows capability returned nil payload")
 	}
 
-	var confResp confworkflowtypes.ConfidentialWorkflowResponse
-	if err := capResp.Payload.UnmarshalTo(&confResp); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal capability response: %w", err)
+	if err = capResp.Payload.UnmarshalTo(capOutput); err != nil {
+		return fmt.Errorf("failed to unmarshal capability response: %w", err)
 	}
 
-	var result sdkpb.ExecutionResult
-	if err := proto.Unmarshal(confResp.ExecutionResult, &result); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal ExecutionResult: %w", err)
-	}
-
-	return &result, nil
+	return nil
 }
 
 // ComputeBinaryHash returns the SHA-256 hash of the given binary.

@@ -110,7 +110,7 @@ func ValidateSuiteBucketRegistry() error {
 		}
 	}
 
-	for scenario := SuiteScenario(0); scenario < SuiteScenarioLen; scenario++ {
+	for scenario := range SuiteScenarioLen {
 		if _, ok := assignedScenarios[scenario]; ok {
 			continue
 		}

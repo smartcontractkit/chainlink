@@ -75,6 +75,7 @@ type GatewayConnector interface {
 
 type ConnectorGateway interface {
 	ID() string
+	DonID() string
 	URL() string
 }
 

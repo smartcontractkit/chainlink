@@ -3,6 +3,7 @@ package network
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -19,6 +20,8 @@ import (
 	"github.com/doyensec/safeurl"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -45,6 +48,66 @@ type HTTPClientConfig struct {
 	AllowedIPsCIDR    []string
 	AllowedMethods    []string
 	BlockedHeaders    []string
+
+	// Mtls, when set, configures the client to present the supplied client
+	// certificate for mutual TLS.
+	Mtls *gateway.MtlsAuth
+
+	// ConcurrencyLimiter, when set together with Mtls, bounds the number of
+	// in-flight mTLS requests. The limiter is acquired on the request's
+	// (capped) context so waiters self-evict at the request timeout.
+	ConcurrencyLimiter limits.ResourcePoolLimiter[int]
+}
+
+// merge returns a copy of c with any set fields from override applied on top.
+// A field in override is only applied when it holds a non-zero value, so the
+// static base config supplies defaults that the dynamic config can selectively
+// override.
+func (c HTTPClientConfig) merge(override HTTPClientConfig) HTTPClientConfig {
+	merged := c
+	if override.MaxResponseBytes != 0 {
+		merged.MaxResponseBytes = override.MaxResponseBytes
+	}
+	if override.DefaultTimeout != 0 {
+		merged.DefaultTimeout = override.DefaultTimeout
+	}
+	if override.maxRequestDuration != 0 {
+		merged.maxRequestDuration = override.maxRequestDuration
+	}
+	if len(override.BlockedIPs) > 0 {
+		merged.BlockedIPs = override.BlockedIPs
+	}
+	if len(override.BlockedIPsCIDR) > 0 {
+		merged.BlockedIPsCIDR = override.BlockedIPsCIDR
+	}
+	if len(override.AllowedPorts) > 0 {
+		merged.AllowedPorts = override.AllowedPorts
+	}
+	if len(override.AllowedPortRanges) > 0 {
+		merged.AllowedPortRanges = override.AllowedPortRanges
+	}
+	if len(override.AllowedSchemes) > 0 {
+		merged.AllowedSchemes = override.AllowedSchemes
+	}
+	if len(override.AllowedIPs) > 0 {
+		merged.AllowedIPs = override.AllowedIPs
+	}
+	if len(override.AllowedIPsCIDR) > 0 {
+		merged.AllowedIPsCIDR = override.AllowedIPsCIDR
+	}
+	if len(override.AllowedMethods) > 0 {
+		merged.AllowedMethods = override.AllowedMethods
+	}
+	if len(override.BlockedHeaders) > 0 {
+		merged.BlockedHeaders = override.BlockedHeaders
+	}
+	if override.Mtls != nil {
+		merged.Mtls = override.Mtls
+	}
+	if override.ConcurrencyLimiter != nil {
+		merged.ConcurrencyLimiter = override.ConcurrencyLimiter
+	}
+	return merged
 }
 
 var (
@@ -169,15 +232,39 @@ func responseHeadersFromNetHeader(h http.Header) (map[string]string, map[string]
 	return headers, multiHeaders
 }
 
+// httpDoer is the subset of the HTTP client used by httpClient. It is satisfied
+// by *safeurl.WrappedClient and by concurrencyLimitedClient, which decorates it.
+type httpDoer interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
+// concurrencyLimitedClient bounds the number of in-flight requests delegated to
+// the underlying client. The slot is acquired on the request's context, so a
+// waiter self-evicts when that context (carrying the capped request timeout)
+// expires rather than blocking indefinitely.
+type concurrencyLimitedClient struct {
+	client  httpDoer
+	limiter limits.ResourcePoolLimiter[int]
+}
+
+func (c *concurrencyLimitedClient) Do(req *http.Request) (*http.Response, error) {
+	free, err := c.limiter.Wait(req.Context(), 1)
+	if err != nil {
+		return nil, fmt.Errorf("mtls concurrency limit exceeded: %w", ErrBlockedRequest)
+	}
+	defer free()
+	return c.client.Do(req)
+}
+
 type httpClient struct {
-	client  *safeurl.WrappedClient
+	client  httpDoer
 	config  HTTPClientConfig
 	lggr    logger.Logger
 	metrics *httpClientMetrics
 }
 
-// NewHTTPClient creates a new NewHTTPClient
-// As of now, the client does not support TLS configuration but may be extended in the future
+// NewHTTPClient creates a new HTTPClient. For mTLS support, set Mtls on the
+// config, or use NewHTTPClientFactory to merge a dynamic config carrying it.
 func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, error) {
 	if len(config.AllowedPortRanges) > 0 {
 		expanded, err := expandPortRanges(config.AllowedPortRanges)
@@ -188,12 +275,13 @@ func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, err
 	}
 	config.ApplyDefaults()
 
-	defaultTransport, ok := http.DefaultTransport.(*http.Transport)
+	dt, ok := http.DefaultTransport.(*http.Transport)
 	if !ok {
 		return nil, errors.New("could not coerce http.DefaultTransport to *http.Transport")
 	}
+	defaultTransport := dt.Clone()
 
-	safeConfig := safeurl.
+	safeConfigBuilder := safeurl.
 		GetConfigBuilder().
 		SetAllowedIPs(config.AllowedIPs...).
 		SetAllowedIPsCIDR(config.AllowedIPsCIDR...).
@@ -202,8 +290,38 @@ func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, err
 		SetBlockedIPs(config.BlockedIPs...).
 		SetBlockedIPsCIDR(config.BlockedIPsCIDR...).
 		SetCheckRedirect(disableRedirects).
-		SetTransport(defaultTransport).
-		Build()
+		SetTransport(defaultTransport)
+
+	var client httpDoer
+
+	if config.Mtls != nil {
+		// Defence-in-depth protection against accidental reuse
+		// of the HTTP client leading to auth'd connections leaking across
+		// users.
+		defaultTransport.DisableKeepAlives = true
+		defaultTransport.TLSHandshakeTimeout = 10 * time.Second
+
+		cert, err := tls.X509KeyPair(config.Mtls.Certificate, config.Mtls.PrivateKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse MtlsAuth into KeyPair: %w", err)
+		}
+
+		defaultTransport.TLSClientConfig = &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS12,
+		}
+		safeConfigBuilder.SetTransport(defaultTransport)
+
+		if config.ConcurrencyLimiter == nil {
+			return nil, errors.New("mtls requires a ConcurrencyLimiter")
+		}
+		client = &concurrencyLimitedClient{
+			client:  safeurl.Client(safeConfigBuilder.Build()),
+			limiter: config.ConcurrencyLimiter,
+		}
+	} else {
+		client = safeurl.Client(safeConfigBuilder.Build())
+	}
 
 	metrics, err := newHTTPClientMetrics()
 	if err != nil {
@@ -212,11 +330,27 @@ func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, err
 
 	return &httpClient{
 		config:  config,
-		client:  safeurl.Client(safeConfig),
+		client:  client,
 		lggr:    lggr,
 		metrics: metrics,
 	}, nil
 }
+
+// NewHTTPClientFactory returns a factory that builds an HTTPClient by merging
+// the supplied dynamic config on top of the static base config. The dynamic
+// config typically carries per-request settings such as Mtls.
+func NewHTTPClientFactory(config HTTPClientConfig, lggr logger.Logger) HTTPClientFactory {
+	return func(dynamic HTTPClientConfig) (HTTPClient, error) {
+		return NewHTTPClient(config.merge(dynamic), lggr)
+	}
+}
+
+// HTTPClientFactory builds an HTTPClient from a dynamic config that is merged
+// onto the factory's static base config. Only fields holding a non-zero value
+// in the dynamic config override the base; zero-valued fields fall through to
+// the base, so the dynamic config can add or override settings but cannot unset
+// one already populated by the base.
+type HTTPClientFactory func(config HTTPClientConfig) (HTTPClient, error)
 
 func disableRedirects(req *http.Request, via []*http.Request) error {
 	return &redirectsDisabledError{}

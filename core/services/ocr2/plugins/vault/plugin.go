@@ -62,6 +62,7 @@ type ReportingPluginConfig struct {
 	MaxShareLengthBytes               limits.BoundLimiter[pkgconfig.Size]
 	MaxRequestBatchSize               limits.BoundLimiter[int]
 	MaxBatchSize                      limits.BoundLimiter[int]
+	MaxPendingQueueWriteSize          limits.BoundLimiter[int]
 	MaxBlobPayloadBytes               limits.BoundLimiter[pkgconfig.Size]
 	VaultForceEmptyOCRRounds          limits.GateLimiter
 	VaultOptimizationsEnabled         limits.GateLimiter
@@ -174,7 +175,7 @@ func (r *ReportingPluginFactory) pollForKeyMaterial(ctx context.Context, instanc
 }
 
 func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginConfig, error) {
-	maxCiphertextLengthBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultCiphertextSizeLimit)
+	maxCiphertextLengthBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.PerOwner.VaultCiphertextSizeLimit)
 	if err != nil {
 		return nil, fmt.Errorf("VaultCiphertextSizeLimit: %w", err)
 	}
@@ -219,6 +220,11 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		return nil, fmt.Errorf("VaultMaxBlobPayloadSizeLimit: %w", err)
 	}
 
+	maxPendingQueueWriteSizeLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultPendingQueueWriteSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("VaultPendingQueueWriteSizeLimit: %w", err)
+	}
+
 	return &ReportingPluginConfig{
 		MaxShareLengthBytes:               maxShareLengthBytesLimiter,
 		MaxRequestBatchSize:               maxRequestBatchSizeLimiter,
@@ -227,6 +233,7 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		MaxIdentifierOwnerLengthBytes:     maxIdentifierOwnerLengthBytesLimiter,
 		MaxIdentifierNamespaceLengthBytes: maxIdentifierNamespaceLengthBytesLimiter,
 		MaxBlobPayloadBytes:               maxBlobPayloadBytesLimiter,
+		MaxPendingQueueWriteSize:          maxPendingQueueWriteSizeLimiter,
 		VaultForceEmptyOCRRounds:          vaultForceEmptyOCRRounds,
 		VaultOptimizationsEnabled:         vaultOptimizationsEnabled,
 	}, nil
@@ -301,6 +308,7 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		"maxRequestBatchSize", logLimit(ctx, r.lggr, cfg.MaxRequestBatchSize),
 		"maxShareLengthBytes", logLimit(ctx, r.lggr, cfg.MaxShareLengthBytes),
 		"batchSize", logLimit(ctx, r.lggr, cfg.MaxBatchSize),
+		"maxPendingQueueWriteSize", logLimit(ctx, r.lggr, cfg.MaxPendingQueueWriteSize),
 		"maxBlobPayloadBytes", logLimit(ctx, r.lggr, cfg.MaxBlobPayloadBytes),
 		"maxQueryBytes", pluginLimits.MaxQueryBytes,
 		"maxObservationBytes", pluginLimits.MaxObservationBytes,
@@ -1703,7 +1711,6 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 			r.lggr.Errorw("failed to unmarshal observations", "error", err, "observation", ao.Observation)
 			continue
 		}
-
 		marshalledObs[uint8(ao.Observer)] = obs
 	}
 
@@ -1736,7 +1743,6 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		Outcomes: []*vaultcommon.Outcome{},
 	}
 
-outcomePackLoop:
 	for _, id := range slices.Sorted(maps.Keys(obsMap)) {
 		obs := obsMap[id]
 		// For each observation we've received for a given Id,
@@ -1823,7 +1829,7 @@ outcomePackLoop:
 				"packedOutcomeCount", len(os.Outcomes),
 				"scheduledRequestIDs", len(obsMap),
 			)
-			break outcomePackLoop
+			break
 		}
 	}
 
@@ -1952,6 +1958,14 @@ func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, seqNr
 			var errBoundLimited limits.ErrorBoundLimited[int]
 			if !errors.As(err, &errBoundLimited) {
 				return fmt.Errorf("failed to check batch size limit: %w", err)
+			}
+			keptItems = keptItems[:errBoundLimited.Limit]
+		}
+	} else {
+		if err := r.cfg.MaxPendingQueueWriteSize.Check(ctx, len(keptItems)); err != nil {
+			var errBoundLimited limits.ErrorBoundLimited[int]
+			if !errors.As(err, &errBoundLimited) {
+				return fmt.Errorf("failed to check pending queue write size limit: %w", err)
 			}
 			keptItems = keptItems[:errBoundLimited.Limit]
 		}
@@ -2562,6 +2576,7 @@ func (r *ReportingPlugin) Close() error {
 		r.cfg.MaxShareLengthBytes.Close(),
 		r.cfg.MaxRequestBatchSize.Close(),
 		r.cfg.MaxBatchSize.Close(),
+		r.cfg.MaxPendingQueueWriteSize.Close(),
 		r.cfg.VaultForceEmptyOCRRounds.Close(),
 	)
 }
