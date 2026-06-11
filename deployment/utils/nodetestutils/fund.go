@@ -1,13 +1,12 @@
 package nodetestutils
 
 import (
-	"encoding/base64"
-	"strconv"
 	"testing"
 	"time"
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/block-vision/sui-go-sdk/models"
+	"github.com/block-vision/sui-go-sdk/transaction"
 	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/stretchr/testify/require"
@@ -52,14 +51,19 @@ func fundNodesSui(t *testing.T, suiChain cldf_sui.Chain, nodes []*Node) {
 	ctx := t.Context()
 	signer := suiChain.Signer
 	client := suiChain.Client
-	signerAddr, _ := signer.GetAddress()
+	signerAddr, err := signer.GetAddress()
+	require.NoError(t, err)
 
-	getCoinsReq := models.SuiXGetAllCoinsRequest{Owner: signerAddr, Limit: 50}
-	allCoins, _ := client.SuiXGetAllCoins(ctx, getCoinsReq)
+	allCoins, err := client.GetCoinsByAddress(ctx, signerAddr)
+	require.NoError(t, err)
+	require.NotEmpty(t, allCoins)
 
-	coins := allCoins.Data[1:]
-
+	// Reserve the first coin to pay for gas; distribute the remaining coins to the nodes.
+	gasCoinID := allCoins[0].GetObjectId()
+	coins := allCoins[1:]
 	require.GreaterOrEqual(t, len(coins), len(nodes))
+
+	resolver := sui_common.NewObjectResolver(client)
 
 	for i, node := range nodes {
 		suiKeys, err := node.App.GetKeyStore().Sui().GetAll()
@@ -69,38 +73,36 @@ func fundNodesSui(t *testing.T, suiChain cldf_sui.Chain, nodes []*Node) {
 		transmitter := suiKeys[0]
 		coin := coins[i]
 		to := "0x" + transmitter.Account()
-		client := suiChain.Client
 
-		balance, _ := strconv.ParseUint(coin.Balance, 10, 64)
-		gas := uint64(100_000_000)
-		if balance <= gas {
-			t.Logf("Skipping coin %s (too small: %d)", coin.CoinObjectId, balance)
-			return
+		t.Logf("Transferring coin %s (balance=%d) to %s...", coin.GetObjectId(), coin.GetBalance(), to)
+
+		// Resolve the coin into an ImmOrOwnedObject input; ptb.Object would leave it
+		// Unresolved (BCS variant 3), which the network rejects.
+		coinIDBytes, err := transaction.ConvertSuiAddressStringToBytes(models.SuiAddress(coin.GetObjectId()))
+		require.NoError(t, err, "failed to convert coin object id %s", coin.GetObjectId())
+
+		resolvedCoin, err := resolver.ResolveCallArg(ctx, &transaction.CallArg{
+			UnresolvedObject: &transaction.UnresolvedObject{ObjectId: *coinIDBytes},
+		}, "")
+		require.NoError(t, err, "failed to resolve coin object %s", coin.GetObjectId())
+
+		// Transfer the whole coin to the node. Gas is paid from the reserved coin so the
+		// transferred coin object is not consumed for gas.
+		ptb := transaction.NewTransaction()
+		coinArg := ptb.Data.V1.AddInput(*resolvedCoin)
+		ptb.TransferObjects([]transaction.Argument{coinArg}, ptb.Pure(to))
+
+		callOpts := &sui_common.CallOpts{
+			Signer:           signer,
+			GasObject:        gasCoinID,
+			WaitForExecution: true,
 		}
 
-		transferAmount := balance - gas
-
-		t.Logf("Transferring coin %s to %s (amount=%d)...", coin.CoinObjectId, to, transferAmount)
-
-		unsignedReq := models.TransferSuiRequest{
-			Signer:      signerAddr,
-			SuiObjectId: coin.CoinObjectId,
-			GasBudget:   strconv.FormatUint(gas, 10),
-			Recipient:   to,
-			Amount:      strconv.FormatUint(transferAmount, 10),
-		}
-
-		txnMeta, err := client.TransferSui(ctx, unsignedReq)
-		require.NoError(t, err, "failed to create unsigned transfer txn for %s", coin.CoinObjectId)
-
-		decodedTx, err := base64.StdEncoding.DecodeString(txnMeta.TxBytes)
-		require.NoError(t, err, "failed to decode tx bytes for %s", coin.CoinObjectId)
-
-		tx, err := sui_common.SignAndSendTx(ctx, signer, client, decodedTx, true)
-		require.NoError(t, err, "failed to execute transfer for coin %s", coin.CoinObjectId)
+		tx, err := sui_common.ExecutePTB(ctx, callOpts, client, ptb)
+		require.NoError(t, err, "failed to execute transfer for coin %s", coin.GetObjectId())
 
 		t.Logf("Transferred coin %s to %s, Digest: %s, Status: %s",
-			coin.CoinObjectId, to, tx.Digest, tx.Effects.Status.Status)
+			coin.GetObjectId(), to, tx.Digest, tx.Effects.Status.Status)
 
 		time.Sleep(300 * time.Millisecond)
 	}
