@@ -18,7 +18,7 @@ require (
 	github.com/deckarep/golang-set/v2 v2.9.0
 	github.com/docker/go-connections v0.6.0
 	github.com/dominikbraun/graph v0.23.0
-	github.com/doyensec/safeurl v0.2.3
+	github.com/doyensec/safeurl v0.2.5
 	github.com/ethereum/go-ethereum v1.17.3
 	github.com/fatih/color v1.19.0
 	github.com/fxamacker/cbor/v2 v2.9.2
@@ -429,9 +429,6 @@ require (
 )
 
 replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20260218133534-cbd44da2856b
-
-// to be removed after https://github.com/doyensec/safeurl/pull/13 is merged
-replace github.com/doyensec/safeurl => github.com/cedric-cordenier/safeurl v0.0.0-20260609130317-eddfd657b6e3
 
 tool github.com/smartcontractkit/chainlink-common/pkg/loop/cmd/loopinstall
 
