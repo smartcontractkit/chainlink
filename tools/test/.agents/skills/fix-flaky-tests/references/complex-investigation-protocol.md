@@ -69,7 +69,7 @@ Receives both Proposer and Challenger outputs. Decides whether to stop (enough c
 </absolute_constraints>
 
 <logic>
-1. Gather evidence from what the user supplied and what `diagnose` yielded. Read prior attempts from `diagnose-attempted-fixes-*.jsonl` and seed `investigation_history` from it.
+1. Gather evidence from what the user supplied and what `diagnose` yielded. Read prior attempts from `diagnose-attempted-fixes-*.jsonl` and seed `investigation_history` from it. If application or Docker logs are available comb them for errors that might be related to observed test failure.
 2. Build `discussion_record` (empty `code_snippets`) and pass it to the Proposer to kick off round 1.
 3. When Proposer has finished pass `proposed_fix_record` and the (now-populated) `discussion_record` to the Challenger.
 4. Once Challenger is done pass `proposed_fix_record`, `fix_evaluation_record` and `discussion_record` to the Arbiter.
