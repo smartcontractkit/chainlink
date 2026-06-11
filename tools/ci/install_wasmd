@@ -3,7 +3,7 @@
 set -euo pipefail
 
 # latest release tag
-GIT_TAG="v0.70.2"
+GIT_TAG="v0.61.10"
 
 CHECKOUT_DIR="${HOME}/wasmd-checkout"
 BUILD_DIR="${HOME}/wasmd-build"
@@ -11,7 +11,4 @@ BUILD_DIR="${HOME}/wasmd-build"
 git clone https://github.com/CosmWasm/wasmd --branch "${GIT_TAG}" "${CHECKOUT_DIR}"
 cd "${CHECKOUT_DIR}"
 git checkout "${GIT_TAG}"
-# Bumping past go 1.25.8 breaks the WASM build. 
-# Go 1.26+ & github.com/bytedance/sonic v1.14.2 = GoMapIterator compile error
-# Should update `https://github.com/CosmWasm/wasmd` to v0.70+ for proper fix.
-GOTOOLCHAIN=go1.25.8 GOPATH="${BUILD_DIR}" make install 
+GOTOOLCHAIN=go1.26.4 GOPATH="${BUILD_DIR}" make install
