@@ -52,6 +52,10 @@ func findRepoRoot() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	return findRepoRootFrom(dir)
+}
+
+func findRepoRootFrom(dir string) (string, error) {
 	for {
 		if fileExists(filepath.Join(dir, "go.mod")) && fileExists(filepath.Join(dir, ".tool-versions")) {
 			return dir, nil

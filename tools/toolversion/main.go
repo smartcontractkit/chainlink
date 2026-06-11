@@ -21,21 +21,26 @@ func main() {
 	}
 }
 
+type loaderFn func() (*resolve.Resolver, paths.Config, error)
+
 func newRootCmd() *cobra.Command {
+	return newRootCmdWithLoader(loadResolver)
+}
+
+func newRootCmdWithLoader(load loaderFn) *cobra.Command {
 	root := &cobra.Command{
 		Use:   "toolversion",
 		Short: "Read dev-tool versions from .tool-versions and tools/go-tools.txt",
 	}
-
 	root.AddCommand(
-		cmdGet(),
-		cmdRef(),
-		cmdTarget(),
-		cmdGoInstall(),
-		cmdList(),
-		cmdModules(),
-		cmdCheck(),
-		cmdMakeVars(),
+		cmdGet(load),
+		cmdRef(load),
+		cmdTarget(load),
+		cmdGoInstall(load),
+		cmdList(load),
+		cmdModules(load),
+		cmdCheck(load),
+		cmdMakeVars(load),
 	)
 	return root
 }
@@ -52,13 +57,13 @@ func loadResolver() (*resolve.Resolver, paths.Config, error) {
 	return resolve.New(store), cfg, nil
 }
 
-func cmdGet() *cobra.Command {
+func cmdGet(load loaderFn) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <key>",
 		Short: "Print the raw version for a tool",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			r, _, err := loadResolver()
+			r, _, err := load()
 			if err != nil {
 				return err
 			}
@@ -72,13 +77,13 @@ func cmdGet() *cobra.Command {
 	}
 }
 
-func cmdRef() *cobra.Command {
+func cmdRef(load loaderFn) *cobra.Command {
 	return &cobra.Command{
 		Use:   "ref <key>",
 		Short: "Print a consumer-ready version reference (v-prefix for semver)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			r, _, err := loadResolver()
+			r, _, err := load()
 			if err != nil {
 				return err
 			}
@@ -92,13 +97,13 @@ func cmdRef() *cobra.Command {
 	}
 }
 
-func cmdTarget() *cobra.Command {
+func cmdTarget(load loaderFn) *cobra.Command {
 	return &cobra.Command{
 		Use:   "target <key>",
 		Short: "Print the go install argument: module@version",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			r, _, err := loadResolver()
+			r, _, err := load()
 			if err != nil {
 				return err
 			}
@@ -112,13 +117,13 @@ func cmdTarget() *cobra.Command {
 	}
 }
 
-func cmdGoInstall() *cobra.Command {
+func cmdGoInstall(load loaderFn) *cobra.Command {
 	return &cobra.Command{
 		Use:   "go-install <key>",
 		Short: "Run go install for the tool at the pinned version",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			r, _, err := loadResolver()
+			r, _, err := load()
 			if err != nil {
 				return err
 			}
@@ -135,12 +140,12 @@ func cmdGoInstall() *cobra.Command {
 	}
 }
 
-func cmdList() *cobra.Command {
+func cmdList(load loaderFn) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "Print all name/version pairs from both manifests",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			r, _, err := loadResolver()
+			r, _, err := load()
 			if err != nil {
 				return err
 			}
@@ -153,12 +158,12 @@ func cmdList() *cobra.Command {
 	}
 }
 
-func cmdModules() *cobra.Command {
+func cmdModules(load loaderFn) *cobra.Command {
 	return &cobra.Command{
 		Use:   "modules",
 		Short: "Print all managed go module import paths",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			r, _, err := loadResolver()
+			r, _, err := load()
 			if err != nil {
 				return err
 			}
@@ -170,12 +175,12 @@ func cmdModules() *cobra.Command {
 	}
 }
 
-func cmdCheck() *cobra.Command {
+func cmdCheck(load loaderFn) *cobra.Command {
 	return &cobra.Command{
 		Use:   "check",
 		Short: "Fail if version pins drift from the manifests",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			r, cfg, err := loadResolver()
+			r, cfg, err := load()
 			if err != nil {
 				return err
 			}
@@ -188,12 +193,12 @@ func cmdCheck() *cobra.Command {
 	}
 }
 
-func cmdMakeVars() *cobra.Command {
+func cmdMakeVars(load loaderFn) *cobra.Command {
 	return &cobra.Command{
 		Use:   "make-vars",
 		Short: "Print Makefile variable assignments for common tool versions",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			r, _, err := loadResolver()
+			r, _, err := load()
 			if err != nil {
 				return err
 			}
@@ -207,13 +212,14 @@ func cmdMakeVars() *cobra.Command {
 			var b strings.Builder
 			for _, v := range vars {
 				var val string
+				var verr error
 				if v.key == "protoc" {
-					val, err = r.Get(v.key)
+					val, verr = r.Get(v.key)
 				} else {
-					val, err = r.Ref(v.key)
+					val, verr = r.Ref(v.key)
 				}
-				if err != nil {
-					return err
+				if verr != nil {
+					return verr
 				}
 				fmt.Fprintf(&b, "%s=%s\n", v.name, val)
 			}

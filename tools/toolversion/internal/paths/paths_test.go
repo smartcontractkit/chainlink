@@ -9,16 +9,15 @@ import (
 )
 
 func TestFindRepoRootFromSubdir(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"), []byte("module test\n\ngo 1.26.4\n"), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(root, ".tool-versions"), []byte("golang 1.26.4\n"), 0o600))
 
 	sub := filepath.Join(root, "integration-tests")
 	require.NoError(t, os.Mkdir(sub, 0o755))
-	require.NoError(t, os.Chdir(sub))
-	t.Cleanup(func() { _ = os.Chdir(root) })
 
-	got, err := findRepoRoot()
+	got, err := findRepoRootFrom(sub)
 	require.NoError(t, err)
 
 	wantRoot, err := filepath.EvalSymlinks(root)
