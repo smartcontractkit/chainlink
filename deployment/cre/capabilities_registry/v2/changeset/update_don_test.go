@@ -588,13 +588,15 @@ func setupRegistryWith3Nodes(t *testing.T) *updFixture {
 
 func TestUpdateDONChangeset_WithF_OverridesOnChainValue(t *testing.T) {
 	t.Parallel()
-	fx := setupRegistryForUpdateDON(t, false, false)
+	// Use the 3-node fixture (F=1 initially). F=2 is valid with 3 nodes (F < N).
+	fx := setupRegistryWith3Nodes(t)
 
 	err := fx.rt.Exec(runtime.ChangesetTask(changeset.UpdateDON{}, changeset.UpdateDONInput{
 		RegistryQualifier:                 fx.qualifier,
 		RegistryChainSel:                  fx.selector,
 		DONName:                           fx.donName,
 		MergeCapabilityConfigsWithOnChain: true,
+		Nodes:                             []string{p2pID1, p2pID2, p2pID3}, // keep 3 nodes so F=2 is valid
 		F:                                 2,
 	}))
 	require.NoError(t, err)
