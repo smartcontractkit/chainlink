@@ -11,6 +11,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/uuid"
 	"github.com/jonboulle/clockwork"
+	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/grpc/credentials"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -86,6 +87,7 @@ type Opts struct {
 
 	BillingClient metering.BillingClient
 	LinkingClient linkingclient.LinkingServiceClient
+	Meter         metric.Meter
 
 	StorageClient storage.WorkflowClient
 
@@ -673,17 +675,11 @@ func newOrgResolver(
 		WorkflowRegistryAddress:       capCfg.WorkflowRegistry().Address(),
 		WorkflowRegistryChainSelector: wrChainDetails.ChainSelector,
 		JWTGenerator:                  opts.JWTGenerator,
+		Client:                        opts.LinkingClient,
+		Meter:                         opts.Meter,
 	}
 
-	var (
-		resolver orgresolver.OrgResolver
-		err      error
-	)
-	if opts.LinkingClient != nil {
-		resolver, err = orgresolver.NewOrgResolverWithClient(orgResolverConfig, opts.LinkingClient, lggr)
-	} else {
-		resolver, err = orgresolver.NewOrgResolver(orgResolverConfig, lggr)
-	}
+	resolver, err := orgResolverConfig.New(lggr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create org resolver: %w", err)
 	}

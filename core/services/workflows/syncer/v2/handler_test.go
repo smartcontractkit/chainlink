@@ -751,7 +751,6 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 					BinaryUrl:         binaryURL,
 					Requirements:      &sdk.Requirements{Tee: &sdk.Tee{Item: &sdk.Tee_AnyRegions{}}},
 				},
-				BinaryUrl: binaryURL,
 			},
 		}
 

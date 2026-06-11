@@ -116,6 +116,7 @@ jobs:
       docker-registry-url-override: public.ecr.aws/chainlink
       github-runner-arm64: ${{ github.repository != 'smartcontractkit/chainlink' && 'ubuntu-24.04-4cores-16GB-ARM' || 'ubuntu-24.04-arm' }}
       docker-image-tag-strip-prefix: v # strip out the "v" prefix from the git tag for the image tag.
+      free-disk-space: "true"
       git-sha: ${{ github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
@@ -157,6 +158,7 @@ jobs:
       docker-registry-url-override: public.ecr.aws/chainlink
       github-runner-arm64: ${{ github.repository != 'smartcontractkit/chainlink' && 'ubuntu-24.04-4cores-16GB-ARM' || 'ubuntu-24.04-arm' }}
       docker-image-tag-override: ${{ needs.checks.outputs.ccip-image-tag }}
+      free-disk-space: "true"
       git-sha: ${{ github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
