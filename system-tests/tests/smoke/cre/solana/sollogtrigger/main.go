@@ -41,37 +41,32 @@ func RunSolLogTriggerWorkflow(cfg config.Config, logger *slog.Logger, secretsPro
 		return nil, fmt.Errorf("create log_read_test bindings: %w", err)
 	}
 
-	if cfg.CPILogTrigger {
-		opts := &solanabindings.LogTriggerOptions{CPI: true}
-		trigger, err := logReadTest.LogTriggerTestEventLog(
-			chainSelector,
-			"test-cpi-event-filter",
-			nil,
-			opts,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("register CPI log trigger: %w", err)
-		}
-		return cre.Workflow[config.Config]{
-			cre.Handler(trigger, onLogTriggerCPI),
-		}, nil
-	}
-
 	filters := []log_read_test.TestEventFilters{
 		{U64Value: &cfg.ExpectedU64Value},
 	}
+
+	return createLogTrigger(logReadTest, chainSelector, filters, cfg.CPILogTrigger)
+}
+
+func createLogTrigger(logReadTest *log_read_test.LogReadTest, chainSelector uint64, filters []log_read_test.TestEventFilters, cpi bool) (cre.Workflow[config.Config], error) {
+	opts := &solanabindings.LogTriggerOptions{CPI: cpi}
+	name := "test-event-filter"
+	function := onLogTrigger
+	if cpi {
+		name = "test-cpi-event-filter"
+		function = onLogTriggerCPI
+	}
 	trigger, err := logReadTest.LogTriggerTestEventLog(
 		chainSelector,
-		"test-event-filter",
+		name,
 		filters,
-		nil,
+		opts,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register log trigger: %w", err)
 	}
-
 	return cre.Workflow[config.Config]{
-		cre.Handler(trigger, onLogTrigger),
+		cre.Handler(trigger, function),
 	}, nil
 }
 
