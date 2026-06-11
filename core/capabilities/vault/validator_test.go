@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"testing"
@@ -12,6 +13,8 @@ import (
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
@@ -970,4 +973,51 @@ func TestRequestValidator_PreservesEmptyNamespaceOnStructs(t *testing.T) {
 		require.NoError(t, validator.ValidateListSecretIdentifiersRequest(t.Context(), req))
 		assert.Empty(t, req.Namespace)
 	})
+}
+
+func newTestRequestValidatorWithFactoryLimiters(t *testing.T) *RequestValidator {
+	t.Helper()
+
+	factory := limits.Factory{Settings: cresettings.DefaultGetter}
+
+	maxRequestBatchSizeLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultRequestBatchSizeLimit)
+	require.NoError(t, err)
+	maxCiphertextLengthLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.PerOwner.VaultCiphertextSizeLimit)
+	require.NoError(t, err)
+	maxIdentifierKeyLengthLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultIdentifierKeySizeLimit)
+	require.NoError(t, err)
+	maxIdentifierOwnerLengthLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultIdentifierOwnerSizeLimit)
+	require.NoError(t, err)
+	maxIdentifierNamespaceLengthLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultIdentifierNamespaceSizeLimit)
+	require.NoError(t, err)
+
+	return NewRequestValidator(
+		maxRequestBatchSizeLimiter,
+		maxCiphertextLengthLimiter,
+		maxIdentifierKeyLengthLimiter,
+		maxIdentifierOwnerLengthLimiter,
+		maxIdentifierNamespaceLengthLimiter,
+	)
+}
+
+func assertBoundLimiterStopped[N limits.Number](t *testing.T, limiter limits.BoundLimiter[N], amount N) {
+	t.Helper()
+	err := limiter.Check(context.Background(), amount)
+	require.Error(t, err)
+}
+
+func TestRequestValidator_Close(t *testing.T) {
+	t.Parallel()
+
+	validator := newTestRequestValidatorWithFactoryLimiters(t)
+	ownerCtx := contexts.WithCRE(t.Context(), contexts.CRE{Owner: "0x1111111111111111111111111111111111111111"})
+
+	require.NoError(t, validator.MaxCiphertextLengthLimiter.Check(ownerCtx, 1*pkgconfig.Byte))
+	require.NoError(t, validator.Close())
+
+	assertBoundLimiterStopped(t, validator.MaxRequestBatchSizeLimiter, 1)
+	assertBoundLimiterStopped(t, validator.MaxCiphertextLengthLimiter, 1*pkgconfig.Byte)
+	assertBoundLimiterStopped(t, validator.MaxIdentifierKeyLengthLimiter, 1*pkgconfig.Byte)
+	assertBoundLimiterStopped(t, validator.MaxIdentifierOwnerLengthLimiter, 1*pkgconfig.Byte)
+	assertBoundLimiterStopped(t, validator.MaxIdentifierNamespaceLengthLimiter, 1*pkgconfig.Byte)
 }

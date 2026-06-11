@@ -30,6 +30,16 @@ type RequestValidator struct {
 	MaxIdentifierNamespaceLengthLimiter limits.BoundLimiter[pkgconfig.Size]
 }
 
+func (r *RequestValidator) Close() error {
+	return errors.Join(
+		r.MaxRequestBatchSizeLimiter.Close(),
+		r.MaxCiphertextLengthLimiter.Close(),
+		r.MaxIdentifierKeyLengthLimiter.Close(),
+		r.MaxIdentifierOwnerLengthLimiter.Close(),
+		r.MaxIdentifierNamespaceLengthLimiter.Close(),
+	)
+}
+
 func (r *RequestValidator) ValidateCreateSecretsRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, request *vaultcommon.CreateSecretsRequest, skipLabelValidation bool) error {
 	return r.validateWriteRequest(ctx, publicKey, request.RequestId, request.EncryptedSecrets, skipLabelValidation)
 }

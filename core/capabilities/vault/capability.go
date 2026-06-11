@@ -67,24 +67,8 @@ func (s *Capability) Close() error {
 		err = errors.Join(err, fmt.Errorf("error closing vault DON request handler: %w", ierr))
 	}
 
-	if lerr := s.MaxRequestBatchSizeLimiter.Close(); lerr != nil {
-		err = errors.Join(err, fmt.Errorf("error closing request batch size limiter: %w", lerr))
-	}
-
-	if lerr := s.MaxCiphertextLengthLimiter.Close(); lerr != nil {
-		err = errors.Join(err, fmt.Errorf("error closing ciphertext size limiter: %w", lerr))
-	}
-
-	if lerr := s.MaxIdentifierKeyLengthLimiter.Close(); lerr != nil {
-		err = errors.Join(err, fmt.Errorf("error closing identifier key length limiter: %w", lerr))
-	}
-
-	if lerr := s.MaxIdentifierOwnerLengthLimiter.Close(); lerr != nil {
-		err = errors.Join(err, fmt.Errorf("error closing identifier owner length limiter: %w", lerr))
-	}
-
-	if lerr := s.MaxIdentifierNamespaceLengthLimiter.Close(); lerr != nil {
-		err = errors.Join(err, fmt.Errorf("error closing identifier namespace length limiter: %w", lerr))
+	if lerr := s.RequestValidator.Close(); lerr != nil {
+		err = errors.Join(err, fmt.Errorf("error closing request validator limiters: %w", lerr))
 	}
 
 	return err

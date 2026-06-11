@@ -318,7 +318,7 @@ func (h *handler) Close() error {
 		return errors.Join(
 			jwtAuthErr,
 			h.writeMethodsEnabled.Close(),
-			h.MaxRequestBatchSizeLimiter.Close(),
+			h.RequestValidator.Close(),
 		)
 	})
 }

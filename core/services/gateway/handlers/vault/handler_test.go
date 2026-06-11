@@ -21,6 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
@@ -1115,4 +1116,29 @@ func TestVaultHandler_PublicKeyGet(t *testing.T) {
 
 	assert.Equal(t, jsonRequest.ID, publicKeyResponse.ID, "request ID should match")
 	assert.Equal(t, publicKey, publicKeyResponse.Result.PublicKey, "public key should match")
+}
+
+func TestVaultHandler_CloseClosesRequestValidatorLimiters(t *testing.T) {
+	t.Parallel()
+
+	h, _, _, _ := setupHandlerWithLimitsFactory(t, limits.Factory{Settings: cresettings.DefaultGetter})
+	handler := h.(*handler)
+
+	require.NoError(t, handler.Start(t.Context()))
+	require.NoError(t, handler.Close())
+
+	assertLimiterStoppedAfterClose := func(amount int) {
+		t.Helper()
+		require.Error(t, handler.MaxRequestBatchSizeLimiter.Check(context.Background(), amount))
+	}
+	assertSizeLimiterStoppedAfterClose := func(amount pkgconfig.Size) {
+		t.Helper()
+		require.Error(t, handler.MaxCiphertextLengthLimiter.Check(context.Background(), amount))
+		require.Error(t, handler.MaxIdentifierKeyLengthLimiter.Check(context.Background(), amount))
+		require.Error(t, handler.MaxIdentifierOwnerLengthLimiter.Check(context.Background(), amount))
+		require.Error(t, handler.MaxIdentifierNamespaceLengthLimiter.Check(context.Background(), amount))
+	}
+
+	assertLimiterStoppedAfterClose(1)
+	assertSizeLimiterStoppedAfterClose(1 * pkgconfig.Byte)
 }
