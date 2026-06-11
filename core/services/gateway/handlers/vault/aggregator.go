@@ -297,6 +297,7 @@ func (a *baseAggregator) validateUsingSignatures(ctx context.Context, l logger.L
 	// Temporarily tolerate signed OCR reports from vault nodes that have not upgraded to
 	// include requestId in the signed payload. Once all vault nodes are upgraded, the
 	// gateway should start rejecting responses with a missing requestId.
+	// https://smartcontract-it.atlassian.net/browse/CRE-4875
 	if payloadRequestID != "" && payloadRequestID != requestID {
 		l.Errorw("signed payload request id mismatch, discarding response", "requestID", requestID, "signedPayloadRequestID", payloadRequestID, "method", resp.Method)
 		a.recordSignedPayloadRequestIDMismatch(ctx)
