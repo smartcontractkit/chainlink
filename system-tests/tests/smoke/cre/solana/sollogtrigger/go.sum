@@ -75,10 +75,10 @@ github.com/smartcontractkit/chain-selectors v1.0.100 h1:wpiSpmI/eFjY+wx/nPr5VuNF
 github.com/smartcontractkit/chain-selectors v1.0.100/go.mod h1:qy7whtgG5g+7z0jt0nRyii9bLND9m15NZTzuQPkMZ5w=
 github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260609153034-c8423a41ef9a h1:alnfvQgCKPFqsfijZQnr6Sbus2GT5YZ9BT/KzVrbszE=
 github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260609153034-c8423a41ef9a/go.mod h1:vTFHTCbLui4Vn8fTmAadfE3rdnvfrDwOmMujmW857D0=
-github.com/smartcontractkit/cre-sdk-go v1.9.0-capdev.1.0.20260605151643-add8be700599 h1:1o8AZCRDn6jUOL5TdJdTP6QNjCsxROB7CrtyKTR7nhk=
-github.com/smartcontractkit/cre-sdk-go v1.9.0-capdev.1.0.20260605151643-add8be700599/go.mod h1:B9bBug58zdooG8ylplFLDnto1hapkCYyVO+FZar0hTM=
-github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.1-0.20260611165349-654c49de454c h1:AUynMyGPTpHCTZM7MPE1AGHMDA5/99LA/owVvAuHo0Y=
-github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.1-0.20260611165349-654c49de454c/go.mod h1:f0bvKuAElYDpt43xfkTfDAenWSQuwfRR0FzlegNEIAc=
+github.com/smartcontractkit/cre-sdk-go v1.11.0 h1:E3MG0j8O9qDv6lDz71HPD3/WRKh/PX2/hfxO1+9YL2w=
+github.com/smartcontractkit/cre-sdk-go v1.11.0/go.mod h1:8SDE/e+eDAFpbRjRyKnIalUkQk9BcNbo2aLnda9BM48=
+github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.1-0.20260611183538-4223605f03f2 h1:BK93wb/dxgW45dldnUvTY/k0LxNkj+dNYFhrZk5B0co=
+github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.1-0.20260611183538-4223605f03f2/go.mod h1:3Oja7Gviyrb8dtld04krKCsTQ41RP/3hpCmHXjZf31I=
 github.com/streamingfast/logging v0.0.0-20230608130331-f22c91403091 h1:RN5mrigyirb8anBEtdjtHFIufXdacyTi6i4KBfeNXeo=
 github.com/streamingfast/logging v0.0.0-20230608130331-f22c91403091/go.mod h1:VlduQ80JcGJSargkRU4Sg9Xo63wZD/l8A5NC/Uo1/uU=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=

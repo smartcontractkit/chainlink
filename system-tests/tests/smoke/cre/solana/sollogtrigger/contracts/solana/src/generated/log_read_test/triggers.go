@@ -5,6 +5,7 @@ package log_read_test
 
 import (
 	"fmt"
+
 	solana "github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana"
 	bindings "github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana/bindings"
 	cre "github.com/smartcontractkit/cre-sdk-go/cre"
@@ -106,8 +107,8 @@ func (c *LogReadTest) LogTriggerTestEventLog(
 		Name:            filterName,
 		Subkeys:         subkeys,
 	}
-	if opts != nil && opts.CpiFilterConfig != nil {
-		req.CpiFilterConfig = opts.CpiFilterConfig
+	if opts != nil && opts.CPI {
+		req.CpiFilterConfig = bindings.AnchorCPILogTriggerConfig(ProgramID.Bytes())
 	}
 	rawTrigger := solana.LogTrigger(chainSelector, req)
 	return &TestEventTrigger{Trigger: rawTrigger}, nil

@@ -42,12 +42,7 @@ func RunSolLogTriggerWorkflow(cfg config.Config, logger *slog.Logger, secretsPro
 	}
 
 	if cfg.CPILogTrigger {
-		opts := &solanabindings.LogTriggerOptions{
-			CpiFilterConfig: &solana.CPIFilterConfig{
-				DestAddress: log_read_test.ProgramID.Bytes(),
-				MethodName:  []byte("anchor:event"),
-			},
-		}
+		opts := &solanabindings.LogTriggerOptions{CPI: true}
 		trigger, err := logReadTest.LogTriggerTestEventLog(
 			chainSelector,
 			"test-cpi-event-filter",
@@ -62,9 +57,8 @@ func RunSolLogTriggerWorkflow(cfg config.Config, logger *slog.Logger, secretsPro
 		}, nil
 	}
 
-	u64Filter := cfg.ExpectedU64Value
 	filters := []log_read_test.TestEventFilters{
-		{U64Value: &u64Filter},
+		{U64Value: &cfg.ExpectedU64Value},
 	}
 	trigger, err := logReadTest.LogTriggerTestEventLog(
 		chainSelector,
@@ -73,7 +67,7 @@ func RunSolLogTriggerWorkflow(cfg config.Config, logger *slog.Logger, secretsPro
 		nil,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("register log trigger: %w", err)
+		return nil, fmt.Errorf("failed to register log trigger: %w", err)
 	}
 
 	return cre.Workflow[config.Config]{
