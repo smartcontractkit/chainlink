@@ -4,6 +4,7 @@ package drift
 import (
 	"bufio"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -105,24 +106,30 @@ func parseGoModDirective(path string) (string, error) {
 
 func (c *Checker) checkStrayToolVersions() error {
 	rootTV := filepath.Clean(c.cfg.ToolVersionsFile)
+	root, err := os.OpenRoot(c.cfg.Root)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+
 	var violations []string
-	err := filepath.WalkDir(c.cfg.Root, func(path string, d os.DirEntry, err error) error {
+	err = fs.WalkDir(root.FS(), ".", func(rel string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.IsDir() {
-			if skipDir(d.Name(), path) {
-				return filepath.SkipDir
+			if skipDir(d.Name(), rel) {
+				return fs.SkipDir
 			}
 			return nil
 		}
 		if d.Name() != ".tool-versions" {
 			return nil
 		}
-		if filepath.Clean(path) == rootTV || isFixturePath(path) {
+		abs := filepath.Join(c.cfg.Root, rel)
+		if filepath.Clean(abs) == rootTV || isFixturePath(rel) {
 			return nil
 		}
-		rel, _ := filepath.Rel(c.cfg.Root, path)
 		violations = append(violations, fmt.Sprintf("check-tool-versions: stray .tool-versions at %s — only repo root .tool-versions is allowed", rel))
 		return nil
 	})
@@ -138,26 +145,30 @@ func (c *Checker) checkStrayToolVersions() error {
 var goInstallPin = regexp.MustCompile(`go install [^[:space:]]+@(v[0-9]+(\.[0-9]+)*|latest|[0-9a-f]{7,})`)
 
 func (c *Checker) checkRepoWidePins() error {
-	var violations []string
+	root, err := os.OpenRoot(c.cfg.Root)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
 
-	err := filepath.WalkDir(c.cfg.Root, func(path string, d os.DirEntry, err error) error {
+	var violations []string
+	err = fs.WalkDir(root.FS(), ".", func(rel string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.IsDir() {
-			if skipDir(d.Name(), path) {
-				return filepath.SkipDir
+			if skipDir(d.Name(), rel) {
+				return fs.SkipDir
 			}
 			return nil
 		}
-		if shouldSkipScan(path, c.cfg) {
+		if shouldSkipScan(rel, c.cfg) {
 			return nil
 		}
-		data, err := os.ReadFile(path)
+		data, err := root.ReadFile(rel)
 		if err != nil {
 			return nil
 		}
-		rel, _ := filepath.Rel(c.cfg.Root, path)
 		for i, line := range strings.Split(string(data), "\n") {
 			if isCommentLine(line) {
 				continue
@@ -181,16 +192,17 @@ func (c *Checker) checkRepoWidePins() error {
 	return nil
 }
 
-func skipDir(name, path string) bool {
+func skipDir(name, rel string) bool {
 	switch name {
 	case ".git", "vendor", "node_modules", ".cursor", ".bin":
 		return true
 	}
-	return isFixturePath(path)
+	return isFixturePath(rel)
 }
 
-func isFixturePath(path string) bool {
-	return strings.Contains(filepath.ToSlash(path), "/temp-repo/")
+func isFixturePath(rel string) bool {
+	slash := filepath.ToSlash(rel)
+	return strings.Contains(slash, "/temp-repo/") || strings.HasPrefix(slash, "temp-repo/")
 }
 
 func isCommentLine(line string) bool {
@@ -198,38 +210,32 @@ func isCommentLine(line string) bool {
 	return trimmed == "" || strings.HasPrefix(trimmed, "#")
 }
 
-func shouldSkipScan(path string, cfg paths.Config) bool {
-	if isFixturePath(path) {
+func shouldSkipScan(rel string, cfg paths.Config) bool {
+	if isFixturePath(rel) {
 		return true
 	}
-	clean := filepath.Clean(path)
+	abs := filepath.Join(cfg.Root, rel)
+	clean := filepath.Clean(abs)
 	if clean == filepath.Clean(cfg.ToolVersionsFile) || clean == filepath.Clean(cfg.GoToolsFile) {
 		return true
 	}
-	if strings.Contains(path, string(filepath.Join("tools", "toolversion"))) {
+	if strings.Contains(filepath.ToSlash(rel), "tools/toolversion") {
 		return true
 	}
-	base := filepath.Base(path)
-	if !scannableFile(base, path) {
-		return true
-	}
-	return false
+	return !scannableFile(filepath.Base(rel), rel)
 }
 
-func scannableFile(base, path string) bool {
+func scannableFile(base, rel string) bool {
 	switch base {
 	case "GNUmakefile", "Makefile":
 		return true
 	}
-	ext := filepath.Ext(path)
+	ext := filepath.Ext(rel)
 	switch ext {
 	case ".go", ".sh", ".yml", ".yaml", ".md", ".nix", ".mk", ".Dockerfile", ".dockerfile":
 		return true
 	case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".gz", ".zip", ".wasm", ".pb", ".bin", "":
 		return false
 	}
-	if strings.HasSuffix(base, "Dockerfile") {
-		return true
-	}
-	return false
+	return strings.HasSuffix(base, "Dockerfile")
 }

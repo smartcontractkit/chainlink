@@ -127,7 +127,7 @@ func cmdGoInstall() *cobra.Command {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "go install %s\n", target)
-			c := exec.Command("go", "install", target)
+			c := exec.CommandContext(cmd.Context(), "go", "install", target)
 			c.Stdout = os.Stdout
 			c.Stderr = os.Stderr
 			return c.Run()

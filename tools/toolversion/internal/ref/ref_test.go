@@ -1,6 +1,10 @@
 package ref
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestForInstall(t *testing.T) {
 	t.Parallel()
@@ -17,8 +21,6 @@ func TestForInstall(t *testing.T) {
 		{"v1.2.3", "v1.2.3"},
 	}
 	for _, tt := range tests {
-		if got := ForInstall(tt.in); got != tt.want {
-			t.Errorf("ForInstall(%q) = %q, want %q", tt.in, got, tt.want)
-		}
+		assert.Equal(t, tt.want, ForInstall(tt.in), "ForInstall(%q)", tt.in)
 	}
 }

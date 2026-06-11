@@ -1,18 +1,18 @@
 package modulemap
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
 
 func TestModulePath(t *testing.T) {
 	t.Parallel()
 	mod, err := ModulePath("mockery")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if mod != "github.com/vektra/mockery/v2" {
-		t.Fatalf("got %q", mod)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "github.com/vektra/mockery/v2", mod)
+
 	_, err = ModulePath("protoc")
-	if err == nil {
-		t.Fatal("expected error for protoc")
-	}
+	require.Error(t, err)
 }

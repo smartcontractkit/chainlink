@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/v2/tools/toolversion/internal/manifest"
 	"github.com/smartcontractkit/chainlink/v2/tools/toolversion/internal/paths"
 	"github.com/smartcontractkit/chainlink/v2/tools/toolversion/internal/resolve"
@@ -12,9 +14,7 @@ import (
 
 func writeFile(t *testing.T, dir, name, content string) {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600))
 }
 
 func setupRepo(t *testing.T) (paths.Config, *resolve.Resolver) {
@@ -22,9 +22,7 @@ func setupRepo(t *testing.T) (paths.Config, *resolve.Resolver) {
 	root := t.TempDir()
 	writeFile(t, root, ".tool-versions", "golang 1.26.4\nmockery 2.53.0\n")
 	writeFile(t, root, "go.mod", "module example.com/test\n\ngo 1.26.4\n")
-	if err := os.Mkdir(filepath.Join(root, "tools"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.Mkdir(filepath.Join(root, "tools"), 0o755))
 	writeFile(t, filepath.Join(root, "tools"), "go-tools.txt", "github.com/jmank88/gomods 0.1.7\n")
 	writeFile(t, root, "GNUmakefile", "install:\n\t$(TOOL_VERSION) go-install mockery\n")
 
@@ -36,9 +34,7 @@ func setupRepo(t *testing.T) (paths.Config, *resolve.Resolver) {
 		GoMod:            filepath.Join(root, "go.mod"),
 	}
 	store, err := manifest.New(cfg.ToolVersionsFile, cfg.GoToolsFile)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	return cfg, resolve.New(store)
 }
 
@@ -48,9 +44,7 @@ func TestCheckMakefilePinViolation(t *testing.T) {
 	writeFile(t, cfg.Root, "GNUmakefile", "install:\n\tgo install github.com/vektra/mockery/v2@v2.99.0\n")
 
 	err := NewChecker(cfg, resolver).Check()
-	if err == nil {
-		t.Fatal("expected violation")
-	}
+	require.Error(t, err)
 }
 
 func TestCheckGolangMirror(t *testing.T) {
@@ -58,29 +52,21 @@ func TestCheckGolangMirror(t *testing.T) {
 	cfg, _ := setupRepo(t)
 	writeFile(t, cfg.Root, ".tool-versions", "golang 1.26.3\nmockery 2.53.0\n")
 	store, err := manifest.New(cfg.ToolVersionsFile, cfg.GoToolsFile)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	resolver := resolve.New(store)
 
 	err = NewChecker(cfg, resolver).Check()
-	if err == nil {
-		t.Fatal("expected golang mirror violation")
-	}
+	require.Error(t, err)
 }
 
 func TestCheckStrayToolVersions(t *testing.T) {
 	t.Parallel()
 	cfg, resolver := setupRepo(t)
-	if err := os.Mkdir(filepath.Join(cfg.Root, "integration-tests"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.Mkdir(filepath.Join(cfg.Root, "integration-tests"), 0o755))
 	writeFile(t, filepath.Join(cfg.Root, "integration-tests"), ".tool-versions", "golang 1.26.4\n")
 
 	err := NewChecker(cfg, resolver).Check()
-	if err == nil {
-		t.Fatal("expected stray .tool-versions violation")
-	}
+	require.Error(t, err)
 }
 
 func TestCheckAllowedProtocException(t *testing.T) {
@@ -90,9 +76,7 @@ func TestCheckAllowedProtocException(t *testing.T) {
 	writeFile(t, cfg.Root, "GNUmakefile", "install:\n\tgo install google.golang.org/protobuf/cmd/protoc-gen-go@`go list -m -json google.golang.org/protobuf | jq -r .Version`\n")
 
 	err := NewChecker(cfg, resolver).checkMakefilePins()
-	if err != nil {
-		t.Fatalf("expected protoc exception to pass makefile check: %v", err)
-	}
+	require.NoError(t, err)
 }
 
 func TestCheckRepoWideGoInstall(t *testing.T) {
@@ -101,7 +85,5 @@ func TestCheckRepoWideGoInstall(t *testing.T) {
 	writeFile(t, cfg.Root, "script.sh", "go install gotest.tools/gotestsum@v9.9.9\n")
 
 	err := NewChecker(cfg, resolver).Check()
-	if err == nil {
-		t.Fatal("expected repo-wide go install violation")
-	}
+	require.Error(t, err)
 }

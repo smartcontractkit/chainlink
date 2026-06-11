@@ -5,6 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCLIGetAndTarget(t *testing.T) {
@@ -14,9 +17,7 @@ protoc 29.3
 golangci-lint 2.12.2
 golang 1.26.4
 `)
-	if err := os.MkdirAll(filepath.Join(dir, "tools"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "tools"), 0o755))
 	writeManifest(t, filepath.Join(dir, "tools"), "go-tools.txt", `github.com/jmank88/gomods 0.1.7
 github.com/smartcontractkit/gencodec 42dc7da8c2874db550e91c656f98d05fca3c2f98
 `)
@@ -35,27 +36,20 @@ github.com/smartcontractkit/gencodec 42dc7da8c2874db550e91c656f98d05fca3c2f98
 		{[]string{"target", "github.com/smartcontractkit/gencodec"}, "github.com/smartcontractkit/gencodec@42dc7da8c2874db550e91c656f98d05fca3c2f98"},
 	}
 	for _, tt := range tests {
-		var buf bytes.Buffer
-		cmd := newRootCmd()
-		cmd.SetOut(&buf)
-		cmd.SetErr(&buf)
-		cmd.SetArgs(tt.args)
-		if err := cmd.Execute(); err != nil {
-			t.Fatalf("args %v: %v", tt.args, err)
-		}
-		got := bytes.TrimSpace(buf.Bytes())
-		if string(got) != tt.want {
-			t.Errorf("args %v = %q, want %q", tt.args, got, tt.want)
-		}
+		t.Run(tt.want, func(t *testing.T) {
+			var buf bytes.Buffer
+			cmd := newRootCmd()
+			cmd.SetOut(&buf)
+			cmd.SetErr(&buf)
+			cmd.SetArgs(tt.args)
+			require.NoError(t, cmd.Execute(), "args %v", tt.args)
+			assert.Equal(t, tt.want, string(bytes.TrimSpace(buf.Bytes())), "args %v", tt.args)
+		})
 	}
 }
 
 func writeManifest(t *testing.T, dir, name, content string) {
 	t.Helper()
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600))
 }
