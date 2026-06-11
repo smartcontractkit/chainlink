@@ -638,6 +638,8 @@ jobs:
           https://github.com/smartcontractkit/wsrpc/raw/main/cmd/protoc-gen-go-wsrpc/protoc-gen-go-wsrpc
           --output "$HOME/go/bin/protoc-gen-go-wsrpc" && chmod +x
           "$HOME/go/bin/protoc-gen-go-wsrpc"
+      - name: Check tool versions
+        run: make check-tool-versions
       - name: make generate
         run: |
           make rm-mocked

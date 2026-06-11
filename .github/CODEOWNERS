@@ -103,6 +103,9 @@
 
 # Dependencies
 .tool-versions @smartcontractkit/core
+/tools/go-tools.txt @smartcontractkit/core
+/tools/bin/tool-version @smartcontractkit/core
+/tools/bin/check-tool-versions @smartcontractkit/core
 go.md @smartcontractkit/core @smartcontractkit/foundations
 go.mod @smartcontractkit/core @smartcontractkit/foundations
 go.sum @smartcontractkit/core @smartcontractkit/foundations

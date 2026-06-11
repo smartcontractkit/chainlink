@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+#
+# Single entry point for dev-tool versions. Reads two manifests:
+#
+#   .tool-versions       version-manager runtimes (asdf + mise parse this;
+#                         strict `<plugin-name> <version>`)
+#   tools/go-tools.txt    pure go-install CLIs that have no plugin
+#                         (`<import-path> <version>`)
+#
+# No mise/asdf dependency — this is the portable path that Make and CI use.
+#
+# Usage:
+#   tool-version get <key>        print the version for a tool
+#   tool-version target <key>     print the `go install` arg: module@version
+#   tool-version go-install <key> run `go install` for the tool
+#   tool-version list             print `name<TAB>version` for every entry
+#
+# <key> is a short name (mockery, protoc, golang) for runtimes, or an import
+# path (github.com/jmank88/gomods) for go-tools.txt CLIs.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+TOOL_VERSIONS_FILE="${TOOL_VERSIONS_FILE:-$ROOT/.tool-versions}"
+GO_TOOLS_FILE="${GO_TOOLS_FILE:-$ROOT/tools/go-tools.txt}"
+
+die() { echo "tool-version: $*" >&2; exit 1; }
+
+# Short runtime name -> go module path, for the tools we install with `go install`
+# but still manage in .tool-versions (plugin name != import path).
+module_for() {
+  case "$1" in
+    mockery) echo "github.com/vektra/mockery/v2" ;;
+    *) return 1 ;;
+  esac
+}
+
+# Look up a version in a manifest file. Ignores blank lines and # comments.
+# Matches the first whitespace-separated field exactly.
+lookup() {
+  local key="$1" file="$2" line first rest
+  [ -f "$file" ] || return 1
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in ''|\#*) continue ;; esac
+    first="${line%%[[:space:]]*}"
+    [ "$first" = "$key" ] || continue
+    rest="${line#"$first"}"
+    rest="${rest#"${rest%%[![:space:]]*}"}"   # ltrim
+    echo "${rest%%[[:space:]]*}"              # first remaining token
+    return 0
+  done <"$file"
+  return 1
+}
+
+# Resolve a key to its version, searching the right manifest.
+get_version() {
+  local key="$1" v
+  case "$key" in
+    */*) # import path -> go-tools.txt
+      v="$(lookup "$key" "$GO_TOOLS_FILE")" || die "unknown go tool: $key"
+      ;;
+    *)   # short name -> .tool-versions
+      v="$(lookup "$key" "$TOOL_VERSIONS_FILE")" || die "unknown tool: $key"
+      ;;
+  esac
+  echo "$v"
+}
+
+# Prepend `v` only for semver-looking versions (have a dot, start with a digit).
+# SHA / pseudo-version pins are passed through verbatim.
+version_ref() {
+  case "$1" in
+    [0-9]*.[0-9]*) echo "v$1" ;;
+    *) echo "$1" ;;
+  esac
+}
+
+# Resolve a key to the `go install` argument: module@version.
+target() {
+  local key="$1" module version
+  case "$key" in
+    */*) module="$key" ;;                       # import path is the module
+    *)   module="$(module_for "$key")" || die "no go module mapping for: $key" ;;
+  esac
+  version="$(get_version "$key")"
+  echo "${module}@$(version_ref "$version")"
+}
+
+cmd="${1:-}"
+case "$cmd" in
+  get)
+    [ $# -eq 2 ] || die "usage: tool-version get <key>"
+    get_version "$2"
+    ;;
+  target)
+    [ $# -eq 2 ] || die "usage: tool-version target <key>"
+    target "$2"
+    ;;
+  go-install)
+    [ $# -eq 2 ] || die "usage: tool-version go-install <key>"
+    arg="$(target "$2")"
+    echo "go install $arg" >&2
+    exec go install "$arg"
+    ;;
+  list)
+    for f in "$TOOL_VERSIONS_FILE" "$GO_TOOLS_FILE"; do
+      [ -f "$f" ] || continue
+      while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in ''|\#*) continue ;; esac
+        name="${line%%[[:space:]]*}"
+        rest="${line#"$name"}"
+        rest="${rest#"${rest%%[![:space:]]*}"}"
+        printf '%s\t%s\n' "$name" "${rest%%[[:space:]]*}"
+      done <"$f"
+    done
+    ;;
+  ''|-h|--help|help)
+    sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'
+    [ -n "$cmd" ] || exit 1
+    ;;
+  *)
+    die "unknown command: $cmd (try: get, target, go-install, list)"
+    ;;
+esac

@@ -16,9 +16,17 @@ CL_LOOPINSTALL_OUTPUT_DIR ?=
 LOOPINSTALL_PUBLIC_ARGS  := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/public.json)
 LOOPINSTALL_PRIVATE_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/private.json)
 LOOPINSTALL_TESTING_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/testing.json)
-GOLANGCI_LINT_VERSION = "v2.11.4"
+# Dev tool versions come from the manifests via tools/bin/tool-version, never
+# hardcoded here (see `make check-tool-versions`). Lazy `=` so unrelated targets
+# (e.g. `make chainlink`) don't pay for the parser.
+TOOL_VERSION := tools/bin/tool-version
+MOCKERY_VERSION = v$(shell $(TOOL_VERSION) get mockery)
+PROTOC_VERSION = $(shell $(TOOL_VERSION) get protoc)
+GOLANGCI_LINT_VERSION = v$(shell $(TOOL_VERSION) get golangci-lint)
 # Pin path so `make generate` does not pick up a different mockery (e.g. v3) from PATH.
-MOCKERY_BIN ?= $(shell GOBIN="$$(go env GOBIN)"; if [ -n "$$GOBIN" ]; then echo "$$GOBIN/mockery"; else echo "$$(go env GOPATH)/bin/mockery"; fi)
+# Honor GOBIN if set, otherwise GOPATH/bin.
+DEV_BIN = $(shell GOBIN="$$(go env GOBIN)"; if [ -n "$$GOBIN" ]; then echo "$$GOBIN"; else echo "$$(go env GOPATH)/bin"; fi)
+MOCKERY_BIN ?= $(DEV_BIN)/mockery
 
 .PHONY: install
 install: install-chainlink-autoinstall ## Install chainlink and all its dependencies.
@@ -33,9 +41,22 @@ install-chainlink-autoinstall: | gomod install-chainlink ## Autoinstall chainlin
 .PHONY: gomod
 gomod: ## Ensure chainlink's go dependencies are installed.
 	@if [ -z "`which gencodec`" ]; then \
-		go install github.com/smartcontractkit/gencodec@latest; \
+		$(TOOL_VERSION) go-install github.com/smartcontractkit/gencodec; \
 	fi || true
 	go mod download
+
+.PHONY: install-dev-tools
+install-dev-tools: ## Install all Go dev tools at pinned versions (works without mise/asdf).
+	$(TOOL_VERSION) go-install mockery
+	$(TOOL_VERSION) go-install github.com/jmank88/gomods
+	$(TOOL_VERSION) go-install github.com/jmank88/modgraph
+	$(TOOL_VERSION) go-install github.com/ugorji/go/codec/codecgen
+	$(TOOL_VERSION) go-install github.com/smartcontractkit/gencodec
+	$(MAKE) protoc-plugins
+
+.PHONY: check-tool-versions
+check-tool-versions: ## Fail if GNUmakefile drifts from the version manifests.
+	tools/bin/check-tool-versions
 
 .PHONY: gomodtidy
 gomodtidy: gomods ## Run go mod tidy on all modules.
@@ -213,7 +234,7 @@ testdb-user-only: ## Prepares the test database with user only.
 
 .PHONY: gomods
 gomods: ## Install gomods
-	go install github.com/jmank88/gomods@v0.1.7
+	$(TOOL_VERSION) go-install github.com/jmank88/gomods
 
 .PHONY: gomodslocalupdate
 gomodslocalupdate: gomods ## Run gomod-local-update
@@ -223,15 +244,19 @@ gomodslocalupdate: gomods ## Run gomod-local-update
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.53.0
+	$(TOOL_VERSION) go-install mockery
 
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen
-	go install github.com/ugorji/go/codec/codecgen@v1.2.10
+	$(TOOL_VERSION) go-install github.com/ugorji/go/codec/codecgen
 
 .PHONY: protoc
 protoc: ## Install protoc
-	core/scripts/install-protoc.sh 29.3 /
+	core/scripts/install-protoc.sh $(PROTOC_VERSION) /
+	$(MAKE) protoc-plugins
+
+.PHONY: protoc-plugins
+protoc-plugins: ## Install protoc plugins (versions tracked by go.mod, not the manifests).
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@`go list -m -json google.golang.org/protobuf | jq -r .Version`
 	go install github.com/smartcontractkit/wsrpc/cmd/protoc-gen-go-wsrpc@`go list -m -json github.com/smartcontractkit/wsrpc | jq -r .Version`
 
@@ -263,7 +288,7 @@ lint-fix: gomods ## Run golangci-lint with --fix for all modules
 
 .PHONY: modgraph
 modgraph:
-	go install github.com/jmank88/modgraph@v0.1.4
+	$(TOOL_VERSION) go-install github.com/jmank88/modgraph
 	./tools/bin/modgraph > go.md
 
 .PHONY: test-short
