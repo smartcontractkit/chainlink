@@ -432,3 +432,5 @@ replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlin
 tool github.com/smartcontractkit/chainlink-common/pkg/loop/cmd/loopinstall
 
 tool github.com/smartcontractkit/chainlink-common/script/cmd/dependabot
+
+replace github.com/bytedance/sonic v1.14.2 => github.com/bytedance/sonic v1.15.1
