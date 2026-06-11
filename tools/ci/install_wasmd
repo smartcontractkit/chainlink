@@ -13,4 +13,5 @@ cd "${CHECKOUT_DIR}"
 git checkout "${GIT_TAG}"
 # Bumping past go 1.25.8 breaks the WASM build. 
 # Go 1.26+ & github.com/bytedance/sonic v1.14.2 = GoMapIterator compile error
+# Should update `https://github.com/CosmWasm/wasmd` to v0.70+ for proper fix.
 GOTOOLCHAIN=go1.25.8 GOPATH="${BUILD_DIR}" make install 
