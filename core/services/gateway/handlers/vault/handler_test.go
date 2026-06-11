@@ -977,8 +977,8 @@ func TestVaultHandler_HandleNodeMessage_SignatureValidatedResponse_RejectsUnknow
 	nodes := makeNodes(t, signers)
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
 	h.(*handler).aggregator = &baseAggregator{
-		capabilitiesRegistry:           mcr,
-		vaultHandlerDonID:              h.(*handler).donConfig.DonId,
+		capabilitiesRegistry:        mcr,
+		vaultHandlerDonID:           h.(*handler).donConfig.DonId,
 		signedResponseRequestIDGate: limits.NewGateLimiter(true),
 	}
 
@@ -1053,8 +1053,8 @@ func TestVaultHandler_PublicKeyGet(t *testing.T) {
 	nodes := makeNodes(t, signers)
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
 	h.(*handler).aggregator = &baseAggregator{
-		capabilitiesRegistry:           mcr,
-		vaultHandlerDonID:              h.(*handler).donConfig.DonId,
+		capabilitiesRegistry:        mcr,
+		vaultHandlerDonID:           h.(*handler).donConfig.DonId,
 		signedResponseRequestIDGate: limits.NewGateLimiter(true),
 	}
 

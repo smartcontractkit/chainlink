@@ -146,10 +146,10 @@ type handler struct {
 	nodeRateLimiter *ratelimit.RateLimiter
 	requestTimeout  time.Duration
 
-	writeMethodsEnabled limits.GateLimiter
+	writeMethodsEnabled            limits.GateLimiter
 	signedResponseRequestIDEnabled limits.GateLimiter
-	activeRequests      map[string]*activeRequest
-	metrics             *metrics
+	activeRequests                 map[string]*activeRequest
+	metrics                        *metrics
 
 	aggregator aggregator
 
@@ -275,10 +275,10 @@ func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DO
 		stopCh:                         make(services.StopChan),
 		metrics:                        metrics,
 		aggregator: &baseAggregator{
-			capabilitiesRegistry:           capabilitiesRegistry,
-			metrics:                        metrics,
-			donID:                          donConfig.DonId,
-			vaultHandlerDonID:              donConfig.DonId,
+			capabilitiesRegistry:        capabilitiesRegistry,
+			metrics:                     metrics,
+			donID:                       donConfig.DonId,
+			vaultHandlerDonID:           donConfig.DonId,
 			signedResponseRequestIDGate: signedResponseRequestIDEnabled,
 		},
 		clock:            clock,

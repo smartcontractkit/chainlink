@@ -341,7 +341,7 @@ func TestAggregator_MultipleRegistryDONs_SelectsByVaultHandlerDonName(t *testing
 	mcr := &mockCapabilitiesRegistry{DONs: []capabilities.DONWithNodes{donOther, donMine}}
 	agg := &baseAggregator{
 		capabilitiesRegistry:        mcr,
-		vaultHandlerDonID:             "cre-reliability-vault",
+		vaultHandlerDonID:           "cre-reliability-vault",
 		signedResponseRequestIDGate: limits.NewGateLimiter(false),
 	}
 
@@ -368,7 +368,7 @@ func TestAggregator_MultipleRegistryDONs_SelectsByIDWhenNameEmpty(t *testing.T) 
 	mcr := &mockCapabilitiesRegistry{DONs: []capabilities.DONWithNodes{donOther, donMine}}
 	agg := &baseAggregator{
 		capabilitiesRegistry:        mcr,
-		vaultHandlerDonID:             "99",
+		vaultHandlerDonID:           "99",
 		signedResponseRequestIDGate: limits.NewGateLimiter(false),
 	}
 
@@ -395,7 +395,7 @@ func TestAggregator_MultipleRegistryDONs_NoMatchingVaultHandlerDonId(t *testing.
 	mcr := &mockCapabilitiesRegistry{DONs: []capabilities.DONWithNodes{donA, donB}}
 	agg := &baseAggregator{
 		capabilitiesRegistry:        mcr,
-		vaultHandlerDonID:             "unknown-vault",
+		vaultHandlerDonID:           "unknown-vault",
 		signedResponseRequestIDGate: limits.NewGateLimiter(false),
 	}
 
@@ -417,7 +417,7 @@ func TestAggregator_MultipleRegistryDONs_AmbiguousMatchingVaultHandlerDonId(t *t
 	mcr := &mockCapabilitiesRegistry{DONs: []capabilities.DONWithNodes{donA, donB}}
 	agg := &baseAggregator{
 		capabilitiesRegistry:        mcr,
-		vaultHandlerDonID:             "same-name",
+		vaultHandlerDonID:           "same-name",
 		signedResponseRequestIDGate: limits.NewGateLimiter(false),
 	}
 
