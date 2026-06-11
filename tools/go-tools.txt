@@ -7,9 +7,14 @@
 # Versions are semver where the upstream tags releases. gencodec has no tags,
 # so it is pinned to a commit SHA (what `@latest` resolved to).
 #
-# Read by tools/bin/tool-version. Edit this file to bump a CLI version.
+# Read by tools/toolversion. Edit this file to bump a CLI version.
 
 github.com/jmank88/gomods            0.1.7
 github.com/jmank88/modgraph          0.1.4
 github.com/ugorji/go/codec/codecgen  1.2.10
 github.com/smartcontractkit/gencodec 42dc7da8c2874db550e91c656f98d05fca3c2f98
+gotest.tools/gotestsum               1.13.0
+github.com/go-delve/delve/cmd/dlv    1.24.2
+golang.org/x/pkgsite/cmd/pkgsite     0.1.0
+github.com/rogpeppe/go-internal/cmd/testscript 1.15.0
+github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper 1.50.0

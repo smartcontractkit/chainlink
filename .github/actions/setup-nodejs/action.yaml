@@ -11,13 +11,20 @@ description: Setup pnpm for contracts
 runs:
   using: composite
   steps:
+    - name: Resolve node and pnpm versions
+      shell: bash
+      id: tool-versions
+      run: |
+        echo "nodejs=$(go run ./tools/toolversion get nodejs)" >> "${GITHUB_OUTPUT}"
+        echo "pnpm=$(go run ./tools/toolversion get pnpm)" >> "${GITHUB_OUTPUT}"
+
     - uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3.0.0
       with:
-        version: ^10.0.0
+        version: ${{ steps.tool-versions.outputs.pnpm }}
 
     - uses: actions/setup-node@v4
       with:
-        node-version: "20"
+        node-version: ${{ steps.tool-versions.outputs.nodejs }}
         cache: "pnpm"
         cache-dependency-path: "${{ inputs.base-path }}/contracts/pnpm-lock.yaml"
 

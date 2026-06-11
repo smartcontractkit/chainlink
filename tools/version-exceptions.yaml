@@ -1,0 +1,7 @@
+# Module-coupled installs; version must track go.mod dependencies.
+- file: GNUmakefile
+  contains: "protoc-gen-go@`go list"
+  reason: protoc plugin tracks google.golang.org/protobuf in go.mod
+- file: GNUmakefile
+  contains: "protoc-gen-go-wsrpc@`go list"
+  reason: protoc plugin tracks wsrpc in go.mod

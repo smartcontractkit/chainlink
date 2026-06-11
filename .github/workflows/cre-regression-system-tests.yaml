@@ -193,7 +193,7 @@ jobs:
         shell: bash
         run: |
           echo "::group::Install gotestsum"
-          go install gotest.tools/gotestsum@v1.12.3
+          go run ./tools/toolversion go-install gotest.tools/gotestsum
           echo "::endgroup::"
 
       - name: Resolve Chainlink image

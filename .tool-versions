@@ -7,3 +7,6 @@ helm          3.18.4
 golangci-lint 2.12.2
 protoc        29.3
 python        3.10.5
+k3d           5.4.6
+kubectl       1.25.5
+task          3.35.1

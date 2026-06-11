@@ -29,17 +29,24 @@ jobs:
             core-changeset:
               - '.changeset/**'
 
+      - name: Resolve node and pnpm versions
+        if: steps.change.outputs.core-changeset == 'true'
+        id: tool-versions
+        run: |
+          echo "nodejs=$(go run ./tools/toolversion get nodejs)" >> "${GITHUB_OUTPUT}"
+          echo "pnpm=$(go run ./tools/toolversion get pnpm)" >> "${GITHUB_OUTPUT}"
+
       - name: Setup pnpm
         uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3.0.0
         if: steps.change.outputs.core-changeset == 'true'
         with:
-          version: ^10.0.0
+          version: ${{ steps.tool-versions.outputs.pnpm }}
 
       - name: Setup node
         uses: actions/setup-node@v4
         if: steps.change.outputs.core-changeset == 'true'
         with:
-          node-version: 20
+          node-version: ${{ steps.tool-versions.outputs.nodejs }}
           cache: pnpm
           cache-dependency-path: ./pnpm-lock.yaml
 

@@ -16,13 +16,12 @@ CL_LOOPINSTALL_OUTPUT_DIR ?=
 LOOPINSTALL_PUBLIC_ARGS  := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/public.json)
 LOOPINSTALL_PRIVATE_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/private.json)
 LOOPINSTALL_TESTING_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/testing.json)
-# Dev tool versions come from the manifests via tools/bin/tool-version, never
+# Dev tool versions come from the manifests via tools/toolversion, never
 # hardcoded here (see `make check-tool-versions`). Lazy `=` so unrelated targets
 # (e.g. `make chainlink`) don't pay for the parser.
-TOOL_VERSION := tools/bin/tool-version
-MOCKERY_VERSION = v$(shell $(TOOL_VERSION) get mockery)
+TOOL_VERSION = go run ./tools/toolversion
 PROTOC_VERSION = $(shell $(TOOL_VERSION) get protoc)
-GOLANGCI_LINT_VERSION = v$(shell $(TOOL_VERSION) get golangci-lint)
+GOLANGCI_LINT_VERSION = $(shell $(TOOL_VERSION) ref golangci-lint)
 # Pin path so `make generate` does not pick up a different mockery (e.g. v3) from PATH.
 # Honor GOBIN if set, otherwise GOPATH/bin.
 DEV_BIN = $(shell GOBIN="$$(go env GOBIN)"; if [ -n "$$GOBIN" ]; then echo "$$GOBIN"; else echo "$$(go env GOPATH)/bin"; fi)
@@ -55,8 +54,12 @@ install-dev-tools: ## Install all Go dev tools at pinned versions (works without
 	$(MAKE) protoc-plugins
 
 .PHONY: check-tool-versions
-check-tool-versions: ## Fail if GNUmakefile drifts from the version manifests.
-	tools/bin/check-tool-versions
+check-tool-versions: ## Fail if consumers drift from the version manifests.
+	$(TOOL_VERSION) check
+
+.PHONY: test-tool-versions
+test-tool-versions: ## Run toolversion unit tests.
+	go test ./tools/toolversion/...
 
 .PHONY: gomodtidy
 gomodtidy: gomods ## Run go mod tidy on all modules.
@@ -69,7 +72,7 @@ tidy: gomodtidy ## Tidy all modules and add to git.
 
 .PHONY: docs
 docs: ## Install and run pkgsite to view Go docs
-	go install golang.org/x/pkgsite/cmd/pkgsite@latest
+	$(TOOL_VERSION) go-install golang.org/x/pkgsite/cmd/pkgsite
 	# http://localhost:8080/pkg/github.com/smartcontractkit/chainlink/v2/
 	pkgsite
 
@@ -204,7 +207,7 @@ rm-mocked:
 
 .PHONY: testscripts
 testscripts: chainlink-test ## Install and run testscript against testdata/scripts/* files.
-	go install github.com/rogpeppe/go-internal/cmd/testscript@latest
+	$(TOOL_VERSION) go-install github.com/rogpeppe/go-internal/cmd/testscript
 	go run ./tools/txtar/cmd/lstxtardirs -recurse=true | PATH="$(CURDIR):${PATH}" xargs -I % \
 		sh -c 'testscript -e COMMIT_SHA=$(COMMIT_SHA) -e HOME="$(TMPDIR)/home" -e VERSION=$(VERSION) -e VERSION_TAG=$(VERSION_TAG) $(TS_FLAGS) %/*.txtar'
 

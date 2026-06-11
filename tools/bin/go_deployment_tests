@@ -14,7 +14,7 @@ export CL_RESERVE_PORTS=128
 cd deployment || exit 1
 
 echo "Installing gotestsum..."
-go install gotest.tools/gotestsum@v1.13.0
+go run ./tools/toolversion go-install gotest.tools/gotestsum
 PATH=$PATH:$(go env GOPATH)/bin
 export PATH
 

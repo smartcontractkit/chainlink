@@ -62,17 +62,24 @@ jobs:
         shell: bash
         run: bash ./.github/scripts/check-changeset-tags.sh ${{ steps.files-changed.outputs.core-changeset_files }}
 
+      - name: Resolve node and pnpm versions
+        if: ${{ steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true' }}
+        id: tool-versions
+        run: |
+          echo "nodejs=$(go run ./tools/toolversion get nodejs)" >> "${GITHUB_OUTPUT}"
+          echo "pnpm=$(go run ./tools/toolversion get pnpm)" >> "${GITHUB_OUTPUT}"
+
       - name: Setup pnpm
         uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3.0.0
         if: ${{ steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true' }}
         with:
-          version: ^10.0.0
+          version: ${{ steps.tool-versions.outputs.pnpm }}
 
       - name: Setup node
         uses: actions/setup-node@v4
         if: ${{ steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true' }}
         with:
-          node-version: 20
+          node-version: ${{ steps.tool-versions.outputs.nodejs }}
           cache: pnpm
           cache-dependency-path: ./pnpm-lock.yaml
 

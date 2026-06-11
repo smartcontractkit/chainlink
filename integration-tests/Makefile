@@ -53,7 +53,7 @@ endif
 
 .PHONY: install_gotestloghelper
 install_gotestloghelper:
-	go install github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@latest
+	go run ../tools/toolversion go-install github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper
 	set -euo pipefail
 
 lint:

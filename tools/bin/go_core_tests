@@ -8,7 +8,7 @@ JUNIT_FILE=${JUNIT_FILE:-"./junit.xml"}
 GO_TEST_TIMEOUT=${GO_TEST_TIMEOUT:-"15m"}
 
 echo "Installing gotestsum..."
-go install gotest.tools/gotestsum@v1.13.0
+go run ./tools/toolversion go-install gotest.tools/gotestsum
 PATH=$PATH:$(go env GOPATH)/bin
 export PATH
 

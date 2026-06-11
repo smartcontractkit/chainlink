@@ -104,8 +104,8 @@
 # Dependencies
 .tool-versions @smartcontractkit/core @smartcontractkit/devex
 /tools/go-tools.txt @smartcontractkit/core @smartcontractkit/devex
-/tools/bin/tool-version @smartcontractkit/core @smartcontractkit/devex
-/tools/bin/check-tool-versions @smartcontractkit/core @smartcontractkit/devex
+/tools/version-exceptions.yaml @smartcontractkit/core @smartcontractkit/devex
+/tools/toolversion/ @smartcontractkit/core @smartcontractkit/devex
 go.md @smartcontractkit/core @smartcontractkit/foundations
 go.mod @smartcontractkit/core @smartcontractkit/foundations
 go.sum @smartcontractkit/core @smartcontractkit/foundations

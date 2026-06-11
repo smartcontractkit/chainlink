@@ -114,7 +114,7 @@ jobs:
 
       - name: Install gotestsum
         shell: bash
-        run: go install gotest.tools/gotestsum@v1.12.3
+        run: go run ./tools/toolversion go-install gotest.tools/gotestsum
 
       - name: Run CRE Resource Regression Test
         id: run-soak

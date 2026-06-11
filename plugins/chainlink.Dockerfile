@@ -34,7 +34,9 @@ COPY . .
 
 # Stage: Delve debugger (no source needed, branches from deps-base)
 FROM deps-base AS build-delve
-RUN go install github.com/go-delve/delve/cmd/dlv@v1.24.2
+COPY .tool-versions tools/go-tools.txt ./
+COPY tools/toolversion ./tools/toolversion
+RUN go run ./tools/toolversion go-install github.com/go-delve/delve/cmd/dlv
 
 # Stage: Remote plugins — only manifest YAMLs, no source tree.
 # Cached as long as go.mod/go.sum and plugin manifests are unchanged,
