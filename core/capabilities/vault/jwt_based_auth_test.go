@@ -915,7 +915,9 @@ func TestJWTBasedAuth_RejectsCreateRequestWithoutWorkflowOwnerWhenIdentifierOwne
 	req, err = jsonrpc.DecodeRequest[json.RawMessage](rawRequest, token)
 	require.NoError(t, err)
 
-	authResult, err := v.AuthorizeRequest(t.Context(), req)
+	// Owner binding is enforced by the composite Authorizer, not the JWT layer directly.
+	a := NewAuthorizer(nil, v, logger.TestLogger(t))
+	authResult, err := a.AuthorizeRequest(t.Context(), req)
 	require.Nil(t, authResult)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "encrypted secret owner at index 0 \"0xAbCd\" does not match authorized workflow owner")

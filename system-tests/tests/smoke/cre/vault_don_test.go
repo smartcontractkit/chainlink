@@ -60,6 +60,22 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 	gwURL := fixture.GatewayURL.String()
 	vaultPublicKey := fixture.VaultPublicKey
 
+	t.Run("allowlist_rejects_create_when_identifier_owner_mismatch", func(t *testing.T) {
+		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+		authorizedOwner := sc.MustGetRootKeyAddress().Hex()
+		mismatchedOwner := common.HexToAddress("0x000000000000000000000000000000000000dEaD").Hex()
+		wfRegAddr := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+		require.NoError(t, err)
+		requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
+		vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
+		secretID := uniqueVaultSecretID("allowlistownermismatch")
+		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-allowlist-owner-mismatch", vaultParsedPublicKey, sc.MustGetRootKeyAddress())
+		require.NoError(t, err)
+		auth := newAllowlistVaultRequestAuth(authorizedOwner, sc, wfReg)
+		executeVaultSecretsCreateOwnerMismatchRejectedTest(t, auth, authorizedOwner, mismatchedOwner, encryptedSecret, secretID, gwURL)
+	})
+
 	t.Run("allowlist_crud_with_workflow_owner_identity", func(t *testing.T) {
 		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
 		workflowOwnerAddress := sc.MustGetRootKeyAddress()
@@ -210,6 +226,13 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 		executeVaultJWTSecretsDeleteTest(t, issuer, secretID, orgID, derivedJWTWorkflowOwner, gwURL, []string{"main", "alt"})
 		executeVaultJWTSecretsListAbsentFromNamespace(t, issuer, secretID, orgID, derivedJWTWorkflowOwner, gwURL, "main")
 		executeVaultJWTSecretsListAbsentFromNamespace(t, issuer, secretID, orgID, derivedJWTWorkflowOwner, gwURL, "alt")
+	})
+
+	t.Run("jwt_rejected_when_identifier_owner_does_not_match_authorized_owner", func(t *testing.T) {
+		secretID := uniqueVaultSecretID("jwtownermismatch")
+		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-jwt-owner-mismatch", vaultParsedPublicKey, derivedJWTWorkflowOwnerAddr)
+		require.NoError(t, err)
+		executeVaultSecretsCreateOwnerMismatchRejectedTest(t, jwtAuth, derivedJWTWorkflowOwner, workflowOwner, encryptedSecret, secretID, gwURL)
 	})
 
 	t.Run("jwt_rejected_when_ciphertext_label_is_linked_workflow_owner_but_identifier_owner_is_jwt_derived", func(t *testing.T) {
@@ -900,8 +923,7 @@ func executeVaultSecretsIdentifierValidationTest(t *testing.T, encryptedSecret s
 
 	const (
 		validKey         = "validkey"
-		invalidKey       = "invalid-key-with-hyphens"   // hyphen not in [a-zA-Z0-9_]
-		invalidOwner     = "invalid-owner-with-hyphens" // hyphen not in [a-zA-Z0-9_]
+		invalidKey       = "invalid-key-with-hyphens" // hyphen not in [a-zA-Z0-9_]
 		validNamespace   = "main"
 		invalidNamespace = "invalid-namespace-hyphens" // hyphen not in [a-zA-Z0-9_]
 	)
@@ -937,7 +959,6 @@ func executeVaultSecretsIdentifierValidationTest(t *testing.T, encryptedSecret s
 	writeCases := []writeCase{
 		{"invalid key", invalidKey, owner, validNamespace},
 		{"invalid namespace", validKey, owner, invalidNamespace},
-		{"invalid owner", validKey, invalidOwner, validNamespace},
 	}
 
 	for _, op := range []string{vaulttypes.MethodSecretsCreate, vaulttypes.MethodSecretsUpdate, vaulttypes.MethodSecretsDelete} {
