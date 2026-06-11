@@ -20,46 +20,58 @@ type Store struct {
 	GoToolsPath      string
 	runtimes         map[string]string
 	goTools          map[string]string
+	runtimeEntries   []Entry
+	goToolEntries    []Entry
 }
 
 // New loads both manifest files from the given paths.
 func New(toolVersionsPath, goToolsPath string) (*Store, error) {
-	runtimes, err := parseFile(toolVersionsPath)
+	runtimeEntries, err := parseFile(toolVersionsPath)
 	if err != nil {
 		return nil, fmt.Errorf("parse %s: %w", toolVersionsPath, err)
 	}
-	goTools, err := parseFile(goToolsPath)
+	goToolEntries, err := parseFile(goToolsPath)
 	if err != nil {
 		return nil, fmt.Errorf("parse %s: %w", goToolsPath, err)
 	}
 	return &Store{
 		ToolVersionsPath: toolVersionsPath,
 		GoToolsPath:      goToolsPath,
-		runtimes:         runtimes,
-		goTools:          goTools,
+		runtimes:         entriesToMap(runtimeEntries),
+		goTools:          entriesToMap(goToolEntries),
+		runtimeEntries:   runtimeEntries,
+		goToolEntries:    goToolEntries,
 	}, nil
 }
 
-func parseFile(path string) (map[string]string, error) {
+func parseFile(path string) ([]Entry, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
 
-	entries := make(map[string]string)
+	var entries []Entry
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		name, version, ok := parseLine(scanner.Text())
 		if !ok {
 			continue
 		}
-		entries[name] = version
+		entries = append(entries, Entry{Name: name, Version: version})
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, err
 	}
 	return entries, nil
+}
+
+func entriesToMap(entries []Entry) map[string]string {
+	m := make(map[string]string, len(entries))
+	for _, e := range entries {
+		m[e.Name] = e.Version
+	}
+	return m
 }
 
 func parseLine(line string) (name, version string, ok bool) {
@@ -92,45 +104,18 @@ func (s *Store) Lookup(key string) (string, error) {
 }
 
 // List returns all entries from both manifests in file order (.tool-versions first).
-func (s *Store) List() ([]Entry, error) {
-	var out []Entry
-	for _, path := range []string{s.ToolVersionsPath, s.GoToolsPath} {
-		entries, err := listFile(path)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, entries...)
-	}
-	return out, nil
+func (s *Store) List() []Entry {
+	out := make([]Entry, 0, len(s.runtimeEntries)+len(s.goToolEntries))
+	out = append(out, s.runtimeEntries...)
+	out = append(out, s.goToolEntries...)
+	return out
 }
 
-func listFile(path string) ([]Entry, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	var out []Entry
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		name, version, ok := parseLine(scanner.Text())
-		if !ok {
-			continue
-		}
-		out = append(out, Entry{Name: name, Version: version})
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// GoToolModules returns import paths from go-tools.txt.
+// GoToolModules returns import paths from go-tools.txt in file order.
 func (s *Store) GoToolModules() []string {
-	mods := make([]string, 0, len(s.goTools))
-	for name := range s.goTools {
-		mods = append(mods, name)
+	mods := make([]string, len(s.goToolEntries))
+	for i, e := range s.goToolEntries {
+		mods[i] = e.Name
 	}
 	return mods
 }

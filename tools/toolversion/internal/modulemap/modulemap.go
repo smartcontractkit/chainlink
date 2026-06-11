@@ -1,7 +1,10 @@
 // Package modulemap maps short runtime names to go module import paths.
 package modulemap
 
-import "fmt"
+import (
+	"fmt"
+	"sort"
+)
 
 // runtimeToModule maps .tool-versions plugin names to go install module paths.
 var runtimeToModule = map[string]string{
@@ -17,11 +20,12 @@ func ModulePath(runtime string) (string, error) {
 	return mod, nil
 }
 
-// Modules returns all mapped module paths.
+// Modules returns all mapped module paths in sorted order.
 func Modules() []string {
 	out := make([]string, 0, len(runtimeToModule))
 	for _, mod := range runtimeToModule {
 		out = append(out, mod)
 	}
+	sort.Strings(out)
 	return out
 }

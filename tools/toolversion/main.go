@@ -144,10 +144,7 @@ func cmdList() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			entries, err := r.List()
-			if err != nil {
-				return err
-			}
+			entries := r.List()
 			for _, e := range entries {
 				fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\n", e.Name, e.Version)
 			}

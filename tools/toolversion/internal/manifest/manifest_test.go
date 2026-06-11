@@ -82,11 +82,45 @@ func TestList(t *testing.T) {
 	store, err := New(tv, gt)
 	require.NoError(t, err)
 
-	entries, err := store.List()
-	require.NoError(t, err)
+	entries := store.List()
 	require.Len(t, entries, 2)
 	assert.Equal(t, "mockery", entries[0].Name)
 	assert.Equal(t, "github.com/jmank88/gomods", entries[1].Name)
+}
+
+func TestListOrder(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	tv := writeManifest(t, dir, ".tool-versions", "golang 1.26.4\nmockery 2.53.0\nprotoc 29.3\n")
+	gt := writeManifest(t, dir, "go-tools.txt", "github.com/a/tool 1.0.0\ngithub.com/b/tool 2.0.0\n")
+
+	store, err := New(tv, gt)
+	require.NoError(t, err)
+
+	entries := store.List()
+	require.Len(t, entries, 5)
+	// .tool-versions entries come first, in file order
+	assert.Equal(t, "golang", entries[0].Name)
+	assert.Equal(t, "mockery", entries[1].Name)
+	assert.Equal(t, "protoc", entries[2].Name)
+	// go-tools.txt entries follow, in file order
+	assert.Equal(t, "github.com/a/tool", entries[3].Name)
+	assert.Equal(t, "github.com/b/tool", entries[4].Name)
+}
+
+func TestGoToolModulesStable(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	tv := writeManifest(t, dir, ".tool-versions", "golang 1.26.4\n")
+	gt := writeManifest(t, dir, "go-tools.txt", "github.com/a/tool 1.0.0\ngithub.com/b/tool 2.0.0\ngithub.com/c/tool 3.0.0\n")
+
+	store, err := New(tv, gt)
+	require.NoError(t, err)
+
+	got1 := store.GoToolModules()
+	got2 := store.GoToolModules()
+	assert.Equal(t, got1, got2, "GoToolModules must be deterministic")
+	assert.Equal(t, []string{"github.com/a/tool", "github.com/b/tool", "github.com/c/tool"}, got1)
 }
 
 func TestNewFileNotFound(t *testing.T) {

@@ -3,7 +3,6 @@ package drift
 import (
 	"os"
 	"path/filepath"
-	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -28,21 +27,4 @@ func loadExceptions(root string) ([]exception, error) {
 		return nil, err
 	}
 	return out, nil
-}
-
-func isAllowedException(root, relFile, line string) bool {
-	exceptions, err := loadExceptions(root)
-	if err != nil {
-		return false
-	}
-	relFile = filepath.ToSlash(relFile)
-	for _, ex := range exceptions {
-		if !strings.HasSuffix(relFile, filepath.ToSlash(ex.File)) && relFile != filepath.ToSlash(ex.File) {
-			continue
-		}
-		if strings.Contains(line, ex.Contains) {
-			return true
-		}
-	}
-	return false
 }

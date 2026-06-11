@@ -26,8 +26,13 @@ func NewChecker(cfg paths.Config, resolver *resolve.Resolver) *Checker {
 
 // Check runs all drift rules and returns a combined error if any fail.
 func (c *Checker) Check() error {
+	exs, err := loadExceptions(c.cfg.Root)
+	if err != nil {
+		return fmt.Errorf("load exceptions: %w", err)
+	}
+
 	var errs []string
-	if err := c.checkMakefilePins(); err != nil {
+	if err := c.checkMakefilePins(exs); err != nil {
 		errs = append(errs, err.Error())
 	}
 	if err := c.checkGolangMirror(); err != nil {
@@ -36,7 +41,7 @@ func (c *Checker) Check() error {
 	if err := c.checkStrayToolVersions(); err != nil {
 		errs = append(errs, err.Error())
 	}
-	if err := c.checkRepoWidePins(); err != nil {
+	if err := c.checkRepoWidePins(exs); err != nil {
 		errs = append(errs, err.Error())
 	}
 	if len(errs) == 0 {
@@ -45,18 +50,45 @@ func (c *Checker) Check() error {
 	return fmt.Errorf("%s", strings.Join(errs, "\n"))
 }
 
-func (c *Checker) checkMakefilePins() error {
+// isAllowedException reports whether the given line in relFile is covered by an exception.
+// relFile must be a slash-separated path relative to the repo root.
+func isAllowedException(exs []exception, relFile, line string) bool {
+	for _, ex := range exs {
+		if relFile != filepath.ToSlash(ex.File) {
+			continue
+		}
+		if strings.Contains(line, ex.Contains) {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Checker) checkMakefilePins(exs []exception) error {
 	data, err := os.ReadFile(c.cfg.Makefile)
 	if err != nil {
 		return fmt.Errorf("read GNUmakefile: %w", err)
 	}
-	content := string(data)
+
+	type patMod struct {
+		pat *regexp.Regexp
+		mod string
+	}
+	mods := c.resolver.ManagedModules()
+	patterns := make([]patMod, len(mods))
+	for i, mod := range mods {
+		patterns[i] = patMod{
+			pat: regexp.MustCompile(regexp.QuoteMeta(mod) + `@(v[0-9]|[0-9a-f]{7,})`),
+			mod: mod,
+		}
+	}
+
+	lines := strings.Split(string(data), "\n")
 	var violations []string
-	for _, mod := range c.resolver.ManagedModules() {
-		pat := regexp.MustCompile(regexp.QuoteMeta(mod) + `@(v[0-9]|[0-9a-f]{7,})`)
-		for i, line := range strings.Split(content, "\n") {
-			if pat.MatchString(line) && !isAllowedException(c.cfg.Root, "GNUmakefile", line) {
-				violations = append(violations, fmt.Sprintf("GNUmakefile:%d: hardcoded pin for %s — use $(TOOL_VERSION) go-install instead:\n  %s", i+1, mod, strings.TrimSpace(line)))
+	for _, pm := range patterns {
+		for i, line := range lines {
+			if pm.pat.MatchString(line) && !isAllowedException(exs, "GNUmakefile", line) {
+				violations = append(violations, fmt.Sprintf("GNUmakefile:%d: hardcoded pin for %s — use $(TOOL_VERSION) go-install instead:\n  %s", i+1, pm.mod, strings.TrimSpace(line)))
 			}
 		}
 	}
@@ -144,7 +176,7 @@ func (c *Checker) checkStrayToolVersions() error {
 
 var goInstallPin = regexp.MustCompile(`go install [^[:space:]]+@(v[0-9]+(\.[0-9]+)*|latest|[0-9a-f]{7,})`)
 
-func (c *Checker) checkRepoWidePins() error {
+func (c *Checker) checkRepoWidePins(exs []exception) error {
 	root, err := os.OpenRoot(c.cfg.Root)
 	if err != nil {
 		return err
@@ -176,7 +208,7 @@ func (c *Checker) checkRepoWidePins() error {
 			if !goInstallPin.MatchString(line) {
 				continue
 			}
-			if isAllowedException(c.cfg.Root, rel, line) {
+			if isAllowedException(exs, filepath.ToSlash(rel), line) {
 				continue
 			}
 			violations = append(violations, fmt.Sprintf("%s:%d: hardcoded go install pin — use go run ./tools/toolversion go-install <key>:\n  %s", rel, i+1, strings.TrimSpace(line)))
@@ -230,6 +262,11 @@ func scannableFile(base, rel string) bool {
 	case "GNUmakefile", "Makefile":
 		return true
 	}
+	// Check Dockerfile variants before the extension switch so that bare
+	// "Dockerfile" (ext == "") is not short-circuited by the empty-ext false case.
+	if strings.HasSuffix(base, "Dockerfile") {
+		return true
+	}
 	ext := filepath.Ext(rel)
 	switch ext {
 	case ".go", ".sh", ".yml", ".yaml", ".md", ".nix", ".mk", ".Dockerfile", ".dockerfile":
@@ -237,5 +274,5 @@ func scannableFile(base, rel string) bool {
 	case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".gz", ".zip", ".wasm", ".pb", ".bin", "":
 		return false
 	}
-	return strings.HasSuffix(base, "Dockerfile")
+	return false
 }

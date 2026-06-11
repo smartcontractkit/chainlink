@@ -13,11 +13,6 @@ func ForInstall(version string) string {
 	return version
 }
 
-// ForConsumer is an alias for ForInstall (docker tags, golangci-lint-action, etc.).
-func ForConsumer(version string) string {
-	return ForInstall(version)
-}
-
 func semverLike(version string) bool {
 	if version == "" {
 		return false

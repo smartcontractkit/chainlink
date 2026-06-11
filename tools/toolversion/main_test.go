@@ -4,13 +4,22 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestCLIGetAndTarget(t *testing.T) {
+func writeManifest(t *testing.T, dir, name, content string) {
+	t.Helper()
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600))
+}
+
+func setupCLIEnv(t *testing.T) string {
+	t.Helper()
 	dir := t.TempDir()
 	writeManifest(t, dir, ".tool-versions", `mockery 2.53.0
 protoc 29.3
@@ -24,6 +33,22 @@ github.com/smartcontractkit/gencodec 42dc7da8c2874db550e91c656f98d05fca3c2f98
 	t.Setenv("CHAINLINK_ROOT", dir)
 	t.Setenv("TOOL_VERSIONS_FILE", filepath.Join(dir, ".tool-versions"))
 	t.Setenv("GO_TOOLS_FILE", filepath.Join(dir, "tools", "go-tools.txt"))
+	return dir
+}
+
+func runCLI(t *testing.T, args ...string) (string, error) {
+	t.Helper()
+	var buf bytes.Buffer
+	cmd := newRootCmd()
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetArgs(args)
+	err := cmd.Execute()
+	return string(bytes.TrimSpace(buf.Bytes())), err
+}
+
+func TestCLIGetAndTarget(t *testing.T) {
+	setupCLIEnv(t)
 
 	tests := []struct {
 		args []string
@@ -37,19 +62,64 @@ github.com/smartcontractkit/gencodec 42dc7da8c2874db550e91c656f98d05fca3c2f98
 	}
 	for _, tt := range tests {
 		t.Run(tt.want, func(t *testing.T) {
-			var buf bytes.Buffer
-			cmd := newRootCmd()
-			cmd.SetOut(&buf)
-			cmd.SetErr(&buf)
-			cmd.SetArgs(tt.args)
-			require.NoError(t, cmd.Execute(), "args %v", tt.args)
-			assert.Equal(t, tt.want, string(bytes.TrimSpace(buf.Bytes())), "args %v", tt.args)
+			got, err := runCLI(t, tt.args...)
+			require.NoError(t, err, "args %v", tt.args)
+			assert.Equal(t, tt.want, got, "args %v", tt.args)
 		})
 	}
 }
 
-func writeManifest(t *testing.T, dir, name, content string) {
-	t.Helper()
-	require.NoError(t, os.MkdirAll(dir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600))
+func TestCLIUnknownKey(t *testing.T) {
+	setupCLIEnv(t)
+
+	for _, args := range [][]string{
+		{"get", "no-such-tool"},
+		{"ref", "no-such-tool"},
+		{"target", "no-such-tool"},
+	} {
+		_, err := runCLI(t, args...)
+		require.Error(t, err, "args %v should fail for unknown key", args)
+	}
+}
+
+func TestCLIList(t *testing.T) {
+	setupCLIEnv(t)
+
+	got, err := runCLI(t, "list")
+	require.NoError(t, err)
+
+	lines := strings.Split(got, "\n")
+	require.GreaterOrEqual(t, len(lines), 6)
+	// .tool-versions entries come first
+	assert.Contains(t, lines[0], "mockery")
+	// go-tools.txt entries follow
+	assert.Contains(t, got, "github.com/jmank88/gomods")
+	assert.Contains(t, got, "github.com/smartcontractkit/gencodec")
+}
+
+func TestCLIModules(t *testing.T) {
+	setupCLIEnv(t)
+
+	got, err := runCLI(t, "modules")
+	require.NoError(t, err)
+
+	lines := strings.Split(got, "\n")
+	// Must include the modulemap entry and go-tools entries
+	assert.Contains(t, lines, "github.com/vektra/mockery/v2")
+	assert.Contains(t, lines, "github.com/jmank88/gomods")
+	assert.Contains(t, lines, "github.com/smartcontractkit/gencodec")
+	// Must be sorted
+	assert.True(t, sort.StringsAreSorted(lines), "modules output must be sorted; got %v", lines)
+}
+
+func TestCLIMakeVars(t *testing.T) {
+	setupCLIEnv(t)
+
+	got, err := runCLI(t, "make-vars")
+	require.NoError(t, err)
+
+	assert.Contains(t, got, "GOLANGCI_LINT_VERSION=v2.12.2")
+	// protoc uses raw get (no v-prefix)
+	assert.Contains(t, got, "PROTOC_VERSION=29.3")
+	assert.NotContains(t, got, "PROTOC_VERSION=v")
 }

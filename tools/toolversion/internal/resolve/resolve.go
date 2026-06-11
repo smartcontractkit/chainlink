@@ -2,6 +2,7 @@ package resolve
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/smartcontractkit/chainlink/v2/tools/toolversion/internal/manifest"
@@ -27,7 +28,7 @@ func (r *Resolver) Ref(key string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return ref.ForConsumer(v), nil
+	return ref.ForInstall(v), nil
 }
 
 func (r *Resolver) Target(key string) (string, error) {
@@ -48,12 +49,14 @@ func (r *Resolver) Target(key string) (string, error) {
 	return fmt.Sprintf("%s@%s", module, ref.ForInstall(version)), nil
 }
 
-func (r *Resolver) List() ([]manifest.Entry, error) {
+func (r *Resolver) List() []manifest.Entry {
 	return r.store.List()
 }
 
+// ManagedModules returns all module paths tracked by the manifests, sorted.
 func (r *Resolver) ManagedModules() []string {
 	mods := modulemap.Modules()
 	mods = append(mods, r.store.GoToolModules()...)
+	sort.Strings(mods)
 	return mods
 }
