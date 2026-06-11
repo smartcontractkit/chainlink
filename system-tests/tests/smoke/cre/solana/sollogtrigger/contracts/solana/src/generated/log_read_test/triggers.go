@@ -18,7 +18,8 @@ var (
 
 // Events
 // The <Event>Filters struct should be used as a filter for log triggers.
-// Only top-level scalar fields are filterable. Nested structs, vecs, and arrays require manual SubkeyConfig.
+// Only top-level scalar fields with supported subkey encodings are auto-filterable.
+// Nested structs, vecs, arrays, bool, u128, and i128 require manual SubkeyConfig.
 
 // TestEventFilters holds optional filter values for TestEvent log triggers.
 // Set a field to filter on that value (OR across filter rows). Leave nil for wildcard.
@@ -73,7 +74,6 @@ func (c *Codec) EncodeTestEventSubkeys(filters []TestEventFilters) ([]*solana.Su
 // TestEventTrigger wraps the raw log trigger and provides decoded TestEvent data.
 type TestEventTrigger struct {
 	cre.Trigger[*solana.Log, *solana.Log]
-	contract *LogReadTest
 }
 
 // Adapt decodes the log into TestEvent event data.
@@ -110,8 +110,5 @@ func (c *LogReadTest) LogTriggerTestEventLog(
 		req.CpiFilterConfig = opts.CpiFilterConfig
 	}
 	rawTrigger := solana.LogTrigger(chainSelector, req)
-	return &TestEventTrigger{
-		Trigger:  rawTrigger,
-		contract: c,
-	}, nil
+	return &TestEventTrigger{Trigger: rawTrigger}, nil
 }
