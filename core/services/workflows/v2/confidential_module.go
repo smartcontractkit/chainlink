@@ -107,7 +107,6 @@ func (m *ConfidentialModule) Execute(
 			Requirements:      requirements,
 			BinaryUrl:         m.binaryURL,
 		},
-		BinaryUrl: m.binaryURL,
 	}
 
 	capOutput := &confworkflowtypes.ConfidentialWorkflowResponse{}

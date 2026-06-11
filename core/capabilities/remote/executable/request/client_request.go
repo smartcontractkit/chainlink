@@ -137,7 +137,12 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName, signers)
 }
 
-var defaultDelayMargin = 10 * time.Second
+var (
+	defaultDelayMargin = 10 * time.Second
+	// Extra time the workflow DON client waits beyond requestTimeout for P2P responses
+	// after remote capability nodes hit their execution deadline.
+	defaultResponseAggregationGrace = 10 * time.Second
+)
 
 func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string, remoteCapabilityInfo commoncap.CapabilityInfo,
 	localDonInfo commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration,
@@ -308,7 +313,7 @@ func (c *ClientRequest) ResponseChan() <-chan clientResponse {
 }
 
 func (c *ClientRequest) Expired() bool {
-	return time.Since(c.createdAt) > c.requestTimeout
+	return time.Since(c.createdAt) > c.requestTimeout+defaultResponseAggregationGrace
 }
 
 func (c *ClientRequest) Cancel(err error) {
