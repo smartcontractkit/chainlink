@@ -102,10 +102,10 @@
 /core/chainlink.Dockerfile @smartcontractkit/devex-cicd @smartcontractkit/foundations @smartcontractkit/core
 
 # Dependencies
-.tool-versions @smartcontractkit/core
-/tools/go-tools.txt @smartcontractkit/core
-/tools/bin/tool-version @smartcontractkit/core
-/tools/bin/check-tool-versions @smartcontractkit/core
+.tool-versions @smartcontractkit/core @smartcontractkit/devex
+/tools/go-tools.txt @smartcontractkit/core @smartcontractkit/devex
+/tools/bin/tool-version @smartcontractkit/core @smartcontractkit/devex
+/tools/bin/check-tool-versions @smartcontractkit/core @smartcontractkit/devex
 go.md @smartcontractkit/core @smartcontractkit/foundations
 go.mod @smartcontractkit/core @smartcontractkit/foundations
 go.sum @smartcontractkit/core @smartcontractkit/foundations
