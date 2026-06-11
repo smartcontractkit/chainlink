@@ -48,6 +48,9 @@ const (
 	defaultJWTAuthJobSpecTenantID uint64 = 1
 	defaultJWKSRefreshInterval           = 15 * time.Minute
 	defaultHTTPTimeout                   = 5 * time.Second
+	// jwtValidationLeeway must match jwt.WithLeeway in validateToken. Replay
+	// protection must retain digests for the full JWT validation window.
+	jwtValidationLeeway = time.Minute
 )
 
 // Auth0Config captures the Vault JWT issuer settings shared by gateway and node handlers.
@@ -263,12 +266,13 @@ func (v *jwtBasedAuth) AuthorizeRequest(ctx context.Context, req jsonrpc.Request
 		return nil, fmt.Errorf("invalid JWT auth token: %w", err)
 	}
 
-	v.lggr.Debugw("JWTBasedAuth authorization succeeded", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "workflowOwner", derivedWorkflowOwner, "digest", requestDigest, "expiresAt", claims.ExpiresAt.UTC().Unix())
+	authExpiresAt := claims.ExpiresAt.UTC().Add(jwtValidationLeeway).Unix()
+	v.lggr.Debugw("JWTBasedAuth authorization succeeded", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "workflowOwner", derivedWorkflowOwner, "digest", requestDigest, "expiresAt", authExpiresAt)
 	return &AuthResult{
 		orgID:         claims.OrgID,
 		workflowOwner: derivedWorkflowOwner,
 		digest:        requestDigest,
-		expiresAt:     claims.ExpiresAt.UTC().Unix(),
+		expiresAt:     authExpiresAt,
 	}, nil
 }
 
@@ -305,7 +309,7 @@ func (v *jwtBasedAuth) validateToken(ctx context.Context, tokenString string) (*
 		jwt.WithAudience(v.audience),
 		jwt.WithExpirationRequired(),
 		jwt.WithIssuedAt(),
-		jwt.WithLeeway(time.Minute),
+		jwt.WithLeeway(jwtValidationLeeway),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w. Expected Issuer: %s, Actual Issuer: %s", ErrInvalidToken, err, v.issuerURL, unverified.Claims.(jwt.MapClaims)["iss"])

@@ -18,7 +18,7 @@ require (
 	github.com/deckarep/golang-set/v2 v2.9.0
 	github.com/docker/go-connections v0.6.0
 	github.com/dominikbraun/graph v0.23.0
-	github.com/doyensec/safeurl v0.2.3
+	github.com/doyensec/safeurl v0.2.5
 	github.com/ethereum/go-ethereum v1.17.3
 	github.com/fatih/color v1.19.0
 	github.com/fxamacker/cbor/v2 v2.9.2
@@ -105,7 +105,6 @@ require (
 	github.com/smartcontractkit/chainlink-protos/ring/go v0.0.0-20260331131315-f08a616d8dcd
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260528221400-84746b70eeeb
-	github.com/smartcontractkit/chainlink-solana v1.3.1-0.20260605202330-b5a89c32fdc1
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260527160341-aa3adc0abf67
 	github.com/smartcontractkit/chainlink-ton v1.0.5-0.20260608211110-ed43ab034a6f
 	github.com/smartcontractkit/cre-sdk-go v1.9.0-capdev.1.0.20260604183316-fa0cf8b9c197
@@ -429,11 +428,6 @@ require (
 )
 
 replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20260218133534-cbd44da2856b
-
-// to be removed after https://github.com/doyensec/safeurl/pull/13 is merged
-replace github.com/doyensec/safeurl => github.com/cedric-cordenier/safeurl v0.0.0-20260609130317-eddfd657b6e3
-
-replace github.com/smartcontractkit/chainlink-common => ../chainlink-common
 
 tool github.com/smartcontractkit/chainlink-common/pkg/loop/cmd/loopinstall
 

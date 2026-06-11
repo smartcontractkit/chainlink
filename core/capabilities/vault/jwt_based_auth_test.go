@@ -217,6 +217,98 @@ func TestJWTBasedAuth_ValidTokenWithoutWorkflowOwner(t *testing.T) {
 	require.Equal(t, "digest456", result.RequestDigest)
 }
 
+func TestJWTBasedAuth_AuthResultExpiryIncludesValidationLeeway(t *testing.T) {
+	rsaKey := generateTestRSAKey(t, "key-1")
+	jwksServer := newTestJWKSServer(t, rsaKey)
+
+	issuer := jwksServer.URL() + "/"
+	audience := "https://vault.test.chain.link"
+	v := newTestValidator(t, issuer, audience)
+
+	derivedOrg123Owner := testJWTExpectedWorkflowOwner(t, 1, "org-123")
+	rawRequest := fmt.Appendf(nil, `{"jsonrpc":"2.0","id":"req-1","method":"vault.secrets.list","params":{"request_id":"req-1","owner":"%s","namespace":"main"}}`, derivedOrg123Owner)
+	req, err := jsonrpc.DecodeRequest[json.RawMessage](rawRequest, "")
+	require.NoError(t, err)
+
+	digest, err := req.Digest()
+	require.NoError(t, err)
+
+	tokenExp := time.Now().Add(2 * time.Minute).Truncate(time.Second)
+	token := createTestJWT(t, rsaKey, jwt.MapClaims{
+		"iss":                             issuer,
+		"aud":                             audience,
+		"exp":                             jwt.NewNumericDate(tokenExp),
+		"iat":                             jwt.NewNumericDate(time.Now()),
+		"org_id":                          "org-123",
+		ClaimVaultSecretManagementEnabled: "true",
+		ClaimChainlinkTenantID:            "1",
+		"scope":                           OAuthScopeVaultSecretsList,
+		"authorization_details": []any{
+			map[string]any{
+				"type":  "request_digest",
+				"value": digest,
+			},
+		},
+	})
+
+	req, err = jsonrpc.DecodeRequest[json.RawMessage](rawRequest, token)
+	require.NoError(t, err)
+
+	authResult, err := v.AuthorizeRequest(t.Context(), req)
+	require.NoError(t, err)
+	require.Equal(t, tokenExp.UTC().Add(time.Minute).Unix(), authResult.ExpiresAt())
+}
+
+func TestAuthorizer_RejectsJWTReplayDuringValidationLeewayWindow(t *testing.T) {
+	rsaKey := generateTestRSAKey(t, "key-1")
+	jwksServer := newTestJWKSServer(t, rsaKey)
+
+	issuer := jwksServer.URL() + "/"
+	audience := "https://vault.test.chain.link"
+	v := newTestValidator(t, issuer, audience)
+
+	derivedOrg123Owner := testJWTExpectedWorkflowOwner(t, 1, "org-123")
+	rawRequest := fmt.Appendf(nil, `{"jsonrpc":"2.0","id":"req-1","method":"vault.secrets.list","params":{"request_id":"req-1","owner":"%s","namespace":"main"}}`, derivedOrg123Owner)
+	req, err := jsonrpc.DecodeRequest[json.RawMessage](rawRequest, "")
+	require.NoError(t, err)
+
+	digest, err := req.Digest()
+	require.NoError(t, err)
+
+	// Raw exp is in the past but still within the JWT validation leeway window.
+	tokenExp := time.Now().Add(-30 * time.Second)
+	token := createTestJWT(t, rsaKey, jwt.MapClaims{
+		"iss":                             issuer,
+		"aud":                             audience,
+		"exp":                             jwt.NewNumericDate(tokenExp),
+		"iat":                             jwt.NewNumericDate(time.Now().Add(-2 * time.Minute)),
+		"org_id":                          "org-123",
+		ClaimVaultSecretManagementEnabled: "true",
+		ClaimChainlinkTenantID:            "1",
+		"scope":                           OAuthScopeVaultSecretsList,
+		"authorization_details": []any{
+			map[string]any{
+				"type":  "request_digest",
+				"value": digest,
+			},
+		},
+	})
+
+	req, err = jsonrpc.DecodeRequest[json.RawMessage](rawRequest, token)
+	require.NoError(t, err)
+
+	a := NewAuthorizer(nil, v, logger.TestLogger(t))
+
+	authResult, err := a.AuthorizeRequest(t.Context(), req)
+	require.NoError(t, err)
+	require.Equal(t, digest, authResult.Digest())
+	require.Equal(t, tokenExp.UTC().Add(time.Minute).Unix(), authResult.ExpiresAt())
+
+	authResult, err = a.AuthorizeRequest(t.Context(), req)
+	require.Nil(t, authResult)
+	require.ErrorIs(t, err, ErrRequestAlreadySeen)
+}
+
 func TestJWTBasedAuth_ExpiredToken(t *testing.T) {
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)

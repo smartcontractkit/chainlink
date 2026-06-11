@@ -70,6 +70,8 @@ linters:
               desc: Cosmos only runs as a LOOPP
             - pkg: github.com/smartcontractkit/chainlink-integrations/evm
               desc: Use github.com/smartcontractkit/chainlink-evm instead
+            - pkg: github.com/smartcontractkit/chainlink-solana
+              desc: Solana only runs as a LOOPP
             - pkg: github.com/smartcontractkit/chainlink-starknet/relayer
               desc: Starknet only runs as a LOOPP
             #  - pkg: github.com/smartcontractkit/chainlink-tron

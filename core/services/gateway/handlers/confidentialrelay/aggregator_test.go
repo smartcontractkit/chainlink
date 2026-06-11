@@ -23,14 +23,33 @@ const (
 	testEnclavePK   = "aabbcc"
 )
 
+// validEnclaveConfig satisfies chainlink-common's confidentialrelay.Validate,
+// which requires a non-empty Signers list, non-zero F, and a non-empty
+// MasterPublicKey. Without it Hash() errors and the real aggregator never
+// reaches quorum.
+func validEnclaveConfig() relaytypes.EnclaveConfig {
+	return relaytypes.EnclaveConfig{
+		Signers:         [][]byte{{0x01}, {0x02}, {0x03}, {0x04}},
+		MasterPublicKey: []byte("test-master-public-key"),
+		T:               3,
+		F:               1,
+	}
+}
+
+func validEnclaveConfigPtr() *relaytypes.EnclaveConfig {
+	c := validEnclaveConfig()
+	return &c
+}
+
 func validCapParams(workflowID string) relaytypes.CapabilityRequestParams {
 	return relaytypes.CapabilityRequestParams{
-		WorkflowID:   workflowID,
-		Owner:        testOwner,
-		ExecutionID:  testExecutionID,
-		ReferenceID:  "ref-1",
-		CapabilityID: "cap-1",
-		Payload:      "in",
+		WorkflowID:    workflowID,
+		Owner:         testOwner,
+		ExecutionID:   testExecutionID,
+		ReferenceID:   "ref-1",
+		CapabilityID:  "cap-1",
+		Payload:       "in",
+		EnclaveConfig: validEnclaveConfigPtr(),
 	}
 }
 
@@ -41,6 +60,7 @@ func validSecretsParams(workflowID string) relaytypes.SecretsRequestParams {
 		ExecutionID:      testExecutionID,
 		Secrets:          []relaytypes.SecretIdentifier{{Key: "k1", Namespace: "ns"}},
 		EnclavePublicKey: testEnclavePK,
+		EnclaveConfig:    validEnclaveConfigPtr(),
 	}
 }
 
