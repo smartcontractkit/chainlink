@@ -230,6 +230,7 @@ func Test_CRE_V2_Solana_Suite(t *testing.T) {
 	})
 }
 
+// test
 func Test_CRE_V2_Solana_Read_Accounts(t *testing.T) {
 	runSolanaReadBucket(t, solana_config.ReadBucketAccountCalls)
 }
