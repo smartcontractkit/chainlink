@@ -1,5 +1,7 @@
 <complex_investigation_protocol>
-A single pass might not be sufficient to understand what causes flakiness in a complex test. In such cases a debate needs to take place.
+A single pass might not be sufficient to understand what causes flakiness in a complex test. In such cases a debate needs to take place and additional data points are hightly recommended (CI failure logs, Docker/application logs, etc.).
+
+Before starting the debate ask the user for a CI failure link(s), if not yet provided and analyze them with [github-failure-analyzer](github-failure-analyzer.md) subagent. Accept only Github or other CI providers link, reject Trunk links. Look for stack traces, test logs and workflow artifacts that might contain application logs.
 
 <roles>
 <proposer model="standard">

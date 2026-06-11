@@ -40,8 +40,8 @@ a. test or package
 b. specific JIRA issues
 c. N eligible flaky-tests tickets from JIRA
 If unknown, prompt user.
-2. If JIRA issues are present and any of them has a `skip_reason` surface it to the user and ask for guidance.
-3. If a CI failure link is available, open it only if it is a non-Trunk CI link (for example GitHub Actions or another permitted CI provider) and look for stack trace and logs for the failing test.
+2. Before proceeding always ask the user whether she think the flake is relatively simple and self-contained or whether it is a complex one that requires a lot of critical thinking and in-depth understaind of the application (e.g. system tests and some integration tests). If it is the latter activate the [complex-investigation-protocol](./references/complex-investigation-protocol.md), before formulating any hypothesis.
+3. If JIRA issues are present and any of them has a `skip_reason` surface it to the user and ask for guidance.
 4. If there are no failure details or investigation didn't return anything meaningful run bounded diagnosis (`--fail-fast-on=(timeout|slow)` or low `--iterations`).
 5. Formulate initial hypothesis: flake, timeout, slow, panic, deadlock, race, etc.
 
@@ -140,15 +140,6 @@ Lead with your hypothesis before writing code. Show contextual diffs, do not des
 6. **Slow:** Compare `p50` vs `max_elapsed`. Look for `time.Sleep` or coarse polling loops. Replace with dynamic polling. Simulated chains are frequent offenders.
 7. **Resources:** If failing under load/CI only, check CPU and Memory usage. When logs/report are insufficient, use standard `go test` profile flags (`-race`, `-cpuprofile`, `-trace`, etc.). View with `go tool pprof` or `go tool trace`.
 </analysis>
-
-<complex_test>
-Treat the test as complex if any one signal matches (check via LSP/grep on the test file and its package-local helpers):
-1. Path under `devenv/`, `integration-tests/`, or `system-tests/`.
-2. Postgres usage: imports `core/internal/testutils/pgtest` or calls `pgtest.NewSqlxDB`.
-3. Node startup: imports `core/internal/cltest` or calls `cltest.NewApplication*`.
-4. Containers: imports `github.com/testcontainers/testcontainers-go`.
-One positive signal is enough.
-</complex_test>
 
 <context_compaction>
 When summarizing/compacting/compressing context, strictly maintain a reference to the `diagnose-attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` you're using for this session.
