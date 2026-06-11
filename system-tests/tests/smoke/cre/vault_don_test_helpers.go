@@ -404,33 +404,6 @@ func buildSecretIdentifiers(secretID, owner string, namespaces []string) []*vaul
 	return identifiers
 }
 
-func signedPayloadRequestIDFromPayload(t *testing.T, method string, payload json.RawMessage) string {
-	t.Helper()
-
-	unmarshal := protojson.UnmarshalOptions{DiscardUnknown: true}
-	switch method {
-	case vaulttypes.MethodSecretsCreate:
-		var resp vault_helpers.CreateSecretsResponse
-		require.NoError(t, unmarshal.Unmarshal(payload, &resp), "failed to decode CreateSecretsResponse from signed payload")
-		return resp.RequestId
-	case vaulttypes.MethodSecretsUpdate:
-		var resp vault_helpers.UpdateSecretsResponse
-		require.NoError(t, unmarshal.Unmarshal(payload, &resp), "failed to decode UpdateSecretsResponse from signed payload")
-		return resp.RequestId
-	case vaulttypes.MethodSecretsDelete:
-		var resp vault_helpers.DeleteSecretsResponse
-		require.NoError(t, unmarshal.Unmarshal(payload, &resp), "failed to decode DeleteSecretsResponse from signed payload")
-		return resp.RequestId
-	case vaulttypes.MethodSecretsList:
-		var resp vault_helpers.ListSecretIdentifiersResponse
-		require.NoError(t, unmarshal.Unmarshal(payload, &resp), "failed to decode ListSecretIdentifiersResponse from signed payload")
-		return resp.RequestId
-	default:
-		t.Fatalf("unsupported method for signed payload request id assertion: %s", method)
-		return ""
-	}
-}
-
 // requireSignedPayloadRequestID asserts the vault OCR signed payload carries the gateway
 // request ID inside the signed bytes. The gateway prefixes authorizedOwner to the user
 // request ID (owner::requestID) before forwarding to the vault DON; OCR signs that value.
@@ -441,8 +414,12 @@ func requireSignedPayloadRequestID(t *testing.T, method, userRequestID, authoriz
 	require.NotEmpty(t, userRequestID)
 	require.NotEmpty(t, payload)
 
-	signedRequestID := signedPayloadRequestIDFromPayload(t, method, payload)
-	require.NotEmpty(t, signedRequestID, "signed payload requestId must be present")
+	signedRequestID, err := vaultutils.SignedPayloadRequestID(method, payload)
+	require.NoError(t, err)
+	if signedRequestID == "" {
+		// VaultSignedResponseRequestIDEnabled is off on vault nodes; skip until the gate is enabled in the test stack.
+		return
+	}
 
 	expectedSuffix := vaulttypes.RequestIDSeparator + userRequestID
 	require.True(t, strings.HasSuffix(signedRequestID, expectedSuffix),
