@@ -66,9 +66,8 @@ var nodeOne = config.NodeConfig{
 }
 
 // validCapParamsJSON returns JSON-RPC params for MethodCapabilityExec that satisfy
-// chainlink-common's CapabilityRequestParams.Validate so the real aggregator's Hash()
-// step does not drop responses (testOwner / testExecutionID constants live in
-// aggregator_test.go, same package).
+// chainlink-common's CapabilityRequestParams.Validate (testOwner / testExecutionID
+// constants live in bundler_test.go, same package).
 func validCapParamsJSON(workflowID string) json.RawMessage {
 	raw, err := json.Marshal(validCapParams(workflowID))
 	if err != nil {
@@ -78,6 +77,11 @@ func validCapParamsJSON(workflowID string) json.RawMessage {
 }
 
 func setupHandler(t *testing.T, numNodes int) (*handler, *common.Callback, *mocks.DON, *clockwork.FakeClock) {
+	t.Helper()
+	return setupHandlerWithF(t, numNodes, 1)
+}
+
+func setupHandlerWithF(t *testing.T, numNodes, f int) (*handler, *common.Callback, *mocks.DON, *clockwork.FakeClock) {
 	t.Helper()
 	lggr := logger.Test(t)
 	don := mocks.NewDON(t)
@@ -92,7 +96,7 @@ func setupHandler(t *testing.T, numNodes int) (*handler, *common.Callback, *mock
 
 	donConfig := &config.DONConfig{
 		DonId:   "test_relay_don",
-		F:       1,
+		F:       f,
 		Members: members,
 	}
 	handlerConfig := Config{
@@ -105,30 +109,18 @@ func setupHandler(t *testing.T, numNodes int) (*handler, *common.Callback, *mock
 	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
 	h, err := NewHandler(methodConfig, donConfig, don, lggr, clock, limitsFactory)
 	require.NoError(t, err)
-	h.aggregator = &mockAggregator{}
+	// The default bundler is the real one; tests that need a failure inject a mock.
 	cb := common.NewCallback()
 	return h, cb, don, clock
 }
 
-type mockAggregator struct {
+// mockBundler lets a test force the bundler error path.
+type mockBundler struct {
 	err error
 }
 
-func (m *mockAggregator) Aggregate(_ jsonrpc.Request[json.RawMessage], _ map[string]jsonrpc.Response[json.RawMessage], _ int, _ int, _ logger.Logger) (*jsonrpc.Response[json.RawMessage], error) {
-	return nil, m.err
-}
-
-type respondingMockAggregator struct{}
-
-func (m *respondingMockAggregator) Aggregate(_ jsonrpc.Request[json.RawMessage], resps map[string]jsonrpc.Response[json.RawMessage], _ int, _ int, _ logger.Logger) (*jsonrpc.Response[json.RawMessage], error) {
-	if len(resps) == 0 {
-		return nil, errInsufficientResponsesForQuorum
-	}
-	// Return the first response we find.
-	for _, r := range resps {
-		return &r, nil
-	}
-	return nil, errInsufficientResponsesForQuorum
+func (m *mockBundler) Bundle(_ jsonrpc.Request[json.RawMessage], _ map[string]jsonrpc.Response[json.RawMessage], _ logger.Logger) (*jsonrpc.Response[json.RawMessage], int, error) {
+	return nil, 0, m.err
 }
 
 func TestConfidentialRelayHandler_Methods(t *testing.T) {
@@ -169,25 +161,20 @@ func TestConfidentialRelayHandler_EmptyRequestID(t *testing.T) {
 	require.EqualError(t, err, "request ID cannot be empty")
 }
 
-func TestConfidentialRelayHandler_FanOutAndQuorumSuccess(t *testing.T) {
+// At F=1 the gateway forwards once it has collected 2F+1 = 3 responses, so that
+// (under <=F faulty) at least F+1 honest matching responses are guaranteed present
+// for the enclave to verify. The gateway itself makes no signature/quorum decision.
+func TestConfidentialRelayHandler_ForwardsBundleAtQuorum(t *testing.T) {
 	h, cb, don, _ := setupHandler(t, 4)
-	h.aggregator = &respondingMockAggregator{}
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	params := json.RawMessage(`{"workflow_id":"wf1","secrets":[{"key":"k","namespace":"ns"}],"enclave_public_key":"pk"}`)
+	params := validCapParamsJSON("wf1")
 	req := jsonrpc.Request[json.RawMessage]{
-		ID:     "req-1",
+		ID:     "req-quorum",
 		Method: MethodCapabilityExec,
 		Params: &params,
 	}
-
-	resultData := json.RawMessage(`{"secrets":[],"master_public_key":"mpk","threshold":1}`)
-	response := jsonrpc.Response[json.RawMessage]{
-		Version: jsonrpc.JsonRpcVersion,
-		ID:      "req-1",
-		Method:  MethodCapabilityExec,
-		Result:  &resultData,
-	}
+	result := relaytypes.CapabilityResponseResult{Payload: "result"}
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -197,75 +184,33 @@ func TestConfidentialRelayHandler_FanOutAndQuorumSuccess(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, api.NoError, resp.ErrorCode)
 		var jsonResp jsonrpc.Response[json.RawMessage]
-		err = json.Unmarshal(resp.RawResponse, &jsonResp)
-		assert.NoError(t, err)
-		assert.Equal(t, "req-1", jsonResp.ID)
+		require.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
+		require.NotNil(t, jsonResp.Result)
+		var bundle relaytypes.SignedCapabilityResponseBundle
+		require.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle))
+		assert.Len(t, bundle.Responses, 3, "the gateway forwards every collected response")
 	}()
 
 	err := h.HandleJSONRPCUserMessage(t.Context(), req, cb)
 	require.NoError(t, err)
 
-	err = h.HandleNodeMessage(t.Context(), &response, "0x0000")
-	require.NoError(t, err)
-	wg.Wait()
-}
-
-func TestConfidentialRelayHandler_QuorumWithRealAggregator(t *testing.T) {
-	//	t.Skip("Continuously timing out - see https://github.com/smartcontractkit/chainlink/actions/runs/26809108446/job/79046763185 for example. Re-enable after investigation.")
-	h, cb, don, _ := setupHandler(t, 4)
-	// Use the real aggregator; DON F=1 so quorum = F+1 = 2
-	h.aggregator = &aggregator{}
-	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-
-	params := validCapParamsJSON("wf1")
-	req := jsonrpc.Request[json.RawMessage]{
-		ID:     "req-quorum",
-		Method: MethodCapabilityExec,
-		Params: &params,
-	}
-
-	makeSignedResp := func(signer string) *jsonrpc.Response[json.RawMessage] {
-		signed := relaytypes.SignedCapabilityResponseResult{
-			Result: relaytypes.CapabilityResponseResult{Payload: "result"},
-			Signatures: []relaytypes.RelayResponseSignature{{
-				Signer:    []byte(signer),
-				Signature: []byte("sig-" + signer),
-			}},
-		}
-		raw, mErr := json.Marshal(signed)
-		require.NoError(t, mErr)
-		rm := json.RawMessage(raw)
-		return &jsonrpc.Response[json.RawMessage]{
-			Version: jsonrpc.JsonRpcVersion,
-			ID:      "req-quorum",
-			Method:  MethodCapabilityExec,
-			Result:  &rm,
-		}
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
-		assert.Equal(t, api.NoError, resp.ErrorCode)
-	}()
-
-	err := h.HandleJSONRPCUserMessage(t.Context(), req, cb)
-	require.NoError(t, err)
-
-	// Send F+1 = 2 matching signed responses with distinct signers.
+	// First two responses do not reach the 2F+1 threshold: no callback yet.
 	for i := range 2 {
-		err = h.HandleNodeMessage(t.Context(), makeSignedResp(fmt.Sprintf("signer-%d", i)), fmt.Sprintf("0x%04d", i))
+		err = h.HandleNodeMessage(t.Context(), ptr(capExecSignedResponse(t, "req-quorum", result, []byte(fmt.Sprintf("signer-%d", i)))), fmt.Sprintf("0x%04d", i))
 		require.NoError(t, err)
 	}
+	require.NotNil(t, h.getActiveRequest(req.ID), "request stays active below the 2F+1 threshold")
+
+	// Third response reaches 2F+1 and triggers the forward.
+	err = h.HandleNodeMessage(t.Context(), ptr(capExecSignedResponse(t, "req-quorum", result, []byte("signer-2"))), "0x0002")
+	require.NoError(t, err)
 	wg.Wait()
 }
 
-func TestConfidentialRelayHandler_QuorumWithDivergentResponses(t *testing.T) {
+// The gateway does not resolve divergent results; it forwards them all and lets the
+// enclave verify signatures and pick the result backed by F+1 valid signers.
+func TestConfidentialRelayHandler_ForwardsAllDivergentResponses(t *testing.T) {
 	h, cb, don, _ := setupHandler(t, 4)
-	h.aggregator = &aggregator{}
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	params := validCapParamsJSON("wf1")
@@ -282,73 +227,37 @@ func TestConfidentialRelayHandler_QuorumWithDivergentResponses(t *testing.T) {
 		resp, err := cb.Wait(t.Context())
 		assert.NoError(t, err)
 		assert.Equal(t, api.NoError, resp.ErrorCode)
+		var jsonResp jsonrpc.Response[json.RawMessage]
+		require.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
+		var bundle relaytypes.SignedCapabilityResponseBundle
+		require.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle))
+		assert.Len(t, bundle.Responses, 3, "divergent and matching responses are all forwarded untouched")
 	}()
 
 	err := h.HandleJSONRPCUserMessage(t.Context(), req, cb)
 	require.NoError(t, err)
 
-	// One divergent response.
-	divergent, err := json.Marshal(relaytypes.SignedCapabilityResponseResult{
-		Result: relaytypes.CapabilityResponseResult{Payload: "DIVERGENT"},
-		Signatures: []relaytypes.RelayResponseSignature{{
-			Signer:    []byte("signer-divergent"),
-			Signature: []byte("sig-divergent"),
-		}},
-	})
+	divergent := relaytypes.CapabilityResponseResult{Payload: "DIVERGENT"}
+	match := relaytypes.CapabilityResponseResult{Payload: "match"}
+	err = h.HandleNodeMessage(t.Context(), ptr(capExecSignedResponse(t, "req-diverge", divergent, []byte("signer-0"))), "0x0000")
 	require.NoError(t, err)
-	divergentRaw := json.RawMessage(divergent)
-	divergentResp := &jsonrpc.Response[json.RawMessage]{
-		Version: jsonrpc.JsonRpcVersion,
-		ID:      "req-diverge",
-		Method:  MethodCapabilityExec,
-		Result:  &divergentRaw,
-	}
-	err = h.HandleNodeMessage(t.Context(), divergentResp, "0x0000")
+	err = h.HandleNodeMessage(t.Context(), ptr(capExecSignedResponse(t, "req-diverge", match, []byte("signer-1"))), "0x0001")
 	require.NoError(t, err)
-
-	// F+1 = 2 matching signed responses; distinct signers form the quorum.
-	for i := 1; i <= 2; i++ {
-		matching, mErr := json.Marshal(relaytypes.SignedCapabilityResponseResult{
-			Result: relaytypes.CapabilityResponseResult{Payload: "match"},
-			Signatures: []relaytypes.RelayResponseSignature{{
-				Signer:    []byte(fmt.Sprintf("signer-%d", i)),
-				Signature: []byte(fmt.Sprintf("sig-%d", i)),
-			}},
-		})
-		require.NoError(t, mErr)
-		rm := json.RawMessage(matching)
-		resp := &jsonrpc.Response[json.RawMessage]{
-			Version: jsonrpc.JsonRpcVersion,
-			ID:      "req-diverge",
-			Method:  MethodCapabilityExec,
-			Result:  &rm,
-		}
-		err = h.HandleNodeMessage(t.Context(), resp, fmt.Sprintf("0x%04d", i))
-		require.NoError(t, err)
-	}
+	err = h.HandleNodeMessage(t.Context(), ptr(capExecSignedResponse(t, "req-diverge", match, []byte("signer-2"))), "0x0002")
+	require.NoError(t, err)
 	wg.Wait()
 }
 
-func TestConfidentialRelayHandler_QuorumUnobtainable(t *testing.T) {
+func TestConfidentialRelayHandler_BundlerErrorReturnsFatal(t *testing.T) {
 	h, cb, don, _ := setupHandler(t, 4)
-	h.aggregator = &mockAggregator{err: errQuorumUnobtainable}
+	h.bundler = &mockBundler{err: errors.New("boom")}
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	params := json.RawMessage(`{"workflow_id":"wf1"}`)
+	params := validCapParamsJSON("wf1")
 	req := jsonrpc.Request[json.RawMessage]{
-		ID:     "req-unobtainable",
+		ID:     "req-bundler-err",
 		Method: MethodCapabilityExec,
 		Params: &params,
-	}
-
-	response := jsonrpc.Response[json.RawMessage]{
-		Version: jsonrpc.JsonRpcVersion,
-		ID:      "req-unobtainable",
-		Method:  MethodCapabilityExec,
-		Error: &jsonrpc.WireError{
-			Code:    -32603,
-			Message: errQuorumUnobtainable.Error(),
-		},
 	}
 
 	var wg sync.WaitGroup
@@ -357,27 +266,62 @@ func TestConfidentialRelayHandler_QuorumUnobtainable(t *testing.T) {
 		defer wg.Done()
 		resp, err := cb.Wait(t.Context())
 		assert.NoError(t, err)
-		var jsonResp jsonrpc.Response[json.RawMessage]
-		err = json.Unmarshal(resp.RawResponse, &jsonResp)
-		assert.NoError(t, err)
-		assert.Equal(t, "req-unobtainable", jsonResp.ID)
-		assert.NotNil(t, jsonResp.Error)
-		assert.Contains(t, jsonResp.Error.Message, "quorum unobtainable")
+		assert.Equal(t, api.FatalError, resp.ErrorCode)
 	}()
 
-	err := h.HandleJSONRPCUserMessage(t.Context(), req, cb)
-	require.NoError(t, err)
-
-	err = h.HandleNodeMessage(t.Context(), &response, "0x0000")
-	require.NoError(t, err)
+	require.NoError(t, h.HandleJSONRPCUserMessage(t.Context(), req, cb))
+	result := relaytypes.CapabilityResponseResult{Payload: "x"}
+	for i := range 3 {
+		err := h.HandleNodeMessage(t.Context(), ptr(capExecSignedResponse(t, "req-bundler-err", result, []byte(fmt.Sprintf("s-%d", i)))), fmt.Sprintf("0x%04d", i))
+		require.NoError(t, err)
+	}
 	wg.Wait()
 }
 
-func TestConfidentialRelayHandler_RequestTimeout(t *testing.T) {
+// On timeout with fewer than 2F+1 responses, the gateway forwards whatever it
+// collected (the bundle may still carry F+1 valid signatures, e.g. if faulty nodes
+// stayed silent) and lets the enclave decide.
+func TestConfidentialRelayHandler_TimeoutForwardsPartialBundle(t *testing.T) {
 	h, cb, don, clock := setupHandler(t, 4)
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	// Use the real aggregator so responses are not immediately satisfied
-	h.aggregator = &aggregator{}
+
+	params := validCapParamsJSON("wf1")
+	req := jsonrpc.Request[json.RawMessage]{
+		ID:     "req-partial",
+		Method: MethodCapabilityExec,
+		Params: &params,
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		resp, err := cb.Wait(t.Context())
+		assert.NoError(t, err)
+		assert.Equal(t, api.NoError, resp.ErrorCode)
+		var jsonResp jsonrpc.Response[json.RawMessage]
+		require.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
+		var bundle relaytypes.SignedCapabilityResponseBundle
+		require.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle))
+		assert.Len(t, bundle.Responses, 2)
+	}()
+
+	require.NoError(t, h.HandleJSONRPCUserMessage(t.Context(), req, cb))
+	result := relaytypes.CapabilityResponseResult{Payload: "x"}
+	for i := range 2 { // below 2F+1=3
+		err := h.HandleNodeMessage(t.Context(), ptr(capExecSignedResponse(t, "req-partial", result, []byte(fmt.Sprintf("s-%d", i)))), fmt.Sprintf("0x%04d", i))
+		require.NoError(t, err)
+	}
+	require.NotNil(t, h.getActiveRequest(req.ID))
+
+	clock.Advance(31 * time.Second)
+	h.removeExpiredRequests(t.Context())
+	wg.Wait()
+}
+
+func TestConfidentialRelayHandler_TimeoutNoResponses(t *testing.T) {
+	h, cb, don, clock := setupHandler(t, 4)
+	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	params := validCapParamsJSON("wf1")
 	req := jsonrpc.Request[json.RawMessage]{
@@ -398,7 +342,6 @@ func TestConfidentialRelayHandler_RequestTimeout(t *testing.T) {
 	err := h.HandleJSONRPCUserMessage(t.Context(), req, cb)
 	require.NoError(t, err)
 
-	// Advance clock past the request timeout and trigger cleanup
 	clock.Advance(31 * time.Second)
 	h.removeExpiredRequests(t.Context())
 	wg.Wait()
@@ -432,16 +375,17 @@ func TestConfidentialRelayHandler_RateLimitedNode(t *testing.T) {
 
 	lggr := logger.Test(t)
 	don := mocks.NewDON(t)
+	// F=0 so the forward threshold (2F+1) is 1: a single response from the one-node
+	// DON forwards immediately, isolating the rate-limit behavior under test.
 	donConfig := &config.DONConfig{
 		DonId:   "test_relay_don",
-		F:       1,
+		F:       0,
 		Members: []config.NodeConfig{nodeOne},
 	}
 	clock := clockwork.NewFakeClock()
 	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
 	h, err := NewHandler(methodConfig, donConfig, don, lggr, clock, limitsFactory)
 	require.NoError(t, err)
-	h.aggregator = &respondingMockAggregator{}
 	h.globalNodeRateLimiter = limits.GlobalRateLimiter(rate.Limit(100), 100)
 	h.perNodeRateLimiters[nodeOne.Address] = limits.GlobalRateLimiter(rate.Limit(0.001), 1)
 
@@ -458,7 +402,7 @@ func TestConfidentialRelayHandler_RateLimitedNode(t *testing.T) {
 	err = h.HandleJSONRPCUserMessage(t.Context(), req, cb)
 	require.NoError(t, err)
 
-	resultData := json.RawMessage(`{"secrets":[]}`)
+	resultData := json.RawMessage(`{"result":{"payload":"r"},"signature":{}}`)
 	response := jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      "req-ratelimit",
@@ -508,7 +452,7 @@ func TestConfidentialRelayHandler_RateLimitedNode(t *testing.T) {
 func TestConfidentialRelayHandler_LateNodeResponse(t *testing.T) {
 	h, cb, _, _ := setupHandler(t, 4)
 
-	resultData := json.RawMessage(`{"secrets":[]}`)
+	resultData := json.RawMessage(`{"result":{},"signature":{}}`)
 	staleResponse := jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      "nonexistent-request",
@@ -679,39 +623,4 @@ func TestConfidentialRelayHandler_FanOutToNodes_IsConcurrent(t *testing.T) {
 	assert.Equal(t, 2, started)
 }
 
-func TestConfidentialRelayHandler_CapabilityExecMethod(t *testing.T) {
-	h, cb, don, _ := setupHandler(t, 4)
-	h.aggregator = &respondingMockAggregator{}
-	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-
-	params := json.RawMessage(`{"workflow_id":"wf1","capability_id":"cap1","payload":"data"}`)
-	req := jsonrpc.Request[json.RawMessage]{
-		ID:     "req-cap",
-		Method: MethodCapabilityExec,
-		Params: &params,
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
-		assert.Equal(t, api.NoError, resp.ErrorCode)
-	}()
-
-	err := h.HandleJSONRPCUserMessage(t.Context(), req, cb)
-	require.NoError(t, err)
-
-	resultData := json.RawMessage(`{"payload":"result"}`)
-	response := jsonrpc.Response[json.RawMessage]{
-		Version: jsonrpc.JsonRpcVersion,
-		ID:      "req-cap",
-		Method:  MethodCapabilityExec,
-		Result:  &resultData,
-	}
-	err = h.HandleNodeMessage(t.Context(), &response, "0x0000")
-	require.NoError(t, err)
-	wg.Wait()
-	don.AssertCalled(t, "SendToNode", mock.Anything, mock.Anything, mock.Anything)
-}
+func ptr[T any](v T) *T { return &v }

@@ -615,12 +615,16 @@ func (h *Handler) signSecretsResponse(
 		return nil, err
 	}
 
+	sig := confidentialrelaytypes.RelayResponseSignature{
+		Signer:    h.responseSigner.PublicKey(),
+		Signature: signature,
+	}
 	return &confidentialrelaytypes.SignedSecretsResponseResult{
-		Result: *result,
-		Signatures: []confidentialrelaytypes.RelayResponseSignature{{
-			Signer:    h.responseSigner.PublicKey(),
-			Signature: signature,
-		}},
+		Result:    *result,
+		Signature: sig,
+		// Deprecated: kept populated during the migration window so any reader still
+		// on the array field continues to work; remove once nothing reads Signatures.
+		Signatures: []confidentialrelaytypes.RelayResponseSignature{sig},
 	}, nil
 }
 
@@ -641,12 +645,16 @@ func (h *Handler) signCapabilityResponse(
 		return nil, err
 	}
 
+	sig := confidentialrelaytypes.RelayResponseSignature{
+		Signer:    h.responseSigner.PublicKey(),
+		Signature: signature,
+	}
 	return &confidentialrelaytypes.SignedCapabilityResponseResult{
-		Result: result,
-		Signatures: []confidentialrelaytypes.RelayResponseSignature{{
-			Signer:    h.responseSigner.PublicKey(),
-			Signature: signature,
-		}},
+		Result:    result,
+		Signature: sig,
+		// Deprecated: kept populated during the migration window so any reader still
+		// on the array field continues to work; remove once nothing reads Signatures.
+		Signatures: []confidentialrelaytypes.RelayResponseSignature{sig},
 	}, nil
 }
 
