@@ -8,27 +8,26 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
-	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
-	"github.com/smartcontractkit/mcms"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_with_drip"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+	"github.com/smartcontractkit/mcms"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_with_drip"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc677"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
-
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -817,7 +816,7 @@ func grantDefaultAdminRoleForBurnMintERC20Token(env cldf.Environment, selector u
 }
 
 func addMinterForERC677Token(env cldf.Environment, chain cldf_evm.Chain, tokenAddress common.Address, poolAddress common.Address) error {
-	_, err := operations.ExecuteOperation(env.OperationsBundle, ccipops.GrantMintAndBurnRolesERC677Op, chain, opsevm.EVMCallInput[common.Address]{
+	_, err := operations.ExecuteOperation(env.OperationsBundle, ccipops.GrantMintAndBurnRolesERC677Op, chain, opsutils.EVMCallInput[common.Address]{
 		Address:       tokenAddress,
 		ChainSelector: chain.Selector,
 		CallInput:     poolAddress,

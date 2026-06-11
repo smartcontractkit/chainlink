@@ -7,9 +7,6 @@ import (
 	"sync"
 
 	"github.com/Masterminds/semver/v3"
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/sync/errgroup"
@@ -22,14 +19,15 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
-	opsutil "github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	ccipopsv1_2 "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_2"
 	ccipopsv1_6 "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 )
 
 type ChainContractParams struct {
-	FeeQuoterOpts   *opsevm.ContractOpts
+	FeeQuoterOpts   *opsutils.ContractOpts
 	FeeQuoterParams ccipopsv1_6.FeeQuoterParams
 	OffRampParams   ccipopsv1_6.OffRampParams
 }
@@ -145,7 +143,7 @@ var (
 			if err != nil {
 				return nil, fmt.Errorf("invalid DeployChainContractsSeqConfig: %w", err)
 			}
-			gasBoostConfigs := opsutil.GasBoostConfigsForChainMap(input.ContractParamsPerChain, input.GasBoostConfigPerChain)
+			gasBoostConfigs := opsutils.GasBoostConfigsForChainMap(input.ContractParamsPerChain, input.GasBoostConfigPerChain)
 			out := make(map[uint64]map[string]string)
 			grp := errgroup.Group{}
 			homeChain, ok := deps[input.HomeChainSelector]
@@ -175,13 +173,13 @@ var (
 						if chainAddresses.LegacyRMNAddress == (common.Address{}) {
 							b.Logger.Warnf("No legacy RMN contract found for %s, will not setRMN in RMNRemote", chain.String())
 						}
-						report, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployRMNRemoteOp, chain, opsevm.EVMDeployInput[ccipopsv1_6.DeployRMNRemoteInput]{
+						report, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployRMNRemoteOp, chain, opsutils.EVMDeployInput[ccipopsv1_6.DeployRMNRemoteInput]{
 							ChainSelector: chainSelector,
 							DeployInput: ccipopsv1_6.DeployRMNRemoteInput{
 								ChainSelector: chainSelector,
 								RMNLegacyAddr: chainAddresses.LegacyRMNAddress,
 							},
-						}, opsevm.RetryDeploymentWithGasBoost[ccipopsv1_6.DeployRMNRemoteInput](gasBoostConfigs[chainSelector]))
+						}, opsutils.RetryDeploymentWithGasBoost[ccipopsv1_6.DeployRMNRemoteInput](gasBoostConfigs[chainSelector]))
 						if err != nil {
 							return fmt.Errorf("failed to deploy RMNRemote for %s: %w", chain, err)
 						}
@@ -197,7 +195,7 @@ var (
 						return fmt.Errorf("failed to check if RMNRemote config is set for %s: %w", chain, err)
 					}
 					if !set {
-						_, err = operations.ExecuteOperation(b, ccipopsv1_6.SetRMNRemoteConfigOp, chain, opsevm.EVMCallInput[rmn_remote.RMNRemoteConfig]{
+						_, err = operations.ExecuteOperation(b, ccipopsv1_6.SetRMNRemoteConfigOp, chain, opsutils.EVMCallInput[rmn_remote.RMNRemoteConfig]{
 							Address:       rmnRemoteAddress,
 							NoSend:        false,
 							ChainSelector: chainSelector,
@@ -208,7 +206,7 @@ var (
 								},
 								FSign: 0,
 							},
-						}, opsevm.RetryCallWithGasBoost[rmn_remote.RMNRemoteConfig](gasBoostConfigs[chainSelector]))
+						}, opsutils.RetryCallWithGasBoost[rmn_remote.RMNRemoteConfig](gasBoostConfigs[chainSelector]))
 						if err != nil {
 							return fmt.Errorf("failed to set RMNRemote config for chain %d: %w", chainSelector, err)
 						}
@@ -217,14 +215,14 @@ var (
 					}
 					// Deploy Test Router if not already deployed
 					if chainAddresses.TestRouterAddress == (common.Address{}) {
-						report, err := operations.ExecuteOperation(b, ccipopsv1_2.DeployTestRouter, chain, opsevm.EVMDeployInput[ccipopsv1_2.DeployRouterInput]{
+						report, err := operations.ExecuteOperation(b, ccipopsv1_2.DeployTestRouter, chain, opsutils.EVMDeployInput[ccipopsv1_2.DeployRouterInput]{
 							ChainSelector: chainSelector,
 							DeployInput: ccipopsv1_2.DeployRouterInput{
 								ChainSelector: chainSelector,
 								RMNProxy:      chainAddresses.RMNProxyAddress,
 								WethAddress:   chainAddresses.WrappedNativeAddress,
 							},
-						}, opsevm.RetryDeploymentWithGasBoost[ccipopsv1_2.DeployRouterInput](gasBoostConfigs[chainSelector]))
+						}, opsutils.RetryDeploymentWithGasBoost[ccipopsv1_2.DeployRouterInput](gasBoostConfigs[chainSelector]))
 						if err != nil {
 							return fmt.Errorf("failed to deploy test router for %s: %w", chain, err)
 						}
@@ -233,10 +231,10 @@ var (
 					}
 					// Deploy NonceManager if not already deployed
 					if chainAddresses.NonceManagerAddress == (common.Address{}) {
-						report, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployNonceManagerOp, chain, opsevm.EVMDeployInput[[]common.Address]{
+						report, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployNonceManagerOp, chain, opsutils.EVMDeployInput[[]common.Address]{
 							ChainSelector: chainSelector,
 							DeployInput:   []common.Address{},
-						}, opsevm.RetryDeploymentWithGasBoost[[]common.Address](gasBoostConfigs[chainSelector]))
+						}, opsutils.RetryDeploymentWithGasBoost[[]common.Address](gasBoostConfigs[chainSelector]))
 						if err != nil {
 							return fmt.Errorf("failed to deploy nonce manager for %s: %w", chain, err)
 						}
@@ -248,7 +246,7 @@ var (
 					}
 					// Deploy FeeQuoter if not already deployed
 					if chainAddresses.FeeQuoterAddress == (common.Address{}) {
-						report, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployFeeQuoterOp, chain, opsevm.EVMDeployInput[ccipopsv1_6.DeployFeeQInput]{
+						report, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployFeeQuoterOp, chain, opsutils.EVMDeployInput[ccipopsv1_6.DeployFeeQInput]{
 							ChainSelector: chainSelector,
 							ContractOpts:  contractParams.FeeQuoterOpts,
 							DeployInput: ccipopsv1_6.DeployFeeQInput{
@@ -260,7 +258,7 @@ var (
 								// Deployer key should be removed sometime after initial deployment
 								PriceUpdaters: []common.Address{chainAddresses.TimelockAddress, chain.DeployerKey.From},
 							},
-						}, opsevm.RetryDeploymentWithGasBoost[ccipopsv1_6.DeployFeeQInput](gasBoostConfigs[chainSelector]))
+						}, opsutils.RetryDeploymentWithGasBoost[ccipopsv1_6.DeployFeeQInput](gasBoostConfigs[chainSelector]))
 						if err != nil {
 							return fmt.Errorf("failed to deploy fee quoter for %s: %w", chain, err)
 						}
@@ -279,7 +277,7 @@ var (
 						if feeAggregator == (common.Address{}) {
 							feeAggregator = chain.DeployerKey.From
 						}
-						report, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployOnRampOp, chain, opsevm.EVMDeployInput[ccipopsv1_6.DeployOnRampInput]{
+						report, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployOnRampOp, chain, opsutils.EVMDeployInput[ccipopsv1_6.DeployOnRampInput]{
 							ChainSelector: chainSelector,
 							DeployInput: ccipopsv1_6.DeployOnRampInput{
 								ChainSelector:      chainSelector,
@@ -289,7 +287,7 @@ var (
 								FeeQuoter:          feeQuoterAddress,
 								FeeAggregator:      feeAggregator,
 							},
-						}, opsevm.RetryDeploymentWithGasBoost[ccipopsv1_6.DeployOnRampInput](gasBoostConfigs[chainSelector]))
+						}, opsutils.RetryDeploymentWithGasBoost[ccipopsv1_6.DeployOnRampInput](gasBoostConfigs[chainSelector]))
 						if err != nil {
 							return fmt.Errorf("failed to deploy on ramp for %s: %w", chain, err)
 						}
@@ -300,7 +298,7 @@ var (
 					}
 					// Deploy OffRamp if not already deployed
 					if chainAddresses.OffRampAddress == (common.Address{}) {
-						report, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployOffRampOp, chain, opsevm.EVMDeployInput[ccipopsv1_6.DeployOffRampInput]{
+						report, err := operations.ExecuteOperation(b, ccipopsv1_6.DeployOffRampOp, chain, opsutils.EVMDeployInput[ccipopsv1_6.DeployOffRampInput]{
 							ChainSelector: chainSelector,
 							DeployInput: ccipopsv1_6.DeployOffRampInput{
 								Chain:              chainSelector,
@@ -310,7 +308,7 @@ var (
 								TokenAdminRegistry: chainAddresses.TokenAdminRegistryAddress,
 								FeeQuoter:          feeQuoterAddress,
 							},
-						}, opsevm.RetryDeploymentWithGasBoost[ccipopsv1_6.DeployOffRampInput](gasBoostConfigs[chainSelector]))
+						}, opsutils.RetryDeploymentWithGasBoost[ccipopsv1_6.DeployOffRampInput](gasBoostConfigs[chainSelector]))
 						if err != nil {
 							return fmt.Errorf("failed to deploy off ramp for %s: %w", chain, err)
 						}
@@ -322,14 +320,14 @@ var (
 
 					// Add offRamp as an authorized caller on the FeeQuoter
 					if newFeeQuoter {
-						_, err = operations.ExecuteOperation(b, ccipopsv1_6.FeeQApplyAuthorizedCallerOp, chain, opsutil.EVMCallInput[fee_quoter.AuthorizedCallersAuthorizedCallerArgs]{
+						_, err = operations.ExecuteOperation(b, ccipopsv1_6.FeeQApplyAuthorizedCallerOp, chain, opsutils.EVMCallInput[fee_quoter.AuthorizedCallersAuthorizedCallerArgs]{
 							ChainSelector: chainSelector,
 							NoSend:        false,
 							Address:       feeQuoterAddress,
 							CallInput: fee_quoter.AuthorizedCallersAuthorizedCallerArgs{
 								AddedCallers: []common.Address{offRampAddress},
 							},
-						}, opsutil.RetryCallWithGasBoost[fee_quoter.AuthorizedCallersAuthorizedCallerArgs](gasBoostConfigs[chainSelector]))
+						}, opsutils.RetryCallWithGasBoost[fee_quoter.AuthorizedCallersAuthorizedCallerArgs](gasBoostConfigs[chainSelector]))
 						if err != nil {
 							return fmt.Errorf("failed to set off ramp as authorized caller of FeeQuoter on chain %s: %w", chain, err)
 						}
@@ -337,7 +335,7 @@ var (
 					// Add offRamp and onRamp as authorized callers on the NonceManager
 					if newNonceManager {
 						_, err = operations.ExecuteOperation(b, ccipopsv1_6.NonceManagerUpdateAuthorizedCallerOp, chain,
-							opsevm.EVMCallInput[nonce_manager.AuthorizedCallersAuthorizedCallerArgs]{
+							opsutils.EVMCallInput[nonce_manager.AuthorizedCallersAuthorizedCallerArgs]{
 								ChainSelector: chainSelector,
 								NoSend:        false,
 								Address:       nonceManagerAddress,
@@ -347,7 +345,7 @@ var (
 										onRampAddress,
 									},
 								},
-							}, opsevm.RetryCallWithGasBoost[nonce_manager.AuthorizedCallersAuthorizedCallerArgs](gasBoostConfigs[chainSelector]))
+							}, opsutils.RetryCallWithGasBoost[nonce_manager.AuthorizedCallersAuthorizedCallerArgs](gasBoostConfigs[chainSelector]))
 						if err != nil {
 							return fmt.Errorf("failed to set off ramp and on ramp as authorized callers of NonceManager on chain %s: %w", chain, err)
 						}

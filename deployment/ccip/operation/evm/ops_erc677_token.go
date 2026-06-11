@@ -6,12 +6,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	cciptypes "github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 )
 
@@ -20,7 +19,7 @@ type MintERC677Config struct {
 	Amount *big.Int
 }
 
-var MintERC677Op = opsutil.NewEVMCallOperation(
+var MintERC677Op = opsutils.NewEVMCallOperation(
 	"MintERC677Op",
 	&deployment.Version1_0_0,
 	"Mint ERC677 tokens on the specified evm chain",
@@ -32,7 +31,7 @@ var MintERC677Op = opsutil.NewEVMCallOperation(
 	},
 )
 
-var GrantMintAndBurnRolesERC677Op = opsevm.NewEVMCallOperation(
+var GrantMintAndBurnRolesERC677Op = opsutils.NewEVMCallOperation(
 	"GrantMintAndBurnRolesERC677Op",
 	&deployment.Version1_0_0,
 	"Grant MINTER_ROLE and BURNER_ROLE to the specified ERC677 token address",
@@ -44,7 +43,7 @@ var GrantMintAndBurnRolesERC677Op = opsevm.NewEVMCallOperation(
 	},
 )
 
-var RevokeMintRoleERC677Op = opsutil.NewEVMCallOperation(
+var RevokeMintRoleERC677Op = opsutils.NewEVMCallOperation(
 	"RevokeMintRoleERC677Op",
 	&deployment.Version1_0_0,
 	"Revoke MINTER_ROLE from the specified ERC677 token address",
@@ -56,7 +55,7 @@ var RevokeMintRoleERC677Op = opsutil.NewEVMCallOperation(
 	},
 )
 
-var RevokeBurnRoleERC677Op = opsutil.NewEVMCallOperation(
+var RevokeBurnRoleERC677Op = opsutils.NewEVMCallOperation(
 	"RevokeBurnRoleERC677Op",
 	&deployment.Version1_0_0,
 	"Revoke BURNER_ROLE from the specified ERC677 token address",

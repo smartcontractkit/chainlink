@@ -4,12 +4,12 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
-	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 )
 
@@ -18,8 +18,8 @@ type NonceManagerUpdatesSequenceInput struct {
 }
 
 type NonceManagerUpdateInput struct {
-	AuthorizedCallerArgs *opsevm.EVMCallInput[nonce_manager.AuthorizedCallersAuthorizedCallerArgs]
-	PreviousRampsArgs    *opsevm.EVMCallInput[[]nonce_manager.NonceManagerPreviousRampsArgs]
+	AuthorizedCallerArgs *opsutils.EVMCallInput[nonce_manager.AuthorizedCallersAuthorizedCallerArgs]
+	PreviousRampsArgs    *opsutils.EVMCallInput[[]nonce_manager.NonceManagerPreviousRampsArgs]
 }
 
 var (
@@ -27,11 +27,11 @@ var (
 		"UpdateNonceManagerSequence",
 		semver.MustParse("1.0.0"),
 		"Apply updates to the Nonce Manager contract across multiple EVM chains",
-		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input NonceManagerUpdatesSequenceInput) (map[uint64][]opsevm.EVMCallOutput, error) {
-			opOutputs := make(map[uint64][]opsevm.EVMCallOutput, len(input.UpdatesByChain))
+		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input NonceManagerUpdatesSequenceInput) (map[uint64][]opsutils.EVMCallOutput, error) {
+			opOutputs := make(map[uint64][]opsutils.EVMCallOutput, len(input.UpdatesByChain))
 
 			for chainSel, update := range input.UpdatesByChain {
-				chainOutputs := []opsevm.EVMCallOutput{}
+				chainOutputs := []opsutils.EVMCallOutput{}
 				chain, ok := chains[chainSel]
 				if !ok {
 					return nil, fmt.Errorf("chain with selector %d not defined", chainSel)
