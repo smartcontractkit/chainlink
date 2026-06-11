@@ -219,13 +219,19 @@ func runEVMReadBucket(t *testing.T, bucket evm_config.ReadBucket) {
 
 const solanaConfigPath = "/configs/workflow-don-solana.toml"
 
-func Test_CRE_V2_Solana_Suite(t *testing.T) {
+func Test_CRE_V2_Solana_Write(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, solanaConfigPath))
 	t.Run("Solana Write", func(t *testing.T) {
 		ExecuteSolanaWriteTest(t, testEnv)
 	})
-	t.Run("[v2] Solana LogTrigger", func(t *testing.T) {
+}
+
+func Test_CRE_V2_Solana_LogTrigger(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, solanaConfigPath))
+	t.Run("Solana LogTrigger", func(t *testing.T) {
 		ExecuteSolanaLogTriggerTest(t, testEnv)
+	})
+	t.Run("Solana LogTrigger CPI", func(t *testing.T) {
 		ExecuteSolanaLogTriggerCPITest(t, testEnv)
 	})
 }
