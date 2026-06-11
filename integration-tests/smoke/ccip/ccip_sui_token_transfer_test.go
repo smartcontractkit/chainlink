@@ -1894,7 +1894,7 @@ func waitForSuiRPCSyncWithOptions(t *testing.T, suiChain sui.Chain, timeout time
 	ctx, cancel := context.WithTimeout(t.Context(), timeout)
 	defer cancel()
 
-	before, err := suiChain.Client.SuiGetLatestCheckpointSequenceNumber(ctx)
+	beforeCheckpoint, err := suiChain.Client.GetLatestCheckpoint(ctx)
 	if err != nil {
 		t.Logf("waitForSuiRPCSync: failed to read initial checkpoint seq (%v); falling back to fixed sleep", err)
 		// Use context-aware sleep instead of fixed sleep
@@ -1911,6 +1911,8 @@ func waitForSuiRPCSyncWithOptions(t *testing.T, suiChain sui.Chain, timeout time
 		}
 	}
 
+	before := beforeCheckpoint.GetSequenceNumber()
+
 	t.Logf("waitForSuiRPCSync: starting sync wait from checkpoint %d (timeout: %v, minAdvance: %d)", before, timeout, minAdvance)
 
 	// Use context deadline instead of separate time tracking
@@ -1923,12 +1925,13 @@ func waitForSuiRPCSyncWithOptions(t *testing.T, suiChain sui.Chain, timeout time
 			t.Logf("waitForSuiRPCSync: timeout waiting for checkpoint to advance from %d (context: %v)", before, ctx.Err())
 			return
 		case <-ticker.C:
-			after, cerr := suiChain.Client.SuiGetLatestCheckpointSequenceNumber(ctx)
+			afterCheckpoint, cerr := suiChain.Client.GetLatestCheckpoint(ctx)
 			if cerr != nil {
 				// Log but continue - network might be temporarily unavailable
 				t.Logf("waitForSuiRPCSync: temporary error reading checkpoint: %v", cerr)
 				continue
 			}
+			after := afterCheckpoint.GetSequenceNumber()
 
 			// Check if we've advanced enough checkpoints
 			if after >= before+minAdvance {
