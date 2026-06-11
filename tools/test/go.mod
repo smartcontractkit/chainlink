@@ -6,7 +6,7 @@ require (
 	charm.land/lipgloss/v2 v2.0.3
 	github.com/charmbracelet/x/term v0.2.2
 	github.com/jackc/pgx/v5 v5.10.0
-	github.com/smartcontractkit/testrig v0.0.6
+	github.com/smartcontractkit/testrig v0.0.7
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.42.0
@@ -38,7 +38,7 @@ require (
 	github.com/docker/go-connections v0.7.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/ebitengine/purego v0.10.1 // indirect
-	github.com/felixge/httpsnoop v1.0.4 // indirect
+	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
