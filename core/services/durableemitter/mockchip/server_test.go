@@ -217,8 +217,8 @@ func TestMockServer_DrainsAfterOutageRestored(t *testing.T) {
 
 	const sent = 25
 	ctx := t.Context()
-	for i := 0; i < sent; i++ {
-		require.NoError(t, em.Emit(ctx, []byte(fmt.Sprintf("payload-%d", i)),
+	for i := range sent {
+		require.NoError(t, em.Emit(ctx, fmt.Appendf(nil, "payload-%d", i),
 			"source", "mockchip-test", "type", "test.event"))
 	}
 
@@ -259,34 +259,30 @@ func TestHTTPController_OutageToggleAndStats(t *testing.T) {
 	})
 
 	base := "http://" + httpAddr
+	ctx := t.Context()
 
 	// Healthz
-	resp, err := http.Get(base + "/healthz")
-	require.NoError(t, err)
+	resp := doRequest(t, ctx, http.MethodGet, base+"/healthz")
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	_ = resp.Body.Close()
 
 	// Outage on -> stats reflects it
-	resp, err = http.Post(base+"/outage/on", "application/json", nil)
-	require.NoError(t, err)
+	resp = doRequest(t, ctx, http.MethodPost, base+"/outage/on")
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	_ = resp.Body.Close()
 
-	resp, err = http.Get(base + "/stats")
-	require.NoError(t, err)
+	resp = doRequest(t, ctx, http.MethodGet, base+"/stats")
 	var stats mockchip.Stats
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&stats))
 	_ = resp.Body.Close()
 	assert.True(t, stats.OutageActive)
 
 	// Outage off -> stats reflects it
-	resp, err = http.Post(base+"/outage/off", "application/json", nil)
-	require.NoError(t, err)
+	resp = doRequest(t, ctx, http.MethodPost, base+"/outage/off")
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	_ = resp.Body.Close()
 
-	resp, err = http.Get(base + "/stats")
-	require.NoError(t, err)
+	resp = doRequest(t, ctx, http.MethodGet, base+"/stats")
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&stats))
 	_ = resp.Body.Close()
 	assert.False(t, stats.OutageActive)
@@ -298,8 +294,7 @@ func TestHTTPController_OutageToggleAndStats(t *testing.T) {
 		"source", "mockchip-test", "type", "test.event"))
 	require.NoError(t, srv.WaitFor(testCtx(t, 5*time.Second), 1))
 
-	resp, err = http.Get(base + "/events")
-	require.NoError(t, err)
+	resp = doRequest(t, ctx, http.MethodGet, base+"/events")
 	var events []mockchip.EventSummary
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&events))
 	_ = resp.Body.Close()
@@ -308,11 +303,19 @@ func TestHTTPController_OutageToggleAndStats(t *testing.T) {
 	assert.Equal(t, "test.event", events[0].Type)
 
 	// Reset clears captured events
-	resp, err = http.Post(base+"/reset", "application/json", nil)
-	require.NoError(t, err)
+	resp = doRequest(t, ctx, http.MethodPost, base+"/reset")
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	_ = resp.Body.Close()
 	assert.Equal(t, 0, srv.CapturedCount())
+}
+
+func doRequest(t *testing.T, ctx context.Context, method, url string) *http.Response {
+	t.Helper()
+	req, err := http.NewRequestWithContext(ctx, method, url, nil)
+	require.NoError(t, err)
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	return resp
 }
 
 // testCtx returns a context that's cancelled at test cleanup or after timeout,
