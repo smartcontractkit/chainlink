@@ -3,7 +3,7 @@
 set -euo pipefail
 
 # latest release tag
-GIT_TAG="v0.61.10"
+GIT_TAG="v0.70.2"
 
 CHECKOUT_DIR="${HOME}/wasmd-checkout"
 BUILD_DIR="${HOME}/wasmd-build"
