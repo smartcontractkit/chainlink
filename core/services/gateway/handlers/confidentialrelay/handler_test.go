@@ -184,10 +184,10 @@ func TestConfidentialRelayHandler_ForwardsBundleAtQuorum(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, api.NoError, resp.ErrorCode)
 		var jsonResp jsonrpc.Response[json.RawMessage]
-		require.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
-		require.NotNil(t, jsonResp.Result)
+		assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
+		assert.NotNil(t, jsonResp.Result)
 		var bundle relaytypes.SignedCapabilityResponseBundle
-		require.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle))
+		assert.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle))
 		assert.Len(t, bundle.Responses, 3, "the gateway forwards every collected response")
 	}()
 
@@ -196,13 +196,13 @@ func TestConfidentialRelayHandler_ForwardsBundleAtQuorum(t *testing.T) {
 
 	// First two responses do not reach the 2F+1 threshold: no callback yet.
 	for i := range 2 {
-		err = h.HandleNodeMessage(t.Context(), ptr(capExecSignedResponse(t, "req-quorum", result, []byte(fmt.Sprintf("signer-%d", i)))), fmt.Sprintf("0x%04d", i))
+		err = h.HandleNodeMessage(t.Context(), capExecSignedRespPtr(t, "req-quorum", result, fmt.Appendf(nil, "signer-%d", i)), fmt.Sprintf("0x%04d", i))
 		require.NoError(t, err)
 	}
 	require.NotNil(t, h.getActiveRequest(req.ID), "request stays active below the 2F+1 threshold")
 
 	// Third response reaches 2F+1 and triggers the forward.
-	err = h.HandleNodeMessage(t.Context(), ptr(capExecSignedResponse(t, "req-quorum", result, []byte("signer-2"))), "0x0002")
+	err = h.HandleNodeMessage(t.Context(), capExecSignedRespPtr(t, "req-quorum", result, []byte("signer-2")), "0x0002")
 	require.NoError(t, err)
 	wg.Wait()
 }
@@ -228,9 +228,9 @@ func TestConfidentialRelayHandler_ForwardsAllDivergentResponses(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, api.NoError, resp.ErrorCode)
 		var jsonResp jsonrpc.Response[json.RawMessage]
-		require.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
+		assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
 		var bundle relaytypes.SignedCapabilityResponseBundle
-		require.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle))
+		assert.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle))
 		assert.Len(t, bundle.Responses, 3, "divergent and matching responses are all forwarded untouched")
 	}()
 
@@ -239,11 +239,11 @@ func TestConfidentialRelayHandler_ForwardsAllDivergentResponses(t *testing.T) {
 
 	divergent := relaytypes.CapabilityResponseResult{Payload: "DIVERGENT"}
 	match := relaytypes.CapabilityResponseResult{Payload: "match"}
-	err = h.HandleNodeMessage(t.Context(), ptr(capExecSignedResponse(t, "req-diverge", divergent, []byte("signer-0"))), "0x0000")
+	err = h.HandleNodeMessage(t.Context(), capExecSignedRespPtr(t, "req-diverge", divergent, []byte("signer-0")), "0x0000")
 	require.NoError(t, err)
-	err = h.HandleNodeMessage(t.Context(), ptr(capExecSignedResponse(t, "req-diverge", match, []byte("signer-1"))), "0x0001")
+	err = h.HandleNodeMessage(t.Context(), capExecSignedRespPtr(t, "req-diverge", match, []byte("signer-1")), "0x0001")
 	require.NoError(t, err)
-	err = h.HandleNodeMessage(t.Context(), ptr(capExecSignedResponse(t, "req-diverge", match, []byte("signer-2"))), "0x0002")
+	err = h.HandleNodeMessage(t.Context(), capExecSignedRespPtr(t, "req-diverge", match, []byte("signer-2")), "0x0002")
 	require.NoError(t, err)
 	wg.Wait()
 }
@@ -272,7 +272,7 @@ func TestConfidentialRelayHandler_BundlerErrorReturnsFatal(t *testing.T) {
 	require.NoError(t, h.HandleJSONRPCUserMessage(t.Context(), req, cb))
 	result := relaytypes.CapabilityResponseResult{Payload: "x"}
 	for i := range 3 {
-		err := h.HandleNodeMessage(t.Context(), ptr(capExecSignedResponse(t, "req-bundler-err", result, []byte(fmt.Sprintf("s-%d", i)))), fmt.Sprintf("0x%04d", i))
+		err := h.HandleNodeMessage(t.Context(), capExecSignedRespPtr(t, "req-bundler-err", result, fmt.Appendf(nil, "s-%d", i)), fmt.Sprintf("0x%04d", i))
 		require.NoError(t, err)
 	}
 	wg.Wait()
@@ -300,16 +300,16 @@ func TestConfidentialRelayHandler_TimeoutForwardsPartialBundle(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, api.NoError, resp.ErrorCode)
 		var jsonResp jsonrpc.Response[json.RawMessage]
-		require.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
+		assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
 		var bundle relaytypes.SignedCapabilityResponseBundle
-		require.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle))
+		assert.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle))
 		assert.Len(t, bundle.Responses, 2)
 	}()
 
 	require.NoError(t, h.HandleJSONRPCUserMessage(t.Context(), req, cb))
 	result := relaytypes.CapabilityResponseResult{Payload: "x"}
 	for i := range 2 { // below 2F+1=3
-		err := h.HandleNodeMessage(t.Context(), ptr(capExecSignedResponse(t, "req-partial", result, []byte(fmt.Sprintf("s-%d", i)))), fmt.Sprintf("0x%04d", i))
+		err := h.HandleNodeMessage(t.Context(), capExecSignedRespPtr(t, "req-partial", result, fmt.Appendf(nil, "s-%d", i)), fmt.Sprintf("0x%04d", i))
 		require.NoError(t, err)
 	}
 	require.NotNil(t, h.getActiveRequest(req.ID))
@@ -623,4 +623,7 @@ func TestConfidentialRelayHandler_FanOutToNodes_IsConcurrent(t *testing.T) {
 	assert.Equal(t, 2, started)
 }
 
-func ptr[T any](v T) *T { return &v }
+func capExecSignedRespPtr(t *testing.T, id string, result relaytypes.CapabilityResponseResult, signer []byte) *jsonrpc.Response[json.RawMessage] {
+	r := capExecSignedResponse(t, id, result, signer)
+	return &r
+}

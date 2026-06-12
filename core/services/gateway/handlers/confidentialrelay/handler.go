@@ -242,7 +242,7 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 		responses := er.copiedResponses()
 		if len(responses) == 0 {
 			h.lggr.Debugw("request expired with no responses", "requestID", er.req.ID)
-			err := h.sendResponseAndCleanup(ctx, er, h.constructErrorResponse(er.req, api.RequestTimeoutError, fmt.Errorf("request expired: no relay responses received")))
+			err := h.sendResponseAndCleanup(ctx, er, h.constructErrorResponse(er.req, api.RequestTimeoutError, errors.New("request expired: no relay responses received")))
 			if err != nil {
 				h.lggr.Errorw("error sending response to user", "requestID", er.req.ID, "error", err)
 			}
