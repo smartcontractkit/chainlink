@@ -273,6 +273,7 @@ GasLimitDefault = 300000
 Local = false
 PollPeriod = '3s'
 TxAcceptanceState = 3
+RequestSizeLimit = 0
 
 [MultiNode]
 Enabled = false
