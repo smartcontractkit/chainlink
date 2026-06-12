@@ -616,7 +616,7 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
 	ch, ok := cs.(legacyevm.Chain)
 	require.True(t, ok)
 	finalityDepth := ch.Config().EVM().FinalityDepth()
-	for i := 0; i < int(finalityDepth); i++ {
+	for range int(finalityDepth) {
 		backend.Commit()
 	}
 
@@ -771,7 +771,7 @@ func deployUpkeeps(t *testing.T, backend evmtypes.Backend, carrol, steve *bind.T
 	contracts := make([]*log_upkeep_counter_wrapper.LogUpkeepCounter, n)
 	for i := range n {
 		backend.Commit()
-		time.Sleep(100 * time.Millisecond)
+		// time.Sleep(100 * time.Millisecond)
 		upkeepAddr, _, upkeepContract, err := log_upkeep_counter_wrapper.DeployLogUpkeepCounter(
 			carrol, backend.Client(),
 			big.NewInt(100000),
