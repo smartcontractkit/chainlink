@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"testing"
+	"time"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
@@ -19,6 +20,29 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
+
+func TestClientRequest_Expired_aggregationGrace(t *testing.T) {
+	t.Parallel()
+
+	requestTimeout := 100 * time.Millisecond
+	t.Run("not expired before requestTimeout plus grace", func(t *testing.T) {
+		t.Parallel()
+		c := &ClientRequest{
+			createdAt:      time.Now().Add(-requestTimeout - time.Millisecond), // less than defaultResponseAggregationGrace
+			requestTimeout: requestTimeout,
+		}
+		require.False(t, c.Expired())
+	})
+
+	t.Run("expired after requestTimeout plus grace", func(t *testing.T) {
+		t.Parallel()
+		c := &ClientRequest{
+			createdAt:      time.Now().Add(-requestTimeout - defaultResponseAggregationGrace - time.Millisecond),
+			requestTimeout: requestTimeout,
+		}
+		require.True(t, c.Expired())
+	})
+}
 
 func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 	const workflowExecutionID = "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
