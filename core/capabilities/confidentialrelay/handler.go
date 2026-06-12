@@ -502,8 +502,11 @@ func (h *Handler) verifyEnclaveConfigMatchesDON(localNode capabilities.Node, cfg
 		return errors.New("enclave config is required")
 	}
 	expectedF := uint32(localNode.WorkflowDON.F)
-	if cfg.F != expectedF {
-		return fmt.Errorf("enclave config F mismatch: enclave reports %d, expected %d", cfg.F, expectedF)
+	// F is a floor, matching the CC-side check (validateEnclaveSigners): the
+	// enclave's reported F must meet or exceed the DON's fault tolerance. A
+	// higher F is a stricter quorum and is acceptable; a lower one is not.
+	if cfg.F < expectedF {
+		return fmt.Errorf("enclave config F %d does not meet the minimum required DON F %d", cfg.F, expectedF)
 	}
 	if len(cfg.Signers) != len(localNode.WorkflowDON.Members) {
 		return fmt.Errorf("enclave config signers count mismatch: enclave reports %d, expected %d",
