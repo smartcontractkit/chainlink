@@ -1,6 +1,7 @@
 package confidentialrelay
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"encoding/base64"
@@ -8,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -222,21 +224,20 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	if err := h.verifyAttestationHash(ctx, att, params, confidentialrelaytypes.DomainSecretsGet); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
-
-	// LocalNode returns this node's view of its own Workflow DON from the capabilities
-	// registry. We need it for two things below. First, localNode.WorkflowDON.Members is the
-	// set of Workflow DON peer IDs that verifyWorkflowAuthorization checks the compute-request
-	// signatures against, and localNode.WorkflowDON.F is the fault tolerance that sets the
-	// signing quorum. Second, the DON ID and config version go into the vault request metadata
-	// further down. We fetch it once here and pass it into both.
-	//
-	// If the registry read itself fails, that is a node-side problem, not a malformed or
-	// unauthorized request, so it is returned as ErrInternal. Keeping this fetch out of
-	// verifyWorkflowAuthorization matters: that function's errors are all client errors
-	// (ErrInvalidParams), and a registry failure must not be misreported as one.
+	// Fetch the local node once: it provides the WorkflowDON snapshot for both the
+	// enclave-config check and the Workflow-DON authorization check below, plus the DON
+	// metadata on the vault request. A registry read failure is node-side, so ErrInternal.
 	localNode, err := h.capRegistry.LocalNode(ctx)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get local node: %w", err))
+	}
+	// Verify the enclave's reported config matches the onchain DON state
+	// before treating the attested request as trusted: the Nitro attestation
+	// binds the request hash, but a malicious host can produce a
+	// genuinely-attested request over a forged enclave config unless we
+	// compare the config value against the DON reference.
+	if err = h.verifyEnclaveConfigMatchesDON(localNode, params.EnclaveConfig); err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
 
 	// Beyond attestation, verify the Workflow DON authorized this request: the enclave
@@ -410,6 +411,13 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 	if err := h.verifyAttestationHash(ctx, att, params, confidentialrelaytypes.DomainCapabilityExec); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
+	localNode, err := h.capRegistry.LocalNode(ctx)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get local node: %w", err))
+	}
+	if err = h.verifyEnclaveConfigMatchesDON(localNode, params.EnclaveConfig); err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
+	}
 
 	capability, err := h.capRegistry.GetExecutable(ctx, params.CapabilityID)
 	if err != nil {
@@ -480,6 +488,51 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 	}
 
 	return h.jsonResponse(req, signedResult)
+}
+
+// verifyEnclaveConfigMatchesDON compares the enclave's reported EnclaveConfig
+// against the local node's WorkflowDON membership and fault tolerance. The
+// relay DON runs on the same nodes as the workflow DON, so
+// localNode.WorkflowDON.Members is the right comparison target.
+//
+// PRIV-458: the Nitro attestation binds the request hash but does not on its
+// own prove the config matches the DON, so a malicious host could produce a
+// genuinely-attested request over a forged config. Comparing the attested
+// config against onchain DON state closes that gap.
+//
+// localNode is passed in so each request fetches it once (it feeds request
+// metadata too); the caller's lookup is an O(1) in-memory read populated by
+// the registry syncer, so this stays off the RPC hot path.
+//
+// cfg is optional: a nil EnclaveConfig (sender on an older protocol that does
+// not include it) is accepted and skips the check. The config is verified
+// only when present.
+func (h *Handler) verifyEnclaveConfigMatchesDON(localNode capabilities.Node, cfg *confidentialrelaytypes.EnclaveConfig) error {
+	if cfg == nil {
+		return nil
+	}
+	expectedF := uint32(localNode.WorkflowDON.F)
+	if cfg.F != expectedF {
+		return fmt.Errorf("enclave config F mismatch: enclave reports %d, expected %d", cfg.F, expectedF)
+	}
+	if len(cfg.Signers) != len(localNode.WorkflowDON.Members) {
+		return fmt.Errorf("enclave config signers count mismatch: enclave reports %d, expected %d",
+			len(cfg.Signers), len(localNode.WorkflowDON.Members))
+	}
+	expected := make([][]byte, len(localNode.WorkflowDON.Members))
+	for i := range localNode.WorkflowDON.Members {
+		expected[i] = localNode.WorkflowDON.Members[i][:]
+	}
+	actual := append([][]byte(nil), cfg.Signers...)
+	sort.Slice(actual, func(i, j int) bool { return bytes.Compare(actual[i], actual[j]) < 0 })
+	sort.Slice(expected, func(i, j int) bool { return bytes.Compare(expected[i], expected[j]) < 0 })
+	for i := range actual {
+		if !bytes.Equal(actual[i], expected[i]) {
+			return fmt.Errorf("enclave config signer mismatch at sorted index %d: enclave reports %x, expected %x",
+				i, actual[i], expected[i])
+		}
+	}
+	return nil
 }
 
 // getEnclaveAttestationConfig reads the enclave pool configuration from the
