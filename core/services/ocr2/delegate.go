@@ -643,12 +643,10 @@ func GetEVMEffectiveTransmitterID(ctx context.Context, jb *job.Job, evm types.EV
 		var effectiveTransmitterID common.Address
 		// Median forwarders need special handling because of OCR2Aggregator transmitters whitelist.
 		effectiveTransmitterID, err = evm.GetForwarderForEOA(ctx, common.HexToAddress(spec.TransmitterID.String), common.HexToAddress(spec.ContractID), string(spec.PluginType))
-		if err == nil {
-			return effectiveTransmitterID.String(), nil
-		} else if !spec.TransmitterID.Valid {
-			return "", errors.New("failed to get forwarder address and transmitterID is not set")
+		if err != nil {
+			return "", fmt.Errorf("failed to get forwarder address: %w", err)
 		}
-		lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "job", jb.Name, "err", err)
+		return effectiveTransmitterID.String(), nil
 	}
 
 	return spec.TransmitterID.String, nil

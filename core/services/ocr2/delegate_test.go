@@ -124,12 +124,13 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 			expectedTransmitterID: "0x7e58000000000000000000000000000000000000",
 		},
 		{
-			name:                  "when forwarders are enabled but forwarder address fails to be retrieved and when transmitterID is defined, it should default to using spec transmitterID",
+			name:                  "when forwarders are enabled but forwarder address fails to be retrieved, it should return an error (no EOA fallback)",
 			forwardingEnabled:     true,
 			transmitterID:         null.StringFrom("0x7e57000000000000000000000000000000000003"),
 			getForwarderForEOAErr: true,
 			getForwarderForEOAArg: common.HexToAddress("0x7e57000000000000000000000000000000000003"),
-			expectedTransmitterID: "0x7e57000000000000000000000000000000000003",
+			expectedError:         true,
+			expectedTransmitterID: "",
 		},
 	}
 
@@ -185,7 +186,8 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 			}
 
 			require.Equal(t, tc.expectedTransmitterID, effectiveTransmitterID)
-			// when forwarding is enabled effectiveTransmitter differs unless it failed to fetch forwarder address
+			// when forwarding is disabled, the effective transmitter is always the spec transmitterID.
+			// when forwarding is enabled it resolves to the forwarder, or errors if the forwarder cannot be retrieved (no EOA fallback).
 			if !jb.ForwardingAllowed {
 				require.Equal(t, jb.OCR2OracleSpec.TransmitterID.String, effectiveTransmitterID)
 			}
