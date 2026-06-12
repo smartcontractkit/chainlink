@@ -243,7 +243,7 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	// forwards the Workflow-DON-signed compute requests (a 2*F+1 quorum), whose PublicData
 	// names the authorized owner. A TEE breach passes attestation but cannot forge a Workflow
 	// DON quorum over a different owner (PRIV-433).
-	if err := h.verifyWorkflowAuthorization(localNode.WorkflowDON, params); err != nil {
+	if err = h.verifyWorkflowAuthorization(localNode.WorkflowDON, params); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, err)
 	}
 
@@ -600,12 +600,12 @@ func (h *Handler) verifyWorkflowAuthorization(don capabilities.DON, params confi
 
 	// The forwarded requests differ only in their signature; they all sign one shared
 	// ComputeRequest hash. Reconstruct that hash once and verify each signature over it.
-	hash := params.SignedComputeRequests[0].ComputeRequest.Hash()
+	hash := params.SignedComputeRequests[0].Hash()
 	payload := confidentialrelaytypes.SignedComputeRequestSignaturePayload(hash)
 
 	signers := make(map[string]struct{})
 	for _, scr := range params.SignedComputeRequests {
-		if scr.ComputeRequest.Hash() != hash {
+		if scr.Hash() != hash {
 			return errors.New("forwarded signed compute requests do not share one compute request")
 		}
 		for _, member := range don.Members {
