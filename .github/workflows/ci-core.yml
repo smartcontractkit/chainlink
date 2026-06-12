@@ -355,10 +355,6 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           version: mainnet-v1.72.2
 
-      - name: Setup wasmd
-        if: ${{ matrix.type.should-run == 'true' }}
-        uses: ./.github/actions/setup-wasmd
-
       - name: Setup Postgres
         if: ${{ matrix.type.should-run == 'true' }}
         uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/v1
