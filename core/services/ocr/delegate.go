@@ -226,11 +226,10 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 		effectiveTransmitterAddress := concreteSpec.TransmitterAddress.Address()
 		if jb.ForwardingAllowed {
 			fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(ctx, effectiveTransmitterAddress)
-			if fwderr == nil {
-				effectiveTransmitterAddress = fwdrAddress
-			} else {
-				lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "job", jb.Name, "err", fwderr)
+			if fwderr != nil {
+				return nil, errors.Wrap(fwderr, "failed to get forwarder address")
 			}
+			effectiveTransmitterAddress = fwdrAddress
 		}
 
 		cid := chain.ID()
