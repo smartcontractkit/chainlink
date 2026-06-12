@@ -176,3 +176,11 @@ type EthBalMonTransferOwnershipInput struct {
 	// MCMSConfig optionally configures the timelock proposal; when nil, schedule + proposer MCM is used.
 	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config,omitempty"`
 }
+
+// EthBalMonAcceptOwnershipInput is the input to the EthBalMon acceptOwnership changeset.
+// Chains is the list of chain selectors on which to call acceptOwnership on the EthBalMon instance.
+type EthBalMonAcceptOwnershipInput struct {
+	Chains []uint64 `json:"chains"`
+	// MCMSConfig optionally configures the timelock proposal; when nil, schedule + proposer MCM is used.
+	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config,omitempty"`
+}
