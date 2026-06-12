@@ -313,7 +313,7 @@ func TestAuthorizer_JWTPath_RejectsOwnerMismatch(t *testing.T) {
 			req := jsonrpc.Request[json.RawMessage]{
 				ID:     "1",
 				Method: tt.method,
-				Params: (*json.RawMessage)(&params),
+				Params: &params,
 				Auth:   "jwt-token",
 			}
 
@@ -394,7 +394,7 @@ func TestAuthorizer_RejectsOwnerBindingOnMalformedBatches(t *testing.T) {
 			req := jsonrpc.Request[json.RawMessage]{
 				ID:     "1",
 				Method: tt.method,
-				Params: (*json.RawMessage)(&params),
+				Params: &params,
 			}
 
 			allowListBasedAuth := vaultmocks.NewAuthorizer(t)

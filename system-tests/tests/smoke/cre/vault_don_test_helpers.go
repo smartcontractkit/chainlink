@@ -951,7 +951,7 @@ func executeVaultSecretsUpdateOwnerMismatchRejectedTest(
 
 	uniqueRequestID := uuid.New().String()
 	secretsUpdateRequest := vault_helpers.UpdateSecretsRequest{
-		RequestId: uniqueRequestID,
+		RequestId:        uniqueRequestID,
 		EncryptedSecrets: buildEncryptedSecrets(secretID, mismatchedIdentifierOwner, encryptedSecret, []string{namespace}),
 	}
 	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsUpdate, &secretsUpdateRequest)

@@ -435,7 +435,7 @@ func userSecretsMethodParamsForStripPrefixDigest(t *testing.T, method, owner, re
 	case vaulttypes.MethodSecretsDelete:
 		payload = vaultcommon.DeleteSecretsRequest{
 			RequestId: requestID,
-			Ids:         []*vaultcommon.SecretIdentifier{{Owner: owner, Key: "k", Namespace: "main"}},
+			Ids:       []*vaultcommon.SecretIdentifier{{Owner: owner, Key: "k", Namespace: "main"}},
 		}
 	case vaulttypes.MethodSecretsList:
 		payload = vaultcommon.ListSecretIdentifiersRequest{

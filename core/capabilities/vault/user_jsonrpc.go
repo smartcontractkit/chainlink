@@ -23,13 +23,13 @@ type InvalidVaultParamsError struct {
 func (e InvalidVaultParamsError) Error() string {
 	switch e.Method {
 	case vaulttypes.MethodSecretsCreate:
-		return fmt.Sprintf("failed to validate create secrets request: %s", e.Err.Error())
+		return "failed to validate create secrets request: " + e.Err.Error()
 	case vaulttypes.MethodSecretsUpdate:
-		return fmt.Sprintf("failed to validate update secrets request: %s", e.Err.Error())
+		return "failed to validate update secrets request: " + e.Err.Error()
 	case vaulttypes.MethodSecretsDelete:
-		return fmt.Sprintf("failed to validate delete secrets request: %s", e.Err.Error())
+		return "failed to validate delete secrets request: " + e.Err.Error()
 	case vaulttypes.MethodSecretsList:
-		return fmt.Sprintf("failed to validate list secret identifiers request: %s", e.Err.Error())
+		return "failed to validate list secret identifiers request: " + e.Err.Error()
 	default:
 		return e.Err.Error()
 	}
@@ -129,11 +129,11 @@ func stripOwnerPrefixForNodeAuth(req *jsonrpc.Request[json.RawMessage]) error {
 }
 
 func stripPrefixedVaultRequestID(requestID string) (originalRequestID, prefixedOwner string) {
-	idx := strings.Index(requestID, vaulttypes.RequestIDSeparator)
-	if idx == -1 {
+	prefixedOwner, originalRequestID, ok := strings.Cut(requestID, vaulttypes.RequestIDSeparator)
+	if !ok {
 		return requestID, ""
 	}
-	return requestID[idx+len(vaulttypes.RequestIDSeparator):], requestID[:idx]
+	return originalRequestID, prefixedOwner
 }
 
 func normalizeUserJSONRPCParams(method string, params *json.RawMessage, requestID string) (*json.RawMessage, error) {

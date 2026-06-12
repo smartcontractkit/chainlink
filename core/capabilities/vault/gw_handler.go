@@ -63,13 +63,13 @@ type GatewayHandler struct {
 	services.Service
 	eng *services.Engine
 
-	secretsService    vaulttypes.SecretsService
-	gatewayConnector  gatewayConnector
-	authorizer        Authorizer
-	requestValidator  *RequestValidator
-	jwtAuthService    services.Service
-	lggr              logger.Logger
-	metrics           *metrics
+	secretsService   vaulttypes.SecretsService
+	gatewayConnector gatewayConnector
+	authorizer       Authorizer
+	requestValidator *RequestValidator
+	jwtAuthService   services.Service
+	lggr             logger.Logger
+	metrics          *metrics
 
 	// TODO add org resolver? https://smartcontract-it.atlassian.net/browse/CRE-1707
 }

@@ -430,7 +430,7 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	// Prefix request id with authorizedOwner, to ensure uniqueness across different owners
 	// We do this ourselves to ensure the ID is unique and can't be tampered with by the user.
 	req.ID = authorizedOwner + vaulttypes.RequestIDSeparator + req.ID
-	if err := h.RequestValidator.FinalizeAuthorizedJSONRPCRequest(&req, req.ID); err != nil {
+	if err := h.FinalizeAuthorizedJSONRPCRequest(&req, req.ID); err != nil {
 		h.lggr.Errorw("failed to stamp prefixed request ID in params", "method", req.Method, "requestID", req.ID, "error", err)
 		return fmt.Errorf("failed to stamp prefixed request ID in params: %w", err)
 	}
@@ -644,7 +644,7 @@ func (h *handler) handleSecretsList(ctx context.Context, ar *activeRequest) erro
 
 func (h *handler) prepareUserVaultRequest(ctx context.Context, req *jsonrpc.Request[json.RawMessage]) error {
 	_, cachedPublicKey := h.getCachedPublicKey()
-	return h.RequestValidator.PrepareUserJSONRPCRequest(ctx, req, vaultcap.UserJSONRPCValidationOptions{
+	return h.PrepareUserJSONRPCRequest(ctx, req, vaultcap.UserJSONRPCValidationOptions{
 		PublicKey:           cachedPublicKey,
 		SkipLabelValidation: cachedPublicKey == nil,
 	}, false)
@@ -662,6 +662,7 @@ func (h *handler) sendImmediateUserResponse(
 		h.metrics.requestUserError.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("don_id", h.donConfig.DonId),
 		))
+	default:
 	}
 	return callback.SendResponse(h.errorResponse(req, errorCode, err, nil))
 }
