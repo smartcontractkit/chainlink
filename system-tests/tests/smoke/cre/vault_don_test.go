@@ -950,9 +950,7 @@ func executeVaultSecretsIdentifierValidationTest(t *testing.T, encryptedSecret s
 		allowlistRequest(t, owner, req, sethClient, wfRegistryContract)
 		reqBody, err := json.Marshal(req)
 		require.NoError(t, err)
-		// The gateway validates invalid identifiers before forwarding to the DON, so retrying on
-		// a gateway auth timeout (503 "Request timed out") is safe — the DON never receives these
-		// requests and there is no replay-guard risk.
+		// Retry in case DON is still not synced properly
 		var respBody []byte
 		_ = retry.Do(func() error {
 			_, respBody = sendVaultRequestToGateway(t, gatewayURL, reqBody)
