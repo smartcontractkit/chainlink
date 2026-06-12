@@ -49,6 +49,83 @@ func TestBindVaultOwners_RejectsEmptyBatch(t *testing.T) {
 	}
 }
 
+func TestBindVaultOwners_RejectsMalformedBatches(t *testing.T) {
+	owner := "0xauthorized"
+	tests := []struct {
+		name        string
+		method      string
+		params      *json.RawMessage
+		errContains string
+	}{
+		{
+			name:   "create rejects nil encrypted secret",
+			method: vaulttypes.MethodSecretsCreate,
+			params: mustMarshalParams(t, vaultcommon.CreateSecretsRequest{
+				EncryptedSecrets: []*vaultcommon.EncryptedSecret{nil},
+			}),
+			errContains: "encrypted secret must not be nil at index 0",
+		},
+		{
+			name:   "create rejects nil secret id",
+			method: vaulttypes.MethodSecretsCreate,
+			params: mustMarshalParams(t, vaultcommon.CreateSecretsRequest{
+				EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+					{Id: nil, EncryptedValue: "ab"},
+				},
+			}),
+			errContains: "secret ID must not be nil at index 0",
+		},
+		{
+			name:   "update rejects nil encrypted secret",
+			method: vaulttypes.MethodSecretsUpdate,
+			params: mustMarshalParams(t, vaultcommon.UpdateSecretsRequest{
+				EncryptedSecrets: []*vaultcommon.EncryptedSecret{nil},
+			}),
+			errContains: "encrypted secret must not be nil at index 0",
+		},
+		{
+			name:   "delete rejects nil secret identifier",
+			method: vaulttypes.MethodSecretsDelete,
+			params: mustMarshalParams(t, vaultcommon.DeleteSecretsRequest{
+				Ids: []*vaultcommon.SecretIdentifier{nil},
+			}),
+			errContains: "secret ID must not be nil at index 0",
+		},
+		{
+			name:   "create rejects owner mismatch in batch",
+			method: vaulttypes.MethodSecretsCreate,
+			params: mustMarshalParams(t, vaultcommon.CreateSecretsRequest{
+				EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+					{Id: &vaultcommon.SecretIdentifier{Owner: owner, Namespace: "ns", Key: "k0"}, EncryptedValue: "ab"},
+					{Id: &vaultcommon.SecretIdentifier{Owner: "0xother", Namespace: "ns", Key: "k1"}, EncryptedValue: "ab"},
+				},
+			}),
+			errContains: "encrypted secret owner at index 1",
+		},
+		{
+			name:   "delete rejects owner mismatch in batch",
+			method: vaulttypes.MethodSecretsDelete,
+			params: mustMarshalParams(t, vaultcommon.DeleteSecretsRequest{
+				Ids: []*vaultcommon.SecretIdentifier{
+					{Owner: owner, Namespace: "ns", Key: "k0"},
+					{Owner: "0xother", Namespace: "ns", Key: "k1"},
+				},
+			}),
+			errContains: "secret identifier owner at index 1",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := bindVaultOwners(jsonrpc.Request[json.RawMessage]{
+				Method: tc.method,
+				Params: tc.params,
+			}, owner)
+			require.ErrorContains(t, err, tc.errContains)
+		})
+	}
+}
+
 func TestBindVaultOwners_CoversAllUserSecretsMethods(t *testing.T) {
 	owner := "0xauthorized"
 	for _, method := range vaulttypes.UserSecretsMethods {

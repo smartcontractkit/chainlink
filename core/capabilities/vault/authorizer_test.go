@@ -240,6 +240,175 @@ func TestAuthorizer_AllowListPath_RejectsListOwnerMismatch(t *testing.T) {
 	require.ErrorContains(t, err, "list secrets owner \"0xother\" does not match authorized workflow owner \"0xauthorized\"")
 }
 
+func TestAuthorizer_JWTPath_RejectsOwnerMismatch(t *testing.T) {
+	tests := []struct {
+		name        string
+		method      string
+		buildParams func(mismatchedOwner string) json.RawMessage
+		errContains string
+	}{
+		{
+			name:   "create",
+			method: vaulttypes.MethodSecretsCreate,
+			buildParams: func(mismatchedOwner string) json.RawMessage {
+				params, err := json.Marshal(vaultcommon.CreateSecretsRequest{
+					EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+						{Id: &vaultcommon.SecretIdentifier{Owner: mismatchedOwner, Namespace: "ns", Key: "k"}, EncryptedValue: "cipher"},
+					},
+				})
+				require.NoError(t, err)
+				return params
+			},
+			errContains: "encrypted secret owner at index 0",
+		},
+		{
+			name:   "update",
+			method: vaulttypes.MethodSecretsUpdate,
+			buildParams: func(mismatchedOwner string) json.RawMessage {
+				params, err := json.Marshal(vaultcommon.UpdateSecretsRequest{
+					EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+						{Id: &vaultcommon.SecretIdentifier{Owner: mismatchedOwner, Namespace: "ns", Key: "k"}, EncryptedValue: "cipher"},
+					},
+				})
+				require.NoError(t, err)
+				return params
+			},
+			errContains: "encrypted secret owner at index 0",
+		},
+		{
+			name:   "delete",
+			method: vaulttypes.MethodSecretsDelete,
+			buildParams: func(mismatchedOwner string) json.RawMessage {
+				params, err := json.Marshal(vaultcommon.DeleteSecretsRequest{
+					Ids: []*vaultcommon.SecretIdentifier{
+						{Owner: mismatchedOwner, Namespace: "ns", Key: "k"},
+					},
+				})
+				require.NoError(t, err)
+				return params
+			},
+			errContains: "secret identifier owner at index 0",
+		},
+		{
+			name:   "list",
+			method: vaulttypes.MethodSecretsList,
+			buildParams: func(mismatchedOwner string) json.RawMessage {
+				params, err := json.Marshal(vaultcommon.ListSecretIdentifiersRequest{
+					Owner:     mismatchedOwner,
+					Namespace: "ns",
+				})
+				require.NoError(t, err)
+				return params
+			},
+			errContains: "list secrets owner",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mismatchedOwner := "0xother"
+			authorizedOwner := "0xauthorized"
+			params := tt.buildParams(mismatchedOwner)
+
+			req := jsonrpc.Request[json.RawMessage]{
+				ID:     "1",
+				Method: tt.method,
+				Params: (*json.RawMessage)(&params),
+				Auth:   "jwt-token",
+			}
+
+			jwtBasedAuth := vaultmocks.NewAuthorizer(t)
+			jwtBasedAuth.EXPECT().AuthorizeRequest(mock.Anything, req).Return(vault.NewAuthResult("org-1", authorizedOwner, "digest-1", time.Now().Add(time.Minute).Unix()), nil).Once()
+
+			a := vault.NewAuthorizer(nil, jwtBasedAuth, logger.TestLogger(t))
+
+			authResult, err := a.AuthorizeRequest(t.Context(), req)
+			require.Nil(t, authResult)
+			require.ErrorContains(t, err, tt.errContains)
+			require.ErrorContains(t, err, authorizedOwner)
+		})
+	}
+}
+
+func TestAuthorizer_RejectsOwnerBindingOnMalformedBatches(t *testing.T) {
+	authorizedOwner := "0xauthorized"
+	tests := []struct {
+		name        string
+		method      string
+		buildParams func() json.RawMessage
+		errContains string
+	}{
+		{
+			name:   "create empty batch",
+			method: vaulttypes.MethodSecretsCreate,
+			buildParams: func() json.RawMessage {
+				params, err := json.Marshal(vaultcommon.CreateSecretsRequest{EncryptedSecrets: []*vaultcommon.EncryptedSecret{}})
+				require.NoError(t, err)
+				return params
+			},
+			errContains: "request batch must contain at least 1 item",
+		},
+		{
+			name:   "create nil secret id",
+			method: vaulttypes.MethodSecretsCreate,
+			buildParams: func() json.RawMessage {
+				params, err := json.Marshal(vaultcommon.CreateSecretsRequest{
+					EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+						{Id: nil, EncryptedValue: "ab"},
+					},
+				})
+				require.NoError(t, err)
+				return params
+			},
+			errContains: "secret ID must not be nil at index 0",
+		},
+		{
+			name:   "update nil encrypted secret",
+			method: vaulttypes.MethodSecretsUpdate,
+			buildParams: func() json.RawMessage {
+				params, err := json.Marshal(vaultcommon.UpdateSecretsRequest{
+					EncryptedSecrets: []*vaultcommon.EncryptedSecret{nil},
+				})
+				require.NoError(t, err)
+				return params
+			},
+			errContains: "encrypted secret must not be nil at index 0",
+		},
+		{
+			name:   "delete nil secret identifier",
+			method: vaulttypes.MethodSecretsDelete,
+			buildParams: func() json.RawMessage {
+				params, err := json.Marshal(vaultcommon.DeleteSecretsRequest{
+					Ids: []*vaultcommon.SecretIdentifier{nil},
+				})
+				require.NoError(t, err)
+				return params
+			},
+			errContains: "secret ID must not be nil at index 0",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			params := tt.buildParams()
+			req := jsonrpc.Request[json.RawMessage]{
+				ID:     "1",
+				Method: tt.method,
+				Params: (*json.RawMessage)(&params),
+			}
+
+			allowListBasedAuth := vaultmocks.NewAuthorizer(t)
+			allowListBasedAuth.EXPECT().AuthorizeRequest(mock.Anything, req).Return(vault.NewAuthResult("", authorizedOwner, "digest-1", time.Now().Add(time.Minute).Unix()), nil).Once()
+
+			a := vault.NewAuthorizer(allowListBasedAuth, nil, logger.TestLogger(t))
+
+			authResult, err := a.AuthorizeRequest(t.Context(), req)
+			require.Nil(t, authResult)
+			require.ErrorContains(t, err, tt.errContains)
+		})
+	}
+}
+
 func TestAuthorizer_RejectsOwnerBindingWhenParamsMissing(t *testing.T) {
 	allowListBasedAuth := vaultmocks.NewAuthorizer(t)
 	allowListBasedAuth.EXPECT().AuthorizeRequest(mock.Anything, mock.Anything).Return(vault.NewAuthResult("", "0xauthorized", "digest-1", time.Now().Add(time.Minute).Unix()), nil).Once()

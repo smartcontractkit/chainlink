@@ -546,6 +546,42 @@ func tryJWTSignedVaultSecretsUpdate(t *testing.T, jwtAuth vaultRequestAuth, iden
 	framework.L.Info().Msgf("tryJWTSignedVaultSecretsUpdate HTTP status=%d body=%s", statusCode, string(body))
 }
 
+func executeVaultSecretsUpdateBatchOnlyWithAuth(t *testing.T, auth vaultRequestAuth, encryptedSecret, secretID, identifierOwner, expectedResponseOwner, gatewayURL string, namespaces []string) {
+	t.Helper()
+
+	require.Len(t, namespaces, vaulttypes.MaxBatchSize, "update batch-at-limit smoke test expects exactly MaxBatchSize namespaces")
+
+	encryptedSecrets := buildEncryptedSecrets(secretID, identifierOwner, encryptedSecret, namespaces)
+	uniqueRequestID := uuid.New().String()
+	secretsUpdateRequest := vault_helpers.UpdateSecretsRequest{
+		RequestId:        uniqueRequestID,
+		EncryptedSecrets: encryptedSecrets,
+	}
+	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsUpdate, &secretsUpdateRequest)
+	auth.apply(t, &jsonRequest)
+
+	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest)
+	require.Equal(t, uniqueRequestID, jsonResponse.ID)
+	require.Equal(t, vaulttypes.MethodSecretsUpdate, jsonResponse.Method)
+
+	updateSecretsResponse := vault_helpers.UpdateSecretsResponse{}
+	err := protojson.Unmarshal(jsonResponse.Result.Payload, &updateSecretsResponse)
+	require.NoError(t, err, "failed to decode payload into UpdateSecretsResponse proto")
+	require.Len(t, updateSecretsResponse.Responses, len(namespaces))
+
+	updateRespByNs := make(map[string]*vault_helpers.UpdateSecretResponse, len(namespaces))
+	for _, r := range updateSecretsResponse.GetResponses() {
+		updateRespByNs[r.GetId().GetNamespace()] = r
+	}
+	for _, namespace := range namespaces {
+		result, ok := updateRespByNs[namespace]
+		require.True(t, ok, "missing update response for namespace %s", namespace)
+		require.Empty(t, result.GetError())
+		require.Equal(t, secretID, result.GetId().Key)
+		require.Equal(t, expectedResponseOwner, result.GetId().Owner)
+	}
+}
+
 func executeVaultSecretsUpdateWithAuthAndIdentifierOwner(t *testing.T, auth vaultRequestAuth, identifierOwner, encryptedSecret, secretID, expectedResponseOwner, gatewayURL string, namespaces []string) {
 	t.Helper()
 
@@ -680,6 +716,42 @@ func executeVaultSecretsDeleteWithAuth(t *testing.T, auth vaultRequestAuth, secr
 	executeVaultSecretsDeleteWithAuthAndIdentifierOwner(t, auth, auth.requestOwner, secretID, expectedResponseOwner, gatewayURL, namespaces)
 }
 
+func executeVaultSecretsDeleteBatchOnlyWithAuth(t *testing.T, auth vaultRequestAuth, secretID, identifierOwner, expectedResponseOwner, gatewayURL string, namespaces []string) {
+	t.Helper()
+
+	require.Len(t, namespaces, vaulttypes.MaxBatchSize, "delete batch-at-limit smoke test expects exactly MaxBatchSize namespaces")
+
+	deleteIDs := buildSecretIdentifiers(secretID, identifierOwner, namespaces)
+	uniqueRequestID := uuid.New().String()
+	secretsDeleteRequest := vault_helpers.DeleteSecretsRequest{
+		RequestId: uniqueRequestID,
+		Ids:       deleteIDs,
+	}
+	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsDelete, &secretsDeleteRequest)
+	auth.apply(t, &jsonRequest)
+
+	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest)
+	require.Equal(t, uniqueRequestID, jsonResponse.ID)
+	require.Equal(t, vaulttypes.MethodSecretsDelete, jsonResponse.Method)
+
+	deleteSecretsResponse := vault_helpers.DeleteSecretsResponse{}
+	err := protojson.Unmarshal(jsonResponse.Result.Payload, &deleteSecretsResponse)
+	require.NoError(t, err, "failed to decode payload into DeleteSecretResponse proto")
+	require.Len(t, deleteSecretsResponse.Responses, len(namespaces))
+
+	deleteRespByNs := make(map[string]*vault_helpers.DeleteSecretResponse, len(namespaces))
+	for _, r := range deleteSecretsResponse.GetResponses() {
+		deleteRespByNs[r.GetId().GetNamespace()] = r
+	}
+	for _, namespace := range namespaces {
+		result, ok := deleteRespByNs[namespace]
+		require.True(t, ok, "missing delete response for namespace %s", namespace)
+		require.True(t, result.Success, result.Error)
+		require.Equal(t, expectedResponseOwner, result.Id.Owner)
+		require.Equal(t, secretID, result.Id.Key)
+	}
+}
+
 func executeVaultSecretsDeleteWithAuthAndIdentifierOwner(t *testing.T, auth vaultRequestAuth, identifierOwner, secretID, expectedResponseOwner, gatewayURL string, namespaces []string) {
 	t.Helper()
 
@@ -806,6 +878,49 @@ func mustMintVaultJWTForRequestWithExtraClaims(t *testing.T, issuer *stvault.Tes
 // SecretIdentifier.Owner does not match the authenticated workflow owner and expects
 // gateway rejection. PrepareUserJSONRPCRequest may reject at the params layer (label vs
 // identifier owner) before AuthorizeRequest enforces owner binding.
+func executeVaultSecretsListOwnerMismatchRejectedTest(
+	t *testing.T,
+	auth vaultRequestAuth,
+	authorizedOwner, mismatchedOwner, gatewayURL, namespace string,
+) {
+	t.Helper()
+
+	uniqueRequestID := uuid.New().String()
+	secretsListRequest := vault_helpers.ListSecretIdentifiersRequest{
+		RequestId: uniqueRequestID,
+		Owner:     mismatchedOwner,
+		Namespace: namespace,
+	}
+	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsList, &secretsListRequest)
+	auth.apply(t, &jsonRequest)
+
+	jsonResponse := sendVaultJWTRequestToGatewayExpectError(t, gatewayURL, jsonRequest, http.StatusBadRequest)
+	require.Equal(t, uniqueRequestID, jsonResponse.ID)
+	require.NotNil(t, jsonResponse.Error)
+	assertVaultOwnerMismatchRejected(t, jsonResponse, authorizedOwner, mismatchedOwner)
+}
+
+func executeVaultSecretsDeleteOwnerMismatchRejectedTest(
+	t *testing.T,
+	auth vaultRequestAuth,
+	authorizedOwner, mismatchedOwner, secretID, gatewayURL, namespace string,
+) {
+	t.Helper()
+
+	uniqueRequestID := uuid.New().String()
+	secretsDeleteRequest := vault_helpers.DeleteSecretsRequest{
+		RequestId: uniqueRequestID,
+		Ids:       buildSecretIdentifiers(secretID, mismatchedOwner, []string{namespace}),
+	}
+	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsDelete, &secretsDeleteRequest)
+	auth.apply(t, &jsonRequest)
+
+	jsonResponse := sendVaultJWTRequestToGatewayExpectError(t, gatewayURL, jsonRequest, http.StatusBadRequest)
+	require.Equal(t, uniqueRequestID, jsonResponse.ID)
+	require.NotNil(t, jsonResponse.Error)
+	assertVaultOwnerMismatchRejected(t, jsonResponse, authorizedOwner, mismatchedOwner)
+}
+
 func executeVaultSecretsCreateOwnerMismatchRejectedTest(
 	t *testing.T,
 	auth vaultRequestAuth,
@@ -819,6 +934,27 @@ func executeVaultSecretsCreateOwnerMismatchRejectedTest(
 		EncryptedSecrets: buildEncryptedSecrets(secretID, mismatchedIdentifierOwner, encryptedSecret, []string{"main"}),
 	}
 	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsCreate, &secretsCreateRequest)
+	auth.apply(t, &jsonRequest)
+
+	jsonResponse := sendVaultJWTRequestToGatewayExpectError(t, gatewayURL, jsonRequest, http.StatusBadRequest)
+	require.Equal(t, uniqueRequestID, jsonResponse.ID)
+	require.NotNil(t, jsonResponse.Error)
+	assertVaultOwnerMismatchRejected(t, jsonResponse, authorizedOwner, mismatchedIdentifierOwner)
+}
+
+func executeVaultSecretsUpdateOwnerMismatchRejectedTest(
+	t *testing.T,
+	auth vaultRequestAuth,
+	authorizedOwner, mismatchedIdentifierOwner, encryptedSecret, secretID, gatewayURL, namespace string,
+) {
+	t.Helper()
+
+	uniqueRequestID := uuid.New().String()
+	secretsUpdateRequest := vault_helpers.UpdateSecretsRequest{
+		RequestId: uniqueRequestID,
+		EncryptedSecrets: buildEncryptedSecrets(secretID, mismatchedIdentifierOwner, encryptedSecret, []string{namespace}),
+	}
+	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsUpdate, &secretsUpdateRequest)
 	auth.apply(t, &jsonRequest)
 
 	jsonResponse := sendVaultJWTRequestToGatewayExpectError(t, gatewayURL, jsonRequest, http.StatusBadRequest)

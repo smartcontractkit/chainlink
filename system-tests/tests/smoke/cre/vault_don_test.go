@@ -60,6 +60,67 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 	gwURL := fixture.GatewayURL.String()
 	vaultPublicKey := fixture.VaultPublicKey
 
+	t.Run("allowlist_delete_batch_at_limit", func(t *testing.T) {
+		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+		owner := sc.MustGetRootKeyAddress().Hex()
+		wfRegAddr := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+		require.NoError(t, err)
+		requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
+		vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
+		namespaces := make([]string, vaulttypes.MaxBatchSize)
+		for i := range namespaces {
+			namespaces[i] = fmt.Sprintf("batch%d", i)
+		}
+		secretID := uniqueVaultSecretID("deletebatchlimit")
+		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-delete-batch-limit", vaultParsedPublicKey, sc.MustGetRootKeyAddress())
+		require.NoError(t, err)
+		auth := newAllowlistVaultRequestAuth(owner, sc, wfReg)
+		executeVaultSecretsCreateWithAuth(t, auth, encryptedSecret, secretID, owner, gwURL, namespaces)
+		executeVaultSecretsDeleteBatchOnlyWithAuth(t, auth, secretID, owner, owner, gwURL, namespaces)
+	})
+
+	t.Run("allowlist_create_batch_at_limit", func(t *testing.T) {
+		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+		owner := sc.MustGetRootKeyAddress().Hex()
+		wfRegAddr := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+		require.NoError(t, err)
+		requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
+		vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
+		namespaces := make([]string, vaulttypes.MaxBatchSize)
+		for i := range namespaces {
+			namespaces[i] = fmt.Sprintf("createbatch%d", i)
+		}
+		secretID := uniqueVaultSecretID("createbatchlimit")
+		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-create-batch-limit", vaultParsedPublicKey, sc.MustGetRootKeyAddress())
+		require.NoError(t, err)
+		auth := newAllowlistVaultRequestAuth(owner, sc, wfReg)
+		executeVaultSecretsCreateWithAuth(t, auth, encryptedSecret, secretID, owner, gwURL, namespaces)
+	})
+
+	t.Run("allowlist_update_batch_at_limit", func(t *testing.T) {
+		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+		owner := sc.MustGetRootKeyAddress().Hex()
+		wfRegAddr := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+		require.NoError(t, err)
+		requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
+		vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
+		namespaces := make([]string, vaulttypes.MaxBatchSize)
+		for i := range namespaces {
+			namespaces[i] = fmt.Sprintf("updatebatch%d", i)
+		}
+		secretID := uniqueVaultSecretID("updatebatchlimit")
+		createEnc, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-update-batch-limit-create", vaultParsedPublicKey, sc.MustGetRootKeyAddress())
+		require.NoError(t, err)
+		updateEnc, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-update-batch-limit-update", vaultParsedPublicKey, sc.MustGetRootKeyAddress())
+		require.NoError(t, err)
+		auth := newAllowlistVaultRequestAuth(owner, sc, wfReg)
+		executeVaultSecretsCreateWithAuth(t, auth, createEnc, secretID, owner, gwURL, namespaces)
+		executeVaultSecretsUpdateBatchOnlyWithAuth(t, auth, updateEnc, secretID, owner, owner, gwURL, namespaces)
+	})
+
 	t.Run("allowlist_rejects_create_when_identifier_owner_mismatch", func(t *testing.T) {
 		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
 		authorizedOwner := sc.MustGetRootKeyAddress().Hex()
@@ -74,6 +135,22 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		require.NoError(t, err)
 		auth := newAllowlistVaultRequestAuth(authorizedOwner, sc, wfReg)
 		executeVaultSecretsCreateOwnerMismatchRejectedTest(t, auth, authorizedOwner, mismatchedOwner, encryptedSecret, secretID, gwURL)
+	})
+
+	t.Run("allowlist_rejects_update_when_identifier_owner_mismatch", func(t *testing.T) {
+		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+		authorizedOwner := sc.MustGetRootKeyAddress().Hex()
+		mismatchedOwner := common.HexToAddress("0x000000000000000000000000000000000000dEaD").Hex()
+		wfRegAddr := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+		require.NoError(t, err)
+		requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
+		vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
+		secretID := uniqueVaultSecretID("allowlistupdateownermismatch")
+		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-allowlist-update-owner-mismatch", vaultParsedPublicKey, sc.MustGetRootKeyAddress())
+		require.NoError(t, err)
+		auth := newAllowlistVaultRequestAuth(authorizedOwner, sc, wfReg)
+		executeVaultSecretsUpdateOwnerMismatchRejectedTest(t, auth, authorizedOwner, mismatchedOwner, encryptedSecret, secretID, gwURL, "main")
 	})
 
 	t.Run("allowlist_crud_with_workflow_owner_identity", func(t *testing.T) {
@@ -266,6 +343,25 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 		require.NoError(t, err)
 		jwtAuthSkipLabel := newJWTVaultRequestAuth(issuer, orgID, derivedJWTWorkflowOwner, vaultParsedPublicKey, true)
 		executeVaultSecretsCreateOwnerMismatchRejectedTest(t, jwtAuthSkipLabel, derivedJWTWorkflowOwner, workflowOwner, encryptedSecret, secretID, gwURL)
+	})
+
+	t.Run("jwt_rejected_when_list_owner_does_not_match_authorized_owner", func(t *testing.T) {
+		jwtAuthSkipLabel := newJWTVaultRequestAuth(issuer, orgID, derivedJWTWorkflowOwner, vaultParsedPublicKey, true)
+		executeVaultSecretsListOwnerMismatchRejectedTest(t, jwtAuthSkipLabel, derivedJWTWorkflowOwner, workflowOwner, gwURL, "main")
+	})
+
+	t.Run("jwt_rejected_when_delete_identifier_owner_does_not_match_authorized_owner", func(t *testing.T) {
+		secretID := uniqueVaultSecretID("jwtdeleteownermismatch")
+		jwtAuthSkipLabel := newJWTVaultRequestAuth(issuer, orgID, derivedJWTWorkflowOwner, vaultParsedPublicKey, true)
+		executeVaultSecretsDeleteOwnerMismatchRejectedTest(t, jwtAuthSkipLabel, derivedJWTWorkflowOwner, workflowOwner, secretID, gwURL, "main")
+	})
+
+	t.Run("jwt_rejected_when_update_identifier_owner_does_not_match_authorized_owner", func(t *testing.T) {
+		secretID := uniqueVaultSecretID("jwtupdateownermismatch")
+		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-jwt-update-owner-mismatch", vaultParsedPublicKey, derivedJWTWorkflowOwnerAddr)
+		require.NoError(t, err)
+		jwtAuthSkipLabel := newJWTVaultRequestAuth(issuer, orgID, derivedJWTWorkflowOwner, vaultParsedPublicKey, true)
+		executeVaultSecretsUpdateOwnerMismatchRejectedTest(t, jwtAuthSkipLabel, derivedJWTWorkflowOwner, workflowOwner, encryptedSecret, secretID, gwURL, "main")
 	})
 
 	t.Run("jwt_rejected_when_ciphertext_label_is_linked_workflow_owner_but_identifier_owner_is_jwt_derived", func(t *testing.T) {

@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
+	vaultcapmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 
@@ -1144,4 +1145,96 @@ func TestVaultHandler_PublicKeyGet(t *testing.T) {
 
 	assert.Equal(t, jsonRequest.ID, publicKeyResponse.ID, "request ID should match")
 	assert.Equal(t, publicKey, publicKeyResponse.Result.PublicKey, "public key should match")
+}
+
+func TestVaultHandler_PreAuthValidationSkipsAuthorization(t *testing.T) {
+	lggr := logger.Test(t)
+	don := mocks.NewDON(t)
+	donConfig := &config.DONConfig{
+		DonId:   "test_don_id",
+		Members: []config.NodeConfig{NodeOne},
+	}
+	handlerConfig := Config{
+		RequestTimeoutSec: 30,
+		NodeRateLimiter: ratelimit.RateLimiterConfig{
+			GlobalRPS:      100,
+			GlobalBurst:    100,
+			PerSenderRPS:   10,
+			PerSenderBurst: 10,
+		},
+	}
+	methodConfig, err := json.Marshal(handlerConfig)
+	require.NoError(t, err)
+
+	clock := clockwork.NewFakeClock()
+	mockAuthorizer := vaultcapmocks.NewAuthorizer(t)
+
+	h, err := newHandlerWithAuthorizer(
+		methodConfig,
+		donConfig,
+		don,
+		nil,
+		mockAuthorizer,
+		nil,
+		lggr,
+		clock,
+		limits.Factory{Settings: cresettings.DefaultGetter},
+	)
+	require.NoError(t, err)
+
+	t.Run("nil params", func(t *testing.T) {
+		var wg sync.WaitGroup
+		callback := common.NewCallback()
+
+		req := jsonrpc.Request[json.RawMessage]{
+			ID:     "pre-auth-nil-params",
+			Method: vaulttypes.MethodSecretsCreate,
+		}
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp, waitErr := callback.Wait(t.Context())
+			require.NoError(t, waitErr)
+			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
+			require.NoError(t, json.Unmarshal(resp.RawResponse, &secretsResponse))
+			require.Equal(t, req.ID, secretsResponse.ID)
+			require.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code)
+			require.Contains(t, secretsResponse.Error.Message, "request params must not be nil")
+		}()
+
+		require.NoError(t, h.HandleJSONRPCUserMessage(t.Context(), req, callback))
+		wg.Wait()
+		don.AssertNotCalled(t, "SendToNode", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("empty delete batch", func(t *testing.T) {
+		var wg sync.WaitGroup
+		callback := common.NewCallback()
+
+		invalidParams := json.RawMessage(`{"request_id":"req-1","ids":[]}`)
+		req := jsonrpc.Request[json.RawMessage]{
+			ID:     "pre-auth-empty-delete",
+			Method: vaulttypes.MethodSecretsDelete,
+			Params: &invalidParams,
+		}
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp, waitErr := callback.Wait(t.Context())
+			require.NoError(t, waitErr)
+			var secretsResponse jsonrpc.Response[vaultcommon.DeleteSecretsResponse]
+			require.NoError(t, json.Unmarshal(resp.RawResponse, &secretsResponse))
+			require.Equal(t, req.ID, secretsResponse.ID)
+			require.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code)
+			require.Contains(t, secretsResponse.Error.Message, "request batch must contain at least 1 item")
+		}()
+
+		require.NoError(t, h.HandleJSONRPCUserMessage(t.Context(), req, callback))
+		wg.Wait()
+		don.AssertNotCalled(t, "SendToNode", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	mockAuthorizer.AssertNotCalled(t, "AuthorizeRequest", mock.Anything, mock.Anything)
 }

@@ -441,6 +441,59 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 			expectedError: false,
 		},
 		{
+			name: "failure - invalid params skips authorization",
+			setupMocks: func(_ *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, _ *vaultcapmocks.Authorizer) {
+				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
+					return resp.Error != nil &&
+						resp.Error.Code == api.ToJSONRPCErrorCode(api.InvalidParamsError) &&
+						strings.Contains(resp.Error.Message, "request batch must contain at least 1 item")
+				})).Return(nil)
+			},
+			request: &jsonrpc.Request[json.RawMessage]{
+				Method: vaulttypes.MethodSecretsDelete,
+				ID:     "1",
+				Params: func() *json.RawMessage {
+					raw := json.RawMessage(`{"request_id":"req-1","ids":[]}`)
+					return &raw
+				}(),
+			},
+			expectedError: false,
+		},
+		{
+			name: "success - delete secrets batch at limit",
+			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.Authorizer) {
+				ra.EXPECT().AuthorizeRequest(mock.Anything, mock.MatchedBy(func(req jsonrpc.Request[json.RawMessage]) bool {
+					return req.Method == vaulttypes.MethodSecretsDelete && req.ID == "1"
+				})).Return(authResult("", "0xabc"), nil)
+				ss.EXPECT().DeleteSecrets(mock.Anything, mock.MatchedBy(func(req *vaultcommon.DeleteSecretsRequest) bool {
+					return len(req.Ids) == vaulttypes.MaxBatchSize &&
+						req.RequestId == "0xabc"+vaulttypes.RequestIDSeparator+"1"
+				})).Return(&vaulttypes.Response{ID: "batch-delete"}, nil)
+
+				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
+					return resp.Error == nil
+				})).Return(nil)
+			},
+			request: &jsonrpc.Request[json.RawMessage]{
+				Method: vaulttypes.MethodSecretsDelete,
+				ID:     "1",
+				Params: func() *json.RawMessage {
+					ids := make([]*vaultcommon.SecretIdentifier, vaulttypes.MaxBatchSize)
+					for i := range ids {
+						ids[i] = &vaultcommon.SecretIdentifier{
+							Key:       fmt.Sprintf("key%d", i),
+							Namespace: "main",
+							Owner:     "0xAbC",
+						}
+					}
+					params, _ := json.Marshal(vaultcommon.DeleteSecretsRequest{Ids: ids})
+					raw := json.RawMessage(params)
+					return &raw
+				}(),
+			},
+			expectedError: false,
+		},
+		{
 			name: "failure - auth layer rejects cross-owner mutation",
 			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.Authorizer) {
 				ra.EXPECT().AuthorizeRequest(mock.Anything, mock.Anything).Return(authResult("", "0xdef"), nil)
@@ -478,6 +531,11 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 			secretsService := vaulttypesmocks.NewSecretsService(t)
 			gwConnector := connector_mocks.NewGatewayConnector(t)
 			allowListBasedAuth := vaultcapmocks.NewAuthorizer(t)
+			if tt.name == "failure - invalid params skips authorization" {
+				t.Cleanup(func() {
+					allowListBasedAuth.AssertNotCalled(t, "AuthorizeRequest", mock.Anything, mock.Anything)
+				})
+			}
 
 			tt.setupMocks(secretsService, gwConnector, allowListBasedAuth)
 
