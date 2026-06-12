@@ -162,8 +162,7 @@ func executePollerTest(t *testing.T, cfg *Config, allowedLogMessages ...products
 	ctx := t.Context()
 
 	t.Cleanup(func() {
-		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings(allowedLogMessages...))
-		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
+		products.CleanupContainerLogs(t, products.DefaultSettings())
 	})
 
 	outputFile := "../../env-out.toml"
@@ -328,8 +327,7 @@ func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	l := framework.L
 	ctx := t.Context()
 	t.Cleanup(func() {
-		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings(allowedLogMessages...))
-		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
+		products.CleanupContainerLogs(t, products.DefaultSettings(allowedLogMessages...))
 	})
 
 	eventsToEmit := []abi.Event{}
