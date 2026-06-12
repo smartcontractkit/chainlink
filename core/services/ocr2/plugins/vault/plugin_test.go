@@ -1798,6 +1798,307 @@ func TestPlugin_StateTransition_GetSecrets_ReadsCiphertextFromKV(t *testing.T) {
 	require.Equal(t, expectedHex, got)
 }
 
+func TestPlugin_StateTransition_GetSecrets_Ciphertextless_UsesPreRoundCiphertextAfterUpdateInSameRound(t *testing.T) {
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultCiphertextlessObservationsEnabled())
+
+	owner := "0x0001020304050607080900010203040506070809"
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     owner,
+		Namespace: "main",
+		Key:       "my_secret",
+	}
+	kvStore := &kv{m: make(map[string]response)}
+
+	oldCiphertext := []byte("old-encrypted-value")
+	newCiphertext := []byte("new-encrypted-value")
+	metadata, err := proto.Marshal(&vaultcommon.StoredMetadata{
+		SecretIdentifiers: []*vaultcommon.SecretIdentifier{id},
+	})
+	require.NoError(t, err)
+	kvStore.m[keyPrefix+vaulttypes.KeyFor(id)] = response{data: mustMarshalStoredSecret(t, oldCiphertext)}
+	kvStore.m[metadataPrefix+owner] = response{data: metadata}
+
+	updateReq := &vaultcommon.UpdateSecretsRequest{
+		RequestId: "update-req",
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{Id: id, EncryptedValue: hex.EncodeToString(newCiphertext)},
+		},
+	}
+	updateResp := &vaultcommon.UpdateSecretsResponse{
+		Responses: []*vaultcommon.UpdateSecretResponse{{Id: id, Success: false}},
+	}
+	getReq := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{{Id: id}},
+	}
+	getResp := &vaultcommon.GetSecretsResponse{
+		Responses: []*vaultcommon.SecretResponse{
+			{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{
+					Data: &vaultcommon.SecretData{
+						EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
+							{EncryptionKey: "key", Shares: []string{"share-1"}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// "aaa-update" sorts before "zzz-get" so Update runs before Get in StateTransition.
+	obsb := marshalObservationsWithRequestIDs(t,
+		observationWithRequestID{requestID: "aaa-update", id: id, req: updateReq, resp: updateResp},
+		observationWithRequestID{requestID: "zzz-get", id: id, req: getReq, resp: getResp},
+	)
+	reportPrecursor, err := r.StateTransition(
+		t.Context(),
+		1,
+		types.AttributedQuery{},
+		[]types.AttributedObservation{
+			{Observer: 0, Observation: types.Observation(obsb)},
+			{Observer: 1, Observation: types.Observation(obsb)},
+			{Observer: 2, Observation: types.Observation(obsb)},
+		},
+		kvStore,
+		nil,
+	)
+	require.NoError(t, err)
+
+	os := &vaultcommon.Outcomes{}
+	require.NoError(t, proto.Unmarshal(reportPrecursor, os))
+	require.Len(t, os.Outcomes, 2)
+
+	var gotCiphertext string
+	for _, outcome := range os.Outcomes {
+		if outcome.RequestType != vaultcommon.RequestType_GET_SECRETS {
+			continue
+		}
+		gotCiphertext = outcome.GetGetSecretsResponse().Responses[0].GetData().EncryptedValue
+	}
+	require.Equal(t, hex.EncodeToString(oldCiphertext), gotCiphertext)
+
+	stored, err := newTestReadStore(t, kvStore).GetSecret(t.Context(), id)
+	require.NoError(t, err)
+	require.Equal(t, newCiphertext, stored.EncryptedSecret)
+}
+
+func TestPlugin_StateTransition_GetSecrets_Ciphertextless_UsesPreRoundCiphertextAfterDeleteInSameRound(t *testing.T) {
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultCiphertextlessObservationsEnabled())
+
+	owner := "owner"
+	id := &vaultcommon.SecretIdentifier{Owner: owner, Namespace: "main", Key: "secret"}
+	kvStore := &kv{m: make(map[string]response)}
+
+	oldCiphertext := []byte("old-encrypted-value")
+	metadata, err := proto.Marshal(&vaultcommon.StoredMetadata{
+		SecretIdentifiers: []*vaultcommon.SecretIdentifier{id},
+	})
+	require.NoError(t, err)
+	kvStore.m[keyPrefix+vaulttypes.KeyFor(id)] = response{data: mustMarshalStoredSecret(t, oldCiphertext)}
+	kvStore.m[metadataPrefix+owner] = response{data: metadata}
+
+	deleteReq := &vaultcommon.DeleteSecretsRequest{
+		RequestId: "delete-req",
+		Ids:       []*vaultcommon.SecretIdentifier{id},
+	}
+	deleteResp := &vaultcommon.DeleteSecretsResponse{
+		Responses: []*vaultcommon.DeleteSecretResponse{{Id: id, Success: false}},
+	}
+	getReq := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{{Id: id}},
+	}
+	getResp := &vaultcommon.GetSecretsResponse{
+		Responses: []*vaultcommon.SecretResponse{
+			{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{
+					Data: &vaultcommon.SecretData{
+						EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
+							{EncryptionKey: "key", Shares: []string{"share-1"}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	obsb := marshalObservationsWithRequestIDs(t,
+		observationWithRequestID{requestID: "aaa-delete", id: id, req: deleteReq, resp: deleteResp},
+		observationWithRequestID{requestID: "zzz-get", id: id, req: getReq, resp: getResp},
+	)
+	reportPrecursor, err := r.StateTransition(
+		t.Context(),
+		1,
+		types.AttributedQuery{},
+		[]types.AttributedObservation{
+			{Observer: 0, Observation: types.Observation(obsb)},
+			{Observer: 1, Observation: types.Observation(obsb)},
+			{Observer: 2, Observation: types.Observation(obsb)},
+		},
+		kvStore,
+		nil,
+	)
+	require.NoError(t, err)
+
+	os := &vaultcommon.Outcomes{}
+	require.NoError(t, proto.Unmarshal(reportPrecursor, os))
+	require.Len(t, os.Outcomes, 2)
+
+	var gotCiphertext string
+	for _, outcome := range os.Outcomes {
+		if outcome.RequestType != vaultcommon.RequestType_GET_SECRETS {
+			continue
+		}
+		gotCiphertext = outcome.GetGetSecretsResponse().Responses[0].GetData().EncryptedValue
+	}
+	require.Equal(t, hex.EncodeToString(oldCiphertext), gotCiphertext)
+
+	stored, err := newTestReadStore(t, kvStore).GetSecret(t.Context(), id)
+	require.NoError(t, err)
+	require.Nil(t, stored)
+}
+
+func TestPlugin_StateTransition_GetSecrets_Ciphertextless_MultipleUpdatesPreserveOriginalCiphertext(t *testing.T) {
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultCiphertextlessObservationsEnabled())
+
+	owner := "owner"
+	id := &vaultcommon.SecretIdentifier{Owner: owner, Namespace: "main", Key: "secret"}
+	kvStore := &kv{m: make(map[string]response)}
+
+	originalCiphertext := []byte("original-ciphertext")
+	intermediateCiphertext := []byte("intermediate-ciphertext")
+	finalCiphertext := []byte("final-ciphertext")
+	metadata, err := proto.Marshal(&vaultcommon.StoredMetadata{
+		SecretIdentifiers: []*vaultcommon.SecretIdentifier{id},
+	})
+	require.NoError(t, err)
+	kvStore.m[keyPrefix+vaulttypes.KeyFor(id)] = response{data: mustMarshalStoredSecret(t, originalCiphertext)}
+	kvStore.m[metadataPrefix+owner] = response{data: metadata}
+
+	updateReq1 := &vaultcommon.UpdateSecretsRequest{
+		RequestId: "update-req-1",
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{Id: id, EncryptedValue: hex.EncodeToString(intermediateCiphertext)},
+		},
+	}
+	updateResp1 := &vaultcommon.UpdateSecretsResponse{
+		Responses: []*vaultcommon.UpdateSecretResponse{{Id: id, Success: false}},
+	}
+	updateReq2 := &vaultcommon.UpdateSecretsRequest{
+		RequestId: "update-req-2",
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{Id: id, EncryptedValue: hex.EncodeToString(finalCiphertext)},
+		},
+	}
+	updateResp2 := &vaultcommon.UpdateSecretsResponse{
+		Responses: []*vaultcommon.UpdateSecretResponse{{Id: id, Success: false}},
+	}
+	getReq := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{{Id: id}},
+	}
+	getResp := &vaultcommon.GetSecretsResponse{
+		Responses: []*vaultcommon.SecretResponse{
+			{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{
+					Data: &vaultcommon.SecretData{
+						EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
+							{EncryptionKey: "key", Shares: []string{"share-1"}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	obsb := marshalObservationsWithRequestIDs(t,
+		observationWithRequestID{requestID: "aaa-update-1", id: id, req: updateReq1, resp: updateResp1},
+		observationWithRequestID{requestID: "bbb-update-2", id: id, req: updateReq2, resp: updateResp2},
+		observationWithRequestID{requestID: "zzz-get", id: id, req: getReq, resp: getResp},
+	)
+	reportPrecursor, err := r.StateTransition(
+		t.Context(),
+		1,
+		types.AttributedQuery{},
+		[]types.AttributedObservation{
+			{Observer: 0, Observation: types.Observation(obsb)},
+			{Observer: 1, Observation: types.Observation(obsb)},
+			{Observer: 2, Observation: types.Observation(obsb)},
+		},
+		kvStore,
+		nil,
+	)
+	require.NoError(t, err)
+
+	os := &vaultcommon.Outcomes{}
+	require.NoError(t, proto.Unmarshal(reportPrecursor, os))
+	require.Len(t, os.Outcomes, 3)
+
+	var gotCiphertext string
+	for _, outcome := range os.Outcomes {
+		if outcome.RequestType != vaultcommon.RequestType_GET_SECRETS {
+			continue
+		}
+		gotCiphertext = outcome.GetGetSecretsResponse().Responses[0].GetData().EncryptedValue
+	}
+	require.Equal(t, hex.EncodeToString(originalCiphertext), gotCiphertext)
+}
+
+func mustMarshalStoredSecret(t *testing.T, ciphertext []byte) []byte {
+	t.Helper()
+	b, err := proto.Marshal(&vaultcommon.StoredSecret{EncryptedSecret: ciphertext})
+	require.NoError(t, err)
+	return b
+}
+
+type observationWithRequestID struct {
+	requestID string
+	id        *vaultcommon.SecretIdentifier
+	req       proto.Message
+	resp      proto.Message
+}
+
+func marshalObservationsWithRequestIDs(t *testing.T, observations ...observationWithRequestID) []byte {
+	t.Helper()
+	obs := &vaultcommon.Observations{Observations: []*vaultcommon.Observation{}}
+	for _, ob := range observations {
+		o := &vaultcommon.Observation{Id: ob.requestID}
+		switch tr := ob.req.(type) {
+		case *vaultcommon.GetSecretsRequest:
+			o.RequestType = vaultcommon.RequestType_GET_SECRETS
+			o.Request = &vaultcommon.Observation_GetSecretsRequest{GetSecretsRequest: tr}
+		case *vaultcommon.UpdateSecretsRequest:
+			o.RequestType = vaultcommon.RequestType_UPDATE_SECRETS
+			o.Request = &vaultcommon.Observation_UpdateSecretsRequest{UpdateSecretsRequest: tr}
+		case *vaultcommon.DeleteSecretsRequest:
+			o.RequestType = vaultcommon.RequestType_DELETE_SECRETS
+			o.Request = &vaultcommon.Observation_DeleteSecretsRequest{DeleteSecretsRequest: tr}
+		default:
+			t.Fatalf("unsupported request type %T", ob.req)
+		}
+		switch tr := ob.resp.(type) {
+		case *vaultcommon.GetSecretsResponse:
+			o.Response = &vaultcommon.Observation_GetSecretsResponse{GetSecretsResponse: tr}
+		case *vaultcommon.UpdateSecretsResponse:
+			o.Response = &vaultcommon.Observation_UpdateSecretsResponse{UpdateSecretsResponse: tr}
+		case *vaultcommon.DeleteSecretsResponse:
+			o.Response = &vaultcommon.Observation_DeleteSecretsResponse{DeleteSecretsResponse: tr}
+		default:
+			t.Fatalf("unsupported response type %T", ob.resp)
+		}
+		obs.Observations = append(obs.Observations, o)
+	}
+	b, err := proto.Marshal(obs)
+	require.NoError(t, err)
+	return b
+}
+
 func TestPlugin_shaForObservation_OmitsCiphertextWhenCiphertextlessObservationsEnabled(t *testing.T) {
 	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
 	obs := &vaultcommon.Observation{
