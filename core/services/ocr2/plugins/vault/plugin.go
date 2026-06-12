@@ -1008,7 +1008,7 @@ func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, reader ReadK
 		if sr.Id == nil {
 			key = "<nil>"
 		} else {
-			key = vaulttypes.KeyFor(sr.Id)
+			key = vaultutils.KeyFor(sr.Id)
 		}
 		requestsCountForID[key]++
 	}
@@ -1049,8 +1049,8 @@ func (r *ReportingPlugin) observeCreateSecretRequest(ctx context.Context, _ Read
 		return id, err
 	}
 
-	if requestsCountForID[vaulttypes.KeyFor(secretRequest.Id)] > 1 {
-		return id, newUserError("duplicate request for secret identifier " + vaulttypes.KeyFor(id))
+	if requestsCountForID[vaultutils.KeyFor(secretRequest.Id)] > 1 {
+		return id, newUserError("duplicate request for secret identifier " + vaultutils.KeyFor(id))
 	}
 
 	if ierr := r.validator.ValidateCiphertextSize(ctx, secretRequest.Id.Owner, secretRequest.EncryptedValue); ierr != nil {
@@ -1087,7 +1087,7 @@ func (r *ReportingPlugin) observeUpdateSecrets(ctx context.Context, reader ReadK
 		if sr.Id == nil {
 			key = "<nil>"
 		} else {
-			key = vaulttypes.KeyFor(sr.Id)
+			key = vaultutils.KeyFor(sr.Id)
 		}
 		requestsCountForID[key]++
 	}
@@ -1213,7 +1213,7 @@ func (r *ReportingPlugin) observeDeleteSecrets(ctx context.Context, reader ReadK
 		if sr == nil {
 			key = "<nil>"
 		} else {
-			key = vaulttypes.KeyFor(sr)
+			key = vaultutils.KeyFor(sr)
 		}
 		requestsCountForID[key]++
 	}
@@ -1254,8 +1254,8 @@ func (r *ReportingPlugin) observeDeleteSecretRequest(ctx context.Context, reader
 		return id, err
 	}
 
-	if requestsCountForID[vaulttypes.KeyFor(identifier)] > 1 {
-		return id, newUserError("duplicate request for secret identifier " + vaulttypes.KeyFor(id))
+	if requestsCountForID[vaultutils.KeyFor(identifier)] > 1 {
+		return id, newUserError("duplicate request for secret identifier " + vaultutils.KeyFor(id))
 	}
 
 	ss, err := reader.GetSecret(ctx, id)
@@ -1284,13 +1284,11 @@ func (r *ReportingPlugin) validateSecretIdentifier(ctx context.Context, id *vaul
 		return nil, newUserError(err.Error())
 	}
 
-	newID := &vaultcommon.SecretIdentifier{
+	return vaultutils.CanonicalSecretIdentifier(&vaultcommon.SecretIdentifier{
 		Key:       id.Key,
 		Owner:     id.Owner,
 		Namespace: namespace,
-	}
-
-	return newID, nil
+	}), nil
 }
 
 func newUserError(msg string) *userError {
@@ -1508,7 +1506,7 @@ func (r *ReportingPlugin) validateGetSecretsObservation(ctx context.Context, o *
 		if err := r.validator.ValidateSecretIdentifier(ctx, secretResponse.Id.Key, secretResponse.Id.Owner, secretResponse.Id.Namespace); err != nil {
 			return fmt.Errorf("GetSecrets response contains invalid secret identifier: %w", err)
 		}
-		key := vaulttypes.KeyFor(secretResponse.Id)
+		key := vaultutils.KeyFor(secretResponse.Id)
 		if _, ok := respMap[key]; ok {
 			return fmt.Errorf("duplicate response found for item %s", key)
 		}
@@ -1568,12 +1566,12 @@ func (r *ReportingPlugin) validateCreateSecretsObservation(ctx context.Context, 
 		if err := r.validator.ValidateSecretIdentifier(ctx, s.Id.Key, s.Id.Owner, s.Id.Namespace); err != nil {
 			return fmt.Errorf("CreateSecrets request contains invalid secret identifier: %w", err)
 		}
-		_, ok := idSet[vaulttypes.KeyFor(s.Id)]
+		_, ok := idSet[vaultutils.KeyFor(s.Id)]
 		if ok {
 			return fmt.Errorf("CreateSecrets requests cannot contain duplicate request for a given secret identifier: %s", s.Id)
 		}
 
-		idSet[vaulttypes.KeyFor(s.Id)] = true
+		idSet[vaultutils.KeyFor(s.Id)] = true
 
 		if err := r.validator.ValidateCiphertextSize(ctx, s.Id.Owner, s.EncryptedValue); err != nil {
 			return fmt.Errorf("CreateSecrets request: %w", err)
@@ -1612,12 +1610,12 @@ func (r *ReportingPlugin) validateUpdateSecretsObservation(ctx context.Context, 
 		if err := r.validator.ValidateSecretIdentifier(ctx, s.Id.Key, s.Id.Owner, s.Id.Namespace); err != nil {
 			return fmt.Errorf("UpdateSecrets request contains invalid secret identifier: %w", err)
 		}
-		_, ok := idSet[vaulttypes.KeyFor(s.Id)]
+		_, ok := idSet[vaultutils.KeyFor(s.Id)]
 		if ok {
 			return fmt.Errorf("UpdateSecrets requests cannot contain duplicate request for a given secret identifier: %s", s.Id)
 		}
 
-		idSet[vaulttypes.KeyFor(s.Id)] = true
+		idSet[vaultutils.KeyFor(s.Id)] = true
 
 		if err := r.validator.ValidateCiphertextSize(ctx, s.Id.Owner, s.EncryptedValue); err != nil {
 			return fmt.Errorf("UpdateSecrets request: %w", err)
@@ -1656,12 +1654,12 @@ func (r *ReportingPlugin) validateDeleteSecretsObservation(ctx context.Context, 
 		if err := r.validator.ValidateSecretIdentifier(ctx, id.Key, id.Owner, id.Namespace); err != nil {
 			return fmt.Errorf("DeleteSecrets request contains invalid secret identifier: %w", err)
 		}
-		_, ok := idSet[vaulttypes.KeyFor(id)]
+		_, ok := idSet[vaultutils.KeyFor(id)]
 		if ok {
 			return fmt.Errorf("DeleteSecrets requests cannot contain duplicate request for a given secret identifier: %s", id)
 		}
 
-		idSet[vaulttypes.KeyFor(id)] = true
+		idSet[vaultutils.KeyFor(id)] = true
 	}
 
 	for _, r := range o.GetDeleteSecretsResponse().Responses {
@@ -1680,8 +1678,8 @@ func (r *ReportingPlugin) validateListSecretIdentifiersObservation(ctx context.C
 		return errors.New("ListSecretIdentifiers observation must have both request and response")
 	}
 
-	// Passing in owner as key since Validate requires a non-empty key but list secret doesn't have a key
-	if err := r.validator.ValidateSecretIdentifier(ctx, listReq.Owner, listReq.Owner, listReq.Namespace); err != nil {
+	// List requests only carry an owner, not a secret key.
+	if err := r.validator.ValidateSecretIdentifier(ctx, "_", listReq.Owner, listReq.Namespace); err != nil {
 		return fmt.Errorf("ListSecretIdentifiers request contains invalid secret identifier: %w", err)
 	}
 
@@ -1995,7 +1993,7 @@ func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, chosen 
 		reqs := first.GetGetSecretsRequest().Requests
 		idToReqs := map[string]*vaultcommon.SecretRequest{}
 		for _, req := range reqs {
-			idToReqs[vaulttypes.KeyFor(req.Id)] = req
+			idToReqs[vaultutils.KeyFor(req.Id)] = req
 		}
 
 		newReqs := make([]*vaultcommon.SecretRequest, 0, len(idToReqs))
@@ -2018,7 +2016,7 @@ func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, chosen 
 	for _, resp := range chosen {
 		getSecretsResp := resp.GetGetSecretsResponse()
 		for _, rsp := range getSecretsResp.Responses {
-			key := vaulttypes.KeyFor(rsp.Id)
+			key := vaultutils.KeyFor(rsp.Id)
 			mergedResp, ok := idToAggResponse[key]
 			if !ok {
 				resp := &vaultcommon.SecretResponse{
@@ -2099,7 +2097,7 @@ func (r *ReportingPlugin) stateTransitionCreateSecrets(ctx context.Context, stor
 	req := first.GetCreateSecretsRequest().EncryptedSecrets
 	idToReqs := map[string]*vaultcommon.EncryptedSecret{}
 	for _, r := range req {
-		idToReqs[vaulttypes.KeyFor(r.Id)] = r
+		idToReqs[vaultutils.KeyFor(r.Id)] = r
 	}
 
 	if !r.optimizationsEnabled(ctx) {
@@ -2123,7 +2121,7 @@ func (r *ReportingPlugin) stateTransitionCreateSecrets(ctx context.Context, stor
 	resp := first.GetCreateSecretsResponse()
 	idToResps := map[string]*vaultcommon.CreateSecretResponse{}
 	for _, r := range resp.Responses {
-		idToResps[vaulttypes.KeyFor(r.Id)] = r
+		idToResps[vaultutils.KeyFor(r.Id)] = r
 	}
 
 	sortedResps := []*vaultcommon.CreateSecretResponse{}
@@ -2151,7 +2149,7 @@ func (r *ReportingPlugin) stateTransitionCreateSecrets(ctx context.Context, stor
 				Error:   errorMsg,
 			})
 		} else {
-			r.lggr.Debugw("successfully wrote secret to key value store", "method", "CreateSecrets", "key", vaulttypes.KeyFor(req.Id), "requestID", reqID)
+			r.lggr.Debugw("successfully wrote secret to key value store", "method", "CreateSecrets", "key", vaultutils.KeyFor(req.Id), "requestID", reqID)
 			sortedResps = append(sortedResps, resp)
 		}
 	}
@@ -2166,6 +2164,9 @@ func (r *ReportingPlugin) stateTransitionCreateSecrets(ctx context.Context, stor
 func (r *ReportingPlugin) stateTransitionCreateSecretsRequest(ctx context.Context, store WriteKVStore, req *vaultcommon.EncryptedSecret, resp *vaultcommon.CreateSecretResponse) (*vaultcommon.CreateSecretResponse, error) {
 	if resp.GetError() != "" {
 		return resp, newUserError(resp.GetError())
+	}
+	if req.Id != nil {
+		req.Id = vaultutils.CanonicalSecretIdentifier(req.Id)
 	}
 
 	encryptedSecret, err := hex.DecodeString(req.EncryptedValue)
@@ -2220,7 +2221,7 @@ func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, stor
 	req := first.GetUpdateSecretsRequest().EncryptedSecrets
 	idToReqs := map[string]*vaultcommon.EncryptedSecret{}
 	for _, r := range req {
-		idToReqs[vaulttypes.KeyFor(r.Id)] = r
+		idToReqs[vaultutils.KeyFor(r.Id)] = r
 	}
 
 	if !r.optimizationsEnabled(ctx) {
@@ -2244,7 +2245,7 @@ func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, stor
 	resp := first.GetUpdateSecretsResponse()
 	idToResps := map[string]*vaultcommon.UpdateSecretResponse{}
 	for _, r := range resp.Responses {
-		idToResps[vaulttypes.KeyFor(r.Id)] = r
+		idToResps[vaultutils.KeyFor(r.Id)] = r
 	}
 
 	sortedResps := []*vaultcommon.UpdateSecretResponse{}
@@ -2270,7 +2271,7 @@ func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, stor
 				Error:   errorMsg,
 			})
 		} else {
-			r.lggr.Debugw("successfully wrote secret to key value store", "method", "UpdateSecrets", "key", vaulttypes.KeyFor(req.Id), "requestID", reqID)
+			r.lggr.Debugw("successfully wrote secret to key value store", "method", "UpdateSecrets", "key", vaultutils.KeyFor(req.Id), "requestID", reqID)
 			sortedResps = append(sortedResps, resp)
 		}
 	}
@@ -2285,6 +2286,9 @@ func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, stor
 func (r *ReportingPlugin) stateTransitionUpdateSecretsRequest(ctx context.Context, store WriteKVStore, req *vaultcommon.EncryptedSecret, resp *vaultcommon.UpdateSecretResponse) (*vaultcommon.UpdateSecretResponse, error) {
 	if resp.GetError() != "" {
 		return resp, newUserError(resp.GetError())
+	}
+	if req.Id != nil {
+		req.Id = vaultutils.CanonicalSecretIdentifier(req.Id)
 	}
 
 	encryptedSecret, err := hex.DecodeString(req.EncryptedValue)
@@ -2324,7 +2328,7 @@ func (r *ReportingPlugin) stateTransitionDeleteSecrets(ctx context.Context, stor
 	req := first.GetDeleteSecretsRequest().Ids
 	idToReqs := map[string]*vaultcommon.SecretIdentifier{}
 	for _, r := range req {
-		idToReqs[vaulttypes.KeyFor(r)] = r
+		idToReqs[vaultutils.KeyFor(r)] = r
 	}
 
 	if !r.optimizationsEnabled(ctx) {
@@ -2348,7 +2352,7 @@ func (r *ReportingPlugin) stateTransitionDeleteSecrets(ctx context.Context, stor
 	resp := first.GetDeleteSecretsResponse()
 	idToResps := map[string]*vaultcommon.DeleteSecretResponse{}
 	for _, r := range resp.Responses {
-		idToResps[vaulttypes.KeyFor(r.Id)] = r
+		idToResps[vaultutils.KeyFor(r.Id)] = r
 	}
 
 	sortedResps := []*vaultcommon.DeleteSecretResponse{}
@@ -2374,7 +2378,7 @@ func (r *ReportingPlugin) stateTransitionDeleteSecrets(ctx context.Context, stor
 				Error:   errorMsg,
 			})
 		} else {
-			r.lggr.Debugw("successfully deleted secret in key value store", "method", "DeleteSecrets", "key", vaulttypes.KeyFor(req), "requestId", reqID)
+			r.lggr.Debugw("successfully deleted secret in key value store", "method", "DeleteSecrets", "key", vaultutils.KeyFor(req), "requestId", reqID)
 			sortedResps = append(sortedResps, resp)
 		}
 	}
@@ -2390,6 +2394,7 @@ func (r *ReportingPlugin) stateTransitionDeleteSecretsRequest(ctx context.Contex
 	if resp.GetError() != "" {
 		return resp, newUserError(resp.GetError())
 	}
+	id = vaultutils.CanonicalSecretIdentifier(id)
 
 	err := store.DeleteSecret(ctx, id)
 	if err != nil {

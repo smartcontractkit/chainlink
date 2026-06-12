@@ -277,7 +277,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			donConfig,
 			don,
 			nil,
-			&stubAuthorizer{result: vaultcap.NewAuthResult("org-1", "0xworkflow", "digest-1", clock.Now().Add(time.Minute).Unix())},
+			&stubAuthorizer{result: vaultcap.NewAuthResult("org-1", allowlistWorkflowOwner, "digest-1", clock.Now().Add(time.Minute).Unix())},
 			nil,
 			lggr,
 			clock,
@@ -285,7 +285,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		rawPayload := json.RawMessage(`{"request_id":"test_request_id","encrypted_secrets":[{"id":{"key":"test_id","owner":"0xworkflow","namespace":"default"},"encrypted_value":"abc123"}]}`)
+		rawPayload := json.RawMessage(`{"request_id":"test_request_id","encrypted_secrets":[{"id":{"key":"test_id","owner":"` + allowlistWorkflowOwner + `","namespace":"default"},"encrypted_value":"abc123"}]}`)
 
 		var forwarded jsonrpc.Request[json.RawMessage]
 		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
@@ -304,7 +304,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		require.NotNil(t, forwarded.Params)
 		var forwardedCreateRequest vaultcommon.CreateSecretsRequest
 		require.NoError(t, json.Unmarshal(*forwarded.Params, &forwardedCreateRequest))
-		require.Equal(t, "0xworkflow"+vaulttypes.RequestIDSeparator+"1", forwardedCreateRequest.RequestId)
+		require.Equal(t, allowlistWorkflowOwner+vaulttypes.RequestIDSeparator+"1", forwardedCreateRequest.RequestId)
 	})
 
 	t.Run("rejects create when ciphertext label does not match identifier owner", func(t *testing.T) {

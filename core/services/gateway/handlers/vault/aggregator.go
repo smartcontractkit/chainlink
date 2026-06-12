@@ -19,6 +19,7 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
 
 type baseAggregator struct {
@@ -230,7 +231,7 @@ func (a *baseAggregator) validateUsingSignatures(don capabilities.DON, nodes []c
 		signers = append(signers, common.BytesToAddress(n.Signer[0:20]))
 	}
 
-	err = vaulttypes.ValidateSignatures(r, signers, int(don.F+1))
+	err = vaultutils.ValidateSignatures(r, signers, int(don.F+1))
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate signatures: %w", err)
 	}
