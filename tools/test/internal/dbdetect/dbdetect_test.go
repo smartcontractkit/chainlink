@@ -151,6 +151,16 @@ func TestNeedsPostgres(t *testing.T) {
 			},
 			want: true,
 		},
+		{
+			name: "deployment module needs DB (transitive testdb/heavyweight deps)",
+			args: []string{"./deployment/..."},
+			want: true,
+		},
+		{
+			name: "deployment/tokens has no postgres deps",
+			args: []string{"./deployment/tokens/..."},
+			want: false,
+		},
 	}
 
 	for _, tt := range tests {

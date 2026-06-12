@@ -217,7 +217,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 
 	execLogger.Debug("Executing capability ...")
 	c.metrics.With(platform.KeyCapabilityID, request.Id).IncrementCapabilityInvocationCounter(ctx)
-	loggerLabels := *c.loggerLabels.Load()
+	loggerLabels := c.eventLabels()
 	_ = events.EmitCapabilityStartedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, request.Method)
 
 	execCtx, execCancel, err := c.cfg.LocalLimiters.CapabilityCallTime.WithTimeout(ctx)
@@ -311,8 +311,7 @@ func (c *ExecutionHelper) EmitUserMetric(ctx context.Context, metric *eventsv2.W
 		return err
 	}
 	metric.Name = userMetricPrefix + metric.Name + suffix
-	loggerLabels := *c.loggerLabels.Load()
-	return events.EmitUserMetric(ctx, loggerLabels, metric)
+	return events.EmitUserMetric(ctx, c.eventLabels(), metric)
 }
 
 // systemCapabilities lists capability IDs that are internal plumbing and must

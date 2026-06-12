@@ -10,6 +10,7 @@ const (
 	SuiteScenarioCronChipIngressStack
 	SuiteScenarioHTTPTriggerAction
 	SuiteScenarioHTTPActionCRUD
+	SuiteScenarioHTTPActionMultiGateway
 	SuiteScenarioDONTime
 	SuiteScenarioConsensus
 	SuiteScenarioLen
@@ -27,6 +28,8 @@ func (s SuiteScenario) String() string {
 		return "HTTPTriggerAction"
 	case SuiteScenarioHTTPActionCRUD:
 		return "HTTPActionCRUD"
+	case SuiteScenarioHTTPActionMultiGateway:
+		return "HTTPActionMultiGateway"
 	case SuiteScenarioDONTime:
 		return "DONTime"
 	case SuiteScenarioConsensus:
@@ -75,6 +78,7 @@ var suiteBucketRegistry = []suiteBucketDefinition{
 		Scenarios: []SuiteScenario{
 			SuiteScenarioCronChipIngressStack,
 			SuiteScenarioHTTPActionCRUD,
+			SuiteScenarioHTTPActionMultiGateway,
 		},
 	},
 }

@@ -493,16 +493,20 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 // metadata too); the caller's lookup is an O(1) in-memory read populated by
 // the registry syncer, so this stays off the RPC hot path.
 //
-// cfg is optional: a nil EnclaveConfig (sender on an older protocol that does
-// not include it) is accepted and skips the check. The config is verified
-// only when present.
+// cfg is required: a nil EnclaveConfig is rejected. The wire field stays
+// optional in chainlink-common so older senders compile, but the relay is the
+// security boundary and will not service a request that omits the config, since
+// an absent config cannot be checked against onchain DON state.
 func (h *Handler) verifyEnclaveConfigMatchesDON(localNode capabilities.Node, cfg *confidentialrelaytypes.EnclaveConfig) error {
 	if cfg == nil {
-		return nil
+		return errors.New("enclave config is required")
 	}
 	expectedF := uint32(localNode.WorkflowDON.F)
-	if cfg.F != expectedF {
-		return fmt.Errorf("enclave config F mismatch: enclave reports %d, expected %d", cfg.F, expectedF)
+	// F is a floor, matching the CC-side check (validateEnclaveSigners): the
+	// enclave's reported F must meet or exceed the DON's fault tolerance. A
+	// higher F is a stricter quorum and is acceptable; a lower one is not.
+	if cfg.F < expectedF {
+		return fmt.Errorf("enclave config F %d does not meet the minimum required DON F %d", cfg.F, expectedF)
 	}
 	if len(cfg.Signers) != len(localNode.WorkflowDON.Members) {
 		return fmt.Errorf("enclave config signers count mismatch: enclave reports %d, expected %d",

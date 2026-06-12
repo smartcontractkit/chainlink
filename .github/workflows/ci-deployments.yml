@@ -168,8 +168,6 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           version: mainnet-v1.72.2
-      - name: Setup wasmd
-        uses: ./.github/actions/setup-wasmd
       - name: Setup Postgres
         uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/v1
         with:
