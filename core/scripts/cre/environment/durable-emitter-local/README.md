@@ -13,8 +13,8 @@ Chainlink Testing Framework or live Chip Ingress required.
 - `postgres/init.sql` — creates the `cre.chip_durable_events` table (mirrors
   migration `0300_chip_durable_events.sql`)
 - `grafana/provisioning/` — datasource + dashboard provider
-- `generate-dashboard.sh` — renders `grafana/dashboards/durable_emitter.json`
-  from [chainlink-observability/resources/durable_emitter](https://github.com/smartcontractkit/chainlink-observability/tree/main/resources/durable_emitter)
+- `grafana/dashboards/durable_emitter.json` — generated from
+  [chainlink-observability/resources/durable_emitter](https://github.com/smartcontractkit/chainlink-observability/tree/main/resources/durable_emitter)
   (dashboard-as-code; not committed in chainlink)
 - `driver/main.go` — small Go program that builds a real `DurableEmitter` with
   metrics enabled, uses `chipingress.NoopClient` as the transport, and drives
@@ -24,17 +24,20 @@ Chainlink Testing Framework or live Chip Ingress required.
 
 ### 1. Generate the Grafana dashboard
 
-The dashboard lives in **chainlink-observability** as Go code. Clone that repo
-and set `OBSERVABILITY_ROOT` to its path, then render the local load-test JSON
-before starting Grafana:
+The dashboard lives in **chainlink-observability** as Go code. Render the local
+load-test JSON before starting Grafana:
 
 ```bash
 git clone https://github.com/smartcontractkit/chainlink-observability.git
-export OBSERVABILITY_ROOT=/path/to/chainlink-observability
+cd chainlink-observability
 
-cd core/scripts/cre/environment/durable-emitter-local
-chmod +x generate-dashboard.sh
-./generate-dashboard.sh
+mkdir -p /path/to/chainlink/core/scripts/cre/environment/durable-emitter-local/grafana/dashboards
+
+go run ./cmd/generate-durable-emitter-dashboard/main.go \
+  --local-load-test \
+  --format grafana \
+  --dashboard-uid durable-emitter-load-test \
+  --output /path/to/chainlink/core/scripts/cre/environment/durable-emitter-local/grafana/dashboards/durable_emitter.json
 ```
 
 ### 2. Bring up the stack
@@ -94,16 +97,19 @@ The metrics added in this PR/branch:
 - `durable_emitter_insert_coalescer_queue_fill_ratio`
 - `durable_emitter_fallback_in_flight`
 
-These live on `chainlink-common` main (working tree) and aren't yet in the
-pinned `chainlink-common` version that `core/scripts/go.mod` resolves to. To
-exercise them locally, add a temporary replace directive to
-`core/scripts/go.mod`:
+Process CPU / heap panels need `pollProcessGauges` in chainlink-common (and
+the extra batch/coalescer instruments below). Until that version is pinned in
+`core/scripts/go.mod`, add a temporary replace directive:
 
 ```
 replace github.com/smartcontractkit/chainlink-common => /path/to/chainlink-common
 ```
 
-Then `go mod tidy` and rebuild. Revert before opening a PR.
+Then `go mod tidy`, rebuild the driver, and regenerate the Grafana JSON from
+chainlink-observability. Revert the replace before opening a PR.
+
+Additional instruments on recent chainlink-common:
+
 
 `fallback_in_flight` will stay at 0 against `NoopClient` (the noop never
 returns a publish error, so the fallback goroutine is never spawned). To force
