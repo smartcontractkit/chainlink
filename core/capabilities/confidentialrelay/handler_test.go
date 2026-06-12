@@ -739,7 +739,7 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 		require.Nil(t, resp.Error)
 	})
 
-	t.Run("nil config accepted on capability execute (optional)", func(t *testing.T) {
+	t.Run("nil config rejected on capability execute (required)", func(t *testing.T) {
 		reg := withEnclaveConfig(&mockCapRegistry{
 			executables: map[string]*mockExecutable{
 				"my-cap@1.0.0": {execResult: capabilities.CapabilityResponse{Payload: &anypb.Any{}}},
@@ -754,13 +754,13 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 			ReferenceID:   "1",
 			CapabilityID:  "my-cap@1.0.0",
 			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
-			EnclaveConfig: nil, // sender on older protocol; check is skipped
+			EnclaveConfig: nil, // missing config cannot be checked against DON state
 			Attestation:   testAttestationB64,
 		})
 		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
 		require.NoError(t, err)
 		resp := gwConn.lastResp
-		require.Nil(t, resp.Error)
+		require.NotNil(t, resp.Error)
 	})
 
 	t.Run("F mismatch rejected on capability execute", func(t *testing.T) {
