@@ -240,7 +240,7 @@ func TestAuthorizer_AllowListPath_RejectsListOwnerMismatch(t *testing.T) {
 	require.ErrorContains(t, err, "list secrets owner \"0xother\" does not match authorized workflow owner \"0xauthorized\"")
 }
 
-func TestAuthorizer_SkipsOwnerBindingWhenParamsMissing(t *testing.T) {
+func TestAuthorizer_RejectsOwnerBindingWhenParamsMissing(t *testing.T) {
 	allowListBasedAuth := vaultmocks.NewAuthorizer(t)
 	allowListBasedAuth.EXPECT().AuthorizeRequest(mock.Anything, mock.Anything).Return(vault.NewAuthResult("", "0xauthorized", "digest-1", time.Now().Add(time.Minute).Unix()), nil).Once()
 
@@ -250,6 +250,6 @@ func TestAuthorizer_SkipsOwnerBindingWhenParamsMissing(t *testing.T) {
 		ID:     "1",
 		Method: vaulttypes.MethodSecretsCreate,
 	})
-	require.NoError(t, err)
-	require.Equal(t, "0xauthorized", authResult.AuthorizedOwner())
+	require.Nil(t, authResult)
+	require.ErrorContains(t, err, "request params must not be nil")
 }

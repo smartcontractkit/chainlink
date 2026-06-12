@@ -16,7 +16,6 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
@@ -67,24 +66,8 @@ func (s *Capability) Close() error {
 		err = errors.Join(err, fmt.Errorf("error closing vault DON request handler: %w", ierr))
 	}
 
-	if lerr := s.MaxRequestBatchSizeLimiter.Close(); lerr != nil {
-		err = errors.Join(err, fmt.Errorf("error closing request batch size limiter: %w", lerr))
-	}
-
-	if lerr := s.MaxCiphertextLengthLimiter.Close(); lerr != nil {
-		err = errors.Join(err, fmt.Errorf("error closing ciphertext size limiter: %w", lerr))
-	}
-
-	if lerr := s.MaxIdentifierKeyLengthLimiter.Close(); lerr != nil {
-		err = errors.Join(err, fmt.Errorf("error closing identifier key length limiter: %w", lerr))
-	}
-
-	if lerr := s.MaxIdentifierOwnerLengthLimiter.Close(); lerr != nil {
-		err = errors.Join(err, fmt.Errorf("error closing identifier owner length limiter: %w", lerr))
-	}
-
-	if lerr := s.MaxIdentifierNamespaceLengthLimiter.Close(); lerr != nil {
-		err = errors.Join(err, fmt.Errorf("error closing identifier namespace length limiter: %w", lerr))
+	if lerr := s.RequestValidator.Close(); lerr != nil {
+		err = errors.Join(err, fmt.Errorf("error closing request validator: %w", lerr))
 	}
 
 	return err
@@ -338,25 +321,9 @@ func NewCapability(
 	if lifecycle == nil {
 		return nil, errors.New("vault capability requires a non-nil request lifecycle tracker")
 	}
-	limiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultRequestBatchSizeLimit)
+	requestValidator, err := NewRequestValidatorFromLimitsFactory(limitsFactory)
 	if err != nil {
-		return nil, fmt.Errorf("could not create request batch size limiter: %w", err)
-	}
-	ciphertextLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.PerOwner.VaultCiphertextSizeLimit)
-	if err != nil {
-		return nil, fmt.Errorf("could not create ciphertext size limiter: %w", err)
-	}
-	idKeyLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierKeySizeLimit)
-	if err != nil {
-		return nil, fmt.Errorf("could not create identifier key length limiter: %w", err)
-	}
-	idOwnerLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierOwnerSizeLimit)
-	if err != nil {
-		return nil, fmt.Errorf("could not create identifier owner length limiter: %w", err)
-	}
-	idNamespaceLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierNamespaceSizeLimit)
-	if err != nil {
-		return nil, fmt.Errorf("could not create identifier namespace length limiter: %w", err)
+		return nil, err
 	}
 	return &Capability{
 		lggr:                 logger.Named(lggr, "VaultCapability"),
@@ -366,6 +333,6 @@ func NewCapability(
 		capabilitiesRegistry: capabilitiesRegistry,
 		publicKey:            publicKey,
 		lifecycle:            lifecycle,
-		RequestValidator:     NewRequestValidator(limiter, ciphertextLimiter, idKeyLengthLimiter, idOwnerLengthLimiter, idNamespaceLengthLimiter),
+		RequestValidator:     requestValidator,
 	}, nil
 }

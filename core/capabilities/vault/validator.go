@@ -13,6 +13,7 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
@@ -28,6 +29,11 @@ type RequestValidator struct {
 	MaxIdentifierKeyLengthLimiter       limits.BoundLimiter[pkgconfig.Size]
 	MaxIdentifierOwnerLengthLimiter     limits.BoundLimiter[pkgconfig.Size]
 	MaxIdentifierNamespaceLengthLimiter limits.BoundLimiter[pkgconfig.Size]
+
+	// ownsLimiters is true only for validators constructed by NewRequestValidatorFromLimitsFactory.
+	// Callers that inject shared limiters (for example the OCR vault plugin config) must close
+	// those limiters themselves and must not rely on RequestValidator.Close().
+	ownsLimiters bool
 }
 
 func (r *RequestValidator) ValidateCreateSecretsRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, request *vaultcommon.CreateSecretsRequest, skipLabelValidation bool) error {
@@ -190,8 +196,15 @@ func (r *RequestValidator) ValidateDeleteSecretsRequest(ctx context.Context, req
 	if request.RequestId == "" {
 		return errors.New("request ID must not be empty")
 	}
-	if len(request.Ids) >= vaulttypes.MaxBatchSize {
-		return errors.New("request batch size exceeds maximum of " + strconv.Itoa(vaulttypes.MaxBatchSize))
+	if err := r.MaxRequestBatchSizeLimiter.Check(ctx, len(request.Ids)); err != nil {
+		var errBoundLimited limits.ErrorBoundLimited[int]
+		if errors.As(err, &errBoundLimited) {
+			return fmt.Errorf("request batch size exceeds maximum of %d: %w", errBoundLimited.Limit, err)
+		}
+		return fmt.Errorf("failed to check request batch size limit: %w", err)
+	}
+	if len(request.Ids) == 0 {
+		return errors.New("request batch must contain at least 1 item")
 	}
 
 	uniqueIDs := map[string]bool{}
@@ -227,6 +240,48 @@ func NewRequestValidator(
 		MaxIdentifierOwnerLengthLimiter:     maxIdentifierOwnerLengthLimiter,
 		MaxIdentifierNamespaceLengthLimiter: maxIdentifierNamespaceLengthLimiter,
 	}
+}
+
+// Close releases limiter resources when this validator owns them.
+// It is a no-op for validators built with NewRequestValidator using externally managed limiters.
+func (r *RequestValidator) Close() error {
+	if r == nil || !r.ownsLimiters {
+		return nil
+	}
+	return errors.Join(
+		r.MaxRequestBatchSizeLimiter.Close(),
+		r.MaxCiphertextLengthLimiter.Close(),
+		r.MaxIdentifierKeyLengthLimiter.Close(),
+		r.MaxIdentifierOwnerLengthLimiter.Close(),
+		r.MaxIdentifierNamespaceLengthLimiter.Close(),
+	)
+}
+
+// NewRequestValidatorFromLimitsFactory constructs a RequestValidator from CRE limits settings.
+func NewRequestValidatorFromLimitsFactory(limitsFactory limits.Factory) (*RequestValidator, error) {
+	limiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultRequestBatchSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create request batch size limiter: %w", err)
+	}
+	ciphertextLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.PerOwner.VaultCiphertextSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create ciphertext size limiter: %w", err)
+	}
+	idKeyLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierKeySizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create identifier key size limiter: %w", err)
+	}
+	idOwnerLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierOwnerSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create identifier owner size limiter: %w", err)
+	}
+	idNamespaceLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierNamespaceSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create identifier namespace size limiter: %w", err)
+	}
+	validator := NewRequestValidator(limiter, ciphertextLimiter, idKeyLengthLimiter, idOwnerLengthLimiter, idNamespaceLengthLimiter)
+	validator.ownsLimiters = true
+	return validator, nil
 }
 
 // EnsureRightLabelOnSecret verifies that the TDH2 ciphertext label matches the workflow

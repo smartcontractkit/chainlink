@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -35,12 +36,20 @@ const (
 	MaxBatchSize = 10
 )
 
-var Methods = []string{
+// UserSecretsMethods are user-facing JSON-RPC methods that require authorization and
+// carry owner-bound secret identifiers in params.
+var UserSecretsMethods = []string{
 	MethodSecretsCreate,
 	MethodSecretsUpdate,
 	MethodSecretsDelete,
 	MethodSecretsList,
-	MethodPublicKeyGet,
+}
+
+var Methods = append(append([]string(nil), UserSecretsMethods...), MethodPublicKeyGet)
+
+// IsUserSecretsMethod reports whether method is a user-facing secrets management JSON-RPC method.
+func IsUserSecretsMethod(method string) bool {
+	return slices.Contains(UserSecretsMethods, method)
 }
 
 // SignedOCRResponse is the response format for OCR signed reports, as returned by the Vault DON.

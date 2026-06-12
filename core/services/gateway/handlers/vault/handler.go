@@ -227,25 +227,9 @@ func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DO
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
 	}
 
-	limiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultRequestBatchSizeLimit)
+	requestValidator, err := vaultcap.NewRequestValidatorFromLimitsFactory(limitsFactory)
 	if err != nil {
-		return nil, fmt.Errorf("could not create request batch size limiter: %w", err)
-	}
-	ciphertextLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.PerOwner.VaultCiphertextSizeLimit)
-	if err != nil {
-		return nil, fmt.Errorf("could not create ciphertext size limiter: %w", err)
-	}
-	idKeyLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierKeySizeLimit)
-	if err != nil {
-		return nil, fmt.Errorf("could not create identifier key size limiter: %w", err)
-	}
-	idOwnerLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierOwnerSizeLimit)
-	if err != nil {
-		return nil, fmt.Errorf("could not create identifier owner size limiter: %w", err)
-	}
-	idNamespaceLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierNamespaceSizeLimit)
-	if err != nil {
-		return nil, fmt.Errorf("could not create identifier namespace size limiter: %w", err)
+		return nil, err
 	}
 
 	writeMethodsEnabled, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.GatewayVaultManagementEnabled)
@@ -272,7 +256,7 @@ func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DO
 			vaultHandlerDonID:    donConfig.DonId,
 		},
 		clock:            clock,
-		RequestValidator: vaultcap.NewRequestValidator(limiter, ciphertextLimiter, idKeyLengthLimiter, idOwnerLengthLimiter, idNamespaceLengthLimiter),
+		RequestValidator: requestValidator,
 	}, nil
 }
 
@@ -318,7 +302,7 @@ func (h *handler) Close() error {
 		return errors.Join(
 			jwtAuthErr,
 			h.writeMethodsEnabled.Close(),
-			h.MaxRequestBatchSizeLimiter.Close(),
+			h.RequestValidator.Close(),
 		)
 	})
 }
@@ -427,6 +411,14 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		return h.handlePublicKeyGetSynchronously(ctx, req, publicKeyResponseBytes, callback)
 	}
 
+	if !vaulttypes.IsUserSecretsMethod(req.Method) {
+		return h.sendImmediateUserResponse(ctx, req, callback, api.UnsupportedMethodError, errors.New("this method is unsupported: "+req.Method))
+	}
+
+	if err := h.prepareUserVaultRequest(ctx, &req); err != nil {
+		return h.sendImmediateUserResponse(ctx, req, callback, api.InvalidParamsError, err)
+	}
+
 	authResult, authErr := h.authorizer.AuthorizeRequest(ctx, req)
 	if authErr != nil {
 		h.lggr.Errorw("request not authorized", "method", req.Method, "requestID", req.ID, "hasAuth", req.Auth != "", "error", authErr)
@@ -438,6 +430,10 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	// Prefix request id with authorizedOwner, to ensure uniqueness across different owners
 	// We do this ourselves to ensure the ID is unique and can't be tampered with by the user.
 	req.ID = authorizedOwner + vaulttypes.RequestIDSeparator + req.ID
+	if err := h.RequestValidator.FinalizeAuthorizedJSONRPCRequest(&req, req.ID); err != nil {
+		h.lggr.Errorw("failed to stamp prefixed request ID in params", "method", req.Method, "requestID", req.ID, "error", err)
+		return fmt.Errorf("failed to stamp prefixed request ID in params: %w", err)
+	}
 
 	h.lggr.Debugw("handling authorized vault request", "method", req.Method, "requestID", req.ID, "authorizedOwner", authorizedOwner)
 	ar, activeRequestErr := h.newActiveRequest(req, callback)
@@ -608,32 +604,6 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) er
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("error checking if write methods are enabled: "+err.Error()), nil))
 	}
 
-	createSecretsRequest := &vaultcommon.CreateSecretsRequest{}
-	if unmarshalErr := json.Unmarshal(*ar.req.Params, &createSecretsRequest); unmarshalErr != nil {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, unmarshalErr, nil))
-	}
-	createSecretsRequest.RequestId = ar.req.ID
-	for _, secretItem := range createSecretsRequest.EncryptedSecrets {
-		if secretItem != nil && secretItem.Id != nil && secretItem.Id.Namespace == "" {
-			secretItem.Id.Namespace = vaulttypes.DefaultNamespace
-		}
-	}
-	_, cachedPublicKey := h.getCachedPublicKey()
-	skipLabelValidation := cachedPublicKey == nil
-	err = h.ValidateCreateSecretsRequest(ctx, cachedPublicKey, createSecretsRequest, skipLabelValidation)
-	if err != nil {
-		l.Warnw("failed to validate create secrets request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate create secrets request: %w", err), nil))
-	}
-
-	reqBytes, err := json.Marshal(createSecretsRequest)
-	if err != nil {
-		l.Errorw("failed to marshal request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal request: %w", err), nil))
-	}
-
-	ar.req.Params = (*json.RawMessage)(&reqBytes)
-	// At this point, we know that the request is valid, and we can send it to the nodes
 	return h.fanOutToVaultNodes(ctx, l, ar)
 }
 
@@ -649,31 +619,6 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar *activeRequest) er
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("error checking if write methods are enabled: "+err.Error()), nil))
 	}
 
-	updateSecretsRequest := &vaultcommon.UpdateSecretsRequest{}
-	if unmarshalErr := json.Unmarshal(*ar.req.Params, updateSecretsRequest); unmarshalErr != nil {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, unmarshalErr, nil))
-	}
-	updateSecretsRequest.RequestId = ar.req.ID
-	for _, secretItem := range updateSecretsRequest.EncryptedSecrets {
-		if secretItem != nil && secretItem.Id != nil && secretItem.Id.Namespace == "" {
-			secretItem.Id.Namespace = vaulttypes.DefaultNamespace
-		}
-	}
-	_, cachedPublicKey := h.getCachedPublicKey()
-	skipLabelValidation := cachedPublicKey == nil
-	vaultCapErr := h.ValidateUpdateSecretsRequest(ctx, cachedPublicKey, updateSecretsRequest, skipLabelValidation)
-	if vaultCapErr != nil {
-		l.Warnw("failed to validate update secrets request", "error", vaultCapErr)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate update secrets request: %w", vaultCapErr), nil))
-	}
-
-	reqBytes, err := json.Marshal(updateSecretsRequest)
-	if err != nil {
-		l.Errorw("failed to marshal request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal request: %w", err), nil))
-	}
-
-	ar.req.Params = (*json.RawMessage)(&reqBytes)
 	return h.fanOutToVaultNodes(ctx, l, ar)
 }
 
@@ -689,57 +634,36 @@ func (h *handler) handleSecretsDelete(ctx context.Context, ar *activeRequest) er
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("error checking if write methods are enabled: "+err.Error()), nil))
 	}
 
-	deleteSecretsRequest := &vaultcommon.DeleteSecretsRequest{}
-	if unmarshalErr := json.Unmarshal(*ar.req.Params, deleteSecretsRequest); unmarshalErr != nil {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, unmarshalErr, nil))
-	}
-	deleteSecretsRequest.RequestId = ar.req.ID
-	for _, id := range deleteSecretsRequest.Ids {
-		if id != nil && id.Namespace == "" {
-			id.Namespace = vaulttypes.DefaultNamespace
-		}
-	}
-	err = h.ValidateDeleteSecretsRequest(ctx, deleteSecretsRequest)
-	if err != nil {
-		l.Warnw("failed to validate delete secrets request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate delete secrets request: %w", err), nil))
-	}
-
-	reqBytes, err := json.Marshal(deleteSecretsRequest)
-	if err != nil {
-		l.Errorw("failed to marshal request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal request: %w", err), nil))
-	}
-
-	ar.req.Params = (*json.RawMessage)(&reqBytes)
 	return h.fanOutToVaultNodes(ctx, l, ar)
 }
 
 func (h *handler) handleSecretsList(ctx context.Context, ar *activeRequest) error {
 	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
-
-	req := &vaultcommon.ListSecretIdentifiersRequest{}
-	if err := json.Unmarshal(*ar.req.Params, req); err != nil {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err, nil))
-	}
-	req.RequestId = ar.req.ID
-	if req.Namespace == "" {
-		req.Namespace = vaulttypes.DefaultNamespace
-	}
-	err := h.ValidateListSecretIdentifiersRequest(ctx, req)
-	if err != nil {
-		l.Warnw("failed to validate list secret identifiers request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate list secret identifiers request: %w", err), nil))
-	}
-
-	reqBytes, err := json.Marshal(req)
-	if err != nil {
-		l.Errorw("failed to marshal request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal request: %w", err), nil))
-	}
-
-	ar.req.Params = (*json.RawMessage)(&reqBytes)
 	return h.fanOutToVaultNodes(ctx, l, ar)
+}
+
+func (h *handler) prepareUserVaultRequest(ctx context.Context, req *jsonrpc.Request[json.RawMessage]) error {
+	_, cachedPublicKey := h.getCachedPublicKey()
+	return h.RequestValidator.PrepareUserJSONRPCRequest(ctx, req, vaultcap.UserJSONRPCValidationOptions{
+		PublicKey:           cachedPublicKey,
+		SkipLabelValidation: cachedPublicKey == nil,
+	}, false)
+}
+
+func (h *handler) sendImmediateUserResponse(
+	ctx context.Context,
+	req jsonrpc.Request[json.RawMessage],
+	callback gwhandlers.Callback,
+	errorCode api.ErrorCode,
+	err error,
+) error {
+	switch errorCode {
+	case api.InvalidParamsError, api.UnsupportedMethodError, api.UserMessageParseError:
+		h.metrics.requestUserError.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("don_id", h.donConfig.DonId),
+		))
+	}
+	return callback.SendResponse(h.errorResponse(req, errorCode, err, nil))
 }
 
 func (h *handler) getCachedPublicKey() ([]byte, *tdh2easy.PublicKey) {

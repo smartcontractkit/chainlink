@@ -110,7 +110,7 @@ func (a *authorizer) AuthorizeRequest(ctx context.Context, req jsonrpc.Request[j
 		a.lggr.Debugw("replay guard rejected request", "method", req.Method, "requestID", req.ID, "owner", authResult.AuthorizedOwner(), "digest", authResult.Digest(), "expiresAt", authResult.ExpiresAt(), "hasAuth", req.Auth != "", "error", err)
 		return nil, err
 	}
-	if ownerErr := validatePreparedVaultOwners(req, authResult.AuthorizedOwner()); ownerErr != nil {
+	if ownerErr := bindVaultOwners(req, authResult.AuthorizedOwner()); ownerErr != nil {
 		a.lggr.Errorw("owner binding rejected request", "method", req.Method, "requestID", req.ID, "owner", authResult.AuthorizedOwner(), "hasAuth", req.Auth != "", "error", ownerErr)
 		return nil, ownerErr
 	}
@@ -145,67 +145,53 @@ func (a *authorizer) authorizeJWTBasedAuth(ctx context.Context, req jsonrpc.Requ
 	return a.jwtBasedAuth.AuthorizeRequest(ctx, req)
 }
 
-// validatePreparedVaultOwners checks that secret identifiers in the request payload
-// belong to workflowOwner. It runs after allowlist or JWT authentication so neither
-// path can be exploited to mutate another owner's secrets.
-//
-// Param shape validation (empty batch, nil entries, parse errors) is left to the
-// gateway handler validators so clients receive the same InvalidParamsError codes
-// as before.
-func validatePreparedVaultOwners(req jsonrpc.Request[json.RawMessage], workflowOwner string) error {
-	// If the request has no params, there are no secret identifiers to validate.
-	// The gateway handler validates this case and returns InvalidParamsError.
-	if req.Params == nil {
-		return nil
-	}
-
+// bindVaultOwners checks that secret identifiers in the request payload belong to workflowOwner.
+// Every vault JSON-RPC method must have an explicit case here (binding logic or an intentional skip).
+// Callers must validate request shape before authorization so malformed params surface as
+// InvalidParamsError instead of authorization failures.
+func bindVaultOwners(req jsonrpc.Request[json.RawMessage], workflowOwner string) error {
 	switch req.Method {
-	case vaulttypes.MethodSecretsCreate:
-		parsed := &vaultcommon.CreateSecretsRequest{}
-		if err := json.Unmarshal(*req.Params, parsed); err != nil {
-			// InvalidParamsError is returned by the gateway handler for this case.
-			return nil
-		}
-		return validateEncryptedSecretOwnerMismatch(parsed.EncryptedSecrets, workflowOwner)
-	case vaulttypes.MethodSecretsUpdate:
-		parsed := &vaultcommon.UpdateSecretsRequest{}
-		if err := json.Unmarshal(*req.Params, parsed); err != nil {
-			// InvalidParamsError is returned by the gateway handler for this case.
-			return nil
-		}
-		return validateEncryptedSecretOwnerMismatch(parsed.EncryptedSecrets, workflowOwner)
-	case vaulttypes.MethodSecretsDelete:
-		parsed := &vaultcommon.DeleteSecretsRequest{}
-		if err := json.Unmarshal(*req.Params, parsed); err != nil {
-			// InvalidParamsError is returned by the gateway handler for this case.
-			return nil
-		}
-		return validateSecretIdentifierOwnerMismatch(parsed.Ids, workflowOwner)
-	case vaulttypes.MethodSecretsList:
-		parsed := &vaultcommon.ListSecretIdentifiersRequest{}
-		if err := json.Unmarshal(*req.Params, parsed); err != nil {
-			// InvalidParamsError is returned by the gateway handler for this case.
-			return nil
-		}
-		if normalizeOwner(parsed.Owner) != normalizeOwner(workflowOwner) {
-			return fmt.Errorf("list secrets owner %q does not match authorized workflow owner %q", parsed.Owner, workflowOwner)
-		}
 	case vaulttypes.MethodPublicKeyGet:
 		return nil
-	default:
-		// Fail open: this check only binds secret identifiers to the authorized owner.
-		// Unknown methods are rejected later with UnsupportedMethodError in the gateway
-		// handler (HandleJSONRPCUserMessage) and on vault nodes (GatewayHandler.HandleGatewayMessage).
-		return nil
 	}
-	return nil
+	if req.Params == nil {
+		return errors.New("request params must not be nil")
+	}
+	if !vaulttypes.IsUserSecretsMethod(req.Method) {
+		return fmt.Errorf("owner binding not implemented for method %q", req.Method)
+	}
+
+	_, err := transformUserJSONRPCParams(req.Method, req.Params, "", func(parsed any) error {
+		switch req.Method {
+		case vaulttypes.MethodSecretsCreate:
+			return validateEncryptedSecretOwnerMismatch(parsed.(*vaultcommon.CreateSecretsRequest).EncryptedSecrets, workflowOwner)
+		case vaulttypes.MethodSecretsUpdate:
+			return validateEncryptedSecretOwnerMismatch(parsed.(*vaultcommon.UpdateSecretsRequest).EncryptedSecrets, workflowOwner)
+		case vaulttypes.MethodSecretsDelete:
+			return validateSecretIdentifierOwnerMismatch(parsed.(*vaultcommon.DeleteSecretsRequest).Ids, workflowOwner)
+		case vaulttypes.MethodSecretsList:
+			listRequest := parsed.(*vaultcommon.ListSecretIdentifiersRequest)
+			if normalizeOwner(listRequest.Owner) != normalizeOwner(workflowOwner) {
+				return fmt.Errorf("list secrets owner %q does not match authorized workflow owner %q", listRequest.Owner, workflowOwner)
+			}
+			return nil
+		default:
+			return fmt.Errorf("owner binding not implemented for method %q", req.Method)
+		}
+	})
+	return err
 }
 
 func validateEncryptedSecretOwnerMismatch(encryptedSecrets []*vaultcommon.EncryptedSecret, workflowOwner string) error {
+	if len(encryptedSecrets) == 0 {
+		return errors.New("request batch must contain at least 1 item")
+	}
 	for idx, encryptedSecret := range encryptedSecrets {
-		if encryptedSecret == nil || encryptedSecret.Id == nil {
-			// InvalidParamsError is returned by the gateway handler for this case.
-			continue
+		if encryptedSecret == nil {
+			return fmt.Errorf("encrypted secret must not be nil at index %d", idx)
+		}
+		if encryptedSecret.Id == nil {
+			return fmt.Errorf("secret ID must not be nil at index %d", idx)
 		}
 		if normalizeOwner(encryptedSecret.Id.Owner) != normalizeOwner(workflowOwner) {
 			return fmt.Errorf("encrypted secret owner at index %d %q does not match authorized workflow owner %q", idx, encryptedSecret.Id.Owner, workflowOwner)
@@ -215,10 +201,12 @@ func validateEncryptedSecretOwnerMismatch(encryptedSecrets []*vaultcommon.Encryp
 }
 
 func validateSecretIdentifierOwnerMismatch(ids []*vaultcommon.SecretIdentifier, workflowOwner string) error {
+	if len(ids) == 0 {
+		return errors.New("request batch must contain at least 1 item")
+	}
 	for idx, id := range ids {
 		if id == nil {
-			// InvalidParamsError is returned by the gateway handler for this case.
-			continue
+			return fmt.Errorf("secret ID must not be nil at index %d", idx)
 		}
 		if normalizeOwner(id.Owner) != normalizeOwner(workflowOwner) {
 			return fmt.Errorf("secret identifier owner at index %d %q does not match authorized workflow owner %q", idx, id.Owner, workflowOwner)

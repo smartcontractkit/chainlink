@@ -799,7 +799,6 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	t.Run("unsupported method", func(t *testing.T) {
 		var wg sync.WaitGroup
 		h, callback, don, _ := setupHandler(t)
-		// Don't expect SendToNode to be called for unsupported methods
 		don.AssertNotCalled(t, "SendToNode")
 
 		unsupportedMethodRequest := jsonrpc.Request[json.RawMessage]{
@@ -817,7 +816,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			err = json.Unmarshal(resp.RawResponse, &secretsResponse)
 			assert.NoError(t, err)
 			assert.Equal(t, unsupportedMethodRequest.ID, secretsResponse.ID, "Request ID should match")
-			assert.Contains(t, secretsResponse.Error.Message, "unsupported method("+unsupportedMethodRequest.Method+"): ", "Error message should match")
+			assert.Contains(t, secretsResponse.Error.Message, "unsupported method(vault.unsupported.method)")
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.UnsupportedMethodError), secretsResponse.Error.Code, "Error code should match")
 		}()
 
@@ -847,8 +846,8 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			err = json.Unmarshal(resp.RawResponse, &secretsResponse)
 			assert.NoError(t, err)
 			assert.Equal(t, emptyParamsRequest.ID, secretsResponse.ID, "Request ID should match")
-			assert.Equal(t, "user message parse error: unexpected end of JSON input", secretsResponse.Error.Message, "Error message should match")
-			assert.Equal(t, api.ToJSONRPCErrorCode(api.UserMessageParseError), secretsResponse.Error.Code, "Error code should match")
+			assert.Contains(t, secretsResponse.Error.Message, "invalid params error: failed to validate create secrets request")
+			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
 		}()
 
 		err := h.HandleJSONRPCUserMessage(t.Context(), emptyParamsRequest, callback)
@@ -879,6 +878,36 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, invalidParamsRequest.ID, secretsResponse.ID, "Request ID should match")
 			assert.Equal(t, "invalid params error: failed to validate create secrets request: request batch must contain at least 1 item", secretsResponse.Error.Message, "Error message should match")
+			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
+		}()
+
+		err := h.HandleJSONRPCUserMessage(t.Context(), invalidParamsRequest, callback)
+		require.NoError(t, err)
+		wg.Wait()
+	})
+
+	t.Run("empty delete batch", func(t *testing.T) {
+		var wg sync.WaitGroup
+		h, callback, don, _ := setupHandler(t)
+		don.AssertNotCalled(t, "SendToNode")
+
+		invalidParams := json.RawMessage(`{"request_id": "req-1", "ids": []}`)
+		invalidParamsRequest := jsonrpc.Request[json.RawMessage]{
+			ID:     "5",
+			Method: vaulttypes.MethodSecretsDelete,
+			Params: &invalidParams,
+		}
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp, err := callback.Wait(t.Context())
+			assert.NoError(t, err)
+			var secretsResponse jsonrpc.Response[vaultcommon.DeleteSecretsResponse]
+			err = json.Unmarshal(resp.RawResponse, &secretsResponse)
+			assert.NoError(t, err)
+			assert.Equal(t, invalidParamsRequest.ID, secretsResponse.ID, "Request ID should match")
+			assert.Equal(t, "invalid params error: failed to validate delete secrets request: request batch must contain at least 1 item", secretsResponse.Error.Message, "Error message should match")
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
 		}()
 

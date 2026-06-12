@@ -41,6 +41,13 @@ func TestTestJWTIssuer_WorksWithVaultJWTBasedAuth(t *testing.T) {
 		Params:  (*json.RawMessage)(&params),
 	}
 
+	validator, err := vaultcap.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
+	require.NoError(t, err)
+	err = validator.PrepareUserJSONRPCRequest(t.Context(), &req, vaultcap.UserJSONRPCValidationOptions{
+		SkipLabelValidation: true,
+	}, false)
+	require.NoError(t, err)
+
 	requestDigest, err := ComputeRequestDigest(req)
 	require.NoError(t, err)
 
