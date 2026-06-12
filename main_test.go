@@ -37,9 +37,9 @@ const (
 )
 
 func TestMain(m *testing.M) {
-	os.Exit(testscript.RunMain(m, map[string]func() int{
-		"chainlink": core.Main,
-	}))
+	testscript.Main(m, map[string]func(){
+		"chainlink": func() { os.Exit(core.Main()) },
+	})
 }
 
 var (
