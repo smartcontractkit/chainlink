@@ -1723,6 +1723,104 @@ func TestPlugin_Observation_GetSecrets_OmitsCiphertextWhenCiphertextlessObservat
 	require.NotEmpty(t, resp.GetData().EncryptedDecryptionKeyShares)
 }
 
+func TestPlugin_ValidateObservation_GetSecrets_RejectsCiphertextWhenCiphertextlessObservationsEnabled(t *testing.T) {
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withVaultCiphertextlessObservationsEnabled())
+
+	owner := "0x0001020304050607080900010203040506070809"
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     owner,
+		Namespace: "main",
+		Key:       "my_secret",
+	}
+	rdr := &kv{m: make(map[string]response)}
+
+	pubK, _, err := box.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	pks := hex.EncodeToString(pubK[:])
+
+	req := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
+			{
+				Id:             id,
+				EncryptionKeys: []string{pks},
+			},
+		},
+		WorkflowOwner: owner,
+	}
+	anyp, err := anypb.New(req)
+	require.NoError(t, err)
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
+		[]*vaultcommon.StoredPendingQueueItem{
+			{Id: "request-1", Item: anyp},
+		},
+	)
+	require.NoError(t, err)
+
+	validResp := &vaultcommon.GetSecretsResponse{
+		Responses: []*vaultcommon.SecretResponse{
+			{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{
+					Data: &vaultcommon.SecretData{
+						EncryptedValue: "",
+						EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
+							{
+								EncryptionKey: pks,
+								BinaryShares:  [][]byte{[]byte("share")},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	validObs := &vaultcommon.Observations{
+		Observations: []*vaultcommon.Observation{
+			{
+				Id:          "request-1",
+				RequestType: vaultcommon.RequestType_GET_SECRETS,
+				Response: &vaultcommon.Observation_GetSecretsResponse{
+					GetSecretsResponse: validResp,
+				},
+			},
+		},
+	}
+	err = r.ValidateObservation(
+		t.Context(),
+		1,
+		types.AttributedQuery{},
+		types.AttributedObservation{Observer: 0, Observation: protoMarshal(t, validObs)},
+		rdr,
+		&blobber{},
+	)
+	require.NoError(t, err)
+
+	invalidResp := proto.CloneOf(validResp)
+	invalidResp.Responses[0].GetData().EncryptedValue = "adversarial-ciphertext"
+	invalidObs := &vaultcommon.Observations{
+		Observations: []*vaultcommon.Observation{
+			{
+				Id:          "request-1",
+				RequestType: vaultcommon.RequestType_GET_SECRETS,
+				Response: &vaultcommon.Observation_GetSecretsResponse{
+					GetSecretsResponse: invalidResp,
+				},
+			},
+		},
+	}
+	err = r.ValidateObservation(
+		t.Context(),
+		1,
+		types.AttributedQuery{},
+		types.AttributedObservation{Observer: 0, Observation: protoMarshal(t, invalidObs)},
+		rdr,
+		&blobber{},
+	)
+	require.ErrorContains(t, err, "GetSecrets response must not include encrypted value when ciphertextless observations are enabled")
+}
+
 func TestPlugin_StateTransition_GetSecrets_ReadsCiphertextFromKV(t *testing.T) {
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)

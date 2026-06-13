@@ -1633,6 +1633,10 @@ func (r *ReportingPlugin) validateGetSecretsObservation(ctx context.Context, o *
 			continue
 		}
 
+		if r.ciphertextlessObservationsEnabled(ctx) && d.EncryptedValue != "" {
+			return errors.New("GetSecrets response must not include encrypted value when ciphertextless observations are enabled")
+		}
+
 		// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
 		innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: rsp.Id.Owner})
 		for _, ds := range d.GetEncryptedDecryptionKeyShares() {
