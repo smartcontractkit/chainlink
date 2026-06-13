@@ -2066,7 +2066,10 @@ type observationWithRequestID struct {
 
 func marshalObservationsWithRequestIDs(t *testing.T, observations ...observationWithRequestID) []byte {
 	t.Helper()
-	obs := &vaultcommon.Observations{Observations: []*vaultcommon.Observation{}}
+	obs := &vaultcommon.Observations{
+		Observations: []*vaultcommon.Observation{},
+		SortNonce:    testSortNonce(),
+	}
 	for _, ob := range observations {
 		o := &vaultcommon.Observation{Id: ob.requestID}
 		switch tr := ob.req.(type) {
@@ -3156,6 +3159,7 @@ type observation struct {
 func marshalObservations(t *testing.T, observations ...observation) []byte {
 	obs := &vaultcommon.Observations{
 		Observations: []*vaultcommon.Observation{},
+		SortNonce:    testSortNonce(),
 	}
 	for _, ob := range observations {
 		o := &vaultcommon.Observation{
@@ -3505,7 +3509,7 @@ func TestPlugin_ValidateObservations_RequiresObservedIDsInPendingQueue(t *testin
 		kv,
 		nil,
 	)
-	require.ErrorContains(t, err, "got 1 store-backed observations, want 2")
+	require.ErrorContains(t, err, "observation at position 0 has id")
 
 	respDel := &vaultcommon.DeleteSecretsResponse{
 		Responses: []*vaultcommon.DeleteSecretResponse{
@@ -3631,7 +3635,7 @@ func TestPlugin_ValidateObservation_RejectsExcessObservations(t *testing.T) {
 		kv,
 		nil,
 	)
-	require.ErrorContains(t, err, "got 2 store-backed observations, want 1")
+	require.ErrorContains(t, err, "got 2 store-backed observations, want at most 1")
 }
 
 func TestPlugin_ValidateObservations_DisallowsDuplicateBlobHandles(t *testing.T) {
@@ -3658,8 +3662,7 @@ func TestPlugin_ValidateObservations_DisallowsDuplicateBlobHandles(t *testing.T)
 			{1},
 		},
 	}
-	obsb, err := proto.Marshal(obs)
-	require.NoError(t, err)
+	obsb := protoMarshal(t, obs)
 
 	bf := &blobber{
 		blobs: [][]byte{
@@ -5979,8 +5982,15 @@ func TestPlugin_StateTransition_ListSecretIdentifiers(t *testing.T) {
 	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
 }
 
+func testSortNonce() []byte {
+	return bytes.Repeat([]byte{'a'}, sortNonceLength)
+}
+
 func protoMarshal(t *testing.T, msg proto.Message) []byte {
 	t.Helper()
+	if obs, ok := msg.(*vaultcommon.Observations); ok && len(obs.SortNonce) == 0 {
+		obs.SortNonce = testSortNonce()
+	}
 	b, err := proto.Marshal(msg)
 	require.NoError(t, err)
 	return b
@@ -6417,7 +6427,7 @@ func TestPlugin_ValidateObservation_WireSizeExceedsMax(t *testing.T) {
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withMaxObservationBytes(20))
 
 	obs := &vaultcommon.Observations{
-		SortNonce:    bytes.Repeat([]byte{'a'}, 500),
+		SortNonce:    bytes.Repeat([]byte{'a'}, sortNonceLength),
 		Observations: []*vaultcommon.Observation{},
 	}
 	obsb, err := proto.Marshal(obs)
@@ -6433,6 +6443,198 @@ func TestPlugin_ValidateObservation_WireSizeExceedsMax(t *testing.T) {
 		nil,
 	)
 	require.ErrorContains(t, err, "wire size")
+}
+
+func TestPlugin_ValidateObservation_RejectsInvalidSortNonceLength(t *testing.T) {
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+
+	obs := &vaultcommon.Observations{
+		SortNonce:    bytes.Repeat([]byte{'a'}, 500),
+		Observations: []*vaultcommon.Observation{},
+	}
+	obsb, err := proto.Marshal(obs)
+	require.NoError(t, err)
+
+	err = r.ValidateObservation(
+		t.Context(),
+		1,
+		types.AttributedQuery{},
+		types.AttributedObservation{Observer: 0, Observation: types.Observation(obsb)},
+		&kv{m: make(map[string]response)},
+		nil,
+	)
+	require.ErrorContains(t, err, "sort nonce must be 32 bytes")
+}
+
+func writeDeleteSecretsPendingQueueItems(t *testing.T, rdr *kv, requestIDs ...string) {
+	t.Helper()
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "my_secret",
+	}
+	items := make([]*vaultcommon.StoredPendingQueueItem, 0, len(requestIDs))
+	for _, reqID := range requestIDs {
+		d := &vaultcommon.DeleteSecretsRequest{
+			RequestId: reqID,
+			Ids:       []*vaultcommon.SecretIdentifier{id},
+		}
+		anyd, err := anypb.New(d)
+		require.NoError(t, err)
+		items = append(items, &vaultcommon.StoredPendingQueueItem{Id: reqID, Item: anyd})
+	}
+	require.NoError(t, newTestWriteStore(t, rdr).WritePendingQueue(t.Context(), items))
+}
+
+func writeGetSecretsPendingQueueItems(t *testing.T, rdr *kv, pk *tdh2easy.PublicKey, requestIDs ...string) {
+	t.Helper()
+	owner := "0x0001020304050607080900010203040506070809"
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     owner,
+		Namespace: "main",
+		Key:       "my_secret",
+	}
+
+	plaintext := []byte("my-secret-value")
+	var label [32]byte
+	ownerAddress := common.HexToAddress(owner)
+	copy(label[12:], ownerAddress.Bytes())
+	ciphertext, err := tdh2easy.EncryptWithLabel(pk, plaintext, label)
+	require.NoError(t, err)
+	ciphertextBytes, err := ciphertext.Marshal()
+	require.NoError(t, err)
+	require.NoError(t, newTestWriteStore(t, rdr).WriteSecret(t.Context(), id, &vaultcommon.StoredSecret{
+		EncryptedSecret: ciphertextBytes,
+	}))
+
+	pubK, _, err := box.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	pks := hex.EncodeToString(pubK[:])
+
+	items := make([]*vaultcommon.StoredPendingQueueItem, 0, len(requestIDs))
+	for _, reqID := range requestIDs {
+		p := &vaultcommon.GetSecretsRequest{
+			Requests: []*vaultcommon.SecretRequest{
+				{
+					Id:             id,
+					EncryptionKeys: []string{pks},
+				},
+			},
+		}
+		anyp, err := anypb.New(p)
+		require.NoError(t, err)
+		items = append(items, &vaultcommon.StoredPendingQueueItem{Id: reqID, Item: anyp})
+	}
+	require.NoError(t, newTestWriteStore(t, rdr).WritePendingQueue(t.Context(), items))
+}
+
+func observePendingQueueOnly(t *testing.T, r *ReportingPlugin, rdr *kv) *vaultcommon.Observations {
+	t.Helper()
+	data, err := r.Observation(t.Context(), 1, types.AttributedQuery{}, rdr, &blobber{})
+	require.NoError(t, err)
+	obs := &vaultcommon.Observations{}
+	require.NoError(t, proto.Unmarshal(data, obs))
+	return obs
+}
+
+func validatePendingQueueObservation(t *testing.T, r *ReportingPlugin, rdr *kv, obs *vaultcommon.Observations) error {
+	t.Helper()
+	obsb, err := proto.Marshal(obs)
+	require.NoError(t, err)
+	return r.ValidateObservation(
+		t.Context(),
+		1,
+		types.AttributedQuery{},
+		types.AttributedObservation{Observer: 0, Observation: types.Observation(obsb)},
+		rdr,
+		&blobber{},
+	)
+}
+
+func TestPlugin_ValidateObservation_PendingQueueObservations(t *testing.T) {
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+
+	t.Run("accepts full observation when all pending items fit", func(t *testing.T) {
+		rdr := &kv{m: make(map[string]response)}
+		writeDeleteSecretsPendingQueueItems(t, rdr, "request-1", "request-2")
+
+		r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+		obs := observePendingQueueOnly(t, r, rdr)
+		require.Len(t, obs.Observations, 2)
+
+		require.NoError(t, validatePendingQueueObservation(t, r, rdr, obs))
+	})
+
+	t.Run("accepts wire capped truncation", func(t *testing.T) {
+		rdr := &kv{m: make(map[string]response)}
+		writeGetSecretsPendingQueueItems(t, rdr, pk, "request-1", "request-2")
+
+		rCalib := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultOptimizationsEnabled(), withMaxObservationBytes(10*1024*1024))
+		fullObs := observePendingQueueOnly(t, rCalib, rdr)
+		require.Len(t, fullObs.Observations, 2)
+
+		oneItemObs := &vaultcommon.Observations{
+			Observations:      fullObs.Observations[:1],
+			PendingQueueItems: fullObs.PendingQueueItems,
+			SortNonce:         fullObs.SortNonce,
+		}
+		sizeOne := proto.Size(oneItemObs)
+		sizeTwo := proto.Size(fullObs)
+		require.Greater(t, sizeTwo, sizeOne)
+
+		r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultOptimizationsEnabled(), withMaxObservationBytes(sizeOne))
+		truncatedObs := observePendingQueueOnly(t, r, rdr)
+		require.Len(t, truncatedObs.Observations, 1)
+
+		require.NoError(t, validatePendingQueueObservation(t, r, rdr, truncatedObs))
+	})
+
+	t.Run("rejects under stuffed observation", func(t *testing.T) {
+		rdr := &kv{m: make(map[string]response)}
+		writeGetSecretsPendingQueueItems(t, rdr, pk, "request-1", "request-2")
+
+		r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultOptimizationsEnabled(), withMaxObservationBytes(10*1024*1024))
+		fullObs := observePendingQueueOnly(t, r, rdr)
+		require.Len(t, fullObs.Observations, 2)
+
+		underStuffed := &vaultcommon.Observations{
+			Observations:      fullObs.Observations[:1],
+			PendingQueueItems: fullObs.PendingQueueItems,
+			SortNonce:         fullObs.SortNonce,
+		}
+
+		err := validatePendingQueueObservation(t, r, rdr, underStuffed)
+		require.ErrorContains(t, err, "would fit within max observation bytes")
+	})
+
+	t.Run("rejects wrong observation order", func(t *testing.T) {
+		rdr := &kv{m: make(map[string]response)}
+		writeDeleteSecretsPendingQueueItems(t, rdr, "request-1", "request-2")
+
+		r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+		obs := observePendingQueueOnly(t, r, rdr)
+		require.Len(t, obs.Observations, 2)
+		obs.Observations[0], obs.Observations[1] = obs.Observations[1], obs.Observations[0]
+
+		err := validatePendingQueueObservation(t, r, rdr, obs)
+		require.ErrorContains(t, err, "observation at position 0 has id request-2, want request-1")
+	})
+
+	t.Run("rejects observation id not from pending queue", func(t *testing.T) {
+		rdr := &kv{m: make(map[string]response)}
+		writeDeleteSecretsPendingQueueItems(t, rdr, "request-1")
+
+		r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+		obs := observePendingQueueOnly(t, r, rdr)
+		require.Len(t, obs.Observations, 1)
+		obs.Observations[0].Id = "not-in-queue"
+
+		err := validatePendingQueueObservation(t, r, rdr, obs)
+		require.ErrorContains(t, err, "observation at position 0 has id not-in-queue, want request-1")
+	})
 }
 
 func TestPlugin_StateTransition_StoresPendingQueue_DoesntDoubleCountObservationsFromOneNode(t *testing.T) {
@@ -6544,8 +6746,7 @@ func TestPlugin_ValidateObservation_AcceptsFullPendingQueueObservation(t *testin
 		PendingQueueItems: pendingQueueItems,
 	}
 
-	o1b, err := proto.Marshal(o1)
-	require.NoError(t, err)
+	o1b := protoMarshal(t, o1)
 
 	bf := &blobber{
 		blobs: blobs,
