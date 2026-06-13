@@ -2059,7 +2059,10 @@ type observationWithRequestID struct {
 
 func marshalObservationsWithRequestIDs(t *testing.T, observations ...observationWithRequestID) []byte {
 	t.Helper()
-	obs := &vaultcommon.Observations{Observations: []*vaultcommon.Observation{}}
+	obs := &vaultcommon.Observations{
+		Observations: []*vaultcommon.Observation{},
+		SortNonce:    testSortNonce(),
+	}
 	for _, ob := range observations {
 		o := &vaultcommon.Observation{Id: ob.requestID}
 		switch tr := ob.req.(type) {
@@ -3527,7 +3530,7 @@ func TestPlugin_ValidateObservations_RequiresObservedIDsInPendingQueue(t *testin
 		kv,
 		nil,
 	)
-	require.ErrorContains(t, err, "got 1 store-backed observations, want 2")
+	require.ErrorContains(t, err, "observation at position 0 has id")
 
 	respDel := &vaultcommon.DeleteSecretsResponse{
 		Responses: []*vaultcommon.DeleteSecretResponse{
@@ -3653,7 +3656,7 @@ func TestPlugin_ValidateObservation_RejectsExcessObservations(t *testing.T) {
 		kv,
 		nil,
 	)
-	require.ErrorContains(t, err, "got 2 store-backed observations, want 1")
+	require.ErrorContains(t, err, "got 2 store-backed observations, want at most 1")
 }
 
 func TestPlugin_ValidateObservations_DisallowsDuplicateBlobHandles(t *testing.T) {
@@ -6928,11 +6931,10 @@ func TestPlugin_ValidateObservation_PendingQueueObservations(t *testing.T) {
 	})
 
 	t.Run("accepts wire capped truncation", func(t *testing.T) {
-		t.Parallel()
 		rdr := &kv{m: make(map[string]response)}
 		writeGetSecretsPendingQueueItems(t, rdr, pk, "request-1", "request-2")
 
-		rCalib := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withMaxObservationBytes(10*1024*1024))
+		rCalib := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultOptimizationsEnabled(), withMaxObservationBytes(10*1024*1024))
 		fullObs := observePendingQueueOnly(t, rCalib, rdr)
 		require.Len(t, fullObs.Observations, 2)
 
@@ -6945,15 +6947,32 @@ func TestPlugin_ValidateObservation_PendingQueueObservations(t *testing.T) {
 		sizeTwo := proto.Size(fullObs)
 		require.Greater(t, sizeTwo, sizeOne)
 
-		r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withMaxObservationBytes(sizeOne))
+		r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultOptimizationsEnabled(), withMaxObservationBytes(sizeOne))
 		truncatedObs := observePendingQueueOnly(t, r, rdr)
 		require.Len(t, truncatedObs.Observations, 1)
 
 		require.NoError(t, validatePendingQueueObservation(t, r, rdr, truncatedObs))
 	})
 
+	t.Run("rejects under stuffed observation", func(t *testing.T) {
+		rdr := &kv{m: make(map[string]response)}
+		writeGetSecretsPendingQueueItems(t, rdr, pk, "request-1", "request-2")
+
+		r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultOptimizationsEnabled(), withMaxObservationBytes(10*1024*1024))
+		fullObs := observePendingQueueOnly(t, r, rdr)
+		require.Len(t, fullObs.Observations, 2)
+
+		underStuffed := &vaultcommon.Observations{
+			Observations:      fullObs.Observations[:1],
+			PendingQueueItems: fullObs.PendingQueueItems,
+			SortNonce:         fullObs.SortNonce,
+		}
+
+		err := validatePendingQueueObservation(t, r, rdr, underStuffed)
+		require.ErrorContains(t, err, "would fit within max observation bytes")
+	})
+
 	t.Run("rejects wrong observation order", func(t *testing.T) {
-		t.Parallel()
 		rdr := &kv{m: make(map[string]response)}
 		writeDeleteSecretsPendingQueueItems(t, rdr, "request-1", "request-2")
 
@@ -6977,7 +6996,7 @@ func TestPlugin_ValidateObservation_PendingQueueObservations(t *testing.T) {
 		obs.Observations[0].Id = "not-in-queue"
 
 		err := validatePendingQueueObservation(t, r, rdr, obs)
-		require.ErrorContains(t, err, "no pending queue item found for request id not-in-queue")
+		require.ErrorContains(t, err, "observation at position 0 has id not-in-queue, want request-1")
 	})
 }
 

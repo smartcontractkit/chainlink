@@ -794,20 +794,74 @@ func (r *ReportingPlugin) observePendingQueueItem(
 	return o, nil
 }
 
-func (r *ReportingPlugin) validatePendingQueueObservationsPrefix(
+func (r *ReportingPlugin) observablePendingQueueItems(
+	ctx context.Context,
+	pendingQueueItems []*vaultcommon.StoredPendingQueueItem,
+) []*vaultcommon.StoredPendingQueueItem {
+	observable := make([]*vaultcommon.StoredPendingQueueItem, 0, len(pendingQueueItems))
+	for _, req := range pendingQueueItems {
+		payload, err := req.Item.UnmarshalNew()
+		if err != nil {
+			r.lggr.Errorw("failed to unmarshal request payload", "id", req.Id, "error", err)
+			continue
+		}
+
+		switch payload.(type) {
+		case *vaultcommon.GetSecretsRequest,
+			*vaultcommon.CreateSecretsRequest,
+			*vaultcommon.UpdateSecretsRequest,
+			*vaultcommon.DeleteSecretsRequest,
+			*vaultcommon.ListSecretIdentifiersRequest:
+			observable = append(observable, req)
+		default:
+			r.lggr.Errorw("unknown request type, skipping...", "requestType", fmt.Sprintf("%T", payload), "id", req.Id)
+		}
+	}
+	return observable
+}
+
+func (r *ReportingPlugin) validatePendingQueueObservations(
+	ctx context.Context,
+	readKV *KVStore,
 	pendingQueueItems []*vaultcommon.StoredPendingQueueItem,
 	obs *vaultcommon.Observations,
 ) error {
-	expected := pendingQueueItems
+	observable := r.observablePendingQueueItems(ctx, pendingQueueItems)
 
-	if len(obs.Observations) > len(expected) {
-		return fmt.Errorf("invalid observation: got %d store-backed observations, want at most %d", len(obs.Observations), len(expected))
+	if len(obs.Observations) > len(observable) {
+		return fmt.Errorf("invalid observation: got %d store-backed observations, want at most %d", len(obs.Observations), len(observable))
 	}
 
 	for i, o := range obs.Observations {
-		if o.Id != expected[i].Id {
-			return fmt.Errorf("invalid observation: observation at position %d has id %s, want %s", i, o.Id, expected[i].Id)
+		if o.Id != observable[i].Id {
+			return fmt.Errorf("invalid observation: observation at position %d has id %s, want %s", i, o.Id, observable[i].Id)
 		}
+	}
+
+	if !r.optimizationsEnabled(ctx) {
+		if len(obs.Observations) != len(observable) {
+			return fmt.Errorf("invalid observation: got %d store-backed observations, want %d", len(obs.Observations), len(observable))
+		}
+		return nil
+	}
+
+	if len(obs.Observations) >= len(observable) {
+		return nil
+	}
+
+	excluded := observable[len(obs.Observations)]
+	nextObs, err := r.observePendingQueueItem(ctx, 0, readKV, excluded)
+	if err != nil {
+		return fmt.Errorf("invalid observation: could not observe next pending queue item for wire cap check: %w", err)
+	}
+
+	trial := &vaultcommon.Observations{
+		Observations:      append(slices.Clone(obs.Observations), nextObs),
+		PendingQueueItems: obs.PendingQueueItems,
+		SortNonce:         obs.SortNonce,
+	}
+	if proto.Size(trial) <= r.maxObservationBytes {
+		return fmt.Errorf("invalid observation: omitted pending queue item %s that would fit within max observation bytes", excluded.Id)
 	}
 
 	return nil
@@ -1330,20 +1384,8 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 	}
 
 	if !gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
-		refObspb := &vaultcommon.Observations{
-			PendingQueueItems: obs.PendingQueueItems,
-			SortNonce:         obs.SortNonce,
-		}
-		expectedIDs := r.appendPendingQueueObservations(
-			ctx, seqNr, readKV, pendingQueueItems, refObspb, r.optimizationsEnabled(ctx),
-		)
-		if len(obs.Observations) != len(expectedIDs) {
-			return fmt.Errorf("invalid observation: got %d store-backed observations, want %d", len(obs.Observations), len(expectedIDs))
-		}
-		for i, o := range obs.Observations {
-			if o.Id != expectedIDs[i] {
-				return fmt.Errorf("invalid observation: observation at position %d has id %s, want %s", i, o.Id, expectedIDs[i])
-			}
+		if err := r.validatePendingQueueObservations(ctx, readKV, pendingQueueItems, obs); err != nil {
+			return err
 		}
 	}
 

@@ -80,6 +80,10 @@ func withVaultPendingQueueStallThreshold(n int) testPluginOption {
 	return func(o *testPluginBuildOpts) { o.vaultPendingQueueStallThreshold = n }
 }
 
+func withVaultOptimizationsEnabled() testPluginOption {
+	return func(o *testPluginBuildOpts) { o.vaultOptimizationsEnabled = true }
+}
+
 func withVaultCiphertextlessObservationsEnabled() testPluginOption {
 	return func(o *testPluginBuildOpts) { o.vaultCiphertextlessObservationsEnabled = true }
 }
@@ -141,6 +145,9 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 		)
 		require.NoError(t, err)
 		cfg.VaultPendingQueueStallThreshold = stallLimiter
+	}
+	if o.vaultOptimizationsEnabled {
+		cfg.VaultOptimizationsEnabled = limits.NewGateLimiter(true)
 	}
 	if o.vaultCiphertextlessObservationsEnabled {
 		cfg.VaultCiphertextlessObservationsEnabled = limits.NewGateLimiter(true)
