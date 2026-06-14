@@ -59,7 +59,11 @@ func TestScripts(t *testing.T) {
 		t.Skip("skipping testscript")
 	}
 
-	require.NoError(t, os.Setenv("GOTMPDIR", "/tmp")) // keep workspaces in /tmp
+	tmp := t.TempDir()
+	require.NoError(t, os.Setenv("GOTMPDIR", tmp))
+	t.Cleanup(func() {
+		require.NoError(t, os.Unsetenv("GOTMPDIR"))
+	})
 	t.Parallel()
 
 	visitor := txtar.NewDirVisitor("testdata/scripts", txtar.Recurse, func(path string) error {
@@ -89,7 +93,7 @@ func TestScripts(t *testing.T) {
 			testscript.Run(t, testscript.Params{
 				Files:               filesToRun,
 				Setup:               commonEnv(t),
-				ContinueOnError:     false,
+				ContinueOnError:     true,
 				RequireExplicitExec: true,
 				// UpdateScripts:   true, // uncomment to update golden files
 			})
