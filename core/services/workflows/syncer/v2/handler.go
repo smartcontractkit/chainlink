@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -19,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -28,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	generichost "github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+	meteringpb "github.com/smartcontractkit/chainlink-protos/metering/go"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
@@ -64,6 +68,17 @@ type DrainableService interface {
 
 var ErrDrainInProgress = errors.New("drain in progress")
 
+// Service-level metering identity constants for the workflow syncer. Service is
+// the stable service constant; Resource/ResourceType identify the workflow_specs_v2
+// pool and its billing unit. The coarse deployment/node/DON dimensions (product,
+// environment, zone, don_id, node_id) are supplied at construction via
+// WithIdentity; resource_id is set per workflow via WithResourceID.
+const (
+	meterService      = "workflow-syncer-v2"
+	meterResource     = "workflow_specs_v2"
+	meterResourceType = "operations"
+)
+
 // eventHandler is a handler for WorkflowRegistryEvent events.  Each event type has a corresponding method that handles the event.
 type eventHandler struct {
 	services.Service
@@ -88,8 +103,25 @@ type eventHandler struct {
 	workflowEncryptionKey  workflowkey.Key
 	workflowDonSubscriber  capabilities.DonSubscriber
 	billingClient          metering.BillingClient
-	orgResolver            orgresolver.OrgResolver
-	secretsFetcher         v2.SecretsFetcher
+	resourceManager        *resourcemanager.ResourceManager
+	// meterIdentity is the base metering identity for this node's syncer: the
+	// six coarse dimensions (product, environment, zone, don_id, node_id,
+	// service) plus the workflow_specs_v2 resource/resource_type. resource_id is
+	// set per workflow via WithResourceID. It is populated by WithIdentity in
+	// cre.go from node TOML + CSA + the workflow DON; Service/Resource/
+	// ResourceType are forced to the syncer constants regardless of the option.
+	meterIdentity resourcemanager.ResourceIdentity
+	// resolvedDonID holds the workflow DON id once resolved from the don notifier
+	// at start (the engine runs on the workflow DON). It is resolved
+	// asynchronously so node boot is not blocked while waiting for the DON to be
+	// set, and read on the hot snapshot/emit paths; an atomic keeps that read
+	// lock-free. Nil until resolved; baseIdentity folds it into meterIdentity.
+	resolvedDonID atomic.Pointer[string]
+	// rmUnregister removes this handler from the ResourceManager's snapshot
+	// registry; set in start, called in close. Nil until started.
+	rmUnregister   func()
+	orgResolver    orgresolver.OrgResolver
+	secretsFetcher v2.SecretsFetcher
 	// localSecretOverrides is keyed by owner address; values are secret id -> secret value
 	localSecretOverrides map[string]map[string]string
 
@@ -150,6 +182,30 @@ func WithStaticEngine(engine services.Service) func(*eventHandler) {
 func WithBillingClient(client metering.BillingClient) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.billingClient = client
+	}
+}
+
+// WithResourceManager overrides the default (disabled) ResourceManager used to
+// emit metering.v1.MeterRecord events for the workflow_specs_v2 storage lifecycle.
+func WithResourceManager(rm *resourcemanager.ResourceManager) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.resourceManager = rm
+	}
+}
+
+// WithIdentity supplies the coarse metering identity dimensions sourced once at
+// construction in cre.go (product, environment, zone from node TOML; node_id =
+// CSA pubkey hex; don_id = the workflow DON the engine runs on). The syncer
+// Service/Resource/ResourceType are stable constants and always overwrite
+// whatever the caller passes, so the option carries only the deployment/node/DON
+// dimensions; resource_id is left empty and set per workflow via WithResourceID.
+func WithIdentity(id resourcemanager.ResourceIdentity) func(*eventHandler) {
+	return func(e *eventHandler) {
+		id.Service = meterService
+		id.Resource = meterResource
+		id.ResourceType = meterResourceType
+		id.ResourceID = ""
+		e.meterIdentity = id
 	}
 }
 
@@ -306,7 +362,15 @@ func NewEventHandler(
 		workflowArtifactsStore: workflowArtifacts,
 		workflowEncryptionKey:  workflowEncryptionKey,
 		workflowDonSubscriber:  workflowDonSubscriber,
-		tracer:                 noop.NewTracerProvider().Tracer(""), // default to noop, enable via WithDebugMode
+		resourceManager:        resourcemanager.NewResourceManager(lggr, resourcemanager.ResourceManagerConfig{}), // default to disabled, enable via WithResourceManager
+		// Default identity carries only the service-level constants; the coarse
+		// deployment/node/DON dimensions are filled in by WithIdentity in cre.go.
+		meterIdentity: resourcemanager.ResourceIdentity{
+			Service:      meterService,
+			Resource:     meterResource,
+			ResourceType: meterResourceType,
+		},
+		tracer: noop.NewTracerProvider().Tracer(""), // default to noop, enable via WithDebugMode
 	}
 	metricsInst, metricsErr := newMetrics()
 	if metricsErr != nil {
@@ -327,11 +391,51 @@ func NewEventHandler(
 	return eh, nil
 }
 
-func (h *eventHandler) start(_ context.Context) error {
+func (h *eventHandler) start(ctx context.Context) error {
 	if h.moduleLRU != nil {
 		h.moduleLRU.Start()
 	}
+	// The handler is the single owner of its ResourceManager: it starts the RM
+	// (which owns the snapshot tick) and registers itself as the Meterable that
+	// is snapshotted. The RM is a no-op when metering is disabled, so this is
+	// safe regardless of the gate.
+	if h.resourceManager != nil {
+		if err := h.resourceManager.Start(ctx); err != nil {
+			return fmt.Errorf("failed to start resource manager: %w", err)
+		}
+		h.rmUnregister = h.resourceManager.Register(h)
+		h.resolveWorkflowDonID()
+	}
 	return nil
+}
+
+// resolveWorkflowDonID asynchronously resolves the workflow DON id (the engine
+// runs on the workflow DON) and folds it into the metering identity. It
+// subscribes to the don notifier and stores the first DON's id, so node boot is
+// never blocked waiting for the DON to be set. Until it resolves, emitted records
+// carry an empty don_id (the host-injection fallback semantics); once resolved,
+// every subsequent record and snapshot carries it. Resolution happens at most
+// once per start.
+func (h *eventHandler) resolveWorkflowDonID() {
+	if h.workflowDonSubscriber == nil || h.resolvedDonID.Load() != nil {
+		return
+	}
+	h.eng.Go(func(ctx context.Context) {
+		ch, unsubscribe, err := h.workflowDonSubscriber.Subscribe(ctx)
+		if err != nil {
+			h.lggr.Warnw("failed to subscribe to workflow DON for metering identity; don_id will be empty", "err", err)
+			return
+		}
+		defer unsubscribe()
+		select {
+		case <-ctx.Done():
+			return
+		case don := <-ch:
+			donID := strconv.FormatUint(uint64(don.ID), 10)
+			h.resolvedDonID.Store(&donID)
+			h.lggr.Debugw("resolved workflow DON id for metering identity", "donID", donID)
+		}
+	})
 }
 
 func (h *eventHandler) close() error {
@@ -339,8 +443,20 @@ func (h *eventHandler) close() error {
 		h.moduleLRU.Close()
 	}
 	es := h.engineRegistry.PopAll()
-	cs := make([]io.Closer, 0, len(es)+1)
+	// Emit a graceful-close RELEASE for each still-running engine before popping
+	// them, so a clean shutdown pairs every snapshot RESERVE. Best-effort and
+	// fail-open: metering must never gate shutdown.
+	h.emitGracefulCloseReleases(context.Background(), es)
+	// Stop snapshotting this handler, then close the ResourceManager service.
+	if h.rmUnregister != nil {
+		h.rmUnregister()
+		h.rmUnregister = nil
+	}
+	cs := make([]io.Closer, 0, len(es)+2)
 	cs = append(cs, h.engineLimiters)
+	if h.resourceManager != nil {
+		cs = append(cs, h.resourceManager)
+	}
 	for _, e := range es {
 		cs = append(cs, e)
 	}
@@ -500,7 +616,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			}
 		}()
 
-		if herr = h.workflowDeletedEvent(ctx, payload); herr != nil {
+		if herr = h.workflowDeletedEvent(ctx, payload, WorkflowDeleted); herr != nil {
 			if errors.Is(herr, ErrDrainInProgress) {
 				logCustMsg(ctx, cma, fmt.Sprintf("workflow deletion deferred: %v", herr), h.lggr)
 			} else {
@@ -524,7 +640,7 @@ func (h *eventHandler) workflowActivatedEvent(
 ) error {
 	// Convert WorkflowActivatedEvent to WorkflowRegisteredEvent since they have identical fields
 	registeredPayload := WorkflowRegisteredEvent(payload)
-	return h.workflowRegisteredEvent(ctx, registeredPayload)
+	return h.workflowRegisteredEvent(ctx, registeredPayload, WorkflowActivated)
 }
 
 // workflowRegisteredEvent handles the WorkflowRegisteredEvent event type.
@@ -532,9 +648,13 @@ func (h *eventHandler) workflowActivatedEvent(
 // workflowRegisteredEvent proceeds in two phases:
 // - phase 1 synchronizes the database state
 // - phase 2 synchronizes the state of the engine registry.
+// originatingEvent names the event that triggered this call (e.g. WorkflowActivated
+// when delegated from workflowActivatedEvent) and identifies the originating intent
+// in emitted meter records.
 func (h *eventHandler) workflowRegisteredEvent(
 	ctx context.Context,
 	payload WorkflowRegisteredEvent,
+	originatingEvent WorkflowRegistryEventName,
 ) error {
 	ctx, span := h.tracer.Start(ctx, "workflow_registered",
 		trace.WithAttributes(
@@ -557,6 +677,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 		if innerErr != nil {
 			return innerErr
 		}
+		h.emitMeterRecord(ctx, meteringpb.MeterAction_METER_ACTION_RESERVE, originatingEvent, payload.WorkflowID.Hex())
 
 		spec = newSpec
 	case spec.WorkflowID != payload.WorkflowID.Hex():
@@ -564,6 +685,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 		if innerErr != nil {
 			return innerErr
 		}
+		h.emitMeterRecord(ctx, meteringpb.MeterAction_METER_ACTION_RESERVE, originatingEvent, payload.WorkflowID.Hex())
 
 		spec = newSpec
 	case spec.Status != status:
@@ -571,6 +693,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 		if _, innerErr := h.workflowArtifactsStore.UpsertWorkflowSpec(ctx, spec); innerErr != nil {
 			return fmt.Errorf("failed to update workflow spec: %w", innerErr)
 		}
+		h.emitMeterRecord(ctx, meteringpb.MeterAction_METER_ACTION_UPDATE, originatingEvent, payload.WorkflowID.Hex())
 	}
 
 	// Next, let's synchronize the engine.
@@ -820,13 +943,17 @@ func (h *eventHandler) workflowPausedEvent(
 	ctx context.Context,
 	payload WorkflowPausedEvent,
 ) error {
-	return h.workflowDeletedEvent(ctx, WorkflowDeletedEvent{WorkflowID: payload.WorkflowID})
+	return h.workflowDeletedEvent(ctx, WorkflowDeletedEvent{WorkflowID: payload.WorkflowID}, WorkflowPaused)
 }
 
 // workflowDeletedEvent handles the WorkflowDeletedEvent event type. This method must remain idempotent.
+// originatingEvent names the event that triggered this call (e.g. WorkflowPaused
+// when delegated from workflowPausedEvent) and identifies the originating intent
+// in emitted meter records.
 func (h *eventHandler) workflowDeletedEvent(
 	ctx context.Context,
 	payload WorkflowDeletedEvent,
+	originatingEvent WorkflowRegistryEventName,
 ) error {
 	// The order in the handler is slightly different to the order in `tryEngineCleanup`.
 	// This is because the engine requires its corresponding DB record to be present to be successfully
@@ -865,6 +992,7 @@ func (h *eventHandler) workflowDeletedEvent(
 	if err := h.workflowArtifactsStore.DeleteWorkflowArtifacts(ctx, payload.WorkflowID.Hex()); err != nil {
 		return fmt.Errorf("failed to delete workflow artifacts: %w", err)
 	}
+	h.emitMeterRecord(ctx, meteringpb.MeterAction_METER_ACTION_RELEASE, originatingEvent, workflowID)
 
 	h.cleanupModuleCache(payload.WorkflowID.Hex())
 
@@ -883,6 +1011,100 @@ func (h *eventHandler) workflowDeletedEvent(
 		}
 	}
 	return nil
+}
+
+// emitMeterRecord emits a metering.v1.MeterRecord for a workflow_specs_v2 mutation.
+// Callers must invoke it only after the database mutation has succeeded. Emission is
+// fail-open: it never returns an error and must never affect event handling. The
+// idempotency key is deterministic over workflowID, originatingEvent, and action, so
+// a retried event emits a record the billing consumer dedups against the original.
+//
+// Known lost-record windows (consumer-side reconciliation tracked by SHARED-2141):
+//   - A node crash between the workflow spec database write and this emit loses the
+//     record (e.g. the RESERVE for a new spec): the syncer has no recovery path that
+//     re-emits records for mutations persisted before the crash.
+//   - A workflow paused or deleted while the node is down loses its RELEASE:
+//     reconciliation only synthesizes events for engine-registry entries, and the
+//     restarted node has no engine registered for the already-removed workflow.
+func (h *eventHandler) emitMeterRecord(ctx context.Context, action meteringpb.MeterAction, originatingEvent WorkflowRegistryEventName, workflowID string) {
+	if h.resourceManager == nil {
+		return
+	}
+	// resource_id = workflow_id (the syncer has no shared physical resource); the
+	// originating event name is the event identity that distinguishes lifecycle
+	// edges in the idempotency key.
+	identity := h.baseIdentity().WithResourceID(workflowID)
+	h.resourceManager.EmitMeterRecord(ctx, identity, action,
+		resourcemanager.NewUtilization(identity, action, 1, string(originatingEvent)))
+}
+
+// baseIdentity returns the handler's metering identity with the workflow DON id
+// folded in once it has been resolved from the don notifier. meterIdentity itself
+// is immutable after construction (set via WithIdentity); only the DON id is
+// learned later, so it is read from an atomic and overlaid here.
+func (h *eventHandler) baseIdentity() resourcemanager.ResourceIdentity {
+	id := h.meterIdentity
+	if donID := h.resolvedDonID.Load(); donID != nil {
+		id.DONID = *donID
+	}
+	return id
+}
+
+// ResourceIdentity implements resourcemanager.Meterable: it returns the syncer's
+// base identity (six coarse dimensions + workflow_specs_v2 resource/resource_type,
+// resource_id empty). The ResourceManager uses it as the top-level identity of
+// each emitted Snapshot.
+func (h *eventHandler) ResourceIdentity() resourcemanager.ResourceIdentity {
+	return h.baseIdentity()
+}
+
+// GetUtilization implements resourcemanager.Meterable: it returns one
+// SnapshotEntry per running engine, with Value 1 (each running workflow holds one
+// workflow_specs_v2 reservation). It is a pure in-memory read over the engine
+// registry — each entry's resource_id is the workflow_id, which fully identifies
+// the resource (Design 1; reconciling persisted-but-not-running specs is the
+// Design 2 follow-up, see snapshotDesign2Followup below).
+func (h *eventHandler) GetUtilization(_ context.Context) []resourcemanager.SnapshotEntry {
+	base := h.baseIdentity()
+	engines := h.engineRegistry.GetAll()
+	entries := make([]resourcemanager.SnapshotEntry, 0, len(engines))
+	for _, e := range engines {
+		workflowID := e.WorkflowID.Hex()
+		entries = append(entries, resourcemanager.SnapshotEntry{
+			Identity: base.WithResourceID(workflowID),
+			Value:    1,
+		})
+	}
+	return entries
+}
+
+// snapshotDesign2Followup documents the deferred reconciliation work. Design 1
+// (implemented here) snapshots only engines that are currently running in this
+// node's engine registry. Design 2 — the follow-up — would additionally
+// enumerate persisted-but-not-running specs via WorkflowSpecsDS.ListAll so that
+// snapshots also account for specs the database has but for which no engine is
+// live (e.g. paused specs, or specs whose engine failed to start). That requires
+// a store-backed read on the tick (not a cheap in-memory snapshot) and a policy
+// for the utilization value of a non-running spec, so it is intentionally left
+// out of the in-memory GetUtilization above. Tracked as the syncer Design 2
+// follow-up.
+const snapshotDesign2Followup = "Design 2: reconcile persisted-but-not-running specs via WorkflowSpecsDS.ListAll"
+
+// emitGracefulCloseReleases emits a RELEASE meter record for every engine still
+// in the registry at shutdown, so a clean close pairs every snapshot RESERVE. It
+// is fail-open like all metering emission. Called from close before the engines
+// are popped.
+func (h *eventHandler) emitGracefulCloseReleases(ctx context.Context, engines []ServiceWithMetadata) {
+	if h.resourceManager == nil {
+		return
+	}
+	base := h.baseIdentity()
+	for _, e := range engines {
+		workflowID := e.WorkflowID.Hex()
+		identity := base.WithResourceID(workflowID)
+		h.resourceManager.EmitMeterRecord(ctx, identity, meteringpb.MeterAction_METER_ACTION_RELEASE,
+			resourcemanager.NewUtilization(identity, meteringpb.MeterAction_METER_ACTION_RELEASE, 1, string(WorkflowDeleted)))
+	}
 }
 
 // tryEngineCleanup attempts to stop the workflow engine for the given workflow ID.  Does nothing if the
@@ -1004,7 +1226,7 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		}
 	}
 
-	// Engine is fully initialized, add to registry with source tracking
+	// Engine is fully initialized, add to registry with source tracking.
 	if err := h.engineRegistry.Add(wid, source, engine); err != nil {
 		if closeErr := engine.Close(); closeErr != nil {
 			return fmt.Errorf("failed to close workflow engine: %w during invariant violation: %w", closeErr, err)

@@ -74,6 +74,7 @@ func TestStandardCapabilities_ForwardsPluginEnvFile(t *testing.T) {
 
 	t.Run("env file unset results in empty CmdConfig.Env", func(t *testing.T) {
 		t.Setenv(string(env.CapabilitiesPlugin.Env), "")
+		t.Setenv(string(env.MeterRecordsEnabled), "")
 
 		cfg, err := startAndCapture(t)
 		require.Error(t, err, "expected synthetic Start failure from capturingRegistrar")
@@ -81,6 +82,33 @@ func TestStandardCapabilities_ForwardsPluginEnvFile(t *testing.T) {
 
 		require.Empty(t, cfg.Env,
 			"no operator-provided env vars should be forwarded when CL_CAPABILITIES_ENV is unset")
+	})
+
+	t.Run("CL_METER_RECORDS_ENABLED set on the node is passed through to the LOOPP", func(t *testing.T) {
+		envFile := writeEnvFile(t, "FOO=bar\n")
+		t.Setenv(string(env.CapabilitiesPlugin.Env), envFile)
+		t.Setenv(string(env.MeterRecordsEnabled), "true")
+
+		cfg, err := startAndCapture(t)
+		require.Error(t, err, "expected synthetic Start failure from capturingRegistrar")
+		require.Contains(t, err.Error(), capturingRegistrarErr)
+
+		require.Contains(t, cfg.Env, "CL_METER_RECORDS_ENABLED=true",
+			"the node's meter-record emission gate must reach capability LOOPPs, which do not inherit os.Environ()")
+		require.Contains(t, cfg.Env, "FOO=bar",
+			"the pass-through must not displace entries from the operator-supplied env file")
+	})
+
+	t.Run("CL_METER_RECORDS_ENABLED unset is not forwarded", func(t *testing.T) {
+		t.Setenv(string(env.CapabilitiesPlugin.Env), "")
+		t.Setenv(string(env.MeterRecordsEnabled), "")
+
+		cfg, err := startAndCapture(t)
+		require.Error(t, err, "expected synthetic Start failure from capturingRegistrar")
+		require.Contains(t, err.Error(), capturingRegistrarErr)
+
+		require.Empty(t, cfg.Env,
+			"no CL_METER_RECORDS_ENABLED entry should be forwarded when the gate is unset on the node")
 	})
 
 	t.Run("missing env file fails Start before RegisterLOOP", func(t *testing.T) {
@@ -104,6 +132,40 @@ func TestStandardCapabilities_ForwardsPluginEnvFile(t *testing.T) {
 		require.Contains(t, err.Error(), "failed to parse capabilities env file")
 		require.False(t, registerCalled, "RegisterLOOP must not be called when env-file parsing fails")
 	})
+}
+
+// TestStandardCapabilities_ForwardsNodeMeteringIdentity asserts that the
+// host-injected deployment/node metering identity (Product/Environment/Zone/
+// NodeID) supplied on the deps at construction is re-delivered, unchanged, on the
+// StandardCapabilitiesDependencies handed to the capability LOOP at Initialise.
+// This is the standardized Initialise channel that gives trigger LOOPs the same
+// coarse metering identity the node's engine uses.
+func TestStandardCapabilities_ForwardsNodeMeteringIdentity(t *testing.T) {
+	want := core.StandardCapabilitiesDependencies{
+		Product:     "cre",
+		Environment: "staging",
+		Zone:        "wf-zone-a",
+		NodeID:      "0a1b2c3d4e5f",
+	}
+
+	std := NewStandardCapabilities(
+		logger.TestLogger(t),
+		"not/found/path/to/binary",
+		"{}",
+		&capturingRegistrar{},
+		want,
+	)
+
+	got := std.initialiseDependencies()
+
+	require.Equal(t, want.Product, got.Product,
+		"the host-injected product must reach the capability LOOP via Initialise")
+	require.Equal(t, want.Environment, got.Environment,
+		"the host-injected environment must reach the capability LOOP via Initialise")
+	require.Equal(t, want.Zone, got.Zone,
+		"the host-injected zone must reach the capability LOOP via Initialise")
+	require.Equal(t, want.NodeID, got.NodeID,
+		"the host-injected node_id (CSA pubkey) must reach the capability LOOP via Initialise")
 }
 
 const capturingRegistrarErr = "capturingRegistrar: stop after capture"

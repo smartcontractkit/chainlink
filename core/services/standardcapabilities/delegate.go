@@ -46,6 +46,23 @@ type RelayGetter interface {
 	GetIDToRelayerMap() map[types.RelayID]loop.Relayer
 }
 
+// NodeIdentity is the host-injected deployment/node metering identity that the
+// Delegate stamps onto every spawned capability's StandardCapabilitiesDependencies,
+// mirroring how the engine sources the same dimensions from node config (see
+// core/services/cre). It is sourced once at node startup (where the CSA key and
+// telemetry config are both available) so operators configure it in one place and
+// a node's engine and its trigger LOOPs agree on product/environment/zone/node_id.
+type NodeIdentity struct {
+	// Product is the deployment product, e.g. "cre".
+	Product string
+	// Environment is the deployment environment, from [Telemetry.ResourceAttributes]["env"].
+	Environment string
+	// Zone is the deployment zone, from [Telemetry.ResourceAttributes]["zone"].
+	Zone string
+	// NodeID is the node's CSA public key (hex), matching the engine's node_id.
+	NodeID string
+}
+
 type Delegate struct {
 	logger                  logger.Logger
 	ds                      sqlutil.DataSource
@@ -66,6 +83,7 @@ type Delegate struct {
 	creSettings             core.SettingsBroadcaster
 	ocrConfigService        capregconfig.OCRConfigService
 	localCfg                coreconfig.LocalCapabilities
+	nodeIdentity            NodeIdentity
 	initErr                 error
 
 	isNewlyCreatedJob bool
@@ -98,6 +116,7 @@ func NewDelegate(
 	creSettings core.SettingsBroadcaster,
 	ocrConfigService capregconfig.OCRConfigService,
 	localCfg coreconfig.LocalCapabilities,
+	nodeIdentity NodeIdentity,
 	opts ...func(*gateway.RoundRobinSelector),
 ) *Delegate {
 	initErr := registerOptionalMockStreamsTrigger(logger, localCfg, registry)
@@ -125,6 +144,7 @@ func NewDelegate(
 		creSettings:             creSettings,
 		ocrConfigService:        ocrConfigService,
 		localCfg:                localCfg,
+		nodeIdentity:            nodeIdentity,
 		initErr:                 initErr,
 		selectorOpts:            opts,
 	}
@@ -408,6 +428,12 @@ func (d *Delegate) NewServices(
 		CRESettings:        d.creSettings,
 		TriggerEventStore:  triggercap.NewTriggerEventStore(d.ds),
 		CapabilityDonID:    capabilityDonID,
+		// Host-injected deployment/node metering identity, delivered to trigger
+		// LOOPs through the standardized Initialise channel.
+		Product:     d.nodeIdentity.Product,
+		Environment: d.nodeIdentity.Environment,
+		Zone:        d.nodeIdentity.Zone,
+		NodeID:      d.nodeIdentity.NodeID,
 	}
 	standardCapability := NewStandardCapabilities(log, command, configJSON, d.cfg, dependencies)
 

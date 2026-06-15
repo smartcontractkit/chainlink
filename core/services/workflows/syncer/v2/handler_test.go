@@ -247,7 +247,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 	signedURLParameter := "?auth=abc123"
 
 	defaultValidationFn := func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, _ *mockFetcher) {
-		err := h.workflowRegisteredEvent(ctx, event)
+		err := h.workflowRegisteredEvent(ctx, event, WorkflowRegistered)
 		require.NoError(t, err)
 
 		// Verify the record is updated in the database
@@ -389,7 +389,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler,
 				s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string,
 			) {
-				err := h.workflowRegisteredEvent(ctx, event)
+				err := h.workflowRegisteredEvent(ctx, event, WorkflowRegistered)
 				require.Error(t, err)
 				require.ErrorIs(t, err, assert.AnError)
 			},
@@ -427,7 +427,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				me := &mockEngine{}
 				err := h.engineRegistry.Add(wfID, event.Source, me)
 				require.NoError(t, err)
-				err = h.workflowRegisteredEvent(ctx, event)
+				err = h.workflowRegisteredEvent(ctx, event, WorkflowRegistered)
 				require.NoError(t, err)
 			},
 		},
@@ -466,7 +466,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				oldWfIDBytes := [32]byte{0, 1, 2, 3, 5}
 				err := h.engineRegistry.Add(oldWfIDBytes, event.Source, me)
 				require.NoError(t, err)
-				err = h.workflowRegisteredEvent(ctx, event)
+				err = h.workflowRegisteredEvent(ctx, event, WorkflowRegistered)
 				require.NoError(t, err)
 				engineInRegistry, ok := h.engineRegistry.Get(wfID)
 				assert.True(t, ok)
@@ -505,7 +505,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler,
 				s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string,
 			) {
-				err := h.workflowRegisteredEvent(ctx, event)
+				err := h.workflowRegisteredEvent(ctx, event, WorkflowRegistered)
 				require.NoError(t, err)
 
 				// Verify the record is updated in the database
@@ -568,7 +568,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				_, err := s.UpsertWorkflowSpec(ctx, entry)
 				require.NoError(t, err)
 
-				err = h.workflowRegisteredEvent(ctx, event)
+				err = h.workflowRegisteredEvent(ctx, event, WorkflowRegistered)
 				require.NoError(t, err)
 
 				// Verify the record is updated in the database
@@ -794,7 +794,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 		}
 
 		ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: hex.EncodeToString(wfOwner), Workflow: wfIDString})
-		err = h.workflowRegisteredEvent(ctx, event)
+		err = h.workflowRegisteredEvent(ctx, event, WorkflowRegistered)
 		require.NoError(t, err)
 
 		assert.Eventually(t, confidential.ran.Load, 10*time.Second, time.Millisecond)
@@ -883,7 +883,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 		}
 
 		ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: hex.EncodeToString(wfOwner), Workflow: wfIDString})
-		err = h.workflowRegisteredEvent(ctx, event)
+		err = h.workflowRegisteredEvent(ctx, event, WorkflowRegistered)
 		require.NoError(t, err)
 
 		assert.Eventually(t, action.ran.Load, 10*time.Second, time.Millisecond)
@@ -1109,7 +1109,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		)
 		require.NoError(t, err)
 		ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: hex.EncodeToString(wfOwner), Workflow: wfIDString})
-		err = h.workflowRegisteredEvent(ctx, active)
+		err = h.workflowRegisteredEvent(ctx, active, WorkflowRegistered)
 		require.NoError(t, err)
 
 		// Verify the record is updated in the database
@@ -1128,7 +1128,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		deleteEvent := WorkflowDeletedEvent{
 			WorkflowID: giveWFID,
 		}
-		err = h.workflowDeletedEvent(ctx, deleteEvent)
+		err = h.workflowDeletedEvent(ctx, deleteEvent, WorkflowDeleted)
 		require.NoError(t, err)
 
 		// Verify the record is deleted in the database
@@ -1183,7 +1183,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		deleteEvent := WorkflowDeletedEvent{
 			WorkflowID: giveWFID,
 		}
-		err = h.workflowDeletedEvent(ctx, deleteEvent)
+		err = h.workflowDeletedEvent(ctx, deleteEvent, WorkflowDeleted)
 		require.NoError(t, err)
 
 		// Verify the record is deleted in the database
@@ -1264,7 +1264,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		)
 		require.NoError(t, err)
 		ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: hex.EncodeToString(wfOwner), Workflow: wfIDString})
-		err = h.workflowRegisteredEvent(ctx, active)
+		err = h.workflowRegisteredEvent(ctx, active, WorkflowRegistered)
 		require.NoError(t, err)
 
 		// Verify the record is updated in the database
@@ -1283,7 +1283,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		deleteEvent := WorkflowDeletedEvent{
 			WorkflowID: giveWFID,
 		}
-		err = h.workflowDeletedEvent(ctx, deleteEvent)
+		err = h.workflowDeletedEvent(ctx, deleteEvent, WorkflowDeleted)
 		require.Error(t, err, failWith)
 
 		// Verify the record is still in the DB
@@ -1298,6 +1298,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 
 type stubWorkflowArtifactsStore struct {
 	spec        *job.WorkflowSpec
+	upsertErr   error
 	deleteErr   error
 	deleteCalls atomic.Int32
 }
@@ -1314,6 +1315,9 @@ func (s *stubWorkflowArtifactsStore) GetWorkflowSpec(context.Context, string) (*
 }
 
 func (s *stubWorkflowArtifactsStore) UpsertWorkflowSpec(context.Context, *job.WorkflowSpec) (int64, error) {
+	if s.upsertErr != nil {
+		return 0, s.upsertErr
+	}
 	return 1, nil
 }
 
@@ -1342,7 +1346,7 @@ func Test_workflowDeletedEvent_DrainInProgress(t *testing.T) {
 		workflowArtifactsStore: artifactStore,
 	}
 
-	err := h.workflowDeletedEvent(t.Context(), WorkflowDeletedEvent{WorkflowID: workflowID})
+	err := h.workflowDeletedEvent(t.Context(), WorkflowDeletedEvent{WorkflowID: workflowID}, WorkflowDeleted)
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrDrainInProgress)
 	assert.Equal(t, int32(1), drainable.drainCalls.Load())
@@ -1368,7 +1372,7 @@ func Test_workflowDeletedEvent_IgnoresErrAlreadyStopped(t *testing.T) {
 		workflowArtifactsStore: artifactStore,
 	}
 
-	err := h.workflowDeletedEvent(t.Context(), WorkflowDeletedEvent{WorkflowID: workflowID})
+	err := h.workflowDeletedEvent(t.Context(), WorkflowDeletedEvent{WorkflowID: workflowID}, WorkflowDeleted)
 	require.NoError(t, err)
 	assert.Equal(t, int32(1), drainable.closeCalls.Load())
 	assert.Equal(t, int32(1), artifactStore.deleteCalls.Load())
@@ -1406,7 +1410,7 @@ func Test_workflowRegisteredEvent_DrainingEngineNotTreatedAsHealthy(t *testing.T
 	err := h.workflowRegisteredEvent(t.Context(), WorkflowRegisteredEvent{
 		Status:     WorkflowStatusActive,
 		WorkflowID: workflowID,
-	})
+	}, WorkflowRegistered)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "could not clean up old engine")
 	assert.Equal(t, int32(1), drainable.closeCalls.Load())

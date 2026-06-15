@@ -14,6 +14,10 @@ var (
 	DatabaseAllowSimplePasswords = Var("CL_DATABASE_ALLOW_SIMPLE_PASSWORDS")
 	IgnorePrereleaseVersionCheck = Var("CL_IGNORE_PRE_RELEASE_VERSION_CHECK")
 	SkipAppVersionCheck          = Var("CL_SKIP_APP_VERSION_CHECK")
+	// MeterRecordsEnabled gates emission of metering.v1.MeterRecord events for
+	// durable CRE resources. Accepts strconv.ParseBool values; default false.
+	// Temporary deploy gate; promotion to TOML config is tracked by SHARED-2718.
+	MeterRecordsEnabled = Var("CL_METER_RECORDS_ENABLED")
 
 	DatabaseURL         = Secret("CL_DATABASE_URL")
 	DatabaseBackupURL   = Secret("CL_DATABASE_BACKUP_URL")

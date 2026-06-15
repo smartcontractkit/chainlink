@@ -46,6 +46,13 @@ type StandardCapabilities struct {
 	// at Initialise time. Zero means the host did not resolve one; the plugin
 	// will fall back to capability-registry lookup.
 	capabilityDonID uint32
+	// Host-injected deployment/node metering identity, captured from the deps
+	// passed at construction and re-delivered to the LOOP through the deps built
+	// for Initialise below.
+	product     string
+	environment string
+	zone        string
+	nodeID      string
 
 	capabilitiesLoop *loop.StandardCapabilitiesService
 
@@ -77,8 +84,36 @@ func NewStandardCapabilities(
 		creSettings:          dependencies.CRESettings,
 		triggerEventStore:    dependencies.TriggerEventStore,
 		capabilityDonID:      dependencies.CapabilityDonID,
+		product:              dependencies.Product,
+		environment:          dependencies.Environment,
+		zone:                 dependencies.Zone,
+		nodeID:               dependencies.NodeID,
 		stopChan:             make(chan struct{}),
 		readyChan:            make(chan struct{}),
+	}
+}
+
+// initialiseDependencies builds the StandardCapabilitiesDependencies delivered to
+// the capability LOOP via Initialise. It re-emits the host-injected metering
+// identity (product/environment/zone/node_id) captured at construction so trigger
+// LOOPs receive it through the standardized Initialise channel.
+func (s *StandardCapabilities) initialiseDependencies() core.StandardCapabilitiesDependencies {
+	return core.StandardCapabilitiesDependencies{
+		Config:             s.config,
+		Store:              s.store,
+		CapabilityRegistry: s.CapabilitiesRegistry,
+		RelayerSet:         s.relayerSet,
+		OracleFactory:      s.oracleFactory,
+		GatewayConnector:   s.gatewayConnector,
+		P2PKeystore:        s.keystore,
+		OrgResolver:        s.orgResolver,
+		CRESettings:        s.creSettings,
+		TriggerEventStore:  s.triggerEventStore,
+		CapabilityDonID:    s.capabilityDonID,
+		Product:            s.product,
+		Environment:        s.environment,
+		Zone:               s.zone,
+		NodeID:             s.nodeID,
 	}
 }
 
@@ -87,6 +122,12 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 		envVars, err := plugins.ParseEnvFile(env.CapabilitiesPlugin.Env.Get())
 		if err != nil {
 			return fmt.Errorf("failed to parse capabilities env file: %w", err)
+		}
+		// Pass through the node's meter-record emission gate so capability LOOPPs
+		// inherit it: plugins.NewCmdFactory builds the child env from CmdConfig.Env
+		// only and does not inherit os.Environ().
+		if v := env.MeterRecordsEnabled.Get(); v != "" {
+			envVars = append(envVars, fmt.Sprintf("%s=%s", env.MeterRecordsEnabled, v))
 		}
 		cmdFn, opts, err := s.pluginRegistrar.RegisterLOOP(plugins.CmdConfig{
 			ID:  s.log.Name(),
@@ -119,19 +160,7 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 				return
 			}
 
-			dependencies := core.StandardCapabilitiesDependencies{
-				Config:             s.config,
-				Store:              s.store,
-				CapabilityRegistry: s.CapabilitiesRegistry,
-				RelayerSet:         s.relayerSet,
-				OracleFactory:      s.oracleFactory,
-				GatewayConnector:   s.gatewayConnector,
-				P2PKeystore:        s.keystore,
-				OrgResolver:        s.orgResolver,
-				CRESettings:        s.creSettings,
-				TriggerEventStore:  s.triggerEventStore,
-				CapabilityDonID:    s.capabilityDonID,
-			}
+			dependencies := s.initialiseDependencies()
 			if err = s.capabilitiesLoop.Service.Initialise(cctx, dependencies); err != nil {
 				s.log.Errorf("error initialising standard capabilities service: %v", err)
 				return
