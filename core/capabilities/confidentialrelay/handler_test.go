@@ -739,7 +739,7 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 		require.Nil(t, resp.Error)
 	})
 
-	t.Run("nil config accepted on capability execute (optional)", func(t *testing.T) {
+	t.Run("nil config rejected on capability execute (required)", func(t *testing.T) {
 		reg := withEnclaveConfig(&mockCapRegistry{
 			executables: map[string]*mockExecutable{
 				"my-cap@1.0.0": {execResult: capabilities.CapabilityResponse{Payload: &anypb.Any{}}},
@@ -754,16 +754,16 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 			ReferenceID:   "1",
 			CapabilityID:  "my-cap@1.0.0",
 			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
-			EnclaveConfig: nil, // sender on older protocol; check is skipped
+			EnclaveConfig: nil, // missing config cannot be checked against DON state
 			Attestation:   testAttestationB64,
 		})
 		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
 		require.NoError(t, err)
 		resp := gwConn.lastResp
-		require.Nil(t, resp.Error)
+		require.NotNil(t, resp.Error)
 	})
 
-	t.Run("F mismatch rejected on capability execute", func(t *testing.T) {
+	t.Run("F below DON minimum rejected on capability execute", func(t *testing.T) {
 		reg := withEnclaveConfig(&mockCapRegistry{
 			executables: map[string]*mockExecutable{
 				"my-cap@1.0.0": {execResult: capabilities.CapabilityResponse{Payload: &anypb.Any{}}},
@@ -772,7 +772,7 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 		gwConn := &mockGatewayConnector{}
 		h := newTestHandler(t, reg, gwConn)
 		badCfg := testEnclaveConfig()
-		badCfg.F += 5 // any non-matching value
+		badCfg.F = testEnclaveF - 1 // below the DON's minimum F
 		req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
 			WorkflowID:    "wf-1",
 			Owner:         testOwner,
@@ -787,6 +787,32 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 		require.NoError(t, err)
 		resp := gwConn.lastResp
 		require.NotNil(t, resp.Error)
+	})
+
+	t.Run("F above DON minimum accepted on capability execute", func(t *testing.T) {
+		reg := withEnclaveConfig(&mockCapRegistry{
+			executables: map[string]*mockExecutable{
+				"my-cap@1.0.0": {execResult: capabilities.CapabilityResponse{Payload: &anypb.Any{}}},
+			},
+		})
+		gwConn := &mockGatewayConnector{}
+		h := newTestHandler(t, reg, gwConn)
+		cfg := testEnclaveConfig()
+		cfg.F = testEnclaveF + 1 // a higher F is a stricter quorum; floor check accepts it
+		req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
+			WorkflowID:    "wf-1",
+			Owner:         testOwner,
+			ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+			ReferenceID:   "1",
+			CapabilityID:  "my-cap@1.0.0",
+			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+			EnclaveConfig: &cfg,
+			Attestation:   testAttestationB64,
+		})
+		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
+		require.NoError(t, err)
+		resp := gwConn.lastResp
+		require.Nil(t, resp.Error)
 	})
 
 	t.Run("signers count mismatch rejected on capability execute", func(t *testing.T) {
@@ -878,12 +904,12 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 		require.Nil(t, resp.Error)
 	})
 
-	t.Run("F mismatch rejected on secrets get", func(t *testing.T) {
+	t.Run("F below DON minimum rejected on secrets get", func(t *testing.T) {
 		reg := secretsGetTestRegistry(t)
 		gwConn := &mockGatewayConnector{}
 		h := newTestHandler(t, reg, gwConn)
 		params := secretsGetTestParams()
-		params.EnclaveConfig.F += 5
+		params.EnclaveConfig.F = testEnclaveF - 1 // below the DON's minimum F
 		req := makeRequest(t, confidentialrelaytypes.MethodSecretsGet, params)
 		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
 		require.NoError(t, err)

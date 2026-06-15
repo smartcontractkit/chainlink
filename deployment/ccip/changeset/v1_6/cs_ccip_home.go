@@ -16,7 +16,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
@@ -39,8 +39,6 @@ import (
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
@@ -48,7 +46,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
@@ -311,7 +308,7 @@ func refsByQualifier(refs []datastore.AddressRef) map[string]struct{} {
 
 type CCIPOCRParams struct {
 	// OCRParameters contains the parameters for the OCR plugin.
-	OCRParameters commontypes.OCRParameters `json:"ocrParameters"`
+	OCRParameters shared.OCRParameters `json:"ocrParameters"`
 	// CommitOffChainConfig contains pointers to Arb feeds for prices.
 	CommitOffChainConfig *pluginconfig.CommitOffchainConfig `json:"commitOffChainConfig,omitempty"`
 	// ExecuteOffChainConfig contains USDC config.

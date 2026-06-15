@@ -40,8 +40,8 @@ a. test or package
 b. specific JIRA issues
 c. N eligible flaky-tests tickets from JIRA
 If unknown, prompt user.
-2. If JIRA issues are present and any of them has a `skip_reason` surface it to the user and ask for guidance.
-3. If a CI failure link is available, open it only if it is a non-Trunk CI link (for example GitHub Actions or another permitted CI provider) and look for stack trace and logs for the failing test.
+2. Before proceeding always ask the user whether she think the flake is relatively simple and self-contained or whether it is a complex one that requires a lot of critical thinking and in-depth understaind of the application (e.g. system tests and some integration tests). If it is the latter activate the [complex-investigation-protocol](./references/complex-investigation-protocol.md), before formulating any hypothesis.
+3. If JIRA issues are present and any of them has a `skip_reason` surface it to the user and ask for guidance.
 4. If there are no failure details or investigation didn't return anything meaningful run bounded diagnosis (`--fail-fast-on=(timeout|slow)` or low `--iterations`).
 5. Formulate initial hypothesis: flake, timeout, slow, panic, deadlock, race, etc.
 
@@ -109,16 +109,17 @@ Use this table to pick `--iterations` (total independent runs; parallelism does 
 2. If no issues, escalate along `<diagnose-iterations>` (e.g. Smoke → Standard → Deep), increasing `--iterations` and keeping parallelism per `<diagnose-parallel-iterations>`. Ask the user before **Deep** if wall time will be large. If still clean and no fix was needed, end with findings; if a fix was applied, require at least **Standard** before FIXED.
 3. If issues detected, focus on the ones the user wants to fix.
 4. If a `diagnose-attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` file exists, read it to see previous fix attempts and findings.
-5. Form a hypothesis on the cause of the issues
-6. Implement a fix
-7. Output the hypothesis and attempted fix, plus reasons why you think it would work.
+5. If it is a complex test proceed according to [complex-investigation-protocol](./references/complex-investigation-protocol.md).
+6. Otherwise form a hypothesis on the cause of the issues.
+7. Implement the fix.
+8. Output the hypothesis and attempted fix, plus reasons why you think it would work.
 8. Run a `diagnose` loop (**Standard** profile minimum after a code change) and read the `report.json` file to see if the fix works.
   Append to `diagnose-attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` file in this json format:
   ```json
   {"timestamp": "[current_timestamp]", "model": "[current-model] (e.g. `claude-sonnet-4.6/high`, `gemini-3.1-pro`)", "hypothesis": "Your original hypothesis for the issue", "experiment": "A concise summary of what you tried. Include small code snippets if helpful", "result": "Did it fix it or not? If not, give concise reason why", "next": "Next steps to attempt"}
   ```
-9. GOTO 2
-10. Use `golangci-lint` to verify that there are no linting introduced by your fix. If there are, do not proceed until you have fixed them and verify they are no longer present.
+10. GOTO 2
+11. Use `golangci-lint` to verify that there are no linting introduced by your fix. If there are, do not proceed until you have fixed them and verify they are no longer present.
 
 IF at any time the user interrupts or interjects during this loop, pick it up again where you left off, unless explicitly told otherwise.
 </loop>

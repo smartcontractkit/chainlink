@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/smartcontractkit/testrig/modresolve"
 )
 
 // safeGoListArg matches argv tokens built from allowlisted go list flags and package patterns.
@@ -108,7 +110,7 @@ func extractPackagePatterns(args []string) []string {
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if strings.HasPrefix(arg, "-") {
-			name := strings.Split(strings.TrimLeft(arg, "-"), "=")[0]
+			name, _, _ := strings.Cut(strings.TrimLeft(arg, "-"), "=")
 			if (testBinaryTwoArgSuffixFlags["-"+name] || harnessRootValueFlags[name]) && !strings.Contains(arg, "=") {
 				i++
 			}
@@ -189,7 +191,12 @@ func NeedsPostgres(repoRoot string, args []string) (bool, error) {
 		return true, nil
 	}
 
-	goArgs := buildGoListArgs(patterns, args)
+	moduleDir, adjustedPatterns, err := modresolve.ResolvePatterns(repoRoot, patterns)
+	if err != nil {
+		return true, err
+	}
+
+	goArgs := buildGoListArgs(adjustedPatterns, args)
 	if err := validateGoListArgs(goArgs); err != nil {
 		return true, err
 	}
@@ -197,7 +204,7 @@ func NeedsPostgres(repoRoot string, args []string) (bool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "go", goArgs...)
-	cmd.Dir = repoRoot
+	cmd.Dir = moduleDir
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

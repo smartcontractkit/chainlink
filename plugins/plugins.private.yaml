@@ -27,7 +27,7 @@ plugins:
       installPath: "."
   httpaction:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_action"
-      gitRef: "69e882e0f24cf9ae897366c4dcbbd3c7e035ae33"
+      gitRef: "78f22db50d700d9b369578aebafd7d239daee8d1"
       installPath: "."
   httptrigger:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_trigger"
@@ -35,7 +35,7 @@ plugins:
       installPath: "."
   evm:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
-      gitRef: "01e7061780b4bbf081f7aa907397301f8685fdac"
+      gitRef: "bd394b720ff92881a51a7074c60cf8908d5428c5"
       installPath: "."
   solana:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/solana"
