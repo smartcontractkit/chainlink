@@ -499,7 +499,7 @@ func executeVaultSecretsCreateWithAuthExpectOwnersAndIdentifierOwner(t *testing.
 	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsCreate, &secretsCreateRequest)
 	auth.apply(t, &jsonRequest)
 
-	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest)
+	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest, auth.requestOwner)
 	if jsonResponse.ID == "" {
 		framework.L.Warn().Str("requestID", uniqueRequestID).Msg("vault create: gateway-to-DON timeout, skipping response validation; state verified by subsequent assertions")
 		return ""
@@ -593,7 +593,7 @@ func executeVaultSecretsUpdateWithAuthAndIdentifierOwner(t *testing.T, auth vaul
 	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsUpdate, &secretsUpdateRequest)
 	auth.apply(t, &jsonRequest)
 
-	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest)
+	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest, auth.requestOwner)
 	if jsonResponse.ID == "" {
 		framework.L.Warn().Str("requestID", uniqueRequestID).Msg("vault update: gateway-to-DON timeout, skipping response validation")
 		return
@@ -646,7 +646,7 @@ func executeVaultSecretsListWithAuthAndOwner(t *testing.T, auth vaultRequestAuth
 	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsList, &secretsListRequest)
 	auth.apply(t, &jsonRequest)
 
-	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest)
+	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest, auth.requestOwner)
 	if jsonResponse.ID == "" {
 		framework.L.Warn().Str("requestID", uniqueRequestID).Msg("vault list: gateway-to-DON timeout, skipping response validation")
 		return
@@ -687,7 +687,7 @@ func executeVaultJWTSecretsListAbsentFromNamespace(t *testing.T, issuer *stvault
 	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsList, &secretsListRequest)
 	auth.apply(t, &jsonRequest)
 
-	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest)
+	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest, auth.requestOwner)
 	if jsonResponse.ID == "" {
 		framework.L.Warn().Str("requestID", uniqueRequestID).Msg("vault JWT list absent: gateway-to-DON timeout, skipping response validation")
 		return
@@ -736,7 +736,7 @@ func executeVaultSecretsDeleteWithAuthAndIdentifierOwner(t *testing.T, auth vaul
 	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsDelete, &secretsDeleteRequest)
 	auth.apply(t, &jsonRequest)
 
-	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest)
+	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest, auth.requestOwner)
 	if jsonResponse.ID == "" {
 		framework.L.Warn().Str("requestID", uniqueRequestID).Msg("vault delete: gateway-to-DON timeout, skipping response validation")
 		return
