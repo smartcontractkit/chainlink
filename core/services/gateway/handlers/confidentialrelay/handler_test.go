@@ -293,20 +293,6 @@ func TestConfidentialRelayHandler_TimeoutForwardsPartialBundle(t *testing.T) {
 		Params: &params,
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
-		assert.Equal(t, api.NoError, resp.ErrorCode)
-		var jsonResp jsonrpc.Response[json.RawMessage]
-		assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
-		var bundle relaytypes.SignedCapabilityResponseBundle
-		assert.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle))
-		assert.Len(t, bundle.Responses, 2)
-	}()
-
 	require.NoError(t, h.HandleJSONRPCUserMessage(t.Context(), req, cb))
 	result := relaytypes.CapabilityResponseResult{Payload: "x"}
 	for i := range 2 { // below 2F+1=3
@@ -315,9 +301,19 @@ func TestConfidentialRelayHandler_TimeoutForwardsPartialBundle(t *testing.T) {
 	}
 	require.NotNil(t, h.getActiveRequest(req.ID))
 
+	// The expiry sweep delivers the partial bundle to the callback synchronously,
+	// so we can read it on the main goroutine afterwards.
 	clock.Advance(31 * time.Second)
 	h.removeExpiredRequests(t.Context())
-	wg.Wait()
+
+	resp, err := cb.Wait(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, api.NoError, resp.ErrorCode)
+	var jsonResp jsonrpc.Response[json.RawMessage]
+	require.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
+	var bundle relaytypes.SignedCapabilityResponseBundle
+	require.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle))
+	require.Len(t, bundle.Responses, 2)
 }
 
 // On timeout with fewer than F+1 signed responses, the enclave could never reach
