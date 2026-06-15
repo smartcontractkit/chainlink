@@ -278,9 +278,10 @@ func TestConfidentialRelayHandler_BundlerErrorReturnsFatal(t *testing.T) {
 	wg.Wait()
 }
 
-// On timeout with fewer than 2F+1 responses, the gateway forwards whatever it
-// collected (the bundle may still carry F+1 valid signatures, e.g. if faulty nodes
-// stayed silent) and lets the enclave decide.
+// On timeout with fewer than 2F+1 but at least F+1 responses, the gateway forwards
+// what it collected (the bundle may still carry F+1 valid signatures, e.g. if faulty
+// nodes stayed silent) and lets the enclave decide. Here F=1, so 2 responses meet the
+// F+1 floor.
 func TestConfidentialRelayHandler_TimeoutForwardsPartialBundle(t *testing.T) {
 	h, cb, don, clock := setupHandler(t, 4)
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -312,6 +313,41 @@ func TestConfidentialRelayHandler_TimeoutForwardsPartialBundle(t *testing.T) {
 		err := h.HandleNodeMessage(t.Context(), capExecSignedRespPtr(t, "req-partial", result, fmt.Appendf(nil, "s-%d", i)), fmt.Sprintf("0x%04d", i))
 		require.NoError(t, err)
 	}
+	require.NotNil(t, h.getActiveRequest(req.ID))
+
+	clock.Advance(31 * time.Second)
+	h.removeExpiredRequests(t.Context())
+	wg.Wait()
+}
+
+// On timeout with fewer than F+1 signed responses, the enclave could never reach
+// its F+1-valid-signature quorum, so the gateway skips the futile forward and
+// returns a timeout error directly. Here F=1, so a single response is below the
+// floor.
+func TestConfidentialRelayHandler_TimeoutBelowQuorumFloorReturnsTimeout(t *testing.T) {
+	h, cb, don, clock := setupHandler(t, 4)
+	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	params := validCapParamsJSON("wf1")
+	req := jsonrpc.Request[json.RawMessage]{
+		ID:     "req-below-floor",
+		Method: MethodCapabilityExec,
+		Params: &params,
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		resp, err := cb.Wait(t.Context())
+		assert.NoError(t, err)
+		assert.Equal(t, api.RequestTimeoutError, resp.ErrorCode)
+	}()
+
+	require.NoError(t, h.HandleJSONRPCUserMessage(t.Context(), req, cb))
+	result := relaytypes.CapabilityResponseResult{Payload: "x"}
+	// One response, below F+1=2.
+	require.NoError(t, h.HandleNodeMessage(t.Context(), capExecSignedRespPtr(t, "req-below-floor", result, []byte("s-0")), "0x0000"))
 	require.NotNil(t, h.getActiveRequest(req.ID))
 
 	clock.Advance(31 * time.Second)
