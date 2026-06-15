@@ -685,6 +685,10 @@ func (h *Handler) signSecretsResponse(
 	return &confidentialrelaytypes.SignedSecretsResponseResult{
 		Result:    *result,
 		Signature: sig,
+		// Keep populating Signatures too: there are still readers of the array. The
+		// cleanup order is readers first, then writers (this), then the field itself,
+		// or builds go red.
+		Signatures: []confidentialrelaytypes.RelayResponseSignature{sig},
 	}, nil
 }
 
@@ -712,6 +716,10 @@ func (h *Handler) signCapabilityResponse(
 	return &confidentialrelaytypes.SignedCapabilityResponseResult{
 		Result:    result,
 		Signature: sig,
+		// Keep populating Signatures too: there are still readers of the array. The
+		// cleanup order is readers first, then writers (this), then the field itself,
+		// or builds go red.
+		Signatures: []confidentialrelaytypes.RelayResponseSignature{sig},
 	}, nil
 }
 
