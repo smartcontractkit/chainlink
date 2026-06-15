@@ -99,6 +99,8 @@ func Test_validateDBURL(t *testing.T) {
 		{"with user and password of insufficient length as params", "postgresql://foo.example.com:5432/chainlink?application_name=Test+Application&password=shortpw&user=myuser", fmt.Sprintf("%s	%s\n", utils.ErrMsgHeader, "password is less than 16 characters long")},
 		{"with no user and password of sufficient length as params", "postgresql://foo.example.com:5432/chainlink?application_name=Test+Application&password=thisisareallylongpassword", ""},
 		{"with user and password of sufficient length as params", "postgresql://foo.example.com:5432/chainlink?application_name=Test+Application&password=thisisareallylongpassword&user=myuser", ""},
+		{"pgtestdb instance with short password", "postgresql://pgtdbuser:short@localhost:5432/testdb_tpl_abc_inst_def?sslmode=disable", ""},
+		{"chainlink_test with short password", "postgresql://postgres:short@localhost:5432/chainlink_test?sslmode=disable", ""},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

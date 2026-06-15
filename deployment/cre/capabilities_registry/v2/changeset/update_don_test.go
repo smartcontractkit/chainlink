@@ -38,6 +38,8 @@ const (
 	signer2             = "5240b57854dd1f21c10353ea458eecd8593624d0e0a7cca07c62a4b58df8c252"
 	p2pID1              = "p2p_12D3KooWM1111111111111111111111111111111111111111111"
 	p2pID2              = "p2p_12D3KooWM1111111111111111111111111111111111111111112"
+	p2pID3              = "p2p_12D3KooWM1111111111111111111111111111111111111111113"
+	signer3             = "5240b57854dd1f21c10353ea458eecd8593624d0e0a7cca07c62a4b58df8c253"
 	encryptionPublicKey = "7240b57854dd1f21c10353ea458eecd8593624d0e0a7cca07c62a4b58df8c254"
 )
 
@@ -477,4 +479,199 @@ func TestUpdateDON_FirstOCR3ConfigCapabilities(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "firstOCR3ConfigCapabilities")
 	})
+}
+
+// setupRegistryWith3Nodes creates a registry with 3 NOPs and 3 nodes but a DON that
+// initially contains only p2pID1 and p2pID2 (F=1). This lets tests verify that
+// UpdateDON can expand the node set to include the third node.
+func setupRegistryWith3Nodes(t *testing.T) *updFixture {
+	t.Helper()
+
+	selector := chainselectors.TEST_90000001.Selector
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulated(t, []uint64{selector}),
+		environment.WithLogger(logger.Test(t)),
+	))
+	require.NoError(t, err)
+
+	qualifier := "update-don-3nodes-tests"
+
+	deployTask := runtime.ChangesetTask(changeset.DeployCapabilitiesRegistry{}, changeset.DeployCapabilitiesRegistryInput{
+		ChainSelector: selector,
+		Qualifier:     qualifier,
+	})
+	require.NoError(t, rt.Exec(deployTask))
+	deployOutput := rt.State().Outputs[deployTask.ID()]
+	require.NotNil(t, deployOutput)
+
+	addr := deployOutput.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(qualifier))[0].Address
+
+	reg, err := capabilities_registry_v2.NewCapabilitiesRegistry(common.HexToAddress(addr), rt.Environment().BlockChains.EVMChains()[selector].Client)
+	require.NoError(t, err)
+
+	writeChain := capabilities_registry_v2.CapabilitiesRegistryCapability{
+		CapabilityId: "write-chain@1.0.1",
+		Metadata:     []byte(`{"capabilityType": 3, "responseType": 1}`),
+	}
+	var writeChainMeta map[string]any
+	require.NoError(t, json.Unmarshal(writeChain.Metadata, &writeChainMeta))
+
+	nop1, nop2, nop3 := "test-nop-1", "test-nop-2", "test-nop-3"
+	donName := "upd-don-3nodes"
+
+	err = rt.Exec(
+		runtime.ChangesetTask(changeset.ConfigureCapabilitiesRegistry{}, changeset.ConfigureCapabilitiesRegistryInput{
+			ChainSelector:               selector,
+			CapabilitiesRegistryAddress: addr,
+			Nops: []changeset.CapabilitiesRegistryNodeOperator{
+				{Admin: common.HexToAddress("0x01"), Name: nop1},
+				{Admin: common.HexToAddress("0x02"), Name: nop2},
+				{Admin: common.HexToAddress("0x03"), Name: nop3},
+			},
+			Capabilities: []changeset.CapabilitiesRegistryCapability{
+				{CapabilityID: writeChain.CapabilityId, Metadata: writeChainMeta},
+			},
+			Nodes: []changeset.CapabilitiesRegistryNodeParams{
+				{
+					NOP:                 nop1,
+					Signer:              signer1,
+					P2pID:               p2pID1,
+					EncryptionPublicKey: encryptionPublicKey,
+					CsaKey:              csaKey,
+					CapabilityIDs:       []string{writeChain.CapabilityId},
+				},
+				{
+					NOP:                 nop2,
+					Signer:              signer2,
+					P2pID:               p2pID2,
+					EncryptionPublicKey: encryptionPublicKey,
+					CsaKey:              csaKey,
+					CapabilityIDs:       []string{writeChain.CapabilityId},
+				},
+				{
+					NOP:                 nop3,
+					Signer:              signer3,
+					P2pID:               p2pID3,
+					EncryptionPublicKey: encryptionPublicKey,
+					CsaKey:              csaKey,
+					CapabilityIDs:       []string{writeChain.CapabilityId},
+				},
+			},
+			DONs: []changeset.CapabilitiesRegistryNewDONParams{
+				{
+					Name: donName,
+					Config: map[string]any{
+						"defaultConfig": map[string]any{},
+					},
+					CapabilityConfigurations: []changeset.CapabilitiesRegistryCapabilityConfiguration{
+						{CapabilityID: writeChain.CapabilityId, Config: map[string]any{"defaultConfig": map[string]any{}}},
+					},
+					Nodes:    []string{p2pID1, p2pID2},
+					F:        1,
+					IsPublic: true,
+				},
+			},
+		}),
+	)
+	require.NoError(t, err)
+
+	return &updFixture{
+		rt:        rt,
+		selector:  selector,
+		qualifier: qualifier,
+		address:   addr,
+		registry:  reg,
+		donName:   donName,
+		capIDs:    []string{writeChain.CapabilityId},
+	}
+}
+
+func TestUpdateDONChangeset_WithF_OverridesOnChainValue(t *testing.T) {
+	t.Parallel()
+	// Use the 3-node fixture (F=1 initially). F=2 is valid with 3 nodes (F < N).
+	fx := setupRegistryWith3Nodes(t)
+
+	err := fx.rt.Exec(runtime.ChangesetTask(changeset.UpdateDON{}, changeset.UpdateDONInput{
+		RegistryQualifier:                 fx.qualifier,
+		RegistryChainSel:                  fx.selector,
+		DONName:                           fx.donName,
+		MergeCapabilityConfigsWithOnChain: true,
+		Nodes:                             []string{p2pID1, p2pID2, p2pID3}, // keep 3 nodes so F=2 is valid
+		F:                                 2,
+	}))
+	require.NoError(t, err)
+
+	got, err := fx.registry.GetDONByName(nil, fx.donName)
+	require.NoError(t, err)
+	assert.Equal(t, uint8(2), got.F)
+}
+
+func TestUpdateDONChangeset_WithF_Zero_PreservesExistingF(t *testing.T) {
+	t.Parallel()
+	fx := setupRegistryForUpdateDON(t, false, false)
+
+	err := fx.rt.Exec(runtime.ChangesetTask(changeset.UpdateDON{}, changeset.UpdateDONInput{
+		RegistryQualifier:                 fx.qualifier,
+		RegistryChainSel:                  fx.selector,
+		DONName:                           fx.donName,
+		MergeCapabilityConfigsWithOnChain: true,
+		F:                                 0, // zero value — keep on-chain F
+	}))
+	require.NoError(t, err)
+
+	got, err := fx.registry.GetDONByName(nil, fx.donName)
+	require.NoError(t, err)
+	assert.Equal(t, uint8(1), got.F, "F must remain unchanged when input F=0")
+}
+
+func TestUpdateDONChangeset_WithNodes_OverridesOnChainNodes(t *testing.T) {
+	t.Parallel()
+	fx := setupRegistryWith3Nodes(t)
+
+	// DON currently has 2 nodes (p2pID1, p2pID2); expand to all 3.
+	err := fx.rt.Exec(runtime.ChangesetTask(changeset.UpdateDON{}, changeset.UpdateDONInput{
+		RegistryQualifier:                 fx.qualifier,
+		RegistryChainSel:                  fx.selector,
+		DONName:                           fx.donName,
+		MergeCapabilityConfigsWithOnChain: true,
+		Nodes:                             []string{p2pID1, p2pID2, p2pID3},
+	}))
+	require.NoError(t, err)
+
+	got, err := fx.registry.GetDONByName(nil, fx.donName)
+	require.NoError(t, err)
+	// The registry stores hashed P2P IDs; membership count is the authoritative assertion.
+	assert.Len(t, got.NodeP2PIds, 3, "DON must now have 3 members")
+}
+
+func TestUpdateDONChangeset_WithNodes_Empty_PreservesExistingNodes(t *testing.T) {
+	t.Parallel()
+	fx := setupRegistryForUpdateDON(t, false, false)
+
+	err := fx.rt.Exec(runtime.ChangesetTask(changeset.UpdateDON{}, changeset.UpdateDONInput{
+		RegistryQualifier:                 fx.qualifier,
+		RegistryChainSel:                  fx.selector,
+		DONName:                           fx.donName,
+		MergeCapabilityConfigsWithOnChain: true,
+		Nodes:                             nil, // empty — keep on-chain nodes
+	}))
+	require.NoError(t, err)
+
+	got, err := fx.registry.GetDONByName(nil, fx.donName)
+	require.NoError(t, err)
+	assert.Len(t, got.NodeP2PIds, 2, "node set must remain unchanged when Nodes is nil")
+}
+
+func TestUpdateDONChangeset_WithNodes_InvalidP2PID(t *testing.T) {
+	t.Parallel()
+	fx := setupRegistryForUpdateDON(t, false, false)
+
+	_, err := changeset.UpdateDON{}.Apply(fx.rt.Environment(), changeset.UpdateDONInput{
+		RegistryQualifier: fx.qualifier,
+		RegistryChainSel:  fx.selector,
+		DONName:           fx.donName,
+		Nodes:             []string{"not-a-valid-p2p-id"},
+	})
+	require.Error(t, err)
+	require.ErrorContains(t, err, "invalid P2P ID")
 }

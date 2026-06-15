@@ -224,6 +224,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	keyStore := opts.KeyStore
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
+	meter := beholder.GetMeter()
 
 	mailMon := mailbox.NewMonitor(cfg.AppID().String(), globalLogger.Named("Mailbox"))
 
@@ -268,7 +269,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	globalLogger.Debugf("# CRESettings defaults: \n%s", creSettingsTOML)
 	atomicSettings := loop.NewAtomicSettings(commoncresettings.DefaultGetter)
 	limitsFactory := limits.Factory{
-		Meter:    beholder.GetMeter(),
+		Meter:    meter,
 		Logger:   globalLogger.Named("Limits"),
 		Settings: atomicSettings,
 	}
@@ -403,6 +404,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			FetcherFactoryFn:        opts.FetcherFactoryFn,
 			BillingClient:           opts.BillingClient,
 			LinkingClient:           opts.LinkingClient,
+			Meter:                   meter,
 			StorageClient:           opts.StorageClient,
 			DonTimeStore:            opts.DonTimeStore,
 			LimitsFactory:           limitsFactory,
@@ -765,7 +767,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	healthCfg := commonsrv.HealthCheckerConfig{Ver: static.Version, Sha: static.Sha}
 	healthCfg = promhealth.ConfigureHooks(healthCfg)
-	healthCfg, err = otelhealth.ConfigureHooks(healthCfg, beholder.GetMeter())
+	healthCfg, err = otelhealth.ConfigureHooks(healthCfg, meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure health checker otel hooks: %w", err)
 	}

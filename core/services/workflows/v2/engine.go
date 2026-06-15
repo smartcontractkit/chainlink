@@ -139,6 +139,20 @@ func (e *Engine) buildLabels(localNode *capabilities.Node) []any {
 	}
 }
 
+// eventLabels returns a copy of the current label map with org ID applied.
+func (e *Engine) eventLabels() map[string]string {
+	return maps.Clone(*e.loggerLabels.Load())
+}
+
+// storeLoggerLabels persists base labels and always merges in the resolved org ID.
+func (e *Engine) storeLoggerLabels(base map[string]string) {
+	labels := maps.Clone(base)
+	if e.orgID != "" {
+		labels[platform.KeyOrganizationID] = e.orgID
+	}
+	e.loggerLabels.Store(&labels)
+}
+
 // logger returns the current logger in a thread-safe manner.
 // This method should be used instead of accessing e.lggr directly to avoid race conditions
 // when the logger is dynamically updated (e.g., when DON configuration changes).
@@ -262,9 +276,7 @@ func (e *Engine) start(ctx context.Context) error {
 			e.orgID = orgID
 		}
 	}
-	loggerLabels := maps.Clone(*e.loggerLabels.Load())
-	loggerLabels[platform.KeyOrganizationID] = e.orgID
-	e.loggerLabels.Store(&loggerLabels)
+	e.storeLoggerLabels(e.eventLabels())
 
 	e.metrics = e.metrics.With(platform.KeyOrganizationID, e.orgID)
 
@@ -370,7 +382,11 @@ func (e *Engine) localNodeSync(ctx context.Context) {
 		"Workflow DON Config Version (pinned)", pinnedWorkflowDonConfigVersion,
 	)
 
-	// Recreate the beholder logger with updated labels to reflect the new DON version
+	// Publish the new node before updating logger state so concurrent executions
+	// observe the synced DON while labels are rebuilt.
+	e.localNode.Store(&localNode)
+
+	// Recreate the beholder logger with updated labels to reflect the new DON version.
 	labels := e.buildLabels(&localNode)
 	newLogger := logger.Sugared(
 		custmsg.NewBeholderLogger(e.cfg.Lggr, e.cfg.BeholderEmitter).
@@ -379,15 +395,13 @@ func (e *Engine) localNodeSync(ctx context.Context) {
 	)
 	e.setLogger(newLogger)
 
-	// Update loggerLabels map for metrics
 	labelsMap := make(map[string]string, len(labels)/2)
 	for i := 0; i < len(labels); i += 2 {
 		labelsMap[labels[i].(string)] = labels[i+1].(string)
 	}
-	e.loggerLabels.Store(&labelsMap)
+	e.storeLoggerLabels(labelsMap)
 
 	e.cfg.Hooks.OnNodeSynced(localNode, nil)
-	e.localNode.Store(&localNode)
 }
 
 func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
@@ -405,7 +419,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	userLogChan := make(chan *protoevents.LogLine, maxUserLogEventsPerExecution)
 	defer close(userLogChan)
 	e.srvcEng.Go(func(_ context.Context) {
-		e.emitUserLogs(subCtx, userLogChan, e.cfg.WorkflowID, *e.loggerLabels.Load())
+		e.emitUserLogs(subCtx, userLogChan, e.cfg.WorkflowID, e.eventLabels())
 	})
 
 	var timeProvider TimeProvider = &types.LocalTimeProvider{}
@@ -703,11 +717,8 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		return
 	}
 
-	// Use the org resolved at engine startup for all executions in this engine instance.
-	executionOrgID := contexts.CREValue(ctx).Org
-	loggerLabels := maps.Clone(*e.loggerLabels.Load())
-	loggerLabels[platform.KeyOrganizationID] = executionOrgID
-	lggr := e.logger().With(platform.KeyOrganizationID, executionOrgID)
+	loggerLabels := e.eventLabels()
+	lggr := e.logger().With(platform.KeyOrganizationID, e.orgID)
 
 	var executionTimestamp time.Time
 	if tsErr := e.cfg.LocalLimiters.ExecutionTimestampsEnabled.AllowErr(ctx); tsErr == nil {

@@ -9,6 +9,7 @@ import (
 
 	suite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/config"
 	evm_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
+	solana_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 )
 
@@ -152,6 +153,17 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteHTTPActionCRUDSuccessTest(t, testEnv)
 		})
+	case suite_config.SuiteScenarioHTTPActionMultiGateway:
+		t.Run("HTTP Action Multi Gateway - "+topology, func(t *testing.T) {
+			if !isMultiGatewayTopology(topology) {
+				t.Skipf("skipping multi-gateway HTTP action test on topology %q", topology)
+			}
+			if parallelEnabled {
+				t.Parallel()
+			}
+			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, getMultiGatewayTestConfig(t))
+			ExecuteHTTPActionMultiGatewayRoutingTest(t, testEnv)
+		})
 	case suite_config.SuiteScenarioDONTime:
 		t.Run("DON Time - "+topology, func(t *testing.T) {
 			if parallelEnabled {
@@ -216,14 +228,38 @@ func runEVMReadBucket(t *testing.T, bucket evm_config.ReadBucket) {
 	})
 }
 
-func Test_CRE_V2_Solana_Suite(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-don-solana.toml"))
+const solanaConfigPath = "/configs/workflow-don-solana.toml"
+
+func Test_CRE_V2_Solana_Write(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, solanaConfigPath))
 	t.Run("Solana Write", func(t *testing.T) {
 		ExecuteSolanaWriteTest(t, testEnv)
 	})
-	t.Run("[v2] Solana LogTrigger", func(t *testing.T) {
+}
+
+func Test_CRE_V2_Solana_LogTrigger(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, solanaConfigPath))
+	t.Run("Solana LogTrigger", func(t *testing.T) {
 		ExecuteSolanaLogTriggerTest(t, testEnv)
+	})
+	t.Run("Solana LogTrigger CPI", func(t *testing.T) {
 		ExecuteSolanaLogTriggerCPITest(t, testEnv)
+	})
+}
+
+func Test_CRE_V2_Solana_Read_Accounts(t *testing.T) {
+	runSolanaReadBucket(t, solana_config.ReadBucketAccountCalls)
+}
+
+func runSolanaReadBucket(t *testing.T, bucket solana_config.ReadBucket) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, solanaConfigPath))
+	require.NoError(t, solana_config.ValidateReadBucketRegistry(), "invalid Solana read bucket registry")
+
+	testCases, err := solana_config.CasesForReadBucket(bucket)
+	require.NoErrorf(t, err, "failed to load Solana read bucket %q", bucket)
+
+	t.Run(fmt.Sprintf("Solana Read (%s) - %s", bucket, topology), func(t *testing.T) {
+		ExecuteSolanaReadTestForCases(t, testEnv, testCases)
 	})
 }
 

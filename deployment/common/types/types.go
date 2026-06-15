@@ -1,18 +1,14 @@
 package types
 
 import (
-	"errors"
-	"math/big"
-	"time"
-
-	mcmstypes "github.com/smartcontractkit/mcms/types"
-
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 type MCMSRole string
+
+func (role MCMSRole) String() string {
+	return string(role)
+}
 
 const (
 	BypasserManyChainMultisig  cldf.ContractType = "BypasserManyChainMultiSig"
@@ -46,74 +42,3 @@ const (
 	CancellerAccessControllerAccount cldf.ContractType = "CancellerAccessControllerAccount"
 	BypasserAccessControllerAccount  cldf.ContractType = "BypasserAccessControllerAccount"
 )
-
-func (role MCMSRole) String() string {
-	return string(role)
-}
-
-// MCMSWithTimelockConfigV2 holds the configuration for an MCMS with timelock.
-// Note that this type already exists in types.go, but this one is using the new lib version.
-type MCMSWithTimelockConfigV2 struct {
-	Canceller        mcmstypes.Config                  `json:"canceller"`
-	Bypasser         mcmstypes.Config                  `json:"bypasser"`
-	Proposer         mcmstypes.Config                  `json:"proposer"`
-	TimelockMinDelay *big.Int                          `json:"timelockMinDelay"`
-	Label            *string                           `json:"label"`
-	GasBoostConfig   *cldfproposalutils.GasBoostConfig `json:"gasBoostConfig"`
-	Qualifier        *string                           `json:"qualifier"`
-}
-
-type OCRParameters struct {
-	DeltaProgress                           time.Duration `json:"deltaProgress"`
-	DeltaResend                             time.Duration `json:"deltaResend"`
-	DeltaInitial                            time.Duration `json:"deltaInitial"`
-	DeltaRound                              time.Duration `json:"deltaRound"`
-	DeltaGrace                              time.Duration `json:"deltaGrace"`
-	DeltaCertifiedCommitRequest             time.Duration `json:"deltaCertifiedCommitRequest"`
-	DeltaStage                              time.Duration `json:"deltaStage"`
-	Rmax                                    uint64        `json:"rmax"`
-	MaxDurationQuery                        time.Duration `json:"maxDurationQuery"`
-	MaxDurationObservation                  time.Duration `json:"maxDurationObservation"`
-	MaxDurationShouldAcceptAttestedReport   time.Duration `json:"maxDurationShouldAcceptAttestedReport"`
-	MaxDurationShouldTransmitAcceptedReport time.Duration `json:"maxDurationShouldTransmitAcceptedReport"`
-}
-
-func (params OCRParameters) Validate() error {
-	if params.DeltaProgress <= 0 {
-		return errors.New("deltaProgress must be positive")
-	}
-	if params.DeltaResend <= 0 {
-		return errors.New("deltaResend must be positive")
-	}
-	if params.DeltaInitial <= 0 {
-		return errors.New("deltaInitial must be positive")
-	}
-	if params.DeltaRound <= 0 {
-		return errors.New("deltaRound must be positive")
-	}
-	if params.DeltaGrace <= 0 {
-		return errors.New("deltaGrace must be positive")
-	}
-	if params.DeltaCertifiedCommitRequest <= 0 {
-		return errors.New("deltaCertifiedCommitRequest must be positive")
-	}
-	if params.DeltaStage < 0 {
-		return errors.New("deltaStage must be positive or 0 for disabled")
-	}
-	if params.Rmax <= 0 {
-		return errors.New("rmax must be positive")
-	}
-	if params.MaxDurationQuery <= 0 {
-		return errors.New("maxDurationQuery must be positive")
-	}
-	if params.MaxDurationObservation <= 0 {
-		return errors.New("maxDurationObservation must be positive")
-	}
-	if params.MaxDurationShouldAcceptAttestedReport <= 0 {
-		return errors.New("maxDurationShouldAcceptAttestedReport must be positive")
-	}
-	if params.MaxDurationShouldTransmitAcceptedReport <= 0 {
-		return errors.New("maxDurationShouldTransmitAcceptedReport must be positive")
-	}
-	return nil
-}

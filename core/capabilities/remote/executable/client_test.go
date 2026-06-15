@@ -174,6 +174,44 @@ func Test_Client_TimesOutIfInsufficientCapabilityPeerResponses(t *testing.T) {
 		})
 }
 
+func Test_Client_WaitsForResponsesWithinAggregationGrace(t *testing.T) {
+	ctx := testutils.Context(t)
+	requestTimeout := 500 * time.Millisecond
+
+	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
+		require.NoError(t, responseError)
+		mp, err := response.Value.Unwrap()
+		require.NoError(t, err)
+		assert.Equal(t, "2s", mp.(map[string]any)["response"].(string))
+	}
+
+	// Capability execution exceeds requestTimeout (500ms) but completes within
+	// requestTimeout + defaultResponseAggregationGrace (10s).
+	// Use a single workflow peer so the mock cap server executes as soon as it
+	// receives one request; with multiple workflow peers the mock waits for all
+	// peers and blocks the test broker while executing, which exceeds the grace window.
+	capability := &TestSlowExecutionCapability{
+		workflowIDToPause: map[string]time.Duration{
+			workflowID1: 2 * time.Second,
+		},
+	}
+
+	transmissionSchedule, err := values.NewMap(map[string]any{
+		"schedule":   transmission.Schedule_AllAtOnce,
+		"deltaStage": "10ms",
+	})
+	require.NoError(t, err)
+
+	testClient(t, 1, requestTimeout, 4, 3,
+		capability,
+		func(caller commoncap.ExecutableCapability) {
+			executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
+			if assert.NoError(t, err) {
+				executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
+			}
+		})
+}
+
 func Test_Client_ConsensusFailedIfInsufficientCapabilityPeerResponses(t *testing.T) {
 	ctx := testutils.Context(t)
 
