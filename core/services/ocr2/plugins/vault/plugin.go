@@ -686,17 +686,18 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	if err != nil {
 		return nil, err
 	}
-	if !skipQueue {
+	switch {
+	case !skipQueue:
 		currentPendingQueueItems, err = readKV.GetPendingQueue(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("could not fetch batch of requests: %w", err)
 		}
-	} else if stuck {
+	case stuck:
 		r.lggr.Warnw("pending queue skipped: stuck-round threshold reached",
 			"seqNr", seqNr,
 			"count", r.stuckRounds.count,
 		)
-	} else {
+	default:
 		r.lggr.Warnw("VaultForceEmptyOCRRounds is enabled; pending queue is not read this OCR round — store-backed pending observation items are skipped")
 	}
 
@@ -1443,17 +1444,18 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 	}
 
 	var pendingQueueItems []*vaultcommon.StoredPendingQueueItem
-	if !skipQueue {
+	switch {
+	case !skipQueue:
 		pendingQueueItems, err = readKV.GetPendingQueue(ctx)
 		if err != nil {
 			return fmt.Errorf("could not fetch pending queue from store: %w", err)
 		}
-	} else if stuck {
+	case stuck:
 		r.lggr.Warnw("pending queue skipped during validation: stuck-round threshold reached",
 			"seqNr", seqNr,
 			"count", r.stuckRounds.count,
 		)
-	} else {
+	default:
 		r.lggr.Warnw("VaultForceEmptyOCRRounds is enabled; pending queue is not read this OCR round — store-backed pending observation items are skipped")
 	}
 

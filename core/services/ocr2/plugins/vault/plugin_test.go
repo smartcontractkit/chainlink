@@ -8082,7 +8082,7 @@ func TestObservation_resetsCountWhenSeqNrAdvances(t *testing.T) {
 	seedPendingGetSecretsQueue(t, rdr)
 
 	const seqNr = uint64(1)
-	for i := 0; i < threshold-1; i++ {
+	for range threshold - 1 {
 		_, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
 		require.NoError(t, err)
 	}
@@ -8101,7 +8101,7 @@ func TestValidateObservation_acceptsZeroItemObsWhenLocalNodeIsStuck(t *testing.T
 	seedPendingGetSecretsQueue(t, rdr)
 
 	const seqNr = uint64(1)
-	for i := 0; i < threshold; i++ {
+	for range threshold {
 		_, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
 		require.NoError(t, err)
 	}
