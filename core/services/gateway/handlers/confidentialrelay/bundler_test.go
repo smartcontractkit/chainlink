@@ -1,7 +1,6 @@
 package confidentialrelay
 
 import (
-	"bytes"
 	"encoding/json"
 	"testing"
 
@@ -107,13 +106,7 @@ func TestBundler_capabilityExec_forwardsAllResponses(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, count)
 	bundle := decodeCapabilityBundle(t, out)
-	require.Len(t, bundle.Responses, 3)
-
-	// Deterministic order: sorted by signer.
-	for i := 0; i < len(bundle.Responses)-1; i++ {
-		require.Negative(t, bytes.Compare(bundle.Responses[i].Signature.Signer, bundle.Responses[i+1].Signature.Signer),
-			"bundle entries should be sorted by signer for determinism")
-	}
+	require.Len(t, bundle.Responses, 3, "every collected response is forwarded; order is not significant")
 }
 
 // A single response carries exactly one signature (the contract no longer permits

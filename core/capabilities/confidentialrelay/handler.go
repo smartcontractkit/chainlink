@@ -685,9 +685,6 @@ func (h *Handler) signSecretsResponse(
 	return &confidentialrelaytypes.SignedSecretsResponseResult{
 		Result:    *result,
 		Signature: sig,
-		// Deprecated: kept populated during the migration window so any reader still
-		// on the array field continues to work; remove once nothing reads Signatures.
-		Signatures: []confidentialrelaytypes.RelayResponseSignature{sig},
 	}, nil
 }
 
@@ -715,9 +712,6 @@ func (h *Handler) signCapabilityResponse(
 	return &confidentialrelaytypes.SignedCapabilityResponseResult{
 		Result:    result,
 		Signature: sig,
-		// Deprecated: kept populated during the migration window so any reader still
-		// on the array field continues to work; remove once nothing reads Signatures.
-		Signatures: []confidentialrelaytypes.RelayResponseSignature{sig},
 	}, nil
 }
 

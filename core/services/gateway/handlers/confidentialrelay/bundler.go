@@ -1,11 +1,9 @@
 package confidentialrelay
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sort"
 
 	relaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
@@ -32,8 +30,9 @@ type bundler struct{}
 // Bundle builds the SignedXResponseBundle envelope from the per-node responses
 // collected so far. Transport-level JSON-RPC errors, nil results, and responses
 // that do not decode as a signed relay response are skipped (they carry no usable
-// signature). Entries are sorted by signer for deterministic output. Returns the
-// encoded bundle response and the count of signed responses it contains.
+// signature). Order is not significant: the enclave groups the bundle by response
+// hash and verifies each signature independently. Returns the encoded bundle
+// response and the count of signed responses it contains.
 func (b *bundler) Bundle(req jsonrpc.Request[json.RawMessage], resps map[string]jsonrpc.Response[json.RawMessage], l logger.Logger) (*jsonrpc.Response[json.RawMessage], int, error) {
 	switch req.Method {
 	case relaytypes.MethodSecretsGet:
@@ -49,9 +48,6 @@ func (b *bundler) Bundle(req jsonrpc.Request[json.RawMessage], resps map[string]
 			}
 			out = append(out, signed)
 		}
-		sort.Slice(out, func(i, j int) bool {
-			return bytes.Compare(out[i].Signature.Signer, out[j].Signature.Signer) < 0
-		})
 		encoded, err := json.Marshal(relaytypes.SignedSecretsResponseBundle{Responses: out})
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to encode secrets response bundle: %w", err)
@@ -70,9 +66,6 @@ func (b *bundler) Bundle(req jsonrpc.Request[json.RawMessage], resps map[string]
 			}
 			out = append(out, signed)
 		}
-		sort.Slice(out, func(i, j int) bool {
-			return bytes.Compare(out[i].Signature.Signer, out[j].Signature.Signer) < 0
-		})
 		encoded, err := json.Marshal(relaytypes.SignedCapabilityResponseBundle{Responses: out})
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to encode capability response bundle: %w", err)

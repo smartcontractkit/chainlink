@@ -352,7 +352,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				}
 				var result confidentialrelaytypes.SignedCapabilityResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
-				require.Len(t, result.Signatures, 1)
+				require.NotEmpty(t, result.Signature.Signer)
 				assertValidCapabilitySignature(t, params, result)
 
 				decoded, err := base64.StdEncoding.DecodeString(result.Result.Payload)
@@ -418,7 +418,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				}
 				var result confidentialrelaytypes.SignedCapabilityResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
-				require.Len(t, result.Signatures, 1)
+				require.NotEmpty(t, result.Signature.Signer)
 				assertValidCapabilitySignature(t, params, result)
 			},
 			checkExecutable: func(t *testing.T, reg *mockCapRegistry) {
@@ -541,7 +541,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				}
 				var result confidentialrelaytypes.SignedCapabilityResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
-				require.Len(t, result.Signatures, 1)
+				require.NotEmpty(t, result.Signature.Signer)
 				assertValidCapabilitySignature(t, params, result)
 				assert.Equal(t, "execution failed", result.Result.Error)
 				assert.Empty(t, result.Result.Payload)
@@ -559,7 +559,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				params.Attestation = ""
 				var result confidentialrelaytypes.SignedSecretsResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
-				require.Len(t, result.Signatures, 1)
+				require.NotEmpty(t, result.Signature.Signer)
 				assertValidSecretsSignature(t, params, result)
 				require.Len(t, result.Result.Secrets, 1)
 				assert.Equal(t, "API_KEY", result.Result.Secrets[0].ID.Key)
@@ -593,7 +593,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				params.Attestation = ""
 				var result confidentialrelaytypes.SignedSecretsResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
-				require.Len(t, result.Signatures, 1)
+				require.NotEmpty(t, result.Signature.Signer)
 				assertValidSecretsSignature(t, params, result)
 			},
 			checkExecutable: func(t *testing.T, reg *mockCapRegistry) {
@@ -670,8 +670,8 @@ func assertValidCapabilitySignature(
 	hash, err := result.Result.Hash(params)
 	require.NoError(t, err)
 	payload := confidentialrelaytypes.RelayResponseSignaturePayload(hash)
-	pubKey := ed25519.PublicKey(result.Signatures[0].Signer)
-	require.True(t, ed25519.Verify(pubKey, payload, result.Signatures[0].Signature))
+	pubKey := ed25519.PublicKey(result.Signature.Signer)
+	require.True(t, ed25519.Verify(pubKey, payload, result.Signature.Signature))
 }
 
 func assertValidSecretsSignature(
@@ -683,8 +683,8 @@ func assertValidSecretsSignature(
 	hash, err := result.Result.Hash(params)
 	require.NoError(t, err)
 	payload := confidentialrelaytypes.RelayResponseSignaturePayload(hash)
-	pubKey := ed25519.PublicKey(result.Signatures[0].Signer)
-	require.True(t, ed25519.Verify(pubKey, payload, result.Signatures[0].Signature))
+	pubKey := ed25519.PublicKey(result.Signature.Signer)
+	require.True(t, ed25519.Verify(pubKey, payload, result.Signature.Signature))
 }
 
 func TestHandler_Lifecycle(t *testing.T) {
