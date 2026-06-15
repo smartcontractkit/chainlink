@@ -370,6 +370,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	// Wire DurableEmitter for persistent chip ingress delivery when enabled.
 	if cfg.Telemetry().DurableEmitterEnabled() && cfg.Telemetry().ChipIngressEndpoint() != "" {
+		emitterCfg := durableemitter.DefaultConfig()
+		emitterCfg.Metrics = &durableemitter.DurableEmitterMetricsConfig{}
 		durableCfg := durableemitter.SetupConfig{
 			Endpoint:           cfg.Telemetry().ChipIngressEndpoint(),
 			InsecureConnection: cfg.Telemetry().ChipIngressInsecureConnection(),
@@ -380,6 +382,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				AuthKeySigner:    csaKeystore,
 			},
 			RetransmitEnabled: true, // host process owns retransmit
+			EmitterConfig:     &emitterCfg,
+			Meter:             meter,
 		}
 		pgStore := durableemitter.NewPgDurableEventStore(opts.DS)
 		durableEmitter, setupErr := durableemitter.Setup(pgStore, durableCfg, globalLogger)
