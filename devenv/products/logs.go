@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"testing"
 	"time"
 
 	mobyclient "github.com/moby/moby/client"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
@@ -247,29 +249,34 @@ func DefaultSettings(extraAllowedMessages ...AllowedLogMessage) ChainlinkNodeLog
 	}
 }
 
-func CleanupContainerLogs(settings ChainlinkNodeLogScannerSettings) error {
+func CleanupContainerLogs(t *testing.T, settings ChainlinkNodeLogScannerSettings) {
 	logDir := fmt.Sprintf("%s-%d", framework.DefaultCTFLogsDir, time.Now().UnixNano())
 
-	return framework.StreamCTFContainerLogsFanout(
-		framework.LogStreamConsumer{
+	consumers := []framework.LogStreamConsumer{
+		{
 			Name: "scan-logs",
 			Consume: func(logStreams map[string]io.ReadCloser) error {
 				return ScanLogsFromStreams(framework.L, settings, logStreams)
 			},
 		},
-		framework.LogStreamConsumer{
-			Name: "save-container-logs",
-			Consume: func(logStreams map[string]io.ReadCloser) error {
-				_, saveErr := framework.SaveContainerLogsFromStreams(logDir, logStreams)
-				return saveErr
-			},
-		},
-		framework.LogStreamConsumer{
+		{
 			Name: "print-panic-logs",
 			Consume: func(logStreams map[string]io.ReadCloser) error {
 				_ = framework.CheckContainersForPanicsFromStreams(logStreams, 100)
 				return nil
 			},
 		},
-	)
+	}
+
+	if t.Failed() {
+		consumers = append(consumers, framework.LogStreamConsumer{
+			Name: "save-container-logs",
+			Consume: func(logStreams map[string]io.ReadCloser) error {
+				_, saveErr := framework.SaveContainerLogsFromStreams(logDir, logStreams)
+				return saveErr
+			},
+		})
+	}
+
+	require.NoError(t, framework.StreamCTFContainerLogsFanout(consumers...), "Docker logs processing failed")
 }
