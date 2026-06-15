@@ -36,6 +36,7 @@ type testPluginBuildOpts struct {
 	batchSize                            int
 	maxBlobPayloadBytes                  int
 	vaultOptimizationsEnabled            bool
+	ownerAddressCanonicalizationEnabled    bool
 	marshalBlob                          func(ocr3_1types.BlobHandle) ([]byte, error)
 	unmarshalBlob                        func([]byte) (ocr3_1types.BlobHandle, error)
 	maxObservationBytesOverride          int
@@ -75,6 +76,10 @@ func withMaxSecretsPerOwner(n int) testPluginOption {
 
 func withVaultOptimizationsEnabled() testPluginOption {
 	return func(o *testPluginBuildOpts) { o.vaultOptimizationsEnabled = true }
+}
+
+func withOwnerAddressCanonicalizationEnabled() testPluginOption {
+	return func(o *testPluginBuildOpts) { o.ownerAddressCanonicalizationEnabled = true }
 }
 
 func withOnchainCfg(n int, f int) testPluginOption {
@@ -133,6 +138,9 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 	if o.vaultOptimizationsEnabled {
 		cfg.VaultOptimizationsEnabled = limits.NewGateLimiter(true)
 	}
+	if o.ownerAddressCanonicalizationEnabled {
+		cfg.OwnerAddressCanonicalizationEnabled = limits.NewGateLimiter(true)
+	}
 	ctx := context.Background()
 	pl, err := initializePluginLimits(ctx, limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
@@ -168,6 +176,7 @@ func makeTestValidator(cfg *ReportingPluginConfig) *vaultcap.RequestValidator {
 		cfg.MaxIdentifierKeyLengthBytes,
 		cfg.MaxIdentifierOwnerLengthBytes,
 		cfg.MaxIdentifierNamespaceLengthBytes,
+		cfg.OwnerAddressCanonicalizationEnabled,
 	)
 }
 
@@ -233,8 +242,9 @@ func makeReportingPluginConfig(
 		MaxIdentifierKeyLengthBytes:       keyLimiter,
 		MaxRequestBatchSize:               requestBatchSizeLimiter,
 		MaxBlobPayloadBytes:               maxBlobPayloadLimiter,
-		VaultForceEmptyOCRRounds:          limits.NewGateLimiter(false),
-		VaultOptimizationsEnabled:         limits.NewGateLimiter(false),
+		VaultForceEmptyOCRRounds:                  limits.NewGateLimiter(false),
+		VaultOptimizationsEnabled:                 limits.NewGateLimiter(false),
+		OwnerAddressCanonicalizationEnabled:       limits.NewGateLimiter(false),
 	}
 }
 

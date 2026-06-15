@@ -25,13 +25,14 @@ import (
 var _ capabilities.ExecutableCapability = (*Capability)(nil)
 
 type Capability struct {
-	lggr                 logger.Logger
-	clock                clockwork.Clock
-	expiresAfter         time.Duration
-	handler              *requests.Handler[*vaulttypes.Request, *vaulttypes.Response]
-	capabilitiesRegistry core.CapabilitiesRegistry
-	publicKey            *LazyPublicKey
-	lifecycle            *RequestLifecycleTracker
+	lggr                                 logger.Logger
+	clock                                clockwork.Clock
+	expiresAfter                         time.Duration
+	handler                              *requests.Handler[*vaulttypes.Request, *vaulttypes.Response]
+	capabilitiesRegistry                 core.CapabilitiesRegistry
+	publicKey                            *LazyPublicKey
+	lifecycle                            *RequestLifecycleTracker
+	ownerAddressCanonicalizationEnabled  limits.GateLimiter
 	*RequestValidator
 }
 
@@ -85,6 +86,12 @@ func (s *Capability) Close() error {
 
 	if lerr := s.MaxIdentifierNamespaceLengthLimiter.Close(); lerr != nil {
 		err = errors.Join(err, fmt.Errorf("error closing identifier namespace length limiter: %w", lerr))
+	}
+
+	if s.ownerAddressCanonicalizationEnabled != nil {
+		if lerr := s.ownerAddressCanonicalizationEnabled.Close(); lerr != nil {
+			err = errors.Join(err, fmt.Errorf("error closing owner address canonicalization gate: %w", lerr))
+		}
 	}
 
 	return err
@@ -297,6 +304,7 @@ func validateSecretIdentifiersUniformOwners(ids []*vaultcommon.SecretIdentifier)
 }
 
 func (s *Capability) handleRequest(ctx context.Context, requestID string, request proto.Message) (*vaulttypes.Response, error) {
+	request = s.canonicalizeRequestIfEnabled(ctx, request)
 	s.lifecycle.RecordReceived(ctx, requestID, s.clock.Now())
 	respCh := make(chan *vaulttypes.Response, 1)
 	s.handler.SendRequest(ctx, &vaulttypes.Request{
@@ -358,14 +366,26 @@ func NewCapability(
 	if err != nil {
 		return nil, fmt.Errorf("could not create identifier namespace length limiter: %w", err)
 	}
+	ownerAddressCanonicalizationEnabled, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.VaultOwnerAddressCanonicalizationEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("could not create owner address canonicalization gate: %w", err)
+	}
 	return &Capability{
-		lggr:                 logger.Named(lggr, "VaultCapability"),
-		clock:                clock,
-		expiresAfter:         expiresAfter,
-		handler:              handler,
-		capabilitiesRegistry: capabilitiesRegistry,
-		publicKey:            publicKey,
-		lifecycle:            lifecycle,
-		RequestValidator:     NewRequestValidator(limiter, ciphertextLimiter, idKeyLengthLimiter, idOwnerLengthLimiter, idNamespaceLengthLimiter),
+		lggr:                                logger.Named(lggr, "VaultCapability"),
+		clock:                               clock,
+		expiresAfter:                        expiresAfter,
+		handler:                             handler,
+		capabilitiesRegistry:                capabilitiesRegistry,
+		publicKey:                           publicKey,
+		lifecycle:                           lifecycle,
+		ownerAddressCanonicalizationEnabled: ownerAddressCanonicalizationEnabled,
+		RequestValidator: NewRequestValidator(
+			limiter,
+			ciphertextLimiter,
+			idKeyLengthLimiter,
+			idOwnerLengthLimiter,
+			idNamespaceLengthLimiter,
+			ownerAddressCanonicalizationEnabled,
+		),
 	}, nil
 }

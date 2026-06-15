@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -43,7 +44,7 @@ func TestTransmitter(t *testing.T) {
 	err := store.Add(&vaulttypes.Request{
 		Payload:      req1,
 		ResponseChan: ch,
-		IDVal:        vaulttypes.KeyFor(id1),
+		IDVal:        vaultutils.KeyFor(id1),
 	})
 	require.NoError(t, err)
 
@@ -57,7 +58,7 @@ func TestTransmitter(t *testing.T) {
 		},
 	}
 	expectedOutcome1 := &vault.Outcome{
-		Id:          vaulttypes.KeyFor(id1),
+		Id:          vaultutils.KeyFor(id1),
 		RequestType: vault.RequestType_GET_SECRETS,
 		Request: &vault.Outcome_GetSecretsRequest{
 			GetSecretsRequest: req1,
@@ -95,5 +96,5 @@ func TestTransmitter(t *testing.T) {
 	resp := <-ch
 	assert.Equal(t, report.ReportWithInfo.Report, types.Report(resp.Payload))
 	assert.Equal(t, "REPORT_FORMAT_PROTOBUF", resp.Format)
-	assert.Equal(t, vaulttypes.KeyFor(id1), resp.ID)
+	assert.Equal(t, vaultutils.KeyFor(id1), resp.ID)
 }

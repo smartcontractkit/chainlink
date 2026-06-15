@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
@@ -23,11 +24,12 @@ var (
 )
 
 type RequestValidator struct {
-	MaxRequestBatchSizeLimiter          limits.BoundLimiter[int]
-	MaxCiphertextLengthLimiter          limits.BoundLimiter[pkgconfig.Size]
-	MaxIdentifierKeyLengthLimiter       limits.BoundLimiter[pkgconfig.Size]
-	MaxIdentifierOwnerLengthLimiter     limits.BoundLimiter[pkgconfig.Size]
-	MaxIdentifierNamespaceLengthLimiter limits.BoundLimiter[pkgconfig.Size]
+	MaxRequestBatchSizeLimiter                   limits.BoundLimiter[int]
+	MaxCiphertextLengthLimiter                   limits.BoundLimiter[pkgconfig.Size]
+	MaxIdentifierKeyLengthLimiter                  limits.BoundLimiter[pkgconfig.Size]
+	MaxIdentifierOwnerLengthLimiter                limits.BoundLimiter[pkgconfig.Size]
+	MaxIdentifierNamespaceLengthLimiter            limits.BoundLimiter[pkgconfig.Size]
+	OwnerAddressCanonicalizationEnabled            limits.GateLimiter
 }
 
 func (r *RequestValidator) ValidateCreateSecretsRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, request *vaultcommon.CreateSecretsRequest, skipLabelValidation bool) error {
@@ -84,12 +86,12 @@ func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *
 				return errors.New("Encrypted Secret at index [" + strconv.Itoa(idx) + "] doesn't have owner as the label. Error: " + err.Error())
 			}
 		}
-		_, ok := uniqueIDs[vaulttypes.KeyFor(req.Id)]
+		_, ok := uniqueIDs[vaultutils.KeyFor(req.Id)]
 		if ok {
 			return errors.New("duplicate secret ID found at index " + strconv.Itoa(idx) + ": " + req.Id.String())
 		}
 
-		uniqueIDs[vaulttypes.KeyFor(req.Id)] = true
+		uniqueIDs[vaultutils.KeyFor(req.Id)] = true
 	}
 
 	return nil
@@ -120,7 +122,14 @@ func (r *RequestValidator) ValidateSecretIdentifier(ctx context.Context, idKey s
 		return errors.New("owner cannot be empty")
 	}
 
-	if !isValidIDComponent(idKey) || !isValidIDComponent(idOwner) || (idNamespace != "" && !isValidIDComponent(idNamespace)) {
+	if !isValidIDComponent(idKey) || (idNamespace != "" && !isValidIDComponent(idNamespace)) {
+		return errors.New("key, owner and namespace must only contain alphanumeric characters")
+	}
+	if r.ownerAddressCanonicalizationEnabled(ctx) {
+		if !common.IsHexAddress(idOwner) {
+			return errors.New("owner must be a valid Ethereum address")
+		}
+	} else if !isValidIDComponent(idOwner) {
 		return errors.New("key, owner and namespace must only contain alphanumeric characters")
 	}
 
@@ -180,7 +189,18 @@ func (r *RequestValidator) ValidateListSecretIdentifiersRequest(ctx context.Cont
 	if request.RequestId == "" || request.Owner == "" {
 		return errors.New("requestID or owner must not be empty")
 	}
-	if err := r.ValidateSecretIdentifier(ctx, request.Owner, request.Owner, request.Namespace); err != nil {
+	if err := r.ValidateListOwnerIdentifier(ctx, request.Owner, request.Namespace); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *RequestValidator) ValidateListOwnerIdentifier(ctx context.Context, owner, namespace string) error {
+	listKey := owner
+	if r.ownerAddressCanonicalizationEnabled(ctx) {
+		listKey = "_"
+	}
+	if err := r.ValidateSecretIdentifier(ctx, listKey, owner, namespace); err != nil {
 		return fmt.Errorf("invalid secret identifier: %w", err)
 	}
 	return nil
@@ -203,12 +223,12 @@ func (r *RequestValidator) ValidateDeleteSecretsRequest(ctx context.Context, req
 			return fmt.Errorf("invalid secret identifier at index %d: %w", idx, err)
 		}
 
-		_, ok := uniqueIDs[vaulttypes.KeyFor(id)]
+		_, ok := uniqueIDs[vaultutils.KeyFor(id)]
 		if ok {
 			return errors.New("duplicate secret ID found at index " + strconv.Itoa(idx) + ": " + id.String())
 		}
 
-		uniqueIDs[vaulttypes.KeyFor(id)] = true
+		uniqueIDs[vaultutils.KeyFor(id)] = true
 	}
 	return nil
 }
@@ -219,6 +239,7 @@ func NewRequestValidator(
 	maxIdentifierKeyLengthLimiter limits.BoundLimiter[pkgconfig.Size],
 	maxIdentifierOwnerLengthLimiter limits.BoundLimiter[pkgconfig.Size],
 	maxIdentifierNamespaceLengthLimiter limits.BoundLimiter[pkgconfig.Size],
+	ownerAddressCanonicalizationEnabled limits.GateLimiter,
 ) *RequestValidator {
 	return &RequestValidator{
 		MaxRequestBatchSizeLimiter:          maxRequestBatchSizeLimiter,
@@ -226,7 +247,16 @@ func NewRequestValidator(
 		MaxIdentifierKeyLengthLimiter:       maxIdentifierKeyLengthLimiter,
 		MaxIdentifierOwnerLengthLimiter:     maxIdentifierOwnerLengthLimiter,
 		MaxIdentifierNamespaceLengthLimiter: maxIdentifierNamespaceLengthLimiter,
+		OwnerAddressCanonicalizationEnabled: ownerAddressCanonicalizationEnabled,
 	}
+}
+
+func (r *RequestValidator) ownerAddressCanonicalizationEnabled(ctx context.Context) bool {
+	if r.OwnerAddressCanonicalizationEnabled == nil {
+		return false
+	}
+	enabled, err := r.OwnerAddressCanonicalizationEnabled.Limit(ctx)
+	return err == nil && enabled
 }
 
 // EnsureRightLabelOnSecret verifies that the TDH2 ciphertext label matches the workflow

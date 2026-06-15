@@ -44,6 +44,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+const pluginTestWorkflowOwner = "0x0001020304050607080900010203040506070809"
+const pluginTestZeroOwner = "0x0000000000000000000000000000000000000000"
+const pluginTestListOwner = "0x000000000000000000000000000000000000000F"
+const pluginTestTooLongKey = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" // 65 bytes
+
+func pluginMetadataKey(owner string) string {
+	return metadataPrefix + owner
+}
+
 func testRequestLifecycleTracker(t *testing.T, lggr logger.Logger) *vaultcap.RequestLifecycleTracker {
 	t.Helper()
 	lc, err := vaultcap.NewRequestLifecycleTracker(lggr)
@@ -303,7 +312,7 @@ func TestPlugin_Observation_NothingInBatch(t *testing.T) {
 func TestPlugin_Observation_GetSecretsRequest_OmitsRequestWhenOptimizationsEnabled(t *testing.T) {
 	r := newTestReportingPlugin(t, withVaultOptimizationsEnabled())
 
-	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
+	id := &vaultcommon.SecretIdentifier{Owner: pluginTestWorkflowOwner, Namespace: "main", Key: "secret"}
 	p := &vaultcommon.GetSecretsRequest{
 		Requests: []*vaultcommon.SecretRequest{{Id: id}},
 	}
@@ -329,7 +338,7 @@ func TestPlugin_Observation_PendingQueueEnabled_EmptyPendingQueue(t *testing.T) 
 	r := newTestReportingPlugin(t, withStore(store), withVaultOptimizationsEnabled())
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "my_secret",
 	}
@@ -388,7 +397,7 @@ func TestPlugin_Observation_PendingQueueEnabled_WithPendingQueueProvided(t *test
 	r := newTestReportingPlugin(t, withStore(store), withVaultOptimizationsEnabled())
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "my_secret",
 	}
@@ -467,7 +476,7 @@ func TestPlugin_Observation_PendingQueueEnabled_ItemBothInPendingQueueAndLocalQu
 	r := newTestReportingPlugin(t, withStore(store))
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "my_secret",
 	}
@@ -608,7 +617,7 @@ func TestPrepareObservationPendingQueueBlobs_packsManySmallItemsInOneObservation
 	r := newTestReportingPlugin(t, withStore(store), withVaultOptimizationsEnabled())
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "my_secret",
 	}
@@ -659,7 +668,7 @@ func TestPrepareObservationPendingQueueBlobs_flushesAndContinuesWhenBatchFull(t 
 	pubK, _, err := box.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 	pks := hex.EncodeToString(pubK[:])
-	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "my_secret"}
+	id := &vaultcommon.SecretIdentifier{Owner: pluginTestWorkflowOwner, Namespace: "main", Key: "my_secret"}
 	p := &vaultcommon.GetSecretsRequest{
 		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{pks}}},
 	}
@@ -705,7 +714,7 @@ func TestPrepareObservationPendingQueueBlobs_truncatesWhenHandleCountExceeded(t 
 	pubK, _, err := box.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 	pks := hex.EncodeToString(pubK[:])
-	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "my_secret"}
+	id := &vaultcommon.SecretIdentifier{Owner: pluginTestWorkflowOwner, Namespace: "main", Key: "my_secret"}
 	p := &vaultcommon.GetSecretsRequest{
 		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{pks}}},
 	}
@@ -743,7 +752,7 @@ func TestPrepareObservationPendingQueueBlobs_errorWhenSingleItemTooLarge(t *test
 	pubK, _, err := box.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 	pks := hex.EncodeToString(pubK[:])
-	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "my_secret"}
+	id := &vaultcommon.SecretIdentifier{Owner: pluginTestWorkflowOwner, Namespace: "main", Key: "my_secret"}
 	p := &vaultcommon.GetSecretsRequest{
 		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{pks}}},
 	}
@@ -813,7 +822,7 @@ func TestPlugin_Observation_PendingQueueEnabled_BroadcastsPendingQueueBlobsInPar
 	r := newTestReportingPlugin(t, withStore(store), withMaxBlobPayloadBytes(310))
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "my_secret",
 	}
@@ -871,7 +880,7 @@ func TestPlugin_Observation_PendingQueueEnabled_BroadcastBlobError(t *testing.T)
 	r := newTestReportingPlugin(t, withStore(store), withLggr(lggr))
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "my_secret",
 	}
@@ -935,7 +944,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing
 			name:     "id is too long",
 			maxIDLen: 10,
 			id: &vaultcommon.SecretIdentifier{
-				Owner:     "owner",
+				Owner:     pluginTestWorkflowOwner,
 				Key:       "hello",
 				Namespace: "world",
 			},
@@ -945,7 +954,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing
 			name:            "namespace exceeds maximum length",
 			maxNamespaceLen: 3,
 			id: &vaultcommon.SecretIdentifier{
-				Owner:     "owner",
+				Owner:     pluginTestWorkflowOwner,
 				Key:       "hello",
 				Namespace: "world",
 			},
@@ -955,7 +964,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing
 			name:      "key exceeds maximum length",
 			maxKeyLen: 3,
 			id: &vaultcommon.SecretIdentifier{
-				Owner:     "owner",
+				Owner:     pluginTestWorkflowOwner,
 				Key:       "hello",
 				Namespace: "world",
 			},
@@ -1031,7 +1040,7 @@ func TestPlugin_Observation_GetSecretsRequest_ResponseUsesCanonicalIdentifier(t 
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]))
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "my_secret",
 	}
@@ -1040,13 +1049,16 @@ func TestPlugin_Observation_GetSecretsRequest_ResponseUsesCanonicalIdentifier(t 
 	}
 
 	plaintext := []byte("my-secret-value")
-	ciphertext, err := tdh2easy.Encrypt(pk, plaintext)
+	var label [32]byte
+	ownerAddress := common.HexToAddress(pluginTestWorkflowOwner)
+	copy(label[12:], ownerAddress.Bytes())
+	ciphertext, err := tdh2easy.EncryptWithLabel(pk, plaintext, label)
 	require.NoError(t, err)
 	ciphertextBytes, err := ciphertext.Marshal()
 	require.NoError(t, err)
 
 	createdID := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "my_secret",
 	}
@@ -1225,7 +1237,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretDoesNotExist(t *testing.T) {
 		m: make(map[string]response),
 	}
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "my_secret",
 	}
@@ -1276,7 +1288,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretExistsButIsIncorrect(t *test
 	r := newTestReportingPlugin(t, withLggr(lggr), withKeys(pk, shares[0]))
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "my_secret",
 	}
@@ -1343,7 +1355,7 @@ func TestPlugin_Observation_GetSecretsRequest_PublicKeyIsInvalid(t *testing.T) {
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]))
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestZeroOwner,
 		Namespace: "main",
 		Key:       "my_secret",
 	}
@@ -1408,7 +1420,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretLabelIsInvalid(t *testing.T)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]))
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestZeroOwner,
 		Namespace: "main",
 		Key:       "my_secret",
 	}
@@ -1418,7 +1430,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretLabelIsInvalid(t *testing.T)
 
 	plaintext := []byte("my-secret-value")
 	var label [32]byte
-	ownerAddress := common.HexToAddress("0x0001020304050607080900010203040506070809")
+	ownerAddress := common.HexToAddress(pluginTestWorkflowOwner)
 	copy(label[12:], ownerAddress.Bytes()) // left-pad with 12 zero
 	ciphertext, err := tdh2easy.EncryptWithLabel(pk, plaintext, label)
 	require.NoError(t, err)
@@ -1694,7 +1706,7 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *test
 			name:     "id is too long",
 			maxIDLen: 10,
 			id: &vaultcommon.SecretIdentifier{
-				Owner:     "owner",
+				Owner:     pluginTestWorkflowOwner,
 				Key:       "hello",
 				Namespace: "world",
 			},
@@ -1704,7 +1716,7 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *test
 			name:            "namespace exceeds maximum length",
 			maxNamespaceLen: 3,
 			id: &vaultcommon.SecretIdentifier{
-				Owner:     "owner",
+				Owner:     pluginTestWorkflowOwner,
 				Key:       "hello",
 				Namespace: "world",
 			},
@@ -1714,7 +1726,7 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *test
 			name:      "key exceeds maximum length",
 			maxKeyLen: 3,
 			id: &vaultcommon.SecretIdentifier{
-				Owner:     "owner",
+				Owner:     pluginTestWorkflowOwner,
 				Key:       "hello",
 				Namespace: "world",
 			},
@@ -1792,7 +1804,7 @@ func TestPlugin_Observation_CreateSecretsRequest_DisallowsDuplicateRequests(t *t
 		m: make(map[string]response),
 	}
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "my_secret",
 	}
@@ -1845,7 +1857,7 @@ func TestPlugin_Observation_CreateSecretsRequest_DisallowsDuplicateRequests(t *t
 func TestPlugin_StateTransition_CreateSecretsRequest_CorrectlyTracksLimits(t *testing.T) {
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
-	r := newTestReportingPlugin(t, withBatchSize(10), withMaxIdentifierLengths(30, 30, 30), withKeys(pk, shares[0]))
+	r := newTestReportingPlugin(t, withBatchSize(10), withMaxIdentifierLengths(64, 30, 30), withKeys(pk, shares[0]))
 
 	seqNr := uint64(1)
 	rdr := &kv{
@@ -1859,7 +1871,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_CorrectlyTracksLimits(t *te
 	require.NoError(t, err)
 
 	id1 := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestZeroOwner,
 		Namespace: "main",
 		Key:       "my_secret",
 	}
@@ -1882,7 +1894,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_CorrectlyTracksLimits(t *te
 	}
 
 	id2 := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestZeroOwner,
 		Namespace: "main",
 		Key:       "my_secret2",
 	}
@@ -1949,7 +1961,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext(t *testing.T)
 	}
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -2000,7 +2012,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_TooLong(t *te
 	}
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -2058,7 +2070,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_EncryptedWith
 	}
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestZeroOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -2240,7 +2252,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_TooManySecretsForOwner(t *t
 		m: make(map[string]response),
 	}
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestZeroOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -2248,7 +2260,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_TooManySecretsForOwner(t *t
 	err = kvstore.WriteMetadata(t.Context(), id.Owner, &vaultcommon.StoredMetadata{
 		SecretIdentifiers: []*vaultcommon.SecretIdentifier{
 			{
-				Owner:     "owner",
+				Owner:     pluginTestZeroOwner,
 				Namespace: "main",
 				Key:       "secret2",
 			},
@@ -2301,7 +2313,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_TooManySecretsForOwner(t *t
 	o := os.Outcomes[0]
 
 	assert.Len(t, o.GetCreateSecretsResponse().Responses, 1)
-	assert.Contains(t, o.GetCreateSecretsResponse().Responses[0].Error, "owner has reached maximum number of secrets")
+	assert.Contains(t, o.GetCreateSecretsResponse().Responses[0].Error, "has reached maximum number of secrets")
 }
 
 func TestPlugin_StateTransition_CreateSecretsRequest_SecretExistsForKey(t *testing.T) {
@@ -2314,7 +2326,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_SecretExistsForKey(t *testi
 		m: make(map[string]response),
 	}
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestZeroOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -2382,7 +2394,7 @@ func TestPlugin_Observation_CreateSecretsRequest_Success(t *testing.T) {
 		m: make(map[string]response),
 	}
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestZeroOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -2667,7 +2679,7 @@ func marshalObservations(t *testing.T, observations ...observation) []byte {
 	}
 	for _, ob := range observations {
 		o := &vaultcommon.Observation{
-			Id: vaulttypes.KeyFor(ob.id),
+			Id: vaultutils.KeyFor(ob.id),
 		}
 		switch tr := ob.req.(type) {
 		case *vaultcommon.GetSecretsRequest:
@@ -2741,7 +2753,7 @@ func TestPlugin_StateTransition_InsufficientObservations(t *testing.T) {
 	}
 
 	id1 := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -2872,7 +2884,7 @@ func TestPlugin_ValidateObservations_InvalidObservations(t *testing.T) {
 	}
 
 	id1 := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -2940,7 +2952,7 @@ func TestPlugin_ValidateObservations_RequiresObservedIDsInPendingQueue(t *testin
 	}
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -2951,7 +2963,7 @@ func TestPlugin_ValidateObservations_RequiresObservedIDsInPendingQueue(t *testin
 	anyd, err := anypb.New(d)
 	require.NoError(t, err)
 	id2 := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret2",
 	}
@@ -2966,15 +2978,15 @@ func TestPlugin_ValidateObservations_RequiresObservedIDsInPendingQueue(t *testin
 	require.NoError(t, err)
 	err = newTestWriteStore(t, kv).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
-			{Id: vaulttypes.KeyFor(id), Item: anyd},
-			{Id: vaulttypes.KeyFor(id2), Item: anyg},
+			{Id: vaultutils.KeyFor(id), Item: anyd},
+			{Id: vaultutils.KeyFor(id2), Item: anyg},
 		},
 	)
 	require.NoError(t, err)
 
 	// Observation id not present in the pending queue must be rejected.
 	unknown := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "unknown",
 	}
@@ -3042,7 +3054,7 @@ func TestPlugin_ValidateObservations_DisallowsDuplicateBlobHandles(t *testing.T)
 		m: make(map[string]response),
 	}
 
-	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
+	id := &vaultcommon.SecretIdentifier{Owner: pluginTestWorkflowOwner, Namespace: "main", Key: "secret"}
 	req := &vaultcommon.GetSecretsRequest{Requests: []*vaultcommon.SecretRequest{{Id: id}}}
 	anyMsg, err := anypb.New(req)
 	require.NoError(t, err)
@@ -3088,7 +3100,7 @@ func TestPlugin_StateTransition_ShasDontMatch(t *testing.T) {
 	}
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -3151,7 +3163,7 @@ func TestPlugin_StateTransition_AggregatesValidationErrors(t *testing.T) {
 	}
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -3209,7 +3221,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 	}
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -3332,7 +3344,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesBinaryShares(t *testin
 	}
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -3456,7 +3468,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_CapsSharesAtTwoFPlusOne(t *tes
 	}
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -3544,7 +3556,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_DoesNotCapSharesWhenOptimizati
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -3598,7 +3610,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_OmitsOutcomeRequestWhenOptimiz
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultOptimizationsEnabled())
 
-	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
+	id := &vaultcommon.SecretIdentifier{Owner: pluginTestWorkflowOwner, Namespace: "main", Key: "secret"}
 	req := &vaultcommon.GetSecretsRequest{Requests: []*vaultcommon.SecretRequest{{Id: id}}}
 	resp := &vaultcommon.GetSecretsResponse{
 		Responses: []*vaultcommon.SecretResponse{
@@ -3641,7 +3653,7 @@ func TestPlugin_PrepareLegacyObservationPendingQueueBlobs_oneBlobPerItem(t *test
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := newTestReportingPlugin(t, withStore(store))
 
-	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "my_secret"}
+	id := &vaultcommon.SecretIdentifier{Owner: pluginTestWorkflowOwner, Namespace: "main", Key: "my_secret"}
 	pubK, _, err := box.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 	pks := hex.EncodeToString(pubK[:])
@@ -3682,7 +3694,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T)
 	rs := newTestReadStore(t, kv)
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -3895,7 +3907,7 @@ func TestPlugin_StateTransition_CreateSecrets_ResponseOwnerMatchesStoredIdentifi
 func TestPlugin_Reports(t *testing.T) {
 	value := "encrypted-value"
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -3917,7 +3929,7 @@ func TestPlugin_Reports(t *testing.T) {
 		},
 	}
 	expectedOutcome1 := &vaultcommon.Outcome{
-		Id:          vaulttypes.KeyFor(id),
+		Id:          vaultutils.KeyFor(id),
 		RequestType: vaultcommon.RequestType_CREATE_SECRETS,
 		Request: &vaultcommon.Outcome_CreateSecretsRequest{
 			CreateSecretsRequest: req,
@@ -3928,7 +3940,7 @@ func TestPlugin_Reports(t *testing.T) {
 	}
 
 	id2 := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret2",
 	}
@@ -3948,7 +3960,7 @@ func TestPlugin_Reports(t *testing.T) {
 		},
 	}
 	expectedOutcome2 := &vaultcommon.Outcome{
-		Id:          vaulttypes.KeyFor(id2),
+		Id:          vaultutils.KeyFor(id2),
 		RequestType: vaultcommon.RequestType_GET_SECRETS,
 		Request: &vaultcommon.Outcome_GetSecretsRequest{
 			GetSecretsRequest: req2,
@@ -3981,7 +3993,7 @@ func TestPlugin_Reports(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.True(t, proto.Equal(&vaultcommon.ReportInfo{
-		Id:          vaulttypes.KeyFor(id),
+		Id:          vaultutils.KeyFor(id),
 		Format:      vaultcommon.ReportFormat_REPORT_FORMAT_JSON,
 		RequestType: vaultcommon.RequestType_CREATE_SECRETS,
 	}, info1))
@@ -3994,7 +4006,7 @@ func TestPlugin_Reports(t *testing.T) {
 	info2, err := extractReportInfo(o2.ReportWithInfo)
 	require.NoError(t, err)
 	assert.True(t, proto.Equal(&vaultcommon.ReportInfo{
-		Id:          vaulttypes.KeyFor(id2),
+		Id:          vaultutils.KeyFor(id2),
 		Format:      vaultcommon.ReportFormat_REPORT_FORMAT_PROTOBUF,
 		RequestType: vaultcommon.RequestType_GET_SECRETS,
 	}, info2))
@@ -4037,7 +4049,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_SecretIdentifierInvalid(t *test
 			name:     "id is too long",
 			maxIDLen: 10,
 			id: &vaultcommon.SecretIdentifier{
-				Owner:     "owner",
+				Owner:     pluginTestWorkflowOwner,
 				Key:       "hello",
 				Namespace: "world",
 			},
@@ -4047,7 +4059,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_SecretIdentifierInvalid(t *test
 			name:            "namespace exceeds maximum length",
 			maxNamespaceLen: 3,
 			id: &vaultcommon.SecretIdentifier{
-				Owner:     "a",
+				Owner:     pluginTestZeroOwner,
 				Key:       "b",
 				Namespace: "world",
 			},
@@ -4057,7 +4069,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_SecretIdentifierInvalid(t *test
 			name:      "key exceeds maximum length",
 			maxKeyLen: 3,
 			id: &vaultcommon.SecretIdentifier{
-				Owner:     "a",
+				Owner:     pluginTestZeroOwner,
 				Namespace: "b",
 				Key:       "hello",
 			},
@@ -4128,14 +4140,14 @@ func TestPlugin_Observation_UpdateSecretsRequest_SecretIdentifierInvalid(t *test
 }
 
 func TestPlugin_Observation_UpdateSecretsRequest_DisallowsDuplicateRequests(t *testing.T) {
-	r := newTestReportingPlugin(t, withMaxIdentifierLengths(30, 30, 30))
+	r := newTestReportingPlugin(t, withMaxIdentifierLengths(64, 30, 30))
 
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: make(map[string]response),
 	}
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "my_secret",
 	}
@@ -4194,7 +4206,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext(t *testing.T)
 	}
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -4245,7 +4257,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext_TooLong(t *te
 	}
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -4303,7 +4315,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext_EncryptedWith
 	}
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestZeroOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -4364,7 +4376,7 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_SecretDoesntExist(t *testin
 	rs := newTestReadStore(t, kv)
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -4433,7 +4445,7 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_WritesSecrets(t *testing.T)
 	r := newTestReportingPlugin(t, withLggr(lggr), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -4447,10 +4459,10 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_WritesSecrets(t *testing.T)
 	require.NoError(t, err)
 	kv := &kv{
 		m: map[string]response{
-			keyPrefix + vaulttypes.KeyFor(id): {
+			keyPrefix + vaultutils.KeyFor(id): {
 				data: secret,
 			},
-			metadataPrefix + "owner": {
+			metadataPrefix + pluginTestWorkflowOwner: {
 				data: metadata,
 			},
 		},
@@ -4521,7 +4533,7 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_WritesSecrets(t *testing.T)
 func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
 	value := "encrypted-value"
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -4543,7 +4555,7 @@ func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
 		},
 	}
 	expectedOutcome := &vaultcommon.Outcome{
-		Id:          vaulttypes.KeyFor(id),
+		Id:          vaultutils.KeyFor(id),
 		RequestType: vaultcommon.RequestType_UPDATE_SECRETS,
 		Request: &vaultcommon.Outcome_UpdateSecretsRequest{
 			UpdateSecretsRequest: req,
@@ -4576,7 +4588,7 @@ func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.True(t, proto.Equal(&vaultcommon.ReportInfo{
-		Id:          vaulttypes.KeyFor(id),
+		Id:          vaultutils.KeyFor(id),
 		Format:      vaultcommon.ReportFormat_REPORT_FORMAT_JSON,
 		RequestType: vaultcommon.RequestType_UPDATE_SECRETS,
 	}, info1))
@@ -4587,10 +4599,10 @@ func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
 }
 
 func TestPlugin_Observation_DeleteSecrets(t *testing.T) {
-	r := newTestReportingPlugin(t, withMaxIdentifierLengths(30, 30, 30))
+	r := newTestReportingPlugin(t, withMaxIdentifierLengths(64, 30, 30))
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "foo",
+		Owner:     pluginTestListOwner,
 		Namespace: "main",
 		Key:       "item4",
 	}
@@ -4611,10 +4623,10 @@ func TestPlugin_Observation_DeleteSecrets(t *testing.T) {
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: map[string]response{
-			metadataPrefix + "foo": response{
+			pluginMetadataKey(pluginTestListOwner): response{
 				data: mdb,
 			},
-			keyPrefix + vaulttypes.KeyFor(id): response{
+			keyPrefix + vaultutils.KeyFor(id): response{
 				data: ssb,
 			},
 		},
@@ -4654,14 +4666,14 @@ func TestPlugin_Observation_DeleteSecrets(t *testing.T) {
 }
 
 func TestPlugin_Observation_DeleteSecrets_IdDoesntExist(t *testing.T) {
-	r := newTestReportingPlugin(t, withMaxIdentifierLengths(30, 30, 30))
+	r := newTestReportingPlugin(t, withMaxIdentifierLengths(64, 30, 30))
 
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: map[string]response{},
 	}
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "foo",
+		Owner:     pluginTestListOwner,
 		Namespace: "main",
 		Key:       "item4",
 	}
@@ -4700,14 +4712,14 @@ func TestPlugin_Observation_DeleteSecrets_IdDoesntExist(t *testing.T) {
 }
 
 func TestPlugin_Observation_DeleteSecrets_InvalidRequestDuplicateIds(t *testing.T) {
-	r := newTestReportingPlugin(t, withMaxIdentifierLengths(30, 30, 30))
+	r := newTestReportingPlugin(t, withMaxIdentifierLengths(64, 30, 30))
 
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: map[string]response{},
 	}
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "foo",
+		Owner:     pluginTestListOwner,
 		Namespace: "main",
 		Key:       "item4",
 	}
@@ -4757,7 +4769,7 @@ func TestPlugin_StateTransition_DeleteSecretsRequest(t *testing.T) {
 	r := newTestReportingPlugin(t, withLggr(lggr), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "foo",
+		Owner:     pluginTestListOwner,
 		Namespace: "main",
 		Key:       "item4",
 	}
@@ -4778,10 +4790,10 @@ func TestPlugin_StateTransition_DeleteSecretsRequest(t *testing.T) {
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: map[string]response{
-			metadataPrefix + "foo": response{
+			pluginMetadataKey(pluginTestListOwner): response{
 				data: mdb,
 			},
-			keyPrefix + vaulttypes.KeyFor(id): response{
+			keyPrefix + vaultutils.KeyFor(id): response{
 				data: ssb,
 			},
 		},
@@ -4846,7 +4858,7 @@ func TestPlugin_StateTransition_DeleteSecretsRequest_SecretDoesNotExist(t *testi
 	r := newTestReportingPlugin(t, withLggr(lggr), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "foo",
+		Owner:     pluginTestListOwner,
 		Namespace: "main",
 		Key:       "item4",
 	}
@@ -4859,7 +4871,7 @@ func TestPlugin_StateTransition_DeleteSecretsRequest_SecretDoesNotExist(t *testi
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: map[string]response{
-			metadataPrefix + "foo": response{
+			pluginMetadataKey(pluginTestListOwner): response{
 				data: mdb,
 			},
 		},
@@ -4919,7 +4931,7 @@ func TestPlugin_StateTransition_DeleteSecretsRequest_SecretDoesNotExist(t *testi
 
 func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -4937,7 +4949,7 @@ func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
 		},
 	}
 	expectedOutcome := &vaultcommon.Outcome{
-		Id:          vaulttypes.KeyFor(id),
+		Id:          vaultutils.KeyFor(id),
 		RequestType: vaultcommon.RequestType_DELETE_SECRETS,
 		Request: &vaultcommon.Outcome_DeleteSecretsRequest{
 			DeleteSecretsRequest: req,
@@ -4970,7 +4982,7 @@ func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.True(t, proto.Equal(&vaultcommon.ReportInfo{
-		Id:          vaulttypes.KeyFor(id),
+		Id:          vaultutils.KeyFor(id),
 		Format:      vaultcommon.ReportFormat_REPORT_FORMAT_JSON,
 		RequestType: vaultcommon.RequestType_DELETE_SECRETS,
 	}, info1))
@@ -4981,7 +4993,7 @@ func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
 }
 
 func TestPlugin_Observation_ListSecretIdentifiers_OwnerRequired(t *testing.T) {
-	r := newTestReportingPlugin(t, withMaxIdentifierLengths(30, 30, 30))
+	r := newTestReportingPlugin(t, withMaxIdentifierLengths(64, 30, 30))
 
 	seqNr := uint64(1)
 	rdr := &kv{
@@ -5019,22 +5031,22 @@ func TestPlugin_Observation_ListSecretIdentifiers_OwnerRequired(t *testing.T) {
 }
 
 func TestPlugin_Observation_ListSecretIdentifiers_NoNamespaceProvided(t *testing.T) {
-	r := newTestReportingPlugin(t, withMaxIdentifierLengths(30, 30, 30))
+	r := newTestReportingPlugin(t, withMaxIdentifierLengths(64, 30, 30))
 
 	md := &vaultcommon.StoredMetadata{
 		SecretIdentifiers: []*vaultcommon.SecretIdentifier{
 			{
-				Owner:     "foo",
+				Owner:     pluginTestListOwner,
 				Namespace: "main",
 				Key:       "item4",
 			},
 			{
-				Owner:     "foo",
+				Owner:     pluginTestListOwner,
 				Namespace: "secondary",
 				Key:       "item2",
 			},
 			{
-				Owner:     "foo",
+				Owner:     pluginTestListOwner,
 				Namespace: "main",
 				Key:       "item3",
 			},
@@ -5046,14 +5058,14 @@ func TestPlugin_Observation_ListSecretIdentifiers_NoNamespaceProvided(t *testing
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: map[string]response{
-			metadataPrefix + "foo": response{
+			pluginMetadataKey(pluginTestListOwner): response{
 				data: mdb,
 			},
 		},
 	}
 	p := &vaultcommon.ListSecretIdentifiersRequest{
 		RequestId: "request-id",
-		Owner:     "foo",
+		Owner:     pluginTestListOwner,
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
@@ -5079,17 +5091,17 @@ func TestPlugin_Observation_ListSecretIdentifiers_NoNamespaceProvided(t *testing
 	resp := o.GetListSecretIdentifiersResponse()
 	expectedIdentifiers := []*vaultcommon.SecretIdentifier{
 		{
-			Owner:     "foo",
+			Owner:     pluginTestListOwner,
 			Namespace: "main",
 			Key:       "item3",
 		},
 		{
-			Owner:     "foo",
+			Owner:     pluginTestListOwner,
 			Namespace: "main",
 			Key:       "item4",
 		},
 		{
-			Owner:     "foo",
+			Owner:     pluginTestListOwner,
 			Namespace: "secondary",
 			Key:       "item2",
 		},
@@ -5103,22 +5115,22 @@ func TestPlugin_Observation_ListSecretIdentifiers_NoNamespaceProvided(t *testing
 }
 
 func TestPlugin_Observation_ListSecretIdentifiers_FilterByNamespace(t *testing.T) {
-	r := newTestReportingPlugin(t, withMaxIdentifierLengths(30, 30, 30))
+	r := newTestReportingPlugin(t, withMaxIdentifierLengths(64, 30, 30))
 
 	md := &vaultcommon.StoredMetadata{
 		SecretIdentifiers: []*vaultcommon.SecretIdentifier{
 			{
-				Owner:     "foo",
+				Owner:     pluginTestListOwner,
 				Namespace: "main",
 				Key:       "item4",
 			},
 			{
-				Owner:     "foo",
+				Owner:     pluginTestListOwner,
 				Namespace: "secondary",
 				Key:       "item2",
 			},
 			{
-				Owner:     "foo",
+				Owner:     pluginTestListOwner,
 				Namespace: "main",
 				Key:       "item3",
 			},
@@ -5130,14 +5142,14 @@ func TestPlugin_Observation_ListSecretIdentifiers_FilterByNamespace(t *testing.T
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: map[string]response{
-			metadataPrefix + "foo": response{
+			pluginMetadataKey(pluginTestListOwner): response{
 				data: mdb,
 			},
 		},
 	}
 	p := &vaultcommon.ListSecretIdentifiersRequest{
 		RequestId: "request-id",
-		Owner:     "foo",
+		Owner:     pluginTestListOwner,
 		Namespace: "main",
 	}
 	anyp, err := anypb.New(p)
@@ -5164,12 +5176,12 @@ func TestPlugin_Observation_ListSecretIdentifiers_FilterByNamespace(t *testing.T
 	resp := o.GetListSecretIdentifiersResponse()
 	expectedIdentifiers := []*vaultcommon.SecretIdentifier{
 		{
-			Owner:     "foo",
+			Owner:     pluginTestListOwner,
 			Namespace: "main",
 			Key:       "item3",
 		},
 		{
-			Owner:     "foo",
+			Owner:     pluginTestListOwner,
 			Namespace: "main",
 			Key:       "item4",
 		},
@@ -5186,7 +5198,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_ListsSecretsForRequestOwner(t 
 	r := newTestReportingPlugin(
 		t,
 		withMaxSecretsPerOwner(5),
-		withMaxIdentifierLengths(30, 30, 30),
+		withMaxIdentifierLengths(64, 30, 30),
 	)
 
 	const workflowOwner = "0x1111111111111111111111111111111111111111"
@@ -5225,7 +5237,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_ListsSecretsForRequestOwner(t 
 }
 
 func TestPlugin_Observation_ListSecretIdentifiers_DoesNotFallbackWhenGateDisabled(t *testing.T) {
-	r := newTestReportingPlugin(t, withMaxSecretsPerOwner(5), withMaxIdentifierLengths(30, 30, 30))
+	r := newTestReportingPlugin(t, withMaxSecretsPerOwner(5), withMaxIdentifierLengths(64, 30, 30))
 
 	const (
 		orgID         = "org-list"
@@ -5265,13 +5277,13 @@ func TestPlugin_Observation_ListSecretIdentifiers_DoesNotFallbackWhenGateDisable
 
 func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
 	req := &vaultcommon.ListSecretIdentifiersRequest{
 		RequestId: "request-id",
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 	}
 	resp := &vaultcommon.ListSecretIdentifiersResponse{
 		Identifiers: []*vaultcommon.SecretIdentifier{
@@ -5279,7 +5291,7 @@ func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
 		},
 	}
 	expectedOutcome := &vaultcommon.Outcome{
-		Id:          vaulttypes.KeyFor(id),
+		Id:          vaultutils.KeyFor(id),
 		RequestType: vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS,
 		Request: &vaultcommon.Outcome_ListSecretIdentifiersRequest{
 			ListSecretIdentifiersRequest: req,
@@ -5312,7 +5324,7 @@ func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.True(t, proto.Equal(&vaultcommon.ReportInfo{
-		Id:          vaulttypes.KeyFor(id),
+		Id:          vaultutils.KeyFor(id),
 		Format:      vaultcommon.ReportFormat_REPORT_FORMAT_JSON,
 		RequestType: vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS,
 	}, info1))
@@ -5335,12 +5347,12 @@ func TestPlugin_StateTransition_ListSecretIdentifiers(t *testing.T) {
 	rs := newTestReadStore(t, kv)
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
 	req := &vaultcommon.ListSecretIdentifiersRequest{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		RequestId: "request-id",
 	}
@@ -5420,7 +5432,7 @@ func TestPlugin_StateTransition_StoresPendingQueue(t *testing.T) {
 	r := newTestReportingPlugin(
 		t,
 		withMaxSecretsPerOwner(5),
-		withMaxIdentifierLengths(30, 30, 30),
+		withMaxIdentifierLengths(64, 30, 30),
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
 	)
@@ -5431,7 +5443,7 @@ func TestPlugin_StateTransition_StoresPendingQueue(t *testing.T) {
 	}
 
 	req := &vaultcommon.ListSecretIdentifiersRequest{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		RequestId: "request-id",
 	}
@@ -5439,7 +5451,7 @@ func TestPlugin_StateTransition_StoresPendingQueue(t *testing.T) {
 	require.NoError(t, err)
 
 	req = &vaultcommon.ListSecretIdentifiersRequest{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "production",
 		RequestId: "request-id2",
 	}
@@ -5447,7 +5459,7 @@ func TestPlugin_StateTransition_StoresPendingQueue(t *testing.T) {
 	require.NoError(t, err)
 
 	req = &vaultcommon.ListSecretIdentifiersRequest{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "staging",
 		RequestId: "request-id3",
 	}
@@ -5455,7 +5467,7 @@ func TestPlugin_StateTransition_StoresPendingQueue(t *testing.T) {
 	require.NoError(t, err)
 
 	req = &vaultcommon.ListSecretIdentifiersRequest{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "testnet",
 		RequestId: "request-id4",
 	}
@@ -5562,7 +5574,7 @@ func TestPlugin_StateTransition_StoresPendingQueue_AllConsensusItems(t *testing.
 	require.NoError(t, err)
 
 	req1 := &vaultcommon.ListSecretIdentifiersRequest{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		RequestId: "request-id",
 	}
@@ -5570,7 +5582,7 @@ func TestPlugin_StateTransition_StoresPendingQueue_AllConsensusItems(t *testing.
 	require.NoError(t, err)
 
 	req2 := &vaultcommon.ListSecretIdentifiersRequest{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "production",
 		RequestId: "request-id2",
 	}
@@ -5578,7 +5590,7 @@ func TestPlugin_StateTransition_StoresPendingQueue_AllConsensusItems(t *testing.
 	require.NoError(t, err)
 
 	req3 := &vaultcommon.ListSecretIdentifiersRequest{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "staging",
 		RequestId: "request-id3",
 	}
@@ -5586,7 +5598,7 @@ func TestPlugin_StateTransition_StoresPendingQueue_AllConsensusItems(t *testing.
 	require.NoError(t, err)
 
 	req4 := &vaultcommon.ListSecretIdentifiersRequest{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "testnet",
 		RequestId: "request-id4",
 	}
@@ -5690,7 +5702,7 @@ func TestPlugin_StateTransition_StoresPendingQueue_AllConsensusItems(t *testing.
 		r := newTestReportingPlugin(
 			t,
 			withBatchSize(1),
-			withMaxIdentifierLengths(30, 30, 30),
+			withMaxIdentifierLengths(64, 30, 30),
 			withKeys(pk, shares[0]),
 			withOnchainCfg(4, 1),
 			withVaultOptimizationsEnabled(),
@@ -5704,7 +5716,7 @@ func TestPlugin_StateTransition_StoresPendingQueue_AllConsensusItems(t *testing.
 		r := newTestReportingPlugin(
 			t,
 			withBatchSize(1),
-			withMaxIdentifierLengths(30, 30, 30),
+			withMaxIdentifierLengths(64, 30, 30),
 			withKeys(pk, shares[0]),
 			withOnchainCfg(4, 1),
 		)
@@ -5720,7 +5732,7 @@ func TestPlugin_StateTransition_OutcomesStoppedByPrecursorWireSize(t *testing.T)
 	require.NoError(t, err)
 
 	buildListObs := func(obsID string) *vaultcommon.Observation {
-		req := &vaultcommon.ListSecretIdentifiersRequest{Owner: "owner", Namespace: "main", RequestId: obsID}
+		req := &vaultcommon.ListSecretIdentifiersRequest{Owner: pluginTestWorkflowOwner, Namespace: "main", RequestId: obsID}
 		resp := &vaultcommon.ListSecretIdentifiersResponse{Success: true, Identifiers: []*vaultcommon.SecretIdentifier{}, Error: ""}
 		return &vaultcommon.Observation{
 			Id:          obsID,
@@ -5772,7 +5784,7 @@ func TestPlugin_StateTransition_OutcomesNotStoppedByPrecursorWireSizeWhenOptimiz
 	require.NoError(t, err)
 
 	buildListObs := func(obsID string) *vaultcommon.Observation {
-		req := &vaultcommon.ListSecretIdentifiersRequest{Owner: "owner", Namespace: "main", RequestId: obsID}
+		req := &vaultcommon.ListSecretIdentifiersRequest{Owner: pluginTestWorkflowOwner, Namespace: "main", RequestId: obsID}
 		resp := &vaultcommon.ListSecretIdentifiersResponse{Success: true, Identifiers: []*vaultcommon.SecretIdentifier{}, Error: ""}
 		return &vaultcommon.Observation{
 			Id:          obsID,
@@ -5836,7 +5848,7 @@ func TestPlugin_ValidateObservation_WireSizeExceedsMax(t *testing.T) {
 func TestPlugin_StateTransition_StoresPendingQueue_DoesntDoubleCountObservationsFromOneNode(t *testing.T) {
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
-	r := newTestReportingPlugin(t, withMaxIdentifierLengths(30, 30, 30), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+	r := newTestReportingPlugin(t, withMaxIdentifierLengths(64, 30, 30), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
 
 	seqNr := uint64(1)
 	rdr := &kv{
@@ -5844,7 +5856,7 @@ func TestPlugin_StateTransition_StoresPendingQueue_DoesntDoubleCountObservations
 	}
 
 	req1 := &vaultcommon.ListSecretIdentifiersRequest{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		RequestId: "request-id",
 	}
@@ -5910,7 +5922,7 @@ func TestPlugin_ValidateObservation_AcceptsFullPendingQueueObservation(t *testin
 	require.NoError(t, err)
 
 	batchSize := 1 // MaxBatchSize=1, so 2*batchSize=2 is the intended max pending queue items
-	r := newTestReportingPlugin(t, withBatchSize(batchSize), withMaxIdentifierLengths(30, 30, 30), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+	r := newTestReportingPlugin(t, withBatchSize(batchSize), withMaxIdentifierLengths(64, 30, 30), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
 
 	seqNr := uint64(1)
 	rdr := &kv{
@@ -5918,7 +5930,7 @@ func TestPlugin_ValidateObservation_AcceptsFullPendingQueueObservation(t *testin
 	}
 
 	req1 := &vaultcommon.ListSecretIdentifiersRequest{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		RequestId: "request-id",
 	}
@@ -5965,7 +5977,7 @@ func TestPlugin_ValidateObservation_AcceptsFullPendingQueueObservation(t *testin
 func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
-	r := newTestReportingPlugin(t, withMaxIdentifierLengths(30, 30, 30), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+	r := newTestReportingPlugin(t, withMaxIdentifierLengths(64, 30, 30), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
 
 	seqNr := uint64(1)
 	rdr := &kv{
@@ -5973,7 +5985,7 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 	}
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -6187,7 +6199,7 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 				},
 			},
 			{
-				Id: &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret2"},
+				Id: &vaultcommon.SecretIdentifier{Owner: pluginTestWorkflowOwner, Namespace: "main", Key: "secret2"},
 				Result: &vaultcommon.SecretResponse_Error{
 					Error: "foo",
 				},
@@ -6267,7 +6279,7 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 	resp = &vaultcommon.GetSecretsResponse{
 		Responses: []*vaultcommon.SecretResponse{
 			{Id: id, Result: &vaultcommon.SecretResponse_Error{Error: "err"}},
-			{Id: &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret2"}, Result: &vaultcommon.SecretResponse_Error{Error: "err"}},
+			{Id: &vaultcommon.SecretIdentifier{Owner: pluginTestWorkflowOwner, Namespace: "main", Key: "secret2"}, Result: &vaultcommon.SecretResponse_Error{Error: "err"}},
 		},
 	}
 
@@ -6304,13 +6316,13 @@ func TestPlugin_ValidateObservation_GetSecrets_MismatchedResponseOwnerRejected(t
 	r := newTestReportingPlugin(
 		t,
 		withMaxRequestBatchSize(10),
-		withMaxIdentifierLengths(30, 30, 30),
+		withMaxIdentifierLengths(64, 30, 30),
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
 	)
 
-	workflowOwner := "workflowowner"
-	orgID := "org_abc123def456ghi"
+	workflowOwner := pluginTestWorkflowOwner
+	orgID := "0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
 	secretID := &vaultcommon.SecretIdentifier{
 		Owner:     workflowOwner,
 		Namespace: "main",
@@ -6352,13 +6364,13 @@ func TestPlugin_ValidateObservation_GetSecrets_MismatchedResponseOwnerRejected(t
 func TestPlugin_ValidateObservation_PanicsOnEmptyShares(t *testing.T) {
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
-	r := newTestReportingPlugin(t, withMaxIdentifierLengths(30, 30, 30), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+	r := newTestReportingPlugin(t, withMaxIdentifierLengths(64, 30, 30), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
 
 	seqNr := uint64(1)
 	rdr := &kv{m: make(map[string]response)}
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -6442,13 +6454,13 @@ func TestPlugin_ValidateObservation_PanicsOnEmptyShares(t *testing.T) {
 func TestPlugin_ValidateObservation_NilSecretIdentifier(t *testing.T) {
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
-	r := newTestReportingPlugin(t, withMaxIdentifierLengths(30, 30, 30), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+	r := newTestReportingPlugin(t, withMaxIdentifierLengths(64, 30, 30), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
 
 	seqNr := uint64(1)
 	bf := &blobber{}
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -6675,7 +6687,7 @@ func TestPlugin_ValidateObservation_CiphertextSize(t *testing.T) {
 	r := newTestReportingPlugin(
 		t,
 		withMaxCiphertextLengthBytes(10),
-		withMaxIdentifierLengths(30, 30, 30),
+		withMaxIdentifierLengths(64, 30, 30),
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
 	)
@@ -6684,7 +6696,7 @@ func TestPlugin_ValidateObservation_CiphertextSize(t *testing.T) {
 	bf := &blobber{}
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -6879,7 +6891,7 @@ func TestPlugin_ValidateObservation_CiphertextSize(t *testing.T) {
 }
 
 func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
-	validID := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
+	validID := &vaultcommon.SecretIdentifier{Owner: pluginTestWorkflowOwner, Namespace: "main", Key: "secret"}
 	validCiphertext := hex.EncodeToString(make([]byte, 5))
 
 	type testCase struct {
@@ -6988,7 +7000,7 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 		},
 		{
 			name:      "GetSecrets empty key in request passes (not validated)",
-			obs:       makeGetSecretsObs(&vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: ""}),
+			obs:       makeGetSecretsObs(&vaultcommon.SecretIdentifier{Owner: pluginTestWorkflowOwner, Namespace: "main", Key: ""}),
 			errSubstr: "",
 		},
 		{
@@ -6998,7 +7010,7 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 		},
 		{
 			name:      "GetSecrets empty namespace in request passes (not validated)",
-			obs:       makeGetSecretsObs(&vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "", Key: "secret"}),
+			obs:       makeGetSecretsObs(&vaultcommon.SecretIdentifier{Owner: pluginTestWorkflowOwner, Namespace: "", Key: "secret"}),
 			errSubstr: "",
 		},
 		{
@@ -7008,12 +7020,12 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 		},
 		{
 			name:      "GetSecrets namespace too long in request passes (not validated)",
-			obs:       makeGetSecretsObs(&vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "toolongnamespace", Key: "secret"}),
+			obs:       makeGetSecretsObs(&vaultcommon.SecretIdentifier{Owner: pluginTestWorkflowOwner, Namespace: "toolongnamespace", Key: "secret"}),
 			errSubstr: "",
 		},
 		{
 			name:      "GetSecrets key too long in request passes (not validated)",
-			obs:       makeGetSecretsObs(&vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "toolongkey123"}),
+			obs:       makeGetSecretsObs(&vaultcommon.SecretIdentifier{Owner: pluginTestWorkflowOwner, Namespace: "main", Key: pluginTestTooLongKey}),
 			errSubstr: "",
 		},
 		// --- CreateSecrets ---
@@ -7024,7 +7036,7 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 		},
 		{
 			name:      "CreateSecrets empty key rejected",
-			obs:       makeCreateSecretsObs(&vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: ""}, validCiphertext),
+			obs:       makeCreateSecretsObs(&vaultcommon.SecretIdentifier{Owner: pluginTestWorkflowOwner, Namespace: "main", Key: ""}, validCiphertext),
 			errSubstr: "key cannot be empty",
 		},
 		{
@@ -7034,17 +7046,17 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 		},
 		{
 			name:      "CreateSecrets empty namespace accepted",
-			obs:       makeCreateSecretsObs(&vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "", Key: "secret"}, validCiphertext),
+			obs:       makeCreateSecretsObs(&vaultcommon.SecretIdentifier{Owner: pluginTestWorkflowOwner, Namespace: "", Key: "secret"}, validCiphertext),
 			errSubstr: "",
 		},
 		{
-			name:      "CreateSecrets owner too long rejected",
+			name:      "CreateSecrets invalid owner rejected",
 			obs:       makeCreateSecretsObs(&vaultcommon.SecretIdentifier{Owner: "toolongowner", Namespace: "main", Key: "secret"}, validCiphertext),
-			errSubstr: "owner exceeds maximum length",
+			errSubstr: "owner must be a valid Ethereum address",
 		},
 		{
 			name:      "CreateSecrets key too long rejected",
-			obs:       makeCreateSecretsObs(&vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "toolongkey123"}, validCiphertext),
+			obs:       makeCreateSecretsObs(&vaultcommon.SecretIdentifier{Owner: pluginTestWorkflowOwner, Namespace: "main", Key: pluginTestTooLongKey}, validCiphertext),
 			errSubstr: "key exceeds maximum length",
 		},
 		// --- UpdateSecrets ---
@@ -7055,7 +7067,7 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 		},
 		{
 			name:      "UpdateSecrets empty key rejected",
-			obs:       makeUpdateSecretsObs(&vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: ""}, validCiphertext),
+			obs:       makeUpdateSecretsObs(&vaultcommon.SecretIdentifier{Owner: pluginTestWorkflowOwner, Namespace: "main", Key: ""}, validCiphertext),
 			errSubstr: "key cannot be empty",
 		},
 		{
@@ -7065,17 +7077,17 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 		},
 		{
 			name:      "UpdateSecrets empty namespace accepted",
-			obs:       makeUpdateSecretsObs(&vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "", Key: "secret"}, validCiphertext),
+			obs:       makeUpdateSecretsObs(&vaultcommon.SecretIdentifier{Owner: pluginTestWorkflowOwner, Namespace: "", Key: "secret"}, validCiphertext),
 			errSubstr: "",
 		},
 		{
 			name:      "UpdateSecrets namespace too long rejected",
-			obs:       makeUpdateSecretsObs(&vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "toolongnamespace", Key: "secret"}, validCiphertext),
+			obs:       makeUpdateSecretsObs(&vaultcommon.SecretIdentifier{Owner: pluginTestWorkflowOwner, Namespace: "toolongnamespace", Key: "secret"}, validCiphertext),
 			errSubstr: "namespace exceeds maximum length",
 		},
 		{
 			name:      "UpdateSecrets key too long rejected",
-			obs:       makeUpdateSecretsObs(&vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "toolongkey123"}, validCiphertext),
+			obs:       makeUpdateSecretsObs(&vaultcommon.SecretIdentifier{Owner: pluginTestWorkflowOwner, Namespace: "main", Key: pluginTestTooLongKey}, validCiphertext),
 			errSubstr: "key exceeds maximum length",
 		},
 		// --- DeleteSecrets ---
@@ -7086,7 +7098,7 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 		},
 		{
 			name:      "DeleteSecrets empty key rejected",
-			obs:       makeDeleteSecretsObs(&vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: ""}),
+			obs:       makeDeleteSecretsObs(&vaultcommon.SecretIdentifier{Owner: pluginTestWorkflowOwner, Namespace: "main", Key: ""}),
 			errSubstr: "key cannot be empty",
 		},
 		{
@@ -7096,43 +7108,43 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 		},
 		{
 			name:      "DeleteSecrets empty namespace accepted",
-			obs:       makeDeleteSecretsObs(&vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "", Key: "secret"}),
+			obs:       makeDeleteSecretsObs(&vaultcommon.SecretIdentifier{Owner: pluginTestWorkflowOwner, Namespace: "", Key: "secret"}),
 			errSubstr: "",
 		},
 		{
-			name:      "DeleteSecrets owner too long rejected",
+			name:      "DeleteSecrets invalid owner rejected",
 			obs:       makeDeleteSecretsObs(&vaultcommon.SecretIdentifier{Owner: "toolongowner", Namespace: "main", Key: "secret"}),
-			errSubstr: "owner exceeds maximum length",
+			errSubstr: "owner must be a valid Ethereum address",
 		},
 		{
 			name:      "DeleteSecrets key too long rejected",
-			obs:       makeDeleteSecretsObs(&vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "toolongkey123"}),
+			obs:       makeDeleteSecretsObs(&vaultcommon.SecretIdentifier{Owner: pluginTestWorkflowOwner, Namespace: "main", Key: pluginTestTooLongKey}),
 			errSubstr: "key exceeds maximum length",
 		},
 		// --- ListSecretIdentifiers ---
 		{
 			name:      "ListSecretIdentifiers valid owner and namespace passes",
-			obs:       makeListObs("owner", "main"),
+			obs:       makeListObs(pluginTestWorkflowOwner, "main"),
 			errSubstr: "",
 		},
 		{
 			name:      "ListSecretIdentifiers empty owner rejected",
 			obs:       makeListObs("", "main"),
-			errSubstr: "key cannot be empty",
+			errSubstr: "owner cannot be empty",
 		},
 		{
 			name:      "ListSecretIdentifiers empty namespace accepted",
-			obs:       makeListObs("owner", ""),
+			obs:       makeListObs(pluginTestWorkflowOwner, ""),
 			errSubstr: "",
 		},
 		{
-			name:      "ListSecretIdentifiers owner too long rejected",
+			name:      "ListSecretIdentifiers invalid owner rejected",
 			obs:       makeListObs("toolongowner", "main"),
-			errSubstr: "owner exceeds maximum length",
+			errSubstr: "owner must be a valid Ethereum address",
 		},
 		{
 			name:      "ListSecretIdentifiers namespace too long rejected",
-			obs:       makeListObs("owner", "toolongnamespace"),
+			obs:       makeListObs(pluginTestWorkflowOwner, "toolongnamespace"),
 			errSubstr: "namespace exceeds maximum length",
 		},
 	}
@@ -7142,8 +7154,9 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 			// Use small limits (10 bytes) to trigger length errors on identifiers above.
 			r := newTestReportingPlugin(
 				t,
-				withMaxIdentifierLengths(10, 10, 10),
+				withMaxIdentifierLengths(64, 10, 64),
 				withOnchainCfg(4, 1),
+				withOwnerAddressCanonicalizationEnabled(),
 			)
 
 			rdr := &kv{m: make(map[string]response)}
@@ -7212,12 +7225,12 @@ func TestPlugin_StateTransition_PendingQueueEnabled_NewQuora_NotGetRequest(t *te
 	rs := newTestReadStore(t, kv)
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
 	req := &vaultcommon.ListSecretIdentifiersRequest{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		RequestId: "request-id",
 	}
@@ -7271,7 +7284,7 @@ func TestPlugin_StateTransition_PendingQueueEnabled_GetRequest(t *testing.T) {
 	rs := newTestReadStore(t, kv)
 
 	id := &vaultcommon.SecretIdentifier{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		Key:       "secret",
 	}
@@ -7360,7 +7373,7 @@ func TestPlugin_MaxShareSize(t *testing.T) {
 func makeObservation(t *testing.T, reqType vaultcommon.RequestType, count int) *vaultcommon.Observation {
 	ids := make([]*vaultcommon.SecretIdentifier, count)
 	for i := range ids {
-		ids[i] = &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret" + string(rune('0'+i))}
+		ids[i] = &vaultcommon.SecretIdentifier{Owner: pluginTestWorkflowOwner, Namespace: "main", Key: "secret" + string(rune('0'+i))}
 	}
 
 	switch reqType {
@@ -7463,7 +7476,7 @@ func TestPlugin_ValidateObservation_RequestBatchLimit(t *testing.T) {
 				t,
 				withBatchSize(10),
 				withMaxRequestBatchSize(maxRequestBatchSize),
-				withMaxIdentifierLengths(30, 30, 30),
+				withMaxIdentifierLengths(64, 30, 30),
 				withKeys(pk, shares[0]),
 				withOnchainCfg(4, 1),
 			)
@@ -7503,20 +7516,21 @@ func TestPlugin_ValidateObservation_ListSecretIdentifiersExceedsMaxSecretsPerOwn
 		t,
 		withBatchSize(10),
 		withMaxSecretsPerOwner(maxSecretsPerOwner),
-		withMaxIdentifierLengths(30, 30, 30),
+		withMaxIdentifierLengths(64, 30, 30),
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
+		withOwnerAddressCanonicalizationEnabled(),
 	)
 
 	listReq := &vaultcommon.ListSecretIdentifiersRequest{
-		Owner:     "owner",
+		Owner:     pluginTestWorkflowOwner,
 		Namespace: "main",
 		RequestId: "request-1",
 	}
 
 	identifiers := make([]*vaultcommon.SecretIdentifier, maxSecretsPerOwner+1)
 	for i := range identifiers {
-		identifiers[i] = &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: fmt.Sprintf("secret%d", i)}
+		identifiers[i] = &vaultcommon.SecretIdentifier{Owner: pluginTestWorkflowOwner, Namespace: "main", Key: fmt.Sprintf("secret%d", i)}
 	}
 
 	observation := &vaultcommon.Observation{

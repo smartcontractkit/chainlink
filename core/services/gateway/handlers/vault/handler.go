@@ -247,6 +247,10 @@ func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DO
 	if err != nil {
 		return nil, fmt.Errorf("could not create identifier namespace size limiter: %w", err)
 	}
+	ownerAddressCanonicalizationEnabled, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.VaultOwnerAddressCanonicalizationEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("could not create owner address canonicalization gate: %w", err)
+	}
 
 	writeMethodsEnabled, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.GatewayVaultManagementEnabled)
 	if err != nil {
@@ -272,7 +276,7 @@ func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DO
 			vaultHandlerDonID:    donConfig.DonId,
 		},
 		clock:            clock,
-		RequestValidator: vaultcap.NewRequestValidator(limiter, ciphertextLimiter, idKeyLengthLimiter, idOwnerLengthLimiter, idNamespaceLengthLimiter),
+		RequestValidator: vaultcap.NewRequestValidator(limiter, ciphertextLimiter, idKeyLengthLimiter, idOwnerLengthLimiter, idNamespaceLengthLimiter, ownerAddressCanonicalizationEnabled),
 	}, nil
 }
 

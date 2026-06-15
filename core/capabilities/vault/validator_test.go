@@ -16,6 +16,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
 
+const testWorkflowOwner = "0x0001020304050607080900010203040506070809"
+const testWorkflowOwnerAlt = "0x1111111111111111111111111111111111111111"
+
 func generateTestKeys(t *testing.T) (*tdh2easy.PublicKey, []*tdh2easy.PrivateShare) {
 	t.Helper()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -141,6 +144,7 @@ func TestRequestValidator_BatchSizeLimit(t *testing.T) {
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
+		disabledOwnerCanonicalizationGate(),
 	)
 
 	validValue := hex.EncodeToString(make([]byte, 10))
@@ -225,6 +229,7 @@ func TestRequestValidator_CiphertextSizeLimit(t *testing.T) {
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
+		disabledOwnerCanonicalizationGate(),
 	)
 
 	id := &vaultcommon.SecretIdentifier{
@@ -313,6 +318,7 @@ func TestRequestValidator_ValidateCreateSecretsRequest_FallsBackToSecretOwnerFor
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
+		disabledOwnerCanonicalizationGate(),
 	)
 
 	workflowOwner := "0x0001020304050607080900010203040506070809"
@@ -335,10 +341,34 @@ func TestRequestValidator_ValidateCreateSecretsRequest_FallsBackToSecretOwnerFor
 	require.NoError(t, err)
 }
 
+func disabledOwnerCanonicalizationGate() limits.GateLimiter {
+	return limits.NewGateLimiter(false)
+}
+
+func enabledOwnerCanonicalizationGate() limits.GateLimiter {
+	return limits.NewGateLimiter(true)
+}
+
+func TestValidateSecretIdentifier_RejectsNonAddressOwner(t *testing.T) {
+	t.Parallel()
+	validator := NewRequestValidator(
+		limits.NewUpperBoundLimiter(100),
+		limits.NewUpperBoundLimiter(1024*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		enabledOwnerCanonicalizationGate(),
+	)
+
+	err := validator.ValidateSecretIdentifier(t.Context(), "mykey", "owner1", "main")
+	require.Error(t, err)
+	require.ErrorContains(t, err, "owner must be a valid Ethereum address")
+}
+
 func TestValidateSecretIdentifier(t *testing.T) {
 	const (
 		keyLimit   = 10 * pkgconfig.Byte
-		ownerLimit = 10 * pkgconfig.Byte
+		ownerLimit = 64 * pkgconfig.Byte
 		nsLimit    = 10 * pkgconfig.Byte
 	)
 	validator := NewRequestValidator(
@@ -347,6 +377,7 @@ func TestValidateSecretIdentifier(t *testing.T) {
 		limits.NewUpperBoundLimiter(keyLimit),
 		limits.NewUpperBoundLimiter(ownerLimit),
 		limits.NewUpperBoundLimiter(nsLimit),
+		disabledOwnerCanonicalizationGate(),
 	)
 
 	tests := []struct {
@@ -359,19 +390,19 @@ func TestValidateSecretIdentifier(t *testing.T) {
 		{
 			name:      "valid identifier",
 			key:       "mykey",
-			owner:     "owner1",
+			owner:     testWorkflowOwner,
 			namespace: "main",
 		},
 		{
 			name:      "empty namespace is allowed",
 			key:       "mykey",
-			owner:     "owner1",
+			owner:     testWorkflowOwner,
 			namespace: "",
 		},
 		{
 			name:      "empty key",
 			key:       "",
-			owner:     "owner1",
+			owner:     testWorkflowOwner,
 			namespace: "main",
 			errSubstr: "key cannot be empty",
 		},
@@ -385,14 +416,14 @@ func TestValidateSecretIdentifier(t *testing.T) {
 		{
 			name:      "invalid chars in key",
 			key:       "key-invalid",
-			owner:     "owner1",
+			owner:     testWorkflowOwner,
 			namespace: "main",
 			errSubstr: "must only contain alphanumeric characters",
 		},
 		{
 			name:      "invalid chars in namespace",
 			key:       "mykey",
-			owner:     "owner1",
+			owner:     testWorkflowOwner,
 			namespace: "bad.ns",
 			errSubstr: "must only contain alphanumeric characters",
 		},
@@ -406,39 +437,26 @@ func TestValidateSecretIdentifier(t *testing.T) {
 		{
 			name:      "key at limit",
 			key:       "tenbytekey", // exactly 10 bytes
-			owner:     "owner1",
+			owner:     testWorkflowOwner,
 			namespace: "main",
 		},
 		{
 			name:      "key exceeds limit",
 			key:       "tenbytekey1", // 11 bytes
-			owner:     "owner1",
+			owner:     testWorkflowOwner,
 			namespace: "main",
 			errSubstr: "key exceeds maximum length",
 		},
 		{
-			name:      "owner at limit",
-			key:       "mykey",
-			owner:     "owner12345", // exactly 10 bytes
-			namespace: "main",
-		},
-		{
-			name:      "owner exceeds limit",
-			key:       "mykey",
-			owner:     "owner123456", // 11 bytes
-			namespace: "main",
-			errSubstr: "owner exceeds maximum length",
-		},
-		{
 			name:      "namespace at limit",
 			key:       "mykey",
-			owner:     "owner1",
+			owner:     testWorkflowOwner,
 			namespace: "tenbytekey", // exactly 10 bytes
 		},
 		{
 			name:      "namespace exceeds limit",
 			key:       "mykey",
-			owner:     "owner1",
+			owner:     testWorkflowOwner,
 			namespace: "tenbytekey1", // 11 bytes
 			errSubstr: "namespace exceeds maximum length",
 		},
@@ -457,10 +475,24 @@ func TestValidateSecretIdentifier(t *testing.T) {
 	}
 }
 
+func TestValidateSecretIdentifier_OwnerExceedsLengthLimit(t *testing.T) {
+	validator := NewRequestValidator(
+		limits.NewUpperBoundLimiter(100),
+		limits.NewUpperBoundLimiter(1024*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(41*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		disabledOwnerCanonicalizationGate(),
+	)
+	err := validator.ValidateSecretIdentifier(t.Context(), "mykey", testWorkflowOwner, "main")
+	require.Error(t, err)
+	require.ErrorContains(t, err, "owner exceeds maximum length")
+}
+
 func TestValidateSecretIdentifier_OwnerSpecificKeyLimit(t *testing.T) {
 	const (
 		defaultKeyLimit = 5 * pkgconfig.Byte
-		privilegedOwner = "privilegedowner"
+		privilegedOwner = testWorkflowOwnerAlt
 		privilegedLimit = 20 * pkgconfig.Byte
 	)
 
@@ -469,16 +501,17 @@ func TestValidateSecretIdentifier_OwnerSpecificKeyLimit(t *testing.T) {
 		limits.NewUpperBoundLimiter(1024*pkgconfig.Byte),
 		&ownerOverrideLimiter{
 			defaultBound: defaultKeyLimit,
-			overrides:    map[string]pkgconfig.Size{privilegedOwner: privilegedLimit},
+			overrides:    map[string]pkgconfig.Size{normalizeOwner(privilegedOwner): privilegedLimit},
 		},
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		disabledOwnerCanonicalizationGate(),
 	)
 
 	longKey := "averylongkeyname" // 16 bytes: exceeds default (5) but within privileged (20)
 
 	// Regular owner cannot use the long key
-	err := validator.ValidateSecretIdentifier(t.Context(), longKey, "owner1", "main")
+	err := validator.ValidateSecretIdentifier(t.Context(), longKey, testWorkflowOwner, "main")
 	require.Error(t, err)
 	require.ErrorContains(t, err, "key exceeds maximum length")
 
@@ -490,7 +523,7 @@ func TestValidateSecretIdentifier_OwnerSpecificKeyLimit(t *testing.T) {
 func TestRequestValidator_IdentifierLengths(t *testing.T) {
 	const (
 		keyLimit   = 5 * pkgconfig.Byte
-		ownerLimit = 6 * pkgconfig.Byte
+		ownerLimit = 64 * pkgconfig.Byte
 		nsLimit    = 4 * pkgconfig.Byte
 	)
 	validator := NewRequestValidator(
@@ -499,6 +532,7 @@ func TestRequestValidator_IdentifierLengths(t *testing.T) {
 		limits.NewUpperBoundLimiter(keyLimit),
 		limits.NewUpperBoundLimiter(ownerLimit),
 		limits.NewUpperBoundLimiter(nsLimit),
+		disabledOwnerCanonicalizationGate(),
 	)
 
 	validValue := hex.EncodeToString(make([]byte, 10))
@@ -528,35 +562,28 @@ func TestRequestValidator_IdentifierLengths(t *testing.T) {
 	}{
 		{
 			name:      "all fields at limit",
-			key:       "abcde",  // 5 bytes
-			owner:     "owner1", // 6 bytes
-			namespace: "main",   // 4 bytes
+			key:       "abcde", // 5 bytes
+			owner:     testWorkflowOwner,
+			namespace: "main", // 4 bytes
 		},
 		{
 			name:      "key exceeds limit",
 			key:       "abcdef", // 6 bytes
-			owner:     "owner1",
+			owner:     testWorkflowOwner,
 			namespace: "main",
 			errSubstr: "key exceeds maximum length",
 		},
 		{
-			name:      "owner exceeds limit",
-			key:       "mykey",
-			owner:     "owner12", // 7 bytes
-			namespace: "main",
-			errSubstr: "owner exceeds maximum length",
-		},
-		{
 			name:      "namespace exceeds limit",
 			key:       "mykey",
-			owner:     "owner1",
+			owner:     testWorkflowOwner,
 			namespace: "mains", // 5 bytes
 			errSubstr: "namespace exceeds maximum length",
 		},
 		{
 			name:      "invalid chars in key",
 			key:       "key-1",
-			owner:     "owner1",
+			owner:     testWorkflowOwner,
 			namespace: "main",
 			errSubstr: "must only contain alphanumeric characters",
 		},
@@ -582,6 +609,7 @@ func TestValidateGetSecretsRequest(t *testing.T) {
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		disabledOwnerCanonicalizationGate(),
 	)
 
 	validID := func(key, owner, ns string) *vaultcommon.SecretIdentifier {
@@ -596,14 +624,14 @@ func TestValidateGetSecretsRequest(t *testing.T) {
 		{
 			name: "valid single request",
 			requests: []*vaultcommon.SecretRequest{
-				{Id: validID("mykey", "owner1", "main")},
+				{Id: validID("mykey", testWorkflowOwner, "main")},
 			},
 		},
 		{
 			name: "valid multiple requests",
 			requests: []*vaultcommon.SecretRequest{
-				{Id: validID("key1", "owner1", "main")},
-				{Id: validID("key2", "owner2", "main")},
+				{Id: validID("key1", testWorkflowOwner, "main")},
+				{Id: validID("key2", testWorkflowOwnerAlt, "main")},
 			},
 		},
 		{
@@ -616,7 +644,7 @@ func TestValidateGetSecretsRequest(t *testing.T) {
 			requests: func() []*vaultcommon.SecretRequest {
 				reqs := make([]*vaultcommon.SecretRequest, 9) // MaxBatchSize-1 = 9
 				for i := range reqs {
-					reqs[i] = &vaultcommon.SecretRequest{Id: validID(fmt.Sprintf("key%d", i), "owner1", "main")}
+					reqs[i] = &vaultcommon.SecretRequest{Id: validID(fmt.Sprintf("key%d", i), testWorkflowOwner, "main")}
 				}
 				return reqs
 			}(),
@@ -626,7 +654,7 @@ func TestValidateGetSecretsRequest(t *testing.T) {
 			requests: func() []*vaultcommon.SecretRequest {
 				reqs := make([]*vaultcommon.SecretRequest, 10) // MaxBatchSize = 10
 				for i := range reqs {
-					reqs[i] = &vaultcommon.SecretRequest{Id: validID(fmt.Sprintf("key%d", i), "owner1", "main")}
+					reqs[i] = &vaultcommon.SecretRequest{Id: validID(fmt.Sprintf("key%d", i), testWorkflowOwner, "main")}
 				}
 				return reqs
 			}(),
@@ -642,21 +670,21 @@ func TestValidateGetSecretsRequest(t *testing.T) {
 		{
 			name: "empty key",
 			requests: []*vaultcommon.SecretRequest{
-				{Id: validID("", "owner1", "main")},
+				{Id: validID("", testWorkflowOwner, "main")},
 			},
 			errSubstr: "secret ID must have key set at index",
 		},
 		{
 			name: "key with invalid characters (hyphen) is rejected",
 			requests: []*vaultcommon.SecretRequest{
-				{Id: validID("key-invalid", "owner1", "main")},
+				{Id: validID("key-invalid", testWorkflowOwner, "main")},
 			},
 			errSubstr: "must only contain alphanumeric characters",
 		},
 		{
 			name: "key with invalid characters (slash) is rejected",
 			requests: []*vaultcommon.SecretRequest{
-				{Id: validID("key/name", "owner1", "main")},
+				{Id: validID("key/name", testWorkflowOwner, "main")},
 			},
 			errSubstr: "must only contain alphanumeric characters",
 		},
@@ -670,22 +698,22 @@ func TestValidateGetSecretsRequest(t *testing.T) {
 		{
 			name: "invalid chars in namespace",
 			requests: []*vaultcommon.SecretRequest{
-				{Id: validID("key1", "owner1", "bad.ns")},
+				{Id: validID("key1", testWorkflowOwner, "bad.ns")},
 			},
 			errSubstr: "invalid secret identifier at index 0",
 		},
 		{
 			name: "invalid identifier at second index",
 			requests: []*vaultcommon.SecretRequest{
-				{Id: validID("key1", "owner1", "main")},
-				{Id: validID("key-bad", "owner1", "main")},
+				{Id: validID("key1", testWorkflowOwner, "main")},
+				{Id: validID("key-bad", testWorkflowOwner, "main")},
 			},
 			errSubstr: "invalid secret identifier at index 1",
 		},
 		{
 			name: "empty owner at second index",
 			requests: []*vaultcommon.SecretRequest{
-				{Id: validID("key1", "owner1", "main")},
+				{Id: validID("key1", testWorkflowOwner, "main")},
 				{Id: validID("key2", "", "main")},
 			},
 			errSubstr: "invalid secret identifier at index 1",
@@ -693,7 +721,7 @@ func TestValidateGetSecretsRequest(t *testing.T) {
 		{
 			name: "nil id at second index",
 			requests: []*vaultcommon.SecretRequest{
-				{Id: validID("key1", "owner1", "main")},
+				{Id: validID("key1", testWorkflowOwner, "main")},
 				{Id: nil},
 			},
 			errSubstr: "secret ID must have id set at index 1",
@@ -701,15 +729,15 @@ func TestValidateGetSecretsRequest(t *testing.T) {
 		{
 			name: "empty key at second index",
 			requests: []*vaultcommon.SecretRequest{
-				{Id: validID("key1", "owner1", "main")},
-				{Id: validID("", "owner1", "main")},
+				{Id: validID("key1", testWorkflowOwner, "main")},
+				{Id: validID("", testWorkflowOwner, "main")},
 			},
 			errSubstr: "secret ID must have key set at index 1",
 		},
 		{
 			name: "empty namespace accepted",
 			requests: []*vaultcommon.SecretRequest{
-				{Id: validID("mykey", "owner1", "")},
+				{Id: validID("mykey", testWorkflowOwner, "")},
 			},
 		},
 	}
@@ -728,24 +756,24 @@ func TestValidateGetSecretsRequest(t *testing.T) {
 }
 
 func TestValidateGetSecretsRequest_OwnerLengthPerBatchItem(t *testing.T) {
-	const ownerLimit = 6 * pkgconfig.Byte
+	const ownerLimit = 41 * pkgconfig.Byte // valid workflow owners are 42 bytes with 0x prefix
 	validator := NewRequestValidator(
 		limits.NewUpperBoundLimiter(10),
 		limits.NewUpperBoundLimiter(1024*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter(ownerLimit),
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		disabledOwnerCanonicalizationGate(),
 	)
 
-	// First item is within the owner length limit; second item exceeds it.
 	err := validator.ValidateGetSecretsRequest(t.Context(), &vaultcommon.GetSecretsRequest{
 		Requests: []*vaultcommon.SecretRequest{
-			{Id: &vaultcommon.SecretIdentifier{Key: "mykey", Owner: "owner1", Namespace: "main"}},  // 6 bytes
-			{Id: &vaultcommon.SecretIdentifier{Key: "mykey", Owner: "owner12", Namespace: "main"}}, // 7 bytes
+			{Id: &vaultcommon.SecretIdentifier{Key: "mykey", Owner: testWorkflowOwner, Namespace: "main"}},
+			{Id: &vaultcommon.SecretIdentifier{Key: "mykey", Owner: testWorkflowOwnerAlt, Namespace: "main"}},
 		},
 	})
 	require.Error(t, err)
-	require.ErrorContains(t, err, "invalid secret identifier at index 1")
+	require.ErrorContains(t, err, "invalid secret identifier at index 0")
 	require.ErrorContains(t, err, "owner exceeds maximum length")
 }
 
@@ -757,13 +785,14 @@ func TestValidateGetSecretsRequest_KeyLengthPerBatchItem(t *testing.T) {
 		limits.NewUpperBoundLimiter(keyLimit),
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		disabledOwnerCanonicalizationGate(),
 	)
 
 	// First item is within the key length limit; second item exceeds it.
 	err := validator.ValidateGetSecretsRequest(t.Context(), &vaultcommon.GetSecretsRequest{
 		Requests: []*vaultcommon.SecretRequest{
-			{Id: &vaultcommon.SecretIdentifier{Key: "abcde", Owner: "owner1", Namespace: "main"}},  // 5 bytes
-			{Id: &vaultcommon.SecretIdentifier{Key: "abcdef", Owner: "owner1", Namespace: "main"}}, // 6 bytes
+			{Id: &vaultcommon.SecretIdentifier{Key: "abcde", Owner: testWorkflowOwner, Namespace: "main"}},  // 5 bytes
+			{Id: &vaultcommon.SecretIdentifier{Key: "abcdef", Owner: testWorkflowOwner, Namespace: "main"}}, // 6 bytes
 		},
 	})
 	require.Error(t, err)
@@ -774,7 +803,7 @@ func TestValidateGetSecretsRequest_KeyLengthPerBatchItem(t *testing.T) {
 func TestValidateGetSecretsRequest_OwnerSpecificKeyLimit(t *testing.T) {
 	const (
 		defaultKeyLimit = 5 * pkgconfig.Byte
-		privilegedOwner = "privilegedowner"
+		privilegedOwner = testWorkflowOwnerAlt
 		privilegedLimit = 20 * pkgconfig.Byte
 	)
 
@@ -783,10 +812,11 @@ func TestValidateGetSecretsRequest_OwnerSpecificKeyLimit(t *testing.T) {
 		limits.NewUpperBoundLimiter(1024*pkgconfig.Byte),
 		&ownerOverrideLimiter{
 			defaultBound: defaultKeyLimit,
-			overrides:    map[string]pkgconfig.Size{privilegedOwner: privilegedLimit},
+			overrides:    map[string]pkgconfig.Size{normalizeOwner(privilegedOwner): privilegedLimit},
 		},
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		disabledOwnerCanonicalizationGate(),
 	)
 
 	longKey := "averylongkeyname" // 16 bytes: exceeds default (5) but within privileged (20)
@@ -800,7 +830,7 @@ func TestValidateGetSecretsRequest_OwnerSpecificKeyLimit(t *testing.T) {
 	}
 
 	// Regular owner is rejected because the key exceeds their limit
-	err := validator.ValidateGetSecretsRequest(t.Context(), makeRequest(longKey, "regularowner"))
+	err := validator.ValidateGetSecretsRequest(t.Context(), makeRequest(longKey, testWorkflowOwner))
 	require.Error(t, err)
 	require.ErrorContains(t, err, "key exceeds maximum length")
 
@@ -812,7 +842,7 @@ func TestValidateGetSecretsRequest_OwnerSpecificKeyLimit(t *testing.T) {
 func TestValidateGetSecretsRequest_OwnerSpecificNamespaceLimit(t *testing.T) {
 	const (
 		defaultNsLimit  = 5 * pkgconfig.Byte
-		privilegedOwner = "privilegedowner"
+		privilegedOwner = testWorkflowOwnerAlt
 		privilegedLimit = 20 * pkgconfig.Byte
 	)
 
@@ -823,8 +853,9 @@ func TestValidateGetSecretsRequest_OwnerSpecificNamespaceLimit(t *testing.T) {
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
 		&ownerOverrideLimiter{
 			defaultBound: defaultNsLimit,
-			overrides:    map[string]pkgconfig.Size{privilegedOwner: privilegedLimit},
+			overrides:    map[string]pkgconfig.Size{normalizeOwner(privilegedOwner): privilegedLimit},
 		},
+		disabledOwnerCanonicalizationGate(),
 	)
 
 	longNamespace := "averylongnamespace" // 18 bytes: exceeds default (5) but within privileged (20)
@@ -838,7 +869,7 @@ func TestValidateGetSecretsRequest_OwnerSpecificNamespaceLimit(t *testing.T) {
 	}
 
 	// Regular owner is rejected because the namespace exceeds their limit
-	err := validator.ValidateGetSecretsRequest(t.Context(), makeRequest(longNamespace, "regularowner"))
+	err := validator.ValidateGetSecretsRequest(t.Context(), makeRequest(longNamespace, testWorkflowOwner))
 	require.Error(t, err)
 	require.ErrorContains(t, err, "namespace exceeds maximum length")
 
@@ -850,7 +881,7 @@ func TestValidateGetSecretsRequest_OwnerSpecificNamespaceLimit(t *testing.T) {
 func TestRequestValidator_OwnerSpecificCiphertextLimit(t *testing.T) {
 	const (
 		defaultLimit    = 10 * pkgconfig.Byte
-		privilegedOwner = "privilegedowner"
+		privilegedOwner = testWorkflowOwnerAlt
 		privilegedLimit = 20 * pkgconfig.Byte
 	)
 
@@ -858,11 +889,12 @@ func TestRequestValidator_OwnerSpecificCiphertextLimit(t *testing.T) {
 		limits.NewUpperBoundLimiter(100),
 		&ownerOverrideLimiter{
 			defaultBound: defaultLimit,
-			overrides:    map[string]pkgconfig.Size{privilegedOwner: privilegedLimit},
+			overrides:    map[string]pkgconfig.Size{normalizeOwner(privilegedOwner): privilegedLimit},
 		},
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		disabledOwnerCanonicalizationGate(),
 	)
 
 	// 15 raw bytes: exceeds default (10) but within privileged (20)
@@ -885,7 +917,7 @@ func TestRequestValidator_OwnerSpecificCiphertextLimit(t *testing.T) {
 	}
 
 	// Regular owner is rejected because 15 bytes exceeds their 10-byte limit
-	err := validator.ValidateCreateSecretsRequest(t.Context(), nil, makeRequest("req-1", "regularowner"), false)
+	err := validator.ValidateCreateSecretsRequest(t.Context(), nil, makeRequest("req-1", testWorkflowOwner), false)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "ciphertext size exceeds maximum allowed size")
 
@@ -902,6 +934,7 @@ func TestRequestValidator_ValidateCreateSecretsRequest_SkipsLabelValidationWithB
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter[pkgconfig.Size](64*pkgconfig.Byte),
+		disabledOwnerCanonicalizationGate(),
 	)
 
 	ownerA := "0x0001020304050607080900010203040506070809"
@@ -936,10 +969,11 @@ func TestRequestValidator_PreservesEmptyNamespaceOnStructs(t *testing.T) {
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
 		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		disabledOwnerCanonicalizationGate(),
 	)
 
 	t.Run("GetSecretsRequest", func(t *testing.T) {
-		id := &vaultcommon.SecretIdentifier{Key: "k", Owner: "owner1", Namespace: ""}
+		id := &vaultcommon.SecretIdentifier{Key: "k", Owner: testWorkflowOwner, Namespace: ""}
 		req := &vaultcommon.GetSecretsRequest{Requests: []*vaultcommon.SecretRequest{{Id: id}}}
 		require.NoError(t, validator.ValidateGetSecretsRequest(t.Context(), req))
 		assert.Empty(t, id.Namespace)
@@ -959,14 +993,14 @@ func TestRequestValidator_PreservesEmptyNamespaceOnStructs(t *testing.T) {
 	})
 
 	t.Run("DeleteSecretsRequest", func(t *testing.T) {
-		id := &vaultcommon.SecretIdentifier{Key: "k", Owner: "owner1", Namespace: ""}
+		id := &vaultcommon.SecretIdentifier{Key: "k", Owner: testWorkflowOwner, Namespace: ""}
 		req := &vaultcommon.DeleteSecretsRequest{RequestId: "rid", Ids: []*vaultcommon.SecretIdentifier{id}}
 		require.NoError(t, validator.ValidateDeleteSecretsRequest(t.Context(), req))
 		assert.Empty(t, id.Namespace)
 	})
 
 	t.Run("ListSecretIdentifiersRequest", func(t *testing.T) {
-		req := &vaultcommon.ListSecretIdentifiersRequest{RequestId: "rid", Owner: "owner1", Namespace: ""}
+		req := &vaultcommon.ListSecretIdentifiersRequest{RequestId: "rid", Owner: testWorkflowOwner, Namespace: ""}
 		require.NoError(t, validator.ValidateListSecretIdentifiersRequest(t.Context(), req))
 		assert.Empty(t, req.Namespace)
 	})
