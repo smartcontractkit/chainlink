@@ -3,6 +3,7 @@ package v1_6_test
 import (
 	"testing"
 
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
@@ -30,7 +31,7 @@ func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 	_, err = commonchangeset.Apply(t, e.Env,
 		// note this doesn't have proposals.
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
+			cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
 			testhelpers.GenTestTransferOwnershipConfig(e, allChains, state, true),
 		),
 	)

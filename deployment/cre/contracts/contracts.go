@@ -6,14 +6,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	shard_config "github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings/dev/generated/latest/shard_config"
@@ -38,7 +38,7 @@ var (
 	MockKeystoneForwarder     cldf.ContractType = "MockKeystoneForwarder"     // https://github.com/smartcontractkit/chainlink-evm/blob/f2272e4b4aa6a3e315126ce7d928472bb035f940/contracts/cre/src/dev/MockKeystoneForwarder.sol#L38
 )
 
-type MCMSConfig = proposalutils.TimelockConfig
+type MCMSConfig = cldfproposalutils.TimelockConfig
 
 // Ownable is an interface for contracts that have an owner.
 type Ownable interface {

@@ -6,18 +6,19 @@ import (
 	"math/big"
 
 	"github.com/Masterminds/semver/v3"
+	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	opsutil "github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_5_1"
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	hybrid_external "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/hybrid_with_external_minter_fast_transfer_token_pool"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 var (
@@ -83,7 +84,7 @@ type HybridTokenPoolUpdateGroupsConfig struct {
 	ContractVersion semver.Version
 	Updates         map[uint64][]GroupUpdateConfig // chain selector -> group updates
 	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
-	MCMS *proposalutils.TimelockConfig
+	MCMS *cldfproposalutils.TimelockConfig
 }
 
 func (c HybridTokenPoolUpdateGroupsConfig) Validate(env cldf.Environment) error {
@@ -202,7 +203,7 @@ func hybridTokenPoolUpdateGroupsLogic(env cldf.Environment, c HybridTokenPoolUpd
 	}
 
 	// Build the sequence input for multi-chain updates
-	updatesByChain := make(map[uint64]opsutil.EVMCallInput[ccipops.UpdateGroupsInput])
+	updatesByChain := make(map[uint64]opsevm.EVMCallInput[ccipops.UpdateGroupsInput])
 
 	for chainSelector, groupUpdates := range c.Updates {
 		pool, err := getHybridTokenPoolContract(env, c.TokenSymbol, c.ContractType, c.ContractVersion, chainSelector)
@@ -224,7 +225,7 @@ func hybridTokenPoolUpdateGroupsLogic(env cldf.Environment, c HybridTokenPoolUpd
 			})
 		}
 
-		updatesByChain[chainSelector] = opsutil.EVMCallInput[ccipops.UpdateGroupsInput]{
+		updatesByChain[chainSelector] = opsevm.EVMCallInput[ccipops.UpdateGroupsInput]{
 			Address:       pool.Address(),
 			ChainSelector: chainSelector,
 			CallInput: ccipops.UpdateGroupsInput{

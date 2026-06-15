@@ -104,11 +104,9 @@ install-plugins-testing: ## Build & install testing only LOOPP binaries (plugins
 		GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 5 $(LOOPINSTALL_TESTING_ARGS) ./plugins/plugins.testing.yaml; \
 	fi
 
-
 .PHONY: install-plugins-local
 install-plugins-local: ## Build & install local plugins
 	go install -ldflags="-s" \
-		./plugins/cmd/chainlink-evm \
 		./plugins/cmd/chainlink-medianpoc \
 		./plugins/cmd/chainlink-ocr3-capability \
 		./plugins/cmd/capabilities/log-event-trigger
@@ -265,28 +263,26 @@ lint-fix: gomods ## Run golangci-lint with --fix for all modules
 
 .PHONY: modgraph
 modgraph:
-	go install github.com/jmank88/modgraph@v0.1.1
+	go install github.com/jmank88/modgraph@v0.1.4
 	./tools/bin/modgraph > go.md
 
 .PHONY: test-short
 test-short: ## Run 'go test -short' and suppress uninteresting output
 	go test -short ./... | grep -v "\[no test files\]" | grep -v "\(cached\)"
 
-# Chainlink tools/test harness (Postgres setup + optional diagnose). Uses the
-# nested module directly so its dependencies stay out of the root module. Pass
-# flags and packages via ARGS (quoted), e.g. make new_test ARGS="-v -p 4 ./core/..."
-# Note: do not use "make target -p 4 ..." — -p is a make flag; use ARGS= instead.
-.PHONY: new_test
-new_test: ## tools/test: passthrough go test. Usage: make new_test ARGS="-v -p 4 ./core/..."
-	go -C tools/test run . run $(ARGS)
+TOOLS_TEST_BIN = tools/test/.bin/test
+TOOLS_TEST_SRCS = $(shell find tools/test -name "*.go" -not -path "*/.bin/*" 2>/dev/null)
 
-.PHONY: new_gotestsum
-new_gotestsum: ## tools/test: gotestsum. Usage: make new_gotestsum ARGS="--format=dots -- -count=1 ./core/..."
-	go -C tools/test run . gotestsum $(ARGS)
+$(TOOLS_TEST_BIN): $(TOOLS_TEST_SRCS) tools/test/go.mod tools/test/go.sum
+	@go -C tools/test build -o .bin/test .
 
-.PHONY: new_test_diagnose
-new_test_diagnose: ## tools/test: diagnose (flakes/slow). Usage: make new_test_diagnose ARGS="--iterations 5 -- --timeout 9m ./core/..."
-	go -C tools/test run . diagnose $(ARGS)
+.PHONY: test
+test: $(TOOLS_TEST_BIN) ## Run the testing harness. E.g. make test ARGS="./core/..."
+	@if [ -z "$(strip $(ARGS))" ]; then \
+		$(TOOLS_TEST_BIN) -h; \
+	else \
+		$(TOOLS_TEST_BIN) $(ARGS); \
+	fi
 
 .PHONY: gocs
 gocs: ## Run gocs to generate changeset markdown files.
@@ -298,9 +294,9 @@ DEPENDABOT_SEVERITY := "critical,high"
 endif
 dependabot: gomods
 	gh api --paginate -H "Accept: application/vnd.github+json" --method GET \
-          '/repos/smartcontractkit/chainlink/dependabot/alerts?state=open&ecosystem=Go&severity=$(DEPENDABOT_SEVERITY)' | \
-          jq -r '.[] | select(.security_vulnerability.first_patched_version != null) | .dependency.manifest_path |= rtrimstr("go.mod") | "./\(.dependency.manifest_path) \(.security_vulnerability.package.name) \(.security_vulnerability.first_patched_version.identifier)"' | \
-          go tool dependabot
+	  '/repos/smartcontractkit/chainlink/dependabot/alerts?state=open&ecosystem=Go&severity=$(DEPENDABOT_SEVERITY)' \
+	  --jq '.[] | select(.security_vulnerability.first_patched_version != null) | .dependency.manifest_path |= rtrimstr("go.mod") | "./\(.dependency.manifest_path) \(.security_vulnerability.package.name) \(.security_vulnerability.first_patched_version.identifier)"' | \
+	  go tool dependabot && \
 	gomods tidy
 
 help:

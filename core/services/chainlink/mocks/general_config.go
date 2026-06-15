@@ -6,6 +6,7 @@ import (
 	time "time"
 
 	uuid "github.com/google/uuid"
+	de "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 	toml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	config "github.com/smartcontractkit/chainlink/v2/core/config"
 	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -827,53 +828,6 @@ func (_c *GeneralConfig_Feature_Call) RunAndReturn(run func() config.Feature) *G
 	return _c
 }
 
-// FluxMonitor provides a mock function with no fields
-func (_m *GeneralConfig) FluxMonitor() config.FluxMonitor {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for FluxMonitor")
-	}
-
-	var r0 config.FluxMonitor
-	if rf, ok := ret.Get(0).(func() config.FluxMonitor); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(config.FluxMonitor)
-		}
-	}
-
-	return r0
-}
-
-// GeneralConfig_FluxMonitor_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FluxMonitor'
-type GeneralConfig_FluxMonitor_Call struct {
-	*mock.Call
-}
-
-// FluxMonitor is a helper method to define mock.On call
-func (_e *GeneralConfig_Expecter) FluxMonitor() *GeneralConfig_FluxMonitor_Call {
-	return &GeneralConfig_FluxMonitor_Call{Call: _e.mock.On("FluxMonitor")}
-}
-
-func (_c *GeneralConfig_FluxMonitor_Call) Run(run func()) *GeneralConfig_FluxMonitor_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *GeneralConfig_FluxMonitor_Call) Return(_a0 config.FluxMonitor) *GeneralConfig_FluxMonitor_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *GeneralConfig_FluxMonitor_Call) RunAndReturn(run func() config.FluxMonitor) *GeneralConfig_FluxMonitor_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // ImportedAptosKeys provides a mock function with no fields
 func (_m *GeneralConfig) ImportedAptosKeys() config.ImportableChainKeyLister {
 	ret := _m.Called()
@@ -1295,6 +1249,53 @@ func (_c *GeneralConfig_JobPipeline_Call) RunAndReturn(run func() config.JobPipe
 	return _c
 }
 
+// JobSpecReporter provides a mock function with no fields
+func (_m *GeneralConfig) JobSpecReporter() config.JobSpecReporter {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for JobSpecReporter")
+	}
+
+	var r0 config.JobSpecReporter
+	if rf, ok := ret.Get(0).(func() config.JobSpecReporter); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.JobSpecReporter)
+		}
+	}
+
+	return r0
+}
+
+// GeneralConfig_JobSpecReporter_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'JobSpecReporter'
+type GeneralConfig_JobSpecReporter_Call struct {
+	*mock.Call
+}
+
+// JobSpecReporter is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) JobSpecReporter() *GeneralConfig_JobSpecReporter_Call {
+	return &GeneralConfig_JobSpecReporter_Call{Call: _e.mock.On("JobSpecReporter")}
+}
+
+func (_c *GeneralConfig_JobSpecReporter_Call) Run(run func()) *GeneralConfig_JobSpecReporter_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_JobSpecReporter_Call) Return(_a0 config.JobSpecReporter) *GeneralConfig_JobSpecReporter_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_JobSpecReporter_Call) RunAndReturn(run func() config.JobSpecReporter) *GeneralConfig_JobSpecReporter_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // LOOPP provides a mock function with no fields
 func (_m *GeneralConfig) LOOPP() config.LOOPP {
 	ret := _m.Called()
@@ -1424,19 +1425,19 @@ func (_c *GeneralConfig_LogConfiguration_Call) RunAndReturn(run func(config.Logf
 }
 
 // Mercury provides a mock function with no fields
-func (_m *GeneralConfig) Mercury() config.Mercury {
+func (_m *GeneralConfig) Mercury() de.Mercury {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for Mercury")
 	}
 
-	var r0 config.Mercury
-	if rf, ok := ret.Get(0).(func() config.Mercury); ok {
+	var r0 de.Mercury
+	if rf, ok := ret.Get(0).(func() de.Mercury); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(config.Mercury)
+			r0 = ret.Get(0).(de.Mercury)
 		}
 	}
 
@@ -1460,12 +1461,12 @@ func (_c *GeneralConfig_Mercury_Call) Run(run func()) *GeneralConfig_Mercury_Cal
 	return _c
 }
 
-func (_c *GeneralConfig_Mercury_Call) Return(_a0 config.Mercury) *GeneralConfig_Mercury_Call {
+func (_c *GeneralConfig_Mercury_Call) Return(_a0 de.Mercury) *GeneralConfig_Mercury_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *GeneralConfig_Mercury_Call) RunAndReturn(run func() config.Mercury) *GeneralConfig_Mercury_Call {
+func (_c *GeneralConfig_Mercury_Call) RunAndReturn(run func() de.Mercury) *GeneralConfig_Mercury_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/types"
 
@@ -52,6 +52,14 @@ type UpdateDONInput struct {
 	// read the current config count from the registry, preventing accidental
 	// config count collisions.
 	FirstOCR3ConfigCapabilities []string `json:"firstOCR3ConfigCapabilities" yaml:"firstOCR3ConfigCapabilities"`
+
+	// F is the new fault-tolerance value for the DON. If 0, the current on-chain value is kept.
+	F uint8 `json:"f,omitempty" yaml:"f,omitempty"`
+
+	// Nodes is the new set of P2P IDs for the DON (e.g. "p2p_12D3KooW...").
+	// If empty, the current on-chain node set is kept.
+	// Safe to combine with MergeCapabilityConfigsWithOnChain=true when CapabilityConfigs is empty.
+	Nodes []string `json:"nodes,omitempty" yaml:"nodes,omitempty"`
 
 	MCMSConfig *crecontracts.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
 }
@@ -135,9 +143,24 @@ func (u UpdateDON) Apply(e cldf.Environment, config UpdateDONInput) (cldf.Change
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to process OCR3 configs: %w", err)
 	}
 
-	p2pIDs := make([]p2pkey.PeerID, 0)
-	for _, node := range nodes {
-		p2pIDs = append(p2pIDs, node.P2pId)
+	p2pIDs := make([]p2pkey.PeerID, 0, len(nodes))
+	if len(config.Nodes) > 0 {
+		for _, s := range config.Nodes {
+			var id p2pkey.PeerID
+			if err := id.UnmarshalText([]byte(s)); err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("invalid P2P ID %q: %w", s, err)
+			}
+			p2pIDs = append(p2pIDs, id)
+		}
+	} else {
+		for _, node := range nodes {
+			p2pIDs = append(p2pIDs, node.P2pId)
+		}
+	}
+
+	fValue := don.F
+	if config.F != 0 {
+		fValue = config.F
 	}
 
 	// Create the appropriate strategy
@@ -183,7 +206,7 @@ func (u UpdateDON) Apply(e cldf.Environment, config UpdateDONInput) (cldf.Change
 			MergeCapabilityConfigsWithOnChain: config.MergeCapabilityConfigsWithOnChain,
 			DonName:                           config.DONName,
 			NewDonName:                        config.NewDonName,
-			F:                                 don.F,
+			F:                                 fValue,
 			IsPrivate:                         !don.IsPublic,
 			Force:                             config.Force,
 			MCMSConfig:                        config.MCMSConfig,

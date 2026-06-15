@@ -20,6 +20,7 @@ import (
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 )
@@ -110,7 +111,6 @@ func deployWorkflowCmd() *cobra.Command {
 		deleteWorkflowFileFlag          bool
 		donIDFlag                       uint32
 		rpcURLFlag                      string
-		contractsVersionFlag            string
 	)
 
 	cmd := &cobra.Command{
@@ -172,12 +172,12 @@ func deployWorkflowCmd() *cobra.Command {
 				}
 			}
 
-			workflowRegistryAddress, workflowRegistryVersion, resolveErr := resolveContractAddressAndVersion(cmd, resolver, keystone_changeset.WorkflowRegistry, workflowRegistryAddressFlag, contractsVersionFlag, "workflow-registry-address")
+			workflowRegistryAddress, workflowRegistryVersion, resolveErr := resolveRegistryContractAddressAndVersion(cmd, resolver, keystone_changeset.WorkflowRegistry, workflowRegistryAddressFlag, "workflow-registry-address")
 			if resolveErr != nil {
 				return errors.Wrap(resolveErr, "❌ failed to resolve workflow registry")
 			}
 
-			capabilitiesRegistryAddress, capabilitiesRegistryVersion, resolveErr := resolveContractAddressAndVersion(cmd, resolver, keystone_changeset.CapabilitiesRegistry, capabilitiesRegistryAddressFlag, contractsVersionFlag, "capabilities-registry-address")
+			capabilitiesRegistryAddress, capabilitiesRegistryVersion, resolveErr := resolveRegistryContractAddressAndVersion(cmd, resolver, keystone_changeset.CapabilitiesRegistry, capabilitiesRegistryAddressFlag, "capabilities-registry-address")
 			if resolveErr != nil {
 				return errors.Wrap(resolveErr, "❌ failed to resolve capabilities registry")
 			}
@@ -205,7 +205,6 @@ func deployWorkflowCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&workflowNameFlag, "name", "n", "", "Workflow name")
 	cmd.Flags().BoolVarP(&deleteWorkflowFileFlag, "delete-workflow-file", "l", false, "Deletes the workflow file after deployment")
 	cmd.Flags().BoolVarP(&compileWorkflowFlag, "compile", "x", false, "Compiles the workflow before deploying it")
-	cmd.Flags().StringVar(&contractsVersionFlag, "with-contracts-version", "v2", "Version of workflow registry contract to use (v1 or v2)")
 
 	if err := cmd.MarkFlagRequired("workflow-file-path"); err != nil {
 		panic(err)
@@ -223,7 +222,6 @@ func deleteWorkflowCmd() *cobra.Command {
 		workflowNameFlag            string
 		workflowRegistryAddressFlag string
 		rpcURLFlag                  string
-		contractsVersionFlag        string
 	)
 
 	cmd := &cobra.Command{
@@ -245,7 +243,7 @@ func deleteWorkflowCmd() *cobra.Command {
 				return err
 			}
 
-			workflowRegistryAddress, contractsVersion, err := resolveContractAddressAndVersion(cmd, resolver, keystone_changeset.WorkflowRegistry, workflowRegistryAddressFlag, contractsVersionFlag, "workflow-registry-address")
+			workflowRegistryAddress, contractsVersion, err := resolveRegistryContractAddressAndVersion(cmd, resolver, keystone_changeset.WorkflowRegistry, workflowRegistryAddressFlag, "workflow-registry-address")
 			if err != nil {
 				return errors.Wrap(err, "❌ failed to resolve workflow registry")
 			}
@@ -275,7 +273,6 @@ func deleteWorkflowCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
 	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", "", "Workflow registry address (if not provided, address from the state file will be used)")
 	cmd.Flags().StringVarP(&workflowNameFlag, "name", "n", "", "Workflow name")
-	cmd.Flags().StringVar(&contractsVersionFlag, "with-contracts-version", "v2", "Version of workflow registry contract to use (v1 or v2)")
 
 	if err := cmd.MarkFlagRequired("name"); err != nil {
 		panic(err)
@@ -288,7 +285,6 @@ func deleteAllWorkflowsCmd() *cobra.Command {
 	var (
 		workflowRegistryAddressFlag string
 		rpcURLFlag                  string
-		contractsVersionFlag        string
 	)
 
 	cmd := &cobra.Command{
@@ -310,7 +306,7 @@ func deleteAllWorkflowsCmd() *cobra.Command {
 				return err
 			}
 
-			workflowRegistryAddress, contractsVersion, err := resolveContractAddressAndVersion(cmd, resolver, keystone_changeset.WorkflowRegistry, workflowRegistryAddressFlag, contractsVersionFlag, "workflow-registry-address")
+			workflowRegistryAddress, contractsVersion, err := resolveRegistryContractAddressAndVersion(cmd, resolver, keystone_changeset.WorkflowRegistry, workflowRegistryAddressFlag, "workflow-registry-address")
 			if err != nil {
 				return errors.Wrap(err, "❌ failed to resolve workflow registry")
 			}
@@ -328,7 +324,6 @@ func deleteAllWorkflowsCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
 	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", "", "Workflow registry address (if not provided, address from the state file will be used)")
-	cmd.Flags().StringVar(&contractsVersionFlag, "with-contracts-version", "v2", "Version of workflow registry contract to use (v1 or v2)")
 
 	return cmd
 }
@@ -546,22 +541,15 @@ func resolveWorkflowDONNodeInfo(resolver *LocalCREStateResolver) (dbPort, nodeCo
 	return dbPort, nodeCount
 }
 
-func resolveContractAddressAndVersion(cmd *cobra.Command, resolver *LocalCREStateResolver, contractType deployment.ContractType, explicitAddress, versionFlag, addressFlagName string) (string, *semver.Version, error) {
+func resolveRegistryContractAddressAndVersion(cmd *cobra.Command, resolver *LocalCREStateResolver, contractType deployment.ContractType, explicitAddress, addressFlagName string) (string, *semver.Version, error) {
+	defaultVersion := contracts.V2Version
+
 	if cmd.Flags().Changed(addressFlagName) {
 		if strings.TrimSpace(explicitAddress) == "" {
 			return "", nil, fmt.Errorf("❌ %s is required when %s is provided", addressFlagName, addressFlagName)
 		}
 
-		if strings.TrimSpace(versionFlag) == "" {
-			return "", nil, fmt.Errorf("❌ %s is required when %s is provided", versionFlag, addressFlagName)
-		}
-
-		version, err := semverFromFlag(versionFlag)
-		if err != nil {
-			return "", nil, err
-		}
-
-		return explicitAddress, version, nil
+		return explicitAddress, defaultVersion, nil
 	}
 
 	if resolver != nil {
@@ -571,19 +559,6 @@ func resolveContractAddressAndVersion(cmd *cobra.Command, resolver *LocalCREStat
 		}
 
 		return addrRef.Address, addrRef.Version, nil
-	}
-
-	if strings.TrimSpace(versionFlag) == "" {
-		return "", nil, fmt.Errorf("❌ %s is required when no %s is provided", versionFlag, addressFlagName)
-	}
-
-	version, err := semverFromFlag(versionFlag)
-	if err != nil {
-		return "", nil, err
-	}
-
-	if strings.TrimSpace(explicitAddress) != "" {
-		return explicitAddress, version, nil
 	}
 
 	return "", nil, fmt.Errorf("no %s available from flags or local CRE state", contractType)

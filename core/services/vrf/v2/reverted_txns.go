@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -15,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
@@ -51,8 +51,27 @@ type (
 
 var ReqScanTimeRangeInDB = "1 hour"
 
+// skipRevertedTxnFetchFatal reports whether a fetch error should not trigger Fatal.
+// We skip on explicit cancellation and when the outer ctx is done (e.g. job stop).
+// We do not skip solely on [context.DeadlineExceeded] while the outer ctx is still
+// valid: sqlutil's per-query timeout uses an inner context, so that case must still
+// Fatal to surface stuck/slow DB. Drivers may return unrelated errors while the outer
+// ctx is already canceled — we skip Fatal then but log at Debug in the caller.
+func skipRevertedTxnFetchFatal(ctx context.Context, err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.Canceled) {
+		return true
+	}
+	if ctx.Err() != nil {
+		return true
+	}
+	return false
+}
+
 func (lsn *listenerV2) runRevertedTxnsHandler(pollPeriod time.Duration) {
-	pollPeriod = pollPeriod + time.Second*3
+	pollPeriod += time.Second * 3
 	tick := time.NewTicker(pollPeriod)
 	defer tick.Stop()
 	ctx, cancel := lsn.chStop.NewCtx()
@@ -73,14 +92,26 @@ func (lsn *listenerV2) handleRevertedTxns(ctx context.Context, pollPeriod time.D
 	// Fetch recent single and batch txns, that have not been force-fulfilled
 	recentSingleTxns, err := lsn.fetchRecentSingleTxns(ctx, lsn.ds, lsn.chainID.Uint64(), pollPeriod)
 	if err != nil {
+		if skipRevertedTxnFetchFatal(ctx, err) {
+			lsn.l.Debugw("Reverted txn fetch aborted", "err", err, "stage", "recent_single")
+			return
+		}
 		lsn.l.Fatalw("Fetch recent txns", "err", err)
 	}
 	recentBatchTxns, err := lsn.fetchRecentBatchTxns(ctx, lsn.ds, lsn.chainID.Uint64(), pollPeriod)
 	if err != nil {
+		if skipRevertedTxnFetchFatal(ctx, err) {
+			lsn.l.Debugw("Reverted txn fetch aborted", "err", err, "stage", "recent_batch")
+			return
+		}
 		lsn.l.Fatalw("Fetch recent batch txns", "err", err)
 	}
 	recentForceFulfillmentTxns, err := lsn.fetchRevertedForceFulfilmentTxns(ctx, lsn.ds, lsn.chainID.Uint64(), pollPeriod)
 	if err != nil {
+		if skipRevertedTxnFetchFatal(ctx, err) {
+			lsn.l.Debugw("Reverted txn fetch aborted", "err", err, "stage", "force_fulfillment")
+			return
+		}
 		lsn.l.Fatalw("Fetch recent reverted force-fulfillment txns", "err", err)
 	}
 	recentTxns := make([]TxnReceiptDB, 0)
@@ -155,9 +186,9 @@ func (lsn *listenerV2) fetchRecentSingleTxns(ctx context.Context,
 
 	before := time.Now()
 	err := ds.SelectContext(ctx, &recentReceipts, sqlQuery, chainID)
-	lsn.postSqlLog(ctx, before, pollPeriod, "FetchRecentSingleTxns")
+	lsn.postSQLLog(ctx, before, pollPeriod, "FetchRecentSingleTxns")
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, errors.Wrap(err, "Error fetching recent non-force-fulfilled txns")
+		return nil, fmt.Errorf("error fetching recent non-force-fulfilled txns: %w", err)
 	}
 
 	recentReceipts = unique(recentReceipts)
@@ -217,9 +248,9 @@ func (lsn *listenerV2) fetchRecentBatchTxns(ctx context.Context,
 
 	before := time.Now()
 	err := ds.SelectContext(ctx, &recentReceipts, sqlQuery, chainID)
-	lsn.postSqlLog(ctx, before, pollPeriod, "FetchRecentBatchTxns")
+	lsn.postSQLLog(ctx, before, pollPeriod, "FetchRecentBatchTxns")
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, errors.Wrap(err, "Error fetching recent non-force-fulfilled txns")
+		return nil, fmt.Errorf("error fetching recent non-force-fulfilled txns: %w", err)
 	}
 
 	recentReceipts = unique(recentReceipts)
@@ -270,9 +301,9 @@ func (lsn *listenerV2) fetchRevertedForceFulfilmentTxns(ctx context.Context,
 
 	before := time.Now()
 	err := ds.SelectContext(ctx, &recentReceipts, sqlQuery, chainID)
-	lsn.postSqlLog(ctx, before, pollPeriod, "FetchRevertedForceFulfilmentTxns")
+	lsn.postSQLLog(ctx, before, pollPeriod, "FetchRevertedForceFulfilmentTxns")
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, errors.Wrap(err, "Error fetching recent reverted force-fulfilled txns")
+		return nil, fmt.Errorf("error fetching recent reverted force-fulfilled txns: %w", err)
 	}
 
 	sqlQueryAll := fmt.Sprintf(`
@@ -299,9 +330,9 @@ func (lsn *listenerV2) fetchRevertedForceFulfilmentTxns(ctx context.Context,
 	var allReceipts []TxnReceiptDB
 	before = time.Now()
 	err = ds.SelectContext(ctx, &allReceipts, sqlQueryAll, chainID)
-	lsn.postSqlLog(ctx, before, pollPeriod, "Fetch all ForceFulfilment Txns")
+	lsn.postSQLLog(ctx, before, pollPeriod, "Fetch all ForceFulfilment Txns")
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, errors.Wrap(err, "Error fetching all recent force-fulfilled txns")
+		return nil, fmt.Errorf("error fetching all recent force-fulfilled txns: %w", err)
 	}
 
 	recentReceipts = UniqueByReqID(recentReceipts, allReceipts)
@@ -379,9 +410,9 @@ func UniqueByReqID(revertedForceTxns []TxnReceiptDB, allForceTxns []TxnReceiptDB
 	return res
 }
 
-// postSqlLog logs about context cancellation and timing after a query returns.
+// postSQLLog logs about context cancellation and timing after a query returns.
 // Queries which use their full timeout log critical level. More than 50% log error, and 10% warn.
-func (lsn *listenerV2) postSqlLog(ctx context.Context, begin time.Time, pollPeriod time.Duration, queryName string) {
+func (lsn *listenerV2) postSQLLog(ctx context.Context, begin time.Time, pollPeriod time.Duration, queryName string) {
 	elapsed := time.Since(begin)
 	if ctx.Err() != nil {
 		lsn.l.Debugw("SQL context canceled", "ms", elapsed.Milliseconds(), "err", ctx.Err(), "sql", queryName)
@@ -483,7 +514,7 @@ func (lsn *listenerV2) filterSingleRevertedTxn(ctx context.Context,
 	ethClient := lsn.chain.Client()
 	tx, err := ethClient.TransactionByHash(ctx, txnReceiptDB.TxHash)
 	if err != nil {
-		return nil, errors.Wrap(err, "get_txn_by_hash")
+		return nil, fmt.Errorf("get_txn_by_hash: %w", err)
 	}
 
 	// Simulate txn to get revert error
@@ -554,7 +585,7 @@ func (lsn *listenerV2) filterBatchRevertedTxn(ctx context.Context,
 	}
 	unpackedInputs, err := batchCoordinatorV2ABI.Methods["fulfillRandomWords"].Inputs.Unpack(txnReceiptDB.EncodedPayload[4:])
 	if err != nil {
-		return nil, errors.Wrap(err, "cannot_unpack_batch_txn")
+		return nil, fmt.Errorf("cannot_unpack_batch_txn: %w", err)
 	}
 	proofs := abi.ConvertType(unpackedInputs[0], new([]vrf_coordinator_v2.VRFProof)).(*[]vrf_coordinator_v2.VRFProof)
 	reqCommitments := abi.ConvertType(unpackedInputs[1], new([]vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment)).(*[]vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment)
@@ -654,7 +685,7 @@ func (lsn *listenerV2) enqueueForceFulfillmentForRevertedTxn(
 	fromAddresses := lsn.fromAddresses()
 	fromAddress, err := lsn.gethks.GetRoundRobinAddress(ctx, lsn.chainID, fromAddresses...)
 	if err != nil {
-		return txmgr.Tx{}, errors.Wrap(err, "failed_to_get_vrf_listener_from_address")
+		return txmgr.Tx{}, fmt.Errorf("failed_to_get_vrf_listener_from_address: %w", err)
 	}
 
 	// fulfill the request through the VRF owner
@@ -669,7 +700,7 @@ func (lsn *listenerV2) enqueueForceFulfillmentForRevertedTxn(
 
 	txData, err := vrfOwnerABI.Pack("fulfillRandomWords", proof, reqCommitment)
 	if err != nil {
-		return txmgr.Tx{}, errors.Wrap(err, "abi pack VRFOwner.fulfillRandomWords")
+		return txmgr.Tx{}, fmt.Errorf("abi pack VRFOwner.fulfillRandomWords: %w", err)
 	}
 	vrfOwnerCoordinator, _ := lsn.vrfOwner.GetVRFCoordinator(nil)
 	lsn.l.Infow("RevertedTxnForceFulfilment EstimatingGas",
@@ -683,7 +714,7 @@ func (lsn *listenerV2) enqueueForceFulfillmentForRevertedTxn(
 		Data: txData,
 	})
 	if err != nil {
-		return txmgr.Tx{}, errors.Wrap(err, "failed to estimate gas on VRFOwner.fulfillRandomWords")
+		return txmgr.Tx{}, fmt.Errorf("failed to estimate gas on VRFOwner.fulfillRandomWords: %w", err)
 	}
 	estimateGasLimit = uint64(1.4 * float64(estimateGasLimit))
 

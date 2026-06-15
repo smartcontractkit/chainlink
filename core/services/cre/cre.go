@@ -6,17 +6,21 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
+	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/uuid"
 	"github.com/jonboulle/clockwork"
+	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/grpc/credentials"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/diskmonitor"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
@@ -83,6 +87,7 @@ type Opts struct {
 
 	BillingClient metering.BillingClient
 	LinkingClient linkingclient.LinkingServiceClient
+	Meter         metric.Meter
 
 	StorageClient storage.WorkflowClient
 
@@ -124,6 +129,36 @@ type Services struct {
 
 func (s *Services) close() error {
 	return s.WorkflowLimits.Close()
+}
+
+// workflowRegistryConfigured is true when the workflow registry syncer should start.
+// v1 is on-chain only (non-empty contract address). v2 allows on-chain address and/or
+// additional (e.g. gRPC) sources with a non-empty URL.
+func workflowRegistryConfigured(workflowRegistry config.CapabilitiesWorkflowRegistry, major uint64) bool {
+	if strings.TrimSpace(workflowRegistry.Address()) != "" {
+		return true
+	}
+	if major != 2 {
+		return false
+	}
+	if len(workflowRegistry.AdditionalSources()) > 0 {
+		return true
+	}
+	return false
+}
+
+// workflowRegistrySemverMajor returns the major contract version used to pick the workflow registry syncer.
+// Empty or whitespace-only version defaults to 2 (v2 syncer).
+func workflowRegistrySemverMajor(version string) (major uint64, err error) {
+	v := strings.TrimSpace(version)
+	if v == "" {
+		return 2, nil
+	}
+	sv, err := semver.NewVersion(v)
+	if err != nil {
+		return 0, err
+	}
+	return sv.Major(), nil
 }
 
 // newSubservices initializes and returns all CRE child services
@@ -178,6 +213,8 @@ func (s *Services) newSubservices(
 			relayService := confidentialrelay.NewService(
 				gatewayConnectorWrapper,
 				opts.CapabilitiesRegistry,
+				keyStore.P2P(),
+				confidentialRelayPeerID(cfg, capCfg),
 				lggr,
 				opts.LimitsFactory,
 			)
@@ -211,7 +248,7 @@ func (s *Services) newSubservices(
 	}
 
 	if capCfg.ExternalRegistry().Address() == "" {
-		lggr.Warn("Skipping capabilities and workflow registry syncer, none configured")
+		lggr.Warn("Skipping capabilities registry syncer, not configured")
 		return srvs, nil
 	}
 
@@ -228,8 +265,22 @@ func (s *Services) newSubservices(
 	}
 	srvs = append(srvs, registrySyncerServices...)
 
+	major, majorErr := workflowRegistrySemverMajor(capCfg.WorkflowRegistry().ContractVersion())
+	if majorErr != nil {
+		return nil, majorErr
+	}
+	// WorkflowRegistrySyncer v2 supports offchain-only sources (e.g. gRPC/file) and can
+	// start without an on-chain registry address. v1 is on-chain only, so we only skip
+	// initialization when using v1.
 	if capCfg.WorkflowRegistry().Address() == "" {
-		lggr.Warn("Skipping capabilities and workflow registry syncer, none configured")
+		if major == 1 {
+			lggr.Warn("Skipping workflow registry syncer (v1 requires on-chain address)")
+			return srvs, nil
+		}
+	}
+
+	if !workflowRegistryConfigured(capCfg.WorkflowRegistry(), major) {
+		lggr.Warn("Skipping workflow registry syncer, not configured")
 		return srvs, nil
 	}
 
@@ -255,6 +306,15 @@ func (s *Services) newSubservices(
 	srvs = append(srvs, wfSyncerSrvcs...)
 
 	return srvs, nil
+}
+
+// Same peerID resolution pattern as core/services/standardcapabilities/delegate.go: prefer a
+// configured peerID, fall through to GetOrFirst(zero) so single-key nodes still resolve cleanly.
+func confidentialRelayPeerID(cfg Config, capCfg config.Capabilities) p2pkey.PeerID {
+	if id := capCfg.Peering().PeerID(); id != (p2pkey.PeerID{}) {
+		return id
+	}
+	return cfg.P2P().PeerID()
 }
 
 // Config is the minimal interface needed from GeneralConfig for CRE
@@ -615,17 +675,11 @@ func newOrgResolver(
 		WorkflowRegistryAddress:       capCfg.WorkflowRegistry().Address(),
 		WorkflowRegistryChainSelector: wrChainDetails.ChainSelector,
 		JWTGenerator:                  opts.JWTGenerator,
+		Client:                        opts.LinkingClient,
+		Meter:                         opts.Meter,
 	}
 
-	var (
-		resolver orgresolver.OrgResolver
-		err      error
-	)
-	if opts.LinkingClient != nil {
-		resolver, err = orgresolver.NewOrgResolverWithClient(orgResolverConfig, opts.LinkingClient, lggr)
-	} else {
-		resolver, err = orgresolver.NewOrgResolver(orgResolverConfig, lggr)
-	}
+	resolver, err := orgResolverConfig.New(lggr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create org resolver: %w", err)
 	}
@@ -885,13 +939,6 @@ func newWorkflowRegistrySyncerV2(
 		key,
 		custmsg.NewLabeler(),
 		lf,
-		artifactsV2.WithMaxArtifactSize(
-			artifactsV2.ArtifactConfig{
-				MaxBinarySize:  uint64(wfReg.MaxBinarySize()),
-				MaxSecretsSize: uint64(wfReg.MaxEncryptedSecretsSize()),
-				MaxConfigSize:  uint64(wfReg.MaxConfigSize()),
-			},
-		),
 		artifactsV2.WithConfig(artifactsV2.StoreConfig{
 			ArtifactStorageHost: wfReg.WorkflowStorage().ArtifactStorageHost(),
 		}),
@@ -926,12 +973,15 @@ func newWorkflowRegistrySyncerV2(
 	if opts.ShardOrchestratorClient != nil {
 		shardOrchestratorClient = opts.ShardOrchestratorClient
 	} else {
-		var c shardorchestrator.ClientInterface
-		c, err = newShardOrchestratorClient(cfg, lggr)
-		if err != nil {
-			return nil, nil, err
+		c, clientErr := newShardOrchestratorClient(cfg, lggr)
+		if clientErr != nil {
+			return nil, nil, clientErr
 		}
-		shardOrchestratorClient = c
+		if c != nil {
+			shardOrchestratorClient = c
+		} else {
+			lggr.Debugw("ShardOrchestrator client not created (shard 0 runs the server)")
+		}
 	}
 
 	shardingEnabled := cfg.Sharding().ShardingEnabled()
@@ -944,6 +994,73 @@ func newWorkflowRegistrySyncerV2(
 			lggr.Warnw("Failed to register shard routing steady signal metrics; continuing without steady instrumentation", "err", errSteady)
 		}
 		shardRoutingSteady = shardownership.NewSteadySignal(shardownership.WithSteadySignalMetrics(steadyMetrics))
+	}
+
+	handlerOpts := []syncerV2.EventHandlerOption{
+		syncerV2.WithBillingClient(billingClient),
+		syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), selector),
+		syncerV2.WithOrgResolver(orgResolver),
+		syncerV2.WithDebugMode(cfg.CRE().DebugMode()),
+		syncerV2.WithLocalSecretOverrides(lggr, cfg.CRE().LocalSecretOverrides()),
+		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled, shardIndex),
+		syncerV2.WithShardRoutingSteady(shardRoutingSteady),
+	}
+
+	mc := capCfg.WorkflowRegistry().ModuleCache()
+	cacheEnabled := mc.Enabled()
+	diskMonitorEnabled := mc.DiskMonitorEnabled() || cacheEnabled
+
+	if diskMonitorEnabled || cacheEnabled {
+		fileStore, fsErr := artifactsV2.NewFileModuleStore(mc.CacheDir(), cacheEnabled)
+		if fsErr != nil {
+			return nil, nil, fmt.Errorf("unable to create file module store: %w", fsErr)
+		}
+
+		if diskMonitorEnabled {
+			dm, dmErr := diskmonitor.NewDiskMonitor(
+				lggr,
+				fileStore.CacheDir(),
+				syncerV2.GaugeWorkflowModuleCacheDiskUsageBytes,
+				syncerV2.WorkflowModuleCacheDiskMonitorTickInterval,
+			)
+			if dmErr != nil {
+				return nil, nil, fmt.Errorf("unable to create module cache disk monitor: %w", dmErr)
+			}
+			srvcs = append(srvcs, dm)
+
+			lggr.Infow("Module cache disk monitor enabled", "cacheDir", fileStore.CacheDir())
+		}
+
+		if cacheEnabled {
+			cm, cmErr := syncerV2.NewCacheMetrics()
+			if cmErr != nil {
+				return nil, nil, fmt.Errorf("unable to create module cache metrics: %w", cmErr)
+			}
+
+			lruOpts := []func(*syncerV2.ModuleLRU){
+				syncerV2.WithMaxLoadedModules(mc.MaxLoaded()),
+				syncerV2.WithCacheMetrics(cm),
+			}
+			if mc.IdleEviction() {
+				lruOpts = append(lruOpts, syncerV2.WithIdleTimeout(mc.IdleTimeout()))
+			} else {
+				lruOpts = append(lruOpts, syncerV2.WithIdleTimeout(0))
+			}
+			moduleLRU := syncerV2.NewModuleLRU(clockwork.NewRealClock(), lruOpts...)
+
+			handlerOpts = append(handlerOpts,
+				syncerV2.WithModuleLRU(moduleLRU),
+				syncerV2.WithModuleStore(fileStore),
+				syncerV2.WithModuleCacheMetrics(cm),
+			)
+
+			lggr.Infow("Module cache enabled",
+				"idleEviction", mc.IdleEviction(),
+				"idleTimeout", mc.IdleTimeout(),
+				"maxLoaded", mc.MaxLoaded(),
+				"cacheDir", fileStore.CacheDir(),
+			)
+		}
 	}
 
 	eventHandler, err := syncerV2.NewEventHandler(
@@ -961,13 +1078,7 @@ func newWorkflowRegistrySyncerV2(
 		artifactsStore,
 		key,
 		workflowDonNotifier,
-		syncerV2.WithBillingClient(billingClient),
-		syncerV2.WithWorkflowRegistry(wfReg.Address(), selector),
-		syncerV2.WithOrgResolver(orgResolver),
-		syncerV2.WithDebugMode(cfg.CRE().DebugMode()),
-		syncerV2.WithLocalSecrets(lggr, cfg.CRE().LocalSecrets()),
-		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled, shardIndex),
-		syncerV2.WithShardRoutingSteady(shardRoutingSteady),
+		handlerOpts...,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
@@ -1047,12 +1158,12 @@ func newWorkflowRegistrySyncer(
 		lggr.Infof("failed to create billing client: %s", err)
 	}
 
-	wrVersion, vErr := semver.NewVersion(capCfg.WorkflowRegistry().ContractVersion())
+	major, vErr := workflowRegistrySemverMajor(capCfg.WorkflowRegistry().ContractVersion())
 	if vErr != nil {
 		return nil, nil, nil, vErr
 	}
 
-	switch wrVersion.Major() {
+	switch major {
 	case 1:
 		srvcs, err := newWorkflowRegistrySyncerV1(
 			capCfg,
@@ -1087,7 +1198,7 @@ func newWorkflowRegistrySyncer(
 		)
 		return syncer, billingClient, srvcs, err
 	default:
-		return nil, nil, nil, fmt.Errorf("unsupported WorkflowRegistry contract version %s", wrVersion)
+		return nil, nil, nil, fmt.Errorf("unsupported WorkflowRegistry contract version %d", major)
 	}
 }
 

@@ -10,16 +10,19 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	"github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	seq "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/solana/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder/solana/sequence/operation"
@@ -132,7 +135,7 @@ type SetForwarderUpgradeAuthorityRequest = struct {
 	NewUpgradeAuthority solana.PublicKey
 	Qualifier           string
 	Version             string
-	MCMS                *proposalutils.TimelockConfig // if set, assumes current upgrade authority is the timelock
+	MCMS                *cldfproposalutils.TimelockConfig // if set, assumes current upgrade authority is the timelock
 }
 
 var _ cldf.ChangeSetV2[*SetForwarderUpgradeAuthorityRequest] = SetForwarderUpgradeAuthority{}
@@ -208,7 +211,7 @@ func (cs SetForwarderUpgradeAuthority) Apply(env cldf.Environment, req *SetForwa
 type ConfigureForwarderRequest struct {
 	DON forwarder.DonConfiguration
 
-	MCMS *proposalutils.TimelockConfig // if set, assumes current ownership is the timelock
+	MCMS *cldfproposalutils.TimelockConfig // if set, assumes current ownership is the timelock
 
 	// Chains is optional. Defines chains for which request will be executed. If empty, runs for all available chains.
 	Chains    map[uint64]struct{}
@@ -238,7 +241,7 @@ func (cs ConfigureForwarders) VerifyPreconditions(env cldf.Environment, req *Con
 				return fmt.Errorf("failed get fowarder for chain selector %d: %w", sel, err)
 			}
 			if req.MCMS != nil {
-				_, err = commonstate.MaybeLoadMCMSWithTimelockChainStateSolanaV2(env.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(sel)))
+				_, err = solstate.MaybeLoadMCMSWithTimelockChainStateV2(env.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(sel)))
 				if err != nil {
 					return fmt.Errorf("failed to load MCMS for chain selector %d: %w", sel, err)
 				}
@@ -268,7 +271,7 @@ func (cs ConfigureForwarders) Apply(env cldf.Environment, req *ConfigureForwarde
 		solChain := env.BlockChains.SolanaChains()[chainSel]
 
 		addresses := env.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(chainSel))
-		mcmState, _ := commonstate.MaybeLoadMCMSWithTimelockChainStateSolanaV2(addresses)
+		mcmState, _ := solstate.MaybeLoadMCMSWithTimelockChainStateV2(addresses)
 		if mcmState.TimelockProgram.IsZero() {
 			return cldf.ChangesetOutput{}, errors.New("timelock is not found")
 		}
@@ -283,7 +286,7 @@ func (cs ConfigureForwarders) Apply(env cldf.Environment, req *ConfigureForwarde
 
 		proposers[solChain.Selector] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.ProposerMcmSeed))
 		inspectors[solChain.Selector] = mcmsSolana.NewInspector(solChain.Client)
-		proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		proposal, err := proposeutils.BuildProposalFromBatchesV2(
 			env,
 			timelocks,
 			proposers,

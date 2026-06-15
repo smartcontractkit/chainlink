@@ -5,20 +5,23 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 	"github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
-
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
+
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -44,7 +47,7 @@ type TransferCCIPToMCMSWithTimelockSolanaConfig struct {
 	CurrentOwner     solana.PublicKey
 	ProposedOwner    solana.PublicKey
 	// MCMSCfg is for the accept ownership proposal
-	MCMSCfg proposalutils.TimelockConfig
+	MCMSCfg cldfproposalutils.TimelockConfig
 }
 
 // ValidateContracts checks if the required contracts are present on the chain
@@ -87,7 +90,7 @@ func (cfg TransferCCIPToMCMSWithTimelockSolanaConfig) Validate(e cldf.Environmen
 		if err != nil {
 			return fmt.Errorf("failed to load addresses for chain %d: %w", chainSelector, err)
 		}
-		_, err = state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addresses)
+		_, err = solstate.MaybeLoadMCMSWithTimelockChainState(solChain, addresses)
 		if err != nil {
 			return fmt.Errorf("failed to load mcm state: %w", err)
 		}
@@ -154,13 +157,13 @@ func TransferCCIPToMCMSWithTimelockSolana(
 	for chainSelector, contractsToTransfer := range cfg.ContractsByChain {
 		solChain := e.BlockChains.SolanaChains()[chainSelector]
 		addresses, _ := e.ExistingAddresses.AddressesForChain(chainSelector)
-		mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addresses)
+		mcmState, _ := solstate.MaybeLoadMCMSWithTimelockChainState(solChain, addresses)
 
 		currentOwner := solChain.DeployerKey.PublicKey()
 		if !cfg.CurrentOwner.IsZero() {
 			currentOwner = cfg.CurrentOwner
 		}
-		timelockSigner := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+		timelockSigner := pdasol.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 		proposedOwner := timelockSigner
 		if !cfg.ProposedOwner.IsZero() {
 			proposedOwner = cfg.ProposedOwner
@@ -319,7 +322,7 @@ func TransferCCIPToMCMSWithTimelockSolana(
 		}
 	}
 
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
 		proposers,

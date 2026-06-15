@@ -13,12 +13,12 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
+	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
@@ -294,7 +294,7 @@ func (g *generalConfig) FeatureFeedsManager() bool {
 	return *g.c.Feature.FeedsManager
 }
 
-func (g *generalConfig) OCR() config.OCR {
+func (g *generalConfig) OCR() coreconfig.OCR {
 	return &ocrConfig{c: g.c.OCR}
 }
 
@@ -310,7 +310,7 @@ func (g *generalConfig) FeatureUICSAKeys() bool {
 	return *g.c.Feature.UICSAKeys
 }
 
-func (g *generalConfig) AutoPprof() config.AutoPprof {
+func (g *generalConfig) AutoPprof() coreconfig.AutoPprof {
 	return &autoPprofConfig{c: g.c.AutoPprof, rootDir: g.RootDir}
 }
 
@@ -381,7 +381,7 @@ func (g *generalConfig) SuiEnabled() bool {
 	return false
 }
 
-func (g *generalConfig) WebServer() config.WebServer {
+func (g *generalConfig) WebServer() coreconfig.WebServer {
 	return &webServerConfig{c: g.c.WebServer, s: g.secrets.WebServer, rootDir: g.RootDir}
 }
 
@@ -433,11 +433,11 @@ func (g *generalConfig) AutoPprofProfileRoot() string {
 	return s
 }
 
-func (g *generalConfig) Capabilities() config.Capabilities {
+func (g *generalConfig) Capabilities() coreconfig.Capabilities {
 	return &capabilitiesConfig{c: g.c.Capabilities}
 }
 
-func (g *generalConfig) Workflows() config.Workflows {
+func (g *generalConfig) Workflows() coreconfig.Workflows {
 	return &workflowsConfig{c: g.c.Workflows}
 }
 
@@ -447,10 +447,6 @@ func (g *generalConfig) Database() coreconfig.Database {
 
 func (g *generalConfig) ShutdownGracePeriod() time.Duration {
 	return g.c.ShutdownGracePeriod.Duration()
-}
-
-func (g *generalConfig) FluxMonitor() config.FluxMonitor {
-	return &fluxMonitorConfig{c: g.c.FluxMonitor}
 }
 
 func (g *generalConfig) InsecureFastScrypt() bool {
@@ -469,15 +465,15 @@ func (g *generalConfig) JobPipeline() coreconfig.JobPipeline {
 	return &jobPipelineConfig{c: g.c.JobPipeline}
 }
 
-func (g *generalConfig) Log() config.Log {
+func (g *generalConfig) Log() coreconfig.Log {
 	return &logConfig{c: g.c.Log, rootDir: g.RootDir, level: g.logLevel, defaultLevel: g.logLevelDefault}
 }
 
-func (g *generalConfig) OCR2() config.OCR2 {
+func (g *generalConfig) OCR2() coreconfig.OCR2 {
 	return &ocr2Config{c: g.c.OCR2}
 }
 
-func (g *generalConfig) P2P() config.P2P {
+func (g *generalConfig) P2P() coreconfig.P2P {
 	return &p2p{c: g.c.P2P}
 }
 
@@ -497,7 +493,7 @@ func (g *generalConfig) P2POutgoingMessageBufferSize() int {
 	return int(*g.c.P2P.OutgoingMessageBufferSize)
 }
 
-func (g *generalConfig) Pyroscope() config.Pyroscope {
+func (g *generalConfig) Pyroscope() coreconfig.Pyroscope {
 	return &pyroscopeConfig{c: g.c.Pyroscope, s: g.secrets.Pyroscope}
 }
 
@@ -520,7 +516,7 @@ func (g *generalConfig) AuditLogger() coreconfig.AuditLogger {
 	return auditLoggerConfig{c: g.c.AuditLogger}
 }
 
-func (g *generalConfig) Insecure() config.Insecure {
+func (g *generalConfig) Insecure() coreconfig.Insecure {
 	return &insecureConfig{c: g.c.Insecure}
 }
 
@@ -540,7 +536,7 @@ func (g *generalConfig) Prometheus() coreconfig.Prometheus {
 	return &prometheusConfig{s: g.secrets.Prometheus}
 }
 
-func (g *generalConfig) Mercury() coreconfig.Mercury {
+func (g *generalConfig) Mercury() de.Mercury {
 	return &mercuryConfig{c: g.c.Mercury, s: g.secrets.Mercury}
 }
 
@@ -589,6 +585,10 @@ func (g *generalConfig) Billing() coreconfig.Billing {
 
 func (g *generalConfig) BridgeStatusReporter() coreconfig.BridgeStatusReporter {
 	return &bridgeStatusReporterConfig{c: g.c.BridgeStatusReporter}
+}
+
+func (g *generalConfig) JobSpecReporter() coreconfig.JobSpecReporter {
+	return &jobSpecReporterConfig{c: g.c.JobSpecReporter}
 }
 
 func (g *generalConfig) Sharding() coreconfig.Sharding {

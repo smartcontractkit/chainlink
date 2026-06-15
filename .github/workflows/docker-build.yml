@@ -95,6 +95,7 @@ jobs:
       aws-region-gati: us-west-2
       dockerfile: core/chainlink.Dockerfile
       docker-build-context: .
+      docker-target: debug
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
@@ -127,6 +128,7 @@ jobs:
       aws-region-gati: us-west-2
       dockerfile: plugins/chainlink.Dockerfile
       docker-build-context: .
+      docker-target: debug
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
@@ -161,6 +163,7 @@ jobs:
       aws-region-gati: us-west-2
       dockerfile: plugins/chainlink.Dockerfile
       docker-build-context: .
+      docker-target: debug
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
@@ -196,6 +199,7 @@ jobs:
       aws-region-gati: us-west-2
       dockerfile: core/chainlink.Dockerfile
       docker-build-context: .
+      docker-target: debug
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
@@ -231,6 +235,7 @@ jobs:
       aws-region-gati: us-west-2
       dockerfile: plugins/chainlink.Dockerfile
       docker-build-context: .
+      docker-target: debug
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}

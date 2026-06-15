@@ -1,9 +1,9 @@
 package web_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -26,129 +26,49 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
+func TestPipelineRunsController_CreateWebhookJobRejected(t *testing.T) {
 	t.Parallel()
 
-	ctx := testutils.Context(t)
-	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
-	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(big.NewInt(0), nil)
-	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(2 * time.Second)
-		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(10 * time.Millisecond)
-	})
-
-	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	// Setup the bridge
-	mockServer := cltest.NewHTTPMockServerWithRequest(t, 200, `{}`, func(r *http.Request) {
-		defer r.Body.Close()
-		bs, err := io.ReadAll(r.Body)
-		require.NoError(t, err)
-		require.JSONEq(t, `{"result":"12345"}`, string(bs))
-	})
-
-	_, bridge := cltest.MustCreateBridge(t, app.GetDB(), cltest.BridgeOpts{URL: mockServer.URL})
-
-	// Add the job
-	uuid := uuid.New()
-	{
-		tomlStr := fmt.Sprintf(testspecs.WebhookSpecWithBodyTemplate, uuid, bridge.Name.String())
-		jb, err := webhook.ValidatedWebhookSpec(ctx, tomlStr, app.GetExternalInitiatorManager())
-		require.NoError(t, err)
-
-		err = app.AddJobV2(testutils.Context(t), &jb)
-		require.NoError(t, err)
-	}
-
-	// Give the job.Spawner ample time to discover the job and start its service
-	// (because Postgres events don't seem to work here)
-	time.Sleep(3 * time.Second)
-
-	// Make the request
-	{
-		client := app.NewHTTPClient(nil)
-		body := strings.NewReader(`{"data":{"result":"123.45"}}`)
-		response, cleanup := client.Post("/v2/jobs/"+uuid.String()+"/runs", body)
-		defer cleanup()
-		cltest.AssertServerResponse(t, response, http.StatusOK)
-
-		var parsedResponse presenters.PipelineRunResource
-		err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &parsedResponse)
-		assert.NoError(t, err)
-		assert.NotNil(t, parsedResponse.ID)
-		assert.NotNil(t, parsedResponse.CreatedAt)
-		assert.NotNil(t, parsedResponse.FinishedAt)
-		require.Len(t, parsedResponse.TaskRuns, 3)
-	}
+	client := app.NewHTTPClient(nil)
+	// Bridge names are arbitrary; webhook creation is rejected before bridge validation.
+	tomlStr := testspecs.GetWebhookSpecNoBody(uuid.New(), uuid.NewString(), uuid.NewString())
+	body, err := json.Marshal(web.CreateJobRequest{TOML: tomlStr})
+	require.NoError(t, err)
+	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
+	defer cleanup()
+	cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
+	require.Contains(t, string(cltest.ParseResponseBody(t, response)), "job type webhook has been removed")
 }
 
-func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
+func TestPipelineRunsController_RunExistingWebhookJobRejected(t *testing.T) {
 	t.Parallel()
 
-	ctx := testutils.Context(t)
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(big.NewInt(0), nil)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(2 * time.Second)
-		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(10 * time.Millisecond)
 	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	// Setup the bridges
-	mockServer := cltest.NewHTTPMockServer(t, 200, "POST", `{"data":{"result":"123.45"}}`)
+	jobUUID := uuid.New()
+	cltest.MustInsertWebhookSpec(t, app.GetDB(), jobUUID)
 
-	_, bridge := cltest.MustCreateBridge(t, app.GetDB(), cltest.BridgeOpts{URL: mockServer.URL})
-
-	mockServer = cltest.NewHTTPMockServerWithRequest(t, 200, `{}`, func(r *http.Request) {
-		defer r.Body.Close()
-		bs, err := io.ReadAll(r.Body)
-		require.NoError(t, err)
-		require.JSONEq(t, `{"result":"12345"}`, string(bs))
-	})
-
-	_, submitBridge := cltest.MustCreateBridge(t, app.GetDB(), cltest.BridgeOpts{URL: mockServer.URL})
-
-	// Add the job
-	uuid := uuid.New()
-	{
-		tomlStr := testspecs.GetWebhookSpecNoBody(uuid, bridge.Name.String(), submitBridge.Name.String())
-		jb, err := webhook.ValidatedWebhookSpec(ctx, tomlStr, app.GetExternalInitiatorManager())
-		require.NoError(t, err)
-
-		err = app.AddJobV2(testutils.Context(t), &jb)
-		require.NoError(t, err)
-	}
-
-	// Give the job.Spawner ample time to discover the job and start its service
-	// (because Postgres events don't seem to work here)
-	time.Sleep(3 * time.Second)
-
-	// Make the request (authorized as user)
-	{
-		client := app.NewHTTPClient(nil)
-		response, cleanup := client.Post("/v2/jobs/"+uuid.String()+"/runs", nil)
-		defer cleanup()
-		cltest.AssertServerResponse(t, response, http.StatusOK)
-
-		var parsedResponse presenters.PipelineRunResource
-		err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &parsedResponse)
-		bs, _ := json.MarshalIndent(parsedResponse, "", "    ")
-		t.Log(string(bs))
-		assert.NoError(t, err)
-		assert.NotNil(t, parsedResponse.ID)
-		assert.NotNil(t, parsedResponse.CreatedAt)
-		assert.NotNil(t, parsedResponse.FinishedAt)
-		require.Len(t, parsedResponse.TaskRuns, 4)
-	}
+	client := app.NewHTTPClient(nil)
+	body := strings.NewReader(`{"data":{"result":"123.45"}}`)
+	response, cleanup := client.Post("/v2/jobs/"+jobUUID.String()+"/runs", body)
+	defer cleanup()
+	cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
+	require.Contains(t, string(cltest.ParseResponseBody(t, response)), "webhook")
 }
 
 func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {

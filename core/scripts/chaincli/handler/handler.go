@@ -10,20 +10,13 @@ import (
 	"log"
 	"math/big"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"os"
 	"regexp"
 	"strconv"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/stdcopy"
-	"github.com/docker/go-connections/nat"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -31,6 +24,11 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/manyminds/api2go/jsonapi"
+	"github.com/moby/moby/api/pkg/stdcopy"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/mount"
+	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/client"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
@@ -230,36 +228,40 @@ func (h *baseHandler) waitTx(ctx context.Context, tx *ethtypes.Transaction) erro
 
 func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, containerName string, extraTOML string, force bool) (string, func(bool), error) {
 	// Create docker client to launch nodes
-	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	dockerClient, err := client.New()
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create docker client from env: %w", err)
 	}
 
 	// Make sure everything works well
-	if _, err = dockerClient.Ping(ctx); err != nil {
+	if _, err = dockerClient.Ping(ctx, client.PingOptions{}); err != nil {
 		return "", nil, fmt.Errorf("failed to ping docker server: %w", err)
 	}
 
 	// Pull DB image if needed
-	var out io.ReadCloser
-	if _, _, err = dockerClient.ImageInspectWithRaw(ctx, h.cfg.PostgresDockerImage); err != nil {
+	if _, err = dockerClient.ImageInspect(ctx, h.cfg.PostgresDockerImage); err != nil {
 		log.Println("Pulling Postgres docker image...")
-		if out, err = dockerClient.ImagePull(ctx, h.cfg.PostgresDockerImage, image.PullOptions{}); err != nil {
-			return "", nil, fmt.Errorf("failed to pull Postgres image: %w", err)
+		pullResp, pullErr := dockerClient.ImagePull(ctx, h.cfg.PostgresDockerImage, client.ImagePullOptions{})
+		if pullErr != nil {
+			return "", nil, fmt.Errorf("failed to pull Postgres image: %w", pullErr)
 		}
-		out.Close()
+		if waitErr := pullResp.Wait(ctx); waitErr != nil {
+			_ = pullResp.Close()
+			return "", nil, fmt.Errorf("failed to pull Postgres image: %w", waitErr)
+		}
+		_ = pullResp.Close()
 		log.Println("Postgres docker image successfully pulled!")
 	}
 
 	// Create network config
 	const networkName = "chaincli-local"
-	existingNetworks, err := dockerClient.NetworkList(ctx, network.ListOptions{})
+	existingNetworks, err := dockerClient.NetworkList(ctx, client.NetworkListOptions{})
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to list networks: %w", err)
 	}
 
 	var found bool
-	for _, ntwrk := range existingNetworks {
+	for _, ntwrk := range existingNetworks.Items {
 		if ntwrk.Name == networkName {
 			found = true
 			break
@@ -267,7 +269,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 	}
 
 	if !found {
-		if _, err = dockerClient.NetworkCreate(ctx, networkName, network.CreateOptions{}); err != nil {
+		if _, err = dockerClient.NetworkCreate(ctx, networkName, client.NetworkCreateOptions{}); err != nil {
 			return "", nil, fmt.Errorf("failed to create network: %w", err)
 		}
 	}
@@ -282,25 +284,29 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 	}
 
 	// Create DB container
-	dbContainerResp, err := dockerClient.ContainerCreate(ctx, &container.Config{
-		Image: h.cfg.PostgresDockerImage,
-		Cmd:   []string{"postgres", "-c", `max_connections=1000`},
-		Env: []string{
-			"POSTGRES_USER=postgres",
-			"POSTGRES_PASSWORD=verylongdatabasepassword",
+	dbContainerResp, err := dockerClient.ContainerCreate(ctx, client.ContainerCreateOptions{
+		Config: &container.Config{
+			Image: h.cfg.PostgresDockerImage,
+			Cmd:   []string{"postgres", "-c", `max_connections=1000`},
+			Env: []string{
+				"POSTGRES_USER=postgres",
+				"POSTGRES_PASSWORD=verylongdatabasepassword",
+			},
+			ExposedPorts: network.PortSet{network.MustParsePort("5432/tcp"): struct{}{}},
 		},
-		ExposedPorts: nat.PortSet{"5432": struct{}{}},
-	}, nil, &network.NetworkingConfig{
-		EndpointsConfig: map[string]*network.EndpointSettings{
-			networkName: {Aliases: []string{postgresContainerName}},
+		NetworkingConfig: &network.NetworkingConfig{
+			EndpointsConfig: map[string]*network.EndpointSettings{
+				networkName: {Aliases: []string{postgresContainerName}},
+			},
 		},
-	}, nil, postgresContainerName)
+		Name: postgresContainerName,
+	})
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create Postgres container, use --force=true to force removing existing containers: %w", err)
 	}
 
 	// Start container
-	if err = dockerClient.ContainerStart(ctx, dbContainerResp.ID, container.StartOptions{}); err != nil {
+	if _, err = dockerClient.ContainerStart(ctx, dbContainerResp.ID, client.ContainerStartOptions{}); err != nil {
 		return "", nil, fmt.Errorf("failed to start DB container: %w", err)
 	}
 	log.Println("Postgres docker container successfully created and started: ", dbContainerResp.ID)
@@ -315,12 +321,17 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 	}
 
 	// Pull node image if needed
-	if _, _, err = dockerClient.ImageInspectWithRaw(ctx, h.cfg.ChainlinkDockerImage); err != nil {
+	if _, err = dockerClient.ImageInspect(ctx, h.cfg.ChainlinkDockerImage); err != nil {
 		log.Println("Pulling node docker image...")
-		if out, err = dockerClient.ImagePull(ctx, h.cfg.ChainlinkDockerImage, image.PullOptions{}); err != nil {
-			return "", nil, fmt.Errorf("failed to pull node image: %w", err)
+		pullResp, pullErr := dockerClient.ImagePull(ctx, h.cfg.ChainlinkDockerImage, client.ImagePullOptions{})
+		if pullErr != nil {
+			return "", nil, fmt.Errorf("failed to pull node image: %w", pullErr)
 		}
-		out.Close()
+		if waitErr := pullResp.Wait(ctx); waitErr != nil {
+			_ = pullResp.Close()
+			return "", nil, fmt.Errorf("failed to pull node image: %w", waitErr)
+		}
+		_ = pullResp.Close()
 		log.Println("Node docker image successfully pulled!")
 	}
 
@@ -342,59 +353,60 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 	}
 	// Create container with mounted files
 	portStr := strconv.Itoa(port)
-	nodeContainerResp, err := dockerClient.ContainerCreate(ctx, &container.Config{
-		Image: h.cfg.ChainlinkDockerImage,
-		Cmd:   []string{"-s", "/run/secrets/01-secret.toml", "-c", "/run/secrets/01-config.toml", "local", "n", "-a", "/run/secrets/chainlink-node-api"},
-		Env: []string{
-			"CL_CONFIG=" + extraTOML,
-			"CL_PASSWORD_KEYSTORE=" + defaultChainlinkNodePassword,
-			"CL_DATABASE_URL=postgresql://postgres:verylongdatabasepassword@" + postgresContainerName + ":5432/postgres?sslmode=disable",
+	nodeContainerResp, err := dockerClient.ContainerCreate(ctx, client.ContainerCreateOptions{
+		Config: &container.Config{
+			Image: h.cfg.ChainlinkDockerImage,
+			Cmd:   []string{"-s", "/run/secrets/01-secret.toml", "-c", "/run/secrets/01-config.toml", "local", "n", "-a", "/run/secrets/chainlink-node-api"},
+			Env: []string{
+				"CL_CONFIG=" + extraTOML,
+				"CL_PASSWORD_KEYSTORE=" + defaultChainlinkNodePassword,
+				"CL_DATABASE_URL=postgresql://postgres:verylongdatabasepassword@" + postgresContainerName + ":5432/postgres?sslmode=disable",
+			},
+			ExposedPorts: network.PortSet{network.MustParsePort("6688/tcp"): struct{}{}},
 		},
-		ExposedPorts: map[nat.Port]struct{}{
-			nat.Port(portStr): {},
-		},
-	}, &container.HostConfig{
-		Mounts: []mount.Mount{
-			{
-				Type:   mount.TypeBind,
-				Source: apiFile,
-				Target: "/run/secrets/chainlink-node-api",
-			},
-			{
-				Type:   mount.TypeBind,
-				Source: passwordFile,
-				Target: "/run/secrets/chainlink-node-password",
-			},
-			{
-				Type:   mount.TypeBind,
-				Source: tomlFile,
-				Target: "/run/secrets/01-config.toml",
-			},
-			{
-				Type:   mount.TypeBind,
-				Source: secretFile,
-				Target: "/run/secrets/01-secret.toml",
-			},
-		},
-		PortBindings: nat.PortMap{
-			"6688/tcp": []nat.PortBinding{
+		HostConfig: &container.HostConfig{
+			Mounts: []mount.Mount{
 				{
-					HostIP:   "0.0.0.0",
-					HostPort: portStr,
+					Type:   mount.TypeBind,
+					Source: apiFile,
+					Target: "/run/secrets/chainlink-node-api",
+				},
+				{
+					Type:   mount.TypeBind,
+					Source: passwordFile,
+					Target: "/run/secrets/chainlink-node-password",
+				},
+				{
+					Type:   mount.TypeBind,
+					Source: tomlFile,
+					Target: "/run/secrets/01-config.toml",
+				},
+				{
+					Type:   mount.TypeBind,
+					Source: secretFile,
+					Target: "/run/secrets/01-secret.toml",
 				},
 			},
+			PortBindings: network.PortMap{
+				network.MustParsePort("6688/tcp"): []network.PortBinding{{
+					HostIP:   netip.MustParseAddr("0.0.0.0"),
+					HostPort: portStr,
+				}},
+			},
 		},
-	}, &network.NetworkingConfig{
-		EndpointsConfig: map[string]*network.EndpointSettings{
-			networkName: {Aliases: []string{containerName}},
+		NetworkingConfig: &network.NetworkingConfig{
+			EndpointsConfig: map[string]*network.EndpointSettings{
+				networkName: {Aliases: []string{containerName}},
+			},
 		},
-	}, nil, containerName)
+		Name: containerName,
+	})
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create node container, use --force=true to force removing existing containers: %w", err)
 	}
 
 	// Start container
-	if err = dockerClient.ContainerStart(ctx, nodeContainerResp.ID, container.StartOptions{}); err != nil {
+	if _, err = dockerClient.ContainerStart(ctx, nodeContainerResp.ID, client.ContainerStartOptions{}); err != nil {
 		return "", nil, fmt.Errorf("failed to start node container: %w", err)
 	}
 
@@ -413,7 +425,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 
 		if writeLogs {
 			var rdr io.ReadCloser
-			rdr, err2 := dockerClient.ContainerLogs(ctx, nodeContainerResp.ID, container.LogsOptions{
+			rdr, err2 := dockerClient.ContainerLogs(ctx, nodeContainerResp.ID, client.ContainerLogsOptions{
 				ShowStderr: true,
 				Timestamps: true,
 			})
@@ -439,36 +451,37 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 			stdErr.Close()
 		}
 
-		if err2 := dockerClient.ContainerStop(ctx, nodeContainerResp.ID, container.StopOptions{}); err2 != nil {
+		if _, err2 := dockerClient.ContainerStop(ctx, nodeContainerResp.ID, client.ContainerStopOptions{}); err2 != nil {
 			log.Fatal("Failed to stop node container: ", err2)
 		}
-		if err2 := dockerClient.ContainerRemove(ctx, nodeContainerResp.ID, container.RemoveOptions{}); err2 != nil {
+		if _, err2 := dockerClient.ContainerRemove(ctx, nodeContainerResp.ID, client.ContainerRemoveOptions{}); err2 != nil {
 			log.Fatal("Failed to remove node container: ", err2)
 		}
 
-		if err2 := dockerClient.ContainerStop(ctx, dbContainerResp.ID, container.StopOptions{}); err2 != nil {
+		if _, err2 := dockerClient.ContainerStop(ctx, dbContainerResp.ID, client.ContainerStopOptions{}); err2 != nil {
 			log.Fatal("Failed to stop DB container: ", err2)
 		}
-		if err2 := dockerClient.ContainerRemove(ctx, dbContainerResp.ID, container.RemoveOptions{}); err2 != nil {
+		if _, err2 := dockerClient.ContainerRemove(ctx, dbContainerResp.ID, client.ContainerRemoveOptions{}); err2 != nil {
 			log.Fatal("Failed to remove DB container: ", err2)
 		}
 	}, nil
 }
 
 func checkAndRemoveContainer(ctx context.Context, dockerClient *client.Client, containerName string) error {
-	opts := container.ListOptions{
-		Filters: filters.NewArgs(filters.Arg("name", "^/"+regexp.QuoteMeta(containerName)+"$")),
+	opts := client.ContainerListOptions{
+		Filters: make(client.Filters).Add("name", "^/"+regexp.QuoteMeta(containerName)+"$"),
 	}
 
-	containers, err := dockerClient.ContainerList(ctx, opts)
+	listRes, err := dockerClient.ContainerList(ctx, opts)
 	if err != nil {
 		return fmt.Errorf("failed to list containers: %w", err)
 	}
 
+	containers := listRes.Items
 	if len(containers) > 1 {
 		log.Fatal("more than two containers with the same name should not happen")
 	} else if len(containers) > 0 {
-		if err := dockerClient.ContainerRemove(ctx, containers[0].ID, container.RemoveOptions{
+		if _, err := dockerClient.ContainerRemove(ctx, containers[0].ID, client.ContainerRemoveOptions{
 			Force: true,
 		}); err != nil {
 			return fmt.Errorf("failed to remove existing container: %w", err)

@@ -11,7 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
-	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 )
 
 // RegisterNodesToJDChangeset is a changeset that reads node info from a JSON file and registers them in Job Distributor
@@ -44,36 +43,36 @@ func registerNodesToJDLogic(env cldf.Environment, c types.RegisterNodeConfig) (c
 
 			// base labels
 			labels := []*ptypes.Label{
-				&ptypes.Label{
+				{
 					Key:   "product",
-					Value: pointer.To(productLabel),
+					Value: new(productLabel),
 				},
-				&ptypes.Label{
+				{
 					Key:   "domain",
-					Value: pointer.To(productLabel),
+					Value: new(productLabel),
 				},
-				&ptypes.Label{
+				{
 					Key:   productLabel,
-					Value: pointer.To(""),
+					Value: new(""),
 				},
-				&ptypes.Label{
+				{
 					Key:   "environment",
-					Value: pointer.To(env.Name),
+					Value: new(env.Name),
 				},
-				&ptypes.Label{
+				{
 					Key:   "don_id",
-					Value: pointer.To(strconv.Itoa(don.ID)),
+					Value: new(strconv.Itoa(don.ID)),
 				},
 			}
 			if node.IsBootstrap {
 				labels = append(labels, &ptypes.Label{
 					Key:   devenv.LabelNodeTypeKey,
-					Value: pointer.To(devenv.LabelNodeTypeValueBootstrap),
+					Value: new(devenv.LabelNodeTypeValueBootstrap),
 				})
 			} else {
 				labels = append(labels, &ptypes.Label{
 					Key:   devenv.LabelNodeTypeKey,
-					Value: pointer.To(devenv.LabelNodeTypeValuePlugin),
+					Value: new(devenv.LabelNodeTypeValuePlugin),
 				})
 			}
 			// extra labels

@@ -18,17 +18,16 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
+	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
-// Specs are only embedded on the job and are not fetchable by it's own id, so
+// Specs are only embedded on the job and are not fetchable by its own id, so
 // we test the spec resolvers by fetching a job by id.
-
 func TestResolver_CronSpec(t *testing.T) {
 	var (
 		id = int32(1)
@@ -677,8 +676,6 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 	var (
 		id = int32(1)
 	)
-	coordinatorV1Address, err := evmtypes.NewEIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C")
-	require.NoError(t, err)
 
 	coordinatorV2Address, err := evmtypes.NewEIP55Address("0x2fcA960AF066cAc46085588a66dA2D614c7Cd337")
 	require.NoError(t, err)
@@ -708,7 +705,6 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.BlockhashStore,
 					BlockhashStoreSpec: &job.BlockhashStoreSpec{
-						CoordinatorV1Address:           &coordinatorV1Address,
 						CoordinatorV2Address:           &coordinatorV2Address,
 						CoordinatorV2PlusAddress:       &coordinatorV2PlusAddress,
 						CreatedAt:                      f.Timestamp(),
@@ -757,7 +753,7 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 					"job": {
 						"spec": {
 							"__typename": "BlockhashStoreSpec",
-							"coordinatorV1Address": "0x613a38AC1659769640aaE063C651F48E0250454C",
+							"coordinatorV1Address": null,
 							"coordinatorV2Address": "0x2fcA960AF066cAc46085588a66dA2D614c7Cd337",
 							"coordinatorV2PlusAddress": "0x92B5e28Ac583812874e4271380c7d070C5FB6E6b",
 							"createdAt": "2021-01-01T00:00:00Z",
@@ -785,8 +781,6 @@ func TestResolver_BlockHeaderFeederSpec(t *testing.T) {
 	var (
 		id = int32(1)
 	)
-	coordinatorV1Address, err := evmtypes.NewEIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C")
-	require.NoError(t, err)
 
 	coordinatorV2Address, err := evmtypes.NewEIP55Address("0x2fcA960AF066cAc46085588a66dA2D614c7Cd337")
 	require.NoError(t, err)
@@ -812,7 +806,6 @@ func TestResolver_BlockHeaderFeederSpec(t *testing.T) {
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.BlockHeaderFeeder,
 					BlockHeaderFeederSpec: &job.BlockHeaderFeederSpec{
-						CoordinatorV1Address:       &coordinatorV1Address,
 						CoordinatorV2Address:       &coordinatorV2Address,
 						CoordinatorV2PlusAddress:   &coordinatorV2PlusAddress,
 						CreatedAt:                  f.Timestamp(),
@@ -861,7 +854,7 @@ func TestResolver_BlockHeaderFeederSpec(t *testing.T) {
 					"job": {
 						"spec": {
 							"__typename": "BlockHeaderFeederSpec",
-							"coordinatorV1Address": "0x613a38AC1659769640aaE063C651F48E0250454C",
+							"coordinatorV1Address": null,
 							"coordinatorV2Address": "0x2fcA960AF066cAc46085588a66dA2D614c7Cd337",
 							"coordinatorV2PlusAddress": "0x92B5e28Ac583812874e4271380c7d070C5FB6E6b",
 							"createdAt": "2021-01-01T00:00:00Z",

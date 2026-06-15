@@ -1,72 +1,50 @@
+// Package config holds the database/runtime configuration consumed by the
+// tools/test database helpers.
 package config
 
-import (
-	"errors"
-	"os"
-	"strings"
-	"time"
+import "fmt"
 
-	"github.com/charmbracelet/x/term"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
-
-	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/repo"
-)
-
+// DefaultPostgresVersion is the Postgres major version used for ephemeral and
+// persistent test databases when none is specified.
 const DefaultPostgresVersion = "16"
 
+// App is the configuration the database helpers need to stand up Postgres for a
+// test run. It is populated from the testrig root flags (see internal/dbflags).
 type App struct {
-	DatabaseURL     string        `mapstructure:"database_url"`
-	PostgresVersion string        `mapstructure:"postgres_version"`
-	RepoRoot        string        `mapstructure:"repo_root"`
-	AIOutput        bool          `mapstructure:"ai_output"`
-	Iterations      int           `mapstructure:"iterations"`
-	SlowThreshold   time.Duration `mapstructure:"slow_threshold"`
-	FailFast        bool          `mapstructure:"fail_fast"`
-	Shuffle         bool          `mapstructure:"shuffle_seed"`
+	// DatabaseURL, when set, points at an existing database to use instead of an
+	// ephemeral container.
+	DatabaseURL string
+	// PostgresVersion is the Postgres major version for ephemeral containers.
+	PostgresVersion string
+	// RepoRoot is the repository root, used to run preparetest.
+	RepoRoot string
+	// AIOutput selects sparse output for agent tooling.
+	AIOutput bool
+	// ParallelIterations records the requested diagnose worker count (used only
+	// to reject external databases with parallel runs).
+	ParallelIterations int
+	// DiagnoseMode is true when the harness is running testrig diagnose.
+	DiagnoseMode bool
+	// WorkerIndex is the 1-based diagnose worker slot when DiagnoseMode is set.
+	WorkerIndex int
+	// PackageSlug is a short, docker-safe token derived from the package patterns
+	// under test (e.g. core_services).
+	PackageSlug string
 }
 
-// Load binds Viper to the active command's persistent flags and local flags, then unmarshals into App.
-func Load(cmd *cobra.Command) (*App, error) {
-	if cmd == nil {
-		return nil, errors.New("command is required")
+// PostgresContainerName returns the docker container name for an ephemeral
+// Postgres instance. Non-diagnose runs use test_<slug>; diagnose workers use
+// iteration_<n>_<slug>.
+func (c *App) PostgresContainerName() string {
+	if c == nil {
+		return "test_pkgs"
 	}
-	v := viper.New()
-
-	v.SetDefault("postgres_version", DefaultPostgresVersion)
-	// Enable sparse output when stdout is not a TTY (e.g. redirected or CI).
-	v.SetDefault("ai_output", !term.IsTerminal(os.Stdout.Fd()))
-	v.SetDefault("iterations", 1)
-	v.SetDefault("slow_threshold", 30*time.Second)
-	v.SetDefault("fail_fast", false)
-	repoRoot, err := repo.RootFromWd()
-	if err != nil {
-		return nil, err
+	slug := c.PackageSlug
+	if slug == "" {
+		slug = "pkgs"
 	}
-	v.SetDefault("repo_root", repoRoot)
-
-	if err := bindPFlags(v, cmd.PersistentFlags()); err != nil {
-		return nil, err
+	if c.DiagnoseMode {
+		return fmt.Sprintf("iteration_%d_%s", max(c.WorkerIndex, 1), slug)
 	}
-	if err := bindPFlags(v, cmd.Flags()); err != nil {
-		return nil, err
-	}
-
-	var conf App
-	if err := v.Unmarshal(&conf); err != nil {
-		return nil, err
-	}
-	return &conf, nil
-}
-
-func bindPFlags(v *viper.Viper, flags *pflag.FlagSet) error {
-	var err error
-	flags.VisitAll(func(f *pflag.Flag) {
-		configName := strings.ReplaceAll(f.Name, "-", "_")
-		if bindErr := v.BindPFlag(configName, f); bindErr != nil {
-			err = bindErr
-		}
-	})
-	return err
+	return "test_" + slug
 }

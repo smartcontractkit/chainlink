@@ -75,10 +75,6 @@ func TestEngine_Init(t *testing.T) {
 	initDoneCh := make(chan error)
 
 	cfg := defaultTestConfig(t, nil)
-	getter, err := settings.NewJSONGetter([]byte(`{"global":{"VaultOrgIdAsSecretOwnerEnabled":true}}`))
-	require.NoError(t, err)
-	cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled, err = limits.MakeGateLimiter(limits.Factory{Settings: getter, Logger: cfg.Lggr}, cresettings.Default.VaultOrgIdAsSecretOwnerEnabled)
-	require.NoError(t, err)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
 	cfg.Hooks = v2.LifecycleHooks{
@@ -248,7 +244,7 @@ WorkflowLimit = "1"
 	cfg := defaultTestConfig(t, nil)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
-	cfg.GlobalExecutionConcurrencyLimiter = sLimiter
+	cfg.GlobalWorkflowLimit = sLimiter
 	cfg.Hooks = hooks
 	var engine1, engine2, engine3, engine4 *v2.Engine
 
@@ -290,7 +286,7 @@ WorkflowLimit = "1"
 	require.NoError(t, engine4.Close())
 }
 
-func TestEngine_Start_TriggerRegistrationOmitsOrgIDWhenGateDisabled(t *testing.T) {
+func TestEngine_TriggerRegistrationMetadata(t *testing.T) {
 	t.Parallel()
 
 	module := modulemocks.NewModuleV2(t)
@@ -301,10 +297,6 @@ func TestEngine_Start_TriggerRegistrationOmitsOrgIDWhenGateDisabled(t *testing.T
 	subscribedToTriggersCh := make(chan []string, 1)
 
 	cfg := defaultTestConfig(t, nil)
-	getter, err := settings.NewJSONGetter([]byte(`{"global":{"VaultOrgIdAsSecretOwnerEnabled":false}}`))
-	require.NoError(t, err)
-	cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled, err = limits.MakeGateLimiter(limits.Factory{Settings: getter, Logger: cfg.Lggr}, cresettings.Default.VaultOrgIdAsSecretOwnerEnabled)
-	require.NoError(t, err)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
 	cfg.OrgResolver = &mockOrgResolver{orgID: "test-org-123"}
@@ -339,7 +331,6 @@ func TestEngine_Start_TriggerRegistrationOmitsOrgIDWhenGateDisabled(t *testing.T
 	require.NoError(t, <-initDoneCh)
 	require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
 	require.Equal(t, cfg.WorkflowOwner, capturedTriggerRequest.Metadata.WorkflowOwner)
-	require.Empty(t, capturedTriggerRequest.Metadata.OrgID)
 	require.NoError(t, engine.Close())
 }
 
@@ -562,10 +553,6 @@ func TestEngine_OrganizationIdLogger_OrgResolverFailure(t *testing.T) {
 	executionFinishedCh := make(chan string)
 
 	cfg := defaultTestConfig(t, nil)
-	getter, err := settings.NewJSONGetter([]byte(`{"global":{"VaultOrgIdAsSecretOwnerEnabled":true}}`))
-	require.NoError(t, err)
-	cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled, err = limits.MakeGateLimiter(limits.Factory{Settings: getter, Logger: cfg.Lggr}, cresettings.Default.VaultOrgIdAsSecretOwnerEnabled)
-	require.NoError(t, err)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
 	cfg.BillingClient = billingClient
@@ -623,6 +610,143 @@ func TestEngine_OrganizationIdLogger_OrgResolverFailure(t *testing.T) {
 	// Verify that the org resolver was called even though it failed
 	require.True(t, mockOrgResolver.getCalled, "Expected org resolver Get method to be called")
 	require.Equal(t, cfg.WorkflowOwner, mockOrgResolver.calledWithOwner, "Expected org resolver to be called with workflow owner")
+
+	require.NoError(t, engine.Close())
+}
+
+// TestEngine_OrganizationIdPreservedAfterLocalNodeSync verifies that the org ID
+// resolved at engine startup survives a localNodeSync label rebuild.
+//
+// localNodeSync rebuilds logger labels from DON state without re-resolving the org.
+// The org ID must still propagate into capability request metadata on subsequent executions.
+//
+// Test flow:
+// 1. Start the engine and resolve org ID from the workflow owner
+// 2. Trigger localNodeSync via a DON update (ConfigVersion 1 -> 2)
+// 3. Run a workflow execution that calls a capability
+// 4. Assert the capability receives Metadata.OrgID matching the resolved org
+func TestEngine_OrganizationIdPreservedAfterLocalNodeSync(t *testing.T) {
+	t.Parallel()
+
+	const (
+		wantOrgID    = "test-org-123"
+		capabilityID = "org-test-cap@1.0.0"
+	)
+
+	module := modulemocks.NewModuleV2(t)
+	module.EXPECT().Start()
+	module.EXPECT().Close()
+	capreg := regmocks.NewCapabilitiesRegistry(t)
+	billingClient := setupMockBillingClient(t)
+
+	initialNode := newNode(t, func(n *capabilities.Node) {
+		n.WorkflowDON.ConfigVersion = 1
+	})
+	updatedNode := newNode(t, func(n *capabilities.Node) {
+		n.WorkflowDON.ConfigVersion = 2
+	})
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(initialNode, nil).Once()
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(updatedNode, nil).Once()
+
+	mockOrgResolver := &mockOrgResolver{orgID: wantOrgID}
+
+	initDoneCh := make(chan error)
+	subscribedToTriggersCh := make(chan []string, 1)
+	executionFinishedCh := make(chan string)
+	donCh := make(chan capabilities.DON)
+	nodeSyncedCh := make(chan capabilities.Node, 1)
+
+	subscriberMock := capmocks.NewDonSubscriber(t)
+	subscriberMock.EXPECT().Subscribe(matches.AnyContext).Return(donCh, func() {}, nil)
+
+	cfg := defaultTestConfig(t, nil)
+	propagateOrgIDGetter, err := settings.NewJSONGetter([]byte(`{"global":{"PropagateOrgIDInRequestMetadata":"true"}}`))
+	require.NoError(t, err)
+	cfg.LocalLimiters.Settings = propagateOrgIDGetter
+	cfg.DonSubscriber = subscriberMock
+	cfg.Module = module
+	cfg.CapRegistry = capreg
+	cfg.BillingClient = billingClient
+	cfg.OrgResolver = mockOrgResolver
+	cfg.Hooks = v2.LifecycleHooks{
+		OnInitialized: func(err error) {
+			initDoneCh <- err
+		},
+		OnSubscribedToTriggers: func(triggerIDs []string) {
+			subscribedToTriggersCh <- triggerIDs
+		},
+		OnExecutionFinished: func(executionID string, _ string) {
+			executionFinishedCh <- executionID
+		},
+		OnNodeSynced: func(node capabilities.Node, err error) {
+			require.NoError(t, err)
+			nodeSyncedCh <- node
+		},
+	}
+
+	engine, err := v2.NewEngine(cfg)
+	require.NoError(t, err)
+
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
+	trigger := capmocks.NewTriggerCapability(t)
+	capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil).Once()
+	eventCh := make(chan capabilities.TriggerResponse)
+	trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(eventCh, nil).Once()
+	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+	trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	require.NoError(t, engine.Start(t.Context()))
+	require.NoError(t, <-initDoneCh)
+	require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
+	require.True(t, mockOrgResolver.getCalled, "expected org resolver to be called during engine start")
+
+	donCh <- capabilities.DON{}
+	syncedNode := <-nodeSyncedCh
+	require.Equal(t, uint32(2), syncedNode.WorkflowDON.ConfigVersion)
+
+	capabilityOrgIDCh := make(chan string, 1)
+	capability := capmocks.NewExecutableCapability(t)
+	capreg.EXPECT().GetExecutable(matches.AnyContext, capabilityID).Return(capability, nil).Once()
+	capreg.EXPECT().ConfigForCapability(mock.Anything, mock.Anything, mock.Anything).
+		Return(capabilities.CapabilityConfiguration{}, nil).
+		Once()
+	capability.EXPECT().
+		Info(matches.AnyContext).
+		Return(capabilities.CapabilityInfo{IsLocal: true}, nil).
+		Once()
+	capability.EXPECT().
+		Execute(matches.AnyContext, mock.Anything).
+		Run(func(_ context.Context, req capabilities.CapabilityRequest) {
+			capabilityOrgIDCh <- req.Metadata.OrgID
+		}).
+		Return(capabilities.CapabilityResponse{}, nil).
+		Once()
+
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
+		Run(func(ctx context.Context, _ *sdkpb.ExecuteRequest, executor host.ExecutionHelper) {
+			_, errCap := executor.CallCapability(ctx, &sdkpb.CapabilityRequest{
+				Id:         capabilityID,
+				Method:     "execute",
+				CallbackId: 1,
+			})
+			require.NoError(t, errCap)
+		}).
+		Return(nil, nil).
+		Once()
+
+	mockTriggerEvent := capabilities.TriggerEvent{
+		TriggerType: "basic-trigger@1.0.0",
+		ID:          "post_local_node_sync_event",
+	}
+	eventCh <- capabilities.TriggerResponse{Event: mockTriggerEvent}
+
+	executionID := <-executionFinishedCh
+	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
+	require.NoError(t, err)
+	require.Equal(t, wantExecID, executionID)
+
+	// The capability call after localNodeSync must carry the org ID resolved at startup.
+	require.Equal(t, wantOrgID, <-capabilityOrgIDCh, "capability request metadata must include org ID after local node sync")
 
 	require.NoError(t, engine.Close())
 }
@@ -720,7 +844,6 @@ func TestEngine_Execution(t *testing.T) {
 		require.Equal(t, v2.TriggerRegistrationID(cfg.WorkflowID, 0), capturedTriggerRequest.TriggerID)
 		require.Equal(t, cfg.WorkflowID, capturedTriggerRequest.Metadata.WorkflowID)
 		require.Equal(t, cfg.WorkflowOwner, capturedTriggerRequest.Metadata.WorkflowOwner)
-		require.Empty(t, capturedTriggerRequest.Metadata.OrgID)
 		require.Equal(t, cfg.WorkflowName.Hex(), capturedTriggerRequest.Metadata.WorkflowName)
 		require.Equal(t, cfg.WorkflowTag, capturedTriggerRequest.Metadata.WorkflowTag)
 		require.Equal(t, uint32(0), capturedTriggerRequest.Metadata.WorkflowDonID)
@@ -1714,13 +1837,14 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		cfg.Lggr,
 		cfg.LocalLimiters.SecretsConcurrency,
 		cfg.LocalLimiters.SecretsCalls,
-		cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled,
+		cfg.LocalLimiters.Settings,
 		engineOrgID,
 		cfg.WorkflowOwner,
 		cfg.WorkflowName.String(),
 		cfg.WorkflowID,
 		"",
 		cfg.WorkflowEncryptionKey,
+		nil,
 	)
 	cfg.SecretsFetcher = secretsFetcher
 	engine, err := v2.NewEngine(cfg)
@@ -1742,8 +1866,6 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	// received.
 	res := <-resultReceivedCh
 	require.NotNil(t, capturedVaultReq)
-	require.Empty(t, capturedVaultReq.WorkflowOwner)
-	require.Empty(t, capturedVaultReq.OrgId)
 	switch output := res.Result.(type) {
 	case *sdkpb.ExecutionResult_Value:
 		var value values.Value
@@ -2261,7 +2383,7 @@ func TestEngine_DonVersionLabelUpdatePinned(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	// Verify the registry was updated
-	updatedNode, err := localRegistry.LocalNode(ctx)
+	updatedNode, err := localRegistry.NodeByPeerID(ctx, peerID)
 	require.NoError(t, err)
 	assert.Equal(t, uint32(2), updatedNode.WorkflowDON.ConfigVersion, "DON ConfigVersion should now be 2")
 	t.Logf("✓ Registry updated: DON ConfigVersion is now %d", updatedNode.WorkflowDON.ConfigVersion)
@@ -2552,24 +2674,24 @@ func createTestEngineForDonVersionTest(
 	require.NoError(t, err)
 
 	cfg := &v2.EngineConfig{
-		Lggr:                              lggr,
-		Module:                            wasmModule,
-		CapRegistry:                       registry,
-		UseLocalTimeProvider:              true,
-		DonSubscriber:                     donNotifier,
-		ExecutionsStore:                   defaultTestConfig(t, nil).ExecutionsStore,
-		WorkflowID:                        "ffffaabbccddeeff00112233aabbccddeeff00112233aabbccddeeff00112233",
-		WorkflowOwner:                     "1234567890123456789012345678901234567890",
-		WorkflowName:                      name,
-		WorkflowTag:                       "test-tag",
-		WorkflowEncryptionKey:             defaultTestConfig(t, nil).WorkflowEncryptionKey,
-		LocalLimits:                       v2.EngineLimits{},
-		LocalLimiters:                     defaultTestConfig(t, nil).LocalLimiters,
-		FeatureFlags:                      featureFlags,
-		GlobalExecutionConcurrencyLimiter: sLimiter,
-		BeholderEmitter:                   emitter,
-		WorkflowRegistryAddress:           "0xWorkflowRegistry",
-		WorkflowRegistryChainSelector:     "11155111",
+		Lggr:                          lggr,
+		Module:                        wasmModule,
+		CapRegistry:                   registry,
+		UseLocalTimeProvider:          true,
+		DonSubscriber:                 donNotifier,
+		ExecutionsStore:               defaultTestConfig(t, nil).ExecutionsStore,
+		WorkflowID:                    "ffffaabbccddeeff00112233aabbccddeeff00112233aabbccddeeff00112233",
+		WorkflowOwner:                 "1234567890123456789012345678901234567890",
+		WorkflowName:                  name,
+		WorkflowTag:                   "test-tag",
+		WorkflowEncryptionKey:         defaultTestConfig(t, nil).WorkflowEncryptionKey,
+		LocalLimits:                   v2.EngineLimits{},
+		LocalLimiters:                 defaultTestConfig(t, nil).LocalLimiters,
+		FeatureFlags:                  featureFlags,
+		GlobalWorkflowLimit:           sLimiter,
+		BeholderEmitter:               emitter,
+		WorkflowRegistryAddress:       "0xWorkflowRegistry",
+		WorkflowRegistryChainSelector: "11155111",
 	}
 
 	engine, err := v2.NewEngine(cfg)
