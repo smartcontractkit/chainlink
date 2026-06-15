@@ -55,6 +55,7 @@ const (
 	vaultDefaultConfigPath              = "/configs/workflow-gateway-capabilities-don.toml"
 	vaultJWTAuthEnabledConfigPath       = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
 	vaultOptimizationsEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"
+	vaultStuckQueueRecoveryConfigPath   = "/configs/workflow-gateway-capabilities-don-vault-stuck-queue-recovery.toml"
 	vaultJWTIssuerListenAddr            = "0.0.0.0:18123"
 	// vaultJWTTestTenantID is the tenant_id / urn:chainlink:tenant_id claim for Vault JWT tests and
 	// matches the org_id passed to DeriveJWTAuthorizedVaultWorkflowOwner.
@@ -244,12 +245,22 @@ func getVaultOptimizationsEnabledTestConfig(t *testing.T) *ttypes.TestConfig {
 	return t_helpers.GetTestConfig(t, vaultOptimizationsEnabledConfigPath)
 }
 
+func getVaultStuckQueueRecoveryTestConfig(t *testing.T) *ttypes.TestConfig {
+	t.Helper()
+
+	return t_helpers.GetTestConfig(t, vaultStuckQueueRecoveryConfigPath)
+}
+
 func isVaultJWTAuthEnabledTopology(topologyName string) bool {
 	return strings.Contains(topologyName, "vault-jwt_auth-enabled")
 }
 
 func isVaultOptimizationsEnabledTopology(topologyName string) bool {
 	return strings.Contains(topologyName, "vault-optimizations-enabled")
+}
+
+func isVaultStuckQueueRecoveryTopology(topologyName string) bool {
+	return strings.Contains(topologyName, "vault-stuck-queue-recovery")
 }
 
 func setupVaultScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, usePerTestKeys bool) *vaultScenarioFixture {

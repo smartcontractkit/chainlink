@@ -40,6 +40,7 @@ type testPluginBuildOpts struct {
 	unmarshalBlob                        func([]byte) (ocr3_1types.BlobHandle, error)
 	maxObservationBytesOverride          int
 	maxReportsPlusPrecursorBytesOverride int
+	vaultPendingQueueStuckRoundThreshold int
 }
 
 func withLggr(lggr logger.Logger) testPluginOption {
@@ -107,6 +108,10 @@ func withMaxReportsPlusPrecursorBytes(n int) testPluginOption {
 	return func(o *testPluginBuildOpts) { o.maxReportsPlusPrecursorBytesOverride = n }
 }
 
+func withVaultPendingQueueStuckRoundThreshold(n int) testPluginOption {
+	return func(o *testPluginBuildOpts) { o.vaultPendingQueueStuckRoundThreshold = n }
+}
+
 func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPlugin {
 	t.Helper()
 	o := testPluginBuildOpts{
@@ -129,7 +134,8 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 	cfg := makeReportingPluginConfig(t, o.batchSize, o.publicKey, o.privateKeyShare,
 		o.maxSecretsPerOwner, o.maxCiphertextLengthBytes,
 		o.maxIdentifierOwnerLengthBytes, o.maxIdentifierNamespaceLengthBytes,
-		o.maxIdentifierKeyLengthBytes, o.maxRequestBatchSize, o.maxBlobPayloadBytes)
+		o.maxIdentifierKeyLengthBytes, o.maxRequestBatchSize, o.maxBlobPayloadBytes,
+		o.vaultPendingQueueStuckRoundThreshold)
 	if o.vaultOptimizationsEnabled {
 		cfg.VaultOptimizationsEnabled = limits.NewGateLimiter(true)
 	}
@@ -183,6 +189,7 @@ func makeReportingPluginConfig(
 	maxIdentifierKeyLengthBytes int,
 	maxRequestBatchSize int,
 	maxBlobPayloadBytes int,
+	vaultPendingQueueStuckRoundThreshold int,
 ) *ReportingPluginConfig {
 	msl, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Int(maxSecretsPerOwner))
 	require.NoError(t, err)
@@ -219,22 +226,31 @@ func makeReportingPluginConfig(
 	}
 	require.NoError(t, err)
 
+	var vaultPendingQueueStuckRoundThresholdLimiter limits.BoundLimiter[int]
+	if vaultPendingQueueStuckRoundThreshold > 0 {
+		vaultPendingQueueStuckRoundThresholdLimiter, err = limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Int(vaultPendingQueueStuckRoundThreshold))
+	} else {
+		vaultPendingQueueStuckRoundThresholdLimiter, err = limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Int(0))
+	}
+	require.NoError(t, err)
+
 	return &ReportingPluginConfig{
 		MaxBatchSize:             bsl,
 		MaxPendingQueueWriteSize: maxPendingQueueWriteSizeLimiter,
 
-		PublicKey:                         publicKey,
-		PrivateKeyShare:                   privateKeyShare,
-		MaxSecretsPerOwner:                msl,
-		MaxShareLengthBytes:               shareLimiter,
-		MaxCiphertextLengthBytes:          cipherTextLimiter,
-		MaxIdentifierOwnerLengthBytes:     ownerLimiter,
-		MaxIdentifierNamespaceLengthBytes: namespaceOwnerLimiter,
-		MaxIdentifierKeyLengthBytes:       keyLimiter,
-		MaxRequestBatchSize:               requestBatchSizeLimiter,
-		MaxBlobPayloadBytes:               maxBlobPayloadLimiter,
-		VaultForceEmptyOCRRounds:          limits.NewGateLimiter(false),
-		VaultOptimizationsEnabled:         limits.NewGateLimiter(false),
+		PublicKey:                            publicKey,
+		PrivateKeyShare:                      privateKeyShare,
+		MaxSecretsPerOwner:                   msl,
+		MaxShareLengthBytes:                  shareLimiter,
+		MaxCiphertextLengthBytes:             cipherTextLimiter,
+		MaxIdentifierOwnerLengthBytes:        ownerLimiter,
+		MaxIdentifierNamespaceLengthBytes:    namespaceOwnerLimiter,
+		MaxIdentifierKeyLengthBytes:          keyLimiter,
+		MaxRequestBatchSize:                  requestBatchSizeLimiter,
+		MaxBlobPayloadBytes:                  maxBlobPayloadLimiter,
+		VaultForceEmptyOCRRounds:             limits.NewGateLimiter(false),
+		VaultOptimizationsEnabled:            limits.NewGateLimiter(false),
+		VaultPendingQueueStuckRoundThreshold: vaultPendingQueueStuckRoundThresholdLimiter,
 	}
 }
 

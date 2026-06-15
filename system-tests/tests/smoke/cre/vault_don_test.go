@@ -828,6 +828,29 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 	}
 }
 
+func TestVaultStuckQueueRecoveryTopology_LoadExpectedConfig(t *testing.T) {
+	t.Parallel()
+
+	cfg := &envconfig.Config{}
+	require.NoError(t, cfg.Load(t_helpers.GetTestConfig(t, vaultStuckQueueRecoveryConfigPath).EnvironmentConfigPath))
+
+	for _, nodeSet := range cfg.NodeSets {
+		if nodeSet.Name != "capabilities" {
+			continue
+		}
+		settingsRaw := nodeSet.EnvVars["CL_CRE_SETTINGS_DEFAULT"]
+		require.NotEmpty(t, settingsRaw)
+		var settings map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal([]byte(settingsRaw), &settings))
+		require.Equal(t, json.RawMessage(`"false"`), settings["VaultOptimizationsEnabled"])
+		require.Equal(t, json.RawMessage(`"3"`), settings["VaultPendingQueueStuckRoundThreshold"])
+		require.Equal(t, json.RawMessage(`"4kb"`), settings["VaultMaxObservationSizeLimit"])
+		var perOwner map[string]string
+		require.NoError(t, json.Unmarshal(settings["PerOwner"], &perOwner))
+		require.Equal(t, "8kb", perOwner["VaultCiphertextSizeLimit"])
+	}
+}
+
 // TestMustMintVaultJWTForRequest_UsesRawRequestDigest ensures the bearer token binds the digest of
 // the exact JSON-RPC params wire body (canonical json.Marshal / jsonrpc.Request), matching what
 // the gateway verifies—without relying on deprecated top-level identity fields inside params.

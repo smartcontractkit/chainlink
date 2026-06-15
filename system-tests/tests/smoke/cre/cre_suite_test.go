@@ -96,6 +96,9 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 			} else if isVaultOptimizationsEnabledTopology(topology) {
 				vaultConfig = getVaultOptimizationsEnabledTestConfig(t)
 				allowlistSubtestName = "allowlist_auth_when_vault_optimizations_enabled"
+			} else if isVaultStuckQueueRecoveryTopology(topology) {
+				vaultConfig = getVaultStuckQueueRecoveryTestConfig(t)
+				allowlistSubtestName = "stuck_queue_recovery"
 			}
 			fixture := setupVaultSharedScenarioFixture(t, vaultConfig)
 
@@ -106,6 +109,10 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 				allowlistEnv := fixture.TestEnv
 				if parallelEnabled && isVaultJWTAuthEnabledTopology(topology) {
 					allowlistEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
+				}
+				if isVaultStuckQueueRecoveryTopology(topology) {
+					ExecuteVaultStuckQueueRecoverySmokeTest(t, fixture, allowlistEnv)
+					return
 				}
 				ExecuteVaultAllowListBasedTests(t, fixture, allowlistEnv)
 			})
@@ -120,6 +127,9 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 					}
 					ExecuteVaultMixedAuthTest(t, fixture, jwtEnv)
 				})
+				return
+			}
+			if isVaultStuckQueueRecoveryTopology(topology) {
 				return
 			}
 			t.Run(jwtSubtestName, func(t *testing.T) {

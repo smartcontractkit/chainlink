@@ -8039,3 +8039,140 @@ func TestProperty_broadcastBlobPayloads_MaxSizePayloadsWithinBlobLimit(t *testin
 		})
 	}
 }
+
+func seedPendingGetSecretsQueue(t *testing.T, rdr *kv) {
+	t.Helper()
+	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "my_secret"}
+	p := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{{Id: id}},
+	}
+	anyp, err := anypb.New(p)
+	require.NoError(t, err)
+	require.NoError(t, newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
+		[]*vaultcommon.StoredPendingQueueItem{{Id: "request-1", Item: anyp}},
+	))
+}
+
+func TestObservation_skipsQueueWhenStuckCountReachesThreshold(t *testing.T) {
+	const threshold = 3
+	r := newTestReportingPlugin(t, withVaultPendingQueueStuckRoundThreshold(threshold))
+	rdr := &kv{m: make(map[string]response)}
+	seedPendingGetSecretsQueue(t, rdr)
+
+	const seqNr = uint64(1)
+	for i := 1; i < threshold; i++ {
+		data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
+		require.NoError(t, err)
+		obs := &vaultcommon.Observations{}
+		require.NoError(t, proto.Unmarshal(data, obs))
+		assert.NotEmpty(t, obs.Observations, "observation %d should include store-backed pending items", i)
+	}
+
+	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
+	require.NoError(t, err)
+	obs := &vaultcommon.Observations{}
+	require.NoError(t, proto.Unmarshal(data, obs))
+	assert.Empty(t, obs.Observations)
+}
+
+func TestObservation_resetsCountWhenSeqNrAdvances(t *testing.T) {
+	const threshold = 3
+	r := newTestReportingPlugin(t, withVaultPendingQueueStuckRoundThreshold(threshold))
+	rdr := &kv{m: make(map[string]response)}
+	seedPendingGetSecretsQueue(t, rdr)
+
+	const seqNr = uint64(1)
+	for i := 0; i < threshold-1; i++ {
+		_, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
+		require.NoError(t, err)
+	}
+
+	data, err := r.Observation(t.Context(), seqNr+1, types.AttributedQuery{}, rdr, &blobber{})
+	require.NoError(t, err)
+	obs := &vaultcommon.Observations{}
+	require.NoError(t, proto.Unmarshal(data, obs))
+	assert.NotEmpty(t, obs.Observations)
+}
+
+func TestValidateObservation_acceptsZeroItemObsWhenLocalNodeIsStuck(t *testing.T) {
+	const threshold = 2
+	r := newTestReportingPlugin(t, withVaultPendingQueueStuckRoundThreshold(threshold))
+	rdr := &kv{m: make(map[string]response)}
+	seedPendingGetSecretsQueue(t, rdr)
+
+	const seqNr = uint64(1)
+	for i := 0; i < threshold; i++ {
+		_, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
+		require.NoError(t, err)
+	}
+
+	emptyObs, err := proto.Marshal(&vaultcommon.Observations{})
+	require.NoError(t, err)
+	err = r.ValidateObservation(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		types.AttributedObservation{Observer: 0, Observation: types.Observation(emptyObs)},
+		rdr,
+		&blobber{},
+	)
+	require.NoError(t, err)
+}
+
+func TestValidateObservation_rejectsStoreBackedPendingIDsWhenLocalNodeIsStuck(t *testing.T) {
+	const threshold = 2
+	r := newTestReportingPlugin(t, withVaultPendingQueueStuckRoundThreshold(threshold))
+	rdr := &kv{m: make(map[string]response)}
+	seedPendingGetSecretsQueue(t, rdr)
+
+	const seqNr = uint64(1)
+	peerObs, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
+	require.NoError(t, err)
+	{
+		obs := &vaultcommon.Observations{}
+		require.NoError(t, proto.Unmarshal(peerObs, obs))
+		require.NotEmpty(t, obs.Observations, "peer observation must include store-backed pending IDs before stuck threshold")
+	}
+
+	_, err = r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
+	require.NoError(t, err)
+
+	err = r.ValidateObservation(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		types.AttributedObservation{Observer: 1, Observation: peerObs},
+		rdr,
+		&blobber{},
+	)
+	require.ErrorContains(t, err, "is not present in the pending queue")
+}
+
+func TestPlugin_StateTransition_purgesPendingQueueWhenStoreBackedObservationsEmpty(t *testing.T) {
+	r := newTestReportingPlugin(t, withOnchainCfg(4, 1))
+	rdr := &kv{m: make(map[string]response)}
+	seedPendingGetSecretsQueue(t, rdr)
+
+	pq, err := newTestReadStore(t, rdr).GetPendingQueue(t.Context())
+	require.NoError(t, err)
+	require.NotEmpty(t, pq)
+
+	emptyObs, err := proto.Marshal(&vaultcommon.Observations{})
+	require.NoError(t, err)
+
+	const fPlus1 = 2 // F=1 → F+1
+	aos := make([]types.AttributedObservation, fPlus1)
+	for i := range aos {
+		aos[i] = types.AttributedObservation{
+			Observer:    commontypes.OracleID(i),
+			Observation: types.Observation(emptyObs),
+		}
+	}
+
+	_, err = r.StateTransition(t.Context(), 1, types.AttributedQuery{}, aos, rdr, &blobber{})
+	require.NoError(t, err)
+
+	pq, err = newTestReadStore(t, rdr).GetPendingQueue(t.Context())
+	require.NoError(t, err)
+	assert.Empty(t, pq)
+}

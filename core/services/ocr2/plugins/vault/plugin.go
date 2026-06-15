@@ -54,18 +54,19 @@ type ReportingPluginConfig struct {
 	PrivateKeyShare *tdh2easy.PrivateShare
 
 	// Sourced from the offchain config
-	MaxSecretsPerOwner                limits.BoundLimiter[int]
-	MaxCiphertextLengthBytes          limits.BoundLimiter[pkgconfig.Size]
-	MaxIdentifierKeyLengthBytes       limits.BoundLimiter[pkgconfig.Size]
-	MaxIdentifierOwnerLengthBytes     limits.BoundLimiter[pkgconfig.Size]
-	MaxIdentifierNamespaceLengthBytes limits.BoundLimiter[pkgconfig.Size]
-	MaxShareLengthBytes               limits.BoundLimiter[pkgconfig.Size]
-	MaxRequestBatchSize               limits.BoundLimiter[int]
-	MaxBatchSize                      limits.BoundLimiter[int]
-	MaxPendingQueueWriteSize          limits.BoundLimiter[int]
-	MaxBlobPayloadBytes               limits.BoundLimiter[pkgconfig.Size]
-	VaultForceEmptyOCRRounds          limits.GateLimiter
-	VaultOptimizationsEnabled         limits.GateLimiter
+	MaxSecretsPerOwner                   limits.BoundLimiter[int]
+	MaxCiphertextLengthBytes             limits.BoundLimiter[pkgconfig.Size]
+	MaxIdentifierKeyLengthBytes          limits.BoundLimiter[pkgconfig.Size]
+	MaxIdentifierOwnerLengthBytes        limits.BoundLimiter[pkgconfig.Size]
+	MaxIdentifierNamespaceLengthBytes    limits.BoundLimiter[pkgconfig.Size]
+	MaxShareLengthBytes                  limits.BoundLimiter[pkgconfig.Size]
+	MaxRequestBatchSize                  limits.BoundLimiter[int]
+	MaxBatchSize                         limits.BoundLimiter[int]
+	MaxPendingQueueWriteSize             limits.BoundLimiter[int]
+	MaxBlobPayloadBytes                  limits.BoundLimiter[pkgconfig.Size]
+	VaultForceEmptyOCRRounds             limits.GateLimiter
+	VaultOptimizationsEnabled            limits.GateLimiter
+	VaultPendingQueueStuckRoundThreshold limits.BoundLimiter[int]
 }
 
 func NewReportingPluginFactory(
@@ -225,17 +226,23 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		return nil, fmt.Errorf("VaultPendingQueueWriteSizeLimit: %w", err)
 	}
 
+	vaultPendingQueueStuckRoundThreshold, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultPendingQueueStuckRoundThreshold)
+	if err != nil {
+		return nil, fmt.Errorf("VaultPendingQueueStuckRoundThreshold: %w", err)
+	}
+
 	return &ReportingPluginConfig{
-		MaxShareLengthBytes:               maxShareLengthBytesLimiter,
-		MaxRequestBatchSize:               maxRequestBatchSizeLimiter,
-		MaxCiphertextLengthBytes:          maxCiphertextLengthBytesLimiter,
-		MaxIdentifierKeyLengthBytes:       maxIdentifierKeyLengthBytesLimiter,
-		MaxIdentifierOwnerLengthBytes:     maxIdentifierOwnerLengthBytesLimiter,
-		MaxIdentifierNamespaceLengthBytes: maxIdentifierNamespaceLengthBytesLimiter,
-		MaxBlobPayloadBytes:               maxBlobPayloadBytesLimiter,
-		MaxPendingQueueWriteSize:          maxPendingQueueWriteSizeLimiter,
-		VaultForceEmptyOCRRounds:          vaultForceEmptyOCRRounds,
-		VaultOptimizationsEnabled:         vaultOptimizationsEnabled,
+		MaxShareLengthBytes:                  maxShareLengthBytesLimiter,
+		MaxRequestBatchSize:                  maxRequestBatchSizeLimiter,
+		MaxCiphertextLengthBytes:             maxCiphertextLengthBytesLimiter,
+		MaxIdentifierKeyLengthBytes:          maxIdentifierKeyLengthBytesLimiter,
+		MaxIdentifierOwnerLengthBytes:        maxIdentifierOwnerLengthBytesLimiter,
+		MaxIdentifierNamespaceLengthBytes:    maxIdentifierNamespaceLengthBytesLimiter,
+		MaxBlobPayloadBytes:                  maxBlobPayloadBytesLimiter,
+		MaxPendingQueueWriteSize:             maxPendingQueueWriteSizeLimiter,
+		VaultForceEmptyOCRRounds:             vaultForceEmptyOCRRounds,
+		VaultOptimizationsEnabled:            vaultOptimizationsEnabled,
+		VaultPendingQueueStuckRoundThreshold: vaultPendingQueueStuckRoundThreshold,
 	}, nil
 }
 
@@ -356,6 +363,13 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		}, nil
 }
 
+// stuckRoundTracker counts how many times this node has run Observation for the
+// current seqNr. It backs the stuck-pending-queue recovery path (see below).
+type stuckRoundTracker struct {
+	seqNr uint64
+	count int
+}
+
 type ReportingPlugin struct {
 	lggr       logger.Logger
 	store      *requests.Store[*vaulttypes.Request]
@@ -367,6 +381,7 @@ type ReportingPlugin struct {
 
 	maxObservationBytes          int
 	maxReportsPlusPrecursorBytes int
+	stuckRounds                  stuckRoundTracker
 
 	// For testing: functions to mock out marshaling/unmarshaling blob handles.
 	// The Blob API isn't very test friendly because it uses sum types that belong
@@ -600,6 +615,58 @@ func (r *ReportingPlugin) optimizationsEnabled(ctx context.Context) bool {
 	return gateAllows(ctx, r.lggr, r.cfg.VaultOptimizationsEnabled, "VaultOptimizationsEnabled")
 }
 
+// Stuck pending-queue recovery (VaultPendingQueueStuckRoundThreshold; 0 disables).
+//
+// When the KV pending-queue head wedges a seqNr (typically because store-backed
+// observations exceed the wire cap and StateTransition cannot commit), we stop
+// reading the queue after this node has called Observation threshold times on
+// the same seqNr. Observation then omits store-backed pending items; Phase 1
+// drops the wedged head and Phase 2 rewrites the queue from PendingQueueItems
+// blob consensus — the escape hatch.
+//
+// The counter is per-node and local. OCR retries the same seqNr on every failed
+// round and calls Observation on each retry, so honest nodes with the same
+// threshold eventually skip together. A node restart resets its counter and may
+// lag briefly; that only adds extra failed rounds while it catches up.
+//
+// ValidateObservation uses the same local stuck state when checking peer
+// observations. While counters are still converging, a node that has reached the
+// threshold may reject a peer that still emits store-backed pending IDs, and
+// vice versa. That asymmetry is intentional: those rounds cannot commit anyway
+// (the wedge already prevents progress), and they were going to fail until all
+// nodes align on empty store-backed observations.
+//
+// All nodes must use the same threshold; mixed fleet config does not converge.
+func (r *ReportingPlugin) recordStuckRoundObservation(seqNr uint64) {
+	if seqNr == r.stuckRounds.seqNr {
+		r.stuckRounds.count++
+	} else {
+		r.stuckRounds = stuckRoundTracker{seqNr: seqNr, count: 1}
+	}
+}
+
+func (r *ReportingPlugin) pendingQueueIsStuck(ctx context.Context, seqNr uint64) (bool, error) {
+	threshold, err := r.cfg.VaultPendingQueueStuckRoundThreshold.Limit(ctx)
+	if err != nil {
+		return false, fmt.Errorf("could not fetch VaultPendingQueueStuckRoundThreshold: %w", err)
+	}
+	if threshold <= 0 {
+		return false, nil
+	}
+	return r.stuckRounds.count >= threshold && r.stuckRounds.seqNr == seqNr, nil
+}
+
+func (r *ReportingPlugin) shouldSkipStoreBackedPendingQueue(ctx context.Context, seqNr uint64) (skip bool, stuck bool, err error) {
+	if gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
+		return true, false, nil
+	}
+	stuck, err = r.pendingQueueIsStuck(ctx, seqNr)
+	if err != nil {
+		return false, false, err
+	}
+	return stuck, stuck, nil
+}
+
 type pendingQueueStore interface {
 	WritePendingQueue(ctx context.Context, pending []*vaultcommon.StoredPendingQueueItem) error
 }
@@ -612,13 +679,23 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 
 	readKV := NewReadStore(keyValueReader, r.metrics)
 
+	r.recordStuckRoundObservation(seqNr)
+
 	var currentPendingQueueItems []*vaultcommon.StoredPendingQueueItem
-	if !gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
-		var err error
+	skipQueue, stuck, err := r.shouldSkipStoreBackedPendingQueue(ctx, seqNr)
+	if err != nil {
+		return nil, err
+	}
+	if !skipQueue {
 		currentPendingQueueItems, err = readKV.GetPendingQueue(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("could not fetch batch of requests: %w", err)
 		}
+	} else if stuck {
+		r.lggr.Warnw("pending queue skipped: stuck-round threshold reached",
+			"seqNr", seqNr,
+			"count", r.stuckRounds.count,
+		)
 	} else {
 		r.lggr.Warnw("VaultForceEmptyOCRRounds is enabled; pending queue is not read this OCR round — store-backed pending observation items are skipped")
 	}
@@ -1360,13 +1437,22 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 	//   max observation byte limit.
 	// - that all pending queue items can be fetched as blobs.
 	readKV := NewReadStore(keyValueReader, r.metrics)
+	skipQueue, stuck, err := r.shouldSkipStoreBackedPendingQueue(ctx, seqNr)
+	if err != nil {
+		return err
+	}
+
 	var pendingQueueItems []*vaultcommon.StoredPendingQueueItem
-	if !gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
-		var err error
+	if !skipQueue {
 		pendingQueueItems, err = readKV.GetPendingQueue(ctx)
 		if err != nil {
 			return fmt.Errorf("could not fetch pending queue from store: %w", err)
 		}
+	} else if stuck {
+		r.lggr.Warnw("pending queue skipped during validation: stuck-round threshold reached",
+			"seqNr", seqNr,
+			"count", r.stuckRounds.count,
+		)
 	} else {
 		r.lggr.Warnw("VaultForceEmptyOCRRounds is enabled; pending queue is not read this OCR round — store-backed pending observation items are skipped")
 	}
@@ -2578,5 +2664,6 @@ func (r *ReportingPlugin) Close() error {
 		r.cfg.MaxBatchSize.Close(),
 		r.cfg.MaxPendingQueueWriteSize.Close(),
 		r.cfg.VaultForceEmptyOCRRounds.Close(),
+		r.cfg.VaultPendingQueueStuckRoundThreshold.Close(),
 	)
 }
