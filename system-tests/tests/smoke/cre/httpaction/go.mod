@@ -7,6 +7,7 @@ require (
 	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v1.3.1-0.20260611161230-05e667f70291
 	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.3.0
 	google.golang.org/protobuf v1.36.11
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -21,5 +22,4 @@ require (
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260611014504-5f00275cf10d // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	golang.org/x/sys v0.40.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
