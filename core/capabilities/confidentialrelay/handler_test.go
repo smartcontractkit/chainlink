@@ -953,6 +953,7 @@ func TestTranslateVaultResponse_BinaryShares(t *testing.T) {
 // deterministic serialization. This guards both the Any payload construction in
 // toSDKCapabilityResponse and the outer marshal. [CL112-05]
 func TestToSDKCapabilityResponse_DeterministicSerialization(t *testing.T) {
+	t.Parallel()
 	val, err := values.Wrap(map[string]any{
 		"alpha":   1,
 		"bravo":   "two",
@@ -970,7 +971,7 @@ func TestToSDKCapabilityResponse_DeterministicSerialization(t *testing.T) {
 	capResp := capabilities.CapabilityResponse{Value: valMap}
 
 	var want []byte
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		sdkResp, err := toSDKCapabilityResponse(capResp)
 		require.NoError(t, err)
 		got, err := proto.MarshalOptions{Deterministic: true}.Marshal(sdkResp)
