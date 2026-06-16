@@ -119,7 +119,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
 
       - name: Install Just
         uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
@@ -128,7 +128,7 @@ jobs:
 
       # We need to login to ECR to allow the test to pull the Job Distributor (main) and Chainlink (sdlc) images
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885 # v6.1.1
+        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6.2.0
         with:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_CTF_READ_ACCESS_ROLE_ARN }}
@@ -137,7 +137,7 @@ jobs:
 
       - name: Login to private Amazon ECRs
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@fa648b43de3d4d023bcb3f89ed6940096949c419 # v2.1.5
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2.1.6
         with:
           registries: ${{ format('{0},{1}', secrets.QA_AWS_ACCOUNT_NUMBER,
             secrets.AWS_ACCOUNT_ID_PROD) }}
@@ -146,7 +146,7 @@ jobs:
 
       - name: Login to public Amazon ECR
         id: login-ecr-public
-        uses: aws-actions/amazon-ecr-login@fa648b43de3d4d023bcb3f89ed6940096949c419 # v2.1.5
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2.1.6
         with:
           registry-type: public
         env:

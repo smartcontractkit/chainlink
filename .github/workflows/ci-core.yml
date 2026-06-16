@@ -341,7 +341,7 @@ jobs:
 
       - name: Setup Aptos
         if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-aptos == 'true' }}
-        uses: aptos-labs/actions/install-aptos-cli@528ef7ad9427a8c0720ea3eea790a9190d6e377d # 2026-04-07
+        uses: aptos-labs/actions/install-aptos-cli@fdd3a3a628c840d5c35086a87e9cc3141b635505 # 2026-05-20
         with:
           CLI_VERSION: 8.1.0
 
@@ -603,7 +603,7 @@ jobs:
 
       - name: SonarQube Scan
         if: ${{ env.SONARQUBE_ARGS != '' }}
-        uses: sonarsource/sonarqube-scan-action@59db25f34e16620e48ab4bb9e4a5dce155cb5432 # v8.0.0
+        uses: sonarsource/sonarqube-scan-action@713881670b6b3676cda39549040e2d88c70d582e # v8.2.0
         with:
           args: ${{ env.SONARQUBE_ARGS }}
         env:

@@ -208,7 +208,7 @@ jobs:
 
       # Required to pull Job Distributor (main), Chip Ingress (main) and Chainlink (sdlc) private images
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885 # v6.1.1
+        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6.2.0
         with:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_CTF_READ_ACCESS_ROLE_ARN }}
@@ -217,7 +217,7 @@ jobs:
 
       - name: Login to Amazon ECR
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@fa648b43de3d4d023bcb3f89ed6940096949c419 # v2.1.5
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2.1.6
         with:
           registries: ${{ format('{0},{1}', secrets.QA_AWS_ACCOUNT_NUMBER,
             secrets.AWS_ACCOUNT_ID_PROD) }}
@@ -227,7 +227,7 @@ jobs:
       # Required to allow pulling public images
       - name: Authenticate to ECR (public)
         id: login-ecr-public
-        uses: aws-actions/amazon-ecr-login@fa648b43de3d4d023bcb3f89ed6940096949c419 # v2.1.5
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2.1.6
         with:
           registry-type: public
         env:
@@ -242,7 +242,7 @@ jobs:
 
       - name: Install Aptos CLI
         if: ${{ matrix.tests.test_name == 'Test_CRE_V2_Aptos_Suite' }}
-        uses: aptos-labs/actions/install-aptos-cli@528ef7ad9427a8c0720ea3eea790a9190d6e377d # 2026-04-07
+        uses: aptos-labs/actions/install-aptos-cli@fdd3a3a628c840d5c35086a87e9cc3141b635505 # 2026-05-20
         with:
           CLI_VERSION: 7.8.0
 

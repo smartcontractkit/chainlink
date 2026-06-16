@@ -159,7 +159,7 @@ jobs:
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
       - name: Setup Aptos
-        uses: aptos-labs/actions/install-aptos-cli@528ef7ad9427a8c0720ea3eea790a9190d6e377d # 2026-04-07
+        uses: aptos-labs/actions/install-aptos-cli@fdd3a3a628c840d5c35086a87e9cc3141b635505 # 2026-05-20
         with:
           CLI_VERSION: 8.1.0
       - name: Setup Sui CLI v1.72.2
