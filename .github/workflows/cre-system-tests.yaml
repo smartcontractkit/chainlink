@@ -103,7 +103,8 @@ jobs:
             "Test_CRE_V2_Suite_Bucket_B": [
                {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"},
                {"topology":"workflow-gateway-capabilities-vault-jwt_auth-enabled","configs":"configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"},
-               {"topology":"workflow-gateway-capabilities-vault-optimizations-enabled","configs":"configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"}
+               {"topology":"workflow-gateway-capabilities-vault-optimizations-enabled","configs":"configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"},
+               {"topology":"workflow-gateway-capabilities-vault-node-settings-consensus-enabled","configs":"configs/workflow-gateway-capabilities-don-vault-node-settings-consensus-enabled.toml"}
              ],
             "Test_CRE_V2_Aptos_Suite": [
                {"topology":"workflow-gateway-aptos","configs":"configs/workflow-gateway-don-aptos.toml"}

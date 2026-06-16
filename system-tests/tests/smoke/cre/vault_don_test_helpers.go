@@ -2,6 +2,7 @@ package cre
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
+	"os/exec"
 	"slices"
 	"strconv"
 	"strings"
@@ -52,10 +54,11 @@ import (
 )
 
 const (
-	vaultDefaultConfigPath              = "/configs/workflow-gateway-capabilities-don.toml"
-	vaultJWTAuthEnabledConfigPath       = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
-	vaultOptimizationsEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"
-	vaultJWTIssuerListenAddr            = "0.0.0.0:18123"
+	vaultDefaultConfigPath               = "/configs/workflow-gateway-capabilities-don.toml"
+	vaultJWTAuthEnabledConfigPath        = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
+	vaultOptimizationsEnabledConfigPath  = "/configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"
+	vaultNodeSettingsConsensusConfigPath = "/configs/workflow-gateway-capabilities-don-vault-node-settings-consensus-enabled.toml"
+	vaultJWTIssuerListenAddr             = "0.0.0.0:18123"
 	// vaultJWTTestTenantID is the tenant_id / urn:chainlink:tenant_id claim for Vault JWT tests and
 	// matches the org_id passed to DeriveJWTAuthorizedVaultWorkflowOwner.
 	vaultJWTTestTenantID uint64 = 1
@@ -244,12 +247,22 @@ func getVaultOptimizationsEnabledTestConfig(t *testing.T) *ttypes.TestConfig {
 	return t_helpers.GetTestConfig(t, vaultOptimizationsEnabledConfigPath)
 }
 
+func getVaultNodeSettingsConsensusTestConfig(t *testing.T) *ttypes.TestConfig {
+	t.Helper()
+
+	return t_helpers.GetTestConfig(t, vaultNodeSettingsConsensusConfigPath)
+}
+
 func isVaultJWTAuthEnabledTopology(topologyName string) bool {
 	return strings.Contains(topologyName, "vault-jwt_auth-enabled")
 }
 
 func isVaultOptimizationsEnabledTopology(topologyName string) bool {
 	return strings.Contains(topologyName, "vault-optimizations-enabled")
+}
+
+func isVaultNodeSettingsConsensusTopology(topologyName string) bool {
+	return strings.Contains(topologyName, "vault-node-settings-consensus-enabled")
 }
 
 func setupVaultScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, usePerTestKeys bool) *vaultScenarioFixture {
@@ -1005,6 +1018,42 @@ func executeVaultBinaryEncodedSharesSmokeTest(
 		}},
 	}})
 	waitForVaultWorkflowPhase(t, workflowID, "binary-shares-fetch", userLogsCh, baseMessageCh)
+}
+
+func executeVaultNodeSettingsConsensusSmokeTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
+	t.Helper()
+	framework.L.Info().Msg("Scanning vault OCR logs for DON settings per-field quorum commits...")
+
+	dockerBin, err := exec.LookPath("docker")
+	if err != nil {
+		t.Skip("docker not in PATH; skipping vault DON settings consensus log scan")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	psOut, err := exec.CommandContext(ctx, dockerBin, "ps", "--format", "{{.Names}}").Output()
+	if err != nil {
+		t.Fatalf("docker ps: %v", err)
+	}
+	var combined strings.Builder
+	for name := range strings.SplitSeq(strings.TrimSpace(string(psOut)), "\n") {
+		if name == "" {
+			continue
+		}
+		ln := strings.ToLower(name)
+		if !strings.Contains(ln, "chainlink") && !strings.Contains(ln, "ocr") && !strings.Contains(ln, "capabilit") {
+			continue
+		}
+		logs, err := exec.CommandContext(ctx, dockerBin, "logs", name, "--tail", "25000").CombinedOutput()
+		if err != nil {
+			continue
+		}
+		combined.Write(logs)
+		combined.WriteByte('\n')
+	}
+	s := combined.String()
+	require.Contains(t, s, "DON settings field quorum reached",
+		"expected vault OCR state transition to commit DON settings via per-field quorum after OCR rounds")
+	_ = testEnv
 }
 
 // updateVaultCapabilityConfigInRegistry updates the on-chain capabilities registry

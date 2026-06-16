@@ -446,7 +446,7 @@ func TestValidateSecretIdentifier(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validator.ValidateSecretIdentifier(t.Context(), tt.key, tt.owner, tt.namespace)
+			err := validator.ValidateSecretIdentifier(t.Context(), tt.key, tt.owner, tt.namespace, nil)
 			if tt.errSubstr == "" {
 				require.NoError(t, err)
 				return
@@ -478,12 +478,12 @@ func TestValidateSecretIdentifier_OwnerSpecificKeyLimit(t *testing.T) {
 	longKey := "averylongkeyname" // 16 bytes: exceeds default (5) but within privileged (20)
 
 	// Regular owner cannot use the long key
-	err := validator.ValidateSecretIdentifier(t.Context(), longKey, "owner1", "main")
+	err := validator.ValidateSecretIdentifier(t.Context(), longKey, "owner1", "main", nil)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "key exceeds maximum length")
 
 	// Privileged owner is allowed the same long key
-	err = validator.ValidateSecretIdentifier(t.Context(), longKey, privilegedOwner, "main")
+	err = validator.ValidateSecretIdentifier(t.Context(), longKey, privilegedOwner, "main", nil)
 	require.NoError(t, err)
 }
 

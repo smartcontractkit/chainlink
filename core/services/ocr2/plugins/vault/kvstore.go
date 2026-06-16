@@ -19,6 +19,7 @@ const (
 	metadataPrefix         = "Metadata::"
 	pendingQueueIndex      = "PendingQueue::Index"
 	pendingQueueItemPrefix = "PendingQueue::Item::"
+	donSettingsKey         = "DONSettings::Current"
 )
 
 type KVStore struct {
@@ -36,6 +37,7 @@ type ReadKVStore interface {
 	GetMetadata(ctx context.Context, owner string) (*vault.StoredMetadata, error)
 	GetSecretIdentifiersCountForOwner(ctx context.Context, owner string) (int, error)
 	GetPendingQueue(ctx context.Context) ([]*vault.StoredPendingQueueItem, error)
+	GetDONSettings(ctx context.Context) (*vault.NodeSettings, error)
 }
 
 type WriteKVStore interface {
@@ -44,6 +46,7 @@ type WriteKVStore interface {
 	WriteMetadata(ctx context.Context, owner string, metadata *vault.StoredMetadata) error
 	DeleteSecret(ctx context.Context, id *vault.SecretIdentifier) error
 	WritePendingQueue(ctx context.Context, pending []*vault.StoredPendingQueueItem) error
+	WriteDONSettings(ctx context.Context, settings *vault.NodeSettings) error
 }
 
 func NewReadStore(reader ocr3_1types.KeyValueStateReader, metrics *pluginMetrics) *KVStore {
@@ -364,5 +367,37 @@ func (s *KVStore) WritePendingQueue(ctx context.Context, pending []*vault.Stored
 		return fmt.Errorf("failed to write new pending queue index: %w", err)
 	}
 
+	return nil
+}
+
+func (s *KVStore) GetDONSettings(ctx context.Context) (*vault.NodeSettings, error) {
+	defer s.trackDuration(ctx, "GetDONSettings", time.Now())
+	b, err := s.reader.Read([]byte(donSettingsKey))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read DON settings: %w", err)
+	}
+	if b == nil {
+		return nil, nil
+	}
+	stored := &vault.StoredDONSettings{}
+	if err := proto.Unmarshal(b, stored); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal DON settings: %w", err)
+	}
+	return stored.Settings, nil
+}
+
+func (s *KVStore) WriteDONSettings(ctx context.Context, settings *vault.NodeSettings) error {
+	defer s.trackDuration(ctx, "WriteDONSettings", time.Now())
+	if settings == nil {
+		return errors.New("settings cannot be nil")
+	}
+	stored := &vault.StoredDONSettings{Settings: settings}
+	b, err := proto.Marshal(stored)
+	if err != nil {
+		return fmt.Errorf("failed to marshal DON settings: %w", err)
+	}
+	if err := s.writer.Write([]byte(donSettingsKey), b); err != nil {
+		return fmt.Errorf("failed to write DON settings: %w", err)
+	}
 	return nil
 }

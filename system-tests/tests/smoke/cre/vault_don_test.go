@@ -112,7 +112,7 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		namespaces := []string{"main", "alt"}
 
 		executeVaultAllowListSecretsCreateTest(t, createEnc, secretID, owner, owner, gwURL, namespaces, sc, wfReg)
-		if isVaultOptimizationsEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
+		if isVaultOptimizationsEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) || isVaultNodeSettingsConsensusTopology(testEnv.TestConfig.EnvironmentConfigPath) {
 			t.Run("binary_encoded_shares", func(t *testing.T) {
 				executeVaultBinaryEncodedSharesSmokeTest(t, testEnv, secretID, "main", createValue, ulCh, bmCh)
 			})
@@ -169,6 +169,12 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 	if isVaultOptimizationsEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
 		t.Run("pending_queue_blob_batching_many_concurrent_creates", func(t *testing.T) {
 			ExecuteVaultBlobBatchingSmokeTest(t, fixture, testEnv)
+		})
+	}
+
+	if isVaultNodeSettingsConsensusTopology(testEnv.TestConfig.EnvironmentConfigPath) {
+		t.Run("don_settings_consensus", func(t *testing.T) {
+			executeVaultNodeSettingsConsensusSmokeTest(t, testEnv)
 		})
 	}
 }
@@ -749,16 +755,41 @@ func TestVaultOptimizationsEnabled_CRESettingDefaultsDisabled(t *testing.T) {
 	require.False(t, cresettings.Default.VaultOptimizationsEnabled.DefaultValue)
 }
 
+func TestVaultNodeSettingsConsensusEnabled_CRESettingDefaultsDisabled(t *testing.T) {
+	require.False(t, cresettings.Default.VaultNodeSettingsConsensusEnabled.DefaultValue)
+}
+
+func TestVaultDON_NodeSettingsConsensus(t *testing.T) {
+	t.Parallel()
+	cfg := &envconfig.Config{}
+	require.NoError(t, cfg.Load(t_helpers.GetTestConfig(t, vaultNodeSettingsConsensusConfigPath).EnvironmentConfigPath))
+
+	for _, nodeSet := range cfg.NodeSets {
+		switch nodeSet.Name {
+		case "workflow", "capabilities", "bootstrap-gateway":
+		default:
+			continue
+		}
+		settingsRaw := nodeSet.EnvVars["CL_CRE_SETTINGS_DEFAULT"]
+		require.NotEmpty(t, settingsRaw)
+		var settings map[string]string
+		require.NoError(t, json.Unmarshal([]byte(settingsRaw), &settings))
+		require.Equal(t, "true", settings["VaultNodeSettingsConsensusEnabled"])
+		require.Equal(t, "true", settings["VaultOptimizationsEnabled"])
+	}
+}
+
 func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 	t.Parallel()
 	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
 
 	testCases := []struct {
-		name                  string
-		configPath            string
-		wantJWTGate           string
-		wantLinking           bool
-		wantOptimizationsGate string
+		name                          string
+		configPath                    string
+		wantJWTGate                   string
+		wantLinking                   bool
+		wantOptimizationsGate         string
+		wantNodeSettingsConsensusGate string
 	}{
 		{
 			name:        "enabled",
@@ -779,6 +810,14 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 			wantLinking:           false,
 			wantOptimizationsGate: "true",
 		},
+		{
+			name:                          "node_settings_consensus_enabled",
+			configPath:                    vaultNodeSettingsConsensusConfigPath,
+			wantJWTGate:                   "false",
+			wantLinking:                   false,
+			wantOptimizationsGate:         "true",
+			wantNodeSettingsConsensusGate: "true",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -790,7 +829,7 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 				switch nodeSet.Name {
 				case "workflow", "capabilities":
 				case "bootstrap-gateway":
-					if tc.wantOptimizationsGate != "true" {
+					if tc.wantOptimizationsGate != "true" && tc.wantNodeSettingsConsensusGate != "true" {
 						continue
 					}
 				default:
@@ -812,6 +851,11 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 						if v, ok := settings["VaultOptimizationsEnabled"]; ok {
 							require.Equal(t, "false", v)
 						}
+					}
+					if tc.wantNodeSettingsConsensusGate == "true" {
+						require.Equal(t, "true", settings["VaultNodeSettingsConsensusEnabled"])
+					} else if v, ok := settings["VaultNodeSettingsConsensusEnabled"]; ok {
+						require.Equal(t, "false", v)
 					}
 				}
 

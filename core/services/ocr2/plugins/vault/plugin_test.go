@@ -5736,6 +5736,7 @@ func TestPlugin_StateTransition_OutcomesStoppedByPrecursorWireSize(t *testing.T)
 	ws := NewWriteStore(&kv{m: make(map[string]response)}, newTestMetrics(t))
 
 	rPrec := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultOptimizationsEnabled())
+	require.NoError(t, rPrec.ensureActiveSettingsForRound(ctx, 1, ws))
 
 	out1 := &vaultcommon.Outcome{Id: "list-1", RequestType: vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS}
 	rPrec.stateTransitionListSecretIdentifiers(ctx, ws, []*vaultcommon.Observation{buildListObs("list-1")}, out1)
@@ -5789,6 +5790,7 @@ func TestPlugin_StateTransition_OutcomesNotStoppedByPrecursorWireSizeWhenOptimiz
 	out1 := &vaultcommon.Outcome{Id: "list-1", RequestType: vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS}
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
 	ws := NewWriteStore(&kv{m: make(map[string]response)}, newTestMetrics(t))
+	require.NoError(t, r.ensureActiveSettingsForRound(ctx, 1, ws))
 	r.stateTransitionListSecretIdentifiers(ctx, ws, []*vaultcommon.Observation{buildListObs("list-1")}, out1)
 	sz1 := proto.Size(&vaultcommon.Outcomes{Outcomes: []*vaultcommon.Outcome{out1}})
 

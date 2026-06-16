@@ -36,6 +36,7 @@ type testPluginBuildOpts struct {
 	batchSize                            int
 	maxBlobPayloadBytes                  int
 	vaultOptimizationsEnabled            bool
+	vaultNodeSettingsConsensusEnabled    bool
 	marshalBlob                          func(ocr3_1types.BlobHandle) ([]byte, error)
 	unmarshalBlob                        func([]byte) (ocr3_1types.BlobHandle, error)
 	maxObservationBytesOverride          int
@@ -75,6 +76,10 @@ func withMaxSecretsPerOwner(n int) testPluginOption {
 
 func withVaultOptimizationsEnabled() testPluginOption {
 	return func(o *testPluginBuildOpts) { o.vaultOptimizationsEnabled = true }
+}
+
+func withVaultNodeSettingsConsensusEnabled() testPluginOption {
+	return func(o *testPluginBuildOpts) { o.vaultNodeSettingsConsensusEnabled = true }
 }
 
 func withOnchainCfg(n int, f int) testPluginOption {
@@ -132,6 +137,9 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 		o.maxIdentifierKeyLengthBytes, o.maxRequestBatchSize, o.maxBlobPayloadBytes)
 	if o.vaultOptimizationsEnabled {
 		cfg.VaultOptimizationsEnabled = limits.NewGateLimiter(true)
+	}
+	if o.vaultNodeSettingsConsensusEnabled {
+		cfg.VaultNodeSettingsConsensusEnabled = limits.NewGateLimiter(true)
 	}
 	ctx := context.Background()
 	pl, err := initializePluginLimits(ctx, limits.Factory{Settings: cresettings.DefaultGetter})
@@ -235,6 +243,7 @@ func makeReportingPluginConfig(
 		MaxBlobPayloadBytes:               maxBlobPayloadLimiter,
 		VaultForceEmptyOCRRounds:          limits.NewGateLimiter(false),
 		VaultOptimizationsEnabled:         limits.NewGateLimiter(false),
+		VaultNodeSettingsConsensusEnabled: limits.NewGateLimiter(false),
 	}
 }
 
