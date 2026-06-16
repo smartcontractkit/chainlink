@@ -3,18 +3,12 @@ package vault
 import (
 	"context"
 	"fmt"
+	"math"
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-)
-
-const (
-	donSettingVaultOptimizationsEnabledName   = "vault_optimizations_enabled"
-	donSettingVaultForceEmptyOcrRoundsName   = "vault_force_empty_ocr_rounds"
-	donSettingMaxBlobPayloadBytesName        = "max_blob_payload_bytes"
-	donSettingMaxPendingQueueWriteSizeName   = "max_pending_queue_write_size"
 )
 
 type donSettingsField[T comparable] struct {
@@ -24,11 +18,11 @@ type donSettingsField[T comparable] struct {
 	set   func(*vaultcommon.NodeSettings, T)
 }
 
-func (f donSettingsField[T]) resolve(d *donSettingsResolver) T {
+func (f donSettingsField[T]) resolve(ctx context.Context, d *donSettingsResolver) T {
 	if s := d.donSettings(); s != nil {
 		return f.get(s)
 	}
-	return f.local(d.ctx, d.r)
+	return f.local(ctx, d.r)
 }
 
 type donSettingsUint64Field struct {
@@ -37,32 +31,57 @@ type donSettingsUint64Field struct {
 	checkInt  func(ctx context.Context, r *ReportingPlugin, count int) error
 }
 
-func (f donSettingsUint64Field) resolveSize(d *donSettingsResolver) (pkgconfig.Size, error) {
+func (f donSettingsUint64Field) resolveSize(ctx context.Context, d *donSettingsResolver) (pkgconfig.Size, error) {
 	if s := d.donSettings(); s != nil {
-		return pkgconfig.Size(f.base.get(s)), nil
+		return nodeSettingsUint64AsSize(f.base.get(s)), nil
 	}
 	if f.limitSize != nil {
-		return f.limitSize(d.ctx, d.r)
+		return f.limitSize(ctx, d.r)
 	}
-	return pkgconfig.Size(f.base.local(d.ctx, d.r)), nil
+	return nodeSettingsUint64AsSize(f.base.local(ctx, d.r)), nil
 }
 
-func (f donSettingsUint64Field) resolveCheckInt(d *donSettingsResolver, count int) error {
+func (f donSettingsUint64Field) resolveInt(ctx context.Context, d *donSettingsResolver) int {
 	if s := d.donSettings(); s != nil {
-		limit := int(f.base.get(s))
+		return nodeSettingsUint64AsInt(f.base.get(s))
+	}
+	return nodeSettingsUint64AsInt(f.base.local(ctx, d.r))
+}
+
+func (f donSettingsUint64Field) resolveCheckInt(ctx context.Context, d *donSettingsResolver, count int) error {
+	if s := d.donSettings(); s != nil {
+		limit := nodeSettingsUint64AsInt(f.base.get(s))
 		if count > limit {
 			return limits.ErrorBoundLimited[int]{Limit: limit, Amount: count}
 		}
 		return nil
 	}
 	if f.checkInt != nil {
-		return f.checkInt(d.ctx, d.r, count)
+		return f.checkInt(ctx, d.r, count)
 	}
-	limit := int(f.base.local(d.ctx, d.r))
+	limit := nodeSettingsUint64AsInt(f.base.local(ctx, d.r))
 	if count > limit {
 		return limits.ErrorBoundLimited[int]{Limit: limit, Amount: count}
 	}
 	return nil
+}
+
+func nodeSettingsUint64AsInt(v uint64) int {
+	if v > uint64(math.MaxInt) {
+		return math.MaxInt
+	}
+	return int(v)
+}
+
+func nodeSettingsUint64AsSize(v uint64) pkgconfig.Size {
+	return pkgconfig.Size(nodeSettingsUint64AsInt(v))
+}
+
+func limitValueAsUint64(v int) uint64 {
+	if v < 0 {
+		return 0
+	}
+	return uint64(v)
 }
 
 func localGate(ctx context.Context, r *ReportingPlugin, gate limits.GateLimiter, gateName string) bool {
@@ -71,150 +90,142 @@ func localGate(ctx context.Context, r *ReportingPlugin, gate limits.GateLimiter,
 
 func localSizeLimit(ctx context.Context, limiter limits.BoundLimiter[pkgconfig.Size]) uint64 {
 	v, _ := limiter.Limit(ctx)
-	return uint64(v)
+	return limitValueAsUint64(int(v))
 }
 
 func localIntLimit(ctx context.Context, limiter limits.BoundLimiter[int]) uint64 {
 	v, _ := limiter.Limit(ctx)
-	return uint64(v)
+	return limitValueAsUint64(v)
+}
+
+var donFieldVaultOptimizationsEnabled = donSettingsField[bool]{
+	name: "vault_optimizations_enabled",
+	local: func(ctx context.Context, r *ReportingPlugin) bool {
+		return localGate(ctx, r, r.cfg.VaultOptimizationsEnabled, "VaultOptimizationsEnabled")
+	},
+	get: func(s *vaultcommon.NodeSettings) bool { return s.VaultOptimizationsEnabled },
+	set: func(s *vaultcommon.NodeSettings, v bool) { s.VaultOptimizationsEnabled = v },
+}
+
+var donFieldVaultForceEmptyOcrRounds = donSettingsField[bool]{
+	name: "vault_force_empty_ocr_rounds",
+	local: func(ctx context.Context, r *ReportingPlugin) bool {
+		return localGate(ctx, r, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds")
+	},
+	get: func(s *vaultcommon.NodeSettings) bool { return s.VaultForceEmptyOcrRounds },
+	set: func(s *vaultcommon.NodeSettings, v bool) { s.VaultForceEmptyOcrRounds = v },
 }
 
 var donSettingsBoolFields = []donSettingsField[bool]{
-	{
-		name: donSettingVaultOptimizationsEnabledName,
-		local: func(ctx context.Context, r *ReportingPlugin) bool {
-			return localGate(ctx, r, r.cfg.VaultOptimizationsEnabled, "VaultOptimizationsEnabled")
-		},
-		get: func(s *vaultcommon.NodeSettings) bool { return s.VaultOptimizationsEnabled },
-		set: func(s *vaultcommon.NodeSettings, v bool) { s.VaultOptimizationsEnabled = v },
+	donFieldVaultOptimizationsEnabled,
+	donFieldVaultForceEmptyOcrRounds,
+}
+
+var donFieldMaxIdentifierKeyLengthBytes = donSettingsField[uint64]{
+	name: "max_identifier_key_length_bytes",
+	local: func(ctx context.Context, r *ReportingPlugin) uint64 {
+		return localSizeLimit(ctx, r.cfg.MaxIdentifierKeyLengthBytes)
 	},
-	{
-		name: donSettingVaultForceEmptyOcrRoundsName,
-		local: func(ctx context.Context, r *ReportingPlugin) bool {
-			return localGate(ctx, r, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds")
-		},
-		get: func(s *vaultcommon.NodeSettings) bool { return s.VaultForceEmptyOcrRounds },
-		set: func(s *vaultcommon.NodeSettings, v bool) { s.VaultForceEmptyOcrRounds = v },
+	get: func(s *vaultcommon.NodeSettings) uint64 { return s.MaxIdentifierKeyLengthBytes },
+	set: func(s *vaultcommon.NodeSettings, v uint64) { s.MaxIdentifierKeyLengthBytes = v },
+}
+
+var donFieldMaxIdentifierOwnerLengthBytes = donSettingsField[uint64]{
+	name: "max_identifier_owner_length_bytes",
+	local: func(ctx context.Context, r *ReportingPlugin) uint64 {
+		return localSizeLimit(ctx, r.cfg.MaxIdentifierOwnerLengthBytes)
+	},
+	get: func(s *vaultcommon.NodeSettings) uint64 { return s.MaxIdentifierOwnerLengthBytes },
+	set: func(s *vaultcommon.NodeSettings, v uint64) { s.MaxIdentifierOwnerLengthBytes = v },
+}
+
+var donFieldMaxIdentifierNamespaceLengthBytes = donSettingsField[uint64]{
+	name: "max_identifier_namespace_length_bytes",
+	local: func(ctx context.Context, r *ReportingPlugin) uint64 {
+		return localSizeLimit(ctx, r.cfg.MaxIdentifierNamespaceLengthBytes)
+	},
+	get: func(s *vaultcommon.NodeSettings) uint64 { return s.MaxIdentifierNamespaceLengthBytes },
+	set: func(s *vaultcommon.NodeSettings, v uint64) { s.MaxIdentifierNamespaceLengthBytes = v },
+}
+
+var donFieldMaxShareLengthBytes = donSettingsField[uint64]{
+	name: "max_share_length_bytes",
+	local: func(ctx context.Context, r *ReportingPlugin) uint64 {
+		return localSizeLimit(ctx, r.cfg.MaxShareLengthBytes)
+	},
+	get: func(s *vaultcommon.NodeSettings) uint64 { return s.MaxShareLengthBytes },
+	set: func(s *vaultcommon.NodeSettings, v uint64) { s.MaxShareLengthBytes = v },
+}
+
+var donFieldMaxBlobPayloadBytes = donSettingsField[uint64]{
+	name: "max_blob_payload_bytes",
+	local: func(ctx context.Context, r *ReportingPlugin) uint64 {
+		return localSizeLimit(ctx, r.cfg.MaxBlobPayloadBytes)
+	},
+	get: func(s *vaultcommon.NodeSettings) uint64 { return s.MaxBlobPayloadBytes },
+	set: func(s *vaultcommon.NodeSettings, v uint64) { s.MaxBlobPayloadBytes = v },
+}
+
+var donFieldMaxPendingQueueWriteSize = donSettingsField[uint64]{
+	name: "max_pending_queue_write_size",
+	local: func(ctx context.Context, r *ReportingPlugin) uint64 {
+		return localIntLimit(ctx, r.cfg.MaxPendingQueueWriteSize)
+	},
+	get: func(s *vaultcommon.NodeSettings) uint64 { return s.MaxPendingQueueWriteSize },
+	set: func(s *vaultcommon.NodeSettings, v uint64) { s.MaxPendingQueueWriteSize = v },
+}
+
+var donFieldMaxRequestBatchSize = donSettingsField[uint64]{
+	name: "max_request_batch_size",
+	local: func(ctx context.Context, r *ReportingPlugin) uint64 {
+		return localIntLimit(ctx, r.cfg.MaxRequestBatchSize)
+	},
+	get: func(s *vaultcommon.NodeSettings) uint64 { return s.MaxRequestBatchSize },
+	set: func(s *vaultcommon.NodeSettings, v uint64) { s.MaxRequestBatchSize = v },
+}
+
+var donUint64FieldMaxIdentifierKeyLengthBytes = donSettingsUint64Field{base: donFieldMaxIdentifierKeyLengthBytes}
+
+var donUint64FieldMaxIdentifierOwnerLengthBytes = donSettingsUint64Field{base: donFieldMaxIdentifierOwnerLengthBytes}
+
+var donUint64FieldMaxIdentifierNamespaceLengthBytes = donSettingsUint64Field{base: donFieldMaxIdentifierNamespaceLengthBytes}
+
+var donUint64FieldMaxShareLengthBytes = donSettingsUint64Field{base: donFieldMaxShareLengthBytes}
+
+var donUint64FieldMaxBlobPayloadBytes = donSettingsUint64Field{
+	base: donFieldMaxBlobPayloadBytes,
+	limitSize: func(ctx context.Context, r *ReportingPlugin) (pkgconfig.Size, error) {
+		return r.cfg.MaxBlobPayloadBytes.Limit(ctx)
 	},
 }
+
+var donUint64FieldMaxPendingQueueWriteSize = donSettingsUint64Field{
+	base: donFieldMaxPendingQueueWriteSize,
+	checkInt: func(ctx context.Context, r *ReportingPlugin, count int) error {
+		return r.cfg.MaxPendingQueueWriteSize.Check(ctx, count)
+	},
+}
+
+var donUint64FieldMaxRequestBatchSize = donSettingsUint64Field{base: donFieldMaxRequestBatchSize}
 
 var donSettingsUint64Fields = []donSettingsUint64Field{
-	{
-		base: donSettingsField[uint64]{
-			name: "max_identifier_key_length_bytes",
-			local: func(ctx context.Context, r *ReportingPlugin) uint64 {
-				return localSizeLimit(ctx, r.cfg.MaxIdentifierKeyLengthBytes)
-			},
-			get: func(s *vaultcommon.NodeSettings) uint64 { return s.MaxIdentifierKeyLengthBytes },
-			set: func(s *vaultcommon.NodeSettings, v uint64) { s.MaxIdentifierKeyLengthBytes = v },
-		},
-	},
-	{
-		base: donSettingsField[uint64]{
-			name: "max_identifier_owner_length_bytes",
-			local: func(ctx context.Context, r *ReportingPlugin) uint64 {
-				return localSizeLimit(ctx, r.cfg.MaxIdentifierOwnerLengthBytes)
-			},
-			get: func(s *vaultcommon.NodeSettings) uint64 { return s.MaxIdentifierOwnerLengthBytes },
-			set: func(s *vaultcommon.NodeSettings, v uint64) { s.MaxIdentifierOwnerLengthBytes = v },
-		},
-	},
-	{
-		base: donSettingsField[uint64]{
-			name: "max_identifier_namespace_length_bytes",
-			local: func(ctx context.Context, r *ReportingPlugin) uint64 {
-				return localSizeLimit(ctx, r.cfg.MaxIdentifierNamespaceLengthBytes)
-			},
-			get: func(s *vaultcommon.NodeSettings) uint64 { return s.MaxIdentifierNamespaceLengthBytes },
-			set: func(s *vaultcommon.NodeSettings, v uint64) { s.MaxIdentifierNamespaceLengthBytes = v },
-		},
-	},
-	{
-		base: donSettingsField[uint64]{
-			name: "max_share_length_bytes",
-			local: func(ctx context.Context, r *ReportingPlugin) uint64 {
-				return localSizeLimit(ctx, r.cfg.MaxShareLengthBytes)
-			},
-			get: func(s *vaultcommon.NodeSettings) uint64 { return s.MaxShareLengthBytes },
-			set: func(s *vaultcommon.NodeSettings, v uint64) { s.MaxShareLengthBytes = v },
-		},
-	},
-	{
-		base: donSettingsField[uint64]{
-			name: donSettingMaxBlobPayloadBytesName,
-			local: func(ctx context.Context, r *ReportingPlugin) uint64 {
-				return localSizeLimit(ctx, r.cfg.MaxBlobPayloadBytes)
-			},
-			get: func(s *vaultcommon.NodeSettings) uint64 { return s.MaxBlobPayloadBytes },
-			set: func(s *vaultcommon.NodeSettings, v uint64) { s.MaxBlobPayloadBytes = v },
-		},
-		limitSize: func(ctx context.Context, r *ReportingPlugin) (pkgconfig.Size, error) {
-			return r.cfg.MaxBlobPayloadBytes.Limit(ctx)
-		},
-	},
-	{
-		base: donSettingsField[uint64]{
-			name: donSettingMaxPendingQueueWriteSizeName,
-			local: func(ctx context.Context, r *ReportingPlugin) uint64 {
-				return localIntLimit(ctx, r.cfg.MaxPendingQueueWriteSize)
-			},
-			get: func(s *vaultcommon.NodeSettings) uint64 { return s.MaxPendingQueueWriteSize },
-			set: func(s *vaultcommon.NodeSettings, v uint64) { s.MaxPendingQueueWriteSize = v },
-		},
-		checkInt: func(ctx context.Context, r *ReportingPlugin, count int) error {
-			return r.cfg.MaxPendingQueueWriteSize.Check(ctx, count)
-		},
-	},
-	{
-		base: donSettingsField[uint64]{
-			name: "max_request_batch_size",
-			local: func(ctx context.Context, r *ReportingPlugin) uint64 {
-				return localIntLimit(ctx, r.cfg.MaxRequestBatchSize)
-			},
-			get: func(s *vaultcommon.NodeSettings) uint64 { return s.MaxRequestBatchSize },
-			set: func(s *vaultcommon.NodeSettings, v uint64) { s.MaxRequestBatchSize = v },
-		},
-	},
+	donUint64FieldMaxIdentifierKeyLengthBytes,
+	donUint64FieldMaxIdentifierOwnerLengthBytes,
+	donUint64FieldMaxIdentifierNamespaceLengthBytes,
+	donUint64FieldMaxShareLengthBytes,
+	donUint64FieldMaxBlobPayloadBytes,
+	donUint64FieldMaxPendingQueueWriteSize,
+	donUint64FieldMaxRequestBatchSize,
 }
 
-var (
-	donSettingsBoolFieldIndex   map[string]int
-	donSettingsUint64FieldIndex map[string]int
-)
-
-func init() {
-	donSettingsBoolFieldIndex = make(map[string]int, len(donSettingsBoolFields))
-	for i, field := range donSettingsBoolFields {
-		donSettingsBoolFieldIndex[field.name] = i
-	}
-	donSettingsUint64FieldIndex = make(map[string]int, len(donSettingsUint64Fields))
-	for i, field := range donSettingsUint64Fields {
-		donSettingsUint64FieldIndex[field.base.name] = i
-	}
-}
-
-func donSettingsBoolFieldByName(name string) donSettingsField[bool] {
-	i, ok := donSettingsBoolFieldIndex[name]
-	if !ok {
-		panic("unknown DON settings bool field: " + name)
-	}
-	return donSettingsBoolFields[i]
-}
-
-func donSettingsUint64FieldByName(name string) donSettingsUint64Field {
-	i, ok := donSettingsUint64FieldIndex[name]
-	if !ok {
-		panic("unknown DON settings uint64 field: " + name)
-	}
-	return donSettingsUint64Fields[i]
-}
-
-func donSettingsUint64BaseFields() []donSettingsField[uint64] {
-	bases := make([]donSettingsField[uint64], len(donSettingsUint64Fields))
-	for i, field := range donSettingsUint64Fields {
-		bases[i] = field.base
-	}
-	return bases
+var donSettingsUint64BaseFields = []donSettingsField[uint64]{
+	donFieldMaxIdentifierKeyLengthBytes,
+	donFieldMaxIdentifierOwnerLengthBytes,
+	donFieldMaxIdentifierNamespaceLengthBytes,
+	donFieldMaxShareLengthBytes,
+	donFieldMaxBlobPayloadBytes,
+	donFieldMaxPendingQueueWriteSize,
+	donFieldMaxRequestBatchSize,
 }
 
 func populateLocalNodeSettings(ctx context.Context, r *ReportingPlugin) *vaultcommon.NodeSettings {

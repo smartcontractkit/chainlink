@@ -36,7 +36,9 @@ func marshalObservationsWithSettings(t *testing.T, settings *vaultcommon.NodeSet
 }
 
 func TestPlugin_Observation_PopulatesNodeSettings(t *testing.T) {
+	t.Parallel()
 	t.Run("flag on", func(t *testing.T) {
+		t.Parallel()
 		r := newTestReportingPlugin(t, withVaultNodeSettingsConsensusEnabled())
 		rdr := &kv{m: make(map[string]response)}
 		data, err := r.Observation(t.Context(), 1, types.AttributedQuery{}, rdr, nil)
@@ -49,6 +51,7 @@ func TestPlugin_Observation_PopulatesNodeSettings(t *testing.T) {
 	})
 
 	t.Run("flag off", func(t *testing.T) {
+		t.Parallel()
 		r := newTestReportingPlugin(t)
 		rdr := &kv{m: make(map[string]response)}
 		data, err := r.Observation(t.Context(), 1, types.AttributedQuery{}, rdr, nil)
@@ -61,6 +64,7 @@ func TestPlugin_Observation_PopulatesNodeSettings(t *testing.T) {
 }
 
 func TestKVStore_DONSettings_RoundTrip(t *testing.T) {
+	t.Parallel()
 	store := newTestWriteStore(t, &kv{m: make(map[string]response)})
 	settings := nodeSettings(true, 600)
 	require.NoError(t, store.WriteDONSettings(t.Context(), settings))
@@ -72,6 +76,7 @@ func TestKVStore_DONSettings_RoundTrip(t *testing.T) {
 }
 
 func TestPlugin_StateTransition_DONSettings_NoWriteWhenInitialQuorumIncomplete(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t, withVaultNodeSettingsConsensusEnabled(), withOnchainCfg(4, 1))
 	kvStore := &kv{m: make(map[string]response)}
 	writeKV := newTestWriteStore(t, kvStore)
@@ -95,6 +100,7 @@ func TestPlugin_StateTransition_DONSettings_NoWriteWhenInitialQuorumIncomplete(t
 }
 
 func TestPlugin_ValidateObservation_RequiresNodeSettingsWhenConsensusEnabled(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t, withVaultNodeSettingsConsensusEnabled())
 	rdr := &kv{m: make(map[string]response)}
 
@@ -111,6 +117,7 @@ func TestPlugin_ValidateObservation_RequiresNodeSettingsWhenConsensusEnabled(t *
 }
 
 func TestPlugin_ValidateObservation_AcceptsValidNodeSettings(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t, withVaultNodeSettingsConsensusEnabled())
 	rdr := &kv{m: make(map[string]response)}
 
@@ -125,11 +132,12 @@ func TestPlugin_ValidateObservation_AcceptsValidNodeSettings(t *testing.T) {
 }
 
 func TestPlugin_ValidateObservation_AcceptsPeerNodeSettingsAboveLocalCfg(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t, withVaultNodeSettingsConsensusEnabled())
 	rdr := &kv{m: make(map[string]response)}
 
 	settings := r.localNodeSettings(t.Context())
-	settings.MaxShareLengthBytes = settings.MaxShareLengthBytes + 100
+	settings.MaxShareLengthBytes += 100
 	settings.VaultOptimizationsEnabled = true
 	b := marshalObservationsWithSettings(t, settings)
 
@@ -141,6 +149,7 @@ func TestPlugin_ValidateObservation_AcceptsPeerNodeSettingsAboveLocalCfg(t *test
 }
 
 func TestPlugin_ValidateObservation_RejectsMalformedNodeSettingsZeroLimit(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t, withVaultNodeSettingsConsensusEnabled())
 	rdr := &kv{m: make(map[string]response)}
 
@@ -157,6 +166,7 @@ func TestPlugin_ValidateObservation_RejectsMalformedNodeSettingsZeroLimit(t *tes
 }
 
 func TestPlugin_ValidateObservation_IgnoresNodeSettingsWhenConsensusDisabled(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t)
 	rdr := &kv{m: make(map[string]response)}
 
@@ -172,6 +182,7 @@ func TestPlugin_ValidateObservation_IgnoresNodeSettingsWhenConsensusDisabled(t *
 }
 
 func TestPlugin_StateTransition_DONSettings_PerFieldQuorum_AllAgree(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t, withVaultNodeSettingsConsensusEnabled(), withOnchainCfg(4, 1))
 	kvStore := &kv{m: make(map[string]response)}
 	writeKV := newTestWriteStore(t, kvStore)
@@ -194,6 +205,7 @@ func TestPlugin_StateTransition_DONSettings_PerFieldQuorum_AllAgree(t *testing.T
 }
 
 func TestPlugin_StateTransition_DONSettings_PerFieldQuorum_OneFieldSplit(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t, withVaultNodeSettingsConsensusEnabled(), withOnchainCfg(4, 1))
 	kvStore := &kv{m: make(map[string]response)}
 	writeKV := newTestWriteStore(t, kvStore)
@@ -225,6 +237,7 @@ func TestPlugin_StateTransition_DONSettings_PerFieldQuorum_OneFieldSplit(t *test
 }
 
 func TestPlugin_StateTransition_DONSettings_NoOpWhenFlagOff(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t, withOnchainCfg(4, 1))
 	kvStore := &kv{m: make(map[string]response)}
 	writeKV := newTestWriteStore(t, kvStore)
@@ -257,6 +270,7 @@ func TestPlugin_StateTransition_DONSettings_NoOpWhenFlagOff(t *testing.T) {
 }
 
 func TestPlugin_StateTransition_DONSettings_EnforcesKVSettingsOverLocalCfg(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t,
 		withVaultNodeSettingsConsensusEnabled(),
 		withOnchainCfg(4, 1),
@@ -270,10 +284,11 @@ func TestPlugin_StateTransition_DONSettings_EnforcesKVSettingsOverLocalCfg(t *te
 	require.NoError(t, writeKV.WriteDONSettings(t.Context(), kvSettings))
 
 	require.NoError(t, r.ensureActiveSettingsForRound(t.Context(), 1, writeKV))
-	assert.True(t, r.activeSettings.optimizationsEnabled())
+	assert.True(t, r.activeSettings.optimizationsEnabled(t.Context()))
 }
 
 func TestPlugin_StateTransition_DONSettings_UsesLocalCfgWhenKVEmpty(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t,
 		withVaultNodeSettingsConsensusEnabled(),
 		withVaultOptimizationsEnabled(),
@@ -282,10 +297,11 @@ func TestPlugin_StateTransition_DONSettings_UsesLocalCfgWhenKVEmpty(t *testing.T
 	readKV := newTestReadStore(t, kvStore)
 
 	require.NoError(t, r.ensureActiveSettingsForRound(t.Context(), 1, readKV))
-	assert.True(t, r.activeSettings.optimizationsEnabled())
+	assert.True(t, r.activeSettings.optimizationsEnabled(t.Context()))
 }
 
 func TestPlugin_StateTransition_DONSettings_LocalCfgIgnoredWhenKVSet(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t, withVaultNodeSettingsConsensusEnabled())
 	r.cfg.VaultOptimizationsEnabled = limits.NewGateLimiter(false)
 
@@ -294,10 +310,11 @@ func TestPlugin_StateTransition_DONSettings_LocalCfgIgnoredWhenKVSet(t *testing.
 	require.NoError(t, writeKV.WriteDONSettings(t.Context(), nodeSettings(true, 600)))
 
 	require.NoError(t, r.ensureActiveSettingsForRound(t.Context(), 1, writeKV))
-	assert.True(t, r.activeSettings.optimizationsEnabled())
+	assert.True(t, r.activeSettings.optimizationsEnabled(t.Context()))
 }
 
 func TestPlugin_EnsureActiveSettingsForRound_FailsClosedOnKVReadErrorWhenConsensusEnabled(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t, withVaultNodeSettingsConsensusEnabled())
 	kvStore := &kv{m: map[string]response{
 		donSettingsKey: {err: errors.New("kv unavailable")},
@@ -310,6 +327,7 @@ func TestPlugin_EnsureActiveSettingsForRound_FailsClosedOnKVReadErrorWhenConsens
 }
 
 func TestPlugin_Observation_FailsClosedOnKVReadErrorWhenConsensusEnabled(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t, withVaultNodeSettingsConsensusEnabled())
 	kvStore := &kv{m: map[string]response{
 		donSettingsKey: {err: errors.New("kv unavailable")},
@@ -321,6 +339,7 @@ func TestPlugin_Observation_FailsClosedOnKVReadErrorWhenConsensusEnabled(t *test
 }
 
 func TestPlugin_ValidateObservation_FailsClosedOnKVReadErrorWhenConsensusEnabled(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t, withVaultNodeSettingsConsensusEnabled())
 	kvStore := &kv{m: map[string]response{
 		donSettingsKey: {err: errors.New("kv unavailable")},
@@ -338,6 +357,7 @@ func TestPlugin_ValidateObservation_FailsClosedOnKVReadErrorWhenConsensusEnabled
 }
 
 func TestPlugin_Observation_MarshaledSizeWithinCapWhenNodeSettingsConsensusEnabled(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t, withVaultNodeSettingsConsensusEnabled())
 	rdr := &kv{m: make(map[string]response)}
 	data, err := r.Observation(t.Context(), 1, types.AttributedQuery{}, rdr, nil)
@@ -346,6 +366,7 @@ func TestPlugin_Observation_MarshaledSizeWithinCapWhenNodeSettingsConsensusEnabl
 }
 
 func TestPlugin_ActiveSettings_EnforcesKVIdentifierKeyLimit(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t, withVaultNodeSettingsConsensusEnabled(), withMaxIdentifierLengths(100, 100, 100))
 	kvSettings := nodeSettings(false, 600)
 	kvSettings.MaxIdentifierKeyLengthBytes = 4
@@ -356,14 +377,18 @@ func TestPlugin_ActiveSettings_EnforcesKVIdentifierKeyLimit(t *testing.T) {
 
 	require.NoError(t, r.ensureActiveSettingsForRound(t.Context(), 1, writeKV))
 
-	err := r.validator.ValidateSecretIdentifier(t.Context(), "longkey", "owner", "ns", r.activeSettings.donSettings())
+	limits, err := r.activeSettings.secretIdentifierLimits(t.Context())
+	require.NoError(t, err)
+
+	err = r.validator.ValidateSecretIdentifier(t.Context(), "longkey", "owner", "ns", &limits)
 	require.Error(t, err)
 
-	err = r.validator.ValidateSecretIdentifier(t.Context(), "key", "owner", "ns", r.activeSettings.donSettings())
+	err = r.validator.ValidateSecretIdentifier(t.Context(), "key", "owner", "ns", &limits)
 	require.NoError(t, err)
 }
 
 func TestPlugin_StateTransition_DONSettings_PersistedAfterTransitionNotAppliedSameRound(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t,
 		withVaultNodeSettingsConsensusEnabled(),
 		withOnchainCfg(4, 1),
@@ -388,7 +413,7 @@ func TestPlugin_StateTransition_DONSettings_PersistedAfterTransitionNotAppliedSa
 	require.NoError(t, err)
 
 	// Same-round enforcement still reflects committed settings from round start.
-	assert.False(t, r.activeSettings.optimizationsEnabled())
+	assert.False(t, r.activeSettings.optimizationsEnabled(t.Context()))
 
 	stored, err := writeKV.GetDONSettings(t.Context())
 	require.NoError(t, err)

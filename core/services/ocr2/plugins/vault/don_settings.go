@@ -8,11 +8,11 @@ import (
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 )
 
 type donSettingsResolver struct {
 	r              *ReportingPlugin
-	ctx            context.Context
 	store          ReadKVStore
 	consensus      bool
 	initialized    bool
@@ -23,7 +23,6 @@ type donSettingsResolver struct {
 func (r *ReportingPlugin) newDonSettingsResolver(ctx context.Context, store ReadKVStore) *donSettingsResolver {
 	return &donSettingsResolver{
 		r:         r,
-		ctx:       ctx,
 		store:     store,
 		consensus: r.nodeSettingsConsensusEnabled(ctx),
 	}
@@ -42,7 +41,7 @@ func (r *ReportingPlugin) ensureActiveSettingsForRound(ctx context.Context, seqN
 		return nil
 	}
 	resolver := r.newDonSettingsResolver(ctx, store)
-	if err := resolver.init(); err != nil {
+	if err := resolver.init(ctx); err != nil {
 		return err
 	}
 	r.activeSettings = resolver
@@ -50,7 +49,7 @@ func (r *ReportingPlugin) ensureActiveSettingsForRound(ctx context.Context, seqN
 	return nil
 }
 
-func (d *donSettingsResolver) init() error {
+func (d *donSettingsResolver) init(ctx context.Context) error {
 	if d.initialized {
 		return d.initErr
 	}
@@ -60,7 +59,7 @@ func (d *donSettingsResolver) init() error {
 		return nil
 	}
 
-	settings, err := d.store.GetDONSettings(d.ctx)
+	settings, err := d.store.GetDONSettings(ctx)
 	if err != nil {
 		d.initErr = fmt.Errorf("failed to read DON settings from KV: %w", err)
 		d.r.lggr.Errorw("failed to read DON settings from KV", "error", err)
@@ -74,13 +73,6 @@ func (d *donSettingsResolver) init() error {
 
 func (d *donSettingsResolver) donSettings() *vaultcommon.NodeSettings {
 	return d.cachedSettings
-}
-
-func (r *ReportingPlugin) activeDonSettings() *vaultcommon.NodeSettings {
-	if r.activeSettings == nil {
-		return nil
-	}
-	return r.activeSettings.donSettings()
 }
 
 func (r *ReportingPlugin) mergeAndPersistDONSettingsFromObservationQuorum(
@@ -102,7 +94,7 @@ func (r *ReportingPlugin) mergeAndPersistDONSettingsFromObservationQuorum(
 	}
 
 	allFieldsQuorum := applyDonSettingsQuorum(r.lggr, donSettingsBoolFields, merged, marshalledObs, threshold)
-	allFieldsQuorum = applyDonSettingsQuorum(r.lggr, donSettingsUint64BaseFields(), merged, marshalledObs, threshold) && allFieldsQuorum
+	allFieldsQuorum = applyDonSettingsQuorum(r.lggr, donSettingsUint64BaseFields, merged, marshalledObs, threshold) && allFieldsQuorum
 
 	if existing == nil {
 		// Initial seeding of DON settings, reject if not all fields reached quorum
@@ -125,18 +117,46 @@ func (r *ReportingPlugin) mergeAndPersistDONSettingsFromObservationQuorum(
 }
 
 // Wrappers for readability at call sites
-func (d *donSettingsResolver) optimizationsEnabled() bool {
-	return donSettingsBoolFieldByName(donSettingVaultOptimizationsEnabledName).resolve(d)
+func (d *donSettingsResolver) optimizationsEnabled(ctx context.Context) bool {
+	return donFieldVaultOptimizationsEnabled.resolve(ctx, d)
 }
 
-func (d *donSettingsResolver) forceEmptyOCRRounds() bool {
-	return donSettingsBoolFieldByName(donSettingVaultForceEmptyOcrRoundsName).resolve(d)
+func (d *donSettingsResolver) forceEmptyOCRRounds(ctx context.Context) bool {
+	return donFieldVaultForceEmptyOcrRounds.resolve(ctx, d)
 }
 
-func (d *donSettingsResolver) maxBlobPayloadBytes() (pkgconfig.Size, error) {
-	return donSettingsUint64FieldByName(donSettingMaxBlobPayloadBytesName).resolveSize(d)
+func (d *donSettingsResolver) maxBlobPayloadBytes(ctx context.Context) (pkgconfig.Size, error) {
+	return donUint64FieldMaxBlobPayloadBytes.resolveSize(ctx, d)
 }
 
-func (d *donSettingsResolver) checkMaxPendingQueueWriteSize(count int) error {
-	return donSettingsUint64FieldByName(donSettingMaxPendingQueueWriteSizeName).resolveCheckInt(d, count)
+func (d *donSettingsResolver) maxShareLengthBytes(ctx context.Context) (pkgconfig.Size, error) {
+	return donUint64FieldMaxShareLengthBytes.resolveSize(ctx, d)
+}
+
+func (d *donSettingsResolver) checkMaxPendingQueueWriteSize(ctx context.Context, count int) error {
+	return donUint64FieldMaxPendingQueueWriteSize.resolveCheckInt(ctx, d, count)
+}
+
+func (d *donSettingsResolver) secretIdentifierLimits(ctx context.Context) (vaultcap.SecretIdentifierLimits, error) {
+	owner, err := donUint64FieldMaxIdentifierOwnerLengthBytes.resolveSize(ctx, d)
+	if err != nil {
+		return vaultcap.SecretIdentifierLimits{}, err
+	}
+	namespace, err := donUint64FieldMaxIdentifierNamespaceLengthBytes.resolveSize(ctx, d)
+	if err != nil {
+		return vaultcap.SecretIdentifierLimits{}, err
+	}
+	key, err := donUint64FieldMaxIdentifierKeyLengthBytes.resolveSize(ctx, d)
+	if err != nil {
+		return vaultcap.SecretIdentifierLimits{}, err
+	}
+	return vaultcap.SecretIdentifierLimits{
+		MaxOwnerLength:     owner,
+		MaxNamespaceLength: namespace,
+		MaxKeyLength:       key,
+	}, nil
+}
+
+func (d *donSettingsResolver) maxRequestBatchSize(ctx context.Context) int {
+	return donUint64FieldMaxRequestBatchSize.resolveInt(ctx, d)
 }

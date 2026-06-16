@@ -30,6 +30,14 @@ type RequestValidator struct {
 	MaxIdentifierNamespaceLengthLimiter limits.BoundLimiter[pkgconfig.Size]
 }
 
+// SecretIdentifierLimits carries resolved identifier length limits for validation.
+// When nil, RequestValidator falls back to its configured limiters.
+type SecretIdentifierLimits struct {
+	MaxOwnerLength     pkgconfig.Size
+	MaxNamespaceLength pkgconfig.Size
+	MaxKeyLength       pkgconfig.Size
+}
+
 func (r *RequestValidator) ValidateCreateSecretsRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, request *vaultcommon.CreateSecretsRequest, skipLabelValidation bool) error {
 	return r.validateWriteRequest(ctx, publicKey, request.RequestId, request.EncryptedSecrets, skipLabelValidation)
 }
@@ -108,7 +116,7 @@ func (r *RequestValidator) ValidateCiphertextSize(ctx context.Context, owner str
 	return nil
 }
 
-func (r *RequestValidator) ValidateSecretIdentifier(ctx context.Context, idKey string, idOwner string, idNamespace string, donSettings *vaultcommon.NodeSettings) error {
+func (r *RequestValidator) ValidateSecretIdentifier(ctx context.Context, idKey string, idOwner string, idNamespace string, identifierLimits *SecretIdentifierLimits) error {
 	if idKey == "" {
 		return errors.New("key cannot be empty")
 	}
@@ -120,14 +128,14 @@ func (r *RequestValidator) ValidateSecretIdentifier(ctx context.Context, idKey s
 		return errors.New("key, owner and namespace must only contain alphanumeric characters")
 	}
 
-	if donSettings != nil {
-		if err := checkIdentifierComponentLength("owner", idOwner, pkgconfig.Size(donSettings.MaxIdentifierOwnerLengthBytes)); err != nil {
+	if identifierLimits != nil {
+		if err := checkIdentifierComponentLength("owner", idOwner, identifierLimits.MaxOwnerLength); err != nil {
 			return err
 		}
-		if err := checkIdentifierComponentLength("namespace", idNamespace, pkgconfig.Size(donSettings.MaxIdentifierNamespaceLengthBytes)); err != nil {
+		if err := checkIdentifierComponentLength("namespace", idNamespace, identifierLimits.MaxNamespaceLength); err != nil {
 			return err
 		}
-		if err := checkIdentifierComponentLength("key", idKey, pkgconfig.Size(donSettings.MaxIdentifierKeyLengthBytes)); err != nil {
+		if err := checkIdentifierComponentLength("key", idKey, identifierLimits.MaxKeyLength); err != nil {
 			return err
 		}
 		return nil
@@ -169,10 +177,10 @@ func checkIdentifierComponentLength(component, value string, limit pkgconfig.Siz
 	return nil
 }
 
-func (r *RequestValidator) CheckMaxRequestBatchSize(ctx context.Context, count int, donSettings *vaultcommon.NodeSettings) error {
-	if donSettings != nil {
-		if count > int(donSettings.MaxRequestBatchSize) {
-			return limits.ErrorBoundLimited[int]{Limit: int(donSettings.MaxRequestBatchSize), Amount: count}
+func (r *RequestValidator) CheckMaxRequestBatchSize(ctx context.Context, count int, maxBatchSize *int) error {
+	if maxBatchSize != nil {
+		if count > *maxBatchSize {
+			return limits.ErrorBoundLimited[int]{Limit: *maxBatchSize, Amount: count}
 		}
 		return nil
 	}
