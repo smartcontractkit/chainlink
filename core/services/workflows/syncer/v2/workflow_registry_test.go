@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	wfTypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -29,12 +28,14 @@ import (
 )
 
 func Test_generateReconciliationEventsV2(t *testing.T) {
+	t.Parallel()
 	// Validate that if no engines are on the node in the registry,
 	// and we see that the contract has workflow state,
 	// that we generate a WorkflowActivatedEvent
 	t.Run("WorkflowActivatedEvent_whenNoEnginesInRegistry", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		// No engines are in the workflow registry
 		er := NewEngineRegistry()
@@ -102,8 +103,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 	})
 
 	t.Run("WorkflowUpdatedEvent", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		// Engine already in the workflow registry
 		er := NewEngineRegistry()
@@ -180,8 +182,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 	})
 
 	t.Run("WorkflowDeletedEvent", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		// Engine already in the workflow registry
 		er := NewEngineRegistry()
@@ -223,8 +226,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 	})
 
 	t.Run("generateReconciliationEvents is side-effect free; pre-dispatch drains delete targets", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		er := NewEngineRegistry()
 		wfID := [32]byte{1}
@@ -264,8 +268,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 	})
 
 	t.Run("No change", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		// No engines are in the workflow registry
 		er := NewEngineRegistry()
@@ -342,8 +347,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 	})
 
 	t.Run("A paused workflow doesn't start a new workflow", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		// No engines are in the workflow registry
 		er := NewEngineRegistry()
@@ -397,8 +403,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 	})
 
 	t.Run("A paused workflow deletes a running workflow", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		// Engine already in the workflow registry
 		er := NewEngineRegistry()
@@ -461,8 +468,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 	})
 
 	t.Run("reconciles with a pending event if it has the same signature", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		// Engine already in the workflow registry
 		er := NewEngineRegistry()
@@ -551,8 +559,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 	})
 
 	t.Run("a paused workflow clears a pending activated event", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		// Engine already in the workflow registry
 		er := NewEngineRegistry()
@@ -635,8 +644,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 	})
 
 	t.Run("delete events are handled before any other events", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		// Engine already in the workflow registry
 		er := NewEngineRegistry()
@@ -697,8 +707,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 	})
 
 	t.Run("pending delete events are handled when workflow metadata no longer exists", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		// Engine already in the workflow registry
 		er := NewEngineRegistry()
@@ -758,8 +769,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 	// the registry. The Active+engineFound branch must drop the stale pending entry,
 	// otherwise generateReconciliationEvents trips its end-of-loop invariant check.
 	t.Run("active workflow with running engine clears stale pending WorkflowDeleted", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		er := NewEngineRegistry()
 		wfID := [32]byte{1}
@@ -811,8 +823,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 	// fix should still clear the stale pending entry without panicking; this guards against
 	// regressions if the branch is later extended to emit a replacement WorkflowActivated.
 	t.Run("active workflow with draining engine clears stale pending WorkflowDeleted", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		er := NewEngineRegistry()
 		wfID := [32]byte{1}
@@ -863,8 +876,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 	})
 
 	t.Run("pending activate events are handled when workflow metadata no longer exists", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		er := NewEngineRegistry()
 		wr, err := NewWorkflowRegistry(
@@ -930,7 +944,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 }
 
 func Test_Start(t *testing.T) {
+	t.Parallel()
 	t.Run("successful start and close", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		mockReader := &mockContractReader{startErr: nil}
@@ -972,8 +988,9 @@ func Test_Start(t *testing.T) {
 }
 
 func Test_GetAllowlistedRequests(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	workflowDonNotifier := capabilities.NewDonNotifier()
 	er := NewEngineRegistry()
 
@@ -1063,9 +1080,11 @@ func (m *mockContractReader) Start(
 }
 
 func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
+	t.Parallel()
 	t.Run("only deletes engines from specified source", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		workflowDonNotifier := capabilities.NewDonNotifier()
 
 		// Setup: engines from two sources
@@ -1107,8 +1126,9 @@ func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
 	})
 
 	t.Run("activates workflows tagged with source", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		er := NewEngineRegistry()
 
@@ -1154,8 +1174,9 @@ func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
 	})
 
 	t.Run("does not delete engines from other sources when source returns empty", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		workflowDonNotifier := capabilities.NewDonNotifier()
 
 		// Setup: engines from two sources
@@ -1199,8 +1220,9 @@ func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
 	})
 
 	t.Run("handles paused workflow from source", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		workflowDonNotifier := capabilities.NewDonNotifier()
 
 		// Setup: engine exists for a workflow
@@ -1247,8 +1269,9 @@ func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
 	})
 
 	t.Run("no events when source has no engines and returns empty metadata", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		workflowDonNotifier := capabilities.NewDonNotifier()
 
 		// Setup: engine only from contract source
@@ -1287,9 +1310,11 @@ func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
 // Test_PerSourceReconciliation_FailureIsolation validates the main bug fix:
 // when a source fails to fetch, engines from that source should NOT be deleted.
 func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
+	t.Parallel()
 	t.Run("source failure does not delete engines from that source", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		workflowDonNotifier := capabilities.NewDonNotifier()
 
 		// Setup: engines from ContractWorkflowSource and GRPCWorkflowSource
@@ -1346,8 +1371,9 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
 	})
 
 	t.Run("source recovers after failure - normal reconciliation resumes", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		workflowDonNotifier := capabilities.NewDonNotifier()
 
 		// Setup: engines from GRPCWorkflowSource
@@ -1401,6 +1427,7 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
 	})
 
 	t.Run("all sources fail - no deletions", func(t *testing.T) {
+		t.Parallel()
 		// This test validates that when all sources fail, no deletion events are generated
 		// because we skip reconciliation for each failed source.
 		lggr := logger.TestLogger(t)
@@ -1438,8 +1465,9 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
 	})
 
 	t.Run("independent source reconciliation preserves isolation", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		workflowDonNotifier := capabilities.NewDonNotifier()
 
 		// Setup: multiple workflows from each source
@@ -1511,36 +1539,44 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
 }
 
 func Test_isZeroOwner(t *testing.T) {
+	t.Parallel()
 	t.Run("returns true for nil slice", func(t *testing.T) {
+		t.Parallel()
 		require.True(t, isZeroOwner(nil))
 	})
 
 	t.Run("returns true for empty slice", func(t *testing.T) {
+		t.Parallel()
 		require.True(t, isZeroOwner([]byte{}))
 	})
 
 	t.Run("returns true for all zeros (20 bytes - Ethereum address)", func(t *testing.T) {
+		t.Parallel()
 		zeroAddress := make([]byte, 20)
 		require.True(t, isZeroOwner(zeroAddress))
 	})
 
 	t.Run("returns true for all zeros (arbitrary length)", func(t *testing.T) {
+		t.Parallel()
 		zeros := make([]byte, 32)
 		require.True(t, isZeroOwner(zeros))
 	})
 
 	t.Run("returns false for valid owner address", func(t *testing.T) {
+		t.Parallel()
 		validOwner, _ := hex.DecodeString("1234567890123456789012345678901234567890")
 		require.False(t, isZeroOwner(validOwner))
 	})
 
 	t.Run("returns false for address with single non-zero byte", func(t *testing.T) {
+		t.Parallel()
 		almostZero := make([]byte, 20)
 		almostZero[19] = 1 // last byte is 1
 		require.False(t, isZeroOwner(almostZero))
 	})
 
 	t.Run("returns false for address with non-zero first byte", func(t *testing.T) {
+		t.Parallel()
 		almostZero := make([]byte, 20)
 		almostZero[0] = 1 // first byte is 1
 		require.False(t, isZeroOwner(almostZero))
@@ -1548,9 +1584,11 @@ func Test_isZeroOwner(t *testing.T) {
 }
 
 func Test_ParallelEventHandling(t *testing.T) {
+	t.Parallel()
 	t.Run("processes multiple delete events concurrently", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		er := NewEngineRegistry()
 
@@ -1593,16 +1631,14 @@ func Test_ParallelEventHandling(t *testing.T) {
 			reconcileReport.NumEventsByType[string(event.Name)]++
 			mu.Unlock()
 
-			wg.Add(1)
-			go func(evt *reconciliationEvent) {
-				defer wg.Done()
-				handleErr := wr.handleWithMetrics(ctx, evt.Event)
+			wg.Go(func() {
+				handleErr := wr.handleWithMetrics(ctx, event.Event)
 				if handleErr != nil {
 					mu.Lock()
-					pendingEventsBySource[sourceIdentifier][evt.id] = evt
+					pendingEventsBySource[sourceIdentifier][event.id] = event
 					mu.Unlock()
 				}
-			}(event)
+			})
 		}
 		wg.Wait()
 
@@ -1623,8 +1659,9 @@ func Test_ParallelEventHandling(t *testing.T) {
 	})
 
 	t.Run("processes mixed event types concurrently", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		er := NewEngineRegistry()
 
@@ -1707,7 +1744,8 @@ func (m *mockShardMappingClient) Close() error { return nil }
 var _ shardorchestrator.ClientInterface = (*mockShardMappingClient)(nil)
 
 func TestWorkflowRegistry_filterWorkflowsByShard(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+	ctx := t.Context()
 	wf1 := wfTypes.WorkflowID([32]byte{1})
 	wf2 := wfTypes.WorkflowID([32]byte{2})
 	wf3 := wfTypes.WorkflowID([32]byte{3})
@@ -1733,4 +1771,28 @@ func TestWorkflowRegistry_filterWorkflowsByShard(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, filtered, 1)
 	require.Equal(t, wf2.Hex(), filtered[0].WorkflowID.Hex())
+}
+
+func TestWorkflowRegistry_getTicker_nonPositiveDuration(t *testing.T) {
+	t.Parallel()
+	wr := &workflowRegistry{
+		clock: clockwork.NewRealClock(),
+	}
+
+	require.NotPanics(t, func() {
+		tickerCh := wr.getTicker(-1 * time.Second)
+		require.NotNil(t, tickerCh)
+	})
+}
+
+func TestWorkflowRegistry_getTicker_WithTickerOverride(t *testing.T) {
+	t.Parallel()
+	customCh := make(chan time.Time)
+	wr := &workflowRegistry{
+		ticker: customCh,
+		clock:  clockwork.NewRealClock(),
+	}
+
+	tickerCh := wr.getTicker(10 * time.Second)
+	require.Equal(t, (<-chan time.Time)(customCh), tickerCh)
 }

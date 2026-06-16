@@ -27,6 +27,18 @@ func TestNewStartUpHealthReport(t *testing.T) {
 		res, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusNoContent, res.StatusCode)
+
+		req, err = http.NewRequestWithContext(t.Context(), "GET", "http://localhost:1234/", nil)
+		require.NoError(t, err)
+		res, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusServiceUnavailable, res.StatusCode)
+
+		req, err = http.NewRequestWithContext(t.Context(), "GET", "http://localhost:1234/unknown", nil)
+		require.NoError(t, err)
+		res, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusServiceUnavailable, res.StatusCode)
 	}()
 
 	ibhr.Stop()

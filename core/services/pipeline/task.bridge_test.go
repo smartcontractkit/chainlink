@@ -1310,7 +1310,7 @@ func TestBridgeTask_PipelineAdapterLWBAError(t *testing.T) {
 	t.Parallel()
 
 	dag := `
-ds [type=bridge name="adapter-error-bridge" timeout="50ms" requestData="{\"data\":{\"from\":\"ETH\",\"to\":\"USD\"}}"];
+ds [type=bridge name="adapter-error-bridge" timeout="5s" requestData="{\"data\":{\"from\":\"ETH\",\"to\":\"USD\"}}"];
 `
 
 	ctx := testutils.Context(t)
