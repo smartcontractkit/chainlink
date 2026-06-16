@@ -464,7 +464,10 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 		if err != nil {
 			return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("converting capability response: %w", err))
 		}
-		respBytes, err := proto.Marshal(sdkResp)
+		// Deterministic marshal so every relay node emits byte-identical
+		// response payloads; relay aggregation requires identical bytes to
+		// reach quorum. [CL112-05]
+		respBytes, err := proto.MarshalOptions{Deterministic: true}.Marshal(sdkResp)
 		if err != nil {
 			return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("marshalling capability response: %w", err))
 		}
@@ -630,8 +633,13 @@ func toSDKCapabilityResponse(capResp capabilities.CapabilityResponse) (*sdkpb.Ca
 
 	if capResp.Value != nil {
 		valProto := values.Proto(capResp.Value)
-		wrapped, err := anypb.New(valProto)
-		if err != nil {
+		// Serialize the wrapped value deterministically. anypb stores the
+		// inner message as opaque bytes, so a non-deterministic marshal here
+		// (e.g. map-valued content in arbitrary key order) would produce
+		// different Any payloads across relay nodes and break quorum, even
+		// when nodes return the same logical value. [CL112-05]
+		wrapped := &anypb.Any{}
+		if err := anypb.MarshalFrom(wrapped, valProto, proto.MarshalOptions{Deterministic: true}); err != nil {
 			return nil, fmt.Errorf("wrapping value map in Any: %w", err)
 		}
 		return &sdkpb.CapabilityResponse{

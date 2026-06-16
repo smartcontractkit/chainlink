@@ -946,6 +946,45 @@ func TestTranslateVaultResponse_BinaryShares(t *testing.T) {
 	require.Equal(t, base64.StdEncoding.EncodeToString(shareBytes), result.Secrets[0].EncryptedShares[0])
 }
 
+// Relay aggregation requires byte-identical responses from every node to reach
+// quorum. A map-valued response is the worst case: protobuf map fields marshal
+// in nondeterministic key order by default, so the same logical value would
+// serialize to different bytes across nodes (and across calls) unless we force
+// deterministic serialization. This guards both the Any payload construction in
+// toSDKCapabilityResponse and the outer marshal. [CL112-05]
+func TestToSDKCapabilityResponse_DeterministicSerialization(t *testing.T) {
+	val, err := values.Wrap(map[string]any{
+		"alpha":   1,
+		"bravo":   "two",
+		"charlie": true,
+		"delta":   []any{1, 2, 3},
+		"echo":    map[string]any{"nested1": "x", "nested2": "y", "nested3": "z"},
+		"foxtrot": "value-foxtrot",
+		"golf":    "value-golf",
+		"hotel":   "value-hotel",
+	})
+	require.NoError(t, err)
+	valMap, ok := val.(*values.Map)
+	require.True(t, ok)
+
+	capResp := capabilities.CapabilityResponse{Value: valMap}
+
+	var want []byte
+	for i := 0; i < 50; i++ {
+		sdkResp, err := toSDKCapabilityResponse(capResp)
+		require.NoError(t, err)
+		got, err := proto.MarshalOptions{Deterministic: true}.Marshal(sdkResp)
+		require.NoError(t, err)
+		require.NotEmpty(t, got)
+		if i == 0 {
+			want = got
+			continue
+		}
+		require.Equal(t, want, got,
+			"serialized capability response must be byte-identical across calls (iteration %d)", i)
+	}
+}
+
 func TestTranslateVaultResponse_HexShares(t *testing.T) {
 	enclaveKey := "aabbcc"
 	shareBytes := []byte("share-1")
