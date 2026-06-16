@@ -752,10 +752,12 @@ func assertVaultOCRWireTruncationSignalsInDockerLogs(t *testing.T) {
 }
 
 func TestVaultOptimizationsEnabled_CRESettingDefaultsDisabled(t *testing.T) {
+	t.Parallel()
 	require.False(t, cresettings.Default.VaultOptimizationsEnabled.DefaultValue)
 }
 
 func TestVaultNodeSettingsConsensusEnabled_CRESettingDefaultsDisabled(t *testing.T) {
+	t.Parallel()
 	require.False(t, cresettings.Default.VaultNodeSettingsConsensusEnabled.DefaultValue)
 }
 
