@@ -1496,6 +1496,18 @@ func (r *ReportingPlugin) checkRequestBatchLimit(ctx context.Context, batchSize 
 	return nil
 }
 
+func (r *ReportingPlugin) checkMaxShareLength(ctx context.Context, shareSize int) error {
+	amount := pkgconfig.Size(shareSize) * pkgconfig.Byte
+	if settings := r.activeDonSettings(); settings != nil {
+		limit := pkgconfig.Size(settings.MaxShareLengthBytes) * pkgconfig.Byte
+		if amount > limit {
+			return limits.ErrorBoundLimited[pkgconfig.Size]{Limit: limit, Amount: amount}
+		}
+		return nil
+	}
+	return r.cfg.MaxShareLengthBytes.Check(ctx, amount)
+}
+
 func (r *ReportingPlugin) validateObservation(ctx context.Context, o *vaultcommon.Observation) error {
 	if o.Id == "" {
 		return errors.New("observation id cannot be empty")
@@ -1559,7 +1571,7 @@ func (r *ReportingPlugin) validateGetSecretsObservation(ctx context.Context, o *
 			if err != nil {
 				return err
 			}
-			if err := r.validator.CheckMaxShareLength(innerCtx, rsp.Id.Owner, shareSize, r.activeDonSettings(), r.cfg.MaxShareLengthBytes); err != nil {
+			if err := r.checkMaxShareLength(innerCtx, shareSize); err != nil {
 				var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
 				if errors.As(err, &errBoundLimited) {
 					return fmt.Errorf("share provided exceeds maximum size allowed: %w", err)
@@ -2092,7 +2104,7 @@ func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, chosen 
 						r.lggr.Errorw("could not measure share size, skipping", "id", rsp.Id, "encryptionKey", existing.EncryptionKey, "err", err)
 						continue
 					}
-					if err := r.validator.CheckMaxShareLength(innerCtx, rsp.Id.Owner, shareSize, r.activeDonSettings(), r.cfg.MaxShareLengthBytes); err != nil {
+					if err := r.checkMaxShareLength(innerCtx, shareSize); err != nil {
 						var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
 						if errors.As(err, &errBoundLimited) {
 							r.lggr.Errorw("share exceeds max allowed size, skipping...", "id", rsp.Id, "encryptionKey", existing.EncryptionKey, "err", err)

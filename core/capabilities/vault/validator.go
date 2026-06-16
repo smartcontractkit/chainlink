@@ -186,28 +186,6 @@ func (r *RequestValidator) CheckMaxRequestBatchSize(ctx context.Context, count i
 	return nil
 }
 
-func (r *RequestValidator) CheckMaxShareLength(
-	ctx context.Context,
-	owner string,
-	shareSize int,
-	donSettings *vaultcommon.NodeSettings,
-	fallback limits.BoundLimiter[pkgconfig.Size],
-) error {
-	innerCtx := ctx
-	if owner != "" {
-		innerCtx = contexts.WithCRE(ctx, contexts.CRE{Owner: owner})
-	}
-	amount := pkgconfig.Size(shareSize) * pkgconfig.Byte
-	if donSettings != nil {
-		limit := pkgconfig.Size(donSettings.MaxShareLengthBytes) * pkgconfig.Byte
-		if amount > limit {
-			return limits.ErrorBoundLimited[pkgconfig.Size]{Limit: limit, Amount: amount}
-		}
-		return nil
-	}
-	return fallback.Check(innerCtx, amount)
-}
-
 func (r *RequestValidator) ValidateGetSecretsRequest(ctx context.Context, request *vaultcommon.GetSecretsRequest) error {
 	if len(request.Requests) == 0 {
 		return errors.New("no GetSecret request specified in request")
