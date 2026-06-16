@@ -9,12 +9,11 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/mock"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/quarantine"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -123,7 +122,6 @@ func TestWSServer_WSClient_DefaultConfig_Success(t *testing.T) {
 }
 
 func TestWSServer_WSClient_DefaultConfig_Failure(t *testing.T) {
-	quarantine.Flaky(t, "DX-1752")
 	t.Parallel()
 	_, acceptor, urlStr := startNewWSServer(t, 10_000)
 
@@ -143,9 +141,20 @@ func TestWSServer_WSClient_DefaultConfig_Failure(t *testing.T) {
 	urlStr = strings.Replace(urlStr, "http", "ws", 1)
 	parsedURL, err := url.Parse(urlStr)
 	require.NoError(t, err)
-	conn, err := client.Connect(testutils.Context(t), parsedURL)
-	require.NoError(t, err)
-	require.NotNil(t, conn)
 
-	<-waitCh
+	// The challenge response (20000 bytes) exceeds the server's MaxRequestBytes
+	// (10000), so the server aborts the handshake and closes the connection.
+	// Connect may either return successfully or fail while writing the oversized
+	// response (e.g. "broken pipe" / "connection reset by peer"), depending on
+	// whether the client finishes flushing the message before the server closes
+	// the socket. Both outcomes are valid: the behavior under test is that the
+	// server aborts the handshake, which we assert below via waitCh.
+	_, _ = client.Connect(testutils.Context(t), parsedURL)
+
+	select {
+	case <-waitCh:
+		// Server aborted the handshake as expected.
+	case <-time.After(testutils.WaitTimeout(t)):
+		t.Fatal("timed out waiting for the server to abort the handshake")
+	}
 }
