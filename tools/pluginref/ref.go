@@ -121,9 +121,7 @@ func commitRefForGitRef(gitRef string) (string, error) {
 		}
 		return mv.Tag, nil
 	}
-	if mv.Raw != "" {
-		return mv.Raw, nil
-	}
 
-	return "", fmt.Errorf("unrecognized gitRef: %s", gitRef)
+	// Unrecognized formats (e.g. branch names) pass through for git rev-parse.
+	return mv.Raw, nil
 }
