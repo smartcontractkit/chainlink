@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
-	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 )
 
 type ProposeStandardCapabilityJobDeps struct {
@@ -30,8 +29,9 @@ type ProposeStandardCapabilityJobDeps struct {
 }
 
 type ProposeStandardCapabilityJobInput struct {
-	Domain  string
-	DONName string
+	Domain      string
+	Environment string
+	DONName     string
 
 	// Job is the standard capability job to propose.
 	// If GenerateOracleFactory is true, the OracleFactory field will be ignored and generated.
@@ -72,7 +72,7 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 				{
 					Key:   "environment",
 					Op:    ptypes.SelectorOp_EQ,
-					Value: &deps.Env.Name,
+					Value: &input.Environment,
 				},
 				{
 					Key:   "product",
@@ -82,7 +82,7 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 				{
 					Key:   "type",
 					Op:    ptypes.SelectorOp_EQ,
-					Value: pointer.To(PluginNodeType),
+					Value: new(PluginNodeType),
 				},
 			},
 		}
@@ -144,10 +144,11 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 
 				// 1 spec per node, each spec is unique to the node due to the oracle factory config
 				report, err := operations.ExecuteOperation(b, ProposeJobSpec, ProposeJobSpecDeps(deps), ProposeJobSpecInput{
-					Domain:    input.Domain,
-					DONName:   input.DONName,
-					Spec:      spec,
-					JobLabels: jobLabels,
+					Domain:      input.Domain,
+					DONName:     input.DONName,
+					Environment: input.Environment,
+					Spec:        spec,
+					JobLabels:   jobLabels,
 					DONFilters: []offchain.TargetDONFilter{
 						{Key: "p2p_id", Value: ni.PeerID.String()},
 					},
@@ -185,10 +186,11 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 
 			// 1 spec per node, each spec is unique to the node due to the oracle factory config
 			report, err := operations.ExecuteOperation(b, ProposeJobSpec, ProposeJobSpecDeps(deps), ProposeJobSpecInput{
-				Domain:    input.Domain,
-				DONName:   input.DONName,
-				Spec:      spec,
-				JobLabels: jobLabels,
+				Domain:      input.Domain,
+				DONName:     input.DONName,
+				Environment: input.Environment,
+				Spec:        spec,
+				JobLabels:   jobLabels,
 				DONFilters: []offchain.TargetDONFilter{
 					{Key: "p2p_id", Value: ni.PeerID.String()},
 				},
@@ -312,7 +314,7 @@ func generateOracleFactory(cldEnv cldf.Environment, nodeInfo deployment.Node, jo
 
 	evmOCRConfig, ok := nodeInfo.OCRConfigForChainSelector(uint64(contractChainSelector))
 	if !ok {
-		return &pkg.OracleFactory{}, fmt.Errorf("no evm ocr2 config for node %s", nodeInfo.NodeID)
+		return &pkg.OracleFactory{}, fmt.Errorf("no evm ocr2 config for node %s for chain selector %d", nodeInfo.NodeID, contractChainSelector)
 	}
 
 	if job.OCRSigningStrategy == "" {

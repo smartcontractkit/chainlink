@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
@@ -135,6 +136,57 @@ func EmitExecutionStartedEvent(
 		multiErr = errors.Join(multiErr, err)
 	}
 	return multiErr
+}
+
+// ExecutionProfileStepInput describes timing for a single capability step invocation.
+type ExecutionProfileStepInput struct {
+	StepID       string
+	StartTime    time.Time
+	EndTime      time.Time // zero means use the execution end time
+	CapabilityID string
+	HasError     bool
+}
+
+func buildExecutionProfile(
+	workflowID, executionID string,
+	startTime, endTime time.Time,
+	status string,
+	steps []ExecutionProfileStepInput,
+) *eventsv2.ExecutionProfile {
+	stepProfiles := make([]*eventsv2.ExecutionProfileStep, 0, len(steps))
+	for _, step := range steps {
+		stepEnd := step.EndTime
+		if stepEnd.IsZero() {
+			stepEnd = endTime
+		}
+		stepProfiles = append(stepProfiles, &eventsv2.ExecutionProfileStep{
+			StepID:       step.StepID,
+			StartTime:    step.StartTime.UTC().Format(time.RFC3339Nano),
+			EndTime:      stepEnd.UTC().Format(time.RFC3339Nano),
+			CapabilityID: step.CapabilityID,
+			HasError:     step.HasError,
+		})
+	}
+
+	return &eventsv2.ExecutionProfile{
+		WorkflowID:          workflowID,
+		WorkflowExecutionID: executionID,
+		StartTime:           startTime.UTC().Format(time.RFC3339Nano),
+		EndTime:             endTime.UTC().Format(time.RFC3339Nano),
+		Status:              status,
+		Steps:               stepProfiles,
+	}
+}
+
+func EmitExecutionProfile(
+	ctx context.Context,
+	workflowID, executionID string,
+	startTime, endTime time.Time,
+	status string,
+	steps []ExecutionProfileStepInput,
+) (*eventsv2.ExecutionProfile, error) {
+	profile := buildExecutionProfile(workflowID, executionID, startTime, endTime, status, steps)
+	return profile, emitProtoMessage(ctx, profile)
 }
 
 func EmitExecutionFinishedEvent(ctx context.Context, labels map[string]string, status string, executionID string, execErr error, lggr logger.Logger) error {
@@ -458,14 +510,29 @@ func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 	case *eventsv2.WorkflowDeleted:
 		schema = SchemaWorkflowDeletedV2
 		entity = "workflows.v2." + WorkflowDeleted
+	case *eventsv2.ExecutionProfile:
+		schema = SchemaWorkflowExecutionProfileV2
+		entity = "workflows.v2." + WorkflowExecutionProfile
 	default:
 		return fmt.Errorf("unknown message type: %T", msg)
 	}
 
-	return beholder.GetEmitter().Emit(ctx, b,
+	return emitRawMessage(ctx, b, schema, entity)
+}
+
+func emitRawMessage(ctx context.Context, body []byte, schema, entity string) error {
+	if err := beholder.GetEmitter().Emit(ctx, body,
 		"beholder_data_schema", schema, // required
 		"beholder_domain", "platform", // required
-		"beholder_entity", entity) // required
+		"beholder_entity", entity); err != nil { // required
+		return err
+	}
+
+	err := durableemitter.GlobalEmit(ctx, body, "source", "platform", "type", entity)
+	if err != nil && !errors.Is(err, durableemitter.ErrNotInitialized) {
+		return err
+	}
+	return nil
 }
 
 // buildWorkflowMetadata populates a WorkflowMetadata from kvs (map[string]string).

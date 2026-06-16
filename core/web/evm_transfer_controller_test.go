@@ -7,21 +7,33 @@ import (
 	"errors"
 	"math/big"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"github.com/manyminds/api2go/jsonapi"
+
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	coremocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
+	webmocks "github.com/smartcontractkit/chainlink/v2/core/web/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -71,6 +83,113 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	assert.Empty(t, errors.Errors)
 
 	validateTxCount(t, app.GetDB(), 1)
+}
+
+func TestTransfersController_CreateSuccess_From_WithRelayer(t *testing.T) {
+	t.Parallel()
+
+	chainA := big.NewInt(1)
+	chainB := big.NewInt(2)
+
+	relayer := webmocks.NewRelayer(t)
+	chain := new(evmmocks.Chain)
+	chain.On("ID").Return(chainA)
+	app := coremocks.NewApplication(t)
+	app.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{
+		EVMChains: cltest.NewLegacyChainsWithChain(chain),
+		Relayers: map[types.RelayID]loop.Relayer{
+			{
+				Network: relay.NetworkEVM,
+				ChainID: chainB.String(),
+			}: relayer,
+		},
+	})
+
+	amount := big.NewInt(1)
+	from := common.HexToAddress("0x123")
+	to := common.HexToAddress("0x456")
+	request := models.SendEtherRequest{
+		DestinationAddress: to,
+		FromAddress:        from,
+		Amount:             (assets.Eth)(*amount),
+		SkipWaitTxAttempt:  true,
+		EVMChainID:         sqlutil.New(chainB),
+	}
+	relayer.EXPECT().Transact(mock.Anything, from.String(), to.String(), amount, true).Return(nil).Once()
+	relayer.EXPECT().GetChainInfo(mock.Anything).Return(types.ChainInfo{ChainID: chainB.String()}, nil).Once()
+
+	cfg := configtest.NewTestGeneralConfig(t)
+	auditLogger, err := audit.NewAuditLogger(logger.TestLogger(t), cfg.AuditLogger())
+	require.NoError(t, err)
+	app.EXPECT().GetAuditLogger().Return(auditLogger).Once()
+
+	gin.SetMode(gin.TestMode)
+	ctrl := &web.EVMTransfersController{App: app}
+
+	r := gin.New()
+	r.POST("/v2/transfers", ctrl.Create)
+
+	b, err := json.Marshal(&request)
+	require.NoError(t, err)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/v2/transfers", bytes.NewBuffer(b))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp presenters.EthTxResource
+	require.NoError(t, jsonapi.Unmarshal(w.Body.Bytes(), &resp))
+	require.Equal(t, presenters.EthTxResource{
+		From:       &from,
+		To:         &to,
+		EVMChainID: *sqlutil.New(chainB),
+		Value:      ((*assets.Eth)(amount)).String(),
+		Data:       []byte{},
+	}, resp)
+}
+
+func TestTransfersController_CreateFail_NoLegacyNoRelayer(t *testing.T) {
+	t.Parallel()
+
+	chainA := big.NewInt(1)
+	chainB := big.NewInt(2)
+	chainC := big.NewInt(3)
+
+	relayer := webmocks.NewRelayer(t)
+	chain := new(evmmocks.Chain)
+	chain.On("ID").Return(chainA)
+	app := coremocks.NewApplication(t)
+	app.On("GetRelayers").Return(&chainlinkmocks.FakeRelayerChainInteroperators{
+		EVMChains: cltest.NewLegacyChainsWithChain(chain),
+		Relayers: map[types.RelayID]loop.Relayer{
+			{
+				Network: relay.NetworkEVM,
+				ChainID: chainB.String(),
+			}: relayer,
+		},
+	})
+
+	request := models.SendEtherRequest{EVMChainID: sqlutil.New(chainC)}
+
+	gin.SetMode(gin.TestMode)
+	ctrl := &web.EVMTransfersController{App: app}
+
+	r := gin.New()
+	r.POST("/v2/transfers", ctrl.Create)
+
+	b, err := json.Marshal(&request)
+	require.NoError(t, err)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/v2/transfers", bytes.NewBuffer(b))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusInternalServerError, w.Code)
+	errors := cltest.ParseJSONAPIErrors(t, w.Body)
+	assert.Len(t, errors.Errors, 1)
+	assert.Contains(t, errors.Errors[0].Detail, "chain id does not match any local chains\nrelayer does not exist")
 }
 
 func TestTransfersController_CreateSuccess_From_WEI(t *testing.T) {

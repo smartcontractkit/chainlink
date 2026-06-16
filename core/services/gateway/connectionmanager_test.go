@@ -4,10 +4,15 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/jonboulle/clockwork"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
@@ -414,6 +419,152 @@ Address = "0x0001020304050607080900010203040506070809"
 
 	err = mgr.Close()
 	require.NoError(t, err)
+}
+
+// newWebSocketPair creates an httptest server with a WebSocket upgrader and dials it.
+// Returns the server-side conn (to pass to FinalizeHandshake) and the client-side conn
+// (simulating the node). The httptest server is closed on test cleanup.
+func newWebSocketPair(t *testing.T) (serverConn, clientConn *websocket.Conn) {
+	t.Helper()
+	upgrader := websocket.Upgrader{}
+	connCh := make(chan *websocket.Conn, 1)
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		connCh <- c
+	}))
+	t.Cleanup(s.Close)
+
+	clientConn, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(s.URL, "http"), nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { clientConn.Close() })
+
+	select {
+	case serverConn = <-connCh:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for WebSocket upgrade")
+	}
+	t.Cleanup(func() { serverConn.Close() })
+	return serverConn, clientConn
+}
+
+// doHandshake performs StartHandshake + FinalizeHandshake with the given conn.
+func doHandshake(t *testing.T, mgr gateway.ConnectionManager, clock clockwork.Clock, node gc.TestNode, conn *websocket.Conn) {
+	t.Helper()
+	authHeaderElems := network.AuthHeaderElems{
+		Timestamp: uint32(clock.Now().Unix()), //nolint:gosec // test clock is always small positive
+		DonId:     "my_don_1",
+		GatewayId: "my_gateway_no_3",
+	}
+	attemptID, challenge, err := mgr.StartHandshake(signAndPackAuthHeader(t, &authHeaderElems, node.PrivateKey))
+	require.NoError(t, err)
+	response, err := gc.SignData(node.PrivateKey, challenge)
+	require.NoError(t, err)
+	require.NoError(t, mgr.FinalizeHandshake(attemptID, response, conn))
+}
+
+func TestConnectionManager_ReadDeadline_ClosesIdleConnection(t *testing.T) {
+	t.Parallel()
+
+	cfg, nodes := newTestConfig(t, 1)
+	cfg.ConnectionManagerConfig.HeartbeatIntervalSec = 1
+	cfg.ConnectionManagerConfig.PongTimeoutSec = 3
+	clock := clockwork.NewRealClock()
+	mgr := newConnectionManager(t, cfg, clock)
+
+	err := mgr.Start(testutils.Context(t))
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, mgr.Close()) })
+
+	serverConn, _ := newWebSocketPair(t)
+	// Client does NOT read from its connection, so pings from the gateway
+	// are never processed and pongs are never sent back.
+
+	doHandshake(t, mgr, clock, nodes[0], serverConn)
+
+	// After PongTimeoutSec (3s) the read deadline fires, readPump closes the conn.
+	// SendToNode should eventually fail because the underlying conn is closed.
+	donMgr := mgr.DONConnectionManager("my_don_1")
+	require.NotNil(t, donMgr)
+
+	// Verify connection works initially.
+	msg := &jsonrpc.Request[json.RawMessage]{ID: "pre-check"}
+	require.NoError(t, donMgr.SendToNode(testutils.Context(t), nodes[0].Address, msg))
+
+	assert.Eventually(t, func() bool {
+		msg := &jsonrpc.Request[json.RawMessage]{ID: "test"}
+		return donMgr.SendToNode(testutils.Context(t), nodes[0].Address, msg) != nil
+	}, 6*time.Second, 200*time.Millisecond, "connection should be closed by read deadline")
+}
+
+func TestConnectionManager_ReadDeadline_ConnectionAliveWithPongs(t *testing.T) {
+	t.Parallel()
+
+	cfg, nodes := newTestConfig(t, 1)
+	cfg.ConnectionManagerConfig.HeartbeatIntervalSec = 1
+	cfg.ConnectionManagerConfig.PongTimeoutSec = 3
+	clock := clockwork.NewRealClock()
+	mgr := newConnectionManager(t, cfg, clock)
+
+	err := mgr.Start(testutils.Context(t))
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, mgr.Close()) })
+
+	serverConn, clientConn := newWebSocketPair(t)
+
+	// Client reads in a loop - gorilla/websocket's default ping handler
+	// automatically responds with pongs, which resets the server's read deadline.
+	go func() {
+		for {
+			_, _, err := clientConn.ReadMessage()
+			if err != nil {
+				return // connection closed
+			}
+		}
+	}()
+
+	doHandshake(t, mgr, clock, nodes[0], serverConn)
+
+	// Assert the connection never dies during a period longer than PongTimeoutSec.
+	// With HeartbeatIntervalSec=1, pongs arrive every ~1s resetting the 3s deadline.
+	donMgr := mgr.DONConnectionManager("my_don_1")
+	require.NotNil(t, donMgr)
+
+	assert.Never(t, func() bool {
+		msg := &jsonrpc.Request[json.RawMessage]{ID: "alive-check"}
+		return donMgr.SendToNode(testutils.Context(t), nodes[0].Address, msg) != nil
+	}, 5*time.Second, 500*time.Millisecond, "connection should stay alive when pongs are received")
+}
+
+func TestConnectionManager_ReadDeadline_DisabledWhenZero(t *testing.T) {
+	t.Parallel()
+
+	cfg, nodes := newTestConfig(t, 1)
+	cfg.ConnectionManagerConfig.HeartbeatIntervalSec = 1
+	// PongTimeoutSec = 0 (default) - deadline enforcement disabled
+	clock := clockwork.NewRealClock()
+	mgr := newConnectionManager(t, cfg, clock)
+
+	err := mgr.Start(testutils.Context(t))
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, mgr.Close()) })
+
+	serverConn, _ := newWebSocketPair(t)
+	// Client does NOT read - no pongs sent back.
+
+	doHandshake(t, mgr, clock, nodes[0], serverConn)
+
+	// Even without pongs, the connection should remain alive because
+	// PongTimeoutSec=0 means no read deadline is set.
+	donMgr := mgr.DONConnectionManager("my_don_1")
+	require.NotNil(t, donMgr)
+
+	assert.Never(t, func() bool {
+		msg := &jsonrpc.Request[json.RawMessage]{ID: "test"}
+		return donMgr.SendToNode(testutils.Context(t), nodes[0].Address, msg) != nil
+	}, 4*time.Second, 500*time.Millisecond, "connection should stay alive when deadline enforcement is disabled")
 }
 
 func newConnectionManager(t *testing.T, gwConfig *config.GatewayConfig, clock clockwork.Clock) gateway.ConnectionManager {

@@ -11,10 +11,9 @@ import (
 
 	signer_registry "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry_solana"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	cs_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
@@ -29,7 +28,7 @@ func executeOrBuildMCMSProposal(
 	instructions []solana.Instruction,
 	programID string,
 	contractType cldf.ContractType,
-	mcmsConfig *proposalutils.TimelockConfig,
+	mcmsConfig *cldfproposalutils.TimelockConfig,
 	proposalDescription string,
 ) (cldf.ChangesetOutput, error) {
 	if mcmsConfig == nil {
@@ -79,7 +78,7 @@ type RotateBaseSignerNopsConfig struct {
 	NopKeysToAdd    []string
 	NopKeysToRemove []string
 	// if set, assumes current upgrade authority is the timelock
-	MCMS *proposalutils.TimelockConfig
+	MCMS *cldfproposalutils.TimelockConfig
 }
 
 type AddGreenKeysConfig struct {
@@ -87,7 +86,7 @@ type AddGreenKeysConfig struct {
 	// Pairs of blue key (existing on the account) and new green key for that NOP
 	BlueGreenKeys [][2]string
 	// if set, assumes current upgrade authority is the timelock
-	MCMS *proposalutils.TimelockConfig
+	MCMS *cldfproposalutils.TimelockConfig
 }
 
 type PromoteKeysConfig struct {
@@ -95,14 +94,14 @@ type PromoteKeysConfig struct {
 	// Keys to promote (nops can be identified by blue or green indistinctly)
 	KeysToPromote []string
 	// if set, assumes current upgrade authority is the timelock
-	MCMS *proposalutils.TimelockConfig
+	MCMS *cldfproposalutils.TimelockConfig
 }
 
 type SetUpgradeAuthorityConfig struct {
 	ChainSelector       uint64
 	NewUpgradeAuthority solana.PublicKey
 	// if set, assumes current upgrade authority is the timelock
-	MCMS *proposalutils.TimelockConfig
+	MCMS *cldfproposalutils.TimelockConfig
 }
 
 func RotateBaseSignerNopsChangeset(e cldf.Environment, c RotateBaseSignerNopsConfig) (cldf.ChangesetOutput, error) {

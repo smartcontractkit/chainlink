@@ -10,12 +10,12 @@ import (
 	chainSel "github.com/smartcontractkit/chain-selectors"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
-	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
 
@@ -131,7 +131,7 @@ func validateTimelockBalance(e cldf.Environment, chainSelector uint64, requiredA
 	return nil
 }
 
-func validateMCMSConfig(e cldf.Environment, mcmsConfig *proposalutils.TimelockConfig, transfersByChain map[uint64][]types.NativeTransfer) error {
+func validateMCMSConfig(e cldf.Environment, mcmsConfig *cldfproposalutils.TimelockConfig, transfersByChain map[uint64][]types.NativeTransfer) error {
 	if mcmsConfig != nil {
 		if mcmsConfig.MinDelay < 0 {
 			return fmt.Errorf("MCMS minimum delay cannot be negative: %d", mcmsConfig.MinDelay)
@@ -139,7 +139,7 @@ func validateMCMSConfig(e cldf.Environment, mcmsConfig *proposalutils.TimelockCo
 	}
 	const emptyQualifier = ""
 	for chainSelector := range transfersByChain {
-		addresses, err := evmstate.LoadAddressesFromDataStore(e.DataStore, chainSelector, emptyQualifier)
+		addresses, err := evmstate.GetAddressTypeVersionByQualifier(e.DataStore.Addresses(), chainSelector, emptyQualifier)
 		if err != nil {
 			return fmt.Errorf("failed to get addresses from datastore for chain %d: %w", chainSelector, err)
 		}
@@ -154,8 +154,13 @@ func validateMCMSConfig(e cldf.Environment, mcmsConfig *proposalutils.TimelockCo
 			return fmt.Errorf("proposer not found for chain %d: %w", chainSelector, err)
 		}
 
+		_, err = GetContractAddress(e.DataStore, chainSelector, commontypes.BypasserManyChainMultisig)
+		if err != nil {
+			return fmt.Errorf("bypasser not found for chain %d: %w", chainSelector, err)
+		}
+
 		chain := e.BlockChains.EVMChains()[chainSelector]
-		_, err = changeset.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
+		_, err = evmstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 		if err != nil {
 			return fmt.Errorf("failed to load MCMS state for chain %d: %w", chainSelector, err)
 		}
@@ -217,6 +222,271 @@ func ValidateSetWhitelistConfig(e cldf.Environment, cfg types.SetWhitelistConfig
 				return fmt.Errorf("chain %d: duplicate address %s", chainSelector, addr.Address)
 			}
 			addressSet[addr.Address] = true
+		}
+	}
+
+	return nil
+}
+
+func validateERC20Transfers(e cldf.Environment, chainSelector uint64, transfers []types.ERC20Transfer) error {
+	whitelistedAddresses, err := GetWhitelistedAddresses(e, []uint64{chainSelector})
+	if err != nil {
+		return fmt.Errorf("failed to get whitelisted addresses for chain %d: %w", chainSelector, err)
+	}
+
+	whitelist := make(map[string]bool)
+	for _, entry := range whitelistedAddresses[chainSelector] {
+		whitelist[common.HexToAddress(entry.Address).Hex()] = true
+	}
+
+	for i, tr := range transfers {
+		if tr.Payee == "" || tr.Payee == "0x0000000000000000000000000000000000000000" {
+			return fmt.Errorf("transfer %d: payee cannot be zero address", i)
+		}
+		if tr.Token == "" || tr.Token == "0x0000000000000000000000000000000000000000" {
+			return fmt.Errorf("transfer %d: token address cannot be zero", i)
+		}
+		if tr.Amount == nil || tr.Amount.Cmp(big.NewInt(0)) <= 0 {
+			return fmt.Errorf("transfer %d: amount must be positive", i)
+		}
+
+		payeeAddress := common.HexToAddress(tr.Payee)
+		if !whitelist[payeeAddress.Hex()] {
+			return fmt.Errorf("transfer %d: payee %s is not whitelisted for chain %d", i, payeeAddress.Hex(), chainSelector)
+		}
+	}
+	return nil
+}
+
+func validateEthAddress(field, raw string) error {
+	if raw == "" {
+		return fmt.Errorf("%s must not be empty", field)
+	}
+	if !common.IsHexAddress(raw) {
+		return fmt.Errorf("%s is not a valid hex address: %s", field, raw)
+	}
+	return nil
+}
+
+func ValidateDeployEthBalMonConfig(ctx context.Context, env cldf.Environment, cfg types.DeployEthBalMonInput) error {
+	if len(cfg.Chains) == 0 {
+		return errors.New("chains must not be empty")
+	}
+
+	if cfg.MCMSConfig != nil && cfg.MCMSConfig.MinDelay < 0 {
+		return fmt.Errorf("MCMS minimum delay cannot be negative: %d", cfg.MCMSConfig.MinDelay)
+	}
+
+	for chainSelector, chainCfg := range cfg.Chains {
+		if err := validateChainSelector(chainSelector, env); err != nil {
+			return fmt.Errorf("chain %d: %w", chainSelector, err)
+		}
+		if err := validateEthAddress("setKeeperRegistryAddress", chainCfg.SetKeeperRegistryAddress); err != nil {
+			return fmt.Errorf("chain %d: %w", chainSelector, err)
+		}
+		if common.HexToAddress(chainCfg.SetKeeperRegistryAddress) == (common.Address{}) {
+			return fmt.Errorf("chain %d: setKeeperRegistryAddress cannot be zero address", chainSelector)
+		}
+		if err := validateDeployEthBalMonMCMSInDatastore(env, chainSelector, cfg.MCMSConfig); err != nil {
+			return fmt.Errorf("chain %d: %w", chainSelector, err)
+		}
+	}
+
+	return nil
+}
+
+// validateDeployEthBalMonMCMSInDatastore ensures RBACTimelock, the MCM used for the post-deploy
+// accept-ownership proposal (bypasser vs proposer per cfg.MCMSConfig), and loadable MCMS state
+// exist in the datastore — matching DeployEthBalMonSequence and BuildAcceptOwnershipTimelockProposal.
+func validateDeployEthBalMonMCMSInDatastore(e cldf.Environment, chainSelector uint64, mcmsCfg *cldfproposalutils.TimelockConfig) error {
+	const emptyQualifier = ""
+	addresses, err := evmstate.GetAddressTypeVersionByQualifier(e.DataStore.Addresses(), chainSelector, emptyQualifier)
+	if err != nil {
+		return fmt.Errorf("failed to get addresses from datastore: %w", err)
+	}
+
+	_, err = GetContractAddress(e.DataStore, chainSelector, commontypes.RBACTimelock)
+	if err != nil {
+		return fmt.Errorf("timelock not found in datastore: %w", err)
+	}
+
+	mcmType := ethBalMonMCMSContractTypeForAction(deployEthBalMonAcceptOwnershipMCMSAction(mcmsCfg))
+	_, err = GetContractAddress(e.DataStore, chainSelector, mcmType)
+	if err != nil {
+		return fmt.Errorf("MCMS (%s) not found in datastore: %w", mcmType, err)
+	}
+
+	chain := e.BlockChains.EVMChains()[chainSelector]
+	_, err = evmstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
+	if err != nil {
+		return fmt.Errorf("failed to load MCMS with timelock state: %w", err)
+	}
+	return nil
+}
+
+func ValidateSetKeeperRegistryAddressConfig(ctx context.Context, env cldf.Environment, cfg types.EthBalMonSetKeeperRegistryAddressInput) error {
+	if len(cfg.Chains) == 0 {
+		return errors.New("no chains provided")
+	}
+
+	for chainSelector, chainConfig := range cfg.Chains {
+		if _, ok := env.BlockChains.EVMChains()[chainSelector]; !ok {
+			return fmt.Errorf("chain not found in environment: %d", chainSelector)
+		}
+
+		if err := validateEthAddress("new_keeper_registry_address", chainConfig.NewKeeperRegistryAddress); err != nil {
+			return fmt.Errorf("chain %d: %w", chainSelector, err)
+		}
+		if common.HexToAddress(chainConfig.NewKeeperRegistryAddress) == (common.Address{}) {
+			return fmt.Errorf("chain %d: keeper registry address cannot be zero address", chainSelector)
+		}
+	}
+
+	return nil
+}
+
+func ValidateTransferERC20Config(ctx context.Context, e cldf.Environment, cfg types.TransferERC20Config) error {
+	if len(cfg.TransfersByChain) == 0 {
+		return errors.New("transfers_by_chain must not be empty")
+	}
+	if cfg.MCMSConfig == nil {
+		return errors.New("MCMSConfig is required for transfer_erc20")
+	}
+
+	// "" is the current default qualifier for the timelock
+	for chainSelector, transfers := range cfg.TransfersByChain {
+		qualifier := cfg.MCMSConfig.TimelockQualifierPerChain[chainSelector]
+		if err := validateChainSelector(chainSelector, e); err != nil {
+			return fmt.Errorf("invalid chain selector %d: %w", chainSelector, err)
+		}
+
+		if len(transfers) == 0 {
+			return fmt.Errorf("chain %d has no transfers", chainSelector)
+		}
+
+		if err := validateERC20Transfers(e, chainSelector, transfers); err != nil {
+			return fmt.Errorf("validation failed for chain %d: %w", chainSelector, err)
+		}
+
+		if _, err := GetContractAddressWithQualifier(e.DataStore, chainSelector, commontypes.RBACTimelock, qualifier); err != nil {
+			return fmt.Errorf("timelock not found for chain %d: %w", chainSelector, err)
+		}
+		if _, err := GetContractAddressWithQualifier(e.DataStore, chainSelector, commontypes.ProposerManyChainMultisig, qualifier); err != nil {
+			return fmt.Errorf("proposer not found for chain %d: %w", chainSelector, err)
+		}
+	}
+
+	if err := validateERC20MCMSConfig(e, cfg.MCMSConfig, cfg.TransfersByChain, cfg.MCMSConfig.TimelockQualifierPerChain); err != nil {
+		return fmt.Errorf("MCMS configuration validation failed: %w", err)
+	}
+	return nil
+}
+
+func ValidateEthBalMonWithdrawConfig(ctx context.Context, env cldf.Environment, cfg types.EthBalMonWithdrawInput) error {
+	if len(cfg.Chains) == 0 {
+		return errors.New("no chains provided")
+	}
+
+	for chainSelector, chainConfig := range cfg.Chains {
+		if _, ok := env.BlockChains.EVMChains()[chainSelector]; !ok {
+			return fmt.Errorf("chain not found in environment: %d", chainSelector)
+		}
+		if chainConfig.Amount == nil || chainConfig.Amount.Cmp(big.NewInt(0)) <= 0 {
+			return fmt.Errorf("chain %d: amount to withdraw must be positive", chainSelector)
+		}
+
+		if err := validateEthAddress("payee", chainConfig.Payee); err != nil {
+			return fmt.Errorf("chain %d: %w", chainSelector, err)
+		}
+		if common.HexToAddress(chainConfig.Payee) == (common.Address{}) {
+			return fmt.Errorf("chain %d: payee address cannot be zero address", chainSelector)
+		}
+	}
+
+	return nil
+}
+
+func validateERC20MCMSConfig(e cldf.Environment, mcmsConfig *cldfproposalutils.TimelockConfig, transfersByChain map[uint64][]types.ERC20Transfer, qualifierMap map[uint64]string) error {
+	if mcmsConfig.MinDelay < 0 {
+		return fmt.Errorf("MCMS minimum delay cannot be negative: %d", mcmsConfig.MinDelay)
+	}
+
+	for chainSelector := range transfersByChain {
+		addresses, err := evmstate.GetAddressTypeVersionByQualifier(e.DataStore.Addresses(), chainSelector, qualifierMap[chainSelector])
+		if err != nil {
+			return fmt.Errorf("failed to get addresses from datastore for chain %d: %w", chainSelector, err)
+		}
+
+		if _, err := GetContractAddressWithQualifier(e.DataStore, chainSelector, commontypes.RBACTimelock, qualifierMap[chainSelector]); err != nil {
+			return fmt.Errorf("timelock not found for chain %d: %w", chainSelector, err)
+		}
+
+		if _, err := GetContractAddressWithQualifier(e.DataStore, chainSelector, commontypes.ProposerManyChainMultisig, qualifierMap[chainSelector]); err != nil {
+			return fmt.Errorf("proposer not found for chain %d: %w", chainSelector, err)
+		}
+
+		chain := e.BlockChains.EVMChains()[chainSelector]
+		_, err = evmstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
+		if err != nil {
+			return fmt.Errorf("failed to load MCMS state for chain %d: %w", chainSelector, err)
+		}
+	}
+	return nil
+}
+
+func ValidateEthBalMonTransferOwnershipConfig(ctx context.Context, env cldf.Environment, cfg types.EthBalMonTransferOwnershipInput) error {
+	if len(cfg.Chains) == 0 {
+		return errors.New("no chains provided")
+	}
+
+	for chainSelector, chainConfig := range cfg.Chains {
+		if _, ok := env.BlockChains.EVMChains()[chainSelector]; !ok {
+			return fmt.Errorf("chain not found in environment: %d", chainSelector)
+		}
+		if err := validateEthAddress("newOwner", chainConfig.NewOwner); err != nil {
+			return fmt.Errorf("chain %d: %w", chainSelector, err)
+		}
+		if common.HexToAddress(chainConfig.NewOwner) == (common.Address{}) {
+			return fmt.Errorf("chain %d: newOwner address cannot be zero address", chainSelector)
+		}
+	}
+
+	return nil
+}
+
+func ValidateEthBalMonSetWatchListConfig(ctx context.Context, env cldf.Environment, cfg types.EthBalMonSetWatchListInput) error {
+	if len(cfg.Chains) == 0 {
+		return errors.New("no chains provided")
+	}
+
+	for chainSelector, chainConfig := range cfg.Chains {
+		if _, ok := env.BlockChains.EVMChains()[chainSelector]; !ok {
+			return fmt.Errorf("chain not found in environment: %d", chainSelector)
+		}
+		n := len(chainConfig.Addresses)
+		if n == 0 {
+			return fmt.Errorf("chain %d: addresses must not be empty", chainSelector)
+		}
+		if len(chainConfig.MinBalancesWei) != n || len(chainConfig.TopUpAmountsWei) != n {
+			return fmt.Errorf(
+				"chain %d: addresses, min_balance_wei, and topup_amounts_wei must have the same length (got %d, %d, %d)",
+				chainSelector, n, len(chainConfig.MinBalancesWei), len(chainConfig.TopUpAmountsWei),
+			)
+		}
+		for i, addr := range chainConfig.Addresses {
+			if err := validateEthAddress(fmt.Sprintf("address %d", i), addr.Hex()); err != nil {
+				return fmt.Errorf("chain %d: %w", chainSelector, err)
+			}
+			if addr == (common.Address{}) {
+				return fmt.Errorf("chain %d: address at index %d is zero address", chainSelector, i)
+			}
+			// Check MinBalancesWei and TopUpAmountsWei are >= 0
+			if chainConfig.MinBalancesWei[i].Cmp(big.NewInt(0)) < 0 {
+				return fmt.Errorf("chain %d: min_balance_wei at index %d must be >= 0", chainSelector, i)
+			}
+			if chainConfig.TopUpAmountsWei[i].Cmp(big.NewInt(0)) < 0 {
+				return fmt.Errorf("chain %d: topup_amounts_wei at index %d must be >= 0", chainSelector, i)
+			}
 		}
 	}
 

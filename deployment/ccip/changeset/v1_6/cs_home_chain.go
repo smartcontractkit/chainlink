@@ -24,6 +24,9 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+	"github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -31,9 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
-
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -165,6 +165,14 @@ func deployCapReg(
 		lggr.Errorw("Failed to deploy capreg", "chain", chain.String(), "err", err)
 		return nil, err
 	}
+	ctx := chain.DeployerKey.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := shared.WaitForContractCode(ctx, chain.Client, capReg.Address); err != nil {
+		lggr.Errorw("CapabilitiesRegistry code not available after deploy", "chain", chain.String(), "addr", capReg.Address, "err", err)
+		return nil, err
+	}
 	return capReg, nil
 }
 
@@ -190,6 +198,10 @@ func deployHomeChain(
 	}
 
 	lggr.Infow("deployed/connected to capreg", "addr", capReg.Address)
+	ctx := e.GetContext()
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	var ccipHomeAddr common.Address
 	if state.Chains[chain.Selector].CCIPHome != nil {
 		lggr.Infow("CCIPHome already deployed", "addr", state.Chains[chain.Selector].CCIPHome.Address().String())
@@ -209,6 +221,10 @@ func deployHomeChain(
 			})
 		if err != nil {
 			lggr.Errorw("Failed to deploy CCIPHome", "chain", chain.String(), "err", err)
+			return nil, err
+		}
+		if err := shared.WaitForContractCode(ctx, chain.Client, ccipHome.Address); err != nil {
+			lggr.Errorw("CCIPHome code not available after deploy", "chain", chain.String(), "addr", ccipHome.Address, "err", err)
 			return nil, err
 		}
 		ccipHomeAddr = ccipHome.Address
@@ -234,6 +250,10 @@ func deployHomeChain(
 			return nil, err
 		}
 		rmnHome = rmnHomeContract.Contract
+		if err := shared.WaitForContractCode(ctx, chain.Client, rmnHomeContract.Address); err != nil {
+			lggr.Errorw("RMNHome code not available after deploy", "chain", chain.String(), "addr", rmnHomeContract.Address, "err", err)
+			return nil, err
+		}
 	}
 
 	// considering the RMNHome is recently deployed, there is no digest to overwrite
@@ -492,7 +512,7 @@ func addNodes(
 type RemoveDONsConfig struct {
 	HomeChainSel uint64
 	DonIDs       []uint32
-	MCMS         *proposalutils.TimelockConfig
+	MCMS         *cldfproposalutils.TimelockConfig
 }
 
 func (c RemoveDONsConfig) Validate(homeChain evm.CCIPChainState) error {
@@ -561,7 +581,7 @@ func RemoveDONs(e cldf.Environment, cfg RemoveDONsConfig) (cldf.ChangesetOutput,
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
 		mcmsContractsByActionPerChain,
@@ -581,7 +601,7 @@ func RemoveDONs(e cldf.Environment, cfg RemoveDONsConfig) (cldf.ChangesetOutput,
 type RemoveNodesConfig struct {
 	HomeChainSel   uint64
 	P2PIDsToRemove [][32]byte
-	MCMSCfg        *proposalutils.TimelockConfig
+	MCMSCfg        *cldfproposalutils.TimelockConfig
 }
 
 func removeNodesPrecondition(env cldf.Environment, c RemoveNodesConfig) error {
@@ -608,7 +628,7 @@ func removeNodesPrecondition(env cldf.Environment, c RemoveNodesConfig) error {
 	if state.Chains[c.HomeChainSel].Timelock == nil {
 		return fmt.Errorf("timelock does not exist for home chain %d", c.HomeChainSel)
 	}
-	err = commoncs.ValidateOwnership(env.GetContext(), c.MCMSCfg != nil,
+	err = mcmschangesets.ValidateOwnership(env.GetContext(), c.MCMSCfg != nil,
 		env.BlockChains.EVMChains()[c.HomeChainSel].DeployerKey.From, state.Chains[c.HomeChainSel].Timelock.Address(),
 		state.Chains[c.HomeChainSel].CapabilityRegistry)
 	if err != nil {
@@ -703,7 +723,7 @@ func removeNodesLogic(env cldf.Environment, c RemoveNodesConfig) (cldf.Changeset
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", homeChain.String(), err)
 	}
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		env,
 		timelocks,
 		mcmContract,
@@ -743,7 +763,7 @@ type AddOrUpdateNopsConfig struct {
 	homeChainSel uint64
 	ExistingNops []capabilities_registry.CapabilitiesRegistryNodeOperator          // existing node operators, will be empty in case of adding new node operators
 	NopUpdates   map[string]capabilities_registry.CapabilitiesRegistryNodeOperator // node operators to add or update, key nop name, will be empty in case of removing node operators
-	MCMSConfig   *proposalutils.TimelockConfig
+	MCMSConfig   *cldfproposalutils.TimelockConfig
 }
 
 func addUpdateOrRemoveNopsPrecondition(env cldf.Environment, c AddOrUpdateNopsConfig) error {
@@ -762,7 +782,7 @@ func addUpdateOrRemoveNopsPrecondition(env cldf.Environment, c AddOrUpdateNopsCo
 	if state.Chains[c.homeChainSel].Timelock == nil {
 		return fmt.Errorf("timelock does not exist for home chain %d", c.homeChainSel)
 	}
-	err = commoncs.ValidateOwnership(env.GetContext(), c.MCMSConfig != nil,
+	err = mcmschangesets.ValidateOwnership(env.GetContext(), c.MCMSConfig != nil,
 		env.BlockChains.EVMChains()[c.homeChainSel].DeployerKey.From, state.Chains[c.homeChainSel].Timelock.Address(),
 		state.Chains[c.homeChainSel].CapabilityRegistry)
 	if err != nil {

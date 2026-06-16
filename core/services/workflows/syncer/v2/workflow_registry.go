@@ -106,6 +106,7 @@ type workflowRegistry struct {
 	maxRetryInterval time.Duration
 	maxConcurrency   int
 	clock            clockwork.Clock
+	syncTickInterval time.Duration
 
 	hooks Hooks
 
@@ -151,6 +152,16 @@ func WithRetryInterval(retryInterval time.Duration) func(*workflowRegistry) {
 	}
 }
 
+// WithSyncTickInterval overrides the default 12s reconciliation/init polling interval.
+// Intended for tests where waiting 12s per cycle is unacceptable.
+func WithSyncTickInterval(d time.Duration) func(*workflowRegistry) {
+	return func(wr *workflowRegistry) {
+		if d > 0 {
+			wr.syncTickInterval = d
+		}
+	}
+}
+
 func WithMaxConcurrency(maxConcurrency int) func(*workflowRegistry) {
 	return func(wr *workflowRegistry) {
 		if maxConcurrency > 0 {
@@ -180,9 +191,9 @@ func WithAdditionalSources(sources []AdditionalSourceConfig) Option {
 
 		for _, src := range sources {
 			// Detect source type by URL scheme
-			if strings.HasPrefix(src.URL, "file://") {
+			if after, ok := strings.CutPrefix(src.URL, "file://"); ok {
 				// File source - extract path from file:// URL
-				filePath := strings.TrimPrefix(src.URL, "file://")
+				filePath := after
 				fileSource, err := NewFileWorkflowSourceWithPath(wr.lggr, src.Name, filePath)
 				if err != nil {
 					wr.lggr.Errorw("Failed to create file workflow source",
@@ -313,6 +324,7 @@ func NewWorkflowRegistry(
 		maxRetryInterval:                 defaultMaxRetryInterval,
 		maxConcurrency:                   defaultMaxConcurrency,
 		clock:                            clockwork.NewRealClock(),
+		syncTickInterval:                 defaultTickInterval,
 		hooks: Hooks{
 			OnStartFailure: func(_ error) {},
 		},
@@ -343,13 +355,11 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 		ctx, cancel := w.stopCh.NewCtx()
 		initDoneCh := make(chan struct{})
 
-		w.wg.Add(1)
-		go func() {
-			defer w.wg.Done()
+		w.wg.Go(func() {
 			defer w.lggr.Debugw("Successfully set ContractReader")
 			defer close(initDoneCh)
 
-			ticker := w.getTicker(defaultTickInterval)
+			ticker := w.getTicker(w.syncTickInterval)
 			for w.contractReader == nil {
 				select {
 				case <-ctx.Done():
@@ -367,11 +377,9 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 					w.contractReader = reader
 				}
 			}
-		}()
+		})
 
-		w.wg.Add(1)
-		go func() {
-			defer w.wg.Done()
+		w.wg.Go(func() {
 			defer cancel()
 			// Start goroutines to gather changes from Workflow Registry contract
 			select {
@@ -386,11 +394,9 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 				return
 			}
 			w.syncUsingReconciliationStrategy(ctx)
-		}()
+		})
 
-		w.wg.Add(1)
-		go func() {
-			defer w.wg.Done()
+		w.wg.Go(func() {
 			defer cancel()
 			// Start goroutines to gather allowlisted requests from Workflow Registry contract
 			select {
@@ -399,7 +405,7 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 				return
 			}
 			w.syncAllowlistedRequests(ctx)
-		}()
+		})
 
 		return w.handler.Start(ctx)
 	})
@@ -730,7 +736,7 @@ func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, workflows
 // NOTE: In this mode paused states will be treated as a deleted workflow. Workflows will not be registered as paused.
 // This function processes each source independently to ensure that failure in one source doesn't affect workflows from other sources.
 func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) {
-	ticker := w.getTicker(defaultTickInterval)
+	ticker := w.getTicker(w.syncTickInterval)
 	pendingEventsBySource := make(map[string]map[string]*reconciliationEvent)
 	w.lggr.Debug("running readRegistryStateLoop")
 	for {
@@ -917,6 +923,9 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 // is nil, then a default ticker is returned.
 func (w *workflowRegistry) getTicker(d time.Duration) <-chan time.Time {
 	if w.ticker == nil {
+		if d <= 0 {
+			d = defaultTickInterval
+		}
 		return time.NewTicker(d).C
 	}
 
@@ -1068,7 +1077,7 @@ func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractR
 			ctx, readIdentifier, primitives.Unconfirmed, params, &response,
 		)
 		if err != nil {
-			return []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}, w.lastSeenAllowlistedRequestsCount, &types.Head{Height: "0"}, errors.New("failed to get lastest value with head data. error: " + err.Error())
+			return []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}, w.lastSeenAllowlistedRequestsCount, &types.Head{Height: "0"}, errors.New("failed to get latest value with head data. error: " + err.Error())
 		}
 
 		w.lggr.Debugw("contract call response",

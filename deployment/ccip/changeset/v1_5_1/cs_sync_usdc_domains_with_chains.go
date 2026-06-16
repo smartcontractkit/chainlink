@@ -11,11 +11,12 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 var _ cldf.ChangeSet[SyncUSDCDomainsWithChainsConfig] = SyncUSDCDomainsWithChainsChangeset
@@ -27,7 +28,7 @@ type SyncUSDCDomainsWithChainsConfig struct {
 	// ChainSelectorToUSDCDomain maps chains selectors to their USDC domain identifiers.
 	ChainSelectorToUSDCDomain map[uint64]uint32
 	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
-	MCMS *proposalutils.TimelockConfig
+	MCMS *cldfproposalutils.TimelockConfig
 }
 
 func (c SyncUSDCDomainsWithChainsConfig) Validate(env cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -69,7 +70,7 @@ func (c SyncUSDCDomainsWithChainsConfig) Validate(env cldf.Environment, state st
 			return fmt.Errorf("expected USDC token pool address on %s (%s) to be less than 32 bytes", chain, usdcTokenPool.Address())
 		}
 		// Validate that the USDC token pool is owned by the address that will be actioning the transactions (i.e. Timelock or deployer key)
-		if err := commoncs.ValidateOwnership(ctx, c.MCMS != nil, chain.DeployerKey.From, chainState.Timelock.Address(), usdcTokenPool); err != nil {
+		if err := mcmschangesets.ValidateOwnership(ctx, c.MCMS != nil, chain.DeployerKey.From, chainState.Timelock.Address(), usdcTokenPool); err != nil {
 			return fmt.Errorf("token pool with address %s on %s failed ownership validation: %w", usdcTokenPool.Address(), chain, err)
 		}
 		// Validate that each supported chain has a domain ID defined

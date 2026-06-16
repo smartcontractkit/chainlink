@@ -228,7 +228,8 @@ func buildCommandTree() *CompletionNode {
 			{Text: "setup", Description: "Setup the CRE environment prerequisites"},
 			{Text: "build-caps", Description: "Build capabilities binaries"},
 			{Text: "workflow", Description: "Workflow management commands"},
-			{Text: "beholder", Description: "Beholder stack management commands"},
+			{Text: "chip-ingress-stack", Description: "Chip Ingress stack management commands (Red Panda + ChIP ingress)"},
+			{Text: "beholder", Description: "Deprecated: use chip-ingress-stack"},
 			{Text: "swap", Description: "Swap capabilities or nodes in running environment"},
 			{Text: "state", Description: "Manage and view environment state"},
 			{Text: "billing", Description: "Billing Platform Service management commands"},
@@ -244,12 +245,11 @@ func buildCommandTree() *CompletionNode {
 			{Text: "--extra-allowed-gateway-ports", Description: "Extra allowed ports for outgoing connections from the Gateway Connector (e.g. 8080,8081)"},
 			{Text: "--with-example", Description: "Deploys and registers example workflow (default: false)"},
 			{Text: "--example-workflow-timeout", Description: "Time to wait until example workflow succeeds (e.g. 10s, 1m, 1h) (default: 5m)"},
-			{Text: "--with-beholder", Description: "Deploys Beholder (Chip Ingress + Red Panda) (default: false)"},
+			{Text: "--with-chip-ingress-stack", Description: "Deploy Chip Ingress stack (Chip Ingress + Red Panda) (default: false)"},
+			{Text: "--with-beholder", Description: "Deprecated: use --with-chip-ingress-stack (default: false)"},
 			{Text: "--with-dashboards", Description: "Deploys Observability Stack and Grafana Dashboards (default: false)"},
 			{Text: "--with-billing", Description: "Deploys Billing Platform Service (default: false)"},
-			{Text: "--with-proto-configs", Description: "Paths to protobuf config files for Beholder, comma separated (default: ./proto-configs/default.toml)"},
 			{Text: "--auto-setup", Description: "Runs setup before starting the environment (default: false)"},
-			{Text: "--with-contracts-version", Description: "Version of workflow and capabilities registry contracts to use (v1 or v2) (default: v2)"},
 			{Text: "--setup-config", Description: "Path to the TOML configuration file for the setup command"},
 		},
 	}
@@ -257,7 +257,7 @@ func buildCommandTree() *CompletionNode {
 	// ENV STOP - flags
 	envStopNode := &CompletionNode{
 		Flags: []prompt.Suggest{
-			{Text: "--all", Description: "Remove also all extra services (beholder, billing, observability) (default: false)"},
+			{Text: "--all", Description: "Remove also all extra services (chip ingress stack, billing, observability) (default: false)"},
 		},
 	}
 
@@ -296,7 +296,7 @@ func buildCommandTree() *CompletionNode {
 	// ENV WORKFLOW - workflow management
 	workflowNode := &CompletionNode{
 		Suggestions: []prompt.Suggest{
-			{Text: "run-por-example", Description: "Deploy and verify the PoR v2 cron example workflow"},
+			{Text: "run-por-example", Description: "Deploy and verify the PoR cron example workflow"},
 			{Text: "delete", Description: "Delete a specific workflow"},
 			{Text: "delete-all", Description: "Delete all workflows"},
 			{Text: "compile", Description: "Compile a workflow specification"},
@@ -329,7 +329,6 @@ func buildCommandTree() *CompletionNode {
 			{Text: "--name", Description: "⚠️  Workflow name (required)"},
 			{Text: "--delete-workflow-file", Description: "Deletes the workflow file after deployment (default: false)"},
 			{Text: "--compile", Description: "Compiles the workflow before deploying it (default: false)"},
-			{Text: "--with-contracts-version", Description: "Version of workflow and capabilities registry contracts to use (v1 or v2) (default: v2)"},
 		},
 	}
 
@@ -339,46 +338,57 @@ func buildCommandTree() *CompletionNode {
 			{Text: "--owner-address", Description: "Workflow owner address (default: 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266)"},
 			{Text: "--workflow-registry-address", Description: "Workflow registry address (default: 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512)"},
 			{Text: "--name", Description: "⚠️  Workflow name (required)"},
-			{Text: "--with-contracts-version", Description: "Version of workflow and capabilities registry contracts to use (v1 or v2) (default: v2)"},
 		},
 	}
 
 	envNode.Children["workflow"] = workflowNode
 
-	// ENV BEHOLDER - beholder management
-	beholderNode := &CompletionNode{
-		Suggestions: []prompt.Suggest{
-			{Text: "start", Description: "Start the Beholder stack"},
-			{Text: "stop", Description: "Stop the Beholder stack"},
-			{Text: "create-kafka-topics", Description: "Create Kafka topics for Beholder"},
-			{Text: "fetch-and-register-protos", Description: "Fetch and register protobuf definitions"},
-		},
-		Children: make(map[string]*CompletionNode),
+	// ENV CHIP-INGRESS-STACK (and deprecated beholder alias) — same subcommand tree
+	chipIngressStackCompletionNode := func(deprecated bool) *CompletionNode {
+		desc := func(primary, dep string) string {
+			if deprecated {
+				return dep
+			}
+			return primary
+		}
+		n := &CompletionNode{
+			Suggestions: []prompt.Suggest{
+				{Text: "start", Description: desc("Start the Chip Ingress stack", "Deprecated alias: start stack (use chip-ingress-stack)")},
+				{Text: "stop", Description: desc("Stop the Chip Ingress stack", "Deprecated alias: stop stack (use chip-ingress-stack)")},
+				{Text: "create-topics", Description: desc("Create Kafka topics for the Chip Ingress stack", "Deprecated alias: create topics")},
+				{Text: "register-protos", Description: desc("Fetch and register protobuf definitions", "Deprecated alias: register protos")},
+			},
+			Children: make(map[string]*CompletionNode),
+		}
+
+		n.Children["start"] = &CompletionNode{
+			Flags: []prompt.Suggest{
+				{Text: "--wait-on-error-timeout", Description: "Time to wait before removing Docker containers if environment fails to start (e.g. 10s, 1m, 1h) (default: 15s)"},
+				{Text: "--grpc-port", Description: "gRPC port for the Chip Ingress stack"},
+			},
+		}
+
+		n.Children["create-topics"] = &CompletionNode{
+			Flags: []prompt.Suggest{
+				{Text: "--red-panda-kafka-url", Description: "⚠️  Red Panda Kafka URL (required)"},
+				{Text: "--topics", Description: "⚠️  Kafka topics to create (e.g. 'topic1,topic2') (required)"},
+				{Text: "--purge-topics", Description: "Remove existing Kafka topics (default: false)"},
+			},
+		}
+
+		n.Children["register-protos"] = &CompletionNode{
+			Flags: []prompt.Suggest{
+				{Text: "--chip-ingress-grpc-url", Description: "Chip Ingress gRPC URL"},
+			},
+		}
+
+		n.Children["stop"] = &CompletionNode{}
+
+		return n
 	}
 
-	beholderNode.Children["start"] = &CompletionNode{
-		Flags: []prompt.Suggest{
-			{Text: "--with-proto-configs", Description: "Paths to protobuf config files for Beholder, comma separated (default: ./proto-configs/default.toml)"},
-			{Text: "--wait-on-error-timeout", Description: "Time to wait before removing Docker containers if environment fails to start (e.g. 10s, 1m, 1h) (default: 15s)"},
-		},
-	}
-
-	beholderNode.Children["create-kafka-topics"] = &CompletionNode{
-		Flags: []prompt.Suggest{
-			{Text: "--red-panda-kafka-url", Description: "⚠️  Red Panda Kafka URL (required)"},
-			{Text: "--topics", Description: "⚠️  Kafka topics to create (e.g. 'topic1,topic2') (required)"},
-			{Text: "--purge-topics", Description: "Remove existing Kafka topics (default: false)"},
-		},
-	}
-
-	beholderNode.Children["fetch-and-register-protos"] = &CompletionNode{
-		Flags: []prompt.Suggest{
-			{Text: "--red-panda-schema-registry-url", Description: "Red Panda Schema Registry URL (default: http://localhost:8081)"},
-			{Text: "--with-proto-configs", Description: "Paths to protobuf config files for Beholder, comma separated (default: ./proto-configs/default.toml)"},
-		},
-	}
-
-	envNode.Children["beholder"] = beholderNode
+	envNode.Children["chip-ingress-stack"] = chipIngressStackCompletionNode(false)
+	envNode.Children["beholder"] = chipIngressStackCompletionNode(true)
 
 	// ENV SWAP - swap capabilities or nodes
 	swapNode := &CompletionNode{

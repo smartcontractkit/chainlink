@@ -15,12 +15,12 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_transparent"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 var (
@@ -44,7 +44,7 @@ type TransparentUpgradeableProxy struct {
 
 type TransparentUpgradeableProxyChangesetConfig struct {
 	Tokens map[uint64]map[string]TransparentUpgradeableProxy
-	MCMS   *proposalutils.TimelockConfig
+	MCMS   *cldfproposalutils.TimelockConfig
 }
 
 type TransparentUpgradeableProxyRole string
@@ -62,7 +62,7 @@ type TransparentUpgradeableProxyGrantRole struct {
 
 type TransparentUpgradeableProxyGrantRoleChangesetConfig struct {
 	Tokens map[uint64]map[string][]TransparentUpgradeableProxyGrantRole
-	MCMS   *proposalutils.TimelockConfig
+	MCMS   *cldfproposalutils.TimelockConfig
 }
 
 func (c TransparentUpgradeableProxyChangesetConfig) Validate(e cldf.Environment) error {

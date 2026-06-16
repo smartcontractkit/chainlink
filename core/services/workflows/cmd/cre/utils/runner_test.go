@@ -33,7 +33,7 @@ func TestRunner(t *testing.T) {
 			}
 		}
 
-		binary := wasmtest.CreateTestBinary(filepath.Join("core/services/workflows/cmd/cre/examples/v2", "empty"), false, t)
+		binary := wasmtest.CreateTestBinary(t, filepath.Join("core/services/workflows/cmd/cre/examples/v2", "empty"), false)
 
 		runner := NewRunner(hooks)
 		runner.Run(ctx, "", binary, []byte{}, []byte{}, RunnerConfig{

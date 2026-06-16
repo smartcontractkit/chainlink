@@ -14,9 +14,8 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/moby/moby/api/pkg/stdcopy"
+	"github.com/moby/moby/client"
 )
 
 func (k *Keeper) PrintLogs(ctx context.Context, pattern string, grep, vgrep []string) {
@@ -24,17 +23,17 @@ func (k *Keeper) PrintLogs(ctx context.Context, pattern string, grep, vgrep []st
 }
 
 func (k *Keeper) streamLogs(ctx context.Context, pattern string, grep, vgrep []string) {
-	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	dockerClient, err := client.New()
 	if err != nil {
 		return
 	}
 
 	// Make sure everything works well
-	if _, err = dockerClient.Ping(ctx); err != nil {
+	if _, err = dockerClient.Ping(ctx, client.PingOptions{}); err != nil {
 		return
 	}
 
-	allContainers, err := dockerClient.ContainerList(ctx, container.ListOptions{
+	listRes, err := dockerClient.ContainerList(ctx, client.ContainerListOptions{
 		All: true,
 	})
 	if err != nil {
@@ -44,7 +43,7 @@ func (k *Keeper) streamLogs(ctx context.Context, pattern string, grep, vgrep []s
 	re := regexp.MustCompile(pattern)
 
 	var containerNames []string
-	for _, container := range allContainers {
+	for _, container := range listRes.Items {
 		for _, name := range container.Names {
 			if re.MatchString(name) {
 				containerNames = append(containerNames, name)
@@ -80,7 +79,7 @@ func (k *Keeper) streamLogs(ctx context.Context, pattern string, grep, vgrep []s
 }
 
 func (k *Keeper) containerLogs(ctx context.Context, cli *client.Client, containerID string, logsChan chan<- string, grep, vgrep []string) {
-	out, err := cli.ContainerLogs(ctx, containerID, container.LogsOptions{
+	out, err := cli.ContainerLogs(ctx, containerID, client.ContainerLogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
 		Follow:     true,

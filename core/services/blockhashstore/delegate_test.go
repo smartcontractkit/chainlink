@@ -107,13 +107,11 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	})
 
 	t.Run("happy with coordinators", func(t *testing.T) {
-		coordinatorV1 := cltest.NewEIP55Address()
 		coordinatorV2 := cltest.NewEIP55Address()
 		coordinatorV2Plus := cltest.NewEIP55Address()
 
 		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{
 			WaitBlocks:               defaultWaitBlocks,
-			CoordinatorV1Address:     &coordinatorV1,
 			CoordinatorV2Address:     &coordinatorV2,
 			CoordinatorV2PlusAddress: &coordinatorV2Plus,
 			EVMChainID:               (*sqlutil.Big)(testutils.FixtureChainID),

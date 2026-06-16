@@ -229,5 +229,5 @@ func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSp
 		nodeIDToConfig[evmCapInput.NodeID] = string(enc)
 	}
 
-	return proposeAndReport(e, job, nodeIDToConfig, input.Domain, input.DONName, input.Zone)
+	return proposeAndReport(e, job, nodeIDToConfig, input.Domain, input.Environment, input.DONName, input.Zone)
 }

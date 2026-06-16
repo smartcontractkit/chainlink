@@ -157,7 +157,7 @@ type Engine struct {
 }
 
 func (e *Engine) Start(ctx context.Context) error {
-	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: e.workflow.owner, Workflow: e.workflow.id}) // TODO org from cache
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: e.workflow.owner, Workflow: e.workflow.id})
 	return e.StartOnce("Engine", func() error {
 		// validate if adding another workflow would exceed either the global or per owner engine count limit
 		if err := e.workflowLimits.Use(ctx, 1); err != nil {
@@ -1240,7 +1240,7 @@ func (e *Engine) heartbeat(ctx context.Context) {
 func (e *Engine) Close() error {
 	return e.StopOnce("Engine", func() error {
 		e.logger.Info("shutting down engine")
-		ctx := contexts.WithCRE(context.Background(), contexts.CRE{Owner: e.workflow.owner, Workflow: e.workflow.id}) // TODO org from cache
+		ctx := contexts.WithCRE(context.Background(), contexts.CRE{Owner: e.workflow.owner, Workflow: e.workflow.id})
 		// To shut down the engine, we'll start by deregistering
 		// any triggers to ensure no new executions are triggered,
 		// then we'll close down any background goroutines,

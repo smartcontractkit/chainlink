@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
-	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
+	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/cldfutil"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	creocr3 "github.com/smartcontractkit/chainlink/deployment/cre/ocr3"

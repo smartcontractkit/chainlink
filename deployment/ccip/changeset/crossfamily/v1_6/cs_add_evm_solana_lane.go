@@ -6,21 +6,22 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	mcmslib "github.com/smartcontractkit/mcms"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 
 	solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 var (
@@ -32,9 +33,17 @@ var (
 		"Post ops to aggregate proposals",
 		func(b operations.Bundle, deps Dependencies, input postOpsInput) ([]mcmslib.TimelockProposal, error) {
 			allProposals := input.Proposals
-			proposal, err := proposalutils.AggregateProposals(
-				deps.Env, deps.EVMMCMSState, deps.SolanaMCMSState, allProposals,
-				"Adding EVM and Solana lane", input.MCMSConfig)
+			if input.MCMSConfig == nil || len(allProposals) == 0 {
+				return input.Proposals, nil
+			}
+			proposal, err := proposeutils.AggregateProposals( //nolint:staticcheck //SA1019 ignoring deprecated
+				deps.Env,
+				deps.EVMMCMSState,
+				deps.SolanaMCMSState,
+				allProposals,
+				"Adding EVM and Solana lane",
+				input.MCMSConfig,
+			)
 			if err != nil {
 				return nil, err
 			}
@@ -229,7 +238,7 @@ var (
 			if err != nil {
 				return OpsOutput{}, err
 			}
-			var mcmsCfg *proposalutils.TimelockConfig
+			var mcmsCfg *cldfproposalutils.TimelockConfig
 			if input.MCMSConfig != nil {
 				mcmsCfg = input.MCMSConfig
 			}
@@ -249,13 +258,13 @@ var (
 type Dependencies struct {
 	Env             cldf.Environment
 	EVMMCMSState    map[uint64]evmstate.MCMSWithTimelockState
-	SolanaMCMSState map[uint64]commonstate.MCMSWithTimelockStateSolana
+	SolanaMCMSState map[uint64]solstate.MCMSWithTimelockState
 
 	changesetInput csInputs
 }
 
 type postOpsInput struct {
-	MCMSConfig *proposalutils.TimelockConfig
+	MCMSConfig *cldfproposalutils.TimelockConfig
 	Proposals  []mcmslib.TimelockProposal
 }
 
@@ -302,11 +311,11 @@ type csInputs struct {
 type AddMultiEVMSolanaLaneConfig struct {
 	Configs             []AddRemoteChainE2EConfig
 	SolanaChainSelector uint64
-	MCMSConfig          *proposalutils.TimelockConfig
+	MCMSConfig          *cldfproposalutils.TimelockConfig
 }
 
 func (multiCfg *AddMultiEVMSolanaLaneConfig) populateAndValidateIndividualCSConfig(env cldf.Environment, evmState stateview.CCIPOnChainState) (csInputs, error) {
-	var timelockConfig *proposalutils.TimelockConfig
+	var timelockConfig *cldfproposalutils.TimelockConfig
 	var input csInputs
 	if multiCfg.MCMSConfig != nil {
 		timelockConfig = multiCfg.MCMSConfig
@@ -463,7 +472,7 @@ func addEVMSolanaPreconditions(env cldf.Environment, input AddMultiEVMSolanaLane
 	if err != nil {
 		return fmt.Errorf("failed to load onchain evm state: %w", err)
 	}
-	var timelockConfig *proposalutils.TimelockConfig
+	var timelockConfig *cldfproposalutils.TimelockConfig
 	if input.MCMSConfig != nil {
 		timelockConfig = input.MCMSConfig
 	}
@@ -495,7 +504,7 @@ func addEVMAndSolanaLaneLogic(env cldf.Environment, input AddMultiEVMSolanaLaneC
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get addresses for Solana chain: %w", err)
 	}
-	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(env.BlockChains.SolanaChains()[input.SolanaChainSelector], addresses)
+	mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(env.BlockChains.SolanaChains()[input.SolanaChainSelector], addresses)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load Solana MCMS state: %w", err)
 	}
@@ -511,7 +520,7 @@ func addEVMAndSolanaLaneLogic(env cldf.Environment, input AddMultiEVMSolanaLaneC
 	deps := Dependencies{
 		Env:          env,
 		EVMMCMSState: evmState.EVMMCMSStateByChain(),
-		SolanaMCMSState: map[uint64]commonstate.MCMSWithTimelockStateSolana{
+		SolanaMCMSState: map[uint64]solstate.MCMSWithTimelockState{
 			input.SolanaChainSelector: *mcmState,
 		},
 		changesetInput: changesetInputs,

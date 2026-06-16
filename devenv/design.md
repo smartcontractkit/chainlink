@@ -162,11 +162,8 @@ sequenceDiagram
 | Name           | TOML key         | Config dir                | Nodes | Contracts deployed                                 |
 | -------------- | ---------------- | ------------------------- | ----- | -------------------------------------------------- |
 | Cron           | `cron`           | `products/cron/`          | 1     | None (bridge + cron job only)                      |
-| Direct Request | `direct_request` | `products/directrequest/` | 1     | LINK, Oracle, TestAPIConsumer                      |
-| Flux Monitor   | `flux`           | `products/flux/`          | 5     | LINK, FluxAggregator                               |
 | OCR2           | `ocr2`           | `products/ocr2/`          | 5     | LINK, OCR2Aggregator                               |
 | Automation     | `automation`     | `products/automation/`    | 5     | LINK, Registry (2.0-2.3), Registrar, Upkeeps       |
-| VRF            | `vrf`            | `products/vrf/`           | 1     | LINK, BlockHashStore, VRFCoordinator, VRFConsumer  |
 
 ### Adding a New Product
 
@@ -218,7 +215,6 @@ Chainlink nodes need external data sources (external adapters, price feeds, Merc
 | Product        | Route                           | Behavior                                                    |
 | -------------- | ------------------------------- | ----------------------------------------------------------- |
 | Cron           | `POST /cron_response`           | Returns `{"data": {"result": 200}}`                         |
-| Direct Request | `POST /direct_request_response` | Returns `{"data": {"result": 200}}`                         |
 | OCR2           | `POST /ea`                      | Returns current EA value (default 200)                      |
 | OCR2           | `POST /juelsPerFeeCoinSource`   | Returns JUELS/LINK ratio                                    |
 | OCR2           | `POST /trigger_deviation`       | Changes the EA return value (query param `?result=<value>`) |
@@ -246,12 +242,12 @@ sequenceDiagram
     participant Test as go test (Terminal 2)
     participant EnvOut as env-out.toml
 
-    Dev->>CLI: cl u env.toml,products/vrf/basic.toml
+    Dev->>CLI: cl u env.toml,products/cron/basic.toml
     CLI->>Docker: Start Anvil, Fake Server, CL Nodes
     CLI->>Docker: Deploy contracts, create jobs
     CLI->>EnvOut: Write deployed state
 
-    Dev->>Test: go test -v -run TestVRFBasic
+    Dev->>Test: go test -v -run TestSmoke
     Test->>EnvOut: Load config + product output
     Test->>Docker: Interact with contracts (gethwrappers)
     Test->>Docker: Query CL node API (clclient)
@@ -287,7 +283,8 @@ cls, err := clclient.New(in.NodeSets[0].Out.CLNodes)
 4. **Interact with contracts** -- use gethwrappers directly (never through `chainlink/v2` wrappers)
 
 ```go
-consumer, err := solidity_vrf_consumer_interface.NewVRFConsumer(addr, c)
+// e.g. bind to a deployed contract address from env-out / product output
+// consumer, err := mypackage.NewMyConsumer(addr, c)
 ```
 
 5. **Assert with polling** -- use `require.EventuallyWithT` to poll until expected state

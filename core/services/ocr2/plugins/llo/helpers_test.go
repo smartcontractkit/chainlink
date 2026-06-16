@@ -62,7 +62,8 @@ type mercuryServer struct {
 
 func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.PublicKey) (serverURL string) {
 	// Set up the grpc server
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	var lc net.ListenConfig
+	lis, err := lc.Listen(testutils.Context(t), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("[MAIN] failed to listen: %v", err)
 	}
@@ -170,44 +171,44 @@ func setupNode(
 
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		// [JobPipeline]
-		c.JobPipeline.MaxSuccessfulRuns = ptr(uint64(0))
-		c.JobPipeline.VerboseLogging = ptr(true)
+		c.JobPipeline.MaxSuccessfulRuns = new(uint64(0))
+		c.JobPipeline.VerboseLogging = new(true)
 
 		// [Feature]
-		c.Feature.UICSAKeys = ptr(true)
-		c.Feature.LogPoller = ptr(true)
-		c.Feature.FeedsManager = ptr(false)
+		c.Feature.UICSAKeys = new(true)
+		c.Feature.LogPoller = new(true)
+		c.Feature.FeedsManager = new(false)
 
 		// [OCR]
-		c.OCR.Enabled = ptr(false)
+		c.OCR.Enabled = new(false)
 
 		// [OCR2]
-		c.OCR2.Enabled = ptr(true)
+		c.OCR2.Enabled = new(true)
 		c.OCR2.ContractPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
 
 		// [P2P]
-		c.P2P.PeerID = ptr(p2pKey.PeerID())
-		c.P2P.TraceLogging = ptr(true)
+		c.P2P.PeerID = new(p2pKey.PeerID())
+		c.P2P.TraceLogging = new(true)
 
 		// [P2P.V2]
-		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.V2.Enabled = new(true)
 		c.P2P.V2.AnnounceAddresses = &p2paddresses
 		c.P2P.V2.ListenAddresses = &p2paddresses
 		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(500 * time.Millisecond)
 		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
 
 		// [Mercury]
-		c.Mercury.VerboseLogging = ptr(true)
+		c.Mercury.VerboseLogging = new(true)
 
 		// [Log]
-		c.Log.Level = ptr(toml.LogLevel(zapcore.DebugLevel)) // generally speaking we want debug level for logs unless overridden
+		c.Log.Level = new(toml.LogLevel(zapcore.DebugLevel)) // generally speaking we want debug level for logs unless overridden
 
 		// [CRE]
-		c.CRE.UseLocalTimeProvider = ptr(true)
+		c.CRE.UseLocalTimeProvider = new(true)
 
 		// [EVM.Transactions]
 		for _, evmCfg := range c.EVM {
-			evmCfg.Transactions.Enabled = ptr(false) // don't need txmgr
+			evmCfg.Transactions.Enabled = new(false) // don't need txmgr
 		}
 
 		// Optional overrides
@@ -231,8 +232,6 @@ func setupNode(
 
 	return app, p2pKey.PeerID().Raw(), csaKey.StaticSizedPublicKey(), ocr2kb, observedLogs
 }
-
-func ptr[T any](t T) *T { return &t }
 
 // receiveWithTimeout receives from the packet channel with a timeout.
 // It returns the packet if a packet was received or an error if the timeout is reached
@@ -263,7 +262,7 @@ name = "strm-spec-%d"
 streamID = %d
 observationSource = """
 	// Benchmark Price
-	price1          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
+	price1          [type=bridge name="%s" timeout="10s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
 	price1_parse    [type=jsonparse path="result"];
 
 	price1 -> price1_parse;
@@ -314,19 +313,19 @@ name = "strm-spec-%d"
 streamID = %d
 observationSource = """
 	// Benchmark Price
-	price1          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
+	price1          [type=bridge name="%s" timeout="10s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
 	price1_parse    [type=jsonparse path="result" index=0];
 
 	price1 -> price1_parse;
 
 	// Bid
-	price2          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
+	price2          [type=bridge name="%s" timeout="10s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
 	price2_parse    [type=jsonparse path="result" index=1];
 
 	price2 -> price2_parse;
 
 	// Ask
-	price3          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
+	price3          [type=bridge name="%s" timeout="10s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
 	price3_parse    [type=jsonparse path="result" index=2];
 
 	price3 -> price3_parse;
@@ -371,7 +370,7 @@ type = "offchainreporting2"
 schemaVersion = 1
 name = "%s"
 forwardingAllowed = false
-maxTaskDuration = "1s"
+maxTaskDuration = "10s"
 contractID = "%s"
 contractConfigTrackerPollInterval = "1s"
 ocrKeyBundleID = "%s"
@@ -402,14 +401,18 @@ func createSingleDecimalBridge(t *testing.T, name string, i int, p decimal.Decim
 	ctx := testutils.Context(t)
 	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		b, err := io.ReadAll(req.Body)
-		require.NoError(t, err)
-		require.JSONEq(t, `{"data":{"data":"foo"}}`, string(b))
+		if !assert.NoError(t, err) {
+			return
+		}
+		if !assert.JSONEq(t, `{"data":{"data":"foo"}}`, string(b)) {
+			return
+		}
 
 		res.WriteHeader(http.StatusOK)
 		val := p.String()
 		resp := fmt.Sprintf(`{"result": %s}`, val)
 		_, err = res.Write([]byte(resp))
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	}))
 	t.Cleanup(bridge.Close)
 	u, _ := url.Parse(bridge.URL)
@@ -418,7 +421,6 @@ func createSingleDecimalBridge(t *testing.T, name string, i int, p decimal.Decim
 		Name: bridges.BridgeName(bridgeName),
 		URL:  models.WebURL(*u),
 	}))
-
 	return bridgeName
 }
 
@@ -508,7 +510,7 @@ func addOCRJobsEVMPremiumLegacy(
 			jobIDs[i] = make(map[uint32]int32)
 		}
 		for j, strm := range streams {
-			// assume that streams are native, link and additionals are quote
+			// assume that streams are native, link and additional streams are quote
 			if j < 2 {
 				var name string
 				if j == 0 {
