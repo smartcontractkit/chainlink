@@ -124,18 +124,21 @@ func (m *mockBundler) Bundle(_ jsonrpc.Request[json.RawMessage], _ map[string]js
 }
 
 func TestConfidentialRelayHandler_Methods(t *testing.T) {
+	t.Parallel()
 	h, _, _, _ := setupHandler(t, 4)
 	methods := h.Methods()
 	assert.Equal(t, []string{MethodSecretsGet, MethodCapabilityExec}, methods)
 }
 
 func TestConfidentialRelayHandler_HandleLegacyUserMessage(t *testing.T) {
+	t.Parallel()
 	h, cb, _, _ := setupHandler(t, 4)
 	err := h.HandleLegacyUserMessage(t.Context(), nil, cb)
 	require.ErrorContains(t, err, "confidential relay handler does not support legacy messages")
 }
 
 func TestConfidentialRelayHandler_RequestIDTooLong(t *testing.T) {
+	t.Parallel()
 	h, cb, _, _ := setupHandler(t, 4)
 
 	longID := strings.Repeat("x", 201)
@@ -150,6 +153,7 @@ func TestConfidentialRelayHandler_RequestIDTooLong(t *testing.T) {
 }
 
 func TestConfidentialRelayHandler_EmptyRequestID(t *testing.T) {
+	t.Parallel()
 	h, cb, _, _ := setupHandler(t, 4)
 
 	req := jsonrpc.Request[json.RawMessage]{
@@ -165,6 +169,7 @@ func TestConfidentialRelayHandler_EmptyRequestID(t *testing.T) {
 // (under <=F faulty) at least F+1 honest matching responses are guaranteed present
 // for the enclave to verify. The gateway itself makes no signature/quorum decision.
 func TestConfidentialRelayHandler_ForwardsBundleAtQuorum(t *testing.T) {
+	t.Parallel()
 	h, cb, don, _ := setupHandler(t, 4)
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
@@ -210,6 +215,7 @@ func TestConfidentialRelayHandler_ForwardsBundleAtQuorum(t *testing.T) {
 // The gateway does not resolve divergent results; it forwards them all and lets the
 // enclave verify signatures and pick the result backed by F+1 valid signers.
 func TestConfidentialRelayHandler_ForwardsAllDivergentResponses(t *testing.T) {
+	t.Parallel()
 	h, cb, don, _ := setupHandler(t, 4)
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
@@ -249,6 +255,7 @@ func TestConfidentialRelayHandler_ForwardsAllDivergentResponses(t *testing.T) {
 }
 
 func TestConfidentialRelayHandler_BundlerErrorReturnsFatal(t *testing.T) {
+	t.Parallel()
 	h, cb, don, _ := setupHandler(t, 4)
 	h.bundler = &mockBundler{err: errors.New("boom")}
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -283,6 +290,7 @@ func TestConfidentialRelayHandler_BundlerErrorReturnsFatal(t *testing.T) {
 // nodes stayed silent) and lets the enclave decide. Here F=1, so 2 responses meet the
 // F+1 floor.
 func TestConfidentialRelayHandler_TimeoutForwardsPartialBundle(t *testing.T) {
+	t.Parallel()
 	h, cb, don, clock := setupHandler(t, 4)
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
@@ -321,6 +329,7 @@ func TestConfidentialRelayHandler_TimeoutForwardsPartialBundle(t *testing.T) {
 // returns a timeout error directly. Here F=1, so a single response is below the
 // floor.
 func TestConfidentialRelayHandler_TimeoutBelowQuorumFloorReturnsTimeout(t *testing.T) {
+	t.Parallel()
 	h, cb, don, clock := setupHandler(t, 4)
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
@@ -352,6 +361,7 @@ func TestConfidentialRelayHandler_TimeoutBelowQuorumFloorReturnsTimeout(t *testi
 }
 
 func TestConfidentialRelayHandler_TimeoutNoResponses(t *testing.T) {
+	t.Parallel()
 	h, cb, don, clock := setupHandler(t, 4)
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
@@ -380,6 +390,7 @@ func TestConfidentialRelayHandler_TimeoutNoResponses(t *testing.T) {
 }
 
 func TestConfidentialRelayHandler_DuplicateRequestID(t *testing.T) {
+	t.Parallel()
 	h, cb, don, _ := setupHandler(t, 4)
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
@@ -399,6 +410,7 @@ func TestConfidentialRelayHandler_DuplicateRequestID(t *testing.T) {
 }
 
 func TestConfidentialRelayHandler_RateLimitedNode(t *testing.T) {
+	t.Parallel()
 	handlerConfig := Config{
 		RequestTimeoutSec: 30,
 	}
@@ -482,6 +494,7 @@ func TestConfidentialRelayHandler_RateLimitedNode(t *testing.T) {
 }
 
 func TestConfidentialRelayHandler_LateNodeResponse(t *testing.T) {
+	t.Parallel()
 	h, cb, _, _ := setupHandler(t, 4)
 
 	resultData := json.RawMessage(`{"result":{},"signature":{}}`)
@@ -504,6 +517,7 @@ func TestConfidentialRelayHandler_LateNodeResponse(t *testing.T) {
 }
 
 func TestConfidentialRelayHandler_AllNodesFanOutFail(t *testing.T) {
+	t.Parallel()
 	h, cb, don, _ := setupHandler(t, 4)
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("connection refused"))
 
@@ -533,6 +547,7 @@ func TestConfidentialRelayHandler_AllNodesFanOutFail(t *testing.T) {
 }
 
 func TestConfidentialRelayHandler_FanOutWaitsWhileQuorumStillPossible(t *testing.T) {
+	t.Parallel()
 	h, cb, don, _ := setupHandler(t, 4)
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(
 		func(_ context.Context, nodeAddress string, _ *jsonrpc.Request[json.RawMessage]) error {
@@ -564,6 +579,7 @@ func TestConfidentialRelayHandler_FanOutWaitsWhileQuorumStillPossible(t *testing
 }
 
 func TestConfidentialRelayHandler_FanOutFailsWhenQuorumBecomesImpossible(t *testing.T) {
+	t.Parallel()
 	h, cb, don, _ := setupHandler(t, 4)
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(
 		func(_ context.Context, nodeAddress string, _ *jsonrpc.Request[json.RawMessage]) error {
@@ -604,6 +620,7 @@ func TestConfidentialRelayHandler_FanOutFailsWhenQuorumBecomesImpossible(t *test
 }
 
 func TestConfidentialRelayHandler_FanOutToNodes_IsConcurrent(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	don := newBarrierDON(2)
 	donConfig := &config.DONConfig{
