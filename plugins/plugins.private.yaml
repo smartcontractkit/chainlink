@@ -31,11 +31,11 @@ plugins:
       installPath: "."
   httptrigger:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_trigger"
-      gitRef: "69e882e0f24cf9ae897366c4dcbbd3c7e035ae33"
+      gitRef: "602b8fb7d379afb0a245dd6b4f67cc4557c40541"
       installPath: "."
   evm:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
-      gitRef: "bd394b720ff92881a51a7074c60cf8908d5428c5"
+      gitRef: "602b8fb7d379afb0a245dd6b4f67cc4557c40541"
       installPath: "."
   solana:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/solana"
