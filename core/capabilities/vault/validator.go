@@ -135,10 +135,7 @@ func (r *RequestValidator) ValidateSecretIdentifier(ctx context.Context, idKey s
 		if err := checkIdentifierComponentLength("namespace", idNamespace, identifierLimits.MaxNamespaceLength); err != nil {
 			return err
 		}
-		if err := checkIdentifierComponentLength("key", idKey, identifierLimits.MaxKeyLength); err != nil {
-			return err
-		}
-		return nil
+		return checkIdentifierComponentLength("key", idKey, identifierLimits.MaxKeyLength)
 	}
 
 	// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
