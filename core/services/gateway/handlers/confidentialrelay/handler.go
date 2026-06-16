@@ -109,8 +109,8 @@ func (ar *activeRequest) copiedResponses() map[string]jsonrpc.Response[json.RawM
 	return copied
 }
 
-type relayAggregator interface {
-	Aggregate(req jsonrpc.Request[json.RawMessage], resps map[string]jsonrpc.Response[json.RawMessage], donF int, donMembersCount int, l logger.Logger) (*jsonrpc.Response[json.RawMessage], error)
+type relayBundler interface {
+	Bundle(req jsonrpc.Request[json.RawMessage], resps map[string]jsonrpc.Response[json.RawMessage], l logger.Logger) (*jsonrpc.Response[json.RawMessage], int, error)
 }
 
 type Config struct {
@@ -133,7 +133,7 @@ type handler struct {
 	activeRequests map[string]*activeRequest
 	metrics        *metrics
 
-	aggregator relayAggregator
+	bundler relayBundler
 
 	clock clockwork.Clock
 }
@@ -186,7 +186,7 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		mu:                    sync.RWMutex{},
 		stopCh:                make(services.StopChan),
 		metrics:               metrics,
-		aggregator:            &aggregator{},
+		bundler:               &bundler{},
 		clock:                 clock,
 	}, nil
 }
@@ -240,10 +240,15 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 
 	for _, er := range expiredRequests {
 		responses := er.copiedResponses()
-		h.lggr.Debugw("request expired without quorum", "requestID", er.req.ID, "responseCount", len(responses), "required", h.donConfig.F+1)
-		err := h.sendResponseAndCleanup(ctx, er, h.constructErrorResponse(er.req, api.RequestTimeoutError, fmt.Errorf("request expired: got %d/%d responses", len(responses), h.donConfig.F+1)))
-		if err != nil {
-			h.lggr.Errorw("error sending response to user", "requestID", er.req.ID, "error", err)
+		// We never reached the 2F+1 early trigger. Forward what we collected only
+		// if the bundle can still reach the enclave's F+1 quorum (faulty nodes may
+		// have simply stayed silent). Below F+1 signed responses the enclave is
+		// guaranteed to reject, so forwardBundle returns a timeout error instead of
+		// a futile round trip. The gateway still verifies nothing: this is only a
+		// count floor, not a trust decision.
+		h.lggr.Debugw("request expired, forwarding collected responses to enclave", "requestID", er.req.ID, "responseCount", len(responses))
+		if err := h.forwardBundle(ctx, h.lggr, er, responses, h.donConfig.F+1); err != nil {
+			h.lggr.Errorw("error forwarding bundle on expiry", "requestID", er.req.ID, "error", err)
 		}
 	}
 }
@@ -328,24 +333,54 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	}
 
 	copiedResponses := ar.copiedResponses()
-	aggregatedResp, err := h.aggregator.Aggregate(ar.req, copiedResponses, h.donConfig.F, len(h.donConfig.Members), l)
-	switch {
-	case errors.Is(err, errInsufficientResponsesForQuorum):
-		l.Debugw("aggregating responses, waiting for other nodes...", "error", err)
+	// The gateway is a dumb fan-in: it does not verify signatures, check signer
+	// membership, or decide quorum. It forwards the bundle of all collected
+	// responses to the enclave, which is the sole trust anchor. We wait for 2F+1
+	// responses so that, under the <=F-faulty threat model, at least F+1 honest
+	// matching responses are guaranteed to be in the bundle for the enclave to
+	// reach its F+1-valid-signature quorum. Once 2F+1 have arrived we forward
+	// immediately (minSigned=0: the count is already guaranteed sufficient). If
+	// 2F+1 never arrive, the cleanup timer forwards what was collected only when it
+	// still carries at least F+1 signed responses, the minimum the enclave needs.
+	requiredResponses := 2*h.donConfig.F + 1
+	if len(copiedResponses) < requiredResponses {
+		l.Debugw("waiting for more relay responses before forwarding bundle", "have", len(copiedResponses), "need", requiredResponses)
 		return nil
-	case errors.Is(err, errQuorumUnobtainable):
-		l.Errorw("quorum unobtainable, returning error to user", "error", err)
-		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, err))
-	case err != nil:
-		l.Errorw("unexpected aggregation error", "error", err)
+	}
+	return h.forwardBundle(ctx, l, ar, copiedResponses, 0)
+}
+
+// forwardBundle builds the relay response bundle from the collected per-node
+// responses and forwards it to the enclave. The gateway makes no trust decision;
+// the enclave verifies signatures and reaches quorum.
+//
+// minSigned is a futility floor, not a verification step. The enclave reaches
+// quorum only with F+1 valid distinct signatures, so a bundle carrying fewer than
+// F+1 signed responses cannot possibly be accepted. On the timeout path we pass
+// minSigned=F+1 to skip that guaranteed-reject round trip and return a timeout
+// error instead. (F+1 signed is necessary, not sufficient: some signatures may be
+// invalid, so the timeout path stays optimistic.) The 2F+1 early path passes
+// minSigned=0 because its raw-count trigger already implies enough signed
+// responses; the gateway inspects no signatures in either case.
+func (h *handler) forwardBundle(ctx context.Context, l logger.Logger, ar *activeRequest, responses map[string]jsonrpc.Response[json.RawMessage], minSigned int) error {
+	bundleResp, signedCount, err := h.bundler.Bundle(ar.req, responses, l)
+	if err != nil {
+		l.Errorw("failed to build relay response bundle", "error", err)
 		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, err))
 	}
 
-	rawResponse, err := jsonrpc.EncodeResponse(aggregatedResp)
+	if signedCount < minSigned {
+		l.Debugw("too few signed responses for enclave quorum; returning timeout", "signed", signedCount, "need", minSigned)
+		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.RequestTimeoutError,
+			fmt.Errorf("request expired: %d signed relay responses, need at least %d to reach quorum", signedCount, minSigned)))
+	}
+
+	rawResponse, err := jsonrpc.EncodeResponse(bundleResp)
 	if err != nil {
 		h.lggr.Errorw("failed to encode response", "requestID", ar.req.ID, "error", err)
 		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.NodeReponseEncodingError, err))
 	}
+	l.Debugw("forwarding relay response bundle to enclave", "signedResponses", signedCount, "totalResponses", len(responses))
 	return h.sendResponseAndCleanup(ctx, ar, gwhandlers.UserCallbackPayload{
 		RawResponse: rawResponse,
 		ErrorCode:   api.NoError,

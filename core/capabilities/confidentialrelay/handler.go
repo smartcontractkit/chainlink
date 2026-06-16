@@ -682,12 +682,17 @@ func (h *Handler) signSecretsResponse(
 		return nil, err
 	}
 
+	sig := confidentialrelaytypes.RelayResponseSignature{
+		Signer:    h.responseSigner.PublicKey(),
+		Signature: signature,
+	}
 	return &confidentialrelaytypes.SignedSecretsResponseResult{
-		Result: *result,
-		Signatures: []confidentialrelaytypes.RelayResponseSignature{{
-			Signer:    h.responseSigner.PublicKey(),
-			Signature: signature,
-		}},
+		Result:    *result,
+		Signature: sig,
+		// Keep populating Signatures too: there are still readers of the array. The
+		// cleanup order is readers first, then writers (this), then the field itself,
+		// or builds go red.
+		Signatures: []confidentialrelaytypes.RelayResponseSignature{sig},
 	}, nil
 }
 
@@ -708,12 +713,17 @@ func (h *Handler) signCapabilityResponse(
 		return nil, err
 	}
 
+	sig := confidentialrelaytypes.RelayResponseSignature{
+		Signer:    h.responseSigner.PublicKey(),
+		Signature: signature,
+	}
 	return &confidentialrelaytypes.SignedCapabilityResponseResult{
-		Result: result,
-		Signatures: []confidentialrelaytypes.RelayResponseSignature{{
-			Signer:    h.responseSigner.PublicKey(),
-			Signature: signature,
-		}},
+		Result:    result,
+		Signature: sig,
+		// Keep populating Signatures too: there are still readers of the array. The
+		// cleanup order is readers first, then writers (this), then the field itself,
+		// or builds go red.
+		Signatures: []confidentialrelaytypes.RelayResponseSignature{sig},
 	}, nil
 }
 

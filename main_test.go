@@ -37,9 +37,9 @@ const (
 )
 
 func TestMain(m *testing.M) {
-	os.Exit(testscript.RunMain(m, map[string]func() int{
-		"chainlink": core.Main,
-	}))
+	testscript.Main(m, map[string]func(){
+		"chainlink": func() { os.Exit(core.Main()) },
+	})
 }
 
 var (
@@ -58,21 +58,43 @@ func TestScripts(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping testscript")
 	}
-	t.Parallel()
 
-	require.NoError(t, os.Setenv("TMPDIR", "/tmp")) // osx default is too long for go-plugin sockets
+	tmp := t.TempDir()
+	require.NoError(t, os.Setenv("GOTMPDIR", tmp))
+	t.Cleanup(func() {
+		require.NoError(t, os.Unsetenv("GOTMPDIR"))
+	})
+	t.Parallel()
 
 	visitor := txtar.NewDirVisitor("testdata/scripts", txtar.Recurse, func(path string) error {
 		t.Run(strings.TrimPrefix(path, "testdata/scripts/"), func(t *testing.T) {
 			t.Parallel()
-			if message, shouldSkip := skipFlakyTests[t.Name()]; shouldSkip {
-				t.Skipf("Flaky Test: %s", message)
+
+			// Check each .txtar file against skipFlakyTests
+			matches, err := filepath.Glob(filepath.Join(path, "*.txtar"))
+			require.NoError(t, err)
+
+			var filesToRun []string
+			for _, match := range matches {
+				scriptName := strings.TrimSuffix(filepath.Base(match), ".txtar")
+				fullTestName := t.Name() + "/" + scriptName
+
+				if message, shouldSkip := skipFlakyTests[fullTestName]; shouldSkip {
+					t.Logf("Skipping Flaky Test: %s - %s", fullTestName, message)
+					continue
+				}
+				filesToRun = append(filesToRun, match)
+			}
+
+			if len(filesToRun) == 0 {
+				t.Skip("all scripts in directory skipped")
 			}
 
 			testscript.Run(t, testscript.Params{
-				Dir:             path,
-				Setup:           commonEnv(t),
-				ContinueOnError: true,
+				Files:               filesToRun,
+				Setup:               commonEnv(t),
+				ContinueOnError:     true,
+				RequireExplicitExec: true,
 				// UpdateScripts:   true, // uncomment to update golden files
 			})
 		})
@@ -96,6 +118,7 @@ func commonEnv(t testing.TB) func(*testscript.Env) error {
 		te.Setenv("VERSION", static.Version)
 		te.Setenv("VERSION_TAG", static.VersionTag)
 		te.Setenv("COMMIT_SHA", static.Sha)
+		te.Setenv("TMPDIR", "/tmp") // osx default is too long for go-plugin sockets
 
 		b, err := os.ReadFile(filepath.Join(te.WorkDir, testPortName))
 		if err != nil && !os.IsNotExist(err) {
