@@ -149,7 +149,7 @@ func TestWSServer_WSClient_DefaultConfig_Failure(t *testing.T) {
 	// whether the client finishes flushing the message before the server closes
 	// the socket. Both outcomes are valid: the behavior under test is that the
 	// server aborts the handshake, which we assert below via waitCh.
-	_, _ = client.Connect(testutils.Context(t), parsedURL)
+	_, _ = client.Connect(t.Context(), parsedURL)
 
 	select {
 	case <-waitCh:
