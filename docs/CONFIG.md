@@ -1464,9 +1464,14 @@ Options are: event which watches for contract events or reconciliation which dif
 ### MaxConcurrency
 ```toml
 MaxConcurrency = 12 # Default
-MaxActivationRetries = 10 # Default
 ```
 MaxConcurrency controls the maximum number of concurrent event handlers in the workflow registry syncer.
+
+### MaxActivationRetries
+```toml
+MaxActivationRetries = 10 # Default
+```
+MaxActivationRetries is the number of failed load/initialization attempts before the syncer stops retrying an active workflow. 0 disables the limit.
 
 ## Capabilities.WorkflowRegistry.WorkflowStorage
 ```toml
