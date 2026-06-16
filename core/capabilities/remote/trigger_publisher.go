@@ -402,7 +402,7 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 		nowMs := time.Now().UnixMilli()
 		p.ackCache.Insert(key, sender, nowMs, msg.Payload)
 		minRequired := uint32(2*callerDon.F + 1)
-		ready, _ := p.ackCache.Ready(key, minRequired, 0, false)
+		ready, _ := p.ackCache.Ready(key, minRequired, 0, true)
 		if !ready {
 			ackCount := len(p.ackCache.Peers(key))
 			p.lggr.Debugw("not ready to ACK trigger event yet",

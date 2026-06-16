@@ -87,6 +87,13 @@ const (
 	// Engine reads trigger events without blocking and applies its own limits
 	sendChannelBufferSize = 1000
 	maxBatchedWorkflowIDs = 1000
+
+	// ackReplayRetention is how long the subscriber remembers that the engine
+	// already ACKed a (triggerID, triggerEventID). It must outlive the trigger
+	// retransmit horizon so that a late re-delivery (possibly hours later) of
+	// an already-executed event is replay-ACKed instead of being re-aggregated
+	// and re-executed. Helps prevent against F+1 slow nodes recieving 2nd quorum.
+	ackReplayRetention = 24 * time.Hour
 )
 
 func NewTriggerSubscriber(capabilityID string, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *triggerSubscriber {
@@ -472,9 +479,9 @@ func (s *triggerSubscriber) eventCleanupLoop() {
 			}
 			s.mu.Lock()
 			s.messageCache.DeleteOlderThan(time.Now().UnixMilli() - remoteConfig.MessageExpiry.Milliseconds())
-			cutoff := time.Now().UnixMilli() - remoteConfig.MessageExpiry.Milliseconds()
+			ackReplayCutoff := time.Now().UnixMilli() - ackReplayRetention.Milliseconds()
 			for k, ts := range s.ackReplayCache {
-				if ts < cutoff {
+				if ts < ackReplayCutoff {
 					delete(s.ackReplayCache, k)
 				}
 			}
