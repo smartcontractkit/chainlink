@@ -3,8 +3,8 @@ module github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpac
 go 1.26.4
 
 require (
-	github.com/smartcontractkit/cre-sdk-go v1.12.1-0.20260611161230-05e667f70291
-	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v1.3.1-0.20260611161230-05e667f70291
+	github.com/smartcontractkit/cre-sdk-go v1.12.1-0.20260616145406-36c1b9ebe0fa
+	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v1.4.1-0.20260616145406-36c1b9ebe0fa
 	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.3.0
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
@@ -19,7 +19,7 @@ require (
 	github.com/holiman/uint256 v1.3.2 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260611014504-5f00275cf10d // indirect
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260615191028-c2b8c77fd0d6 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	golang.org/x/sys v0.40.0 // indirect
 )
