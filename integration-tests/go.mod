@@ -7,10 +7,6 @@ replace github.com/smartcontractkit/chainlink/v2 => ../
 
 replace github.com/smartcontractkit/chainlink/deployment => ../deployment
 
-replace github.com/smartcontractkit/chainlink-sui => ../../chainlink-sui
-
-replace github.com/smartcontractkit/chainlink-sui/deployment => ../../chainlink-sui/deployment
-
 replace github.com/smartcontractkit/chainlink-deployments-framework => ../../chainlink-deployments-framework
 
 // TEMPORARY: instrumented chainlink-ccip for Sui source-discovery debugging. Revert before merge.
