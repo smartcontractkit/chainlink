@@ -25,7 +25,6 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           aws-role-duration-seconds: 3600
 
-
       - name: Checkout repository
         uses: actions/checkout@v6
         with:

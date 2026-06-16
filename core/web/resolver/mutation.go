@@ -31,9 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
-	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
-	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -43,7 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -1089,17 +1086,17 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 			return nil, errors.New("The Offchain Reporting 2 feature is disabled by configuration")
 		}
 	case job.DirectRequest:
-		jb, err = directrequest.ValidatedDirectRequestSpec(args.Input.TOML)
+		return nil, fmt.Errorf("cannot create job of type %q: %w", job.DirectRequest, job.ErrJobTypeRemoved)
 	case job.FluxMonitor:
-		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(config.JobPipeline(), args.Input.TOML)
+		return nil, fmt.Errorf("cannot create job of type %q: %w", job.FluxMonitor, job.ErrJobTypeRemoved)
+	case job.Webhook:
+		return nil, fmt.Errorf("cannot create job of type %q: %w", job.Webhook, job.ErrJobTypeRemoved)
 	case job.CRESettings:
 		jb, err = cresettings.ValidatedCRESettingsSpec(args.Input.TOML)
 	case job.Cron:
 		jb, err = cron.ValidatedCronSpec(args.Input.TOML)
 	case job.VRF:
 		jb, err = vrfcommon.ValidatedVRFSpec(args.Input.TOML)
-	case job.Webhook:
-		jb, err = webhook.ValidatedWebhookSpec(ctx, args.Input.TOML, r.App.GetExternalInitiatorManager())
 	case job.BlockhashStore:
 		jb, err = blockhashstore.ValidatedSpec(args.Input.TOML)
 	case job.BlockHeaderFeeder:
@@ -1225,10 +1222,6 @@ func (r *Resolver) RunJob(ctx context.Context, args struct {
 
 	jobRunID, err := r.App.RunJobV2(ctx, jobID, nil)
 	if err != nil {
-		if errors.Is(err, webhook.ErrJobNotExists) {
-			return NewRunJobPayload(nil, r.App, err), nil
-		}
-
 		return nil, err
 	}
 
@@ -1238,7 +1231,7 @@ func (r *Resolver) RunJob(ctx context.Context, args struct {
 	}
 
 	r.App.GetAuditLogger().Audit(audit.JobRunSet, map[string]any{"jobID": args.ID, "jobRunID": jobRunID, "planRunID": plnRun})
-	return NewRunJobPayload(&plnRun, r.App, nil), nil
+	return NewRunJobPayload(&plnRun, r.App), nil
 }
 
 func (r *Resolver) SetGlobalLogLevel(ctx context.Context, args struct {

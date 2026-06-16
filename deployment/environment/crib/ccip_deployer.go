@@ -18,6 +18,7 @@ import (
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
@@ -54,7 +55,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
+	linkchangesets "github.com/smartcontractkit/cld-changesets/tokens/link/changesets"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deploylink"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -113,7 +117,7 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 		}
 	}
 	*e, err = commonchangeset.Apply(nil, *e, commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
 		cfg,
 	), commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
@@ -327,11 +331,14 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 				return *e, fmt.Errorf("failed to create the link token priv key: %w", err)
 			}
 			solLinkChangeset := commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(commonchangeset.DeploySolanaLinkToken),
-				commonchangeset.DeploySolanaLinkTokenConfig{
-					ChainSelector: chain,
-					TokenPrivKey:  privKey,
-					TokenDecimals: 9,
+				deploylink.DeployLinkTokenChangeset{},
+				linkchangesets.DeployLinkTokenInput{
+					Solana: map[uint64]linkchangesets.SolanaLinkConfig{
+						chain: {
+							TokenPrivKey:  privKey,
+							TokenDecimals: 9,
+						},
+					},
 				},
 			)
 			solLinkChangesets = append(solLinkChangesets, solLinkChangeset)
@@ -343,6 +350,13 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 		}
 	}
 
+	evmLinkInput := linkchangesets.DeployLinkTokenInput{
+		EVM: make(map[uint64]linkchangesets.EVMLinkConfig, len(evmChainSelectors)),
+	}
+	for _, sel := range evmChainSelectors {
+		evmLinkInput.EVM[sel] = linkchangesets.EVMLinkConfig{}
+	}
+
 	*e, err = commonchangeset.Apply(nil, *e,
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.UpdateChainConfigChangeset),
@@ -352,8 +366,8 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 			},
 		),
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
-			evmChainSelectors,
+			deploylink.DeployLinkTokenChangeset{},
+			evmLinkInput,
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
@@ -477,7 +491,6 @@ func setupLinkPools(e *cldf.Environment) (cldf.Environment, error) {
 			Pools: pools,
 		},
 	))
-
 	if err != nil {
 		return *e, fmt.Errorf("failed to apply changesets: %w", err)
 	}
@@ -894,12 +907,12 @@ func setupEVM2EVMLanes(e *cldf.Environment, state stateview.CCIPOnChainState, la
 				globalUpdateRouterChanges[src].OnRampUpdates[dst] = true
 
 				rateLimitPerChain[dst] = v1_5_1.RateLimiterConfig{
-					Inbound: token_pool.RateLimiterConfig{
+					Inbound: &token_pool.RateLimiterConfig{
 						IsEnabled: false,
 						Capacity:  big.NewInt(0),
 						Rate:      big.NewInt(0),
 					},
-					Outbound: token_pool.RateLimiterConfig{
+					Outbound: &token_pool.RateLimiterConfig{
 						IsEnabled: false,
 						Capacity:  big.NewInt(0),
 						Rate:      big.NewInt(0),
@@ -969,11 +982,11 @@ func mustOCR(e *cldf.Environment, homeChainSel uint64, feedChainSel uint64, newD
 	evmSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
 	solSelectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilySolana))
 	// need to have extra definition here for golint
-	var allSelectors = make([]uint64, 0)
+	allSelectors := make([]uint64, 0)
 	allSelectors = append(allSelectors, evmSelectors...)
 	allSelectors = append(allSelectors, solSelectors...)
-	var commitOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
-	var execOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
+	commitOCRConfigPerSelector := make(map[uint64]v1_6.CCIPOCRParams)
+	execOCRConfigPerSelector := make(map[uint64]v1_6.CCIPOCRParams)
 	// Should be configured in the future based on the load test scenario
 	chainType := v1_6.Default
 	_, err := testhelpers.DeployFeeds(e.Logger, e.ExistingAddresses, e.BlockChains.EVMChains()[feedChainSel], testhelpers.DefaultLinkPrice, testhelpers.DefaultWethPrice)
@@ -1148,7 +1161,6 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 	_, err = v1_6.UpdateOffRampSourcesChangeset(*e, v1_6.UpdateOffRampSourcesConfig{
 		UpdatesByChain: allUpdates,
 	})
-
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to update dynamic off ramp config: %w", err)
 	}
@@ -1199,7 +1211,6 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 	}
 
 	configDigest, err := state.Chains[homeChainSel].RMNHome.GetCandidateDigest(nil)
-
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to get rmn home candidate digest: %w", err)
 	}
@@ -1253,7 +1264,8 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 }
 
 func GenerateRMNNodeIdentities(rmnNodeCount uint, rageProxyImageURI, rageProxyImageTag, afn2proxyImageURI,
-	afn2proxyImageTag string, imagePlatform string) ([]RMNNodeConfig, error) {
+	afn2proxyImageTag string, imagePlatform string,
+) ([]RMNNodeConfig, error) {
 	lggr := zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout})
 	rmnNodeConfigs := make([]RMNNodeConfig, rmnNodeCount)
 

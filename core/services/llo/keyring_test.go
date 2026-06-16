@@ -63,6 +63,7 @@ func (m *mockKey) reset(format llotypes.ReportFormat) {
 }
 
 func Test_Keyring(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 
 	ks := map[llotypes.ReportFormat]Key{
@@ -91,17 +92,24 @@ func Test_Keyring(t *testing.T) {
 	require.NoError(t, err)
 	seqNr := rand.Uint64N(math.MaxUint32 << 8)
 	t.Run("Sign+Verify", func(t *testing.T) {
+		t.Parallel()
 		for _, tc := range cases {
 			t.Run(tc.format.String(), func(t *testing.T) {
-				k := ks[tc.format]
-				defer k.(*mockKey).reset(tc.format)
+				t.Parallel()
+				ksLocal := map[llotypes.ReportFormat]Key{
+					llotypes.ReportFormatEVMPremiumLegacy: &mockKey{format: llotypes.ReportFormatEVMPremiumLegacy, maxSignatureLen: 1, sig: []byte("sig-1")},
+					llotypes.ReportFormatJSON:             &mockKey{format: llotypes.ReportFormatJSON, maxSignatureLen: 2, sig: []byte("sig-2")},
+					llotypes.ReportFormatEVMStreamlined:   &mockKey{format: llotypes.ReportFormatEVMStreamlined, maxSignatureLen: 6, sig: []byte("sig-6")},
+				}
+				krLocal := NewOnchainKeyring(lggr, ksLocal, 2)
+				k := ksLocal[tc.format]
 
-				sig, err := kr.Sign(cd, seqNr, ocr3types.ReportWithInfo[llotypes.ReportInfo]{Info: llotypes.ReportInfo{ReportFormat: tc.format}})
+				sig, err := krLocal.Sign(cd, seqNr, ocr3types.ReportWithInfo[llotypes.ReportInfo]{Info: llotypes.ReportInfo{ReportFormat: tc.format}})
 				require.NoError(t, err)
 
 				assert.Equal(t, fmt.Appendf(nil, "sig-%d", tc.format), sig)
 
-				assert.False(t, kr.Verify(nil, cd, seqNr, ocr3types.ReportWithInfo[llotypes.ReportInfo]{Info: llotypes.ReportInfo{ReportFormat: tc.format}}, sig))
+				assert.False(t, krLocal.Verify(nil, cd, seqNr, ocr3types.ReportWithInfo[llotypes.ReportInfo]{Info: llotypes.ReportInfo{ReportFormat: tc.format}}, sig))
 
 				k.(*mockKey).verify = true
 			})
@@ -109,9 +117,11 @@ func Test_Keyring(t *testing.T) {
 	})
 
 	t.Run("MaxSignatureLength", func(t *testing.T) {
+		t.Parallel()
 		assert.Equal(t, 6+2+1, kr.MaxSignatureLength())
 	})
 	t.Run("PublicKey", func(t *testing.T) {
+		t.Parallel()
 		b := make([]byte, 6+2+1)
 		for i := range b {
 			b[i] = byte(255)

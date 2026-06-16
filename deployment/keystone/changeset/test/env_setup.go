@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
@@ -156,7 +158,7 @@ func (te EnvWrapper) CapabilityRegistryAddressRef() datastore.AddressRefKey {
 }
 
 func (te EnvWrapper) ForwarderAddressRefs() []datastore.AddressRefKey {
-	addrs := te.Env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(forwarderQualifier))
+	addrs := te.Env.DataStore.Addresses().Filter(datastore.AddressRefByType(datastore.ContractType(contracts.KeystoneForwarder)), datastore.AddressRefByQualifier(forwarderQualifier))
 	require.NotEmpty(te.t, addrs)
 	out := make([]datastore.AddressRefKey, len(addrs))
 	for i, addr := range addrs {
@@ -165,8 +167,12 @@ func (te EnvWrapper) ForwarderAddressRefs() []datastore.AddressRefKey {
 	return out
 }
 
+func (te EnvWrapper) ForwarderQualifier() string {
+	return forwarderQualifier
+}
+
 func (te EnvWrapper) OwnedForwarders() map[uint64][]*contracts.OwnedContract[*forwarder.KeystoneForwarder] { // chain selector -> forwarders
-	addrs := te.Env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(forwarderQualifier))
+	addrs := te.Env.DataStore.Addresses().Filter(datastore.AddressRefByType(datastore.ContractType(contracts.KeystoneForwarder)), datastore.AddressRefByQualifier(forwarderQualifier))
 	require.NotEmpty(te.t, addrs)
 	out := make(map[uint64][]*contracts.OwnedContract[*forwarder.KeystoneForwarder])
 	for _, addr := range addrs {
@@ -382,7 +388,7 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 		}
 		env, err = commonchangeset.Apply(t, env,
 			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+				cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
 				timelockCfgs,
 			),
 		)

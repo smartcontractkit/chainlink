@@ -29,6 +29,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/urfave/cli"
+	prombridge "go.opentelemetry.io/contrib/bridges/prometheus"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
@@ -38,7 +39,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/promutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
@@ -51,15 +54,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cre"
+	gatewaynetwork "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	ocr3beholderwrapper "github.com/smartcontractkit/chainlink/v2/core/services/ocr3/beholderwrapper"
 	ocr3_1beholderwrapper "github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/beholderwrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
-	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	workflowsmonitoring "github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -80,10 +82,11 @@ func metricViews() []sdkmetric.View {
 		ccvcommon.MetricViews(),
 		ocr3beholderwrapper.MetricViews(),
 		ocr3_1beholderwrapper.MetricViews(),
+		gatewaynetwork.HTTPClientMetricViews(),
 	)
 }
 
-func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTelemetry config.Telemetry, lggr logger.Logger, csaPubKeyHex string, beholderAuthHeaders map[string]string) error {
+func initGlobals(cfgProm config.Prometheus, cfgTelemetry config.Telemetry, cfgTracing config.Tracing, lggr logger.Logger, beholderClient *beholder.Client) error {
 	// Avoid double initializations, but does not prevent relay methods from being called multiple times.
 	var err error
 	initGlobalsOnce.Do(func() {
@@ -95,69 +98,103 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 				lggr.Errorw("Telemetry error", "err", err)
 			}))
 
-			tracingCfg := loop.TracingConfig{
-				Enabled:         cfgTracing.Enabled(),
-				CollectorTarget: cfgTracing.CollectorTarget(),
-				NodeAttributes:  cfgTracing.Attributes(),
-				SamplingRatio:   cfgTracing.SamplingRatio(),
-				TLSCertPath:     cfgTracing.TLSCertPath(),
-				OnDialError:     func(error) { lggr.Errorw("Failed to dial", "err", err) },
-			}
 			if !cfgTelemetry.Enabled() {
-				return loop.SetupTracing(tracingCfg)
+				return loop.SetupTracing(tracingConfig(cfgTracing, lggr))
 			}
 
-			var attributes []attribute.KeyValue
-			if tracingCfg.Enabled {
-				attributes = tracingCfg.Attributes()
+			if beholderClient != nil {
+				beholder.SetClient(beholderClient)
+				beholder.SetGlobalOtelProviders()
 			}
-			for k, v := range cfgTelemetry.ResourceAttributes() {
-				attributes = append(attributes, attribute.String(k, v))
-			}
-
-			clientCfg := beholder.Config{
-				InsecureConnection:             cfgTelemetry.InsecureConnection(),
-				CACertFile:                     cfgTelemetry.CACertFile(),
-				OtelExporterGRPCEndpoint:       cfgTelemetry.OtelExporterGRPCEndpoint(),
-				ResourceAttributes:             attributes,
-				TraceSampleRatio:               cfgTelemetry.TraceSampleRatio(),
-				EmitterBatchProcessor:          cfgTelemetry.EmitterBatchProcessor(),
-				EmitterExportTimeout:           cfgTelemetry.EmitterExportTimeout(),
-				AuthPublicKeyHex:               csaPubKeyHex,
-				AuthHeaders:                    beholderAuthHeaders,
-				AuthHeadersTTL:                 cfgTelemetry.AuthHeadersTTL(),
-				ChipIngressEmitterEnabled:      cfgTelemetry.ChipIngressEndpoint() != "",
-				ChipIngressEmitterGRPCEndpoint: cfgTelemetry.ChipIngressEndpoint(),
-				ChipIngressInsecureConnection:  cfgTelemetry.ChipIngressInsecureConnection(),
-				LogStreamingEnabled:            cfgTelemetry.LogStreamingEnabled(),
-				LogLevel:                       cfgTelemetry.LogLevel(),
-				LogBatchProcessor:              cfgTelemetry.LogBatchProcessor(),
-				LogExportTimeout:               cfgTelemetry.LogExportTimeout(),
-				LogExportMaxBatchSize:          cfgTelemetry.LogExportMaxBatchSize(),
-				LogExportInterval:              cfgTelemetry.LogExportInterval(),
-				LogMaxQueueSize:                cfgTelemetry.LogMaxQueueSize(),
-				// note: due to the OTEL specification, all histogram buckets
-				// must be defined when the beholder client is created
-				MetricViews: metricViews(),
-			}
-
-			if tracingCfg.Enabled {
-				clientCfg.TraceSpanExporter, err = tracingCfg.NewSpanExporter()
-				if err != nil {
-					return err
-				}
-			}
-			var beholderClient *beholder.Client
-			beholderClient, err = beholder.NewClient(clientCfg)
-			if err != nil {
-				return err
-			}
-			beholder.SetClient(beholderClient)
-			beholder.SetGlobalOtelProviders()
 			return nil
 		}()
 	})
 	return err
+}
+
+func tracingConfig(cfgTracing config.Tracing, lggr logger.Logger) loop.TracingConfig {
+	return loop.TracingConfig{
+		Enabled:         cfgTracing.Enabled(),
+		CollectorTarget: cfgTracing.CollectorTarget(),
+		NodeAttributes:  cfgTracing.Attributes(),
+		SamplingRatio:   cfgTracing.SamplingRatio(),
+		TLSCertPath:     cfgTracing.TLSCertPath(),
+		OnDialError:     func(e error) { lggr.Errorw("Failed to dial", "err", e) },
+	}
+}
+
+// newBeholderClient builds a Beholder client from tracing/telemetry config
+// and sets the CSA signer used for auth header refresh.
+func newBeholderClient(
+	lggr logger.Logger,
+	keyStore keystore.Master,
+	cfgTracing config.Tracing,
+	cfgTelemetry config.Telemetry,
+	csaPubKeyHex string,
+	beholderAuthHeaders map[string]string,
+) (*beholder.Client, error) {
+	attributes := make([]attribute.KeyValue, 0, len(cfgTelemetry.ResourceAttributes()))
+	for k, v := range cfgTelemetry.ResourceAttributes() {
+		attributes = append(attributes, attribute.String(k, v))
+	}
+
+	clientCfg := beholder.Config{
+		InsecureConnection:             cfgTelemetry.InsecureConnection(),
+		CACertFile:                     cfgTelemetry.CACertFile(),
+		OtelExporterGRPCEndpoint:       cfgTelemetry.OtelExporterGRPCEndpoint(),
+		ResourceAttributes:             attributes,
+		TraceSampleRatio:               cfgTelemetry.TraceSampleRatio(),
+		EmitterBatchProcessor:          cfgTelemetry.EmitterBatchProcessor(),
+		EmitterExportTimeout:           cfgTelemetry.EmitterExportTimeout(),
+		AuthPublicKeyHex:               csaPubKeyHex,
+		AuthHeaders:                    beholderAuthHeaders,
+		AuthHeadersTTL:                 cfgTelemetry.AuthHeadersTTL(),
+		ChipIngressEmitterEnabled:      cfgTelemetry.ChipIngressEndpoint() != "",
+		ChipIngressEmitterGRPCEndpoint: cfgTelemetry.ChipIngressEndpoint(),
+		ChipIngressInsecureConnection:  cfgTelemetry.ChipIngressInsecureConnection(),
+		ChipIngressBatchEmitterEnabled: cfgTelemetry.ChipIngressBatchEmitterEnabled(),
+		ChipIngressLogger:              lggr,
+		LogStreamingEnabled:            cfgTelemetry.LogStreamingEnabled(),
+		LogLevel:                       cfgTelemetry.LogLevel(),
+		LogBatchProcessor:              cfgTelemetry.LogBatchProcessor(),
+		LogExportTimeout:               cfgTelemetry.LogExportTimeout(),
+		LogExportMaxBatchSize:          cfgTelemetry.LogExportMaxBatchSize(),
+		LogExportInterval:              cfgTelemetry.LogExportInterval(),
+		LogMaxQueueSize:                cfgTelemetry.LogMaxQueueSize(),
+		// Due to OpenTelemetry semantics, histogram bucket boundaries must be set
+		// when the Beholder client is constructed.
+		MetricViews: metricViews(),
+	}
+
+	if cfgTracing.Enabled() {
+		tracingCfg := tracingConfig(cfgTracing, lggr)
+		// add tracing attributes to resource attributes
+		clientCfg.ResourceAttributes = append(clientCfg.ResourceAttributes, tracingCfg.Attributes()...)
+
+		var err error
+		clientCfg.TraceSpanExporter, err = tracingCfg.NewSpanExporter()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if pmCfg := cfgTelemetry.PrometheusBridge(); pmCfg.Enabled() {
+		var bridgeOpts []prombridge.Option
+		if prefixes := pmCfg.Prefixes(); len(prefixes) > 0 {
+			bridgeOpts = append(bridgeOpts, prombridge.WithGatherer(promutil.NewPrefixGatherer(prometheus.DefaultGatherer, prefixes)))
+		}
+		clientCfg.MetricProducers = append(clientCfg.MetricProducers, prombridge.NewMetricProducer(bridgeOpts...))
+	}
+
+	beholderClient, err := beholder.NewClient(clientCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set the signer used to refresh auth headers when AuthHeadersTTL is non-zero.
+	// TTL 0 means static headers only; the signer will not run.
+	beholderClient.SetSigner(&keystore.CSASigner{CSA: keyStore.CSA()})
+
+	return beholderClient, nil
 }
 
 // ErrNoAPICredentialsAvailable is returned when not run from a terminal
@@ -188,9 +225,10 @@ type Shell struct {
 	secretsFiles     []string
 	secretsFileIsSet bool
 
-	LDB      pg.LockedDB        // initialized in BeforeNode
-	DS       sqlutil.DataSource // initialized in BeforeNode
-	KeyStore keystore.Master    // initialized in BeforeNode
+	LDB            pg.LockedDB        // initialized in BeforeNode
+	DS             sqlutil.DataSource // initialized in BeforeNode
+	KeyStore       keystore.Master    // initialized in BeforeNode
+	BeholderClient *beholder.Client   // initialized in BeforeNode
 
 	CleanupOnce sync.Once // ensures cleanup happens exactly once
 }
@@ -259,24 +297,23 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	}
 
 	return chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
-		Opts:                     creOpts,
-		Config:                   cfg,
-		DS:                       ds,
-		KeyStore:                 keyStore,
-		Logger:                   appLggr,
-		Registerer:               appRegisterer,
-		AuditLogger:              auditLogger,
-		ExternalInitiatorManager: webhook.NewExternalInitiatorManager(ds, unrestrictedClient),
-		Version:                  static.Version,
-		VersionTag:               static.VersionTag,
-		DockerTag:                dockerTag,
-		RestrictedHTTPClient:     clhttp.NewRestrictedClient(cfg.Database(), appLggr),
-		UnrestrictedHTTPClient:   unrestrictedClient,
-		SecretGenerator:          chainlink.FilePersistedSecretGenerator{},
-		GRPCOpts:                 grpcOpts,
-		MercuryPool:              mercuryPool,
-		RetirementReportCache:    retirement.NewRetirementReportCache(appLggr, ds),
-		LLOTransmissionReaper:    llo.NewTransmissionReaper(ds, appLggr, cfg.Mercury().Transmitter().ReaperFrequency(), cfg.Mercury().Transmitter().ReaperMaxAge()),
+		Opts:                   creOpts,
+		Config:                 cfg,
+		DS:                     ds,
+		KeyStore:               keyStore,
+		Logger:                 appLggr,
+		Registerer:             appRegisterer,
+		AuditLogger:            auditLogger,
+		Version:                static.Version,
+		VersionTag:             static.VersionTag,
+		DockerTag:              dockerTag,
+		RestrictedHTTPClient:   clhttp.NewRestrictedClient(cfg.Database(), appLggr),
+		UnrestrictedHTTPClient: unrestrictedClient,
+		SecretGenerator:        chainlink.FilePersistedSecretGenerator{},
+		GRPCOpts:               grpcOpts,
+		MercuryPool:            mercuryPool,
+		RetirementReportCache:  retirement.NewRetirementReportCache(appLggr, ds),
+		LLOTransmissionReaper:  llo.NewTransmissionReaper(ds, appLggr, cfg.Mercury().Transmitter().ReaperFrequency(), cfg.Mercury().Transmitter().ReaperMaxAge()),
 	})
 }
 

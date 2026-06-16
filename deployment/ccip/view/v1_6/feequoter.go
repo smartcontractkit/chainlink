@@ -5,7 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
+	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/cldfutil"
 
 	router1_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"

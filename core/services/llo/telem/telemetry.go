@@ -302,6 +302,10 @@ func (t *telemeter) sendBufferedTelemetry(digest types.ConfigDigest, seqNr uint6
 	go func() {
 		for _, msgs := range messages {
 			for _, msg := range msgs {
+				// Sampling is applied at flush time (not enqueue time) for buffered telemetry
+				if !t.sampler.Sample(msg.telemType, msg.msg) {
+					continue
+				}
 				bytes, err := proto.Marshal(msg.msg)
 				if err != nil {
 					t.eng.Warnf("protobuf marshal failed %v", err.Error())
@@ -337,12 +341,12 @@ func (t *telemeter) enqueueTelemetry(digest string, seqNr uint64, typ synchroniz
 		if _, ok := t.telemetryBuffer[digest]; !ok {
 			t.telemetryBuffer[digest] = make(map[uint64][]telemetryEntry)
 		}
-		if t.sampler.Sample(typ, msg) {
-			t.telemetryBuffer[digest][seqNr] = []telemetryEntry{{
-				telemType: typ,
-				msg:       msg,
-			}}
-		}
+
+		// Sampling is applied at flush time for buffered telemetry
+		t.telemetryBuffer[digest][seqNr] = []telemetryEntry{{
+			telemType: typ,
+			msg:       msg,
+		}}
 	default: // synchronization.LLOReport and other buffered types
 		// Report telemetry: append, since multiple reports per seqNr is
 		// expected (one per reportable channel).
@@ -352,12 +356,11 @@ func (t *telemeter) enqueueTelemetry(digest string, seqNr uint64, typ synchroniz
 		if _, ok := t.telemetryBuffer[digest]; !ok {
 			t.telemetryBuffer[digest] = make(map[uint64][]telemetryEntry)
 		}
-		if t.sampler.Sample(typ, msg) {
-			t.telemetryBuffer[digest][seqNr] = append(t.telemetryBuffer[digest][seqNr], telemetryEntry{
-				telemType: typ,
-				msg:       msg,
-			})
-		}
+		// Sampling is applied at flush time for buffered telemetry
+		t.telemetryBuffer[digest][seqNr] = append(t.telemetryBuffer[digest][seqNr], telemetryEntry{
+			telemType: typ,
+			msg:       msg,
+		})
 	}
 }
 

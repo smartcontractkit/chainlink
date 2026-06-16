@@ -3,18 +3,17 @@ package config
 import (
 	"fmt"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 )
 
 // DeployCurseMCMSConfig holds per-chain configuration for deploying and
 // configuring a CurseMCMS contract on Aptos chains.
 type DeployCurseMCMSConfig struct {
 	CurseMCMSConfigPerChain    map[uint64]cldfproposalutils.MCMSWithTimelockConfig
-	MCMSTimelockConfigPerChain map[uint64]proposalutils.TimelockConfig
+	MCMSTimelockConfigPerChain map[uint64]cldfproposalutils.TimelockConfig
 }
 
 func (c DeployCurseMCMSConfig) Validate() error {

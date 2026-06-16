@@ -262,7 +262,7 @@ name = "strm-spec-%d"
 streamID = %d
 observationSource = """
 	// Benchmark Price
-	price1          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
+	price1          [type=bridge name="%s" timeout="10s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
 	price1_parse    [type=jsonparse path="result"];
 
 	price1 -> price1_parse;
@@ -313,19 +313,19 @@ name = "strm-spec-%d"
 streamID = %d
 observationSource = """
 	// Benchmark Price
-	price1          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
+	price1          [type=bridge name="%s" timeout="10s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
 	price1_parse    [type=jsonparse path="result" index=0];
 
 	price1 -> price1_parse;
 
 	// Bid
-	price2          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
+	price2          [type=bridge name="%s" timeout="10s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
 	price2_parse    [type=jsonparse path="result" index=1];
 
 	price2 -> price2_parse;
 
 	// Ask
-	price3          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
+	price3          [type=bridge name="%s" timeout="10s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
 	price3_parse    [type=jsonparse path="result" index=2];
 
 	price3 -> price3_parse;
@@ -370,7 +370,7 @@ type = "offchainreporting2"
 schemaVersion = 1
 name = "%s"
 forwardingAllowed = false
-maxTaskDuration = "1s"
+maxTaskDuration = "10s"
 contractID = "%s"
 contractConfigTrackerPollInterval = "1s"
 ocrKeyBundleID = "%s"

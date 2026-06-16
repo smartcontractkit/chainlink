@@ -32,8 +32,7 @@ func TestSmoke(t *testing.T) {
 			zapcore.DPanicLevel,
 			products.WarnAboutAllowedMsgs_No,
 		)
-		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings(forwarderMessage))
-		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
+		products.CleanupContainerLogs(t, products.DefaultSettings(forwarderMessage))
 	})
 	c, _, _, err := products.ETHClient(t.Context(), in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, pdConfig.Config[0].GasSettings.FeeCapMultiplier, pdConfig.Config[0].GasSettings.TipCapMultiplier)
 	require.NoError(t, err)

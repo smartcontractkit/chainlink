@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	"github.com/aptos-labs/aptos-go-sdk"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -14,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 func TestMigrateOnRampDestChainConfigsToV2_Apply(t *testing.T) {
@@ -33,7 +34,7 @@ func TestMigrateOnRampDestChainConfigsToV2_Apply(t *testing.T) {
 		ChainSelector:         chainSelector,
 		DestChainSelectors:    []uint64{chain_selectors.ETHEREUM_MAINNET.Selector},
 		RouterModuleAddresses: []aptos.AccountAddress{{}},
-		MCMS: &proposalutils.TimelockConfig{
+		MCMS: &cldfproposalutils.TimelockConfig{
 			MinDelay:     time.Second,
 			MCMSAction:   mcmstypes.TimelockActionSchedule,
 			OverrideRoot: false,

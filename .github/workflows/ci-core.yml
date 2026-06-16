@@ -14,7 +14,7 @@ on:
   merge_group:
   pull_request:
   schedule:
-    - cron: "0 0,6,12,18 * * *"
+    - cron: "0 0,1,2,3,4,5,6,20,21,22,23 * * *" # Run regularly at night to get better flaky test data
   workflow_dispatch:
 
 jobs:
@@ -345,16 +345,12 @@ jobs:
         with:
           CLI_VERSION: 8.1.0
 
-      - name: Setup Sui CLI v1.69.2
+      - name: Setup Sui CLI v1.72.2
         if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-sui == 'true' }}
         uses: ./.github/actions/setup-sui
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          version: mainnet-v1.69.2
-
-      - name: Setup wasmd
-        if: ${{ matrix.type.should-run == 'true' }}
-        uses: ./.github/actions/setup-wasmd
+          version: mainnet-v1.72.2
 
       - name: Setup Postgres
         if: ${{ matrix.type.should-run == 'true' }}

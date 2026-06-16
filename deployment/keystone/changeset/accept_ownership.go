@@ -4,12 +4,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 )
 
 type AcceptAllOwnershipRequest struct {
@@ -24,15 +23,15 @@ func AcceptAllOwnershipsProposal(e cldf.Environment, req *AcceptAllOwnershipRequ
 	chainSelector := req.ChainSelector
 
 	// Construct the configuration
-	cfg := changeset.TransferToMCMSWithTimelockConfig{
+	cfg := mcmschangesets.TransferToMCMSWithTimelockConfig{
 		ContractsByChain: map[uint64][]common.Address{
 			chainSelector: getTransferableContracts(e.DataStore.Addresses(), chainSelector),
 		},
-		MCMSConfig: proposalutils.TimelockConfig{MinDelay: req.MinDelay},
+		MCMSConfig: cldfproposalutils.TimelockConfig{MinDelay: req.MinDelay},
 	}
 
 	// Create and return the changeset
-	return changeset.TransferToMCMSWithTimelockV2(e, cfg)
+	return mcmschangesets.TransferToMCMSWithTimelockV2(e, cfg)
 }
 
 func getTransferableContracts(addressStore datastore.AddressRefStore, chainSelector uint64) []common.Address {

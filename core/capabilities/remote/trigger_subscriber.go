@@ -392,6 +392,14 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 			return
 		}
 
+		if len(meta.WorkflowIds) != len(meta.TriggerIds) {
+			s.lggr.Errorw("received registration check with mismatched workflow and trigger IDs",
+				"sender", sender,
+				"workflowIdsLen", len(meta.WorkflowIds),
+				"triggerIdsLen", len(meta.TriggerIds))
+			return
+		}
+
 		s.lggr.Infow("received registration check", "sender", sender)
 		for i, workflowID := range meta.WorkflowIds {
 			triggerID := meta.TriggerIds[i]

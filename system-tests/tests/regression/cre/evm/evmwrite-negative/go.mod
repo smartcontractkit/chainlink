@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative
 
-go 1.26.2
+go 1.26.4
 
 require (
 	github.com/ethereum/go-ethereum v1.17.1
@@ -18,7 +18,7 @@ require (
 	github.com/holiman/uint256 v1.3.2 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260420204255-a3f3bdd56877 // indirect
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260505131349-78e491b80735 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	golang.org/x/sys v0.42.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect

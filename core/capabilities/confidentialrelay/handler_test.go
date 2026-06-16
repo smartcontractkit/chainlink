@@ -21,6 +21,7 @@ import (
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
@@ -28,6 +29,7 @@ import (
 	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 
 	vaulttypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
 func makeCapabilityPayload(t *testing.T, inputs map[string]any) string {
@@ -153,6 +155,11 @@ func withEnclaveConfig(reg *mockCapRegistry) *mockCapRegistry {
 	reg.dons[confidentialWorkflowsCapID] = []capabilities.DONWithNodes{
 		{DON: capabilities.DON{ID: 1}},
 	}
+	// Wire WorkflowDON membership to match testEnclaveConfig so the relay-side
+	// verifyEnclaveConfigMatchesDON check passes for fixtures that build
+	// request params with testEnclaveConfig.
+	reg.localNode.WorkflowDON.Members = testWorkflowDONMembers()
+	reg.localNode.WorkflowDON.F = testEnclaveF
 	return reg
 }
 
@@ -166,6 +173,58 @@ func makeRequest(t *testing.T, method string, params any) *jsonrpc.Request[json.
 		ID:     "req-1",
 		Params: &raw,
 	}
+}
+
+// make32Byte builds a 32-byte slice filled with the given byte. Used so
+// EnclaveConfig.Signers byte-for-byte equals the PeerIDs in
+// WorkflowDON.Members produced by testWorkflowDONMembers.
+func make32Byte(b byte) []byte {
+	s := make([]byte, 32)
+	for i := range s {
+		s[i] = b
+	}
+	return s
+}
+
+// testEnclaveConfig is the canonical EnclaveConfig that handler tests put on
+// outgoing request params. withEnclaveConfig wires the matching WorkflowDON
+// membership into the mock CapabilitiesRegistry so
+// verifyEnclaveConfigMatchesDON accepts requests built with this config.
+// testEnclaveF is the DON fault tolerance used across these tests. Untyped so
+// it assigns cleanly to both EnclaveConfig.F (uint32) and WorkflowDON.F
+// (uint8) without a narrowing conversion that would trip gosec G115.
+const testEnclaveF = 1
+
+func testEnclaveConfig() confidentialrelaytypes.EnclaveConfig {
+	return confidentialrelaytypes.EnclaveConfig{
+		Signers: [][]byte{
+			make32Byte(0xa1),
+			make32Byte(0xb1),
+			make32Byte(0xc1),
+			make32Byte(0xd1),
+		},
+		MasterPublicKey: []byte("test-master-public-key"),
+		T:               3,
+		F:               testEnclaveF,
+	}
+}
+
+func testEnclaveConfigPtr() *confidentialrelaytypes.EnclaveConfig {
+	c := testEnclaveConfig()
+	return &c
+}
+
+// testWorkflowDONMembers returns []p2ptypes.PeerID whose [:] slices match
+// testEnclaveConfig().Signers byte-for-byte.
+func testWorkflowDONMembers() []p2ptypes.PeerID {
+	cfg := testEnclaveConfig()
+	members := make([]p2ptypes.PeerID, len(cfg.Signers))
+	for i, s := range cfg.Signers {
+		var pid p2ptypes.PeerID
+		copy(pid[:], s)
+		members[i] = pid
+	}
+	return members
 }
 
 // secretsGetTestRegistry builds a mock registry with a vault executable that
@@ -238,6 +297,7 @@ func secretsGetTestParams() confidentialrelaytypes.SecretsRequestParams {
 		ExecutionID:      "0000000000000000000000000000000000000000000000000000000000000001",
 		OrgID:            "org-123",
 		EnclavePublicKey: "aabbcc",
+		EnclaveConfig:    testEnclaveConfigPtr(),
 		Secrets: []confidentialrelaytypes.SecretIdentifier{
 			{Key: "API_KEY", Namespace: "main"},
 		},
@@ -269,24 +329,26 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			},
 			req: func(t *testing.T) *jsonrpc.Request[json.RawMessage] {
 				return makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
-					WorkflowID:   "wf-1",
-					Owner:        testOwner, // chainlink-common#2032 requires 0x-prefixed 20-byte hex
-					ExecutionID:  "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
-					ReferenceID:  "17",
-					CapabilityID: "my-cap@1.0.0",
-					Payload:      makeCapabilityPayload(t, map[string]any{"key": "val"}),
-					Attestation:  testAttestationB64,
+					WorkflowID:    "wf-1",
+					Owner:         testOwner, // chainlink-common#2032 requires 0x-prefixed 20-byte hex
+					ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+					ReferenceID:   "17",
+					CapabilityID:  "my-cap@1.0.0",
+					Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+					EnclaveConfig: testEnclaveConfigPtr(),
+					Attestation:   testAttestationB64,
 				})
 			},
 			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
 				require.Nil(t, resp.Error)
 				params := confidentialrelaytypes.CapabilityRequestParams{
-					WorkflowID:   "wf-1",
-					Owner:        testOwner,
-					ExecutionID:  "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
-					ReferenceID:  "17",
-					CapabilityID: "my-cap@1.0.0",
-					Payload:      makeCapabilityPayload(t, map[string]any{"key": "val"}),
+					WorkflowID:    "wf-1",
+					Owner:         testOwner,
+					ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+					ReferenceID:   "17",
+					CapabilityID:  "my-cap@1.0.0",
+					Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+					EnclaveConfig: testEnclaveConfigPtr(),
 				}
 				var result confidentialrelaytypes.SignedCapabilityResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
@@ -308,6 +370,61 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				assert.Equal(t, testOwner, exec.lastRequest.Metadata.WorkflowOwner)
 				assert.Equal(t, "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1", exec.lastRequest.Metadata.WorkflowExecutionID)
 				assert.Equal(t, "17", exec.lastRequest.Metadata.ReferenceID)
+				assert.Empty(t, exec.lastRequest.Metadata.OrgID)
+			},
+		},
+		{
+			name: "capability execute sets metadata org id when PropagateOrgIDInRequestMetadata enabled",
+			registry: func(_ *testing.T) *mockCapRegistry {
+				return withEnclaveConfig(&mockCapRegistry{
+					executables: map[string]*mockExecutable{
+						"my-cap@1.0.0": {
+							execResult: capabilities.CapabilityResponse{
+								Payload: &anypb.Any{Value: []byte("result-proto-bytes")},
+							},
+						},
+					},
+				})
+			},
+			modifyHandler: func(t *testing.T, h *Handler) {
+				getter, err := settings.NewJSONGetter([]byte(`{"global":{"PropagateOrgIDInRequestMetadata":"true"}}`))
+				require.NoError(t, err)
+				h.limitsFactory = limits.Factory{Logger: h.lggr, Settings: getter}
+			},
+			req: func(t *testing.T) *jsonrpc.Request[json.RawMessage] {
+				return makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
+					WorkflowID:    "wf-1",
+					Owner:         testOwner,
+					ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+					OrgID:         "org-relay-1",
+					ReferenceID:   "17",
+					CapabilityID:  "my-cap@1.0.0",
+					Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+					EnclaveConfig: testEnclaveConfigPtr(),
+					Attestation:   testAttestationB64,
+				})
+			},
+			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
+				require.Nil(t, resp.Error)
+				params := confidentialrelaytypes.CapabilityRequestParams{
+					WorkflowID:    "wf-1",
+					Owner:         testOwner,
+					ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+					OrgID:         "org-relay-1",
+					ReferenceID:   "17",
+					CapabilityID:  "my-cap@1.0.0",
+					Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+					EnclaveConfig: testEnclaveConfigPtr(),
+				}
+				var result confidentialrelaytypes.SignedCapabilityResponseResult
+				require.NoError(t, json.Unmarshal(*resp.Result, &result))
+				require.Len(t, result.Signatures, 1)
+				assertValidCapabilitySignature(t, params, result)
+			},
+			checkExecutable: func(t *testing.T, reg *mockCapRegistry) {
+				exec := reg.executables["my-cap@1.0.0"]
+				require.NotNil(t, exec.lastRequest)
+				assert.Equal(t, "org-relay-1", exec.lastRequest.Metadata.OrgID)
 			},
 		},
 		{
@@ -323,13 +440,14 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			},
 			req: func(t *testing.T) *jsonrpc.Request[json.RawMessage] {
 				return makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
-					WorkflowID:   "wf-1",
-					Owner:        testOwner,
-					ExecutionID:  "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
-					ReferenceID:  "17",
-					CapabilityID: "my-cap@1.0.0",
-					Payload:      makeCapabilityPayload(t, map[string]any{"echo": "hello"}),
-					Attestation:  testAttestationB64,
+					WorkflowID:    "wf-1",
+					Owner:         testOwner,
+					ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+					ReferenceID:   "17",
+					CapabilityID:  "my-cap@1.0.0",
+					Payload:       makeCapabilityPayload(t, map[string]any{"echo": "hello"}),
+					EnclaveConfig: testEnclaveConfigPtr(),
+					Attestation:   testAttestationB64,
 				})
 			},
 			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
@@ -373,10 +491,11 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			},
 			req: func(t *testing.T) *jsonrpc.Request[json.RawMessage] {
 				return makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
-					WorkflowID:   "wf-1",
-					CapabilityID: "missing-cap@1.0.0",
-					Payload:      base64.StdEncoding.EncodeToString([]byte("payload")),
-					Attestation:  testAttestationB64,
+					WorkflowID:    "wf-1",
+					CapabilityID:  "missing-cap@1.0.0",
+					Payload:       base64.StdEncoding.EncodeToString([]byte("payload")),
+					EnclaveConfig: testEnclaveConfigPtr(),
+					Attestation:   testAttestationB64,
 				})
 			},
 			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
@@ -399,24 +518,26 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				b, err := proto.Marshal(sdkReq)
 				require.NoError(t, err)
 				return makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
-					WorkflowID:   "wf-1",
-					Owner:        testOwner,
-					ExecutionID:  "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
-					ReferenceID:  "17",
-					CapabilityID: "fail-cap@1.0.0",
-					Payload:      base64.StdEncoding.EncodeToString(b),
-					Attestation:  testAttestationB64,
+					WorkflowID:    "wf-1",
+					Owner:         testOwner,
+					ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+					ReferenceID:   "17",
+					CapabilityID:  "fail-cap@1.0.0",
+					Payload:       base64.StdEncoding.EncodeToString(b),
+					EnclaveConfig: testEnclaveConfigPtr(),
+					Attestation:   testAttestationB64,
 				})
 			},
 			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
 				require.Nil(t, resp.Error)
 				params := confidentialrelaytypes.CapabilityRequestParams{
-					WorkflowID:   "wf-1",
-					Owner:        testOwner,
-					ExecutionID:  "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
-					ReferenceID:  "17",
-					CapabilityID: "fail-cap@1.0.0",
-					Payload:      base64.StdEncoding.EncodeToString(mustMarshalProto(t, &sdkpb.CapabilityRequest{Id: "fail-cap@1.0.0", Method: "Execute"})),
+					WorkflowID:    "wf-1",
+					Owner:         testOwner,
+					ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+					ReferenceID:   "17",
+					CapabilityID:  "fail-cap@1.0.0",
+					Payload:       base64.StdEncoding.EncodeToString(mustMarshalProto(t, &sdkpb.CapabilityRequest{Id: "fail-cap@1.0.0", Method: "Execute"})),
+					EnclaveConfig: testEnclaveConfigPtr(),
 				}
 				var result confidentialrelaytypes.SignedCapabilityResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
@@ -427,12 +548,9 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			},
 		},
 		{
-			name:     "secrets get sets WorkflowOwner and OrgId when gate enabled",
+			name:     "secrets get invokes vault execute with stable capability metadata",
 			registry: secretsGetTestRegistry,
 			req:      secretsGetTestRequest,
-			modifyHandler: func(_ *testing.T, h *Handler) {
-				h.vaultIdentityGate = limits.NewGateLimiter(true)
-			},
 			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
 				require.Nil(t, resp.Error)
 				// signSecretsResponse hashes against the request params (no Attestation),
@@ -452,41 +570,36 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 
 				var vaultReq vault.GetSecretsRequest
 				require.NoError(t, exec.lastRequest.Payload.UnmarshalTo(&vaultReq))
-
-				// Gate enabled: owner should be EIP-55 checksummed on the vault request.
-				assert.Equal(t, "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B", vaultReq.WorkflowOwner)
-				assert.Equal(t, "org-123", vaultReq.OrgId)
-
-				// Metadata.WorkflowOwner should be the original (non-normalized) value.
+				require.Len(t, vaultReq.Requests, 1)
+				assert.Equal(t, "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B", vaultReq.Requests[0].Id.Owner)
 				assert.Equal(t, "0xab5801a7d398351b8be11c439e05c5b3259aec9b", exec.lastRequest.Metadata.WorkflowOwner)
 				assert.Equal(t, "wf-secrets-1", exec.lastRequest.Metadata.WorkflowID)
 				assert.Equal(t, uint32(42), exec.lastRequest.Metadata.WorkflowDonID)
-				// Gate enabled: OrgID should be set on metadata.
-				assert.Equal(t, "org-123", exec.lastRequest.Metadata.OrgID)
+				assert.Empty(t, exec.lastRequest.Metadata.OrgID, "org metadata requires PropagateOrgIDInRequestMetadata CRE setting")
 			},
 		},
 		{
-			name:     "secrets get omits WorkflowOwner and OrgId when gate disabled",
+			name:     "secrets get sets metadata org id when PropagateOrgIDInRequestMetadata enabled",
 			registry: secretsGetTestRegistry,
 			req:      secretsGetTestRequest,
-			modifyHandler: func(_ *testing.T, h *Handler) {
-				h.vaultIdentityGate = limits.NewGateLimiter(false)
+			modifyHandler: func(t *testing.T, h *Handler) {
+				getter, err := settings.NewJSONGetter([]byte(`{"global":{"PropagateOrgIDInRequestMetadata":"true"}}`))
+				require.NoError(t, err)
+				h.limitsFactory = limits.Factory{Logger: h.lggr, Settings: getter}
 			},
 			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
 				require.Nil(t, resp.Error)
+				params := secretsGetTestParams()
+				params.Attestation = ""
+				var result confidentialrelaytypes.SignedSecretsResponseResult
+				require.NoError(t, json.Unmarshal(*resp.Result, &result))
+				require.Len(t, result.Signatures, 1)
+				assertValidSecretsSignature(t, params, result)
 			},
 			checkExecutable: func(t *testing.T, reg *mockCapRegistry) {
 				exec := reg.executables[vault.CapabilityID]
-				require.NotNil(t, exec.lastRequest, "vault Execute should have been called")
-
-				var vaultReq vault.GetSecretsRequest
-				require.NoError(t, exec.lastRequest.Payload.UnmarshalTo(&vaultReq))
-
-				// Gate disabled: WorkflowOwner is always set, OrgId must be empty.
-				assert.Equal(t, "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B", vaultReq.WorkflowOwner)
-				assert.Empty(t, vaultReq.OrgId)
-				// Gate disabled: OrgID must be empty on metadata too.
-				assert.Empty(t, exec.lastRequest.Metadata.OrgID)
+				require.NotNil(t, exec.lastRequest)
+				assert.Equal(t, "org-123", exec.lastRequest.Metadata.OrgID)
 			},
 		},
 		{
@@ -593,4 +706,270 @@ func TestHandler_Lifecycle(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, HandlerName, id)
 	})
+}
+
+// TestHandler_VerifyEnclaveConfig covers the PRIV-458 / CL112-01 relay-side
+// hardening: after the Nitro attestation cryptographically verifies the
+// request hash, the handler must also compare the attested EnclaveConfig
+// value against the local node's WorkflowDON state. Without this check, a
+// malicious host can produce a genuinely-attested request over a forged
+// EnclaveConfig and have it accepted.
+func TestHandler_VerifyEnclaveConfig(t *testing.T) {
+	t.Run("matching config accepted on capability execute", func(t *testing.T) {
+		reg := withEnclaveConfig(&mockCapRegistry{
+			executables: map[string]*mockExecutable{
+				"my-cap@1.0.0": {execResult: capabilities.CapabilityResponse{Payload: &anypb.Any{}}},
+			},
+		})
+		gwConn := &mockGatewayConnector{}
+		h := newTestHandler(t, reg, gwConn)
+		req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
+			WorkflowID:    "wf-1",
+			Owner:         testOwner,
+			ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+			ReferenceID:   "1",
+			CapabilityID:  "my-cap@1.0.0",
+			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+			EnclaveConfig: testEnclaveConfigPtr(),
+			Attestation:   testAttestationB64,
+		})
+		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
+		require.NoError(t, err)
+		resp := gwConn.lastResp
+		require.Nil(t, resp.Error)
+	})
+
+	t.Run("nil config rejected on capability execute (required)", func(t *testing.T) {
+		reg := withEnclaveConfig(&mockCapRegistry{
+			executables: map[string]*mockExecutable{
+				"my-cap@1.0.0": {execResult: capabilities.CapabilityResponse{Payload: &anypb.Any{}}},
+			},
+		})
+		gwConn := &mockGatewayConnector{}
+		h := newTestHandler(t, reg, gwConn)
+		req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
+			WorkflowID:    "wf-1",
+			Owner:         testOwner,
+			ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+			ReferenceID:   "1",
+			CapabilityID:  "my-cap@1.0.0",
+			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+			EnclaveConfig: nil, // missing config cannot be checked against DON state
+			Attestation:   testAttestationB64,
+		})
+		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
+		require.NoError(t, err)
+		resp := gwConn.lastResp
+		require.NotNil(t, resp.Error)
+	})
+
+	t.Run("F below DON minimum rejected on capability execute", func(t *testing.T) {
+		reg := withEnclaveConfig(&mockCapRegistry{
+			executables: map[string]*mockExecutable{
+				"my-cap@1.0.0": {execResult: capabilities.CapabilityResponse{Payload: &anypb.Any{}}},
+			},
+		})
+		gwConn := &mockGatewayConnector{}
+		h := newTestHandler(t, reg, gwConn)
+		badCfg := testEnclaveConfig()
+		badCfg.F = testEnclaveF - 1 // below the DON's minimum F
+		req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
+			WorkflowID:    "wf-1",
+			Owner:         testOwner,
+			ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+			ReferenceID:   "1",
+			CapabilityID:  "my-cap@1.0.0",
+			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+			EnclaveConfig: &badCfg,
+			Attestation:   testAttestationB64,
+		})
+		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
+		require.NoError(t, err)
+		resp := gwConn.lastResp
+		require.NotNil(t, resp.Error)
+	})
+
+	t.Run("F above DON minimum accepted on capability execute", func(t *testing.T) {
+		reg := withEnclaveConfig(&mockCapRegistry{
+			executables: map[string]*mockExecutable{
+				"my-cap@1.0.0": {execResult: capabilities.CapabilityResponse{Payload: &anypb.Any{}}},
+			},
+		})
+		gwConn := &mockGatewayConnector{}
+		h := newTestHandler(t, reg, gwConn)
+		cfg := testEnclaveConfig()
+		cfg.F = testEnclaveF + 1 // a higher F is a stricter quorum; floor check accepts it
+		req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
+			WorkflowID:    "wf-1",
+			Owner:         testOwner,
+			ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+			ReferenceID:   "1",
+			CapabilityID:  "my-cap@1.0.0",
+			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+			EnclaveConfig: &cfg,
+			Attestation:   testAttestationB64,
+		})
+		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
+		require.NoError(t, err)
+		resp := gwConn.lastResp
+		require.Nil(t, resp.Error)
+	})
+
+	t.Run("signers count mismatch rejected on capability execute", func(t *testing.T) {
+		reg := withEnclaveConfig(&mockCapRegistry{
+			executables: map[string]*mockExecutable{
+				"my-cap@1.0.0": {execResult: capabilities.CapabilityResponse{Payload: &anypb.Any{}}},
+			},
+		})
+		gwConn := &mockGatewayConnector{}
+		h := newTestHandler(t, reg, gwConn)
+		badCfg := testEnclaveConfig()
+		badCfg.Signers = badCfg.Signers[:2]
+		req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
+			WorkflowID:    "wf-1",
+			Owner:         testOwner,
+			ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+			ReferenceID:   "1",
+			CapabilityID:  "my-cap@1.0.0",
+			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+			EnclaveConfig: &badCfg,
+			Attestation:   testAttestationB64,
+		})
+		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
+		require.NoError(t, err)
+		resp := gwConn.lastResp
+		require.NotNil(t, resp.Error)
+	})
+
+	t.Run("signer value mismatch rejected on capability execute", func(t *testing.T) {
+		reg := withEnclaveConfig(&mockCapRegistry{
+			executables: map[string]*mockExecutable{
+				"my-cap@1.0.0": {execResult: capabilities.CapabilityResponse{Payload: &anypb.Any{}}},
+			},
+		})
+		gwConn := &mockGatewayConnector{}
+		h := newTestHandler(t, reg, gwConn)
+		badCfg := testEnclaveConfig()
+		badCfg.Signers = [][]byte{
+			make32Byte(0xa1),
+			make32Byte(0xb1),
+			make32Byte(0xc1),
+			make32Byte(0xff), // last signer differs
+		}
+		req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
+			WorkflowID:    "wf-1",
+			Owner:         testOwner,
+			ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+			ReferenceID:   "1",
+			CapabilityID:  "my-cap@1.0.0",
+			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+			EnclaveConfig: &badCfg,
+			Attestation:   testAttestationB64,
+		})
+		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
+		require.NoError(t, err)
+		resp := gwConn.lastResp
+		require.NotNil(t, resp.Error)
+	})
+
+	t.Run("matching is order-independent on capability execute", func(t *testing.T) {
+		reg := withEnclaveConfig(&mockCapRegistry{
+			executables: map[string]*mockExecutable{
+				"my-cap@1.0.0": {execResult: capabilities.CapabilityResponse{Payload: &anypb.Any{}}},
+			},
+		})
+		gwConn := &mockGatewayConnector{}
+		h := newTestHandler(t, reg, gwConn)
+		shuffled := testEnclaveConfig()
+		// Reverse Signers; the comparison must still pass.
+		n := len(shuffled.Signers)
+		rev := make([][]byte, n)
+		for i, s := range shuffled.Signers {
+			rev[n-1-i] = s
+		}
+		shuffled.Signers = rev
+		req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
+			WorkflowID:    "wf-1",
+			Owner:         testOwner,
+			ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+			ReferenceID:   "1",
+			CapabilityID:  "my-cap@1.0.0",
+			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+			EnclaveConfig: &shuffled,
+			Attestation:   testAttestationB64,
+		})
+		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
+		require.NoError(t, err)
+		resp := gwConn.lastResp
+		require.Nil(t, resp.Error)
+	})
+
+	t.Run("F below DON minimum rejected on secrets get", func(t *testing.T) {
+		reg := secretsGetTestRegistry(t)
+		gwConn := &mockGatewayConnector{}
+		h := newTestHandler(t, reg, gwConn)
+		params := secretsGetTestParams()
+		params.EnclaveConfig.F = testEnclaveF - 1 // below the DON's minimum F
+		req := makeRequest(t, confidentialrelaytypes.MethodSecretsGet, params)
+		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
+		require.NoError(t, err)
+		resp := gwConn.lastResp
+		require.NotNil(t, resp.Error)
+	})
+}
+
+func TestTranslateVaultResponse_BinaryShares(t *testing.T) {
+	enclaveKey := "aabbcc"
+	shareBytes := []byte("share-1")
+	vaultResp := &vault.GetSecretsResponse{
+		Responses: []*vault.SecretResponse{
+			{
+				Id: &vault.SecretIdentifier{Key: "API_KEY", Namespace: vaulttypes.DefaultNamespace},
+				Result: &vault.SecretResponse_Data{
+					Data: &vault.SecretData{
+						EncryptedValue: hex.EncodeToString([]byte("encrypted-value")),
+						EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
+							{
+								EncryptionKey: enclaveKey,
+								BinaryShares:  [][]byte{shareBytes},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result, err := translateVaultResponse(vaultResp, enclaveKey)
+	require.NoError(t, err)
+	require.Len(t, result.Secrets, 1)
+	require.Equal(t, base64.StdEncoding.EncodeToString(shareBytes), result.Secrets[0].EncryptedShares[0])
+}
+
+func TestTranslateVaultResponse_HexShares(t *testing.T) {
+	enclaveKey := "aabbcc"
+	shareBytes := []byte("share-1")
+	vaultResp := &vault.GetSecretsResponse{
+		Responses: []*vault.SecretResponse{
+			{
+				Id: &vault.SecretIdentifier{Key: "API_KEY", Namespace: vaulttypes.DefaultNamespace},
+				Result: &vault.SecretResponse_Data{
+					Data: &vault.SecretData{
+						EncryptedValue: hex.EncodeToString([]byte("encrypted-value")),
+						EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
+							{
+								EncryptionKey: enclaveKey,
+								Shares:        []string{hex.EncodeToString(shareBytes)},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result, err := translateVaultResponse(vaultResp, enclaveKey)
+	require.NoError(t, err)
+	require.Len(t, result.Secrets, 1)
+	require.Equal(t, base64.StdEncoding.EncodeToString(shareBytes), result.Secrets[0].EncryptedShares[0])
 }

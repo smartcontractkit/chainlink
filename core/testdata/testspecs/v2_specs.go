@@ -16,8 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 var (
@@ -63,80 +63,6 @@ ds          [type=http method=GET url="https://chain.link/ETH-USD"];
 ds_parse    [type=jsonparse path="data.price" separator="."];
 ds_multiply [type=multiply times=100];
 ds -> ds_parse -> ds_multiply;
-"""
-`
-	DirectRequestSpecNoExternalJobID = `
-type                = "directrequest"
-schemaVersion       = 1
-name                = "%s"
-contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
-evmChainID 			= "%s"
-observationSource   = """
-    ds1          [type=http method=GET url="http://example.com" allowunrestrictednetworkaccess="true"];
-    ds1_parse    [type=jsonparse path="USD"];
-    ds1_multiply [type=multiply times=100];
-    ds1 -> ds1_parse -> ds1_multiply;
-"""
-`
-	DirectRequestSpecTemplate = `
-type                = "directrequest"
-schemaVersion       = 1
-name                = "%s"
-contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
-externalJobID       = "%s"
-evmChainID 			= "%s"
-observationSource   = """
-    ds1          [type=http method=GET url="http://example.com" allowunrestrictednetworkaccess="true"];
-    ds1_parse    [type=jsonparse path="USD"];
-    ds1_multiply [type=multiply times=100];
-    ds1 -> ds1_parse -> ds1_multiply;
-"""
-`
-	DirectRequestSpecWithRequestersAndMinContractPaymentTemplate = `
-type                         = "directrequest"
-schemaVersion                = 1
-requesters                   = ["0xaaaa1F8ee20f5565510B84f9353F1E333E753B7a", "0xbbbb70F0e81C6F3430dfdC9fa02fB22BdD818C4e"]
-minContractPaymentLinkJuels  = "1000000000000000000000"
-name                         = "%s"
-contractAddress              = "0x613a38AC1659769640aaE063C651F48E0250454C"
-externalJobID                = "%s"
-evmChainID                   = "%s"
-observationSource            = """
-    ds1          [type=http method=GET url="http://example.com" allowunrestrictednetworkaccess="true"];
-    ds1_parse    [type=jsonparse path="USD"];
-    ds1_multiply [type=multiply times=100];
-    ds1 -> ds1_parse -> ds1_multiply;
-"""
-`
-	FluxMonitorSpecTemplate = `
-type                = "fluxmonitor"
-schemaVersion       = 1
-name                = "%s"
-contractAddress     = "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
-externalJobID       =  "%s"
-evmChainID          =  "%s"
-threshold = 0.5
-absoluteThreshold = 0.0 # optional
-
-idleTimerPeriod = "1s"
-idleTimerDisabled = false
-
-pollTimerPeriod = "1m"
-pollTimerDisabled = false
-
-observationSource = """
-// data source 1
-ds1 [type=http method=GET url="https://pricesource1.com" requestData="{\\"coin\\": \\"ETH\\", \\"market\\": \\"USD\\"}"];
-ds1_parse [type=jsonparse path="latest"];
-
-// data source 2
-ds2 [type=http method=GET url="https://pricesource1.com" requestData="{\\"coin\\": \\"ETH\\", \\"market\\": \\"USD\\"}"];
-ds2_parse [type=jsonparse path="latest"];
-
-ds1 -> ds1_parse -> answer1;
-ds2 -> ds2_parse -> answer1;
-
-answer1 [type=median index=0];
 """
 `
 
@@ -274,15 +200,6 @@ func GetOCRBootstrapSpec() string {
 	return fmt.Sprintf(OCRBootstrapSpec, uuid.New())
 }
 
-func GetDirectRequestSpec() string {
-	uuid := uuid.New()
-	return GetDirectRequestSpecWithUUID(uuid)
-}
-
-func GetDirectRequestSpecWithUUID(u uuid.UUID) string {
-	return fmt.Sprintf(DirectRequestSpecTemplate, u, u, testutils.FixtureChainID.String())
-}
-
 func GetOCR2EVMSpecMinimal() string {
 	return fmt.Sprintf(OCR2EVMSpecMinimalTemplate, uuid.New(), testutils.NewAddress().Hex(), testutils.FixtureChainID.String())
 }
@@ -313,7 +230,11 @@ type VRFSpecParams struct {
 	BackoffInitialDelay           time.Duration
 	BackoffMaxDelay               time.Duration
 	GasLanePrice                  *assets.Wei
-	PollPeriod                    time.Duration
+	// OmitGasLanePrice omits the gasLanePrice field from the generated TOML, resulting in a
+	// nil GasLanePrice on the parsed spec. Useful for testing code paths that only run when
+	// a gas lane price is explicitly configured.
+	OmitGasLanePrice bool
+	PollPeriod       time.Duration
 }
 
 type VRFSpec struct {
@@ -378,54 +299,7 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	if params.ChunkSize != 0 {
 		chunkSize = params.ChunkSize
 	}
-	observationSource := fmt.Sprintf(`
-decode_log   [type=ethabidecodelog
-              abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
-              data="$(jobRun.logData)"
-              topics="$(jobRun.logTopics)"]
-vrf          [type=vrf
-              publicKey="$(jobSpec.publicKey)"
-              requestBlockHash="$(jobRun.logBlockHash)"
-              requestBlockNumber="$(jobRun.logBlockNumber)"
-              topics="$(jobRun.logTopics)"]
-encode_tx    [type=ethabiencode
-              abi="fulfillRandomnessRequest(bytes proof)"
-              data="{\\"proof\\": $(vrf)}"]
-submit_tx  [type=ethtx to="%s"
-            data="$(encode_tx)"
-            minConfirmations="0"
-            from="$(jobSpec.from)"
-            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"
-            transmitChecker="{\\"CheckerType\\": \\"vrf_v1\\", \\"VRFCoordinatorAddress\\": \\"%s\\"}"]
-decode_log->vrf->encode_tx->submit_tx
-`, coordinatorAddress, coordinatorAddress)
-	if params.V2 {
-		observationSource = fmt.Sprintf(`
-decode_log   [type=ethabidecodelog
-              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
-              data="$(jobRun.logData)"
-              topics="$(jobRun.logTopics)"]
-vrf          [type=vrfv2
-              publicKey="$(jobSpec.publicKey)"
-              requestBlockHash="$(jobRun.logBlockHash)"
-              requestBlockNumber="$(jobRun.logBlockNumber)"
-              topics="$(jobRun.logTopics)"]
-estimate_gas [type=estimategaslimit
-              to="%s"
-              multiplier="1.1"
-              data="$(vrf.output)"
-]
-simulate [type=ethcall
-          to="%s"
-		  gas="$(estimate_gas)"
-		  gasPrice="$(jobSpec.maxGasPrice)"
-		  extractRevertReason=true
-		  contract="%s"
-		  data="$(vrf.output)"
-]
-decode_log->vrf->estimate_gas->simulate
-`, coordinatorAddress, coordinatorAddress, coordinatorAddress)
-	}
+	var observationSource string
 	if vrfVersion == vrfcommon.V2Plus {
 		observationSource = fmt.Sprintf(`
 decode_log              [type=ethabidecodelog
@@ -454,6 +328,32 @@ simulate_fulfillment    [type=ethcall
 ]
 decode_log->generate_proof->estimate_gas->simulate_fulfillment
 `, coordinatorAddress, coordinatorAddress, coordinatorAddress)
+	} else {
+		observationSource = fmt.Sprintf(`
+decode_log   [type=ethabidecodelog
+              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
+              data="$(jobRun.logData)"
+              topics="$(jobRun.logTopics)"]
+vrf          [type=vrfv2
+              publicKey="$(jobSpec.publicKey)"
+              requestBlockHash="$(jobRun.logBlockHash)"
+              requestBlockNumber="$(jobRun.logBlockNumber)"
+              topics="$(jobRun.logTopics)"]
+estimate_gas [type=estimategaslimit
+              to="%s"
+              multiplier="1.1"
+              data="$(vrf.output)"
+]
+simulate [type=ethcall
+          to="%s"
+		  gas="$(estimate_gas)"
+		  gasPrice="$(jobSpec.maxGasPrice)"
+		  extractRevertReason=true
+		  contract="%s"
+		  data="$(vrf.output)"
+]
+decode_log->vrf->estimate_gas->simulate
+`, coordinatorAddress, coordinatorAddress, coordinatorAddress)
 	}
 	if params.ObservationSource != "" {
 		observationSource = params.ObservationSource
@@ -479,8 +379,11 @@ publicKey = "%s"
 chunkSize = %d
 backoffInitialDelay = "%s"
 backoffMaxDelay = "%s"
-gasLanePrice = "%s"
-pollPeriod = "%s"
+`
+	if !params.OmitGasLanePrice {
+		template += `gasLanePrice = "` + gasLanePrice.String() + `"` + "\n"
+	}
+	template += `pollPeriod = "%s"
 observationSource = """
 %s
 """
@@ -490,15 +393,17 @@ observationSource = """
 		params.BatchFulfillmentEnabled, strconv.FormatFloat(batchFulfillmentGasMultiplier, 'f', 2, 64),
 		params.CustomRevertsPipelineEnabled,
 		confirmations, params.RequestedConfsDelay, requestTimeout.String(), publicKey, chunkSize,
-		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(), gasLanePrice.String(),
+		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(),
 		pollPeriod.String(), observationSource)
-	if len(params.FromAddresses) != 0 {
-		var addresses []string
-		for _, address := range params.FromAddresses {
-			addresses = append(addresses, fmt.Sprintf("%q", address))
-		}
-		toml = toml + "\n" + fmt.Sprintf(`fromAddresses = [%s]`, strings.Join(addresses, ", "))
+	fromAddrs := params.FromAddresses
+	if len(fromAddrs) == 0 {
+		fromAddrs = []string{"0x1111111111111111111111111111111111111111"}
 	}
+	var addresses []string
+	for _, address := range fromAddrs {
+		addresses = append(addresses, fmt.Sprintf("%q", address))
+	}
+	toml = toml + "\n" + fmt.Sprintf(`fromAddresses = [%s]`, strings.Join(addresses, ", "))
 	if vrfVersion == vrfcommon.V2 {
 		toml = toml + "\n" + fmt.Sprintf(`vrfOwnerAddress = "%s"`, vrfOwnerAddress)
 	}
@@ -643,8 +548,13 @@ observationSource = """
 	}, toml: fmt.Sprintf(header, name, contractAddress, evmChainID, jobID, transmitterAddress, observationBlock)}
 }
 
+type TOMLWebhookSpecExternalInitiator struct {
+	Name string      `toml:"name"`
+	Spec models.JSON `toml:"spec"`
+}
+
 type WebhookSpecParams struct {
-	ExternalInitiators []webhook.TOMLWebhookSpecExternalInitiator
+	ExternalInitiators []TOMLWebhookSpecExternalInitiator
 }
 
 type WebhookSpec struct {
@@ -686,7 +596,6 @@ ds -> ds_parse -> ds_multiply;
 type BlockhashStoreSpecParams struct {
 	JobID                          string
 	Name                           string
-	CoordinatorV1Address           string
 	CoordinatorV2Address           string
 	CoordinatorV2PlusAddress       string
 	WaitBlocks                     int
@@ -768,9 +677,6 @@ func GenerateBlockhashStoreSpec(params BlockhashStoreSpecParams) BlockhashStoreS
 		`schemaVersion = 1`,
 		fmt.Sprintf(`name = "%s"`, params.Name),
 	)
-	if params.CoordinatorV1Address != "" {
-		lines = append(lines, fmt.Sprintf(`coordinatorV1Address = "%s"`, params.CoordinatorV1Address))
-	}
 	if params.CoordinatorV2Address != "" {
 		lines = append(lines, fmt.Sprintf(`coordinatorV2Address = "%s"`, params.CoordinatorV2Address))
 	}
@@ -799,7 +705,6 @@ func GenerateBlockhashStoreSpec(params BlockhashStoreSpecParams) BlockhashStoreS
 type BlockHeaderFeederSpecParams struct {
 	JobID                      string
 	Name                       string
-	CoordinatorV1Address       string
 	CoordinatorV2Address       string
 	CoordinatorV2PlusAddress   string
 	WaitBlocks                 int
@@ -885,9 +790,6 @@ func GenerateBlockHeaderFeederSpec(params BlockHeaderFeederSpecParams) BlockHead
 		`schemaVersion = 1`,
 		fmt.Sprintf(`name = "%s"`, params.Name),
 	)
-	if params.CoordinatorV1Address != "" {
-		lines = append(lines, fmt.Sprintf(`coordinatorV1Address = "%s"`, params.CoordinatorV1Address))
-	}
 	if params.CoordinatorV2Address != "" {
 		lines = append(lines, fmt.Sprintf(`coordinatorV2Address = "%s"`, params.CoordinatorV2Address))
 	}

@@ -81,7 +81,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
-	v1 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v1"
 	v22 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
@@ -632,7 +631,6 @@ func createVRFJobs(
 	// TODO: it could just backfill immediately upon receiving a new subscriber? (though would
 	// only be useful for tests, probably a more robust way is to have the job spawner accept a signal that a
 	// job is fully up and running and not add it to the active jobs list before then)
-	time.Sleep(2 * time.Second)
 
 	return
 }
@@ -820,29 +818,18 @@ func assertRandomWordsFulfilled(
 	coordinator v22.CoordinatorV2_X,
 	nativePayment bool,
 ) (rwfe v22.RandomWordsFulfilled) {
-	// Check many times in case there are delays processing the event
-	// this could happen occasionally and cause flaky tests.
-	numChecks := 3
-	found := false
-	for range numChecks {
+	require.Eventually(t, func() bool {
 		filter, err := coordinator.FilterRandomWordsFulfilled(nil, []*big.Int{requestID}, nil)
 		require.NoError(t, err)
 		for filter.Next() {
 			require.Equal(t, expectedSuccess, filter.Event().Success(), "fulfillment event success not correct, expected: %+v, actual: %+v", expectedSuccess, filter.Event().Success())
 			require.Equal(t, requestID, filter.Event().RequestID())
 			require.Equal(t, nativePayment, filter.Event().NativePayment())
-			found = true
 			rwfe = filter.Event()
+			return true
 		}
-
-		if found {
-			break
-		}
-
-		// Wait a bit and try again.
-		time.Sleep(time.Second)
-	}
-	require.True(t, found, "RandomWordsFulfilled event not found")
+		return false
+	}, 3*time.Second, 100*time.Millisecond, "RandomWordsFulfilled event not found")
 	return
 }
 
@@ -1551,6 +1538,7 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 }
 
 func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(t *testing.T) {
+	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 0)
 	testSingleConsumerAlwaysRevertingCallbackStillFulfilled(
@@ -1565,6 +1553,7 @@ func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(
 }
 
 func TestVRFV2Integration_ConsumerProxy_HappyPath(t *testing.T) {
+	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 0)
 	testConsumerProxyHappyPath(
@@ -1578,6 +1567,7 @@ func TestVRFV2Integration_ConsumerProxy_HappyPath(t *testing.T) {
 }
 
 func TestVRFV2Integration_ConsumerProxy_CoordinatorZeroAddress(t *testing.T) {
+	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 0)
 	testConsumerProxyCoordinatorZeroAddress(t, uni.coordinatorV2UniverseCommon)
@@ -1630,6 +1620,7 @@ func registerProvingKeyHelper(t *testing.T, uni coordinatorV2UniverseCommon, coo
 }
 
 func TestExternalOwnerConsumerExample(t *testing.T) {
+	t.Parallel()
 	owner := evmtestutils.MustNewSimTransactor(t)
 	random := evmtestutils.MustNewSimTransactor(t)
 	genesisData := gethtypes.GenesisAlloc{
@@ -1694,6 +1685,7 @@ func TestExternalOwnerConsumerExample(t *testing.T) {
 }
 
 func TestSimpleConsumerExample(t *testing.T) {
+	t.Parallel()
 	owner := evmtestutils.MustNewSimTransactor(t)
 	random := evmtestutils.MustNewSimTransactor(t)
 	genesisData := gethtypes.GenesisAlloc{
@@ -1949,6 +1941,7 @@ func TestMaliciousConsumer(t *testing.T) {
 }
 
 func TestRequestCost(t *testing.T) {
+	t.Parallel()
 	ctx := testutils.Context(t)
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key, 1)
@@ -2021,6 +2014,7 @@ func TestRequestCost(t *testing.T) {
 }
 
 func TestMaxConsumersCost(t *testing.T) {
+	t.Parallel()
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key, 1)
 	carol := uni.vrfConsumers[0]
@@ -2056,6 +2050,7 @@ func TestMaxConsumersCost(t *testing.T) {
 }
 
 func TestFulfillmentCost(t *testing.T) {
+	t.Parallel()
 	ctx := testutils.Context(t)
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key, 1)
@@ -2159,6 +2154,7 @@ func TestFulfillmentCost(t *testing.T) {
 }
 
 func TestStartingCountsV1(t *testing.T) {
+	t.Parallel()
 	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, nil)
 
 	ctx := t.Context()
@@ -2187,12 +2183,9 @@ func TestStartingCountsV1(t *testing.T) {
 	require.NoError(t, err)
 	chain, ok := chainService.(legacyevm.Chain)
 	require.True(t, ok)
-	listenerV1 := &v1.Listener{
-		Chain: chain,
-	}
 	listenerV2 := v22.MakeTestListenerV2(chain)
 	var counts map[[32]byte]uint64
-	counts, err = listenerV1.GetStartingResponseCountsV1(testutils.Context(t))
+	counts, err = vrfcommon.GetStartingResponseCountsV1(testutils.Context(t), chain)
 	require.NoError(t, err)
 	assert.Empty(t, counts)
 	err = ks.Unlock(ctx, testutils.Password)
@@ -2346,7 +2339,7 @@ func TestStartingCountsV1(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	counts, err = listenerV1.GetStartingResponseCountsV1(testutils.Context(t))
+	counts, err = vrfcommon.GetStartingResponseCountsV1(testutils.Context(t), chain)
 	require.NoError(t, err)
 	assert.Len(t, counts, 3)
 	assert.Equal(t, uint64(1), counts[evmutils.PadByteToHash(0x10)])

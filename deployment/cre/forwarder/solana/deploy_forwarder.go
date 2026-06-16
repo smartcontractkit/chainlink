@@ -16,11 +16,13 @@ import (
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	seq "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/solana/sequence"
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder/solana/sequence/operation"
@@ -133,7 +135,7 @@ type SetForwarderUpgradeAuthorityRequest = struct {
 	NewUpgradeAuthority solana.PublicKey
 	Qualifier           string
 	Version             string
-	MCMS                *proposalutils.TimelockConfig // if set, assumes current upgrade authority is the timelock
+	MCMS                *cldfproposalutils.TimelockConfig // if set, assumes current upgrade authority is the timelock
 }
 
 var _ cldf.ChangeSetV2[*SetForwarderUpgradeAuthorityRequest] = SetForwarderUpgradeAuthority{}
@@ -209,7 +211,7 @@ func (cs SetForwarderUpgradeAuthority) Apply(env cldf.Environment, req *SetForwa
 type ConfigureForwarderRequest struct {
 	DON forwarder.DonConfiguration
 
-	MCMS *proposalutils.TimelockConfig // if set, assumes current ownership is the timelock
+	MCMS *cldfproposalutils.TimelockConfig // if set, assumes current ownership is the timelock
 
 	// Chains is optional. Defines chains for which request will be executed. If empty, runs for all available chains.
 	Chains    map[uint64]struct{}
@@ -284,7 +286,7 @@ func (cs ConfigureForwarders) Apply(env cldf.Environment, req *ConfigureForwarde
 
 		proposers[solChain.Selector] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.ProposerMcmSeed))
 		inspectors[solChain.Selector] = mcmsSolana.NewInspector(solChain.Client)
-		proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		proposal, err := proposeutils.BuildProposalFromBatchesV2(
 			env,
 			timelocks,
 			proposers,

@@ -117,5 +117,4 @@ var Adapters = map[string]AdapterFactory{
 	chain_selectors.FamilySolana: NewSVMAdapter,
 	chain_selectors.FamilyAptos:  NewAptosAdapter,
 	chain_selectors.FamilySui:    NewSuiAdapter,
-	chain_selectors.FamilyTon:    NewTonAdapter,
 }

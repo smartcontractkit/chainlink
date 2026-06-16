@@ -9,6 +9,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -16,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -116,8 +116,7 @@ type EngineLimiters struct {
 	UserMetricLabelsPerMetric  limits.BoundLimiter[int]
 	UserMetricLabelValueLength limits.BoundLimiter[int]
 
-	ExecutionTimestampsEnabled     limits.GateLimiter
-	VaultOrgIDAsSecretOwnerEnabled limits.GateLimiter
+	ExecutionTimestampsEnabled limits.GateLimiter
 }
 
 // NewLimiters returns a new set of EngineLimiters based on the default configuration, and optionally modified by cfgFn.
@@ -265,10 +264,6 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
-	l.VaultOrgIDAsSecretOwnerEnabled, err = limits.MakeGateLimiter(lf, cresettings.Default.VaultOrgIdAsSecretOwnerEnabled)
-	if err != nil {
-		return
-	}
 	return
 }
 
@@ -392,6 +387,9 @@ type LifecycleHooks struct {
 	OnResultReceived       func(*sdkpb.ExecutionResult)
 	OnRateLimited          func(executionID string)
 	OnNodeSynced           func(node commoncap.Node, err error)
+
+	// Used by the standalone engine
+	OnRequirementsSet func(executionId string, requirements *sdkpb.Requirements)
 }
 
 func (c *EngineConfig) Validate() error {

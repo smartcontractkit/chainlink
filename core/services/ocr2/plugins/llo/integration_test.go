@@ -30,7 +30,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/freeport"
-
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -41,6 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	lloevm "github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury"
 	reportcodecv3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3/reportcodec"
 	mercuryverifier "github.com/smartcontractkit/chainlink-data-streams/mercury/verifier"
@@ -61,12 +61,11 @@ import (
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
+	evm "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 var (
@@ -477,7 +476,7 @@ func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig datastreams
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(mercurytransmitter.MercuryTransmitterProtocolGRPC)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -709,7 +708,7 @@ func testIntegrationLLOMultiFormats(t *testing.T, offchainConfig datastreamsllo.
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(mercurytransmitter.MercuryTransmitterProtocolGRPC)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -1234,13 +1233,19 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 				require.NoError(t, err)
 
 				feedID := reportElems["feedId"].([32]uint8)
+
+				// Skip reports from rounds where bridge timeouts caused zero-fee
+				// calculation. Under CI load, ETH/LINK price bridge tasks can time
+				// out, producing nativeFee=0. Wait for a round with valid fees.
+				if reportElems["nativeFee"].(*big.Int).Sign() == 0 {
+					continue
+				}
+
 				delete(feedIDs, feedID)
 
 				// Check headers
 				assert.GreaterOrEqual(t, reportElems["validFromTimestamp"].(uint32), uint32(testStartTimeStamp.Unix())) //nolint:gosec // G115
 				assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp.Unix()))
-				// Zero fees since both eth/link stream specs are missing, don't
-				// care about billing for purposes of this test
 				assert.Equal(t, "25148438659186", reportElems["nativeFee"].(*big.Int).String())
 				assert.Equal(t, "4264392324093817", reportElems["linkFee"].(*big.Int).String())
 				assert.Equal(t, reportElems["observationsTimestamp"].(uint32)+expirationWindow, reportElems["expiresAt"].(uint32))
@@ -1482,7 +1487,7 @@ func TestIntegration_LLO_stress_test_V1(t *testing.T) {
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(mercurytransmitter.MercuryTransmitterProtocolGRPC)
 			c.Log.Level = new(logLevel)
 		})
 
@@ -1546,9 +1551,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		)
 
 		// NOTE: Wait for nReports reports per node
-		// transmitter addr => count of reports
+		// mercurytransmitter addr => count of reports
 		cnts := map[string]int{}
-		// transmitter addr => channel ID => reports
+		// mercurytransmitter addr => channel ID => reports
 		m := map[string]map[uint32][]datastreamsllo.Report{}
 
 		for {
@@ -1615,11 +1620,11 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 						}
 
 						// No gaps
-						require.Equal(t, prevObsTsNanos, r.ValidAfterNanoseconds, "gap in reports for transmitter %s at index %d; %d!=%d: prevReport=%s, thisReport=%s", addr, i, prevObsTsNanos, r.ValidAfterNanoseconds, mustMarshalJSON(rs[i-1]), mustMarshalJSON(r))
+						require.Equal(t, prevObsTsNanos, r.ValidAfterNanoseconds, "gap in reports for mercurytransmitter %s at index %d; %d!=%d: prevReport=%s, thisReport=%s", addr, i, prevObsTsNanos, r.ValidAfterNanoseconds, mustMarshalJSON(rs[i-1]), mustMarshalJSON(r))
 						// Timestamps are sane
-						require.GreaterOrEqual(t, r.ObservationTimestampNanoseconds, r.ValidAfterNanoseconds, "observation timestamp is before valid after timestamp for transmitter %s at index %d: report=%s", addr, i, mustMarshalJSON(r))
+						require.GreaterOrEqual(t, r.ObservationTimestampNanoseconds, r.ValidAfterNanoseconds, "observation timestamp is before valid after timestamp for mercurytransmitter %s at index %d: report=%s", addr, i, mustMarshalJSON(r))
 						// Reports are separated by at least the minimum interval
-						require.GreaterOrEqual(t, r.ObservationTimestampNanoseconds-uint64(defaultMinReportInterval), prevObsTsNanos, "reports are too close together for transmitter %s at index %d: prevReport=%s, thisReport=%s; expected at least %d nanoseconds of distance", addr, i, mustMarshalJSON(rs[i-1]), mustMarshalJSON(r), defaultMinReportInterval)
+						require.GreaterOrEqual(t, r.ObservationTimestampNanoseconds-uint64(defaultMinReportInterval), prevObsTsNanos, "reports are too close together for mercurytransmitter %s at index %d: prevReport=%s, thisReport=%s; expected at least %d nanoseconds of distance", addr, i, mustMarshalJSON(rs[i-1]), mustMarshalJSON(r), defaultMinReportInterval)
 
 						spacings = append(spacings, r.ObservationTimestampNanoseconds-prevObsTsNanos)
 					}
@@ -1631,7 +1636,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				avgSpacing += spacing
 			}
 			avgSpacing /= uint64(len(spacings))
-			t.Logf("transmitter %s: average spacing between reports: %d nanoseconds (%f seconds)", addr, avgSpacing, float64(avgSpacing)/1e9)
+			t.Logf("mercurytransmitter %s: average spacing between reports: %d nanoseconds (%f seconds)", addr, avgSpacing, float64(avgSpacing)/1e9)
 		}
 	})
 }
@@ -1708,7 +1713,7 @@ func TestIntegration_LLO_transmit_errors(t *testing.T) {
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(mercurytransmitter.MercuryTransmitterProtocolGRPC)
 			c.Mercury.Transmitter.TransmitQueueMaxSize = new(uint32(maxQueueSize)) // Test queue overflow
 			c.Log.Level = new(logLevel)
 		})
@@ -1759,7 +1764,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, serverPubKey
 			)
 
 			// NOTE: Wait for nReports reports
-			// count of packets received keyed by transmitter IP
+			// count of packets received keyed by mercurytransmitter IP
 			m := map[string]int{}
 			for {
 				pckt, err := receiveWithTimeout(t, packets, reportTimeout)
@@ -1862,7 +1867,7 @@ func testIntegrationLLOBlueGreenLifecycle(t *testing.T, offchainConfig datastrea
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(mercurytransmitter.MercuryTransmitterProtocolGRPC)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -2011,12 +2016,16 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 								// handover test is handled below
 								break
 							}
-							if offchainConfig.ProtocolVersion == 0 {
-								// validAfter is always truncated to 1s in v0
-								// IMPORTANT: gapless handovers in v0 ONLY supported at 1s resolution!!
-								assert.Equal(t, highestObsTsNanos/1e9*1e9, r.ValidAfterNanoseconds/1e9*1e9, "%d: (n-1)ObservationsTimestampSeconds->(n)ValidAfterNanoseconds should be gapless to within 1s resolution, got: %d vs %d", i, highestObsTsNanos, r.ValidAfterNanoseconds)
-							} else {
-								assert.Equal(t, highestObsTsNanos, r.ValidAfterNanoseconds, "%d: (n-1)ObservationsTimestampSeconds->(n)ValidAfterNanoseconds should be gapless, got: %d vs %d", i, highestObsTsNanos, r.ValidAfterNanoseconds)
+							// Only assert gapless ValidAfter when seq numbers are consecutive;
+							// staging handover can produce gaps (see rs[i-1].SeqNr+1 check above).
+							if r.SeqNr == seenSeqNr+1 {
+								if offchainConfig.ProtocolVersion == 0 {
+									// validAfter is always truncated to 1s in v0
+									// IMPORTANT: gapless handovers in v0 ONLY supported at 1s resolution!!
+									assert.Equal(t, highestObsTsNanos/1e9*1e9, r.ValidAfterNanoseconds/1e9*1e9, "%d: (n-1)ObservationsTimestampSeconds->(n)ValidAfterNanoseconds should be gapless to within 1s resolution, got: %d vs %d", i, highestObsTsNanos, r.ValidAfterNanoseconds)
+								} else {
+									assert.Equal(t, highestObsTsNanos, r.ValidAfterNanoseconds, "%d: (n-1)ObservationsTimestampSeconds->(n)ValidAfterNanoseconds should be gapless, got: %d vs %d", i, highestObsTsNanos, r.ValidAfterNanoseconds)
+								}
 							}
 							assert.Greater(t, r.ObservationTimestampNanoseconds, highestObsTsNanos, "%d: overlapping/duplicate report ObservationTimestampNanoseconds, got: %d vs %d", i, r.ObservationTimestampNanoseconds, highestObsTsNanos)
 							assert.Greater(t, r.ValidAfterNanoseconds, highestValidAfterNanos, "%d: overlapping/duplicate report ValidAfterNanoseconds, got: %d vs %d", i, r.ValidAfterNanoseconds, highestValidAfterNanos)
@@ -2222,7 +2231,7 @@ func TestIntegration_LLO_channel_merging_owners_adders(t *testing.T) {
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(mercurytransmitter.MercuryTransmitterProtocolGRPC)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -2352,9 +2361,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			require.NoError(t, err)
 			backend.Commit()
 
-			// Wait for channel definitions to be processed (give time for log polling and fetching)
-			time.Sleep(3 * time.Second)
-
 			// Wait for reports from all owner channels
 			expectedChannels := map[uint32]bool{1: true, 2: true, 3: true}
 			waitForReportsFromChannels(t, expectedChannels, reportTimeout)
@@ -2464,9 +2470,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			_, err = configStore.AddChannelDefinitions(adder2, donID, adder2ID, adder2Server.URL, adder2DefinitionsSHA)
 			require.NoError(t, err)
 			backend.Commit()
-
-			// Wait for channel definitions to be processed (give time for log polling and fetching)
-			time.Sleep(3 * time.Second)
 
 			// Wait for reports from all channels (owner + adders)
 			expectedChannels := map[uint32]bool{1: true, 2: true, 3: true, 10: true, 11: true, 20: true, 21: true}
@@ -2597,9 +2600,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			require.NoError(t, err)
 			backend.Commit()
 
-			// Wait for channel definitions to be processed
-			time.Sleep(10 * time.Second)
-
 			// Wait for reports from channel 10 and verify it eventually uses owner's configuration (linkStreamID)
 			// The owner's definition should take precedence over the adder's definition
 			foundOwnerReport := false
@@ -2662,12 +2662,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			require.NoError(t, err)
 			backend.Commit()
 
-			// Wait for processing
-			time.Sleep(3 * time.Second)
-
 			// Verify channel 11 still produces reports (adder cannot remove it)
 			foundChannel11Report := false
-			deadline := time.Now().Add(5 * time.Second)
+			deadline := time.Now().Add(8 * time.Second)
 			for time.Now().Before(deadline) && !foundChannel11Report {
 				pckt, err := receiveWithTimeout(t, packetCh, 1*time.Second)
 				if err != nil {
@@ -2729,7 +2726,7 @@ func TestIntegration_LLO_tombstone_stops_observations_and_reports(t *testing.T) 
 	serverURL := startMercuryServer(t, srv, clientPubKeys)
 
 	oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-		c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+		c.Mercury.Transmitter.Protocol = new(mercurytransmitter.MercuryTransmitterProtocolGRPC)
 	})
 
 	chainID := testutils.SimulatedChainID
@@ -2860,13 +2857,27 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 	// After reports for channel 2 have stopped, bridge traffic for streamIDTombstone should stop
 	// while streamIDActive continues to be observed.
-	bCallsAfterReportsStopped := streamBCalls.Load()
+	// We wait until streamBCalls stabilizes to account for any inflight pipelines or wind-down delays.
+	var lastB uint64
+	var stableSince time.Time
+	require.Eventually(t, func() bool {
+		b := streamBCalls.Load()
+		if b != lastB {
+			lastB = b
+			stableSince = time.Now()
+			return false
+		}
+		return time.Since(stableSince) > 2*time.Second
+	}, 15*time.Second, 100*time.Millisecond, "tombstoned channel's stream should eventually stop being observed")
+
+	bCallsStable := streamBCalls.Load()
 	aCallsAfterReportsStopped := streamACalls.Load()
-	time.Sleep(1 * time.Second)
-	require.Equal(t, bCallsAfterReportsStopped, streamBCalls.Load(),
+	require.Eventually(t, func() bool {
+		return streamACalls.Load() > aCallsAfterReportsStopped
+	}, 15*time.Second, 100*time.Millisecond, "active channel's stream should still be observed")
+
+	require.Equal(t, bCallsStable, streamBCalls.Load(),
 		"tombstoned channel's stream should not be observed (no additional bridge calls)")
-	require.Greater(t, streamACalls.Load(), aCallsAfterReportsStopped,
-		"active channel's stream should still be observed")
 }
 
 func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {

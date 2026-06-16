@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -41,14 +42,16 @@ type Core struct {
 	RootDir             *string
 	ShutdownGracePeriod *commonconfig.Duration
 
-	Feature              Feature              `toml:",omitempty"`
-	Database             Database             `toml:",omitempty"`
-	TelemetryIngress     TelemetryIngress     `toml:",omitempty"`
-	AuditLogger          AuditLogger          `toml:",omitempty"`
-	Log                  Log                  `toml:",omitempty"`
-	WebServer            WebServer            `toml:",omitempty"`
-	JobDistributor       JobDistributor       `toml:",omitempty"`
-	JobPipeline          JobPipeline          `toml:",omitempty"`
+	Feature          Feature          `toml:",omitempty"`
+	Database         Database         `toml:",omitempty"`
+	TelemetryIngress TelemetryIngress `toml:",omitempty"`
+	AuditLogger      AuditLogger      `toml:",omitempty"`
+	Log              Log              `toml:",omitempty"`
+	WebServer        WebServer        `toml:",omitempty"`
+	JobDistributor   JobDistributor   `toml:",omitempty"`
+	JobPipeline      JobPipeline      `toml:",omitempty"`
+	// Deprecated: FluxMonitor job type has been removed. This field is retained for
+	// backwards-compatible config parsing only and has no effect.
 	FluxMonitor          FluxMonitor          `toml:",omitempty"`
 	OCR2                 OCR2                 `toml:",omitempty"`
 	OCR                  OCR                  `toml:",omitempty"`
@@ -93,8 +96,8 @@ func (c *Core) SetFrom(f *Core) {
 
 	c.WebServer.setFrom(&f.WebServer)
 	c.JobPipeline.setFrom(&f.JobPipeline)
-
 	c.FluxMonitor.setFrom(&f.FluxMonitor)
+
 	c.OCR2.setFrom(&f.OCR2)
 	c.OCR.setFrom(&f.OCR)
 	c.P2P.setFrom(&f.P2P)
@@ -387,8 +390,20 @@ type DatabaseSecrets struct {
 	AllowSimplePasswords *bool
 }
 
+func isTestDatabaseURL(dbURI url.URL) bool {
+	dbname := strings.TrimPrefix(dbURI.Path, "/")
+	if strings.Contains(dbname, "_test") {
+		return true
+	}
+	// pgtestdb template/instance databases (testdb_tpl_*_inst_*).
+	if strings.HasPrefix(dbname, "testdb_") {
+		return true
+	}
+	return false
+}
+
 func validateDBURL(dbURI url.URL) error {
-	if strings.Contains(dbURI.Redacted(), "_test") {
+	if isTestDatabaseURL(dbURI) {
 		return nil
 	}
 
@@ -1417,17 +1432,19 @@ func (j *JobPipelineHTTPRequest) setFrom(f *JobPipelineHTTPRequest) {
 	}
 }
 
+// FluxMonitor is retained for backwards-compatible TOML parsing only.
+// The FluxMonitor job type has been removed and these settings have no effect.
 type FluxMonitor struct {
 	DefaultTransactionQueueDepth *uint32
 	SimulateTransactions         *bool
 }
 
-func (m *FluxMonitor) setFrom(f *FluxMonitor) {
+func (fm *FluxMonitor) setFrom(f *FluxMonitor) {
 	if v := f.DefaultTransactionQueueDepth; v != nil {
-		m.DefaultTransactionQueueDepth = v
+		fm.DefaultTransactionQueueDepth = v
 	}
 	if v := f.SimulateTransactions; v != nil {
-		m.SimulateTransactions = v
+		fm.SimulateTransactions = v
 	}
 }
 
@@ -1794,7 +1811,7 @@ func (m *MercuryTLS) ValidateConfig() (err error) {
 }
 
 type MercuryTransmitter struct {
-	Protocol             *config.MercuryTransmitterProtocol
+	Protocol             *mercurytransmitter.MercuryTransmitterProtocol
 	TransmitQueueMaxSize *uint32
 	TransmitTimeout      *commonconfig.Duration
 	TransmitConcurrency  *uint32
@@ -2333,6 +2350,36 @@ func (a AdditionalWorkflowSource) GetName() string {
 	return *a.Name
 }
 
+type ModuleCache struct {
+	Enabled            *bool
+	DiskMonitorEnabled *bool
+	IdleEviction       *bool
+	IdleTimeout        *commonconfig.Duration
+	MaxLoaded          *int
+	CacheDir           *string
+}
+
+func (m *ModuleCache) setFrom(f *ModuleCache) {
+	if f.Enabled != nil {
+		m.Enabled = f.Enabled
+	}
+	if f.DiskMonitorEnabled != nil {
+		m.DiskMonitorEnabled = f.DiskMonitorEnabled
+	}
+	if f.IdleEviction != nil {
+		m.IdleEviction = f.IdleEviction
+	}
+	if f.IdleTimeout != nil {
+		m.IdleTimeout = f.IdleTimeout
+	}
+	if f.MaxLoaded != nil {
+		m.MaxLoaded = f.MaxLoaded
+	}
+	if f.CacheDir != nil {
+		m.CacheDir = f.CacheDir
+	}
+}
+
 type WorkflowRegistry struct {
 	Address                 *string
 	NetworkID               *string
@@ -2344,6 +2391,7 @@ type WorkflowRegistry struct {
 	SyncStrategy            *string
 	MaxConcurrency          *int
 	WorkflowStorage         WorkflowStorage
+	ModuleCache             ModuleCache
 	AdditionalSourcesConfig []AdditionalWorkflowSource `toml:"AdditionalSources"`
 }
 
@@ -2385,6 +2433,7 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 	}
 
 	r.WorkflowStorage.setFrom(&f.WorkflowStorage)
+	r.ModuleCache.setFrom(&f.ModuleCache)
 
 	if len(f.AdditionalSourcesConfig) > 0 {
 		r.AdditionalSourcesConfig = make([]AdditionalWorkflowSource, len(f.AdditionalSourcesConfig))
@@ -2545,8 +2594,9 @@ func (r *GatewayConnector) setFrom(f *GatewayConnector) {
 }
 
 type ConnectorGateway struct {
-	ID  *string
-	URL *string
+	ID    *string
+	DonID *string
+	URL   *string
 }
 
 type SharedPeering struct {
@@ -2815,25 +2865,29 @@ func (t *Tracing) ValidateConfig() (err error) {
 }
 
 type Telemetry struct {
-	Enabled                       *bool
-	CACertFile                    *string
-	Endpoint                      *string
-	InsecureConnection            *bool
-	ResourceAttributes            map[string]string `toml:",omitempty"`
-	TraceSampleRatio              *float64
-	EmitterBatchProcessor         *bool
-	EmitterExportTimeout          *commonconfig.Duration
-	AuthHeadersTTL                *commonconfig.Duration
-	ChipIngressEndpoint           *string
-	ChipIngressInsecureConnection *bool
-	HeartbeatInterval             *commonconfig.Duration
-	LogLevel                      *string
-	LogStreamingEnabled           *bool
-	LogBatchProcessor             *bool
-	LogExportTimeout              *commonconfig.Duration
-	LogExportMaxBatchSize         *int
-	LogExportInterval             *commonconfig.Duration
-	LogMaxQueueSize               *int
+	Enabled                        *bool
+	CACertFile                     *string
+	Endpoint                       *string
+	InsecureConnection             *bool
+	ResourceAttributes             map[string]string `toml:",omitempty"`
+	TraceSampleRatio               *float64
+	EmitterBatchProcessor          *bool
+	EmitterExportTimeout           *commonconfig.Duration
+	AuthHeadersTTL                 *commonconfig.Duration
+	ChipIngressEndpoint            *string
+	ChipIngressInsecureConnection  *bool
+	ChipIngressBatchEmitterEnabled *bool
+	DurableEmitterEnabled          *bool
+	HeartbeatInterval              *commonconfig.Duration
+	LogLevel                       *string
+	LogStreamingEnabled            *bool
+	LogBatchProcessor              *bool
+	LogExportTimeout               *commonconfig.Duration
+	LogExportMaxBatchSize          *int
+	LogExportInterval              *commonconfig.Duration
+	LogMaxQueueSize                *int
+
+	PrometheusBridge PrometheusBridge `toml:",omitempty"`
 }
 
 func (b *Telemetry) setFrom(f *Telemetry) {
@@ -2870,6 +2924,12 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	if v := f.ChipIngressInsecureConnection; v != nil {
 		b.ChipIngressInsecureConnection = v
 	}
+	if v := f.ChipIngressBatchEmitterEnabled; v != nil {
+		b.ChipIngressBatchEmitterEnabled = v
+	}
+	if v := f.DurableEmitterEnabled; v != nil {
+		b.DurableEmitterEnabled = v
+	}
 	if v := f.HeartbeatInterval; v != nil {
 		b.HeartbeatInterval = v
 	}
@@ -2894,6 +2954,7 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	if v := f.LogMaxQueueSize; v != nil {
 		b.LogMaxQueueSize = v
 	}
+	b.PrometheusBridge.setFrom(&f.PrometheusBridge)
 }
 
 func (b *Telemetry) ValidateConfig() (err error) {
@@ -2913,6 +2974,20 @@ func (b *Telemetry) ValidateConfig() (err error) {
 		err = errors.Join(err, configutils.ErrInvalid{Name: "TraceSampleRatio", Value: *ratio, Msg: "must be between 0 and 1"})
 	}
 	return err
+}
+
+type PrometheusBridge struct {
+	Enabled  *bool
+	Prefixes []string
+}
+
+func (b *PrometheusBridge) setFrom(f *PrometheusBridge) {
+	if v := f.Enabled; v != nil {
+		b.Enabled = v
+	}
+	if v := f.Prefixes; v != nil {
+		b.Prefixes = v
+	}
 }
 
 var hostnameRegex = regexp.MustCompile(`^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*$`)

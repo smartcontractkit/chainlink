@@ -30,8 +30,7 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 			zapcore.DPanicLevel,
 			products.WarnAboutAllowedMsgs_No,
 		)
-		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings(bhfMessage))
-		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
+		products.CleanupContainerLogs(t, products.DefaultSettings(bhfMessage))
 	})
 
 	outputFile := "../../env-vrf2plus-bhX-out.toml"

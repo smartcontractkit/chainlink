@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -22,9 +23,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/smartcontractkit/quarantine"
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	beholderpb "github.com/smartcontractkit/chainlink-common/pkg/beholder/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -75,10 +74,6 @@ func TestEngine_Init(t *testing.T) {
 	initDoneCh := make(chan error)
 
 	cfg := defaultTestConfig(t, nil)
-	getter, err := settings.NewJSONGetter([]byte(`{"global":{"VaultOrgIdAsSecretOwnerEnabled":true}}`))
-	require.NoError(t, err)
-	cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled, err = limits.MakeGateLimiter(limits.Factory{Settings: getter, Logger: cfg.Lggr}, cresettings.Default.VaultOrgIdAsSecretOwnerEnabled)
-	require.NoError(t, err)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
 	cfg.Hooks = v2.LifecycleHooks{
@@ -290,7 +285,7 @@ WorkflowLimit = "1"
 	require.NoError(t, engine4.Close())
 }
 
-func TestEngine_Start_TriggerRegistrationOmitsOrgIDWhenGateDisabled(t *testing.T) {
+func TestEngine_TriggerRegistrationMetadata(t *testing.T) {
 	t.Parallel()
 
 	module := modulemocks.NewModuleV2(t)
@@ -301,10 +296,6 @@ func TestEngine_Start_TriggerRegistrationOmitsOrgIDWhenGateDisabled(t *testing.T
 	subscribedToTriggersCh := make(chan []string, 1)
 
 	cfg := defaultTestConfig(t, nil)
-	getter, err := settings.NewJSONGetter([]byte(`{"global":{"VaultOrgIdAsSecretOwnerEnabled":false}}`))
-	require.NoError(t, err)
-	cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled, err = limits.MakeGateLimiter(limits.Factory{Settings: getter, Logger: cfg.Lggr}, cresettings.Default.VaultOrgIdAsSecretOwnerEnabled)
-	require.NoError(t, err)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
 	cfg.OrgResolver = &mockOrgResolver{orgID: "test-org-123"}
@@ -339,7 +330,6 @@ func TestEngine_Start_TriggerRegistrationOmitsOrgIDWhenGateDisabled(t *testing.T
 	require.NoError(t, <-initDoneCh)
 	require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
 	require.Equal(t, cfg.WorkflowOwner, capturedTriggerRequest.Metadata.WorkflowOwner)
-	require.Empty(t, capturedTriggerRequest.Metadata.OrgID)
 	require.NoError(t, engine.Close())
 }
 
@@ -562,10 +552,6 @@ func TestEngine_OrganizationIdLogger_OrgResolverFailure(t *testing.T) {
 	executionFinishedCh := make(chan string)
 
 	cfg := defaultTestConfig(t, nil)
-	getter, err := settings.NewJSONGetter([]byte(`{"global":{"VaultOrgIdAsSecretOwnerEnabled":true}}`))
-	require.NoError(t, err)
-	cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled, err = limits.MakeGateLimiter(limits.Factory{Settings: getter, Logger: cfg.Lggr}, cresettings.Default.VaultOrgIdAsSecretOwnerEnabled)
-	require.NoError(t, err)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
 	cfg.BillingClient = billingClient
@@ -627,6 +613,143 @@ func TestEngine_OrganizationIdLogger_OrgResolverFailure(t *testing.T) {
 	require.NoError(t, engine.Close())
 }
 
+// TestEngine_OrganizationIdPreservedAfterLocalNodeSync verifies that the org ID
+// resolved at engine startup survives a localNodeSync label rebuild.
+//
+// localNodeSync rebuilds logger labels from DON state without re-resolving the org.
+// The org ID must still propagate into capability request metadata on subsequent executions.
+//
+// Test flow:
+// 1. Start the engine and resolve org ID from the workflow owner
+// 2. Trigger localNodeSync via a DON update (ConfigVersion 1 -> 2)
+// 3. Run a workflow execution that calls a capability
+// 4. Assert the capability receives Metadata.OrgID matching the resolved org
+func TestEngine_OrganizationIdPreservedAfterLocalNodeSync(t *testing.T) {
+	t.Parallel()
+
+	const (
+		wantOrgID    = "test-org-123"
+		capabilityID = "org-test-cap@1.0.0"
+	)
+
+	module := modulemocks.NewModuleV2(t)
+	module.EXPECT().Start()
+	module.EXPECT().Close()
+	capreg := regmocks.NewCapabilitiesRegistry(t)
+	billingClient := setupMockBillingClient(t)
+
+	initialNode := newNode(t, func(n *capabilities.Node) {
+		n.WorkflowDON.ConfigVersion = 1
+	})
+	updatedNode := newNode(t, func(n *capabilities.Node) {
+		n.WorkflowDON.ConfigVersion = 2
+	})
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(initialNode, nil).Once()
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(updatedNode, nil).Once()
+
+	mockOrgResolver := &mockOrgResolver{orgID: wantOrgID}
+
+	initDoneCh := make(chan error)
+	subscribedToTriggersCh := make(chan []string, 1)
+	executionFinishedCh := make(chan string)
+	donCh := make(chan capabilities.DON)
+	nodeSyncedCh := make(chan capabilities.Node, 1)
+
+	subscriberMock := capmocks.NewDonSubscriber(t)
+	subscriberMock.EXPECT().Subscribe(matches.AnyContext).Return(donCh, func() {}, nil)
+
+	cfg := defaultTestConfig(t, nil)
+	propagateOrgIDGetter, err := settings.NewJSONGetter([]byte(`{"global":{"PropagateOrgIDInRequestMetadata":"true"}}`))
+	require.NoError(t, err)
+	cfg.LocalLimiters.Settings = propagateOrgIDGetter
+	cfg.DonSubscriber = subscriberMock
+	cfg.Module = module
+	cfg.CapRegistry = capreg
+	cfg.BillingClient = billingClient
+	cfg.OrgResolver = mockOrgResolver
+	cfg.Hooks = v2.LifecycleHooks{
+		OnInitialized: func(err error) {
+			initDoneCh <- err
+		},
+		OnSubscribedToTriggers: func(triggerIDs []string) {
+			subscribedToTriggersCh <- triggerIDs
+		},
+		OnExecutionFinished: func(executionID string, _ string) {
+			executionFinishedCh <- executionID
+		},
+		OnNodeSynced: func(node capabilities.Node, err error) {
+			require.NoError(t, err)
+			nodeSyncedCh <- node
+		},
+	}
+
+	engine, err := v2.NewEngine(cfg)
+	require.NoError(t, err)
+
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
+	trigger := capmocks.NewTriggerCapability(t)
+	capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil).Once()
+	eventCh := make(chan capabilities.TriggerResponse)
+	trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(eventCh, nil).Once()
+	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+	trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	require.NoError(t, engine.Start(t.Context()))
+	require.NoError(t, <-initDoneCh)
+	require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
+	require.True(t, mockOrgResolver.getCalled, "expected org resolver to be called during engine start")
+
+	donCh <- capabilities.DON{}
+	syncedNode := <-nodeSyncedCh
+	require.Equal(t, uint32(2), syncedNode.WorkflowDON.ConfigVersion)
+
+	capabilityOrgIDCh := make(chan string, 1)
+	capability := capmocks.NewExecutableCapability(t)
+	capreg.EXPECT().GetExecutable(matches.AnyContext, capabilityID).Return(capability, nil).Once()
+	capreg.EXPECT().ConfigForCapability(mock.Anything, mock.Anything, mock.Anything).
+		Return(capabilities.CapabilityConfiguration{}, nil).
+		Once()
+	capability.EXPECT().
+		Info(matches.AnyContext).
+		Return(capabilities.CapabilityInfo{IsLocal: true}, nil).
+		Once()
+	capability.EXPECT().
+		Execute(matches.AnyContext, mock.Anything).
+		Run(func(_ context.Context, req capabilities.CapabilityRequest) {
+			capabilityOrgIDCh <- req.Metadata.OrgID
+		}).
+		Return(capabilities.CapabilityResponse{}, nil).
+		Once()
+
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
+		Run(func(ctx context.Context, _ *sdkpb.ExecuteRequest, executor host.ExecutionHelper) {
+			_, errCap := executor.CallCapability(ctx, &sdkpb.CapabilityRequest{
+				Id:         capabilityID,
+				Method:     "execute",
+				CallbackId: 1,
+			})
+			require.NoError(t, errCap)
+		}).
+		Return(nil, nil).
+		Once()
+
+	mockTriggerEvent := capabilities.TriggerEvent{
+		TriggerType: "basic-trigger@1.0.0",
+		ID:          "post_local_node_sync_event",
+	}
+	eventCh <- capabilities.TriggerResponse{Event: mockTriggerEvent}
+
+	executionID := <-executionFinishedCh
+	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
+	require.NoError(t, err)
+	require.Equal(t, wantExecID, executionID)
+
+	// The capability call after localNodeSync must carry the org ID resolved at startup.
+	require.Equal(t, wantOrgID, <-capabilityOrgIDCh, "capability request metadata must include org ID after local node sync")
+
+	require.NoError(t, engine.Close())
+}
+
 // mockOrgResolver is a test implementation of orgresolver.OrgResolver
 type mockOrgResolver struct {
 	orgID           string
@@ -661,8 +784,7 @@ func (m *mockOrgResolver) Ready() error {
 	return nil
 }
 
-func TestEngine_Execution(t *testing.T) {
-	quarantine.Flaky(t, "DX-1725")
+func TestEngine_Execution(t *testing.T) { //nolint:paralleltest // Can't use t.Parallel() with beholdertest.NewObserver(t)
 	module := modulemocks.NewModuleV2(t)
 	module.EXPECT().Start()
 	module.EXPECT().Close()
@@ -720,7 +842,6 @@ func TestEngine_Execution(t *testing.T) {
 		require.Equal(t, v2.TriggerRegistrationID(cfg.WorkflowID, 0), capturedTriggerRequest.TriggerID)
 		require.Equal(t, cfg.WorkflowID, capturedTriggerRequest.Metadata.WorkflowID)
 		require.Equal(t, cfg.WorkflowOwner, capturedTriggerRequest.Metadata.WorkflowOwner)
-		require.Empty(t, capturedTriggerRequest.Metadata.OrgID)
 		require.Equal(t, cfg.WorkflowName.Hex(), capturedTriggerRequest.Metadata.WorkflowName)
 		require.Equal(t, cfg.WorkflowTag, capturedTriggerRequest.Metadata.WorkflowTag)
 		require.Equal(t, uint32(0), capturedTriggerRequest.Metadata.WorkflowDonID)
@@ -1388,9 +1509,10 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 }
 
 func TestEngine_WASMBinary_Simple(t *testing.T) {
+	t.Parallel()
 	cmd := "core/services/workflows/test/wasm/v2/cmd"
 	log := logger.Test(t)
-	binaryB := wasmtest.CreateTestBinary(cmd, false, t)
+	binaryB := wasmtest.CreateTestBinary(t, cmd, false)
 	module, err := host.NewModule(t.Context(), &host.ModuleConfig{
 		Logger:         log,
 		IsUncompressed: true,
@@ -1470,10 +1592,9 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 	})
 }
 
-// TODO fix
-func TestEngine_WASMBinary_With_Config(t *testing.T) {
+func TestEngine_WASMBinary_With_Config(t *testing.T) { //nolint:paralleltest // Can't use t.Parallel() with beholdertest.NewObserver(t)
 	cmd := "core/services/workflows/test/wasm/v2/cmd/with_config"
-	binaryB := wasmtest.CreateTestBinary(cmd, false, t)
+	binaryB := wasmtest.CreateTestBinary(t, cmd, false)
 
 	// Define a custom config to validate against
 	giveName := "Foo"
@@ -1567,8 +1688,9 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 }
 
 func TestSecretsFetcher_Integration(t *testing.T) {
+	t.Parallel()
 	cmd := "core/services/workflows/test/wasm/v2/cmd/with_secrets"
-	binaryB := wasmtest.CreateTestBinary(cmd, false, t)
+	binaryB := wasmtest.CreateTestBinary(t, cmd, false)
 
 	// Define a custom config to validate against
 	giveName := "Foo"
@@ -1714,7 +1836,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		cfg.Lggr,
 		cfg.LocalLimiters.SecretsConcurrency,
 		cfg.LocalLimiters.SecretsCalls,
-		cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled,
+		cfg.LocalLimiters.Settings,
 		engineOrgID,
 		cfg.WorkflowOwner,
 		cfg.WorkflowName.String(),
@@ -1743,8 +1865,6 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	// received.
 	res := <-resultReceivedCh
 	require.NotNil(t, capturedVaultReq)
-	require.Empty(t, capturedVaultReq.WorkflowOwner)
-	require.Empty(t, capturedVaultReq.OrgId)
 	switch output := res.Result.(type) {
 	case *sdkpb.ExecutionResult_Value:
 		var value values.Value
@@ -2315,60 +2435,191 @@ func setupMockBillingClient(t *testing.T) *metmocks.BillingClient {
 	return billingClient
 }
 
-func requireEventsLabels(t *testing.T, beholderObserver beholdertest.Observer, want map[string]string) {
-	msgs := beholderObserver.Messages(t)
-	for _, msg := range msgs {
-		if msg.Attrs["beholder_entity"] == "BaseMessage" {
-			var payload beholderpb.BaseMessage
-			require.NoError(t, proto.Unmarshal(msg.Body, &payload))
-			for k, v := range want {
-				require.Equal(t, v, payload.Labels[k], "label %s does not match", k)
-			}
-		}
-	}
+type observedBaseMessage struct {
+	Msg    string
+	Labels map[string]string
 }
 
-// requireEventsMessages checks that all expected messages are present in the beholder observer.
-// It does not check the order of messages.
-func requireEventsMessages(t *testing.T, beholderObserver beholdertest.Observer, expected []string) {
-	msgs := beholderObserver.Messages(t)
-	// map to handle presence of out-of-order messages
-	want := map[string]struct{}{}
+// eventLabelsMatchStatus returns observed BaseMessages and the label set still being
+// searched for. missing is nil when a message with all expected labels is found.
+func eventLabelsMatchStatus(msgs []beholder.Message, want map[string]string) (observed []observedBaseMessage, missing map[string]string) {
+	if len(want) == 0 {
+		return nil, nil
+	}
+
+	for _, msg := range msgs {
+		if msg.Attrs["beholder_entity"] != "BaseMessage" {
+			continue
+		}
+		var payload beholderpb.BaseMessage
+		if err := proto.Unmarshal(msg.Body, &payload); err != nil {
+			continue
+		}
+		observed = append(observed, observedBaseMessage{
+			Msg:    payload.Msg,
+			Labels: payload.Labels,
+		})
+
+		match := true
+		for k, v := range want {
+			if payload.Labels[k] != v {
+				match = false
+				break
+			}
+		}
+		if match {
+			return observed, nil
+		}
+	}
+	return observed, want
+}
+
+func requireEventsLabels(t *testing.T, beholderObserver beholdertest.Observer, want map[string]string) {
+	t.Helper()
+	if len(want) == 0 {
+		return
+	}
+
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		observed, missing := eventLabelsMatchStatus(beholderObserver.Messages(t), want)
+		if missing != nil {
+			assert.Fail(c, fmt.Sprintf(
+				"event labels not found\n  expected labels: %v\n  observed base messages (%d):\n%s",
+				want,
+				len(observed),
+				formatObservedBaseMessages(observed),
+			))
+		}
+	}, 10*time.Second, 100*time.Millisecond)
+}
+
+// eventMessagesMatchStatus returns observed BaseMessage texts and which expected
+// messages are still missing. Order does not matter.
+func eventMessagesMatchStatus(msgs []beholder.Message, expected []string) (observed []string, missing []string) {
+	want := make(map[string]struct{}, len(expected))
 	for _, e := range expected {
 		want[e] = struct{}{}
 	}
 
 	for _, msg := range msgs {
-		if msg.Attrs["beholder_entity"] == "BaseMessage" {
-			var payload beholderpb.BaseMessage
-			require.NoError(t, proto.Unmarshal(msg.Body, &payload))
-			delete(want, payload.Msg)
+		if msg.Attrs["beholder_entity"] != "BaseMessage" {
+			continue
+		}
+		var payload beholderpb.BaseMessage
+		if err := proto.Unmarshal(msg.Body, &payload); err != nil {
+			continue
+		}
+		observed = append(observed, payload.Msg)
+		delete(want, payload.Msg)
+	}
+
+	for _, e := range expected {
+		if _, stillMissing := want[e]; stillMissing {
+			missing = append(missing, e)
 		}
 	}
-	assert.Empty(t, want, "not all expected messages were found missing %v", want)
+	return observed, missing
 }
 
-func requireUserLogs(t *testing.T, beholderObserver beholdertest.Observer, expectedSubstrings []string) {
-	msgs := beholderObserver.Messages(t)
+// requireEventsMessages checks that all expected messages are present in the beholder observer.
+// It does not check the order of messages.
+func requireEventsMessages(t *testing.T, beholderObserver beholdertest.Observer, expected []string) {
+	t.Helper()
+	if len(expected) == 0 {
+		return
+	}
+
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		observed, missing := eventMessagesMatchStatus(beholderObserver.Messages(t), expected)
+		if len(missing) > 0 {
+			found := expected[:len(expected)-len(missing)]
+			assert.Fail(c, fmt.Sprintf(
+				"event messages not found (order does not matter)\n  expected: %q\n  found:    %q\n  missing:  %q\n  observed base messages (%d):\n%s",
+				expected,
+				found,
+				missing,
+				len(observed),
+				formatBulletList(observed),
+			))
+		}
+	}, 10*time.Second, 100*time.Millisecond)
+}
+
+// userLogMatchStatus returns user log lines observed via beholder and which expected
+// substrings (matched in order) are still missing.
+func userLogMatchStatus(msgs []beholder.Message, expectedSubstrings []string) (observed []string, missing []string) {
 	nextToFind := 0
 	for _, msg := range msgs {
-		if msg.Attrs["beholder_entity"] == "workflows.v1.UserLogs" {
-			var payload events.UserLogs
-			require.NoError(t, proto.Unmarshal(msg.Body, &payload))
-			if nextToFind >= len(expectedSubstrings) {
-				return
-			}
-			for _, log := range payload.LogLines {
-				if strings.Contains(log.Message, expectedSubstrings[nextToFind]) {
-					nextToFind++
-				}
+		if msg.Attrs["beholder_entity"] != "workflows.v1.UserLogs" {
+			continue
+		}
+		var payload events.UserLogs
+		if err := proto.Unmarshal(msg.Body, &payload); err != nil {
+			continue
+		}
+		for _, log := range payload.LogLines {
+			observed = append(observed, log.Message)
+			if nextToFind < len(expectedSubstrings) &&
+				strings.Contains(log.Message, expectedSubstrings[nextToFind]) {
+				nextToFind++
 			}
 		}
 	}
+	return observed, expectedSubstrings[nextToFind:]
+}
 
-	if nextToFind < len(expectedSubstrings) {
-		t.Errorf("log message not found: %s", expectedSubstrings[nextToFind])
+// requireUserLogs fails the test if the expected user log messages are not eventually found in the beholder observer.
+func requireUserLogs(t *testing.T, beholderObserver beholdertest.Observer, expectedSubstrings []string) {
+	t.Helper()
+	if len(expectedSubstrings) == 0 {
+		return
 	}
+
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		observed, missing := userLogMatchStatus(
+			beholderObserver.Messages(t),
+			expectedSubstrings,
+		)
+		if len(missing) > 0 {
+			found := expectedSubstrings[:len(expectedSubstrings)-len(missing)]
+			assert.Fail(c, fmt.Sprintf(
+				"log messages not found (order matters)\n  expected: %q\n  found:    %q\n  missing:  %q\n  observed user logs (%d):\n%s",
+				expectedSubstrings,
+				found,
+				missing,
+				len(observed),
+				formatBulletList(observed),
+			))
+		}
+	}, 10*time.Second, 100*time.Millisecond)
+}
+
+func formatBulletList(items []string) string {
+	if len(items) == 0 {
+		return "    (none)"
+	}
+	var b strings.Builder
+	for _, item := range items {
+		b.WriteString("    - ")
+		b.WriteString(item)
+		b.WriteByte('\n')
+	}
+	return strings.TrimSuffix(b.String(), "\n")
+}
+
+func formatObservedBaseMessages(observed []observedBaseMessage) string {
+	if len(observed) == 0 {
+		return "    (none)"
+	}
+	var b strings.Builder
+	for _, msg := range observed {
+		b.WriteString("    - msg=")
+		b.WriteString(msg.Msg)
+		b.WriteString(" labels=")
+		fmt.Fprint(&b, msg.Labels)
+		b.WriteByte('\n')
+	}
+	return strings.TrimSuffix(b.String(), "\n")
 }
 
 func newNode(t *testing.T, opts ...func(*capabilities.Node)) capabilities.Node {

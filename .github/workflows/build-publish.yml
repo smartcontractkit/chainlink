@@ -91,7 +91,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
   docker-core:
-    needs: [ checks ]
+    needs: [checks]
     # No need to build the final image as we promote the last RC to use the final tag
     # so we only run the builds for pre-releases.
     if: needs.checks.outputs.is-pre-release == 'true'
@@ -114,8 +114,10 @@ jobs:
       docker-cache-behaviour: "disable"
       docker-manifest-sign: true
       docker-registry-url-override: public.ecr.aws/chainlink
+      github-runner-amd64: ${{ github.repository != 'smartcontractkit/chainlink' && 'ubuntu24.04-4cores-16GB' || 'ubuntu-24.04' }}
       github-runner-arm64: ${{ github.repository != 'smartcontractkit/chainlink' && 'ubuntu-24.04-4cores-16GB-ARM' || 'ubuntu-24.04-arm' }}
       docker-image-tag-strip-prefix: v # strip out the "v" prefix from the git tag for the image tag.
+      free-disk-space: "true"
       git-sha: ${{ github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
@@ -129,7 +131,7 @@ jobs:
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
   docker-ccip:
-    needs: [ checks ]
+    needs: [checks]
     # No need to build the final image as we promote the last RC to use the final tag
     # so we only run the builds for pre-releases.
     if: needs.checks.outputs.is-pre-release == 'true'
@@ -155,8 +157,10 @@ jobs:
       docker-cache-behaviour: "disable"
       docker-manifest-sign: true
       docker-registry-url-override: public.ecr.aws/chainlink
+      github-runner-amd64: ${{ github.repository != 'smartcontractkit/chainlink' && 'ubuntu24.04-4cores-16GB' || 'ubuntu-24.04' }}
       github-runner-arm64: ${{ github.repository != 'smartcontractkit/chainlink' && 'ubuntu-24.04-4cores-16GB-ARM' || 'ubuntu-24.04-arm' }}
       docker-image-tag-override: ${{ needs.checks.outputs.ccip-image-tag }}
+      free-disk-space: "true"
       git-sha: ${{ github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
@@ -171,7 +175,7 @@ jobs:
 
   deploy:
     name: "Deploy"
-    needs: [ checks, docker-ccip ]
+    needs: [checks, docker-ccip]
     # We are only deploying CCIP pre-releases and skipping hotfix deployments for now.
     if: needs.checks.outputs.is-pre-release == 'true' &&
       needs.checks.outputs.is-hotfix == 'false'
@@ -221,7 +225,7 @@ jobs:
       contents: read
     if: always() && (needs.docker-core.result == 'success' ||
       needs.docker-ccip.result == 'success')
-    needs: [ checks, docker-core, docker-ccip ]
+    needs: [checks, docker-core, docker-ccip]
     uses: ./.github/workflows/release-notifications.yml
     secrets: inherit
     with:
@@ -241,7 +245,7 @@ jobs:
 
   trigger-post-build-publish:
     name: Trigger post-build-publish workflow
-    needs: [ docker-core, slack-notify ]
+    needs: [docker-core, slack-notify]
     if: |
       always() &&
       needs.docker-core.result == 'success'
@@ -257,20 +261,21 @@ jobs:
           SLACK_THREAD_TS: ${{ needs.slack-notify.outputs.slack-thread-ts }}
         run: |
           set +e
-          view_out=$(gh workflow view post-build-publish.yml --ref "$TARGET_TAG" 2>&1)
+          view_out=$(gh workflow view post-build-publish.yml --ref "$TARGET_TAG" --repo "$GITHUB_REPOSITORY" --yaml 2>&1)
           view_status=$?
           set -e
           if [ "$view_status" -ne 0 ]; then
             if echo "$view_out" | grep -qiE '404|not found|could not find.*workflow'; then
-              echo "::warning::post-build-publish.yml is not available at ref $TARGET_TAG (workflow missing on this tag). Skipping trigger."
+              echo "::warning::post-build-publish.yml is not available at ref $TARGET_TAG (workflow missing on this tag) in $GITHUB_REPOSITORY. Skipping trigger."
               exit 0
             fi
-            echo "::error::Could not resolve post-build-publish workflow at ref $TARGET_TAG: ${view_out}"
+            echo "::error::Could not resolve post-build-publish workflow at ref $TARGET_TAG in $GITHUB_REPOSITORY: ${view_out}"
             exit 1
           fi
 
           gh workflow run post-build-publish.yml \
             --ref "$TARGET_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
             -f chainlink_version="$TARGET_TAG" \
             -f chainlink_image_tag="$DOCKER_MANIFEST_TAG" \
             -f slack_thread_ts="$SLACK_THREAD_TS"

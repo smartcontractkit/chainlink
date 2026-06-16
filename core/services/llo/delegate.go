@@ -20,11 +20,12 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter"
 
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/observation"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/promwrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
@@ -129,7 +130,7 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 		t,
 	)
 
-	notifier, ok := cfg.ContractTransmitter.(TransmitNotifier)
+	notifier, ok := cfg.ContractTransmitter.(transmitter.TransmitNotifier)
 	if ok {
 		notifier.OnTransmit(t.TrackSeqNr)
 	}

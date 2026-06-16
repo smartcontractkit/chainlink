@@ -7,12 +7,14 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/mcms"
 
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // use this changeset to
@@ -32,7 +34,7 @@ type E2ETokenPoolConfig struct {
 	SetPool                               []SetPoolConfig
 	RemoteChainTokenPool                  []SetupTokenPoolForRemoteChainConfig       // setup evm remote pools on solana
 	ConfigureTokenPoolContractsChangesets []v1_5_1.ConfigureTokenPoolContractsConfig // setup evm/solana remote pools on evm
-	MCMS                                  *proposalutils.TimelockConfig              // set it to aggregate all the proposals
+	MCMS                                  *cldfproposalutils.TimelockConfig          // set it to aggregate all the proposals
 }
 
 func E2ETokenPool(e cldf.Environment, cfg E2ETokenPoolConfig) (cldf.ChangesetOutput, error) {
@@ -116,15 +118,15 @@ func ProcessConfig[T any](
 	return nil
 }
 
-func AggregateAndCleanup(e cldf.Environment, finalOutput *cldf.ChangesetOutput, abToRemove cldf.AddressBook, cfg *proposalutils.TimelockConfig, proposalDesc string) error {
+func AggregateAndCleanup(e cldf.Environment, finalOutput *cldf.ChangesetOutput, abToRemove cldf.AddressBook, cfg *cldfproposalutils.TimelockConfig, proposalDesc string) error {
 	allProposals := finalOutput.MCMSTimelockProposals
 	if len(allProposals) > 0 {
 		state, err := stateview.LoadOnchainState(e)
 		if err != nil {
 			return fmt.Errorf("failed to load onchain state: %w", err)
 		}
-		proposal, err := proposalutils.AggregateProposalsV2(
-			e, proposalutils.MCMSStates{
+		proposal, err := proposeutils.AggregateProposalsV2(
+			e, proposeutils.MCMSStates{
 				MCMSEVMState:    state.EVMMCMSStateByChain(),
 				MCMSSolanaState: state.SolanaMCMSStateByChain(e),
 			},
@@ -175,7 +177,7 @@ type E2ETokenPoolConfigv2 struct {
 	// this is also required if router is owned by timelock
 	// so you cannot really have a case where router is owned by timelock but you want to
 	// set deployer key as token admin
-	MCMS *proposalutils.TimelockConfig
+	MCMS *cldfproposalutils.TimelockConfig
 }
 
 func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.ChangesetOutput, error) {
@@ -402,8 +404,8 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 		}
-		proposal, err := proposalutils.AggregateProposalsV2(
-			e, proposalutils.MCMSStates{
+		proposal, err := proposeutils.AggregateProposalsV2(
+			e, proposeutils.MCMSStates{
 				MCMSEVMState:    state.EVMMCMSStateByChain(),
 				MCMSSolanaState: state.SolanaMCMSStateByChain(e),
 			},

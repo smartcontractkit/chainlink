@@ -19,6 +19,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
@@ -54,6 +55,20 @@ func newRemoteCapabilityExecuteErrorWithMessage(display string, errMsg string) e
 		wrap: caperrors.DeserializeErrorFromString(errMsg),
 	}
 }
+
+// newRemoteCapabilityExecuteErrorFromCapError wraps a capability error produced locally
+// (not deserialized from a remote payload). Unwrap returns caperrors.Error so
+// capability_executor can errors.As into caperrors.Error.
+func newRemoteCapabilityExecuteErrorFromCapError(capErr caperrors.Error) error {
+	return &errRemoteCapabilityExecuteError{
+		s:    capErr.Error(),
+		wrap: capErr,
+	}
+}
+
+// ErrResponseQuorumUnreachable is returned when enough peer responses have been
+// received that F+1 matching payloads are no longer mathematically possible.
+var ErrResponseQuorumUnreachable = errors.New("response quorum unreachable: not enough matching capability responses")
 
 type clientResponse struct {
 	Result []byte
@@ -123,7 +138,12 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName, signers)
 }
 
-var defaultDelayMargin = 10 * time.Second
+var (
+	defaultDelayMargin = 10 * time.Second
+	// Extra time the workflow DON client waits beyond requestTimeout for P2P responses
+	// after remote capability nodes hit their execution deadline.
+	defaultResponseAggregationGrace = 10 * time.Second
+)
 
 func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string, remoteCapabilityInfo commoncap.CapabilityInfo,
 	localDonInfo commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration,
@@ -279,10 +299,19 @@ func emitTransmissionScheduleEvent(ctx context.Context, scheduleType, workflowEx
 	}
 
 	// emit transmission schedule event to track which nodes are successful when called to emit
-	return beholder.GetEmitter().Emit(ctx, b,
+	entity := fmt.Sprintf("%s.%s", TransmissionEventProtoPkg, TransmissionEventEntity)
+	if err = beholder.GetEmitter().Emit(ctx, b,
 		"beholder_data_schema", TransmissionEventSchema, // required
 		"beholder_domain", "platform", // required
-		"beholder_entity", fmt.Sprintf("%s.%s", TransmissionEventProtoPkg, TransmissionEventEntity)) // required
+		"beholder_entity", entity); err != nil { // required
+		return err
+	}
+
+	err = durableemitter.GlobalEmit(ctx, b, "source", "platform", "type", entity)
+	if err != nil && !errors.Is(err, durableemitter.ErrNotInitialized) {
+		return err
+	}
+	return nil
 }
 
 func (c *ClientRequest) ID() string {
@@ -294,7 +323,7 @@ func (c *ClientRequest) ResponseChan() <-chan clientResponse {
 }
 
 func (c *ClientRequest) Expired() bool {
-	return time.Since(c.createdAt) > c.requestTimeout
+	return time.Since(c.createdAt) > c.requestTimeout+defaultResponseAggregationGrace
 }
 
 func (c *ClientRequest) Cancel(err error) {
@@ -380,6 +409,8 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 			}
 
 			c.sendResponse(clientResponse{Result: payload})
+		} else {
+			c.trySendQuorumUnreachableError()
 		}
 	} else {
 		c.lggr.Debugw("received error from peer", "error", msg.Error, "errorMsg", msg.ErrorMsg, "peer", sender)
@@ -410,6 +441,67 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 		}
 	}
 	return nil
+}
+
+func (c *ClientRequest) responsesReceivedCount() int {
+	n := 0
+	for _, received := range c.responseReceived {
+		if received {
+			n++
+		}
+	}
+	return n
+}
+
+func (c *ClientRequest) maxMatchingResponseCount() int {
+	currentMax := 0
+	for _, count := range c.responseIDCount {
+		if count > currentMax {
+			currentMax = count
+		}
+	}
+	return currentMax
+}
+
+// quorumStillPossible reports whether requiredResponseConfirmations identical OK
+// responses can still be reached. Each pending peer can add at most one vote to
+// the current leading payload hash.
+func (c *ClientRequest) quorumStillPossible(pending int) bool {
+	return c.maxMatchingResponseCount()+pending >= c.requiredResponseConfirmations
+}
+
+func (c *ClientRequest) trySendQuorumUnreachableError() {
+	pending := c.pending()
+	if c.respSent || c.quorumStillPossible(pending) {
+		return
+	}
+	received := c.responsesReceivedCount()
+	unique := len(c.responseIDCount)
+	maxMatch := c.maxMatchingResponseCount()
+
+	detail := fmt.Errorf(
+		"received %d/%d peer responses with %d unique payloads; best match count %d, need %d (%d responses pending)",
+		received, c.remoteNodeCount, unique, maxMatch, c.requiredResponseConfirmations, pending,
+	)
+	capErr := caperrors.NewPublicSystemError(
+		fmt.Errorf("%w: %w", ErrResponseQuorumUnreachable, detail),
+		caperrors.ConsensusFailed,
+	)
+	c.lggr.Warnw("response quorum unreachable, failing early",
+		"responsesReceived", received,
+		"remoteNodeCount", c.remoteNodeCount,
+		"uniqueResponseCount", unique,
+		"maxMatchingResponseCount", maxMatch,
+		"requiredResponseConfirmations", c.requiredResponseConfirmations,
+		"pendingResponses", pending,
+	)
+	c.sendResponse(clientResponse{Err: newRemoteCapabilityExecuteErrorFromCapError(capErr)})
+}
+
+func (c *ClientRequest) pending() int {
+	received := c.responsesReceivedCount()
+	pending := c.remoteNodeCount - received
+	return pending
 }
 
 func (c *ClientRequest) hasValidAttestation(resp commoncap.CapabilityResponse) bool {
