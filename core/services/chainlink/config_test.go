@@ -461,7 +461,7 @@ func TestConfig_Marshal(t *testing.T) {
 			MaxConfigSize:           ptr(utils.FileSize(50 * utils.KB)),
 			SyncStrategy:            ptr("event"),
 			MaxConcurrency:          ptr(12),
-			MaxActivationRetries:    ptr(10),
+			MaxActivationRetries:    new(10),
 			WorkflowStorage: toml.WorkflowStorage{
 				ArtifactStorageHost: ptr(""),
 				URL:                 ptr(""),
