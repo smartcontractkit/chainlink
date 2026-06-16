@@ -11,4 +11,6 @@ BUILD_DIR="${HOME}/wasmd-build"
 git clone https://github.com/CosmWasm/wasmd --branch "${GIT_TAG}" "${CHECKOUT_DIR}"
 cd "${CHECKOUT_DIR}"
 git checkout "${GIT_TAG}"
-GOTOOLCHAIN=go1.26.4 GOPATH="${BUILD_DIR}" make install
+# wasmd v0.61.10 pulls sonic v1.14.x (via gin), which fails on Go 1.26+ (undefined GoMapIterator).
+# Build the wasmd CLI with Go 1.25.x; chainlink itself still uses Go 1.26.4.
+GOTOOLCHAIN=go1.25.8 GOPATH="${BUILD_DIR}" make install
