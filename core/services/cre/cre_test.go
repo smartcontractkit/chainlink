@@ -50,6 +50,7 @@ func (w wfRegTestStub) MaxConfigSize() utils.FileSize           { return 0 }
 func (w wfRegTestStub) RelayID() commontypes.RelayID            { return commontypes.RelayID{} }
 func (w wfRegTestStub) SyncStrategy() string                    { return "" }
 func (w wfRegTestStub) MaxConcurrency() int                     { return 0 }
+func (w wfRegTestStub) MaxActivationRetries() int               { return 0 }
 func (w wfRegTestStub) WorkflowStorage() config.WorkflowStorage { return wfRegStorageStub{} }
 func (w wfRegTestStub) ModuleCache() config.ModuleCache         { return wfRegModuleCacheStub{} }
 func (w wfRegTestStub) AdditionalSources() []config.AdditionalWorkflowSource {

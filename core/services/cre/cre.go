@@ -1099,6 +1099,7 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithAdditionalSources(addSourceConfigs),
 		syncerV2.WithShardOrchestratorClient(shardOrchestratorClient),
 		syncerV2.WithMaxConcurrency(wfReg.MaxConcurrency()),
+		syncerV2.WithMaxActivationRetries(wfReg.MaxActivationRetries()),
 	}
 	if cfg.Sharding().ShardingEnabled() {
 		registryOpts = append(registryOpts,

@@ -1408,6 +1408,7 @@ MaxEncryptedSecretsSize = '26.40kb' # Default
 MaxConfigSize = '50.00kb' # Default
 SyncStrategy = 'event' # Default
 MaxConcurrency = 12 # Default
+MaxActivationRetries = 10 # Default
 ```
 
 
@@ -1463,6 +1464,7 @@ Options are: event which watches for contract events or reconciliation which dif
 ### MaxConcurrency
 ```toml
 MaxConcurrency = 12 # Default
+MaxActivationRetries = 10 # Default
 ```
 MaxConcurrency controls the maximum number of concurrent event handlers in the workflow registry syncer.
 

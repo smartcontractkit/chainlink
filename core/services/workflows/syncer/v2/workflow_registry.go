@@ -36,6 +36,7 @@ var (
 	defaultRetryInterval         = 12 * time.Second
 	defaultMaxRetryInterval      = 5 * time.Minute
 	defaultMaxConcurrency        = 12
+	defaultMaxActivationRetries  = 10
 	WorkflowRegistryContractName = "WorkflowRegistry"
 
 	GetWorkflowsByDONMethodName                   = "getWorkflowListByDON"
@@ -102,11 +103,13 @@ type workflowRegistry struct {
 
 	engineRegistry *EngineRegistry
 
-	retryInterval    time.Duration
-	maxRetryInterval time.Duration
-	maxConcurrency   int
-	clock            clockwork.Clock
-	syncTickInterval time.Duration
+	retryInterval        time.Duration
+	maxRetryInterval     time.Duration
+	maxActivationRetries int
+	maxConcurrency       int
+	clock                clockwork.Clock
+	droppedActivations   *droppedActivations
+	syncTickInterval     time.Duration
 
 	hooks Hooks
 
@@ -166,6 +169,14 @@ func WithMaxConcurrency(maxConcurrency int) func(*workflowRegistry) {
 	return func(wr *workflowRegistry) {
 		if maxConcurrency > 0 {
 			wr.maxConcurrency = maxConcurrency
+		}
+	}
+}
+
+func WithMaxActivationRetries(maxActivationRetries int) func(*workflowRegistry) {
+	return func(wr *workflowRegistry) {
+		if maxActivationRetries >= 0 {
+			wr.maxActivationRetries = maxActivationRetries
 		}
 	}
 }
@@ -322,8 +333,10 @@ func NewWorkflowRegistry(
 		engineRegistry:                   engineRegistry,
 		retryInterval:                    defaultRetryInterval,
 		maxRetryInterval:                 defaultMaxRetryInterval,
+		maxActivationRetries:             defaultMaxActivationRetries,
 		maxConcurrency:                   defaultMaxConcurrency,
 		clock:                            clockwork.NewRealClock(),
+		droppedActivations:               newDroppedActivations(),
 		syncTickInterval:                 defaultTickInterval,
 		hooks: Hooks{
 			OnStartFailure: func(_ error) {},
@@ -483,6 +496,12 @@ func (w *workflowRegistry) generateReconciliationEvents(
 			// state in the db; so we handle as an activation event.
 			case false:
 				signature := fmt.Sprintf("%s-%s-%s", WorkflowActivated, id, toSpecStatus(wfMeta.Status))
+
+				if w.droppedActivations.isDropped(sourceName, id, signature) {
+					workflowsSeen[id] = true
+					delete(pendingEvents, id)
+					continue
+				}
 
 				if _, ok := pendingEvents[id]; ok && pendingEvents[id].signature == signature {
 					events = append(events, pendingEvents[id])
@@ -839,6 +858,19 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 					reconcileReport.NumEventsByType[string(event.Name)]++
 					mu.Unlock()
 
+					if activationRetriesExhausted(event.retryCount, w.maxActivationRetries) {
+						w.droppedActivations.drop(sourceIdentifier, event.id, event.signature)
+						w.metrics.incrementActivationDropped(ctx, sourceName)
+						w.lggr.Errorw("dropping workflow activation after max retries",
+							"retryCount", event.retryCount,
+							"maxActivationRetries", w.maxActivationRetries,
+							"type", event.Name,
+							"id", event.id,
+							"workflowInfo", event.Info,
+						)
+						continue
+					}
+
 					if event.retryCount > 0 && !w.clock.Now().After(event.nextRetryAt) {
 						backoffCount++
 						mu.Lock()
@@ -866,12 +898,27 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 						handleErr := w.handleWithMetrics(ctx, evt.Event)
 						if handleErr != nil {
 							evt.updateNextRetryFor(w.clock, w.retryInterval, w.maxRetryInterval)
+							if activationRetriesExhausted(evt.retryCount, w.maxActivationRetries) {
+								w.droppedActivations.drop(sourceIdentifier, evt.id, evt.signature)
+								w.metrics.incrementActivationDropped(ctx, sourceName)
+								w.lggr.Errorw("dropping workflow activation after max retries",
+									"err", handleErr,
+									"retryCount", evt.retryCount,
+									"maxActivationRetries", w.maxActivationRetries,
+									"type", evt.Name,
+									"id", evt.id,
+									"workflowInfo", evt.Info,
+								)
+								return
+							}
 							mu.Lock()
 							pendingEventsBySource[sourceIdentifier][evt.id] = evt
 							reconcileReport.Backoffs[evt.id] = evt.nextRetryAt
 							mu.Unlock()
 							w.lggr.Errorw("failed to handle event, backing off...", "err", handleErr, "type", evt.Name, "nextRetryAt", evt.nextRetryAt, "retryCount", evt.retryCount, "workflowInfo", evt.Info)
+							return
 						}
+						w.droppedActivations.clear(sourceIdentifier, evt.id)
 					}(event)
 				}
 				wg.Wait()

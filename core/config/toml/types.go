@@ -2390,6 +2390,7 @@ type WorkflowRegistry struct {
 	MaxConfigSize           *utils.FileSize
 	SyncStrategy            *string
 	MaxConcurrency          *int
+	MaxActivationRetries    *int
 	WorkflowStorage         WorkflowStorage
 	ModuleCache             ModuleCache
 	AdditionalSourcesConfig []AdditionalWorkflowSource `toml:"AdditionalSources"`
@@ -2430,6 +2431,10 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 
 	if f.MaxConcurrency != nil {
 		r.MaxConcurrency = f.MaxConcurrency
+	}
+
+	if f.MaxActivationRetries != nil {
+		r.MaxActivationRetries = f.MaxActivationRetries
 	}
 
 	r.WorkflowStorage.setFrom(&f.WorkflowStorage)

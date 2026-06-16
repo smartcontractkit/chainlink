@@ -325,6 +325,7 @@ MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
 SyncStrategy = 'event'
 MaxConcurrency = 12
+MaxActivationRetries = 10 # Default
 AdditionalSources = []
 
 [Capabilities.WorkflowRegistry.WorkflowStorage]
