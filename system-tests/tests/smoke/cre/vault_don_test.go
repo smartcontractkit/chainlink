@@ -842,9 +842,9 @@ func TestVaultStuckQueueRecoveryTopology_LoadExpectedConfig(t *testing.T) {
 		require.NotEmpty(t, settingsRaw)
 		var settings map[string]json.RawMessage
 		require.NoError(t, json.Unmarshal([]byte(settingsRaw), &settings))
-		require.Equal(t, json.RawMessage(`"false"`), settings["VaultOptimizationsEnabled"])
-		require.Equal(t, json.RawMessage(`"3"`), settings["VaultPendingQueueStuckRoundThreshold"])
-		require.Equal(t, json.RawMessage(`"4kb"`), settings["VaultMaxObservationSizeLimit"])
+		require.JSONEq(t, `"false"`, string(settings["VaultOptimizationsEnabled"]))
+		require.JSONEq(t, `"3"`, string(settings["VaultPendingQueueStuckRoundThreshold"]))
+		require.JSONEq(t, `"4kb"`, string(settings["VaultMaxObservationSizeLimit"]))
 		var perOwner map[string]string
 		require.NoError(t, json.Unmarshal(settings["PerOwner"], &perOwner))
 		require.Equal(t, "8kb", perOwner["VaultCiphertextSizeLimit"])

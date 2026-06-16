@@ -84,6 +84,8 @@ func pickStuckQueueWedgePlaintextSize(t *testing.T, pk *tdh2easy.PublicKey, owne
 }
 
 func TestStuckQueueWedgeCiphertextSizing(t *testing.T) {
+	t.Parallel()
+
 	_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	owner := common.HexToAddress("0x1234567890123456789012345678901234567890")
