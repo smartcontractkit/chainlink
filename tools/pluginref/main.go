@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -18,10 +19,10 @@ func main() {
 		Short: "Resolve a plugin gitRef from YAML to a git rev-parse ref",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if pluginFile == "" {
-				return fmt.Errorf("--plugin-file is required")
+				return errors.New("--plugin-file is required")
 			}
 			if pluginName == "" {
-				return fmt.Errorf("--plugin is required")
+				return errors.New("--plugin is required")
 			}
 
 			gitRef, err := gitRefForPlugin(pluginFile, pluginName)

@@ -39,7 +39,10 @@ func samplePluginsYAML() string {
 }
 
 func TestNormalizeVersion(t *testing.T) {
+	t.Parallel()
+
 	t.Run("plain tag", func(t *testing.T) {
+		t.Parallel()
 		mv := normalizeVersion("v1.2.3")
 		if mv.Tag != "v1.2.3" || mv.SHA != "" || mv.TagPrefix != "" {
 			t.Fatalf("unexpected mv: %+v", mv)
@@ -47,6 +50,7 @@ func TestNormalizeVersion(t *testing.T) {
 	})
 
 	t.Run("prefixed tag", func(t *testing.T) {
+		t.Parallel()
 		mv := normalizeVersion("sub/dir/v1.2.3")
 		if mv.Tag != "v1.2.3" || mv.TagPrefix != "sub/dir" || mv.SHA != "" {
 			t.Fatalf("unexpected mv: %+v", mv)
@@ -54,6 +58,7 @@ func TestNormalizeVersion(t *testing.T) {
 	})
 
 	t.Run("pseudo with sha", func(t *testing.T) {
+		t.Parallel()
 		valids := []struct {
 			in   string
 			want string
@@ -63,14 +68,18 @@ func TestNormalizeVersion(t *testing.T) {
 			{"v1.2.3-0.20250102030405-abcdef123456", "abcdef123456"},
 		}
 		for _, tc := range valids {
-			mv := normalizeVersion(tc.in)
-			if mv.SHA != tc.want {
-				t.Fatalf("normalizeVersion(%q).SHA = %q, want %q", tc.in, mv.SHA, tc.want)
-			}
+			t.Run(tc.in, func(t *testing.T) {
+				t.Parallel()
+				mv := normalizeVersion(tc.in)
+				if mv.SHA != tc.want {
+					t.Fatalf("normalizeVersion(%q).SHA = %q, want %q", tc.in, mv.SHA, tc.want)
+				}
+			})
 		}
 	})
 
 	t.Run("raw sha", func(t *testing.T) {
+		t.Parallel()
 		const sha = "73cd3d46ad0ce2871160369cb6447aeb9b48513f"
 		mv := normalizeVersion(sha)
 		if mv.SHA != sha {
@@ -80,6 +89,8 @@ func TestNormalizeVersion(t *testing.T) {
 }
 
 func TestCommitRefForGitRef(t *testing.T) {
+	t.Parallel()
+
 	cases := []struct {
 		gitRef string
 		want   string
@@ -92,23 +103,30 @@ func TestCommitRefForGitRef(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		got, err := commitRefForGitRef(tc.gitRef)
-		if err != nil {
-			t.Fatalf("commitRefForGitRef(%q): %v", tc.gitRef, err)
-		}
-		if got != tc.want {
-			t.Fatalf("commitRefForGitRef(%q) = %q, want %q", tc.gitRef, got, tc.want)
-		}
+		t.Run(tc.gitRef, func(t *testing.T) {
+			t.Parallel()
+			got, err := commitRefForGitRef(tc.gitRef)
+			if err != nil {
+				t.Fatalf("commitRefForGitRef(%q): %v", tc.gitRef, err)
+			}
+			if got != tc.want {
+				t.Fatalf("commitRefForGitRef(%q) = %q, want %q", tc.gitRef, got, tc.want)
+			}
+		})
 	}
 }
 
 func TestCommitRefForGitRefErrors(t *testing.T) {
+	t.Parallel()
+
 	if _, err := commitRefForGitRef(""); err == nil {
 		t.Fatal("expected error for empty gitRef")
 	}
 }
 
 func TestGitRefForPlugin(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	path := writeFile(t, dir, "plugins.yaml", samplePluginsYAML())
 
@@ -121,34 +139,48 @@ func TestGitRefForPlugin(t *testing.T) {
 	}
 
 	for name, want := range cases {
-		got, err := gitRefForPlugin(path, name)
-		if err != nil {
-			t.Fatalf("gitRefForPlugin(%q): %v", name, err)
-		}
-		if got != want {
-			t.Fatalf("gitRefForPlugin(%q) = %q, want %q", name, got, want)
-		}
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			got, err := gitRefForPlugin(path, name)
+			if err != nil {
+				t.Fatalf("gitRefForPlugin(%q): %v", name, err)
+			}
+			if got != want {
+				t.Fatalf("gitRefForPlugin(%q) = %q, want %q", name, got, want)
+			}
+		})
 	}
 }
 
 func TestGitRefForPluginErrors(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	path := writeFile(t, dir, "plugins.yaml", samplePluginsYAML())
 
-	if _, err := gitRefForPlugin(path, "missing"); err == nil {
-		t.Fatal("expected error for missing plugin")
-	}
+	t.Run("missing plugin", func(t *testing.T) {
+		t.Parallel()
+		if _, err := gitRefForPlugin(path, "missing"); err == nil {
+			t.Fatal("expected error for missing plugin")
+		}
+	})
 
-	emptyPath := writeFile(t, dir, "empty.yaml", `plugins: {}`)
-	if _, err := gitRefForPlugin(emptyPath, "solana"); err == nil {
-		t.Fatal("expected error for unknown plugin in empty file")
-	}
+	t.Run("unknown plugin in empty file", func(t *testing.T) {
+		t.Parallel()
+		emptyPath := writeFile(t, dir, "empty.yaml", `plugins: {}`)
+		if _, err := gitRefForPlugin(emptyPath, "solana"); err == nil {
+			t.Fatal("expected error for unknown plugin in empty file")
+		}
+	})
 
-	noRefPath := writeFile(t, dir, "noref.yaml", `plugins:
+	t.Run("plugin without gitRef", func(t *testing.T) {
+		t.Parallel()
+		noRefPath := writeFile(t, dir, "noref.yaml", `plugins:
   solana:
     - moduleURI: "github.com/smartcontractkit/chainlink-solana"
 `)
-	if _, err := gitRefForPlugin(noRefPath, "solana"); err == nil {
-		t.Fatal("expected error for plugin without gitRef")
-	}
+		if _, err := gitRefForPlugin(noRefPath, "solana"); err == nil {
+			t.Fatal("expected error for plugin without gitRef")
+		}
+	})
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -22,9 +23,9 @@ var (
 	pseudoWithSHARe = regexp.MustCompile(
 		`^v\d+\.\d+\.\d+(?:-\d{14}|-(?:0|[0-9A-Za-z-]+\.0)\.\d{14})-([0-9a-f]{7,40})$`,
 	)
-	plainTagRe    = regexp.MustCompile(`^v\d+\.\d+\.\d+([.-].*)?$`)
-	prefixedTagRe = regexp.MustCompile(`^(.+?)/+(v\d+\.\d+\.\d+(?:[.-].*)?)$`)
-	shaOnlyRe     = regexp.MustCompile(`^[0-9a-f]{7,40}$`)
+	plainTagRe     = regexp.MustCompile(`^v\d+\.\d+\.\d+([.-].*)?$`)
+	prefixedTagRe  = regexp.MustCompile(`^(.+?)/+(v\d+\.\d+\.\d+(?:[.-].*)?)$`)
+	shaOnlyRe      = regexp.MustCompile(`^[0-9a-f]{7,40}$`)
 	pseudoMiddleRe = regexp.MustCompile(`^(?:\d{14}|(?:0|[0-9A-Za-z-]+\.0)\.\d{14})$`)
 )
 
@@ -108,7 +109,7 @@ func gitRefForPlugin(path, name string) (string, error) {
 func commitRefForGitRef(gitRef string) (string, error) {
 	gitRef = strings.TrimSpace(gitRef)
 	if gitRef == "" {
-		return "", fmt.Errorf("gitRef is empty")
+		return "", errors.New("gitRef is empty")
 	}
 
 	mv := normalizeVersion(gitRef)
