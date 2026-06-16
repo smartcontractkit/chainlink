@@ -172,7 +172,7 @@ func TestExecuteFailFast(t *testing.T) {
 			expectedExecutions := 1000
 
 			configs := []config{}
-			for i := 0; i < expectedExecutions; i++ {
+			for range expectedExecutions {
 				configs = append(configs, struct{}{})
 			}
 
@@ -278,7 +278,7 @@ func TestParentContext(t *testing.T) {
 	taskCount := 1000
 
 	configs := []config{}
-	for i := 0; i < taskCount; i++ {
+	for range taskCount {
 		configs = append(configs, struct{}{})
 	}
 

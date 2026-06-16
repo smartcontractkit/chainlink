@@ -43,3 +43,4 @@ This matrix is the source of truth for capability placement by DON.
 - Roles: `plugin`
 - EVM chains: `1337,2337`
 - Exposes remote capabilities: `false`
+
