@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
@@ -27,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -41,6 +43,10 @@ var NodeOne = config.NodeConfig{
 }
 
 func setupHandler(t *testing.T) (handlers.Handler, *common.Callback, *mocks.DON, *clockwork.FakeClock) {
+	return setupHandlerWithLimitsFactory(t, limits.Factory{Settings: cresettings.DefaultGetter})
+}
+
+func setupHandlerWithLimitsFactory(t *testing.T, limitsFactory limits.Factory) (handlers.Handler, *common.Callback, *mocks.DON, *clockwork.FakeClock) {
 	lggr := logger.Test(t)
 	don := mocks.NewDON(t)
 	donConfig := &config.DONConfig{
@@ -60,13 +66,24 @@ func setupHandler(t *testing.T) (handlers.Handler, *common.Callback, *mocks.DON,
 	require.NoError(t, err)
 
 	clock := clockwork.NewFakeClock()
-	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter}
 	authorizer := vaultcap.NewAuthorizer(&stubAllowListBasedAuth{clock: clock}, nil, lggr)
 	handler, err := newHandlerWithAuthorizer(methodConfig, donConfig, don, nil, authorizer, nil, lggr, clock, limitsFactory)
 	require.NoError(t, err)
 	handler.aggregator = &mockAggregator{}
 	cb := common.NewCallback()
 	return handler, cb, don, clock
+}
+
+func cacheVaultPublicKeyForTest(t *testing.T, h *handler, pk *tdh2easy.PublicKey) {
+	t.Helper()
+
+	pkBytes, err := pk.Marshal()
+	require.NoError(t, err)
+	publicKeyResponseBytes, err := json.Marshal(&vaultcommon.GetPublicKeyResponse{PublicKey: hex.EncodeToString(pkBytes)})
+	require.NoError(t, err)
+
+	h.cachedPublicKeyGetResponse = publicKeyResponseBytes
+	h.cachedPublicKeyObject = pk
 }
 
 type stubAllowListBasedAuth struct {
@@ -100,12 +117,20 @@ func (m *mockAggregator) Aggregate(_ context.Context, _ logger.Logger, _ map[str
 type mockCapabilitiesRegistry struct {
 	F     uint8
 	Nodes []capabilities.Node
+	// DONs, if set, is returned as-is from DONsForCapability (for multi-DON tests).
+	DONs []capabilities.DONWithNodes
 }
 
-var owner = "test_owner"
+// allowlistWorkflowOwner is a valid checksummed workflow-owner address used in gateway Vault handler tests.
+var allowlistWorkflowOwner = "0x0001020304050607080900010203040506070809"
+
+var owner = allowlistWorkflowOwner
 
 func (m *mockCapabilitiesRegistry) DONsForCapability(_ context.Context, _ string) ([]capabilities.DONWithNodes, error) {
-	members := []p2ptypes.PeerID{}
+	if len(m.DONs) > 0 {
+		return m.DONs, nil
+	}
+	members := make([]p2ptypes.PeerID, 0, len(m.Nodes))
 	for _, n := range m.Nodes {
 		members = append(members, *n.PeerID)
 	}
@@ -226,7 +251,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		wg.Wait()
 	})
 
-	t.Run("overwrites request identity fields after authorization", func(t *testing.T) {
+	t.Run("sets authorized request_id on forwarded create", func(t *testing.T) {
 		lggr := logger.Test(t)
 		don := mocks.NewDON(t)
 		donConfig := &config.DONConfig{
@@ -260,22 +285,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		forgedCreateSecretsRequest := &vaultcommon.CreateSecretsRequest{
-			RequestId:     "test_request_id",
-			OrgId:         "forged-org",
-			WorkflowOwner: "0xforged",
-			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
-				{
-					Id: &vaultcommon.SecretIdentifier{
-						Key:   "test_id",
-						Owner: "org-1",
-					},
-					EncryptedValue: "abc123",
-				},
-			},
-		}
-		requestParams, err := json.Marshal(forgedCreateSecretsRequest)
-		require.NoError(t, err)
+		rawPayload := json.RawMessage(`{"request_id":"test_request_id","encrypted_secrets":[{"id":{"key":"test_id","owner":"0xworkflow","namespace":"default"},"encrypted_value":"abc123"}]}`)
 
 		var forwarded jsonrpc.Request[json.RawMessage]
 		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
@@ -285,7 +295,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		req := jsonrpc.Request[json.RawMessage]{
 			ID:     "1",
 			Method: vaulttypes.MethodSecretsCreate,
-			Params: (*json.RawMessage)(&requestParams),
+			Params: &rawPayload,
 		}
 
 		err = h.HandleJSONRPCUserMessage(t.Context(), req, common.NewCallback())
@@ -294,9 +304,144 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		require.NotNil(t, forwarded.Params)
 		var forwardedCreateRequest vaultcommon.CreateSecretsRequest
 		require.NoError(t, json.Unmarshal(*forwarded.Params, &forwardedCreateRequest))
-		require.Equal(t, "org-1", forwardedCreateRequest.OrgId)
-		require.Equal(t, "0xworkflow", forwardedCreateRequest.WorkflowOwner)
-		require.Equal(t, "org-1"+vaulttypes.RequestIDSeparator+"1", forwardedCreateRequest.RequestId)
+		require.Equal(t, "0xworkflow"+vaulttypes.RequestIDSeparator+"1", forwardedCreateRequest.RequestId)
+	})
+
+	t.Run("rejects create when ciphertext label does not match identifier owner", func(t *testing.T) {
+		_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
+		require.NoError(t, err)
+		encryptFor := "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("test_secret", pk, ethcommon.HexToAddress(encryptFor))
+		require.NoError(t, err)
+
+		h, callback, don, _ := setupHandlerWithLimitsFactory(t, limits.Factory{Settings: cresettings.DefaultGetter})
+		cacheVaultPublicKeyForTest(t, h.(*handler), pk)
+
+		reqData := &vaultcommon.CreateSecretsRequest{
+			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+				{
+					Id: &vaultcommon.SecretIdentifier{
+						Key:   "test_id",
+						Owner: owner,
+					},
+					EncryptedValue: encryptedSecret,
+				},
+			},
+		}
+		reqDataBytes, err := json.Marshal(reqData)
+		require.NoError(t, err)
+
+		req := jsonrpc.Request[json.RawMessage]{
+			ID:     "mismatched-label-secret",
+			Method: vaulttypes.MethodSecretsCreate,
+			Params: (*json.RawMessage)(&reqDataBytes),
+		}
+
+		err = h.HandleJSONRPCUserMessage(t.Context(), req, callback)
+		require.NoError(t, err)
+
+		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+		defer cancel()
+		resp, err := callback.Wait(ctx)
+		require.NoError(t, err)
+		var createResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
+		require.NoError(t, json.Unmarshal(resp.RawResponse, &createResponse))
+		require.ErrorContains(t, createResponse.Error, "doesn't have owner as the label")
+		require.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), createResponse.Error.Code)
+		don.AssertNotCalled(t, "SendToNode", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("forwards create secrets to DON when ciphertext matches identifier owner", func(t *testing.T) {
+		_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
+		require.NoError(t, err)
+		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("test_secret", pk, ethcommon.HexToAddress(owner))
+		require.NoError(t, err)
+
+		h, callback, don, _ := setupHandlerWithLimitsFactory(t, limits.Factory{Settings: cresettings.DefaultGetter})
+		cacheVaultPublicKeyForTest(t, h.(*handler), pk)
+
+		reqData := &vaultcommon.CreateSecretsRequest{
+			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+				{
+					Id: &vaultcommon.SecretIdentifier{
+						Key:   "test_id",
+						Owner: owner,
+					},
+					EncryptedValue: encryptedSecret,
+				},
+			},
+		}
+		reqDataBytes, err := json.Marshal(reqData)
+		require.NoError(t, err)
+
+		req := jsonrpc.Request[json.RawMessage]{
+			ID:     "matching-label-secret",
+			Method: vaulttypes.MethodSecretsCreate,
+			Params: (*json.RawMessage)(&reqDataBytes),
+		}
+
+		var forwarded jsonrpc.Request[json.RawMessage]
+		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			forwarded = *args.Get(2).(*jsonrpc.Request[json.RawMessage])
+		}).Return(nil).Once()
+
+		err = h.HandleJSONRPCUserMessage(t.Context(), req, callback)
+		require.NoError(t, err)
+
+		don.AssertExpectations(t)
+		require.NotNil(t, forwarded.Params)
+		var forwardedCreateRequest vaultcommon.CreateSecretsRequest
+		require.NoError(t, json.Unmarshal(*forwarded.Params, &forwardedCreateRequest))
+		require.Equal(t, owner+vaulttypes.RequestIDSeparator+req.ID, forwardedCreateRequest.RequestId)
+	})
+
+	t.Run("rejects JWT create when ciphertext label does not match identifier owner", func(t *testing.T) {
+		_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
+		require.NoError(t, err)
+		orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
+		// The authorized owner and Id.Owner match (passes owner-binding check).
+		// The ciphertext is encrypted for a different address so the label check fires.
+		authorizedOwner := "0x0001020304050607080900010203040506070809"
+		labelOwner := "0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("test_secret", pk, ethcommon.HexToAddress(labelOwner))
+		require.NoError(t, err)
+
+		h, callback, don, clock := setupHandlerWithLimitsFactory(t, limits.Factory{Settings: cresettings.DefaultGetter})
+		h.(*handler).authorizer = &stubAuthorizer{result: vaultcap.NewAuthResult(orgID, authorizedOwner, "digest-1", clock.Now().Add(time.Minute).Unix())}
+		cacheVaultPublicKeyForTest(t, h.(*handler), pk)
+
+		reqData := &vaultcommon.CreateSecretsRequest{
+			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+				{
+					Id: &vaultcommon.SecretIdentifier{
+						Key:   "test_id",
+						Owner: authorizedOwner, // matches authorized owner — owner-binding passes
+					},
+					EncryptedValue: encryptedSecret, // labeled for labelOwner — label check fires
+				},
+			},
+		}
+		reqDataBytes, err := json.Marshal(reqData)
+		require.NoError(t, err)
+
+		req := jsonrpc.Request[json.RawMessage]{
+			ID:     "workflow-owner-labeled-secret",
+			Method: vaulttypes.MethodSecretsCreate,
+			Params: (*json.RawMessage)(&reqDataBytes),
+		}
+
+		err = h.HandleJSONRPCUserMessage(t.Context(), req, callback)
+		require.NoError(t, err)
+
+		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+		defer cancel()
+		resp, err := callback.Wait(ctx)
+		require.NoError(t, err)
+		var createResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
+		require.NoError(t, json.Unmarshal(resp.RawResponse, &createResponse))
+		require.ErrorContains(t, createResponse.Error, "doesn't have owner as the label")
+		require.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), createResponse.Error.Code)
+		don.AssertNotCalled(t, "SendToNode", mock.Anything, mock.Anything, mock.Anything)
 	})
 
 	t.Run("nil EncryptedSecrets inside CreateSecrets body", func(t *testing.T) {
@@ -305,10 +450,15 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		emptyCreateSecretsRequest := &vaultcommon.CreateSecretsRequest{
 			RequestId: "test_request_id",
 			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
-				nil,
 				{
-					EncryptedValue: "abc123", // should be a valid hex string
+					Id: &vaultcommon.SecretIdentifier{
+						Key:       "k",
+						Namespace: "default",
+						Owner:     owner,
+					},
+					EncryptedValue: "abc123",
 				},
+				nil,
 			},
 		}
 		emptyParams, err := json.Marshal(emptyCreateSecretsRequest)
@@ -330,7 +480,8 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			err2 = json.Unmarshal(resp.RawResponse, &secretsResponse)
 			assert.NoError(t, err2)
 			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
-			assert.ErrorContains(t, secretsResponse.Error, "encrypted secret must not be nil")
+			assert.Contains(t, secretsResponse.Error.Message, "encrypted secret must not be nil at index 1")
+			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
 		}()
 
 		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
@@ -340,11 +491,16 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 
 	t.Run("no id inside CreateSecrets.EncryptedSecrets body", func(t *testing.T) {
 		var wg sync.WaitGroup
-		h, callback, _, _ := setupHandler(t)
+		h, callback, don, _ := setupHandler(t)
+		don.AssertNotCalled(t, "SendToNode")
+
+		// Id is present with the authorized owner so authorization passes owner binding;
+		// key is omitted so validation fails on the incomplete identifier, not owner mismatch.
 		emptyCreateSecretsRequest := &vaultcommon.CreateSecretsRequest{
 			RequestId: "test_request_id",
 			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 				{
+					Id:             &vaultcommon.SecretIdentifier{Owner: owner},
 					EncryptedValue: "abc123", // should be a valid hex string
 				},
 			},
@@ -368,7 +524,8 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			err2 = json.Unmarshal(resp.RawResponse, &secretsResponse)
 			assert.NoError(t, err2)
 			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
-			assert.ErrorContains(t, secretsResponse.Error, "secret ID must not be nil")
+			assert.Contains(t, secretsResponse.Error.Message, "key cannot be empty")
+			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
 		}()
 
 		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
@@ -444,16 +601,11 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		var wg sync.WaitGroup
 		h, callback, _, _ := setupHandler(t)
 
-		id := &vaultcommon.SecretIdentifier{
-			Key:       "foo",
-			Namespace: "default",
-			Owner:     owner,
-		}
 		reqData := &vaultcommon.DeleteSecretsRequest{
 			RequestId: "id",
 			Ids: []*vaultcommon.SecretIdentifier{
+				{Key: "foo", Namespace: "default", Owner: owner},
 				nil,
-				id,
 			},
 		}
 		reqDataBytes, err := json.Marshal(reqData)
@@ -465,25 +617,6 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			Params: (*json.RawMessage)(&reqDataBytes),
 		}
 
-		responseData := &vaultcommon.DeleteSecretsResponse{
-			Responses: []*vaultcommon.DeleteSecretResponse{
-				{
-					Id:      id,
-					Success: true,
-				},
-			},
-		}
-		resultBytes, err := json.Marshal(responseData)
-		require.NoError(t, err)
-		expectedRequestID := owner + vaulttypes.RequestIDSeparator + requestID
-		response := jsonrpc.Response[json.RawMessage]{
-			ID:     expectedRequestID,
-			Result: (*json.RawMessage)(&resultBytes),
-			Method: vaulttypes.MethodSecretsDelete,
-		}
-		resultBytes, err = json.Marshal(responseData)
-		require.NoError(t, err)
-
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -493,13 +626,11 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			err2 = json.Unmarshal(resp.RawResponse, &secretsResponse)
 			assert.NoError(t, err2)
 			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
-			assert.ErrorContains(t, secretsResponse.Error, "secret ID must not be nil")
+			assert.Contains(t, secretsResponse.Error.Message, "secret ID must not be nil at index 1")
+			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
 		}()
 
 		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
-		require.NoError(t, err)
-
-		err = h.HandleNodeMessage(t.Context(), &response, NodeOne.Address)
 		require.NoError(t, err)
 		wg.Wait()
 	})
@@ -768,7 +899,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 				{
 					Id: &vaultcommon.SecretIdentifier{
 						Key:   "",
-						Owner: "test_owner",
+						Owner: owner, // matches authorized owner so key-validation error fires
 					},
 					EncryptedValue: "test_value",
 				},
@@ -832,6 +963,84 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	})
 }
 
+func TestVaultHandler_HandleNodeMessage_SignatureValidatedResponse_RejectsUnknownFields(t *testing.T) {
+	h, callback, _, _ := setupHandler(t)
+
+	// Same signer addresses, payload, context and signatures used by TestAggregator_Valid_Signatures,
+	// so the SignedOCRResponse genuinely passes signature validation (F=1 => needs F+1=2 valid signers).
+	signers := []string{
+		"d6da96fe596705b32bc3a0e11cdefad77feaad79000000000000000000000000",
+		"327aa349c9718cd36c877d1e90458fe1929768ad000000000000000000000000",
+		"e9bf394856d73402b30e160d0e05c847796f0e29000000000000000000000000",
+		"efd5bdb6c3256f04489a6ca32654d547297f48b9000000000000000000000000",
+	}
+	nodes := makeNodes(t, signers)
+	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
+	h.(*handler).aggregator = &baseAggregator{
+		capabilitiesRegistry: mcr,
+		vaultHandlerDonID:    h.(*handler).donConfig.DonId,
+	}
+
+	ocrContext, err := hex.DecodeString("000ec4f6a2ba011e909eccf64628855b848e08876a1edd938a1372a9e51adff100000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000000")
+	require.NoError(t, err)
+	sig1, err := hex.DecodeString("d1067844e2849b404d903730c4cae19f090d53a578a1e8dc16ecbdc0285c1f186599108abbe0073b78bc148a6504907474ed3a6881df917e6d142cff70acfb5900")
+	require.NoError(t, err)
+	sig2, err := hex.DecodeString("c7517c188d297093a6f602046fad7feafe19454ee9dc269b19c8e6c01268037d1f7b423eeecbc495dd2d9a65e106bc3eab849ddfd74a10cbd4ad50c7d953bd4b01")
+	require.NoError(t, err)
+	payload := json.RawMessage([]byte(`{"responses":[{"error":"failed to verify ciphertext: cannot unmarshal data: unexpected end of JSON input","id":{"key":"W","namespace":"","owner":"foo"},"success":false}]}`))
+
+	// The attacker's master public key. The signatures cover only payload+context, so adding this field
+	// does not invalidate them.
+	_, attackerPK, _, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	attackerPKBytes, err := attackerPK.Marshal()
+	require.NoError(t, err)
+	attackerPKHex := hex.EncodeToString(attackerPKBytes)
+
+	// A SignedOCRResponse body with an extra, out-of-schema "publicKey" field.
+	result, err := json.Marshal(struct {
+		Error      string          `json:"error"`
+		Payload    json.RawMessage `json:"payload"`
+		Context    []byte          `json:"context"`
+		Signatures [][]byte        `json:"signatures"`
+		PublicKey  string          `json:"publicKey"`
+	}{
+		Payload:    payload,
+		Context:    ocrContext,
+		Signatures: [][]byte{sig1, sig2},
+		PublicKey:  attackerPKHex,
+	})
+	require.NoError(t, err)
+
+	// Sanity check: nothing cached yet.
+	cached, cachedObj := h.(*handler).getCachedPublicKey()
+	require.Nil(t, cached)
+	require.Nil(t, cachedObj)
+
+	requestID := "request_id"
+	req := jsonrpc.Request[json.RawMessage]{
+		ID:     requestID,
+		Method: vaulttypes.MethodPublicKeyGet,
+	}
+	_, err = h.(*handler).newActiveRequest(req, callback)
+	require.NoError(t, err)
+
+	response := jsonrpc.Response[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      requestID,
+		Method:  vaulttypes.MethodPublicKeyGet,
+		Result:  (*json.RawMessage)(&result),
+	}
+
+	err = h.HandleNodeMessage(t.Context(), &response, NodeOne.Address)
+	require.NoError(t, err)
+
+	// The gateway has cached the attacker-controlled master public key, purely on the basis of a
+	// signature-validated response.
+	_, cachedPublicKey := h.(*handler).getCachedPublicKey()
+	require.Nil(t, cachedPublicKey, "expected the master public key not to be cached")
+}
+
 func TestVaultHandler_PublicKeyGet(t *testing.T) {
 	h, callback, don, _ := setupHandler(t)
 	signers := []string{
@@ -844,6 +1053,7 @@ func TestVaultHandler_PublicKeyGet(t *testing.T) {
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
 	h.(*handler).aggregator = &baseAggregator{
 		capabilitiesRegistry: mcr,
+		vaultHandlerDonID:    h.(*handler).donConfig.DonId,
 	}
 
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)

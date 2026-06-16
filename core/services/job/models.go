@@ -23,12 +23,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
+	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -37,27 +37,24 @@ import (
 )
 
 const (
-	BlockHeaderFeeder       Type = (Type)(pipeline.BlockHeaderFeederJobType)
-	BlockhashStore          Type = (Type)(pipeline.BlockhashStoreJobType)
-	Bootstrap               Type = (Type)(pipeline.BootstrapJobType)
-	CRESettings             Type = (Type)(pipeline.CRESettings)
-	Cron                    Type = (Type)(pipeline.CronJobType)
-	CCIP                    Type = (Type)(pipeline.CCIPJobType)
-	CCVCommitteeVerifier    Type = (Type)(pipeline.CCVCommitteeVerifierJobType)
-	CCVExecutor             Type = (Type)(pipeline.CCVExecutorJobType)
-	DirectRequest           Type = (Type)(pipeline.DirectRequestJobType)
-	FluxMonitor             Type = (Type)(pipeline.FluxMonitorJobType)
-	Gateway                 Type = (Type)(pipeline.GatewayJobType)
-	Keeper                  Type = (Type)(pipeline.KeeperJobType)
-	LegacyGasStationServer  Type = (Type)(pipeline.LegacyGasStationServerJobType)
-	LegacyGasStationSidecar Type = (Type)(pipeline.LegacyGasStationSidecarJobType)
-	OffchainReporting       Type = (Type)(pipeline.OffchainReportingJobType)
-	OffchainReporting2      Type = (Type)(pipeline.OffchainReporting2JobType)
-	Stream                  Type = (Type)(pipeline.StreamJobType)
-	VRF                     Type = (Type)(pipeline.VRFJobType)
-	Webhook                 Type = (Type)(pipeline.WebhookJobType)
-	Workflow                Type = (Type)(pipeline.WorkflowJobType)
-	StandardCapabilities    Type = (Type)(pipeline.StandardCapabilitiesJobType)
+	BlockHeaderFeeder    Type = (Type)(pipeline.BlockHeaderFeederJobType)
+	BlockhashStore       Type = (Type)(pipeline.BlockhashStoreJobType)
+	Bootstrap            Type = (Type)(pipeline.BootstrapJobType)
+	CRESettings          Type = (Type)(pipeline.CRESettings)
+	Cron                 Type = (Type)(pipeline.CronJobType)
+	CCIP                 Type = (Type)(pipeline.CCIPJobType)
+	CCVCommitteeVerifier Type = (Type)(pipeline.CCVCommitteeVerifierJobType)
+	CCVExecutor          Type = (Type)(pipeline.CCVExecutorJobType)
+	DirectRequest        Type = (Type)(pipeline.DirectRequestJobType)
+	FluxMonitor          Type = (Type)(pipeline.FluxMonitorJobType)
+	Gateway              Type = (Type)(pipeline.GatewayJobType)
+	OffchainReporting    Type = (Type)(pipeline.OffchainReportingJobType)
+	OffchainReporting2   Type = (Type)(pipeline.OffchainReporting2JobType)
+	Stream               Type = (Type)(pipeline.StreamJobType)
+	VRF                  Type = (Type)(pipeline.VRFJobType)
+	Webhook              Type = (Type)(pipeline.WebhookJobType)
+	Workflow             Type = (Type)(pipeline.WorkflowJobType)
+	StandardCapabilities Type = (Type)(pipeline.StandardCapabilitiesJobType)
 )
 
 //revive:disable:redefines-builtin-id
@@ -81,137 +78,122 @@ func (t Type) SchemaVersion() uint32 {
 
 var (
 	requiresPipelineSpec = map[Type]bool{
-		BlockHeaderFeeder:       false,
-		BlockhashStore:          false,
-		Bootstrap:               false,
-		CRESettings:             false,
-		Cron:                    true,
-		CCIP:                    false,
-		CCVCommitteeVerifier:    false,
-		CCVExecutor:             false,
-		DirectRequest:           true,
-		FluxMonitor:             true,
-		Gateway:                 false,
-		Keeper:                  false, // observationSource is injected in the upkeep executor
-		LegacyGasStationServer:  false,
-		LegacyGasStationSidecar: false,
-		OffchainReporting2:      false, // bootstrap jobs do not require it
-		OffchainReporting:       false, // bootstrap jobs do not require it
-		Stream:                  true,
-		VRF:                     true,
-		Webhook:                 true,
-		Workflow:                false,
-		StandardCapabilities:    false,
+		BlockHeaderFeeder:    false,
+		BlockhashStore:       false,
+		Bootstrap:            false,
+		CRESettings:          false,
+		Cron:                 true,
+		CCIP:                 false,
+		CCVCommitteeVerifier: false,
+		CCVExecutor:          false,
+		DirectRequest:        true,
+		FluxMonitor:          true,
+		Gateway:              false,
+		OffchainReporting2:   false, // bootstrap jobs do not require it
+		OffchainReporting:    false, // bootstrap jobs do not require it
+		Stream:               true,
+		VRF:                  true,
+		Webhook:              true,
+		Workflow:             false,
+		StandardCapabilities: false,
 	}
 	supportsAsync = map[Type]bool{
-		BlockHeaderFeeder:       false,
-		BlockhashStore:          false,
-		Bootstrap:               false,
-		CRESettings:             false,
-		Cron:                    true,
-		CCIP:                    false,
-		CCVCommitteeVerifier:    false,
-		CCVExecutor:             false,
-		DirectRequest:           true,
-		FluxMonitor:             false,
-		Gateway:                 false,
-		Keeper:                  true,
-		LegacyGasStationServer:  false,
-		LegacyGasStationSidecar: false,
-		OffchainReporting2:      false,
-		OffchainReporting:       false,
-		Stream:                  true,
-		VRF:                     true,
-		Webhook:                 true,
-		Workflow:                false,
-		StandardCapabilities:    false,
+		BlockHeaderFeeder:    false,
+		BlockhashStore:       false,
+		Bootstrap:            false,
+		CRESettings:          false,
+		Cron:                 true,
+		CCIP:                 false,
+		CCVCommitteeVerifier: false,
+		CCVExecutor:          false,
+		DirectRequest:        true,
+		FluxMonitor:          false,
+		Gateway:              false,
+		OffchainReporting2:   false,
+		OffchainReporting:    false,
+		Stream:               true,
+		VRF:                  true,
+		Webhook:              true,
+		Workflow:             false,
+		StandardCapabilities: false,
 	}
 	schemaVersions = map[Type]uint32{
-		BlockHeaderFeeder:       1,
-		BlockhashStore:          1,
-		Bootstrap:               1,
-		CRESettings:             1,
-		Cron:                    1,
-		CCIP:                    1,
-		CCVCommitteeVerifier:    1,
-		CCVExecutor:             1,
-		DirectRequest:           1,
-		FluxMonitor:             1,
-		Gateway:                 1,
-		Keeper:                  1,
-		LegacyGasStationServer:  1,
-		LegacyGasStationSidecar: 1,
-		OffchainReporting2:      1,
-		OffchainReporting:       1,
-		Stream:                  1,
-		VRF:                     1,
-		Webhook:                 1,
-		Workflow:                1,
-		StandardCapabilities:    1,
+		BlockHeaderFeeder:    1,
+		BlockhashStore:       1,
+		Bootstrap:            1,
+		CRESettings:          1,
+		Cron:                 1,
+		CCIP:                 1,
+		CCVCommitteeVerifier: 1,
+		CCVExecutor:          1,
+		DirectRequest:        1,
+		FluxMonitor:          1,
+		Gateway:              1,
+		OffchainReporting2:   1,
+		OffchainReporting:    1,
+		Stream:               1,
+		VRF:                  1,
+		Webhook:              1,
+		Workflow:             1,
+		StandardCapabilities: 1,
 	}
 )
 
 type Job struct {
-	ID                            int32     `toml:"-"`
-	ExternalJobID                 uuid.UUID `toml:"externalJobID"`
-	StreamID                      *uint32   `toml:"streamID"`
-	OCROracleSpecID               *int32
-	OCROracleSpec                 *OCROracleSpec
-	OCR2OracleSpecID              *int32
-	OCR2OracleSpec                *OCR2OracleSpec
-	CronSpecID                    *int32
-	CronSpec                      *CronSpec
-	DirectRequestSpecID           *int32
-	DirectRequestSpec             *DirectRequestSpec
-	FluxMonitorSpecID             *int32
-	FluxMonitorSpec               *FluxMonitorSpec
-	KeeperSpecID                  *int32
-	KeeperSpec                    *KeeperSpec
-	VRFSpecID                     *int32
-	VRFSpec                       *VRFSpec
-	WebhookSpecID                 *int32
-	WebhookSpec                   *WebhookSpec
-	BlockhashStoreSpecID          *int32
-	BlockhashStoreSpec            *BlockhashStoreSpec
-	BlockHeaderFeederSpecID       *int32
-	BlockHeaderFeederSpec         *BlockHeaderFeederSpec
-	BALSpecID                     *int32
-	LegacyGasStationServerSpecID  *int32
-	LegacyGasStationServerSpec    *LegacyGasStationServerSpec
-	LegacyGasStationSidecarSpecID *int32
-	LegacyGasStationSidecarSpec   *LegacyGasStationSidecarSpec
-	BootstrapSpec                 *BootstrapSpec
-	BootstrapSpecID               *int32
-	GatewaySpec                   *GatewaySpec
-	GatewaySpecID                 *int32
-	EALSpec                       *EALSpec
-	EALSpecID                     *int32
-	LiquidityBalancerSpec         *LiquidityBalancerSpec
-	LiquidityBalancerSpecID       *int32
-	PipelineSpecID                int32 // This is deprecated in favor of the `job_pipeline_specs` table relationship
-	PipelineSpec                  *pipeline.Spec
-	WorkflowSpecID                *int32
-	WorkflowSpec                  *WorkflowSpec
-	StandardCapabilitiesSpecID    *int32
-	StandardCapabilitiesSpec      *StandardCapabilitiesSpec
-	CCIPSpecID                    *int32
-	CCIPSpec                      *CCIPSpec
-	CCVCommitteeVerifierSpecID    *int32
-	CCVCommitteeVerifierSpec      *CCVCommitteeVerifierSpec
-	CCVExecutorSpecID             *int32
-	CCVExecutorSpec               *CCVExecutorSpec
-	CCIPBootstrapSpecID           *int32
-	CRESettingsSpecID             *int32
-	CRESettingsSpec               *CRESettingsSpec
-	JobSpecErrors                 []SpecError
-	Type                          Type          `toml:"type"`
-	SchemaVersion                 uint32        `toml:"schemaVersion"`
-	GasLimit                      clnull.Uint32 `toml:"gasLimit"`
-	ForwardingAllowed             bool          `toml:"forwardingAllowed"`
-	Name                          null.String   `toml:"name"`
-	MaxTaskDuration               sqlutil.Interval
-	Pipeline                      pipeline.Pipeline `toml:"observationSource"`
-	CreatedAt                     time.Time
+	ID                         int32     `toml:"-"`
+	ExternalJobID              uuid.UUID `toml:"externalJobID"`
+	StreamID                   *uint32   `toml:"streamID"`
+	OCROracleSpecID            *int32
+	OCROracleSpec              *OCROracleSpec
+	OCR2OracleSpecID           *int32
+	OCR2OracleSpec             *OCR2OracleSpec
+	CronSpecID                 *int32
+	CronSpec                   *CronSpec
+	DirectRequestSpecID        *int32
+	DirectRequestSpec          *DirectRequestSpec
+	FluxMonitorSpecID          *int32
+	FluxMonitorSpec            *FluxMonitorSpec
+	VRFSpecID                  *int32
+	VRFSpec                    *VRFSpec
+	WebhookSpecID              *int32
+	WebhookSpec                *WebhookSpec
+	BlockhashStoreSpecID       *int32
+	BlockhashStoreSpec         *BlockhashStoreSpec
+	BlockHeaderFeederSpecID    *int32
+	BlockHeaderFeederSpec      *BlockHeaderFeederSpec
+	BALSpecID                  *int32
+	BootstrapSpec              *BootstrapSpec
+	BootstrapSpecID            *int32
+	GatewaySpec                *GatewaySpec
+	GatewaySpecID              *int32
+	EALSpec                    *EALSpec
+	EALSpecID                  *int32
+	LiquidityBalancerSpec      *LiquidityBalancerSpec
+	LiquidityBalancerSpecID    *int32
+	PipelineSpecID             int32 // This is deprecated in favor of the `job_pipeline_specs` table relationship
+	PipelineSpec               *pipeline.Spec
+	WorkflowSpecID             *int32
+	WorkflowSpec               *WorkflowSpec
+	StandardCapabilitiesSpecID *int32
+	StandardCapabilitiesSpec   *StandardCapabilitiesSpec
+	CCIPSpecID                 *int32
+	CCIPSpec                   *CCIPSpec
+	CCVCommitteeVerifierSpecID *int32
+	CCVCommitteeVerifierSpec   *CCVCommitteeVerifierSpec
+	CCVExecutorSpecID          *int32
+	CCVExecutorSpec            *CCVExecutorSpec
+	CCIPBootstrapSpecID        *int32
+	CRESettingsSpecID          *int32
+	CRESettingsSpec            *CRESettingsSpec
+	JobSpecErrors              []SpecError
+	Type                       Type          `toml:"type"`
+	SchemaVersion              uint32        `toml:"schemaVersion"`
+	GasLimit                   clnull.Uint32 `toml:"gasLimit"`
+	ForwardingAllowed          bool          `toml:"forwardingAllowed"`
+	Name                       null.String   `toml:"name"`
+	MaxTaskDuration            sqlutil.Interval
+	Pipeline                   pipeline.Pipeline `toml:"observationSource"`
+	CreatedAt                  time.Time
 }
 
 func ExternalJobIDEncodeStringToTopic(id uuid.UUID) common.Hash {
@@ -559,16 +541,6 @@ type FluxMonitorSpec struct {
 	UpdatedAt           time.Time    `toml:"-"`
 }
 
-type KeeperSpec struct {
-	ID                       int32                 `toml:"-"`
-	ContractAddress          evmtypes.EIP55Address `toml:"contractAddress"`
-	MinIncomingConfirmations *uint32               `toml:"minIncomingConfirmations"`
-	FromAddress              evmtypes.EIP55Address `toml:"fromAddress"`
-	EVMChainID               *sqlutil.Big          `toml:"evmChainID"`
-	CreatedAt                time.Time             `toml:"-"`
-	UpdatedAt                time.Time             `toml:"-"`
-}
-
 type VRFSpec struct {
 	ID int32
 
@@ -627,8 +599,7 @@ type VRFSpec struct {
 type BlockhashStoreSpec struct {
 	ID int32
 
-	// CoordinatorV1Address is the VRF V1 coordinator to watch for unfulfilled requests. If empty,
-	// no V1 coordinator will be watched.
+	// CoordinatorV1Address is a legacy field from VRF V1. It remains for API/DB compatibility; non-zero values are rejected at spec validation.
 	CoordinatorV1Address *evmtypes.EIP55Address `toml:"coordinatorV1Address"`
 
 	// CoordinatorV2Address is the VRF V2 coordinator to watch for unfulfilled requests. If empty,
@@ -684,8 +655,7 @@ type BlockhashStoreSpec struct {
 type BlockHeaderFeederSpec struct {
 	ID int32
 
-	// CoordinatorV1Address is the VRF V1 coordinator to watch for unfulfilled requests. If empty,
-	// no V1 coordinator will be watched.
+	// CoordinatorV1Address is a legacy field from VRF V1. It remains for API/DB compatibility; non-zero values are rejected at spec validation.
 	CoordinatorV1Address *evmtypes.EIP55Address `toml:"coordinatorV1Address"`
 
 	// CoordinatorV2Address is the VRF V2 coordinator to watch for unfulfilled requests. If empty,
@@ -727,64 +697,6 @@ type BlockHeaderFeederSpec struct {
 
 	// StoreBlockhashesBatchSize is the RPC call batch size for storing blockhashes
 	StoreBlockhashesBatchSize uint16 `toml:"storeBlockhashesBatchSize"`
-
-	// CreatedAt is the time this job was created.
-	CreatedAt time.Time `toml:"-"`
-
-	// UpdatedAt is the time this job was last updated.
-	UpdatedAt time.Time `toml:"-"`
-}
-
-// LegacyGasStationServerSpec defines the job spec for the legacy gas station server.
-type LegacyGasStationServerSpec struct {
-	ID int32
-
-	// ForwarderAddress is the address of EIP2771 forwarder that verifies signature
-	// and forwards requests to target contracts
-	ForwarderAddress evmtypes.EIP55Address `toml:"forwarderAddress"`
-
-	// EVMChainID defines the chain ID from which the meta-transaction request originates.
-	EVMChainID *sqlutil.Big `toml:"evmChainID"`
-
-	// CCIPChainSelector is the CCIP chain selector that corresponds to EVMChainID param.
-	// This selector is equivalent to (source) chainID specified in SendTransaction request
-	CCIPChainSelector *sqlutil.Big `toml:"ccipChainSelector"`
-
-	// FromAddress is the sender address that should be used to send meta-transactions
-	FromAddresses []evmtypes.EIP55Address `toml:"fromAddresses"`
-
-	// CreatedAt is the time this job was created.
-	CreatedAt time.Time `toml:"-"`
-
-	// UpdatedAt is the time this job was last updated.
-	UpdatedAt time.Time `toml:"-"`
-}
-
-// LegacyGasStationSidecarSpec defines the job spec for the legacy gas station sidecar.
-type LegacyGasStationSidecarSpec struct {
-	ID int32
-
-	// ForwarderAddress is the address of EIP2771 forwarder that verifies signature
-	// and forwards requests to target contracts
-	ForwarderAddress evmtypes.EIP55Address `toml:"forwarderAddress"`
-
-	// OffRampAddress is the address of CCIP OffRamp for the given chainID
-	OffRampAddress evmtypes.EIP55Address `toml:"offRampAddress"`
-
-	// LookbackBlocks defines the maximum number of blocks to search for on-chain events.
-	LookbackBlocks int32 `toml:"lookbackBlocks"`
-
-	// PollPeriod defines how frequently legacy gas station sidecar runs.
-	PollPeriod time.Duration `toml:"pollPeriod"`
-
-	// RunTimeout defines the timeout for a single run of the legacy gas station sidecar.
-	RunTimeout time.Duration `toml:"runTimeout"`
-
-	// EVMChainID defines the chain ID for the on-chain events tracked by sidecar
-	EVMChainID *sqlutil.Big `toml:"evmChainID"`
-
-	// CCIPChainSelector is the CCIP chain selector that corresponds to EVMChainID param
-	CCIPChainSelector *sqlutil.Big `toml:"ccipChainSelector"`
 
 	// CreatedAt is the time this job was created.
 	CreatedAt time.Time `toml:"-"`
@@ -927,8 +839,8 @@ type WorkflowSpec struct {
 	BinaryURL     string             `db:"binary_url"`
 	ConfigURL     string             `db:"config_url"`
 	SecretsID     sql.NullInt64      `db:"secrets_id"`
-	CreatedAt     time.Time          `toml:"-"`
-	UpdatedAt     time.Time          `toml:"-"`
+	CreatedAt     time.Time          `toml:"-" db:"created_at"`
+	UpdatedAt     time.Time          `toml:"-" db:"updated_at"`
 	SpecType      WorkflowSpecType   `toml:"spec_type" db:"spec_type"`
 	Attributes    []byte             `db:"attributes"`
 	sdkWorkflow   *sdk.WorkflowSpec

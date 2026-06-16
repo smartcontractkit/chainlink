@@ -36,7 +36,8 @@ type ConfigureOCR3Input struct {
 
 	ReportingPluginConfigOverride []byte
 
-	MCMSConfig *contracts.MCMSConfig
+	MCMSConfig          *contracts.MCMSConfig
+	ExtraSignerFamilies []string
 }
 
 func (i ConfigureOCR3Input) UseMCMS() bool {
@@ -75,6 +76,7 @@ var ConfigureOCR3 = operations.NewOperation[ConfigureOCR3Input, ConfigureOCR3OpO
 			UseMCMS:                       input.UseMCMS(),
 			Strategy:                      deps.Strategy,
 			ReportingPluginConfigOverride: input.ReportingPluginConfigOverride,
+			ExtraSignerFamilies:           input.ExtraSignerFamilies,
 		})
 		if err != nil {
 			return ConfigureOCR3OpOutput{}, fmt.Errorf("failed to configure OCR3Capability: %w", err)

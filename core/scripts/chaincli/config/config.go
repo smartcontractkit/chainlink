@@ -6,8 +6,6 @@ import (
 	"log"
 
 	"github.com/spf13/viper"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 )
 
 // UpkeepType represents an upkeep type
@@ -66,21 +64,21 @@ type Config struct {
 	UpkeepPrivilegeManager string `mapstructure:"UPKEEP_PRIVILEGE_MANAGER"`
 
 	// Upkeep Config
-	RegistryVersion                 keeper.RegistryVersion `mapstructure:"KEEPER_REGISTRY_VERSION"`
-	RegistryAddress                 string                 `mapstructure:"KEEPER_REGISTRY_ADDRESS"`
-	RegistryConfigUpdate            bool                   `mapstructure:"KEEPER_CONFIG_UPDATE"`
-	KeepersCount                    int                    `mapstructure:"KEEPERS_COUNT"`
-	UpkeepTestRange                 int64                  `mapstructure:"UPKEEP_TEST_RANGE"`
-	UpkeepAverageEligibilityCadence int64                  `mapstructure:"UPKEEP_AVERAGE_ELIGIBILITY_CADENCE"`
-	UpkeepInterval                  int64                  `mapstructure:"UPKEEP_INTERVAL"`
-	UpkeepCheckData                 string                 `mapstructure:"UPKEEP_CHECK_DATA"`
-	UpkeepGasLimit                  uint32                 `mapstructure:"UPKEEP_GAS_LIMIT"`
-	UpkeepCount                     int64                  `mapstructure:"UPKEEP_COUNT"`
-	AddFundsAmount                  string                 `mapstructure:"UPKEEP_ADD_FUNDS_AMOUNT"`
-	VerifiableLoadTest              bool                   `mapstructure:"VERIFIABLE_LOAD_TEST"`
-	UseArbBlockNumber               bool                   `mapstructure:"USE_ARB_BLOCK_NUMBER"`
-	VerifiableLoadContractAddress   string                 `mapstructure:"VERIFIABLE_LOAD_CONTRACT_ADDRESS"`
-	UpkeepType                      UpkeepType             `mapstructure:"UPKEEP_TYPE"`
+	RegistryVersion                 RegistryVersion `mapstructure:"KEEPER_REGISTRY_VERSION"`
+	RegistryAddress                 string          `mapstructure:"KEEPER_REGISTRY_ADDRESS"`
+	RegistryConfigUpdate            bool            `mapstructure:"KEEPER_CONFIG_UPDATE"`
+	KeepersCount                    int             `mapstructure:"KEEPERS_COUNT"`
+	UpkeepTestRange                 int64           `mapstructure:"UPKEEP_TEST_RANGE"`
+	UpkeepAverageEligibilityCadence int64           `mapstructure:"UPKEEP_AVERAGE_ELIGIBILITY_CADENCE"`
+	UpkeepInterval                  int64           `mapstructure:"UPKEEP_INTERVAL"`
+	UpkeepCheckData                 string          `mapstructure:"UPKEEP_CHECK_DATA"`
+	UpkeepGasLimit                  uint32          `mapstructure:"UPKEEP_GAS_LIMIT"`
+	UpkeepCount                     int64           `mapstructure:"UPKEEP_COUNT"`
+	AddFundsAmount                  string          `mapstructure:"UPKEEP_ADD_FUNDS_AMOUNT"`
+	VerifiableLoadTest              bool            `mapstructure:"VERIFIABLE_LOAD_TEST"`
+	UseArbBlockNumber               bool            `mapstructure:"USE_ARB_BLOCK_NUMBER"`
+	VerifiableLoadContractAddress   string          `mapstructure:"VERIFIABLE_LOAD_CONTRACT_ADDRESS"`
+	UpkeepType                      UpkeepType      `mapstructure:"UPKEEP_TYPE"`
 
 	// Node config scraping and verification
 	NodeConfigURL string `mapstructure:"NODE_CONFIG_URL"`
@@ -130,7 +128,7 @@ func New() *Config {
 // Validate validates the given config
 func (c *Config) Validate() error {
 	// OCR2Keeper job could be ran only with the registry 2.0
-	if c.OCR2Keepers && c.RegistryVersion < keeper.RegistryVersion_2_0 {
+	if c.OCR2Keepers && c.RegistryVersion < RegistryVersion2_0 {
 		return fmt.Errorf("ocr2keeper job could be ran only with the registry 2.0, but %s specified", c.RegistryVersion)
 	}
 
@@ -179,6 +177,6 @@ func init() {
 	viper.SetDefault("MAX_PERFORM_GAS", 5000000)
 	viper.SetDefault("TRANSCODER", "0x0000000000000000000000000000000000000000")
 	viper.SetDefault("REGISTRAR", "0x0000000000000000000000000000000000000000")
-	viper.SetDefault("KEEPER_REGISTRY_VERSION", 2)
+	viper.SetDefault("KEEPER_REGISTRY_VERSION", 4)
 	viper.SetDefault("FUND_CHAINLINK_NODE", "20000000000000000000")
 }

@@ -9,13 +9,14 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -39,6 +40,7 @@ type EngineConfig struct {
 	ExecutionsStore      store.Store
 	Clock                clockwork.Clock
 	SecretsFetcher       SecretsFetcher
+	OverrideFetcher      SecretsFetcher // Optional local secrets overrides
 	DonSubscriber        capabilities.DonSubscriber
 
 	WorkflowID            string // hex-encoded [32]byte, no "0x" prefix
@@ -47,10 +49,10 @@ type EngineConfig struct {
 	WorkflowTag           string // workflow tag is required during workflow registration. owner + name + tag uniquely identifies a workflow.
 	WorkflowEncryptionKey workflowkey.Key
 
-	LocalLimits                       EngineLimits
-	LocalLimiters                     *EngineLimiters
-	FeatureFlags                      *EngineFeatureFlags
-	GlobalExecutionConcurrencyLimiter limits.ResourceLimiter[int] // global + per owner WorkflowExecutionConcurrencyLimit
+	LocalLimits         EngineLimits
+	LocalLimiters       *EngineLimiters
+	FeatureFlags        *EngineFeatureFlags
+	GlobalWorkflowLimit limits.ResourceLimiter[int] // global + PerOwner.WorkflowLimit
 
 	BeholderEmitter custmsg.MessageEmitter
 
@@ -78,6 +80,9 @@ type EngineConfig struct {
 }
 
 type EngineLimiters struct {
+	// Settings is the CRE dynamic settings getter from [limits.Factory.Settings] (optional).
+	Settings settings.Getter
+
 	ExecutionResponse        limits.BoundLimiter[config.Size]
 	TriggerSubscriptionTime  limits.TimeLimiter
 	TriggerRegistrationsTime limits.TimeLimiter
@@ -111,8 +116,7 @@ type EngineLimiters struct {
 	UserMetricLabelsPerMetric  limits.BoundLimiter[int]
 	UserMetricLabelValueLength limits.BoundLimiter[int]
 
-	ExecutionTimestampsEnabled     limits.GateLimiter
-	VaultOrgIDAsSecretOwnerEnabled limits.GateLimiter
+	ExecutionTimestampsEnabled limits.GateLimiter
 }
 
 // NewLimiters returns a new set of EngineLimiters based on the default configuration, and optionally modified by cfgFn.
@@ -123,6 +127,8 @@ func NewLimiters(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*Engine
 }
 
 func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (err error) {
+	l.Settings = lf.Settings
+
 	cfg := cresettings.Default.PerWorkflow // make copy
 	if cfgFn != nil {
 		cfgFn(&cfg)
@@ -258,10 +264,6 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
-	l.VaultOrgIDAsSecretOwnerEnabled, err = limits.MakeGateLimiter(lf, cresettings.Default.VaultOrgIdAsSecretOwnerEnabled)
-	if err != nil {
-		return
-	}
 	return
 }
 
@@ -379,11 +381,15 @@ type LifecycleHooks struct {
 	// has completed initialization. It is also helpful for testing.
 	OnInitialized          func(err error)
 	OnSubscribedToTriggers func(triggerIDs []string)
+	OnTriggerEventDropped  func(triggerID, eventID, reason string)
 	OnExecutionFinished    func(executionID string, status string)
 	OnExecutionError       func(msg string)
 	OnResultReceived       func(*sdkpb.ExecutionResult)
 	OnRateLimited          func(executionID string)
 	OnNodeSynced           func(node commoncap.Node, err error)
+
+	// Used by the standalone engine
+	OnRequirementsSet func(executionId string, requirements *sdkpb.Requirements)
 }
 
 func (c *EngineConfig) Validate() error {
@@ -419,7 +425,7 @@ func (c *EngineConfig) Validate() error {
 	}
 
 	c.LocalLimits.setDefaultLimits()
-	if c.GlobalExecutionConcurrencyLimiter == nil {
+	if c.GlobalWorkflowLimit == nil {
 		return errors.New("execution concurrency limiter not set")
 	}
 
@@ -454,6 +460,9 @@ func (h *LifecycleHooks) setDefaultHooks() {
 	}
 	if h.OnSubscribedToTriggers == nil {
 		h.OnSubscribedToTriggers = func(triggerIDs []string) {}
+	}
+	if h.OnTriggerEventDropped == nil {
+		h.OnTriggerEventDropped = func(triggerID, eventID, reason string) {}
 	}
 	if h.OnResultReceived == nil {
 		h.OnResultReceived = func(res *sdkpb.ExecutionResult) {}

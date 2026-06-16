@@ -112,7 +112,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 		},
 	}
 
-	confResp := &confworkflowtypes.ConfidentialWorkflowResponse{ExecutionResult: expectedResult}
+	confResp := &confworkflowtypes.ConfidentialWorkflowResponse{SdkExecutionResult: expectedResult}
 	respPayload, err := anypb.New(confResp)
 	require.NoError(t, err)
 
@@ -231,7 +231,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 		assert.Equal(t, "https://example.com/wasm", confReq.Execution.BinaryUrl)
 		assert.Equal(t, binaryHash, confReq.Execution.BinaryHash)
 
-		assert.Equal(t, execReq.GetConfig(), confReq.Execution.ExecuteRequest.GetConfig())
+		assert.Equal(t, execReq.GetConfig(), confReq.Execution.SdkExecuteRequest.GetConfig())
 	})
 }
 
@@ -359,7 +359,7 @@ func TestConfidentialModule_Tee(t *testing.T) {
 		assert.Equal(t, "0xowner", capturedReq.Metadata.WorkflowOwner)
 		assert.Equal(t, "my-workflow", capturedReq.Metadata.WorkflowName)
 		assert.Equal(t, "v3", capturedReq.Metadata.WorkflowTag)
-		assert.Equal(t, "", capturedReq.Metadata.WorkflowExecutionID)
+		assert.Empty(t, capturedReq.Metadata.WorkflowExecutionID)
 
 		var emptyMsg emptypb.Empty
 		require.NoError(t, capturedReq.Payload.UnmarshalTo(&emptyMsg))
@@ -398,7 +398,7 @@ func TestConfidentialModule_SetRequirements(t *testing.T) {
 		},
 	}
 
-	confResp := &confworkflowtypes.ConfidentialWorkflowResponse{ExecutionResult: expectedResult}
+	confResp := &confworkflowtypes.ConfidentialWorkflowResponse{SdkExecutionResult: expectedResult}
 	respPayload, err := anypb.New(confResp)
 	require.NoError(t, err)
 
@@ -482,7 +482,7 @@ func TestConfidentialModule_SetRestrictions(t *testing.T) {
 		},
 	}
 
-	confResp := &confworkflowtypes.ConfidentialWorkflowResponse{ExecutionResult: expectedResult}
+	confResp := &confworkflowtypes.ConfidentialWorkflowResponse{SdkExecutionResult: expectedResult}
 	respPayload, err := anypb.New(confResp)
 	require.NoError(t, err)
 

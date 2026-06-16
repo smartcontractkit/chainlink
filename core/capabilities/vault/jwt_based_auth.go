@@ -8,8 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/big"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -24,30 +26,45 @@ import (
 )
 
 var (
-	ErrMissingToken         = errors.New("missing JWT token")
-	ErrInvalidToken         = errors.New("invalid JWT token")
-	ErrMissingOrgID         = errors.New("missing org_id claim")
-	ErrMissingWorkflowOwner = errors.New("missing workflow_owner in authorization_details")
-	ErrMissingRequestDigest = errors.New("missing request_digest in authorization_details")
-	ErrJWKSFetchFailed      = errors.New("failed to fetch JWKS")
-	ErrJWKSKeyNotFound      = errors.New("signing key not found in JWKS")
+	ErrMissingToken                    = errors.New("missing JWT token")
+	ErrInvalidToken                    = errors.New("invalid JWT token")
+	ErrMissingOrgID                    = errors.New("missing org_id claim")
+	ErrMissingTenantID                 = errors.New("missing urn:chainlink:tenant_id or tenant_id claim for JWT-derived vault workflow owner")
+	ErrMissingWorkflowOwner            = errors.New("missing workflow_owner in authorization_details")
+	ErrMissingRequestDigest            = errors.New("missing request_digest in authorization_details")
+	ErrVaultSecretManagementNotEnabled = errors.New("claim_vault_secret_management_enabled claim must be true")
+	ErrJWTTenantIDJobSpecMismatch      = errors.New("JWT tenant id does not match auth0 tenantID from job specification")
+	ErrJWKSFetchFailed                 = errors.New("failed to fetch JWKS")
+	ErrJWKSKeyNotFound                 = errors.New("signing key not found in JWKS")
 )
 
+const ClaimVaultSecretManagementEnabled = "urn:chainlink:claim_vault_secret_management_enabled"
+
+// ClaimChainlinkTenantID is the CRE tenant numeric id (typically a decimal string) as emitted on Auth0 JWTs.
+// See cre-platform-graphql/internal/auth/jwt_auth0.go (resolveStringClaim(..., "tenant_id")).
+const ClaimChainlinkTenantID = "urn:chainlink:tenant_id"
+
 const (
-	defaultJWKSRefreshInterval = 15 * time.Minute
-	defaultHTTPTimeout         = 5 * time.Second
+	defaultJWTAuthJobSpecTenantID uint64 = 1
+	defaultJWKSRefreshInterval           = 15 * time.Minute
+	defaultHTTPTimeout                   = 5 * time.Second
+	// jwtValidationLeeway must match jwt.WithLeeway in validateToken. Replay
+	// protection must retain digests for the full JWT validation window.
+	jwtValidationLeeway = time.Minute
 )
 
 // Auth0Config captures the Vault JWT issuer settings shared by gateway and node handlers.
 type Auth0Config struct {
 	IssuerURL string `json:"issuerURL" toml:"issuerURL" yaml:"issuerURL"`
 	Audience  string `json:"audience" toml:"audience" yaml:"audience"`
+	TenantID  uint64 `json:"tenantID" toml:"tenantID" yaml:"tenantID"`
 }
 
 // JWTBasedAuthConfig holds the configuration for JWTBasedAuth validation.
 type JWTBasedAuthConfig struct {
 	IssuerURL           string
 	Audience            string
+	TenantID            uint64        // omit or zero defaults to defaultJWTAuthJobSpecTenantID; must match JWT urn:chainlink:tenant_id / tenant_id claim
 	JWKSRefreshInterval time.Duration // minimum interval between JWKS fetches; 0 uses default (30s)
 	HTTPClient          *http.Client  // nil uses a default client with 5s timeout
 }
@@ -56,9 +73,11 @@ type JWTBasedAuthConfig struct {
 // relevant to Vault request authorization.
 type JWTClaims struct {
 	OrgID         string
+	TenantID      uint64 // from urn:chainlink:tenant_id or tenant_id
 	WorkflowOwner string // from authorization_details
 	RequestDigest string // from authorization_details
 	ExpiresAt     time.Time
+	OAuthScopes   []string // from scope / permissions claims
 }
 
 type jsonWebKey struct {
@@ -76,7 +95,7 @@ type jsonWebKeySet struct {
 
 // JWTBasedAuth verifies Auth0-issued RS256 JWTs using the provider's
 // public JWKS endpoint and extracts Vault-specific claims (org_id,
-// workflow_owner, request_digest). It is safe for concurrent use.
+// tenant id, optional workflow_owner, request_digest). It is safe for concurrent use.
 //
 // JWKS keys are fetched lazily on the first token validation and refreshed
 // on key-ID misses, rate-limited to at most once per JWKSRefreshInterval.
@@ -92,6 +111,8 @@ type jwtBasedAuth struct {
 	refreshInterval time.Duration
 	authEnabledGate limits.GateLimiter
 
+	expectedTenantID uint64
+
 	mu            sync.RWMutex
 	keySet        *jsonWebKeySet
 	lastRefreshed time.Time
@@ -100,6 +121,8 @@ type jwtBasedAuth struct {
 
 	httpClient *http.Client
 	lggr       logger.Logger
+
+	limitsFactory limits.Factory
 }
 
 type jwtBasedAuthOptions struct {
@@ -134,6 +157,11 @@ func NewJWTBasedAuth(cfg JWTBasedAuthConfig, limitsFactory limits.Factory, lggr 
 		return nil, errors.New("audience is required")
 	}
 
+	expectedTenantID := cfg.TenantID
+	if expectedTenantID == 0 {
+		expectedTenantID = defaultJWTAuthJobSpecTenantID
+	}
+
 	trimmedIssuer := strings.TrimSuffix(cfg.IssuerURL, "/")
 	jwksURL := trimmedIssuer + "/.well-known/jwks.json"
 
@@ -148,13 +176,15 @@ func NewJWTBasedAuth(cfg JWTBasedAuthConfig, limitsFactory limits.Factory, lggr 
 	}
 
 	v := &jwtBasedAuth{
-		issuerURL:       cfg.IssuerURL,
-		audience:        cfg.Audience,
-		jwksURL:         jwksURL,
-		refreshInterval: refreshInterval,
-		authEnabledGate: options.authEnabledGate,
-		httpClient:      httpClient,
-		lggr:            logger.Named(lggr, "VaultJWTBasedAuth"),
+		issuerURL:        cfg.IssuerURL,
+		audience:         cfg.Audience,
+		jwksURL:          jwksURL,
+		refreshInterval:  refreshInterval,
+		authEnabledGate:  options.authEnabledGate,
+		expectedTenantID: expectedTenantID,
+		httpClient:       httpClient,
+		lggr:             logger.Named(lggr, "VaultJWTBasedAuth"),
+		limitsFactory:    limitsFactory,
 	}
 	v.Service, v.eng = services.Config{
 		Name:  "VaultJWTBasedAuth",
@@ -206,6 +236,19 @@ func (v *jwtBasedAuth) AuthorizeRequest(ctx context.Context, req jsonrpc.Request
 		return nil, fmt.Errorf("invalid JWT auth token: %w", err)
 	}
 
+	if scopeErr := enforceVaultJWTOAuthScopes(req.Method, claims.OAuthScopes); scopeErr != nil {
+		v.lggr.Debugw("JWTBasedAuth OAuth scope rejected request", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "scopes", claims.OAuthScopes, "error", scopeErr)
+		return nil, fmt.Errorf("invalid JWT auth token: %w", scopeErr)
+	}
+
+	if claims.TenantID == 0 {
+		return nil, ErrMissingTenantID
+	}
+	if claims.TenantID != v.expectedTenantID {
+		v.lggr.Debugw("JWT tenant id does not match job spec auth0 tenantID", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "claimsTenantID", claims.TenantID, "expectedTenantID", v.expectedTenantID)
+		return nil, fmt.Errorf("%w: jwt tenant id %d expected tenant id %d", ErrJWTTenantIDJobSpecMismatch, claims.TenantID, v.expectedTenantID)
+	}
+
 	requestDigest, err := req.Digest()
 	if err != nil {
 		v.lggr.Debugw("JWTBasedAuth failed to compute request digest", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "workflowOwner", claims.WorkflowOwner, "error", err)
@@ -217,18 +260,25 @@ func (v *jwtBasedAuth) AuthorizeRequest(ctx context.Context, req jsonrpc.Request
 		return nil, fmt.Errorf("request digest mismatch: computed=%s claimed=%s", requestDigest, claims.RequestDigest)
 	}
 
-	v.lggr.Debugw("JWTBasedAuth authorization succeeded", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "workflowOwner", claims.WorkflowOwner, "digest", requestDigest, "expiresAt", claims.ExpiresAt.UTC().Unix())
+	derivedWorkflowOwner, err := DeriveJWTAuthorizedVaultWorkflowOwner(claims.OrgID, claims.TenantID, claims.WorkflowOwner)
+	if err != nil {
+		v.lggr.Debugw("JWTBasedAuth failed to derive authorized workflow owner", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "error", err)
+		return nil, fmt.Errorf("invalid JWT auth token: %w", err)
+	}
+
+	authExpiresAt := claims.ExpiresAt.UTC().Add(jwtValidationLeeway).Unix()
+	v.lggr.Debugw("JWTBasedAuth authorization succeeded", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "workflowOwner", derivedWorkflowOwner, "digest", requestDigest, "expiresAt", authExpiresAt)
 	return &AuthResult{
 		orgID:         claims.OrgID,
-		workflowOwner: claims.WorkflowOwner,
+		workflowOwner: derivedWorkflowOwner,
 		digest:        requestDigest,
-		expiresAt:     claims.ExpiresAt.UTC().Unix(),
+		expiresAt:     authExpiresAt,
 	}, nil
 }
 
 // validateToken verifies the JWT signature via Auth0 JWKS, validates
 // standard claims (iss, aud, exp), and extracts Vault-specific claims
-// (org_id, workflow_owner, request_digest).
+// (org_id, tenant id, optional workflow_owner, request_digest).
 func (v *jwtBasedAuth) validateToken(ctx context.Context, tokenString string) (*JWTClaims, error) {
 	if tokenString == "" {
 		return nil, ErrMissingToken
@@ -259,9 +309,10 @@ func (v *jwtBasedAuth) validateToken(ctx context.Context, tokenString string) (*
 		jwt.WithAudience(v.audience),
 		jwt.WithExpirationRequired(),
 		jwt.WithIssuedAt(),
+		jwt.WithLeeway(jwtValidationLeeway),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidToken, err)
+		return nil, fmt.Errorf("%w: %w. Expected Issuer: %s, Actual Issuer: %s", ErrInvalidToken, err, v.issuerURL, unverified.Claims.(jwt.MapClaims)["iss"])
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
@@ -278,9 +329,18 @@ func extractVaultClaims(claims jwt.MapClaims) (*JWTClaims, error) {
 		return nil, ErrMissingOrgID
 	}
 
+	if v, ok := claims[ClaimVaultSecretManagementEnabled].(string); !ok || v != "true" {
+		return nil, ErrVaultSecretManagementNotEnabled
+	}
+
 	exp, err := claims.GetExpirationTime()
 	if err != nil {
 		return nil, fmt.Errorf("%w: invalid exp claim", ErrInvalidToken)
+	}
+
+	tenantID, err := extractTenantNumericIDFromClaims(claims)
+	if err != nil {
+		return nil, fmt.Errorf("%w: invalid tenant id claim", ErrInvalidToken)
 	}
 
 	workflowOwner, requestDigest, err := extractAuthorizationDetails(claims)
@@ -288,12 +348,62 @@ func extractVaultClaims(claims jwt.MapClaims) (*JWTClaims, error) {
 		return nil, err
 	}
 
+	oauthScopes := extractOAuthScopesFromClaims(claims)
+
 	return &JWTClaims{
 		OrgID:         orgID,
+		TenantID:      tenantID,
 		WorkflowOwner: workflowOwner,
 		RequestDigest: requestDigest,
 		ExpiresAt:     exp.Time,
+		OAuthScopes:   oauthScopes,
 	}, nil
+}
+
+func extractTenantNumericIDFromClaims(claims jwt.MapClaims) (uint64, error) {
+	var raw interface{}
+	ok := false
+	if v, exists := claims[ClaimChainlinkTenantID]; exists && v != nil {
+		raw, ok = v, true
+	} else if v, exists := claims["tenant_id"]; exists && v != nil {
+		raw, ok = v, true
+	}
+	if !ok {
+		return 0, nil
+	}
+	id, err := parseJWTUnsignedIntegerClaim(raw)
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
+}
+
+func parseJWTUnsignedIntegerClaim(raw interface{}) (uint64, error) {
+	switch v := raw.(type) {
+	case string:
+		s := strings.TrimSpace(v)
+		if s == "" {
+			return 0, nil
+		}
+		n, err := strconv.ParseUint(s, 10, 64)
+		if err != nil {
+			return 0, err
+		}
+		return n, nil
+	case json.Number:
+		n, err := strconv.ParseUint(v.String(), 10, 64)
+		if err != nil {
+			return 0, err
+		}
+		return n, nil
+	case float64:
+		if v <= 0 || v != math.Trunc(v) || v > math.MaxUint64 {
+			return 0, strconv.ErrSyntax
+		}
+		return uint64(v), nil
+	default:
+		return 0, strconv.ErrSyntax
+	}
 }
 
 func extractAuthorizationDetails(claims jwt.MapClaims) (workflowOwner, requestDigest string, err error) {
@@ -324,9 +434,6 @@ func extractAuthorizationDetails(claims jwt.MapClaims) (workflowOwner, requestDi
 
 	if requestDigest == "" {
 		return "", "", ErrMissingRequestDigest
-	}
-	if workflowOwner == "" {
-		return "", "", ErrMissingWorkflowOwner
 	}
 
 	return workflowOwner, requestDigest, nil

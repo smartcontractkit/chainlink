@@ -6,14 +6,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	shard_config "github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings/dev/generated/latest/shard_config"
@@ -38,7 +38,7 @@ var (
 	MockKeystoneForwarder     cldf.ContractType = "MockKeystoneForwarder"     // https://github.com/smartcontractkit/chainlink-evm/blob/f2272e4b4aa6a3e315126ce7d928472bb035f940/contracts/cre/src/dev/MockKeystoneForwarder.sol#L38
 )
 
-type MCMSConfig = proposalutils.TimelockConfig
+type MCMSConfig = cldfproposalutils.TimelockConfig
 
 // Ownable is an interface for contracts that have an owner.
 type Ownable interface {
@@ -64,7 +64,7 @@ func isOwnedByMCMSV2[T Ownable](contract T, store datastore.AddressRefStore, cha
 // OwnedContract represents a contract and its owned MCMS contracts.
 type OwnedContract[T Ownable] struct {
 	// The MCMS contracts that the contract might own
-	McmsContracts *state.MCMSWithTimelockState
+	McmsContracts *evmstate.MCMSWithTimelockState
 	// The actual contract instance
 	Contract T
 }
@@ -90,7 +90,7 @@ func NewOwnableV2[T Ownable](contract T, store datastore.AddressRefStore, chain 
 	}
 	// in the latest versions, the qualifier should be the same for all the mcms contracts
 	// which enables multiple MCMS deployments on a single chain
-	stateMCMS, err := state.GetMCMSWithTimelockState(store, chain, r.Qualifier)
+	stateMCMS, err := evmstate.GetMCMSWithTimelockState(store, chain, r.Qualifier)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get MCMS with timelock state: %w", err)
 	}
@@ -100,7 +100,7 @@ func NewOwnableV2[T Ownable](contract T, store datastore.AddressRefStore, chain 
 		// TODO CRE-1360: remove this after we complete migration to consistent qualifiers
 		m := matchLabels(store, *r, chain.Selector)
 		var err2 error
-		stateMCMS, err2 = state.MaybeLoadMCMSWithTimelockChainState(chain, m)
+		stateMCMS, err2 = evmstate.MaybeLoadMCMSWithTimelockChainState(chain, m)
 		if err2 != nil {
 			return nil, fmt.Errorf("failed to get MCMS with timelock state by labels: %w", err2)
 		}

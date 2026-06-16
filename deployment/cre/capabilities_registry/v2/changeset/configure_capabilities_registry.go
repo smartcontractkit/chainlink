@@ -3,6 +3,9 @@ package changeset
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
+
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -11,13 +14,14 @@ import (
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1"
 )
 
 var _ cldf.ChangeSetV2[ConfigureCapabilitiesRegistryInput] = ConfigureCapabilitiesRegistry{}
@@ -38,7 +42,7 @@ type ConfigureCapabilitiesRegistryInput struct {
 
 type ConfigureCapabilitiesRegistryDeps struct {
 	Env           *cldf.Environment
-	MCMSContracts *commonchangeset.MCMSWithTimelockState // Required if MCMSConfig input is not nil
+	MCMSContracts *evmstate.MCMSWithTimelockState // Required if MCMSConfig input is not nil
 }
 
 type ConfigureCapabilitiesRegistry struct{}
@@ -56,7 +60,7 @@ func (l ConfigureCapabilitiesRegistry) VerifyPreconditions(e cldf.Environment, c
 
 func (l ConfigureCapabilitiesRegistry) Apply(e cldf.Environment, config ConfigureCapabilitiesRegistryInput) (cldf.ChangesetOutput, error) {
 	// Get MCMS contracts if needed
-	var mcmsContracts *commonchangeset.MCMSWithTimelockState
+	var mcmsContracts *evmstate.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
 		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, *config.MCMSConfig)
@@ -181,6 +185,12 @@ type ocr3CapConfig struct {
 
 type configCountFunc func(capID, ocrConfigKey string) (uint64, error)
 
+const (
+	ocrVersion3      = "ocr3"
+	ocrVersion3_1    = "ocr3_1"
+	ocrVersion3_1DKG = "ocr3_1_DKG"
+)
+
 // expandOCR3Configs scans capability configs for ocr3Configs entries whose
 // offchainConfig sub-key is a map of oracle config parameters, and expands
 // them into full OCR3Configs (signers, transmitters, offchain config, etc.)
@@ -223,7 +233,9 @@ func expandOCR3Configs(
 		capID               string
 		ocrConfigKey        string
 		oracleConfig        *ocr3.OracleConfig
+		v3_1OracleConfig    *ocr3_1.V3_1OracleConfig
 		extraSignerFamilies []string
+		ocrVersion          string
 	}
 	var entries []genEntry
 
@@ -239,31 +251,56 @@ func expandOCR3Configs(
 				continue
 			}
 
-			offchainCfg, ok := entryMap["offchainConfig"].(map[string]any)
+			copiedEntryMap := maps.Clone(entryMap)
+
+			offchainCfg, ok := copiedEntryMap["offchainConfig"].(map[string]any)
 			if !ok {
 				// offchainConfig is absent or already a base64 string (processed); skip.
 				continue
 			}
 
-			oc, err := parseOracleConfig(offchainCfg)
-			if err != nil {
-				return fmt.Errorf("capability %q, ocr3Configs[%q].offchainConfig: failed to parse oracle config: %w",
-					capCfg.CapabilityID, key, err)
-			}
-
-			extraFamilies, err := parseExtraSignerFamilies(entryMap)
+			extraFamilies, err := parseExtraSignerFamilies(copiedEntryMap)
 			if err != nil {
 				return fmt.Errorf("capability %q, ocr3Configs[%q].extraSignerFamilies: %w",
 					capCfg.CapabilityID, key, err)
 			}
 
-			entries = append(entries, genEntry{
+			ocrVersion := ocrVersion3 // default to OCR3
+			ov, ok := copiedEntryMap["__ocrVersion__"].(string)
+			if ok {
+				delete(copiedEntryMap, "__ocrVersion__")
+				ocrVersion = ov
+			}
+
+			entry := genEntry{
 				capIdx:              i,
 				capID:               capCfg.CapabilityID,
 				ocrConfigKey:        key,
-				oracleConfig:        oc,
 				extraSignerFamilies: extraFamilies,
-			})
+				ocrVersion:          ocrVersion,
+			}
+
+			switch ocrVersion {
+			case ocrVersion3:
+				oc, err := parseOracleConfig[ocr3.OracleConfig](offchainCfg)
+				if err != nil {
+					return fmt.Errorf("capability %q, ocr3Configs[%q].offchainConfig: failed to parse ocr3 oracle config: %w",
+						capCfg.CapabilityID, key, err)
+				}
+				entry.oracleConfig = oc
+				entries = append(entries, entry)
+			case ocrVersion3_1, ocrVersion3_1DKG:
+				oc, err := parseOracleConfig[ocr3_1.V3_1OracleConfig](offchainCfg)
+				if err != nil {
+					return fmt.Errorf("capability %q, ocr3Configs[%q].offchainConfig: failed to parse ocr3_1 oracle config: %w",
+						capCfg.CapabilityID, key, err)
+				}
+				entry.v3_1OracleConfig = oc
+				entries = append(entries, entry)
+			default:
+				return fmt.Errorf("capability %q, ocr3Configs[%q]: unknown ocrVersion %q",
+					capCfg.CapabilityID, key, ocrVersion)
+			}
 		}
 	}
 
@@ -281,12 +318,37 @@ func expandOCR3Configs(
 	}
 
 	for i, entry := range entries {
-		ocrConfig, err := ocr3.ComputeOCR3Config(
-			e, chainSel, nodes, *entry.oracleConfig, nil, entry.extraSignerFamilies,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to generate OCR3 config for %q[%q]: %w",
-				entry.capID, entry.ocrConfigKey, err)
+		var ocrConfig *ocr3.OCR2OracleConfig
+		switch entry.ocrVersion {
+		case ocrVersion3:
+			oc, err := ocr3.ComputeOCR3Config(
+				e, chainSel, nodes, *entry.oracleConfig, nil, entry.extraSignerFamilies,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to generate OCR3 config for %q[%q]: %w",
+					entry.capID, entry.ocrConfigKey, err)
+			}
+			ocrConfig = oc
+		case ocrVersion3_1:
+			oc, err := ocr3_1.ComputeOCR3_1Config(
+				e, chainSel, nodes, *entry.v3_1OracleConfig, nil, entry.extraSignerFamilies,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to generate OCR3_1 config for %q[%q]: %w",
+					entry.capID, entry.ocrConfigKey, err)
+			}
+			ocrConfig = oc
+		case ocrVersion3_1DKG:
+			oc, err := ocr3_1.ComputeDKGConfig(
+				e, chainSel, nodes, *entry.v3_1OracleConfig, entry.extraSignerFamilies,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to generate DKG config for %q[%q]: %w",
+					entry.capID, entry.ocrConfigKey, err)
+			}
+			ocrConfig = oc
+		default:
+			return fmt.Errorf("must provide ocr3 or ocr3_1 oracle config, none found: %+v", entry)
 		}
 
 		if err := ocr3.ValidateOCR2OracleConfig(ocrConfig); err != nil {
@@ -348,13 +410,13 @@ func parseExtraSignerFamilies(entryMap map[string]any) ([]string, error) {
 }
 
 // ParseOracleConfig JSON-roundtrips an untyped map into an OracleConfig.
-func parseOracleConfig(raw any) (*ocr3.OracleConfig, error) {
+func parseOracleConfig[T any](raw any) (*T, error) {
 	jsonBytes, err := json.Marshal(raw)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal to JSON: %w", err)
 	}
 
-	var oc ocr3.OracleConfig
+	var oc T
 	if err := json.Unmarshal(jsonBytes, &oc); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal oracle config: %w", err)
 	}

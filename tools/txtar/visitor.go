@@ -2,7 +2,6 @@ package txtar
 
 import (
 	"io/fs"
-	"os"
 	"path/filepath"
 )
 
@@ -20,7 +19,8 @@ type DirVisitor struct {
 }
 
 func (d *DirVisitor) Walk() error {
-	return filepath.WalkDir(d.rootDir, func(path string, de fs.DirEntry, err error) error {
+	root := filepath.Clean(d.rootDir)
+	return filepath.WalkDir(root, func(path string, de fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -29,40 +29,27 @@ func (d *DirVisitor) Walk() error {
 			return nil
 		}
 
-		isRootDir, err := d.isRootDir(de)
-		if err != nil {
-			return err
+		if !bool(d.recurse) && filepath.Clean(path) != root {
+			return fs.SkipDir
 		}
 
-		// If we're not recursing, skip all other directories except the root.
-		if !bool(d.recurse) && !isRootDir {
-			return nil
-		}
-
-		matches, err := fs.Glob(os.DirFS(path), "*txtar")
+		matches, err := filepath.Glob(filepath.Join(path, "*txtar"))
 		if err != nil {
 			return err
 		}
 
 		if len(matches) > 0 {
-			return d.cb(path)
+			if err := d.cb(path); err != nil {
+				return err
+			}
+		}
+
+		if !bool(d.recurse) {
+			return fs.SkipDir
 		}
 
 		return nil
 	})
-}
-
-func (d *DirVisitor) isRootDir(de fs.DirEntry) (bool, error) {
-	fi, err := os.Stat(d.rootDir)
-	if err != nil {
-		return false, err
-	}
-
-	fi2, err := de.Info()
-	if err != nil {
-		return false, err
-	}
-	return os.SameFile(fi, fi2), nil
 }
 
 func NewDirVisitor(rootDir string, recurse RecurseOpt, cb func(path string) error) *DirVisitor {

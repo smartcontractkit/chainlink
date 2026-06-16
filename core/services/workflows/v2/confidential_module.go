@@ -99,15 +99,15 @@ func (m *ConfidentialModule) Execute(
 
 	capInput := &confworkflowtypes.ConfidentialWorkflowRequest{
 		Execution: &confworkflowtypes.WorkflowExecution{
-			WorkflowId:     m.workflowID,
-			BinaryUrl:      m.binaryURL,
-			BinaryHash:     m.binaryHash,
-			ExecuteRequest: request,
-			Owner:          m.workflowOwner,
-			ExecutionId:    workflowExecutionID,
-			OrgId:          contexts.CREValue(ctx).Org,
-			Requirements:   requirements,
-			Restrictions:   restrictions,
+			WorkflowId:        m.workflowID,
+			BinaryHash:        m.binaryHash,
+			SdkExecuteRequest: request,
+			Owner:             m.workflowOwner,
+			ExecutionId:       workflowExecutionID,
+			OrgId:             contexts.CREValue(ctx).Org,
+			Requirements:      requirements,
+			BinaryUrl:         m.binaryURL,
+			Restrictions:      restrictions,
 		},
 	}
 
@@ -116,15 +116,15 @@ func (m *ConfidentialModule) Execute(
 		return nil, err
 	}
 
-	return capOutput.ExecutionResult, nil
+	return capOutput.SdkExecutionResult, nil
 }
 
-func (m *ConfidentialModule) SetRequirements(executionId string, requirements *sdkpb.Requirements) {
-	m.requirements.Store(executionId, requirements)
+func (m *ConfidentialModule) SetRequirements(executionID string, requirements *sdkpb.Requirements) {
+	m.requirements.Store(executionID, requirements)
 }
 
-func (m *ConfidentialModule) SetRestrictions(executionId string, restrictions *sdkpb.Restrictions) {
-	m.restritions.Store(executionId, restrictions)
+func (m *ConfidentialModule) SetRestrictions(executionID string, restrictions *sdkpb.Restrictions) {
+	m.restritions.Store(executionID, restrictions)
 }
 
 func (m *ConfidentialModule) providedTees(ctx context.Context) []*sdkpb.TeeTypeAndRegions {

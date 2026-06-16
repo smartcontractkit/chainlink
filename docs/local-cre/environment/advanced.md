@@ -106,14 +106,14 @@ Use this part of the stack when you need to answer questions like:
 
 - did the workflow engine initialize successfully
 - did a workflow emit the expected user logs or base messages
-- are Beholder messages reaching Kafka and Loki
+- are Chip Ingress stack messages reaching Kafka and Loki
 - are node and connector logs reaching Grafana/Loki
 - do I need more than plain container logs to debug a failing run
 
 ### What each option gives you
 
-- `--with-beholder`
-  Starts the Beholder stack used by the CRE tests for workflow-related messages and heartbeat validation.
+- `--with-chip-ingress-stack` (deprecated: `--with-beholder`)
+  Starts the Chip Ingress stack used by the CRE tests for workflow-related messages and heartbeat validation.
 - `--with-observability`
   Starts the observability stack.
 - `--with-dashboards`
@@ -129,11 +129,11 @@ Use plain container logs first when:
 - the problem is isolated to one container
 - you do not need workflow-event correlation
 
-Use Beholder when:
+Use the Chip Ingress stack when:
 
 - the test expects specific workflow log messages
 - you need to validate workflow heartbeats or emitted events
-- you are debugging cron, HTTP action, DON time, or other scenarios that already rely on Beholder listeners in the test helpers
+- you are debugging cron, HTTP action, DON time, or other scenarios that already rely on Chip Ingress stack listeners in the test helpers
 
 Use observability and dashboards when:
 
@@ -150,7 +150,7 @@ The CLI records events such as:
 - environment setup result
 - environment startup result and startup time
 - workflow deployment
-- Beholder startup
+- Chip Ingress stack startup
 - billing startup
 - capability swaps
 - node swaps
@@ -160,17 +160,17 @@ The tracker configuration in the Local CRE code uses:
 - GitHub variable name: `API_TOKEN_LOCAL_CRE`
 - product name: `local_cre`
 
-This is separate from observability, Loki, Grafana, Beholder logs, or any workflow-level tracing.
+This is separate from observability, Loki, Grafana, Chip Ingress stack logs, or any workflow-level tracing.
 
-If you are debugging Local CRE usage instrumentation, look at the tracking hooks in the environment commands. If you are debugging workflow execution, logs, or message flow, use the observability and Beholder paths described above instead.
+If you are debugging Local CRE usage instrumentation, look at the tracking hooks in the environment commands. If you are debugging workflow execution, logs, or message flow, use the observability and Chip Ingress stack paths described above instead.
 
 ### Practical debugging flow
 
 1. start the environment normally
-2. add `--with-beholder` if the scenario depends on workflow messages
+2. add `--with-chip-ingress-stack` if the scenario depends on workflow messages (`--with-beholder` is deprecated)
 3. add `--with-observability` or `--with-dashboards` when you need Grafana/Loki
 4. rerun the workflow or smoke test
-5. inspect Beholder output, Grafana, and Loki before changing topology or code
+5. inspect Chip Ingress stack output, Grafana, and Loki before changing topology or code
 
 ## Using Specific Images and Existing Keys
 

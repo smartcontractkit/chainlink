@@ -10,14 +10,11 @@ import (
 	"time"
 
 	"github.com/aptos-labs/aptos-go-sdk"
-	"github.com/aptos-labs/aptos-go-sdk/api"
 	"github.com/aptos-labs/aptos-go-sdk/bcs"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
-
-	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
 	aptosBind "github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
@@ -31,8 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/token_pool"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/helpers"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
-	"github.com/smartcontractkit/chainlink-aptos/bindings/regulated_token"
-	module_regulated_token "github.com/smartcontractkit/chainlink-aptos/bindings/regulated_token/regulated_token"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/test_token/bnm_registrar"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/test_token/lnr_registrar"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/test_token/test_token"
@@ -40,6 +35,8 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -51,8 +48,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector uint64) commoncs.ConfiguredChangeSet {
@@ -83,7 +78,7 @@ func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector ui
 				},
 			},
 		},
-		MCMSDeployConfigPerChain: map[uint64]commontypes.MCMSWithTimelockConfigV2{
+		MCMSDeployConfigPerChain: map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 			chainSelector: {
 				Canceller:        cldftesthelpers.SingleGroupMCMS(t),
 				Proposer:         cldftesthelpers.SingleGroupMCMS(t),
@@ -91,7 +86,7 @@ func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector ui
 				TimelockMinDelay: big.NewInt(1),
 			},
 		},
-		MCMSTimelockConfigPerChain: map[uint64]proposalutils.TimelockConfig{
+		MCMSTimelockConfigPerChain: map[uint64]cldfproposalutils.TimelockConfig{
 			chainSelector: {
 				MinDelay:     time.Duration(1) * time.Second,
 				MCMSAction:   mcmstypes.TimelockActionSchedule,
@@ -315,7 +310,7 @@ func DeployTransferableTokenAptos(
 					Decimals: 8,
 				},
 				TokenMint: mintAmount,
-				MCMSConfig: &proposalutils.TimelockConfig{
+				MCMSConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay: time.Second, // TODO
 				},
 			},
@@ -354,10 +349,10 @@ func DeployTransferableTokenAptos(
 	return evmToken, evmPool, tokenMetadataAddress, aptosTokenPool, nil
 }
 
-// DeployRegulatedTransferableTokenAptos deploys two tokens onto the EVM and Aptos chain and sets up a lane between them
-// For Aptos, the regulated_token will be used along with the regulated_token_pool token pool.
-// Since the regulated_token must be initialized from an EOA, not mcms, it will be deployed from the deployer account
-// and then transferred over to mcms
+// DeployRegulatedTransferableTokenAptos deploys two tokens onto the EVM and Aptos chain and sets up a lane between them.
+// For Aptos, the regulated_token is deployed via the DeployRegulatedToken changeset (regulated_token
+// cannot be deployed via MCMS due to DFA re-entrancy). The AddTokenPool changeset then finalizes
+// the 3-step ownership handoff (execute_ownership_transfer) and deploys the regulated_token_pool.
 func DeployRegulatedTransferableTokenAptos(
 	t *testing.T,
 	lggr logger.Logger,
@@ -389,107 +384,48 @@ func DeployRegulatedTransferableTokenAptos(
 	err = attachTokenToTheRegistry(e.BlockChains.EVMChains()[evmChainSel], state.MustGetEVMChainState(evmChainSel), evmDeployerKey, evmToken.Address(), evmPool.Address())
 	require.NoError(t, err)
 
-	// Regulated token must be initialized via EOA, not mcms
-	signer := e.BlockChains.AptosChains()[aptosChainSel].DeployerSigner
-	client := e.BlockChains.AptosChains()[aptosChainSel].Client
-	opts := &aptosBind.TransactOpts{Signer: signer}
+	// Deploy + initialize regulated token, transfer ownership/admin to mcms via the changeset.
+	const tokenSymbol shared.TokenSymbol = "TKN"
+	e, err = commoncs.Apply(t, e,
+		commoncs.Configure(aptoscs.DeployRegulatedToken{},
+			config.DeployRegulatedTokenConfig{
+				ChainSelector: aptosChainSel,
+				TokenParams: config.TokenParams{
+					Name:     tokenName,
+					Symbol:   tokenSymbol,
+					Decimals: 8,
+				},
+				TokenMint: mintAmount,
+				MCMSConfig: &cldfproposalutils.TimelockConfig{
+					MinDelay: time.Second,
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	// Lookup deployed addresses (saved by the changeset).
 	aptosAddresses, err := e.ExistingAddresses.AddressesForChain(aptosChainSel)
 	require.NoError(t, err)
-	// helper function to wait for a transaction to be mined
-	assertTxSuccess := func(err error, tx *api.PendingTransaction, msg string, args ...any) {
-		require.NoError(t, err)
-		data, err := client.WaitForTransaction(tx.Hash)
-		require.NoError(t, err)
-		require.True(t, data.Success, "%s: %s", fmt.Sprintf(msg, args...), data.VmStatus)
-	}
-	mcmsAddress := aptosstate.FindAptosAddress(
+	tokenAddress := aptosstate.FindAptosAddress(
 		cldf.TypeAndVersion{
-			Type:    shared.AptosMCMSType,
+			Type:    shared.AptosRegulatedTokenType,
+			Version: deployment.Version1_6_0,
+			Labels:  cldf.NewLabelSet(string(tokenSymbol)),
+		},
+		aptosAddresses,
+	)
+	require.NotEqualf(t, aptos.AccountAddress{}, tokenAddress, "regulated token code object address not found")
+	tokenMetadata := aptosstate.FindAptosAddress(
+		cldf.TypeAndVersion{
+			Type:    cldf.ContractType(tokenSymbol),
 			Version: deployment.Version1_6_0,
 		},
 		aptosAddresses,
 	)
-	require.NotEqualf(t, aptos.AccountAddress{}, mcmsAddress, "Aptos mcms address not found")
+	require.NotEqualf(t, aptos.AccountAddress{}, tokenMetadata, "regulated token metadata address not found")
 
-	// Deploy the token and token registrar, setting the deployer as the administrator
-	adminAddress := signer.AccountAddress()
-	tokenAddress, tx, token, err := regulated_token.DeployToObject(signer, client, adminAddress)
-	assertTxSuccess(err, tx, "failed to deploy regulated token")
-	tx, _, err = regulated_token.DeployMCMSRegistrarToExistingObject(signer, client, tokenAddress, adminAddress, mcmsAddress, true)
-	assertTxSuccess(err, tx, "failed to deploy regulated token MCMS registrar")
-
-	// Initialize the token
-	tx, err = token.RegulatedToken().Initialize(opts, nil, tokenName, "TKN", 8, "", "")
-	assertTxSuccess(err, tx, "failed to initialize regulated token")
-
-	// If requested, set the deployer as an allowed minter and mint the requested tokens
-	if mintAmount != nil {
-		lggr.Infof("Minting %v tokens to %v...", mintAmount.Amount, mintAmount.To)
-		tx, err = token.RegulatedToken().GrantRole(opts, module_regulated_token.MINTER_ROLE, adminAddress)
-		assertTxSuccess(err, tx, "failed to grant mint role to deployer")
-		tx, err = token.RegulatedToken().Mint(opts, mintAmount.To, mintAmount.Amount)
-		assertTxSuccess(err, tx, "failed to mint %d token to %s", mintAmount.Amount, mintAmount.To)
-	}
-
-	// Save token addresses in address book
-	tokenMetadata, err := token.RegulatedToken().TokenMetadata(nil)
-	require.NoError(t, err)
-	typeAndVersion := cldf.NewTypeAndVersion(shared.AptosRegulatedTokenType, deployment.Version1_6_0)
-	typeAndVersion.AddLabel("TKN")
-	err = e.ExistingAddresses.Save(aptosChainSel, tokenAddress.StringLong(), typeAndVersion)
-	require.NoError(t, err)
-	typeAndVersion = cldf.NewTypeAndVersion("TKN", deployment.Version1_6_0)
-	err = e.ExistingAddresses.Save(aptosChainSel, tokenMetadata.StringLong(), typeAndVersion)
-	require.NoError(t, err)
-
-	// Transfer token ownership to mcms
-	mcmsContract := mcms.Bind(mcmsAddress, client)
-	tokenOwnerAddress, err := mcmsContract.MCMSRegistry().GetPreexistingCodeObjectOwnerAddress(nil, tokenAddress)
-	require.NoError(t, err)
-	tx, err = token.RegulatedToken().TransferOwnership(opts, tokenOwnerAddress)
-	assertTxSuccess(err, tx, "failed to propose ownership transfer to mcms %v", tokenOwnerAddress)
-	_, err = commoncs.Apply(t, e,
-		commoncs.Configure(aptoscs.AcceptTokenOwnership{},
-			config.AcceptTokenOwnershipInput{
-				ChainSelector: aptosChainSel,
-				Accepts: []config.TokenAcceptInput{
-					{
-						TokenCodeObjectAddress: tokenAddress,
-						TokenType:              shared.AptosRegulatedTokenType,
-					},
-				},
-				MCMSConfig: &proposalutils.TimelockConfig{
-					MinDelay: time.Second,
-				},
-			},
-		),
-	)
-	require.NoError(t, err)
-	tx, err = token.RegulatedToken().ExecuteOwnershipTransfer(opts, tokenOwnerAddress)
-	assertTxSuccess(err, tx, "failed to execute ownership transfer to mcms %v", tokenOwnerAddress)
-
-	// Transfer admin role to mcms
-	tx, err = token.RegulatedToken().TransferAdmin(opts, tokenOwnerAddress)
-	assertTxSuccess(err, tx, "failed to propose admin transfer to mcms %v", tokenOwnerAddress)
-	_, err = commoncs.Apply(t, e,
-		commoncs.Configure(aptoscs.AcceptTokenAdmin{},
-			config.AcceptTokenAdminInput{
-				ChainSelector: aptosChainSel,
-				Accepts: []config.TokenAcceptInput{
-					{
-						TokenCodeObjectAddress: tokenAddress,
-						TokenType:              shared.AptosRegulatedTokenType,
-					},
-				},
-				MCMSConfig: &proposalutils.TimelockConfig{
-					MinDelay: time.Second,
-				},
-			},
-		),
-	)
-	require.NoError(t, err)
-
-	// Deploy lane
+	// Deploy lane (also finalizes the 3-step ownership handoff via FinalizeRegulatedTokenOwnershipSequence).
 	e, err = commoncs.Apply(t, e,
 		commoncs.Configure(aptoscs.AddTokenPool{},
 			config.AddTokenPoolConfig{
@@ -514,7 +450,7 @@ func DeployRegulatedTransferableTokenAptos(
 						},
 					},
 				},
-				MCMSConfig: &proposalutils.TimelockConfig{
+				MCMSConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay: time.Second,
 				},
 			},
@@ -522,32 +458,24 @@ func DeployRegulatedTransferableTokenAptos(
 	)
 	require.NoError(t, err)
 
+	lggr.Debugf("Deployed Regulated Token on Aptos: %v", tokenMetadata.StringLong())
 	aptosAddresses, err = e.ExistingAddresses.AddressesForChain(aptosChainSel)
 	require.NoError(t, err)
-	tokenMetadataAddress := aptosstate.FindAptosAddress(
-		cldf.TypeAndVersion{
-			Type:    "TKN", // Regulated Token symbol
-			Version: deployment.Version1_6_0,
-			Labels:  nil,
-		},
-		aptosAddresses,
-	)
-	lggr.Debugf("Deployed Regulated Token on Aptos: %v", tokenMetadataAddress.StringLong())
 	tokenPoolAddress := aptosstate.FindAptosAddress(
 		cldf.TypeAndVersion{
 			Type:    shared.AptosRegulatedTokenPoolType,
 			Version: deployment.Version1_6_0,
-			Labels:  cldf.NewLabelSet(tokenMetadataAddress.StringLong()),
+			Labels:  cldf.NewLabelSet(tokenMetadata.StringLong()),
 		},
 		aptosAddresses,
 	)
 	aptosTokenPool := regulated_token_pool.Bind(tokenPoolAddress, e.BlockChains.AptosChains()[aptosChainSel].Client)
-	lggr.Debugf("Deployed Regulated Token Pool for %v to %v", tokenMetadataAddress.StringLong(), tokenPoolAddress.StringLong())
-	err = setTokenPoolCounterPart(e.BlockChains.EVMChains()[evmChainSel], evmPool, evmDeployerKey, aptosChainSel, tokenMetadataAddress[:], tokenPoolAddress[:])
+	lggr.Debugf("Deployed Regulated Token Pool for %v to %v", tokenMetadata.StringLong(), tokenPoolAddress.StringLong())
+	err = setTokenPoolCounterPart(e.BlockChains.EVMChains()[evmChainSel], evmPool, evmDeployerKey, aptosChainSel, tokenMetadata[:], tokenPoolAddress[:])
 	require.NoError(t, err)
 	err = grantMintBurnPermissions(lggr, e.BlockChains.EVMChains()[evmChainSel], evmToken, evmDeployerKey, evmPool.Address())
 	require.NoError(t, err)
-	return evmToken, evmPool, tokenMetadataAddress, aptosTokenPool, nil
+	return evmToken, evmPool, tokenMetadata, aptosTokenPool, nil
 }
 
 // DeployAptosCCIPReceiver deploys the ccip_dummy_receiver package to all Aptos chains, saving the resulting address in the address book for future use
@@ -734,7 +662,7 @@ func DeployBnMTokenAptos(
 						TokenPoolType:    shared.BurnMintTokenPool,
 					},
 				},
-				MCMSConfig: &proposalutils.TimelockConfig{
+				MCMSConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay: time.Second,
 				},
 			},
@@ -772,7 +700,7 @@ func DeployBnMTokenAptos(
 						},
 					},
 				},
-				MCMSConfig: &proposalutils.TimelockConfig{
+				MCMSConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay: time.Second,
 				},
 			},
@@ -987,7 +915,7 @@ func DeployLnRTokenAptos(
 						TokenPoolType:    shared.LockReleaseTokenPool,
 					},
 				},
-				MCMSConfig: &proposalutils.TimelockConfig{
+				MCMSConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay: time.Second,
 				},
 			},
@@ -1025,7 +953,7 @@ func DeployLnRTokenAptos(
 						},
 					},
 				},
-				MCMSConfig: &proposalutils.TimelockConfig{
+				MCMSConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay: time.Second,
 				},
 			},

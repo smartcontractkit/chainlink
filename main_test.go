@@ -2,21 +2,18 @@ package main
 
 import (
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/rogpeppe/go-internal/testscript"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/freeport"
 
 	"github.com/smartcontractkit/chainlink/v2/core"
-	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/internal/testdb"
 	"github.com/smartcontractkit/chainlink/v2/tools/txtar"
@@ -40,9 +37,9 @@ const (
 )
 
 func TestMain(m *testing.M) {
-	os.Exit(testscript.RunMain(m, map[string]func() int{
-		"chainlink": core.Main,
-	}))
+	testscript.Main(m, map[string]func(){
+		"chainlink": func() { os.Exit(core.Main()) },
+	})
 }
 
 var (
@@ -61,21 +58,43 @@ func TestScripts(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping testscript")
 	}
-	t.Parallel()
 
-	require.NoError(t, os.Setenv("TMPDIR", "/tmp")) // osx default is too long for go-plugin sockets
+	tmp := t.TempDir()
+	require.NoError(t, os.Setenv("GOTMPDIR", tmp))
+	t.Cleanup(func() {
+		require.NoError(t, os.Unsetenv("GOTMPDIR"))
+	})
+	t.Parallel()
 
 	visitor := txtar.NewDirVisitor("testdata/scripts", txtar.Recurse, func(path string) error {
 		t.Run(strings.TrimPrefix(path, "testdata/scripts/"), func(t *testing.T) {
 			t.Parallel()
-			if message, shouldSkip := skipFlakyTests[t.Name()]; shouldSkip {
-				t.Skipf("Flaky Test: %s", message)
+
+			// Check each .txtar file against skipFlakyTests
+			matches, err := filepath.Glob(filepath.Join(path, "*.txtar"))
+			require.NoError(t, err)
+
+			var filesToRun []string
+			for _, match := range matches {
+				scriptName := strings.TrimSuffix(filepath.Base(match), ".txtar")
+				fullTestName := t.Name() + "/" + scriptName
+
+				if message, shouldSkip := skipFlakyTests[fullTestName]; shouldSkip {
+					t.Logf("Skipping Flaky Test: %s - %s", fullTestName, message)
+					continue
+				}
+				filesToRun = append(filesToRun, match)
+			}
+
+			if len(filesToRun) == 0 {
+				t.Skip("all scripts in directory skipped")
 			}
 
 			testscript.Run(t, testscript.Params{
-				Dir:             path,
-				Setup:           commonEnv(t),
-				ContinueOnError: true,
+				Files:               filesToRun,
+				Setup:               commonEnv(t),
+				ContinueOnError:     true,
+				RequireExplicitExec: true,
 				// UpdateScripts:   true, // uncomment to update golden files
 			})
 		})
@@ -99,6 +118,7 @@ func commonEnv(t testing.TB) func(*testscript.Env) error {
 		te.Setenv("VERSION", static.Version)
 		te.Setenv("VERSION_TAG", static.VersionTag)
 		te.Setenv("COMMIT_SHA", static.Sha)
+		te.Setenv("TMPDIR", "/tmp") // osx default is too long for go-plugin sockets
 
 		b, err := os.ReadFile(filepath.Join(te.WorkDir, testPortName))
 		if err != nil && !os.IsNotExist(err) {
@@ -123,7 +143,7 @@ func commonEnv(t testing.TB) func(*testscript.Env) error {
 			envVarName := strings.TrimSpace(string(b))
 			te.T().Log("test database requested:", envVarName)
 
-			u2 := newDB(t)
+			u2 := testdb.New(t, true).String()
 
 			te.Setenv(envVarName, u2)
 		}
@@ -137,15 +157,4 @@ func takeFreePort() (int, func(), error) {
 		return 0, nil, fmt.Errorf("failed to get free port: %w", err)
 	}
 	return ports[0], func() { freeport.Return(ports) }, nil
-}
-
-func newDB(t testing.TB) string {
-	u, err := url.Parse(string(env.DatabaseURL.Get()))
-	if err != nil {
-		t.Fatalf("failed to parse url: %v", err)
-	}
-
-	name := strings.ReplaceAll(uuid.NewString(), "-", "_") + "_test"
-	u2 := testdb.CreateOrReplace(t, *u, name, true)
-	return u2.String()
 }

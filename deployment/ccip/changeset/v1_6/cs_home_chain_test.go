@@ -6,10 +6,12 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	"github.com/stretchr/testify/require"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -22,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
@@ -245,12 +246,12 @@ func TestRemoveDons(t *testing.T) {
 	donsBefore, err = homeChain.CapabilityRegistry.GetDONs(nil)
 	require.NoError(t, err)
 	e.Env, err = commoncs.Apply(t, e.Env, commoncs.Configure(
-		cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
-		commoncs.TransferToMCMSWithTimelockConfig{
+		cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+		mcmschangesets.TransferToMCMSWithTimelockConfig{
 			ContractsByChain: map[uint64][]common.Address{
 				e.HomeChainSel: {homeChain.CapabilityRegistry.Address()},
 			},
-			MCMSConfig: proposalutils.TimelockConfig{
+			MCMSConfig: cldfproposalutils.TimelockConfig{
 				MinDelay: 0,
 			},
 		},
@@ -259,7 +260,7 @@ func TestRemoveDons(t *testing.T) {
 		v1_6.RemoveDONsConfig{
 			HomeChainSel: e.HomeChainSel,
 			DonIDs:       []uint32{donsBefore[0].Id},
-			MCMS:         &proposalutils.TimelockConfig{MinDelay: 0},
+			MCMS:         &cldfproposalutils.TimelockConfig{MinDelay: 0},
 		},
 	))
 	require.NoError(t, err)
@@ -380,9 +381,9 @@ func TestAddUpdateAndRemoveNops(t *testing.T) {
 			require.NoError(t, err)
 			homeChain := s.Chains[e.HomeChainSel]
 
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -390,8 +391,8 @@ func TestAddUpdateAndRemoveNops(t *testing.T) {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
 				_, err := commoncs.Apply(t, e.Env,
 					commoncs.Configure(
-						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
-						commoncs.TransferToMCMSWithTimelockConfig{
+						cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+						mcmschangesets.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: map[uint64][]common.Address{
 								e.HomeChainSel: {homeChain.CapabilityRegistry.Address()},
 							},
@@ -514,9 +515,9 @@ func TestRemoveNodes(t *testing.T) {
 			homeChain := s.Chains[e.HomeChainSel]
 			allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -524,8 +525,8 @@ func TestRemoveNodes(t *testing.T) {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
 				_, err := commoncs.Apply(t, e.Env,
 					commoncs.Configure(
-						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
-						commoncs.TransferToMCMSWithTimelockConfig{
+						cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+						mcmschangesets.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: map[uint64][]common.Address{
 								e.HomeChainSel: {homeChain.CapabilityRegistry.Address()},
 							},

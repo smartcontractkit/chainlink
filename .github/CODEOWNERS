@@ -24,9 +24,9 @@
 /core/capabilities/ccip/ccipsolana/ @smartcontractkit/bix-build
 /core/capabilities/ccip/ccipnoop/ @smartcontractkit/bix-build
 /core/capabilities/ccip/ccipton/ @smartcontractkit/bix-build
+/core/capabilities/confidentialrelay/ @smartcontractkit/privacy
 
 # To be deprecated in Chainlink V3
-/core/services/fluxmonitorv2/ @smartcontractkit/foundations @smartcontractkit/core
 /core/services/job/ @smartcontractkit/foundations @smartcontractkit/core
 /core/services/keystore/ @smartcontractkit/foundations
 /core/services/ocr*/ @smartcontractkit/foundations @smartcontractkit/core
@@ -48,7 +48,6 @@
 /core/scripts/vrf*/ @smartcontractkit/dev-services
 
 # Keeper/Automation-related services
-/core/services/keeper/ @smartcontractkit/dev-services
 /core/services/ocr2/plugins/ocr2keeper/ @smartcontractkit/dev-services
 
 # Chainlink Functions
@@ -65,6 +64,8 @@
 /core/services/registrysyncer/ @smartcontractkit/keystone
 /core/services/workflows/ @smartcontractkit/keystone
 /core/services/standardcapabilities/ @smartcontractkit/keystone
+/core/services/gateway/handlers/confidentialrelay/ @smartcontractkit/privacy
+/system-tests/lib/cre/features/confidentialrelay/ @smartcontractkit/privacy
 /core/scripts/keystone/ @smartcontractkit/keystone
 
 # GQL API
@@ -73,7 +74,6 @@
 
 # Tests
 /integration-tests/ @smartcontractkit/devex-tooling @smartcontractkit/core
-/integration-tests/ccip-tests/ @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/ccip
 /integration-tests/**/*keeper* @smartcontractkit/dev-services @smartcontractkit/core
 /integration-tests/**/*automation* @smartcontractkit/dev-services @smartcontractkit/core
 /integration-tests/**/*ccip* @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/ccip
@@ -96,7 +96,8 @@
 /.github/CODEOWNERS @smartcontractkit/core @smartcontractkit/foundations
 /.github/workflows/build-publish.yml @smartcontractkit/devex-cicd
 /.github/workflows/devenv* @smartcontractkit/devex-tooling @smartcontractkit/devex-cicd @smartcontractkit/core
-/tools/plugout/ @smartcontractkit/devex-cicd
+/tools/plugout/ @smartcontractkit/devex-cicd @smartcontractkit/core
+/tools/test/ @smartcontractkit/devex-cicd @smartcontractkit/devex-tooling @smartcontractkit/core
 
 /core/chainlink.Dockerfile @smartcontractkit/devex-cicd @smartcontractkit/foundations @smartcontractkit/core
 

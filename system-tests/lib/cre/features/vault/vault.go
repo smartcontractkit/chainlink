@@ -21,12 +21,10 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1"
 	depcontracts "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1/changeset/operations/contracts"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
@@ -147,15 +145,15 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, regist
 
 	// enable workflow registry syncer
 	typedConfig.Capabilities.WorkflowRegistry = coretoml.WorkflowRegistry{
-		Address:         ptr.Ptr(workflowRegistryAddress.Hex()),
-		NetworkID:       ptr.Ptr("evm"),
-		ChainID:         ptr.Ptr(strconv.FormatUint(registryChainID, 10)),
-		SyncStrategy:    ptr.Ptr("reconciliation"),
-		ContractVersion: ptr.Ptr(wfRegVersion.String()),
+		Address:         new(workflowRegistryAddress.Hex()),
+		NetworkID:       new("evm"),
+		ChainID:         new(strconv.FormatUint(registryChainID, 10)),
+		SyncStrategy:    new("reconciliation"),
+		ContractVersion: new(wfRegVersion.String()),
 	}
 	typedConfig.CRE.Linking = &coretoml.LinkingConfig{
-		URL:        ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":18124"),
-		TLSEnabled: ptr.Ptr(false),
+		URL:        new(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":18124"),
+		TLSEnabled: new(false),
 	}
 
 	stringifiedConfig, mErr := toml.Marshal(typedConfig)
@@ -163,7 +161,7 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, regist
 		return nil, errors.Wrapf(mErr, "failed to marshal config for node index %d", workerNode.Index)
 	}
 
-	return ptr.Ptr(string(stringifiedConfig)), nil
+	return new(string(stringifiedConfig)), nil
 }
 
 func configureWorkersNodeConfig(don *cre.DonMetadata, registryChainID uint64, workflowRegistryAddress common.Address, wfRegVersion *semver.Version) error {
@@ -207,11 +205,21 @@ func (o *Vault) PostEnvStartup(
 	}
 
 	ocr3Config := contracts.DefaultOCR3_1Config(don.WorkersCount())
-
-	dkgConfig, dErr := dkgReportingPluginConfig(don)
-	if dErr != nil {
-		return fmt.Errorf("failed to create DKG reporting plugin config: %w", dErr)
+	dkgOffchainConfig := &ocr3_1.DKGOffchainConfig{
+		T: 1,
 	}
+
+	workers, wErr := don.Workers()
+	if wErr != nil {
+		return errors.Wrap(wErr, "failed to find worker nodes")
+	}
+
+	for _, workerNode := range workers {
+		pubKey := hex.EncodeToString(workerNode.Keys.DKGKey.PubKey)
+		dkgOffchainConfig.DealerPublicKeys = append(dkgOffchainConfig.DealerPublicKeys, pubKey)
+		dkgOffchainConfig.RecipientPublicKeys = append(dkgOffchainConfig.RecipientPublicKeys, pubKey)
+	}
+	ocr3Config.DKGOffchainConfig = dkgOffchainConfig
 
 	chain, ok := creEnv.CldfEnvironment.BlockChains.EVMChains()[creEnv.RegistryChainSelector]
 	if !ok {
@@ -238,12 +246,11 @@ func (o *Vault) PostEnvStartup(
 			Strategy: strategy,
 		},
 		ks_contracts_op.ConfigureDKGOpInput{
-			ContractAddress:       vaultDKGOCR3Addr,
-			ChainSelector:         creEnv.RegistryChainSelector,
-			DON:                   don.KeystoneDONConfig(),
-			Config:                ocr3Config,
-			DryRun:                false,
-			ReportingPluginConfig: *dkgConfig,
+			ContractAddress: vaultDKGOCR3Addr,
+			ChainSelector:   creEnv.RegistryChainSelector,
+			DON:             don.KeystoneDONConfig(),
+			Config:          ocr3Config,
+			DryRun:          false,
 		},
 	)
 	if err != nil {
@@ -409,13 +416,14 @@ func applyGatewayAuth0Config(topology *cre.Topology, donName string, auth0 *cre.
 		if svc.ServiceName != pkg.ServiceNameVault || !slices.Contains(svc.DONs, donName) {
 			continue
 		}
-		if svc.Auth0 != nil && (svc.Auth0.IssuerURL != auth0.IssuerURL || svc.Auth0.Audience != auth0.Audience) {
+		if svc.Auth0 != nil && (svc.Auth0.IssuerURL != auth0.IssuerURL || svc.Auth0.Audience != auth0.Audience || svc.Auth0.TenantID != auth0.TenantID) {
 			return fmt.Errorf("vault gateway service %q already has conflicting auth0 config", svc.ServiceName)
 		}
 
 		svc.Auth0 = &cre.GatewayServiceAuth0Config{
 			IssuerURL: auth0.IssuerURL,
 			Audience:  auth0.Audience,
+			TenantID:  auth0.TenantID,
 		}
 		return nil
 	}
@@ -454,26 +462,7 @@ func deployVaultContracts(testLogger zerolog.Logger, qualifier string, registryC
 
 	env.DataStore = memoryDatastore.Seal()
 
-	return ptr.Ptr(common.HexToAddress(vaultOCR3Addr)), ptr.Ptr(common.HexToAddress(vaultDKGOCR3Addr)), nil
-}
-
-func dkgReportingPluginConfig(don *cre.Don) (*dkgocrtypes.ReportingPluginConfig, error) {
-	cfg := &dkgocrtypes.ReportingPluginConfig{
-		T: 1,
-	}
-
-	workers, wErr := don.Workers()
-	if wErr != nil {
-		return nil, errors.Wrap(wErr, "failed to find worker nodes")
-	}
-
-	for _, workerNode := range workers {
-		pubKey := workerNode.Keys.DKGKey.PubKey
-		cfg.DealerPublicKeys = append(cfg.DealerPublicKeys, pubKey)
-		cfg.RecipientPublicKeys = append(cfg.RecipientPublicKeys, pubKey)
-	}
-
-	return cfg, nil
+	return new(common.HexToAddress(vaultOCR3Addr)), new(common.HexToAddress(vaultDKGOCR3Addr)), nil
 }
 
 func reportingPluginConfigOverride(vaultDKGOCR3Addr *common.Address, creEnv *cre.Environment) ([]byte, error) {
@@ -510,17 +499,4 @@ func vaultMethodConfigs() map[string]*capabilitiespb.CapabilityMethodConfig {
 			},
 		},
 	}
-}
-
-func EncryptSecret(secret, masterPublicKeyStr string, owner common.Address) (string, error) {
-	masterPublicKey := tdh2easy.PublicKey{}
-	masterPublicKeyBytes, err := hex.DecodeString(masterPublicKeyStr)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to decode master public key")
-	}
-	err = masterPublicKey.Unmarshal(masterPublicKeyBytes)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to unmarshal master public key")
-	}
-	return vaultutils.EncryptSecretWithWorkflowOwner(secret, &masterPublicKey, owner)
 }

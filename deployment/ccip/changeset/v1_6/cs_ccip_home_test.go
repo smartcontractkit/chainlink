@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -38,7 +39,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 func TestInvalidOCR3Params(t *testing.T) {
@@ -153,9 +153,9 @@ func Test_PromoteCandidate(t *testing.T) {
 			require.NoError(t, err)
 			require.NotEqual(t, [32]byte{}, ActiveDigestExecBefore)
 
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -244,9 +244,9 @@ func Test_SetCandidate(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, [32]byte{}, candidateDigestExecBefore)
 
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -374,9 +374,9 @@ func Test_RevokeCandidate(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, [32]byte{}, candidateDigestExecBefore)
 
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -497,9 +497,9 @@ func Test_UpdateChainConfigs(t *testing.T) {
 			require.NoError(t, err)
 			assert.NotZero(t, otherChainConfig.FChain)
 
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -571,7 +571,7 @@ func Test_SetCandidateAcceptsUSDCTokenPoolProxyFromDataStore(t *testing.T) {
 		ChainSelector: dest,
 		Address:       proxyAddress.Hex(),
 		Type:          datastore.ContractType(shared.USDCTokenPoolProxy),
-		Version:       &deployment.Version1_7_0,
+		Version:       &deployment.Version2_0_0,
 		Qualifier:     "proxy-only-in-datastore",
 	}))
 	tenv.Env.DataStore = ds.Seal()
@@ -608,7 +608,7 @@ func Test_SetCandidateErrorsOnDuplicateUSDCTokenPoolProxyInDataStore(t *testing.
 			ChainSelector: dest,
 			Address:       common.HexToAddress(ref.address).Hex(),
 			Type:          datastore.ContractType(shared.USDCTokenPoolProxy),
-			Version:       &deployment.Version1_7_0,
+			Version:       &deployment.Version2_0_0,
 			Qualifier:     ref.qualifier,
 		}), "add datastore ref %d", i)
 	}
@@ -621,7 +621,7 @@ func Test_SetCandidateErrorsOnDuplicateUSDCTokenPoolProxyInDataStore(t *testing.
 		),
 	)
 	require.Error(t, err)
-	require.ErrorContains(t, err, "multiple datastore entries found for USDCTokenPoolProxy 1.7.0")
+	require.ErrorContains(t, err, "multiple datastore entries found for USDCTokenPoolProxy 2.0.0")
 }
 
 func setCandidateExecConfig(homeChainSel, feedChainSel, dest uint64, sourcePoolAddress string) v1_6.SetCandidateChangesetConfig {

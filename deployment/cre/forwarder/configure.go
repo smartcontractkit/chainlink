@@ -8,6 +8,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
@@ -19,7 +20,6 @@ import (
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	changesetstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	cap_reg_v2 "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
@@ -99,22 +99,20 @@ var ConfigureSeq = operations.NewSequence[ConfigureSeqInput, ConfigureSeqOutput,
 
 			filters := []datastore.FilterFunc[datastore.AddressRefKey, datastore.AddressRef]{
 				datastore.AddressRefByChainSelector(chain.Selector),
-				datastore.AddressRefByType(datastore.ContractType(contracts.KeystoneForwarder))}
-			if input.Qualifier != "" {
-				filters = append(filters, datastore.AddressRefByQualifier(input.Qualifier))
+				datastore.AddressRefByType(datastore.ContractType(contracts.KeystoneForwarder)),
+				datastore.AddressRefByQualifier(input.Qualifier),
 			}
 
 			addressesRefs := deps.Env.DataStore.Addresses().Filter(filters...)
 			if len(addressesRefs) == 0 {
-				return ConfigureSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed: no KeystoneForwarder contract found for chain selector %d", chain.Selector)
+				return ConfigureSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed: no KeystoneForwarder contract found for chain selector %d and qualifier %q", chain.Selector, input.Qualifier)
 			}
 
 			if len(addressesRefs) > 1 {
-				deps.Env.Logger.Warnf(
-					"Found %d forwarder contracts for a chain. Config will be applied to all of them.", len(addressesRefs))
+				return ConfigureSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed: expected one KeystoneForwarder contract for chain selector %d and qualifier %q, found %d", chain.Selector, input.Qualifier, len(addressesRefs))
 			}
 
-			var mcmsContracts *changesetstate.MCMSWithTimelockState
+			var mcmsContracts *evmstate.MCMSWithTimelockState
 			if input.MCMSConfig != nil {
 				var mcmsErr error
 				mcmsContracts, mcmsErr = strategies.GetMCMSContracts(*deps.Env, chain.Selector, *input.MCMSConfig)

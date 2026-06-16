@@ -12,6 +12,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
@@ -69,7 +70,11 @@ func (m mockCfgTelemetry) EmitterExportTimeout() time.Duration { return 1 * time
 
 func (m mockCfgTelemetry) ChipIngressEndpoint() string { return "example.com/chip-ingress" }
 
+func (m mockCfgTelemetry) DurableEmitterEnabled() bool { return true }
+
 func (m mockCfgTelemetry) ChipIngressInsecureConnection() bool { return false }
+
+func (m mockCfgTelemetry) ChipIngressBatchEmitterEnabled() bool { return false }
 
 func (m mockCfgTelemetry) HeartbeatInterval() time.Duration {
 	return 5 * time.Second
@@ -82,6 +87,16 @@ func (m mockCfgTelemetry) LogExportTimeout() time.Duration  { return 2 * time.Se
 func (m mockCfgTelemetry) LogExportMaxBatchSize() int       { return 512 }
 func (m mockCfgTelemetry) LogExportInterval() time.Duration { return 5 * time.Second }
 func (m mockCfgTelemetry) LogMaxQueueSize() int             { return 2048 }
+
+func (m mockCfgTelemetry) PrometheusBridge() config.PrometheusBridge {
+	return mockPrometheusBridge{}
+}
+
+type mockPrometheusBridge struct{}
+
+func (m mockPrometheusBridge) Enabled() bool { return true }
+
+func (m mockPrometheusBridge) Prefixes() []string { return nil }
 
 type mockCfgDatabase struct{}
 
@@ -123,13 +138,13 @@ type mockCfgMercury struct{}
 
 func (m mockCfgMercury) Credentials(credName string) *types.MercuryCredentials { panic("implement me") }
 
-func (m mockCfgMercury) Cache() config.MercuryCache {
+func (m mockCfgMercury) Cache() mercurytransmitter.MercuryCache {
 	return mockCfgCache{}
 }
 
-func (m mockCfgMercury) TLS() config.MercuryTLS { panic("implement me") }
+func (m mockCfgMercury) TLS() mercurytransmitter.MercuryTLS { panic("implement me") }
 
-func (m mockCfgMercury) Transmitter() config.MercuryTransmitter {
+func (m mockCfgMercury) Transmitter() mercurytransmitter.MercuryTransmitter {
 	return mockCfgTransmitter{}
 }
 
@@ -153,7 +168,7 @@ func (m mockCfgCache) LatestReportDeadline() time.Duration {
 
 type mockCfgTransmitter struct{}
 
-func (t mockCfgTransmitter) Protocol() config.MercuryTransmitterProtocol { return "foo" }
+func (t mockCfgTransmitter) Protocol() mercurytransmitter.MercuryTransmitterProtocol { return "foo" }
 
 func (t mockCfgTransmitter) TransmitQueueMaxSize() uint32 { return 42 }
 
@@ -237,4 +252,5 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.Equal(t, 2048, envCfg.TelemetryLogMaxQueueSize)
 
 	require.Equal(t, "example.com/chip-ingress", envCfg.ChipIngressEndpoint)
+	require.False(t, envCfg.ChipIngressBatchEmitterEnabled)
 }

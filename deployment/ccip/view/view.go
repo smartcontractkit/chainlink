@@ -6,6 +6,8 @@ import (
 
 	suistate "github.com/smartcontractkit/chainlink-sui/deployment"
 	tonstate "github.com/smartcontractkit/chainlink-ton/deployment/state"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/maputils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/solana"
@@ -16,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/common/view"
 	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
-	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
 
 // ChainView is a json-persistable structure that represents chain state. Store all versions of CCIP contracts
@@ -50,9 +51,9 @@ type ChainView struct {
 	// be more than one per env.
 	CCIPHome           map[string]v1_6.CCIPHomeView                  `json:"ccipHome,omitempty"`
 	CapabilityRegistry map[string]common_v1_0.CapabilityRegistryView `json:"capabilityRegistry,omitempty"`
-	MCMSWithTimelock   common_v1_0.MCMSWithTimelockView              `json:"mcmsWithTimelock"`
-	LinkToken          common_v1_0.LinkTokenView                     `json:"linkToken"`
-	StaticLinkToken    common_v1_0.StaticLinkTokenView               `json:"staticLinkToken"`
+	MCMSWithTimelock   v1_0.MCMSWithTimelockView                     `json:"mcmsWithTimelock"`
+	LinkToken          v1_0.LinkTokenView                            `json:"linkToken"`
+	StaticLinkToken    v1_0.StaticLinkTokenView                      `json:"staticLinkToken"`
 
 	UpdateMu *sync.Mutex `json:"-"`
 }
@@ -80,9 +81,9 @@ func NewChain() ChainView {
 		OffRamp:            make(map[string]v1_6.OffRampView),
 		CapabilityRegistry: make(map[string]common_v1_0.CapabilityRegistryView),
 		CCIPHome:           make(map[string]v1_6.CCIPHomeView),
-		MCMSWithTimelock:   common_v1_0.MCMSWithTimelockView{},
-		LinkToken:          common_v1_0.LinkTokenView{},
-		StaticLinkToken:    common_v1_0.StaticLinkTokenView{},
+		MCMSWithTimelock:   v1_0.MCMSWithTimelockView{},
+		LinkToken:          v1_0.LinkTokenView{},
+		StaticLinkToken:    v1_0.StaticLinkTokenView{},
 		UpdateMu:           &sync.Mutex{},
 	}
 }
@@ -116,7 +117,7 @@ func NewSolChain() SolChainView {
 func (v *ChainView) UpdateTokenPool(tokenSymbol string, tokenPoolAddress string, poolView v1_5_1.PoolView) {
 	v.UpdateMu.Lock()
 	defer v.UpdateMu.Unlock()
-	v.TokenPools = helpers.AddValueToNestedMap(v.TokenPools, tokenSymbol, tokenPoolAddress, poolView)
+	v.TokenPools = maputils.AddValueToNestedMap(v.TokenPools, tokenSymbol, tokenPoolAddress, poolView)
 }
 
 func (v *ChainView) UpdateRegistryModuleView(registryModuleAddress string, registryModuleView shared.RegistryModulesView) {

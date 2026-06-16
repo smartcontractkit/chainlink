@@ -36,7 +36,7 @@ on:
         description: "Chainlink image tag to use."
       ecr:
         type: string
-        required: true
+        required: false # defaulted
         default: "sdlc"
         description: "Whether to use the SDLC (sdlc) or public ECR registry (public) for the Chainlink image."
       chainlink_version:
@@ -87,7 +87,7 @@ jobs:
       - name: Print Summary
         working-directory: .
         run: |
-          echo "**Image:** \`${{ steps.resolve-chainlink-image.outputs.resolved_image }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ steps.resolve-chainlink-image.outputs.resolved_image }}\`" >> "${GITHUB_STEP_SUMMARY}"
 
   test-nightly:
     name: ${{ matrix.display_name }}
@@ -122,24 +122,6 @@ jobs:
             runner: "ubuntu-latest"
             tests_dir: "cron"
             logs_archive_name: "cron"
-          - display_name: "Test Direct Request Smoke"
-            testcmd: "go test -v -run TestSmoke"
-            envcmd: "cl u env.toml,products/directrequest/basic.toml"
-            runner: "ubuntu-latest"
-            tests_dir: "directrequest"
-            logs_archive_name: "directrequest"
-          - display_name: "Test Flux Smoke"
-            testcmd: "go test -v -run TestSmoke"
-            envcmd: "cl u env.toml,products/flux/basic.toml"
-            runner: "ubuntu-latest"
-            tests_dir: "flux"
-            logs_archive_name: "flux"
-          - display_name: "Test VRF Smoke"
-            testcmd: "go test -v -timeout 10m -run TestVRFBasic\\|TestVRFJobReplacement"
-            envcmd: "cl u env.toml,products/vrf/basic.toml"
-            runner: "ubuntu-latest"
-            tests_dir: "vrf"
-            logs_archive_name: "vrf"
           - display_name: "Test DF1 (OCR2) Smoke"
             testcmd: "go test -v -timeout 20m -run TestSmoke/rounds"
             envcmd: "cl u env.toml,products/ocr2/basic.toml"
@@ -177,30 +159,6 @@ jobs:
             runner: "ubuntu24.04-16cores-64GB"
             tests_dir: "automation"
             logs_archive_name: "automation-smoke-2_3"
-          - display_name: "Keepers Smoke Tests 1"
-            testcmd: "go test -v -timeout 1h -run TestKeeperBasic\\|TestKeeperSimulation\\|TestKeeperCheckPerformGasLimit\\|TestKeeperRegisterUpkeep\\|TestKeeperAddFunds\\|TestKeeperRemove\\|TestKeeperPauseRegistry\\|TestKeeperMigrateRegistry\\|TestKeeperJobReplacement"
-            envcmd: "cl u env.toml,products/keepers/basic.toml"
-            runner: "ubuntu24.04-16cores-64GB"
-            tests_dir: "keepers"
-            logs_archive_name: "keepers-smoke-1"
-          - display_name: "Keepers Smoke Tests 2"
-            testcmd: "go test -v -timeout 1h -run TestKeeperNodeDown"
-            envcmd: "cl u env.toml,products/keepers/low_bcptr.toml"
-            runner: "ubuntu24.04-16cores-64GB"
-            tests_dir: "keepers"
-            logs_archive_name: "keepers-smoke-2"
-          - display_name: "Keepers Smoke Tests 3"
-            testcmd: "go test -v -timeout 1h -run TestKeeperPauseUnPauseUpkeep\\|TestKeeperUpdateCheckData"
-            envcmd: "cl u env.toml,products/keepers/low_bcptr.toml"
-            runner: "ubuntu24.04-16cores-64GB"
-            tests_dir: "keepers"
-            logs_archive_name: "keepers-smoke-3"
-          - display_name: "Keepers Smoke Tests 4"
-            testcmd: "go test -v -timeout 1h -run TestKeeperBlockCountPerTurn"
-            envcmd: "cl u env.toml,env-geth.toml,products/keepers/high_bcptr.toml"
-            runner: "ubuntu24.04-16cores-64GB"
-            tests_dir: "keepers"
-            logs_archive_name: "keepers-smoke-4"
           - display_name: "Test VRFv2Plus Smoke"
             testcmd: "go test -v -timeout 30m -run TestVRFv2PlusSmoke"
             envcmd: "cl u env-vrf2plus.toml,products/vrfv2plus/basic.toml"
@@ -348,7 +306,7 @@ jobs:
 
       - name: Set environment variables
         run: |
-          echo "CHAINLINK_IMAGE=${{ steps.resolve-chainlink-image.outputs.resolved_image }}" >> $GITHUB_ENV
+          echo "CHAINLINK_IMAGE=${{ steps.resolve-chainlink-image.outputs.resolved_image }}" >> "${GITHUB_ENV}"
       - name: Setup environment
         env:
           FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}

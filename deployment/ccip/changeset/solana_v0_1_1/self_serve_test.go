@@ -14,6 +14,7 @@ import (
 	lockrelease "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/lockrelease_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	cldfsolana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
@@ -29,8 +30,6 @@ import (
 
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
@@ -67,7 +66,7 @@ func doTestOnboardTokenPoolForSelfServe(t *testing.T, isMCMsOwner bool) {
 	require.NoError(t, err)
 	lockAndReleaseTokenPoolProgramID := state.SolChains[solChainSelector].LockReleaseTokenPools[shared.CLLMetadata]
 	burnAndMintTokenPoolProgramID := state.SolChains[solChainSelector].BurnMintTokenPools[shared.CLLMetadata]
-	var mcmsConfig *proposalutils.TimelockConfig
+	var mcmsConfig *cldfproposalutils.TimelockConfig
 	if isMCMsOwner {
 		timelockSignerPDA, _ := testhelpers.TransferOwnershipSolanaV0_1_1(t, &e, solChainSelector, true,
 			ccipChangesetSolana.CCIPContractsToTransfer{
@@ -93,7 +92,7 @@ func doTestOnboardTokenPoolForSelfServe(t *testing.T, isMCMsOwner bool) {
 		})
 		require.NoError(t, err)
 		tenv.Env = e
-		mcmsConfig = &proposalutils.TimelockConfig{
+		mcmsConfig = &cldfproposalutils.TimelockConfig{
 			MinDelay: 1 * time.Second,
 		}
 		progDataAddr, err := solutils.GetProgramDataAddress(e.BlockChains.SolanaChains()[solChainSelector].Client, lockAndReleaseTokenPoolProgramID)

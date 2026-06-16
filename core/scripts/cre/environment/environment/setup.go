@@ -16,9 +16,8 @@ import (
 	"golang.org/x/text/language"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/client"
 	"github.com/ethereum/go-ethereum/log"
+	mobyclient "github.com/moby/moby/client"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -51,6 +50,7 @@ func init() {
 	SetupCmd.Flags().StringVarP(&config.ConfigPath, "config", "c", DefaultSetupConfigPath, "Path to the TOML configuration file")
 	SetupCmd.Flags().BoolVarP(&noPrompt, "no-prompt", "y", false, "Automatically accept defaults and do not prompt for user input")
 	SetupCmd.Flags().BoolVarP(&purge, "purge", "p", false, "Purge all existing images and re-download/re-build them")
+	SetupCmd.Flags().BoolVarP(&config.Build, "build", "b", false, "Build images locally instead of pulling from ECR (useful on Apple Silicon)")
 	SetupCmd.Flags().BoolVar(&withBilling, "with-billing", false, "Include billing service in the setup")
 
 	EnvironmentCmd.AddCommand(SetupCmd)
@@ -135,6 +135,7 @@ const (
 // SetupConfig represents the configuration for the setup command
 type SetupConfig struct {
 	ConfigPath string
+	Build      bool // when true, images are built locally instead of pulled from ECR
 }
 
 type BuildConfig struct {
@@ -267,6 +268,13 @@ func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 		}()
 	}
 
+	// When building on a non-amd64 host, override the TARGETOS/TARGETARCH build
+	// args so the Go binary is compiled for the correct architecture. Many
+	// Dockerfiles in this project declare `ARG TARGETARCH=amd64` which defaults
+	// to amd64 regardless of --platform. Passing --build-arg makes the cache key
+	// differ from the amd64 entry, forcing a fresh compilation.
+	overrideArch := runtime.GOARCH != "amd64"
+
 	// Save current directory and change to working directory
 	currentDir, err := os.Getwd()
 	if err != nil {
@@ -289,12 +297,22 @@ func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 	}
 
 	// Build Docker image
-	args := []string{"build", "-t", c.LocalImage, "-f", c.Dockerfile, c.DockerCtx}
+	args := []string{"build", "--platform", "linux/" + runtime.GOARCH}
+	if overrideArch {
+		// Override TARGETOS/TARGETARCH build args so Dockerfiles with
+		// `ARG TARGETARCH=amd64` compile the correct binary. This also changes
+		// the cache key, causing Docker to recompile instead of reusing an
+		// amd64-cached layer.
+		args = append(args, "--build-arg", "TARGETOS=linux", "--build-arg", "TARGETARCH="+runtime.GOARCH)
+	}
+	args = append(args, "-t", c.LocalImage, "-f", c.Dockerfile)
 	if c.RequireGithubToken {
 		args = append(args, "--build-arg", "GITHUB_TOKEN="+os.Getenv("GITHUB_TOKEN"))
 	}
+	// Context must be the final positional argument.
+	args = append(args, c.DockerCtx)
 
-	cmd := exec.CommandContext(ctx, "docker", args...)
+	cmd := exec.CommandContext(ctx, "docker", args...) //nolint:gosec //G702: meaningless, we control the value of the cmd so the lint/sec error is a false positive
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	log.Info("Running command:", "cmd", cmd.String(), "dir", workingDir)
@@ -358,7 +376,7 @@ func (c ImageConfig) WithLocalImage(localImage string) ImageConfig {
 	return out
 }
 
-func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, awsProfile string, noPrompt bool, defaultOption EnsureOption, purge bool) (localImage string, err error) {
+func (c ImageConfig) Ensure(ctx context.Context, dockerClient *mobyclient.Client, awsProfile string, noPrompt bool, defaultOption EnsureOption, purge bool) (localImage string, err error) {
 	// If purge flag is set, remove existing images first
 	if purge {
 		logger := framework.L
@@ -367,13 +385,13 @@ func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, aw
 		logger.Info().Msgf("🗑️  Purging existing %s images...", name)
 
 		// Remove local image if it exists
-		_, err = dockerClient.ImageRemove(ctx, c.BuildConfig.LocalImage, image.RemoveOptions{Force: true})
+		_, err = dockerClient.ImageRemove(ctx, c.BuildConfig.LocalImage, mobyclient.ImageRemoveOptions{Force: true})
 		if err != nil {
 			logger.Warn().Msgf("Failed to remove local image %s: %v", c.BuildConfig.LocalImage, err)
 		}
 
 		// Remove remote-tagged image if it exists
-		_, err = dockerClient.ImageRemove(ctx, c.PullConfig.EcrImage, image.RemoveOptions{Force: true})
+		_, err = dockerClient.ImageRemove(ctx, c.PullConfig.EcrImage, mobyclient.ImageRemoveOptions{Force: true})
 		if err != nil {
 			logger.Warn().Msgf("Failed to remove ECR image %s: %v", c.PullConfig.EcrImage, err)
 		}
@@ -393,7 +411,7 @@ func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, aw
 		logger.Info().Msgf("🔍 %s image not found.", name)
 		logger.Info().Msgf("Would you like to Pull (requires AWS SSO) or build the %s image? (P/b) [B]", name)
 
-		var input = PullOption // Default to Pull
+		var input = defaultOption // default controlled by the caller (PullOption or BuildOption)
 		if !noPrompt {
 			_, err := fmt.Scanln(&input)
 			if err != nil {
@@ -447,13 +465,13 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	logger.Info().Msg("✓ Docker is installed")
 
 	// Check if Docker is running
-	dockerClient, dockerClientErr := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	dockerClient, dockerClientErr := mobyclient.New()
 	if dockerClientErr != nil {
 		setupErr = errors.Wrap(dockerClientErr, "failed to create Docker client")
 		return
 	}
 
-	_, pingErr := dockerClient.Ping(ctx)
+	_, pingErr := dockerClient.Ping(ctx, mobyclient.PingOptions{})
 	if pingErr != nil {
 		setupErr = errors.Wrap(pingErr, "docker is not running. Please start Docker and try again")
 		return
@@ -515,12 +533,17 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		}
 	}
 
+	defaultOption := PullOption
+	if config.Build {
+		defaultOption = BuildOption
+	}
+
 	jdConfig := ImageConfig{
 		BuildConfig: cfg.JobDistributor.BuildConfig,
 		PullConfig:  cfg.JobDistributor.PullConfig,
 	}
 
-	jdLocalImage, jdErr := jdConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, PullOption, purge)
+	jdLocalImage, jdErr := jdConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, defaultOption, purge)
 	if jdErr != nil {
 		setupErr = errors.Wrap(jdErr, "failed to ensure Job Distributor image")
 		return
@@ -534,7 +557,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		}
 
 		var err error
-		chipRouterLocalImage, err = chipRouterConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, PullOption, purge)
+		chipRouterLocalImage, err = chipRouterConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, defaultOption, purge)
 		if err != nil {
 			setupErr = errors.Wrap(err, "failed to ensure Chip Router image")
 			return
@@ -551,7 +574,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		}
 
 		var err error
-		chipIngressLocalImage, err = chipConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, PullOption, purge)
+		chipIngressLocalImage, err = chipConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, defaultOption, purge)
 		if err != nil {
 			setupErr = errors.Wrap(err, "failed to ensure Atlas Chip Ingress image")
 			return
@@ -568,7 +591,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		}
 
 		var err error
-		chipConfigLocalImage, err = chipConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, PullOption, purge)
+		chipConfigLocalImage, err = chipConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, defaultOption, purge)
 		if err != nil {
 			setupErr = errors.Wrap(err, "failed to ensure Atlas Chip Config image")
 			return
@@ -645,7 +668,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	logger.Info().Msg("1. Navigate to the CRE environment directory: cd core/scripts/cre/environment")
 	logger.Info().Msg("2. Start the environment: go run . env start")
 	logger.Info().Msg("   Optional: Add --with-example to start with an example workflow")
-	logger.Info().Msg("   Optional: Add --with-beholder to start the Beholder")
+	logger.Info().Msg("   Optional: Add --with-chip-ingress-stack to start the Chip Ingress stack (deprecated: --with-beholder)")
 	logger.Info().Msg("\nFor more information, see the documentation in core/scripts/cre/environment/README.md")
 
 	return nil
@@ -720,7 +743,7 @@ func checkDockerConfiguration() error {
 
 		configFile := ""
 		for _, path := range configPaths {
-			if _, err := os.Stat(path); err == nil {
+			if _, err := os.Stat(path); err == nil { //nolint:gosec //G204: false positive;
 				configFile = path
 				break
 			}
@@ -733,7 +756,7 @@ func checkDockerConfiguration() error {
 		logger.Info().Msgf("  Found Docker settings file at %s", configFile)
 
 		// Check settings
-		settings, err := os.ReadFile(configFile)
+		settings, err := os.ReadFile(configFile) //nolint:gosec //G204: docker is a fixed command; the flagged issue is configured subprocess arguments (for example image/dockerfile/context), which are passed as argv values rather than through a shell
 		if err != nil {
 			if strings.Contains(err.Error(), "operation not permitted") {
 				logger.Warn().Msgf("  ! Could not check Docker settings due to restrictive TCC policies (can't read file). You need to manually verify the settings in the Docker Desktop UI.")
@@ -804,7 +827,7 @@ func checkDockerConfiguration() error {
 
 // localImageExists checks if the local image or rendered remote image exists
 // if the rendered remote image exists, it tags it as the local image
-func localImageExists(ctx context.Context, dockerClient *client.Client, localImage, ecrImage string) (bool, error) {
+func localImageExists(ctx context.Context, dockerClient *mobyclient.Client, localImage, ecrImage string) (bool, error) {
 	logger := framework.L
 	name := strings.ReplaceAll(strings.Split(localImage, ":")[0], "-", " ")
 	name = cases.Title(language.English).String(name)
@@ -820,7 +843,7 @@ func localImageExists(ctx context.Context, dockerClient *client.Client, localIma
 	if err == nil {
 		logger.Info().Msgf("✓ %s image (%s) is available", name, ecrImage)
 		// Tag ECR image as local image
-		if err := dockerClient.ImageTag(ctx, ecrImage, localImage); err != nil {
+		if _, err := dockerClient.ImageTag(ctx, mobyclient.ImageTagOptions{Source: ecrImage, Target: localImage}); err != nil {
 			return false, fmt.Errorf("failed to tag %s image: %w", name, err)
 		}
 		logger.Info().Msgf("  ✓ %s image tagged as %s", name, localImage)

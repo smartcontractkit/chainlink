@@ -113,10 +113,10 @@ jobs:
         run: |
           if [[ "$OPT_OUT" == "true" ]]; then
             echo "Opt-out is true for current run. Using gh-hosted runner for Go codeql."
-            echo "go-runner=${GH_GO_RUNNER}" | tee -a $GITHUB_OUTPUT
+            echo "go-runner=${GH_GO_RUNNER}" | tee -a "${GITHUB_OUTPUT}"
             exit 0
           fi
 
           echo "Opt-out is false for current run. Using self-hosted runner for Go codeql."
-          echo "go-is-self-hosted=true" | tee -a $GITHUB_OUTPUT
-          echo "go-runner=${SH_GO_RUNNER}" | tee -a $GITHUB_OUTPUT
+          echo "go-is-self-hosted=true" | tee -a "${GITHUB_OUTPUT}"
+          echo "go-runner=${SH_GO_RUNNER}" | tee -a "${GITHUB_OUTPUT}"

@@ -13,6 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
@@ -40,6 +42,8 @@ type ExecutionHelper struct {
 	callLimiters map[capCall]limits.BoundLimiter[int]
 	mu           sync.Mutex
 	callCounts   map[limits.Limiter[int]]int
+
+	executionProfile *executionProfileCollector
 }
 
 func (c *ExecutionHelper) initLimiters(limiters *EngineLimiters) {
@@ -101,7 +105,7 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 			c.mu.Unlock()
 			return nil, caperrors.NewPublicUserError(
 				fmt.Errorf("capability call limit exceeded for %s.%s: %w", capName, request.Method, err),
-				caperrors.InvalidArgument,
+				caperrors.LimitExceeded,
 			)
 		}
 		c.callCounts[limiter] = cnt
@@ -188,8 +192,8 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		Method:       request.Method,
 		CapabilityId: request.Id,
 		Metadata: capabilities.RequestMetadata{
-			WorkflowID:               c.cfg.WorkflowID,
 			WorkflowOwner:            c.cfg.WorkflowOwner,
+			WorkflowID:               c.cfg.WorkflowID,
 			WorkflowExecutionID:      c.WorkflowExecutionID,
 			WorkflowName:             c.cfg.WorkflowName.Hex(),
 			WorkflowDonID:            localNode.WorkflowDON.ID,
@@ -202,10 +206,18 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		},
 		Config: values.EmptyMap(),
 	}
+	var creGetter settings.Getter
+	if c.cfg.LocalLimiters != nil {
+		creGetter = c.cfg.LocalLimiters.Settings
+	}
+	propagateOrgIDMeta, _ := cresettings.Default.PropagateOrgIDInRequestMetadata.GetOrDefault(ctx, creGetter)
+	if propagateOrgIDMeta && c.orgID != "" {
+		capReq.Metadata.OrgID = c.orgID
+	}
 
 	execLogger.Debug("Executing capability ...")
 	c.metrics.With(platform.KeyCapabilityID, request.Id).IncrementCapabilityInvocationCounter(ctx)
-	loggerLabels := *c.loggerLabels.Load()
+	loggerLabels := c.eventLabels()
 	_ = events.EmitCapabilityStartedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, request.Method)
 
 	execCtx, execCancel, err := c.cfg.LocalLimiters.CapabilityCallTime.WithTimeout(ctx)
@@ -214,9 +226,14 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	}
 	defer execCancel()
 
-	executionStart := time.Now()
+	executionStart := c.cfg.Clock.Now()
+	c.executionProfile.recordStepStart(meteringRef, request.Id, executionStart)
+
 	capResp, err := capability.Execute(execCtx, capReq)
-	executionDuration := time.Since(executionStart)
+	executionEnd := c.cfg.Clock.Now()
+	executionDuration := executionEnd.Sub(executionStart)
+	c.executionProfile.recordStepEnd(meteringRef, executionEnd, err != nil)
+
 	c.metrics.With(platform.KeyCapabilityID, request.Id).UpdateCapabilityExecutionDurationHistogram(ctx, int64(executionDuration.Seconds()))
 	if err != nil {
 		var capabilityError caperrors.Error
@@ -294,8 +311,7 @@ func (c *ExecutionHelper) EmitUserMetric(ctx context.Context, metric *eventsv2.W
 		return err
 	}
 	metric.Name = userMetricPrefix + metric.Name + suffix
-	loggerLabels := *c.loggerLabels.Load()
-	return events.EmitUserMetric(ctx, loggerLabels, metric)
+	return events.EmitUserMetric(ctx, c.eventLabels(), metric)
 }
 
 // systemCapabilities lists capability IDs that are internal plumbing and must

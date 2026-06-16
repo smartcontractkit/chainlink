@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
@@ -45,7 +46,7 @@ func seedAptosAddresses(t *testing.T, ds *datastore.MemoryDataStore, ocrSel uint
 
 func freshAptosBase(ocrSel, aptosSel uint64) jobs.ProposeAptosCapJobSpecInput {
 	return jobs.ProposeAptosCapJobSpecInput{
-		Environment:          "test",
+		Environment:          test.EnvironmentName,
 		Zone:                 test.Zone,
 		Domain:               "cre",
 		DONName:              test.DONName,
@@ -199,7 +200,8 @@ func TestProposeAptosCapJobSpec_VerifyPreconditions_overrideMismatches(t *testin
 }
 
 type aptosCapTestSetup struct {
-	env            *cldf.Environment
+	rt *runtime.Runtime
+
 	nodeIDs        []string
 	aptosCapInputs []jobs.AptosCapabilityInput
 	baseInput      jobs.ProposeAptosCapJobSpecInput
@@ -207,17 +209,20 @@ type aptosCapTestSetup struct {
 
 func setupAptosCapTest(t *testing.T) aptosCapTestSetup {
 	t.Helper()
-	testEnv := test.SetupEnvV2(t, false)
-
-	ocrSel := testEnv.RegistrySelector
-	aptosSel := testEnv.AptosSelector
 
 	ds := datastore.NewMemoryDataStore()
-	seedAptosAddresses(t, ds, ocrSel, "0x1111111111111111111111111111111111111111")
-	env := testEnv.Env
-	env.DataStore = ds.Seal()
+	seedAptosAddresses(t, ds, test.DefaultRegistrySelector, "0x1111111111111111111111111111111111111111")
 
-	nodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+	var (
+		h        = test.NewTestHarness(t, test.WithDatastore(ds))
+		ocrSel   = h.RegistrySelector
+		aptosSel = h.AptosSelector
+	)
+
+	env := h.Runtime.Environment()
+
+	// Build a new job distributor to mock and inject it back into the runtime
+	nodes, err := h.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
 	require.NoError(t, err)
 
 	var nodeIDs []string
@@ -233,7 +238,7 @@ func setupAptosCapTest(t *testing.T) aptosCapTestSetup {
 	}
 
 	client := tenv.NewJobServiceClient(mockGetter)
-	testEnv.TestJD.JobServiceClient = client
+	h.TestJD.JobServiceClient = client
 
 	env.Offchain = struct {
 		jobv1.JobServiceClient
@@ -245,8 +250,10 @@ func setupAptosCapTest(t *testing.T) aptosCapTestSetup {
 		CSAServiceClient:  env.Offchain,
 	}
 
+	rt := runtime.NewFromEnvironment(env)
+
 	baseInput := jobs.ProposeAptosCapJobSpecInput{
-		Environment:            "test",
+		Environment:            test.EnvironmentName,
 		Zone:                   test.Zone,
 		Domain:                 "cre",
 		DONName:                test.DONName,
@@ -261,7 +268,7 @@ func setupAptosCapTest(t *testing.T) aptosCapTestSetup {
 	}
 
 	return aptosCapTestSetup{
-		env:            env,
+		rt:             rt,
 		nodeIDs:        nodeIDs,
 		aptosCapInputs: aptosCapInputs,
 		baseInput:      baseInput,
@@ -270,37 +277,37 @@ func setupAptosCapTest(t *testing.T) aptosCapTestSetup {
 
 func TestProposeAptosCapJobSpec_Apply_success(t *testing.T) {
 	setup := setupAptosCapTest(t)
-	env := setup.env
-
 	input := setup.baseInput
 
-	require.NoError(t, jobs.ProposeAptosCapJobSpec{}.VerifyPreconditions(*env, input))
+	task := runtime.ChangesetTask(jobs.ProposeAptosCapJobSpec{}, input)
+	err := setup.rt.Exec(task)
+	require.NoError(t, err)
 
-	out, err := jobs.ProposeAptosCapJobSpec{}.Apply(*env, input)
+	out := setup.rt.State().Outputs[task.ID()]
 	require.NoError(t, err)
 	assert.Len(t, out.Reports, 1)
 }
 
 func TestProposeAptosCapJobSpec_Apply_withP2PToTransmitterMap(t *testing.T) {
 	setup := setupAptosCapTest(t)
-	env := setup.env
-
 	input := setup.baseInput
 	input.P2PToTransmitterMap = map[string]string{
 		"aabbccdd": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
 		"11223344": "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
 	}
 
-	require.NoError(t, jobs.ProposeAptosCapJobSpec{}.VerifyPreconditions(*env, input))
+	task := runtime.ChangesetTask(jobs.ProposeAptosCapJobSpec{}, input)
+	err := setup.rt.Exec(task)
+	require.NoError(t, err)
 
-	out, err := jobs.ProposeAptosCapJobSpec{}.Apply(*env, input)
+	out := setup.rt.State().Outputs[task.ID()]
 	require.NoError(t, err)
 	assert.Len(t, out.Reports, 1)
 }
 
 func TestProposeAptosCapJobSpec_Apply_duplicateNodeIDs(t *testing.T) {
 	setup := setupAptosCapTest(t)
-	env := setup.env
+	env := setup.rt.Environment()
 
 	input := setup.baseInput
 	require.GreaterOrEqual(t, len(setup.aptosCapInputs), 2, "need at least 2 nodes")
@@ -309,7 +316,7 @@ func TestProposeAptosCapJobSpec_Apply_duplicateNodeIDs(t *testing.T) {
 		setup.aptosCapInputs[0],
 	}
 
-	_, err := jobs.ProposeAptosCapJobSpec{}.Apply(*env, input)
+	_, err := jobs.ProposeAptosCapJobSpec{}.Apply(env, input)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "duplicate nodeID")
 }

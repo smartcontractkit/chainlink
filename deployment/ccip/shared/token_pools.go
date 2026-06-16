@@ -56,7 +56,7 @@ var TokenPoolVersions = map[semver.Version]struct{}{
 	deployment.Version1_6_0:      {},
 	deployment.Version1_6_1:      {},
 	deployment.Version1_6_2:      {},
-	deployment.Version1_7_0:      {},
+	deployment.Version2_0_0:      {},
 }
 
 // tokenPool defines behavior common to all token pools.

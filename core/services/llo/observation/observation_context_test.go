@@ -25,11 +25,11 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 
+	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
@@ -59,6 +59,7 @@ func makePipelineWithMultipleStreamResults(streamIDs []streams.StreamID, results
 }
 
 func TestObservationContext_Observe(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	r := &mockRegistry{}
 	telem := &mockTelemeter{}
@@ -174,6 +175,7 @@ func TestObservationContext_Observe(t *testing.T) {
 }
 
 func TestObservationContext_Observe_concurrencyStressTest(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	r := &mockRegistry{}
 	telem := &mockTelemeter{}
@@ -249,6 +251,7 @@ func createBridge(t testing.TB, name string, val string, borm bridges.ORM, maxCa
 }
 
 func TestObservationContext_Observe_integrationRealPipeline(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
@@ -276,6 +279,7 @@ func TestObservationContext_Observe_integrationRealPipeline(t *testing.T) {
 	jobStreamID := streams.StreamID(5)
 
 	t.Run("using only streamID attributes", func(t *testing.T) {
+		t.Parallel()
 		jb := job.Job{
 			Type:     job.Stream,
 			StreamID: &jobStreamID,
@@ -326,6 +330,7 @@ result3 -> result3_parse -> multiply3;
 }
 
 func TestObservationContext_Observe_concurrentAtomicOutput(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	const n = 20
 

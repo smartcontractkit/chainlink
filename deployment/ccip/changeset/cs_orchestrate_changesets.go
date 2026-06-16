@@ -6,12 +6,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	"github.com/smartcontractkit/mcms"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	tonstate "github.com/smartcontractkit/chainlink-ton/deployment/state"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // OrchestrateChangesets orchestrates the validation and application of multiple changesets.
@@ -64,11 +67,11 @@ type MCMSAddressesForEVM struct {
 type OrchestrateChangesetsConfig struct {
 	Description               string
 	MCMSOverridesForEVMChains map[uint64]MCMSAddressesForEVM
-	MCMS                      *proposalutils.TimelockConfig
+	MCMS                      *cldfproposalutils.TimelockConfig
 	ChangeSets                []WithConfig
 }
 
-func (c OrchestrateChangesetsConfig) EVMMCMSStateByChain(e cldf.Environment, s stateview.CCIPOnChainState) (map[uint64]state.MCMSWithTimelockState, error) {
+func (c OrchestrateChangesetsConfig) EVMMCMSStateByChain(e cldf.Environment, s stateview.CCIPOnChainState) (map[uint64]evmstate.MCMSWithTimelockState, error) {
 	if c.MCMSOverridesForEVMChains == nil {
 		return s.EVMMCMSStateByChain(), nil
 	}
@@ -100,7 +103,7 @@ func (c OrchestrateChangesetsConfig) EVMMCMSStateByChain(e cldf.Environment, s s
 				return nil, fmt.Errorf("failed to create ManyChainMultiSig for ProposerMcm on chain %s: %w", chain, err)
 			}
 		}
-		evmState[chainSelector] = state.MCMSWithTimelockState{
+		evmState[chainSelector] = evmstate.MCMSWithTimelockState{
 			CancellerMcm: cancellerMcm,
 			BypasserMcm:  bypasserMcm,
 			ProposerMcm:  proposerMcm,
@@ -139,13 +142,22 @@ func orchestrateChangesetsLogic(e cldf.Environment, c OrchestrateChangesetsConfi
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get EVM MCMS state by chain: %w", err)
 	}
 
+	tonMCMSState, err := state.TONMCMSStateByChain(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get TON MCMS state by chain: %w", err)
+	}
+
 	// Aggregate all Timelock proposals into 1 proposal
-	proposal, err := proposalutils.AggregateProposalsV2(
+	if len(finalOutput.MCMSTimelockProposals) == 0 {
+		return finalOutput, nil
+	}
+	proposal, err := proposeutils.AggregateProposalsV2(
 		e,
-		proposalutils.MCMSStates{
+		proposeutils.MCMSStates{
 			MCMSEVMState:    evmMCMSState,
 			MCMSSolanaState: state.SolanaMCMSStateByChain(e),
 			MCMSAptosState:  state.AptosMCMSStateByChain(),
+			MCMSTONState:    tonMCMSStateForProposalutils(tonMCMSState), // TODO: update once ton state is moved to cld-changesets.
 		},
 		finalOutput.MCMSTimelockProposals,
 		c.Description,
@@ -206,4 +218,34 @@ func MergeChangesetOutput(e cldf.Environment, dest *cldf.ChangesetOutput, src cl
 	}
 
 	return nil
+}
+
+// tonMCMSStateForProposalutils adapts chainlink-ton MCMS chain state into the
+// proposalutils type expected by cld-changesets (AggregateProposalsV2, etc.).
+// Remove once TON on-chain state is consolidated on a single type (NONEVM-3181).
+func tonMCMSStateForProposalutils(in map[uint64]tonstate.MCMSChainState) map[uint64]cldfproposalutils.TonMCMSChainState {
+	out := make(map[uint64]cldfproposalutils.TonMCMSChainState, len(in))
+	for sel, st := range in {
+		out[sel] = tonMCMSChainStateForProposalutils(st)
+	}
+	return out
+}
+
+func tonMCMSChainStateForProposalutils(in tonstate.MCMSChainState) cldfproposalutils.TonMCMSChainState {
+	out := cldfproposalutils.TonMCMSChainState{
+		ByQualifier: make(map[string]*cldfproposalutils.TonMCMSSuiteState, len(in.ByQualifier)),
+	}
+	for q, suite := range in.ByQualifier {
+		if suite == nil {
+			out.ByQualifier[q] = nil
+			continue
+		}
+		out.ByQualifier[q] = &cldfproposalutils.TonMCMSSuiteState{
+			Proposer:  suite.Proposer,
+			Canceller: suite.Canceller,
+			Bypasser:  suite.Bypasser,
+			Timelock:  suite.Timelock,
+		}
+	}
+	return out
 }

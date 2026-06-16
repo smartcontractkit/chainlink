@@ -14,7 +14,7 @@ export PATH
 
 echo "Running go_core_tests for event: $GITHUB_EVENT_NAME"
 GO_TEST_FLAGS="-timeout=${GO_TEST_TIMEOUT}"
-if [[ "$GITHUB_EVENT_NAME" == 'push' ]]; then
+if [[ "$GITHUB_EVENT_NAME" == 'push' || "$GITHUB_EVENT_NAME" == 'workflow_dispatch' || "$GITHUB_EVENT_NAME" == 'schedule' ]]; then
   GO_TEST_FLAGS="$GO_TEST_FLAGS -count=1"
 elif [[ "$GITHUB_EVENT_NAME" == 'schedule' ]]; then
   GO_TEST_FLAGS="$GO_TEST_FLAGS -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt"

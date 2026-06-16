@@ -88,13 +88,14 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@reusable-docker-build-publish/v1
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
       aws-region-gati: us-west-2
       dockerfile: core/chainlink.Dockerfile
       docker-build-context: .
+      docker-target: debug
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
@@ -120,13 +121,14 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@reusable-docker-build-publish/v1
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
       aws-region-gati: us-west-2
       dockerfile: plugins/chainlink.Dockerfile
       docker-build-context: .
+      docker-target: debug
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
@@ -154,13 +156,14 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@reusable-docker-build-publish/v1
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
       aws-region-gati: us-west-2
       dockerfile: plugins/chainlink.Dockerfile
       docker-build-context: .
+      docker-target: debug
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
@@ -189,13 +192,14 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@reusable-docker-build-publish/v1
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-west-2
       aws-region-gati: us-west-2
       dockerfile: core/chainlink.Dockerfile
       docker-build-context: .
+      docker-target: debug
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
@@ -224,13 +228,14 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@reusable-docker-build-publish/v1
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-west-2
       aws-region-gati: us-west-2
       dockerfile: plugins/chainlink.Dockerfile
       docker-build-context: .
+      docker-target: debug
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
