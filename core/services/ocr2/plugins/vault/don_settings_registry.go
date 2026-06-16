@@ -101,16 +101,6 @@ var donSettingsBoolFields = []donSettingsField[bool]{
 var donSettingsUint64Fields = []donSettingsUint64Field{
 	{
 		base: donSettingsField[uint64]{
-			name: "max_ciphertext_length_bytes",
-			local: func(ctx context.Context, r *ReportingPlugin) uint64 {
-				return localSizeLimit(ctx, r.cfg.MaxCiphertextLengthBytes)
-			},
-			get: func(s *vaultcommon.NodeSettings) uint64 { return s.MaxCiphertextLengthBytes },
-			set: func(s *vaultcommon.NodeSettings, v uint64) { s.MaxCiphertextLengthBytes = v },
-		},
-	},
-	{
-		base: donSettingsField[uint64]{
 			name: "max_identifier_key_length_bytes",
 			local: func(ctx context.Context, r *ReportingPlugin) uint64 {
 				return localSizeLimit(ctx, r.cfg.MaxIdentifierKeyLengthBytes)

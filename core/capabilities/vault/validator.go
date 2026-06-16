@@ -67,7 +67,7 @@ func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *
 		if err := r.ValidateSecretIdentifier(ctx, req.Id.Key, req.Id.Owner, req.Id.Namespace, nil); err != nil {
 			return fmt.Errorf("invalid secret identifier at index %d: %w", idx, err)
 		}
-		if err := r.ValidateCiphertextSize(ctx, req.Id.Owner, req.EncryptedValue, nil); err != nil {
+		if err := r.ValidateCiphertextSize(ctx, req.Id.Owner, req.EncryptedValue); err != nil {
 			return fmt.Errorf("secret encrypted value at index %d is invalid: %w", idx, err)
 		}
 		if skipLabelValidation {
@@ -91,23 +91,14 @@ func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *
 	return nil
 }
 
-func (r *RequestValidator) ValidateCiphertextSize(ctx context.Context, owner string, encryptedValue string, donSettings *vaultcommon.NodeSettings) error {
+func (r *RequestValidator) ValidateCiphertextSize(ctx context.Context, owner string, encryptedValue string) error {
 	rawCiphertext, err := hex.DecodeString(encryptedValue)
 	if err != nil {
 		return fmt.Errorf("failed to decode encrypted value: %w", err)
 	}
-	ciphertextSize := pkgconfig.Size(len(rawCiphertext)) * pkgconfig.Byte
-	if donSettings != nil {
-		limit := pkgconfig.Size(donSettings.MaxCiphertextLengthBytes) * pkgconfig.Byte
-		if ciphertextSize > limit {
-			return fmt.Errorf("ciphertext size exceeds maximum allowed size: %s: %w", limit, limits.ErrorBoundLimited[pkgconfig.Size]{Limit: limit, Amount: ciphertextSize})
-		}
-		return nil
-	}
-
 	// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
 	innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: owner})
-	if err := r.MaxCiphertextLengthLimiter.Check(innerCtx, ciphertextSize); err != nil {
+	if err := r.MaxCiphertextLengthLimiter.Check(innerCtx, pkgconfig.Size(len(rawCiphertext))*pkgconfig.Byte); err != nil {
 		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
 		if errors.As(err, &errBoundLimited) {
 			return fmt.Errorf("ciphertext size exceeds maximum allowed size: %s: %w", errBoundLimited.Limit, err)

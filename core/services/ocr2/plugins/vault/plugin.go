@@ -1067,7 +1067,7 @@ func (r *ReportingPlugin) observeCreateSecretRequest(ctx context.Context, _ Read
 		return id, newUserError("duplicate request for secret identifier " + vaulttypes.KeyFor(id))
 	}
 
-	if ierr := r.validator.ValidateCiphertextSize(ctx, secretRequest.Id.Owner, secretRequest.EncryptedValue, r.activeDonSettings()); ierr != nil {
+	if ierr := r.validator.ValidateCiphertextSize(ctx, secretRequest.Id.Owner, secretRequest.EncryptedValue); ierr != nil {
 		return id, newUserError(ierr.Error())
 	}
 
@@ -1602,7 +1602,7 @@ func (r *ReportingPlugin) validateCreateSecretsObservation(ctx context.Context, 
 
 		idSet[vaulttypes.KeyFor(s.Id)] = true
 
-		if err := r.validator.ValidateCiphertextSize(ctx, s.Id.Owner, s.EncryptedValue, r.activeDonSettings()); err != nil {
+		if err := r.validator.ValidateCiphertextSize(ctx, s.Id.Owner, s.EncryptedValue); err != nil {
 			return fmt.Errorf("CreateSecrets request: %w", err)
 		}
 	}
@@ -1646,7 +1646,7 @@ func (r *ReportingPlugin) validateUpdateSecretsObservation(ctx context.Context, 
 
 		idSet[vaulttypes.KeyFor(s.Id)] = true
 
-		if err := r.validator.ValidateCiphertextSize(ctx, s.Id.Owner, s.EncryptedValue, r.activeDonSettings()); err != nil {
+		if err := r.validator.ValidateCiphertextSize(ctx, s.Id.Owner, s.EncryptedValue); err != nil {
 			return fmt.Errorf("UpdateSecrets request: %w", err)
 		}
 	}

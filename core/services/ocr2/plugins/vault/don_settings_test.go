@@ -15,16 +15,15 @@ import (
 
 func nodeSettings(optimizations bool, maxShare uint64) *vaultcommon.NodeSettings {
 	return &vaultcommon.NodeSettings{
-		VaultOptimizationsEnabled:         optimizations,
-		VaultForceEmptyOcrRounds:          false,
-		MaxCiphertextLengthBytes:          2048,
 		MaxIdentifierKeyLengthBytes:       64,
 		MaxIdentifierOwnerLengthBytes:     64,
 		MaxIdentifierNamespaceLengthBytes: 64,
 		MaxShareLengthBytes:               maxShare,
 		MaxBlobPayloadBytes:               25600,
 		MaxPendingQueueWriteSize:          1000,
-		MaxRequestBatchSize:                 10,
+		MaxRequestBatchSize:               10,
+		VaultOptimizationsEnabled:         optimizations,
+		VaultForceEmptyOcrRounds:          false,
 	}
 }
 
@@ -47,7 +46,6 @@ func TestPlugin_Observation_PopulatesNodeSettings(t *testing.T) {
 		require.NoError(t, proto.Unmarshal(data, obs))
 		require.NotNil(t, obs.NodeSettings)
 		assert.False(t, obs.NodeSettings.VaultOptimizationsEnabled)
-		assert.Equal(t, uint64(1024), obs.NodeSettings.MaxCiphertextLengthBytes)
 	})
 
 	t.Run("flag off", func(t *testing.T) {
@@ -147,7 +145,7 @@ func TestPlugin_ValidateObservation_RejectsMalformedNodeSettingsZeroLimit(t *tes
 	rdr := &kv{m: make(map[string]response)}
 
 	settings := r.localNodeSettings(t.Context())
-	settings.MaxCiphertextLengthBytes = 0
+	settings.MaxShareLengthBytes = 0
 	b := marshalObservationsWithSettings(t, settings)
 
 	err := r.ValidateObservation(t.Context(), 1, types.AttributedQuery{}, types.AttributedObservation{
@@ -155,7 +153,7 @@ func TestPlugin_ValidateObservation_RejectsMalformedNodeSettingsZeroLimit(t *tes
 		Observation: types.Observation(b),
 	}, rdr, nil)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "max_ciphertext_length_bytes must be positive")
+	assert.Contains(t, err.Error(), "max_share_length_bytes must be positive")
 }
 
 func TestPlugin_ValidateObservation_IgnoresNodeSettingsWhenConsensusDisabled(t *testing.T) {
@@ -347,27 +345,6 @@ func TestPlugin_Observation_MarshaledSizeWithinCapWhenNodeSettingsConsensusEnabl
 	require.LessOrEqual(t, len(data), r.maxObservationBytes)
 }
 
-func TestPlugin_ActiveSettings_EnforcesKVCiphertextLimit(t *testing.T) {
-	r := newTestReportingPlugin(t, withVaultNodeSettingsConsensusEnabled(), withMaxCiphertextLengthBytes(1024))
-	kvSettings := nodeSettings(false, 600)
-	kvSettings.MaxCiphertextLengthBytes = 8
-
-	kvStore := &kv{m: make(map[string]response)}
-	writeKV := newTestWriteStore(t, kvStore)
-	require.NoError(t, writeKV.WriteDONSettings(t.Context(), kvSettings))
-
-	require.NoError(t, r.ensureActiveSettingsForRound(t.Context(), 1, writeKV))
-
-	// 16 raw bytes -> 32 hex chars; limit is 8 bytes.
-	tooLarge := "0102030405060708090a0b0c0d0e0f10"
-	err := r.validator.ValidateCiphertextSize(t.Context(), "owner", tooLarge, r.activeSettings.donSettings())
-	require.Error(t, err)
-
-	small := "01020304"
-	err = r.validator.ValidateCiphertextSize(t.Context(), "owner", small, r.activeSettings.donSettings())
-	require.NoError(t, err)
-}
-
 func TestPlugin_ActiveSettings_EnforcesKVIdentifierKeyLimit(t *testing.T) {
 	r := newTestReportingPlugin(t, withVaultNodeSettingsConsensusEnabled(), withMaxIdentifierLengths(100, 100, 100))
 	kvSettings := nodeSettings(false, 600)
@@ -384,28 +361,6 @@ func TestPlugin_ActiveSettings_EnforcesKVIdentifierKeyLimit(t *testing.T) {
 
 	err = r.validator.ValidateSecretIdentifier(t.Context(), "key", "owner", "ns", r.activeSettings.donSettings())
 	require.NoError(t, err)
-}
-
-func TestPlugin_ActiveSettings_UsesKVLimitAboveLocalCfg(t *testing.T) {
-	r := newTestReportingPlugin(t, withVaultNodeSettingsConsensusEnabled(), withMaxCiphertextLengthBytes(16))
-	kvSettings := nodeSettings(false, 600)
-	kvSettings.MaxCiphertextLengthBytes = 32
-
-	kvStore := &kv{m: make(map[string]response)}
-	writeKV := newTestWriteStore(t, kvStore)
-	require.NoError(t, writeKV.WriteDONSettings(t.Context(), kvSettings))
-
-	require.NoError(t, r.ensureActiveSettingsForRound(t.Context(), 1, writeKV))
-
-	// 20 raw bytes; above local cfg (16) but within DON KV (32).
-	withinDON := "0102030405060708090a0b0c0d0e0f1011121314"
-	err := r.validator.ValidateCiphertextSize(t.Context(), "owner", withinDON, r.activeSettings.donSettings())
-	require.NoError(t, err)
-
-	// 33 raw bytes exceeds DON KV limit.
-	tooLargeForDON := "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122"
-	err = r.validator.ValidateCiphertextSize(t.Context(), "owner", tooLargeForDON, r.activeSettings.donSettings())
-	require.Error(t, err)
 }
 
 func TestPlugin_StateTransition_DONSettings_PersistedAfterTransitionNotAppliedSameRound(t *testing.T) {
