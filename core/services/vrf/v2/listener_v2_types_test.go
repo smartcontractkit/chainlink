@@ -16,6 +16,7 @@ import (
 )
 
 func Test_BatchFulfillments_AddRun(t *testing.T) {
+	t.Parallel()
 	batchLimit := uint32(2500)
 	bfs := newBatchFulfillments(batchLimit, vrfcommon.V2)
 	fromAddress := testutils.NewAddress()
@@ -54,6 +55,7 @@ func Test_BatchFulfillments_AddRun(t *testing.T) {
 }
 
 func Test_BatchFulfillments_AddRun_V2Plus(t *testing.T) {
+	t.Parallel()
 	batchLimit := uint32(2500)
 	bfs := newBatchFulfillments(batchLimit, vrfcommon.V2Plus)
 	fromAddress := testutils.NewAddress()

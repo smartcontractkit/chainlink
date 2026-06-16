@@ -709,7 +709,7 @@ jobs:
 
   get-solana-sha:
     if: needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
-    name: Get Solana Sha From Go Mod
+    name: Get Solana Sha From Plugins
     environment:
       # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
       name: integration
@@ -733,17 +733,16 @@ jobs:
         with:
           only-modules: "true"
 
-      - name: Get the sha from go mod
-        id: getshortsha
+      - name: Get solana commit ref
+        id: getref
         run: |
-          sol_ver=$(go list -m -json github.com/smartcontractkit/chainlink-solana  | jq -r .Version)
-          if [ -z "${sol_ver}" ]; then
-              echo "Error: could not get the solana version from the go.mod file, look above for error(s)"
+          commit_ref=$(go run ./tools/pluginref/ --plugin-file ./plugins/plugins.public.yaml --plugin solana)
+          if [ -z "${commit_ref}" ]; then
+              echo "Error: could not resolve solana commit ref from plugins/plugins.public.yaml"
               exit 1
           fi
-          short_sha="${sol_ver##*-}"
-          echo "short sha is: ${short_sha}"
-          echo "short_sha=${short_sha}" | tee -a "$GITHUB_OUTPUT"
+          echo "commit_ref is: ${commit_ref}"
+          echo "commit_ref=${commit_ref}" | tee -a "$GITHUB_OUTPUT"
 
       - name: Checkout solana
         uses: actions/checkout@v6
@@ -758,9 +757,9 @@ jobs:
         id: getsha
         run: |
           cd solanapath
-          full_sha=$(git rev-parse ${{steps.getshortsha.outputs.short_sha}}^{}) # additional suffix allows handling tagged versions as well
+          full_sha=$(git rev-parse "${{steps.getref.outputs.commit_ref}}^{}")
           if [ -z "${full_sha}" ]; then
-              echo "Error: could not get the full sha from the short sha using git, look above for error(s)"
+              echo "Error: could not resolve commit ref to a commit sha using git, look above for error(s)"
               exit 1
           fi
           echo "sha is: ${full_sha}"

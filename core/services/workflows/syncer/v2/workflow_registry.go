@@ -106,6 +106,7 @@ type workflowRegistry struct {
 	maxRetryInterval time.Duration
 	maxConcurrency   int
 	clock            clockwork.Clock
+	syncTickInterval time.Duration
 
 	hooks Hooks
 
@@ -148,6 +149,16 @@ func WithTicker(ticker <-chan time.Time) func(*workflowRegistry) {
 func WithRetryInterval(retryInterval time.Duration) func(*workflowRegistry) {
 	return func(wr *workflowRegistry) {
 		wr.retryInterval = retryInterval
+	}
+}
+
+// WithSyncTickInterval overrides the default 12s reconciliation/init polling interval.
+// Intended for tests where waiting 12s per cycle is unacceptable.
+func WithSyncTickInterval(d time.Duration) func(*workflowRegistry) {
+	return func(wr *workflowRegistry) {
+		if d > 0 {
+			wr.syncTickInterval = d
+		}
 	}
 }
 
@@ -313,6 +324,7 @@ func NewWorkflowRegistry(
 		maxRetryInterval:                 defaultMaxRetryInterval,
 		maxConcurrency:                   defaultMaxConcurrency,
 		clock:                            clockwork.NewRealClock(),
+		syncTickInterval:                 defaultTickInterval,
 		hooks: Hooks{
 			OnStartFailure: func(_ error) {},
 		},
@@ -347,7 +359,7 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			defer w.lggr.Debugw("Successfully set ContractReader")
 			defer close(initDoneCh)
 
-			ticker := w.getTicker(defaultTickInterval)
+			ticker := w.getTicker(w.syncTickInterval)
 			for w.contractReader == nil {
 				select {
 				case <-ctx.Done():
@@ -724,7 +736,7 @@ func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, workflows
 // NOTE: In this mode paused states will be treated as a deleted workflow. Workflows will not be registered as paused.
 // This function processes each source independently to ensure that failure in one source doesn't affect workflows from other sources.
 func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) {
-	ticker := w.getTicker(defaultTickInterval)
+	ticker := w.getTicker(w.syncTickInterval)
 	pendingEventsBySource := make(map[string]map[string]*reconciliationEvent)
 	w.lggr.Debug("running readRegistryStateLoop")
 	for {
@@ -911,6 +923,9 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 // is nil, then a default ticker is returned.
 func (w *workflowRegistry) getTicker(d time.Duration) <-chan time.Time {
 	if w.ticker == nil {
+		if d <= 0 {
+			d = defaultTickInterval
+		}
 		return time.NewTicker(d).C
 	}
 
