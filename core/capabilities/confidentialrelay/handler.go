@@ -1,12 +1,14 @@
 package confidentialrelay
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -17,7 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	vault "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -32,7 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/teeattestation"
 	"github.com/smartcontractkit/chainlink-common/pkg/teeattestation/nitro"
 
-	vaulttypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
 var _ core.GatewayConnectorHandler = (*Handler)(nil)
@@ -108,24 +110,16 @@ type Handler struct {
 	// validateAttestation validates TEE attestation documents.
 	// Defaults to the Nitro validator; overridden in tests.
 	validateAttestation attestationValidatorFunc
-
-	// vaultIdentityGate controls whether WorkflowOwner and OrgId are set
-	// on the vault GetSecretsRequest. Gated behind VaultOrgIdAsSecretOwnerEnabled.
-	vaultIdentityGate limits.GateLimiter
+	limitsFactory       limits.Factory
 }
 
-func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, limitsFactory limits.Factory) (*Handler, error) {
+func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, lf limits.Factory) (*Handler, error) {
 	if responseSigner == nil {
 		return nil, errors.New("response signer is required")
 	}
 	m, err := newMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
-	}
-
-	vaultIdentityGate, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.VaultOrgIdAsSecretOwnerEnabled)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create vault identity gate limiter: %w", err)
 	}
 
 	h := &Handler{
@@ -135,7 +129,7 @@ func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnecto
 		lggr:                logger.Named(lggr, HandlerName),
 		metrics:             m,
 		validateAttestation: nitro.ValidateAttestation,
-		vaultIdentityGate:   vaultIdentityGate,
+		limitsFactory:       lf,
 	}
 	h.Service, h.eng = services.Config{
 		Name:  HandlerName,
@@ -228,6 +222,20 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	if err := h.verifyAttestationHash(ctx, att, params, confidentialrelaytypes.DomainSecretsGet); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
+	// Fetch the local node once: it provides both the WorkflowDON snapshot for
+	// the enclave-config check below and the DON metadata on the vault request.
+	localNode, err := h.capRegistry.LocalNode(ctx)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get local node: %w", err))
+	}
+	// Verify the enclave's reported config matches the onchain DON state
+	// before treating the attested request as trusted: the Nitro attestation
+	// binds the request hash, but a malicious host can produce a
+	// genuinely-attested request over a forged enclave config unless we
+	// compare the config value against the DON reference.
+	if err = h.verifyEnclaveConfigMatchesDON(localNode, params.EnclaveConfig); err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
+	}
 
 	vaultCap, err := h.capRegistry.GetExecutable(ctx, vault.CapabilityID)
 	if err != nil {
@@ -242,14 +250,6 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 
 	vaultReq := &vault.GetSecretsRequest{
 		Requests: make([]*vault.SecretRequest, 0, len(params.Secrets)),
-	}
-	gateEnabled, err := h.vaultIdentityGate.Limit(ctx)
-	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to check VaultOrgIdAsSecretOwnerEnabled gate: %w", err))
-	}
-	vaultReq.WorkflowOwner = normalizedOwner
-	if gateEnabled {
-		vaultReq.OrgId = params.OrgID
 	}
 	for _, s := range params.Secrets {
 		namespace := s.Namespace
@@ -271,11 +271,6 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to wrap vault request: %w", err))
 	}
 
-	localNode, err := h.capRegistry.LocalNode(ctx)
-	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get local node: %w", err))
-	}
-
 	metadata := capabilities.RequestMetadata{
 		WorkflowID:               params.WorkflowID,
 		WorkflowOwner:            params.Owner,
@@ -284,10 +279,7 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 		WorkflowDonConfigVersion: localNode.WorkflowDON.ConfigVersion,
 		ReferenceID:              req.ID,
 	}
-	if gateEnabled {
-		metadata.OrgID = params.OrgID
-	}
-
+	h.applyPropagatedOrgID(ctx, &metadata, params.OrgID)
 	capResp, err := vaultCap.Execute(ctx, capabilities.CapabilityRequest{
 		Payload:      anypbReq,
 		Method:       vault.MethodGetSecrets,
@@ -338,7 +330,8 @@ func (h *Handler) resolveDONID(ctx context.Context, capability capabilities.Exec
 }
 
 // translateVaultResponse converts a vault GetSecretsResponse to the enclave relay protocol format.
-// Encoding conversion: hex (vault) -> base64 (enclave relay).
+// Encoding conversion: ciphertext hex (vault) -> base64 (enclave relay); encrypted shares may be
+// binary or hex (vault) -> base64 (enclave relay).
 func translateVaultResponse(vaultResp *vault.GetSecretsResponse, enclaveKey string) (*confidentialrelaytypes.SecretsResponseResult, error) {
 	result := &confidentialrelaytypes.SecretsResponseResult{}
 
@@ -360,12 +353,18 @@ func translateVaultResponse(vaultResp *vault.GetSecretsResponse, enclaveKey stri
 		var shares []string
 		for _, es := range data.EncryptedDecryptionKeyShares {
 			if es.EncryptionKey == enclaveKey {
-				for _, share := range es.Shares {
-					shareBytes, err := hex.DecodeString(share)
-					if err != nil {
-						return nil, fmt.Errorf("failed to decode share: %w", err)
+				if len(es.BinaryShares) > 0 {
+					for _, shareBytes := range es.BinaryShares {
+						shares = append(shares, base64.StdEncoding.EncodeToString(shareBytes))
 					}
-					shares = append(shares, base64.StdEncoding.EncodeToString(shareBytes))
+				} else {
+					for _, share := range es.Shares {
+						shareBytes, err := hex.DecodeString(share)
+						if err != nil {
+							return nil, fmt.Errorf("failed to decode share: %w", err)
+						}
+						shares = append(shares, base64.StdEncoding.EncodeToString(shareBytes))
+					}
 				}
 				break
 			}
@@ -401,6 +400,13 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 	if err := h.verifyAttestationHash(ctx, att, params, confidentialrelaytypes.DomainCapabilityExec); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
+	localNode, err := h.capRegistry.LocalNode(ctx)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get local node: %w", err))
+	}
+	if err = h.verifyEnclaveConfigMatchesDON(localNode, params.EnclaveConfig); err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
+	}
 
 	capability, err := h.capRegistry.GetExecutable(ctx, params.CapabilityID)
 	if err != nil {
@@ -433,6 +439,7 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 			ReferenceID:         referenceID,
 		},
 	}
+	h.applyPropagatedOrgID(ctx, &capReq.Metadata, params.OrgID)
 
 	// Backward compatibility: extract values.Map from Payload into Inputs
 	// for old-style capabilities that only look at Inputs.
@@ -472,6 +479,55 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 	return h.jsonResponse(req, signedResult)
 }
 
+// verifyEnclaveConfigMatchesDON compares the enclave's reported EnclaveConfig
+// against the local node's WorkflowDON membership and fault tolerance. The
+// relay DON runs on the same nodes as the workflow DON, so
+// localNode.WorkflowDON.Members is the right comparison target.
+//
+// PRIV-458: the Nitro attestation binds the request hash but does not on its
+// own prove the config matches the DON, so a malicious host could produce a
+// genuinely-attested request over a forged config. Comparing the attested
+// config against onchain DON state closes that gap.
+//
+// localNode is passed in so each request fetches it once (it feeds request
+// metadata too); the caller's lookup is an O(1) in-memory read populated by
+// the registry syncer, so this stays off the RPC hot path.
+//
+// cfg is required: a nil EnclaveConfig is rejected. The wire field stays
+// optional in chainlink-common so older senders compile, but the relay is the
+// security boundary and will not service a request that omits the config, since
+// an absent config cannot be checked against onchain DON state.
+func (h *Handler) verifyEnclaveConfigMatchesDON(localNode capabilities.Node, cfg *confidentialrelaytypes.EnclaveConfig) error {
+	if cfg == nil {
+		return errors.New("enclave config is required")
+	}
+	expectedF := uint32(localNode.WorkflowDON.F)
+	// F is a floor, matching the CC-side check (validateEnclaveSigners): the
+	// enclave's reported F must meet or exceed the DON's fault tolerance. A
+	// higher F is a stricter quorum and is acceptable; a lower one is not.
+	if cfg.F < expectedF {
+		return fmt.Errorf("enclave config F %d does not meet the minimum required DON F %d", cfg.F, expectedF)
+	}
+	if len(cfg.Signers) != len(localNode.WorkflowDON.Members) {
+		return fmt.Errorf("enclave config signers count mismatch: enclave reports %d, expected %d",
+			len(cfg.Signers), len(localNode.WorkflowDON.Members))
+	}
+	expected := make([][]byte, len(localNode.WorkflowDON.Members))
+	for i := range localNode.WorkflowDON.Members {
+		expected[i] = localNode.WorkflowDON.Members[i][:]
+	}
+	actual := append([][]byte(nil), cfg.Signers...)
+	sort.Slice(actual, func(i, j int) bool { return bytes.Compare(actual[i], actual[j]) < 0 })
+	sort.Slice(expected, func(i, j int) bool { return bytes.Compare(expected[i], expected[j]) < 0 })
+	for i := range actual {
+		if !bytes.Equal(actual[i], expected[i]) {
+			return fmt.Errorf("enclave config signer mismatch at sorted index %d: enclave reports %x, expected %x",
+				i, actual[i], expected[i])
+		}
+	}
+	return nil
+}
+
 // getEnclaveAttestationConfig reads the enclave pool configuration from the
 // capabilities registry and returns trusted measurement sets and CA roots
 // for attestation validation. Called per-request so the config stays fresh
@@ -508,6 +564,15 @@ func (h *Handler) getEnclaveAttestationConfig(ctx context.Context) ([]json.RawMe
 		}
 	}
 	return measurements, caRootsPEM, nil
+}
+
+func (h *Handler) applyPropagatedOrgID(ctx context.Context, md *capabilities.RequestMetadata, orgFromRequest string) {
+	propagateOrgIDMeta, _ := cresettings.Default.PropagateOrgIDInRequestMetadata.GetOrDefault(ctx, h.limitsFactory.Settings)
+	if propagateOrgIDMeta && orgFromRequest != "" {
+		md.OrgID = orgFromRequest
+		return
+	}
+	md.OrgID = ""
 }
 
 func (h *Handler) verifyAttestationHash(ctx context.Context, attestationB64 string, cleanParams any, domainTag string) error {

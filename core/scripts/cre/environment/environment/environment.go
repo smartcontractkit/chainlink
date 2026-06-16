@@ -49,9 +49,9 @@ import (
 )
 
 const (
-	manualCtfCleanupMsg      = `unexpected startup error. this may have stranded resources. please manually remove containers with 'ctf' label and delete their volumes`
-	manualBeholderCleanupMsg = `unexpected startup error. this may have stranded resources. please manually remove the 'chip-ingress' stack`
-	manualBillingCleanupMsg  = `unexpected startup error. this may have stranded resources. please manually remove the 'billing-platform-service' stack`
+	manualCtfCleanupMsg              = `unexpected startup error. this may have stranded resources. please manually remove containers with 'ctf' label and delete their volumes`
+	manualChipIngressStackCleanupMsg = `unexpected startup error. this may have stranded resources. please manually remove the 'chip-ingress' stack`
+	manualBillingCleanupMsg          = `unexpected startup error. this may have stranded resources. please manually remove the 'billing-platform-service' stack`
 )
 
 var (
@@ -76,7 +76,8 @@ func init() {
 	EnvironmentCmd.AddCommand(stopCmd())
 	EnvironmentCmd.AddCommand(statusCmd())
 	EnvironmentCmd.AddCommand(workflowCmds())
-	EnvironmentCmd.AddCommand(beholderCmds())
+	EnvironmentCmd.AddCommand(chipIngressStackCmds())
+	EnvironmentCmd.AddCommand(beholderDeprecatedChipIngressStackCmd())
 	EnvironmentCmd.AddCommand(swapCmds())
 	EnvironmentCmd.AddCommand(stateCmd())
 	EnvironmentCmd.AddCommand(billingCmds())
@@ -136,29 +137,42 @@ var StartCmdPreRunFunc = func(cmd *cobra.Command, args []string) {
 	// so we can skip Docker cleanup for Kubernetes provider
 }
 
-var StartCmdRecoverHandlerFunc = func(p any, persistedBeholderState *envconfig.ChipIngressConfig, cleanupOnFailure bool, cleanupWait time.Duration) {
+var StartCmdRecoverHandlerFunc = func(p any, persistedChipIngressStackState *envconfig.ChipIngressConfig, cleanupOnFailure bool, cleanupWait time.Duration) {
 	if p != nil {
 		fmt.Println("Panicked when starting environment")
 
+		stack := debug.Stack()
+		stackStr := string(stack)
+
 		var errText string
+		var panicErr error
 		if err, ok := p.(error); ok {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-			fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
+			fmt.Fprintf(os.Stderr, "Stack trace: %s\n", stackStr)
+			panicErr = err
 
-			errText = strings.SplitN(err.Error(), "\n", 1)[0]
+			errText = strings.SplitN(err.Error(), "\n", 2)[0]
 		} else {
 			fmt.Fprintf(os.Stderr, "panic: %v\n", p)
-			fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
+			fmt.Fprintf(os.Stderr, "Stack trace: %s\n", stackStr)
 
-			errText = strings.SplitN(fmt.Sprintf("%v", p), "\n", 1)[0]
+			errText = strings.SplitN(fmt.Sprintf("%v", p), "\n", 2)[0]
 		}
 
-		tracingErr := dxTracker.Track(MetricStartupResult, map[string]any{
+		meta := map[string]any{
 			"success":  false,
 			"error":    errText,
 			"panicked": true,
 			"topology": os.Getenv("CTF_CONFIGS"),
-		})
+		}
+
+		if loc := errorLocationForTracking(panicErr, stack); loc != "" {
+			meta["error_location"] = loc
+		}
+
+		fmt.Println("Error location: ", meta["error_location"])
+
+		tracingErr := dxTracker.Track(MetricStartupResult, meta)
 
 		if tracingErr != nil {
 			fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", tracingErr)
@@ -177,9 +191,9 @@ var StartCmdRecoverHandlerFunc = func(p any, persistedBeholderState *envconfig.C
 			}
 		}
 
-		if persistedBeholderState != nil {
-			if err := restorePersistedBeholderState(relativePathToRepoRoot, persistedBeholderState); err != nil {
-				framework.L.Warn().Err(err).Msg("failed to restore persisted Beholder state after environment startup failure")
+		if persistedChipIngressStackState != nil {
+			if err := restorePersistedChipIngressStackState(relativePathToRepoRoot, persistedChipIngressStackState); err != nil {
+				framework.L.Warn().Err(err).Msg("failed to restore persisted Chip Ingress stack state after environment startup failure")
 			}
 		}
 
@@ -197,7 +211,7 @@ func startCmd() *cobra.Command {
 		doSetup                  bool
 		cleanupOnFailure         bool
 		cleanupWait              time.Duration
-		withBeholder             bool
+		withChipIngressStack     bool
 		withDashboards           bool
 		withObs                  bool
 		withBilling              bool
@@ -212,10 +226,10 @@ func startCmd() *cobra.Command {
 		Aliases:          []string{"restart"},
 		PersistentPreRun: StartCmdPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var persistedBeholderState *envconfig.ChipIngressConfig
+			var persistedChipIngressStackState *envconfig.ChipIngressConfig
 
 			defer func() {
-				StartCmdRecoverHandlerFunc(recover(), persistedBeholderState, cleanupOnFailure, cleanupWait)
+				StartCmdRecoverHandlerFunc(recover(), persistedChipIngressStackState, cleanupOnFailure, cleanupWait)
 			}()
 
 			if doSetup {
@@ -238,10 +252,10 @@ func startCmd() *cobra.Command {
 				return fmt.Errorf("with-plugins-docker-image flag is no longer supported. Set Docker image in TOML config instead (%s) for each nodeset under the [nodesets.nodesets.node_specs.node.image] field", effectiveConfig)
 			}
 
-			var persistedBeholderStateErr error
-			persistedBeholderState, persistedBeholderStateErr = loadPersistedBeholderState(relativePathToRepoRoot)
-			if persistedBeholderStateErr != nil {
-				framework.L.Warn().Err(persistedBeholderStateErr).Msg("failed to load persisted Beholder state before startup cleanup")
+			var persistedChipIngressStackStateErr error
+			persistedChipIngressStackState, persistedChipIngressStackStateErr = loadPersistedChipIngressStackState(relativePathToRepoRoot)
+			if persistedChipIngressStackStateErr != nil {
+				framework.L.Warn().Err(persistedChipIngressStackStateErr).Msg("failed to load persisted Chip Ingress stack state before startup cleanup")
 			}
 
 			cleanUpErr := envconfig.RemoveAllEnvironmentStateDir(relativePathToRepoRoot)
@@ -301,9 +315,9 @@ func startCmd() *cobra.Command {
 					}
 				}
 
-				if persistedBeholderState != nil {
-					if err := restorePersistedBeholderState(relativePathToRepoRoot, persistedBeholderState); err != nil {
-						framework.L.Warn().Err(err).Msg("failed to restore persisted Beholder state after environment startup termination")
+				if persistedChipIngressStackState != nil {
+					if err := restorePersistedChipIngressStackState(relativePathToRepoRoot, persistedChipIngressStackState); err != nil {
+						framework.L.Warn().Err(err).Msg("failed to restore persisted Chip Ingress stack state after environment startup termination")
 					}
 				}
 
@@ -344,7 +358,7 @@ func startCmd() *cobra.Command {
 				fmt.Fprintf(os.Stderr, "Error: %s\n", startErr)
 				fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
 
-				dxErr := trackStartup(false, hasBuiltDockerImage(in), in.Infra.Type, new(strings.SplitN(startErr.Error(), "\n", 1)[0]), new(false))
+				dxErr := trackStartup(false, hasBuiltDockerImage(in), in.Infra.Type, new(strings.SplitN(startErr.Error(), "\n", 2)[0]), new(false), errorLocationForTracking(startErr, nil))
 				if dxErr != nil {
 					fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
 				}
@@ -370,49 +384,51 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(storeErr, "failed to store local CRE state")
 			}
 
-			if !withBeholder && persistedBeholderState != nil {
-				if err := reconcilePersistedBeholderWithRouter(cmdContext, persistedBeholderState); err != nil {
-					framework.L.Warn().Err(err).Msg("failed to re-register persisted Beholder with chip ingress router")
-				} else if err := restorePersistedBeholderState(relativePathToRepoRoot, persistedBeholderState); err != nil {
-					framework.L.Warn().Err(err).Msg("failed to restore persisted Beholder state after router re-registration")
+			if !withChipIngressStack && persistedChipIngressStackState != nil {
+				if err := reconcilePersistedChipIngressStackWithRouter(cmdContext, persistedChipIngressStackState); err != nil {
+					framework.L.Warn().Err(err).Msg("failed to re-register persisted Chip Ingress stack with chip ingress router")
+				} else if err := restorePersistedChipIngressStackState(relativePathToRepoRoot, persistedChipIngressStackState); err != nil {
+					framework.L.Warn().Err(err).Msg("failed to restore persisted Chip Ingress stack state after router re-registration")
 				}
 			}
 
 			registryChainOut := output.CreEnvironment.Blockchains[0]
 
-			dxErr := trackStartup(true, hasBuiltDockerImage(in), output.CreEnvironment.Provider.Type, nil, nil)
+			dxErr := trackStartup(true, hasBuiltDockerImage(in), output.CreEnvironment.Provider.Type, nil, nil, "")
 			if dxErr != nil {
 				fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
 			}
 
-			if withBeholder {
-				startBeholderErr := startBeholder(
+			if withChipIngressStack {
+				startChipIngressStackErr := startChipIngressStack(
 					cmdContext,
 					cleanupWait,
 					chipGRPCPort,
 				)
 
 				metaData := map[string]any{}
-				if startBeholderErr != nil {
+				if startChipIngressStackErr != nil {
 					metaData["result"] = "failure"
-					metaData["error"] = oneLineErrorMessage(startBeholderErr)
+					metaData["error"] = oneLineErrorMessage(startChipIngressStackErr)
 				} else {
 					metaData["result"] = "success"
 				}
 
-				trackingErr := dxTracker.Track(MetricBeholderStart, metaData)
-				if trackingErr != nil {
-					fmt.Fprintf(os.Stderr, "failed to track beholder start: %s\n", trackingErr)
+				if trackingErr := dxTracker.Track(MetricChipIngressStackStart, metaData); trackingErr != nil {
+					fmt.Fprintf(os.Stderr, "failed to track chip ingress stack start: %s\n", trackingErr)
+				}
+				if trackingErr := dxTracker.Track(MetricBeholderStart, metaData); trackingErr != nil {
+					fmt.Fprintf(os.Stderr, "failed to track legacy beholder metric: %s\n", trackingErr)
 				}
 
-				if startBeholderErr != nil {
-					if !strings.Contains(startBeholderErr.Error(), protoRegistrationErrMsg) {
-						beholderRemoveErr := framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
-						if beholderRemoveErr != nil {
-							fmt.Fprint(os.Stderr, errors.Wrap(beholderRemoveErr, manualBeholderCleanupMsg).Error())
+				if startChipIngressStackErr != nil {
+					if !strings.Contains(startChipIngressStackErr.Error(), protoRegistrationErrMsg) {
+						stackRemoveErr := framework.RemoveTestStack(chipingressset.DEFAULT_STACK_NAME)
+						if stackRemoveErr != nil {
+							fmt.Fprint(os.Stderr, errors.Wrap(stackRemoveErr, manualChipIngressStackCleanupMsg).Error())
 						}
 					}
-					return errors.Wrap(startBeholderErr, "failed to start Beholder")
+					return errors.Wrap(startChipIngressStackErr, "failed to start Chip Ingress stack")
 				}
 			}
 
@@ -504,6 +520,10 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(storeErr, "failed to store local CRE state")
 			}
 
+			if cmd.Flags().Changed("with-beholder") {
+				printDeprecatedWithBeholderStartFlagBanner()
+			}
+
 			return nil
 		},
 	}
@@ -514,7 +534,8 @@ func startCmd() *cobra.Command {
 	cmd.Flags().BoolVarP(&withExampleFlag, "with-example", "x", false, "Deploys and registers example workflow")
 	cmd.Flags().DurationVarP(&exampleWorkflowTimeout, "example-workflow-timeout", "u", 5*time.Minute, "Time to wait until example workflow succeeds (e.g. 10s, 1m, 1h)")
 	cmd.Flags().StringVarP(&withPluginsDockerImage, "with-plugins-docker-image", "p", "", "DEPRECATED:Docker image to use (set Docker image in TOML config instead)")
-	cmd.Flags().BoolVarP(&withBeholder, "with-beholder", "b", false, "Deploy Beholder (Chip Ingress + Red Panda)")
+	cmd.Flags().BoolVar(&withChipIngressStack, "with-chip-ingress-stack", false, "Deploy Chip Ingress stack (Chip Ingress + Red Panda)")
+	cmd.Flags().BoolVarP(&withChipIngressStack, "with-beholder", "b", false, "Deprecated: use --with-chip-ingress-stack. Deploy Chip Ingress stack (Chip Ingress + Red Panda)")
 	cmd.Flags().BoolVarP(&withDashboards, "with-dashboards", "d", false, "Deploy Observability Stack and Grafana Dashboards")
 	cmd.Flags().BoolVar(&withObs, "with-observability", false, "Start Observability Stack")
 	cmd.Flags().BoolVar(&withBilling, "with-billing", false, "Deploy Billing Platform Service")
@@ -588,7 +609,7 @@ func setupDashboards(ctx context.Context, setupCfg SetupConfig) error {
 	return nil
 }
 
-func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMessage *string, panicked *bool) error {
+func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMessage *string, panicked *bool, errorLocation string) error {
 	metadata := map[string]any{
 		"success":  success,
 		"infra":    infraType,
@@ -601,6 +622,10 @@ func trackStartup(success, hasBuiltDockerImage bool, infraType string, errorMess
 
 	if panicked != nil {
 		metadata["panicked"] = *panicked
+	}
+
+	if errorLocation != "" {
+		metadata["error_location"] = errorLocation
 	}
 
 	dxStartupErr := dxTracker.Track(MetricStartupResult, metadata)
@@ -636,9 +661,9 @@ func stopCmd() *cobra.Command {
 			}
 
 			if allFlag {
-				stopBeholderErr := stopBeholder()
-				if stopBeholderErr != nil {
-					framework.L.Warn().Msgf("failed to stop Beholder: %s", stopBeholderErr)
+				stopChipIngressStackErr := stopChipIngressStack()
+				if stopChipIngressStackErr != nil {
+					framework.L.Warn().Msgf("failed to stop Chip Ingress stack: %s", stopChipIngressStackErr)
 				}
 
 				stopBillingErr := stopBilling()
@@ -680,7 +705,7 @@ func stopCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVarP(&allFlag, "all", "a", false, "Remove also all extra services (beholder, billing, observability)")
+	cmd.Flags().BoolVarP(&allFlag, "all", "a", false, "Remove also all extra services (chip ingress stack, billing, observability)")
 
 	return cmd
 }
@@ -691,19 +716,19 @@ type serviceStopHint struct {
 }
 
 type serviceStatus struct {
-	environmentRunning   bool
-	beholderRunning      bool
-	billingRunning       bool
-	observabilityRunning bool
+	environmentRunning      bool
+	chipIngressStackRunning bool
+	billingRunning          bool
+	observabilityRunning    bool
 }
 
 func runningExtraServiceStopHints(status serviceStatus) []serviceStopHint {
 	var hints []serviceStopHint
 
-	if status.beholderRunning {
+	if status.chipIngressStackRunning {
 		hints = append(hints, serviceStopHint{
-			serviceName: "Beholder",
-			stopCommand: "go run . env beholder stop",
+			serviceName: "Chip Ingress stack",
+			stopCommand: "go run . env chip-ingress-stack stop",
 		})
 	}
 
@@ -726,10 +751,10 @@ func runningExtraServiceStopHints(status serviceStatus) []serviceStopHint {
 
 func detectServiceStatus(cmdContext context.Context) serviceStatus {
 	return serviceStatus{
-		environmentRunning:   envconfig.LocalCREStateFileExists(relativePathToRepoRoot),
-		beholderRunning:      envconfig.ChipIngressStateFileExists(relativePathToRepoRoot),
-		billingRunning:       envconfig.BillingStateFileExists(relativePathToRepoRoot),
-		observabilityRunning: isObservabilityGrafanaRunning(cmdContext),
+		environmentRunning:      envconfig.LocalCREStateFileExists(relativePathToRepoRoot),
+		chipIngressStackRunning: envconfig.ChipIngressStateFileExists(relativePathToRepoRoot),
+		billingRunning:          envconfig.BillingStateFileExists(relativePathToRepoRoot),
+		observabilityRunning:    isObservabilityGrafanaRunning(cmdContext),
 	}
 }
 
@@ -785,7 +810,7 @@ func statusCmd() *cobra.Command {
 			fmt.Println()
 			fmt.Println("Local CRE service status:")
 			fmt.Printf("- Environment: %s\n", statusText(status.environmentRunning))
-			fmt.Printf("- Beholder: %s\n", statusText(status.beholderRunning))
+			fmt.Printf("- Chip Ingress stack: %s\n", statusText(status.chipIngressStackRunning))
 			fmt.Printf("- Billing: %s\n", statusText(status.billingRunning))
 			fmt.Printf("- Observability: %s\n", statusText(status.observabilityRunning))
 			fmt.Println()
@@ -837,7 +862,7 @@ func StartCLIEnvironment(
 		ContractVersions:        env.ContractVersions(),
 	}
 
-	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)
+	ctx, cancel := context.WithTimeout(cmdContext, 20*time.Minute)
 	defer cancel()
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(ctx, testLogger, singleFileLogger, universalSetupInput, relativePathToRepoRoot)
 	if setupErr != nil {
@@ -975,10 +1000,10 @@ func hasBuiltDockerImage(in *envconfig.Config) bool {
 
 func oneLineErrorMessage(errOrPanic any) string {
 	if err, ok := errOrPanic.(error); ok {
-		return strings.SplitN(err.Error(), "\n", 1)[0]
+		return strings.SplitN(err.Error(), "\n", 2)[0]
 	}
 
-	return strings.SplitN(fmt.Sprintf("%v", errOrPanic), "\n", 1)[0]
+	return strings.SplitN(fmt.Sprintf("%v", errOrPanic), "\n", 2)[0]
 }
 
 func initDxTracker() {
@@ -1174,7 +1199,7 @@ func purgeStateCmd() *cobra.Command {
 }
 
 func allCacheFolders() ([]string, error) {
-	// TODO get this path from Beholder in the CTF
+	// TODO get this path from Chip Ingress stack in the CTF
 	knownCacheDirRoots := []string{"~/.local/share/beholder", "~/.local/share/observability", "~/.local/share/chip_ingress_set", "~/.local/share/ctf"}
 
 	cacheDirs := []string{}

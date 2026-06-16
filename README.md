@@ -31,12 +31,12 @@ regarding Chainlink social accounts, news, and networking.
 
 ## Build Chainlink
 
-1. [Install Go 1.23](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
+1. [Install Go 1.26.4](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
    - Example Path for macOS `export PATH=$GOPATH/bin:$PATH` & `export GOPATH=/Users/$USER/go`
 2. Install [NodeJS v20](https://nodejs.org/en/download/package-manager/) & [pnpm v10 via npm](https://pnpm.io/installation#using-npm).
    - It might be easier long term to use [nvm](https://nodejs.org/en/download/package-manager/#nvm) to switch between node versions for different projects. For example, assuming $NODE_VERSION was set to a valid version of NodeJS, you could run: `nvm install $NODE_VERSION && nvm use $NODE_VERSION`
 3. Install [Postgres (>= 12.x)](https://wiki.postgresql.org/wiki/Detailed_installation_guides). It is recommended to run the latest major version of postgres.
-   - Note if you are running the official Chainlink docker image, the highest supported Postgres version is 16.x due to the bundled client.
+   - Note if you are running the official Chainlink docker image, the highest supported Postgres version is 17.x due to the bundled client.
    - You should [configure Postgres](https://www.postgresql.org/docs/current/ssl-tcp.html) to use SSL connection (or for testing you can set `?sslmode=disable` in your Postgres query string).
 4. Download Chainlink: `git clone https://github.com/smartcontractkit/chainlink && cd chainlink`
 5. Build and install Chainlink: `make install`
@@ -236,10 +236,22 @@ make testdb-force
 go test ./...
 ```
 
+### New, Condensed Test Flow
+
+Use `make test` which handles most of the test DB setup for you in plain go (see [tools/test/README.md](tools/test/README.md) for details).
+
+```sh
+make test ARGS="-h"         # See full capabilities of the test harness
+make test ARGS="./core/..." # Setup ephemeral test DB and run all tests in ./core
+
+# Re-run tests in full isolation and get detailed stats to root out flakes and races
+make test ARGS="diagnose --iterations 5 --parallel-iterations 3 -- ./core/config/..."
+```
+
 #### Notes
 
 - The `parallel` flag can be used to limit CPU usage, for running tests in the background (`-parallel=4`) - the default is `GOMAXPROCS`
-- The `p` flag can be used to limit the number of _packages_ tested concurrently, if they are interferring with one another (`-p=1`)
+- The `p` flag can be used to limit the number of _packages_ tested concurrently, if they are interfering with one another (`-p=1`)
 - The `-short` flag skips tests which depend on the database, for quickly spot checking simpler tests in around one minute
 
 #### Race Detector

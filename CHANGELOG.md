@@ -1,5 +1,48 @@
 # Changelog Chainlink Core
 
+## 2.51.0
+
+### Minor Changes
+
+- [#22721](https://github.com/smartcontractkit/chainlink/pull/22721) [`63d7423`](https://github.com/smartcontractkit/chainlink/commit/63d7423fafb512efbdf4da3a3d392f6c9a787217) - Minor bump to start next version
+
+## 2.50.0
+
+### Minor Changes
+
+- [#22617](https://github.com/smartcontractkit/chainlink/pull/22617) [`1cb63f7`](https://github.com/smartcontractkit/chainlink/commit/1cb63f7c1476b871b60c4ffdd5b59962970e14fd) - #removed Removed support for the Webhook job. Database tables and the front end related logic have not been removed, but jobs will no longer start.
+
+- [#22658](https://github.com/smartcontractkit/chainlink/pull/22658) [`8c502f6`](https://github.com/smartcontractkit/chainlink/commit/8c502f617fcf97f21565a47e2f3b985860d45fad) - Add Telemetry.PrometheusBridge to TOML config to support forwarding Prometheus metrics through Open Telemetry
+
+- [#22652](https://github.com/smartcontractkit/chainlink/pull/22652) [`6ce4009`](https://github.com/smartcontractkit/chainlink/commit/6ce40099a6d0fd33a0ed84d8ac69144df6a788d4) - Minor bump to start next version
+
+### Patch Changes
+
+- [#22548](https://github.com/smartcontractkit/chainlink/pull/22548) [`9845119`](https://github.com/smartcontractkit/chainlink/commit/984511933d8cdf52fe5d0c1ea883041322c1d4d4) - #bugfix fix llo buffered telemetry sampling
+
+## 2.49.0
+
+### Minor Changes
+
+- [#22538](https://github.com/smartcontractkit/chainlink/pull/22538) [`10c2bb0`](https://github.com/smartcontractkit/chainlink/commit/10c2bb00fc41b75d19ad5913756d3c990bdff859) - Minor bump to start next version
+
+- [#22518](https://github.com/smartcontractkit/chainlink/pull/22518) [`a5dffab`](https://github.com/smartcontractkit/chainlink/commit/a5dffab9f5c1ff7b325e7297fdaf04bafc9b4683) - Removed support for Legacy Gas Station jobs. The functionality was already removed before, this change removes
+  the database tables and code related to it.
+
+  #breaking_change #db_update #removed
+
+## 2.48.0
+
+### Minor Changes
+
+- [#22331](https://github.com/smartcontractkit/chainlink/pull/22331) [`4a1b448`](https://github.com/smartcontractkit/chainlink/commit/4a1b448ed33ff83f677b7344f29467f4464d182b) - **DirectRequest and FluxMonitor job types have been removed.** Creating new jobs of these types is no longer supported and will return an error. Any existing jobs of these types that are still present in the database will surface an error in the job UI on node startup rather than running. The underlying database tables (`direct_request_specs`, `flux_monitor_specs`, `flux_monitor_round_stats_v2`) are **unchanged in this release** and will be cleaned up in a future migration. The `[FluxMonitor]` TOML config section is now a no-op but is still accepted to avoid breaking existing config files during the transition. #breaking_change #nops
+
+- [#22380](https://github.com/smartcontractkit/chainlink/pull/22380) [`822f135`](https://github.com/smartcontractkit/chainlink/commit/822f1355f8a89eec684c8c3cc7c704f3f78f4add) - Remove VRF v1 support including coordinators, the legacy `vrf` pipeline task, and related configuration. Migrate to VRF v2 or VRF v2 Plus. #removed #breaking_change
+
+- [#22422](https://github.com/smartcontractkit/chainlink/pull/22422) [`89874ec`](https://github.com/smartcontractkit/chainlink/commit/89874ec20991343971cdda7770b021d3ac108c63) - Minor bump to start next version
+
+- [#22530](https://github.com/smartcontractkit/chainlink/pull/22530) [`45099b6`](https://github.com/smartcontractkit/chainlink/commit/45099b6a924020a64674bed38c7a2a51d891000c) - Bumped chainlink-evm dep. This includes: Ronin updated configs, Logpoller improvements, and Finalizer improvements. #internal
+
 ## 2.47.0
 
 ### Minor Changes

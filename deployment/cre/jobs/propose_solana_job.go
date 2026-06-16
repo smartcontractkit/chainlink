@@ -226,5 +226,5 @@ func (u ProposeSolanaJobSpec) Apply(e cldf.Environment, input ProposeSolanaJobSp
 		nodeIDToConfig[solIn.NodeID] = string(enc)
 	}
 
-	return proposeAndReport(e, job, nodeIDToConfig, input.Domain, input.DONName, input.Zone)
+	return proposeAndReport(e, job, nodeIDToConfig, input.Domain, input.Environment, input.DONName, input.Zone)
 }

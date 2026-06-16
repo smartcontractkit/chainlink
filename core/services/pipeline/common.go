@@ -21,8 +21,8 @@ import (
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 
+	cnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
-	cnull "github.com/smartcontractkit/chainlink/v2/core/null"
 )
 
 const (
@@ -36,10 +36,8 @@ const (
 	CCVExecutorJobType             string = "ccvexecutor"
 	DirectRequestJobType           string = "directrequest"
 	FluxMonitorJobType             string = "fluxmonitor"
-	GatewayJobType                 string = "gateway"
-	LegacyGasStationServerJobType  string = "legacygasstationserver"
-	LegacyGasStationSidecarJobType string = "legacygasstationsidecar"
-	OffchainReporting2JobType      string = "offchainreporting2"
+	GatewayJobType            string = "gateway"
+	OffchainReporting2JobType string = "offchainreporting2"
 	OffchainReportingJobType       string = "offchainreporting"
 	StreamJobType                  string = "stream"
 	VRFJobType                     string = "vrf"

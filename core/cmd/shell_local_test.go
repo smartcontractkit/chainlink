@@ -1,9 +1,11 @@
 package cmd_test
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"math/big"
+	"net/url"
 	"os"
 	"strconv"
 	"sync"
@@ -12,12 +14,15 @@ import (
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
+	"go.uber.org/zap/zapcore"
 
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
@@ -56,7 +61,14 @@ func resetShellForTest(shell *cmd.Shell) {
 	shell.LDB = nil
 	shell.DS = nil
 	shell.KeyStore = nil
+	shell.BeholderClient = nil
 }
+
+type stubLockedDB struct{}
+
+func (stubLockedDB) Open(context.Context) error { return nil }
+func (stubLockedDB) Close() error               { return nil }
+func (stubLockedDB) DB() *sqlx.DB               { return nil }
 
 func genTestEVMRelayers(t *testing.T, cfg chainlink.GeneralConfig, ds sqlutil.DataSource, ethKeystore keystore.Eth, csaKeystore core.Keystore) *chainlink.CoreRelayerChainInteroperators {
 	lggr := logger.TestLogger(t)
@@ -585,12 +597,126 @@ func TestShell_BeforeNode(t *testing.T) {
 				require.Error(t, err)
 			}
 			// Clean up database if it was opened
-			if shell.LDB != nil {
-				cleanupErr := shell.AfterNode(c)
-				require.NoError(t, cleanupErr)
-			}
+			cleanupShell(t, &shell, c)
 		})
 	}
+}
+
+func TestShell_BeholderLifecycle(t *testing.T) {
+	testutils.SkipShortDB(t)
+	rawDBURL, ok := os.LookupEnv("CL_DATABASE_URL")
+	if !ok {
+		t.Skip("CL_DATABASE_URL is required for this test")
+	}
+	parsedDBURL, err := url.Parse(rawDBURL)
+	if err != nil || parsedDBURL.Path == "" {
+		t.Skip("CL_DATABASE_URL must include a database path for this test")
+	}
+
+	newShell := func(t *testing.T, overrideFn func(c *chainlink.Config, s *chainlink.Secrets), setOtelCore func(zapcore.Core)) (*cmd.Shell, *cli.Context) {
+		t.Helper()
+
+		cfg, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.Database.DriverName = pgcommon.DriverPostgres
+			c.EVM = nil
+			c.Insecure.OCRDevelopmentMode = nil
+			if overrideFn != nil {
+				overrideFn(c, s)
+			}
+		})
+
+		shell := &cmd.Shell{
+			Config: cfg,
+			KeyStoreAuthenticator: cmd.TerminalKeyStoreAuthenticator{
+				Prompter: &cltest.MockCountingPrompter{T: t, NotTerminal: true},
+			},
+			Logger:      logger.TestLogger(t),
+			SetOtelCore: setOtelCore,
+		}
+		t.Cleanup(func() { resetShellForTest(shell) })
+
+		set := flag.NewFlagSet("test", 0)
+		flagSetApplyFromAction(shell.RunNode, set, "")
+		require.NoError(t, set.Set("password", "../internal/fixtures/correct_password.txt"))
+
+		ctx := cli.NewContext(nil, set, nil)
+		cliApp := cmd.NewApp(shell)
+		require.NoError(t, cliApp.Before(ctx))
+
+		return shell, ctx
+	}
+
+	t.Run("telemetry disabled assigns noop beholder client", func(t *testing.T) {
+		shell, c := newShell(t, nil, nil)
+		require.NoError(t, shell.BeforeNode(c))
+		require.NotNil(t, shell.BeholderClient, "BeholderClient should be a no-op client when telemetry is disabled")
+		require.NoError(t, shell.AfterNode(c))
+	})
+
+	t.Run("telemetry enabled starts and closes beholder", func(t *testing.T) {
+		shell, c := newShell(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			trueVal := true
+			c.Telemetry.Enabled = &trueVal
+			endpoint := "localhost:4317"
+			c.Telemetry.Endpoint = &endpoint
+			c.Telemetry.InsecureConnection = &trueVal
+		}, nil)
+		require.NoError(t, shell.BeforeNode(c))
+		require.NotNil(t, shell.BeholderClient, "BeholderClient should be set when telemetry is enabled")
+		assert.NoError(t, shell.BeholderClient.Ready())
+		require.NoError(t, shell.AfterNode(c))
+	})
+
+	t.Run("after node is idempotent", func(t *testing.T) {
+		shell, c := newShell(t, nil, nil)
+		require.NoError(t, shell.BeforeNode(c))
+		require.NoError(t, shell.AfterNode(c))
+		require.NoError(t, shell.AfterNode(c))
+	})
+
+	t.Run("log streaming sets otel core", func(t *testing.T) {
+		var setOtelCoreCalls int
+		shell, c := newShell(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			trueVal := true
+			c.Telemetry.Enabled = &trueVal
+			endpoint := "localhost:4317"
+			c.Telemetry.Endpoint = &endpoint
+			c.Telemetry.InsecureConnection = &trueVal
+			c.Telemetry.LogStreamingEnabled = &trueVal
+		}, func(core zapcore.Core) {
+			require.NotNil(t, core)
+			setOtelCoreCalls++
+		})
+
+		require.NoError(t, shell.BeforeNode(c))
+		assert.Equal(t, 1, setOtelCoreCalls)
+		require.NoError(t, shell.AfterNode(c))
+	})
+
+	t.Run("log streaming fails when SetOtelCore is nil", func(t *testing.T) {
+		shell, c := newShell(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			trueVal := true
+			c.Telemetry.Enabled = &trueVal
+			endpoint := "localhost:4317"
+			c.Telemetry.Endpoint = &endpoint
+			c.Telemetry.InsecureConnection = &trueVal
+			c.Telemetry.LogStreamingEnabled = &trueVal
+		}, nil) // SetOtelCore intentionally nil
+		err := shell.BeforeNode(c)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "SetOtelCore is nil")
+	})
+}
+
+func TestShell_AfterNode_NilBeholderClient(t *testing.T) {
+	shell := cmd.Shell{
+		LDB:            stubLockedDB{},
+		Logger:         logger.TestLogger(t),
+		BeholderClient: beholder.NewNoopClient(),
+	}
+	assert.NotPanics(t, func() {
+		_ = shell.AfterNode(cli.NewContext(nil, flag.NewFlagSet("test", 0), nil))
+	})
 }
 
 func TestShell_RunNode_WithBeforeNode(t *testing.T) {
@@ -681,10 +807,18 @@ func TestShell_RunNode_WithBeforeNode(t *testing.T) {
 				// Don't test RunNode if BeforeNode failed
 			}
 			// Clean up database if it was opened
-			if shell.LDB != nil {
-				cleanupErr := shell.AfterNode(c)
-				require.NoError(t, cleanupErr)
-			}
+			cleanupShell(t, &shell, c)
 		})
 	}
+}
+
+func cleanupShell(t *testing.T, shell *cmd.Shell, c *cli.Context) {
+	t.Helper()
+	if shell.LDB == nil {
+		return
+	}
+	if shell.BeholderClient == nil {
+		shell.BeholderClient = beholder.NewNoopClient()
+	}
+	require.NoError(t, shell.AfterNode(c))
 }

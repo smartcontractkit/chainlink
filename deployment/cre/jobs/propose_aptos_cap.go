@@ -165,5 +165,5 @@ func (u ProposeAptosCapJobSpec) Apply(e cldf.Environment, input ProposeAptosCapJ
 		nodeIDToConfig[aptosCapInput.NodeID] = string(enc)
 	}
 
-	return proposeAndReport(e, job, nodeIDToConfig, input.Domain, input.DONName, input.Zone)
+	return proposeAndReport(e, job, nodeIDToConfig, input.Domain, input.Environment, input.DONName, input.Zone)
 }

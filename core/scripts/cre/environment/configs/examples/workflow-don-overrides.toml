@@ -74,7 +74,7 @@
       # command: ctf obs up
       Endpoint = 'host.docker.internal:4317'
       # default service-name and port used by locally running Chip Ingress
-      # command: go run . env beholder start
+      # command: go run . env chip-ingress-stack start
       ChipIngressEndpoint = 'chip-ingress:50051'
       InsecureConnection = true
       TraceSampleRatio = 1

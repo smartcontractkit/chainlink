@@ -44,7 +44,7 @@ func PrepareNodeTOMLs(
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 	nodeSets []*cre.NodeSet,
-	capabilities []cre.InstallableCapability, // Deprecated, use Features instead and modify node configs inside a Feature
+	capabilities []cre.InstallableCapability, //nolint:staticcheck //SA1019 - We can't remove until other repos are updated
 	nodeConfigTransformerFns []cre.NodeConfigTransformerFn,
 	chipRouterInternalGRPCURL string,
 ) ([]*cre.NodeSet, error) {
@@ -348,6 +348,7 @@ func addBootstrapNodeConfig(
 		existingConfig.Telemetry.ChipIngressEndpoint = new(commonInputs.chipRouterInternalGRPCURL)
 		existingConfig.Telemetry.ChipIngressInsecureConnection = new(true)
 		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
+		existingConfig.Telemetry.DurableEmitterEnabled = new(true)
 
 		existingConfig.Billing = coretoml.Billing{
 			URL:        new("billing-platform-service:2223"),
@@ -436,6 +437,7 @@ func addWorkerNodeConfig(
 		existingConfig.Telemetry.ChipIngressEndpoint = new(commonInputs.chipRouterInternalGRPCURL)
 		existingConfig.Telemetry.ChipIngressInsecureConnection = new(true)
 		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
+		existingConfig.Telemetry.DurableEmitterEnabled = new(true)
 
 		existingConfig.Billing = coretoml.Billing{
 			URL:        new("billing-platform-service:2223"),
@@ -541,13 +543,7 @@ func addWorkerNodeConfig(
 		gateways := []coretoml.ConnectorGateway{}
 		if topology != nil && topology.GatewayConnectors != nil && len(topology.GatewayConnectors.Configurations) > 0 {
 			for _, gateway := range topology.GatewayConnectors.Configurations {
-				gateways = append(gateways, coretoml.ConnectorGateway{
-					ID: new(gateway.AuthGatewayID),
-					URL: new(fmt.Sprintf("ws://%s:%d%s",
-						gateway.Outgoing.Host,
-						gateway.Outgoing.Port,
-						gateway.Outgoing.Path)),
-				})
+				gateways = append(gateways, gateway.ToConnectorGateway())
 			}
 
 			existingConfig.Capabilities.GatewayConnector = coretoml.GatewayConnector{
@@ -754,17 +750,9 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 
 		solBc := bcOut.(*solana.Blockchain)
 
-		ctx, cancelFn := context.WithTimeout(context.Background(), 15*time.Second)
-		chainID, err := solBc.GenesisHash(ctx)
-		if err != nil {
-			cancelFn()
-			return nil, errors.Wrap(err, "failed to get chainID for Solana")
-		}
-		cancelFn()
-
 		solChain = &solanaChain{
 			Name:    fmt.Sprintf("node-%d", solBc.ChainSelector()),
-			ChainID: chainID,
+			ChainID: solBc.SolanaChainID, // use configured chainID instead of chain selector to ensure chainSelector - chainID mapping is valid
 			NodeURL: bcOut.CtfOutput().Nodes[0].InternalHTTPUrl,
 		}
 	}
@@ -871,6 +859,9 @@ func appendSolanaChain(existingConfig *corechainlink.RawConfigs, solChain *solan
 				"Name": solChain.Name,
 				"URL":  solChain.NodeURL,
 			},
+		},
+		"MultiNode": map[string]any{
+			"VerifyChainID": false, // disable chainID verification as Solana uses hash of genesis block as chainID, but we want to use a hardcoded chainID that has corresponding chain selector
 		},
 	})
 }

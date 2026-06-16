@@ -16,8 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 var (
@@ -63,80 +63,6 @@ ds          [type=http method=GET url="https://chain.link/ETH-USD"];
 ds_parse    [type=jsonparse path="data.price" separator="."];
 ds_multiply [type=multiply times=100];
 ds -> ds_parse -> ds_multiply;
-"""
-`
-	DirectRequestSpecNoExternalJobID = `
-type                = "directrequest"
-schemaVersion       = 1
-name                = "%s"
-contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
-evmChainID 			= "%s"
-observationSource   = """
-    ds1          [type=http method=GET url="http://example.com" allowunrestrictednetworkaccess="true"];
-    ds1_parse    [type=jsonparse path="USD"];
-    ds1_multiply [type=multiply times=100];
-    ds1 -> ds1_parse -> ds1_multiply;
-"""
-`
-	DirectRequestSpecTemplate = `
-type                = "directrequest"
-schemaVersion       = 1
-name                = "%s"
-contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
-externalJobID       = "%s"
-evmChainID 			= "%s"
-observationSource   = """
-    ds1          [type=http method=GET url="http://example.com" allowunrestrictednetworkaccess="true"];
-    ds1_parse    [type=jsonparse path="USD"];
-    ds1_multiply [type=multiply times=100];
-    ds1 -> ds1_parse -> ds1_multiply;
-"""
-`
-	DirectRequestSpecWithRequestersAndMinContractPaymentTemplate = `
-type                         = "directrequest"
-schemaVersion                = 1
-requesters                   = ["0xaaaa1F8ee20f5565510B84f9353F1E333E753B7a", "0xbbbb70F0e81C6F3430dfdC9fa02fB22BdD818C4e"]
-minContractPaymentLinkJuels  = "1000000000000000000000"
-name                         = "%s"
-contractAddress              = "0x613a38AC1659769640aaE063C651F48E0250454C"
-externalJobID                = "%s"
-evmChainID                   = "%s"
-observationSource            = """
-    ds1          [type=http method=GET url="http://example.com" allowunrestrictednetworkaccess="true"];
-    ds1_parse    [type=jsonparse path="USD"];
-    ds1_multiply [type=multiply times=100];
-    ds1 -> ds1_parse -> ds1_multiply;
-"""
-`
-	FluxMonitorSpecTemplate = `
-type                = "fluxmonitor"
-schemaVersion       = 1
-name                = "%s"
-contractAddress     = "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
-externalJobID       =  "%s"
-evmChainID          =  "%s"
-threshold = 0.5
-absoluteThreshold = 0.0 # optional
-
-idleTimerPeriod = "1s"
-idleTimerDisabled = false
-
-pollTimerPeriod = "1m"
-pollTimerDisabled = false
-
-observationSource = """
-// data source 1
-ds1 [type=http method=GET url="https://pricesource1.com" requestData="{\\"coin\\": \\"ETH\\", \\"market\\": \\"USD\\"}"];
-ds1_parse [type=jsonparse path="latest"];
-
-// data source 2
-ds2 [type=http method=GET url="https://pricesource1.com" requestData="{\\"coin\\": \\"ETH\\", \\"market\\": \\"USD\\"}"];
-ds2_parse [type=jsonparse path="latest"];
-
-ds1 -> ds1_parse -> answer1;
-ds2 -> ds2_parse -> answer1;
-
-answer1 [type=median index=0];
 """
 `
 
@@ -272,15 +198,6 @@ func GetGatewaySpec() string {
 
 func GetOCRBootstrapSpec() string {
 	return fmt.Sprintf(OCRBootstrapSpec, uuid.New())
-}
-
-func GetDirectRequestSpec() string {
-	uuid := uuid.New()
-	return GetDirectRequestSpecWithUUID(uuid)
-}
-
-func GetDirectRequestSpecWithUUID(u uuid.UUID) string {
-	return fmt.Sprintf(DirectRequestSpecTemplate, u, u, testutils.FixtureChainID.String())
 }
 
 func GetOCR2EVMSpecMinimal() string {
@@ -631,8 +548,13 @@ observationSource = """
 	}, toml: fmt.Sprintf(header, name, contractAddress, evmChainID, jobID, transmitterAddress, observationBlock)}
 }
 
+type TOMLWebhookSpecExternalInitiator struct {
+	Name string      `toml:"name"`
+	Spec models.JSON `toml:"spec"`
+}
+
 type WebhookSpecParams struct {
-	ExternalInitiators []webhook.TOMLWebhookSpecExternalInitiator
+	ExternalInitiators []TOMLWebhookSpecExternalInitiator
 }
 
 type WebhookSpec struct {

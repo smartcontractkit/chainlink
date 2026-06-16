@@ -393,6 +393,7 @@ func (c *ConfigureCapabilityRegistryInput) Validate() error {
 type GatewayServiceAuth0Config struct {
 	IssuerURL string `yaml:"issuerURL" toml:"issuerURL" json:"issuerURL"`
 	Audience  string `yaml:"audience" toml:"audience" json:"audience"`
+	TenantID  uint64 `yaml:"tenantID" toml:"tenantID" json:"tenantID"`
 }
 
 type GatewayServiceConfig struct {
@@ -652,7 +653,7 @@ func (m *DonMetadata) GatewayConfig(p infra.Provider, gatewayNodeIdx int) (*DonG
 	}
 
 	return &DonGatewayConfiguration{
-		GatewayConfiguration: NewGatewayConfig(p, gatewayNode.Index, gatewayNodeIdx, gatewayNode.HasRole(BootstrapNode), gatewayNode.UUID, m.Name),
+		GatewayConfiguration: NewGatewayConfig(p, gatewayNode.Index, gatewayNodeIdx, gatewayNode.HasRole(BootstrapNode), gatewayNode.UUID, m.Name, m.ns.GatewayDonID),
 	}, nil
 }
 
@@ -789,13 +790,10 @@ func (m *DonMetadata) ConfigureForGatewayAccess(chainID uint64, connectors Gatew
 			}
 
 			if !alreadyPresent {
-				typedConfig.Capabilities.GatewayConnector.Gateways = append(typedConfig.Capabilities.GatewayConnector.Gateways, coretoml.ConnectorGateway{
-					ID: new(gatewayConnector.AuthGatewayID),
-					URL: new(fmt.Sprintf("ws://%s:%d%s",
-						gatewayConnector.Outgoing.Host,
-						gatewayConnector.Outgoing.Port,
-						gatewayConnector.Outgoing.Path)),
-				})
+				typedConfig.Capabilities.GatewayConnector.Gateways = append(
+					typedConfig.Capabilities.GatewayConnector.Gateways,
+					gatewayConnector.ToConnectorGateway(),
+				)
 			}
 		}
 
@@ -1225,6 +1223,8 @@ type NodeSet struct {
 	// ContractDonID is the donID assigned by the Capabilities Registry contract. 0 = use optimistic i+1.
 	ContractDonID                uint64   `toml:"contract_don_id"`
 	RegistryBasedLaunchAllowlist []string `toml:"registry_based_launch_allowlist"`
+	// GatewayDonID is the gateway DON used for multi-gateway HTTP action routing on gateway nodesets.
+	GatewayDonID string `toml:"gateway_don_id"`
 
 	chainCapabilityIndex      map[CapabilityFlag][]uint64
 	chainCapabilityIndexBuilt bool
@@ -1294,9 +1294,12 @@ func (c *NodeSet) ChainCapabilityChainIDs() []uint64 {
 }
 
 func (c *NodeSet) Flags() []string {
-	var stringCaps []string
-
-	return append(stringCaps, append(c.Capabilities, c.DONTypes...)...)
+	var stringCaps = make([]string, len(c.Capabilities)+len(c.DONTypes))
+	copy(stringCaps, c.Capabilities)
+	for i, donType := range c.DONTypes {
+		stringCaps[len(c.Capabilities)+i] = donType
+	}
+	return stringCaps
 }
 
 func (c *NodeSet) GetEnabledChainIDsForCapability(flag CapabilityFlag) ([]uint64, error) {
@@ -1584,6 +1587,7 @@ func ResolveCapabilityConfig(nodeSet NodeSetWithCapabilityConfigs, flag Capabili
 // InstallableCapability defines the interface for capabilities that can be dynamically
 // registered and deployed across DONs. This interface enables plug-and-play capability
 // extension without modifying core infrastructure code.
+
 // Deprecated: Use Feature interface instead for new capabilities.
 type InstallableCapability interface {
 	// Flag returns the unique identifier used in TOML configurations and internal references

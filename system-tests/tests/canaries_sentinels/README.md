@@ -50,9 +50,9 @@ from the `core/scripts/cre/environment` directory:
    ./ctf obs up
    ```
 
-3. **Start beholder:**
+3. **Start Chip Ingress stack:**
    ```bash
-   go run . env beholder start
+   go run . env chip-ingress-stack start
    ```
 
 4. **Deploy required contracts:**

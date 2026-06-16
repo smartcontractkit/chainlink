@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cldfSolana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	cldfChain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
@@ -34,9 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
-
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -97,7 +95,7 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 	require.NoError(t, err)
 	evmChains := tenv.Env.BlockChains.ListChainSelectors(cldfChain.WithFamily(chainSelectors.FamilyEVM))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldfChain.WithFamily(chainSelectors.FamilySolana))[0]
-	var mcmsConfig *proposalutils.TimelockConfig
+	var mcmsConfig *cldfproposalutils.TimelockConfig
 	if mcms {
 		_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(t, &e, solChain, true,
 			ccipChangesetSolana.CCIPContractsToTransfer{
@@ -105,7 +103,7 @@ func doTestAddRemoteChain(t *testing.T, mcms bool) {
 				FeeQuoter: true,
 				OffRamp:   true,
 			})
-		mcmsConfig = &proposalutils.TimelockConfig{
+		mcmsConfig = &cldfproposalutils.TimelockConfig{
 			MinDelay: 1 * time.Second,
 		}
 	}
@@ -343,7 +341,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 	bigNum, ok := new(big.Int).SetString("19816680000000000000", 10)
 	require.True(t, ok)
 	bigNum.FillBytes(value[:])
-	var mcmsConfig *proposalutils.TimelockConfig
+	var mcmsConfig *cldfproposalutils.TimelockConfig
 	testPriceUpdater := e.BlockChains.SolanaChains()[solChain].DeployerKey.PublicKey()
 	if mcms {
 		_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(t, &e, solChain, true,
@@ -352,7 +350,7 @@ func doTestBilling(t *testing.T, mcms bool) {
 				Router:    true,
 				OffRamp:   true,
 			})
-		mcmsConfig = &proposalutils.TimelockConfig{
+		mcmsConfig = &cldfproposalutils.TimelockConfig{
 			MinDelay: 1 * time.Second,
 		}
 		testPriceUpdater, err = ccipChangesetSolana.FetchTimelockSigner(e, solChain)
@@ -416,10 +414,10 @@ func doTestBilling(t *testing.T, mcms bool) {
 							evmChain: {
 								TokenAddressToFeeConfig: map[solana.PublicKey]ccipChangesetSolana.OptionalFeeQuoterTokenTransferFeeConfig{
 									tokenAddressB: {
-										MinFeeUsdcents:    pointer.To(uint32(800)),
-										MaxFeeUsdcents:    pointer.To(uint32(1600)),
-										DestGasOverhead:   pointer.To(uint32(100)),
-										DestBytesOverhead: pointer.To(uint32(100)),
+										MinFeeUsdcents:    new(uint32(800)),
+										MaxFeeUsdcents:    new(uint32(1600)),
+										DestGasOverhead:   new(uint32(100)),
+										DestBytesOverhead: new(uint32(100)),
 										IsEnabled:         nil, // auto-filled
 										DeciBps:           nil, // auto-filled
 									},
@@ -431,10 +429,10 @@ func doTestBilling(t *testing.T, mcms bool) {
 							evmChain2: {
 								TokenAddressToFeeConfig: map[solana.PublicKey]ccipChangesetSolana.OptionalFeeQuoterTokenTransferFeeConfig{
 									tokenAddressB: {
-										MinFeeUsdcents:    pointer.To(uint32(800)),
-										MaxFeeUsdcents:    pointer.To(uint32(1600)),
-										DestGasOverhead:   pointer.To(uint32(100)),
-										DestBytesOverhead: pointer.To(uint32(100)),
+										MinFeeUsdcents:    new(uint32(800)),
+										MaxFeeUsdcents:    new(uint32(1600)),
+										DestGasOverhead:   new(uint32(100)),
+										DestBytesOverhead: new(uint32(100)),
 										IsEnabled:         nil, // auto-filled
 										DeciBps:           nil, // auto-filled
 									},
@@ -668,7 +666,7 @@ func TestSetTokenAuthority(t *testing.T) {
 		})
 	timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(tenv.Env, solChain)
 	require.NoError(t, err)
-	mcmsConfig := &proposalutils.TimelockConfig{
+	mcmsConfig := &cldfproposalutils.TimelockConfig{
 		MinDelay: 1 * time.Second,
 	}
 	newAdmin := tenv.Env.BlockChains.SolanaChains()[solChain].DeployerKey.PublicKey()
@@ -760,13 +758,13 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 	newAdminNonTimelock, _ := solana.NewRandomPrivateKey()
 	newAdminRegistryAdmin := newAdminNonTimelock.PublicKey()
 
-	var mcmsConfig *proposalutils.TimelockConfig
+	var mcmsConfig *cldfproposalutils.TimelockConfig
 	if mcms {
 		_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(t, &e, solChain, true,
 			ccipChangesetSolana.CCIPContractsToTransfer{
 				Router: true,
 			})
-		mcmsConfig = &proposalutils.TimelockConfig{
+		mcmsConfig = &cldfproposalutils.TimelockConfig{
 			MinDelay: 1 * time.Second,
 		}
 		timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(e, solChain)
@@ -894,7 +892,7 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 
 	solChain := e.BlockChains.ListChainSelectors(cldfChain.WithFamily(chainSelectors.FamilySolana))[0]
 
-	var mcmsConfig *proposalutils.TimelockConfig
+	var mcmsConfig *cldfproposalutils.TimelockConfig
 	newAdmin := e.BlockChains.SolanaChains()[solChain].DeployerKey.PublicKey()
 	if mcms {
 		_, _ = testhelpers.TransferOwnershipSolanaV0_1_1(t, &e, solChain, true,
@@ -903,7 +901,7 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 				FeeQuoter: true,
 				OffRamp:   true,
 			})
-		mcmsConfig = &proposalutils.TimelockConfig{
+		mcmsConfig = &cldfproposalutils.TimelockConfig{
 			MinDelay: 1 * time.Second,
 		}
 		timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(e, solChain)
@@ -1005,7 +1003,7 @@ func TestDeployCCIPContracts(t *testing.T) {
 	// TODO: Fix this test to use the new changeset
 	t.Parallel()
 	skipInCI(t)
-	testhelpers.DeployCCIPContractsTest(t, 1, 1)
+	testhelpers.DeployCCIPContractsTest(t, 1)
 }
 
 // ocr3 test
@@ -1032,7 +1030,7 @@ func TestSetOcr3Active(t *testing.T) {
 				HomeChainSel:       homeChainSel,
 				RemoteChainSels:    solChainSelectors,
 				CCIPHomeConfigType: globals.ConfigTypeActive,
-				MCMS:               &proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+				MCMS:               &cldfproposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 			},
 		),
 	})
@@ -1060,7 +1058,7 @@ func TestSetOcr3Candidate(t *testing.T) {
 				HomeChainSel:       homeChainSel,
 				RemoteChainSels:    solChainSelectors,
 				CCIPHomeConfigType: globals.ConfigTypeCandidate,
-				MCMS:               &proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+				MCMS:               &cldfproposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 			},
 		),
 	})

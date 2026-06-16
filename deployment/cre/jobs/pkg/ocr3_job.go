@@ -41,6 +41,7 @@ type OCR3JobConfigInput struct {
 type Auth0Config struct {
 	IssuerURL string `yaml:"issuerURL" toml:"issuerURL" json:"issuerURL"`
 	Audience  string `yaml:"audience" toml:"audience" json:"audience"`
+	TenantID  Uint64 `yaml:"tenantID" toml:"tenantID" json:"tenantID"`
 }
 
 type OCR3JobConfig struct {

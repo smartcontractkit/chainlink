@@ -98,6 +98,7 @@ func TestFingerprint(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			fp, ts, err := fingerprint(test.typ, test.msg)
 			if test.err != nil {
 				assert.EqualError(t, err, test.err.Error())
@@ -120,7 +121,7 @@ func TestSample(t *testing.T) {
 	samplr := newSampler(lggr, true)
 	samplr.StartPruningLoop(ctx, &sync.WaitGroup{})
 
-	t0 := time.Now()
+	t0 := time.Unix(1600000000, 0)
 	msg0 := &llo.LLOOutcomeTelemetry{
 		DonId:                           2,
 		ConfigDigest:                    []byte("digest"),

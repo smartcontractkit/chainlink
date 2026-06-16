@@ -25,8 +25,12 @@ func TestTestJWTIssuer_WorksWithVaultJWTBasedAuth(t *testing.T) {
 		require.NoError(t, issuer.Close())
 	})
 
+	owner, err := vaultcap.DeriveJWTAuthorizedVaultWorkflowOwner("org-test", 1, "")
+	require.NoError(t, err)
+
 	params, err := json.Marshal(vaultcommon.ListSecretIdentifiersRequest{
 		Namespace: "main",
+		Owner:     owner,
 	})
 	require.NoError(t, err)
 
@@ -44,8 +48,9 @@ func TestTestJWTIssuer_WorksWithVaultJWTBasedAuth(t *testing.T) {
 		KeyID:         DefaultJWTIssuerKeyID,
 		Issuer:        issuer.LocalIssuerURL(),
 		Audience:      "https://api.test.chain.link",
+		TenantID:      1,
 		OrgID:         "org-test",
-		WorkflowOwner: "0xAbCdEf0123456789AbCdEf0123456789AbCdEf01",
+		WorkflowOwner: owner,
 		RequestDigest: requestDigest,
 		Scopes:        []string{vaultcap.OAuthScopeVaultSecretsList},
 	})
@@ -56,13 +61,14 @@ func TestTestJWTIssuer_WorksWithVaultJWTBasedAuth(t *testing.T) {
 	auth, err := vaultcap.NewJWTBasedAuth(vaultcap.JWTBasedAuthConfig{
 		IssuerURL: issuer.LocalIssuerURL(),
 		Audience:  "https://api.test.chain.link",
+		TenantID:  1,
 	}, limits.Factory{Settings: cresettings.DefaultGetter}, logger.TestLogger(t), vaultcap.WithJWTBasedAuthGateLimiter(limits.NewGateLimiter(true)))
 	require.NoError(t, err)
 
 	authResult, err := auth.AuthorizeRequest(t.Context(), req)
 	require.NoError(t, err)
 	require.Equal(t, "org-test", authResult.OrgID())
-	require.Equal(t, "0xAbCdEf0123456789AbCdEf0123456789AbCdEf01", authResult.WorkflowOwner())
+	require.Equal(t, owner, authResult.WorkflowOwner())
 	require.Equal(t, requestDigest, authResult.Digest())
 }
 

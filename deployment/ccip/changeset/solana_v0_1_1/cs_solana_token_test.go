@@ -15,6 +15,10 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	linkchangesets "github.com/smartcontractkit/cld-changesets/tokens/link/changesets"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deploylink"
+
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -22,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
@@ -187,11 +190,9 @@ func TestDeployLinkToken(t *testing.T) {
 	solLinkTokenPrivKey, _ := solana.NewRandomPrivateKey()
 
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeploySolanaLinkToken), commonchangeset.DeploySolanaLinkTokenConfig{
-			ChainSelector: selector,
-			TokenPrivKey:  solLinkTokenPrivKey,
-			TokenDecimals: 9,
-		}),
+		runtime.ChangesetTask(deploylink.DeployLinkTokenChangeset{}, linkchangesets.DeployLinkTokenInput{Solana: map[uint64]linkchangesets.SolanaLinkConfig{
+			selector: {TokenPrivKey: solLinkTokenPrivKey, TokenDecimals: 9},
+		}}),
 	)
 	require.NoError(t, err)
 

@@ -9,6 +9,7 @@ import (
 
 	suite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/config"
 	evm_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
+	solana_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 )
 
@@ -27,7 +28,7 @@ var (
 //////////// CRE TESTS /////////////
 /*
 To execute tests start the local CRE first:
- 1. Inside `core/scripts/cre/environment` directory: `go run . env restart --with-beholder`
+ 1. Inside `core/scripts/cre/environment` directory: `go run . env restart --with-chip-ingress-stack` (deprecated: `--with-beholder`)
  2. Execute the tests in `system-tests/tests/smoke/cre`: `go test -timeout 15m -run "^Test_CRE_"`.
 */
 func Test_CRE_V2_Suite_Bucket_A(t *testing.T) {
@@ -92,18 +93,19 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 				vaultConfig = getVaultJWTAuthEnabledTestConfig(t)
 				allowlistSubtestName = "allowlist_auth_when_jwt_auth_enabled"
 				jwtSubtestName = "jwt_auth_when_jwt_auth_enabled"
+			} else if isVaultOptimizationsEnabledTopology(topology) {
+				vaultConfig = getVaultOptimizationsEnabledTestConfig(t)
+				allowlistSubtestName = "allowlist_auth_when_vault_optimizations_enabled"
 			}
 			fixture := setupVaultSharedScenarioFixture(t, vaultConfig)
-			allowlistEnv := fixture.TestEnv
-			jwtEnv := fixture.TestEnv
-			if parallelEnabled && isVaultJWTAuthEnabledTopology(topology) {
-				allowlistEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
-				jwtEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
-			}
 
 			t.Run(allowlistSubtestName, func(t *testing.T) {
 				if parallelEnabled {
 					t.Parallel()
+				}
+				allowlistEnv := fixture.TestEnv
+				if parallelEnabled && isVaultJWTAuthEnabledTopology(topology) {
+					allowlistEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
 				}
 				ExecuteVaultAllowListBasedTests(t, fixture, allowlistEnv)
 			})
@@ -111,6 +113,10 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 				t.Run(jwtSubtestName, func(t *testing.T) {
 					if parallelEnabled {
 						t.Parallel()
+					}
+					jwtEnv := fixture.TestEnv
+					if parallelEnabled {
+						jwtEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
 					}
 					ExecuteVaultMixedAuthTest(t, fixture, jwtEnv)
 				})
@@ -123,13 +129,13 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 				ExecuteVaultJWTDisabledTest(t, fixture)
 			})
 		})
-	case suite_config.SuiteScenarioCronBeholder:
+	case suite_config.SuiteScenarioCronChipIngressStack:
 		t.Run("Cron Beholder - "+topology, func(t *testing.T) {
 			if parallelEnabled {
 				t.Parallel()
 			}
 			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
-			ExecuteCronBeholderTest(t, testEnv)
+			ExecuteCronChipIngressStackTest(t, testEnv)
 		})
 	case suite_config.SuiteScenarioHTTPTriggerAction:
 		t.Run("HTTP Trigger Action - "+topology, func(t *testing.T) {
@@ -146,6 +152,17 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 			}
 			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteHTTPActionCRUDSuccessTest(t, testEnv)
+		})
+	case suite_config.SuiteScenarioHTTPActionMultiGateway:
+		t.Run("HTTP Action Multi Gateway - "+topology, func(t *testing.T) {
+			if !isMultiGatewayTopology(topology) {
+				t.Skipf("skipping multi-gateway HTTP action test on topology %q", topology)
+			}
+			if parallelEnabled {
+				t.Parallel()
+			}
+			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, getMultiGatewayTestConfig(t))
+			ExecuteHTTPActionMultiGatewayRoutingTest(t, testEnv)
 		})
 	case suite_config.SuiteScenarioDONTime:
 		t.Run("DON Time - "+topology, func(t *testing.T) {
@@ -211,10 +228,38 @@ func runEVMReadBucket(t *testing.T, bucket evm_config.ReadBucket) {
 	})
 }
 
-func Test_CRE_V2_Solana_Suite(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-don-solana.toml"))
+const solanaConfigPath = "/configs/workflow-don-solana.toml"
+
+func Test_CRE_V2_Solana_Write(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, solanaConfigPath))
 	t.Run("Solana Write", func(t *testing.T) {
 		ExecuteSolanaWriteTest(t, testEnv)
+	})
+}
+
+func Test_CRE_V2_Solana_LogTrigger(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, solanaConfigPath))
+	t.Run("Solana LogTrigger", func(t *testing.T) {
+		ExecuteSolanaLogTriggerTest(t, testEnv)
+	})
+	t.Run("Solana LogTrigger CPI", func(t *testing.T) {
+		ExecuteSolanaLogTriggerCPITest(t, testEnv)
+	})
+}
+
+func Test_CRE_V2_Solana_Read_Accounts(t *testing.T) {
+	runSolanaReadBucket(t, solana_config.ReadBucketAccountCalls)
+}
+
+func runSolanaReadBucket(t *testing.T, bucket solana_config.ReadBucket) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, solanaConfigPath))
+	require.NoError(t, solana_config.ValidateReadBucketRegistry(), "invalid Solana read bucket registry")
+
+	testCases, err := solana_config.CasesForReadBucket(bucket)
+	require.NoErrorf(t, err, "failed to load Solana read bucket %q", bucket)
+
+	t.Run(fmt.Sprintf("Solana Read (%s) - %s", bucket, topology), func(t *testing.T) {
+		ExecuteSolanaReadTestForCases(t, testEnv, testCases)
 	})
 }
 
@@ -224,6 +269,13 @@ func Test_CRE_V2_Aptos_Suite(t *testing.T) {
 		ExecuteAptosTest(t, testEnv)
 	})
 }
+
+func Test_CRE_V2_Module_Cache(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-cache-test.toml"))
+
+	ExecuteModuleCacheTest(t, testEnv)
+}
+
 func Test_CRE_V2_HTTP_Action_Regression_Suite(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 
@@ -234,6 +286,11 @@ func Test_CRE_V2_Beholder_Suite(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), "--with-dashboards")
 
 	ExecuteLogStreamingTest(t, testEnv)
+}
+
+func Test_CRE_V2_DurableEmitter(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
+	ExecuteDurableEmitterTest(t, testEnv)
 }
 
 func Test_CRE_V2_Sharding(t *testing.T) {

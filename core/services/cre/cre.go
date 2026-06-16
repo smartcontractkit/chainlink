@@ -11,6 +11,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/uuid"
 	"github.com/jonboulle/clockwork"
+	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/grpc/credentials"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -19,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/diskmonitor"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
@@ -85,6 +87,7 @@ type Opts struct {
 
 	BillingClient metering.BillingClient
 	LinkingClient linkingclient.LinkingServiceClient
+	Meter         metric.Meter
 
 	StorageClient storage.WorkflowClient
 
@@ -672,17 +675,11 @@ func newOrgResolver(
 		WorkflowRegistryAddress:       capCfg.WorkflowRegistry().Address(),
 		WorkflowRegistryChainSelector: wrChainDetails.ChainSelector,
 		JWTGenerator:                  opts.JWTGenerator,
+		Client:                        opts.LinkingClient,
+		Meter:                         opts.Meter,
 	}
 
-	var (
-		resolver orgresolver.OrgResolver
-		err      error
-	)
-	if opts.LinkingClient != nil {
-		resolver, err = orgresolver.NewOrgResolverWithClient(orgResolverConfig, opts.LinkingClient, lggr)
-	} else {
-		resolver, err = orgresolver.NewOrgResolver(orgResolverConfig, lggr)
-	}
+	resolver, err := orgResolverConfig.New(lggr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create org resolver: %w", err)
 	}
@@ -942,13 +939,6 @@ func newWorkflowRegistrySyncerV2(
 		key,
 		custmsg.NewLabeler(),
 		lf,
-		artifactsV2.WithMaxArtifactSize(
-			artifactsV2.ArtifactConfig{
-				MaxBinarySize:  uint64(wfReg.MaxBinarySize()),
-				MaxSecretsSize: uint64(wfReg.MaxEncryptedSecretsSize()),
-				MaxConfigSize:  uint64(wfReg.MaxConfigSize()),
-			},
-		),
 		artifactsV2.WithConfig(artifactsV2.StoreConfig{
 			ArtifactStorageHost: wfReg.WorkflowStorage().ArtifactStorageHost(),
 		}),
@@ -983,12 +973,15 @@ func newWorkflowRegistrySyncerV2(
 	if opts.ShardOrchestratorClient != nil {
 		shardOrchestratorClient = opts.ShardOrchestratorClient
 	} else {
-		var c shardorchestrator.ClientInterface
-		c, err = newShardOrchestratorClient(cfg, lggr)
-		if err != nil {
-			return nil, nil, err
+		c, clientErr := newShardOrchestratorClient(cfg, lggr)
+		if clientErr != nil {
+			return nil, nil, clientErr
 		}
-		shardOrchestratorClient = c
+		if c != nil {
+			shardOrchestratorClient = c
+		} else {
+			lggr.Debugw("ShardOrchestrator client not created (shard 0 runs the server)")
+		}
 	}
 
 	shardingEnabled := cfg.Sharding().ShardingEnabled()
@@ -1001,6 +994,73 @@ func newWorkflowRegistrySyncerV2(
 			lggr.Warnw("Failed to register shard routing steady signal metrics; continuing without steady instrumentation", "err", errSteady)
 		}
 		shardRoutingSteady = shardownership.NewSteadySignal(shardownership.WithSteadySignalMetrics(steadyMetrics))
+	}
+
+	handlerOpts := []syncerV2.EventHandlerOption{
+		syncerV2.WithBillingClient(billingClient),
+		syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), selector),
+		syncerV2.WithOrgResolver(orgResolver),
+		syncerV2.WithDebugMode(cfg.CRE().DebugMode()),
+		syncerV2.WithLocalSecretOverrides(lggr, cfg.CRE().LocalSecretOverrides()),
+		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled, shardIndex),
+		syncerV2.WithShardRoutingSteady(shardRoutingSteady),
+	}
+
+	mc := capCfg.WorkflowRegistry().ModuleCache()
+	cacheEnabled := mc.Enabled()
+	diskMonitorEnabled := mc.DiskMonitorEnabled() || cacheEnabled
+
+	if diskMonitorEnabled || cacheEnabled {
+		fileStore, fsErr := artifactsV2.NewFileModuleStore(mc.CacheDir(), cacheEnabled)
+		if fsErr != nil {
+			return nil, nil, fmt.Errorf("unable to create file module store: %w", fsErr)
+		}
+
+		if diskMonitorEnabled {
+			dm, dmErr := diskmonitor.NewDiskMonitor(
+				lggr,
+				fileStore.CacheDir(),
+				syncerV2.GaugeWorkflowModuleCacheDiskUsageBytes,
+				syncerV2.WorkflowModuleCacheDiskMonitorTickInterval,
+			)
+			if dmErr != nil {
+				return nil, nil, fmt.Errorf("unable to create module cache disk monitor: %w", dmErr)
+			}
+			srvcs = append(srvcs, dm)
+
+			lggr.Infow("Module cache disk monitor enabled", "cacheDir", fileStore.CacheDir())
+		}
+
+		if cacheEnabled {
+			cm, cmErr := syncerV2.NewCacheMetrics()
+			if cmErr != nil {
+				return nil, nil, fmt.Errorf("unable to create module cache metrics: %w", cmErr)
+			}
+
+			lruOpts := []func(*syncerV2.ModuleLRU){
+				syncerV2.WithMaxLoadedModules(mc.MaxLoaded()),
+				syncerV2.WithCacheMetrics(cm),
+			}
+			if mc.IdleEviction() {
+				lruOpts = append(lruOpts, syncerV2.WithIdleTimeout(mc.IdleTimeout()))
+			} else {
+				lruOpts = append(lruOpts, syncerV2.WithIdleTimeout(0))
+			}
+			moduleLRU := syncerV2.NewModuleLRU(clockwork.NewRealClock(), lruOpts...)
+
+			handlerOpts = append(handlerOpts,
+				syncerV2.WithModuleLRU(moduleLRU),
+				syncerV2.WithModuleStore(fileStore),
+				syncerV2.WithModuleCacheMetrics(cm),
+			)
+
+			lggr.Infow("Module cache enabled",
+				"idleEviction", mc.IdleEviction(),
+				"idleTimeout", mc.IdleTimeout(),
+				"maxLoaded", mc.MaxLoaded(),
+				"cacheDir", fileStore.CacheDir(),
+			)
+		}
 	}
 
 	eventHandler, err := syncerV2.NewEventHandler(
@@ -1018,13 +1078,7 @@ func newWorkflowRegistrySyncerV2(
 		artifactsStore,
 		key,
 		workflowDonNotifier,
-		syncerV2.WithBillingClient(billingClient),
-		syncerV2.WithWorkflowRegistry(wfReg.Address(), selector),
-		syncerV2.WithOrgResolver(orgResolver),
-		syncerV2.WithDebugMode(cfg.CRE().DebugMode()),
-		syncerV2.WithLocalSecretOverrides(lggr, cfg.CRE().LocalSecretOverrides()),
-		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled, shardIndex),
-		syncerV2.WithShardRoutingSteady(shardRoutingSteady),
+		handlerOpts...,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)

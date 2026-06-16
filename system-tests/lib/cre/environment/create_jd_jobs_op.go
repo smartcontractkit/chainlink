@@ -21,7 +21,7 @@ type CreateJobsWithJdOpDeps struct {
 	CreEnvironment                *cre.Environment
 	Dons                          *cre.Dons
 	NodeSets                      []*cre.NodeSet
-	Capabilities                  []cre.InstallableCapability
+	Capabilities                  []cre.InstallableCapability //nolint:staticcheck //SA1019 - We can't remove until other repos are updated
 }
 
 type CreateJobsWithJdOpInput struct {

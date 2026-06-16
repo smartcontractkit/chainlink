@@ -18,6 +18,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -30,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
@@ -135,6 +137,20 @@ func (e *Engine) buildLabels(localNode *capabilities.Node) []any {
 		platform.DonVersion, strconv.FormatUint(uint64(pinnedWorkflowDonConfigVersion), 10),
 		platform.KeySDK, e.cfg.SdkName,
 	}
+}
+
+// eventLabels returns a copy of the current label map with org ID applied.
+func (e *Engine) eventLabels() map[string]string {
+	return maps.Clone(*e.loggerLabels.Load())
+}
+
+// storeLoggerLabels persists base labels and always merges in the resolved org ID.
+func (e *Engine) storeLoggerLabels(base map[string]string) {
+	labels := maps.Clone(base)
+	if e.orgID != "" {
+		labels[platform.KeyOrganizationID] = e.orgID
+	}
+	e.loggerLabels.Store(&labels)
 }
 
 // logger returns the current logger in a thread-safe manner.
@@ -260,9 +276,7 @@ func (e *Engine) start(ctx context.Context) error {
 			e.orgID = orgID
 		}
 	}
-	loggerLabels := maps.Clone(*e.loggerLabels.Load())
-	loggerLabels[platform.KeyOrganizationID] = e.orgID
-	e.loggerLabels.Store(&loggerLabels)
+	e.storeLoggerLabels(e.eventLabels())
 
 	e.metrics = e.metrics.With(platform.KeyOrganizationID, e.orgID)
 
@@ -368,7 +382,11 @@ func (e *Engine) localNodeSync(ctx context.Context) {
 		"Workflow DON Config Version (pinned)", pinnedWorkflowDonConfigVersion,
 	)
 
-	// Recreate the beholder logger with updated labels to reflect the new DON version
+	// Publish the new node before updating logger state so concurrent executions
+	// observe the synced DON while labels are rebuilt.
+	e.localNode.Store(&localNode)
+
+	// Recreate the beholder logger with updated labels to reflect the new DON version.
 	labels := e.buildLabels(&localNode)
 	newLogger := logger.Sugared(
 		custmsg.NewBeholderLogger(e.cfg.Lggr, e.cfg.BeholderEmitter).
@@ -377,15 +395,13 @@ func (e *Engine) localNodeSync(ctx context.Context) {
 	)
 	e.setLogger(newLogger)
 
-	// Update loggerLabels map for metrics
 	labelsMap := make(map[string]string, len(labels)/2)
 	for i := 0; i < len(labels); i += 2 {
 		labelsMap[labels[i].(string)] = labels[i+1].(string)
 	}
-	e.loggerLabels.Store(&labelsMap)
+	e.storeLoggerLabels(labelsMap)
 
 	e.cfg.Hooks.OnNodeSynced(localNode, nil)
-	e.localNode.Store(&localNode)
 }
 
 func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
@@ -403,7 +419,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	userLogChan := make(chan *protoevents.LogLine, maxUserLogEventsPerExecution)
 	defer close(userLogChan)
 	e.srvcEng.Go(func(_ context.Context) {
-		e.emitUserLogs(subCtx, userLogChan, e.cfg.WorkflowID, *e.loggerLabels.Load())
+		e.emitUserLogs(subCtx, userLogChan, e.cfg.WorkflowID, e.eventLabels())
 	})
 
 	var timeProvider TimeProvider = &types.LocalTimeProvider{}
@@ -503,15 +519,12 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 				EngineVersion:                 platform.ValueWorkflowVersionV2,
 				// no WorkflowExecutionID needed (or available at this stage)
 			}
-			gate := e.cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled
-			if gate == nil {
-				return errors.New("vault org id gate is nil")
+			var creGetter settings.Getter
+			if e.cfg.LocalLimiters != nil {
+				creGetter = e.cfg.LocalLimiters.Settings
 			}
-			enabled, gateErr := gate.Limit(gCtx)
-			if gateErr != nil {
-				return gateErr
-			}
-			if enabled {
+			propagateOrgIDMeta, _ := cresettings.Default.PropagateOrgIDInRequestMetadata.GetOrDefault(gCtx, creGetter)
+			if propagateOrgIDMeta && e.orgID != "" {
 				metadata.OrgID = e.orgID
 			}
 			triggerEventCh, regErr := triggerCap.RegisterTrigger(gCtx, capabilities.TriggerRegistrationRequest{
@@ -704,11 +717,8 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		return
 	}
 
-	// Use the org resolved at engine startup for all executions in this engine instance.
-	executionOrgID := contexts.CREValue(ctx).Org
-	loggerLabels := maps.Clone(*e.loggerLabels.Load())
-	loggerLabels[platform.KeyOrganizationID] = executionOrgID
-	lggr := e.logger().With(platform.KeyOrganizationID, executionOrgID)
+	loggerLabels := e.eventLabels()
+	lggr := e.logger().With(platform.KeyOrganizationID, e.orgID)
 
 	var executionTimestamp time.Time
 	if tsErr := e.cfg.LocalLimiters.ExecutionTimestampsEnabled.AllowErr(ctx); tsErr == nil {
@@ -837,6 +847,14 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		return
 	}
 	defer execCancel()
+	triggerCapID := wrappedTriggerEvent.triggerCapID
+	skewRec := &monitoring.TriggerSkewRecorder{
+		EnqueueTime: wrappedTriggerEvent.timestamp,
+		Record: func(ctx context.Context, seconds float64, source string) {
+			e.metrics.With(platform.KeyTriggerID, triggerCapID).RecordTriggerQueueToExecutionStartSeconds(ctx, seconds, source)
+		},
+	}
+	execCtx = monitoring.ContextWithTriggerSkewRecorder(execCtx, skewRec)
 	executionLogger := logger.With(lggr, "executionID", executionID, "triggerID", wrappedTriggerEvent.triggerCapID,
 		"triggerIndex", wrappedTriggerEvent.triggerIndex, "eventID", triggerEvent.ID)
 
@@ -860,7 +878,6 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	}
 
 	startTime := e.cfg.Clock.Now()
-	e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).RecordTriggerQueueToExecutionStartSeconds(ctx, startTime.Sub(wrappedTriggerEvent.timestamp).Seconds())
 	executionLogger.Infow("Workflow execution starting ...")
 	_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
 
@@ -873,8 +890,32 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	// Track execution error for deferred event emission
 	var execErr error
+	var execHelper *ExecutionHelper
 	defer func() {
 		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, execErr, lggr)
+		if execHelper != nil {
+			endTime := e.cfg.Clock.Now()
+			profile, emitErr := events.EmitExecutionProfile(
+				ctx,
+				e.cfg.WorkflowID,
+				executionID,
+				startTime,
+				endTime,
+				executionStatus,
+				execHelper.executionProfile.stepInputs(),
+			)
+			if emitErr != nil {
+				lggr.Errorw("Failed to emit execution profile", "err", emitErr)
+			}
+			if profile != nil {
+				profileJSON, jsonErr := protojson.Marshal(profile)
+				if jsonErr != nil {
+					lggr.Errorw("Failed to marshal execution profile to JSON", "err", jsonErr)
+				} else {
+					lggr.Infow("Workflow execution profile", "executionProfile", string(profileJSON))
+				}
+			}
+		}
 		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
 		if execErr != nil {
 			e.cfg.Hooks.OnExecutionError(execErr.Error())
@@ -901,9 +942,10 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		triggerDrop(monitoring.TriggerDropReasonExecutionResponseLimitInvalid)
 		return
 	}
-	execHelper := &ExecutionHelper{
+	execHelper = &ExecutionHelper{
 		Engine: e, WorkflowExecutionID: executionID, ExecutionTimestamp: executionTimestamp,
 		UserLogChan: userLogChan, TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
+		executionProfile: newExecutionProfileCollector(),
 	}
 	execHelper.initLimiters(e.cfg.LocalLimiters)
 	e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).RecordTriggerPayloadBytes(ctx, int64(proto.Size(triggerEvent.Payload)))
@@ -918,6 +960,8 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
 	}, execHelper)
+	// Non-evictable modules do not record skew; label those as direct.
+	skewRec.RecordReady(execCtx, monitoring.ModuleLoadSourceDirect)
 
 	endTime := e.cfg.Clock.Now()
 	executionDuration := endTime.Sub(startTime)
@@ -1008,7 +1052,7 @@ func (e *Engine) secretsFetcher(phaseID string) SecretsFetcher {
 		e.logger(),
 		e.cfg.LocalLimiters.SecretsConcurrency,
 		e.cfg.LocalLimiters.SecretsCalls,
-		e.cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled,
+		e.cfg.LocalLimiters.Settings,
 		e.orgID,
 		e.cfg.WorkflowOwner,
 		e.cfg.WorkflowName.String(),
@@ -1024,7 +1068,8 @@ func (e *Engine) secretsFetcher(phaseID string) SecretsFetcher {
 func (e *Engine) close() error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*time.Duration(e.cfg.LocalLimits.ShutdownTimeoutMs))
 	defer cancel()
-	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID}) // TODO org?
+
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID})
 	e.triggersRegMu.Lock()
 	e.unregisterAllTriggers(ctx)
 	e.triggersRegMu.Unlock()

@@ -3,10 +3,11 @@ package changeset
 import (
 	"errors"
 
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
@@ -39,17 +40,17 @@ func (CsMCMSConfigure) VerifyPreconditions(env cldf.Environment, input Configure
 }
 
 func (CsMCMSConfigure) Apply(env cldf.Environment, input ConfigureChangesetInput) (cldf.ChangesetOutput, error) {
-	mcmsConfigPerChain := make(map[uint64]changeset.ConfigPerRoleV2, len(input.ChainSelectors))
+	mcmsConfigPerChain := make(map[uint64]mcmschangesets.ConfigPerRoleV2, len(input.ChainSelectors))
 	for _, s := range input.ChainSelectors {
 		c := input.MCMSContractConfiguration.Config
-		mcmsConfigPerChain[s] = changeset.ConfigPerRoleV2{
+		mcmsConfigPerChain[s] = mcmschangesets.ConfigPerRoleV2{
 			Proposer:  &c.Proposer,
 			Canceller: &c.Canceller,
 			Bypasser:  &c.Bypasser,
 		}
 	}
 
-	cfg := changeset.MCMSConfigV2{
+	cfg := mcmschangesets.MCMSConfigV2{
 		ConfigsPerChain: mcmsConfigPerChain,
 	}
 	// MCMSConfig.validateCommon enforces that MCMSAction is set. If there isn't, presume empty.
@@ -57,7 +58,7 @@ func (CsMCMSConfigure) Apply(env cldf.Environment, input ConfigureChangesetInput
 		cfg.ProposalConfig = &input.MCMSConfig
 	}
 
-	o, err := changeset.SetConfigMCMSV2(env, cfg)
+	o, err := mcmschangesets.SetConfigMCMSV2(env, cfg)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

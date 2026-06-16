@@ -7,6 +7,7 @@ import (
 	"maps"
 	"runtime"
 	"strconv"
+	"strings"
 	"text/template"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
@@ -53,10 +55,13 @@ const (
 		"isLocal":{{.IsLocal}},
 		"chainId":"{{.ChainID}}",
 		"network":"{{.Network}}",
-		"deltaStage":{{printf "%d" .DeltaStage}}
+		"deltaStage":{{printf "%d" .DeltaStage}},
+		"readsEnabled":{{.ReadsEnabled}}
 	}`
-	deltaStage     = 14*time.Second + 2*time.Second // finalization time + 2 seconds delta
-	requestTimeout = 30 * time.Second
+	deltaStage          = 14*time.Second + 2*time.Second // finalization time + 2 seconds delta
+	requestTimeout      = 30 * time.Second
+	registrationRefresh = 20 * time.Second
+	registrationExpiry  = 60 * time.Second
 )
 
 type SolChain interface {
@@ -89,14 +94,21 @@ func (s *Solana) PreEnvStartup(
 	}
 
 	// 3. Register Solana capability & its methods with Keystone
-	capabilities := registerSolanaCapability(solChain.ChainSelector())
+	capabilities, capErr := registerSolanaCapability(solChain.ChainSelector(), don.MustNodeSet())
+	if capErr != nil {
+		return nil, errors.Wrap(capErr, "failed to register solana capability")
+	}
+	// 4. Register Solana capability & its methods with Keystone
 	capabilityToExtraSignerFamilies := make(map[string][]string, len(capabilities))
+	ocrConfigs := map[string]*ocr3.OracleConfig{}
 	for _, capability := range capabilities {
-		capabilityToExtraSignerFamilies[capability.Capability.LabelledName] = []string{chainselectors.FamilySolana}
+		capabilityToExtraSignerFamilies[capability.Capability.LabelledName] = []string{chainselectors.FamilyEVM} // chain read OCR & DON2DON uses EVM signing schema for all chains, thus we need evm signers.
+		ocrConfigs[capability.Capability.LabelledName] = contracts.DefaultChainCapabilityOCR3Config()
 	}
 
 	return &cre.PreEnvStartupOutput{
 		DONCapabilityWithConfig:         capabilities,
+		CapabilityToOCR3Config:          ocrConfigs,
 		CapabilityToExtraSignerFamilies: capabilityToExtraSignerFamilies,
 	}, nil
 }
@@ -108,14 +120,13 @@ func (s *Solana) PostEnvStartup(
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	// 1. Deploy & Configure OCR3 Contracts (once solana consensus reads are supported)
-	// 2. Create & Approve Solana Standard capability jobs for the DON
+	// 1. Create & Approve Solana Standard capability jobs for the DON
 	jobErr := createJobs(ctx, don, dons, creEnv)
 	if jobErr != nil {
 		return errors.Wrapf(jobErr, "failed to create job for solana chain standard capability")
 	}
 
-	// 3. Configure Forwarders
+	// 2. Configure Forwarders
 	consensusDons := dons.DonsWithFlags(cre.ConsensusCapability)
 	for _, don := range consensusDons {
 		err := configureForwarders(ctx, testLogger, don, dons, creEnv)
@@ -166,10 +177,6 @@ func createJobs(
 		return errors.Wrapf(chErr, "failed to get Solana chain ID from selector %d", solChain.ChainSelector())
 	}
 
-	solChainID, err := solChain.GenesisHash(ctx)
-	if err != nil {
-		return errors.Wrapf(err, "failed to get sol genesis hash")
-	}
 	version := creEnv.ContractVersions[cre_sol.ForwarderContract.String()]
 	creForwarderKey := datastore.NewAddressRefKey(
 		solChain.ChainSelector(),
@@ -199,6 +206,18 @@ func createJobs(
 	results := make([]map[string][]string, len(workerNodes))
 	group, groupCtx := errgroup.WithContext(ctx)
 	group.SetLimit(min(len(workerNodes), runtime.GOMAXPROCS(0)))
+
+	bootstrap, isBootstrap := dons.Bootstrap()
+	if !isBootstrap {
+		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
+	}
+
+	bootstrapPeers := []string{fmt.Sprintf("%s@%s:%d", strings.TrimPrefix(bootstrap.Keys.PeerID(), "p2p_"), bootstrap.Host, cre.OCRPeeringPort)}
+	capRegVersion, ok := creEnv.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()]
+	if !ok {
+		return errors.New("CapabilitiesRegistry version not found in contract versions")
+	}
+
 	for i, workerNode := range workerNodes {
 		group.Go(func() error {
 			key, ok := workerNode.Keys.Solana[chainID]
@@ -213,8 +232,9 @@ func createJobs(
 				"NodeAddress":         nodeAddress,
 				"IsLocal":             true,
 				"Network":             "solana",
-				"ChainID":             solChainID,
+				"ChainID":             chainID,
 				"DeltaStage":          deltaStage,
+				"ReadsEnabled":        true,
 			}
 
 			templateData, aErr := credon.ApplyRuntimeValues(maps.Clone(config.Values), runtimeFallbacks)
@@ -244,8 +264,12 @@ func createJobs(
 				},
 				Template: job_types.Solana,
 				Inputs: job_types.JobSpecInput{
-					"command": command,
-					"config":  configStr,
+					"command":            command,
+					"config":             configStr,
+					"chainSelectorEVM":   creEnv.RegistryChainSelector,
+					"bootstrapPeers":     bootstrapPeers,
+					"useCapRegOCRConfig": true,
+					"capRegVersion":      capRegVersion.String(),
 				},
 			}
 
@@ -300,30 +324,73 @@ func createJobs(
 }
 
 // pre env
-func registerSolanaCapability(selector uint64) []keystone_changeset.DONCapabilityWithConfig {
-	caps := make([]keystone_changeset.DONCapabilityWithConfig, 1)
-	methodConfigs := getMethodConfigs()
-	caps[0] = keystone_changeset.DONCapabilityWithConfig{
+func registerSolanaCapability(selector uint64, nodeSet *cre.NodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
+	methodConfigs, err := getMethodConfigs(nodeSet)
+	if err != nil {
+		return nil, err
+	}
+
+	return []keystone_changeset.DONCapabilityWithConfig{{
 		Capability: kcr.CapabilitiesRegistryCapability{
-			LabelledName: "solana" + ":ChainSelector:" + strconv.FormatUint(selector, 10),
-			Version:      "1.0.0",
+			LabelledName:   "solana" + ":ChainSelector:" + strconv.FormatUint(selector, 10),
+			Version:        "1.0.0",
+			CapabilityType: 1,
 		},
 		Config: &capabilitiespb.CapabilityConfig{
 			MethodConfigs: methodConfigs,
 		},
-	}
-
-	return caps
+		UseCapRegOCRConfig: true,
+	}}, nil
 }
 
-func getMethodConfigs() map[string]*capabilitiespb.CapabilityMethodConfig {
+func getMethodConfigs(nodeSet *cre.NodeSet) (map[string]*capabilitiespb.CapabilityMethodConfig, error) {
 	methodConfigs := make(map[string]*capabilitiespb.CapabilityMethodConfig)
 
-	methodConfigs["WriteReport"] = writeReportActionConfig()
-	// PLEX-1828
-	// PLEX-1918 Add the rest of solana methods here
+	// the read actions should be all defined in the proto that are neither a LogTrigger type, not a WriteReport type
+	// see the RPC methods to map here: https://github.com/smartcontractkit/chainlink-protos/blob/main/cre/capabilities/blockchain/evm/v1alpha/client.proto
+	readActions := []string{
+		"GetAccountInfoWithOpts",
+		"GetBalance",
+		"GetBlock",
+		"GetFeeForMessage",
+		"GetMultipleAccountsWithOpts",
+		"GetSignatureStatuses",
+		"GetSlotHeight",
+		"GetTransaction",
+	}
+	for _, action := range readActions {
+		methodConfigs[action] = readActionConfig()
+	}
 
-	return methodConfigs
+	methodConfigs["WriteReport"] = writeReportActionConfig()
+
+	triggerConfig, err := logTriggerConfig(nodeSet)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get config for LogTrigger")
+	}
+	methodConfigs["LogTrigger"] = triggerConfig
+
+	return methodConfigs, nil
+}
+
+func logTriggerConfig(nodeSet *cre.NodeSet) (*capabilitiespb.CapabilityMethodConfig, error) {
+	faultyNodes, faultyErr := nodeSet.MaxFaultyNodes()
+	if faultyErr != nil {
+		return nil, errors.Wrap(faultyErr, "failed to get faulty nodes")
+	}
+
+	return &capabilitiespb.CapabilityMethodConfig{
+		RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig{
+			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
+				RegistrationRefresh:     durationpb.New(registrationRefresh),
+				RegistrationExpiry:      durationpb.New(registrationExpiry),
+				MinResponsesToAggregate: faultyNodes + 1,
+				MessageExpiry:           durationpb.New(2 * registrationExpiry),
+				MaxBatchSize:            25,
+				BatchCollectionPeriod:   durationpb.New(200 * time.Millisecond),
+			},
+		},
+	}, nil
 }
 
 func writeReportActionConfig() *capabilitiespb.CapabilityMethodConfig {
@@ -335,6 +402,18 @@ func writeReportActionConfig() *capabilitiespb.CapabilityMethodConfig {
 				RequestTimeout:            durationpb.New(requestTimeout),
 				ServerMaxParallelRequests: 10,
 				RequestHasherType:         capabilitiespb.RequestHasherType_WriteReportExcludeSignatures,
+			},
+		},
+	}
+}
+
+func readActionConfig() *capabilitiespb.CapabilityMethodConfig {
+	return &capabilitiespb.CapabilityMethodConfig{
+		RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
+			RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
+				RequestTimeout:            durationpb.New(requestTimeout),
+				ServerMaxParallelRequests: 10,
+				RequestHasherType:         capabilitiespb.RequestHasherType_Simple,
 			},
 		},
 	}

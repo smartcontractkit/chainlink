@@ -202,9 +202,9 @@ func (d *Don) Workers() ([]*Node, error) {
 }
 
 func (d *Don) JDNodeIDs() []string {
-	nodeIDs := []string{}
-	for _, n := range d.Nodes {
-		nodeIDs = append(nodeIDs, n.JobDistributorDetails.NodeID)
+	nodeIDs := make([]string, len(d.Nodes))
+	for i, n := range d.Nodes {
+		nodeIDs[i] = n.JobDistributorDetails.NodeID
 	}
 	return nodeIDs
 }
@@ -701,6 +701,7 @@ func (n *Node) RegisterNodeToJobDistributor(ctx context.Context, cldfEnv *cldf.E
 
 	in := offchain_ops.JDRegisterNodeOpInput{
 		Domain:      cre_offchain.ProductLabel,
+		Environment: cldfEnv.Name,
 		Name:        n.Name,
 		CSAKey:      strings.TrimPrefix(n.Keys.CSAKey.Key, "csa_"),
 		P2PID:       n.PeerID(),

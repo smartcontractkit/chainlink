@@ -26,16 +26,16 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 type DeployerGroup struct {
 	e                 cldf.Environment
 	state             stateview.CCIPOnChainState
-	mcmConfig         *proposalutils.TimelockConfig
+	mcmConfig         *cldfproposalutils.TimelockConfig
 	deploymentContext *DeploymentContext
 	txDecoder         *shared.TxCallDecoder
 	describeContext   *shared.ArgumentContext
@@ -125,7 +125,7 @@ type DeployerGroupWithContext interface {
 type deployerGroupBuilder struct {
 	e               cldf.Environment
 	state           stateview.CCIPOnChainState
-	mcmConfig       *proposalutils.TimelockConfig
+	mcmConfig       *cldfproposalutils.TimelockConfig
 	txDecoder       *shared.TxCallDecoder
 	describeContext *shared.ArgumentContext
 }
@@ -153,7 +153,7 @@ func (d *deployerGroupBuilder) WithDeploymentContext(description string) *Deploy
 //	state.Chains[selector].RMNRemote.Curse()
 //	# Execute the transaction or create the proposal
 //	deployerGroup.Enact("Curse RMNRemote")
-func NewDeployerGroup(e cldf.Environment, state stateview.CCIPOnChainState, mcmConfig *proposalutils.TimelockConfig) DeployerGroupWithContext {
+func NewDeployerGroup(e cldf.Environment, state stateview.CCIPOnChainState, mcmConfig *cldfproposalutils.TimelockConfig) DeployerGroupWithContext {
 	addresses, _ := e.ExistingAddresses.Addresses()
 	d := &deployerGroupBuilder{
 		e:               e,
@@ -340,7 +340,7 @@ func (d *DeployerGroup) Enact() (cldf.ChangesetOutput, error) {
 	return d.enactDeployer()
 }
 
-func ValidateMCMSWithState(env cldf.Environment, selector uint64, mcmConfig *proposalutils.TimelockConfig, state stateview.CCIPOnChainState) error {
+func ValidateMCMSWithState(env cldf.Environment, selector uint64, mcmConfig *cldfproposalutils.TimelockConfig, state stateview.CCIPOnChainState) error {
 	family, err := chain_selectors.GetSelectorFamily(selector)
 	if err != nil {
 		return fmt.Errorf("failed to get chain selector family: %w", err)
@@ -417,7 +417,7 @@ func (d *DeployerGroup) enactMcms() (cldf.ChangesetOutput, error) {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain: %w", err)
 		}
 
-		proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		proposal, err := proposeutils.BuildProposalFromBatchesV2(
 			d.e,
 			timelocks,
 			mcmContractByAction,
@@ -539,7 +539,7 @@ func BuildTimelockAddressPerChain(e cldf.Environment, onchainState stateview.CCI
 	return addressPerChain, nil
 }
 
-func BuildMcmAddressesPerChainByAction(e cldf.Environment, onchainState stateview.CCIPOnChainState, mcmCfg *proposalutils.TimelockConfig, mcmQualifier map[uint64]string) (map[uint64]string, error) {
+func BuildMcmAddressesPerChainByAction(e cldf.Environment, onchainState stateview.CCIPOnChainState, mcmCfg *cldfproposalutils.TimelockConfig, mcmQualifier map[uint64]string) (map[uint64]string, error) {
 	if mcmCfg == nil {
 		return nil, errors.New("mcm config is nil, cannot get mcms address")
 	}

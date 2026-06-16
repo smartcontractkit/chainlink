@@ -111,7 +111,7 @@ func (ks ocr2) Import(ctx context.Context, keyJSON []byte, password string) (ocr
 	if err != nil {
 		return nil, errors.Wrap(err, "OCRKeyStore#ImportKey failed to decrypt key")
 	}
-	if _, found := ks.keyRing.OCR[key.ID()]; found {
+	if _, found := ks.keyRing.OCR2[key.ID()]; found {
 		return nil, fmt.Errorf("key with ID %s already exists", key.ID())
 	}
 	return key, ks.safeAddKey(ctx, key)

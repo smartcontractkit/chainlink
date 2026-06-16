@@ -10,11 +10,10 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
-	aptosCommon "github.com/smartcontractkit/chainlink/deployment/common/view/aptos"
 )
 
 type OnRampView struct {
-	aptosCommon.ContractMetaData
+	ContractMetaData
 
 	StaticConfig          OnRampStaticConfig               `json:"staticConfig"`
 	DynamicConfig         OnRampDynamicConfig              `json:"dynamicConfig"`
@@ -127,7 +126,7 @@ func GenerateOnRampView(
 	}
 
 	return OnRampView{
-		ContractMetaData: aptosCommon.ContractMetaData{
+		ContractMetaData: ContractMetaData{
 			Address:        onRampAddress.StringLong(),
 			Owner:          owner.StringLong(),
 			TypeAndVersion: typeAndVersion,

@@ -69,6 +69,7 @@
   [capability_configs.vault.values.auth0]
     issuerURL = "http://host.docker.internal:18123/"
     audience = "https://vault.test.chain.link"
+    tenantID = 1
 
 [capability_configs.write-solana.values]
   # Solana Workflow configuration for write capabilities

@@ -7,9 +7,10 @@ type SuiteScenario int
 const (
 	SuiteScenarioProofOfReserve SuiteScenario = iota
 	SuiteScenarioVaultDON
-	SuiteScenarioCronBeholder
+	SuiteScenarioCronChipIngressStack
 	SuiteScenarioHTTPTriggerAction
 	SuiteScenarioHTTPActionCRUD
+	SuiteScenarioHTTPActionMultiGateway
 	SuiteScenarioDONTime
 	SuiteScenarioConsensus
 	SuiteScenarioLen
@@ -21,12 +22,14 @@ func (s SuiteScenario) String() string {
 		return "ProofOfReserve"
 	case SuiteScenarioVaultDON:
 		return "VaultDON"
-	case SuiteScenarioCronBeholder:
-		return "CronBeholder"
+	case SuiteScenarioCronChipIngressStack:
+		return "CronChipIngressStack"
 	case SuiteScenarioHTTPTriggerAction:
 		return "HTTPTriggerAction"
 	case SuiteScenarioHTTPActionCRUD:
 		return "HTTPActionCRUD"
+	case SuiteScenarioHTTPActionMultiGateway:
+		return "HTTPActionMultiGateway"
 	case SuiteScenarioDONTime:
 		return "DONTime"
 	case SuiteScenarioConsensus:
@@ -73,8 +76,9 @@ var suiteBucketRegistry = []suiteBucketDefinition{
 	{
 		Bucket: SuiteBucketC,
 		Scenarios: []SuiteScenario{
-			SuiteScenarioCronBeholder,
+			SuiteScenarioCronChipIngressStack,
 			SuiteScenarioHTTPActionCRUD,
+			SuiteScenarioHTTPActionMultiGateway,
 		},
 	},
 }
@@ -110,7 +114,7 @@ func ValidateSuiteBucketRegistry() error {
 		}
 	}
 
-	for scenario := SuiteScenario(0); scenario < SuiteScenarioLen; scenario++ {
+	for scenario := range SuiteScenarioLen {
 		if _, ok := assignedScenarios[scenario]; ok {
 			continue
 		}
