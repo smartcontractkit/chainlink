@@ -1715,7 +1715,15 @@ func testMaliciousConsumer(
 	require.NoError(t, err)
 	err = app.JobSpawner().CreateJob(ctx, nil, &jb)
 	require.NoError(t, err)
-	time.Sleep(1 * time.Second)
+	require.Eventually(t, func() bool {
+		jbs := app.JobSpawner().ActiveJobs()
+		for _, j := range jbs {
+			if j.ID == jb.ID {
+				return true
+			}
+		}
+		return false
+	}, testutils.WaitTimeout(t), 100*time.Millisecond)
 
 	// Register a proving key associated with the VRF job.
 	registerProvingKeyHelper(t, uni, uni.rootContract, vrfkey, &defaultMaxGasPrice)

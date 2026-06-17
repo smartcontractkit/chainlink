@@ -128,6 +128,7 @@ URL = "ws://localhost:8081/node"
 	clock := clockwork.NewFakeClock()
 	for name, config := range invalidCases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			_, err := NewGatewayConnector(parseTOMLConfig(t, config), signer, clock, logger.Test(t))
 			require.Error(t, err)
 		})
@@ -138,7 +139,7 @@ func TestGatewayConnector_CleanStartAndClose(t *testing.T) {
 	t.Parallel()
 
 	connector, signer, _ := newTestConnector(t, parseTOMLConfig(t, defaultConfig))
-	signer.On("Sign", mock.AnythingOfType("*context.cancelCtx"), mock.Anything).Return(nil, errors.New("cannot sign"))
+	signer.On("Sign", mock.Anything, mock.Anything).Return(nil, errors.New("cannot sign"))
 	servicetest.Run(t, connector)
 }
 
@@ -146,7 +147,7 @@ func TestGatewayConnector_NewAuthHeader_SignerError(t *testing.T) {
 	t.Parallel()
 
 	connector, signer, _ := newTestConnector(t, parseTOMLConfig(t, defaultConfig))
-	signer.On("Sign", mock.AnythingOfType("*context.cancelCtx"), mock.Anything).Return(nil, errors.New("cannot sign"))
+	signer.On("Sign", mock.Anything, mock.Anything).Return(nil, errors.New("cannot sign"))
 
 	url, err := url.Parse("ws://localhost:8081/node")
 	require.NoError(t, err)
@@ -160,7 +161,7 @@ func TestGatewayConnector_NewAuthHeader_Success(t *testing.T) {
 	testSignature := make([]byte, network.HandshakeSignatureLen)
 	testSignature[1] = 0xfa
 	connector, signer, _ := newTestConnector(t, parseTOMLConfig(t, defaultConfig))
-	signer.On("Sign", mock.AnythingOfType("*context.cancelCtx"), mock.Anything).Return(testSignature, nil)
+	signer.On("Sign", mock.Anything, mock.Anything).Return(testSignature, nil)
 	url, err := url.Parse("ws://localhost:8081/node")
 	require.NoError(t, err)
 
@@ -176,7 +177,7 @@ func TestGatewayConnector_ChallengeResponse(t *testing.T) {
 	testSignature[1] = 0xfa
 	now := time.Now()
 	connector, signer, _ := newTestConnector(t, parseTOMLConfig(t, defaultConfig))
-	signer.On("Sign", mock.AnythingOfType("*context.cancelCtx"), mock.Anything).Return(testSignature, nil)
+	signer.On("Sign", mock.Anything, mock.Anything).Return(testSignature, nil)
 	url, err := url.Parse("ws://localhost:8081/node")
 	require.NoError(t, err)
 

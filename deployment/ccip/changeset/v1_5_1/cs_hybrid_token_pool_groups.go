@@ -6,13 +6,12 @@ import (
 	"math/big"
 
 	"github.com/Masterminds/semver/v3"
-	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	opsutil "github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_5_1"
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -203,7 +202,7 @@ func hybridTokenPoolUpdateGroupsLogic(env cldf.Environment, c HybridTokenPoolUpd
 	}
 
 	// Build the sequence input for multi-chain updates
-	updatesByChain := make(map[uint64]opsevm.EVMCallInput[ccipops.UpdateGroupsInput])
+	updatesByChain := make(map[uint64]opsutils.EVMCallInput[ccipops.UpdateGroupsInput])
 
 	for chainSelector, groupUpdates := range c.Updates {
 		pool, err := getHybridTokenPoolContract(env, c.TokenSymbol, c.ContractType, c.ContractVersion, chainSelector)
@@ -225,7 +224,7 @@ func hybridTokenPoolUpdateGroupsLogic(env cldf.Environment, c HybridTokenPoolUpd
 			})
 		}
 
-		updatesByChain[chainSelector] = opsevm.EVMCallInput[ccipops.UpdateGroupsInput]{
+		updatesByChain[chainSelector] = opsutils.EVMCallInput[ccipops.UpdateGroupsInput]{
 			Address:       pool.Address(),
 			ChainSelector: chainSelector,
 			CallInput: ccipops.UpdateGroupsInput{
@@ -246,7 +245,7 @@ func hybridTokenPoolUpdateGroupsLogic(env cldf.Environment, c HybridTokenPoolUpd
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute hybrid token pool update groups sequence: %w", err)
 	}
 
-	return opsutil.AddEVMCallSequenceToCSOutput(
+	return opsutils.AddEVMCallSequenceToCSOutput(
 		env,
 		cldf.ChangesetOutput{},
 		seqReport,

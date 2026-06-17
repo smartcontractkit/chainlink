@@ -868,7 +868,7 @@ func TestEngine_WriteStepHasZeroStepTimeout(t *testing.T) {
 
 	ctx := t.Context()
 	log := logger.TestLogger(t)
-	binaryB := wasmtest.CreateTestBinary(cmd, true, t)
+	binaryB := wasmtest.CreateTestBinary(t, cmd, true)
 
 	spec, err := host.GetWorkflowSpec(
 		ctx,
@@ -2234,7 +2234,7 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 	trigger := basicTestTrigger(t)
 	require.NoError(t, reg.Add(ctx, trigger))
 
-	binaryB := wasmtest.CreateTestBinary(cmd, true, t)
+	binaryB := wasmtest.CreateTestBinary(t, cmd, true)
 
 	spec, err := host.GetWorkflowSpec(
 		ctx,
@@ -2308,7 +2308,7 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 	trigger := basicTestTrigger(t)
 	require.NoError(t, reg.Add(ctx, trigger))
 
-	binaryB := wasmtest.CreateTestBinary(cmd, true, t)
+	binaryB := wasmtest.CreateTestBinary(t, cmd, true)
 
 	spec, err := host.GetWorkflowSpec(
 		ctx,

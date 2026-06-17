@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os/exec"
@@ -18,6 +19,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protojson"
+
+	retry "github.com/avast/retry-go/v4"
 
 	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
@@ -947,7 +950,18 @@ func executeVaultSecretsIdentifierValidationTest(t *testing.T, encryptedSecret s
 		allowlistRequest(t, owner, req, sethClient, wfRegistryContract)
 		reqBody, err := json.Marshal(req)
 		require.NoError(t, err)
-		_, respBody := sendVaultRequestToGateway(t, gatewayURL, reqBody)
+		// Retry in case DON is still not synced properly
+		var respBody []byte
+		_ = retry.Do(func() error {
+			_, respBody = sendVaultRequestToGateway(t, gatewayURL, reqBody)
+			if bytes.Contains(respBody, []byte("Request timed out")) {
+				return errors.New("gateway auth timeout")
+			}
+			return nil
+		}, retry.Attempts(8), retry.Delay(3*time.Second), retry.DelayType(retry.FixedDelay),
+			retry.OnRetry(func(n uint, err error) {
+				framework.L.Warn().Uint("attempt", n+1).Msgf("[%s] %s: %s, retrying...", method, caseName, err)
+			}))
 		require.Contains(t, string(respBody), "alphanumeric", "[%s] expected alphanumeric rejection for %s", method, caseName)
 		framework.L.Info().Msgf("[%s] %s correctly rejected: %s", method, caseName, string(respBody))
 	}
@@ -980,7 +994,17 @@ func executeVaultSecretsIdentifierValidationTest(t *testing.T, encryptedSecret s
 	allowlistRequest(t, owner, req, sethClient, wfRegistryContract)
 	reqBody, err := json.Marshal(req)
 	require.NoError(t, err)
-	_, respBody := sendVaultRequestToGateway(t, gatewayURL, reqBody)
+	var respBody []byte
+	_ = retry.Do(func() error {
+		_, respBody = sendVaultRequestToGateway(t, gatewayURL, reqBody)
+		if bytes.Contains(respBody, []byte("Request timed out")) {
+			return errors.New("gateway auth timeout")
+		}
+		return nil
+	}, retry.Attempts(8), retry.Delay(3*time.Second), retry.DelayType(retry.FixedDelay),
+		retry.OnRetry(func(n uint, err error) {
+			framework.L.Warn().Uint("attempt", n+1).Msgf("[list] invalid namespace: %s, retrying...", err)
+		}))
 	require.Contains(t, string(respBody), "alphanumeric", "[list] expected alphanumeric rejection for %s", "invalid namespace")
 	framework.L.Info().Msgf("[list] %s correctly rejected: %s", "invalid namespace", string(respBody))
 

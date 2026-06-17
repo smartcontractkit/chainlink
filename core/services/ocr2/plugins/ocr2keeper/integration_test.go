@@ -22,7 +22,6 @@ import (
 	"github.com/umbracle/ethgo/abi"
 
 	"github.com/smartcontractkit/freeport"
-
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -281,7 +280,7 @@ func runKeeperPluginBasic(t *testing.T) {
 		schemaVersion                     = 1
 		name                              = "boot"
 		contractID                        = "%s"
-		contractConfigTrackerPollInterval = "15s"
+		contractConfigTrackerPollInterval = "1s"
 
 		[relayConfig]
 		chainID = 1337
@@ -296,7 +295,7 @@ func runKeeperPluginBasic(t *testing.T) {
 		name = "ocr2keepers-%d"
 		schemaVersion = 1
 		contractID = "%s"
-		contractConfigTrackerPollInterval = "15s"
+		contractConfigTrackerPollInterval = "1s"
 		ocrKeyBundleID = "%s"
 		transmitterID = "%s"
 		p2pv2Bootstrappers = [
@@ -465,6 +464,7 @@ func setupForwarderForNode(
 }
 
 func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
+	t.Parallel()
 	g := gomega.NewWithT(t)
 	lggr := logger.TestLogger(t)
 
@@ -544,7 +544,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 		schemaVersion                     = 1
 		name                              = "boot"
 		contractID                        = "%s"
-		contractConfigTrackerPollInterval = "15s"
+		contractConfigTrackerPollInterval = "1s"
 
 		[relayConfig]
 		chainID = 1337
@@ -559,7 +559,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 		name = "ocr2keepers-%d"
 		schemaVersion = 1
 		contractID = "%s"
-		contractConfigTrackerPollInterval = "15s"
+		contractConfigTrackerPollInterval = "1s"
 		ocrKeyBundleID = "%s"
 		transmitterID = "%s"
 		p2pv2Bootstrappers = [
@@ -705,8 +705,6 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	// observe 2nd job run and received payload changes
 	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload2))
 }
-
-func ptr[T any](v T) *T { return &v }
 
 func TestFilterNamesFromSpec20(t *testing.T) {
 	b := make([]byte, 20)
