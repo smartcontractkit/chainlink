@@ -23,6 +23,7 @@ linters:
     - modernize
     - noctx
     - nolintlint
+    - paralleltest
     - perfsprint
     - prealloc
     - revive

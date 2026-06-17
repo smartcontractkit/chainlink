@@ -23,7 +23,7 @@ func Test_AllExampleWorkflowsCompileToWASM(t *testing.T) {
 	for _, path := range paths {
 		t.Run(path, func(t *testing.T) {
 			t.Parallel()
-			binary := wasmtest.CreateTestBinary(filepath.Join(pathPrefix, path), false, t)
+			binary := wasmtest.CreateTestBinary(t, filepath.Join(pathPrefix, path), false)
 			require.NotEmpty(t, binary)
 		})
 	}

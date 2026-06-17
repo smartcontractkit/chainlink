@@ -865,11 +865,8 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		require.NoError(t, err)
 		backend.Commit()
 
-		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Set channel definitions for source",
 			"url", url2)
-
-		// Wait a bit for processing
-		time.Sleep(500 * time.Millisecond)
 
 		// Verify adder's definition was skipped - owner's definition should still be there
 		defs := cdc.Definitions(llotypes.ChannelDefinitions{})
@@ -946,11 +943,8 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		require.NoError(t, err)
 		backend.Commit()
 
-		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Set channel definitions for source",
 			"url", url2)
-
-		// Wait a bit for processing
-		time.Sleep(500 * time.Millisecond)
 
 		// Verify second adder's definition was skipped
 		defs := cdc.Definitions(llotypes.ChannelDefinitions{})
@@ -991,11 +985,8 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		require.NoError(t, err)
 		backend.Commit()
 
-		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Set channel definitions for source",
 			"url", url)
-
-		// Wait a bit for processing
-		time.Sleep(500 * time.Millisecond)
 
 		// Verify tombstone channel was skipped
 		defs := cdc.Definitions(llotypes.ChannelDefinitions{})
@@ -1514,11 +1505,8 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		require.NoError(t, err)
 		backend.Commit()
 
-		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Set channel definitions for source",
 			"url", url)
-
-		// Wait a bit for processing
-		time.Sleep(500 * time.Millisecond)
 
 		// Call Definitions() to trigger the merge and error logging
 		_ = cdc.Definitions(llotypes.ChannelDefinitions{})

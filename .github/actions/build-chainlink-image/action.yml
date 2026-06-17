@@ -29,12 +29,13 @@ runs:
     - name: Check if image exists
       if: ${{ inputs.dep_evm_sha != '' || inputs.check_image_exists == 'true'}}
       id: check-image
-      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
+      uses: smartcontractkit/.github/actions/ecr-image-exists@ecr-image-exists/0.2.0
       with:
         repository: chainlink
         tag: ${{ inputs.git_commit_sha }}${{ inputs.tag_suffix }}
-        AWS_REGION: ${{ inputs.AWS_REGION }}
-        AWS_ROLE_TO_ASSUME: ${{ inputs.AWS_ROLE_TO_ASSUME }}
+        aws-region: ${{ inputs.AWS_REGION }}
+        aws-role-arn: ${{ inputs.AWS_ROLE_TO_ASSUME }}
+
     - name: Build Image
       if: steps.check-image.outputs.exists != 'true'
       uses: smartcontractkit/.github/actions/ctf-build-image@ctf-build-image/0.2.0
