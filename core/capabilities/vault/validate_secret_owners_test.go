@@ -11,18 +11,18 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
-func TestValidateVaultOwnersMatchAuthorized_RejectsUnregisteredMethods(t *testing.T) {
+func TestValidateSecretOwnersMatchAuthorized_RejectsUnregisteredMethods(t *testing.T) {
 	t.Parallel()
 
 	params := json.RawMessage(`{}`)
-	err := validateVaultOwnersMatchAuthorized(jsonrpc.Request[json.RawMessage]{
+	err := validateSecretOwnersMatchAuthorized(jsonrpc.Request[json.RawMessage]{
 		Method: "vault.unsupported",
 		Params: &params,
 	}, "0xauthorized")
 	require.ErrorContains(t, err, "owner validation not implemented for method \"vault.unsupported\"")
 }
 
-func TestValidateVaultOwnersMatchAuthorized_RejectsEmptyBatch(t *testing.T) {
+func TestValidateSecretOwnersMatchAuthorized_RejectsEmptyBatch(t *testing.T) {
 	t.Parallel()
 
 	owner := "0xauthorized"
@@ -46,7 +46,7 @@ func TestValidateVaultOwnersMatchAuthorized_RejectsEmptyBatch(t *testing.T) {
 		t.Run(tc.method, func(t *testing.T) {
 			t.Parallel()
 
-			err := validateVaultOwnersMatchAuthorized(jsonrpc.Request[json.RawMessage]{
+			err := validateSecretOwnersMatchAuthorized(jsonrpc.Request[json.RawMessage]{
 				Method: tc.method,
 				Params: tc.params,
 			}, owner)
@@ -55,7 +55,7 @@ func TestValidateVaultOwnersMatchAuthorized_RejectsEmptyBatch(t *testing.T) {
 	}
 }
 
-func TestValidateVaultOwnersMatchAuthorized_RejectsMalformedBatches(t *testing.T) {
+func TestValidateSecretOwnersMatchAuthorized_RejectsMalformedBatches(t *testing.T) {
 	t.Parallel()
 
 	owner := "0xauthorized"
@@ -127,7 +127,7 @@ func TestValidateVaultOwnersMatchAuthorized_RejectsMalformedBatches(t *testing.T
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := validateVaultOwnersMatchAuthorized(jsonrpc.Request[json.RawMessage]{
+			err := validateSecretOwnersMatchAuthorized(jsonrpc.Request[json.RawMessage]{
 				Method: tc.method,
 				Params: tc.params,
 			}, owner)
@@ -136,7 +136,7 @@ func TestValidateVaultOwnersMatchAuthorized_RejectsMalformedBatches(t *testing.T
 	}
 }
 
-func TestValidateVaultOwnersMatchAuthorized_CoversAllGatewaySecretsMethods(t *testing.T) {
+func TestValidateSecretOwnersMatchAuthorized_CoversAllGatewaySecretsMethods(t *testing.T) {
 	t.Parallel()
 
 	owner := "0xauthorized"
@@ -145,7 +145,7 @@ func TestValidateVaultOwnersMatchAuthorized_CoversAllGatewaySecretsMethods(t *te
 			t.Parallel()
 
 			params := gatewaySecretsMethodParamsForOwnerValidation(t, method, owner)
-			err := validateVaultOwnersMatchAuthorized(jsonrpc.Request[json.RawMessage]{
+			err := validateSecretOwnersMatchAuthorized(jsonrpc.Request[json.RawMessage]{
 				Method: method,
 				Params: params,
 			}, owner)

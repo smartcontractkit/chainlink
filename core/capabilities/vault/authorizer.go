@@ -112,7 +112,7 @@ func (a *authorizer) AuthorizeRequest(ctx context.Context, req jsonrpc.Request[j
 		a.lggr.Debugw("replay guard rejected request", "method", req.Method, "requestID", req.ID, "owner", authResult.AuthorizedOwner(), "digest", authResult.Digest(), "expiresAt", authResult.ExpiresAt(), "hasAuth", req.Auth != "", "error", err)
 		return nil, err
 	}
-	if ownerErr := validateVaultOwnersMatchAuthorized(req, authResult.AuthorizedOwner()); ownerErr != nil {
+	if ownerErr := validateSecretOwnersMatchAuthorized(req, authResult.AuthorizedOwner()); ownerErr != nil {
 		a.lggr.Errorw("owner binding rejected request", "method", req.Method, "requestID", req.ID, "owner", authResult.AuthorizedOwner(), "hasAuth", req.Auth != "", "error", ownerErr)
 		return nil, ownerErr
 	}
@@ -147,10 +147,10 @@ func (a *authorizer) authorizeJWTBasedAuth(ctx context.Context, req jsonrpc.Requ
 	return a.jwtBasedAuth.AuthorizeRequest(ctx, req)
 }
 
-// validateVaultOwnersMatchAuthorized checks that secret identifiers in the request payload
+// validateSecretOwnersMatchAuthorized checks that secret identifiers in the request payload
 // match the authorized workflow owner. This is read-only validation; owner prefixing and
 // param stamping happen later in GatewayVaultRequestPipeline.
-func validateVaultOwnersMatchAuthorized(req jsonrpc.Request[json.RawMessage], workflowOwner string) error {
+func validateSecretOwnersMatchAuthorized(req jsonrpc.Request[json.RawMessage], workflowOwner string) error {
 	switch req.Method {
 	case vaulttypes.MethodPublicKeyGet:
 		return nil
