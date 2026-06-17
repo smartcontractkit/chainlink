@@ -592,6 +592,12 @@ func (s *Shell) runNode(c *cli.Context) error {
 			return fmt.Errorf("failed to ensure Sui key: %w", err2)
 		}
 	}
+	if s.Config.StellarEnabled() {
+		err2 := app.GetKeyStore().Stellar().EnsureKey(rootCtx)
+		if err2 != nil {
+			return fmt.Errorf("failed to ensure Stellar key: %w", err2)
+		}
+	}
 	if s.Config.CRE().EnableDKGRecipient() {
 		if s.Config.ImportedDKGRecipientKey().JSON() != "" {
 			lggr.Debugf("Importing DKG recipient key %s", s.Config.ImportedDKGRecipientKey().JSON())
