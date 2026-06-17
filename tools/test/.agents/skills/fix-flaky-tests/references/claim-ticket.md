@@ -10,12 +10,7 @@ Assign a flaky-test ticket to the current user and transition it to In Progress.
     Mismatch → do not claim the ticket, in `skip_reason` say that this ticket should be worked on
     in the context of the {repo}.
 
-3. System-tests exclusion (zero-cost): if `package` field starts with
-    github.com/smartcontractkit/chainlink/system-tests/ → do not claim the ticket,
-    in `skip_reason` say that system-tests are excluded from the skill due to their
-    complexity and token cost.
-
-4. Test function check: extract top-level function name from `test_name` field
+3. Test function check: extract top-level function name from `test_name` field
     (part before first /), fall back to longest TestXxx token in title if absent.
     - `LSP` available: LSP definition lookup
     - `Code Review Graph` available: `mcp__code-review-graph__semantic_search_nodes_tool`

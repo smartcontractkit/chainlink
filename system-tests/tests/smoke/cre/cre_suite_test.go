@@ -153,6 +153,17 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteHTTPActionCRUDSuccessTest(t, testEnv)
 		})
+	case suite_config.SuiteScenarioHTTPActionMultiGateway:
+		t.Run("HTTP Action Multi Gateway - "+topology, func(t *testing.T) {
+			if !isMultiGatewayTopology(topology) {
+				t.Skipf("skipping multi-gateway HTTP action test on topology %q", topology)
+			}
+			if parallelEnabled {
+				t.Parallel()
+			}
+			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, getMultiGatewayTestConfig(t))
+			ExecuteHTTPActionMultiGatewayRoutingTest(t, testEnv)
+		})
 	case suite_config.SuiteScenarioDONTime:
 		t.Run("DON Time - "+topology, func(t *testing.T) {
 			if parallelEnabled {
@@ -219,13 +230,19 @@ func runEVMReadBucket(t *testing.T, bucket evm_config.ReadBucket) {
 
 const solanaConfigPath = "/configs/workflow-don-solana.toml"
 
-func Test_CRE_V2_Solana_Suite(t *testing.T) {
+func Test_CRE_V2_Solana_Write(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, solanaConfigPath))
 	t.Run("Solana Write", func(t *testing.T) {
 		ExecuteSolanaWriteTest(t, testEnv)
 	})
-	t.Run("[v2] Solana LogTrigger", func(t *testing.T) {
+}
+
+func Test_CRE_V2_Solana_LogTrigger(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, solanaConfigPath))
+	t.Run("Solana LogTrigger", func(t *testing.T) {
 		ExecuteSolanaLogTriggerTest(t, testEnv)
+	})
+	t.Run("Solana LogTrigger CPI", func(t *testing.T) {
 		ExecuteSolanaLogTriggerCPITest(t, testEnv)
 	})
 }

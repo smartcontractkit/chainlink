@@ -48,7 +48,7 @@ runs:
 
     - name: Restore Cache
       id: cache-restore
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
         key: ${{ steps.setup-cache-dir-key.outputs.cache-key }}
         path: ${{ steps.setup-cache-dir-key.outputs.download-path }}
@@ -82,7 +82,7 @@ runs:
 
     - name: Save cache
       if: ${{ steps.cache-restore.outputs.cache-hit != 'true' }}
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       with:
         key: ${{ steps.setup-cache-dir-key.outputs.cache-key }}
         path: ${{ steps.setup-cache-dir-key.outputs.download-path }}

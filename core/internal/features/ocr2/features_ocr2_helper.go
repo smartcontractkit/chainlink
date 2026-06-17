@@ -154,7 +154,7 @@ func SetupNodeOCR2(
 		}
 
 		c.EVM[0].Nodes = toml.EVMNodes{nodeConfig}
-		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(5 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 		c.EVM[0].Transactions.ForwardersEnabled = &useForwarder
 	})
 
@@ -223,6 +223,7 @@ func RunTestIntegrationOCR2(t *testing.T) {
 		{"chain-reader", true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			owner, b, ocrContractAddress, ocrContract, nodeConfig := SetupOCR2Contracts(t)
 
 			lggr := logger.TestLogger(t)
@@ -297,7 +298,7 @@ fromBlock = %d
 
 				// API speed is > observation timeout set in ContractSetConfigArgsForIntegrationTest
 				slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-					time.Sleep(5 * time.Second)
+					<-req.Context().Done()
 					var result string
 					metaLock.Lock()
 					result = fmt.Sprintf(`{"data":%d}`, returnData)
@@ -578,7 +579,7 @@ updateInterval = "1m"
 							return
 						}
 						// Want at least 2 runs so we see all the metadata.
-						pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], len(completedRuns)+2, 7, apps[ic].JobORM(), 2*time.Minute, 5*time.Second)
+						pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], len(completedRuns)+2, 7, apps[ic].JobORM(), 2*time.Minute, 100*time.Millisecond)
 						jb, err2 := pr[0].Outputs.MarshalJSON()
 						if !assert.NoError(t, err2) {
 							return

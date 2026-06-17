@@ -3,10 +3,13 @@ module github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana
 go 1.26.4
 
 require (
+	github.com/gagliardetto/anchor-go v1.0.0
+	github.com/gagliardetto/binary v0.8.0
 	github.com/gagliardetto/solana-go v1.14.0
 	github.com/smartcontractkit/chain-selectors v1.0.100
-	github.com/smartcontractkit/cre-sdk-go v1.9.0-capdev.1.0.20260526211007-043b75d05749
-	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.1-0.20260526211007-043b75d05749
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260609153034-c8423a41ef9a
+	github.com/smartcontractkit/cre-sdk-go v1.11.0
+	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.1-0.20260612142557-01f4db8d7d47
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -18,7 +21,6 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
 	github.com/ethereum/go-ethereum v1.17.2 // indirect
 	github.com/fatih/color v1.18.0 // indirect
-	github.com/gagliardetto/binary v0.8.0 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/holiman/uint256 v1.3.2 // indirect
@@ -34,7 +36,6 @@ require (
 	github.com/mr-tron/base58 v1.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260521154055-6c3fbf9a2435 // indirect
 	github.com/streamingfast/logging v0.0.0-20230608130331-f22c91403091 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	go.mongodb.org/mongo-driver v1.17.2 // indirect

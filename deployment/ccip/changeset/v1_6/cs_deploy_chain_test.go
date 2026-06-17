@@ -5,35 +5,31 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
-	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
-	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 	"github.com/stretchr/testify/require"
 
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
-
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+	linkchangesets "github.com/smartcontractkit/cld-changesets/tokens/link/changesets"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	linkchangesets "github.com/smartcontractkit/cld-changesets/tokens/link/changesets"
-
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deploylink"
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deploylink"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
@@ -153,7 +149,7 @@ func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, 
 	// deploy feequoter with higher version
 	newFqVersion := semver.MustParse("1.6.4")
 	for sel, params := range contractParams {
-		params.FeeQuoterOpts = &opsevm.ContractOpts{
+		params.FeeQuoterOpts = &opsutils.ContractOpts{
 			Version:     newFqVersion,
 			EVMBytecode: common.FromHex(fee_quoter.FeeQuoterBin), // TODO: Can we replace this with actual 1.6.2 bytecode?
 		}

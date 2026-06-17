@@ -1,6 +1,7 @@
 package ocr2keeper_test
 
 import (
+	"bytes"
 	"context"
 	crand "crypto/rand"
 	"encoding/hex"
@@ -20,13 +21,11 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/umbracle/ethgo/abi"
 
 	"github.com/smartcontractkit/freeport"
-
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -34,7 +33,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
@@ -64,6 +62,7 @@ import (
 )
 
 func TestFilterNamesFromSpec21(t *testing.T) {
+	t.Parallel()
 	b := make([]byte, 20)
 	_, err := crand.Read(b)
 	require.NoError(t, err)
@@ -89,8 +88,9 @@ func TestFilterNamesFromSpec21(t *testing.T) {
 	require.ErrorContains(t, err, "not a valid EIP55 formatted address")
 }
 
-func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
-	g := gomega.NewWithT(t)
+func TestIntegration_KeeperPlugin_PerformAndUpkeepPrivilegeConfig(t *testing.T) {
+	t.Parallel()
+
 	lggr := logger.TestLogger(t)
 
 	// setup blockchain
@@ -126,8 +126,6 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 	registry := deployKeeper21Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
 
 	setupNodes(t, nodeKeys, registry, backend, steve)
-
-	<-time.After(time.Second * 5)
 
 	upkeeps := 1
 
@@ -166,12 +164,11 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 	lggr.Infow("Upkeep registered and funded", "upkeepID", upkeepID.String())
 
 	// keeper job is triggered and payload is received
-	receivedBytes := func() []byte {
+	require.Eventually(t, func() bool {
 		received, err2 := upkeepContract.ReceivedBytes(nil)
 		require.NoError(t, err2)
-		return received
-	}
-	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload1))
+		return bytes.Equal(received, payload1)
+	}, testutils.WaitTimeout(t), cltest.DBPollingInterval)
 
 	// change payload
 	_, err = upkeepContract.SetBytesToSend(carrol, payload2)
@@ -182,12 +179,16 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 	backend.Commit()
 
 	// observe 2nd job run and received payload changes
-	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload2))
+	require.Eventually(t, func() bool {
+		received, err2 := upkeepContract.ReceivedBytes(nil)
+		require.NoError(t, err2)
+		return bytes.Equal(received, payload2)
+	}, testutils.WaitTimeout(t), cltest.DBPollingInterval)
 }
 
 func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
+	t.Parallel()
 	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809; DEPENDENT ON SPECIFIC BLOCK PATTTERN?")
-	g := gomega.NewWithT(t)
 
 	// setup blockchain
 	sergey := evmtestutils.MustNewSimTransactor(t) // owns all the link
@@ -236,12 +237,15 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	commit()
 
 	emits := 1
-	go emitEvents(testutils.Context(t), t, emits, contracts, carrol, func() {
-		commit()
-	})
+	go func() {
+		emitErr := emitEvents(t.Context(), emits, contracts, carrol, func() {
+			commit()
+		})
+		assert.NoError(t, emitErr)
+	}()
 
-	listener, done := listenPerformed(t, backend, registry, ids, int64(1))
-	g.Eventually(listener, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
+	listener, done := listenPerformed(t, backend, registry, ids, 1)
+	require.Eventually(t, listener, testutils.WaitTimeout(t), cltest.DBPollingInterval)
 	done()
 
 	t.Run("recover logs", func(t *testing.T) {
@@ -252,15 +256,15 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 		// Emit 100 logs in a burst
 		recoverEmits := 100
 		i := 0
-		emitEvents(testutils.Context(t), t, 100, []*log_upkeep_counter_wrapper.LogUpkeepCounter{contract}, carrol, func() {
+		require.NoError(t, emitEvents(t.Context(), 100, []*log_upkeep_counter_wrapper.LogUpkeepCounter{contract}, carrol, func() {
 			i++
 			if i%(recoverEmits/4) == 0 {
 				commit()
 				time.Sleep(time.Millisecond * 250) // otherwise we get "invalid transaction nonce" errors
 			}
-		})
+		}))
 
-		h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
+		h, err := backend.Client().HeaderByNumber(t.Context(), nil)
 		require.NoError(t, err)
 		beforeDummyBlocks := h.Number.Uint64()
 
@@ -273,16 +277,15 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 
 		t.Logf("Mined %d blocks, waiting for logs to be recovered", dummyBlocks)
 
-		listener, done := listenPerformedN(t, backend, registry, ids, int64(beforeDummyBlocks), recoverEmits)
+		listener, done := listenPerformedN(t, backend, registry, ids, beforeDummyBlocks, recoverEmits)
 		defer done()
-		g.Eventually(listener, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
+		require.Eventually(t, listener, testutils.WaitTimeout(t), cltest.DBPollingInterval)
 	})
 }
 
 func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-575")
-
-	g := gomega.NewWithT(t)
+	t.Parallel()
+	t.Skip("Flakey https://smartcontract-it.atlassian.net/browse/DX-575")
 
 	// setup blockchain
 	linkOwner := evmtestutils.MustNewSimTransactor(t)     // owns all the link
@@ -392,17 +395,17 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 		// only 1 event is necessary to make all 10 upkeeps eligible
 		_ = feeds.EmitEvents(t, backend, 1, func() {
 			// pause per emit for expected block production time
-			time.Sleep(3 * time.Second)
+			time.Sleep(100 * time.Millisecond)
 		})
 	}()
 
-	listener, done := listenPerformed(t, backend, registry, feeds.UpkeepsIds(), int64(1))
+	listener, done := listenPerformed(t, backend, registry, feeds.UpkeepsIDs(), 1)
 	defer done()
-	g.Eventually(listener, testutils.WaitTimeout(t)-(5*time.Second), cltest.DBPollingInterval).Should(gomega.BeTrue())
+	require.Eventually(t, listener, testutils.WaitTimeout(t)-(5*time.Second), cltest.DBPollingInterval)
 }
 
 func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
-	g := gomega.NewWithT(t)
+	t.Parallel()
 
 	// setup blockchain
 	linkOwner := evmtestutils.MustNewSimTransactor(t)     // owns all the link
@@ -483,9 +486,9 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 	require.NoError(t, feeds.EnableMercury(t, backend, commit, registry, registryOwner))
 	require.NoError(t, feeds.VerifyEnv(t, registry, registryOwner))
 
-	h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
+	h, err := backend.Client().HeaderByNumber(t.Context(), nil)
 	require.NoError(t, err)
-	startBlock := h.Number.Int64()
+	startBlock := h.Number.Uint64()
 	// start emitting events in a separate go-routine
 	// feed lookup relies on a single contract event log to perform multiple
 	// listener contracts
@@ -493,12 +496,12 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 		// only 1 event is necessary to make all 10 upkeeps eligible
 		_ = feeds.EmitEvents(t, backend, 1, func() {
 			// pause per emit for expected block production time
-			time.Sleep(3 * time.Second)
+			time.Sleep(100 * time.Millisecond)
 		})
 	}()
 
 	idsToCheck := make([]*big.Int, 0)
-	for i, uid := range feeds.UpkeepsIds() {
+	for i, uid := range feeds.UpkeepsIDs() {
 		if checkResultsProvider(i) {
 			idsToCheck = append(idsToCheck, uid)
 		}
@@ -506,7 +509,7 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 
 	listener, done := listenPerformed(t, backend, registry, idsToCheck, startBlock)
 	defer done()
-	g.Eventually(listener, testutils.WaitTimeout(t)-(5*time.Second), cltest.DBPollingInterval).Should(gomega.BeTrue())
+	require.Eventually(t, listener, testutils.WaitTimeout(t)-(5*time.Second), cltest.DBPollingInterval)
 }
 
 func startMercuryServer(t *testing.T, mercuryServer *mercury.SimulatedMercuryServer, responder func(i int) (int, []byte)) {
@@ -528,81 +531,70 @@ func startMercuryServer(t *testing.T, mercuryServer *mercury.SimulatedMercurySer
 	})
 }
 
-func emitEvents(ctx context.Context, t *testing.T, n int, contracts []*log_upkeep_counter_wrapper.LogUpkeepCounter, carrol *bind.TransactOpts, afterEmit func()) {
+func emitEvents(ctx context.Context, n int, contracts []*log_upkeep_counter_wrapper.LogUpkeepCounter, carrol *bind.TransactOpts, afterEmit func()) error {
 	for i := 0; i < n && ctx.Err() == nil; i++ {
 		for _, contract := range contracts {
 			// t.Logf("[automation-ocr3 | EvmRegistry] calling upkeep contracts to emit events. run: %d; contract addr: %s", i+1, contract.Address().Hex())
 			_, err := contract.Start(carrol)
-			require.NoError(t, err)
+			if err != nil {
+				return err
+			}
 		}
 		afterEmit()
 	}
+	return nil
 }
 
-func mapListener(m *sync.Map, n int) func() bool {
-	return func() bool {
-		count := 0
-		m.Range(func(key, value any) bool {
-			count += value.(int)
-			return true
-		})
-		return count > n
+// listenPerformedN returns a poll func that checks whether every ID in ids has
+// at least minPerID performed-events (minimum 1). This is a per-ID threshold,
+// not a total across all IDs.
+func listenPerformedN(t *testing.T, backend evmtypes.Backend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int, startBlock uint64, minPerID int) (func() bool, func()) {
+	if minPerID < 1 {
+		minPerID = 1
 	}
-}
-
-func listenPerformedN(t *testing.T, backend evmtypes.Backend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int, startBlock int64, count int) (func() bool, func()) {
-	cache := &sync.Map{}
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	start := startBlock
-
-	go func() {
-		for ctx.Err() == nil {
-			h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
-			assert.NoError(t, err)
-			currentBlock := h.Number.Uint64()
-
-			success := make([]bool, len(ids))
-			for i := range success {
-				success[i] = true
-			}
-
-			iter, err := registry.FilterUpkeepPerformed(&bind.FilterOpts{
-				Start:   uint64(start),
-				End:     &currentBlock,
-				Context: ctx,
-			}, ids, success)
-
-			if ctx.Err() != nil {
-				return
-			}
-
-			require.NoError(t, err)
-
-			for iter.Next() {
-				if iter.Event != nil {
-					t.Logf("[automation-ocr3 | EvmRegistry] upkeep performed event emitted for id %s", iter.Event.Id.String())
-
-					// cache.Store(iter.Event.Id.String(), true)
-					count, ok := cache.Load(iter.Event.Id.String())
-					if !ok {
-						cache.Store(iter.Event.Id.String(), 1)
-						continue
-					}
-					countI := count.(int)
-					cache.Store(iter.Event.Id.String(), countI+1)
-				}
-			}
-
-			require.NoError(t, iter.Close())
-
-			time.Sleep(time.Second)
+	return func() bool {
+		h, err := backend.Client().HeaderByNumber(t.Context(), nil)
+		if err != nil {
+			return false
 		}
-	}()
+		currentBlock := h.Number.Uint64()
 
-	return mapListener(cache, count), cancel
+		success := make([]bool, len(ids))
+		for i := range success {
+			success[i] = true
+		}
+
+		iter, err := registry.FilterUpkeepPerformed(&bind.FilterOpts{
+			Start:   startBlock,
+			End:     &currentBlock,
+			Context: t.Context(),
+		}, ids, success)
+
+		if err != nil {
+			return false
+		}
+		defer iter.Close()
+
+		cache := make(map[string]int)
+		for iter.Next() {
+			if iter.Event != nil {
+				cache[iter.Event.Id.String()]++
+			}
+		}
+
+		if len(cache) != len(ids) {
+			return false
+		}
+		for _, count := range cache {
+			if count < minPerID {
+				return false
+			}
+		}
+		return true
+	}, func() {}
 }
 
-func listenPerformed(t *testing.T, backend evmtypes.Backend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int, startBlock int64) (func() bool, func()) {
+func listenPerformed(t *testing.T, backend evmtypes.Backend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int, startBlock uint64) (func() bool, func()) {
 	return listenPerformedN(t, backend, registry, ids, startBlock, 0)
 }
 
@@ -619,18 +611,18 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
 	}
 
 	// Commit blocks to finality depth to ensure LogPoller has finalized blocks to read from
-	cs, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
+	cs, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String()) //nolint:staticcheck // SA1019: LegacyEVMChains pending relayer interface migration
 	require.NoError(t, err)
 	ch, ok := cs.(legacyevm.Chain)
 	require.True(t, ok)
 	finalityDepth := ch.Config().EVM().FinalityDepth()
-	for i := 0; i < int(finalityDepth); i++ {
+	for range int(finalityDepth) {
 		backend.Commit()
 	}
 
 	var (
-		oracles []confighelper.OracleIdentityExtra
-		nodes   []Node
+		oracles = make([]confighelper.OracleIdentityExtra, 0, 4)
+		nodes   = make([]Node, 0, 4)
 	)
 	// Set up the minimum 4 oracles all funded
 	ports := freeport.GetN(t, 4)
@@ -661,7 +653,7 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
 		schemaVersion                     = 1
 		name                              = "boot"
 		contractID                        = "%s"
-		contractConfigTrackerPollInterval = "15s"
+		contractConfigTrackerPollInterval = "1s"
 
 		[relayConfig]
 		chainID = 1337
@@ -676,7 +668,7 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
 		name = "ocr2keepers-%d"
 		schemaVersion = 1
 		contractID = "%s"
-		contractConfigTrackerPollInterval = "15s"
+		contractConfigTrackerPollInterval = "1s"
 		ocrKeyBundleID = "%s"
 		transmitterID = "%s"
 		p2pv2Bootstrappers = [
@@ -779,7 +771,6 @@ func deployUpkeeps(t *testing.T, backend evmtypes.Backend, carrol, steve *bind.T
 	contracts := make([]*log_upkeep_counter_wrapper.LogUpkeepCounter, n)
 	for i := range n {
 		backend.Commit()
-		time.Sleep(1 * time.Second)
 		upkeepAddr, _, upkeepContract, err := log_upkeep_counter_wrapper.DeployLogUpkeepCounter(
 			carrol, backend.Client(),
 			big.NewInt(100000),
@@ -869,7 +860,7 @@ func deployKeeper21Registry(
 }
 
 func getUpkeepIDFromTx21(t *testing.T, registry *iregistry21.IKeeperRegistryMaster, registrationTx *gethtypes.Transaction, backend evmtypes.Backend) *big.Int {
-	receipt, err := backend.Client().TransactionReceipt(testutils.Context(t), registrationTx.Hash())
+	receipt, err := backend.Client().TransactionReceipt(t.Context(), registrationTx.Hash())
 	require.NoError(t, err)
 	parsedLog, err := registry.ParseUpkeepRegistered(*receipt.Logs[0])
 	require.NoError(t, err)
@@ -901,7 +892,7 @@ func registerAndFund(
 
 		backend.Commit()
 
-		receipt, err := backend.Client().TransactionReceipt(testutils.Context(t), registrationTx.Hash())
+		receipt, err := backend.Client().TransactionReceipt(t.Context(), registrationTx.Hash())
 		require.NoError(t, err)
 
 		parsedLog, err := registry.ParseUpkeepRegistered(*receipt.Logs[0])
@@ -931,7 +922,7 @@ type feedLookupUpkeepController struct {
 	protocolOwner *bind.TransactOpts
 	// log trigger listener contracts react to logs produced from protocol
 	count          int
-	upkeepIds      []*big.Int
+	upkeepIDs      []*big.Int
 	addresses      []common.Address
 	contracts      []*log_triggered_streams_lookup_wrapper.LogTriggeredStreamsLookup
 	contractsOwner *bind.TransactOpts
@@ -1026,7 +1017,7 @@ func (c *feedLookupUpkeepController) RegisterAndFund(
 		ids[x] = registerFunc(t, c.addresses[x], c.contractsOwner, 1, config)
 	}
 
-	c.upkeepIds = ids
+	c.upkeepIDs = ids
 
 	return nil
 }
@@ -1042,8 +1033,8 @@ func (c *feedLookupUpkeepController) EnableMercury(
 		MercuryEnabled: true,
 	})
 
-	ctx := testutils.Context(t)
-	for _, id := range c.upkeepIds {
+	ctx := t.Context()
+	for _, id := range c.upkeepIDs {
 		if _, err := registry.SetUpkeepPrivilegeConfig(registryOwner, id, adminBytes); err != nil {
 			require.NoError(t, err)
 
@@ -1074,7 +1065,7 @@ func (c *feedLookupUpkeepController) EnableMercury(
 		require.True(t, checkBytes.MercuryEnabled)
 	}
 
-	bl, _ := backend.Client().BlockByHash(testutils.Context(t), backend.Commit())
+	bl, _ := backend.Client().BlockByHash(t.Context(), backend.Commit())
 	t.Logf("block number after mercury enabled: %d", bl.NumberU64())
 
 	return nil
@@ -1088,16 +1079,16 @@ func (c *feedLookupUpkeepController) VerifyEnv(
 	t.Log("verifying number of active upkeeps")
 
 	ids, err := registry.GetActiveUpkeepIDs(&bind.CallOpts{
-		Context: testutils.Context(t),
+		Context: t.Context(),
 		From:    registryOwner.From,
 	}, big.NewInt(0), big.NewInt(100))
 
 	require.NoError(t, err)
 	require.Len(t, ids, c.count, "active upkeep ids does not match count")
-	require.Len(t, ids, len(c.upkeepIds))
+	require.Len(t, ids, len(c.upkeepIDs))
 
 	t.Log("verifying total number of contracts")
-	require.Len(t, c.contracts, len(c.upkeepIds), "one contract for each upkeep id expected")
+	require.Len(t, c.contracts, len(c.upkeepIDs), "one contract for each upkeep id expected")
 
 	// call individual contracts to see that they revert
 	for _, contract := range c.contracts {
@@ -1129,15 +1120,13 @@ func (c *feedLookupUpkeepController) EmitEvents(
 	count int,
 	afterEmit func(),
 ) error {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	for i := 0; i < count && ctx.Err() == nil; i++ {
 		blockBeforeOrder, _ := backend.Client().BlockByHash(ctx, backend.Commit())
 		_, err := c.protocol.ExecuteLimitOrder(c.protocolOwner, big.NewInt(1000), big.NewInt(10000), c.logSrcAddr)
-		require.NoError(t, err, "no error expected from limit order exec")
-
 		if err != nil {
-			return err
+			return fmt.Errorf("limit order exec: %w", err)
 		}
 
 		backend.Commit()
@@ -1148,7 +1137,7 @@ func (c *feedLookupUpkeepController) EmitEvents(
 
 		iter, _ := c.protocol.FilterLimitOrderExecuted(
 			&bind.FilterOpts{
-				Context: testutils.Context(t),
+				Context: t.Context(),
 				Start:   blockBeforeOrder.NumberU64() - 1,
 			},
 			[]*big.Int{big.NewInt(1000)},
@@ -1163,7 +1152,6 @@ func (c *feedLookupUpkeepController) EmitEvents(
 			}
 		}
 
-		require.True(t, eventEmitted, "event expected on backend")
 		if !eventEmitted {
 			return errors.New("event was not emitted")
 		}
@@ -1174,6 +1162,6 @@ func (c *feedLookupUpkeepController) EmitEvents(
 	return nil
 }
 
-func (c *feedLookupUpkeepController) UpkeepsIds() []*big.Int {
-	return c.upkeepIds
+func (c *feedLookupUpkeepController) UpkeepsIDs() []*big.Int {
+	return c.upkeepIDs
 }

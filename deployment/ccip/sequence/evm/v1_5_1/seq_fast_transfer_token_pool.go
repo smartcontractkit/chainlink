@@ -4,12 +4,12 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
-	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 )
@@ -19,7 +19,7 @@ type FastTransferTokenPoolUpdateDestChainConfigSequenceInput struct {
 	// ContractType specifies which type of fast transfer token pool to update
 	ContractType cldf.ContractType
 	// UpdatesByChain maps chain selector to the EVM call input for that chain
-	UpdatesByChain map[uint64]opsevm.EVMCallInput[ccipops.UpdateDestChainConfigInput]
+	UpdatesByChain map[uint64]opsutils.EVMCallInput[ccipops.UpdateDestChainConfigInput]
 }
 
 // FastTransferTokenPoolUpdateFillerAllowlistSequenceInput defines inputs for updating filler allowlists across multiple chains
@@ -27,7 +27,7 @@ type FastTransferTokenPoolUpdateFillerAllowlistSequenceInput struct {
 	// ContractType specifies which type of fast transfer token pool to update
 	ContractType cldf.ContractType
 	// UpdatesByChain maps chain selector to the EVM call input for that chain
-	UpdatesByChain map[uint64]opsevm.EVMCallInput[ccipops.UpdateFillerAllowlistInput]
+	UpdatesByChain map[uint64]opsutils.EVMCallInput[ccipops.UpdateFillerAllowlistInput]
 }
 
 // FastTransferTokenPoolWithdrawPoolFeesSequenceInput defines inputs for withdrawing pool fees across multiple chains
@@ -35,7 +35,7 @@ type FastTransferTokenPoolWithdrawPoolFeesSequenceInput struct {
 	// ContractType specifies which type of fast transfer token pool to withdraw from
 	ContractType cldf.ContractType
 	// WithdrawalsByChain maps chain selector to the EVM call input for that chain
-	WithdrawalsByChain map[uint64]opsevm.EVMCallInput[ccipops.WithdrawPoolFeesInput]
+	WithdrawalsByChain map[uint64]opsutils.EVMCallInput[ccipops.WithdrawPoolFeesInput]
 }
 
 var (
@@ -45,8 +45,8 @@ var (
 		"FastTransferTokenPoolUpdateDestChainConfigSequence",
 		semver.MustParse("1.0.0"),
 		"Update destination chain configurations on fast transfer token pool contracts across multiple EVM chains",
-		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input FastTransferTokenPoolUpdateDestChainConfigSequenceInput) (map[uint64][]opsevm.EVMCallOutput, error) {
-			opOutputs := make(map[uint64][]opsevm.EVMCallOutput, len(input.UpdatesByChain))
+		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input FastTransferTokenPoolUpdateDestChainConfigSequenceInput) (map[uint64][]opsutils.EVMCallOutput, error) {
+			opOutputs := make(map[uint64][]opsutils.EVMCallOutput, len(input.UpdatesByChain))
 
 			for chainSel, update := range input.UpdatesByChain {
 				chain, ok := chains[chainSel]
@@ -55,7 +55,7 @@ var (
 				}
 
 				// Select the appropriate operation based on contract type
-				var operation *operations.Operation[opsevm.EVMCallInput[ccipops.UpdateDestChainConfigInput], opsevm.EVMCallOutput, cldf_evm.Chain]
+				var operation *operations.Operation[opsutils.EVMCallInput[ccipops.UpdateDestChainConfigInput], opsutils.EVMCallOutput, cldf_evm.Chain]
 				switch input.ContractType {
 				case shared.BurnMintFastTransferTokenPool:
 					operation = ccipops.BurnMintFastTransferTokenPoolUpdateDestChainConfigOp
@@ -71,7 +71,7 @@ var (
 				if err != nil {
 					return nil, fmt.Errorf("failed to execute fast transfer token pool update dest chain config op on %s: %w", chain, err)
 				}
-				opOutputs[chainSel] = []opsevm.EVMCallOutput{report.Output}
+				opOutputs[chainSel] = []opsutils.EVMCallOutput{report.Output}
 			}
 			return opOutputs, nil
 		})
@@ -82,8 +82,8 @@ var (
 		"FastTransferTokenPoolUpdateFillerAllowlistSequence",
 		semver.MustParse("1.0.0"),
 		"Update filler allowlists on fast transfer token pool contracts across multiple EVM chains",
-		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input FastTransferTokenPoolUpdateFillerAllowlistSequenceInput) (map[uint64][]opsevm.EVMCallOutput, error) {
-			opOutputs := make(map[uint64][]opsevm.EVMCallOutput, len(input.UpdatesByChain))
+		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input FastTransferTokenPoolUpdateFillerAllowlistSequenceInput) (map[uint64][]opsutils.EVMCallOutput, error) {
+			opOutputs := make(map[uint64][]opsutils.EVMCallOutput, len(input.UpdatesByChain))
 
 			for chainSel, update := range input.UpdatesByChain {
 				chain, ok := chains[chainSel]
@@ -92,7 +92,7 @@ var (
 				}
 
 				// Select the appropriate operation based on contract type
-				var operation *operations.Operation[opsevm.EVMCallInput[ccipops.UpdateFillerAllowlistInput], opsevm.EVMCallOutput, cldf_evm.Chain]
+				var operation *operations.Operation[opsutils.EVMCallInput[ccipops.UpdateFillerAllowlistInput], opsutils.EVMCallOutput, cldf_evm.Chain]
 				switch input.ContractType {
 				case shared.BurnMintFastTransferTokenPool:
 					operation = ccipops.BurnMintFastTransferTokenPoolUpdateFillerAllowlistOp
@@ -108,7 +108,7 @@ var (
 				if err != nil {
 					return nil, fmt.Errorf("failed to execute fast transfer token pool update filler allowlist op on %s: %w", chain, err)
 				}
-				opOutputs[chainSel] = []opsevm.EVMCallOutput{report.Output}
+				opOutputs[chainSel] = []opsutils.EVMCallOutput{report.Output}
 			}
 			return opOutputs, nil
 		})
@@ -119,8 +119,8 @@ var (
 		"FastTransferTokenPoolWithdrawPoolFeesSequence",
 		semver.MustParse("1.0.0"),
 		"Withdraw pool fees from fast transfer token pool contracts across multiple EVM chains",
-		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input FastTransferTokenPoolWithdrawPoolFeesSequenceInput) (map[uint64][]opsevm.EVMCallOutput, error) {
-			opOutputs := make(map[uint64][]opsevm.EVMCallOutput, len(input.WithdrawalsByChain))
+		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input FastTransferTokenPoolWithdrawPoolFeesSequenceInput) (map[uint64][]opsutils.EVMCallOutput, error) {
+			opOutputs := make(map[uint64][]opsutils.EVMCallOutput, len(input.WithdrawalsByChain))
 
 			for chainSel, withdrawal := range input.WithdrawalsByChain {
 				chain, ok := chains[chainSel]
@@ -129,7 +129,7 @@ var (
 				}
 
 				// Select the appropriate operation based on contract type
-				var operation *operations.Operation[opsevm.EVMCallInput[ccipops.WithdrawPoolFeesInput], opsevm.EVMCallOutput, cldf_evm.Chain]
+				var operation *operations.Operation[opsutils.EVMCallInput[ccipops.WithdrawPoolFeesInput], opsutils.EVMCallOutput, cldf_evm.Chain]
 				switch input.ContractType {
 				case shared.BurnMintFastTransferTokenPool:
 					operation = ccipops.BurnMintFastTransferTokenPoolWithdrawPoolFeesOp
@@ -145,7 +145,7 @@ var (
 				if err != nil {
 					return nil, fmt.Errorf("failed to execute fast transfer token pool withdraw pool fees op on %s: %w", chain, err)
 				}
-				opOutputs[chainSel] = []opsevm.EVMCallOutput{report.Output}
+				opOutputs[chainSel] = []opsutils.EVMCallOutput{report.Output}
 			}
 			return opOutputs, nil
 		})
