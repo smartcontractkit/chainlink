@@ -446,11 +446,12 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCa
 
 func TestVRFV2PlusIntegration_SingleConsumer_HappyPath(t *testing.T) {
 	t.Parallel()
-	ownerKey := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
-	t.Run("link payment", func(tt *testing.T) { //nolint:paralleltest // shares universe setup
+	t.Run("link payment", func(tt *testing.T) {
+		tt.Parallel()
+		ownerKey := cltest.MustGenerateRandomKey(tt)
+		uni := newVRFCoordinatorV2PlusUniverse(tt, ownerKey, 1, false)
 		testSingleConsumerHappyPath(
-			t,
+			tt,
 			ownerKey,
 			uni.coordinatorV2UniverseCommon,
 			uni.vrfConsumers[0],
@@ -468,9 +469,12 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath(t *testing.T) {
 				require.Equal(t, expectedSubID, rwfe.SubID())
 			})
 	})
-	t.Run("native payment", func(tt *testing.T) { //nolint:paralleltest // shares universe setup
+	t.Run("native payment", func(tt *testing.T) {
+		tt.Parallel()
+		ownerKey := cltest.MustGenerateRandomKey(tt)
+		uni := newVRFCoordinatorV2PlusUniverse(tt, ownerKey, 1, false)
 		testSingleConsumerHappyPath(
-			t,
+			tt,
 			ownerKey,
 			uni.coordinatorV2UniverseCommon,
 			uni.vrfConsumers[0],
