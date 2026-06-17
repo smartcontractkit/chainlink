@@ -194,8 +194,8 @@ func setupNode(
 		c.P2P.V2.Enabled = new(true)
 		c.P2P.V2.AnnounceAddresses = &p2paddresses
 		c.P2P.V2.ListenAddresses = &p2paddresses
-		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(500 * time.Millisecond)
-		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
+		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(50 * time.Millisecond)
+		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(500 * time.Millisecond)
 
 		// [Mercury]
 		c.Mercury.VerboseLogging = new(true)
@@ -501,7 +501,8 @@ func addOCRJobsEVMPremiumLegacy(
 	clientPubKeys []ed25519.PublicKey,
 	pluginConfig,
 	relayType,
-	relayConfig string) (jobIDs map[int]map[uint32]int32) {
+	relayConfig string,
+) (jobIDs map[int]map[uint32]int32) {
 	// node idx => stream id => job id
 	jobIDs = make(map[int]map[uint32]int32)
 	// Add OCR jobs - one per feed on each node

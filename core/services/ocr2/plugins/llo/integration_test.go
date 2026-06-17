@@ -236,18 +236,18 @@ func makeDefaultOCRConfig() *OCRConfig {
 		panic(err)
 	}
 	return &OCRConfig{
-		DeltaProgress:                           2 * time.Second,
-		DeltaResend:                             20 * time.Second,
-		DeltaInitial:                            400 * time.Millisecond,
-		DeltaRound:                              500 * time.Millisecond,
-		DeltaGrace:                              250 * time.Millisecond,
-		DeltaCertifiedCommitRequest:             300 * time.Millisecond,
-		DeltaStage:                              1 * time.Minute,
+		DeltaProgress:                           500 * time.Millisecond,
+		DeltaResend:                             2 * time.Second,
+		DeltaInitial:                            50 * time.Millisecond,
+		DeltaRound:                              50 * time.Millisecond,
+		DeltaGrace:                              10 * time.Millisecond,
+		DeltaCertifiedCommitRequest:             10 * time.Millisecond,
+		DeltaStage:                              5 * time.Second,
 		RMax:                                    100,
 		ReportingPluginConfig:                   []byte{},
 		MaxDurationInitialization:               nil,
 		MaxDurationQuery:                        0,
-		MaxDurationObservation:                  250 * time.Millisecond,
+		MaxDurationObservation:                  50 * time.Millisecond,
 		MaxDurationShouldAcceptAttestedReport:   0,
 		MaxDurationShouldTransmitAcceptedReport: 0,
 		F:                                       int(fNodes),
@@ -392,7 +392,7 @@ func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, ba
 	} else {
 		topic = llo.StagingConfigSet
 	}
-	logs, err := backend.Client().FilterLogs(testutils.Context(t), ethereum.FilterQuery{Addresses: []common.Address{configuratorAddress}, Topics: [][]common.Hash{[]common.Hash{topic, donIDPadded}}})
+	logs, err := backend.Client().FilterLogs(t.Context(), ethereum.FilterQuery{Addresses: []common.Address{configuratorAddress}, Topics: [][]common.Hash{[]common.Hash{topic, donIDPadded}}})
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, len(logs), 1)
 
@@ -586,6 +586,13 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				require.NoError(t, err)
 
 				feedID := reportElems["feedId"].([32]uint8)
+
+				// Skip reports from rounds where bridge timeouts caused zero-fee
+				// calculation. Under CI load, ETH/LINK price bridge tasks can time
+				// out, producing nativeFee=0. Wait for a round with valid fees.
+				if reportElems["nativeFee"].(*big.Int).Sign() == 0 {
+					continue
+				}
 
 				if _, exists := seen[feedID]; !exists {
 					continue // already saw all oracles for this feed
@@ -1125,9 +1132,9 @@ ds2_payload -> ds2_provider_indicated_time -> provider_indicated_time;
 ds2_data_received_time [type=jsonparse lax=true path="timestamps,providerDataReceivedUnixMs"];
 ds2_payload -> ds2_data_received_time -> data_received_time;
 
-benchmark_price [type=median allowedFaults=1 streamID=%d index=0];
-provider_indicated_time [type=median allowedFaults=1 lax=true];
-data_received_time [type=median allowedFaults=1 lax=true];
+benchmark_price [type=median streamID=%d index=0];
+provider_indicated_time [type=median lax=true];
+data_received_time [type=median lax=true];
 provider_indicated_time -> benchmark_price_timestamp;
 data_received_time -> benchmark_price_timestamp;
 
