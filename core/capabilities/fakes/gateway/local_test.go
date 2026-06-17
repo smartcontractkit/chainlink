@@ -40,7 +40,7 @@ func waitForPort(t *testing.T, port uint16, timeout time.Duration) {
 //  2. A valid POST request carrying a signed JWT and a JSON-RPC body is sent.
 //  3. The method returns a Payload whose Input and Key match the request.
 func TestListenForTriggerPayload_HappyPath(t *testing.T) {
-	port := freeport.GetOne(t)
+	port := uint16(freeport.GetOne(t))
 	gw := NewLocalGateway(Config{Port: port})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

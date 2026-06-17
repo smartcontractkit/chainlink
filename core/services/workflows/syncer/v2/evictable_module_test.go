@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"runtime"
-	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -1095,8 +1094,7 @@ func TestEvictable_Execute_L1_hit(t *testing.T) {
 }
 
 func TestEvictable_Evict_then_reloadWithoutDisk(t *testing.T) {
-	oldGC := debug.SetGCPercent(-1)
-	t.Cleanup(func() { debug.SetGCPercent(oldGC) })
+	t.Parallel()
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil).Once()
 	inner.EXPECT().Close()
@@ -1115,6 +1113,9 @@ func TestEvictable_Evict_then_reloadWithoutDisk(t *testing.T) {
 	em.started.Store(true)
 	t.Cleanup(em.Close)
 
+	// Pin the module on the stack so GC cannot reclaim it after eviction.
+	// This deterministically tests weak reference resurrection.
+	strongRef := em.current.Load()
 	em.Evict()
 	assert.False(t, em.IsLoaded())
 
@@ -1122,6 +1123,9 @@ func TestEvictable_Evict_then_reloadWithoutDisk(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, em.IsLoaded())
 	assert.Equal(t, int32(0), cs.getModuleCalls.Load(), "weak L2 reload must not touch disk")
+	
+	// Force the compiler to keep strongRef alive until this exact point.
+	runtime.KeepAlive(strongRef)
 }
 
 func TestEvictable_emptyWorkflowID_diskMiss(t *testing.T) {
@@ -1144,8 +1148,7 @@ func TestEvictable_emptyWorkflowID_diskMiss(t *testing.T) {
 // reference and a subsequent Execute resurrects the still-live compiled module
 // via the weak L2, skipping both disk I/O and the factory.
 func TestEvictable_WeakRefHitAfterEvict(t *testing.T) {
-	oldGC := debug.SetGCPercent(-1)
-	t.Cleanup(func() { debug.SetGCPercent(oldGC) })
+	t.Parallel()
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil)
 	inner.EXPECT().Close()
@@ -1164,12 +1167,18 @@ func TestEvictable_WeakRefHitAfterEvict(t *testing.T) {
 	em.started.Store(true)
 	t.Cleanup(em.Close)
 
+	// Pin the module on the stack so GC cannot reclaim it after eviction.
+	// This deterministically tests weak reference resurrection.
+	strongRef := em.current.Load()
 	em.Evict()
 
 	_, err = em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
 	require.NoError(t, err)
 
 	assert.Equal(t, int32(0), cs.getModuleCalls.Load(), "disk should not be accessed when weak module is alive")
+	
+	// Force the compiler to keep strongRef alive until this exact point.
+	runtime.KeepAlive(strongRef)
 }
 
 // TestEvictable_WeakRefMissFallsToDisk verifies that when the weak L2 is
