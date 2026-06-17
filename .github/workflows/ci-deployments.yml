@@ -88,39 +88,6 @@ jobs:
             all:
               - '**'
 
-      - name: Decide which tests to run (rollout-only)
-        # To validate that this properly tests, we will run this beside the dorny/paths-filter actions
-        # before using its output to actually gate any jobs.
-        id: triggers
-        uses: smartcontractkit/.github/actions/advanced-triggers@advanced-triggers/v1
-        continue-on-error: true
-        with:
-          file-sets: |
-            included-files:
-              - "**/*.go"
-              - "**/go.mod"
-              - "**/go.sum"
-              - "core/**"
-              - "deployment/**"
-              - ".github/workflows/ci-deployments.yml"
-              - ".github/actions/**"
-              - "tools/bin/go_deployment_tests"
-            excluded-files:
-              - "testdata/**"
-              - "core/**/testdata/**"
-              - "core/**/*_test.go"
-              - "system-tests/**"
-              - "integration-tests/**"
-              - "core/scripts/cre/environment/examples/workflows/**"
-          # Note:
-          # - for pull_request, merge_group, and push events, a trigger will resolve to true if any changed files match the path/glob patterns
-          #     - exclusion-sets/negations are applied first, and therefore filter all changed files before inclusion sets are applied
-          # - by default these will resolve to true for schedule, and workflow_dispatch events
-          triggers: |
-            deployment-tests:
-              exclusion-sets: [ excluded-files ]
-              inclusion-sets: [ included-files ]
-
   deployment-tests:
     env:
       # We explicitly have this env var not be "CL_DATABASE_URL" to avoid having it be used by core related tests
