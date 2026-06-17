@@ -18,6 +18,8 @@ import (
 )
 
 func TestGatewayVaultRequestPipeline_ProcessGatewayVaultRequest_GatewayModePreservesDigest(t *testing.T) {
+	t.Parallel()
+
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 
@@ -57,6 +59,8 @@ func TestGatewayVaultRequestPipeline_ProcessGatewayVaultRequest_GatewayModePrese
 }
 
 func TestGatewayVaultRequestPipeline_ProcessGatewayVaultRequest_NodeReauthPreservesDigest(t *testing.T) {
+	t.Parallel()
+
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 

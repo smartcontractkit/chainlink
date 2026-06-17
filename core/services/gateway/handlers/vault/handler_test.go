@@ -888,6 +888,8 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	})
 
 	t.Run("empty delete batch", func(t *testing.T) {
+		t.Parallel()
+
 		h, callback, don, _ := setupHandler(t)
 		don.AssertNotCalled(t, "SendToNode")
 
@@ -1141,6 +1143,8 @@ func TestVaultHandler_PublicKeyGet(t *testing.T) {
 }
 
 func TestVaultHandler_PreAuthValidationSkipsAuthorization(t *testing.T) {
+	t.Parallel()
+
 	lggr := logger.Test(t)
 	don := mocks.NewDON(t)
 	donConfig := &config.DONConfig{
@@ -1176,6 +1180,8 @@ func TestVaultHandler_PreAuthValidationSkipsAuthorization(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("nil params", func(t *testing.T) {
+		t.Parallel()
+
 		var wg sync.WaitGroup
 		callback := common.NewCallback()
 
@@ -1200,6 +1206,8 @@ func TestVaultHandler_PreAuthValidationSkipsAuthorization(t *testing.T) {
 	})
 
 	t.Run("empty delete batch", func(t *testing.T) {
+		t.Parallel()
+
 		var wg sync.WaitGroup
 		callback := common.NewCallback()
 

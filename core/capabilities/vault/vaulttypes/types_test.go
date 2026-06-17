@@ -7,6 +7,8 @@ import (
 )
 
 func TestIsGatewaySecretsMethod(t *testing.T) {
+	t.Parallel()
+
 	for _, method := range GatewaySecretsMethods {
 		assert.True(t, IsGatewaySecretsMethod(method), method)
 	}

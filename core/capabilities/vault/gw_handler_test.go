@@ -636,23 +636,17 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 }
 
 func TestGatewayHandler_DeleteListWithoutPublicKeyFetch(t *testing.T) {
+	t.Parallel()
+
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 	authResult := vaultcap.NewAuthResult("", "0xabc", "digest-0xabc", time.Now().Add(time.Minute).Unix())
 
-	secretsService := vaulttypesmocks.NewSecretsService(t)
-	t.Cleanup(func() {
-		secretsService.AssertNotCalled(t, "GetPublicKey", mock.Anything, mock.Anything)
-	})
-
-	gwConnector := connector_mocks.NewGatewayConnector(t)
-	allowListBasedAuth := vaultcapmocks.NewAuthorizer(t)
-
 	tests := []struct {
-		name    string
-		method  string
-		params  json.RawMessage
-		service func()
+		name         string
+		method       string
+		params       json.RawMessage
+		setupService func(*vaulttypesmocks.SecretsService)
 	}{
 		{
 			name:   "delete",
@@ -668,7 +662,7 @@ func TestGatewayHandler_DeleteListWithoutPublicKeyFetch(t *testing.T) {
 				require.NoError(t, err)
 				return params
 			}(),
-			service: func() {
+			setupService: func(secretsService *vaulttypesmocks.SecretsService) {
 				secretsService.EXPECT().DeleteSecrets(mock.Anything, mock.Anything).
 					Return(&vaulttypes.Response{ID: "test_secret"}, nil)
 			},
@@ -684,7 +678,7 @@ func TestGatewayHandler_DeleteListWithoutPublicKeyFetch(t *testing.T) {
 				require.NoError(t, err)
 				return params
 			}(),
-			service: func() {
+			setupService: func(secretsService *vaulttypesmocks.SecretsService) {
 				secretsService.EXPECT().ListSecretIdentifiers(mock.Anything, mock.Anything).
 					Return(&vaulttypes.Response{ID: "test_secret"}, nil)
 			},
@@ -693,10 +687,19 @@ func TestGatewayHandler_DeleteListWithoutPublicKeyFetch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			secretsService := vaulttypesmocks.NewSecretsService(t)
+			t.Cleanup(func() {
+				secretsService.AssertNotCalled(t, "GetPublicKey", mock.Anything, mock.Anything)
+			})
+			gwConnector := connector_mocks.NewGatewayConnector(t)
+			allowListBasedAuth := vaultcapmocks.NewAuthorizer(t)
+
 			allowListBasedAuth.EXPECT().AuthorizeRequest(mock.Anything, mock.MatchedBy(func(req jsonrpc.Request[json.RawMessage]) bool {
 				return req.Method == tt.method && req.ID == "1"
 			})).Return(authResult, nil).Once()
-			tt.service()
+			tt.setupService(secretsService)
 			gwConnector.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
 				return resp.Error == nil
 			})).Return(nil).Once()
@@ -724,6 +727,8 @@ func TestGatewayHandler_DeleteListWithoutPublicKeyFetch(t *testing.T) {
 }
 
 func TestGatewayHandler_CreateUpdateReusesCachedPublicKey(t *testing.T) {
+	t.Parallel()
+
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 

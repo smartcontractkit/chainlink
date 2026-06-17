@@ -12,6 +12,8 @@ import (
 )
 
 func TestValidateVaultOwnersMatchAuthorized_RejectsUnregisteredMethods(t *testing.T) {
+	t.Parallel()
+
 	params := json.RawMessage(`{}`)
 	err := validateVaultOwnersMatchAuthorized(jsonrpc.Request[json.RawMessage]{
 		Method: "vault.unsupported",
@@ -21,6 +23,8 @@ func TestValidateVaultOwnersMatchAuthorized_RejectsUnregisteredMethods(t *testin
 }
 
 func TestValidateVaultOwnersMatchAuthorized_RejectsEmptyBatch(t *testing.T) {
+	t.Parallel()
+
 	owner := "0xauthorized"
 	for _, tc := range []struct {
 		method string
@@ -40,6 +44,8 @@ func TestValidateVaultOwnersMatchAuthorized_RejectsEmptyBatch(t *testing.T) {
 		},
 	} {
 		t.Run(tc.method, func(t *testing.T) {
+			t.Parallel()
+
 			err := validateVaultOwnersMatchAuthorized(jsonrpc.Request[json.RawMessage]{
 				Method: tc.method,
 				Params: tc.params,
@@ -50,6 +56,8 @@ func TestValidateVaultOwnersMatchAuthorized_RejectsEmptyBatch(t *testing.T) {
 }
 
 func TestValidateVaultOwnersMatchAuthorized_RejectsMalformedBatches(t *testing.T) {
+	t.Parallel()
+
 	owner := "0xauthorized"
 	tests := []struct {
 		name        string
@@ -117,6 +125,8 @@ func TestValidateVaultOwnersMatchAuthorized_RejectsMalformedBatches(t *testing.T
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := validateVaultOwnersMatchAuthorized(jsonrpc.Request[json.RawMessage]{
 				Method: tc.method,
 				Params: tc.params,
@@ -127,9 +137,13 @@ func TestValidateVaultOwnersMatchAuthorized_RejectsMalformedBatches(t *testing.T
 }
 
 func TestValidateVaultOwnersMatchAuthorized_CoversAllGatewaySecretsMethods(t *testing.T) {
+	t.Parallel()
+
 	owner := "0xauthorized"
 	for _, method := range vaulttypes.GatewaySecretsMethods {
 		t.Run(method, func(t *testing.T) {
+			t.Parallel()
+
 			params := gatewaySecretsMethodParamsForOwnerValidation(t, method, owner)
 			err := validateVaultOwnersMatchAuthorized(jsonrpc.Request[json.RawMessage]{
 				Method: method,

@@ -1015,6 +1015,8 @@ func TestRequestValidator_PreservesEmptyNamespaceOnStructs(t *testing.T) {
 }
 
 func TestRequestValidator_Close_SkipsInjectedLimiters(t *testing.T) {
+	t.Parallel()
+
 	batchLimiter := limits.NewUpperBoundLimiter(10)
 	validator := NewRequestValidator(
 		batchLimiter,
@@ -1029,6 +1031,8 @@ func TestRequestValidator_Close_SkipsInjectedLimiters(t *testing.T) {
 }
 
 func TestRequestValidator_Close_OwnsFactoryLimiters(t *testing.T) {
+	t.Parallel()
+
 	validator, err := NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 

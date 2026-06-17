@@ -241,6 +241,8 @@ func TestAuthorizer_AllowListPath_RejectsListOwnerMismatch(t *testing.T) {
 }
 
 func TestAuthorizer_JWTPath_RejectsOwnerMismatch(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		method      string
@@ -306,6 +308,8 @@ func TestAuthorizer_JWTPath_RejectsOwnerMismatch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			mismatchedOwner := "0xother"
 			authorizedOwner := "0xauthorized"
 			params := tt.buildParams(mismatchedOwner)
@@ -331,6 +335,8 @@ func TestAuthorizer_JWTPath_RejectsOwnerMismatch(t *testing.T) {
 }
 
 func TestAuthorizer_RejectsOwnerBindingOnMalformedBatches(t *testing.T) {
+	t.Parallel()
+
 	authorizedOwner := "0xauthorized"
 	tests := []struct {
 		name        string
@@ -390,6 +396,8 @@ func TestAuthorizer_RejectsOwnerBindingOnMalformedBatches(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			params := tt.buildParams()
 			req := jsonrpc.Request[json.RawMessage]{
 				ID:     "1",
@@ -410,6 +418,8 @@ func TestAuthorizer_RejectsOwnerBindingOnMalformedBatches(t *testing.T) {
 }
 
 func TestAuthorizer_RejectsOwnerBindingWhenParamsMissing(t *testing.T) {
+	t.Parallel()
+
 	allowListBasedAuth := vaultmocks.NewAuthorizer(t)
 	allowListBasedAuth.EXPECT().AuthorizeRequest(mock.Anything, mock.Anything).Return(vault.NewAuthResult("", "0xauthorized", "digest-1", time.Now().Add(time.Minute).Unix()), nil).Once()
 

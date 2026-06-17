@@ -16,6 +16,8 @@ import (
 )
 
 func TestRequestValidator_ValidateStructureBeforeAuth_RejectsNilParams(t *testing.T) {
+	t.Parallel()
+
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 
@@ -31,6 +33,8 @@ func TestRequestValidator_ValidateStructureBeforeAuth_RejectsNilParams(t *testin
 }
 
 func TestRequestValidator_ValidateStructureBeforeAuth_LeavesParamsUnchanged(t *testing.T) {
+	t.Parallel()
+
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 
@@ -62,6 +66,8 @@ func TestRequestValidator_ValidateStructureBeforeAuth_LeavesParamsUnchanged(t *t
 }
 
 func TestRequestValidator_StampAuthorizedParams_NormalizesAllSecretsMethods(t *testing.T) {
+	t.Parallel()
+
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 
@@ -70,6 +76,8 @@ func TestRequestValidator_StampAuthorizedParams_NormalizesAllSecretsMethods(t *t
 
 	for _, method := range vaulttypes.GatewaySecretsMethods {
 		t.Run(method, func(t *testing.T) {
+			t.Parallel()
+
 			params := gatewaySecretsMethodParamsForValidation(t, method, owner)
 			req := jsonrpc.Request[json.RawMessage]{
 				ID:     "req-1",
@@ -111,6 +119,8 @@ func TestRequestValidator_StampAuthorizedParams_NormalizesAllSecretsMethods(t *t
 }
 
 func TestRequestValidator_PrepareWithStripOwnerPrefixPreservesJWTDigest_AllSecretsMethods(t *testing.T) {
+	t.Parallel()
+
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 
@@ -119,6 +129,8 @@ func TestRequestValidator_PrepareWithStripOwnerPrefixPreservesJWTDigest_AllSecre
 
 	for _, method := range vaulttypes.GatewaySecretsMethods {
 		t.Run(method, func(t *testing.T) {
+			t.Parallel()
+
 			originalRequestID := "req-1"
 			params := gatewaySecretsMethodParamsForStripPrefixDigest(t, method, owner, originalRequestID)
 			req := jsonrpc.Request[json.RawMessage]{
@@ -153,6 +165,8 @@ func TestRequestValidator_PrepareWithStripOwnerPrefixPreservesJWTDigest_AllSecre
 }
 
 func TestRequestValidator_ValidateStructureBeforeAuth_AcceptsCreateBatchAtLimit(t *testing.T) {
+	t.Parallel()
+
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 
@@ -184,6 +198,8 @@ func TestRequestValidator_ValidateStructureBeforeAuth_AcceptsCreateBatchAtLimit(
 }
 
 func TestRequestValidator_ValidateStructureBeforeAuth_AcceptsUpdateBatchAtLimit(t *testing.T) {
+	t.Parallel()
+
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 
@@ -215,6 +231,8 @@ func TestRequestValidator_ValidateStructureBeforeAuth_AcceptsUpdateBatchAtLimit(
 }
 
 func TestRequestValidator_ValidateStructureBeforeAuth_RejectsCreateBatchAboveLimit(t *testing.T) {
+	t.Parallel()
+
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 
@@ -248,6 +266,8 @@ func TestRequestValidator_ValidateStructureBeforeAuth_RejectsCreateBatchAboveLim
 }
 
 func TestRequestValidator_ValidateStructureBeforeAuth_RejectsUpdateBatchAboveLimit(t *testing.T) {
+	t.Parallel()
+
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 
@@ -281,6 +301,8 @@ func TestRequestValidator_ValidateStructureBeforeAuth_RejectsUpdateBatchAboveLim
 }
 
 func TestRequestValidator_ValidateStructureBeforeAuth_AcceptsDeleteBatchAtLimit(t *testing.T) {
+	t.Parallel()
+
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 
@@ -309,6 +331,8 @@ func TestRequestValidator_ValidateStructureBeforeAuth_AcceptsDeleteBatchAtLimit(
 }
 
 func TestRequestValidator_ValidateStructureBeforeAuth_RejectsDeleteBatchAboveLimit(t *testing.T) {
+	t.Parallel()
+
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 
@@ -339,11 +363,15 @@ func TestRequestValidator_ValidateStructureBeforeAuth_RejectsDeleteBatchAboveLim
 }
 
 func TestRequestValidator_ValidateStructureBeforeAuth_InvalidParamsParityWithStripPrefix(t *testing.T) {
+	t.Parallel()
+
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 
 	for _, stripOwnerPrefix := range []bool{false, true} {
 		t.Run(fmt.Sprintf("stripOwnerPrefix=%t", stripOwnerPrefix), func(t *testing.T) {
+			t.Parallel()
+
 			req := jsonrpc.Request[json.RawMessage]{
 				ID:     "req-1",
 				Method: vaulttypes.MethodSecretsCreate,
@@ -359,6 +387,8 @@ func TestRequestValidator_ValidateStructureBeforeAuth_InvalidParamsParityWithStr
 }
 
 func TestRequestValidator_PrepareThenAuthorizePreservesJWTDigest(t *testing.T) {
+	t.Parallel()
+
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 
@@ -392,12 +422,16 @@ func TestRequestValidator_PrepareThenAuthorizePreservesJWTDigest(t *testing.T) {
 }
 
 func TestRequestValidator_ValidateStructureBeforeAuth_CoversAllGatewaySecretsMethods(t *testing.T) {
+	t.Parallel()
+
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 
 	owner := "0xabc"
 	for _, method := range vaulttypes.GatewaySecretsMethods {
 		t.Run(method, func(t *testing.T) {
+			t.Parallel()
+
 			params := gatewaySecretsMethodParamsForValidation(t, method, owner)
 			req := jsonrpc.Request[json.RawMessage]{
 				ID:     "req-1",
