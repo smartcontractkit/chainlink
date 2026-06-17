@@ -38,6 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	lloevm "github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
 	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
@@ -1798,20 +1799,19 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, serverPubKey
 
 		// Shut all nodes down
 		for i, node := range nodes {
-			require.NoError(t, node.App.Stop())
-			// Ensure that the transmit queue was limited
+			// Ensure that the transmit queue was limited, wait for async pruner if needed
 			db := node.App.GetDB()
-			cnt := 0
+			require.Eventually(t, func() bool {
+				cnt := 0
+				err := db.GetContext(t.Context(), &cnt, "SELECT count(*) FROM llo_mercury_transmit_queue WHERE server_url = 'example.invalid'")
+				if err != nil || cnt > maxQueueSize {
+					return false
+				}
+				err = db.GetContext(t.Context(), &cnt, "SELECT count(*) FROM llo_mercury_transmit_queue WHERE server_url = $1", serverURL)
+				return err == nil && cnt <= maxQueueSize
+			}, tests.WaitTimeout(t), time.Second, "persisted transmit queue size too large for node %d", i)
 
-			// The failing server
-			err := db.GetContext(t.Context(), &cnt, "SELECT count(*) FROM llo_mercury_transmit_queue WHERE server_url = 'example.invalid'")
-			require.NoError(t, err)
-			assert.LessOrEqual(t, cnt, maxQueueSize, "persisted transmit queue size too large for node %d for failing server", i)
-
-			// The succeeding server
-			err = db.GetContext(t.Context(), &cnt, "SELECT count(*) FROM llo_mercury_transmit_queue WHERE server_url = $1", serverURL)
-			require.NoError(t, err)
-			assert.LessOrEqual(t, cnt, maxQueueSize, "persisted transmit queue size too large for node %d for succeeding server", i)
+			require.NoError(t, node.App.Stop())
 		}
 	})
 }

@@ -876,7 +876,7 @@ func Test_StratReconciliation_RetriesWithBackoff(t *testing.T) {
 	// Wait for the handler to be called 3 times: 2 failures with backoff + 1 success
 	require.Eventually(t, func() bool {
 		return retryCount.Load() >= 3
-	}, 30*time.Second, 1*time.Second)
+	}, tests.WaitTimeout(t), 1*time.Second)
 
 	// All 3 calls (2 failures + 1 success) should have appended events
 	events := testEventHandler.GetEvents()

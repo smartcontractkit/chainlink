@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"runtime"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -1095,6 +1096,7 @@ func TestEvictable_Execute_L1_hit(t *testing.T) {
 
 func TestEvictable_Evict_then_reloadWithoutDisk(t *testing.T) {
 	t.Parallel()
+	defer debug.SetGCPercent(debug.SetGCPercent(-1))
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil).Once()
 	inner.EXPECT().Close()
