@@ -565,6 +565,9 @@ func Test_DataSource(t *testing.T) {
 			}
 			mc.mu.Unlock()
 
+			// Explicitly abort Cycle 1's background observation task before mutating pipelines
+			cancel()
+
 			// Fix the pipeline with distinct values so we can verify generation
 			fixedPipeline := makePipelineWithMultipleStreamResults(sids, []any{decimal.NewFromFloat(111.0), decimal.NewFromFloat(222.0), decimal.NewFromFloat(333.0)})
 			reg.mu.Lock()

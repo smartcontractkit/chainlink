@@ -1664,7 +1664,7 @@ func TestExternalOwnerConsumerExample(t *testing.T) {
 	backend.Commit()
 	b, err := evmutils.ABIEncode(`[{"type":"uint64"}]`, uint64(1))
 	require.NoError(t, err)
-	_, err = linkContract.TransferAndCall(owner, coordinatorAddress, big.NewInt(0), b)
+	_, err = linkContract.TransferAndCall(owner, coordinatorAddress, assets.Ether(100).ToInt(), b)
 	require.NoError(t, err)
 	_, err = coordinator.AddConsumer(owner, 1, consumerAddress)
 	require.NoError(t, err)

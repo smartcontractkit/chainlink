@@ -1123,7 +1123,7 @@ func TestEvictable_Evict_then_reloadWithoutDisk(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, em.IsLoaded())
 	assert.Equal(t, int32(0), cs.getModuleCalls.Load(), "weak L2 reload must not touch disk")
-	
+
 	// Force the compiler to keep strongRef alive until this exact point.
 	runtime.KeepAlive(strongRef)
 }
@@ -1176,7 +1176,7 @@ func TestEvictable_WeakRefHitAfterEvict(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, int32(0), cs.getModuleCalls.Load(), "disk should not be accessed when weak module is alive")
-	
+
 	// Force the compiler to keep strongRef alive until this exact point.
 	runtime.KeepAlive(strongRef)
 }
