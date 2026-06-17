@@ -65,6 +65,7 @@ func TestNewFetcherService(t *testing.T) {
 	)
 
 	t.Run("OK-valid_request", func(t *testing.T) {
+		t.Parallel()
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 		connector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 
@@ -95,6 +96,7 @@ func TestNewFetcherService(t *testing.T) {
 	})
 
 	t.Run("OK-retrieve-url", func(t *testing.T) {
+		t.Parallel()
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 
 		fetcher := NewFetcherService(lggr, wrapper, storageService, gateway.WithFixedStart())
@@ -118,6 +120,7 @@ func TestNewFetcherService(t *testing.T) {
 	})
 
 	t.Run("NOK-retrieve-url-empty-req", func(t *testing.T) {
+		t.Parallel()
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 
 		fetcher := NewFetcherService(lggr, wrapper, storageService, gateway.WithFixedStart())
@@ -129,6 +132,7 @@ func TestNewFetcherService(t *testing.T) {
 	})
 
 	t.Run("fails with invalid payload response", func(t *testing.T) {
+		t.Parallel()
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 
 		fetcher := NewFetcherService(lggr, wrapper, storageService, gateway.WithFixedStart())
@@ -156,6 +160,7 @@ func TestNewFetcherService(t *testing.T) {
 	})
 
 	t.Run("fails due to invalid gateway response", func(t *testing.T) {
+		t.Parallel()
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 
 		fetcher := NewFetcherService(lggr, wrapper, storageService, gateway.WithFixedStart())
@@ -194,6 +199,7 @@ func TestNewFetcherService(t *testing.T) {
 	})
 
 	t.Run("NOK-response_payload_too_large", func(t *testing.T) {
+		t.Parallel()
 		headers := map[string]string{"Content-Type": "application/json"}
 		responsePayload, err := json.Marshal(ghcapabilities.Response{
 			StatusCode:   400,
@@ -242,6 +248,7 @@ func TestNewFetcherService(t *testing.T) {
 	})
 
 	t.Run("NOK-bad_request", func(t *testing.T) {
+		t.Parallel()
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 		connector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 
@@ -273,6 +280,7 @@ func TestNewFetcherService(t *testing.T) {
 
 	// Connector handler never makes a connection to a gateway and the context expires.
 	t.Run("NOK-request_context_deadline_exceeded", func(t *testing.T) {
+		t.Parallel()
 		connector := gcmocks.NewGatewayConnector(t)
 		connWrapper := newConnectorWrapper(connector)
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
@@ -301,6 +309,7 @@ func TestNewFetcherService(t *testing.T) {
 
 	// Connector handler cycles to next available gateway after first connection fails.
 	t.Run("OK-connector_handler_awaits_working_gateway", func(t *testing.T) {
+		t.Parallel()
 		connector := gcmocks.NewGatewayConnector(t)
 		connWrapper := newConnectorWrapper(connector)
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
@@ -335,12 +344,14 @@ func TestNewFetcherService(t *testing.T) {
 	})
 
 	t.Run("NOK-no-gateway-connector", func(t *testing.T) {
+		t.Parallel()
 		fetcher := NewFetcherService(lggr, nil, storageService, gateway.WithFixedStart())
 		require.ErrorIs(t, fetcher.Start(ctx), ErrNoGatewayConnector)
 		defer fetcher.Close()
 	})
 
 	t.Run("NOK-no-storage-client", func(t *testing.T) {
+		t.Parallel()
 		fetcher := NewFetcherService(lggr, wrapper, nil, gateway.WithFixedStart())
 		require.ErrorIs(t, fetcher.Start(ctx), ErrNoStorageClient)
 		defer fetcher.Close()
@@ -348,11 +359,13 @@ func TestNewFetcherService(t *testing.T) {
 }
 
 func TestNewFetcherFunc(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 	testContent := []byte("test content")
 
 	t.Run("error cases", func(t *testing.T) {
+		t.Parallel()
 		tests := []struct {
 			name    string
 			baseURL string
@@ -382,6 +395,7 @@ func TestNewFetcherFunc(t *testing.T) {
 
 		for _, tc := range tests {
 			t.Run(tc.name, func(t *testing.T) {
+				t.Parallel()
 				_, err := NewFetcherFunc(tc.baseURL, lggr)
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tc.errMsg)
@@ -390,6 +404,7 @@ func TestNewFetcherFunc(t *testing.T) {
 	})
 
 	t.Run("file fetcher", func(t *testing.T) {
+		t.Parallel()
 		// Create temp dir for test files
 		tempDir := t.TempDir()
 		testFilePath := filepath.Join(tempDir, "test.txt")
@@ -440,6 +455,7 @@ func TestNewFetcherFunc(t *testing.T) {
 	})
 
 	t.Run("file fetcher resolves HTTP URL to basename", func(t *testing.T) {
+		t.Parallel()
 		tempDir := t.TempDir()
 		err := os.WriteFile(filepath.Join(tempDir, "binary.wasm"), testContent, 0600)
 		require.NoError(t, err)
@@ -461,6 +477,7 @@ func TestNewFetcherFunc(t *testing.T) {
 	})
 
 	t.Run("file fetcher rejects HTTP URL with empty path", func(t *testing.T) {
+		t.Parallel()
 		tempDir := t.TempDir()
 		fetcher, err := NewFetcherFunc("file://"+tempDir, lggr)
 		require.NoError(t, err)
@@ -473,6 +490,7 @@ func TestNewFetcherFunc(t *testing.T) {
 	})
 
 	t.Run("http fetcher", func(t *testing.T) {
+		t.Parallel()
 		// Create test HTTP server
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/workflows/test.json" {
@@ -506,6 +524,7 @@ func TestNewFetcherFunc(t *testing.T) {
 	})
 
 	t.Run("context cancellation", func(t *testing.T) {
+		t.Parallel()
 		tempDir := t.TempDir()
 		baseURL := "file://" + tempDir
 
@@ -525,6 +544,7 @@ func TestNewFetcherFunc(t *testing.T) {
 	})
 
 	t.Run("timeout handling", func(t *testing.T) {
+		t.Parallel()
 		// Create a slow HTTP server
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			time.Sleep(200 * time.Millisecond) // Delay response

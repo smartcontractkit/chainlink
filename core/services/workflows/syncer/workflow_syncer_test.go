@@ -36,7 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/secrets"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
-	coretestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	corecaps "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -248,6 +247,7 @@ func Test_EventHandlerStateSync(t *testing.T) {
 }
 
 func Test_InitialStateSync(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)
 	donID := uint32(1)
@@ -313,6 +313,7 @@ func Test_InitialStateSync(t *testing.T) {
 }
 
 func Test_SecretsWorker(t *testing.T) {
+	t.Parallel()
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-732")
 	tc := []struct {
 		ss SyncStrategy
@@ -323,8 +324,9 @@ func Test_SecretsWorker(t *testing.T) {
 
 	for _, tt := range tc {
 		t.Run(string(tt.ss), func(t *testing.T) {
+			t.Parallel()
 			var (
-				ctx       = coretestutils.Context(t)
+				ctx       = t.Context()
 				lggr      = logger.TestLogger(t)
 				emitter   = custmsg.NewLabeler()
 				backendTH = testutils.NewEVMBackendTH(t)
@@ -459,6 +461,7 @@ func Test_SecretsWorker(t *testing.T) {
 }
 
 func Test_RegistrySyncer_SkipsEventsNotBelongingToDON(t *testing.T) {
+	t.Parallel()
 	var (
 		lggr      = logger.TestLogger(t)
 		backendTH = testutils.NewEVMBackendTH(t)
@@ -541,8 +544,9 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDON(t *testing.T) {
 }
 
 func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
+	t.Parallel()
 	var (
-		ctx       = coretestutils.Context(t)
+		ctx       = t.Context()
 		lggr      = logger.TestLogger(t)
 		emitter   = custmsg.NewLabeler()
 		backendTH = testutils.NewEVMBackendTH(t)
@@ -641,8 +645,9 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 }
 
 func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
+	t.Parallel()
 	var (
-		ctx       = coretestutils.Context(t)
+		ctx       = t.Context()
 		lggr      = logger.TestLogger(t)
 		emitter   = custmsg.NewLabeler()
 		backendTH = testutils.NewEVMBackendTH(t)
@@ -741,8 +746,10 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 }
 
 func Test_StratReconciliation_InitialStateSync(t *testing.T) {
+	t.Parallel()
 	quarantine.Flaky(t, "DX-2063")
 	t.Run("with heavy load", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
 		backendTH := testutils.NewEVMBackendTH(t)
 		donID := uint32(1)
