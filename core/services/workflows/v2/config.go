@@ -116,7 +116,8 @@ type EngineLimiters struct {
 	UserMetricLabelsPerMetric  limits.BoundLimiter[int]
 	UserMetricLabelValueLength limits.BoundLimiter[int]
 
-	ExecutionTimestampsEnabled limits.GateLimiter
+	ExecutionTimestampsEnabled   limits.GateLimiter
+	ConfidentialWorkflowsEnabled limits.GateLimiter
 }
 
 // NewLimiters returns a new set of EngineLimiters based on the default configuration, and optionally modified by cfgFn.
@@ -264,6 +265,10 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
+	l.ConfidentialWorkflowsEnabled, err = limits.MakeGateLimiter(lf, cfg.ConfidentialWorkflows.Enabled)
+	if err != nil {
+		return
+	}
 	return
 }
 
@@ -302,6 +307,7 @@ func (l *EngineLimiters) EvictWorkflow(workflowID string) error {
 		l.ConfidentialHTTPCalls,
 		l.SecretsCalls,
 		l.ExecutionTimestampsEnabled,
+		l.ConfidentialWorkflowsEnabled,
 	}
 	var errs error
 	for _, e := range evictables {
@@ -343,6 +349,7 @@ func (l *EngineLimiters) Close() error {
 		l.ConfidentialHTTPCalls,
 		l.SecretsCalls,
 		l.ExecutionTimestampsEnabled,
+		l.ConfidentialWorkflowsEnabled,
 	)
 }
 

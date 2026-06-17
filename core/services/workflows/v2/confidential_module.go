@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 
@@ -64,11 +65,12 @@ type ConfidentialModule struct {
 	requirements  sync.Map
 	infoOnce      sync.Once
 	provider      func(tee *sdkpb.Tee) bool
+	enabledGate   limits.GateLimiter
 }
 
 var _ host.RequirementEnforcingModule = (*ConfidentialModule)(nil)
 
-func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, lggr logger.Logger) *ConfidentialModule {
+func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, enabledGate limits.GateLimiter, lggr logger.Logger) *ConfidentialModule {
 	return &ConfidentialModule{
 		capRegistry:   capRegistry,
 		binaryURL:     binaryURL,
@@ -77,6 +79,7 @@ func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, binaryURL stri
 		workflowOwner: workflowOwner,
 		workflowName:  workflowName,
 		workflowTag:   workflowTag,
+		enabledGate:   enabledGate,
 		lggr:          lggr,
 	}
 }
@@ -90,6 +93,12 @@ func (m *ConfidentialModule) Execute(
 	request *sdkpb.ExecuteRequest,
 	helper host.ExecutionHelper,
 ) (*sdkpb.ExecutionResult, error) {
+	if m.enabledGate != nil {
+		if err := m.enabledGate.AllowErr(ctx); err != nil {
+			return nil, fmt.Errorf("confidential-workflows capability is disabled by settings: %w", err)
+		}
+	}
+
 	var requirements *sdkpb.Requirements
 	rawRequirements, loaded := m.requirements.LoadAndDelete(helper.GetWorkflowExecutionID())
 	if loaded {
