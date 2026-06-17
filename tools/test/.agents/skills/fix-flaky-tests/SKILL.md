@@ -1,14 +1,7 @@
 ---
 name: fix-flaky-tests
 description: >-
-  A deep-dive diagnostic tool for fixing Go test failures (flakes, races, timeouts,
-  deadlocks) identified during local development or active CI failures.
-
-  USE THIS WHEN:
-  1. You have a specific, known failing test name or local error log.
-  2. You are currently working on a branch and need to fix a regression or a new flake.
-  3. You require automated JIRA status updates.
-  4. You need to perform deep "forensic" code analysis and manual fix iterations.
+  Diagnostic tool for fixing Go test failures (flakes, races, timeouts, deadlocks) during local dev or CI.
 ---
 
 <absolute_constraints>
@@ -29,9 +22,8 @@ description: >-
 </absolute_constraints>
 
 <setup>
-Before any code navigation, load the LSP tool schema:
-- Call ToolSearch with query `select:LSP` to make the LSP tool callable.
-- Only fall back to grep/find if ToolSearch returns no result for LSP.
+Call ToolSearch with query `select:LSP` to load LSP tool schema.
+Fallback to rg/grep/find only if ToolSearch fails.
 </setup>
 
 ## Initialization
@@ -52,49 +44,58 @@ After a FIXED outcome, the ticket must stay assigned to the investigator (`accou
 </jira_reference>
 
 <cli_reference>
-`make test` at the repo root builds the harness when needed, then runs it. Rebuild is automatic after harness code changes.
-
-Base command (run from the repository root so `./path` resolves):
+Execute from repository root.
 `make test ARGS="diagnose [harness_flags] -- [go_test_flags] ./path"`
-- ALWAYS use `--ai-output` before the `--`.
-- DO NOT use `-count`
-- Harness flags (before `--`): `--iterations N`, `--fail-fast-on=(timeout|slow)`, `--parallel-iterations N`
-- Go test flags (after `--`): `--run '^TestName$'`, `--timeout 10m`, `--race`
-- Help: `make test ARGS="diagnose -h"`
-- Repetition is **only** via harness `--iterations`. Do not pass `-count` (or `-count>1`) after `--`; the harness already forces `-count=1` per iteration.
+
+- Require `--ai-output` before `--`.
+- Forbid `-count`.
+- Harness flags: `--iterations N`, `--fail-fast-on=(timeout|slow)`, `--parallel-iterations N`.
+- Go test flags: `--run '^TestName$'`, `--timeout 10m`, `--race`.
+- Help: `make test ARGS="diagnose -h"`.
+- Repetition strictly via `--iterations`.
 </cli_reference>
 
 <diagnose-iterations>
-Use this table to pick `--iterations` (total independent runs; parallelism does not change this count).
-
-| Iterations | Chance you missed a flake |
-| ---------- | ------------------------- |
-| 5          | 50%                       |
-| 30         | 10%                       |
-| 60         | 5%                        |
-| 150        | 2%                        |
-| 300        | 1%                        |
-| 500+       | < 1%                      |
+Use iterations for run count. Parallelism does not alter total.
+- 5: 50% missed flake
+- 30: 10% missed flake
+- 60: 5% missed flake
+- 150: 2% missed flake
+- 300: 1% missed flake
+- 500+: <1% missed flake
 </diagnose-iterations>
 
 <diagnose-parallel-iterations>
-`--parallel-iterations N` runs up to N diagnose iterations **at the same time**. Each worker gets its own ephemeral Postgres (unless `--database-url` is set). Flake statistics in `report.json` still use the full `--iterations` count.
+`--parallel-iterations N` runs N concurrent workers.
+Ephemeral Postgres per worker unless `--database-url` set.
+Hard rules:
+- `--parallel-iterations 1` if `--database-url` set.
+- `--parallel-iterations 1` if `--race` set.
+- Prefer `--parallel-iterations 1` for ordered failures (`--fail-fast`, stack trace debug, `postgres-state-n.md` index).
 
-**Hard rules**
-- `--parallel-iterations` must stay `1` when using `--database-url` (harness rejects `> 1`).
-- `--parallel-iterations` must stay `1` when go test flags after `--` include `--race`.
-- Prefer `--parallel-iterations 1` when you need the first failure in order (`--fail-fast`, debugging a known stack trace, or reading `postgres-state-n.md` for a specific iteration index).
+Profiles:
 
-**Choose a profile** (pick one row; state the choice in the investigation comment `### What was tried`).
+- Standard: 30 iterations, 2-5 parallel. Default check.
+- Deep: 150-500 iterations, 2-10 parallel. Validate flake presence/absence.
+- Race pass: 30 iterations, 1 parallel. Verify `--race`.
+- Debug: 1-5 iterations, 1 parallel. Reproduce failure. Use `--fail-fast`.
 
-| Profile | `--iterations` | `--parallel-iterations` | Use when |
-| ------- | -------------- | ----------------------- | -------- |
-| Standard | 30 | 2–5 | Default quick check |
-| Deep | 150-500 | 2–10 | Default to validate that a flake exists before fix, or no longer exists after fix |
-| Race pass | 30 | 1 | Verifying with `--race` after `--`. |
-| Debug | 1–5 | 1 | Reproducing a known failure mode; use `--fail-fast` if appropriate. |
+Parallel selection:
+
+1. Start at 2.
+2. Raise toward 5 if: unit scope, no `--race`, no `--database-url`, unparallelized estimate >2m.
+3. Exceeding 5 requires user approval.
+4. Rerun parallel failures/timeouts with `--parallel-iterations 1` to confirm.
+
+| Profile   | `--iterations` | `--parallel-iterations` | Use when                                                                          |
+| --------- | -------------- | ----------------------- | --------------------------------------------------------------------------------- |
+| Standard  | 30             | 2–5                     | Default quick check                                                               |
+| Deep      | 150-500        | 2–10                    | Default to validate that a flake exists before fix, or no longer exists after fix |
+| Race pass | 30             | 1                       | Verifying with `--race` after `--`.                                               |
+| Debug     | 1–5            | 1                       | Reproducing a known failure mode; use `--fail-fast` if appropriate.               |
 
 **How to pick `--parallel-iterations` within a profile**
+
 1. Start at `2` if unsure.
 2. Raise toward `5` only when: unit-scope target (`--run '^TestName$'` or small package), no `--race`, no `--database-url`, and estimated wall time `ceil(iterations / N) * p50` would exceed ~2 minutes without parallelism.
 3. Do not exceed `5` without user approval (each worker starts Postgres; RAM and CPU scale roughly with N).
@@ -125,44 +126,58 @@ IF at any time the user interrupts or interjects during this loop, pick it up ag
 </loop>
 
 <tests-context>
-* Chainlink nodes are blockchain oracles. Read the [README.md](/README.md)
-* All tests share a single postgres DB. Each `diagnose` loop creates a new one.
+Chainlink nodes are blockchain oracles. Read /README.md.
+Tests share single postgres DB. Diagnose loop creates new DB.
 </tests-context>
 
-<analysis>
-Lead with your hypothesis before writing code. Show contextual diffs, do not describe fixes abstractly. List of common approaches and diagnoses:
+<slow-test-flow>
+Optimize slow tests. Exclude non-deterministic flakes/panics.
 
-1. **Narrowing:** If many tests flag, look for similarities in their failures. If found, present that to the user and ask if they want to continue with assumption of relation. If not, try to focus on the most problematic test.
-2. **Isolate (Pass alone, fail in package):** Cross-test dependency. Look for shared dependencies, state, etc.
-3. **Order (Shuffle changes pass rate):** Same as isolation. Fix cross-test leakage. Capture failing seed and provide to user.
-4. **Race:** Triggers on weird stack traces or nil pointers.
-5. **Timeout:** Check logs for blocking operations, incorrect channel closing sequence, channel backpressure, etc.
-6. **Slow:** Compare `p50` vs `max_elapsed`. Look for `time.Sleep` or coarse polling loops. Replace with dynamic polling. Simulated chains are frequent offenders.
-7. **Resources:** If failing under load/CI only, check CPU and Memory usage. When logs/report are insufficient, use standard `go test` profile flags (`-race`, `-cpuprofile`, `-trace`, etc.). View with `go tool pprof` or `go tool trace`.
-</analysis>
+1. Measure baseline: Run diagnose low iterations (`--iterations 5`). Record `iteration_duration_p50`, `max_elapsed` from `report.json`.
+2. Find bottlenecks: Check code for `time.Sleep`. Identify coarse polling. Identify heavy chain backend setups. Check waiting full timeouts over early return.
+3. Profile: Run diagnose with `-cpuprofile cpu.prof -trace trace.out` if bottleneck unclear.
+4. Implement: Replace `time.Sleep` with dynamic polling (`gomega.Eventually`, `testutils.WaitFor`). Reduce tick intervals. Apply `t.Parallel()` safely. Reuse read-only setup safely to prevent state leakage.
+5. Validate: Rerun diagnose identical iterations. Compare `p50`, `max_elapsed` to baseline. Verify no flakes.
+6. When adding `t.Parallel()`, validate no new races with a `-race` run on the whole package.
+7. Document: Report percentage speedup. Update `diagnose-attempted-fixes-[test/package]-slow.jsonl` with metrics.
+</slow-test-flow>
+
+<flaky-test-flow>
+Output hypothesis first. Show diffs. Do not abstract fixes.
+
+Approaches:
+
+1. Narrowing: Group failures. Ask user to proceed. Focus worst test otherwise.
+2. Isolate: Pass alone, fail in package. Fix cross-test dependency.
+3. Order: Shuffle alters pass rate. Fix cross-test leakage. Capture failing seed.
+4. Race: Weird stack traces, nil pointers.
+5. Timeout: Check logs for blocking ops, bad channel close, backpressure.
+6. Resources: CI-only load failure. Check CPU, Mem. Use `go test` profiles (`-race`, `-cpuprofile`, `-trace`).
+</flaky-test-flow>
 
 <context_compaction>
-When summarizing/compacting/compressing context, strictly maintain a reference to the `diagnose-attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` you're using for this session.
+Reference `diagnose-attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` when summarizing.
 </context_compaction>
 
 <possible_execution_issues>
-- **GOCACHE permissions issues**: `[build failed]\n open .../Library/Caches/...` This is caused by some sandbox environments. If you cannot exit the sandbox to fix this, STOP. DO NOT attempt to create a new cache. Ask the user to run the command instead and give you results so you can continue.
-- **Postgres sandbox error**: `operation not permitted` connecting to postgres. STOP and ask user to approve running command outside of the sandbox.
-</possible_execution_issues>
+
+- GOCACHE permissions sandbox error. STOP. Require user execution outside sandbox.
+- Postgres `operation not permitted` sandbox error. STOP. Require user execution outside sandbox.
+  </possible_execution_issues>
 
 <logs_structure>
 [resultsDir]/
-|-- iteration-n.log.jsonl # DO NOT READ unless absolutely necessary; full log outputs, long and messy
-|-- postgres-state-n.md # Final state of tests' postgres DB after iteration. Read if diagnosing DB-based errors or hangs.
-|-- report.json # Read this; summary of full `diagnose` run (include `jq .run` for go test args and harness flags)
-|-- report.csv # DO NOT READ; human readable csv
-|-- logs/ # Extracted individual test logs
-|---- pkg_TestName_iter-n.log # Logs for individual slow/failing tests, read this as needed
+|-- iteration-n.log.jsonl # Read only if needed. Full outputs.
+|-- postgres-state-n.md # Read for DB error/hang. Final state.
+|-- report.json # Read for summary. Extract args via `jq .run`.
+|-- report.csv # DO NOT READ.
+|-- logs/
+|---- pkg_TestName_iter-n.log # Read for specific test failures.
 </logs_structure>
 
 <sub_agent_protocol>
-1. When reading log files from the `logs/` directory or `iteration-n.log.jsonl`, you MUST spawn a specialist `LogAnalyzer` sub-agent. Read [log-analyzer-subagent.md](./references/log-analyzer-subagent.md)
-2. When inspecting CI failure, you MUST spawn a specialist `GithubFailureAnalyzer` sub-agent. Read [github-failure-analyzer.md](./references/github-failure-analyzer.md).
-3. When interacting with JIRA, you MUST spawn a specialist `JiraManager` sub-agent. Read [jira-manager-subagent.md](./references/jira-mananger-subagent.md)
-</sub_agent_protocol>
 
+1. Spawn `LogAnalyzer` when reading `logs/` or `iteration-n.log.jsonl`. Read ./references/log-analyzer-subagent.md.
+2. Spawn `GithubFailureAnalyzer` when inspecting CI failure. Read ./references/github-failure-analyzer.md.
+3. Spawn `JiraManager` when interacting with JIRA. Read ./references/jira-mananger-subagent.md.
+</sub_agent_protocol>

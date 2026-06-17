@@ -5,7 +5,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
@@ -13,6 +12,7 @@ import (
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 )
 
@@ -33,13 +33,13 @@ type DeployRMNRemoteInput struct {
 }
 
 var (
-	DeployRMNRemoteOp = opsevm.NewEVMDeployOperation(
+	DeployRMNRemoteOp = opsutils.NewEVMDeployOperation(
 		"DeployRMNRemote",
 		semver.MustParse("1.0.0"),
 		"Deploys RMNRemote 1.6 contract on the specified evm chain",
 		shared.RMNRemote,
 		rmn_remote.RMNRemoteMetaData,
-		&opsevm.ContractOpts{
+		&opsutils.ContractOpts{
 			Version:          &deployment.Version1_6_0,
 			EVMBytecode:      common.FromHex(rmn_remote.RMNRemoteBin),
 			ZkSyncVMBytecode: rmn_remote.ZkBytecode,
@@ -52,7 +52,7 @@ var (
 		},
 	)
 
-	SetRMNRemoteConfigOp = opsevm.NewEVMCallOperation(
+	SetRMNRemoteConfigOp = opsutils.NewEVMCallOperation(
 		"SetRMNRemoteConfigOp",
 		semver.MustParse("1.0.0"),
 		"Setting RMNRemoteConfig based on ActiveDigest from RMNHome",
@@ -63,7 +63,7 @@ var (
 			return rmnRemote.SetConfig(opts, input)
 		})
 
-	SetRMNRemoteOnRMNProxyOp = opsevm.NewEVMCallOperation(
+	SetRMNRemoteOnRMNProxyOp = opsutils.NewEVMCallOperation(
 		"SetRMNRemoteOnRMNProxyOp",
 		semver.MustParse("1.0.0"),
 		"Sets SetRMNRemote on RMNProxy contract on the specified evm chain",

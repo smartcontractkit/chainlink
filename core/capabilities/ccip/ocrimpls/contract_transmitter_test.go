@@ -2,6 +2,7 @@ package ocrimpls_test
 
 import (
 	"crypto/rand"
+	"hash/fnv"
 	"math/big"
 	"net/url"
 	"testing"
@@ -97,7 +98,7 @@ func Test_ContractTransmitter_TransmitWithoutSignatures(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			tc := tc
+			t.Parallel()
 			testTransmitter(t, tc.pluginType, tc.withSigs, tc.expectedSigsEnabled, tc.report)
 		})
 	}
@@ -588,10 +589,16 @@ func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient client.Client, keyStore
 		KeepFinalizedBlocksDepth: 1000,
 	}
 
-	chainID := big.NewInt(1337)
+	// Derive a unique chain ID for DB-keyed ORM tables (evm.heads, evm.log_poller_blocks).
+	// The actual client chain ID (1337) stays unchanged. Without this, parallel subtests
+	// sharing the same Postgres instance contend on (block_number, evm_chain_id) primary keys.
+	h := fnv.New64a()
+	h.Write([]byte(t.Name()))
+	ormChainID := new(big.Int).SetUint64(h.Sum64())
+
 	headSaver := heads.NewSaver(
 		logger.Nop(),
-		heads.NewORM(*chainID, db, 0),
+		heads.NewORM(*ormChainID, db, 0),
 		evmConfig,
 		evmConfig.HeadTrackerConfig,
 	)
@@ -612,7 +619,7 @@ func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient client.Client, keyStore
 	require.NoError(t, ht.Start(testutils.Context(t)), "failed to start head tracker")
 	t.Cleanup(func() { require.NoError(t, ht.Close()) })
 
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, logger.Nop()),
+	lp := logpoller.NewLogPoller(logpoller.NewORM(ormChainID, db, logger.Nop()),
 		ethClient, logger.Nop(), ht, lpOpts)
 	require.NoError(t, lp.Start(testutils.Context(t)), "failed to start log poller")
 	t.Cleanup(func() { require.NoError(t, lp.Close()) })

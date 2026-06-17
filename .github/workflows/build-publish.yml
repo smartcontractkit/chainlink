@@ -26,7 +26,7 @@ jobs:
 
       - name: Check release tag
         id: release-tag-check
-        uses: smartcontractkit/.github/actions/release-tag-check@c5c4a8186da4218cff6cac8184e47dd3dec69ba3 # release-tag-check@0.1.0
+        uses: smartcontractkit/.github/actions/release-tag-check@9fc306ac63d8997c9ca0da283e56caaf71589f83 # release-tag-check/1.0.0
 
       - name: Compute CCIP image tag
         id: compute-ccip-tag
