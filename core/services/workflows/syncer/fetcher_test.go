@@ -513,6 +513,8 @@ func TestNewFetcherFunc(t *testing.T) {
 
 // gatewayResponse creates an unsigned gateway response with a response body.
 func gatewayResponse(t *testing.T, msgID string, donID string, statusCode int) *api.Message {
+	t.Helper()
+
 	headers := map[string]string{"Content-Type": "application/json"}
 	body := []byte("response body")
 	responsePayload, err := json.Marshal(ghcapabilities.Response{
@@ -534,6 +536,8 @@ func gatewayResponse(t *testing.T, msgID string, donID string, statusCode int) *
 // inconsistentPayload creates an unsigned gateway response with an inconsistent payload.  The
 // ExecutionError is true, but there is no ErrorMessage, so it is invalid.
 func inconsistentPayload(t *testing.T, msgID string, donID string) *api.Message {
+	t.Helper()
+
 	responsePayload, err := json.Marshal(ghcapabilities.Response{
 		ExecutionError: true,
 	})
@@ -551,6 +555,8 @@ func inconsistentPayload(t *testing.T, msgID string, donID string) *api.Message 
 // signGatewayResponse signs the gateway response with a private key and arbitrarily sets the receiver
 // to the signer's address.  A signature and receiver are required for a valid gateway response.
 func signGatewayResponse(t *testing.T, msg *api.Message) *jsonrpc.Request[json.RawMessage] {
+	t.Helper()
+
 	nodeKeys := common.NewTestNodes(t, 1)
 	s := &signer{pk: nodeKeys[0].PrivateKey}
 	msgToSign := api.GetRawMessageBody(&msg.Body)

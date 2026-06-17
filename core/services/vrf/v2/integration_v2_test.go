@@ -667,7 +667,7 @@ func requestRandomnessForWrapper(
 			return false
 		}
 		return true
-	}, testutils.WaitTimeout(t), time.Second, "could not filter RandomWordsRequested events")
+	}, testutils.WaitTimeout(t), 100*time.Millisecond, "could not filter RandomWordsRequested events")
 
 	var events []v22.RandomWordsRequested
 	for iter.Next() {
@@ -733,7 +733,7 @@ func requestRandomnessAndAssertRandomWordsRequestedEvent(
 			return false
 		}
 		return true
-	}, testutils.WaitTimeout(t), time.Second, "could not filter RandomWordsRequested events")
+	}, testutils.WaitTimeout(t), 100*time.Millisecond, "could not filter RandomWordsRequested events")
 
 	var events []v22.RandomWordsRequested
 	for iter.Next() {
@@ -872,7 +872,7 @@ func mine(t *testing.T, requestID, subID *big.Int, backend types.Backend, db *sq
 			}
 		}
 		return false
-	}, testutils.WaitTimeout(t), time.Second)
+	}, testutils.WaitTimeout(t), 100*time.Millisecond)
 }
 
 func mineBatch(t *testing.T, requestIDs []*big.Int, subID *big.Int, backend types.Backend, db *sqlx.DB, vrfVersion vrfcommon.Version, chainID *big.Int) bool {
@@ -912,7 +912,7 @@ func mineBatch(t *testing.T, requestIDs []*big.Int, subID *big.Int, backend type
 		}
 		t.Log("requestIDMap:", requestIDMap)
 		return foundAll
-	}, testutils.WaitTimeout(t), time.Second)
+	}, testutils.WaitTimeout(t), 100*time.Millisecond)
 }
 
 func mineForceFulfilled(t *testing.T, requestID *big.Int, subID uint64, forceFulfilledCount int64, uni coordinatorV2Universe, db *sqlx.DB) bool {
@@ -933,7 +933,7 @@ func mineForceFulfilled(t *testing.T, requestID *big.Int, subID uint64, forceFul
 			}
 		}
 		return len(txs) >= int(forceFulfilledCount)
-	}, testutils.WaitTimeout(t), time.Second)
+	}, testutils.WaitTimeout(t), 100*time.Millisecond)
 }
 
 func checkForReceipt(t *testing.T, db *sqlx.DB, txID int64) bool {
@@ -1326,7 +1326,7 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 		require.NoError(t, err2)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
-	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
 	mine(t, requestID, new(big.Int).SetUint64(wrapperSubID), uni.backend, db, vrfcommon.V2, testutils.SimulatedChainID)
@@ -1355,7 +1355,7 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 		c.EVM[0].GasEstimator.LimitDefault = new(uint64(3_500_000))
 		c.EVM[0].MinIncomingConfirmations = new(uint32(2))
 		c.Feature.LogPoller = new(true)
-		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
 	})
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
@@ -1409,7 +1409,7 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 		require.NoError(t, err2)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
-	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
 	mine(t, requestID, new(big.Int).SetUint64(wrapperSubID), uni.backend, db, vrfcommon.V2, testutils.SimulatedChainID)
@@ -1585,7 +1585,7 @@ func simulatedOverrides(t *testing.T, defaultGasPrice *assets.Wei, ks ...toml.Ke
 		c.EVM[0].GasEstimator.LimitDefault = new(uint64(3_500_000))
 
 		c.Feature.LogPoller = new(true)
-		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
 
 		c.EVM[0].HeadTracker.MaxBufferSize = new(uint32(100))
 		c.EVM[0].HeadTracker.SamplingInterval = commonconfig.MustNewDuration(0) // Head sampling disabled
@@ -1832,7 +1832,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 		// keep blocks coming in for the lb to send the backfilled logs.
 		uni.backend.Commit()
 		return len(runs) == 1 && runs[0].State == pipeline.RunStatusCompleted
-	}, testutils.WaitTimeout(t), 1*time.Second)
+	}, testutils.WaitTimeout(t), 100*time.Millisecond)
 
 	// Wait for the request to be fulfilled on-chain.
 	var rf []v22.RandomWordsFulfilled
@@ -1925,7 +1925,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 		require.NoError(t, err)
 		t.Log(counts, rf[0].RequestID().String())
 		return uint64(1) == counts[rf[0].RequestID().String()]
-	}, testutils.WaitTimeout(t), 1*time.Second)
+	}, testutils.WaitTimeout(t), 100*time.Millisecond)
 }
 
 func TestMaliciousConsumer(t *testing.T) {
