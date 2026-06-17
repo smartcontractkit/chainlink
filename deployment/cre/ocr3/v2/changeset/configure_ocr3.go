@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -52,13 +51,8 @@ func (l ConfigureOCR3) VerifyPreconditions(_ cldf.Environment, input ConfigureOC
 	if input.OracleConfig == nil {
 		return errors.New("oracle config is required")
 	}
-	for _, family := range input.ExtraSignerFamilies {
-		switch family {
-		case chain_selectors.FamilySolana, chain_selectors.FamilyAptos:
-			break
-		default:
-			return fmt.Errorf("unsupported chain family: %s", family)
-		}
+	if err := ocr3.ValidateExtraSignerFamilies(input.ExtraSignerFamilies); err != nil {
+		return err
 	}
 
 	return nil
