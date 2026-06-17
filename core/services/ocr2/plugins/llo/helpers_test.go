@@ -194,8 +194,8 @@ func setupNode(
 		c.P2P.V2.Enabled = new(true)
 		c.P2P.V2.AnnounceAddresses = &p2paddresses
 		c.P2P.V2.ListenAddresses = &p2paddresses
-		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(50 * time.Millisecond)
-		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(500 * time.Millisecond)
+		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(500 * time.Millisecond)
+		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
 
 		// [Mercury]
 		c.Mercury.VerboseLogging = new(true)
