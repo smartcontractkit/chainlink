@@ -35,6 +35,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
@@ -56,12 +57,11 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/llo"
 	evmmercury "github.com/smartcontractkit/chainlink-evm/pkg/mercury"
+	evm "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
-	evm "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -2221,7 +2221,7 @@ func TestIntegration_LLO_channel_merging_owners_adders(t *testing.T) {
 	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, nil)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
-	t.Run("Channel merging lifecycle with owners and adders", func(t *testing.T) {
+	t.Run("Channel merging lifecycle with owners and adders", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 		packetCh := make(chan *packet, 100000)
 		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
 		serverPubKey := serverKey.PublicKey
@@ -2331,7 +2331,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		}
 
 		// Scenario 1: Owner adds initial channels
-		t.Run("Owner adds initial channels", func(t *testing.T) {
+		t.Run("Owner adds initial channels", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 			channelDefinitions := llotypes.ChannelDefinitions{
 				1: {
 					ReportFormat: llotypes.ReportFormatJSON,
@@ -2391,7 +2391,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		})
 
 		// Scenario 2: Adders add new channels
-		t.Run("Adders add new channels", func(t *testing.T) {
+		t.Run("Adders add new channels", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 			// Adder1 adds channels
 			adder1Definitions := llotypes.ChannelDefinitions{
 				10: {
@@ -2489,7 +2489,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		})
 
 		// Scenario 3: Owner tombstone some channels
-		t.Run("Owner tombstone channels", func(t *testing.T) {
+		t.Run("Owner tombstone channels", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 			// Owner updates definitions, add tombstone to channel 2 and 21
 			channelDefinitions := llotypes.ChannelDefinitions{
 				1: {
@@ -2569,7 +2569,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		})
 
 		// Scenario 4: Owner overwrites adder channel
-		t.Run("Owner overwrites adder channel", func(t *testing.T) {
+		t.Run("Owner overwrites adder channel", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 			// Owner sets a channel definition with same ID as adder1's channel 10
 			channelDefinitions := llotypes.ChannelDefinitions{
 				1: {
@@ -2633,7 +2633,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		})
 
 		// Scenario 5: Verify adder cannot remove channels
-		t.Run("Adder cannot remove channels", func(t *testing.T) {
+		t.Run("Adder cannot remove channels", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 			// Adder1 tries to set definitions that exclude channel 11 (which they previously added)
 			adder1NewDefinitions := llotypes.ChannelDefinitions{
 				10: {
