@@ -35,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 	sollogtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger/config"
-	sollogtrigger_idl "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger/idl"
 	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	"github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
@@ -432,7 +431,6 @@ func ExecuteSolanaLogTriggerTest(t *testing.T, tenv *configuration.TestEnvironme
 	workflowConfig.LogReadTestProgramID = logReadTestProgramID
 	workflowConfig.ExpectedU64Value = expectedU64Value
 	workflowConfig.ExpectedStrVal = expectedStrVal
-	workflowConfig.ContractIdlJSON = string(sollogtrigger_idl.LogReadTest)
 	workflowConfig.CPILogTrigger = false
 
 	const workflowFileLocation = "./solana/sollogtrigger/main.go"
@@ -450,11 +448,16 @@ func ExecuteSolanaLogTriggerTest(t *testing.T, tenv *configuration.TestEnvironme
 		tenv, testLogger, workflowName, &workflowConfig,
 		workflowFileLocation)
 
-	emitCtx, emitCancel := context.WithCancel(t.Context())
-	defer emitCancel()
+	singleAckFound, stopACKLogScans := startTriggerEventACKLogWatch(t, testLogger)
+	defer stopACKLogScans()
+
 	ticker := time.NewTicker(10 * time.Second)
+	emitCtx, emitCancel := context.WithCancel(t.Context())
 	go func() {
-		defer ticker.Stop()
+		defer func() {
+			emitCancel()
+			ticker.Stop()
+		}()
 		for {
 			select {
 			case <-emitCtx.Done():
@@ -462,7 +465,7 @@ func ExecuteSolanaLogTriggerTest(t *testing.T, tenv *configuration.TestEnvironme
 			case <-ticker.C:
 				slot, err := callCreateLog(emitCtx, solChain, logReadTestProgramID, expectedU64Value)
 				if err == nil {
-					t.Logf("Log read test event triggered at slot: %d", slot)
+					testLogger.Info().Uint64("slot", slot).Msg("Log read test event triggered")
 				}
 			}
 		}
@@ -472,6 +475,10 @@ func ExecuteSolanaLogTriggerTest(t *testing.T, tenv *configuration.TestEnvironme
 	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh,
 		t_helpers.WorkflowEngineInitErrorLog, expectedLogTriggerMessage,
 		5*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
+	emitCancel()
+	testLogger.Info().Msgf("Found expected user log: '%s'", expectedLogTriggerMessage)
+
+	requireTriggerEventACKLog(t, testLogger, singleAckFound)
 }
 
 func callCreateLog(ctx context.Context, solChain *solana.Blockchain, programID solgo.PublicKey, value uint64) (slot uint64, err error) {
@@ -592,7 +599,6 @@ func ExecuteSolanaLogTriggerCPITest(t *testing.T, tenv *configuration.TestEnviro
 	workflowConfig.LogReadTestProgramID = logReadTestProgramID
 	workflowConfig.ExpectedU64Value = expectedU64Value
 	workflowConfig.ExpectedStrVal = expectedStrVal
-	workflowConfig.ContractIdlJSON = string(sollogtrigger_idl.LogReadTest)
 	workflowConfig.CPILogTrigger = true
 
 	const workflowFileLocation = "./solana/sollogtrigger/main.go"
@@ -610,11 +616,16 @@ func ExecuteSolanaLogTriggerCPITest(t *testing.T, tenv *configuration.TestEnviro
 		tenv, testLogger, workflowName, &workflowConfig,
 		workflowFileLocation)
 
-	emitCtx, emitCancel := context.WithCancel(t.Context())
-	defer emitCancel()
+	singleAckFound, stopACKLogScans := startTriggerEventACKLogWatch(t, testLogger)
+	defer stopACKLogScans()
+
 	ticker := time.NewTicker(10 * time.Second)
+	emitCtx, emitCancel := context.WithCancel(t.Context())
 	go func() {
-		defer ticker.Stop()
+		defer func() {
+			emitCancel()
+			ticker.Stop()
+		}()
 		for {
 			select {
 			case <-emitCtx.Done():
@@ -622,7 +633,7 @@ func ExecuteSolanaLogTriggerCPITest(t *testing.T, tenv *configuration.TestEnviro
 			case <-ticker.C:
 				slot, err := triggerLogReadTestCPIEvent(emitCtx, solChain, logReadTestProgramID, expectedU64Value)
 				if err == nil {
-					t.Logf("Log read test CPI event triggered at slot: %d", slot)
+					testLogger.Info().Uint64("slot", slot).Msg("Log read test CPI event triggered")
 				}
 			}
 		}
@@ -632,4 +643,8 @@ func ExecuteSolanaLogTriggerCPITest(t *testing.T, tenv *configuration.TestEnviro
 	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh,
 		t_helpers.WorkflowEngineInitErrorLog, expectedLogTriggerMessage,
 		5*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
+	emitCancel()
+	testLogger.Info().Msgf("Found expected user log: '%s'", expectedLogTriggerMessage)
+
+	requireTriggerEventACKLog(t, testLogger, singleAckFound)
 }

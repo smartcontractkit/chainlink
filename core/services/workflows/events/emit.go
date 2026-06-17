@@ -521,18 +521,17 @@ func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 }
 
 func emitRawMessage(ctx context.Context, body []byte, schema, entity string) error {
-	err := beholder.GetEmitter().Emit(ctx, body,
+	if err := beholder.GetEmitter().Emit(ctx, body,
 		"beholder_data_schema", schema, // required
 		"beholder_domain", "platform", // required
-		"beholder_entity", entity) // required
-	if err != nil {
+		"beholder_entity", entity); err != nil { // required
 		return err
 	}
 
-	// Ignore error if durable emitter is not enabled (temporary for integration tests only).
-	// TODO: CRE-4443 will adjust durable emitter callsites
-	_ = durableemitter.GlobalEmit(ctx, body, "source", "platform", "type", entity)
-
+	err := durableemitter.GlobalEmit(ctx, body, "source", "platform", "type", entity)
+	if err != nil && !errors.Is(err, durableemitter.ErrNotInitialized) {
+		return err
+	}
 	return nil
 }
 

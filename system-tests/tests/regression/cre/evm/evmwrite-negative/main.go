@@ -101,7 +101,7 @@ func runWriteReportWithInvalidReceiver(evmClient evm.Client, runtime cre.Runtime
 	invalidReceiver := common.HexToAddress(wfCfg.InvalidInput).Bytes()
 	gasConfig := &evm.GasConfig{GasLimit: defaultGasLimit}
 	wrOutput, err := writeReport(runtime, evmClient, invalidReceiver, report, gasConfig)
-	if err != nil || wrOutput.ErrorMessage != nil {
+	if err != nil || wrOutput == nil || wrOutput.ErrorMessage != nil {
 		runtime.Logger().Error("got expected error for WriteReport with invalid receiver", "invalid_receiver", invalidReceiver, "error", err)
 		return nil, fmt.Errorf("expected error for WriteReport with invalid receiver '%s': %w", invalidReceiver, err)
 	}
@@ -165,6 +165,10 @@ func runWriteReportFailingOnReceiver(evmClient evm.Client, runtime cre.Runtime, 
 		return nil, fmt.Errorf("expected WriteReport to fail on the receiver")
 	}
 
+	if wrOutput == nil {
+		runtime.Logger().Error("got unexpected nil output for WriteReport with no error")
+		return nil, fmt.Errorf("unexpected nil output for WriteReport with no error")
+	}
 	runtime.Logger().Info("This is not expected, WriteReport should fail on the receiver and set the receiver contract execution status to reverted, instead got", "receiver contract execution status", wrOutput.ReceiverContractExecutionStatus)
 	return wrOutput, fmt.Errorf("writeReport should've returned tx status reverted, but instead returned %d", wrOutput.TxStatus)
 }

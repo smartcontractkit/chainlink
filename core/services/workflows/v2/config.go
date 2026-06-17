@@ -347,7 +347,7 @@ func (l *EngineLimiters) Close() error {
 }
 
 type EngineFeatureFlags struct {
-	FeatureMultiTriggerExecutionIDs limits.BoundLimiter[config.Timestamp]
+	FeatureMultiTriggerExecutionIDs limits.RangeLimiter[config.Timestamp]
 }
 
 func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*EngineFeatureFlags, error) {
@@ -355,7 +355,7 @@ func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*En
 	if cfgFn != nil {
 		cfgFn(&cfg)
 	}
-	featureMultiTriggerExecutionIDs, err := limits.MakeLowerBoundLimiter(lf, cfg.FeatureMultiTriggerExecutionIDsActiveAt)
+	featureMultiTriggerExecutionIDs, err := limits.MakeRangeLimiter(lf, cfg.FeatureMultiTriggerExecutionIDsActivePeriod)
 	if err != nil {
 		return nil, err
 	}
@@ -387,6 +387,9 @@ type LifecycleHooks struct {
 	OnResultReceived       func(*sdkpb.ExecutionResult)
 	OnRateLimited          func(executionID string)
 	OnNodeSynced           func(node commoncap.Node, err error)
+
+	// Used by the standalone engine
+	OnRequirementsSet func(executionId string, requirements *sdkpb.Requirements)
 }
 
 func (c *EngineConfig) Validate() error {

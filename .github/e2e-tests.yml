@@ -22,7 +22,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPReorg_BelowFinality_OnSource|Test_CCIPReorg_BelowFinality_OnDest" ccip_reorg_test.go -timeout 25m -parallel=1 -count=1
+        -- -v -run "Test_CCIPReorg_BelowFinality_OnSource|Test_CCIPReorg_BelowFinality_OnDest" -timeout 25m -parallel=1 -count=1
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1_DEEPER_FINALITY,SIMULATED_2_DEEPER_FINALITY
@@ -43,7 +43,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPReorg_GreaterThanFinality_OnSource|Test_CCIPReorg_GreaterThanFinality_OnDest" ccip_reorg_test.go -timeout 25m -parallel=1 -count=1
+        -- -v -run "Test_CCIPReorg_GreaterThanFinality_OnSource|Test_CCIPReorg_GreaterThanFinality_OnDest" -timeout 25m -parallel=1 -count=1
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2,SIMULATED_3

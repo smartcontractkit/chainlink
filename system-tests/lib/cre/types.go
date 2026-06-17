@@ -653,7 +653,7 @@ func (m *DonMetadata) GatewayConfig(p infra.Provider, gatewayNodeIdx int) (*DonG
 	}
 
 	return &DonGatewayConfiguration{
-		GatewayConfiguration: NewGatewayConfig(p, gatewayNode.Index, gatewayNodeIdx, gatewayNode.HasRole(BootstrapNode), gatewayNode.UUID, m.Name),
+		GatewayConfiguration: NewGatewayConfig(p, gatewayNode.Index, gatewayNodeIdx, gatewayNode.HasRole(BootstrapNode), gatewayNode.UUID, m.Name, m.ns.GatewayDonID),
 	}, nil
 }
 
@@ -790,13 +790,10 @@ func (m *DonMetadata) ConfigureForGatewayAccess(chainID uint64, connectors Gatew
 			}
 
 			if !alreadyPresent {
-				typedConfig.Capabilities.GatewayConnector.Gateways = append(typedConfig.Capabilities.GatewayConnector.Gateways, coretoml.ConnectorGateway{
-					ID: new(gatewayConnector.AuthGatewayID),
-					URL: new(fmt.Sprintf("ws://%s:%d%s",
-						gatewayConnector.Outgoing.Host,
-						gatewayConnector.Outgoing.Port,
-						gatewayConnector.Outgoing.Path)),
-				})
+				typedConfig.Capabilities.GatewayConnector.Gateways = append(
+					typedConfig.Capabilities.GatewayConnector.Gateways,
+					gatewayConnector.ToConnectorGateway(),
+				)
 			}
 		}
 
@@ -1226,6 +1223,8 @@ type NodeSet struct {
 	// ContractDonID is the donID assigned by the Capabilities Registry contract. 0 = use optimistic i+1.
 	ContractDonID                uint64   `toml:"contract_don_id"`
 	RegistryBasedLaunchAllowlist []string `toml:"registry_based_launch_allowlist"`
+	// GatewayDonID is the gateway DON used for multi-gateway HTTP action routing on gateway nodesets.
+	GatewayDonID string `toml:"gateway_don_id"`
 
 	chainCapabilityIndex      map[CapabilityFlag][]uint64
 	chainCapabilityIndexBuilt bool

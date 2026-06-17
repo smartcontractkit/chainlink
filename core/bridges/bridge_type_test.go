@@ -20,6 +20,7 @@ import (
 )
 
 func TestBridgeTypeRequest(t *testing.T) {
+	t.Parallel()
 	u, err := url.Parse("http://example.com/test")
 	require.NoError(t, err)
 	r := bridges.BridgeTypeRequest{
@@ -84,6 +85,7 @@ func BenchmarkParseBridgeName(b *testing.B) {
 }
 
 func TestBridgeName_UnmarshalJSON(t *testing.T) {
+	t.Parallel()
 	var b bridges.BridgeName
 	require.NoError(t, json.Unmarshal([]byte(`"asdf123test"`), &b))
 	require.Equal(t, "asdf123test", b.String())
@@ -118,6 +120,7 @@ func TestMarshalBridgeMetaData(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got, err := bridges.MarshalBridgeMetaData(tt.latestAnswer, tt.updatedAt)
 			require.NoError(t, err)
 			assert.Equalf(t, tt.want, got, "MarshalBridgeMetaData(%v, %v)", tt.latestAnswer, tt.updatedAt)

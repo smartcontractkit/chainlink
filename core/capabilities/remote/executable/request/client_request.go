@@ -19,6 +19,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
@@ -137,7 +138,12 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName, signers)
 }
 
-var defaultDelayMargin = 10 * time.Second
+var (
+	defaultDelayMargin = 10 * time.Second
+	// Extra time the workflow DON client waits beyond requestTimeout for P2P responses
+	// after remote capability nodes hit their execution deadline.
+	defaultResponseAggregationGrace = 10 * time.Second
+)
 
 func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string, remoteCapabilityInfo commoncap.CapabilityInfo,
 	localDonInfo commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration,
@@ -293,10 +299,19 @@ func emitTransmissionScheduleEvent(ctx context.Context, scheduleType, workflowEx
 	}
 
 	// emit transmission schedule event to track which nodes are successful when called to emit
-	return beholder.GetEmitter().Emit(ctx, b,
+	entity := fmt.Sprintf("%s.%s", TransmissionEventProtoPkg, TransmissionEventEntity)
+	if err = beholder.GetEmitter().Emit(ctx, b,
 		"beholder_data_schema", TransmissionEventSchema, // required
 		"beholder_domain", "platform", // required
-		"beholder_entity", fmt.Sprintf("%s.%s", TransmissionEventProtoPkg, TransmissionEventEntity)) // required
+		"beholder_entity", entity); err != nil { // required
+		return err
+	}
+
+	err = durableemitter.GlobalEmit(ctx, b, "source", "platform", "type", entity)
+	if err != nil && !errors.Is(err, durableemitter.ErrNotInitialized) {
+		return err
+	}
+	return nil
 }
 
 func (c *ClientRequest) ID() string {
@@ -308,7 +323,7 @@ func (c *ClientRequest) ResponseChan() <-chan clientResponse {
 }
 
 func (c *ClientRequest) Expired() bool {
-	return time.Since(c.createdAt) > c.requestTimeout
+	return time.Since(c.createdAt) > c.requestTimeout+defaultResponseAggregationGrace
 }
 
 func (c *ClientRequest) Cancel(err error) {

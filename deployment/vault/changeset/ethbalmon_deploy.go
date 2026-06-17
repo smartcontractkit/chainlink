@@ -102,7 +102,7 @@ func (d deployEthBalMon) Apply(e cldf.Environment, config vaulttypes.DeployEthBa
 			Address:       chainOut.ContractAddress,
 			Type:          ds.ContractType(vaulttypes.EthBalMonContractType),
 			Version:       semver.MustParse("1.0.0"),
-			Qualifier:     fmt.Sprintf("%s:%s", vaulttypes.EthBalMonContractType, chainOut.ContractAddress),
+			Qualifier:     "",
 			Labels: ds.NewLabelSet(
 				vaulttypes.EthBalMonContractType,
 				"EthBalMonV1_0_0",

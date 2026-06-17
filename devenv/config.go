@@ -39,8 +39,8 @@ var L = log.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(zerolog.InfoLeve
 // and unmarshalls the files from left to right overriding keys.
 func Load[T any]() (*T, error) {
 	var config T
-	paths := strings.Split(os.Getenv(EnvVarTestConfigs), ",")
-	for _, path := range paths {
+	paths := strings.SplitSeq(os.Getenv(EnvVarTestConfigs), ",")
+	for path := range paths {
 		L.Info().Str("Path", path).Msg("Loading configuration input")
 		data, err := os.ReadFile(filepath.Join(DefaultConfigDir, path))
 		if err != nil {

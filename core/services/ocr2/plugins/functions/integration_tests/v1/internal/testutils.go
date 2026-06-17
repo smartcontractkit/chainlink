@@ -19,7 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/freeport"
@@ -603,12 +603,12 @@ func ClientTestRequests(t *testing.T, owner *bind.TransactOpts, b evmtypes.Backe
 	// send requests
 	requestSources := make([][]byte, len(clientContracts))
 	rnd := rand.New(rand.NewSource(666))
-	for i, client := range clientContracts {
+	for i, cc := range clientContracts {
 		requestSources[i] = make([]byte, requestLenBytes)
 		for j := range requestLenBytes {
 			requestSources[i][j] = byte(rnd.Uint32() % 256)
 		}
-		_, err := client.Contract.SendRequest(
+		_, err := cc.Contract.SendRequest(
 			owner,
 			hex.EncodeToString(requestSources[i]),
 			expectedSecrets,
@@ -617,22 +617,21 @@ func ClientTestRequests(t *testing.T, owner *bind.TransactOpts, b evmtypes.Backe
 			donId,
 		)
 		require.NoError(t, err)
+		client.FinalizeLatest(t, b)
 	}
-	client.FinalizeLatest(t, b)
-
 	// validate that all client contracts got correct responses to their requests
 	var wg sync.WaitGroup
 	for i := range clientContracts {
 		ic := i
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			gomega.NewGomegaWithT(t).Eventually(func() [32]byte {
+		wg.Go(func() {
+			assert.Eventually(t, func() bool {
 				answer, err := clientContracts[ic].Contract.SLastResponse(nil)
-				require.NoError(t, err)
-				return answer
-			}, timeout, 1*time.Second).Should(gomega.Equal(GetExpectedResponse(requestSources[ic])))
-		}()
+				if err != nil {
+					return false
+				}
+				return answer == GetExpectedResponse(requestSources[ic])
+			}, timeout, 1*time.Second, "unexpected response for client contract at index %d", ic)
+		})
 	}
 	wg.Wait()
 }

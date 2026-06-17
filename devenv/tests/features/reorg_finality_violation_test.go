@@ -30,8 +30,7 @@ func TestReorgHeadTrackerFinalityViolation(t *testing.T) {
 			zapcore.DPanicLevel,
 			products.WarnAboutAllowedMsgs_No,
 		)
-		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings(reorgMessage))
-		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
+		products.CleanupContainerLogs(t, products.DefaultSettings(reorgMessage))
 	})
 
 	rpcClient := rpc.New(in.Blockchains[0].Out.Nodes[0].ExternalHTTPUrl, nil)

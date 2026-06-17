@@ -27,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
-	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
@@ -56,7 +55,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 					4457093679053095497: GetMockChainContractParams(t, 4457093679053095497),
 					743186221051783445:  GetMockChainContractParams(t, 743186221051783445),
 				},
-				MCMSDeployConfigPerChain: map[uint64]types.MCMSWithTimelockConfigV2{
+				MCMSDeployConfigPerChain: map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 					4457093679053095497: getMockMCMSConfig(t),
 					743186221051783445:  getMockMCMSConfig(t),
 				},
@@ -108,7 +107,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 				ContractParamsPerChain: map[uint64]config.ChainContractParams{
 					4457093679053095497: GetMockChainContractParams(t, 4457093679053095497),
 				},
-				MCMSDeployConfigPerChain: map[uint64]types.MCMSWithTimelockConfigV2{
+				MCMSDeployConfigPerChain: map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 					4457093679053095497: {
 						Canceller:        cldftesthelpers.SingleGroupMCMS(t),
 						Proposer:         cldftesthelpers.SingleGroupMCMS(t),
@@ -259,7 +258,7 @@ func TestDeployAptosChain_Apply(t *testing.T) {
 		ContractParamsPerChain: map[uint64]config.ChainContractParams{
 			selector: mockCCIPParams,
 		},
-		MCMSDeployConfigPerChain: map[uint64]types.MCMSWithTimelockConfigV2{
+		MCMSDeployConfigPerChain: map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 			selector: {
 				Canceller:        cldftesthelpers.SingleGroupMCMS(t),
 				Proposer:         cldftesthelpers.SingleGroupMCMS(t),

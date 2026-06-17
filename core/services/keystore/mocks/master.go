@@ -548,6 +548,53 @@ func (_c *Master_StarkNet_Call) RunAndReturn(run func() keystore.StarkNet) *Mast
 	return _c
 }
 
+// Stellar provides a mock function with no fields
+func (_m *Master) Stellar() keystore.Stellar {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Stellar")
+	}
+
+	var r0 keystore.Stellar
+	if rf, ok := ret.Get(0).(func() keystore.Stellar); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(keystore.Stellar)
+		}
+	}
+
+	return r0
+}
+
+// Master_Stellar_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Stellar'
+type Master_Stellar_Call struct {
+	*mock.Call
+}
+
+// Stellar is a helper method to define mock.On call
+func (_e *Master_Expecter) Stellar() *Master_Stellar_Call {
+	return &Master_Stellar_Call{Call: _e.mock.On("Stellar")}
+}
+
+func (_c *Master_Stellar_Call) Run(run func()) *Master_Stellar_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Master_Stellar_Call) Return(_a0 keystore.Stellar) *Master_Stellar_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Master_Stellar_Call) RunAndReturn(run func() keystore.Stellar) *Master_Stellar_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Sui provides a mock function with no fields
 func (_m *Master) Sui() keystore.Sui {
 	ret := _m.Called()

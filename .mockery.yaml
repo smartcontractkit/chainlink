@@ -276,10 +276,13 @@ packages:
       Executable:
       TriggerExecutable:
   github.com/smartcontractkit/chainlink-common/pkg/types:
-    config:
-      dir: core/capabilities/targets/mocks
     interfaces:
       ContractWriter:
+        config:
+          dir: core/capabilities/targets/mocks
+      Relayer:
+        config:
+          dir: core/web/mocks
   github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer:
     interfaces:
       ORM:

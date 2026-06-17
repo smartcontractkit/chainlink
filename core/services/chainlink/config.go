@@ -439,7 +439,7 @@ func (s *Secrets) SetFrom(f *Secrets) (err error) {
 
 func (s *Secrets) setDefaults() {
 	if nil == s.Database.AllowSimplePasswords {
-		s.Database.AllowSimplePasswords = new(bool)
+		s.Database.AllowSimplePasswords = new(false)
 	}
 }
 
@@ -514,8 +514,7 @@ func (s *Secrets) setEnv() error {
 		}
 	}
 	if env.DatabaseAllowSimplePasswords.IsTrue() {
-		s.Database.AllowSimplePasswords = new(bool)
-		*s.Database.AllowSimplePasswords = true
+		s.Database.AllowSimplePasswords = new(true)
 	}
 	if keystorePassword := env.PasswordKeystore.Get(); keystorePassword != "" {
 		s.Password.Keystore = &keystorePassword

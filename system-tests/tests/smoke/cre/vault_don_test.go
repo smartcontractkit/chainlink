@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os/exec"
@@ -18,6 +19,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protojson"
+
+	retry "github.com/avast/retry-go/v4"
 
 	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
@@ -59,6 +62,22 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 
 	gwURL := fixture.GatewayURL.String()
 	vaultPublicKey := fixture.VaultPublicKey
+
+	t.Run("allowlist_rejects_create_when_identifier_owner_mismatch", func(t *testing.T) {
+		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+		authorizedOwner := sc.MustGetRootKeyAddress().Hex()
+		mismatchedOwner := common.HexToAddress("0x000000000000000000000000000000000000dEaD").Hex()
+		wfRegAddr := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+		require.NoError(t, err)
+		requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
+		vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
+		secretID := uniqueVaultSecretID("allowlistownermismatch")
+		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-allowlist-owner-mismatch", vaultParsedPublicKey, sc.MustGetRootKeyAddress())
+		require.NoError(t, err)
+		auth := newAllowlistVaultRequestAuth(authorizedOwner, sc, wfReg)
+		executeVaultSecretsCreateOwnerMismatchRejectedTest(t, auth, authorizedOwner, mismatchedOwner, encryptedSecret, secretID, gwURL)
+	})
 
 	t.Run("allowlist_crud_with_workflow_owner_identity", func(t *testing.T) {
 		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
@@ -210,6 +229,13 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 		executeVaultJWTSecretsDeleteTest(t, issuer, secretID, orgID, derivedJWTWorkflowOwner, gwURL, []string{"main", "alt"})
 		executeVaultJWTSecretsListAbsentFromNamespace(t, issuer, secretID, orgID, derivedJWTWorkflowOwner, gwURL, "main")
 		executeVaultJWTSecretsListAbsentFromNamespace(t, issuer, secretID, orgID, derivedJWTWorkflowOwner, gwURL, "alt")
+	})
+
+	t.Run("jwt_rejected_when_identifier_owner_does_not_match_authorized_owner", func(t *testing.T) {
+		secretID := uniqueVaultSecretID("jwtownermismatch")
+		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-jwt-owner-mismatch", vaultParsedPublicKey, derivedJWTWorkflowOwnerAddr)
+		require.NoError(t, err)
+		executeVaultSecretsCreateOwnerMismatchRejectedTest(t, jwtAuth, derivedJWTWorkflowOwner, workflowOwner, encryptedSecret, secretID, gwURL)
 	})
 
 	t.Run("jwt_rejected_when_ciphertext_label_is_linked_workflow_owner_but_identifier_owner_is_jwt_derived", func(t *testing.T) {
@@ -526,8 +552,8 @@ func assertVaultOCRPendingPackObservedInDockerLogs(t *testing.T) {
 			}
 			continue
 		}
-		names := strings.Split(strings.TrimSpace(string(psOut)), "\n")
-		for _, name := range names {
+		names := strings.SplitSeq(strings.TrimSpace(string(psOut)), "\n")
+		for name := range names {
 			if name == "" {
 				continue
 			}
@@ -539,7 +565,7 @@ func assertVaultOCRPendingPackObservedInDockerLogs(t *testing.T) {
 			if err != nil {
 				continue
 			}
-			for _, line := range strings.Split(string(logs), "\n") {
+			for line := range strings.SplitSeq(string(logs), "\n") {
 				if !strings.Contains(line, "observation packed local items into blob payloads") {
 					continue
 				}
@@ -597,8 +623,8 @@ func assertVaultOCRStateTransitionPendingWriteObservedInDockerLogs(t *testing.T)
 			}
 			continue
 		}
-		names := strings.Split(strings.TrimSpace(string(psOut)), "\n")
-		for _, name := range names {
+		names := strings.SplitSeq(strings.TrimSpace(string(psOut)), "\n")
+		for name := range names {
 			if name == "" {
 				continue
 			}
@@ -610,7 +636,7 @@ func assertVaultOCRStateTransitionPendingWriteObservedInDockerLogs(t *testing.T)
 			if err != nil {
 				continue
 			}
-			for _, line := range strings.Split(string(logs), "\n") {
+			for line := range strings.SplitSeq(string(logs), "\n") {
 				if !strings.Contains(line, "pending queue items persisted to storage") {
 					continue
 				}
@@ -660,8 +686,8 @@ func assertVaultOCRWireTruncationSignalsInDockerLogs(t *testing.T) {
 		t.Fatalf("docker ps: %v", err)
 	}
 	var combined strings.Builder
-	names := strings.Split(strings.TrimSpace(string(psOut)), "\n")
-	for _, name := range names {
+	names := strings.SplitSeq(strings.TrimSpace(string(psOut)), "\n")
+	for name := range names {
 		if name == "" {
 			continue
 		}
@@ -679,7 +705,7 @@ func assertVaultOCRWireTruncationSignalsInDockerLogs(t *testing.T) {
 	s := combined.String()
 
 	sawObsTrunc := false
-	for _, line := range strings.Split(s, "\n") {
+	for line := range strings.SplitSeq(s, "\n") {
 		if !strings.Contains(line, "observation: more pending queue items than can be observed") {
 			continue
 		}
@@ -697,7 +723,7 @@ func assertVaultOCRWireTruncationSignalsInDockerLogs(t *testing.T) {
 	}
 
 	sawOutcomeTrunc := false
-	for _, line := range strings.Split(s, "\n") {
+	for line := range strings.SplitSeq(s, "\n") {
 		if !strings.Contains(line, "state transition: more observations than can be included in response") {
 			continue
 		}
@@ -846,12 +872,12 @@ func TestMustMintVaultJWTForRequest_UsesRawRequestDigest(t *testing.T) {
 
 	claims, ok := parsedToken.Claims.(jwt.MapClaims)
 	require.True(t, ok)
-	authorizationDetails, ok := claims["authorization_details"].([]interface{})
+	authorizationDetails, ok := claims["authorization_details"].([]any)
 	require.True(t, ok)
 
 	var claimedDigest string
 	for _, detail := range authorizationDetails {
-		entry, ok := detail.(map[string]interface{})
+		entry, ok := detail.(map[string]any)
 		require.True(t, ok)
 		if entry["type"] == "request_digest" {
 			claimedDigest, ok = entry["value"].(string)
@@ -900,8 +926,7 @@ func executeVaultSecretsIdentifierValidationTest(t *testing.T, encryptedSecret s
 
 	const (
 		validKey         = "validkey"
-		invalidKey       = "invalid-key-with-hyphens"   // hyphen not in [a-zA-Z0-9_]
-		invalidOwner     = "invalid-owner-with-hyphens" // hyphen not in [a-zA-Z0-9_]
+		invalidKey       = "invalid-key-with-hyphens" // hyphen not in [a-zA-Z0-9_]
 		validNamespace   = "main"
 		invalidNamespace = "invalid-namespace-hyphens" // hyphen not in [a-zA-Z0-9_]
 	)
@@ -925,7 +950,18 @@ func executeVaultSecretsIdentifierValidationTest(t *testing.T, encryptedSecret s
 		allowlistRequest(t, owner, req, sethClient, wfRegistryContract)
 		reqBody, err := json.Marshal(req)
 		require.NoError(t, err)
-		_, respBody := sendVaultRequestToGateway(t, gatewayURL, reqBody)
+		// Retry in case DON is still not synced properly
+		var respBody []byte
+		_ = retry.Do(func() error {
+			_, respBody = sendVaultRequestToGateway(t, gatewayURL, reqBody)
+			if bytes.Contains(respBody, []byte("Request timed out")) {
+				return errors.New("gateway auth timeout")
+			}
+			return nil
+		}, retry.Attempts(8), retry.Delay(3*time.Second), retry.DelayType(retry.FixedDelay),
+			retry.OnRetry(func(n uint, err error) {
+				framework.L.Warn().Uint("attempt", n+1).Msgf("[%s] %s: %s, retrying...", method, caseName, err)
+			}))
 		require.Contains(t, string(respBody), "alphanumeric", "[%s] expected alphanumeric rejection for %s", method, caseName)
 		framework.L.Info().Msgf("[%s] %s correctly rejected: %s", method, caseName, string(respBody))
 	}
@@ -937,7 +973,6 @@ func executeVaultSecretsIdentifierValidationTest(t *testing.T, encryptedSecret s
 	writeCases := []writeCase{
 		{"invalid key", invalidKey, owner, validNamespace},
 		{"invalid namespace", validKey, owner, invalidNamespace},
-		{"invalid owner", validKey, invalidOwner, validNamespace},
 	}
 
 	for _, op := range []string{vaulttypes.MethodSecretsCreate, vaulttypes.MethodSecretsUpdate, vaulttypes.MethodSecretsDelete} {
@@ -959,7 +994,17 @@ func executeVaultSecretsIdentifierValidationTest(t *testing.T, encryptedSecret s
 	allowlistRequest(t, owner, req, sethClient, wfRegistryContract)
 	reqBody, err := json.Marshal(req)
 	require.NoError(t, err)
-	_, respBody := sendVaultRequestToGateway(t, gatewayURL, reqBody)
+	var respBody []byte
+	_ = retry.Do(func() error {
+		_, respBody = sendVaultRequestToGateway(t, gatewayURL, reqBody)
+		if bytes.Contains(respBody, []byte("Request timed out")) {
+			return errors.New("gateway auth timeout")
+		}
+		return nil
+	}, retry.Attempts(8), retry.Delay(3*time.Second), retry.DelayType(retry.FixedDelay),
+		retry.OnRetry(func(n uint, err error) {
+			framework.L.Warn().Uint("attempt", n+1).Msgf("[list] invalid namespace: %s, retrying...", err)
+		}))
 	require.Contains(t, string(respBody), "alphanumeric", "[list] expected alphanumeric rejection for %s", "invalid namespace")
 	framework.L.Info().Msgf("[list] %s correctly rejected: %s", "invalid namespace", string(respBody))
 

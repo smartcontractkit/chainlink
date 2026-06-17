@@ -49,9 +49,6 @@ func (i *StartUpHealthReport) Stop() {
 
 func (i *StartUpHealthReport) Start() {
 	go func() {
-		i.mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusNoContent)
-		})
 		i.lggr.Info("Starting StartUpHealthReport")
 		if err := i.server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			i.lggr.Errorf("StartUpHealthReport server error: %v", err)
@@ -63,6 +60,13 @@ func (i *StartUpHealthReport) Start() {
 // preventing shutdowns due to health-checks when running long backup tasks or migrations
 func NewStartUpHealthReport(port uint16, lggr logger.Logger) *StartUpHealthReport {
 	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/health" {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		w.WriteHeader(http.StatusServiceUnavailable)
+	})
 	return &StartUpHealthReport{
 		lggr:   lggr,
 		mux:    mux,

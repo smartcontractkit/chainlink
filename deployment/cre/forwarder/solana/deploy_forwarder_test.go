@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
@@ -209,7 +208,7 @@ func TestConfigureForwarder(t *testing.T) {
 			rt.Environment(),
 			ds,
 			solChain,
-			commontypes.MCMSWithTimelockConfigV2{
+			cldfproposalutils.MCMSWithTimelockConfig{
 				Canceller:        cldftesthelpers.SingleGroupMCMS(t),
 				Proposer:         cldftesthelpers.SingleGroupMCMS(t),
 				Bypasser:         cldftesthelpers.SingleGroupMCMS(t),

@@ -4,14 +4,14 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	"github.com/stretchr/testify/require"
 
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
@@ -32,7 +32,6 @@ func TestVault_NoChains(t *testing.T) {
 	view := viewMarshaler.(*VaultView)
 	require.Empty(t, view.TimelockBalances)
 	require.Empty(t, view.WhitelistedAddresses)
-	require.Empty(t, view.MCMSWithTimelock)
 }
 
 func TestGenerateVaultView_WithoutTimelock(t *testing.T) {
@@ -54,8 +53,6 @@ func TestGenerateVaultView_WithoutTimelock(t *testing.T) {
 	for _, sel := range selectors {
 		require.Empty(t, view.WhitelistedAddresses[sel])
 	}
-
-	require.Empty(t, view.MCMSWithTimelock)
 }
 
 func TestGenerateVaultView_WithMCMSAndWhitelist(t *testing.T) {
@@ -101,7 +98,6 @@ func TestGenerateVaultView_WithMCMSAndWhitelist(t *testing.T) {
 		require.Len(t, entries, 1)
 		require.Equal(t, whitelistByChain[sel][0].Address, entries[0].Address)
 	}
-	require.Len(t, view.MCMSWithTimelock, len(selectors))
 }
 
 func setupMCMS(t *testing.T, rt *runtime.Runtime, chainSelectors []uint64) {

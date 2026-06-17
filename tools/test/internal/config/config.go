@@ -2,6 +2,8 @@
 // tools/test database helpers.
 package config
 
+import "fmt"
+
 // DefaultPostgresVersion is the Postgres major version used for ephemeral and
 // persistent test databases when none is specified.
 const DefaultPostgresVersion = "16"
@@ -21,4 +23,28 @@ type App struct {
 	// ParallelIterations records the requested diagnose worker count (used only
 	// to reject external databases with parallel runs).
 	ParallelIterations int
+	// DiagnoseMode is true when the harness is running testrig diagnose.
+	DiagnoseMode bool
+	// WorkerIndex is the 1-based diagnose worker slot when DiagnoseMode is set.
+	WorkerIndex int
+	// PackageSlug is a short, docker-safe token derived from the package patterns
+	// under test (e.g. core_services).
+	PackageSlug string
+}
+
+// PostgresContainerName returns the docker container name for an ephemeral
+// Postgres instance. Non-diagnose runs use test_<slug>; diagnose workers use
+// iteration_<n>_<slug>.
+func (c *App) PostgresContainerName() string {
+	if c == nil {
+		return "test_pkgs"
+	}
+	slug := c.PackageSlug
+	if slug == "" {
+		slug = "pkgs"
+	}
+	if c.DiagnoseMode {
+		return fmt.Sprintf("iteration_%d_%s", max(c.WorkerIndex, 1), slug)
+	}
+	return "test_" + slug
 }
