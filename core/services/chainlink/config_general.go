@@ -225,6 +225,10 @@ func (g *generalConfig) SuiConfigs() RawConfigs {
 	return g.c.Sui
 }
 
+func (g *generalConfig) StellarConfigs() RawConfigs {
+	return g.c.Stellar
+}
+
 func (g *generalConfig) Validate() error {
 	return g.validate(g.secrets.Validate)
 }
