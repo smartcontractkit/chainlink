@@ -7,6 +7,7 @@ import (
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDecimal(t *testing.T) {
@@ -55,4 +56,18 @@ func TestDecimal(t *testing.T) {
 			assert.NoError(t, err)
 		}
 	}
+}
+
+func TestDecimalUint64NoOverflow(t *testing.T) {
+	t.Parallel()
+
+	// Values above math.MaxInt64 were silently corrupted: int64(math.MaxUint64) == -1.
+	want, _ := decimal.NewFromString("18446744073709551615") // math.MaxUint64
+	got, err := ToDecimal(uint64(math.MaxUint64))
+	require.NoError(t, err)
+	assert.True(t, got.Equal(want), "uint64(MaxUint64): got %s, want %s", got, want)
+
+	got, err = ToDecimal(uint(math.MaxUint64))
+	require.NoError(t, err)
+	assert.True(t, got.Equal(want), "uint(MaxUint64): got %s, want %s", got, want)
 }
