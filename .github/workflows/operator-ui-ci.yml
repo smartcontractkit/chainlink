@@ -16,13 +16,14 @@ jobs:
     name: Breaking Changes GQL Check
     runs-on: ubuntu-latest
     steps:
-      - name: Setup Github Token
-        id: get-gh-token
+      - name: Setup GitHub Token
+        id: setup-github-token
         uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/v1
         with:
           aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_CI_OPERATOR_UI_ACCESS_TOKEN_ISSUER_ROLE_ARN }}
           aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
           aws-region: ${{ secrets.AWS_REGION }}
+          aws-role-duration-seconds: 3600
 
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -44,6 +45,6 @@ jobs:
         with:
           owner: smartcontractkit
           repo: operator-ui
-          github_token: ${{ steps.get-gh-token.outputs.access-token }}
+          github_token: ${{ steps.setup-github-token.outputs.access-token }}
           workflow_file_name: chainlink-ci.yml
           client_payload: '{"ref": "${{ github.event.pull_request.head.sha }}", "tag": "${{ steps.get-operator-ui-tag.outputs.TAG }}"}'

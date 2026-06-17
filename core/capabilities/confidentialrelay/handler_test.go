@@ -1025,6 +1025,7 @@ func TestTranslateVaultResponse_HexShares(t *testing.T) {
 }
 
 func TestVerifyWorkflowAuthorization(t *testing.T) {
+	t.Parallel()
 	const (
 		owner      = "0xab5801a7d398351b8be11c439e05c5b3259aec9b"
 		workflowID = "wf-secrets-1"
@@ -1061,16 +1062,19 @@ func TestVerifyWorkflowAuthorization(t *testing.T) {
 	h := newTestHandler(t, &mockCapRegistry{}, &mockGatewayConnector{})
 
 	t.Run("valid 2F+1 quorum", func(t *testing.T) {
+		t.Parallel()
 		require.NoError(t, h.verifyWorkflowAuthorization(don, validParams(t)))
 	})
 
 	t.Run("missing signed compute requests", func(t *testing.T) {
+		t.Parallel()
 		params := validParams(t)
 		params.SignedComputeRequests = nil
 		require.ErrorContains(t, h.verifyWorkflowAuthorization(don, params), "missing signed compute requests")
 	})
 
 	t.Run("insufficient signers for quorum", func(t *testing.T) {
+		t.Parallel()
 		params := validParams(t)
 		// Only 2 signers; F=1 requires 2*1+1 = 3.
 		params.SignedComputeRequests = signedReqs(t, owner, workflowID, privs[:2])
@@ -1078,6 +1082,7 @@ func TestVerifyWorkflowAuthorization(t *testing.T) {
 	})
 
 	t.Run("signers not in Workflow DON", func(t *testing.T) {
+		t.Parallel()
 		stranger := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0xfe}, ed25519.SeedSize))
 		params := validParams(t)
 		params.SignedComputeRequests = signedReqs(t, owner, workflowID, []ed25519.PrivateKey{stranger, stranger, stranger})
@@ -1085,18 +1090,21 @@ func TestVerifyWorkflowAuthorization(t *testing.T) {
 	})
 
 	t.Run("owner mismatch", func(t *testing.T) {
+		t.Parallel()
 		params := validParams(t)
 		params.Owner = "0x0000000000000000000000000000000000000002"
 		require.ErrorContains(t, h.verifyWorkflowAuthorization(don, params), "owner not authorized")
 	})
 
 	t.Run("workflow id mismatch", func(t *testing.T) {
+		t.Parallel()
 		params := validParams(t)
 		params.WorkflowID = "wf-other"
 		require.ErrorContains(t, h.verifyWorkflowAuthorization(don, params), "workflow_id not authorized")
 	})
 
 	t.Run("forwarded requests disagree on compute request", func(t *testing.T) {
+		t.Parallel()
 		params := validParams(t)
 		params.SignedComputeRequests = append(params.SignedComputeRequests, confidentialrelaytypes.SignedComputeRequest{
 			ComputeRequest: confidentialrelaytypes.ComputeRequest{PublicData: []byte("different")},

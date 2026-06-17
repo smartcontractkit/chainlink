@@ -21,6 +21,9 @@ func TestRunner(t *testing.T) {
 	t.Run("happy path with an empty workflow", func(t *testing.T) {
 		t.Parallel()
 
+		// Build before deadline; WASM compile can exceed 5s under CI load.
+		binary := wasmtest.CreateTestBinary(t, filepath.Join("core/services/workflows/cmd/cre/examples/v2", "empty"), false)
+
 		duration := 5 * time.Second
 		ctx, cancel := context.WithDeadline(t.Context(), time.Now().Add(duration))
 		defer cancel()
@@ -32,8 +35,6 @@ func TestRunner(t *testing.T) {
 				require.ErrorContains(t, err, "Stopped")
 			}
 		}
-
-		binary := wasmtest.CreateTestBinary(t, filepath.Join("core/services/workflows/cmd/cre/examples/v2", "empty"), false)
 
 		runner := NewRunner(hooks)
 		runner.Run(ctx, "", binary, []byte{}, []byte{}, RunnerConfig{

@@ -4,12 +4,12 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
-	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 )
@@ -19,7 +19,7 @@ type HybridTokenPoolUpdateGroupsSequenceInput struct {
 	// ContractType specifies which type of hybrid token pool to update
 	ContractType cldf.ContractType
 	// UpdatesByChain maps chain selector to the EVM call input for that chain
-	UpdatesByChain map[uint64]opsevm.EVMCallInput[ccipops.UpdateGroupsInput]
+	UpdatesByChain map[uint64]opsutils.EVMCallInput[ccipops.UpdateGroupsInput]
 }
 
 var (
@@ -28,8 +28,8 @@ var (
 		"HybridTokenPoolUpdateGroupsSequence",
 		semver.MustParse("1.0.0"),
 		"Update groups on hybrid token pool contracts across multiple EVM chains",
-		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input HybridTokenPoolUpdateGroupsSequenceInput) (map[uint64][]opsevm.EVMCallOutput, error) {
-			opOutputs := make(map[uint64][]opsevm.EVMCallOutput, len(input.UpdatesByChain))
+		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input HybridTokenPoolUpdateGroupsSequenceInput) (map[uint64][]opsutils.EVMCallOutput, error) {
+			opOutputs := make(map[uint64][]opsutils.EVMCallOutput, len(input.UpdatesByChain))
 
 			for chainSel, update := range input.UpdatesByChain {
 				chain, ok := chains[chainSel]
@@ -38,7 +38,7 @@ var (
 				}
 
 				// Select the appropriate operation based on contract type
-				var operation *operations.Operation[opsevm.EVMCallInput[ccipops.UpdateGroupsInput], opsevm.EVMCallOutput, cldf_evm.Chain]
+				var operation *operations.Operation[opsutils.EVMCallInput[ccipops.UpdateGroupsInput], opsutils.EVMCallOutput, cldf_evm.Chain]
 				switch input.ContractType {
 				case shared.HybridWithExternalMinterFastTransferTokenPool:
 					operation = ccipops.HybridWithExternalMinterTokenPoolUpdateGroupsOp
@@ -50,7 +50,7 @@ var (
 				if err != nil {
 					return nil, fmt.Errorf("failed to execute hybrid token pool update groups op on %s: %w", chain, err)
 				}
-				opOutputs[chainSel] = []opsevm.EVMCallOutput{report.Output}
+				opOutputs[chainSel] = []opsutils.EVMCallOutput{report.Output}
 			}
 			return opOutputs, nil
 		})
