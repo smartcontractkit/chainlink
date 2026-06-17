@@ -13,6 +13,7 @@ import (
 	solcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/solana"
 	stellarcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/stellar"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 )
 
@@ -34,6 +35,7 @@ func TestWriteReportExcludeSignaturesHasher_Hash(t *testing.T) {
 }
 
 func TestWriteReportExcludeSignaturesHasher_Hash_Stellar(t *testing.T) {
+	t.Parallel()
 	req1a := getStellarRequest(t, []byte("testdata"), [][]byte{[]byte("sig1"), []byte("sig2")})
 	req1b := getStellarRequest(t, []byte("testdata"), [][]byte{[]byte("sig3"), []byte("sig4")})
 	req2 := getStellarRequest(t, []byte("otherdata"), [][]byte{[]byte("sig1"), []byte("sig2")})

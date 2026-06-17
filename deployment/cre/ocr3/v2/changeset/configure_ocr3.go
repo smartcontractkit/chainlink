@@ -51,11 +51,7 @@ func (l ConfigureOCR3) VerifyPreconditions(_ cldf.Environment, input ConfigureOC
 	if input.OracleConfig == nil {
 		return errors.New("oracle config is required")
 	}
-	if err := ocr3.ValidateExtraSignerFamilies(input.ExtraSignerFamilies); err != nil {
-		return err
-	}
-
-	return nil
+	return ocr3.ValidateExtraSignerFamilies(input.ExtraSignerFamilies)
 }
 
 func (l ConfigureOCR3) Apply(e cldf.Environment, input ConfigureOCR3Input) (cldf.ChangesetOutput, error) {

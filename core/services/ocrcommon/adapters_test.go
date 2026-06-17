@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -172,6 +173,7 @@ func TestNewOCR3OnchainKeyringMultiChainAdapter(t *testing.T) {
 }
 
 func TestNewOCR3OnchainKeyringMultiChainAdapter_Stellar(t *testing.T) {
+	t.Parallel()
 	evmBundle, err := ocr2key.New(corekeys.EVM)
 	require.NoError(t, err)
 
