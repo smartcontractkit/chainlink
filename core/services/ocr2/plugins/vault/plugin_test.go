@@ -8054,6 +8054,7 @@ func seedPendingGetSecretsQueue(t *testing.T, rdr *kv) {
 }
 
 func TestObservation_skipsQueueWhenStuckCountReachesThreshold(t *testing.T) {
+	t.Parallel()
 	const threshold = 3
 	r := newTestReportingPlugin(t, withVaultPendingQueueStuckRoundThreshold(threshold))
 	rdr := &kv{m: make(map[string]response)}
@@ -8076,6 +8077,7 @@ func TestObservation_skipsQueueWhenStuckCountReachesThreshold(t *testing.T) {
 }
 
 func TestObservation_resetsCountWhenSeqNrAdvances(t *testing.T) {
+	t.Parallel()
 	const threshold = 3
 	r := newTestReportingPlugin(t, withVaultPendingQueueStuckRoundThreshold(threshold))
 	rdr := &kv{m: make(map[string]response)}
@@ -8095,6 +8097,7 @@ func TestObservation_resetsCountWhenSeqNrAdvances(t *testing.T) {
 }
 
 func TestValidateObservation_acceptsZeroItemObsWhenLocalNodeIsStuck(t *testing.T) {
+	t.Parallel()
 	const threshold = 2
 	r := newTestReportingPlugin(t, withVaultPendingQueueStuckRoundThreshold(threshold))
 	rdr := &kv{m: make(map[string]response)}
@@ -8120,6 +8123,7 @@ func TestValidateObservation_acceptsZeroItemObsWhenLocalNodeIsStuck(t *testing.T
 }
 
 func TestValidateObservation_rejectsStoreBackedPendingIDsWhenLocalNodeIsStuck(t *testing.T) {
+	t.Parallel()
 	const threshold = 2
 	r := newTestReportingPlugin(t, withVaultPendingQueueStuckRoundThreshold(threshold))
 	rdr := &kv{m: make(map[string]response)}
@@ -8149,6 +8153,7 @@ func TestValidateObservation_rejectsStoreBackedPendingIDsWhenLocalNodeIsStuck(t 
 }
 
 func TestPlugin_StateTransition_purgesPendingQueueWhenStoreBackedObservationsEmpty(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t, withOnchainCfg(4, 1))
 	rdr := &kv{m: make(map[string]response)}
 	seedPendingGetSecretsQueue(t, rdr)
