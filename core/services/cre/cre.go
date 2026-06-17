@@ -79,6 +79,7 @@ type Keystore interface {
 // Opts are the options for the CRE services that are exposed by the application
 type Opts struct {
 	CapabilitiesRegistry    *capabilities.Registry
+	ExecutionHandlers       *confidentialrelay.ExecutionHandlers
 	CapabilitiesDispatcher  remotetypes.Dispatcher
 	CapabilitiesPeerWrapper p2ptypes.PeerWrapper
 

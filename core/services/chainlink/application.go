@@ -26,6 +26,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -233,6 +235,10 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
 	}
 
+	if opts.ExecutionHandlers == nil {
+		opts.ExecutionHandlers = &confidentialrelay.ExecutionHandlers{}
+	}
+
 	if opts.DonTimeStore == nil {
 		opts.DonTimeStore = dontime.NewStore(dontime.DefaultRequestTimeout)
 	}
@@ -398,6 +404,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		peerWrapper,
 		cre.Opts{
 			CapabilitiesRegistry:    opts.CapabilitiesRegistry,
+			ExecutionHandlers:       &confidentialrelay.ExecutionHandlers{},
 			CapabilitiesDispatcher:  opts.CapabilitiesDispatcher,
 			CapabilitiesPeerWrapper: opts.CapabilitiesPeerWrapper,
 			FetcherFunc:             opts.FetcherFunc,

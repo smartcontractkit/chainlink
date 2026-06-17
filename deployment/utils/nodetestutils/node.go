@@ -19,6 +19,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
@@ -496,6 +498,7 @@ func NewNode(
 	app, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
 		Opts: cre.Opts{
 			CapabilitiesRegistry: capabilities.NewRegistry(lggr),
+			ExecutionHandlers:    &confidentialrelay.ExecutionHandlers{},
 		},
 		Config:   cfg,
 		DS:       db,

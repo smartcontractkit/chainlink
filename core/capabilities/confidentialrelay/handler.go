@@ -11,11 +11,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -26,15 +24,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
-	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/teeattestation"
 	"github.com/smartcontractkit/chainlink-common/pkg/teeattestation/nitro"
-
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 )
 
 var _ core.GatewayConnectorHandler = (*Handler)(nil)
@@ -101,11 +94,12 @@ type Handler struct {
 	services.Service
 	eng *services.Engine
 
-	capRegistry      core.CapabilitiesRegistry
-	gatewayConnector core.GatewayConnector
-	responseSigner   relayResponseSigner
-	lggr             logger.Logger
-	metrics          *handlerMetrics
+	capRegistry       core.CapabilitiesRegistry
+	executionHandlers *ExecutionHandlers
+	gatewayConnector  core.GatewayConnector
+	responseSigner    relayResponseSigner
+	lggr              logger.Logger
+	metrics           *handlerMetrics
 
 	// validateAttestation validates TEE attestation documents.
 	// Defaults to the Nitro validator; overridden in tests.
@@ -113,7 +107,7 @@ type Handler struct {
 	limitsFactory       limits.Factory
 }
 
-func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, lf limits.Factory) (*Handler, error) {
+func NewHandler(capRegistry core.CapabilitiesRegistry, executionHandlers *ExecutionHandlers, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, lf limits.Factory) (*Handler, error) {
 	if responseSigner == nil {
 		return nil, errors.New("response signer is required")
 	}
@@ -124,6 +118,7 @@ func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnecto
 
 	h := &Handler{
 		capRegistry:         capRegistry,
+		executionHandlers:   executionHandlers,
 		gatewayConnector:    conn,
 		responseSigner:      responseSigner,
 		lggr:                logger.Named(lggr, HandlerName),
@@ -209,12 +204,18 @@ func (h *Handler) HandleGatewayMessage(ctx context.Context, gatewayID string, re
 }
 
 func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Response[json.RawMessage] {
+	// TODO need to plug in secrets to use the raw secrets...
 	if req.Params == nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, errors.New("missing params"))
 	}
 	var params confidentialrelaytypes.SecretsRequestParams
 	if err := json.Unmarshal(*req.Params, &params); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, err)
+	}
+
+	handler, ok := h.executionHandlers.GetExecution(params.WorkflowID, params.ExecutionID)
+	if !ok {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, fmt.Errorf("execution handler for workflow %s execution %s not found", params.WorkflowID, params.ExecutionID))
 	}
 
 	att := params.Attestation
@@ -237,63 +238,19 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
 
-	vaultCap, err := h.capRegistry.GetExecutable(ctx, vault.CapabilityID)
-	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get vault capability: %w", err))
-	}
-
-	if !common.IsHexAddress(params.Owner) {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, fmt.Errorf("invalid owner address: %q", params.Owner))
-	}
-	// Normalize owner to EIP-55 checksum format, matching how secrets are stored.
-	normalizedOwner := common.HexToAddress(params.Owner).Hex()
-
-	vaultReq := &vault.GetSecretsRequest{
-		Requests: make([]*vault.SecretRequest, 0, len(params.Secrets)),
+	secretsRequest := &sdkpb.GetSecretsRequest{
+		Requests: make([]*sdkpb.SecretRequest, 0, len(params.Secrets)),
 	}
 	for _, s := range params.Secrets {
-		namespace := s.Namespace
-		if namespace == "" {
-			namespace = vaulttypes.DefaultNamespace
-		}
-		vaultReq.Requests = append(vaultReq.Requests, &vault.SecretRequest{
-			Id: &vault.SecretIdentifier{
-				Key:       s.Key,
-				Namespace: namespace,
-				Owner:     normalizedOwner,
-			},
-			EncryptionKeys: []string{params.EnclavePublicKey},
+		secretsRequest.Requests = append(secretsRequest.Requests, &sdkpb.SecretRequest{
+			Id:        s.Key,
+			Namespace: s.Namespace,
 		})
 	}
 
-	anypbReq, err := anypb.New(vaultReq)
+	vaultResp, err := handler.GetRawSecrets(ctx, secretsRequest, teeKeyFetcher(params.EnclavePublicKey))
 	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to wrap vault request: %w", err))
-	}
-
-	metadata := capabilities.RequestMetadata{
-		WorkflowID:               params.WorkflowID,
-		WorkflowOwner:            params.Owner,
-		WorkflowExecutionID:      params.ExecutionID,
-		WorkflowDonID:            localNode.WorkflowDON.ID,
-		WorkflowDonConfigVersion: localNode.WorkflowDON.ConfigVersion,
-		ReferenceID:              req.ID,
-	}
-	h.applyPropagatedOrgID(ctx, &metadata, params.OrgID)
-	capResp, err := vaultCap.Execute(ctx, capabilities.CapabilityRequest{
-		Payload:      anypbReq,
-		Method:       vault.MethodGetSecrets,
-		CapabilityId: vault.CapabilityID,
-		Config:       values.EmptyMap(),
-		Metadata:     metadata,
-	})
-	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("vault execute failed: %w", err))
-	}
-
-	vaultResp := &vault.GetSecretsResponse{}
-	if err = capResp.Payload.UnmarshalTo(vaultResp); err != nil {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to unmarshal vault response: %w", err))
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
 
 	result, err := translateVaultResponse(vaultResp, params.EnclavePublicKey)
@@ -332,10 +289,10 @@ func (h *Handler) resolveDONID(ctx context.Context, capability capabilities.Exec
 // translateVaultResponse converts a vault GetSecretsResponse to the enclave relay protocol format.
 // Encoding conversion: ciphertext hex (vault) -> base64 (enclave relay); encrypted shares may be
 // binary or hex (vault) -> base64 (enclave relay).
-func translateVaultResponse(vaultResp *vault.GetSecretsResponse, enclaveKey string) (*confidentialrelaytypes.SecretsResponseResult, error) {
+func translateVaultResponse(vaultResp []*vault.SecretResponse, enclaveKey string) (*confidentialrelaytypes.SecretsResponseResult, error) {
 	result := &confidentialrelaytypes.SecretsResponseResult{}
 
-	for _, sr := range vaultResp.Responses {
+	for _, sr := range vaultResp {
 		if sr.GetError() != "" {
 			return nil, fmt.Errorf("vault error for secret %s/%s: %s", sr.Id.GetNamespace(), sr.Id.GetKey(), sr.GetError())
 		}
@@ -395,22 +352,15 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, err)
 	}
 
+	handler, ok := h.executionHandlers.GetExecution(params.WorkflowID, params.ExecutionID)
+	if !ok {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, fmt.Errorf("execution handler for workflow %s execution %s not found", params.WorkflowID, params.ExecutionID))
+	}
+
 	att := params.Attestation
 	params.Attestation = ""
 	if err := h.verifyAttestationHash(ctx, att, params, confidentialrelaytypes.DomainCapabilityExec); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
-	}
-	localNode, err := h.capRegistry.LocalNode(ctx)
-	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get local node: %w", err))
-	}
-	if err = h.verifyEnclaveConfigMatchesDON(localNode, params.EnclaveConfig); err != nil {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
-	}
-
-	capability, err := h.capRegistry.GetExecutable(ctx, params.CapabilityID)
-	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("capability not found: %w", err))
 	}
 
 	payloadBytes, err := base64.StdEncoding.DecodeString(params.Payload)
@@ -418,53 +368,18 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, fmt.Errorf("failed to decode payload: %w", err))
 	}
 
-	var sdkReq sdkpb.CapabilityRequest
-	if err := proto.Unmarshal(payloadBytes, &sdkReq); err != nil {
+	sdkReq := &sdkpb.CapabilityRequest{}
+	if err := proto.Unmarshal(payloadBytes, sdkReq); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, fmt.Errorf("failed to unmarshal capability request: %w", err))
 	}
 
-	referenceID := params.ReferenceID
-	if referenceID == "" {
-		referenceID = req.ID
-	}
-
-	capReq := capabilities.CapabilityRequest{
-		Payload:      sdkReq.Payload,
-		Method:       sdkReq.Method,
-		CapabilityId: params.CapabilityID,
-		Metadata: capabilities.RequestMetadata{
-			WorkflowID:          params.WorkflowID,
-			WorkflowOwner:       params.Owner,
-			WorkflowExecutionID: params.ExecutionID,
-			ReferenceID:         referenceID,
-		},
-	}
-	h.applyPropagatedOrgID(ctx, &capReq.Metadata, params.OrgID)
-
-	// Backward compatibility: extract values.Map from Payload into Inputs
-	// for old-style capabilities that only look at Inputs.
-	if sdkReq.Payload != nil {
-		var valPB valuespb.Value
-		if sdkReq.Payload.UnmarshalTo(&valPB) == nil {
-			if v, vErr := values.FromProto(&valPB); vErr == nil {
-				if m, ok := v.(*values.Map); ok {
-					capReq.Inputs = m
-				}
-			}
-		}
-	}
-
-	capResp, execErr := capability.Execute(ctx, capReq)
+	capResp, execErr := handler.CallCapability(ctx, sdkReq)
 
 	var result confidentialrelaytypes.CapabilityResponseResult
 	if execErr != nil {
 		result.Error = execErr.Error()
 	} else {
-		sdkResp, err := toSDKCapabilityResponse(capResp)
-		if err != nil {
-			return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("converting capability response: %w", err))
-		}
-		respBytes, err := proto.Marshal(sdkResp)
+		respBytes, err := proto.Marshal(capResp)
 		if err != nil {
 			return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("marshalling capability response: %w", err))
 		}
@@ -619,27 +534,6 @@ func (h *Handler) verifyAttestationHash(ctx context.Context, attestationB64 stri
 		validationErr = errors.Join(validationErr, err)
 	}
 	return fmt.Errorf("no trusted measurement set matched: %w", validationErr)
-}
-
-func toSDKCapabilityResponse(capResp capabilities.CapabilityResponse) (*sdkpb.CapabilityResponse, error) {
-	if capResp.Payload != nil {
-		return &sdkpb.CapabilityResponse{
-			Response: &sdkpb.CapabilityResponse_Payload{Payload: capResp.Payload},
-		}, nil
-	}
-
-	if capResp.Value != nil {
-		valProto := values.Proto(capResp.Value)
-		wrapped, err := anypb.New(valProto)
-		if err != nil {
-			return nil, fmt.Errorf("wrapping value map in Any: %w", err)
-		}
-		return &sdkpb.CapabilityResponse{
-			Response: &sdkpb.CapabilityResponse_Payload{Payload: wrapped},
-		}, nil
-	}
-
-	return &sdkpb.CapabilityResponse{}, nil
 }
 
 func (h *Handler) jsonResponse(req *jsonrpc.Request[json.RawMessage], result any) *jsonrpc.Response[json.RawMessage] {

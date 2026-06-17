@@ -28,6 +28,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	"github.com/urfave/cli"
 	prombridge "go.opentelemetry.io/contrib/bridges/prometheus"
 	"go.opentelemetry.io/otel"
@@ -283,6 +284,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 
 	creOpts := cre.Opts{
 		CapabilitiesRegistry: capabilities.NewRegistry(appLggr),
+		ExecutionHandlers:    &confidentialrelay.ExecutionHandlers{},
 	}
 	if cfg.CRE().WorkflowFetcher() != nil && cfg.CRE().WorkflowFetcher().URL() != "" {
 		creOpts.FetcherFunc, err = syncer.NewFetcherFunc(cfg.CRE().WorkflowFetcher().URL(), appLggr)
