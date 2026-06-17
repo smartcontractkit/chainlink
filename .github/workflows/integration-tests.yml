@@ -21,11 +21,6 @@ on:
         description: "The sha of the chainlink-evm commit to use if wanted"
         required: false
         type: string
-      run_solana:
-        description: "Run solana tests"
-        required: false
-        type: string
-        default: "false"
       distinct_run_name:
         description: "A unique identifier for this run, only use from other repos"
         required: false
@@ -134,7 +129,6 @@ jobs:
               - 'plugins/plugins.private.yaml'
               - 'plugins/plugins.public.yaml'
 
-
       - name: Decide which tests to run (rollout-only)
         # To validate that this properly tests, we will run this beside the dorny/paths-filter actions
         # before using its output to actually gate any jobs.
@@ -179,23 +173,23 @@ jobs:
           #     - exclusion-sets/negations are applied first, and therefore filter all changed files before inclusion sets are applied
           # - by default these will resolve to true for schedule, and workflow_dispatch events
           triggers: |
-              cre-e2e:
-                exclusion-sets: [ core-test-files, deployment-test-files, legacy-integ-test-files ]
-                inclusion-sets: [ go-files, core-files, workflow-files, docker-files, system-test-files ]
-                paths:
-                  - "!deployment/**"
-              core-e2e: # also triggers solana tests
-                exclusion-sets: [ core-test-files, deployment-test-files, system-test-files ]
-                inclusion-sets: [ go-files, core-files, workflow-files, docker-files, legacy-integ-test-files ]
-                paths:
-                  - "!deployment/**"
-              ccip-e2e:
-                exclusion-sets: [ core-test-files, deployment-test-files, system-test-files ]
-                inclusion-sets: [ go-files, core-files, workflow-files, docker-files, legacy-integ-test-files ]
-                paths:
-                  - "!deployment/**"
-                  - "**/*ccip*"
-                  - "**/*ccip*/**"
+            cre-e2e:
+              exclusion-sets: [ core-test-files, deployment-test-files, legacy-integ-test-files ]
+              inclusion-sets: [ go-files, core-files, workflow-files, docker-files, system-test-files ]
+              paths:
+                - "!deployment/**"
+            core-e2e:
+              exclusion-sets: [ core-test-files, deployment-test-files, system-test-files ]
+              inclusion-sets: [ go-files, core-files, workflow-files, docker-files, legacy-integ-test-files ]
+              paths:
+                - "!deployment/**"
+            ccip-e2e:
+              exclusion-sets: [ core-test-files, deployment-test-files, system-test-files ]
+              inclusion-sets: [ go-files, core-files, workflow-files, docker-files, legacy-integ-test-files ]
+              paths:
+                - "!deployment/**"
+                - "**/*ccip*"
+                - "**/*ccip*/**"
 
   labels:
     name: Get PR labels and set runner labels
@@ -207,7 +201,6 @@ jobs:
     outputs:
       builder-runner-label-core: ${{ steps.runner-labels.outputs.builder-runner-label-core || steps.runner-labels.outputs.builder-runner-label }}
       builder-runner-label-plugins: ${{ steps.runner-labels.outputs.builder-runner-label-plugins || steps.runner-labels.outputs.builder-runner-label }}
-      solana-runner-label: ${{ steps.runner-labels.outputs.solana-runner-label }}
       should-use-self-hosted-runners: ${{ steps.label-runs-on-opt-out.outputs.check-label-found == 'false' }}
       run-e2e-tests-label-found: ${{ steps.label-runs-e2e-tests.outputs.check-label-found || 'false' }}
       skip-e2e-regression-label-found: ${{ steps.label-skip-e2e-regression.outputs.check-label-found || 'false' }}
@@ -237,19 +230,15 @@ jobs:
         env:
           OPT_OUT: ${{ steps.label-runs-on-opt-out.outputs.check-label-found || 'false' }}
           GH_BUILDER_RUNNER: ubuntu22.04-8cores-32GB
-          GH_SOLANA_RUNNER: ubuntu22.04-8cores-32GB
-          # include unique label (core/plugins/solana) to ensure jobs are not competing for the same runner
+          # include unique label (core/plugins) to ensure jobs are not competing for the same runner
           SH_BUILDER_RUNNER_CORE: runs-on=${{ github.run_id }}-core/cpu=32+36/memory=64+72/family=c6i+c7i+c5.*/extras=s3-cache+tmpfs
           SH_BUILDER_RUNNER_PLUGINS: runs-on=${{ github.run_id }}-plugins/cpu=32+36/memory=64+72/family=c6i+c7i+c5.*/extras=s3-cache+tmpfs
-          SH_SOLANA_RUNNER: runs-on=${{ github.run_id }}-solana/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
         run: |
           if [[ "${OPT_OUT}" == "true" ]]; then
             echo "builder-runner-label=${GH_BUILDER_RUNNER}" | tee -a "$GITHUB_OUTPUT"
-            echo "solana-runner-label=${GH_SOLANA_RUNNER}" | tee -a "$GITHUB_OUTPUT"
           else
             echo "builder-runner-label-core=${SH_BUILDER_RUNNER_CORE}" | tee -a "$GITHUB_OUTPUT"
             echo "builder-runner-label-plugins=${SH_BUILDER_RUNNER_PLUGINS}" | tee -a "$GITHUB_OUTPUT"
-            echo "solana-runner-label=${SH_SOLANA_RUNNER}" | tee -a "$GITHUB_OUTPUT"
           fi
 
   build-chainlink:
@@ -266,7 +255,6 @@ jobs:
         enforce-ctf-version,
         run-core-cre-e2e-tests-setup,
         run-ccip-v1-6-e2e-tests-setup,
-        solana-smoke-tests-setup,
       ]
     permissions:
       id-token: write
@@ -283,7 +271,6 @@ jobs:
             any-should-run: >-
               ${{
                 needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true' ||
-                needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true' ||
                 needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
               }}
 
@@ -296,7 +283,6 @@ jobs:
             any-should-run: >-
               ${{
                 needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true' ||
-                needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true' ||
                 needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
               }}
     steps:
@@ -325,7 +311,7 @@ jobs:
           elif [[ "${ANY_SHOULD_RUN}" == "true" && "${IMAGE_EXISTS}" != "true" ]]; then
             echo "We will build the image because the matrix's any-should-run is true and the image does not already exist in ECR."
             echo "any-should-run is true when:"
-            echo "  - For the non-plugins image: the CCIP v1.6 tests or solana tests will be run."
+            echo "  - For the non-plugins image: the CCIP v1.6 tests will be run."
             echo "  - For the plugins image: the core cre e2e tests will be run."
 
             echo "build-image=true" | tee -a "$GITHUB_OUTPUT"
@@ -650,132 +636,3 @@ jobs:
           elif [[ "${JOB_RESULT}" == "skipped" ]]; then
             echo "::warning::Chainlink image build was skipped."
           fi
-
-  ## Solana Section
-  solana-smoke-tests-setup:
-    name: Solana Smoke Tests Setup
-    # We don't directly merge dependabot PRs, so let's not waste the resources
-    if: ${{ github.actor != 'dependabot[bot]'  }}
-    runs-on: ubuntu-latest
-    needs: [changes, labels]
-    permissions:
-      contents: read
-    outputs:
-      should-run-solana-tests: ${{ steps.run-tests.outputs.should-run-solana-tests }}
-    steps:
-      - name: Determine if Solana tests should run
-        id: run-tests
-        env:
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
-          GITHUB_REF_TYPE: ${{ github.ref_type }}
-          CONTAINS_CHANGES: ${{ needs.changes.outputs.general-changes == 'true' || needs.changes.outputs.core-changes == 'true' }}
-          RUN_E2E_TESTS_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-tests-label-found || 'false' }}
-          INPUTS_RUN_SOLANA: ${{ inputs.run_solana }}
-        run: |
-          if [[ "${INPUTS_RUN_SOLANA}" == 'false' ]]; then
-            echo "Solana tests are disabled by input, skipping."
-            echo "should-run-solana-tests=false" | tee -a "$GITHUB_OUTPUT"
-
-          elif [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
-            # Run Solana tests on PRs only if the label "run-e2e-tests" is present or if there are relevant changes
-            if [[ "${RUN_E2E_TESTS_LABEL_FOUND}" == 'true' && "${CONTAINS_CHANGES}" == 'true' ]]; then
-              echo "Solana tests will run on PR with label and relevant changes."
-              echo "should-run-solana-tests=true" | tee -a "$GITHUB_OUTPUT"
-            fi
-
-          elif [[ "${GITHUB_EVENT_NAME}" == 'merge_group' ]]; then
-            # Run Solana tests in the merge queue, if there are relevant changes
-            echo "Solana tests will run in the merge queue."
-            echo "should-run-solana-tests=${CONTAINS_CHANGES}" | tee -a "$GITHUB_OUTPUT"
-
-          elif [[ "${GITHUB_EVENT_NAME}" == 'workflow_dispatch' ]]; then
-            # Always run Solana tests on workflow dispatch
-            echo "Solana tests will run on workflow dispatch."
-            echo "should-run-solana-tests=true" | tee -a "$GITHUB_OUTPUT"
-
-          elif [[ "${GITHUB_EVENT_NAME}" == 'push' ]]; then
-            # Run Solana tests on push events, only if there are relevant changes or if it's a tag push
-            if [[ "${CONTAINS_CHANGES}" == 'true' || "${GITHUB_REF_TYPE}" == 'tag' ]]; then
-              echo "Solana tests will run on push with relevant changes or tag push."
-              echo "should-run-solana-tests=true" | tee -a "$GITHUB_OUTPUT"
-            fi
-
-          else
-            echo "Solana tests will not run for this event type: ${GITHUB_EVENT_NAME}."
-            echo "should-run-solana-tests=false" | tee -a "$GITHUB_OUTPUT"
-          fi
-
-  get-solana-sha:
-    if: needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
-    name: Get Solana Sha From Plugins
-    environment:
-      # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
-      name: integration
-      deployment: false
-    runs-on: ubuntu-latest
-    needs: [solana-smoke-tests-setup]
-    permissions:
-      contents: read
-    outputs:
-      sha: ${{ steps.getsha.outputs.sha }}
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-          repository: smartcontractkit/chainlink
-          ref: ${{ env.CHAINLINK_REF }}
-
-      - name: Setup Go
-        uses: ./.github/actions/setup-go
-        with:
-          only-modules: "true"
-
-      - name: Get solana commit ref
-        id: getref
-        run: |
-          commit_ref=$(go run ./tools/pluginref/ --plugin-file ./plugins/plugins.public.yaml --plugin solana)
-          if [ -z "${commit_ref}" ]; then
-              echo "Error: could not resolve solana commit ref from plugins/plugins.public.yaml"
-              exit 1
-          fi
-          echo "commit_ref is: ${commit_ref}"
-          echo "commit_ref=${commit_ref}" | tee -a "$GITHUB_OUTPUT"
-
-      - name: Checkout solana
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-          repository: smartcontractkit/chainlink-solana
-          ref: develop
-          fetch-depth: 0
-          path: solanapath
-
-      - name: Get long sha
-        id: getsha
-        run: |
-          cd solanapath
-          full_sha=$(git rev-parse "${{steps.getref.outputs.commit_ref}}^{}")
-          if [ -z "${full_sha}" ]; then
-              echo "Error: could not resolve commit ref to a commit sha using git, look above for error(s)"
-              exit 1
-          fi
-          echo "sha is: ${full_sha}"
-          echo "sha=${full_sha}" | tee -a "$GITHUB_OUTPUT"
-
-  run-solana-smoke-tests:
-    name: Run Solana Smoke Tests
-    needs: [build-chainlink, get-solana-sha, solana-smoke-tests-setup]
-    permissions:
-      id-token: write
-      contents: read
-    if: needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
-    uses: smartcontractkit/chainlink-solana/.github/workflows/e2e_custom_cl_reusable.yml@f2205f8506c7441d805fa779a198b52163a05bfd
-    with:
-      solana_ref: ${{ needs.get-solana-sha.outputs.sha }}
-      ecr_repository: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
-      image_tag: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
-    secrets:
-      aws_account_id: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-      aws_region: ${{ secrets.QA_AWS_REGION }}
-      aws_role_to_assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
