@@ -68,9 +68,6 @@ func TestRequestValidator_ValidateStructureBeforeAuth_LeavesParamsUnchanged(t *t
 func TestRequestValidator_StampAuthorizedParams_NormalizesAllSecretsMethods(t *testing.T) {
 	t.Parallel()
 
-	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
-	require.NoError(t, err)
-
 	owner := "0xabc"
 	prefixedRequestID := owner + vaulttypes.RequestIDSeparator + "req-1"
 
@@ -78,13 +75,15 @@ func TestRequestValidator_StampAuthorizedParams_NormalizesAllSecretsMethods(t *t
 		t.Run(method, func(t *testing.T) {
 			t.Parallel()
 
+			validator := mustNewTestRequestValidator(t)
+
 			params := gatewaySecretsMethodParamsForValidation(t, method, owner)
 			req := jsonrpc.Request[json.RawMessage]{
 				ID:     "req-1",
 				Method: method,
 				Params: params,
 			}
-			err = validator.ValidateStructureBeforeAuth(t.Context(), &req, vault.UserJSONRPCValidationOptions{
+			err := validator.ValidateStructureBeforeAuth(t.Context(), &req, vault.UserJSONRPCValidationOptions{
 				SkipLabelValidation: true,
 			}, false)
 			require.NoError(t, err)
@@ -121,15 +120,14 @@ func TestRequestValidator_StampAuthorizedParams_NormalizesAllSecretsMethods(t *t
 func TestRequestValidator_PrepareWithStripOwnerPrefixPreservesJWTDigest_AllSecretsMethods(t *testing.T) {
 	t.Parallel()
 
-	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
-	require.NoError(t, err)
-
 	owner, err := vault.DeriveJWTAuthorizedVaultWorkflowOwner("org-test", 1, "")
 	require.NoError(t, err)
 
 	for _, method := range vaulttypes.GatewaySecretsMethods {
 		t.Run(method, func(t *testing.T) {
 			t.Parallel()
+
+			validator := mustNewTestRequestValidator(t)
 
 			originalRequestID := "req-1"
 			params := gatewaySecretsMethodParamsForStripPrefixDigest(t, method, owner, originalRequestID)
@@ -140,7 +138,7 @@ func TestRequestValidator_PrepareWithStripOwnerPrefixPreservesJWTDigest_AllSecre
 				Params:  params,
 			}
 
-			err = validator.ValidateStructureBeforeAuth(t.Context(), &req, vault.UserJSONRPCValidationOptions{
+			err := validator.ValidateStructureBeforeAuth(t.Context(), &req, vault.UserJSONRPCValidationOptions{
 				SkipLabelValidation: true,
 			}, false)
 			require.NoError(t, err)
@@ -365,12 +363,11 @@ func TestRequestValidator_ValidateStructureBeforeAuth_RejectsDeleteBatchAboveLim
 func TestRequestValidator_ValidateStructureBeforeAuth_InvalidParamsParityWithStripPrefix(t *testing.T) {
 	t.Parallel()
 
-	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
-	require.NoError(t, err)
-
 	for _, stripOwnerPrefix := range []bool{false, true} {
 		t.Run(fmt.Sprintf("stripOwnerPrefix=%t", stripOwnerPrefix), func(t *testing.T) {
 			t.Parallel()
+
+			validator := mustNewTestRequestValidator(t)
 
 			req := jsonrpc.Request[json.RawMessage]{
 				ID:     "req-1",
@@ -424,13 +421,12 @@ func TestRequestValidator_PrepareThenAuthorizePreservesJWTDigest(t *testing.T) {
 func TestRequestValidator_ValidateStructureBeforeAuth_CoversAllGatewaySecretsMethods(t *testing.T) {
 	t.Parallel()
 
-	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
-	require.NoError(t, err)
-
 	owner := "0xabc"
 	for _, method := range vaulttypes.GatewaySecretsMethods {
 		t.Run(method, func(t *testing.T) {
 			t.Parallel()
+
+			validator := mustNewTestRequestValidator(t)
 
 			params := gatewaySecretsMethodParamsForValidation(t, method, owner)
 			req := jsonrpc.Request[json.RawMessage]{
@@ -445,6 +441,13 @@ func TestRequestValidator_ValidateStructureBeforeAuth_CoversAllGatewaySecretsMet
 			require.NotNil(t, req.Params)
 		})
 	}
+}
+
+func mustNewTestRequestValidator(t *testing.T) *vault.RequestValidator {
+	t.Helper()
+	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
+	require.NoError(t, err)
+	return validator
 }
 
 func gatewaySecretsMethodParamsForStripPrefixDigest(t *testing.T, method, owner, requestID string) *json.RawMessage {
