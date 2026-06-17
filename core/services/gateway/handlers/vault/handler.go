@@ -255,7 +255,7 @@ func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DO
 			capabilitiesRegistry: capabilitiesRegistry,
 			vaultHandlerDonID:    donConfig.DonId,
 		},
-		clock:   clock,
+		clock:    clock,
 		pipeline: vaultcap.NewGatewayVaultRequestPipeline(requestValidator, authorizer, lggr),
 	}, nil
 }

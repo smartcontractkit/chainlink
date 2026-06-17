@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
@@ -22,8 +22,8 @@ import (
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	vaultcapmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 	vaulttypesmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	connector_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
@@ -60,7 +60,7 @@ func withLabeledEncryptedSecrets(t *testing.T, pk *tdh2easy.PublicKey, req *json
 				enc.EncryptedValue = encryptSecretForOwner(t, pk, enc.Id.Owner)
 			}
 		}
-		params, err := json.Marshal(parsed)
+		params, err := json.Marshal(&parsed)
 		require.NoError(t, err)
 		raw := json.RawMessage(params)
 		req.Params = &raw
@@ -72,7 +72,7 @@ func withLabeledEncryptedSecrets(t *testing.T, pk *tdh2easy.PublicKey, req *json
 				enc.EncryptedValue = encryptSecretForOwner(t, pk, enc.Id.Owner)
 			}
 		}
-		params, err := json.Marshal(parsed)
+		params, err := json.Marshal(&parsed)
 		require.NoError(t, err)
 		raw := json.RawMessage(params)
 		req.Params = &raw
