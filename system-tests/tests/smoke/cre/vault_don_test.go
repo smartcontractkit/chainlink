@@ -747,10 +747,12 @@ func assertVaultOCRWireTruncationSignalsInDockerLogs(t *testing.T) {
 }
 
 func TestVaultOptimizationsEnabled_CRESettingDefaultsDisabled(t *testing.T) {
+	t.Parallel()
 	require.False(t, cresettings.Default.VaultOptimizationsEnabled.DefaultValue)
 }
 
 func TestVaultSignedResponseRequestIDEnabled_CRESettingDefaultsDisabled(t *testing.T) {
+	t.Parallel()
 	require.False(t, cresettings.Default.VaultSignedResponseRequestIDEnabled.DefaultValue)
 }
 
@@ -837,6 +839,7 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 // the exact JSON-RPC params wire body (canonical json.Marshal / jsonrpc.Request), matching what
 // the gateway verifies—without relying on deprecated top-level identity fields inside params.
 func TestMustMintVaultJWTForRequest_UsesRawRequestDigest(t *testing.T) {
+	t.Parallel()
 	issuer, err := vault.NewTestJWTIssuer()
 	require.NoError(t, err)
 	t.Cleanup(func() {
