@@ -61,7 +61,7 @@ func testSingleConsumerHappyPath(
 		rwfe v22.RandomWordsFulfilled,
 		subID *big.Int),
 ) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	key1 := cltest.MustGenerateRandomKey(t)
 	key2 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
@@ -183,7 +183,7 @@ func testMultipleConsumersNeedBHS(
 		rwfe v22.RandomWordsFulfilled,
 	),
 ) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	nConsumers := len(consumers)
 	vrfKey := cltest.MustGenerateRandomKey(t)
 	sendEth(t, ownerKey, uni.backend, vrfKey.Address, 10)
@@ -255,7 +255,7 @@ func testMultipleConsumersNeedBHS(
 		v2CoordinatorAddress, v2PlusCoordinatorAddress, "", 0, 200, 0, 100,
 	)
 
-	chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain)
+	chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain) //nolint:staticcheck // TODO: migrate to relayer interface
 	require.True(t, ok)
 	// Ensure log poller is ready and has all logs.
 	require.NoError(t, chain.LogPoller().Ready())
@@ -329,7 +329,7 @@ func testMultipleConsumersNeedTrustedBHS(
 		rwfe v22.RandomWordsFulfilled,
 	),
 ) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	nConsumers := len(consumers)
 	vrfKey := cltest.MustGenerateRandomKey(t)
 	sendEth(t, ownerKey, uni.backend, vrfKey.Address, 10)
@@ -413,7 +413,7 @@ func testMultipleConsumersNeedTrustedBHS(
 		t, bhsKeyAddressesStrings, app, "", v2CoordinatorAddress, v2PlusCoordinatorAddress, uni.trustedBhsContractAddress.String(), 20, 1000, 0, waitBlocks)
 
 	// Ensure log poller is ready and has all logs.
-	chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain)
+	chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain) //nolint:staticcheck // TODO: migrate to relayer interface
 	require.True(t, ok)
 	require.NoError(t, chain.LogPoller().Ready())
 	require.NoError(t, chain.LogPoller().Replay(ctx, 1))
@@ -549,7 +549,7 @@ func testSingleConsumerHappyPathBatchFulfillment(
 		rwfe v22.RandomWordsFulfilled,
 		subID *big.Int),
 ) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	key1 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
 	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -656,7 +656,7 @@ func testSingleConsumerNeedsTopUp(
 		coordinator v22.CoordinatorV2_X,
 		rwfe v22.RandomWordsFulfilled),
 ) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	key := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(1000)
 	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -754,7 +754,7 @@ func testBlockHeaderFeeder(
 		coordinator v22.CoordinatorV2_X,
 		rwfe v22.RandomWordsFulfilled),
 ) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	nConsumers := len(consumers)
 
 	vrfKey := cltest.MustGenerateRandomKey(t)
@@ -810,7 +810,7 @@ func testBlockHeaderFeeder(
 		v2coordinatorAddress, v2plusCoordinatorAddress)
 
 	// Ensure log poller is ready and has all logs.
-	chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain)
+	chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain) //nolint:staticcheck // TODO: migrate to relayer interface
 	require.True(t, ok)
 	require.NoError(t, chain.LogPoller().Ready())
 	require.NoError(t, chain.LogPoller().Replay(ctx, 1))
@@ -870,7 +870,7 @@ func createSubscriptionAndGetSubID(
 	require.NoError(t, err)
 	backend.Commit()
 
-	receipt, err := backend.Client().TransactionReceipt(testutils.Context(t), tx.Hash())
+	receipt, err := backend.Client().TransactionReceipt(t.Context(), tx.Hash())
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), receipt.Status)
 	for _, log := range receipt.Logs {
@@ -928,7 +928,7 @@ func testSingleConsumerForcedFulfillment(
 	batchEnabled bool,
 	vrfVersion vrfcommon.Version,
 ) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	key1 := cltest.MustGenerateRandomKey(t)
 	key2 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
@@ -1099,7 +1099,7 @@ func testSingleConsumerEIP150(
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 ) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	callBackGasLimit := int64(2_500_000) // base callback gas.
 
 	key1 := cltest.MustGenerateRandomKey(t)
@@ -1167,7 +1167,7 @@ func testSingleConsumerEIP150Revert(
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 ) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	callBackGasLimit := uint64(2_500_000)            // base callback gas.
 	eip150Fee := uint64(0)                           // no premium given for callWithExactGas
 	coordinatorFulfillmentOverhead := uint64(90_000) // fixed gas used in coordinator fulfillment
@@ -1237,7 +1237,7 @@ func testSingleConsumerBigGasCallbackSandwich(
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 ) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	key1 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(100)
 	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -1352,7 +1352,7 @@ func testSingleConsumerMultipleGasLanes(
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 ) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	cheapKey := cltest.MustGenerateRandomKey(t)
 	expensiveKey := cltest.MustGenerateRandomKey(t)
 	cheapGasLane := assets.GWei(10)
@@ -1477,7 +1477,7 @@ func testSingleConsumerAlwaysRevertingCallbackStillFulfilled(
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 ) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	key := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
 	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -1544,7 +1544,7 @@ func testConsumerProxyHappyPath(
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 ) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	key1 := cltest.MustGenerateRandomKey(t)
 	key2 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
@@ -1676,7 +1676,7 @@ func testMaliciousConsumer(
 	batchEnabled bool,
 	vrfVersion vrfcommon.Version,
 ) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].GasEstimator.LimitDefault = new(uint64(2_000_000))
 		c.EVM[0].GasEstimator.PriceMax = assets.GWei(1)
@@ -1755,7 +1755,7 @@ func testMaliciousConsumer(
 	}, testutils.WaitTimeout(t), 1*time.Second)
 
 	// The fulfillment tx should succeed
-	cs, err := app.GetRelayers().LegacyEVMChains().Get(evmtest.MustGetDefaultChainID(t, config.EVMConfigs()).String())
+	cs, err := app.GetRelayers().LegacyEVMChains().Get(evmtest.MustGetDefaultChainID(t, config.EVMConfigs()).String()) //nolint:staticcheck // TODO: migrate to relayer interface
 	require.NoError(t, err)
 	ch, ok := cs.(legacyevm.Chain)
 	require.True(t, ok)
@@ -1798,7 +1798,7 @@ func testReplayOldRequestsOnStartUp(
 		subID *big.Int,
 	),
 ) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	sendingKey := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
