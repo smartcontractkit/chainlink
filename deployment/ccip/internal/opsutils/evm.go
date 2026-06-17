@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
-	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 	"github.com/zksync-sdk/zksync2-go/accounts"
 	"github.com/zksync-sdk/zksync2-go/clients"
 
@@ -117,7 +116,7 @@ func NewEVMCallOperation[IN any, C any](
 func AddEVMCallSequenceToCSOutput[IN any](
 	e cldf.Environment,
 	csOutput cldf.ChangesetOutput,
-	seqReport operations.SequenceReport[IN, map[uint64][]opsevm.EVMCallOutput],
+	seqReport operations.SequenceReport[IN, map[uint64][]EVMCallOutput],
 	seqErr error,
 	mcmsStateByChain map[uint64]evmstate.MCMSWithTimelockState,
 	mcmsCfg *cldfproposalutils.TimelockConfig,

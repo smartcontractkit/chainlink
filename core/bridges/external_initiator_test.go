@@ -14,6 +14,7 @@ import (
 )
 
 func TestNewExternalInitiator(t *testing.T) {
+	t.Parallel()
 	eia := auth.NewToken()
 	assert.Len(t, eia.AccessKey, 32)
 	assert.Len(t, eia.Secret, 64)
@@ -31,6 +32,7 @@ func TestNewExternalInitiator(t *testing.T) {
 }
 
 func TestAuthenticateExternalInitiator(t *testing.T) {
+	t.Parallel()
 	eia := auth.NewToken()
 	ok, err := bridges.AuthenticateExternalInitiator(eia, &bridges.ExternalInitiator{
 		Salt:         "salt",

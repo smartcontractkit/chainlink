@@ -13,7 +13,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup buf
-        uses: bufbuild/buf-setup-action@35c243d7f2a909b1d4e40399b348a7fdab27d78d # v1.34.0
+        uses: bufbuild/buf-setup-action@a47c93e0b1648d5651a065437926377d060baa99 # v1.50.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
