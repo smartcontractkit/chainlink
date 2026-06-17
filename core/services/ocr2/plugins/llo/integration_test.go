@@ -1806,7 +1806,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, serverPubKey
 		// Shut all nodes down
 		for i, node := range nodes {
 			require.NoError(t, node.App.Stop())
-			// Ensure that the transmit queue was limited, wait for async pruner if needed
+			// Ensure that the transmit queue was limited. A buffer is allowed for the async pruner.
 			db := node.App.GetDB()
 			cnt := 0
 

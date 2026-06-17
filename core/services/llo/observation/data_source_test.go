@@ -516,7 +516,7 @@ func Test_DataSource(t *testing.T) {
 				wg.Go(func() {
 					vals := llo.StreamValues{1: nil}
 					err := ds.Observe(ctx, vals, opts)
-					require.NoError(t, err)
+					assert.NoError(t, err)
 					assert.Equal(t, llo.StreamValues{1: llo.ToDecimal(decimal.NewFromInt(100))}, vals)
 				})
 			}
