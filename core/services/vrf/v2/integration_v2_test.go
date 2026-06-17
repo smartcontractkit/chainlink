@@ -2285,6 +2285,7 @@ func TestStartingCountsV1(t *testing.T) {
 			ChainID:            chainID.ToInt(),
 		},
 	)
+	numConfirmed := len(confirmedTxes)
 	confirmedTxes = append(confirmedTxes, unconfirmedTxes...)
 	for i := range confirmedTxes {
 		err = txStore.InsertTx(ctx, &confirmedTxes[i])
@@ -2293,8 +2294,8 @@ func TestStartingCountsV1(t *testing.T) {
 
 	// add tx attempt for confirmed
 	broadcastBlock := int64(1)
-	txAttempts := make([]txmgr.TxAttempt, 0, len(confirmedTxes)+len(unconfirmedTxes))
-	for i := range confirmedTxes {
+	txAttempts := make([]txmgr.TxAttempt, 0, len(confirmedTxes))
+	for i := range numConfirmed {
 		txAttempts = append(txAttempts, txmgr.TxAttempt{
 			TxID:                    int64(i + 1),
 			TxFee:                   gas.EvmFee{GasPrice: assets.NewWeiI(100)},
@@ -2309,7 +2310,7 @@ func TestStartingCountsV1(t *testing.T) {
 	// add tx attempt for unconfirmed
 	for i := range unconfirmedTxes {
 		txAttempts = append(txAttempts, txmgr.TxAttempt{
-			TxID:                  int64(i + 1 + len(confirmedTxes)),
+			TxID:                  int64(i + 1 + numConfirmed),
 			TxFee:                 gas.EvmFee{GasPrice: assets.NewWeiI(100)},
 			SignedRawTx:           []byte(`blah`),
 			Hash:                  evmutils.NewHash(),

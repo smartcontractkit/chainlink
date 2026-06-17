@@ -365,19 +365,15 @@ func TestEvictable_ConcurrentExecuteDuringEvict(t *testing.T) {
 
 	var wg sync.WaitGroup
 	execErrs := make(chan error, 5)
-	for i := 0; i < 5; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 5 {
+		wg.Go(func() {
 			_, err := em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
 			execErrs <- err
-		}()
+		})
 	}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		em.Evict()
-	}()
+	})
 	wg.Wait()
 	close(execErrs)
 	for err := range execErrs {
@@ -560,22 +556,20 @@ func TestLRU_FrequentReapSkipsPinnedModuleAndEvictsAfterDrain(t *testing.T) {
 
 	var wg sync.WaitGroup
 	execErrs := make(chan error, concurrentExecs)
-	for i := 0; i < concurrentExecs; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range concurrentExecs {
+		wg.Go(func() {
 			_, err := em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
 			execErrs <- err
-		}()
+		})
 	}
 
-	for i := 0; i < concurrentExecs; i++ {
+	for range concurrentExecs {
 		<-execStarted
 	}
 	require.Equal(t, int32(concurrentExecs), activeExecs.Load(), "all executes must overlap")
 
 	// Keep forcing eviction while work is pinned; all these attempts should be skipped.
-	for i := 0; i < 25; i++ {
+	for range 25 {
 		em.lastUsed.Store(clock.Now().Add(-time.Hour).UnixNano())
 		clock.Advance(time.Second)
 		reapTicker <- clock.Now()
@@ -633,7 +627,7 @@ func TestEvictable_MultipleEvictReloadCycles(t *testing.T) {
 	// Each iteration force-evicts (including L2) so the factory is guaranteed
 	// to run. Without the force, weak resurrection would skip the factory after
 	// the first cycle.
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		em.forceEvictForTest()
 		assert.False(t, em.IsLoaded())
 
@@ -888,7 +882,7 @@ func TestLRU_ConcurrentRegisterDeregister(t *testing.T) {
 		em   *EvictableModule
 	}
 	entries := make([]entry, 20)
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		wfID := string(rune('A' + i))
 		entries[i] = entry{wfID: wfID, em: newLRUModule(t, store, wfID)}
 	}
@@ -951,7 +945,7 @@ func TestLRU_EvictionOrder(t *testing.T) {
 	require.NoError(t, err)
 
 	modules := make([]*EvictableModule, 5)
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		wfID := string(rune('A' + i))
 		modules[i] = newLRUModule(t, store, wfID)
 		modules[i].lastUsed.Store(clock.Now().Add(time.Duration(i) * time.Minute).UnixNano())
@@ -989,7 +983,7 @@ func TestLRU_MaxLoaded_zero_disablesCapEnforcement(t *testing.T) {
 	require.NoError(t, err)
 
 	modules := make([]*EvictableModule, 3)
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		wfID := string(rune('A' + i))
 		modules[i] = newLRUModule(t, store, wfID)
 		modules[i].lastUsed.Store(clock.Now().Add(-time.Duration(i+1) * time.Minute).UnixNano())
@@ -1044,7 +1038,7 @@ func TestLRU_ConcurrentReapAndRegister(t *testing.T) {
 		em   *EvictableModule
 	}
 	entries := make([]entry, workers)
-	for i := 0; i < workers; i++ {
+	for i := range workers {
 		wfID := string(rune('A' + i))
 		entries[i] = entry{wfID: wfID, em: newLRUModule(t, store, wfID)}
 	}
