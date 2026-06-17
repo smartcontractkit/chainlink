@@ -141,7 +141,7 @@ type handler struct {
 	stopCh       services.StopChan
 	authorizer   vaultcap.Authorizer
 	jwtAuth      services.Service
-	*vaultcap.RequestValidator
+	pipeline     *vaultcap.GatewayVaultRequestPipeline
 
 	nodeRateLimiter *ratelimit.RateLimiter
 	requestTimeout  time.Duration
@@ -255,8 +255,8 @@ func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DO
 			capabilitiesRegistry: capabilitiesRegistry,
 			vaultHandlerDonID:    donConfig.DonId,
 		},
-		clock:            clock,
-		RequestValidator: requestValidator,
+		clock:   clock,
+		pipeline: vaultcap.NewGatewayVaultRequestPipeline(requestValidator, authorizer, lggr),
 	}, nil
 }
 
@@ -302,7 +302,7 @@ func (h *handler) Close() error {
 		return errors.Join(
 			jwtAuthErr,
 			h.writeMethodsEnabled.Close(),
-			h.RequestValidator.Close(),
+			h.pipeline.Close(),
 		)
 	})
 }
@@ -411,29 +411,24 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		return h.handlePublicKeyGetSynchronously(ctx, req, publicKeyResponseBytes, callback)
 	}
 
-	if !vaulttypes.IsUserSecretsMethod(req.Method) {
+	if !vaulttypes.IsGatewaySecretsMethod(req.Method) {
 		return h.sendImmediateUserResponse(ctx, req, callback, api.UnsupportedMethodError, errors.New("this method is unsupported: "+req.Method))
 	}
 
-	if err := h.prepareUserVaultRequest(ctx, &req); err != nil {
-		return h.sendImmediateUserResponse(ctx, req, callback, api.InvalidParamsError, err)
+	_, cachedPublicKey := h.getCachedPublicKey()
+	authorized, err := h.pipeline.ProcessGatewayVaultRequest(ctx, &req, vaultcap.GatewayVaultRequestPipelineOptions{
+		StripOwnerPrefixForAuth: false,
+		PublicKey:               cachedPublicKey,
+		SkipLabelValidation:     cachedPublicKey == nil,
+	})
+	if err != nil {
+		if vaultcap.IsInvalidVaultParamsError(err) {
+			return h.sendImmediateUserResponse(ctx, req, callback, api.InvalidParamsError, err)
+		}
+		h.lggr.Errorw("request not authorized", "method", req.Method, "requestID", req.ID, "hasAuth", req.Auth != "", "error", err)
+		return errors.New("request not authorized: " + err.Error())
 	}
-
-	authResult, authErr := h.authorizer.AuthorizeRequest(ctx, req)
-	if authErr != nil {
-		h.lggr.Errorw("request not authorized", "method", req.Method, "requestID", req.ID, "hasAuth", req.Auth != "", "error", authErr)
-		return errors.New("request not authorized: " + authErr.Error())
-	}
-	authorizedOwner := authResult.AuthorizedOwner()
-
-	// Generate a unique ID for the request.
-	// Prefix request id with authorizedOwner, to ensure uniqueness across different owners
-	// We do this ourselves to ensure the ID is unique and can't be tampered with by the user.
-	req.ID = authorizedOwner + vaulttypes.RequestIDSeparator + req.ID
-	if err := h.FinalizeAuthorizedJSONRPCRequest(&req, req.ID); err != nil {
-		h.lggr.Errorw("failed to stamp prefixed request ID in params", "method", req.Method, "requestID", req.ID, "error", err)
-		return fmt.Errorf("failed to stamp prefixed request ID in params: %w", err)
-	}
+	authorizedOwner := authorized.AuthResult.AuthorizedOwner()
 
 	h.lggr.Debugw("handling authorized vault request", "method", req.Method, "requestID", req.ID, "authorizedOwner", authorizedOwner)
 	ar, activeRequestErr := h.newActiveRequest(req, callback)
@@ -640,14 +635,6 @@ func (h *handler) handleSecretsDelete(ctx context.Context, ar *activeRequest) er
 func (h *handler) handleSecretsList(ctx context.Context, ar *activeRequest) error {
 	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
 	return h.fanOutToVaultNodes(ctx, l, ar)
-}
-
-func (h *handler) prepareUserVaultRequest(ctx context.Context, req *jsonrpc.Request[json.RawMessage]) error {
-	_, cachedPublicKey := h.getCachedPublicKey()
-	return h.PrepareUserJSONRPCRequest(ctx, req, vaultcap.UserJSONRPCValidationOptions{
-		PublicKey:           cachedPublicKey,
-		SkipLabelValidation: cachedPublicKey == nil,
-	}, false)
 }
 
 func (h *handler) sendImmediateUserResponse(

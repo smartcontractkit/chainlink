@@ -1,6 +1,7 @@
 package vault_test
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,9 +9,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
@@ -19,11 +22,74 @@ import (
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	vaultcapmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 	vaulttypesmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	connector_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 )
+
+func testMasterPublicKey(t *testing.T) (*tdh2easy.PublicKey, string) {
+	t.Helper()
+	_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	pkb, err := pk.Marshal()
+	require.NoError(t, err)
+	return pk, hex.EncodeToString(pkb)
+}
+
+func encryptSecretForOwner(t *testing.T, pk *tdh2easy.PublicKey, owner string) string {
+	t.Helper()
+	encrypted, err := vaultutils.EncryptSecretWithWorkflowOwner("test-secret", pk, common.HexToAddress(owner))
+	require.NoError(t, err)
+	return encrypted
+}
+
+func withLabeledEncryptedSecrets(t *testing.T, pk *tdh2easy.PublicKey, req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Request[json.RawMessage] {
+	t.Helper()
+	if req.Params == nil {
+		return req
+	}
+
+	switch req.Method {
+	case vaulttypes.MethodSecretsCreate:
+		var parsed vaultcommon.CreateSecretsRequest
+		require.NoError(t, json.Unmarshal(*req.Params, &parsed))
+		for _, enc := range parsed.EncryptedSecrets {
+			if enc != nil && enc.Id != nil {
+				enc.EncryptedValue = encryptSecretForOwner(t, pk, enc.Id.Owner)
+			}
+		}
+		params, err := json.Marshal(parsed)
+		require.NoError(t, err)
+		raw := json.RawMessage(params)
+		req.Params = &raw
+	case vaulttypes.MethodSecretsUpdate:
+		var parsed vaultcommon.UpdateSecretsRequest
+		require.NoError(t, json.Unmarshal(*req.Params, &parsed))
+		for _, enc := range parsed.EncryptedSecrets {
+			if enc != nil && enc.Id != nil {
+				enc.EncryptedValue = encryptSecretForOwner(t, pk, enc.Id.Owner)
+			}
+		}
+		params, err := json.Marshal(parsed)
+		require.NoError(t, err)
+		raw := json.RawMessage(params)
+		req.Params = &raw
+	}
+	return req
+}
+
+func mockVaultPublicKey(t *testing.T, ss *vaulttypesmocks.SecretsService) *tdh2easy.PublicKey {
+	t.Helper()
+	pk, pkHex := testMasterPublicKey(t)
+	ss.EXPECT().GetPublicKey(mock.Anything, mock.Anything).Return(&vaultcommon.GetPublicKeyResponse{PublicKey: pkHex}, nil).Once()
+	return pk
+}
+
+func requiresMasterPublicKey(method string) bool {
+	return method == vaulttypes.MethodSecretsCreate || method == vaulttypes.MethodSecretsUpdate
+}
 
 func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 	lggr := logger.TestLogger(t)
@@ -537,6 +603,14 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 				})
 			}
 
+			request := tt.request
+			if requiresMasterPublicKey(request.Method) {
+				publicKey := mockVaultPublicKey(t, secretsService)
+				if request.Params != nil && json.Valid(*request.Params) {
+					request = withLabeledEncryptedSecrets(t, publicKey, request)
+				}
+			}
+
 			tt.setupMocks(secretsService, gwConnector, allowListBasedAuth)
 
 			handler, err := vaultcap.NewGatewayHandler(
@@ -550,7 +624,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			err = handler.HandleGatewayMessage(ctx, "gateway-1", tt.request)
+			err = handler.HandleGatewayMessage(ctx, "gateway-1", request)
 
 			if tt.expectedError {
 				assert.Error(t, err)
@@ -558,6 +632,148 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 				assert.NoError(t, err)
 			}
 		})
+	}
+}
+
+func TestGatewayHandler_DeleteListWithoutPublicKeyFetch(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	ctx := t.Context()
+	authResult := vaultcap.NewAuthResult("", "0xabc", "digest-0xabc", time.Now().Add(time.Minute).Unix())
+
+	secretsService := vaulttypesmocks.NewSecretsService(t)
+	t.Cleanup(func() {
+		secretsService.AssertNotCalled(t, "GetPublicKey", mock.Anything, mock.Anything)
+	})
+
+	gwConnector := connector_mocks.NewGatewayConnector(t)
+	allowListBasedAuth := vaultcapmocks.NewAuthorizer(t)
+
+	tests := []struct {
+		name    string
+		method  string
+		params  json.RawMessage
+		service func()
+	}{
+		{
+			name:   "delete",
+			method: vaulttypes.MethodSecretsDelete,
+			params: func() json.RawMessage {
+				params, err := json.Marshal(vaultcommon.DeleteSecretsRequest{
+					Ids: []*vaultcommon.SecretIdentifier{{
+						Key:       "Foo",
+						Namespace: "Bar",
+						Owner:     "0xAbC",
+					}},
+				})
+				require.NoError(t, err)
+				return params
+			}(),
+			service: func() {
+				secretsService.EXPECT().DeleteSecrets(mock.Anything, mock.Anything).
+					Return(&vaulttypes.Response{ID: "test_secret"}, nil)
+			},
+		},
+		{
+			name:   "list",
+			method: vaulttypes.MethodSecretsList,
+			params: func() json.RawMessage {
+				params, err := json.Marshal(vaultcommon.ListSecretIdentifiersRequest{
+					Owner:     "0xabc",
+					Namespace: "ns",
+				})
+				require.NoError(t, err)
+				return params
+			}(),
+			service: func() {
+				secretsService.EXPECT().ListSecretIdentifiers(mock.Anything, mock.Anything).
+					Return(&vaulttypes.Response{ID: "test_secret"}, nil)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			allowListBasedAuth.EXPECT().AuthorizeRequest(mock.Anything, mock.MatchedBy(func(req jsonrpc.Request[json.RawMessage]) bool {
+				return req.Method == tt.method && req.ID == "1"
+			})).Return(authResult, nil).Once()
+			tt.service()
+			gwConnector.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
+				return resp.Error == nil
+			})).Return(nil).Once()
+
+			handler, err := vaultcap.NewGatewayHandler(
+				secretsService,
+				gwConnector,
+				nil,
+				lggr,
+				limits.Factory{Settings: cresettings.DefaultGetter},
+				vaultcap.NewAuthorizer(allowListBasedAuth, nil, lggr),
+				nil,
+			)
+			require.NoError(t, err)
+
+			raw := tt.params
+			req := &jsonrpc.Request[json.RawMessage]{
+				Method: tt.method,
+				ID:     "1",
+				Params: &raw,
+			}
+			require.NoError(t, handler.HandleGatewayMessage(ctx, "gateway-1", req))
+		})
+	}
+}
+
+func TestGatewayHandler_CreateUpdateReusesCachedPublicKey(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	ctx := t.Context()
+
+	secretsService := vaulttypesmocks.NewSecretsService(t)
+	gwConnector := connector_mocks.NewGatewayConnector(t)
+	allowListBasedAuth := vaultcapmocks.NewAuthorizer(t)
+
+	pk, pkHex := testMasterPublicKey(t)
+	secretsService.EXPECT().GetPublicKey(mock.Anything, mock.Anything).
+		Return(&vaultcommon.GetPublicKeyResponse{PublicKey: pkHex}, nil).Once()
+
+	handler, err := vaultcap.NewGatewayHandler(
+		secretsService,
+		gwConnector,
+		nil,
+		lggr,
+		limits.Factory{Settings: cresettings.DefaultGetter},
+		vaultcap.NewAuthorizer(allowListBasedAuth, nil, lggr),
+		nil,
+	)
+	require.NoError(t, err)
+
+	makeCreateRequest := func(id string) *jsonrpc.Request[json.RawMessage] {
+		params, err := json.Marshal(vaultcommon.CreateSecretsRequest{
+			EncryptedSecrets: []*vaultcommon.EncryptedSecret{{
+				Id:             &vaultcommon.SecretIdentifier{Key: "test_secret", Owner: "0xAbC"},
+				EncryptedValue: encryptSecretForOwner(t, pk, "0xAbC"),
+			}},
+		})
+		require.NoError(t, err)
+		raw := json.RawMessage(params)
+		return &jsonrpc.Request[json.RawMessage]{
+			Method: vaulttypes.MethodSecretsCreate,
+			ID:     id,
+			Params: &raw,
+		}
+	}
+
+	for i, id := range []string{"1", "2"} {
+		authResult := vaultcap.NewAuthResult("", "0xabc", "digest-"+id, time.Now().Add(time.Minute).Unix())
+		allowListBasedAuth.EXPECT().AuthorizeRequest(mock.Anything, mock.MatchedBy(func(req jsonrpc.Request[json.RawMessage]) bool {
+			return req.Method == vaulttypes.MethodSecretsCreate && req.ID == id
+		})).Return(authResult, nil).Once()
+		secretsService.EXPECT().CreateSecrets(mock.Anything, mock.Anything).
+			Return(&vaulttypes.Response{ID: "test_secret"}, nil).Once()
+		gwConnector.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
+			return resp.Error == nil
+		})).Return(nil).Once()
+
+		require.NoError(t, handler.HandleGatewayMessage(ctx, "gateway-1", makeCreateRequest(id)), "request %d", i+1)
 	}
 }
 

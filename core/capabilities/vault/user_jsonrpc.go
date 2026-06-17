@@ -8,10 +8,11 @@ import (
 	"strings"
 
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
+	"google.golang.org/protobuf/proto"
 
-	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
 
 // InvalidVaultParamsError marks structural validation failures that must surface as InvalidParamsError.
@@ -21,18 +22,10 @@ type InvalidVaultParamsError struct {
 }
 
 func (e InvalidVaultParamsError) Error() string {
-	switch e.Method {
-	case vaulttypes.MethodSecretsCreate:
-		return "failed to validate create secrets request: " + e.Err.Error()
-	case vaulttypes.MethodSecretsUpdate:
-		return "failed to validate update secrets request: " + e.Err.Error()
-	case vaulttypes.MethodSecretsDelete:
-		return "failed to validate delete secrets request: " + e.Err.Error()
-	case vaulttypes.MethodSecretsList:
-		return "failed to validate list secret identifiers request: " + e.Err.Error()
-	default:
-		return e.Err.Error()
+	if prefix := invalidVaultParamsErrorPrefix(e.Method); prefix != "" {
+		return prefix + e.Err.Error()
 	}
+	return e.Err.Error()
 }
 
 func (e InvalidVaultParamsError) Unwrap() error {
@@ -51,11 +44,11 @@ type UserJSONRPCValidationOptions struct {
 	SkipLabelValidation bool
 }
 
-// PrepareUserJSONRPCRequest validates a user-facing vault JSON-RPC request before authorization.
+// ValidateStructureBeforeAuth validates a user-facing vault JSON-RPC request before authorization.
 // Params are left unchanged so JWT request digests match the bytes the client signed.
 // When stripOwnerPrefix is true, owner-prefixed request IDs are removed from the envelope and
 // params so node-side allowlist re-authorization can match the original digest.
-func (r *RequestValidator) PrepareUserJSONRPCRequest(
+func (r *RequestValidator) ValidateStructureBeforeAuth(
 	ctx context.Context,
 	req *jsonrpc.Request[json.RawMessage],
 	opts UserJSONRPCValidationOptions,
@@ -66,13 +59,13 @@ func (r *RequestValidator) PrepareUserJSONRPCRequest(
 			return InvalidVaultParamsError{Method: req.Method, Err: err}
 		}
 	}
-	return r.validateUserJSONRPCParamsStructure(ctx, req.Method, req.ID, req.Params, opts)
+	return r.validateMethodParams(ctx, req.Method, req.ID, req.Params, opts)
 }
 
-// FinalizeAuthorizedJSONRPCRequest stamps the authorized request ID and namespace defaults on params.
-func (r *RequestValidator) FinalizeAuthorizedJSONRPCRequest(req *jsonrpc.Request[json.RawMessage], requestID string) error {
+// StampAuthorizedParams stamps the authorized request ID and namespace defaults on params.
+func (r *RequestValidator) StampAuthorizedParams(req *jsonrpc.Request[json.RawMessage], requestID string) error {
 	req.ID = requestID
-	normalizedParams, err := normalizeUserJSONRPCParams(req.Method, req.Params, requestID)
+	normalizedParams, err := stampUserJSONRPCParams(req.Method, req.Params, requestID)
 	if err != nil {
 		return err
 	}
@@ -80,7 +73,7 @@ func (r *RequestValidator) FinalizeAuthorizedJSONRPCRequest(req *jsonrpc.Request
 	return nil
 }
 
-func (r *RequestValidator) validateUserJSONRPCParamsStructure(
+func (r *RequestValidator) validateMethodParams(
 	ctx context.Context,
 	method string,
 	requestID string,
@@ -90,31 +83,17 @@ func (r *RequestValidator) validateUserJSONRPCParamsStructure(
 	if params == nil {
 		return InvalidVaultParamsError{Method: method, Err: errors.New("request params must not be nil")}
 	}
-	if !vaulttypes.IsUserSecretsMethod(method) {
-		return fmt.Errorf("unsupported vault user method for validation: %s", method)
+	if !vaulttypes.IsGatewaySecretsMethod(method) {
+		return fmt.Errorf("unsupported gateway secrets method for validation: %s", method)
 	}
 
-	err := inspectUserJSONRPCParams(method, params, func(parsed any) error {
-		switch method {
-		case vaulttypes.MethodSecretsCreate:
-			request := parsed.(*vaultcommon.CreateSecretsRequest)
-			request.RequestId = coalesceRequestID(request.RequestId, requestID)
-			return r.ValidateCreateSecretsRequest(ctx, opts.PublicKey, request, opts.SkipLabelValidation)
-		case vaulttypes.MethodSecretsUpdate:
-			request := parsed.(*vaultcommon.UpdateSecretsRequest)
-			request.RequestId = coalesceRequestID(request.RequestId, requestID)
-			return r.ValidateUpdateSecretsRequest(ctx, opts.PublicKey, request, opts.SkipLabelValidation)
-		case vaulttypes.MethodSecretsDelete:
-			request := parsed.(*vaultcommon.DeleteSecretsRequest)
-			request.RequestId = coalesceRequestID(request.RequestId, requestID)
-			return r.ValidateDeleteSecretsRequest(ctx, request)
-		case vaulttypes.MethodSecretsList:
-			request := parsed.(*vaultcommon.ListSecretIdentifiersRequest)
-			request.RequestId = coalesceRequestID(request.RequestId, requestID)
-			return r.ValidateListSecretIdentifiersRequest(ctx, request)
-		default:
-			return fmt.Errorf("unsupported vault user method for validation: %s", method)
-		}
+	desc, err := lookupGatewaySecretsMethodDescriptor(method)
+	if err != nil {
+		return err
+	}
+
+	err = vaultutils.InspectJSONRPCParams(params, desc.newRequest, func(parsed proto.Message) error {
+		return desc.validate(ctx, r, opts, requestID, parsed)
 	})
 	if err != nil {
 		return InvalidVaultParamsError{Method: method, Err: err}
@@ -136,35 +115,37 @@ func stripPrefixedVaultRequestID(requestID string) (originalRequestID, prefixedO
 	return originalRequestID, prefixedOwner
 }
 
-func normalizeUserJSONRPCParams(method string, params *json.RawMessage, requestID string) (*json.RawMessage, error) {
-	if params == nil || !vaulttypes.IsUserSecretsMethod(method) {
+func stampUserJSONRPCParams(method string, params *json.RawMessage, requestID string) (*json.RawMessage, error) {
+	if params == nil || !vaulttypes.IsGatewaySecretsMethod(method) {
 		return params, nil
 	}
 
-	return transformUserJSONRPCParams(method, params, requestID, func(parsed any) error {
-		switch method {
-		case vaulttypes.MethodSecretsCreate:
-			applyEncryptedSecretNamespaceDefaults(parsed.(*vaultcommon.CreateSecretsRequest).EncryptedSecrets)
-		case vaulttypes.MethodSecretsUpdate:
-			applyEncryptedSecretNamespaceDefaults(parsed.(*vaultcommon.UpdateSecretsRequest).EncryptedSecrets)
-		case vaulttypes.MethodSecretsDelete:
-			applySecretIdentifierNamespaceDefaults(parsed.(*vaultcommon.DeleteSecretsRequest).Ids)
-		case vaulttypes.MethodSecretsList:
-			request := parsed.(*vaultcommon.ListSecretIdentifiersRequest)
-			if request.Namespace == "" {
-				request.Namespace = vaulttypes.DefaultNamespace
-			}
-		}
+	desc, err := lookupGatewaySecretsMethodDescriptor(method)
+	if err != nil {
+		return nil, err
+	}
+
+	return vaultutils.TransformJSONRPCParams(params, desc.newRequest, func(parsed proto.Message) error {
+		setUserJSONRPCRequestID(parsed, requestID)
+		desc.applyDefaults(parsed)
 		return nil
 	})
 }
 
 func unstampOwnerPrefixedRequestIDInParams(req *jsonrpc.Request[json.RawMessage], requestID string) error {
-	if req.Params == nil || !vaulttypes.IsUserSecretsMethod(req.Method) {
+	if req.Params == nil || !vaulttypes.IsGatewaySecretsMethod(req.Method) {
 		return nil
 	}
 
-	normalized, err := transformUserJSONRPCParams(req.Method, req.Params, requestID, func(any) error { return nil })
+	desc, err := lookupGatewaySecretsMethodDescriptor(req.Method)
+	if err != nil {
+		return err
+	}
+
+	normalized, err := vaultutils.TransformJSONRPCParams(req.Params, desc.newRequest, func(parsed proto.Message) error {
+		setUserJSONRPCRequestID(parsed, requestID)
+		return nil
+	})
 	if err != nil {
 		return err
 	}
@@ -177,117 +158,4 @@ func coalesceRequestID(paramsRequestID, envelopeRequestID string) string {
 		return paramsRequestID
 	}
 	return envelopeRequestID
-}
-
-func inspectUserJSONRPCParams(
-	method string,
-	params *json.RawMessage,
-	afterUnmarshal func(parsed any) error,
-) error {
-	switch method {
-	case vaulttypes.MethodSecretsCreate:
-		parsed := &vaultcommon.CreateSecretsRequest{}
-		if err := json.Unmarshal(*params, parsed); err != nil {
-			return err
-		}
-		return afterUnmarshal(parsed)
-	case vaulttypes.MethodSecretsUpdate:
-		parsed := &vaultcommon.UpdateSecretsRequest{}
-		if err := json.Unmarshal(*params, parsed); err != nil {
-			return err
-		}
-		return afterUnmarshal(parsed)
-	case vaulttypes.MethodSecretsDelete:
-		parsed := &vaultcommon.DeleteSecretsRequest{}
-		if err := json.Unmarshal(*params, parsed); err != nil {
-			return err
-		}
-		return afterUnmarshal(parsed)
-	case vaulttypes.MethodSecretsList:
-		parsed := &vaultcommon.ListSecretIdentifiersRequest{}
-		if err := json.Unmarshal(*params, parsed); err != nil {
-			return err
-		}
-		return afterUnmarshal(parsed)
-	default:
-		return fmt.Errorf("unsupported vault user method for validation: %s", method)
-	}
-}
-
-// transformUserJSONRPCParams unmarshals user secrets params, stamps requestID, runs afterUnmarshal, and re-marshals.
-func transformUserJSONRPCParams(
-	method string,
-	params *json.RawMessage,
-	requestID string,
-	afterUnmarshal func(parsed any) error,
-) (*json.RawMessage, error) {
-	switch method {
-	case vaulttypes.MethodSecretsCreate:
-		parsed := &vaultcommon.CreateSecretsRequest{}
-		if err := json.Unmarshal(*params, parsed); err != nil {
-			return nil, err
-		}
-		parsed.RequestId = requestID
-		if err := afterUnmarshal(parsed); err != nil {
-			return nil, err
-		}
-		return marshalUserJSONRPCParams(parsed)
-	case vaulttypes.MethodSecretsUpdate:
-		parsed := &vaultcommon.UpdateSecretsRequest{}
-		if err := json.Unmarshal(*params, parsed); err != nil {
-			return nil, err
-		}
-		parsed.RequestId = requestID
-		if err := afterUnmarshal(parsed); err != nil {
-			return nil, err
-		}
-		return marshalUserJSONRPCParams(parsed)
-	case vaulttypes.MethodSecretsDelete:
-		parsed := &vaultcommon.DeleteSecretsRequest{}
-		if err := json.Unmarshal(*params, parsed); err != nil {
-			return nil, err
-		}
-		parsed.RequestId = requestID
-		if err := afterUnmarshal(parsed); err != nil {
-			return nil, err
-		}
-		return marshalUserJSONRPCParams(parsed)
-	case vaulttypes.MethodSecretsList:
-		parsed := &vaultcommon.ListSecretIdentifiersRequest{}
-		if err := json.Unmarshal(*params, parsed); err != nil {
-			return nil, err
-		}
-		parsed.RequestId = requestID
-		if err := afterUnmarshal(parsed); err != nil {
-			return nil, err
-		}
-		return marshalUserJSONRPCParams(parsed)
-	default:
-		return nil, fmt.Errorf("unsupported vault user method for validation: %s", method)
-	}
-}
-
-func marshalUserJSONRPCParams(payload any) (*json.RawMessage, error) {
-	params, err := json.Marshal(payload)
-	if err != nil {
-		return nil, err
-	}
-	raw := json.RawMessage(params)
-	return &raw, nil
-}
-
-func applyEncryptedSecretNamespaceDefaults(encryptedSecrets []*vaultcommon.EncryptedSecret) {
-	for _, secretItem := range encryptedSecrets {
-		if secretItem != nil && secretItem.Id != nil && secretItem.Id.Namespace == "" {
-			secretItem.Id.Namespace = vaulttypes.DefaultNamespace
-		}
-	}
-}
-
-func applySecretIdentifierNamespaceDefaults(ids []*vaultcommon.SecretIdentifier) {
-	for _, id := range ids {
-		if id != nil && id.Namespace == "" {
-			id.Namespace = vaulttypes.DefaultNamespace
-		}
-	}
 }

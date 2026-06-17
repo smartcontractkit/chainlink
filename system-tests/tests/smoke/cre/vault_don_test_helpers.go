@@ -346,7 +346,7 @@ func newAllowlistVaultRequestAuth(requestOwner string, sethClient *seth.Client, 
 
 // newJWTVaultRequestAuth builds auth for Vault JWT requests. derivedWorkflowOwner must equal
 // mustDeriveJWTVaultWorkflowOwner(orgID) — it is used as SecretIdentifier.Owner for all operations.
-// publicKey mirrors the gateway handler's cached vault public key for PrepareUserJSONRPCRequest;
+// publicKey mirrors the gateway handler's cached vault public key for ValidateStructureBeforeAuth;
 // when nil, label validation is skipped (structure validation still runs).
 // skipLabelValidation mints the JWT without enforcing ciphertext label binding locally; use only for
 // negative tests that expect the gateway to reject owner/label mismatches during prepare.
@@ -367,7 +367,7 @@ func prepareVaultUserJSONRPCRequestLikeGateway(t *testing.T, req *jsonrpc.Reques
 	validator, err := vaultjwt.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err, "failed to create vault request validator")
 
-	err = validator.PrepareUserJSONRPCRequest(t.Context(), req, vaultjwt.UserJSONRPCValidationOptions{
+	err = validator.ValidateStructureBeforeAuth(t.Context(), req, vaultjwt.UserJSONRPCValidationOptions{
 		PublicKey:           publicKey,
 		SkipLabelValidation: skipLabelValidation || publicKey == nil,
 	}, false)
@@ -831,7 +831,7 @@ func executeVaultJWTSecretsDeleteTest(t *testing.T, issuer *stvault.TestJWTIssue
 }
 
 // mintVaultJWTDigestForPreparedRequest signs a JWT for an already-prepared request without re-running
-// PrepareUserJSONRPCRequest. Callers must prepare first when exercising gateway ordering explicitly.
+// ValidateStructureBeforeAuth. Callers must prepare first when exercising gateway ordering explicitly.
 func mintVaultJWTDigestForPreparedRequest(t *testing.T, issuer *stvault.TestJWTIssuer, req *jsonrpc.Request[json.RawMessage], orgID string, extraClaims map[string]any) string {
 	t.Helper()
 
@@ -876,7 +876,7 @@ func mustMintVaultJWTForRequestWithExtraClaims(t *testing.T, issuer *stvault.Tes
 
 // executeVaultSecretsCreateOwnerMismatchRejectedTest sends a create request whose
 // SecretIdentifier.Owner does not match the authenticated workflow owner and expects
-// gateway rejection. PrepareUserJSONRPCRequest may reject at the params layer (label vs
+// gateway rejection. ValidateStructureBeforeAuth may reject at the params layer (label vs
 // identifier owner) before AuthorizeRequest enforces owner binding.
 func executeVaultSecretsListOwnerMismatchRejectedTest(
 	t *testing.T,

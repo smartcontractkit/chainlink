@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
-func TestRequestValidator_PrepareUserJSONRPCRequest_RejectsNilParams(t *testing.T) {
+func TestRequestValidator_ValidateStructureBeforeAuth_RejectsNilParams(t *testing.T) {
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 
@@ -23,14 +23,14 @@ func TestRequestValidator_PrepareUserJSONRPCRequest_RejectsNilParams(t *testing.
 		ID:     "req-1",
 		Method: vaulttypes.MethodSecretsCreate,
 	}
-	err = validator.PrepareUserJSONRPCRequest(t.Context(), &req, vault.UserJSONRPCValidationOptions{
+	err = validator.ValidateStructureBeforeAuth(t.Context(), &req, vault.UserJSONRPCValidationOptions{
 		SkipLabelValidation: true,
 	}, false)
 	require.Error(t, err)
 	require.True(t, vault.IsInvalidVaultParamsError(err))
 }
 
-func TestRequestValidator_PrepareUserJSONRPCRequest_LeavesParamsUnchanged(t *testing.T) {
+func TestRequestValidator_ValidateStructureBeforeAuth_LeavesParamsUnchanged(t *testing.T) {
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 
@@ -54,34 +54,34 @@ func TestRequestValidator_PrepareUserJSONRPCRequest_LeavesParamsUnchanged(t *tes
 		Method: vaulttypes.MethodSecretsCreate,
 		Params: &raw,
 	}
-	err = validator.PrepareUserJSONRPCRequest(t.Context(), &req, vault.UserJSONRPCValidationOptions{
+	err = validator.ValidateStructureBeforeAuth(t.Context(), &req, vault.UserJSONRPCValidationOptions{
 		SkipLabelValidation: true,
 	}, false)
 	require.NoError(t, err)
 	require.Equal(t, originalParams, string(*req.Params))
 }
 
-func TestRequestValidator_FinalizeAuthorizedJSONRPCRequest_NormalizesAllSecretsMethods(t *testing.T) {
+func TestRequestValidator_StampAuthorizedParams_NormalizesAllSecretsMethods(t *testing.T) {
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 
 	owner := "0xabc"
 	prefixedRequestID := owner + vaulttypes.RequestIDSeparator + "req-1"
 
-	for _, method := range vaulttypes.UserSecretsMethods {
+	for _, method := range vaulttypes.GatewaySecretsMethods {
 		t.Run(method, func(t *testing.T) {
-			params := userSecretsMethodParamsForValidation(t, method, owner)
+			params := gatewaySecretsMethodParamsForValidation(t, method, owner)
 			req := jsonrpc.Request[json.RawMessage]{
 				ID:     "req-1",
 				Method: method,
 				Params: params,
 			}
-			err = validator.PrepareUserJSONRPCRequest(t.Context(), &req, vault.UserJSONRPCValidationOptions{
+			err = validator.ValidateStructureBeforeAuth(t.Context(), &req, vault.UserJSONRPCValidationOptions{
 				SkipLabelValidation: true,
 			}, false)
 			require.NoError(t, err)
 
-			require.NoError(t, validator.FinalizeAuthorizedJSONRPCRequest(&req, prefixedRequestID))
+			require.NoError(t, validator.StampAuthorizedParams(&req, prefixedRequestID))
 			require.Equal(t, prefixedRequestID, req.ID)
 
 			switch method {
@@ -117,10 +117,10 @@ func TestRequestValidator_PrepareWithStripOwnerPrefixPreservesJWTDigest_AllSecre
 	owner, err := vault.DeriveJWTAuthorizedVaultWorkflowOwner("org-test", 1, "")
 	require.NoError(t, err)
 
-	for _, method := range vaulttypes.UserSecretsMethods {
+	for _, method := range vaulttypes.GatewaySecretsMethods {
 		t.Run(method, func(t *testing.T) {
 			originalRequestID := "req-1"
-			params := userSecretsMethodParamsForStripPrefixDigest(t, method, owner, originalRequestID)
+			params := gatewaySecretsMethodParamsForStripPrefixDigest(t, method, owner, originalRequestID)
 			req := jsonrpc.Request[json.RawMessage]{
 				Version: jsonrpc.JsonRpcVersion,
 				ID:      originalRequestID,
@@ -128,7 +128,7 @@ func TestRequestValidator_PrepareWithStripOwnerPrefixPreservesJWTDigest_AllSecre
 				Params:  params,
 			}
 
-			err = validator.PrepareUserJSONRPCRequest(t.Context(), &req, vault.UserJSONRPCValidationOptions{
+			err = validator.ValidateStructureBeforeAuth(t.Context(), &req, vault.UserJSONRPCValidationOptions{
 				SkipLabelValidation: true,
 			}, false)
 			require.NoError(t, err)
@@ -137,9 +137,9 @@ func TestRequestValidator_PrepareWithStripOwnerPrefixPreservesJWTDigest_AllSecre
 			require.NoError(t, err)
 
 			prefixedRequestID := owner + vaulttypes.RequestIDSeparator + originalRequestID
-			require.NoError(t, validator.FinalizeAuthorizedJSONRPCRequest(&req, prefixedRequestID))
+			require.NoError(t, validator.StampAuthorizedParams(&req, prefixedRequestID))
 
-			err = validator.PrepareUserJSONRPCRequest(t.Context(), &req, vault.UserJSONRPCValidationOptions{
+			err = validator.ValidateStructureBeforeAuth(t.Context(), &req, vault.UserJSONRPCValidationOptions{
 				SkipLabelValidation: true,
 			}, true)
 			require.NoError(t, err)
@@ -152,7 +152,7 @@ func TestRequestValidator_PrepareWithStripOwnerPrefixPreservesJWTDigest_AllSecre
 	}
 }
 
-func TestRequestValidator_PrepareUserJSONRPCRequest_AcceptsCreateBatchAtLimit(t *testing.T) {
+func TestRequestValidator_ValidateStructureBeforeAuth_AcceptsCreateBatchAtLimit(t *testing.T) {
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 
@@ -177,13 +177,13 @@ func TestRequestValidator_PrepareUserJSONRPCRequest_AcceptsCreateBatchAtLimit(t 
 		Method: vaulttypes.MethodSecretsCreate,
 		Params: &raw,
 	}
-	err = validator.PrepareUserJSONRPCRequest(t.Context(), &req, vault.UserJSONRPCValidationOptions{
+	err = validator.ValidateStructureBeforeAuth(t.Context(), &req, vault.UserJSONRPCValidationOptions{
 		SkipLabelValidation: true,
 	}, false)
 	require.NoError(t, err)
 }
 
-func TestRequestValidator_PrepareUserJSONRPCRequest_AcceptsUpdateBatchAtLimit(t *testing.T) {
+func TestRequestValidator_ValidateStructureBeforeAuth_AcceptsUpdateBatchAtLimit(t *testing.T) {
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 
@@ -208,13 +208,13 @@ func TestRequestValidator_PrepareUserJSONRPCRequest_AcceptsUpdateBatchAtLimit(t 
 		Method: vaulttypes.MethodSecretsUpdate,
 		Params: &raw,
 	}
-	err = validator.PrepareUserJSONRPCRequest(t.Context(), &req, vault.UserJSONRPCValidationOptions{
+	err = validator.ValidateStructureBeforeAuth(t.Context(), &req, vault.UserJSONRPCValidationOptions{
 		SkipLabelValidation: true,
 	}, false)
 	require.NoError(t, err)
 }
 
-func TestRequestValidator_PrepareUserJSONRPCRequest_RejectsCreateBatchAboveLimit(t *testing.T) {
+func TestRequestValidator_ValidateStructureBeforeAuth_RejectsCreateBatchAboveLimit(t *testing.T) {
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 
@@ -239,7 +239,7 @@ func TestRequestValidator_PrepareUserJSONRPCRequest_RejectsCreateBatchAboveLimit
 		Method: vaulttypes.MethodSecretsCreate,
 		Params: &raw,
 	}
-	err = validator.PrepareUserJSONRPCRequest(t.Context(), &req, vault.UserJSONRPCValidationOptions{
+	err = validator.ValidateStructureBeforeAuth(t.Context(), &req, vault.UserJSONRPCValidationOptions{
 		SkipLabelValidation: true,
 	}, false)
 	require.Error(t, err)
@@ -247,7 +247,7 @@ func TestRequestValidator_PrepareUserJSONRPCRequest_RejectsCreateBatchAboveLimit
 	require.ErrorContains(t, err, fmt.Sprintf("request batch size exceeds maximum of %d", vaulttypes.MaxBatchSize))
 }
 
-func TestRequestValidator_PrepareUserJSONRPCRequest_RejectsUpdateBatchAboveLimit(t *testing.T) {
+func TestRequestValidator_ValidateStructureBeforeAuth_RejectsUpdateBatchAboveLimit(t *testing.T) {
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 
@@ -272,7 +272,7 @@ func TestRequestValidator_PrepareUserJSONRPCRequest_RejectsUpdateBatchAboveLimit
 		Method: vaulttypes.MethodSecretsUpdate,
 		Params: &raw,
 	}
-	err = validator.PrepareUserJSONRPCRequest(t.Context(), &req, vault.UserJSONRPCValidationOptions{
+	err = validator.ValidateStructureBeforeAuth(t.Context(), &req, vault.UserJSONRPCValidationOptions{
 		SkipLabelValidation: true,
 	}, false)
 	require.Error(t, err)
@@ -280,7 +280,7 @@ func TestRequestValidator_PrepareUserJSONRPCRequest_RejectsUpdateBatchAboveLimit
 	require.ErrorContains(t, err, fmt.Sprintf("request batch size exceeds maximum of %d", vaulttypes.MaxBatchSize))
 }
 
-func TestRequestValidator_PrepareUserJSONRPCRequest_AcceptsDeleteBatchAtLimit(t *testing.T) {
+func TestRequestValidator_ValidateStructureBeforeAuth_AcceptsDeleteBatchAtLimit(t *testing.T) {
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 
@@ -302,13 +302,13 @@ func TestRequestValidator_PrepareUserJSONRPCRequest_AcceptsDeleteBatchAtLimit(t 
 		Method: vaulttypes.MethodSecretsDelete,
 		Params: &raw,
 	}
-	err = validator.PrepareUserJSONRPCRequest(t.Context(), &req, vault.UserJSONRPCValidationOptions{
+	err = validator.ValidateStructureBeforeAuth(t.Context(), &req, vault.UserJSONRPCValidationOptions{
 		SkipLabelValidation: true,
 	}, false)
 	require.NoError(t, err)
 }
 
-func TestRequestValidator_PrepareUserJSONRPCRequest_RejectsDeleteBatchAboveLimit(t *testing.T) {
+func TestRequestValidator_ValidateStructureBeforeAuth_RejectsDeleteBatchAboveLimit(t *testing.T) {
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 
@@ -330,7 +330,7 @@ func TestRequestValidator_PrepareUserJSONRPCRequest_RejectsDeleteBatchAboveLimit
 		Method: vaulttypes.MethodSecretsDelete,
 		Params: &raw,
 	}
-	err = validator.PrepareUserJSONRPCRequest(t.Context(), &req, vault.UserJSONRPCValidationOptions{
+	err = validator.ValidateStructureBeforeAuth(t.Context(), &req, vault.UserJSONRPCValidationOptions{
 		SkipLabelValidation: true,
 	}, false)
 	require.Error(t, err)
@@ -338,7 +338,7 @@ func TestRequestValidator_PrepareUserJSONRPCRequest_RejectsDeleteBatchAboveLimit
 	require.ErrorContains(t, err, fmt.Sprintf("request batch size exceeds maximum of %d", vaulttypes.MaxBatchSize))
 }
 
-func TestRequestValidator_PrepareUserJSONRPCRequest_InvalidParamsParityWithStripPrefix(t *testing.T) {
+func TestRequestValidator_ValidateStructureBeforeAuth_InvalidParamsParityWithStripPrefix(t *testing.T) {
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 
@@ -348,7 +348,7 @@ func TestRequestValidator_PrepareUserJSONRPCRequest_InvalidParamsParityWithStrip
 				ID:     "req-1",
 				Method: vaulttypes.MethodSecretsCreate,
 			}
-			err := validator.PrepareUserJSONRPCRequest(t.Context(), &req, vault.UserJSONRPCValidationOptions{
+			err := validator.ValidateStructureBeforeAuth(t.Context(), &req, vault.UserJSONRPCValidationOptions{
 				SkipLabelValidation: true,
 			}, stripOwnerPrefix)
 			require.Error(t, err)
@@ -381,7 +381,7 @@ func TestRequestValidator_PrepareThenAuthorizePreservesJWTDigest(t *testing.T) {
 	digestBefore, err := req.Digest()
 	require.NoError(t, err)
 
-	err = validator.PrepareUserJSONRPCRequest(t.Context(), &req, vault.UserJSONRPCValidationOptions{
+	err = validator.ValidateStructureBeforeAuth(t.Context(), &req, vault.UserJSONRPCValidationOptions{
 		SkipLabelValidation: true,
 	}, false)
 	require.NoError(t, err)
@@ -391,20 +391,20 @@ func TestRequestValidator_PrepareThenAuthorizePreservesJWTDigest(t *testing.T) {
 	require.Equal(t, digestBefore, digestAfterPrepare)
 }
 
-func TestRequestValidator_PrepareUserJSONRPCRequest_CoversAllUserSecretsMethods(t *testing.T) {
+func TestRequestValidator_ValidateStructureBeforeAuth_CoversAllGatewaySecretsMethods(t *testing.T) {
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 
 	owner := "0xabc"
-	for _, method := range vaulttypes.UserSecretsMethods {
+	for _, method := range vaulttypes.GatewaySecretsMethods {
 		t.Run(method, func(t *testing.T) {
-			params := userSecretsMethodParamsForValidation(t, method, owner)
+			params := gatewaySecretsMethodParamsForValidation(t, method, owner)
 			req := jsonrpc.Request[json.RawMessage]{
 				ID:     "req-1",
 				Method: method,
 				Params: params,
 			}
-			err := validator.PrepareUserJSONRPCRequest(t.Context(), &req, vault.UserJSONRPCValidationOptions{
+			err := validator.ValidateStructureBeforeAuth(t.Context(), &req, vault.UserJSONRPCValidationOptions{
 				SkipLabelValidation: true,
 			}, false)
 			require.NoError(t, err)
@@ -413,7 +413,7 @@ func TestRequestValidator_PrepareUserJSONRPCRequest_CoversAllUserSecretsMethods(
 	}
 }
 
-func userSecretsMethodParamsForStripPrefixDigest(t *testing.T, method, owner, requestID string) *json.RawMessage {
+func gatewaySecretsMethodParamsForStripPrefixDigest(t *testing.T, method, owner, requestID string) *json.RawMessage {
 	t.Helper()
 
 	var payload any
@@ -452,7 +452,7 @@ func userSecretsMethodParamsForStripPrefixDigest(t *testing.T, method, owner, re
 	return (*json.RawMessage)(&raw)
 }
 
-func userSecretsMethodParamsForValidation(t *testing.T, method, owner string) *json.RawMessage {
+func gatewaySecretsMethodParamsForValidation(t *testing.T, method, owner string) *json.RawMessage {
 	t.Helper()
 
 	var payload any

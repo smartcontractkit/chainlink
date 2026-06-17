@@ -11,16 +11,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
-func TestBindVaultOwners_RejectsUnregisteredMethods(t *testing.T) {
+func TestValidateVaultOwnersMatchAuthorized_RejectsUnregisteredMethods(t *testing.T) {
 	params := json.RawMessage(`{}`)
-	err := bindVaultOwners(jsonrpc.Request[json.RawMessage]{
+	err := validateVaultOwnersMatchAuthorized(jsonrpc.Request[json.RawMessage]{
 		Method: "vault.unsupported",
 		Params: &params,
 	}, "0xauthorized")
-	require.ErrorContains(t, err, "owner binding not implemented for method \"vault.unsupported\"")
+	require.ErrorContains(t, err, "owner validation not implemented for method \"vault.unsupported\"")
 }
 
-func TestBindVaultOwners_RejectsEmptyBatch(t *testing.T) {
+func TestValidateVaultOwnersMatchAuthorized_RejectsEmptyBatch(t *testing.T) {
 	owner := "0xauthorized"
 	for _, tc := range []struct {
 		method string
@@ -40,7 +40,7 @@ func TestBindVaultOwners_RejectsEmptyBatch(t *testing.T) {
 		},
 	} {
 		t.Run(tc.method, func(t *testing.T) {
-			err := bindVaultOwners(jsonrpc.Request[json.RawMessage]{
+			err := validateVaultOwnersMatchAuthorized(jsonrpc.Request[json.RawMessage]{
 				Method: tc.method,
 				Params: tc.params,
 			}, owner)
@@ -49,7 +49,7 @@ func TestBindVaultOwners_RejectsEmptyBatch(t *testing.T) {
 	}
 }
 
-func TestBindVaultOwners_RejectsMalformedBatches(t *testing.T) {
+func TestValidateVaultOwnersMatchAuthorized_RejectsMalformedBatches(t *testing.T) {
 	owner := "0xauthorized"
 	tests := []struct {
 		name        string
@@ -117,7 +117,7 @@ func TestBindVaultOwners_RejectsMalformedBatches(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			err := bindVaultOwners(jsonrpc.Request[json.RawMessage]{
+			err := validateVaultOwnersMatchAuthorized(jsonrpc.Request[json.RawMessage]{
 				Method: tc.method,
 				Params: tc.params,
 			}, owner)
@@ -126,12 +126,12 @@ func TestBindVaultOwners_RejectsMalformedBatches(t *testing.T) {
 	}
 }
 
-func TestBindVaultOwners_CoversAllUserSecretsMethods(t *testing.T) {
+func TestValidateVaultOwnersMatchAuthorized_CoversAllGatewaySecretsMethods(t *testing.T) {
 	owner := "0xauthorized"
-	for _, method := range vaulttypes.UserSecretsMethods {
+	for _, method := range vaulttypes.GatewaySecretsMethods {
 		t.Run(method, func(t *testing.T) {
-			params := userSecretsMethodParamsForOwnerBinding(t, method, owner)
-			err := bindVaultOwners(jsonrpc.Request[json.RawMessage]{
+			params := gatewaySecretsMethodParamsForOwnerValidation(t, method, owner)
+			err := validateVaultOwnersMatchAuthorized(jsonrpc.Request[json.RawMessage]{
 				Method: method,
 				Params: params,
 			}, owner)
@@ -140,7 +140,7 @@ func TestBindVaultOwners_CoversAllUserSecretsMethods(t *testing.T) {
 	}
 }
 
-func userSecretsMethodParamsForOwnerBinding(t *testing.T, method, owner string) *json.RawMessage {
+func gatewaySecretsMethodParamsForOwnerValidation(t *testing.T, method, owner string) *json.RawMessage {
 	t.Helper()
 
 	var payload any
@@ -164,7 +164,7 @@ func userSecretsMethodParamsForOwnerBinding(t *testing.T, method, owner string) 
 	case vaulttypes.MethodSecretsList:
 		payload = vaultcommon.ListSecretIdentifiersRequest{Owner: owner, Namespace: "ns"}
 	default:
-		t.Fatalf("add owner-binding test params for %s", method)
+		t.Fatalf("add owner-validation test params for %s", method)
 	}
 
 	raw, err := json.Marshal(payload)

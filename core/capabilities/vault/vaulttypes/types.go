@@ -36,20 +36,20 @@ const (
 	MaxBatchSize = 10
 )
 
-// UserSecretsMethods are user-facing JSON-RPC methods that require authorization and
-// carry owner-bound secret identifiers in params.
-var UserSecretsMethods = []string{
+// GatewaySecretsMethods are vault JSON-RPC methods reachable through the gateway that
+// require authorization and carry owner-bound secret identifiers in params.
+var GatewaySecretsMethods = []string{
 	MethodSecretsCreate,
 	MethodSecretsUpdate,
 	MethodSecretsDelete,
 	MethodSecretsList,
 }
 
-var Methods = append(append([]string(nil), UserSecretsMethods...), MethodPublicKeyGet)
+var Methods = append([]string{MethodPublicKeyGet}, GatewaySecretsMethods...)
 
-// IsUserSecretsMethod reports whether method is a user-facing secrets management JSON-RPC method.
-func IsUserSecretsMethod(method string) bool {
-	return slices.Contains(UserSecretsMethods, method)
+// IsGatewaySecretsMethod reports whether method is a gateway-accessible secrets management JSON-RPC method.
+func IsGatewaySecretsMethod(method string) bool {
+	return slices.Contains(GatewaySecretsMethods, method)
 }
 
 // SignedOCRResponse is the response format for OCR signed reports, as returned by the Vault DON.

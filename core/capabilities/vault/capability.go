@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/jonboulle/clockwork"
@@ -19,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
 
 var _ capabilities.ExecutableCapability = (*Capability)(nil)
@@ -115,7 +115,7 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 			s.lggr.Errorw("get secrets request contains nil secret request", "index", idx)
 			return capabilities.CapabilityResponse{}, fmt.Errorf("nil secret request at index %d", idx)
 		}
-		if req.Id != nil && normalizeOwner(req.Id.Owner) != normalizeOwner(request.Metadata.WorkflowOwner) {
+		if req.Id != nil && vaultutils.NormalizeOwner(req.Id.Owner) != vaultutils.NormalizeOwner(request.Metadata.WorkflowOwner) {
 			s.lggr.Errorw("get secrets request owner mismatch", "index", idx, "secretOwner", req.Id.Owner, "workflowOwner", request.Metadata.WorkflowOwner)
 			return capabilities.CapabilityResponse{}, fmt.Errorf("secret identifier owner %q does not match workflow owner %q at index %d", req.Id.Owner, request.Metadata.WorkflowOwner, idx)
 		}
@@ -241,10 +241,6 @@ func (s *Capability) GetPublicKey(ctx context.Context, request *vaultcommon.GetP
 	}, nil
 }
 
-func normalizeOwner(owner string) string {
-	return strings.ToLower(strings.TrimPrefix(owner, "0x"))
-}
-
 func validateEncryptedSecretsUniformOwners(encryptedSecrets []*vaultcommon.EncryptedSecret) error {
 	var owner string
 	for idx, enc := range encryptedSecrets {
@@ -255,7 +251,7 @@ func validateEncryptedSecretsUniformOwners(encryptedSecrets []*vaultcommon.Encry
 			owner = enc.Id.Owner
 			continue
 		}
-		if normalizeOwner(enc.Id.Owner) != normalizeOwner(owner) {
+		if vaultutils.NormalizeOwner(enc.Id.Owner) != vaultutils.NormalizeOwner(owner) {
 			return fmt.Errorf("encrypted secret owner at index %d %q does not match batch owner %q", idx, enc.Id.Owner, owner)
 		}
 	}
@@ -272,7 +268,7 @@ func validateSecretIdentifiersUniformOwners(ids []*vaultcommon.SecretIdentifier)
 			owner = id.Owner
 			continue
 		}
-		if normalizeOwner(id.Owner) != normalizeOwner(owner) {
+		if vaultutils.NormalizeOwner(id.Owner) != vaultutils.NormalizeOwner(owner) {
 			return fmt.Errorf("secret identifier owner at index %d %q does not match batch owner %q", idx, id.Owner, owner)
 		}
 	}
