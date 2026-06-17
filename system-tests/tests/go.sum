@@ -1646,8 +1646,8 @@ github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solrea
 github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread v0.0.0-20260609191154-1ecc282df958/go.mod h1:9buiD3HZFvaHWx9HrJif2PwNYQwE8dX+e8bN5pJvHSs=
 github.com/smartcontractkit/cld-changesets v0.5.0 h1:JfiS3k8uijw1zcoFBTAHOzI1LxkhZVjPT4YoxI7zTxQ=
 github.com/smartcontractkit/cld-changesets v0.5.0/go.mod h1:SYJTJw3tyi+bIVFApQ7RSe7jQD2cyEM1bmypbKF2dcg=
-github.com/smartcontractkit/cre-sdk-go v1.11.0 h1:E3MG0j8O9qDv6lDz71HPD3/WRKh/PX2/hfxO1+9YL2w=
-github.com/smartcontractkit/cre-sdk-go v1.11.0/go.mod h1:8SDE/e+eDAFpbRjRyKnIalUkQk9BcNbo2aLnda9BM48=
+github.com/smartcontractkit/cre-sdk-go v1.12.1-0.20260617153047-4f3b50819080 h1:tyrZfFj7U9GYB/s3QMhfpC2gOdgHtEDNLXtijEeZpRo=
+github.com/smartcontractkit/cre-sdk-go v1.12.1-0.20260617153047-4f3b50819080/go.mod h1:8SdXmiZoi+8tTlW8JtjuyvxnoNaFreWaNk3rWqj4aLg=
 github.com/smartcontractkit/freeport v0.1.3-0.20250828155247-add56fa28aad h1:lgHxTHuzJIF3Vj6LSMOnjhqKgRqYW+0MV2SExtCYL1Q=
 github.com/smartcontractkit/freeport v0.1.3-0.20250828155247-add56fa28aad/go.mod h1:T4zH9R8R8lVWKfU7tUvYz2o2jMv1OpGCdpY2j2QZXzU=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 h1:12ijqMM9tvYVEm+nR826WsrNi6zCKpwBhuApq127wHs=
