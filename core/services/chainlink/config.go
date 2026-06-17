@@ -47,6 +47,8 @@ type Config struct {
 	TON RawConfigs `toml:",omitempty"`
 
 	Sui RawConfigs `toml:",omitempty"`
+
+	Stellar RawConfigs `toml:",omitempty"`
 }
 
 // RawConfigs is a list of RawConfig.
@@ -342,6 +344,8 @@ func (c *Config) setDefaults() {
 	c.TON.SetDefaults()
 
 	c.Sui.SetDefaults()
+
+	c.Stellar.SetDefaults()
 }
 
 func (c *Config) SetFrom(f *Config) (err error) {
@@ -361,6 +365,7 @@ func (c *Config) SetFrom(f *Config) (err error) {
 	appendErr(c.Tron.SetFrom(f.Tron), "Tron")
 	appendErr(c.TON.SetFrom(f.TON), "TON")
 	appendErr(c.Sui.SetFrom(f.Sui), "Sui")
+	appendErr(c.Stellar.SetFrom(f.Stellar), "Stellar")
 
 	_, err = commonconfig.MultiErrorList(err)
 	return err

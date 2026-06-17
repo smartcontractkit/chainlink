@@ -500,6 +500,9 @@ func (s *Shell) runNode(c *cli.Context) error {
 		if s.Config.SuiEnabled() {
 			enabledChains = append(enabledChains, corekeys.Sui)
 		}
+		if s.Config.StellarEnabled() {
+			enabledChains = append(enabledChains, corekeys.Stellar)
+		}
 		err2 := app.GetKeyStore().OCR2().EnsureKeys(rootCtx, enabledChains...)
 		if err2 != nil {
 			return fmt.Errorf("failed to ensure ocr key: %w", err2)

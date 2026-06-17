@@ -381,6 +381,15 @@ func (g *generalConfig) SuiEnabled() bool {
 	return false
 }
 
+func (g *generalConfig) StellarEnabled() bool {
+	for _, c := range g.c.Stellar {
+		if c.IsEnabled() {
+			return true
+		}
+	}
+	return false
+}
+
 func (g *generalConfig) WebServer() coreconfig.WebServer {
 	return &webServerConfig{c: g.c.WebServer, s: g.secrets.WebServer, rootDir: g.RootDir}
 }
