@@ -254,4 +254,4 @@ go run . batch-bhs-backwards -batch-bhs-address $BATCH_BHS_ADDRESS -start-block 
 
 This script is simplistic on purpose, where we wait for the transaction to mine before proceeding with the next one. This
 is to avoid issues where a transaction gets sent and not included on-chain, and subsequent calls to `storeVerifyHeader` will
-fail.
+fail. 
