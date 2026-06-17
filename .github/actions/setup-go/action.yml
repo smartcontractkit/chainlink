@@ -105,7 +105,7 @@ runs:
     - name: Get branch name
       if: ${{ inputs.only-modules == 'false' }}
       id: branch-name
-      uses: smartcontractkit/.github/actions/branch-names@branch-names/1.0.0
+      uses: smartcontractkit/.github/actions/branch-names@branch-names/v1
 
     # 2. Build the cache keys
     # ---

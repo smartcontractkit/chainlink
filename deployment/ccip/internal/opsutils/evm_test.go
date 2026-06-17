@@ -17,7 +17,6 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
-	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
@@ -112,7 +111,7 @@ func TestAddEVMCallSequenceToCSOutput_SequenceError(t *testing.T) {
 	require.NoError(t, err)
 
 	csOutput := cldf.ChangesetOutput{}
-	seqReport := operations.SequenceReport[string, map[uint64][]opsevm.EVMCallOutput]{}
+	seqReport := operations.SequenceReport[string, map[uint64][]EVMCallOutput]{}
 	seqErr := errors.New("sequence failed")
 
 	result, err := AddEVMCallSequenceToCSOutput(
@@ -140,7 +139,7 @@ func TestAddEVMCallSequenceToCSOutput_NoMCMS(t *testing.T) {
 	require.NoError(t, err)
 
 	csOutput := cldf.ChangesetOutput{}
-	seqReport := operations.SequenceReport[string, map[uint64][]opsevm.EVMCallOutput]{}
+	seqReport := operations.SequenceReport[string, map[uint64][]EVMCallOutput]{}
 
 	result, err := AddEVMCallSequenceToCSOutput(
 		*env,
@@ -165,7 +164,7 @@ func TestAddEVMCallSequenceToCSOutput_AllConfirmed(t *testing.T) {
 	require.NoError(t, err)
 
 	csOutput := cldf.ChangesetOutput{}
-	seqReport := operations.SequenceReport[string, map[uint64][]opsevm.EVMCallOutput]{}
+	seqReport := operations.SequenceReport[string, map[uint64][]EVMCallOutput]{}
 	mcmsCfg := &cldfproposalutils.TimelockConfig{}
 
 	result, err := AddEVMCallSequenceToCSOutput(
@@ -241,9 +240,9 @@ func TestAddEVMCallSequenceToCSOutput_ProposalCombination(t *testing.T) {
 	}
 
 	// Create sequence report with unconfirmed calls to generate a new proposal
-	seqReport := operations.SequenceReport[string, map[uint64][]opsevm.EVMCallOutput]{
-		Report: operations.Report[string, map[uint64][]opsevm.EVMCallOutput]{
-			Output: map[uint64][]opsevm.EVMCallOutput{
+	seqReport := operations.SequenceReport[string, map[uint64][]EVMCallOutput]{
+		Report: operations.Report[string, map[uint64][]EVMCallOutput]{
+			Output: map[uint64][]EVMCallOutput{
 				selector2: {
 					{
 						To:           common.HexToAddress("0x3333333333333333333333333333333333333333"),

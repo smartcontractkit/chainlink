@@ -4,19 +4,17 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	opsutil "github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-
 	migrate_seq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/migration"
 	ccipseqs "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
 var (
@@ -107,7 +105,7 @@ func TranslateEVM2EVMOnRampsToFeeQuoterChangeset(e cldf.Environment, cfg Transla
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute FeeQuoterApplyDestChainConfigUpdatesSequence: %w", err)
 	}
-	csOutput, err = opsutil.AddEVMCallSequenceToCSOutput(e, csOutput, report, err, state.EVMMCMSStateByChain(), cfg.MCMS, "Call ApplyDestChainConfigUpdates on FeeQuoter")
+	csOutput, err = opsutils.AddEVMCallSequenceToCSOutput(e, csOutput, report, err, state.EVMMCMSStateByChain(), cfg.MCMS, "Call ApplyDestChainConfigUpdates on FeeQuoter")
 	if err != nil {
 		return csOutput, fmt.Errorf("failed to apply FeeQuoter dest chain config updates: %w", err)
 	}
@@ -122,7 +120,7 @@ func TranslateEVM2EVMOnRampsToFeeQuoterChangeset(e cldf.Environment, cfg Transla
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute FeeQuoterApplyFeeTokensUpdatesSeq: %w", err)
 	}
-	csOutput, err = opsutil.AddEVMCallSequenceToCSOutput(e, csOutput, feeTokensReport, err, state.EVMMCMSStateByChain(), cfg.MCMS, "Call ApplyFeeTokensUpdatesConfig on FeeQuoter")
+	csOutput, err = opsutils.AddEVMCallSequenceToCSOutput(e, csOutput, feeTokensReport, err, state.EVMMCMSStateByChain(), cfg.MCMS, "Call ApplyFeeTokensUpdatesConfig on FeeQuoter")
 	if err != nil {
 		return csOutput, fmt.Errorf("failed to apply FeeQuoter fee tokens updates: %w", err)
 	}
@@ -137,7 +135,7 @@ func TranslateEVM2EVMOnRampsToFeeQuoterChangeset(e cldf.Environment, cfg Transla
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute FeeQApplyPremiumMultiplierWeiPerEthUpdatesSeq: %w", err)
 	}
-	csOutput, err = opsutil.AddEVMCallSequenceToCSOutput(e, csOutput, premiumMultiplierSqReport, err, state.EVMMCMSStateByChain(), cfg.MCMS, "Call ApplyPremiumMultiplierWeiPerEthUpdates on FeeQuoter")
+	csOutput, err = opsutils.AddEVMCallSequenceToCSOutput(e, csOutput, premiumMultiplierSqReport, err, state.EVMMCMSStateByChain(), cfg.MCMS, "Call ApplyPremiumMultiplierWeiPerEthUpdates on FeeQuoter")
 	if err != nil {
 		return csOutput, fmt.Errorf("failed to apply FeeQuoter premium Multiplier config updates: %w", err)
 	}
@@ -145,7 +143,7 @@ func TranslateEVM2EVMOnRampsToFeeQuoterChangeset(e cldf.Environment, cfg Transla
 }
 
 func (cfg TranslateEVM2EVMOnRampsToFeeQuoterConfig) toSequenceInput(e cldf.Environment, state stateview.CCIPOnChainState) migrate_seq.FeeQuoterUpdateTokenTransferConfig {
-	input := make(map[uint64]opsutil.EVMCallInput[migrate_seq.OnRampToFeeQuoterDestChainConfigInput])
+	input := make(map[uint64]opsutils.EVMCallInput[migrate_seq.OnRampToFeeQuoterDestChainConfigInput])
 	for sel := range e.BlockChains.EVMChains() {
 		onRamps := make(map[uint64]common.Address)
 		newFeeQuoterParams := make(map[uint64]migrate_seq.NewFeeQuoterDestChainConfigParams)
@@ -159,7 +157,7 @@ func (cfg TranslateEVM2EVMOnRampsToFeeQuoterConfig) toSequenceInput(e cldf.Envir
 		if len(onRamps) == 0 {
 			continue
 		}
-		input[sel] = opsutil.EVMCallInput[migrate_seq.OnRampToFeeQuoterDestChainConfigInput]{
+		input[sel] = opsutils.EVMCallInput[migrate_seq.OnRampToFeeQuoterDestChainConfigInput]{
 			ChainSelector: sel,
 			Address:       state.Chains[sel].FeeQuoter.Address(),
 			CallInput: migrate_seq.OnRampToFeeQuoterDestChainConfigInput{
@@ -176,12 +174,12 @@ func (cfg TranslateEVM2EVMOnRampsToFeeQuoterConfig) toSequenceInput(e cldf.Envir
 }
 
 func (cfg TranslateEVM2EVMOnRampsToFeeQuoterConfig) toFeeTokenApplySeqInput(state stateview.CCIPOnChainState, tokens map[uint64][]common.Address) ccipseqs.FeeQuoterUpdateFeeTokensConfig {
-	input := make(map[uint64]opsevm.EVMCallInput[ccipops.ApplyFeeTokensUpdatesInput], len(tokens))
+	input := make(map[uint64]opsutils.EVMCallInput[ccipops.ApplyFeeTokensUpdatesInput], len(tokens))
 
 	for chainSel, tokens := range tokens {
 		var tokensToRemove, tokensToAdd []common.Address
 		tokensToAdd = append(tokensToAdd, tokens...)
-		input[chainSel] = opsevm.EVMCallInput[ccipops.ApplyFeeTokensUpdatesInput]{
+		input[chainSel] = opsutils.EVMCallInput[ccipops.ApplyFeeTokensUpdatesInput]{
 			ChainSelector: chainSel,
 			Address:       state.Chains[chainSel].FeeQuoter.Address(),
 			CallInput: ccipops.ApplyFeeTokensUpdatesInput{
@@ -197,7 +195,7 @@ func (cfg TranslateEVM2EVMOnRampsToFeeQuoterConfig) toFeeTokenApplySeqInput(stat
 }
 
 func (cfg TranslateEVM2EVMOnRampsToFeeQuoterConfig) toPremiumMultiplierCfgSeqInput(state stateview.CCIPOnChainState, tokenPremiumCfgs map[uint64][]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs) ccipseqs.FeeQuoterUpdatePremiumMultiplierWeiPerEthConfig {
-	input := make(map[uint64]opsevm.EVMCallInput[[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs], len(tokenPremiumCfgs))
+	input := make(map[uint64]opsutils.EVMCallInput[[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs], len(tokenPremiumCfgs))
 
 	for chainSel, updates := range tokenPremiumCfgs {
 		var premiumMultiplierUpdates []fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs
@@ -207,7 +205,7 @@ func (cfg TranslateEVM2EVMOnRampsToFeeQuoterConfig) toPremiumMultiplierCfgSeqInp
 				PremiumMultiplierWeiPerEth: update.PremiumMultiplierWeiPerEth,
 			})
 		}
-		input[chainSel] = opsevm.EVMCallInput[[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs]{
+		input[chainSel] = opsutils.EVMCallInput[[]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs]{
 			ChainSelector: chainSel,
 			Address:       state.Chains[chainSel].FeeQuoter.Address(),
 			CallInput:     premiumMultiplierUpdates,
@@ -248,7 +246,7 @@ func TranslateEVM2EVMOnRampsToFeeQTokenTransferFeeConfigChangeset(e cldf.Environ
 	}
 
 	// TODO: check the output: its empty
-	csOutput, err = opsutil.AddEVMCallSequenceToCSOutput(e, csOutput, report, err, state.EVMMCMSStateByChain(), cfg.MCMS, "Call ApplyTokenTransferFeeConfigUpdates on FeeQuoter")
+	csOutput, err = opsutils.AddEVMCallSequenceToCSOutput(e, csOutput, report, err, state.EVMMCMSStateByChain(), cfg.MCMS, "Call ApplyTokenTransferFeeConfigUpdates on FeeQuoter")
 	if err != nil {
 		return csOutput, fmt.Errorf("failed to apply FeeQuoter fee tokens updates: %w", err)
 	}
@@ -256,9 +254,9 @@ func TranslateEVM2EVMOnRampsToFeeQTokenTransferFeeConfigChangeset(e cldf.Environ
 }
 
 func (cfg TranslateEVM2EVMOnRampsToFeeQuoterConfig) tokenTransferFeeConfigArgsToSeqInput(state stateview.CCIPOnChainState, tokenTransferFeeCfgArgs map[uint64][]fee_quoter.FeeQuoterTokenTransferFeeConfigArgs) ccipseqs.FeeQuoterUpdateTokenTransferConfig {
-	input := make(map[uint64]opsevm.EVMCallInput[ccipops.ApplyTokenTransferFeeConfigUpdatesConfigPerChain])
+	input := make(map[uint64]opsutils.EVMCallInput[ccipops.ApplyTokenTransferFeeConfigUpdatesConfigPerChain])
 	for chainSel, tokensFeeCfgArgs := range tokenTransferFeeCfgArgs {
-		input[chainSel] = opsevm.EVMCallInput[ccipops.ApplyTokenTransferFeeConfigUpdatesConfigPerChain]{
+		input[chainSel] = opsutils.EVMCallInput[ccipops.ApplyTokenTransferFeeConfigUpdatesConfigPerChain]{
 			ChainSelector: chainSel,
 			Address:       state.Chains[chainSel].FeeQuoter.Address(),
 			CallInput: ccipops.ApplyTokenTransferFeeConfigUpdatesConfigPerChain{

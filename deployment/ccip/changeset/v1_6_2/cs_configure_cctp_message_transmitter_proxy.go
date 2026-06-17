@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	cmtp "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/cctp_message_transmitter_proxy"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -18,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
@@ -27,7 +26,7 @@ import (
 var (
 	ConfigureCCTPMessageTransmitterProxy = cldf.CreateChangeSet(configureCCTPMessageTransmitterProxyContractLogic, configureCCTPMessageTransmitterProxyContractPrecondition)
 
-	CCTPMessageTransmitterProxyConfigOp = opsevm.NewEVMCallOperation(
+	CCTPMessageTransmitterProxyConfigOp = opsutils.NewEVMCallOperation(
 		"CCTPMessageTransmitterProxyConfigOp",
 		semver.MustParse("1.6.2"),
 		"Setting CCTP message transmitter proxy config",
@@ -42,8 +41,8 @@ var (
 		"CCTPMessageTransmitterProxyConfigSequence",
 		semver.MustParse("1.6.2"),
 		"Setting CCTP message transmitter proxy config across multiple EVM chains",
-		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, inputs map[uint64]opsevm.EVMCallInput[[]cmtp.CCTPMessageTransmitterProxyAllowedCallerConfigArgs]) (map[uint64][]opsevm.EVMCallOutput, error) {
-			out := make(map[uint64][]opsevm.EVMCallOutput, len(inputs))
+		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, inputs map[uint64]opsutils.EVMCallInput[[]cmtp.CCTPMessageTransmitterProxyAllowedCallerConfigArgs]) (map[uint64][]opsutils.EVMCallOutput, error) {
+			out := make(map[uint64][]opsutils.EVMCallOutput, len(inputs))
 
 			for chainSelector, input := range inputs {
 				if _, ok := chains[chainSelector]; !ok {
@@ -52,9 +51,9 @@ var (
 
 				report, err := operations.ExecuteOperation(b, CCTPMessageTransmitterProxyConfigOp, chains[chainSelector], input)
 				if err != nil {
-					return map[uint64][]opsevm.EVMCallOutput{}, fmt.Errorf("failed to set CCTP message transmitt proxy config for chain %d: %w", chainSelector, err)
+					return map[uint64][]opsutils.EVMCallOutput{}, fmt.Errorf("failed to set CCTP message transmitt proxy config for chain %d: %w", chainSelector, err)
 				}
-				out[chainSelector] = []opsevm.EVMCallOutput{report.Output}
+				out[chainSelector] = []opsutils.EVMCallOutput{report.Output}
 			}
 
 			return out, nil
@@ -137,7 +136,7 @@ func configureCCTPMessageTransmitterProxyContractLogic(env cldf.Environment, c C
 	}
 
 	// Convert CLD/migrations inputs to onchain inputs.
-	input := make(map[uint64]opsevm.EVMCallInput[[]cmtp.CCTPMessageTransmitterProxyAllowedCallerConfigArgs], len(c.CCTPProxies))
+	input := make(map[uint64]opsutils.EVMCallInput[[]cmtp.CCTPMessageTransmitterProxyAllowedCallerConfigArgs], len(c.CCTPProxies))
 	for chainSelector, proxyConfig := range c.CCTPProxies {
 		_, chainState, err := state.GetEVMChainState(env, chainSelector)
 		if err != nil {
@@ -153,7 +152,7 @@ func configureCCTPMessageTransmitterProxyContractLogic(env cldf.Environment, c C
 			})
 		}
 
-		input[chainSelector] = opsevm.EVMCallInput[[]cmtp.CCTPMessageTransmitterProxyAllowedCallerConfigArgs]{
+		input[chainSelector] = opsutils.EVMCallInput[[]cmtp.CCTPMessageTransmitterProxyAllowedCallerConfigArgs]{
 			ChainSelector: chainSelector,
 			NoSend:        c.MCMS != nil,
 			Address:       chainState.CCTPMessageTransmitterProxies[deployment.Version1_6_2].Address(),
@@ -168,7 +167,7 @@ func configureCCTPMessageTransmitterProxyContractLogic(env cldf.Environment, c C
 		env.BlockChains.EVMChains(),
 		input,
 	)
-	return opsevm.AddEVMCallSequenceToCSOutput(
+	return opsutils.AddEVMCallSequenceToCSOutput(
 		env,
 		cldf.ChangesetOutput{},
 		seqReport,

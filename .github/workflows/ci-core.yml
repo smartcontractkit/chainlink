@@ -179,9 +179,7 @@ jobs:
         modules: ${{ fromJson(needs.filter.outputs.affected-modules) }}
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        uses: runs-on/action@742bf56072eb4845a0f94b3394673e4903c90ff0 # v2.1.0
-        with:
-          metrics: cpu,network,memory,disk
+        uses: runs-on/action@d141ef83eb66d096ce8afc767e09115a65c63b60 # v2.1.2
 
       - name: Checkout
         uses: actions/checkout@v6
@@ -315,9 +313,8 @@ jobs:
       actions: read
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        uses: runs-on/action@742bf56072eb4845a0f94b3394673e4903c90ff0 # v2.1.0
-        with:
-          metrics: cpu,network,memory,disk
+        uses: runs-on/action@d141ef83eb66d096ce8afc767e09115a65c63b60 # v2.1.2
+
 
       - name: Checkout the repo
         if: ${{ matrix.type.should-run == 'true' }}
@@ -344,7 +341,7 @@ jobs:
 
       - name: Setup Aptos
         if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-aptos == 'true' }}
-        uses: aptos-labs/actions/install-aptos-cli@63740b290d839b87ecfafbcf75ed03a36a54a29f # jan 15, 2025
+        uses: aptos-labs/actions/install-aptos-cli@fdd3a3a628c840d5c35086a87e9cc3141b635505 # 2026-05-20
         with:
           CLI_VERSION: 8.1.0
 
@@ -521,7 +518,7 @@ jobs:
           fetch-depth: 0 # fetches all history for all tags and branches to provide more metadata for sonar reports
 
       - name: Download all workflow artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
 
       - name: Check and Set SonarQube Report Paths
         shell: bash
@@ -606,7 +603,7 @@ jobs:
 
       - name: SonarQube Scan
         if: ${{ env.SONARQUBE_ARGS != '' }}
-        uses: sonarsource/sonarqube-scan-action@aecaf43ae57e412bd97d70ef9ce6076e672fe0a9 # v2.3.0
+        uses: sonarsource/sonarqube-scan-action@713881670b6b3676cda39549040e2d88c70d582e # v8.2.0
         with:
           args: ${{ env.SONARQUBE_ARGS }}
         env:
