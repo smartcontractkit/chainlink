@@ -585,6 +585,7 @@ func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedE
 		"ccip":        state.SuiChains[sourceChain].CCIPAddress,
 		"ccip_onramp": "0x0", // old onRamp address
 		"mcms":        state.SuiChains[sourceChain].MCMSPackageID,
+		"fast_mcms":   state.SuiChains[sourceChain].FastCurseMCMSPackageID,
 		"mcms_owner":  "0x1",
 
 		"latest_ccip_pkg":     state.SuiChains[sourceChain].CCIPMockV2PackageId,
@@ -692,6 +693,7 @@ func upgradeSuiOffRamp(ctx context.Context, t *testing.T, e testhelpers.Deployed
 		"ccip":         state.SuiChains[sourceChain].CCIPAddress,
 		"ccip_offramp": "0x0",
 		"mcms":         state.SuiChains[sourceChain].MCMSPackageID,
+		"fast_mcms":    state.SuiChains[sourceChain].FastCurseMCMSPackageID,
 		"mcms_owner":   "0x1",
 
 		"latest_ccip_pkg":      state.SuiChains[sourceChain].CCIPMockV2PackageId,
@@ -797,6 +799,7 @@ func upgradeCCIP(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, s
 	compiledPackage, err := suiBind.CompilePackage(version, map[string]string{
 		"ccip":       "0x0",
 		"mcms":       state.SuiChains[sourceChain].MCMSPackageID,
+		"fast_mcms":  state.SuiChains[sourceChain].FastCurseMCMSPackageID,
 		"mcms_owner": signerAddr,
 
 		"original_ccip_pkg": state.SuiChains[sourceChain].CCIPAddress,
