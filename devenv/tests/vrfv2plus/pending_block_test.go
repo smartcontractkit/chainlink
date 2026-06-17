@@ -21,8 +21,7 @@ import (
 
 func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) {
 	t.Cleanup(func() {
-		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
-		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
+		products.CleanupContainerLogs(t, products.DefaultSettings())
 	})
 
 	outputFile := "../../env-vrf2plus-out.toml"

@@ -333,7 +333,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 	config := []byte("")
 	wfOwner := testutils.NewAddress().Bytes()
 
-	binary := wasmtest.CreateTestBinary(binaryCmd, true, t)
+	binary := wasmtest.CreateTestBinary(t, binaryCmd, true)
 	encodedBinary := []byte(base64.StdEncoding.EncodeToString(binary))
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 
@@ -891,7 +891,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			emitter      = custmsg.NewLabeler()
 			workflowName = testutils.RandomizeName(t.Name())
 
-			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
+			binary        = wasmtest.CreateTestBinary(t, binaryCmd, true)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
 			secretsURL    = "http://example.com/secrets/" + workflowName
@@ -981,7 +981,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			emitter      = custmsg.NewLabeler()
 			workflowName = testutils.RandomizeName(t.Name())
 
-			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
+			binary        = wasmtest.CreateTestBinary(t, binaryCmd, true)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
 			secretsURL    = "http://example.com/secrets/" + workflowName
@@ -1040,7 +1040,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			emitter      = custmsg.NewLabeler()
 			workflowName = testutils.RandomizeName(t.Name())
 
-			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
+			binary        = wasmtest.CreateTestBinary(t, binaryCmd, true)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
 			secretsURL    = "http://example.com/secrets/" + workflowName
@@ -1137,7 +1137,7 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 			emitter      = custmsg.NewLabeler()
 			workflowName = testutils.RandomizeName(t.Name())
 
-			binary        = wasmtest.CreateTestBinary(binaryCmd, true, t)
+			binary        = wasmtest.CreateTestBinary(t, binaryCmd, true)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
 			updateConfig  = []byte("updated")
@@ -1260,6 +1260,10 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		require.NoError(t, err)
 		// old engine is no longer running
 		require.Equal(t, types.WorkflowID(updatedWFID), engine.WorkflowID)
+
+		// Clean up the new engine created by workflowUpdatedEvent to avoid goroutine leaks
+		err = h.tryEngineCleanup(wfOwner, workflowName)
+		require.NoError(t, err)
 	})
 }
 
@@ -1318,7 +1322,7 @@ func TestEngineFactoryFn_SuccessfulCreation(t *testing.T) {
 	wfOwner := hex.EncodeToString(wfOwnerBytes)
 
 	t.Run("DAG workflow", func(t *testing.T) {
-		binary := wasmtest.CreateTestBinary(binaryCmd, true, t)
+		binary := wasmtest.CreateTestBinary(t, binaryCmd, true)
 		workflowID, err := pkgworkflows.GenerateWorkflowID(wfOwnerBytes, testutils.RandomizeName(t.Name()), binary, config, secretsURL)
 		require.NoError(t, err)
 		engine, err := eventHandler.engineFactoryFn(ctx, hex.EncodeToString(workflowID[:]), wfOwner, workflowName, config, binary)
@@ -1327,7 +1331,7 @@ func TestEngineFactoryFn_SuccessfulCreation(t *testing.T) {
 	})
 
 	t.Run("NoDAG workflow", func(t *testing.T) {
-		binary := wasmtest.CreateTestBinary(noDagBinaryCmd, true, t)
+		binary := wasmtest.CreateTestBinary(t, noDagBinaryCmd, true)
 		workflowID, err := pkgworkflows.GenerateWorkflowID(wfOwnerBytes, testutils.RandomizeName(t.Name()), binary, config, secretsURL)
 		require.NoError(t, err)
 		engine, err := eventHandler.engineFactoryFn(ctx, hex.EncodeToString(workflowID[:]), wfOwner, workflowName, config, binary)

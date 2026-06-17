@@ -13,8 +13,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/quarantine"
-
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -125,7 +123,6 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 }
 
 func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
-	quarantine.Flaky(t, "DX-1779")
 	ctx := t.Context()
 
 	backend, stopMining, accounts := setupBackend(t)
@@ -251,7 +248,6 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 }
 
 func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
-	quarantine.Flaky(t, "DX-1889")
 	ctx := t.Context()
 
 	backend, stopMining, accounts := setupBackend(t)
@@ -503,8 +499,6 @@ func setupBackend(t *testing.T) (backend evmtypes.Backend, stop func(), opts []*
 	opts = []*bind.TransactOpts{sergey, steve, carrol}
 	return
 }
-
-func ptr[T any](v T) *T { return &v }
 
 func setupDB(t *testing.T) *sqlx.DB {
 	_, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
