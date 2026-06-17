@@ -961,6 +961,7 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 // digest of the JSON-RPC request after PrepareUserJSONRPCRequest—the same ordering and bytes the
 // gateway verifies via JWTBasedAuth.
 func TestMustMintVaultJWTForRequest_UsesPostPrepareRequestDigest(t *testing.T) {
+	t.Parallel()
 	issuer, err := vault.NewTestJWTIssuer()
 	require.NoError(t, err)
 	t.Cleanup(func() {
