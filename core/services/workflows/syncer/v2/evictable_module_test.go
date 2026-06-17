@@ -1095,8 +1095,8 @@ func TestEvictable_Execute_L1_hit(t *testing.T) {
 }
 
 func TestEvictable_Evict_then_reloadWithoutDisk(t *testing.T) {
-	t.Parallel()
-	defer debug.SetGCPercent(debug.SetGCPercent(-1))
+	oldGC := debug.SetGCPercent(-1)
+	t.Cleanup(func() { debug.SetGCPercent(oldGC) })
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil).Once()
 	inner.EXPECT().Close()
@@ -1144,6 +1144,8 @@ func TestEvictable_emptyWorkflowID_diskMiss(t *testing.T) {
 // reference and a subsequent Execute resurrects the still-live compiled module
 // via the weak L2, skipping both disk I/O and the factory.
 func TestEvictable_WeakRefHitAfterEvict(t *testing.T) {
+	oldGC := debug.SetGCPercent(-1)
+	t.Cleanup(func() { debug.SetGCPercent(oldGC) })
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil)
 	inner.EXPECT().Close()
