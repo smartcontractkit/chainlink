@@ -487,6 +487,7 @@ func mustNewConfidentialModule(t *testing.T, capRegistry *regmocks.CapabilitiesR
 }
 
 func TestNewConfidentialModule_NilGate(t *testing.T) {
+	t.Parallel()
 	capReg := regmocks.NewCapabilitiesRegistry(t)
 	_, err := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", nil, logger.Test(t))
 	require.Error(t, err)
