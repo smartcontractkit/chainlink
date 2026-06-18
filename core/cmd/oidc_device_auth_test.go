@@ -35,7 +35,9 @@ func (m *mockNode) handler(t *testing.T) http.Handler {
 		w.WriteHeader(http.StatusOK)
 	})
 	mux.HandleFunc("/oidc-device/start", func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, http.MethodPost, r.Method)
+		// assert (not require) inside handler goroutines: require calls Goexit
+		// on the wrong goroutine.
+		assert.Equal(t, http.MethodPost, r.Method)
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"device_handle":             "test-handle",
 			"user_code":                 "WDJB-MJHT",
@@ -47,7 +49,7 @@ func (m *mockNode) handler(t *testing.T) http.Handler {
 	})
 	mux.HandleFunc("/oidc-device/poll", func(w http.ResponseWriter, r *http.Request) {
 		var req map[string]string
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&req))
+		assert.NoError(t, json.NewDecoder(r.Body).Decode(&req))
 		assert.Equal(t, "test-handle", req["device_handle"], "CLI must echo back the opaque handle")
 
 		if atomic.AddInt32(&m.pollsPending, -1) >= 0 {
@@ -58,7 +60,14 @@ func (m *mockNode) handler(t *testing.T) http.Handler {
 			_ = json.NewEncoder(w).Encode(map[string]string{"status": "denied", "message": "expired"})
 			return
 		}
-		http.SetCookie(w, &http.Cookie{Name: "clsession", Value: "abc123", Path: "/"})
+		http.SetCookie(w, &http.Cookie{
+			Name:     "clsession",
+			Value:    "abc123",
+			Path:     "/",
+			Secure:   true,
+			HttpOnly: true,
+			SameSite: http.SameSiteStrictMode,
+		})
 		_ = json.NewEncoder(w).Encode(map[string]string{"status": "complete"})
 	})
 	return mux

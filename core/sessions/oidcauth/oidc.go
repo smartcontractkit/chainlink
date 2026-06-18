@@ -297,7 +297,7 @@ func (oi *oidcAuthenticator) issueSessionFromIDToken(ctx context.Context, rawIDT
 		// Audit the full claim set so an over-broad or unexpected group grant is
 		// detectable after the fact.
 		oi.auditLogger.Audit(audit.AuthLoginFailed2FA, map[string]any{"email": email, "groups": idClaims})
-		return "", "", fmt.Errorf("%w: %v", errNoMatchingRole, err)
+		return "", "", fmt.Errorf("%w: %w", errNoMatchingRole, err)
 	}
 
 	clSession := clsessions.NewSession()
