@@ -14,6 +14,7 @@ import (
 )
 
 func TestDeviceFlowStore_AddGetRemove(t *testing.T) {
+	t.Parallel()
 	s := newDeviceFlowStore()
 
 	state := &deviceFlowState{expiresAt: time.Now().Add(time.Minute)}
@@ -29,8 +30,9 @@ func TestDeviceFlowStore_AddGetRemove(t *testing.T) {
 }
 
 func TestDeviceFlowStore_ConcurrencyCap(t *testing.T) {
+	t.Parallel()
 	s := newDeviceFlowStore()
-	for i := 0; i < maxConcurrentDeviceFlows; i++ {
+	for i := range maxConcurrentDeviceFlows {
 		require.NoError(t, s.add(handleN(i), &deviceFlowState{expiresAt: time.Now().Add(time.Minute)}))
 	}
 	// One past the cap must be refused, not silently dropped.
@@ -39,9 +41,10 @@ func TestDeviceFlowStore_ConcurrencyCap(t *testing.T) {
 }
 
 func TestDeviceFlowStore_ExpiredSweptOnAdd(t *testing.T) {
+	t.Parallel()
 	s := newDeviceFlowStore()
 	// Fill with already-expired flows.
-	for i := 0; i < maxConcurrentDeviceFlows; i++ {
+	for i := range maxConcurrentDeviceFlows {
 		require.NoError(t, s.add(handleN(i), &deviceFlowState{expiresAt: time.Now().Add(-time.Second)}))
 	}
 	// A fresh add sweeps the expired entries, making room rather than erroring.
@@ -51,9 +54,10 @@ func TestDeviceFlowStore_ExpiredSweptOnAdd(t *testing.T) {
 }
 
 func TestGenerateDeviceHandle_UniqueAndURLSafe(t *testing.T) {
+	t.Parallel()
 	oi := &oidcAuthenticator{}
 	seen := make(map[string]struct{})
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		h, err := oi.generateDeviceHandle()
 		require.NoError(t, err)
 		require.NotEmpty(t, h)
@@ -69,6 +73,7 @@ func TestGenerateDeviceHandle_UniqueAndURLSafe(t *testing.T) {
 }
 
 func TestFinishDeviceFlow_RecordsTerminalState(t *testing.T) {
+	t.Parallel()
 	oi := &oidcAuthenticator{lggr: logger.TestLogger(t)}
 
 	okState := &deviceFlowState{expiresAt: time.Now().Add(time.Minute)}
@@ -77,7 +82,7 @@ func TestFinishDeviceFlow_RecordsTerminalState(t *testing.T) {
 	assert.True(t, okState.done)
 	assert.Equal(t, "sess-1", okState.sessionID)
 	assert.Equal(t, "user@example.com", okState.email)
-	assert.NoError(t, okState.err)
+	require.NoError(t, okState.err)
 	okState.mu.Unlock()
 
 	errState := &deviceFlowState{expiresAt: time.Now().Add(time.Minute)}
@@ -86,13 +91,14 @@ func TestFinishDeviceFlow_RecordsTerminalState(t *testing.T) {
 	errState.mu.Lock()
 	assert.True(t, errState.done)
 	assert.Empty(t, errState.sessionID)
-	assert.ErrorIs(t, errState.err, wantErr)
+	require.ErrorIs(t, errState.err, wantErr)
 	errState.mu.Unlock()
 }
 
 // TestDeviceFlowState_ConcurrentAccess exercises the writer/reader lock that
 // separates the background poll goroutine from the CLI poll handler.
 func TestDeviceFlowState_ConcurrentAccess(t *testing.T) {
+	t.Parallel()
 	oi := &oidcAuthenticator{lggr: logger.TestLogger(t)}
 	state := &deviceFlowState{expiresAt: time.Now().Add(time.Minute)}
 
@@ -104,7 +110,7 @@ func TestDeviceFlowState_ConcurrentAccess(t *testing.T) {
 	}()
 	go func() {
 		defer wg.Done()
-		for i := 0; i < 100; i++ {
+		for range 100 {
 			state.mu.Lock()
 			_ = state.done
 			state.mu.Unlock()
@@ -141,6 +147,7 @@ func (m mutableConfig) ClientID() string {
 }
 
 func TestValidateOIDCConfig_SecretOptional(t *testing.T) {
+	t.Parallel()
 	empty := ""
 	base := &TestConfig{}
 
