@@ -35,7 +35,7 @@ plugins:
       installPath: "."
   evm:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
-      gitRef: "602b8fb7d379afb0a245dd6b4f67cc4557c40541"
+      gitRef: "eadf2cb023d63d7c3c3464e9826aeb6a25c863e4"
       installPath: "."
   solana:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/solana"
@@ -46,7 +46,6 @@ plugins:
       gitRef: "3fad562d65996bf447372023b5123c0c6e8850c7"
       installPath: "."
   confidential-http:
-    - moduleURI:
-        "github.com/smartcontractkit/confidential-compute/enclave/apps/confidential-http/capability"
+    - moduleURI: "github.com/smartcontractkit/confidential-compute/enclave/apps/confidential-http/capability"
       gitRef: "24ffd2435ed7d6bca45525c2189d720b7a4ef6bc"
       installPath: "./cmd/confidential-http"
