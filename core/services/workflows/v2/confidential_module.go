@@ -70,7 +70,10 @@ type ConfidentialModule struct {
 
 var _ host.RequirementEnforcingModule = (*ConfidentialModule)(nil)
 
-func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, enabledGate limits.GateLimiter, lggr logger.Logger) *ConfidentialModule {
+func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, enabledGate limits.GateLimiter, lggr logger.Logger) (*ConfidentialModule, error) {
+	if enabledGate == nil {
+		return nil, errors.New("enabledGate must not be nil")
+	}
 	return &ConfidentialModule{
 		capRegistry:   capRegistry,
 		binaryURL:     binaryURL,
@@ -81,7 +84,7 @@ func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, binaryURL stri
 		workflowTag:   workflowTag,
 		enabledGate:   enabledGate,
 		lggr:          lggr,
-	}
+	}, nil
 }
 
 func (m *ConfidentialModule) Start()            {}
@@ -93,10 +96,8 @@ func (m *ConfidentialModule) Execute(
 	request *sdkpb.ExecuteRequest,
 	helper host.ExecutionHelper,
 ) (*sdkpb.ExecutionResult, error) {
-	if m.enabledGate != nil {
-		if err := m.enabledGate.AllowErr(ctx); err != nil {
-			return nil, fmt.Errorf("confidential-workflows capability is disabled by settings: %w", err)
-		}
+	if err := m.enabledGate.AllowErr(ctx); err != nil {
+		return nil, fmt.Errorf("confidential-workflows capability is disabled by settings: %w", err)
 	}
 
 	var requirements *sdkpb.Requirements
