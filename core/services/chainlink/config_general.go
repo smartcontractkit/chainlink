@@ -225,6 +225,10 @@ func (g *generalConfig) SuiConfigs() RawConfigs {
 	return g.c.Sui
 }
 
+func (g *generalConfig) StellarConfigs() RawConfigs {
+	return g.c.Stellar
+}
+
 func (g *generalConfig) Validate() error {
 	return g.validate(g.secrets.Validate)
 }
@@ -374,6 +378,15 @@ func (g *generalConfig) TONEnabled() bool {
 
 func (g *generalConfig) SuiEnabled() bool {
 	for _, c := range g.c.Sui {
+		if c.IsEnabled() {
+			return true
+		}
+	}
+	return false
+}
+
+func (g *generalConfig) StellarEnabled() bool {
+	for _, c := range g.c.Stellar {
 		if c.IsEnabled() {
 			return true
 		}

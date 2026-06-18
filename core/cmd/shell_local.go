@@ -500,6 +500,9 @@ func (s *Shell) runNode(c *cli.Context) error {
 		if s.Config.SuiEnabled() {
 			enabledChains = append(enabledChains, corekeys.Sui)
 		}
+		if s.Config.StellarEnabled() {
+			enabledChains = append(enabledChains, corekeys.Stellar)
+		}
 		err2 := app.GetKeyStore().OCR2().EnsureKeys(rootCtx, enabledChains...)
 		if err2 != nil {
 			return fmt.Errorf("failed to ensure ocr key: %w", err2)
@@ -587,6 +590,12 @@ func (s *Shell) runNode(c *cli.Context) error {
 		err2 := app.GetKeyStore().Sui().EnsureKey(rootCtx)
 		if err2 != nil {
 			return fmt.Errorf("failed to ensure Sui key: %w", err2)
+		}
+	}
+	if s.Config.StellarEnabled() {
+		err2 := app.GetKeyStore().Stellar().EnsureKey(rootCtx)
+		if err2 != nil {
+			return fmt.Errorf("failed to ensure Stellar key: %w", err2)
 		}
 	}
 	if s.Config.CRE().EnableDKGRecipient() {

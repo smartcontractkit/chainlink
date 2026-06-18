@@ -27,22 +27,20 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 
-	"github.com/smartcontractkit/chainlink-data-streams/rpc"
-	"github.com/smartcontractkit/chainlink-data-streams/rpc/mtls"
-
-	"github.com/smartcontractkit/wsrpc/credentials"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-data-streams/rpc"
+	"github.com/smartcontractkit/chainlink-data-streams/rpc/mtls"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+
+	"github.com/smartcontractkit/wsrpc/credentials"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -63,7 +61,7 @@ type mercuryServer struct {
 func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.PublicKey) (serverURL string) {
 	// Set up the grpc server
 	var lc net.ListenConfig
-	lis, err := lc.Listen(testutils.Context(t), "tcp", "127.0.0.1:0")
+	lis, err := lc.Listen(t.Context(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("[MAIN] failed to listen: %v", err)
 	}
@@ -129,28 +127,28 @@ type Node struct {
 func (node *Node) AddStreamJob(t *testing.T, spec string) (id int32) {
 	job, err := streams.ValidatedStreamSpec(spec)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(testutils.Context(t), &job)
+	err = node.App.AddJobV2(t.Context(), &job)
 	require.NoError(t, err)
 	return job.ID
 }
 
 func (node *Node) DeleteJob(t *testing.T, id int32) {
-	err := node.App.DeleteJob(testutils.Context(t), id)
+	err := node.App.DeleteJob(t.Context(), id)
 	require.NoError(t, err)
 }
 
 func (node *Node) AddLLOJob(t *testing.T, spec string) {
 	c := node.App.GetConfig()
-	job, err := validate.ValidatedOracleSpecToml(testutils.Context(t), c.OCR2(), c.Insecure(), spec, nil)
+	job, err := validate.ValidatedOracleSpecToml(t.Context(), c.OCR2(), c.Insecure(), spec, nil)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(testutils.Context(t), &job)
+	err = node.App.AddJobV2(t.Context(), &job)
 	require.NoError(t, err)
 }
 
 func (node *Node) AddBootstrapJob(t *testing.T, spec string) {
 	job, err := ocrbootstrap.ValidatedBootstrapSpecToml(spec)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(testutils.Context(t), &job)
+	err = node.App.AddJobV2(t.Context(), &job)
 	require.NoError(t, err)
 }
 
@@ -223,7 +221,7 @@ func setupNode(
 	} else {
 		app = cltest.NewApplicationWithConfig(t, config, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
 	}
-	err := app.Start(testutils.Context(t))
+	err := app.Start(t.Context())
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
@@ -398,7 +396,7 @@ transmitterID = "%x"
 }
 
 func createSingleDecimalBridge(t *testing.T, name string, i int, p decimal.Decimal, borm bridges.ORM) (bridgeName string) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		b, err := io.ReadAll(req.Body)
 		if !assert.NoError(t, err) {
@@ -426,7 +424,7 @@ func createSingleDecimalBridge(t *testing.T, name string, i int, p decimal.Decim
 
 // createSingleDecimalCountingBridge is like createSingleDecimalBridge but increments callCount on each bridge request.
 func createSingleDecimalCountingBridge(t *testing.T, name string, i int, p decimal.Decimal, borm bridges.ORM, callCount *atomic.Uint64) (bridgeName string) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	wantBody := map[string]any{"data": map[string]any{"data": "foo"}}
 	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		callCount.Add(1)
@@ -462,7 +460,7 @@ func createSingleDecimalCountingBridge(t *testing.T, name string, i int, p decim
 }
 
 func createBridge(t *testing.T, bridgeName string, responseJSON string, borm bridges.ORM) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		res.WriteHeader(http.StatusOK)
 		_, err := res.Write([]byte(responseJSON))
@@ -501,7 +499,8 @@ func addOCRJobsEVMPremiumLegacy(
 	clientPubKeys []ed25519.PublicKey,
 	pluginConfig,
 	relayType,
-	relayConfig string) (jobIDs map[int]map[uint32]int32) {
+	relayConfig string,
+) (jobIDs map[int]map[uint32]int32) {
 	// node idx => stream id => job id
 	jobIDs = make(map[int]map[uint32]int32)
 	// Add OCR jobs - one per feed on each node
