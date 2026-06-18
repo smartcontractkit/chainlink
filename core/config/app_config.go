@@ -29,6 +29,7 @@ type AppConfig interface {
 	TronEnabled() bool
 	TONEnabled() bool
 	SuiEnabled() bool
+	StellarEnabled() bool
 
 	Validate() error
 	ValidateDB() error

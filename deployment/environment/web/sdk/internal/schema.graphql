@@ -802,6 +802,7 @@ enum OCR2ChainType {
     TRON
     TON
     SUI
+    STELLAR
 }
 
 type OCR2KeyBundle {

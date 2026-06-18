@@ -173,8 +173,10 @@ MinAttempts = 3 # Example
 Enabled = false # Default
 # BlockTime controls the frequency of the backfill loop of TransactionManagerV2. 
 BlockTime = '10s' # Example
-# CustomURL configures the base url of a custom endpoint used by the ChainDualBroadcast chain type.
+# CustomURL configures the base url of a custom endpoint used by the dual broadcast functionality (legacy single endpoint). Deprecated: use CustomURLs instead. Cannot be used together with CustomURLs in the same configuration.
 CustomURL = 'https://example.api.io' # Example
+# CustomURLs configures an ordered list of Order Flow Auction (OFA) endpoint URLs: the first entry is primary (determines broadcast outcome); additional entries are multiplexed as secondaries (fire-and-forget). Cannot be used together with CustomURL in the same configuration.
+CustomURLs = ['https://relay.example/api', 'https://ofa-secondary.example/api'] # Example
 # DualBroadcast enables DualBroadcast functionality.
 DualBroadcast = false # Example
 # ReadRequestsToMultipleNodes controls whether txm chain client reads use multiplexed calls.
