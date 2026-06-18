@@ -62,7 +62,7 @@ var ConfigureCapabilitiesRegistrySeq = operations.NewSequence[ConfigureCapabilit
 			return ConfigureCapabilitiesRegistrySeqOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", input.RegistryChainSel)
 		}
 
-		capabilitiesRegistry, err := contracts.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](deps.Env.DataStore.Addresses(), chain, input.ContractAddress.Hex())
+		capabilitiesRegistry, err := contracts.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](deps.Env.DataStore.Addresses(), chain, input.ContractAddress.Hex(), "")
 		if err != nil {
 			return ConfigureCapabilitiesRegistrySeqOutput{}, fmt.Errorf("failed to get capabilities registry contract: %w", err)
 		}

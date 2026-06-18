@@ -12,10 +12,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
-	mercuryutils "github.com/smartcontractkit/chainlink-evm/pkg/mercury/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -302,6 +302,10 @@ func (t *telemeter) sendBufferedTelemetry(digest types.ConfigDigest, seqNr uint6
 	go func() {
 		for _, msgs := range messages {
 			for _, msg := range msgs {
+				// Sampling is applied at flush time (not enqueue time) for buffered telemetry
+				if !t.sampler.Sample(msg.telemType, msg.msg) {
+					continue
+				}
 				bytes, err := proto.Marshal(msg.msg)
 				if err != nil {
 					t.eng.Warnf("protobuf marshal failed %v", err.Error())
@@ -337,12 +341,12 @@ func (t *telemeter) enqueueTelemetry(digest string, seqNr uint64, typ synchroniz
 		if _, ok := t.telemetryBuffer[digest]; !ok {
 			t.telemetryBuffer[digest] = make(map[uint64][]telemetryEntry)
 		}
-		if t.sampler.Sample(typ, msg) {
-			t.telemetryBuffer[digest][seqNr] = []telemetryEntry{{
-				telemType: typ,
-				msg:       msg,
-			}}
-		}
+
+		// Sampling is applied at flush time for buffered telemetry
+		t.telemetryBuffer[digest][seqNr] = []telemetryEntry{{
+			telemType: typ,
+			msg:       msg,
+		}}
 	default: // synchronization.LLOReport and other buffered types
 		// Report telemetry: append, since multiple reports per seqNr is
 		// expected (one per reportable channel).
@@ -352,12 +356,11 @@ func (t *telemeter) enqueueTelemetry(digest string, seqNr uint64, typ synchroniz
 		if _, ok := t.telemetryBuffer[digest]; !ok {
 			t.telemetryBuffer[digest] = make(map[uint64][]telemetryEntry)
 		}
-		if t.sampler.Sample(typ, msg) {
-			t.telemetryBuffer[digest][seqNr] = append(t.telemetryBuffer[digest][seqNr], telemetryEntry{
-				telemType: typ,
-				msg:       msg,
-			})
-		}
+		// Sampling is applied at flush time for buffered telemetry
+		t.telemetryBuffer[digest][seqNr] = append(t.telemetryBuffer[digest][seqNr], telemetryEntry{
+			telemType: typ,
+			msg:       msg,
+		})
 	}
 }
 
@@ -404,7 +407,7 @@ func (t *telemeter) prepareObservationTelemetry(p any, opts llo.DSOpts) {
 }
 
 func (t *telemeter) prepareV3PremiumLegacyTelemetry(d *TelemetryPipeline) {
-	eaTelemetryValues := ocrcommon.ParseMercuryEATelemetry(t.eng.SugaredLogger, d.trrs, mercuryutils.REPORT_V3)
+	eaTelemetryValues := ocrcommon.ParseMercuryEATelemetry(t.eng.SugaredLogger, d.trrs, mercury.REPORT_V3)
 	for _, eaTelem := range eaTelemetryValues {
 		var benchmarkPrice, bidPrice, askPrice int64
 		var bp, bid, ask string
@@ -443,7 +446,7 @@ func (t *telemeter) prepareV3PremiumLegacyTelemetry(d *TelemetryPipeline) {
 			IsNativeFeed:                    false,
 			ConfigDigest:                    d.opts.ConfigDigest().Hex(),
 			AssetSymbol:                     eaTelem.AssetSymbol,
-			Version:                         uint32(1000 + mercuryutils.REPORT_V3), // add 1000 to distinguish between legacy feeds, this can be changed if necessary
+			Version:                         uint32(1000 + mercury.REPORT_V3), // add 1000 to distinguish between legacy feeds, this can be changed if necessary
 			DonId:                           t.donID,
 		}
 		epoch, round, err := evm.SeqNrToEpochAndRound(d.opts.OutCtx().SeqNr)

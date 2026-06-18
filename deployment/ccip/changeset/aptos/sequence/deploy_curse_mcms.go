@@ -5,17 +5,19 @@ import (
 	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/operation"
-	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 // DeployCurseMCMSSeqInput holds the configuration for deploying CurseMCMS.
 type DeployCurseMCMSSeqInput struct {
 	MCMSAddress aptos.AccountAddress
 	CCIPAddress aptos.AccountAddress
-	CurseMCMS   types.MCMSWithTimelockConfigV2
+	CurseMCMS   cldfproposalutils.MCMSWithTimelockConfig
 }
 
 // DeployCurseMCMSSeqOutput holds the deployed address and a CurseMCMS

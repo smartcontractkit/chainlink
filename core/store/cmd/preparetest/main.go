@@ -18,7 +18,7 @@ import (
 
 var (
 	urlStr        = os.Getenv("CL_DATABASE_URL")
-	force         = flag.Bool("force", false, "set to true to force the reset by dropping any existing connections to the database")
+	force         = flag.Bool("force", false, "legacy flag (ignored for drop); reset always uses DROP DATABASE ... WITH (FORCE) (PostgreSQL 13+)")
 	userOnly      = flag.Bool("user-only", false, "only include test user fixture")
 	deterministic = flag.Bool("deterministic", true, "use deterministic output for schema dumps (disable with --deterministic=false for production-like behavior)")
 )

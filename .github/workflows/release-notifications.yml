@@ -27,6 +27,11 @@ on:
             public.ecr.aws/chainlink/chainlink:2.34.1-beta.3|sha256:b48d5b...
         type: string
         required: false
+
+    outputs:
+      slack-thread-ts:
+        description: "timestamp of the slack thread"
+        value: ${{ jobs.slack-notify.outputs.slack-thread-ts }}
   workflow_dispatch:
     inputs:
       git-ref:
@@ -60,9 +65,12 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
+    outputs:
+      slack-thread-ts: ${{ steps.slack-notify.outputs.slack-thread-ts }}
     steps:
       - name: Notify Slack
-        uses: smartcontractkit/.github/actions/slack-notify-git-ref@slack-notify-git-ref/v1
+        uses: smartcontractkit/.github/actions/slack-notify-git-ref@slack-notify-git-ref/1.2.0
+        id: slack-notify
         with:
           slack-channel-id: ${{ secrets.SLACK_CHANNEL_RELEASE_NOTIFICATIONS }}
           slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN_RELENG }}

@@ -9,12 +9,14 @@ import (
 	"math"
 	"time"
 
-	"github.com/cosmos/gogoproto/proto"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"google.golang.org/protobuf/proto"
 
 	capocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
+	evmcapocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/consensus/ocr3/types"
+	dontimepb "github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime/pb"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 )
@@ -22,12 +24,12 @@ import (
 var ErrOCR3NotConfigured = errors.New("OCR3 not configured")
 
 type OCR3ConfigView struct {
-	Signers               []string            `json:"signers"`
-	Transmitters          []ocr2types.Account `json:"transmitters"`
-	F                     uint8               `json:"f"`
-	OnchainConfig         []byte              `json:"onchainConfig"`
-	OffchainConfigVersion uint64              `json:"offchainConfigVersion"`
-	OffchainConfig        ocr3.OracleConfig   `json:"offchainConfig"`
+	Signers               []string            `json:"signers" yaml:"signers"`
+	Transmitters          []ocr2types.Account `json:"transmitters" yaml:"transmitters"`
+	F                     uint8               `json:"f" yaml:"f"`
+	OnchainConfig         []byte              `json:"onchainConfig,omitempty" yaml:"onchainConfig,omitempty"`
+	OffchainConfigVersion uint64              `json:"offchainConfigVersion" yaml:"offchainConfigVersion"`
+	OffchainConfig        ocr3.OracleConfig   `json:"offchainConfig" yaml:"offchainConfig"`
 }
 
 type OCR3ConfigViewLegacy struct {
@@ -146,22 +148,225 @@ func GenerateOCR3ConfigView(ctx context.Context, ocr3Cap ocr3_capability.OCR3Cap
 	if err != nil {
 		return OCR3ConfigView{}, err
 	}
-	var cfg capocr3types.ReportingPluginConfig
-	if err = proto.Unmarshal(publicConfig.ReportingPluginConfig, &cfg); err != nil {
+
+	pluginCfg, err := decodeReportingPluginConfig(publicConfig.ReportingPluginConfig)
+	if err != nil {
 		return OCR3ConfigView{}, err
 	}
-	oracleConfig := ocr3.OracleConfig{
-		ConsensusCapOffchainConfig: &ocr3.ConsensusCapOffchainConfig{
-			MaxQueryLengthBytes:       cfg.MaxQueryLengthBytes,
-			MaxObservationLengthBytes: cfg.MaxObservationLengthBytes,
-			MaxReportLengthBytes:      cfg.MaxReportLengthBytes,
-			MaxOutcomeLengthBytes:     cfg.MaxOutcomeLengthBytes,
-			MaxReportCount:            cfg.MaxReportCount,
-			MaxBatchSize:              cfg.MaxBatchSize,
-			OutcomePruningThreshold:   cfg.OutcomePruningThreshold,
-			RequestTimeout:            cfg.RequestTimeout.AsDuration(),
-		},
-		UniqueReports: true, // This is hardcoded to true in the OCR3 contract
+
+	return OCR3ConfigView{
+		Signers:               readableSigners,
+		Transmitters:          transmitters,
+		F:                     config.F,
+		OnchainConfig:         nil, // empty onChain config
+		OffchainConfigVersion: config.OffchainConfigVersion,
+		OffchainConfig:        buildOracleConfig(publicConfig, pluginCfg),
+	}, nil
+}
+
+// PluginType identifies the reporting-plugin schema embedded in OCR3 ReportingPluginConfig bytes.
+type PluginType string
+
+const (
+	PluginTypeConsensus PluginType = "consensus"
+	PluginTypeDontime   PluginType = "dontime"
+	PluginTypeChainCap  PluginType = "chain-cap"
+)
+
+// GenerateOCR3ConfigViewForPlugin is like GenerateOCR3ConfigView but decodes the
+// ReportingPluginConfig bytes using the explicitly supplied plugin type rather than
+// applying a heuristic. Use this when the plugin type is known (e.g. from the contract
+// qualifier in address_refs.json).
+func GenerateOCR3ConfigViewForPlugin(ctx context.Context, ocr3Cap ocr3_capability.OCR3Capability, pluginType PluginType) (OCR3ConfigView, error) {
+	details, err := ocr3Cap.LatestConfigDetails(nil)
+	if err != nil {
+		return OCR3ConfigView{}, err
+	}
+
+	blockNumber := uint64(details.BlockNumber)
+	configIterator, err := ocr3Cap.FilterConfigSet(&bind.FilterOpts{
+		Start:   blockNumber,
+		End:     &blockNumber,
+		Context: ctx,
+	})
+	if err != nil {
+		return OCR3ConfigView{}, err
+	}
+	var config *ocr3_capability.OCR3CapabilityConfigSet
+	for configIterator.Next() {
+		if configIterator.Event == nil {
+			return OCR3ConfigView{}, ErrOCR3NotConfigured
+		}
+		config = configIterator.Event
+	}
+	if config == nil {
+		return OCR3ConfigView{}, ErrOCR3NotConfigured
+	}
+
+	var signers []ocr2types.OnchainPublicKey
+	var readableSigners []string
+	for _, s := range config.Signers {
+		signers = append(signers, s)
+		readableSigners = append(readableSigners, hex.EncodeToString(s))
+	}
+	var transmitters []ocr2types.Account
+	for _, t := range config.Transmitters {
+		transmitters = append(transmitters, ocr2types.Account(t.String()))
+	}
+
+	publicConfig, err := ocr3confighelper.PublicConfigFromContractConfig(true, ocr2types.ContractConfig{
+		ConfigDigest:          config.ConfigDigest,
+		ConfigCount:           config.ConfigCount,
+		Signers:               signers,
+		Transmitters:          transmitters,
+		F:                     config.F,
+		OnchainConfig:         nil,
+		OffchainConfigVersion: config.OffchainConfigVersion,
+		OffchainConfig:        config.OffchainConfig,
+	})
+	if err != nil {
+		return OCR3ConfigView{}, err
+	}
+
+	pluginCfg, err := decodeReportingPluginConfigForType(publicConfig.ReportingPluginConfig, pluginType)
+	if err != nil {
+		return OCR3ConfigView{}, err
+	}
+
+	oracleConfig := buildOracleConfig(publicConfig, pluginCfg)
+	return OCR3ConfigView{
+		Signers:               readableSigners,
+		Transmitters:          transmitters,
+		F:                     config.F,
+		OnchainConfig:         nil,
+		OffchainConfigVersion: config.OffchainConfigVersion,
+		OffchainConfig:        oracleConfig,
+	}, nil
+}
+
+// reportingPluginResult holds the decoded plugin-specific sub-config.
+// Exactly one field will be non-nil after a successful decode; all may be nil when the
+// plugin config is empty or unrecognised (e.g. DKG vault contracts).
+type reportingPluginResult struct {
+	consensus *ocr3.ConsensusCapOffchainConfig
+	dontime   *ocr3.DontimeOffchainConfig
+	chainCap  *ocr3.ChainCapOffchainConfig
+}
+
+// decodeReportingPluginConfigForType decodes ReportingPluginConfig bytes using the
+// supplied plugin type — no heuristic is applied.
+func decodeReportingPluginConfigForType(data []byte, pluginType PluginType) (reportingPluginResult, error) {
+	if len(data) == 0 {
+		return reportingPluginResult{}, nil
+	}
+	switch pluginType {
+	case PluginTypeConsensus:
+		var cCfg capocr3types.ReportingPluginConfig
+		if err := proto.Unmarshal(data, &cCfg); err != nil {
+			return reportingPluginResult{}, fmt.Errorf("unmarshal consensus ReportingPluginConfig: %w", err)
+		}
+		var reqTimeout time.Duration
+		if cCfg.RequestTimeout != nil {
+			reqTimeout = cCfg.RequestTimeout.AsDuration()
+		}
+		return reportingPluginResult{consensus: &ocr3.ConsensusCapOffchainConfig{
+			MaxQueryLengthBytes:       cCfg.MaxQueryLengthBytes,
+			MaxObservationLengthBytes: cCfg.MaxObservationLengthBytes,
+			MaxReportLengthBytes:      cCfg.MaxReportLengthBytes,
+			MaxOutcomeLengthBytes:     cCfg.MaxOutcomeLengthBytes,
+			MaxReportCount:            cCfg.MaxReportCount,
+			// NOTE: MaxBatchSize is not used by the consensus plugin v2 (but still used by v1)
+			MaxBatchSize:            cCfg.MaxBatchSize,
+			OutcomePruningThreshold: cCfg.OutcomePruningThreshold,
+			RequestTimeout:          reqTimeout,
+		}}, nil
+
+	case PluginTypeDontime:
+		var dCfg dontimepb.Config
+		if err := proto.Unmarshal(data, &dCfg); err != nil {
+			return reportingPluginResult{}, fmt.Errorf("unmarshal dontime ReportingPluginConfig: %w", err)
+		}
+		var execRemoval time.Duration
+		if dCfg.ExecutionRemovalTime != nil {
+			execRemoval = dCfg.ExecutionRemovalTime.AsDuration()
+		}
+		return reportingPluginResult{dontime: &ocr3.DontimeOffchainConfig{
+			MaxQueryLengthBytes:       dCfg.MaxQueryLengthBytes,
+			MaxObservationLengthBytes: dCfg.MaxObservationLengthBytes,
+			MaxOutcomeLengthBytes:     dCfg.MaxOutcomeLengthBytes,
+			MaxReportLengthBytes:      dCfg.MaxReportLengthBytes,
+			MaxReportCount:            dCfg.MaxReportCount,
+			MaxBatchSize:              dCfg.MaxBatchSize,
+			MinTimeIncrease:           dCfg.MinTimeIncrease,
+			ExecutionRemovalTime:      execRemoval,
+		}}, nil
+
+	case PluginTypeChainCap:
+		var eCfg evmcapocr3types.ReportingPluginConfig
+		if err := proto.Unmarshal(data, &eCfg); err != nil {
+			return reportingPluginResult{}, fmt.Errorf("unmarshal chain-cap ReportingPluginConfig: %w", err)
+		}
+		return reportingPluginResult{chainCap: &ocr3.ChainCapOffchainConfig{
+			MaxQueryLengthBytes:       eCfg.MaxQueryLengthBytes,
+			MaxObservationLengthBytes: eCfg.MaxObservationLengthBytes,
+			MaxReportLengthBytes:      eCfg.MaxReportLengthBytes,
+			MaxOutcomeLengthBytes:     eCfg.MaxOutcomeLengthBytes,
+			MaxReportCount:            eCfg.MaxReportCount,
+			MaxBatchSize:              eCfg.MaxBatchSize,
+		}}, nil
+
+	default:
+		return reportingPluginResult{}, fmt.Errorf("unknown plugin type %q: must be one of %q, %q, %q",
+			pluginType, PluginTypeConsensus, PluginTypeDontime, PluginTypeChainCap)
+	}
+}
+
+// decodeReportingPluginConfig auto-detects the plugin type from binary ReportingPluginConfig bytes
+// by probing distinctive fields in each proto schema.
+//
+// Detection heuristics (applied in order):
+//
+//  1. Dontime:   executionRemovalTime (field 8) decodes to a duration >= 1 minute. Consensus
+//     requestTimeout lives at the same field number but is always a short timeout (< 1 minute
+//     in all known CRE deployments).
+//  2. Consensus: outcomePruningThreshold (field 7) or requestTimeout (field 8) is non-zero.
+//  3. Chain-cap: maxQueryLengthBytes (field 1) is non-zero but no fields 7–9 are set.
+//
+// Prefer GenerateOCR3ConfigViewForPlugin when the plugin type is known.
+func decodeReportingPluginConfig(data []byte) (reportingPluginResult, error) {
+	if len(data) == 0 {
+		return reportingPluginResult{}, nil
+	}
+
+	var dCfg dontimepb.Config
+	if err := proto.Unmarshal(data, &dCfg); err == nil &&
+		dCfg.ExecutionRemovalTime != nil &&
+		dCfg.ExecutionRemovalTime.AsDuration() >= time.Minute {
+		return decodeReportingPluginConfigForType(data, PluginTypeDontime)
+	}
+
+	var cCfg capocr3types.ReportingPluginConfig
+	if err := proto.Unmarshal(data, &cCfg); err == nil &&
+		(cCfg.OutcomePruningThreshold != 0 || cCfg.RequestTimeout != nil) {
+		return decodeReportingPluginConfigForType(data, PluginTypeConsensus)
+	}
+
+	var eCfg evmcapocr3types.ReportingPluginConfig
+	if err := proto.Unmarshal(data, &eCfg); err == nil && eCfg.MaxQueryLengthBytes != 0 {
+		return decodeReportingPluginConfigForType(data, PluginTypeChainCap)
+	}
+
+	return reportingPluginResult{}, nil
+}
+
+// buildOracleConfig assembles an OracleConfig from the libocr PublicConfig timing fields
+// and the decoded plugin sub-config.
+func buildOracleConfig(publicConfig ocr3confighelper.PublicConfig, pluginCfg reportingPluginResult) ocr3.OracleConfig {
+	return ocr3.OracleConfig{
+		ConsensusCapOffchainConfig: pluginCfg.consensus,
+		DontimeOffchainConfig:      pluginCfg.dontime,
+		ChainCapOffchainConfig:     pluginCfg.chainCap,
+		UniqueReports:              true,
 
 		DeltaProgressMillis:               millisecondsToUint32(publicConfig.DeltaProgress),
 		DeltaResendMillis:                 millisecondsToUint32(publicConfig.DeltaResend),
@@ -180,15 +385,6 @@ func GenerateOCR3ConfigView(ctx context.Context, ocr3Cap ocr3_capability.OCR3Cap
 
 		MaxFaultyOracles: publicConfig.F,
 	}
-
-	return OCR3ConfigView{
-		Signers:               readableSigners,
-		Transmitters:          transmitters,
-		F:                     config.F,
-		OnchainConfig:         nil, // empty onChain config
-		OffchainConfigVersion: config.OffchainConfigVersion,
-		OffchainConfig:        oracleConfig,
-	}, nil
 }
 
 func millisecondsToUint32(dur time.Duration) uint32 {

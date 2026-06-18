@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
+	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -22,13 +24,15 @@ type Transmitter struct {
 	lggr        logger.Logger
 	handler     *requests.Handler[*vaulttypes.Request, *vaulttypes.Response]
 	fromAccount types.Account
+	lifecycle   *vaultcap.RequestLifecycleTracker
 }
 
-func NewTransmitter(lggr logger.Logger, fromAccount types.Account, handler *requests.Handler[*vaulttypes.Request, *vaulttypes.Response]) *Transmitter {
+func NewTransmitter(lggr logger.Logger, fromAccount types.Account, handler *requests.Handler[*vaulttypes.Request, *vaulttypes.Response], lifecycle *vaultcap.RequestLifecycleTracker) *Transmitter {
 	return &Transmitter{
 		lggr:        lggr.Named("VaultTransmitter"),
 		handler:     handler,
 		fromAccount: fromAccount,
+		lifecycle:   lifecycle,
 	}
 }
 
@@ -84,6 +88,7 @@ func (c *Transmitter) Transmit(ctx context.Context, cd types.ConfigDigest, seqNr
 	}
 
 	c.lggr.Debugw("transmitting report", "requestID", info.Id, "requestType", info.Format.String())
+	c.lifecycle.RecordTransmitted(ctx, info.Id, seqNr, time.Now())
 	c.handler.SendResponse(ctx, &vaulttypes.Response{
 		ID:         info.Id,
 		Payload:    rwi.Report,

@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
@@ -16,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
@@ -32,7 +33,7 @@ func TestSetOCR3Offramp_Apply(t *testing.T) {
 	cfg := v1_6.SetOCR3OffRampConfig{
 		HomeChainSel:    env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))[0],
 		RemoteChainSels: env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyAptos)),
-		MCMS: &proposalutils.TimelockConfig{
+		MCMS: &cldfproposalutils.TimelockConfig{
 			MinDelay:     time.Duration(1) * time.Second,
 			MCMSAction:   mcmstypes.TimelockActionSchedule,
 			OverrideRoot: false,

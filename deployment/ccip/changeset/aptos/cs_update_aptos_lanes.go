@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 	"github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
@@ -16,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 var _ cldf.ChangeSetV2[config.UpdateAptosLanesConfig] = AddAptosLanes{}
@@ -92,7 +92,7 @@ func (cs AddAptosLanes) Apply(env cldf.Environment, cfg config.UpdateAptosLanesC
 	// Add lane on EVM chains
 	// TODO: applying a changeset within another changeset is an anti-pattern. Using it here until EVM is refactored into Operations
 	evmUpdatesInput := config.ToEVMUpdateLanesConfig(cfg)
-	out, err := v1_6.UpdateLanesLogic(env, cfg.EVMMCMSConfig, evmUpdatesInput)
+	out, err := v1_6.UpdateLanesLogic(env, cfg.EVMMCMSConfig, true, evmUpdatesInput) // skipNonceManagerUpdates=true for Aptos (no v1.5 EVM contracts)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -136,9 +136,9 @@ func (cs AddAptosLanes) Apply(env cldf.Environment, cfg config.UpdateAptosLanesC
 	}
 
 	// Aggregate all Timelock proposals
-	proposal, err := proposalutils.AggregateProposalsV2(
+	proposal, err := proposeutils.AggregateProposalsV2(
 		env,
-		proposalutils.MCMSStates{
+		proposeutils.MCMSStates{
 			MCMSEVMState:   state.EVMMCMSStateByChain(),
 			MCMSAptosState: state.AptosMCMSStateByChain(),
 		},

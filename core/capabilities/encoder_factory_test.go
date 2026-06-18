@@ -16,14 +16,15 @@ func Test_NewEncoder(t *testing.T) {
 	t.Run("All ocr3 encoder types return a factory", func(t *testing.T) {
 		evmEncoding, err := values.NewMap(map[string]any{"abi": "bytes[] Full_reports"})
 		require.NoError(t, err)
-		solanaEncoding := getSolCfg(t)
 
 		config := map[ocr3cap.Encoder]*values.Map{
-			ocr3cap.EncoderEVM:   evmEncoding,
-			ocr3cap.EncoderBorsh: solanaEncoding,
+			ocr3cap.EncoderEVM: evmEncoding,
 		}
 
 		for _, tt := range ocr3cap.Encoders() {
+			if tt == ocr3cap.EncoderBorsh {
+				continue // Borsh encoder is deprecated
+			}
 			encoder, err2 := NewEncoder(string(tt), config[tt], logger.Nop())
 			require.NoError(t, err2)
 			require.NotNil(t, encoder)
@@ -34,33 +35,4 @@ func Test_NewEncoder(t *testing.T) {
 		_, err2 := NewEncoder("NotReal", values.EmptyMap(), logger.Nop())
 		require.Error(t, err2)
 	})
-}
-
-func getSolCfg(t *testing.T) *values.Map {
-	cfg := map[string]any{
-		"report_schema": `{
-      "kind": "struct",
-      "fields": [
-        { "name": "payload", "type": { "vec": { "defined": "DecimalReport" } } }
-      ]
-    }`,
-		"defined_types": `
-		[
-      {
-        "name":"DecimalReport",
-         "type":{
-          "kind":"struct",
-          "fields":[
-            { "name":"timestamp", "type":"u32" },
-            { "name":"answer",    "type":"u128" },
-            { "name": "dataId",   "type": {"array": ["u8",16]}}
-          ]
-        }
-      }
-    ]`,
-	}
-
-	mcfg, err := values.NewMap(cfg)
-	require.NoError(t, err)
-	return mcfg
 }

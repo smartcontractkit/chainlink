@@ -17,10 +17,10 @@ import (
 
 func TestCREView(t *testing.T) {
 	t.Parallel()
-	env := test2.SetupEnvV2(t, false)
+	h := test2.NewTestHarness(t)
 
-	addrs := env.Env.DataStore.Addresses().Filter(
-		datastore.AddressRefByChainSelector(env.RegistrySelector),
+	addrs := h.Runtime.Environment().DataStore.Addresses().Filter(
+		datastore.AddressRefByChainSelector(h.RegistrySelector),
 	)
 
 	var newCapabilityRegistryAddr string
@@ -39,7 +39,7 @@ func TestCREView(t *testing.T) {
 
 	t.Run("successfully generates a view of the CRE state", func(t *testing.T) {
 		var prevView json.RawMessage = []byte("{}")
-		a, err := state.ViewCRE(*env.Env, prevView)
+		a, err := state.ViewCRE(h.Runtime.Environment(), prevView)
 		require.NoError(t, err)
 		b, err := a.MarshalJSON()
 		require.NoError(t, err)
@@ -48,7 +48,7 @@ func TestCREView(t *testing.T) {
 		var outView state.CREView
 		require.NoError(t, json.Unmarshal(b, &outView))
 
-		chainName, err := chain_selectors.GetChainNameFromSelector(env.RegistrySelector)
+		chainName, err := chain_selectors.GetChainNameFromSelector(h.RegistrySelector)
 		require.NoError(t, err)
 
 		viewChain, ok := outView.Chains[chainName]

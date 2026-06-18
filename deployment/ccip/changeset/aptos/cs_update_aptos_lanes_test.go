@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -26,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 )
 
@@ -108,7 +109,7 @@ func getMockUpdateConfig(
 
 	return config.UpdateAptosLanesConfig{
 		EVMMCMSConfig: nil,
-		AptosMCMSConfig: &proposalutils.TimelockConfig{
+		AptosMCMSConfig: &cldfproposalutils.TimelockConfig{
 			MinDelay:     time.Duration(1) * time.Second,
 			MCMSAction:   mcmstypes.TimelockActionSchedule,
 			OverrideRoot: false,

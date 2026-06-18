@@ -2,6 +2,7 @@ package pipeline_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -24,8 +25,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
@@ -140,29 +143,9 @@ func mustInsertAsyncRun(t *testing.T, orm pipeline.ORM, jobORM job.ORM) *pipelin
 	t.Helper()
 	ctx := testutils.Context(t)
 
-	s := `
-ds1 [type=bridge async=true name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
-ds1_parse [type=jsonparse lax=false  path="data,result"]
-ds1_multiply [type=multiply times=1000000000000000000]
-
-ds1->ds1_parse->ds1_multiply->answer1;
-
-answer1 [type=median index=0];
-answer2 [type=bridge name=election_winner index=1];
-`
-	jb := job.Job{
-		Type:            job.DirectRequest,
-		SchemaVersion:   1,
-		MaxTaskDuration: sqlutil.Interval(1 * time.Minute),
-		DirectRequestSpec: &job.DirectRequestSpec{
-			ContractAddress: cltest.NewEIP55Address(),
-			EVMChainID:      (*sqlutil.Big)(&cltest.FixtureChainID),
-		},
-		PipelineSpec: &pipeline.Spec{
-			DotDagSource: s,
-		},
-	}
-	err := jobORM.CreateJob(ctx, &jb)
+	jb, err := cron.ValidatedCronSpec(fmt.Sprintf(testspecs.CronSpecTemplate, uuid.New()))
+	require.NoError(t, err)
+	err = jobORM.CreateJob(ctx, &jb)
 	require.NoError(t, err)
 
 	run := &pipeline.Run{
@@ -252,19 +235,9 @@ ds1->ds1_parse->ds1_multiply->answer1;
 answer1 [type=median index=0];
 answer2 [type=bridge name=election_winner index=1];
 `
-	jb := job.Job{
-		Type:            job.DirectRequest,
-		SchemaVersion:   1,
-		MaxTaskDuration: sqlutil.Interval(1 * time.Minute),
-		DirectRequestSpec: &job.DirectRequestSpec{
-			ContractAddress: cltest.NewEIP55Address(),
-			EVMChainID:      (*sqlutil.Big)(&cltest.FixtureChainID),
-		},
-		PipelineSpec: &pipeline.Spec{
-			DotDagSource: s,
-		},
-	}
-	err := jorm.CreateJob(ctx, &jb)
+	jb, err := cron.ValidatedCronSpec(fmt.Sprintf(testspecs.CronSpecTemplate, uuid.New()))
+	require.NoError(t, err)
+	err = jorm.CreateJob(ctx, &jb)
 	require.NoError(t, err)
 	spec := pipeline.Spec{
 		DotDagSource:    s,
@@ -639,205 +612,6 @@ func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
 		require.Error(t, err, "not found")
 	}
 }
-
-func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
-	t.Parallel()
-	ctx := testutils.Context(t)
-
-	// The test configures single Keeper job with two running tasks.
-	// GetUnfinishedRuns() expects to catch both running tasks.
-
-	config := configtest.NewTestGeneralConfig(t)
-	lggr := logger.TestLogger(t)
-	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db)
-	porm := pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns())
-	bridgeORM := bridges.NewORM(db)
-
-	jorm := job.NewORM(db, porm, bridgeORM, keyStore, lggr)
-	defer func() { assert.NoError(t, jorm.Close()) }()
-
-	timestamp := time.Now()
-	var keeperJob = job.Job{
-		ID: 1,
-		KeeperSpec: &job.KeeperSpec{
-			ContractAddress: cltest.NewEIP55Address(),
-			FromAddress:     cltest.NewEIP55Address(),
-			CreatedAt:       timestamp,
-			UpdatedAt:       timestamp,
-			EVMChainID:      (*sqlutil.Big)(&cltest.FixtureChainID),
-		},
-		ExternalJobID: uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
-		PipelineSpec: &pipeline.Spec{
-			ID:           1,
-			DotDagSource: "",
-		},
-		Type:            job.Keeper,
-		SchemaVersion:   1,
-		Name:            null.StringFrom("test"),
-		MaxTaskDuration: sqlutil.Interval(1 * time.Minute),
-	}
-
-	err := jorm.CreateJob(ctx, &keeperJob)
-	require.NoError(t, err)
-	require.Equal(t, job.Keeper, keeperJob.Type)
-
-	runID1 := uuid.New()
-	runID2 := uuid.New()
-
-	err = porm.CreateRun(ctx, &pipeline.Run{
-		PipelineSpecID: keeperJob.PipelineSpecID,
-		PruningKey:     keeperJob.ID,
-		State:          pipeline.RunStatusRunning,
-		Outputs:        jsonserializable.JSONSerializable{},
-		CreatedAt:      time.Now(),
-		PipelineTaskRuns: []pipeline.TaskRun{{
-			ID:        runID1,
-			Type:      pipeline.TaskTypeETHTx,
-			Index:     0,
-			Output:    jsonserializable.JSONSerializable{},
-			CreatedAt: time.Now(),
-			DotID:     "perform_upkeep_tx",
-		}},
-	})
-	require.NoError(t, err)
-
-	err = porm.CreateRun(ctx, &pipeline.Run{
-		PipelineSpecID: keeperJob.PipelineSpecID,
-		PruningKey:     keeperJob.ID,
-		State:          pipeline.RunStatusRunning,
-		Outputs:        jsonserializable.JSONSerializable{},
-		CreatedAt:      time.Now(),
-		PipelineTaskRuns: []pipeline.TaskRun{{
-			ID:        runID2,
-			Type:      pipeline.TaskTypeETHCall,
-			Index:     1,
-			Output:    jsonserializable.JSONSerializable{},
-			CreatedAt: time.Now(),
-			DotID:     "check_upkeep_tx",
-		}},
-	})
-	require.NoError(t, err)
-
-	var counter int
-
-	err = porm.GetUnfinishedRuns(testutils.Context(t), time.Now(), func(run pipeline.Run) error {
-		counter++
-
-		require.Equal(t, job.Keeper.String(), run.PipelineSpec.JobType)
-		require.Equal(t, pipeline.KeepersObservationSource, run.PipelineSpec.DotDagSource)
-		require.NotEmpty(t, run.PipelineTaskRuns)
-
-		switch run.PipelineTaskRuns[0].ID {
-		case runID1:
-			trun := run.ByDotID("perform_upkeep_tx")
-			require.NotNil(t, trun)
-		case runID2:
-			trun := run.ByDotID("check_upkeep_tx")
-			require.NotNil(t, trun)
-		}
-
-		return nil
-	})
-	require.NoError(t, err)
-	require.Equal(t, 2, counter)
-}
-
-func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
-	t.Parallel()
-	ctx := testutils.Context(t)
-
-	// The test configures single DR job with two task runs: one is running and one is suspended.
-	// GetUnfinishedRuns() expects to catch the one that is running.
-
-	config := configtest.NewTestGeneralConfig(t)
-	lggr := logger.TestLogger(t)
-	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db)
-	porm := pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns())
-	bridgeORM := bridges.NewORM(db)
-
-	jorm := job.NewORM(db, porm, bridgeORM, keyStore, lggr)
-	defer func() { assert.NoError(t, jorm.Close()) }()
-
-	timestamp := time.Now()
-	var drJob = job.Job{
-		ID: 1,
-		DirectRequestSpec: &job.DirectRequestSpec{
-			ContractAddress: cltest.NewEIP55Address(),
-			CreatedAt:       timestamp,
-			UpdatedAt:       timestamp,
-			EVMChainID:      (*sqlutil.Big)(&cltest.FixtureChainID),
-		},
-		ExternalJobID: uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
-		PipelineSpec: &pipeline.Spec{
-			ID:           1,
-			DotDagSource: `ds1 [type=http method=GET url="https://pricesource1.com"`,
-		},
-		Type:            job.DirectRequest,
-		SchemaVersion:   1,
-		Name:            null.StringFrom("test"),
-		MaxTaskDuration: sqlutil.Interval(1 * time.Minute),
-	}
-
-	err := jorm.CreateJob(ctx, &drJob)
-	require.NoError(t, err)
-	require.Equal(t, job.DirectRequest, drJob.Type)
-
-	runningID := uuid.New()
-
-	err = porm.CreateRun(ctx, &pipeline.Run{
-		PipelineSpecID: drJob.PipelineSpecID,
-		PruningKey:     drJob.ID,
-		State:          pipeline.RunStatusRunning,
-		Outputs:        jsonserializable.JSONSerializable{},
-		CreatedAt:      time.Now(),
-		PipelineTaskRuns: []pipeline.TaskRun{{
-			ID:        runningID,
-			Type:      pipeline.TaskTypeHTTP,
-			Index:     0,
-			Output:    jsonserializable.JSONSerializable{},
-			CreatedAt: time.Now(),
-			DotID:     "ds1",
-		}},
-	})
-	require.NoError(t, err)
-
-	err = porm.CreateRun(ctx, &pipeline.Run{
-		PipelineSpecID: drJob.PipelineSpecID,
-		PruningKey:     drJob.ID,
-		State:          pipeline.RunStatusSuspended,
-		Outputs:        jsonserializable.JSONSerializable{},
-		CreatedAt:      time.Now(),
-		PipelineTaskRuns: []pipeline.TaskRun{{
-			ID:        uuid.New(),
-			Type:      pipeline.TaskTypeHTTP,
-			Index:     1,
-			Output:    jsonserializable.JSONSerializable{},
-			CreatedAt: time.Now(),
-			DotID:     "ds1",
-		}},
-	})
-	require.NoError(t, err)
-
-	var counter int
-
-	err = porm.GetUnfinishedRuns(testutils.Context(t), time.Now(), func(run pipeline.Run) error {
-		counter++
-
-		require.Equal(t, job.DirectRequest.String(), run.PipelineSpec.JobType)
-		require.NotEmpty(t, run.PipelineTaskRuns)
-		require.Equal(t, runningID, run.PipelineTaskRuns[0].ID)
-
-		trun := run.ByDotID("ds1")
-		require.NotNil(t, trun)
-
-		return nil
-	})
-	require.NoError(t, err)
-	require.Equal(t, 1, counter)
-}
-
 func Test_Prune(t *testing.T) {
 	t.Parallel()
 

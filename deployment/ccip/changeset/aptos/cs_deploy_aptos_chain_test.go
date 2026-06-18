@@ -19,14 +19,14 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	aptoschain "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
@@ -55,7 +55,7 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 					4457093679053095497: GetMockChainContractParams(t, 4457093679053095497),
 					743186221051783445:  GetMockChainContractParams(t, 743186221051783445),
 				},
-				MCMSDeployConfigPerChain: map[uint64]types.MCMSWithTimelockConfigV2{
+				MCMSDeployConfigPerChain: map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 					4457093679053095497: getMockMCMSConfig(t),
 					743186221051783445:  getMockMCMSConfig(t),
 				},
@@ -107,11 +107,11 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 				ContractParamsPerChain: map[uint64]config.ChainContractParams{
 					4457093679053095497: GetMockChainContractParams(t, 4457093679053095497),
 				},
-				MCMSDeployConfigPerChain: map[uint64]types.MCMSWithTimelockConfigV2{
+				MCMSDeployConfigPerChain: map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 					4457093679053095497: {
-						Canceller:        proposalutils.SingleGroupMCMSV2(t),
-						Proposer:         proposalutils.SingleGroupMCMSV2(t),
-						Bypasser:         proposalutils.SingleGroupMCMSV2(t),
+						Canceller:        cldftesthelpers.SingleGroupMCMS(t),
+						Proposer:         cldftesthelpers.SingleGroupMCMS(t),
+						Bypasser:         cldftesthelpers.SingleGroupMCMS(t),
 						TimelockMinDelay: nil, // Invalid min delay
 					},
 				},
@@ -258,15 +258,15 @@ func TestDeployAptosChain_Apply(t *testing.T) {
 		ContractParamsPerChain: map[uint64]config.ChainContractParams{
 			selector: mockCCIPParams,
 		},
-		MCMSDeployConfigPerChain: map[uint64]types.MCMSWithTimelockConfigV2{
+		MCMSDeployConfigPerChain: map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 			selector: {
-				Canceller:        proposalutils.SingleGroupMCMSV2(t),
-				Proposer:         proposalutils.SingleGroupMCMSV2(t),
-				Bypasser:         proposalutils.SingleGroupMCMSV2(t),
+				Canceller:        cldftesthelpers.SingleGroupMCMS(t),
+				Proposer:         cldftesthelpers.SingleGroupMCMS(t),
+				Bypasser:         cldftesthelpers.SingleGroupMCMS(t),
 				TimelockMinDelay: big.NewInt(1),
 			},
 		},
-		MCMSTimelockConfigPerChain: map[uint64]proposalutils.TimelockConfig{
+		MCMSTimelockConfigPerChain: map[uint64]cldfproposalutils.TimelockConfig{
 			selector: {
 				MinDelay:     time.Duration(1) * time.Second,
 				MCMSAction:   mcmstypes.TimelockActionSchedule,
@@ -277,7 +277,7 @@ func TestDeployAptosChain_Apply(t *testing.T) {
 
 	err = rt.Exec(
 		runtime.ChangesetTask(DeployAptosChain{}, ccipConfig),
-		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
+		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
 	)
 	require.NoError(t, err)
 

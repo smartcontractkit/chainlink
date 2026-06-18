@@ -1,0 +1,80 @@
+[chip_router]
+  image = "local-cre-chip-router:v1.0.1"
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "1337"
+  container_name = "anvil-1337"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "2337"
+  container_name = "anvil-2337"
+  port = "8546"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+[jd]
+  csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
+  image = "job-distributor:0.22.1"
+
+[fake]
+  port = 8171
+
+[fake_http]
+  port = 8666
+
+[infra]
+  type = "docker"
+
+[[nodesets]]
+  nodes = 4
+  name = "workflow"
+  don_types = ["workflow"]
+  override_mode = "all"
+  http_port_range_start = 10100
+
+  env_vars = { CL_EVM_CMD = "" }
+  capabilities = ["vault", "cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337", "evm-2337"]
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13000
+
+[[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = """
+[Capabilities.WorkflowRegistry.ModuleCache]
+Enabled = true
+MaxLoaded = 1
+IdleEviction = true
+IdleTimeout = '30s'
+"""
+
+[[nodesets]]
+  nodes = 1
+  name = "bootstrap-gateway"
+  don_types = ["bootstrap", "gateway"]
+  override_mode = "each"
+  http_port_range_start = 10300
+
+  env_vars = { CL_EVM_CMD = "" }
+  supported_evm_chains = [1337, 2337]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13200
+
+  [[nodesets.node_specs]]
+    roles = ["bootstrap", "gateway"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      custom_ports = ["5002:5002","15002:15002"]
+      user_config_overrides = ""

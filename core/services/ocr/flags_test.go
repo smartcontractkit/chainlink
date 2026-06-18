@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 )
 
 func TestFlags_IsLowered(t *testing.T) {
@@ -34,7 +34,7 @@ func TestFlags_IsLowered(t *testing.T) {
 				address       = testutils.NewAddress()
 			)
 
-			flags := fluxmonitorv2.ContractFlags{FlagsInterface: flagsContract}
+			flags := ocr.ContractFlags{FlagsInterface: flagsContract}
 
 			flagsContract.On("GetFlags", mock.Anything, mock.Anything).
 				Run(func(args mock.Arguments) {

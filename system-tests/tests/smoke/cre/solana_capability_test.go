@@ -1,0 +1,650 @@
+package cre
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"math/big"
+	"math/rand"
+	"testing"
+	"time"
+
+	"github.com/Masterminds/semver/v3"
+	solgo "github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
+	"github.com/rs/zerolog"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/stretchr/testify/require"
+
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
+	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	solana_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread/config"
+
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	ks_sol "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/solana"
+	df_sol "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/solana"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
+	sollogtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger/config"
+	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite/config"
+	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
+	"github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
+)
+
+var _ rpc.Client
+var _ solgo.Message
+
+func ExecuteSolanaWriteTest(t *testing.T, tenv *configuration.TestEnvironment) {
+	creEnvironment := tenv.CreEnvironment
+	bcs := tenv.CreEnvironment.Blockchains
+	ds := creEnvironment.CldfEnvironment.DataStore
+	// prevalidate environment
+	forwarders := creEnvironment.CldfEnvironment.DataStore.Addresses().Filter(
+		datastore.AddressRefByQualifier(ks_sol.DefaultForwarderQualifier),
+		datastore.AddressRefByType(ks_sol.ForwarderContract))
+	require.Len(t, forwarders, 1)
+	forwarderStates := creEnvironment.CldfEnvironment.DataStore.Addresses().Filter(
+		datastore.AddressRefByQualifier(ks_sol.DefaultForwarderQualifier),
+		datastore.AddressRefByType(ks_sol.ForwarderState))
+	require.Len(t, forwarderStates, 1)
+
+	// 1. Get solana chain
+	solChain := getSolChain(t, bcs)
+	require.NotNil(t, solChain)
+	var s setup
+	s.ForwarderProgramID = mustGetContract(t, ds, solChain.ChainSelector(), ks_sol.ForwarderContract)
+	s.ForwarderState = mustGetContract(t, ds, solChain.ChainSelector(), ks_sol.ForwarderState)
+	require.False(t, s.ForwarderProgramID.IsZero(), "failed to receive forwarder program id from blockchains output")
+	s.Selector = solChain.ChainSelector()
+	// 2. Deploy data-feeds cache
+	framework.L.Info().Msg("Deploy and configure data-feeds cache programs...")
+	workflowName := fmt.Sprintf("sol-write-workflow--%04d", 3411)
+	b, _ := hex.DecodeString("35386530643935613437")
+	s.WFName = string(b)
+	s.WFOwner = tenv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient.Addresses[0]
+	deployAndConfigureCache(t, &s, *creEnvironment.CldfEnvironment, solChain)
+	testLogger := tenv.Logger
+	framework.L.Info().Msg("Successfully deployed and configured")
+	// 3. Compile and deploy workflow
+	var err error
+	var workflowConfig config.Config
+	workflowConfig.Receiver = s.CacheProgramID
+	workflowConfig.ForwarderState = s.ForwarderState
+	workflowConfig.ForwarderProgramID = s.ForwarderProgramID
+	workflowConfig.ReceiverState = s.CacheState
+	workflowConfig.FeedID, err = dataIDtoBytes(s.FeedID)
+	require.NoError(t, err)
+	copy(workflowConfig.WFName[:], b)
+	workflowConfig.WFOwner = s.WFOwner
+	const workflowFileLocation = "./solana/solwrite/main.go"
+
+	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		t_helpers.ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
+	})
+
+	workflowID := t_helpers.CompileAndDeployWorkflow(t,
+		tenv, testLogger, workflowName, &workflowConfig,
+		workflowFileLocation)
+
+	waitForFeedUpdate(t, solChain.SolClient, &s)
+
+	// Emitted from solwrite/main.go after a successful solana.WriteReport (user log via WASM runtime.Logger).
+	const successfulExecutionUserLog = "Submitted report on-chain"
+	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh,
+		t_helpers.WorkflowEngineInitErrorLog, successfulExecutionUserLog,
+		2*time.Minute,
+		t_helpers.WithUserLogWorkflowID(workflowID))
+}
+
+func ExecuteSolanaReadTestForCases(t *testing.T, testEnv *configuration.TestEnvironment, testCases []solana_config.TestCase) {
+	require.NotEmpty(t, testCases, "no Solana read testcases selected")
+
+	seen := make(map[solana_config.TestCase]struct{}, len(testCases))
+	for _, tc := range testCases {
+		require.GreaterOrEqualf(t, tc, solana_config.TestCase(0), "invalid testcase %d", tc)
+		require.Lessf(t, tc, solana_config.TestCaseLen, "invalid testcase %d", tc)
+		if _, alreadySeen := seen[tc]; alreadySeen {
+			require.Failf(t, "duplicate testcase", "testcase %q selected more than once", tc.String())
+		}
+
+		seen[tc] = struct{}{}
+	}
+
+	lggr := framework.L
+	const workflowFileLocation = "./solana/solread/main.go"
+
+	for _, tc := range testCases {
+		t.Run("Read "+tc.String(), func(t *testing.T) {
+			if parallelEnabled {
+				t.Parallel()
+			}
+
+			// Each case uses a fresh per-test execution context to avoid shared-signer nonce collisions,
+			// while still reusing the shared environment cache (sync.Once) for admin sessions.
+			perCaseEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
+
+			userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+			baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
+			server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testEnv.Logger, userLogsCh, baseMessageCh))
+			t.Cleanup(func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				t_helpers.ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
+			})
+
+			solChain := getSolChain(t, testEnv.CreEnvironment.Blockchains)
+			require.NotNil(t, solChain)
+
+			chainSelector := solChain.ChainSelector()
+			workflowName := fmt.Sprintf("evm-read-workflow-%d-%04d", chainSelector, rand.Intn(10000))
+			lggr.Info().
+				Str("workflow_name", workflowName).
+				Uint64("chain_selector", chainSelector).
+				Str("test_case", tc.String()).
+				Msg("Creating Solana Read workflow configuration...")
+			workflowConfig := configureSolanaReadWorkflow(t, lggr, solChain, tc, workflowName)
+			workflowID := t_helpers.CompileAndDeployWorkflow(t, perCaseEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
+
+			successfulExecutionUserLog := "Read workflow test case passed for testcase " + tc.String()
+			t_helpers.WatchWorkflowLogs(t, testEnv.Logger, userLogsCh, baseMessageCh,
+				t_helpers.WorkflowEngineInitErrorLog, successfulExecutionUserLog,
+				2*time.Minute,
+				t_helpers.WithUserLogWorkflowID(workflowID))
+		})
+	}
+}
+
+func configureSolanaReadWorkflow(t *testing.T, lggr zerolog.Logger, chain *solana.Blockchain, testCase solana_config.TestCase, workflowName string) solana_config.Config {
+	t.Helper()
+	// create and fund an address to be used by the workflow
+	amountToFund := big.NewInt(0).SetUint64(1_000_000_000) // 1 SOL
+	numberOfAddressesToCreate := 1
+	addresses, addrErr := t_helpers.CreateAndFundAddressesSolana(t, lggr, numberOfAddressesToCreate, amountToFund, chain)
+	require.NoError(t, addrErr, "failed to create and fund new addresses")
+	require.Len(t, addresses, numberOfAddressesToCreate, "failed to create the correct number of addresses")
+
+	accountAddress := addresses[0].Bytes()
+	return solana_config.Config{
+		TestCase:        testCase,
+		WorkflowName:    workflowName,
+		ChainSelector:   chain.ChainSelector(),
+		AccountAddress:  accountAddress,
+		ExpectedBalance: amountToFund,
+	}
+}
+
+func getSolChain(t *testing.T, bcs []blockchains.Blockchain) *solana.Blockchain {
+	var solChain *solana.Blockchain
+	for _, w := range bcs {
+		if !w.IsFamily(chainselectors.FamilySolana) {
+			continue
+		}
+		require.IsType(t, &solana.Blockchain{}, solChain, "expected Solana blockchain type")
+		solChain = w.(*solana.Blockchain)
+		// we assume we always have just 1 solana chain
+		break
+	}
+
+	return solChain
+}
+
+func dataIDtoBytes(dataID string) ([16]byte, error) {
+	var out [16]byte
+	bigID, ok := new(big.Int).SetString(dataID, 0)
+	if !ok {
+		return out, fmt.Errorf("invalid data_id: %v", dataID)
+	}
+	if bigID.BitLen() > 128 {
+		return out, fmt.Errorf("data_id is too long: %d", bigID.BitLen())
+	}
+
+	copy(out[:], bigID.Bytes())
+	return out, nil
+}
+
+func waitForFeedUpdate(t *testing.T, solclient *rpc.Client, s *setup) {
+	tt := time.NewTicker(time.Second * 2)
+	defer tt.Stop()
+	ctx, cancel := context.WithTimeout(t.Context(), time.Minute*4)
+	defer cancel()
+	for {
+		select {
+		case <-ctx.Done():
+			require.FailNow(t, "The feed failed to update before timeout expired")
+		case <-tt.C:
+			reportAcc := getDecimalReportAccount(t, s)
+
+			decimalReportAccount, err := solclient.GetAccountInfoWithOpts(t.Context(), reportAcc, &rpc.GetAccountInfoOpts{Commitment: rpc.CommitmentProcessed})
+			if errors.Is(err, rpc.ErrNotFound) {
+				continue
+			}
+			require.NoError(t, err, "failed to receive decimal report account")
+			// that's how report is stored on chain
+			type report struct {
+				timestamp uint32   // 4 byte
+				answer    *big.Int // 16 byte
+			}
+			var r report
+			data := decimalReportAccount.Value.Data.GetBinary()
+			descriminatorLen := 8
+			expectedLen := descriminatorLen + 4 + 16
+			require.GreaterOrEqual(t, len(data), expectedLen)
+			offset := descriminatorLen
+			r.timestamp = binary.LittleEndian.Uint32(data[offset : offset+4])
+			offset += 4
+			answerLE := data[offset : offset+16]
+			amount, _, _ := parsePackedU128([16]byte(answerLE))
+			r.answer = amount
+
+			if r.answer.Uint64() == 0 {
+				framework.L.Info().Msgf("Feed not updated yet.. Retrying...")
+				continue
+			}
+			framework.L.Info().Msg("Feed is updated. Asserting results...")
+			require.Equal(t, Mintable.String(), r.answer.String(), "onchain answer value is not equal to sent value")
+			return
+		}
+	}
+}
+
+// u128 layout (MSB..LSB): [1 unused][36 block][91 amount]
+func parsePackedU128(le [16]byte) (amount *big.Int, block uint64, unused uint8) {
+	// Convert LE -> big.Int (big-endian expected by SetBytes)
+	be := make([]byte, 16)
+	for i := range 16 {
+		be[15-i] = le[i]
+	}
+	x := new(big.Int).SetBytes(be)
+
+	// Masks
+	amountMask := new(big.Int).Lsh(big.NewInt(1), 91)
+	amountMask.Sub(amountMask, big.NewInt(1)) // (1<<91)-1
+	blockMask := new(big.Int).Lsh(big.NewInt(1), 36)
+	blockMask.Sub(blockMask, big.NewInt(1)) // (1<<36)-1
+
+	// amount = x & ((1<<91)-1)
+	amount = new(big.Int).And(x, amountMask)
+
+	// block = (x >> 91) & ((1<<36)-1)
+	blockInt := new(big.Int).Rsh(new(big.Int).Set(x), 91)
+	blockInt.And(blockInt, blockMask)
+	block = blockInt.Uint64()
+
+	// unused = (x >> 127) & 1
+	top := new(big.Int).Rsh(x, 127)
+	if top.BitLen() > 0 && top.Bit(0) == 1 {
+		unused = 1
+	}
+	return
+}
+
+func getDecimalReportAccount(t *testing.T, s *setup) solgo.PublicKey {
+	dataID, _ := new(big.Int).SetString(s.FeedID, 0)
+	var data [16]byte
+	copy(data[:], dataID.Bytes())
+	decimalReportSeeds := [][]byte{
+		[]byte("decimal_report"),
+		s.CacheState.Bytes(),
+		data[:],
+	}
+	decimalReportKey, _, err := solgo.FindProgramAddress(decimalReportSeeds, s.CacheProgramID)
+	require.NoError(t, err, "failed to derive decimal report key")
+	return decimalReportKey
+}
+
+type setup struct {
+	Selector           uint64
+	ForwarderProgramID solgo.PublicKey
+	ForwarderState     solgo.PublicKey
+	CacheProgramID     solgo.PublicKey
+	CacheState         solgo.PublicKey
+
+	FeedID       string
+	Descriptions [][32]byte
+	WFOwner      [20]byte
+	WFName       string
+}
+
+var (
+	feedID        = [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
+	wFDescription = "securemint test"
+	SeqNr         = 5
+	Block         = 10
+	Mintable      = big.NewInt(15)
+)
+
+func deployAndConfigureCache(t *testing.T, s *setup, env cldf.Environment, solChain *solana.Blockchain) {
+	var d [32]byte
+	copy(d[:], []byte(wFDescription))
+	s.Descriptions = append(s.Descriptions, d)
+	s.FeedID = new(big.Int).SetBytes(feedID[:]).String()
+	var wfname [10]byte
+	copy(wfname[:], []byte(s.WFName))
+
+	ds := datastore.NewMemoryDataStore()
+
+	err := ds.AddressRefStore.Add(datastore.AddressRef{
+		Address:       solutils.GetProgramID(solutils.ProgDataFeedsCache),
+		ChainSelector: solChain.ChainSelector(),
+		Type:          df_sol.CacheContract,
+		Version:       semver.MustParse("1.0.0"),
+		Qualifier:     ks_sol.DefaultForwarderQualifier,
+	})
+	require.NoError(t, err, "failed to populate datastore")
+
+	env.DataStore = ds.Seal()
+
+	s.CacheProgramID = mustGetContract(t, env.DataStore, solChain.ChainSelector(), df_sol.CacheContract)
+	// deploy df cache
+	deployCS := commonchangeset.Configure(df_sol.DeployCache{}, &df_sol.DeployCacheRequest{
+		ChainSel:           solChain.ChainSelector(),
+		Qualifier:          ks_sol.DefaultForwarderQualifier,
+		Version:            "1.0.0",
+		FeedAdmins:         []solgo.PublicKey{solChain.PrivateKey.PublicKey()},
+		ForwarderProgramID: s.ForwarderProgramID,
+	})
+
+	// init decimal report
+	initCS := commonchangeset.Configure(df_sol.InitCacheDecimalReport{},
+		&df_sol.InitCacheDecimalReportRequest{
+			ChainSel:  solChain.ChainSelector(),
+			Qualifier: ks_sol.DefaultForwarderQualifier,
+			Version:   "1.0.0",
+			FeedAdmin: solChain.PrivateKey.PublicKey(),
+			DataIDs:   []string{s.FeedID},
+		})
+
+	// configure decimal report
+	configureCS := commonchangeset.Configure(df_sol.ConfigureCacheDecimalReport{},
+		&df_sol.ConfigureCacheDecimalReportRequest{
+			ChainSel:  solChain.ChainSelector(),
+			Qualifier: ks_sol.DefaultForwarderQualifier,
+			Version:   "1.0.0",
+			SenderList: []df_sol.Sender{
+				{
+					ProgramID: s.ForwarderProgramID,
+					StateID:   s.ForwarderState,
+				},
+			},
+			FeedAdmin:            solChain.PrivateKey.PublicKey(),
+			DataIDs:              []string{s.FeedID},
+			AllowedWorkflowOwner: [][20]byte{s.WFOwner},
+			AllowedWorkflowName:  [][10]byte{wfname},
+			Descriptions:         s.Descriptions,
+		})
+	env, _, cacheErr := commonchangeset.ApplyChangesets(t, env, []commonchangeset.ConfiguredChangeSet{deployCS, initCS, configureCS})
+	require.NoError(t, cacheErr)
+	s.CacheProgramID = mustGetContract(t, env.DataStore, solChain.ChainSelector(), df_sol.CacheContract)
+	s.CacheState = mustGetContract(t, env.DataStore, solChain.ChainSelector(), df_sol.CacheState)
+}
+
+func mustGetContract(t *testing.T, ds datastore.DataStore, sel uint64, ctype datastore.ContractType) solgo.PublicKey {
+	key := datastore.NewAddressRefKey(
+		sel,
+		ctype,
+		semver.MustParse("1.0.0"),
+		ks_sol.DefaultForwarderQualifier,
+	)
+	contract, err := ds.Addresses().Get(key)
+
+	require.NoError(t, err)
+
+	return solgo.MustPublicKeyFromBase58(contract.Address)
+}
+
+func ExecuteSolanaLogTriggerTest(t *testing.T, tenv *configuration.TestEnvironment) {
+	bcs := tenv.CreEnvironment.Blockchains
+	testLogger := tenv.Logger
+
+	var solChain *solana.Blockchain
+	for _, w := range bcs {
+		if !w.IsFamily(chainselectors.FamilySolana) {
+			continue
+		}
+		require.IsType(t, &solana.Blockchain{}, w, "expected Solana blockchain type")
+		solChain = w.(*solana.Blockchain)
+		break
+	}
+	require.NotNil(t, solChain, "Solana blockchain not found in test environment")
+
+	logReadTestProgramID := solgo.MustPublicKeyFromBase58("J1zQwrBNBngz26jRPNWsUSZMHJwBwpkoDitXRV95LdK4")
+
+	const expectedU64Value uint64 = 42
+	const expectedStrVal = "Hello, World!"
+
+	workflowName := fmt.Sprintf("sol-logtrigger-wf--%04d", 1234)
+	var workflowConfig sollogtrigger_config.Config
+	workflowConfig.LogReadTestProgramID = logReadTestProgramID
+	workflowConfig.ExpectedU64Value = expectedU64Value
+	workflowConfig.ExpectedStrVal = expectedStrVal
+	workflowConfig.CPILogTrigger = false
+
+	const workflowFileLocation = "./solana/sollogtrigger/main.go"
+
+	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		t_helpers.ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
+	})
+
+	workflowID := t_helpers.CompileAndDeployWorkflow(t,
+		tenv, testLogger, workflowName, &workflowConfig,
+		workflowFileLocation)
+
+	singleAckFound, stopACKLogScans := startTriggerEventACKLogWatch(t, testLogger)
+	defer stopACKLogScans()
+
+	ticker := time.NewTicker(10 * time.Second)
+	emitCtx, emitCancel := context.WithCancel(t.Context())
+	go func() {
+		defer func() {
+			emitCancel()
+			ticker.Stop()
+		}()
+		for {
+			select {
+			case <-emitCtx.Done():
+				return
+			case <-ticker.C:
+				slot, err := callCreateLog(emitCtx, solChain, logReadTestProgramID, expectedU64Value)
+				if err == nil {
+					testLogger.Info().Uint64("slot", slot).Msg("Log read test event triggered")
+				}
+			}
+		}
+	}()
+
+	expectedLogTriggerMessage := fmt.Sprintf("TestEvent received: str_val=%s u64_value=%d", expectedStrVal, expectedU64Value)
+	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh,
+		t_helpers.WorkflowEngineInitErrorLog, expectedLogTriggerMessage,
+		5*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
+	emitCancel()
+	testLogger.Info().Msgf("Found expected user log: '%s'", expectedLogTriggerMessage)
+
+	requireTriggerEventACKLog(t, testLogger, singleAckFound)
+}
+
+func callCreateLog(ctx context.Context, solChain *solana.Blockchain, programID solgo.PublicKey, value uint64) (slot uint64, err error) {
+	discriminator := getCreateLogDiscriminator()
+
+	valueBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(valueBytes, value)
+	instructionData := make([]byte, 0, len(discriminator)+len(valueBytes))
+	instructionData = append(instructionData, discriminator[:]...)
+	instructionData = append(instructionData, valueBytes...)
+
+	instruction := solgo.NewInstruction(
+		programID,
+		solgo.AccountMetaSlice{
+			{PublicKey: solChain.PrivateKey.PublicKey(), IsSigner: true, IsWritable: true},
+			{PublicKey: solgo.SystemProgramID, IsSigner: false, IsWritable: false},
+		},
+		instructionData,
+	)
+
+	result, err := solCommonUtil.SendAndConfirm(
+		ctx,
+		solChain.SolClient,
+		[]solgo.Instruction{instruction},
+		solChain.PrivateKey,
+		rpc.CommitmentConfirmed,
+	)
+	if result != nil {
+		slot = result.Slot
+	}
+	if err != nil {
+		return slot, fmt.Errorf("failed to send create_log transaction: %w", err)
+	}
+
+	return slot, nil
+}
+
+func getCreateLogDiscriminator() [8]byte {
+	hash := sha256.Sum256([]byte("global:create_log"))
+	var discriminator [8]byte
+	copy(discriminator[:], hash[:8])
+	return discriminator
+}
+
+func getCreateLogCpiDiscriminator() [8]byte {
+	hash := sha256.Sum256([]byte("global:create_log_cpi"))
+	var discriminator [8]byte
+	copy(discriminator[:], hash[:8])
+	return discriminator
+}
+
+func triggerLogReadTestCPIEvent(ctx context.Context, solChain *solana.Blockchain, programID solgo.PublicKey, value uint64) (slot uint64, err error) {
+	eventAuthority, _, err := solgo.FindProgramAddress([][]byte{[]byte("__event_authority")}, programID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to derive event authority PDA: %w", err)
+	}
+
+	discriminator := getCreateLogCpiDiscriminator()
+	valueBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(valueBytes, value)
+	instructionData := make([]byte, 0, len(discriminator)+len(valueBytes))
+	instructionData = append(instructionData, discriminator[:]...)
+	instructionData = append(instructionData, valueBytes...)
+
+	instruction := solgo.NewInstruction(
+		programID,
+		solgo.AccountMetaSlice{
+			{PublicKey: solChain.PrivateKey.PublicKey(), IsSigner: true, IsWritable: true},
+			{PublicKey: solgo.SystemProgramID, IsSigner: false, IsWritable: false},
+			{PublicKey: eventAuthority, IsSigner: false, IsWritable: false},
+			{PublicKey: programID, IsSigner: false, IsWritable: false},
+		},
+		instructionData,
+	)
+
+	result, err := solCommonUtil.SendAndConfirm(
+		ctx,
+		solChain.SolClient,
+		[]solgo.Instruction{instruction},
+		solChain.PrivateKey,
+		rpc.CommitmentConfirmed,
+	)
+	if result != nil {
+		slot = result.Slot
+	}
+	if err != nil {
+		return slot, fmt.Errorf("failed to send create_log_cpi transaction: %w", err)
+	}
+	tx, err := result.Transaction.GetTransaction()
+	if err != nil {
+		return slot, fmt.Errorf("failed to get transaction: %w", err)
+	}
+	fmt.Println("tx signature: ", tx.Signatures[0].String())
+	return slot, nil
+}
+
+func ExecuteSolanaLogTriggerCPITest(t *testing.T, tenv *configuration.TestEnvironment) {
+	bcs := tenv.CreEnvironment.Blockchains
+	testLogger := tenv.Logger
+
+	var solChain *solana.Blockchain
+	for _, w := range bcs {
+		if !w.IsFamily(chainselectors.FamilySolana) {
+			continue
+		}
+		require.IsType(t, &solana.Blockchain{}, w, "expected Solana blockchain type")
+		solChain = w.(*solana.Blockchain)
+		break
+	}
+	require.NotNil(t, solChain, "Solana blockchain not found in test environment")
+
+	logReadTestProgramID := solgo.MustPublicKeyFromBase58("J1zQwrBNBngz26jRPNWsUSZMHJwBwpkoDitXRV95LdK4")
+	const expectedU64Value uint64 = 99
+	const expectedStrVal = "Hello, CPI!"
+
+	workflowName := fmt.Sprintf("sol-logtrigger-cpi-wf--%04d", 5678)
+	var workflowConfig sollogtrigger_config.Config
+	workflowConfig.LogReadTestProgramID = logReadTestProgramID
+	workflowConfig.ExpectedU64Value = expectedU64Value
+	workflowConfig.ExpectedStrVal = expectedStrVal
+	workflowConfig.CPILogTrigger = true
+
+	const workflowFileLocation = "./solana/sollogtrigger/main.go"
+
+	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		t_helpers.ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
+	})
+
+	workflowID := t_helpers.CompileAndDeployWorkflow(t,
+		tenv, testLogger, workflowName, &workflowConfig,
+		workflowFileLocation)
+
+	singleAckFound, stopACKLogScans := startTriggerEventACKLogWatch(t, testLogger)
+	defer stopACKLogScans()
+
+	ticker := time.NewTicker(10 * time.Second)
+	emitCtx, emitCancel := context.WithCancel(t.Context())
+	go func() {
+		defer func() {
+			emitCancel()
+			ticker.Stop()
+		}()
+		for {
+			select {
+			case <-emitCtx.Done():
+				return
+			case <-ticker.C:
+				slot, err := triggerLogReadTestCPIEvent(emitCtx, solChain, logReadTestProgramID, expectedU64Value)
+				if err == nil {
+					testLogger.Info().Uint64("slot", slot).Msg("Log read test CPI event triggered")
+				}
+			}
+		}
+	}()
+
+	expectedLogTriggerMessage := fmt.Sprintf("TestEvent CPI received: str_val=%s u64_value=%d", expectedStrVal, expectedU64Value)
+	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh,
+		t_helpers.WorkflowEngineInitErrorLog, expectedLogTriggerMessage,
+		5*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
+	emitCancel()
+	testLogger.Info().Msgf("Found expected user log: '%s'", expectedLogTriggerMessage)
+
+	requireTriggerEventACKLog(t, testLogger, singleAckFound)
+}

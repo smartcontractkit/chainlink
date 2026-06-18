@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -16,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -33,7 +33,7 @@ func TestProposeAdminRoleChangeset_Validations(t *testing.T) {
 		},
 	}, true)
 
-	mcmsConfig := &proposalutils.TimelockConfig{
+	mcmsConfig := &cldfproposalutils.TimelockConfig{
 		MinDelay: 0 * time.Second,
 	}
 
@@ -161,7 +161,7 @@ func TestProposeAdminRoleChangeset_Validations(t *testing.T) {
 }
 
 func TestProposeAdminRoleChangeset_ExecutionWithoutExternalAdmin(t *testing.T) {
-	for _, mcmsConfig := range []*proposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
+	for _, mcmsConfig := range []*cldfproposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
 		msg := "Propose admin role without external admin with MCMS"
 		if mcmsConfig == nil {
 			msg = "Propose admin role without external admin without MCMS"
@@ -233,7 +233,7 @@ func TestProposeAdminRoleChangeset_ExecutionWithoutExternalAdmin(t *testing.T) {
 }
 
 func TestProposeAdminRoleChangeset_ExecutionWithExternalAdmin(t *testing.T) {
-	for _, mcmsConfig := range []*proposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
+	for _, mcmsConfig := range []*cldfproposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
 		msg := "Propose admin role with external admin with MCMS"
 		if mcmsConfig == nil {
 			msg = "Propose admin role with external admin without MCMS"
@@ -305,7 +305,7 @@ func TestProposeAdminRoleChangesetV2_Validations(t *testing.T) {
 
 	e, _, selectorB, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
-	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
+	mcmsConfig := &cldfproposalutils.TimelockConfig{MinDelay: 0 * time.Second}
 	tokenAddress := utils.RandomAddress()
 
 	tests := []struct {
@@ -456,7 +456,7 @@ func TestProposeAdminRoleChangesetV2_Validations(t *testing.T) {
 func TestProposeAdminRoleChangesetV2_ExecutionWithMCMS(t *testing.T) {
 	t.Parallel()
 
-	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
+	mcmsConfig := &cldfproposalutils.TimelockConfig{MinDelay: 0 * time.Second}
 	e, selectorA, selectorB, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	// Use random addresses - no need to deploy actual tokens
@@ -558,7 +558,7 @@ func TestProposeAdminRoleChangesetV2_ExecutionWithoutMCMS(t *testing.T) {
 func TestProposeAdminRoleChangesetV2_MultipleTokensPerChain(t *testing.T) {
 	t.Parallel()
 
-	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
+	mcmsConfig := &cldfproposalutils.TimelockConfig{MinDelay: 0 * time.Second}
 	e, selectorA, _, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	// Use random addresses for multiple tokens - no need to deploy actual tokens
@@ -635,7 +635,7 @@ func TestProposeAdminRoleChangesetV2_EmptyConfigReturnsError(t *testing.T) {
 func TestProposeAdminRoleChangesetV2_PendingAdminValidation(t *testing.T) {
 	t.Parallel()
 
-	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
+	mcmsConfig := &cldfproposalutils.TimelockConfig{MinDelay: 0 * time.Second}
 	e, selectorA, _, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	tokenAddress := utils.RandomAddress()
@@ -715,7 +715,7 @@ func TestProposeAdminRoleChangesetV2_PendingAdminValidation(t *testing.T) {
 func TestProposeAdminRoleChangesetV2_OverrideFunctionality(t *testing.T) {
 	t.Parallel()
 
-	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
+	mcmsConfig := &cldfproposalutils.TimelockConfig{MinDelay: 0 * time.Second}
 	e, selectorA, _, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	// Test case 1: Override with same admin address should fail

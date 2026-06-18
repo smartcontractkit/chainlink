@@ -274,11 +274,11 @@ func TestNewFetcherService(t *testing.T) {
 	// Connector handler never makes a connection to a gateway and the context expires.
 	t.Run("NOK-request_context_deadline_exceeded", func(t *testing.T) {
 		connector := gcmocks.NewGatewayConnector(t)
-		wrapper := newConnectorWrapper(connector)
+		connWrapper := newConnectorWrapper(connector)
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 		connector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 
-		fetcher := NewFetcherService(lggr, wrapper, storageService, gateway.WithFixedStart())
+		fetcher := NewFetcherService(lggr, connWrapper, storageService, gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
@@ -302,11 +302,11 @@ func TestNewFetcherService(t *testing.T) {
 	// Connector handler cycles to next available gateway after first connection fails.
 	t.Run("OK-connector_handler_awaits_working_gateway", func(t *testing.T) {
 		connector := gcmocks.NewGatewayConnector(t)
-		wrapper := newConnectorWrapper(connector)
+		connWrapper := newConnectorWrapper(connector)
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 		connector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 
-		fetcher := NewFetcherService(lggr, wrapper, storageService, gateway.WithFixedStart())
+		fetcher := NewFetcherService(lggr, connWrapper, storageService, gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
@@ -437,6 +437,39 @@ func TestNewFetcherFunc(t *testing.T) {
 		})
 		require.NoError(t, err)
 		assert.Equal(t, testContent, resp)
+	})
+
+	t.Run("file fetcher resolves HTTP URL to basename", func(t *testing.T) {
+		tempDir := t.TempDir()
+		err := os.WriteFile(filepath.Join(tempDir, "binary.wasm"), testContent, 0600)
+		require.NoError(t, err)
+
+		fetcher, err := NewFetcherFunc("file://"+tempDir, lggr)
+		require.NoError(t, err)
+
+		resp, err := fetcher(ctx, "msg-1", ghcapabilities.Request{
+			URL: "http://storage.example.com/artifacts/binary.wasm",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, testContent, resp)
+
+		resp, err = fetcher(ctx, "msg-2", ghcapabilities.Request{
+			URL: "https://storage.example.com/path/to/binary.wasm",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, testContent, resp)
+	})
+
+	t.Run("file fetcher rejects HTTP URL with empty path", func(t *testing.T) {
+		tempDir := t.TempDir()
+		fetcher, err := NewFetcherFunc("file://"+tempDir, lggr)
+		require.NoError(t, err)
+
+		_, err = fetcher(ctx, "msg-1", ghcapabilities.Request{
+			URL: "http://storage.example.com",
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "HTTP URL has no filename in path")
 	})
 
 	t.Run("http fetcher", func(t *testing.T) {

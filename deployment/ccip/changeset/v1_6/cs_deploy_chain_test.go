@@ -8,26 +8,29 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+	linkchangesets "github.com/smartcontractkit/cld-changesets/tokens/link/changesets"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deploylink"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/opsutils"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 func TestDeployChainContractsChangeset(t *testing.T) {
@@ -70,10 +73,10 @@ func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, 
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	p2pIds := nodes.NonBootstraps().PeerIDs()
-	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
+	cfg := make(map[uint64]cldfproposalutils.MCMSWithTimelockConfig)
 	contractParams := make(map[uint64]ccipseq.ChainContractParams)
 	for _, chain := range e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM)) {
-		cfg[chain] = proposalutils.SingleGroupTimelockConfigV2(t)
+		cfg[chain] = cldftesthelpers.SingleGroupTimelockConfig(t)
 		contractParams[chain] = ccipseq.ChainContractParams{
 			FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
 			OffRampParams:   ccipops.DefaultOffRampParams(),
@@ -86,6 +89,10 @@ func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, 
 		})
 	}
 
+	evmLinkInputMap := make(map[uint64]linkchangesets.EVMLinkConfig, len(evmSelectors))
+	for _, sel := range evmSelectors {
+		evmLinkInputMap[sel] = linkchangesets.EVMLinkConfig{}
+	}
 	e, err = commonchangeset.Apply(t, e, commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
 		v1_6.DeployHomeChainConfig{
@@ -98,10 +105,10 @@ func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, 
 			},
 		},
 	), commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
-		evmSelectors,
+		deploylink.DeployLinkTokenChangeset{},
+		linkchangesets.DeployLinkTokenInput{EVM: evmLinkInputMap},
 	), commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
 		cfg,
 	), commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
@@ -178,7 +185,7 @@ func testDeployChainContractsChangesetWithEnv(t *testing.T, e cldf.Environment, 
 
 func TestDeployCCIPContracts(t *testing.T) {
 	t.Parallel()
-	testhelpers.DeployCCIPContractsTest(t, 0, 0)
+	testhelpers.DeployCCIPContractsTest(t, 0)
 }
 
 func TestDeployStaticLinkToken(t *testing.T) {

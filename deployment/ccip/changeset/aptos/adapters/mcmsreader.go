@@ -7,12 +7,13 @@ import (
 	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	mcms_utils "github.com/smartcontractkit/chainlink-ccip/deployment/utils/mcms"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // AptosCurseMCMSReader implements changesets.MCMSReader for the Aptos family,
@@ -37,7 +38,7 @@ func (r *AptosCurseMCMSReader) GetChainMetadata(e deployment.Environment, chainS
 	}
 	curseMCMSAddr := state.CurseMCMSAddress
 
-	role, err := proposalutils.GetAptosRoleFromAction(input.TimelockAction)
+	role, err := cldfproposalutils.GetAptosRoleFromAction(input.TimelockAction)
 	if err != nil {
 		return mcmstypes.ChainMetadata{}, fmt.Errorf("failed to get role from action: %w", err)
 	}

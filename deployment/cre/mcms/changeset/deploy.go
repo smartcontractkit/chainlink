@@ -6,8 +6,9 @@ import (
 	"net/url"
 	"strconv"
 
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
@@ -55,7 +56,7 @@ func (CsMCMSDeploy) VerifyPreconditions(env cldf.Environment, input DeployChange
 }
 
 func (CsMCMSDeploy) Apply(env cldf.Environment, input DeployChangesetInput) (cldf.ChangesetOutput, error) {
-	mcmsConfigPerChain := make(map[uint64]commontypes.MCMSWithTimelockConfigV2, len(input.ChainSelectors))
+	mcmsConfigPerChain := make(map[uint64]cldfproposalutils.MCMSWithTimelockConfig, len(input.ChainSelectors))
 	// we set the qualifier per chain selector
 	for _, s := range input.ChainSelectors {
 		q := input.Qualifier(s)
@@ -64,7 +65,7 @@ func (CsMCMSDeploy) Apply(env cldf.Environment, input DeployChangesetInput) (cld
 		mcmsConfigPerChain[s] = c
 	}
 
-	o, err := commonchangeset.DeployMCMSWithTimelockV2(env, mcmsConfigPerChain)
+	o, err := mcmschangesets.DeployMCMSWithTimelockV2(env, mcmsConfigPerChain)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

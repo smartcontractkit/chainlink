@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"strings"
 
@@ -71,13 +72,8 @@ func (h *MessageHasherV1) Hash(ctx context.Context, msg ccipocr3common.Message) 
 			return [32]byte{}, fmt.Errorf("failed to decode dest exec data: %w", err)
 		}
 
-		destGasAmountValue, ok := destExecDataDecodedMap["destGasAmount"]
-		if !ok {
-			return [32]byte{}, errors.New("destGasAmount not found in destExecDataDecodedMap")
-		}
-
-		destGasAmount, ok := destGasAmountValue.(uint32)
-		if !ok {
+		destGasAmount, err := extractDestGasAmountFromMap(destExecDataDecodedMap)
+		if err != nil {
 			return [32]byte{}, fmt.Errorf("invalid type for destGasAmount, expected uint32, got %T", destGasAmount)
 		}
 
@@ -306,10 +302,20 @@ func parseExtraDataMap(input map[string]any) (*big.Int, [32]byte, error) {
 	if !ok {
 		return nil, [32]byte{}, errors.New("token receiver not found in extra data map")
 	}
-	tokenReceiverBytes, ok := tokenReceiver.([32]byte)
-	if !ok {
-		return nil, [32]byte{}, errors.New("token receiver not a [32]byte")
+
+	tokenReceiverBytes := [32]byte{}
+	switch v := tokenReceiver.(type) {
+	case [32]byte:
+		tokenReceiverBytes = v
+	case []byte: // LOOP gRPC converts [32]byte -> []byte
+		if len(v) != 32 {
+			return nil, [32]byte{}, fmt.Errorf("invalid length for TokenReceiver: expected 32, got %d", len(v))
+		}
+		copy(tokenReceiverBytes[:], v)
+	default:
+		return nil, [32]byte{}, fmt.Errorf("invalid type for TokenReceiver, expected [32]byte, got %T", tokenReceiver)
 	}
+
 	return outputGasInt, tokenReceiverBytes, nil
 }
 
@@ -319,11 +325,17 @@ func extractDestGasAmountFromMap(input map[string]any) (uint32, error) {
 		lowercase := strings.ToLower(fieldName)
 		switch lowercase {
 		case "destgasamount":
-			// Expect uint32
-			if val, ok := fieldValue.(uint32); ok {
-				return val, nil
+			switch v := fieldValue.(type) {
+			case uint32:
+				return v, nil
+			case int64: // LOOP converts expected uint32 to int64
+				if v > math.MaxUint32 {
+					return 0, fmt.Errorf("destGasAmount exceeds uint32 max, got %d", v)
+				}
+				return uint32(v), nil //nolint:gosec // G115: validated to be within uint32 max above
+			default:
+				return 0, errors.New("invalid type for destgasamount, expected uint32 or int64")
 			}
-			return 0, errors.New("invalid type for destgasamount, expected uint32")
 		default:
 		}
 	}

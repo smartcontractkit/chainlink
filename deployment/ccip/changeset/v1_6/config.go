@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
-	"github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 )
 
 var (
@@ -36,7 +36,7 @@ var (
 
 	// Used for only testing with simulated chains
 	OcrParamsForTest = CCIPOCRParams{
-		OCRParameters: types.OCRParameters{
+		OCRParameters: shared.OCRParameters{
 			DeltaProgress:                           30 * time.Second, // Lower DeltaProgress can lead to timeouts when running tests locally
 			DeltaResend:                             10 * time.Second,
 			DeltaInitial:                            20 * time.Second,

@@ -220,7 +220,7 @@ func (d *DON) Initialise() {
 		d.nodeConfigModifiers = append(d.nodeConfigModifiers, func(c *chainlink.Config, node *capabilityNode) {
 			workflowRegistryAddressStr := d.workflowRegistry.addr.String()
 			c.Capabilities.WorkflowRegistry.Address = &workflowRegistryAddressStr
-			c.Capabilities.WorkflowRegistry.ChainID = ptr(fmt.Sprintf("%d", testutils.SimulatedChainID))
+			c.Capabilities.WorkflowRegistry.ChainID = new(fmt.Sprintf("%d", testutils.SimulatedChainID))
 		})
 	}
 	d.initialised = true
@@ -493,14 +493,14 @@ func startNewNode(ctx context.Context,
 	fetcherFactoryFunc compute.FetcherFactory,
 ) *cltest.TestApplication {
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Capabilities.ExternalRegistry.ChainID = ptr(fmt.Sprintf("%d", testutils.SimulatedChainID))
-		c.Capabilities.ExternalRegistry.Address = ptr(capRegistryAddr.String())
-		c.Capabilities.Peering.V2.Enabled = ptr(true)
-		c.Capabilities.WorkflowRegistry.SyncStrategy = ptr(syncer.SyncStrategyReconciliation)
-		c.Feature.FeedsManager = ptr(false)
-		c.Feature.LogPoller = ptr(true)
-		c.CRE.UseLocalTimeProvider = ptr(true)
-		c.CRE.EnableDKGRecipient = ptr(true)
+		c.Capabilities.ExternalRegistry.ChainID = new(fmt.Sprintf("%d", testutils.SimulatedChainID))
+		c.Capabilities.ExternalRegistry.Address = new(capRegistryAddr.String())
+		c.Capabilities.Peering.V2.Enabled = new(true)
+		c.Capabilities.WorkflowRegistry.SyncStrategy = new(syncer.SyncStrategyReconciliation)
+		c.Feature.FeedsManager = new(false)
+		c.Feature.LogPoller = new(true)
+		c.CRE.UseLocalTimeProvider = new(true)
+		c.CRE.EnableDKGRecipient = new(true)
 
 		if setupCfg != nil {
 			setupCfg(c)

@@ -9,12 +9,12 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
 
 type OnRampApplyDestChainConfigUpdatesSequenceInput struct {
-	UpdatesByChain map[uint64]opsutil.EVMCallInput[[]onramp.OnRampDestChainConfigArgs]
+	UpdatesByChain map[uint64]opsutils.EVMCallInput[[]onramp.OnRampDestChainConfigArgs]
 }
 
 var (
@@ -22,8 +22,8 @@ var (
 		"OnRampApplyDestChainConfigUpdatesSequence",
 		semver.MustParse("1.0.0"),
 		"Applies updates to destination chain configurations stored on OnRamp contracts on multiple EVM chains",
-		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input OnRampApplyDestChainConfigUpdatesSequenceInput) (map[uint64][]opsutil.EVMCallOutput, error) {
-			opOutputs := make(map[uint64][]opsutil.EVMCallOutput, len(input.UpdatesByChain))
+		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input OnRampApplyDestChainConfigUpdatesSequenceInput) (map[uint64][]opsutils.EVMCallOutput, error) {
+			opOutputs := make(map[uint64][]opsutils.EVMCallOutput, len(input.UpdatesByChain))
 			for chainSel, update := range input.UpdatesByChain {
 				chain, ok := chains[chainSel]
 				if !ok {
@@ -33,7 +33,7 @@ var (
 				if err != nil {
 					return nil, fmt.Errorf("failed to execute OnRampApplyDestChainConfigUpdatesOp on %s: %w", chain, err)
 				}
-				opOutputs[chainSel] = []opsutil.EVMCallOutput{report.Output}
+				opOutputs[chainSel] = []opsutils.EVMCallOutput{report.Output}
 			}
 			return opOutputs, nil
 		})

@@ -7,8 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	ccipcommoncs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -33,7 +33,7 @@ type UpdateAdminRoleConfig struct {
 	ChainUpdates map[uint64][]TokenAdminInfo `json:"ChainUpdates"`
 
 	// The timelock config - all updates can be folded into one MCMS proposal with this setting
-	MCMS *proposalutils.TimelockConfig `json:"mcms"`
+	MCMS *cldfproposalutils.TimelockConfig `json:"mcms"`
 
 	// Internal property for caching purposes
 	configs *updateAdminRoleConfigs

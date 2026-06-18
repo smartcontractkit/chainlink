@@ -7,8 +7,8 @@ import (
 	"github.com/aptos-labs/aptos-go-sdk"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 type TokenParams struct {
@@ -44,13 +44,13 @@ type TokenMint struct {
 type DeployTokenFaucetInput struct {
 	ChainSelector          uint64
 	TokenCodeObjectAddress aptos.AccountAddress
-	MCMSConfig             *proposalutils.TimelockConfig
+	MCMSConfig             *cldfproposalutils.TimelockConfig
 }
 
 type MintTokenInput struct {
 	ChainSelector          uint64
 	TokenCodeObjectAddress aptos.AccountAddress
-	MCMSConfig             *proposalutils.TimelockConfig
+	MCMSConfig             *cldfproposalutils.TimelockConfig
 	TokenMint
 }
 
@@ -67,7 +67,7 @@ type TokenTransferInput struct {
 type TransferTokenOwnershipInput struct {
 	ChainSelector uint64
 	Transfers     []TokenTransferInput
-	MCMSConfig    *proposalutils.TimelockConfig
+	MCMSConfig    *cldfproposalutils.TimelockConfig
 }
 
 type TokenAcceptInput struct {
@@ -78,23 +78,23 @@ type TokenAcceptInput struct {
 type AcceptTokenOwnershipInput struct {
 	ChainSelector uint64
 	Accepts       []TokenAcceptInput
-	MCMSConfig    *proposalutils.TimelockConfig
+	MCMSConfig    *cldfproposalutils.TimelockConfig
 }
 
 type ExecuteTokenOwnershipTransferInput struct {
 	ChainSelector uint64
 	Transfers     []TokenTransferInput
-	MCMSConfig    *proposalutils.TimelockConfig
+	MCMSConfig    *cldfproposalutils.TimelockConfig
 }
 
 type TransferTokenAdminInput struct {
 	ChainSelector uint64
 	Transfers     []TokenTransferInput
-	MCMSConfig    *proposalutils.TimelockConfig
+	MCMSConfig    *cldfproposalutils.TimelockConfig
 }
 
 type AcceptTokenAdminInput struct {
 	ChainSelector uint64
 	Accepts       []TokenAcceptInput
-	MCMSConfig    *proposalutils.TimelockConfig
+	MCMSConfig    *cldfproposalutils.TimelockConfig
 }

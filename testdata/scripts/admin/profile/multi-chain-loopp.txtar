@@ -11,7 +11,7 @@ exec curl --retry 10 --retry-max-time 60 --retry-connrefused $NODEURL
 exec chainlink --remote-node-url $NODEURL admin login -file creds --bypass-version-check
 
 exec chainlink --remote-node-url $NODEURL admin profile -seconds 1 -output_dir ./profiles
-stderr 'Collecting profiles from host and 8 plugins: \[allocs block cmdline goroutine heap mutex profile threadcreate trace\]'
+stderr 'Collecting profiles from host and 8 plugins: \[allocs block cmdline goroutine heap mutex threadcreate profile trace\]'
 
 exec sh -c 'eval "ls -R $WORK"'
 

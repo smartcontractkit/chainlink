@@ -6,7 +6,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	"github.com/stretchr/testify/require"
+
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -17,9 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
-	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
@@ -34,7 +36,7 @@ func TestRemoveFeed(t *testing.T) {
 	))
 	require.NoError(t, err)
 
-	MCMScfg := proposalutils.SingleGroupTimelockConfigV2(t)
+	MCMScfg := cldftesthelpers.SingleGroupTimelockConfig(t)
 	MCMSQualifier := "MCMS_EVM_1"
 	MCMScfg.Qualifier = &MCMSQualifier
 
@@ -43,7 +45,7 @@ func TestRemoveFeed(t *testing.T) {
 			ChainsToDeploy: []uint64{selector},
 			Labels:         []string{"data-feeds"},
 		}),
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2), map[uint64]commonTypes.MCMSWithTimelockConfigV2{
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2), map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 			selector: MCMScfg,
 		}),
 	)
@@ -97,18 +99,18 @@ func TestRemoveFeed(t *testing.T) {
 			AdminAddress:  common.HexToAddress(timeLockAddress),
 			IsAdmin:       true,
 		}),
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2), commonChangesets.TransferToMCMSWithTimelockConfig{
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2), mcmschangesets.TransferToMCMSWithTimelockConfig{
 			ContractsByChain: map[uint64][]common.Address{
 				selector: {common.HexToAddress(cacheAddress)},
 			},
-			MCMSConfig: proposalutils.TimelockConfig{
+			MCMSConfig: cldfproposalutils.TimelockConfig{
 				MinDelay: 0,
 				TimelockQualifierPerChain: map[uint64]string{
 					selector: MCMSQualifier,
 				},
 			},
 		}),
-		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
+		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
 	)
 	require.NoError(t, err)
 	require.Len(t, rt.State().Proposals, 1)
@@ -133,7 +135,7 @@ func TestRemoveFeed(t *testing.T) {
 				TimeLockQualifier: MCMSQualifier,
 			},
 		}),
-		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
+		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
 	)
 
 	require.NoError(t, err)
@@ -151,7 +153,7 @@ func TestRemoveFeed(t *testing.T) {
 				TimeLockQualifier: MCMSQualifier,
 			},
 		}),
-		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
+		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
 	)
 	require.NoError(t, err)
 	require.Len(t, rt.State().Proposals, 3)

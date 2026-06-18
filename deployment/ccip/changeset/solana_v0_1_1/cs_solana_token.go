@@ -15,11 +15,11 @@ import (
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
@@ -312,7 +312,7 @@ type TokenAuthorityConfig struct {
 type SetTokenAuthorityConfig struct {
 	ChainSelector         uint64
 	TokenAuthorityConfigs []TokenAuthorityConfig
-	MCMS                  *proposalutils.TimelockConfig
+	MCMS                  *cldfproposalutils.TimelockConfig
 }
 
 func SetTokenAuthority(e cldf.Environment, cfg SetTokenAuthorityConfig) (cldf.ChangesetOutput, error) {
@@ -422,7 +422,7 @@ type TokenMetadata struct {
 type UploadTokenMetadataConfig struct {
 	ChainSelector uint64
 	TokenMetadata []TokenMetadata
-	MCMS          *proposalutils.TimelockConfig // timelock config for mcms
+	MCMS          *cldfproposalutils.TimelockConfig // timelock config for mcms
 }
 
 func (cfg UploadTokenMetadataConfig) Validate(e cldf.Environment) error {

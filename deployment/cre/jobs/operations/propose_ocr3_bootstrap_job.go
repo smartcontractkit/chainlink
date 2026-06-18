@@ -76,6 +76,7 @@ var ProposeOCR3BootstrapJob = operations.NewOperation[ProposeOCR3BootstrapJobInp
 
 		report, err := operations.ExecuteOperation(b, ProposeJobSpec, ProposeJobSpecDeps(deps), ProposeJobSpecInput{
 			Domain:      input.Domain,
+			Environment: input.EnvironmentLabel,
 			DONName:     input.DONName,
 			Spec:        spec,
 			JobLabels:   input.ExtraLabels,

@@ -12,7 +12,6 @@ import (
 type Version string
 
 const (
-	V1     Version = "V1"
 	V2     Version = "V2"
 	V2Plus Version = "V2Plus"
 )

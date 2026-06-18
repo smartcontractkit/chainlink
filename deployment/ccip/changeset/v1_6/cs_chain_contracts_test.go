@@ -12,6 +12,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -33,9 +34,7 @@ import (
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
@@ -78,9 +77,9 @@ func TestUpdateOnRampsDests(t *testing.T) {
 				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -154,9 +153,9 @@ func TestUpdateOnRampDynamicConfig(t *testing.T) {
 				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -222,9 +221,9 @@ func TestUpdateOnRampAllowList(t *testing.T) {
 				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -301,9 +300,9 @@ func TestWithdrawOnRampFeeTokens(t *testing.T) {
 				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -412,9 +411,9 @@ func TestUpdateOffRampsSources(t *testing.T) {
 				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -488,9 +487,9 @@ func TestUpdateFQDests(t *testing.T) {
 				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -671,9 +670,9 @@ func TestUpdateRouterRamps(t *testing.T) {
 				testhelpers.TransferToTimelock(t, tenv, state, chains, true)
 			}
 
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -750,9 +749,9 @@ func TestUpdateDynamicConfigOffRampChangeset(t *testing.T) {
 				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -810,9 +809,9 @@ func TestUpdateNonceManagersCS(t *testing.T) {
 				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -1113,9 +1112,9 @@ func TestApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
 				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -1172,9 +1171,9 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -1308,9 +1307,9 @@ func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -1401,9 +1400,9 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(t *testing.T) {
 				testhelpers.TransferToTimelock(t, tenv, state, []uint64{source, dest}, true)
 			}
 
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -1508,11 +1507,11 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2(t *testing.T) {
 			require.NoError(t, err)
 
 			// MCMS setup
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
 				testhelpers.TransferToTimelock(t, tenv, state, []uint64{src, dst}, true)
-				mcmsConfig = &proposalutils.TimelockConfig{MinDelay: 0}
+				mcmsConfig = &cldfproposalutils.TimelockConfig{MinDelay: 0}
 			}
 
 			// Tokens under test
@@ -1537,12 +1536,12 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2(t *testing.T) {
 								src: {
 									TokenTransferFeeConfigArgs: map[common.Address]v1_6.OptionalFeeQuoterTokenTransferFeeConfig{
 										dstLinkTokenAddress: {
-											MinFeeUSDCents:    pointer.To(uint32(1)),
-											MaxFeeUSDCents:    pointer.To(uint32(1)),
-											DeciBps:           pointer.To(uint16(1)),
-											DestGasOverhead:   pointer.To(uint32(1)),
-											DestBytesOverhead: pointer.To(uint32(1)),
-											IsEnabled:         pointer.To(true),
+											MinFeeUSDCents:    new(uint32(1)),
+											MaxFeeUSDCents:    new(uint32(1)),
+											DeciBps:           new(uint16(1)),
+											DestGasOverhead:   new(uint32(1)),
+											DestBytesOverhead: new(uint32(1)),
+											IsEnabled:         new(true),
 										},
 									},
 								},
@@ -1581,12 +1580,12 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2(t *testing.T) {
 								src: {
 									TokenTransferFeeConfigArgs: map[common.Address]v1_6.OptionalFeeQuoterTokenTransferFeeConfig{
 										dstLinkTokenAddress: {
-											MinFeeUSDCents:    pointer.To(uint32(1)),
-											MaxFeeUSDCents:    pointer.To(uint32(2)),
-											DeciBps:           pointer.To(uint16(1)),
-											DestGasOverhead:   pointer.To(uint32(1)),
-											DestBytesOverhead: pointer.To(uint32(64)),
-											IsEnabled:         pointer.To(true),
+											MinFeeUSDCents:    new(uint32(1)),
+											MaxFeeUSDCents:    new(uint32(2)),
+											DeciBps:           new(uint16(1)),
+											DestGasOverhead:   new(uint32(1)),
+											DestBytesOverhead: new(uint32(64)),
+											IsEnabled:         new(true),
 										},
 									},
 								},
@@ -1645,9 +1644,9 @@ func TestUpdateWrappedNativeOnRouterChangeset(t *testing.T) {
 				testhelpers.TransferToTimelock(t, tenv, state, []uint64{chainSel}, true)
 			}
 
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &proposalutils.TimelockConfig{MinDelay: 0}
+				mcmsConfig = &cldfproposalutils.TimelockConfig{MinDelay: 0}
 			}
 
 			_, err = commonchangeset.Apply(t, tenv.Env,

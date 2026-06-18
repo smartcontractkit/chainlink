@@ -14,12 +14,7 @@ Identify specific code blocks that require **scrupulous human review**. Focus on
 - Potential breaking changes in internal or external APIs.
 - Logic that lacks sufficient unit test coverage within the PR.
 
-### 3. Reviewer Recommendations
-Analyze the `CODEOWNERS` file and the git history (recent editors) to suggest the most qualified reviewers.
-- Prioritize individuals who have made significant recent contributions to the specific files modified.
-- Cross-reference these contributors with the defined `CODEOWNERS` for the directory.
-
-### 4. Code Style
+### 3. Code Style
 Give style advice based on the following guides, in order of priority.
 1. [Effective Go](https://go.dev/doc/effective_go)
 2. [Google Code Review Comments](https://go.dev/wiki/CodeReviewComments)

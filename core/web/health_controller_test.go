@@ -13,8 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -136,15 +134,7 @@ func TestHealthController_Health_body(t *testing.T) {
 		{".txt-failing", "/health.txt?failing", nil, bodyTXTFailing},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg := configtest.NewGeneralConfig(t, func(cfg *chainlink.Config, secrets *chainlink.Secrets) {
-				cfg.Solana = []*solcfg.TOMLConfig{{
-					ChainID: ptr("Bar"),
-					Nodes: solcfg.Nodes{
-						{Name: ptr("primary"), URL: config.MustParseURL("http://solana.web")},
-					},
-				}}
-				cfg.Solana[0].SetDefaults()
-			})
+			cfg := configtest.NewGeneralConfig(t, func(cfg *chainlink.Config, secrets *chainlink.Secrets) {})
 			app := cltest.NewApplicationWithConfigAndKey(t, cfg)
 			require.NoError(t, app.Start(testutils.Context(t)))
 

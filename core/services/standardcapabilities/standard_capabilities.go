@@ -13,6 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -75,10 +77,14 @@ func NewStandardCapabilities(
 
 func (s *StandardCapabilities) Start(ctx context.Context) error {
 	return s.StartOnce("StandardCapabilities", func() error {
+		envVars, err := plugins.ParseEnvFile(env.CapabilitiesPlugin.Env.Get())
+		if err != nil {
+			return fmt.Errorf("failed to parse capabilities env file: %w", err)
+		}
 		cmdFn, opts, err := s.pluginRegistrar.RegisterLOOP(plugins.CmdConfig{
 			ID:  s.log.Name(),
 			Cmd: s.command,
-			Env: nil,
+			Env: envVars,
 		})
 		if err != nil {
 			return fmt.Errorf("error registering loop: %w", err)

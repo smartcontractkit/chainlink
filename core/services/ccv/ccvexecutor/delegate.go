@@ -86,10 +86,10 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		return nil, fmt.Errorf("failed to get legacy chains: %w", err)
 	}
 
-	var roundRobins = make(map[protocol.ChainSelector]keys.RoundRobin)
-	var fromAddresses = make(map[protocol.ChainSelector][]common.Address)
+	var roundRobins = make(map[protocol.ChainSelector]keys.RoundRobin, len(legacyChains))
+	var fromAddresses = make(map[protocol.ChainSelector][]common.Address, len(legacyChains))
 
-	for _, chainSel := range chainsInConfig {
+	for chainSel := range legacyChains {
 		id, err3 := chainselectors.GetChainIDFromSelector(uint64(chainSel))
 		if err3 != nil {
 			return nil, fmt.Errorf("failed to get chain ID from selector (%d): %w", chainSel, err3)

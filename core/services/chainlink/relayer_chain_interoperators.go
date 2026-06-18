@@ -158,9 +158,9 @@ func InitCosmos(factory RelayerFactory, ks keystore.Cosmos, csaKS keystore.CSA, 
 }
 
 // InitSolana is a option for instantiating Solana relayers
-func InitSolana(factory RelayerFactory, ks keystore.Solana, csaKS keystore.CSA, config SolanaFactoryConfig) CoreRelayerChainInitFunc {
+func InitSolana(factory RelayerFactory, ks keystore.Solana, csaKS keystore.CSA, chainCfgs RawConfigs) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) error {
-		solRelayers, err := factory.NewSolana(&keystore.SolanaLooppSigner{Solana: ks}, &keystore.CSASigner{CSA: csaKS}, config)
+		solRelayers, err := factory.NewSolana(&keystore.SolanaLooppSigner{Solana: ks}, &keystore.CSASigner{CSA: csaKS}, chainCfgs)
 		if err != nil {
 			return fmt.Errorf("failed to setup Solana relayer: %w", err)
 		}

@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
@@ -13,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 func TestUpgradeAptosChain_Apply(t *testing.T) {
@@ -30,7 +31,7 @@ func TestUpgradeAptosChain_Apply(t *testing.T) {
 
 	cfg := config.UpgradeAptosChainConfig{
 		ChainSelector: chainSelector,
-		MCMS: &proposalutils.TimelockConfig{
+		MCMS: &cldfproposalutils.TimelockConfig{
 			MinDelay:     time.Second,
 			MCMSAction:   mcmstypes.TimelockActionSchedule,
 			OverrideRoot: false,

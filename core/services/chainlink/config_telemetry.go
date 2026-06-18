@@ -7,9 +7,12 @@ import (
 
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
+
+var _ config.Telemetry = (*telemetryConfig)(nil)
 
 const defaultHeartbeatInterval = 1 * time.Second
 
@@ -97,6 +100,20 @@ func (b *telemetryConfig) ChipIngressInsecureConnection() bool {
 	return *b.s.ChipIngressInsecureConnection
 }
 
+func (b *telemetryConfig) ChipIngressBatchEmitterEnabled() bool {
+	if b.s.ChipIngressBatchEmitterEnabled == nil {
+		return true
+	}
+	return *b.s.ChipIngressBatchEmitterEnabled
+}
+
+func (b *telemetryConfig) DurableEmitterEnabled() bool {
+	if b.s.DurableEmitterEnabled == nil {
+		return false
+	}
+	return *b.s.DurableEmitterEnabled
+}
+
 func (b *telemetryConfig) HeartbeatInterval() time.Duration {
 	if b.s.HeartbeatInterval == nil || b.s.HeartbeatInterval.Duration() <= 0 {
 		return defaultHeartbeatInterval
@@ -163,4 +180,20 @@ func (b *telemetryConfig) LogMaxQueueSize() int {
 		return 2048
 	}
 	return *b.s.LogMaxQueueSize
+}
+
+func (b *telemetryConfig) PrometheusBridge() config.PrometheusBridge {
+	return &prometheusBridgeConfig{b.s.PrometheusBridge}
+}
+
+type prometheusBridgeConfig struct {
+	s toml.PrometheusBridge
+}
+
+func (p *prometheusBridgeConfig) Enabled() bool {
+	return *p.s.Enabled
+}
+
+func (p *prometheusBridgeConfig) Prefixes() []string {
+	return p.s.Prefixes
 }

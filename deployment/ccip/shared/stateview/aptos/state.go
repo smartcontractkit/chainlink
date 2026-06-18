@@ -13,9 +13,9 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/managed_token"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/regulated_token"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/maputils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
 	aptosview "github.com/smartcontractkit/chainlink/deployment/ccip/view/aptos"
-	"github.com/smartcontractkit/chainlink/deployment/helpers"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
@@ -331,7 +331,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chain
 				return fmt.Errorf("failed to generate token pool view for ManagedTokenPool %s: %w", tokenPoolAddress.StringLong(), err)
 			}
 			chainView.UpdateMu.Lock()
-			chainView.TokenPools = helpers.AddValueToNestedMap(chainView.TokenPools, faMetadata.Symbol, tokenPoolAddress.StringLong(), tokenPoolView)
+			chainView.TokenPools = maputils.AddValueToNestedMap(chainView.TokenPools, faMetadata.Symbol, tokenPoolAddress.StringLong(), tokenPoolView)
 			chainView.UpdateMu.Unlock()
 		}
 		return nil
@@ -348,7 +348,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chain
 				return fmt.Errorf("failed to generate token pool view for RegulatedTokenPool %s: %w", tokenPoolAddress.StringLong(), err)
 			}
 			chainView.UpdateMu.Lock()
-			chainView.TokenPools = helpers.AddValueToNestedMap(chainView.TokenPools, faMetadata.Symbol, tokenPoolAddress.StringLong(), tokenPoolView)
+			chainView.TokenPools = maputils.AddValueToNestedMap(chainView.TokenPools, faMetadata.Symbol, tokenPoolAddress.StringLong(), tokenPoolView)
 			chainView.UpdateMu.Unlock()
 		}
 		return nil
@@ -365,7 +365,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chain
 				return fmt.Errorf("failed to generate token pool view for BurnMintTokenPool %s: %w", tokenPoolAddress.StringLong(), err)
 			}
 			chainView.UpdateMu.Lock()
-			chainView.TokenPools = helpers.AddValueToNestedMap(chainView.TokenPools, faMetadata.Symbol, tokenPoolAddress.StringLong(), tokenPoolView)
+			chainView.TokenPools = maputils.AddValueToNestedMap(chainView.TokenPools, faMetadata.Symbol, tokenPoolAddress.StringLong(), tokenPoolView)
 			chainView.UpdateMu.Unlock()
 		}
 		return nil
@@ -382,7 +382,7 @@ func (s CCIPChainState) GenerateView(e *cldf.Environment, selector uint64, chain
 				return fmt.Errorf("failed to generate token pool view for LockReleaseTokenPool %s: %w", tokenPoolAddress.StringLong(), err)
 			}
 			chainView.UpdateMu.Lock()
-			chainView.TokenPools = helpers.AddValueToNestedMap(chainView.TokenPools, faMetadata.Symbol, tokenPoolAddress.StringLong(), tokenPoolView)
+			chainView.TokenPools = maputils.AddValueToNestedMap(chainView.TokenPools, faMetadata.Symbol, tokenPoolAddress.StringLong(), tokenPoolView)
 			chainView.UpdateMu.Unlock()
 		}
 		return nil

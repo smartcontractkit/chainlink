@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
@@ -34,7 +35,9 @@ type LoopRegistry struct {
 	appID                  string
 	featureLogPoller       bool
 	cfgDatabase            config.Database
-	cfgMercury             config.Mercury
+	cfgMercury             de.Mercury
+	cfgPyroscope           config.Pyroscope
+	autoPPROF              config.AutoPprof
 	cfgTracing             config.Tracing
 	cfgTelemetry           config.Telemetry
 	telemetryAuthHeaders   map[string]string
@@ -43,8 +46,8 @@ type LoopRegistry struct {
 }
 
 func NewLoopRegistry(lggr logger.Logger, appID string, featureLogPoller bool, dbConfig config.Database,
-	mercury config.Mercury, tracing config.Tracing, telemetry config.Telemetry, telemetryAuthHeaders map[string]string,
-	telemetryAuthPubKeyHex string, looppCfg config.LOOPP) *LoopRegistry {
+	mercury de.Mercury, pyroscope config.Pyroscope, autoPPROF config.AutoPprof, tracing config.Tracing, telemetry config.Telemetry,
+	telemetryAuthHeaders map[string]string, telemetryAuthPubKeyHex string, looppCfg config.LOOPP) *LoopRegistry {
 	return &LoopRegistry{
 		registry:               map[string]*RegisteredLoop{},
 		lggr:                   logger.Named(lggr, "LoopRegistry"),
@@ -52,6 +55,8 @@ func NewLoopRegistry(lggr logger.Logger, appID string, featureLogPoller bool, db
 		featureLogPoller:       featureLogPoller,
 		cfgDatabase:            dbConfig,
 		cfgMercury:             mercury,
+		cfgPyroscope:           pyroscope,
+		autoPPROF:              autoPPROF,
 		cfgTracing:             tracing,
 		cfgTelemetry:           telemetry,
 		telemetryAuthHeaders:   telemetryAuthHeaders,
@@ -118,6 +123,17 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		envCfg.MercuryVerboseLogging = m.cfgMercury.VerboseLogging()
 	}
 
+	if m.cfgPyroscope != nil {
+		envCfg.PyroscopeAuthToken = m.cfgPyroscope.AuthToken()
+		envCfg.PyroscopeServerAddress = m.cfgPyroscope.ServerAddress()
+		envCfg.PyroscopeEnvironment = m.cfgPyroscope.Environment()
+		envCfg.PyroscopeLinkTracesToProfiles = m.cfgPyroscope.LinkTracesToProfiles()
+		if m.autoPPROF != nil {
+			envCfg.PyroscopePPROFBlockProfileRate = m.autoPPROF.BlockProfileRate()
+			envCfg.PyroscopePPROFMutexProfileFraction = m.autoPPROF.MutexProfileFraction()
+		}
+	}
+
 	if m.cfgTracing != nil {
 		envCfg.TracingEnabled = m.cfgTracing.Enabled()
 		envCfg.TracingCollectorTarget = m.cfgTracing.CollectorTarget()
@@ -138,6 +154,7 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		envCfg.TelemetryAuthPubKeyHex = m.telemetryAuthPubKeyHex
 		envCfg.ChipIngressEndpoint = m.cfgTelemetry.ChipIngressEndpoint()
 		envCfg.ChipIngressInsecureConnection = m.cfgTelemetry.ChipIngressInsecureConnection()
+		envCfg.ChipIngressBatchEmitterEnabled = m.cfgTelemetry.ChipIngressBatchEmitterEnabled()
 		envCfg.TelemetryLogStreamingEnabled = m.cfgTelemetry.LogStreamingEnabled()
 		envCfg.TelemetryLogLevel = m.cfgTelemetry.LogLevel()
 		envCfg.TelemetryLogBatchProcessor = m.cfgTelemetry.LogBatchProcessor()
@@ -145,6 +162,8 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		envCfg.TelemetryLogExportMaxBatchSize = m.cfgTelemetry.LogExportMaxBatchSize()
 		envCfg.TelemetryLogExportInterval = m.cfgTelemetry.LogExportInterval()
 		envCfg.TelemetryLogMaxQueueSize = m.cfgTelemetry.LogMaxQueueSize()
+		envCfg.TelemetryPrometheusBridgeEnabled = m.cfgTelemetry.PrometheusBridge().Enabled()
+		envCfg.TelemetryPrometheusBridgePrefixes = m.cfgTelemetry.PrometheusBridge().Prefixes()
 	}
 	m.lggr.Debugf("Registered loopp %q with port %d", id, envCfg.PrometheusPort)
 

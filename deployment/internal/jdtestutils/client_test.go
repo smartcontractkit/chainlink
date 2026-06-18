@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/utils/nodetestutils"
 )
 
@@ -161,7 +160,7 @@ func TestJobClientJobAPI(t *testing.T) {
 		Labels: []*ptypes.Label{
 			{
 				Key:   "label-key",
-				Value: pointer.To("label-value"),
+				Value: new("label-value"),
 			},
 		},
 	}

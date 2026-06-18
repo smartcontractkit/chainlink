@@ -1,37 +1,44 @@
 # Notify Slack Jobs Result
 
-Sends a Slack message to a specified channel detailing the results of one to many GHA job results using a regex. The job results will be grouped by the `github_job_name_regex` and displayed underneath the `message_title`, with the regex matching group displayed as an individual result. This is primarily designed for when you have test groups running in a matrix, and would like condensed reporting on their status by group. It's often accompanied by posting a Slack message before to start a thread, then attaching all the results to that thread like we do in the reporting section of the [live-testnet-test.yml workflow](../../workflows/live-testnet-tests.yml). Check out the example below, where we post an initial summary message, then use this action to thread together specific results:
+Composite action that posts a short Slack message for **one** job’s conclusion: a header (job name + status emoji), the raw status, and a link to the workflow run. Optionally replies in an existing thread (`slack_thread_ts`).
 
-```yaml
-message_title: Optimism Goerli
-github_job_name_regex: ^Optimism Goerli (?<cap>.*?) Tests$ # Note that the regex MUST have a capturing group named "cap"
-```
-
-![example](image.png)
+Use it from a **follow-up job** that `needs` the job you care about and runs with `if: always()` so failures still notify.
 
 ## Inputs
 
+| Input | Required | Description |
+|-------|----------|-------------|
+| `status` | Yes | Conclusion string, e.g. `success`, `failure`, `cancelled`, `skipped`. Often `needs.<job_id>.result`. |
+| `job_name` | Yes | Label shown in the Slack header. |
+| `run_url` | Yes | URL to the workflow run. E.g. `format('{0}/{1}/actions/runs/{2}', github.server_url, github.repository, github.run_id)`. |
+| `slack_thread_ts` | No | If set, the message is posted in that thread; if empty, it posts to the channel. |
+| `slack_bot_token` | Yes | Bot token with `chat:write` (and channel access). |
+| `slack_channel_id` | Yes | Channel ID for `chat.postMessage`. |
+
+Status is mapped to emoji: success ✅, failure ❌, cancelled ⚠️, skipped ⏭️, unknown ❔.
+
+## Example
+
 ```yaml
-inputs:
-  github_token:
-    description: "The GitHub token to use for authentication (usually ${{ github.token }})"
-    required: true
-  github_repository:
-    description: "The GitHub owner/repository to use for authentication (usually ${{ github.repository }}))"
-    required: true
-  workflow_run_id:
-    description: "The workflow run ID to get the results from (usually ${{ github.run_id }})"
-    required: true
-  github_job_name_regex:
-    description: "The regex to use to match 1..many job name(s) to collect results from. Should include a capture group named 'cap' for the part of the job name you want to display in the Slack message (e.g. ^Client Compatability Test (?<cap>.*?)$)"
-    required: true
-  message_title:
-    description: "The title of the Slack message"
-    required: true
-  slack_channel_id:
-    description: "The Slack channel ID to post the message to"
-    required: true
-  slack_thread_ts:
-    description: "The Slack thread timestamp to post the message to, handy for keeping multiple related results in a single thread"
-    required: false
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - run: ./run-tests.sh
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: [tests]
+    if: always()
+    steps:
+      - uses: ./.github/actions/notify-slack-jobs-result
+        with:
+          status: ${{ needs.tests.result }}
+          job_name: "Smoke tests"
+          run_url: ${{ format('{0}/{1}/actions/runs/{2}', github.server_url, github.repository, github.run_id) }}
+          slack_thread_ts: ${{ inputs.slack_thread_ts }} # optional
+          slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
+          slack_channel_id: ${{ secrets.SLACK_CHANNEL_ID }}
 ```
+
+Implementation detail: the action builds a Block Kit payload with `jq` and sends it via [`slackapi/slack-github-action`](https://github.com/slackapi/slack-github-action) (`chat.postMessage`).

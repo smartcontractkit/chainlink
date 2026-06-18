@@ -17,6 +17,7 @@ SafeDepth = 0
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
+LogPollerSkipEmptyBlocks = false
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
 BackupLogPollerBlockDelay = 100
@@ -87,12 +88,15 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m'
 NewHeadsPollInterval = '0s'
@@ -153,7 +157,7 @@ HTTPURL = 'https://foo.bar'
 
 # Effective Configuration, with defaults applied:
 InsecureFastScrypt = false
-InsecurePPROFHeap = false
+InsecurePPROFHeap = true
 RootDir = '~/.chainlink'
 ShutdownGracePeriod = '5s'
 
@@ -347,21 +351,6 @@ DeltaDial = '15s'
 DeltaReconcile = '1m0s'
 ListenAddresses = []
 
-[Keeper]
-DefaultTransactionQueueDepth = 1
-GasPriceBufferPercent = 20
-GasTipCapBufferPercent = 20
-BaseFeeBufferPercent = 20
-MaxGracePeriod = 100
-TurnLookBack = 1000
-
-[Keeper.Registry]
-CheckGasOverhead = 200000
-PerformGasOverhead = 300000
-MaxPerformDataSize = 5000
-SyncInterval = '30m0s'
-SyncUpkeepQueueSize = 10
-
 [AutoPprof]
 Enabled = false
 ProfileRoot = ''
@@ -489,6 +478,14 @@ ArtifactStorageHost = ''
 URL = ''
 TLSEnabled = true
 
+[Capabilities.WorkflowRegistry.ModuleCache]
+Enabled = false
+DiskMonitorEnabled = false
+IdleEviction = true
+IdleTimeout = '10m0s'
+MaxLoaded = 200
+CacheDir = ''
+
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = ''
 NodeAddress = ''
@@ -509,6 +506,8 @@ EmitterExportTimeout = '1s'
 AuthHeadersTTL = '0s'
 ChipIngressEndpoint = ''
 ChipIngressInsecureConnection = false
+ChipIngressBatchEmitterEnabled = true
+DurableEmitterEnabled = false
 HeartbeatInterval = '1s'
 LogLevel = 'info'
 LogStreamingEnabled = false
@@ -517,6 +516,10 @@ LogExportTimeout = '1s'
 LogExportMaxBatchSize = 512
 LogExportInterval = '1s'
 LogMaxQueueSize = 2048
+
+[Telemetry.PrometheusBridge]
+Enabled = false
+Prefixes = ['go_']
 
 [Workflows]
 [Workflows.Limits]
@@ -539,6 +542,9 @@ URL = ''
 URL = ''
 TLSEnabled = true
 
+[CRE.ConfidentialRelay]
+Enabled = false
+
 [Billing]
 URL = 'localhost:4319'
 TLSEnabled = true
@@ -549,6 +555,11 @@ StatusPath = '/status'
 PollingInterval = '5m0s'
 IgnoreInvalidBridges = true
 IgnoreJoblessBridges = false
+
+[JobSpecReporter]
+Enabled = false
+PollingInterval = '1h0m0s'
+EnabledOCR2PluginTypes = ['median']
 
 [Sharding]
 ShardingEnabled = false
@@ -574,6 +585,7 @@ SafeTagSupported = true
 LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
+LogPollerSkipEmptyBlocks = false
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
 BackupLogPollerBlockDelay = 100
@@ -646,17 +658,23 @@ PersistenceBatchSize = 100
 
 [EVM.NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
 VerifyChainID = true
 ExternalRequestMaxResponseSize = 1000000
+
+[EVM.NodePool.Errors]
+FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
 
 [EVM.OCR]
 ContractConfirmations = 4

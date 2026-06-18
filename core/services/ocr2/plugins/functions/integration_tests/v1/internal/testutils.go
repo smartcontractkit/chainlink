@@ -19,7 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/freeport"
@@ -57,8 +57,6 @@ import (
 )
 
 var nilOpts *bind.CallOpts
-
-func ptr[T any](v T) *T { return &v }
 
 var allowListPrivateKey = "0xae78c8b502571dba876742437f8bc78b689cf8518356c0921393d89caaf284ce"
 
@@ -325,15 +323,15 @@ func StartNewNode(
 	ctx := testutils.Context(t)
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(int64(port)))
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Insecure.OCRDevelopmentMode = ptr(true)
+		c.Insecure.OCRDevelopmentMode = new(true)
 
-		c.Feature.LogPoller = ptr(true)
+		c.Feature.LogPoller = new(true)
 
-		c.OCR.Enabled = ptr(false)
-		c.OCR2.Enabled = ptr(true)
+		c.OCR.Enabled = new(false)
+		c.OCR2.Enabled = new(true)
 
-		c.P2P.PeerID = ptr(p2pKey.PeerID())
-		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.PeerID = new(p2pKey.PeerID())
+		c.P2P.V2.Enabled = new(true)
 		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(500 * time.Millisecond)
 		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", port)}
@@ -342,9 +340,9 @@ func StartNewNode(
 		}
 
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
-		c.EVM[0].Transactions.ForwardersEnabled = ptr(false)
-		c.EVM[0].GasEstimator.LimitDefault = ptr(uint64(maxGas))
-		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+		c.EVM[0].Transactions.ForwardersEnabled = new(false)
+		c.EVM[0].GasEstimator.LimitDefault = new(uint64(maxGas))
+		c.EVM[0].GasEstimator.Mode = new("FixedPrice")
 		c.EVM[0].GasEstimator.PriceDefault = assets.NewWei(big.NewInt(int64(DefaultGasPrice)))
 
 		if len(thresholdKeyShare) > 0 {
@@ -605,12 +603,12 @@ func ClientTestRequests(t *testing.T, owner *bind.TransactOpts, b evmtypes.Backe
 	// send requests
 	requestSources := make([][]byte, len(clientContracts))
 	rnd := rand.New(rand.NewSource(666))
-	for i, client := range clientContracts {
+	for i, cc := range clientContracts {
 		requestSources[i] = make([]byte, requestLenBytes)
 		for j := range requestLenBytes {
 			requestSources[i][j] = byte(rnd.Uint32() % 256)
 		}
-		_, err := client.Contract.SendRequest(
+		_, err := cc.Contract.SendRequest(
 			owner,
 			hex.EncodeToString(requestSources[i]),
 			expectedSecrets,
@@ -619,22 +617,21 @@ func ClientTestRequests(t *testing.T, owner *bind.TransactOpts, b evmtypes.Backe
 			donId,
 		)
 		require.NoError(t, err)
+		client.FinalizeLatest(t, b)
 	}
-	client.FinalizeLatest(t, b)
-
 	// validate that all client contracts got correct responses to their requests
 	var wg sync.WaitGroup
 	for i := range clientContracts {
 		ic := i
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			gomega.NewGomegaWithT(t).Eventually(func() [32]byte {
+		wg.Go(func() {
+			assert.Eventually(t, func() bool {
 				answer, err := clientContracts[ic].Contract.SLastResponse(nil)
-				require.NoError(t, err)
-				return answer
-			}, timeout, 1*time.Second).Should(gomega.Equal(GetExpectedResponse(requestSources[ic])))
-		}()
+				if err != nil {
+					return false
+				}
+				return answer == GetExpectedResponse(requestSources[ic])
+			}, timeout, 1*time.Second, "unexpected response for client contract at index %d", ic)
+		})
 	}
 	wg.Wait()
 }

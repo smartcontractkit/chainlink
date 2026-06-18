@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
@@ -25,6 +26,8 @@ import (
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
+	mocks2 "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
+	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -39,8 +42,19 @@ func makeTestTxm(t *testing.T, txStore txmgr.TestEvmTxStore, keyStore keystore.M
 	ec := clienttest.NewClientWithDefaultChainID(t)
 	txmConfig := txmgr.NewEvmTxmConfig(evmConfig)
 	ks := keys.NewChainStore(keystore.NewEthSigner(keyStore.Eth(), ec.ConfiguredChainID()), ec.ConfiguredChainID())
+	builder := mocks.NewTxAttemptBuilder[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee](t)
+	servicetest.SetupNoOpMock(builder)
+	broadcaster := mocks2.NewBroadcaster[common.Address](t)
+	servicetest.SetupNoOpMock(broadcaster)
+	confirmer := mocks2.NewConfirmer[*evmtypes.Head, common.Address, common.Hash](t)
+	servicetest.SetupNoOpMock(confirmer)
+	tracker := mocks2.NewTracker[common.Address](t)
+	servicetest.SetupNoOpMock(tracker)
+	tracker.On("GetEnabledAddresses").Return(nil).Maybe()
+	finalizer := mocks.NewFinalizer[common.Hash, *evmtypes.Head](t)
+	servicetest.SetupNoOpMock(finalizer)
 	txm := txmgr.NewEvmTxm(ec.ConfiguredChainID(), txmConfig, evmConfig.Transactions(), ks, logger.TestLogger(t), nil, nil,
-		nil, txStore, nil, nil, nil, nil, nil, nil, false)
+		builder, txStore, broadcaster, confirmer, nil, tracker, finalizer, nil, false)
 
 	return txm
 }
@@ -56,9 +70,9 @@ func txMetaSubIDs(t *testing.T, vrfVersion vrfcommon.Version, subID *big.Int) (*
 	)
 	switch vrfVersion {
 	case vrfcommon.V2Plus:
-		txMetaGlobalSubID = ptr(subID.String())
+		txMetaGlobalSubID = new(subID.String())
 	case vrfcommon.V2:
-		txMetaSubID = ptr(subID.Uint64())
+		txMetaSubID = new(subID.Uint64())
 	default:
 		t.Errorf("unsupported vrf version: %s", vrfVersion)
 	}
@@ -253,10 +267,12 @@ func testMaybeSubtractReservedLink(t *testing.T, vrfVersion vrfcommon.Version) {
 }
 
 func TestMaybeSubtractReservedLinkV2(t *testing.T) {
+	t.Parallel()
 	testMaybeSubtractReservedLink(t, vrfcommon.V2)
 }
 
 func TestMaybeSubtractReservedLinkV2Plus(t *testing.T) {
+	t.Parallel()
 	testMaybeSubtractReservedLink(t, vrfcommon.V2Plus)
 }
 
@@ -334,10 +350,12 @@ func testMaybeSubtractReservedNative(t *testing.T, vrfVersion vrfcommon.Version)
 }
 
 func TestMaybeSubtractReservedNativeV2Plus(t *testing.T) {
+	t.Parallel()
 	testMaybeSubtractReservedNative(t, vrfcommon.V2Plus)
 }
 
 func TestMaybeSubtractReservedNativeV2(t *testing.T) {
+	t.Parallel()
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
@@ -366,6 +384,7 @@ func TestMaybeSubtractReservedNativeV2(t *testing.T) {
 }
 
 func TestListener_GetConfirmedAt(t *testing.T) {
+	t.Parallel()
 	j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		RequestedConfsDelay: 10,
 	}).Toml())
@@ -406,6 +425,7 @@ func TestListener_GetConfirmedAt(t *testing.T) {
 }
 
 func TestListener_Backoff(t *testing.T) {
+	t.Parallel()
 	var tests = []struct {
 		name     string
 		initial  time.Duration
@@ -478,6 +498,7 @@ func TestListener_Backoff(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			lsn := &listenerV2{job: job.Job{
 				VRFSpec: &job.VRFSpec{
 					BackoffInitialDelay: test.initial,

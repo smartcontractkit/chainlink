@@ -610,6 +610,28 @@ func Test_ORM_GetJobProposal(t *testing.T) {
 		_, err = orm.GetJobProposalByRemoteUUID(ctx, uuid.New())
 		require.Error(t, err)
 	})
+
+	t.Run("by external job id", func(t *testing.T) {
+		externalJobID := uuid.New()
+		createJob(t, orm.db, externalJobID)
+		jpID := createJobProposal(t, orm, feeds.JobProposalStatusPending, fmID)
+		specID := createJobSpec(t, orm, jpID)
+
+		err := orm.ApproveSpec(ctx, specID, externalJobID)
+		require.NoError(t, err)
+
+		actual, err := orm.GetJobProposalByExternalJobID(ctx, externalJobID)
+		require.NoError(t, err)
+
+		assert.Equal(t, jpID, actual.ID)
+		assert.Equal(t, uuid.NullUUID{UUID: externalJobID, Valid: true}, actual.ExternalJobID)
+		assert.Equal(t, feeds.JobProposalStatusApproved, actual.Status)
+
+		require.NoError(t, orm.DeleteProposal(ctx, jpID))
+
+		_, err = orm.GetJobProposalByExternalJobID(ctx, externalJobID)
+		require.Error(t, err)
+	})
 }
 
 func Test_ORM_CountJobProposalsByStatus(t *testing.T) {

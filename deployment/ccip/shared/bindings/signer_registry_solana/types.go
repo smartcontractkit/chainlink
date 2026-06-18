@@ -6,6 +6,7 @@ package signer_registry_solana
 import (
 	"bytes"
 	"fmt"
+
 	errors "github.com/gagliardetto/anchor-go/errors"
 	binary "github.com/gagliardetto/binary"
 	solanago "github.com/gagliardetto/solana-go"

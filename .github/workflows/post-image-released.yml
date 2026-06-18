@@ -1,0 +1,58 @@
+name: "Post Image Released"
+on:
+    # to be used with post release tests
+    workflow_dispatch:
+        inputs:
+            tag-version-ceiling:
+                description: "Version ceiling for compatibility testing (tags newer than this
+                    version will be excluded)"
+                required: false
+                type: string
+
+permissions: {}
+
+jobs:
+    # Upgrade compatibility tests
+    # Run on images excluding beta and release candidate versions
+    df1-compat:
+        uses: ./.github/workflows/devenv-compat.yml
+        name: Data Feeds v1 Upgrade Test
+        permissions:
+            id-token: write
+            contents: read
+        with:
+            buildcmd: "just cli"
+            envcmd: "cl u env.toml,products/ocr2/basic.toml"
+            testcmd: "cl test ocr2 TestSmoke/rounds"
+            upgrade-nodes: "3"
+            node-name-template: "don-node%d"
+            versions-back: "3"
+            exclude-refs: "beta,rc,ccip"
+            working-directory: "devenv"
+            logs-directory: "./devenv/tests/ocr2/logs"
+            ctf-log-level: "debug"
+            strip-image-suffix: "v"
+            tag-version-ceiling: ${{ inputs.tag-version-ceiling }}
+        secrets: inherit
+
+    cre-compat:
+        uses: ./.github/workflows/devenv-compat.yml
+        name: CRE Upgrade Test
+        permissions:
+            id-token: write
+            contents: read
+        with:
+            buildcmd: "echo nothing-to-build" # added to prevent `just cli` from being used (default buildcmd if not provided)
+            envcmd: "go run -C ../../core/scripts/cre/environment . env start"
+            testcmd: "go test -v -run Test_Upgrade_Suite ./smoke/cre"
+            upgrade-nodes: "3"
+            node-name-template: "workflow-node%d"
+            versions-back: "3"
+            exclude-refs: "beta,rc,ccip"
+            working-directory: "./system-tests/tests"
+            logs-directory: "./system-tests/tests/smoke/cre/logs"
+            ctf-log-level: "debug"
+            strip-image-suffix: "v"
+            tag-version-ceiling: ${{ inputs.tag-version-ceiling }}
+        secrets: inherit
+        # Do not run other tests, since they were already run on the pre-release image

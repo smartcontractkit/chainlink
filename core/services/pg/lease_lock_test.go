@@ -11,7 +11,6 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -177,6 +176,7 @@ func Test_LeaseLock(t *testing.T) {
 	})
 
 	t.Run("cancel TakeAndHold with ctx", func(t *testing.T) {
+		ctx := t.Context()
 		cfg := pg.LeaseLockConfig{
 			DefaultQueryTimeout:  cfg.Database().DefaultQueryTimeout(),
 			LeaseDuration:        15 * time.Second,
@@ -185,23 +185,14 @@ func Test_LeaseLock(t *testing.T) {
 		leaseLock1 := newLeaseLock(t, db, cfg)
 		leaseLock2 := newLeaseLock(t, db, cfg)
 
-		err := leaseLock1.TakeAndHold(testutils.Context(t))
+		err := leaseLock1.TakeAndHold(ctx)
 		require.NoError(t, err)
+		t.Cleanup(leaseLock1.Release)
 
-		awaiter := cltest.NewAwaiter()
-		go func() {
-			ctx, cancel := context.WithCancel(testutils.Context(t))
-			go func() {
-				<-time.After(3 * time.Second)
-				cancel()
-			}()
-			err := leaseLock2.TakeAndHold(ctx)
-			require.Error(t, err)
-			awaiter.ItHappened()
-		}()
-
-		awaiter.AwaitOrFail(t)
-		leaseLock1.Release()
+		ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+		defer cancel()
+		require.Error(t, leaseLock2.TakeAndHold(ctx))
+		t.Cleanup(leaseLock2.Release)
 	})
 
 	require.NoError(t, db.Close())

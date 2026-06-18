@@ -6,14 +6,14 @@ import (
 
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // AddCapabilities adds the capabilities to the registry
@@ -54,7 +54,7 @@ func addCapabilitiesMCMSProposal(registry *kcr.CapabilitiesRegistry, caps []kcr.
 		return nil, fmt.Errorf("failed to call AddNodeOperators: %w", err)
 	}
 
-	ops, err := proposalutils.BatchOperationForChain(regChain.Selector, registry.Address().Hex(), tx.Data(), big.NewInt(0), string(CapabilitiesRegistry), nil)
+	ops, err := cldfproposalutils.BatchOperationForChain(regChain.Selector, registry.Address().Hex(), tx.Data(), big.NewInt(0), string(CapabilitiesRegistry), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create batch operation: %w", err)
 	}

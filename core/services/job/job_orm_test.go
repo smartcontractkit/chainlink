@@ -40,10 +40,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockheaderfeeder"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	ocr2validate "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
@@ -52,7 +51,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
@@ -252,52 +250,28 @@ func TestORM(t *testing.T) {
 		assert.Equal(t, ocrSpecError2, dbSpecErr2.Description)
 	})
 
-	t.Run("creates a job with a direct request spec", func(t *testing.T) {
-		drSpec := fmt.Sprintf(`
-		type                = "directrequest"
-		schemaVersion       = 1
-		evmChainID          = "0"
-		name                = "example eth request event spec"
-		contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
-		externalJobID       = "%s"
-		observationSource   = """
-		    ds1          [type=http method=GET url="http://example.com" allowunrestrictednetworkaccess="true"];
-		    ds1_merge    [type=merge left="{}"]
-		    ds1_parse    [type=jsonparse path="USD"];
-		    ds1_multiply [type=multiply times=100];
-		    ds1 -> ds1_parse -> ds1_multiply;
-		"""
-		`, uuid.New())
 
-		drJob, err := directrequest.ValidatedDirectRequestSpec(drSpec)
-		require.NoError(t, err)
-		err = orm.CreateJob(testutils.Context(t), &drJob)
-		require.NoError(t, err)
-	})
-
-	t.Run("creates webhook specs along with external_initiator_webhook_specs", func(t *testing.T) {
-		ctx := testutils.Context(t)
+	t.Run("rejects webhook job creation with external initiators", func(t *testing.T) {
 		eiFoo := cltest.MustInsertExternalInitiator(t, borm)
 		eiBar := cltest.MustInsertExternalInitiator(t, borm)
 
-		eiWS := []webhook.TOMLWebhookSpecExternalInitiator{
+		eiWS := []testspecs.TOMLWebhookSpecExternalInitiator{
 			{Name: eiFoo.Name, Spec: cltest.JSONFromString(t, `{}`)},
 			{Name: eiBar.Name, Spec: cltest.JSONFromString(t, `{"bar": 1}`)},
 		}
-		eim := webhook.NewExternalInitiatorManager(db, nil)
-		jb, err := webhook.ValidatedWebhookSpec(ctx, testspecs.GenerateWebhookSpec(testspecs.WebhookSpecParams{ExternalInitiators: eiWS}).Toml(), eim)
+		_, err := job.ValidateSpec(testspecs.GenerateWebhookSpec(testspecs.WebhookSpecParams{ExternalInitiators: eiWS}).Toml())
 		require.NoError(t, err)
 
+		jb := job.Job{Type: job.Webhook, SchemaVersion: 1, WebhookSpec: &job.WebhookSpec{}}
 		err = orm.CreateJob(testutils.Context(t), &jb)
-		require.NoError(t, err)
-
-		cltest.AssertCount(t, db, "external_initiator_webhook_specs", 2)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, job.ErrJobTypeRemoved)
 	})
 
 	t.Run("it creates and deletes records for blockhash store jobs", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		bhsJob, err := blockhashstore.ValidatedSpec(
-			testspecs.GenerateBlockhashStoreSpec(testspecs.BlockhashStoreSpecParams{CoordinatorV1Address: "0x613a38AC1659769640aaE063C651F48E0250454C"}).Toml())
+			testspecs.GenerateBlockhashStoreSpec(testspecs.BlockhashStoreSpecParams{CoordinatorV2Address: "0x613a38AC1659769640aaE063C651F48E0250454C"}).Toml())
 		require.NoError(t, err)
 
 		err = orm.CreateJob(ctx, &bhsJob)
@@ -376,7 +350,6 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	pipelineORM := pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db)
 	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
-	korm := keeper.NewORM(db, logger.TestLogger(t))
 
 	t.Run("it deletes records for offchainreporting jobs", func(t *testing.T) {
 		ctx := testutils.Context(t)
@@ -409,23 +382,6 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		require.NoError(t, err)
 		cltest.AssertCount(t, db, "ocr_oracle_specs", 0)
 		cltest.AssertCount(t, db, "pipeline_specs", 0)
-		cltest.AssertCount(t, db, "jobs", 0)
-	})
-
-	t.Run("it deletes records for keeper jobs", func(t *testing.T) {
-		ctx := testutils.Context(t)
-		registry, keeperJob := cltest.MustInsertKeeperRegistry(t, db, korm, keyStore.Eth(), 0, 1, 20)
-		cltest.MustInsertUpkeepForRegistry(t, db, registry)
-
-		cltest.AssertCount(t, db, "keeper_specs", 1)
-		cltest.AssertCount(t, db, "keeper_registries", 1)
-		cltest.AssertCount(t, db, "upkeep_registrations", 1)
-
-		err := jobORM.DeleteJob(ctx, keeperJob.ID, keeperJob.Type)
-		require.NoError(t, err)
-		cltest.AssertCount(t, db, "keeper_specs", 0)
-		cltest.AssertCount(t, db, "keeper_registries", 0)
-		cltest.AssertCount(t, db, "upkeep_registrations", 0)
 		cltest.AssertCount(t, db, "jobs", 0)
 	})
 
@@ -597,7 +553,10 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	cltest.AssertCount(t, db, "vrf_specs", 0)
 	cltest.AssertCount(t, db, "jobs", 0)
 
-	jb, err = vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{RequestTimeout: 1 * time.Hour}).Toml())
+	jb, err = vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+		RequestTimeout: 1 * time.Hour,
+		FromAddresses:  fromAddresses,
+	}).Toml())
 	require.NoError(t, err)
 	require.NoError(t, jobORM.CreateJob(ctx, &jb))
 	cltest.AssertCount(t, db, "vrf_specs", 1)
@@ -747,27 +706,37 @@ func TestORM_CreateJob_EVMChainID_Validation(t *testing.T) {
 	})
 
 	t.Run("evm chain id validation for direct request works", func(t *testing.T) {
+		// DirectRequest has been removed; the job-type removal check fires
+		// before any EVM-chain-ID validation.
 		jb := job.Job{
 			Type:              job.DirectRequest,
 			DirectRequestSpec: &job.DirectRequestSpec{},
 		}
-		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(testutils.Context(t), &jb).Error())
+		err := jobORM.CreateJob(testutils.Context(t), &jb)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, job.ErrJobTypeRemoved)
 	})
 
 	t.Run("evm chain id validation for flux monitor works", func(t *testing.T) {
+		// FluxMonitor has been removed; the job-type removal check fires
+		// before any EVM-chain-ID validation.
 		jb := job.Job{
 			Type:            job.FluxMonitor,
 			FluxMonitorSpec: &job.FluxMonitorSpec{},
 		}
-		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(testutils.Context(t), &jb).Error())
+		err := jobORM.CreateJob(testutils.Context(t), &jb)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, job.ErrJobTypeRemoved)
 	})
 
-	t.Run("evm chain id validation for keepers works", func(t *testing.T) {
+	t.Run("webhook job creation is rejected", func(t *testing.T) {
 		jb := job.Job{
-			Type:       job.Keeper,
-			KeeperSpec: &job.KeeperSpec{},
+			Type:        job.Webhook,
+			WebhookSpec: &job.WebhookSpec{},
 		}
-		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(testutils.Context(t), &jb).Error())
+		err := jobORM.CreateJob(testutils.Context(t), &jb)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, job.ErrJobTypeRemoved)
 	})
 
 	t.Run("evm chain id validation for vrf works", func(t *testing.T) {
@@ -790,22 +759,6 @@ func TestORM_CreateJob_EVMChainID_Validation(t *testing.T) {
 		jb := job.Job{
 			Type:                  job.BlockHeaderFeeder,
 			BlockHeaderFeederSpec: &job.BlockHeaderFeederSpec{},
-		}
-		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(testutils.Context(t), &jb).Error())
-	})
-
-	t.Run("evm chain id validation for legacy gas station server spec works", func(t *testing.T) {
-		jb := job.Job{
-			Type:                       job.LegacyGasStationServer,
-			LegacyGasStationServerSpec: &job.LegacyGasStationServerSpec{},
-		}
-		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(testutils.Context(t), &jb).Error())
-	})
-
-	t.Run("evm chain id validation for legacy gas station sidecar spec works", func(t *testing.T) {
-		jb := job.Job{
-			Type:                        job.LegacyGasStationSidecar,
-			LegacyGasStationSidecarSpec: &job.LegacyGasStationSidecarSpec{},
 		}
 		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(testutils.Context(t), &jb).Error())
 	})
@@ -933,6 +886,7 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 	require.NoError(t, err)
 
 	jb2.Name = null.StringFrom("Job with same chain id & contract address")
+	jb2.OCR2OracleSpec.ContractID = jb.OCR2OracleSpec.ContractID
 	jb2.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
 	jb2.OCR2OracleSpec.PluginConfig["juelsPerFeeCoinSource"] = juelsPerFeeCoinSource
 
@@ -942,6 +896,7 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 	jb3, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMSpecMinimal(), nil)
 	require.NoError(t, err)
 	jb3.Name = null.StringFrom("Job with different chain id & same contract address")
+	jb3.OCR2OracleSpec.ContractID = jb.OCR2OracleSpec.ContractID
 	jb3.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
 	jb3.OCR2OracleSpec.RelayConfig["chainID"] = customChainID.ToInt().Int64()
 	jb3.OCR2OracleSpec.PluginConfig["juelsPerFeeCoinSource"] = juelsPerFeeCoinSource
@@ -1160,9 +1115,7 @@ func Test_FindJobs(t *testing.T) {
 	err = orm.CreateJob(ctx, &jb1)
 	require.NoError(t, err)
 
-	jb2, err := directrequest.ValidatedDirectRequestSpec(
-		testspecs.GetDirectRequestSpec(),
-	)
+	jb2, err := cron.ValidatedCronSpec(fmt.Sprintf(testspecs.CronSpecTemplate, uuid.New()))
 	require.NoError(t, err)
 
 	err = orm.CreateJob(ctx, &jb2)
@@ -1247,11 +1200,15 @@ func Test_FindJob(t *testing.T) {
 		DB:             db,
 		KeyStore:       keyStore.Eth(),
 	})
+	// Both OCR1 jobs must share a contract address for "by address yet chain scoped";
+	// GenerateOCRSpec randomizes the default address per call to avoid txdb collisions.
+	sharedOCR1ContractAddr := testutils.NewAddress().Hex()
 	job, err := ocr.ValidatedOracleSpecToml(config, legacyChains,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              externalJobID.String(),
 			Name:               "orig ocr spec",
 			TransmitterAddress: address.Hex(),
+			ContractAddress:    sharedOCR1ContractAddr,
 			DS1BridgeName:      bridge.Name.String(),
 			DS2BridgeName:      bridge2.Name.String(),
 		}).Toml(),
@@ -1263,6 +1220,7 @@ func Test_FindJob(t *testing.T) {
 			JobID:              uuid.New().String(),
 			TransmitterAddress: address.Hex(),
 			Name:               "ocr spec dup addr",
+			ContractAddress:    sharedOCR1ContractAddr,
 			EVMChainID:         sqlutil.NewI(chainID1).String(),
 			DS1BridgeName:      bridge.Name.String(),
 			DS2BridgeName:      bridge2.Name.String(),
@@ -1282,15 +1240,18 @@ func Test_FindJob(t *testing.T) {
 
 	jobOCR2.OCR2OracleSpec.PluginConfig["juelsPerFeeCoinSource"] = juelsPerFeeCoinSource
 	jobOCR2.OCR2OracleSpec.RelayConfig["chainID"] = chainID1
+	sharedOCR2ContractID := jobOCR2.OCR2OracleSpec.ContractID
 
 	jobOCR2SameContractIDChainID2_1, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMSpecMinimal(), nil)
 	require.NoError(t, err)
+	jobOCR2SameContractIDChainID2_1.OCR2OracleSpec.ContractID = sharedOCR2ContractID
 	jobOCR2SameContractIDChainID2_1.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
 	jobOCR2SameContractIDChainID2_1.OCR2OracleSpec.PluginConfig["juelsPerFeeCoinSource"] = juelsPerFeeCoinSource
 	jobOCR2SameContractIDChainID2_1.OCR2OracleSpec.RelayConfig["chainID"] = chainID2
 
 	jobOCR2SameContractIDChainID2_2, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMSpecMinimal(), nil)
 	require.NoError(t, err)
+	jobOCR2SameContractIDChainID2_2.OCR2OracleSpec.ContractID = sharedOCR2ContractID
 	jobOCR2SameContractIDChainID2_2.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
 	jobOCR2SameContractIDChainID2_2.OCR2OracleSpec.PluginConfig["juelsPerFeeCoinSource"] = juelsPerFeeCoinSource
 	jobOCR2SameContractIDChainID2_2.OCR2OracleSpec.RelayConfig["chainID"] = chainID2
@@ -1399,10 +1360,9 @@ func Test_FindJob(t *testing.T) {
 
 	t.Run("by contract id without feed id (with duplicate contract ids on different chain ids)", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		contractID := "0x613a38AC1659769640aaE063C651F48E0250454C"
 
 		// Find job ID for ocr2 job without feedID.
-		jbID, err2 := orm.FindOCR2JobIDByAddress(ctx, evmRelay, chainID1, contractID, nil)
+		jbID, err2 := orm.FindOCR2JobIDByAddress(ctx, evmRelay, chainID1, sharedOCR2ContractID, nil)
 		require.NoError(t, err2)
 
 		assert.Equal(t, jobOCR2.ID, jbID)
@@ -1434,8 +1394,7 @@ func Test_FindJob(t *testing.T) {
 
 	t.Run("with duplicate contract id and the same chain id", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		contractID := "0x613a38AC1659769640aaE063C651F48E0250454C"
-		_, err2 := orm.FindOCR2JobIDByAddress(ctx, evmRelay, chainID2, contractID, nil)
+		_, err2 := orm.FindOCR2JobIDByAddress(ctx, evmRelay, chainID2, sharedOCR2ContractID, nil)
 		assert.ErrorContains(t, err2, "find returned > 1 job results")
 	})
 }
@@ -1453,9 +1412,8 @@ func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 	bridgesORM := bridges.NewORM(db)
 	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
 
-	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.GetDirectRequestSpec())
+	jb, err := cron.ValidatedCronSpec(fmt.Sprintf(testspecs.CronSpecTemplate, uuid.New()))
 	require.NoError(t, err)
-	jb.DirectRequestSpec.EVMChainID = sqlutil.NewI(0)
 
 	err = orm.CreateJob(testutils.Context(t), &jb)
 	require.NoError(t, err)
@@ -1832,7 +1790,7 @@ func Test_FindPipelineRunByID(t *testing.T) {
 	bridgesORM := bridges.NewORM(db)
 	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
 
-	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.GetDirectRequestSpec())
+	jb, err := cron.ValidatedCronSpec(fmt.Sprintf(testspecs.CronSpecTemplate, uuid.New()))
 	require.NoError(t, err)
 
 	err = orm.CreateJob(testutils.Context(t), &jb)
@@ -1878,7 +1836,7 @@ func Test_FindJobWithoutSpecErrors(t *testing.T) {
 	bridgesORM := bridges.NewORM(db)
 	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
 
-	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.GetDirectRequestSpec())
+	jb, err := cron.ValidatedCronSpec(fmt.Sprintf(testspecs.CronSpecTemplate, uuid.New()))
 	require.NoError(t, err)
 
 	err = orm.CreateJob(ctx, &jb)
@@ -1916,7 +1874,7 @@ func Test_FindSpecErrorsByJobIDs(t *testing.T) {
 	bridgesORM := bridges.NewORM(db)
 	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
 
-	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.GetDirectRequestSpec())
+	jb, err := cron.ValidatedCronSpec(fmt.Sprintf(testspecs.CronSpecTemplate, uuid.New()))
 	require.NoError(t, err)
 
 	err = orm.CreateJob(ctx, &jb)

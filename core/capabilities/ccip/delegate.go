@@ -304,15 +304,14 @@ func (d *Delegate) getOCRKeys(ocrKeyBundleIDs job.JSONConfig) (map[string]ocr2ke
 }
 
 func getKeys[K keystore.Key](ks Keystore[K]) ([]string, error) {
-	result := make([]string, 0)
-
 	keys, err := ks.GetAll()
 	if err != nil {
 		return nil, fmt.Errorf("error getting all keys: %w", err)
 	}
 
-	for _, key := range keys {
-		result = append(result, key.ID())
+	result := make([]string, len(keys))
+	for i, key := range keys {
+		result[i] = key.ID()
 	}
 
 	return result, nil
@@ -356,14 +355,14 @@ func (d *Delegate) getTransmitterKeys(ctx context.Context, relayIDs []types.Rela
 }
 
 func (d *Delegate) getEVMKeys(ctx context.Context, chainID *big.Int) ([]string, error) {
-	result := make([]string, 0)
 	ethKeys, err := d.keystore.Eth().EnabledAddressesForChain(ctx, chainID)
 	if err != nil {
-		return result, fmt.Errorf("error getting enabled addresses for chain: %s %w", chainID.String(), err)
+		return nil, fmt.Errorf("error getting enabled addresses for chain: %s %w", chainID.String(), err)
 	}
 
-	for _, key := range ethKeys {
-		result = append(result, key.Hex())
+	result := make([]string, len(ethKeys))
+	for i, key := range ethKeys {
+		result[i] = key.Hex()
 	}
 	return result, nil
 }

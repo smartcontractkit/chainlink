@@ -12,17 +12,11 @@ This matrix is the source of truth for capability placement by DON.
 |---|---|---|
 | `consensus` | `-` | `local` |
 | `cron` | `-` | `local` |
-| `custom-compute` | `-` | `local` |
 | `don-time` | `-` | `local` |
 | `evm` | `-` | `local (1337,2337)` |
 | `http-action` | `-` | `local` |
 | `http-trigger` | `-` | `local` |
-| `ocr3` | `-` | `local` |
-| `read-contract` | `-` | `local (1337,2337)` |
 | `vault` | `-` | `local` |
-| `web-api-target` | `-` | `local` |
-| `web-api-trigger` | `-` | `local` |
-| `write-evm` | `-` | `local (1337,2337)` |
 
 ## DONs
 
@@ -41,5 +35,4 @@ This matrix is the source of truth for capability placement by DON.
 - Roles: `plugin`
 - EVM chains: `1337,2337`
 - Exposes remote capabilities: `false`
-- Workflow additional sources: `enabled`
 

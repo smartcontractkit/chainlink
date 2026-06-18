@@ -21,7 +21,7 @@ type EnvironmentConfig struct {
 }
 
 func NewEnvironment(ctx func() context.Context, lggr logger.Logger, config EnvironmentConfig) (*cldf.Environment, *DON, error) {
-	blockChains, err := NewChains(lggr, config.Chains)
+	blockChains, err := NewChains(ctx(), lggr, config.Chains)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create chains: %w", err)
 	}

@@ -1,0 +1,7 @@
+position: 3
+label: "System Tests"
+collapsible: false
+collapsed: false
+link:
+  type: doc
+  id: local-cre-system-tests-index

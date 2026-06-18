@@ -11,5 +11,5 @@ USAGE:
 
 OPTIONS:
    --user-only  only include test user fixture
-   --force      set to true to force the reset by dropping any existing connections to the database
+   --force      legacy flag (ignored for drop); reset uses DROP DATABASE ... WITH (FORCE) (PostgreSQL 13+)
    

@@ -81,26 +81,26 @@ func defaultTestConfig(t *testing.T, cfgFn func(*cresettings.Workflows)) *v2.Eng
 	t.Cleanup(func() { assert.NoError(t, limiters.Close()) })
 
 	return &v2.EngineConfig{
-		Lggr:                              lggr,
-		Module:                            modulemocks.NewModuleV2(t),
-		CapRegistry:                       regmocks.NewCapabilitiesRegistry(t),
-		DonTimeStore:                      dontime.NewStore(dontime.DefaultRequestTimeout),
-		UseLocalTimeProvider:              true,
-		DonSubscriber:                     subscriberMock,
-		ExecutionsStore:                   store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
-		WorkflowID:                        testWorkflowID,
-		WorkflowOwner:                     testWorkflowOwnerA,
-		WorkflowName:                      name,
-		WorkflowTag:                       testWorkflowTagA,
-		WorkflowEncryptionKey:             workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
-		LocalLimits:                       v2.EngineLimits{},
-		LocalLimiters:                     limiters,
-		FeatureFlags:                      featureFlags,
-		GlobalExecutionConcurrencyLimiter: sLimiter,
-		BeholderEmitter:                   &noopBeholderEmitter{},
-		BillingClient:                     metmocks.NewBillingClient(t),
-		WorkflowRegistryAddress:           "0x123",
-		WorkflowRegistryChainSelector:     "11155111", // Sepolia chain ID
+		Lggr:                          lggr,
+		Module:                        modulemocks.NewModuleV2(t),
+		CapRegistry:                   regmocks.NewCapabilitiesRegistry(t),
+		DonTimeStore:                  dontime.NewStore(dontime.DefaultRequestTimeout),
+		UseLocalTimeProvider:          true,
+		DonSubscriber:                 subscriberMock,
+		ExecutionsStore:               store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
+		WorkflowID:                    testWorkflowID,
+		WorkflowOwner:                 testWorkflowOwnerA,
+		WorkflowName:                  name,
+		WorkflowTag:                   testWorkflowTagA,
+		WorkflowEncryptionKey:         workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
+		LocalLimits:                   v2.EngineLimits{},
+		LocalLimiters:                 limiters,
+		FeatureFlags:                  featureFlags,
+		GlobalWorkflowLimit:           sLimiter,
+		BeholderEmitter:               &noopBeholderEmitter{},
+		BillingClient:                 metmocks.NewBillingClient(t),
+		WorkflowRegistryAddress:       "0x123",
+		WorkflowRegistryChainSelector: "11155111", // Sepolia chain ID
 	}
 }
 

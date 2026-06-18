@@ -332,16 +332,25 @@ func (s *Shell) Profile(c *cli.Context) error {
 	genDir := filepath.Join(baseDir, "debuginfo-"+time.Now().Format(time.RFC3339))
 
 	vitals := c.StringSlice("vitals")
-	allVitals := []string{
+	// supportsDeltaVitals contains profiles that can be run with or without seconds param.
+	// (see https://pkg.go.dev/net/http/pprof#hdr-Parameters)
+	supportsDeltaVitals := []string{
 		"allocs",       // A sampling of all past memory allocations
 		"block",        // Stack traces that led to blocking on synchronization primitives
 		"cmdline",      // The command line invocation of the current program
 		"goroutine",    // Stack traces of all current goroutines
 		"heap",         // A sampling of memory allocations of live objects.
 		"mutex",        // Stack traces of holders of contended mutexes
-		"profile",      // CPU profile.
 		"threadcreate", // Stack traces that led to the creation of new OS threads
-		"trace",        // A trace of execution of the current program.
+	}
+	// durationOnlyVitals contains profiles that can be run only with the seconds param.
+	durationOnlyVitals := []string{
+		"profile", // CPU profile.
+		"trace",   // A trace of execution of the current program.
+	}
+	allVitals := supportsDeltaVitals
+	if seconds > 0 {
+		allVitals = append(allVitals, durationOnlyVitals...)
 	}
 	if len(vitals) == 0 {
 		vitals = slices.Clone(allVitals)
@@ -436,7 +445,10 @@ func (s *Shell) profile(ctx context.Context, genDir string, name string, vitals 
 			defer wgPprof.Done()
 			ctx, cancel := context.WithTimeout(ctx, time.Duration(max(seconds, 0)+web.PPROFOverheadSeconds)*time.Second)
 			defer cancel()
-			uri := fmt.Sprintf(path+"/debug/pprof/%s?seconds=%d", vt, seconds)
+			uri := fmt.Sprintf(path+"/debug/pprof/%s", vt)
+			if seconds > 0 {
+				uri += fmt.Sprintf("?seconds=%d", seconds)
+			}
 			resp, err := s.HTTP.Get(ctx, uri)
 			if err != nil {
 				errs <- fmt.Errorf("error collecting %s: %w", uri, err)

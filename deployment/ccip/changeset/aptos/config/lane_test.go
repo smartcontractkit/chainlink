@@ -10,8 +10,8 @@ import (
 
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 )
 
@@ -25,7 +25,7 @@ func TestToEVMUpdateLanesConfig(t *testing.T) {
 		{
 			name: "EVM <> Aptos Biderectional Lane",
 			input: UpdateAptosLanesConfig{
-				EVMMCMSConfig: &proposalutils.TimelockConfig{},
+				EVMMCMSConfig: &cldfproposalutils.TimelockConfig{},
 				Lanes: []LaneConfig{
 					{
 						Source:     getEVMDef(),
@@ -42,7 +42,7 @@ func TestToEVMUpdateLanesConfig(t *testing.T) {
 			},
 			expected: v1_6.UpdateBidirectionalLanesChangesetConfigs{
 				UpdateFeeQuoterDestsConfig: v1_6.UpdateFeeQuoterDestsConfig{
-					MCMS: &proposalutils.TimelockConfig{},
+					MCMS: &cldfproposalutils.TimelockConfig{},
 					UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 						1881: {
 							4457093679053095497: fee_quoter.FeeQuoterDestChainConfig{
@@ -70,7 +70,7 @@ func TestToEVMUpdateLanesConfig(t *testing.T) {
 					},
 				},
 				UpdateFeeQuoterPricesConfig: v1_6.UpdateFeeQuoterPricesConfig{
-					MCMS: &proposalutils.TimelockConfig{},
+					MCMS: &cldfproposalutils.TimelockConfig{},
 					PricesByChain: map[uint64]v1_6.FeeQuoterPriceUpdatePerSource{
 						1881: {
 							GasPrices: map[uint64]*big.Int{
@@ -80,7 +80,7 @@ func TestToEVMUpdateLanesConfig(t *testing.T) {
 					},
 				},
 				UpdateOnRampDestsConfig: v1_6.UpdateOnRampDestsConfig{
-					MCMS: &proposalutils.TimelockConfig{},
+					MCMS: &cldfproposalutils.TimelockConfig{},
 					UpdatesByChain: map[uint64]map[uint64]v1_6.OnRampDestinationUpdate{
 						1881: {
 							4457093679053095497: v1_6.OnRampDestinationUpdate{
@@ -92,7 +92,7 @@ func TestToEVMUpdateLanesConfig(t *testing.T) {
 					},
 				},
 				UpdateOffRampSourcesConfig: v1_6.UpdateOffRampSourcesConfig{
-					MCMS: &proposalutils.TimelockConfig{},
+					MCMS: &cldfproposalutils.TimelockConfig{},
 					UpdatesByChain: map[uint64]map[uint64]v1_6.OffRampSourceUpdate{
 						1881: {
 							4457093679053095497: v1_6.OffRampSourceUpdate{
@@ -105,7 +105,7 @@ func TestToEVMUpdateLanesConfig(t *testing.T) {
 				},
 				UpdateRouterRampsConfig: v1_6.UpdateRouterRampsConfig{
 					TestRouter: false,
-					MCMS:       &proposalutils.TimelockConfig{},
+					MCMS:       &cldfproposalutils.TimelockConfig{},
 					UpdatesByChain: map[uint64]v1_6.RouterUpdates{
 						1881: {
 							OnRampUpdates: map[uint64]bool{

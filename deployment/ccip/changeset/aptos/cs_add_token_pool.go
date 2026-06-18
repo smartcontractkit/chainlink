@@ -101,6 +101,19 @@ func (cs AddTokenPool) VerifyPreconditions(env cldf.Environment, cfg config.AddT
 			errs = append(errs, fmt.Errorf("pool %s already exists with a different token address %s", pool.StringLong(), token.StringLong()))
 		}
 	}
+	// Validate regulated token ownership finalization preconditions: when adding a regulated
+	// token pool against a pre-existing regulated token, a pending ownership transfer to MCMS
+	// (if any) must be in a state where the deployer EOA can finalize it.
+	if cfg.PoolType == shared.AptosRegulatedTokenPoolType && cfg.TokenCodeObjAddress != (aptos.AccountAddress{}) {
+		deps := dependency.AptosDeps{
+			AptosChain:       env.BlockChains.AptosChains()[cfg.ChainSelector],
+			CCIPOnChainState: state,
+		}
+		mcmsAddress := state.AptosChains[cfg.ChainSelector].MCMSAddress
+		if err := seq.VerifyFinalizeRegulatedTokenOwnership(deps, cfg.TokenCodeObjAddress, mcmsAddress); err != nil {
+			errs = append(errs, fmt.Errorf("regulated token ownership finalize precondition: %w", err))
+		}
+	}
 	return errors.Join(errs...)
 }
 
@@ -120,6 +133,22 @@ func (cs AddTokenPool) Apply(env cldf.Environment, cfg config.AddTokenPoolConfig
 		AB:               ab,
 		AptosChain:       aptosChain,
 		CCIPOnChainState: state,
+	}
+
+	// Finalize the regulated_token 3-step ownership handoff if needed: when MCMS has accepted
+	// ownership but the original deployer hasn't called execute_ownership_transfer yet, the
+	// token object still belongs to the deployer and isTokenOwnedByMCMS would return false.
+	if cfg.PoolType == shared.AptosRegulatedTokenPoolType && cfg.TokenCodeObjAddress != (aptos.AccountAddress{}) {
+		finalizeReport, err := operations.ExecuteSequence(
+			env.OperationsBundle,
+			seq.FinalizeRegulatedTokenOwnershipSequence,
+			deps,
+			cfg.TokenCodeObjAddress,
+		)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to finalize regulated token ownership: %w", err)
+		}
+		seqReports = append(seqReports, finalizeReport.ExecutionReports...)
 	}
 
 	// Deploy Aptos Token

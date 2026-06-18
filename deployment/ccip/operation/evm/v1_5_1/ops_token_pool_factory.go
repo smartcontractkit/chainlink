@@ -6,8 +6,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool_factory"
 	"github.com/smartcontractkit/chainlink/deployment"
+	opsutil "github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
 
 type DeployTokenPoolFactoryInput struct {

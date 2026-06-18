@@ -18,8 +18,9 @@ var _ cldf.ChangeSetV2[CsRegisterNodesWithJDInput] = CsRegisterNodesWithJD{}
 type CsRegisterNodesWithJD struct{}
 
 type CsRegisterNodesWithJDInput struct {
-	Domain string               `json:"domain" yaml:"domain"`
-	DONs   []offchain.DONConfig `json:"dons" yaml:"dons"`
+	Domain      string               `json:"domain" yaml:"domain"`
+	Environment string               `json:"environment" yaml:"environment"`
+	DONs        []offchain.DONConfig `json:"dons" yaml:"dons"`
 }
 
 func (cs CsRegisterNodesWithJD) VerifyPreconditions(_ cldf.Environment, cfg CsRegisterNodesWithJDInput) error {
@@ -48,13 +49,14 @@ func (cs CsRegisterNodesWithJD) Apply(e cldf.Environment, input CsRegisterNodesW
 				operations2.JDUpsertNodeOp,
 				operations2.JDRegisterNodeOpDeps{Env: e},
 				operations2.JDRegisterNodeOpInput{
-					Domain:  input.Domain,
-					Name:    node.Name,
-					CSAKey:  node.CSAKey,
-					P2PID:   node.P2PID,
-					DONName: don.Name,
-					Zone:    node.Zone,
-					Labels:  map[string]string{},
+					Domain:      input.Domain,
+					Environment: input.Environment,
+					Name:        node.Name,
+					CSAKey:      node.CSAKey,
+					P2PID:       node.P2PID,
+					DONName:     don.Name,
+					Zone:        node.Zone,
+					Labels:      map[string]string{},
 				},
 			)
 			if err != nil {
@@ -74,8 +76,9 @@ var _ cldf.ChangeSetV2[CsRegisterNodesWithJDInput] = CsRegisterNodesWithJD{}
 type CsRegisterNodesWithJDV2 struct{}
 
 type CsRegisterNodesWithJDInputV2 struct {
-	Domain string               `json:"domain" yaml:"domain"`
-	DONs   []offchain.DONConfig `json:"dons" yaml:"dons"`
+	Domain      string               `json:"domain" yaml:"domain"`
+	Environment string               `json:"environment" yaml:"environment"`
+	DONs        []offchain.DONConfig `json:"dons" yaml:"dons"`
 }
 
 func (cs CsRegisterNodesWithJDV2) VerifyPreconditions(_ cldf.Environment, cfg CsRegisterNodesWithJDInputV2) error {
@@ -104,13 +107,14 @@ func (cs CsRegisterNodesWithJDV2) Apply(e cldf.Environment, input CsRegisterNode
 				operations2.JDRegisterNodeOp,
 				operations2.JDRegisterNodeOpDeps{Env: e},
 				operations2.JDRegisterNodeOpInput{
-					Domain:  input.Domain,
-					Name:    node.Name,
-					CSAKey:  node.CSAKey,
-					P2PID:   node.P2PID,
-					DONName: don.Name,
-					Zone:    node.Zone,
-					Labels:  map[string]string{},
+					Domain:      input.Domain,
+					Environment: input.Environment,
+					Name:        node.Name,
+					CSAKey:      node.CSAKey,
+					P2PID:       node.P2PID,
+					DONName:     don.Name,
+					Zone:        node.Zone,
+					Labels:      map[string]string{},
 				},
 			)
 			if err != nil {

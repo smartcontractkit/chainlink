@@ -8,7 +8,12 @@ import (
 	"slices"
 	"strings"
 
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 	"golang.org/x/sync/errgroup"
+
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -21,19 +26,19 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 type DeployerGroup struct {
 	e                 cldf.Environment
 	state             stateview.CCIPOnChainState
-	mcmConfig         *proposalutils.TimelockConfig
+	mcmConfig         *cldfproposalutils.TimelockConfig
 	deploymentContext *DeploymentContext
-	txDecoder         *proposalutils.TxCallDecoder
-	describeContext   *proposalutils.ArgumentContext
+	txDecoder         *shared.TxCallDecoder
+	describeContext   *shared.ArgumentContext
 }
 
 type DescribedTransaction interface {
@@ -51,7 +56,7 @@ func (d EvmDescribedTransaction) Describe() string {
 }
 
 func (d EvmDescribedTransaction) ToMCMS(selector uint64) (mcmstypes.Transaction, error) {
-	return proposalutils.TransactionForChain(selector, d.Tx.To().Hex(), d.Tx.Data(), d.Tx.Value(), "", []string{})
+	return cldfproposalutils.TransactionForChain(selector, d.Tx.To().Hex(), d.Tx.Data(), d.Tx.Value(), "", []string{})
 }
 
 type SolanaDescribedTransaction struct {
@@ -120,9 +125,9 @@ type DeployerGroupWithContext interface {
 type deployerGroupBuilder struct {
 	e               cldf.Environment
 	state           stateview.CCIPOnChainState
-	mcmConfig       *proposalutils.TimelockConfig
-	txDecoder       *proposalutils.TxCallDecoder
-	describeContext *proposalutils.ArgumentContext
+	mcmConfig       *cldfproposalutils.TimelockConfig
+	txDecoder       *shared.TxCallDecoder
+	describeContext *shared.ArgumentContext
 }
 
 func (d *deployerGroupBuilder) WithDeploymentContext(description string) *DeployerGroup {
@@ -148,14 +153,14 @@ func (d *deployerGroupBuilder) WithDeploymentContext(description string) *Deploy
 //	state.Chains[selector].RMNRemote.Curse()
 //	# Execute the transaction or create the proposal
 //	deployerGroup.Enact("Curse RMNRemote")
-func NewDeployerGroup(e cldf.Environment, state stateview.CCIPOnChainState, mcmConfig *proposalutils.TimelockConfig) DeployerGroupWithContext {
+func NewDeployerGroup(e cldf.Environment, state stateview.CCIPOnChainState, mcmConfig *cldfproposalutils.TimelockConfig) DeployerGroupWithContext {
 	addresses, _ := e.ExistingAddresses.Addresses()
 	d := &deployerGroupBuilder{
 		e:               e,
 		mcmConfig:       mcmConfig,
 		state:           state,
-		txDecoder:       proposalutils.NewTxCallDecoder(nil),
-		describeContext: proposalutils.NewArgumentContext(addresses),
+		txDecoder:       shared.NewTxCallDecoder(nil),
+		describeContext: shared.NewArgumentContext(addresses),
 	}
 	// update state if timelock needs to be loaded from datastore with qualifier
 	if d.mcmConfig != nil && d.mcmConfig.TimelockQualifierPerChain != nil {
@@ -280,11 +285,11 @@ func (d *DeployerGroup) GetDeployerForSVM(chain uint64) (func(DeployerForSVM) (s
 			}
 		}
 
-		mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(d.e.BlockChains.SolanaChains()[chain], addresses)
+		mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(d.e.BlockChains.SolanaChains()[chain], addresses)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load mcm state: %w", err)
 		}
-		timelockSignerPDA := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+		timelockSignerPDA := pdasol.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 		authority = timelockSignerPDA
 	}
 
@@ -335,7 +340,7 @@ func (d *DeployerGroup) Enact() (cldf.ChangesetOutput, error) {
 	return d.enactDeployer()
 }
 
-func ValidateMCMSWithState(env cldf.Environment, selector uint64, mcmConfig *proposalutils.TimelockConfig, state stateview.CCIPOnChainState) error {
+func ValidateMCMSWithState(env cldf.Environment, selector uint64, mcmConfig *cldfproposalutils.TimelockConfig, state stateview.CCIPOnChainState) error {
 	family, err := chain_selectors.GetSelectorFamily(selector)
 	if err != nil {
 		return fmt.Errorf("failed to get chain selector family: %w", err)
@@ -407,12 +412,12 @@ func (d *DeployerGroup) enactMcms() (cldf.ChangesetOutput, error) {
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get proposer mcms for chain: %w", err)
 		}
-		inspectors, err := proposalutils.McmsInspectors(d.e)
+		inspectors, err := cldfproposalutils.McmsInspectors(d.e)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain: %w", err)
 		}
 
-		proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		proposal, err := proposeutils.BuildProposalFromBatchesV2(
 			d.e,
 			timelocks,
 			mcmContractByAction,
@@ -424,7 +429,7 @@ func (d *DeployerGroup) enactMcms() (cldf.ChangesetOutput, error) {
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal %w", err)
 		}
-		describedProposal := proposalutils.DescribeTimelockProposal(proposal, describedBatches)
+		describedProposal := shared.DescribeTimelockProposal(proposal, describedBatches)
 
 		// Update the proposal metadata to incorporate the startingOpCount
 		// from the previous proposal
@@ -450,14 +455,13 @@ func (d *DeployerGroup) enactMcms() (cldf.ChangesetOutput, error) {
 }
 
 func getBatchCountForChain(chain mcmstypes.ChainSelector, timelockProposal *mcmslib.TimelockProposal) uint64 {
-	batches := make([]mcmstypes.BatchOperation, 0)
+	var count uint64
 	for _, batchOperation := range timelockProposal.Operations {
 		if batchOperation.ChainSelector == chain {
-			batches = append(batches, batchOperation)
+			count++
 		}
 	}
-
-	return uint64(len(batches))
+	return count
 }
 
 func (d *DeployerGroup) enactDeployer() (cldf.ChangesetOutput, error) {
@@ -528,14 +532,14 @@ func BuildTimelockAddressPerChain(e cldf.Environment, onchainState stateview.CCI
 		if err != nil {
 			return nil, fmt.Errorf("failed to load addresses for chain %d: %w", selector, err)
 		}
-		mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+		mcmState, _ := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 		addressPerChain[selector] = mcmsSolana.ContractAddress(mcmState.TimelockProgram, mcmsSolana.PDASeed(mcmState.TimelockSeed))
 	}
 
 	return addressPerChain, nil
 }
 
-func BuildMcmAddressesPerChainByAction(e cldf.Environment, onchainState stateview.CCIPOnChainState, mcmCfg *proposalutils.TimelockConfig, mcmQualifier map[uint64]string) (map[uint64]string, error) {
+func BuildMcmAddressesPerChainByAction(e cldf.Environment, onchainState stateview.CCIPOnChainState, mcmCfg *cldfproposalutils.TimelockConfig, mcmQualifier map[uint64]string) (map[uint64]string, error) {
 	if mcmCfg == nil {
 		return nil, errors.New("mcm config is nil, cannot get mcms address")
 	}
@@ -566,7 +570,7 @@ func BuildMcmAddressesPerChainByAction(e cldf.Environment, onchainState statevie
 		if err != nil {
 			return nil, fmt.Errorf("failed to load addresses for chain %d: %w", selector, err)
 		}
-		mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+		mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load mcm state: %w", err)
 		}
@@ -585,5 +589,5 @@ func addressForChain(e cldf.Environment, selector uint64) (map[string]cldf.TypeA
 }
 
 func addressForChainFromDatastore(e cldf.Environment, selector uint64, qualifier string) (map[string]cldf.TypeAndVersion, error) {
-	return state.LoadAddressesFromDataStore(e.DataStore, selector, qualifier)
+	return evmstate.LoadAddressesFromDataStore(e.DataStore, selector, qualifier) //nolint:staticcheck // will be refactored once usages are removed
 }

@@ -72,6 +72,9 @@ func NewLegacyChains(t testing.TB, testopts TestChainOpts) *legacyevm.LegacyChai
 	lggr, ks, opts := NewChainOpts(t, testopts)
 	cc, err := evmrelay.NewLegacyChainsAndConfig(lggr, ks, opts)
 	require.NoError(t, err)
+	for _, c := range cc.Slice() {
+		servicetest.Run(t, c)
+	}
 	return cc.NewLegacyChains()
 }
 

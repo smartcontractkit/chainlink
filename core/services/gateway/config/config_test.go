@@ -267,6 +267,54 @@ func TestGatewayConfig_Validate(t *testing.T) {
 			},
 			wantErr: "legacy Dons config and Services/ShardedDONs cannot be used together",
 		},
+		{
+			name: "PongTimeoutSec less than HeartbeatIntervalSec",
+			config: GatewayConfig{
+				ConnectionManagerConfig: ConnectionManagerConfig{
+					HeartbeatIntervalSec: 20,
+					PongTimeoutSec:       10,
+				},
+			},
+			wantErr: "PongTimeoutSec (10) must be greater than HeartbeatIntervalSec (20)",
+		},
+		{
+			name: "PongTimeoutSec equal to HeartbeatIntervalSec",
+			config: GatewayConfig{
+				ConnectionManagerConfig: ConnectionManagerConfig{
+					HeartbeatIntervalSec: 20,
+					PongTimeoutSec:       20,
+				},
+			},
+			wantErr: "PongTimeoutSec (20) must be greater than HeartbeatIntervalSec (20)",
+		},
+		{
+			name: "PongTimeoutSec zero is valid (disabled)",
+			config: GatewayConfig{
+				ConnectionManagerConfig: ConnectionManagerConfig{
+					HeartbeatIntervalSec: 20,
+					PongTimeoutSec:       0,
+				},
+			},
+		},
+		{
+			name: "PongTimeoutSec greater than HeartbeatIntervalSec is valid",
+			config: GatewayConfig{
+				ConnectionManagerConfig: ConnectionManagerConfig{
+					HeartbeatIntervalSec: 20,
+					PongTimeoutSec:       60,
+				},
+			},
+		},
+		{
+			name: "PongTimeoutSec enabled without heartbeat",
+			config: GatewayConfig{
+				ConnectionManagerConfig: ConnectionManagerConfig{
+					HeartbeatIntervalSec: 0,
+					PongTimeoutSec:       60,
+				},
+			},
+			wantErr: "PongTimeoutSec requires HeartbeatIntervalSec > 0",
+		},
 	}
 
 	for _, tt := range tests {

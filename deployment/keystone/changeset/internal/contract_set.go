@@ -8,12 +8,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
-type deployContractsRequest struct {
-	chain           cldf_evm.Chain
-	isRegistryChain bool
-	ad              cldf.AddressBook
-}
-
 // DeployCapabilitiesRegistry deploys the CapabilitiesRegistry contract to the chain
 // and saves the address in the address book. This mutates the address book.
 func DeployCapabilitiesRegistry(_ context.Context, chain cldf_evm.Chain, ab cldf.AddressBook) (*DeployResponse, error) {

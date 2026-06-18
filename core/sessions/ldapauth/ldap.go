@@ -456,9 +456,13 @@ func (l *ldapAuthenticator) CreateSession(ctx context.Context, sr sessions.Sessi
 	return session.ID, nil
 }
 
-// ClearNonCurrentSessions removes all ldap_sessions but the id passed in.
+// ClearNonCurrentSessions removes other ldap_sessions for the user tied to sessionID.
 func (l *ldapAuthenticator) ClearNonCurrentSessions(ctx context.Context, sessionID string) error {
-	_, err := l.ds.ExecContext(ctx, "DELETE FROM ldap_sessions where id != $1", sessionID)
+	var email string
+	if err := l.ds.GetContext(ctx, &email, "SELECT user_email FROM ldap_sessions WHERE id = $1", sessionID); err != nil {
+		return err
+	}
+	_, err := l.ds.ExecContext(ctx, "DELETE FROM ldap_sessions WHERE lower(user_email) = lower($1) AND id != $2", email, sessionID)
 	return err
 }
 

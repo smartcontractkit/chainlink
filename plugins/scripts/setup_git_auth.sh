@@ -10,8 +10,6 @@ set -u  # Exit on unset variable
 #   # This script will fail if GIT_CONFIG_GLOBAL is not set.
 #   ENV GIT_CONFIG_GLOBAL=/tmp/gitconfig-github-token
 #   RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
-#       --mount=type=cache,target=/go/pkg/mod \
-#       --mount=type=cache,target=/root/.cache/go-build \
 #       set -e && \
 #       trap 'rm -f "$GIT_CONFIG_GLOBAL"' EXIT && \
 #       ./plugins/scripts/setup_git_auth.sh && \

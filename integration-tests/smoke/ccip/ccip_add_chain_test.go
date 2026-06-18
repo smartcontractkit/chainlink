@@ -8,16 +8,17 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
@@ -433,9 +434,9 @@ func setupInboundWiring(
 	testRouterEnabled,
 	mcmsEnabled bool,
 ) testhelpers.DeployedEnv {
-	var mcmsConfig *proposalutils.TimelockConfig
+	var mcmsConfig *cldfproposalutils.TimelockConfig
 	if mcmsEnabled {
-		mcmsConfig = &proposalutils.TimelockConfig{
+		mcmsConfig = &cldfproposalutils.TimelockConfig{
 			MinDelay: 0,
 		}
 	}
@@ -471,9 +472,9 @@ func setupOutboundWiring(
 	testRouterEnabled,
 	mcmsEnabled bool,
 ) testhelpers.DeployedEnv {
-	var mcmsConfig *proposalutils.TimelockConfig
+	var mcmsConfig *cldfproposalutils.TimelockConfig
 	if mcmsEnabled {
-		mcmsConfig = &proposalutils.TimelockConfig{
+		mcmsConfig = &cldfproposalutils.TimelockConfig{
 			MinDelay: 0,
 		}
 	}
@@ -777,13 +778,13 @@ func transferToMCMSAndRenounceTimelockDeployer(
 		cfg.ContractsByChain[e.HomeChainSel] = chainContracts
 	}
 	apps = append(apps, commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
+		cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
 		cfg,
 	))
 	for _, chain := range chains {
 		apps = append(apps, commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.RenounceTimelockDeployer),
-			commonchangeset.RenounceTimelockDeployerConfig{
+			cldf.CreateLegacyChangeSet(mcmschangesets.RenounceTimelockDeployer),
+			mcmschangesets.RenounceTimelockDeployerConfig{
 				ChainSel: chain,
 			},
 		))

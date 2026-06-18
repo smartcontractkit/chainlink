@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -16,15 +17,15 @@ import (
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/v1_5"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 )
 
 // Two weeks in seconds
@@ -80,7 +81,7 @@ func TestSetTokenTransferFeeConfig_Validations(t *testing.T) {
 	})
 
 	// Define helper vars
-	mcmCfg := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
+	mcmCfg := &cldfproposalutils.TimelockConfig{MinDelay: 0 * time.Second}
 	tokenA := utils.RandomAddress()
 	tokenB := utils.RandomAddress()
 
@@ -165,12 +166,12 @@ func TestSetTokenTransferFeeConfig_Validations(t *testing.T) {
 							TokensToUseDefaultFeeConfigs: []common.Address{tokenB},
 							TokenTransferFeeConfigArgs: map[common.Address]v1_5_1.TokenTransferFeeArgs{
 								tokenB: {
-									MinFeeUSDCents:            pointer.To(uint32(1)),
-									MaxFeeUSDCents:            pointer.To(uint32(2)),
-									DeciBps:                   pointer.To(uint16(10)),
-									DestGasOverhead:           pointer.To(uint32(100)),
-									DestBytesOverhead:         pointer.To(uint32(200)),
-									AggregateRateLimitEnabled: pointer.To(true),
+									MinFeeUSDCents:            new(uint32(1)),
+									MaxFeeUSDCents:            new(uint32(2)),
+									DeciBps:                   new(uint16(10)),
+									DestGasOverhead:           new(uint32(100)),
+									DestBytesOverhead:         new(uint32(200)),
+									AggregateRateLimitEnabled: new(true),
 								},
 							},
 						},
@@ -274,12 +275,12 @@ func TestSetTokenTransferFeeConfig_Execution_WithoutMCMS(t *testing.T) {
 							TokensToUseDefaultFeeConfigs: []common.Address{},
 							TokenTransferFeeConfigArgs: map[common.Address]v1_5_1.TokenTransferFeeArgs{
 								tokenA: {
-									MinFeeUSDCents:            pointer.To(uint32(100)),
-									MaxFeeUSDCents:            pointer.To(uint32(5000)),
-									DeciBps:                   pointer.To(uint16(25)),
-									DestGasOverhead:           pointer.To(uint32(100_000)),
-									DestBytesOverhead:         pointer.To(uint32(1200)),
-									AggregateRateLimitEnabled: pointer.To(true),
+									MinFeeUSDCents:            new(uint32(100)),
+									MaxFeeUSDCents:            new(uint32(5000)),
+									DeciBps:                   new(uint16(25)),
+									DestGasOverhead:           new(uint32(100_000)),
+									DestBytesOverhead:         new(uint32(1200)),
+									AggregateRateLimitEnabled: new(true),
 								},
 							},
 						},
@@ -330,7 +331,7 @@ func TestSetTokenTransferFeeConfig_Execution_WithMCMS(t *testing.T) {
 	})
 
 	// Define helper vars
-	mcmCfg := proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
+	mcmCfg := cldfproposalutils.TimelockConfig{MinDelay: 0 * time.Second}
 	tokenA := utils.RandomAddress()
 	tokenB := utils.RandomAddress() // will be reset via MCMS
 
@@ -345,12 +346,12 @@ func TestSetTokenTransferFeeConfig_Execution_WithMCMS(t *testing.T) {
 						TokensToUseDefaultFeeConfigs: []common.Address{},
 						TokenTransferFeeConfigArgs: map[common.Address]v1_5_1.TokenTransferFeeArgs{
 							tokenA: {
-								MinFeeUSDCents:            pointer.To(uint32(100)),
-								MaxFeeUSDCents:            pointer.To(uint32(5000)),
-								DeciBps:                   pointer.To(uint16(25)),
-								DestGasOverhead:           pointer.To(uint32(100_000)),
-								DestBytesOverhead:         pointer.To(uint32(1200)),
-								AggregateRateLimitEnabled: pointer.To(true),
+								MinFeeUSDCents:            new(uint32(100)),
+								MaxFeeUSDCents:            new(uint32(5000)),
+								DeciBps:                   new(uint16(25)),
+								DestGasOverhead:           new(uint32(100_000)),
+								DestBytesOverhead:         new(uint32(1200)),
+								AggregateRateLimitEnabled: new(true),
 							},
 						},
 					},
@@ -365,8 +366,8 @@ func TestSetTokenTransferFeeConfig_Execution_WithMCMS(t *testing.T) {
 	require.NoError(t, err)
 	e.Env, err = commonchangeset.Apply(t, e.Env,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
-			commonchangeset.TransferToMCMSWithTimelockConfig{
+			deployment.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+			mcmschangesets.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: map[uint64][]common.Address{
 					src: {state.MustGetEVMChainState(src).EVM2EVMOnRamp[dst].Address()},
 					dst: {state.MustGetEVMChainState(dst).EVM2EVMOnRamp[src].Address()},
@@ -388,12 +389,12 @@ func TestSetTokenTransferFeeConfig_Execution_WithMCMS(t *testing.T) {
 						TokensToUseDefaultFeeConfigs: []common.Address{tokenB},
 						TokenTransferFeeConfigArgs: map[common.Address]v1_5_1.TokenTransferFeeArgs{
 							tokenA: {
-								MinFeeUSDCents:            nil,                    // keep current
-								MaxFeeUSDCents:            nil,                    // keep current
-								DeciBps:                   pointer.To(uint16(30)), // change
-								DestGasOverhead:           nil,                    // keep current
-								DestBytesOverhead:         nil,                    // keep current
-								AggregateRateLimitEnabled: nil,                    // keep current
+								MinFeeUSDCents:            nil,             // keep current
+								MaxFeeUSDCents:            nil,             // keep current
+								DeciBps:                   new(uint16(30)), // change
+								DestGasOverhead:           nil,             // keep current
+								DestBytesOverhead:         nil,             // keep current
+								AggregateRateLimitEnabled: nil,             // keep current
 							},
 						},
 					},
@@ -459,12 +460,12 @@ func TestSetTokenTransferFeeConfig_MultipleChains(t *testing.T) {
 					TokensToUseDefaultFeeConfigs: []common.Address{tokenB},
 					TokenTransferFeeConfigArgs: map[common.Address]v1_5_1.TokenTransferFeeArgs{
 						tokenA: {
-							MinFeeUSDCents:            pointer.To(uint32(101)),
-							MaxFeeUSDCents:            pointer.To(uint32(5001)),
-							DeciBps:                   pointer.To(uint16(26)),
-							DestGasOverhead:           pointer.To(uint32(110_000)),
-							DestBytesOverhead:         pointer.To(uint32(1300)),
-							AggregateRateLimitEnabled: pointer.To(true),
+							MinFeeUSDCents:            new(uint32(101)),
+							MaxFeeUSDCents:            new(uint32(5001)),
+							DeciBps:                   new(uint16(26)),
+							DestGasOverhead:           new(uint32(110_000)),
+							DestBytesOverhead:         new(uint32(1300)),
+							AggregateRateLimitEnabled: new(true),
 						},
 					},
 				},
@@ -474,12 +475,12 @@ func TestSetTokenTransferFeeConfig_MultipleChains(t *testing.T) {
 					TokensToUseDefaultFeeConfigs: []common.Address{tokenD},
 					TokenTransferFeeConfigArgs: map[common.Address]v1_5_1.TokenTransferFeeArgs{
 						tokenC: {
-							MinFeeUSDCents:            pointer.To(uint32(202)),
-							MaxFeeUSDCents:            pointer.To(uint32(6002)),
-							DeciBps:                   pointer.To(uint16(31)),
-							DestGasOverhead:           pointer.To(uint32(120_000)),
-							DestBytesOverhead:         pointer.To(uint32(1400)),
-							AggregateRateLimitEnabled: pointer.To(false),
+							MinFeeUSDCents:            new(uint32(202)),
+							MaxFeeUSDCents:            new(uint32(6002)),
+							DeciBps:                   new(uint16(31)),
+							DestGasOverhead:           new(uint32(120_000)),
+							DestBytesOverhead:         new(uint32(1400)),
+							AggregateRateLimitEnabled: new(false),
 						},
 					},
 				},

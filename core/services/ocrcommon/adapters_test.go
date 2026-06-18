@@ -1,6 +1,7 @@
 package ocrcommon_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math"
@@ -168,6 +169,29 @@ func TestNewOCR3OnchainKeyringMultiChainAdapter(t *testing.T) {
 	// no bundles
 	_, err = ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(map[string]ocr2key.KeyBundle{}, logger.TestLogger(t))
 	require.Error(t, err, "no key bundles provided")
+}
+
+func TestOCR3OnchainKeyringMultiChainAdapter_Has(t *testing.T) {
+	adapter := newMultichainAdapter(t)
+
+	require.True(t, adapter.Has(adapter.PublicKey()))
+	assert.NotEmpty(t, adapter.DebugIdentifier())
+
+	keys, err := ocrcommon.UnmarshalMultichainPublicKey(adapter.PublicKey())
+	require.NoError(t, err)
+	evmOnly, err := ocrcommon.MarshalMultichainPublicKey(map[string]ocrtypes.OnchainPublicKey{
+		"evm": keys["evm"],
+	})
+	require.NoError(t, err)
+	require.True(t, adapter.Has(evmOnly))
+
+	wrongEVM, err := ocrcommon.MarshalMultichainPublicKey(map[string]ocrtypes.OnchainPublicKey{
+		"evm": bytes.Repeat([]byte{0xab}, 32),
+	})
+	require.NoError(t, err)
+	require.False(t, adapter.Has(wrongEVM))
+
+	require.False(t, adapter.Has(nil))
 }
 
 func newMultichainAdapter(t *testing.T) *ocrcommon.OCR3OnchainKeyringMultiChainAdapter {

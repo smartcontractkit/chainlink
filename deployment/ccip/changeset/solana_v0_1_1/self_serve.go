@@ -17,11 +17,11 @@ import (
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	cldfsolana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
@@ -38,7 +38,7 @@ type OnboardTokenPoolConfig struct {
 type OnboardTokenPoolsForSelfServeConfig struct {
 	ChainSelector        uint64
 	RegisterTokenConfigs []OnboardTokenPoolConfig
-	MCMS                 *proposalutils.TimelockConfig
+	MCMS                 *cldfproposalutils.TimelockConfig
 }
 
 func (cfg OnboardTokenPoolsForSelfServeConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {

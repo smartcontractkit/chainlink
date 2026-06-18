@@ -8,7 +8,7 @@ import (
 
 	fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 )
 
 type AddTokenPoolConfig struct {
@@ -21,7 +21,7 @@ type AddTokenPoolConfig struct {
 	TokenTransferFeeByRemoteChainConfig map[uint64]fee_quoter.TokenTransferFeeConfig
 	EVMRemoteConfigs                    map[uint64]EVMRemoteConfig
 	TokenParams                         TokenParams
-	MCMSConfig                          *proposalutils.TimelockConfig
+	MCMSConfig                          *cldfproposalutils.TimelockConfig
 	TokenMint                           *TokenMint
 }
 
@@ -66,7 +66,7 @@ type TokenPoolTransfer struct {
 type TransferTokenPoolOwnershipInput struct {
 	ChainSelector uint64
 	Transfers     []TokenPoolTransfer
-	MCMSConfig    *proposalutils.TimelockConfig
+	MCMSConfig    *cldfproposalutils.TimelockConfig
 }
 
 type TokenPoolAccept struct {
@@ -77,11 +77,11 @@ type TokenPoolAccept struct {
 type AcceptTokenPoolOwnershipInput struct {
 	ChainSelector uint64
 	Accepts       []TokenPoolAccept
-	MCMSConfig    *proposalutils.TimelockConfig
+	MCMSConfig    *cldfproposalutils.TimelockConfig
 }
 
 type ExecuteTokenPoolOwnershipTransferInput struct {
 	ChainSelector uint64
 	Transfers     []TokenPoolTransfer
-	MCMSConfig    *proposalutils.TimelockConfig
+	MCMSConfig    *cldfproposalutils.TimelockConfig
 }

@@ -30,7 +30,7 @@ func deployBundleAggregatorProxyLogic(env cldf.Environment, c types.DeployBundle
 			return cldf.ChangesetOutput{}, fmt.Errorf("DataFeedsCache contract address not found in addressbook for chain %d", chainSelector)
 		}
 
-		bundleProxyResponse, err := DeployBundleAggregatorProxy(chain, common.HexToAddress(dataFeedsCacheAddress), c.Owners[chainSelector], c.Labels)
+		bundleProxyResponse, err := DeployBundleAggregatorProxy(lggr, chain, common.HexToAddress(dataFeedsCacheAddress), c.Owners[chainSelector], c.Labels)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy BundleAggregatorProxy: %w", err)
 		}

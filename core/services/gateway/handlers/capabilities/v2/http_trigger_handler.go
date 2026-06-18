@@ -359,6 +359,8 @@ func (h *httpTriggerHandler) checkRateLimit(ctx context.Context, workflowID, req
 		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflow reference not found", callback)
 		return errors.New("workflow reference not found")
 	}
+
+	// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: workflowRef.workflowOwner, Workflow: workflowID})
 	if err := h.userRateLimiter.AllowErr(ctx); err != nil {
 		lggr := logger.With(h.lggr, platform.KeyWorkflowID, workflowID, platform.KeyWorkflowOwner, workflowRef.workflowOwner, "requestID", requestID, "err", err)
@@ -374,6 +376,7 @@ func (h *httpTriggerHandler) checkRateLimit(ctx context.Context, workflowID, req
 			h.handleUserError(ctx, requestID, jsonrpc.ErrLimitExceeded, "rate limit exceeded", callback)
 			return err
 		}
+		return fmt.Errorf("failed to check rate limit: %w", err)
 	}
 	return nil
 }

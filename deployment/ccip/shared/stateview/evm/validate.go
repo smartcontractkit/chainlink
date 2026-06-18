@@ -210,3 +210,76 @@ func chainSelFromConfigs(commit, exec ccip_home.GetAllConfigs) uint64 {
 	}
 	return sel
 }
+
+// ValidateRouterForLane validates the router wiring for a single source→dest lane.
+// It checks that the source router's GetOnRamp(dst) returns srcState.OnRamp,
+// and the dest router's GetOffRamps() includes an entry for src pointing to dstState.OffRamp.
+// isTestRouter selects TestRouter over the prod Router on both sides.
+func ValidateRouterForLane(
+	e cldf.Environment,
+	srcState CCIPChainState,
+	dstState CCIPChainState,
+	src, dst uint64,
+	isTestRouter bool,
+) error {
+	callOpts := &bind.CallOpts{Context: e.GetContext()}
+	var errs []error
+
+	// Source side: check that the router on src has OnRamp pointing to dst.
+	srcRouter := srcState.Router
+	if isTestRouter {
+		srcRouter = srcState.TestRouter
+	}
+	if srcRouter == nil {
+		errs = append(errs, fmt.Errorf("chain %d: %s router is nil", src, routerLabel(isTestRouter)))
+	} else {
+		onRamp, err := srcRouter.GetOnRamp(callOpts, dst)
+		switch {
+		case err != nil:
+			errs = append(errs, fmt.Errorf("chain %d: GetOnRamp(%d): %w", src, dst, err))
+		case srcState.OnRamp == nil:
+			errs = append(errs, fmt.Errorf("chain %d: OnRamp is nil, cannot validate router lane to %d", src, dst))
+		case onRamp != srcState.OnRamp.Address():
+			errs = append(errs, fmt.Errorf("chain %d %s router OnRamp for dest %d: got %s, want %s",
+				src, routerLabel(isTestRouter), dst, onRamp.Hex(), srcState.OnRamp.Address().Hex()))
+		}
+	}
+
+	// Destination side: check that the router on dst has OffRamp for src pointing to dstState.OffRamp.
+	dstRouter := dstState.Router
+	if isTestRouter {
+		dstRouter = dstState.TestRouter
+	}
+	if dstRouter == nil {
+		errs = append(errs, fmt.Errorf("chain %d: %s router is nil", dst, routerLabel(isTestRouter)))
+	} else {
+		offRamps, err := dstRouter.GetOffRamps(callOpts)
+		switch {
+		case err != nil:
+			errs = append(errs, fmt.Errorf("chain %d: GetOffRamps: %w", dst, err))
+		case dstState.OffRamp == nil:
+			errs = append(errs, fmt.Errorf("chain %d: OffRamp is nil, cannot validate router lane from %d", dst, src))
+		default:
+			found := false
+			for _, r := range offRamps {
+				if r.SourceChainSelector == src && r.OffRamp == dstState.OffRamp.Address() {
+					found = true
+					break
+				}
+			}
+			if !found {
+				errs = append(errs, fmt.Errorf("chain %d %s router: OffRamp for source %d (%s) not found among %d registered off-ramps",
+					dst, routerLabel(isTestRouter), src, dstState.OffRamp.Address().Hex(), len(offRamps)))
+			}
+		}
+	}
+
+	return errors.Join(errs...)
+}
+
+func routerLabel(isTestRouter bool) string {
+	if isTestRouter {
+		return "test"
+	}
+	return "prod"
+}

@@ -7,15 +7,19 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	"github.com/smartcontractkit/mcms"
 
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	migrate_seq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/migration"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
@@ -72,7 +76,7 @@ type InitChainUpgradesConfig struct {
 	// SourceChains is a map of source chain selectors to their upgrade configurations.
 	SourceChains map[uint64]SourceChainConfig
 	// MCMSConfig is the configuration for the MCMS.
-	MCMSConfig *proposalutils.TimelockConfig
+	MCMSConfig *cldfproposalutils.TimelockConfig
 }
 
 // NewFeeQuoterParamsForDestinationBySource returns a map of source chain selectors to their new FeeQuoter parameters for the given destination chain selector.
@@ -101,11 +105,11 @@ func initChainUpgradesPrecondition(e cldf.Environment, c InitChainUpgradesConfig
 		return fmt.Errorf("failed to validate home chain state: %w", err)
 	}
 	// Home chain contracts are owned by MCMS.
-	err = commoncs.ValidateOwnership(e.GetContext(), true, common.Address{}, state.Chains[c.HomeChainSelector].Timelock.Address(), state.Chains[c.HomeChainSelector].CCIPHome)
+	err = mcmschangesets.ValidateOwnership(e.GetContext(), true, common.Address{}, state.Chains[c.HomeChainSelector].Timelock.Address(), state.Chains[c.HomeChainSelector].CCIPHome)
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership of CCIPHome on %s: %w", e.BlockChains.EVMChains()[c.HomeChainSelector], err)
 	}
-	err = commoncs.ValidateOwnership(e.GetContext(), true, common.Address{}, state.Chains[c.HomeChainSelector].Timelock.Address(), state.Chains[c.HomeChainSelector].CapabilityRegistry)
+	err = mcmschangesets.ValidateOwnership(e.GetContext(), true, common.Address{}, state.Chains[c.HomeChainSelector].Timelock.Address(), state.Chains[c.HomeChainSelector].CapabilityRegistry)
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership of CapabilityRegistry on %s: %w", e.BlockChains.EVMChains()[c.HomeChainSelector], err)
 	}
@@ -131,7 +135,7 @@ func initChainUpgradesPrecondition(e cldf.Environment, c InitChainUpgradesConfig
 			return fmt.Errorf("failed to validate exec OCR params for chain %d: %w", destChainSel, err)
 		}
 		// ARMProxy contracts are owned by MCMS on destination.
-		err = commoncs.ValidateOwnership(e.GetContext(), true, common.Address{}, state.Chains[destChainSel].Timelock.Address(), state.Chains[destChainSel].RMNProxy)
+		err = mcmschangesets.ValidateOwnership(e.GetContext(), true, common.Address{}, state.Chains[destChainSel].Timelock.Address(), state.Chains[destChainSel].RMNProxy)
 		if err != nil {
 			return fmt.Errorf("failed to validate ownership of RMNProxy on %s: %w", e.BlockChains.EVMChains()[destChainSel], err)
 		}
@@ -202,7 +206,7 @@ func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesConfig) (cldf
 
 	for chainSel, chainUpgradeCfg := range c.DONConfigs {
 		// Ensure that FeeQuoter & NonceManager are owned by the timelock contract on all chains.
-		out, err := ensureTimelockOwnership(e, chainSel, []commoncs.Ownable{
+		out, err := ensureTimelockOwnership(e, chainSel, []evm.Ownable{
 			state.Chains[chainSel].FeeQuoter,
 			state.Chains[chainSel].NonceManager,
 		}, *c.MCMSConfig)
@@ -293,7 +297,7 @@ func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesConfig) (cldf
 		destChain := e.BlockChains.EVMChains()[destChainSel]
 
 		// Ensure that RMNRemote is owned by the timelock contract
-		out, err := ensureTimelockOwnership(e, destChainSel, []commoncs.Ownable{
+		out, err := ensureTimelockOwnership(e, destChainSel, []evm.Ownable{
 			state.Chains[destChainSel].RMNRemote,
 		}, *c.MCMSConfig)
 		allReports = append(allReports, out.Reports...)
@@ -466,9 +470,9 @@ func initChainUpgradesLogic(e cldf.Environment, c InitChainUpgradesConfig) (cldf
 		}
 	}
 
-	proposal, err := proposalutils.AggregateProposalsV2(
+	proposal, err := proposeutils.AggregateProposalsV2(
 		e,
-		proposalutils.MCMSStates{
+		proposeutils.MCMSStates{
 			MCMSEVMState: state.EVMMCMSStateByChain(),
 		},
 		allProposals,
@@ -494,7 +498,7 @@ type PromoteChainUpgradesConfig struct {
 	// The sources of these chains will be promoted as well.
 	DestChains []uint64
 	// MCMSConfig is the configuration for MCMS.
-	MCMSConfig *proposalutils.TimelockConfig
+	MCMSConfig *cldfproposalutils.TimelockConfig
 }
 
 func promoteChainUpgradesPrecondition(e cldf.Environment, c PromoteChainUpgradesConfig) error {
@@ -511,11 +515,11 @@ func promoteChainUpgradesPrecondition(e cldf.Environment, c PromoteChainUpgrades
 		return fmt.Errorf("failed to validate home chain state: %w", err)
 	}
 	// Home chain contracts are owned by MCMS.
-	err = commoncs.ValidateOwnership(e.GetContext(), true, common.Address{}, state.Chains[c.HomeChainSelector].Timelock.Address(), state.Chains[c.HomeChainSelector].CCIPHome)
+	err = mcmschangesets.ValidateOwnership(e.GetContext(), true, common.Address{}, state.Chains[c.HomeChainSelector].Timelock.Address(), state.Chains[c.HomeChainSelector].CCIPHome)
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership of CCIPHome on %s: %w", e.BlockChains.EVMChains()[c.HomeChainSelector], err)
 	}
-	err = commoncs.ValidateOwnership(e.GetContext(), true, common.Address{}, state.Chains[c.HomeChainSelector].Timelock.Address(), state.Chains[c.HomeChainSelector].CapabilityRegistry)
+	err = mcmschangesets.ValidateOwnership(e.GetContext(), true, common.Address{}, state.Chains[c.HomeChainSelector].Timelock.Address(), state.Chains[c.HomeChainSelector].CapabilityRegistry)
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership of CapabilityRegistry on %s: %w", e.BlockChains.EVMChains()[c.HomeChainSelector], err)
 	}
@@ -542,7 +546,7 @@ func promoteChainUpgradesPrecondition(e cldf.Environment, c PromoteChainUpgrades
 
 	for chainSel := range allChainSels {
 		// Routers are owned by MCMS on both source and destination chains.
-		err := commoncs.ValidateOwnership(e.GetContext(), true, common.Address{}, state.Chains[chainSel].Timelock.Address(), state.Chains[chainSel].Router)
+		err := mcmschangesets.ValidateOwnership(e.GetContext(), true, common.Address{}, state.Chains[chainSel].Timelock.Address(), state.Chains[chainSel].Router)
 		if err != nil {
 			return fmt.Errorf("failed to validate ownership of Router on %s: %w", e.BlockChains.EVMChains()[chainSel], err)
 		}
@@ -637,7 +641,7 @@ func promoteChainUpgradesLogic(e cldf.Environment, c PromoteChainUpgradesConfig)
 		destChain := e.BlockChains.EVMChains()[destChainSel]
 
 		// Transfer ownership of OffRamp on destination chain.
-		out, err := ensureTimelockOwnership(e, destChainSel, []commoncs.Ownable{
+		out, err := ensureTimelockOwnership(e, destChainSel, []evm.Ownable{
 			state.Chains[destChainSel].OffRamp,
 		}, *c.MCMSConfig)
 		allReports = append(allReports, out.Reports...)
@@ -658,7 +662,7 @@ func promoteChainUpgradesLogic(e cldf.Environment, c PromoteChainUpgradesConfig)
 				ownershipAlreadyEnsured[sourceChainSel] = make(map[common.Address]struct{})
 			}
 			if _, ok := ownershipAlreadyEnsured[sourceChainSel][state.Chains[sourceChainSel].OnRamp.Address()]; !ok {
-				out, err = ensureTimelockOwnership(e, sourceChainSel, []commoncs.Ownable{
+				out, err = ensureTimelockOwnership(e, sourceChainSel, []evm.Ownable{
 					state.Chains[sourceChainSel].OnRamp,
 				}, *c.MCMSConfig)
 				allReports = append(allReports, out.Reports...)
@@ -743,9 +747,9 @@ func promoteChainUpgradesLogic(e cldf.Environment, c PromoteChainUpgradesConfig)
 		}
 	}
 
-	proposal, err := proposalutils.AggregateProposalsV2(
+	proposal, err := proposeutils.AggregateProposalsV2(
 		e,
-		proposalutils.MCMSStates{
+		proposeutils.MCMSStates{
 			MCMSEVMState: state.EVMMCMSStateByChain(),
 		},
 		allProposals,
@@ -781,7 +785,7 @@ func getSourceChainsForSelector(state stateview.CCIPOnChainState, chainSel uint6
 	return sourceChains
 }
 
-func ensureTimelockOwnership(e cldf.Environment, chainSel uint64, contracts []commoncs.Ownable, mcmsCfg proposalutils.TimelockConfig) (cldf.ChangesetOutput, error) {
+func ensureTimelockOwnership(e cldf.Environment, chainSel uint64, contracts []evm.Ownable, mcmsCfg cldfproposalutils.TimelockConfig) (cldf.ChangesetOutput, error) {
 	addressesToTransfer := make([]common.Address, 0, len(contracts))
 	for _, contract := range contracts {
 		if contract == nil {
@@ -798,7 +802,7 @@ func ensureTimelockOwnership(e cldf.Environment, chainSel uint64, contracts []co
 	if len(addressesToTransfer) == 0 {
 		return cldf.ChangesetOutput{}, nil // Nothing to transfer, no ownership change needed.
 	}
-	return commoncs.TransferToMCMSWithTimelockV2(e, commoncs.TransferToMCMSWithTimelockConfig{
+	return mcmschangesets.TransferToMCMSWithTimelockV2(e, mcmschangesets.TransferToMCMSWithTimelockConfig{
 		ContractsByChain: map[uint64][]common.Address{
 			chainSel: addressesToTransfer,
 		},

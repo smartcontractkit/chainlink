@@ -35,6 +35,13 @@ type OCR3JobConfigInput struct {
 	// Optionals: specific to the worker vault OCR3 Job spec
 	DKGContractQualifier       string `yaml:"dkgContractQualifier"`
 	VaultRequestExpiryDuration string `yaml:"vaultRequestExpiryDuration"`
+	Auth0                      *Auth0Config
+}
+
+type Auth0Config struct {
+	IssuerURL string `yaml:"issuerURL" toml:"issuerURL" json:"issuerURL"`
+	Audience  string `yaml:"audience" toml:"audience" json:"audience"`
+	TenantID  Uint64 `yaml:"tenantID" toml:"tenantID" json:"tenantID"`
 }
 
 type OCR3JobConfig struct {
@@ -52,6 +59,7 @@ type OCR3JobConfig struct {
 
 	DKGContractAddress         string
 	VaultRequestExpiryDuration string
+	Auth0                      *Auth0Config
 }
 
 func (c OCR3JobConfig) Validate() error {
@@ -92,6 +100,14 @@ func (c OCR3JobConfig) Validate() error {
 		if err != nil {
 			return fmt.Errorf("VaultRequestExpiryDuration is not a valid duration: %w", err)
 		}
+		if c.Auth0 != nil {
+			if c.Auth0.IssuerURL == "" {
+				return errors.New("Auth0.IssuerURL is required for worker-vault template when auth0 is configured")
+			}
+			if c.Auth0.Audience == "" {
+				return errors.New("Auth0.Audience is required for worker-vault template when auth0 is configured")
+			}
+		}
 	}
 
 	return nil
@@ -129,6 +145,7 @@ func BuildOCR3JobConfigSpecs(
 	donName, jobName, templateName string,
 	dkgContractAddress string,
 	vaultRequestExpiryDuration string,
+	auth0 *Auth0Config,
 ) ([]OCR3JobConfigSpec, error) {
 	nodesLen := len(nodes)
 	if nodesLen == 0 {
@@ -196,6 +213,7 @@ func BuildOCR3JobConfigSpecs(
 			TemplateName:               templateName,
 			DKGContractAddress:         dkgContractAddress,
 			VaultRequestExpiryDuration: vaultRequestExpiryDuration,
+			Auth0:                      auth0,
 		}
 
 		err1 := jobConfig.Validate()

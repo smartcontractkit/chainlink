@@ -1,15 +1,17 @@
 package blockhashstore_test
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys/keystest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
@@ -26,7 +28,7 @@ import (
 func TestStoreRotatesFromAddresses(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
-	ethClient := clienttest.NewClientWithDefaultChainID(t)
+	ethClient := client.NewNullClient(big.NewInt(evmtest.NullClientChainID), logger.Test(t))
 	cfg := configtest.NewTestGeneralConfig(t)
 	kst := cltest.NewKeyStore(t, db)
 	require.NoError(t, kst.Unlock(ctx, cltest.Password))

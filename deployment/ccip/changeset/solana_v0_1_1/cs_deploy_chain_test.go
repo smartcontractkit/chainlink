@@ -8,8 +8,15 @@ import (
 	solBinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	linkchangesets "github.com/smartcontractkit/cld-changesets/tokens/link/changesets"
 	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deploylink"
+
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -25,8 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 )
@@ -39,7 +44,7 @@ func initialDeployCS(t *testing.T, e cldf.Environment, buildConfig *ccipChangese
 	require.NoError(t, err)
 	feeAggregatorPrivKey, _ := solana.NewRandomPrivateKey()
 	feeAggregatorPubKey := feeAggregatorPrivKey.PublicKey()
-	mcmsConfig := proposalutils.SingleGroupTimelockConfigV2(t)
+	mcmsConfig := cldftesthelpers.SingleGroupTimelockConfig(t)
 	solLinkTokenPrivKey, _ := solana.NewRandomPrivateKey()
 	return []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
@@ -55,12 +60,10 @@ func initialDeployCS(t *testing.T, e cldf.Environment, buildConfig *ccipChangese
 			},
 		),
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commonchangeset.DeploySolanaLinkToken),
-			commonchangeset.DeploySolanaLinkTokenConfig{
-				ChainSelector: solChainSelectors[0],
-				TokenPrivKey:  solLinkTokenPrivKey,
-				TokenDecimals: 9,
-			},
+			deploylink.DeployLinkTokenChangeset{},
+			linkchangesets.DeployLinkTokenInput{Solana: map[uint64]linkchangesets.SolanaLinkConfig{
+				solChainSelectors[0]: {TokenPrivKey: solLinkTokenPrivKey, TokenDecimals: 9},
+			}},
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
@@ -202,7 +205,7 @@ func TestUpgrade(t *testing.T) {
 	require.NoError(t, err)
 	addresses, err := e.ExistingAddresses.AddressesForChain(solSelector)
 	require.NoError(t, err)
-	chainState, err := csState.MaybeLoadMCMSWithTimelockChainStateSolana(e.BlockChains.SolanaChains()[solSelector], addresses)
+	chainState, err := solstate.MaybeLoadMCMSWithTimelockChainState(e.BlockChains.SolanaChains()[solSelector], addresses)
 	require.NoError(t, err)
 
 	// deploy the contracts
@@ -241,7 +244,7 @@ func TestUpgrade(t *testing.T) {
 					NewAccessControllerVersion:     &deployment.Version1_1_0,
 					NewTimelockVersion:             &deployment.Version1_1_0,
 					UpgradeAuthority:               upgradeAuthority,
-					MCMS: &proposalutils.TimelockConfig{
+					MCMS: &cldfproposalutils.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
 				},
@@ -274,7 +277,7 @@ func TestUpgrade(t *testing.T) {
 			ccipChangesetSolana.SetFeeAggregatorConfig{
 				ChainSelector: solSelector,
 				FeeAggregator: feeAggregatorPubKey2.String(),
-				MCMS: &proposalutils.TimelockConfig{
+				MCMS: &cldfproposalutils.TimelockConfig{
 					MinDelay: 1 * time.Second,
 				},
 			},
@@ -297,7 +300,7 @@ func TestUpgrade(t *testing.T) {
 				UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
 					NewOffRampVersion: &deployment.Version1_1_0,
 					UpgradeAuthority:  upgradeAuthority,
-					MCMS: &proposalutils.TimelockConfig{
+					MCMS: &cldfproposalutils.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
 				},
@@ -410,7 +413,7 @@ func TestClose(t *testing.T) {
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.CloseBuffersChangeset),
 			ccipChangesetSolana.CloseBuffersConfig{
 				ChainSelector: solSelector,
-				MCMS: &proposalutils.TimelockConfig{
+				MCMS: &cldfproposalutils.TimelockConfig{
 					MinDelay: 1 * time.Second,
 				},
 				Programs: []string{
@@ -479,7 +482,7 @@ func TestIDL(t *testing.T) {
 				BurnMintTokenPoolMetadata: []string{
 					shared.CLLMetadata,
 				},
-				MCMS: &proposalutils.TimelockConfig{
+				MCMS: &cldfproposalutils.TimelockConfig{
 					MinDelay: 1 * time.Second,
 				},
 			},
@@ -515,7 +518,7 @@ func TestIDL(t *testing.T) {
 				BurnMintTokenPoolMetadata: []string{
 					shared.CLLMetadata,
 				},
-				MCMS: &proposalutils.TimelockConfig{
+				MCMS: &cldfproposalutils.TimelockConfig{
 					MinDelay: 1 * time.Second,
 				},
 			},
@@ -570,7 +573,7 @@ func TestIDL(t *testing.T) {
 				BurnMintTokenPoolMetadata: []string{
 					shared.CLLMetadata,
 				},
-				MCMS: &proposalutils.TimelockConfig{
+				MCMS: &cldfproposalutils.TimelockConfig{
 					MinDelay: 1 * time.Second,
 				},
 			},
@@ -586,7 +589,7 @@ func TestIDL(t *testing.T) {
 				BurnMintTokenPoolMetadata: []string{
 					shared.CLLMetadata,
 				},
-				MCMS: &proposalutils.TimelockConfig{
+				MCMS: &cldfproposalutils.TimelockConfig{
 					MinDelay: 1 * time.Second,
 				},
 			},
@@ -603,7 +606,7 @@ func TestIDL(t *testing.T) {
 				BurnMintTokenPoolMetadata: []string{
 					shared.CLLMetadata,
 				},
-				MCMS: &proposalutils.TimelockConfig{
+				MCMS: &cldfproposalutils.TimelockConfig{
 					MinDelay: 1 * time.Second,
 				},
 			},

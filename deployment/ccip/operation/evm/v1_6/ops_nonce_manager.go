@@ -9,18 +9,18 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
 
 var (
-	DeployNonceManagerOp = opsutil.NewEVMDeployOperation(
+	DeployNonceManagerOp = opsutils.NewEVMDeployOperation(
 		"DeployNonceManager",
 		semver.MustParse("1.0.0"),
 		"Deploys NonceManager 1.6 contract on the specified evm chain",
 		shared.NonceManager,
 		nonce_manager.NonceManagerMetaData,
-		&opsutil.ContractOpts{
+		&opsutils.ContractOpts{
 			Version:          &deployment.Version1_6_0,
 			EVMBytecode:      common.FromHex(nonce_manager.NonceManagerBin),
 			ZkSyncVMBytecode: nonce_manager.ZkBytecode,
@@ -30,7 +30,7 @@ var (
 		},
 	)
 
-	NonceManagerUpdateAuthorizedCallerOp = opsutil.NewEVMCallOperation(
+	NonceManagerUpdateAuthorizedCallerOp = opsutils.NewEVMCallOperation(
 		"NonceManagerUpdateAuthorizedCallerOp",
 		semver.MustParse("1.0.0"),
 		"Updates authorized callers in NonceManager 1.6 contract on the specified evm chain",
@@ -42,7 +42,7 @@ var (
 		},
 	)
 
-	NonceManagerPreviousRampsUpdatesOp = opsutil.NewEVMCallOperation(
+	NonceManagerPreviousRampsUpdatesOp = opsutils.NewEVMCallOperation(
 		"NonceManagerPreviousRampsUpdatesOp",
 		semver.MustParse("1.0.0"),
 		"Applies previous ramps updates in NonceManager 1.6 contract on the specified evm chain",

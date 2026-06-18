@@ -96,10 +96,9 @@ Error running app: invalid configuration: 5 errors:
 	- Cosmos: 2 errors:
 		- 1.ChainID: invalid value (Malaga-420): duplicate - must be unique
 		- 1.Nodes.1.Name: invalid value (primary): duplicate - must be unique
-	- Solana: 3 errors:
+	- Solana: 2 errors:
 		- 1.ChainID: invalid value (mainnet): duplicate - must be unique
 		- 1.Nodes.1.Name: invalid value (primary): duplicate - must be unique
-		- 1.Nodes.1.URL: invalid value (http://solana.web): duplicate - must be unique
 	- Starknet: 2 errors:
 		- 1.ChainID: invalid value (foobar): duplicate - must be unique
 		- 1.Nodes.1.Name: invalid value (primary): duplicate - must be unique

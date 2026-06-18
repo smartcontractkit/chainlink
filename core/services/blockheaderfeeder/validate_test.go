@@ -12,7 +12,6 @@ import (
 )
 
 func TestValidate(t *testing.T) {
-	v1Coordinator := types.EIP55Address("0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139")
 	v2Coordinator := types.EIP55Address("0x2be990eE17832b59E0086534c5ea2459Aa75E38F")
 	v2PlusCoordinator := types.EIP55Address("0x92B5e28Ac583812874e4271380c7d070C5FB6E6b")
 	fromAddresses := []types.EIP55Address{("0x469aA2CD13e037DC5236320783dCfd0e641c0559")}
@@ -27,7 +26,6 @@ func TestValidate(t *testing.T) {
 			toml: `
 type = "blockheaderfeeder"
 name = "valid-test"
-coordinatorV1Address = "0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139"
 coordinatorV2Address = "0x2be990eE17832b59E0086534c5ea2459Aa75E38F"
 coordinatorV2PlusAddress = "0x92B5e28Ac583812874e4271380c7d070C5FB6E6b"
 lookbackBlocks = 2000
@@ -45,8 +43,7 @@ storeBlockhashesBatchSize = 10
 				require.NoError(t, err)
 				require.Equal(t, job.BlockHeaderFeeder, os.Type)
 				require.Equal(t, "valid-test", os.Name.String)
-				require.Equal(t, &v1Coordinator,
-					os.BlockHeaderFeederSpec.CoordinatorV1Address)
+				require.Nil(t, os.BlockHeaderFeederSpec.CoordinatorV1Address)
 				require.Equal(t, &v2Coordinator,
 					os.BlockHeaderFeederSpec.CoordinatorV2Address)
 				require.Equal(t, &v2PlusCoordinator,
@@ -74,7 +71,6 @@ storeBlockhashesBatchSize = 10
 type = "blockheaderfeeder"
 name = "defaults-test"
 evmChainID = "4"
-coordinatorV1Address = "0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139"
 coordinatorV2Address = "0x2be990eE17832b59E0086534c5ea2459Aa75E38F"
 blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
 batchBlockhashStoreAddress = "0xD04E5b2ea4e55AEbe6f7522bc2A69Ec6639bfc63"
@@ -132,7 +128,7 @@ getBlockhashesBatchSize = 20
 storeBlockhashesBatchSize = 10
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
-				require.Equal(t, `at least one of "coordinatorV1Address", "coordinatorV2Address" and "coordinatorV2PlusAddress" must be set`, err.Error())
+				require.Equal(t, `at least one of "coordinatorV2Address" and "coordinatorV2PlusAddress" must be set`, err.Error())
 			},
 		},
 		{
@@ -142,7 +138,7 @@ type = "blockheaderfeeder"
 name = "missing blockhash store address"
 lookbackBlocks = 2000
 waitBlocks = 500
-coordinatorV1Address = "0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139"
+coordinatorV2Address = "0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139"
 batchBlockhashStoreAddress = "0xD04E5b2ea4e55AEbe6f7522bc2A69Ec6639bfc63"
 pollPeriod = "23s"
 runTimeout = "7s"
@@ -162,7 +158,7 @@ type = "blockheaderfeeder"
 name = "missing batch blockhash store address"
 lookbackBlocks = 2000
 waitBlocks = 500
-coordinatorV1Address = "0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139"
+coordinatorV2Address = "0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139"
 blockhashStoreAddress = "0xD04E5b2ea4e55AEbe6f7522bc2A69Ec6639bfc63"
 pollPeriod = "23s"
 runTimeout = "7s"
@@ -182,7 +178,7 @@ type = "blockheaderfeeder"
 name = "missing evmChainID"
 lookbackBlocks = 2000
 waitBlocks = 500
-coordinatorV1Address = "0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139"
+coordinatorV2Address = "0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139"
 blockhashStoreAddress = "0xD04E5b2ea4e55AEbe6f7522bc2A69Ec6639bfc63"
 batchBlockhashStoreAddress = "0xD04E5b2ea4e55AEbe6f7522bc2A69Ec6639bfc63"
 pollPeriod = "23s"
@@ -202,7 +198,7 @@ type = "blockheaderfeeder"
 name = "wait block lower than 256 blocks"
 lookbackBlocks = 2000
 waitBlocks = 255
-coordinatorV1Address = "0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139"
+coordinatorV2Address = "0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139"
 blockhashStoreAddress = "0xD04E5b2ea4e55AEbe6f7522bc2A69Ec6639bfc63"
 batchBlockhashStoreAddress = "0xD04E5b2ea4e55AEbe6f7522bc2A69Ec6639bfc63"
 pollPeriod = "23s"
@@ -223,7 +219,7 @@ type = "blockheaderfeeder"
 name = "lookback block lower than 256 blocks"
 lookbackBlocks = 255
 waitBlocks = 256
-coordinatorV1Address = "0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139"
+coordinatorV2Address = "0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139"
 blockhashStoreAddress = "0xD04E5b2ea4e55AEbe6f7522bc2A69Ec6639bfc63"
 batchBlockhashStoreAddress = "0xD04E5b2ea4e55AEbe6f7522bc2A69Ec6639bfc63"
 pollPeriod = "23s"
@@ -244,7 +240,7 @@ type = "blockheaderfeeder"
 name = "lookback blocks lower than wait blocks"
 lookbackBlocks = 300
 waitBlocks = 500
-coordinatorV1Address = "0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139"
+coordinatorV2Address = "0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139"
 blockhashStoreAddress = "0xD04E5b2ea4e55AEbe6f7522bc2A69Ec6639bfc63"
 batchBlockhashStoreAddress = "0xD04E5b2ea4e55AEbe6f7522bc2A69Ec6639bfc63"
 pollPeriod = "23s"

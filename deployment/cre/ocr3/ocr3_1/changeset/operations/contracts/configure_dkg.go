@@ -11,7 +11,6 @@ import (
 
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
-	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -38,9 +37,8 @@ type ConfigureDKGInput struct {
 	Config          *ocr3_1.V3_1OracleConfig
 	DryRun          bool
 
-	MCMSConfig            *contracts.MCMSConfig
-	ReportingPluginConfig dkgocrtypes.ReportingPluginConfig
-	ExtraSignerFamilies   []string `json:"extraSignerFamilies,omitempty" yaml:"extraSignerFamilies,omitempty"`
+	MCMSConfig          *contracts.MCMSConfig
+	ExtraSignerFamilies []string `json:"extraSignerFamilies,omitempty" yaml:"extraSignerFamilies,omitempty"`
 }
 
 func (i ConfigureDKGInput) UseMCMS() bool {
@@ -65,7 +63,7 @@ var ConfigureDKG = operations.NewOperation(
 			return ConfigureDKGOpOutput{}, fmt.Errorf("chain %d not found in environment", input.ChainSelector)
 		}
 
-		contract, err := contracts.GetOwnedContractV2[*ocr3_capability.OCR3Capability](deps.Env.DataStore.Addresses(), chain, input.ContractAddress.Hex())
+		contract, err := contracts.GetOwnedContractV2[*ocr3_capability.OCR3Capability](deps.Env.DataStore.Addresses(), chain, input.ContractAddress.Hex(), "")
 		if err != nil {
 			return ConfigureDKGOpOutput{}, fmt.Errorf("failed to get DKG contract: %w", err)
 		}
@@ -80,7 +78,6 @@ var ConfigureDKG = operations.NewOperation(
 			nodes,
 			input.ChainSelector,
 			deps.Env.OCRSecrets,
-			input.ReportingPluginConfig,
 			input.ExtraSignerFamilies,
 		)
 		if err != nil {

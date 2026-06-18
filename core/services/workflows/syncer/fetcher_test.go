@@ -390,6 +390,39 @@ func TestNewFetcherFunc(t *testing.T) {
 		assert.Equal(t, testContent, resp)
 	})
 
+	t.Run("file fetcher resolves HTTP URL to basename", func(t *testing.T) {
+		tempDir := t.TempDir()
+		err := os.WriteFile(filepath.Join(tempDir, "binary.wasm"), testContent, 0600)
+		require.NoError(t, err)
+
+		fetcher, err := NewFetcherFunc("file://"+tempDir, lggr)
+		require.NoError(t, err)
+
+		resp, err := fetcher(ctx, "msg-1", ghcapabilities.Request{
+			URL: "http://storage.example.com/artifacts/binary.wasm",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, testContent, resp)
+
+		resp, err = fetcher(ctx, "msg-2", ghcapabilities.Request{
+			URL: "https://storage.example.com/path/to/binary.wasm",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, testContent, resp)
+	})
+
+	t.Run("file fetcher rejects HTTP URL with empty path", func(t *testing.T) {
+		tempDir := t.TempDir()
+		fetcher, err := NewFetcherFunc("file://"+tempDir, lggr)
+		require.NoError(t, err)
+
+		_, err = fetcher(ctx, "msg-1", ghcapabilities.Request{
+			URL: "http://storage.example.com",
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "HTTP URL has no filename in path")
+	})
+
 	t.Run("http fetcher", func(t *testing.T) {
 		// Create test HTTP server
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

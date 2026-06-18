@@ -11,6 +11,8 @@ import (
 	"google.golang.org/grpc/credentials"
 	"gopkg.in/yaml.v3"
 
+	generichost "github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
+
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -73,10 +75,20 @@ func NewStandaloneEngine(
 		Timeout:                 &defaultTimeout,
 	}
 
-	module, err := host.NewModule(ctx, moduleConfig, binary, host.WithDeterminism())
+	mainModule, err := host.NewModule(ctx, moduleConfig, binary, host.WithDeterminism())
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create module from config: %w", err)
 	}
+
+	handler := generichost.RequirementsHandler{Tee: func(ctx context.Context, tee *sdkpb.Tee) bool {
+		return true
+	}}
+
+	swm := &simulationModuleWrapper{Module: mainModule, requirementsSet: lifecycleHooks.OnRequirementsSet}
+	module := generichost.NewRequirementSelectingModule(
+		generichost.ModuleAndHandler{Module: swm, RequirementsHandler: handler},
+		[]generichost.ModuleAndHandler{},
+	)
 
 	if workflowName == "" {
 		workflowName = defaultName
@@ -92,6 +104,13 @@ func NewStandaloneEngine(
 	if err != nil {
 		return nil, nil, err
 	}
+
+	moduleConfig.EnableUserMetricsLimiter = limiters.UserMetricEnabled
+	moduleConfig.MaxUserMetricPayloadLimiter = limiters.UserMetricPayload
+	moduleConfig.MaxUserMetricNameLengthLimiter = limiters.UserMetricNameLength
+	moduleConfig.MaxUserMetricLabelsPerMetricLimiter = limiters.UserMetricLabelsPerMetric
+	moduleConfig.MaxUserMetricLabelValueLengthLimiter = limiters.UserMetricLabelValueLength
+
 	featureFlags, err := v2.NewFeatureFlags(lf, workflowSettingsCfgFn)
 	if err != nil {
 		return nil, nil, err
@@ -174,10 +193,10 @@ func NewStandaloneEngine(
 		WorkflowName:  name,
 		WorkflowTag:   "workflowTag",
 
-		LocalLimits:                       v2.EngineLimits{},
-		LocalLimiters:                     limiters,
-		FeatureFlags:                      featureFlags,
-		GlobalExecutionConcurrencyLimiter: workflowLimits,
+		LocalLimits:         v2.EngineLimits{},
+		LocalLimiters:       limiters,
+		FeatureFlags:        featureFlags,
+		GlobalWorkflowLimit: workflowLimits,
 
 		BeholderEmitter: custmsg.NewLabeler(),
 
@@ -202,7 +221,7 @@ func NewStandaloneEngine(
 	}
 	result, err := module.Execute(ctx, &sdkpb.ExecuteRequest{
 		Request:         &sdkpb.ExecuteRequest_Subscribe{},
-		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes), //nolint:gosec // G115
+		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes),
 		Config:          config,
 	}, v2.NewDisallowedExecutionHelper(lggr, nil, &types.LocalTimeProvider{}, secretsFetcher))
 	if err != nil {
@@ -322,11 +341,11 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 
 	// generate deterministic signers - need to be configured on the Forwarder contract
 	nSigners := 4
-	signers := []ocr2key.KeyBundle{}
-	for range nSigners {
+	signers := make([]ocr2key.KeyBundle, nSigners)
+	for i := range nSigners {
 		signer := ocr2key.MustNewInsecure(fakes.SeedForKeys(), corekeys.EVM)
 		lggr.Infow("Generated new consensus signer", "addrss", common.BytesToAddress(signer.PublicKey()))
-		signers = append(signers, signer)
+		signers[i] = signer
 	}
 	fakeConsensusNoDAG := fakes.NewFakeConsensusNoDAG(signers, lggr)
 	if err := registry.Add(ctx, consensusserver.NewConsensusServer(fakeConsensusNoDAG)); err != nil {
@@ -344,4 +363,17 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 	}
 
 	return caps, nil
+}
+
+type simulationModuleWrapper struct {
+	generichost.Module
+	requirementsSet func(executionID string, requirements *sdkpb.Requirements)
+}
+
+var _ generichost.RequirementEnforcingModule = &simulationModuleWrapper{}
+
+func (s *simulationModuleWrapper) SetRequirements(executionID string, requirements *sdkpb.Requirements) {
+	if s.requirementsSet != nil {
+		s.requirementsSet(executionID, requirements)
+	}
 }

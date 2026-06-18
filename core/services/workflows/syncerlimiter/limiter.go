@@ -49,7 +49,7 @@ func NewWorkflowLimits(lggr logger.Logger, cfg Config, lf limits.Factory) (limit
 	lggr = logger.Named(lggr, "WorkflowExecutionLimiter")
 	cfg.PerOwnerOverrides = normalizeOverrides(cfg.PerOwnerOverrides)
 
-	ownerLimit := cresettings.Default.PerOwner.WorkflowExecutionConcurrencyLimit // make a copy
+	ownerLimit := cresettings.Default.PerOwner.WorkflowLimit // make a copy
 	if cfg.PerOwner > 0 {
 		ownerLimit.DefaultValue = int(cfg.PerOwner)
 	}
@@ -63,7 +63,7 @@ func NewWorkflowLimits(lggr logger.Logger, cfg Config, lf limits.Factory) (limit
 		return nil, fmt.Errorf("failed to create owner resource limiter: %w", err)
 	}
 
-	globalLimit := cresettings.Default.WorkflowExecutionConcurrencyLimit // make a copy
+	globalLimit := cresettings.Default.WorkflowLimit // make a copy
 	if cfg.Global > 0 {
 		globalLimit.DefaultValue = int(cfg.Global)
 	}

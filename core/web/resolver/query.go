@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
 )
@@ -472,15 +471,6 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 		}
 
 		chainService, err := r.App.GetRelayers().LegacyEVMChains().Get(state.EVMChainID.String())
-		if errors.Is(errors.Cause(err), evmrelay.ErrNoChains) {
-			ethKeys = append(ethKeys, ETHKey{
-				addr:  k.EIP55Address,
-				state: state,
-			})
-
-			continue
-		}
-
 		// Don't include keys without valid chain.
 		// OperatorUI fails to show keys where chains are not in the config.
 		if err == nil {

@@ -158,6 +158,49 @@ func TestORM_DeleteUserCascade(t *testing.T) {
 	require.Empty(t, sessions)
 }
 
+func TestORM_ClearNonCurrentSessions_scopedToUser(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+
+	db, orm := setupORM(t)
+
+	admin := cltest.MustRandomUser(t)
+	admin.Role = sessions.UserRoleAdmin
+	viewer := cltest.MustRandomUser(t)
+	viewer.Role = sessions.UserRoleView
+
+	require.NoError(t, orm.CreateUser(ctx, &admin))
+	require.NoError(t, orm.CreateUser(ctx, &viewer))
+
+	adminSession := cltest.NewSession("admin-session")
+	viewerSession := cltest.NewSession("viewer-session")
+	for _, s := range []struct {
+		id, email string
+	}{
+		{adminSession.ID, admin.Email},
+		{viewerSession.ID, viewer.Email},
+	} {
+		_, err := db.ExecContext(ctx,
+			"INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())",
+			s.id, s.email,
+		)
+		require.NoError(t, err)
+	}
+
+	require.NoError(t, orm.ClearNonCurrentSessions(ctx, viewerSession.ID))
+
+	var remaining []sessions.Session
+	require.NoError(t, db.SelectContext(ctx, &remaining, "SELECT id, email FROM sessions ORDER BY email"))
+	require.Len(t, remaining, 2)
+
+	byID := make(map[string]string, len(remaining))
+	for _, s := range remaining {
+		byID[s.ID] = s.Email
+	}
+	assert.Equal(t, admin.Email, byID[adminSession.ID])
+	assert.Equal(t, viewer.Email, byID[viewerSession.ID])
+}
+
 func TestORM_CreateSession(t *testing.T) {
 	t.Parallel()
 

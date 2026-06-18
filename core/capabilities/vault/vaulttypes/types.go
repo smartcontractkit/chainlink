@@ -68,11 +68,16 @@ type SecretsService interface {
 	GetPublicKey(ctx context.Context, request *vaultcommon.GetPublicKeyRequest) (*vaultcommon.GetPublicKeyResponse, error)
 }
 
-func KeyFor(id *vaultcommon.SecretIdentifier) string {
-	namespace := id.Namespace
+// NormalizeNamespace returns DefaultNamespace when namespace is empty.
+func NormalizeNamespace(namespace string) string {
 	if namespace == "" {
-		namespace = DefaultNamespace
+		return DefaultNamespace
 	}
+	return namespace
+}
+
+func KeyFor(id *vaultcommon.SecretIdentifier) string {
+	namespace := NormalizeNamespace(id.Namespace)
 	return fmt.Sprintf("%s::%s::%s", id.Owner, namespace, id.Key)
 }
 

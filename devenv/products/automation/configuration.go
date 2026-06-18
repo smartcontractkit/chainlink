@@ -420,15 +420,10 @@ func waitForConfigWatcherToBeHealthy(nodes []*clclient.ChainlinkClient) error {
 
 func (m *Automation) MustGetRegistryVersion() contracts.KeeperRegistryVersion {
 	version := semver.MustParse(m.RegistryVersion)
+	if version.LessThan(semver.MustParse("2.0")) {
+		panic("keeper registry versions below 2.0 are no longer supported: " + m.RegistryVersion)
+	}
 	switch {
-	case version.Equal(semver.MustParse("1.0")):
-		return contracts.RegistryVersion_1_0
-	case version.Equal(semver.MustParse("1.1")):
-		return contracts.RegistryVersion_1_1
-	case version.Equal(semver.MustParse("1.2")):
-		return contracts.RegistryVersion_1_2
-	case version.Equal(semver.MustParse("1.3")):
-		return contracts.RegistryVersion_1_3
 	case version.Equal(semver.MustParse("2.0")):
 		return contracts.RegistryVersion_2_0
 	case version.Equal(semver.MustParse("2.1")):

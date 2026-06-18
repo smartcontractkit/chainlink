@@ -25,11 +25,11 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 
+	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
@@ -59,6 +59,7 @@ func makePipelineWithMultipleStreamResults(streamIDs []streams.StreamID, results
 }
 
 func TestObservationContext_Observe(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	r := &mockRegistry{}
 	telem := &mockTelemeter{}
@@ -174,6 +175,7 @@ func TestObservationContext_Observe(t *testing.T) {
 }
 
 func TestObservationContext_Observe_concurrencyStressTest(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	r := &mockRegistry{}
 	telem := &mockTelemeter{}
@@ -249,6 +251,7 @@ func createBridge(t testing.TB, name string, val string, borm bridges.ORM, maxCa
 }
 
 func TestObservationContext_Observe_integrationRealPipeline(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
@@ -276,6 +279,7 @@ func TestObservationContext_Observe_integrationRealPipeline(t *testing.T) {
 	jobStreamID := streams.StreamID(5)
 
 	t.Run("using only streamID attributes", func(t *testing.T) {
+		t.Parallel()
 		jb := job.Job{
 			Type:     job.Stream,
 			StreamID: &jobStreamID,
@@ -326,6 +330,7 @@ result3 -> result3_parse -> multiply3;
 }
 
 func TestObservationContext_Observe_concurrentAtomicOutput(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	const n = 20
 
@@ -333,7 +338,7 @@ func TestObservationContext_Observe_concurrentAtomicOutput(t *testing.T) {
 	pipelines := make([]*mockPipeline, n)
 
 	for i := range n {
-		ui := uint32(i) //nolint:gosec // i bounded by n=20
+		ui := uint32(i)
 		sid1 := ui*3 + 1
 		sid2 := ui*3 + 2
 		sid3 := ui*3 + 3
@@ -366,7 +371,7 @@ func TestObservationContext_Observe_concurrentAtomicOutput(t *testing.T) {
 	var wg sync.WaitGroup
 
 	for i := range n {
-		ui := uint32(i) //nolint:gosec // i bounded by n=20
+		ui := uint32(i)
 		sid1 := ui*3 + 1
 		sid2 := ui*3 + 2
 		sid3 := ui*3 + 3
@@ -423,12 +428,12 @@ func BenchmarkObservationContext_Observe_integrationRealPipeline_concurrencyStre
 
 	for i := range n {
 		jb := job.Job{
-			ID:       int32(i), //nolint:gosec // G115 // overflow impossible
+			ID:       int32(i),
 			Name:     null.StringFrom(fmt.Sprintf("job-%d", i)),
 			Type:     job.Stream,
 			StreamID: &i,
 			PipelineSpec: &pipeline.Spec{
-				ID: int32(i * 100), //nolint:gosec // G115 // overflow impossible
+				ID: int32(i * 100),
 				DotDagSource: fmt.Sprintf(`
 // Benchmark Price
 result1          [type=memo value="900.0022"];

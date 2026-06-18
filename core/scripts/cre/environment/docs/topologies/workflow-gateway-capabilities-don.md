@@ -12,17 +12,11 @@ This matrix is the source of truth for capability placement by DON.
 |---|---|---|---|
 | `consensus` | `-` | `-` | `local` |
 | `cron` | `-` | `-` | `local` |
-| `custom-compute` | `-` | `-` | `local` |
 | `don-time` | `-` | `-` | `local` |
 | `evm` | `-` | `remote-exposed (2337)` | `local (1337)` |
 | `http-action` | `-` | `-` | `local` |
 | `http-trigger` | `-` | `-` | `local` |
-| `ocr3` | `-` | `-` | `local` |
-| `read-contract` | `-` | `remote-exposed (2337)` | `local (1337)` |
 | `vault` | `-` | `remote-exposed` | `-` |
-| `web-api-target` | `-` | `remote-exposed` | `-` |
-| `web-api-trigger` | `-` | `-` | `local` |
-| `write-evm` | `-` | `remote-exposed (2337)` | `local (1337)` |
 
 ## DONs
 

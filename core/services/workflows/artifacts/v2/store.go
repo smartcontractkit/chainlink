@@ -40,45 +40,24 @@ type ArtifactLimiters struct {
 	MaxBinarySize  limits.BoundLimiter[config.Size]
 }
 
-type ArtifactConfig struct {
-	MaxConfigSize  uint64
-	MaxSecretsSize uint64
-	MaxBinarySize  uint64
-}
-
-// MakeLimiters constructs ArtifactLimiters from cfg, or uses defaults if cfg is nil.
-func (cfg *ArtifactConfig) MakeLimiters(lf limits.Factory) (limiters *ArtifactLimiters, err error) {
+// makeLimiters constructs ArtifactLimiters from cfg, or uses defaults if cfg is nil.
+func makeLimiters(lf limits.Factory) (limiters *ArtifactLimiters, err error) {
 	limiters = new(ArtifactLimiters)
 	configSizeLimit := cresettings.Default.PerWorkflow.WASMConfigSizeLimit
-	if cfg != nil {
-		configSizeLimit.DefaultValue = config.Size(safeUint32(cfg.MaxConfigSize))
-	}
 	limiters.MaxConfigSize, err = limits.MakeBoundLimiter(lf, configSizeLimit)
 	if err != nil {
 		return
 	}
 
 	secretsSizeLimit := cresettings.Default.PerWorkflow.WASMSecretsSizeLimit
-	if cfg != nil {
-		secretsSizeLimit.DefaultValue = config.Size(safeUint32(cfg.MaxSecretsSize))
-	}
 	limiters.MaxSecretsSize, err = limits.MakeBoundLimiter(lf, secretsSizeLimit)
 	if err != nil {
 		return
 	}
 
 	binarySizeLimit := cresettings.Default.PerWorkflow.WASMBinarySizeLimit
-	if cfg != nil {
-		binarySizeLimit.DefaultValue = config.Size(safeUint32(cfg.MaxBinarySize))
-	}
 	limiters.MaxBinarySize, err = limits.MakeBoundLimiter(lf, binarySizeLimit)
 	return
-}
-
-func WithMaxArtifactSize(cfg ArtifactConfig) func(*Store) {
-	return func(a *Store) {
-		a.limits = &cfg
-	}
 }
 
 type StoreConfig struct {
@@ -92,17 +71,14 @@ func WithConfig(cfg StoreConfig) func(*Store) {
 }
 
 type SerialisedModuleStore interface {
-	StoreModule(workflowID string, binaryID string, module []byte) error
-	GetModulePath(workflowID string) (string, bool, error)
-	GetBinaryID(workflowID string) (string, bool, error)
+	StoreModule(workflowID string, module []byte, engineVersion string) error
+	GetModule(workflowID string) (path, engineVersion string, ok bool, err error)
 	DeleteModule(workflowID string) error
 }
 
 type Store struct {
 	lggr logger.Logger
 
-	// limits sets max artifact sizes to fetch when handling events
-	limits   *ArtifactConfig
 	limiters *ArtifactLimiters
 	config   *StoreConfig
 
@@ -138,7 +114,7 @@ func NewStore(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn types.FetcherF
 	}
 
 	var err error
-	artifactsStore.limiters, err = artifactsStore.limits.MakeLimiters(limitsFactory)
+	artifactsStore.limiters, err = makeLimiters(limitsFactory)
 	if err != nil {
 		return nil, err
 	}
@@ -198,12 +174,12 @@ func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryUR
 	req := ghcapabilities.Request{
 		URL:              binaryURL,
 		Method:           http.MethodGet,
-		MaxResponseBytes: safeUint32(uint64(maxBinarySize)), //nolint:gosec // G115
+		MaxResponseBytes: safeUint32(uint64(maxBinarySize)),
 		WorkflowID:       workflowID,
 	}
 	binary, err = h.fetchFn(ctx, messageID(binaryURL, workflowID), req)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to fetch binary from %s : %w", binaryURL, err)
+		return nil, nil, &types.ArtifactFetchError{ArtifactType: "binary", URL: binaryURL, Err: err}
 	}
 
 	if decodedBinary, err = base64.StdEncoding.DecodeString(string(binary)); err != nil {
@@ -241,13 +217,13 @@ func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryUR
 		req := ghcapabilities.Request{
 			URL:              configURL,
 			Method:           http.MethodGet,
-			MaxResponseBytes: safeUint32(uint64(maxResponseBytes)), //nolint:gosec // G115
+			MaxResponseBytes: safeUint32(uint64(maxResponseBytes)),
 			WorkflowID:       workflowID,
 		}
 
 		config, err2 = h.fetchFn(ctx, messageID(configURL, workflowID), req)
 		if err2 != nil {
-			return nil, nil, fmt.Errorf("failed to fetch config from %s : %w", configURL, err2)
+			return nil, nil, &types.ArtifactFetchError{ArtifactType: "config", URL: configURL, Err: err2}
 		}
 	}
 	return decodedBinary, config, nil

@@ -2,6 +2,7 @@ package v2_0
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -12,16 +13,18 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
+	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/cldfutil"
+
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
+	creocr3 "github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
-	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 )
 
 type CapabilityRegistryViewV2 struct {
-	types.ContractMetaData
+	commoncldchangesets.ContractMetaData
 	Capabilities []CapabilityView `json:"capabilities,omitempty"`
 	Nodes        []NodeView       `json:"nodes,omitempty"`
 	Nops         []NopView        `json:"nops,omitempty"`
@@ -30,7 +33,7 @@ type CapabilityRegistryViewV2 struct {
 
 // CapabilityRegistryView is a high-fidelity view of the capabilities registry contract.
 type CapabilityRegistryView struct {
-	types.ContractMetaData
+	commoncldchangesets.ContractMetaData
 	Capabilities []CapabilityView `json:"capabilities,omitempty"`
 	Nodes        []NodeView       `json:"nodes,omitempty"`
 	Nops         []NopView        `json:"nops,omitempty"`
@@ -42,7 +45,7 @@ type CapabilityRegistryView struct {
 func (v *CapabilityRegistryView) MarshalJSON() ([]byte, error) {
 	// Alias to avoid recursive calls
 	type Alias struct {
-		types.ContractMetaData
+		commoncldchangesets.ContractMetaData
 		Capabilities    []CapabilityView      `json:"capabilities,omitempty"`
 		Nodes           []NodeView            `json:"nodes,omitempty"`
 		Nops            []NopView             `json:"nops,omitempty"`
@@ -69,7 +72,7 @@ func (v *CapabilityRegistryView) MarshalJSON() ([]byte, error) {
 func (v *CapabilityRegistryView) UnmarshalJSON(data []byte) error {
 	// Alias to avoid recursive calls
 	type Alias struct {
-		types.ContractMetaData
+		commoncldchangesets.ContractMetaData
 		Capabilities    []CapabilityView      `json:"capabilities,omitempty"`
 		Nodes           []NodeView            `json:"nodes,omitempty"`
 		Nops            []NopView             `json:"nops,omitempty"`
@@ -136,7 +139,7 @@ func (e *ExtendedCapabilityRegistry) GetDONsSimple(opts *bind.CallOpts) ([]capab
 
 // GenerateCapabilityRegistryView generates a CapRegView from a CapabilitiesRegistry contract.
 func GenerateCapabilityRegistryView(capReg *ExtendedCapabilityRegistry) (CapabilityRegistryView, error) {
-	tv, err := types.NewContractMetaData(capReg, capReg.Address())
+	tv, err := commoncldchangesets.NewContractMetaData(capReg, capReg.Address())
 	if err != nil {
 		return CapabilityRegistryView{}, err
 	}
@@ -420,6 +423,113 @@ func (dv DonView) Validate() error {
 type CapabilitiesConfiguration struct {
 	ID     string         `json:"id"` // hex 32 bytes
 	Config map[string]any `json:"config"`
+
+	// decodedOCR3 holds decoded offchain configs keyed by the same key as ocr3Configs entries.
+	// It is rendered inside config.ocr3Configs.<key>.decodedOffchainConfig via MarshalJSON.
+	decodedOCR3 map[string]*creocr3.OracleConfig
+}
+
+// convertOCR3ByteFieldsToHex walks the ocr3Configs entries in the given config map and
+// converts the "signers" and "transmitters" byte-array fields from base64 (protojson default)
+// to hex strings for human-readable output.
+func convertOCR3ByteFieldsToHex(configCopy map[string]any) {
+	ocr3Raw, ok := configCopy["ocr3Configs"]
+	if !ok {
+		return
+	}
+	ocr3Cfgs, ok := ocr3Raw.(map[string]any)
+	if !ok {
+		return
+	}
+	for key, entryRaw := range ocr3Cfgs {
+		entry, ok := entryRaw.(map[string]any)
+		if !ok {
+			continue
+		}
+		// Convert array byte fields (signers, transmitters).
+		for _, field := range []string{"signers", "transmitters"} {
+			valRaw, ok := entry[field]
+			if !ok {
+				continue
+			}
+			vals, ok := valRaw.([]any)
+			if !ok {
+				continue
+			}
+			hexVals := make([]string, len(vals))
+			for i, v := range vals {
+				s, ok := v.(string)
+				if !ok {
+					hexVals[i] = fmt.Sprintf("%v", v)
+					continue
+				}
+				b, err := base64.StdEncoding.DecodeString(s)
+				if err != nil {
+					hexVals[i] = s
+					continue
+				}
+				hexVals[i] = "0x" + hex.EncodeToString(b)
+			}
+			entry[field] = hexVals
+		}
+		// Convert scalar byte fields (offchainConfig).
+		for _, field := range []string{"offchainConfig"} {
+			valRaw, ok := entry[field]
+			if !ok {
+				continue
+			}
+			s, ok := valRaw.(string)
+			if !ok {
+				continue
+			}
+			b, err := base64.StdEncoding.DecodeString(s)
+			if err != nil {
+				// already hex or otherwise not base64 — keep as-is
+				continue
+			}
+			entry[field] = "0x" + hex.EncodeToString(b)
+		}
+		ocr3Cfgs[key] = entry
+	}
+}
+
+// MarshalJSON renders CapabilitiesConfiguration with decodedOffchainConfig nested inside
+// each config.ocr3Configs entry, at the same level as offchainConfig/signers/transmitters.
+func (cc CapabilitiesConfiguration) MarshalJSON() ([]byte, error) {
+	// Deep-copy config so we don't mutate the original map.
+	configCopy := make(map[string]any, len(cc.Config))
+	for k, v := range cc.Config {
+		configCopy[k] = v
+	}
+	convertOCR3ByteFieldsToHex(configCopy)
+	if len(cc.decodedOCR3) > 0 {
+		if ocr3CfgsRaw, ok := configCopy["ocr3Configs"]; ok {
+			if ocr3Cfgs, ok := ocr3CfgsRaw.(map[string]any); ok {
+				ocr3CfgsCopy := make(map[string]any, len(ocr3Cfgs))
+				for k, v := range ocr3Cfgs {
+					ocr3CfgsCopy[k] = v
+				}
+				for key, oracleConfig := range cc.decodedOCR3 {
+					if entry, ok := ocr3CfgsCopy[key]; ok {
+						if entryMap, ok := entry.(map[string]any); ok {
+							merged := make(map[string]any, len(entryMap)+1)
+							for k, v := range entryMap {
+								merged[k] = v
+							}
+							merged["decodedOffchainConfig"] = oracleConfig
+							ocr3CfgsCopy[key] = merged
+						}
+					}
+				}
+				configCopy["ocr3Configs"] = ocr3CfgsCopy
+			}
+		}
+	}
+	type alias struct {
+		ID     string         `json:"id"`
+		Config map[string]any `json:"config"`
+	}
+	return json.Marshal(alias{ID: cc.ID, Config: configCopy})
 }
 
 // NewCapabilityConfigurations creates a list of CapabilitiesConfiguration from a list of CapabilitiesRegistryCapabilityConfiguration.
@@ -431,9 +541,14 @@ func NewCapabilityConfigurations(cfgs []capabilities_registry.CapabilitiesRegist
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal capability configuration for capability %s: %w", cfg.CapabilityId, err)
 		}
+		decodedOCR3, err := creocr3.DecodeCapRegOCR3Configs(cfg.Config)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode OCR3 configs for capability %s: %w", cfg.CapabilityId, err)
+		}
 		out = append(out, CapabilitiesConfiguration{
-			ID:     cfg.CapabilityId,
-			Config: capCfg,
+			ID:          cfg.CapabilityId,
+			Config:      capCfg,
+			decodedOCR3: decodedOCR3,
 		})
 	}
 	return out, nil
@@ -553,7 +668,7 @@ func nodeNop(n NodeView, nops []NopView) (NopView, error) {
 	for i, nop := range nops {
 		// nops are 1-indexed. there is no natural key to match on, so we use the index.
 		idx := i + 1
-		if n.NodeOperatorID == uint32(idx) { //nolint:gosec // G115
+		if n.NodeOperatorID == uint32(idx) {
 			return nop, nil
 		}
 	}

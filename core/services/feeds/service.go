@@ -27,6 +27,7 @@ import (
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocrkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
@@ -35,7 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvexecutor"
-	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -1053,9 +1053,6 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 				if txerr != nil && !errors.Is(txerr, sql.ErrNoRows) {
 					return fmt.Errorf("failed while checking for existing ccip job: %w", txerr)
 				}
-			case job.StandardCapabilities:
-				// Only possible to match standard capabilities by external job id
-				// no-op
 			case job.Gateway:
 				existingJobID, txerr = tx.jobORM.FindGatewayJobID(ctx, *j.GatewaySpec)
 				// Return an error if the repository errors. If there is a not found
@@ -1063,19 +1060,12 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 				if txerr != nil && !errors.Is(txerr, sql.ErrNoRows) {
 					return fmt.Errorf("failed while checking for existing gateway job: %w", txerr)
 				}
-			case job.Stream:
-				existingJobID, txerr = tx.jobORM.FindJobIDByStreamID(ctx, *j.StreamID)
-				// Return an error if the repository errors. If there is a not found
-				// error we want to continue with approving the job.
-				if txerr != nil && !errors.Is(txerr, sql.ErrNoRows) {
-					return fmt.Errorf("failed while checking for existing stream job: %w", txerr)
-				}
-			case job.CRESettings:
-				// Only possible to match CRE Setting by external job id
-				// no-op
-			case job.CCVCommitteeVerifier, job.CCVExecutor:
-				// Only possible to match CCV jobs by external job id
-				// no-op
+			case job.CRESettings,
+				job.Stream,
+				job.CCVCommitteeVerifier,
+				job.CCVExecutor,
+				job.StandardCapabilities:
+				// NOOP: These jobs are only matched by external job ID, so do nothing
 			default:
 				return errors.Errorf("unsupported job type when approving job proposal specs: %s", j.Type)
 			}
@@ -1473,7 +1463,7 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 		}
 		js, err = ocrbootstrap.ValidatedBootstrapSpecToml(spec)
 	case job.FluxMonitor:
-		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(s.jobCfg, spec)
+		return nil, errors.New("job type fluxmonitor has been removed and is no longer supported")
 	case job.Workflow:
 		js, err = workflows.ValidatedWorkflowJobSpec(ctx, spec)
 	case job.CCIP:
@@ -1650,6 +1640,9 @@ func (s *service) newOCR2ConfigMsg(cfg OCR2ConfigModel) (*pb.OCR2Config, error) 
 			ConfigPublicKey:       hex.EncodeToString(ocrConfigPublicKey[:]),
 			OffchainPublicKey:     hex.EncodeToString(ocrOffChainPublicKey[:]),
 			OnchainSigningAddress: ocrKey.OnChainPublicKey(),
+		}
+		if rawPubKey, ok := ocr2key.RawEVMOnChainPublicKey(ocrKey); ok {
+			msg.OcrKeyBundle.OnchainSigningPubKey = rawPubKey
 		}
 	}
 

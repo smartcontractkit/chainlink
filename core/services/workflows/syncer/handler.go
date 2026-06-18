@@ -258,7 +258,7 @@ func NewEventHandler(
 
 func (h *eventHandler) close() error {
 	es := h.engineRegistry.PopAll()
-	cs := []io.Closer{}
+	cs := make([]io.Closer, 0, len(es)+1)
 	cs = append(cs, h.engineLimiters)
 	for _, e := range es {
 		cs = append(cs, e)
@@ -596,10 +596,10 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		WorkflowTag:           "", // V1 workflows don't have tags, so set empty string
 		WorkflowEncryptionKey: h.workflowEncryptionKey,
 
-		LocalLimits:                       v2.EngineLimits{}, // all defaults
-		LocalLimiters:                     h.engineLimiters,
-		FeatureFlags:                      h.featureFlags,
-		GlobalExecutionConcurrencyLimiter: h.workflowLimits,
+		LocalLimits:         v2.EngineLimits{}, // all defaults
+		LocalLimiters:       h.engineLimiters,
+		FeatureFlags:        h.featureFlags,
+		GlobalWorkflowLimit: h.workflowLimits,
 
 		BeholderEmitter: h.emitter,
 		BillingClient:   h.billingClient,

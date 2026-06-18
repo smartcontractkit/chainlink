@@ -11,7 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/handler"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 )
 
 // upkeepEventsCmd represents the command to run the upkeep events counter command
@@ -42,11 +41,11 @@ var upkeepHistoryCmd = &cobra.Command{
 	Short: "Print checkUpkeep history",
 	Long:  `Print checkUpkeep status and keeper responsibility for a given upkeep in a set block range`,
 	Run: func(cmd *cobra.Command, args []string) {
-		upkeepIdStr, err := cmd.Flags().GetString("upkeep-id")
+		upkeepIDStr, err := cmd.Flags().GetString("upkeep-id")
 		if err != nil {
 			log.Fatal("failed to get 'upkeep-id' flag: ", err)
 		}
-		upkeepId, ok := keeper.ParseUpkeepId(upkeepIdStr)
+		upkeepID, ok := handler.ParseUpkeepID(upkeepIDStr)
 		if !ok {
 			log.Fatal("failed to parse upkeep-id")
 		}
@@ -69,7 +68,7 @@ var upkeepHistoryCmd = &cobra.Command{
 		cfg := config.New()
 		hdlr := handler.NewKeeper(cfg)
 
-		hdlr.UpkeepHistory(cmd.Context(), upkeepId, fromBlock, toBlock, gasPrice)
+		hdlr.UpkeepHistory(cmd.Context(), upkeepID, fromBlock, toBlock, gasPrice)
 	},
 }
 

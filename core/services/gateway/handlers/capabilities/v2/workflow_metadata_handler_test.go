@@ -60,7 +60,7 @@ func TestSyncMetadata(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 
 	// Test when aggregator has no data
-	handler.syncMetadata()
+	handler.syncMetadata(t.Context())
 	require.Empty(t, handler.authorizedKeys)
 
 	// Start the aggregator to enable data collection
@@ -89,7 +89,7 @@ func TestSyncMetadata(t *testing.T) {
 	require.NoError(t, err)
 	err = handler.agg.Collect(&observation, "node2")
 	require.NoError(t, err)
-	handler.syncMetadata()
+	handler.syncMetadata(t.Context())
 
 	workflowKeys, exists := handler.authorizedKeys[testWorkflowID1]
 	require.True(t, exists)
@@ -143,7 +143,7 @@ func TestSyncMetadataMultipleWorkflows(t *testing.T) {
 			require.NoError(t, err)
 		}
 	}
-	handler.syncMetadata()
+	handler.syncMetadata(t.Context())
 
 	expectedRef := workflowReference{
 		workflowName:  testWorkflowNameHex1,
@@ -251,7 +251,7 @@ func TestOnMetadataPush(t *testing.T) {
 	err = handler.OnMetadataPush(ctx, resp, "node1")
 	require.NoError(t, err)
 
-	handler.syncMetadata()
+	handler.syncMetadata(t.Context())
 	require.Empty(t, handler.authorizedKeys)
 	require.Empty(t, handler.workflowIDToRef)
 	require.Empty(t, handler.workflowRefToID)
@@ -322,7 +322,7 @@ func TestOnMetadataPullResponse(t *testing.T) {
 
 	err = handler.OnMetadataPullResponse(ctx, resp, "node1")
 	require.NoError(t, err)
-	handler.syncMetadata()
+	handler.syncMetadata(t.Context())
 	require.Empty(t, handler.authorizedKeys)
 	require.Empty(t, handler.workflowIDToRef)
 	require.Empty(t, handler.workflowRefToID)
@@ -330,7 +330,7 @@ func TestOnMetadataPullResponse(t *testing.T) {
 	// node2 responds with the same payload so observations should be aggregated because f=1
 	err = handler.OnMetadataPullResponse(ctx, resp, "node2")
 	require.NoError(t, err)
-	handler.syncMetadata()
+	handler.syncMetadata(t.Context())
 	require.Len(t, handler.authorizedKeys, 2)
 	keys, exists := handler.authorizedKeys[testWorkflowID1]
 	require.True(t, exists)

@@ -41,7 +41,7 @@ func (cs *capabilitiesStore[T, Resp]) Read(capabilityID string) (value *T, ok bo
 func (cs *capabilitiesStore[T, Resp]) ReadAll() (values []*T) {
 	cs.mu.RLock()
 	defer cs.mu.RUnlock()
-	vals := make([]*T, 0)
+	vals := make([]*T, 0, len(cs.capabilities))
 	for _, v := range cs.capabilities {
 		vals = append(vals, v)
 	}

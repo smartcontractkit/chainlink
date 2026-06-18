@@ -3,7 +3,7 @@ package cre
 import (
 	"testing"
 
-	v2suite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/v2suite/config"
+	suite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/config"
 )
 
 /*
@@ -11,5 +11,5 @@ import (
 */
 
 func Test_Upgrade_Suite(t *testing.T) {
-	executeV2SuiteScenarios(t, "workflow-gateway-don", []v2suite_config.SuiteScenario{v2suite_config.SuiteScenarioProofOfReserve})
+	executeSuiteScenarios(t, "workflow-gateway-don", []suite_config.SuiteScenario{suite_config.SuiteScenarioProofOfReserve})
 }

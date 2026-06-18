@@ -29,6 +29,7 @@ func main() {
 func RunVaultSecretWorkflow(cfg config.Config, _ *slog.Logger, _ cre.SecretsProvider) (cre.Workflow[config.Config], error) {
 	return cre.Workflow[config.Config]{
 		cre.Handler(
+			// cron-trigger@1.0.0 rejects schedules faster than 30s ("maximum fastest cron schedule is 30s").
 			cron.Trigger(&cron.Config{Schedule: "*/30 * * * * *"}),
 			onTrigger,
 		),
@@ -36,41 +37,126 @@ func RunVaultSecretWorkflow(cfg config.Config, _ *slog.Logger, _ cre.SecretsProv
 }
 
 func onTrigger(cfg config.Config, runtime cre.Runtime, _ *cron.Payload) (string, error) {
-	runtime.Logger().Info("Vault secret workflow triggered",
-		"secretKey", cfg.SecretKey,
-		"secretNamespace", cfg.SecretNamespace,
-		"expectNotFound", cfg.ExpectNotFound,
-	)
+	if cfg.ExpectInvalidIdentifier {
+		return evaluateInvalidIdentifiers(cfg, runtime)
+	}
 
-	secret, err := runtime.GetSecret(&cre.SecretRequest{
+	phases := cfg.EffectivePhases()
+	if len(phases) == 0 {
+		return "", fmt.Errorf("no vault workflow phases configured")
+	}
+
+	// Phases run in declaration order; the FIRST phase whose checks all succeed emits the completion log
+	// and returns. Later phases whose checks describe the SAME success state never run—you need a strictly
+	// later world state than earlier phases so that earlier phases eventually fail once the vault changes.
+	var lastErr error
+	for _, phase := range phases {
+		if err := evaluatePhase(runtime, phase); err != nil {
+			lastErr = err
+			runtime.Logger().Warn("Vault secret workflow phase not yet satisfied",
+				"phaseName", phase.Name,
+				"error", err,
+			)
+			continue
+		}
+
+		runtime.Logger().Info(fmt.Sprintf("Vault secret workflow phase completed: %s", phase.Name),
+			"phaseName", phase.Name,
+			"checkCount", len(phase.Checks),
+		)
+		return fmt.Sprintf("Validated phase %s", phase.Name), nil
+	}
+
+	return "", fmt.Errorf("no vault workflow phase matched current state: %w", lastErr)
+}
+
+func evaluateInvalidIdentifiers(cfg config.Config, runtime cre.Runtime) (string, error) {
+	_, err := runtime.GetSecret(&cre.SecretRequest{
 		Namespace: cfg.SecretNamespace,
 		Id:        cfg.SecretKey,
 	}).Await()
+	if err == nil {
+		runtime.Logger().Error("Expected identifier validation to fail but GetSecret succeeded", "secretKey", cfg.SecretKey)
+		return "", fmt.Errorf("expected identifier validation failure for key=%s, but secret was retrieved", cfg.SecretKey)
+	}
+	runtime.Logger().Info("Vault get correctly rejected invalid identifier", "secretKey", cfg.SecretKey, "error", err)
 
-	if cfg.ExpectNotFound {
-		if err != nil && strings.Contains(err.Error(), "key does not exist") {
-			runtime.Logger().Info("Vault secret correctly not found after deletion", "secretKey", cfg.SecretKey)
-			return fmt.Sprintf("Secret correctly not found: key=%s", cfg.SecretKey), nil
+	if cfg.SecretKey2 != "" || cfg.SecretNamespace2 != "" {
+		key2 := cfg.SecretKey2
+		if key2 == "" {
+			key2 = cfg.SecretKey
 		}
+		ns2 := cfg.SecretNamespace2
+		if ns2 == "" {
+			ns2 = cfg.SecretNamespace
+		}
+		_, err2 := runtime.GetSecret(&cre.SecretRequest{
+			Namespace: ns2,
+			Id:        key2,
+		}).Await()
+		if err2 == nil {
+			runtime.Logger().Error("Expected identifier validation to fail for secondary identifier but GetSecret succeeded",
+				"secretKey2", key2, "secretNamespace2", ns2)
+			return "", fmt.Errorf("expected identifier validation failure for key=%s namespace=%s, but secret was retrieved", key2, ns2)
+		}
+		runtime.Logger().Info("Vault get correctly rejected invalid identifier", "secretKey", key2, "error", err2)
+	}
+
+	return fmt.Sprintf("Invalid identifier correctly rejected: key=%s", cfg.SecretKey), nil
+}
+
+func evaluatePhase(runtime cre.Runtime, phase config.Phase) error {
+	if len(phase.Checks) == 0 {
+		return fmt.Errorf("phase %s has no checks", phase.Name)
+	}
+
+	for _, check := range phase.Checks {
+		runtime.Logger().Info("Vault secret workflow triggered",
+			"phaseName", phase.Name,
+			"checkName", check.Name,
+			"secretKey", check.SecretKey,
+			"secretNamespace", check.SecretNamespace,
+			"expectNotFound", check.ExpectNotFound,
+		)
+
+		secret, err := runtime.GetSecret(&cre.SecretRequest{
+			Namespace: check.SecretNamespace,
+			Id:        check.SecretKey,
+		}).Await()
+
+		if check.ExpectNotFound {
+			if err != nil && strings.Contains(err.Error(), "key does not exist") {
+				runtime.Logger().Info("Vault secret correctly not found after deletion",
+					"phaseName", phase.Name,
+					"checkName", check.Name,
+					"secretKey", check.SecretKey,
+				)
+				continue
+			}
+			if err != nil {
+				return fmt.Errorf("phase %s check %s expected not found for key=%s but got: %w", phase.Name, check.Name, check.SecretKey, err)
+			}
+			return fmt.Errorf("phase %s check %s expected deleted secret key=%s, but it was still found", phase.Name, check.Name, check.SecretKey)
+		}
+
 		if err != nil {
-			runtime.Logger().Error("Expected 'key does not exist' but got a different error",
-				"error", err, "secretKey", cfg.SecretKey)
-			return "", fmt.Errorf("expected 'key does not exist' for key=%s, but got: %w", cfg.SecretKey, err)
+			return fmt.Errorf("phase %s check %s failed to get secret: %w", phase.Name, check.Name, err)
 		}
-		runtime.Logger().Error("Expected secret to be gone but retrieval succeeded", "secretKey", cfg.SecretKey)
-		return "", fmt.Errorf("expected secret key=%s to be deleted, but it was still found", cfg.SecretKey)
+
+		if secret.Value == "" {
+			return fmt.Errorf("phase %s check %s secret value is empty for key=%s namespace=%s", phase.Name, check.Name, check.SecretKey, check.SecretNamespace)
+		}
+
+		if check.ExpectedValue != "" && secret.Value != check.ExpectedValue {
+			return fmt.Errorf("phase %s check %s secret value mismatch for key=%s namespace=%s", phase.Name, check.Name, check.SecretKey, check.SecretNamespace)
+		}
+
+		runtime.Logger().Info("Vault secret retrieved successfully via workflow",
+			"phaseName", phase.Name,
+			"checkName", check.Name,
+			"secretKey", check.SecretKey,
+		)
 	}
 
-	if err != nil {
-		runtime.Logger().Error("Failed to get secret via workflow", "error", err)
-		return "", fmt.Errorf("failed to get secret: %w", err)
-	}
-
-	if secret.Value == "" {
-		runtime.Logger().Error("Secret value is empty")
-		return "", fmt.Errorf("secret value is empty for key=%s namespace=%s", cfg.SecretKey, cfg.SecretNamespace)
-	}
-
-	runtime.Logger().Info("Vault secret retrieved successfully via workflow", "secretKey", cfg.SecretKey)
-	return fmt.Sprintf("Secret retrieved: key=%s", cfg.SecretKey), nil
+	return nil
 }

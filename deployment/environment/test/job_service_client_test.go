@@ -11,8 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-
-	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 )
 
 func TestNewJobServiceClient(t *testing.T) {
@@ -842,14 +840,14 @@ func TestMatchesSelectors(t *testing.T) {
 				{
 					Key:   "label1",
 					Op:    ptypes.SelectorOp_EQ,
-					Value: pointer.To("value1"),
+					Value: new("value1"),
 				},
 			},
 			job: &jobv1.Job{
 				Labels: []*ptypes.Label{
 					{
 						Key:   "label1",
-						Value: pointer.To("value1"),
+						Value: new("value1"),
 					},
 				},
 			},
@@ -861,14 +859,14 @@ func TestMatchesSelectors(t *testing.T) {
 				{
 					Key:   "label1",
 					Op:    ptypes.SelectorOp_EQ,
-					Value: pointer.To("value1"),
+					Value: new("value1"),
 				},
 			},
 			job: &jobv1.Job{
 				Labels: []*ptypes.Label{
 					{
 						Key:   "label1",
-						Value: pointer.To("NOT THE VALUE WE NEED"),
+						Value: new("NOT THE VALUE WE NEED"),
 					},
 				},
 			},
@@ -880,7 +878,7 @@ func TestMatchesSelectors(t *testing.T) {
 				{
 					Key:   "label1",
 					Op:    ptypes.SelectorOp_EQ,
-					Value: pointer.To("value1"),
+					Value: new("value1"),
 				},
 			},
 			job:      &jobv1.Job{},
@@ -893,14 +891,14 @@ func TestMatchesSelectors(t *testing.T) {
 				{
 					Key:   "label1",
 					Op:    ptypes.SelectorOp_NOT_EQ,
-					Value: pointer.To("value1"),
+					Value: new("value1"),
 				},
 			},
 			job: &jobv1.Job{
 				Labels: []*ptypes.Label{
 					{
 						Key:   "label1",
-						Value: pointer.To("value1"),
+						Value: new("value1"),
 					},
 				},
 			},
@@ -912,14 +910,14 @@ func TestMatchesSelectors(t *testing.T) {
 				{
 					Key:   "label1",
 					Op:    ptypes.SelectorOp_NOT_EQ,
-					Value: pointer.To("value1"),
+					Value: new("value1"),
 				},
 			},
 			job: &jobv1.Job{
 				Labels: []*ptypes.Label{
 					{
 						Key:   "label1",
-						Value: pointer.To("NOT THE VALUE WE NEED"),
+						Value: new("NOT THE VALUE WE NEED"),
 					},
 				},
 			},
@@ -931,7 +929,7 @@ func TestMatchesSelectors(t *testing.T) {
 				{
 					Key:   "label1",
 					Op:    ptypes.SelectorOp_NOT_EQ,
-					Value: pointer.To("value1"),
+					Value: new("value1"),
 				},
 			},
 			job:      &jobv1.Job{},
@@ -944,14 +942,14 @@ func TestMatchesSelectors(t *testing.T) {
 				{
 					Key:   "label1",
 					Op:    ptypes.SelectorOp_IN,
-					Value: pointer.To("value1,value2"),
+					Value: new("value1,value2"),
 				},
 			},
 			job: &jobv1.Job{
 				Labels: []*ptypes.Label{
 					{
 						Key:   "label1",
-						Value: pointer.To("value1"),
+						Value: new("value1"),
 					},
 				},
 			},
@@ -963,14 +961,14 @@ func TestMatchesSelectors(t *testing.T) {
 				{
 					Key:   "label1",
 					Op:    ptypes.SelectorOp_IN,
-					Value: pointer.To("value1,value2"),
+					Value: new("value1,value2"),
 				},
 			},
 			job: &jobv1.Job{
 				Labels: []*ptypes.Label{
 					{
 						Key:   "label1",
-						Value: pointer.To("NOT THE VALUE WE NEED"),
+						Value: new("NOT THE VALUE WE NEED"),
 					},
 				},
 			},
@@ -982,7 +980,7 @@ func TestMatchesSelectors(t *testing.T) {
 				{
 					Key:   "label1",
 					Op:    ptypes.SelectorOp_IN,
-					Value: pointer.To("value1"),
+					Value: new("value1"),
 				},
 			},
 			job:      &jobv1.Job{},
@@ -995,14 +993,14 @@ func TestMatchesSelectors(t *testing.T) {
 				{
 					Key:   "label1",
 					Op:    ptypes.SelectorOp_NOT_IN,
-					Value: pointer.To("value1,value2"),
+					Value: new("value1,value2"),
 				},
 			},
 			job: &jobv1.Job{
 				Labels: []*ptypes.Label{
 					{
 						Key:   "label1",
-						Value: pointer.To("value1"),
+						Value: new("value1"),
 					},
 				},
 			},
@@ -1014,14 +1012,14 @@ func TestMatchesSelectors(t *testing.T) {
 				{
 					Key:   "label1",
 					Op:    ptypes.SelectorOp_NOT_IN,
-					Value: pointer.To("value1,value2"),
+					Value: new("value1,value2"),
 				},
 			},
 			job: &jobv1.Job{
 				Labels: []*ptypes.Label{
 					{
 						Key:   "label1",
-						Value: pointer.To("NOT THE VALUE WE NEED"),
+						Value: new("NOT THE VALUE WE NEED"),
 					},
 				},
 			},
@@ -1033,7 +1031,7 @@ func TestMatchesSelectors(t *testing.T) {
 				{
 					Key:   "label1",
 					Op:    ptypes.SelectorOp_NOT_IN,
-					Value: pointer.To("value1"),
+					Value: new("value1"),
 				},
 			},
 			job:      &jobv1.Job{},

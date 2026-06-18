@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset"
@@ -15,7 +16,7 @@ import (
 )
 
 func TestConfigureOCR3(t *testing.T) {
-	env := test.SetupEnvV2(t, false)
+	h := test.NewTestHarness(t)
 
 	testCases := []struct {
 		Name  string
@@ -24,15 +25,15 @@ func TestConfigureOCR3(t *testing.T) {
 		{
 			Name: "Consensus Capability OCR3 Deployment",
 			Input: changeset.ConfigureOCR3Input{
-				ContractChainSelector: env.RegistrySelector,
+				ContractChainSelector: h.RegistrySelector,
 				ContractQualifier:     "test-ocr3",
 				DON: contracts.DonNodeSet{
-					Name:    "test-don",      // This should match the DON created in SetupEnvV2
-					NodeIDs: env.Env.NodeIDs, // Use all available node IDs
+					Name:    "test-don",                      // This should match the DON created in SetupEnvV2
+					NodeIDs: h.Runtime.Environment().NodeIDs, // Use all available node IDs
 				},
 				OracleConfig: &ocr3.OracleConfig{
 					MaxFaultyOracles:     1,
-					TransmissionSchedule: []int{len(env.Env.NodeIDs)}, // Single entry with number of nodes
+					TransmissionSchedule: []int{len(h.Runtime.Environment().NodeIDs)}, // Single entry with number of nodes
 					ConsensusCapOffchainConfig: &ocr3.ConsensusCapOffchainConfig{
 						MaxQueryLengthBytes: 1000000,
 					},
@@ -42,15 +43,15 @@ func TestConfigureOCR3(t *testing.T) {
 		{
 			Name: "Chain Capability OCR3 Deployment",
 			Input: changeset.ConfigureOCR3Input{
-				ContractChainSelector: env.RegistrySelector,
+				ContractChainSelector: h.RegistrySelector,
 				ContractQualifier:     "test-chain-capability-ocr3",
 				DON: contracts.DonNodeSet{
-					Name:    "test-don",      // This should match the DON created in SetupEnvV2
-					NodeIDs: env.Env.NodeIDs, // Use all available node IDs
+					Name:    "test-don",                      // This should match the DON created in SetupEnvV2
+					NodeIDs: h.Runtime.Environment().NodeIDs, // Use all available node IDs
 				},
 				OracleConfig: &ocr3.OracleConfig{
 					MaxFaultyOracles:     1,
-					TransmissionSchedule: []int{len(env.Env.NodeIDs)}, // Single entry with number of nodes
+					TransmissionSchedule: []int{len(h.Runtime.Environment().NodeIDs)}, // Single entry with number of nodes
 					ChainCapOffchainConfig: &ocr3.ChainCapOffchainConfig{
 						MaxQueryLengthBytes:       1,
 						MaxObservationLengthBytes: 2,
@@ -63,28 +64,33 @@ func TestConfigureOCR3(t *testing.T) {
 			},
 		},
 	}
+
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			changesetOutput, err := changeset.DeployOCR3{}.Apply(*env.Env, changeset.DeployOCR3Input{
+			task := runtime.ChangesetTask(changeset.DeployOCR3{}, changeset.DeployOCR3Input{
 				ChainSelector: tc.Input.ContractChainSelector,
 				Qualifier:     tc.Input.ContractQualifier,
 			})
+
+			err := h.Runtime.Exec(task)
 			require.NoError(t, err)
 
-			addresses, err := changesetOutput.DataStore.Addresses().Fetch()
+			output := h.Runtime.State().Outputs[task.ID()]
+			addresses, err := output.DataStore.Addresses().Fetch()
 			require.NoError(t, err, "should fetch addresses without error")
 			require.Len(t, addresses, 1, "expected exactly one deployed contract")
 			deployedAddress := addresses[0]
 
-			require.NoError(t, changesetOutput.DataStore.Merge(env.Env.DataStore))
-
-			env.Env.DataStore = changesetOutput.DataStore.Seal()
-
-			_, err = changeset.ConfigureOCR3{}.Apply(*env.Env, tc.Input)
+			err = h.Runtime.Exec(
+				runtime.ChangesetTask(changeset.ConfigureOCR3{}, tc.Input),
+			)
 			require.NoError(t, err, "ConfigureOCR3 should not return an error")
 
 			// Further verify the deployed contract by connecting to it
-			ocr3Contract, err := ocr3_capability.NewOCR3Capability(common.HexToAddress(deployedAddress.Address), env.Env.BlockChains.EVMChains()[env.RegistrySelector].Client)
+			ocr3Contract, err := ocr3_capability.NewOCR3Capability(
+				common.HexToAddress(deployedAddress.Address),
+				h.Runtime.Environment().BlockChains.EVMChains()[h.RegistrySelector].Client,
+			)
 			require.NoError(t, err, "failed to create OCR3 contract instance")
 			require.NotNil(t, ocr3Contract, "OCR3 contract instance should not be nil")
 

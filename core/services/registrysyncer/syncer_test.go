@@ -23,8 +23,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
-	"github.com/smartcontractkit/quarantine"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -375,7 +373,6 @@ func TestReader_Integration(t *testing.T) {
 }
 
 func TestSyncer_DBIntegration(t *testing.T) {
-	quarantine.Flaky(t, "DX-1925")
 	ctx := testutils.Context(t)
 	reg, regAddress, owner, sim := startNewChainWithRegistry(t)
 
@@ -474,14 +471,15 @@ func TestSyncer_DBIntegration(t *testing.T) {
 	syncerORM.ormMock.On("AddLocalRegistry", mock.Anything, mock.Anything).Return(nil)
 	syncer, err := newTestSyncer(logger.TestLogger(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM)
 	require.NoError(t, err)
-	require.NoError(t, syncer.Start(ctx))
-	t.Cleanup(func() {
-		syncerORM.Cleanup()
-		require.NoError(t, syncer.Close())
-	})
 
 	l := &launcher{}
 	syncer.AddListener(l)
+
+	require.NoError(t, syncer.Start(ctx))
+	t.Cleanup(func() {
+		require.NoError(t, syncer.Close())
+		syncerORM.Cleanup()
+	})
 
 	var latestLocalRegistryCalled, addLocalRegistryCalled bool
 	timeout := time.After(testutils.WaitTimeout(t))

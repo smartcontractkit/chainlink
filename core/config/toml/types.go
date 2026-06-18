@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap/zapcore"
@@ -19,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -36,23 +38,24 @@ type Core struct {
 	// General/misc
 	AppID               uuid.UUID `toml:"-"` // random or test
 	InsecureFastScrypt  *bool
-	InsecurePPROFHeap   *bool
+	InsecurePPROFHeap   *bool // Deprecated: no effect if set, but field remains to parse old configs
 	RootDir             *string
 	ShutdownGracePeriod *commonconfig.Duration
 
-	Feature              Feature              `toml:",omitempty"`
-	Database             Database             `toml:",omitempty"`
-	TelemetryIngress     TelemetryIngress     `toml:",omitempty"`
-	AuditLogger          AuditLogger          `toml:",omitempty"`
-	Log                  Log                  `toml:",omitempty"`
-	WebServer            WebServer            `toml:",omitempty"`
-	JobDistributor       JobDistributor       `toml:",omitempty"`
-	JobPipeline          JobPipeline          `toml:",omitempty"`
+	Feature          Feature          `toml:",omitempty"`
+	Database         Database         `toml:",omitempty"`
+	TelemetryIngress TelemetryIngress `toml:",omitempty"`
+	AuditLogger      AuditLogger      `toml:",omitempty"`
+	Log              Log              `toml:",omitempty"`
+	WebServer        WebServer        `toml:",omitempty"`
+	JobDistributor   JobDistributor   `toml:",omitempty"`
+	JobPipeline      JobPipeline      `toml:",omitempty"`
+	// Deprecated: FluxMonitor job type has been removed. This field is retained for
+	// backwards-compatible config parsing only and has no effect.
 	FluxMonitor          FluxMonitor          `toml:",omitempty"`
 	OCR2                 OCR2                 `toml:",omitempty"`
 	OCR                  OCR                  `toml:",omitempty"`
 	P2P                  P2P                  `toml:",omitempty"`
-	Keeper               Keeper               `toml:",omitempty"`
 	AutoPprof            AutoPprof            `toml:",omitempty"`
 	Pyroscope            Pyroscope            `toml:",omitempty"`
 	Sentry               Sentry               `toml:",omitempty"`
@@ -65,6 +68,7 @@ type Core struct {
 	CRE                  CreConfig            `toml:",omitempty"`
 	Billing              Billing              `toml:",omitempty"`
 	BridgeStatusReporter BridgeStatusReporter `toml:",omitempty"`
+	JobSpecReporter      JobSpecReporter      `toml:",omitempty"`
 	Sharding             Sharding             `toml:",omitempty"`
 	LOOPP                LOOPP                `toml:",omitempty"`
 }
@@ -92,12 +96,11 @@ func (c *Core) SetFrom(f *Core) {
 
 	c.WebServer.setFrom(&f.WebServer)
 	c.JobPipeline.setFrom(&f.JobPipeline)
-
 	c.FluxMonitor.setFrom(&f.FluxMonitor)
+
 	c.OCR2.setFrom(&f.OCR2)
 	c.OCR.setFrom(&f.OCR)
 	c.P2P.setFrom(&f.P2P)
-	c.Keeper.setFrom(&f.Keeper)
 	c.Mercury.setFrom(&f.Mercury)
 	c.Capabilities.setFrom(&f.Capabilities)
 	c.Workflows.setFrom(&f.Workflows)
@@ -112,6 +115,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.CRE.setFrom(&f.CRE)
 	c.Billing.setFrom(&f.Billing)
 	c.BridgeStatusReporter.setFrom(&f.BridgeStatusReporter)
+	c.JobSpecReporter.setFrom(&f.JobSpecReporter)
 
 	c.Sharding.setFrom(&f.Sharding)
 	c.LOOPP.setFrom(&f.LOOPP)
@@ -146,6 +150,7 @@ type Secrets struct {
 	Threshold  ThresholdKeyShareSecrets `toml:",omitempty"`
 	EVM        EthKeys                  `toml:",omitempty"` // choose EVM as the TOML field name to align with relayer config convention
 	Solana     SolKeys                  `toml:",omitempty"` // choose Solana as the TOML field name to align with relayer config convention
+	Aptos      AptosKeys                `toml:",omitempty"` // choose Aptos as the TOML field name to align with relayer config convention
 
 	P2PKey          P2PKey          `toml:",omitempty"`
 	DKGRecipientKey DKGRecipientKey `toml:",omitempty"`
@@ -161,6 +166,16 @@ type SolKeys struct {
 type SolKey struct {
 	JSON     *models.Secret
 	ID       *string
+	Password *models.Secret
+}
+
+type AptosKeys struct {
+	Keys []*AptosKey
+}
+
+type AptosKey struct {
+	JSON     *models.Secret
+	ID       *uint64
 	Password *models.Secret
 }
 
@@ -245,6 +260,85 @@ func (e *SolKey) ValidateConfig() (err error) {
 	return err
 }
 
+func (a *AptosKeys) SetFrom(f *AptosKeys) error {
+	err := a.validateMerge(f)
+	if err != nil {
+		return err
+	}
+	if f == nil || len(f.Keys) == 0 {
+		return nil
+	}
+	a.Keys = make([]*AptosKey, len(f.Keys))
+	copy(a.Keys, f.Keys)
+	return nil
+}
+
+func (a *AptosKeys) validateMerge(f *AptosKeys) (err error) {
+	have := make(map[uint64]struct{})
+	if a != nil && f != nil {
+		for _, aptosKey := range a.Keys {
+			have[*aptosKey.ID] = struct{}{}
+		}
+		for _, aptosKey := range f.Keys {
+			if _, ok := have[*aptosKey.ID]; ok {
+				err = errors.Join(err, configutils.ErrOverride{Name: fmt.Sprintf("AptosKeys: %d", *aptosKey.ID)})
+			}
+		}
+	}
+	return err
+}
+
+func (a *AptosKeys) ValidateConfig() (err error) {
+	for i, aptosKey := range a.Keys {
+		if err2 := aptosKey.ValidateConfig(); err2 != nil {
+			err = errors.Join(err, configutils.ErrInvalid{Name: fmt.Sprintf("AptosKeys[%d]", i), Value: aptosKey, Msg: "invalid AptosKey"})
+		}
+	}
+	return err
+}
+
+func (p *AptosKey) SetFrom(f *AptosKey) (err error) {
+	err = p.validateMerge(f)
+	if err != nil {
+		return err
+	}
+	if v := f.JSON; v != nil {
+		p.JSON = v
+	}
+	if v := f.ID; v != nil {
+		p.ID = v
+	}
+	if v := f.Password; v != nil {
+		p.Password = v
+	}
+	return nil
+}
+
+func (p *AptosKey) validateMerge(f *AptosKey) (err error) {
+	if p.JSON != nil && f.JSON != nil {
+		err = errors.Join(err, configutils.ErrOverride{Name: "JSON"})
+	}
+	if p.ID != nil && f.ID != nil {
+		err = errors.Join(err, configutils.ErrOverride{Name: "ID"})
+	}
+	if p.Password != nil && f.Password != nil {
+		err = errors.Join(err, configutils.ErrOverride{Name: "Password"})
+	}
+	return err
+}
+
+func (p *AptosKey) ValidateConfig() (err error) {
+	if (p.JSON != nil) != (p.Password != nil) || (p.Password != nil) != (p.ID != nil) {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "AptosKey", Value: p.JSON, Msg: "all fields must be nil or non-nil"})
+	}
+	if p.ID != nil {
+		if _, ok := chain_selectors.AptosChainIdToChainSelector()[*p.ID]; !ok {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "ID", Value: p.ID, Msg: "invalid chain id"})
+		}
+	}
+	return err
+}
+
 type EthKeys struct {
 	Keys []*EthKey
 }
@@ -296,8 +390,20 @@ type DatabaseSecrets struct {
 	AllowSimplePasswords *bool
 }
 
+func isTestDatabaseURL(dbURI url.URL) bool {
+	dbname := strings.TrimPrefix(dbURI.Path, "/")
+	if strings.Contains(dbname, "_test") {
+		return true
+	}
+	// pgtestdb template/instance databases (testdb_tpl_*_inst_*).
+	if strings.HasPrefix(dbname, "testdb_") {
+		return true
+	}
+	return false
+}
+
 func validateDBURL(dbURI url.URL) error {
-	if strings.Contains(dbURI.Redacted(), "_test") {
+	if isTestDatabaseURL(dbURI) {
 		return nil
 	}
 
@@ -1326,17 +1432,19 @@ func (j *JobPipelineHTTPRequest) setFrom(f *JobPipelineHTTPRequest) {
 	}
 }
 
+// FluxMonitor is retained for backwards-compatible TOML parsing only.
+// The FluxMonitor job type has been removed and these settings have no effect.
 type FluxMonitor struct {
 	DefaultTransactionQueueDepth *uint32
 	SimulateTransactions         *bool
 }
 
-func (m *FluxMonitor) setFrom(f *FluxMonitor) {
+func (fm *FluxMonitor) setFrom(f *FluxMonitor) {
 	if v := f.DefaultTransactionQueueDepth; v != nil {
-		m.DefaultTransactionQueueDepth = v
+		fm.DefaultTransactionQueueDepth = v
 	}
 	if v := f.SimulateTransactions; v != nil {
-		m.SimulateTransactions = v
+		fm.SimulateTransactions = v
 	}
 }
 
@@ -1525,66 +1633,6 @@ func (p *P2PV2) setFrom(f *P2PV2) {
 	}
 }
 
-type Keeper struct {
-	DefaultTransactionQueueDepth *uint32
-	GasPriceBufferPercent        *uint16
-	GasTipCapBufferPercent       *uint16
-	BaseFeeBufferPercent         *uint16
-	MaxGracePeriod               *int64
-	TurnLookBack                 *int64
-
-	Registry KeeperRegistry `toml:",omitempty"`
-}
-
-func (k *Keeper) setFrom(f *Keeper) {
-	if v := f.DefaultTransactionQueueDepth; v != nil {
-		k.DefaultTransactionQueueDepth = v
-	}
-	if v := f.GasPriceBufferPercent; v != nil {
-		k.GasPriceBufferPercent = v
-	}
-	if v := f.GasTipCapBufferPercent; v != nil {
-		k.GasTipCapBufferPercent = v
-	}
-	if v := f.BaseFeeBufferPercent; v != nil {
-		k.BaseFeeBufferPercent = v
-	}
-	if v := f.MaxGracePeriod; v != nil {
-		k.MaxGracePeriod = v
-	}
-	if v := f.TurnLookBack; v != nil {
-		k.TurnLookBack = v
-	}
-
-	k.Registry.setFrom(&f.Registry)
-}
-
-type KeeperRegistry struct {
-	CheckGasOverhead    *uint32
-	PerformGasOverhead  *uint32
-	MaxPerformDataSize  *uint32
-	SyncInterval        *commonconfig.Duration
-	SyncUpkeepQueueSize *uint32
-}
-
-func (k *KeeperRegistry) setFrom(f *KeeperRegistry) {
-	if v := f.CheckGasOverhead; v != nil {
-		k.CheckGasOverhead = v
-	}
-	if v := f.PerformGasOverhead; v != nil {
-		k.PerformGasOverhead = v
-	}
-	if v := f.MaxPerformDataSize; v != nil {
-		k.MaxPerformDataSize = v
-	}
-	if v := f.SyncInterval; v != nil {
-		k.SyncInterval = v
-	}
-	if v := f.SyncUpkeepQueueSize; v != nil {
-		k.SyncUpkeepQueueSize = v
-	}
-}
-
 type AutoPprof struct {
 	Enabled              *bool
 	ProfileRoot          *string
@@ -1763,7 +1811,7 @@ func (m *MercuryTLS) ValidateConfig() (err error) {
 }
 
 type MercuryTransmitter struct {
-	Protocol             *config.MercuryTransmitterProtocol
+	Protocol             *mercurytransmitter.MercuryTransmitterProtocol
 	TransmitQueueMaxSize *uint32
 	TransmitTimeout      *commonconfig.Duration
 	TransmitConcurrency  *uint32
@@ -1895,12 +1943,20 @@ type CreConfig struct {
 	// Requires [Tracing].Enabled = true for traces to be exported (trace export is gated by
 	// Tracing.Enabled in initGlobals; Telemetry.Enabled is optional—traces work with or without it).
 	// WARNING: This is not suitable for production use due to performance overhead.
-	DebugMode *bool `toml:",omitempty"`
+	DebugMode         *bool                    `toml:",omitempty"`
+	ConfidentialRelay *ConfidentialRelayConfig `toml:",omitempty"`
 }
 
 // WorkflowFetcherConfig holds the configuration for fetching workflow files
 type WorkflowFetcherConfig struct {
 	URL *string `toml:",omitempty"`
+}
+
+// ConfidentialRelayConfig holds the configuration for the confidential relay handler.
+// When Enabled is true, the node participates in the confidential relay DON,
+// validating enclave attestations and proxying capability requests.
+type ConfidentialRelayConfig struct {
+	Enabled *bool `toml:",omitempty"`
 }
 
 // LinkingConfig holds the configuration for connecting to the CRE linking service
@@ -1955,6 +2011,15 @@ func (c *CreConfig) setFrom(f *CreConfig) {
 
 	if f.DebugMode != nil {
 		c.DebugMode = f.DebugMode
+	}
+
+	if f.ConfidentialRelay != nil {
+		if c.ConfidentialRelay == nil {
+			c.ConfidentialRelay = &ConfidentialRelayConfig{}
+		}
+		if v := f.ConfidentialRelay.Enabled; v != nil {
+			c.ConfidentialRelay.Enabled = v
+		}
 	}
 }
 
@@ -2072,8 +2137,18 @@ type StreamsSecretConfig struct {
 }
 
 type CreSecrets struct {
-	Streams      *StreamsSecretConfig `toml:",omitempty"`
-	LocalSecrets map[string]string    `toml:",omitempty"`
+	Streams              *StreamsSecretConfig         `toml:",omitempty"`
+	LocalSecretOverrides map[string]map[string]string `toml:",omitempty"`
+}
+
+// normalizeCRELocalSecretOwnerKey lowercases a workflow owner string and strips a "0x" / "0X"
+// prefix for LocalSecretOverrides map key lookup.
+func normalizeCRELocalSecretOwnerKey(k string) (string, error) {
+	s := strings.TrimSpace(k)
+	if s == "" {
+		return "", errors.New("empty owner key in LocalSecretOverrides")
+	}
+	return strings.TrimPrefix(strings.ToLower(s), "0x"), nil
 }
 
 func (c *CreSecrets) SetFrom(f *CreSecrets) (err error) {
@@ -2094,9 +2169,15 @@ func (c *CreSecrets) SetFrom(f *CreSecrets) (err error) {
 		}
 	}
 
-	if f.LocalSecrets != nil {
-		c.LocalSecrets = make(map[string]string, len(f.LocalSecrets))
-		maps.Copy(c.LocalSecrets, f.LocalSecrets)
+	if f.LocalSecretOverrides != nil {
+		c.LocalSecretOverrides = make(map[string]map[string]string, len(f.LocalSecretOverrides))
+		for k, v := range f.LocalSecretOverrides {
+			nk, nerr := normalizeCRELocalSecretOwnerKey(k)
+			if nerr != nil {
+				return nerr
+			}
+			c.LocalSecretOverrides[nk] = maps.Clone(v)
+		}
 	}
 
 	return nil
@@ -2111,8 +2192,8 @@ func (c *CreSecrets) validateMerge(f *CreSecrets) (err error) {
 			err = errors.Join(err, configutils.ErrOverride{Name: "Streams.APISecret"})
 		}
 	}
-	if len(c.LocalSecrets) > 0 && len(f.LocalSecrets) > 0 {
-		err = errors.Join(err, configutils.ErrOverride{Name: "LocalSecrets"})
+	if len(c.LocalSecretOverrides) > 0 && len(f.LocalSecretOverrides) > 0 {
+		err = errors.Join(err, configutils.ErrOverride{Name: "LocalSecretOverrides"})
 	}
 	return err
 }
@@ -2269,6 +2350,36 @@ func (a AdditionalWorkflowSource) GetName() string {
 	return *a.Name
 }
 
+type ModuleCache struct {
+	Enabled            *bool
+	DiskMonitorEnabled *bool
+	IdleEviction       *bool
+	IdleTimeout        *commonconfig.Duration
+	MaxLoaded          *int
+	CacheDir           *string
+}
+
+func (m *ModuleCache) setFrom(f *ModuleCache) {
+	if f.Enabled != nil {
+		m.Enabled = f.Enabled
+	}
+	if f.DiskMonitorEnabled != nil {
+		m.DiskMonitorEnabled = f.DiskMonitorEnabled
+	}
+	if f.IdleEviction != nil {
+		m.IdleEviction = f.IdleEviction
+	}
+	if f.IdleTimeout != nil {
+		m.IdleTimeout = f.IdleTimeout
+	}
+	if f.MaxLoaded != nil {
+		m.MaxLoaded = f.MaxLoaded
+	}
+	if f.CacheDir != nil {
+		m.CacheDir = f.CacheDir
+	}
+}
+
 type WorkflowRegistry struct {
 	Address                 *string
 	NetworkID               *string
@@ -2280,6 +2391,7 @@ type WorkflowRegistry struct {
 	SyncStrategy            *string
 	MaxConcurrency          *int
 	WorkflowStorage         WorkflowStorage
+	ModuleCache             ModuleCache
 	AdditionalSourcesConfig []AdditionalWorkflowSource `toml:"AdditionalSources"`
 }
 
@@ -2321,6 +2433,7 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 	}
 
 	r.WorkflowStorage.setFrom(&f.WorkflowStorage)
+	r.ModuleCache.setFrom(&f.ModuleCache)
 
 	if len(f.AdditionalSourcesConfig) > 0 {
 		r.AdditionalSourcesConfig = make([]AdditionalWorkflowSource, len(f.AdditionalSourcesConfig))
@@ -2481,8 +2594,9 @@ func (r *GatewayConnector) setFrom(f *GatewayConnector) {
 }
 
 type ConnectorGateway struct {
-	ID  *string
-	URL *string
+	ID    *string
+	DonID *string
+	URL   *string
 }
 
 type SharedPeering struct {
@@ -2751,25 +2865,29 @@ func (t *Tracing) ValidateConfig() (err error) {
 }
 
 type Telemetry struct {
-	Enabled                       *bool
-	CACertFile                    *string
-	Endpoint                      *string
-	InsecureConnection            *bool
-	ResourceAttributes            map[string]string `toml:",omitempty"`
-	TraceSampleRatio              *float64
-	EmitterBatchProcessor         *bool
-	EmitterExportTimeout          *commonconfig.Duration
-	AuthHeadersTTL                *commonconfig.Duration
-	ChipIngressEndpoint           *string
-	ChipIngressInsecureConnection *bool
-	HeartbeatInterval             *commonconfig.Duration
-	LogLevel                      *string
-	LogStreamingEnabled           *bool
-	LogBatchProcessor             *bool
-	LogExportTimeout              *commonconfig.Duration
-	LogExportMaxBatchSize         *int
-	LogExportInterval             *commonconfig.Duration
-	LogMaxQueueSize               *int
+	Enabled                        *bool
+	CACertFile                     *string
+	Endpoint                       *string
+	InsecureConnection             *bool
+	ResourceAttributes             map[string]string `toml:",omitempty"`
+	TraceSampleRatio               *float64
+	EmitterBatchProcessor          *bool
+	EmitterExportTimeout           *commonconfig.Duration
+	AuthHeadersTTL                 *commonconfig.Duration
+	ChipIngressEndpoint            *string
+	ChipIngressInsecureConnection  *bool
+	ChipIngressBatchEmitterEnabled *bool
+	DurableEmitterEnabled          *bool
+	HeartbeatInterval              *commonconfig.Duration
+	LogLevel                       *string
+	LogStreamingEnabled            *bool
+	LogBatchProcessor              *bool
+	LogExportTimeout               *commonconfig.Duration
+	LogExportMaxBatchSize          *int
+	LogExportInterval              *commonconfig.Duration
+	LogMaxQueueSize                *int
+
+	PrometheusBridge PrometheusBridge `toml:",omitempty"`
 }
 
 func (b *Telemetry) setFrom(f *Telemetry) {
@@ -2806,6 +2924,12 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	if v := f.ChipIngressInsecureConnection; v != nil {
 		b.ChipIngressInsecureConnection = v
 	}
+	if v := f.ChipIngressBatchEmitterEnabled; v != nil {
+		b.ChipIngressBatchEmitterEnabled = v
+	}
+	if v := f.DurableEmitterEnabled; v != nil {
+		b.DurableEmitterEnabled = v
+	}
 	if v := f.HeartbeatInterval; v != nil {
 		b.HeartbeatInterval = v
 	}
@@ -2830,6 +2954,7 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	if v := f.LogMaxQueueSize; v != nil {
 		b.LogMaxQueueSize = v
 	}
+	b.PrometheusBridge.setFrom(&f.PrometheusBridge)
 }
 
 func (b *Telemetry) ValidateConfig() (err error) {
@@ -2849,6 +2974,20 @@ func (b *Telemetry) ValidateConfig() (err error) {
 		err = errors.Join(err, configutils.ErrInvalid{Name: "TraceSampleRatio", Value: *ratio, Msg: "must be between 0 and 1"})
 	}
 	return err
+}
+
+type PrometheusBridge struct {
+	Enabled  *bool
+	Prefixes []string
+}
+
+func (b *PrometheusBridge) setFrom(f *PrometheusBridge) {
+	if v := f.Enabled; v != nil {
+		b.Enabled = v
+	}
+	if v := f.Prefixes; v != nil {
+		b.Prefixes = v
+	}
 }
 
 var hostnameRegex = regexp.MustCompile(`^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*$`)
@@ -2974,6 +3113,46 @@ func (e *BridgeStatusReporter) ValidateConfig() error {
 	if e.IgnoreJoblessBridges == nil {
 		defaultIgnoreJobless := false
 		e.IgnoreJoblessBridges = &defaultIgnoreJobless
+	}
+
+	return nil
+}
+
+type JobSpecReporter struct {
+	Enabled                *bool
+	PollingInterval        *commonconfig.Duration
+	EnabledOCR2PluginTypes *[]string
+}
+
+func (e *JobSpecReporter) setFrom(f *JobSpecReporter) {
+	if f.Enabled != nil {
+		e.Enabled = f.Enabled
+	}
+	if f.PollingInterval != nil {
+		e.PollingInterval = f.PollingInterval
+	}
+	if f.EnabledOCR2PluginTypes != nil {
+		e.EnabledOCR2PluginTypes = f.EnabledOCR2PluginTypes
+	}
+}
+
+func (e *JobSpecReporter) ValidateConfig() error {
+	if e.Enabled == nil || !*e.Enabled {
+		return nil
+	}
+
+	if e.PollingInterval == nil {
+		defaultInterval := commonconfig.MustNewDuration(time.Hour)
+		e.PollingInterval = defaultInterval
+	}
+
+	if e.PollingInterval.Duration() < config.MinimumPollingInterval {
+		return configutils.ErrInvalid{Name: "PollingInterval", Value: e.PollingInterval.Duration(), Msg: "must be greater than or equal to: " + config.MinimumPollingInterval.String()}
+	}
+
+	if e.EnabledOCR2PluginTypes == nil {
+		defaultTypes := []string{"median"}
+		e.EnabledOCR2PluginTypes = &defaultTypes
 	}
 
 	return nil

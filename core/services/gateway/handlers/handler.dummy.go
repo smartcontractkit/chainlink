@@ -43,8 +43,21 @@ func (d *dummyHandler) Methods() []string {
 	return []string{"dummy"}
 }
 
-func (d *dummyHandler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request[json.RawMessage], _ Callback) error {
-	return errors.New("dummy handler does not support JSON-RPC user messages")
+func (d *dummyHandler) HandleJSONRPCUserMessage(ctx context.Context, jsonRequest jsonrpc.Request[json.RawMessage], callback Callback) error {
+	var msg api.Message
+	if jsonRequest.Params != nil {
+		if err := json.Unmarshal(*jsonRequest.Params, &msg); err != nil {
+			return err
+		}
+	}
+	msg.Body.MessageId = jsonRequest.ID
+	if msg.Body.Method == "" {
+		msg.Body.Method = jsonRequest.Method
+	}
+	if msg.Body.DonId == "" {
+		msg.Body.DonId = d.donConfig.DonId
+	}
+	return d.HandleLegacyUserMessage(ctx, &msg, callback)
 }
 
 func (d *dummyHandler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callback Callback) error {

@@ -96,6 +96,9 @@ func ensureSchema(tree toml.Tree) (errs error) {
 		}
 		return fmt.Errorf("invalid toml settings: %w", err)
 	}
+	if schema.PerWorkflow.ChainWrite.ReportSizeLimit.DefaultValue != schema.PerWorkflow.ChainWrite.EVM.ReportSizeLimit.DefaultValue {
+		return fmt.Errorf("new EVM.ReportSizeLimit (%s) does not equal the legacy ReportSizeLimit (%s)", schema.PerWorkflow.ChainWrite.EVM.ReportSizeLimit.DefaultValue, schema.PerWorkflow.ChainWrite.ReportSizeLimit.DefaultValue)
+	}
 	return nil
 }
 

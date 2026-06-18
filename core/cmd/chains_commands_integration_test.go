@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/cosmostest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/solanatest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
@@ -33,5 +34,28 @@ func TestShell_IndexCosmosChains(t *testing.T) {
 	require.Len(t, chains, 1)
 	c := chains[0]
 	assert.Equal(t, chainID, c.ID)
+	assertTableRenders(t, r)
+}
+
+func TestShell_IndexSolanaChains(t *testing.T) {
+	t.Parallel()
+
+	id := solanatest.RandomChainID()
+	chain := chainlink.RawConfig{
+		"ChainID": id,
+		"Enabled": true,
+		"Nodes": []map[string]any{{
+			"Name": "primary",
+			"URL":  "http://solana.example",
+		}},
+	}
+	app := solanaStartNewApplication(t, chain)
+	client, r := app.NewShellAndRenderer()
+
+	require.NoError(t, cmd.NewChainClient(client, "solana").IndexChains(cltest.EmptyCLIContext()))
+	chains := *r.Renders[0].(*cmd.ChainPresenters)
+	require.Len(t, chains, 1)
+	c := chains[0]
+	assert.Equal(t, id, c.ID)
 	assertTableRenders(t, r)
 }

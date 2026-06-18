@@ -127,7 +127,7 @@ chainID 			= 1337
 
 		// API speed is > observation timeout set in ContractSetConfigArgsForIntegrationTest
 		slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-			time.Sleep(5 * time.Second)
+			<-req.Context().Done()
 			res.WriteHeader(http.StatusOK)
 			_, err := res.Write([]byte(`{"data":10}`))
 			require.NoError(t, err)
@@ -233,7 +233,7 @@ updateInterval = "1m"
 		go func() {
 			defer wg.Done()
 			// Want at least 2 runs so we see all the metadata.
-			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, 7, apps[ic].JobORM(), 2*time.Minute, 5*time.Second)
+			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, 7, apps[ic].JobORM(), 2*time.Minute, 100*time.Millisecond)
 			jb, err := pr[0].Outputs.MarshalJSON()
 			require.NoError(t, err)
 			assert.Equal(t, fmt.Appendf(nil, "[\"%d\"]", 10*ic), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1])

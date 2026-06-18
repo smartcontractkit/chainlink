@@ -1,7 +1,6 @@
 package vrfv2plus
 
 import (
-	"fmt"
 	"math/big"
 	"net/http"
 	"strconv"
@@ -25,8 +24,7 @@ import (
 
 func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 	t.Cleanup(func() {
-		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-		require.NoError(t, cErr)
+		products.CleanupContainerLogs(t, products.DefaultSettings())
 	})
 
 	outputFile := "../../env-vrf2plus-out.toml"

@@ -10,7 +10,7 @@ This guide covers migrating a single Chainlink product's smoke tests. If the pro
 
 Read the old test file in `integration-tests/smoke/<product>_test.go` and identify:
 
-1. **Product name** -- what Chainlink product is being tested (e.g. VRF, Flux, Direct Request)
+1. **Product name** -- what Chainlink product is being tested (e.g. VRF, OCR2, Cron)
 2. **Contracts deployed** -- which Solidity contracts are deployed during test setup
 3. **Jobs and keys created** -- which CL node job types and key types are used
 4. **Helper functions** -- any calls to `integration-tests/actions` or `integration-tests/contracts` that need local replacements
@@ -30,11 +30,11 @@ For each forbidden import, find the replacement:
 
 Create `devenv/products/<name>/basic.toml`.
 
-Reference file: [products/directrequest/basic.toml](products/directrequest/basic.toml) (simplest single-node product).
+Reference file: [products/cron/basic.toml](products/cron/basic.toml) (simplest single-node product).
 
 Key decisions:
 - `[[products]]` `name` field must match the switch case you will add in Step 3
-- `nodes` count depends on the product (1 for single-node products like cron/DR/VRF, 5 for multi-node like OCR2/flux)
+- `nodes` count depends on the product (1 for single-node products like cron/VRF, 5 for multi-node like OCR2)
 - The product-specific TOML section (e.g. `[[vrf]]`) key must match the `toml` struct tag on the `Configurator.Config` field you create in Step 2
 - Include `gas_settings` if the product deploys contracts
 
@@ -43,9 +43,8 @@ Key decisions:
 Create `devenv/products/<name>/configuration.go`.
 
 Reference files:
-- [products/directrequest/configuration.go](products/directrequest/configuration.go) -- single-node product with contracts, bridge, and job
-- [products/vrf/configuration.go](products/vrf/configuration.go) -- single-node product with multiple contracts and local helper functions
-- [products/flux/configuration.go](products/flux/configuration.go) -- multi-node product
+- [products/cron/configuration.go](products/cron/configuration.go) -- single-node product with bridge and job only
+- [products/ocr2/configuration.go](products/ocr2/configuration.go) -- multi-node product with contracts and jobs
 
 ### Struct definitions
 
@@ -76,7 +75,6 @@ This is where the real migration work happens. Port the setup logic from the old
 When old tests use functions from `integration-tests/actions`:
 - Read the source of the helper function
 - Reimplement it locally as an unexported function in your `configuration.go`
-- Example: VRF migration reimplemented `EncodeOnChainVRFProvingKey` and `EncodeOnChainExternalJobID` as local helpers (see [products/vrf/configuration.go](products/vrf/configuration.go))
 
 ### Contract wrappers
 
@@ -99,7 +97,7 @@ Create `devenv/tests/<name>/smoke_test.go`.
 
 Reference files:
 - [tests/cron/smoke_test.go](tests/cron/smoke_test.go) -- simplest test (no contracts, just job run polling)
-- [tests/vrf/smoke_test.go](tests/vrf/smoke_test.go) -- test with contract interaction, key hash decoding, and job replacement
+- [tests/vrfv2/smoke_test.go](tests/vrfv2/smoke_test.go) -- test with contract interaction and async polling
 
 Every test must:
 
@@ -153,9 +151,9 @@ Delete `integration-tests/smoke/<product>_test.go`. If this was the last test in
 ## Common Pitfalls
 
 1. **Forbidden imports** -- The most common failure. Grep for `chainlink/v2`, `integration-tests`, and `deployment` before committing. The `depguard` linter in `devenv/.golangci.yml` enforces this.
-2. **TOML key mismatch** -- The `toml` struct tag on `Configurator.Config` must exactly match the TOML section name (e.g. `toml:"vrf"` matches `[[vrf]]`). A mismatch means the config silently loads as empty.
+2. **TOML key mismatch** -- The `toml` struct tag on `Configurator.Config` must exactly match the TOML section name (e.g. `toml:"cron"` matches `[[cron]]`). A mismatch means the config silently loads as empty.
 3. **Missing `toml` tags on `Out` fields** -- Every field in the `Out` struct needs a `toml` tag or it won't be persisted/loaded from `env-out.toml`.
 4. **`WaitMinedFast` vs `bind.WaitDeployed`** -- Use `bind.WaitDeployed` for contract deployment transactions (returns the deployed address). Use `products.WaitMinedFast` for all other transactions (state changes, transfers, registrations).
 5. **Test imports product package** -- The test in `tests/<name>/` imports the product package from `products/<name>/` only for the `Configurator` type. All contract interaction in tests uses gethwrappers directly.
 6. **Output file path** -- Tests run from `devenv/tests/<name>/`, so the output file is `../../env-out.toml` (two levels up to `devenv/`).
-7. **Package name** -- The test file's `package` declaration should match the directory name (e.g. `package vrf` in `tests/vrf/`).
+7. **Package name** -- The test file's `package` declaration should match the directory name (e.g. `package cron` in `tests/cron/`).

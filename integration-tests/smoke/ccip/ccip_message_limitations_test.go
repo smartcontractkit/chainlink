@@ -15,11 +15,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	mlt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagelimitationstest"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils/bigint"
 )
 
 func Test_CCIPMessageLimitations(t *testing.T) {
@@ -40,8 +40,8 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 		testEnv,
 		chains[0],
 		chains[1],
-		deployment.E18Mult(10_000),
-		deployment.E18Mult(10_000),
+		bigint.E18Mult(10_000),
+		bigint.E18Mult(10_000),
 	)
 
 	sourceChainFeeQuoterDestinationChainConfig, err := onChainState.MustGetEVMChainState(chains[0]).FeeQuoter.GetDestChainConfig(callOpts, chains[1])

@@ -66,10 +66,7 @@ func (m *mockGRPCClient) ListWorkflowMetadata(_ context.Context, _ []string, off
 		return []*pb.WorkflowMetadata{}, false, nil
 	}
 
-	end := start + int(limit)
-	if end > len(m.allWorkflows) {
-		end = len(m.allWorkflows)
-	}
+	end := min(start+int(limit), len(m.allWorkflows))
 
 	hasMore := end < len(m.allWorkflows)
 	return m.allWorkflows[start:end], hasMore, nil

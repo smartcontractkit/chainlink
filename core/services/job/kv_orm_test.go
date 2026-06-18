@@ -2,6 +2,7 @@ package job_test
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -9,13 +10,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/google/uuid"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
@@ -34,7 +37,7 @@ func TestJobKVStore(t *testing.T) {
 	kvStore := job.NewKVStore(jobID, db)
 	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, cltest.NewKeyStore(t, db))
 
-	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.GetDirectRequestSpec())
+	jb, err := cron.ValidatedCronSpec(fmt.Sprintf(testspecs.CronSpecTemplate, uuid.New()))
 	require.NoError(t, err)
 	jb.ID = jobID
 	require.NoError(t, jobORM.CreateJob(testutils.Context(t), &jb))
@@ -90,12 +93,12 @@ func TestJobKVStore_PruneExpiredEntries(t *testing.T) {
 	kvStore1 := job.NewKVStore(jobID1, db)
 	kvStore2 := job.NewKVStore(jobID2, db)
 
-	jb1, err := directrequest.ValidatedDirectRequestSpec(testspecs.GetDirectRequestSpec())
+	jb1, err := cron.ValidatedCronSpec(fmt.Sprintf(testspecs.CronSpecTemplate, uuid.New()))
 	require.NoError(t, err)
 	jb1.ID = jobID1
 	require.NoError(t, jobORM.CreateJob(testutils.Context(t), &jb1))
 
-	jb2, err := directrequest.ValidatedDirectRequestSpec(testspecs.GetDirectRequestSpec())
+	jb2, err := cron.ValidatedCronSpec(fmt.Sprintf(testspecs.CronSpecTemplate, uuid.New()))
 	require.NoError(t, err)
 	jb2.ID = jobID2
 	require.NoError(t, jobORM.CreateJob(testutils.Context(t), &jb2))

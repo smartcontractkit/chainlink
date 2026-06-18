@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 )
 
@@ -334,24 +333,6 @@ func TestResolver_RunJob(t *testing.T) {
 					Message:       idErr.Error(),
 				},
 			},
-		},
-		{
-			name:          "not found job error",
-			authenticated: true,
-			before: func(ctx context.Context, f *gqlTestFramework) {
-				f.App.On("RunJobV2", mock.Anything, id, (map[string]any)(nil)).Return(int64(25), webhook.ErrJobNotExists)
-			},
-			query: mutation,
-			variables: map[string]any{
-				"id": idStr,
-			},
-			result: `
-				{
-					"runJob": {
-						"code": "NOT_FOUND",
-						"message": "job does not exist"
-					}
-				}`,
 		},
 		{
 			name:          "generic error on RunJobV2",

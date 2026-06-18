@@ -1,6 +1,7 @@
 package fakes
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"errors"
@@ -42,8 +43,9 @@ type FakeEVMChain struct {
 
 	lggr logger.Logger
 
-	// log trigger callback channel
-	callbackCh map[string]chan commonCap.TriggerAndId[*evmcappb.Log]
+	// log trigger callback channels and their registered filters
+	callbackCh        map[string]chan commonCap.TriggerAndId[*evmcappb.Log]
+	logTriggerFilters map[string]*evmcappb.FilterLogTriggerRequest
 }
 
 var evmExecInfo = commonCap.MustNewCapabilityInfo(
@@ -79,6 +81,7 @@ func NewFakeEvmChain(
 		mockKeystoneForwarderAddress: mockKeystoneForwarderAddress,
 		chainSelector:                chainSelector,
 		callbackCh:                   make(map[string]chan commonCap.TriggerAndId[*evmcappb.Log]),
+		logTriggerFilters:            make(map[string]*evmcappb.FilterLogTriggerRequest),
 		dryRunWrites:                 dryRunWrites,
 	}
 	fc.Service, fc.eng = services.Config{
@@ -232,10 +235,13 @@ func (fc *FakeEVMChain) WriteReport(
 
 func (fc *FakeEVMChain) RegisterLogTrigger(ctx context.Context, triggerID string, metadata commonCap.RequestMetadata, input *evmcappb.FilterLogTriggerRequest) (<-chan commonCap.TriggerAndId[*evmcappb.Log], caperrors.Error) {
 	fc.callbackCh[triggerID] = make(chan commonCap.TriggerAndId[*evmcappb.Log])
+	fc.logTriggerFilters[triggerID] = input
 	return fc.callbackCh[triggerID], nil
 }
 
 func (fc *FakeEVMChain) UnregisterLogTrigger(ctx context.Context, triggerID string, metadata commonCap.RequestMetadata, input *evmcappb.FilterLogTriggerRequest) caperrors.Error {
+	delete(fc.logTriggerFilters, triggerID)
+	delete(fc.callbackCh, triggerID)
 	return nil
 }
 
@@ -246,6 +252,12 @@ func (fc *FakeEVMChain) AckEvent(ctx context.Context, triggerID string, eventID 
 func (fc *FakeEVMChain) ManualTrigger(ctx context.Context, triggerID string, log *evmcappb.Log) error {
 	fc.eng.Debugf("ManualTrigger: %s", log.String())
 
+	if filter, ok := fc.logTriggerFilters[triggerID]; ok && filter != nil {
+		if err := fakeEVMLogMatchesFilter(log, filter); err != nil {
+			return fmt.Errorf("log does not match registered filter for trigger %s: %w", triggerID, err)
+		}
+	}
+
 	go func() {
 		select {
 		case fc.callbackCh[triggerID] <- fc.createManualTriggerEvent(log):
@@ -255,6 +267,61 @@ func (fc *FakeEVMChain) ManualTrigger(ctx context.Context, triggerID string, log
 			fc.eng.Debug("ManualTrigger goroutine cancelled due to context cancellation")
 		}
 	}()
+
+	return nil
+}
+
+// fakeEVMLogMatchesFilter checks whether log satisfies the FilterLogTriggerRequest
+// registered for a trigger. It mirrors production EVM log filter semantics:
+//   - Address: if Addresses is non-empty, log.Address must equal one of them (OR).
+//   - Topics: fixed 4-slot array; slot 0 = event signature, slots 1-3 = indexed args.
+//     Within each slot the match is OR (any value matches); across slots it is AND
+//     (all non-empty slots must match). An empty Values slice in a slot is a wildcard.
+//
+// As a developer aid, this fake rejects filters that omit topic0 (the event
+// signature hash). Leaving topic0 empty is a common mistake — especially when
+// using the raw API or TypeScript bindings — and silently causes the trigger to
+// fire for every event emitted by the contract, not just the intended one.
+func fakeEVMLogMatchesFilter(log *evmcappb.Log, filter *evmcappb.FilterLogTriggerRequest) error {
+	topics := filter.GetTopics()
+	if len(topics) == 0 || len(topics[0].GetValues()) == 0 {
+		return errors.New("filter is missing topic0 (event signature hash): " +
+			"omitting topic0 would match every event emitted by the contract; " +
+			"set Topics[0] to the keccak256 hash of the event signature")
+	}
+
+	if len(filter.GetAddresses()) > 0 {
+		addrMatched := false
+		for _, addr := range filter.GetAddresses() {
+			if bytes.Equal(log.GetAddress(), addr) {
+				addrMatched = true
+				break
+			}
+		}
+		if !addrMatched {
+			return fmt.Errorf("log address %s does not match any of the addresses in the filter", log.GetAddress())
+		}
+	}
+
+	logTopics := log.GetTopics()
+	for i, topicValues := range filter.GetTopics() {
+		if len(topicValues.GetValues()) == 0 {
+			continue // wildcard slot (only valid for slots 1-3, slot 0 is checked above)
+		}
+		if i >= len(logTopics) {
+			return fmt.Errorf("log topics length %d does not match the filter topics length %d", len(logTopics), len(filter.GetTopics()))
+		}
+		slotMatched := false
+		for _, v := range topicValues.GetValues() {
+			if bytes.Equal(logTopics[i], v) {
+				slotMatched = true
+				break
+			}
+		}
+		if !slotMatched {
+			return fmt.Errorf("log topic %d does not match any of the values in the filter", i)
+		}
+	}
 
 	return nil
 }

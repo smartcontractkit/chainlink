@@ -8,8 +8,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/jackc/pgconn"
-	_ "github.com/jackc/pgx/v4/stdlib" // need to make sure pgx driver is registered before opening connection
+	"github.com/jackc/pgx/v5/pgconn"
+	_ "github.com/jackc/pgx/v5/stdlib" // need to make sure pgx driver is registered before opening connection
 	"github.com/jmoiron/sqlx"
 
 	commonpg "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
