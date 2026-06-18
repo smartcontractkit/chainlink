@@ -52,6 +52,7 @@ func TestAggregator_Valid_Signatures(t *testing.T) {
 }
 
 func TestAggregator_SignedResponseRequestIDMismatch(t *testing.T) {
+	t.Parallel()
 	currResp, nodes := makeSignedCreateSecretsResponse(t, "signed-for-other-request", 2)
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
 	agg := testAggregator(t, mcr, true)
@@ -65,6 +66,7 @@ func TestAggregator_SignedResponseRequestIDMismatch(t *testing.T) {
 }
 
 func TestAggregator_PublicKeyGet_SkipsSignatureValidation(t *testing.T) {
+	t.Parallel()
 	currResp, nodes := makeSignedCreateSecretsResponse(t, "1", 2)
 	currResp.Method = vaulttypes.MethodPublicKeyGet
 
@@ -82,6 +84,7 @@ func TestAggregator_PublicKeyGet_SkipsSignatureValidation(t *testing.T) {
 }
 
 func TestAggregator_SignedResponseMissingRequestID_Accepted(t *testing.T) {
+	t.Parallel()
 	payload := json.RawMessage([]byte(`{"responses":[{"error":"failed to verify ciphertext: cannot unmarshal data: unexpected end of JSON input","id":{"key":"W","namespace":"","owner":"foo"},"success":false}]}`))
 	currResp, nodes := makeSignedVaultResponse(t, vaulttypes.MethodSecretsCreate, "expected-request", payload, 2)
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
