@@ -1679,11 +1679,12 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) { //nolint:paralleltest // 
 		require.NoError(t, err)
 
 		require.Equal(t, execID, <-executionFinishedCh)
-		require.NoError(t, engine.Close())
 
 		requireUserLogs(t, beholderObserver, []string{
 			"onTrigger called",
 		})
+
+		require.NoError(t, engine.Close())
 	})
 }
 

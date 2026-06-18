@@ -152,6 +152,8 @@ github.com/sirupsen/logrus v1.9.4 h1:TsZE7l11zFCLZnZ+teH4Umoq5BhEIfIzfRDZ1Uzql2w
 github.com/sirupsen/logrus v1.9.4/go.mod h1:ftWc9WdOfJ0a92nsE2jF5u5ZwH8Bv2zdeOC42RjbV2g=
 github.com/smartcontractkit/testrig v0.0.8 h1:VDdjDV7gOiAncV74qdgSHW8q5kL9CRtGYqqkHg+TnHc=
 github.com/smartcontractkit/testrig v0.0.8/go.mod h1:8m40ksjyRdc2PUI0qhYKpJGdz5ficIsVbeVnlqCAa2Y=
+github.com/smartcontractkit/testrig v0.0.10 h1:I44LpFSXXOnQoBkVU+sy0wTPI6DWvNdrG9qSzrTgvE8=
+github.com/smartcontractkit/testrig v0.0.10/go.mod h1:8m40ksjyRdc2PUI0qhYKpJGdz5ficIsVbeVnlqCAa2Y=
 github.com/spf13/cobra v1.10.2 h1:DMTTonx5m65Ic0GOoRY2c16WCbHxOOw6xxezuLaBpcU=
 github.com/spf13/cobra v1.10.2/go.mod h1:7C1pvHqHw5A4vrJfjNwvOdzYu0Gml16OCs2GRiTUUS4=
 github.com/spf13/pflag v1.0.9/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=
