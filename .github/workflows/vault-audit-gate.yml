@@ -1,0 +1,32 @@
+name: Vault Audit Gate
+
+# Posts a "pending" commit status whenever vault-related files are touched, requiring
+# an authorized reviewer to trigger the audit before the PR can merge.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'core/capabilities/vault/**'
+      - 'core/services/ocr2/plugins/vault/**'
+      - 'core/services/gateway/handlers/vault/**'
+      - 'core/services/workflows/v2/secrets.go'
+      - 'system-tests/tests/smoke/cre/vault_don_test.go'
+      - 'system-tests/tests/smoke/cre/vault_don_test_helpers.go'
+      - 'system-tests/lib/cre/vault/**'
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - name: Post pending status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api /repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }} \
+            --method POST \
+            -f state=pending \
+            -f context="vault-audit" \
+            -f description="Vault audit required — an authorized reviewer must comment /vault-audit"

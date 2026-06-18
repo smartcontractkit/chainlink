@@ -1,0 +1,137 @@
+name: Vault Audit Commands
+
+# Handles vault audit slash commands from authorized reviewers:
+#   /vault-audit          — run the audit
+#   /vault-audit skip <reason> — bypass the audit entirely
+#
+# To resolve individual findings, reply /resolved <reason> directly on each
+# blocking finding thread (handled by vault-audit-thread-commands.yml).
+#
+# Authorization: commenter must have write or admin permission on this repository.
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  handle-command:
+    if: |
+      github.event.issue.pull_request != null &&
+      (
+        startsWith(github.event.comment.body, '/vault-audit skip ') ||
+        github.event.comment.body == '/vault-audit' ||
+        startsWith(github.event.comment.body, '/vault-audit ')
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+      statuses: write
+    outputs:
+      run_audit: ${{ steps.cmd.outputs.type == 'run' && steps.auth.outputs.authorized == 'true' }}
+      head_sha: ${{ steps.pr.outputs.head_sha }}
+      base_sha: ${{ steps.pr.outputs.base_sha }}
+
+    steps:
+      - name: Check commenter authorization
+        id: auth
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+        run: |
+          PERMISSION=$(gh api "/repos/${REPO}/collaborators/${COMMENTER}/permission" \
+            --jq '.permission' 2>/dev/null || echo "none")
+
+          if [[ "$PERMISSION" == "write" || "$PERMISSION" == "admin" ]]; then
+            echo "authorized=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "authorized=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Reject unauthorized commenter
+        if: steps.auth.outputs.authorized == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          gh pr comment "$PR_NUMBER" \
+            --body "⛔ @${COMMENTER} — only authorized reviewers (repository write access) can use vault audit commands."
+          exit 1
+
+      - name: Get PR details
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          PR=$(gh api "/repos/${REPO}/pulls/${PR_NUMBER}" \
+            --jq '{head_sha: .head.sha, base_sha: .base.sha}')
+          echo "head_sha=$(echo "$PR" | jq -r '.head_sha')" >> "$GITHUB_OUTPUT"
+          echo "base_sha=$(echo "$PR" | jq -r '.base_sha')" >> "$GITHUB_OUTPUT"
+
+      - name: Parse command
+        id: cmd
+        env:
+          # Pass through env to avoid script injection from untrusted comment body
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          if echo "$COMMENT_BODY" | grep -qP '^/vault-audit skip .+'; then
+            echo "type=skip" >> "$GITHUB_OUTPUT"
+            REASON="${COMMENT_BODY#/vault-audit skip }"
+            echo "reason=${REASON}" >> "$GITHUB_OUTPUT"
+          else
+            echo "type=run" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ── /vault-audit skip <reason> ────────────────────────────────────────────
+      - name: Handle skip
+        if: steps.cmd.outputs.type == 'skip'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          REASON: ${{ steps.cmd.outputs.reason }}
+          SHA: ${{ steps.pr.outputs.head_sha }}
+        run: |
+          gh api "/repos/${REPO}/statuses/${SHA}" \
+            --method POST \
+            -f state=success \
+            -f context="vault-audit" \
+            -f description="Vault audit skipped by ${COMMENTER}: ${REASON}"
+
+          gh pr comment "$PR_NUMBER" \
+            --body "✅ Vault audit skipped by @${COMMENTER}
+
+          **Reason:** ${REASON}
+
+          > ⚠️ This skip applies to the current HEAD (\`${SHA:0:8}\`). Pushing new vault file changes will re-require an audit."
+
+      # ── /vault-audit ─────────────────────────────────────────────────────────
+      - name: Acknowledge audit request
+        if: steps.cmd.outputs.type == 'run'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+        run: |
+          gh pr comment "$PR_NUMBER" \
+            --body "🔍 Vault audit triggered by @${COMMENTER} — running now. Results will appear as a new comment when complete."
+
+  # Reusable workflows must be called as a top-level job, not a step
+  run-audit:
+    needs: handle-command
+    if: needs.handle-command.outputs.run_audit == 'true'
+    uses: smartcontractkit/cre-docs/.github/workflows/vault-audit.yml@main
+    with:
+      pr_number: ${{ github.event.issue.number }}
+      head_sha: ${{ needs.handle-command.outputs.head_sha }}
+      base_sha: ${{ needs.handle-command.outputs.base_sha }}
+      chainlink_repo: ${{ github.repository }}
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CRE_DOCS_TOKEN: ${{ secrets.CRE_DOCS_TOKEN }}
+      CHAINLINK_TOKEN: ${{ github.token }}
