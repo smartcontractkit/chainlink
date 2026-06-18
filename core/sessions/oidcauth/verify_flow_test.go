@@ -25,6 +25,7 @@ func countOIDCSessions(t *testing.T, oi *oidcAuthenticator, email string) int {
 // TestIssueSessionFromIDToken_Valid runs a correctly signed, correctly
 // audienced token through the real verifier and asserts a session row lands.
 func TestIssueSessionFromIDToken_Valid(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	idp := newMockIDP(t, testClientID)
 	idp.email = "valid-user@example.com"
@@ -42,6 +43,7 @@ func TestIssueSessionFromIDToken_Valid(t *testing.T) {
 // TestIssueSessionFromIDToken_WrongAudience is the critical auth-bypass guard:
 // a token minted for a different client must be rejected and create no session.
 func TestIssueSessionFromIDToken_WrongAudience(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	idp := newMockIDP(t, testClientID)
 	idp.email = "attacker@example.com"
@@ -57,6 +59,7 @@ func TestIssueSessionFromIDToken_WrongAudience(t *testing.T) {
 
 // TestIssueSessionFromIDToken_Expired asserts the verifier enforces expiry.
 func TestIssueSessionFromIDToken_Expired(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	idp := newMockIDP(t, testClientID)
 	idp.email = "expired-user@example.com"
@@ -73,6 +76,7 @@ func TestIssueSessionFromIDToken_Expired(t *testing.T) {
 // whose groups map to no RBAC role is rejected with errNoMatchingRole and
 // creates no session.
 func TestIssueSessionFromIDToken_NoMatchingGroup(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	idp := newMockIDP(t, testClientID)
 	idp.email = "nogroup-user@example.com"
@@ -88,6 +92,7 @@ func TestIssueSessionFromIDToken_NoMatchingGroup(t *testing.T) {
 // TestIssueSessionFromIDToken_RoleMapping asserts each group claim maps to the
 // expected RBAC role on the stored session.
 func TestIssueSessionFromIDToken_RoleMapping(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		group    string
 		wantRole string
@@ -99,6 +104,7 @@ func TestIssueSessionFromIDToken_RoleMapping(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.group, func(t *testing.T) {
+			t.Parallel()
 			db := pgtest.NewSqlxDB(t)
 			idp := newMockIDP(t, testClientID)
 			email := tc.group + "@example.com"
@@ -121,6 +127,7 @@ func TestIssueSessionFromIDToken_RoleMapping(t *testing.T) {
 // node polls the mock token endpoint, verifies the returned id_token, and
 // records a completed flow with a real oidc_sessions row.
 func TestDeviceFlow_EndToEnd(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	idp := newMockIDP(t, testClientID)
 	idp.email = "device-user@example.com"
@@ -147,6 +154,7 @@ func TestDeviceFlow_EndToEnd(t *testing.T) {
 // TestDeviceFlow_WrongAudienceRejected asserts the device path uses the same
 // verifier: a token for the wrong client fails the flow and creates no session.
 func TestDeviceFlow_WrongAudienceRejected(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	idp := newMockIDP(t, testClientID)
 	idp.email = "device-attacker@example.com"
