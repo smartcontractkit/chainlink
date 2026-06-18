@@ -78,11 +78,23 @@ type NewNodesConfig struct {
 	LogLevel zapcore.Level
 	// BlockChains to be configured
 	BlockChains    cldfchain.BlockChains
+	// BlockChainsForNode optionally overrides BlockChains per node. When nil, BlockChains is used for all nodes.
+	BlockChainsForNode BlockChainsForNodeFunc
 	NumNodes       int
 	NumBootstraps  int
 	RegistryConfig deployment.CapabilityRegistryConfig
 	// SQL queries to run after DB creation, typically used for setting up testing state. Optional.
 	CustomDBSetup []string
+}
+
+// BlockChainsForNodeFunc selects the chain set for a node. pluginIndex is 0-based among plugin nodes only.
+type BlockChainsForNodeFunc func(pluginIndex int, isBootstrap bool) cldfchain.BlockChains
+
+func nodeBlockChains(cfg NewNodesConfig, pluginIndex int, isBootstrap bool) cldfchain.BlockChains {
+	if cfg.BlockChainsForNode != nil {
+		return cfg.BlockChainsForNode(pluginIndex, isBootstrap)
+	}
+	return cfg.BlockChains
 }
 
 func NewNodes(
@@ -104,7 +116,7 @@ func NewNodes(
 		// run smoothly.
 		c := NewNodeConfig{
 			Port:           ports[i],
-			BlockChains:    cfg.BlockChains,
+			BlockChains:    nodeBlockChains(cfg, 0, true),
 			LogLevel:       cfg.LogLevel,
 			Bootstrap:      true,
 			RegistryConfig: cfg.RegistryConfig,
@@ -118,7 +130,7 @@ func NewNodes(
 	for i := range cfg.NumNodes {
 		c := NewNodeConfig{
 			Port:           ports[cfg.NumBootstraps+i],
-			BlockChains:    cfg.BlockChains,
+			BlockChains:    nodeBlockChains(cfg, i, false),
 			LogLevel:       cfg.LogLevel,
 			Bootstrap:      false,
 			RegistryConfig: cfg.RegistryConfig,

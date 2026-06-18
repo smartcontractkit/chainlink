@@ -94,6 +94,7 @@ func TestInvalidOCR3Params(t *testing.T) {
 		params.CommitOffChainConfig,
 		&globals.DefaultExecuteOffChainCfg,
 		false,
+		internal.CCIPHomeOCR3BuildOpts{},
 	)
 	require.Errorf(t, err, "expected error")
 	pattern := `DeltaRound \(\d+\.\d+s\) must be less than DeltaProgress \(\d+s\)`

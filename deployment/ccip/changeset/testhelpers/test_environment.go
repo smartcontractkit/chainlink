@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -157,6 +158,12 @@ type TestConfigs struct {
 
 	// SuiContainerConfig allows custom configuration for Sui containers.
 	SuiContainerConfig *onchain.SuiContainerConfig
+
+	// SuiMinDON configures a single-node Sui sub-committee (FChain=0) while keeping the
+	// full EVM role DON. Only the plugin at SuiCapablePluginIndex runs the Sui chain relayer.
+	SuiMinDON bool
+	// SuiCapablePluginIndex is the index into non-bootstrap plugin nodes that supports Sui.
+	SuiCapablePluginIndex int
 }
 
 func (tc *TestConfigs) Validate() error {
@@ -173,6 +180,31 @@ func (tc *TestConfigs) Validate() error {
 		return errors.New("cannot run RMN tests in memory mode")
 	}
 	return nil
+}
+
+func filterZeroFChainErrors(chainErrs map[uint64][]error, suiChains []uint64) map[uint64][]error {
+	suiSet := make(map[uint64]struct{}, len(suiChains))
+	for _, sel := range suiChains {
+		suiSet[sel] = struct{}{}
+	}
+	for sel, errs := range chainErrs {
+		if _, ok := suiSet[sel]; !ok {
+			continue
+		}
+		var filtered []error
+		for _, err := range errs {
+			if err != nil && strings.Contains(err.Error(), "FChain is 0") {
+				continue
+			}
+			filtered = append(filtered, err)
+		}
+		if len(filtered) == 0 {
+			delete(chainErrs, sel)
+		} else {
+			chainErrs[sel] = filtered
+		}
+	}
+	return chainErrs
 }
 
 func (tc *TestConfigs) MustSetEnvTypeOrDefault(t *testing.T) {
@@ -352,6 +384,17 @@ func WithSuiContainerConfig(cfg onchain.SuiContainerConfig) TestOps {
 	}
 }
 
+// WithSuiMinDON enables a single-node Sui CCIPHome sub-committee and production-like
+// per-node chain config where only one plugin node runs the Sui relayer.
+func WithSuiMinDON() TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.SuiMinDON = true
+		if testCfg.SuiCapablePluginIndex == 0 && testCfg.Nodes > 0 {
+			testCfg.SuiCapablePluginIndex = 0
+		}
+	}
+}
+
 func WithNumOfUsersPerChain(numUsers uint) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.NumOfUsersPerChain = numUsers
@@ -512,17 +555,41 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 	}
 }
 
+func blockChainsWithoutSui(all cldf_chain.BlockChains) cldf_chain.BlockChains {
+	chains := make(map[uint64]cldf_chain.BlockChain)
+	for sel, chain := range all.All() {
+		family, err := chain_selectors.GetSelectorFamily(sel)
+		if err != nil || family == chain_selectors.FamilySui {
+			continue
+		}
+		chains[sel] = chain
+	}
+	return cldf_chain.NewBlockChains(chains)
+}
+
 func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.CapabilityRegistryConfig) {
 	require.NotNil(t, m.Chains, "start chains first, chains are empty")
 	require.NotNil(t, m.DeployedEnv, "start chains and initiate deployed env first before starting nodes")
 	tc := m.TestConfig
+	var blockChainsForNode nodetestutils.BlockChainsForNodeFunc
+	if tc.SuiMinDON {
+		withoutSui := blockChainsWithoutSui(m.Env.BlockChains)
+		suiIdx := tc.SuiCapablePluginIndex
+		blockChainsForNode = func(pluginIndex int, isBootstrap bool) cldf_chain.BlockChains {
+			if isBootstrap || pluginIndex != suiIdx {
+				return withoutSui
+			}
+			return m.Env.BlockChains
+		}
+	}
 	c := nodetestutils.NewNodesConfig{
-		LogLevel:       zapcore.InfoLevel,
-		BlockChains:    m.Env.BlockChains,
-		NumNodes:       tc.Nodes,
-		NumBootstraps:  tc.Bootstraps,
-		RegistryConfig: crConfig,
-		CustomDBSetup:  nil,
+		LogLevel:           zapcore.InfoLevel,
+		BlockChains:        m.Env.BlockChains,
+		BlockChainsForNode: blockChainsForNode,
+		NumNodes:           tc.Nodes,
+		NumBootstraps:      tc.Bootstraps,
+		RegistryConfig:     crConfig,
+		CustomDBSetup:      nil,
 	}
 	nodes := nodetestutils.NewNodes(t, c, tc.CLNodeConfigOpts...)
 	ctx := testcontext.Get(t)
@@ -809,7 +876,11 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	state, err := stateview.LoadOnchainState(e.Env, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err)
 
-	chainErrs := state.ValidatePostDeploymentStateWithoutMCMSOwnership(e.Env, !tEnv.TestConfigs().SkipDONConfiguration)
+	tc := tEnv.TestConfigs()
+	chainErrs := state.ValidatePostDeploymentStateWithoutMCMSOwnership(e.Env, !tc.SkipDONConfiguration)
+	if tc.SuiMinDON {
+		chainErrs = filterZeroFChainErrors(chainErrs, suiChains)
+	}
 	require.Empty(t, chainErrs)
 
 	return e
@@ -1265,10 +1336,19 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		}
 		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, tokenInfo, ocrOverride)
 		execOCRConfigs[chain] = v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, tokenDataProviders, ocrOverride)
+
+		suiReaders := nodeInfo.NonBootstraps().PeerIDs()
+		suiFChain := uint8(len(suiReaders) / 3)
+		if tc.SuiMinDON {
+			require.Less(t, tc.SuiCapablePluginIndex, len(suiReaders),
+				"SuiCapablePluginIndex out of range for non-bootstrap nodes")
+			suiReaders = [][32]byte{suiReaders[tc.SuiCapablePluginIndex]}
+			suiFChain = 0
+			t.Logf("SuiMinDON: using single Sui reader at plugin index %d", tc.SuiCapablePluginIndex)
+		}
 		chainConfigs[chain] = v1_6.ChainConfig{
-			Readers: nodeInfo.NonBootstraps().PeerIDs(),
-			// #nosec G115 - Overflow is not a concern in this test scenario
-			FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
+			Readers: suiReaders,
+			FChain:  suiFChain,
 			EncodableChainConfig: chainconfig.ChainConfig{
 				GasPriceDeviationPPB:    ccipocr3common.BigInt{Int: big.NewInt(DefaultGasPriceDeviationPPB)},
 				DAGasPriceDeviationPPB:  ccipocr3common.BigInt{Int: big.NewInt(DefaultDAGasPriceDeviationPPB)},
@@ -1317,6 +1397,10 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	}
 	apps = []commonchangeset.ConfiguredChangeSet{}
 	if !tc.SkipDONConfiguration {
+		suiMinDONPluginFlags := v1_6.SetCandidatePluginInfo{
+			AllowZeroFChain:           tc.SuiMinDON,
+			EVMIdentityFallbackForSui: tc.SuiMinDON,
+		}
 		apps = append(apps, commonchangeset.Configure(
 			// Add the chain configs for the new chains.
 			cldf.CreateLegacyChangeSet(v1_6.UpdateChainConfigChangeset),
@@ -1324,6 +1408,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				HomeChainSelector: e.HomeChainSel,
 				RemoteChainAdds:   chainConfigs,
 				MCMS:              mcmsConfig,
+				AllowZeroFChain:   tc.SuiMinDON,
 			},
 		))
 		apps = append(apps, commonchangeset.Configure(
@@ -1336,10 +1421,17 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 					FeedChainSelector: e.FeedChainSel,
 					MCMS:              mcmsConfig,
 				},
-				PluginInfo: v1_6.SetCandidatePluginInfo{
-					OCRConfigPerRemoteChainSelector: commitOCRConfigs,
-					PluginType:                      types.PluginTypeCCIPCommit,
-				},
+				PluginInfo: func() v1_6.SetCandidatePluginInfo {
+					p := v1_6.SetCandidatePluginInfo{
+						OCRConfigPerRemoteChainSelector: commitOCRConfigs,
+						PluginType:                      types.PluginTypeCCIPCommit,
+					}
+					if tc.SuiMinDON {
+						p.AllowZeroFChain = suiMinDONPluginFlags.AllowZeroFChain
+						p.EVMIdentityFallbackForSui = suiMinDONPluginFlags.EVMIdentityFallbackForSui
+					}
+					return p
+				}(),
 			},
 		))
 		apps = append(apps, commonchangeset.Configure(
@@ -1353,10 +1445,17 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 					MCMS:              mcmsConfig,
 				},
 				PluginInfo: []v1_6.SetCandidatePluginInfo{
-					{
-						OCRConfigPerRemoteChainSelector: execOCRConfigs,
-						PluginType:                      types.PluginTypeCCIPExec,
-					},
+					func() v1_6.SetCandidatePluginInfo {
+						p := v1_6.SetCandidatePluginInfo{
+							OCRConfigPerRemoteChainSelector: execOCRConfigs,
+							PluginType:                      types.PluginTypeCCIPExec,
+						}
+						if tc.SuiMinDON {
+							p.AllowZeroFChain = suiMinDONPluginFlags.AllowZeroFChain
+							p.EVMIdentityFallbackForSui = suiMinDONPluginFlags.EVMIdentityFallbackForSui
+						}
+						return p
+					}(),
 				},
 			},
 		))

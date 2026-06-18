@@ -58,6 +58,7 @@ func prepareSui2EvmMessagingTest(t *testing.T) sui2EvmMessagingFixtures {
 		t,
 		testhelpers.WithNumOfChains(2),
 		testhelpers.WithSuiChains(1),
+		testhelpers.WithSuiMinDON(),
 	)
 
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
@@ -363,6 +364,7 @@ func prepareEVM2SuiMessagingTest(t *testing.T) evm2SuiMessagingFixtures {
 		t,
 		testhelpers.WithNumOfChains(2),
 		testhelpers.WithSuiChains(1),
+		testhelpers.WithSuiMinDON(),
 	)
 
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
@@ -610,6 +612,7 @@ func Test_CCIP_EVM2Sui_ZeroReceiver(t *testing.T) {
 		t,
 		testhelpers.WithNumOfChains(2),
 		testhelpers.WithSuiChains(1),
+		testhelpers.WithSuiMinDON(),
 	)
 
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))

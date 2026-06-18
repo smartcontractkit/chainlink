@@ -527,6 +527,12 @@ type SetCandidatePluginInfo struct {
 	// WARNING: Never enable this parameter if running this changeset in isolation.
 	// This is only meant to be enabled when running this changeset as part of a larger changeset that groups multiple proposals together.
 	SkipChainConfigValidation bool `json:"skipChainConfigValidation"`
+
+	// AllowZeroFChain permits FChain=0 on a chain config (test-only Sui min-DON setups).
+	AllowZeroFChain bool `json:"allowZeroFChain"`
+
+	// EVMIdentityFallbackForSui uses EVM OCR identity for nodes without Sui chain config when building Sui OCR3 config.
+	EVMIdentityFallbackForSui bool `json:"evmIdentityFallbackForSui"`
 }
 
 func (p SetCandidatePluginInfo) String() string {
@@ -562,7 +568,7 @@ func (p SetCandidatePluginInfo) Validate(e cldf.Environment, state stateview.CCI
 				return fmt.Errorf("can't get chain config for %d: %w", chainSelector, err)
 			}
 			// FChain should never be zero if a chain config is set in CCIPHome
-			if chainConfig.FChain == 0 {
+			if chainConfig.FChain == 0 && !p.AllowZeroFChain {
 				return fmt.Errorf("chain config not set up for new chain %d", chainSelector)
 			}
 			if len(chainConfig.Readers) == 0 {
@@ -733,6 +739,10 @@ func AddDonAndSetCandidateChangeset(
 			params.CommitOffChainConfig,
 			params.ExecuteOffChainConfig,
 			cfg.PluginInfo.SkipChainConfigValidation,
+			internal.CCIPHomeOCR3BuildOpts{
+				EVMIdentityFallbackForSui: cfg.PluginInfo.EVMIdentityFallbackForSui,
+				AllowZeroFChain:           cfg.PluginInfo.AllowZeroFChain,
+			},
 		)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
@@ -856,6 +866,10 @@ func SetCandidateChangeset(
 				params.CommitOffChainConfig,
 				params.ExecuteOffChainConfig,
 				plugin.SkipChainConfigValidation,
+				internal.CCIPHomeOCR3BuildOpts{
+					EVMIdentityFallbackForSui: plugin.EVMIdentityFallbackForSui,
+					AllowZeroFChain:           plugin.AllowZeroFChain,
+				},
 			)
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
@@ -1105,6 +1119,7 @@ type UpdateChainConfigConfig struct {
 	RemoteChainRemoves []uint64                          `json:"remoteChainRemoves"`
 	RemoteChainAdds    map[uint64]ChainConfig            `json:"remoteChainAdds"`
 	MCMS               *cldfproposalutils.TimelockConfig `json:"mcms,omitempty"`
+	AllowZeroFChain    bool                              `json:"allowZeroFChain"`
 }
 
 func (c UpdateChainConfigConfig) Validate(e cldf.Environment) error {
@@ -1140,7 +1155,7 @@ func (c UpdateChainConfigConfig) Validate(e cldf.Environment) error {
 		if _, ok := state.SupportedChains()[add]; !ok {
 			return fmt.Errorf("chain to add %d is not supported", add)
 		}
-		if ccfg.FChain == 0 {
+		if ccfg.FChain == 0 && !c.AllowZeroFChain {
 			return fmt.Errorf("fChain must be set for selector %d", add)
 		}
 		if len(ccfg.Readers) == 0 {

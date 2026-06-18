@@ -130,7 +130,7 @@ func BuildSetOCR3ConfigArgs(
 			}
 			configForOCR3 = ocrConfig.CandidateConfig
 		}
-		if err := validateOCR3Config(destSelector, configForOCR3.Config, &chainCfg); err != nil {
+		if err := validateOCR3Config(destSelector, configForOCR3.Config, &chainCfg, false); err != nil {
 			return nil, err
 		}
 
@@ -205,7 +205,7 @@ func BuildSetOCR3ConfigArgsSui(
 			configForOCR3 = ocrConfig.CandidateConfig
 		}
 
-		if err := validateOCR3Config(destSelector, configForOCR3.Config, &chainCfg); err != nil {
+		if err := validateOCR3Config(destSelector, configForOCR3.Config, &chainCfg, false); err != nil {
 			return nil, err
 		}
 
@@ -230,10 +230,14 @@ func BuildSetOCR3ConfigArgsSui(
 	return offrampOCR3Configs, nil
 }
 
-func validateOCR3Config(chainSel uint64, configForOCR3 ccip_home.CCIPHomeOCR3Config, chainConfig *ccip_home.CCIPHomeChainConfig) error {
+func validateOCR3Config(chainSel uint64, configForOCR3 ccip_home.CCIPHomeOCR3Config, chainConfig *ccip_home.CCIPHomeChainConfig, allowZeroFChain bool) error {
 	if chainConfig != nil {
 		// chainConfigs must be set before OCR3 configs due to the added fChain == F validation
-		if chainConfig.FChain == 0 || bytes.IsEmpty(chainConfig.Config) || len(chainConfig.Readers) == 0 {
+		if chainConfig.FChain == 0 {
+			if !allowZeroFChain || bytes.IsEmpty(chainConfig.Config) || len(chainConfig.Readers) == 0 {
+				return fmt.Errorf("chain config is not set for chain selector %d", chainSel)
+			}
+		} else if bytes.IsEmpty(chainConfig.Config) || len(chainConfig.Readers) == 0 {
 			return fmt.Errorf("chain config is not set for chain selector %d", chainSel)
 		}
 		for _, reader := range chainConfig.Readers {
@@ -254,6 +258,9 @@ func validateOCR3Config(chainSel uint64, configForOCR3 ccip_home.CCIPHomeOCR3Con
 		// note that this is done onchain, but we'll do it here for good measure to avoid reverts.
 		// see https://github.com/smartcontractkit/chainlink-ccip/blob/8529b8c89093d0cd117b73645ea64b2d2a8092f4/chains/evm/contracts/capability/CCIPHome.sol#L511-L514.
 		minTransmitterReq := 3*int(chainConfig.FChain) + 1
+		if allowZeroFChain && chainConfig.FChain == 0 {
+			minTransmitterReq = 1
+		}
 		var numNonzeroTransmitters int
 		for _, node := range configForOCR3.Nodes {
 			if len(node.TransmitterKey) > 0 {
@@ -353,7 +360,7 @@ func BuildSetOCR3ConfigArgsSolana(
 			}
 			configForOCR3 = ocrConfig.CandidateConfig
 		}
-		if err := validateOCR3Config(destSelector, configForOCR3.Config, &chainCfg); err != nil {
+		if err := validateOCR3Config(destSelector, configForOCR3.Config, &chainCfg, false); err != nil {
 			return nil, err
 		}
 
@@ -428,7 +435,7 @@ func BuildSetOCR3ConfigArgsAptos(
 			configForOCR3 = ocrConfig.CandidateConfig
 		}
 
-		if err := validateOCR3Config(destSelector, configForOCR3.Config, &chainCfg); err != nil {
+		if err := validateOCR3Config(destSelector, configForOCR3.Config, &chainCfg, false); err != nil {
 			return nil, err
 		}
 
@@ -451,6 +458,12 @@ func BuildSetOCR3ConfigArgsAptos(
 	return offrampOCR3Configs, nil
 }
 
+// CCIPHomeOCR3BuildOpts configures test-only OCR3 build behavior for Sui min-DON setups.
+type CCIPHomeOCR3BuildOpts struct {
+	EVMIdentityFallbackForSui bool
+	AllowZeroFChain           bool
+}
+
 func BuildOCR3ConfigForCCIPHome(
 	ccipHome *ccip_home.CCIPHome,
 	ocrSecrets focr.OCRSecrets,
@@ -462,6 +475,7 @@ func BuildOCR3ConfigForCCIPHome(
 	commitOffchainCfg *pluginconfig.CommitOffchainConfig,
 	execOffchainCfg *pluginconfig.ExecuteOffchainConfig,
 	skipChainConfigValidation bool,
+	buildOpts CCIPHomeOCR3BuildOpts,
 ) (map[types.PluginType]ccip_home.CCIPHomeOCR3Config, error) {
 	addressCodec := ccipcommon.NewAddressCodec(map[string]ccipcommon.ChainSpecificAddressCodec{
 		chain_selectors.FamilyEVM:    ccipevm.AddressCodec{},
@@ -493,18 +507,34 @@ func BuildOCR3ConfigForCCIPHome(
 		// This is a HACK, because it is entirely possible that the destination chain is a unique family,
 		// and no other supported chain by the node has the same family, e.g. Solana.
 		cfg, exists := node.OCRConfigForChainSelector(destSelector)
+		suiEVMFallback := false
 		if !exists {
-			// check if we have an oracle identity for another chain in the same family as destFamily.
 			allOCRConfigs := node.AllOCRConfigs()
-			for chainDetails, ocrConfig := range allOCRConfigs {
-				chainFamily, err := chain_selectors.GetSelectorFamily(chainDetails.ChainSelector)
-				if err != nil {
-					return nil, err
+			if buildOpts.EVMIdentityFallbackForSui && destFamily == chain_selectors.FamilySui {
+				for chainDetails, ocrConfig := range allOCRConfigs {
+					chainFamily, err := chain_selectors.GetSelectorFamily(chainDetails.ChainSelector)
+					if err != nil {
+						return nil, err
+					}
+					if chainFamily == chain_selectors.FamilyEVM {
+						cfg = ocrConfig
+						suiEVMFallback = true
+						break
+					}
 				}
+			}
+			if !suiEVMFallback {
+				// check if we have an oracle identity for another chain in the same family as destFamily.
+				for chainDetails, ocrConfig := range allOCRConfigs {
+					chainFamily, err := chain_selectors.GetSelectorFamily(chainDetails.ChainSelector)
+					if err != nil {
+						return nil, err
+					}
 
-				if chainFamily == destFamily {
-					cfg = ocrConfig
-					break
+					if chainFamily == destFamily {
+						cfg = ocrConfig
+						break
+					}
 				}
 			}
 
@@ -517,7 +547,7 @@ func BuildOCR3ConfigForCCIPHome(
 		}
 
 		var transmitAccount ocrtypes.Account
-		if !exists {
+		if !exists || suiEVMFallback {
 			// empty account means that the node cannot transmit for this chain
 			// we replace this with a canonical address with the oracle ID as the address when doing the ocr config validation below, but it should remain empty
 			// in the CCIPHome OCR config and it should not be included in the destination chain transmitters whitelist.
@@ -697,7 +727,7 @@ func BuildOCR3ConfigForCCIPHome(
 			if err != nil {
 				return nil, fmt.Errorf("can't get chain config for %d: %w", destSelector, err)
 			}
-			if err := validateOCR3Config(destSelector, ocr3Configs[pluginType], &chainConfig); err != nil {
+			if err := validateOCR3Config(destSelector, ocr3Configs[pluginType], &chainConfig, buildOpts.AllowZeroFChain); err != nil {
 				return nil, fmt.Errorf("failed to validate ocr3 config: %w", err)
 			}
 		}
