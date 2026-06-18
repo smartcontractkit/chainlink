@@ -152,8 +152,19 @@ func NewNodes(
 		fundNodesSol(t, solChain, nodes)
 	}
 
+	suiCapableNodes := make([]*Node, 0, len(nodes))
+	for i, node := range nodes {
+		if len(nodeBlockChains(cfg, i, false).SuiChains()) == 0 {
+			continue
+		}
+		suiCapableNodes = append(suiCapableNodes, node)
+	}
+
 	for _, suiChain := range cfg.BlockChains.SuiChains() {
-		fundNodesSui(t, suiChain, nodes)
+		if len(suiCapableNodes) == 0 {
+			continue
+		}
+		fundNodesSui(t, suiChain, suiCapableNodes)
 	}
 
 	return nodesByPeerID
