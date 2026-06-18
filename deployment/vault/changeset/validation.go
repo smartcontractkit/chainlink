@@ -454,6 +454,20 @@ func ValidateEthBalMonTransferOwnershipConfig(ctx context.Context, env cldf.Envi
 	return nil
 }
 
+func ValidateEthBalMonAcceptOwnershipConfig(ctx context.Context, env cldf.Environment, cfg types.EthBalMonAcceptOwnershipInput) error {
+	if len(cfg.Chains) == 0 {
+		return errors.New("no chains provided")
+	}
+
+	for _, chainSelector := range cfg.Chains {
+		if _, ok := env.BlockChains.EVMChains()[chainSelector]; !ok {
+			return fmt.Errorf("chain not found in environment: %d", chainSelector)
+		}
+	}
+
+	return nil
+}
+
 func ValidateEthBalMonSetWatchListConfig(ctx context.Context, env cldf.Environment, cfg types.EthBalMonSetWatchListInput) error {
 	if len(cfg.Chains) == 0 {
 		return errors.New("no chains provided")
