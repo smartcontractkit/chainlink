@@ -13,18 +13,16 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
-	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/cldfutil"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	creocr3 "github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
-
-	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
-
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	"github.com/smartcontractkit/chainlink/deployment/internal/view"
 )
 
 type CapabilityRegistryViewV2 struct {
-	commoncldchangesets.ContractMetaData
+	view.ContractMetaData
 	Capabilities []CapabilityView `json:"capabilities,omitempty"`
 	Nodes        []NodeView       `json:"nodes,omitempty"`
 	Nops         []NopView        `json:"nops,omitempty"`
@@ -33,7 +31,7 @@ type CapabilityRegistryViewV2 struct {
 
 // CapabilityRegistryView is a high-fidelity view of the capabilities registry contract.
 type CapabilityRegistryView struct {
-	commoncldchangesets.ContractMetaData
+	view.ContractMetaData
 	Capabilities []CapabilityView `json:"capabilities,omitempty"`
 	Nodes        []NodeView       `json:"nodes,omitempty"`
 	Nops         []NopView        `json:"nops,omitempty"`
@@ -45,7 +43,7 @@ type CapabilityRegistryView struct {
 func (v *CapabilityRegistryView) MarshalJSON() ([]byte, error) {
 	// Alias to avoid recursive calls
 	type Alias struct {
-		commoncldchangesets.ContractMetaData
+		view.ContractMetaData
 		Capabilities    []CapabilityView      `json:"capabilities,omitempty"`
 		Nodes           []NodeView            `json:"nodes,omitempty"`
 		Nops            []NopView             `json:"nops,omitempty"`
@@ -72,7 +70,7 @@ func (v *CapabilityRegistryView) MarshalJSON() ([]byte, error) {
 func (v *CapabilityRegistryView) UnmarshalJSON(data []byte) error {
 	// Alias to avoid recursive calls
 	type Alias struct {
-		commoncldchangesets.ContractMetaData
+		view.ContractMetaData
 		Capabilities    []CapabilityView      `json:"capabilities,omitempty"`
 		Nodes           []NodeView            `json:"nodes,omitempty"`
 		Nops            []NopView             `json:"nops,omitempty"`
@@ -139,7 +137,7 @@ func (e *ExtendedCapabilityRegistry) GetDONsSimple(opts *bind.CallOpts) ([]capab
 
 // GenerateCapabilityRegistryView generates a CapRegView from a CapabilitiesRegistry contract.
 func GenerateCapabilityRegistryView(capReg *ExtendedCapabilityRegistry) (CapabilityRegistryView, error) {
-	tv, err := commoncldchangesets.NewContractMetaData(capReg, capReg.Address())
+	tv, err := view.NewContractMetaData(capReg, capReg.Address())
 	if err != nil {
 		return CapabilityRegistryView{}, err
 	}
