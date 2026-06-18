@@ -177,6 +177,12 @@ type Shell struct {
 	ChangePasswordPrompter         ChangePasswordPrompter
 	PasswordPrompter               PasswordPrompter
 
+	// clientOpts and cookieStore are retained so RemoteLogin can construct an
+	// OIDC device-flow authenticator on demand, reusing the same node URL and
+	// cookie jar as the password authenticator.
+	clientOpts  ClientOpts
+	cookieStore CookieStore
+
 	configFiles      []string
 	configFilesIsSet bool
 	secretsFiles     []string

@@ -53,6 +53,7 @@ func NewTestOIDCAuthenticator(
 		oauth2Config: oauth2Config,
 		lggr:         lggr.Named("OIDCAuthenticationProvider"),
 		auditLogger:  auditLogger,
+		deviceFlows:  newDeviceFlowStore(),
 	}
 
 	return &oidcAuth, nil

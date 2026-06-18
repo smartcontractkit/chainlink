@@ -107,7 +107,8 @@ func NewApp(s *Shell) *cli.App {
 
 		insecureSkipVerify := c.Bool("insecure-skip-verify")
 		clientOpts := ClientOpts{RemoteNodeURL: *remoteNodeURL, InsecureSkipVerify: insecureSkipVerify}
-		cookieAuth := NewSessionCookieAuthenticator(clientOpts, DiskCookieStore{Config: cookieJar}, s.Logger)
+		cookieStore := DiskCookieStore{Config: cookieJar}
+		cookieAuth := NewSessionCookieAuthenticator(clientOpts, cookieStore, s.Logger)
 		sessionRequestBuilder := NewFileSessionRequestBuilder(s.Logger)
 
 		credentialsFile := c.String("admin-credentials-file")
@@ -119,6 +120,8 @@ func NewApp(s *Shell) *cli.App {
 		s.HTTP = NewAuthenticatedHTTPClient(s.Logger, clientOpts, cookieAuth, sr)
 		s.CookieAuthenticator = cookieAuth
 		s.FileSessionRequestBuilder = sessionRequestBuilder
+		s.clientOpts = clientOpts
+		s.cookieStore = cookieStore
 
 		// Allow for initServerConfig to be called if the flag is provided.
 		if c.Bool("applyInitServerConfig") {

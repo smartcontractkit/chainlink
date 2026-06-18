@@ -49,6 +49,7 @@ type oidcAuthenticator struct {
 	oauth2Config *oauth2.Config
 	lggr         logger.Logger
 	auditLogger  audit.AuditLogger
+	deviceFlows  *deviceFlowStore
 }
 
 // ExchangeTokenRequest represents the expected JSON payload from the frontend
@@ -66,6 +67,30 @@ type ExchangeTokenResponse struct {
 // oidcAuthenticator implements sessions.AuthenticationProvider interface
 var _ clsessions.AuthenticationProvider = (*oidcAuthenticator)(nil)
 
+// validateOIDCConfig checks the required OIDC fields at startup. ClientSecret is
+// intentionally NOT required: confidential clients (Okta "Web" apps) set it and
+// it is sent on the token exchange, while public clients (Okta "Native" apps,
+// which the CLI device flow needs) leave it empty and rely on PKCE instead.
+func validateOIDCConfig(oidcCfg config.OIDC) error {
+	if oidcCfg.AdminClaim() == "" || oidcCfg.EditClaim() == "" ||
+		oidcCfg.RunClaim() == "" || oidcCfg.ReadClaim() == "" {
+		return errors.New("OIDC Group name mapping for callback group claims for all local RBAC role required. Set group names for `_Claim` fields")
+	}
+	if oidcCfg.ClientID() == "" {
+		return errors.New("OIDC ClientID config required")
+	}
+	if oidcCfg.ProviderURL() == "" {
+		return errors.New("OIDC ProviderURL config required")
+	}
+	if oidcCfg.RedirectURL() == "" {
+		return errors.New("OIDC RedirectURL config required")
+	}
+	if oidcCfg.ClaimName() == "" {
+		return errors.New("OIDC ClaimName config required")
+	}
+	return nil
+}
+
 func NewOIDCAuthenticator(
 	ds sqlutil.DataSource,
 	oidcCfg config.OIDC,
@@ -74,24 +99,8 @@ func NewOIDCAuthenticator(
 ) (*oidcAuthenticator, error) {
 	// Ensure all RBAC role mappings to OIDC Id claims are defined, and required fields populated, or error on startup
 	lggr.Debugf("OIDC CFG:\n %#v\n", oidcCfg)
-	if oidcCfg.AdminClaim() == "" || oidcCfg.EditClaim() == "" ||
-		oidcCfg.RunClaim() == "" || oidcCfg.ReadClaim() == "" {
-		return nil, errors.New("OIDC Group name mapping for callback group claims for all local RBAC role required. Set group names for `_Claim` fields")
-	}
-	if oidcCfg.ClientID() == "" {
-		return nil, errors.New("OIDC ClientID config required")
-	}
-	if oidcCfg.ClientSecret() == "" {
-		return nil, errors.New("OIDC ClientSecret config required")
-	}
-	if oidcCfg.ProviderURL() == "" {
-		return nil, errors.New("OIDC ProviderURL config required")
-	}
-	if oidcCfg.RedirectURL() == "" {
-		return nil, errors.New("OIDC RedirectURL config required")
-	}
-	if oidcCfg.ClaimName() == "" {
-		return nil, errors.New("OIDC ClaimName config required")
+	if err := validateOIDCConfig(oidcCfg); err != nil {
+		return nil, err
 	}
 
 	var provider *oidc.Provider
@@ -126,6 +135,7 @@ func NewOIDCAuthenticator(
 		oauth2Config: oauth2Config,
 		lggr:         lggr.Named("OIDCAuthenticationProvider"),
 		auditLogger:  auditLogger,
+		deviceFlows:  newDeviceFlowStore(),
 	}
 
 	return &oidcAuth, nil
@@ -145,10 +155,16 @@ func (oi *oidcAuthenticator) handleCheckEnabled(c *gin.Context) {
 }
 
 func (oi *oidcAuthenticator) handleSignIn(c *gin.Context) {
-	// generate state and store on session
+	// generate state and a PKCE verifier, store both on the session. PKCE (RFC
+	// 7636) is sent unconditionally: it is additive hardening for confidential
+	// clients and the sole proof-of-possession for public clients that carry no
+	// secret. The challenge derived from the verifier travels to the provider;
+	// the verifier stays server-side until the exchange.
 	state := oi.generateState()
+	verifier := oauth2.GenerateVerifier()
 	session := sessions.Default(c)
 	session.Set("state", state)
+	session.Set("pkce_verifier", verifier)
 	err := session.Save()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save session"})
@@ -156,7 +172,7 @@ func (oi *oidcAuthenticator) handleSignIn(c *gin.Context) {
 	}
 
 	// redirect to provider
-	url := oi.oauth2Config.AuthCodeURL(state, oauth2.AccessTypeOffline)
+	url := oi.oauth2Config.AuthCodeURL(state, oauth2.AccessTypeOffline, oauth2.S256ChallengeOption(verifier))
 	c.Redirect(http.StatusFound, url)
 }
 
@@ -183,9 +199,22 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 	}
 	ginSession.Delete("state")
 
-	// Begin token exchange to retrieve attested claims of authenticated user
+	// Recover the PKCE verifier stored at sign-in and bind it to this exchange.
+	storedVerifier, _ := ginSession.Get("pkce_verifier").(string)
+	ginSession.Delete("pkce_verifier")
+	if storedVerifier == "" {
+		c.JSON(http.StatusBadRequest, ExchangeTokenResponse{
+			Success: false,
+			Message: "Missing PKCE verifier",
+		})
+		return
+	}
+
+	// Begin token exchange to retrieve attested claims of authenticated user.
+	// VerifierOption proves possession of the value whose challenge was sent at
+	// sign-in; for public clients this replaces the client secret.
 	ctx := context.Background()
-	oauth2Token, err := oi.oauth2Config.Exchange(ctx, req.Code)
+	oauth2Token, err := oi.oauth2Config.Exchange(ctx, req.Code, oauth2.VerifierOption(storedVerifier))
 	if err != nil {
 		oi.lggr.Errorf("Failed to exchange token: %v", err)
 		c.JSON(http.StatusInternalServerError, ExchangeTokenResponse{
@@ -203,66 +232,14 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 		return
 	}
 
-	// Verify claim and retrieve attested user id claims
-	idToken, err := oi.provider.Verifier(oi.oidcConfig).Verify(ctx, rawIDToken)
+	sessionID, _, err := oi.issueSessionFromIDToken(ctx, rawIDToken)
 	if err != nil {
-		oi.lggr.Errorf("Failed to verify ID token: %v", err)
-		c.String(http.StatusInternalServerError, "Failed to verify ID token")
+		oi.handleIssueSessionError(c, err)
 		return
 	}
-
-	var claims map[string]any
-	if err = idToken.Claims(&claims); err != nil {
-		oi.lggr.Errorf("Failed to parse OIDC return claims: %v", err)
-		c.String(http.StatusInternalServerError, "Failed to parse OIDC return claims")
-		return
-	}
-	idClaims, err := oi.ExtractIDClaimValues(claims, oi.config.ClaimName())
-	if err != nil {
-		oi.lggr.Errorf("Failed to extract ID claims from ID token. ClaimName: '%s': error %v", oi.config.ClaimName(), err)
-		c.String(http.StatusInternalServerError, "Failed to extract ID claims from claims")
-		return
-	}
-	email, ok := claims["email"].(string)
-	if !ok {
-		oi.lggr.Errorf("Failed to get email from claims. error: %v", err)
-		c.String(http.StatusInternalServerError, "Failed to get email from claims")
-	}
-	oi.lggr.Tracef("Received and validated ID claims: %v\n", idClaims)
-
-	// Map the claims to a role and insert a newly created session paired with role mapping for user
-	role, err := oi.IDClaimsToUserRole(
-		idClaims,
-		oi.config.AdminClaim(),
-		oi.config.EditClaim(),
-		oi.config.RunClaim(),
-		oi.config.ReadClaim(),
-	)
-	if err != nil {
-		oi.lggr.Errorf("Failed to map configured RBAC role name against received list of group claims: %v", err)
-		c.String(http.StatusBadRequest, "No matching role within attested user group claims")
-		return
-	}
-
-	// Save new user authenticated clSession and role to oidc_sessions table
-	// Sessions are set to expire after the duration + creation date elapsed
-	clSession := clsessions.NewSession()
-	_, err = oi.ds.ExecContext(
-		ctx,
-		"INSERT INTO oidc_sessions (id, user_email, user_role, created_at) VALUES ($1, $2, $3, now())",
-		clSession.ID,
-		strings.ToLower(email),
-		role,
-	)
-	if err != nil {
-		oi.lggr.Errorf("unable to create new session in oidc_sessions table %v", err)
-		c.String(http.StatusInternalServerError, "Error creating session")
-	}
-
-	oi.auditLogger.Audit(audit.AuthLoginSuccessNo2FA, map[string]any{"email": email})
 
 	// save session
-	ginSession.Set(webauth.SessionIDKey, clSession.ID)
+	ginSession.Set(webauth.SessionIDKey, sessionID)
 	err = ginSession.Save()
 	if err != nil {
 		oi.lggr.Errorf("failed to saved session %v", err)
@@ -273,6 +250,83 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 	c.JSON(http.StatusOK, ExchangeTokenResponse{
 		Success: true,
 	})
+}
+
+// errNoMatchingRole signals that a verified token carried no group claim that
+// maps to a local RBAC role. Callers translate it to a 4xx (the token was
+// valid, the user simply lacks an authorised group), distinct from a 5xx for
+// genuine verification or storage failures.
+var errNoMatchingRole = errors.New("no matching role within attested user group claims")
+
+// issueSessionFromIDToken is the single trusted path that turns a raw OIDC
+// id_token into an oidc_sessions row. Both the browser auth-code exchange and
+// the CLI device flow funnel through here so verification, claim extraction,
+// role mapping, and session creation never diverge between the two. It returns
+// the new session ID and the authenticated email.
+func (oi *oidcAuthenticator) issueSessionFromIDToken(ctx context.Context, rawIDToken string) (string, string, error) {
+	// Verify signature, issuer, expiry, and audience (pinned to ClientID).
+	idToken, err := oi.provider.Verifier(oi.oidcConfig).Verify(ctx, rawIDToken)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to verify ID token: %w", err)
+	}
+
+	var claims map[string]any
+	if err = idToken.Claims(&claims); err != nil {
+		return "", "", fmt.Errorf("failed to parse OIDC return claims: %w", err)
+	}
+
+	idClaims, err := oi.ExtractIDClaimValues(claims, oi.config.ClaimName())
+	if err != nil {
+		return "", "", fmt.Errorf("failed to extract ID claims for claim name '%s': %w", oi.config.ClaimName(), err)
+	}
+
+	email, ok := claims["email"].(string)
+	if !ok {
+		return "", "", errors.New("failed to get email from claims")
+	}
+	oi.lggr.Tracef("Received and validated ID claims: %v\n", idClaims)
+
+	role, err := oi.IDClaimsToUserRole(
+		idClaims,
+		oi.config.AdminClaim(),
+		oi.config.EditClaim(),
+		oi.config.RunClaim(),
+		oi.config.ReadClaim(),
+	)
+	if err != nil {
+		// Audit the full claim set so an over-broad or unexpected group grant is
+		// detectable after the fact.
+		oi.auditLogger.Audit(audit.AuthLoginFailed2FA, map[string]any{"email": email, "groups": idClaims})
+		return "", "", fmt.Errorf("%w: %v", errNoMatchingRole, err)
+	}
+
+	clSession := clsessions.NewSession()
+	_, err = oi.ds.ExecContext(
+		ctx,
+		"INSERT INTO oidc_sessions (id, user_email, user_role, created_at) VALUES ($1, $2, $3, now())",
+		clSession.ID,
+		strings.ToLower(email),
+		role,
+	)
+	if err != nil {
+		return "", "", fmt.Errorf("unable to create new session in oidc_sessions table: %w", err)
+	}
+
+	oi.auditLogger.Audit(audit.AuthLoginSuccessNo2FA, map[string]any{"email": email, "role": role})
+	return clSession.ID, email, nil
+}
+
+// handleIssueSessionError maps an issueSessionFromIDToken error to the HTTP
+// status the browser exchange returns: a missing/invalid role is a client-side
+// 400, everything else is a 500.
+func (oi *oidcAuthenticator) handleIssueSessionError(c *gin.Context, err error) {
+	if errors.Is(err, errNoMatchingRole) {
+		oi.lggr.Errorf("Failed to map configured RBAC role name against received list of group claims: %v", err)
+		c.String(http.StatusBadRequest, "No matching role within attested user group claims")
+		return
+	}
+	oi.lggr.Errorf("Failed to establish OIDC session: %v", err)
+	c.String(http.StatusInternalServerError, "Failed to establish OIDC session")
 }
 
 // FindUser in the context of the OIDC driver only supports local admin users
@@ -655,6 +709,9 @@ func (oi *oidcAuthenticator) ExtendRouter(api *gin.RouterGroup) error {
 	api.GET("/oidc-enabled", oi.handleCheckEnabled)
 	api.GET("/oidc-login", oi.handleSignIn)
 	api.POST("/oidc-exchange", oi.handleTokenExchange)
+	// Device authorization grant for headless clients (the CLI).
+	api.POST("/oidc-device/start", oi.handleDeviceStart)
+	api.POST("/oidc-device/poll", oi.handleDevicePoll)
 
 	return nil
 }
