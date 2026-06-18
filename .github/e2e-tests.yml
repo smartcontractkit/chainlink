@@ -222,4 +222,5 @@ runner-test-matrix:
       E2E_JD_VERSION: 0.9.0
       CCIP_V16_TEST_ENV: docker
     test_go_project_path: integration-tests
+    free_disk_space: true
   # END: CCIPv1.6 tests
