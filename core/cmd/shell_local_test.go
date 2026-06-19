@@ -742,11 +742,6 @@ func TestShell_RunNode_WithBeforeNode(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
 			keyStore := cltest.NewKeyStore(t, db)
 
-			pwd, err := utils.PasswordFromFile(test.pwdfile)
-			require.NoError(t, err)
-
-			require.NoError(t, keyStore.Unlock(testing.TB.Context(t), pwd))
-
 			authProviderORM := localauth.NewORM(db, time.Minute, logger.TestLogger(t), audit.NoopLogger)
 
 			testRelayers := genTestEVMRelayers(t, cfg, db, keyStore.Eth(), &keystore.CSASigner{CSA: keyStore.CSA()})
@@ -791,7 +786,7 @@ func TestShell_RunNode_WithBeforeNode(t *testing.T) {
 
 			// First initialize components (this includes authentication)
 			cliApp := cmd.NewApp(&shell)
-			err = cliApp.Before(c)
+			err := cliApp.Before(c)
 			require.NoError(t, err)
 
 			err = shell.BeforeNode(c)
