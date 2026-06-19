@@ -6,6 +6,8 @@ const (
 	WorkflowStatusChanged string = "WorkflowStatusChanged"
 	// WorkflowActivated represents a workflow activated event
 	WorkflowActivated string = "WorkflowActivated"
+	// WorkflowActivationAbandoned represents a terminal activation failure (no further retries)
+	WorkflowActivationAbandoned string = "WorkflowActivationAbandoned"
 	// WorkflowPaused represents a workflow paused event
 	WorkflowPaused string = "WorkflowPaused"
 	// WorkflowDeleted represents a workflow deleted event
@@ -51,7 +53,8 @@ const (
 	SchemaTriggerStartedV2     string = "/cre-events-trigger-started/v2"
 	SchemaUserLogsV2           string = "/cre-events-user-logs/v2"
 	SchemaUserMetricV2         string = "/cre-events-user-metric/v2"
-	SchemaWorkflowActivatedV2  string = "/cre-events-workflow-activated/v2"
+	SchemaWorkflowActivatedV2           string = "/cre-events-workflow-activated/v2"
+	SchemaWorkflowActivationAbandonedV2 string = "/cre-events-workflow-activation-abandoned/v2"
 	SchemaWorkflowPausedV2     string = "/cre-events-workflow-paused/v2"
 	SchemaWorkflowDeletedV2    string = "/cre-events-workflow-deleted/v2"
 

@@ -73,6 +73,10 @@ func (m *testEvtHandler) Handle(ctx context.Context, event Event) error {
 	return nil
 }
 
+func (m *testEvtHandler) EmitActivationAbandoned(context.Context, Event, string, error, int) error {
+	return nil
+}
+
 func (m *testEvtHandler) ClearEvents() {
 	m.mux.Lock()
 	defer m.mux.Unlock()

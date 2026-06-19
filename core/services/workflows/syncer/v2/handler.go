@@ -930,7 +930,7 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 
 	decodedBinary, err := hex.DecodeString(spec.Workflow)
 	if err != nil {
-		return fmt.Errorf("failed to decode workflow spec binary: %w", err)
+		return nonRetryable(fmt.Errorf("failed to decode workflow spec binary: %w", err))
 	}
 	// Free the hex-encoded binary string as it is not needed beyond this decode
 	spec.Workflow = ""
@@ -942,7 +942,7 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	// Workflow ID should match what is generated from the stored artifacts
 	ownerBytes, err := hex.DecodeString(spec.WorkflowOwner)
 	if err != nil {
-		return fmt.Errorf("failed to decode owner: %w", err)
+		return nonRetryable(fmt.Errorf("failed to decode owner: %w", err))
 	}
 	configBytes := []byte(spec.Config)
 	hash, err := pkgworkflows.GenerateWorkflowID(ownerBytes, spec.WorkflowName, decodedBinary, configBytes, secretsURL)
@@ -951,16 +951,16 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	}
 	wid, err := types.WorkflowIDFromHex(spec.WorkflowID)
 	if err != nil {
-		return fmt.Errorf("invalid workflow id: %w", err)
+		return nonRetryable(fmt.Errorf("invalid workflow id: %w", err))
 	}
 	if !types.WorkflowID(hash).Equal(wid) {
-		return fmt.Errorf("workflowID mismatch: %x != %x", hash, wid)
+		return nonRetryable(fmt.Errorf("workflowID mismatch: %x != %x", hash, wid))
 	}
 
 	// Start a new WorkflowEngine instance, and add it to local engine registry
 	workflowName, err := types.NewWorkflowName(spec.WorkflowName)
 	if err != nil {
-		return fmt.Errorf("invalid workflow name: %w", err)
+		return nonRetryable(fmt.Errorf("invalid workflow name: %w", err))
 	}
 
 	// Create a channel to receive the initialization result.
@@ -1112,6 +1112,53 @@ func logCustMsg(ctx context.Context, cma custmsg.MessageEmitter, msg string, log
 	if err != nil {
 		logger.Helper(log, 1).Errorf("failed to send custom message with msg: %s, err: %v", msg, err)
 	}
+}
+
+func (h *eventHandler) EmitActivationAbandoned(
+	ctx context.Context,
+	event Event,
+	reason string,
+	activationErr error,
+	retryCount int,
+) error {
+	if event.Name != WorkflowActivated || h == nil || h.emitter == nil {
+		return nil
+	}
+
+	payload, ok := event.Data.(WorkflowActivatedEvent)
+	if !ok {
+		return newHandlerTypeError(event.Data)
+	}
+
+	wfID := payload.WorkflowID.Hex()
+	wfOwner := hex.EncodeToString(payload.WorkflowOwner)
+	orgID, ferr := h.fetchOrganizationID(ctx, wfOwner)
+	if ferr != nil {
+		h.lggr.Warnw("Failed to get organization from linking service", "workflowOwner", wfOwner, "error", ferr)
+	}
+
+	h.emitterMu.RLock()
+	cma := h.emitter.With(
+		platform.KeyWorkflowID, wfID,
+		platform.KeyWorkflowName, payload.WorkflowName,
+		platform.KeyWorkflowOwner, wfOwner,
+		platform.KeyWorkflowTag, payload.WorkflowTag,
+		platform.KeyOrganizationID, orgID,
+		platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
+		platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
+		platform.KeyWorkflowSource, payload.Source,
+	)
+	h.emitterMu.RUnlock()
+
+	return events.EmitWorkflowActivationAbandonedV2(
+		ctx,
+		cma.Labels(),
+		payload.BinaryURL,
+		payload.ConfigURL,
+		reason,
+		customerFacingError(activationErr),
+		int32(retryCount),
+	)
 }
 
 func (h *eventHandler) ensureCapRegistryReady(ctx context.Context) error {

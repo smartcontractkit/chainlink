@@ -1408,7 +1408,7 @@ MaxEncryptedSecretsSize = '26.40kb' # Default
 MaxConfigSize = '50.00kb' # Default
 SyncStrategy = 'event' # Default
 MaxConcurrency = 12 # Default
-MaxActivationRetries = 10 # Default
+MaxActivationRetries = 100 # Default
 ```
 
 
@@ -1469,7 +1469,7 @@ MaxConcurrency controls the maximum number of concurrent event handlers in the w
 
 ### MaxActivationRetries
 ```toml
-MaxActivationRetries = 10 # Default
+MaxActivationRetries = 100 # Default
 ```
 MaxActivationRetries is the number of failed load/initialization attempts before the syncer stops retrying an active workflow. 0 disables the limit.
 

@@ -2,7 +2,9 @@ package v2
 
 import (
 	"testing"
+	"time"
 
+	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,6 +29,21 @@ func Test_activationRetriesExhausted(t *testing.T) {
 			require.Equal(t, tt.want, activationRetriesExhausted(tt.retryCount, tt.maxActivationRetries))
 		})
 	}
+}
+
+func Test_scheduleRetry(t *testing.T) {
+	t.Parallel()
+
+	clock := clockwork.NewFakeClockAt(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+	evt := &reconciliationEvent{retryCount: 0}
+
+	evt.scheduleRetry(clock, 12*time.Second, 5*time.Minute, false)
+	require.Equal(t, 0, evt.retryCount)
+	require.Equal(t, clock.Now().Add(12*time.Second), evt.nextRetryAt)
+
+	evt.scheduleRetry(clock, 12*time.Second, 5*time.Minute, true)
+	require.Equal(t, 1, evt.retryCount)
+	require.Equal(t, clock.Now().Add(24*time.Second), evt.nextRetryAt)
 }
 
 func Test_droppedActivations(t *testing.T) {

@@ -16,8 +16,10 @@ type reconciliationEvent struct {
 	retryCount  int
 }
 
-func (r *reconciliationEvent) updateNextRetryFor(clock clockwork.Clock, retryInterval time.Duration, maxRetryInterval time.Duration) {
-	r.retryCount++
+func (r *reconciliationEvent) scheduleRetry(clock clockwork.Clock, retryInterval time.Duration, maxRetryInterval time.Duration, countTowardCap bool) {
+	if countTowardCap {
+		r.retryCount++
+	}
 	nextRetry := math.Pow(2, float64(r.retryCount)) * float64(retryInterval)
 	nextRetry = math.Min(float64(maxRetryInterval), nextRetry)
 	r.nextRetryAt = clock.Now().Add(time.Duration(nextRetry))
