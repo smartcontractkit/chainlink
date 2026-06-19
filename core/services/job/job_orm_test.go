@@ -966,7 +966,7 @@ func TestORM_CreateJob_OCR2_Sending_Keys_Transmitter_Keys_Validations(t *testing
 }
 
 func TestORM_ValidateKeyStoreMatch(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := testing.TB.Context(t)
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {})
 
 	keyStore := cltest.NewKeyStore(t, pgtest.NewSqlxDB(t))
@@ -1063,8 +1063,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	//nolint:paralleltest same instance
-	t.Run("test Stellar key validation", func(t *testing.T) {
+	t.Run("test Stellar key validation", func(t *testing.T) { //nolint:paralleltest // same instance
 		ctx := testing.TB.Context(t)
 		jb.OCR2OracleSpec.Relay = relay.NetworkStellar
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
