@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	remoteMocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
@@ -132,6 +133,7 @@ func TestLauncher(t *testing.T) {
 			dispatcher,
 			registry,
 			&mockDonNotifier{},
+			nil,
 		)
 		require.NoError(t, err)
 		require.NoError(t, launcher.Start(t.Context()))
@@ -181,6 +183,7 @@ func TestLauncher(t *testing.T) {
 			dispatcher,
 			registry,
 			&mockDonNotifier{},
+			nil,
 		)
 		require.NoError(t, err)
 		require.NoError(t, launcher.Start(t.Context()))
@@ -225,6 +228,7 @@ func TestLauncher(t *testing.T) {
 			dispatcher,
 			registry,
 			&mockDonNotifier{},
+			nil,
 		)
 		require.NoError(t, err)
 		require.NoError(t, launcher.Start(t.Context()))
@@ -248,6 +252,7 @@ func TestLauncher(t *testing.T) {
 			dispatcher,
 			registry,
 			&mockDonNotifier{},
+			nil,
 		)
 		require.NoError(t, err)
 		require.NoError(t, launcher.Start(t.Context()))
@@ -329,7 +334,7 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 		dispatcher,
 		registry,
 		&mockDonNotifier{},
-		nil,
+		limits.NewTimeLimiter(time.Millisecond),
 	)
 	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
@@ -373,7 +378,7 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 		},
 	}
 	triggerEventCallbackCh, err := remoteTriggerSubscriber.RegisterTrigger(ctx, req)
-	require.NoError(t, err)
+	require.ErrorIs(t, err, capabilities.ErrUnableToDetermineRegistrationStatus)
 	<-awaitRegistrationMessageCh
 
 	// Receive trigger event
