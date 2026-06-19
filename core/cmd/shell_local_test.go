@@ -741,7 +741,6 @@ func TestShell_RunNode_WithBeforeNode(t *testing.T) {
 
 			db := pgtest.NewSqlxDB(t)
 			keyStore := cltest.NewKeyStore(t, db)
-
 			authProviderORM := localauth.NewORM(db, time.Minute, logger.TestLogger(t), audit.NoopLogger)
 
 			testRelayers := genTestEVMRelayers(t, cfg, db, keyStore.Eth(), &keystore.CSASigner{CSA: keyStore.CSA()})
