@@ -37,6 +37,7 @@ func Test_service_newOCR2ConfigMsg_OnchainSigningPubKey(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, msg.OcrKeyBundle)
 		assert.Equal(t, evmKb.OnChainPublicKey(), msg.OcrKeyBundle.OnchainSigningAddress)
+		assert.Equal(t, rawPubKey, msg.OcrKeyBundle.OnchainSigningPubKey)
 	})
 
 	t.Run("non-EVM key bundle omits raw onchain signing pub key", func(t *testing.T) {
