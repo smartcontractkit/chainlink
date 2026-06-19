@@ -1,0 +1,9 @@
+[Webserver]
+HTTPPort = 6688
+
+[[Stellar]]
+ChainID = 'cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472'
+
+[[Stellar.Nodes]]
+Name = 'primary'
+URL  = 'https://soroban-testnet.stellar.org'
