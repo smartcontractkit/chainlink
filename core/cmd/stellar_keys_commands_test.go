@@ -55,6 +55,7 @@ func TestStellarKeyPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, pubKey)
 }
 
+//nolint:paralleltest // subtests share a single keystore/application instance
 func TestShell_StellarKeys(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().Stellar()
@@ -68,6 +69,7 @@ func TestShell_StellarKeys(t *testing.T) {
 		requireStellarKeyCount(t, app, 0)
 	}
 
+	//nolint:paralleltest // subtests share a single keystore/application instance
 	t.Run("ListStellarKeys", func(tt *testing.T) {
 		defer cleanup()
 		ctx := tt.Context()
@@ -75,12 +77,13 @@ func TestShell_StellarKeys(t *testing.T) {
 		key, err := app.GetKeyStore().Stellar().Create(ctx)
 		require.NoError(t, err)
 		requireStellarKeyCount(t, app, 1)
-		assert.NoError(t, cmd.NewStellarKeysClient(client).ListKeys(cltest.EmptyCLIContext()))
+		require.NoError(t, cmd.NewStellarKeysClient(client).ListKeys(cltest.EmptyCLIContext()))
 		require.Len(t, r.Renders, 1)
 		keys := *r.Renders[0].(*cmd.StellarKeyPresenters)
 		assert.Equal(t, key.PublicKeyStr(), keys[0].PubKey)
 	})
 
+	//nolint:paralleltest // subtests share a single keystore/application instance
 	t.Run("CreateStellarKey", func(tt *testing.T) {
 		defer cleanup()
 		client, _ := app.NewShellAndRenderer()
@@ -90,6 +93,7 @@ func TestShell_StellarKeys(t *testing.T) {
 		require.Len(t, keys, 1)
 	})
 
+	//nolint:paralleltest // subtests share a single keystore/application instance
 	t.Run("DeleteStellarKey", func(tt *testing.T) {
 		defer cleanup()
 		ctx := tt.Context()
@@ -111,6 +115,7 @@ func TestShell_StellarKeys(t *testing.T) {
 		requireStellarKeyCount(t, app, 0)
 	})
 
+	//nolint:paralleltest // subtests share a single keystore/application instance
 	t.Run("ImportExportStellarKey", func(tt *testing.T) {
 		defer cleanup()
 		defer deleteKeyExportFile(t)

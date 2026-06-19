@@ -25,7 +25,7 @@ func NewStellarKeyResource(key stellarkey.Key) *StellarKeyResource {
 }
 
 func NewStellarKeyResources(keys []stellarkey.Key) []StellarKeyResource {
-	rs := []StellarKeyResource{}
+	var rs = make([]StellarKeyResource, len(keys))
 	for _, key := range keys {
 		rs = append(rs, *NewStellarKeyResource(key))
 	}
