@@ -745,7 +745,7 @@ func TestShell_RunNode_WithBeforeNode(t *testing.T) {
 			pwd, err := utils.PasswordFromFile("../internal/fixtures/correct_password.txt")
 			require.NoError(t, err)
 
-			require.NoError(t, keyStore.Unlock(testutils.Context(t), pwd))
+			require.NoError(t, keyStore.Unlock(testing.TB.Context(t), pwd))
 
 			authProviderORM := localauth.NewORM(db, time.Minute, logger.TestLogger(t), audit.NoopLogger)
 

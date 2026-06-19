@@ -1063,6 +1063,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	//nolint:paralleltest same instance
 	t.Run("test Stellar key validation", func(t *testing.T) {
 		ctx := testing.TB.Context(t)
 		jb.OCR2OracleSpec.Relay = relay.NetworkStellar

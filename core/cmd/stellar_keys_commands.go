@@ -39,7 +39,7 @@ type StellarKeyPresenters []StellarKeyPresenter
 // RenderTable implements TableRenderer
 func (ps StellarKeyPresenters) RenderTable(rt RendererTable) error {
 	headers := []string{"ID", "Stellar Public Key"}
-	var rows [][]string
+	rows := make([][]string, 0, len(ps))
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())
