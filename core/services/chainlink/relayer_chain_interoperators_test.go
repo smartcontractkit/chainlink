@@ -208,7 +208,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					expectedChainCnt, expectedNodeCnt = tt.expectedStarknetChainCnt, tt.expectedStarknetNodeCnt
 				case relay.NetworkDummy:
 					expectedChainCnt, expectedNodeCnt = tt.expectedDummyChainCnt, tt.expectedDummyNodeCnt
-				case relay.NetworkAptos:
+				case relay.Net:
 					t.Skip("aptos doesn't need a CoreRelayerChainInteroperator")
 				case relay.NetworkTron:
 					t.Skip("tron doesn't need a CoreRelayerChainInteroperator")
@@ -216,7 +216,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					t.Skip("ton doesn't need a CoreRelayerChainInteroperator")
 				case relay.NetworkSui:
 					t.Skip("sui doesn't need a CoreRelayerChainInteroperator")
-
+				case relay.NetworkStellar:
+					t.Skip("stellar doesn't need a CoreRelayerChainInteroperator")
 				default:
 					require.Fail(t, "untested relay network", relayNetwork)
 				}
