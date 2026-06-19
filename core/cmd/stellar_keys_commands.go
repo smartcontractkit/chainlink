@@ -3,6 +3,7 @@ package cmd
 import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/stellarkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
@@ -38,7 +39,7 @@ type StellarKeyPresenters []StellarKeyPresenter
 // RenderTable implements TableRenderer
 func (ps StellarKeyPresenters) RenderTable(rt RendererTable) error {
 	headers := []string{"ID", "Stellar Public Key"}
-	rows := [][]string{}
+	var rows [][]string
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())

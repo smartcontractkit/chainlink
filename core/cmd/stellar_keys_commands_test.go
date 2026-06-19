@@ -56,6 +56,7 @@ func TestStellarKeyPresenter_RenderTable(t *testing.T) {
 }
 
 func TestShell_StellarKeys(t *testing.T) {
+	t.Parallel()
 	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().Stellar()
 	cleanup := func() {
@@ -69,6 +70,7 @@ func TestShell_StellarKeys(t *testing.T) {
 	}
 
 	t.Run("ListStellarKeys", func(tt *testing.T) {
+		t.Parallel()
 		defer cleanup()
 		ctx := testing.TB.Context(t)
 		client, r := app.NewShellAndRenderer()
@@ -82,6 +84,7 @@ func TestShell_StellarKeys(t *testing.T) {
 	})
 
 	t.Run("CreateStellarKey", func(tt *testing.T) {
+		t.Parallel()
 		defer cleanup()
 		client, _ := app.NewShellAndRenderer()
 		require.NoError(t, cmd.NewStellarKeysClient(client).CreateKey(nilContext))
@@ -91,6 +94,7 @@ func TestShell_StellarKeys(t *testing.T) {
 	})
 
 	t.Run("DeleteStellarKey", func(tt *testing.T) {
+		t.Parallel()
 		defer cleanup()
 		ctx := testing.TB.Context(t)
 		client, _ := app.NewShellAndRenderer()
@@ -112,6 +116,7 @@ func TestShell_StellarKeys(t *testing.T) {
 	})
 
 	t.Run("ImportExportStellarKey", func(tt *testing.T) {
+		t.Parallel()
 		defer cleanup()
 		defer deleteKeyExportFile(t)
 		ctx := testing.TB.Context(t)
