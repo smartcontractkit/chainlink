@@ -4,11 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
-
-	"slices"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -133,13 +132,19 @@ type ServerRequest struct {
 	mux  sync.Mutex
 	lggr logger.Logger
 
-	metrics *srMetrics
+	metrics          *srMetrics
+	parallelExecutor ParallelExecutor
+}
+
+type ParallelExecutor interface {
+	ExecuteTask(ctx context.Context, fn func(ctx context.Context)) error
 }
 
 func NewServerRequest(capability capabilities.ExecutableCapability, method string, capabilityID string, capabilityDonID uint32,
 	capabilityPeerID p2ptypes.PeerID,
 	callingDon capabilities.DON, requestID string,
-	dispatcher types.Dispatcher, requestTimeout time.Duration, capMethodName string, lggr logger.Logger) (*ServerRequest, error) {
+	dispatcher types.Dispatcher, requestTimeout time.Duration, capMethodName string, lggr logger.Logger,
+	parallelExecutor ParallelExecutor) (*ServerRequest, error) {
 	lggr = logger.With(logger.Named(lggr, "ServerRequest"), "requestID", requestID) // cap ID and method name included in the parent logger
 
 	m, err := newSrMetrics(capabilityID, callingDon.ID)
@@ -163,6 +168,7 @@ func NewServerRequest(capability capabilities.ExecutableCapability, method strin
 		capMethodName:           capMethodName,
 		lggr:                    lggr,
 		metrics:                 m,
+		parallelExecutor:        parallelExecutor,
 	}, nil
 }
 
@@ -191,7 +197,10 @@ func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) e
 	if e.minimumRequiredRequestsReceived() && !e.hasResponse() {
 		switch e.method {
 		case types.MethodExecute:
-			e.executeRequest(ctx, msg, executeCapabilityRequest)
+			err = e.parallelExecutor.ExecuteTask(ctx, func(ctx context.Context) {
+				e.executeRequest(ctx, msg, executeCapabilityRequest)
+			})
+			return fmt.Errorf("failed to execute capability request: %w", err)
 		default:
 			e.setError(types.Error_INTERNAL_ERROR, "unknown method %s"+e.method)
 		}

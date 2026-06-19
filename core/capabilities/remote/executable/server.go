@@ -293,7 +293,7 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 		}
 
 		sr, ierr := request.NewServerRequest(cfg.underlying, msg.Method, cfg.capInfo.ID, cfg.localDonInfo.ID, r.peerID,
-			callingDon, messageID, r.dispatcher, cfg.remoteExecutableConfig.RequestTimeout, r.capMethodName, r.lggr)
+			callingDon, messageID, r.dispatcher, cfg.remoteExecutableConfig.RequestTimeout, r.capMethodName, r.lggr, r.parallelExecutor)
 		if ierr != nil {
 			r.lggr.Errorw("failed to instantiate server request", "err", ierr)
 			return
@@ -306,14 +306,9 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 	}
 
 	reqAndMsgID := r.requestIDToRequest[requestID]
-	if executeTaskErr := r.parallelExecutor.ExecuteTask(ctx,
-		func(ctx context.Context) {
-			err = reqAndMsgID.request.OnMessage(ctx, msg)
-			if err != nil {
-				r.lggr.Errorw("failed to execute on message", "messageID", reqAndMsgID.messageID, "err", err)
-			}
-		}); executeTaskErr != nil {
-		r.lggr.Errorw("failed to execute on message task", "messageID", messageID, "err", executeTaskErr)
+	err = reqAndMsgID.request.OnMessage(ctx, msg)
+	if err != nil {
+		r.lggr.Errorw("failed to execute on message", "messageID", reqAndMsgID.messageID, "err", err)
 	}
 }
 
