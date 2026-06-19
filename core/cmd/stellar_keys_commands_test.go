@@ -70,9 +70,9 @@ func TestShell_StellarKeys(t *testing.T) {
 	}
 
 	t.Run("ListStellarKeys", func(tt *testing.T) {
-		t.Parallel()
+		tt.Parallel()
 		defer cleanup()
-		ctx := testing.TB.Context(t)
+		ctx := tt.Context()
 		client, r := app.NewShellAndRenderer()
 		key, err := app.GetKeyStore().Stellar().Create(ctx)
 		require.NoError(t, err)
@@ -84,7 +84,7 @@ func TestShell_StellarKeys(t *testing.T) {
 	})
 
 	t.Run("CreateStellarKey", func(tt *testing.T) {
-		t.Parallel()
+		tt.Parallel()
 		defer cleanup()
 		client, _ := app.NewShellAndRenderer()
 		require.NoError(t, cmd.NewStellarKeysClient(client).CreateKey(nilContext))
@@ -94,9 +94,9 @@ func TestShell_StellarKeys(t *testing.T) {
 	})
 
 	t.Run("DeleteStellarKey", func(tt *testing.T) {
-		t.Parallel()
+		tt.Parallel()
 		defer cleanup()
-		ctx := testing.TB.Context(t)
+		ctx := tt.Context()
 		client, _ := app.NewShellAndRenderer()
 		key, err := app.GetKeyStore().Stellar().Create(ctx)
 		require.NoError(t, err)
@@ -116,10 +116,10 @@ func TestShell_StellarKeys(t *testing.T) {
 	})
 
 	t.Run("ImportExportStellarKey", func(tt *testing.T) {
-		t.Parallel()
+		tt.Parallel()
 		defer cleanup()
 		defer deleteKeyExportFile(t)
-		ctx := testing.TB.Context(t)
+		ctx := tt.Context()
 		client, _ := app.NewShellAndRenderer()
 
 		_, err := app.GetKeyStore().Stellar().Create(ctx)

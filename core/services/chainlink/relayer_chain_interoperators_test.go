@@ -208,7 +208,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					expectedChainCnt, expectedNodeCnt = tt.expectedStarknetChainCnt, tt.expectedStarknetNodeCnt
 				case relay.NetworkDummy:
 					expectedChainCnt, expectedNodeCnt = tt.expectedDummyChainCnt, tt.expectedDummyNodeCnt
-				case relay.Net:
+				case relay.NetworkAptos:
 					t.Skip("aptos doesn't need a CoreRelayerChainInteroperator")
 				case relay.NetworkTron:
 					t.Skip("tron doesn't need a CoreRelayerChainInteroperator")
