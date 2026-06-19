@@ -1,7 +1,7 @@
 name: Vault Audit Commands
 
 # Handles vault audit slash commands from authorized reviewers:
-#   /vault-audit          — run the audit
+#   /vault-audit               — run the audit (dispatches to cre-docs)
 #   /vault-audit skip <reason> — bypass the audit entirely
 #
 # To resolve individual findings, reply /resolved <reason> directly on each
@@ -27,10 +27,6 @@ jobs:
       issues: write
       pull-requests: write
       statuses: write
-    outputs:
-      run_audit: ${{ steps.cmd.outputs.type == 'run' && steps.auth.outputs.authorized == 'true' }}
-      head_sha: ${{ steps.pr.outputs.head_sha }}
-      base_sha: ${{ steps.pr.outputs.base_sha }}
 
     steps:
       - name: Check commenter authorization
@@ -75,7 +71,6 @@ jobs:
       - name: Parse command
         id: cmd
         env:
-          # Pass through env to avoid script injection from untrusted comment body
           COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
           if echo "$COMMENT_BODY" | grep -qP '^/vault-audit skip .+'; then
@@ -111,6 +106,46 @@ jobs:
           > ⚠️ This skip applies to the current HEAD (\`${SHA:0:8}\`). Pushing new vault file changes will re-require an audit."
 
       # ── /vault-audit ─────────────────────────────────────────────────────────
+      - name: Get GATI token for cre-docs dispatch
+        id: gati
+        if: steps.cmd.outputs.type == 'run'
+        uses: smartcontractkit/chainlink-github-actions/apps/setup-github-token@main
+        with:
+          app-id: ${{ secrets.GATI_APP_ID }}
+          private-key: ${{ secrets.GATI_PRIVATE_KEY }}
+          # Needs contents:write on cre-docs to trigger repository_dispatch
+          repositories: cre-docs
+
+      - name: Set commit status pending
+        if: steps.cmd.outputs.type == 'run'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ steps.pr.outputs.head_sha }}
+        run: |
+          gh api "/repos/${REPO}/statuses/${SHA}" \
+            --method POST \
+            -f state=pending \
+            -f context="vault-audit" \
+            -f description="Vault audit queued..."
+
+      - name: Dispatch audit to cre-docs
+        if: steps.cmd.outputs.type == 'run'
+        env:
+          GH_TOKEN: ${{ steps.gati.outputs.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          BASE_SHA: ${{ steps.pr.outputs.base_sha }}
+          CHAINLINK_REPO: ${{ github.repository }}
+        run: |
+          gh api /repos/smartcontractkit/cre-docs/dispatches \
+            --method POST \
+            -f event_type=vault-audit \
+            -F 'client_payload[pr_number]'"=$PR_NUMBER" \
+            -f 'client_payload[head_sha]'"=$HEAD_SHA" \
+            -f 'client_payload[base_sha]'"=$BASE_SHA" \
+            -f 'client_payload[chainlink_repo]'"=$CHAINLINK_REPO"
+
       - name: Acknowledge audit request
         if: steps.cmd.outputs.type == 'run'
         env:
@@ -120,18 +155,3 @@ jobs:
         run: |
           gh pr comment "$PR_NUMBER" \
             --body "🔍 Vault audit triggered by @${COMMENTER} — running now. Results will appear as a new comment when complete."
-
-  # Reusable workflows must be called as a top-level job, not a step
-  run-audit:
-    needs: handle-command
-    if: needs.handle-command.outputs.run_audit == 'true'
-    uses: smartcontractkit/cre-docs/.github/workflows/vault-audit.yml@main
-    with:
-      pr_number: ${{ github.event.issue.number }}
-      head_sha: ${{ needs.handle-command.outputs.head_sha }}
-      base_sha: ${{ needs.handle-command.outputs.base_sha }}
-      chainlink_repo: ${{ github.repository }}
-    secrets:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      CRE_DOCS_TOKEN: ${{ secrets.CRE_DOCS_TOKEN }}
-      CHAINLINK_TOKEN: ${{ github.token }}
