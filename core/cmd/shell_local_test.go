@@ -742,7 +742,7 @@ func TestShell_RunNode_WithBeforeNode(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
 			keyStore := cltest.NewKeyStore(t, db)
 
-			pwd, err := utils.PasswordFromFile("../internal/fixtures/correct_password.txt")
+			pwd, err := utils.PasswordFromFile(test.pwdfile)
 			require.NoError(t, err)
 
 			require.NoError(t, keyStore.Unlock(testing.TB.Context(t), pwd))
