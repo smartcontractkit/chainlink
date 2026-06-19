@@ -206,10 +206,10 @@ func NewApp(s *Shell) *cli.App {
 				keysCommand("Solana", NewSolanaKeysClient(s)),
 				keysCommand("StarkNet", NewStarkNetKeysClient(s)),
 				keysCommand("Aptos", NewAptosKeysClient(s)),
+				keysCommand("Stellar", NewStellarKeysClient(s)),
 				keysCommand("Tron", NewTronKeysClient(s)),
 				keysCommand("TON", NewTONKeysClient(s)),
 				keysCommand("Sui", NewSuiKeysClient(s)),
-				keysCommand("Stellar", NewStellarKeysClient(s)),
 
 				initVRFKeysSubCmd(s),
 			},

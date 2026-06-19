@@ -273,8 +273,6 @@ func (n Node) JDChainConfigs() ([]*nodev1.ChainConfig, error) {
 			ocrtype = corekeys.Sui
 		case chainsel.FamilyTron:
 			ocrtype = corekeys.Tron
-		case chainsel.FamilyStellar:
-			ocrtype = corekeys.Stellar
 		default:
 			return nil, fmt.Errorf("unsupported chain family %v", family)
 		}
