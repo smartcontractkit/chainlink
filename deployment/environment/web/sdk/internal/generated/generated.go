@@ -6397,6 +6397,7 @@ const (
 	OCR2ChainTypeTron     OCR2ChainType = "TRON"
 	OCR2ChainTypeTon      OCR2ChainType = "TON"
 	OCR2ChainTypeSui      OCR2ChainType = "SUI"
+	OCR2ChainTypeStellar  OCR2ChainType = "STELLAR"
 )
 
 var AllOCR2ChainType = []OCR2ChainType{
@@ -6408,6 +6409,7 @@ var AllOCR2ChainType = []OCR2ChainType{
 	OCR2ChainTypeTron,
 	OCR2ChainTypeTon,
 	OCR2ChainTypeSui,
+	OCR2ChainTypeStellar,
 }
 
 // OCR2Spec includes the GraphQL fields of OCR2Spec requested by the fragment OCR2Spec.

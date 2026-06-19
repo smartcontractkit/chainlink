@@ -5,8 +5,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
@@ -14,6 +16,36 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
+
+func TestConfigureOCR3_VerifyPreconditions_ExtraSignerFamilies(t *testing.T) {
+	base := changeset.ConfigureOCR3Input{
+		ContractChainSelector: 1,
+		ContractQualifier:     "q",
+		DON: contracts.DonNodeSet{
+			Name:    "don",
+			NodeIDs: []string{"node-1"},
+		},
+		OracleConfig: &ocr3.OracleConfig{},
+	}
+
+	t.Run("accepts stellar", func(t *testing.T) {
+		in := base
+		in.ExtraSignerFamilies = []string{chain_selectors.FamilyStellar}
+		require.NoError(t, changeset.ConfigureOCR3{}.VerifyPreconditions(cldf.Environment{}, in))
+	})
+
+	t.Run("accepts aptos and solana", func(t *testing.T) {
+		in := base
+		in.ExtraSignerFamilies = []string{chain_selectors.FamilyAptos, chain_selectors.FamilySolana}
+		require.NoError(t, changeset.ConfigureOCR3{}.VerifyPreconditions(cldf.Environment{}, in))
+	})
+
+	t.Run("rejects unknown family", func(t *testing.T) {
+		in := base
+		in.ExtraSignerFamilies = []string{"bogus"}
+		require.Error(t, changeset.ConfigureOCR3{}.VerifyPreconditions(cldf.Environment{}, in))
+	})
+}
 
 func TestConfigureOCR3(t *testing.T) {
 	h := test.NewTestHarness(t)

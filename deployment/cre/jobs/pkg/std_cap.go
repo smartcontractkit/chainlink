@@ -33,10 +33,11 @@ type StandardCapabilityJob struct {
 	UseCapRegOCRConfig    bool          `yaml:"useCapRegOCRConfig"` // if true, use CapabilitiesRegistry instead of legacy OCR3 contract for oracle factory config
 	CapRegVersion         string        `yaml:"capRegVersion"`      // CapabilitiesRegistry contract version (e.g. "2.0.0"); required when useCapRegOCRConfig is true
 
-	ChainSelectorEVM    ChainSelector `yaml:"chainSelectorEVM"`    // used to fetch OCR EVM configs from nodes
-	ChainSelectorAptos  ChainSelector `yaml:"chainSelectorAptos"`  // used to fetch OCR Aptos configs from nodes - optional
-	ChainSelectorSolana ChainSelector `yaml:"chainSelectorSolana"` // used to fetch OCR Solana configs from nodes - optional
-	BootstrapPeers      []string      `yaml:"bootstrapPeers"`      // set as value in the oracle factory
+	ChainSelectorEVM     ChainSelector `yaml:"chainSelectorEVM"`     // used to fetch OCR EVM configs from nodes
+	ChainSelectorAptos   ChainSelector `yaml:"chainSelectorAptos"`   // used to fetch OCR Aptos configs from nodes - optional
+	ChainSelectorSolana  ChainSelector `yaml:"chainSelectorSolana"`  // used to fetch OCR Solana configs from nodes - optional
+	ChainSelectorStellar ChainSelector `yaml:"chainSelectorStellar"` // used to fetch OCR Stellar configs from nodes - optional
+	BootstrapPeers       []string      `yaml:"bootstrapPeers"`       // set as value in the oracle factory
 }
 
 func (s *StandardCapabilityJob) Resolve() (string, error) {

@@ -3,6 +3,7 @@ package confidentialrelay
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -21,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
+	confidentialworkflow "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -222,8 +224,9 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	if err := h.verifyAttestationHash(ctx, att, params, confidentialrelaytypes.DomainSecretsGet); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
-	// Fetch the local node once: it provides both the WorkflowDON snapshot for
-	// the enclave-config check below and the DON metadata on the vault request.
+	// Fetch the local node once: it provides the WorkflowDON snapshot for both the
+	// enclave-config check and the Workflow-DON authorization check below, plus the DON
+	// metadata on the vault request. A registry read failure is node-side, so ErrInternal.
 	localNode, err := h.capRegistry.LocalNode(ctx)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get local node: %w", err))
@@ -235,6 +238,14 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	// compare the config value against the DON reference.
 	if err = h.verifyEnclaveConfigMatchesDON(localNode, params.EnclaveConfig); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
+	}
+
+	// Beyond attestation, verify the Workflow DON authorized this request: the enclave
+	// forwards the Workflow-DON-signed compute requests (a 2*F+1 quorum), whose PublicData
+	// names the authorized owner. A TEE breach passes attestation but cannot forge a Workflow
+	// DON quorum over a different owner (PRIV-433).
+	if err = h.verifyWorkflowAuthorization(localNode.WorkflowDON, params); err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, err)
 	}
 
 	vaultCap, err := h.capRegistry.GetExecutable(ctx, vault.CapabilityID)
@@ -464,7 +475,10 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 		if err != nil {
 			return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("converting capability response: %w", err))
 		}
-		respBytes, err := proto.Marshal(sdkResp)
+		// Deterministic marshal so every relay node emits byte-identical
+		// response payloads; relay aggregation requires identical bytes to
+		// reach quorum. [CL112-05]
+		respBytes, err := proto.MarshalOptions{Deterministic: true}.Marshal(sdkResp)
 		if err != nil {
 			return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("marshalling capability response: %w", err))
 		}
@@ -621,6 +635,68 @@ func (h *Handler) verifyAttestationHash(ctx context.Context, attestationB64 stri
 	return fmt.Errorf("no trusted measurement set matched: %w", validationErr)
 }
 
+// verifyWorkflowAuthorization is the PRIV-433 check beyond attestation. Attestation only
+// proves the request came from genuine enclave code; it does not prove the Workflow DON
+// authorized fetching this owner's secrets. A compromised TEE would still pass attestation
+// while self-asserting a victim's owner.
+//
+// The enclave forwards the Workflow-DON-signed compute requests it executed (a 2*F+1 quorum,
+// where F is the Workflow DON fault tolerance). Each node signs the same ComputeRequest.Hash();
+// we reconstruct that hash, verify each signature against the onchain Workflow DON signer set,
+// and require the quorum of unique signers. The signed PublicData names the authorized owner
+// and workflow, which must match this request. A breached enclave cannot forge a Workflow DON
+// quorum over a different owner.
+//
+// All failures here are client errors: the request is unauthorized. The caller fetches the
+// Workflow DON (a server-side concern) and passes it in, so registry failures stay internal.
+func (h *Handler) verifyWorkflowAuthorization(don capabilities.DON, params confidentialrelaytypes.SecretsRequestParams) error {
+	if len(params.SignedComputeRequests) == 0 {
+		return errors.New("missing signed compute requests")
+	}
+
+	// Match the enclave's own quorum: server.go requires config.F+1 unique signers where the
+	// config-tracker sets config.F = 2*don.F, i.e. 2*F+1.
+	threshold := 2*int(don.F) + 1
+
+	// The forwarded requests differ only in their signature; they all sign one shared
+	// ComputeRequest hash. Reconstruct that hash once and verify each signature over it.
+	hash := params.SignedComputeRequests[0].Hash()
+	payload := confidentialrelaytypes.SignedComputeRequestSignaturePayload(hash)
+
+	signers := make(map[string]struct{})
+	for _, scr := range params.SignedComputeRequests {
+		if scr.Hash() != hash {
+			return errors.New("forwarded signed compute requests do not share one compute request")
+		}
+		for _, member := range don.Members {
+			if ed25519.Verify(ed25519.PublicKey(member[:]), payload, scr.Signature) {
+				signers[member.String()] = struct{}{}
+				break
+			}
+		}
+	}
+	if len(signers) < threshold {
+		return fmt.Errorf("insufficient Workflow DON signatures: %d unique signers, need %d", len(signers), threshold)
+	}
+
+	// The signed request authorizes a specific owner and workflow; the secrets request must
+	// match both, or a breached enclave could fetch another owner's secrets.
+	var execution confidentialworkflow.WorkflowExecution
+	if err := proto.Unmarshal(params.SignedComputeRequests[0].PublicData, &execution); err != nil {
+		return fmt.Errorf("failed to unmarshal workflow execution from public data: %w", err)
+	}
+	if !common.IsHexAddress(params.Owner) || !common.IsHexAddress(execution.GetOwner()) {
+		return errors.New("invalid owner address")
+	}
+	if common.HexToAddress(execution.GetOwner()) != common.HexToAddress(params.Owner) {
+		return fmt.Errorf("owner not authorized: request %q vs signed %q", params.Owner, execution.GetOwner())
+	}
+	if execution.GetWorkflowId() != params.WorkflowID {
+		return fmt.Errorf("workflow_id not authorized: request %q vs signed %q", params.WorkflowID, execution.GetWorkflowId())
+	}
+	return nil
+}
+
 func toSDKCapabilityResponse(capResp capabilities.CapabilityResponse) (*sdkpb.CapabilityResponse, error) {
 	if capResp.Payload != nil {
 		return &sdkpb.CapabilityResponse{
@@ -630,8 +706,13 @@ func toSDKCapabilityResponse(capResp capabilities.CapabilityResponse) (*sdkpb.Ca
 
 	if capResp.Value != nil {
 		valProto := values.Proto(capResp.Value)
-		wrapped, err := anypb.New(valProto)
-		if err != nil {
+		// Serialize the wrapped value deterministically. anypb stores the
+		// inner message as opaque bytes, so a non-deterministic marshal here
+		// (e.g. map-valued content in arbitrary key order) would produce
+		// different Any payloads across relay nodes and break quorum, even
+		// when nodes return the same logical value. [CL112-05]
+		wrapped := &anypb.Any{}
+		if err := anypb.MarshalFrom(wrapped, valProto, proto.MarshalOptions{Deterministic: true}); err != nil {
 			return nil, fmt.Errorf("wrapping value map in Any: %w", err)
 		}
 		return &sdkpb.CapabilityResponse{
