@@ -273,6 +273,8 @@ func (n Node) JDChainConfigs() ([]*nodev1.ChainConfig, error) {
 			ocrtype = corekeys.Sui
 		case chainsel.FamilyTron:
 			ocrtype = corekeys.Tron
+		case chainsel.FamilyStellar:
+			ocrtype = corekeys.Stellar
 		default:
 			return nil, fmt.Errorf("unsupported chain family %v", family)
 		}
@@ -491,7 +493,7 @@ func NewNode(
 	require.NoError(t, master.Unlock(ctx, "password"))
 	require.NoError(t, master.CSA().EnsureKey(ctx))
 	require.NoError(t, master.Workflow().EnsureKey(ctx))
-	require.NoError(t, master.OCR2().EnsureKeys(ctx, corekeys.EVM, corekeys.Solana, corekeys.Aptos))
+	require.NoError(t, master.OCR2().EnsureKeys(ctx, corekeys.EVM, corekeys.Solana, corekeys.Aptos, corekeys.Stellar))
 
 	app, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
 		Opts: cre.Opts{
