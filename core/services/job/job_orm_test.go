@@ -250,7 +250,6 @@ func TestORM(t *testing.T) {
 		assert.Equal(t, ocrSpecError2, dbSpecErr2.Description)
 	})
 
-
 	t.Run("rejects webhook job creation with external initiators", func(t *testing.T) {
 		eiFoo := cltest.MustInsertExternalInitiator(t, borm)
 		eiBar := cltest.MustInsertExternalInitiator(t, borm)
@@ -1059,6 +1058,18 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 		tonKey, err := keyStore.TON().Create(ctx)
 		require.NoError(t, err)
 		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, tonKey.ID())
+		require.NoError(t, err)
+	})
+
+	t.Run("test Stellar key validation", func(t *testing.T) {
+		ctx := testing.TB.Context(t)
+		jb.OCR2OracleSpec.Relay = relay.NetworkStellar
+		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
+		require.EqualError(t, err, "no Stellar key matching: \"bad key\"")
+
+		stellarKey, err := keyStore.Stellar().Create(ctx)
+		require.NoError(t, err)
+		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, stellarKey.ID())
 		require.NoError(t, err)
 	})
 
