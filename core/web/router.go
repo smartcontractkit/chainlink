@@ -360,10 +360,10 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			{"cosmos", NewCosmosKeysController(app)},
 			{"starknet", NewStarkNetKeysController(app)},
 			{"aptos", NewAptosKeysController(app)},
-			{"stellar", NewStellarKeysController(app)},
 			{"tron", NewTronKeysController(app)},
 			{"sui", NewSuiKeysController(app)},
 			{"ton", NewTONKeysController(app)},
+			{"stellar", NewStellarKeysController(app)},
 		} {
 			authv2.GET("/keys/"+keys.path, keys.kc.Index)
 			authv2.POST("/keys/"+keys.path, auth.RequiresEditRole(keys.kc.Create))
