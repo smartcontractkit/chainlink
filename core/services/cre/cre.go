@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/uuid"
@@ -26,6 +27,7 @@ import (
 	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
 	commonsrv "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/storage"
@@ -467,6 +469,11 @@ func (s *Services) newRegistrySyncer(
 		return nil, nil, err
 	}
 
+	triggerRegistrationStatusUpdateTimeout := limits.NewTimeLimiter(30 * time.Second)
+	if timeout, err := cresettings.Default.TriggerRegistrationStatusUpdateTimeout.GetOrDefault(context.Background(), nil); err == nil && timeout > 0 {
+		triggerRegistrationStatusUpdateTimeout = limits.NewTimeLimiter(timeout)
+	}
+
 	wfLauncher, err := capabilities.NewLauncher(
 		lggr,
 		dispatcherWrapper.externalPeerWrapper,
@@ -475,6 +482,7 @@ func (s *Services) newRegistrySyncer(
 		dispatcherWrapper.dispatcher,
 		opts.CapabilitiesRegistry,
 		donNotifier,
+		triggerRegistrationStatusUpdateTimeout,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not create workflow launcher: %w", err)

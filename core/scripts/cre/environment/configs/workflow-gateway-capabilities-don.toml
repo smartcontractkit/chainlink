@@ -46,7 +46,7 @@
   # because bootstrap job for capability DON will be created on the boostrap node from this DON
   supported_evm_chains = [1337, 2337]
 
-  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"},"TriggerRegistrationStatusUpdateTimeout":"30s","PerWorkflow":{"TriggerRegistrationsTimeout":"60s"}}}' }
   capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337"]
   registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 

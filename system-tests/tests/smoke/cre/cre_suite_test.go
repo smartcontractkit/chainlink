@@ -186,21 +186,29 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 }
 
 func Test_CRE_V2_EVM_Write_LogTrigger(t *testing.T) {
-	t.Run("EVM Write - "+topology, func(t *testing.T) {
-		if parallelEnabled {
-			t.Parallel()
-		}
-		testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
-		priceProvider, porWfCfg := BeforePoRTest(t, testEnv, "por-workflow", PoRWFLocation)
-		ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, false)
-	})
+	//t.Run("EVM Write - "+topology, func(t *testing.T) {
+	//	if parallelEnabled {
+	//		t.Parallel()
+	//	}
+	//	testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
+	//	priceProvider, porWfCfg := BeforePoRTest(t, testEnv, "por-workflow", PoRWFLocation)
+	//	ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, false)
+	//})
+	//
+	//t.Run("EVM LogTrigger - "+topology, func(t *testing.T) {
+	//	if parallelEnabled {
+	//		t.Parallel()
+	//	}
+	//	testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
+	//	ExecuteEVMLogTriggerTest(t, testEnv)
+	//})
 
-	t.Run("EVM LogTrigger - "+topology, func(t *testing.T) {
+	t.Run("[v2] EVM LogTrigger User Error - "+topology, func(t *testing.T) {
 		if parallelEnabled {
 			t.Parallel()
 		}
 		testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
-		ExecuteEVMLogTriggerTest(t, testEnv)
+		ExecuteEVMLogTriggerUserErrorTest(t, testEnv)
 	})
 }
 

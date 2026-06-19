@@ -82,10 +82,11 @@ type ackKey struct {
 }
 
 type pubRegState struct {
-	callback        <-chan commoncap.TriggerResponse
-	request         commoncap.TriggerRegistrationRequest
-	cancel          context.CancelFunc
-	registrationErr error // non-nil if RegisterTrigger returned an error; used to suppress retries
+	callback                <-chan commoncap.TriggerResponse
+	request                 commoncap.TriggerRegistrationRequest
+	cancel                  context.CancelFunc
+	registrationStatus      types.RegistrationStatus
+	registrationErrorMessage string
 }
 
 type batchedResponse struct {
@@ -256,17 +257,21 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 		defer p.mu.Unlock()
 		p.messageCache.Insert(key, sender, nowMs, msg.Payload)
 		if existing, exists := p.registrations[key]; exists {
-			if existing.registrationErr != nil {
-				p.lggr.Debugw("skipping trigger registration; previous attempt failed with user error",
-					"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", existing.registrationErr)
-			} else {
-				p.lggr.Debugw("trigger registration already exists", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID)
+			if existing.registrationStatus == types.RegistrationStatus_REGISTRATION_ERROR {
+				p.lggr.Debugw("skipping trigger registration; previous attempt failed",
+					"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID)
+				p.sendRegistrationStatus(sender, key, existing)
+				return
 			}
-			return
+			if existing.registrationStatus == types.RegistrationStatus_REGISTERED {
+				p.lggr.Debugw("trigger registration already exists", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID)
+				p.sendRegistrationStatus(sender, key, existing)
+				return
+			}
 		}
 		// NOTE: require 2F+1 by default, introduce different strategies later (KS-76)
 		minRequired := uint32(2*callerDon.F + 1)
-		ready, payloads := p.messageCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), false)
+		ready, requestingPeers, payloads := p.messageCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), false)
 		if !ready {
 			p.lggr.Debugw("not ready to aggregate yet", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "minRequired", minRequired)
 			return
@@ -287,28 +292,40 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			attribute.String("capabilityID", p.capabilityID),
 			attribute.String("callerDonID", strconv.FormatUint(uint64(key.callerDonID), 10)),
 		)
+		regState := &pubRegState{request: unmarshaled, cancel: cancel}
+
 		if err == nil {
 			p.metrics.registerTriggerCounter.Add(ctx, 1, capAttrs, metric.WithAttributes(attribute.String("outcome", "success")))
-			p.registrations[key] = &pubRegState{
-				callback: callbackCh,
-				request:  unmarshaled,
-				cancel:   cancel,
-			}
+			regState.callback = callbackCh
+			regState.registrationStatus = types.RegistrationStatus_REGISTERED
+			p.registrations[key] = regState
 			p.wg.Add(1)
 			go p.triggerEventLoop(callbackCh, key)
 			p.lggr.Debugw("updated trigger registration", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID)
 		} else {
 			p.metrics.registerTriggerCounter.Add(ctx, 1, capAttrs, metric.WithAttributes(attribute.String("outcome", "error")))
 			cancel()
+			regState.registrationStatus = types.RegistrationStatus_REGISTRATION_ERROR
 			var capErr caperrors.Error
-			if errors.As(err, &capErr) && capErr.Origin() == caperrors.OriginUser {
-				p.registrations[key] = &pubRegState{registrationErr: err}
+			if errors.As(err, &capErr) {
+				regState.registrationErrorMessage = capErr.SerializeToRemoteString()
+			} else {
+				regState.registrationErrorMessage = caperrors.NewPublicSystemError(err, caperrors.Unknown).SerializeToRemoteString()
+			}
+
+			isUserError := errors.As(err, &capErr) && capErr.Origin() == caperrors.OriginUser
+			if isUserError {
+				p.registrations[key] = regState
 				p.lggr.Errorw("trigger registration failed with user error; will not retry",
 					"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", err)
 			} else {
 				p.lggr.Errorw("trigger registration failed with system error; will retry",
 					"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", err)
 			}
+		}
+
+		for _, peerID := range requestingPeers {
+			p.sendRegistrationStatus(peerID, key, regState)
 		}
 	case types.MethodUnregisterTrigger:
 		meta := msg.GetTriggerEventMetadata()
@@ -346,7 +363,7 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 		nowMs := time.Now().UnixMilli()
 		minRequired := uint32(2*callerDon.F + 1)
 		p.unregisterCache.Insert(key, sender, nowMs, nil)
-		ready, _ := p.unregisterCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), true)
+		ready, _, _ := p.unregisterCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), true)
 		if !ready {
 			p.mu.Unlock()
 			p.lggr.Debugw("unregister quorum not reached yet", "workflowID", key.workflowID, "triggerID", key.triggerID, "sender", sender, "minRequired", minRequired)
@@ -402,7 +419,7 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 		nowMs := time.Now().UnixMilli()
 		p.ackCache.Insert(key, sender, nowMs, msg.Payload)
 		minRequired := uint32(2*callerDon.F + 1)
-		ready, _ := p.ackCache.Ready(key, minRequired, 0, false)
+		ready, _, _ := p.ackCache.Ready(key, minRequired, 0, false)
 		if !ready {
 			ackCount := len(p.ackCache.Peers(key))
 			p.lggr.Debugw("not ready to ACK trigger event yet",
@@ -743,6 +760,32 @@ func (p *triggerPublisher) batchingLoop() {
 				p.sendBatch(elem)
 			}
 		}
+	}
+}
+
+func (p *triggerPublisher) sendRegistrationStatus(peerID p2ptypes.PeerID, key registrationKey, reg *pubRegState) {
+	cfg := p.cfg.Load()
+	if cfg == nil {
+		return
+	}
+
+	msg := &types.MessageBody{
+		CapabilityId:     p.capabilityID,
+		CapabilityDonId:  cfg.capDonInfo.ID,
+		CallerDonId:      key.callerDonID,
+		Method:           types.MethodTriggerRegistrationStatus,
+		CapabilityMethod: p.capMethodName,
+		Metadata: &types.MessageBody_TriggerRegistrationMetadata{
+			TriggerRegistrationMetadata: &types.TriggerRegistrationMetadata{
+				WorkflowId:        key.workflowID,
+				TriggerId:         key.triggerID,
+				Status:            reg.registrationStatus,
+				RegistrationError: reg.registrationErrorMessage,
+			},
+		},
+	}
+	if err := p.dispatcher.Send(peerID, msg); err != nil {
+		p.lggr.Errorw("failed to send trigger registration status", "peerID", peerID, "err", err)
 	}
 }
 

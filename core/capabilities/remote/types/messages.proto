@@ -44,6 +44,16 @@ message MessageBody {
 
 message TriggerRegistrationMetadata {
   string last_received_event_id = 1;
+  string trigger_id = 2;
+  string workflow_id = 3;
+  RegistrationStatus status = 4;
+  string registration_error = 5;
+}
+
+enum RegistrationStatus {
+  UNREGISTERED = 0;
+  REGISTERED = 1;
+  REGISTRATION_ERROR = 2;
 }
 
 message TriggerEventMetadata {

@@ -269,7 +269,8 @@ func newServices(t *testing.T, capabilityDONID uint32, workflowDONID uint32, max
 
 func allowRegistrationChecks(dispatcher *mocks.Dispatcher) {
 	dispatcher.On("Send", mock.Anything, mock.MatchedBy(func(m *remotetypes.MessageBody) bool {
-		return m.Method == remotetypes.MethodTriggerRegistrationCheck
+		return m.Method == remotetypes.MethodTriggerRegistrationCheck ||
+			m.Method == remotetypes.MethodTriggerRegistrationStatus
 	})).Return(nil).Maybe()
 }
 
@@ -541,6 +542,9 @@ func TestTriggerPublisher_SendsRegistrationChecks(t *testing.T) {
 
 	checkReceived := make(chan *remotetypes.MessageBody, 10)
 	dispatcher.On("Send", mock.Anything, mock.MatchedBy(func(m *remotetypes.MessageBody) bool {
+		return m.Method == remotetypes.MethodTriggerRegistrationStatus
+	})).Return(nil).Maybe()
+	dispatcher.On("Send", mock.Anything, mock.MatchedBy(func(m *remotetypes.MessageBody) bool {
 		return m.Method == remotetypes.MethodTriggerRegistrationCheck
 	})).Run(func(args mock.Arguments) {
 		msg := args.Get(1).(*remotetypes.MessageBody)
@@ -603,6 +607,9 @@ func TestTriggerPublisher_RegistrationChecksChunkByMaxBatchSize(t *testing.T) {
 
 	var mu sync.Mutex
 	var chunkLens []int
+	dispatcher.On("Send", peers[1], mock.MatchedBy(func(m *remotetypes.MessageBody) bool {
+		return m.Method == remotetypes.MethodTriggerRegistrationStatus
+	})).Return(nil).Maybe()
 	dispatcher.On("Send", peers[1], mock.MatchedBy(func(m *remotetypes.MessageBody) bool {
 		return m.Method == remotetypes.MethodTriggerRegistrationCheck
 	})).Run(func(args mock.Arguments) {
@@ -1094,6 +1101,7 @@ func TestTriggerPublisher_RegisterTrigger_FailureShortCircuit(t *testing.T) {
 		underlying := &errTrigger{info: capInfo, err: userErr}
 
 		dispatcher := mocks.NewDispatcher(t)
+		dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Maybe()
 		config := &commoncap.RemoteTriggerConfig{
 			RegistrationRefresh:     100 * time.Millisecond,
 			RegistrationExpiry:      100 * time.Second,
@@ -1147,6 +1155,7 @@ func TestTriggerPublisher_RegisterTrigger_FailureShortCircuit(t *testing.T) {
 		underlying := &errTrigger{info: capInfo, err: errors.New("transient system failure")}
 
 		dispatcher := mocks.NewDispatcher(t)
+		dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Maybe()
 		config := &commoncap.RemoteTriggerConfig{
 			RegistrationRefresh:     100 * time.Millisecond,
 			RegistrationExpiry:      100 * time.Second,

@@ -24,6 +24,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -535,9 +536,22 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 				// no Config needed - NoDAG uses Payload
 			})
 			if regErr != nil {
-				e.logger().Errorw("Trigger registration failed", "triggerID", sub.Id, "err", regErr)
-				e.metrics.With(platform.KeyTriggerID, sub.Id).IncrementRegisterTriggerFailureCounter(gCtx)
-				return fmt.Errorf("failed to register trigger %s: %w", sub.Id, regErr)
+				if !errors.Is(regErr, capabilities.ErrUnableToDetermineRegistrationStatus) {
+					var capErr caperrors.Error
+					if errors.As(regErr, &capErr) {
+						if capErr.Origin() == caperrors.OriginUser {
+							e.logger().Errorw("Trigger registration failed due to user error", "triggerID", sub.Id, "userErr", regErr)
+						} else {
+							e.logger().Errorw("Trigger registration failed due to system error", "triggerID", sub.Id, "systemErr", regErr)
+						}
+						e.metrics.With(platform.KeyTriggerID, sub.Id, platform.KeyCapabilityErrorCode, capErr.Code().String()).IncrementRegisterTriggerFailureCounter(gCtx)
+					} else {
+						e.logger().Errorw("Trigger registration failed", "triggerID", sub.Id, "err", regErr)
+						e.metrics.With(platform.KeyTriggerID, sub.Id).IncrementRegisterTriggerFailureCounter(gCtx)
+					}
+					return fmt.Errorf("failed to register trigger %s: %w", sub.Id, regErr)
+				}
+				e.logger().Warnw("unable to determine trigger registration status for trigger registration request", "triggerID", sub.Id)
 			}
 			// Send successful result
 			resultsCh <- triggerRegResult{

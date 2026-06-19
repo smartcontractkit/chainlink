@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/localcapmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
@@ -58,6 +59,7 @@ type launcher struct {
 	p2pStreamConfig     p2ptypes.StreamConfig
 	metrics             *launcherMetrics
 	localCapMgr         localcapmgr.LocalCapabilityManager
+	triggerRegistrationStatusUpdateTimeout limits.TimeLimiter
 
 	muSubServices sync.Mutex
 	subServices   []services.Service
@@ -89,6 +91,7 @@ func NewLauncher(
 	dispatcher remotetypes.Dispatcher,
 	registry *Registry,
 	workflowDonNotifier DonNotifier,
+	triggerRegistrationStatusUpdateTimeout limits.TimeLimiter,
 ) (*launcher, error) {
 	p2pStreamConfig := defaultStreamConfig
 	if streamConfig != nil {
@@ -122,8 +125,9 @@ func NewLauncher(
 		registry:            registry,
 		workflowDonNotifier: workflowDonNotifier,
 		don2donSharedPeer:   don2donSharedPeer,
-		p2pStreamConfig:     p2pStreamConfig,
-		metrics:             metrics,
+		p2pStreamConfig:                        p2pStreamConfig,
+		metrics:                                metrics,
+		triggerRegistrationStatusUpdateTimeout: triggerRegistrationStatusUpdateTimeout,
 	}, nil
 }
 
@@ -566,6 +570,7 @@ func (w *launcher) addRemoteCapability(ctx context.Context, cid string, capabili
 					"", // empty method name for v1
 					w.dispatcher,
 					w.lggr,
+					w.triggerRegistrationStatusUpdateTimeout,
 				)
 				w.cachedShims.triggerSubscribers[shimKey] = triggerCap
 			}
@@ -953,7 +958,7 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 		if config.RemoteTriggerConfig != nil { // trigger
 			sub, alreadyExists := w.cachedShims.triggerSubscribers[shimKey]
 			if !alreadyExists {
-				sub = remote.NewTriggerSubscriber(capID, method, w.dispatcher, w.lggr)
+				sub = remote.NewTriggerSubscriber(capID, method, w.dispatcher, w.lggr, w.triggerRegistrationStatusUpdateTimeout)
 				cc.SetTriggerSubscriber(method, sub)
 				// add to cachedShims later, only after startNewShim succeeds
 			}
