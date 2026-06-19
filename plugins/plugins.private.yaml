@@ -43,7 +43,7 @@ plugins:
       installPath: "."
   aptos:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/aptos"
-      gitRef: "b9a12e6c0b0634f7c75b169a150b1402857586b9"
+      gitRef: "5424665d88fc5c239a2af353abcf0f0e0e4cb710"
       installPath: "."
   confidential-http:
     - moduleURI: "github.com/smartcontractkit/confidential-compute/enclave/apps/confidential-http/capability"
