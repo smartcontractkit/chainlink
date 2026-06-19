@@ -1064,7 +1064,6 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 	})
 
 	t.Run("test Stellar key validation", func(t *testing.T) {
-		t.Parallel()
 		ctx := testing.TB.Context(t)
 		jb.OCR2OracleSpec.Relay = relay.NetworkStellar
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
