@@ -204,8 +204,11 @@ func TestRegistrationTrafficVolume(t *testing.T) {
 			agg := aggregation.NewDefaultModeAggregator(cfg.MinResponsesToAggregate)
 			require.NoError(t, subscriber.SetConfig(cfg, capInfo, workflowDon.ID, capDon, agg))
 
-			// Register all triggers before Start — RegisterTrigger does not
-			// send to the cap DON until registrationLoop runs after Start.
+			require.NoError(t, subscriber.Start(testutils.Context(t)))
+			t.Cleanup(func() { subscriber.Close() })
+
+			// Without a publisher, RegisterTrigger times out but leaves registrations
+			// active for the refresh loop to re-send on each tick.
 			for i := range tc.nRegistrations {
 				req := commoncap.TriggerRegistrationRequest{
 					TriggerID: fmt.Sprintf("trigger_%d", i),
@@ -215,11 +218,8 @@ func TestRegistrationTrafficVolume(t *testing.T) {
 				require.ErrorIs(t, err, commoncap.ErrUnableToDetermineRegistrationStatus)
 			}
 
-			// Reset counters after initial registration sends, then start
-			// the loop so the first tick generates a clean measurement.
+			// Reset counters after registration burst so the next tick is a clean measurement.
 			dispatcher.Reset()
-			require.NoError(t, subscriber.Start(testutils.Context(t)))
-			t.Cleanup(func() { subscriber.Close() })
 
 			// Wait for exactly one tick (500ms refresh, wait 700ms to give time)
 			expectedSends := int64(tc.nRegistrations * tc.capDonSize)
@@ -551,20 +551,21 @@ func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
 		MinResponsesToAggregate: 1,
 		MessageExpiry:           time.Hour,
 	}
-	sub := remote.NewTriggerSubscriber(capInfo.ID, "LogTrigger", subRegDisp, lggr, limits.NewTimeLimiter(30*time.Second))
+	regStatusTimeout := limits.NewTimeLimiter(time.Millisecond)
+	sub := remote.NewTriggerSubscriber(capInfo.ID, "LogTrigger", subRegDisp, lggr, regStatusTimeout)
 	agg := aggregation.NewDefaultModeAggregator(subCfg.MinResponsesToAggregate)
 	require.NoError(t, sub.SetConfig(subCfg, capInfo, wfDon.ID, capDon, agg))
+	require.NoError(t, sub.Start(ctx))
+	t.Cleanup(func() { require.NoError(t, sub.Close()) })
 	for i := range nRegistrations {
 		req := commoncap.TriggerRegistrationRequest{
 			TriggerID: fmt.Sprintf("trigger_%d", i),
 			Metadata:  commoncap.RequestMetadata{WorkflowID: generateWorkflowID(i)},
 		}
 		_, err := sub.RegisterTrigger(ctx, req)
-		require.NoError(t, err)
+		require.ErrorIs(t, err, commoncap.ErrUnableToDetermineRegistrationStatus)
 	}
 	subRegDisp.Reset()
-	require.NoError(t, sub.Start(ctx))
-	t.Cleanup(func() { require.NoError(t, sub.Close()) })
 
 	perTickReg := int64(nRegistrations * capDonPeerCount)
 	deadline := time.Now().Add(3 * time.Second)
@@ -580,7 +581,7 @@ func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
 
 	// --- Phase 2: subscriber — one engine round-trip: deliver event + AckEvent (ACK fan-out to cap DON) ---
 	subAckDisp := newCountingDispatcher()
-	sub2 := remote.NewTriggerSubscriber(capInfo.ID, "LogTrigger", subAckDisp, lggr, limits.NewTimeLimiter(30*time.Second))
+	sub2 := remote.NewTriggerSubscriber(capInfo.ID, "LogTrigger", subAckDisp, lggr, regStatusTimeout)
 	require.NoError(t, sub2.SetConfig(subCfg, capInfo, wfDon.ID, capDon, agg))
 	require.NoError(t, sub2.Start(ctx))
 	t.Cleanup(func() { require.NoError(t, sub2.Close()) })
@@ -591,7 +592,7 @@ func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
 		Metadata:  commoncap.RequestMetadata{WorkflowID: workflowID1},
 	}
 	_, err := sub2.RegisterTrigger(ctx, regReq)
-	require.NoError(t, err)
+	require.ErrorIs(t, err, commoncap.ErrUnableToDetermineRegistrationStatus)
 	subAckDisp.Reset()
 
 	ev := buildTriggerEventWithTriggerID(t, capPeers[0][:], workflowID1, soloTrig, "event-attr-1")
