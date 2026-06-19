@@ -952,7 +952,10 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 
 	// Call the ccip chain reader with DiscoverContracts for test
 	contractAddresses, err := reader.DiscoverContracts(ctx,
-		[]cciptypes.ChainSelector{chainS1, chainD},
+		// Only include the destination chain here. If we include the source chain before the
+		// OnRamp is bound (via Sync below), the config poller may cache an empty source-chain
+		// config snapshot and only refresh it on its background tick.
+		[]cciptypes.ChainSelector{chainD},
 		[]cciptypes.ChainSelector{chainS1, chainD},
 	)
 
@@ -972,7 +975,8 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 	err = reader.Sync(ctx, onRampContractMapping)
 	require.NoError(t, err)
 
-	// Since config poller has default refresh interval of 30s, we need to wait for the contract to be discovered
+	// After binding the OnRamp on the source chain, DiscoverContracts should be able to read the source-chain
+	// configs on cache miss and discover Router/FeeQuoter without waiting for a background refresh tick.
 	require.Eventually(t, func() bool {
 		contractAddresses, err = reader.DiscoverContracts(ctx,
 			[]cciptypes.ChainSelector{chainS1, chainD},
@@ -988,7 +992,7 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 		return routerExists && feeQuoterExists &&
 			bytes.Equal(routerS1, destinationChainConfigArgs[0].Router.Bytes()) &&
 			bytes.Equal(feeQuoterS1, onRampS1DynamicConfig.FeeQuoter.Bytes())
-	}, 90*time.Second, 100*time.Millisecond, "Router and FeeQuoter addresses were not discovered on source chain in time")
+	}, 15*time.Second, 100*time.Millisecond, "Router and FeeQuoter addresses were not discovered on source chain in time")
 
 	// Final assertions again for completeness:
 	contractAddresses, err = reader.DiscoverContracts(ctx,

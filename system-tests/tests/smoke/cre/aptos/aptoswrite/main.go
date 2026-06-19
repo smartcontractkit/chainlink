@@ -213,6 +213,10 @@ func onAptosWriteTrigger(cfg config.Config, runtime sdk.Runtime, payload *cron.P
 		runtime.Logger().Info(failMsg, "workflow", cfg.WorkflowName)
 		return nil, fmt.Errorf("unexpected tx status: %s", reply.TxStatus.String())
 	}
+	if reply.GetBlockTimestamp() == 0 {
+		runtime.Logger().Info("Aptos write failed: expected non-zero block timestamp", "workflow", cfg.WorkflowName)
+		return nil, fmt.Errorf("expected non-zero block timestamp in WriteReport reply")
+	}
 	txHashRaw := reply.GetTxHash()
 	if txHashRaw == "" {
 		runtime.Logger().Info(
