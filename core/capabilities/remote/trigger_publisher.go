@@ -82,10 +82,10 @@ type ackKey struct {
 }
 
 type pubRegState struct {
-	callback                <-chan commoncap.TriggerResponse
-	request                 commoncap.TriggerRegistrationRequest
-	cancel                  context.CancelFunc
-	registrationStatus      types.RegistrationStatus
+	callback                 <-chan commoncap.TriggerResponse
+	request                  commoncap.TriggerRegistrationRequest
+	cancel                   context.CancelFunc
+	registrationStatus       types.RegistrationStatus
 	registrationErrorMessage string
 }
 

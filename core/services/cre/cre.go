@@ -470,7 +470,7 @@ func (s *Services) newRegistrySyncer(
 	}
 
 	triggerRegistrationStatusUpdateTimeout := limits.NewTimeLimiter(30 * time.Second)
-	if timeout, err := cresettings.Default.TriggerRegistrationStatusUpdateTimeout.GetOrDefault(context.Background(), nil); err == nil && timeout > 0 {
+	if timeout, timeoutErr := cresettings.Default.TriggerRegistrationStatusUpdateTimeout.GetOrDefault(context.Background(), nil); timeoutErr == nil && timeout > 0 {
 		triggerRegistrationStatusUpdateTimeout = limits.NewTimeLimiter(timeout)
 	}
 

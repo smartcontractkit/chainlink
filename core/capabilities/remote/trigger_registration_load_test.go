@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -204,7 +203,7 @@ func TestRegistrationTrafficVolume(t *testing.T) {
 			agg := aggregation.NewDefaultModeAggregator(cfg.MinResponsesToAggregate)
 			require.NoError(t, subscriber.SetConfig(cfg, capInfo, workflowDon.ID, capDon, agg))
 
-			require.NoError(t, subscriber.Start(testutils.Context(t)))
+			require.NoError(t, subscriber.Start(t.Context()))
 			t.Cleanup(func() { subscriber.Close() })
 
 			// Without a publisher, RegisterTrigger times out but leaves registrations
@@ -214,7 +213,7 @@ func TestRegistrationTrafficVolume(t *testing.T) {
 					TriggerID: fmt.Sprintf("trigger_%d", i),
 					Metadata:  commoncap.RequestMetadata{WorkflowID: generateWorkflowID(i)},
 				}
-				_, err := subscriber.RegisterTrigger(testutils.Context(t), req)
+				_, err := subscriber.RegisterTrigger(t.Context(), req)
 				require.ErrorIs(t, err, commoncap.ErrUnableToDetermineRegistrationStatus)
 			}
 
@@ -265,7 +264,7 @@ func TestRegistrationCheckTrafficVolume(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(fmt.Sprintf("N=%d", tc.nRegistrations), func(t *testing.T) {
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 			lggr := logger.Test(t)
 			dispatcher := newCountingDispatcher()
 
@@ -476,7 +475,7 @@ func TestRegistrationLoopLockDuration(t *testing.T) {
 					TriggerID: fmt.Sprintf("trigger_%d", i),
 					Metadata:  commoncap.RequestMetadata{WorkflowID: generateWorkflowID(i)},
 				}
-				_, err := subscriber.RegisterTrigger(testutils.Context(t), req)
+				_, err := subscriber.RegisterTrigger(t.Context(), req)
 				require.ErrorIs(t, err, commoncap.ErrUnableToDetermineRegistrationStatus)
 			}
 
@@ -484,7 +483,7 @@ func TestRegistrationLoopLockDuration(t *testing.T) {
 
 			expectedSends := int64(n * 4) // n registrations * 4 cap DON members
 
-			require.NoError(t, subscriber.Start(testutils.Context(t)))
+			require.NoError(t, subscriber.Start(t.Context()))
 			t.Cleanup(func() { subscriber.Close() })
 
 			start := time.Now()
@@ -520,7 +519,7 @@ func TestRegistrationLoopLockDuration(t *testing.T) {
 // DON peers, workflow F=2 → quorum 5). This does not simulate dispatcher drops
 // or shared-channel saturation; see test log for that limitation.
 func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lggr := logger.Test(t)
 
 	const (
