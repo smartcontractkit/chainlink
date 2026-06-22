@@ -158,28 +158,5 @@ func TestWorkflowDONFamilies(t *testing.T) {
 }
 
 func donFamilyGatewayPairingTestTopology() *Topology {
-	topology := &Topology{
-		DonsMetadata: &DonsMetadata{
-			dons: []*DonMetadata{
-				{Name: "feeds-zone-a", DonFamily: "feeds-zone-a", ns: &NodeSet{DONTypes: []string{WorkflowDON}}, Flags: []string{WorkflowDON, HTTPActionCapability}},
-				{Name: "feeds-zone-b", DonFamily: "feeds-zone-b", ns: &NodeSet{DONTypes: []string{WorkflowDON}}, Flags: []string{WorkflowDON, HTTPActionCapability}},
-				{Name: "gateway-zone-a", DonFamily: "feeds-zone-a", ns: &NodeSet{}, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
-				{Name: "gateway-zone-b", DonFamily: "feeds-zone-b", ns: &NodeSet{}, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
-			},
-		},
-		GatewayConnectors: &GatewayConnectors{
-			Configurations: []*DonGatewayConfiguration{
-				{GatewayConfiguration: &GatewayConfiguration{AuthGatewayID: "gateway-node-0"}},
-				{GatewayConfiguration: &GatewayConfiguration{AuthGatewayID: "gateway-node-1"}},
-			},
-		},
-		gatewayConnectorsByDon: map[string]*DonGatewayConfiguration{
-			"gateway-zone-a": {GatewayConfiguration: &GatewayConfiguration{AuthGatewayID: "gateway-node-0"}},
-			"gateway-zone-b": {GatewayConfiguration: &GatewayConfiguration{AuthGatewayID: "gateway-node-1"}},
-		},
-	}
-	if err := topology.initDonFamilyGatewayPairing(); err != nil {
-		panic(err)
-	}
-	return topology
+	return NewDonFamilyGatewayPairingTestTopology()
 }

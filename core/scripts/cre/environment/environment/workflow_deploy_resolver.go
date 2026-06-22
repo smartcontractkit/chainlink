@@ -2,10 +2,12 @@ package environment
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
@@ -46,6 +48,10 @@ func resolveWorkflowDeployTargets(
 		return targets, err
 	}
 
+	if err := validateWorkflowDeployFlags(cmd, donMeta, selector, donFamilyFlag); err != nil {
+		return targets, err
+	}
+
 	if !cmd.Flags().Changed("don-id") {
 		targets.donID = libc.MustSafeUint32FromUint64(donMeta.ID)
 	}
@@ -78,6 +84,32 @@ func finalizeWorkflowDonFamily(donFamily string, pairingEnabled bool) (string, e
 		return "", fmt.Errorf("❌ --don-family is required when topology uses don_family gateway pairing (or set nodesets.don_family in the local CRE state file)")
 	}
 	return envconfig.DefaultDONFamily, nil
+}
+
+// validateWorkflowDeployFlags rejects inconsistent explicit deploy flags against local CRE state.
+func validateWorkflowDeployFlags(cmd *cobra.Command, donMeta *cre.DonMetadata, selector workflowDONSelector, donFamilyFlag string) error {
+	if !cmd.Flags().Changed("workflow-don-name") || !cmd.Flags().Changed("don-family") {
+		return nil
+	}
+	if donMeta.DonFamily == "" {
+		return nil
+	}
+	if donFamilyFlag != donMeta.DonFamily {
+		return fmt.Errorf(
+			"❌ --don-family %q does not match don_family %q for workflow DON %q in local CRE state",
+			donFamilyFlag,
+			donMeta.DonFamily,
+			donMeta.Name,
+		)
+	}
+	if name := strings.TrimSpace(selector.ExplicitName); name != "" && name != donMeta.Name {
+		return fmt.Errorf(
+			"❌ --workflow-don-name %q does not match workflow DON %q resolved from local CRE state",
+			name,
+			donMeta.Name,
+		)
+	}
+	return nil
 }
 
 func (r *LocalCREStateResolver) resolveGatewayURL(donFamily string) (string, error) {
