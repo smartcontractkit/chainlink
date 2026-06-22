@@ -14,6 +14,7 @@ import (
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -23,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/vaultshare"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
@@ -609,7 +611,7 @@ func (w *launcher) addRemoteCapability(ctx context.Context, cid string, capabili
 				w.cachedShims.executableClients[shimKey] = execCap
 			}
 			// V1 capabilities read transmission schedule from every request
-			if errCfg := execCap.SetConfig(info, myDON.DON, defaultTargetRequestTimeout, nil, nil, 0); errCfg != nil {
+			if errCfg := execCap.SetConfig(info, myDON.DON, defaultTargetRequestTimeout, nil, nil, 0, nil); errCfg != nil {
 				return nil, fmt.Errorf("failed to set trigger config: %w", errCfg)
 			}
 			return execCap.(capabilityService), nil
@@ -635,7 +637,7 @@ func (w *launcher) addRemoteCapability(ctx context.Context, cid string, capabili
 				w.cachedShims.executableClients[shimKey] = execCap
 			}
 			// V1 capabilities read transmission schedule from every request
-			if errCfg := execCap.SetConfig(info, myDON.DON, defaultTargetRequestTimeout, nil, nil, 0); errCfg != nil {
+			if errCfg := execCap.SetConfig(info, myDON.DON, defaultTargetRequestTimeout, nil, nil, 0, nil); errCfg != nil {
 				return nil, fmt.Errorf("failed to set trigger config: %w", errCfg)
 			}
 			return execCap.(capabilityService), nil
@@ -1006,7 +1008,11 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 			if err != nil {
 				return fmt.Errorf("failed to get signers for executable client: %w", err)
 			}
-			err = client.SetConfig(info, myDON.DON, config.RemoteExecutableConfig.RequestTimeout, transmissionConfig, signers, config.RemoteExecutableConfig.MinResponsesToAggregate)
+		var aggregatorFactory executable.AggregatorFactory
+		if strings.HasPrefix(info.ID, "vault@") && method == vault.MethodGetSecrets {
+			aggregatorFactory = vaultshare.NewAggregatorFactory(int(remoteDON.DON.F))
+		}
+		err = client.SetConfig(info, myDON.DON, config.RemoteExecutableConfig.RequestTimeout, transmissionConfig, signers, config.RemoteExecutableConfig.MinResponsesToAggregate, aggregatorFactory)
 			if err != nil {
 				w.lggr.Errorw("failed to update client config", "capID", capID, "method", method, "error", err)
 				continue

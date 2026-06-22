@@ -19,6 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 )
 
+// AggregatorFactory builds a per-request response aggregator for executable clients.
+type AggregatorFactory = request.AggregatorFactory
+
 // client is a shim for remote executable capabilities.
 // It translates between capability API calls and network messages.
 // Its responsibilities are:
@@ -51,12 +54,14 @@ type dynamicConfig struct {
 	// minResponsesToAggregate overrides the default F+1 matching threshold for read consensus.
 	// 0 defaults to F+1.
 	minResponsesToAggregate uint32
+	// Optional per-request aggregator factory for capabilities that return distinct per-node payloads.
+	aggregatorFactory request.AggregatorFactory
 }
 
 type Client interface {
 	commoncap.ExecutableCapability
 	Receive(ctx context.Context, msg *types.MessageBody)
-	SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig, signers [][]byte, minResponsesToAggregate uint32) error
+	SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig, signers [][]byte, minResponsesToAggregate uint32, aggregatorFactory request.AggregatorFactory) error
 }
 
 var _ Client = &client{}
@@ -83,7 +88,7 @@ func NewClient(capabilityID string, capMethodName string, dispatcher types.Dispa
 
 // SetConfig sets the remote capability configuration dynamically
 // TransmissionConfig has to be set only for V2 capabilities. V1 capabilities read transmission schedule from every request.
-func (c *client) SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig, signers [][]byte, minResponsesToAggregate uint32) error {
+func (c *client) SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig, signers [][]byte, minResponsesToAggregate uint32, aggregatorFactory request.AggregatorFactory) error {
 	if remoteCapabilityInfo.ID == "" || remoteCapabilityInfo.ID != c.capabilityID {
 		return fmt.Errorf("capability info provided does not match the client's capabilityID: %s != %s", remoteCapabilityInfo.ID, c.capabilityID)
 	}
@@ -105,6 +110,7 @@ func (c *client) SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localD
 		transmissionConfig:      transmissionConfig,
 		signers:                 signers,
 		minResponsesToAggregate: minResponsesToAggregate,
+		aggregatorFactory:       aggregatorFactory,
 	})
 	c.lggr.Infow("SetConfig", "remoteDONName", remoteCapabilityInfo.DON.Name, "remoteDONID", remoteCapabilityInfo.DON.ID, "requestTimeout", requestTimeout, "transmissionConfig", transmissionConfig)
 	return nil
@@ -236,8 +242,19 @@ func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest
 		return commoncap.CapabilityResponse{}, errors.New("config not set - call SetConfig() before Execute()")
 	}
 
-	req, err := request.NewClientExecuteRequest(ctx, c.lggr, capReq, cfg.remoteCapabilityInfo, cfg.localDONInfo, c.dispatcher,
-		cfg.requestTimeout, cfg.transmissionConfig, c.capMethodName, cfg.signers, cfg.minResponsesToAggregate)
+	var req *request.ClientRequest
+	var err error
+	if cfg.aggregatorFactory != nil {
+		agg := cfg.aggregatorFactory(ctx, capReq)
+		if agg != nil {
+			req, err = request.NewClientExecuteRequestWithAggregator(ctx, c.lggr, capReq, cfg.remoteCapabilityInfo, cfg.localDONInfo, c.dispatcher,
+				cfg.requestTimeout, cfg.transmissionConfig, c.capMethodName, cfg.signers, agg)
+		}
+	}
+	if req == nil {
+		req, err = request.NewClientExecuteRequest(ctx, c.lggr, capReq, cfg.remoteCapabilityInfo, cfg.localDONInfo, c.dispatcher,
+			cfg.requestTimeout, cfg.transmissionConfig, c.capMethodName, cfg.signers, cfg.minResponsesToAggregate)
+	}
 	if err != nil {
 		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to create client request: %w", err)
 	}

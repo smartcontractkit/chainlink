@@ -64,6 +64,7 @@ type ReportingPluginConfig struct {
 	VaultJSONOmitUnpopulatedEnabled                   limits.GateLimiter
 	VaultSignedResponseRequestIDEnabled               limits.GateLimiter
 	VaultGetSecretsShareAggregationIncludesPublicKeys limits.GateLimiter
+	FastPathSource                                    vaultcap.FastPathSource
 }
 
 func NewReportingPluginFactory(
@@ -74,6 +75,7 @@ func NewReportingPluginFactory(
 	lazyPublicKey *vaultcap.LazyPublicKey,
 	limitsFactory limits.Factory,
 	lifecycle *vaultcap.RequestLifecycleTracker,
+	fastPathSource vaultcap.FastPathSource,
 ) (*ReportingPluginFactory, error) {
 	if db == nil {
 		return nil, errors.New("result package db cannot be nil")
@@ -88,7 +90,8 @@ func NewReportingPluginFactory(
 	}
 
 	cfg := &ReportingPluginConfig{
-		LazyPublicKey: lazyPublicKey,
+		LazyPublicKey:  lazyPublicKey,
+		FastPathSource: fastPathSource,
 	}
 
 	return &ReportingPluginFactory{
@@ -274,6 +277,8 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 
 	cfg.PublicKey = publicKey
 	cfg.PrivateKeyShare = privateKeyShare
+	cfg.FastPathSource = r.cfg.FastPathSource
+	cfg.LazyPublicKey = r.cfg.LazyPublicKey
 
 	metrics, err := newPluginMetrics(config.ConfigDigest.String())
 	if err != nil {
@@ -607,6 +612,14 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	}()
 
 	readKV := NewReadStore(keyValueReader, r.metrics)
+
+	if r.cfg.FastPathSource != nil {
+		fastReqs := r.cfg.FastPathSource.Drain()
+		for _, fr := range fastReqs {
+			r.serveFastPathRequest(ctx, readKV, fr)
+		}
+		r.cfg.FastPathSource.ExpireOlderThan(time.Now())
+	}
 
 	var currentPendingQueueItems []*vaultcommon.StoredPendingQueueItem
 	if !gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
@@ -1000,6 +1013,45 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 			},
 		},
 	}, nil
+}
+
+func (r *ReportingPlugin) serveFastPathRequest(ctx context.Context, reader ReadKVStore, fr vaultcap.FastPathRequest) {
+	requestsCountForID := map[string]int{}
+	for _, sr := range fr.Request.Requests {
+		if sr == nil || sr.Id == nil {
+			requestsCountForID["<nil>"]++
+			continue
+		}
+		requestsCountForID[vaulttypes.KeyFor(sr.Id)]++
+	}
+	resps := make([]*vaultcommon.SecretResponse, 0, len(fr.Request.Requests))
+	for _, sr := range fr.Request.Requests {
+		if sr == nil {
+			continue
+		}
+		sresp, err := r.observeGetSecretsRequest(ctx, reader, sr, requestsCountForID)
+		if err != nil {
+			id := sr.Id
+			sresp = &vaultcommon.SecretResponse{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Error{
+					Error: userFacingError(err, "failed to handle get secret request"),
+				},
+			}
+		}
+		resps = append(resps, sresp)
+	}
+
+	payload, err := proto.Marshal(&vaultcommon.GetSecretsResponse{Responses: resps})
+	if err != nil {
+		r.cfg.FastPathSource.Complete(fr.ID, &vaulttypes.Response{ID: fr.ID, Error: err.Error()})
+		return
+	}
+	r.cfg.FastPathSource.Complete(fr.ID, &vaulttypes.Response{
+		ID:      fr.ID,
+		Payload: payload,
+		Format:  vaultcap.FastPathResponseFormat,
+	})
 }
 
 func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, seqNr uint64, requestID string, reader ReadKVStore, req proto.Message, o *vaultcommon.Observation) {

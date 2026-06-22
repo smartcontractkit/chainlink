@@ -31,6 +31,8 @@ type Capability struct {
 	capabilitiesRegistry core.CapabilitiesRegistry
 	publicKey            *LazyPublicKey
 	lifecycle            *RequestLifecycleTracker
+	fastPathGate         limits.GateLimiter
+	fastPathBuffer       *FastPathBuffer
 	*RequestValidator
 }
 
@@ -68,6 +70,16 @@ func (s *Capability) Close() error {
 
 	if lerr := s.RequestValidator.Close(); lerr != nil {
 		err = errors.Join(err, fmt.Errorf("error closing request validator: %w", lerr))
+	}
+
+	if s.fastPathGate != nil {
+		if lerr := s.fastPathGate.Close(); lerr != nil {
+			err = errors.Join(err, fmt.Errorf("error closing fast-path gate limiter: %w", lerr))
+		}
+	}
+
+	if s.fastPathBuffer != nil {
+		s.fastPathBuffer.drainAllWithError("vault capability closed")
 	}
 
 	return err
@@ -125,7 +137,12 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 	id := vaultutils.BuildWorkflowGetSecretsRequestID(md)
 	s.lggr.Debugw("received workflow get secrets request", "requestID", id, "request", r.String())
 
-	resp, err := s.handleRequest(ctx, id, r)
+	var resp *vaulttypes.Response
+	if s.fastPathGate != nil && s.fastPathGate.AllowErr(ctx) == nil {
+		resp, err = s.handleFastPathRequest(ctx, id, r)
+	} else {
+		resp, err = s.handleRequest(ctx, id, r)
+	}
 	if err != nil {
 		return capabilities.CapabilityResponse{}, err
 	}
@@ -264,6 +281,28 @@ func validateSecretIdentifiersUniformOwners(ids []*vaultcommon.SecretIdentifier)
 	return nil
 }
 
+func (s *Capability) handleFastPathRequest(ctx context.Context, requestID string, request *vaultcommon.GetSecretsRequest) (*vaulttypes.Response, error) {
+	s.lifecycle.RecordReceived(ctx, requestID, s.clock.Now())
+	respCh := s.fastPathBuffer.Submit(requestID, request)
+	s.lggr.Debugw("sent request to fast-path buffer", "requestID", requestID)
+	select {
+	case <-ctx.Done():
+		s.fastPathBuffer.Complete(requestID, &vaulttypes.Response{ID: requestID, Error: ctx.Err().Error()})
+		s.lifecycle.FinalizeTimeout(ctx, requestID)
+		return nil, ctx.Err()
+	case resp := <-respCh:
+		s.lggr.Debugw("received fast-path response for request", "requestID", requestID, "error", resp.Error)
+		respAt := s.clock.Now()
+		if resp.Error != "" {
+			s.lifecycle.FinalizeResponseError(ctx, requestID, respAt, resp.Error)
+			return nil, fmt.Errorf("error processing request %s: %w", requestID, errors.New(resp.Error))
+		}
+
+		s.lifecycle.FinalizeSuccess(ctx, requestID, respAt)
+		return resp, nil
+	}
+}
+
 func (s *Capability) handleRequest(ctx context.Context, requestID string, request proto.Message) (*vaulttypes.Response, error) {
 	s.lifecycle.RecordReceived(ctx, requestID, s.clock.Now())
 	respCh := make(chan *vaulttypes.Response, 1)
@@ -302,6 +341,7 @@ func NewCapability(
 	publicKey *LazyPublicKey,
 	limitsFactory limits.Factory,
 	lifecycle *RequestLifecycleTracker,
+	fastPathBuffer *FastPathBuffer,
 ) (*Capability, error) {
 	if lifecycle == nil {
 		return nil, errors.New("vault capability requires a non-nil request lifecycle tracker")
@@ -309,6 +349,10 @@ func NewCapability(
 	requestValidator, err := NewRequestValidatorFromLimitsFactory(limitsFactory)
 	if err != nil {
 		return nil, err
+	}
+	fastPathGate, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.VaultFastPathGetSecretsEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("could not create fast-path get-secrets gate limiter: %w", err)
 	}
 	return &Capability{
 		lggr:                 logger.Named(lggr, "VaultCapability"),
@@ -318,6 +362,8 @@ func NewCapability(
 		capabilitiesRegistry: capabilitiesRegistry,
 		publicKey:            publicKey,
 		lifecycle:            lifecycle,
+		fastPathGate:         fastPathGate,
+		fastPathBuffer:       fastPathBuffer,
 		RequestValidator:     requestValidator,
 	}, nil
 }

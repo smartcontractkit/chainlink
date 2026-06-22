@@ -57,6 +57,7 @@ const (
 	vaultDefaultConfigPath              = "/configs/workflow-gateway-capabilities-don.toml"
 	vaultJWTAuthEnabledConfigPath       = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
 	vaultOptimizationsEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"
+	vaultFastPathGetSecretsEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-fast-path-getsecrets-enabled.toml"
 	vaultJWTIssuerListenAddr            = "0.0.0.0:18123"
 	// vaultJWTTestTenantID is the tenant_id / urn:chainlink:tenant_id claim for Vault JWT tests and
 	// matches the org_id passed to DeriveJWTAuthorizedVaultWorkflowOwner.
@@ -255,12 +256,22 @@ func getVaultOptimizationsEnabledTestConfig(t *testing.T) *ttypes.TestConfig {
 	return t_helpers.GetTestConfig(t, vaultOptimizationsEnabledConfigPath)
 }
 
+func getVaultFastPathGetSecretsEnabledTestConfig(t *testing.T) *ttypes.TestConfig {
+	t.Helper()
+
+	return t_helpers.GetTestConfig(t, vaultFastPathGetSecretsEnabledConfigPath)
+}
+
 func isVaultJWTAuthEnabledTopology(topologyName string) bool {
 	return strings.Contains(topologyName, "vault-jwt_auth-enabled")
 }
 
 func isVaultOptimizationsEnabledTopology(topologyName string) bool {
 	return strings.Contains(topologyName, "vault-optimizations-enabled")
+}
+
+func isVaultFastPathGetSecretsEnabledTopology(topologyName string) bool {
+	return strings.Contains(topologyName, "vault-fast-path-getsecrets-enabled")
 }
 
 func setupVaultScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, usePerTestKeys bool) *vaultScenarioFixture {

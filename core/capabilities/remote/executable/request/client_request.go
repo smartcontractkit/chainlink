@@ -70,6 +70,15 @@ func newRemoteCapabilityExecuteErrorFromCapError(capErr caperrors.Error) error {
 // received that the required number of matching payloads (configurable; defaults to F+1) are no longer mathematically possible.
 var ErrResponseQuorumUnreachable = errors.New("response quorum unreachable: not enough matching capability responses")
 
+// ResponseAggregator collects per-node executable responses that cannot be quorum-matched by hash.
+type ResponseAggregator interface {
+	OnResponse(peerID p2ptypes.PeerID, msg *types.MessageBody) (final *commoncap.CapabilityResponse, err error)
+	OnTimeout() (final *commoncap.CapabilityResponse, err error)
+}
+
+// AggregatorFactory builds a per-request response aggregator. A nil return keeps the default hash quorum.
+type AggregatorFactory func(ctx context.Context, req commoncap.CapabilityRequest) ResponseAggregator
+
 type clientResponse struct {
 	Result []byte
 	Err    error
@@ -93,6 +102,7 @@ type ClientRequest struct {
 
 	requiredResponseConfirmations int
 	remoteNodeCount               int
+	aggregator                    ResponseAggregator
 
 	requestTimeout time.Duration
 
@@ -135,7 +145,40 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 	}
 
 	lggr = logger.With(lggr, "requestId", requestID) // cap ID and method name included in the parent logger
-	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName, signers, minResponsesToAggregate)
+	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName, signers, minResponsesToAggregate, nil)
+}
+
+func NewClientExecuteRequestWithAggregator(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest,
+	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, dispatcher types.Dispatcher,
+	requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig, capMethodName string,
+	signers [][]byte, aggregator ResponseAggregator,
+) (*ClientRequest, error) {
+	rawRequest, err := proto.MarshalOptions{Deterministic: true}.Marshal(pb.CapabilityRequestToProto(req))
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal capability request: %w", err)
+	}
+
+	workflowExecutionID := req.Metadata.WorkflowExecutionID
+	if err = validation.ValidateWorkflowOrExecutionID(workflowExecutionID); err != nil {
+		return nil, fmt.Errorf("workflow execution ID is invalid: %w", err)
+	}
+
+	requestID := types.MethodExecute + ":" + workflowExecutionID + ":" + req.Metadata.ReferenceID
+
+	var tc transmission.TransmissionConfig
+	if transmissionConfig != nil {
+		tc = transmission.TransmissionConfig{
+			Schedule: transmission.Schedule_AllAtOnce,
+		}
+	} else {
+		tc, err = transmission.ExtractTransmissionConfig(req.Config)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract transmission config from request: %w", err)
+		}
+	}
+
+	lggr = logger.With(lggr, "requestId", requestID)
+	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName, signers, 0, aggregator)
 }
 
 var (
@@ -158,7 +201,7 @@ func requiredConfirmations(f uint8, minResponsesToAggregate uint32) int {
 func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string, remoteCapabilityInfo commoncap.CapabilityInfo,
 	localDonInfo commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration,
 	tc transmission.TransmissionConfig, methodType string, rawRequest []byte, workflowExecutionID string, stepRef string, capMethodName string,
-	signers [][]byte, minResponsesToAggregate uint32,
+	signers [][]byte, minResponsesToAggregate uint32, aggregator ResponseAggregator,
 ) (*ClientRequest, error) {
 	remoteCapabilityDonInfo := remoteCapabilityInfo.DON
 	if remoteCapabilityDonInfo == nil {
@@ -270,6 +313,7 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 		signers:                       signers,
 		workflowExecutionID:           workflowExecutionID,
 		referenceID:                   stepRef,
+		aggregator:                    aggregator,
 	}, nil
 }
 
@@ -344,9 +388,41 @@ func (c *ClientRequest) Cancel(err error) {
 	c.wg.Wait()
 	c.mux.Lock()
 	defer c.mux.Unlock()
-	if !c.respSent {
-		c.sendResponse(clientResponse{Err: err})
+	if c.respSent {
+		return
 	}
+	if c.aggregator != nil {
+		if final, aggErr := c.aggregator.OnTimeout(); aggErr != nil {
+			c.sendResponse(clientResponse{Err: aggErr})
+			return
+		} else if final != nil {
+			payload, marshalErr := pb.MarshalCapabilityResponse(*final)
+			if marshalErr != nil {
+				c.sendResponse(clientResponse{Err: marshalErr})
+				return
+			}
+			c.sendResponse(clientResponse{Result: payload})
+			return
+		}
+	}
+	c.sendResponse(clientResponse{Err: err})
+}
+
+func (c *ClientRequest) onMessageWithAggregator(sender p2ptypes.PeerID, msg *types.MessageBody) error {
+	final, aggErr := c.aggregator.OnResponse(sender, msg)
+	if aggErr != nil {
+		c.sendResponse(clientResponse{Err: aggErr})
+		return nil
+	}
+	if final == nil {
+		return nil
+	}
+	payload, err := pb.MarshalCapabilityResponse(*final)
+	if err != nil {
+		return fmt.Errorf("failed to marshal aggregated capability response: %w", err)
+	}
+	c.sendResponse(clientResponse{Result: payload})
+	return nil
 }
 
 func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) error {
@@ -378,6 +454,10 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 	}
 
 	c.responseReceived[sender] = true
+
+	if c.aggregator != nil {
+		return c.onMessageWithAggregator(sender, msg)
+	}
 
 	if msg.Error == types.Error_OK {
 		resp, err := pb.UnmarshalCapabilityResponse(msg.Payload)

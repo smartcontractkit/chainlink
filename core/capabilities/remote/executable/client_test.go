@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable/request"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/synctest"
@@ -338,7 +339,7 @@ func testClient(t *testing.T, numWorkflowPeers int, workflowNodeResponseTimeout 
 	for i := range numWorkflowPeers {
 		workflowPeerDispatcher := broker.NewDispatcherForNode(workflowPeers[i])
 		caller := executable.NewClient(capInfo.ID, "", workflowPeerDispatcher, lggr)
-		err := caller.SetConfig(capInfo, workflowDonInfo, workflowNodeResponseTimeout, nil, nil, 0)
+		err := caller.SetConfig(capInfo, workflowDonInfo, workflowNodeResponseTimeout, nil, nil, 0, nil)
 		require.NoError(t, err)
 		servicetest.Run(t, caller)
 		broker.RegisterReceiverNode(workflowPeers[i], caller)
@@ -468,7 +469,7 @@ func (t *clientTestServer) sendResponse(messageID string, responseErr error,
 
 type clientSetConfigTestFixture struct {
 	Client interface {
-		SetConfig(commoncap.CapabilityInfo, commoncap.DON, time.Duration, *transmission.TransmissionConfig, [][]byte, uint32) error
+		SetConfig(commoncap.CapabilityInfo, commoncap.DON, time.Duration, *transmission.TransmissionConfig, [][]byte, uint32, request.AggregatorFactory) error
 		Info(context.Context) (commoncap.CapabilityInfo, error)
 		Start(context.Context) error
 		Close() error
@@ -523,7 +524,7 @@ func TestClient_SetConfig(t *testing.T) {
 			DeltaStage: 10 * time.Millisecond,
 		}
 
-		err := fixture.Client.SetConfig(fixture.ValidCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, transmissionConfig, nil, 0)
+		err := fixture.Client.SetConfig(fixture.ValidCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, transmissionConfig, nil, 0, nil)
 		require.NoError(t, err)
 
 		info, err := fixture.Client.Info(t.Context())
@@ -541,7 +542,7 @@ func TestClient_SetConfig(t *testing.T) {
 			CapabilityType: commoncap.CapabilityTypeAction,
 		}
 
-		err := fixture.Client.SetConfig(invalidCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, nil, nil, 0)
+		err := fixture.Client.SetConfig(invalidCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, nil, nil, 0, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "capability info provided does not match the client's capabilityID")
 		assert.Contains(t, err.Error(), "different_capability@1.0.0 != test_capability@1.0.0")
@@ -558,7 +559,7 @@ func TestClient_SetConfig(t *testing.T) {
 			F:       0,
 		}
 
-		err := fixture.Client.SetConfig(fixture.ValidCapInfo, invalidDonInfo, fixture.ValidTimeout, nil, nil, 0)
+		err := fixture.Client.SetConfig(fixture.ValidCapInfo, invalidDonInfo, fixture.ValidTimeout, nil, nil, 0, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "empty localDonInfo provided")
 	})
@@ -569,7 +570,7 @@ func TestClient_SetConfig(t *testing.T) {
 		fixture := newClientSetConfigTestFixture(t)
 
 		initialTimeout := 10 * time.Second
-		err := fixture.Client.SetConfig(fixture.ValidCapInfo, fixture.ValidDonInfo, initialTimeout, nil, nil, 0)
+		err := fixture.Client.SetConfig(fixture.ValidCapInfo, fixture.ValidDonInfo, initialTimeout, nil, nil, 0, nil)
 		require.NoError(t, err)
 
 		newTimeout := 60 * time.Second
@@ -579,7 +580,7 @@ func TestClient_SetConfig(t *testing.T) {
 			F:       1,
 		}
 
-		err = fixture.Client.SetConfig(fixture.ValidCapInfo, newDonInfo, newTimeout, nil, nil, 0)
+		err = fixture.Client.SetConfig(fixture.ValidCapInfo, newDonInfo, newTimeout, nil, nil, 0, nil)
 		require.NoError(t, err)
 
 		info, err := fixture.Client.Info(t.Context())
@@ -607,7 +608,7 @@ func TestClient_SetConfig_StartClose(t *testing.T) {
 		fixture := newClientSetConfigTestFixture(t)
 		ctx := t.Context()
 
-		require.NoError(t, fixture.Client.SetConfig(fixture.ValidCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, nil, nil, 0))
+		require.NoError(t, fixture.Client.SetConfig(fixture.ValidCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, nil, nil, 0, nil))
 		require.NoError(t, fixture.Client.Start(ctx))
 		require.NoError(t, fixture.Client.Close())
 	})
@@ -618,12 +619,12 @@ func TestClient_SetConfig_StartClose(t *testing.T) {
 		fixture := newClientSetConfigTestFixture(t)
 		ctx := t.Context()
 
-		require.NoError(t, fixture.Client.SetConfig(fixture.ValidCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, nil, nil, 0))
+		require.NoError(t, fixture.Client.SetConfig(fixture.ValidCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, nil, nil, 0, nil))
 		require.NoError(t, fixture.Client.Start(ctx))
 
 		newCapInfo := fixture.ValidCapInfo
 		newCapInfo.Description = "new description"
-		require.NoError(t, fixture.Client.SetConfig(newCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, nil, nil, 0))
+		require.NoError(t, fixture.Client.SetConfig(newCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, nil, nil, 0, nil))
 
 		info, err := fixture.Client.Info(ctx)
 		require.NoError(t, err)

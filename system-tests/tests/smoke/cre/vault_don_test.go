@@ -189,7 +189,7 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		namespaces := []string{"main", "alt"}
 
 		executeVaultAllowListSecretsCreateTest(t, createEnc, secretID, owner, owner, gwURL, namespaces, sc, wfReg)
-		if isVaultOptimizationsEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
+		if isVaultOptimizationsEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) || isVaultFastPathGetSecretsEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
 			t.Run("binary_encoded_shares", func(t *testing.T) {
 				executeVaultBinaryEncodedSharesSmokeTest(t, testEnv, secretID, "main", createValue, ulCh, bmCh)
 			})
@@ -243,7 +243,7 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		})
 	}
 
-	if isVaultOptimizationsEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
+	if isVaultOptimizationsEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) || isVaultFastPathGetSecretsEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
 		t.Run("pending_queue_blob_batching_many_concurrent_creates", func(t *testing.T) {
 			ExecuteVaultBlobBatchingSmokeTest(t, fixture, testEnv)
 		})
@@ -891,6 +891,10 @@ func TestVaultSignedResponseRequestIDEnabled_CRESettingDefaultsDisabled(t *testi
 	require.False(t, cresettings.Default.VaultSignedResponseRequestIDEnabled.DefaultValue)
 }
 
+func TestVaultFastPathGetSecretsEnabled_CRESettingDefaultsDisabled(t *testing.T) {
+	require.False(t, cresettings.Default.VaultFastPathGetSecretsEnabled.DefaultValue)
+}
+
 func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 	t.Parallel()
 	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
@@ -917,6 +921,13 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 		{
 			name:                  "optimizations_enabled",
 			configPath:            vaultOptimizationsEnabledConfigPath,
+			wantJWTGate:           "false",
+			wantLinking:           false,
+			wantOptimizationsGate: "true",
+		},
+		{
+			name:                  "fast_path_getsecrets_enabled",
+			configPath:            vaultFastPathGetSecretsEnabledConfigPath,
 			wantJWTGate:           "false",
 			wantLinking:           false,
 			wantOptimizationsGate: "true",
@@ -949,6 +960,9 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 					require.NoError(t, json.Unmarshal([]byte(settingsRaw), &settings))
 					if tc.wantOptimizationsGate == "true" {
 						require.Equal(t, "true", settings["VaultOptimizationsEnabled"])
+						if tc.name == "fast_path_getsecrets_enabled" {
+							require.Equal(t, "true", settings["VaultFastPathGetSecretsEnabled"])
+						}
 					} else {
 						require.Equal(t, tc.wantJWTGate, settings["VaultJWTAuthEnabled"])
 						if v, ok := settings["VaultOptimizationsEnabled"]; ok {

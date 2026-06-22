@@ -39,6 +39,7 @@ type testPluginBuildOpts struct {
 	vaultJSONOmitUnpopulatedEnabled         bool
 	vaultSignedResponseRequestIDEnabled     bool
 	vaultShareAggregationIncludesPublicKeys bool
+	fastPathSource                          vaultcap.FastPathSource
 	marshalBlob                             func(ocr3_1types.BlobHandle) ([]byte, error)
 	unmarshalBlob                           func([]byte) (ocr3_1types.BlobHandle, error)
 	maxObservationBytesOverride             int
@@ -90,6 +91,10 @@ func withVaultJSONOmitUnpopulatedEnabled() testPluginOption {
 
 func withVaultSignedResponseRequestIDEnabled() testPluginOption {
 	return func(o *testPluginBuildOpts) { o.vaultSignedResponseRequestIDEnabled = true }
+}
+
+func withFastPathSource(src vaultcap.FastPathSource) testPluginOption {
+	return func(o *testPluginBuildOpts) { o.fastPathSource = src }
 }
 
 func withOnchainCfg(n int, f int) testPluginOption {
@@ -154,6 +159,7 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 	if o.vaultSignedResponseRequestIDEnabled {
 		cfg.VaultSignedResponseRequestIDEnabled = limits.NewGateLimiter(true)
 	}
+	cfg.FastPathSource = o.fastPathSource
 	ctx := context.Background()
 	pl, err := initializePluginLimits(ctx, limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
