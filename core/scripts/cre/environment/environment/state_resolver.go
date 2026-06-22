@@ -162,6 +162,15 @@ func (r *LocalCREStateResolver) GatewayURL() (string, error) {
 	return r.formatGatewayURL(r.topology.GatewayConnectors.Configurations[0])
 }
 
+// resolveGatewayURL returns the gateway URL for donFamily when pairing is enabled,
+// otherwise the first connector (legacy single-gateway topologies).
+func (r *LocalCREStateResolver) resolveGatewayURL(donFamily string) (string, error) {
+	if url, err := r.GatewayURLForDonFamily(donFamily); err == nil {
+		return url, nil
+	}
+	return r.GatewayURL()
+}
+
 func (r *LocalCREStateResolver) WorkflowRegistryOutput() (*cre.WorkflowRegistryOutput, error) {
 	path := envconfig.MustWorkflowRegistryStateFileAbsPath(relativePathToRepoRoot)
 	data, err := os.ReadFile(path)

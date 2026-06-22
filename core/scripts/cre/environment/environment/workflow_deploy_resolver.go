@@ -121,12 +121,3 @@ func validateWorkflowDeployFlags(cmd *cobra.Command, donMeta *cre.DonMetadata, s
 	}
 	return nil
 }
-
-// resolveGatewayURL picks the gateway for donFamily when pairing is enabled, otherwise
-// falls back to the first connector (legacy single-gateway topologies).
-func (r *LocalCREStateResolver) resolveGatewayURL(donFamily string) (string, error) {
-	if url, err := r.GatewayURLForDonFamily(donFamily); err == nil {
-		return url, nil
-	}
-	return r.GatewayURL()
-}
