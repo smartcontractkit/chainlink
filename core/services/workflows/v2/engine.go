@@ -1166,43 +1166,48 @@ func (e *Engine) deductStandardBalances(ctx context.Context, meteringReport *met
 
 // separate call for each workflow execution
 func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents.LogLine, executionID string, executionLabels map[string]string) {
+	// Drain and emit every buffered user log until the channel is closed by the
+	// caller (its defer close), which is the sole termination signal. Do NOT
+	// select on ctx.Done(): on execution return the caller cancels the context
+	// at roughly the same time it closes the channel, so a ctx.Done() case would
+	// race the buffered log line and intermittently drop it (Go selects a ready
+	// case at random). Use a non-cancellable context so neither this loop nor the
+	// downstream limiter/emit calls are preempted by that cancellation; the
+	// bounded channel keeps the work finite.
+	ctx = context.WithoutCancel(ctx)
 	e.logger().Debugw("Listening for user logs ...")
 	count := 0
 	defer func() { e.logger().Debugw("Listening for user logs done.", "processedLogLines", count) }()
 	for {
-		select {
-		case <-ctx.Done():
+		logLine, ok := <-userLogChan
+		if !ok {
 			return
-		case logLine, ok := <-userLogChan:
-			if !ok {
-				return
-			}
-			if e.cfg.DebugMode {
-				e.logger().Debugf("User log: <<<%s>>>, local node timestamp: %s", logLine.Message, logLine.NodeTimestamp)
-			}
-			err := e.cfg.LocalLimiters.LogEvent.Check(ctx, count)
-			if err != nil {
-				var errBoundLimited limits.ErrorBoundLimited[int]
-				if errors.As(err, &errBoundLimited) {
-					e.logger().Warnw("Max user log events per execution reached, dropping event", "maxEvents", errBoundLimited.Limit, "err", err)
-					return
-				}
-				e.logger().Errorw("Failed to get user log event limit", "err", err)
-				return
-			}
-			maxUserLogLength, err := e.cfg.LocalLimiters.LogLine.Limit(ctx)
-			if err != nil {
-				e.logger().Errorw("Failed to get user log line limit", "err", err)
-				return
-			}
-			if len(logLine.Message) > int(maxUserLogLength) {
-				logLine.Message = logLine.Message[:maxUserLogLength] + " ...(truncated)"
-			}
-
-			if err := events.EmitUserLogs(ctx, executionLabels, []*protoevents.LogLine{logLine}, executionID); err != nil {
-				e.logger().Errorw("Failed to emit user logs", "err", err)
-			}
-			count++
 		}
+		if e.cfg.DebugMode {
+			e.logger().Debugf("User log: <<<%s>>>, local node timestamp: %s", logLine.Message, logLine.NodeTimestamp)
+		}
+		err := e.cfg.LocalLimiters.LogEvent.Check(ctx, count)
+		if err != nil {
+			var errBoundLimited limits.ErrorBoundLimited[int]
+			if errors.As(err, &errBoundLimited) {
+				e.logger().Warnw("Max user log events per execution reached, dropping event", "maxEvents", errBoundLimited.Limit, "err", err)
+				return
+			}
+			e.logger().Errorw("Failed to get user log event limit", "err", err)
+			return
+		}
+		maxUserLogLength, err := e.cfg.LocalLimiters.LogLine.Limit(ctx)
+		if err != nil {
+			e.logger().Errorw("Failed to get user log line limit", "err", err)
+			return
+		}
+		if len(logLine.Message) > int(maxUserLogLength) {
+			logLine.Message = logLine.Message[:maxUserLogLength] + " ...(truncated)"
+		}
+
+		if err := events.EmitUserLogs(ctx, executionLabels, []*protoevents.LogLine{logLine}, executionID); err != nil {
+			e.logger().Errorw("Failed to emit user logs", "err", err)
+		}
+		count++
 	}
 }
