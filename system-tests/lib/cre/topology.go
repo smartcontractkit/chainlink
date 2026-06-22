@@ -25,7 +25,7 @@ type Topology struct {
 
 	gatewayConnectorsByDon     map[string]*DonGatewayConfiguration
 	donFamilyPairingEnabled    bool
-	donFamilyPairing           *donFamilyPairingIndex
+	donFamilyPairing           *donFamilyPairingState
 }
 
 func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs map[CapabilityFlag]CapabilityConfig) (*Topology, error) {

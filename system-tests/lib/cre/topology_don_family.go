@@ -13,9 +13,9 @@ type DonFamilyGatewayPair struct {
 	GatewayDONName  string
 }
 
-// donFamilyPairingIndex holds precomputed family groupings when explicit don_family pairing
-// is enabled. Legacy topologies leave Topology.donFamilyPairing nil.
-type donFamilyPairingIndex struct {
+// donFamilyPairingState holds resolved workflow↔gateway pairings keyed by don_family.
+// Built at env start when pairing is enabled; legacy topologies leave Topology.donFamilyPairing nil.
+type donFamilyPairingState struct {
 	gatewayDONNamesByFamily  map[string][]string
 	workflowDONNamesByFamily map[string][]string
 	pairs                    []DonFamilyGatewayPair
@@ -23,17 +23,17 @@ type donFamilyPairingIndex struct {
 
 func (t *Topology) initDonFamilyGatewayPairing() error {
 	// Opt-in: pairing activates only when at least one workflow/gateway nodeset sets don_family.
-	// Legacy single-gateway topologies skip index build and keep all-to-all wiring.
+	// Legacy single-gateway topologies skip pairing resolution and keep all-to-all wiring.
 	t.donFamilyPairingEnabled = t.computeDonFamilyGatewayPairingEnabled()
 	if !t.donFamilyPairingEnabled {
 		return nil
 	}
 
-	index, err := t.buildDonFamilyPairingIndex()
+	state, err := t.buildDonFamilyPairingState()
 	if err != nil {
 		return err
 	}
-	t.donFamilyPairing = index
+	t.donFamilyPairing = state
 	return nil
 }
 
@@ -63,16 +63,17 @@ func (t *Topology) computeDonFamilyGatewayPairingEnabled() bool {
 	return false
 }
 
-// buildDonFamilyPairingIndex validates that every workflow/gateway DON declares don_family
-// and that each workflow family has at least one gateway family match. Failures here
-// surface at env start rather than as silent cross-family gateway wiring at runtime.
-func (t *Topology) buildDonFamilyPairingIndex() (*donFamilyPairingIndex, error) {
+// buildDonFamilyPairingState validates that every workflow/gateway DON declares don_family,
+// matches workflow DONs to gateway DONs with the same don_family, and stores the result for
+// scoped connector/service lookups. Failures surface at env start rather than as silent
+// cross-family gateway wiring at runtime.
+func (t *Topology) buildDonFamilyPairingState() (*donFamilyPairingState, error) {
 	wfDONs, err := t.DonsMetadata.WorkflowDONs()
 	if err != nil {
 		return nil, err
 	}
 
-	index := &donFamilyPairingIndex{
+	state := &donFamilyPairingState{
 		gatewayDONNamesByFamily:  make(map[string][]string),
 		workflowDONNamesByFamily: make(map[string][]string),
 	}
@@ -84,19 +85,19 @@ func (t *Topology) buildDonFamilyPairingIndex() (*donFamilyPairingIndex, error) 
 		if d.DonFamily == "" {
 			return nil, fmt.Errorf("gateway DON %q has no don_family; set nodesets.don_family on workflow and gateway nodesets", d.Name)
 		}
-		index.gatewayDONNamesByFamily[d.DonFamily] = append(index.gatewayDONNamesByFamily[d.DonFamily], d.Name)
+		state.gatewayDONNamesByFamily[d.DonFamily] = append(state.gatewayDONNamesByFamily[d.DonFamily], d.Name)
 	}
 
 	for _, wf := range wfDONs {
 		if wf.DonFamily == "" {
 			return nil, fmt.Errorf("workflow DON %q has no don_family; set nodesets.don_family on workflow and gateway nodesets", wf.Name)
 		}
-		if len(index.gatewayDONNamesByFamily[wf.DonFamily]) == 0 {
+		if len(state.gatewayDONNamesByFamily[wf.DonFamily]) == 0 {
 			return nil, fmt.Errorf("workflow DON %q is in don_family %q but no gateway DON is defined for that family", wf.Name, wf.DonFamily)
 		}
-		index.workflowDONNamesByFamily[wf.DonFamily] = append(index.workflowDONNamesByFamily[wf.DonFamily], wf.Name)
-		for _, gwName := range index.gatewayDONNamesByFamily[wf.DonFamily] {
-			index.pairs = append(index.pairs, DonFamilyGatewayPair{
+		state.workflowDONNamesByFamily[wf.DonFamily] = append(state.workflowDONNamesByFamily[wf.DonFamily], wf.Name)
+		for _, gwName := range state.gatewayDONNamesByFamily[wf.DonFamily] {
+			state.pairs = append(state.pairs, DonFamilyGatewayPair{
 				DonFamily:       wf.DonFamily,
 				WorkflowDONName: wf.Name,
 				GatewayDONName:  gwName,
@@ -104,7 +105,7 @@ func (t *Topology) buildDonFamilyPairingIndex() (*donFamilyPairingIndex, error) 
 		}
 	}
 
-	return index, nil
+	return state, nil
 }
 
 // DonFamilyGatewayPairings returns workflow→gateway pairs grouped by don_family.
