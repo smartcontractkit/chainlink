@@ -36,6 +36,7 @@ import (
 	linkops "github.com/smartcontractkit/chainlink-sui/deployment/ops/link"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
 	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -1879,11 +1880,12 @@ func prepareEvm2SuiTransferLane(t *testing.T, e testhelpers.DeployedEnv, state s
 	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Env.Offchain, sourceChain, destChain)
 }
 
-// replayEvm2SuiTransferLane replays logs so the DON observes CCIPMessageSent if the send
-// raced log-poller registration, matching messagingtest.Run.
+// replayEvm2SuiTransferLane replays EVM logs and waits for async replay to settle so the DON
+// can OCR-commit before we poll the Sui offramp (Sui replay is a no-op in nodetestutils).
 func replayEvm2SuiTransferLane(t *testing.T, e testhelpers.DeployedEnv, sourceChain, destChain uint64) {
 	t.Helper()
-	testhelpers.SleepAndReplay(t, e.Env, 30*time.Second, sourceChain, destChain)
+	_ = destChain
+	messagingtest.SleepReplayAndSettle(t, e.Env, 30*time.Second, sourceChain)
 }
 
 // waitForSuiRPCSync blocks until the Sui fullnode JSON-RPC view has had a chance to index

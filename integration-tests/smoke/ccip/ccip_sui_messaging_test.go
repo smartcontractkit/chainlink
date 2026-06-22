@@ -379,16 +379,7 @@ func prepareEVM2SuiMessagingTest(t *testing.T) evm2SuiMessagingFixtures {
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
 
-	sender := common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
-	setup := messagingtest.NewTestSetupWithDeployedEnv(
-		t,
-		e,
-		state,
-		sourceChain,
-		destChain,
-		sender,
-		false, // test router
-	)
+	var setup messagingtest.TestSetup
 
 	_, output, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.DeployDummyReceiver{}, sui_cs.DeployDummyReceiverConfig{
@@ -407,7 +398,7 @@ func prepareEVM2SuiMessagingTest(t *testing.T) evm2SuiMessagingFixtures {
 	receiverByteDecoded, err := hex.DecodeString(id)
 	require.NoError(t, err)
 
-	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+	updatedEnv, _, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
 			SuiChainSelector:       destChain,
 			OwnerCapObjectId:       outputMap.Objects.OwnerCapObjectId,
@@ -416,6 +407,22 @@ func prepareEVM2SuiMessagingTest(t *testing.T) evm2SuiMessagingFixtures {
 		}),
 	})
 	require.NoError(t, err)
+	e.Env = updatedEnv
+
+	state, err = stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	e.RefreshAdapters()
+
+	sender := common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
+	setup = messagingtest.NewTestSetupWithDeployedEnv(
+		t,
+		e,
+		state,
+		sourceChain,
+		destChain,
+		sender,
+		false, // test router
+	)
 
 	receiverByte := receiverByteDecoded
 
@@ -447,9 +454,10 @@ func Test_CCIP_Messaging_EVM2Sui_Success(t *testing.T) {
 	var nonce uint64
 
 	waitForSuiRPCSync(t, fx.e.Env.BlockChains.SuiChains()[fx.destChain])
-	testhelpers.WaitForEventFilterRegistrationOnLane(t, fx.state, fx.e.Env.Offchain, fx.sourceChain, fx.destChain)
 
 	t.Run("Message to Sui", func(t *testing.T) {
+		testhelpers.WaitForEventFilterRegistrationOnLane(t, fx.state, fx.e.Env.Offchain, fx.sourceChain, fx.destChain)
+
 		message := []byte("Hello Sui, from EVM!")
 		messagingtest.Run(t,
 			messagingtest.TestCase{
