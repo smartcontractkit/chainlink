@@ -161,7 +161,7 @@ func SetupTestEnvironment(
 	if tErr != nil {
 		return nil, pkgerrors.Wrap(tErr, "failed to create topology")
 	}
-	if pairingSummary := topology.GatewayDonFamilyPairingSummary(); pairingSummary != "" {
+	if pairingSummary := topology.DonFamilyGatewayPairingSummary(); pairingSummary != "" {
 		testLogger.Info().Msg(pairingSummary) // e.g. feeds-zone-a → gateway-zone-a (don_family=...)
 	}
 

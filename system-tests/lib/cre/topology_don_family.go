@@ -107,8 +107,8 @@ func (t *Topology) buildDonFamilyPairingIndex() (*donFamilyPairingIndex, error) 
 	return index, nil
 }
 
-// GatewayDonFamilyPairings returns workflow→gateway pairs grouped by don_family.
-func (t *Topology) GatewayDonFamilyPairings() []DonFamilyGatewayPair {
+// DonFamilyGatewayPairings returns workflow→gateway pairs grouped by don_family.
+func (t *Topology) DonFamilyGatewayPairings() []DonFamilyGatewayPair {
 	if t.donFamilyPairing == nil {
 		return nil
 	}
@@ -129,10 +129,10 @@ func (t *Topology) WorkflowDONFamilies() []string {
 	return families
 }
 
-// GatewayDonFamilyPairingSummary returns a human-readable summary of resolved workflow→gateway pairs.
+// DonFamilyGatewayPairingSummary returns a human-readable summary of resolved workflow→gateway pairs.
 // Empty when pairing is disabled or no pairs were resolved.
-func (t *Topology) GatewayDonFamilyPairingSummary() string {
-	pairs := t.GatewayDonFamilyPairings()
+func (t *Topology) DonFamilyGatewayPairingSummary() string {
+	pairs := t.DonFamilyGatewayPairings()
 	if len(pairs) == 0 {
 		return ""
 	}

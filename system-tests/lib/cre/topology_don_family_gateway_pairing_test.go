@@ -77,17 +77,17 @@ func TestTopology_validateDonFamilyGatewayPairing_missingGateway(t *testing.T) {
 	require.Contains(t, err.Error(), "no gateway DON is defined for that family")
 }
 
-func TestGatewayDonFamilyPairingSummary_dataFeedsLocalTopology(t *testing.T) {
+func TestDonFamilyGatewayPairingSummary_dataFeedsLocalTopology(t *testing.T) {
 	t.Parallel()
 
 	topology := donFamilyGatewayPairingTestTopology()
 
-	summary := topology.GatewayDonFamilyPairingSummary()
+	summary := topology.DonFamilyGatewayPairingSummary()
 	require.Contains(t, summary, "feeds-zone-a → gateway-zone-a (don_family=feeds-zone-a)")
 	require.Contains(t, summary, "feeds-zone-b → gateway-zone-b (don_family=feeds-zone-b)")
 }
 
-func TestGatewayDonFamilyPairingSummary_legacyWithoutFamilies(t *testing.T) {
+func TestDonFamilyGatewayPairingSummary_legacyWithoutFamilies(t *testing.T) {
 	t.Parallel()
 
 	topology := &Topology{
@@ -99,7 +99,7 @@ func TestGatewayDonFamilyPairingSummary_legacyWithoutFamilies(t *testing.T) {
 		},
 	}
 
-	require.Empty(t, topology.GatewayDonFamilyPairingSummary())
+	require.Empty(t, topology.DonFamilyGatewayPairingSummary())
 }
 
 func TestTopology_validateDonFamilyGatewayPairing_partialFamily(t *testing.T) {
@@ -121,12 +121,12 @@ func TestTopology_validateDonFamilyGatewayPairing_partialFamily(t *testing.T) {
 	require.Contains(t, err.Error(), `workflow DON "feeds-zone-b" has no don_family`)
 }
 
-func TestGatewayDonFamilyPairings_dataFeedsLocalTopology(t *testing.T) {
+func TestDonFamilyGatewayPairings_dataFeedsLocalTopology(t *testing.T) {
 	t.Parallel()
 
 	topology := donFamilyGatewayPairingTestTopology()
 
-	pairs := topology.GatewayDonFamilyPairings()
+	pairs := topology.DonFamilyGatewayPairings()
 	require.Equal(t, []DonFamilyGatewayPair{
 		{DonFamily: "feeds-zone-a", WorkflowDONName: "feeds-zone-a", GatewayDONName: "gateway-zone-a"},
 		{DonFamily: "feeds-zone-b", WorkflowDONName: "feeds-zone-b", GatewayDONName: "gateway-zone-b"},
