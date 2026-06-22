@@ -135,7 +135,8 @@ func (r *LocalCREStateResolver) WorkflowDONFamily() (string, error) {
 }
 
 // WorkflowDONMetadataForContainerPattern returns the workflow DON whose name matches
-// containerNamePattern (e.g. "feeds-zone-a-node" matches DON "feeds-zone-a").
+// containerNamePattern. Matches exact DON names, names with a "-node" suffix stripped,
+// or container names prefixed with "<don-name>-".
 func (r *LocalCREStateResolver) WorkflowDONMetadataForContainerPattern(containerNamePattern string) (*cre.DonMetadata, error) {
 	workflowDONs, err := r.topology.DonsMetadata.WorkflowDONs()
 	if err != nil {
@@ -180,50 +181,18 @@ func (r *LocalCREStateResolver) GatewayURLForDonFamily(donFamily string) (string
 		return "", fmt.Errorf("no gateway connector found for don_family %q", donFamily)
 	}
 
-	cfg := connectors.Configurations[0]
-	host := cfg.Incoming.Host
-	if host == "" {
-		host = r.cfg.Infra.ExternalGatewayHost()
-	}
-
-	return fmt.Sprintf("%s://%s:%d%s", cfg.Incoming.Protocol, host, cfg.Incoming.ExternalPort, cfg.Incoming.Path), nil
+	return r.formatGatewayURL(connectors.Configurations[0])
 }
 
 // WorkflowDONNodeInfoForContainerPattern returns DB port and worker count for the workflow
 // DON matched by containerNamePattern.
 func (r *LocalCREStateResolver) WorkflowDONNodeInfoForContainerPattern(containerNamePattern string) (dbPort int, nodeCount int, err error) {
-	if r.cfg.Infra == nil {
-		return 0, 0, errors.New("infra section is missing from local CRE state file")
-	}
-	if r.cfg.Infra.IsKubernetes() {
-		return 0, 0, errors.New("direct DB polling is not supported for Kubernetes provider; vault config propagation requires a static wait on Kubernetes")
-	}
-
 	donMeta, err := r.WorkflowDONMetadataForContainerPattern(containerNamePattern)
 	if err != nil {
 		return 0, 0, err
 	}
 
-	var nodeSet *cre.NodeSet
-	for _, ns := range r.cfg.NodeSets {
-		if ns.Name == donMeta.Name {
-			nodeSet = ns
-			break
-		}
-	}
-	if nodeSet == nil {
-		return 0, 0, fmt.Errorf("no nodeset found for workflow DON %q in local CRE state", donMeta.Name)
-	}
-	if nodeSet.DbInput == nil {
-		return 0, 0, fmt.Errorf("nodeset %q has no DbInput in local CRE state", donMeta.Name)
-	}
-
-	workers, err := donMeta.Workers()
-	if err != nil {
-		return 0, 0, errors.Wrap(err, "failed to get workflow DON workers")
-	}
-
-	return nodeSet.DbInput.Port, len(workers), nil
+	return r.workflowDONNodeInfoFor(donMeta)
 }
 
 func (r *LocalCREStateResolver) WorkflowDONName() (string, error) {
@@ -240,13 +209,7 @@ func (r *LocalCREStateResolver) GatewayURL() (string, error) {
 		return "", errors.New("no gateway connectors found in local CRE state")
 	}
 
-	cfg := r.topology.GatewayConnectors.Configurations[0]
-	host := cfg.Incoming.Host
-	if host == "" {
-		host = r.cfg.Infra.ExternalGatewayHost()
-	}
-
-	return fmt.Sprintf("%s://%s:%d%s", cfg.Incoming.Protocol, host, cfg.Incoming.ExternalPort, cfg.Incoming.Path), nil
+	return r.formatGatewayURL(r.topology.GatewayConnectors.Configurations[0])
 }
 
 func (r *LocalCREStateResolver) WorkflowRegistryOutput() (*cre.WorkflowRegistryOutput, error) {
@@ -272,6 +235,27 @@ func (r *LocalCREStateResolver) WorkflowRegistryOutput() (*cre.WorkflowRegistryO
 // workflow DON as recorded in the local CRE state file. These values are used by
 // waitForVaultConfigPropagation to poll each node's registry_syncer_states table.
 func (r *LocalCREStateResolver) WorkflowDONNodeInfo() (dbPort int, nodeCount int, err error) {
+	donMeta, err := r.WorkflowDONMetadata()
+	if err != nil {
+		return 0, 0, errors.Wrap(err, "failed to get workflow DON metadata")
+	}
+
+	return r.workflowDONNodeInfoFor(donMeta)
+}
+
+func (r *LocalCREStateResolver) formatGatewayURL(cfg *cre.DonGatewayConfiguration) (string, error) {
+	host := cfg.Incoming.Host
+	if host == "" {
+		if r.cfg.Infra == nil {
+			return "", errors.New("gateway connector has no host and infra section is missing from local CRE state")
+		}
+		host = r.cfg.Infra.ExternalGatewayHost()
+	}
+
+	return fmt.Sprintf("%s://%s:%d%s", cfg.Incoming.Protocol, host, cfg.Incoming.ExternalPort, cfg.Incoming.Path), nil
+}
+
+func (r *LocalCREStateResolver) workflowDONNodeInfoFor(donMeta *cre.DonMetadata) (dbPort int, nodeCount int, err error) {
 	if r.cfg.Infra == nil {
 		return 0, 0, errors.New("infra section is missing from local CRE state file")
 	}
@@ -279,21 +263,9 @@ func (r *LocalCREStateResolver) WorkflowDONNodeInfo() (dbPort int, nodeCount int
 		return 0, 0, errors.New("direct DB polling is not supported for Kubernetes provider; vault config propagation requires a static wait on Kubernetes")
 	}
 
-	donMeta, err := r.WorkflowDONMetadata()
+	nodeSet, err := r.nodeSetForDON(donMeta.Name)
 	if err != nil {
-		return 0, 0, errors.Wrap(err, "failed to get workflow DON metadata")
-	}
-
-	// Find the NodeSet whose name matches the workflow DON name.
-	var nodeSet *cre.NodeSet
-	for _, ns := range r.cfg.NodeSets {
-		if ns.Name == donMeta.Name {
-			nodeSet = ns
-			break
-		}
-	}
-	if nodeSet == nil {
-		return 0, 0, fmt.Errorf("no nodeset found for workflow DON %q in local CRE state", donMeta.Name)
+		return 0, 0, err
 	}
 	if nodeSet.DbInput == nil {
 		return 0, 0, fmt.Errorf("nodeset %q has no DbInput in local CRE state", donMeta.Name)
@@ -305,4 +277,13 @@ func (r *LocalCREStateResolver) WorkflowDONNodeInfo() (dbPort int, nodeCount int
 	}
 
 	return nodeSet.DbInput.Port, len(workers), nil
+}
+
+func (r *LocalCREStateResolver) nodeSetForDON(donName string) (*cre.NodeSet, error) {
+	for _, ns := range r.cfg.NodeSets {
+		if ns.Name == donName {
+			return ns, nil
+		}
+	}
+	return nil, fmt.Errorf("no nodeset found for workflow DON %q in local CRE state", donName)
 }

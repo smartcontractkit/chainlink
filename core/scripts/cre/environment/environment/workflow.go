@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
-	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 )
 
@@ -160,37 +159,9 @@ func deployWorkflowCmd() *cobra.Command {
 
 			rpcURL := resolveRPCURL(cmd, rpcURLFlag, resolver)
 
-			donID := donIDFlag
-			if !cmd.Flags().Changed("don-id") && resolver != nil {
-				if stateDONID, err := resolver.WorkflowDONIDForContainerPattern(containerNamePatternFlag); err == nil {
-					donID = stateDONID
-				} else if stateDONID, err := resolver.WorkflowDONID(); err == nil {
-					donID = stateDONID
-				}
-			}
-
-			donFamily := donFamilyFlag
-			if !cmd.Flags().Changed("don-family") && resolver != nil {
-				if stateDonFamily, err := resolver.WorkflowDONFamilyForContainerPattern(containerNamePatternFlag); err == nil {
-					donFamily = stateDonFamily
-				} else if stateDonFamily, err := resolver.WorkflowDONFamily(); err == nil {
-					donFamily = stateDonFamily
-				}
-			}
-			if donFamily == "" {
-				if resolver != nil && resolver.DonFamilyGatewayPairingEnabled() {
-					return errors.New("❌ --don-family is required when topology uses don_family gateway pairing (or set nodesets.don_family in the local CRE state file)")
-				}
-				donFamily = envconfig.DefaultDONFamily
-			}
-
-			gatewayURL := gatewayURLFlag
-			if !cmd.Flags().Changed("gateway-url") && resolver != nil {
-				if stateGatewayURL, err := resolver.GatewayURLForDonFamily(donFamily); err == nil {
-					gatewayURL = stateGatewayURL
-				} else if stateGatewayURL, err := resolver.GatewayURL(); err == nil {
-					gatewayURL = stateGatewayURL
-				}
+			targets, targetsErr := resolveWorkflowDeployTargets(cmd, resolver, containerNamePatternFlag, donIDFlag, donFamilyFlag, gatewayURLFlag)
+			if targetsErr != nil {
+				return targetsErr
 			}
 
 			workflowRegistryAddress, workflowRegistryVersion, resolveErr := resolveRegistryContractAddressAndVersion(cmd, resolver, keystone_changeset.WorkflowRegistry, workflowRegistryAddressFlag, "workflow-registry-address")
@@ -205,7 +176,7 @@ func deployWorkflowCmd() *cobra.Command {
 
 			nodeDBPort, nodeCount := resolveWorkflowDONNodeInfo(resolver, containerNamePatternFlag)
 
-			regErr = deployWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURL, gatewayURL, workflowRegistryVersion, capabilitiesRegistryVersion, donID, donFamily, deleteWorkflowFileFlag, nodeDBPort, nodeCount)
+			regErr = deployWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURL, targets.gatewayURL, workflowRegistryVersion, capabilitiesRegistryVersion, targets.donID, targets.donFamily, deleteWorkflowFileFlag, nodeDBPort, nodeCount)
 
 			return regErr
 		},

@@ -26,8 +26,8 @@ func TestGatewayConnectorsForDonFamily_legacyWithoutFamilies(t *testing.T) {
 		},
 	}
 
+	require.NoError(t, topology.initDonFamilyGatewayPairing())
 	require.False(t, topology.DonFamilyGatewayPairingEnabled())
-	require.NoError(t, topology.validateDonFamilyGatewayPairing())
 
 	conn := topology.GatewayConnectorsForDonFamily("")
 	require.Len(t, conn.Configurations, 1)
@@ -72,7 +72,7 @@ func TestTopology_validateDonFamilyGatewayPairing_missingGateway(t *testing.T) {
 		},
 	}
 
-	err := topology.validateDonFamilyGatewayPairing()
+	err := topology.initDonFamilyGatewayPairing()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no gateway DON is defined for that family")
 }
@@ -115,8 +115,8 @@ func TestTopology_validateDonFamilyGatewayPairing_partialFamily(t *testing.T) {
 		},
 	}
 
-	require.True(t, topology.DonFamilyGatewayPairingEnabled())
-	err := topology.validateDonFamilyGatewayPairing()
+	require.True(t, topology.computeDonFamilyGatewayPairingEnabled())
+	err := topology.initDonFamilyGatewayPairing()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), `workflow DON "feeds-zone-b" has no don_family`)
 }
@@ -158,7 +158,7 @@ func TestWorkflowDONFamilies(t *testing.T) {
 }
 
 func donFamilyGatewayPairingTestTopology() *Topology {
-	return &Topology{
+	topology := &Topology{
 		DonsMetadata: &DonsMetadata{
 			dons: []*DonMetadata{
 				{Name: "feeds-zone-a", DonFamily: "feeds-zone-a", ns: &NodeSet{DONTypes: []string{WorkflowDON}}, Flags: []string{WorkflowDON, HTTPActionCapability}},
@@ -178,4 +178,8 @@ func donFamilyGatewayPairingTestTopology() *Topology {
 			"gateway-zone-b": {GatewayConfiguration: &GatewayConfiguration{AuthGatewayID: "gateway-node-1"}},
 		},
 	}
+	if err := topology.initDonFamilyGatewayPairing(); err != nil {
+		panic(err)
+	}
+	return topology
 }
