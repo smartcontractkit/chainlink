@@ -1,0 +1,144 @@
+# Two workflow DONs with per-don_family gateway pairing (manual / smoke topology).
+# See docs/don-family-gateway-pairing-manual-test.md for verification steps.
+
+[chip_router]
+  image = "local-cre-chip-router:v1.0.1"
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "1337"
+  container_name = "anvil-1337"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+[jd]
+  csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
+  image = "job-distributor:0.22.1"
+
+[fake]
+  port = 8171
+
+[fake_http]
+  port = 8666
+
+[infra]
+  type = "docker"
+
+[[nodesets]]
+  nodes = 1
+  name = "bootstrap"
+  don_types = ["bootstrap"]
+  override_mode = "each"
+  http_port_range_start = 10200
+  p2p_port_range_start = 12200
+  supported_evm_chains = [1337]
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13200
+
+  [[nodesets.node_specs]]
+    roles = ["bootstrap"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = ""
+
+[[nodesets]]
+  nodes = 4
+  name = "feeds-zone-a"
+  don_family = "feeds-zone-a"
+  don_types = ["workflow"]
+  override_mode = "all"
+  http_port_range_start = 10000
+  p2p_port_range_start = 12000
+  supported_evm_chains = [1337]
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+  capabilities = ["vault", "cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337"]
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13000
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = ""
+
+[[nodesets]]
+  nodes = 4
+  name = "feeds-zone-b"
+  don_family = "feeds-zone-b"
+  don_types = ["workflow"]
+  override_mode = "all"
+  http_port_range_start = 10100
+  p2p_port_range_start = 12100
+  supported_evm_chains = [1337]
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+  capabilities = ["vault", "cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337"]
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13100
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = ""
+
+[[nodesets]]
+  nodes = 1
+  name = "gateway-zone-a"
+  don_family = "feeds-zone-a"
+  don_types = ["gateway"]
+  override_mode = "each"
+  http_port_range_start = 10300
+  p2p_port_range_start = 12300
+  supported_evm_chains = [1337]
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13300
+
+  [[nodesets.node_specs]]
+    roles = ["gateway"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      custom_ports = ["5002:5002", "15002:15002"]
+      user_config_overrides = ""
+
+[[nodesets]]
+  nodes = 1
+  name = "gateway-zone-b"
+  don_family = "feeds-zone-b"
+  don_types = ["gateway"]
+  override_mode = "each"
+  http_port_range_start = 10400
+  p2p_port_range_start = 12400
+  supported_evm_chains = [1337]
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13400
+
+  [[nodesets.node_specs]]
+    roles = ["gateway"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      custom_ports = ["5003:5002", "15003:15002"]
+      user_config_overrides = ""

@@ -33,6 +33,7 @@ import (
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	syncer_v2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
@@ -92,8 +93,6 @@ func DeployKeystoneContracts(
 		MemoryDataStore: memoryDatastore,
 	}, nil
 }
-
-const DonFamily = "test-don-family" // Deprecated: use DonMetadata.DonFamily from topology TOML.
 
 type donConfig struct {
 	id        uint32 // the DON id as registered in the capabilities registry
@@ -288,7 +287,7 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 
 		donFamily := don.donFamily
 		if donFamily == "" {
-			donFamily = DonFamily
+			donFamily = envconfig.DefaultDONFamily
 		}
 
 		donParams[i] = capabilities_registry_v2.CapabilitiesRegistryNewDONParams{
