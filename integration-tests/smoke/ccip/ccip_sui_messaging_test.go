@@ -447,6 +447,7 @@ func Test_CCIP_Messaging_EVM2Sui_Success(t *testing.T) {
 	var nonce uint64
 
 	waitForSuiRPCSync(t, fx.e.Env.BlockChains.SuiChains()[fx.destChain])
+	testhelpers.WaitForEventFilterRegistrationOnLane(t, fx.state, fx.e.Env.Offchain, fx.sourceChain, fx.destChain)
 
 	t.Run("Message to Sui", func(t *testing.T) {
 		message := []byte("Hello Sui, from EVM!")
@@ -638,6 +639,7 @@ func Test_CCIP_EVM2Sui_ZeroReceiver(t *testing.T) {
 	)
 
 	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
+	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Env.Offchain, sourceChain, destChain)
 
 	t.Run("Message to Sui with zero receiver", func(t *testing.T) {
 		message := []byte("Hello Sui, from EVM!")

@@ -1068,7 +1068,9 @@ func Test_CCIPTokenTransfer_EVM2Sui_ManagedTokenPool_NoRateLimit(t *testing.T) {
 	}
 
 	ctx := testhelpers.Context(t)
+	prepareEvm2SuiTransferLane(t, e, state, sourceChain, destChain)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
+	replayEvm2SuiTransferLane(t, e, sourceChain, destChain)
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,
@@ -1313,7 +1315,9 @@ func Test_CCIPTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
 	}
 
 	ctx := testhelpers.Context(t)
+	prepareEvm2SuiTransferLane(t, e, state, sourceChain, destChain)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
+	replayEvm2SuiTransferLane(t, e, sourceChain, destChain)
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,
@@ -1492,7 +1496,9 @@ func Test_CCIPPureTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
 	}
 
 	ctx := testhelpers.Context(t)
+	prepareEvm2SuiTransferLane(t, e, state, sourceChain, destChain)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
+	replayEvm2SuiTransferLane(t, e, sourceChain, destChain)
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,
@@ -1620,7 +1626,9 @@ func Test_CCIPProgrammableTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) 
 	}
 
 	ctx := testhelpers.Context(t)
+	prepareEvm2SuiTransferLane(t, e, state, sourceChain, destChain)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
+	replayEvm2SuiTransferLane(t, e, sourceChain, destChain)
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,
@@ -1747,7 +1755,9 @@ func Test_CCIPZeroGasLimitTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) 
 	}
 
 	ctx := testhelpers.Context(t)
+	prepareEvm2SuiTransferLane(t, e, state, sourceChain, destChain)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
+	replayEvm2SuiTransferLane(t, e, sourceChain, destChain)
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,
@@ -1860,6 +1870,20 @@ func assertSuiSourceRevertExpectedError(t *testing.T, err error, execRevertError
 	fmt.Println("Error: ", err.Error())
 	require.Contains(t, err.Error(), execRevertErrorMsg)
 	require.Contains(t, err.Error(), execRevertCauseErrorMsg)
+}
+
+// prepareEvm2SuiTransferLane waits for CCIPMessageSent log-poller registration on the EVM
+// source chain before sending, matching ccip_token_transfer_test.go.
+func prepareEvm2SuiTransferLane(t *testing.T, e testhelpers.DeployedEnv, state stateview.CCIPOnChainState, sourceChain, destChain uint64) {
+	t.Helper()
+	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Env.Offchain, sourceChain, destChain)
+}
+
+// replayEvm2SuiTransferLane replays logs so the DON observes CCIPMessageSent if the send
+// raced log-poller registration, matching messagingtest.Run.
+func replayEvm2SuiTransferLane(t *testing.T, e testhelpers.DeployedEnv, sourceChain, destChain uint64) {
+	t.Helper()
+	testhelpers.SleepAndReplay(t, e.Env, 30*time.Second, sourceChain, destChain)
 }
 
 // waitForSuiRPCSync blocks until the Sui fullnode JSON-RPC view has had a chance to index
