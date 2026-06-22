@@ -20,7 +20,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -54,8 +53,8 @@ func TestNewFetcherService(t *testing.T) {
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 	storageService := mocks.NewWorkflowClient(t)
-	connector := gcmocks.NewGatewayConnector(t)
-	wrapper := &wrapper{c: connector}
+	sharedConnector := gcmocks.NewGatewayConnector(t)
+	sharedWrapper := &wrapper{c: sharedConnector}
 	signature := []byte("signature")
 
 	var (
@@ -99,9 +98,9 @@ func TestNewFetcherService(t *testing.T) {
 
 	t.Run("OK-retrieve-url", func(t *testing.T) {
 		t.Parallel()
-		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
+		sharedConnector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 
-		fetcher := NewFetcherService(lggr, wrapper, storageService, gateway.WithFixedStart())
+		fetcher := NewFetcherService(lggr, sharedWrapper, storageService, gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
@@ -123,9 +122,9 @@ func TestNewFetcherService(t *testing.T) {
 
 	t.Run("NOK-retrieve-url-empty-req", func(t *testing.T) {
 		t.Parallel()
-		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
+		sharedConnector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 
-		fetcher := NewFetcherService(lggr, wrapper, storageService, gateway.WithFixedStart())
+		fetcher := NewFetcherService(lggr, sharedWrapper, storageService, gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
@@ -362,7 +361,7 @@ func TestNewFetcherService(t *testing.T) {
 
 	t.Run("NOK-no-storage-client", func(t *testing.T) {
 		t.Parallel()
-		fetcher := NewFetcherService(lggr, wrapper, nil, gateway.WithFixedStart())
+		fetcher := NewFetcherService(lggr, sharedWrapper, nil, gateway.WithFixedStart())
 		require.ErrorIs(t, fetcher.Start(ctx), ErrNoStorageClient)
 		defer fetcher.Close()
 	})
