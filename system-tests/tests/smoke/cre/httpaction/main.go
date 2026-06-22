@@ -3,18 +3,22 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
 	"strings"
+
+	"google.golang.org/protobuf/types/known/durationpb"
+	"gopkg.in/yaml.v3"
 
 	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction/config"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
 	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
-	"google.golang.org/protobuf/types/known/durationpb"
-	"gopkg.in/yaml.v3"
+
+	caperrors "github.com/smartcontractkit/cre-sdk-go/capabilities/errors"
 )
 
 const bothSetRegressionSuccess = "HTTP Action multi-headers regression completed"
@@ -221,6 +225,17 @@ func runBothSetRegressionTest(cfg config.Config, nodeRuntime cre.NodeRuntime, cl
 	if err == nil {
 		return "", fmt.Errorf("multi-headers regression: expected user error when both Headers and MultiHeaders are set, but request succeeded")
 	}
+
+	// Verify it's a user error with InvalidArgument code
+	var capabilityError caperrors.Error
+	if errors.As(err, &capabilityError) {
+		if capabilityError.Origin() != caperrors.OriginUser || capabilityError.Code() != caperrors.InvalidArgument {
+			return "", fmt.Errorf("multi-headers regression: expected user error with invalid argument error code: %s", err)
+		}
+	} else {
+		return "", fmt.Errorf("multi-headers regression: expected user error, got %v", err)
+	}
+
 	if !errorContainsAll(err, bothSetRegressionExpectedSubstrings) {
 		return "", fmt.Errorf("multi-headers regression: expected user error containing %v, got: %w", bothSetRegressionExpectedSubstrings, err)
 	}
