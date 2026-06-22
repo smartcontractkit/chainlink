@@ -367,10 +367,41 @@ func prepareVaultUserJSONRPCRequestLikeGateway(t *testing.T, req *jsonrpc.Reques
 	validator, err := vaultjwt.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err, "failed to create vault request validator")
 
-	err = validator.ValidateStructureBeforeAuth(t.Context(), req, vaultjwt.UserJSONRPCValidationOptions{
-		PublicKey:           publicKey,
-		SkipLabelValidation: skipLabelValidation || publicKey == nil,
-	}, false)
+	require.NotNil(t, req.Params, "request params must not be nil")
+	skipLabel := skipLabelValidation || publicKey == nil
+
+	switch req.Method {
+	case vaulttypes.MethodSecretsCreate:
+		var createReq vault_helpers.CreateSecretsRequest
+		require.NoError(t, json.Unmarshal(*req.Params, &createReq))
+		if createReq.RequestId == "" {
+			createReq.RequestId = req.ID
+		}
+		err = validator.ValidateCreateSecretsRequest(t.Context(), publicKey, &createReq, skipLabel)
+	case vaulttypes.MethodSecretsUpdate:
+		var updateReq vault_helpers.UpdateSecretsRequest
+		require.NoError(t, json.Unmarshal(*req.Params, &updateReq))
+		if updateReq.RequestId == "" {
+			updateReq.RequestId = req.ID
+		}
+		err = validator.ValidateUpdateSecretsRequest(t.Context(), publicKey, &updateReq, skipLabel)
+	case vaulttypes.MethodSecretsDelete:
+		var deleteReq vault_helpers.DeleteSecretsRequest
+		require.NoError(t, json.Unmarshal(*req.Params, &deleteReq))
+		if deleteReq.RequestId == "" {
+			deleteReq.RequestId = req.ID
+		}
+		err = validator.ValidateDeleteSecretsRequest(t.Context(), &deleteReq)
+	case vaulttypes.MethodSecretsList:
+		var listReq vault_helpers.ListSecretIdentifiersRequest
+		require.NoError(t, json.Unmarshal(*req.Params, &listReq))
+		if listReq.RequestId == "" {
+			listReq.RequestId = req.ID
+		}
+		err = validator.ValidateListSecretIdentifiersRequest(t.Context(), &listReq)
+	default:
+		t.Fatalf("unsupported gateway vault method for validation: %s", req.Method)
+	}
 	require.NoError(t, err, "failed to prepare vault JSON-RPC request")
 }
 

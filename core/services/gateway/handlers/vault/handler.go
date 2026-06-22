@@ -132,16 +132,16 @@ type aggregator interface {
 
 type handler struct {
 	services.StateMachine
-	methodConfig Config
-	donConfig    *config.DONConfig
-	don          gwhandlers.DON
-	lggr         logger.Logger
-	codec        api.JsonRPCCodec
-	mu           sync.RWMutex
-	stopCh       services.StopChan
-	authorizer   vaultcap.Authorizer
-	jwtAuth      services.Service
-	pipeline     *vaultcap.GatewayVaultRequestPipeline
+	methodConfig     Config
+	donConfig        *config.DONConfig
+	don              gwhandlers.DON
+	lggr             logger.Logger
+	codec            api.JsonRPCCodec
+	mu               sync.RWMutex
+	stopCh           services.StopChan
+	authorizer       vaultcap.Authorizer
+	jwtAuth          services.Service
+	requestProcessor *vaultcap.GatewayVaultRequestProcessor
 
 	nodeRateLimiter *ratelimit.RateLimiter
 	requestTimeout  time.Duration
@@ -237,6 +237,11 @@ func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DO
 		return nil, fmt.Errorf("could not create vault mgmt limiter: %w", err)
 	}
 
+	requestProcessor, err := vaultcap.NewGatewayVaultRequestProcessor(requestValidator, authorizer, false, lggr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create gateway vault request processor: %w", err)
+	}
+
 	return &handler{
 		methodConfig:        cfg,
 		donConfig:           donConfig,
@@ -255,8 +260,8 @@ func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DO
 			capabilitiesRegistry: capabilitiesRegistry,
 			vaultHandlerDonID:    donConfig.DonId,
 		},
-		clock:    clock,
-		pipeline: vaultcap.NewGatewayVaultRequestPipeline(requestValidator, authorizer, lggr),
+		clock:            clock,
+		requestProcessor: requestProcessor,
 	}, nil
 }
 
@@ -302,7 +307,7 @@ func (h *handler) Close() error {
 		return errors.Join(
 			jwtAuthErr,
 			h.writeMethodsEnabled.Close(),
-			h.pipeline.Close(),
+			h.requestProcessor.Close(),
 		)
 	})
 }
@@ -416,11 +421,7 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	}
 
 	_, cachedPublicKey := h.getCachedPublicKey()
-	authorized, err := h.pipeline.ProcessGatewayVaultRequest(ctx, &req, vaultcap.GatewayVaultRequestPipelineOptions{
-		StripOwnerPrefixForAuth: false,
-		PublicKey:               cachedPublicKey,
-		SkipLabelValidation:     cachedPublicKey == nil,
-	})
+	authorized, err := h.requestProcessor.ProcessRequest(ctx, &req, cachedPublicKey)
 	if err != nil {
 		if vaultcap.IsInvalidVaultParamsError(err) {
 			return h.sendImmediateUserResponse(ctx, req, callback, api.InvalidParamsError, err)

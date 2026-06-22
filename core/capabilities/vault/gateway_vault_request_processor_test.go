@@ -14,10 +14,9 @@ import (
 	vault "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	vaultcapmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestGatewayVaultRequestPipeline_ProcessGatewayVaultRequest_GatewayModePreservesDigest(t *testing.T) {
+func TestGatewayVaultRequestProcessor_ProcessRequest_GatewayModePreservesDigest(t *testing.T) {
 	t.Parallel()
 
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
@@ -48,17 +47,14 @@ func TestGatewayVaultRequestPipeline_ProcessGatewayVaultRequest_GatewayModePrese
 		return digestErr == nil && gotDigest == digestBefore && got.ID == "req-1"
 	})).Return(vault.NewAuthResult("org-test", owner, digestBefore, 0), nil)
 
-	pipeline := vault.NewGatewayVaultRequestPipeline(validator, authorizer, logger.TestLogger(t))
-	authorized, err := pipeline.ProcessGatewayVaultRequest(t.Context(), &req, vault.GatewayVaultRequestPipelineOptions{
-		StripOwnerPrefixForAuth: false,
-		SkipLabelValidation:     true,
-	})
+	processor := mustNewGatewayVaultRequestProcessor(t, validator, authorizer, false)
+	authorized, err := processor.ProcessRequest(t.Context(), &req, nil)
 	require.NoError(t, err)
 	require.Equal(t, owner+vaulttypes.RequestIDSeparator+"req-1", authorized.Req.ID)
 	require.Equal(t, vaulttypes.DefaultNamespace, mustListNamespace(t, authorized.Req.Params))
 }
 
-func TestGatewayVaultRequestPipeline_ProcessGatewayVaultRequest_NodeReauthPreservesDigest(t *testing.T) {
+func TestGatewayVaultRequestProcessor_ProcessRequest_NodeReauthPreservesDigest(t *testing.T) {
 	t.Parallel()
 
 	validator, err := vault.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
@@ -81,11 +77,8 @@ func TestGatewayVaultRequestPipeline_ProcessGatewayVaultRequest_NodeReauthPreser
 		return got.ID == originalRequestID
 	})).Return(vault.NewAuthResult("", owner, "digest", 0), nil)
 
-	pipeline := vault.NewGatewayVaultRequestPipeline(validator, authorizer, logger.TestLogger(t))
-	authorized, err := pipeline.ProcessGatewayVaultRequest(t.Context(), &req, vault.GatewayVaultRequestPipelineOptions{
-		StripOwnerPrefixForAuth: true,
-		SkipLabelValidation:     true,
-	})
+	processor := mustNewGatewayVaultRequestProcessor(t, validator, authorizer, true)
+	authorized, err := processor.ProcessRequest(t.Context(), &req, nil)
 	require.NoError(t, err)
 	require.Equal(t, prefixedRequestID, authorized.Req.ID)
 }

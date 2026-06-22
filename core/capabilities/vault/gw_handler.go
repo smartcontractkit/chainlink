@@ -67,7 +67,7 @@ type GatewayHandler struct {
 
 	secretsService   vaulttypes.SecretsService
 	gatewayConnector gatewayConnector
-	pipeline         *GatewayVaultRequestPipeline
+	requestProcessor *GatewayVaultRequestProcessor
 	jwtAuthService   services.Service
 	lggr             logger.Logger
 	metrics          *metrics
@@ -120,10 +120,15 @@ func NewGatewayHandler(
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
 	}
 
+	requestProcessor, err := NewGatewayVaultRequestProcessor(requestValidator, authorizer, true, lggr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create gateway vault request processor: %w", err)
+	}
+
 	gh := &GatewayHandler{
 		secretsService:   secretsService,
 		gatewayConnector: connector,
-		pipeline:         NewGatewayVaultRequestPipeline(requestValidator, authorizer, lggr),
+		requestProcessor: requestProcessor,
 		jwtAuthService:   jwtAuthService,
 		lggr:             lggr.Named(HandlerName),
 		metrics:          metrics,
@@ -153,7 +158,7 @@ func (h *GatewayHandler) close() error {
 	if h.jwtAuthService != nil {
 		jwtAuthErr = h.jwtAuthService.Close()
 	}
-	validatorErr := h.pipeline.Close()
+	validatorErr := h.requestProcessor.Close()
 	if gwerr := h.gatewayConnector.RemoveHandler(context.Background(), h.Methods()); gwerr != nil {
 		return errors.Join(fmt.Errorf("failed to remove vault handler from connector: %w", gwerr), jwtAuthErr, validatorErr)
 	}
@@ -181,22 +186,14 @@ func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID str
 			response = h.gatewayErrorResponse(ctx, gatewayID, req, pkErr)
 			break
 		}
-		authorized, pipelineErr := h.pipeline.ProcessGatewayVaultRequest(ctx, req, GatewayVaultRequestPipelineOptions{
-			StripOwnerPrefixForAuth: true,
-			PublicKey:               publicKey,
-			SkipLabelValidation:     false,
-		})
+		authorized, pipelineErr := h.requestProcessor.ProcessRequest(ctx, req, publicKey)
 		if pipelineErr != nil {
 			response = h.gatewayErrorResponse(ctx, gatewayID, req, pipelineErr)
 			break
 		}
 		authResult = authorized.AuthResult
 	case vaulttypes.MethodSecretsDelete, vaulttypes.MethodSecretsList:
-		authorized, pipelineErr := h.pipeline.ProcessGatewayVaultRequest(ctx, req, GatewayVaultRequestPipelineOptions{
-			StripOwnerPrefixForAuth: true,
-			PublicKey:               nil,
-			SkipLabelValidation:     true,
-		})
+		authorized, pipelineErr := h.requestProcessor.ProcessRequest(ctx, req, nil)
 		if pipelineErr != nil {
 			response = h.gatewayErrorResponse(ctx, gatewayID, req, pipelineErr)
 			break

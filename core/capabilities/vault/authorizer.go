@@ -6,8 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"google.golang.org/protobuf/proto"
-
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -149,25 +148,84 @@ func (a *authorizer) authorizeJWTBasedAuth(ctx context.Context, req jsonrpc.Requ
 
 // validateSecretOwnersMatchAuthorized checks that secret identifiers in the request payload
 // match the authorized workflow owner. This is read-only validation; owner prefixing and
-// param stamping happen later in GatewayVaultRequestPipeline.
+// param stamping happen later in GatewayVaultRequestProcessor.
 func validateSecretOwnersMatchAuthorized(req jsonrpc.Request[json.RawMessage], workflowOwner string) error {
 	switch req.Method {
 	case vaulttypes.MethodPublicKeyGet:
 		return nil
-	}
-	if req.Params == nil {
-		return errors.New("request params must not be nil")
-	}
-	if !vaulttypes.IsGatewaySecretsMethod(req.Method) {
+	case vaulttypes.MethodSecretsCreate:
+		if req.Params == nil {
+			return errors.New("request params must not be nil")
+		}
+		var createReq vaultcommon.CreateSecretsRequest
+		if err := json.Unmarshal(*req.Params, &createReq); err != nil {
+			return err
+		}
+		return validateEncryptedSecretOwnerMismatch(createReq.EncryptedSecrets, workflowOwner)
+	case vaulttypes.MethodSecretsUpdate:
+		if req.Params == nil {
+			return errors.New("request params must not be nil")
+		}
+		var updateReq vaultcommon.UpdateSecretsRequest
+		if err := json.Unmarshal(*req.Params, &updateReq); err != nil {
+			return err
+		}
+		return validateEncryptedSecretOwnerMismatch(updateReq.EncryptedSecrets, workflowOwner)
+	case vaulttypes.MethodSecretsDelete:
+		if req.Params == nil {
+			return errors.New("request params must not be nil")
+		}
+		var deleteReq vaultcommon.DeleteSecretsRequest
+		if err := json.Unmarshal(*req.Params, &deleteReq); err != nil {
+			return err
+		}
+		return validateSecretIdentifierOwnerMismatch(deleteReq.Ids, workflowOwner)
+	case vaulttypes.MethodSecretsList:
+		if req.Params == nil {
+			return errors.New("request params must not be nil")
+		}
+		var listReq vaultcommon.ListSecretIdentifiersRequest
+		if err := json.Unmarshal(*req.Params, &listReq); err != nil {
+			return err
+		}
+		if vaultutils.NormalizeOwner(listReq.Owner) != vaultutils.NormalizeOwner(workflowOwner) {
+			return fmt.Errorf("list secrets owner %q does not match authorized workflow owner %q", listReq.Owner, workflowOwner)
+		}
+		return nil
+	default:
 		return fmt.Errorf("owner validation not implemented for method %q", req.Method)
 	}
+}
 
-	desc, err := lookupGatewaySecretsMethodDescriptor(req.Method)
-	if err != nil {
-		return err
+func validateEncryptedSecretOwnerMismatch(encryptedSecrets []*vaultcommon.EncryptedSecret, workflowOwner string) error {
+	if len(encryptedSecrets) == 0 {
+		return errors.New("request batch must contain at least 1 item")
 	}
+	for idx, encryptedSecret := range encryptedSecrets {
+		if encryptedSecret == nil {
+			return fmt.Errorf("encrypted secret must not be nil at index %d", idx)
+		}
+		if encryptedSecret.Id == nil {
+			return fmt.Errorf("secret ID must not be nil at index %d", idx)
+		}
+		if vaultutils.NormalizeOwner(encryptedSecret.Id.Owner) != vaultutils.NormalizeOwner(workflowOwner) {
+			return fmt.Errorf("encrypted secret owner at index %d %q does not match authorized workflow owner %q", idx, encryptedSecret.Id.Owner, workflowOwner)
+		}
+	}
+	return nil
+}
 
-	return vaultutils.InspectJSONRPCParams(req.Params, desc.newRequest, func(parsed proto.Message) error {
-		return desc.validateOwnersMatchAuthorized(parsed, workflowOwner)
-	})
+func validateSecretIdentifierOwnerMismatch(ids []*vaultcommon.SecretIdentifier, workflowOwner string) error {
+	if len(ids) == 0 {
+		return errors.New("request batch must contain at least 1 item")
+	}
+	for idx, id := range ids {
+		if id == nil {
+			return fmt.Errorf("secret ID must not be nil at index %d", idx)
+		}
+		if vaultutils.NormalizeOwner(id.Owner) != vaultutils.NormalizeOwner(workflowOwner) {
+			return fmt.Errorf("secret identifier owner at index %d %q does not match authorized workflow owner %q", idx, id.Owner, workflowOwner)
+		}
+	}
+	return nil
 }
