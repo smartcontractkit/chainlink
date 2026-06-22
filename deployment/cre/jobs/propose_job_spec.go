@@ -337,13 +337,10 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 }
 
 func requiresOracleFactory(template job_types.JobSpecTemplate) bool {
-	if template == job_types.Consensus {
+	switch template {
+	case job_types.Consensus, job_types.Aptos, job_types.Solana:
 		return true
+	default:
+		return false
 	}
-
-	if template == job_types.Aptos {
-		return true
-	}
-
-	return false
 }

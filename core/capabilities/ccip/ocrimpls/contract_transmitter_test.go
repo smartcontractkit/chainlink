@@ -2,6 +2,7 @@ package ocrimpls_test
 
 import (
 	"crypto/rand"
+	"hash/fnv"
 	"math/big"
 	"net/url"
 	"testing"
@@ -13,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/jmoiron/sqlx"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -96,7 +98,7 @@ func Test_ContractTransmitter_TransmitWithoutSignatures(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			tc := tc
+			t.Parallel()
 			testTransmitter(t, tc.pluginType, tc.withSigs, tc.expectedSigsEnabled, tc.report)
 		})
 	}
@@ -109,6 +111,7 @@ func testTransmitter(
 	expectedSigsEnabled bool,
 	report []byte,
 ) {
+	ctx := t.Context()
 	uni := newTestUniverse(t, nil)
 
 	c, err := uni.wrapper.LatestConfigDetails(nil, pluginType)
@@ -131,48 +134,40 @@ func testTransmitter(
 	seqNr := uint64(1)
 	attributedSigs := uni.SignReport(t, configDigest, rwi, seqNr)
 
-	account, err := uni.transmitterWithSigs.FromAccount(t.Context())
+	account, err := uni.transmitterWithSigs.FromAccount(ctx)
 	require.NoError(t, err, "failed to get from account")
 	require.Equal(t, ocrtypes.Account(uni.transmitters[0].Hex()), account, "from account mismatch")
 	if withSigs {
-		err = uni.transmitterWithSigs.Transmit(testutils.Context(t), configDigest, seqNr, rwi, attributedSigs)
+		err = uni.transmitterWithSigs.Transmit(ctx, configDigest, seqNr, rwi, attributedSigs)
 	} else {
-		err = uni.transmitterWithoutSigs.Transmit(testutils.Context(t), configDigest, seqNr, rwi, attributedSigs)
+		err = uni.transmitterWithoutSigs.Transmit(ctx, configDigest, seqNr, rwi, attributedSigs)
 	}
 	require.NoError(t, err, "failed to transmit")
 	uni.backend.Commit()
 
 	var txStatus uint64
-	require.Eventually(t, func() bool {
+	// testing.T should not be used within the callbacks below, as it may cause a race.
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		uni.backend.Commit()
-		rows, err := uni.db.QueryContext(testutils.Context(t), `SELECT hash FROM evm.tx_attempts LIMIT 1`)
-		require.NoError(t, err, "failed to query txes")
+		rows, err := uni.db.QueryContext(ctx, `SELECT hash FROM evm.tx_attempts LIMIT 1`)
+		require.NoError(c, err, "failed to query txes")
 		defer rows.Close()
 		var txHash []byte
 		for rows.Next() {
-			require.NoError(t, rows.Scan(&txHash), "failed to scan")
+			require.NoError(c, rows.Scan(&txHash), "failed to scan")
 		}
-		t.Log("txHash:", txHash)
-		receipt, err := uni.simClient.TransactionReceipt(testutils.Context(t), common.BytesToHash(txHash))
-		if err != nil {
-			t.Log("tx not found yet:", hexutil.Encode(txHash))
-			return false
-		}
-		t.Log("tx found:", hexutil.Encode(txHash), "status:", receipt.Status)
+		receipt, err := uni.simClient.TransactionReceipt(ctx, common.BytesToHash(txHash))
+		require.NoError(c, err)
 		txStatus = receipt.Status
-		return true
 	}, testutils.WaitTimeout(t), 1*time.Second)
 
 	// wait for receipt to be written to the db
-	require.Eventually(t, func() bool {
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		uni.backend.Commit()
 		var count uint32
-		err := uni.db.GetContext(testutils.Context(t), &count, `SELECT count(*) as cnt FROM evm.receipts LIMIT 1`)
-		require.NoError(t, err)
-		if count == 1 {
-			t.Log("tx receipt found in db")
-		}
-		return count == 1
+		err := uni.db.GetContext(ctx, &count, `SELECT count(*) as cnt FROM evm.receipts LIMIT 1`)
+		require.NoError(c, err)
+		require.Equal(c, uint32(1), count)
 	}, testutils.WaitTimeout(t), 2*time.Second)
 
 	require.Equal(t, uint64(1), txStatus, "tx status should be success")
@@ -594,10 +589,16 @@ func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient client.Client, keyStore
 		KeepFinalizedBlocksDepth: 1000,
 	}
 
-	chainID := big.NewInt(1337)
+	// Derive a unique chain ID for DB-keyed ORM tables (evm.heads, evm.log_poller_blocks).
+	// The actual client chain ID (1337) stays unchanged. Without this, parallel subtests
+	// sharing the same Postgres instance contend on (block_number, evm_chain_id) primary keys.
+	h := fnv.New64a()
+	h.Write([]byte(t.Name()))
+	ormChainID := new(big.Int).SetUint64(h.Sum64())
+
 	headSaver := heads.NewSaver(
 		logger.Nop(),
-		heads.NewORM(*chainID, db, 0),
+		heads.NewORM(*ormChainID, db, 0),
 		evmConfig,
 		evmConfig.HeadTrackerConfig,
 	)
@@ -618,7 +619,7 @@ func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient client.Client, keyStore
 	require.NoError(t, ht.Start(testutils.Context(t)), "failed to start head tracker")
 	t.Cleanup(func() { require.NoError(t, ht.Close()) })
 
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, logger.Nop()),
+	lp := logpoller.NewLogPoller(logpoller.NewORM(ormChainID, db, logger.Nop()),
 		ethClient, logger.Nop(), ht, lpOpts)
 	require.NoError(t, lp.Start(testutils.Context(t)), "failed to start log poller")
 	t.Cleanup(func() { require.NoError(t, lp.Close()) })

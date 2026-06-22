@@ -62,6 +62,18 @@ func Test_GetCapabilityIDFromCommand(t *testing.T) {
 			expected: "",
 		},
 		{
+			name:     "stellar command with valid config - testnet",
+			command:  "/usr/local/bin/stellar",
+			config:   `{"chainId":"cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472","network":"stellar"}`,
+			expected: "stellar:ChainSelector:4894814558906953166@1.0.0",
+		},
+		{
+			name:     "stellar command with unknown chainId",
+			command:  "/usr/local/bin/stellar",
+			config:   `{"chainId":"deadbeef","network":"stellar"}`,
+			expected: "",
+		},
+		{
 			name:     "evm command with invalid JSON",
 			command:  "/usr/local/bin/evm",
 			config:   `{invalid json}`,
@@ -202,6 +214,16 @@ func Test_GetCommandFromCapabilityID(t *testing.T) {
 			expected:     "aptos",
 		},
 		{
+			name:         "solana capability",
+			capabilityID: "solana:ChainSelector:124615329519749607@1.0.0",
+			expected:     "solana",
+		},
+		{
+			name:         "stellar testnet capability",
+			capabilityID: "stellar:ChainSelector:4894814558906953166@1.0.0",
+			expected:     "stellar",
+		},
+		{
 			name:         "unknown capability",
 			capabilityID: "unknown@1.0.0",
 			expected:     "",
@@ -239,4 +261,12 @@ func Test_roundTrip(t *testing.T) {
 	// Aptos round-trip: command base name is preserved
 	aptosCapID := GetCapabilityIDFromCommand("/usr/local/bin/aptos", `{"chainId":"4","network":"aptos"}`)
 	assert.Equal(t, "aptos", GetCommandFromCapabilityID(aptosCapID))
+
+	// Solana round-trip: command base name is preserved
+	solanaCapID := GetCapabilityIDFromCommand("/usr/local/bin/solana", `{"chainId":"5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d","network":"solana"}`)
+	assert.Equal(t, "solana", GetCommandFromCapabilityID(solanaCapID))
+
+	// Stellar round-trip: command base name is preserved
+	stellarCapID := GetCapabilityIDFromCommand("/usr/local/bin/stellar", `{"chainId":"cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472","network":"stellar"}`)
+	assert.Equal(t, "stellar", GetCommandFromCapabilityID(stellarCapID))
 }

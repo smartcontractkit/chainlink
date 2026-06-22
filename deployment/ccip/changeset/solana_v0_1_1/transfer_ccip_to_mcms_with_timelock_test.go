@@ -16,7 +16,9 @@ import (
 
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
-	linkchangesets "github.com/smartcontractkit/cld-changesets/link/changesets"
+	linkchangesets "github.com/smartcontractkit/cld-changesets/tokens/link/changesets"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deploylink"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
 	burnmint "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/burnmint_token_pool"
@@ -239,12 +241,10 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 			},
 		),
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(linkchangesets.DeploySolanaLinkToken),
-			linkchangesets.DeploySolanaLinkTokenConfig{
-				ChainSelector: solChainSel,
-				TokenPrivKey:  solLinkTokenPrivKey,
-				TokenDecimals: 9,
-			},
+			deploylink.DeployLinkTokenChangeset{},
+			linkchangesets.DeployLinkTokenInput{Solana: map[uint64]linkchangesets.SolanaLinkConfig{
+				solChainSel: {TokenPrivKey: solLinkTokenPrivKey, TokenDecimals: 9},
+			}},
 		),
 		commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),

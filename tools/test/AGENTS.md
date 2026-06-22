@@ -7,7 +7,7 @@ A test runner harness for the /chainlink repo.
 </goals>
 
 <rules>
-- From /chainlink root, document `make new_test`, `make new_gotestsum`, and `make new_test_diagnose`. When working only inside this module, `go run . …` is fine.
+- The harness resolves `go test` patterns relative to its working directory, so it is built from this nested module and run from the /chainlink root. Document `make test ARGS="..."` (builds then runs), or `tools/test/.bin/test` after an explicit build. Do not document `go -C tools/test run .` — it forces the working directory to `tools/test` and breaks relative patterns.
 - Each output should account for a pretty, human-readable terminal experience, and a minimal version meant for AI ingestion.
 - Harness-owned terminal messages go through `internal/output` (`--ai-output` vs human, inline progress policy); child test processes still use raw stdout/stderr passthrough where appropriate.
 </rules>

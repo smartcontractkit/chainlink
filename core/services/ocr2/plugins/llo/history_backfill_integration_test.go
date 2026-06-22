@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -40,7 +40,7 @@ func historyBackfillOptsJSON(targetChannelID llotypes.ChannelID, observations ma
 	for ts := range observations {
 		tsKeys = append(tsKeys, ts)
 	}
-	sort.Slice(tsKeys, func(i, j int) bool { return tsKeys[i] < tsKeys[j] })
+	slices.Sort(tsKeys)
 
 	var b strings.Builder
 	// Field order must match json.Marshal / channel cache (lexicographic): observations before targetChannelId.
@@ -57,7 +57,7 @@ func historyBackfillOptsJSON(targetChannelID llotypes.ChannelID, observations ma
 		for sid := range row {
 			sids = append(sids, sid)
 		}
-		sort.Slice(sids, func(i, j int) bool { return sids[i] < sids[j] })
+		slices.Sort(sids)
 		for j, sid := range sids {
 			if j > 0 {
 				b.WriteByte(',')
@@ -207,7 +207,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	_, err := configStore.SetChannelDefinitions(steve, donID, url, sha)
 	require.NoError(t, err)
 	backend.Commit()
-	time.Sleep(3 * time.Second)
 
 	setProductionConfig(
 		t, donID, steve, backend, configurator, configuratorAddress, nodes,
@@ -292,7 +291,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	_, err = configStore.SetChannelDefinitions(steve, donID, url2, sha2)
 	require.NoError(t, err)
 	backend.Commit()
-	time.Sleep(3 * time.Second)
 
 	histByObsTs := make(map[uint32]*big.Int)
 	require.Eventually(t, func() bool {
@@ -322,7 +320,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	for ts := range histByObsTs {
 		histTs = append(histTs, ts)
 	}
-	sort.Slice(histTs, func(i, j int) bool { return histTs[i] < histTs[j] })
+	slices.Sort(histTs)
 	require.Equal(t, []uint32{100, 150, 200}, histTs)
 	for _, ts := range histTs {
 		bench := histBenchmarks[uint64(ts)]

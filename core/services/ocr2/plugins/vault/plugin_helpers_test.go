@@ -208,6 +208,9 @@ func makeReportingPluginConfig(
 	requestBatchSizeLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Int(maxRequestBatchSize))
 	require.NoError(t, err)
 
+	maxPendingQueueWriteSizeLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, cresettings.Default.VaultPendingQueueWriteSizeLimit)
+	require.NoError(t, err)
+
 	var maxBlobPayloadLimiter limits.BoundLimiter[pkgconfig.Size]
 	if maxBlobPayloadBytes > 0 {
 		maxBlobPayloadLimiter, err = limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxBlobPayloadBytes)*pkgconfig.Byte))
@@ -217,7 +220,8 @@ func makeReportingPluginConfig(
 	require.NoError(t, err)
 
 	return &ReportingPluginConfig{
-		MaxBatchSize: bsl,
+		MaxBatchSize:             bsl,
+		MaxPendingQueueWriteSize: maxPendingQueueWriteSizeLimiter,
 
 		PublicKey:                         publicKey,
 		PrivateKeyShare:                   privateKeyShare,

@@ -126,6 +126,7 @@ func (t *Topology) donByName(name string) *DonMetadata {
 
 // DonFamilyGatewayPairingEnabled is true when any workflow or gateway DON has don_family set.
 // When false, legacy all-to-all gateway wiring is used (single shared gateway topologies).
+// Once pairing is enabled, every workflow and gateway DON must declare don_family or env start fails.
 func (t *Topology) DonFamilyGatewayPairingEnabled() bool {
 	if !t.DonsMetadata.RequiresGateway() {
 		return false
@@ -229,18 +230,19 @@ func (t *Topology) WorkflowDONFamilies() []string {
 	return families
 }
 
-// LogGatewayDonFamilyPairing prints resolved workflow→gateway pairs at env start.
-func (t *Topology) LogGatewayDonFamilyPairing() {
+// GatewayDonFamilyPairingSummary returns a human-readable summary of resolved workflow→gateway pairs.
+// Empty when pairing is disabled or no pairs were resolved.
+func (t *Topology) GatewayDonFamilyPairingSummary() string {
 	pairs := t.GatewayDonFamilyPairings()
 	if len(pairs) == 0 {
-		return
+		return ""
 	}
 
 	parts := make([]string, 0, len(pairs))
 	for _, pair := range pairs {
 		parts = append(parts, fmt.Sprintf("%s → %s (don_family=%s)", pair.WorkflowDONName, pair.GatewayDONName, pair.DonFamily))
 	}
-	fmt.Printf("Gateway don_family pairing enabled: %s\n", strings.Join(parts, ", "))
+	return "Gateway don_family pairing enabled: " + strings.Join(parts, ", ")
 }
 
 // GatewayConnectorsForDonFamily returns gateway connectors for workflow DONs in a don_family.

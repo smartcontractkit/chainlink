@@ -27,6 +27,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
 	commonsrv "github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -223,6 +224,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	keyStore := opts.KeyStore
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
+	meter := beholder.GetMeter()
 
 	mailMon := mailbox.NewMonitor(cfg.AppID().String(), globalLogger.Named("Mailbox"))
 
@@ -267,7 +269,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	globalLogger.Debugf("# CRESettings defaults: \n%s", creSettingsTOML)
 	atomicSettings := loop.NewAtomicSettings(commoncresettings.DefaultGetter)
 	limitsFactory := limits.Factory{
-		Meter:    beholder.GetMeter(),
+		Meter:    meter,
 		Logger:   globalLogger.Named("Limits"),
 		Settings: atomicSettings,
 	}
@@ -367,13 +369,25 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	jwtGenerator := nodeauthjwt.NewNodeJWTGenerator(csaSigner, csaPubKey)
 
 	// Wire DurableEmitter for persistent chip ingress delivery when enabled.
-	/* TODO: CRE-4422 Re-enable after refactor
 	if cfg.Telemetry().DurableEmitterEnabled() && cfg.Telemetry().ChipIngressEndpoint() != "" {
-		if err = setupDurableEmitter(ctx, opts.DS, globalLogger, cfg.Telemetry()); err != nil {
-			return nil, fmt.Errorf("failed to set up chip durable emitter: %w", err)
+		durableCfg := durableemitter.SetupConfig{
+			Endpoint:           cfg.Telemetry().ChipIngressEndpoint(),
+			InsecureConnection: cfg.Telemetry().ChipIngressInsecureConnection(),
+			Auth: durableemitter.AuthConfig{
+				AuthHeaders:      beholderAuthHeaders,
+				AuthHeadersTTL:   cfg.Telemetry().AuthHeadersTTL(),
+				AuthPublicKeyHex: csaPubKeyHex,
+				AuthKeySigner:    csaKeystore,
+			},
+			RetransmitEnabled: true, // host process owns retransmit
 		}
+		pgStore := durableemitter.NewPgDurableEventStore(opts.DS)
+		durableEmitter, setupErr := durableemitter.Setup(pgStore, durableCfg, globalLogger)
+		if setupErr != nil {
+			return nil, fmt.Errorf("failed to set up chip durable emitter: %w", setupErr)
+		}
+		srvcs = append(srvcs, durableEmitter)
 	}
-	*/
 
 	creServices, err := cre.NewServices(
 		globalLogger,
@@ -390,6 +404,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			FetcherFactoryFn:        opts.FetcherFactoryFn,
 			BillingClient:           opts.BillingClient,
 			LinkingClient:           opts.LinkingClient,
+			Meter:                   meter,
 			StorageClient:           opts.StorageClient,
 			DonTimeStore:            opts.DonTimeStore,
 			LimitsFactory:           limitsFactory,
@@ -529,7 +544,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	)
 	srvcs = append(srvcs, workflowORM)
 
-	nodePlatformJobInfo := NewNodePlatformJobInfoService(NewNodePlatformJobInfoConfig(opts, jobORM))
+	nodePlatformJobInfo := NewNodePlatformJobInfoService(NewNodePlatformJobInfoConfig(opts, jobORM, relayChainInterops))
 	srvcs = append(srvcs, &nodePlatformJobInfo)
 
 	promReporter := headreporter.NewLegacyEVMPrometheusReporter(opts.DS, legacyEVMChains)
@@ -752,7 +767,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	healthCfg := commonsrv.HealthCheckerConfig{Ver: static.Version, Sha: static.Sha}
 	healthCfg = promhealth.ConfigureHooks(healthCfg)
-	healthCfg, err = otelhealth.ConfigureHooks(healthCfg, beholder.GetMeter())
+	healthCfg, err = otelhealth.ConfigureHooks(healthCfg, meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure health checker otel hooks: %w", err)
 	}
@@ -1235,46 +1250,3 @@ func (app *ChainlinkApplication) DeleteLogPollerDataAfter(ctx context.Context, c
 
 	return nil
 }
-
-// setupDurableEmitter replaces the global beholder emitter with a DurableEmitter
-// backed by Postgres. Events are persisted before async gRPC delivery, surviving
-// node restarts and chip ingress outages.
-/* TODO: CRE-4422 Re-enable after refactor
-func setupDurableEmitter(ctx context.Context, ds sqlutil.DataSource, lggr logger.SugaredLogger, _ config.Telemetry) error {
-	client := beholder.GetClient()
-	if client == nil {
-		return errors.New("beholder client not initialized")
-	}
-
-	chipClient := client.Chip
-	if chipClient == nil || isNoopChipClient(chipClient) {
-		return errors.New("chip ingress client not available")
-	}
-
-	pgStore := beholdersvc.NewPgDurableEventStore(ds)
-	durableCfg := durableemitter.DefaultDurableEmitterConfig()
-	durableEmitter, err := durableemitter.NewDurableEmitter(pgStore, chipClient, true, durableCfg, lggr)
-	if err != nil {
-		return fmt.Errorf("failed to create durable emitter: %w", err)
-	}
-
-	// Build a new DualSourceEmitter: durable chip + OTLP.
-	messageLogger := client.MessageLoggerProvider.Logger("durable-emitter")
-	otlpEmitter := beholder.NewMessageEmitter(messageLogger)
-	dualEmitter, err := beholder.NewDualSourceEmitter(durableEmitter, otlpEmitter)
-	if err != nil {
-		return fmt.Errorf("failed to create dual source emitter: %w", err)
-	}
-
-	durableEmitter.Start(ctx)
-	client.Emitter = dualEmitter
-
-	lggr.Infow("Durable emitter enabled — all CloudEvent sources use the durable Chip queue")
-	return nil
-}
-
-func isNoopChipClient(c chipingress.Client) bool {
-	_, ok := c.(*chipingress.NoopClient)
-	return ok
-}
-*/

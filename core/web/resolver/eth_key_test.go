@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/web/testutils"
 )
 
@@ -161,7 +160,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 					},
 				}
 				chainID := *sqlutil.NewI(12)
-				f.Mocks.legacyEVMChains.On("Get", states[0].EVMChainID.String()).Return(nil, evmrelay.ErrNoChains)
+				f.Mocks.legacyEVMChains.On("Get", states[0].EVMChainID.String()).Return(nil, nil)
 				f.Mocks.ethKs.On("GetStatesForKeys", mock.Anything, keys).Return(states, nil)
 				f.Mocks.ethKs.On("Get", mock.Anything, keys[0].Address.Hex()).Return(keys[0], nil)
 				f.Mocks.ethKs.On("GetAll", mock.Anything).Return(keys, nil)

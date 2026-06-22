@@ -49,7 +49,7 @@
   supported_evm_chains = [1337]
   supported_sol_chains = ["22222222222222222222222222222222222222222222"]
 
-  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS_DEFAULT = '{"PerWorkflow":{"LogLineLimit":"100kb"}}' }
   capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time"]
   registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 

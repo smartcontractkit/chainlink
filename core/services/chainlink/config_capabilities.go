@@ -388,6 +388,13 @@ func (c *connectorGateway) ID() string {
 	return *c.c.ID
 }
 
+func (c *connectorGateway) DonID() string {
+	if c.c.DonID == nil {
+		return ""
+	}
+	return *c.c.DonID
+}
+
 func (c *connectorGateway) URL() string {
 	return *c.c.URL
 }

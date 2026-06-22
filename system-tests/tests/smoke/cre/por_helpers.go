@@ -149,7 +149,7 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 
 		// reset to avoid incrementing on each iteration
 		amountToFund = big.NewInt(0).SetUint64(10) // 10 wei
-		addressesToRead, addrErr := t_helpers.CreateAndFundAddresses(t, testLogger, numberOfAddressesToCreate, amountToFund, bcOutput, creEnvironment)
+		addressesToRead, addrErr := t_helpers.CreateAndFundAddressesEVM(t, testLogger, numberOfAddressesToCreate, amountToFund, bcOutput)
 		require.NoError(t, addrErr, "failed to create and fund addresses to read")
 
 		testLogger.Info().Msg("Creating PoR workflow configuration file...")
@@ -236,7 +236,7 @@ func SetupPoRWorkflowForSoak(t *testing.T, testEnv *ttypes.TestEnvironment, pric
 
 	numberOfAddressesToCreate := 2
 	amountToFund := big.NewInt(10) // 10 wei
-	addressesToRead, addrErr := t_helpers.CreateAndFundAddresses(t, testLogger, numberOfAddressesToCreate, amountToFund, bcOutput, creEnvironment)
+	addressesToRead, addrErr := t_helpers.CreateAndFundAddressesEVM(t, testLogger, numberOfAddressesToCreate, amountToFund, bcOutput)
 	require.NoError(t, addrErr, "failed to create and fund addresses for soak workflow %s", wfConfig.WorkflowName)
 
 	writeTargetName := corevm.GenerateWriteTargetName(chainID)

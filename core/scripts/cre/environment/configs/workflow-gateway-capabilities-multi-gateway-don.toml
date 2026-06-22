@@ -1,0 +1,127 @@
+# Multi-gateway local CRE topology for HTTP action gateway DON routing smoke tests.
+# Builds on workflow-gateway-capabilities-don with a second gateway nodeset (gateway-eu).
+[chip_router]
+  image = "local-cre-chip-router:v1.0.1"
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "1337"
+  container_name = "anvil-1337"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "2337"
+  container_name = "anvil-2337"
+  port = "8546"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+[jd]
+  csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
+  image = "job-distributor:0.22.1"
+
+[fake]
+  port = 8171
+
+[fake_http]
+  port = 8666
+
+[infra]
+  type = "docker"
+
+[[nodesets]]
+  nodes = 4
+  name = "workflow"
+  don_types = ["workflow"]
+  override_mode = "all"
+  http_port_range_start = 10100
+  supported_evm_chains = [1337, 2337]
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PropagateOrgIDInRequestMetadata":"true","PerOrg":{"BaseTriggerRetransmitEnabled":"true"}},"org":{"multi-don-test-org":{"PerWorkflow":{"HTTPAction":{"GatewayProxyDonID":"gateway_don_eu"}}}}}' }
+  capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337"]
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13000
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = """
+[CRE.Linking]
+URL = 'host.docker.internal:18124'
+TLSEnabled = false
+"""
+
+[[nodesets]]
+  nodes = 4
+  name = "capabilities"
+  don_types = ["capabilities"]
+  exposes_remote_capabilities = true
+  override_mode = "all"
+  http_port_range_start = 10200
+  supported_evm_chains = [1337, 2337]
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+  capabilities = ["vault", "evm-2337"]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13100
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = ""
+
+[[nodesets]]
+  nodes = 1
+  name = "bootstrap-gateway-us"
+  don_types = ["bootstrap", "gateway"]
+  gateway_don_id = "gateway_don_us"
+  override_mode = "each"
+  http_port_range_start = 10300
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+  supported_evm_chains = [1337, 2337]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13200
+
+  [[nodesets.node_specs]]
+    roles = ["bootstrap", "gateway"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      custom_ports = ["5002:5002", "15002:15002"]
+      user_config_overrides = ""
+
+[[nodesets]]
+  nodes = 1
+  name = "gateway-eu"
+  don_types = ["gateway"]
+  gateway_don_id = "gateway_don_eu"
+  override_mode = "each"
+  http_port_range_start = 10400
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+  supported_evm_chains = [1337, 2337]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13300
+
+  [[nodesets.node_specs]]
+    roles = ["gateway"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      # Distinct host ports; container still listens on 5002/15002 for in-network routing.
+      custom_ports = ["5004:5002", "15004:15002"]
+      user_config_overrides = ""

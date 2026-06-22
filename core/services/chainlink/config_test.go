@@ -501,7 +501,7 @@ func TestConfig_Marshal(t *testing.T) {
 			AuthMinChallengeLen:       ptr[int](10),
 			AuthTimestampToleranceSec: ptr[uint32](10),
 			Gateways: []toml.ConnectorGateway{
-				{ID: ptr("example_gateway"), URL: ptr("wss://localhost:8081/node")},
+				{ID: new("example_gateway"), DonID: new("example_gateway_don"), URL: new("wss://localhost:8081/node")},
 			},
 		},
 		Local: toml.LocalCapabilities{

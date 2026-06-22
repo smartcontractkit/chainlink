@@ -551,13 +551,7 @@ func addWorkerNodeConfig(
 		}
 		if len(connectors.Configurations) > 0 {
 			for _, gateway := range connectors.Configurations {
-				gateways = append(gateways, coretoml.ConnectorGateway{
-					ID: new(gateway.AuthGatewayID),
-					URL: new(fmt.Sprintf("ws://%s:%d%s",
-						gateway.Outgoing.Host,
-						gateway.Outgoing.Port,
-						gateway.Outgoing.Path)),
-				})
+				gateways = append(gateways, gateway.ToConnectorGateway())
 			}
 
 			existingConfig.Capabilities.GatewayConnector = coretoml.GatewayConnector{
@@ -764,17 +758,9 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 
 		solBc := bcOut.(*solana.Blockchain)
 
-		ctx, cancelFn := context.WithTimeout(context.Background(), 15*time.Second)
-		chainID, err := solBc.GenesisHash(ctx)
-		if err != nil {
-			cancelFn()
-			return nil, errors.Wrap(err, "failed to get chainID for Solana")
-		}
-		cancelFn()
-
 		solChain = &solanaChain{
 			Name:    fmt.Sprintf("node-%d", solBc.ChainSelector()),
-			ChainID: chainID,
+			ChainID: solBc.SolanaChainID, // use configured chainID instead of chain selector to ensure chainSelector - chainID mapping is valid
 			NodeURL: bcOut.CtfOutput().Nodes[0].InternalHTTPUrl,
 		}
 	}
@@ -881,6 +867,9 @@ func appendSolanaChain(existingConfig *corechainlink.RawConfigs, solChain *solan
 				"Name": solChain.Name,
 				"URL":  solChain.NodeURL,
 			},
+		},
+		"MultiNode": map[string]any{
+			"VerifyChainID": false, // disable chainID verification as Solana uses hash of genesis block as chainID, but we want to use a hardcoded chainID that has corresponding chain selector
 		},
 	})
 }

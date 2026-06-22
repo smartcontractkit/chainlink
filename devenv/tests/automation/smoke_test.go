@@ -94,8 +94,7 @@ func basicAutomationTest(t *testing.T, testcase Testcase) {
 	l.Info().Msg("Running test " + testcase.Name + " with registry version " + testcase.RegistryVersion.String())
 
 	t.Cleanup(func() {
-		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
-		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
+		products.CleanupContainerLogs(t, products.DefaultSettings())
 	})
 
 	outputFile := "../../env-out.toml"

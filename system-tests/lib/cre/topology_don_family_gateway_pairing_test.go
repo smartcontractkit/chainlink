@@ -77,6 +77,50 @@ func TestTopology_validateDonFamilyGatewayPairing_missingGateway(t *testing.T) {
 	require.Contains(t, err.Error(), "no gateway DON is defined for that family")
 }
 
+func TestGatewayDonFamilyPairingSummary_dataFeedsLocalTopology(t *testing.T) {
+	t.Parallel()
+
+	topology := donFamilyGatewayPairingTestTopology()
+
+	summary := topology.GatewayDonFamilyPairingSummary()
+	require.Contains(t, summary, "feeds-zone-a → gateway-zone-a (don_family=feeds-zone-a)")
+	require.Contains(t, summary, "feeds-zone-b → gateway-zone-b (don_family=feeds-zone-b)")
+}
+
+func TestGatewayDonFamilyPairingSummary_legacyWithoutFamilies(t *testing.T) {
+	t.Parallel()
+
+	topology := &Topology{
+		DonsMetadata: &DonsMetadata{
+			dons: []*DonMetadata{
+				{Name: "workflow", ns: &NodeSet{DONTypes: []string{WorkflowDON}}, Flags: []string{WorkflowDON, HTTPActionCapability}},
+				{Name: "bootstrap-gateway", ns: &NodeSet{}, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
+			},
+		},
+	}
+
+	require.Empty(t, topology.GatewayDonFamilyPairingSummary())
+}
+
+func TestTopology_validateDonFamilyGatewayPairing_partialFamily(t *testing.T) {
+	t.Parallel()
+
+	topology := &Topology{
+		DonsMetadata: &DonsMetadata{
+			dons: []*DonMetadata{
+				{Name: "feeds-zone-a", DonFamily: "feeds-zone-a", ns: &NodeSet{DONTypes: []string{WorkflowDON}}, Flags: []string{WorkflowDON, HTTPActionCapability}},
+				{Name: "feeds-zone-b", ns: &NodeSet{DONTypes: []string{WorkflowDON}}, Flags: []string{WorkflowDON, HTTPActionCapability}},
+				{Name: "gateway-zone-a", DonFamily: "feeds-zone-a", ns: &NodeSet{}, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
+			},
+		},
+	}
+
+	require.True(t, topology.DonFamilyGatewayPairingEnabled())
+	err := topology.validateDonFamilyGatewayPairing()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `workflow DON "feeds-zone-b" has no don_family`)
+}
+
 func TestGatewayDonFamilyPairings_dataFeedsLocalTopology(t *testing.T) {
 	t.Parallel()
 

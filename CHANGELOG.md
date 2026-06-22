@@ -1,5 +1,35 @@
 # Changelog Chainlink Core
 
+## 2.52.0
+
+### Minor Changes
+
+- [#22778](https://github.com/smartcontractkit/chainlink/pull/22778) [`8a67a6d`](https://github.com/smartcontractkit/chainlink/commit/8a67a6db6588d173ff0e9dfd87b12daed4d23642) - Minor bump to start next version
+
+### Patch Changes
+
+- [#22809](https://github.com/smartcontractkit/chainlink/pull/22809) [`af55120`](https://github.com/smartcontractkit/chainlink/commit/af5512049c60904b10489e7f1b0dc72bdefea241) - #internal Confidential workflows: stop setting the deprecated outside-envelope `ConfidentialWorkflowRequest.binary_url`. `binary_url` stays in the hashed `WorkflowExecution` (PublicData); the enclave reads it there.
+
+## 2.51.0
+
+### Minor Changes
+
+- [#22721](https://github.com/smartcontractkit/chainlink/pull/22721) [`63d7423`](https://github.com/smartcontractkit/chainlink/commit/63d7423fafb512efbdf4da3a3d392f6c9a787217) - Minor bump to start next version
+
+## 2.50.0
+
+### Minor Changes
+
+- [#22617](https://github.com/smartcontractkit/chainlink/pull/22617) [`1cb63f7`](https://github.com/smartcontractkit/chainlink/commit/1cb63f7c1476b871b60c4ffdd5b59962970e14fd) - #removed Removed support for the Webhook job. Database tables and the front end related logic have not been removed, but jobs will no longer start.
+
+- [#22658](https://github.com/smartcontractkit/chainlink/pull/22658) [`8c502f6`](https://github.com/smartcontractkit/chainlink/commit/8c502f617fcf97f21565a47e2f3b985860d45fad) - Add Telemetry.PrometheusBridge to TOML config to support forwarding Prometheus metrics through Open Telemetry
+
+- [#22652](https://github.com/smartcontractkit/chainlink/pull/22652) [`6ce4009`](https://github.com/smartcontractkit/chainlink/commit/6ce40099a6d0fd33a0ed84d8ac69144df6a788d4) - Minor bump to start next version
+
+### Patch Changes
+
+- [#22548](https://github.com/smartcontractkit/chainlink/pull/22548) [`9845119`](https://github.com/smartcontractkit/chainlink/commit/984511933d8cdf52fe5d0c1ea883041322c1d4d4) - #bugfix fix llo buffered telemetry sampling
+
 ## 2.49.0
 
 ### Minor Changes

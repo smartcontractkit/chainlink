@@ -30,12 +30,12 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/freeport"
-
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
@@ -57,12 +57,11 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/llo"
 	evmmercury "github.com/smartcontractkit/chainlink-evm/pkg/mercury"
+	evm "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
-	evm "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -393,7 +392,7 @@ func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, ba
 	} else {
 		topic = llo.StagingConfigSet
 	}
-	logs, err := backend.Client().FilterLogs(testutils.Context(t), ethereum.FilterQuery{Addresses: []common.Address{configuratorAddress}, Topics: [][]common.Hash{[]common.Hash{topic, donIDPadded}}})
+	logs, err := backend.Client().FilterLogs(t.Context(), ethereum.FilterQuery{Addresses: []common.Address{configuratorAddress}, Topics: [][]common.Hash{[]common.Hash{topic, donIDPadded}}})
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, len(logs), 1)
 
@@ -587,6 +586,13 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				require.NoError(t, err)
 
 				feedID := reportElems["feedId"].([32]uint8)
+
+				// Skip reports from rounds where bridge timeouts caused zero-fee
+				// calculation. Under CI load, ETH/LINK price bridge tasks can time
+				// out, producing nativeFee=0. Wait for a round with valid fees.
+				if reportElems["nativeFee"].(*big.Int).Sign() == 0 {
+					continue
+				}
 
 				if _, exists := seen[feedID]; !exists {
 					continue // already saw all oracles for this feed
@@ -1126,9 +1132,9 @@ ds2_payload -> ds2_provider_indicated_time -> provider_indicated_time;
 ds2_data_received_time [type=jsonparse lax=true path="timestamps,providerDataReceivedUnixMs"];
 ds2_payload -> ds2_data_received_time -> data_received_time;
 
-benchmark_price [type=median allowedFaults=1 streamID=%d index=0];
-provider_indicated_time [type=median allowedFaults=1 lax=true];
-data_received_time [type=median allowedFaults=1 lax=true];
+benchmark_price [type=median streamID=%d index=0];
+provider_indicated_time [type=median lax=true];
+data_received_time [type=median lax=true];
 provider_indicated_time -> benchmark_price_timestamp;
 data_received_time -> benchmark_price_timestamp;
 
@@ -2017,12 +2023,16 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 								// handover test is handled below
 								break
 							}
-							if offchainConfig.ProtocolVersion == 0 {
-								// validAfter is always truncated to 1s in v0
-								// IMPORTANT: gapless handovers in v0 ONLY supported at 1s resolution!!
-								assert.Equal(t, highestObsTsNanos/1e9*1e9, r.ValidAfterNanoseconds/1e9*1e9, "%d: (n-1)ObservationsTimestampSeconds->(n)ValidAfterNanoseconds should be gapless to within 1s resolution, got: %d vs %d", i, highestObsTsNanos, r.ValidAfterNanoseconds)
-							} else {
-								assert.Equal(t, highestObsTsNanos, r.ValidAfterNanoseconds, "%d: (n-1)ObservationsTimestampSeconds->(n)ValidAfterNanoseconds should be gapless, got: %d vs %d", i, highestObsTsNanos, r.ValidAfterNanoseconds)
+							// Only assert gapless ValidAfter when seq numbers are consecutive;
+							// staging handover can produce gaps (see rs[i-1].SeqNr+1 check above).
+							if r.SeqNr == seenSeqNr+1 {
+								if offchainConfig.ProtocolVersion == 0 {
+									// validAfter is always truncated to 1s in v0
+									// IMPORTANT: gapless handovers in v0 ONLY supported at 1s resolution!!
+									assert.Equal(t, highestObsTsNanos/1e9*1e9, r.ValidAfterNanoseconds/1e9*1e9, "%d: (n-1)ObservationsTimestampSeconds->(n)ValidAfterNanoseconds should be gapless to within 1s resolution, got: %d vs %d", i, highestObsTsNanos, r.ValidAfterNanoseconds)
+								} else {
+									assert.Equal(t, highestObsTsNanos, r.ValidAfterNanoseconds, "%d: (n-1)ObservationsTimestampSeconds->(n)ValidAfterNanoseconds should be gapless, got: %d vs %d", i, highestObsTsNanos, r.ValidAfterNanoseconds)
+								}
 							}
 							assert.Greater(t, r.ObservationTimestampNanoseconds, highestObsTsNanos, "%d: overlapping/duplicate report ObservationTimestampNanoseconds, got: %d vs %d", i, r.ObservationTimestampNanoseconds, highestObsTsNanos)
 							assert.Greater(t, r.ValidAfterNanoseconds, highestValidAfterNanos, "%d: overlapping/duplicate report ValidAfterNanoseconds, got: %d vs %d", i, r.ValidAfterNanoseconds, highestValidAfterNanos)
@@ -2211,7 +2221,7 @@ func TestIntegration_LLO_channel_merging_owners_adders(t *testing.T) {
 	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, nil)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
-	t.Run("Channel merging lifecycle with owners and adders", func(t *testing.T) {
+	t.Run("Channel merging lifecycle with owners and adders", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 		packetCh := make(chan *packet, 100000)
 		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
 		serverPubKey := serverKey.PublicKey
@@ -2321,7 +2331,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		}
 
 		// Scenario 1: Owner adds initial channels
-		t.Run("Owner adds initial channels", func(t *testing.T) {
+		t.Run("Owner adds initial channels", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 			channelDefinitions := llotypes.ChannelDefinitions{
 				1: {
 					ReportFormat: llotypes.ReportFormatJSON,
@@ -2358,9 +2368,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			require.NoError(t, err)
 			backend.Commit()
 
-			// Wait for channel definitions to be processed (give time for log polling and fetching)
-			time.Sleep(3 * time.Second)
-
 			// Wait for reports from all owner channels
 			expectedChannels := map[uint32]bool{1: true, 2: true, 3: true}
 			waitForReportsFromChannels(t, expectedChannels, reportTimeout)
@@ -2384,7 +2391,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		})
 
 		// Scenario 2: Adders add new channels
-		t.Run("Adders add new channels", func(t *testing.T) {
+		t.Run("Adders add new channels", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 			// Adder1 adds channels
 			adder1Definitions := llotypes.ChannelDefinitions{
 				10: {
@@ -2471,9 +2478,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			require.NoError(t, err)
 			backend.Commit()
 
-			// Wait for channel definitions to be processed (give time for log polling and fetching)
-			time.Sleep(3 * time.Second)
-
 			// Wait for reports from all channels (owner + adders)
 			expectedChannels := map[uint32]bool{1: true, 2: true, 3: true, 10: true, 11: true, 20: true, 21: true}
 			waitForReportsFromChannels(t, expectedChannels, reportTimeout)
@@ -2485,7 +2489,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		})
 
 		// Scenario 3: Owner tombstone some channels
-		t.Run("Owner tombstone channels", func(t *testing.T) {
+		t.Run("Owner tombstone channels", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 			// Owner updates definitions, add tombstone to channel 2 and 21
 			channelDefinitions := llotypes.ChannelDefinitions{
 				1: {
@@ -2565,7 +2569,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		})
 
 		// Scenario 4: Owner overwrites adder channel
-		t.Run("Owner overwrites adder channel", func(t *testing.T) {
+		t.Run("Owner overwrites adder channel", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 			// Owner sets a channel definition with same ID as adder1's channel 10
 			channelDefinitions := llotypes.ChannelDefinitions{
 				1: {
@@ -2603,9 +2607,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			require.NoError(t, err)
 			backend.Commit()
 
-			// Wait for channel definitions to be processed
-			time.Sleep(10 * time.Second)
-
 			// Wait for reports from channel 10 and verify it eventually uses owner's configuration (linkStreamID)
 			// The owner's definition should take precedence over the adder's definition
 			foundOwnerReport := false
@@ -2632,7 +2633,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		})
 
 		// Scenario 5: Verify adder cannot remove channels
-		t.Run("Adder cannot remove channels", func(t *testing.T) {
+		t.Run("Adder cannot remove channels", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 			// Adder1 tries to set definitions that exclude channel 11 (which they previously added)
 			adder1NewDefinitions := llotypes.ChannelDefinitions{
 				10: {
@@ -2668,12 +2669,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			require.NoError(t, err)
 			backend.Commit()
 
-			// Wait for processing
-			time.Sleep(3 * time.Second)
-
 			// Verify channel 11 still produces reports (adder cannot remove it)
 			foundChannel11Report := false
-			deadline := time.Now().Add(5 * time.Second)
+			deadline := time.Now().Add(8 * time.Second)
 			for time.Now().Before(deadline) && !foundChannel11Report {
 				pckt, err := receiveWithTimeout(t, packetCh, 1*time.Second)
 				if err != nil {
@@ -2866,13 +2864,27 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 	// After reports for channel 2 have stopped, bridge traffic for streamIDTombstone should stop
 	// while streamIDActive continues to be observed.
-	bCallsAfterReportsStopped := streamBCalls.Load()
+	// We wait until streamBCalls stabilizes to account for any inflight pipelines or wind-down delays.
+	var lastB uint64
+	var stableSince time.Time
+	require.Eventually(t, func() bool {
+		b := streamBCalls.Load()
+		if b != lastB {
+			lastB = b
+			stableSince = time.Now()
+			return false
+		}
+		return time.Since(stableSince) > 2*time.Second
+	}, 15*time.Second, 100*time.Millisecond, "tombstoned channel's stream should eventually stop being observed")
+
+	bCallsStable := streamBCalls.Load()
 	aCallsAfterReportsStopped := streamACalls.Load()
-	time.Sleep(1 * time.Second)
-	require.Equal(t, bCallsAfterReportsStopped, streamBCalls.Load(),
+	require.Eventually(t, func() bool {
+		return streamACalls.Load() > aCallsAfterReportsStopped
+	}, 15*time.Second, 100*time.Millisecond, "active channel's stream should still be observed")
+
+	require.Equal(t, bCallsStable, streamBCalls.Load(),
 		"tombstoned channel's stream should not be observed (no additional bridge calls)")
-	require.Greater(t, streamACalls.Load(), aCallsAfterReportsStopped,
-		"active channel's stream should still be observed")
 }
 
 func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {

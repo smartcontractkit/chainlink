@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
+	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
 const (
@@ -22,7 +23,7 @@ const (
 	gatewayOutgoingPort = 5003
 )
 
-func NewGatewayConfig(p infra.Provider, id, gatewayNodeIdx int, isBootstrap bool, uuid, donName string) *GatewayConfiguration {
+func NewGatewayConfig(p infra.Provider, id, gatewayNodeIdx int, isBootstrap bool, uuid, donName, gatewayDonID string) *GatewayConfiguration {
 	return &GatewayConfiguration{
 		NodeUUID: uuid,
 		Outgoing: Outgoing{
@@ -37,6 +38,7 @@ func NewGatewayConfig(p infra.Provider, id, gatewayNodeIdx int, isBootstrap bool
 			ExternalPort: p.ExternalGatewayPort(gatewayIncomingPort),
 		},
 		AuthGatewayID: "gateway-node-" + strconv.Itoa(gatewayNodeIdx), // reflects what is done in deployment/cre/jobs/pkg/gateway_job.go
+		GatewayDonID:  gatewayDonID,
 	}
 }
 
@@ -45,6 +47,22 @@ type GatewayConfiguration struct {
 	Outgoing      Outgoing `toml:"outgoing" json:"outgoing"`
 	Incoming      Incoming `toml:"incoming" json:"incoming"`
 	AuthGatewayID string   `toml:"auth_gateway_id" json:"auth_gateway_id"`
+	GatewayDonID  string   `toml:"gateway_don_id" json:"gateway_don_id"`
+}
+
+func (g *GatewayConfiguration) WebSocketURL() string {
+	return fmt.Sprintf("ws://%s:%d%s", g.Outgoing.Host, g.Outgoing.Port, g.Outgoing.Path)
+}
+
+func (g *GatewayConfiguration) ToConnectorGateway() coretoml.ConnectorGateway {
+	cg := coretoml.ConnectorGateway{
+		ID:  new(g.AuthGatewayID),
+		URL: new(g.WebSocketURL()),
+	}
+	if g.GatewayDonID != "" {
+		cg.DonID = new(g.GatewayDonID)
+	}
+	return cg
 }
 
 type Outgoing struct {

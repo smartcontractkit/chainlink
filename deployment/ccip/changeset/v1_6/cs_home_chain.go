@@ -25,7 +25,7 @@ import (
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
-	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+	"github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -165,6 +165,14 @@ func deployCapReg(
 		lggr.Errorw("Failed to deploy capreg", "chain", chain.String(), "err", err)
 		return nil, err
 	}
+	ctx := chain.DeployerKey.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := shared.WaitForContractCode(ctx, chain.Client, capReg.Address); err != nil {
+		lggr.Errorw("CapabilitiesRegistry code not available after deploy", "chain", chain.String(), "addr", capReg.Address, "err", err)
+		return nil, err
+	}
 	return capReg, nil
 }
 
@@ -190,6 +198,10 @@ func deployHomeChain(
 	}
 
 	lggr.Infow("deployed/connected to capreg", "addr", capReg.Address)
+	ctx := e.GetContext()
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	var ccipHomeAddr common.Address
 	if state.Chains[chain.Selector].CCIPHome != nil {
 		lggr.Infow("CCIPHome already deployed", "addr", state.Chains[chain.Selector].CCIPHome.Address().String())
@@ -209,6 +221,10 @@ func deployHomeChain(
 			})
 		if err != nil {
 			lggr.Errorw("Failed to deploy CCIPHome", "chain", chain.String(), "err", err)
+			return nil, err
+		}
+		if err := shared.WaitForContractCode(ctx, chain.Client, ccipHome.Address); err != nil {
+			lggr.Errorw("CCIPHome code not available after deploy", "chain", chain.String(), "addr", ccipHome.Address, "err", err)
 			return nil, err
 		}
 		ccipHomeAddr = ccipHome.Address
@@ -234,6 +250,10 @@ func deployHomeChain(
 			return nil, err
 		}
 		rmnHome = rmnHomeContract.Contract
+		if err := shared.WaitForContractCode(ctx, chain.Client, rmnHomeContract.Address); err != nil {
+			lggr.Errorw("RMNHome code not available after deploy", "chain", chain.String(), "addr", rmnHomeContract.Address, "err", err)
+			return nil, err
+		}
 	}
 
 	// considering the RMNHome is recently deployed, there is no digest to overwrite

@@ -29,9 +29,6 @@ ALTER DATABASE $database OWNER TO $username;
 GRANT ALL PRIVILEGES ON DATABASE "$database" TO "$username";
 ALTER USER $username CREATEDB;
 
--- Create a pristine database for testing
-SELECT 'CREATE DATABASE chainlink_test_pristine WITH OWNER $username;' 
-WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'chainlink_test_pristine')\gexec
 EOF
 
 # Print the SQL commands

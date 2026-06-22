@@ -1,11 +1,13 @@
 package vault
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"maps"
 	"net/http"
 	"strconv"
@@ -229,7 +231,7 @@ func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DO
 	if err != nil {
 		return nil, fmt.Errorf("could not create request batch size limiter: %w", err)
 	}
-	ciphertextLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultCiphertextSizeLimit)
+	ciphertextLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.PerOwner.VaultCiphertextSizeLimit)
 	if err != nil {
 		return nil, fmt.Errorf("could not create ciphertext size limiter: %w", err)
 	}
@@ -431,6 +433,7 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		return errors.New("request not authorized: " + authErr.Error())
 	}
 	authorizedOwner := authResult.AuthorizedOwner()
+
 	// Generate a unique ID for the request.
 	// Prefix request id with authorizedOwner, to ensure uniqueness across different owners
 	// We do this ourselves to ensure the ID is unique and can't be tampered with by the user.
@@ -523,6 +526,12 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	return h.sendSuccessResponse(ctx, l, ar, resp)
 }
 
+func (h *handler) unmarshal(r io.Reader, to any) error {
+	d := json.NewDecoder(r)
+	d.DisallowUnknownFields()
+	return d.Decode(to)
+}
+
 func (h *handler) tryCachePublicKeyResponse(resp *jsonrpc.Response[json.RawMessage], l logger.Logger) {
 	if resp.Result == nil {
 		l.Debugw("no result in public key response, not caching")
@@ -530,7 +539,7 @@ func (h *handler) tryCachePublicKeyResponse(resp *jsonrpc.Response[json.RawMessa
 	}
 
 	r := &vaultcommon.GetPublicKeyResponse{}
-	err := json.Unmarshal(*resp.Result, r)
+	err := h.unmarshal(bytes.NewReader(*resp.Result), r)
 	if err != nil {
 		l.Debugw("failed to unmarshal public key response, not caching", "error", err)
 		return
@@ -644,7 +653,6 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar *activeRequest) er
 	if unmarshalErr := json.Unmarshal(*ar.req.Params, updateSecretsRequest); unmarshalErr != nil {
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, unmarshalErr, nil))
 	}
-
 	updateSecretsRequest.RequestId = ar.req.ID
 	for _, secretItem := range updateSecretsRequest.EncryptedSecrets {
 		if secretItem != nil && secretItem.Id != nil && secretItem.Id.Namespace == "" {
@@ -685,7 +693,6 @@ func (h *handler) handleSecretsDelete(ctx context.Context, ar *activeRequest) er
 	if unmarshalErr := json.Unmarshal(*ar.req.Params, deleteSecretsRequest); unmarshalErr != nil {
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, unmarshalErr, nil))
 	}
-
 	deleteSecretsRequest.RequestId = ar.req.ID
 	for _, id := range deleteSecretsRequest.Ids {
 		if id != nil && id.Namespace == "" {
@@ -715,7 +722,6 @@ func (h *handler) handleSecretsList(ctx context.Context, ar *activeRequest) erro
 	if err := json.Unmarshal(*ar.req.Params, req); err != nil {
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err, nil))
 	}
-
 	req.RequestId = ar.req.ID
 	if req.Namespace == "" {
 		req.Namespace = vaulttypes.DefaultNamespace
@@ -823,7 +829,11 @@ func (h *handler) errorResponse(
 		// Intentionally hide the error from the user
 		err = errors.New(errorCode.String())
 	case api.InvalidParamsError:
-		h.lggr.Errorw("invalid params", "requestID", req.ID, "params", string(*req.Params))
+		paramsStr := ""
+		if req.Params != nil {
+			paramsStr = string(*req.Params)
+		}
+		h.lggr.Errorw("invalid params", "requestID", req.ID, "params", paramsStr)
 		err = errors.New("invalid params error: " + err.Error())
 	case api.UnsupportedMethodError:
 		h.lggr.Errorw("unsupported method", "requestID", req.ID, "method", req.Method, "error", err.Error())

@@ -132,6 +132,7 @@ func TestVRFV2Integration_CanceledSubForceFulfillmentRevertedTxn_Retry(t *testin
 }
 
 func TestUniqueReqById_NoPendingReceipts(t *testing.T) {
+	t.Parallel()
 	revertedForceTxns := []v2.TxnReceiptDB{
 		{RequestID: common.BigToHash(big.NewInt(1)).Hex(),
 			ForceFulfillmentAttempt: 1, EVMReceipt: types.Receipt{Status: 0}},
@@ -160,6 +161,7 @@ func TestUniqueReqById_NoPendingReceipts(t *testing.T) {
 }
 
 func TestUniqueReqById_WithPendingReceipts(t *testing.T) {
+	t.Parallel()
 	revertedForceTxns := []v2.TxnReceiptDB{
 		{RequestID: common.BigToHash(big.NewInt(1)).Hex(),
 			ForceFulfillmentAttempt: 1, EVMReceipt: types.Receipt{Status: 0}},
@@ -478,7 +480,6 @@ func createVRFJobsNew(
 	// TODO: it could just backfill immediately upon receiving a new subscriber? (though would
 	// only be useful for tests, probably a more robust way is to have the job spawner accept a signal that a
 	// job is fully up and running and not add it to the active jobs list before then)
-	time.Sleep(2 * time.Second)
 	return
 }
 

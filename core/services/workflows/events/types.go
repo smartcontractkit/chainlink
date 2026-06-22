@@ -14,6 +14,8 @@ const (
 	WorkflowExecutionStarted string = "WorkflowExecutionStarted"
 	// WorkflowExecutionFinished represents a workflow execution finished event
 	WorkflowExecutionFinished string = "WorkflowExecutionFinished"
+	// WorkflowExecutionProfile represents an aggregated workflow execution profile event
+	WorkflowExecutionProfile string = "WorkflowExecutionProfile"
 	// CapabilityExecutionStarted represents a capability execution started event
 	CapabilityExecutionStarted string = "CapabilityExecutionStarted"
 	// CapabilityExecutionFinished represents a capability execution finished event
@@ -42,7 +44,8 @@ const (
 
 	// V2 schema constants
 	SchemaWorkflowStartedV2    string = "/cre-events-workflow-started/v2"
-	SchemaWorkflowFinishedV2   string = "/cre-events-workflow-finished/v2"
+	SchemaWorkflowFinishedV2            string = "/cre-events-workflow-finished/v2"
+	SchemaWorkflowExecutionProfileV2    string = "/cre-events-workflow-execution-profile/v2"
 	SchemaCapabilityStartedV2  string = "/cre-events-capability-started/v2"
 	SchemaCapabilityFinishedV2 string = "/cre-events-capability-finished/v2"
 	SchemaTriggerStartedV2     string = "/cre-events-trigger-started/v2"

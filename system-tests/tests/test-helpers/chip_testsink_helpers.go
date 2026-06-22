@@ -481,7 +481,7 @@ func GetLoggingPublishFn(
 		}
 
 		// Wrap in a simple structure to preserve the event type in the log file
-		entry := map[string]interface{}{
+		entry := map[string]any{
 			"type":      eventType,
 			"timestamp": time.Now(),
 			"data":      json.RawMessage(dataBytes),

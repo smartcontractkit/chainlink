@@ -1853,6 +1853,7 @@ AuthTimestampToleranceSec is Authentication timestamp tolerance
 ```toml
 [[Capabilities.GatewayConnector.Gateways]]
 ID = 'example_gateway' # Example
+DonID = 'example_gateway_don' # Example
 URL = 'wss://localhost:8081/node' # Example
 ```
 
@@ -1862,6 +1863,12 @@ URL = 'wss://localhost:8081/node' # Example
 ID = 'example_gateway' # Example
 ```
 ID of the Gateway
+
+### DonID
+```toml
+DonID = 'example_gateway_don' # Example
+```
+DonID is the DON that owns this gateway; used for multi-gateway routing.  All or none of the gateways must have a DonID.
 
 ### URL
 ```toml
@@ -18424,6 +18431,7 @@ MinAttempts configures the minimum number of broadcasted attempts a transaction 
 Enabled = false # Default
 BlockTime = '10s' # Example
 CustomURL = 'https://example.api.io' # Example
+CustomURLs = ['https://relay.example/api', 'https://ofa-secondary.example/api'] # Example
 DualBroadcast = false # Example
 ReadRequestsToMultipleNodes = false # Example
 Bundles = false # Example
@@ -18448,7 +18456,13 @@ BlockTime controls the frequency of the backfill loop of TransactionManagerV2.
 ```toml
 CustomURL = 'https://example.api.io' # Example
 ```
-CustomURL configures the base url of a custom endpoint used by the ChainDualBroadcast chain type.
+CustomURL configures the base url of a custom endpoint used by the dual broadcast functionality (legacy single endpoint). Deprecated: use CustomURLs instead. Cannot be used together with CustomURLs in the same configuration.
+
+### CustomURLs
+```toml
+CustomURLs = ['https://relay.example/api', 'https://ofa-secondary.example/api'] # Example
+```
+CustomURLs configures an ordered list of Order Flow Auction (OFA) endpoint URLs: the first entry is primary (determines broadcast outcome); additional entries are multiplexed as secondaries (fire-and-forget). Cannot be used together with CustomURL in the same configuration.
 
 ### DualBroadcast
 ```toml

@@ -1649,6 +1649,85 @@ PerSenderBurst = 100
 		}
 	})
 
+	t.Run("successful vault ocr3 job distribution with auth0", func(t *testing.T) {
+		h2 := test.NewTestHarness(t)
+		env2 := new(h2.Runtime.Environment())
+
+		chainSelector := h2.RegistrySelector
+		ds := datastore.NewMemoryDataStore()
+
+		err := ds.Addresses().Add(datastore.AddressRef{
+			ChainSelector: chainSelector,
+			Type:          datastore.ContractType(ocr3.OCR3Capability),
+			Version:       semver.MustParse("1.0.0"),
+			Address:       "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
+			Qualifier:     "vault_1_plugin",
+		})
+		require.NoError(t, err)
+
+		err = ds.Addresses().Add(datastore.AddressRef{
+			ChainSelector: chainSelector,
+			Type:          datastore.ContractType(ocr3.OCR3Capability),
+			Version:       semver.MustParse("1.0.0"),
+			Address:       "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853",
+			Qualifier:     "vault_1_dkg",
+		})
+		require.NoError(t, err)
+
+		env2.DataStore = ds.Seal()
+
+		input := jobs.ProposeJobSpecInput{
+			Environment: test.EnvironmentName,
+			Domain:      "cre",
+			JobName:     "vault-job-auth0",
+			DONName:     test.DONName,
+			Template:    job_types.OCR3,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: test.DONName},
+				{Key: "environment", Value: test.EnvironmentName},
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+			Inputs: job_types.JobSpecInput{
+				"templateName":               "worker-vault",
+				"contractQualifier":          "vault_1_plugin",
+				"dkgContractQualifier":       "vault_1_dkg",
+				"vaultRequestExpiryDuration": "10s",
+				"chainSelectorEVM":           strconv.FormatUint(chainSelector, 10),
+				"bootstrapperOCR3Urls": []string{
+					"12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001",
+				},
+				"auth0": pkg.Auth0Config{
+					IssuerURL: "https://example.auth0.com/",
+					Audience:  "https://vault.example.com",
+					TenantID:  3,
+				},
+			},
+		}
+
+		out, err := jobs.ProposeJobSpec{}.Apply(*env2, input)
+		require.NoError(t, err)
+		assert.Len(t, out.Reports, 1)
+
+		reqs, err := h2.TestJD.ListProposedJobRequests()
+		require.NoError(t, err)
+
+		expectedChainID := chainsel.TEST_90000001.EvmChainID
+
+		for _, req := range reqs {
+			if !strings.Contains(req.Spec, `name = "vault-job-auth0"`) {
+				continue
+			}
+			t.Logf("Job Spec:\n%s", req.Spec)
+			assert.Contains(t, req.Spec, `pluginType = "vault-plugin"`)
+			assert.Contains(t, req.Spec, fmt.Sprintf(`chainID = "%d"`, expectedChainID))
+			assert.Contains(t, req.Spec, `dkgContractID = "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853"`)
+			assert.Contains(t, req.Spec, `[pluginConfig.auth0]`)
+			assert.Contains(t, req.Spec, `issuerURL = "https://example.auth0.com/"`)
+			assert.Contains(t, req.Spec, `audience = "https://vault.example.com"`)
+			assert.Contains(t, req.Spec, `tenantID = 3`)
+		}
+	})
+
 	t.Run("successful consensus job distribution", func(t *testing.T) {
 		chainSelector := h.RegistrySelector
 		ds := datastore.NewMemoryDataStore()

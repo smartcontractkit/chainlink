@@ -19,8 +19,8 @@ var L = log.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(zerolog.DebugLev
 
 func Load[T any]() (*T, error) {
 	var config T
-	paths := strings.Split(os.Getenv(EnvVarTestConfigs), ",")
-	for _, path := range paths {
+	paths := strings.SplitSeq(os.Getenv(EnvVarTestConfigs), ",")
+	for path := range paths {
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read product config file path %s: %w", path, err)

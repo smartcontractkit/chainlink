@@ -267,10 +267,12 @@ func testMaybeSubtractReservedLink(t *testing.T, vrfVersion vrfcommon.Version) {
 }
 
 func TestMaybeSubtractReservedLinkV2(t *testing.T) {
+	t.Parallel()
 	testMaybeSubtractReservedLink(t, vrfcommon.V2)
 }
 
 func TestMaybeSubtractReservedLinkV2Plus(t *testing.T) {
+	t.Parallel()
 	testMaybeSubtractReservedLink(t, vrfcommon.V2Plus)
 }
 
@@ -348,10 +350,12 @@ func testMaybeSubtractReservedNative(t *testing.T, vrfVersion vrfcommon.Version)
 }
 
 func TestMaybeSubtractReservedNativeV2Plus(t *testing.T) {
+	t.Parallel()
 	testMaybeSubtractReservedNative(t, vrfcommon.V2Plus)
 }
 
 func TestMaybeSubtractReservedNativeV2(t *testing.T) {
+	t.Parallel()
 	ctx := testutils.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
@@ -380,6 +384,7 @@ func TestMaybeSubtractReservedNativeV2(t *testing.T) {
 }
 
 func TestListener_GetConfirmedAt(t *testing.T) {
+	t.Parallel()
 	j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		RequestedConfsDelay: 10,
 	}).Toml())
@@ -420,6 +425,7 @@ func TestListener_GetConfirmedAt(t *testing.T) {
 }
 
 func TestListener_Backoff(t *testing.T) {
+	t.Parallel()
 	var tests = []struct {
 		name     string
 		initial  time.Duration
@@ -492,6 +498,7 @@ func TestListener_Backoff(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			lsn := &listenerV2{job: job.Job{
 				VRFSpec: &job.VRFSpec{
 					BackoffInitialDelay: test.initial,
