@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
@@ -14,13 +15,13 @@ type workflowDeployTargets struct {
 	gatewayURL string
 }
 
-// resolveWorkflowDeployTargets fills donID, donFamily, and gatewayURL from CLI flags and,
-// when available, the local CRE state file. Container name patterns (e.g. feeds-zone-a-node)
-// take precedence over single-workflow-DON defaults.
+// resolveWorkflowDeployTargets fills donID, donFamily, and gatewayURL from CLI flags and
+// the local CRE state file. Multi-DON topologies require --workflow-don-name or an
+// unambiguous container-name-pattern.
 func resolveWorkflowDeployTargets(
 	cmd *cobra.Command,
 	resolver *LocalCREStateResolver,
-	containerPattern string,
+	selector workflowDONSelector,
 	donIDFlag uint32,
 	donFamilyFlag string,
 	gatewayURLFlag string,
@@ -32,7 +33,7 @@ func resolveWorkflowDeployTargets(
 	}
 
 	if resolver == nil {
-		family, err := finalizeWorkflowDonFamily("", false)
+		family, err := finalizeWorkflowDonFamily(donFamilyFlag, false)
 		if err != nil {
 			return targets, err
 		}
@@ -40,16 +41,16 @@ func resolveWorkflowDeployTargets(
 		return targets, nil
 	}
 
-	if !cmd.Flags().Changed("don-id") {
-		if id, ok := resolver.resolveWorkflowDONID(containerPattern); ok {
-			targets.donID = id
-		}
+	donMeta, err := resolver.ResolveWorkflowDONMetadata(selector)
+	if err != nil {
+		return targets, err
 	}
 
-	if !cmd.Flags().Changed("don-family") {
-		if family, ok := resolver.resolveWorkflowDonFamily(containerPattern); ok {
-			targets.donFamily = family
-		}
+	if !cmd.Flags().Changed("don-id") {
+		targets.donID = libc.MustSafeUint32FromUint64(donMeta.ID)
+	}
+	if !cmd.Flags().Changed("don-family") && donMeta.DonFamily != "" {
+		targets.donFamily = donMeta.DonFamily
 	}
 
 	family, err := finalizeWorkflowDonFamily(targets.donFamily, resolver.DonFamilyGatewayPairingEnabled())
@@ -59,7 +60,9 @@ func resolveWorkflowDeployTargets(
 	targets.donFamily = family
 
 	if !cmd.Flags().Changed("gateway-url") {
-		if url, ok := resolver.resolveGatewayURL(family); ok {
+		if url, err := resolver.resolveGatewayURL(family); err != nil {
+			return targets, fmt.Errorf("❌ failed to resolve gateway URL for don_family %q: %w", family, err)
+		} else {
 			targets.gatewayURL = url
 		}
 	}
@@ -77,30 +80,9 @@ func finalizeWorkflowDonFamily(donFamily string, pairingEnabled bool) (string, e
 	return envconfig.DefaultDONFamily, nil
 }
 
-func (r *LocalCREStateResolver) resolveWorkflowDONID(containerPattern string) (uint32, bool) {
-	if containerPattern != "" {
-		if id, err := r.WorkflowDONIDForContainerPattern(containerPattern); err == nil {
-			return id, true
-		}
-	}
-	id, err := r.WorkflowDONID()
-	return id, err == nil
-}
-
-func (r *LocalCREStateResolver) resolveWorkflowDonFamily(containerPattern string) (string, bool) {
-	if containerPattern != "" {
-		if family, err := r.WorkflowDONFamilyForContainerPattern(containerPattern); err == nil {
-			return family, true
-		}
-	}
-	family, err := r.WorkflowDONFamily()
-	return family, err == nil && family != ""
-}
-
-func (r *LocalCREStateResolver) resolveGatewayURL(donFamily string) (string, bool) {
+func (r *LocalCREStateResolver) resolveGatewayURL(donFamily string) (string, error) {
 	if url, err := r.GatewayURLForDonFamily(donFamily); err == nil {
-		return url, true
+		return url, nil
 	}
-	url, err := r.GatewayURL()
-	return url, err == nil
+	return r.GatewayURL()
 }

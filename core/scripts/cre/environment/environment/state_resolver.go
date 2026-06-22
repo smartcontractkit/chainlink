@@ -3,7 +3,6 @@ package environment
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
@@ -134,47 +133,6 @@ func (r *LocalCREStateResolver) WorkflowDONFamily() (string, error) {
 	return workflowDON.DonFamily, nil
 }
 
-// WorkflowDONMetadataForContainerPattern returns the workflow DON whose name matches
-// containerNamePattern. Matches exact DON names, names with a "-node" suffix stripped,
-// or container names prefixed with "<don-name>-".
-func (r *LocalCREStateResolver) WorkflowDONMetadataForContainerPattern(containerNamePattern string) (*cre.DonMetadata, error) {
-	workflowDONs, err := r.topology.DonsMetadata.WorkflowDONs()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get workflow DONs from local CRE state")
-	}
-
-	pattern := strings.TrimSuffix(containerNamePattern, "-node")
-	for _, wf := range workflowDONs {
-		if wf.Name == pattern || strings.HasPrefix(containerNamePattern, wf.Name+"-") {
-			return wf, nil
-		}
-	}
-
-	return nil, fmt.Errorf("no workflow DON matches container pattern %q", containerNamePattern)
-}
-
-func (r *LocalCREStateResolver) WorkflowDONIDForContainerPattern(containerNamePattern string) (uint32, error) {
-	workflowDON, err := r.WorkflowDONMetadataForContainerPattern(containerNamePattern)
-	if err != nil {
-		return 0, err
-	}
-
-	return libc.MustSafeUint32FromUint64(workflowDON.ID), nil
-}
-
-func (r *LocalCREStateResolver) WorkflowDONFamilyForContainerPattern(containerNamePattern string) (string, error) {
-	workflowDON, err := r.WorkflowDONMetadataForContainerPattern(containerNamePattern)
-	if err != nil {
-		return "", err
-	}
-
-	if workflowDON.DonFamily == "" {
-		return "", fmt.Errorf("workflow DON %q has no don_family in local CRE state", workflowDON.Name)
-	}
-
-	return workflowDON.DonFamily, nil
-}
-
 func (r *LocalCREStateResolver) GatewayURLForDonFamily(donFamily string) (string, error) {
 	connectors := r.topology.GatewayConnectorsForDonFamily(donFamily)
 	if len(connectors.Configurations) == 0 {
@@ -182,17 +140,6 @@ func (r *LocalCREStateResolver) GatewayURLForDonFamily(donFamily string) (string
 	}
 
 	return r.formatGatewayURL(connectors.Configurations[0])
-}
-
-// WorkflowDONNodeInfoForContainerPattern returns DB port and worker count for the workflow
-// DON matched by containerNamePattern.
-func (r *LocalCREStateResolver) WorkflowDONNodeInfoForContainerPattern(containerNamePattern string) (dbPort int, nodeCount int, err error) {
-	donMeta, err := r.WorkflowDONMetadataForContainerPattern(containerNamePattern)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	return r.workflowDONNodeInfoFor(donMeta)
 }
 
 func (r *LocalCREStateResolver) WorkflowDONName() (string, error) {

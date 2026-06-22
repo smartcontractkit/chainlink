@@ -728,7 +728,7 @@ func (m *DonMetadata) RequiresGateway() bool {
 
 func (m *DonMetadata) IsWorkflowDON() bool {
 	// is there a case where flags are not set yet?
-	if len(m.Flags) == 0 && len(m.ns.DONTypes) != 0 {
+	if len(m.Flags) == 0 && m.ns != nil && len(m.ns.DONTypes) != 0 {
 		return slices.Contains(m.ns.DONTypes, WorkflowDON)
 	}
 
@@ -737,7 +737,7 @@ func (m *DonMetadata) IsWorkflowDON() bool {
 
 func (m *DonMetadata) IsShardDON() bool {
 	// is there a case where flags are not set yet?
-	if len(m.Flags) == 0 && len(m.ns.DONTypes) != 0 {
+	if len(m.Flags) == 0 && m.ns != nil && len(m.ns.DONTypes) != 0 {
 		return slices.Contains(m.ns.DONTypes, ShardDON)
 	}
 

@@ -103,6 +103,7 @@ func deployWorkflowCmd() *cobra.Command {
 		compileWorkflowFlag             bool
 		containerTargetDirFlag          string
 		containerNamePatternFlag        string
+		workflowDonNameFlag             string
 		workflowNameFlag                string
 		workflowOwnerAddressFlag        string
 		workflowRegistryAddressFlag     string
@@ -159,7 +160,12 @@ func deployWorkflowCmd() *cobra.Command {
 
 			rpcURL := resolveRPCURL(cmd, rpcURLFlag, resolver)
 
-			targets, targetsErr := resolveWorkflowDeployTargets(cmd, resolver, containerNamePatternFlag, donIDFlag, donFamilyFlag, gatewayURLFlag)
+			donSelector := workflowDONSelector{
+				ExplicitName:     workflowDonNameFlag,
+				ContainerPattern: containerNamePatternFlag,
+			}
+
+			targets, targetsErr := resolveWorkflowDeployTargets(cmd, resolver, donSelector, donIDFlag, donFamilyFlag, gatewayURLFlag)
 			if targetsErr != nil {
 				return targetsErr
 			}
@@ -174,7 +180,10 @@ func deployWorkflowCmd() *cobra.Command {
 				return errors.Wrap(resolveErr, "❌ failed to resolve capabilities registry")
 			}
 
-			nodeDBPort, nodeCount := resolveWorkflowDONNodeInfo(resolver, containerNamePatternFlag)
+			nodeDBPort, nodeCount, nodeInfoErr := resolveWorkflowDONNodeInfo(resolver, donSelector)
+			if nodeInfoErr != nil {
+				return nodeInfoErr
+			}
 
 			regErr = deployWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURL, targets.gatewayURL, workflowRegistryVersion, capabilitiesRegistryVersion, targets.donID, targets.donFamily, deleteWorkflowFileFlag, nodeDBPort, nodeCount)
 
@@ -187,7 +196,8 @@ func deployWorkflowCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&secretsFilePathFlag, "secrets-file-path", "s", "", "Path to the vault secrets YAML file (keys, env var names, namespaces)")
 	cmd.Flags().StringVarP(&secretsOutputFilePathFlag, "secrets-output-file-path", "o", "", "Path to encrypted vault secrets output file (default \"./vault_secrets.json\")")
 	cmd.Flags().StringVarP(&containerTargetDirFlag, "container-target-dir", "t", creworkflow.DefaultWorkflowTargetDir, "Path to the target directory in the Docker container")
-	cmd.Flags().StringVarP(&containerNamePatternFlag, "container-name-pattern", "p", creworkflow.DefaultWorkflowNodePattern, "Pattern to match Docker containers workkflow DON containers (e.g. 'workflow-node')")
+	cmd.Flags().StringVarP(&containerNamePatternFlag, "container-name-pattern", "p", creworkflow.DefaultWorkflowNodePattern, "Pattern to match Docker containers for workflow artifact copy (e.g. 'workflow-node' or 'feeds-zone-a-node')")
+	cmd.Flags().StringVar(&workflowDonNameFlag, "workflow-don-name", "", "Workflow DON name from local CRE state (required for multi-DON topologies; e.g. feeds-zone-a)")
 	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
 	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "workflow-owner-address", "d", DefaultWorkflowOwnerAddress, "Workflow owner address")
 	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", "", "Workflow registry address (if not provided, address from the state file will be used)")
@@ -484,7 +494,7 @@ func deployWorkflow(
 	return nil
 }
 
-func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, gatewayURL string, workflowRegistryVersion, capabilitiesRegistryVersion *semver.Version, donIDFlag uint32, donFamily string) error {
+func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, workflowDonNameFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, gatewayURL string, workflowRegistryVersion, capabilitiesRegistryVersion *semver.Version, donIDFlag uint32, donFamily string) error {
 	compressedWorkflowWasmPath, compileErr := compileWorkflow(ctx, workflowFilePathFlag, workflowNameFlag)
 	if compileErr != nil {
 		return errors.Wrap(compileErr, "❌ failed to compile workflow")
@@ -494,7 +504,14 @@ func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, w
 	if resolverErr != nil {
 		return errors.Wrap(resolverErr, "failed to load local CRE state")
 	}
-	nodeDBPort, nodeCount := resolveWorkflowDONNodeInfo(resolver, containerNamePatternFlag)
+	donSelector := workflowDONSelector{
+		ExplicitName:     workflowDonNameFlag,
+		ContainerPattern: containerNamePatternFlag,
+	}
+	nodeDBPort, nodeCount, nodeInfoErr := resolveWorkflowDONNodeInfo(resolver, donSelector)
+	if nodeInfoErr != nil {
+		return nodeInfoErr
+	}
 
 	return deployWorkflow(ctx, compressedWorkflowWasmPath, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, gatewayURL, workflowRegistryVersion, capabilitiesRegistryVersion, donIDFlag, donFamily, true, nodeDBPort, nodeCount)
 }
@@ -525,19 +542,23 @@ func resolveRPCURL(cmd *cobra.Command, flagValue string, resolver *LocalCREState
 }
 
 // resolveWorkflowDONNodeInfo returns the workflow DON's shared DB port and worker count
-// from the resolver. Returns (0, 0) if the resolver is nil or node info is unavailable
+// from the resolver. Returns (0, 0, nil) if the resolver is nil or node info is unavailable
 // (non-fatal: callers fall back to a static wait when these are zero).
-func resolveWorkflowDONNodeInfo(resolver *LocalCREStateResolver, containerNamePattern string) (dbPort, nodeCount int) {
+func resolveWorkflowDONNodeInfo(resolver *LocalCREStateResolver, sel workflowDONSelector) (dbPort, nodeCount int, err error) {
 	if resolver == nil {
-		return 0, 0
+		return 0, 0, nil
 	}
-	if containerNamePattern != "" {
-		if port, count, err := resolver.WorkflowDONNodeInfoForContainerPattern(containerNamePattern); err == nil {
-			return port, count
-		}
+
+	donMeta, err := resolver.ResolveWorkflowDONMetadata(sel)
+	if err != nil {
+		return 0, 0, err
 	}
-	dbPort, nodeCount, _ = resolver.WorkflowDONNodeInfo()
-	return dbPort, nodeCount
+
+	port, count, nodeErr := resolver.workflowDONNodeInfoFor(donMeta)
+	if nodeErr != nil {
+		return 0, 0, nil
+	}
+	return port, count, nil
 }
 
 func resolveRegistryContractAddressAndVersion(cmd *cobra.Command, resolver *LocalCREStateResolver, contractType deployment.ContractType, explicitAddress, addressFlagName string) (string, *semver.Version, error) {
