@@ -162,7 +162,7 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(tErr, "failed to create topology")
 	}
 	if pairingSummary := topology.GatewayDonFamilyPairingSummary(); pairingSummary != "" {
-		testLogger.Info().Msg(pairingSummary)
+		testLogger.Info().Msg(pairingSummary) // e.g. feeds-zone-a → gateway-zone-a (don_family=...)
 	}
 
 	updatedNodeSets, topoErr := donconfig.PrepareNodeTOMLs(
@@ -378,7 +378,7 @@ func SetupTestEnvironment(
 			ChainSelector:   deployedBlockchains.RegistryChain().ChainSelector(),
 			CldEnv:          deployKeystoneContractsOutput.Env,
 			AllowedDonIDs:   topology.WorkflowDONIDs,
-			DONFamilies:     topology.WorkflowDONFamilies(),
+			DONFamilies:     topology.WorkflowDONFamilies(), // drives SetDONLimit per family at env start
 			WorkflowOwners:  []common.Address{deployedBlockchains.RegistryChain().(*evm.Blockchain).SethClient.MustGetRootKeyAddress()}, // registry chain is always EVM
 		},
 	)

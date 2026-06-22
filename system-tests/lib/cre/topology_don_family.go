@@ -22,6 +22,8 @@ type donFamilyPairingIndex struct {
 }
 
 func (t *Topology) initDonFamilyGatewayPairing() error {
+	// Opt-in: pairing activates only when at least one workflow/gateway nodeset sets don_family.
+	// Legacy single-gateway topologies skip index build and keep all-to-all wiring.
 	t.donFamilyPairingEnabled = t.computeDonFamilyGatewayPairingEnabled()
 	if !t.donFamilyPairingEnabled {
 		return nil
@@ -46,6 +48,7 @@ func (t *Topology) computeDonFamilyGatewayPairingEnabled() bool {
 	if !t.DonsMetadata.RequiresGateway() {
 		return false
 	}
+	// Any don_family on a workflow or gateway DON enables pairing for the whole topology.
 	for _, d := range t.DonsMetadata.List() {
 		if d.DonFamily == "" {
 			continue
@@ -60,6 +63,9 @@ func (t *Topology) computeDonFamilyGatewayPairingEnabled() bool {
 	return false
 }
 
+// buildDonFamilyPairingIndex validates that every workflow/gateway DON declares don_family
+// and that each workflow family has at least one gateway family match. Failures here
+// surface at env start rather than as silent cross-family gateway wiring at runtime.
 func (t *Topology) buildDonFamilyPairingIndex() (*donFamilyPairingIndex, error) {
 	wfDONs, err := t.DonsMetadata.WorkflowDONs()
 	if err != nil {

@@ -38,6 +38,7 @@ func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, to
 
 		services := gatewayServiceConfigs
 		if topology != nil {
+			// Each gateway worker only registers workflow DONs in the same don_family.
 			services = topology.GatewayServiceConfigsForDonFamily(topology.DonFamilyForDON(gatewayNode.DON.Name), gatewayServiceConfigs)
 		}
 

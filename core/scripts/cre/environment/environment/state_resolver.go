@@ -124,15 +124,9 @@ func (r *LocalCREStateResolver) DonFamilyGatewayPairingEnabled() bool {
 	return r.topology.DonFamilyGatewayPairingEnabled()
 }
 
-func (r *LocalCREStateResolver) WorkflowDONFamily() (string, error) {
-	workflowDON, err := r.WorkflowDONMetadata()
-	if err != nil {
-		return "", err
-	}
-
-	return workflowDON.DonFamily, nil
-}
-
+// GatewayURLForDonFamily returns the vault/gateway HTTP URL for a specific don_family.
+// Used during workflow deploy when --gateway-url is omitted and secrets are encrypted
+// via the gateway handler for that family.
 func (r *LocalCREStateResolver) GatewayURLForDonFamily(donFamily string) (string, error) {
 	connectors := r.topology.GatewayConnectorsForDonFamily(donFamily)
 	if len(connectors.Configurations) == 0 {
@@ -140,6 +134,15 @@ func (r *LocalCREStateResolver) GatewayURLForDonFamily(donFamily string) (string
 	}
 
 	return r.formatGatewayURL(connectors.Configurations[0])
+}
+
+func (r *LocalCREStateResolver) WorkflowDONFamily() (string, error) {
+	workflowDON, err := r.WorkflowDONMetadata()
+	if err != nil {
+		return "", err
+	}
+
+	return workflowDON.DonFamily, nil
 }
 
 func (r *LocalCREStateResolver) WorkflowDONName() (string, error) {
@@ -202,6 +205,8 @@ func (r *LocalCREStateResolver) formatGatewayURL(cfg *cre.DonGatewayConfiguratio
 	return fmt.Sprintf("%s://%s:%d%s", cfg.Incoming.Protocol, host, cfg.Incoming.ExternalPort, cfg.Incoming.Path), nil
 }
 
+// workflowDONNodeInfoFor returns DB port and worker count for a specific workflow DON.
+// Used by waitForVaultConfigPropagation when deploy targets one DON in a multi-DON topology.
 func (r *LocalCREStateResolver) workflowDONNodeInfoFor(donMeta *cre.DonMetadata) (dbPort int, nodeCount int, err error) {
 	if r.cfg.Infra == nil {
 		return 0, 0, errors.New("infra section is missing from local CRE state file")

@@ -160,6 +160,8 @@ func deployWorkflowCmd() *cobra.Command {
 
 			rpcURL := resolveRPCURL(cmd, rpcURLFlag, resolver)
 
+			// Separate Docker copy pattern from DON identity: container-name-pattern is a
+			// substring match for artifact copy; workflow-don-name selects registry targets.
 			donSelector := workflowDONSelector{
 				ExplicitName:     workflowDonNameFlag,
 				ContainerPattern: containerNamePatternFlag,
@@ -556,6 +558,7 @@ func resolveWorkflowDONNodeInfo(resolver *LocalCREStateResolver, sel workflowDON
 
 	port, count, nodeErr := resolver.workflowDONNodeInfoFor(donMeta)
 	if nodeErr != nil {
+		// Kubernetes and other providers without direct DB access fall back to a static wait.
 		return 0, 0, nil
 	}
 	return port, count, nil

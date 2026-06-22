@@ -96,7 +96,7 @@ func DeployKeystoneContracts(
 
 type donConfig struct {
 	id        uint32 // the DON id as registered in the capabilities registry
-	donFamily string
+	donFamily string // from nodesets.don_family; written to CapabilitiesRegistry DonFamilies
 	keystone_changeset.DonCapabilities
 	flags []cre.CapabilityFlag
 }
@@ -287,6 +287,7 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 
 		donFamily := don.donFamily
 		if donFamily == "" {
+			// Legacy topologies without nodesets.don_family still register under the default family.
 			donFamily = envconfig.DefaultDONFamily
 		}
 

@@ -547,6 +547,7 @@ func addWorkerNodeConfig(
 		gateways := []coretoml.ConnectorGateway{}
 		connectors := cre.GatewayConnectors{}
 		if topology != nil && topology.GatewayConnectors != nil {
+			// Scope injected connectors to this workflow DON's don_family (all connectors when pairing is off).
 			connectors = topology.GatewayConnectorsForDonFamily(donMetadata.DonFamily)
 		}
 		if len(connectors.Configurations) > 0 {

@@ -20,6 +20,9 @@ type workflowDeployTargets struct {
 // resolveWorkflowDeployTargets fills donID, donFamily, and gatewayURL from CLI flags and
 // the local CRE state file. Multi-DON topologies require --workflow-don-name or an
 // unambiguous container-name-pattern.
+//
+// don_family and gateway URL must match the selected workflow DON so registry registration,
+// vault secrets (when used), and node-side workflow filtering stay aligned with topology.
 func resolveWorkflowDeployTargets(
 	cmd *cobra.Command,
 	resolver *LocalCREStateResolver,
@@ -66,6 +69,8 @@ func resolveWorkflowDeployTargets(
 	targets.donFamily = family
 
 	if !cmd.Flags().Changed("gateway-url") {
+		// Vault secrets flow (FetchVaultPublicKey / ExecuteSecrets) needs the gateway for
+		// this don_family, not the first gateway in the topology.
 		if url, err := resolver.resolveGatewayURL(family); err != nil {
 			return targets, fmt.Errorf("❌ failed to resolve gateway URL for don_family %q: %w", family, err)
 		} else {
@@ -76,6 +81,9 @@ func resolveWorkflowDeployTargets(
 	return targets, nil
 }
 
+// finalizeWorkflowDonFamily applies the legacy default when pairing is off. When pairing
+// is on, don_family must be explicit — it is the routing key shared by cap registry,
+// workflow registry limits, gateway connectors, and node workflow sync.
 func finalizeWorkflowDonFamily(donFamily string, pairingEnabled bool) (string, error) {
 	if donFamily != "" {
 		return donFamily, nil
@@ -87,6 +95,8 @@ func finalizeWorkflowDonFamily(donFamily string, pairingEnabled bool) (string, e
 }
 
 // validateWorkflowDeployFlags rejects inconsistent explicit deploy flags against local CRE state.
+// Only runs when both --workflow-don-name and --don-family are set; catches typos before
+// on-chain UpsertWorkflow writes the wrong family.
 func validateWorkflowDeployFlags(cmd *cobra.Command, donMeta *cre.DonMetadata, selector workflowDONSelector, donFamilyFlag string) error {
 	if !cmd.Flags().Changed("workflow-don-name") || !cmd.Flags().Changed("don-family") {
 		return nil
@@ -112,6 +122,8 @@ func validateWorkflowDeployFlags(cmd *cobra.Command, donMeta *cre.DonMetadata, s
 	return nil
 }
 
+// resolveGatewayURL picks the gateway for donFamily when pairing is enabled, otherwise
+// falls back to the first connector (legacy single-gateway topologies).
 func (r *LocalCREStateResolver) resolveGatewayURL(donFamily string) (string, error) {
 	if url, err := r.GatewayURLForDonFamily(donFamily); err == nil {
 		return url, nil

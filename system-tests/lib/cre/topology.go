@@ -103,6 +103,7 @@ func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs 
 		return nil, errors.New("multiple bootstrap nodes found in topology. Only one bootstrap node is supported due to the limitations of the local environment")
 	}
 
+	// Build don_family→gateway index and validate pairing before node TOMLs are generated.
 	if err := topology.initDonFamilyGatewayPairing(); err != nil {
 		return nil, err
 	}

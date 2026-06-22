@@ -45,6 +45,8 @@ func (r *LocalCREStateResolver) ResolveWorkflowDONMetadata(sel workflowDONSelect
 		case 1:
 			return matches[0], nil
 		case 0:
+			// Legacy single-DON topologies often pass a generic Docker pattern (e.g. workflow-node)
+			// that does not match the DON name; allow that one ambiguous case only.
 			if len(wfDONs) == 1 {
 				return wfDONs[0], nil
 			}
@@ -76,6 +78,9 @@ func (r *LocalCREStateResolver) ResolveWorkflowDONMetadata(sel workflowDONSelect
 // a specific workflow DON. This is stricter than Docker substring matching: the pattern
 // must equal the DON name, equal "<don>-node", or start with "<don>-node" followed by
 // an optional node suffix (e.g. feeds-zone-a-node-0).
+//
+// Prefix rules avoid matching a parent DON name (e.g. "feeds") when the target is
+// "feeds-zone-a-node".
 func containerPatternMatchesDON(containerPattern string, don *cre.DonMetadata) bool {
 	if containerPattern == don.Name {
 		return true
