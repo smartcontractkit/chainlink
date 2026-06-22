@@ -106,6 +106,9 @@ func onAptosWriteReadRoundtripTrigger(cfg config.Config, runtime sdk.Runtime, pa
 	if reply.TxStatus != aptos.TxStatus_TX_STATUS_SUCCESS {
 		return nil, fmt.Errorf("unexpected tx status: %s", reply.TxStatus.String())
 	}
+	if reply.GetBlockTimestamp() == 0 {
+		return nil, fmt.Errorf("expected non-zero block_timestamp in WriteReport reply")
+	}
 
 	viewReply, err := client.View(runtime, &aptos.ViewRequest{
 		Payload: &aptos.ViewPayload{

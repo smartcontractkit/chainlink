@@ -1,6 +1,7 @@
 package ocr3
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"sort"
@@ -14,10 +15,12 @@ import (
 	types3 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/view"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
 var wantOCR3Config = `{
@@ -109,6 +112,53 @@ func Test_configureOCR3Request_generateOCR3Config(t *testing.T) {
 		cfg2.TransmissionSchedule = []int{len(nodes) + 1}
 		_, err := GenerateOCR3ConfigFromNodes(cfg2, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil, nil)
 		require.Error(t, err)
+	})
+}
+
+func TestMakeIdentities_Stellar(t *testing.T) {
+	// node's stellar onchain public key must be decoded
+	// and folded into the multichain onchain key so the OCR config trusts the stellar signer.
+	stellarHex := strings.Repeat("03", 32) // ed25519 pubkey is 32 bytes
+	baseNode := func() NodeKeys {
+		return NodeKeys{
+			OCR2OnchainPublicKey:  "0x1234567890123456789012345678901234567890",
+			OCR2OffchainPublicKey: strings.Repeat("01", 32),
+			OCR2ConfigPublicKey:   strings.Repeat("02", 32),
+		}
+	}
+
+	t.Run("stellar key is included in the multichain onchain key", func(t *testing.T) {
+		n := baseNode()
+		n.StellarOnchainPublicKey = stellarHex
+
+		identities, err := MakeIdentities([]NodeKeys{n})
+		require.NoError(t, err)
+		require.Len(t, identities, 1)
+
+		keys, err := ocrcommon.UnmarshalMultichainPublicKey(identities[0].OnchainPublicKey)
+		require.NoError(t, err)
+
+		stellarBytes, err := hex.DecodeString(stellarHex)
+		require.NoError(t, err)
+		require.Equal(t, types.OnchainPublicKey(stellarBytes), keys[string(corekeys.Stellar)],
+			"stellar pubkey must be embedded in the multichain onchain key")
+	})
+
+	t.Run("no stellar key when unset", func(t *testing.T) {
+		identities, err := MakeIdentities([]NodeKeys{baseNode()})
+		require.NoError(t, err)
+
+		keys, err := ocrcommon.UnmarshalMultichainPublicKey(identities[0].OnchainPublicKey)
+		require.NoError(t, err)
+		_, ok := keys[string(corekeys.Stellar)]
+		require.False(t, ok, "stellar key must be absent when StellarOnchainPublicKey is unset")
+	})
+
+	t.Run("invalid stellar hex errors", func(t *testing.T) {
+		n := baseNode()
+		n.StellarOnchainPublicKey = "not-hex"
+		_, err := MakeIdentities([]NodeKeys{n})
+		require.ErrorContains(t, err, "failed to decode StellarOnchainPublicKey")
 	})
 }
 

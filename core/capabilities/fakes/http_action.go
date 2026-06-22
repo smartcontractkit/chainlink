@@ -3,7 +3,9 @@ package fakes
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"slices"
@@ -64,8 +66,17 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 		timeout = input.GetTimeout().AsDuration()
 	}
 
-	client := &http.Client{
-		Timeout: timeout,
+	client, err := newHTTPClient(input, timeout)
+	if err != nil {
+		fh.eng.Errorw("Failed to build HTTP client", "error", err)
+		httpResponse := &customhttp.Response{
+			StatusCode: 0,
+		}
+		responseAndMetadata := commonCap.ResponseAndMetadata[*customhttp.Response]{
+			Response:         httpResponse,
+			ResponseMetadata: commonCap.ResponseMetadata{},
+		}
+		return &responseAndMetadata, caperrors.NewPrivateSystemError(err, caperrors.Unknown)
 	}
 
 	// Return an error if no HTTP method is provided
@@ -161,6 +172,34 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 	}
 	fh.eng.Infow("HTTP Action Finished", "Status", resp.StatusCode, "URL", input.GetUrl())
 	return &responseAndMetadata, nil
+}
+
+// newHTTPClient builds the HTTP client used to make the outbound request. When
+// the request carries mTLS auth, the client is configured to present the
+// supplied certificate and private key as a client certificate.
+func newHTTPClient(input *customhttp.Request, timeout time.Duration) (*http.Client, error) {
+	client := &http.Client{
+		Timeout: timeout,
+	}
+
+	mtls := input.GetMtls()
+	if mtls == nil {
+		return client, nil
+	}
+
+	cert, err := tls.X509KeyPair(mtls.GetCertificate(), mtls.GetPrivateKey())
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse mtls auth into key pair: %w", err)
+	}
+
+	client.Transport = &http.Transport{
+		TLSClientConfig: &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS12,
+		},
+	}
+
+	return client, nil
 }
 
 func (fh *DirectHTTPAction) Description() string {
