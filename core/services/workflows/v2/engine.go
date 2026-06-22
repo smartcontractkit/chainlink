@@ -424,7 +424,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 
 	var timeProvider TimeProvider = &types.LocalTimeProvider{}
 	if !e.cfg.UseLocalTimeProvider {
-		timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, e.logger())
+		timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, e.donTimeRequestTimeout(subCtx, e.cfg.LocalLimiters.DONTimeRequestTimeout), e.logger(), e.metrics)
 	}
 
 	moduleExecuteMaxResponseSizeBytes, err := e.cfg.LocalLimiters.ExecutionResponse.Limit(ctx)
@@ -721,9 +721,10 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	lggr := e.logger().With(platform.KeyOrganizationID, e.orgID)
 
 	var executionTimestamp time.Time
+	var executionDonTimeProvider TimeProvider
 	if tsErr := e.cfg.LocalLimiters.ExecutionTimestampsEnabled.AllowErr(ctx); tsErr == nil {
-		executionTimeProvider := NewDonTimeProvider(e.cfg.DonTimeStore, fullExecutionID, lggr)
-		donTime, dtErr := executionTimeProvider.GetDONTime()
+		executionDonTimeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, fullExecutionID, e.donTimeRequestTimeout(ctx, e.cfg.LocalLimiters.DONTimeRequestTimeout), lggr, e.metrics)
+		donTime, dtErr := executionDonTimeProvider.GetDONTime()
 		if dtErr != nil {
 			executionTimestamp = e.cfg.Clock.Now()
 			lggr.Warnw("Failed to get DON time for execution timestamp, falling back to local time", "err", dtErr, "executionTimestamp", executionTimestamp)
@@ -924,7 +925,11 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	var timeProvider TimeProvider = &types.LocalTimeProvider{}
 	if !e.cfg.UseLocalTimeProvider {
-		timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, executionID, lggr)
+		if e.cfg.FeatureFlags.FeatureUseSingleDONTimeProviderPerExecution.Check(ctx, config.NewTimestamp(executionTimestamp)) == nil && executionDonTimeProvider != nil {
+			timeProvider = executionDonTimeProvider
+		} else {
+			timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, executionID, e.donTimeRequestTimeout(execCtx, e.cfg.LocalLimiters.DONTimeRequestTimeout), lggr, e.metrics)
+		}
 	}
 
 	moduleExecuteMaxResponseSizeBytes, err := e.cfg.LocalLimiters.ExecutionResponse.Limit(ctx)
@@ -1205,4 +1210,21 @@ func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents
 			count++
 		}
 	}
+}
+
+func (e *Engine) donTimeRequestTimeout(ctx context.Context, limiter limits.TimeLimiter) time.Duration {
+	defaultTimeout := cresettings.Default.PerWorkflow.DONTime.RequestTimeout.DefaultValue
+	if limiter != nil {
+		limit, err := limiter.Limit(ctx)
+		if err != nil {
+			e.logger().Errorw("Failed to get DON time request timeout", "err", err)
+			return defaultTimeout
+		}
+		if limit <= 0 {
+			e.logger().Warnw("DON time request timeout is less than or equal to 0, using default timeout", "defaultTimeout", defaultTimeout)
+			return defaultTimeout
+		}
+		return limit
+	}
+	return defaultTimeout
 }
