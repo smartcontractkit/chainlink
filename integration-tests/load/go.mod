@@ -472,7 +472,7 @@ require (
 	github.com/smartcontractkit/ccip-contract-examples/chains/evm v0.0.0-20260129135848-c86808ba5cb9 // indirect
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
-	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260526183310-eb2e6d9cf68a // indirect
+	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260618155522-3600f66e26cd // indirect
 	github.com/smartcontractkit/chainlink-ccv v0.0.2-0.20260620063431-1cbd75def867 // indirect
 	github.com/smartcontractkit/chainlink-common/keystore v1.2.0 // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260601211238-9f526774fef0 // indirect
