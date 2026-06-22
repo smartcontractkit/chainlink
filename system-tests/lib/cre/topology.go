@@ -23,9 +23,9 @@ type Topology struct {
 	GatewayServiceConfigs []GatewayServiceConfig `toml:"gateway_service_configs" json:"gateway_service_configs"`
 	GatewayConnectors     *GatewayConnectors     `toml:"gateway_connectors" json:"gateway_connectors"`
 
-	gatewayConnectorsByDon     map[string]*DonGatewayConfiguration
-	donFamilyPairingEnabled    bool
-	donFamilyPairing           *donFamilyPairingState
+	gatewayConnectorsByDon  map[string]*DonGatewayConfiguration // gateway nodesets.name → connector (for per-family lookup)
+	donFamilyPairingEnabled bool
+	donFamilyPairing        *donFamilyPairingState // nil when nodesets.don_family pairing is off; see topology_don_family.go
 }
 
 func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs map[CapabilityFlag]CapabilityConfig) (*Topology, error) {
@@ -103,7 +103,7 @@ func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs 
 		return nil, errors.New("multiple bootstrap nodes found in topology. Only one bootstrap node is supported due to the limitations of the local environment")
 	}
 
-	// Build don_family→gateway index and validate pairing before node TOMLs are generated.
+	// Validate don_family pairing and build lookup state before node TOMLs are generated.
 	if err := topology.initDonFamilyGatewayPairing(); err != nil {
 		return nil, err
 	}

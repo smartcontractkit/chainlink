@@ -17,7 +17,7 @@ import (
 type LocalCREStateResolver struct {
 	configPath string
 	cfg        *envconfig.Config
-	topology   *cre.Topology
+	topology   *cre.Topology // rebuilt from saved env start state; includes don_family pairing when enabled
 }
 
 func LoadLocalCREStateResolver() (*LocalCREStateResolver, error) {
@@ -95,6 +95,10 @@ func (r *LocalCREStateResolver) AddressRef(contractType deployment.ContractType)
 	return nil, fmt.Errorf("did not find any address for %s contract", contractType)
 }
 
+// WorkflowDONMetadata returns the first workflow DON in topology order.
+//
+// Legacy helper for single-DON topologies. Multi-DON deploy and vault polling should use
+// ResolveWorkflowDONMetadata with an explicit selector (workflow_don_resolver.go).
 func (r *LocalCREStateResolver) WorkflowDONMetadata() (*cre.DonMetadata, error) {
 	workflowDONs, err := r.topology.DonsMetadata.WorkflowDONs()
 	if err != nil {
@@ -124,9 +128,10 @@ func (r *LocalCREStateResolver) DonFamilyGatewayPairingEnabled() bool {
 	return r.topology.DonFamilyGatewayPairingEnabled()
 }
 
-// GatewayURLForDonFamily returns the vault/gateway HTTP URL for a specific don_family.
-// Used during workflow deploy when --gateway-url is omitted and secrets are encrypted
-// via the gateway handler for that family.
+// GatewayURLForDonFamily returns the http-actions gateway URL for a specific don_family.
+//
+// Used when workflow deploy omits --gateway-url and encrypts vault secrets — secrets must go
+// through the gateway paired to that family, not the first gateway in the topology.
 func (r *LocalCREStateResolver) GatewayURLForDonFamily(donFamily string) (string, error) {
 	connectors := r.topology.GatewayConnectorsForDonFamily(donFamily)
 	if len(connectors.Configurations) == 0 {
@@ -162,8 +167,10 @@ func (r *LocalCREStateResolver) GatewayURL() (string, error) {
 	return r.formatGatewayURL(r.topology.GatewayConnectors.Configurations[0])
 }
 
-// resolveGatewayURL returns the gateway URL for donFamily when pairing is enabled,
-// otherwise the first connector (legacy single-gateway topologies).
+// resolveGatewayURL picks the deploy gateway URL for donFamily.
+//
+// Prefer GatewayURLForDonFamily when pairing resolved a family-specific connector; fall back to
+// GatewayURL (first connector) for legacy single-gateway topologies.
 func (r *LocalCREStateResolver) resolveGatewayURL(donFamily string) (string, error) {
 	if url, err := r.GatewayURLForDonFamily(donFamily); err == nil {
 		return url, nil

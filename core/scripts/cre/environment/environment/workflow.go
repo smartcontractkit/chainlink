@@ -543,9 +543,12 @@ func resolveRPCURL(cmd *cobra.Command, flagValue string, resolver *LocalCREState
 	return flagValue
 }
 
-// resolveWorkflowDONNodeInfo returns the workflow DON's shared DB port and worker count
-// from the resolver. Returns (0, 0, nil) if the resolver is nil or node info is unavailable
-// (non-fatal: callers fall back to a static wait when these are zero).
+// resolveWorkflowDONNodeInfo returns PostgreSQL port and worker count for vault config propagation polling.
+//
+// Uses the same workflowDONSelector as deploy target resolution (workflow_don_resolver.go) so
+// multi-DON deploys poll the selected DON's DB, not the first workflow DON in state.
+// Returns (0, 0, nil) when resolver is nil or DB polling is unavailable (e.g. Kubernetes) —
+// callers fall back to a static wait.
 func resolveWorkflowDONNodeInfo(resolver *LocalCREStateResolver, sel workflowDONSelector) (dbPort, nodeCount int, err error) {
 	if resolver == nil {
 		return 0, 0, nil

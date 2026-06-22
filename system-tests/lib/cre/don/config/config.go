@@ -294,7 +294,7 @@ func baseNodeConfig(commonInputs *commonInputs, donMetadata *cre.DonMetadata, no
 			"node.index":       strconv.Itoa(nodeMetadata.Index),
 		}
 		if donMetadata.DonFamily != "" {
-			resourceAttributes["don_family"] = donMetadata.DonFamily
+			resourceAttributes["don_family"] = donMetadata.DonFamily // OTel label; mirrors nodeset pairing key
 		}
 		c.Telemetry = coretoml.Telemetry{
 			Enabled:             new(true),
@@ -547,7 +547,8 @@ func addWorkerNodeConfig(
 		gateways := []coretoml.ConnectorGateway{}
 		connectors := cre.GatewayConnectors{}
 		if topology != nil && topology.GatewayConnectors != nil {
-			// Scope injected connectors to this workflow DON's don_family (all connectors when pairing is off).
+			// Workflow nodes only receive gateway connectors for their don_family when pairing is on;
+			// otherwise all connectors (legacy all-to-all wiring).
 			connectors = topology.GatewayConnectorsForDonFamily(donMetadata.DonFamily)
 		}
 		if len(connectors.Configurations) > 0 {

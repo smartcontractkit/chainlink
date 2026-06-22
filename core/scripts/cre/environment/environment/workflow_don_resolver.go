@@ -9,18 +9,29 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
 
-// workflowDONSelector identifies which workflow DON to target during local deploy.
-// ContainerPattern is used for Docker artifact copy (substring match) and may also
-// identify a DON when it maps unambiguously. ExplicitName (--workflow-don-name) is
-// the preferred selector for multi-DON topologies.
+// workflowDONSelector picks which workflow DON a deploy targets.
+//
+// Deploy uses two related but distinct inputs from workflow.go:
+//   - ContainerPattern (--container-name-pattern): substring match for copying WASM into Docker containers.
+//   - ExplicitName (--workflow-don-name): topology DON name for registry registration and vault DB polling.
+//
+// This type is passed to ResolveWorkflowDONMetadata. When both are set, ExplicitName wins for DON
+// selection; ContainerPattern may still be used separately for artifact copy in deployWorkflow.
 type workflowDONSelector struct {
-	ExplicitName     string
-	ContainerPattern string
+	ExplicitName     string // nodesets.name, e.g. "feeds-zone-a"
+	ContainerPattern string // e.g. "feeds-zone-a-node"; may infer the DON when it matches exactly one
 }
 
-// ResolveWorkflowDONMetadata selects the workflow DON for registry registration and
-// vault DB polling. Multi-DON topologies require --workflow-don-name or a container
-// pattern that matches exactly one DON.
+// ResolveWorkflowDONMetadata returns the workflow DON metadata from the topology saved by env start.
+//
+// Used by workflow deploy (registry targets, vault DB port) and related resolvers. Selection priority:
+//  1. --workflow-don-name when set — exact match on nodesets.name.
+//  2. --container-name-pattern when set — map pattern to a DON via containerPatternMatchesDON; error if
+//     zero matches (except single-DON legacy fallback) or more than one match.
+//  3. When neither flag is set — OK only if the topology has exactly one workflow DON.
+//
+// Multi-DON topologies (feeds-zone-a + feeds-zone-b) must pass (1) or an unambiguous (2). Generic
+// patterns like "workflow-node" are allowed for single-DON legacy CI only.
 func (r *LocalCREStateResolver) ResolveWorkflowDONMetadata(sel workflowDONSelector) (*cre.DonMetadata, error) {
 	wfDONs, err := r.topology.DonsMetadata.WorkflowDONs()
 	if err != nil {
@@ -45,8 +56,8 @@ func (r *LocalCREStateResolver) ResolveWorkflowDONMetadata(sel workflowDONSelect
 		case 1:
 			return matches[0], nil
 		case 0:
-			// Legacy single-DON topologies often pass a generic Docker pattern (e.g. workflow-node)
-			// that does not match the DON name; allow that one ambiguous case only.
+			// Single-DON legacy: generic Docker patterns (e.g. "workflow-node") often do not embed the
+			// nodeset name; allow the lone workflow DON when there is no ambiguity.
 			if len(wfDONs) == 1 {
 				return wfDONs[0], nil
 			}
@@ -74,13 +85,12 @@ func (r *LocalCREStateResolver) ResolveWorkflowDONMetadata(sel workflowDONSelect
 	)
 }
 
-// containerPatternMatchesDON reports whether a Docker container name pattern identifies
-// a specific workflow DON. This is stricter than Docker substring matching: the pattern
-// must equal the DON name, equal "<don>-node", or start with "<don>-node" followed by
-// an optional node suffix (e.g. feeds-zone-a-node-0).
+// containerPatternMatchesDON reports whether a container-name-pattern identifies a specific workflow DON.
 //
-// Prefix rules avoid matching a parent DON name (e.g. "feeds") when the target is
-// "feeds-zone-a-node".
+// Stricter than the Docker copy substring match in deployWorkflow: the pattern must equal the DON
+// name, equal "<don>-node", or start with "<don>-node" plus an optional suffix (e.g. feeds-zone-a-node-0).
+// HasPrefix on "<don>-node" avoids false positives where a shorter DON name is a prefix of another
+// (e.g. pattern "feeds-zone-a-node" must not match DON "feeds").
 func containerPatternMatchesDON(containerPattern string, don *cre.DonMetadata) bool {
 	if containerPattern == don.Name {
 		return true

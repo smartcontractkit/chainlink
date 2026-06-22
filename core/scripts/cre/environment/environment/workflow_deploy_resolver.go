@@ -11,18 +11,32 @@ import (
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
+// workflowDeployTargets are the on-chain and gateway parameters passed to deployWorkflow.
+//
+// workflow_don_resolver.go decides *which* workflow DON is targeted; this file decides
+// *what values* that deploy uses. Container-name-pattern (Docker copy) and DON identity
+// (registry / gateway) are intentionally separate inputs — see workflow.go.
 type workflowDeployTargets struct {
-	donID      uint32
-	donFamily  string
-	gatewayURL string
+	donID      uint32 // Capabilities Registry DON ID written into UpsertWorkflow
+	donFamily  string // Workflow registry family; nodes sync workflows registered under this key
+	gatewayURL string // http-actions gateway for vault secret encryption (empty when no secrets)
 }
 
-// resolveWorkflowDeployTargets fills donID, donFamily, and gatewayURL from CLI flags and
-// the local CRE state file. Multi-DON topologies require --workflow-don-name or an
-// unambiguous container-name-pattern.
+// resolveWorkflowDeployTargets merges CLI flags with the topology saved by the last env start.
 //
-// don_family and gateway URL must match the selected workflow DON so registry registration,
-// vault secrets (when used), and node-side workflow filtering stay aligned with topology.
+// Resolution order (later steps only fill fields the user did not override):
+//  1. Start from --don-id, --don-family, --gateway-url flag values.
+//  2. Resolve the workflow DON via selector → ResolveWorkflowDONMetadata (workflow_don_resolver.go).
+//  3. If both --workflow-don-name and --don-family were explicitly set, validate they agree with state.
+//  4. Default donID / donFamily from the selected DON's metadata when those flags were omitted.
+//  5. finalizeWorkflowDonFamily — require don_family when pairing is on, else DefaultDONFamily.
+//  6. Default gatewayURL from the gateway paired to that don_family (needed for --secrets-file-path).
+//
+// Multi-DON topologies must identify the workflow DON (--workflow-don-name or an unambiguous
+// --container-name-pattern). Nothing here auto-picks a family from a zone name or nodeset order.
+//
+// When resolver is nil (no local CRE state on disk), only donFamily is finalized for legacy
+// single-DON flows; donID and gatewayURL stay at whatever the caller passed.
 func resolveWorkflowDeployTargets(
 	cmd *cobra.Command,
 	resolver *LocalCREStateResolver,
@@ -69,8 +83,6 @@ func resolveWorkflowDeployTargets(
 	targets.donFamily = family
 
 	if !cmd.Flags().Changed("gateway-url") {
-		// Vault secrets flow (FetchVaultPublicKey / ExecuteSecrets) needs the gateway for
-		// this don_family, not the first gateway in the topology.
 		if url, err := resolver.resolveGatewayURL(family); err != nil {
 			return targets, fmt.Errorf("❌ failed to resolve gateway URL for don_family %q: %w", family, err)
 		} else {
@@ -81,9 +93,12 @@ func resolveWorkflowDeployTargets(
 	return targets, nil
 }
 
-// finalizeWorkflowDonFamily applies the legacy default when pairing is off. When pairing
-// is on, don_family must be explicit — it is the routing key shared by cap registry,
-// workflow registry limits, gateway connectors, and node workflow sync.
+// finalizeWorkflowDonFamily returns the don_family string that will be written to the workflow registry.
+//
+// Legacy topologies (pairing off, no nodesets.don_family) may omit the flag and get DefaultDONFamily.
+// Paired topologies (any workflow/gateway nodeset sets don_family) require a non-empty family — either
+// from --don-family or from the selected DON's nodesets.don_family in local CRE state. The same string
+// must already be on the DON in the capabilities registry and in gateway connector wiring from env start.
 func finalizeWorkflowDonFamily(donFamily string, pairingEnabled bool) (string, error) {
 	if donFamily != "" {
 		return donFamily, nil
@@ -94,9 +109,13 @@ func finalizeWorkflowDonFamily(donFamily string, pairingEnabled bool) (string, e
 	return envconfig.DefaultDONFamily, nil
 }
 
-// validateWorkflowDeployFlags rejects inconsistent explicit deploy flags against local CRE state.
-// Only runs when both --workflow-don-name and --don-family are set; catches typos before
-// on-chain UpsertWorkflow writes the wrong family.
+// validateWorkflowDeployFlags is a deploy-time guard when the operator sets both identity flags explicitly.
+//
+// We only cross-check when --workflow-don-name and --don-family were both passed on the CLI. If only one
+// is set, the other is inferred from local CRE state and there is nothing to disagree about. When both
+// are set, a typo (e.g. --workflow-don-name feeds-zone-a with --don-family feeds-zone-b) would register
+// the workflow under the wrong family while nodes and gateway connectors expect the topology value — fail
+// before UpsertWorkflow instead of leaving a silent mismatch.
 func validateWorkflowDeployFlags(cmd *cobra.Command, donMeta *cre.DonMetadata, selector workflowDONSelector, donFamilyFlag string) error {
 	if !cmd.Flags().Changed("workflow-don-name") || !cmd.Flags().Changed("don-family") {
 		return nil

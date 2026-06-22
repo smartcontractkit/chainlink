@@ -1,3 +1,11 @@
+// Per-don_family gateway↔workflow pairing for local CRE topologies.
+//
+// Pairing is opt-in via nodesets.don_family on workflow and gateway nodesets. When any such
+// nodeset sets don_family, env start (NewTopology → initDonFamilyGatewayPairing) validates the
+// full topology and builds donFamilyPairingState. Callers scope gateway connector injection,
+// gateway worker service lists, cap-reg/workflow-registry families, and deploy resolvers from here.
+//
+// Matching is by don_family string equality — not nodeset order, zone name, or numeric index.
 package cre
 
 import (
@@ -6,24 +14,24 @@ import (
 	"strings"
 )
 
-// DonFamilyGatewayPair links a workflow DON to a gateway DON in the same DON family.
+// DonFamilyGatewayPair is one resolved workflow DON linked to one gateway DON sharing don_family.
 type DonFamilyGatewayPair struct {
 	DonFamily       string
 	WorkflowDONName string
 	GatewayDONName  string
 }
 
-// donFamilyPairingState holds resolved workflow↔gateway pairings keyed by don_family.
-// Built at env start when pairing is enabled; legacy topologies leave Topology.donFamilyPairing nil.
+// donFamilyPairingState is the validated pairing graph built at env start when pairing is enabled.
+// Legacy topologies leave Topology.donFamilyPairing nil and keep all-to-all gateway wiring.
 type donFamilyPairingState struct {
-	gatewayDONNamesByFamily  map[string][]string
-	workflowDONNamesByFamily map[string][]string
+	gatewayDONNamesByFamily  map[string][]string // don_family → gateway nodesets.name
+	workflowDONNamesByFamily map[string][]string // don_family → workflow nodesets.name
 	pairs                    []DonFamilyGatewayPair
 }
 
 func (t *Topology) initDonFamilyGatewayPairing() error {
-	// Opt-in: pairing activates only when at least one workflow/gateway nodeset sets don_family.
-	// Legacy single-gateway topologies skip pairing resolution and keep all-to-all wiring.
+	// Opt-in: one nodesets.don_family on any workflow/gateway DON enables pairing for the whole topology.
+	// Legacy single-gateway CI topologies skip buildDonFamilyPairingState and keep all-to-all wiring.
 	t.donFamilyPairingEnabled = t.computeDonFamilyGatewayPairingEnabled()
 	if !t.donFamilyPairingEnabled {
 		return nil
@@ -37,13 +45,16 @@ func (t *Topology) initDonFamilyGatewayPairing() error {
 	return nil
 }
 
-// DonFamilyGatewayPairingEnabled is true when any workflow or gateway DON has don_family set.
-// When false, legacy all-to-all gateway wiring is used (single shared gateway topologies).
-// Once pairing is enabled, every workflow and gateway DON must declare don_family or env start fails.
+// DonFamilyGatewayPairingEnabled reports whether nodesets.don_family pairing is active.
+//
+// False for legacy topologies (no don_family set) — gateway connectors and worker service lists
+// stay all-to-all. Once true, every workflow and gateway nodeset must declare don_family or
+// env start fails in buildDonFamilyPairingState.
 func (t *Topology) DonFamilyGatewayPairingEnabled() bool {
 	return t.donFamilyPairingEnabled
 }
 
+// computeDonFamilyGatewayPairingEnabled returns true when any workflow or gateway DON has don_family set.
 func (t *Topology) computeDonFamilyGatewayPairingEnabled() bool {
 	if !t.DonsMetadata.RequiresGateway() {
 		return false
@@ -63,10 +74,14 @@ func (t *Topology) computeDonFamilyGatewayPairingEnabled() bool {
 	return false
 }
 
-// buildDonFamilyPairingState validates that every workflow/gateway DON declares don_family,
-// matches workflow DONs to gateway DONs with the same don_family, and stores the result for
-// scoped connector/service lookups. Failures surface at env start rather than as silent
-// cross-family gateway wiring at runtime.
+// buildDonFamilyPairingState validates and materializes the pairing graph.
+//
+// Steps:
+//  1. Index gateway DONs by don_family (each must declare don_family).
+//  2. For each workflow DON, require don_family and at least one gateway in that family.
+//  3. Record workflow↔gateway pairs for logging and downstream lookups.
+//
+// Errors here fail env start instead of leaving cross-family gateway wiring at runtime.
 func (t *Topology) buildDonFamilyPairingState() (*donFamilyPairingState, error) {
 	wfDONs, err := t.DonsMetadata.WorkflowDONs()
 	if err != nil {
@@ -108,7 +123,7 @@ func (t *Topology) buildDonFamilyPairingState() (*donFamilyPairingState, error) 
 	return state, nil
 }
 
-// DonFamilyGatewayPairings returns workflow→gateway pairs grouped by don_family.
+// DonFamilyGatewayPairings returns a copy of resolved workflow→gateway pairs. Nil when pairing is off.
 func (t *Topology) DonFamilyGatewayPairings() []DonFamilyGatewayPair {
 	if t.donFamilyPairing == nil {
 		return nil
@@ -116,8 +131,8 @@ func (t *Topology) DonFamilyGatewayPairings() []DonFamilyGatewayPair {
 	return slices.Clone(t.donFamilyPairing.pairs)
 }
 
-// WorkflowDONFamilies returns distinct non-empty don_family values from workflow DONs.
-// Legacy topologies without don_family leave this empty; callers fall back to DefaultDONFamily.
+// WorkflowDONFamilies returns distinct don_family values from paired workflow DONs.
+// Empty when pairing is off; ConfigureWorkflowRegistry falls back to DefaultDONFamily.
 func (t *Topology) WorkflowDONFamilies() []string {
 	if t.donFamilyPairing == nil {
 		return nil
@@ -130,8 +145,7 @@ func (t *Topology) WorkflowDONFamilies() []string {
 	return families
 }
 
-// DonFamilyGatewayPairingSummary returns a human-readable summary of resolved workflow→gateway pairs.
-// Empty when pairing is disabled or no pairs were resolved.
+// DonFamilyGatewayPairingSummary returns a one-line log of resolved pairs, or "" when pairing is off.
 func (t *Topology) DonFamilyGatewayPairingSummary() string {
 	pairs := t.DonFamilyGatewayPairings()
 	if len(pairs) == 0 {
@@ -145,8 +159,10 @@ func (t *Topology) DonFamilyGatewayPairingSummary() string {
 	return "Gateway don_family pairing enabled: " + strings.Join(parts, ", ")
 }
 
-// GatewayConnectorsForDonFamily returns gateway connectors scoped to donFamily when pairing is
-// enabled; otherwise returns all connectors (legacy all-to-all wiring).
+// GatewayConnectorsForDonFamily returns gateway connector configs for workflow node TOML injection.
+//
+// When pairing is off, returns all connectors (legacy). When on, returns only connectors for
+// gateway DONs in donFamily; empty when donFamily is unknown.
 func (t *Topology) GatewayConnectorsForDonFamily(donFamily string) GatewayConnectors {
 	if t.GatewayConnectors == nil {
 		return GatewayConnectors{}
@@ -167,8 +183,8 @@ func (t *Topology) GatewayConnectorsForDonFamily(donFamily string) GatewayConnec
 	return GatewayConnectors{Configurations: configs}
 }
 
-// GatewayServiceConfigsForDonFamily scopes each service entry's DON list to workflow DONs in
-// donFamily when pairing is enabled.
+// GatewayServiceConfigsForDonFamily rewrites each gateway service entry's DON list to workflow
+// DON names in donFamily. Gateway workers use this so each gateway only handles its family's workflows.
 func (t *Topology) GatewayServiceConfigsForDonFamily(donFamily string, services []GatewayServiceConfig) []GatewayServiceConfig {
 	if !t.donFamilyPairingEnabled || donFamily == "" || t.donFamilyPairing == nil {
 		return services
@@ -187,7 +203,7 @@ func (t *Topology) GatewayServiceConfigsForDonFamily(donFamily string, services 
 	return out
 }
 
-// DonFamilyForDON returns don_family for a DON name in the topology.
+// DonFamilyForDON returns nodesets.don_family for a topology DON name, or "" if unknown.
 func (t *Topology) DonFamilyForDON(donName string) string {
 	if d := t.donByName(donName); d != nil {
 		return d.DonFamily

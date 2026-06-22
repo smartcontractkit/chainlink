@@ -1,7 +1,10 @@
 package cre
 
-// NewDonFamilyGatewayPairingTestTopology returns a two-zone workflow + gateway topology
-// with don_family pairing enabled. Intended for unit tests in other packages.
+// NewDonFamilyGatewayPairingTestTopology builds an in-memory two-family workflow + gateway topology
+// (feeds-zone-a/b, gateway-zone-a/b) with initDonFamilyGatewayPairing already applied.
+//
+// Used by topology_don_family_gateway_pairing_test.go and cross-package deploy resolver tests
+// without spinning up Docker. Not a substitute for chainlink-data-feeds local CRE E2E.
 func NewDonFamilyGatewayPairingTestTopology() *Topology {
 	topology := &Topology{
 		DonsMetadata: &DonsMetadata{

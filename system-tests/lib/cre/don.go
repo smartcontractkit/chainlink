@@ -114,7 +114,7 @@ type Don struct {
 	ID         uint64 `toml:"id" json:"id"`
 	F          uint8  `toml:"f" json:"f"` // max faulty nodes
 	ShardIndex uint   `toml:"shard_index" json:"shard_index"`
-	DonFamily  string `toml:"don_family" json:"don_family"`
+	DonFamily  string `toml:"don_family" json:"don_family"` // propagated from DonMetadata for feature PostEnvStartup scoping
 
 	Nodes []*Node `toml:"nodes" json:"nodes"`
 

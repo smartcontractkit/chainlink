@@ -219,7 +219,7 @@ type WorkflowRegistryInput struct {
 	ChainSelector   uint64                  `toml:"-"`
 	CldEnv          *cldf.Environment       `toml:"-"`
 	AllowedDonIDs   []uint64                `toml:"-"`
-	DONFamilies     []string                `toml:"-"`
+	DONFamilies     []string                `toml:"-"` // from topology.WorkflowDONFamilies(); empty → DefaultDONFamily at registry setup
 	WorkflowOwners  []common.Address        `toml:"-"`
 	Out             *WorkflowRegistryOutput `toml:"out"`
 }
@@ -528,7 +528,7 @@ type DonMetadata struct {
 	Flags                        []string                            `toml:"flags" json:"flags"`
 	ID                           uint64                              `toml:"id" json:"id"`
 	Name                         string                              `toml:"name" json:"name"`
-	DonFamily                    string                              `toml:"don_family" json:"don_family"`
+	DonFamily                    string                              `toml:"don_family" json:"don_family"` // copied from nodesets.don_family; drives pairing + registry families
 	ExposesRemoteCapabilities    bool                                `toml:"exposes_remote_capabilities" json:"exposes_remote_capabilities"`
 	ShardIndex                   uint                                `toml:"shard_index" json:"shard_index"`
 	CapabilityConfigs            map[CapabilityFlag]CapabilityConfig `toml:"capability_configs" json:"capability_configs"`
@@ -1210,7 +1210,10 @@ type NodeSet struct {
 
 	Capabilities []string `toml:"capabilities"` // global capabilities that have no chain-specific configuration (e.g. cron, http-trigger)
 	DONTypes     []string `toml:"don_types"`    // workflow, capabilities, gateway
-	// DonFamily groups workflow and gateway DONs for per-family gateway pairing in local CRE.
+	// DonFamily groups workflow and gateway nodesets for per-family gateway pairing in local CRE.
+	// When set on any workflow/gateway nodeset, all such nodesets must declare it and matching
+	// families are wired at env start (see topology_don_family.go). Also written to cap registry,
+	// workflow registry limits, deploy --don-family, and node workflow sync.
 	DonFamily string `toml:"don_family"`
 	// SupportedEVMChains is filter. Use EVMChains() to get the actual list of chains supported by the nodeset.
 	SupportedEVMChains []uint64          `toml:"supported_evm_chains"` // chain IDs that the DON supports, empty means all chains

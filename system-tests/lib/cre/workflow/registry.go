@@ -200,8 +200,8 @@ func ConfigureWorkflowRegistry(
 	if len(donFamilies) == 0 {
 		donFamilies = []string{config.DefaultDONFamily}
 	}
-	// Each distinct workflow don_family needs its own on-chain quota; a single limit only
-	// covers legacy topologies that register everything under test-don-family.
+	// SetDONLimit is per don_family. Multi-family local topologies need one limit each so
+	// workflows registered under feeds-zone-a and feeds-zone-b both have on-chain quota.
 	for _, donFamily := range donFamilies {
 		donLimitReport, err := operations.ExecuteOperation(
 			input.CldEnv.OperationsBundle,
