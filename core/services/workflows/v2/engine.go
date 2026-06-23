@@ -1171,7 +1171,9 @@ func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents
 	// select on ctx.Done(): on execution return the caller cancels the context
 	// at roughly the same time it closes the channel, so a ctx.Done() case would
 	// race the buffered log line and intermittently drop it (Go selects a ready
-	// case at random). Use a non-cancellable context so neither this loop nor the
+	// case at random).
+	//
+	// Use a non-cancellable context so neither this loop nor the
 	// downstream limiter/emit calls are preempted by that cancellation; re-apply
 	// the original deadline (or a conservative fallback) to avoid hanging shutdown.
 	origCtx := ctx
