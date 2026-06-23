@@ -1,3 +1,8 @@
+// Tests for workflow DON selection during env workflow deploy.
+//
+// Covers ResolveWorkflowDONMetadata and resolveWorkflowDONByFamily: how --workflow-don-name,
+// --don-family, and --shard-index pick the target workflow DON from saved local CRE topology.
+// Also tests the default docker cp container pattern derived from nodesets.name.
 package environment
 
 import (
@@ -23,6 +28,7 @@ func TestWorkflowContainerPatternForDON(t *testing.T) {
 	require.Equal(t, "shard0-node", workflowContainerPatternForDON(&cre.DonMetadata{Name: "shard0"}))
 }
 
+// Single-DON CI topologies need no selector flags.
 func TestResolveWorkflowDONMetadata_singleDON(t *testing.T) {
 	t.Parallel()
 
@@ -87,6 +93,7 @@ func TestResolveWorkflowDONMetadata_unknownExplicitName(t *testing.T) {
 	require.Contains(t, err.Error(), `workflow DON "unknown" not found`)
 }
 
+// --workflow-don-name wins over --don-family when both are present in the selector.
 func TestResolveWorkflowDONMetadata_explicitNameWinsOverDonFamily(t *testing.T) {
 	t.Parallel()
 
@@ -128,6 +135,7 @@ func TestResolveWorkflowDONMetadata_shardedByFamily_shardIndex0(t *testing.T) {
 	require.Equal(t, "shard0", don.Name)
 }
 
+// shard0 and shard1 share don_family — family alone is ambiguous without --shard-index.
 func TestResolveWorkflowDONMetadata_shardedRequiresShardIndex(t *testing.T) {
 	t.Parallel()
 
@@ -162,6 +170,7 @@ func TestResolveWorkflowDONMetadata_unknownShardIndex(t *testing.T) {
 	require.Contains(t, err.Error(), "shard_index 99")
 }
 
+// Multiple non-shard workflow DONs sharing a family require --workflow-don-name.
 func TestResolveWorkflowDONMetadata_nonShardDuplicateFamily(t *testing.T) {
 	t.Parallel()
 
@@ -175,6 +184,7 @@ func TestResolveWorkflowDONMetadata_nonShardDuplicateFamily(t *testing.T) {
 	require.Contains(t, err.Error(), "--workflow-don-name")
 }
 
+// Table-driven unit tests for resolveWorkflowDONByFamily (helper used by ResolveWorkflowDONMetadata).
 func TestResolveWorkflowDONByFamily(t *testing.T) {
 	t.Parallel()
 

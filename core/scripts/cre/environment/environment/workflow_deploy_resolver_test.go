@@ -1,3 +1,8 @@
+// Tests for workflow deploy target resolution (donID, donFamily, gatewayURL).
+//
+// Covers resolveWorkflowDeployTargets, finalizeWorkflowDonFamily, and deploy-time
+// flag cross-checks. Exercises multi-zone and sharded topologies via in-memory
+// fixtures from system-tests/lib/cre/test_topology_helpers.go.
 package environment
 
 import (
@@ -46,6 +51,7 @@ func TestFinalizeWorkflowDonFamily(t *testing.T) {
 	})
 }
 
+// validateWorkflowDeployFlags only cross-checks when both --workflow-don-name and --don-family are set.
 func TestValidateWorkflowDeployFlags_donFamilyMismatch(t *testing.T) {
 	t.Parallel()
 
@@ -96,6 +102,7 @@ func TestValidateWorkflowDeployFlags_nameMismatch(t *testing.T) {
 	require.Contains(t, err.Error(), `--workflow-don-name "feeds-zone-b"`)
 }
 
+// DF-style deploy: --don-family alone resolves the workflow DON and fills donID from state.
 func TestResolveWorkflowDeployTargets_byDonFamilyOnly(t *testing.T) {
 	t.Parallel()
 
@@ -119,6 +126,7 @@ func TestResolveWorkflowDeployTargets_byDonFamilyOnly(t *testing.T) {
 	require.Equal(t, "feeds-zone-a", targets.donFamily)
 }
 
+// Each zone gets its own cap-reg donID and registry family — no cross-zone bleed.
 func TestResolveWorkflowDeployTargets_donFamilyIsolation(t *testing.T) {
 	t.Parallel()
 
@@ -155,27 +163,36 @@ func TestResolveWorkflowDeployTargets_donFamilyIsolation(t *testing.T) {
 	require.NotEqual(t, targetsA.donFamily, targetsB.donFamily)
 }
 
+// When --gateway-url is omitted, deploy defaults to the gateway paired with the target don_family.
 func TestResolveWorkflowDeployTargets_defaultsGatewayURLFromFamily(t *testing.T) {
 	t.Parallel()
 
 	topology := cre.NewDonFamilyGatewayPairingTestTopologyWithIncoming()
 	resolver := &LocalCREStateResolver{topology: topology}
 
-	cmd := newTestDeployCmd(t)
-	require.NoError(t, cmd.Flags().Set("don-family", "feeds-zone-a"))
+	resolveURL := func(t *testing.T, family string, wantURL string) {
+		t.Helper()
 
-	targets, err := resolveWorkflowDeployTargets(
-		cmd,
-		resolver,
-		workflowDONSelector{DonFamily: "feeds-zone-a"},
-		0,
-		"feeds-zone-a",
-		"",
-	)
-	require.NoError(t, err)
-	require.Equal(t, "http://gateway-zone-a.local:5002/", targets.gatewayURL)
+		cmd := newTestDeployCmd(t)
+		require.NoError(t, cmd.Flags().Set("don-family", family))
+
+		targets, err := resolveWorkflowDeployTargets(
+			cmd,
+			resolver,
+			workflowDONSelector{DonFamily: family},
+			0,
+			family,
+			"",
+		)
+		require.NoError(t, err)
+		require.Equal(t, wantURL, targets.gatewayURL)
+	}
+
+	resolveURL(t, "feeds-zone-a", "http://gateway-zone-a.local:5002/")
+	resolveURL(t, "feeds-zone-b", "http://gateway-zone-b.local:5004/")
 }
 
+// Deploy without local CRE state on disk falls back to DefaultDONFamily.
 func TestResolveWorkflowDeployTargets_nilResolverUsesDefaultDONFamily(t *testing.T) {
 	t.Parallel()
 
@@ -193,6 +210,7 @@ func TestResolveWorkflowDeployTargets_nilResolverUsesDefaultDONFamily(t *testing
 	require.Equal(t, envconfig.DefaultDONFamily, targets.donFamily)
 }
 
+// --workflow-don-name alone is enough to infer donFamily and donID from saved topology.
 func TestResolveWorkflowDeployTargets_infersDonFamilyFromWorkflowDonNameOnly(t *testing.T) {
 	t.Parallel()
 
@@ -215,6 +233,7 @@ func TestResolveWorkflowDeployTargets_infersDonFamilyFromWorkflowDonNameOnly(t *
 	require.Equal(t, "feeds-zone-b", targets.donFamily)
 }
 
+// Sharded topologies: don_family + shard index resolve shard1's cap-reg donID for UpsertWorkflow.
 func TestResolveWorkflowDeployTargets_shardedByDonFamilyAndShardIndex(t *testing.T) {
 	t.Parallel()
 
@@ -223,7 +242,6 @@ func TestResolveWorkflowDeployTargets_shardedByDonFamilyAndShardIndex(t *testing
 
 	cmd := newTestDeployCmd(t)
 	require.NoError(t, cmd.Flags().Set("don-family", envconfig.DefaultDONFamily))
-	require.NoError(t, cmd.Flags().Set("shard-index", "1"))
 
 	shard1 := uint(1)
 	targets, err := resolveWorkflowDeployTargets(
@@ -239,6 +257,7 @@ func TestResolveWorkflowDeployTargets_shardedByDonFamilyAndShardIndex(t *testing
 	require.Equal(t, envconfig.DefaultDONFamily, targets.donFamily)
 }
 
+// Explicit --don-id is not overwritten by topology metadata when the flag was set.
 func TestResolveWorkflowDeployTargets_preservesExplicitDonID(t *testing.T) {
 	t.Parallel()
 

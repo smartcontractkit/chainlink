@@ -1,3 +1,8 @@
+// Tests for LocalCREStateResolver gateway URL helpers used during workflow deploy.
+//
+// Covers family-scoped gateway URL lookup (GatewayURLForDonFamily), legacy fallback
+// (resolveGatewayURL), and Incoming host formatting (formatGatewayURL). Uses in-memory
+// topologies — no local CRE state files on disk.
 package environment
 
 import (
@@ -32,6 +37,7 @@ func TestGatewayURLForDonFamily_unknownFamily(t *testing.T) {
 	require.Contains(t, err.Error(), `no gateway connector found for don_family "unknown-family"`)
 }
 
+// When family lookup fails, resolveGatewayURL falls back to the first gateway in state.
 func TestResolveGatewayURL_fallsBackToFirstGateway(t *testing.T) {
 	t.Parallel()
 
@@ -58,6 +64,7 @@ func TestResolveGatewayURL_fallsBackToFirstGateway(t *testing.T) {
 	require.Equal(t, "http://fallback.local:5002/", url)
 }
 
+// Connector TOML may omit Incoming.Host; formatGatewayURL uses infra external gateway host.
 func TestFormatGatewayURL_usesInfraHostWhenIncomingHostEmpty(t *testing.T) {
 	t.Parallel()
 

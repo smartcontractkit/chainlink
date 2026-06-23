@@ -1,3 +1,8 @@
+// Tests for don_family gateway↔workflow pairing at env start.
+//
+// Covers initDonFamilyGatewayPairing validation, per-family gateway connector lookup,
+// gateway worker DON scoping, and pairing summaries. Uses in-memory topologies from
+// test_topology_helpers.go — not Docker E2E.
 package cre
 
 import (
@@ -5,31 +10,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 )
-
-func TestGatewayConnectorsForDonFamily_requiresDonFamily(t *testing.T) {
-	t.Parallel()
-
-	topology := &Topology{
-		DonsMetadata: &DonsMetadata{
-			dons: []*DonMetadata{
-				{Name: "workflow", ns: &NodeSet{DONTypes: []string{WorkflowDON}}, Flags: []string{WorkflowDON, HTTPActionCapability}},
-				{Name: "bootstrap-gateway", ns: &NodeSet{}, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
-			},
-		},
-		GatewayConnectors: &GatewayConnectors{
-			Configurations: []*DonGatewayConfiguration{
-				{GatewayConfiguration: &GatewayConfiguration{AuthGatewayID: "gateway-node-0"}},
-			},
-		},
-		gatewayConnectorsByDon: map[string]*DonGatewayConfiguration{
-			"bootstrap-gateway": {GatewayConfiguration: &GatewayConfiguration{AuthGatewayID: "gateway-node-0"}},
-		},
-	}
-
-	err := topology.initDonFamilyGatewayPairing()
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "has no don_family")
-}
 
 func TestGatewayConnectorsForDonFamily_pairing(t *testing.T) {
 	t.Parallel()
@@ -45,22 +25,14 @@ func TestGatewayConnectorsForDonFamily_pairing(t *testing.T) {
 	require.Equal(t, "gateway-node-1", connB.Configurations[0].AuthGatewayID)
 }
 
-func TestGatewayConnectorsForDonFamily_unknownFamily(t *testing.T) {
+// Unknown and empty don_family values return empty connector lists without error.
+func TestGatewayConnectorsForDonFamily_unknownAndEmptyFamily(t *testing.T) {
 	t.Parallel()
 
 	topology := NewDonFamilyGatewayPairingTestTopology()
 
-	conn := topology.GatewayConnectorsForDonFamily("unknown-family")
-	require.Empty(t, conn.Configurations)
-}
-
-func TestGatewayConnectorsForDonFamily_emptyFamily(t *testing.T) {
-	t.Parallel()
-
-	topology := NewDonFamilyGatewayPairingTestTopology()
-
-	conn := topology.GatewayConnectorsForDonFamily("")
-	require.Empty(t, conn.Configurations)
+	require.Empty(t, topology.GatewayConnectorsForDonFamily("unknown-family").Configurations)
+	require.Empty(t, topology.GatewayConnectorsForDonFamily("").Configurations)
 }
 
 func TestTopology_validateDonFamilyGatewayPairing_missingGateway(t *testing.T) {
@@ -100,17 +72,8 @@ func TestTopology_validateDonFamilyGatewayPairing_gatewayMissingDonFamily(t *tes
 	require.Contains(t, err.Error(), `gateway DON "bootstrap-gateway" has no don_family`)
 }
 
-func TestDonFamilyGatewayPairingSummary_dataFeedsLocalTopology(t *testing.T) {
-	t.Parallel()
-
-	topology := NewDonFamilyGatewayPairingTestTopology()
-
-	summary := topology.DonFamilyGatewayPairingSummary()
-	require.Contains(t, summary, "feeds-zone-a → gateway-zone-a (don_family=feeds-zone-a)")
-	require.Contains(t, summary, "feeds-zone-b → gateway-zone-b (don_family=feeds-zone-b)")
-}
-
-func TestDonFamilyGatewayPairingSummary_requiresDonFamily(t *testing.T) {
+// Env start fails when a gateway topology has workflow or gateway nodesets without don_family.
+func TestInitDonFamilyGatewayPairing_requiresDonFamilyOnWorkflow(t *testing.T) {
 	t.Parallel()
 
 	topology := &Topology{
@@ -125,6 +88,16 @@ func TestDonFamilyGatewayPairingSummary_requiresDonFamily(t *testing.T) {
 	err := topology.initDonFamilyGatewayPairing()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "has no don_family")
+}
+
+func TestDonFamilyGatewayPairingSummary_dataFeedsLocalTopology(t *testing.T) {
+	t.Parallel()
+
+	topology := NewDonFamilyGatewayPairingTestTopology()
+
+	summary := topology.DonFamilyGatewayPairingSummary()
+	require.Contains(t, summary, "feeds-zone-a → gateway-zone-a (don_family=feeds-zone-a)")
+	require.Contains(t, summary, "feeds-zone-b → gateway-zone-b (don_family=feeds-zone-b)")
 }
 
 func TestTopology_validateDonFamilyGatewayPairing_partialFamily(t *testing.T) {
@@ -157,6 +130,7 @@ func TestDonFamilyGatewayPairings_dataFeedsLocalTopology(t *testing.T) {
 	}, pairs)
 }
 
+// One workflow DON may pair with multiple gateway nodesets that share the same don_family.
 func TestDonFamilyGatewayPairings_multiGatewaySameFamily(t *testing.T) {
 	t.Parallel()
 
@@ -199,6 +173,7 @@ func TestWorkflowDONFamilies(t *testing.T) {
 	require.ElementsMatch(t, []string{"feeds-zone-a", "feeds-zone-b"}, topology.WorkflowDONFamilies())
 }
 
+// Non-gateway topologies skip pairing; WorkflowDONFamilies stays nil for registry setup fallback.
 func TestWorkflowDONFamilies_nilWithoutPairing(t *testing.T) {
 	t.Parallel()
 
@@ -223,6 +198,7 @@ func TestDonFamilyForDON(t *testing.T) {
 	require.Equal(t, "", topology.DonFamilyForDON("unknown"))
 }
 
+// Topologies without http-action skip pairing validation entirely.
 func TestInitDonFamilyGatewayPairing_skipsWithoutGateway(t *testing.T) {
 	t.Parallel()
 

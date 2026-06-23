@@ -1,3 +1,7 @@
+// In-memory topology fixtures for don_family pairing and deploy resolver unit tests.
+//
+// See test_topology_helpers usage in topology_don_family_gateway_pairing_test.go and
+// core/scripts/cre/environment/environment/*_test.go. Not a substitute for Docker E2E.
 package cre
 
 const testDefaultDONFamily = "test-don-family"
