@@ -63,6 +63,8 @@ func (g *LocalGateway) ListenForTriggerPayload(ctx context.Context) (*httptypeda
 			w.WriteHeader(http.StatusOK)
 		case <-r.Context().Done():
 			http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+		default:
+			http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
 		}
 	})
 
