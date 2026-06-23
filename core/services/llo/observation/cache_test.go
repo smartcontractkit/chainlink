@@ -203,7 +203,7 @@ func TestCache_UpdateStreamValues(t *testing.T) {
 	})
 }
 
-func TestCache_UpdateStreamValues_RecordsHitEntryAge(t *testing.T) {
+func TestCache_UpdateStreamValues_RecordsHitEntryAge(t *testing.T) { //nolint:paralleltest // resets package-level prometheus metrics
 	promCacheHitEntryAgeMs.Reset()
 	promCacheHitCount.Reset()
 
@@ -334,7 +334,7 @@ func TestCache_ConcurrentAccess(t *testing.T) {
 			defer wg.Done()
 			for j := range numOperations {
 				streamID := id*numOperations + j
-				cache.Add(streamID, &mockStreamValue{value: []byte{byte(id)}}, time.Second)
+				cache.Add(streamID, &mockStreamValue{value: []byte{byte(id % 256)}}, time.Second)
 			}
 		}(i)
 	}
@@ -345,7 +345,7 @@ func TestCache_ConcurrentAccess(t *testing.T) {
 		for j := range numOperations {
 			streamID := i*numOperations + j
 			val, _ := cache.Get(streamID)
-			assert.Equal(t, &mockStreamValue{value: []byte{byte(i)}}, val)
+			assert.Equal(t, &mockStreamValue{value: []byte{byte(i % 256)}}, val)
 		}
 	}
 }
@@ -366,7 +366,7 @@ func TestCache_ConcurrentReadWrite(t *testing.T) {
 			defer wg.Done()
 			for j := range numOperations {
 				streamID := id*numOperations + j
-				cache.Add(streamID, &mockStreamValue{value: []byte{byte(id)}}, time.Second)
+				cache.Add(streamID, &mockStreamValue{value: []byte{byte(id % 256)}}, time.Second)
 			}
 		}(i)
 	}
@@ -401,7 +401,7 @@ func TestCache_ConcurrentAddGet(t *testing.T) {
 			defer wg.Done()
 			for j := range numOperations {
 				streamID := id*numOperations + j
-				cache.Add(streamID, &mockStreamValue{value: []byte{byte(id)}}, time.Second)
+				cache.Add(streamID, &mockStreamValue{value: []byte{byte(id % 256)}}, time.Second)
 			}
 		}(i)
 	}
@@ -438,7 +438,7 @@ func TestCache_ConcurrentAddMany(t *testing.T) {
 				batch := make(map[llotypes.StreamID]llo.StreamValue, batchSize)
 				for j := range batchSize {
 					streamID := id*numBatches*batchSize + b*batchSize + j
-					batch[streamID] = &mockStreamValue{value: []byte{byte(id)}}
+					batch[streamID] = &mockStreamValue{value: []byte{byte(id % 256)}}
 				}
 				cache.AddMany(batch, time.Second)
 			}
@@ -451,7 +451,7 @@ func TestCache_ConcurrentAddMany(t *testing.T) {
 			for j := range batchSize {
 				streamID := i*numBatches*batchSize + b*batchSize + j
 				val, _ := cache.Get(streamID)
-				assert.Equal(t, &mockStreamValue{value: []byte{byte(i)}}, val)
+				assert.Equal(t, &mockStreamValue{value: []byte{byte(i % 256)}}, val)
 			}
 		}
 	}

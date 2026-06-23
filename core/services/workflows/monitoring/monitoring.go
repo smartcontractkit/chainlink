@@ -76,6 +76,10 @@ type EngineMetrics struct {
 	triggerQueueToExecutionStartSeconds metric.Float64Histogram
 	triggerPayloadBytes                 metric.Int64Histogram
 	executionSemaphoreWaitSeconds       metric.Float64Histogram
+
+	donTimeCallsCounter    metric.Int64Counter
+	donTimeTimeoutsCounter metric.Int64Counter
+	donTimeErrorsCounter   metric.Int64Counter
 }
 
 func InitMonitoringResources() (em *EngineMetrics, err error) {
@@ -399,6 +403,30 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register execution semaphore wait histogram: %w", err)
+	}
+
+	em.donTimeCallsCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_dontime_calls_total",
+		metric.WithDescription("Total GetDONTime calls made by the workflow engine"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register don time calls counter: %w", err)
+	}
+
+	em.donTimeTimeoutsCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_dontime_timeouts_total",
+		metric.WithDescription("GetDONTime calls that timed out waiting for a response"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register don time timeouts counter: %w", err)
+	}
+
+	em.donTimeErrorsCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_dontime_errors_total",
+		metric.WithDescription("GetDONTime calls that failed without DON consensus recovery"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register don time errors counter: %w", err)
 	}
 
 	return em, nil
@@ -742,4 +770,19 @@ func (c WorkflowsMetricLabeler) RecordTriggerPayloadBytes(ctx context.Context, n
 func (c WorkflowsMetricLabeler) RecordExecutionSemaphoreWaitSeconds(ctx context.Context, waitSeconds float64) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.executionSemaphoreWaitSeconds.Record(ctx, waitSeconds, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementDonTimeCallsCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.donTimeCallsCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementDonTimeTimeoutsCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.donTimeTimeoutsCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementDonTimeErrorsCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.donTimeErrorsCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }

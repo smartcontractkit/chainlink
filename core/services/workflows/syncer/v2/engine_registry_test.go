@@ -11,6 +11,7 @@ import (
 )
 
 func TestEngineRegistry(t *testing.T) {
+	t.Parallel()
 	workflowID1 := types.WorkflowID([32]byte{0, 1, 2, 3, 4})
 	workflowID2 := types.WorkflowID([32]byte{0, 1, 2, 3, 4, 5})
 
@@ -64,6 +65,7 @@ func TestEngineRegistry(t *testing.T) {
 }
 
 func TestEngineRegistry_SourceTracking(t *testing.T) {
+	t.Parallel()
 	er := NewEngineRegistry()
 
 	wfID1 := types.WorkflowID([32]byte{1})
@@ -88,6 +90,7 @@ func TestEngineRegistry_SourceTracking(t *testing.T) {
 }
 
 func TestEngineRegistry_SourceInMetadata(t *testing.T) {
+	t.Parallel()
 	er := NewEngineRegistry()
 	wfID := types.WorkflowID([32]byte{1})
 
@@ -99,6 +102,7 @@ func TestEngineRegistry_SourceInMetadata(t *testing.T) {
 }
 
 func TestEngineRegistry_GetAllIncludesSource(t *testing.T) {
+	t.Parallel()
 	er := NewEngineRegistry()
 
 	wfID1 := types.WorkflowID([32]byte{1})
@@ -120,6 +124,7 @@ func TestEngineRegistry_GetAllIncludesSource(t *testing.T) {
 }
 
 func TestEngineRegistry_PopReturnsSource(t *testing.T) {
+	t.Parallel()
 	er := NewEngineRegistry()
 	wfID := types.WorkflowID([32]byte{1})
 
@@ -131,6 +136,7 @@ func TestEngineRegistry_PopReturnsSource(t *testing.T) {
 }
 
 func TestEngineRegistry_PopAllReturnsSource(t *testing.T) {
+	t.Parallel()
 	er := NewEngineRegistry()
 
 	wfID1 := types.WorkflowID([32]byte{1})

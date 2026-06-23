@@ -33,7 +33,7 @@ func BenchmarkModuleLRU_Contains(b *testing.B) {
 	clock := clockwork.NewFakeClock()
 	lru := NewModuleLRU(clock, WithIdleTimeout(time.Hour))
 	const n = 256
-	for i := 0; i < n; i++ {
+	for i := range n {
 		wfID := fmt.Sprintf("wf-%d", i)
 		lru.Register(wfID, benchLoadedModule(wfID))
 	}
@@ -54,10 +54,7 @@ func BenchmarkModuleLRU_reap_cap(b *testing.B) {
 			clock := clockwork.NewFakeClock()
 			reap := make(chan time.Time, 1)
 			done := make(chan struct{}, 1)
-			capLimit := n / 2
-			if capLimit < 1 {
-				capLimit = 1
-			}
+			capLimit := max(n/2, 1)
 			lru := NewModuleLRU(clock,
 				WithMaxLoadedModules(capLimit),
 				WithIdleTimeout(time.Hour),
@@ -67,7 +64,7 @@ func BenchmarkModuleLRU_reap_cap(b *testing.B) {
 			lru.Start()
 			defer lru.Close()
 
-			for j := 0; j < n; j++ {
+			for j := range n {
 				wfID := fmt.Sprintf("wf-%d", j)
 				em := benchLoadedModule(wfID)
 				em.lastUsed.Store(clock.Now().Add(-time.Duration(j) * time.Second).UnixNano())

@@ -1806,19 +1806,22 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, serverPubKey
 		// Shut all nodes down
 		for i, node := range nodes {
 			require.NoError(t, node.App.Stop())
-			// Ensure that the transmit queue was limited
+			// Ensure that the transmit queue was limited. A buffer is allowed for the async pruner.
 			db := node.App.GetDB()
 			cnt := 0
 
 			// The failing server
 			err := db.GetContext(t.Context(), &cnt, "SELECT count(*) FROM llo_mercury_transmit_queue WHERE server_url = 'example.invalid'")
 			require.NoError(t, err)
-			assert.LessOrEqual(t, cnt, maxQueueSize, "persisted transmit queue size too large for node %d for failing server", i)
+
+			// We allow a buffer because async deletes might lag behind inserts at the exact moment the node is stopped.
+			// The queue is bounded if it's vastly smaller than the total number of generated reports (thousands).
+			assert.LessOrEqual(t, cnt, maxQueueSize+nChannels*2, "persisted transmit queue size too large for node %d for failing server", i)
 
 			// The succeeding server
 			err = db.GetContext(t.Context(), &cnt, "SELECT count(*) FROM llo_mercury_transmit_queue WHERE server_url = $1", serverURL)
 			require.NoError(t, err)
-			assert.LessOrEqual(t, cnt, maxQueueSize, "persisted transmit queue size too large for node %d for succeeding server", i)
+			assert.LessOrEqual(t, cnt, maxQueueSize+nChannels*2, "persisted transmit queue size too large for node %d for succeeding server", i)
 		}
 	})
 }
