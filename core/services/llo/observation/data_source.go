@@ -283,7 +283,8 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 			}
 
 			startTS := time.Now()
-			ctx, cancel := context.WithTimeout(stopChanCtx, osv.observationTimeout)
+			obsTimeout := 3 * osv.observationTimeout
+			ctx, cancel := context.WithTimeout(stopChanCtx, obsTimeout)
 			lggr := logger.With(d.lggr, "observationTimestamp", osv.opts.ObservationTimestamp(), "configDigest", osv.opts.ConfigDigest(), "seqNr", osv.opts.OutCtx().SeqNr)
 
 			var mu sync.Mutex
