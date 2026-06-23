@@ -38,7 +38,7 @@ func TestFinalizeWorkflowDonFamily(t *testing.T) {
 		require.Equal(t, envconfig.DefaultDONFamily, family)
 	})
 
-	t.Run("pairing requires family", func(t *testing.T) {
+	t.Run("requires family when local state", func(t *testing.T) {
 		t.Parallel()
 		_, err := finalizeWorkflowDonFamily("", true)
 		require.Error(t, err)

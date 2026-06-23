@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGatewayConnectorsForDonFamily_legacyWithoutFamilies(t *testing.T) {
+func TestGatewayConnectorsForDonFamily_requiresDonFamily(t *testing.T) {
 	t.Parallel()
 
 	topology := &Topology{
@@ -26,12 +26,9 @@ func TestGatewayConnectorsForDonFamily_legacyWithoutFamilies(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, topology.initDonFamilyGatewayPairing())
-	require.False(t, topology.DonFamilyGatewayPairingEnabled())
-
-	conn := topology.GatewayConnectorsForDonFamily("")
-	require.Len(t, conn.Configurations, 1)
-	require.Equal(t, "gateway-node-0", conn.Configurations[0].AuthGatewayID)
+	err := topology.initDonFamilyGatewayPairing()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "has no don_family")
 }
 
 func TestGatewayConnectorsForDonFamily_pairing(t *testing.T) {
@@ -87,7 +84,7 @@ func TestDonFamilyGatewayPairingSummary_dataFeedsLocalTopology(t *testing.T) {
 	require.Contains(t, summary, "feeds-zone-b → gateway-zone-b (don_family=feeds-zone-b)")
 }
 
-func TestDonFamilyGatewayPairingSummary_legacyWithoutFamilies(t *testing.T) {
+func TestDonFamilyGatewayPairingSummary_requiresDonFamily(t *testing.T) {
 	t.Parallel()
 
 	topology := &Topology{
@@ -99,7 +96,9 @@ func TestDonFamilyGatewayPairingSummary_legacyWithoutFamilies(t *testing.T) {
 		},
 	}
 
-	require.Empty(t, topology.DonFamilyGatewayPairingSummary())
+	err := topology.initDonFamilyGatewayPairing()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "has no don_family")
 }
 
 func TestTopology_validateDonFamilyGatewayPairing_partialFamily(t *testing.T) {
@@ -115,7 +114,6 @@ func TestTopology_validateDonFamilyGatewayPairing_partialFamily(t *testing.T) {
 		},
 	}
 
-	require.True(t, topology.computeDonFamilyGatewayPairingEnabled())
 	err := topology.initDonFamilyGatewayPairing()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), `workflow DON "feeds-zone-b" has no don_family`)

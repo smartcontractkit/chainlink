@@ -121,13 +121,6 @@ func (r *LocalCREStateResolver) WorkflowDONID() (uint32, error) {
 	return libc.MustSafeUint32FromUint64(workflowDON.ID), nil
 }
 
-func (r *LocalCREStateResolver) DonFamilyGatewayPairingEnabled() bool {
-	if r.topology == nil {
-		return false
-	}
-	return r.topology.DonFamilyGatewayPairingEnabled()
-}
-
 // GatewayURLForDonFamily returns the http-actions gateway URL for a specific don_family.
 //
 // Used when workflow deploy omits --gateway-url and encrypts vault secrets — secrets must go

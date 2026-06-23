@@ -29,7 +29,7 @@ type workflowDeployTargets struct {
 //  2. Resolve the workflow DON via selector → ResolveWorkflowDONMetadata (workflow_don_resolver.go).
 //  3. If both --workflow-don-name and --don-family were explicitly set, validate they agree with state.
 //  4. Default donID / donFamily from the selected DON's metadata when those flags were omitted.
-//  5. finalizeWorkflowDonFamily — require don_family when pairing is on, else DefaultDONFamily.
+//  5. finalizeWorkflowDonFamily — require don_family from state/flags when local CRE state exists.
 //  6. Default gatewayURL from the gateway paired to that don_family (needed for --secrets-file-path).
 //
 // Multi-DON topologies must identify the workflow DON (--workflow-don-name or an unambiguous
@@ -76,7 +76,7 @@ func resolveWorkflowDeployTargets(
 		targets.donFamily = donMeta.DonFamily
 	}
 
-	family, err := finalizeWorkflowDonFamily(targets.donFamily, resolver.DonFamilyGatewayPairingEnabled())
+	family, err := finalizeWorkflowDonFamily(targets.donFamily, true)
 	if err != nil {
 		return targets, err
 	}
@@ -93,18 +93,19 @@ func resolveWorkflowDeployTargets(
 	return targets, nil
 }
 
-// finalizeWorkflowDonFamily returns the don_family string that will be written to the workflow registry.
+// finalizeWorkflowDonFamily returns the don_family string written to the workflow registry on deploy.
 //
-// Legacy topologies (pairing off, no nodesets.don_family) may omit the flag and get DefaultDONFamily.
-// Paired topologies (any workflow/gateway nodeset sets don_family) require a non-empty family — either
-// from --don-family or from the selected DON's nodesets.don_family in local CRE state. The same string
-// must already be on the DON in the capabilities registry and in gateway connector wiring from env start.
-func finalizeWorkflowDonFamily(donFamily string, pairingEnabled bool) (string, error) {
+//   donFamily        — resolved --don-family and/or selected workflow DON metadata; may be "".
+//   requireExplicit  — when true (local CRE state present), empty don_family is an error.
+//
+// When requireExplicit is false and donFamily is empty, returns DefaultDONFamily for legacy
+// deploy paths without local state. Must match nodesets.don_family from env start when state exists.
+func finalizeWorkflowDonFamily(donFamily string, requireExplicit bool) (string, error) {
 	if donFamily != "" {
 		return donFamily, nil
 	}
-	if pairingEnabled {
-		return "", fmt.Errorf("❌ --don-family is required when topology uses don_family gateway pairing (or set nodesets.don_family in the local CRE state file)")
+	if requireExplicit {
+		return "", fmt.Errorf("❌ --don-family is required (set nodesets.don_family in the topology or pass --don-family / --workflow-don-name with local CRE state)")
 	}
 	return envconfig.DefaultDONFamily, nil
 }
