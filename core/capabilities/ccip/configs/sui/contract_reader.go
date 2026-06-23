@@ -90,6 +90,12 @@ func GetChainReaderConfig(pubKeyStr string) (map[string]any, error) {
 							},
 						},
 					},
+					consts.MethodNameGetARM: {
+						Name:               "get_arm",
+						SignerAddress:      fromAddress,
+						Params:             []codec.SuiFunctionParam{},
+						ResponseFromInputs: []string{"package_id"},
+					},
 				},
 			},
 			consts.ContractNameRMNProxy: map[string]any{
