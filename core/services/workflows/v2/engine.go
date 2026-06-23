@@ -1198,8 +1198,7 @@ func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents
 		}
 		err := e.cfg.LocalLimiters.LogEvent.Check(ctx, count)
 		if err != nil {
-			var errBoundLimited limits.ErrorBoundLimited[int]
-			if errors.As(err, &errBoundLimited) {
+			if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[int]](err); ok {
 				e.logger().Warnw("Max user log events per execution reached, dropping event", "maxEvents", errBoundLimited.Limit, "err", err)
 				return
 			}
