@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 )
 
 func TestDeviceFlowStore_AddGetRemove(t *testing.T) {
@@ -27,6 +28,49 @@ func TestDeviceFlowStore_AddGetRemove(t *testing.T) {
 	s.remove("handle-1")
 	_, ok = s.get("handle-1")
 	assert.False(t, ok, "handle must be single-use: gone after remove")
+}
+
+// TestDeviceFlowStore_ConsumeIfDoneSingleWinner asserts that when many polls
+// race on one completed handle, exactly one observes the terminal result and
+// consumes it. This is the double-spend guard: two polls must never both be
+// handed the session cookie.
+func TestDeviceFlowStore_ConsumeIfDoneSingleWinner(t *testing.T) {
+	t.Parallel()
+	s := newDeviceFlowStore()
+	state := &deviceFlowState{expiresAt: time.Now().Add(time.Minute)}
+	state.done = true
+	state.sessionID = "sess-winner"
+	require.NoError(t, s.add("race-handle", state))
+
+	const pollers = 50
+	var (
+		wg       sync.WaitGroup
+		mu       sync.Mutex
+		winners  int
+		pendings int
+	)
+	wg.Add(pollers)
+	for range pollers {
+		go func() {
+			defer wg.Done()
+			sessionID, _, _, _, terminal, known := s.consumeIfDone("race-handle")
+			mu.Lock()
+			defer mu.Unlock()
+			switch {
+			case terminal:
+				winners++
+				assert.Equal(t, "sess-winner", sessionID)
+			case known:
+				pendings++ // saw it before it was consumed, but not terminal: impossible here
+			}
+		}()
+	}
+	wg.Wait()
+
+	assert.Equal(t, 1, winners, "exactly one poll may consume a completed handle")
+	assert.Equal(t, 0, pendings, "a done flow must never report pending")
+	_, ok := s.get("race-handle")
+	assert.False(t, ok, "handle must be removed after it is consumed")
 }
 
 func TestDeviceFlowStore_ConcurrencyCap(t *testing.T) {
@@ -77,7 +121,7 @@ func TestFinishDeviceFlow_RecordsTerminalState(t *testing.T) {
 	oi := &oidcAuthenticator{lggr: logger.TestLogger(t)}
 
 	okState := &deviceFlowState{expiresAt: time.Now().Add(time.Minute)}
-	oi.finishDeviceFlow(okState, "sess-1", "user@example.com", nil)
+	oi.finishDeviceFlow(okState, "sess-1", "user@example.com", clsessions.UserRoleEdit, nil)
 	okState.mu.Lock()
 	assert.True(t, okState.done)
 	assert.Equal(t, "sess-1", okState.sessionID)
@@ -87,7 +131,7 @@ func TestFinishDeviceFlow_RecordsTerminalState(t *testing.T) {
 
 	errState := &deviceFlowState{expiresAt: time.Now().Add(time.Minute)}
 	wantErr := errors.New("denied")
-	oi.finishDeviceFlow(errState, "", "", wantErr)
+	oi.finishDeviceFlow(errState, "", "", "", wantErr)
 	errState.mu.Lock()
 	assert.True(t, errState.done)
 	assert.Empty(t, errState.sessionID)
@@ -106,7 +150,7 @@ func TestDeviceFlowState_ConcurrentAccess(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		oi.finishDeviceFlow(state, "s", "e", nil)
+		oi.finishDeviceFlow(state, "s", "e", clsessions.UserRoleView, nil)
 	}()
 	go func() {
 		defer wg.Done()

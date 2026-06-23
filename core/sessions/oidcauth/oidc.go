@@ -232,7 +232,7 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 		return
 	}
 
-	sessionID, _, err := oi.issueSessionFromIDToken(ctx, rawIDToken)
+	sessionID, email, role, err := oi.issueSessionFromIDToken(ctx, rawIDToken)
 	if err != nil {
 		oi.handleIssueSessionError(c, err)
 		return
@@ -246,6 +246,8 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 		c.String(http.StatusInternalServerError, "Authentication failed")
 		return
 	}
+
+	oi.auditLogger.Audit(audit.AuthLoginSuccessNo2FA, map[string]any{"email": email, "role": role, "method": "oidc_exchange"})
 
 	c.JSON(http.StatusOK, ExchangeTokenResponse{
 		Success: true,
@@ -262,27 +264,29 @@ var errNoMatchingRole = errors.New("no matching role within attested user group 
 // id_token into an oidc_sessions row. Both the browser auth-code exchange and
 // the CLI device flow funnel through here so verification, claim extraction,
 // role mapping, and session creation never diverge between the two. It returns
-// the new session ID and the authenticated email.
-func (oi *oidcAuthenticator) issueSessionFromIDToken(ctx context.Context, rawIDToken string) (string, string, error) {
+// the new session ID, the authenticated email, and the resolved role. The
+// caller emits the success audit event tagged with its login method so device
+// and UI sessions are distinguishable; this function audits only failures.
+func (oi *oidcAuthenticator) issueSessionFromIDToken(ctx context.Context, rawIDToken string) (string, string, clsessions.UserRole, error) {
 	// Verify signature, issuer, expiry, and audience (pinned to ClientID).
 	idToken, err := oi.provider.Verifier(oi.oidcConfig).Verify(ctx, rawIDToken)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to verify ID token: %w", err)
+		return "", "", "", fmt.Errorf("failed to verify ID token: %w", err)
 	}
 
 	var claims map[string]any
 	if err = idToken.Claims(&claims); err != nil {
-		return "", "", fmt.Errorf("failed to parse OIDC return claims: %w", err)
+		return "", "", "", fmt.Errorf("failed to parse OIDC return claims: %w", err)
 	}
 
 	idClaims, err := oi.ExtractIDClaimValues(claims, oi.config.ClaimName())
 	if err != nil {
-		return "", "", fmt.Errorf("failed to extract ID claims for claim name '%s': %w", oi.config.ClaimName(), err)
+		return "", "", "", fmt.Errorf("failed to extract ID claims for claim name '%s': %w", oi.config.ClaimName(), err)
 	}
 
 	email, ok := claims["email"].(string)
 	if !ok {
-		return "", "", errors.New("failed to get email from claims")
+		return "", "", "", errors.New("failed to get email from claims")
 	}
 	oi.lggr.Tracef("Received and validated ID claims: %v\n", idClaims)
 
@@ -297,7 +301,7 @@ func (oi *oidcAuthenticator) issueSessionFromIDToken(ctx context.Context, rawIDT
 		// Audit the full claim set so an over-broad or unexpected group grant is
 		// detectable after the fact.
 		oi.auditLogger.Audit(audit.AuthLoginFailed2FA, map[string]any{"email": email, "groups": idClaims})
-		return "", "", fmt.Errorf("%w: %w", errNoMatchingRole, err)
+		return "", "", "", fmt.Errorf("%w: %w", errNoMatchingRole, err)
 	}
 
 	clSession := clsessions.NewSession()
@@ -309,11 +313,10 @@ func (oi *oidcAuthenticator) issueSessionFromIDToken(ctx context.Context, rawIDT
 		role,
 	)
 	if err != nil {
-		return "", "", fmt.Errorf("unable to create new session in oidc_sessions table: %w", err)
+		return "", "", "", fmt.Errorf("unable to create new session in oidc_sessions table: %w", err)
 	}
 
-	oi.auditLogger.Audit(audit.AuthLoginSuccessNo2FA, map[string]any{"email": email, "role": role})
-	return clSession.ID, email, nil
+	return clSession.ID, email, role, nil
 }
 
 // handleIssueSessionError maps an issueSessionFromIDToken error to the HTTP
@@ -356,9 +359,15 @@ func (oi *oidcAuthenticator) FindUserByAPIToken(ctx context.Context, apiToken st
 
 	var foundUser clsessions.User
 	err := sqlutil.TransactDataSource(ctx, oi.ds, nil, func(tx sqlutil.DataSource) error {
-		// Query the oidc user API token table for given token, user role and email are cached so
-		// no further upstream OIDC query is performed, sessions and tokens are synced against the upstream server
-		// via the UpstreamSyncInterval config and reaper.go sync implementation
+		// Query the oidc user API token table for the given token. The user role
+		// and email are cached on the row, so no upstream OIDC query is performed
+		// on lookup. NOTE: there is no upstream revocation sync for these tokens.
+		// The OIDC reaper (reaper.go) only deletes stale oidc_sessions, and
+		// UpstreamSyncInterval applies to the LDAP provider, not OIDC. A cached
+		// token therefore retains its role until its own UserAPITokenDuration
+		// expiry, even if the user's group is revoked at the identity provider.
+		// This mechanism must stay disabled (UserAPITokenEnabled = false) until
+		// that revocation gap is fixed.
 		var foundUserToken struct {
 			UserEmail string
 			UserRole  clsessions.UserRole
@@ -487,7 +496,7 @@ func (oi *oidcAuthenticator) CreateSession(ctx context.Context, sr clsessions.Se
 		return "", fmt.Errorf("error creating local OIDC session: %w", err)
 	}
 
-	oi.auditLogger.Audit(audit.AuthLoginSuccessNo2FA, map[string]any{"email": sr.Email})
+	oi.auditLogger.Audit(audit.AuthLoginSuccessNo2FA, map[string]any{"email": sr.Email, "role": foundUser.Role, "method": "local_admin"})
 
 	return session.ID, nil
 }
