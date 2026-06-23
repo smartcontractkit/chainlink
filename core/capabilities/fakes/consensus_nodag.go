@@ -104,12 +104,20 @@ func (fc *fakeConsensusNoDAG) Report(ctx context.Context, metadata capabilities.
 	}
 
 	switch input.EncoderName {
-	case "evm", "EVM": // report-gen for EVM
+	case "evm", "EVM", "solana", "Solana":
+		// EVM and Solana share the on-the-wire layout produced by this fake:
+		// [109-byte metadata header || encoded payload], signed with ECDSA. The
+		// metadata header matches what mock_forwarder / keystone_forwarder
+		// parses at offsets 1..33 (workflow_execution_id) and 107..109 (report_id).
+		// For Solana specifically, the workflow's `encodeForwarderReport(...)`
+		// produces a Borsh-encoded ForwarderReport that mock_forwarder
+		// deserializes from offset 109 onward — same layout as the prod
+		// keystone_forwarder accepts.
 		if len(input.EncodedPayload) == 0 {
-			return nil, caperrors.NewPublicUserError(errors.New("input value for EVM encoder needs to be a byte array and cannot be empty or nil"), caperrors.InvalidArgument)
+			return nil, caperrors.NewPublicUserError(fmt.Errorf("input value for %s encoder needs to be a byte array and cannot be empty or nil", input.EncoderName), caperrors.InvalidArgument)
 		}
 
-		// Prepend EVM metadata
+		// Prepend the shared 109-byte metadata header
 		rawOutput, err := meta.Encode()
 		if err != nil {
 			return nil, caperrors.NewPublicSystemError(fmt.Errorf("failed to prepend metadata fields: %w", err), caperrors.Internal)
