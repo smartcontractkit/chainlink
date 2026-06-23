@@ -15,6 +15,7 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
 )
 
@@ -54,6 +55,7 @@ type deviceFlowState struct {
 	done      bool
 	sessionID string
 	email     string
+	role      clsessions.UserRole
 	err       error
 }
 
@@ -103,6 +105,27 @@ func (s *deviceFlowStore) remove(handle string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.flows, handle)
+}
+
+// consumeIfDone atomically reports whether the flow for handle has reached a
+// terminal state and, if so, removes it in the same critical section. This
+// closes the double-poll window: two concurrent polls on a completed handle
+// cannot both observe done and both be issued the session cookie; exactly one
+// sees terminal=true, the rest see (nil, false) once it is gone.
+func (s *deviceFlowStore) consumeIfDone(handle string) (sessionID, email string, role clsessions.UserRole, flowErr error, terminal bool, known bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	f, ok := s.flows[handle]
+	if !ok {
+		return "", "", "", nil, false, false
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if !f.done {
+		return "", "", "", nil, false, true
+	}
+	delete(s.flows, handle)
+	return f.sessionID, f.email, f.role, f.err, true, true
 }
 
 // generateDeviceHandle returns a URL-safe 256-bit random handle. It is the only
@@ -201,25 +224,26 @@ func (oi *oidcAuthenticator) pollDeviceToken(handle string, state *deviceFlowSta
 
 	token, err := oi.oauth2Config.DeviceAccessToken(ctx, da)
 	if err != nil {
-		oi.finishDeviceFlow(state, "", "", err)
+		oi.finishDeviceFlow(state, "", "", "", err)
 		return
 	}
 
 	rawIDToken, ok := token.Extra("id_token").(string)
 	if !ok {
-		oi.finishDeviceFlow(state, "", "", errors.New("missing id_token in device token response"))
+		oi.finishDeviceFlow(state, "", "", "", errors.New("missing id_token in device token response"))
 		return
 	}
 
-	sessionID, email, err := oi.issueSessionFromIDToken(ctx, rawIDToken)
-	oi.finishDeviceFlow(state, sessionID, email, err)
+	sessionID, email, role, err := oi.issueSessionFromIDToken(ctx, rawIDToken)
+	oi.finishDeviceFlow(state, sessionID, email, role, err)
 }
 
-func (oi *oidcAuthenticator) finishDeviceFlow(state *deviceFlowState, sessionID, email string, err error) {
+func (oi *oidcAuthenticator) finishDeviceFlow(state *deviceFlowState, sessionID, email string, role clsessions.UserRole, err error) {
 	state.mu.Lock()
 	state.done = true
 	state.sessionID = sessionID
 	state.email = email
+	state.role = role
 	state.err = err
 	state.mu.Unlock()
 	if err != nil {
@@ -237,26 +261,18 @@ func (oi *oidcAuthenticator) handleDevicePoll(c *gin.Context) {
 		return
 	}
 
-	state, ok := oi.deviceFlows.get(req.DeviceHandle)
-	if !ok {
+	// Read the terminal result and consume the handle in one critical section
+	// so two concurrent polls cannot both be handed the session cookie.
+	sessionID, email, role, flowErr, terminal, known := oi.deviceFlows.consumeIfDone(req.DeviceHandle)
+	if !known {
 		c.JSON(http.StatusNotFound, DevicePollResponse{Status: "denied", Message: errUnknownDeviceFlow.Error()})
 		return
 	}
 
-	state.mu.Lock()
-	done := state.done
-	sessionID := state.sessionID
-	email := state.email
-	flowErr := state.err
-	state.mu.Unlock()
-
-	if !done {
+	if !terminal {
 		c.JSON(http.StatusOK, DevicePollResponse{Status: "pending"})
 		return
 	}
-
-	// Terminal: consume the handle regardless of outcome.
-	oi.deviceFlows.remove(req.DeviceHandle)
 
 	if flowErr != nil {
 		c.JSON(http.StatusOK, DevicePollResponse{Status: "denied", Message: "Authorization was not completed"})
@@ -273,6 +289,6 @@ func (oi *oidcAuthenticator) handleDevicePoll(c *gin.Context) {
 		return
 	}
 
-	oi.auditLogger.Audit(audit.AuthLoginSuccessNo2FA, map[string]any{"email": email, "method": "device_flow"})
+	oi.auditLogger.Audit(audit.AuthLoginSuccessNo2FA, map[string]any{"email": email, "role": role, "method": "device_flow"})
 	c.JSON(http.StatusOK, DevicePollResponse{Status: "complete"})
 }
