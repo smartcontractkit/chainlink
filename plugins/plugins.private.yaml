@@ -39,7 +39,7 @@ plugins:
       installPath: "."
   solana:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/solana"
-      gitRef: "1df460555f1b54a7ac2d5725552ac580cfab9a7f"
+      gitRef: "835c9b5be3ea7d0a09c288a452405e25d23a4e73"
       installPath: "."
   aptos:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/aptos"
