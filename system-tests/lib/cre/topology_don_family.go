@@ -69,7 +69,7 @@ func (t *Topology) buildDonFamilyPairingState() (*donFamilyPairingState, error) 
 		if d.DonFamily == "" {
 			return nil, fmt.Errorf("gateway DON %q has no don_family; set nodesets.don_family on workflow and gateway nodesets", d.Name)
 		}
-		// A family may have multiple gateway nodesets (e.g. US + EU); all are indexed here.
+		// A don_family may list multiple gateway nodesets; all are indexed here.
 		state.gatewayDONNamesByFamily[d.DonFamily] = append(state.gatewayDONNamesByFamily[d.DonFamily], d.Name)
 	}
 
@@ -81,7 +81,7 @@ func (t *Topology) buildDonFamilyPairingState() (*donFamilyPairingState, error) 
 			return nil, fmt.Errorf("workflow DON %q is in don_family %q but no gateway DON is defined for that family", wf.Name, wf.DonFamily)
 		}
 		state.workflowDONNamesByFamily[wf.DonFamily] = append(state.workflowDONNamesByFamily[wf.DonFamily], wf.Name)
-		// One workflow DON may pair with every gateway in its family (e.g. multi-gateway US/EU).
+		// One workflow DON pairs with every gateway nodeset in its don_family.
 		for _, gwName := range state.gatewayDONNamesByFamily[wf.DonFamily] {
 			state.pairs = append(state.pairs, DonFamilyGatewayPair{
 				DonFamily:       wf.DonFamily,

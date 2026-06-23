@@ -131,7 +131,7 @@ func (r *LocalCREStateResolver) GatewayURLForDonFamily(donFamily string) (string
 		return "", fmt.Errorf("no gateway connector found for don_family %q", donFamily)
 	}
 
-	// Multi-gateway families (US + EU) share one family key; any connector in the family works for deploy.
+	// Several gateway nodesets may share one don_family; any connector in that family works for deploy.
 	return r.formatGatewayURL(connectors.Configurations[0])
 }
 
