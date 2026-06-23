@@ -106,10 +106,12 @@ func (c *creConfig) Linking() config.CRELinking {
 }
 
 type confidentialRelayConfig struct {
-	enabled bool
+	enabled       bool
+	trustEnclaves bool
 }
 
-func (cr *confidentialRelayConfig) Enabled() bool { return cr.enabled }
+func (cr *confidentialRelayConfig) Enabled() bool       { return cr.enabled }
+func (cr *confidentialRelayConfig) TrustEnclaves() bool { return cr.trustEnclaves }
 
 func (c *creConfig) ConfidentialRelay() config.CREConfidentialRelay {
 	if c.c.ConfidentialRelay == nil {
@@ -119,7 +121,11 @@ func (c *creConfig) ConfidentialRelay() config.CREConfidentialRelay {
 	if c.c.ConfidentialRelay.Enabled != nil {
 		enabled = *c.c.ConfidentialRelay.Enabled
 	}
-	return &confidentialRelayConfig{enabled: enabled}
+	trustEnclaves := false
+	if c.c.ConfidentialRelay.TrustEnclaves != nil {
+		trustEnclaves = *c.c.ConfidentialRelay.TrustEnclaves
+	}
+	return &confidentialRelayConfig{enabled: enabled, trustEnclaves: trustEnclaves}
 }
 
 func (c *creConfig) LocalSecretOverrides() map[string]map[string]string {

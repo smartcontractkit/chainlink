@@ -217,6 +217,7 @@ func (s *Services) newSubservices(
 				confidentialRelayPeerID(cfg, capCfg),
 				lggr,
 				opts.LimitsFactory,
+				cfg.CRE().ConfidentialRelay().TrustEnclaves(),
 			)
 			srvs = append(srvs, relayService)
 		}

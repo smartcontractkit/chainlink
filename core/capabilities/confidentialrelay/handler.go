@@ -112,10 +112,14 @@ type Handler struct {
 	// validateAttestation validates TEE attestation documents.
 	// Defaults to the Nitro validator; overridden in tests.
 	validateAttestation attestationValidatorFunc
-	limitsFactory       limits.Factory
+	// trustEnclaves relaxes attestation validation for fake (non-Nitro)
+	// enclaves. INSECURE; test-only. When set, the custom-CA-roots validation
+	// path is skipped in favour of validateAttestation (the accept-all func).
+	trustEnclaves bool
+	limitsFactory limits.Factory
 }
 
-func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, lf limits.Factory) (*Handler, error) {
+func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, lf limits.Factory, trustEnclaves bool) (*Handler, error) {
 	if responseSigner == nil {
 		return nil, errors.New("response signer is required")
 	}
@@ -124,13 +128,20 @@ func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnecto
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
 	}
 
+	named := logger.Named(lggr, HandlerName)
+	validate := nitro.ValidateAttestation
+	if trustEnclaves {
+		validate = func(_, _, _ []byte) error { return nil }
+	}
+
 	h := &Handler{
 		capRegistry:         capRegistry,
 		gatewayConnector:    conn,
 		responseSigner:      responseSigner,
-		lggr:                logger.Named(lggr, HandlerName),
+		lggr:                named,
 		metrics:             m,
-		validateAttestation: nitro.ValidateAttestation,
+		validateAttestation: validate,
+		trustEnclaves:       trustEnclaves,
 		limitsFactory:       lf,
 	}
 	h.Service, h.eng = services.Config{
@@ -622,7 +633,7 @@ func (h *Handler) verifyAttestationHash(ctx context.Context, attestationB64 stri
 	var validationErr error
 	for _, m := range measurements {
 		var err error
-		if caRootsPEM != "" {
+		if caRootsPEM != "" && !h.trustEnclaves {
 			err = nitro.ValidateAttestationWithRoots(attestationBytes, hash, m, caRootsPEM)
 		} else {
 			err = h.validateAttestation(attestationBytes, hash, m)

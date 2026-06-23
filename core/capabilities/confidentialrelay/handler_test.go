@@ -132,7 +132,7 @@ func newTestHandler(t *testing.T, registry core.CapabilitiesRegistry, gwConn cor
 	require.NoError(t, err)
 	key, err := p2pkey.NewV2()
 	require.NoError(t, err)
-	h, err := NewHandler(registry, gwConn, newRelayResponseSigner(key), lggr, limits.Factory{Logger: lggr})
+	h, err := NewHandler(registry, gwConn, newRelayResponseSigner(key), lggr, limits.Factory{Logger: lggr}, false)
 	require.NoError(t, err)
 	h.validateAttestation = noopValidator
 	return h

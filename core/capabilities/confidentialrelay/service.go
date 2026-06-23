@@ -31,6 +31,7 @@ type Service struct {
 	peerID        p2pkey.PeerID
 	lggr          logger.Logger
 	limitsFactory limits.Factory
+	trustEnclaves bool
 
 	handler *Handler
 }
@@ -42,6 +43,7 @@ func NewService(
 	peerID p2pkey.PeerID,
 	lggr logger.Logger,
 	limitsFactory limits.Factory,
+	trustEnclaves bool,
 ) *Service {
 	s := &Service{
 		wrapper:       wrapper,
@@ -50,6 +52,7 @@ func NewService(
 		peerID:        peerID,
 		lggr:          lggr,
 		limitsFactory: limitsFactory,
+		trustEnclaves: trustEnclaves,
 	}
 	s.Service, s.eng = services.Config{
 		Name:  "ConfidentialRelayService",
@@ -68,7 +71,7 @@ func (s *Service) start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get p2p key for confidential relay signing: %w", err)
 	}
-	h, err := NewHandler(s.capRegistry, conn, newRelayResponseSigner(key), s.lggr, s.limitsFactory)
+	h, err := NewHandler(s.capRegistry, conn, newRelayResponseSigner(key), s.lggr, s.limitsFactory, s.trustEnclaves)
 	if err != nil {
 		return err
 	}
