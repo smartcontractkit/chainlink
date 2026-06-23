@@ -34,7 +34,7 @@ func TestGatewayConnectorsForDonFamily_requiresDonFamily(t *testing.T) {
 func TestGatewayConnectorsForDonFamily_pairing(t *testing.T) {
 	t.Parallel()
 
-	topology := donFamilyGatewayPairingTestTopology()
+	topology := NewDonFamilyGatewayPairingTestTopology()
 
 	connA := topology.GatewayConnectorsForDonFamily("feeds-zone-a")
 	require.Len(t, connA.Configurations, 1)
@@ -48,9 +48,18 @@ func TestGatewayConnectorsForDonFamily_pairing(t *testing.T) {
 func TestGatewayConnectorsForDonFamily_unknownFamily(t *testing.T) {
 	t.Parallel()
 
-	topology := donFamilyGatewayPairingTestTopology()
+	topology := NewDonFamilyGatewayPairingTestTopology()
 
 	conn := topology.GatewayConnectorsForDonFamily("unknown-family")
+	require.Empty(t, conn.Configurations)
+}
+
+func TestGatewayConnectorsForDonFamily_emptyFamily(t *testing.T) {
+	t.Parallel()
+
+	topology := NewDonFamilyGatewayPairingTestTopology()
+
+	conn := topology.GatewayConnectorsForDonFamily("")
 	require.Empty(t, conn.Configurations)
 }
 
@@ -74,10 +83,27 @@ func TestTopology_validateDonFamilyGatewayPairing_missingGateway(t *testing.T) {
 	require.Contains(t, err.Error(), "no gateway DON is defined for that family")
 }
 
+func TestTopology_validateDonFamilyGatewayPairing_gatewayMissingDonFamily(t *testing.T) {
+	t.Parallel()
+
+	topology := &Topology{
+		DonsMetadata: &DonsMetadata{
+			dons: []*DonMetadata{
+				{Name: "workflow", DonFamily: testDefaultDONFamily, ns: &NodeSet{DONTypes: []string{WorkflowDON}}, Flags: []string{WorkflowDON, HTTPActionCapability}},
+				{Name: "bootstrap-gateway", ns: &NodeSet{}, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
+			},
+		},
+	}
+
+	err := topology.initDonFamilyGatewayPairing()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `gateway DON "bootstrap-gateway" has no don_family`)
+}
+
 func TestDonFamilyGatewayPairingSummary_dataFeedsLocalTopology(t *testing.T) {
 	t.Parallel()
 
-	topology := donFamilyGatewayPairingTestTopology()
+	topology := NewDonFamilyGatewayPairingTestTopology()
 
 	summary := topology.DonFamilyGatewayPairingSummary()
 	require.Contains(t, summary, "feeds-zone-a → gateway-zone-a (don_family=feeds-zone-a)")
@@ -122,7 +148,7 @@ func TestTopology_validateDonFamilyGatewayPairing_partialFamily(t *testing.T) {
 func TestDonFamilyGatewayPairings_dataFeedsLocalTopology(t *testing.T) {
 	t.Parallel()
 
-	topology := donFamilyGatewayPairingTestTopology()
+	topology := NewDonFamilyGatewayPairingTestTopology()
 
 	pairs := topology.DonFamilyGatewayPairings()
 	require.Equal(t, []DonFamilyGatewayPair{
@@ -131,10 +157,28 @@ func TestDonFamilyGatewayPairings_dataFeedsLocalTopology(t *testing.T) {
 	}, pairs)
 }
 
+func TestDonFamilyGatewayPairings_multiGatewaySameFamily(t *testing.T) {
+	t.Parallel()
+
+	topology := NewMultiGatewaySameFamilyTestTopology()
+
+	pairs := topology.DonFamilyGatewayPairings()
+	require.Len(t, pairs, 2)
+	require.Equal(t, DonFamilyGatewayPair{
+		DonFamily: testDefaultDONFamily, WorkflowDONName: "workflow", GatewayDONName: "bootstrap-gateway-us",
+	}, pairs[0])
+	require.Equal(t, DonFamilyGatewayPair{
+		DonFamily: testDefaultDONFamily, WorkflowDONName: "workflow", GatewayDONName: "gateway-eu",
+	}, pairs[1])
+
+	conn := topology.GatewayConnectorsForDonFamily(testDefaultDONFamily)
+	require.Len(t, conn.Configurations, 2)
+}
+
 func TestGatewayServiceConfigsForDonFamily_pairing(t *testing.T) {
 	t.Parallel()
 
-	topology := donFamilyGatewayPairingTestTopology()
+	topology := NewDonFamilyGatewayPairingTestTopology()
 	services := []GatewayServiceConfig{{
 		ServiceName: "workflows",
 		Handlers:    []string{"web-api-capabilities"},
@@ -151,10 +195,48 @@ func TestGatewayServiceConfigsForDonFamily_pairing(t *testing.T) {
 func TestWorkflowDONFamilies(t *testing.T) {
 	t.Parallel()
 
-	topology := donFamilyGatewayPairingTestTopology()
+	topology := NewDonFamilyGatewayPairingTestTopology()
 	require.ElementsMatch(t, []string{"feeds-zone-a", "feeds-zone-b"}, topology.WorkflowDONFamilies())
 }
 
-func donFamilyGatewayPairingTestTopology() *Topology {
-	return NewDonFamilyGatewayPairingTestTopology()
+func TestWorkflowDONFamilies_nilWithoutPairing(t *testing.T) {
+	t.Parallel()
+
+	topology := &Topology{
+		DonsMetadata: &DonsMetadata{
+			dons: []*DonMetadata{
+				{Name: "workflow", Flags: []string{WorkflowDON}},
+			},
+		},
+	}
+
+	require.Nil(t, topology.WorkflowDONFamilies())
+}
+
+func TestDonFamilyForDON(t *testing.T) {
+	t.Parallel()
+
+	topology := NewDonFamilyGatewayPairingTestTopology()
+
+	require.Equal(t, "feeds-zone-a", topology.DonFamilyForDON("feeds-zone-a"))
+	require.Equal(t, "feeds-zone-b", topology.DonFamilyForDON("gateway-zone-b"))
+	require.Equal(t, "", topology.DonFamilyForDON("unknown"))
+}
+
+func TestInitDonFamilyGatewayPairing_skipsWithoutGateway(t *testing.T) {
+	t.Parallel()
+
+	topology := &Topology{
+		DonsMetadata: &DonsMetadata{
+			dons: []*DonMetadata{
+				{Name: "workflow", Flags: []string{WorkflowDON}},
+				{Name: "capabilities", Flags: []string{CapabilitiesDON}},
+			},
+		},
+	}
+
+	err := topology.initDonFamilyGatewayPairing()
+	require.NoError(t, err)
+	require.Nil(t, topology.donFamilyPairing)
+	require.Nil(t, topology.WorkflowDONFamilies())
 }

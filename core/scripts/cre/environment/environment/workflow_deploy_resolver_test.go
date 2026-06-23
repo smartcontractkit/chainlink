@@ -18,6 +18,7 @@ func newTestDeployCmd(t *testing.T) *cobra.Command {
 	cmd.Flags().String("don-family", "", "")
 	cmd.Flags().Uint32("don-id", 0, "")
 	cmd.Flags().String("gateway-url", "", "")
+	cmd.Flags().Uint("shard-index", 0, "")
 	return cmd
 }
 
@@ -82,6 +83,19 @@ func TestValidateWorkflowDeployFlags_skipsWhenOnlyOneFlagSet(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestValidateWorkflowDeployFlags_nameMismatch(t *testing.T) {
+	t.Parallel()
+
+	cmd := newTestDeployCmd(t)
+	require.NoError(t, cmd.Flags().Set("workflow-don-name", "feeds-zone-b"))
+	require.NoError(t, cmd.Flags().Set("don-family", "feeds-zone-a"))
+
+	donMeta := &cre.DonMetadata{Name: "feeds-zone-a", DonFamily: "feeds-zone-a"}
+	err := validateWorkflowDeployFlags(cmd, donMeta, workflowDONSelector{ExplicitName: "feeds-zone-b"}, "feeds-zone-a")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `--workflow-don-name "feeds-zone-b"`)
+}
+
 func TestResolveWorkflowDeployTargets_byDonFamilyOnly(t *testing.T) {
 	t.Parallel()
 
@@ -139,4 +153,110 @@ func TestResolveWorkflowDeployTargets_donFamilyIsolation(t *testing.T) {
 	require.Equal(t, uint32(2), targetsB.donID)
 	require.Equal(t, "feeds-zone-b", targetsB.donFamily)
 	require.NotEqual(t, targetsA.donFamily, targetsB.donFamily)
+}
+
+func TestResolveWorkflowDeployTargets_defaultsGatewayURLFromFamily(t *testing.T) {
+	t.Parallel()
+
+	topology := cre.NewDonFamilyGatewayPairingTestTopologyWithIncoming()
+	resolver := &LocalCREStateResolver{topology: topology}
+
+	cmd := newTestDeployCmd(t)
+	require.NoError(t, cmd.Flags().Set("don-family", "feeds-zone-a"))
+
+	targets, err := resolveWorkflowDeployTargets(
+		cmd,
+		resolver,
+		workflowDONSelector{DonFamily: "feeds-zone-a"},
+		0,
+		"feeds-zone-a",
+		"",
+	)
+	require.NoError(t, err)
+	require.Equal(t, "http://gateway-zone-a.local:5002/", targets.gatewayURL)
+}
+
+func TestResolveWorkflowDeployTargets_nilResolverUsesDefaultDONFamily(t *testing.T) {
+	t.Parallel()
+
+	cmd := newTestDeployCmd(t)
+
+	targets, err := resolveWorkflowDeployTargets(
+		cmd,
+		nil,
+		workflowDONSelector{},
+		0,
+		"",
+		"",
+	)
+	require.NoError(t, err)
+	require.Equal(t, envconfig.DefaultDONFamily, targets.donFamily)
+}
+
+func TestResolveWorkflowDeployTargets_infersDonFamilyFromWorkflowDonNameOnly(t *testing.T) {
+	t.Parallel()
+
+	topology := cre.NewDonFamilyGatewayPairingTestTopologyWithIncoming()
+	resolver := &LocalCREStateResolver{topology: topology}
+
+	cmd := newTestDeployCmd(t)
+	require.NoError(t, cmd.Flags().Set("workflow-don-name", "feeds-zone-b"))
+
+	targets, err := resolveWorkflowDeployTargets(
+		cmd,
+		resolver,
+		workflowDONSelector{ExplicitName: "feeds-zone-b"},
+		0,
+		"",
+		"",
+	)
+	require.NoError(t, err)
+	require.Equal(t, uint32(2), targets.donID)
+	require.Equal(t, "feeds-zone-b", targets.donFamily)
+}
+
+func TestResolveWorkflowDeployTargets_shardedByDonFamilyAndShardIndex(t *testing.T) {
+	t.Parallel()
+
+	topology := cre.NewShardedWorkflowTestTopology()
+	resolver := &LocalCREStateResolver{topology: topology}
+
+	cmd := newTestDeployCmd(t)
+	require.NoError(t, cmd.Flags().Set("don-family", envconfig.DefaultDONFamily))
+	require.NoError(t, cmd.Flags().Set("shard-index", "1"))
+
+	shard1 := uint(1)
+	targets, err := resolveWorkflowDeployTargets(
+		cmd,
+		resolver,
+		workflowDONSelector{DonFamily: envconfig.DefaultDONFamily, ShardIndex: &shard1},
+		0,
+		envconfig.DefaultDONFamily,
+		"",
+	)
+	require.NoError(t, err)
+	require.Equal(t, uint32(2), targets.donID)
+	require.Equal(t, envconfig.DefaultDONFamily, targets.donFamily)
+}
+
+func TestResolveWorkflowDeployTargets_preservesExplicitDonID(t *testing.T) {
+	t.Parallel()
+
+	topology := cre.NewDonFamilyGatewayPairingTestTopologyWithIncoming()
+	resolver := &LocalCREStateResolver{topology: topology}
+
+	cmd := newTestDeployCmd(t)
+	require.NoError(t, cmd.Flags().Set("workflow-don-name", "feeds-zone-a"))
+	require.NoError(t, cmd.Flags().Set("don-id", "99"))
+
+	targets, err := resolveWorkflowDeployTargets(
+		cmd,
+		resolver,
+		workflowDONSelector{ExplicitName: "feeds-zone-a"},
+		99,
+		"",
+		"",
+	)
+	require.NoError(t, err)
+	require.Equal(t, uint32(99), targets.donID)
 }

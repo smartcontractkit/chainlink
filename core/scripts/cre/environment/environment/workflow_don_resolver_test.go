@@ -87,6 +87,19 @@ func TestResolveWorkflowDONMetadata_unknownExplicitName(t *testing.T) {
 	require.Contains(t, err.Error(), `workflow DON "unknown" not found`)
 }
 
+func TestResolveWorkflowDONMetadata_explicitNameWinsOverDonFamily(t *testing.T) {
+	t.Parallel()
+
+	resolver := testStateResolver(t, shardedWorkflowDONTestTopology(t))
+
+	don, err := resolver.ResolveWorkflowDONMetadata(workflowDONSelector{
+		ExplicitName: "shard1",
+		DonFamily:    envconfig.DefaultDONFamily,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "shard1", don.Name)
+}
+
 func TestResolveWorkflowDONMetadata_shardedByFamilyAndShardIndex(t *testing.T) {
 	t.Parallel()
 
@@ -101,6 +114,20 @@ func TestResolveWorkflowDONMetadata_shardedByFamilyAndShardIndex(t *testing.T) {
 	require.Equal(t, "shard1", don.Name)
 }
 
+func TestResolveWorkflowDONMetadata_shardedByFamily_shardIndex0(t *testing.T) {
+	t.Parallel()
+
+	resolver := testStateResolver(t, shardedWorkflowDONTestTopology(t))
+
+	shard0 := uint(0)
+	don, err := resolver.ResolveWorkflowDONMetadata(workflowDONSelector{
+		DonFamily:  envconfig.DefaultDONFamily,
+		ShardIndex: &shard0,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "shard0", don.Name)
+}
+
 func TestResolveWorkflowDONMetadata_shardedRequiresShardIndex(t *testing.T) {
 	t.Parallel()
 
@@ -109,6 +136,104 @@ func TestResolveWorkflowDONMetadata_shardedRequiresShardIndex(t *testing.T) {
 	_, err := resolver.ResolveWorkflowDONMetadata(workflowDONSelector{DonFamily: envconfig.DefaultDONFamily})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "--shard-index")
+}
+
+func TestResolveWorkflowDONMetadata_unknownDonFamily(t *testing.T) {
+	t.Parallel()
+
+	resolver := testStateResolver(t, shardedWorkflowDONTestTopology(t))
+
+	_, err := resolver.ResolveWorkflowDONMetadata(workflowDONSelector{DonFamily: "unknown-family"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `no workflow DON with don_family "unknown-family"`)
+}
+
+func TestResolveWorkflowDONMetadata_unknownShardIndex(t *testing.T) {
+	t.Parallel()
+
+	resolver := testStateResolver(t, shardedWorkflowDONTestTopology(t))
+
+	shard99 := uint(99)
+	_, err := resolver.ResolveWorkflowDONMetadata(workflowDONSelector{
+		DonFamily:  envconfig.DefaultDONFamily,
+		ShardIndex: &shard99,
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "shard_index 99")
+}
+
+func TestResolveWorkflowDONMetadata_nonShardDuplicateFamily(t *testing.T) {
+	t.Parallel()
+
+	resolver := testStateResolver(t, testTopologyWithWorkflowDONs(t,
+		&cre.DonMetadata{Name: "wf-a", ID: 1, DonFamily: "shared-family", Flags: []string{cre.WorkflowDON}},
+		&cre.DonMetadata{Name: "wf-b", ID: 2, DonFamily: "shared-family", Flags: []string{cre.WorkflowDON}},
+	))
+
+	_, err := resolver.ResolveWorkflowDONMetadata(workflowDONSelector{DonFamily: "shared-family"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "--workflow-don-name")
+}
+
+func TestResolveWorkflowDONByFamily(t *testing.T) {
+	t.Parallel()
+
+	wfDONs := []*cre.DonMetadata{
+		{Name: "shard0", DonFamily: envconfig.DefaultDONFamily, ShardIndex: 0, Flags: []string{cre.WorkflowDON, cre.ShardDON}},
+		{Name: "shard1", DonFamily: envconfig.DefaultDONFamily, ShardIndex: 1, Flags: []string{cre.WorkflowDON, cre.ShardDON}},
+		{Name: "feeds-zone-a", DonFamily: "feeds-zone-a", Flags: []string{cre.WorkflowDON}},
+	}
+
+	tests := []struct {
+		name       string
+		family     string
+		shardIndex *uint
+		wantName   string
+		wantErr    string
+	}{
+		{
+			name:     "unique family",
+			family:   "feeds-zone-a",
+			wantName: "feeds-zone-a",
+		},
+		{
+			name:       "sharded family with index",
+			family:     envconfig.DefaultDONFamily,
+			shardIndex: uintPtr(1),
+			wantName:   "shard1",
+		},
+		{
+			name:    "unknown family",
+			family:  "missing",
+			wantErr: `no workflow DON with don_family "missing"`,
+		},
+		{
+			name:    "sharded family without index",
+			family:  envconfig.DefaultDONFamily,
+			wantErr: "--shard-index",
+		},
+		{
+			name:       "unknown shard index",
+			family:     envconfig.DefaultDONFamily,
+			shardIndex: uintPtr(99),
+			wantErr:    "shard_index 99",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			don, err := resolveWorkflowDONByFamily(wfDONs, tt.family, tt.shardIndex)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.wantName, don.Name)
+		})
+	}
 }
 
 func testStateResolver(t *testing.T, topology *cre.Topology) *LocalCREStateResolver {
@@ -140,4 +265,8 @@ func bootstrapDONMetadata() *cre.DonMetadata {
 		Name:          "bootstrap",
 		NodesMetadata: []*cre.NodeMetadata{{Roles: []string{cre.BootstrapNode}}},
 	}
+}
+
+func uintPtr(v uint) *uint {
+	return &v
 }
