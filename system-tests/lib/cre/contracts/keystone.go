@@ -287,8 +287,8 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 
 		donFamily := don.donFamily
 		if donFamily == "" {
-			// Legacy topologies without nodesets.don_family register under DefaultDONFamily so CI
-			// single-DON setups keep working without TOML changes.
+			// Non-gateway DONs without nodesets.don_family register under DefaultDONFamily at cap-reg time.
+			// Gateway topologies require don_family on workflow/gateway nodesets and fail env start if missing.
 			donFamily = envconfig.DefaultDONFamily
 		}
 

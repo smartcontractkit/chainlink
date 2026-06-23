@@ -1211,9 +1211,9 @@ type NodeSet struct {
 	Capabilities []string `toml:"capabilities"` // global capabilities that have no chain-specific configuration (e.g. cron, http-trigger)
 	DONTypes     []string `toml:"don_types"`    // workflow, capabilities, gateway
 	// DonFamily groups workflow and gateway nodesets for per-family gateway pairing in local CRE.
-	// When set on any workflow/gateway nodeset, all such nodesets must declare it and matching
-	// families are wired at env start (see topology_don_family.go). Also written to cap registry,
-	// workflow registry limits, deploy --don-family, and node workflow sync.
+	// Required on every workflow and gateway nodeset when the topology uses http-actions gateway
+	// wiring; env start fails if missing or unmatched (see topology_don_family.go). Also written
+	// to cap registry, workflow registry limits, deploy --don-family, and node workflow sync.
 	DonFamily string `toml:"don_family"`
 	// SupportedEVMChains is filter. Use EVMChains() to get the actual list of chains supported by the nodeset.
 	SupportedEVMChains []uint64          `toml:"supported_evm_chains"` // chain IDs that the DON supports, empty means all chains

@@ -547,8 +547,7 @@ func addWorkerNodeConfig(
 		gateways := []coretoml.ConnectorGateway{}
 		connectors := cre.GatewayConnectors{}
 		if topology != nil && topology.GatewayConnectors != nil {
-			// Workflow nodes only receive gateway connectors for their don_family when pairing is on;
-			// otherwise all connectors (legacy all-to-all wiring).
+			// Workflow nodes only receive gateway connectors paired to their don_family.
 			connectors = topology.GatewayConnectorsForDonFamily(donMetadata.DonFamily)
 		}
 		if len(connectors.Configurations) > 0 {

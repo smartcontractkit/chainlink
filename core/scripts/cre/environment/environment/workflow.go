@@ -206,7 +206,7 @@ func deployWorkflowCmd() *cobra.Command {
 	cmd.Flags().StringVar(&capabilitiesRegistryAddressFlag, "capabilities-registry-address", "", "Capabilities registry address for vault config update (if not provided, address from the state file will be used)")
 	cmd.Flags().StringVarP(&gatewayURLFlag, "gateway-url", "g", "", "Gateway URL for vault secrets (if not provided, URL from the state file will be used)")
 	cmd.Flags().Uint32VarP(&donIDFlag, "don-id", "e", 1, "donID used in the workflow registry contract (integer starting with 1)")
-	cmd.Flags().StringVar(&donFamilyFlag, "don-family", "", "DON family for workflow registry registration (defaults from local CRE state, or test-don-family for legacy topologies)")
+	cmd.Flags().StringVar(&donFamilyFlag, "don-family", "", "DON family for workflow registry registration (defaults from local CRE state, or test-don-family when no state)")
 	cmd.Flags().StringVarP(&workflowNameFlag, "name", "n", "", "Workflow name")
 	cmd.Flags().BoolVarP(&deleteWorkflowFileFlag, "delete-workflow-file", "l", false, "Deletes the workflow file after deployment")
 	cmd.Flags().BoolVarP(&compileWorkflowFlag, "compile", "x", false, "Compiles the workflow before deploying it")

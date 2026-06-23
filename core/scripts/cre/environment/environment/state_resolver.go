@@ -162,8 +162,7 @@ func (r *LocalCREStateResolver) GatewayURL() (string, error) {
 
 // resolveGatewayURL picks the deploy gateway URL for donFamily.
 //
-// Prefer GatewayURLForDonFamily when pairing resolved a family-specific connector; fall back to
-// GatewayURL (first connector) for legacy single-gateway topologies.
+// Prefer GatewayURLForDonFamily; fall back to GatewayURL when family lookup fails.
 func (r *LocalCREStateResolver) resolveGatewayURL(donFamily string) (string, error) {
 	if url, err := r.GatewayURLForDonFamily(donFamily); err == nil {
 		return url, nil

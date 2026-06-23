@@ -35,8 +35,8 @@ type workflowDeployTargets struct {
 // Multi-DON topologies must identify the workflow DON (--workflow-don-name or an unambiguous
 // --container-name-pattern). Nothing here auto-picks a family from a zone name or nodeset order.
 //
-// When resolver is nil (no local CRE state on disk), only donFamily is finalized for legacy
-// single-DON flows; donID and gatewayURL stay at whatever the caller passed.
+// When resolver is nil (no local CRE state on disk), donFamily defaults to DefaultDONFamily when
+// unset; donID and gatewayURL stay at whatever the caller passed.
 func resolveWorkflowDeployTargets(
 	cmd *cobra.Command,
 	resolver *LocalCREStateResolver,
@@ -98,8 +98,8 @@ func resolveWorkflowDeployTargets(
 //   donFamily        — resolved --don-family and/or selected workflow DON metadata; may be "".
 //   requireExplicit  — when true (local CRE state present), empty don_family is an error.
 //
-// When requireExplicit is false and donFamily is empty, returns DefaultDONFamily for legacy
-// deploy paths without local state. Must match nodesets.don_family from env start when state exists.
+// When requireExplicit is false and donFamily is empty, returns DefaultDONFamily for deploy
+// without local CRE state. Must match nodesets.don_family from env start when state exists.
 func finalizeWorkflowDonFamily(donFamily string, requireExplicit bool) (string, error) {
 	if donFamily != "" {
 		return donFamily, nil
