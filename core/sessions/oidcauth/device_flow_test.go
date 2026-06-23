@@ -53,7 +53,7 @@ func TestDeviceFlowStore_ConsumeIfDoneSingleWinner(t *testing.T) {
 	for range pollers {
 		go func() {
 			defer wg.Done()
-			sessionID, _, _, _, terminal, known := s.consumeIfDone("race-handle")
+			sessionID, _, _, terminal, known, _ := s.consumeIfDone("race-handle")
 			mu.Lock()
 			defer mu.Unlock()
 			switch {
