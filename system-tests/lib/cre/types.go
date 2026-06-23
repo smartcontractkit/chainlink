@@ -219,7 +219,7 @@ type WorkflowRegistryInput struct {
 	ChainSelector   uint64                  `toml:"-"`
 	CldEnv          *cldf.Environment       `toml:"-"`
 	AllowedDonIDs   []uint64                `toml:"-"`
-	DONFamilies     []string                `toml:"-"` // from topology.WorkflowDONFamilies(); empty → DefaultDONFamily at registry setup
+	DONFamilies     []string                `toml:"-"` // distinct workflow don_family values for SetDONLimit at env start; nil on non-gateway topologies → registry setup uses DefaultDONFamily
 	WorkflowOwners  []common.Address        `toml:"-"`
 	Out             *WorkflowRegistryOutput `toml:"out"`
 }
@@ -528,7 +528,7 @@ type DonMetadata struct {
 	Flags                        []string                            `toml:"flags" json:"flags"`
 	ID                           uint64                              `toml:"id" json:"id"`
 	Name                         string                              `toml:"name" json:"name"`
-	DonFamily                    string                              `toml:"don_family" json:"don_family"` // copied from nodesets.don_family; drives pairing + registry families
+	DonFamily                    string                              `toml:"don_family" json:"don_family"` // nodesets.don_family; gateway pairing, cap-registration, and workflow deploy family
 	ExposesRemoteCapabilities    bool                                `toml:"exposes_remote_capabilities" json:"exposes_remote_capabilities"`
 	ShardIndex                   uint                                `toml:"shard_index" json:"shard_index"`
 	CapabilityConfigs            map[CapabilityFlag]CapabilityConfig `toml:"capability_configs" json:"capability_configs"`
