@@ -33,7 +33,7 @@ func TestIssueSessionFromIDToken_Valid(t *testing.T) {
 	oi := newAuthenticatorForIDP(t, idp, db)
 
 	raw := idp.signIDToken(t)
-	sessionID, email, err := oi.issueSessionFromIDToken(context.Background(), raw)
+	sessionID, email, _, err := oi.issueSessionFromIDToken(context.Background(), raw)
 	require.NoError(t, err)
 	assert.NotEmpty(t, sessionID)
 	assert.Equal(t, "valid-user@example.com", email)
@@ -51,7 +51,7 @@ func TestIssueSessionFromIDToken_WrongAudience(t *testing.T) {
 	oi := newAuthenticatorForIDP(t, idp, db)
 
 	raw := idp.signIDToken(t)
-	_, _, err := oi.issueSessionFromIDToken(context.Background(), raw)
+	_, _, _, err := oi.issueSessionFromIDToken(context.Background(), raw)
 	require.Error(t, err, "token with mismatched audience must be rejected")
 	assert.Contains(t, err.Error(), "verify")
 	assert.Equal(t, 0, countOIDCSessions(t, oi, "attacker@example.com"))
@@ -67,7 +67,7 @@ func TestIssueSessionFromIDToken_Expired(t *testing.T) {
 	oi := newAuthenticatorForIDP(t, idp, db)
 
 	raw := idp.signIDToken(t)
-	_, _, err := oi.issueSessionFromIDToken(context.Background(), raw)
+	_, _, _, err := oi.issueSessionFromIDToken(context.Background(), raw)
 	require.Error(t, err, "expired token must be rejected")
 	assert.Equal(t, 0, countOIDCSessions(t, oi, "expired-user@example.com"))
 }
@@ -84,7 +84,7 @@ func TestIssueSessionFromIDToken_NoMatchingGroup(t *testing.T) {
 	oi := newAuthenticatorForIDP(t, idp, db)
 
 	raw := idp.signIDToken(t)
-	_, _, err := oi.issueSessionFromIDToken(context.Background(), raw)
+	_, _, _, err := oi.issueSessionFromIDToken(context.Background(), raw)
 	require.ErrorIs(t, err, errNoMatchingRole)
 	assert.Equal(t, 0, countOIDCSessions(t, oi, "nogroup-user@example.com"))
 }
@@ -112,7 +112,7 @@ func TestIssueSessionFromIDToken_RoleMapping(t *testing.T) {
 			idp.groups = []string{tc.group}
 			oi := newAuthenticatorForIDP(t, idp, db)
 
-			_, _, err := oi.issueSessionFromIDToken(context.Background(), idp.signIDToken(t))
+			_, _, _, err := oi.issueSessionFromIDToken(context.Background(), idp.signIDToken(t))
 			require.NoError(t, err)
 
 			var role string
