@@ -23,7 +23,7 @@ APIKey = "other-key"
 APISecret = "other-secret"
 `
 
-func newTestCCVConfig(t *testing.T) clservices.GeneralConfig { //nolint:ireturn
+func newTestCCVConfig(t *testing.T) clservices.GeneralConfig {
 	t.Helper()
 	opts := clservices.GeneralConfigOpts{
 		SecretsStrings: []string{secretsCCV},
