@@ -1,4 +1,4 @@
-package ccvcommitteeverifier
+package ccvcommitteeverifier_test
 
 import (
 	"testing"
@@ -7,55 +7,41 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-ccv/verifier/pkg/commit"
-	chainlinkconfig "github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
+	clservices "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
-// mockCCV implements config.CCV for tests.
-type mockCCV struct {
-	secrets []chainlinkconfig.AggregatorSecret
+const secretsCCV = `
+[[CCV.AggregatorSecrets]]
+VerifierID = "my-committee-verifier-1-v1"
+APIKey = "test-api-key"
+APISecret = "test-api-secret"
+
+[[CCV.AggregatorSecrets]]
+VerifierID = "other-committee-verifier-2-v1"
+APIKey = "other-key"
+APISecret = "other-secret"
+`
+
+func newTestCCVConfig(t *testing.T) clservices.GeneralConfig { //nolint:ireturn
+	t.Helper()
+	opts := clservices.GeneralConfigOpts{
+		SecretsStrings: []string{secretsCCV},
+	}
+	cfg, err := opts.New()
+	require.NoError(t, err)
+	return cfg
 }
-
-func (m *mockCCV) AggregatorSecrets() []chainlinkconfig.AggregatorSecret { return m.secrets }
-func (m *mockCCV) IndexerSecret() chainlinkconfig.IndexerSecret          { return nil }
-
-// mockAggregatorSecret implements config.AggregatorSecret for tests.
-type mockAggregatorSecret struct {
-	verifierID string
-	apiKey     string
-	apiSecret  string
-}
-
-func (s *mockAggregatorSecret) VerifierID() string { return s.verifierID }
-func (s *mockAggregatorSecret) APIKey() string     { return s.apiKey }
-func (s *mockAggregatorSecret) APISecret() string  { return s.apiSecret }
 
 func TestBuildAggregatorSecrets(t *testing.T) {
 	t.Parallel()
 
 	const (
-		matchingVerifierID  = "my-committee-verifier-1-v1"
-		unrelatedVerifierID = "other-committee-verifier-2-v1"
-		aggregatorAddr      = "localhost:9090"
-		expectedAPIKey      = "test-api-key"
-		expectedAPISecret   = "test-api-secret"
+		matchingVerifierID = "my-committee-verifier-1-v1"
+		aggregatorAddr     = "localhost:9090"
+		expectedAPIKey     = "test-api-key"
+		expectedAPISecret  = "test-api-secret"
 	)
-
-	// ccvConfig with two secrets — one matching, one unrelated — to confirm
-	// we select by VerifierID rather than taking the first entry.
-	ccvConfig := &mockCCV{
-		secrets: []chainlinkconfig.AggregatorSecret{
-			&mockAggregatorSecret{
-				verifierID: unrelatedVerifierID,
-				apiKey:     "other-key",
-				apiSecret:  "other-secret",
-			},
-			&mockAggregatorSecret{
-				verifierID: matchingVerifierID,
-				apiKey:     expectedAPIKey,
-				apiSecret:  expectedAPISecret,
-			},
-		},
-	}
 
 	t.Run("legacy config: aggregator_address + verifier_id, no aggregators list", func(t *testing.T) {
 		t.Parallel()
@@ -64,7 +50,7 @@ func TestBuildAggregatorSecrets(t *testing.T) {
 			AggregatorAddress: aggregatorAddr,
 		}
 
-		secrets, err := buildAggregatorSecrets(ccvConfig, cfg)
+		secrets, err := ccvcommitteeverifier.BuildAggregatorSecrets(newTestCCVConfig(t).CCV(), cfg)
 		require.NoError(t, err)
 
 		// Legacy path produces one entry keyed by "" (empty SecretName).
@@ -87,7 +73,7 @@ func TestBuildAggregatorSecrets(t *testing.T) {
 			},
 		}
 
-		secrets, err := buildAggregatorSecrets(ccvConfig, cfg)
+		secrets, err := ccvcommitteeverifier.BuildAggregatorSecrets(newTestCCVConfig(t).CCV(), cfg)
 		require.NoError(t, err)
 
 		require.Len(t, secrets, 1)
@@ -104,7 +90,7 @@ func TestBuildAggregatorSecrets(t *testing.T) {
 			AggregatorAddress: aggregatorAddr,
 		}
 
-		_, err := buildAggregatorSecrets(ccvConfig, cfg)
+		_, err := ccvcommitteeverifier.BuildAggregatorSecrets(newTestCCVConfig(t).CCV(), cfg)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "nonexistent-verifier-id")
 	})
@@ -116,7 +102,7 @@ func TestBuildAggregatorSecrets(t *testing.T) {
 			// Neither AggregatorAddress nor Aggregators set.
 		}
 
-		_, err := buildAggregatorSecrets(ccvConfig, cfg)
+		_, err := ccvcommitteeverifier.BuildAggregatorSecrets(newTestCCVConfig(t).CCV(), cfg)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "no aggregator configured")
 	})

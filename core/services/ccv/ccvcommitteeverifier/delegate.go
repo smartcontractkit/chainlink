@@ -125,7 +125,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		return nil, fmt.Errorf("onchain public key does not match signer address in config, want %s, got %s", signingKey.OnChainPublicKey(), decodedCfg.SignerAddress)
 	}
 
-	aggregatorSecrets, err := buildAggregatorSecrets(d.ccvConfig, decodedCfg)
+	aggregatorSecrets, err := BuildAggregatorSecrets(d.ccvConfig, decodedCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get aggregator secrets from secrets toml: %w", err)
 	}
@@ -150,12 +150,12 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	return services, nil
 }
 
-// buildAggregatorSecrets resolves one HMAC credential per aggregator the verifier writes to,
+// BuildAggregatorSecrets resolves one HMAC credential per aggregator the verifier writes to,
 // keyed by AggregatorConnection.SecretName (the key NewVerificationCoordinator looks up). Each
 // aggregator's credential is found in the secrets TOML by matching its SecretName against the
 // entry's VerifierID. A legacy single-aggregator config has an empty SecretName, so its
 // credential is looked up by the job's VerifierID and stored under the "" key.
-func buildAggregatorSecrets(ccvConfig config.CCV, decodedCfg commit.Config) (map[string]*hmac.ClientConfig, error) {
+func BuildAggregatorSecrets(ccvConfig config.CCV, decodedCfg commit.Config) (map[string]*hmac.ClientConfig, error) {
 	aggregators, err := decodedCfg.ResolvedAggregators()
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve aggregators: %w", err)
