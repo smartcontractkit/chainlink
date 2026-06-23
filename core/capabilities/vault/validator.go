@@ -29,11 +29,6 @@ type RequestValidator struct {
 	MaxIdentifierKeyLengthLimiter       limits.BoundLimiter[pkgconfig.Size]
 	MaxIdentifierOwnerLengthLimiter     limits.BoundLimiter[pkgconfig.Size]
 	MaxIdentifierNamespaceLengthLimiter limits.BoundLimiter[pkgconfig.Size]
-
-	// ownsLimiters is true only for validators constructed by NewRequestValidatorFromLimitsFactory.
-	// Callers that inject shared limiters (for example the OCR vault plugin config) must close
-	// those limiters themselves and must not rely on RequestValidator.Close().
-	ownsLimiters bool
 }
 
 func (r *RequestValidator) ValidateCreateSecretsRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, request *vaultcommon.CreateSecretsRequest, skipLabelValidation bool) error {
@@ -226,6 +221,17 @@ func (r *RequestValidator) ValidateDeleteSecretsRequest(ctx context.Context, req
 	return nil
 }
 
+func (r *RequestValidator) CheckRequestBatchSize(ctx context.Context, batchSize int) error {
+	if err := r.MaxRequestBatchSizeLimiter.Check(ctx, batchSize); err != nil {
+		var errBoundLimited limits.ErrorBoundLimited[int]
+		if errors.As(err, &errBoundLimited) {
+			return fmt.Errorf("max batch size exceeded for request: %w", err)
+		}
+		return errors.New("failed to check batch size")
+	}
+	return nil
+}
+
 func NewRequestValidator(
 	maxRequestBatchSizeLimiter limits.BoundLimiter[int],
 	maxCiphertextLengthLimiter limits.BoundLimiter[pkgconfig.Size],
@@ -242,12 +248,8 @@ func NewRequestValidator(
 	}
 }
 
-// Close releases limiter resources when this validator owns them.
-// It is a no-op for validators built with NewRequestValidator using externally managed limiters.
+// Close releases validator limiter resources.
 func (r *RequestValidator) Close() error {
-	if r == nil || !r.ownsLimiters {
-		return nil
-	}
 	return errors.Join(
 		r.MaxRequestBatchSizeLimiter.Close(),
 		r.MaxCiphertextLengthLimiter.Close(),
@@ -280,7 +282,6 @@ func NewRequestValidatorFromLimitsFactory(limitsFactory limits.Factory) (*Reques
 		return nil, fmt.Errorf("could not create identifier namespace size limiter: %w", err)
 	}
 	validator := NewRequestValidator(limiter, ciphertextLimiter, idKeyLengthLimiter, idOwnerLengthLimiter, idNamespaceLengthLimiter)
-	validator.ownsLimiters = true
 	return validator, nil
 }
 

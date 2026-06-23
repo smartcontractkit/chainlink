@@ -1014,29 +1014,33 @@ func TestRequestValidator_PreservesEmptyNamespaceOnStructs(t *testing.T) {
 	})
 }
 
-func TestRequestValidator_Close_SkipsInjectedLimiters(t *testing.T) {
+func TestRequestValidator_Close(t *testing.T) {
 	t.Parallel()
 
-	batchLimiter := limits.NewUpperBoundLimiter(10)
-	validator := NewRequestValidator(
-		batchLimiter,
-		limits.NewUpperBoundLimiter(1024*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
-		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
-	)
+	t.Run("factory limiters", func(t *testing.T) {
+		t.Parallel()
 
-	require.NoError(t, validator.Close())
-	require.NoError(t, batchLimiter.Check(t.Context(), 1))
-}
+		validator, err := NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
+		require.NoError(t, err)
 
-func TestRequestValidator_Close_OwnsFactoryLimiters(t *testing.T) {
-	t.Parallel()
+		require.NoError(t, validator.Close())
+		_, err = validator.MaxRequestBatchSizeLimiter.Limit(t.Context())
+		require.Error(t, err)
+	})
 
-	validator, err := NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
-	require.NoError(t, err)
+	t.Run("injected limiters", func(t *testing.T) {
+		t.Parallel()
 
-	require.NoError(t, validator.Close())
-	_, err = validator.MaxRequestBatchSizeLimiter.Limit(t.Context())
-	require.Error(t, err)
+		batchLimiter := limits.NewUpperBoundLimiter(10)
+		validator := NewRequestValidator(
+			batchLimiter,
+			limits.NewUpperBoundLimiter(1024*pkgconfig.Byte),
+			limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+			limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+			limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		)
+
+		require.NoError(t, validator.Close())
+		require.Error(t, batchLimiter.Check(t.Context(), 1))
+	})
 }
