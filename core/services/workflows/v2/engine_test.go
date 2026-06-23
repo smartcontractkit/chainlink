@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 	"sync"
 	"testing"
@@ -2862,9 +2863,7 @@ func (t *trackingBeholderEmitter) WithMapLabels(labels map[string]string) custms
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	for k, v := range labels {
-		t.labels[k] = v
-	}
+	maps.Copy(t.labels, labels)
 
 	return t
 }
@@ -2888,9 +2887,7 @@ func (t *trackingBeholderEmitter) GetLatestLabels() map[string]string {
 
 	// Return a copy to avoid race conditions
 	result := make(map[string]string, len(t.labels))
-	for k, v := range t.labels {
-		result[k] = v
-	}
+	maps.Copy(result, t.labels)
 	return result
 }
 

@@ -797,7 +797,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 			}
 			return
 		case shardownership.DenyNotOwner:
-			logFields := []interface{}{
+			logFields := []any{
 				"executionID", executionID,
 				"myShardID", e.cfg.MyShardID,
 				"routingStateId", mapResp.GetRoutingStateId(),
@@ -1178,7 +1178,7 @@ func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents
 	e.logger().Debugw("Listening for user logs ...")
 	count := 0
 	defer func() { e.logger().Debugw("Listening for user logs done.", "processedLogLines", count) }()
-	
+
 	for logLine := range userLogChan {
 		if e.cfg.DebugMode {
 			e.logger().Debugf("User log: <<<%s>>>, local node timestamp: %s", logLine.Message, logLine.NodeTimestamp)
