@@ -164,7 +164,7 @@ func SetupNodeOCR2(
 		}
 
 		c.EVM[0].Nodes = toml.EVMNodes{nodeConfig}
-		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
 		c.EVM[0].Transactions.ForwardersEnabled = &useForwarder
 	})
 
@@ -281,7 +281,7 @@ fromBlock = %d
 `, ocrContractAddress, blockNum)
 			})
 
-			tick := time.NewTicker(1 * time.Second)
+			tick := time.NewTicker(100 * time.Millisecond)
 			defer tick.Stop()
 			go func() {
 				for range tick.C {
@@ -496,7 +496,7 @@ observationSource  = """
     ds1_multiply [type=multiply times=%d];
 
     // data source 2
-    ds2          [type=http method=GET url="%s"];
+    ds2          [type=http method=GET url="%s" timeout="2s"];
     ds2_parse    [type=jsonparse path="data"];
     ds2_multiply [type=multiply times=%d];
 
@@ -519,7 +519,7 @@ juelsPerFeeCoinSource = """
 		ds1_multiply [type=multiply times=%d];
 
 		// data source 2
-		ds2          [type=http method=GET url="%s"];
+		ds2          [type=http method=GET url="%s" timeout="2s"];
 		ds2_parse    [type=jsonparse path="data"];
 		ds2_multiply [type=multiply times=%d];
 

@@ -95,7 +95,7 @@ chainID 			= 1337
 `, ocrContractAddress)
 	})
 
-	tick := time.NewTicker(1 * time.Second)
+	tick := time.NewTicker(100 * time.Millisecond)
 	defer tick.Stop()
 	go func() {
 		for range tick.C {
@@ -178,7 +178,7 @@ observationSource  = """
     ds1_multiply [type=multiply times=%d];
 
     // data source 2
-    ds2          [type=http method=GET url="%s"];
+    ds2          [type=http method=GET url="%s" timeout="2s"];
     ds2_parse    [type=jsonparse path="data"];
     ds2_multiply [type=multiply times=%d];
 
@@ -197,7 +197,7 @@ juelsPerFeeCoinSource = """
 		ds1_multiply [type=multiply times=%d];
 
 		// data source 2
-		ds2          [type=http method=GET url="%s"];
+		ds2          [type=http method=GET url="%s" timeout="2s"];
 		ds2_parse    [type=jsonparse path="data"];
 		ds2_multiply [type=multiply times=%d];
 
