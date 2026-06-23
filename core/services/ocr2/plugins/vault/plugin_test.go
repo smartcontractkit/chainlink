@@ -1843,6 +1843,7 @@ func TestPlugin_Observation_CreateSecretsRequest_DisallowsDuplicateRequests(t *t
 }
 
 func TestPlugin_Observation_GetSecretsRequest_DisallowsDuplicateRequests(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t, withMaxIdentifierLengths(30, 30, 30), withOnchainCfg(4, 1))
 
 	seqNr := uint64(1)

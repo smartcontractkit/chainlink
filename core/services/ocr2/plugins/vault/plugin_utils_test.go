@@ -70,6 +70,7 @@ func TestAppendEncryptedShareEntry(t *testing.T) {
 }
 
 func TestSecretRequestForID(t *testing.T) {
+	t.Parallel()
 	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
 	req := &vaultcommon.GetSecretsRequest{
 		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{"k1"}}},
@@ -86,12 +87,14 @@ func TestSecretRequestForID(t *testing.T) {
 }
 
 func TestValidateGetSecretsShareLabels(t *testing.T) {
+	t.Parallel()
 	secretReq := &vaultcommon.SecretRequest{
 		Id:             &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"},
 		EncryptionKeys: []string{"key-a", "key-b"},
 	}
 
 	t.Run("valid labels", func(t *testing.T) {
+		t.Parallel()
 		err := validateGetSecretsShareLabels(secretReq, &vaultcommon.SecretData{
 			EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
 				{EncryptionKey: "key-a", Shares: []string{"s1"}},
@@ -102,6 +105,7 @@ func TestValidateGetSecretsShareLabels(t *testing.T) {
 	})
 
 	t.Run("bogus label", func(t *testing.T) {
+		t.Parallel()
 		err := validateGetSecretsShareLabels(secretReq, &vaultcommon.SecretData{
 			EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
 				{EncryptionKey: "bogus", Shares: []string{"s1"}},
@@ -112,6 +116,7 @@ func TestValidateGetSecretsShareLabels(t *testing.T) {
 	})
 
 	t.Run("missing label", func(t *testing.T) {
+		t.Parallel()
 		err := validateGetSecretsShareLabels(secretReq, &vaultcommon.SecretData{
 			EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
 				{EncryptionKey: "key-a", Shares: []string{"s1"}},
@@ -122,6 +127,7 @@ func TestValidateGetSecretsShareLabels(t *testing.T) {
 }
 
 func TestStubEncryptedSharesForSHA(t *testing.T) {
+	t.Parallel()
 	stubs := stubEncryptedSharesForSHA([]*vaultcommon.EncryptedShares{
 		{EncryptionKey: "z", Shares: []string{"ignored"}},
 		{EncryptionKey: "a", BinaryShares: [][]byte{{1}}},

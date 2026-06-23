@@ -1385,7 +1385,7 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 
 	idToObs := map[string]*vaultcommon.Observation{}
 	for _, o := range obs.Observations {
-		err := r.validateObservation(ctx, o, pendingGetSecretsByID)
+		err = r.validateObservation(ctx, o, pendingGetSecretsByID)
 		if err != nil {
 			return errors.New("invalid observation: " + err.Error())
 		}

@@ -22,6 +22,7 @@ import (
 )
 
 func TestPlugin_ValidateObservation_GetSecrets_BogusShareLabelRejected(t *testing.T) {
+	t.Parallel()
 	_, vaultPub, vaultShares, err := tdh2easy.GenerateKeys(2, 4)
 	require.NoError(t, err)
 
@@ -58,6 +59,7 @@ func TestPlugin_ValidateObservation_GetSecrets_BogusShareLabelRejected(t *testin
 }
 
 func TestPlugin_ValidateObservation_GetSecrets_EmbeddedRequestMismatchRejected(t *testing.T) {
+	t.Parallel()
 	_, vaultPub, vaultShares, err := tdh2easy.GenerateKeys(2, 4)
 	require.NoError(t, err)
 
@@ -95,6 +97,7 @@ func TestPlugin_ValidateObservation_GetSecrets_EmbeddedRequestMismatchRejected(t
 }
 
 func TestPlugin_ShaForObservation_ShareLabelConsensusFlag(t *testing.T) {
+	t.Parallel()
 	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
 	realKey := strings.Repeat("ab", 32)
 	bogusKey := strings.Repeat("ba", 32)
@@ -144,6 +147,7 @@ func TestPlugin_ShaForObservation_ShareLabelConsensusFlag(t *testing.T) {
 }
 
 func TestPlugin_ShaForObservation_ShareLabelConsensus_PermutedEntryOrder(t *testing.T) {
+	t.Parallel()
 	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
 	keyA := strings.Repeat("aa", 32)
 	keyB := strings.Repeat("bb", 32)
@@ -186,6 +190,7 @@ func TestPlugin_ShaForObservation_ShareLabelConsensus_PermutedEntryOrder(t *test
 }
 
 func TestPlugin_ShaForObservation_ShareLabelConsensus_DifferentShareBytesSameLabels(t *testing.T) {
+	t.Parallel()
 	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
 	encKey := strings.Repeat("ab", 32)
 	req := &vaultcommon.GetSecretsRequest{
@@ -226,6 +231,7 @@ func TestPlugin_ShaForObservation_ShareLabelConsensus_DifferentShareBytesSameLab
 }
 
 func TestPlugin_StateTransition_GetSecretsRequest_ShareLabelConsensus_CombinesShares(t *testing.T) {
+	t.Parallel()
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
