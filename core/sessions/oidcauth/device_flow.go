@@ -112,20 +112,20 @@ func (s *deviceFlowStore) remove(handle string) {
 // closes the double-poll window: two concurrent polls on a completed handle
 // cannot both observe done and both be issued the session cookie; exactly one
 // sees terminal=true, the rest see (nil, false) once it is gone.
-func (s *deviceFlowStore) consumeIfDone(handle string) (sessionID, email string, role clsessions.UserRole, flowErr error, terminal bool, known bool) {
+func (s *deviceFlowStore) consumeIfDone(handle string) (sessionID, email string, role clsessions.UserRole, terminal bool, known bool, flowErr error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	f, ok := s.flows[handle]
 	if !ok {
-		return "", "", "", nil, false, false
+		return "", "", "", false, false, nil
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if !f.done {
-		return "", "", "", nil, false, true
+		return "", "", "", false, true, nil
 	}
 	delete(s.flows, handle)
-	return f.sessionID, f.email, f.role, f.err, true, true
+	return f.sessionID, f.email, f.role, true, true, f.err
 }
 
 // generateDeviceHandle returns a URL-safe 256-bit random handle. It is the only
@@ -263,7 +263,7 @@ func (oi *oidcAuthenticator) handleDevicePoll(c *gin.Context) {
 
 	// Read the terminal result and consume the handle in one critical section
 	// so two concurrent polls cannot both be handed the session cookie.
-	sessionID, email, role, flowErr, terminal, known := oi.deviceFlows.consumeIfDone(req.DeviceHandle)
+	sessionID, email, role, terminal, known, flowErr := oi.deviceFlows.consumeIfDone(req.DeviceHandle)
 	if !known {
 		c.JSON(http.StatusNotFound, DevicePollResponse{Status: "denied", Message: errUnknownDeviceFlow.Error()})
 		return
