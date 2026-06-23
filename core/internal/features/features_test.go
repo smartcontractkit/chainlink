@@ -368,9 +368,8 @@ isBootstrapPeer    = true
 				slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 					time.Sleep(5 * time.Second)
 					res.WriteHeader(http.StatusOK)
-					if _, err := res.Write([]byte(`{"data":10}`)); err != nil {
-						res.WriteHeader(http.StatusInternalServerError)
-					}
+					_, err := res.Write([]byte(`{"data":10}`))
+					assert.NoError(t, err)
 				}))
 				t.Cleanup(slowServers[i].Close)
 				servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -380,7 +379,7 @@ isBootstrapPeer    = true
 						return
 					}
 					var m bridges.BridgeMetaDataJSON
-					if err := json.Unmarshal(b, &m); err != nil {
+					if err = json.Unmarshal(b, &m); err != nil {
 						res.WriteHeader(http.StatusInternalServerError)
 						return
 					}
@@ -390,9 +389,8 @@ isBootstrapPeer    = true
 						metaLock.Unlock()
 					}
 					res.WriteHeader(http.StatusOK)
-					if _, err := res.Write([]byte(`{"data":10}`)); err != nil {
-						res.WriteHeader(http.StatusInternalServerError)
-					}
+					_, err = res.Write([]byte(`{"data":10}`))
+					assert.NoError(t, err)
 				}))
 				t.Cleanup(servers[i].Close)
 				u, _ := url.Parse(servers[i].URL)
@@ -605,9 +603,8 @@ isBootstrapPeer    = true
 			slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 				time.Sleep(5 * time.Second)
 				res.WriteHeader(http.StatusOK)
-				if _, err := res.Write([]byte(`{"data":10}`)); err != nil {
-					res.WriteHeader(http.StatusInternalServerError)
-				}
+				_, err := res.Write([]byte(`{"data":10}`))
+				assert.NoError(t, err)
 			}))
 			t.Cleanup(slowServers[i].Close)
 			servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -617,7 +614,7 @@ isBootstrapPeer    = true
 					return
 				}
 				var m bridges.BridgeMetaDataJSON
-				if err := json.Unmarshal(b, &m); err != nil {
+				if err = json.Unmarshal(b, &m); err != nil {
 					res.WriteHeader(http.StatusInternalServerError)
 					return
 				}
@@ -627,9 +624,8 @@ isBootstrapPeer    = true
 					metaLock.Unlock()
 				}
 				res.WriteHeader(http.StatusOK)
-				if _, err := res.Write([]byte(`{"data":10}`)); err != nil {
-					res.WriteHeader(http.StatusInternalServerError)
-				}
+				_, err = res.Write([]byte(`{"data":10}`))
+				assert.NoError(t, err)
 			}))
 			t.Cleanup(servers[i].Close)
 			u, _ := url.Parse(servers[i].URL)

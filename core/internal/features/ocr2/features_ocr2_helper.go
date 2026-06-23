@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -562,11 +563,15 @@ updateInterval = "1m"
 					ic := i
 					wg.Go(func() {
 						completedRuns, err2 := apps[ic].JobORM().FindPipelineRunIDsByJobID(ctx, jids[ic], 0, 1000)
-						require.NoError(t, err2)
+						if !assert.NoError(t, err2) { //nolint:testifylint // require.NoError inside a goroutine is unsafe
+							return
+						}
 						// Want at least 2 runs so we see all the metadata.
 						pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], len(completedRuns)+2, 7, apps[ic].JobORM(), 2*time.Minute, 100*time.Millisecond)
 						jb, err2 := pr[0].Outputs.MarshalJSON()
-						require.NoError(t, err2)
+						if !assert.NoError(t, err2) { //nolint:testifylint // require.NoError inside a goroutine is unsafe
+							return
+						}
 						assert.Equal(t, fmt.Appendf(nil, "[\"%d\"]", retVal*ic), jb, "pr[0] %+v pr[1] %+v", pr[0], pr[1])
 					})
 				}
@@ -595,17 +600,17 @@ updateInterval = "1m"
 						require.Len(t, j.JobSpecErrors, ignore)
 					}
 				}
-				require.Eventually(t, func() bool {
-					metaLock.Lock()
-					defer metaLock.Unlock()
-					return len(expectedMeta) == 0
-				}, 1*time.Minute, 200*time.Millisecond)
+				em := map[string]struct{}{}
+				metaLock.Lock()
+				maps.Copy(em, expectedMeta)
+				metaLock.Unlock()
+				assert.Empty(t, em, "expected metadata %v", em)
 
 				t.Logf("======= Summary =======")
 				roundID, err2 := ocrContract.LatestRound(nil)
 				require.NoError(t, err2)
-				for i := 0; i <= int(roundID.Int64()); i++ {
-					roundData, err3 := ocrContract.GetRoundData(nil, big.NewInt(int64(i)))
+				for i := range roundID.Int64() {
+					roundData, err3 := ocrContract.GetRoundData(nil, big.NewInt(i))
 					require.NoError(t, err3)
 					t.Logf("RoundId: %d, AnsweredInRound: %d, Answer: %d, StartedAt: %v, UpdatedAt: %v", roundData.RoundId, roundData.AnsweredInRound, roundData.Answer, roundData.StartedAt, roundData.UpdatedAt)
 				}
