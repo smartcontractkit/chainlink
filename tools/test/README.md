@@ -1,11 +1,10 @@
 # /chainlink Test Runner
 
-A Go harness to run unit tests in /chainlink with a simpler flow and control scheme. Plus a mode to help you hunt down flakes, races, and timeouts.
+A Go harness using [testrig](https://github.com/smartcontractkit/testrig) to run unit tests in /chainlink with a simpler flow and control scheme. Plus a mode to help you hunt down flakes, races, and timeouts.
 
 ## Run
 
-The harness resolves `go test` package patterns relative to its working
-directory, so **run it from the repository root**.
+The harness resolves `go test` package patterns relative to its working directory, so **run it from the repository root**.
 
 ### `make test` (recommended)
 
