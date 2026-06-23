@@ -7,30 +7,29 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/freeport"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	httptypedapi "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/http"
 )
 
-// waitForPort polls until the TCP port is reachable or the deadline passes.
+// waitForPort polls until the TCP port is reachable or timeout passes.
 func waitForPort(t *testing.T, port uint16, timeout time.Duration) {
 	t.Helper()
-	addr := fmt.Sprintf("127.0.0.1:%d", port)
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		dialer := &net.Dialer{Timeout: 50 * time.Millisecond}
-		conn, err := dialer.DialContext(context.Background(), "tcp", addr)
-		if err == nil {
+	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(int(port)))
+	dialer := &net.Dialer{Timeout: 50 * time.Millisecond}
+
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		conn, err := dialer.DialContext(t.Context(), "tcp", addr)
+		if assert.NoError(c, err) {
 			_ = conn.Close()
-			return
 		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	t.Fatalf("server on port %d did not become ready within %s", port, timeout)
+	}, timeout, 10*time.Millisecond, "server on port %d did not become ready", port)
 }
 
 // TestListenForTriggerPayload_HappyPath is an integration test that verifies
@@ -39,7 +38,8 @@ func waitForPort(t *testing.T, port uint16, timeout time.Duration) {
 //  2. A valid POST request carrying a signed JWT and a JSON-RPC body is sent.
 //  3. The method returns a Payload whose Input and Key match the request.
 func TestListenForTriggerPayload_HappyPath(t *testing.T) {
-	var port uint16 = 30123
+	t.Parallel()
+	port := uint16(freeport.GetOne(t)) //nolint:gosec // G115: freeport returns valid port range
 	gw := NewLocalGateway(Config{Port: port})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

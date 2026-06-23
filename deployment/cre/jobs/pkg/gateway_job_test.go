@@ -41,6 +41,46 @@ func TestNewDefaultConfidentialRelayHandler(t *testing.T) {
 	assert.Equal(t, confidentialRelayHandlerConfig{RequestTimeoutSec: 14}, got.Config)
 }
 
+func TestGateway_authGatewayIDForNode(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name string
+		job  GatewayJob
+		idx  int
+		want string
+	}{
+		{
+			name: "default prefix",
+			job:  GatewayJob{},
+			idx:  0,
+			want: "gateway-node-0",
+		},
+		{
+			name: "custom prefix",
+			job:  GatewayJob{AuthGatewayIDPrefix: "griddle-node-"},
+			idx:  1,
+			want: "griddle-node-1",
+		},
+		{
+			name: "full ID override",
+			job: GatewayJob{
+				AuthGatewayID:       "legacy-node-0",
+				AuthGatewayIDPrefix: "griddle-node-",
+			},
+			idx:  1,
+			want: "legacy-node-0",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, tc.job.authGatewayIDForNode(tc.idx))
+		})
+	}
+}
+
 const (
 	expected = `type = 'gateway'
 schemaVersion = 1

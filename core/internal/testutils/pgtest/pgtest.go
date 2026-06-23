@@ -43,7 +43,7 @@ SET statement_timeout = '30s';`)
 }
 
 func MustExec(t *testing.T, ds sqlutil.DataSource, stmt string, args ...any) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	require.NoError(t, utils.JustError(ds.ExecContext(ctx, stmt, args...)))
 }
 

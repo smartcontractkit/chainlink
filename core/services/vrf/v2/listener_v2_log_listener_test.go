@@ -70,7 +70,7 @@ func setupVRFLogPollerListenerTH(t *testing.T) *vrfLogPollerListenerTH {
 		keepFinalizedBlocksDepth = 1000
 	)
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	lggr := logger.Test(t)
 	chainID := testutils.NewRandomEVMChainID()
@@ -85,7 +85,7 @@ func setupVRFLogPollerListenerTH(t *testing.T) *vrfLogPollerListenerTH {
 	}, simulated.WithBlockGasLimit(10e6))
 	ec := backend.Client()
 
-	h, err := ec.HeaderByNumber(testutils.Context(t), nil)
+	h, err := ec.HeaderByNumber(t.Context(), nil)
 	require.NoError(t, err)
 	require.LessOrEqual(t, h.Time, uint64(math.MaxInt64))
 	blockTime := time.Unix(int64(h.Time), 0) //nolint:gosec // G115 false positive
@@ -225,10 +225,10 @@ func TestInitProcessedBlock_NoVRFReqs(t *testing.T) {
 	// The poller starts on a new chain at latest-finality (finalityDepth + 5 in this case),
 	// Replaying from block 4 should guarantee we have block 4 immediately.  (We will also get
 	// block 3 once the backup poller runs, since it always starts 100 blocks behind.)
-	require.NoError(t, th.LogPoller.Replay(testutils.Context(t), 4))
+	require.NoError(t, th.LogPoller.Replay(t.Context(), 4))
 
 	// Should return logs from block 5 to 7 (inclusive)
-	logs, err := th.LogPoller.Logs(testutils.Context(t), 4, 7, emitterABI.Events["Log1"].ID, th.EmitterAddress)
+	logs, err := th.LogPoller.Logs(t.Context(), 4, 7, emitterABI.Events["Log1"].ID, th.EmitterAddress)
 	require.NoError(t, err)
 	require.Len(t, logs, 3)
 

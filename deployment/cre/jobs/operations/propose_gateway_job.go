@@ -31,6 +31,7 @@ type ProposeGatewayJobInput struct {
 	AllowedSchemes              []string          `yaml:"allowedSchemes"`
 	AllowedIPsCIDR              []string          `yaml:"allowedIPsCIDR"`
 	AuthGatewayID               string            `yaml:"authGatewayID"`
+	AuthGatewayIDPrefix         string            `yaml:"authGatewayIDPrefix"`
 	GatewayKeyChainSelector     pkg.ChainSelector `yaml:"gatewayKeyChainSelector"`
 	JobLabels                   map[string]string
 }
@@ -183,6 +184,7 @@ func buildServiceCentricJob(deps ProposeGatewayJobDeps, input ProposeGatewayJobI
 		AllowedSchemes:              input.AllowedSchemes,
 		AllowedIPsCIDR:              input.AllowedIPsCIDR,
 		AuthGatewayID:               input.AuthGatewayID,
+		AuthGatewayIDPrefix:         input.AuthGatewayIDPrefix,
 	}, nil
 }
 
