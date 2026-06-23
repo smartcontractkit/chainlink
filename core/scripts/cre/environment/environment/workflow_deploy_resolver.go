@@ -15,6 +15,10 @@ import (
 //
 // workflow_don_resolver.go decides *which* workflow DON is targeted; this file decides
 // *what values* that deploy uses. See workflow.go for container copy vs DON identity flags.
+//
+// Shard index (--shard-index) and nodesets.name (--workflow-don-name) live on
+// workflowDONSelector and are consumed during ResolveWorkflowDONMetadata; they are not
+// UpsertWorkflow inputs. After resolution, donID identifies the shard on chain.
 type workflowDeployTargets struct {
 	donID      uint32 // Capabilities Registry DON ID written into UpsertWorkflow
 	donFamily  string // Workflow registry family; nodes sync workflows registered under this key
