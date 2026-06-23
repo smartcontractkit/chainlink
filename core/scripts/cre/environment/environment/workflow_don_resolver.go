@@ -21,6 +21,7 @@ type workflowDONSelector struct {
 
 // ResolveWorkflowDONMetadata returns the workflow DON metadata from the topology saved by env start.
 //
+// Used by workflow deploy (registry don ID, vault DB polling) and deploy target resolution.
 // Selection priority:
 //  1. --workflow-don-name when set — exact match on nodesets.name.
 //  2. --don-family when set — unique workflow DON with that don_family; use --shard-index when
@@ -37,6 +38,7 @@ func (r *LocalCREStateResolver) ResolveWorkflowDONMetadata(sel workflowDONSelect
 		return nil, errors.New("no workflow DON found in local CRE state")
 	}
 
+	// Explicit nodesets.name always wins — escape hatch for shards and ambiguous families.
 	if name := strings.TrimSpace(sel.ExplicitName); name != "" {
 		for _, wf := range wfDONs {
 			if wf.Name == name {
@@ -50,6 +52,7 @@ func (r *LocalCREStateResolver) ResolveWorkflowDONMetadata(sel workflowDONSelect
 		return resolveWorkflowDONByFamily(wfDONs, family, sel.ShardIndex)
 	}
 
+	// Single-DON CI topologies need no selector flags.
 	if len(wfDONs) == 1 {
 		return wfDONs[0], nil
 	}
@@ -60,6 +63,11 @@ func (r *LocalCREStateResolver) ResolveWorkflowDONMetadata(sel workflowDONSelect
 	)
 }
 
+// resolveWorkflowDONByFamily finds the workflow DON for a don_family CLI value.
+//
+// When shardIndex is non-nil, matches nodesets.shard_index (shard0/shard1 under the same family).
+// When shardIndex is nil, succeeds only if exactly one workflow DON has that family, unless all
+// matches are shard DONs — then --shard-index is required.
 func resolveWorkflowDONByFamily(wfDONs []*cre.DonMetadata, family string, shardIndex *uint) (*cre.DonMetadata, error) {
 	matches := make([]*cre.DonMetadata, 0, 1)
 	for _, wf := range wfDONs {
@@ -72,6 +80,7 @@ func resolveWorkflowDONByFamily(wfDONs []*cre.DonMetadata, family string, shardI
 	}
 
 	if shardIndex != nil {
+		// Narrow to the shard DON when several nodesets share don_family (shard0, shard1, …).
 		filtered := make([]*cre.DonMetadata, 0, 1)
 		for _, wf := range matches {
 			if wf.ShardIndex == *shardIndex {
@@ -101,6 +110,7 @@ func resolveWorkflowDONByFamily(wfDONs []*cre.DonMetadata, family string, shardI
 	case 1:
 		return matches[0], nil
 	default:
+		// e.g. shard0 + shard1 both test-don-family — disambiguate by shard index or name.
 		if workflowDONsAreAllSharded(matches) {
 			return nil, fmt.Errorf(
 				"don_family %q matches multiple shard workflow DONs (%s); set --shard-index or --workflow-don-name",
@@ -108,6 +118,7 @@ func resolveWorkflowDONByFamily(wfDONs []*cre.DonMetadata, family string, shardI
 				strings.Join(workflowDONNames(matches), ", "),
 			)
 		}
+		// Multiple non-shard workflow DONs sharing a family — rare; require explicit name.
 		return nil, fmt.Errorf(
 			"don_family %q matches multiple workflow DONs (%s); set --workflow-don-name",
 			family,
@@ -116,6 +127,7 @@ func resolveWorkflowDONByFamily(wfDONs []*cre.DonMetadata, family string, shardI
 	}
 }
 
+// workflowDONsAreAllSharded reports whether every DON in the list is a shard workflow DON.
 func workflowDONsAreAllSharded(wfDONs []*cre.DonMetadata) bool {
 	for _, wf := range wfDONs {
 		if !wf.IsShardDON() {
@@ -126,10 +138,14 @@ func workflowDONsAreAllSharded(wfDONs []*cre.DonMetadata) bool {
 }
 
 // workflowContainerPatternForDON returns the default docker cp substring for a workflow DON's nodes.
+//
+// Matches how env start names containers: fmt.Sprintf("%s-node%d", nodesets.name, nodeIndex).
+// Substring match covers all nodes in the nodeset (e.g. feeds-zone-a-node matches feeds-zone-a-node0).
 func workflowContainerPatternForDON(don *cre.DonMetadata) string {
 	return don.Name + "-node"
 }
 
+// workflowDONNames extracts nodesets.name values for error messages.
 func workflowDONNames(wfDONs []*cre.DonMetadata) []string {
 	names := make([]string, len(wfDONs))
 	for i, wf := range wfDONs {

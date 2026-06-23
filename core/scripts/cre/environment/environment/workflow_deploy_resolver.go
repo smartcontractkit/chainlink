@@ -71,6 +71,7 @@ func resolveWorkflowDeployTargets(
 	if !cmd.Flags().Changed("don-id") {
 		targets.donID = libc.MustSafeUint32FromUint64(donMeta.ID)
 	}
+	// Infer registry family from the selected DON when --don-family was omitted.
 	if !cmd.Flags().Changed("don-family") && donMeta.DonFamily != "" {
 		targets.donFamily = donMeta.DonFamily
 	}
@@ -81,6 +82,7 @@ func resolveWorkflowDeployTargets(
 	}
 	targets.donFamily = family
 
+	// Family-scoped gateway for vault secret encryption; skip when operator passed --gateway-url.
 	if !cmd.Flags().Changed("gateway-url") {
 		if url, err := resolver.resolveGatewayURL(family); err != nil {
 			return targets, fmt.Errorf("❌ failed to resolve gateway URL for don_family %q: %w", family, err)
@@ -123,6 +125,7 @@ func validateWorkflowDeployFlags(cmd *cobra.Command, donMeta *cre.DonMetadata, s
 	if donMeta.DonFamily == "" {
 		return nil
 	}
+	// CLI don_family must match the selected DON's topology value.
 	if donFamilyFlag != donMeta.DonFamily {
 		return fmt.Errorf(
 			"❌ --don-family %q does not match don_family %q for workflow DON %q in local CRE state",

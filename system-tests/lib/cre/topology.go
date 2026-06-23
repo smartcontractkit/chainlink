@@ -110,6 +110,7 @@ func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs 
 	return topology, nil
 }
 
+// donByName returns DonMetadata for a topology nodesets.name, or nil when unknown.
 func (t *Topology) donByName(name string) *DonMetadata {
 	for _, d := range t.DonsMetadata.List() {
 		if d.Name == name {

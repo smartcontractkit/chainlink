@@ -131,6 +131,7 @@ func (r *LocalCREStateResolver) GatewayURLForDonFamily(donFamily string) (string
 		return "", fmt.Errorf("no gateway connector found for don_family %q", donFamily)
 	}
 
+	// Multi-gateway families (US + EU) share one family key; any connector in the family works for deploy.
 	return r.formatGatewayURL(connectors.Configurations[0])
 }
 
@@ -162,11 +163,13 @@ func (r *LocalCREStateResolver) GatewayURL() (string, error) {
 
 // resolveGatewayURL picks the deploy gateway URL for donFamily.
 //
-// Prefer GatewayURLForDonFamily; fall back to GatewayURL when family lookup fails.
+// Prefer GatewayURLForDonFamily; fall back to GatewayURL when family lookup fails
+// (e.g. gateway-less topology saved in state).
 func (r *LocalCREStateResolver) resolveGatewayURL(donFamily string) (string, error) {
 	if url, err := r.GatewayURLForDonFamily(donFamily); err == nil {
 		return url, nil
 	}
+	// Older state files or gateway-less saves may lack per-family connectors.
 	return r.GatewayURL()
 }
 
@@ -201,9 +204,11 @@ func (r *LocalCREStateResolver) WorkflowDONNodeInfo() (dbPort int, nodeCount int
 	return r.workflowDONNodeInfoFor(donMeta)
 }
 
+// formatGatewayURL builds an external http-actions URL from a gateway connector config.
 func (r *LocalCREStateResolver) formatGatewayURL(cfg *cre.DonGatewayConfiguration) (string, error) {
 	host := cfg.Incoming.Host
 	if host == "" {
+		// Connector TOML may omit host; use infra external gateway from saved env config.
 		if r.cfg.Infra == nil {
 			return "", errors.New("gateway connector has no host and infra section is missing from local CRE state")
 		}
@@ -239,6 +244,7 @@ func (r *LocalCREStateResolver) workflowDONNodeInfoFor(donMeta *cre.DonMetadata)
 	return nodeSet.DbInput.Port, len(workers), nil
 }
 
+// nodeSetForDON looks up the saved env TOML nodeset block for a workflow DON name.
 func (r *LocalCREStateResolver) nodeSetForDON(donName string) (*cre.NodeSet, error) {
 	for _, ns := range r.cfg.NodeSets {
 		if ns.Name == donName {

@@ -161,6 +161,7 @@ func deployWorkflowCmd() *cobra.Command {
 
 			rpcURL := resolveRPCURL(cmd, rpcURLFlag, resolver)
 
+			// Shard index is optional; only meaningful when several shard DONs share a don_family.
 			var shardIndexPtr *uint
 			if cmd.Flags().Changed("shard-index") {
 				shardIndexPtr = &shardIndexFlag
@@ -172,6 +173,7 @@ func deployWorkflowCmd() *cobra.Command {
 				ShardIndex:   shardIndexPtr,
 			}
 
+			// Default docker cp pattern from resolved DON name unless the user set -p explicitly.
 			containerPattern := containerNamePatternFlag
 			if resolver != nil {
 				donMeta, donErr := resolver.ResolveWorkflowDONMetadata(donSelector)

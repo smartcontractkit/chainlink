@@ -27,6 +27,9 @@ type donFamilyPairingState struct {
 	pairs                    []DonFamilyGatewayPair
 }
 
+// initDonFamilyGatewayPairing validates gateway↔workflow don_family wiring when the topology
+// uses http-actions gateway. No-op when RequiresGateway() is false. Sets t.donFamilyPairing
+// used by GatewayConnectorsForDonFamily and GatewayServiceConfigsForDonFamily.
 func (t *Topology) initDonFamilyGatewayPairing() error {
 	if !t.DonsMetadata.RequiresGateway() {
 		return nil
@@ -66,6 +69,7 @@ func (t *Topology) buildDonFamilyPairingState() (*donFamilyPairingState, error) 
 		if d.DonFamily == "" {
 			return nil, fmt.Errorf("gateway DON %q has no don_family; set nodesets.don_family on workflow and gateway nodesets", d.Name)
 		}
+		// A family may have multiple gateway nodesets (e.g. US + EU); all are indexed here.
 		state.gatewayDONNamesByFamily[d.DonFamily] = append(state.gatewayDONNamesByFamily[d.DonFamily], d.Name)
 	}
 
@@ -77,6 +81,7 @@ func (t *Topology) buildDonFamilyPairingState() (*donFamilyPairingState, error) 
 			return nil, fmt.Errorf("workflow DON %q is in don_family %q but no gateway DON is defined for that family", wf.Name, wf.DonFamily)
 		}
 		state.workflowDONNamesByFamily[wf.DonFamily] = append(state.workflowDONNamesByFamily[wf.DonFamily], wf.Name)
+		// One workflow DON may pair with every gateway in its family (e.g. multi-gateway US/EU).
 		for _, gwName := range state.gatewayDONNamesByFamily[wf.DonFamily] {
 			state.pairs = append(state.pairs, DonFamilyGatewayPair{
 				DonFamily:       wf.DonFamily,
@@ -125,6 +130,8 @@ func (t *Topology) DonFamilyGatewayPairingSummary() string {
 }
 
 // GatewayConnectorsForDonFamily returns gateway connector configs for workflow node TOML injection.
+//
+// Returns empty when donFamily is unknown or the topology has no gateway pairing state.
 func (t *Topology) GatewayConnectorsForDonFamily(donFamily string) GatewayConnectors {
 	if t.GatewayConnectors == nil || t.donFamilyPairing == nil {
 		return GatewayConnectors{}
@@ -157,6 +164,7 @@ func (t *Topology) GatewayServiceConfigsForDonFamily(donFamily string, services 
 	out := make([]GatewayServiceConfig, len(services))
 	for i, svc := range services {
 		out[i] = svc
+		// Replace global DON list with only workflow nodesets in this family.
 		out[i].DONs = slices.Clone(workflowNames)
 	}
 	return out
