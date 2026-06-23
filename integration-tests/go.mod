@@ -35,7 +35,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260511195239-0f6e1b177fc7
 	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260622160845-86b9f94f3650
 	github.com/smartcontractkit/chainlink-common/keystore v1.2.0
-	github.com/smartcontractkit/chainlink-deployments-framework v0.109.1-0.20260604174622-e26b8cddfa0a
+	github.com/smartcontractkit/chainlink-deployments-framework v0.111.1-0.20260612191326-e31c0ae4cd54
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260618132327-105433c1ac66
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260521215851-3fdbb363496f
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.19.0
@@ -62,6 +62,7 @@ require (
 )
 
 require (
+	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	cosmossdk.io/api v0.7.6 // indirect
 	cosmossdk.io/collections v0.4.0 // indirect
 	cosmossdk.io/core v0.11.0 // indirect
