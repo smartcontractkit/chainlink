@@ -1,6 +1,7 @@
 package environment
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -68,8 +69,8 @@ func resolveWorkflowDeployTargets(
 		return targets, err
 	}
 
-	if err := validateWorkflowDeployFlags(cmd, donMeta, selector, donFamilyFlag); err != nil {
-		return targets, err
+	if validateErr := validateWorkflowDeployFlags(cmd, donMeta, selector, donFamilyFlag); validateErr != nil {
+		return targets, validateErr
 	}
 
 	if !cmd.Flags().Changed("don-id") {
@@ -88,11 +89,11 @@ func resolveWorkflowDeployTargets(
 
 	// Family-scoped gateway for vault secret encryption; skip when operator passed --gateway-url.
 	if !cmd.Flags().Changed("gateway-url") {
-		if url, err := resolver.resolveGatewayURL(family); err != nil {
-			return targets, fmt.Errorf("❌ failed to resolve gateway URL for don_family %q: %w", family, err)
-		} else {
-			targets.gatewayURL = url
+		url, gwErr := resolver.resolveGatewayURL(family)
+		if gwErr != nil {
+			return targets, fmt.Errorf("❌ failed to resolve gateway URL for don_family %q: %w", family, gwErr)
 		}
+		targets.gatewayURL = url
 	}
 
 	return targets, nil
@@ -100,8 +101,8 @@ func resolveWorkflowDeployTargets(
 
 // finalizeWorkflowDonFamily returns the don_family string written to the workflow registry on deploy.
 //
-//   donFamily        — resolved --don-family and/or selected workflow DON metadata; may be "".
-//   requireExplicit  — when true (local CRE state present), empty don_family is an error.
+//	donFamily        — resolved --don-family and/or selected workflow DON metadata; may be "".
+//	requireExplicit  — when true (local CRE state present), empty don_family is an error.
 //
 // When requireExplicit is false and donFamily is empty, returns DefaultDONFamily for deploy
 // without local CRE state. Must match nodesets.don_family from env start when state exists.
@@ -110,7 +111,7 @@ func finalizeWorkflowDonFamily(donFamily string, requireExplicit bool) (string, 
 		return donFamily, nil
 	}
 	if requireExplicit {
-		return "", fmt.Errorf("❌ --don-family is required (set nodesets.don_family in the topology or pass --don-family / --workflow-don-name with local CRE state)")
+		return "", errors.New("❌ --don-family is required (set nodesets.don_family in the topology or pass --don-family / --workflow-don-name with local CRE state)")
 	}
 	return envconfig.DefaultDONFamily, nil
 }

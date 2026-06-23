@@ -195,7 +195,7 @@ func TestDonFamilyForDON(t *testing.T) {
 
 	require.Equal(t, "feeds-zone-a", topology.DonFamilyForDON("feeds-zone-a"))
 	require.Equal(t, "feeds-zone-b", topology.DonFamilyForDON("gateway-zone-b"))
-	require.Equal(t, "", topology.DonFamilyForDON("unknown"))
+	require.Empty(t, topology.DonFamilyForDON("unknown"))
 }
 
 // Topologies without http-action skip pairing validation entirely.

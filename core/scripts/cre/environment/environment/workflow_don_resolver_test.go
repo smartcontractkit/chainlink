@@ -209,7 +209,7 @@ func TestResolveWorkflowDONByFamily(t *testing.T) {
 		{
 			name:       "sharded family with index",
 			family:     envconfig.DefaultDONFamily,
-			shardIndex: uintPtr(1),
+			shardIndex: new(uint(1)),
 			wantName:   "shard1",
 		},
 		{
@@ -225,7 +225,7 @@ func TestResolveWorkflowDONByFamily(t *testing.T) {
 		{
 			name:       "unknown shard index",
 			family:     envconfig.DefaultDONFamily,
-			shardIndex: uintPtr(99),
+			shardIndex: new(uint(99)),
 			wantErr:    "shard_index 99",
 		},
 	}
@@ -275,8 +275,4 @@ func bootstrapDONMetadata() *cre.DonMetadata {
 		Name:          "bootstrap",
 		NodesMetadata: []*cre.NodeMetadata{{Roles: []string{cre.BootstrapNode}}},
 	}
-}
-
-func uintPtr(v uint) *uint {
-	return &v
 }
