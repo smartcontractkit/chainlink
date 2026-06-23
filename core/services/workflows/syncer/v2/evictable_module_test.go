@@ -72,7 +72,7 @@ func newTestEvictableModule(t *testing.T, inner host.ModuleV2, factory ModuleFac
 	return em, store
 }
 
-func TestEvictable_Execute_ContextCanceled(t *testing.T) {
+func TestEvictable_Execute_ContextCanceled(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Start()
 	inner.EXPECT().Close()
@@ -88,7 +88,7 @@ func TestEvictable_Execute_ContextCanceled(t *testing.T) {
 	require.ErrorIs(t, err, context.Canceled)
 }
 
-func TestEvictable_Execute_TryAcquireExhausted(t *testing.T) {
+func TestEvictable_Execute_TryAcquireExhausted(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	prevTryAcquireAttempts := tryAcquireMaxAttempts
 	tryAcquireMaxAttempts = 3
 	t.Cleanup(func() { tryAcquireMaxAttempts = prevTryAcquireAttempts })
@@ -129,7 +129,7 @@ func TestEvictable_Execute_TryAcquireExhausted(t *testing.T) {
 	em.Close()
 }
 
-func TestEvictable_Execute_PinRetriesExhausted(t *testing.T) {
+func TestEvictable_Execute_PinRetriesExhausted(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	prevAttempts := executePinMaxAttempts
 	executePinMaxAttempts = 3
 	t.Cleanup(func() { executePinMaxAttempts = prevAttempts })
@@ -167,7 +167,7 @@ func TestEvictable_Execute_PinRetriesExhausted(t *testing.T) {
 	assert.Equal(t, int32(1), pinExhaustedRecorded.Load())
 }
 
-func TestEvictable_DelegatesToInner(t *testing.T) {
+func TestEvictable_DelegatesToInner(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Start()
 	inner.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil)
@@ -183,7 +183,7 @@ func TestEvictable_DelegatesToInner(t *testing.T) {
 	assert.False(t, em.IsLegacyDAG())
 }
 
-func TestEvictable_LastUsedUpdated(t *testing.T) {
+func TestEvictable_LastUsedUpdated(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil).Times(2)
 	inner.EXPECT().Close()
@@ -205,7 +205,7 @@ func TestEvictable_LastUsedUpdated(t *testing.T) {
 	assert.Greater(t, em.LastUsed(), after1)
 }
 
-func TestEvictable_EvictFreesModule(t *testing.T) {
+func TestEvictable_EvictFreesModule(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	inner := modulemocks.NewModuleV2(t)
 	// Close comes from forceEvictForTest below (simulating GC cleanup);
 	// the production Evict call does not close.
@@ -222,7 +222,7 @@ func TestEvictable_EvictFreesModule(t *testing.T) {
 	em.forceEvictForTest()
 }
 
-func TestEvictable_ReloadFromDisk(t *testing.T) {
+func TestEvictable_ReloadFromDisk(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Close()
 
@@ -251,7 +251,7 @@ func TestEvictable_ReloadFromDisk(t *testing.T) {
 	assert.Equal(t, []byte("fake-binary"), reloadedBinary)
 }
 
-func TestEvictable_ReloadFromDisk_RejectsEngineVersionMismatch(t *testing.T) {
+func TestEvictable_ReloadFromDisk_RejectsEngineVersionMismatch(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Close()
 
@@ -281,7 +281,7 @@ func TestEvictable_ReloadFromDisk_RejectsEngineVersionMismatch(t *testing.T) {
 	assert.False(t, ok, "stale cached binary must be deleted after mismatch")
 }
 
-func TestEvictable_ReloadFromDisk_AcceptsMatchingEngineVersion(t *testing.T) {
+func TestEvictable_ReloadFromDisk_AcceptsMatchingEngineVersion(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Close()
 
@@ -307,7 +307,7 @@ func TestEvictable_ReloadFromDisk_AcceptsMatchingEngineVersion(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestEvictable_ReloadCallsStart(t *testing.T) {
+func TestEvictable_ReloadCallsStart(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Start()
 	inner.EXPECT().Close()
@@ -330,7 +330,7 @@ func TestEvictable_ReloadCallsStart(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestEvictable_ClosePreventsReload(t *testing.T) {
+func TestEvictable_ClosePreventsReload(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Close()
 
@@ -344,7 +344,7 @@ func TestEvictable_ClosePreventsReload(t *testing.T) {
 }
 
 // Ensure that calling evict once ends all concurrent execution attempts
-func TestEvictable_ConcurrentExecuteDuringEvict(t *testing.T) {
+func TestEvictable_ConcurrentExecuteDuringEvict(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Close()
 	inner.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).
@@ -365,19 +365,15 @@ func TestEvictable_ConcurrentExecuteDuringEvict(t *testing.T) {
 
 	var wg sync.WaitGroup
 	execErrs := make(chan error, 5)
-	for i := 0; i < 5; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 5 {
+		wg.Go(func() {
 			_, err := em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
 			execErrs <- err
-		}()
+		})
 	}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		em.Evict()
-	}()
+	})
 	wg.Wait()
 	close(execErrs)
 	for err := range execErrs {
@@ -385,7 +381,7 @@ func TestEvictable_ConcurrentExecuteDuringEvict(t *testing.T) {
 	}
 }
 
-func TestEvictable_EvictDoesNotWaitForExecution(t *testing.T) {
+func TestEvictable_EvictDoesNotWaitForExecution(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	var executing atomic.Bool
 	var closeCalled atomic.Bool
 	executeStarted := make(chan struct{})
@@ -446,7 +442,7 @@ func TestEvictable_EvictDoesNotWaitForExecution(t *testing.T) {
 	assert.True(t, closeCalled.Load(), "close still releases module ownership")
 }
 
-func TestEvictable_NewExecuteUsesExistingModuleWhenEvictSkipped(t *testing.T) {
+func TestEvictable_NewExecuteUsesExistingModuleWhenEvictSkipped(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	firstExecuteStarted := make(chan struct{})
 	releaseFirstExecute := make(chan struct{})
 	firstExecuteDone := make(chan error, 1)
@@ -518,7 +514,7 @@ func TestEvictable_NewExecuteUsesExistingModuleWhenEvictSkipped(t *testing.T) {
 	assert.True(t, closeCalled.Load(), "Close should eventually release module ownership")
 }
 
-func TestLRU_FrequentReapSkipsPinnedModuleAndEvictsAfterDrain(t *testing.T) {
+func TestLRU_FrequentReapSkipsPinnedModuleAndEvictsAfterDrain(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	clock := clockwork.NewFakeClock()
 	reapTicker := make(chan time.Time, 64)
 	onReaped := make(chan struct{}, 64)
@@ -560,22 +556,20 @@ func TestLRU_FrequentReapSkipsPinnedModuleAndEvictsAfterDrain(t *testing.T) {
 
 	var wg sync.WaitGroup
 	execErrs := make(chan error, concurrentExecs)
-	for i := 0; i < concurrentExecs; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range concurrentExecs {
+		wg.Go(func() {
 			_, err := em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
 			execErrs <- err
-		}()
+		})
 	}
 
-	for i := 0; i < concurrentExecs; i++ {
+	for range concurrentExecs {
 		<-execStarted
 	}
 	require.Equal(t, int32(concurrentExecs), activeExecs.Load(), "all executes must overlap")
 
 	// Keep forcing eviction while work is pinned; all these attempts should be skipped.
-	for i := 0; i < 25; i++ {
+	for range 25 {
 		em.lastUsed.Store(clock.Now().Add(-time.Hour).UnixNano())
 		clock.Advance(time.Second)
 		reapTicker <- clock.Now()
@@ -611,7 +605,7 @@ func TestLRU_FrequentReapSkipsPinnedModuleAndEvictsAfterDrain(t *testing.T) {
 	assert.Equal(t, int32(0), factoryCalls.Load(), "eviction itself should not reload a module")
 }
 
-func TestEvictable_MultipleEvictReloadCycles(t *testing.T) {
+func TestEvictable_MultipleEvictReloadCycles(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	var createCount atomic.Int32
 
 	inner := modulemocks.NewModuleV2(t)
@@ -633,7 +627,7 @@ func TestEvictable_MultipleEvictReloadCycles(t *testing.T) {
 	// Each iteration force-evicts (including L2) so the factory is guaranteed
 	// to run. Without the force, weak resurrection would skip the factory after
 	// the first cycle.
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		em.forceEvictForTest()
 		assert.False(t, em.IsLoaded())
 
@@ -647,7 +641,7 @@ func TestEvictable_MultipleEvictReloadCycles(t *testing.T) {
 	em.Close()
 }
 
-func TestEvictable_ReloadFailure(t *testing.T) {
+func TestEvictable_ReloadFailure(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Close()
 
@@ -706,8 +700,7 @@ func triggerLRUReap(t *testing.T, clock *clockwork.FakeClock, reap chan time.Tim
 	<-done
 }
 
-func TestLRU_AtCapacity_noEvictionUntilOver(t *testing.T) {
-	t.Parallel()
+func TestLRU_AtCapacity_noEvictionUntilOver(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	clock, lru, reap, done := newTestLRU(t, 2)
 
 	store, err := artifacts.NewFileModuleStore(t.TempDir(), false)
@@ -735,8 +728,7 @@ func TestLRU_AtCapacity_noEvictionUntilOver(t *testing.T) {
 	assert.True(t, m3.IsLoaded())
 }
 
-func TestLRU_RecencyBump_changesEvictionVictim(t *testing.T) {
-	t.Parallel()
+func TestLRU_RecencyBump_changesEvictionVictim(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	clock, lru, reap, done := newTestLRU(t, 2)
 
 	store, err := artifacts.NewFileModuleStore(t.TempDir(), false)
@@ -763,7 +755,7 @@ func TestLRU_RecencyBump_changesEvictionVictim(t *testing.T) {
 	assert.True(t, mC.IsLoaded())
 }
 
-func TestLRU_EvictsIdleModule(t *testing.T) {
+func TestLRU_EvictsIdleModule(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	clock := clockwork.NewFakeClock()
 	reapTicker := make(chan time.Time, 1)
 	onReaped := make(chan struct{}, 1)
@@ -788,7 +780,7 @@ func TestLRU_EvictsIdleModule(t *testing.T) {
 	assert.False(t, em.IsLoaded())
 }
 
-func TestLRU_ActiveModuleNotEvicted(t *testing.T) {
+func TestLRU_ActiveModuleNotEvicted(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	clock := clockwork.NewFakeClock()
 	reapTicker := make(chan time.Time, 1)
 	onReaped := make(chan struct{}, 1)
@@ -815,7 +807,7 @@ func TestLRU_ActiveModuleNotEvicted(t *testing.T) {
 	assert.True(t, em.IsLoaded(), "active module should not be evicted")
 }
 
-func TestLRU_MaxLoadedCap(t *testing.T) {
+func TestLRU_MaxLoadedCap(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	clock := clockwork.NewFakeClock()
 	reapTicker := make(chan time.Time, 1)
 	onReaped := make(chan struct{}, 1)
@@ -852,7 +844,7 @@ func TestLRU_MaxLoadedCap(t *testing.T) {
 	assert.True(t, m3.IsLoaded())
 }
 
-func TestLRU_DeregisterStopsTracking(t *testing.T) {
+func TestLRU_DeregisterStopsTracking(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	clock := clockwork.NewFakeClock()
 	reapTicker := make(chan time.Time, 1)
 	onReaped := make(chan struct{}, 1)
@@ -876,7 +868,7 @@ func TestLRU_DeregisterStopsTracking(t *testing.T) {
 	assert.True(t, em.IsLoaded(), "deregistered module should not be evicted by LRU")
 }
 
-func TestLRU_ConcurrentRegisterDeregister(t *testing.T) {
+func TestLRU_ConcurrentRegisterDeregister(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	clock := clockwork.NewFakeClock()
 	lru := NewModuleLRU(clock)
 
@@ -888,7 +880,7 @@ func TestLRU_ConcurrentRegisterDeregister(t *testing.T) {
 		em   *EvictableModule
 	}
 	entries := make([]entry, 20)
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		wfID := string(rune('A' + i))
 		entries[i] = entry{wfID: wfID, em: newLRUModule(t, store, wfID)}
 	}
@@ -909,7 +901,7 @@ func TestLRU_ConcurrentRegisterDeregister(t *testing.T) {
 	assert.Empty(t, lru.modules)
 }
 
-func TestLRU_StartStop(t *testing.T) {
+func TestLRU_StartStop(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	clock := clockwork.NewFakeClock()
 	reapTicker := make(chan time.Time, 1)
 	onReaped := make(chan struct{}, 1)
@@ -929,7 +921,7 @@ func TestLRU_StartStop(t *testing.T) {
 	assert.True(t, em.IsLoaded())
 }
 
-func TestLRU_EmptyScan(t *testing.T) {
+func TestLRU_EmptyScan(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	clock := clockwork.NewFakeClock()
 	reapTicker := make(chan time.Time, 1)
 	onReaped := make(chan struct{}, 1)
@@ -942,7 +934,7 @@ func TestLRU_EmptyScan(t *testing.T) {
 	<-onReaped
 }
 
-func TestLRU_EvictionOrder(t *testing.T) {
+func TestLRU_EvictionOrder(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	clock := clockwork.NewFakeClock()
 	reapTicker := make(chan time.Time, 1)
 	onReaped := make(chan struct{}, 1)
@@ -951,7 +943,7 @@ func TestLRU_EvictionOrder(t *testing.T) {
 	require.NoError(t, err)
 
 	modules := make([]*EvictableModule, 5)
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		wfID := string(rune('A' + i))
 		modules[i] = newLRUModule(t, store, wfID)
 		modules[i].lastUsed.Store(clock.Now().Add(time.Duration(i) * time.Minute).UnixNano())
@@ -981,15 +973,14 @@ func TestLRU_EvictionOrder(t *testing.T) {
 	}
 }
 
-func TestLRU_MaxLoaded_zero_disablesCapEnforcement(t *testing.T) {
-	t.Parallel()
+func TestLRU_MaxLoaded_zero_disablesCapEnforcement(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	clock, lru, reap, done := newTestLRU(t, 0)
 
 	store, err := artifacts.NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 
 	modules := make([]*EvictableModule, 3)
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		wfID := string(rune('A' + i))
 		modules[i] = newLRUModule(t, store, wfID)
 		modules[i].lastUsed.Store(clock.Now().Add(-time.Duration(i+1) * time.Minute).UnixNano())
@@ -1002,8 +993,7 @@ func TestLRU_MaxLoaded_zero_disablesCapEnforcement(t *testing.T) {
 	}
 }
 
-func TestLRU_Register_duplicateWorkflowID_replaces(t *testing.T) {
-	t.Parallel()
+func TestLRU_Register_duplicateWorkflowID_replaces(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	_, lru, _, _ := newTestLRU(t, 10)
 
 	store, err := artifacts.NewFileModuleStore(t.TempDir(), false)
@@ -1021,8 +1011,7 @@ func TestLRU_Register_duplicateWorkflowID_replaces(t *testing.T) {
 	assert.True(t, lru.Contains("wf-1"))
 }
 
-func TestLRU_ConcurrentReapAndRegister(t *testing.T) {
-	t.Parallel()
+func TestLRU_ConcurrentReapAndRegister(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	clock := clockwork.NewFakeClock()
 	reap := make(chan time.Time, 64)
 	done := make(chan struct{}, 64)
@@ -1044,7 +1033,7 @@ func TestLRU_ConcurrentReapAndRegister(t *testing.T) {
 		em   *EvictableModule
 	}
 	entries := make([]entry, workers)
-	for i := 0; i < workers; i++ {
+	for i := range workers {
 		wfID := string(rune('A' + i))
 		entries[i] = entry{wfID: wfID, em: newLRUModule(t, store, wfID)}
 	}
@@ -1071,8 +1060,7 @@ func TestLRU_ConcurrentReapAndRegister(t *testing.T) {
 	assert.Positive(t, n)
 }
 
-func TestEvictable_Execute_L1_hit(t *testing.T) {
-	t.Parallel()
+func TestEvictable_Execute_L1_hit(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Start()
 	inner.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil)
@@ -1093,8 +1081,7 @@ func TestEvictable_Execute_L1_hit(t *testing.T) {
 	assert.Equal(t, int32(0), cs.getModuleCalls.Load(), "L1 hit must not read from disk")
 }
 
-func TestEvictable_Evict_then_reloadWithoutDisk(t *testing.T) {
-	t.Parallel()
+func TestEvictable_Evict_then_reloadWithoutDisk(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil).Once()
 	inner.EXPECT().Close()
@@ -1113,6 +1100,9 @@ func TestEvictable_Evict_then_reloadWithoutDisk(t *testing.T) {
 	em.started.Store(true)
 	t.Cleanup(em.Close)
 
+	// Pin the module on the stack so GC cannot reclaim it after eviction.
+	// This deterministically tests weak reference resurrection.
+	strongRef := em.current.Load()
 	em.Evict()
 	assert.False(t, em.IsLoaded())
 
@@ -1120,10 +1110,12 @@ func TestEvictable_Evict_then_reloadWithoutDisk(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, em.IsLoaded())
 	assert.Equal(t, int32(0), cs.getModuleCalls.Load(), "weak L2 reload must not touch disk")
+
+	// Force the compiler to keep strongRef alive until this exact point.
+	runtime.KeepAlive(strongRef)
 }
 
-func TestEvictable_emptyWorkflowID_diskMiss(t *testing.T) {
-	t.Parallel()
+func TestEvictable_emptyWorkflowID_diskMiss(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	store, err := artifacts.NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 
@@ -1141,7 +1133,7 @@ func TestEvictable_emptyWorkflowID_diskMiss(t *testing.T) {
 // TestEvictable_WeakRefHitAfterEvict verifies that Evict drops only the strong
 // reference and a subsequent Execute resurrects the still-live compiled module
 // via the weak L2, skipping both disk I/O and the factory.
-func TestEvictable_WeakRefHitAfterEvict(t *testing.T) {
+func TestEvictable_WeakRefHitAfterEvict(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil)
 	inner.EXPECT().Close()
@@ -1160,18 +1152,24 @@ func TestEvictable_WeakRefHitAfterEvict(t *testing.T) {
 	em.started.Store(true)
 	t.Cleanup(em.Close)
 
+	// Pin the module on the stack so GC cannot reclaim it after eviction.
+	// This deterministically tests weak reference resurrection.
+	strongRef := em.current.Load()
 	em.Evict()
 
 	_, err = em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
 	require.NoError(t, err)
 
 	assert.Equal(t, int32(0), cs.getModuleCalls.Load(), "disk should not be accessed when weak module is alive")
+
+	// Force the compiler to keep strongRef alive until this exact point.
+	runtime.KeepAlive(strongRef)
 }
 
 // TestEvictable_WeakRefMissFallsToDisk verifies that when the weak L2 is
 // unreachable (GC has reclaimed the holder, simulated via forceEvictForTest),
 // ensureLoaded falls through to disk and invokes the factory.
-func TestEvictable_WeakRefMissFallsToDisk(t *testing.T) {
+func TestEvictable_WeakRefMissFallsToDisk(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Close()
 
@@ -1206,7 +1204,7 @@ func TestEvictable_WeakRefMissFallsToDisk(t *testing.T) {
 
 // TestEvictable_WeakRefPopulatedAfterReload verifies that a disk reload
 // populates weakInner, so a second evict+execute cycle hits the weak L2.
-func TestEvictable_WeakRefPopulatedAfterReload(t *testing.T) {
+func TestEvictable_WeakRefPopulatedAfterReload(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Close()
 
@@ -1256,7 +1254,7 @@ func TestEvictable_WeakRefPopulatedAfterReload(t *testing.T) {
 // TestEvictable_WeakRefClearedOnForceEvict proves that forceEvictForTest (the
 // GC-pressure simulation) genuinely clears the weak pointer — a sanity check
 // for the other weak-ref tests.
-func TestEvictable_WeakRefClearedOnForceEvict(t *testing.T) {
+func TestEvictable_WeakRefClearedOnForceEvict(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Close()
 
@@ -1276,7 +1274,7 @@ func TestEvictable_WeakRefClearedOnForceEvict(t *testing.T) {
 // GC-eligible and runtime.AddCleanup must eventually invoke mod.Close. This
 // is the only path that reclaims wasm runtime resources in production
 // (forceEvictForTest exists solely as a deterministic test hook).
-func TestEvictable_GCFiresCloseAfterEvict(t *testing.T) {
+func TestEvictable_GCFiresCloseAfterEvict(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	fake := &fakeModule{}
 
 	em, _ := newTestEvictableModule(t, fake, nil)
@@ -1303,7 +1301,7 @@ func TestEvictable_GCFiresCloseAfterEvict(t *testing.T) {
 
 // --- Metrics integration tests ---
 
-func TestEvictable_ReloadSourceMetric(t *testing.T) {
+func TestEvictable_ReloadSourceMetric(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	cm, err := NewCacheMetrics()
 	require.NoError(t, err)
 
@@ -1333,7 +1331,7 @@ func TestEvictable_ReloadSourceMetric(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestLRU_EvictionMetric(t *testing.T) {
+func TestLRU_EvictionMetric(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	cm, err := NewCacheMetrics()
 	require.NoError(t, err)
 
@@ -1366,7 +1364,7 @@ func TestLRU_EvictionMetric(t *testing.T) {
 	assert.False(t, em.IsLoaded())
 }
 
-func TestEvictable_BinarySizeTracked(t *testing.T) {
+func TestEvictable_BinarySizeTracked(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Close()
 
@@ -1398,7 +1396,7 @@ func TestEvictable_BinarySizeTracked(t *testing.T) {
 	t.Cleanup(em.Close)
 }
 
-func TestLRU_MemorySavedMetric(t *testing.T) {
+func TestLRU_MemorySavedMetric(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	prevHook := reapMemorySavedHook
 	var observed []int64
 	reapMemorySavedHook = func(b int64) { observed = append(observed, b) }
@@ -1444,7 +1442,7 @@ func TestLRU_MemorySavedMetric(t *testing.T) {
 	require.Equal(t, []int64{3072}, observed)
 }
 
-func TestLRU_ReapMemorySavedBytesNotCumulative(t *testing.T) {
+func TestLRU_ReapMemorySavedBytesNotCumulative(t *testing.T) { //nolint:paralleltest // package-level hooks and eviction config
 	prevHook := reapMemorySavedHook
 	var observed []int64
 	reapMemorySavedHook = func(b int64) { observed = append(observed, b) }

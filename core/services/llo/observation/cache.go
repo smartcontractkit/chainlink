@@ -104,9 +104,7 @@ func NewCache(cleanupInterval time.Duration) *Cache {
 	go c.updateMetrics()
 
 	if cleanupInterval > 0 {
-		c.wg.Add(1)
-		go func() {
-			defer c.wg.Done()
+		c.wg.Go(func() {
 			ticker := time.NewTicker(cleanupInterval)
 			defer ticker.Stop()
 			for {
@@ -117,7 +115,7 @@ func NewCache(cleanupInterval time.Duration) *Cache {
 					return
 				}
 			}
-		}()
+		})
 	}
 
 	return c

@@ -15,7 +15,7 @@ const (
 	// WorkflowExecutionFinished represents a workflow execution finished event
 	WorkflowExecutionFinished string = "WorkflowExecutionFinished"
 	// WorkflowExecutionProfile represents an aggregated workflow execution profile event
-	WorkflowExecutionProfile string = "WorkflowExecutionProfile"
+	WorkflowExecutionProfile string = "ExecutionProfile"
 	// CapabilityExecutionStarted represents a capability execution started event
 	CapabilityExecutionStarted string = "CapabilityExecutionStarted"
 	// CapabilityExecutionFinished represents a capability execution finished event

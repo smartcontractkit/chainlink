@@ -111,6 +111,7 @@ func createTestProtoWorkflow(name string, family string) *pb.WorkflowMetadata {
 }
 
 func TestGRPCWorkflowSource_NewGRPCWorkflowSource_EmptyURL(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	_, err := NewGRPCWorkflowSource(lggr, GRPCWorkflowSourceConfig{
@@ -123,6 +124,7 @@ func TestGRPCWorkflowSource_NewGRPCWorkflowSource_EmptyURL(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_NewGRPCWorkflowSource_EmptyName(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	_, err := NewGRPCWorkflowSource(lggr, GRPCWorkflowSourceConfig{
@@ -135,6 +137,7 @@ func TestGRPCWorkflowSource_NewGRPCWorkflowSource_EmptyName(t *testing.T) {
 }
 
 func TestGRPCWorkflowSourceWithClient_EmptyName(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	_, err := NewGRPCWorkflowSourceWithClient(lggr, &mockGRPCClient{}, GRPCWorkflowSourceConfig{
@@ -146,6 +149,7 @@ func TestGRPCWorkflowSourceWithClient_EmptyName(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_ListWorkflowMetadata_Success(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
@@ -178,6 +182,7 @@ func TestGRPCWorkflowSource_ListWorkflowMetadata_Success(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_ListWorkflowMetadata_Pagination(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
@@ -210,6 +215,7 @@ func TestGRPCWorkflowSource_ListWorkflowMetadata_Pagination(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_ListWorkflowMetadata_InvalidWorkflow(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
@@ -245,6 +251,7 @@ func TestGRPCWorkflowSource_ListWorkflowMetadata_InvalidWorkflow(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_Retry_Unavailable(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
@@ -282,6 +289,7 @@ func TestGRPCWorkflowSource_Retry_Unavailable(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_Retry_ResourceExhausted(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
@@ -314,6 +322,7 @@ func TestGRPCWorkflowSource_Retry_ResourceExhausted(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_Retry_MaxExceeded(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
@@ -341,6 +350,7 @@ func TestGRPCWorkflowSource_Retry_MaxExceeded(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_Retry_NonRetryable(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
@@ -366,6 +376,7 @@ func TestGRPCWorkflowSource_Retry_NonRetryable(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_Backoff_Jitter(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	source, err := NewGRPCWorkflowSourceWithClient(lggr, &mockGRPCClient{}, GRPCWorkflowSourceConfig{
@@ -395,6 +406,7 @@ func TestGRPCWorkflowSource_Backoff_Jitter(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_ContextCancellation(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx, cancel := context.WithCancel(t.Context())
 
@@ -427,6 +439,7 @@ func TestGRPCWorkflowSource_ContextCancellation(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_ConfigDefaults(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	// Name is required, but other config options have defaults
@@ -444,6 +457,7 @@ func TestGRPCWorkflowSource_ConfigDefaults(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_Ready(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	source, err := NewGRPCWorkflowSourceWithClient(lggr, &mockGRPCClient{}, GRPCWorkflowSourceConfig{
@@ -461,6 +475,7 @@ func TestGRPCWorkflowSource_Ready(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_ListWorkflowMetadata_NotReady(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
@@ -484,6 +499,7 @@ func TestGRPCWorkflowSource_ListWorkflowMetadata_NotReady(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_Close(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	mockClient := &mockGRPCClient{}
@@ -507,6 +523,7 @@ func TestGRPCWorkflowSource_Close(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_Name(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	source, err := NewGRPCWorkflowSourceWithClient(lggr, &mockGRPCClient{}, GRPCWorkflowSourceConfig{
@@ -518,6 +535,7 @@ func TestGRPCWorkflowSource_Name(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_Name_Required(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	// Empty name should return an error
@@ -527,6 +545,7 @@ func TestGRPCWorkflowSource_Name_Required(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_syntheticHead(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	source, err := NewGRPCWorkflowSourceWithClient(lggr, &mockGRPCClient{}, GRPCWorkflowSourceConfig{

@@ -11,7 +11,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	evmcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
 	solcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/solana"
+	stellarcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/stellar"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 )
 
@@ -32,6 +34,44 @@ func TestWriteReportExcludeSignaturesHasher_Hash(t *testing.T) {
 	require.NotEqual(t, hash1a, hash2) // different data, same signatures
 }
 
+func TestWriteReportExcludeSignaturesHasher_Hash_Stellar(t *testing.T) {
+	t.Parallel()
+	req1a := getStellarRequest(t, []byte("testdata"), [][]byte{[]byte("sig1"), []byte("sig2")})
+	req1b := getStellarRequest(t, []byte("testdata"), [][]byte{[]byte("sig3"), []byte("sig4")})
+	req2 := getStellarRequest(t, []byte("otherdata"), [][]byte{[]byte("sig1"), []byte("sig2")})
+
+	hasher := NewWriteReportExcludeSignaturesHasher()
+	hash1a, err := hasher.Hash(req1a)
+	require.NoError(t, err)
+	hash1b, err := hasher.Hash(req1b)
+	require.NoError(t, err)
+	hash2, err := hasher.Hash(req2)
+	require.NoError(t, err)
+
+	require.Equal(t, hash1a, hash1b)   // same data, different signatures
+	require.NotEqual(t, hash1a, hash2) // different data, same signatures
+}
+
+func getStellarRequest(t *testing.T, rawReport []byte, sigs [][]byte) *types.MessageBody {
+	attributedSigs := make([]*sdk.AttributedSignature, len(sigs))
+	for i, s := range sigs {
+		attributedSigs[i] = &sdk.AttributedSignature{Signature: s, SignerId: uint32(i)}
+	}
+	wrReq := &stellarcappb.WriteReportRequest{
+		ContractId: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+		Report: &sdk.ReportResponse{
+			RawReport: rawReport,
+			Sigs:      attributedSigs,
+		},
+	}
+	payload, err := anypb.New(wrReq)
+	require.NoError(t, err)
+	capReq := capabilities.CapabilityRequest{Payload: payload}
+	capReqBytes, err := pb.MarshalCapabilityRequest(capReq)
+	require.NoError(t, err)
+	return &types.MessageBody{Payload: capReqBytes, CapabilityId: "stellar:123"}
+}
+
 func TestWriteReportExcludeSignaturesHasher_Hash_NilPayload(t *testing.T) {
 	nilReq := capabilities.CapabilityRequest{Payload: nil}
 	nilReqBytes, err := pb.MarshalCapabilityRequest(nilReq)
@@ -48,6 +88,7 @@ func TestWriteReportExcludeSignaturesHasher_Hash_NilPayload(t *testing.T) {
 func TestWriteReportExcludeSignaturesHasher_Hash_NilReport(t *testing.T) {
 	nilReq := &evmcappb.WriteReportRequest{Report: nil}
 	nilReqSol := &solcappb.WriteReportRequest{Report: nil}
+	nilReqStellar := &stellarcappb.WriteReportRequest{Report: nil}
 	nilPb, err := anypb.New(nilReq)
 	require.NoError(t, err)
 	nilPbSol, err2 := anypb.New(nilReqSol)
@@ -58,8 +99,17 @@ func TestWriteReportExcludeSignaturesHasher_Hash_NilReport(t *testing.T) {
 	capReqSol := capabilities.CapabilityRequest{Payload: nilPbSol}
 	capReqBytesSol, err4 := pb.MarshalCapabilityRequest(capReqSol)
 	require.NoError(t, err4)
+	nilPbStellar, err5 := anypb.New(nilReqStellar)
+	require.NoError(t, err5)
+	capReqStellar := capabilities.CapabilityRequest{Payload: nilPbStellar}
+	capReqBytesStellar, err6 := pb.MarshalCapabilityRequest(capReqStellar)
+	require.NoError(t, err6)
 
-	msgBodies := []*types.MessageBody{{Payload: capReqBytes, CapabilityId: "evm:123"}, {Payload: capReqBytesSol, CapabilityId: "solana:123"}}
+	msgBodies := []*types.MessageBody{
+		{Payload: capReqBytes, CapabilityId: "evm:123"},
+		{Payload: capReqBytesSol, CapabilityId: "solana:123"},
+		{Payload: capReqBytesStellar, CapabilityId: "stellar:123"},
+	}
 	for _, msgBody := range msgBodies {
 		hasher := NewWriteReportExcludeSignaturesHasher()
 		_, err = hasher.Hash(msgBody)

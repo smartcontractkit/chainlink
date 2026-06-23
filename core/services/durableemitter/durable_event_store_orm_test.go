@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
@@ -74,8 +73,8 @@ func TestPgDurableEventStore_ListPending_RespectsLimit(t *testing.T) {
 	ctx := t.Context()
 	store := durableemitter.NewPgDurableEventStore(db)
 
-	for i := 0; i < 20; i++ {
-		_, err := store.Insert(ctx, []byte(fmt.Sprintf("event-%d", i)))
+	for i := range 20 {
+		_, err := store.Insert(ctx, fmt.Appendf(nil, "event-%d", i))
 		require.NoError(t, err)
 	}
 
@@ -107,7 +106,7 @@ func TestPgDurableEventStore_DeleteExpired(t *testing.T) {
 func TestPgDurableEventStore_ObserveDurableQueue(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	truncateChipDurableEvents(t, db)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	store := durableemitter.NewPgDurableEventStore(db)
 
 	st, err := store.ObserveDurableQueue(ctx, time.Hour, time.Minute)
@@ -126,7 +125,7 @@ func TestPgDurableEventStore_ObserveDurableQueue(t *testing.T) {
 func TestPgDurableEventStore_MarkDeliveredAndPurgeDelivered(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	truncateChipDurableEvents(t, db)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	store := durableemitter.NewPgDurableEventStore(db)
 
 	id, err := store.Insert(ctx, []byte("payload"))

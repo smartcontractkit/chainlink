@@ -15,6 +15,7 @@ type GeneralConfig interface {
 	TronConfigs() RawConfigs
 	TONConfigs() RawConfigs
 	SuiConfigs() RawConfigs
+	StellarConfigs() RawConfigs
 	// ConfigTOML returns both the user provided and effective configuration as TOML.
 	ConfigTOML() (user, effective string)
 	ImportedSecretConfig

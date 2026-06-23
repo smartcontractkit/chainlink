@@ -103,12 +103,25 @@ func (h *httpTriggerHandler) HandleUserTriggerRequest(ctx context.Context, req *
 		return err
 	}
 
-	executionID, err := workflows.EncodeExecutionID(strings.TrimPrefix(workflowID, "0x"), req.ID)
+	strippedWorkflowID := strings.TrimPrefix(workflowID, "0x")
+	legacyExecutionID, err := workflows.EncodeExecutionID(strippedWorkflowID, req.ID) //nolint:staticcheck // legacy ID kept for observability comparison
 	if err != nil {
 		h.handleUserError(ctx, req.ID, jsonrpc.ErrInternal, internalErrorMessage, callback)
 		return errors.New("error generating execution ID: " + err.Error())
 	}
-	h.lggr.Debugw("processing request", "executionID", executionID, "requestID", req.ID, "workflowID", workflowID)
+	// Workflows shouldn't use more than one HTTP trigger. If we ever need to support multiple triggers, we'd need to pass
+	// trigger index to the Gateway handler and somehow allow senders to pick. For now, we use trigger index 0.
+	// Execution IDs here are used only for logging.
+	executionIDWithTriggerIndex, err := workflows.GenerateExecutionIDWithTriggerIndex(strippedWorkflowID, req.ID, 0)
+	if err != nil {
+		h.handleUserError(ctx, req.ID, jsonrpc.ErrInternal, internalErrorMessage, callback)
+		return errors.New("error generating execution ID with trigger index: " + err.Error())
+	}
+	h.lggr.Debugw("processing request",
+		"legacyExecutionID", legacyExecutionID,
+		"executionIDWithTriggerIndex", executionIDWithTriggerIndex,
+		"requestID", req.ID,
+		"workflowID", workflowID)
 
 	reqWithKey, err := reqWithAuthorizedKey(triggerReq, *key)
 	if err != nil {
@@ -121,7 +134,7 @@ func (h *httpTriggerHandler) HandleUserTriggerRequest(ctx context.Context, req *
 		return err
 	}
 
-	return h.sendWithRetries(ctx, executionID, reqWithKey, doneCh)
+	return h.sendWithRetries(ctx, legacyExecutionID, executionIDWithTriggerIndex, reqWithKey, doneCh)
 }
 
 func (h *httpTriggerHandler) validatedTriggerRequest(ctx context.Context, req *jsonrpc.Request[json.RawMessage], callback handlers.Callback) (*jsonrpc.Request[gateway_common.HTTPTriggerRequest], error) {
@@ -549,7 +562,7 @@ func (h *httpTriggerHandler) handleUserError(ctx context.Context, requestID stri
 // sendWithRetries attempts to send the request to all DON members,
 // retrying failed nodes until either all succeed or the max trigger request duration is reached.
 // doneCh is closed when the callback has been responded to (quorum reached), allowing immediate termination.
-func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, executionID string, req *jsonrpc.Request[json.RawMessage], doneCh <-chan struct{}) error {
+func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, legacyExecutionID, executionIDWithTriggerIndex string, req *jsonrpc.Request[json.RawMessage], doneCh <-chan struct{}) error {
 	if doneCh == nil {
 		return errors.New("doneCh cannot be nil")
 	}
@@ -584,7 +597,8 @@ func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, executionID st
 				err = errors.Join(combinedErr, err)
 				h.lggr.Debugw("Failed to send trigger request to node, will retry",
 					"node", member.Address,
-					"executionID", executionID,
+					"legacyExecutionID", legacyExecutionID,
+					"executionIDWithTriggerIndex", executionIDWithTriggerIndex,
 					"error", err)
 			} else {
 				// Mark this node as successful
@@ -594,21 +608,24 @@ func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, executionID st
 
 		if allNodesSucceeded {
 			h.lggr.Infow("Successfully sent trigger request to all nodes",
-				"executionID", executionID,
+				"legacyExecutionID", legacyExecutionID,
+				"executionIDWithTriggerIndex", executionIDWithTriggerIndex,
 				"nodeCount", len(h.donConfig.Members))
 			return nil
 		}
 
 		// Not all nodes succeeded, wait and retry
 		h.lggr.Debugw("Retrying failed nodes for trigger request",
-			"executionID", executionID,
+			"legacyExecutionID", legacyExecutionID,
+			"executionIDWithTriggerIndex", executionIDWithTriggerIndex,
 			"failedCount", len(h.donConfig.Members)-len(successfulNodes),
 			"errors", combinedErr)
 
 		select {
 		case <-doneCh:
 			h.lggr.Infow("Callback already responded to, stopping retries",
-				"executionID", executionID,
+				"legacyExecutionID", legacyExecutionID,
+				"executionIDWithTriggerIndex", executionIDWithTriggerIndex,
 				"requestID", req.ID,
 				"successNodes", len(successfulNodes),
 				"totalNodes", len(h.donConfig.Members))
@@ -616,8 +633,8 @@ func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, executionID st
 		case <-time.After(b.Duration()):
 			continue
 		case <-ctxWithTimeout.Done():
-			return fmt.Errorf("request retry time exceeded, some nodes may not have received the request: executionID=%s, successNodes=%d, totalNodes=%d",
-				executionID, len(successfulNodes), len(h.donConfig.Members))
+			return fmt.Errorf("request retry time exceeded, some nodes may not have received the request: legacyExecutionID=%s, executionIDWithTriggerIndex=%s, successNodes=%d, totalNodes=%d",
+				legacyExecutionID, executionIDWithTriggerIndex, len(successfulNodes), len(h.donConfig.Members))
 		}
 	}
 }

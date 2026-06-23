@@ -97,6 +97,7 @@ func createTestWorkflowMetadata(name string, family string) workflow_registry_wr
 }
 
 func TestContractWorkflowSource_ListWorkflowMetadata_Success(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
@@ -134,6 +135,7 @@ func TestContractWorkflowSource_ListWorkflowMetadata_Success(t *testing.T) {
 }
 
 func TestContractWorkflowSource_ListWorkflowMetadata_MultipleDONFamilies(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
@@ -169,6 +171,7 @@ func TestContractWorkflowSource_ListWorkflowMetadata_MultipleDONFamilies(t *test
 }
 
 func TestContractWorkflowSource_ListWorkflowMetadata_NotInitialized(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
@@ -196,6 +199,7 @@ func TestContractWorkflowSource_ListWorkflowMetadata_NotInitialized(t *testing.T
 }
 
 func TestContractWorkflowSource_ListWorkflowMetadata_ContractReaderError(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
@@ -226,6 +230,7 @@ func TestContractWorkflowSource_ListWorkflowMetadata_ContractReaderError(t *test
 }
 
 func TestContractWorkflowSource_ListWorkflowMetadata_EmptyResult(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
@@ -256,6 +261,7 @@ func TestContractWorkflowSource_ListWorkflowMetadata_EmptyResult(t *testing.T) {
 }
 
 func TestContractWorkflowSource_Ready_NotInitialized(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	source := NewContractWorkflowSource(
@@ -273,6 +279,7 @@ func TestContractWorkflowSource_Ready_NotInitialized(t *testing.T) {
 }
 
 func TestContractWorkflowSource_Ready_Initialized(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	mockReader := &mockWorkflowContractReader{}
@@ -292,6 +299,7 @@ func TestContractWorkflowSource_Ready_Initialized(t *testing.T) {
 }
 
 func TestContractWorkflowSource_tryInitialize_Success(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
@@ -318,6 +326,7 @@ func TestContractWorkflowSource_tryInitialize_Success(t *testing.T) {
 }
 
 func TestContractWorkflowSource_tryInitialize_AlreadyInitialized(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
@@ -346,6 +355,7 @@ func TestContractWorkflowSource_tryInitialize_AlreadyInitialized(t *testing.T) {
 }
 
 func TestContractWorkflowSource_tryInitialize_FactoryError(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
@@ -364,6 +374,7 @@ func TestContractWorkflowSource_tryInitialize_FactoryError(t *testing.T) {
 }
 
 func TestContractWorkflowSource_Name(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	source := NewContractWorkflowSource(

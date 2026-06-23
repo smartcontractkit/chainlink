@@ -352,5 +352,14 @@ func generateOracleFactory(cldEnv cldf.Environment, nodeInfo deployment.Node, jo
 		oracleFactory.OnchainSigningStrategy.Config["solana"] = solanaConfig.KeyBundleID
 	}
 
+	if job.ChainSelectorStellar > 0 {
+		stellarConfig, ok := nodeInfo.OCRConfigForChainSelector(uint64(job.ChainSelectorStellar))
+		if !ok {
+			return &pkg.OracleFactory{}, fmt.Errorf("no stellar ocr2 config for node %s", nodeInfo.NodeID)
+		}
+
+		oracleFactory.OnchainSigningStrategy.Config["stellar"] = stellarConfig.KeyBundleID
+	}
+
 	return oracleFactory, nil
 }

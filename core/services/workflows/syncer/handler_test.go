@@ -118,16 +118,16 @@ func newMockDecrypter() *mockDecrypter {
 	}
 }
 
-func Test_Handler(t *testing.T) {
+func Test_Handler(t *testing.T) { //nolint:paralleltest // subtests share wfStore and registry
 	lggr := logger.TestLogger(t)
 	emitter := custmsg.NewLabeler()
 	wfStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 	registry := capabilities.NewRegistry(lggr)
 	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
-	t.Run("success", func(t *testing.T) {
+	t.Run("success", func(t *testing.T) { //nolint:paralleltest // shares wfStore and registry
 		mockORM := mocks.NewORM(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 		require.NoError(t, err)
 		featureFlags, err := v2.NewFeatureFlags(limits.Factory{}, nil)
@@ -168,9 +168,9 @@ func Test_Handler(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("fails with unsupported event type", func(t *testing.T) {
+	t.Run("fails with unsupported event type", func(t *testing.T) { //nolint:paralleltest // shares wfStore and registry
 		mockORM := mocks.NewORM(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 		require.NoError(t, err)
 		featureFlags, err := v2.NewFeatureFlags(limits.Factory{}, nil)
@@ -197,9 +197,9 @@ func Test_Handler(t *testing.T) {
 		require.Contains(t, err.Error(), "event type unsupported")
 	})
 
-	t.Run("fails to get secrets url", func(t *testing.T) {
+	t.Run("fails to get secrets url", func(t *testing.T) { //nolint:paralleltest // shares wfStore and registry
 		mockORM := mocks.NewORM(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 		require.NoError(t, err)
 		featureFlags, err := v2.NewFeatureFlags(limits.Factory{}, nil)
@@ -234,9 +234,9 @@ func Test_Handler(t *testing.T) {
 		require.ErrorContains(t, err, assert.AnError.Error())
 	})
 
-	t.Run("fails to fetch contents", func(t *testing.T) {
+	t.Run("fails to fetch contents", func(t *testing.T) { //nolint:paralleltest // shares wfStore and registry
 		mockORM := mocks.NewORM(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 		require.NoError(t, err)
 		featureFlags, err := v2.NewFeatureFlags(limits.Factory{}, nil)
@@ -274,9 +274,9 @@ func Test_Handler(t *testing.T) {
 		require.ErrorIs(t, err, assert.AnError)
 	})
 
-	t.Run("fails to update secrets", func(t *testing.T) {
+	t.Run("fails to update secrets", func(t *testing.T) { //nolint:paralleltest // shares wfStore and registry
 		mockORM := mocks.NewORM(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 		require.NoError(t, err)
 		featureFlags, err := v2.NewFeatureFlags(limits.Factory{}, nil)
@@ -767,8 +767,9 @@ type testCase struct {
 func testRunningWorkflow(t *testing.T, tc testCase, workflowEncryptionKey workflowkey.Key) {
 	t.Helper()
 	t.Run(tc.Name, func(t *testing.T) {
+		t.Parallel()
 		var (
-			ctx     = testutils.Context(t)
+			ctx     = t.Context()
 			lggr    = logger.TestLogger(t)
 			db      = pgtest.NewSqlxDB(t)
 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
@@ -883,8 +884,9 @@ func Test_workflowDeletedHandler(t *testing.T) {
 	t.Parallel()
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 	t.Run("success deleting existing engine and spec", func(t *testing.T) {
+		t.Parallel()
 		var (
-			ctx          = testutils.Context(t)
+			ctx          = t.Context()
 			lggr         = logger.TestLogger(t)
 			db           = pgtest.NewSqlxDB(t)
 			orm          = artifacts.NewWorkflowRegistryDS(db, lggr)
@@ -973,8 +975,9 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		assert.False(t, ok)
 	})
 	t.Run("success deleting non-existing workflow spec", func(t *testing.T) {
+		t.Parallel()
 		var (
-			ctx          = testutils.Context(t)
+			ctx          = t.Context()
 			lggr         = logger.TestLogger(t)
 			db           = pgtest.NewSqlxDB(t)
 			orm          = artifacts.NewWorkflowRegistryDS(db, lggr)
@@ -1032,8 +1035,9 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.Error(t, err)
 	})
 	t.Run("removes from DB before engine registry", func(t *testing.T) {
+		t.Parallel()
 		var (
-			ctx          = testutils.Context(t)
+			ctx          = t.Context()
 			lggr         = logger.TestLogger(t)
 			db           = pgtest.NewSqlxDB(t)
 			orm          = artifacts.NewWorkflowRegistryDS(db, lggr)
@@ -1129,8 +1133,9 @@ func Test_workflowDeletedHandler(t *testing.T) {
 func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 	t.Parallel()
 	t.Run("success pausing activating and updating existing engine and spec", func(t *testing.T) {
+		t.Parallel()
 		var (
-			ctx          = testutils.Context(t)
+			ctx          = t.Context()
 			lggr         = logger.TestLogger(t)
 			db           = pgtest.NewSqlxDB(t)
 			orm          = artifacts.NewWorkflowRegistryDS(db, lggr)
@@ -1269,7 +1274,7 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 
 func TestEngineFactoryFn_SuccessfulCreation(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 	config := []byte(`{"key": "value"}`)
 
@@ -1321,7 +1326,7 @@ func TestEngineFactoryFn_SuccessfulCreation(t *testing.T) {
 	wfOwnerBytes := testutils.NewAddress().Bytes()
 	wfOwner := hex.EncodeToString(wfOwnerBytes)
 
-	t.Run("DAG workflow", func(t *testing.T) {
+	t.Run("DAG workflow", func(t *testing.T) { //nolint:paralleltest // shares eventHandler setup
 		binary := wasmtest.CreateTestBinary(t, binaryCmd, true)
 		workflowID, err := pkgworkflows.GenerateWorkflowID(wfOwnerBytes, testutils.RandomizeName(t.Name()), binary, config, secretsURL)
 		require.NoError(t, err)
@@ -1330,7 +1335,7 @@ func TestEngineFactoryFn_SuccessfulCreation(t *testing.T) {
 		require.NotNil(t, engine)
 	})
 
-	t.Run("NoDAG workflow", func(t *testing.T) {
+	t.Run("NoDAG workflow", func(t *testing.T) { //nolint:paralleltest // shares eventHandler setup
 		binary := wasmtest.CreateTestBinary(t, noDagBinaryCmd, true)
 		workflowID, err := pkgworkflows.GenerateWorkflowID(wfOwnerBytes, testutils.RandomizeName(t.Name()), binary, config, secretsURL)
 		require.NoError(t, err)
