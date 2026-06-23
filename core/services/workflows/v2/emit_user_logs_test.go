@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 	"testing/synctest"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -48,9 +49,8 @@ func TestEngine_emitUserLogs_ProcessesLogsWhenContextCancelled(t *testing.T) {
 		close(userLogChan)
 
 		// Create a context that is ALREADY cancelled.
-		// The OLD approach with `select` would randomly (or always) pick <-ctx.Done()
-		// and return before processing all logs from the closed userLogChan.
-		// The NEW approach reads the channel until it's closed, ignoring ctx.Done().
+		// The `emitUserLogs` logic should switch to a emitUserLogsTimeout drain timeout,
+		// drain the channel, and return.
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel() // Cancel immediately
 
@@ -73,6 +73,57 @@ func TestEngine_emitUserLogs_ProcessesLogsWhenContextCancelled(t *testing.T) {
 		// (Since it's closed, a read on a drained channel returns !ok)
 		_, ok := <-userLogChan
 		require.False(t, ok, "Expected userLogChan to be fully drained but it was not")
+	})
+}
+
+func TestEngine_emitUserLogs_DrainsUntilTimeout(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		limiters := &EngineLimiters{
+			LogEvent: &mockLimiter[int]{limit: 100},
+			LogLine:  &mockLimiter[config.Size]{limit: 1000},
+		}
+
+		e := &Engine{
+			cfg: &EngineConfig{
+				DebugMode:     true,
+				LocalLimiters: limiters,
+			},
+		}
+		e.setLogger(logger.Sugared(logger.Test(t)))
+
+		userLogChan := make(chan *protoevents.LogLine, 10)
+
+		// Create a context that is ALREADY cancelled.
+		// The `emitUserLogs` logic should switch to a 30s drain timeout.
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel() // Cancel immediately
+
+		done := make(chan struct{})
+		go func() {
+			e.emitUserLogs(ctx, userLogChan, "test-exec-id", nil)
+			close(done)
+		}()
+
+		// The goroutine should block on reading from userLogChan.
+		// Use time.Sleep to explicitly advance the simulated clock by 30s.
+		time.Sleep(emitUserLogsTimeout)
+
+		select {
+		case <-done:
+			// Success: the function returned because the drain timeout was reached.
+		default:
+			t.Fatalf("emitUserLogs hung, failed to timeout after %s drain", emitUserLogsTimeout)
+		}
+
+		// The channel is still open, but the function returned.
+		select {
+		case userLogChan <- &protoevents.LogLine{Message: "log 1"}:
+			// OK
+		default:
+			t.Fatal("channel should still be open")
+		}
 	})
 }
 

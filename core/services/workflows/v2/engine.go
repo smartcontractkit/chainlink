@@ -1164,56 +1164,65 @@ func (e *Engine) deductStandardBalances(ctx context.Context, meteringReport *met
 	}
 }
 
+const emitUserLogsTimeout = 30 * time.Second
+
 // separate call for each workflow execution
 func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents.LogLine, executionID string, executionLabels map[string]string) {
-	// Drain and emit every buffered user log until the channel is closed by the
-	// caller (its defer close), which is the sole termination signal. Do NOT
-	// select on ctx.Done(): on execution return the caller cancels the context
-	// at roughly the same time it closes the channel, so a ctx.Done() case would
-	// race the buffered log line and intermittently drop it (Go selects a ready
-	// case at random). Use a non-cancellable context to avoid preempting network
-	// calls during shutdown.
-	loopCtx := context.WithoutCancel(ctx)
-
 	e.logger().Debugw("Listening for user logs ...")
 	count := 0
 	defer func() { e.logger().Debugw("Listening for user logs done.", "processedLogLines", count) }()
 
-	for logLine := range userLogChan {
+	processLogLine := func(emitCtx context.Context, logLine *protoevents.LogLine) bool {
 		if e.cfg.DebugMode {
 			e.logger().Debugf("User log: <<<%s>>>, local node timestamp: %s", logLine.Message, logLine.NodeTimestamp)
 		}
-		err := e.cfg.LocalLimiters.LogEvent.Check(loopCtx, count)
+		err := e.cfg.LocalLimiters.LogEvent.Check(emitCtx, count)
 		if err != nil {
 			if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[int]](err); ok {
 				e.logger().Warnw("Max user log events per execution reached, dropping event", "maxEvents", errBoundLimited.Limit, "err", err)
-				return
+				return false
 			}
 			e.logger().Errorw("Failed to get user log event limit", "err", err)
-			return
+			return false
 		}
-		maxUserLogLength, err := e.cfg.LocalLimiters.LogLine.Limit(loopCtx)
+		maxUserLogLength, err := e.cfg.LocalLimiters.LogLine.Limit(emitCtx)
 		if err != nil {
 			e.logger().Errorw("Failed to get user log line limit", "err", err)
-			return
+			return false
 		}
 		if len(logLine.Message) > int(maxUserLogLength) {
 			logLine.Message = logLine.Message[:maxUserLogLength] + " ...(truncated)"
 		}
 
-		// Emit logs. Ensure a timeout exists so we don't hang forever on network issues.
-		func() {
-			emitCtx := loopCtx
-			if _, ok := emitCtx.Deadline(); !ok {
-				var cancel context.CancelFunc
-				emitCtx, cancel = context.WithTimeout(loopCtx, 30*time.Second)
-				defer cancel()
-			}
-
-			if err := events.EmitUserLogs(emitCtx, executionLabels, []*protoevents.LogLine{logLine}, executionID); err != nil {
-				e.logger().Errorw("Failed to emit user logs", "err", err)
-			}
-		}()
+		if err := events.EmitUserLogs(emitCtx, executionLabels, []*protoevents.LogLine{logLine}, executionID); err != nil {
+			e.logger().Errorw("Failed to emit user logs", "err", err)
+		}
 		count++
+		return true
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			// Ensure we don't hang shutdown if the user logs channel is not drained.
+			drainCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), emitUserLogsTimeout)
+			for {
+				select {
+				case <-drainCtx.Done():
+					e.logger().Warnw("Timeout reached while draining user logs")
+					cancel()
+					return
+				case logLine, ok := <-userLogChan:
+					if !ok || !processLogLine(drainCtx, logLine) {
+						cancel()
+						return
+					}
+				}
+			}
+		case logLine, ok := <-userLogChan:
+			if !ok || !processLogLine(ctx, logLine) {
+				return
+			}
+		}
 	}
 }
