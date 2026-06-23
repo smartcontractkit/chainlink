@@ -1,5 +1,17 @@
 # Changelog Chainlink Core
 
+## 2.53.0
+
+### Minor Changes
+
+- [#22864](https://github.com/smartcontractkit/chainlink/pull/22864) [`a21c4d7`](https://github.com/smartcontractkit/chainlink/commit/a21c4d7cb8487235b47efe196da5c73cf1e1a8f2) - Minor bump to start next version
+
+### Patch Changes
+
+- [#22306](https://github.com/smartcontractkit/chainlink/pull/22306) [`fe0013a`](https://github.com/smartcontractkit/chainlink/commit/fe0013aa56fcbd272ca9d1fae68e6d2a608d347d) - #updated #nops Updated documentation for SVR multiplexing and CustomURLs configuration.
+
+- [#22892](https://github.com/smartcontractkit/chainlink/pull/22892) [`5481a58`](https://github.com/smartcontractkit/chainlink/commit/5481a58f29aaa0e4986abce898a6312072e18f0d) - Use updated arbitrum gas estimator with refresh interval: 10s -> 2s and gas bump 1.5x -> 1.9x #changed
+
 ## 2.52.0
 
 ### Minor Changes
