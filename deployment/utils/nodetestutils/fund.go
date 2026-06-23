@@ -46,7 +46,20 @@ func fundNodesSol(t *testing.T, solChain cldf_solana.Chain, nodes []*Node) {
 	}
 }
 
-// fundNodesSol funds the given nodes with the given amount of SUI.
+// suiGasCoinPoolSize is how many gas coins each Sui transmitter is funded with. A Sui transmitter
+// signs with a single key shared by the commit and exec plugins, and the relayer selects one whole
+// coin per transmission with no coin splitting. A single gas coin therefore serialises all of a
+// node's transmits and starves under concurrent commit/exec + retries ("no coins available for gas
+// budget" / "coin already reserved"). Funding a pool lets concurrent transmissions each take their
+// own coin.
+const suiGasCoinPoolSize = uint64(30)
+
+// suiMinGasCoinBalance is the smallest gas coin we will create (0.2 SUI == one transmission's gas
+// budget). The pool is shrunk rather than minting dust coins if the source coin can't back the full
+// pool at this size.
+const suiMinGasCoinBalance = uint64(200_000_000)
+
+// fundNodesSui funds the given nodes with a pool of SUI gas coins.
 func fundNodesSui(t *testing.T, suiChain cldf_sui.Chain, nodes []*Node) {
 	ctx := t.Context()
 	signer := suiChain.Signer
@@ -74,7 +87,19 @@ func fundNodesSui(t *testing.T, suiChain cldf_sui.Chain, nodes []*Node) {
 		coin := coins[i]
 		to := "0x" + transmitter.Account()
 
-		t.Logf("Transferring coin %s (balance=%d) to %s...", coin.GetObjectId(), coin.GetBalance(), to)
+		// Size the pool to the source coin: never mint coins smaller than one gas budget, so a
+		// small source coin just yields a smaller pool instead of unusable dust.
+		balance := coin.GetBalance()
+		poolSize := suiGasCoinPoolSize
+		if balance/poolSize < suiMinGasCoinBalance {
+			poolSize = balance / suiMinGasCoinBalance
+		}
+		require.Greater(t, poolSize, uint64(0),
+			"source coin %s balance %d too small to fund a gas pool", coin.GetObjectId(), balance)
+		perCoin := balance / poolSize
+
+		t.Logf("Splitting coin %s (balance=%d) into %d gas coins of %d for %s...",
+			coin.GetObjectId(), balance, poolSize, perCoin, to)
 
 		// Resolve the coin into an ImmOrOwnedObject input; ptb.Object would leave it
 		// Unresolved (BCS variant 3), which the network rejects.
@@ -86,11 +111,18 @@ func fundNodesSui(t *testing.T, suiChain cldf_sui.Chain, nodes []*Node) {
 		}, "")
 		require.NoError(t, err, "failed to resolve coin object %s", coin.GetObjectId())
 
-		// Transfer the whole coin to the node. Gas is paid from the reserved coin so the
-		// transferred coin object is not consumed for gas.
+		// Split the source coin into a pool of gas coins and transfer each to the node. One
+		// single-amount SplitCoins per coin (the SDK can't index multi-amount split results); all
+		// commands draw from the same input coin, which the PTB threads through sequentially. Gas is
+		// paid from the deployer's reserved coin, so the source coin's full balance is available.
 		ptb := transaction.NewTransaction()
 		coinArg := ptb.Data.V1.AddInput(*resolvedCoin)
-		ptb.TransferObjects([]transaction.Argument{coinArg}, ptb.Pure(to))
+		recipientArg := ptb.Pure(to)
+		amountArg := ptb.Pure(perCoin)
+		for range poolSize {
+			splitCoin := ptb.SplitCoins(coinArg, []transaction.Argument{amountArg})
+			ptb.TransferObjects([]transaction.Argument{splitCoin}, recipientArg)
+		}
 
 		callOpts := &sui_common.CallOpts{
 			Signer:           signer,
@@ -99,10 +131,10 @@ func fundNodesSui(t *testing.T, suiChain cldf_sui.Chain, nodes []*Node) {
 		}
 
 		tx, err := sui_common.ExecutePTB(ctx, callOpts, client, ptb)
-		require.NoError(t, err, "failed to execute transfer for coin %s", coin.GetObjectId())
+		require.NoError(t, err, "failed to split/transfer gas coins for node %s", to)
 
-		t.Logf("Transferred coin %s to %s, Digest: %s, Status: %s",
-			coin.GetObjectId(), to, tx.Digest, tx.Effects.Status.Status)
+		t.Logf("Funded %s with %d gas coins (coin %s), Digest: %s, Status: %s",
+			to, poolSize, coin.GetObjectId(), tx.Digest, tx.Effects.Status.Status)
 
 		time.Sleep(300 * time.Millisecond)
 	}
