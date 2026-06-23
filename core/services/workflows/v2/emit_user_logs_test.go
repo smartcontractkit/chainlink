@@ -110,6 +110,9 @@ func TestEngine_emitUserLogs_DrainsUntilTimeout(t *testing.T) {
 		// Use time.Sleep to explicitly advance the simulated clock by 30s.
 		time.Sleep(emitUserLogsTimeout)
 
+		// Let background goroutines finish returning and closing the done channel
+		synctest.Wait()
+
 		select {
 		case <-done:
 			// Success: the function returned because the drain timeout was reached.
