@@ -105,11 +105,16 @@ func (u UpdateNodes) Apply(e cldf.Environment, config UpdateNodesInput) (cldf.Ch
 			nopID = id
 		}
 
+		caps := make([]capabilities_registry_v2.CapabilitiesRegistryCapability, len(node.CapabilityIDs))
+		for i, id := range node.CapabilityIDs {
+			caps[i] = capabilities_registry_v2.CapabilitiesRegistryCapability{CapabilityId: id}
+		}
 		nodeUpdates[node.P2pID] = contracts.NodeConfig{
 			Signer:              wrapper.Signer,
 			EncryptionPublicKey: node.EncryptionPublicKey,
 			CSAKey:              node.CsaKey,
 			NodeOperatorID:      nopID,
+			Capabilities:        caps,
 		}
 	}
 
