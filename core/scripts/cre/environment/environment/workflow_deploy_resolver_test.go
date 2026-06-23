@@ -82,6 +82,29 @@ func TestValidateWorkflowDeployFlags_skipsWhenOnlyOneFlagSet(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestResolveWorkflowDeployTargets_byDonFamilyOnly(t *testing.T) {
+	t.Parallel()
+
+	topology := cre.NewDonFamilyGatewayPairingTestTopology()
+	resolver := &LocalCREStateResolver{topology: topology}
+
+	cmd := newTestDeployCmd(t)
+	require.NoError(t, cmd.Flags().Set("don-family", "feeds-zone-a"))
+	require.NoError(t, cmd.Flags().Set("gateway-url", "http://localhost:8080"))
+
+	targets, err := resolveWorkflowDeployTargets(
+		cmd,
+		resolver,
+		workflowDONSelector{DonFamily: "feeds-zone-a"},
+		0,
+		"feeds-zone-a",
+		"http://localhost:8080",
+	)
+	require.NoError(t, err)
+	require.Equal(t, uint32(1), targets.donID)
+	require.Equal(t, "feeds-zone-a", targets.donFamily)
+}
+
 func TestResolveWorkflowDeployTargets_donFamilyIsolation(t *testing.T) {
 	t.Parallel()
 

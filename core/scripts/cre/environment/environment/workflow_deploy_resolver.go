@@ -14,8 +14,7 @@ import (
 // workflowDeployTargets are the on-chain and gateway parameters passed to deployWorkflow.
 //
 // workflow_don_resolver.go decides *which* workflow DON is targeted; this file decides
-// *what values* that deploy uses. Container-name-pattern (Docker copy) and DON identity
-// (registry / gateway) are intentionally separate inputs — see workflow.go.
+// *what values* that deploy uses. See workflow.go for container copy vs DON identity flags.
 type workflowDeployTargets struct {
 	donID      uint32 // Capabilities Registry DON ID written into UpsertWorkflow
 	donFamily  string // Workflow registry family; nodes sync workflows registered under this key
@@ -32,8 +31,8 @@ type workflowDeployTargets struct {
 //  5. finalizeWorkflowDonFamily — require don_family from state/flags when local CRE state exists.
 //  6. Default gatewayURL from the gateway paired to that don_family (needed for --secrets-file-path).
 //
-// Multi-DON topologies must identify the workflow DON (--workflow-don-name or an unambiguous
-// --container-name-pattern). Nothing here auto-picks a family from a zone name or nodeset order.
+// Multi-DON topologies must identify the workflow DON (--workflow-don-name, or --don-family
+// with optional --shard-index when unambiguous). Container-name-pattern is copy-only.
 //
 // When resolver is nil (no local CRE state on disk), donFamily defaults to DefaultDONFamily when
 // unset; donID and gatewayURL stay at whatever the caller passed.

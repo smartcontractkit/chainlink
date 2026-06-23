@@ -11,27 +11,23 @@ import (
 
 // workflowDONSelector picks which workflow DON a deploy targets.
 //
-// Deploy uses two related but distinct inputs from workflow.go:
-//   - ContainerPattern (--container-name-pattern): substring match for copying WASM into Docker containers.
-//   - ExplicitName (--workflow-don-name): topology DON name for registry registration and vault DB polling.
-//
-// This type is passed to ResolveWorkflowDONMetadata. When both are set, ExplicitName wins for DON
-// selection; ContainerPattern may still be used separately for artifact copy in deployWorkflow.
+// Deploy uses --workflow-don-name (nodesets.name) or --don-family with optional --shard-index.
+// --container-name-pattern is copy-only; see workflow.go.
 type workflowDONSelector struct {
-	ExplicitName     string // nodesets.name, e.g. "feeds-zone-a"
-	ContainerPattern string // e.g. "feeds-zone-a-node"; may infer the DON when it matches exactly one
+	ExplicitName string // --workflow-don-name, e.g. "feeds-zone-a" or "shard0"
+	DonFamily    string // --don-family; resolves when exactly one workflow DON matches (or one per shard index)
+	ShardIndex   *uint  // --shard-index when set; required for multiple shard DONs in the same family
 }
 
 // ResolveWorkflowDONMetadata returns the workflow DON metadata from the topology saved by env start.
 //
-// Used by workflow deploy (registry targets, vault DB port) and related resolvers. Selection priority:
+// Selection priority:
 //  1. --workflow-don-name when set — exact match on nodesets.name.
-//  2. --container-name-pattern when set — map pattern to a DON via containerPatternMatchesDON; error if
-//     zero matches (except single-DON legacy fallback) or more than one match.
-//  3. When neither flag is set — OK only if the topology has exactly one workflow DON.
+//  2. --don-family when set — unique workflow DON with that don_family; use --shard-index when
+//     several shard DONs share the family.
+//  3. When the topology has exactly one workflow DON — use it.
 //
-// Multi-DON topologies (feeds-zone-a + feeds-zone-b) must pass (1) or an unambiguous (2). Generic
-// patterns like "workflow-node" are allowed for single-DON legacy CI only.
+// Multi-DON topologies must pass (1) or an unambiguous (2).
 func (r *LocalCREStateResolver) ResolveWorkflowDONMetadata(sel workflowDONSelector) (*cre.DonMetadata, error) {
 	wfDONs, err := r.topology.DonsMetadata.WorkflowDONs()
 	if err != nil {
@@ -50,29 +46,8 @@ func (r *LocalCREStateResolver) ResolveWorkflowDONMetadata(sel workflowDONSelect
 		return nil, fmt.Errorf("workflow DON %q not found in local CRE state", name)
 	}
 
-	if pattern := strings.TrimSpace(sel.ContainerPattern); pattern != "" {
-		matches := workflowDONsMatchingContainerPattern(wfDONs, pattern)
-		switch len(matches) {
-		case 1:
-			return matches[0], nil
-		case 0:
-			// Single-DON legacy: generic Docker patterns (e.g. "workflow-node") often do not embed the
-			// nodeset name; allow the lone workflow DON when there is no ambiguity.
-			if len(wfDONs) == 1 {
-				return wfDONs[0], nil
-			}
-			return nil, fmt.Errorf(
-				"container pattern %q does not identify a workflow DON among %d workflow DONs; set --workflow-don-name (e.g. feeds-zone-a)",
-				pattern,
-				len(wfDONs),
-			)
-		default:
-			return nil, fmt.Errorf(
-				"container pattern %q matches multiple workflow DONs (%s); set --workflow-don-name",
-				pattern,
-				strings.Join(workflowDONNames(matches), ", "),
-			)
-		}
+	if family := strings.TrimSpace(sel.DonFamily); family != "" {
+		return resolveWorkflowDONByFamily(wfDONs, family, sel.ShardIndex)
 	}
 
 	if len(wfDONs) == 1 {
@@ -80,35 +55,79 @@ func (r *LocalCREStateResolver) ResolveWorkflowDONMetadata(sel workflowDONSelect
 	}
 
 	return nil, fmt.Errorf(
-		"local CRE state has %d workflow DONs; set --workflow-don-name (e.g. feeds-zone-a)",
+		"local CRE state has %d workflow DONs; set --don-family (and --shard-index for sharded topologies) or --workflow-don-name",
 		len(wfDONs),
 	)
 }
 
-// containerPatternMatchesDON reports whether a container-name-pattern identifies a specific workflow DON.
-//
-// Stricter than the Docker copy substring match in deployWorkflow: the pattern must equal the DON
-// name, equal "<don>-node", or start with "<don>-node" plus an optional suffix (e.g. feeds-zone-a-node-0).
-// HasPrefix on "<don>-node" avoids false positives where a shorter DON name is a prefix of another
-// (e.g. pattern "feeds-zone-a-node" must not match DON "feeds").
-func containerPatternMatchesDON(containerPattern string, don *cre.DonMetadata) bool {
-	if containerPattern == don.Name {
-		return true
-	}
-	if strings.TrimSuffix(containerPattern, "-node") == don.Name {
-		return true
-	}
-	return strings.HasPrefix(containerPattern, don.Name+"-node")
-}
-
-func workflowDONsMatchingContainerPattern(wfDONs []*cre.DonMetadata, containerPattern string) []*cre.DonMetadata {
+func resolveWorkflowDONByFamily(wfDONs []*cre.DonMetadata, family string, shardIndex *uint) (*cre.DonMetadata, error) {
 	matches := make([]*cre.DonMetadata, 0, 1)
 	for _, wf := range wfDONs {
-		if containerPatternMatchesDON(containerPattern, wf) {
+		if wf.DonFamily == family {
 			matches = append(matches, wf)
 		}
 	}
-	return matches
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("no workflow DON with don_family %q in local CRE state", family)
+	}
+
+	if shardIndex != nil {
+		filtered := make([]*cre.DonMetadata, 0, 1)
+		for _, wf := range matches {
+			if wf.ShardIndex == *shardIndex {
+				filtered = append(filtered, wf)
+			}
+		}
+		switch len(filtered) {
+		case 1:
+			return filtered[0], nil
+		case 0:
+			return nil, fmt.Errorf(
+				"no workflow DON with don_family %q and shard_index %d; set --workflow-don-name",
+				family,
+				*shardIndex,
+			)
+		default:
+			return nil, fmt.Errorf(
+				"don_family %q and shard_index %d match multiple workflow DONs (%s); set --workflow-don-name",
+				family,
+				*shardIndex,
+				strings.Join(workflowDONNames(filtered), ", "),
+			)
+		}
+	}
+
+	switch len(matches) {
+	case 1:
+		return matches[0], nil
+	default:
+		if workflowDONsAreAllSharded(matches) {
+			return nil, fmt.Errorf(
+				"don_family %q matches multiple shard workflow DONs (%s); set --shard-index or --workflow-don-name",
+				family,
+				strings.Join(workflowDONNames(matches), ", "),
+			)
+		}
+		return nil, fmt.Errorf(
+			"don_family %q matches multiple workflow DONs (%s); set --workflow-don-name",
+			family,
+			strings.Join(workflowDONNames(matches), ", "),
+		)
+	}
+}
+
+func workflowDONsAreAllSharded(wfDONs []*cre.DonMetadata) bool {
+	for _, wf := range wfDONs {
+		if !wf.IsShardDON() {
+			return false
+		}
+	}
+	return true
+}
+
+// workflowContainerPatternForDON returns the default docker cp substring for a workflow DON's nodes.
+func workflowContainerPatternForDON(don *cre.DonMetadata) string {
+	return don.Name + "-node"
 }
 
 func workflowDONNames(wfDONs []*cre.DonMetadata) []string {

@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
 func testTopologyWithWorkflowDONs(t *testing.T, wfDONs ...*cre.DonMetadata) *cre.Topology {
@@ -15,36 +16,33 @@ func testTopologyWithWorkflowDONs(t *testing.T, wfDONs ...*cre.DonMetadata) *cre
 	return &cre.Topology{DonsMetadata: cre.NewUncheckedDonsMetadata(dons)}
 }
 
-func TestContainerPatternMatchesDON(t *testing.T) {
+func TestWorkflowContainerPatternForDON(t *testing.T) {
 	t.Parallel()
 
-	don := &cre.DonMetadata{Name: "feeds-zone-a"}
-
-	require.True(t, containerPatternMatchesDON("feeds-zone-a", don))
-	require.True(t, containerPatternMatchesDON("feeds-zone-a-node", don))
-	require.True(t, containerPatternMatchesDON("feeds-zone-a-node-0", don))
-	require.False(t, containerPatternMatchesDON("workflow-node", don))
-	require.False(t, containerPatternMatchesDON("feeds-zone-b-node", don))
+	require.Equal(t, "feeds-zone-a-node", workflowContainerPatternForDON(&cre.DonMetadata{Name: "feeds-zone-a"}))
+	require.Equal(t, "shard0-node", workflowContainerPatternForDON(&cre.DonMetadata{Name: "shard0"}))
 }
 
-func TestContainerPatternMatchesDON_prefixAmbiguity(t *testing.T) {
-	t.Parallel()
-
-	parent := &cre.DonMetadata{Name: "feeds"}
-	child := &cre.DonMetadata{Name: "feeds-zone-a"}
-
-	require.False(t, containerPatternMatchesDON("feeds-zone-a-node", parent))
-	require.True(t, containerPatternMatchesDON("feeds-zone-a-node", child))
-}
-
-func TestResolveWorkflowDONMetadata_singleDONLegacy(t *testing.T) {
+func TestResolveWorkflowDONMetadata_singleDON(t *testing.T) {
 	t.Parallel()
 
 	resolver := testStateResolver(t, testTopologyWithWorkflowDONs(t,
-		&cre.DonMetadata{Name: "workflow", ID: 1, Flags: []string{cre.WorkflowDON}},
+		&cre.DonMetadata{Name: "workflow", ID: 1, DonFamily: envconfig.DefaultDONFamily, Flags: []string{cre.WorkflowDON}},
 	))
 
-	don, err := resolver.ResolveWorkflowDONMetadata(workflowDONSelector{ContainerPattern: "workflow-node"})
+	don, err := resolver.ResolveWorkflowDONMetadata(workflowDONSelector{})
+	require.NoError(t, err)
+	require.Equal(t, "workflow", don.Name)
+}
+
+func TestResolveWorkflowDONMetadata_singleDONByFamily(t *testing.T) {
+	t.Parallel()
+
+	resolver := testStateResolver(t, testTopologyWithWorkflowDONs(t,
+		&cre.DonMetadata{Name: "workflow", ID: 1, DonFamily: envconfig.DefaultDONFamily, Flags: []string{cre.WorkflowDON}},
+	))
+
+	don, err := resolver.ResolveWorkflowDONMetadata(workflowDONSelector{DonFamily: envconfig.DefaultDONFamily})
 	require.NoError(t, err)
 	require.Equal(t, "workflow", don.Name)
 }
@@ -59,24 +57,14 @@ func TestResolveWorkflowDONMetadata_multiDONExplicitName(t *testing.T) {
 	require.Equal(t, "feeds-zone-b", don.Name)
 }
 
-func TestResolveWorkflowDONMetadata_multiDONContainerPattern(t *testing.T) {
+func TestResolveWorkflowDONMetadata_multiDONByFamily(t *testing.T) {
 	t.Parallel()
 
 	resolver := testStateResolver(t, multiWorkflowDONTestTopology(t))
 
-	don, err := resolver.ResolveWorkflowDONMetadata(workflowDONSelector{ContainerPattern: "feeds-zone-a-node"})
+	don, err := resolver.ResolveWorkflowDONMetadata(workflowDONSelector{DonFamily: "feeds-zone-a"})
 	require.NoError(t, err)
 	require.Equal(t, "feeds-zone-a", don.Name)
-}
-
-func TestResolveWorkflowDONMetadata_multiDONGenericPatternFails(t *testing.T) {
-	t.Parallel()
-
-	resolver := testStateResolver(t, multiWorkflowDONTestTopology(t))
-
-	_, err := resolver.ResolveWorkflowDONMetadata(workflowDONSelector{ContainerPattern: "workflow-node"})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "--workflow-don-name")
 }
 
 func TestResolveWorkflowDONMetadata_multiDONRequiresSelector(t *testing.T) {
@@ -86,7 +74,7 @@ func TestResolveWorkflowDONMetadata_multiDONRequiresSelector(t *testing.T) {
 
 	_, err := resolver.ResolveWorkflowDONMetadata(workflowDONSelector{})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "--workflow-don-name")
+	require.Contains(t, err.Error(), "--don-family")
 }
 
 func TestResolveWorkflowDONMetadata_unknownExplicitName(t *testing.T) {
@@ -97,6 +85,30 @@ func TestResolveWorkflowDONMetadata_unknownExplicitName(t *testing.T) {
 	_, err := resolver.ResolveWorkflowDONMetadata(workflowDONSelector{ExplicitName: "unknown"})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), `workflow DON "unknown" not found`)
+}
+
+func TestResolveWorkflowDONMetadata_shardedByFamilyAndShardIndex(t *testing.T) {
+	t.Parallel()
+
+	resolver := testStateResolver(t, shardedWorkflowDONTestTopology(t))
+
+	shard1 := uint(1)
+	don, err := resolver.ResolveWorkflowDONMetadata(workflowDONSelector{
+		DonFamily:  envconfig.DefaultDONFamily,
+		ShardIndex: &shard1,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "shard1", don.Name)
+}
+
+func TestResolveWorkflowDONMetadata_shardedRequiresShardIndex(t *testing.T) {
+	t.Parallel()
+
+	resolver := testStateResolver(t, shardedWorkflowDONTestTopology(t))
+
+	_, err := resolver.ResolveWorkflowDONMetadata(workflowDONSelector{DonFamily: envconfig.DefaultDONFamily})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "--shard-index")
 }
 
 func testStateResolver(t *testing.T, topology *cre.Topology) *LocalCREStateResolver {
@@ -111,6 +123,15 @@ func multiWorkflowDONTestTopology(t *testing.T) *cre.Topology {
 	return testTopologyWithWorkflowDONs(t,
 		&cre.DonMetadata{Name: "feeds-zone-a", ID: 1, DonFamily: "feeds-zone-a", Flags: []string{cre.WorkflowDON}},
 		&cre.DonMetadata{Name: "feeds-zone-b", ID: 2, DonFamily: "feeds-zone-b", Flags: []string{cre.WorkflowDON}},
+	)
+}
+
+func shardedWorkflowDONTestTopology(t *testing.T) *cre.Topology {
+	t.Helper()
+
+	return testTopologyWithWorkflowDONs(t,
+		&cre.DonMetadata{Name: "shard0", ID: 1, DonFamily: envconfig.DefaultDONFamily, ShardIndex: 0, Flags: []string{cre.WorkflowDON, cre.ShardDON}},
+		&cre.DonMetadata{Name: "shard1", ID: 2, DonFamily: envconfig.DefaultDONFamily, ShardIndex: 1, Flags: []string{cre.WorkflowDON, cre.ShardDON}},
 	)
 }
 
