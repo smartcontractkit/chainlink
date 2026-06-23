@@ -1842,6 +1842,59 @@ func TestPlugin_Observation_CreateSecretsRequest_DisallowsDuplicateRequests(t *t
 	assert.Contains(t, resp.GetError(), "duplicate request for secret identifier")
 }
 
+func TestPlugin_Observation_GetSecretsRequest_DisallowsDuplicateRequests(t *testing.T) {
+	r := newTestReportingPlugin(t, withMaxIdentifierLengths(30, 30, 30), withOnchainCfg(4, 1))
+
+	seqNr := uint64(1)
+	rdr := &kv{m: make(map[string]response)}
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "secret",
+	}
+	p := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
+			{Id: id, EncryptionKeys: []string{"00"}},
+			{Id: id, EncryptionKeys: []string{"00"}},
+		},
+	}
+	anyp, err := anypb.New(p)
+	require.NoError(t, err)
+	require.NoError(t, newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
+		[]*vaultcommon.StoredPendingQueueItem{
+			{Id: "request-1", Item: anyp},
+		},
+	))
+
+	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
+	require.NoError(t, err)
+
+	obs := &vaultcommon.Observations{}
+	require.NoError(t, proto.Unmarshal(data, obs))
+	require.Len(t, obs.Observations, 1)
+	o := obs.Observations[0]
+
+	require.Equal(t, vaultcommon.RequestType_GET_SECRETS, o.RequestType)
+	require.True(t, proto.Equal(o.GetGetSecretsRequest(), p))
+
+	resp := o.GetGetSecretsResponse()
+	require.Len(t, resp.Responses, 2)
+	require.True(t, proto.Equal(id, resp.Responses[0].Id))
+	require.Contains(t, resp.Responses[0].GetError(), "duplicate request for secret identifier")
+	require.True(t, proto.Equal(id, resp.Responses[1].Id))
+	require.Contains(t, resp.Responses[1].GetError(), "duplicate request for secret identifier")
+
+	err = r.ValidateObservation(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		types.AttributedObservation{Observation: data},
+		rdr,
+		&blobber{},
+	)
+	require.ErrorContains(t, err, "duplicate response found for item owner::main::secret")
+}
+
 func TestPlugin_StateTransition_CreateSecretsRequest_CorrectlyTracksLimits(t *testing.T) {
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -6199,8 +6252,7 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 	)
 	require.ErrorContains(t, err, "invalid observation: share provided exceeds maximum size allowed")
 
-	// More responses than requests in the original GetSecretsRequest is now valid because
-	// request content is no longer included in the observation — validation is response-only.
+	// More responses than requests is invalid; request and response counts must match.
 	resp = &vaultcommon.GetSecretsResponse{
 		Responses: []*vaultcommon.SecretResponse{
 			{
@@ -6241,7 +6293,7 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 		rdr,
 		bf,
 	)
-	require.NoError(t, err)
+	require.ErrorContains(t, err, "GetSecrets request and response must have the same number of items")
 
 	// Empty EncryptedShares on a data response is invalid when the pending-queue request has EncryptionKeys.
 	resp = &vaultcommon.GetSecretsResponse{
@@ -6282,7 +6334,22 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 		bf,
 	)
 	require.ErrorContains(t, err, "expected 1 encrypted share entries")
+
 	rBatchLimited := newTestReportingPlugin(t, withMaxRequestBatchSize(1), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+
+	reqTwo := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
+			{Id: id, EncryptionKeys: []string{pks}},
+			{Id: &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret2"}, EncryptionKeys: []string{pks}},
+		},
+	}
+	anypTwo, err := anypb.New(reqTwo)
+	require.NoError(t, err)
+	require.NoError(t, newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
+		[]*vaultcommon.StoredPendingQueueItem{
+			{Id: "request-1", Item: anypTwo},
+		},
+	))
 
 	resp = &vaultcommon.GetSecretsResponse{
 		Responses: []*vaultcommon.SecretResponse{
@@ -6482,8 +6549,7 @@ func TestPlugin_ValidateObservation_NilSecretIdentifier(t *testing.T) {
 		expectError bool
 	}{
 		{
-			// The request is no longer included in GetSecrets observations, so a nil Id
-			// in the request field does not cause a validation error.
+			// Pending-queue request identifiers are not re-validated here; only response IDs are.
 			name: "GetSecrets request with nil Id passes",
 			obs: &vaultcommon.Observation{
 				Id:          "request-1",
@@ -6979,9 +7045,8 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 		}
 	}
 
-	// makeGetSecretsObs puts the identifier only in the request; the response always uses validID.
-	// Since GetSecrets observations no longer include the request, identifier validation on the
-	// request side is not performed — all these cases pass regardless of the request ID.
+	// makeGetSecretsObs puts the identifier in the pending-queue request; the response uses validID.
+	// Request-side identifier validation is not performed in validateGetSecretsObservation.
 	makeGetSecretsObs := func(id *vaultcommon.SecretIdentifier) *vaultcommon.Observation {
 		req := &vaultcommon.GetSecretsRequest{
 			Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{"key"}}},
@@ -7002,8 +7067,6 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 
 	tests := []testCase{
 		// --- GetSecrets ---
-		// Request identifiers are not validated for GetSecrets (request is not included in the
-		// observation). All cases pass regardless of the identifier in the request.
 		{
 			name:      "GetSecrets valid identifier passes",
 			obs:       makeGetSecretsObs(validID),

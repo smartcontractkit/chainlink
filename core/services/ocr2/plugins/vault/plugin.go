@@ -875,9 +875,21 @@ func (r *ReportingPlugin) observeGetSecrets(ctx context.Context, reader ReadKVSt
 			GetSecretsRequest: tp,
 		}
 	}
+
+	requestsCountForID := map[string]int{}
+	for _, sr := range tp.Requests {
+		var key string
+		if sr.Id == nil {
+			key = "<nil>"
+		} else {
+			key = vaulttypes.KeyFor(sr.Id)
+		}
+		requestsCountForID[key]++
+	}
+
 	resps := []*vaultcommon.SecretResponse{}
 	for _, secretRequest := range tp.Requests {
-		resp, ierr := r.observeGetSecretsRequest(ctx, reader, secretRequest)
+		resp, ierr := r.observeGetSecretsRequest(ctx, reader, secretRequest, requestsCountForID)
 		if ierr != nil {
 			logUserErrorAware(r.lggr, "failed to observe get secret request item", ierr, "id", secretRequest.Id)
 			errorMsg := userFacingError(ierr, "failed to handle get secret request")
@@ -949,10 +961,14 @@ func generatePlaintextShare(publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2
 	return &share{data: sb}, nil
 }
 
-func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader ReadKVStore, secretRequest *vaultcommon.SecretRequest) (*vaultcommon.SecretResponse, error) {
+func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader ReadKVStore, secretRequest *vaultcommon.SecretRequest, requestsCountForID map[string]int) (*vaultcommon.SecretResponse, error) {
 	id, err := r.validateSecretIdentifier(ctx, secretRequest.Id)
 	if err != nil {
 		return nil, err
+	}
+
+	if requestsCountForID[vaulttypes.KeyFor(secretRequest.Id)] > 1 {
+		return nil, newUserError("duplicate request for secret identifier " + vaulttypes.KeyFor(id))
 	}
 
 	secret, err := reader.GetSecret(ctx, id)
@@ -1524,8 +1540,12 @@ func (r *ReportingPlugin) validateGetSecretsObservation(ctx context.Context, o *
 		return errors.New("embedded GetSecrets request does not match pending queue request")
 	}
 
-	if err := r.checkRequestBatchLimit(ctx, len(resp.Responses)); err != nil {
+	if err := r.checkRequestBatchLimit(ctx, len(pendingReq.Requests)); err != nil {
 		return err
+	}
+
+	if len(pendingReq.Requests) != len(resp.Responses) {
+		return errors.New("GetSecrets request and response must have the same number of items")
 	}
 
 	respMap := map[string]*vaultcommon.SecretResponse{}
