@@ -4,7 +4,7 @@ go 1.26.4
 
 require (
 	github.com/ethereum/go-ethereum v1.17.1
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260623125707-4b993fdf4e0e
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260623165559-d1f5898d7ae6
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251222115927-36a18321243c
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260604171908-6734db2d444f
 	github.com/smartcontractkit/cre-sdk-go v1.5.0
