@@ -16,7 +16,7 @@ type mockCCV struct {
 }
 
 func (m *mockCCV) AggregatorSecrets() []chainlinkconfig.AggregatorSecret { return m.secrets }
-func (m *mockCCV) IndexerSecret() chainlinkconfig.IndexerSecret           { return nil }
+func (m *mockCCV) IndexerSecret() chainlinkconfig.IndexerSecret          { return nil }
 
 // mockAggregatorSecret implements config.AggregatorSecret for tests.
 type mockAggregatorSecret struct {
@@ -26,10 +26,12 @@ type mockAggregatorSecret struct {
 }
 
 func (s *mockAggregatorSecret) VerifierID() string { return s.verifierID }
-func (s *mockAggregatorSecret) APIKey() string      { return s.apiKey }
-func (s *mockAggregatorSecret) APISecret() string   { return s.apiSecret }
+func (s *mockAggregatorSecret) APIKey() string     { return s.apiKey }
+func (s *mockAggregatorSecret) APISecret() string  { return s.apiSecret }
 
 func TestBuildAggregatorSecrets(t *testing.T) {
+	t.Parallel()
+
 	const (
 		matchingVerifierID  = "my-committee-verifier-1-v1"
 		unrelatedVerifierID = "other-committee-verifier-2-v1"
@@ -56,6 +58,7 @@ func TestBuildAggregatorSecrets(t *testing.T) {
 	}
 
 	t.Run("legacy config: aggregator_address + verifier_id, no aggregators list", func(t *testing.T) {
+		t.Parallel()
 		cfg := commit.Config{
 			VerifierID:        matchingVerifierID,
 			AggregatorAddress: aggregatorAddr,
@@ -73,6 +76,7 @@ func TestBuildAggregatorSecrets(t *testing.T) {
 	})
 
 	t.Run("new config: aggregators list with SecretName", func(t *testing.T) {
+		t.Parallel()
 		cfg := commit.Config{
 			VerifierID: matchingVerifierID,
 			Aggregators: []commit.AggregatorConnection{
@@ -94,6 +98,7 @@ func TestBuildAggregatorSecrets(t *testing.T) {
 	})
 
 	t.Run("error: no matching secret in ccvConfig", func(t *testing.T) {
+		t.Parallel()
 		cfg := commit.Config{
 			VerifierID:        "nonexistent-verifier-id",
 			AggregatorAddress: aggregatorAddr,
@@ -105,6 +110,7 @@ func TestBuildAggregatorSecrets(t *testing.T) {
 	})
 
 	t.Run("error: no aggregator configured", func(t *testing.T) {
+		t.Parallel()
 		cfg := commit.Config{
 			VerifierID: matchingVerifierID,
 			// Neither AggregatorAddress nor Aggregators set.
