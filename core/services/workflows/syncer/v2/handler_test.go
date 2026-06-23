@@ -167,7 +167,9 @@ func mockEngineFactory(ctx context.Context, wfid string, owner string, name type
 }
 
 func Test_Handler(t *testing.T) {
+	t.Parallel()
 	t.Run("fails with unsupported event type", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
 		lf := limits.Factory{Logger: lggr}
 		emitter := custmsg.NewLabeler()
@@ -177,7 +179,7 @@ func Test_Handler(t *testing.T) {
 		workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 
 		mockORM := mocks.NewORM(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		limiters, err := v2.NewLimiters(lf, nil)
 		require.NoError(t, err)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
@@ -672,6 +674,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 }
 
 func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
+	t.Parallel()
 	payload, err := anypb.New(&basictrigger.Outputs{CoolOutput: "foo"})
 	require.NoError(t, err)
 
@@ -684,6 +687,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 	}
 
 	t.Run("confidential workflow module is hooked correctly", func(t *testing.T) {
+		t.Parallel()
 		var (
 			ctx                   = t.Context()
 			lggr                  = logger.TestLogger(t)
@@ -792,6 +796,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 	})
 
 	t.Run("non-confidential workflow module is hooked correctly", func(t *testing.T) {
+		t.Parallel()
 		var (
 			ctx     = t.Context()
 			lggr    = logger.TestLogger(t)
@@ -892,8 +897,9 @@ type testCase struct {
 func testRunningWorkflow(t *testing.T, tc testCase) {
 	t.Helper()
 	t.Run(tc.Name, func(t *testing.T) {
+		t.Parallel()
 		var (
-			ctx     = testutils.Context(t)
+			ctx     = t.Context()
 			lggr    = logger.TestLogger(t)
 			lf      = limits.Factory{Logger: lggr}
 			db      = pgtest.NewSqlxDB(t)
@@ -948,11 +954,14 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 }
 
 func Test_customerFacingError(t *testing.T) {
+	t.Parallel()
 	t.Run("nil error returns nil", func(t *testing.T) {
+		t.Parallel()
 		assert.NoError(t, customerFacingError(nil))
 	})
 
 	t.Run("ArtifactFetchError returns deterministic customer message", func(t *testing.T) {
+		t.Parallel()
 		fetchErr := &types.ArtifactFetchError{
 			ArtifactType: "binary",
 			URL:          "https://storage.example.com/binary.wasm?Expires=123&Signature=nodeSpecificSig",
@@ -964,6 +973,7 @@ func Test_customerFacingError(t *testing.T) {
 	})
 
 	t.Run("wrapped ArtifactFetchError is still detected", func(t *testing.T) {
+		t.Parallel()
 		fetchErr := &types.ArtifactFetchError{
 			ArtifactType: "config",
 			URL:          "https://storage.example.com/config.yaml?Expires=456&Signature=abc",
@@ -976,6 +986,7 @@ func Test_customerFacingError(t *testing.T) {
 	})
 
 	t.Run("non-ArtifactFetchError passes through unchanged", func(t *testing.T) {
+		t.Parallel()
 		original := errors.New("some other error")
 		assert.Equal(t, original, customerFacingError(original))
 	})
@@ -1019,8 +1030,9 @@ func newMockArtifactStore(as *artifacts.Store, deleteWorkflowArtifactsErr error)
 func Test_workflowDeletedHandler(t *testing.T) {
 	t.Parallel()
 	t.Run("success deleting existing engine and spec", func(t *testing.T) {
+		t.Parallel()
 		var (
-			ctx     = testutils.Context(t)
+			ctx     = t.Context()
 			lggr    = logger.TestLogger(t)
 			lf      = limits.Factory{Logger: lggr}
 			db      = pgtest.NewSqlxDB(t)
@@ -1120,8 +1132,9 @@ func Test_workflowDeletedHandler(t *testing.T) {
 	})
 
 	t.Run("success deleting non-existing workflow spec", func(t *testing.T) {
+		t.Parallel()
 		var (
-			ctx     = testutils.Context(t)
+			ctx     = t.Context()
 			lggr    = logger.TestLogger(t)
 			lf      = limits.Factory{Logger: lggr}
 			db      = pgtest.NewSqlxDB(t)
@@ -1170,8 +1183,9 @@ func Test_workflowDeletedHandler(t *testing.T) {
 	})
 
 	t.Run("removes from DB before engine registry", func(t *testing.T) {
+		t.Parallel()
 		var (
-			ctx     = testutils.Context(t)
+			ctx     = t.Context()
 			lggr    = logger.TestLogger(t)
 			lf      = limits.Factory{Logger: lggr}
 			db      = pgtest.NewSqlxDB(t)
@@ -1401,10 +1415,10 @@ func (m *mockLinkingService) GetOrganizationFromWorkflowOwner(ctx context.Contex
 	}, nil
 }
 
-func Test_Handler_OrganizationID(t *testing.T) {
+func Test_Handler_OrganizationID(t *testing.T) { //nolint:paralleltest // beholdertest.NewObserver uses t.Setenv
 	observer := beholdertest.NewObserver(t)
 	emitter := custmsg.NewLabeler()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	// Set up mock gRPC server for linking service
 	mockLinking := &mockLinkingService{orgID: "test-org"}
