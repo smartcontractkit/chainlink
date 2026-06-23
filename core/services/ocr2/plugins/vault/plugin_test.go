@@ -2661,6 +2661,16 @@ type observation struct {
 	resp proto.Message
 }
 
+func writeGetSecretsPendingQueueItem(t *testing.T, kv *kv, obsID string, req *vaultcommon.GetSecretsRequest) {
+	t.Helper()
+	anyp, err := anypb.New(req)
+	require.NoError(t, err)
+	err = newTestWriteStore(t, kv).WritePendingQueue(t.Context(),
+		[]*vaultcommon.StoredPendingQueueItem{{Id: obsID, Item: anyp}},
+	)
+	require.NoError(t, err)
+}
+
 func marshalObservations(t *testing.T, observations ...observation) []byte {
 	obs := &vaultcommon.Observations{
 		Observations: []*vaultcommon.Observation{},
@@ -2820,6 +2830,8 @@ func TestPlugin_StateTransition_GetSecretsRequest_ResponseSizeWithinLimit(t *tes
 	require.LessOrEqual(t, len(ciphertextBytes), 2000)
 	encryptedValue := hex.EncodeToString(ciphertextBytes)
 
+	kvStore := &kv{m: make(map[string]response)}
+
 	// Create 10 observations from different observers, each with a distinct decryption share.
 	aos := make([]types.AttributedObservation, numObservers)
 	for i := range numObservers {
@@ -2829,7 +2841,6 @@ func TestPlugin_StateTransition_GetSecretsRequest_ResponseSizeWithinLimit(t *tes
 		}
 	}
 
-	kvStore := &kv{m: make(map[string]response)}
 	reportPrecursor, err := r.StateTransition(
 		t.Context(),
 		1,
@@ -2909,7 +2920,8 @@ func TestPlugin_ValidateObservations_InvalidObservations(t *testing.T) {
 
 	require.ErrorContains(t, err, "failed to unmarshal observations")
 
-	// Invalid observation -- a single observation set has observations for multiple request ids
+	// Invalid observation -- duplicate observations for the same request id
+	writeGetSecretsPendingQueueItem(t, kv, vaulttypes.KeyFor(id1), req)
 	correctResp := &vaultcommon.GetSecretsResponse{
 		Responses: []*vaultcommon.SecretResponse{
 			{
@@ -2994,7 +3006,7 @@ func TestPlugin_ValidateObservations_RequiresObservedIDsInPendingQueue(t *testin
 		kv,
 		nil,
 	)
-	require.ErrorContains(t, err, "is not present in the pending queue")
+	require.ErrorContains(t, err, "no GetSecrets request found in pending queue")
 
 	resp := &vaultcommon.GetSecretsResponse{
 		Responses: []*vaultcommon.SecretResponse{
@@ -3213,10 +3225,12 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 		Namespace: "main",
 		Key:       "secret",
 	}
+	encKey := "my-encryption-key"
 	req := &vaultcommon.GetSecretsRequest{
 		Requests: []*vaultcommon.SecretRequest{
 			{
-				Id: id,
+				Id:             id,
+				EncryptionKeys: []string{encKey},
 			},
 		},
 	}
@@ -3336,10 +3350,12 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesBinaryShares(t *testin
 		Namespace: "main",
 		Key:       "secret",
 	}
+	encKey := "my-encryption-key"
 	req := &vaultcommon.GetSecretsRequest{
 		Requests: []*vaultcommon.SecretRequest{
 			{
-				Id: id,
+				Id:             id,
+				EncryptionKeys: []string{encKey},
 			},
 		},
 	}
@@ -3460,10 +3476,12 @@ func TestPlugin_StateTransition_GetSecretsRequest_CapsSharesAtTwoFPlusOne(t *tes
 		Namespace: "main",
 		Key:       "secret",
 	}
+	encKey := "my-encryption-key"
 	req := &vaultcommon.GetSecretsRequest{
 		Requests: []*vaultcommon.SecretRequest{
 			{
-				Id: id,
+				Id:             id,
+				EncryptionKeys: []string{encKey},
 			},
 		},
 	}
@@ -3548,8 +3566,10 @@ func TestPlugin_StateTransition_GetSecretsRequest_DoesNotCapSharesWhenOptimizati
 		Namespace: "main",
 		Key:       "secret",
 	}
+	encKey := "my-encryption-key"
+	kvStore := &kv{m: make(map[string]response)}
 	req := &vaultcommon.GetSecretsRequest{
-		Requests: []*vaultcommon.SecretRequest{{Id: id}},
+		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{encKey}}},
 	}
 	makeResp := func(share string) *vaultcommon.GetSecretsResponse {
 		return &vaultcommon.GetSecretsResponse{
@@ -3579,7 +3599,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_DoesNotCapSharesWhenOptimizati
 			{Observer: 2, Observation: types.Observation(marshalObservations(t, observation{id, req, makeResp("share-3")}))},
 			{Observer: 3, Observation: types.Observation(marshalObservations(t, observation{id, req, makeResp("share-4")}))},
 		},
-		&kv{m: make(map[string]response)},
+		kvStore,
 		nil,
 	)
 	require.NoError(t, err)
@@ -3599,7 +3619,9 @@ func TestPlugin_StateTransition_GetSecretsRequest_OmitsOutcomeRequestWhenOptimiz
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultOptimizationsEnabled())
 
 	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
-	req := &vaultcommon.GetSecretsRequest{Requests: []*vaultcommon.SecretRequest{{Id: id}}}
+	encKey := "my-encryption-key"
+	kvStore := &kv{m: make(map[string]response)}
+	req := &vaultcommon.GetSecretsRequest{Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{encKey}}}}
 	resp := &vaultcommon.GetSecretsResponse{
 		Responses: []*vaultcommon.SecretResponse{
 			{
@@ -3626,7 +3648,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_OmitsOutcomeRequestWhenOptimiz
 			{Observer: 1, Observation: types.Observation(obsb)},
 			{Observer: 2, Observation: types.Observation(obsb)},
 		},
-		&kv{m: make(map[string]response)},
+		kvStore,
 		nil,
 	)
 	require.NoError(t, err)
@@ -6055,7 +6077,7 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 						EncryptedValue: "encrypted-value",
 						EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
 							{
-								EncryptionKey: "my-encryption-key",
+								EncryptionKey: pks,
 								BinaryShares:  [][]byte{[]byte("encrypted-binary-share")},
 							},
 						},
@@ -6139,6 +6161,7 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 						EncryptedValue: "encrypted-value",
 						EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
 							{
+								EncryptionKey: pks,
 								Shares: []string{strings.Repeat("1", 1000)},
 							},
 						},
@@ -6220,8 +6243,7 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// An empty EncryptedShares list is now valid because the per-key cross-check against
-	// the request's EncryptionKeys is no longer performed.
+	// Empty EncryptedShares on a data response is invalid when the pending-queue request has EncryptionKeys.
 	resp = &vaultcommon.GetSecretsResponse{
 		Responses: []*vaultcommon.SecretResponse{
 			{
@@ -6259,9 +6281,7 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 		rdr,
 		bf,
 	)
-	require.NoError(t, err)
-
-	// Batch limit is now enforced on the response count, not the request count.
+	require.ErrorContains(t, err, "expected 1 encrypted share entries")
 	rBatchLimited := newTestReportingPlugin(t, withMaxRequestBatchSize(1), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
 
 	resp = &vaultcommon.GetSecretsResponse{
@@ -6346,7 +6366,10 @@ func TestPlugin_ValidateObservation_GetSecrets_MismatchedResponseOwnerRejected(t
 		},
 	}
 
-	require.NoError(t, r.validateObservation(t.Context(), obs))
+	pendingGetSecretsByID := map[string]*vaultcommon.GetSecretsRequest{
+		"request-1": obs.GetGetSecretsRequest(),
+	}
+	require.NoError(t, r.validateObservation(t.Context(), obs, pendingGetSecretsByID))
 }
 
 func TestPlugin_ValidateObservation_PanicsOnEmptyShares(t *testing.T) {
@@ -7469,10 +7492,12 @@ func TestPlugin_ValidateObservation_RequestBatchLimit(t *testing.T) {
 			)
 			rdr := &kv{m: make(map[string]response)}
 
+			obsItem := makeObservation(t, tc.reqType, tc.batchSize)
+			if tc.reqType == vaultcommon.RequestType_GET_SECRETS {
+				writeGetSecretsPendingQueueItem(t, rdr, obsItem.Id, obsItem.GetGetSecretsRequest())
+			}
 			obs := &vaultcommon.Observations{
-				Observations: []*vaultcommon.Observation{
-					makeObservation(t, tc.reqType, tc.batchSize),
-				},
+				Observations: []*vaultcommon.Observation{obsItem},
 			}
 			ob := protoMarshal(t, obs)
 

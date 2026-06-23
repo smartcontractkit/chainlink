@@ -68,3 +68,67 @@ func TestAppendEncryptedShareEntry(t *testing.T) {
 		require.Empty(t, dst.Shares)
 	})
 }
+
+func TestSecretRequestForID(t *testing.T) {
+	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
+	req := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{"k1"}}},
+	}
+	got, err := secretRequestForID(req, id)
+	require.NoError(t, err)
+	require.Equal(t, "k1", got.EncryptionKeys[0])
+
+	_, err = secretRequestForID(req, &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "missing"})
+	require.ErrorContains(t, err, "no secret request")
+
+	_, err = secretRequestForID(nil, id)
+	require.ErrorContains(t, err, "GetSecrets request is nil")
+}
+
+func TestValidateGetSecretsShareLabels(t *testing.T) {
+	secretReq := &vaultcommon.SecretRequest{
+		Id:             &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"},
+		EncryptionKeys: []string{"key-a", "key-b"},
+	}
+
+	t.Run("valid labels", func(t *testing.T) {
+		err := validateGetSecretsShareLabels(secretReq, &vaultcommon.SecretData{
+			EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
+				{EncryptionKey: "key-a", Shares: []string{"s1"}},
+				{EncryptionKey: "key-b", Shares: []string{"s2"}},
+			},
+		})
+		require.NoError(t, err)
+	})
+
+	t.Run("bogus label", func(t *testing.T) {
+		err := validateGetSecretsShareLabels(secretReq, &vaultcommon.SecretData{
+			EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
+				{EncryptionKey: "bogus", Shares: []string{"s1"}},
+				{EncryptionKey: "key-b", Shares: []string{"s2"}},
+			},
+		})
+		require.ErrorContains(t, err, "unexpected encryption key")
+	})
+
+	t.Run("missing label", func(t *testing.T) {
+		err := validateGetSecretsShareLabels(secretReq, &vaultcommon.SecretData{
+			EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
+				{EncryptionKey: "key-a", Shares: []string{"s1"}},
+			},
+		})
+		require.ErrorContains(t, err, "expected 2 encrypted share entries")
+	})
+}
+
+func TestStubEncryptedSharesForSHA(t *testing.T) {
+	stubs := stubEncryptedSharesForSHA([]*vaultcommon.EncryptedShares{
+		{EncryptionKey: "z", Shares: []string{"ignored"}},
+		{EncryptionKey: "a", BinaryShares: [][]byte{{1}}},
+	})
+	require.Len(t, stubs, 2)
+	require.Equal(t, "a", stubs[0].EncryptionKey)
+	require.Equal(t, "z", stubs[1].EncryptionKey)
+	require.Empty(t, stubs[0].Shares)
+	require.Empty(t, stubs[0].BinaryShares)
+}
