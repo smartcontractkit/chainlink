@@ -44,6 +44,10 @@ type ExecutionHelper struct {
 	callCounts   map[limits.Limiter[int]]int
 
 	executionProfile *executionProfileCollector
+
+	// suspension accumulates wall-clock time the guest spent blocked in DON-time
+	// host calls, so it can be excluded from metered compute. See compute_metering.go.
+	suspension *suspensionTracker
 }
 
 func (c *ExecutionHelper) initLimiters(limiters *EngineLimiters) {
