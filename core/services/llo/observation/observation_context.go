@@ -28,7 +28,7 @@ import (
 
 var _ ObservationContext = (*observationContext)(nil)
 
-type ObservationContext interface {
+type ObservationContext interface { //nolint:revive // ObservationContext is the established interface name in this package
 	Observe(ctx context.Context, streamID streams.StreamID, opts llo.DSOpts) (val llo.StreamValue, err error)
 }
 

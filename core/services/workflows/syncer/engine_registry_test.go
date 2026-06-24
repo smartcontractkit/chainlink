@@ -13,6 +13,7 @@ import (
 )
 
 func TestEngineRegistry(t *testing.T) {
+	t.Parallel()
 	var srv services.Service = &fakeService{}
 
 	owner := []byte{1, 2, 3, 4, 5}
@@ -71,6 +72,7 @@ func TestEngineRegistry(t *testing.T) {
 }
 
 func TestEngineRegistry_keyFor(t *testing.T) {
+	t.Parallel()
 	owner := []byte("owner")
 	k := EngineRegistryKey{Owner: owner, Name: "name"}
 	assert.Equal(t, k.keyFor(), fmt.Sprintf("%x-name", owner))

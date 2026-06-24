@@ -118,6 +118,7 @@ type EngineLimiters struct {
 
 	ExecutionTimestampsEnabled   limits.GateLimiter
 	ConfidentialWorkflowsEnabled limits.GateLimiter
+	DONTimeRequestTimeout        limits.TimeLimiter
 }
 
 // NewLimiters returns a new set of EngineLimiters based on the default configuration, and optionally modified by cfgFn.
@@ -269,6 +270,10 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
+	l.DONTimeRequestTimeout, err = lf.MakeTimeLimiter(cfg.DONTime.RequestTimeout)
+	if err != nil {
+		return
+	}
 	return
 }
 
@@ -308,6 +313,7 @@ func (l *EngineLimiters) EvictWorkflow(workflowID string) error {
 		l.SecretsCalls,
 		l.ExecutionTimestampsEnabled,
 		l.ConfidentialWorkflowsEnabled,
+		l.DONTimeRequestTimeout,
 	}
 	var errs error
 	for _, e := range evictables {
@@ -350,11 +356,13 @@ func (l *EngineLimiters) Close() error {
 		l.SecretsCalls,
 		l.ExecutionTimestampsEnabled,
 		l.ConfidentialWorkflowsEnabled,
+		l.DONTimeRequestTimeout,
 	)
 }
 
 type EngineFeatureFlags struct {
-	FeatureMultiTriggerExecutionIDs limits.RangeLimiter[config.Timestamp]
+	FeatureMultiTriggerExecutionIDs             limits.RangeLimiter[config.Timestamp]
+	FeatureUseSingleDONTimeProviderPerExecution limits.RangeLimiter[config.Timestamp]
 }
 
 func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*EngineFeatureFlags, error) {
@@ -366,8 +374,13 @@ func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*En
 	if err != nil {
 		return nil, err
 	}
+	featureUseSingleDONTimeProviderPerExecution, err := limits.MakeRangeLimiter(lf, cfg.FeatureUseSingleDONTimeProviderPerExecutionActivePeriod)
+	if err != nil {
+		return nil, err
+	}
 	return &EngineFeatureFlags{
-		FeatureMultiTriggerExecutionIDs: featureMultiTriggerExecutionIDs,
+		FeatureMultiTriggerExecutionIDs:             featureMultiTriggerExecutionIDs,
+		FeatureUseSingleDONTimeProviderPerExecution: featureUseSingleDONTimeProviderPerExecution,
 	}, nil
 }
 
