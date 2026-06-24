@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/mr-tron/base58"
@@ -22,6 +23,8 @@ import (
 )
 
 func Test_ServerRequest_MessageValidation(t *testing.T) {
+	t.Parallel()
+
 	lggr := logger.Test(t)
 	capability := TestCapability{}
 	capabilityPeerID := NewP2PPeerID(t)
@@ -59,6 +62,8 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Send duplicate message", func(t *testing.T) {
+		t.Parallel()
+
 		req, err := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", lggr)
 		require.NoError(t, err)
@@ -70,6 +75,8 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Send message with non calling don peer", func(t *testing.T) {
+		t.Parallel()
+
 		req, err := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", lggr)
 		require.NoError(t, err)
@@ -94,6 +101,8 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Send message invalid payload", func(t *testing.T) {
+		t.Parallel()
+
 		req, err := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", lggr)
 		require.NoError(t, err)
@@ -119,6 +128,8 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Send second valid request when capability errors", func(t *testing.T) {
+		t.Parallel()
+
 		dispatcher := &testDispatcher{}
 		req, err := request.NewServerRequest(TestErrorCapability{err: errors.New("an error")}, types.MethodExecute, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", lggr)
@@ -148,6 +159,8 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 
 	// Testing backwards compatibility from old don to new don error handling
 	t.Run("Public system error messages are returned to the caller - old source don, new sink don", func(t *testing.T) {
+		t.Parallel()
+
 		capError := caperrors.DeserializeErrorFromString("failed to execute capability: error details")
 		require.Equal(t, caperrors.VisibilityPrivate, capError.Visibility())
 		require.Equal(t, caperrors.OriginSystem, capError.Origin())
@@ -156,6 +169,8 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Private user error messages are obfuscated", func(t *testing.T) {
+		t.Parallel()
+
 		dispatcher := &testDispatcher{}
 		req, err := request.NewServerRequest(TestErrorCapability{err: caperrors.NewPrivateUserError(errors.New("error details"), caperrors.ConsensusFailed)}, types.MethodExecute, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", lggr)
@@ -195,6 +210,8 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Private system error messages are obfuscated", func(t *testing.T) {
+		t.Parallel()
+
 		dispatcher := &testDispatcher{}
 		req, err := request.NewServerRequest(TestErrorCapability{err: caperrors.NewPrivateSystemError(errors.New("error details"), caperrors.ConsensusFailed)}, types.MethodExecute, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", lggr)
@@ -234,6 +251,8 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Public system error messages are returned to the caller", func(t *testing.T) {
+		t.Parallel()
+
 		dispatcher := &testDispatcher{}
 		req, err := request.NewServerRequest(TestErrorCapability{err: caperrors.NewPublicSystemError(errors.New("error details"), caperrors.ConsensusFailed)}, types.MethodExecute, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", lggr)
@@ -273,6 +292,8 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Public user errors are returned to the caller", func(t *testing.T) {
+		t.Parallel()
+
 		dispatcher := &testDispatcher{}
 		req, err := request.NewServerRequest(TestErrorCapability{err: caperrors.NewPublicUserError(errors.New("error details"), caperrors.InvalidArgument)}, types.MethodExecute, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", lggr)
@@ -312,6 +333,8 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Execute capability", func(t *testing.T) {
+		t.Parallel()
+
 		dispatcher := &testDispatcher{}
 		req, err := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", lggr)
@@ -339,6 +362,8 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 }
 
 func Test_ServerRequest_Evictable(t *testing.T) {
+	t.Parallel()
+
 	lggr := logger.Test(t)
 	capability := TestCapability{}
 	capabilityPeerID := NewP2PPeerID(t)
@@ -358,19 +383,28 @@ func Test_ServerRequest_Evictable(t *testing.T) {
 	}
 
 	t.Run("expired but below minimum retention", func(t *testing.T) {
-		req := newRequest(20 * time.Millisecond)
-		require.Eventually(t, func() bool { return req.Expired() }, time.Second, 10*time.Millisecond)
-		assert.False(t, req.Evictable(200*time.Millisecond))
+		t.Parallel()
+		synctest.Test(t, func(t *testing.T) {
+			req := newRequest(20 * time.Millisecond)
+			require.Eventually(t, func() bool { return req.Expired() }, time.Second, 10*time.Millisecond)
+			assert.False(t, req.Evictable(200*time.Millisecond))
+		})
 	})
 
 	t.Run("expired and retained past minimum retention", func(t *testing.T) {
-		req := newRequest(20 * time.Millisecond)
-		require.Eventually(t, func() bool { return req.Evictable(10 * time.Millisecond) }, time.Second, 10*time.Millisecond)
+		t.Parallel()
+		synctest.Test(t, func(t *testing.T) {
+			req := newRequest(20 * time.Millisecond)
+			require.Eventually(t, func() bool { return req.Evictable(10 * time.Millisecond) }, time.Second, 10*time.Millisecond)
+		})
 	})
 
 	t.Run("minimum retention elapsed but request timeout still active", func(t *testing.T) {
-		req := newRequest(200 * time.Millisecond)
-		require.Never(t, func() bool { return req.Evictable(10 * time.Millisecond) }, 100*time.Millisecond, 10*time.Millisecond)
+		t.Parallel()
+		synctest.Test(t, func(t *testing.T) {
+			req := newRequest(200 * time.Millisecond)
+			require.Never(t, func() bool { return req.Evictable(10 * time.Millisecond) }, 100*time.Millisecond, 10*time.Millisecond)
+		})
 	})
 }
 

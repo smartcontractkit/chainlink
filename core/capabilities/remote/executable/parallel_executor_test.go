@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -13,94 +14,107 @@ import (
 )
 
 func Test_CancellingContext_StopsTask(t *testing.T) {
-	tp := newParallelExecutor(10)
-	servicetest.Run(t, tp)
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		tp := newParallelExecutor(10)
+		servicetest.Run(t, tp)
 
-	var cancelFns []context.CancelFunc
+		cancelFns := make([]context.CancelFunc, 0, 10)
 
-	var counter int32
-	for range 10 {
-		ctx, cancel := context.WithCancel(t.Context())
-		cancelFns = append(cancelFns, cancel)
-		err := tp.ExecuteTask(ctx, func(ctx context.Context) {
-			atomic.AddInt32(&counter, 1)
-			<-ctx.Done()
-			atomic.AddInt32(&counter, -1)
-		})
+		var counter atomic.Int32
+		for range 10 {
+			ctx, cancel := context.WithCancel(t.Context())
+			t.Cleanup(cancel)
+			cancelFns = append(cancelFns, cancel)
+			err := tp.ExecuteTask(ctx, func(ctx context.Context) {
+				counter.Add(1)
+				<-ctx.Done()
+				counter.Add(-1)
+			})
 
-		require.NoError(t, err)
-	}
+			require.NoError(t, err)
+		}
 
-	assert.Eventually(t, func() bool {
-		return atomic.LoadInt32(&counter) == 10
-	}, 10*time.Second, 10*time.Millisecond)
+		assert.Eventually(t, func() bool {
+			return counter.Load() == 10
+		}, 10*time.Second, 10*time.Millisecond)
 
-	for _, cancel := range cancelFns {
-		cancel()
-	}
+		for _, cancel := range cancelFns {
+			cancel()
+		}
 
-	assert.Eventually(t, func() bool {
-		return atomic.LoadInt32(&counter) == 0
-	}, 10*time.Second, 10*time.Millisecond)
+		assert.Eventually(t, func() bool {
+			return counter.Load() == 0
+		}, 10*time.Second, 10*time.Millisecond)
+	})
 }
 
 func Test_ExecuteRequestTimesOutWhenParallelExecutionLimitReached(t *testing.T) {
-	tp := newParallelExecutor(3)
-	servicetest.Run(t, tp)
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		tp := newParallelExecutor(3)
+		servicetest.Run(t, tp)
 
-	for range 3 {
-		err := tp.ExecuteTask(t.Context(), func(ctx context.Context) {
-			<-ctx.Done()
+		for range 3 {
+			err := tp.ExecuteTask(t.Context(), func(ctx context.Context) {
+				<-ctx.Done()
+			})
+			require.NoError(t, err)
+		}
+
+		ctx, cancel := context.WithTimeout(t.Context(), 10*time.Millisecond)
+		err := tp.ExecuteTask(ctx, func(ctx context.Context) {
 		})
-		require.NoError(t, err)
-	}
-
-	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Millisecond)
-	err := tp.ExecuteTask(ctx, func(ctx context.Context) {
+		cancel()
+		require.Error(t, err)
+		require.ErrorIs(t, err, context.DeadlineExceeded)
 	})
-	cancel()
-	require.Error(t, err)
-	require.ErrorIs(t, err, context.DeadlineExceeded)
 }
 
 func Test_ExecutingMultipleTasksInParallel(t *testing.T) {
-	tp := newParallelExecutor(10)
-	servicetest.Run(t, tp)
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		tp := newParallelExecutor(10)
+		servicetest.Run(t, tp)
 
-	var counter int32
-	for range 10 {
-		err := tp.ExecuteTask(t.Context(), func(ctx context.Context) {
-			atomic.AddInt32(&counter, 1)
-			<-ctx.Done()
-			atomic.AddInt32(&counter, -1)
-		})
-		require.NoError(t, err)
-	}
+		var counter atomic.Int32
+		for range 10 {
+			err := tp.ExecuteTask(t.Context(), func(ctx context.Context) {
+				counter.Add(1)
+				<-ctx.Done()
+				counter.Add(-1)
+			})
+			require.NoError(t, err)
+		}
 
-	assert.Eventually(t, func() bool {
-		return atomic.LoadInt32(&counter) == 10
-	}, 10*time.Second, 10*time.Millisecond)
+		assert.Eventually(t, func() bool {
+			return counter.Load() == 10
+		}, 10*time.Second, 10*time.Millisecond)
+	})
 }
 
 func Test_StopsExecutingMultipleParallelTasksWhenClosed(t *testing.T) {
-	tp := newParallelExecutor(10)
-	var counter int32
-	t.Cleanup(func() {
-		assert.Equal(t, int32(0), atomic.LoadInt32(&counter))
-	})
-
-	servicetest.Run(t, tp)
-
-	for range 10 {
-		err := tp.ExecuteTask(t.Context(), func(ctx context.Context) {
-			atomic.AddInt32(&counter, 1)
-			<-ctx.Done()
-			atomic.AddInt32(&counter, -1)
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		tp := newParallelExecutor(10)
+		var counter atomic.Int32
+		t.Cleanup(func() {
+			assert.Equal(t, int32(0), counter.Load())
 		})
-		require.NoError(t, err)
-	}
 
-	assert.Eventually(t, func() bool {
-		return atomic.LoadInt32(&counter) == 10
-	}, 10*time.Second, 10*time.Millisecond)
+		servicetest.Run(t, tp)
+
+		for range 10 {
+			err := tp.ExecuteTask(t.Context(), func(ctx context.Context) {
+				counter.Add(1)
+				<-ctx.Done()
+				counter.Add(-1)
+			})
+			require.NoError(t, err)
+		}
+
+		assert.Eventually(t, func() bool {
+			return counter.Load() == 10
+		}, 10*time.Second, 10*time.Millisecond)
+	})
 }
