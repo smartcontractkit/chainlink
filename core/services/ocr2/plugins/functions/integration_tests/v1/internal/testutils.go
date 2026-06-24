@@ -58,7 +58,16 @@ var nilOpts *bind.CallOpts
 
 var allowListPrivateKey = "0xae78c8b502571dba876742437f8bc78b689cf8518356c0921393d89caaf284ce"
 
-func SetOracleConfig(t *testing.T, b evmtypes.Backend, owner *bind.TransactOpts, coordinatorContract *functions_coordinator.FunctionsCoordinator, oracles []confighelper2.OracleIdentityExtra, batchSize uint32, functionsPluginConfig *functionsConfig.ReportingPluginConfig) {
+func SetOracleConfig(
+	t *testing.T,
+	b evmtypes.Backend,
+	owner *bind.TransactOpts,
+	coordinatorContract *functions_coordinator.FunctionsCoordinator,
+	oracles []confighelper2.OracleIdentityExtra,
+	batchSize uint32,
+	functionsPluginConfig *functionsConfig.ReportingPluginConfig,
+) {
+	t.Helper()
 	S := make([]int, len(oracles))
 	for i := range S {
 		S[i] = 1
@@ -110,7 +119,17 @@ func SetOracleConfig(t *testing.T, b evmtypes.Backend, owner *bind.TransactOpts,
 	client.FinalizeLatest(t, b)
 }
 
-func CreateAndFundSubscriptions(t *testing.T, b evmtypes.Backend, owner *bind.TransactOpts, linkToken *link_token_interface.LinkToken, routerContractAddress common.Address, routerContract *functions_router.FunctionsRouter, clientContracts []deployedClientContract, allowListContract *functions_allow_list.TermsOfServiceAllowList) (subscriptionID uint64) {
+func CreateAndFundSubscriptions(
+	t *testing.T,
+	b evmtypes.Backend,
+	owner *bind.TransactOpts,
+	linkToken *link_token_interface.LinkToken,
+	routerContractAddress common.Address,
+	routerContract *functions_router.FunctionsRouter,
+	clientContracts []deployedClientContract,
+	allowListContract *functions_allow_list.TermsOfServiceAllowList,
+) (subscriptionID uint64) {
+	t.Helper()
 	allowed, err := allowListContract.HasAccess(nilOpts, owner.From, []byte{})
 	require.NoError(t, err)
 	if !allowed {
@@ -164,7 +183,21 @@ type Coordinator struct {
 	Contract *functions_coordinator.FunctionsCoordinator
 }
 
-func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts, evmtypes.Backend, func() common.Hash, func(), Coordinator, Coordinator, []deployedClientContract, common.Address, *functions_router.FunctionsRouter, *link_token_interface.LinkToken, common.Address, *functions_allow_list.TermsOfServiceAllowList) {
+func StartNewChainWithContracts(t *testing.T, nClients int) (
+	*bind.TransactOpts,
+	evmtypes.Backend,
+	func() common.Hash,
+	func(),
+	Coordinator,
+	Coordinator,
+	[]deployedClientContract,
+	common.Address,
+	*functions_router.FunctionsRouter,
+	*link_token_interface.LinkToken,
+	common.Address,
+	*functions_allow_list.TermsOfServiceAllowList,
+) {
+	t.Helper()
 	owner := evmtestutils.MustNewSimTransactor(t)
 	owner.GasPrice = big.NewInt(int64(DefaultGasPrice))
 	sb := new(big.Int)
@@ -276,7 +309,16 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	return owner, b, commit, stop, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListAddress, allowListContract
 }
 
-func SetupRouterRoutes(t *testing.T, b evmtypes.Backend, owner *bind.TransactOpts, routerContract *functions_router.FunctionsRouter, coordinatorAddress common.Address, proposedCoordinatorAddress common.Address, allowListAddress common.Address) {
+func SetupRouterRoutes(
+	t *testing.T,
+	b evmtypes.Backend,
+	owner *bind.TransactOpts,
+	routerContract *functions_router.FunctionsRouter,
+	coordinatorAddress common.Address,
+	proposedCoordinatorAddress common.Address,
+	allowListAddress common.Address,
+) {
+	t.Helper()
 	allowListID, err := routerContract.GetAllowListId(nilOpts)
 	require.NoError(t, err)
 	var donID [32]byte
@@ -400,6 +442,7 @@ func StartNewNode(
 }
 
 func AddBootstrapJob(t *testing.T, app *cltest.TestApplication, contractAddress common.Address) job.Job {
+	t.Helper()
 	job, err := ocrbootstrap.ValidatedBootstrapSpecToml(fmt.Sprintf(`
 		type                              = "bootstrap"
 		name                              = "functions-bootstrap"
@@ -424,6 +467,7 @@ func AddBootstrapJob(t *testing.T, app *cltest.TestApplication, contractAddress 
 }
 
 func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress common.Address, keyBundleID string, transmitter common.Address, bridgeURL string) job.Job {
+	t.Helper()
 	ctx := t.Context()
 	u, err := url.Parse(bridgeURL)
 	require.NoError(t, err)
@@ -665,7 +709,7 @@ func ClientTestRequests(t *testing.T, owner *bind.TransactOpts, b evmtypes.Backe
 					return false
 				}
 				return answer == GetExpectedResponse(requestSources[ic])
-			}, timeout, 1*time.Second, "unexpected response for client contract at index %d", ic)
+			}, timeout, 500*time.Millisecond, "unexpected response for client contract at index %d", ic)
 		})
 	}
 	wg.Wait()
