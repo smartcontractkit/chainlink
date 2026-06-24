@@ -41,19 +41,21 @@ type TopLevelConfigSource struct {
 }
 
 type NodeKeys struct {
-	EthAddress             string `json:"EthAddress"`
-	AptosAccount           string `json:"AptosAccount"`
-	AptosBundleID          string `json:"AptosBundleID"`
-	AptosOnchainPublicKey  string `json:"AptosOnchainPublicKey"`
-	SolanaOnchainPublicKey string `json:"SolanaOnchainPublicKey"`
-	SolanaBundleID         string `json:"SolanaBundleID"`
-	P2PPeerID              string `json:"P2PPeerID"`             // p2p_<key>
-	OCR2BundleID           string `json:"OCR2BundleID"`          // used only in job spec
-	OCR2OnchainPublicKey   string `json:"OCR2OnchainPublicKey"`  // ocr2on_evm_<key>
-	OCR2OffchainPublicKey  string `json:"OCR2OffchainPublicKey"` // ocr2off_evm_<key>
-	OCR2ConfigPublicKey    string `json:"OCR2ConfigPublicKey"`   // ocr2cfg_evm_<key>
-	CSAPublicKey           string `json:"CSAPublicKey"`
-	EncryptionPublicKey    string `json:"EncryptionPublicKey"`
+	EthAddress              string `json:"EthAddress"`
+	AptosAccount            string `json:"AptosAccount"`
+	AptosBundleID           string `json:"AptosBundleID"`
+	AptosOnchainPublicKey   string `json:"AptosOnchainPublicKey"`
+	SolanaOnchainPublicKey  string `json:"SolanaOnchainPublicKey"`
+	SolanaBundleID          string `json:"SolanaBundleID"`
+	StellarOnchainPublicKey string `json:"StellarOnchainPublicKey"`
+	StellarBundleID         string `json:"StellarBundleID"`
+	P2PPeerID               string `json:"P2PPeerID"`             // p2p_<key>
+	OCR2BundleID            string `json:"OCR2BundleID"`          // used only in job spec
+	OCR2OnchainPublicKey    string `json:"OCR2OnchainPublicKey"`  // ocr2on_evm_<key>
+	OCR2OffchainPublicKey   string `json:"OCR2OffchainPublicKey"` // ocr2off_evm_<key>
+	OCR2ConfigPublicKey     string `json:"OCR2ConfigPublicKey"`   // ocr2cfg_evm_<key>
+	CSAPublicKey            string `json:"CSAPublicKey"`
+	EncryptionPublicKey     string `json:"EncryptionPublicKey"`
 }
 
 // OCR2OracleConfig is the input configuration for an OCR2/3 contract.
@@ -351,15 +353,16 @@ func ConfigureOCR3ContractFromJD(env *cldf.Environment, cfg ConfigureOCR3Config)
 
 // supportedExtraSignerFamilies lists chain families that can be requested via extraSignerFamilies.
 var supportedExtraSignerFamilies = map[string]bool{
-	chainsel.FamilyAptos:  true,
-	chainsel.FamilySolana: true,
+	chainsel.FamilyAptos:   true,
+	chainsel.FamilySolana:  true,
+	chainsel.FamilyStellar: true,
 }
 
 // ValidateExtraSignerFamilies checks that every entry is a known non-EVM chain family.
 func ValidateExtraSignerFamilies(families []string) error {
 	for _, f := range families {
 		if !supportedExtraSignerFamilies[f] {
-			return fmt.Errorf("unsupported extra signer family %q; supported: %s, %s", f, chainsel.FamilyAptos, chainsel.FamilySolana)
+			return fmt.Errorf("unsupported extra signer family %q; supported: %s, %s, %s", f, chainsel.FamilyAptos, chainsel.FamilySolana, chainsel.FamilyStellar)
 		}
 	}
 	return nil
@@ -385,6 +388,9 @@ func toNodeKeys(o *deployment.Node, registryChainSel uint64, extraSignerFamilies
 	var solanaOcr2KeyBundleID string
 	var solanaCC *deployment.OCRConfig
 	var solanaOnchainPublickey string
+	var stellarOcr2KeyBundleID string
+	var stellarCC *deployment.OCRConfig
+	var stellarOnchainPublicKey string
 	for details, cfg := range o.SelToOCRConfig {
 		if family, err := chainsel.GetSelectorFamily(details.ChainSelector); err == nil {
 			if !familySet[family] {
@@ -395,6 +401,9 @@ func toNodeKeys(o *deployment.Node, registryChainSel uint64, extraSignerFamilies
 			}
 			if family == chainsel.FamilySolana {
 				solanaCC = &cfg
+			}
+			if family == chainsel.FamilyStellar {
+				stellarCC = &cfg
 			}
 		}
 	}
@@ -407,6 +416,11 @@ func toNodeKeys(o *deployment.Node, registryChainSel uint64, extraSignerFamilies
 	if solanaCC != nil {
 		solanaOcr2KeyBundleID = solanaCC.KeyBundleID
 		solanaOnchainPublickey = fmt.Sprintf("%x", solanaCC.OnchainPublicKey[:])
+	}
+
+	if stellarCC != nil {
+		stellarOcr2KeyBundleID = stellarCC.KeyBundleID
+		stellarOnchainPublicKey = fmt.Sprintf("%x", stellarCC.OnchainPublicKey[:])
 	}
 
 	evmCC, exists := o.OCRConfigForChainSelector(registryChainSel)
@@ -426,10 +440,12 @@ func toNodeKeys(o *deployment.Node, registryChainSel uint64, extraSignerFamilies
 		EncryptionPublicKey: strings.TrimPrefix(o.CSAKey, "csa_"),
 		// TODO Aptos support. How will that be modeled in clo data?
 		// TODO: AptosAccount is unset but probably unused
-		AptosBundleID:          aptosOcr2KeyBundleID,
-		AptosOnchainPublicKey:  aptosOnchainPublicKey,
-		SolanaOnchainPublicKey: solanaOnchainPublickey,
-		SolanaBundleID:         solanaOcr2KeyBundleID,
+		AptosBundleID:           aptosOcr2KeyBundleID,
+		AptosOnchainPublicKey:   aptosOnchainPublicKey,
+		SolanaOnchainPublicKey:  solanaOnchainPublickey,
+		SolanaBundleID:          solanaOcr2KeyBundleID,
+		StellarOnchainPublicKey: stellarOnchainPublicKey,
+		StellarBundleID:         stellarOcr2KeyBundleID,
 	}
 }
 
@@ -460,6 +476,14 @@ func MakeIdentities(nca []NodeKeys) ([]confighelper.OracleIdentityExtra, error) 
 				return nil, fmt.Errorf("failed to decode SolanaOnchainPublicKey: %w", err)
 			}
 			pubKeys[string(corekeys.Solana)] = solPubKey
+		}
+		// add stellar key if present
+		if n.StellarOnchainPublicKey != "" {
+			stellarPubKey, err := hex.DecodeString(n.StellarOnchainPublicKey)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode StellarOnchainPublicKey: %w", err)
+			}
+			pubKeys[string(corekeys.Stellar)] = stellarPubKey
 		}
 
 		// validate uniqueness of each individual key
