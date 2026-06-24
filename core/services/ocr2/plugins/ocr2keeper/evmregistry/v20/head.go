@@ -7,7 +7,6 @@ import (
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 )
 

@@ -9,18 +9,18 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-
 	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 )
 
 func TestGetActiveUpkeepKeys(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		Name         string
 		LatestHead   int64
@@ -39,6 +39,7 @@ func TestGetActiveUpkeepKeys(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
+			t.Parallel()
 			actives := make(map[string]activeUpkeep)
 			for _, id := range test.ActiveIDs {
 				idNum := big.NewInt(0)
@@ -58,9 +59,9 @@ func TestGetActiveUpkeepKeys(t *testing.T) {
 			keys, err := rg.GetActiveUpkeepIDs(t.Context())
 
 			if test.ExpectedErr != nil {
-				assert.ErrorIs(t, err, test.ExpectedErr)
+				require.ErrorIs(t, err, test.ExpectedErr)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 
 			if len(test.ExpectedKeys) > 0 {
@@ -75,6 +76,7 @@ func TestGetActiveUpkeepKeys(t *testing.T) {
 }
 
 func TestPollLogs(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		Name             string
 		LastPoll         int64
@@ -186,6 +188,7 @@ func TestPollLogs(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
+			t.Parallel()
 			ctx := t.Context()
 			mp := mocks.NewLogPoller(t)
 
@@ -210,9 +213,9 @@ func TestPollLogs(t *testing.T) {
 
 			assert.Equal(t, test.ExpectedLastPoll, rg.lastPollBlock)
 			if test.ExpectedErr != nil {
-				assert.ErrorIs(t, err, test.ExpectedErr)
+				require.ErrorIs(t, err, test.ExpectedErr)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 
 			var outputLogCount int

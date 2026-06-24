@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-automation/pkg/v2/encoding"
 )
 
-type EVMAutomationEncoder20 struct {
+type EVMAutomationEncoder20 struct { //nolint:revive // exported name retained for compatibility with existing automation API
 	encoding.BasicEncoder
 }
 
@@ -37,7 +37,7 @@ var (
 	}
 )
 
-type EVMAutomationUpkeepResult20 struct {
+type EVMAutomationUpkeepResult20 struct { //nolint:revive // exported name retained for compatibility with existing automation API
 	// Block is the block number used to build an UpkeepKey for this result
 	Block uint32
 	// ID is the unique identifier for the upkeep
@@ -113,12 +113,12 @@ func (enc EVMAutomationEncoder20) DecodeReport(report []byte) ([]ocr2keepers.Upk
 
 	var (
 		ok        bool
-		upkeepIds []*big.Int
+		upkeepIDs []*big.Int
 		wei       *big.Int
 		link      *big.Int
 	)
 
-	if upkeepIds, ok = m[mKeys[2]].([]*big.Int); !ok {
+	if upkeepIDs, ok = m[mKeys[2]].([]*big.Int); !ok {
 		return res, errors.New("upkeep ids of incorrect type in report")
 	}
 
@@ -138,7 +138,7 @@ func (enc EVMAutomationEncoder20) DecodeReport(report []byte) ([]ocr2keepers.Upk
 		return res, errors.New("performs of incorrect structure in report")
 	}
 
-	if len(upkeepIds) != len(performs) {
+	if len(upkeepIDs) != len(performs) {
 		return res, errors.New("upkeep ids and performs should have matching length")
 	}
 
@@ -150,12 +150,12 @@ func (enc EVMAutomationEncoder20) DecodeReport(report []byte) ([]ocr2keepers.Upk
 		return res, errors.New("link native as wrong type")
 	}
 
-	res = make([]ocr2keepers.UpkeepResult, len(upkeepIds))
+	res = make([]ocr2keepers.UpkeepResult, len(upkeepIDs))
 
-	for i := 0; i < len(upkeepIds); i++ {
+	for i := 0; i < len(upkeepIDs); i++ {
 		r := EVMAutomationUpkeepResult20{
 			Block:            performs[i].CheckBlockNumber,
-			ID:               upkeepIds[i],
+			ID:               upkeepIDs[i],
 			Eligible:         true,
 			PerformData:      performs[i].PerformData,
 			FastGasWei:       wei,

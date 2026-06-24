@@ -1,31 +1,34 @@
 package evm
 
 import (
+	"errors"
 	"math/big"
 	"testing"
-
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 )
 
 func TestEVMAutomationEncoder20(t *testing.T) {
+	t.Parallel()
 	encoder := EVMAutomationEncoder20{}
 
 	t.Run("encoding an empty list of upkeep results returns a nil byte array", func(t *testing.T) {
+		t.Parallel()
 		b, err := encoder.EncodeReport([]ocr2keepers.UpkeepResult{})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, b, []byte(nil))
 	})
 
 	t.Run("attempting to encode an invalid upkeep result returns an error", func(t *testing.T) {
+		t.Parallel()
 		b, err := encoder.EncodeReport([]ocr2keepers.UpkeepResult{"data"})
-		assert.Error(t, err, "unexpected upkeep result struct")
+		require.Error(t, err, "unexpected upkeep result struct")
 		assert.Equal(t, b, []byte(nil))
 	})
 
-	t.Run("successfully encodes a single upkeep result", func(t *testing.T) {
+	t.Run("successfully encodes a single upkeep result", func(t *testing.T) { //nolint:paralleltest // nested subtests share encoded report bytes
 		upkeepResult := EVMAutomationUpkeepResult20{
 			Block:            1,
 			ID:               big.NewInt(10),
@@ -39,12 +42,12 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 			ExecuteGas:       10,
 		}
 		b, err := encoder.EncodeReport([]ocr2keepers.UpkeepResult{upkeepResult})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, b, 416)
 
-		t.Run("successfully decodes a report with a single upkeep result", func(t *testing.T) {
+		t.Run("successfully decodes a report with a single upkeep result", func(t *testing.T) { //nolint:paralleltest // shares encoded report bytes with sibling subtests
 			upkeeps, err := encoder.DecodeReport(b)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Len(t, upkeeps, 1)
 
 			upkeep := upkeeps[0].(EVMAutomationUpkeepResult20)
@@ -60,7 +63,7 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 			assert.Equal(t, upkeep.CheckBlockHash, upkeepResult.CheckBlockHash)
 		})
 
-		t.Run("an error is returned when unpacking into a map fails", func(t *testing.T) {
+		t.Run("an error is returned when unpacking into a map fails", func(t *testing.T) { //nolint:paralleltest // mutates package-level unpackIntoMapFn
 			oldUnpackIntoMapFn := unpackIntoMapFn
 			unpackIntoMapFn = func(v map[string]any, data []byte) error {
 				return errors.New("failed to unpack into map")
@@ -70,11 +73,11 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 			}()
 
 			upkeeps, err := encoder.DecodeReport(b)
-			assert.Error(t, err, "failed to unpack into map")
+			require.Error(t, err, "failed to unpack into map")
 			assert.Empty(t, upkeeps)
 		})
 
-		t.Run("an error is returned when an expected key is missing from the map", func(t *testing.T) {
+		t.Run("an error is returned when an expected key is missing from the map", func(t *testing.T) { //nolint:paralleltest // mutates package-level mKeys
 			oldMKeys := mKeys
 			mKeys = []string{"fastGasWei", "linkNative", "upkeepIds", "wrappedPerformDatas", "thisKeyWontExist"}
 			defer func() {
@@ -82,11 +85,11 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 			}()
 
 			upkeeps, err := encoder.DecodeReport(b)
-			assert.Error(t, err, "decoding error")
+			require.Error(t, err, "decoding error")
 			assert.Empty(t, upkeeps)
 		})
 
-		t.Run("an error is returned when the third element of the map is not a slice of big.Int", func(t *testing.T) {
+		t.Run("an error is returned when the third element of the map is not a slice of big.Int", func(t *testing.T) { //nolint:paralleltest // mutates package-level mKeys
 			oldMKeys := mKeys
 			mKeys = []string{"fastGasWei", "linkNative", "wrappedPerformDatas", "upkeepIds"}
 			defer func() {
@@ -94,11 +97,11 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 			}()
 
 			upkeeps, err := encoder.DecodeReport(b)
-			assert.Error(t, err, "upkeep ids of incorrect type in report")
+			require.Error(t, err, "upkeep ids of incorrect type in report")
 			assert.Empty(t, upkeeps)
 		})
 
-		t.Run("an error is returned when the fourth element of the map is not a struct of perform data", func(t *testing.T) {
+		t.Run("an error is returned when the fourth element of the map is not a struct of perform data", func(t *testing.T) { //nolint:paralleltest // mutates package-level mKeys
 			oldMKeys := mKeys
 			mKeys = []string{"fastGasWei", "linkNative", "upkeepIds", "upkeepIds"}
 			defer func() {
@@ -106,11 +109,11 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 			}()
 
 			upkeeps, err := encoder.DecodeReport(b)
-			assert.Error(t, err, "performs of incorrect structure in report")
+			require.Error(t, err, "performs of incorrect structure in report")
 			assert.Empty(t, upkeeps)
 		})
 
-		t.Run("an error is returned when the upkeep ids and performDatas are of different lengths", func(t *testing.T) {
+		t.Run("an error is returned when the upkeep ids and performDatas are of different lengths", func(t *testing.T) { //nolint:paralleltest // mutates package-level unpackIntoMapFn
 			oldUnpackIntoMapFn := unpackIntoMapFn
 			unpackIntoMapFn = func(v map[string]any, data []byte) error {
 				v["fastGasWei"] = 1
@@ -134,11 +137,11 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 			}()
 
 			upkeeps, err := encoder.DecodeReport(b)
-			assert.Error(t, err, "upkeep ids and performs should have matching length")
+			require.Error(t, err, "upkeep ids and performs should have matching length")
 			assert.Empty(t, upkeeps)
 		})
 
-		t.Run("an error is returned when the first element of the map is not a big int", func(t *testing.T) {
+		t.Run("an error is returned when the first element of the map is not a big int", func(t *testing.T) { //nolint:paralleltest // mutates package-level mKeys
 			oldMKeys := mKeys
 			mKeys = []string{"upkeepIds", "linkNative", "upkeepIds", "wrappedPerformDatas"}
 			defer func() {
@@ -146,11 +149,11 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 			}()
 
 			upkeeps, err := encoder.DecodeReport(b)
-			assert.Error(t, err, "fast gas as wrong type")
+			require.Error(t, err, "fast gas as wrong type")
 			assert.Empty(t, upkeeps)
 		})
 
-		t.Run("an error is returned when the second element of the map is not a big int", func(t *testing.T) {
+		t.Run("an error is returned when the second element of the map is not a big int", func(t *testing.T) { //nolint:paralleltest // mutates package-level mKeys
 			oldMKeys := mKeys
 			mKeys = []string{"fastGasWei", "upkeepIds", "upkeepIds", "wrappedPerformDatas"}
 			defer func() {
@@ -158,12 +161,13 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 			}()
 
 			upkeeps, err := encoder.DecodeReport(b)
-			assert.Error(t, err, "link native as wrong type")
+			require.Error(t, err, "link native as wrong type")
 			assert.Empty(t, upkeeps)
 		})
 	})
 
 	t.Run("successfully encodes multiple upkeep results", func(t *testing.T) {
+		t.Parallel()
 		upkeepResult0 := EVMAutomationUpkeepResult20{
 			Block:            1,
 			ID:               big.NewInt(10),
@@ -189,11 +193,11 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 			ExecuteGas:       20,
 		}
 		b, err := encoder.EncodeReport([]ocr2keepers.UpkeepResult{upkeepResult0, upkeepResult1})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, b, 640)
 	})
 
-	t.Run("an error is returned when pack fails", func(t *testing.T) {
+	t.Run("an error is returned when pack fails", func(t *testing.T) { //nolint:paralleltest // mutates package-level packFn
 		oldPackFn := packFn
 		packFn = func(args ...any) ([]byte, error) {
 			return nil, errors.New("pack failed")
@@ -215,7 +219,7 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 			ExecuteGas:       10,
 		}
 		b, err := encoder.EncodeReport([]ocr2keepers.UpkeepResult{upkeepResult0})
-		assert.Errorf(t, err, "pack failed: failed to pack report data")
+		require.Errorf(t, err, "pack failed: failed to pack report data")
 		assert.Empty(t, b)
 	})
 }

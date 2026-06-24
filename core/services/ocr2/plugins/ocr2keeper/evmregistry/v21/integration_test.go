@@ -27,13 +27,13 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
 func TestIntegration_LogEventProvider(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
@@ -108,7 +108,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 				TriggerConfig: newPlainLogTriggerConfig(addrs[i]),
 				// using block number at which the upkeep was registered,
 				// before we emitted any logs
-				UpdateBlock: uint64(n),
+				UpdateBlock: 10,
 			})
 			require.NoError(t, err)
 		}
@@ -123,6 +123,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 }
 
 func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	backend, stopMining, accounts := setupBackend(t)
@@ -147,7 +148,7 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 	require.Len(t, contracts, 1)
 	require.Len(t, addrs, 1)
 
-	t.Run("update filter config", func(t *testing.T) {
+	t.Run("update filter config", func(t *testing.T) { //nolint:paralleltest // uses parent-scoped db and log provider
 		upkeepID := evmregistry21.GenUpkeepID(types.LogTrigger, "111")
 		id := upkeepID.BigInt()
 		cfg := newPlainLogTriggerConfig(addrs[0])
@@ -179,7 +180,7 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("register same log filter", func(t *testing.T) {
+	t.Run("register same log filter", func(t *testing.T) { //nolint:paralleltest // uses parent-scoped db and log provider
 		upkeepID := evmregistry21.GenUpkeepID(types.LogTrigger, "222")
 		id := upkeepID.BigInt()
 		cfg := newPlainLogTriggerConfig(addrs[0])
@@ -196,6 +197,7 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 }
 
 func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(t.Context(), tests.WaitTimeout(t))
 	defer cancel()
 
@@ -248,6 +250,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 }
 
 func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	backend, stopMining, accounts := setupBackend(t)
