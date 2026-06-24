@@ -3,6 +3,7 @@ Optimize slow tests. See below sections for first checks and former lessons lear
 <first-look>
 1. Replace `t.Sleep()` and coarse polling with `require.Eventually` and tight intervals.
 2. Look to add `t.Parallel()` where safe and possible.
+3. Use `testing/synctest` where sensible to improve speed and stability.
 </first-look>
 
 <lessons-learned>
