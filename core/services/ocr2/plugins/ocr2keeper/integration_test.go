@@ -122,8 +122,8 @@ func setupNode(
 
 		c.P2P.PeerID = new(p2pKey.PeerID())
 		c.P2P.V2.Enabled = new(true)
-		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(500 * time.Millisecond)
-		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
+		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(100 * time.Millisecond)
+		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(100 * time.Millisecond)
 		c.P2P.V2.AnnounceAddresses = &p2paddresses
 		c.P2P.V2.ListenAddresses = &p2paddresses
 		if len(p2pV2Bootstrappers) > 0 {
@@ -132,6 +132,7 @@ func setupNode(
 
 		c.EVM[0].Transactions.ForwardersEnabled = new(true)
 		c.EVM[0].GasEstimator.Mode = new("FixedPrice")
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
 		s.Mercury.Credentials = map[string]toml.MercuryCredentials{
 			MercuryCredName: {
 				LegacyURL: models.MustSecretURL(mercury.URL()),
@@ -225,7 +226,7 @@ func runKeeperPluginBasic(t *testing.T) {
 	}
 
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
-	_, stopMining := cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
+	_, stopMining := cltest.Mine(backend, 200*time.Millisecond) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 	defer stopMining()
 
 	// Deploy contracts
@@ -484,7 +485,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	}
 
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
-	_, stopMining := cltest.Mine(backend, 6*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
+	_, stopMining := cltest.Mine(backend, 200*time.Millisecond) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 	defer stopMining()
 
 	// Deploy contracts

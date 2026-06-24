@@ -108,7 +108,7 @@ func TestIntegration_KeeperPlugin_PerformAndUpkeepPrivilegeConfig(t *testing.T) 
 	}
 
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
-	_, stopMining := cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
+	_, stopMining := cltest.Mine(backend, 200*time.Millisecond) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 	defer stopMining()
 
 	// Deploy registry
@@ -205,7 +205,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	}
 
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
-	commit, stopMining := cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
+	commit, stopMining := cltest.Mine(backend, 200*time.Millisecond) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 	defer stopMining()
 
 	// Deploy registry
@@ -303,7 +303,7 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 	}
 
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
-	commit, stopMining := cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
+	commit, stopMining := cltest.Mine(backend, 200*time.Millisecond) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 	defer stopMining()
 
 	// Deploy registry
@@ -423,7 +423,7 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 	}
 
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
-	commit, stopMining := cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
+	commit, stopMining := cltest.Mine(backend, 200*time.Millisecond) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 	defer stopMining()
 
 	// Deploy registry
