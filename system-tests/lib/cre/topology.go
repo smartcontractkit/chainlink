@@ -23,8 +23,8 @@ type Topology struct {
 	GatewayServiceConfigs []GatewayServiceConfig `toml:"gateway_service_configs" json:"gateway_service_configs"`
 	GatewayConnectors     *GatewayConnectors     `toml:"gateway_connectors" json:"gateway_connectors"`
 
-	gatewayConnectorsByDon map[string]*DonGatewayConfiguration // gateway nodesets.name → connector (for per-family lookup)
-	gatewayDonFamilyPairing *gatewayDonFamilyPairingState // nil when topology has no gateway; see topology_don_family.go
+	gatewayConnectorsByDon  map[string]*DonGatewayConfiguration // gateway nodesets.name → connector (for per-family lookup)
+	gatewayDonFamilyPairing *gatewayDonFamilyPairingState       // nil when topology has no gateway; see topology_don_family.go
 }
 
 func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs map[CapabilityFlag]CapabilityConfig) (*Topology, error) {

@@ -205,33 +205,6 @@ func donFamilyGatewayPairingTestTopology(t *testing.T) *Topology {
 	return topology
 }
 
-func donFamilyGatewayPairingTestTopologyWithIncoming(t *testing.T) *Topology {
-	t.Helper()
-
-	connA := testGatewayConnector("gateway-node-0", "gateway-zone-a.local", 5002)
-	connB := testGatewayConnector("gateway-node-1", "gateway-zone-b.local", 5004)
-
-	topology := &Topology{
-		DonsMetadata: &DonsMetadata{
-			dons: []*DonMetadata{
-				{Name: "feeds-zone-a", ID: 1, DonFamily: "feeds-zone-a", Flags: []string{WorkflowDON, HTTPActionCapability}},
-				{Name: "feeds-zone-b", ID: 2, DonFamily: "feeds-zone-b", Flags: []string{WorkflowDON, HTTPActionCapability}},
-				{Name: "gateway-zone-a", DonFamily: "feeds-zone-a", NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
-				{Name: "gateway-zone-b", DonFamily: "feeds-zone-b", NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
-			},
-		},
-		GatewayConnectors: &GatewayConnectors{
-			Configurations: []*DonGatewayConfiguration{connA, connB},
-		},
-		gatewayConnectorsByDon: map[string]*DonGatewayConfiguration{
-			"gateway-zone-a": connA,
-			"gateway-zone-b": connB,
-		},
-	}
-	require.NoError(t, topology.initDonFamilyGatewayPairing())
-	return topology
-}
-
 func multiGatewaySameFamilyTestTopology(t *testing.T) *Topology {
 	t.Helper()
 
@@ -252,30 +225,6 @@ func multiGatewaySameFamilyTestTopology(t *testing.T) *Topology {
 		gatewayConnectorsByDon: map[string]*DonGatewayConfiguration{
 			"bootstrap-gateway-us": connUS,
 			"gateway-eu":           connEU,
-		},
-	}
-	require.NoError(t, topology.initDonFamilyGatewayPairing())
-	return topology
-}
-
-func shardedWorkflowTestTopology(t *testing.T) *Topology {
-	t.Helper()
-
-	conn := testGatewayConnector("gateway-node-0", "bootstrap-gateway.local", 5002)
-
-	topology := &Topology{
-		DonsMetadata: &DonsMetadata{
-			dons: []*DonMetadata{
-				{Name: "shard0", ID: 1, DonFamily: testDONFamily, ShardIndex: 0, Flags: []string{WorkflowDON, ShardDON, HTTPActionCapability}},
-				{Name: "shard1", ID: 2, DonFamily: testDONFamily, ShardIndex: 1, Flags: []string{WorkflowDON, ShardDON, HTTPActionCapability}},
-				{Name: "bootstrap-gateway", DonFamily: testDONFamily, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
-			},
-		},
-		GatewayConnectors: &GatewayConnectors{
-			Configurations: []*DonGatewayConfiguration{conn},
-		},
-		gatewayConnectorsByDon: map[string]*DonGatewayConfiguration{
-			"bootstrap-gateway": conn,
 		},
 	}
 	require.NoError(t, topology.initDonFamilyGatewayPairing())
