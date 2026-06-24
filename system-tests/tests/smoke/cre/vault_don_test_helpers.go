@@ -72,27 +72,36 @@ func mustDeriveJWTVaultWorkflowOwner(t *testing.T, orgID string) string {
 func FetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {
 	framework.L.Info().Msg("Fetching Vault Public Key...")
 
-	uniqueRequestID := uuid.New().String()
+	var (
+		httpResponseBody []byte
+		uniqueRequestID  string
+	)
 
-	getPublicKeyRequest := jsonrpc.Request[vault_helpers.GetPublicKeyRequest]{
-		Version: jsonrpc.JsonRpcVersion,
-		ID:      uniqueRequestID,
-		Method:  vaulttypes.MethodPublicKeyGet,
-		Params:  &vault_helpers.GetPublicKeyRequest{},
-	}
-	requestBody, err := json.Marshal(getPublicKeyRequest)
-	require.NoError(t, err, "failed to marshal public key request")
-
+	// Each retry must use a fresh JSON-RPC request ID. The gateway deduplicates by ID and
+	// returns "request ID already exists" when Eventually reuses the same body, so a single
+	// non-200 first attempt would fail every subsequent poll until timeout.
 	require.Eventually(t, func() bool {
-		statusCode, _ := sendVaultRequestToGateway(t, gatewayURL, requestBody)
-		return statusCode == http.StatusOK
+		uniqueRequestID = uuid.New().String()
+		getPublicKeyRequest := jsonrpc.Request[vault_helpers.GetPublicKeyRequest]{
+			Version: jsonrpc.JsonRpcVersion,
+			ID:      uniqueRequestID,
+			Method:  vaulttypes.MethodPublicKeyGet,
+			Params:  &vault_helpers.GetPublicKeyRequest{},
+		}
+		requestBody, err := json.Marshal(getPublicKeyRequest)
+		require.NoError(t, err, "failed to marshal public key request")
+		statusCode, body := sendVaultRequestToGateway(t, gatewayURL, requestBody)
+		if statusCode != http.StatusOK {
+			return false
+		}
+		httpResponseBody = body
+		return true
 	}, time.Second*120, time.Second*5)
-	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
-	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
+	require.NotEmpty(t, httpResponseBody, "expected a successful public key response")
 
 	framework.L.Info().Msg("Checking jsonResponse structure...")
 	var jsonResponse jsonrpc.Response[vault_helpers.GetPublicKeyResponse]
-	err = json.Unmarshal(httpResponseBody, &jsonResponse)
+	err := json.Unmarshal(httpResponseBody, &jsonResponse)
 	require.NoError(t, err, "failed to unmarshal GetPublicKeyResponse")
 	framework.L.Info().Msgf("JSON Body: %v", jsonResponse)
 	if jsonResponse.Error != nil {
