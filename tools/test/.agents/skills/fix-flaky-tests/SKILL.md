@@ -54,7 +54,6 @@ Execute from repository root.
 - Go test flags: `--run '^TestName$'`, `--timeout 10m`, `--race`.
 - Help: `make test ARGS="diagnose -h"`.
 - Repetition strictly via `--iterations`.
-</cli_reference>
 
 <diagnose-iterations>
 Use iterations for run count. Parallelism does not alter total.
@@ -73,6 +72,7 @@ Use iterations for run count. Parallelism does not alter total.
 | Race pass | 30             | 1                       | Verifying with `--race` after `--`.                                               |
 | Debug     | 1–5            | 1                       | Reproducing a known failure mode; use `--fail-fast` if appropriate.               |
 </diagnose-iterations>
+</cli_reference>
 
 <loop>
 1. If user doesn't have recent results, plan a run with `<diagnose-parallel-iterations>` (default: **Smoke** profile) then execute it. On sandbox errors, follow `<possible_execution_issues>`.
