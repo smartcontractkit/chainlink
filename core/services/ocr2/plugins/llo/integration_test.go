@@ -235,10 +235,9 @@ func makeDefaultOCRConfig() *OCRConfig {
 	if err != nil {
 		panic(err)
 	}
-	maxDurationInit := 1 * time.Second
 	return &OCRConfig{
-		DeltaProgress:                           1 * time.Second,
-		DeltaResend:                             2 * time.Second,
+		DeltaProgress:                           2 * time.Second,
+		DeltaResend:                             20 * time.Second,
 		DeltaInitial:                            400 * time.Millisecond,
 		DeltaRound:                              500 * time.Millisecond,
 		DeltaGrace:                              250 * time.Millisecond,
@@ -246,7 +245,7 @@ func makeDefaultOCRConfig() *OCRConfig {
 		DeltaStage:                              1 * time.Minute,
 		RMax:                                    100,
 		ReportingPluginConfig:                   []byte{},
-		MaxDurationInitialization:               &maxDurationInit,
+		MaxDurationInitialization:               nil,
 		MaxDurationQuery:                        0,
 		MaxDurationObservation:                  250 * time.Millisecond,
 		MaxDurationShouldAcceptAttestedReport:   0,
@@ -1224,13 +1223,9 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 				err = mercury.PayloadTypes.UnpackIntoMap(v, req.Payload)
 				require.NoError(t, err)
 				report, exists := v["report"]
-				if !exists {
-					t.Fatalf("expected payload %#v to contain 'report'", v)
-				}
+				require.True(t, exists, "expected payload %#v to contain 'report'", v)
 				reportCtx, exists := v["reportContext"]
-				if !exists {
-					t.Fatalf("expected payload %#v to contain 'reportContext'", v)
-				}
+				require.True(t, exists, "expected payload %#v to contain 'reportContext'", v)
 
 				// Check the report context
 				assert.Equal(t, [32]byte(digest), reportCtx.([3][32]uint8)[0])                                                                      // config digest
@@ -2844,7 +2839,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	backend.Commit()
 
 	tombstonedChannel := map[uint32]bool{2: true}
-	checkNoReportsWindow := 3 * time.Second
+	checkNoReportsWindow := 5 * time.Second
 	require.Eventually(t, func() bool {
 		start := time.Now()
 		sawTombstoned := false
@@ -2878,7 +2873,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			stableSince = time.Now()
 			return false
 		}
-		return time.Since(stableSince) > 1*time.Second
+		return time.Since(stableSince) > 2*time.Second
 	}, 15*time.Second, 100*time.Millisecond, "tombstoned channel's stream should eventually stop being observed")
 
 	bCallsStable := streamBCalls.Load()
