@@ -121,7 +121,7 @@ func (r *LocalCREStateResolver) WorkflowDONID() (uint32, error) {
 	return libc.MustSafeUint32FromUint64(workflowDON.ID), nil
 }
 
-// GatewayURLForDonFamily returns the http-actions gateway URL for a specific don_family.
+// GatewayURLForDonFamily returns the gateway URL for a specific don_family.
 //
 // Used when workflow deploy omits --gateway-url and encrypts vault secrets — secrets must go
 // through the gateway paired to that family, not the first gateway in the topology.
@@ -159,18 +159,6 @@ func (r *LocalCREStateResolver) GatewayURL() (string, error) {
 	}
 
 	return r.formatGatewayURL(r.topology.GatewayConnectors.Configurations[0])
-}
-
-// resolveGatewayURL picks the deploy gateway URL for donFamily.
-//
-// Prefer GatewayURLForDonFamily; fall back to GatewayURL when family lookup fails
-// (e.g. gateway-less topology saved in state).
-func (r *LocalCREStateResolver) resolveGatewayURL(donFamily string) (string, error) {
-	if url, err := r.GatewayURLForDonFamily(donFamily); err == nil {
-		return url, nil
-	}
-	// Older state files or gateway-less saves may lack per-family connectors.
-	return r.GatewayURL()
 }
 
 func (r *LocalCREStateResolver) WorkflowRegistryOutput() (*cre.WorkflowRegistryOutput, error) {

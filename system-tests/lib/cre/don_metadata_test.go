@@ -20,7 +20,7 @@ func TestDonMetadata_IsWorkflowDON_nilNodeSet(t *testing.T) {
 func TestDonsMetadata_WorkflowDONs_skipsBootstrapWithoutNodeSet(t *testing.T) {
 	t.Parallel()
 
-	dm := NewUncheckedDonsMetadata([]*DonMetadata{
+	dm := uncheckedDonsMetadata([]*DonMetadata{
 		{
 			Name:          "bootstrap",
 			NodesMetadata: []*NodeMetadata{{Roles: []string{BootstrapNode}}},
@@ -34,4 +34,8 @@ func TestDonsMetadata_WorkflowDONs_skipsBootstrapWithoutNodeSet(t *testing.T) {
 	require.Len(t, wfDONs, 2)
 	require.Equal(t, "feeds-zone-a", wfDONs[0].Name)
 	require.Equal(t, "feeds-zone-b", wfDONs[1].Name)
+}
+
+func uncheckedDonsMetadata(dons []*DonMetadata) *DonsMetadata {
+	return &DonsMetadata{dons: dons}
 }

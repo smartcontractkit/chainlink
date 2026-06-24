@@ -1,8 +1,4 @@
 // Tests for workflow deploy target resolution (donID, donFamily, gatewayURL).
-//
-// Covers resolveWorkflowDeployTargets, finalizeWorkflowDonFamily, and deploy-time
-// flag cross-checks. Exercises multi-zone and sharded topologies via in-memory
-// fixtures from system-tests/lib/cre/test_topology_helpers.go.
 package environment
 
 import (
@@ -13,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 func newTestDeployCmd(t *testing.T) *cobra.Command {
@@ -32,26 +29,18 @@ func TestFinalizeWorkflowDonFamily(t *testing.T) {
 
 	t.Run("explicit family", func(t *testing.T) {
 		t.Parallel()
-		family, err := finalizeWorkflowDonFamily("feeds-zone-a", true)
+		family, err := finalizeWorkflowDonFamily("feeds-zone-a")
 		require.NoError(t, err)
 		require.Equal(t, "feeds-zone-a", family)
 	})
 
-	t.Run("legacy default", func(t *testing.T) {
+	t.Run("requires family", func(t *testing.T) {
 		t.Parallel()
-		family, err := finalizeWorkflowDonFamily("", false)
-		require.NoError(t, err)
-		require.Equal(t, envconfig.DefaultDONFamily, family)
-	})
-
-	t.Run("requires family when local state", func(t *testing.T) {
-		t.Parallel()
-		_, err := finalizeWorkflowDonFamily("", true)
+		_, err := finalizeWorkflowDonFamily("")
 		require.Error(t, err)
 	})
 }
 
-// validateWorkflowDeployFlags only cross-checks when both --workflow-don-name and --don-family are set.
 func TestValidateWorkflowDeployFlags_donFamilyMismatch(t *testing.T) {
 	t.Parallel()
 
@@ -102,11 +91,10 @@ func TestValidateWorkflowDeployFlags_nameMismatch(t *testing.T) {
 	require.Contains(t, err.Error(), `--workflow-don-name "feeds-zone-b"`)
 }
 
-// DF-style deploy: --don-family alone resolves the workflow DON and fills donID from state.
 func TestResolveWorkflowDeployTargets_byDonFamilyOnly(t *testing.T) {
 	t.Parallel()
 
-	topology := cre.NewDonFamilyGatewayPairingTestTopology()
+	topology := deployTestTwoFamilyTopology(t)
 	resolver := &LocalCREStateResolver{topology: topology}
 
 	cmd := newTestDeployCmd(t)
@@ -126,11 +114,10 @@ func TestResolveWorkflowDeployTargets_byDonFamilyOnly(t *testing.T) {
 	require.Equal(t, "feeds-zone-a", targets.donFamily)
 }
 
-// Each zone gets its own cap-reg donID and registry family — no cross-zone bleed.
 func TestResolveWorkflowDeployTargets_donFamilyIsolation(t *testing.T) {
 	t.Parallel()
 
-	topology := cre.NewDonFamilyGatewayPairingTestTopology()
+	topology := deployTestTwoFamilyTopology(t)
 	resolver := &LocalCREStateResolver{topology: topology}
 
 	resolveForDON := func(t *testing.T, donName string) workflowDeployTargets {
@@ -163,11 +150,10 @@ func TestResolveWorkflowDeployTargets_donFamilyIsolation(t *testing.T) {
 	require.NotEqual(t, targetsA.donFamily, targetsB.donFamily)
 }
 
-// When --gateway-url is omitted, deploy defaults to the gateway paired with the target don_family.
 func TestResolveWorkflowDeployTargets_defaultsGatewayURLFromFamily(t *testing.T) {
 	t.Parallel()
 
-	topology := cre.NewDonFamilyGatewayPairingTestTopologyWithIncoming()
+	topology := deployTestTwoFamilyTopologyWithIncoming(t)
 	resolver := &LocalCREStateResolver{topology: topology}
 
 	resolveURL := func(t *testing.T, family string, wantURL string) {
@@ -192,13 +178,12 @@ func TestResolveWorkflowDeployTargets_defaultsGatewayURLFromFamily(t *testing.T)
 	resolveURL(t, "feeds-zone-b", "http://gateway-zone-b.local:5004/")
 }
 
-// Deploy without local CRE state on disk falls back to DefaultDONFamily.
-func TestResolveWorkflowDeployTargets_nilResolverUsesDefaultDONFamily(t *testing.T) {
+func TestResolveWorkflowDeployTargets_nilResolverRequiresDonFamily(t *testing.T) {
 	t.Parallel()
 
 	cmd := newTestDeployCmd(t)
 
-	targets, err := resolveWorkflowDeployTargets(
+	_, err := resolveWorkflowDeployTargets(
 		cmd,
 		nil,
 		workflowDONSelector{},
@@ -206,15 +191,13 @@ func TestResolveWorkflowDeployTargets_nilResolverUsesDefaultDONFamily(t *testing
 		"",
 		"",
 	)
-	require.NoError(t, err)
-	require.Equal(t, envconfig.DefaultDONFamily, targets.donFamily)
+	require.Error(t, err)
 }
 
-// --workflow-don-name alone is enough to infer donFamily and donID from saved topology.
 func TestResolveWorkflowDeployTargets_infersDonFamilyFromWorkflowDonNameOnly(t *testing.T) {
 	t.Parallel()
 
-	topology := cre.NewDonFamilyGatewayPairingTestTopologyWithIncoming()
+	topology := deployTestTwoFamilyTopologyWithIncoming(t)
 	resolver := &LocalCREStateResolver{topology: topology}
 
 	cmd := newTestDeployCmd(t)
@@ -233,11 +216,10 @@ func TestResolveWorkflowDeployTargets_infersDonFamilyFromWorkflowDonNameOnly(t *
 	require.Equal(t, "feeds-zone-b", targets.donFamily)
 }
 
-// Sharded topologies: don_family + shard index resolve shard1's cap-reg donID for UpsertWorkflow.
 func TestResolveWorkflowDeployTargets_shardedByDonFamilyAndShardIndex(t *testing.T) {
 	t.Parallel()
 
-	topology := cre.NewShardedWorkflowTestTopology()
+	topology := deployTestShardedTopology(t)
 	resolver := &LocalCREStateResolver{topology: topology}
 
 	cmd := newTestDeployCmd(t)
@@ -257,11 +239,10 @@ func TestResolveWorkflowDeployTargets_shardedByDonFamilyAndShardIndex(t *testing
 	require.Equal(t, envconfig.DefaultDONFamily, targets.donFamily)
 }
 
-// Explicit --don-id is not overwritten by topology metadata when the flag was set.
 func TestResolveWorkflowDeployTargets_preservesExplicitDonID(t *testing.T) {
 	t.Parallel()
 
-	topology := cre.NewDonFamilyGatewayPairingTestTopologyWithIncoming()
+	topology := deployTestTwoFamilyTopologyWithIncoming(t)
 	resolver := &LocalCREStateResolver{topology: topology}
 
 	cmd := newTestDeployCmd(t)
@@ -278,4 +259,86 @@ func TestResolveWorkflowDeployTargets_preservesExplicitDonID(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.Equal(t, uint32(99), targets.donID)
+}
+
+func deployTestTwoFamilyTopology(t *testing.T) *cre.Topology {
+	t.Helper()
+
+	return mustDeployTestTopology(t,
+		[]*cre.DonGatewayConfiguration{
+			{GatewayConfiguration: &cre.GatewayConfiguration{AuthGatewayID: "gateway-node-0"}},
+			{GatewayConfiguration: &cre.GatewayConfiguration{AuthGatewayID: "gateway-node-1"}},
+		},
+		&cre.DonMetadata{Name: "feeds-zone-a", ID: 1, DonFamily: "feeds-zone-a", Flags: []string{cre.WorkflowDON, cre.HTTPActionCapability}},
+		&cre.DonMetadata{Name: "feeds-zone-b", ID: 2, DonFamily: "feeds-zone-b", Flags: []string{cre.WorkflowDON, cre.HTTPActionCapability}},
+		&cre.DonMetadata{Name: "gateway-zone-a", DonFamily: "feeds-zone-a", NodesMetadata: []*cre.NodeMetadata{{Roles: []string{cre.GatewayNode}}}},
+		&cre.DonMetadata{Name: "gateway-zone-b", DonFamily: "feeds-zone-b", NodesMetadata: []*cre.NodeMetadata{{Roles: []string{cre.GatewayNode}}}},
+	)
+}
+
+func deployTestTwoFamilyTopologyWithIncoming(t *testing.T) *cre.Topology {
+	t.Helper()
+
+	return mustDeployTestTopology(t,
+		[]*cre.DonGatewayConfiguration{
+			deployTestGatewayConnector("gateway-node-0", "gateway-zone-a.local", 5002),
+			deployTestGatewayConnector("gateway-node-1", "gateway-zone-b.local", 5004),
+		},
+		&cre.DonMetadata{Name: "feeds-zone-a", ID: 1, DonFamily: "feeds-zone-a", Flags: []string{cre.WorkflowDON, cre.HTTPActionCapability}},
+		&cre.DonMetadata{Name: "feeds-zone-b", ID: 2, DonFamily: "feeds-zone-b", Flags: []string{cre.WorkflowDON, cre.HTTPActionCapability}},
+		&cre.DonMetadata{Name: "gateway-zone-a", DonFamily: "feeds-zone-a", NodesMetadata: []*cre.NodeMetadata{{Roles: []string{cre.GatewayNode}}}},
+		&cre.DonMetadata{Name: "gateway-zone-b", DonFamily: "feeds-zone-b", NodesMetadata: []*cre.NodeMetadata{{Roles: []string{cre.GatewayNode}}}},
+	)
+}
+
+func deployTestShardedTopology(t *testing.T) *cre.Topology {
+	t.Helper()
+
+	return mustDeployTestTopology(t,
+		[]*cre.DonGatewayConfiguration{
+			deployTestGatewayConnector("gateway-node-0", "bootstrap-gateway.local", 5002),
+		},
+		&cre.DonMetadata{Name: "shard0", ID: 1, DonFamily: envconfig.DefaultDONFamily, ShardIndex: 0, Flags: []string{cre.WorkflowDON, cre.ShardDON, cre.HTTPActionCapability}},
+		&cre.DonMetadata{Name: "shard1", ID: 2, DonFamily: envconfig.DefaultDONFamily, ShardIndex: 1, Flags: []string{cre.WorkflowDON, cre.ShardDON, cre.HTTPActionCapability}},
+		&cre.DonMetadata{Name: "bootstrap-gateway", DonFamily: envconfig.DefaultDONFamily, NodesMetadata: []*cre.NodeMetadata{{Roles: []string{cre.GatewayNode}}}},
+	)
+}
+
+func mustDeployTestTopology(t *testing.T, connectors []*cre.DonGatewayConfiguration, dons ...*cre.DonMetadata) *cre.Topology {
+	t.Helper()
+
+	allDONs := append([]*cre.DonMetadata{deployTestBootstrapDON()}, dons...)
+	dm, err := cre.NewDonsMetadata(allDONs, infra.Provider{Type: infra.Docker})
+	require.NoError(t, err)
+
+	topology := &cre.Topology{
+		DonsMetadata: dm,
+		GatewayConnectors: &cre.GatewayConnectors{
+			Configurations: connectors,
+		},
+	}
+	require.NoError(t, topology.EnsureGatewayDonFamilyPairing())
+	return topology
+}
+
+func deployTestBootstrapDON() *cre.DonMetadata {
+	return &cre.DonMetadata{
+		Name:          "bootstrap",
+		DonFamily:     envconfig.DefaultDONFamily,
+		NodesMetadata: []*cre.NodeMetadata{{Roles: []string{cre.BootstrapNode}}},
+	}
+}
+
+func deployTestGatewayConnector(authID, host string, externalPort int) *cre.DonGatewayConfiguration {
+	return &cre.DonGatewayConfiguration{
+		GatewayConfiguration: &cre.GatewayConfiguration{
+			AuthGatewayID: authID,
+			Incoming: cre.Incoming{
+				Protocol:     "http",
+				Host:         host,
+				Path:         "/",
+				ExternalPort: externalPort,
+			},
+		},
+	}
 }

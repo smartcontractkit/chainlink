@@ -34,7 +34,6 @@ import (
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
-	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	syncer_v2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
 )
@@ -96,7 +95,7 @@ func DeployKeystoneContracts(
 
 type donConfig struct {
 	id        uint32 // Capabilities Registry DON ID
-	donFamily string // nodesets.don_family → CapabilitiesRegistryNewDONParams.DonFamilies (DefaultDONFamily when empty)
+	donFamily string // nodesets.don_family → CapabilitiesRegistryNewDONParams.DonFamilies
 	keystone_changeset.DonCapabilities
 	flags []cre.CapabilityFlag
 }
@@ -287,9 +286,7 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 
 		donFamily := don.donFamily
 		if donFamily == "" {
-			// Non-gateway DONs without nodesets.don_family register under DefaultDONFamily at cap-reg time.
-			// Gateway topologies require don_family on workflow/gateway nodesets and fail env start if missing.
-			donFamily = envconfig.DefaultDONFamily
+			panic(fmt.Sprintf("DON %q has no don_family for capabilities registry registration", don.Name))
 		}
 
 		donParams[i] = capabilities_registry_v2.CapabilitiesRegistryNewDONParams{

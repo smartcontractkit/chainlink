@@ -12,13 +12,16 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 func testTopologyWithWorkflowDONs(t *testing.T, wfDONs ...*cre.DonMetadata) *cre.Topology {
 	t.Helper()
 
 	dons := append([]*cre.DonMetadata{bootstrapDONMetadata()}, wfDONs...)
-	return &cre.Topology{DonsMetadata: cre.NewUncheckedDonsMetadata(dons)}
+	dm, err := cre.NewDonsMetadata(dons, infra.Provider{Type: infra.Docker})
+	require.NoError(t, err)
+	return &cre.Topology{DonsMetadata: dm}
 }
 
 func TestWorkflowContainerPatternForDON(t *testing.T) {
@@ -273,6 +276,7 @@ func shardedWorkflowDONTestTopology(t *testing.T) *cre.Topology {
 func bootstrapDONMetadata() *cre.DonMetadata {
 	return &cre.DonMetadata{
 		Name:          "bootstrap",
+		DonFamily:     envconfig.DefaultDONFamily,
 		NodesMetadata: []*cre.NodeMetadata{{Roles: []string{cre.BootstrapNode}}},
 	}
 }

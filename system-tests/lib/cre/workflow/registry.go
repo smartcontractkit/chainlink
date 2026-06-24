@@ -26,7 +26,6 @@ import (
 	wf_reg_v2_op "github.com/smartcontractkit/chainlink/deployment/cre/workflow_registry/v2/changeset/operations/contracts"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
@@ -198,7 +197,7 @@ func ConfigureWorkflowRegistry(
 
 	donFamilies := input.DONFamilies
 	if len(donFamilies) == 0 {
-		donFamilies = []string{config.DefaultDONFamily}
+		return nil, errors.New("workflow registry setup requires at least one workflow don_family")
 	}
 	// SetDONLimit is per don_family. Multi-family local topologies need one limit each so
 	// workflows registered under feeds-zone-a and feeds-zone-b both have on-chain quota.

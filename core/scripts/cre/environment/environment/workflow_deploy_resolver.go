@@ -9,7 +9,6 @@ import (
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
 // workflowDeployTargets are the on-chain and gateway parameters passed to deployWorkflow.
@@ -39,8 +38,8 @@ type workflowDeployTargets struct {
 // Multi-DON topologies must identify the workflow DON (--workflow-don-name, or --don-family
 // with optional --shard-index when unambiguous). Container-name-pattern is copy-only.
 //
-// When resolver is nil (no local CRE state on disk), donFamily defaults to DefaultDONFamily when
-// unset; donID and gatewayURL stay at whatever the caller passed.
+// When resolver is nil (no local CRE state on disk), --don-family must be passed explicitly;
+// donID and gatewayURL stay at whatever the caller passed.
 func resolveWorkflowDeployTargets(
 	cmd *cobra.Command,
 	resolver *LocalCREStateResolver,
@@ -56,7 +55,7 @@ func resolveWorkflowDeployTargets(
 	}
 
 	if resolver == nil {
-		family, err := finalizeWorkflowDonFamily(donFamilyFlag, false)
+		family, err := finalizeWorkflowDonFamily(donFamilyFlag)
 		if err != nil {
 			return targets, err
 		}
@@ -81,7 +80,7 @@ func resolveWorkflowDeployTargets(
 		targets.donFamily = donMeta.DonFamily
 	}
 
-	family, err := finalizeWorkflowDonFamily(targets.donFamily, true)
+	family, err := finalizeWorkflowDonFamily(targets.donFamily)
 	if err != nil {
 		return targets, err
 	}
@@ -89,7 +88,7 @@ func resolveWorkflowDeployTargets(
 
 	// Family-scoped gateway for vault secret encryption; skip when operator passed --gateway-url.
 	if !cmd.Flags().Changed("gateway-url") {
-		url, gwErr := resolver.resolveGatewayURL(family)
+		url, gwErr := resolver.GatewayURLForDonFamily(family)
 		if gwErr != nil {
 			return targets, fmt.Errorf("❌ failed to resolve gateway URL for don_family %q: %w", family, gwErr)
 		}
@@ -100,20 +99,12 @@ func resolveWorkflowDeployTargets(
 }
 
 // finalizeWorkflowDonFamily returns the don_family string written to the workflow registry on deploy.
-//
-//	donFamily        — resolved --don-family and/or selected workflow DON metadata; may be "".
-//	requireExplicit  — when true (local CRE state present), empty don_family is an error.
-//
-// When requireExplicit is false and donFamily is empty, returns DefaultDONFamily for deploy
-// without local CRE state. Must match nodesets.don_family from env start when state exists.
-func finalizeWorkflowDonFamily(donFamily string, requireExplicit bool) (string, error) {
+// Must match nodesets.don_family from env start or be passed explicitly via --don-family.
+func finalizeWorkflowDonFamily(donFamily string) (string, error) {
 	if donFamily != "" {
 		return donFamily, nil
 	}
-	if requireExplicit {
-		return "", errors.New("❌ --don-family is required (set nodesets.don_family in the topology or pass --don-family / --workflow-don-name with local CRE state)")
-	}
-	return envconfig.DefaultDONFamily, nil
+	return "", errors.New("❌ --don-family is required (set nodesets.don_family in the topology or pass --don-family / --workflow-don-name with local CRE state)")
 }
 
 // validateWorkflowDeployFlags is a deploy-time guard when the operator sets both identity flags explicitly.

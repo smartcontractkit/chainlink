@@ -219,7 +219,7 @@ type WorkflowRegistryInput struct {
 	ChainSelector   uint64                  `toml:"-"`
 	CldEnv          *cldf.Environment       `toml:"-"`
 	AllowedDonIDs   []uint64                `toml:"-"`
-	DONFamilies     []string                `toml:"-"` // distinct workflow don_family values for SetDONLimit at env start; nil on non-gateway topologies → registry setup uses DefaultDONFamily
+	DONFamilies     []string                `toml:"-"` // distinct workflow don_family values for SetDONLimit at env start
 	WorkflowOwners  []common.Address        `toml:"-"`
 	Out             *WorkflowRegistryOutput `toml:"out"`
 }
@@ -577,6 +577,10 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 
 	// Propagate merged configs back to NodeSet for consistent access across codebase
 	c.CapabilityConfigs = capConfigs
+
+	if strings.TrimSpace(c.DonFamily) == "" {
+		return nil, fmt.Errorf("nodeset %q has no don_family; set don_family on every nodeset", c.Name)
+	}
 
 	out := &DonMetadata{
 		ID:                           id,
@@ -1211,10 +1215,8 @@ type NodeSet struct {
 	Capabilities []string `toml:"capabilities"` // global capabilities that have no chain-specific configuration (e.g. cron, http-trigger)
 	DONTypes     []string `toml:"don_types"`    // workflow, capabilities, gateway
 	// DonFamily groups workflow and gateway nodesets for per-family gateway pairing in local CRE.
-	// Required on every workflow and gateway nodeset when the topology uses http-actions gateway
-	// wiring; env start fails if missing or unmatched (see topology_don_family.go). Also written
-	// to cap registry, workflow registry limits, deploy --don-family, and node workflow sync.
-	DonFamily string `toml:"don_family"`
+	// Required on every nodeset; env start fails if missing or unmatched (see topology_don_family.go).
+	DonFamily string `toml:"don_family" validate:"required"`
 	// SupportedEVMChains is filter. Use EVMChains() to get the actual list of chains supported by the nodeset.
 	SupportedEVMChains []uint64          `toml:"supported_evm_chains"` // chain IDs that the DON supports, empty means all chains
 	EnvVars            map[string]string `toml:"env_vars"`             // additional environment variables to be set on each node

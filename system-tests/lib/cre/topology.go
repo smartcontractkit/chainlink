@@ -24,14 +24,12 @@ type Topology struct {
 	GatewayConnectors     *GatewayConnectors     `toml:"gateway_connectors" json:"gateway_connectors"`
 
 	gatewayConnectorsByDon map[string]*DonGatewayConfiguration // gateway nodesets.name → connector (for per-family lookup)
-	donFamilyPairing       *donFamilyPairingState              // nil when topology has no gateway; see topology_don_family.go
+	gatewayDonFamilyPairing *gatewayDonFamilyPairingState // nil when topology has no gateway; see topology_don_family.go
 }
 
 func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs map[CapabilityFlag]CapabilityConfig) (*Topology, error) {
 	dm := make([]*DonMetadata, len(nodeSet))
 	for i := range nodeSet {
-		// Use ContractDonID from NodeSet when set (resolved from Capabilities Registry contract).
-		// Otherwise use optimistic i+1; the ID may be overwritten later when resolving from the contract.
 		id := nodeSet[i].ContractDonID
 		if id == 0 {
 			id = libc.MustSafeUint64FromInt(i + 1)
