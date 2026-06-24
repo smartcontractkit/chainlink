@@ -161,8 +161,8 @@ func SetupTestEnvironment(
 	if tErr != nil {
 		return nil, pkgerrors.Wrap(tErr, "failed to create topology")
 	}
-	if pairingSummary := topology.DonFamilyGatewayPairingSummary(); pairingSummary != "" {
-		testLogger.Info().Msg(pairingSummary) // confirms env-start pairing, e.g. feeds-zone-a → gateway-zone-a
+	if topology.DonsMetadata.RequiresGateway() {
+		testLogger.Info().Msg(topology.DonFamilyGatewayPairingSummary())
 	}
 
 	updatedNodeSets, topoErr := donconfig.PrepareNodeTOMLs(

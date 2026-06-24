@@ -192,7 +192,7 @@ func (r *LocalCREStateResolver) WorkflowDONNodeInfo() (dbPort int, nodeCount int
 	return r.workflowDONNodeInfoFor(donMeta)
 }
 
-// formatGatewayURL builds an external http-actions URL from a gateway connector config.
+// formatGatewayURL builds an external gateway URL from a gateway connector config.
 func (r *LocalCREStateResolver) formatGatewayURL(cfg *cre.DonGatewayConfiguration) (string, error) {
 	host := cfg.Incoming.Host
 	if host == "" {

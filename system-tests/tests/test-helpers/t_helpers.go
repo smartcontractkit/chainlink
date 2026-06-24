@@ -633,10 +633,6 @@ func registerWorkflowErr(ctx context.Context, wfRegCfg *WorkflowRegistrationConf
 	binaryURL := "file://" + wfRegCfg.CompressedWasmPath
 	containerTargetDir := &wfRegCfg.ContainerTargetDir
 
-	if wfRegCfg.DonFamily == "" {
-		return "", fmt.Errorf("DonFamily is required for workflow registration")
-	}
-
 	return creworkflow.RegisterWithContract(
 		ctx,
 		sethClient,

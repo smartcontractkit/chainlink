@@ -195,13 +195,9 @@ func ConfigureWorkflowRegistry(
 		return nil, errors.Wrap(err, fmt.Sprintf("failed to update allowed signers on workflow registry %s", input.ContractVersion.Version))
 	}
 
-	donFamilies := input.DONFamilies
-	if len(donFamilies) == 0 {
-		return nil, errors.New("workflow registry setup requires at least one workflow don_family")
-	}
 	// SetDONLimit is per don_family. Multi-family local topologies need one limit each so
 	// workflows registered under feeds-zone-a and feeds-zone-b both have on-chain quota.
-	for _, donFamily := range donFamilies {
+	for _, donFamily := range input.DONFamilies {
 		donLimitReport, err := operations.ExecuteOperation(
 			input.CldEnv.OperationsBundle,
 			wf_reg_v2_op.SetDONLimitOp,

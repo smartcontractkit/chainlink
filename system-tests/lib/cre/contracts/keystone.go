@@ -284,14 +284,9 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 			}
 		}
 
-		donFamily := don.donFamily
-		if donFamily == "" {
-			panic(fmt.Sprintf("DON %q has no don_family for capabilities registry registration", don.Name))
-		}
-
 		donParams[i] = capabilities_registry_v2.CapabilitiesRegistryNewDONParams{
 			Name:                     don.Name,
-			DonFamilies:              []string{donFamily},
+			DonFamilies:              []string{don.donFamily},
 			Config:                   []byte("{}"),
 			CapabilityConfigurations: capConfigs,
 			Nodes:                    donNodes,
