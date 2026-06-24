@@ -500,14 +500,15 @@ func sendConcurrentVaultCreate(t *testing.T, gwURL, requestID string, jsonReques
 		framework.L.Info().Str("requestID", requestID).Msg("vault create gateway-to-DON timeout; treating as success for batching load test")
 		return
 	}
+	// Replay guard can arrive on a non-200 HTTP status after a retried gateway call; check before StatusOK.
+	if bytes.Contains(body, []byte("request was already authorized previously")) {
+		framework.L.Info().Str("requestID", requestID).Msg("vault create returned replay-guard error after retry; DON processed the original request — treating as success")
+		return
+	}
 	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK; body=%s", string(body))
 
 	var parsed jsonrpc.Response[vaulttypes.SignedOCRResponse]
 	require.NoError(t, json.Unmarshal(body, &parsed), "failed to unmarshal gateway response")
-	if parsed.Error != nil && strings.Contains(parsed.Error.Message, "request was already authorized previously") {
-		framework.L.Info().Str("requestID", requestID).Msg("vault create returned replay-guard error after retry; DON processed the original request — treating as success")
-		return
-	}
 	require.Nil(t, parsed.Error, "gateway returned error: %v", parsed.Error)
 	require.Equal(t, requestID, parsed.ID)
 	require.Equal(t, vaulttypes.MethodSecretsCreate, parsed.Method)
