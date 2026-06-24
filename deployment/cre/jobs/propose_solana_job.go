@@ -53,9 +53,9 @@ type ProposeSolanaJobSpecInput struct {
 	ChainSelector        uint64   `json:"chainSelector" yaml:"chainSelector"`
 	BootstrapperOCR3Urls []string `json:"bootstrapperOCR3Urls" yaml:"bootstrapperOCR3Urls"`
 	// OCRContractQualifier selects the CapabilitiesRegistry qualifier on OCRChainSelector when readsEnabled is true.
-	OCRContractQualifier string `json:"ocrContractQualifier" yaml:"ocrContractQualifier"`
-	OCRChainSelector     uint64   `json:"ocrChainSelector" yaml:"ocrChainSelector"`
-	ForwardersQualifier  string   `json:"forwardersContractQualifier" yaml:"forwardersContractQualifier"`
+	OCRContractQualifier string        `json:"ocrContractQualifier" yaml:"ocrContractQualifier"`
+	OCRChainSelector     uint64        `json:"ocrChainSelector" yaml:"ocrChainSelector"`
+	ForwardersQualifier  string        `json:"forwardersContractQualifier" yaml:"forwardersContractQualifier"`
 	DeltaStage           time.Duration `json:"deltaStage" yaml:"deltaStage,omitempty"`
 
 	// ReadsEnabled turns on Solana read methods and wires OCR oracle factory (CapReg-backed, multi-chain signing).

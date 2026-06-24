@@ -366,7 +366,7 @@ func TestProposeSolanaJobSpec_Apply_readsEnabled_includesOracleFactory(t *testin
 			assert.Contains(t, spec, `"readsEnabled":true`)
 		}
 	}
-	require.Greater(t, checked, 0, "expected at least one solana-cap-v2 job spec")
+	require.Positive(t, checked, "expected at least one solana-cap-v2 job spec")
 }
 
 func TestProposeSolanaJobSpec_Apply_success(t *testing.T) {
