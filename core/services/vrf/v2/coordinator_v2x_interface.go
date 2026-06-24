@@ -25,7 +25,7 @@ var (
 
 // CoordinatorV2_X is an interface that allows us to use the same code for
 // both the V2 and V2Plus coordinators.
-type CoordinatorV2_X interface {
+type CoordinatorV2_X interface { //nolint:revive // V2_X naming matches coordinator version convention
 	Address() common.Address
 	ParseRandomWordsRequested(log types.Log) (RandomWordsRequested, error)
 	ParseRandomWordsFulfilled(log types.Log) (RandomWordsFulfilled, error)

@@ -23,7 +23,6 @@ var (
 )
 
 func TestIntegration_Functions_MultipleV1Requests_Success(t *testing.T) {
-	quarantine.Flaky(t, "DX-1804")
 	// simulated chain with all contracts
 	owner, b, commit, stop, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListContractAddress, allowListContract := utils.StartNewChainWithContracts(t, nClients)
 	defer stop()

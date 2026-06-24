@@ -472,11 +472,9 @@ func WithCacheMetrics(cm *CacheMetrics) func(*ModuleLRU) {
 }
 
 func (lru *ModuleLRU) Start() {
-	lru.wg.Add(1)
-	go func() {
-		defer lru.wg.Done()
+	lru.wg.Go(func() {
 		lru.reapLoop()
-	}()
+	})
 }
 
 func (lru *ModuleLRU) Close() {
@@ -581,7 +579,7 @@ func (lru *ModuleLRU) enforceCapLocked() int {
 	})
 
 	evicted := 0
-	for i := 0; i < excess; i++ {
+	for i := range excess {
 		if m, ok := lru.modules[loaded[i].id]; ok {
 			m.Evict()
 			evicted++

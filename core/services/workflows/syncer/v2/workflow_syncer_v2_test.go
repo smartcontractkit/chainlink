@@ -32,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
-	coretestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 	corecaps "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
@@ -242,7 +241,7 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDONV2(t *testing.T) {
 func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 	t.Parallel()
 	var (
-		ctx       = coretestutils.Context(t)
+		ctx       = t.Context()
 		lggr      = logger.TestLogger(t)
 		emitter   = custmsg.NewLabeler()
 		backendTH = testutils.NewEVMBackendTH(t)
@@ -346,7 +345,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 	t.Parallel()
 	var (
-		ctx       = coretestutils.Context(t)
+		ctx       = t.Context()
 		lggr      = logger.TestLogger(t)
 		emitter   = custmsg.NewLabeler()
 		backendTH = testutils.NewEVMBackendTH(t)
@@ -454,6 +453,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
 	t.Parallel()
 	t.Run("with heavy load", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
 		backendTH := testutils.NewEVMBackendTH(t)
 		donID := uint32(1)
