@@ -22,25 +22,26 @@ import (
 type testPluginOption func(*testPluginBuildOpts)
 
 type testPluginBuildOpts struct {
-	lggr                                 logger.Logger
-	store                                *requests.Store[*vaulttypes.Request]
-	publicKey                            *tdh2easy.PublicKey
-	privateKeyShare                      *tdh2easy.PrivateShare
-	onchainCfg                           ocr3types.ReportingPluginConfig
-	maxSecretsPerOwner                   int
-	maxCiphertextLengthBytes             int
-	maxIdentifierOwnerLengthBytes        int
-	maxIdentifierNamespaceLengthBytes    int
-	maxIdentifierKeyLengthBytes          int
-	maxRequestBatchSize                  int
-	batchSize                            int
-	maxBlobPayloadBytes                  int
-	vaultOptimizationsEnabled            bool
-	vaultSignedResponseRequestIDEnabled  bool
-	marshalBlob                          func(ocr3_1types.BlobHandle) ([]byte, error)
-	unmarshalBlob                        func([]byte) (ocr3_1types.BlobHandle, error)
-	maxObservationBytesOverride          int
-	maxReportsPlusPrecursorBytesOverride int
+	lggr                                    logger.Logger
+	store                                   *requests.Store[*vaulttypes.Request]
+	publicKey                               *tdh2easy.PublicKey
+	privateKeyShare                         *tdh2easy.PrivateShare
+	onchainCfg                              ocr3types.ReportingPluginConfig
+	maxSecretsPerOwner                      int
+	maxCiphertextLengthBytes                int
+	maxIdentifierOwnerLengthBytes           int
+	maxIdentifierNamespaceLengthBytes       int
+	maxIdentifierKeyLengthBytes             int
+	maxRequestBatchSize                     int
+	batchSize                               int
+	maxBlobPayloadBytes                     int
+	vaultOptimizationsEnabled               bool
+	vaultSignedResponseRequestIDEnabled     bool
+	vaultShareAggregationIncludesPublicKeys bool
+	marshalBlob                             func(ocr3_1types.BlobHandle) ([]byte, error)
+	unmarshalBlob                           func([]byte) (ocr3_1types.BlobHandle, error)
+	maxObservationBytesOverride             int
+	maxReportsPlusPrecursorBytesOverride    int
 }
 
 func withLggr(lggr logger.Logger) testPluginOption {
@@ -76,6 +77,10 @@ func withMaxSecretsPerOwner(n int) testPluginOption {
 
 func withVaultOptimizationsEnabled() testPluginOption {
 	return func(o *testPluginBuildOpts) { o.vaultOptimizationsEnabled = true }
+}
+
+func withVaultGetSecretsShareAggregationIncludesPublicKeys() testPluginOption {
+	return func(o *testPluginBuildOpts) { o.vaultShareAggregationIncludesPublicKeys = true }
 }
 
 func withVaultSignedResponseRequestIDEnabled() testPluginOption {
@@ -137,6 +142,9 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 		o.maxIdentifierKeyLengthBytes, o.maxRequestBatchSize, o.maxBlobPayloadBytes)
 	if o.vaultOptimizationsEnabled {
 		cfg.VaultOptimizationsEnabled = limits.NewGateLimiter(true)
+	}
+	if o.vaultShareAggregationIncludesPublicKeys {
+		cfg.VaultGetSecretsShareAggregationIncludesPublicKeys = limits.NewGateLimiter(true)
 	}
 	if o.vaultSignedResponseRequestIDEnabled {
 		cfg.VaultSignedResponseRequestIDEnabled = limits.NewGateLimiter(true)
@@ -231,19 +239,20 @@ func makeReportingPluginConfig(
 		MaxBatchSize:             bsl,
 		MaxPendingQueueWriteSize: maxPendingQueueWriteSizeLimiter,
 
-		PublicKey:                         publicKey,
-		PrivateKeyShare:                   privateKeyShare,
-		MaxSecretsPerOwner:                msl,
-		MaxShareLengthBytes:               shareLimiter,
-		MaxCiphertextLengthBytes:          cipherTextLimiter,
-		MaxIdentifierOwnerLengthBytes:     ownerLimiter,
-		MaxIdentifierNamespaceLengthBytes: namespaceOwnerLimiter,
-		MaxIdentifierKeyLengthBytes:       keyLimiter,
-		MaxRequestBatchSize:               requestBatchSizeLimiter,
-		MaxBlobPayloadBytes:               maxBlobPayloadLimiter,
-		VaultForceEmptyOCRRounds:            limits.NewGateLimiter(false),
-		VaultOptimizationsEnabled:           limits.NewGateLimiter(false),
-		VaultSignedResponseRequestIDEnabled: limits.NewGateLimiter(false),
+		PublicKey:                                         publicKey,
+		PrivateKeyShare:                                   privateKeyShare,
+		MaxSecretsPerOwner:                                msl,
+		MaxShareLengthBytes:                               shareLimiter,
+		MaxCiphertextLengthBytes:                          cipherTextLimiter,
+		MaxIdentifierOwnerLengthBytes:                     ownerLimiter,
+		MaxIdentifierNamespaceLengthBytes:                 namespaceOwnerLimiter,
+		MaxIdentifierKeyLengthBytes:                       keyLimiter,
+		MaxRequestBatchSize:                               requestBatchSizeLimiter,
+		MaxBlobPayloadBytes:                               maxBlobPayloadLimiter,
+		VaultForceEmptyOCRRounds:                          limits.NewGateLimiter(false),
+		VaultOptimizationsEnabled:                         limits.NewGateLimiter(false),
+		VaultSignedResponseRequestIDEnabled:               limits.NewGateLimiter(false),
+		VaultGetSecretsShareAggregationIncludesPublicKeys: limits.NewGateLimiter(false),
 	}
 }
 
