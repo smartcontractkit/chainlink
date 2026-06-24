@@ -143,6 +143,30 @@ func TestGatewayServiceConfigsForGateway_pairing(t *testing.T) {
 	require.Equal(t, []string{"feeds-zone-b"}, scopedB[0].DONs)
 }
 
+func TestGatewayServiceConfigsForGateway_preservesCapabilitiesDONForVault(t *testing.T) {
+	t.Parallel()
+
+	topology := &Topology{
+		DonsMetadata: &DonsMetadata{
+			dons: []*DonMetadata{
+				{Name: "workflow", DonFamily: testDONFamily, Flags: []string{WorkflowDON, HTTPActionCapability}},
+				{Name: "capabilities", DonFamily: testDONFamily, Flags: []string{CapabilitiesDON, VaultCapability}},
+				{Name: "bootstrap-gateway", DonFamily: testDONFamily, NodesMetadata: []*NodeMetadata{{Roles: []string{GatewayNode}}}},
+			},
+		},
+	}
+	require.NoError(t, topology.initDonFamilyGatewayPairing())
+
+	services := []GatewayServiceConfig{{
+		ServiceName: "vault",
+		Handlers:    []string{"vault"},
+		DONs:        []string{"capabilities"},
+	}}
+
+	scoped := topology.GatewayServiceConfigsForGateway("bootstrap-gateway", services)
+	require.Equal(t, []string{"capabilities"}, scoped[0].DONs)
+}
+
 func TestWorkflowDONFamilies(t *testing.T) {
 	t.Parallel()
 

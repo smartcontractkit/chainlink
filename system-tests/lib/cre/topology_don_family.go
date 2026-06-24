@@ -175,26 +175,27 @@ func (t *Topology) GatewayConnectorsForDonFamily(donFamily string) GatewayConnec
 	return GatewayConnectors{Configurations: configs}
 }
 
-// GatewayServiceConfigsForGateway scopes gateway worker service configs to workflow DONs in the
-// gateway nodeset's don_family.
+// GatewayServiceConfigsForGateway scopes gateway worker service configs to DONs in the
+// gateway nodeset's don_family (workflow and capabilities DONs, e.g. vault handler routing).
 func (t *Topology) GatewayServiceConfigsForGateway(gatewayDONName string, services []GatewayServiceConfig) []GatewayServiceConfig {
 	return t.gatewayServiceConfigsForDonFamily(t.DonFamilyForDON(gatewayDONName), services)
 }
 
 func (t *Topology) gatewayServiceConfigsForDonFamily(donFamily string, services []GatewayServiceConfig) []GatewayServiceConfig {
-	if t.gatewayDonFamilyPairing == nil {
-		return services
-	}
-
-	workflowNames := t.gatewayDonFamilyPairing.workflowDONNamesByFamily[donFamily]
-	if len(workflowNames) == 0 {
+	if t.gatewayDonFamilyPairing == nil || donFamily == "" {
 		return services
 	}
 
 	out := make([]GatewayServiceConfig, len(services))
 	for i, svc := range services {
 		out[i] = svc
-		out[i].DONs = slices.Clone(workflowNames)
+		filtered := make([]string, 0, len(svc.DONs))
+		for _, donName := range svc.DONs {
+			if t.DonFamilyForDON(donName) == donFamily {
+				filtered = append(filtered, donName)
+			}
+		}
+		out[i].DONs = filtered
 	}
 	return out
 }
