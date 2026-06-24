@@ -57,7 +57,7 @@ type DonContext struct {
 }
 
 func CreateDonContext(ctx context.Context, t *testing.T) DonContext {
-	ethBlockchain := NewEthBlockchain(t, 1000, 100*time.Millisecond)
+	ethBlockchain := NewEthBlockchain(t, 1000, 1*time.Second)
 	rageP2PNetwork := NewFakeRageP2PNetwork(ctx, t, 1000)
 	capabilitiesRegistry := NewCapabilitiesRegistry(ctx, t, ethBlockchain)
 
@@ -502,7 +502,7 @@ func startNewNode(ctx context.Context,
 
 		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(100 * time.Millisecond)
 		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(100 * time.Millisecond)
-		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(500 * time.Millisecond)
 
 		if setupCfg != nil {
 			setupCfg(c)
