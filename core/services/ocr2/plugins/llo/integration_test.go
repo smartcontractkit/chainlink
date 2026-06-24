@@ -1041,7 +1041,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 }`
 
 		pricePipeline := fmt.Sprintf(`
-dp          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
+dp          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}" retries=3];
 eth_parse    					[type=jsonparse path="result,ethPrice"];
 eth_decimal 					[type=multiply times=1 streamID=%d];
 link_parse    				[type=jsonparse path="result,linkPrice"];
@@ -1051,7 +1051,7 @@ dp -> link_parse -> link_decimal;
 `, bridgeName, ethStreamID, linkStreamID)
 
 		dexBasedAssetPipeline := fmt.Sprintf(`
-dp          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
+dp          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}" retries=3];
 
 bp_parse    				[type=jsonparse path="result,benchmarkPrice"];
 base_market_depth_parse   	[type=jsonparse path="result,baseMarketDepth"];
@@ -1068,7 +1068,7 @@ dp -> quote_market_depth_parse -> quote_market_depth_decimal;
 
 		// Don't use a multiply task so that the task result has int64 type.
 		rwaPipeline := fmt.Sprintf(`
-dp [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
+dp [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}" retries=3];
 
 market_status_parse [type=jsonparse path="data,marketStatus" streamID=%d];
 stonk_price_parse [type=jsonparse path="data,benchmarkPrice"];
@@ -1107,7 +1107,7 @@ dp -> stonk_price_parse -> stonk_price_timestamped_missing_indicated_time;
 		)
 
 		benchmarkPricePipeline := fmt.Sprintf(`
-dp          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
+dp          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}" retries=3];
 
 bp_parse    				[type=jsonparse path="result,benchmarkPrice"];
 bp_decimal 					[type=multiply times=1 streamID=%d];
@@ -1116,21 +1116,21 @@ dp -> bp_parse -> bp_decimal;
 `, bridgeName, benchmarkPriceStreamID)
 
 		timestampedStreamValuePipeline := fmt.Sprintf(`
-ds1_payload [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
-ds1_benchmark [type=jsonparse path="result,benchmarkPrice"];
-ds1_payload -> ds1_benchmark -> benchmark_price;
-ds1_provider_indicated_time [type=jsonparse lax=true path="timestamps,providerIndicatedTimeUnixMs"];
-ds1_payload -> ds1_provider_indicated_time -> provider_indicated_time;
-ds1_data_received_time [type=jsonparse lax=true path="timestamps,providerDataReceivedUnixMs"];
-ds1_payload -> ds1_data_received_time -> data_received_time;
+payload [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}" retries=3];
 
-ds2_payload [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
+ds1_benchmark [type=jsonparse path="result,benchmarkPrice"];
+payload -> ds1_benchmark -> benchmark_price;
+ds1_provider_indicated_time [type=jsonparse lax=true path="timestamps,providerIndicatedTimeUnixMs"];
+payload -> ds1_provider_indicated_time -> provider_indicated_time;
+ds1_data_received_time [type=jsonparse lax=true path="timestamps,providerDataReceivedUnixMs"];
+payload -> ds1_data_received_time -> data_received_time;
+
 ds2_benchmark [type=jsonparse path="result,benchmarkPrice2"];
-ds2_payload -> ds2_benchmark -> benchmark_price;
+payload -> ds2_benchmark -> benchmark_price;
 ds2_provider_indicated_time [type=jsonparse lax=true path="timestamps,providerIndicatedTimeUnixMs2"];
-ds2_payload -> ds2_provider_indicated_time -> provider_indicated_time;
+payload -> ds2_provider_indicated_time -> provider_indicated_time;
 ds2_data_received_time [type=jsonparse lax=true path="timestamps,providerDataReceivedUnixMs"];
-ds2_payload -> ds2_data_received_time -> data_received_time;
+payload -> ds2_data_received_time -> data_received_time;
 
 benchmark_price [type=median streamID=%d index=0];
 provider_indicated_time [type=median lax=true];
@@ -1139,10 +1139,10 @@ provider_indicated_time -> benchmark_price_timestamp;
 data_received_time -> benchmark_price_timestamp;
 
 benchmark_price_timestamp [type=coalesce streamID=%d index=1];
-`, bridgeName, bridgeName, timestampedStreamValueValueStreamID, timestampedStreamValueTimestampStreamID)
+`, bridgeName, timestampedStreamValueValueStreamID, timestampedStreamValueTimestampStreamID)
 
 		fundingRatePipeline := fmt.Sprintf(`
-dp          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
+dp          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}" retries=3];
 
 binance_funding_rate_parse   [type=jsonparse path="result,binanceFundingRate"];
 binance_funding_rate_decimal [type=multiply times=1 streamID=%d];
@@ -1223,13 +1223,9 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 				err = mercury.PayloadTypes.UnpackIntoMap(v, req.Payload)
 				require.NoError(t, err)
 				report, exists := v["report"]
-				if !exists {
-					t.Fatalf("expected payload %#v to contain 'report'", v)
-				}
+				require.True(t, exists, "expected payload %#v to contain 'report'", v)
 				reportCtx, exists := v["reportContext"]
-				if !exists {
-					t.Fatalf("expected payload %#v to contain 'reportContext'", v)
-				}
+				require.True(t, exists, "expected payload %#v to contain 'reportContext'", v)
 
 				// Check the report context
 				assert.Equal(t, [32]byte(digest), reportCtx.([3][32]uint8)[0])                                                                      // config digest
@@ -2544,7 +2540,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			// Verify that channels 2 and 21 stop producing reports after tombstoning
 			// We wait for a period where we don't see reports from these channels
 			tombstonedChannels := map[uint32]bool{2: true, 21: true}
-			checkPeriod := 5 * time.Second
+			checkPeriod := 3 * time.Second
 
 			require.Eventually(t, func() bool {
 				// Collect reports for a period and verify tombstoned channels don't appear

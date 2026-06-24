@@ -456,7 +456,7 @@ func ExecuteVaultBlobBatchingSmokeTest(t *testing.T, fixture *vaultScenarioFixtu
 		for i, st := range secretTests {
 			t.Run(fmt.Sprintf("secret_%d", i), func(t *testing.T) {
 				t.Parallel()
-				sendConcurrentVaultCreate(t, gwURL, st.requestID, st.jsonRequest, expectedResponseOwner, namespaces)
+				sendConcurrentVaultCreate(t, gwURL, st.requestID, st.jsonRequest, owner, expectedResponseOwner, namespaces)
 			})
 		}
 	})
@@ -478,7 +478,7 @@ func ExecuteVaultBlobBatchingSmokeTest(t *testing.T, fixture *vaultScenarioFixtu
 // vault's replay guard rejects with "request was already authorized previously". That error proves the
 // original request was accepted and processed, so we treat it as success — there is no later response
 // payload to validate when this path fires.
-func sendConcurrentVaultCreate(t *testing.T, gwURL, requestID string, jsonRequest jsonrpc.Request[json.RawMessage], expectedResponseOwner string, namespaces []string) {
+func sendConcurrentVaultCreate(t *testing.T, gwURL, requestID string, jsonRequest jsonrpc.Request[json.RawMessage], authorizedOwner, expectedResponseOwner string, namespaces []string) {
 	t.Helper()
 
 	authToken := jsonRequest.Auth
@@ -511,6 +511,7 @@ func sendConcurrentVaultCreate(t *testing.T, gwURL, requestID string, jsonReques
 	require.Nil(t, parsed.Error, "gateway returned error: %v", parsed.Error)
 	require.Equal(t, requestID, parsed.ID)
 	require.Equal(t, vaulttypes.MethodSecretsCreate, parsed.Method)
+	requireSignedPayloadRequestID(t, vaulttypes.MethodSecretsCreate, requestID, authorizedOwner, parsed.Result.Payload)
 	var createResp vault_helpers.CreateSecretsResponse
 	require.NoError(t, protojson.Unmarshal(parsed.Result.Payload, &createResp), "failed to decode CreateSecretsResponse")
 	require.Len(t, createResp.Responses, len(namespaces), "Expected one item in the response per namespace")
@@ -746,7 +747,13 @@ func assertVaultOCRWireTruncationSignalsInDockerLogs(t *testing.T) {
 }
 
 func TestVaultOptimizationsEnabled_CRESettingDefaultsDisabled(t *testing.T) {
+	t.Parallel()
 	require.False(t, cresettings.Default.VaultOptimizationsEnabled.DefaultValue)
+}
+
+func TestVaultSignedResponseRequestIDEnabled_CRESettingDefaultsDisabled(t *testing.T) {
+	t.Parallel()
+	require.False(t, cresettings.Default.VaultSignedResponseRequestIDEnabled.DefaultValue)
 }
 
 func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
@@ -832,6 +839,7 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 // the exact JSON-RPC params wire body (canonical json.Marshal / jsonrpc.Request), matching what
 // the gateway verifies—without relying on deprecated top-level identity fields inside params.
 func TestMustMintVaultJWTForRequest_UsesRawRequestDigest(t *testing.T) {
+	t.Parallel()
 	issuer, err := vault.NewTestJWTIssuer()
 	require.NoError(t, err)
 	t.Cleanup(func() {
