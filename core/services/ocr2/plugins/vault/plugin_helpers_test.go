@@ -36,6 +36,7 @@ type testPluginBuildOpts struct {
 	batchSize                               int
 	maxBlobPayloadBytes                     int
 	vaultOptimizationsEnabled               bool
+	vaultSignedResponseRequestIDEnabled     bool
 	vaultShareAggregationIncludesPublicKeys bool
 	marshalBlob                             func(ocr3_1types.BlobHandle) ([]byte, error)
 	unmarshalBlob                           func([]byte) (ocr3_1types.BlobHandle, error)
@@ -80,6 +81,10 @@ func withVaultOptimizationsEnabled() testPluginOption {
 
 func withVaultGetSecretsShareAggregationIncludesPublicKeys() testPluginOption {
 	return func(o *testPluginBuildOpts) { o.vaultShareAggregationIncludesPublicKeys = true }
+}
+
+func withVaultSignedResponseRequestIDEnabled() testPluginOption {
+	return func(o *testPluginBuildOpts) { o.vaultSignedResponseRequestIDEnabled = true }
 }
 
 func withOnchainCfg(n int, f int) testPluginOption {
@@ -140,6 +145,9 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 	}
 	if o.vaultShareAggregationIncludesPublicKeys {
 		cfg.VaultGetSecretsShareAggregationIncludesPublicKeys = limits.NewGateLimiter(true)
+	}
+	if o.vaultSignedResponseRequestIDEnabled {
+		cfg.VaultSignedResponseRequestIDEnabled = limits.NewGateLimiter(true)
 	}
 	ctx := context.Background()
 	pl, err := initializePluginLimits(ctx, limits.Factory{Settings: cresettings.DefaultGetter})
@@ -243,6 +251,7 @@ func makeReportingPluginConfig(
 		MaxBlobPayloadBytes:                               maxBlobPayloadLimiter,
 		VaultForceEmptyOCRRounds:                          limits.NewGateLimiter(false),
 		VaultOptimizationsEnabled:                         limits.NewGateLimiter(false),
+		VaultSignedResponseRequestIDEnabled:               limits.NewGateLimiter(false),
 		VaultGetSecretsShareAggregationIncludesPublicKeys: limits.NewGateLimiter(false),
 	}
 }
