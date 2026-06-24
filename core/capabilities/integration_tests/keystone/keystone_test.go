@@ -29,12 +29,12 @@ import (
 
 func Test_AllAtOnceTransmissionSchedule(t *testing.T) {
 	t.Parallel()
-	testTransmissionSchedule(t, "2s", "allAtOnce")
+	testTransmissionSchedule(t, "100ms", "allAtOnce")
 }
 
 func Test_OneAtATimeTransmissionSchedule(t *testing.T) {
 	t.Parallel()
-	testTransmissionSchedule(t, "2s", "oneAtATime")
+	testTransmissionSchedule(t, "100ms", "oneAtATime")
 }
 
 func Test_AllAtOnceZeroDelta_SubmitsDuplicateForwarderTxs(t *testing.T) {
@@ -120,7 +120,7 @@ func Test_AllAtOnceZeroDelta_SubmitsDuplicateForwarderTxs(t *testing.T) {
 		}
 		observedTxCount.Store(txCount)
 		return txCount > 1
-	}, 20*time.Second, 500*time.Millisecond, "expected duplicate forwarder tx submissions for one execution")
+	}, 20*time.Second, 100*time.Millisecond, "expected duplicate forwarder tx submissions for one execution")
 
 	// TODO: @ilija42 Expected behavior after fix: exactly one forwarder transaction should be submitted for a single execution.
 	// require.EqualValues(

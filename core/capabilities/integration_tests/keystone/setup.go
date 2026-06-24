@@ -57,7 +57,7 @@ func setupKeystoneDons(ctx context.Context, t *testing.T, lggr logger.Logger,
 func createKeystoneTriggerDon(ctx context.Context, t *testing.T, lggr logger.Logger, triggerDonInfo framework.DonConfiguration,
 	donContext framework.DonContext, trigger framework.TriggerFactory) *framework.DON {
 	triggerDon := framework.NewDON(ctx, t, lggr, triggerDonInfo,
-		[]commoncap.DON{}, donContext, false, 1*time.Second)
+		[]commoncap.DON{}, donContext, false, 100*time.Millisecond)
 
 	triggerDon.AddExternalTriggerCapability(trigger)
 	triggerDon.Initialise()
@@ -66,7 +66,7 @@ func createKeystoneTriggerDon(ctx context.Context, t *testing.T, lggr logger.Log
 
 func createKeystoneWriteTargetDon(ctx context.Context, t *testing.T, lggr logger.Logger, targetDonInfo framework.DonConfiguration, donContext framework.DonContext, forwarderAddr common.Address) *framework.DON {
 	writeTargetDon := framework.NewDON(ctx, t, lggr, targetDonInfo,
-		[]commoncap.DON{}, donContext, false, 1*time.Second)
+		[]commoncap.DON{}, donContext, false, 100*time.Millisecond)
 	_, err := writeTargetDon.AddPublishedEthereumWriteTargetNonStandardCapability(forwarderAddr)
 	require.NoError(t, err)
 	writeTargetDon.Initialise()
@@ -77,7 +77,7 @@ func createKeystoneWorkflowDon(ctx context.Context, t *testing.T, lggr logger.Lo
 	triggerDonInfo framework.DonConfiguration, targetDonInfo framework.DonConfiguration, donContext framework.DonContext) *framework.DON {
 	workflowDon := framework.NewDON(ctx, t, lggr, workflowDonInfo,
 		[]commoncap.DON{triggerDonInfo.DON, targetDonInfo.DON},
-		donContext, true, 1*time.Second)
+		donContext, true, 100*time.Millisecond)
 
 	workflowDon.AddOCR3NonStandardCapability()
 	workflowDon.Initialise()

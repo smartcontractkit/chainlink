@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
@@ -56,7 +57,7 @@ type DonContext struct {
 }
 
 func CreateDonContext(ctx context.Context, t *testing.T) DonContext {
-	ethBlockchain := NewEthBlockchain(t, 1000, 1*time.Second)
+	ethBlockchain := NewEthBlockchain(t, 1000, 100*time.Millisecond)
 	rageP2PNetwork := NewFakeRageP2PNetwork(ctx, t, 1000)
 	capabilitiesRegistry := NewCapabilitiesRegistry(ctx, t, ethBlockchain)
 
@@ -498,6 +499,10 @@ func startNewNode(ctx context.Context,
 		c.Feature.LogPoller = new(true)
 		c.CRE.UseLocalTimeProvider = new(true)
 		c.CRE.EnableDKGRecipient = new(true)
+
+		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(100 * time.Millisecond)
+		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(100 * time.Millisecond)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
 
 		if setupCfg != nil {
 			setupCfg(c)
