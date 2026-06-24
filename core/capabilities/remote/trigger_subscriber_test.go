@@ -139,6 +139,8 @@ func TestTriggerSubscriber_SetConfig_Basic(t *testing.T) {
 	agg := aggregation.NewDefaultModeAggregator(1)
 
 	t.Run("returns error when capability info ID doesn't match subscriber's ID", func(t *testing.T) {
+		t.Parallel()
+
 		dispatcher := remoteMocks.NewDispatcher(t)
 		subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, lggr)
 		config := &commoncap.RemoteTriggerConfig{}
@@ -151,6 +153,8 @@ func TestTriggerSubscriber_SetConfig_Basic(t *testing.T) {
 	})
 
 	t.Run("returns error when aggregator is nil", func(t *testing.T) {
+		t.Parallel()
+
 		dispatcher := remoteMocks.NewDispatcher(t)
 		subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, lggr)
 		config := &commoncap.RemoteTriggerConfig{}
@@ -160,6 +164,8 @@ func TestTriggerSubscriber_SetConfig_Basic(t *testing.T) {
 	})
 
 	t.Run("updates existing config", func(t *testing.T) {
+		t.Parallel()
+
 		dispatcher := remoteMocks.NewDispatcher(t)
 		subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, lggr)
 		// Set initial config
@@ -185,6 +191,8 @@ func TestTriggerSubscriber_SetConfig_Basic(t *testing.T) {
 		require.NoError(t, subscriber.Close())
 	})
 	t.Run("handles nil initial config", func(t *testing.T) {
+		t.Parallel()
+
 		dispatcher := remoteMocks.NewDispatcher(t)
 		subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, lggr)
 		// Set initial config as nil
@@ -474,6 +482,8 @@ func TestTriggerSubscriber_RegistrationCheck(t *testing.T) {
 	}
 
 	t.Run("does not resend registration when trigger exists", func(t *testing.T) {
+		t.Parallel()
+
 		sub, dispatcher := newSubscriber(t)
 
 		_, err := sub.RegisterTrigger(t.Context(), commoncap.TriggerRegistrationRequest{
@@ -503,6 +513,8 @@ func TestTriggerSubscriber_RegistrationCheck(t *testing.T) {
 	})
 
 	t.Run("sends unregister when trigger missing with correct metadata", func(t *testing.T) {
+		t.Parallel()
+
 		sub, dispatcher := newSubscriber(t)
 
 		dispatcher.Calls = nil
@@ -530,6 +542,8 @@ func TestTriggerSubscriber_RegistrationCheck(t *testing.T) {
 	})
 
 	t.Run("sends unregister after trigger is unregistered locally", func(t *testing.T) {
+		t.Parallel()
+
 		sub, dispatcher := newSubscriber(t)
 
 		req := commoncap.TriggerRegistrationRequest{
@@ -565,6 +579,8 @@ func TestTriggerSubscriber_RegistrationCheck(t *testing.T) {
 	})
 
 	t.Run("ignores check with mismatched WorkflowIds and TriggerIds lengths", func(t *testing.T) {
+		t.Parallel()
+
 		sub, dispatcher := newSubscriber(t)
 
 		for _, tc := range []struct {
@@ -589,6 +605,8 @@ func TestTriggerSubscriber_RegistrationCheck(t *testing.T) {
 			},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
+				t.Parallel()
+
 				malformedMsg := &remotetypes.MessageBody{
 					Sender:      capDon.Members[0][:],
 					Method:      remotetypes.MethodTriggerRegistrationCheck,
@@ -616,6 +634,8 @@ func TestTriggerSubscriber_RegistrationCheck(t *testing.T) {
 	})
 
 	t.Run("ignores check from unknown sender", func(t *testing.T) {
+		t.Parallel()
+
 		sub, dispatcher := newSubscriber(t)
 
 		unknownPeer := p2ptypes.PeerID{0xaa}

@@ -23,12 +23,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
 func Test_RemoteExecutableCapability_ExecutionNotBlockedBySlowCapabilityExecution_AllAtOnce(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 
 	workflowIDToPause := map[string]time.Duration{}
 	workflowIDToPause[workflowID1] = 1 * time.Minute
@@ -37,13 +38,13 @@ func Test_RemoteExecutableCapability_ExecutionNotBlockedBySlowCapabilityExecutio
 		workflowIDToPause: workflowIDToPause,
 	}
 
-	var callCount int64
+	var callCount atomic.Int64
 
 	numWorkflowPeers := int64(10)
-	var testShuttingDown int32
+	var testShuttingDown atomic.Int32
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
-		shuttingDown := atomic.LoadInt32(&testShuttingDown)
+		shuttingDown := testShuttingDown.Load()
 		if shuttingDown != 0 {
 			return
 		}
@@ -54,7 +55,7 @@ func Test_RemoteExecutableCapability_ExecutionNotBlockedBySlowCapabilityExecutio
 				assert.Equal(t, "1s", mp.(map[string]any)["response"].(string))
 			}
 
-			atomic.AddInt64(&callCount, 1)
+			callCount.Add(1)
 		}
 	}
 
@@ -79,10 +80,10 @@ func Test_RemoteExecutableCapability_ExecutionNotBlockedBySlowCapabilityExecutio
 		9, timeOut, method, false)
 
 	require.Eventually(t, func() bool {
-		count := atomic.LoadInt64(&callCount)
+		count := callCount.Load()
 
 		if count == numWorkflowPeers {
-			atomic.AddInt32(&testShuttingDown, 1)
+			testShuttingDown.Add(1)
 			return true
 		}
 
@@ -91,7 +92,9 @@ func Test_RemoteExecutableCapability_ExecutionNotBlockedBySlowCapabilityExecutio
 }
 
 func Test_RemoteExecutableCapability_ExecutionNotBlockedBySlowCapabilityExecution_OneAtATime(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 
 	workflowIDToPause := map[string]time.Duration{}
 	workflowIDToPause[workflowID1] = 1 * time.Minute
@@ -100,13 +103,13 @@ func Test_RemoteExecutableCapability_ExecutionNotBlockedBySlowCapabilityExecutio
 		workflowIDToPause: workflowIDToPause,
 	}
 
-	var callCount int64
+	var callCount atomic.Int64
 
 	numWorkflowPeers := int64(10)
-	var testShuttingDown int32
+	var testShuttingDown atomic.Int32
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
-		shuttingDown := atomic.LoadInt32(&testShuttingDown)
+		shuttingDown := testShuttingDown.Load()
 		if shuttingDown != 0 {
 			return
 		}
@@ -117,7 +120,7 @@ func Test_RemoteExecutableCapability_ExecutionNotBlockedBySlowCapabilityExecutio
 				assert.Equal(t, "1s", mp.(map[string]any)["response"].(string))
 			}
 
-			atomic.AddInt64(&callCount, 1)
+			callCount.Add(1)
 		}
 	}
 
@@ -142,10 +145,10 @@ func Test_RemoteExecutableCapability_ExecutionNotBlockedBySlowCapabilityExecutio
 		9, timeOut, method, false)
 
 	require.Eventually(t, func() bool {
-		count := atomic.LoadInt64(&callCount)
+		count := callCount.Load()
 
 		if count == numWorkflowPeers {
-			atomic.AddInt32(&testShuttingDown, 1)
+			testShuttingDown.Add(1)
 			return true
 		}
 
@@ -154,8 +157,10 @@ func Test_RemoteExecutableCapability_ExecutionNotBlockedBySlowCapabilityExecutio
 }
 
 func Test_RemoteExecutableCapability_TransmissionSchedules(t *testing.T) {
+	t.Parallel()
+
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-108")
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
 		if assert.NoError(t, responseError) {
@@ -194,7 +199,9 @@ func Test_RemoteExecutableCapability_TransmissionSchedules(t *testing.T) {
 }
 
 func Test_RemoteExecutionCapability_CapabilityError(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 
 	capability := &TestErrorCapability{}
 
@@ -206,6 +213,7 @@ func Test_RemoteExecutionCapability_CapabilityError(t *testing.T) {
 
 	var methods []func(ctx context.Context, caller commoncap.ExecutableCapability)
 
+	methods = make([]func(ctx context.Context, caller commoncap.ExecutableCapability), 0, 1)
 	methods = append(methods, func(ctx context.Context, caller commoncap.ExecutableCapability) {
 		executeCapability(ctx, t, caller, transmissionSchedule, func(t *testing.T, responseCh commoncap.CapabilityResponse, responseError error) {
 			assert.ErrorContains(t, responseError, "failed to execute capability")
@@ -218,7 +226,9 @@ func Test_RemoteExecutionCapability_CapabilityError(t *testing.T) {
 }
 
 func Test_RemoteExecutableCapability_RandomCapabilityError(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 
 	capability := &TestRandomErrorCapability{}
 
@@ -230,6 +240,7 @@ func Test_RemoteExecutableCapability_RandomCapabilityError(t *testing.T) {
 
 	var methods []func(ctx context.Context, caller commoncap.ExecutableCapability)
 
+	methods = make([]func(ctx context.Context, caller commoncap.ExecutableCapability), 0, 1)
 	methods = append(methods, func(ctx context.Context, caller commoncap.ExecutableCapability) {
 		executeCapability(ctx, t, caller, transmissionSchedule, func(t *testing.T, responseCh commoncap.CapabilityResponse, responseError error) {
 			assert.ErrorContains(t, responseError, "failed to execute capability")

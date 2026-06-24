@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -163,6 +162,8 @@ func (t *noopTrigger) AckEvent(_ context.Context, _ string, _ string, _ string) 
 // --- Test: Subscriber registrationLoop traffic volume ---
 
 func TestRegistrationTrafficVolume(t *testing.T) {
+	t.Parallel()
+
 	cases := []struct {
 		nRegistrations  int
 		capDonSize      int
@@ -177,6 +178,8 @@ func TestRegistrationTrafficVolume(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(fmt.Sprintf("N=%d_cap=%d_wf=%d", tc.nRegistrations, tc.capDonSize, tc.workflowDonSize), func(t *testing.T) {
+			t.Parallel()
+
 			lggr := logger.Test(t)
 			dispatcher := newCountingDispatcher()
 
@@ -210,14 +213,14 @@ func TestRegistrationTrafficVolume(t *testing.T) {
 					TriggerID: fmt.Sprintf("trigger_%d", i),
 					Metadata:  commoncap.RequestMetadata{WorkflowID: generateWorkflowID(i)},
 				}
-				_, err := subscriber.RegisterTrigger(testutils.Context(t), req)
+				_, err := subscriber.RegisterTrigger(t.Context(), req)
 				require.NoError(t, err)
 			}
 
 			// Reset counters after initial registration sends, then start
 			// the loop so the first tick generates a clean measurement.
 			dispatcher.Reset()
-			require.NoError(t, subscriber.Start(testutils.Context(t)))
+			require.NoError(t, subscriber.Start(t.Context()))
 			t.Cleanup(func() { subscriber.Close() })
 
 			// Wait for exactly one tick (500ms refresh, wait 700ms to give time)
@@ -250,6 +253,8 @@ func TestRegistrationTrafficVolume(t *testing.T) {
 // --- Test: Publisher sendRegistrationChecks traffic volume ---
 
 func TestRegistrationCheckTrafficVolume(t *testing.T) {
+	t.Parallel()
+
 	cases := []struct {
 		nRegistrations  int
 		capDonSize      int
@@ -264,7 +269,9 @@ func TestRegistrationCheckTrafficVolume(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(fmt.Sprintf("N=%d", tc.nRegistrations), func(t *testing.T) {
-			ctx := testutils.Context(t)
+			t.Parallel()
+
+			ctx := t.Context()
 			lggr := logger.Test(t)
 			dispatcher := newCountingDispatcher()
 
@@ -440,10 +447,14 @@ func BenchmarkRegistrationProcessing(b *testing.B) {
 // --- Test: Subscriber RLock hold duration during registration loop ---
 
 func TestRegistrationLoopLockDuration(t *testing.T) {
+	t.Parallel()
+
 	cases := []int{100, 500, 1000, 2500}
 
 	for _, n := range cases {
 		t.Run(fmt.Sprintf("N=%d", n), func(t *testing.T) {
+			t.Parallel()
+
 			lggr := logger.Test(t)
 			dispatcher := newCountingDispatcher()
 
@@ -475,7 +486,7 @@ func TestRegistrationLoopLockDuration(t *testing.T) {
 					TriggerID: fmt.Sprintf("trigger_%d", i),
 					Metadata:  commoncap.RequestMetadata{WorkflowID: generateWorkflowID(i)},
 				}
-				_, err := subscriber.RegisterTrigger(testutils.Context(t), req)
+				_, err := subscriber.RegisterTrigger(t.Context(), req)
 				require.NoError(t, err)
 			}
 
@@ -483,7 +494,7 @@ func TestRegistrationLoopLockDuration(t *testing.T) {
 
 			expectedSends := int64(n * 4) // n registrations * 4 cap DON members
 
-			require.NoError(t, subscriber.Start(testutils.Context(t)))
+			require.NoError(t, subscriber.Start(t.Context()))
 			t.Cleanup(func() { subscriber.Close() })
 
 			start := time.Now()
@@ -519,7 +530,9 @@ func TestRegistrationLoopLockDuration(t *testing.T) {
 // DON peers, workflow F=2 → quorum 5). This does not simulate dispatcher drops
 // or shared-channel saturation; see test log for that limitation.
 func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	lggr := logger.Test(t)
 
 	const (
@@ -732,16 +745,10 @@ func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
 	t.Logf("--- Ratios (illustrative; phase windows differ) ---")
 	t.Logf("registrationLoop RegisterTrigger (one tick) / publisher registration-check sends per tick ≈ %.1fx",
 		regToCheckRatio)
-	ackDenom := ackFanout
-	if ackDenom < 1 {
-		ackDenom = 1
-	}
+	ackDenom := max(ackFanout, 1)
 	t.Logf("registrationLoop per tick / one subscriber AckEvent round ≈ %.1fx",
 		float64(perTickReg)/float64(ackDenom))
-	evDenom := afterEvent
-	if evDenom < 1 {
-		evDenom = 1
-	}
+	evDenom := max(afterEvent, 1)
 	t.Logf("registrationLoop per tick / one trigger event dispatch ≈ %.1fx",
 		float64(perTickReg)/float64(evDenom))
 

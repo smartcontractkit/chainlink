@@ -18,14 +18,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
 const capID = "cap_id@1"
 
 func TestTriggerPublisher_Register(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
 
 	underlyingTriggerCap, publisher, _, peers := newServices(t, capabilityDONID, workflowDONID, 1)
@@ -46,7 +47,9 @@ func TestTriggerPublisher_Register(t *testing.T) {
 }
 
 func TestTriggerPublisher_ReceiveTriggerEvents_NoBatching(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
 
 	underlyingTriggerCap, publisher, dispatcher, peers := newServices(t, capabilityDONID, workflowDONID, 1)
@@ -66,7 +69,9 @@ func TestTriggerPublisher_ReceiveTriggerEvents_NoBatching(t *testing.T) {
 }
 
 func TestTriggerPublisher_ReceiveTriggerEvents_BatchingEnabled(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
 
 	underlyingTriggerCap, publisher, dispatcher, peers := newServices(t, capabilityDONID, workflowDONID, 2)
@@ -104,7 +109,9 @@ func TestTriggerPublisher_ReceiveTriggerEvents_BatchingEnabled(t *testing.T) {
 }
 
 func TestTriggerPublisher_ReceiveTriggerEventAcks(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
 	underlyingTriggerCap, publisher, _, peers := newServices(t, capabilityDONID, workflowDONID, 2)
 	eventID := "123"
@@ -147,6 +154,8 @@ func TestTriggerPublisher_SetConfig_Basic(t *testing.T) {
 	}
 
 	t.Run("returns error when underlying trigger capability is nil", func(t *testing.T) {
+		t.Parallel()
+
 		dispatcher := mocks.NewDispatcher(t)
 		publisher := remote.NewTriggerPublisher(capInfo.ID, "method", dispatcher, lggr)
 		config := &commoncap.RemoteTriggerConfig{}
@@ -156,6 +165,8 @@ func TestTriggerPublisher_SetConfig_Basic(t *testing.T) {
 	})
 
 	t.Run("handles nil config", func(t *testing.T) {
+		t.Parallel()
+
 		dispatcher := mocks.NewDispatcher(t)
 		publisher := remote.NewTriggerPublisher(capInfo.ID, "method", dispatcher, lggr)
 		// Set config as nil - should use defaults
@@ -163,12 +174,14 @@ func TestTriggerPublisher_SetConfig_Basic(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify config works
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		require.NoError(t, publisher.Start(ctx))
 		require.NoError(t, publisher.Close())
 	})
 
 	t.Run("handles nil workflowDONs", func(t *testing.T) {
+		t.Parallel()
+
 		dispatcher := mocks.NewDispatcher(t)
 		publisher := remote.NewTriggerPublisher(capInfo.ID, "method", dispatcher, lggr)
 		config := &commoncap.RemoteTriggerConfig{
@@ -182,12 +195,14 @@ func TestTriggerPublisher_SetConfig_Basic(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify config works
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		require.NoError(t, publisher.Start(ctx))
 		require.NoError(t, publisher.Close())
 	})
 
 	t.Run("updates existing config", func(t *testing.T) {
+		t.Parallel()
+
 		dispatcher := mocks.NewDispatcher(t)
 		publisher := remote.NewTriggerPublisher(capInfo.ID, "method", dispatcher, lggr)
 		// Set initial config
@@ -215,7 +230,7 @@ func TestTriggerPublisher_SetConfig_Basic(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify updated config works
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		require.NoError(t, publisher.Start(ctx))
 		require.NoError(t, publisher.Close())
 	})
@@ -223,7 +238,7 @@ func TestTriggerPublisher_SetConfig_Basic(t *testing.T) {
 
 func newServices(t *testing.T, capabilityDONID uint32, workflowDONID uint32, maxBatchSize uint32) (*testTrigger, remotetypes.ReceiverService, *mocks.Dispatcher, []p2ptypes.PeerID) {
 	lggr := logger.Test(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	capInfo := commoncap.CapabilityInfo{
 		ID:             capID,
 		CapabilityType: commoncap.CapabilityTypeTrigger,
@@ -330,7 +345,9 @@ func (tr *testTrigger) AckEvent(_ context.Context, triggerID string, eventID str
 }
 
 func TestTriggerPublisher_MultipleTriggersSameWorkflow(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	lggr := logger.Test(t)
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
 
@@ -422,7 +439,9 @@ func TestTriggerPublisher_MultipleTriggersSameWorkflow(t *testing.T) {
 }
 
 func TestTriggerPublisher_ExplicitUnregister(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	lggr := logger.Test(t)
 
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
@@ -495,7 +514,9 @@ func TestTriggerPublisher_ExplicitUnregister(t *testing.T) {
 }
 
 func TestTriggerPublisher_SendsRegistrationChecks(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	lggr := logger.Test(t)
 
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
@@ -570,7 +591,9 @@ func TestTriggerPublisher_SendsRegistrationChecks(t *testing.T) {
 }
 
 func TestTriggerPublisher_RegistrationChecksChunkByMaxBatchSize(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	lggr := logger.Test(t)
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
 
@@ -618,7 +641,7 @@ func TestTriggerPublisher_RegistrationChecksChunkByMaxBatchSize(t *testing.T) {
 	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
 	require.NoError(t, publisher.Start(ctx))
 
-	for i := 0; i < nRegs; i++ {
+	for i := range nRegs {
 		publisher.Receive(ctx, newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[1], fmt.Sprintf("trigger_%d", i)))
 		<-underlying.registrationsCh
 	}
@@ -645,7 +668,9 @@ func TestTriggerPublisher_RegistrationChecksChunkByMaxBatchSize(t *testing.T) {
 }
 
 func TestTriggerPublisher_UnregisterValidatesSenderMembership(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	lggr := logger.Test(t)
 
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
@@ -729,7 +754,9 @@ func TestTriggerPublisher_UnregisterValidatesSenderMembership(t *testing.T) {
 }
 
 func TestTriggerPublisher_UnregisterRequiresQuorum(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	lggr := logger.Test(t)
 
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
@@ -812,7 +839,9 @@ func TestTriggerPublisher_UnregisterRequiresQuorum(t *testing.T) {
 }
 
 func TestTriggerPublisher_UnregisterInvalidMetadata(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 
 	_, publisher, _, peers := newServices(t, 1, 2, 1)
 
@@ -855,6 +884,8 @@ func TestTriggerPublisher_UnregisterInvalidMetadata(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			msg := &remotetypes.MessageBody{
 				Sender:      peers[1][:],
 				Method:      remotetypes.MethodUnregisterTrigger,
@@ -872,7 +903,9 @@ func TestTriggerPublisher_UnregisterInvalidMetadata(t *testing.T) {
 }
 
 func TestTriggerPublisher_AckCacheCleanup(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	lggr := logger.Test(t)
 
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
@@ -963,6 +996,8 @@ func TestTriggerPublisher_AckCacheCleanup(t *testing.T) {
 }
 
 func TestTriggerPublisher_SecondDeliveryAfterFullAck_ReachesAllPeers(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	lggr := logger.Test(t)
 
@@ -1063,8 +1098,12 @@ func TestTriggerPublisher_SecondDeliveryAfterFullAck_ReachesAllPeers(t *testing.
 }
 
 func TestTriggerPublisher_RegisterTrigger_FailureShortCircuit(t *testing.T) {
+	t.Parallel()
+
 	t.Run("user error suppresses retries", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		t.Parallel()
+
+		ctx := t.Context()
 		lggr := logger.Test(t)
 		capabilityDONID, workflowDONID := uint32(1), uint32(2)
 
@@ -1118,7 +1157,9 @@ func TestTriggerPublisher_RegisterTrigger_FailureShortCircuit(t *testing.T) {
 	})
 
 	t.Run("system error allows retries", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		t.Parallel()
+
+		ctx := t.Context()
 		lggr := logger.Test(t)
 		capabilityDONID, workflowDONID := uint32(1), uint32(2)
 

@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -34,9 +33,11 @@ const (
 )
 
 func Test_Client_DonTopologies(t *testing.T) {
+	t.Parallel()
+
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CAPPL-322")
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
 		"schedule":   transmission.Schedule_OneAtATime,
@@ -59,6 +60,7 @@ func Test_Client_DonTopologies(t *testing.T) {
 
 	var methods []func(caller commoncap.ExecutableCapability)
 
+	methods = make([]func(caller commoncap.ExecutableCapability), 0, 1)
 	methods = append(methods, func(caller commoncap.ExecutableCapability) {
 		executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
 		if assert.NoError(t, err) {
@@ -85,8 +87,10 @@ func Test_Client_DonTopologies(t *testing.T) {
 }
 
 func Test_Client_TransmissionSchedules(t *testing.T) {
+	t.Parallel()
+
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-104")
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
 		if assert.NoError(t, responseError) {
@@ -145,7 +149,9 @@ func Test_Client_TransmissionSchedules(t *testing.T) {
 }
 
 func Test_Client_TimesOutIfInsufficientCapabilityPeerResponses(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
 		assert.ErrorIs(t, responseError, executable.ErrRequestExpired)
@@ -175,7 +181,9 @@ func Test_Client_TimesOutIfInsufficientCapabilityPeerResponses(t *testing.T) {
 }
 
 func Test_Client_WaitsForResponsesWithinAggregationGrace(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	requestTimeout := 500 * time.Millisecond
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
@@ -213,7 +221,9 @@ func Test_Client_WaitsForResponsesWithinAggregationGrace(t *testing.T) {
 }
 
 func Test_Client_ConsensusFailedIfInsufficientCapabilityPeerResponses(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
 		var capErr caperrors.Error
@@ -243,7 +253,9 @@ func Test_Client_ConsensusFailedIfInsufficientCapabilityPeerResponses(t *testing
 }
 
 func Test_Client_ContextCanceledBeforeQuorumReached(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(t.Context())
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
 		assert.ErrorIs(t, responseError, executable.ErrContextDoneBeforeResponseQuorum)
@@ -444,6 +456,8 @@ func (t *clientTestServer) sendResponse(messageID string, responseErr error,
 }
 
 func TestClient_SetConfig(t *testing.T) {
+	t.Parallel()
+
 	lggr := logger.Test(t)
 	capabilityID := "test_capability@1.0.0"
 
@@ -470,6 +484,8 @@ func TestClient_SetConfig(t *testing.T) {
 	validTimeout := 30 * time.Second
 
 	t.Run("successful config set", func(t *testing.T) {
+		t.Parallel()
+
 		transmissionConfig := &transmission.TransmissionConfig{
 			Schedule:   transmission.Schedule_OneAtATime,
 			DeltaStage: 10 * time.Millisecond,
@@ -485,6 +501,8 @@ func TestClient_SetConfig(t *testing.T) {
 	})
 
 	t.Run("mismatched capability ID", func(t *testing.T) {
+		t.Parallel()
+
 		invalidCapInfo := commoncap.CapabilityInfo{
 			ID:             "different_capability@1.0.0",
 			CapabilityType: commoncap.CapabilityTypeAction,
@@ -497,6 +515,8 @@ func TestClient_SetConfig(t *testing.T) {
 	})
 
 	t.Run("empty DON members", func(t *testing.T) {
+		t.Parallel()
+
 		invalidDonInfo := commoncap.DON{
 			ID:      1,
 			Members: []p2ptypes.PeerID{},
@@ -509,6 +529,8 @@ func TestClient_SetConfig(t *testing.T) {
 	})
 
 	t.Run("successful config update", func(t *testing.T) {
+		t.Parallel()
+
 		// Set initial config
 		initialTimeout := 10 * time.Second
 		err := client.SetConfig(validCapInfo, validDonInfo, initialTimeout, nil, nil)
@@ -533,7 +555,9 @@ func TestClient_SetConfig(t *testing.T) {
 }
 
 func TestClient_SetConfig_StartClose(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	lggr := logger.Test(t)
 	capabilityID := "test_capability@1.0.0"
 
@@ -559,6 +583,8 @@ func TestClient_SetConfig_StartClose(t *testing.T) {
 	validTimeout := 30 * time.Second
 
 	t.Run("start fails without config", func(t *testing.T) {
+		t.Parallel()
+
 		clientWithoutConfig := executable.NewClient(capabilityID, "execute", dispatcher, lggr)
 		err := clientWithoutConfig.Start(ctx)
 		require.Error(t, err)
@@ -566,12 +592,16 @@ func TestClient_SetConfig_StartClose(t *testing.T) {
 	})
 
 	t.Run("start succeeds after config set", func(t *testing.T) {
+		t.Parallel()
+
 		require.NoError(t, client.SetConfig(validCapInfo, validDonInfo, validTimeout, nil, nil))
 		require.NoError(t, client.Start(ctx))
 		require.NoError(t, client.Close())
 	})
 
 	t.Run("config can be updated after start", func(t *testing.T) {
+		t.Parallel()
+
 		// Create a fresh client for this test since services can only be started once
 		freshClient := executable.NewClient(capabilityID, "execute", dispatcher, lggr)
 

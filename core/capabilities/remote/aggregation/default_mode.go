@@ -47,10 +47,9 @@ func (a *defaultModeAggregator) Aggregate(_ string, responses [][]byte) (commonc
 func AggregateModeRaw(elemList [][]byte, minIdenticalResponses uint32) ([]byte, error) {
 	// Fast path: if elemList[0] reaches majorityThreshold (max(len/2+1, minIdenticalResponses)) hashing won't be needed.
 	n := len(elemList)
-	majorityThreshold := uint32(n/2 + 1) //nolint:gosec // disable G115
-	if minIdenticalResponses > majorityThreshold {
-		majorityThreshold = minIdenticalResponses
-	}
+	majorityThreshold := max(
+		//nolint:gosec // disable G115
+		minIdenticalResponses, uint32(n/2+1))
 	var matchCount uint32 = 1
 	for i := 1; i < n; i++ {
 		if bytes.Equal(elemList[0], elemList[i]) {

@@ -23,12 +23,13 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
 func Test_Server_Execute_SlowCapabilityExecutionDoesNotImpactSubsequentCall(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 
 	numCapabilityPeers := 4
 
@@ -81,7 +82,9 @@ func Test_Server_Execute_SlowCapabilityExecutionDoesNotImpactSubsequentCall(t *t
 }
 
 func Test_Server_DefaultExcludedAttributes(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 
 	numCapabilityPeers := 4
 
@@ -117,7 +120,9 @@ func Test_Server_DefaultExcludedAttributes(t *testing.T) {
 }
 
 func Test_Server_ExcludesNonDeterministicInputAttributes(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 
 	numCapabilityPeers := 4
 
@@ -153,7 +158,9 @@ func Test_Server_ExcludesNonDeterministicInputAttributes(t *testing.T) {
 }
 
 func Test_Server_Execute_RespondsAfterSufficientRequests(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 
 	numCapabilityPeers := 4
 
@@ -180,7 +187,9 @@ func Test_Server_Execute_RespondsAfterSufficientRequests(t *testing.T) {
 }
 
 func Test_Server_InsufficientCallers(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 
 	numCapabilityPeers := 4
 
@@ -207,7 +216,9 @@ func Test_Server_InsufficientCallers(t *testing.T) {
 }
 
 func Test_Server_CapabilityError(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 
 	numCapabilityPeers := 4
 
@@ -234,7 +245,9 @@ func Test_Server_CapabilityError(t *testing.T) {
 }
 
 func Test_Server_V2Request_ExcludesNonDeterministicInputAttributes(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 
 	numCapabilityPeers := 4
 
@@ -353,7 +366,7 @@ func testRemoteExecutableCapabilityServer(ctx context.Context, t *testing.T,
 		F:       workflowDonF,
 	}
 
-	var srvcs []services.Service
+	srvcs := make([]services.Service, 0, 1+numCapabilityPeers)
 	broker := newTestAsyncMessageBroker(t, 1000)
 	err := broker.Start(t.Context())
 	require.NoError(t, err)
@@ -444,6 +457,8 @@ func (r *serverTestClient) Execute(ctx context.Context, req commoncap.Capability
 }
 
 func Test_Server_SetConfig(t *testing.T) {
+	t.Parallel()
+
 	lggr := logger.Test(t)
 	peerID := NewP2PPeerID(t)
 
@@ -480,6 +495,8 @@ func Test_Server_SetConfig(t *testing.T) {
 	maxParallelRequests := uint32(5)
 
 	t.Run("valid config should succeed", func(t *testing.T) {
+		t.Parallel()
+
 		config := &commoncap.RemoteExecutableConfig{
 			RequestHashExcludedAttributes: []string{"test"},
 			RequestTimeout:                requestTimeout,
@@ -491,6 +508,8 @@ func Test_Server_SetConfig(t *testing.T) {
 	})
 
 	t.Run("mismatched capability ID should return error", func(t *testing.T) {
+		t.Parallel()
+
 		invalidCapInfo := commoncap.CapabilityInfo{
 			ID:             "different-capability-id",
 			CapabilityType: commoncap.CapabilityTypeTarget,
@@ -503,6 +522,8 @@ func Test_Server_SetConfig(t *testing.T) {
 	})
 
 	t.Run("nil underlying capability should return error", func(t *testing.T) {
+		t.Parallel()
+
 		err := server.SetConfig(&commoncap.RemoteExecutableConfig{}, nil, capInfo,
 			localDonInfo, workflowDONs, nil)
 		require.Error(t, err)
@@ -510,6 +531,8 @@ func Test_Server_SetConfig(t *testing.T) {
 	})
 
 	t.Run("empty local DON members should fail", func(t *testing.T) {
+		t.Parallel()
+
 		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, lggr)
 		emptyLocalDon := commoncap.DON{
 			ID:      1,
@@ -526,6 +549,8 @@ func Test_Server_SetConfig(t *testing.T) {
 	})
 
 	t.Run("nil message hasher should use default", func(t *testing.T) {
+		t.Parallel()
+
 		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, lggr)
 		config := &commoncap.RemoteExecutableConfig{
 			RequestTimeout:            10 * time.Second,
@@ -536,6 +561,8 @@ func Test_Server_SetConfig(t *testing.T) {
 	})
 
 	t.Run("zero timeout should fail", func(t *testing.T) {
+		t.Parallel()
+
 		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, lggr)
 		config := &commoncap.RemoteExecutableConfig{
 			RequestTimeout:            0,
@@ -547,6 +574,8 @@ func Test_Server_SetConfig(t *testing.T) {
 	})
 
 	t.Run("zero max parallel requests should fail", func(t *testing.T) {
+		t.Parallel()
+
 		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, lggr)
 		config := &commoncap.RemoteExecutableConfig{
 			RequestTimeout:            10 * time.Second,
@@ -558,6 +587,8 @@ func Test_Server_SetConfig(t *testing.T) {
 	})
 
 	t.Run("empty workflow DONs should fail", func(t *testing.T) {
+		t.Parallel()
+
 		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, lggr)
 		emptyWorkflowDONs := map[uint32]commoncap.DON{}
 		config := &commoncap.RemoteExecutableConfig{
@@ -571,6 +602,8 @@ func Test_Server_SetConfig(t *testing.T) {
 }
 
 func Test_Server_SetConfig_ConfigReplacement(t *testing.T) {
+	t.Parallel()
+
 	lggr := logger.Test(t)
 	peerID := NewP2PPeerID(t)
 	broker := newTestAsyncMessageBroker(t, 100)
@@ -609,7 +642,7 @@ func Test_Server_SetConfig_ConfigReplacement(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify server can start with valid config
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	err = server.Start(ctx)
 	require.NoError(t, err)
 
@@ -628,9 +661,13 @@ func Test_Server_SetConfig_ConfigReplacement(t *testing.T) {
 }
 
 func Test_Server_SetConfig_StartValidation(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 
 	t.Run("Start without SetConfig should fail", func(t *testing.T) {
+		t.Parallel()
+
 		lggr := logger.Test(t)
 		peerID := NewP2PPeerID(t)
 		broker := newTestAsyncMessageBroker(t, 100)
@@ -643,6 +680,8 @@ func Test_Server_SetConfig_StartValidation(t *testing.T) {
 	})
 
 	t.Run("Start with valid config should succeed", func(t *testing.T) {
+		t.Parallel()
+
 		lggr := logger.Test(t)
 		peerID := NewP2PPeerID(t)
 		broker := newTestAsyncMessageBroker(t, 100)
@@ -689,7 +728,9 @@ func Test_Server_SetConfig_StartValidation(t *testing.T) {
 }
 
 func Test_Server_SetConfig_DONMembershipChange(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	lggr := logger.Test(t)
 	peerID := NewP2PPeerID(t)
 	broker := newTestAsyncMessageBroker(t, 100)
@@ -777,7 +818,9 @@ func Test_Server_SetConfig_DONMembershipChange(t *testing.T) {
 }
 
 func Test_Server_SetConfig_ShutdownRaces(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	lggr := logger.Test(t)
 	peerID := NewP2PPeerID(t)
 	broker := newTestAsyncMessageBroker(t, 100)
@@ -842,7 +885,9 @@ func Test_Server_SetConfig_ShutdownRaces(t *testing.T) {
 }
 
 func Test_Server_Execute_WithConcurrentSetConfig(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	lggr := logger.Test(t)
 	numWorkflowPeers := 4
 
@@ -922,9 +967,7 @@ func Test_Server_Execute_WithConcurrentSetConfig(t *testing.T) {
 	responseCount := sync.Map{}
 
 	// Start goroutine for concurrent SetConfig calls with randomized delays
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for i := range numSetConfigCalls {
 			// Random delay between 5-50ms
 			delay := time.Duration(5+i*2) * time.Millisecond
@@ -936,7 +979,7 @@ func Test_Server_Execute_WithConcurrentSetConfig(t *testing.T) {
 			}
 			assert.NoError(t, server.SetConfig(newConfig, underlying, capInfo, capDonInfo, workflowDONs, nil))
 		}
-	}()
+	})
 
 	// Start multiple goroutines for concurrent Execute calls with randomized delays
 	for callerIdx, caller := range workflowNodes {
@@ -965,9 +1008,7 @@ func Test_Server_Execute_WithConcurrentSetConfig(t *testing.T) {
 	}
 
 	// Collect responses
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		expectedResponses := numWorkflowPeers * numExecuteCalls
 
 		for i := range expectedResponses {
@@ -988,7 +1029,7 @@ func Test_Server_Execute_WithConcurrentSetConfig(t *testing.T) {
 				}
 			}
 		}
-	}()
+	})
 
 	wg.Wait()
 
@@ -1002,7 +1043,9 @@ func Test_Server_Execute_WithConcurrentSetConfig(t *testing.T) {
 }
 
 func Test_Server_DuplicateRequestRemainsDedupedPastRequestTimeout(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	lggr := logger.Test(t)
 
 	serverPeerID := NewP2PPeerID(t)

@@ -103,6 +103,8 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 	// Test cases
 	// NOTE: we are checking the logs for errors, so we need to clear the logs before invocation of the aggregator
 	t.Run("happy path - valid response with enough signatures", func(t *testing.T) {
+		t.Parallel()
+
 		// Prepare valid OCR event with enough valid signatures
 		ocrEvent := &capabilities.OCRTriggerEvent{
 			ConfigDigest: configDigest[:],
@@ -149,6 +151,8 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 	})
 
 	t.Run("error - unmarshallable response", func(t *testing.T) {
+		t.Parallel()
+
 		// Invalid bytes that can't be unmarshalled
 		invalidBytes := []byte("not a valid response")
 
@@ -161,6 +165,8 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 	})
 
 	t.Run("error - response without OCR event", func(t *testing.T) {
+		t.Parallel()
+
 		// Create event without OCR data
 		triggerEvent := capabilities.TriggerEvent{
 			ID: eventID,
@@ -183,6 +189,8 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 	})
 
 	t.Run("error - response with malformed Output map", func(t *testing.T) {
+		t.Parallel()
+
 		// Create event with malformed Output map
 		o, err := values.NewMap(map[string]any{
 			"UnexpectedKey": "unexpected value",
@@ -209,6 +217,8 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 	})
 
 	t.Run("error - unparsable OCR report", func(t *testing.T) {
+		t.Parallel()
+
 		// Create an OCR event with invalid report bytes
 		ocrEvent := &capabilities.OCRTriggerEvent{
 			ConfigDigest: configDigest[:],
@@ -243,6 +253,8 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 	})
 
 	t.Run("error - mismatched event ID", func(t *testing.T) {
+		t.Parallel()
+
 		// Create a valid report but with wrong event ID
 		wrongIDReport := &capabilitiespb.OCRTriggerReport{
 			EventID:   "wrong-event-id",
@@ -286,6 +298,8 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 	})
 
 	t.Run("error - report too old", func(t *testing.T) {
+		t.Parallel()
+
 		// Create an old report (beyond maxAgeSec)
 		oldTime := currentTime - uint64((maxAgeSec+5)*1000000000) //nolint:gosec // disable G115
 
@@ -331,6 +345,8 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 	})
 
 	t.Run("error - not enough valid signatures", func(t *testing.T) {
+		t.Parallel()
+
 		// Only one valid signature when two are required
 		ocrEvent := &capabilities.OCRTriggerEvent{
 			ConfigDigest: configDigest[:],
@@ -364,6 +380,8 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 	})
 
 	t.Run("error - signatures from unauthorized signers", func(t *testing.T) {
+		t.Parallel()
+
 		// One valid signature and one unauthorized
 		ocrEvent := &capabilities.OCRTriggerEvent{
 			ConfigDigest: configDigest[:],
@@ -399,6 +417,8 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 	})
 
 	t.Run("error - malformed config digest", func(t *testing.T) {
+		t.Parallel()
+
 		// Invalid config digest
 		ocrEvent := &capabilities.OCRTriggerEvent{
 			ConfigDigest: []byte("invalid config digest"), // Wrong length
@@ -436,6 +456,8 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 	})
 
 	t.Run("error - malformed signature", func(t *testing.T) {
+		t.Parallel()
+
 		// Invalid signature format
 		ocrEvent := &capabilities.OCRTriggerEvent{
 			ConfigDigest: configDigest[:],
