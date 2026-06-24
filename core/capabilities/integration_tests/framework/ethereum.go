@@ -13,7 +13,6 @@ import (
 	gethlog "github.com/ethereum/go-ethereum/log"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -44,9 +43,7 @@ func NewEthBlockchain(t *testing.T, initialEth int, blockTimeProcessingTime time
 
 func (b *EthBlockchain) Start(ctx context.Context) error {
 	return b.StartOnce("EthBlockchain", func() error {
-		b.wg.Add(1)
-		go func() {
-			defer b.wg.Done()
+		b.wg.Go(func() {
 			ticker := time.NewTicker(b.blockTimeProcessingTime)
 			defer ticker.Stop()
 
@@ -60,7 +57,7 @@ func (b *EthBlockchain) Start(ctx context.Context) error {
 					b.Commit()
 				}
 			}
-		}()
+		})
 
 		return nil
 	})
