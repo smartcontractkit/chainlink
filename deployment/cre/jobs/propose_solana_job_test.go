@@ -1,6 +1,7 @@
 package jobs_test
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -367,6 +368,57 @@ func TestProposeSolanaJobSpec_Apply_readsEnabled_includesOracleFactory(t *testin
 		}
 	}
 	require.Positive(t, checked, "expected at least one solana-cap-v2 job spec")
+}
+
+func TestProposeSolanaJobSpec_ReusesUUIDOnRepropose(t *testing.T) {
+	setup := setupSolanaJobTest(t)
+
+	input := setup.baseInput
+	task1 := runtime.ChangesetTask(jobs.ProposeSolanaJobSpec{}, input)
+	require.NoError(t, setup.rt.Exec(task1))
+	firstExternalJobIDs := solanaCapExternalJobIDsByNodeFromTask(t, setup.rt, task1.ID())
+	require.Len(t, firstExternalJobIDs, len(setup.solanaCapInputs))
+
+	// Enabling reads changes per-node config (and adds oracle factory), which would hash to new UUIDs without lookup.
+	input.ReadsEnabled = true
+	input.OCRChainSelector = setup.h.RegistrySelector
+	input.OCRContractQualifier = test.RegistryQualifier
+	input.BootstrapperOCR3Urls = []string{"12D3KooWxyz@127.0.0.1:5001"}
+
+	task2 := runtime.ChangesetTask(jobs.ProposeSolanaJobSpec{}, input)
+	require.NoError(t, setup.rt.Exec(task2))
+	secondExternalJobIDs := solanaCapExternalJobIDsByNodeFromTask(t, setup.rt, task2.ID())
+	assert.Equal(t, firstExternalJobIDs, secondExternalJobIDs)
+}
+
+var solanaCapExternalJobIDRE = regexp.MustCompile(`externalJobID\s*=\s*"([^"]+)"`)
+
+func solanaCapExternalJobIDsByNodeFromTask(t *testing.T, rt *runtime.Runtime, taskID string) map[string]string {
+	t.Helper()
+
+	out := rt.State().Outputs[taskID]
+	require.Len(t, out.Reports, 1)
+
+	output, ok := out.Reports[0].Output.(crejobsops.ProposeStandardCapabilityJobOutput)
+	require.True(t, ok, "unexpected output type: %T", out.Reports[0].Output)
+
+	ids := make(map[string]string, len(output.Specs))
+	for nodeID, specs := range output.Specs {
+		var found bool
+		for _, spec := range specs {
+			if !strings.Contains(spec, "solana-cap-v2") {
+				continue
+			}
+			m := solanaCapExternalJobIDRE.FindStringSubmatch(spec)
+			require.Len(t, m, 2, "solana-cap-v2 spec for node %s must include externalJobID", nodeID)
+			ids[nodeID] = m[1]
+			found = true
+			break
+		}
+		require.True(t, found, "node %s missing solana-cap-v2 spec", nodeID)
+	}
+
+	return ids
 }
 
 func TestProposeSolanaJobSpec_Apply_success(t *testing.T) {
