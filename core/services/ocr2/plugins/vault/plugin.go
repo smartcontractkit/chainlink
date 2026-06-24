@@ -1476,7 +1476,10 @@ func (r *ReportingPlugin) shaForObservation(ctx context.Context, o *vaultcommon.
 		for _, rsp := range cloned.GetGetSecretsResponse().Responses {
 			if rsp.GetData() != nil {
 				if r.shareAggregationIncludesPublicKeys(ctx) {
-					rsp.GetData().EncryptedDecryptionKeyShares = stubEncryptedSharesForSHA(rsp.GetData().EncryptedDecryptionKeyShares)
+					for _, es := range rsp.GetData().EncryptedDecryptionKeyShares {
+						es.Shares = nil
+						es.BinaryShares = nil
+					}
 				} else {
 					// Exclude the encrypted shares from the sha, as these need to be aggregated later.
 					rsp.GetData().EncryptedDecryptionKeyShares = nil
@@ -1564,9 +1567,6 @@ func (r *ReportingPlugin) validateGetSecretsObservation(ctx context.Context, o *
 	}
 
 	for _, rsp := range respMap {
-		if rsp.GetError() != "" {
-			continue
-		}
 		d := rsp.GetData()
 		if d == nil {
 			continue

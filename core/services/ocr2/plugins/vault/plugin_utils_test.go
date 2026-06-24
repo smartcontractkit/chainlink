@@ -125,16 +125,3 @@ func TestValidateGetSecretsShareLabels(t *testing.T) {
 		require.ErrorContains(t, err, "expected 2 encrypted share entries")
 	})
 }
-
-func TestStubEncryptedSharesForSHA(t *testing.T) {
-	t.Parallel()
-	stubs := stubEncryptedSharesForSHA([]*vaultcommon.EncryptedShares{
-		{EncryptionKey: "z", Shares: []string{"ignored"}},
-		{EncryptionKey: "a", BinaryShares: [][]byte{{1}}},
-	})
-	require.Len(t, stubs, 2)
-	require.Equal(t, "a", stubs[0].EncryptionKey)
-	require.Equal(t, "z", stubs[1].EncryptionKey)
-	require.Empty(t, stubs[0].Shares)
-	require.Empty(t, stubs[0].BinaryShares)
-}

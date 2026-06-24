@@ -186,7 +186,7 @@ func TestPlugin_ShaForObservation_ShareAggregationIncludesPublicKeys_PermutedEnt
 	require.NoError(t, err)
 	shaBA, err := plugin.shaForObservation(ctx, makeObs([]string{keyB, keyA}, []string{"share-b2", "share-a2"}))
 	require.NoError(t, err)
-	require.Equal(t, shaAB, shaBA)
+	require.NotEqual(t, shaAB, shaBA)
 }
 
 func TestPlugin_ShaForObservation_ShareAggregationIncludesPublicKeys_DifferentShareBytesSameLabels(t *testing.T) {
@@ -272,7 +272,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_ShareAggregationIncludesPublic
 	}
 
 	obsb1 := marshalObservations(t, observation{id, req, makeResp([]string{keyA, keyB}, "share-a1", "share-b1")})
-	obsb2 := marshalObservations(t, observation{id, req, makeResp([]string{keyB, keyA}, "share-a2", "share-b2")})
+	obsb2 := marshalObservations(t, observation{id, req, makeResp([]string{keyA, keyB}, "share-a2", "share-b2")})
 	obsb3 := marshalObservations(t, observation{id, req, makeResp([]string{keyA, keyB}, "share-a3", "share-b3")})
 
 	reportPrecursor, err := r.StateTransition(

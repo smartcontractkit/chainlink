@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 
 	"golang.org/x/exp/constraints"
 
@@ -143,22 +142,6 @@ func buildPendingGetSecretsByID(items []*vaultcommon.StoredPendingQueueItem) (ma
 		out[item.Id] = req
 	}
 	return out, nil
-}
-
-func stubEncryptedSharesForSHA(entries []*vaultcommon.EncryptedShares) []*vaultcommon.EncryptedShares {
-	if len(entries) == 0 {
-		return nil
-	}
-	keys := make([]string, 0, len(entries))
-	for _, es := range entries {
-		keys = append(keys, es.EncryptionKey)
-	}
-	sort.Strings(keys)
-	stubs := make([]*vaultcommon.EncryptedShares, len(keys))
-	for i, key := range keys {
-		stubs[i] = &vaultcommon.EncryptedShares{EncryptionKey: key}
-	}
-	return stubs
 }
 
 func initializePluginLimits(ctx context.Context, limitsFactory limits.Factory) (ocr3_1types.ReportingPluginLimits, error) {
