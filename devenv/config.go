@@ -25,8 +25,6 @@ import (
 const (
 	// DefaultConfigDir is the default directory we are expecting TOML config to be.
 	DefaultConfigDir = "."
-	// EnvVarConfigDir is the environment variable name to read config directory from, ex.: CTF_CONFIG_DIR=./configs.
-	EnvVarConfigDir = "CTF_CONFIG_DIR"
 	// EnvVarTestConfigs is the environment variable name to read config paths from, ex.: CTF_CONFIGS=env.toml,overrides.toml.
 	EnvVarTestConfigs = "CTF_CONFIGS"
 	// DefaultOverridesFilePath is the default overrides.toml file path.
@@ -44,12 +42,7 @@ func Load[T any]() (*T, error) {
 	paths := strings.SplitSeq(os.Getenv(EnvVarTestConfigs), ",")
 	for path := range paths {
 		L.Info().Str("Path", path).Msg("Loading configuration input")
-		if os.Getenv(EnvVarConfigDir) != "" {
-			path = filepath.Join(os.Getenv(EnvVarConfigDir), path)
-		} else {
-			path = filepath.Join(DefaultConfigDir, path)
-		}
-		data, err := os.ReadFile(path)
+		data, err := os.ReadFile(filepath.Join(DefaultConfigDir, path))
 		if err != nil {
 			if path == DefaultOverridesFilePath {
 				L.Info().Str("Path", path).Msg("Overrides file not found or empty")
