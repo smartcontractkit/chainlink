@@ -12,6 +12,7 @@ import (
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 type LocalCREStateResolver struct {
@@ -194,16 +195,18 @@ func (r *LocalCREStateResolver) WorkflowDONNodeInfo() (dbPort int, nodeCount int
 
 // formatGatewayURL builds an external gateway URL from a gateway connector config.
 func (r *LocalCREStateResolver) formatGatewayURL(cfg *cre.DonGatewayConfiguration) (string, error) {
-	host := cfg.Incoming.Host
-	if host == "" {
-		// Connector TOML may omit host; use infra external gateway from saved env config.
-		if r.cfg.Infra == nil {
-			return "", errors.New("gateway connector has no host and infra section is missing from local CRE state")
-		}
-		host = r.cfg.Infra.ExternalGatewayHost()
+	if cfg == nil || cfg.GatewayConfiguration == nil {
+		return "", errors.New("gateway connector config is nil")
 	}
 
-	return fmt.Sprintf("%s://%s:%d%s", cfg.Incoming.Protocol, host, cfg.Incoming.ExternalPort, cfg.Incoming.Path), nil
+	var provider infra.Provider
+	if r.cfg != nil && r.cfg.Infra != nil {
+		provider = *r.cfg.Infra
+	} else if cfg.Incoming.Host == "" {
+		return "", errors.New("gateway connector has no host and infra section is missing from local CRE state")
+	}
+
+	return cfg.ExternalHTTPURL(provider), nil
 }
 
 // workflowDONNodeInfoFor returns DB port and worker count for a specific workflow DON.
