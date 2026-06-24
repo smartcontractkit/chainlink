@@ -28,6 +28,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+const capabilityTestWorkflowOwner = "0x0001020304050607080900010203040506070809"
+const capabilityTestWorkflowOwnerAlt = "0x1111111111111111111111111111111111111111"
+
 func newTestRequestLifecycleTracker(t *testing.T) *RequestLifecycleTracker {
 	t.Helper()
 	tr, err := NewRequestLifecycleTracker(logger.TestLogger(t))
@@ -47,7 +50,7 @@ func TestCapability_CapabilityCall(t *testing.T) {
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
-	owner := "testowner"
+	owner := capabilityTestWorkflowOwner
 	workflowID := "test-workflow-id"
 	workflowExecutionID := "test-workflow-execution-id"
 	referenceID := "test-reference-id"
@@ -144,7 +147,7 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
-	owner := "testowner"
+	owner := capabilityTestWorkflowOwner
 	workflowID := "test-workflow-id"
 	referenceID := "0"
 
@@ -637,7 +640,7 @@ func TestCapability_CapabilityCall_ForwardsRequestGetSecretsIdentity(t *testing.
 				Id: &vault.SecretIdentifier{
 					Key:       "Foo",
 					Namespace: "Bar",
-					Owner:     "owner",
+					Owner:     capabilityTestWorkflowOwner,
 				},
 				Result: &vault.SecretResponse_Data{
 					Data: &vault.SecretData{EncryptedValue: "encrypted-value"},
@@ -804,7 +807,7 @@ func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
-	owner := "testowner"
+	owner := capabilityTestWorkflowOwner
 	workflowID := "test-workflow-id"
 	workflowExecutionID := "test-workflow-execution-id"
 	referenceID := "test-reference-id"
@@ -878,7 +881,7 @@ func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
-	owner := "testowner"
+	owner := capabilityTestWorkflowOwner
 	workflowID := "test-workflow-id"
 	workflowExecutionID := "test-workflow-execution-id"
 	referenceID := "test-reference-id"
@@ -1062,7 +1065,7 @@ func TestCapability_CRUD(t *testing.T) {
 							Id: &vault.SecretIdentifier{
 								Key:       "a",
 								Namespace: "Bar",
-								Owner:     "a",
+								Owner:     capabilityTestWorkflowOwnerAlt,
 							},
 							EncryptedValue: encryptedSecret,
 						},
@@ -1263,7 +1266,7 @@ func TestCapability_CRUD(t *testing.T) {
 							Id: &vault.SecretIdentifier{
 								Key:       "w",
 								Namespace: "na",
-								Owner:     "random",
+								Owner:     capabilityTestWorkflowOwnerAlt,
 							},
 							EncryptedValue: encryptedSecret,
 						},
@@ -1458,7 +1461,7 @@ func TestCapability_CRUD(t *testing.T) {
 						{
 							Key:       "Foo",
 							Namespace: "",
-							Owner:     "random",
+							Owner:     owner,
 						},
 					},
 				}
@@ -1524,7 +1527,7 @@ func TestCapability_CRUD(t *testing.T) {
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.ListSecretIdentifiersRequest{
 					RequestId: "",
-					Owner:     "owner",
+					Owner:     capabilityTestWorkflowOwner,
 					Namespace: "namespace",
 				}
 				return capability.ListSecretIdentifiers(t.Context(), req)

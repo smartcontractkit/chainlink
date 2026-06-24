@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
@@ -84,12 +85,12 @@ func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *
 				return errors.New("Encrypted Secret at index [" + strconv.Itoa(idx) + "] doesn't have owner as the label. Error: " + err.Error())
 			}
 		}
-		_, ok := uniqueIDs[vaulttypes.KeyFor(req.Id)]
+		_, ok := uniqueIDs[vaultutils.KeyFor(req.Id)]
 		if ok {
 			return errors.New("duplicate secret ID found at index " + strconv.Itoa(idx) + ": " + req.Id.String())
 		}
 
-		uniqueIDs[vaulttypes.KeyFor(req.Id)] = true
+		uniqueIDs[vaultutils.KeyFor(req.Id)] = true
 	}
 
 	return nil
@@ -122,6 +123,9 @@ func (r *RequestValidator) ValidateSecretIdentifier(ctx context.Context, idKey s
 
 	if !isValidIDComponent(idKey) || !isValidIDComponent(idOwner) || (idNamespace != "" && !isValidIDComponent(idNamespace)) {
 		return errors.New("key, owner and namespace must only contain alphanumeric characters")
+	}
+	if !common.IsHexAddress(idOwner) {
+		return errors.New("owner must be a valid Ethereum address")
 	}
 
 	// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
@@ -180,7 +184,7 @@ func (r *RequestValidator) ValidateListSecretIdentifiersRequest(ctx context.Cont
 	if request.RequestId == "" || request.Owner == "" {
 		return errors.New("requestID or owner must not be empty")
 	}
-	if err := r.ValidateSecretIdentifier(ctx, request.Owner, request.Owner, request.Namespace); err != nil {
+	if err := r.ValidateSecretIdentifier(ctx, "_", request.Owner, request.Namespace); err != nil {
 		return fmt.Errorf("invalid secret identifier: %w", err)
 	}
 	return nil
@@ -203,12 +207,12 @@ func (r *RequestValidator) ValidateDeleteSecretsRequest(ctx context.Context, req
 			return fmt.Errorf("invalid secret identifier at index %d: %w", idx, err)
 		}
 
-		_, ok := uniqueIDs[vaulttypes.KeyFor(id)]
+		_, ok := uniqueIDs[vaultutils.KeyFor(id)]
 		if ok {
 			return errors.New("duplicate secret ID found at index " + strconv.Itoa(idx) + ": " + id.String())
 		}
 
-		uniqueIDs[vaulttypes.KeyFor(id)] = true
+		uniqueIDs[vaultutils.KeyFor(id)] = true
 	}
 	return nil
 }
