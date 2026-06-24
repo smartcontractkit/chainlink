@@ -3969,7 +3969,7 @@ func TestPlugin_Reports(t *testing.T) {
 
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
-	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultSignedResponseRequestIDEnabled())
 
 	rs, err := r.Reports(t.Context(), uint64(1), osb)
 	require.NoError(t, err)
@@ -3986,7 +3986,9 @@ func TestPlugin_Reports(t *testing.T) {
 		RequestType: vaultcommon.RequestType_CREATE_SECRETS,
 	}, info1))
 
-	expectedBytes, err := vaultutils.ToCanonicalJSON(resp)
+	signedResp := proto.Clone(resp).(*vaultcommon.CreateSecretsResponse)
+	signedResp.RequestId = vaulttypes.KeyFor(id)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(signedResp)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o1.ReportWithInfo.Report))
 
@@ -4564,7 +4566,7 @@ func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
 
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
-	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultSignedResponseRequestIDEnabled())
 
 	rs, err := r.Reports(t.Context(), uint64(1), osb)
 	require.NoError(t, err)
@@ -4581,7 +4583,9 @@ func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
 		RequestType: vaultcommon.RequestType_UPDATE_SECRETS,
 	}, info1))
 
-	expectedBytes, err := vaultutils.ToCanonicalJSON(resp)
+	signedResp := proto.Clone(resp).(*vaultcommon.UpdateSecretsResponse)
+	signedResp.RequestId = vaulttypes.KeyFor(id)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(signedResp)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
 }
@@ -4958,7 +4962,7 @@ func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
 
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
-	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultSignedResponseRequestIDEnabled())
 
 	rs, err := r.Reports(t.Context(), uint64(1), osb)
 	require.NoError(t, err)
@@ -4975,7 +4979,9 @@ func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
 		RequestType: vaultcommon.RequestType_DELETE_SECRETS,
 	}, info1))
 
-	expectedBytes, err := vaultutils.ToCanonicalJSON(resp)
+	signedResp := proto.Clone(resp).(*vaultcommon.DeleteSecretsResponse)
+	signedResp.RequestId = vaulttypes.KeyFor(id)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(signedResp)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
 }
@@ -5300,7 +5306,7 @@ func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
 
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
-	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultSignedResponseRequestIDEnabled())
 
 	rs, err := r.Reports(t.Context(), uint64(1), osb)
 	require.NoError(t, err)
@@ -5317,7 +5323,9 @@ func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
 		RequestType: vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS,
 	}, info1))
 
-	expectedBytes, err := vaultutils.ToCanonicalJSON(resp)
+	signedResp := proto.Clone(resp).(*vaultcommon.ListSecretIdentifiersResponse)
+	signedResp.RequestId = vaulttypes.KeyFor(id)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(signedResp)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
 }

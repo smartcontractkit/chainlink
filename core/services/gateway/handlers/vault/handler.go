@@ -127,7 +127,7 @@ type capabilitiesRegistry interface {
 }
 
 type aggregator interface {
-	Aggregate(ctx context.Context, l logger.Logger, resps map[string]jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error)
+	Aggregate(ctx context.Context, l logger.Logger, requestID string, resps map[string]jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error)
 }
 
 type handler struct {
@@ -146,9 +146,10 @@ type handler struct {
 	nodeRateLimiter *ratelimit.RateLimiter
 	requestTimeout  time.Duration
 
-	writeMethodsEnabled limits.GateLimiter
-	activeRequests      map[string]*activeRequest
-	metrics             *metrics
+	writeMethodsEnabled            limits.GateLimiter
+	signedResponseRequestIDEnabled limits.GateLimiter
+	activeRequests                 map[string]*activeRequest
+	metrics                        *metrics
 
 	aggregator aggregator
 
@@ -253,23 +254,32 @@ func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DO
 		return nil, fmt.Errorf("could not create vault mgmt limiter: %w", err)
 	}
 
+	signedResponseRequestIDEnabled, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.VaultSignedResponseRequestIDEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("could not create VaultSignedResponseRequestIDEnabled limiter: %w", err)
+	}
+
 	return &handler{
-		methodConfig:        cfg,
-		donConfig:           donConfig,
-		don:                 don,
-		lggr:                logger.Named(lggr, "VaultHandler:"+donConfig.DonId),
-		requestTimeout:      time.Duration(cfg.RequestTimeoutSec) * time.Second,
-		nodeRateLimiter:     nodeRateLimiter,
-		writeMethodsEnabled: writeMethodsEnabled,
-		activeRequests:      make(map[string]*activeRequest),
-		mu:                  sync.RWMutex{},
-		authorizer:          authorizer,
-		jwtAuth:             jwtAuth,
-		stopCh:              make(services.StopChan),
-		metrics:             metrics,
+		methodConfig:                   cfg,
+		donConfig:                      donConfig,
+		don:                            don,
+		lggr:                           logger.Named(lggr, "VaultHandler:"+donConfig.DonId),
+		requestTimeout:                 time.Duration(cfg.RequestTimeoutSec) * time.Second,
+		nodeRateLimiter:                nodeRateLimiter,
+		writeMethodsEnabled:            writeMethodsEnabled,
+		signedResponseRequestIDEnabled: signedResponseRequestIDEnabled,
+		activeRequests:                 make(map[string]*activeRequest),
+		mu:                             sync.RWMutex{},
+		authorizer:                     authorizer,
+		jwtAuth:                        jwtAuth,
+		stopCh:                         make(services.StopChan),
+		metrics:                        metrics,
 		aggregator: &baseAggregator{
-			capabilitiesRegistry: capabilitiesRegistry,
-			vaultHandlerDonID:    donConfig.DonId,
+			capabilitiesRegistry:        capabilitiesRegistry,
+			metrics:                     metrics,
+			donID:                       donConfig.DonId,
+			vaultHandlerDonID:           donConfig.DonId,
+			signedResponseRequestIDGate: signedResponseRequestIDEnabled,
 		},
 		clock:            clock,
 		RequestValidator: vaultcap.NewRequestValidator(limiter, ciphertextLimiter, idKeyLengthLimiter, idOwnerLengthLimiter, idNamespaceLengthLimiter),
@@ -318,6 +328,7 @@ func (h *handler) Close() error {
 		return errors.Join(
 			jwtAuthErr,
 			h.writeMethodsEnabled.Close(),
+			h.signedResponseRequestIDEnabled.Close(),
 			h.MaxRequestBatchSizeLimiter.Close(),
 		)
 	})
@@ -506,7 +517,7 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	}
 
 	copiedResponses := ar.copiedResponses()
-	resp, err := h.aggregator.Aggregate(ctx, l, copiedResponses, resp)
+	resp, err := h.aggregator.Aggregate(ctx, l, ar.req.ID, copiedResponses, resp)
 	switch {
 	case errors.Is(err, errInsufficientResponsesForQuorum):
 		l.Debugw("aggregating responses, waiting for other nodes...", "error", err)
