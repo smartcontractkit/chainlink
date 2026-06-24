@@ -615,13 +615,14 @@ func TestClient_SetConfig_StartClose(t *testing.T) {
 		require.NoError(t, freshClient.Start(ctx))
 
 		// Update config while running
-		validCapInfo.Description = "new description"
-		require.NoError(t, freshClient.SetConfig(validCapInfo, validDonInfo, validTimeout, nil, nil))
+		newCapInfo := validCapInfo
+		newCapInfo.Description = "new description"
+		require.NoError(t, freshClient.SetConfig(newCapInfo, validDonInfo, validTimeout, nil, nil))
 
 		// Verify config was updated
 		info, err := freshClient.Info(ctx)
 		require.NoError(t, err)
-		assert.Equal(t, validCapInfo.Description, info.Description)
+		assert.Equal(t, newCapInfo.Description, info.Description)
 
 		// Clean up
 		require.NoError(t, freshClient.Close())
