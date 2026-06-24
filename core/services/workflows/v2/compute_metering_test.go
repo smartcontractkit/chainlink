@@ -24,6 +24,8 @@ func (s *stubTimeProvider) GetDONTime() (time.Time, error) {
 }
 
 func TestSuspensionTracker_SumsSequentialIntervals(t *testing.T) {
+	t.Parallel()
+
 	var tr suspensionTracker
 	tr.add(100 * time.Millisecond)
 	tr.add(0)                     // ignored
@@ -33,12 +35,16 @@ func TestSuspensionTracker_SumsSequentialIntervals(t *testing.T) {
 }
 
 func TestSuspensionTracker_NilSafe(t *testing.T) {
+	t.Parallel()
+
 	var tr *suspensionTracker
 	tr.add(time.Second) // must not panic
 	require.Equal(t, time.Duration(0), tr.total())
 }
 
 func TestMeasuredTimeProvider_RecordsDONTimeWait(t *testing.T) {
+	t.Parallel()
+
 	clock := clockwork.NewFakeClock()
 	tracker := &suspensionTracker{}
 	stub := &stubTimeProvider{clock: clock, donBlock: 10 * time.Second}
@@ -56,6 +62,8 @@ func TestMeasuredTimeProvider_RecordsDONTimeWait(t *testing.T) {
 }
 
 func TestMeasuredTimeProvider_NodeTimeNotMeasured(t *testing.T) {
+	t.Parallel()
+
 	clock := clockwork.NewFakeClock()
 	tracker := &suspensionTracker{}
 	stub := &stubTimeProvider{clock: clock}
