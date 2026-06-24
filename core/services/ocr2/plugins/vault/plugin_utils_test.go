@@ -68,3 +68,60 @@ func TestAppendEncryptedShareEntry(t *testing.T) {
 		require.Empty(t, dst.Shares)
 	})
 }
+
+func TestSecretRequestForID(t *testing.T) {
+	t.Parallel()
+	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
+	req := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{"k1"}}},
+	}
+	got, err := secretRequestForID(req, id)
+	require.NoError(t, err)
+	require.Equal(t, "k1", got.EncryptionKeys[0])
+
+	_, err = secretRequestForID(req, &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "missing"})
+	require.ErrorContains(t, err, "no secret request")
+
+	_, err = secretRequestForID(nil, id)
+	require.ErrorContains(t, err, "GetSecrets request is nil")
+}
+
+func TestValidateGetSecretsShareLabels(t *testing.T) {
+	t.Parallel()
+	secretReq := &vaultcommon.SecretRequest{
+		Id:             &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"},
+		EncryptionKeys: []string{"key-a", "key-b"},
+	}
+
+	t.Run("valid labels", func(t *testing.T) {
+		t.Parallel()
+		err := validateGetSecretsShareLabels(secretReq, &vaultcommon.SecretData{
+			EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
+				{EncryptionKey: "key-a", Shares: []string{"s1"}},
+				{EncryptionKey: "key-b", Shares: []string{"s2"}},
+			},
+		})
+		require.NoError(t, err)
+	})
+
+	t.Run("bogus label", func(t *testing.T) {
+		t.Parallel()
+		err := validateGetSecretsShareLabels(secretReq, &vaultcommon.SecretData{
+			EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
+				{EncryptionKey: "bogus", Shares: []string{"s1"}},
+				{EncryptionKey: "key-b", Shares: []string{"s2"}},
+			},
+		})
+		require.ErrorContains(t, err, "unexpected encryption key")
+	})
+
+	t.Run("missing label", func(t *testing.T) {
+		t.Parallel()
+		err := validateGetSecretsShareLabels(secretReq, &vaultcommon.SecretData{
+			EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
+				{EncryptionKey: "key-a", Shares: []string{"s1"}},
+			},
+		})
+		require.ErrorContains(t, err, "expected 2 encrypted share entries")
+	})
+}
