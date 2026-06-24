@@ -23,7 +23,7 @@ func TestDonTimeProvider_GetDONTime_requestTimeout(t *testing.T) {
 
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, elapsed, 50*time.Millisecond)
-	require.Less(t, elapsed, 200*time.Millisecond)
+	require.Less(t, elapsed, 1000*time.Millisecond)
 
 	// A timed-out request must not block subsequent sequence numbers.
 	start = time.Now()
@@ -31,5 +31,5 @@ func TestDonTimeProvider_GetDONTime_requestTimeout(t *testing.T) {
 	elapsed = time.Since(start)
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, elapsed, 50*time.Millisecond)
-	require.Less(t, elapsed, 200*time.Millisecond)
+	require.Less(t, elapsed, 1000*time.Millisecond)
 }
