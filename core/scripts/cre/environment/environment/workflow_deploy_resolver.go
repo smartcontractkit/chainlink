@@ -22,7 +22,7 @@ import (
 type workflowDeployTargets struct {
 	donID      uint32 // Capabilities Registry DON ID written into UpsertWorkflow
 	donFamily  string // Workflow registry family; nodes sync workflows registered under this key
-	gatewayURL string // http-actions gateway for vault secret encryption (empty when no secrets)
+	gatewayURL string // gateway URL for vault secret encryption (empty when no secrets)
 }
 
 // resolveWorkflowDeployTargets merges CLI flags with the topology saved by the last env start.
