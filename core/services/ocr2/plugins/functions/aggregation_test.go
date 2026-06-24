@@ -143,6 +143,7 @@ func TestAggregate_Successful(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			result, err := functions.Aggregate(test.mode, test.input)
 			require.NoError(t, err)
 			require.Equal(t, test.expected, result)

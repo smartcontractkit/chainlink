@@ -23,15 +23,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/freeport"
-
 	"github.com/smartcontractkit/libocr/commontypes"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_allow_list"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_client_example"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_coordinator"
@@ -265,7 +263,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	}
 
 	client.FinalizeLatest(t, b)
-	commit, stop := cltest.Mine(b, time.Second)
+	commit, stop := cltest.Mine(b, 100*time.Millisecond)
 
 	active := Coordinator{
 		Contract: coordinatorContract,
@@ -332,14 +330,14 @@ func StartNewNode(
 
 		c.P2P.PeerID = new(p2pKey.PeerID())
 		c.P2P.V2.Enabled = new(true)
-		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(500 * time.Millisecond)
-		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
+		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(100 * time.Millisecond)
+		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(100 * time.Millisecond)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", port)}
 		if len(p2pV2Bootstrappers) > 0 {
 			c.P2P.V2.DefaultBootstrappers = &p2pV2Bootstrappers
 		}
 
-		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
 		c.EVM[0].Transactions.ForwardersEnabled = new(false)
 		c.EVM[0].GasEstimator.LimitDefault = new(uint64(maxGas))
 		c.EVM[0].GasEstimator.Mode = new("FixedPrice")

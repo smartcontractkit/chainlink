@@ -5,12 +5,11 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
-
-	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/functions/encoding"
@@ -27,7 +26,7 @@ func preparePlugin(t *testing.T, batchSize uint32, maxTotalGasLimit uint32) (typ
 	ocrLogger := commonlogger.NewOCRWrapper(lggr, true, func(msg string) {})
 	orm := functions_mocks.NewORM(t)
 	offchainTransmitter := functions_mocks.NewOffchainTransmitter(t)
-	factory := functions.FunctionsReportingPluginFactory{
+	factory := functions.ReportingPluginFactory{
 		Logger:              ocrLogger,
 		PluginORM:           orm,
 		ContractVersion:     1,
@@ -98,18 +97,18 @@ func newMarshalledQuery(t *testing.T, reqIDs ...functions_srv.RequestID) []byte 
 	return marshalled
 }
 
-func newProcessedRequest(requestId functions_srv.RequestID, compResult []byte, compError []byte) *encoding.ProcessedRequest {
+func newProcessedRequest(requestID functions_srv.RequestID, compResult []byte, compError []byte) *encoding.ProcessedRequest {
 	return &encoding.ProcessedRequest{
-		RequestID:           requestId[:],
+		RequestID:           requestID[:],
 		Result:              compResult,
 		Error:               compError,
 		CoordinatorContract: []byte{1},
 	}
 }
 
-func newProcessedRequestWithMeta(requestId functions_srv.RequestID, compResult []byte, compError []byte, callbackGasLimit uint32, coordinatorContract []byte, onchainMetadata []byte) *encoding.ProcessedRequest {
+func newProcessedRequestWithMeta(requestID functions_srv.RequestID, compResult []byte, compError []byte, callbackGasLimit uint32, coordinatorContract []byte, onchainMetadata []byte) *encoding.ProcessedRequest {
 	return &encoding.ProcessedRequest{
-		RequestID:           requestId[:],
+		RequestID:           requestID[:],
 		Result:              compResult,
 		Error:               compError,
 		CallbackGasLimit:    callbackGasLimit,
@@ -118,13 +117,13 @@ func newProcessedRequestWithMeta(requestId functions_srv.RequestID, compResult [
 	}
 }
 
-func newObservation(t *testing.T, observerId uint8, requests ...*encoding.ProcessedRequest) types.AttributedObservation {
+func newObservation(t *testing.T, observerID uint8, requests ...*encoding.ProcessedRequest) types.AttributedObservation {
 	observationProto := encoding.Observation{ProcessedRequests: requests}
 	raw, err := proto.Marshal(&observationProto)
 	require.NoError(t, err)
 	return types.AttributedObservation{
 		Observation: raw,
-		Observer:    commontypes.OracleID(observerId),
+		Observer:    commontypes.OracleID(observerID),
 	}
 }
 
@@ -135,7 +134,7 @@ func TestFunctionsReporting_Query(t *testing.T) {
 	reqs := []functions_srv.Request{newRequest(), newRequest()}
 	orm.On("FindOldestEntriesByState", mock.Anything, functions_srv.RESULT_READY, uint32(batchSize), mock.Anything).Return(reqs, nil)
 
-	q, err := plugin.Query(testutils.Context(t), types.ReportTimestamp{})
+	q, err := plugin.Query(t.Context(), types.ReportTimestamp{})
 	require.NoError(t, err)
 
 	queryProto := &encoding.Query{}
@@ -155,7 +154,7 @@ func TestFunctionsReporting_Query_HandleCoordinatorMismatch(t *testing.T) {
 	reqs[1].CoordinatorContractAddress = &common.Address{2}
 	orm.On("FindOldestEntriesByState", mock.Anything, functions_srv.RESULT_READY, uint32(batchSize), mock.Anything).Return(reqs, nil)
 
-	q, err := plugin.Query(testutils.Context(t), types.ReportTimestamp{})
+	q, err := plugin.Query(t.Context(), types.ReportTimestamp{})
 	require.NoError(t, err)
 
 	queryProto := &encoding.Query{}
@@ -174,21 +173,21 @@ func TestFunctionsReporting_Observation(t *testing.T) {
 	req2 := newRequest()
 	req3 := newRequestWithResult([]byte("def"))
 	req4 := newRequestTimedOut()
-	nonexistentId := newRequestID()
+	nonexistentID := newRequestID()
 
 	orm.On("FindById", mock.Anything, req1.RequestID, mock.Anything).Return(&req1, nil)
 	orm.On("FindById", mock.Anything, req2.RequestID, mock.Anything).Return(&req2, nil)
 	orm.On("FindById", mock.Anything, req3.RequestID, mock.Anything).Return(&req3, nil)
 	orm.On("FindById", mock.Anything, req4.RequestID, mock.Anything).Return(&req4, nil)
-	orm.On("FindById", mock.Anything, nonexistentId, mock.Anything).Return(nil, errors.New("nonexistent ID"))
+	orm.On("FindById", mock.Anything, nonexistentID, mock.Anything).Return(nil, errors.New("nonexistent ID"))
 
 	// Query asking for 5 requests (with duplicates), out of which:
 	//   - two are ready
 	//   - one is still in progress
 	//   - one has timed out
 	//   - one doesn't exist
-	query := newMarshalledQuery(t, req1.RequestID, req1.RequestID, req2.RequestID, req3.RequestID, req4.RequestID, nonexistentId, req4.RequestID)
-	obs, err := plugin.Observation(testutils.Context(t), types.ReportTimestamp{}, query)
+	query := newMarshalledQuery(t, req1.RequestID, req1.RequestID, req2.RequestID, req3.RequestID, req4.RequestID, nonexistentID, req4.RequestID)
+	obs, err := plugin.Observation(t.Context(), types.ReportTimestamp{}, query)
 	require.NoError(t, err)
 
 	observationProto := &encoding.Observation{}
@@ -206,7 +205,7 @@ func TestFunctionsReporting_Observation_IncorrectQuery(t *testing.T) {
 	plugin, orm, _, _ := preparePlugin(t, 10, 0)
 
 	req1 := newRequestWithResult([]byte("abc"))
-	invalidId := []byte("invalid")
+	invalidID := []byte("invalid")
 
 	orm.On("FindById", mock.Anything, req1.RequestID, mock.Anything).Return(&req1, nil)
 
@@ -214,11 +213,11 @@ func TestFunctionsReporting_Observation_IncorrectQuery(t *testing.T) {
 	//   - two are invalid
 	//   - one is ready
 	queryProto := encoding.Query{}
-	queryProto.RequestIDs = [][]byte{invalidId, req1.RequestID[:], invalidId}
+	queryProto.RequestIDs = [][]byte{invalidID, req1.RequestID[:], invalidID}
 	marshalled, err := proto.Marshal(&queryProto)
 	require.NoError(t, err)
 
-	obs, err := plugin.Observation(testutils.Context(t), types.ReportTimestamp{}, marshalled)
+	obs, err := plugin.Observation(t.Context(), types.ReportTimestamp{}, marshalled)
 	require.NoError(t, err)
 	observationProto := &encoding.Observation{}
 	err = proto.Unmarshal(obs, observationProto)
@@ -231,36 +230,37 @@ func TestFunctionsReporting_Observation_IncorrectQuery(t *testing.T) {
 func TestFunctionsReporting_Report(t *testing.T) {
 	t.Parallel()
 	plugin, _, codec, _ := preparePlugin(t, 10, 1000000)
-	reqId1, reqId2, reqId3 := newRequestID(), newRequestID(), newRequestID()
+	reqID1, reqID2, reqID3 := newRequestID(), newRequestID(), newRequestID()
 	compResult := []byte("aaa")
-	procReq1 := newProcessedRequest(reqId1, compResult, []byte{})
-	procReq2 := newProcessedRequest(reqId2, compResult, []byte{})
+	procReq1 := newProcessedRequest(reqID1, compResult, []byte{})
+	procReq2 := newProcessedRequest(reqID2, compResult, []byte{})
 
-	query := newMarshalledQuery(t, reqId1, reqId2, reqId3, reqId1, reqId2) // duplicates should be ignored
-	obs := []types.AttributedObservation{
+	query := newMarshalledQuery(t, reqID1, reqID2, reqID3, reqID1, reqID2) // duplicates should be ignored
+	obs := make([]types.AttributedObservation, 0, 3)
+	obs = append(obs,
 		newObservation(t, 1, procReq2, procReq1),
 		newObservation(t, 2, procReq1, procReq2),
-	}
+	)
 
 	// Two observations are not enough to produce a report
-	produced, reportBytes, err := plugin.Report(testutils.Context(t), types.ReportTimestamp{}, query, obs)
+	produced, reportBytes, err := plugin.Report(t.Context(), types.ReportTimestamp{}, query, obs)
 	require.False(t, produced)
 	require.Nil(t, reportBytes)
 	require.NoError(t, err)
 
 	// Three observations with the same requestID should produce a report
 	obs = append(obs, newObservation(t, 3, procReq1, procReq2))
-	produced, reportBytes, err = plugin.Report(testutils.Context(t), types.ReportTimestamp{}, query, obs)
+	produced, reportBytes, err = plugin.Report(t.Context(), types.ReportTimestamp{}, query, obs)
 	require.True(t, produced)
 	require.NoError(t, err)
 
 	decoded, err := codec.DecodeReport(reportBytes)
 	require.NoError(t, err)
 	require.Len(t, decoded, 2)
-	require.Equal(t, reqId1[:], decoded[0].RequestID)
+	require.Equal(t, reqID1[:], decoded[0].RequestID)
 	require.Equal(t, compResult, decoded[0].Result)
 	require.Equal(t, []byte{}, decoded[0].Error)
-	require.Equal(t, reqId2[:], decoded[1].RequestID)
+	require.Equal(t, reqID2[:], decoded[1].RequestID)
 	require.Equal(t, compResult, decoded[1].Result)
 	require.Equal(t, []byte{}, decoded[1].Error)
 }
@@ -268,22 +268,22 @@ func TestFunctionsReporting_Report(t *testing.T) {
 func TestFunctionsReporting_Report_WithGasLimitAndMetadata(t *testing.T) {
 	t.Parallel()
 	plugin, _, codec, _ := preparePlugin(t, 10, 300000)
-	reqId1, reqId2, reqId3 := newRequestID(), newRequestID(), newRequestID()
+	reqID1, reqID2, reqID3 := newRequestID(), newRequestID(), newRequestID()
 	compResult := []byte("aaa")
 	gasLimit1, gasLimit2 := uint32(100_000), uint32(200_000)
 	coordinatorContract := common.Address{1}
 	meta1, meta2 := []byte("meta1"), []byte("meta2")
-	procReq1 := newProcessedRequestWithMeta(reqId1, compResult, []byte{}, gasLimit1, coordinatorContract[:], meta1)
-	procReq2 := newProcessedRequestWithMeta(reqId2, compResult, []byte{}, gasLimit2, coordinatorContract[:], meta2)
+	procReq1 := newProcessedRequestWithMeta(reqID1, compResult, []byte{}, gasLimit1, coordinatorContract[:], meta1)
+	procReq2 := newProcessedRequestWithMeta(reqID2, compResult, []byte{}, gasLimit2, coordinatorContract[:], meta2)
 
-	query := newMarshalledQuery(t, reqId1, reqId2, reqId3, reqId1, reqId2) // duplicates should be ignored
+	query := newMarshalledQuery(t, reqID1, reqID2, reqID3, reqID1, reqID2) // duplicates should be ignored
 	obs := []types.AttributedObservation{
 		newObservation(t, 1, procReq2, procReq1),
 		newObservation(t, 2, procReq1, procReq2),
 		newObservation(t, 3, procReq1, procReq2),
 	}
 
-	produced, reportBytes, err := plugin.Report(testutils.Context(t), types.ReportTimestamp{}, query, obs)
+	produced, reportBytes, err := plugin.Report(t.Context(), types.ReportTimestamp{}, query, obs)
 	require.True(t, produced)
 	require.NoError(t, err)
 
@@ -291,14 +291,14 @@ func TestFunctionsReporting_Report_WithGasLimitAndMetadata(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, decoded, 2)
 
-	require.Equal(t, reqId1[:], decoded[0].RequestID)
+	require.Equal(t, reqID1[:], decoded[0].RequestID)
 	require.Equal(t, compResult, decoded[0].Result)
 	require.Equal(t, []byte{}, decoded[0].Error)
 	require.Equal(t, coordinatorContract[:], decoded[0].CoordinatorContract)
 	require.Equal(t, meta1, decoded[0].OnchainMetadata)
 	// CallbackGasLimit is not ABI-encoded
 
-	require.Equal(t, reqId2[:], decoded[1].RequestID)
+	require.Equal(t, reqID2[:], decoded[1].RequestID)
 	require.Equal(t, compResult, decoded[1].Result)
 	require.Equal(t, []byte{}, decoded[1].Error)
 	require.Equal(t, coordinatorContract[:], decoded[1].CoordinatorContract)
@@ -309,21 +309,21 @@ func TestFunctionsReporting_Report_WithGasLimitAndMetadata(t *testing.T) {
 func TestFunctionsReporting_Report_HandleCoordinatorMismatch(t *testing.T) {
 	t.Parallel()
 	plugin, _, codec, _ := preparePlugin(t, 10, 300000)
-	reqId1, reqId2, reqId3 := newRequestID(), newRequestID(), newRequestID()
+	reqID1, reqID2, reqID3 := newRequestID(), newRequestID(), newRequestID()
 	compResult, meta := []byte("aaa"), []byte("meta")
 	coordinatorContractA, coordinatorContractB := common.Address{1}, common.Address{2}
-	procReq1 := newProcessedRequestWithMeta(reqId1, compResult, []byte{}, 0, coordinatorContractA[:], meta)
-	procReq2 := newProcessedRequestWithMeta(reqId2, compResult, []byte{}, 0, coordinatorContractB[:], meta)
-	procReq3 := newProcessedRequestWithMeta(reqId3, compResult, []byte{}, 0, coordinatorContractA[:], meta)
+	procReq1 := newProcessedRequestWithMeta(reqID1, compResult, []byte{}, 0, coordinatorContractA[:], meta)
+	procReq2 := newProcessedRequestWithMeta(reqID2, compResult, []byte{}, 0, coordinatorContractB[:], meta)
+	procReq3 := newProcessedRequestWithMeta(reqID3, compResult, []byte{}, 0, coordinatorContractA[:], meta)
 
-	query := newMarshalledQuery(t, reqId1, reqId2, reqId3, reqId1, reqId2) // duplicates should be ignored
+	query := newMarshalledQuery(t, reqID1, reqID2, reqID3, reqID1, reqID2) // duplicates should be ignored
 	obs := []types.AttributedObservation{
 		newObservation(t, 1, procReq2, procReq3, procReq1),
 		newObservation(t, 2, procReq1, procReq2, procReq3),
 		newObservation(t, 3, procReq3, procReq1, procReq2),
 	}
 
-	produced, reportBytes, err := plugin.Report(testutils.Context(t), types.ReportTimestamp{}, query, obs)
+	produced, reportBytes, err := plugin.Report(t.Context(), types.ReportTimestamp{}, query, obs)
 	require.True(t, produced)
 	require.NoError(t, err)
 
@@ -331,29 +331,29 @@ func TestFunctionsReporting_Report_HandleCoordinatorMismatch(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, decoded, 2)
 
-	require.Equal(t, reqId1[:], decoded[0].RequestID)
-	require.Equal(t, reqId3[:], decoded[1].RequestID)
-	// reqId2	should be excluded from this report because it has a different coordinator address
+	require.Equal(t, reqID1[:], decoded[0].RequestID)
+	require.Equal(t, reqID3[:], decoded[1].RequestID)
+	// reqID2	should be excluded from this report because it has a different coordinator address
 }
 
 func TestFunctionsReporting_Report_CallbackGasLimitExceeded(t *testing.T) {
 	t.Parallel()
 	plugin, _, codec, _ := preparePlugin(t, 10, 200000)
-	reqId1, reqId2 := newRequestID(), newRequestID()
+	reqID1, reqID2 := newRequestID(), newRequestID()
 	compResult := []byte("aaa")
 	gasLimit1, gasLimit2 := uint32(100_000), uint32(200_000)
 	coordinatorContract1, coordinatorContract2 := common.Address{1}, common.Address{2}
-	procReq1 := newProcessedRequestWithMeta(reqId1, compResult, []byte{}, gasLimit1, coordinatorContract1[:], []byte{})
-	procReq2 := newProcessedRequestWithMeta(reqId2, compResult, []byte{}, gasLimit2, coordinatorContract2[:], []byte{})
+	procReq1 := newProcessedRequestWithMeta(reqID1, compResult, []byte{}, gasLimit1, coordinatorContract1[:], []byte{})
+	procReq2 := newProcessedRequestWithMeta(reqID2, compResult, []byte{}, gasLimit2, coordinatorContract2[:], []byte{})
 
-	query := newMarshalledQuery(t, reqId1, reqId2)
+	query := newMarshalledQuery(t, reqID1, reqID2)
 	obs := []types.AttributedObservation{
 		newObservation(t, 1, procReq2, procReq1),
 		newObservation(t, 2, procReq1, procReq2),
 		newObservation(t, 3, procReq1, procReq2),
 	}
 
-	produced, reportBytes, err := plugin.Report(testutils.Context(t), types.ReportTimestamp{}, query, obs)
+	produced, reportBytes, err := plugin.Report(t.Context(), types.ReportTimestamp{}, query, obs)
 	require.True(t, produced)
 	require.NoError(t, err)
 
@@ -361,7 +361,7 @@ func TestFunctionsReporting_Report_CallbackGasLimitExceeded(t *testing.T) {
 	require.NoError(t, err)
 	// Gas limit is set to 200k per report so we can only fit the first request
 	require.Len(t, decoded, 1)
-	require.Equal(t, reqId1[:], decoded[0].RequestID)
+	require.Equal(t, reqID1[:], decoded[0].RequestID)
 	require.Equal(t, compResult, decoded[0].Result)
 	require.Equal(t, []byte{}, decoded[0].Error)
 	require.Equal(t, coordinatorContract1[:], decoded[0].CoordinatorContract)
@@ -370,21 +370,21 @@ func TestFunctionsReporting_Report_CallbackGasLimitExceeded(t *testing.T) {
 func TestFunctionsReporting_Report_DeterministicOrderOfRequests(t *testing.T) {
 	t.Parallel()
 	plugin, _, codec, _ := preparePlugin(t, 10, 0)
-	reqId1, reqId2, reqId3 := newRequestID(), newRequestID(), newRequestID()
+	reqID1, reqID2, reqID3 := newRequestID(), newRequestID(), newRequestID()
 	compResult := []byte("aaa")
 
-	query := newMarshalledQuery(t, reqId1, reqId2, reqId3, reqId1, reqId2) // duplicates should be ignored
-	procReq1 := newProcessedRequest(reqId1, compResult, []byte{})
-	procReq2 := newProcessedRequest(reqId2, compResult, []byte{})
-	procReq3 := newProcessedRequest(reqId3, compResult, []byte{})
+	query := newMarshalledQuery(t, reqID1, reqID2, reqID3, reqID1, reqID2) // duplicates should be ignored
+	procReq1 := newProcessedRequest(reqID1, compResult, []byte{})
+	procReq2 := newProcessedRequest(reqID2, compResult, []byte{})
+	procReq3 := newProcessedRequest(reqID3, compResult, []byte{})
 	obs := []types.AttributedObservation{
 		newObservation(t, 1, procReq1, procReq2, procReq3),
 		newObservation(t, 2, procReq2, procReq1, procReq3),
 		newObservation(t, 3, procReq3, procReq2, procReq1),
 	}
 
-	produced1, reportBytes1, err1 := plugin.Report(testutils.Context(t), types.ReportTimestamp{}, query, obs)
-	produced2, reportBytes2, err2 := plugin.Report(testutils.Context(t), types.ReportTimestamp{}, query, obs)
+	produced1, reportBytes1, err1 := plugin.Report(t.Context(), types.ReportTimestamp{}, query, obs)
+	produced2, reportBytes2, err2 := plugin.Report(t.Context(), types.ReportTimestamp{}, query, obs)
 	require.True(t, produced1)
 	require.True(t, produced2)
 	require.NoError(t, err1)
@@ -399,22 +399,22 @@ func TestFunctionsReporting_Report_DeterministicOrderOfRequests(t *testing.T) {
 func TestFunctionsReporting_Report_IncorrectObservation(t *testing.T) {
 	t.Parallel()
 	plugin, _, _, _ := preparePlugin(t, 10, 0)
-	reqId1 := newRequestID()
+	reqID1 := newRequestID()
 	compResult := []byte("aaa")
 
-	query := newMarshalledQuery(t, reqId1)
-	req := newProcessedRequest(reqId1, compResult, []byte{})
+	query := newMarshalledQuery(t, reqID1)
+	req := newProcessedRequest(reqID1, compResult, []byte{})
 
 	// There are 4 observations but all are coming from the same node
 	obs := []types.AttributedObservation{newObservation(t, 1, req, req, req, req)}
-	produced, reportBytes, err := plugin.Report(testutils.Context(t), types.ReportTimestamp{}, query, obs)
+	produced, reportBytes, err := plugin.Report(t.Context(), types.ReportTimestamp{}, query, obs)
 	require.False(t, produced)
 	require.Nil(t, reportBytes)
 	require.NoError(t, err)
 }
 
 func getReportBytes(t *testing.T, codec encoding.ReportCodec, reqs ...functions_srv.Request) []byte {
-	var report []*encoding.ProcessedRequest
+	report := make([]*encoding.ProcessedRequest, 0, len(reqs))
 	for _, req := range reqs {
 		report = append(report, &encoding.ProcessedRequest{
 			RequestID:           req.RequestID[:],
@@ -450,21 +450,21 @@ func TestFunctionsReporting_ShouldAcceptFinalizedReport(t *testing.T) {
 	// Attempting to transmit 2 requests, out of which:
 	//   - one was already accepted for transmission earlier
 	//   - one has timed out
-	should, err := plugin.ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req3, req4))
+	should, err := plugin.ShouldAcceptFinalizedReport(t.Context(), types.ReportTimestamp{}, getReportBytes(t, codec, req3, req4))
 	require.NoError(t, err)
 	require.False(t, should)
 
 	// Attempting to transmit 2 requests, out of which:
 	//   - one is ready
 	//   - one was already accepted for transmission earlier
-	should, err = plugin.ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req2, req3))
+	should, err = plugin.ShouldAcceptFinalizedReport(t.Context(), types.ReportTimestamp{}, getReportBytes(t, codec, req2, req3))
 	require.NoError(t, err)
 	require.True(t, should)
 
 	// Attempting to transmit 2 requests, out of which:
 	//   - one doesn't exist
 	//   - one has timed out
-	should, err = plugin.ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req1, req4))
+	should, err = plugin.ShouldAcceptFinalizedReport(t.Context(), types.ReportTimestamp{}, getReportBytes(t, codec, req1, req4))
 	require.NoError(t, err)
 	require.True(t, should)
 }
@@ -479,7 +479,7 @@ func TestFunctionsReporting_ShouldAcceptFinalizedReport_OffchainTransmission(t *
 	orm.On("SetFinalized", mock.Anything, req1.RequestID, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	offchainTransmitter.On("TransmitReport", mock.Anything, mock.Anything).Return(nil)
 
-	should, err := plugin.ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req1))
+	should, err := plugin.ShouldAcceptFinalizedReport(t.Context(), types.ReportTimestamp{}, getReportBytes(t, codec, req1))
 	require.NoError(t, err)
 	require.False(t, should)
 }
@@ -503,21 +503,21 @@ func TestFunctionsReporting_ShouldTransmitAcceptedReport(t *testing.T) {
 	// Attempting to transmit 2 requests, out of which:
 	//   - one was already confirmed on chain
 	//   - one has timed out
-	should, err := plugin.ShouldTransmitAcceptedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req5, req4))
+	should, err := plugin.ShouldTransmitAcceptedReport(t.Context(), types.ReportTimestamp{}, getReportBytes(t, codec, req5, req4))
 	require.NoError(t, err)
 	require.False(t, should)
 
 	// Attempting to transmit 2 requests, out of which:
 	//   - one is ready
 	//   - one in finalized
-	should, err = plugin.ShouldTransmitAcceptedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req2, req3))
+	should, err = plugin.ShouldTransmitAcceptedReport(t.Context(), types.ReportTimestamp{}, getReportBytes(t, codec, req2, req3))
 	require.NoError(t, err)
 	require.True(t, should)
 
 	// Attempting to transmit 2 requests, out of which:
 	//   - one doesn't exist
 	//   - one is ready
-	should, err = plugin.ShouldTransmitAcceptedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req1, req2))
+	should, err = plugin.ShouldTransmitAcceptedReport(t.Context(), types.ReportTimestamp{}, getReportBytes(t, codec, req1, req2))
 	require.NoError(t, err)
 	require.True(t, should)
 }

@@ -4,11 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	"google.golang.org/protobuf/proto"
-
-	decryptionPluginConfig "github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin/config"
-
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	decryptionPluginConfig "github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin/config"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
@@ -50,7 +48,7 @@ type PluginConfig struct {
 type DecryptionQueueConfig struct {
 	MaxQueueLength           uint32 `json:"maxQueueLength"`
 	MaxCiphertextBytes       uint32 `json:"maxCiphertextBytes"`
-	MaxCiphertextIdLength    uint32 `json:"maxCiphertextIdLength"`
+	MaxCiphertextIDLength    uint32 `json:"maxCiphertextIdLength"`
 	CompletedCacheTimeoutSec uint32 `json:"completedCacheTimeoutSec"`
 	DecryptRequestTimeoutSec uint32 `json:"decryptRequestTimeoutSec"`
 }
@@ -63,7 +61,7 @@ func ValidatePluginConfig(config PluginConfig) error {
 		if config.DecryptionQueueConfig.MaxCiphertextBytes <= 0 {
 			return errors.New("missing or invalid decryptionQueueConfig maxCiphertextBytes")
 		}
-		if config.DecryptionQueueConfig.MaxCiphertextIdLength <= 0 {
+		if config.DecryptionQueueConfig.MaxCiphertextIDLength <= 0 {
 			return errors.New("missing or invalid decryptionQueueConfig maxCiphertextIdLength")
 		}
 		if config.DecryptionQueueConfig.CompletedCacheTimeoutSec <= 0 {
@@ -77,7 +75,7 @@ func ValidatePluginConfig(config PluginConfig) error {
 }
 
 // This config is stored in the Oracle contract (set via SetConfig()).
-// Every SetConfig() call reloads the reporting plugin (FunctionsReportingPluginFactory.NewReportingPlugin())
+// Every SetConfig() call reloads the reporting plugin (ReportingPluginFactory.NewReportingPlugin())
 type ReportingPluginConfigWrapper struct {
 	Config *ReportingPluginConfig
 }

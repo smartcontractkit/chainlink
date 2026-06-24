@@ -3,12 +3,11 @@ package functions
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
-	"github.com/pkg/errors"
-
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
@@ -18,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
@@ -33,7 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 )
 
-type FunctionsServicesConfig struct {
+type ServicesConfig struct {
 	Job               job.Job
 	JobORM            job.ORM
 	BridgeORM         bridges.ORM
@@ -58,7 +56,7 @@ const (
 )
 
 // Create all OCR2 plugin Oracles and all extra services needed to run a Functions job.
-func NewFunctionsServices(ctx context.Context, functionsOracleArgs, thresholdOracleArgs, s4OracleArgs *libocr2.OCR2OracleArgs, conf *FunctionsServicesConfig) ([]job.ServiceCtx, error) {
+func NewFunctionsServices(ctx context.Context, functionsOracleArgs, thresholdOracleArgs, s4OracleArgs *libocr2.OCR2OracleArgs, conf *ServicesConfig) ([]job.ServiceCtx, error) {
 	pluginORM := functions.NewORM(conf.DS, common.HexToAddress(conf.ContractID))
 	s4ORM := s4.NewCachedORMWrapper(s4.NewPostgresORM(conf.DS, s4.SharedTableName, FunctionsS4Namespace), conf.Logger)
 
@@ -78,7 +76,7 @@ func NewFunctionsServices(ctx context.Context, functionsOracleArgs, thresholdOra
 		decryptionQueue := threshold.NewDecryptionQueue(
 			int(pluginConfig.DecryptionQueueConfig.MaxQueueLength),
 			int(pluginConfig.DecryptionQueueConfig.MaxCiphertextBytes),
-			int(pluginConfig.DecryptionQueueConfig.MaxCiphertextIdLength),
+			int(pluginConfig.DecryptionQueueConfig.MaxCiphertextIDLength),
 			time.Duration(pluginConfig.DecryptionQueueConfig.CompletedCacheTimeoutSec)*time.Second,
 			conf.Logger.Named("DecryptionQueue"),
 		)
@@ -90,7 +88,7 @@ func NewFunctionsServices(ctx context.Context, functionsOracleArgs, thresholdOra
 		}
 		thresholdService, err2 := threshold.NewThresholdService(thresholdOracleArgs, &thresholdServicesConfig)
 		if err2 != nil {
-			return nil, errors.Wrap(err2, "error calling NewThresholdServices")
+			return nil, fmt.Errorf("error calling NewThresholdServices: %w", err2)
 		}
 		allServices = append(allServices, thresholdService)
 	} else {
@@ -137,7 +135,7 @@ func NewFunctionsServices(ctx context.Context, functionsOracleArgs, thresholdOra
 	)
 	allServices = append(allServices, functionsListener)
 
-	functionsOracleArgs.ReportingPluginFactory = FunctionsReportingPluginFactory{
+	functionsOracleArgs.ReportingPluginFactory = ReportingPluginFactory{
 		Logger:              functionsOracleArgs.Logger,
 		PluginORM:           pluginORM,
 		JobID:               conf.Job.ExternalJobID,
@@ -146,35 +144,35 @@ func NewFunctionsServices(ctx context.Context, functionsOracleArgs, thresholdOra
 	}
 	functionsReportingPluginOracle, err := libocr2.NewOracle(*functionsOracleArgs)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to call NewOracle to create a Functions Reporting Plugin")
+		return nil, fmt.Errorf("failed to call NewOracle to create a Functions Reporting Plugin: %w", err)
 	}
 	allServices = append(allServices, job.NewServiceAdapter(functionsReportingPluginOracle))
 
 	if pluginConfig.GatewayConnectorConfig != nil && s4Storage != nil && pluginConfig.OnchainAllowlist != nil && pluginConfig.RateLimiter != nil && pluginConfig.OnchainSubscriptions != nil {
 		allowlistORM, err := gwAllowlist.NewORM(conf.DS, conf.Logger, pluginConfig.OnchainAllowlist.ContractAddress)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to create allowlist ORM")
+			return nil, fmt.Errorf("failed to create allowlist ORM: %w", err)
 		}
 		allowlist, err2 := gwAllowlist.NewOnchainAllowlist(conf.Chain.Client(), *pluginConfig.OnchainAllowlist, allowlistORM, conf.Logger)
 		if err2 != nil {
-			return nil, errors.Wrap(err, "failed to create OnchainAllowlist")
+			return nil, fmt.Errorf("failed to create OnchainAllowlist: %w", err2)
 		}
 		rateLimiter, err2 := ratelimit.NewRateLimiter(*pluginConfig.RateLimiter)
 		if err2 != nil {
-			return nil, errors.Wrap(err, "failed to create a RateLimiter")
+			return nil, fmt.Errorf("failed to create a RateLimiter: %w", err2)
 		}
 		subscriptionsORM, err := gwSubscriptions.NewORM(conf.DS, conf.Logger, pluginConfig.OnchainSubscriptions.ContractAddress)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to create subscriptions ORM")
+			return nil, fmt.Errorf("failed to create subscriptions ORM: %w", err)
 		}
 		subscriptions, err2 := gwSubscriptions.NewOnchainSubscriptions(conf.Chain.Client(), *pluginConfig.OnchainSubscriptions, subscriptionsORM, conf.Logger)
 		if err2 != nil {
-			return nil, errors.Wrap(err, "failed to create a OnchainSubscriptions")
+			return nil, fmt.Errorf("failed to create a OnchainSubscriptions: %w", err2)
 		}
 		connectorLogger := conf.Logger.Named("GatewayConnector").With("jobName", conf.Job.PipelineSpec.JobName)
 		connector, handler, err2 := NewConnector(ctx, &pluginConfig, conf.EthKeystore, s4Storage, allowlist, rateLimiter, subscriptions, functionsListener, offchainTransmitter, connectorLogger)
 		if err2 != nil {
-			return nil, errors.Wrap(err, "failed to create a GatewayConnector")
+			return nil, fmt.Errorf("failed to create a GatewayConnector: %w", err2)
 		}
 		allServices = append(allServices, connector)
 		allServices = append(allServices, handler)
@@ -190,7 +188,7 @@ func NewFunctionsServices(ctx context.Context, functionsOracleArgs, thresholdOra
 		}
 		s4ReportingPluginOracle, err := libocr2.NewOracle(*s4OracleArgs)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to call NewOracle to create a S4 Reporting Plugin")
+			return nil, fmt.Errorf("failed to call NewOracle to create a S4 Reporting Plugin: %w", err)
 		}
 		allServices = append(allServices, job.NewServiceAdapter(s4ReportingPluginOracle))
 	} else {

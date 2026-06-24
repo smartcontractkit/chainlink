@@ -2209,7 +2209,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		}
 	}
 
-	functionsServicesConfig := functions.FunctionsServicesConfig{
+	functionsServicesConfig := functions.ServicesConfig{
 		Job:               jb,
 		JobORM:            d.jobORM,
 		BridgeORM:         d.bridgeORM,
