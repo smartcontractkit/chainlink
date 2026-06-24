@@ -932,6 +932,13 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		}
 	}
 
+	// Track time the guest spends blocked in DON-time host calls so it can be
+	// excluded from metered compute (see compute_metering.go). The wrapper is
+	// always installed; whether the recorded wait is subtracted is gated by
+	// e.cfg.MeterComputeExcludingHostWait below.
+	suspension := &suspensionTracker{}
+	timeProvider = newMeasuredTimeProvider(timeProvider, e.cfg.Clock, suspension)
+
 	moduleExecuteMaxResponseSizeBytes, err := e.cfg.LocalLimiters.ExecutionResponse.Limit(ctx)
 	if err != nil {
 		lggr.Errorw("Failed to get execution response size limit", "err", err)
@@ -951,6 +958,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		Engine: e, WorkflowExecutionID: executionID, ExecutionTimestamp: executionTimestamp,
 		UserLogChan: userLogChan, TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
 		executionProfile: newExecutionProfileCollector(),
+		suspension:       suspension,
 	}
 	execHelper.initLimiters(e.cfg.LocalLimiters)
 	e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).RecordTriggerPayloadBytes(ctx, int64(proto.Size(triggerEvent.Payload)))
@@ -971,6 +979,25 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	endTime := e.cfg.Clock.Now()
 	executionDuration := endTime.Sub(startTime)
 
+	// computeDuration is what we meter as RESOURCE_TYPE_COMPUTE. We start from the
+	// end-to-end wall-clock and subtract time the guest spent blocked in DON-time
+	// host calls: that wait is not compute and is non-deterministic across nodes
+	// (a node whose DON-time request lands in the current consensus round returns
+	// in microseconds; one whose request slips to the next round blocks ~a full
+	// round). Operational latency metrics below intentionally keep using
+	// executionDuration.
+	computeDuration := executionDuration
+	if hostWait := suspension.total(); hostWait > 0 {
+		computeDuration -= hostWait
+		if computeDuration < 0 {
+			computeDuration = 0
+		}
+		executionLogger.Debugw("Excluding DON-time wait from metered compute",
+			"wallClockMs", executionDuration.Milliseconds(),
+			"hostWaitMs", hostWait.Milliseconds(),
+			"computeMs", computeDuration.Milliseconds())
+	}
+
 	if isMetering {
 		computeUnit := billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_COMPUTE)]
 		mrErr := meteringReport.Settle(computeUnit,
@@ -978,7 +1005,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 				Metering: []capabilities.MeteringNodeDetail{{
 					Peer2PeerID: e.localNode.Load().PeerID.String(),
 					SpendUnit:   computeUnit,
-					SpendValue:  strconv.Itoa(int(executionDuration.Milliseconds())),
+					SpendValue:  strconv.Itoa(int(computeDuration.Milliseconds())),
 				}},
 				CapDON_N: 1,
 			},
