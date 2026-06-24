@@ -54,19 +54,19 @@ type ReportingPluginConfig struct {
 	PrivateKeyShare *tdh2easy.PrivateShare
 
 	// Sourced from the offchain config
-	MaxSecretsPerOwner                        limits.BoundLimiter[int]
-	MaxCiphertextLengthBytes                  limits.BoundLimiter[pkgconfig.Size]
-	MaxIdentifierKeyLengthBytes               limits.BoundLimiter[pkgconfig.Size]
-	MaxIdentifierOwnerLengthBytes             limits.BoundLimiter[pkgconfig.Size]
-	MaxIdentifierNamespaceLengthBytes         limits.BoundLimiter[pkgconfig.Size]
-	MaxShareLengthBytes                       limits.BoundLimiter[pkgconfig.Size]
-	MaxRequestBatchSize                       limits.BoundLimiter[int]
-	MaxBatchSize                              limits.BoundLimiter[int]
-	MaxPendingQueueWriteSize                  limits.BoundLimiter[int]
-	MaxBlobPayloadBytes                       limits.BoundLimiter[pkgconfig.Size]
-	VaultForceEmptyOCRRounds                  limits.GateLimiter
-	VaultOptimizationsEnabled                 limits.GateLimiter
-	VaultGetSecretsShareLabelConsensusEnabled limits.GateLimiter
+	MaxSecretsPerOwner                                limits.BoundLimiter[int]
+	MaxCiphertextLengthBytes                          limits.BoundLimiter[pkgconfig.Size]
+	MaxIdentifierKeyLengthBytes                       limits.BoundLimiter[pkgconfig.Size]
+	MaxIdentifierOwnerLengthBytes                     limits.BoundLimiter[pkgconfig.Size]
+	MaxIdentifierNamespaceLengthBytes                 limits.BoundLimiter[pkgconfig.Size]
+	MaxShareLengthBytes                               limits.BoundLimiter[pkgconfig.Size]
+	MaxRequestBatchSize                               limits.BoundLimiter[int]
+	MaxBatchSize                                      limits.BoundLimiter[int]
+	MaxPendingQueueWriteSize                          limits.BoundLimiter[int]
+	MaxBlobPayloadBytes                               limits.BoundLimiter[pkgconfig.Size]
+	VaultForceEmptyOCRRounds                          limits.GateLimiter
+	VaultOptimizationsEnabled                         limits.GateLimiter
+	VaultGetSecretsShareAggregationIncludesPublicKeys limits.GateLimiter
 }
 
 func NewReportingPluginFactory(
@@ -216,9 +216,9 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		return nil, fmt.Errorf("VaultOptimizationsEnabled: %w", err)
 	}
 
-	vaultGetSecretsShareLabelConsensusEnabled, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultGetSecretsShareLabelConsensusEnabled)
+	vaultGetSecretsShareAggregationIncludesPublicKeys, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultGetSecretsShareAggregationIncludesPublicKeys)
 	if err != nil {
-		return nil, fmt.Errorf("VaultGetSecretsShareLabelConsensusEnabled: %w", err)
+		return nil, fmt.Errorf("VaultGetSecretsShareAggregationIncludesPublicKeys: %w", err)
 	}
 
 	maxBlobPayloadBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultMaxBlobPayloadSizeLimit)
@@ -232,17 +232,17 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 	}
 
 	return &ReportingPluginConfig{
-		MaxShareLengthBytes:                       maxShareLengthBytesLimiter,
-		MaxRequestBatchSize:                       maxRequestBatchSizeLimiter,
-		MaxCiphertextLengthBytes:                  maxCiphertextLengthBytesLimiter,
-		MaxIdentifierKeyLengthBytes:               maxIdentifierKeyLengthBytesLimiter,
-		MaxIdentifierOwnerLengthBytes:             maxIdentifierOwnerLengthBytesLimiter,
-		MaxIdentifierNamespaceLengthBytes:         maxIdentifierNamespaceLengthBytesLimiter,
-		MaxBlobPayloadBytes:                       maxBlobPayloadBytesLimiter,
-		MaxPendingQueueWriteSize:                  maxPendingQueueWriteSizeLimiter,
-		VaultForceEmptyOCRRounds:                  vaultForceEmptyOCRRounds,
-		VaultOptimizationsEnabled:                 vaultOptimizationsEnabled,
-		VaultGetSecretsShareLabelConsensusEnabled: vaultGetSecretsShareLabelConsensusEnabled,
+		MaxShareLengthBytes:                               maxShareLengthBytesLimiter,
+		MaxRequestBatchSize:                               maxRequestBatchSizeLimiter,
+		MaxCiphertextLengthBytes:                          maxCiphertextLengthBytesLimiter,
+		MaxIdentifierKeyLengthBytes:                       maxIdentifierKeyLengthBytesLimiter,
+		MaxIdentifierOwnerLengthBytes:                     maxIdentifierOwnerLengthBytesLimiter,
+		MaxIdentifierNamespaceLengthBytes:                 maxIdentifierNamespaceLengthBytesLimiter,
+		MaxBlobPayloadBytes:                               maxBlobPayloadBytesLimiter,
+		MaxPendingQueueWriteSize:                          maxPendingQueueWriteSizeLimiter,
+		VaultForceEmptyOCRRounds:                          vaultForceEmptyOCRRounds,
+		VaultOptimizationsEnabled:                         vaultOptimizationsEnabled,
+		VaultGetSecretsShareAggregationIncludesPublicKeys: vaultGetSecretsShareAggregationIncludesPublicKeys,
 	}, nil
 }
 
@@ -607,8 +607,8 @@ func (r *ReportingPlugin) optimizationsEnabled(ctx context.Context) bool {
 	return gateAllows(ctx, r.lggr, r.cfg.VaultOptimizationsEnabled, "VaultOptimizationsEnabled")
 }
 
-func (r *ReportingPlugin) shareLabelConsensusEnabled(ctx context.Context) bool {
-	return gateAllows(ctx, r.lggr, r.cfg.VaultGetSecretsShareLabelConsensusEnabled, "VaultGetSecretsShareLabelConsensusEnabled")
+func (r *ReportingPlugin) shareAggregationIncludesPublicKeys(ctx context.Context) bool {
+	return gateAllows(ctx, r.lggr, r.cfg.VaultGetSecretsShareAggregationIncludesPublicKeys, "VaultGetSecretsShareAggregationIncludesPublicKeys")
 }
 
 type pendingQueueStore interface {
@@ -1475,7 +1475,7 @@ func (r *ReportingPlugin) shaForObservation(ctx context.Context, o *vaultcommon.
 		cloned := proto.CloneOf(o)
 		for _, rsp := range cloned.GetGetSecretsResponse().Responses {
 			if rsp.GetData() != nil {
-				if r.shareLabelConsensusEnabled(ctx) {
+				if r.shareAggregationIncludesPublicKeys(ctx) {
 					rsp.GetData().EncryptedDecryptionKeyShares = stubEncryptedSharesForSHA(rsp.GetData().EncryptedDecryptionKeyShares)
 				} else {
 					// Exclude the encrypted shares from the sha, as these need to be aggregated later.

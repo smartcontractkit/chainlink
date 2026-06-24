@@ -96,7 +96,7 @@ func TestPlugin_ValidateObservation_GetSecrets_EmbeddedRequestMismatchRejected(t
 	require.ErrorContains(t, err, "embedded GetSecrets request does not match pending queue request")
 }
 
-func TestPlugin_ShaForObservation_ShareLabelConsensusFlag(t *testing.T) {
+func TestPlugin_ShaForObservation_ShareAggregationIncludesPublicKeysFlag(t *testing.T) {
 	t.Parallel()
 	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
 	realKey := strings.Repeat("ab", 32)
@@ -138,7 +138,7 @@ func TestPlugin_ShaForObservation_ShareLabelConsensusFlag(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, shaHonestOff, shaByzOff)
 
-	pluginOn := newTestReportingPlugin(t, withOnchainCfg(4, 1), withVaultGetSecretsShareLabelConsensusEnabled())
+	pluginOn := newTestReportingPlugin(t, withOnchainCfg(4, 1), withVaultGetSecretsShareAggregationIncludesPublicKeys())
 	shaHonestOn, err := pluginOn.shaForObservation(ctx, honestObs)
 	require.NoError(t, err)
 	shaByzOn, err := pluginOn.shaForObservation(ctx, byzObs)
@@ -146,7 +146,7 @@ func TestPlugin_ShaForObservation_ShareLabelConsensusFlag(t *testing.T) {
 	require.NotEqual(t, shaHonestOn, shaByzOn)
 }
 
-func TestPlugin_ShaForObservation_ShareLabelConsensus_PermutedEntryOrder(t *testing.T) {
+func TestPlugin_ShaForObservation_ShareAggregationIncludesPublicKeys_PermutedEntryOrder(t *testing.T) {
 	t.Parallel()
 	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
 	keyA := strings.Repeat("aa", 32)
@@ -180,7 +180,7 @@ func TestPlugin_ShaForObservation_ShareLabelConsensus_PermutedEntryOrder(t *test
 	}
 
 	ctx := context.Background()
-	plugin := newTestReportingPlugin(t, withOnchainCfg(4, 1), withVaultGetSecretsShareLabelConsensusEnabled())
+	plugin := newTestReportingPlugin(t, withOnchainCfg(4, 1), withVaultGetSecretsShareAggregationIncludesPublicKeys())
 
 	shaAB, err := plugin.shaForObservation(ctx, makeObs([]string{keyA, keyB}, []string{"share-a1", "share-b1"}))
 	require.NoError(t, err)
@@ -189,7 +189,7 @@ func TestPlugin_ShaForObservation_ShareLabelConsensus_PermutedEntryOrder(t *test
 	require.Equal(t, shaAB, shaBA)
 }
 
-func TestPlugin_ShaForObservation_ShareLabelConsensus_DifferentShareBytesSameLabels(t *testing.T) {
+func TestPlugin_ShaForObservation_ShareAggregationIncludesPublicKeys_DifferentShareBytesSameLabels(t *testing.T) {
 	t.Parallel()
 	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
 	encKey := strings.Repeat("ab", 32)
@@ -221,7 +221,7 @@ func TestPlugin_ShaForObservation_ShareLabelConsensus_DifferentShareBytesSameLab
 	}
 
 	ctx := context.Background()
-	plugin := newTestReportingPlugin(t, withOnchainCfg(4, 1), withVaultGetSecretsShareLabelConsensusEnabled())
+	plugin := newTestReportingPlugin(t, withOnchainCfg(4, 1), withVaultGetSecretsShareAggregationIncludesPublicKeys())
 
 	sha1, err := plugin.shaForObservation(ctx, makeObs("share-from-node-1"))
 	require.NoError(t, err)
@@ -230,7 +230,7 @@ func TestPlugin_ShaForObservation_ShareLabelConsensus_DifferentShareBytesSameLab
 	require.Equal(t, sha1, sha2)
 }
 
-func TestPlugin_StateTransition_GetSecretsRequest_ShareLabelConsensus_CombinesShares(t *testing.T) {
+func TestPlugin_StateTransition_GetSecretsRequest_ShareAggregationIncludesPublicKeys_CombinesShares(t *testing.T) {
 	t.Parallel()
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -239,7 +239,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_ShareLabelConsensus_CombinesSh
 		withLggr(lggr),
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
-		withVaultGetSecretsShareLabelConsensusEnabled(),
+		withVaultGetSecretsShareAggregationIncludesPublicKeys(),
 	)
 
 	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
