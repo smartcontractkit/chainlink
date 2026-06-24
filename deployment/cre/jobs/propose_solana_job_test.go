@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
+	crejobsops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	jobspkg "github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 	tenv "github.com/smartcontractkit/chainlink/deployment/environment/test"
@@ -59,6 +60,28 @@ func solanaCapInput(nodeID, transmitter string) jobs.SolanaCapabilityInput {
 	}
 }
 
+const testSolOCRQualifier = "zone-a-audited"
+
+func seedSolanaCapRegAddress(t *testing.T, ds *datastore.MemoryDataStore, ocrSel uint64, qualifier, addr string) {
+	t.Helper()
+	require.NoError(t, ds.Addresses().Add(datastore.AddressRef{
+		ChainSelector: ocrSel,
+		Type:          datastore.ContractType("CapabilitiesRegistry"),
+		Version:       semver.MustParse("2.0.0"),
+		Address:       addr,
+		Qualifier:     qualifier,
+	}))
+}
+
+func freshSolanaReadsBase(solSel, ocrSel uint64) jobs.ProposeSolanaJobSpecInput {
+	in := freshSolanaBase(solSel)
+	in.ReadsEnabled = true
+	in.OCRChainSelector = ocrSel
+	in.BootstrapperOCR3Urls = []string{"12D3KooWxyz@127.0.0.1:5001"}
+	in.OCRContractQualifier = testSolOCRQualifier
+	return in
+}
+
 func freshSolanaBase(solSel uint64) jobs.ProposeSolanaJobSpecInput {
 	return jobs.ProposeSolanaJobSpecInput{
 		Environment:         test.EnvironmentName,
@@ -68,7 +91,6 @@ func freshSolanaBase(solSel uint64) jobs.ProposeSolanaJobSpecInput {
 		ChainSelector:       solSel,
 		DeltaStage:          10 * time.Second,
 		ForwardersQualifier: testSolSolanaFwdQualifier,
-		ForwarderVersion:    testSolanaForwarderVersion,
 		SolanaCapabilityInputs: []jobs.SolanaCapabilityInput{
 			solanaCapInput("peer-1", testSolanaTransmitter),
 		},
@@ -185,6 +207,7 @@ func TestProposeSolanaJobSpec_VerifyPreconditions_overrideMismatches(t *testing.
 
 type solanaJobTestSetup struct {
 	rt              *runtime.Runtime
+	h               *test.Harness
 	solanaCapInputs []jobs.SolanaCapabilityInput
 	baseInput       jobs.ProposeSolanaJobSpecInput
 }
@@ -199,7 +222,7 @@ func setupSolanaJobTest(t *testing.T) solanaJobTestSetup {
 
 	seedSolanaForwarderAddresses(t, ds, solSel, testSolSolanaFwdQualifier, testSolanaForwarderProgram, testSolanaForwarderState)
 
-	// Inject a new Job Distributor into the environment for testing
+	// Harness deploys CapabilitiesRegistry on RegistrySelector (TEST_90000001); nodes have OCR configs for that chain.
 	h := test.NewTestHarness(t, test.WithDatastore(ds))
 	env := h.Runtime.Environment()
 
@@ -240,15 +263,110 @@ func setupSolanaJobTest(t *testing.T) solanaJobTestSetup {
 		ChainSelector:          solSel,
 		DeltaStage:             time.Second,
 		ForwardersQualifier:    testSolSolanaFwdQualifier,
-		ForwarderVersion:       testSolanaForwarderVersion,
 		SolanaCapabilityInputs: solanaCapInputs,
 	}
 
 	return solanaJobTestSetup{
 		rt:              h.Runtime,
+		h:               h,
 		solanaCapInputs: solanaCapInputs,
 		baseInput:       baseInput,
 	}
+}
+
+func TestProposeSolanaJobSpec_VerifyPreconditions_readsEnabled_success(t *testing.T) {
+	solSel := chainsel.SOLANA_DEVNET.Selector
+	ocrSel := chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector
+
+	ds := datastore.NewMemoryDataStore()
+	seedSolanaForwarderAddresses(t, ds, solSel, testSolSolanaFwdQualifier, testSolanaForwarderProgram, testSolanaForwarderState)
+	seedSolanaCapRegAddress(t, ds, ocrSel, testSolOCRQualifier, "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B")
+	env := cldf.Environment{DataStore: ds.Seal()}
+
+	in := freshSolanaReadsBase(solSel, ocrSel)
+	err := jobs.ProposeSolanaJobSpec{}.VerifyPreconditions(env, in)
+	require.NoError(t, err)
+}
+
+func TestProposeSolanaJobSpec_VerifyPreconditions_readsEnabled_requiresOCRFields(t *testing.T) {
+	solSel := chainsel.SOLANA_DEVNET.Selector
+	ocrSel := chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector
+
+	ds := datastore.NewMemoryDataStore()
+	seedSolanaForwarderAddresses(t, ds, solSel, testSolSolanaFwdQualifier, testSolanaForwarderProgram, testSolanaForwarderState)
+	seedSolanaCapRegAddress(t, ds, ocrSel, testSolOCRQualifier, "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B")
+	env := cldf.Environment{DataStore: ds.Seal()}
+
+	base := freshSolanaReadsBase(solSel, ocrSel)
+
+	cases := []struct {
+		name    string
+		mutate  func(*jobs.ProposeSolanaJobSpecInput)
+		errFrag string
+	}{
+		{"missing ocr chain selector", func(in *jobs.ProposeSolanaJobSpecInput) { in.OCRChainSelector = 0 }, "ocr chain selector is required"},
+		{"missing bootstrapper urls", func(in *jobs.ProposeSolanaJobSpecInput) { in.BootstrapperOCR3Urls = nil }, "at least one bootstrapper OCR3 URL is required"},
+		{"missing ocr contract qualifier", func(in *jobs.ProposeSolanaJobSpecInput) { in.OCRContractQualifier = "" }, "ocr contract qualifier is required"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			in := deepCloneSolanaInput(base)
+			tc.mutate(&in)
+			err := jobs.ProposeSolanaJobSpec{}.VerifyPreconditions(env, in)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.errFrag)
+		})
+	}
+}
+
+func TestProposeSolanaJobSpec_VerifyPreconditions_readsEnabled_missingCapReg(t *testing.T) {
+	solSel := chainsel.SOLANA_DEVNET.Selector
+	ocrSel := chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector
+
+	ds := datastore.NewMemoryDataStore()
+	seedSolanaForwarderAddresses(t, ds, solSel, testSolSolanaFwdQualifier, testSolanaForwarderProgram, testSolanaForwarderState)
+	env := cldf.Environment{DataStore: ds.Seal()}
+
+	in := freshSolanaReadsBase(solSel, ocrSel)
+	err := jobs.ProposeSolanaJobSpec{}.VerifyPreconditions(env, in)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get CapabilitiesRegistry address")
+}
+
+func TestProposeSolanaJobSpec_Apply_readsEnabled_includesOracleFactory(t *testing.T) {
+	setup := setupSolanaJobTest(t)
+	input := setup.baseInput
+	input.ReadsEnabled = true
+	input.OCRChainSelector = setup.h.RegistrySelector
+	input.BootstrapperOCR3Urls = []string{"12D3KooWxyz@127.0.0.1:5001"}
+	input.OCRContractQualifier = test.RegistryQualifier
+
+	task := runtime.ChangesetTask(jobs.ProposeSolanaJobSpec{}, input)
+	err := setup.rt.Exec(task)
+	require.NoError(t, err)
+
+	out := setup.rt.State().Outputs[task.ID()]
+	require.Len(t, out.Reports, 1)
+
+	output, ok := out.Reports[0].Output.(crejobsops.ProposeStandardCapabilityJobOutput)
+	require.True(t, ok, "unexpected output type: %T", out.Reports[0].Output)
+	require.NotEmpty(t, output.Specs)
+
+	checked := 0
+	for _, specs := range output.Specs {
+		for _, spec := range specs {
+			if !strings.Contains(spec, "solana-cap-v2") {
+				continue
+			}
+			checked++
+			assert.Contains(t, spec, `[oracle_factory]`)
+			assert.Contains(t, spec, `enabled = true`)
+			assert.Contains(t, spec, `strategyName = "multi-chain"`)
+			assert.Contains(t, spec, `"readsEnabled":true`)
+		}
+	}
+	require.Greater(t, checked, 0, "expected at least one solana-cap-v2 job spec")
 }
 
 func TestProposeSolanaJobSpec_Apply_success(t *testing.T) {
