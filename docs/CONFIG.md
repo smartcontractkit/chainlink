@@ -2724,6 +2724,7 @@ DebugMode enables additional tracing and logging for workflow engines.
 ```toml
 [CRE.ConfidentialRelay]
 Enabled = false # Default
+TrustEnclaves = false # Default
 ```
 
 
@@ -2732,6 +2733,12 @@ Enabled = false # Default
 Enabled = false # Default
 ```
 Enabled controls whether the confidential relay gateway handler should be configured.
+
+### TrustEnclaves
+```toml
+TrustEnclaves = false # Default
+```
+TrustEnclaves relaxes TEE attestation validation so the relay trusts fake (non-Nitro) enclaves. intended only for tests.
 
 ## Sharding
 ```toml
