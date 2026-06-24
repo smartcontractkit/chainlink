@@ -333,6 +333,12 @@ VerboseLogging = true # Default
 DefaultTimeout = '15s' # Default
 # MaxSize defines the maximum size for HTTP requests and responses made by `http` and `bridge` adapters.
 MaxSize = '32768' # Default
+# MaxIdleConns is the maximum number of idle HTTP connections kept across all hosts for pipeline adapters.
+MaxIdleConns = 100 # Default
+# MaxIdleConnsPerHost is the maximum number of idle HTTP connections kept per host for pipeline adapters.
+MaxIdleConnsPerHost = 100 # Default
+# IdleConnTimeout is how long an idle HTTP connection is kept before being closed.
+IdleConnTimeout = '90s' # Default
 
 # Deprecated: FluxMonitor job type has been removed. These settings are accepted for backwards-compatible
 # config parsing only and have no effect.

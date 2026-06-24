@@ -1406,8 +1406,11 @@ func (j *JobPipeline) setFrom(f *JobPipeline) {
 }
 
 type JobPipelineHTTPRequest struct {
-	DefaultTimeout *commonconfig.Duration
-	MaxSize        *utils.FileSize
+	DefaultTimeout      *commonconfig.Duration
+	MaxSize             *utils.FileSize
+	MaxIdleConns        *int64
+	MaxIdleConnsPerHost *int64
+	IdleConnTimeout     *commonconfig.Duration
 }
 
 func (j *JobPipelineHTTPRequest) setFrom(f *JobPipelineHTTPRequest) {
@@ -1416,6 +1419,15 @@ func (j *JobPipelineHTTPRequest) setFrom(f *JobPipelineHTTPRequest) {
 	}
 	if v := f.MaxSize; v != nil {
 		j.MaxSize = v
+	}
+	if v := f.MaxIdleConns; v != nil {
+		j.MaxIdleConns = v
+	}
+	if v := f.MaxIdleConnsPerHost; v != nil {
+		j.MaxIdleConnsPerHost = v
+	}
+	if v := f.IdleConnTimeout; v != nil {
+		j.IdleConnTimeout = v
 	}
 }
 

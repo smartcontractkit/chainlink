@@ -147,6 +147,9 @@ VerboseLogging = false
 [JobPipeline.HTTPRequest]
 DefaultTimeout = '1m0s'
 MaxSize = '100.00mb'
+MaxIdleConns = 100
+MaxIdleConnsPerHost = 100
+IdleConnTimeout = '1m30s'
 
 [FluxMonitor]
 DefaultTransactionQueueDepth = 1

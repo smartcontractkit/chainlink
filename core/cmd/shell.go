@@ -223,6 +223,15 @@ type AppFactory interface {
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
+func pipelineHTTPTransportConfig(cfg chainlink.GeneralConfig) clhttp.TransportConfig {
+	jp := cfg.JobPipeline()
+	return clhttp.TransportConfig{
+		MaxIdleConns:        jp.HTTPTransportMaxIdleConns(),
+		MaxIdleConnsPerHost: jp.HTTPTransportMaxIdleConnsPerHost(),
+		IdleConnTimeout:     jp.HTTPTransportIdleConnTimeout(),
+	}
+}
+
 func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, appRegisterer prometheus.Registerer, ds sqlutil.DataSource, keyStore keystore.Master) (app chainlink.Application, err error) {
 	err = migrate.SetMigrationENVVars(cfg.EVMConfigs())
 	if err != nil {
@@ -235,7 +244,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		LatestReportDeadline: cfg.Mercury().Cache().LatestReportDeadline(),
 	})
 
-	unrestrictedClient := clhttp.NewUnrestrictedClient()
+	unrestrictedClient := clhttp.NewUnrestrictedClientWithTransportConfig(pipelineHTTPTransportConfig(cfg))
 
 	// Configure and optionally start the audit log forwarder service
 	auditLogger, err := audit.NewAuditLogger(appLggr, cfg.AuditLogger())
@@ -270,7 +279,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		Version:                  static.Version,
 		VersionTag:               static.VersionTag,
 		DockerTag:                dockerTag,
-		RestrictedHTTPClient:     clhttp.NewRestrictedClient(cfg.Database(), appLggr),
+		RestrictedHTTPClient:     clhttp.NewRestrictedClientWithTransportConfig(cfg.Database(), appLggr, pipelineHTTPTransportConfig(cfg)),
 		UnrestrictedHTTPClient:   unrestrictedClient,
 		SecretGenerator:          chainlink.FilePersistedSecretGenerator{},
 		GRPCOpts:                 grpcOpts,

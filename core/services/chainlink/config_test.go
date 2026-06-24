@@ -344,8 +344,11 @@ func TestConfig_Marshal(t *testing.T) {
 		ResultWriteQueueDepth:     ptr[uint32](10),
 		VerboseLogging:            ptr(false),
 		HTTPRequest: toml.JobPipelineHTTPRequest{
-			MaxSize:        ptr[utils.FileSize](100 * utils.MB),
-			DefaultTimeout: commoncfg.MustNewDuration(time.Minute),
+			MaxSize:             ptr[utils.FileSize](100 * utils.MB),
+			DefaultTimeout:      commoncfg.MustNewDuration(time.Minute),
+			MaxIdleConns:        ptr[int64](100),
+			MaxIdleConnsPerHost: ptr[int64](100),
+			IdleConnTimeout:     commoncfg.MustNewDuration(90 * time.Second),
 		},
 	}
 	full.FluxMonitor = toml.FluxMonitor{ //nolint:staticcheck // deprecated config surface must match embedded config-full.toml
@@ -997,6 +1000,9 @@ VerboseLogging = false
 [JobPipeline.HTTPRequest]
 DefaultTimeout = '1m0s'
 MaxSize = '100.00mb'
+MaxIdleConns = 100
+MaxIdleConnsPerHost = 100
+IdleConnTimeout = '1m30s'
 `},
 		{"OCR", Config{Core: toml.Core{OCR: full.OCR}}, `[OCR]
 Enabled = true

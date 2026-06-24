@@ -22,6 +22,18 @@ func (j *jobPipelineConfig) DefaultHTTPTimeout() commonconfig.Duration {
 	return *j.c.HTTPRequest.DefaultTimeout
 }
 
+func (j *jobPipelineConfig) HTTPTransportMaxIdleConns() int {
+	return int(*j.c.HTTPRequest.MaxIdleConns)
+}
+
+func (j *jobPipelineConfig) HTTPTransportMaxIdleConnsPerHost() int {
+	return int(*j.c.HTTPRequest.MaxIdleConnsPerHost)
+}
+
+func (j *jobPipelineConfig) HTTPTransportIdleConnTimeout() time.Duration {
+	return j.c.HTTPRequest.IdleConnTimeout.Duration()
+}
+
 func (j *jobPipelineConfig) MaxRunDuration() time.Duration {
 	return j.c.MaxRunDuration.Duration()
 }
