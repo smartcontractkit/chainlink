@@ -756,14 +756,17 @@ func TestCCIPReader_Nonces(t *testing.T) {
 		Auth:               auth,
 	})
 
-	// Add some nonces.
+	// Add some nonces. Commit after each tx so the next iteration's PendingNonceAt
+	// observes the bumped nonce instead of racing the simulated txpool's async nonce
+	// accounting ("replacement transaction underpriced" under load). Mirrors
+	// commitSqNrs / emitCommitReports.
 	for chain, addrs := range nonces {
 		for addr, nonce := range addrs {
 			_, err := s.contract.SetInboundNonce(s.auth, uint64(chain), nonce, common.LeftPadBytes(addr.Bytes(), 32))
 			require.NoError(t, err)
+			s.sb.Commit()
 		}
 	}
-	s.sb.Commit()
 
 	request := make(map[cciptypes.ChainSelector][]string)
 	for chain, addresses := range nonces {
