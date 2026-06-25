@@ -37,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	linkingclient "github.com/smartcontractkit/chainlink-protos/linking-service/go/v1"
@@ -759,7 +760,11 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 		}
 
 		require.NoError(t, registry.Add(ctx, server.NewClientServer(confidential)))
-		limiters, err := v2.NewLimiters(lf, nil)
+		// Confidential workflows are disabled by default; enable the gate so the
+		// confidential module routes and executes in this test.
+		limiters, err := v2.NewLimiters(lf, func(w *cresettings.Workflows) {
+			w.ConfidentialWorkflows.Enabled.DefaultValue = true
+		})
 		require.NoError(t, err)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
