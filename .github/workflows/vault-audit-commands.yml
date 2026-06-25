@@ -4,14 +4,20 @@ name: Vault Audit Commands
 #   /vault-audit               — run the audit (dispatches to cre-docs)
 #   /vault-audit skip <reason> — bypass the audit entirely
 #
-# To resolve individual findings, reply /resolved <reason> directly on each
-# blocking finding thread (handled by vault-audit-thread-commands.yml).
+# The audit report and its findings are NOT posted here (this repo is public).
+# They live on a private tracking issue in smartcontractkit/cre-docs, linked from
+# the "Details" link on the vault-audit status check. Findings are resolved there
+# with /resolved <FINDING-ID> <reason> (handled in cre-docs, not this repo).
 #
 # Authorization: commenter must have write or admin permission on this repository.
 
 on:
   issue_comment:
     types: [created]
+
+concurrency:
+  group: vault-audit-cmd-${{ github.repository }}-${{ github.event.issue.number }}
+  cancel-in-progress: false
 
 jobs:
   handle-command:
@@ -106,9 +112,57 @@ jobs:
           > ⚠️ This skip applies to the current HEAD (\`${SHA:0:8}\`). Pushing new vault file changes will re-require an audit."
 
       # ── /vault-audit ─────────────────────────────────────────────────────────
+      - name: Require verified commits
+        id: verify
+        if: steps.cmd.outputs.type == 'run'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          # The audit checks out and feeds PR HEAD code to Claude in cre-docs, so
+          # we only run it on PRs whose commits are all cryptographically verified
+          # (same signal as the "Require signed commits" ruleset). This ensures the
+          # audited code came from a known signer, not an arbitrary author.
+          UNVERIFIED=$(gh api "/repos/${REPO}/pulls/${PR_NUMBER}/commits" --paginate \
+            --jq '[.[] | select(.commit.verification.verified != true)
+                   | {sha: (.sha[0:8]), reason: .commit.verification.reason}]')
+
+          COUNT=$(echo "$UNVERIFIED" | jq 'length')
+          if [ "$COUNT" -gt 0 ]; then
+            echo "unverified=true" >> "$GITHUB_OUTPUT"
+            echo "details=$(echo "$UNVERIFIED" | jq -c '[.[] | "\(.sha) (\(.reason))"]')" >> "$GITHUB_OUTPUT"
+          else
+            echo "unverified=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Reject unverified commits
+        if: steps.cmd.outputs.type == 'run' && steps.verify.outputs.unverified == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          SHA: ${{ steps.pr.outputs.head_sha }}
+          DETAILS: ${{ steps.verify.outputs.details }}
+        run: |
+          gh api "/repos/${REPO}/statuses/${SHA}" \
+            --method POST \
+            -f state=failure \
+            -f context="vault-audit" \
+            -f description="Vault audit blocked — PR contains unverified commits"
+
+          PRETTY=$(echo "$DETAILS" | jq -r '.[] | "- `\(.)`"')
+          gh pr comment "$PR_NUMBER" \
+            --body "⛔ Vault audit not run — this PR contains commits that are not verified (signed):
+
+          ${PRETTY}
+
+          The audit only runs on PRs where **every commit is verified**, so the audited code is from a known signer. Re-sign/rebase the offending commits, then comment \`/vault-audit\` again."
+          exit 1
+
       - name: Get GATI token for cre-docs dispatch
         id: gati
-        if: steps.cmd.outputs.type == 'run'
+        if: steps.cmd.outputs.type == 'run' && steps.verify.outputs.unverified == 'false'
         uses: smartcontractkit/chainlink-github-actions/apps/setup-github-token@main
         with:
           app-id: ${{ secrets.GATI_APP_ID }}
@@ -154,4 +208,4 @@ jobs:
           COMMENTER: ${{ github.event.comment.user.login }}
         run: |
           gh pr comment "$PR_NUMBER" \
-            --body "🔍 Vault audit triggered by @${COMMENTER} — running now. Results will appear as a new comment when complete."
+            --body "🔍 Vault audit triggered by @${COMMENTER} — running now. The full report stays private: when the audit completes, open the **Details** link on the \`vault-audit\` check to view it in the cre-docs tracking issue (visible to chainlink team members only)."
