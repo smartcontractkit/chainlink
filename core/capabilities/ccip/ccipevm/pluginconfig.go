@@ -19,7 +19,6 @@ func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDat
 		MessageHasher:              NewMessageHasherV1(logger.Sugared(lggr).Named(chainsel.FamilyEVM).Named("MessageHasherV1"), extraDataCodec),
 		TokenDataEncoder:           NewEVMTokenDataEncoder(),
 		GasEstimateProvider:        NewGasEstimateProvider(extraDataCodec),
-		RMNCrypto:                  NewEVMRMNCrypto(logger.Sugared(lggr).Named(chainsel.FamilyEVM).Named("RMNCrypto")),
 		ContractTransmitterFactory: ocrimpls.NewEVMContractTransmitterFactory(extraDataCodec),
 		ChainRW:                    ChainCWProvider{},
 		ExtraDataCodec:             ExtraDataDecoder{},

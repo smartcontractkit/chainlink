@@ -249,6 +249,8 @@ func (r nodePlatformSubmitterKeyReader) submitterKeysForRelay(ctx context.Contex
 		return nodePlatformKeyIDs(r.keyStore.TON())
 	case relay.NetworkSui:
 		return nodePlatformKeyIDs(r.keyStore.Sui())
+	case relay.NetworkStellar:
+		return nodePlatformKeyIDs(r.keyStore.Stellar())
 	default:
 		return nil, nil
 	}
