@@ -102,6 +102,13 @@ Name = 'example'
 URL = 'http://tron.org'
 SolidityURL = 'https://solidity.evm'
 
+[[Stellar]]
+ChainID = 'cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472'
+
+[[Stellar.Nodes]]
+Name = 'primary'
+URL = 'http://stellar.rpc'
+
 -- out.txt --
 ok Aptos.4.RelayerService
 ok Aptos.4.RelayerService.PluginRelayerClient
@@ -164,6 +171,14 @@ ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Chain
 ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Chain.Txm
 ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.PluginRelayerConfigEmitter
 ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Relayer
+ok Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService
+ok Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient
+ok Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar
+ok Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.PluginRelayerConfigEmitter
+ok Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarChain
+ok Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarChain.MultiNode
+ok Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarChain.StellarTxm
+ok Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarRelayer
 ok Sui.67.RelayerService
 ok Sui.67.RelayerService.PluginRelayerClient
 ok Sui.67.RelayerService.PluginRelayerClient.PluginSui
@@ -731,6 +746,78 @@ ok WorkflowStore
       "id": "StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Relayer",
       "attributes": {
         "name": "StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Relayer",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService",
+      "attributes": {
+        "name": "Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient",
+      "attributes": {
+        "name": "Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar",
+      "attributes": {
+        "name": "Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.PluginRelayerConfigEmitter",
+      "attributes": {
+        "name": "Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.PluginRelayerConfigEmitter",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarChain",
+      "attributes": {
+        "name": "Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarChain",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarChain.MultiNode",
+      "attributes": {
+        "name": "Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarChain.MultiNode",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarChain.StellarTxm",
+      "attributes": {
+        "name": "Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarChain.StellarTxm",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarRelayer",
+      "attributes": {
+        "name": "Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarRelayer",
         "status": "passing",
         "output": ""
       }

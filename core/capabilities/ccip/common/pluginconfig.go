@@ -16,7 +16,6 @@ type PluginConfig struct {
 	MessageHasher              cciptypes.MessageHasher
 	TokenDataEncoder           cciptypes.TokenDataEncoder
 	GasEstimateProvider        cciptypes.EstimateProvider
-	RMNCrypto                  cciptypes.RMNCrypto
 	ContractTransmitterFactory cctypes.ContractTransmitterFactory
 	// PriceOnlyCommitFn optional method override for price only commit reports.
 	PriceOnlyCommitFn     string

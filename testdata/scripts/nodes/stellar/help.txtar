@@ -1,0 +1,16 @@
+exec chainlink nodes stellar --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink nodes stellar - Commands for handling stellar node configuration
+
+USAGE:
+   chainlink nodes stellar command [command options] [arguments...]
+
+COMMANDS:
+   list  List all existing stellar nodes
+
+OPTIONS:
+   --help, -h  show help
+   
