@@ -12,6 +12,7 @@ import (
 
 var (
 	_ coreconfig.Mercury              = (*mercuryConfig)(nil)
+	_ coreconfig.MercuryDataSource    = (*mercuryDataSourceConfig)(nil)
 	_ mercurytransmitter.MercuryCache = (*mercuryCacheConfig)(nil)
 )
 

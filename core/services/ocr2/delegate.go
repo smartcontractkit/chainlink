@@ -173,10 +173,9 @@ type DelegateConfig interface {
 	OCR2() ocr2Config
 	JobPipeline() jobPipelineConfig
 	Insecure() insecureConfig
-	Mercury() de.Mercury
+	Mercury() coreconfig.Mercury
 	Threshold() coreconfig.Threshold
 	Sharding() coreconfig.Sharding
-	LLO() coreconfig.LLO
 	RingStoreForShard0() *ring.Store
 }
 
@@ -186,10 +185,9 @@ type delegateConfig struct {
 	ocr2        ocr2Config
 	jobPipeline jobPipelineConfig
 	insecure    insecureConfig
-	mercury     mercuryConfig
+	mercury     coreconfig.Mercury
 	threshold   thresholdConfig
 	sharding    coreconfig.Sharding
-	llo         coreconfig.LLO
 	ringStore   *ring.Store
 }
 
@@ -205,7 +203,7 @@ func (d *delegateConfig) Threshold() coreconfig.Threshold {
 	return d.threshold
 }
 
-func (d *delegateConfig) Mercury() de.Mercury {
+func (d *delegateConfig) Mercury() coreconfig.Mercury {
 	return d.mercury
 }
 
@@ -215,10 +213,6 @@ func (d *delegateConfig) OCR2() ocr2Config {
 
 func (d *delegateConfig) Sharding() coreconfig.Sharding {
 	return d.sharding
-}
-
-func (d *delegateConfig) LLO() coreconfig.LLO {
-	return d.llo
 }
 
 func (d *delegateConfig) RingStoreForShard0() *ring.Store {
@@ -263,7 +257,7 @@ type thresholdConfig interface {
 	ThresholdKeyShare() string
 }
 
-func NewDelegateConfig(ocr2Cfg ocr2Config, m de.Mercury, t coreconfig.Threshold, i insecureConfig, jp jobPipelineConfig, pluginProcessCfg plugins.RegistrarConfig, s coreconfig.Sharding, llo coreconfig.LLO, ringStore *ring.Store) DelegateConfig {
+func NewDelegateConfig(ocr2Cfg ocr2Config, m coreconfig.Mercury, t coreconfig.Threshold, i insecureConfig, jp jobPipelineConfig, pluginProcessCfg plugins.RegistrarConfig, s coreconfig.Sharding, ringStore *ring.Store) DelegateConfig {
 	return &delegateConfig{
 		ocr2:            ocr2Cfg,
 		RegistrarConfig: pluginProcessCfg,
@@ -272,7 +266,6 @@ func NewDelegateConfig(ocr2Cfg ocr2Config, m de.Mercury, t coreconfig.Threshold,
 		mercury:         m,
 		threshold:       t,
 		sharding:        s,
-		llo:             llo,
 		ringStore:       ringStore,
 	}
 }
@@ -1669,7 +1662,7 @@ func (d *Delegate) newServicesLLO(
 		CaptureObservationTelemetry: jb.OCR2OracleSpec.CaptureEATelemetry,
 		CaptureOutcomeTelemetry:     jb.OCR2OracleSpec.CaptureEATelemetry,
 		CaptureReportTelemetry:      false,
-		ObservationTimingBase: d.cfg.LLO().DataSource().ObservationTimingBase(),
+		ObservationTimingBase: d.cfg.Mercury().DataSource().ObservationTimingBase(),
 
 		ChannelDefinitionCache:   provider.ChannelDefinitionCache(),
 		RetirementReportCache:    d.retirementReportCache,

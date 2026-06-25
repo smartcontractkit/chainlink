@@ -6,15 +6,14 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 )
 
-// Mercury is the node-side view of the [Mercury] config. It embeds the data-streams
-// transmitter's Mercury interface and adds node-only sections (e.g. DataSource) that
-// are not part of the external transmitter contract.
+// Mercury is the node-side view of Mercury config. It embeds the data-streams
+// transmitter's Mercury interface and adds node-only sections (e.g. DataSource).
 type Mercury interface {
 	de.Mercury
 	DataSource() MercuryDataSource
 }
 
-// MercuryDataSource exposes node-side tuning for the LLO/Mercury observation data source.
+// MercuryDataSource exposes node-side tuning for the LLO observation data source.
 type MercuryDataSource interface {
 	// ObservationTimingBase returns the base duration T used to size the LLO observation
 	// loop timing: cache entry TTL, stale-refresh threshold, loop pacing, and background

@@ -72,7 +72,6 @@ type Core struct {
 	JobSpecReporter      JobSpecReporter      `toml:",omitempty"`
 	Sharding             Sharding             `toml:",omitempty"`
 	LOOPP                LOOPP                `toml:",omitempty"`
-	LLO                  LLO                  `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -121,7 +120,6 @@ func (c *Core) SetFrom(f *Core) {
 
 	c.Sharding.setFrom(&f.Sharding)
 	c.LOOPP.setFrom(&f.LOOPP)
-	c.LLO.setFrom(&f.LLO)
 }
 
 func (c *Core) ValidateConfig() (err error) {
@@ -1938,6 +1936,7 @@ type Mercury struct {
 	TLS            MercuryTLS         `toml:",omitempty"`
 	Transmitter    MercuryTransmitter `toml:",omitempty"`
 	VerboseLogging *bool              `toml:",omitempty"`
+	DataSource     MercuryDataSource  `toml:",omitempty"`
 }
 
 func (m *Mercury) setFrom(f *Mercury) {
@@ -1947,10 +1946,38 @@ func (m *Mercury) setFrom(f *Mercury) {
 	if v := f.VerboseLogging; v != nil {
 		m.VerboseLogging = v
 	}
+	m.DataSource.setFrom(&f.DataSource)
 }
 
 func (m *Mercury) ValidateConfig() (err error) {
-	return m.TLS.ValidateConfig()
+	err = m.TLS.ValidateConfig()
+	err = errors.Join(err, m.DataSource.ValidateConfig())
+	return err
+}
+
+// MercuryDataSource holds node-side tuning for the LLO/Mercury observation data source.
+type MercuryDataSource struct {
+	ObservationTimingBase *commonconfig.Duration
+}
+
+func (m *MercuryDataSource) setFrom(f *MercuryDataSource) {
+	if f.ObservationTimingBase != nil {
+		m.ObservationTimingBase = f.ObservationTimingBase
+	}
+}
+
+func (m *MercuryDataSource) ValidateConfig() error {
+	if m.ObservationTimingBase == nil {
+		return nil
+	}
+	if m.ObservationTimingBase.Duration() < 0 {
+		return configutils.ErrInvalid{
+			Name:  "ObservationTimingBase",
+			Value: m.ObservationTimingBase.Duration(),
+			Msg:   "must be non-negative",
+		}
+	}
+	return nil
 }
 
 type MercuryCredentials struct {
@@ -3325,40 +3352,4 @@ func (l *LOOPP) setFrom(f *LOOPP) {
 	if f.GRPCServerMaxRecvMsgSize != nil {
 		l.GRPCServerMaxRecvMsgSize = f.GRPCServerMaxRecvMsgSize
 	}
-}
-
-type LLO struct {
-	DataSource LLODataSource `toml:",omitempty"`
-}
-
-func (l *LLO) setFrom(f *LLO) {
-	l.DataSource.setFrom(&f.DataSource)
-}
-
-func (l *LLO) ValidateConfig() error {
-	return l.DataSource.ValidateConfig()
-}
-
-type LLODataSource struct {
-	ObservationTimingBase *commonconfig.Duration
-}
-
-func (l *LLODataSource) setFrom(f *LLODataSource) {
-	if f.ObservationTimingBase != nil {
-		l.ObservationTimingBase = f.ObservationTimingBase
-	}
-}
-
-func (l *LLODataSource) ValidateConfig() error {
-	if l.ObservationTimingBase == nil {
-		return nil
-	}
-	if l.ObservationTimingBase.Duration() < 0 {
-		return configutils.ErrInvalid{
-			Name:  "ObservationTimingBase",
-			Value: l.ObservationTimingBase.Duration(),
-			Msg:   "must be non-negative",
-		}
-	}
-	return nil
 }

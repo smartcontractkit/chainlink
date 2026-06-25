@@ -2,6 +2,7 @@ package chainlink
 
 import (
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
@@ -47,4 +48,27 @@ func TestMercuryTLS(t *testing.T) {
 	cfg := mercuryConfig{c: transmission}
 
 	assert.Equal(t, certPath, cfg.TLS().CertFile())
+}
+
+func TestMercuryDataSourceConfig(t *testing.T) {
+	t.Run("defaults", func(t *testing.T) {
+		opts := GeneralConfigOpts{
+			ConfigStrings: []string{`[Feature]
+LogPoller = false`},
+		}
+		cfg, err := opts.New()
+		require.NoError(t, err)
+
+		assert.Equal(t, time.Duration(0), cfg.Mercury().DataSource().ObservationTimingBase())
+	})
+
+	t.Run("from full fixture", func(t *testing.T) {
+		opts := GeneralConfigOpts{
+			ConfigStrings: []string{fullTOML},
+		}
+		cfg, err := opts.New()
+		require.NoError(t, err)
+
+		assert.Equal(t, 50*time.Millisecond, cfg.Mercury().DataSource().ObservationTimingBase())
+	})
 }

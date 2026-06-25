@@ -6,8 +6,6 @@ import (
 	"github.com/google/uuid"
 	pkgerrors "github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
-
-	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 )
 
 var (
@@ -48,7 +46,7 @@ type AppConfig interface {
 	JobDistributor() JobDistributor
 	JobPipeline() JobPipeline
 	Log() Log
-	Mercury() de.Mercury
+	Mercury() Mercury
 	OCR() OCR
 	OCR2() OCR2
 	P2P() P2P
@@ -68,7 +66,6 @@ type AppConfig interface {
 	JobSpecReporter() JobSpecReporter
 	Sharding() Sharding
 	LOOPP() LOOPP
-	LLO() LLO
 }
 
 type DatabaseBackupMode string

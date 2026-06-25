@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
@@ -549,7 +548,7 @@ func (g *generalConfig) Prometheus() coreconfig.Prometheus {
 	return &prometheusConfig{s: g.secrets.Prometheus}
 }
 
-func (g *generalConfig) Mercury() de.Mercury {
+func (g *generalConfig) Mercury() coreconfig.Mercury {
 	return &mercuryConfig{c: g.c.Mercury, s: g.secrets.Mercury}
 }
 
@@ -613,10 +612,6 @@ func (g *generalConfig) Sharding() coreconfig.Sharding {
 }
 func (g *generalConfig) LOOPP() coreconfig.LOOPP {
 	return &looppConfig{l: g.c.LOOPP}
-}
-
-func (g *generalConfig) LLO() coreconfig.LLO {
-	return &lloConfig{c: g.c.LLO}
 }
 
 var zeroSha256Hash = corekeys.Sha256Hash{}

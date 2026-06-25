@@ -454,7 +454,7 @@ ShardOrchestratorAddress = ''
 [LOOPP]
 GRPCServerMaxRecvMsgSize = '42.00mb'
 
-[LLO.DataSource]
+[Mercury.DataSource]
 ObservationTimingBase = '50ms'
 
 [[EVM]]
