@@ -7,14 +7,13 @@ import (
 	"log/slog"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger/config"
+	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger/contracts/solana/src/generated/log_read_test"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana"
 	solanabindings "github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana/bindings"
 	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 	"gopkg.in/yaml.v3"
-
-	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger/config"
-	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger/contracts/solana/src/generated/log_read_test"
 )
 
 func formatTestEvent(evt log_read_test.TestEvent) string {

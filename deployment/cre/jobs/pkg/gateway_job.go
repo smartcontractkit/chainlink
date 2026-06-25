@@ -67,10 +67,10 @@ type GatewayJob struct {
 	DONs     []TargetDON
 	Services []GatewayServiceConfig
 
-	JobName             string
-	RequestTimeoutSec   int
-	AllowedPorts        []int
-	AllowedSchemes      []string
+	JobName           string
+	RequestTimeoutSec int
+	AllowedPorts      []int
+	AllowedSchemes    []string
 	AllowedIPsCIDR      []string
 	AuthGatewayID       string
 	AuthGatewayIDPrefix string

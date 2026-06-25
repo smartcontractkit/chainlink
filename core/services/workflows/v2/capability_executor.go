@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
@@ -28,7 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
-var _ host.ExecutionHelperWithRawSecrets = (*ExecutionHelper)(nil)
+var _ host.ExecutionHelper = (*ExecutionHelper)(nil)
 
 type ExecutionHelper struct {
 	*Engine
@@ -40,7 +40,8 @@ type ExecutionHelper struct {
 
 	chainAllowed limits.GateLimiter
 	callLimiters map[capCall]limits.BoundLimiter[int]
-	callTracker  *callCountTracker
+	mu           sync.Mutex
+	callCounts   map[limits.Limiter[int]]int
 
 	executionProfile *executionProfileCollector
 
@@ -49,17 +50,8 @@ type ExecutionHelper struct {
 	suspension *suspensionTracker
 }
 
-// callCountTracker holds the mutable per-execution capability call counts.
-// It is referenced by pointer so an ExecutionHelper can be copied (e.g. via
-// WithEncryptionKeyFetcher) without copying the lock.
-type callCountTracker struct {
-	mu         sync.Mutex
-	callCounts map[limits.Limiter[int]]int
-}
-
 func (c *ExecutionHelper) initLimiters(limiters *EngineLimiters) {
 	c.chainAllowed = limiters.ChainAllowed
-	c.callTracker = &callCountTracker{callCounts: make(map[limits.Limiter[int]]int)}
 	c.callLimiters = map[capCall]limits.BoundLimiter[int]{
 		{"consensus", "Simple"}: limiters.ConsensusCalls,
 		{"consensus", "Report"}: limiters.ConsensusCalls,
@@ -108,17 +100,20 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 
 	limiter, ok := c.callLimiters[capCall{name: capName, method: request.Method}]
 	if ok {
-		c.callTracker.mu.Lock()
-		cnt := c.callTracker.callCounts[limiter] + 1
+		c.mu.Lock()
+		if c.callCounts == nil {
+			c.callCounts = make(map[limits.Limiter[int]]int)
+		}
+		cnt := c.callCounts[limiter] + 1
 		if err := limiter.Check(ctx, cnt); err != nil {
-			c.callTracker.mu.Unlock()
+			c.mu.Unlock()
 			return nil, caperrors.NewPublicUserError(
 				fmt.Errorf("capability call limit exceeded for %s.%s: %w", capName, request.Method, err),
 				caperrors.LimitExceeded,
 			)
 		}
-		c.callTracker.callCounts[limiter] = cnt
-		c.callTracker.mu.Unlock()
+		c.callCounts[limiter] = cnt
+		c.mu.Unlock()
 	}
 
 	free, err := c.capCallsSemaphore.Wait(ctx, 1)

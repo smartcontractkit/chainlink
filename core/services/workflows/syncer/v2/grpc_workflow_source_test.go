@@ -465,10 +465,10 @@ func TestGRPCWorkflowSource_Ready(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Initially shouldRun
+	// Initially ready
 	assert.NoError(t, source.Ready())
 
-	// After close, not shouldRun
+	// After close, not ready
 	err = source.Close()
 	require.NoError(t, err)
 	assert.Error(t, source.Ready())
@@ -484,7 +484,7 @@ func TestGRPCWorkflowSource_ListWorkflowMetadata_NotReady(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Close the source to make it not shouldRun
+	// Close the source to make it not ready
 	err = source.Close()
 	require.NoError(t, err)
 
@@ -495,7 +495,7 @@ func TestGRPCWorkflowSource_ListWorkflowMetadata_NotReady(t *testing.T) {
 
 	_, _, err = source.ListWorkflowMetadata(ctx, don)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not shouldRun")
+	assert.Contains(t, err.Error(), "not ready")
 }
 
 func TestGRPCWorkflowSource_Close(t *testing.T) {
@@ -509,7 +509,7 @@ func TestGRPCWorkflowSource_Close(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Initially shouldRun
+	// Initially ready
 	assert.NoError(t, source.Ready())
 	assert.False(t, mockClient.closed)
 
@@ -517,7 +517,7 @@ func TestGRPCWorkflowSource_Close(t *testing.T) {
 	err = source.Close()
 	require.NoError(t, err)
 
-	// Now not shouldRun and client is closed
+	// Now not ready and client is closed
 	require.Error(t, source.Ready())
 	assert.True(t, mockClient.closed)
 }

@@ -93,3 +93,4 @@ func TestShell_IndexEVMNodes(t *testing.T) {
 	assert.Contains(t, renderLines[14], "State")
 	assert.Contains(t, renderLines[14], n2.State)
 }
+

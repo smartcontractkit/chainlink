@@ -6224,7 +6224,7 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 						EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
 							{
 								EncryptionKey: pks,
-								Shares:        []string{strings.Repeat("1", 1000)},
+								Shares: []string{strings.Repeat("1", 1000)},
 							},
 						},
 					},

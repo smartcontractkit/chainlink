@@ -37,24 +37,24 @@ import (
 )
 
 const (
-	BlockHeaderFeeder    Type = (Type)(pipeline.BlockHeaderFeederJobType)
-	BlockhashStore       Type = (Type)(pipeline.BlockhashStoreJobType)
-	Bootstrap            Type = (Type)(pipeline.BootstrapJobType)
-	CRESettings          Type = (Type)(pipeline.CRESettings)
-	Cron                 Type = (Type)(pipeline.CronJobType)
-	CCIP                 Type = (Type)(pipeline.CCIPJobType)
-	CCVCommitteeVerifier Type = (Type)(pipeline.CCVCommitteeVerifierJobType)
-	CCVExecutor          Type = (Type)(pipeline.CCVExecutorJobType)
-	DirectRequest        Type = (Type)(pipeline.DirectRequestJobType)
-	FluxMonitor          Type = (Type)(pipeline.FluxMonitorJobType)
-	Gateway              Type = (Type)(pipeline.GatewayJobType)
-	OffchainReporting    Type = (Type)(pipeline.OffchainReportingJobType)
-	OffchainReporting2   Type = (Type)(pipeline.OffchainReporting2JobType)
-	Stream               Type = (Type)(pipeline.StreamJobType)
-	VRF                  Type = (Type)(pipeline.VRFJobType)
-	Webhook              Type = (Type)(pipeline.WebhookJobType)
-	Workflow             Type = (Type)(pipeline.WorkflowJobType)
-	StandardCapabilities Type = (Type)(pipeline.StandardCapabilitiesJobType)
+	BlockHeaderFeeder       Type = (Type)(pipeline.BlockHeaderFeederJobType)
+	BlockhashStore          Type = (Type)(pipeline.BlockhashStoreJobType)
+	Bootstrap               Type = (Type)(pipeline.BootstrapJobType)
+	CRESettings             Type = (Type)(pipeline.CRESettings)
+	Cron                    Type = (Type)(pipeline.CronJobType)
+	CCIP                    Type = (Type)(pipeline.CCIPJobType)
+	CCVCommitteeVerifier    Type = (Type)(pipeline.CCVCommitteeVerifierJobType)
+	CCVExecutor             Type = (Type)(pipeline.CCVExecutorJobType)
+	DirectRequest           Type = (Type)(pipeline.DirectRequestJobType)
+	FluxMonitor             Type = (Type)(pipeline.FluxMonitorJobType)
+	Gateway                 Type = (Type)(pipeline.GatewayJobType)
+	OffchainReporting       Type = (Type)(pipeline.OffchainReportingJobType)
+	OffchainReporting2      Type = (Type)(pipeline.OffchainReporting2JobType)
+	Stream                  Type = (Type)(pipeline.StreamJobType)
+	VRF                     Type = (Type)(pipeline.VRFJobType)
+	Webhook                 Type = (Type)(pipeline.WebhookJobType)
+	Workflow                Type = (Type)(pipeline.WorkflowJobType)
+	StandardCapabilities    Type = (Type)(pipeline.StandardCapabilitiesJobType)
 )
 
 //revive:disable:redefines-builtin-id
@@ -78,122 +78,122 @@ func (t Type) SchemaVersion() uint32 {
 
 var (
 	requiresPipelineSpec = map[Type]bool{
-		BlockHeaderFeeder:    false,
-		BlockhashStore:       false,
-		Bootstrap:            false,
-		CRESettings:          false,
-		Cron:                 true,
-		CCIP:                 false,
-		CCVCommitteeVerifier: false,
-		CCVExecutor:          false,
-		DirectRequest:        true,
-		FluxMonitor:          true,
-		Gateway:              false,
-		OffchainReporting2:   false, // bootstrap jobs do not require it
-		OffchainReporting:    false, // bootstrap jobs do not require it
-		Stream:               true,
-		VRF:                  true,
-		Webhook:              true,
-		Workflow:             false,
-		StandardCapabilities: false,
+		BlockHeaderFeeder:       false,
+		BlockhashStore:          false,
+		Bootstrap:               false,
+		CRESettings:             false,
+		Cron:                    true,
+		CCIP:                    false,
+		CCVCommitteeVerifier:    false,
+		CCVExecutor:             false,
+		DirectRequest:           true,
+		FluxMonitor:             true,
+		Gateway:                 false,
+		OffchainReporting2:      false, // bootstrap jobs do not require it
+		OffchainReporting:       false, // bootstrap jobs do not require it
+		Stream:                  true,
+		VRF:                     true,
+		Webhook:                 true,
+		Workflow:                false,
+		StandardCapabilities:    false,
 	}
 	supportsAsync = map[Type]bool{
-		BlockHeaderFeeder:    false,
-		BlockhashStore:       false,
-		Bootstrap:            false,
-		CRESettings:          false,
-		Cron:                 true,
-		CCIP:                 false,
-		CCVCommitteeVerifier: false,
-		CCVExecutor:          false,
-		DirectRequest:        true,
-		FluxMonitor:          false,
-		Gateway:              false,
-		OffchainReporting2:   false,
-		OffchainReporting:    false,
-		Stream:               true,
-		VRF:                  true,
-		Webhook:              true,
-		Workflow:             false,
-		StandardCapabilities: false,
+		BlockHeaderFeeder:       false,
+		BlockhashStore:          false,
+		Bootstrap:               false,
+		CRESettings:             false,
+		Cron:                    true,
+		CCIP:                    false,
+		CCVCommitteeVerifier:    false,
+		CCVExecutor:             false,
+		DirectRequest:           true,
+		FluxMonitor:             false,
+		Gateway:                 false,
+		OffchainReporting2:      false,
+		OffchainReporting:       false,
+		Stream:                  true,
+		VRF:                     true,
+		Webhook:                 true,
+		Workflow:                false,
+		StandardCapabilities:    false,
 	}
 	schemaVersions = map[Type]uint32{
-		BlockHeaderFeeder:    1,
-		BlockhashStore:       1,
-		Bootstrap:            1,
-		CRESettings:          1,
-		Cron:                 1,
-		CCIP:                 1,
-		CCVCommitteeVerifier: 1,
-		CCVExecutor:          1,
-		DirectRequest:        1,
-		FluxMonitor:          1,
-		Gateway:              1,
-		OffchainReporting2:   1,
-		OffchainReporting:    1,
-		Stream:               1,
-		VRF:                  1,
-		Webhook:              1,
-		Workflow:             1,
-		StandardCapabilities: 1,
+		BlockHeaderFeeder:       1,
+		BlockhashStore:          1,
+		Bootstrap:               1,
+		CRESettings:             1,
+		Cron:                    1,
+		CCIP:                    1,
+		CCVCommitteeVerifier:    1,
+		CCVExecutor:             1,
+		DirectRequest:           1,
+		FluxMonitor:             1,
+		Gateway:                 1,
+		OffchainReporting2:      1,
+		OffchainReporting:       1,
+		Stream:                  1,
+		VRF:                     1,
+		Webhook:                 1,
+		Workflow:                1,
+		StandardCapabilities:    1,
 	}
 )
 
 type Job struct {
-	ID                         int32     `toml:"-"`
-	ExternalJobID              uuid.UUID `toml:"externalJobID"`
-	StreamID                   *uint32   `toml:"streamID"`
-	OCROracleSpecID            *int32
-	OCROracleSpec              *OCROracleSpec
-	OCR2OracleSpecID           *int32
-	OCR2OracleSpec             *OCR2OracleSpec
-	CronSpecID                 *int32
-	CronSpec                   *CronSpec
-	DirectRequestSpecID        *int32
-	DirectRequestSpec          *DirectRequestSpec
-	FluxMonitorSpecID          *int32
-	FluxMonitorSpec            *FluxMonitorSpec
-	VRFSpecID                  *int32
-	VRFSpec                    *VRFSpec
-	WebhookSpecID              *int32
-	WebhookSpec                *WebhookSpec
-	BlockhashStoreSpecID       *int32
-	BlockhashStoreSpec         *BlockhashStoreSpec
-	BlockHeaderFeederSpecID    *int32
-	BlockHeaderFeederSpec      *BlockHeaderFeederSpec
-	BALSpecID                  *int32
-	BootstrapSpec              *BootstrapSpec
-	BootstrapSpecID            *int32
-	GatewaySpec                *GatewaySpec
-	GatewaySpecID              *int32
-	EALSpec                    *EALSpec
-	EALSpecID                  *int32
-	LiquidityBalancerSpec      *LiquidityBalancerSpec
-	LiquidityBalancerSpecID    *int32
-	PipelineSpecID             int32 // This is deprecated in favor of the `job_pipeline_specs` table relationship
-	PipelineSpec               *pipeline.Spec
-	WorkflowSpecID             *int32
-	WorkflowSpec               *WorkflowSpec
-	StandardCapabilitiesSpecID *int32
-	StandardCapabilitiesSpec   *StandardCapabilitiesSpec
-	CCIPSpecID                 *int32
-	CCIPSpec                   *CCIPSpec
-	CCVCommitteeVerifierSpecID *int32
-	CCVCommitteeVerifierSpec   *CCVCommitteeVerifierSpec
-	CCVExecutorSpecID          *int32
-	CCVExecutorSpec            *CCVExecutorSpec
-	CCIPBootstrapSpecID        *int32
-	CRESettingsSpecID          *int32
-	CRESettingsSpec            *CRESettingsSpec
-	JobSpecErrors              []SpecError
-	Type                       Type          `toml:"type"`
-	SchemaVersion              uint32        `toml:"schemaVersion"`
-	GasLimit                   clnull.Uint32 `toml:"gasLimit"`
-	ForwardingAllowed          bool          `toml:"forwardingAllowed"`
-	Name                       null.String   `toml:"name"`
-	MaxTaskDuration            sqlutil.Interval
-	Pipeline                   pipeline.Pipeline `toml:"observationSource"`
-	CreatedAt                  time.Time
+	ID                            int32     `toml:"-"`
+	ExternalJobID                 uuid.UUID `toml:"externalJobID"`
+	StreamID                      *uint32   `toml:"streamID"`
+	OCROracleSpecID               *int32
+	OCROracleSpec                 *OCROracleSpec
+	OCR2OracleSpecID              *int32
+	OCR2OracleSpec                *OCR2OracleSpec
+	CronSpecID                    *int32
+	CronSpec                      *CronSpec
+	DirectRequestSpecID           *int32
+	DirectRequestSpec             *DirectRequestSpec
+	FluxMonitorSpecID             *int32
+	FluxMonitorSpec               *FluxMonitorSpec
+	VRFSpecID                     *int32
+	VRFSpec                       *VRFSpec
+	WebhookSpecID                 *int32
+	WebhookSpec                   *WebhookSpec
+	BlockhashStoreSpecID          *int32
+	BlockhashStoreSpec            *BlockhashStoreSpec
+	BlockHeaderFeederSpecID       *int32
+	BlockHeaderFeederSpec         *BlockHeaderFeederSpec
+	BALSpecID                     *int32
+	BootstrapSpec                 *BootstrapSpec
+	BootstrapSpecID               *int32
+	GatewaySpec                   *GatewaySpec
+	GatewaySpecID                 *int32
+	EALSpec                       *EALSpec
+	EALSpecID                     *int32
+	LiquidityBalancerSpec         *LiquidityBalancerSpec
+	LiquidityBalancerSpecID       *int32
+	PipelineSpecID                int32 // This is deprecated in favor of the `job_pipeline_specs` table relationship
+	PipelineSpec                  *pipeline.Spec
+	WorkflowSpecID                *int32
+	WorkflowSpec                  *WorkflowSpec
+	StandardCapabilitiesSpecID    *int32
+	StandardCapabilitiesSpec      *StandardCapabilitiesSpec
+	CCIPSpecID                    *int32
+	CCIPSpec                      *CCIPSpec
+	CCVCommitteeVerifierSpecID    *int32
+	CCVCommitteeVerifierSpec      *CCVCommitteeVerifierSpec
+	CCVExecutorSpecID             *int32
+	CCVExecutorSpec               *CCVExecutorSpec
+	CCIPBootstrapSpecID           *int32
+	CRESettingsSpecID             *int32
+	CRESettingsSpec               *CRESettingsSpec
+	JobSpecErrors                 []SpecError
+	Type                          Type          `toml:"type"`
+	SchemaVersion                 uint32        `toml:"schemaVersion"`
+	GasLimit                      clnull.Uint32 `toml:"gasLimit"`
+	ForwardingAllowed             bool          `toml:"forwardingAllowed"`
+	Name                          null.String   `toml:"name"`
+	MaxTaskDuration               sqlutil.Interval
+	Pipeline                      pipeline.Pipeline `toml:"observationSource"`
+	CreatedAt                     time.Time
 }
 
 func ExternalJobIDEncodeStringToTopic(id uuid.UUID) common.Hash {

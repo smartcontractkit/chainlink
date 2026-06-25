@@ -155,7 +155,7 @@ func (g *GRPCWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capab
 	defer g.mu.RUnlock()
 
 	if !g.ready {
-		return nil, nil, errors.New("GRPC source not shouldRun")
+		return nil, nil, errors.New("GRPC source not ready")
 	}
 
 	var allViews []WorkflowMetadataView
@@ -294,7 +294,7 @@ func (g *GRPCWorkflowSource) Ready() error {
 	defer g.mu.RUnlock()
 
 	if !g.ready {
-		return errors.New("GRPC source not shouldRun")
+		return errors.New("GRPC source not ready")
 	}
 	return nil
 }

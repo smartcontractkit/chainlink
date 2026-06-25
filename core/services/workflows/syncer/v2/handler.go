@@ -926,10 +926,10 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		))
 	defer span.End()
 
-	// Ensure the capabilities registry is shouldRun before creating any Engine instances.
+	// Ensure the capabilities registry is ready before creating any Engine instances.
 	// This should be guaranteed by the Workflow Registry Syncer.
 	if err := h.ensureCapRegistryReady(ctx); err != nil {
-		return fmt.Errorf("failed to ensure capabilities registry is shouldRun: %w", err)
+		return fmt.Errorf("failed to ensure capabilities registry is ready: %w", err)
 	}
 
 	decodedBinary, err := hex.DecodeString(spec.Workflow)
@@ -1123,7 +1123,7 @@ func logCustMsg(ctx context.Context, cma custmsg.MessageEmitter, msg string, log
 }
 
 func (h *eventHandler) ensureCapRegistryReady(ctx context.Context) error {
-	// Check every 500ms until the capabilities registry is shouldRun.
+	// Check every 500ms until the capabilities registry is ready.
 	retryInterval := time.Millisecond * time.Duration(500)
 	return internal.RunWithRetries(
 		ctx,
@@ -1131,10 +1131,10 @@ func (h *eventHandler) ensureCapRegistryReady(ctx context.Context) error {
 		retryInterval,
 		0, // infinite retries, until context is done
 		func() error {
-			// Test that the registry is shouldRun by attempting to get the local node
+			// Test that the registry is ready by attempting to get the local node
 			_, err := h.capRegistry.LocalNode(ctx)
 			if err != nil {
-				return fmt.Errorf("capabilities registry not shouldRun: %w", err)
+				return fmt.Errorf("capabilities registry not ready: %w", err)
 			}
 			return nil
 		})

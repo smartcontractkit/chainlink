@@ -193,6 +193,6 @@ type WorkflowMetadataSource interface {
 	// This identifier is used in engine registry lookups and to differeniate between wf registries in workflow events.
 	SourceIdentifier() string
 
-	// Ready returns nil if the source is shouldRun to be queried.
+	// Ready returns nil if the source is ready to be queried.
 	Ready() error
 }
