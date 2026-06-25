@@ -173,8 +173,13 @@ func (c *wsConnectionWrapper) writePump() {
 				// produce a read error, so readPump would stay blocked and reconnectLoop
 				// would never get the closeCh signal it needs to redial. Close the conn
 				// here to unblock readPump and trigger the existing reconnect path.
-				c.conn.CompareAndSwap(conn, nil)
-				conn.Close()
+				// If CAS fails, Reset already swapped the pointer and will close the old
+				// conn itself — don't close it twice.
+				if c.conn.CompareAndSwap(conn, nil) {
+					if closeErr := conn.Close(); closeErr != nil {
+						c.lggr.Errorw("error closing connection after write failure", "error", closeErr)
+					}
+				}
 			}
 			wsMsg.ErrCh <- err
 			close(wsMsg.ErrCh)
