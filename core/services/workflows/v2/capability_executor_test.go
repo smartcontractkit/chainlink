@@ -56,7 +56,8 @@ func TestExecutionHelper_ConfidentialHTTPPerWorkflowLimit(t *testing.T) {
 	require.True(t, ok, "expected confidential-http limiter to be configured")
 
 	// Prime the internal callCounts to simulate one prior call so the next call will exceed the configured limit (1)
-	exec.callTracker.callCounts[limiter] = 1
+	exec.callCounts = make(map[limits.Limiter[int]]int)
+	exec.callCounts[limiter] = 1
 
 	// Prepare a request that will parse to capName == "confidential-http" and method == "SendRequest"
 	req := &sdk.CapabilityRequest{
