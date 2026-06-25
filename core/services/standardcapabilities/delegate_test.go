@@ -227,6 +227,8 @@ func Test_ServicesForSpec_AllowlistEnforcement(t *testing.T) {
 }
 
 func TestResolveCapabilityDonID(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	capabilityID := "evm:ChainSelector:42@1.0.0"
 	localPeerID := testPeerID(1)
@@ -242,6 +244,8 @@ func TestResolveCapabilityDonID(t *testing.T) {
 	}
 
 	t.Run("returns matching DON ID", func(t *testing.T) {
+		t.Parallel()
+
 		registry := mocks.NewCapabilitiesRegistry(t)
 		registry.EXPECT().DONsForCapability(ctx, capabilityID).Return([]capabilities.DONWithNodes{
 			donWithNodes(10, node(testPeerID(2))),
@@ -256,6 +260,8 @@ func TestResolveCapabilityDonID(t *testing.T) {
 	})
 
 	t.Run("falls back to 0 when no DON matches local peer", func(t *testing.T) {
+		t.Parallel()
+
 		registry := mocks.NewCapabilitiesRegistry(t)
 		registry.EXPECT().DONsForCapability(ctx, capabilityID).Return([]capabilities.DONWithNodes{
 			donWithNodes(10, node(testPeerID(2))),
@@ -269,6 +275,8 @@ func TestResolveCapabilityDonID(t *testing.T) {
 	})
 
 	t.Run("falls back to 0 when local peer matches multiple DONs", func(t *testing.T) {
+		t.Parallel()
+
 		registry := mocks.NewCapabilitiesRegistry(t)
 		registry.EXPECT().DONsForCapability(ctx, capabilityID).Return([]capabilities.DONWithNodes{
 			donWithNodes(10, node(localPeerID)),
@@ -283,6 +291,8 @@ func TestResolveCapabilityDonID(t *testing.T) {
 	})
 
 	t.Run("falls back to 0 when getPeerID fails", func(t *testing.T) {
+		t.Parallel()
+
 		registry := mocks.NewCapabilitiesRegistry(t)
 
 		got := resolveCapabilityDonID(ctx, logger.TestLogger(t), registry, func() (p2ptypes.PeerID, error) {
@@ -293,6 +303,8 @@ func TestResolveCapabilityDonID(t *testing.T) {
 	})
 
 	t.Run("falls back to 0 when registry call fails", func(t *testing.T) {
+		t.Parallel()
+
 		registry := mocks.NewCapabilitiesRegistry(t)
 		registry.EXPECT().DONsForCapability(ctx, capabilityID).Return(nil, errors.New("registry unavailable"))
 
