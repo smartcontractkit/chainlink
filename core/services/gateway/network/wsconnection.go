@@ -169,6 +169,12 @@ func (c *wsConnectionWrapper) writePump() {
 			err := conn.WriteMessage(wsMsg.MsgType, wsMsg.Data)
 			if err != nil {
 				c.lggr.Errorw("failed to write message", "msgType", wsMsg.MsgType, "dataLen", len(wsMsg.Data), "error", err)
+				// A write failure (e.g. i/o timeout on a half-open TCP session) does not
+				// produce a read error, so readPump would stay blocked and reconnectLoop
+				// would never get the closeCh signal it needs to redial. Close the conn
+				// here to unblock readPump and trigger the existing reconnect path.
+				c.conn.CompareAndSwap(conn, nil)
+				conn.Close()
 			}
 			wsMsg.ErrCh <- err
 			close(wsMsg.ErrCh)
