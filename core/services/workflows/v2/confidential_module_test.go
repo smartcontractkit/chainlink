@@ -13,14 +13,15 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	confworkflowtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
-
-	confworkflowtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 
@@ -34,13 +35,21 @@ type stubExecutionHelper struct {
 	executionID string
 }
 
-var _ host.ExecutionHelper = (*stubExecutionHelper)(nil)
+var _ host.ExecutionHelperWithRawSecrets = (*stubExecutionHelper)(nil)
 
 func (s *stubExecutionHelper) CallCapability(context.Context, *sdkpb.CapabilityRequest) (*sdkpb.CapabilityResponse, error) {
 	return nil, nil
 }
 func (s *stubExecutionHelper) GetSecrets(context.Context, *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
 	return nil, nil
+}
+
+func (s *stubExecutionHelper) GetRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vaultcommon.SecretResponse, error) {
+	return nil, nil
+}
+
+func (s *stubExecutionHelper) GetOwner() string {
+	return ""
 }
 
 func (s *stubExecutionHelper) GetWorkflowExecutionID() string { return s.executionID }
