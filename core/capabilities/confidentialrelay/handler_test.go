@@ -680,6 +680,7 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 	}
 
 	t.Run("matching config accepted on capability execute", func(t *testing.T) {
+		t.Parallel()
 		h, gwConn := capExecHandler(t)
 		err := h.HandleGatewayMessage(context.Background(), "gw-1", capExecReq(t, testEnclaveConfigPtr()))
 		require.NoError(t, err)
@@ -687,6 +688,7 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 	})
 
 	t.Run("nil config rejected on capability execute (required)", func(t *testing.T) {
+		t.Parallel()
 		h, gwConn := capExecHandler(t)
 		// missing config cannot be checked against DON state
 		err := h.HandleGatewayMessage(context.Background(), "gw-1", capExecReq(t, nil))
@@ -695,6 +697,7 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 	})
 
 	t.Run("F below DON minimum rejected on capability execute", func(t *testing.T) {
+		t.Parallel()
 		h, gwConn := capExecHandler(t)
 		badCfg := testEnclaveConfig()
 		badCfg.F = testEnclaveF - 1 // below the DON's minimum F
@@ -704,6 +707,7 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 	})
 
 	t.Run("F above DON minimum accepted on capability execute", func(t *testing.T) {
+		t.Parallel()
 		h, gwConn := capExecHandler(t)
 		cfg := testEnclaveConfig()
 		cfg.F = testEnclaveF + 1 // a higher F is a stricter quorum; floor check accepts it
@@ -713,6 +717,7 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 	})
 
 	t.Run("signers count mismatch rejected on capability execute", func(t *testing.T) {
+		t.Parallel()
 		h, gwConn := capExecHandler(t)
 		badCfg := testEnclaveConfig()
 		badCfg.Signers = badCfg.Signers[:2]
@@ -722,6 +727,7 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 	})
 
 	t.Run("signer value mismatch rejected on capability execute", func(t *testing.T) {
+		t.Parallel()
 		h, gwConn := capExecHandler(t)
 		badCfg := testEnclaveConfig()
 		badCfg.Signers = [][]byte{
@@ -736,6 +742,7 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 	})
 
 	t.Run("matching is order-independent on capability execute", func(t *testing.T) {
+		t.Parallel()
 		h, gwConn := capExecHandler(t)
 		shuffled := testEnclaveConfig()
 		// Reverse Signers; the comparison must still pass.
@@ -751,6 +758,7 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 	})
 
 	t.Run("F below DON minimum rejected on secrets get", func(t *testing.T) {
+		t.Parallel()
 		reg := secretsGetTestRegistry(t)
 		gwConn := &mockGatewayConnector{}
 		h := newTestHandler(t, reg, gwConn)
