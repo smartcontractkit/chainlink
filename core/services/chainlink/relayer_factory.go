@@ -179,6 +179,10 @@ func (r *RelayerFactory) NewSui(ks coretypes.Keystore, ksCSA coretypes.Keystore,
 	return r.NewLOOPRelayer("Sui", relay.NetworkSui, env.SuiPlugin, ks, ksCSA, chainCfgs)
 }
 
+func (r *RelayerFactory) NewStellar(ks coretypes.Keystore, ksCSA coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
+	return r.NewLOOPRelayer("Stellar", relay.NetworkStellar, env.StellarPlugin, ks, ksCSA, chainCfgs)
+}
+
 func (r *RelayerFactory) NewLOOPRelayer(name string, network string, plugin env.Plugin, ks, ksCSA coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
 	relayers := make(map[types.RelayID]loop.Relayer)
 	lggr := logger.Named(r.Logger, name)
