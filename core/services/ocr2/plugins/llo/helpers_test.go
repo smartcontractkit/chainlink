@@ -62,12 +62,10 @@ func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.Publ
 	// Set up the grpc server
 	var lc net.ListenConfig
 	lis, err := lc.Listen(t.Context(), "tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("[MAIN] failed to listen: %v", err)
-	}
+	require.NoError(t, err, "[MAIN] failed to listen")
 	serverURL = lis.Addr().String()
 	sMtls, err := mtls.NewTransportSigner(srv.csaSigner, pubKeys)
-	require.NoError(t, err)
+	require.NoError(t, err, "[MAIN] failed to create transport signer")
 	s := grpc.NewServer(grpc.Creds(sMtls),
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
 			MinTime:             time.Second,
@@ -79,7 +77,7 @@ func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.Publ
 
 	// Start serving
 	go func() {
-		s.Serve(lis) //nolint:errcheck // don't care about errors in tests
+		s.Serve(lis) //nolint:errcheck // don't care about this error in tests
 	}()
 
 	t.Cleanup(s.Stop)

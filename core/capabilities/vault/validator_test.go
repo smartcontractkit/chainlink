@@ -754,6 +754,14 @@ func TestValidateGetSecretsRequest(t *testing.T) {
 				{Id: validID("mykey", "owner1", "")},
 			},
 		},
+		{
+			name: "duplicate secret ID in batch",
+			requests: []*vaultcommon.SecretRequest{
+				{Id: validID("key1", "owner1", "main")},
+				{Id: validID("key1", "owner1", "main")},
+			},
+			errSubstr: "duplicate secret ID found at index 1",
+		},
 	}
 
 	for _, tt := range tests {
