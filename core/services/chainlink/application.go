@@ -388,6 +388,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			EmitterConfig:     &emitterCfg,
 			Meter:             meter,
 		}
+
 		pgStore := durableemitter.NewPgDurableEventStore(opts.DS)
 		durableEmitter, setupErr := durableemitter.Setup(pgStore, durableCfg, globalLogger)
 		if setupErr != nil {
