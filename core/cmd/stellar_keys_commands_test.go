@@ -2,7 +2,6 @@ package cmd_test
 
 import (
 	"bytes"
-	"context"
 	"flag"
 	"os"
 	"testing"
@@ -60,7 +59,7 @@ func TestShell_StellarKeys(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().Stellar()
 	cleanup := func() {
-		ctx := context.Background()
+		ctx := t.Context()
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
 		for _, key := range keys {
