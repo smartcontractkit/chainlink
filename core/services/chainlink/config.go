@@ -12,6 +12,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	configtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -418,6 +419,10 @@ func (s *Secrets) SetFrom(f *Secrets) (err error) {
 
 	if err2 := s.Aptos.SetFrom(&f.Aptos); err2 != nil {
 		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "Aptos"))
+	}
+
+	if err2 := s.Stellar.SetFrom(&f.Stellar); err2 != nil {
+		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "Stellar"))
 	}
 
 	if err2 := s.DKGRecipientKey.SetFrom(&f.DKGRecipientKey); err2 != nil {
