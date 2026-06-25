@@ -62,7 +62,7 @@ func TestWSConnectionWrapper_WriteError_TriggersClose(t *testing.T) {
 	require.NoError(t, conn.SetWriteDeadline(time.Now().Add(-time.Second)))
 
 	// The write must fail (write deadline already expired).
-	writeErr := clientConnWrapper.Write(testutils.Context(t), websocket.BinaryMessage, []byte("data"))
+	writeErr := clientConnWrapper.Write(t.Context(), websocket.BinaryMessage, []byte("data"))
 	require.Error(t, writeErr, "write should fail due to expired write deadline")
 
 	// The write failure must cause the connection to be closed so that
