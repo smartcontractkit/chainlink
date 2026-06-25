@@ -963,7 +963,7 @@ func TestORM_CreateJob_OCR2_Sending_Keys_Transmitter_Keys_Validations(t *testing
 }
 
 func TestORM_ValidateKeyStoreMatch(t *testing.T) {
-	ctx := testing.TB.Context(t)
+	ctx := t.Context()
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {})
 
 	keyStore := cltest.NewKeyStore(t, pgtest.NewSqlxDB(t))
@@ -1061,7 +1061,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 	})
 
 	t.Run("test Stellar key validation", func(t *testing.T) { //nolint:paralleltest // same instance
-		ctx := testing.TB.Context(t)
+		ctx := t.Context()
 		jb.OCR2OracleSpec.Relay = relay.NetworkStellar
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no Stellar key matching: \"bad key\"")

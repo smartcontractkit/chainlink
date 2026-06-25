@@ -39,7 +39,7 @@ func TestStellarKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testing.TB.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 	client := app.NewHTTPClient(nil)
 	keyStore := app.GetKeyStore()
 
@@ -74,7 +74,7 @@ func TestStellarKeysController_Delete_NonExistentStellarKeyID(t *testing.T) {
 
 func TestStellarKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
-	ctx := testing.TB.Context(t)
+	ctx := t.Context()
 
 	client, keyStore := setupStellarKeysControllerTests(t)
 
@@ -93,7 +93,7 @@ func TestStellarKeysController_Delete_HappyPath(t *testing.T) {
 
 func setupStellarKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.Master) {
 	t.Helper()
-	ctx := testing.TB.Context(t)
+	ctx := t.Context()
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(ctx))
