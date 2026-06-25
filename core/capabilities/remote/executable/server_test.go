@@ -9,7 +9,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -25,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/synctest"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -36,8 +36,8 @@ func Test_Server_Execute_SlowCapabilityExecutionDoesNotImpactSubsequentCall(t *t
 		numCapabilityPeers := 4
 
 		workflowIDToPause := map[string]time.Duration{}
-		workflowIDToPause[workflowID1] = 1 * time.Minute
-		workflowIDToPause[workflowID2] = 1 * time.Second
+		workflowIDToPause[workflowID1] = synctest.SlowDelay()
+		workflowIDToPause[workflowID2] = synctest.FastDelay()
 
 		callers, srvcs := testRemoteExecutableCapabilityServer(ctx, t, &commoncap.RemoteExecutableConfig{}, &TestSlowExecutionCapability{workflowIDToPause: workflowIDToPause}, 10, 9, numCapabilityPeers, 3, 10*time.Minute, nil)
 
@@ -76,7 +76,7 @@ func Test_Server_Execute_SlowCapabilityExecutionDoesNotImpactSubsequentCall(t *t
 				err = val.UnwrapTo(&valAsStr)
 				require.NoError(t, err)
 
-				assert.Equal(t, "1s", valAsStr)
+				assert.Equal(t, synctest.FastDelay().String(), valAsStr)
 			}
 		}
 

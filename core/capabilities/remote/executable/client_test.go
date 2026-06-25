@@ -4,7 +4,6 @@ import (
 	"context"
 	"sync"
 	"testing"
-	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -21,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/synctest"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -118,14 +118,16 @@ func Test_Client_TransmissionSchedules(t *testing.T) {
 			if assert.NoError(t, err2) {
 				executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
 			}
-		})
+		},
+	)
 	testClient(t, 10, responseTimeOut, 10, 3,
 		capability, func(caller commoncap.ExecutableCapability) {
 			executeInputs, err2 := values.NewMap(map[string]any{"executeValue1": "aValue1"})
 			if assert.NoError(t, err2) {
 				executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
 			}
-		})
+		},
+	)
 
 	transmissionSchedule, err = values.NewMap(map[string]any{
 		"schedule":   transmission.Schedule_AllAtOnce,
@@ -149,80 +151,85 @@ func Test_Client_TransmissionSchedules(t *testing.T) {
 		})
 }
 
-func Test_Client_TimesOutIfInsufficientCapabilityPeerResponses(t *testing.T) {
-	t.Parallel()
+func Test_Client_ResponseAggregationGrace(t *testing.T) {
+	const (
+		requestTimeout           = 500 * time.Millisecond
+		capabilityExecuteDelay   = 2 * time.Second
+		responseAggregationGrace = 10 * time.Second // mirrors request.defaultResponseAggregationGrace
+	)
 
-	synctest.Test(t, func(t *testing.T) {
-		ctx := t.Context()
-
-		responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
-			assert.ErrorIs(t, responseError, executable.ErrRequestExpired)
-		}
-
-		// Peers respond after requestTimeout; quorum (F+1=4) is still theoretically reachable.
-		capability := &TestSlowExecutionCapability{
-			workflowIDToPause: map[string]time.Duration{
-				workflowID1: 2 * time.Second,
-			},
-		}
-
-		transmissionSchedule, err := values.NewMap(map[string]any{
-			"schedule":   transmission.Schedule_AllAtOnce,
-			"deltaStage": "10ms",
-		})
-		require.NoError(t, err)
-
-		testClient(t, 10, 500*time.Millisecond, 10, 3,
-			capability,
-			func(caller commoncap.ExecutableCapability) {
-				executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
-				if assert.NoError(t, err) {
-					executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
-				}
-			})
-	})
-}
-
-func Test_Client_WaitsForResponsesWithinAggregationGrace(t *testing.T) {
-	t.Parallel()
-
-	synctest.Test(t, func(t *testing.T) {
-		ctx := t.Context()
-		requestTimeout := 500 * time.Millisecond
-
-		responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
-			require.NoError(t, responseError)
-			mp, err := response.Value.Unwrap()
-			require.NoError(t, err)
-			assert.Equal(t, "2s", mp.(map[string]any)["response"].(string))
-		}
-
-		// Capability execution exceeds requestTimeout (500ms) but completes within
-		// requestTimeout + defaultResponseAggregationGrace (10s).
+	for _, tc := range []struct {
+		name               string
+		numWorkflowPeers   int
+		numCapabilityPeers int
+		capabilityDonF     uint8
+		responseTest       func(t *testing.T, response commoncap.CapabilityResponse, responseError error)
+	}{
+		// Client cancels at requestTimeout + responseAggregationGrace (~10.5s).
+		// Ten workflow peers force clientTestServer to wait for the full workflow DON
+		// and block the broker during Execute; quorum (F+1=4) is theoretically
+		// reachable but responses arrive after the grace window.
+		{
+			name:               "TimesOutWhenMockBlockingExceedsGrace",
+			numWorkflowPeers:   10,
+			numCapabilityPeers: 10,
+			capabilityDonF:     3,
+			responseTest:       assertClientRequestExpired,
+		},
+		// capabilityExecuteDelay exceeds requestTimeout but fits within
+		// requestTimeout + responseAggregationGrace.
 		// Use a single workflow peer so the mock cap server executes as soon as it
 		// receives one request; with multiple workflow peers the mock waits for all
 		// peers and blocks the test broker while executing, which exceeds the grace window.
-		capability := &TestSlowExecutionCapability{
-			workflowIDToPause: map[string]time.Duration{
-				workflowID1: 2 * time.Second,
-			},
-		}
+		{
+			name:               "WaitsForResponsesWithinGrace",
+			numWorkflowPeers:   1,
+			numCapabilityPeers: 4,
+			capabilityDonF:     3,
+			responseTest:       assertClientResponseWithDelay,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				ctx := t.Context()
 
-		transmissionSchedule, err := values.NewMap(map[string]any{
-			"schedule":   transmission.Schedule_AllAtOnce,
-			"deltaStage": "10ms",
-		})
-		require.NoError(t, err)
-
-		testClient(t, 1, requestTimeout, 4, 3,
-			capability,
-			func(caller commoncap.ExecutableCapability) {
-				executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
-				if assert.NoError(t, err) {
-					executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
+				capability := &TestSlowExecutionCapability{
+					workflowIDToPause: map[string]time.Duration{
+						workflowID1: capabilityExecuteDelay,
+					},
 				}
+
+				transmissionSchedule, err := values.NewMap(map[string]any{
+					"schedule":   transmission.Schedule_AllAtOnce,
+					"deltaStage": "10ms",
+				})
+				require.NoError(t, err)
+
+				executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
+				require.NoError(t, err)
+
+				testClient(t, tc.numWorkflowPeers, requestTimeout, tc.numCapabilityPeers, tc.capabilityDonF,
+					capability,
+					func(caller commoncap.ExecutableCapability) {
+						executeMethod(ctx, caller, transmissionSchedule, executeInputs, tc.responseTest, t)
+					},
+				)
 			})
-	})
+		})
+	}
+}
+
+func assertClientRequestExpired(t *testing.T, _ commoncap.CapabilityResponse, responseError error) {
+	assert.ErrorIs(t, responseError, executable.ErrRequestExpired)
+}
+
+func assertClientResponseWithDelay(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
+	if assert.NoError(t, responseError) {
+		mp, err := response.Value.Unwrap()
+		if assert.NoError(t, err) {
+			assert.Equal(t, (2 * time.Second).String(), mp.(map[string]any)["response"].(string))
+		}
+	}
 }
 
 func Test_Client_ConsensusFailedIfInsufficientCapabilityPeerResponses(t *testing.T) {
@@ -284,9 +291,7 @@ func Test_Client_ContextCanceledBeforeQuorumReached(t *testing.T) {
 		})
 }
 
-func testClient(t *testing.T, numWorkflowPeers int, workflowNodeResponseTimeout time.Duration,
-	numCapabilityPeers int, capabilityDonF uint8, underlying commoncap.ExecutableCapability,
-	method func(caller commoncap.ExecutableCapability)) {
+func testClient(t *testing.T, numWorkflowPeers int, workflowNodeResponseTimeout time.Duration, numCapabilityPeers int, capabilityDonF uint8, underlying commoncap.ExecutableCapability, method func(caller commoncap.ExecutableCapability)) {
 	lggr := logger.Test(t)
 
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)

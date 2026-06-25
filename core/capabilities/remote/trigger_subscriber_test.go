@@ -76,62 +76,45 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 }
 
 func TestTriggerSubscriber_CorrectEventExpiryCheck(t *testing.T) {
-	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		lggr := logger.Test(t)
-		capInfo, capDon, workflowDon := buildTwoTestDONs(t, 3, 1)
-		dispatcher := remoteMocks.NewDispatcher(t)
-		dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Maybe()
+		const (
+			messageExpiry       = 10 * time.Second
+			staleNodeDelay      = 2 * time.Second
+			freshNodesExtraWait = 13 * time.Second // staleNodeDelay + freshNodesExtraWait = 15s total
+		)
 
-		// register trigger
-		config := &commoncap.RemoteTriggerConfig{
-			RegistrationRefresh:     100 * time.Millisecond,
-			RegistrationExpiry:      10 * time.Second,
+		cfg := &commoncap.RemoteTriggerConfig{
+			RegistrationRefresh:     time.Hour,
 			MinResponsesToAggregate: 2,
-			MessageExpiry:           10 * time.Second,
+			MessageExpiry:           messageExpiry,
 		}
-		subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, lggr)
-		agg := aggregation.NewDefaultModeAggregator(config.MinResponsesToAggregate)
-		require.NoError(t, subscriber.SetConfig(config, capInfo, workflowDon.ID, capDon, agg))
-
-		require.NoError(t, subscriber.Start(t.Context()))
 		regReq := commoncap.TriggerRegistrationRequest{
 			Metadata: commoncap.RequestMetadata{
 				WorkflowID: workflowID1,
 			},
 		}
-		triggerEventCallbackCh, err := subscriber.RegisterTrigger(t.Context(), regReq)
-		require.NoError(t, err)
-		t.Cleanup(func() {
-			require.NoError(t, subscriber.UnregisterTrigger(t.Context(), regReq))
-			require.NoError(t, subscriber.Close())
-		})
+		subscriber, capDon, callbackCh := newTriggerSubscriberForTest(t, 3, cfg, regReq)
 
-		// receive trigger events:
-		// cleanup loop happens every 10 seconds, at 0:00, 0:10, 0:20, etc.
-		// send the event from the first node around 0:02 (this is a bad node
-		// that sends it too early)
+		expectedOutputs, err := values.NewMap(triggerEvent1)
+		require.NoError(t, err)
 		triggerEvent := buildTriggerEvent(t, capDon.Members[0][:])
-		time.Sleep(2 * time.Second)
+
+		// Phase 1: peer0 sends early; message cached but not ready (need 2 peers).
+		time.Sleep(staleNodeDelay)
 		subscriber.Receive(t.Context(), triggerEvent)
 
-		// send events from nodes 2 & 3 (the good ones) around 0:15 so that
-		// the diff between 0:02 and 0:15 exceeds the expiry threshold but
-		// we don't hit the cleanup loop yet
-		time.Sleep(13 * time.Second)
+		// Phase 2: advance past the T=10s cleanup tick. Cleanup uses cutoff 0, so the
+		// event created at T=2s is retained. At T=15s peer0 is outside the 10s window.
+		time.Sleep(freshNodesExtraWait)
 		triggerEvent.Sender = capDon.Members[1][:]
 		subscriber.Receive(t.Context(), triggerEvent)
-		// the aggregation shouldn't happen after events 1 and 2 as they
-		// were received too far apart in time
-		require.Empty(t, triggerEventCallbackCh)
+		require.Empty(t, callbackCh, "stale peer0 + one fresh peer must not aggregate")
+
 		triggerEvent.Sender = capDon.Members[2][:]
 		subscriber.Receive(t.Context(), triggerEvent)
 
-		// event should be processed
-		response := <-triggerEventCallbackCh
-		triggerEventValue, err := values.NewMap(triggerEvent1)
-		require.NoError(t, err)
-		require.Equal(t, response.Event.Outputs, triggerEventValue)
+		response := <-callbackCh
+		require.Equal(t, expectedOutputs, response.Event.Outputs)
 	})
 }
 
@@ -584,8 +567,6 @@ func TestTriggerSubscriber_RegistrationCheck(t *testing.T) {
 	t.Run("ignores check with mismatched WorkflowIds and TriggerIds lengths", func(t *testing.T) {
 		t.Parallel()
 
-		sub, dispatcher := newSubscriber(t)
-
 		for _, tc := range []struct {
 			name        string
 			workflowIDs []string
@@ -609,6 +590,8 @@ func TestTriggerSubscriber_RegistrationCheck(t *testing.T) {
 		} {
 			t.Run(tc.name, func(t *testing.T) {
 				t.Parallel()
+
+				sub, dispatcher := newSubscriber(t)
 
 				malformedMsg := &remotetypes.MessageBody{
 					Sender:      capDon.Members[0][:],
@@ -666,6 +649,35 @@ func TestTriggerSubscriber_RegistrationCheck(t *testing.T) {
 			}
 		}
 	})
+}
+
+func newTriggerSubscriberForTest(
+	t *testing.T,
+	capDonMembers int,
+	cfg *commoncap.RemoteTriggerConfig,
+	regReq commoncap.TriggerRegistrationRequest,
+) (remote.TriggerSubscriber, commoncap.DON, <-chan commoncap.TriggerResponse) {
+	t.Helper()
+
+	lggr := logger.Test(t)
+	capInfo, capDon, workflowDon := buildTwoTestDONs(t, capDonMembers, 1)
+	dispatcher := remoteMocks.NewDispatcher(t)
+	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Maybe()
+
+	subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, lggr)
+	agg := aggregation.NewDefaultModeAggregator(cfg.MinResponsesToAggregate)
+	require.NoError(t, subscriber.SetConfig(cfg, capInfo, workflowDon.ID, capDon, agg))
+	require.NoError(t, subscriber.Start(t.Context()))
+
+	callbackCh, err := subscriber.RegisterTrigger(t.Context(), regReq)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		require.NoError(t, subscriber.UnregisterTrigger(t.Context(), regReq))
+		require.NoError(t, subscriber.Close())
+	})
+
+	return subscriber, capDon, callbackCh
 }
 
 func buildTwoTestDONs(t *testing.T, capDonSize int, workflowDonSize int) (commoncap.CapabilityInfo, commoncap.DON, commoncap.DON) {
