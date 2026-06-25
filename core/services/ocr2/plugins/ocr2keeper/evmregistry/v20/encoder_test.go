@@ -29,7 +29,7 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 		assert.Equal(t, b, []byte(nil))
 	})
 
-	t.Run("successfully encodes a single upkeep result", func(t *testing.T) { //nolint:paralleltest // nested subtests share encoded report bytes
+	t.Run("successfully encodes a single upkeep result", func(t *testing.T) {
 		upkeepResult := EVMAutomationUpkeepResult20{
 			Block:            1,
 			ID:               big.NewInt(10),
