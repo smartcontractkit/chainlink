@@ -644,7 +644,7 @@ func executeVaultSecretsUpdateBatchOnlyWithAuth(t *testing.T, auth vaultRequestA
 	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsUpdate, &secretsUpdateRequest)
 	auth.apply(t, &jsonRequest)
 
-	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest)
+	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest, auth.requestOwner)
 	require.Equal(t, uniqueRequestID, jsonResponse.ID)
 	require.Equal(t, vaulttypes.MethodSecretsUpdate, jsonResponse.Method)
 
@@ -826,7 +826,7 @@ func executeVaultSecretsDeleteBatchOnlyWithAuth(t *testing.T, auth vaultRequestA
 	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsDelete, &secretsDeleteRequest)
 	auth.apply(t, &jsonRequest)
 
-	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest)
+	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest, auth.requestOwner)
 	require.Equal(t, uniqueRequestID, jsonResponse.ID)
 	require.Equal(t, vaulttypes.MethodSecretsDelete, jsonResponse.Method)
 
