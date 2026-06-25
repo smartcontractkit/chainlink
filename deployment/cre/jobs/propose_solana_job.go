@@ -28,6 +28,12 @@ type SolanaOverrideDefaultCfg struct {
 	Network             string        `json:"network,omitempty" yaml:"network,omitempty"`
 	ChainID             string        `json:"chainId,omitempty" yaml:"chainId,omitempty"`
 	DeltaStage          time.Duration `json:"deltaStage,omitempty" yaml:"deltaStage,omitempty"`
+
+	ReadsEnabled bool `json:"readsEnabled,omitempty" yaml:"readsEnabled,omitempty"`
+	// Optional per-node read poller tuning (same as EVM overrideDefaultCfg). Omitted values use capability defaults at runtime.
+	ObservationPollerWorkersCount uint          `json:"observationPollerWorkersCount,omitempty" yaml:"observationPollerWorkersCount,omitempty"`
+	ObservationPollPeriod         time.Duration `json:"observationPollPeriod,omitempty" yaml:"observationPollPeriod,omitempty"`
+	UnknownRequestsTTL            time.Duration `json:"unknownRequestsTTL,omitempty" yaml:"unknownRequestsTTL,omitempty"`
 }
 
 // SolanaCapabilityInput configures one worker node. Transmitter may be omitted when the job
@@ -44,13 +50,16 @@ type ProposeSolanaJobSpecInput struct {
 	Domain      string `json:"domain" yaml:"domain"`
 	DONName     string `json:"donName" yaml:"donName"`
 
-	ChainSelector uint64        `json:"chainSelector" yaml:"chainSelector"`
-	DeltaStage    time.Duration `json:"deltaStage" yaml:"deltaStage,omitempty"`
+	ChainSelector        uint64   `json:"chainSelector" yaml:"chainSelector"`
+	BootstrapperOCR3Urls []string `json:"bootstrapperOCR3Urls" yaml:"bootstrapperOCR3Urls"`
+	// OCRContractQualifier selects the CapabilitiesRegistry qualifier on OCRChainSelector when readsEnabled is true.
+	OCRContractQualifier string        `json:"ocrContractQualifier" yaml:"ocrContractQualifier"`
+	OCRChainSelector     uint64        `json:"ocrChainSelector" yaml:"ocrChainSelector"`
+	ForwardersQualifier  string        `json:"forwardersContractQualifier" yaml:"forwardersContractQualifier"`
+	DeltaStage           time.Duration `json:"deltaStage" yaml:"deltaStage,omitempty"`
 
-	// ForwardersQualifier selects Solana forwarder program + state in the datastore (SolanaForwarder / SolanaForwarderState).
-	ForwardersQualifier string `json:"forwardersContractQualifier" yaml:"forwardersContractQualifier"`
-	// ForwarderVersion is the semver of the deployed forwarder (e.g. from solana_forwarders_deploy). Defaults to 1.0.0 when empty.
-	ForwarderVersion string `json:"forwarderVersion,omitempty" yaml:"forwarderVersion,omitempty"`
+	// ReadsEnabled turns on Solana read methods and wires OCR oracle factory (CapReg-backed, multi-chain signing).
+	ReadsEnabled bool `json:"readsEnabled,omitempty" yaml:"readsEnabled,omitempty"`
 
 	SolanaCapabilityInputs []SolanaCapabilityInput `json:"solanaCapabilityInputs" yaml:"solanaCapabilityInputs"`
 }
@@ -129,6 +138,25 @@ func (u ProposeSolanaJobSpec) VerifyPreconditions(e cldf.Environment, input Prop
 		return errors.New("cre forwarder qualifier is required")
 	}
 
+	if input.ReadsEnabled {
+		if err := validateCommonFields(commonCapFields{
+			Environment:          input.Environment,
+			Domain:               input.Domain,
+			Zone:                 input.Zone,
+			DONName:              input.DONName,
+			ChainSelector:        input.ChainSelector,
+			OCRChainSelector:     input.OCRChainSelector,
+			BootstrapperOCR3Urls: input.BootstrapperOCR3Urls,
+			OCRContractQualifier: input.OCRContractQualifier,
+			DeltaStage:           input.DeltaStage,
+		}); err != nil {
+			return err
+		}
+		if err := resolveCapRegAddress(e, input.OCRChainSelector, input.OCRContractQualifier); err != nil {
+			return err
+		}
+	}
+
 	family, err := chainselectors.GetSelectorFamily(input.ChainSelector)
 	if err != nil {
 		return fmt.Errorf("failed to get family for chain selector %d: %w", input.ChainSelector, err)
@@ -137,7 +165,7 @@ func (u ProposeSolanaJobSpec) VerifyPreconditions(e cldf.Environment, input Prop
 		return fmt.Errorf("chain selector %d belongs to family %q, expected %q", input.ChainSelector, family, chainselectors.FamilySolana)
 	}
 
-	programAddr, stateAddr, err := resolveSolanaForwarderAddresses(e, input.ChainSelector, input.ForwardersQualifier, input.ForwarderVersion)
+	programAddr, stateAddr, err := resolveSolanaForwarderAddresses(e, input.ChainSelector, input.ForwardersQualifier)
 	if err != nil {
 		return err
 	}
@@ -181,16 +209,27 @@ func (u ProposeSolanaJobSpec) Apply(e cldf.Environment, input ProposeSolanaJobSp
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get chain ID from selector: %w", err)
 	}
 
-	programAddr, stateAddr, err := resolveSolanaForwarderAddresses(e, input.ChainSelector, input.ForwardersQualifier, input.ForwarderVersion)
+	programAddr, stateAddr, err := resolveSolanaForwarderAddresses(e, input.ChainSelector, input.ForwardersQualifier)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
 
 	jobName := fmt.Sprintf("solana-cap-v2-%s-%s", chainName, input.Zone)
 	job := pkg.StandardCapabilityJob{
-		JobName:               jobName,
-		Command:               "/usr/local/bin/solana",
-		GenerateOracleFactory: false,
+		JobName: jobName,
+		Command: "/usr/local/bin/solana",
+	}
+
+	if input.ReadsEnabled {
+		job.GenerateOracleFactory = true
+		job.UseCapRegOCRConfig = true
+		job.ContractQualifier = input.OCRContractQualifier
+		job.CapRegVersion = solanaCapRegVersion
+		job.OCRSigningStrategy = "multi-chain"
+		job.OCRChainSelector = pkg.ChainSelector(input.OCRChainSelector)
+		job.ChainSelectorEVM = pkg.ChainSelector(input.OCRChainSelector)
+		job.ChainSelectorSolana = pkg.ChainSelector(input.ChainSelector)
+		job.BootstrapPeers = input.BootstrapperOCR3Urls
 	}
 
 	nodeIDToConfig := make(map[string]string, len(input.SolanaCapabilityInputs))
@@ -216,6 +255,10 @@ func (u ProposeSolanaJobSpec) Apply(e cldf.Environment, input ProposeSolanaJobSp
 		cfg.DeltaStage = input.DeltaStage
 		if solIn.OverrideDefaultCfg.DeltaStage != 0 {
 			cfg.DeltaStage = solIn.OverrideDefaultCfg.DeltaStage
+		}
+
+		if input.ReadsEnabled {
+			cfg.ReadsEnabled = true
 		}
 
 		enc, err := json.Marshal(cfg)
