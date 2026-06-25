@@ -569,6 +569,10 @@ func (g *generalConfig) ImportedAptosKeys() coreconfig.ImportableChainKeyLister 
 	return &importedAptosKeyConfigs{s: g.secrets.Aptos}
 }
 
+func (g *generalConfig) ImportedStellarKeys() coreconfig.ImportableChainKeyLister {
+	return &importedStellarKeyConfigs{s: g.secrets.Stellar}
+}
+
 func (g *generalConfig) ImportedDKGRecipientKey() coreconfig.ImportableKey {
 	return &importedDKGRecipientKeyConfig{s: g.secrets.DKGRecipientKey}
 }

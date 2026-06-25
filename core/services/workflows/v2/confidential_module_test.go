@@ -13,6 +13,9 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
@@ -32,13 +35,20 @@ type stubExecutionHelper struct {
 	executionID string
 }
 
-var _ host.ExecutionHelper = (*stubExecutionHelper)(nil)
+var _ host.ExecutionHelperWithRawSecrets = (*stubExecutionHelper)(nil)
 
 func (s *stubExecutionHelper) CallCapability(context.Context, *sdkpb.CapabilityRequest) (*sdkpb.CapabilityResponse, error) {
 	return nil, nil
 }
 func (s *stubExecutionHelper) GetSecrets(context.Context, *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
 	return nil, nil
+}
+func (s *stubExecutionHelper) GetRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vaultcommon.SecretResponse, error) {
+	return nil, nil
+}
+
+func (s *stubExecutionHelper) GetOwner() string {
+	return "unused in test"
 }
 func (s *stubExecutionHelper) GetWorkflowExecutionID() string { return s.executionID }
 func (s *stubExecutionHelper) GetNodeTime() time.Time         { return time.Time{} }
@@ -134,6 +144,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 
 		mod := NewConfidentialModule(
 			capReg,
+			&confidentialrelay.ExecutionHandlers{},
 			"https://example.com/binary.wasm",
 			[]byte("fakehash"),
 			"wf-123",
@@ -157,7 +168,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
 			Return(nil, errors.New("capability not found")).Once()
 
-		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
+		mod := NewConfidentialModule(capReg, &confidentialrelay.ExecutionHandlers{}, "", nil, "wf", "owner", "name", "tag", lggr)
 
 		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{})
 		require.Error(t, err)
@@ -173,7 +184,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
 			Return(capabilities.CapabilityResponse{}, errors.New("enclave unavailable")).Once()
 
-		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
+		mod := NewConfidentialModule(capReg, &confidentialrelay.ExecutionHandlers{}, "", nil, "wf", "owner", "name", "tag", lggr)
 
 		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{})
 		require.Error(t, err)
@@ -189,7 +200,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
 			Return(capabilities.CapabilityResponse{Payload: nil}, nil).Once()
 
-		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
+		mod := NewConfidentialModule(capReg, &confidentialrelay.ExecutionHandlers{}, "", nil, "wf", "owner", "name", "tag", lggr)
 
 		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{})
 		require.Error(t, err)
@@ -211,7 +222,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 			Return(capabilities.CapabilityResponse{Payload: respPayload}, nil).Once()
 
 		binaryHash := ComputeBinaryHash([]byte("some-binary"))
-		mod := NewConfidentialModule(capReg, "https://example.com/wasm", binaryHash, "wf-abc", "0xowner", "my-workflow", "v2", lggr)
+		mod := NewConfidentialModule(capReg, &confidentialrelay.ExecutionHandlers{}, "https://example.com/wasm", binaryHash, "wf-abc", "0xowner", "my-workflow", "v2", lggr)
 
 		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{executionID: "exec-xyz"})
 		require.NoError(t, err)
@@ -268,7 +279,7 @@ func TestConfidentialModule_Tee(t *testing.T) {
 			{Type: sdkpb.TeeType_TEE_TYPE_AWS_NITRO, Regions: []string{"us-east-1", "eu-west-1"}},
 		})}, nil).Once()
 
-		mod := NewConfidentialModule(capReg, "https://example.com/binary.wasm", []byte("fakehash"), "wf-123", "owner-abc", "my-workflow", "v1", lggr)
+		mod := NewConfidentialModule(capReg, &confidentialrelay.ExecutionHandlers{}, "https://example.com/binary.wasm", []byte("fakehash"), "wf-123", "owner-abc", "my-workflow", "v1", lggr)
 
 		assert.True(t, mod.Tee(ctx, anyRegionsTee("us-east-1")))
 	})
@@ -284,7 +295,7 @@ func TestConfidentialModule_Tee(t *testing.T) {
 				{Type: sdkpb.TeeType_TEE_TYPE_AWS_NITRO, Regions: []string{"us-east-1"}},
 			})}, nil).Once()
 
-		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
+		mod := NewConfidentialModule(capReg, &confidentialrelay.ExecutionHandlers{}, "", nil, "wf", "owner", "name", "tag", lggr)
 		assert.False(t, mod.Tee(ctx, anyRegionsTee("ap-southeast-1")))
 	})
 
@@ -297,7 +308,7 @@ func TestConfidentialModule_Tee(t *testing.T) {
 		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
 			Return(capabilities.CapabilityResponse{Payload: buildRespPayload(t, nil)}, nil).Once()
 
-		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
+		mod := NewConfidentialModule(capReg, &confidentialrelay.ExecutionHandlers{}, "", nil, "wf", "owner", "name", "tag", lggr)
 		assert.False(t, mod.Tee(ctx, anyRegionsTee("us-east-1")))
 	})
 
@@ -306,7 +317,7 @@ func TestConfidentialModule_Tee(t *testing.T) {
 		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
 			Return(nil, errors.New("capability not found")).Once()
 
-		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
+		mod := NewConfidentialModule(capReg, &confidentialrelay.ExecutionHandlers{}, "", nil, "wf", "owner", "name", "tag", lggr)
 		assert.False(t, mod.Tee(ctx, anyRegionsTee("us-east-1")))
 	})
 
@@ -319,7 +330,7 @@ func TestConfidentialModule_Tee(t *testing.T) {
 		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
 			Return(capabilities.CapabilityResponse{}, errors.New("enclave unavailable")).Once()
 
-		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
+		mod := NewConfidentialModule(capReg, &confidentialrelay.ExecutionHandlers{}, "", nil, "wf", "owner", "name", "tag", lggr)
 		assert.False(t, mod.Tee(ctx, anyRegionsTee("us-east-1")))
 	})
 
@@ -332,7 +343,7 @@ func TestConfidentialModule_Tee(t *testing.T) {
 		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
 			Return(capabilities.CapabilityResponse{Payload: nil}, nil).Once()
 
-		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
+		mod := NewConfidentialModule(capReg, &confidentialrelay.ExecutionHandlers{}, "", nil, "wf", "owner", "name", "tag", lggr)
 		assert.False(t, mod.Tee(ctx, anyRegionsTee("us-east-1")))
 	})
 
@@ -350,7 +361,7 @@ func TestConfidentialModule_Tee(t *testing.T) {
 			}).
 			Return(capabilities.CapabilityResponse{Payload: buildRespPayload(t, nil)}, nil).Once()
 
-		mod := NewConfidentialModule(capReg, "https://example.com/wasm", []byte("hash"), "wf-xyz", "0xowner", "my-workflow", "v3", lggr)
+		mod := NewConfidentialModule(capReg, &confidentialrelay.ExecutionHandlers{}, "https://example.com/wasm", []byte("hash"), "wf-xyz", "0xowner", "my-workflow", "v3", lggr)
 		_ = mod.Tee(ctx, anyRegionsTee("us-east-1"))
 
 		assert.Equal(t, "ProvidedTees", capturedReq.Method)
@@ -376,7 +387,7 @@ func TestConfidentialModule_Tee(t *testing.T) {
 				{Type: sdkpb.TeeType_TEE_TYPE_AWS_NITRO, Regions: []string{"us-east-1"}},
 			})}, nil).Once()
 
-		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
+		mod := NewConfidentialModule(capReg, &confidentialrelay.ExecutionHandlers{}, "", nil, "wf", "owner", "name", "tag", lggr)
 
 		assert.True(t, mod.Tee(ctx, anyRegionsTee("us-east-1")))
 		assert.True(t, mod.Tee(ctx, anyRegionsTee("us-east-1")))
@@ -416,7 +427,7 @@ func TestConfidentialModule_SetRequirements(t *testing.T) {
 			}).
 			Return(capabilities.CapabilityResponse{Payload: respPayload}, nil).Once()
 
-		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
+		mod := NewConfidentialModule(capReg, &confidentialrelay.ExecutionHandlers{}, "", nil, "wf", "owner", "name", "tag", lggr)
 
 		requirements := &sdkpb.Requirements{
 			Tee: &sdkpb.Tee{
@@ -453,7 +464,7 @@ func TestConfidentialModule_SetRequirements(t *testing.T) {
 			}).
 			Return(capabilities.CapabilityResponse{Payload: respPayload}, nil).Once()
 
-		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
+		mod := NewConfidentialModule(capReg, &confidentialrelay.ExecutionHandlers{}, "", nil, "wf", "owner", "name", "tag", lggr)
 		mod.SetRequirements("exec-789", &sdkpb.Requirements{})
 
 		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{executionID: "exec-789"})
@@ -500,7 +511,7 @@ func TestConfidentialModule_SetRestrictions(t *testing.T) {
 			}).
 			Return(capabilities.CapabilityResponse{Payload: respPayload}, nil).Once()
 
-		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
+		mod := NewConfidentialModule(capReg, &confidentialrelay.ExecutionHandlers{}, "", nil, "wf", "owner", "name", "tag", lggr)
 
 		restrictions := &sdkpb.Restrictions{
 			Capabilities: &sdkpb.CapabilityRestrictions{
@@ -536,7 +547,7 @@ func TestConfidentialModule_SetRestrictions(t *testing.T) {
 			}).
 			Return(capabilities.CapabilityResponse{Payload: respPayload}, nil).Once()
 
-		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
+		mod := NewConfidentialModule(capReg, &confidentialrelay.ExecutionHandlers{}, "", nil, "wf", "owner", "name", "tag", lggr)
 		mod.SetRestrictions("exec-789", &sdkpb.Restrictions{})
 
 		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{executionID: "exec-789"})
@@ -564,7 +575,7 @@ func TestConfidentialModule_SetRestrictions(t *testing.T) {
 			}).
 			Return(capabilities.CapabilityResponse{Payload: respPayload}, nil).Once()
 
-		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
+		mod := NewConfidentialModule(capReg, &confidentialrelay.ExecutionHandlers{}, "", nil, "wf", "owner", "name", "tag", lggr)
 		mod.SetRestrictions("other-exec", &sdkpb.Restrictions{
 			Capabilities: &sdkpb.CapabilityRestrictions{MaxTotalCalls: 99},
 		})
@@ -591,7 +602,7 @@ func TestConfidentialModule_SetRestrictions(t *testing.T) {
 			}).
 			Return(capabilities.CapabilityResponse{Payload: respPayload}, nil).Once()
 
-		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
+		mod := NewConfidentialModule(capReg, &confidentialrelay.ExecutionHandlers{}, "", nil, "wf", "owner", "name", "tag", lggr)
 		mod.SetRequirements("exec-789", &sdkpb.Requirements{
 			Tee: &sdkpb.Tee{
 				Item: &sdkpb.Tee_AnyRegions{

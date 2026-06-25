@@ -360,6 +360,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			{"cosmos", NewCosmosKeysController(app)},
 			{"starknet", NewStarkNetKeysController(app)},
 			{"aptos", NewAptosKeysController(app)},
+			{"stellar", NewStellarKeysController(app)},
 			{"tron", NewTronKeysController(app)},
 			{"sui", NewSuiKeysController(app)},
 			{"ton", NewTONKeysController(app)},

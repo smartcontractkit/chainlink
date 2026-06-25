@@ -67,11 +67,19 @@ func Test_CCIPGasPriceUpdatesWriteFrequency(t *testing.T) {
 	// Already because initial fee we set in the test is different from the fee that will be calculated
 	// based on weth price, both chains will have their fees updated to new prices after gasPriceExpiry time.
 	assert.Eventually(t, func() bool {
-		// offRamps should have updated the sequence number
+		// This condition runs in a separate goroutine spawned by assert.Eventually,
+		// so it must not call require/FailNow (which would runtime.Goexit the goroutine
+		// and hang the loop until timeout). Transient RPC errors are treated as a retry.
 		priceUpdatesSeqNumChain1Now, err := offRampChain1.GetLatestPriceSequenceNumber(callOpts)
-		require.NoError(t, err)
+		if err != nil {
+			t.Logf("failed to get latest price sequence number for chain1: %v", err)
+			return false
+		}
 		priceUpdatesSeqNumChain2Now, err := offRampChain2.GetLatestPriceSequenceNumber(callOpts)
-		require.NoError(t, err)
+		if err != nil {
+			t.Logf("failed to get latest price sequence number for chain2: %v", err)
+			return false
+		}
 		t.Logf("priceUpdatesSeqNumChain1: %v", priceUpdatesSeqNumChain1Now)
 		t.Logf("priceUpdatesSeqNumChain2: %v", priceUpdatesSeqNumChain2Now)
 		if priceUpdatesSeqNumChain1Now <= priceUpdatesSeqNumChain1 {
@@ -82,9 +90,15 @@ func Test_CCIPGasPriceUpdatesWriteFrequency(t *testing.T) {
 		}
 
 		chain2FeeNow, err := feeQuoter1.GetDestinationChainGasPrice(callOpts, sourceChain2)
-		require.NoError(t, err)
+		if err != nil {
+			t.Logf("failed to get destination chain gas price for chain2: %v", err)
+			return false
+		}
 		chain1FeeNow, err := feeQuoter2.GetDestinationChainGasPrice(callOpts, sourceChain1)
-		require.NoError(t, err)
+		if err != nil {
+			t.Logf("failed to get destination chain gas price for chain1: %v", err)
+			return false
+		}
 		t.Logf("chainFee1 (stored in chain2): %v", chain1FeeNow)
 		t.Logf("chainFee2 (stored in chain1): %v", chain2FeeNow)
 

@@ -43,6 +43,10 @@ type ExecutionHelper struct {
 	callTracker  *callCountTracker
 
 	executionProfile *executionProfileCollector
+
+	// suspension accumulates wall-clock time the guest spent blocked in DON-time
+	// host calls, so it can be excluded from metered compute. See compute_metering.go.
+	suspension *suspensionTracker
 }
 
 // callCountTracker holds the mutable per-execution capability call counts.

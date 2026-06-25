@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -72,6 +73,7 @@ type eventHandler struct {
 
 	workflowStore          store.Store
 	capRegistry            core.CapabilitiesRegistry
+	executionHandlers      *confidentialrelay.ExecutionHandlers
 	donTimeStore           *dontime.Store
 	useLocalTimeProvider   bool
 	engineRegistry         *EngineRegistry
@@ -263,6 +265,7 @@ func NewEventHandler(
 	donTimeStore *dontime.Store,
 	useLocalTimeProvider bool,
 	capRegistry core.CapabilitiesRegistry,
+	executionHandlers *confidentialrelay.ExecutionHandlers,
 	engineRegistry *EngineRegistry,
 	emitter custmsg.MessageEmitter,
 	engineLimiters *v2.EngineLimiters,
@@ -291,6 +294,7 @@ func NewEventHandler(
 		lggr:                   lggr,
 		workflowStore:          workflowStore,
 		capRegistry:            capRegistry,
+		executionHandlers:      executionHandlers,
 		donTimeStore:           donTimeStore,
 		useLocalTimeProvider:   useLocalTimeProvider,
 		engineRegistry:         engineRegistry,
@@ -766,7 +770,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	binaryHash := v2.ComputeBinaryHash(binary)
 	confLggr := logger.Named(h.lggr, "WorkflowEngine.ConfidentialModule")
 	confLggr = logger.With(confLggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
-	confidential := v2.NewConfidentialModule(h.capRegistry, binaryURL, binaryHash, workflowID, owner, name.String(), tag, confLggr)
+	confidential := v2.NewConfidentialModule(h.capRegistry, h.executionHandlers, binaryURL, binaryHash, workflowID, owner, name.String(), tag, confLggr)
 	engineModule := h.createEngineModule(ctx, workflowID, binary, moduleConfig, module)
 	selectingModule := generichost.NewRequirementSelectingModule(
 		generichost.ModuleAndHandler{Module: engineModule},

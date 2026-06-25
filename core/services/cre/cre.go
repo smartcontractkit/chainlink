@@ -214,6 +214,7 @@ func (s *Services) newSubservices(
 			relayService := confidentialrelay.NewService(
 				gatewayConnectorWrapper,
 				opts.CapabilitiesRegistry,
+				opts.ExecutionHandlers,
 				keyStore.P2P(),
 				confidentialRelayPeerID(cfg, capCfg),
 				lggr,
@@ -1070,6 +1071,7 @@ func newWorkflowRegistrySyncerV2(
 		dontimeStore,
 		opts.UseLocalTimeProvider,
 		opts.CapabilitiesRegistry,
+		opts.ExecutionHandlers,
 		engineRegistry,
 		custmsg.NewLabeler(),
 		engineLimiters,

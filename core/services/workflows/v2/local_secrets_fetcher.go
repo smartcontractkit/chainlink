@@ -2,8 +2,12 @@ package v2
 
 import (
 	"context"
+	"fmt"
 
 	"go.opentelemetry.io/otel/metric"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
@@ -68,4 +72,12 @@ func (f *localSecretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.Get
 		})
 	}
 	return responses, nil
+}
+
+func (f *localSecretsFetcher) GetRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vault.SecretResponse, error) {
+	return nil, fmt.Errorf("owner %s is using local secrets and cannot get raw secrets", f.owner)
+}
+
+func (f *localSecretsFetcher) GetOwner() string {
+	return f.owner
 }
