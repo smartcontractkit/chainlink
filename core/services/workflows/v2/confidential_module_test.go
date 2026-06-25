@@ -473,6 +473,7 @@ func TestConfidentialModule_SetRequirements(t *testing.T) {
 }
 
 func TestConfidentialModule_SetRestrictions(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	lggr := logger.Nop()
 
@@ -491,6 +492,7 @@ func TestConfidentialModule_SetRestrictions(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("restrictions forwarded in execute", func(t *testing.T) {
+		t.Parallel()
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		execCap := capmocks.NewExecutableCapability(t)
 
@@ -525,6 +527,7 @@ func TestConfidentialModule_SetRestrictions(t *testing.T) {
 	})
 
 	t.Run("restrictions consumed after execute", func(t *testing.T) {
+		t.Parallel()
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		execCap := capmocks.NewExecutableCapability(t)
 
@@ -555,6 +558,7 @@ func TestConfidentialModule_SetRestrictions(t *testing.T) {
 	})
 
 	t.Run("restrictions isolated per execution id", func(t *testing.T) {
+		t.Parallel()
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		execCap := capmocks.NewExecutableCapability(t)
 
@@ -582,6 +586,7 @@ func TestConfidentialModule_SetRestrictions(t *testing.T) {
 	})
 
 	t.Run("requirements and restrictions forwarded together", func(t *testing.T) {
+		t.Parallel()
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		execCap := capmocks.NewExecutableCapability(t)
 

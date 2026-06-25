@@ -390,7 +390,7 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 	}
 
 	sdkReq := &sdkpb.CapabilityRequest{}
-	if err := proto.Unmarshal(payloadBytes, sdkReq); err != nil {
+	if err = proto.Unmarshal(payloadBytes, sdkReq); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, fmt.Errorf("failed to unmarshal capability request: %w", err))
 	}
 
@@ -403,7 +403,8 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 		// Deterministic marshal so every relay node emits byte-identical
 		// response payloads; relay aggregation requires identical bytes to
 		// reach quorum. [CL112-05]
-		respBytes, err := proto.MarshalOptions{Deterministic: true}.Marshal(capResp)
+		var respBytes []byte
+		respBytes, err = proto.MarshalOptions{Deterministic: true}.Marshal(capResp)
 		if err != nil {
 			return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("marshalling capability response: %w", err))
 		}
