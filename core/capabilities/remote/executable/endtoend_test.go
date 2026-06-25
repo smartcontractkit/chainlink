@@ -27,6 +27,7 @@ import (
 )
 
 func Test_RemoteExecutableCapability_ExecutionNotBlockedBySlowCapabilityExecution(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name     string
 		schedule string
@@ -35,6 +36,7 @@ func Test_RemoteExecutableCapability_ExecutionNotBlockedBySlowCapabilityExecutio
 		{"OneAtATime", transmission.Schedule_OneAtATime},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			synctest.Test(t, func(t *testing.T) {
 				ctx := t.Context()
 

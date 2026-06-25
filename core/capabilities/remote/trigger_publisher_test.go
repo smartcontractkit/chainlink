@@ -70,6 +70,7 @@ func TestTriggerPublisher_ReceiveTriggerEvents_NoBatching(t *testing.T) {
 }
 
 func TestTriggerPublisher_ReceiveTriggerEvents_BatchingEnabled(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		const batchPeriod = 50 * time.Millisecond
 		ctx := t.Context()

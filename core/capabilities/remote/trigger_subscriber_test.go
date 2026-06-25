@@ -3,7 +3,6 @@ package remote_test
 import (
 	"fmt"
 	"testing"
-	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/mock"
@@ -18,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	remoteMocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/synctest"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -76,6 +76,7 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 }
 
 func TestTriggerSubscriber_CorrectEventExpiryCheck(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		const (
 			messageExpiry       = 10 * time.Second

@@ -152,6 +152,7 @@ func Test_Client_TransmissionSchedules(t *testing.T) {
 }
 
 func Test_Client_ResponseAggregationGrace(t *testing.T) {
+	t.Parallel()
 	const (
 		requestTimeout           = 500 * time.Millisecond
 		capabilityExecuteDelay   = 2 * time.Second
@@ -190,6 +191,7 @@ func Test_Client_ResponseAggregationGrace(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			synctest.Test(t, func(t *testing.T) {
 				ctx := t.Context()
 

@@ -8,7 +8,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/require"
@@ -20,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/synctest"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -253,6 +253,7 @@ func TestRegistrationTrafficVolume(t *testing.T) {
 // --- Test: Publisher sendRegistrationChecks traffic volume ---
 
 func TestRegistrationCheckTrafficVolume(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		nRegistrations  int
 		capDonSize      int
@@ -267,6 +268,7 @@ func TestRegistrationCheckTrafficVolume(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(fmt.Sprintf("N=%d", tc.nRegistrations), func(t *testing.T) {
+			t.Parallel()
 			synctest.Test(t, func(t *testing.T) {
 				ctx := t.Context()
 				lggr := logger.Test(t)
