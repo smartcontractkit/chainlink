@@ -68,6 +68,7 @@ type AppConfig interface {
 	JobSpecReporter() JobSpecReporter
 	Sharding() Sharding
 	LOOPP() LOOPP
+	LLO() LLO
 }
 
 type DatabaseBackupMode string

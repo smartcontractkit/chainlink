@@ -615,4 +615,8 @@ func (g *generalConfig) LOOPP() coreconfig.LOOPP {
 	return &looppConfig{l: g.c.LOOPP}
 }
 
+func (g *generalConfig) LLO() coreconfig.LLO {
+	return &lloConfig{c: g.c.LLO}
+}
+
 var zeroSha256Hash = corekeys.Sha256Hash{}

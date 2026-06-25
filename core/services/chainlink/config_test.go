@@ -836,6 +836,9 @@ func TestConfig_Marshal(t *testing.T) {
 			ReaperMaxAge:         commoncfg.MustNewDuration(678 * time.Hour),
 		},
 		VerboseLogging: ptr(true),
+		DataSource: toml.MercuryDataSource{
+			ObservationTimingBase: commoncfg.MustNewDuration(50 * time.Millisecond),
+		},
 	}
 
 	for _, tt := range []struct {
@@ -1277,6 +1280,9 @@ TransmitTimeout = '3m54s'
 TransmitConcurrency = 456
 ReaperFrequency = '9m27s'
 ReaperMaxAge = '678h0m0s'
+
+[Mercury.DataSource]
+ObservationTimingBase = '50ms'
 `},
 		{"full", full, fullTOML},
 		{"multi-chain", multiChain, multiChainTOML},

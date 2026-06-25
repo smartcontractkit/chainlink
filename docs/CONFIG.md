@@ -2364,6 +2364,26 @@ ReaperMaxAge = "48h" # Default
 ReaperMaxAge controls how old a transmission can be before it is considered
 stale. Setting to 0 disables the reaper.
 
+## Mercury.DataSource
+```toml
+[Mercury.DataSource]
+ObservationTimingBase = '50ms' # Example
+```
+Mercury.DataSource controls node-side tuning for the LLO observation data source.
+
+### ObservationTimingBase
+```toml
+ObservationTimingBase = '50ms' # Example
+```
+ObservationTimingBase sets the base duration T used to size the LLO observation loop timing: cache entry TTL (2×T),
+the stale-refresh threshold, the background loop pacing, and the background pipeline timeout. By default (unset/zero),
+T is derived from the plugin's per-round Observe deadline remainder, which is bounded by the on-chain
+`MaxDurationObservation`. At very low on-chain values (e.g. 25ms for high-frequency feeds) that makes cache entries
+expire before the background refresh loop can complete, producing cache misses even when bridge calls succeed.
+Setting this decouples the observation timing from the on-chain deadline without changing the plugin Observe budget itself.
+A value around 30-50ms is a reasonable starting point for high-frequency feeds; larger values widen the refresh
+runway but make cached values staler.
+
 ## Telemetry
 ```toml
 [Telemetry]

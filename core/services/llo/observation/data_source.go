@@ -51,6 +51,16 @@ func cacheEntryTTL(observationTimeout time.Duration) time.Duration {
 	return time.Duration(cacheTTLMultiplier) * observationTimeout
 }
 
+// resolveObservationTiming returns the base duration T used for cache TTL, stale refresh,
+// loop pacing, and background pipeline timeout. When observationTimingBase is non-zero,
+// it replaces the plugin Observe deadline remainder.
+func resolveObservationTiming(pluginTimeout, observationTimingBase time.Duration) time.Duration {
+	if observationTimingBase > 0 {
+		return observationTimingBase
+	}
+	return pluginTimeout
+}
+
 // staleRefreshSkipThreshold returns (staleRefreshRemainingNumerator/staleRefreshRemainingDenominator)·T.
 // buildStreamsRefreshPlan treats a cached stream as still fresh (not a refresh driver) while time.Until(expiresAt)
 // is strictly greater than this value. A larger fraction (e.g. higher numerator) raises the threshold, so the stream
@@ -151,6 +161,7 @@ type dataSource struct {
 	registry               Registry
 	t                      Telemeter
 	cache                  StreamValueCache
+	observationTimingBase  time.Duration
 	observationLoopStarted atomic.Bool
 	observationLoopCloseCh services.StopChan
 
@@ -161,16 +172,17 @@ type dataSource struct {
 	loopWakeCh chan struct{}
 }
 
-func NewDataSource(lggr logger.Logger, registry Registry, t Telemeter) llo.DataSource {
-	return newDataSource(lggr, registry, t)
+func NewDataSource(lggr logger.Logger, registry Registry, t Telemeter, observationTimingBase time.Duration) llo.DataSource {
+	return newDataSource(lggr, registry, t, observationTimingBase)
 }
 
-func newDataSource(lggr logger.Logger, registry Registry, t Telemeter) *dataSource {
+func newDataSource(lggr logger.Logger, registry Registry, t Telemeter, observationTimingBase time.Duration) *dataSource {
 	return &dataSource{
 		lggr:                   logger.Named(lggr, "DataSource"),
 		registry:               registry,
 		t:                      t,
 		cache:                  NewCache(time.Minute),
+		observationTimingBase:  observationTimingBase,
 		observationLoopCloseCh: make(chan struct{}),
 		loopWakeCh:             make(chan struct{}, 1),
 	}
@@ -523,13 +535,20 @@ func (d *dataSource) setObservableStreams(ctx context.Context, streamValues llo.
 		osv.streamValues[streamID] = nil
 	}
 
+	pluginTimeout := osv.observationTimeout
 	if deadline, ok := ctx.Deadline(); ok {
-		osv.observationTimeout = time.Until(deadline)
+		pluginTimeout = time.Until(deadline)
 	}
+	osv.observationTimeout = resolveObservationTiming(pluginTimeout, d.observationTimingBase)
 
-	d.lggr.Debugw("setObservableStreams",
-		"timeout_millis", osv.observationTimeout.Milliseconds(),
-		"observable_streams", len(osv.streamValues))
+	logFields := []any{
+		"timeout_millis", pluginTimeout.Milliseconds(),
+		"observable_streams", len(osv.streamValues),
+	}
+	if d.observationTimingBase > 0 {
+		logFields = append(logFields, "observation_timing_base_ms", d.observationTimingBase.Milliseconds())
+	}
+	d.lggr.Debugw("setObservableStreams", logFields...)
 
 	d.observableStreamsMu.Lock()
 	defer d.observableStreamsMu.Unlock()
@@ -537,10 +556,7 @@ func (d *dataSource) setObservableStreams(ctx context.Context, streamValues llo.
 	if d.observableStreams == nil ||
 		len(d.observableStreams.streamValues) != len(osv.streamValues) ||
 		d.observableStreams.observationTimeout != osv.observationTimeout {
-		d.lggr.Infow("setObservableStreams: observable streams changed",
-			"timeout_millis", osv.observationTimeout.Milliseconds(),
-			"observable_streams", len(osv.streamValues),
-		)
+		d.lggr.Infow("setObservableStreams: observable streams changed", logFields...)
 	}
 
 	d.observableStreams = osv

@@ -176,6 +176,7 @@ type DelegateConfig interface {
 	Mercury() de.Mercury
 	Threshold() coreconfig.Threshold
 	Sharding() coreconfig.Sharding
+	LLO() coreconfig.LLO
 	RingStoreForShard0() *ring.Store
 }
 
@@ -188,6 +189,7 @@ type delegateConfig struct {
 	mercury     mercuryConfig
 	threshold   thresholdConfig
 	sharding    coreconfig.Sharding
+	llo         coreconfig.LLO
 	ringStore   *ring.Store
 }
 
@@ -213,6 +215,10 @@ func (d *delegateConfig) OCR2() ocr2Config {
 
 func (d *delegateConfig) Sharding() coreconfig.Sharding {
 	return d.sharding
+}
+
+func (d *delegateConfig) LLO() coreconfig.LLO {
+	return d.llo
 }
 
 func (d *delegateConfig) RingStoreForShard0() *ring.Store {
@@ -257,7 +263,7 @@ type thresholdConfig interface {
 	ThresholdKeyShare() string
 }
 
-func NewDelegateConfig(ocr2Cfg ocr2Config, m de.Mercury, t coreconfig.Threshold, i insecureConfig, jp jobPipelineConfig, pluginProcessCfg plugins.RegistrarConfig, s coreconfig.Sharding, ringStore *ring.Store) DelegateConfig {
+func NewDelegateConfig(ocr2Cfg ocr2Config, m de.Mercury, t coreconfig.Threshold, i insecureConfig, jp jobPipelineConfig, pluginProcessCfg plugins.RegistrarConfig, s coreconfig.Sharding, llo coreconfig.LLO, ringStore *ring.Store) DelegateConfig {
 	return &delegateConfig{
 		ocr2:            ocr2Cfg,
 		RegistrarConfig: pluginProcessCfg,
@@ -266,6 +272,7 @@ func NewDelegateConfig(ocr2Cfg ocr2Config, m de.Mercury, t coreconfig.Threshold,
 		mercury:         m,
 		threshold:       t,
 		sharding:        s,
+		llo:             llo,
 		ringStore:       ringStore,
 	}
 }
@@ -1662,6 +1669,7 @@ func (d *Delegate) newServicesLLO(
 		CaptureObservationTelemetry: jb.OCR2OracleSpec.CaptureEATelemetry,
 		CaptureOutcomeTelemetry:     jb.OCR2OracleSpec.CaptureEATelemetry,
 		CaptureReportTelemetry:      false,
+		ObservationTimingBase: d.cfg.LLO().DataSource().ObservationTimingBase(),
 
 		ChannelDefinitionCache:   provider.ChannelDefinitionCache(),
 		RetirementReportCache:    d.retirementReportCache,

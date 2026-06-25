@@ -6,10 +6,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
-var _ mercurytransmitter.MercuryCache = (*mercuryCacheConfig)(nil)
+var (
+	_ coreconfig.Mercury              = (*mercuryConfig)(nil)
+	_ mercurytransmitter.MercuryCache = (*mercuryCacheConfig)(nil)
+)
 
 type mercuryCacheConfig struct {
 	c toml.MercuryCache
@@ -99,4 +103,19 @@ func (m *mercuryConfig) Transmitter() mercurytransmitter.MercuryTransmitter {
 
 func (m *mercuryConfig) VerboseLogging() bool {
 	return *m.c.VerboseLogging
+}
+
+func (m *mercuryConfig) DataSource() coreconfig.MercuryDataSource {
+	return &mercuryDataSourceConfig{c: m.c.DataSource}
+}
+
+type mercuryDataSourceConfig struct {
+	c toml.MercuryDataSource
+}
+
+func (m *mercuryDataSourceConfig) ObservationTimingBase() time.Duration {
+	if m.c.ObservationTimingBase == nil {
+		return 0
+	}
+	return m.c.ObservationTimingBase.Duration()
 }

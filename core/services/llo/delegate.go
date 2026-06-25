@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
@@ -61,6 +62,7 @@ type DelegateConfig struct {
 	CaptureObservationTelemetry bool
 	CaptureOutcomeTelemetry     bool
 	CaptureReportTelemetry      bool
+	ObservationTimingBase time.Duration
 
 	// LLO
 	ChannelDefinitionCache   llotypes.ChannelDefinitionCache
@@ -128,6 +130,7 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 		logger.Named(lggr, "DataSource"),
 		cfg.Registry,
 		t,
+		cfg.ObservationTimingBase,
 	)
 
 	notifier, ok := cfg.ContractTransmitter.(transmitter.TransmitNotifier)

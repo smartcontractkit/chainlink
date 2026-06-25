@@ -219,7 +219,7 @@ func Test_DataSource(t *testing.T) {
 		t.Run("doesn't set any values if no streams are defined", func(t *testing.T) {
 			t.Parallel()
 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
-			ds := newDataSource(lggr, reg, telem.NullTelemeter)
+			ds := newDataSource(lggr, reg, telem.NullTelemeter, 0)
 
 			vals := makeStreamValues()
 			ctx, cancel := context.WithTimeout(mainCtx, observationTimeout)
@@ -234,7 +234,7 @@ func Test_DataSource(t *testing.T) {
 		t.Run("observes each stream with success and returns values matching map argument", func(t *testing.T) {
 			t.Parallel()
 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
-			ds := newDataSource(lggr, reg, telem.NullTelemeter)
+			ds := newDataSource(lggr, reg, telem.NullTelemeter, 0)
 
 			reg.mu.Lock()
 			sids := []streams.StreamID{1, 2, 3}
@@ -265,7 +265,7 @@ func Test_DataSource(t *testing.T) {
 		t.Run("observes each stream and returns success/errors", func(t *testing.T) {
 			t.Parallel()
 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
-			ds := newDataSource(lggr, reg, telem.NullTelemeter)
+			ds := newDataSource(lggr, reg, telem.NullTelemeter, 0)
 
 			reg.mu.Lock()
 			reg.pipelines[11] = pipelineForStream(11, 11, big.NewInt(21810), errors.New("something exploded"))
@@ -292,7 +292,7 @@ func Test_DataSource(t *testing.T) {
 			t.Parallel()
 			tm := &mockTelemeter{}
 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
-			ds := newDataSource(lggr, reg, tm)
+			ds := newDataSource(lggr, reg, tm, 0)
 
 			reg.mu.Lock()
 			reg.pipelines[21] = pipelineForStream(21, 100, big.NewInt(2181), nil)
@@ -367,7 +367,7 @@ func Test_DataSource(t *testing.T) {
 			t.Parallel()
 			tm := &mockTelemeter{}
 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
-			ds := newDataSource(lggr, reg, tm)
+			ds := newDataSource(lggr, reg, tm, 0)
 
 			reg.mu.Lock()
 			reg.pipelines[31] = pipelineForStream(31, 100, big.NewInt(2181), errors.New("something exploded"))
@@ -406,7 +406,7 @@ func Test_DataSource(t *testing.T) {
 		t.Run("uses cached values when available", func(t *testing.T) {
 			t.Parallel()
 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
-			ds := newDataSource(lggr, reg, telem.NullTelemeter)
+			ds := newDataSource(lggr, reg, telem.NullTelemeter, 0)
 
 			// First observation to populate cache
 			reg.mu.Lock()
@@ -460,7 +460,7 @@ func Test_DataSource(t *testing.T) {
 		t.Run("refreshes cache after expiration", func(t *testing.T) {
 			t.Parallel()
 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
-			ds := newDataSource(lggr, reg, telem.NullTelemeter)
+			ds := newDataSource(lggr, reg, telem.NullTelemeter, 0)
 
 			// First observation
 			reg.mu.Lock()
@@ -495,7 +495,7 @@ func Test_DataSource(t *testing.T) {
 			t.Parallel()
 			// Create a new data source
 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
-			ds := newDataSource(lggr, reg, telem.NullTelemeter)
+			ds := newDataSource(lggr, reg, telem.NullTelemeter, 0)
 
 			// Set up pipeline to return different values
 			reg.mu.Lock()
@@ -529,7 +529,7 @@ func Test_DataSource(t *testing.T) {
 		t.Run("cache writes are atomic per pipeline group across observation cycles", func(t *testing.T) {
 			t.Parallel()
 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
-			ds := newDataSource(lggr, reg, telem.NullTelemeter)
+			ds := newDataSource(lggr, reg, telem.NullTelemeter, 0)
 			mc := newMockCache(ds.cache)
 			ds.cache = mc
 			defer ds.Close()
@@ -609,7 +609,7 @@ func Test_DataSource(t *testing.T) {
 		t.Run("handles cache errors gracefully", func(t *testing.T) {
 			t.Parallel()
 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
-			ds := newDataSource(lggr, reg, telem.NullTelemeter)
+			ds := newDataSource(lggr, reg, telem.NullTelemeter, 0)
 
 			// First observation with error
 			reg.mu.Lock()
@@ -655,7 +655,7 @@ func Test_DataSource_ObservationLoopWakeSkipsPacing(t *testing.T) { //nolint:par
 	reg.pipelines[1] = pipelineForStream(1, 1, big.NewInt(42), nil)
 	reg.mu.Unlock()
 
-	ds := newDataSource(lggr, reg, telem.NullTelemeter)
+	ds := newDataSource(lggr, reg, telem.NullTelemeter, 0)
 	defer ds.Close()
 
 	// Long plugin deadline => large inter-iteration pacing; wake from Observe should advance the loop without waiting.
@@ -680,7 +680,7 @@ func Test_DataSource_ObserveWakeManyConcurrent(t *testing.T) {
 	reg.pipelines[1] = pipelineForStream(1, 1, big.NewInt(1), nil)
 	reg.mu.Unlock()
 
-	ds := newDataSource(lggr, reg, telem.NullTelemeter)
+	ds := newDataSource(lggr, reg, telem.NullTelemeter, 0)
 	ctx, cancel := context.WithTimeout(mainCtx, observationTimeout)
 	defer cancel()
 	vals := makeStreamValues(1)
@@ -859,6 +859,9 @@ func Test_observationTuningHelpers(t *testing.T) {
 	assert.Equal(t, observationLoopPacingFloor, observationLoopPacing(0))
 	// T/2 exceeds invariant cap; pacing is min(T/2, cacheTTL−stale−1ns); here 30/2=15ms caps to ~12ms−1ns
 	assert.Equal(t, cacheEntryTTL(30*time.Millisecond)-staleRefreshSkipThreshold(30*time.Millisecond)-time.Nanosecond, observationLoopPacing(30*time.Millisecond))
+
+	assert.Equal(t, 24*time.Millisecond, resolveObservationTiming(24*time.Millisecond, 0))
+	assert.Equal(t, 50*time.Millisecond, resolveObservationTiming(24*time.Millisecond, 50*time.Millisecond))
 }
 
 func BenchmarkObserve(b *testing.B) {
@@ -924,7 +927,7 @@ result3 -> result3_parse -> multiply3;
 		require.NoError(b, err)
 	}
 
-	ds := newDataSource(lggr, r, telem.NullTelemeter)
+	ds := newDataSource(lggr, r, telem.NullTelemeter, 0)
 	vals := make(map[llotypes.StreamID]llo.StreamValue)
 	for i := uint32(0); i < 4*n; i++ {
 		vals[i] = nil

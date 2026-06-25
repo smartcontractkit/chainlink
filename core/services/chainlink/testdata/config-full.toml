@@ -454,6 +454,9 @@ ShardOrchestratorAddress = ''
 [LOOPP]
 GRPCServerMaxRecvMsgSize = '42.00mb'
 
+[LLO.DataSource]
+ObservationTimingBase = '50ms'
+
 [[EVM]]
 ChainID = '1'
 Enabled = false

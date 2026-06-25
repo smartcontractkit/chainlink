@@ -72,6 +72,7 @@ type Core struct {
 	JobSpecReporter      JobSpecReporter      `toml:",omitempty"`
 	Sharding             Sharding             `toml:",omitempty"`
 	LOOPP                LOOPP                `toml:",omitempty"`
+	LLO                  LLO                  `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -120,6 +121,7 @@ func (c *Core) SetFrom(f *Core) {
 
 	c.Sharding.setFrom(&f.Sharding)
 	c.LOOPP.setFrom(&f.LOOPP)
+	c.LLO.setFrom(&f.LLO)
 }
 
 func (c *Core) ValidateConfig() (err error) {
@@ -3323,4 +3325,40 @@ func (l *LOOPP) setFrom(f *LOOPP) {
 	if f.GRPCServerMaxRecvMsgSize != nil {
 		l.GRPCServerMaxRecvMsgSize = f.GRPCServerMaxRecvMsgSize
 	}
+}
+
+type LLO struct {
+	DataSource LLODataSource `toml:",omitempty"`
+}
+
+func (l *LLO) setFrom(f *LLO) {
+	l.DataSource.setFrom(&f.DataSource)
+}
+
+func (l *LLO) ValidateConfig() error {
+	return l.DataSource.ValidateConfig()
+}
+
+type LLODataSource struct {
+	ObservationTimingBase *commonconfig.Duration
+}
+
+func (l *LLODataSource) setFrom(f *LLODataSource) {
+	if f.ObservationTimingBase != nil {
+		l.ObservationTimingBase = f.ObservationTimingBase
+	}
+}
+
+func (l *LLODataSource) ValidateConfig() error {
+	if l.ObservationTimingBase == nil {
+		return nil
+	}
+	if l.ObservationTimingBase.Duration() < 0 {
+		return configutils.ErrInvalid{
+			Name:  "ObservationTimingBase",
+			Value: l.ObservationTimingBase.Duration(),
+			Msg:   "must be non-negative",
+		}
+	}
+	return nil
 }
