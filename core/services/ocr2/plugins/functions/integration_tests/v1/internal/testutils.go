@@ -525,6 +525,7 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 }
 
 func StartNewMockEA(t *testing.T) *httptest.Server {
+	t.Helper()
 	return httptest.NewServer(mockEAHandler(t))
 }
 
@@ -559,6 +560,7 @@ func mockEAHandler(t *testing.T) http.Handler {
 			http.Error(res, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		res.Header().Set("Content-Type", "application/json")
 		res.WriteHeader(http.StatusOK)
 		if _, err = res.Write(responsePayload); err != nil {
 			t.Errorf("write response: %v", err)
@@ -592,7 +594,14 @@ func mockEALambdaExecutionResponse(request map[string]any) ([]byte, error) {
 	}
 	source := data["source"].(string)
 	// prepend "0xab" to source and return as result
-	return fmt.Appendf(nil, `{"result": "success", "statusCode": 200, "data": {"result": "0xab%s", "error": ""}}`, source), nil
+	return json.Marshal(map[string]any{
+		"result":     "success",
+		"statusCode": 200,
+		"data": map[string]string{
+			"result": "0xab" + source,
+			"error":  "",
+		},
+	})
 }
 
 func mockEASecretsFetchResponse(request map[string]any) ([]byte, error) {
@@ -603,7 +612,14 @@ func mockEASecretsFetchResponse(request map[string]any) ([]byte, error) {
 	if data["encryptedSecretsUrls"] != DefaultSecretsUrlsBase64 {
 		return nil, fmt.Errorf("unexpected encryptedSecretsUrls: %v", data["encryptedSecretsUrls"])
 	}
-	return fmt.Appendf(nil, `{"result": "success", "statusCode": 200, "data": {"result": "%s", "error": ""}}`, DefaultThresholdSecretsHex), nil
+	return json.Marshal(map[string]any{
+		"result":     "success",
+		"statusCode": 200,
+		"data": map[string]string{
+			"result": DefaultThresholdSecretsHex,
+			"error":  "",
+		},
+	})
 }
 
 // Mock EA prepends 0xab to source and user contract crops the answer to first 32 bytes
@@ -675,7 +691,16 @@ func CreateFunctionsNodes(
 	return bootstrapNode, oracleNodes, oracleIdentites
 }
 
-func ClientTestRequests(t *testing.T, owner *bind.TransactOpts, b evmtypes.Backend, clientContracts []deployedClientContract, requestLenBytes int, expectedSecrets []byte, subscriptionID uint64, timeout time.Duration) {
+func ClientTestRequests(
+	t *testing.T,
+	owner *bind.TransactOpts,
+	b evmtypes.Backend,
+	clientContracts []deployedClientContract,
+	requestLenBytes int,
+	expectedSecrets []byte,
+	subscriptionID uint64,
+	timeout time.Duration,
+) {
 	t.Helper()
 	var donID [32]byte
 	copy(donID[:], []byte(DefaultDONId))
@@ -696,8 +721,8 @@ func ClientTestRequests(t *testing.T, owner *bind.TransactOpts, b evmtypes.Backe
 			donID,
 		)
 		require.NoError(t, err)
-		client.FinalizeLatest(t, b)
 	}
+	client.FinalizeLatest(t, b)
 	// validate that all client contracts got correct responses to their requests
 	var wg sync.WaitGroup
 	for i := range clientContracts {
