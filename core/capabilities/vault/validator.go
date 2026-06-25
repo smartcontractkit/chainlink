@@ -161,6 +161,7 @@ func (r *RequestValidator) ValidateGetSecretsRequest(ctx context.Context, reques
 		return fmt.Errorf("request batch size exceeds maximum of %d", vaulttypes.MaxBatchSize)
 	}
 
+	uniqueIDs := map[string]bool{}
 	for idx, req := range request.Requests {
 		if req.Id == nil {
 			return errors.New("secret ID must have id set at index " + strconv.Itoa(idx))
@@ -171,6 +172,13 @@ func (r *RequestValidator) ValidateGetSecretsRequest(ctx context.Context, reques
 		if err := r.ValidateSecretIdentifier(ctx, req.Id.Key, req.Id.Owner, req.Id.Namespace); err != nil {
 			return fmt.Errorf("invalid secret identifier at index %d: %w", idx, err)
 		}
+
+		_, ok := uniqueIDs[vaulttypes.KeyFor(req.Id)]
+		if ok {
+			return errors.New("duplicate secret ID found at index " + strconv.Itoa(idx) + ": " + req.Id.String())
+		}
+
+		uniqueIDs[vaulttypes.KeyFor(req.Id)] = true
 	}
 
 	return nil
