@@ -36,6 +36,10 @@ import (
 
 type SecretsFetcher interface {
 	GetSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error)
+}
+
+type RawSecretsFetcher interface {
+	SecretsFetcher
 	GetRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vault.SecretResponse, error)
 	GetOwner() string
 }
@@ -88,7 +92,7 @@ func NewSecretsFetcher(
 	phaseID string,
 	workflowEncryptionKey workflowkey.Key,
 	overrideFetcher SecretsFetcher,
-) SecretsFetcher {
+) RawSecretsFetcher {
 	lggr = logger.Named(lggr, "WorkflowEngine.SecretsFetcher")
 	lggr = logger.With(lggr, "workflowID", workflowID, "workflowName", workflowName, "workflowOwner", workflowOwner, "phaseID", phaseID)
 	return &secretsFetcher{

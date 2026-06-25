@@ -13,7 +13,6 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -35,7 +34,7 @@ type stubExecutionHelper struct {
 	executionID string
 }
 
-var _ host.ExecutionHelperWithRawSecrets = (*stubExecutionHelper)(nil)
+var _ host.ExecutionHelper = (*stubExecutionHelper)(nil)
 
 func (s *stubExecutionHelper) CallCapability(context.Context, *sdkpb.CapabilityRequest) (*sdkpb.CapabilityResponse, error) {
 	return nil, nil
@@ -43,13 +42,7 @@ func (s *stubExecutionHelper) CallCapability(context.Context, *sdkpb.CapabilityR
 func (s *stubExecutionHelper) GetSecrets(context.Context, *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
 	return nil, nil
 }
-func (s *stubExecutionHelper) GetRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vaultcommon.SecretResponse, error) {
-	return nil, nil
-}
 
-func (s *stubExecutionHelper) GetOwner() string {
-	return "unused in test"
-}
 func (s *stubExecutionHelper) GetWorkflowExecutionID() string { return s.executionID }
 func (s *stubExecutionHelper) GetNodeTime() time.Time         { return time.Time{} }
 func (s *stubExecutionHelper) GetDONTime() (time.Time, error) { return time.Time{}, nil }

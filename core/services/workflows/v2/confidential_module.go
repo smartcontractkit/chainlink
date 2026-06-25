@@ -99,7 +99,7 @@ func (m *ConfidentialModule) Execute(
 	workflowExecutionID := helper.GetWorkflowExecutionID()
 	rawSecretsHelper, ok := helper.(host.ExecutionHelperWithRawSecrets)
 	if !ok {
-		return nil, fmt.Errorf("%T is not a host.ExecutionHelperWithRawSecrets and is not safe to use for confidential compute", helper)
+		return nil, fmt.Errorf("%T is not a host.executionHelperWithRawSecrets and is not safe to use for confidential compute", helper)
 	}
 	m.executionHandlers.AddExecution(m.workflowID, workflowExecutionID, rawSecretsHelper)
 	defer m.executionHandlers.RemoveExecution(m.workflowID, workflowExecutionID)
