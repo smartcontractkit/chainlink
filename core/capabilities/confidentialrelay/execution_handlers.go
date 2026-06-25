@@ -10,16 +10,16 @@ type ExecutionHandlers struct {
 	handlers sync.Map
 }
 
-func (e *ExecutionHandlers) AddExecution(workflowID, execId string, helper host.ExecutionHelperWithRawSecrets) {
-	e.handlers.Store(wfexecid(workflowID, execId), helper)
+func (e *ExecutionHandlers) AddExecution(workflowID, execID string, helper host.ExecutionHelperWithRawSecrets) {
+	e.handlers.Store(wfexecID(workflowID, execID), helper)
 }
 
-func (e *ExecutionHandlers) RemoveExecution(workflowID, execId string) {
-	e.handlers.Delete(wfexecid(workflowID, execId))
+func (e *ExecutionHandlers) RemoveExecution(workflowID, execID string) {
+	e.handlers.Delete(wfexecID(workflowID, execID))
 }
 
-func (e *ExecutionHandlers) GetExecution(workflowID, execId string) (host.ExecutionHelperWithRawSecrets, bool) {
-	value, ok := e.handlers.Load(wfexecid(workflowID, execId))
+func (e *ExecutionHandlers) GetExecution(workflowID, execID string) (host.ExecutionHelperWithRawSecrets, bool) {
+	value, ok := e.handlers.Load(wfexecID(workflowID, execID))
 	if !ok {
 		return nil, false
 	}
@@ -28,6 +28,6 @@ func (e *ExecutionHandlers) GetExecution(workflowID, execId string) (host.Execut
 	return helper, ok
 }
 
-func wfexecid(workflowID, execId string) string {
-	return workflowID + "." + execId
+func wfexecID(workflowID, execID string) string {
+	return workflowID + "." + execID
 }

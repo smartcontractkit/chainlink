@@ -653,6 +653,7 @@ func TestHandler_Lifecycle(t *testing.T) {
 // EnclaveConfig and have it accepted. The check runs on both the capability
 // execute and secrets get paths.
 func TestHandler_VerifyEnclaveConfig(t *testing.T) {
+	t.Parallel()
 	// capExecHandler builds a handler whose execution helper succeeds, so any rejection
 	// observed comes from the enclave-config check rather than a missing execution.
 	capExecHandler := func(t *testing.T) (*Handler, *mockGatewayConnector) {
