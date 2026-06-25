@@ -261,6 +261,9 @@ TransmitConcurrency = 456
 ReaperFrequency = '9m27s'
 ReaperMaxAge = '678h0m0s'
 
+[Mercury.DataSource]
+ObservationTimingBase = '50ms'
+
 [Capabilities]
 [Capabilities.RateLimit]
 GlobalRPS = 200.0
@@ -453,9 +456,6 @@ ShardOrchestratorAddress = ''
 
 [LOOPP]
 GRPCServerMaxRecvMsgSize = '42.00mb'
-
-[Mercury.DataSource]
-ObservationTimingBase = '50ms'
 
 [[EVM]]
 ChainID = '1'
