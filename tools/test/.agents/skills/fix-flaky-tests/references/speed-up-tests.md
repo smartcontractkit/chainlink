@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 Optimize slow tests. See below sections for first checks and former lessons learned on this repo. If done with these suggestions, conduct your own exploration through code and logs to determine bottlenecks and hypothesize fixes. If you need extra logs/traces to confirm/deny theories, add them, or ask the user to.
 
 <first-look>
@@ -5,10 +6,17 @@ Optimize slow tests. See below sections for first checks and former lessons lear
 2. Look to add `t.Parallel()` where safe and possible.
 3. Use `testing/synctest` where sensible to improve speed and stability.
 </first-look>
+=======
+Optimize slow tests. Exclude non-deterministic flakes/panics.
+
+1. Replace `t.Sleep()` and coarse polling with `require.Eventually` and tight intervals.
+2. Look to add `t.Parallel()` where safe and possible.
+>>>>>>> a42017c16e6c4463a6c9957b9683d90daa449013
 
 <lessons-learned>
 1. Block mining bottleneck. Lower `cltest.Mine` frequency. Simulation resolve faster. Mine faster than `DeltaRound` or hit "cannot access old blocks" error.
 2. EVM polling slow. Lower `LogPollInterval` to 100ms. Nodes find events faster.
+<<<<<<< HEAD
 
 <node-config>
 Prefer not to mess with node/OCR configs except as last resort.
@@ -16,4 +24,9 @@ Prefer not to mess with node/OCR configs except as last resort.
 2. OCR timeouts not bottleneck. Lowering `DeltaRound` or `MaxDurationObservation` cause timeout flake. Nodes need time for consensus.
 3. Libocr bounds strict. Lowering `ContractConfigTrackerPollInterval` under 1s fail job validation instantly. Do not touch core OCR configs.
 </node-config>
+=======
+3. P2P discovery slow. Lower `DeltaDial` and `DeltaReconcile` to 100ms. Nodes sync faster.
+4. OCR timeouts not bottleneck. Lowering `DeltaRound` or `MaxDurationObservation` cause timeout flake. Nodes need time for consensus.
+5. Libocr bounds strict. Lowering `ContractConfigTrackerPollInterval` under 1s fail job validation instantly. Do not touch core OCR configs.
+>>>>>>> a42017c16e6c4463a6c9957b9683d90daa449013
 </lessons-learned>

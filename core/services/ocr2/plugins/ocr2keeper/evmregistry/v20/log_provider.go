@@ -16,9 +16,7 @@ import (
 	pluginutils "github.com/smartcontractkit/chainlink-automation/pkg/util"
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 	"github.com/smartcontractkit/chainlink-automation/pkg/v2/encoding"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -251,14 +249,14 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 
 	vals := []ocr2keepers.StaleReportLog{}
 	for _, r := range reorged {
-		upkeepId := ocr2keepers.UpkeepIdentifier(r.Id.String())
-		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(ctx, r.TxHash, upkeepId)
+		upkeepID := ocr2keepers.UpkeepIdentifier(r.Id.String())
+		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(ctx, r.TxHash, upkeepID)
 		if err != nil {
 			c.logger.Error("error while fetching checkBlockNumber from reorged report log: %w", err)
 			continue
 		}
 		l := ocr2keepers.StaleReportLog{
-			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
+			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepID),
 			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
 			TransactionHash: r.TxHash.Hex(),
 			Confirmations:   end.BlockNumber - r.BlockNumber,
@@ -266,14 +264,14 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 		vals = append(vals, l)
 	}
 	for _, r := range staleUpkeep {
-		upkeepId := ocr2keepers.UpkeepIdentifier(r.Id.String())
-		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(ctx, r.TxHash, upkeepId)
+		upkeepID := ocr2keepers.UpkeepIdentifier(r.Id.String())
+		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(ctx, r.TxHash, upkeepID)
 		if err != nil {
 			c.logger.Error("error while fetching checkBlockNumber from stale report log: %w", err)
 			continue
 		}
 		l := ocr2keepers.StaleReportLog{
-			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
+			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepID),
 			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
 			TransactionHash: r.TxHash.Hex(),
 			Confirmations:   end.BlockNumber - r.BlockNumber,
@@ -281,14 +279,14 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 		vals = append(vals, l)
 	}
 	for _, r := range insufficientFunds {
-		upkeepId := ocr2keepers.UpkeepIdentifier(r.Id.String())
-		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(ctx, r.TxHash, upkeepId)
+		upkeepID := ocr2keepers.UpkeepIdentifier(r.Id.String())
+		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(ctx, r.TxHash, upkeepID)
 		if err != nil {
 			c.logger.Error("error while fetching checkBlockNumber from insufficient funds report log: %w", err)
 			continue
 		}
 		l := ocr2keepers.StaleReportLog{
-			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
+			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepID),
 			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
 			TransactionHash: r.TxHash.Hex(),
 			Confirmations:   end.BlockNumber - r.BlockNumber,
@@ -309,19 +307,17 @@ func (c *LogProvider) unmarshalPerformLogs(logs []logpoller.Log) ([]performed, e
 			return results, err
 		}
 
-		switch l := abilog.(type) {
-		case *registry.KeeperRegistryUpkeepPerformed:
-			if l == nil {
-				continue
-			}
-
-			r := performed{
-				Log:                           log,
-				KeeperRegistryUpkeepPerformed: *l,
-			}
-
-			results = append(results, r)
+		l, ok := abilog.(*registry.KeeperRegistryUpkeepPerformed)
+		if !ok || l == nil {
+			continue
 		}
+
+		r := performed{
+			Log:                           log,
+			KeeperRegistryUpkeepPerformed: *l,
+		}
+
+		results = append(results, r)
 	}
 
 	return results, nil
@@ -337,19 +333,17 @@ func (c *LogProvider) unmarshalReorgUpkeepLogs(logs []logpoller.Log) ([]reorged,
 			return results, err
 		}
 
-		switch l := abilog.(type) {
-		case *registry.KeeperRegistryReorgedUpkeepReport:
-			if l == nil {
-				continue
-			}
-
-			r := reorged{
-				Log:                               log,
-				KeeperRegistryReorgedUpkeepReport: *l,
-			}
-
-			results = append(results, r)
+		l, ok := abilog.(*registry.KeeperRegistryReorgedUpkeepReport)
+		if !ok || l == nil {
+			continue
 		}
+
+		r := reorged{
+			Log:                               log,
+			KeeperRegistryReorgedUpkeepReport: *l,
+		}
+
+		results = append(results, r)
 	}
 
 	return results, nil
@@ -365,19 +359,17 @@ func (c *LogProvider) unmarshalStaleUpkeepLogs(logs []logpoller.Log) ([]staleUpk
 			return results, err
 		}
 
-		switch l := abilog.(type) {
-		case *registry.KeeperRegistryStaleUpkeepReport:
-			if l == nil {
-				continue
-			}
-
-			r := staleUpkeep{
-				Log:                             log,
-				KeeperRegistryStaleUpkeepReport: *l,
-			}
-
-			results = append(results, r)
+		l, ok := abilog.(*registry.KeeperRegistryStaleUpkeepReport)
+		if !ok || l == nil {
+			continue
 		}
+
+		r := staleUpkeep{
+			Log:                             log,
+			KeeperRegistryStaleUpkeepReport: *l,
+		}
+
+		results = append(results, r)
 	}
 
 	return results, nil
@@ -393,19 +385,17 @@ func (c *LogProvider) unmarshalInsufficientFundsUpkeepLogs(logs []logpoller.Log)
 			return results, err
 		}
 
-		switch l := abilog.(type) {
-		case *registry.KeeperRegistryInsufficientFundsUpkeepReport:
-			if l == nil {
-				continue
-			}
-
-			r := insufficientFunds{
-				Log: log,
-				KeeperRegistryInsufficientFundsUpkeepReport: *l,
-			}
-
-			results = append(results, r)
+		l, ok := abilog.(*registry.KeeperRegistryInsufficientFundsUpkeepReport)
+		if !ok || l == nil {
+			continue
 		}
+
+		r := insufficientFunds{
+			Log: log,
+			KeeperRegistryInsufficientFundsUpkeepReport: *l,
+		}
+
+		results = append(results, r)
 	}
 
 	return results, nil

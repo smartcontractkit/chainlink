@@ -8,10 +8,9 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	evm "github.com/smartcontractkit/chainlink-evm/pkg/automation/v21"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-
-	evm "github.com/smartcontractkit/chainlink-evm/pkg/automation/v21"
 )
 
 // const historySize = 4
@@ -19,6 +18,7 @@ import (
 const finality = uint32(4)
 
 func TestNewAutomationCustomTelemetryService(t *testing.T) {
+	t.Parallel()
 	me := &MockMonitoringEndpoint{}
 	lggr := logger.Test(t)
 	var hb heads.Broadcaster

@@ -13,15 +13,12 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	coreTypes "github.com/ethereum/go-ethereum/core/types"
-
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	coreTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
@@ -37,9 +34,9 @@ const (
 	// DefaultCooldownExpiration decides how long a Mercury upkeep will be put in cool down for the first time. within
 	// 10 minutes, subsequent failures will result in double amount of cool down period.
 	DefaultCooldownExpiration = 5 * time.Second
-	// DefaultApiErrExpiration decides a running sum of total errors of an upkeep in this 10 minutes window. it is used
+	// DefaultAPIErrExpiration decides a running sum of total errors of an upkeep in this 10 minutes window. it is used
 	// to decide how long the cool down period will be.
-	DefaultApiErrExpiration = 10 * time.Minute
+	DefaultAPIErrExpiration = 10 * time.Minute
 	// CleanupInterval decides when the expired items in cache will be deleted.
 	CleanupInterval = 15 * time.Minute
 )
@@ -139,7 +136,7 @@ type activeUpkeep struct {
 	CheckData       []byte
 }
 
-type EvmRegistry struct {
+type EvmRegistry struct { //nolint:revive // exported name retained for compatibility with existing automation API
 	HeadProvider
 	sync          services.StateMachine
 	lggr          logger.Logger
@@ -576,7 +573,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 	)
 
 	for i, key := range keys {
-		block, upkeepId, err := splitKey(key)
+		block, upkeepID, err := splitKey(key)
 		if err != nil {
 			return nil, err
 		}
@@ -586,7 +583,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 			return nil, err
 		}
 
-		payload, err := r.abi.Pack("checkUpkeep", upkeepId)
+		payload, err := r.abi.Pack("checkUpkeep", upkeepID)
 		if err != nil {
 			return nil, err
 		}
@@ -763,7 +760,8 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 		results  = make([]activeUpkeep, len(ids))
 	)
 
-	for i, req := range uReqs {
+	for i := range ids {
+		req := uReqs[i]
 		if req.Error != nil {
 			r.lggr.Debugf("error encountered for config id %s with message '%s' in get config", ids[i], req.Error)
 			multiErr = errors.Join(multiErr, req.Error)

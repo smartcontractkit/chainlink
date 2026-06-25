@@ -3,6 +3,7 @@ package evm
 import (
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"strings"
 
@@ -20,13 +21,13 @@ type evmRegistryPackerV2_0 struct {
 // enum UpkeepFailureReason
 // https://github.com/smartcontractkit/chainlink/blob/d9dee8ea6af26bc82463510cb8786b951fa98585/contracts/src/v0.8/interfaces/AutomationRegistryInterface2_0.sol#L94
 const (
-	UPKEEP_FAILURE_REASON_NONE = iota
-	UPKEEP_FAILURE_REASON_UPKEEP_CANCELLED
-	UPKEEP_FAILURE_REASON_UPKEEP_PAUSED
-	UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED
-	UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED
-	UPKEEP_FAILURE_REASON_PERFORM_DATA_EXCEEDS_LIMIT
-	UPKEEP_FAILURE_REASON_INSUFFICIENT_BALANCE
+	UpkeepFailureReasonNone = iota
+	UpkeepFailureReasonUpkeepCancelled
+	UpkeepFailureReasonUpkeepPaused
+	UpkeepFailureReasonTargetCheckReverted
+	UpkeepFailureReasonUpkeepNotNeeded
+	UpkeepFailureReasonPerformDataExceedsLimit
+	UpkeepFailureReasonInsufficientBalance
 )
 
 func NewEvmRegistryPackerV2_0(abi abi.ABI) *evmRegistryPackerV2_0 {
@@ -53,8 +54,13 @@ func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key ocr2keepers.UpkeepKey, ra
 		return result, err
 	}
 
+	blockNum := block.Uint64()
+	if blockNum > math.MaxUint32 {
+		return result, fmt.Errorf("block number overflows uint32: %d", blockNum)
+	}
+
 	result = EVMAutomationUpkeepResult20{
-		Block:    uint32(block.Uint64()),
+		Block:    uint32(blockNum),
 		ID:       id,
 		Eligible: true,
 	}
@@ -70,7 +76,7 @@ func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key ocr2keepers.UpkeepKey, ra
 		result.Eligible = false
 	}
 	// if NONE we expect the perform data. if TARGET_CHECK_REVERTED we will have the error data in the perform data used for off chain lookup
-	if result.FailureReason == UPKEEP_FAILURE_REASON_NONE || (result.FailureReason == UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED && len(rawPerformData) > 0) {
+	if result.FailureReason == UpkeepFailureReasonNone || (result.FailureReason == UpkeepFailureReasonTargetCheckReverted && len(rawPerformData) > 0) {
 		var ret0 = new(performDataWrapper)
 		err = pdataABI.UnpackIntoInterface(ret0, "check", rawPerformData)
 		if err != nil {

@@ -12,8 +12,24 @@ import (
 	"github.com/smartcontractkit/chainlink-automation/pkg/v2/encoding"
 )
 
-type EVMAutomationEncoder20 struct {
+type EVMAutomationEncoder20 struct { //nolint:revive // exported name retained for compatibility with existing automation API
 	encoding.BasicEncoder
+	packFn          func(args ...any) ([]byte, error)
+	unpackIntoMapFn func(v map[string]any, data []byte) error
+}
+
+func (enc EVMAutomationEncoder20) pack(args ...any) ([]byte, error) {
+	if enc.packFn != nil {
+		return enc.packFn(args...)
+	}
+	return reportArgs.Pack(args...)
+}
+
+func (enc EVMAutomationEncoder20) unpackIntoMap(v map[string]any, data []byte) error {
+	if enc.unpackIntoMapFn != nil {
+		return enc.unpackIntoMapFn(v, data)
+	}
+	return reportArgs.UnpackIntoMap(v, data)
 }
 
 var (
@@ -26,8 +42,6 @@ var (
 	}
 	PerformDataArr, _   = abi.NewType("tuple(uint32,bytes32,bytes)[]", "", PerformDataMarshalingArgs)
 	ErrUnexpectedResult = errors.New("unexpected result struct")
-	packFn              = reportArgs.Pack
-	unpackIntoMapFn     = reportArgs.UnpackIntoMap
 	mKeys               = []string{"fastGasWei", "linkNative", "upkeepIds", "wrappedPerformDatas"}
 	reportArgs          = abi.Arguments{
 		{Name: mKeys[0], Type: Uint256},
@@ -37,7 +51,7 @@ var (
 	}
 )
 
-type EVMAutomationUpkeepResult20 struct {
+type EVMAutomationUpkeepResult20 struct { //nolint:revive // exported name retained for compatibility with existing automation API
 	// Block is the block number used to build an UpkeepKey for this result
 	Block uint32
 	// ID is the unique identifier for the upkeep
@@ -89,7 +103,7 @@ func (enc EVMAutomationEncoder20) EncodeReport(toReport []ocr2keepers.UpkeepResu
 		}
 	}
 
-	bts, err := packFn(fastGas, link, ids, data)
+	bts, err := enc.pack(fastGas, link, ids, data)
 	if err != nil {
 		return []byte{}, fmt.Errorf("%w: failed to pack report data", err)
 	}
@@ -99,7 +113,7 @@ func (enc EVMAutomationEncoder20) EncodeReport(toReport []ocr2keepers.UpkeepResu
 
 func (enc EVMAutomationEncoder20) DecodeReport(report []byte) ([]ocr2keepers.UpkeepResult, error) {
 	m := make(map[string]any)
-	if err := unpackIntoMapFn(m, report); err != nil {
+	if err := enc.unpackIntoMap(m, report); err != nil {
 		return nil, err
 	}
 
@@ -113,12 +127,12 @@ func (enc EVMAutomationEncoder20) DecodeReport(report []byte) ([]ocr2keepers.Upk
 
 	var (
 		ok        bool
-		upkeepIds []*big.Int
+		upkeepIDs []*big.Int
 		wei       *big.Int
 		link      *big.Int
 	)
 
-	if upkeepIds, ok = m[mKeys[2]].([]*big.Int); !ok {
+	if upkeepIDs, ok = m[mKeys[2]].([]*big.Int); !ok {
 		return res, errors.New("upkeep ids of incorrect type in report")
 	}
 
@@ -138,7 +152,7 @@ func (enc EVMAutomationEncoder20) DecodeReport(report []byte) ([]ocr2keepers.Upk
 		return res, errors.New("performs of incorrect structure in report")
 	}
 
-	if len(upkeepIds) != len(performs) {
+	if len(upkeepIDs) != len(performs) {
 		return res, errors.New("upkeep ids and performs should have matching length")
 	}
 
@@ -150,12 +164,12 @@ func (enc EVMAutomationEncoder20) DecodeReport(report []byte) ([]ocr2keepers.Upk
 		return res, errors.New("link native as wrong type")
 	}
 
-	res = make([]ocr2keepers.UpkeepResult, len(upkeepIds))
+	res = make([]ocr2keepers.UpkeepResult, len(upkeepIDs))
 
-	for i := 0; i < len(upkeepIds); i++ {
+	for i := 0; i < len(upkeepIDs); i++ {
 		r := EVMAutomationUpkeepResult20{
 			Block:            performs[i].CheckBlockNumber,
-			ID:               upkeepIds[i],
+			ID:               upkeepIDs[i],
 			Eligible:         true,
 			PerformData:      performs[i].PerformData,
 			FastGasWei:       wei,

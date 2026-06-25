@@ -11,6 +11,7 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/jmoiron/sqlx"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
@@ -27,13 +28,13 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
 func TestIntegration_LogEventProvider(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
@@ -82,8 +83,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 	waitLogProvider(ctx, t, logProvider, 3)
 
 	allPayloads := collectPayloads(ctx, t, logProvider, n, logsRounds/2)
-	require.GreaterOrEqual(t, len(allPayloads), n,
-		"failed to get logs after restart")
+	require.GreaterOrEqual(t, len(allPayloads), n, "failed to get logs after restart")
 
 	t.Run("Restart", func(t *testing.T) {
 		t.Log("restarting log provider")
@@ -108,7 +108,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 				TriggerConfig: newPlainLogTriggerConfig(addrs[i]),
 				// using block number at which the upkeep was registered,
 				// before we emitted any logs
-				UpdateBlock: uint64(n),
+				UpdateBlock: 10,
 			})
 			require.NoError(t, err)
 		}
@@ -117,12 +117,12 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 
 		t.Log("getting logs after restart")
 		logsAfterRestart := collectPayloads(ctx, t, logProvider2, n, 5)
-		require.GreaterOrEqual(t, len(logsAfterRestart), n,
-			"failed to get logs after restart")
+		require.GreaterOrEqual(t, len(logsAfterRestart), n, "failed to get logs after restart")
 	})
 }
 
 func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	backend, stopMining, accounts := setupBackend(t)
@@ -147,7 +147,7 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 	require.Len(t, contracts, 1)
 	require.Len(t, addrs, 1)
 
-	t.Run("update filter config", func(t *testing.T) {
+	t.Run("update filter config", func(t *testing.T) { //nolint:paralleltest // uses parent-scoped db and log provider
 		upkeepID := evmregistry21.GenUpkeepID(types.LogTrigger, "111")
 		id := upkeepID.BigInt()
 		cfg := newPlainLogTriggerConfig(addrs[0])
@@ -179,7 +179,7 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("register same log filter", func(t *testing.T) {
+	t.Run("register same log filter", func(t *testing.T) { //nolint:paralleltest // uses parent-scoped db and log provider
 		upkeepID := evmregistry21.GenUpkeepID(types.LogTrigger, "222")
 		id := upkeepID.BigInt()
 		cfg := newPlainLogTriggerConfig(addrs[0])
@@ -196,6 +196,7 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 }
 
 func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(t.Context(), tests.WaitTimeout(t))
 	defer cancel()
 
@@ -248,6 +249,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 }
 
 func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	backend, stopMining, accounts := setupBackend(t)
@@ -299,10 +301,7 @@ func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
 	}
 	// starting the log recoverer should backfill logs
 	go func() {
-		if startErr := recoverer.Start(ctx); startErr != nil {
-			t.Logf("error starting log provider: %s", startErr)
-			t.Fail()
-		}
+		assert.NoError(t, recoverer.Start(ctx), "error starting log provider")
 	}()
 	defer recoverer.Close()
 
@@ -359,9 +358,7 @@ func waitLogPoller(ctx context.Context, t *testing.T, commit func() common.Hash,
 	require.NoError(t, err)
 	latestBlock := b.Number().Int64()
 	for {
-		if err := ctx.Err(); err != nil {
-			require.FailNowf(t, "waitLogPoller", "context done before poller reached block %d: %v", latestBlock, err)
-		}
+		require.NoError(t, ctx.Err(), "context done before poller reached block %d", latestBlock)
 		latestPolled, lberr := lp.LatestBlock(ctx)
 		require.NoError(t, lberr)
 		if latestPolled.BlockNumber >= latestBlock {
@@ -495,7 +492,7 @@ func setupBackend(t *testing.T) (backend evmtypes.Backend, stop func(), opts []*
 		carrol.From: {Balance: assets.Ether(1000000000000000000).ToInt()},
 	}
 	backend = cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
-	_, stop = cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
+	_, stop = cltest.Mine(backend, 200*time.Millisecond) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 	opts = []*bind.TransactOpts{sergey, steve, carrol}
 	return
 }

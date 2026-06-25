@@ -1,6 +1,7 @@
 package ocr2keeper_test
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -15,16 +16,13 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/onsi/gomega"
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/umbracle/ethgo/abi"
-
 	"github.com/smartcontractkit/freeport"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/umbracle/ethgo/abi"
 
 	"github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
@@ -35,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/basic_upkeep_contract"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_logic2_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
@@ -114,7 +111,7 @@ func setupNode(
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 	mercury mercury.MercuryEndpointMock,
 ) (chainlink.Application, string, common.Address, ocr2key.KeyBundle) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(int64(port)))
 	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
 	cfg, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -125,8 +122,8 @@ func setupNode(
 
 		c.P2P.PeerID = new(p2pKey.PeerID())
 		c.P2P.V2.Enabled = new(true)
-		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(500 * time.Millisecond)
-		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
+		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(100 * time.Millisecond)
+		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(100 * time.Millisecond)
 		c.P2P.V2.AnnounceAddresses = &p2paddresses
 		c.P2P.V2.ListenAddresses = &p2paddresses
 		if len(p2pV2Bootstrappers) > 0 {
@@ -135,6 +132,7 @@ func setupNode(
 
 		c.EVM[0].Transactions.ForwardersEnabled = new(true)
 		c.EVM[0].GasEstimator.Mode = new("FixedPrice")
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
 		s.Mercury.Credentials = map[string]toml.MercuryCredentials{
 			MercuryCredName: {
 				LegacyURL: models.MustSecretURL(mercury.URL()),
@@ -167,35 +165,35 @@ type Node struct {
 
 func (node *Node) AddJob(t *testing.T, spec string) {
 	c := node.App.GetConfig()
-	jb, err := validate.ValidatedOracleSpecToml(testutils.Context(t), c.OCR2(), c.Insecure(), spec, nil)
+	jb, err := validate.ValidatedOracleSpecToml(t.Context(), c.OCR2(), c.Insecure(), spec, nil)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(testutils.Context(t), &jb)
+	err = node.App.AddJobV2(t.Context(), &jb)
 	require.NoError(t, err)
 }
 
 func (node *Node) AddBootstrapJob(t *testing.T, spec string) {
 	jb, err := ocrbootstrap.ValidatedBootstrapSpecToml(spec)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(testutils.Context(t), &jb)
+	err = node.App.AddJobV2(t.Context(), &jb)
 	require.NoError(t, err)
 }
 
 func accountsToAddress(accounts []ocrTypes.Account) (addresses []common.Address, err error) {
 	for _, signer := range accounts {
-		bytes, err := hexutil.Decode(string(signer))
+		addrBytes, err := hexutil.Decode(string(signer))
 		if err != nil {
-			return []common.Address{}, errors.Wrap(err, fmt.Sprintf("given address is not valid %s", signer))
+			return []common.Address{}, fmt.Errorf("given address is not valid %s: %w", signer, err)
 		}
-		if len(bytes) != 20 {
-			return []common.Address{}, errors.Errorf("address is not 20 bytes %s", signer)
+		if len(addrBytes) != 20 {
+			return []common.Address{}, fmt.Errorf("address is not 20 bytes %s", signer)
 		}
-		addresses = append(addresses, common.BytesToAddress(bytes))
+		addresses = append(addresses, common.BytesToAddress(addrBytes))
 	}
 	return addresses, nil
 }
 
 func getUpkeepIDFromTx(t *testing.T, registry *keeper_registry_wrapper2_0.KeeperRegistry, registrationTx *gethtypes.Transaction, backend evmtypes.Backend) *big.Int {
-	receipt, err := backend.Client().TransactionReceipt(testutils.Context(t), registrationTx.Hash())
+	receipt, err := backend.Client().TransactionReceipt(t.Context(), registrationTx.Hash())
 	require.NoError(t, err)
 	parsedLog, err := registry.ParseUpkeepRegistered(*receipt.Logs[0])
 	require.NoError(t, err)
@@ -204,11 +202,11 @@ func getUpkeepIDFromTx(t *testing.T, registry *keeper_registry_wrapper2_0.Keeper
 
 func TestIntegration_KeeperPluginBasic(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/AUTO-11072")
+	t.Parallel()
 	runKeeperPluginBasic(t)
 }
 
 func runKeeperPluginBasic(t *testing.T) {
-	g := gomega.NewWithT(t)
 	lggr := logger.TestLogger(t)
 
 	// setup blockchain
@@ -228,7 +226,7 @@ func runKeeperPluginBasic(t *testing.T) {
 	}
 
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
-	_, stopMining := cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
+	_, stopMining := cltest.Mine(backend, 200*time.Millisecond) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 	defer stopMining()
 
 	// Deploy contracts
@@ -247,8 +245,8 @@ func runKeeperPluginBasic(t *testing.T) {
 		appBootstrap, bootstrapTransmitter, bootstrapKb,
 	}
 	var (
-		oracles []confighelper.OracleIdentityExtra
-		nodes   []Node
+		oracles = make([]confighelper.OracleIdentityExtra, 0, 4)
+		nodes   = make([]Node, 0, 4)
 	)
 	// Set up the minimum 4 oracles all funded
 	ports := freeport.GetN(t, 4)
@@ -411,12 +409,11 @@ func runKeeperPluginBasic(t *testing.T) {
 	lggr.Infow("Upkeep registered and funded", "upkeepID", upkeepID.String())
 
 	// keeper job is triggered and payload is received
-	receivedBytes := func() []byte {
+	require.Eventually(t, func() bool {
 		received, err2 := upkeepContract.ReceivedBytes(nil)
 		require.NoError(t, err2)
-		return received
-	}
-	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload1))
+		return bytes.Equal(received, payload1)
+	}, testutils.WaitTimeout(t), cltest.DBPollingInterval)
 
 	// change payload
 	_, err = upkeepContract.SetBytesToSend(carrol, payload2)
@@ -425,7 +422,11 @@ func runKeeperPluginBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	// observe 2nd job run and received payload changes
-	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload2))
+	require.Eventually(t, func() bool {
+		received, err2 := upkeepContract.ReceivedBytes(nil)
+		require.NoError(t, err2)
+		return bytes.Equal(received, payload2)
+	}, testutils.WaitTimeout(t), cltest.DBPollingInterval)
 }
 
 func setupForwarderForNode(
@@ -435,7 +436,7 @@ func setupForwarderForNode(
 	backend evmtypes.Backend,
 	recipient common.Address,
 	linkAddr common.Address) common.Address {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	faddr, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(caller, backend.Client(), linkAddr, caller.From, recipient, []byte{})
 	require.NoError(t, err)
 	backend.Commit()
@@ -447,12 +448,12 @@ func setupForwarderForNode(
 
 	// add forwarder address to be tracked in db
 	forwarderORM := forwarders.NewORM(app.GetDB())
-	chainID, err := backend.Client().ChainID(testutils.Context(t))
+	chainID, err := backend.Client().ChainID(t.Context())
 	require.NoError(t, err)
 	_, err = forwarderORM.CreateForwarder(ctx, faddr, sqlutil.Big(*chainID))
 	require.NoError(t, err)
 
-	chainService, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
+	chainService, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String()) //nolint:staticcheck // TODO: migrate to relayer interface
 	require.NoError(t, err)
 	chain, ok := chainService.(legacyevm.Chain)
 	require.True(t, ok)
@@ -465,7 +466,6 @@ func setupForwarderForNode(
 
 func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	t.Parallel()
-	g := gomega.NewWithT(t)
 	lggr := logger.TestLogger(t)
 
 	// setup blockchain
@@ -485,7 +485,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	}
 
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
-	_, stopMining := cltest.Mine(backend, 6*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
+	_, stopMining := cltest.Mine(backend, 200*time.Millisecond) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 	defer stopMining()
 
 	// Deploy contracts
@@ -500,7 +500,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	backend.Commit()
 	registry := deployKeeper20Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
 
-	effectiveTransmitters := make([]common.Address, 0)
+	effectiveTransmitters := make([]common.Address, 0, 4)
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := freeport.GetOne(t)
 	appBootstrap, bootstrapPeerID, bootstrapTransmitter, bootstrapKb := setupNode(t, bootstrapNodePort, nodeKeys[0], backend, nil, mercury.NewSimulatedMercuryServer())
@@ -509,8 +509,8 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 		appBootstrap, bootstrapTransmitter, bootstrapKb,
 	}
 	var (
-		oracles []confighelper.OracleIdentityExtra
-		nodes   []Node
+		oracles = make([]confighelper.OracleIdentityExtra, 0, 4)
+		nodes   = make([]Node, 0, 4)
 	)
 	// Set up the minimum 4 oracles all funded
 	ports := freeport.GetN(t, 4)
@@ -630,7 +630,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	require.NoError(t, err)
 
 	// Make sure we are using forwarders and not node keys as transmitters on chain.
-	eoaList := make([]common.Address, 0)
+	eoaList := make([]common.Address, 0, len(nodes))
 	for _, n := range nodes {
 		eoaList = append(eoaList, n.Transmitter)
 	}
@@ -687,12 +687,11 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	lggr.Infow("Upkeep registered and funded")
 
 	// keeper job is triggered and payload is received
-	receivedBytes := func() []byte {
+	require.Eventually(t, func() bool {
 		received, err2 := upkeepContract.ReceivedBytes(nil)
 		require.NoError(t, err2)
-		return received
-	}
-	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload1))
+		return bytes.Equal(received, payload1)
+	}, testutils.WaitTimeout(t), cltest.DBPollingInterval)
 
 	// change payload
 	_, err = upkeepContract.SetBytesToSend(carrol, payload2)
@@ -703,10 +702,15 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	backend.Commit()
 
 	// observe 2nd job run and received payload changes
-	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload2))
+	require.Eventually(t, func() bool {
+		received, err2 := upkeepContract.ReceivedBytes(nil)
+		require.NoError(t, err2)
+		return bytes.Equal(received, payload2)
+	}, testutils.WaitTimeout(t), cltest.DBPollingInterval)
 }
 
 func TestFilterNamesFromSpec20(t *testing.T) {
+	t.Parallel()
 	b := make([]byte, 20)
 	_, err := rand.Read(b)
 	require.NoError(t, err)
