@@ -14,6 +14,22 @@ import (
 
 type EVMAutomationEncoder20 struct { //nolint:revive // exported name retained for compatibility with existing automation API
 	encoding.BasicEncoder
+	packFn          func(args ...any) ([]byte, error)
+	unpackIntoMapFn func(v map[string]any, data []byte) error
+}
+
+func (enc EVMAutomationEncoder20) pack(args ...any) ([]byte, error) {
+	if enc.packFn != nil {
+		return enc.packFn(args...)
+	}
+	return reportArgs.Pack(args...)
+}
+
+func (enc EVMAutomationEncoder20) unpackIntoMap(v map[string]any, data []byte) error {
+	if enc.unpackIntoMapFn != nil {
+		return enc.unpackIntoMapFn(v, data)
+	}
+	return reportArgs.UnpackIntoMap(v, data)
 }
 
 var (
@@ -26,8 +42,6 @@ var (
 	}
 	PerformDataArr, _   = abi.NewType("tuple(uint32,bytes32,bytes)[]", "", PerformDataMarshalingArgs)
 	ErrUnexpectedResult = errors.New("unexpected result struct")
-	packFn              = reportArgs.Pack
-	unpackIntoMapFn     = reportArgs.UnpackIntoMap
 	mKeys               = []string{"fastGasWei", "linkNative", "upkeepIds", "wrappedPerformDatas"}
 	reportArgs          = abi.Arguments{
 		{Name: mKeys[0], Type: Uint256},
@@ -89,7 +103,7 @@ func (enc EVMAutomationEncoder20) EncodeReport(toReport []ocr2keepers.UpkeepResu
 		}
 	}
 
-	bts, err := packFn(fastGas, link, ids, data)
+	bts, err := enc.pack(fastGas, link, ids, data)
 	if err != nil {
 		return []byte{}, fmt.Errorf("%w: failed to pack report data", err)
 	}
@@ -99,7 +113,7 @@ func (enc EVMAutomationEncoder20) EncodeReport(toReport []ocr2keepers.UpkeepResu
 
 func (enc EVMAutomationEncoder20) DecodeReport(report []byte) ([]ocr2keepers.UpkeepResult, error) {
 	m := make(map[string]any)
-	if err := unpackIntoMapFn(m, report); err != nil {
+	if err := enc.unpackIntoMap(m, report); err != nil {
 		return nil, err
 	}
 
