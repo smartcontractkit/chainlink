@@ -66,12 +66,6 @@ func (p *GatewayVaultRequestProcessor) ProcessRequest(
 	req *jsonrpc.Request[json.RawMessage],
 	publicKey *tdh2easy.PublicKey,
 ) (*AuthorizedGatewayVaultRequest, error) {
-	if p == nil || p.authorizer == nil || p.validator == nil {
-		err := errors.New("gateway vault request processor is not configured")
-		p.lggr.Errorw("gateway vault request processor unavailable", "method", req.Method, "requestID", req.ID, "error", err)
-		return nil, err
-	}
-
 	if p.stripOwnerPrefixForAuth {
 		originalRequestID, _ := stripPrefixedVaultRequestID(req.ID)
 		req.ID = originalRequestID
