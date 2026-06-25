@@ -712,8 +712,6 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		MaxUserMetricNameLengthLimiter:       h.engineLimiters.UserMetricNameLength,
 		MaxUserMetricLabelsPerMetricLimiter:  h.engineLimiters.UserMetricLabelsPerMetric,
 		MaxUserMetricLabelValueLengthLimiter: h.engineLimiters.UserMetricLabelValueLength,
-		SuspensionEnabled:                    true,
-
 		SdkLabeler: func(name string) {
 			sdkName = name
 			h.emitterMu.Lock()

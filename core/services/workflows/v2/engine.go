@@ -964,6 +964,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	execHelper.initLimiters(e.cfg.LocalLimiters)
 	e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).RecordTriggerPayloadBytes(ctx, int64(proto.Size(triggerEvent.Payload)))
 	var result *sdkpb.ExecutionResult
+	suspendOnAwaitEnabled, _ := cresettings.Default.PerOwner.SuspendOnAwaitEnabled.GetOrDefault(execCtx, e.cfg.LocalLimiters.Settings)
 	result, execErr = e.cfg.Module.Execute(execCtx, &sdkpb.ExecuteRequest{
 		Request: &sdkpb.ExecuteRequest_Trigger{
 			Trigger: &sdkpb.Trigger{
@@ -972,6 +973,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 			},
 		},
 		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes),
+		SuspendOnAwait:  suspendOnAwaitEnabled,
 		Config:          e.cfg.WorkflowConfig,
 	}, execHelper.PossiblyWithRawSecrets())
 	// Non-evictable modules do not record skew; label those as direct.

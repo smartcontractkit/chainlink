@@ -1,0 +1,4 @@
+{
+	"url": "https://api.weather.gov/radar/servers",
+	"schedule": "*/30 * * * * *"
+}
