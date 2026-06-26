@@ -863,9 +863,11 @@ func TestEngine_Execution(t *testing.T) { //nolint:paralleltest // Can't use t.P
 				func(_ context.Context, request *sdkpb.ExecuteRequest, executor host.ExecutionHelper) {
 					wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
 					require.NoError(t, err)
-					capExec, ok := executor.(*v2.ExecutionHelper)
+					// The executor may be the *ExecutionHelper directly or wrapped to
+					// expose raw secrets, so assert against the exported accessor.
+					capExec, ok := executor.(interface{ GetWorkflowExecutionID() string })
 					require.True(t, ok)
-					require.Equal(t, wantExecID, capExec.WorkflowExecutionID)
+					require.Equal(t, wantExecID, capExec.GetWorkflowExecutionID())
 					require.Equal(t, uint64(0), request.Request.(*sdkpb.ExecuteRequest_Trigger).Trigger.Id)
 				},
 			).
