@@ -83,9 +83,49 @@ jobs:
             echo "type=skip" >> "$GITHUB_OUTPUT"
             REASON="${COMMENT_BODY#/vault-audit skip }"
             echo "reason=${REASON}" >> "$GITHUB_OUTPUT"
-          else
-            echo "type=run" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+
+          echo "type=run" >> "$GITHUB_OUTPUT"
+
+          ERROR=""
+
+          # Optional model override: /vault-audit model=<alias-or-id>
+          MODEL=""
+          RAW_M=$(echo "$COMMENT_BODY" | grep -oiP 'model=\K[^[:space:]]+' || true)
+          if [ -n "$RAW_M" ]; then
+            case "$(echo "$RAW_M" | tr '[:upper:]' '[:lower:]')" in
+              opus|claude-opus-4-8)     MODEL="claude-opus-4-8" ;;
+              sonnet|claude-sonnet-4-6) MODEL="claude-sonnet-4-6" ;;
+              haiku|claude-haiku-4-5)   MODEL="claude-haiku-4-5" ;;
+              *) ERROR="Unknown model \`${RAW_M}\`. Use \`opus\`, \`sonnet\`, or \`haiku\`." ;;
+            esac
+          fi
+
+          # Optional thinking/effort override: /vault-audit effort=<level> (or thinking=)
+          EFFORT=""
+          RAW_E=$(echo "$COMMENT_BODY" | grep -oiP '(effort|thinking)=\K[^[:space:]]+' || true)
+          if [ -n "$RAW_E" ]; then
+            case "$(echo "$RAW_E" | tr '[:upper:]' '[:lower:]')" in
+              low|medium|high|xhigh|max) EFFORT="$(echo "$RAW_E" | tr '[:upper:]' '[:lower:]')" ;;
+              *) [ -z "$ERROR" ] && ERROR="Unknown thinking level \`${RAW_E}\`. Use \`low\`, \`medium\`, \`high\`, \`xhigh\`, or \`max\`." ;;
+            esac
+          fi
+
+          echo "model=${MODEL}" >> "$GITHUB_OUTPUT"
+          echo "effort=${EFFORT}" >> "$GITHUB_OUTPUT"
+          echo "error=${ERROR}" >> "$GITHUB_OUTPUT"
+
+      - name: Reject invalid override
+        if: steps.cmd.outputs.type == 'run' && steps.cmd.outputs.error != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          ERROR: ${{ steps.cmd.outputs.error }}
+        run: |
+          gh pr comment "$PR_NUMBER" \
+            --body "⛔ ${ERROR} (Or omit the override to use the defaults.)"
+          exit 1
 
       # ── /vault-audit skip <reason> ────────────────────────────────────────────
       - name: Handle skip
@@ -109,7 +149,7 @@ jobs:
 
           **Reason:** ${REASON}
 
-          > ⚠️ This skip applies to the current HEAD (\`${SHA:0:8}\`). Pushing new vault file changes will re-require an audit."
+          > ℹ️ This skip stands for the PR like a passing audit — it carries forward across new commits (it was applied at \`${SHA:0:8}\`). Re-run \`/vault-audit\` if you want a fresh audit of later changes."
 
       # ── /vault-audit ─────────────────────────────────────────────────────────
       - name: Require verified commits
@@ -191,6 +231,9 @@ jobs:
           HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
           BASE_SHA: ${{ steps.pr.outputs.base_sha }}
           CHAINLINK_REPO: ${{ github.repository }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          MODEL: ${{ steps.cmd.outputs.model }}
+          EFFORT: ${{ steps.cmd.outputs.effort }}
         run: |
           gh api /repos/smartcontractkit/cre-docs/dispatches \
             --method POST \
@@ -198,14 +241,10 @@ jobs:
             -F 'client_payload[pr_number]'"=$PR_NUMBER" \
             -f 'client_payload[head_sha]'"=$HEAD_SHA" \
             -f 'client_payload[base_sha]'"=$BASE_SHA" \
-            -f 'client_payload[chainlink_repo]'"=$CHAINLINK_REPO"
-
-      - name: Acknowledge audit request
-        if: steps.cmd.outputs.type == 'run'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.issue.number }}
-          COMMENTER: ${{ github.event.comment.user.login }}
-        run: |
-          gh pr comment "$PR_NUMBER" \
-            --body "🔍 Vault audit triggered by @${COMMENTER} — running now. The full report stays private: when the audit completes, open the **Details** link on the \`vault-audit\` check to view it in the cre-docs tracking issue (visible to chainlink team members only)."
+            -f 'client_payload[chainlink_repo]'"=$CHAINLINK_REPO" \
+            -f 'client_payload[triggered_by]'"=$COMMENTER" \
+            -f 'client_payload[model]'"=$MODEL" \
+            -f 'client_payload[effort]'"=$EFFORT"
+        # The acknowledgement / result comment on the PR is posted and updated by
+        # the cre-docs dispatch workflow (it owns all vault-audit PR output), so
+        # the issue link lands directly in the comment when the audit completes.
