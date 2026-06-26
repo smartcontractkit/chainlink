@@ -469,9 +469,6 @@ func Test_Server_SetConfig(t *testing.T) {
 	broker := newTestAsyncMessageBroker(t, 100)
 	dispatcher := broker.NewDispatcherForNode(peerID)
 
-	// Create server instance
-	server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, lggr)
-
 	// Create test data
 	capInfo := commoncap.CapabilityInfo{
 		ID:             "test-capability-id",
@@ -500,6 +497,7 @@ func Test_Server_SetConfig(t *testing.T) {
 	t.Run("valid config should succeed", func(t *testing.T) {
 		t.Parallel()
 
+		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, lggr)
 		config := &commoncap.RemoteExecutableConfig{
 			RequestHashExcludedAttributes: []string{"test"},
 			RequestTimeout:                requestTimeout,
@@ -513,13 +511,13 @@ func Test_Server_SetConfig(t *testing.T) {
 	t.Run("mismatched capability ID should return error", func(t *testing.T) {
 		t.Parallel()
 
+		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, lggr)
 		invalidCapInfo := commoncap.CapabilityInfo{
 			ID:             "different-capability-id",
 			CapabilityType: commoncap.CapabilityTypeTarget,
 		}
 
-		err := server.SetConfig(&commoncap.RemoteExecutableConfig{}, underlying, invalidCapInfo,
-			localDonInfo, workflowDONs, nil)
+		err := server.SetConfig(&commoncap.RemoteExecutableConfig{}, underlying, invalidCapInfo, localDonInfo, workflowDONs, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "capability info provided does not match")
 	})
@@ -527,6 +525,7 @@ func Test_Server_SetConfig(t *testing.T) {
 	t.Run("nil underlying capability should return error", func(t *testing.T) {
 		t.Parallel()
 
+		server := executable.NewServer("test-capability-id", "test-method", peerID, dispatcher, lggr)
 		err := server.SetConfig(&commoncap.RemoteExecutableConfig{}, nil, capInfo,
 			localDonInfo, workflowDONs, nil)
 		require.Error(t, err)

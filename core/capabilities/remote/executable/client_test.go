@@ -467,19 +467,28 @@ func (t *clientTestServer) sendResponse(messageID string, responseErr error,
 	}
 }
 
-func TestClient_SetConfig(t *testing.T) {
-	t.Parallel()
+type clientSetConfigTestFixture struct {
+	Client interface {
+		SetConfig(commoncap.CapabilityInfo, commoncap.DON, time.Duration, *transmission.TransmissionConfig, [][]byte) error
+		Info(context.Context) (commoncap.CapabilityInfo, error)
+		Start(context.Context) error
+		Close() error
+	}
+	ValidCapInfo commoncap.CapabilityInfo
+	ValidDonInfo commoncap.DON
+	ValidTimeout time.Duration
+	CapabilityID string
+}
 
-	lggr := logger.Test(t)
+func newClientSetConfigTestFixture(t *testing.T) clientSetConfigTestFixture {
+	t.Helper()
+
 	capabilityID := "test_capability@1.0.0"
-
-	// Create broker and dispatcher like other tests
 	broker := newTestAsyncMessageBroker(t, 100)
 	peerID := NewP2PPeerID(t)
 	dispatcher := broker.NewDispatcherForNode(peerID)
-	client := executable.NewClient(capabilityID, "execute", dispatcher, lggr)
+	client := executable.NewClient(capabilityID, "execute", dispatcher, logger.Test(t))
 
-	// Create valid test data
 	validDonInfo := commoncap.DON{
 		ID:      1,
 		Members: []p2ptypes.PeerID{NewP2PPeerID(t)},
@@ -493,34 +502,47 @@ func TestClient_SetConfig(t *testing.T) {
 		DON:            &validDonInfo,
 	}
 
-	validTimeout := 30 * time.Second
+	return clientSetConfigTestFixture{
+		Client:       client,
+		ValidCapInfo: validCapInfo,
+		ValidDonInfo: validDonInfo,
+		ValidTimeout: 30 * time.Second,
+		CapabilityID: capabilityID,
+	}
+}
+
+func TestClient_SetConfig(t *testing.T) {
+	t.Parallel()
 
 	t.Run("successful config set", func(t *testing.T) {
 		t.Parallel()
+
+		fixture := newClientSetConfigTestFixture(t)
 
 		transmissionConfig := &transmission.TransmissionConfig{
 			Schedule:   transmission.Schedule_OneAtATime,
 			DeltaStage: 10 * time.Millisecond,
 		}
 
-		err := client.SetConfig(validCapInfo, validDonInfo, validTimeout, transmissionConfig, nil)
+		err := fixture.Client.SetConfig(fixture.ValidCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, transmissionConfig, nil)
 		require.NoError(t, err)
 
-		// Verify config was set
-		info, err := client.Info(t.Context())
+		info, err := fixture.Client.Info(t.Context())
 		require.NoError(t, err)
-		assert.Equal(t, validCapInfo.ID, info.ID)
+		assert.Equal(t, fixture.ValidCapInfo.ID, info.ID)
 	})
 
 	t.Run("mismatched capability ID", func(t *testing.T) {
 		t.Parallel()
+
+		fixture := newClientSetConfigTestFixture(t)
 
 		invalidCapInfo := commoncap.CapabilityInfo{
 			ID:             "different_capability@1.0.0",
 			CapabilityType: commoncap.CapabilityTypeAction,
 		}
 
-		err := client.SetConfig(invalidCapInfo, validDonInfo, validTimeout, nil, nil)
+		err := fixture.Client.SetConfig(invalidCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, nil, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "capability info provided does not match the client's capabilityID")
 		assert.Contains(t, err.Error(), "different_capability@1.0.0 != test_capability@1.0.0")
@@ -529,13 +551,15 @@ func TestClient_SetConfig(t *testing.T) {
 	t.Run("empty DON members", func(t *testing.T) {
 		t.Parallel()
 
+		fixture := newClientSetConfigTestFixture(t)
+
 		invalidDonInfo := commoncap.DON{
 			ID:      1,
 			Members: []p2ptypes.PeerID{},
 			F:       0,
 		}
 
-		err := client.SetConfig(validCapInfo, invalidDonInfo, validTimeout, nil, nil)
+		err := fixture.Client.SetConfig(fixture.ValidCapInfo, invalidDonInfo, fixture.ValidTimeout, nil, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "empty localDonInfo provided")
 	})
@@ -543,12 +567,12 @@ func TestClient_SetConfig(t *testing.T) {
 	t.Run("successful config update", func(t *testing.T) {
 		t.Parallel()
 
-		// Set initial config
+		fixture := newClientSetConfigTestFixture(t)
+
 		initialTimeout := 10 * time.Second
-		err := client.SetConfig(validCapInfo, validDonInfo, initialTimeout, nil, nil)
+		err := fixture.Client.SetConfig(fixture.ValidCapInfo, fixture.ValidDonInfo, initialTimeout, nil, nil)
 		require.NoError(t, err)
 
-		// Replace with new config
 		newTimeout := 60 * time.Second
 		newDonInfo := commoncap.DON{
 			ID:      2,
@@ -556,49 +580,24 @@ func TestClient_SetConfig(t *testing.T) {
 			F:       1,
 		}
 
-		err = client.SetConfig(validCapInfo, newDonInfo, newTimeout, nil, nil)
+		err = fixture.Client.SetConfig(fixture.ValidCapInfo, newDonInfo, newTimeout, nil, nil)
 		require.NoError(t, err)
 
-		// Verify the config was completely replaced
-		info, err := client.Info(t.Context())
+		info, err := fixture.Client.Info(t.Context())
 		require.NoError(t, err)
-		assert.Equal(t, validCapInfo.ID, info.ID)
+		assert.Equal(t, fixture.ValidCapInfo.ID, info.ID)
 	})
 }
 
 func TestClient_SetConfig_StartClose(t *testing.T) {
 	t.Parallel()
 
-	ctx := t.Context()
-	lggr := logger.Test(t)
-	capabilityID := "test_capability@1.0.0"
-
-	// Create broker and dispatcher like other tests
-	broker := newTestAsyncMessageBroker(t, 100)
-	peerID := NewP2PPeerID(t)
-	dispatcher := broker.NewDispatcherForNode(peerID)
-	client := executable.NewClient(capabilityID, "execute", dispatcher, lggr)
-
-	validDonInfo := commoncap.DON{
-		ID:      1,
-		Members: []p2ptypes.PeerID{NewP2PPeerID(t)},
-		F:       0,
-	}
-
-	validCapInfo := commoncap.CapabilityInfo{
-		ID:             capabilityID,
-		CapabilityType: commoncap.CapabilityTypeAction,
-		Description:    "Test capability",
-		DON:            &validDonInfo,
-	}
-
-	validTimeout := 30 * time.Second
-
 	t.Run("start fails without config", func(t *testing.T) {
 		t.Parallel()
 
-		clientWithoutConfig := executable.NewClient(capabilityID, "execute", dispatcher, lggr)
-		err := clientWithoutConfig.Start(ctx)
+		fixture := newClientSetConfigTestFixture(t)
+
+		err := fixture.Client.Start(t.Context())
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "config not set - call SetConfig() before Start()")
 	})
@@ -606,32 +605,31 @@ func TestClient_SetConfig_StartClose(t *testing.T) {
 	t.Run("start succeeds after config set", func(t *testing.T) {
 		t.Parallel()
 
-		require.NoError(t, client.SetConfig(validCapInfo, validDonInfo, validTimeout, nil, nil))
-		require.NoError(t, client.Start(ctx))
-		require.NoError(t, client.Close())
+		fixture := newClientSetConfigTestFixture(t)
+		ctx := t.Context()
+
+		require.NoError(t, fixture.Client.SetConfig(fixture.ValidCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, nil, nil))
+		require.NoError(t, fixture.Client.Start(ctx))
+		require.NoError(t, fixture.Client.Close())
 	})
 
 	t.Run("config can be updated after start", func(t *testing.T) {
 		t.Parallel()
 
-		// Create a fresh client for this test since services can only be started once
-		freshClient := executable.NewClient(capabilityID, "execute", dispatcher, lggr)
+		fixture := newClientSetConfigTestFixture(t)
+		ctx := t.Context()
 
-		// Set initial config and start
-		require.NoError(t, freshClient.SetConfig(validCapInfo, validDonInfo, validTimeout, nil, nil))
-		require.NoError(t, freshClient.Start(ctx))
+		require.NoError(t, fixture.Client.SetConfig(fixture.ValidCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, nil, nil))
+		require.NoError(t, fixture.Client.Start(ctx))
 
-		// Update config while running
-		newCapInfo := validCapInfo
+		newCapInfo := fixture.ValidCapInfo
 		newCapInfo.Description = "new description"
-		require.NoError(t, freshClient.SetConfig(newCapInfo, validDonInfo, validTimeout, nil, nil))
+		require.NoError(t, fixture.Client.SetConfig(newCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, nil, nil))
 
-		// Verify config was updated
-		info, err := freshClient.Info(ctx)
+		info, err := fixture.Client.Info(ctx)
 		require.NoError(t, err)
 		assert.Equal(t, newCapInfo.Description, info.Description)
 
-		// Clean up
-		require.NoError(t, freshClient.Close())
+		require.NoError(t, fixture.Client.Close())
 	})
 }
