@@ -72,6 +72,9 @@ func (oc *observationContext) Observe(ctx context.Context, streamID streams.Stre
 	found := false
 	for _, trr := range trrs {
 		if trr.Task.TaskStreamID() != nil && *trr.Task.TaskStreamID() == streamID {
+			if trr.Result.Error != nil {
+				return nil, fmt.Errorf("terminal task error: %w; all task errors: %w", trr.Result.Error, trrs.AllErrors())
+			}
 			val, err = resultToStreamValue(trr.Result.Value)
 			if err != nil {
 				return nil, fmt.Errorf("failed to convert result to StreamValue for streamID %d: %w", streamID, err)

@@ -91,6 +91,16 @@ func TestObservationContext_Observe(t *testing.T) { //nolint:paralleltest // sub
 		streamIDs: []streams.StreamID{streamID9, streamID10, streamID11},
 	}
 
+	streamID12 := streams.StreamID(12)
+	taskErr := errors.New("http request timed out or interrupted")
+	multiPipelineTaskError := &mockPipeline{
+		run: &pipeline.Run{},
+		trrs: []pipeline.TaskRunResult{
+			{Task: &pipeline.MemoTask{BaseTask: pipeline.BaseTask{StreamID: clnull.Uint32From(streamID12)}}, Result: pipeline.Result{Error: taskErr}},
+		},
+		streamIDs: []streams.StreamID{streamID12},
+	}
+
 	r.pipelines = map[streams.StreamID]*mockPipeline{
 		streamID1:  &mockPipeline{},
 		streamID2:  makePipelineWithSingleResult[decimal.Decimal](rand.Int64(), decimal.NewFromFloat(12.34), nil),
@@ -103,6 +113,7 @@ func TestObservationContext_Observe(t *testing.T) { //nolint:paralleltest // sub
 		streamID9:  multiPipelinePartialFail,
 		streamID10: multiPipelinePartialFail,
 		streamID11: multiPipelinePartialFail,
+		streamID12: multiPipelineTaskError,
 	}
 
 	t.Run("returns error in case of missing pipeline", func(t *testing.T) { //nolint:paralleltest // shares ObservationContext setup
@@ -170,6 +181,12 @@ func TestObservationContext_Observe(t *testing.T) { //nolint:paralleltest // sub
 		assert.Equal(t, "200.5", val.(*llo.Decimal).String())
 
 		assert.Equal(t, int32(1), multiPipelinePartialFail.runCount.Load())
+	})
+	t.Run("returns task error for streamID-tagged task with nil value", func(t *testing.T) { //nolint:paralleltest // shares ObservationContext setup
+		_, err := oc.Observe(ctx, streamID12, opts)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "terminal task error")
+		assert.Contains(t, err.Error(), "http request timed out or interrupted")
 	})
 }
 
