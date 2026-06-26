@@ -32,7 +32,7 @@ Fallback to rg/grep/find only if ToolSearch fails.
  a. test or package
  b. specific JIRA issues
  c. N eligible flaky-tests tickets from JIRA
-2. Before proceeding always ask the user whether she think the flake is relatively simple and self-contained or whether it is a complex one that requires a lot of critical thinking and in-depth understand of the application (e.g. system tests and some integration tests). If it is the latter activate the [complex-investigation-protocol](./references/complex-investigation-protocol.md), before formulating any hypothesis.
+2. Before proceeding always ask the user whether she thinks the flake is relatively simple and self-contained or whether it is a complex one that requires a lot of critical thinking and in-depth understanding of the application (e.g. system tests and some integration tests). If it is the latter activate the [complex-investigation-protocol](./references/complex-investigation-protocol.md), before formulating any hypothesis.
 3. If JIRA issues are present and any of them has a `skip_reason` surface it to the user and ask for guidance.
 4. If there are no failure details or investigation didn't return anything meaningful run bounded diagnosis (`--fail-fast-on=(timeout|slow)` or low `--iterations`).
 5. Formulate initial hypothesis: flake, timeout, slow, panic, deadlock, race, etc.
