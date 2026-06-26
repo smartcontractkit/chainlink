@@ -43,6 +43,10 @@ replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solan
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret => ./smoke/cre/vaultsecret
 
+// chainlink-evm's generated codecgen is incompatible with ugorji/go/codec v1.3.1
+// (pulled in transitively by mcms v0.47.x). Pin to the version the rest of the repo uses.
+replace github.com/ugorji/go/codec => github.com/ugorji/go/codec v1.2.12
+
 require (
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/avast/retry-go/v4 v4.7.0
