@@ -43,6 +43,11 @@ plugins:
       gitRef: "5d83a289da752e966692a9f390970dbc86c95c7a" # chainlink-starknet develop (#695 merged)
       installPath: "./pkg/chainlink/cmd/chainlink-starknet"
 
+  stellar:
+    - moduleURI: "github.com/smartcontractkit/chainlink-stellar"
+      gitRef: "0e9836f8575b711d87335fbadb1ed28b8f678377" # chainlink-stellar #128 (add-multinode merged)
+      installPath: "./cmd/chainlink-stellar"
+
   streams:
     - moduleURI: "github.com/smartcontractkit/chainlink-data-streams"
       gitRef: "v0.1.15-0.20260522094612-5f9f748bd87a"
@@ -60,5 +65,5 @@ plugins:
 
   evm:
     - moduleURI: "github.com/smartcontractkit/chainlink-evm"
-      gitRef: "v0.3.4-0.20260618132327-105433c1ac66"
+      gitRef: "v0.3.4-0.20260623170329-4577ef4ba0ae"
       installPath: "./pkg/cmd/chainlink-evm"

@@ -669,6 +669,11 @@ func validateKeyStoreMatchForRelay(ctx context.Context, network string, keyStore
 		if err != nil {
 			return errors.Errorf("no Sui key matching: %q", key)
 		}
+	case relay.NetworkStellar:
+		_, err := keyStore.Stellar().Get(key)
+		if err != nil {
+			return errors.Errorf("no Stellar key matching: %q", key)
+		}
 	}
 	return nil
 }

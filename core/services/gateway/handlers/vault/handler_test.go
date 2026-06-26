@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
+	vaultcapmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 
@@ -107,7 +108,7 @@ type mockAggregator struct {
 	err error
 }
 
-func (m *mockAggregator) Aggregate(_ context.Context, _ logger.Logger, _ map[string]jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error) {
+func (m *mockAggregator) Aggregate(_ context.Context, _ logger.Logger, _ string, _ map[string]jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -799,7 +800,6 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	t.Run("unsupported method", func(t *testing.T) {
 		var wg sync.WaitGroup
 		h, callback, don, _ := setupHandler(t)
-		// Don't expect SendToNode to be called for unsupported methods
 		don.AssertNotCalled(t, "SendToNode")
 
 		unsupportedMethodRequest := jsonrpc.Request[json.RawMessage]{
@@ -817,7 +817,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			err = json.Unmarshal(resp.RawResponse, &secretsResponse)
 			assert.NoError(t, err)
 			assert.Equal(t, unsupportedMethodRequest.ID, secretsResponse.ID, "Request ID should match")
-			assert.Contains(t, secretsResponse.Error.Message, "unsupported method("+unsupportedMethodRequest.Method+"): ", "Error message should match")
+			assert.Contains(t, secretsResponse.Error.Message, "unsupported method(vault.unsupported.method)")
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.UnsupportedMethodError), secretsResponse.Error.Code, "Error code should match")
 		}()
 
@@ -847,8 +847,8 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			err = json.Unmarshal(resp.RawResponse, &secretsResponse)
 			assert.NoError(t, err)
 			assert.Equal(t, emptyParamsRequest.ID, secretsResponse.ID, "Request ID should match")
-			assert.Equal(t, "user message parse error: unexpected end of JSON input", secretsResponse.Error.Message, "Error message should match")
-			assert.Equal(t, api.ToJSONRPCErrorCode(api.UserMessageParseError), secretsResponse.Error.Code, "Error code should match")
+			assert.Contains(t, secretsResponse.Error.Message, "invalid params error: failed to validate create secrets request")
+			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
 		}()
 
 		err := h.HandleJSONRPCUserMessage(t.Context(), emptyParamsRequest, callback)
@@ -885,6 +885,31 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		err := h.HandleJSONRPCUserMessage(t.Context(), invalidParamsRequest, callback)
 		require.NoError(t, err)
 		wg.Wait()
+	})
+
+	t.Run("empty delete batch", func(t *testing.T) {
+		t.Parallel()
+
+		h, callback, don, _ := setupHandler(t)
+		don.AssertNotCalled(t, "SendToNode")
+
+		invalidParams := json.RawMessage(`{"request_id": "req-1", "ids": []}`)
+		invalidParamsRequest := jsonrpc.Request[json.RawMessage]{
+			ID:     "5",
+			Method: vaulttypes.MethodSecretsDelete,
+			Params: &invalidParams,
+		}
+
+		err := h.HandleJSONRPCUserMessage(t.Context(), invalidParamsRequest, callback)
+		require.NoError(t, err)
+
+		resp, err := callback.Wait(t.Context())
+		require.NoError(t, err)
+		var secretsResponse jsonrpc.Response[vaultcommon.DeleteSecretsResponse]
+		require.NoError(t, json.Unmarshal(resp.RawResponse, &secretsResponse))
+		assert.Equal(t, invalidParamsRequest.ID, secretsResponse.ID, "Request ID should match")
+		assert.Equal(t, "invalid params error: failed to validate delete secrets request: request batch must contain at least 1 item", secretsResponse.Error.Message, "Error message should match")
+		assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
 	})
 
 	t.Run("invalid params error", func(t *testing.T) {
@@ -977,8 +1002,9 @@ func TestVaultHandler_HandleNodeMessage_SignatureValidatedResponse_RejectsUnknow
 	nodes := makeNodes(t, signers)
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
 	h.(*handler).aggregator = &baseAggregator{
-		capabilitiesRegistry: mcr,
-		vaultHandlerDonID:    h.(*handler).donConfig.DonId,
+		capabilitiesRegistry:        mcr,
+		vaultHandlerDonID:           h.(*handler).donConfig.DonId,
+		signedResponseRequestIDGate: limits.NewGateLimiter(true),
 	}
 
 	ocrContext, err := hex.DecodeString("000ec4f6a2ba011e909eccf64628855b848e08876a1edd938a1372a9e51adff100000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000000")
@@ -1052,8 +1078,9 @@ func TestVaultHandler_PublicKeyGet(t *testing.T) {
 	nodes := makeNodes(t, signers)
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
 	h.(*handler).aggregator = &baseAggregator{
-		capabilitiesRegistry: mcr,
-		vaultHandlerDonID:    h.(*handler).donConfig.DonId,
+		capabilitiesRegistry:        mcr,
+		vaultHandlerDonID:           h.(*handler).donConfig.DonId,
+		signedResponseRequestIDGate: limits.NewGateLimiter(true),
 	}
 
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -1115,4 +1142,98 @@ func TestVaultHandler_PublicKeyGet(t *testing.T) {
 
 	assert.Equal(t, jsonRequest.ID, publicKeyResponse.ID, "request ID should match")
 	assert.Equal(t, publicKey, publicKeyResponse.Result.PublicKey, "public key should match")
+}
+
+func TestVaultHandler_PreAuthValidationSkipsAuthorization(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.Test(t)
+	don := mocks.NewDON(t)
+	donConfig := &config.DONConfig{
+		DonId:   "test_don_id",
+		Members: []config.NodeConfig{NodeOne},
+	}
+	handlerConfig := Config{
+		RequestTimeoutSec: 30,
+		NodeRateLimiter: ratelimit.RateLimiterConfig{
+			GlobalRPS:      100,
+			GlobalBurst:    100,
+			PerSenderRPS:   10,
+			PerSenderBurst: 10,
+		},
+	}
+	methodConfig, err := json.Marshal(handlerConfig)
+	require.NoError(t, err)
+
+	clock := clockwork.NewFakeClock()
+	mockAuthorizer := vaultcapmocks.NewAuthorizer(t)
+
+	h, err := newHandlerWithAuthorizer(
+		methodConfig,
+		donConfig,
+		don,
+		nil,
+		mockAuthorizer,
+		nil,
+		lggr,
+		clock,
+		limits.Factory{Settings: cresettings.DefaultGetter},
+	)
+	require.NoError(t, err)
+
+	t.Run("nil params", func(t *testing.T) {
+		t.Parallel()
+
+		var wg sync.WaitGroup
+		callback := common.NewCallback()
+
+		req := jsonrpc.Request[json.RawMessage]{
+			ID:     "pre-auth-nil-params",
+			Method: vaulttypes.MethodSecretsCreate,
+		}
+
+		wg.Go(func() {
+			resp, waitErr := callback.Wait(t.Context())
+			assert.NoError(t, waitErr)
+			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
+			assert.NoError(t, json.Unmarshal(resp.RawResponse, &secretsResponse))
+			assert.Equal(t, req.ID, secretsResponse.ID)
+			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code)
+			assert.Contains(t, secretsResponse.Error.Message, "request params must not be nil")
+		})
+
+		require.NoError(t, h.HandleJSONRPCUserMessage(t.Context(), req, callback))
+		wg.Wait()
+		don.AssertNotCalled(t, "SendToNode", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("empty delete batch", func(t *testing.T) {
+		t.Parallel()
+
+		var wg sync.WaitGroup
+		callback := common.NewCallback()
+
+		invalidParams := json.RawMessage(`{"request_id":"req-1","ids":[]}`)
+		req := jsonrpc.Request[json.RawMessage]{
+			ID:     "pre-auth-empty-delete",
+			Method: vaulttypes.MethodSecretsDelete,
+			Params: &invalidParams,
+		}
+
+		wg.Go(func() {
+			resp, waitErr := callback.Wait(t.Context())
+			assert.NoError(t, waitErr)
+			var secretsResponse jsonrpc.Response[vaultcommon.DeleteSecretsResponse]
+			assert.NoError(t, json.Unmarshal(resp.RawResponse, &secretsResponse))
+			assert.Equal(t, req.ID, secretsResponse.ID)
+			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code)
+			assert.Contains(t, secretsResponse.Error.Message, "request batch must contain at least 1 item")
+		})
+
+		require.NoError(t, h.HandleJSONRPCUserMessage(t.Context(), req, callback))
+		wg.Wait()
+		don.AssertNotCalled(t, "SendToNode", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	mockAuthorizer.AssertNotCalled(t, "AuthorizeRequest", mock.Anything, mock.Anything)
 }
