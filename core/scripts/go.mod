@@ -11,6 +11,10 @@ replace github.com/smartcontractkit/chainlink/system-tests/lib => ../../system-t
 
 replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based => ./cre/environment/examples/workflows/proof-of-reserve/cron-based
 
+// chainlink-evm's generated codecgen is incompatible with ugorji/go/codec v1.3.1
+// (pulled in transitively by mcms v0.47.x). Pin to the version the rest of the repo uses.
+replace github.com/ugorji/go/codec => github.com/ugorji/go/codec v1.2.12
+
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
 require (
