@@ -37,6 +37,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
+
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -408,6 +410,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	appInstance, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
 		Opts: cre.Opts{
 			CapabilitiesRegistry:    capabilitiesRegistry,
+			ExecutionHandlers:       &confidentialrelay.ExecutionHandlers{},
 			CapabilitiesDispatcher:  dispatcher,
 			CapabilitiesPeerWrapper: peerWrapper,
 			FetcherFunc:             syncerFetcherFunc,

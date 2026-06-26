@@ -18,6 +18,8 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
+
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
@@ -209,7 +211,7 @@ func Test_Handler(t *testing.T) {
 		featureFlags, err := v2.NewFeatureFlags(lf, nil)
 		require.NoError(t, err)
 
-		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, NewEngineRegistry(), emitter, limiters, featureFlags, rl, workflowLimits, store, workflowEncryptionKey, &testDonNotifier{})
+		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, &confidentialrelay.ExecutionHandlers{}, NewEngineRegistry(), emitter, limiters, featureFlags, rl, workflowLimits, store, workflowEncryptionKey, &testDonNotifier{})
 		require.NoError(t, err)
 
 		err = h.Handle(ctx, giveEvent)
@@ -768,7 +770,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 		featureFlags, err := v2.NewFeatureFlags(lf, nil)
 		require.NoError(t, err)
 
-		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, er, emitter, limiters, featureFlags, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
+		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, &confidentialrelay.ExecutionHandlers{}, er, emitter, limiters, featureFlags, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
 			WithEngineRegistry(er),
 		)
 		require.NoError(t, err)
@@ -857,7 +859,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 		featureFlags, err := v2.NewFeatureFlags(lf, nil)
 		require.NoError(t, err)
 
-		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, er, emitter, limiters, featureFlags, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
+		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, &confidentialrelay.ExecutionHandlers{}, er, emitter, limiters, featureFlags, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
 			WithEngineRegistry(er),
 		)
 		require.NoError(t, err)
@@ -944,7 +946,7 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 		}))
 		require.NoError(t, err)
 
-		h, err := NewEventHandler(lggr, store, nil, true, registry, NewEngineRegistry(), emitter, limiters, nil, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{}, opts...)
+		h, err := NewEventHandler(lggr, store, nil, true, registry, &confidentialrelay.ExecutionHandlers{}, NewEngineRegistry(), emitter, limiters, nil, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{}, opts...)
 		require.NoError(t, err)
 		servicetest.Run(t, h)
 
@@ -1094,7 +1096,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		}))
 		require.NoError(t, err)
 
-		h, err := NewEventHandler(lggr, store, nil, true, registry, NewEngineRegistry(), emitter, limiters, nil, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
+		h, err := NewEventHandler(lggr, store, nil, true, registry, &confidentialrelay.ExecutionHandlers{}, NewEngineRegistry(), emitter, limiters, nil, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
 			WithEngineRegistry(er),
 			WithEngineFactoryFn(mockEngineFactory),
 		)
@@ -1168,7 +1170,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		}))
 		require.NoError(t, err)
 
-		h, err := NewEventHandler(lggr, store, nil, true, registry, NewEngineRegistry(), emitter, limiters, nil, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{}, WithEngineRegistry(er))
+		h, err := NewEventHandler(lggr, store, nil, true, registry, &confidentialrelay.ExecutionHandlers{}, NewEngineRegistry(), emitter, limiters, nil, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{}, WithEngineRegistry(er))
 		require.NoError(t, err)
 
 		deleteEvent := WorkflowDeletedEvent{
@@ -1249,7 +1251,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 
 		mockAS := newMockArtifactStore(artifactStore, errors.New(failWith))
 
-		h, err := NewEventHandler(lggr, store, nil, true, registry, NewEngineRegistry(), emitter, limiters, nil, rl, workflowLimits, mockAS, workflowEncryptionKey, &testDonNotifier{},
+		h, err := NewEventHandler(lggr, store, nil, true, registry, &confidentialrelay.ExecutionHandlers{}, NewEngineRegistry(), emitter, limiters, nil, rl, workflowLimits, mockAS, workflowEncryptionKey, &testDonNotifier{},
 			WithEngineRegistry(er),
 			WithEngineFactoryFn(mockEngineFactory),
 		)
@@ -1498,7 +1500,7 @@ func Test_Handler_OrganizationID(t *testing.T) { //nolint:paralleltest // behold
 	require.NoError(t, err)
 	defer orgResolver.Close()
 
-	h, err := NewEventHandler(lggr, store, nil, true, registry, er, emitter, limiters, nil, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
+	h, err := NewEventHandler(lggr, store, nil, true, registry, &confidentialrelay.ExecutionHandlers{}, er, emitter, limiters, nil, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
 		WithEngineRegistry(er),
 		WithEngineFactoryFn(mockEngineFactory),
 		WithOrgResolver(orgResolver),
@@ -1565,7 +1567,7 @@ func Test_Handler_OrganizationID(t *testing.T) { //nolint:paralleltest // behold
 		}))
 		require.NoError(t, err)
 
-		hDelete, err := NewEventHandler(lggr, store, nil, true, registry, er, deleteEmitter, limiters, nil, rl, workflowLimits, deleteArtifactStore, workflowEncryptionKey, &testDonNotifier{},
+		hDelete, err := NewEventHandler(lggr, store, nil, true, registry, &confidentialrelay.ExecutionHandlers{}, er, deleteEmitter, limiters, nil, rl, workflowLimits, deleteArtifactStore, workflowEncryptionKey, &testDonNotifier{},
 			WithEngineRegistry(er),
 			WithEngineFactoryFn(mockEngineFactory),
 			WithOrgResolver(orgResolver),

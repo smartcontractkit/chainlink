@@ -21,6 +21,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
+
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
@@ -305,7 +307,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	handler, err := NewEventHandler(lggr, wfStore, nil, true, capRegistry, er, emitter, limiters, featureFlags, rl, wl, store, workflowEncryptionKey, donNotifier)
+	handler, err := NewEventHandler(lggr, wfStore, nil, true, capRegistry, &confidentialrelay.ExecutionHandlers{}, er, emitter, limiters, featureFlags, rl, wl, store, workflowEncryptionKey, donNotifier)
 	require.NoError(t, err)
 
 	worker, err := NewWorkflowRegistry(
@@ -408,7 +410,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	handler, err := NewEventHandler(lggr, wfStore, nil, true, capRegistry, er,
+	handler, err := NewEventHandler(lggr, wfStore, nil, true, capRegistry, &confidentialrelay.ExecutionHandlers{}, er,
 		emitter, limiters, featureFlags, rl, wl, store, workflowEncryptionKey, donNotifier, WithStaticEngine(&mockService{}))
 	require.NoError(t, err)
 
