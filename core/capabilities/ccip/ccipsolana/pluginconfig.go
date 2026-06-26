@@ -18,7 +18,6 @@ func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDat
 		MessageHasher:              NewMessageHasherV1(logger.Sugared(lggr).Named(chainsel.FamilySolana).Named("MessageHasherV1"), extraDataCodec),
 		TokenDataEncoder:           NewSolanaTokenDataEncoder(),
 		GasEstimateProvider:        NewGasEstimateProvider(extraDataCodec),
-		RMNCrypto:                  nil,
 		ContractTransmitterFactory: ocrimpls.NewSVMContractTransmitterFactory(extraDataCodec),
 		AddressCodec:               AddressCodec{},
 		ExtraDataCodec:             ExtraDataDecoder{},

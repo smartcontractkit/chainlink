@@ -158,9 +158,24 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		}
 	}
 
-	return d.NewServices(ctx, command, configJSON, spec.ID, spec.Name.ValueOrZero(), spec.ExternalJobID, spec.StandardCapabilitiesSpec.OracleFactory)
+	// Job-spec boot path: capability DON ID is not carried in the spec, so the
+	// host best-effort resolves it from the capability registry inside NewServices.
+	// On a node that belongs to multiple DONs running the same capability, the
+	// registry lookup cannot disambiguate which DON this plugin serves, so it
+	// resolves to 0 and the plugin falls back to the consumer workflow's DON ID
+	// for event labeling. Carrying the DON ID in the job spec would close that
+	// gap; tracked as a follow-up. See CRE-4409.
+	return d.NewServices(ctx, command, configJSON, spec.ID, spec.Name.ValueOrZero(), spec.ExternalJobID, spec.StandardCapabilitiesSpec.OracleFactory, 0)
 }
 
+// NewServices builds the per-job services for a Standard Capabilities LOOP.
+//
+// capabilityDonID is the on-chain DON ID this plugin process is being spawned
+// for, when known by the caller. Pass 0 from the job-spec boot path (NewServices
+// will resolve it from the capability registry); pass a nonzero value from the
+// LocalCapabilityManager boot path where the (capID, donID) pairing is already
+// known. The resolved value is plumbed to the plugin via
+// StandardCapabilitiesDependencies.CapabilityDonID at Initialise time.
 func (d *Delegate) NewServices(
 	ctx context.Context,
 	command string,
@@ -169,6 +184,7 @@ func (d *Delegate) NewServices(
 	jobName string,
 	externalJobID uuid.UUID,
 	oracleFactoryConfig job.OracleFactoryConfig,
+	capabilityDonID uint32,
 ) ([]job.ServiceCtx, error) {
 	if d.initErr != nil {
 		return nil, d.initErr
@@ -234,6 +250,17 @@ func (d *Delegate) NewServices(
 	if d.ocrConfigService != nil && capabilityID == "" {
 		log.Warnw("No capability ID mapping for command, using legacy config only",
 			"command", command)
+	}
+
+	// Best-effort resolve the authoritative capability DON ID for this plugin
+	// process when the caller did not provide one (job-spec boot path). The LOOP
+	// uses this to label emitted events with the sending DON ID rather than the
+	// consumer workflow's DON. Resolution can return 0 (e.g. on a node that
+	// belongs to multiple DONs for this capability); in that case the plugin
+	// falls back to the workflow DON ID. See CRE-4409.
+	if capabilityDonID == 0 && capabilityID != "" {
+		capabilityDonID = resolveCapabilityDonID(ctx, log, d.registry, d.getPeerID, capabilityID)
+		log.Debugw("Resolved capability DON ID from registry", "capabilityID", capabilityID, "donID", capabilityDonID)
 	}
 
 	var oracleFactory core.OracleFactory
@@ -380,10 +407,61 @@ func (d *Delegate) NewServices(
 		OrgResolver:        d.orgResolver,
 		CRESettings:        d.creSettings,
 		TriggerEventStore:  triggercap.NewTriggerEventStore(d.ds),
+		CapabilityDonID:    capabilityDonID,
 	}
 	standardCapability := NewStandardCapabilities(log, command, configJSON, d.cfg, dependencies)
 
 	return []job.ServiceCtx{standardCapability}, nil
+}
+
+// resolveCapabilityDonID best-effort resolves the on-chain DON ID this node is
+// running the given capability for, by looking up DONsForCapability and filtering
+// by the local node's PeerID.
+//
+// This is always best-effort: it never returns an error. Any failure — including
+// infrastructure issues like getPeerID failing or the registry being unavailable —
+// results in returning 0 with a warning logged. The caller then falls back to
+// labeling events with the consumer workflow's DON ID. See CRE-4409.
+func resolveCapabilityDonID(ctx context.Context, lggr logger.Logger, registry core.CapabilitiesRegistry, getPeerID func() (p2ptypes.PeerID, error), capabilityID string) uint32 {
+	if registry == nil {
+		lggr.Warnw("Capabilities registry is nil; falling back to workflow DON ID for event labeling", "capabilityID", capabilityID)
+		return 0
+	}
+	if getPeerID == nil {
+		lggr.Warnw("getPeerID is nil; falling back to workflow DON ID for event labeling", "capabilityID", capabilityID)
+		return 0
+	}
+	peerID, err := getPeerID()
+	if err != nil {
+		lggr.Warnw("Failed to get local peer ID; falling back to workflow DON ID for event labeling", "capabilityID", capabilityID, "err", err)
+		return 0
+	}
+	dwns, err := registry.DONsForCapability(ctx, capabilityID)
+	if err != nil {
+		lggr.Warnw("DONsForCapability failed; falling back to workflow DON ID for event labeling", "capabilityID", capabilityID, "err", err)
+		return 0
+	}
+	var matched []uint32
+	for _, d := range dwns {
+		for _, n := range d.Nodes {
+			if n.PeerID != nil && *n.PeerID == peerID {
+				matched = append(matched, d.DON.ID)
+				break
+			}
+		}
+	}
+	switch len(matched) {
+	case 1:
+		return matched[0]
+	case 0:
+		lggr.Warnw("No DON found for local peer on capability; falling back to workflow DON ID for event labeling",
+			"peerID", peerID, "capabilityID", capabilityID)
+		return 0
+	default:
+		lggr.Warnw("Local peer belongs to multiple DONs for capability; cannot disambiguate, falling back to workflow DON ID for event labeling",
+			"peerID", peerID, "capabilityID", capabilityID, "matched", matched)
+		return 0
+	}
 }
 
 func (d *Delegate) AfterJobCreated(job job.Job) {}

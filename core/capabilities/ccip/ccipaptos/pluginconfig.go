@@ -38,7 +38,6 @@ func initializePluginConfigFunc(chainselFamily string) ccipcommon.InitFunction {
 			MessageHasher:              msgHasher,
 			TokenDataEncoder:           NewAptosTokenDataEncoder(),
 			GasEstimateProvider:        NewGasEstimateProvider(),
-			RMNCrypto:                  nil,
 			ContractTransmitterFactory: transmitterFactory,
 			ChainRW:                    cwProvider,
 			ExtraDataCodec:             ExtraDataDecoder{},
