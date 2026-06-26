@@ -41,6 +41,17 @@ func TestTestJWTIssuer_WorksWithVaultJWTBasedAuth(t *testing.T) {
 		Params:  (*json.RawMessage)(&params),
 	}
 
+	validator, err := vaultcap.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
+	require.NoError(t, err)
+
+	var listReq vaultcommon.ListSecretIdentifiersRequest
+	require.NoError(t, json.Unmarshal(params, &listReq))
+	if listReq.RequestId == "" {
+		listReq.RequestId = req.ID
+	}
+	err = validator.ValidateListSecretIdentifiersRequest(t.Context(), &listReq)
+	require.NoError(t, err)
+
 	requestDigest, err := ComputeRequestDigest(req)
 	require.NoError(t, err)
 

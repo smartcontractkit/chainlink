@@ -85,7 +85,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260415165642-49f23e4d76cc
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260415165642-49f23e4d76cc
 	github.com/smartcontractkit/chainlink-ccv v0.0.2-0.20260622154332-695181f87033
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260624151936-a3e362497a1c
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260625162847-bdf9e82b2f75
 	github.com/smartcontractkit/chainlink-common/keystore v1.2.0
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260601211238-9f526774fef0
 	github.com/smartcontractkit/chainlink-data-streams v0.1.15-0.20260522094612-5f9f748bd87a
@@ -95,7 +95,7 @@ require (
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135
 	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20260423135514-5b1a7565a99c
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20260423135514-5b1a7565a99c
-	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20260521164805-26d78d5e1243
+	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20260625152110-9afcf56e4053
 	github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20251024234028-0988426d98f4
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260622152157-c8e129347b8b
 	github.com/smartcontractkit/chainlink-protos/data-feeds v0.1.1-0.20260501174546-2e8846986b36

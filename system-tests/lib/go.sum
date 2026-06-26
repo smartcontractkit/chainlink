@@ -1545,8 +1545,8 @@ github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260
 github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260511195239-0f6e1b177fc7/go.mod h1:67YbnoglYD61Pz/jTVCgav9wFq7S35OU8UyQSvPllRw=
 github.com/smartcontractkit/chainlink-ccv v0.0.2-0.20260622154332-695181f87033 h1:WjZwKtUA/0TPvzgCt8bcdq+BHMIL65S0oU79mxgZn/Y=
 github.com/smartcontractkit/chainlink-ccv v0.0.2-0.20260622154332-695181f87033/go.mod h1:15M0qBycFN5jkNjaYFkutYkGAmhuT401IfaJvz32lcg=
-github.com/smartcontractkit/chainlink-common v0.11.2-0.20260624151936-a3e362497a1c h1:d7vdm9wydgwV2L2AFWstYdXC+VjHG2thEK0cGblYm2U=
-github.com/smartcontractkit/chainlink-common v0.11.2-0.20260624151936-a3e362497a1c/go.mod h1:wUK7w5xRrFPD2qQfdt1fLXzQzWSb4PaZaxa4nsqCWVs=
+github.com/smartcontractkit/chainlink-common v0.11.2-0.20260625162847-bdf9e82b2f75 h1:+wn8Kfs9ImNEWlonkTmtjDQOdEaDzwdpedab+wAzCKI=
+github.com/smartcontractkit/chainlink-common v0.11.2-0.20260625162847-bdf9e82b2f75/go.mod h1:wUK7w5xRrFPD2qQfdt1fLXzQzWSb4PaZaxa4nsqCWVs=
 github.com/smartcontractkit/chainlink-common/keystore v1.2.0 h1:1BH/b14CkGjArfzznlioQpIJiynECWVT48JUP9E277U=
 github.com/smartcontractkit/chainlink-common/keystore v1.2.0/go.mod h1:9R/74vN+bJ5PbkOyM/pUy/AeAZaRwYb/k4XPeXcbDio=
 github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260601211238-9f526774fef0 h1:NExKM/D0HneOq/N5LGTbkV4VOa0UHCvfTNEb4GqYpto=
@@ -1569,8 +1569,8 @@ github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20260423135514-5b1
 github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20260423135514-5b1a7565a99c/go.mod h1:kGprqyjsz6qFNVszOQoHc24wfvCjyipNZFste/3zcbs=
 github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20260521164805-26d78d5e1243 h1:vaFBupfFfImQgqOeuC7Muk2GflbYP6Gpi0Y/TLroFU8=
 github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20260521164805-26d78d5e1243/go.mod h1:HG/aei0MgBOpsyRLexdKGtOUO8yjSJO3iUu0Uu8KBm4=
-github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20260521164805-26d78d5e1243 h1:71PGTkjdFZ0JrloEC2Fs8eHl1b1gmUuH+bq7q23usKk=
-github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20260521164805-26d78d5e1243/go.mod h1:7ketk4ischPQW/JQgmyHz6zdzLUJv1VC29SiSgosydQ=
+github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20260625152110-9afcf56e4053 h1:lW5ccLVGuDG8/VojIRMpjguVfXjA7UJBFYS0POWvrzs=
+github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20260625152110-9afcf56e4053/go.mod h1:7ketk4ischPQW/JQgmyHz6zdzLUJv1VC29SiSgosydQ=
 github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20251024234028-0988426d98f4 h1:GCzrxDWn3b7jFfEA+WiYRi8CKoegsayiDoJBCjYkneE=
 github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20251024234028-0988426d98f4/go.mod h1:HHGeDUpAsPa0pmOx7wrByCitjQ0mbUxf0R9v+g67uCA=
 github.com/smartcontractkit/chainlink-protos/chainlink-ccv/committee-verifier v0.0.0-20251211142334-5c3421fe2c8d h1:VYoBBNnQpZ5p+enPTl8SkKBRaubqyGpO0ul3B1np++I=
