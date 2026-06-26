@@ -3,9 +3,9 @@ package vaultutils
 import (
 	"testing"
 
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -89,7 +89,7 @@ func TestToCanonicalJSON_OmitsEmptyFields(t *testing.T) {
 
 		canonicalJSON, err := ToCanonicalJSON(msg, true)
 		require.NoError(t, err)
-		assert.Equal(t, `{}`, string(canonicalJSON))
+		assert.JSONEq(t, `{}`, string(canonicalJSON))
 		assert.NotEqual(t, string(withEmptyFields), string(canonicalJSON))
 	})
 
