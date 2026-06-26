@@ -7,7 +7,6 @@ import (
 	"math/big"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/uuid"
@@ -261,6 +260,7 @@ func (s *Services) newSubservices(
 		ds,
 		opts,
 		dispatcherWrapper,
+		opts.LimitsFactory,
 	)
 	if err != nil {
 		return nil, err
@@ -439,6 +439,7 @@ func (s *Services) newRegistrySyncer(
 	ds sqlutil.DataSource,
 	opts Opts,
 	dispatcherWrapper *dispatcherWrapper,
+	lf limits.Factory,
 ) ([]commonsrv.Service, capabilities.DonNotifyWaitSubscriber, error) {
 	var srvcs []commonsrv.Service
 
@@ -469,9 +470,12 @@ func (s *Services) newRegistrySyncer(
 		return nil, nil, err
 	}
 
-	triggerRegistrationStatusUpdateTimeout := limits.NewTimeLimiter(30 * time.Second)
-	if timeout, timeoutErr := cresettings.Default.TriggerRegistrationStatusUpdateTimeout.GetOrDefault(context.Background(), nil); timeoutErr == nil && timeout > 0 {
-		triggerRegistrationStatusUpdateTimeout = limits.NewTimeLimiter(timeout)
+	// TODO: after remote trigger registration status is fully rolled out and proven in prod,
+	// change TriggerRegistrationStatusUpdateTimeout default to 30s in cresettings and remove
+	// per-env CL_CRE_SETTINGS overrides plus the ErrUnableToDetermineRegistrationStatus fallback.
+	triggerRegistrationStatusUpdateTimeout, err := lf.MakeTimeLimiter(cresettings.Default.TriggerRegistrationStatusUpdateTimeout)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not create trigger registration status update timeout limiter: %w", err)
 	}
 
 	wfLauncher, err := capabilities.NewLauncher(
