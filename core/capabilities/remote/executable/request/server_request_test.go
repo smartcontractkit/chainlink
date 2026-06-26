@@ -40,8 +40,6 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 		F:       1,
 	}
 
-	dispatcher := &testDispatcher{}
-
 	executeInputs, err := values.NewMap(
 		map[string]any{
 			"executeValue1": "aValue1",
@@ -63,6 +61,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 	t.Run("Send duplicate message", func(t *testing.T) {
 		t.Parallel()
 
+		dispatcher := &testDispatcher{}
 		req, err := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", lggr)
 		require.NoError(t, err)
@@ -76,6 +75,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 	t.Run("Send message with non calling don peer", func(t *testing.T) {
 		t.Parallel()
 
+		dispatcher := &testDispatcher{}
 		req, err := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", lggr)
 		require.NoError(t, err)
@@ -102,6 +102,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 	t.Run("Send message invalid payload", func(t *testing.T) {
 		t.Parallel()
 
+		dispatcher := &testDispatcher{}
 		req, err := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
 			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", lggr)
 		require.NoError(t, err)

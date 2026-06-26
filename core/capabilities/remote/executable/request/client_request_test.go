@@ -1013,7 +1013,6 @@ func drainInitialPeerSends(t *testing.T, d *clientRequestTestDispatcher, numCapa
 		time.Sleep(10 * time.Millisecond)
 	}
 	require.Len(t, d.msgs, numCapabilityPeers, "timed out waiting for buffered outbound messages")
-	require.Len(t, d.msgs, numCapabilityPeers, "dispatcher outbound buffer before draining initial peer sends")
 	for range numCapabilityPeers {
 		<-d.msgs
 	}
