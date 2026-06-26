@@ -36,6 +36,14 @@ const (
 
 	EngineVersionV1 = "v1"
 	EngineVersionV2 = "v2"
+
+	// defaultBillingCallTimeout bounds the blocking billing-service RPCs made on
+	// the execution-start path (GetWorkflowExecutionRates, ReserveCredits). The
+	// billing client itself sets no deadline, so without this a slow or hung
+	// billing call (e.g. an upstream proxy returning a 524) can stall workflow
+	// executions long enough to fall behind peer nodes and fail consensus. We
+	// fail open on timeout, so a short budget is preferable. See CRE-5160.
+	defaultBillingCallTimeout = 5 * time.Second
 )
 
 var (
@@ -192,12 +200,14 @@ func NewReport(
 
 		var resp *billing.GetWorkflowExecutionRatesResponse
 
-		resp, err = report.client.GetWorkflowExecutionRates(ctx, &billing.GetWorkflowExecutionRatesRequest{
+		rateCtx, cancel := context.WithTimeout(ctx, defaultBillingCallTimeout)
+		resp, err = report.client.GetWorkflowExecutionRates(rateCtx, &billing.GetWorkflowExecutionRatesRequest{
 			WorkflowOwner:           labels[platform.KeyWorkflowOwner],
 			WorkflowRegistryAddress: report.workflowRegistryAddress,
 			ChainSelector:           report.workflowRegistryChainSelector,
 			WorkflowExecutionId:     labels[platform.KeyWorkflowExecutionID],
 		})
+		cancel()
 		if err != nil {
 			report.switchToMeteringMode(err)
 		}
@@ -256,7 +266,9 @@ func (r *Report) Reserve(ctx context.Context) error {
 		Credits:                       nil,
 	}
 
-	resp, err := r.client.ReserveCredits(ctx, &req)
+	reserveCtx, cancel := context.WithTimeout(ctx, defaultBillingCallTimeout)
+	resp, err := r.client.ReserveCredits(reserveCtx, &req)
+	cancel()
 
 	// If there is an error communicating with the billing service, fail open
 	if err != nil {
@@ -897,11 +909,17 @@ func (s *Reports) Get(workflowExecutionID string) (*Report, bool) {
 }
 
 // Start creates a new report and inserts it under the specified workflowExecutionID.
+//
+// NewReport makes a blocking billing-service call (GetWorkflowExecutionRates),
+// so it is intentionally invoked WITHOUT holding s.mu. Holding the shared lock
+// across that network call would serialize and stall every concurrent execution
+// of this workflow behind a single slow billing call. The lock is
+// only held for the in-memory map check and insert.
 func (s *Reports) Start(ctx context.Context, workflowExecutionID string) (*Report, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
+	// Fast pre-check to avoid an unnecessary billing call when a report already exists.
+	s.mu.RLock()
 	_, ok := s.reports[workflowExecutionID]
+	s.mu.RUnlock()
 	if ok {
 		return nil, ErrReportExists
 	}
@@ -915,6 +933,13 @@ func (s *Reports) Start(ctx context.Context, workflowExecutionID string) (*Repor
 		return nil, err
 	}
 
+	// Insert under lock, re-checking the key in case a concurrent Start for the
+	// same executionID won the race while we were building the report.
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.reports[workflowExecutionID]; ok {
+		return nil, ErrReportExists
+	}
 	s.reports[workflowExecutionID] = report
 
 	return report, nil
