@@ -16,6 +16,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	proposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_receiver"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/eth_balance_monitor_wrapper"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	vaulttypes "github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
@@ -97,7 +98,7 @@ func (d deployEthBalMon) Apply(e cldf.Environment, config vaulttypes.DeployEthBa
 	for _, chainOut := range seqOut.Chains {
 		contractsByChain[chainOut.ChainSelector] = chainOut.ContractAddress
 
-		addressRef := ds.AddressRef{
+		ethBalmonAddressRef := ds.AddressRef{
 			ChainSelector: chainOut.ChainSelector,
 			Address:       chainOut.ContractAddress,
 			Type:          ds.ContractType(vaulttypes.EthBalMonContractType),
@@ -107,6 +108,15 @@ func (d deployEthBalMon) Apply(e cldf.Environment, config vaulttypes.DeployEthBa
 				vaulttypes.EthBalMonContractType,
 				"EthBalMonV1_0_0",
 			),
+		}
+
+		automationReceiverAddressRef := ds.AddressRef{
+			ChainSelector: chainOut.ChainSelector,
+			Address:       chainOut.AutomationReceiverAddress,
+			Type:          ds.ContractType(vaulttypes.AutomationReceiverContractType),
+			Version:       semver.MustParse("1.0.0"),
+			Qualifier:     "",
+			Labels:        ds.NewLabelSet(),
 		}
 
 		contractMetadata := ds.ContractMetadata{
@@ -123,8 +133,11 @@ func (d deployEthBalMon) Apply(e cldf.Environment, config vaulttypes.DeployEthBa
 			},
 		}
 
-		if err := memoryDataStore.Addresses().Add(addressRef); err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add address ref for chain %d: %w", chainOut.ChainSelector, err)
+		if err := memoryDataStore.Addresses().Add(ethBalmonAddressRef); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add EthBalanceMonitor address ref for chain %d: %w", chainOut.ChainSelector, err)
+		}
+		if err := memoryDataStore.Addresses().Add(automationReceiverAddressRef); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add AutomationReceiver address ref for chain %d: %w", chainOut.ChainSelector, err)
 		}
 		if err := memoryDataStore.ContractMetadata().Add(contractMetadata); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add contract metadata for chain %d: %w", chainOut.ChainSelector, err)
@@ -163,15 +176,16 @@ type DeployEthBalMonSequenceInput struct {
 	MCMSConfig *proposalutils.TimelockConfig                    `json:"mcms_config,omitempty"`
 }
 type DeployEthBalMonPerChainOutput struct {
-	ChainSelector           uint64
-	ContractAddress         string
-	DeployTxHash            string
-	DeployBlockNumber       uint64
-	KeeperRegistryAddress   string
-	MinWaitPeriodSeconds    uint64
-	TimelockAddress         string
-	MCMSAddress             string
-	TransferOwnershipTxHash string
+	ChainSelector             uint64
+	ContractAddress           string
+	DeployTxHash              string
+	DeployBlockNumber         uint64
+	KeeperRegistryAddress     string
+	MinWaitPeriodSeconds      uint64
+	TimelockAddress           string
+	MCMSAddress               string
+	TransferOwnershipTxHash   string
+	AutomationReceiverAddress string
 }
 
 type DeployEthBalMonSequenceOutput struct {
@@ -213,13 +227,26 @@ var DeployEthBalMonSequence = operations.NewSequence(
 			if err != nil {
 				return DeployEthBalMonSequenceOutput{}, fmt.Errorf("chain %d: failed to get mcms address: %w", chainSelector, err)
 			}
+			deployAutomationReceiversReport, err := operations.ExecuteOperation(
+				b,
+				DeployAutomationReceiverOperation,
+				deps,
+				DeployAutomationReceiverInput{
+					ChainSelector:    chainSelector,
+					ForwarderAddress: chainConfig.ForwarderAddress,
+				},
+			)
+			if err != nil {
+				return DeployEthBalMonSequenceOutput{}, fmt.Errorf("chain %d: deploy AutomationReceiver operation failed: %w", chainSelector, err)
+			}
+
 			deployReport, err := operations.ExecuteOperation(
 				b,
 				DeployEthBalMonContractOperation,
 				deps,
 				DeployEthBalMonContractInput{
 					ChainSelector:         chainSelector,
-					KeeperRegistryAddress: chainConfig.SetKeeperRegistryAddress,
+					KeeperRegistryAddress: deployAutomationReceiversReport.Output.AutomationReceiverAddress,
 					MinWaitPeriodSeconds:  minWait,
 				},
 			)
@@ -255,6 +282,63 @@ var DeployEthBalMonSequence = operations.NewSequence(
 			})
 		}
 		return out, nil
+	},
+)
+
+// ================================================
+// ================================================
+// Deploy AutomationReceiver OPERATION
+// ================================================
+// ================================================
+type DeployAutomationReceiverInput struct {
+	ChainSelector    uint64 `json:"chain_selector"`
+	ForwarderAddress string `json:"forwarder_address"`
+}
+
+type DeployAutomationReceiverOutput struct {
+	ChainSelector             uint64 `json:"chain_selector"`
+	AutomationReceiverAddress string `json:"automation_receiver_address"`
+}
+
+var DeployAutomationReceiverOperation = operations.NewOperation(
+	"deploy-automation-receiver",
+	semver.MustParse("1.0.0"),
+	"Deploy Automation Receiver contract",
+	func(b operations.Bundle, deps VaultDeps, input DeployAutomationReceiverInput) (DeployAutomationReceiverOutput, error) {
+		chain, ok := deps.Environment.BlockChains.EVMChains()[input.ChainSelector]
+		if !ok {
+			return DeployAutomationReceiverOutput{}, fmt.Errorf("chain not found in environment: %d", input.ChainSelector)
+		}
+
+		forwarderAddress := common.HexToAddress(input.ForwarderAddress)
+
+		b.Logger.Infow("Deploying AutomationReceiver",
+			"chainSelector", input.ChainSelector,
+			"forwarderAddress", forwarderAddress.Hex(),
+		)
+
+		automationReceiverAddr, tx, _, err := automation_receiver.DeployAutomationReceiver(
+			chain.DeployerKey,
+			chain.Client,
+			forwarderAddress,
+		)
+		if err != nil {
+			return DeployAutomationReceiverOutput{}, fmt.Errorf("failed to deploy AutomationReceiver: %w", err)
+		}
+
+		if _, err := chain.Confirm(tx); err != nil {
+			return DeployAutomationReceiverOutput{}, fmt.Errorf("failed to confirm AutomationReceiver deploy tx %s: %w", tx.Hash().Hex(), err)
+		}
+
+		b.Logger.Infow("AutomationReceiver deployed successfully",
+			"chainSelector", input.ChainSelector,
+			"contractAddress", automationReceiverAddr.Hex(),
+		)
+
+		return DeployAutomationReceiverOutput{
+			ChainSelector:             input.ChainSelector,
+			AutomationReceiverAddress: automationReceiverAddr.Hex(),
+		}, nil
 	},
 )
 

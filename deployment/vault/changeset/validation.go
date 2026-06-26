@@ -281,11 +281,11 @@ func ValidateDeployEthBalMonConfig(ctx context.Context, env cldf.Environment, cf
 		if err := validateChainSelector(chainSelector, env); err != nil {
 			return fmt.Errorf("chain %d: %w", chainSelector, err)
 		}
-		if err := validateEthAddress("setKeeperRegistryAddress", chainCfg.SetKeeperRegistryAddress); err != nil {
+		if err := validateEthAddress("forwarderAddress", chainCfg.ForwarderAddress); err != nil {
 			return fmt.Errorf("chain %d: %w", chainSelector, err)
 		}
-		if common.HexToAddress(chainCfg.SetKeeperRegistryAddress) == (common.Address{}) {
-			return fmt.Errorf("chain %d: setKeeperRegistryAddress cannot be zero address", chainSelector)
+		if common.HexToAddress(chainCfg.ForwarderAddress) == (common.Address{}) {
+			return fmt.Errorf("chain %d: forwarderAddress cannot be zero address", chainSelector)
 		}
 		if err := validateDeployEthBalMonMCMSInDatastore(env, chainSelector, cfg.MCMSConfig); err != nil {
 			return fmt.Errorf("chain %d: %w", chainSelector, err)

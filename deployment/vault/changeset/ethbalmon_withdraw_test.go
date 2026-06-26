@@ -149,7 +149,7 @@ func TestEthBalMonWithdrawChangeset(t *testing.T) {
 
 	deployCfg := types.DeployEthBalMonInput{
 		Chains: map[uint64]types.DeployEthBalMonChainConfig{
-			selector: {SetKeeperRegistryAddress: testAddr1},
+			selector: {ForwarderAddress: testAddr1},
 		},
 	}
 	deployTask := runtime.ChangesetTask(DeployEthBalMonChangeSet, deployCfg)

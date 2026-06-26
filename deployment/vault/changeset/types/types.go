@@ -95,10 +95,9 @@ type TransferERC20Config struct {
 
 // DeployEthBalMonChainConfig is deployment-time configuration for EthBalMon on one chain.
 type DeployEthBalMonChainConfig struct {
-	// SetKeeperRegistryAddress is the Chainlink Automation registry forwarder (the upkeep
-	// "forwarder address") on standard automation chains, or the KMS executor address when
-	// using the Plaid/KMS automation path.
-	SetKeeperRegistryAddress string `json:"setKeeperRegistryAddress"`
+	// ForwarderAddress is the CRE forwarder address passed to the AutomationReceiver constructor.
+	// AutomationReceiver is deployed first and its address is then set as the keeper registry on EthBalMon.
+	ForwarderAddress string `json:"forwarderAddress"`
 	// SetMinWaitPeriodSeconds is the minimum seconds between balance checks for this deployment.
 	// Optional: nil or 0 means the deploy changeset uses a default (currently 60 seconds).
 	SetMinWaitPeriodSeconds *uint64 `json:"setMinWaitPeriodSeconds,omitempty"`
@@ -115,6 +114,9 @@ type DeployEthBalMonInput struct {
 
 // EthBalMonContractType is the datastore / MCMS contract type label for EthBalMon deployments.
 const EthBalMonContractType = "EthBalMon"
+
+// AutomationReceiverContractType
+const AutomationReceiverContractType = "AutomationReceiver"
 
 // SetKeeperRegistryChainConfig updates the automation executor/registry EthBalMon forwards work to.
 type SetKeeperRegistryChainConfig struct {

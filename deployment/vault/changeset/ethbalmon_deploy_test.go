@@ -55,7 +55,7 @@ func TestDeployEthBalMonValidation(t *testing.T) {
 			config: types.DeployEthBalMonInput{
 				Chains: map[uint64]types.DeployEthBalMonChainConfig{
 					math.MaxUint64: {
-						SetKeeperRegistryAddress: "0x1234567890123456789012345678901234567890",
+						ForwarderAddress: "0x1234567890123456789012345678901234567890",
 					},
 				},
 			},
@@ -67,7 +67,7 @@ func TestDeployEthBalMonValidation(t *testing.T) {
 			config: types.DeployEthBalMonInput{
 				Chains: map[uint64]types.DeployEthBalMonChainConfig{
 					selectorOther: {
-						SetKeeperRegistryAddress: "0x1234567890123456789012345678901234567890",
+						ForwarderAddress: "0x1234567890123456789012345678901234567890",
 					},
 				},
 			},
@@ -75,47 +75,47 @@ func TestDeployEthBalMonValidation(t *testing.T) {
 			errorMsg:  "not found in environment",
 		},
 		{
-			name: "empty setKeeperRegistryAddress",
+			name: "empty forwarderAddress",
 			config: types.DeployEthBalMonInput{
 				Chains: map[uint64]types.DeployEthBalMonChainConfig{
 					selector: {
-						SetKeeperRegistryAddress: "",
+						ForwarderAddress: "",
 					},
 				},
 			},
 			wantError: true,
-			errorMsg:  "setKeeperRegistryAddress must not be empty",
+			errorMsg:  "forwarderAddress must not be empty",
 		},
 		{
-			name: "invalid setKeeperRegistryAddress",
+			name: "invalid forwarderAddress",
 			config: types.DeployEthBalMonInput{
 				Chains: map[uint64]types.DeployEthBalMonChainConfig{
 					selector: {
-						SetKeeperRegistryAddress: "not-a-valid-address",
+						ForwarderAddress: "not-a-valid-address",
 					},
 				},
 			},
 			wantError: true,
-			errorMsg:  fmt.Sprintf("chain %d: setKeeperRegistryAddress is not a valid hex address: not-a-valid-address", selector),
+			errorMsg:  fmt.Sprintf("chain %d: forwarderAddress is not a valid hex address: not-a-valid-address", selector),
 		},
 		{
-			name: "zero setKeeperRegistryAddress",
+			name: "zero forwarderAddress",
 			config: types.DeployEthBalMonInput{
 				Chains: map[uint64]types.DeployEthBalMonChainConfig{
 					selector: {
-						SetKeeperRegistryAddress: zeroAddr,
+						ForwarderAddress: zeroAddr,
 					},
 				},
 			},
 			wantError: true,
-			errorMsg:  fmt.Sprintf("chain %d: setKeeperRegistryAddress cannot be zero address", selector),
+			errorMsg:  fmt.Sprintf("chain %d: forwarderAddress cannot be zero address", selector),
 		},
 		{
 			name: "missing MCMS and timelock in datastore",
 			config: types.DeployEthBalMonInput{
 				Chains: map[uint64]types.DeployEthBalMonChainConfig{
 					selector: {
-						SetKeeperRegistryAddress: "0x1234567890123456789012345678901234567890",
+						ForwarderAddress: "0x1234567890123456789012345678901234567890",
 					},
 				},
 			},
@@ -127,7 +127,7 @@ func TestDeployEthBalMonValidation(t *testing.T) {
 			config: types.DeployEthBalMonInput{
 				Chains: map[uint64]types.DeployEthBalMonChainConfig{
 					selector: {
-						SetKeeperRegistryAddress: "0x1234567890123456789012345678901234567890",
+						ForwarderAddress: "0x1234567890123456789012345678901234567890",
 					},
 				},
 			},
@@ -241,7 +241,7 @@ func TestBuildAcceptOwnershipTimelockProposal(t *testing.T) {
 
 		cfg := types.DeployEthBalMonInput{
 			Chains: map[uint64]types.DeployEthBalMonChainConfig{
-				selector: {SetKeeperRegistryAddress: testAddr1},
+				selector: {ForwarderAddress: testAddr1},
 			},
 		}
 		out, err := DeployEthBalMonChangeSet.Apply(rt.Environment(), cfg)
@@ -280,7 +280,7 @@ func TestBuildAcceptOwnershipTimelockProposal(t *testing.T) {
 
 		cfg := types.DeployEthBalMonInput{
 			Chains: map[uint64]types.DeployEthBalMonChainConfig{
-				selector: {SetKeeperRegistryAddress: testAddr1},
+				selector: {ForwarderAddress: testAddr1},
 			},
 		}
 		out, err := DeployEthBalMonChangeSet.Apply(rt.Environment(), cfg)
@@ -318,7 +318,7 @@ func TestDeployEthBalMonChangeset(t *testing.T) {
 		cfg := types.DeployEthBalMonInput{
 			Chains: map[uint64]types.DeployEthBalMonChainConfig{
 				selector: {
-					SetKeeperRegistryAddress: testAddr1,
+					ForwarderAddress: testAddr1,
 					SetMinWaitPeriodSeconds:  &customWait,
 				},
 			},
@@ -346,7 +346,7 @@ func TestDeployEthBalMonChangeset(t *testing.T) {
 		cfg := types.DeployEthBalMonInput{
 			Chains: map[uint64]types.DeployEthBalMonChainConfig{
 				selector: {
-					SetKeeperRegistryAddress: testAddr1,
+					ForwarderAddress: testAddr1,
 				},
 			},
 		}
@@ -377,7 +377,7 @@ func TestDeployEthBalMonChangeset(t *testing.T) {
 		cfg := types.DeployEthBalMonInput{
 			Chains: map[uint64]types.DeployEthBalMonChainConfig{
 				selector: {
-					SetKeeperRegistryAddress: testAddr1,
+					ForwarderAddress: testAddr1,
 					SetMinWaitPeriodSeconds:  &zero,
 				},
 			},
@@ -410,8 +410,8 @@ func TestDeployEthBalMonChangeset(t *testing.T) {
 
 		cfg := types.DeployEthBalMonInput{
 			Chains: map[uint64]types.DeployEthBalMonChainConfig{
-				selector1: {SetKeeperRegistryAddress: testAddr1},
-				selector2: {SetKeeperRegistryAddress: testAddr2},
+				selector1: {ForwarderAddress: testAddr1},
+				selector2: {ForwarderAddress: testAddr2},
 			},
 		}
 
@@ -448,7 +448,7 @@ func TestDeployEthBalMonChangeset(t *testing.T) {
 
 		err = DeployEthBalMonChangeSet.VerifyPreconditions(rt.Environment(), types.DeployEthBalMonInput{
 			Chains: map[uint64]types.DeployEthBalMonChainConfig{
-				otherSel: {SetKeeperRegistryAddress: testAddr1},
+				otherSel: {ForwarderAddress: testAddr1},
 			},
 		})
 		require.Error(t, err)
@@ -468,7 +468,7 @@ func TestDeployEthBalMonChangeset(t *testing.T) {
 
 		cfg := types.DeployEthBalMonInput{
 			Chains: map[uint64]types.DeployEthBalMonChainConfig{
-				selector: {SetKeeperRegistryAddress: testAddr1},
+				selector: {ForwarderAddress: testAddr1},
 			},
 		}
 
@@ -495,7 +495,7 @@ func TestDeployEthBalMon_RuntimeChangesetTask(t *testing.T) {
 
 		cfg := types.DeployEthBalMonInput{
 			Chains: map[uint64]types.DeployEthBalMonChainConfig{
-				selector: {SetKeeperRegistryAddress: testAddr1},
+				selector: {ForwarderAddress: testAddr1},
 			},
 		}
 
@@ -559,8 +559,8 @@ func TestDeployEthBalMon_RuntimeChangesetTask(t *testing.T) {
 
 		cfg := types.DeployEthBalMonInput{
 			Chains: map[uint64]types.DeployEthBalMonChainConfig{
-				selector1: {SetKeeperRegistryAddress: testAddr1},
-				selector2: {SetKeeperRegistryAddress: testAddr2},
+				selector1: {ForwarderAddress: testAddr1},
+				selector2: {ForwarderAddress: testAddr2},
 			},
 		}
 
@@ -587,7 +587,7 @@ func assertEthBalMonDeployOutput(
 
 	addrs, err := out.DataStore.Addresses().Fetch()
 	require.NoError(t, err)
-	require.Len(t, addrs, n)
+	require.Len(t, addrs, 2*n) // EthBalMon + AutomationReceiver per chain
 
 	mds, err := out.DataStore.ContractMetadata().Fetch()
 	require.NoError(t, err)
@@ -610,7 +610,7 @@ func assertEthBalMonDeployOutput(
 		require.NotEmpty(t, meta.Address)
 
 		md := contractMetadataMap(t, meta.Metadata)
-		require.Equal(t, chainCfg.SetKeeperRegistryAddress, md["keeperRegistryAddress"])
+		require.NotEmpty(t, md["keeperRegistryAddress"], "keeperRegistryAddress should be the deployed AutomationReceiver address")
 
 		minWait := chainCfgMinWaitForEffective(chainCfg)
 		require.Equal(t, effectiveMinWaitPeriodSeconds(minWait), uint64FromAny(t, md["minWaitPeriodSeconds"]))
