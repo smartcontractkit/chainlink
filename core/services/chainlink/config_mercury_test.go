@@ -51,7 +51,9 @@ func TestMercuryTLS(t *testing.T) {
 }
 
 func TestMercuryDataSourceConfig(t *testing.T) {
+	t.Parallel()
 	t.Run("defaults", func(t *testing.T) {
+		t.Parallel()
 		opts := GeneralConfigOpts{
 			ConfigStrings: []string{`[Feature]
 LogPoller = false`},
@@ -63,6 +65,7 @@ LogPoller = false`},
 	})
 
 	t.Run("from full fixture", func(t *testing.T) {
+		t.Parallel()
 		opts := GeneralConfigOpts{
 			ConfigStrings: []string{fullTOML},
 		}

@@ -1662,7 +1662,7 @@ func (d *Delegate) newServicesLLO(
 		CaptureObservationTelemetry: jb.OCR2OracleSpec.CaptureEATelemetry,
 		CaptureOutcomeTelemetry:     jb.OCR2OracleSpec.CaptureEATelemetry,
 		CaptureReportTelemetry:      false,
-		ObservationTimingBase: d.cfg.Mercury().DataSource().ObservationTimingBase(),
+		ObservationTimingBase:       d.cfg.Mercury().DataSource().ObservationTimingBase(),
 
 		ChannelDefinitionCache:   provider.ChannelDefinitionCache(),
 		RetirementReportCache:    d.retirementReportCache,

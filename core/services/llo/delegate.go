@@ -62,7 +62,7 @@ type DelegateConfig struct {
 	CaptureObservationTelemetry bool
 	CaptureOutcomeTelemetry     bool
 	CaptureReportTelemetry      bool
-	ObservationTimingBase time.Duration
+	ObservationTimingBase       time.Duration
 
 	// LLO
 	ChannelDefinitionCache   llotypes.ChannelDefinitionCache

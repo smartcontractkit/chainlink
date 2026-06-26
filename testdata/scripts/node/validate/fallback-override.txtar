@@ -409,6 +409,9 @@ TransmitConcurrency = 100
 ReaperFrequency = '1h0m0s'
 ReaperMaxAge = '48h0m0s'
 
+[Mercury.DataSource]
+ObservationTimingBase = '0s'
+
 [Capabilities]
 [Capabilities.RateLimit]
 GlobalRPS = 200.0
