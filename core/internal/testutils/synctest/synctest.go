@@ -9,15 +9,14 @@ import (
 	"time"
 )
 
-// Test wraps `testing/synctest.Test` to disable the synctest bubble when `-race` is enabled.
-// There is a known issue with `synctest` when run with the `-race` detector that causes false positives.
-// This should be fixed in Go 1.27 and we can remove this package.
-// https://github.com/golang/go/issues/76691
+// Test wraps `testing/synctest.Test`.
+// In !race builds we enable the synctest bubble; under -race this is a no-op via synctest_race.go
+// due to https://github.com/golang/go/issues/76691 (fixed in Go 1.27).
 func Test(t *testing.T, f func(*testing.T)) {
 	synctest.Test(t, f)
 }
 
-// Wait wraps `testing/synctest.Wait` to disable the synctest bubble when `-race` is enabled.
+// Wait wraps `testing/synctest.Wait` (no-op under -race; see synctest_race.go).
 func Wait() {
 	synctest.Wait()
 }

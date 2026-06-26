@@ -154,9 +154,8 @@ func Test_Client_TransmissionSchedules(t *testing.T) {
 func Test_Client_ResponseAggregationGrace(t *testing.T) {
 	t.Parallel()
 	const (
-		requestTimeout           = 500 * time.Millisecond
-		capabilityExecuteDelay   = 2 * time.Second
-		responseAggregationGrace = 10 * time.Second // mirrors request.defaultResponseAggregationGrace
+		requestTimeout         = 500 * time.Millisecond
+		capabilityExecuteDelay = 2 * time.Second
 	)
 
 	for _, tc := range []struct {
