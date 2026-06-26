@@ -18,6 +18,7 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -47,7 +48,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils/pgtest"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_reader_tester"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
@@ -60,6 +60,7 @@ import (
 
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
 
 // This file contains e2e tests for CCIPReader methods, goal of these tests is to cover entire flow of
@@ -136,7 +137,7 @@ func TestCCIPReader_GetOffRampConfigDigest(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, execConfigDigest, execConfigDetails.ConfigInfo.ConfigDigest)
 
-	db := pgtest.NewSqlxDB(t)
+	db := newHeavyTestDB(t)
 	lggr := logger.TestLogger(t)
 	lggr.SetLogLevel(zapcore.ErrorLevel)
 	lpOpts := logpoller.Opts{
@@ -708,7 +709,7 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 
 	clS1 := client.NewSimulatedBackendClient(t, sb, big.NewInt(0).SetUint64(uint64(chainS1)))
 	headTrackerS1 := headstest.NewSimulatedHeadTracker(clS1, true, 1)
-	ormS1 := logpoller.NewORM(big.NewInt(0).SetUint64(uint64(chainS1)), pgtest.NewSqlxDB(t), logger.TestLogger(t))
+	ormS1 := logpoller.NewORM(big.NewInt(0).SetUint64(uint64(chainS1)), newHeavyTestDB(t), logger.TestLogger(t))
 	lpOpts := logpoller.Opts{
 		PollPeriod:               time.Millisecond,
 		FinalityDepth:            0,
@@ -727,7 +728,7 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 
 	clD := client.NewSimulatedBackendClient(t, sb, big.NewInt(0).SetUint64(uint64(chainD)))
 	headTrackerD := headstest.NewSimulatedHeadTracker(clD, true, 1)
-	ormD := logpoller.NewORM(big.NewInt(0).SetUint64(uint64(chainD)), pgtest.NewSqlxDB(t), logger.TestLogger(t))
+	ormD := logpoller.NewORM(big.NewInt(0).SetUint64(uint64(chainD)), newHeavyTestDB(t), logger.TestLogger(t))
 	lpD := logpoller.NewLogPoller(
 		ormD,
 		clD,
@@ -1119,6 +1120,26 @@ func setupSimulatedBackendAndAuth(t testing.TB) (*simulated.Backend, *bind.Trans
 	return simulatedBackend, auth
 }
 
+// newHeavyTestDB returns a dedicated, fully-migrated Postgres database for the test.
+//
+// We deliberately do NOT use pgtest.NewSqlxDB here. That helper is backed by the
+// txdb driver, under which every test in the package shares a single physical
+// database and tables (each caller only gets its own uncommitted transaction).
+// These tests run with t.Parallel() and reuse the same evm_chain_id (e.g. chainD)
+// while their simulated backends mint blocks 1,2,3..., so parallel tests insert
+// the same (block_number, evm_chain_id) primary key into the shared
+// evm.log_poller_blocks table. The duplicate INSERT ... ON CONFLICT takes a
+// speculative-insert lock that blocks on the other test's never-committed txdb
+// transaction, and txdb strips the per-query context deadline, so the LogPoller
+// insert hangs forever -> logPoller.Close() never returns -> the package trips the
+// 12m test timeout. A dedicated heavyweight DB per test gives each LogPoller its
+// own tables (no cross-test PK contention) and a real connection that honors query
+// timeouts. Mirrors the existing usage in ccip_reader_bench_test.go.
+func newHeavyTestDB(t testing.TB) *sqlx.DB {
+	_, db := heavyweight.FullTestDBV2(t, nil)
+	return db
+}
+
 func testSetupRealContracts(
 	ctx context.Context,
 	t *testing.T,
@@ -1141,7 +1162,7 @@ func testSetupRealContracts(
 	var contractWriters = make(map[cciptypes.ChainSelector]types.ContractWriter)
 	for chainSelector, bindings := range toBindContracts {
 		// Create a separate database for each chain to prevent race conditions
-		db := pgtest.NewSqlxDB(t)
+		db := newHeavyTestDB(t)
 
 		simClient := env.Env.BlockChains.EVMChains()[uint64(chainSelector)].Client.(*cldf_evm_provider.SimClient)
 		cl := client.NewSimulatedBackendClient(t, simClient.Backend(), big.NewInt(0).SetUint64(uint64(chainSelector)))
@@ -1259,7 +1280,7 @@ func testSetup(
 	// Change that to DebugLevel to enable SQL logs
 	lggr.SetLogLevel(zapcore.DebugLevel)
 
-	db := pgtest.NewSqlxDB(t)
+	db := newHeavyTestDB(t)
 
 	lpOpts := logpoller.Opts{
 		PollPeriod:               100 * time.Millisecond,
@@ -1337,7 +1358,7 @@ func testSetup(
 	var otherCrs = make(map[cciptypes.ChainSelector]contractreader.Extended)
 	for chain, bindings := range params.ToBindContracts {
 		// Create a separate database for each chain to prevent race conditions
-		db2 := pgtest.NewSqlxDB(t)
+		db2 := newHeavyTestDB(t)
 
 		cl2 := client.NewSimulatedBackendClient(t, params.SimulatedBackend, big.NewInt(0).SetUint64(uint64(chain)))
 		headTracker2 := headstest.NewSimulatedHeadTracker(cl2, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
