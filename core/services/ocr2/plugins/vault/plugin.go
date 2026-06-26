@@ -2461,7 +2461,7 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 			if r.signedResponseRequestIDEnabled(ctx) {
 				createResp.RequestId = o.Id
 			}
-			rep, err := r.generateJSONReport(o.Id, o.RequestType, createResp)
+			rep, err := r.generateJSONReport(o.Id, o.RequestType, createResp, r.signedResponseRequestIDEnabled(ctx))
 			if err != nil {
 				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
 				continue
@@ -2475,7 +2475,7 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 			if r.signedResponseRequestIDEnabled(ctx) {
 				updateResp.RequestId = o.Id
 			}
-			rep, err := r.generateJSONReport(o.Id, o.RequestType, updateResp)
+			rep, err := r.generateJSONReport(o.Id, o.RequestType, updateResp, r.signedResponseRequestIDEnabled(ctx))
 			if err != nil {
 				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
 				continue
@@ -2489,7 +2489,7 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 			if r.signedResponseRequestIDEnabled(ctx) {
 				deleteResp.RequestId = o.Id
 			}
-			rep, err := r.generateJSONReport(o.Id, o.RequestType, deleteResp)
+			rep, err := r.generateJSONReport(o.Id, o.RequestType, deleteResp, r.signedResponseRequestIDEnabled(ctx))
 			if err != nil {
 				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
 				continue
@@ -2503,7 +2503,7 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 			if r.signedResponseRequestIDEnabled(ctx) {
 				listResp.RequestId = o.Id
 			}
-			rep, err := r.generateJSONReport(o.Id, o.RequestType, listResp)
+			rep, err := r.generateJSONReport(o.Id, o.RequestType, listResp, r.signedResponseRequestIDEnabled(ctx))
 			if err != nil {
 				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
 				continue
@@ -2544,12 +2544,12 @@ func (r *ReportingPlugin) generateProtoReport(id string, requestType vaultcommon
 	return wrapReportWithKeyBundleInfo(rpb, rip)
 }
 
-func (r *ReportingPlugin) generateJSONReport(id string, requestType vaultcommon.RequestType, msg proto.Message) (ocr3types.ReportWithInfo[[]byte], error) {
+func (r *ReportingPlugin) generateJSONReport(id string, requestType vaultcommon.RequestType, msg proto.Message, omitUnpopulated bool) (ocr3types.ReportWithInfo[[]byte], error) {
 	if msg == nil {
 		return ocr3types.ReportWithInfo[[]byte]{}, errors.New("invalid report: response cannot be nil")
 	}
 
-	jsonb, err := vaultutils.ToCanonicalJSON(msg)
+	jsonb, err := vaultutils.ToCanonicalJSON(msg, omitUnpopulated)
 	if err != nil {
 		return ocr3types.ReportWithInfo[[]byte]{}, fmt.Errorf("failed to convert proto to canonical JSON: %w", err)
 	}
