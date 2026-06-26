@@ -10,13 +10,13 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
-	solchangesets "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana/changesets"
 	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	solchangesets "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana/changesets"
 	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	mcmscontracts "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/contracts/mcms"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 )
 
