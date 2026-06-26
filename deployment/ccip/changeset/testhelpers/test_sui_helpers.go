@@ -34,8 +34,8 @@ import (
 	lockreleasetokenpoolops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_lock_release_token_pool"
 	managedtokenpoolops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_managed_token_pool"
 	managedtokenops "github.com/smartcontractkit/chainlink-sui/deployment/ops/managed_token"
-	cslclient "github.com/smartcontractkit/chainlink-sui/relayer/client"
 	suiofframp_helper "github.com/smartcontractkit/chainlink-sui/relayer/chainwriter/ptb/offramp"
+	cslclient "github.com/smartcontractkit/chainlink-sui/relayer/client"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	suideps "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/sui"

@@ -94,8 +94,8 @@ func fundNodesSui(t *testing.T, suiChain cldf_sui.Chain, nodes []*Node) {
 		if balance/poolSize < suiMinGasCoinBalance {
 			poolSize = balance / suiMinGasCoinBalance
 		}
-		require.Greater(t, poolSize, uint64(0),
-			"source coin %s balance %d too small to fund a gas pool", coin.GetObjectId(), balance)
+		require.Positive(t, poolSize,
+			"source coin %s balance %d is too small to fund a gas pool", coin.GetObjectId(), balance)
 		perCoin := balance / poolSize
 
 		t.Logf("Splitting coin %s (balance=%d) into %d gas coins of %d for %s...",
