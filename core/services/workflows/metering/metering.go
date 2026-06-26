@@ -267,8 +267,8 @@ func (r *Report) Reserve(ctx context.Context) error {
 	}
 
 	reserveCtx, cancel := context.WithTimeout(ctx, defaultBillingCallTimeout)
+	defer cancel()
 	resp, err := r.client.ReserveCredits(reserveCtx, &req)
-	cancel()
 
 	// If there is an error communicating with the billing service, fail open
 	if err != nil {
@@ -911,9 +911,7 @@ func (s *Reports) Get(workflowExecutionID string) (*Report, bool) {
 // Start creates a new report and inserts it under the specified workflowExecutionID.
 //
 // NewReport makes a blocking billing-service call (GetWorkflowExecutionRates),
-// so it is intentionally invoked WITHOUT holding s.mu. Holding the shared lock
-// across that network call would serialize and stall every concurrent execution
-// of this workflow behind a single slow billing call. The lock is
+// so it is intentionally invoked WITHOUT holding s.mu. The lock is
 // only held for the in-memory map check and insert.
 func (s *Reports) Start(ctx context.Context, workflowExecutionID string) (*Report, error) {
 	// Fast pre-check to avoid an unnecessary billing call when a report already exists.
