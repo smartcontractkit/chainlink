@@ -661,7 +661,7 @@ func TestNewHTTPClient_PortRanges(t *testing.T) {
 		_, err := NewHTTPClient(HTTPClientConfig{
 			AllowedPortRanges: []string{"9000-8000"},
 		}, lggr)
-		require.ErrorContains(t, err, "invalid range specified for port")
+		require.ErrorContains(t, err, "invalid port range")
 	})
 
 	t.Run("rejects port 0", func(t *testing.T) {
