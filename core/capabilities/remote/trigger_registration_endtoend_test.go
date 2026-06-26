@@ -49,6 +49,7 @@ import (
 //   - Production-scale topology (10 nodes, F=4); this suite uses 4 CAP / 4 WF peers, F=1
 
 func Test_RemoteTriggerRegistration_Success(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	underlying, err := newUnderlyingTriggers(t, 4, nil)
@@ -69,6 +70,7 @@ func Test_RemoteTriggerRegistration_Success(t *testing.T) {
 }
 
 func Test_RemoteTriggerRegistration_UserError(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	capErr := caperrors.NewPublicUserError(errors.New("some error"), caperrors.Unknown)
@@ -87,6 +89,7 @@ func Test_RemoteTriggerRegistration_UserError(t *testing.T) {
 }
 
 func Test_RemoteTriggerRegistration_SystemError(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	regErr := errors.New("some error")
@@ -106,6 +109,7 @@ func Test_RemoteTriggerRegistration_SystemError(t *testing.T) {
 }
 
 func Test_RemoteTriggerRegistration_StatusTimeout(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	underlying, err := newUnderlyingTriggers(t, 4, nil)
