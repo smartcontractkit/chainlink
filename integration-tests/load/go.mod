@@ -9,6 +9,10 @@ replace github.com/smartcontractkit/chainlink/deployment => ../../deployment
 
 replace github.com/smartcontractkit/chainlink/integration-tests => ../
 
+// chainlink-evm's generated codecgen is incompatible with ugorji/go/codec v1.3.1
+// (pulled in transitively by mcms v0.47.x). Pin to the version the rest of the repo uses.
+replace github.com/ugorji/go/codec => github.com/ugorji/go/codec v1.2.12
+
 require (
 	github.com/aptos-labs/aptos-go-sdk v1.13.0
 	github.com/ethereum/go-ethereum v1.17.3
