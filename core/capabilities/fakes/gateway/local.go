@@ -10,8 +10,6 @@ import (
 	"net/http"
 	"strconv"
 	"time"
-
-	httptypedapi "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/http"
 )
 
 const (
@@ -21,7 +19,8 @@ const (
 	shutdownTimeout   = time.Second
 )
 
-type triggerRequest struct {
+type TriggerRequest struct {
+	Index int             `json:"index"`
 	Input json.RawMessage `json:"input"`
 }
 
@@ -43,23 +42,23 @@ func NewLocalGateway(config Config) *LocalGateway {
 
 // ListenForTriggerPayload starts an HTTP server on the configured port and
 // blocks until a POST /trigger request arrives or ctx is cancelled.
-func (g *LocalGateway) ListenForTriggerPayload(ctx context.Context) (*httptypedapi.Payload, error) {
+func (g *LocalGateway) ListenForTriggerPayload(ctx context.Context) (*TriggerRequest, error) {
 	type result struct {
-		payload *httptypedapi.Payload
+		payload *TriggerRequest
 		err     error
 	}
 	resultCh := make(chan result, 1)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc(triggerPath, func(w http.ResponseWriter, r *http.Request) {
-		input, err := parseRequest(r)
+		payload, err := parseRequest(r)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		select {
-		case resultCh <- result{payload: &httptypedapi.Payload{Input: input}}:
+		case resultCh <- result{payload: payload}:
 			w.WriteHeader(http.StatusOK)
 		case <-r.Context().Done():
 			http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
@@ -97,7 +96,7 @@ func (g *LocalGateway) ListenForTriggerPayload(ctx context.Context) (*httptypeda
 	}
 }
 
-func parseRequest(req *http.Request) ([]byte, error) {
+func parseRequest(req *http.Request) (*TriggerRequest, error) {
 	if req.Method != http.MethodPost {
 		return nil, errors.New("gateway expects POST request")
 	}
@@ -108,10 +107,10 @@ func parseRequest(req *http.Request) ([]byte, error) {
 		return nil, fmt.Errorf("read request body: %w", err)
 	}
 
-	var request triggerRequest
+	var request TriggerRequest
 	if err := json.Unmarshal(body, &request); err != nil {
 		return nil, fmt.Errorf("parse request body: %w", err)
 	}
 
-	return request.Input, nil
+	return &request, nil
 }

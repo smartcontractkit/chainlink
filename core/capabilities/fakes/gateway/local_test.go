@@ -14,8 +14,6 @@ import (
 	"github.com/smartcontractkit/freeport"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	httptypedapi "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/http"
 )
 
 // waitForPort polls until the TCP port is reachable or timeout passes.
@@ -46,7 +44,7 @@ func TestListenForTriggerPayload_HappyPath(t *testing.T) {
 	defer cancel()
 
 	type result struct {
-		payload *httptypedapi.Payload
+		payload *TriggerRequest
 		err     error
 	}
 	resultCh := make(chan result, 1)
@@ -64,7 +62,9 @@ func TestListenForTriggerPayload_HappyPath(t *testing.T) {
 	// directly, the []byte field would be base64-encoded by json.Marshal,
 	// which is not what a real HTTP client sends.
 	inputJSON := json.RawMessage(`{"order":"pizza","size":"large"}`)
+	triggerIndex := 2
 	rawBody := map[string]any{
+		"index": triggerIndex,
 		"input": inputJSON,
 	}
 	body, err := json.Marshal(rawBody)
@@ -86,6 +86,8 @@ func TestListenForTriggerPayload_HappyPath(t *testing.T) {
 	require.NoError(t, res.err)
 	require.NotNil(t, res.payload)
 
+	// The payload trigger index must match
+	assert.Equal(t, triggerIndex, res.payload.Index)
 	// The payload input must match what was sent in Params.Input.
-	assert.Equal(t, []byte(inputJSON), res.payload.Input)
+	assert.Equal(t, []byte(inputJSON), []byte(res.payload.Input))
 }
