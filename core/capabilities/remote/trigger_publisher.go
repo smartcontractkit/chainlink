@@ -461,15 +461,24 @@ func (p *triggerPublisher) cacheCleanupLoop() {
 			}
 			now := time.Now().UnixMilli()
 
-			// Registrations are no longer expired by timeout. Subscribers that
+			// Active registrations are no longer expired by timeout. Subscribers that
 			// no longer want a registration respond to MethodTriggerRegistrationCheck
 			// with MethodUnregisterTrigger, which is handled in Receive.
+			//
+			// Pre-quorum entries in messageCache, however, never become active
+			// registrations, so the unregister path cannot remove them. Reap stale
+			// staging entries here so a sender of distinct-key registrations that never
+			// reach quorum cannot grow the cache without bound.
 			p.mu.Lock()
 			deleted := p.ackCache.DeleteOlderThan(now - cfg.remoteConfig.MessageExpiry.Milliseconds())
+			deletedStaging := p.messageCache.DeleteOlderThan(now - cfg.remoteConfig.RegistrationExpiry.Milliseconds())
 			p.mu.Unlock()
 
 			if deleted > 0 {
 				p.lggr.Debugw("cleaned expired AckCache entries", "deleted", deleted)
+			}
+			if deletedStaging > 0 {
+				p.lggr.Debugw("cleaned stale registration staging entries", "deleted", deletedStaging)
 			}
 		}
 	}

@@ -74,6 +74,11 @@ func (c *MessageCache[EventID, PeerID]) Delete(eventID EventID) {
 	delete(c.events, eventID)
 }
 
+// Len returns the number of distinct event keys currently held in the cache.
+func (c *MessageCache[EventID, PeerID]) Len() int {
+	return len(c.events)
+}
+
 // Peers returns a snapshot of peer IDs that have inserted a message for eventID.
 func (c *MessageCache[EventID, PeerID]) Peers(eventID EventID) map[PeerID]bool {
 	ev, ok := c.events[eventID]
