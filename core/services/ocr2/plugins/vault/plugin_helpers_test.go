@@ -36,7 +36,6 @@ type testPluginBuildOpts struct {
 	batchSize                               int
 	maxBlobPayloadBytes                     int
 	vaultOptimizationsEnabled               bool
-	vaultSignedResponseRequestIDEnabled     bool
 	vaultJSONOmitUnpopulatedEnabled         bool
 	vaultShareAggregationIncludesPublicKeys bool
 	marshalBlob                             func(ocr3_1types.BlobHandle) ([]byte, error)
@@ -82,10 +81,6 @@ func withVaultOptimizationsEnabled() testPluginOption {
 
 func withVaultGetSecretsShareAggregationIncludesPublicKeys() testPluginOption {
 	return func(o *testPluginBuildOpts) { o.vaultShareAggregationIncludesPublicKeys = true }
-}
-
-func withVaultSignedResponseRequestIDEnabled() testPluginOption {
-	return func(o *testPluginBuildOpts) { o.vaultSignedResponseRequestIDEnabled = true }
 }
 
 func withVaultJSONOmitUnpopulatedEnabled() testPluginOption {
@@ -147,9 +142,6 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 	}
 	if o.vaultShareAggregationIncludesPublicKeys {
 		cfg.VaultGetSecretsShareAggregationIncludesPublicKeys = limits.NewGateLimiter(true)
-	}
-	if o.vaultSignedResponseRequestIDEnabled {
-		cfg.VaultSignedResponseRequestIDEnabled = limits.NewGateLimiter(true)
 	}
 	if o.vaultJSONOmitUnpopulatedEnabled {
 		cfg.VaultJSONOmitUnpopulatedEnabled = limits.NewGateLimiter(true)
@@ -260,7 +252,6 @@ func makeReportingPluginConfig(
 		MaxBlobPayloadBytes:                               maxBlobPayloadLimiter,
 		VaultForceEmptyOCRRounds:                          limits.NewGateLimiter(false),
 		VaultOptimizationsEnabled:                         limits.NewGateLimiter(false),
-		VaultSignedResponseRequestIDEnabled:               limits.NewGateLimiter(false),
 		VaultJSONOmitUnpopulatedEnabled:                   limits.NewGateLimiter(false),
 		VaultGetSecretsShareAggregationIncludesPublicKeys: limits.NewGateLimiter(false),
 	}
