@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
@@ -16,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
@@ -44,6 +45,10 @@ type ExecutionHelper struct {
 	callCounts   map[limits.Limiter[int]]int
 
 	executionProfile *executionProfileCollector
+
+	// suspension accumulates wall-clock time the guest spent blocked in DON-time
+	// host calls, so it can be excluded from metered compute. See compute_metering.go.
+	suspension *suspensionTracker
 }
 
 func (c *ExecutionHelper) initLimiters(limiters *EngineLimiters) {
@@ -322,4 +327,26 @@ var systemCapabilities = map[string]bool{
 
 func isSystemCapability(capID string) bool {
 	return systemCapabilities[capID]
+}
+
+func (c *ExecutionHelper) PossiblyWithRawSecrets() host.ExecutionHelper {
+	if _, ok := c.SecretsFetcher.(RawSecretsFetcher); ok {
+		return &executionHelperWithRawSecrets{c}
+	}
+
+	return c
+}
+
+var _ RawSecretsFetcher = (*executionHelperWithRawSecrets)(nil)
+
+type executionHelperWithRawSecrets struct {
+	*ExecutionHelper
+}
+
+func (e *executionHelperWithRawSecrets) GetRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vaultcommon.SecretResponse, error) {
+	return e.SecretsFetcher.(RawSecretsFetcher).GetRawSecrets(ctx, request, fetcher)
+}
+
+func (e *executionHelperWithRawSecrets) GetOwner() string {
+	return e.SecretsFetcher.(RawSecretsFetcher).GetOwner()
 }

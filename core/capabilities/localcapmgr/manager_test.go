@@ -102,11 +102,11 @@ func TestBuildDesiredState_NilLocalConfig(t *testing.T) {
 	assert.Empty(t, desired, "nil config should not allow any capabilities")
 }
 
-func noopServiceBuilder(_ context.Context, _ string, _ string, _ string) ([]job.ServiceCtx, error) {
+func noopServiceBuilder(_ context.Context, _ string, _ uint32, _ string, _ string) ([]job.ServiceCtx, error) {
 	return []job.ServiceCtx{&mockService{}}, nil
 }
 
-func failingServiceBuilder(_ context.Context, _ string, _ string, _ string) ([]job.ServiceCtx, error) {
+func failingServiceBuilder(_ context.Context, _ string, _ uint32, _ string, _ string) ([]job.ServiceCtx, error) {
 	return nil, assert.AnError
 }
 

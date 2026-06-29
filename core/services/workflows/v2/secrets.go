@@ -6,13 +6,14 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"google.golang.org/protobuf/types/known/anypb"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
@@ -37,14 +38,19 @@ type SecretsFetcher interface {
 	GetSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error)
 }
 
+type RawSecretsFetcher interface {
+	SecretsFetcher
+	GetRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vault.SecretResponse, error)
+	GetOwner() string
+}
+
 type secretsFetcher struct {
 	capRegistry core.CapabilitiesRegistry
 	lggr        logger.Logger
 
 	semaphore         limits.ResourcePoolLimiter[int]
 	secretsCallsLimit limits.BoundLimiter[int]
-	secretsCalled     int
-	mu                sync.Mutex
+	callCounter       *secretsCallCounter
 
 	creSettingsGetter settings.Getter
 
@@ -60,7 +66,16 @@ type secretsFetcher struct {
 	// overrideFetcher is an optional static map fetcher.
 	// When set, Vault is called first; on whole-batch failure or per-secret SecretResponse errors,
 	// local overrides are tried for the failed request(s).
-	overrideFetcher SecretsFetcher
+	overrideFetcher      SecretsFetcher
+	encryptionKeyFetcher host.EncryptionKeyFetcher
+}
+
+// secretsCallCounter holds the mutable call-count state shared between a
+// secretsFetcher and any clones created via WithEncryptionKeyFetcher. It is
+// referenced by pointer so the struct can be copied without copying the lock.
+type secretsCallCounter struct {
+	mu     sync.Mutex
+	called int
 }
 
 func NewSecretsFetcher(
@@ -77,7 +92,7 @@ func NewSecretsFetcher(
 	phaseID string,
 	workflowEncryptionKey workflowkey.Key,
 	overrideFetcher SecretsFetcher,
-) *secretsFetcher {
+) RawSecretsFetcher {
 	lggr = logger.Named(lggr, "WorkflowEngine.SecretsFetcher")
 	lggr = logger.With(lggr, "workflowID", workflowID, "workflowName", workflowName, "workflowOwner", workflowOwner, "phaseID", phaseID)
 	return &secretsFetcher{
@@ -85,6 +100,7 @@ func NewSecretsFetcher(
 		lggr:                  lggr,
 		semaphore:             semaphore,
 		secretsCallsLimit:     secretsCalls,
+		callCounter:           &secretsCallCounter{},
 		creSettingsGetter:     creSettingsGetter,
 		orgID:                 orgID,
 		workflowOwner:         workflowOwner,
@@ -94,6 +110,7 @@ func NewSecretsFetcher(
 		workflowEncryptionKey: workflowEncryptionKey,
 		metrics:               metrics,
 		overrideFetcher:       overrideFetcher,
+		encryptionKeyFetcher:  &encryptionKeyFetcher{lggr: lggr, capRegistry: capRegistry},
 	}
 }
 
@@ -107,14 +124,14 @@ func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecre
 		Owner:    s.workflowOwner,
 		Workflow: s.workflowID,
 	})
-	s.mu.Lock()
-	secretsCalled := s.secretsCalled + 1
+	s.callCounter.mu.Lock()
+	secretsCalled := s.callCounter.called + 1
 	if err := s.secretsCallsLimit.Check(ctx, secretsCalled); err != nil {
-		s.mu.Unlock()
+		s.callCounter.mu.Unlock()
 		return nil, err
 	}
-	s.secretsCalled = secretsCalled
-	s.mu.Unlock()
+	s.callCounter.called = secretsCalled
+	s.callCounter.mu.Unlock()
 	start := time.Now()
 	resp, err := func() ([]*sdkpb.SecretResponse, error) {
 		free, err := s.semaphore.Wait(ctx, 1)
@@ -227,46 +244,17 @@ func (s *secretsFetcher) getSecretsForBatchWithLocalFallback(ctx context.Context
 	return combined, nil
 }
 
-func (s *secretsFetcher) getVaultSecretsForBatch(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
-	if request == nil || len(request.Requests) == 0 {
-		return nil, nil
-	}
+// GetRawSecrets performs all of the work required to obtain secrets from the
+// Vault DON except decrypting their values: it resolves the vault capability,
+// loads this DON's encryption keys, executes the vault GetSecrets request, and
+// returns the raw (still encrypted) vault response.
+func (s *secretsFetcher) GetRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vault.SecretResponse, error) {
 	vaultCap, err := s.capRegistry.GetExecutable(ctx, vault.CapabilityID)
 	if err != nil {
 		return nil, errors.New("failed to get vault capability: " + err.Error())
 	}
 
-	vaultCapInfo, err := vaultCap.Info(ctx)
-	if err != nil {
-		return nil, errors.New("failed to get vault capability Info: " + err.Error())
-	}
-
-	var donID uint32
-	if vaultCapInfo.IsLocal {
-		// If the capability is local, we can use the local node's DON ID.
-		localNode, err2 := s.capRegistry.LocalNode(ctx)
-		if err2 != nil {
-			return nil, errors.New("failed to get local node from registry: " + err2.Error())
-		}
-		donID = localNode.WorkflowDON.ID
-	} else {
-		don := vaultCapInfo.DON
-		if don == nil {
-			return nil, errors.New("vault capability is not associated with any DON")
-		}
-		donID = don.ID
-	}
-	vaultCapConfig, err := s.capRegistry.ConfigForCapability(ctx, vault.CapabilityID, donID)
-	if err != nil {
-		return nil, errors.New("failed to get vault capability config for donID: " + strconv.FormatUint(uint64(donID), 10) + ". Error: " + err.Error())
-	}
-
-	cfg, err := unmarshalConfig(vaultCapConfig)
-	if err != nil {
-		return nil, errors.New("failed to extract vault public key from capability config: " + err.Error())
-	}
-
-	encryptionKeys, err := s.getEncryptionKeys(ctx)
+	encryptionKeys, err := fetcher.GetEncryptionKeys(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get encryption keys: %w", err)
 	}
@@ -289,7 +277,6 @@ func (s *secretsFetcher) getVaultSecretsForBatch(ctx context.Context, request *s
 	if err != nil {
 		return nil, fmt.Errorf("could not normalize workflowOwner: %w", err)
 	}
-	responseOwner := owner
 
 	logKeys := make([]string, 0, len(request.Requests))
 	for _, r := range request.Requests {
@@ -336,8 +323,66 @@ func (s *secretsFetcher) getVaultSecretsForBatch(ctx context.Context, request *s
 		return nil, fmt.Errorf("failed to unmarshal vault payload to GetSecretsResponse: %w", err)
 	}
 
+	return batchedVaultResponse.Responses, nil
+}
+
+func (s *secretsFetcher) GetOwner() string {
+	return s.workflowOwner
+}
+
+func (s *secretsFetcher) getVaultSecretsForBatch(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
+	if request == nil || len(request.Requests) == 0 {
+		return nil, nil
+	}
+
+	vaultCap, err := s.capRegistry.GetExecutable(ctx, vault.CapabilityID)
+	if err != nil {
+		return nil, errors.New("failed to get vault capability: " + err.Error())
+	}
+
+	vaultCapInfo, err := vaultCap.Info(ctx)
+	if err != nil {
+		return nil, errors.New("failed to get vault capability Info: " + err.Error())
+	}
+
+	var donID uint32
+	if vaultCapInfo.IsLocal {
+		// If the capability is local, we can use the local node's DON ID.
+		localNode, err2 := s.capRegistry.LocalNode(ctx)
+		if err2 != nil {
+			return nil, errors.New("failed to get local node from registry: " + err2.Error())
+		}
+		donID = localNode.WorkflowDON.ID
+	} else {
+		don := vaultCapInfo.DON
+		if don == nil {
+			return nil, errors.New("vault capability is not associated with any DON")
+		}
+		donID = don.ID
+	}
+	vaultCapConfig, err := s.capRegistry.ConfigForCapability(ctx, vault.CapabilityID, donID)
+	if err != nil {
+		return nil, errors.New("failed to get vault capability config for donID: " + strconv.FormatUint(uint64(donID), 10) + ". Error: " + err.Error())
+	}
+
+	cfg, err := unmarshalConfig(vaultCapConfig)
+	if err != nil {
+		return nil, errors.New("failed to extract vault public key from capability config: " + err.Error())
+	}
+
+	batchedVaultResponse, err := s.GetRawSecrets(ctx, request, s.encryptionKeyFetcher)
+	if err != nil {
+		return nil, err
+	}
+
+	owner, err := normalizeOwner(s.workflowOwner)
+	if err != nil {
+		return nil, fmt.Errorf("could not normalize workflowOwner: %w", err)
+	}
+	responseOwner := owner
+
 	m := map[string]*vault.SecretResponse{}
-	for _, secretResponse := range batchedVaultResponse.Responses {
+	for _, secretResponse := range batchedVaultResponse {
 		key := keyFor(secretResponse.Id.Owner, secretResponse.Id.Namespace, secretResponse.Id.Key)
 		m[key] = secretResponse
 	}
@@ -352,11 +397,11 @@ func (s *secretsFetcher) getVaultSecretsForBatch(ctx context.Context, request *s
 		resp, ok := m[key]
 		if !ok {
 			errorMessage := "could not find response for the request: " + key
-			errorResponse := s.wrapErrorResponse(lggr, r.Id, namespace, responseOwner, errorMessage)
+			errorResponse := s.wrapErrorResponse(s.lggr, r.Id, namespace, responseOwner, errorMessage)
 			sdkResp = append(sdkResp, &errorResponse)
 			continue
 		}
-		response := s.getSecretForSingleRequest(logger.With(lggr, "key", key), r.Id, responseOwner, namespace, cfg, resp)
+		response := s.getSecretForSingleRequest(logger.With(s.lggr, "key", key), r.Id, responseOwner, namespace, cfg, resp)
 		sdkResp = append(sdkResp, &response)
 	}
 	return sdkResp, nil
@@ -497,26 +542,6 @@ func (s *secretsFetcher) decryptSecret(lggr logger.Logger, encryptedSecretBytes 
 		return "", errors.New("failed to aggregate decryption shares: " + err.Error())
 	}
 	return string(decryptedSecret), nil
-}
-
-func (s *secretsFetcher) getEncryptionKeys(ctx context.Context) ([]string, error) {
-	s.lggr.Debug("Fetching encryption keys...")
-	myNode, err := s.capRegistry.LocalNode(ctx)
-	if err != nil {
-		return nil, errors.New("failed to get local node from registry" + err.Error())
-	}
-
-	encryptionKeys := make([]string, 0, len(myNode.WorkflowDON.Members))
-	for _, peerID := range myNode.WorkflowDON.Members {
-		peerNode, err := s.capRegistry.NodeByPeerID(ctx, peerID)
-		if err != nil {
-			return nil, errors.New("failed to get node info for peerID: " + peerID.String() + " - " + err.Error())
-		}
-		encryptionKeys = append(encryptionKeys, hex.EncodeToString(peerNode.EncryptionPublicKey[:]))
-	}
-	// Sort the encryption keys to ensure consistent ordering across all nodes.
-	sort.Strings(encryptionKeys)
-	return encryptionKeys, nil
 }
 
 type VaultCapabilityRegistryConfig struct {

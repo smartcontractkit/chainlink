@@ -16,7 +16,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -26,17 +25,11 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
-	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/teeattestation"
 	"github.com/smartcontractkit/chainlink-common/pkg/teeattestation/nitro"
-
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 )
 
 var _ core.GatewayConnectorHandler = (*Handler)(nil)
@@ -125,20 +118,23 @@ type Handler struct {
 	services.Service
 	eng *services.Engine
 
-	capRegistry      core.CapabilitiesRegistry
-	gatewayConnector core.GatewayConnector
-	responseSigner   relayResponseSigner
-	lggr             logger.Logger
-	metrics          *handlerMetrics
+	capRegistry       core.CapabilitiesRegistry
+	executionHandlers *ExecutionHandlers
+	gatewayConnector  core.GatewayConnector
+	responseSigner    relayResponseSigner
+	lggr              logger.Logger
+	metrics           *handlerMetrics
 
 	// validator validates TEE attestation documents.
 	validator AttestationValidator
-	// requireBFTQuorum selects the required signature quorum
+	// requireBFTQuorum selects the required signature quorum: when true the relay
+	// demands a Byzantine quorum of 2*F+1 unique signers, otherwise a crash-fault
+	// quorum of F+1.
 	requireBFTQuorum bool
 	limitsFactory    limits.Factory
 }
 
-func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, lf limits.Factory, validator AttestationValidator, requireBFTQuorum bool) (*Handler, error) {
+func NewHandler(capRegistry core.CapabilitiesRegistry, executionHandlers *ExecutionHandlers, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, lf limits.Factory, validator AttestationValidator, requireBFTQuorum bool) (*Handler, error) {
 	if responseSigner == nil {
 		return nil, errors.New("response signer is required")
 	}
@@ -147,17 +143,16 @@ func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnecto
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
 	}
 
-	named := logger.Named(lggr, HandlerName)
-
 	h := &Handler{
-		capRegistry:      capRegistry,
-		gatewayConnector: conn,
-		responseSigner:   responseSigner,
-		lggr:             named,
-		metrics:          m,
-		validator:        validator,
-		requireBFTQuorum: requireBFTQuorum,
-		limitsFactory:    lf,
+		capRegistry:       capRegistry,
+		executionHandlers: executionHandlers,
+		gatewayConnector:  conn,
+		responseSigner:    responseSigner,
+		lggr:              logger.Named(lggr, HandlerName),
+		metrics:           m,
+		validator:         validator,
+		requireBFTQuorum:  requireBFTQuorum,
+		limitsFactory:     lf,
 	}
 	h.Service, h.eng = services.Config{
 		Name:  HandlerName,
@@ -245,6 +240,11 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, err)
 	}
 
+	handler, ok := h.executionHandlers.GetExecution(params.WorkflowID, params.ExecutionID)
+	if !ok {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, fmt.Errorf("execution handler for workflow %s execution %s not found", params.WorkflowID, params.ExecutionID))
+	}
+
 	att := params.Attestation
 	params.Attestation = ""
 	if err := h.verifyAttestationHash(ctx, att, params, confidentialrelaytypes.DomainSecretsGet); err != nil {
@@ -274,63 +274,18 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, err)
 	}
 
-	vaultCap, err := h.capRegistry.GetExecutable(ctx, vault.CapabilityID)
-	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get vault capability: %w", err))
-	}
+	secretsRequest := &sdkpb.GetSecretsRequest{Requests: make([]*sdkpb.SecretRequest, 0, len(params.Secrets))}
 
-	if !common.IsHexAddress(params.Owner) {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, fmt.Errorf("invalid owner address: %q", params.Owner))
-	}
-	// Normalize owner to EIP-55 checksum format, matching how secrets are stored.
-	normalizedOwner := common.HexToAddress(params.Owner).Hex()
-
-	vaultReq := &vault.GetSecretsRequest{
-		Requests: make([]*vault.SecretRequest, 0, len(params.Secrets)),
-	}
 	for _, s := range params.Secrets {
-		namespace := s.Namespace
-		if namespace == "" {
-			namespace = vaulttypes.DefaultNamespace
-		}
-		vaultReq.Requests = append(vaultReq.Requests, &vault.SecretRequest{
-			Id: &vault.SecretIdentifier{
-				Key:       s.Key,
-				Namespace: namespace,
-				Owner:     normalizedOwner,
-			},
-			EncryptionKeys: []string{params.EnclavePublicKey},
+		secretsRequest.Requests = append(secretsRequest.Requests, &sdkpb.SecretRequest{
+			Id:        s.Key,
+			Namespace: s.Namespace,
 		})
 	}
 
-	anypbReq, err := anypb.New(vaultReq)
+	vaultResp, err := handler.GetRawSecrets(ctx, secretsRequest, teeKeyFetcher(params.EnclavePublicKey))
 	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to wrap vault request: %w", err))
-	}
-
-	metadata := capabilities.RequestMetadata{
-		WorkflowID:               params.WorkflowID,
-		WorkflowOwner:            params.Owner,
-		WorkflowExecutionID:      params.ExecutionID,
-		WorkflowDonID:            localNode.WorkflowDON.ID,
-		WorkflowDonConfigVersion: localNode.WorkflowDON.ConfigVersion,
-		ReferenceID:              req.ID,
-	}
-	h.applyPropagatedOrgID(ctx, &metadata, params.OrgID)
-	capResp, err := vaultCap.Execute(ctx, capabilities.CapabilityRequest{
-		Payload:      anypbReq,
-		Method:       vault.MethodGetSecrets,
-		CapabilityId: vault.CapabilityID,
-		Config:       values.EmptyMap(),
-		Metadata:     metadata,
-	})
-	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("vault execute failed: %w", err))
-	}
-
-	vaultResp := &vault.GetSecretsResponse{}
-	if err = capResp.Payload.UnmarshalTo(vaultResp); err != nil {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to unmarshal vault response: %w", err))
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
 
 	result, err := translateVaultResponse(vaultResp, params.EnclavePublicKey)
@@ -369,10 +324,10 @@ func (h *Handler) resolveDONID(ctx context.Context, capability capabilities.Exec
 // translateVaultResponse converts a vault GetSecretsResponse to the enclave relay protocol format.
 // Encoding conversion: ciphertext hex (vault) -> base64 (enclave relay); encrypted shares may be
 // binary or hex (vault) -> base64 (enclave relay).
-func translateVaultResponse(vaultResp *vault.GetSecretsResponse, enclaveKey string) (*confidentialrelaytypes.SecretsResponseResult, error) {
+func translateVaultResponse(vaultResp []*vault.SecretResponse, enclaveKey string) (*confidentialrelaytypes.SecretsResponseResult, error) {
 	result := &confidentialrelaytypes.SecretsResponseResult{}
 
-	for _, sr := range vaultResp.Responses {
+	for _, sr := range vaultResp {
 		if sr.GetError() != "" {
 			return nil, fmt.Errorf("vault error for secret %s/%s: %s", sr.Id.GetNamespace(), sr.Id.GetKey(), sr.GetError())
 		}
@@ -432,11 +387,21 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, err)
 	}
 
+	handler, ok := h.executionHandlers.GetExecution(params.WorkflowID, params.ExecutionID)
+	if !ok {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, fmt.Errorf("execution handler for workflow %s execution %s not found", params.WorkflowID, params.ExecutionID))
+	}
+
 	att := params.Attestation
 	params.Attestation = ""
 	if err := h.verifyAttestationHash(ctx, att, params, confidentialrelaytypes.DomainCapabilityExec); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
+
+	// Verify the enclave's reported config matches the onchain DON state, same as
+	// handleSecretsGet (PRIV-458): the Nitro attestation binds the request hash but
+	// not the config value, so a malicious host could otherwise produce a
+	// genuinely-attested request over a forged enclave config.
 	localNode, err := h.capRegistry.LocalNode(ctx)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get local node: %w", err))
@@ -445,66 +410,27 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
 
-	capability, err := h.capRegistry.GetExecutable(ctx, params.CapabilityID)
-	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("capability not found: %w", err))
-	}
-
 	payloadBytes, err := base64.StdEncoding.DecodeString(params.Payload)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, fmt.Errorf("failed to decode payload: %w", err))
 	}
 
-	var sdkReq sdkpb.CapabilityRequest
-	if err := proto.Unmarshal(payloadBytes, &sdkReq); err != nil {
+	sdkReq := &sdkpb.CapabilityRequest{}
+	if err = proto.Unmarshal(payloadBytes, sdkReq); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, fmt.Errorf("failed to unmarshal capability request: %w", err))
 	}
 
-	referenceID := params.ReferenceID
-	if referenceID == "" {
-		referenceID = req.ID
-	}
-
-	capReq := capabilities.CapabilityRequest{
-		Payload:      sdkReq.Payload,
-		Method:       sdkReq.Method,
-		CapabilityId: params.CapabilityID,
-		Metadata: capabilities.RequestMetadata{
-			WorkflowID:          params.WorkflowID,
-			WorkflowOwner:       params.Owner,
-			WorkflowExecutionID: params.ExecutionID,
-			ReferenceID:         referenceID,
-		},
-	}
-	h.applyPropagatedOrgID(ctx, &capReq.Metadata, params.OrgID)
-
-	// Backward compatibility: extract values.Map from Payload into Inputs
-	// for old-style capabilities that only look at Inputs.
-	if sdkReq.Payload != nil {
-		var valPB valuespb.Value
-		if sdkReq.Payload.UnmarshalTo(&valPB) == nil {
-			if v, vErr := values.FromProto(&valPB); vErr == nil {
-				if m, ok := v.(*values.Map); ok {
-					capReq.Inputs = m
-				}
-			}
-		}
-	}
-
-	capResp, execErr := capability.Execute(ctx, capReq)
+	capResp, execErr := handler.CallCapability(ctx, sdkReq)
 
 	var result confidentialrelaytypes.CapabilityResponseResult
 	if execErr != nil {
 		result.Error = execErr.Error()
 	} else {
-		sdkResp, err := toSDKCapabilityResponse(capResp)
-		if err != nil {
-			return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("converting capability response: %w", err))
-		}
 		// Deterministic marshal so every relay node emits byte-identical
 		// response payloads; relay aggregation requires identical bytes to
 		// reach quorum. [CL112-05]
-		respBytes, err := proto.MarshalOptions{Deterministic: true}.Marshal(sdkResp)
+		var respBytes []byte
+		respBytes, err = proto.MarshalOptions{Deterministic: true}.Marshal(capResp)
 		if err != nil {
 			return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("marshalling capability response: %w", err))
 		}
@@ -606,15 +532,6 @@ func (h *Handler) getEnclaveAttestationConfig(ctx context.Context) ([]json.RawMe
 	return measurements, caRootsPEM, nil
 }
 
-func (h *Handler) applyPropagatedOrgID(ctx context.Context, md *capabilities.RequestMetadata, orgFromRequest string) {
-	propagateOrgIDMeta, _ := cresettings.Default.PropagateOrgIDInRequestMetadata.GetOrDefault(ctx, h.limitsFactory.Settings)
-	if propagateOrgIDMeta && orgFromRequest != "" {
-		md.OrgID = orgFromRequest
-		return
-	}
-	md.OrgID = ""
-}
-
 func (h *Handler) verifyAttestationHash(ctx context.Context, attestationB64 string, cleanParams any, domainTag string) error {
 	if attestationB64 == "" {
 		return errors.New("missing attestation")
@@ -680,7 +597,9 @@ func (h *Handler) verifyWorkflowAuthorization(don capabilities.DON, params confi
 		return errors.New("missing signed compute requests")
 	}
 
-	// Require a quorum of signatures.
+	// Match the enclave's own quorum. With requireBFTQuorum the relay demands a
+	// Byzantine quorum of 2*F+1 unique signers; otherwise a crash-fault quorum of
+	// F+1 suffices.
 	threshold := int(don.F) + 1
 	if h.requireBFTQuorum {
 		threshold = 2*int(don.F) + 1
@@ -723,32 +642,6 @@ func (h *Handler) verifyWorkflowAuthorization(don capabilities.DON, params confi
 		return fmt.Errorf("workflow_id not authorized: request %q vs signed %q", params.WorkflowID, execution.GetWorkflowId())
 	}
 	return nil
-}
-
-func toSDKCapabilityResponse(capResp capabilities.CapabilityResponse) (*sdkpb.CapabilityResponse, error) {
-	if capResp.Payload != nil {
-		return &sdkpb.CapabilityResponse{
-			Response: &sdkpb.CapabilityResponse_Payload{Payload: capResp.Payload},
-		}, nil
-	}
-
-	if capResp.Value != nil {
-		valProto := values.Proto(capResp.Value)
-		// Serialize the wrapped value deterministically. anypb stores the
-		// inner message as opaque bytes, so a non-deterministic marshal here
-		// (e.g. map-valued content in arbitrary key order) would produce
-		// different Any payloads across relay nodes and break quorum, even
-		// when nodes return the same logical value. [CL112-05]
-		wrapped := &anypb.Any{}
-		if err := anypb.MarshalFrom(wrapped, valProto, proto.MarshalOptions{Deterministic: true}); err != nil {
-			return nil, fmt.Errorf("wrapping value map in Any: %w", err)
-		}
-		return &sdkpb.CapabilityResponse{
-			Response: &sdkpb.CapabilityResponse_Payload{Payload: wrapped},
-		}, nil
-	}
-
-	return &sdkpb.CapabilityResponse{}, nil
 }
 
 func (h *Handler) jsonResponse(req *jsonrpc.Request[json.RawMessage], result any) *jsonrpc.Response[json.RawMessage] {

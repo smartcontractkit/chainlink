@@ -48,6 +48,14 @@ RootDir = '~/.chainlink' # Default
 ```
 RootDir is the Chainlink node's root directory. This is the default directory for logging, database backups, cookies, and other misc Chainlink node files. Chainlink nodes will always ensure this directory has 700 permissions because it might contain sensitive data.
 
+Official prod Docker images run as UID:GID 14933:14933 (user `chainlink`). A non-deterministic GID mismatch is a common cause of read/write errors on bind mounts in Docker/Compose.
+
+RootDir '/home/chainlink' and '~/.chainlink' (which resolves to
+'/home/chainlink/.chainlink') are valid. Choose one and align any persistence mounts to that path. '/home/chainlink' is often preferred because '.chainlink' is hidden by default.
+
+Do not bind-mount over '/home/chainlink' — it replaces the entire home directory and causes permission failures. Mount config and secrets at separate paths (e.g. '/run/secrets/config.toml', '/configs/...') and pass them via CLI flags
+('-c', '-s', '-a', '-p').
+
 ### ShutdownGracePeriod
 ```toml
 ShutdownGracePeriod = '5s' # Default

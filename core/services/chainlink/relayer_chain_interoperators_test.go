@@ -216,7 +216,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					t.Skip("ton doesn't need a CoreRelayerChainInteroperator")
 				case relay.NetworkSui:
 					t.Skip("sui doesn't need a CoreRelayerChainInteroperator")
-
+				case relay.NetworkStellar:
+					t.Skip("stellar doesn't need a CoreRelayerChainInteroperator")
 				default:
 					require.Fail(t, "untested relay network", relayNetwork)
 				}

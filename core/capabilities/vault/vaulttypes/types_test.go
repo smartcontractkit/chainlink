@@ -6,7 +6,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNormalizeNamespace(t *testing.T) {
-	assert.Equal(t, DefaultNamespace, NormalizeNamespace(""))
-	assert.Equal(t, "custom", NormalizeNamespace("custom"))
+func TestIsGatewaySecretsMethod(t *testing.T) {
+	t.Parallel()
+
+	for _, method := range GatewaySecretsMethods {
+		assert.True(t, IsGatewaySecretsMethod(method), method)
+	}
+	assert.False(t, IsGatewaySecretsMethod(MethodPublicKeyGet))
+	assert.False(t, IsGatewaySecretsMethod(MethodSecretsGet))
+	assert.False(t, IsGatewaySecretsMethod("vault.unsupported"))
 }

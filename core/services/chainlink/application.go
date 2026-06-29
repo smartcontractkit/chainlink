@@ -26,6 +26,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -233,6 +235,10 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
 	}
 
+	if opts.ExecutionHandlers == nil {
+		opts.ExecutionHandlers = &confidentialrelay.ExecutionHandlers{}
+	}
+
 	if opts.DonTimeStore == nil {
 		opts.DonTimeStore = dontime.NewStore(dontime.DefaultRequestTimeout)
 	}
@@ -337,6 +343,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	if cfg.SuiEnabled() {
 		initOps = append(initOps, InitSui(relayerFactory, keyStore.Sui(), keyStore.CSA(), cfg.SuiConfigs()))
 	}
+	if cfg.StellarEnabled() {
+		initOps = append(initOps, InitStellar(relayerFactory, keyStore.Stellar(), keyStore.CSA(), cfg.StellarConfigs()))
+	}
 
 	relayChainInterops, err := NewCoreRelayerChainInteroperators(initOps...)
 	if err != nil {
@@ -368,8 +377,10 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	}
 	jwtGenerator := nodeauthjwt.NewNodeJWTGenerator(csaSigner, csaPubKey)
 
-	// Wire DurableEmitter for persistent chip ingress delivery when enabled.
+	// Wire DurableEmitter for persistent chip ingress delivery when enabled
 	if cfg.Telemetry().DurableEmitterEnabled() && cfg.Telemetry().ChipIngressEndpoint() != "" {
+		emitterCfg := durableemitter.DefaultConfig()
+		emitterCfg.Metrics = &durableemitter.DurableEmitterMetricsConfig{}
 		durableCfg := durableemitter.SetupConfig{
 			Endpoint:           cfg.Telemetry().ChipIngressEndpoint(),
 			InsecureConnection: cfg.Telemetry().ChipIngressInsecureConnection(),
@@ -380,6 +391,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				AuthKeySigner:    csaKeystore,
 			},
 			RetransmitEnabled: true, // host process owns retransmit
+			EmitterConfig:     &emitterCfg,
+			Meter:             meter,
 		}
 		pgStore := durableemitter.NewPgDurableEventStore(opts.DS)
 		durableEmitter, setupErr := durableemitter.Setup(pgStore, durableCfg, globalLogger)
@@ -398,6 +411,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		peerWrapper,
 		cre.Opts{
 			CapabilitiesRegistry:    opts.CapabilitiesRegistry,
+			ExecutionHandlers:       &confidentialrelay.ExecutionHandlers{},
 			CapabilitiesDispatcher:  opts.CapabilitiesDispatcher,
 			CapabilitiesPeerWrapper: opts.CapabilitiesPeerWrapper,
 			FetcherFunc:             opts.FetcherFunc,

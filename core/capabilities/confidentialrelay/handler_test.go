@@ -18,22 +18,26 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	vault "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
-	confidentialworkflow "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/teeattestation/passthrough"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 
-	vaulttypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
+
+// capExecExecutionID is the canonical 32-byte hex execution ID used by the
+// capability-execute fixtures. The handler looks up the execution helper by
+// (WorkflowID, ExecutionID), so tests must register their helper under it.
+const capExecExecutionID = "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1"
 
 func makeCapabilityPayload(t *testing.T, inputs map[string]any) string {
 	t.Helper()
@@ -73,42 +77,39 @@ func (m *mockGatewayConnector) RemoveHandler(_ context.Context, _ []string) erro
 	return nil
 }
 
-type mockExecutable struct {
-	infoResult  capabilities.CapabilityInfo
-	infoErr     error
-	execResult  capabilities.CapabilityResponse
-	execErr     error
-	lastRequest *capabilities.CapabilityRequest
+// mockExecutionHelper is a host.ExecutionHelperWithRawSecrets stub. The relay handler only
+// calls CallCapability (capability execute) and GetRawSecrets (secrets get); the embedded
+// interface satisfies the rest of the surface and panics if anything else is invoked, which
+// keeps the mock minimal while still flagging unexpected calls.
+type mockExecutionHelper struct {
+	host.ExecutionHelperWithRawSecrets
+
+	capResp    *sdkpb.CapabilityResponse
+	capErr     error
+	rawSecrets []*vault.SecretResponse
+	secretsErr error
+
+	lastCapabilityRequest *sdkpb.CapabilityRequest
+	lastSecretsRequest    *sdkpb.GetSecretsRequest
 }
 
-func (m *mockExecutable) Info(_ context.Context) (capabilities.CapabilityInfo, error) {
-	return m.infoResult, m.infoErr
+func (m *mockExecutionHelper) CallCapability(_ context.Context, req *sdkpb.CapabilityRequest) (*sdkpb.CapabilityResponse, error) {
+	m.lastCapabilityRequest = req
+	return m.capResp, m.capErr
 }
-func (m *mockExecutable) Execute(_ context.Context, req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
-	m.lastRequest = &req
-	return m.execResult, m.execErr
-}
-func (m *mockExecutable) RegisterToWorkflow(_ context.Context, _ capabilities.RegisterToWorkflowRequest) error {
-	return nil
-}
-func (m *mockExecutable) UnregisterFromWorkflow(_ context.Context, _ capabilities.UnregisterFromWorkflowRequest) error {
-	return nil
+
+func (m *mockExecutionHelper) GetRawSecrets(_ context.Context, req *sdkpb.GetSecretsRequest, _ host.EncryptionKeyFetcher) ([]*vault.SecretResponse, error) {
+	m.lastSecretsRequest = req
+	return m.rawSecrets, m.secretsErr
 }
 
 type mockCapRegistry struct {
 	core.UnimplementedCapabilitiesRegistry
-	executables map[string]*mockExecutable
-	configs     map[string]capabilities.CapabilityConfiguration
-	dons        map[string][]capabilities.DONWithNodes
-	localNode   capabilities.Node
+	configs   map[string]capabilities.CapabilityConfiguration
+	dons      map[string][]capabilities.DONWithNodes
+	localNode capabilities.Node
 }
 
-func (m *mockCapRegistry) GetExecutable(_ context.Context, id string) (capabilities.ExecutableCapability, error) {
-	if exec, ok := m.executables[id]; ok {
-		return exec, nil
-	}
-	return nil, fmt.Errorf("capability not found: %s", id)
-}
 func (m *mockCapRegistry) ConfigForCapability(_ context.Context, capID string, _ uint32) (capabilities.CapabilityConfiguration, error) {
 	if cfg, ok := m.configs[capID]; ok {
 		return cfg, nil
@@ -133,9 +134,18 @@ func newTestHandler(t *testing.T, registry core.CapabilitiesRegistry, gwConn cor
 	require.NoError(t, err)
 	validator, err := passthrough.New()
 	require.NoError(t, err)
-	h, err := NewHandler(registry, gwConn, newRelayResponseSigner(key), lggr, limits.Factory{Logger: lggr}, validator, true)
+	h, err := NewHandler(registry, &ExecutionHandlers{}, gwConn, newRelayResponseSigner(key), lggr, limits.Factory{Logger: lggr}, validator, true)
 	require.NoError(t, err)
 	return h
+}
+
+// capExecHelper returns a helper that succeeds with a fixed capability response payload.
+func capExecHelper() *mockExecutionHelper {
+	return &mockExecutionHelper{
+		capResp: &sdkpb.CapabilityResponse{
+			Response: &sdkpb.CapabilityResponse_Payload{Payload: &anypb.Any{Value: []byte("result-proto-bytes")}},
+		},
+	}
 }
 
 // withEnclaveConfig adds the default confidential-workflows enclave config
@@ -265,15 +275,33 @@ func signedComputeRequestsForParams(t *testing.T, params confidentialrelaytypes.
 	return out
 }
 
-// secretsGetTestRegistry builds a mock registry with a vault executable that
-// returns a valid GetSecretsResponse for the "API_KEY" secret.
+// secretsGetTestRegistry builds a mock registry whose enclave config, DON membership and
+// local node satisfy the relay's attestation, enclave-config and workflow-authorization
+// checks. The vault data is returned by the execution helper (secretsGetTestHelper), not
+// the registry.
 func secretsGetTestRegistry(t *testing.T) *mockCapRegistry {
 	t.Helper()
+	// withEnclaveConfig wires WorkflowDON.Members and F to match testEnclaveConfig (so both
+	// verifyEnclaveConfigMatchesDON and verifyWorkflowAuthorization pass); we only set the
+	// DON identity used in the vault request metadata here.
+	return withEnclaveConfig(&mockCapRegistry{
+		localNode: capabilities.Node{
+			WorkflowDON: capabilities.DON{
+				ID:            42,
+				ConfigVersion: 7,
+			},
+		},
+	})
+}
+
+// secretsGetTestHelper returns the execution helper that serves the "API_KEY" secret for
+// the secrets-get fixtures. The handler calls GetRawSecrets and translates the result.
+func secretsGetTestHelper() *mockExecutionHelper {
 	// Must match secretsGetTestParams(t).EnclavePublicKey and pass the
 	// confidentialrelay.validateEnclavePublicKey hex check (#2032).
 	enclaveKey := "aabbcc"
-	vaultResp := &vault.GetSecretsResponse{
-		Responses: []*vault.SecretResponse{
+	return &mockExecutionHelper{
+		rawSecrets: []*vault.SecretResponse{
 			{
 				Id: &vault.SecretIdentifier{
 					Key:       "API_KEY",
@@ -294,25 +322,6 @@ func secretsGetTestRegistry(t *testing.T) *mockCapRegistry {
 			},
 		},
 	}
-	payload, err := anypb.New(vaultResp)
-	require.NoError(t, err)
-
-	// withEnclaveConfig wires WorkflowDON.Members and F to match testEnclaveConfig (so both
-	// verifyEnclaveConfigMatchesDON and verifyWorkflowAuthorization pass); we only set the
-	// DON identity used in the vault request metadata here.
-	return withEnclaveConfig(&mockCapRegistry{
-		executables: map[string]*mockExecutable{
-			vault.CapabilityID: {
-				execResult: capabilities.CapabilityResponse{Payload: payload},
-			},
-		},
-		localNode: capabilities.Node{
-			WorkflowDON: capabilities.DON{
-				ID:            42,
-				ConfigVersion: 7,
-			},
-		},
-	})
 }
 
 // testOwner is a 0x-prefixed 20-byte hex address that satisfies
@@ -360,28 +369,25 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 		name            string
 		registry        func(t *testing.T) *mockCapRegistry
 		req             func(t *testing.T) *jsonrpc.Request[json.RawMessage]
-		modifyHandler   func(t *testing.T, h *Handler)
+		workflowID      string
+		executionID     string
+		helper          func(t *testing.T) *mockExecutionHelper
 		checkResp       func(t *testing.T, resp *jsonrpc.Response[json.RawMessage])
-		checkExecutable func(t *testing.T, reg *mockCapRegistry)
+		checkExecutable func(t *testing.T, helper *mockExecutionHelper)
 	}{
 		{
 			name: "capability execute success",
 			registry: func(_ *testing.T) *mockCapRegistry {
-				return withEnclaveConfig(&mockCapRegistry{
-					executables: map[string]*mockExecutable{
-						"my-cap@1.0.0": {
-							execResult: capabilities.CapabilityResponse{
-								Payload: &anypb.Any{Value: []byte("result-proto-bytes")},
-							},
-						},
-					},
-				})
+				return withEnclaveConfig(&mockCapRegistry{})
 			},
+			workflowID:  "wf-1",
+			executionID: capExecExecutionID,
+			helper:      func(_ *testing.T) *mockExecutionHelper { return capExecHelper() },
 			req: func(t *testing.T) *jsonrpc.Request[json.RawMessage] {
 				return makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
 					WorkflowID:    "wf-1",
 					Owner:         testOwner, // chainlink-common#2032 requires 0x-prefixed 20-byte hex
-					ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+					ExecutionID:   capExecExecutionID,
 					ReferenceID:   "17",
 					CapabilityID:  "my-cap@1.0.0",
 					Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
@@ -394,7 +400,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				params := confidentialrelaytypes.CapabilityRequestParams{
 					WorkflowID:    "wf-1",
 					Owner:         testOwner,
-					ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+					ExecutionID:   capExecExecutionID,
 					ReferenceID:   "17",
 					CapabilityID:  "my-cap@1.0.0",
 					Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
@@ -413,108 +419,10 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				assert.Equal(t, "result-proto-bytes", string(capResp.GetPayload().GetValue()))
 				assert.Empty(t, result.Result.Error)
 			},
-			checkExecutable: func(t *testing.T, reg *mockCapRegistry) {
-				exec := reg.executables["my-cap@1.0.0"]
-				require.NotNil(t, exec.lastRequest, "Execute should have been called")
-				assert.Equal(t, "wf-1", exec.lastRequest.Metadata.WorkflowID)
-				assert.Equal(t, testOwner, exec.lastRequest.Metadata.WorkflowOwner)
-				assert.Equal(t, "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1", exec.lastRequest.Metadata.WorkflowExecutionID)
-				assert.Equal(t, "17", exec.lastRequest.Metadata.ReferenceID)
-				assert.Empty(t, exec.lastRequest.Metadata.OrgID)
-			},
-		},
-		{
-			name: "capability execute sets metadata org id when PropagateOrgIDInRequestMetadata enabled",
-			registry: func(_ *testing.T) *mockCapRegistry {
-				return withEnclaveConfig(&mockCapRegistry{
-					executables: map[string]*mockExecutable{
-						"my-cap@1.0.0": {
-							execResult: capabilities.CapabilityResponse{
-								Payload: &anypb.Any{Value: []byte("result-proto-bytes")},
-							},
-						},
-					},
-				})
-			},
-			modifyHandler: func(t *testing.T, h *Handler) {
-				getter, err := settings.NewJSONGetter([]byte(`{"global":{"PropagateOrgIDInRequestMetadata":"true"}}`))
-				require.NoError(t, err)
-				h.limitsFactory = limits.Factory{Logger: h.lggr, Settings: getter}
-			},
-			req: func(t *testing.T) *jsonrpc.Request[json.RawMessage] {
-				return makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
-					WorkflowID:    "wf-1",
-					Owner:         testOwner,
-					ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
-					OrgID:         "org-relay-1",
-					ReferenceID:   "17",
-					CapabilityID:  "my-cap@1.0.0",
-					Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
-					EnclaveConfig: testEnclaveConfigPtr(),
-					Attestation:   testAttestationB64,
-				})
-			},
-			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
-				require.Nil(t, resp.Error)
-				params := confidentialrelaytypes.CapabilityRequestParams{
-					WorkflowID:    "wf-1",
-					Owner:         testOwner,
-					ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
-					OrgID:         "org-relay-1",
-					ReferenceID:   "17",
-					CapabilityID:  "my-cap@1.0.0",
-					Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
-					EnclaveConfig: testEnclaveConfigPtr(),
-				}
-				var result confidentialrelaytypes.SignedCapabilityResponseResult
-				require.NoError(t, json.Unmarshal(*resp.Result, &result))
-				require.Len(t, result.Signatures, 1)
-				assertValidCapabilitySignature(t, params, result)
-			},
-			checkExecutable: func(t *testing.T, reg *mockCapRegistry) {
-				exec := reg.executables["my-cap@1.0.0"]
-				require.NotNil(t, exec.lastRequest)
-				assert.Equal(t, "org-relay-1", exec.lastRequest.Metadata.OrgID)
-			},
-		},
-		{
-			name: "capability execute sets Inputs from Payload for backward compat",
-			registry: func(_ *testing.T) *mockCapRegistry {
-				return withEnclaveConfig(&mockCapRegistry{
-					executables: map[string]*mockExecutable{
-						"my-cap@1.0.0": {
-							execResult: capabilities.CapabilityResponse{},
-						},
-					},
-				})
-			},
-			req: func(t *testing.T) *jsonrpc.Request[json.RawMessage] {
-				return makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
-					WorkflowID:    "wf-1",
-					Owner:         testOwner,
-					ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
-					ReferenceID:   "17",
-					CapabilityID:  "my-cap@1.0.0",
-					Payload:       makeCapabilityPayload(t, map[string]any{"echo": "hello"}),
-					EnclaveConfig: testEnclaveConfigPtr(),
-					Attestation:   testAttestationB64,
-				})
-			},
-			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
-				require.Nil(t, resp.Error)
-			},
-			checkExecutable: func(t *testing.T, reg *mockCapRegistry) {
-				exec := reg.executables["my-cap@1.0.0"]
-				require.NotNil(t, exec.lastRequest, "Execute should have been called")
-				require.NotNil(t, exec.lastRequest.Payload)
-				var valPB valuespb.Value
-				require.NoError(t, exec.lastRequest.Payload.UnmarshalTo(&valPB))
-				require.NotNil(t, exec.lastRequest.Inputs)
-				unwrapped, err := exec.lastRequest.Inputs.Unwrap()
-				require.NoError(t, err)
-				m, ok := unwrapped.(map[string]any)
-				require.True(t, ok)
-				assert.Equal(t, "hello", m["echo"])
+			checkExecutable: func(t *testing.T, helper *mockExecutionHelper) {
+				require.NotNil(t, helper.lastCapabilityRequest, "CallCapability should have been called")
+				assert.Equal(t, "my-cap@1.0.0", helper.lastCapabilityRequest.Id)
+				assert.Equal(t, "Execute", helper.lastCapabilityRequest.Method)
 			},
 		},
 		{
@@ -522,6 +430,9 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			registry: func(_ *testing.T) *mockCapRegistry {
 				return withEnclaveConfig(&mockCapRegistry{})
 			},
+			workflowID:  "wf-1",
+			executionID: "",
+			helper:      func(_ *testing.T) *mockExecutionHelper { return capExecHelper() },
 			req: func(t *testing.T) *jsonrpc.Request[json.RawMessage] {
 				return makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
 					WorkflowID:   "wf-1",
@@ -535,13 +446,15 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			},
 		},
 		{
-			name: "capability execute not found",
+			name: "capability execute execution handler not found",
 			registry: func(_ *testing.T) *mockCapRegistry {
-				return withEnclaveConfig(&mockCapRegistry{executables: map[string]*mockExecutable{}})
+				return withEnclaveConfig(&mockCapRegistry{})
 			},
+			// No helper registered: GetExecution fails before attestation.
 			req: func(t *testing.T) *jsonrpc.Request[json.RawMessage] {
 				return makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
 					WorkflowID:    "wf-1",
+					ExecutionID:   capExecExecutionID,
 					CapabilityID:  "missing-cap@1.0.0",
 					Payload:       base64.StdEncoding.EncodeToString([]byte("payload")),
 					EnclaveConfig: testEnclaveConfigPtr(),
@@ -550,18 +463,18 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			},
 			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
 				require.NotNil(t, resp.Error)
-				assert.Equal(t, jsonrpc.ErrInternal, resp.Error.Code)
-				assert.Equal(t, internalErrorMessage, resp.Error.Message)
+				assert.Equal(t, jsonrpc.ErrInvalidParams, resp.Error.Code)
 			},
 		},
 		{
 			name: "capability execute error returned in result",
 			registry: func(_ *testing.T) *mockCapRegistry {
-				return withEnclaveConfig(&mockCapRegistry{
-					executables: map[string]*mockExecutable{
-						"fail-cap@1.0.0": {execErr: errors.New("execution failed")},
-					},
-				})
+				return withEnclaveConfig(&mockCapRegistry{})
+			},
+			workflowID:  "wf-1",
+			executionID: capExecExecutionID,
+			helper: func(_ *testing.T) *mockExecutionHelper {
+				return &mockExecutionHelper{capErr: errors.New("execution failed")}
 			},
 			req: func(t *testing.T) *jsonrpc.Request[json.RawMessage] {
 				sdkReq := &sdkpb.CapabilityRequest{Id: "fail-cap@1.0.0", Method: "Execute"}
@@ -570,7 +483,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				return makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
 					WorkflowID:    "wf-1",
 					Owner:         testOwner,
-					ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+					ExecutionID:   capExecExecutionID,
 					ReferenceID:   "17",
 					CapabilityID:  "fail-cap@1.0.0",
 					Payload:       base64.StdEncoding.EncodeToString(b),
@@ -583,7 +496,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				params := confidentialrelaytypes.CapabilityRequestParams{
 					WorkflowID:    "wf-1",
 					Owner:         testOwner,
-					ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+					ExecutionID:   capExecExecutionID,
 					ReferenceID:   "17",
 					CapabilityID:  "fail-cap@1.0.0",
 					Payload:       base64.StdEncoding.EncodeToString(mustMarshalProto(t, &sdkpb.CapabilityRequest{Id: "fail-cap@1.0.0", Method: "Execute"})),
@@ -598,9 +511,12 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			},
 		},
 		{
-			name:     "secrets get invokes vault execute with stable capability metadata",
-			registry: secretsGetTestRegistry,
-			req:      secretsGetTestRequest,
+			name:        "secrets get invokes vault execute with stable capability metadata",
+			registry:    secretsGetTestRegistry,
+			req:         secretsGetTestRequest,
+			workflowID:  "wf-secrets-1",
+			executionID: "0000000000000000000000000000000000000000000000000000000000000001",
+			helper:      func(_ *testing.T) *mockExecutionHelper { return secretsGetTestHelper() },
 			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
 				require.Nil(t, resp.Error)
 				// signSecretsResponse hashes against the request params (no Attestation),
@@ -614,42 +530,11 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				require.Len(t, result.Result.Secrets, 1)
 				assert.Equal(t, "API_KEY", result.Result.Secrets[0].ID.Key)
 			},
-			checkExecutable: func(t *testing.T, reg *mockCapRegistry) {
-				exec := reg.executables[vault.CapabilityID]
-				require.NotNil(t, exec.lastRequest, "vault Execute should have been called")
-
-				var vaultReq vault.GetSecretsRequest
-				require.NoError(t, exec.lastRequest.Payload.UnmarshalTo(&vaultReq))
-				require.Len(t, vaultReq.Requests, 1)
-				assert.Equal(t, "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B", vaultReq.Requests[0].Id.Owner)
-				assert.Equal(t, "0xab5801a7d398351b8be11c439e05c5b3259aec9b", exec.lastRequest.Metadata.WorkflowOwner)
-				assert.Equal(t, "wf-secrets-1", exec.lastRequest.Metadata.WorkflowID)
-				assert.Equal(t, uint32(42), exec.lastRequest.Metadata.WorkflowDonID)
-				assert.Empty(t, exec.lastRequest.Metadata.OrgID, "org metadata requires PropagateOrgIDInRequestMetadata CRE setting")
-			},
-		},
-		{
-			name:     "secrets get sets metadata org id when PropagateOrgIDInRequestMetadata enabled",
-			registry: secretsGetTestRegistry,
-			req:      secretsGetTestRequest,
-			modifyHandler: func(t *testing.T, h *Handler) {
-				getter, err := settings.NewJSONGetter([]byte(`{"global":{"PropagateOrgIDInRequestMetadata":"true"}}`))
-				require.NoError(t, err)
-				h.limitsFactory = limits.Factory{Logger: h.lggr, Settings: getter}
-			},
-			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
-				require.Nil(t, resp.Error)
-				params := secretsGetTestParams(t)
-				params.Attestation = ""
-				var result confidentialrelaytypes.SignedSecretsResponseResult
-				require.NoError(t, json.Unmarshal(*resp.Result, &result))
-				require.Len(t, result.Signatures, 1)
-				assertValidSecretsSignature(t, params, result)
-			},
-			checkExecutable: func(t *testing.T, reg *mockCapRegistry) {
-				exec := reg.executables[vault.CapabilityID]
-				require.NotNil(t, exec.lastRequest)
-				assert.Equal(t, "org-123", exec.lastRequest.Metadata.OrgID)
+			checkExecutable: func(t *testing.T, helper *mockExecutionHelper) {
+				require.NotNil(t, helper.lastSecretsRequest, "GetRawSecrets should have been called")
+				require.Len(t, helper.lastSecretsRequest.Requests, 1)
+				assert.Equal(t, "API_KEY", helper.lastSecretsRequest.Requests[0].Id)
+				assert.Equal(t, "main", helper.lastSecretsRequest.Requests[0].Namespace)
 			},
 		},
 		{
@@ -690,15 +575,17 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			gwConn := &mockGatewayConnector{}
 			reg := tt.registry(t)
 			h := newTestHandler(t, reg, gwConn)
-			if tt.modifyHandler != nil {
-				tt.modifyHandler(t, h)
+			var helper *mockExecutionHelper
+			if tt.helper != nil {
+				helper = tt.helper(t)
+				h.executionHandlers.AddExecution(tt.workflowID, tt.executionID, helper)
 			}
 			err := h.HandleGatewayMessage(t.Context(), "gw-1", tt.req(t))
 			require.NoError(t, err)
 			require.NotNil(t, gwConn.lastResp)
 			tt.checkResp(t, gwConn.lastResp)
 			if tt.checkExecutable != nil {
-				tt.checkExecutable(t, reg)
+				tt.checkExecutable(t, helper)
 			}
 		})
 	}
@@ -763,142 +650,85 @@ func TestHandler_Lifecycle(t *testing.T) {
 // request hash, the handler must also compare the attested EnclaveConfig
 // value against the local node's WorkflowDON state. Without this check, a
 // malicious host can produce a genuinely-attested request over a forged
-// EnclaveConfig and have it accepted.
+// EnclaveConfig and have it accepted. The check runs on both the capability
+// execute and secrets get paths.
 func TestHandler_VerifyEnclaveConfig(t *testing.T) {
-	t.Run("matching config accepted on capability execute", func(t *testing.T) {
-		reg := withEnclaveConfig(&mockCapRegistry{
-			executables: map[string]*mockExecutable{
-				"my-cap@1.0.0": {execResult: capabilities.CapabilityResponse{Payload: &anypb.Any{}}},
-			},
-		})
+	t.Parallel()
+	// capExecHandler builds a handler whose execution helper succeeds, so any rejection
+	// observed comes from the enclave-config check rather than a missing execution.
+	capExecHandler := func(t *testing.T) (*Handler, *mockGatewayConnector) {
+		t.Helper()
+		reg := withEnclaveConfig(&mockCapRegistry{})
 		gwConn := &mockGatewayConnector{}
 		h := newTestHandler(t, reg, gwConn)
-		req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
+		h.executionHandlers.AddExecution("wf-1", capExecExecutionID, capExecHelper())
+		return h, gwConn
+	}
+
+	capExecReq := func(t *testing.T, cfg *confidentialrelaytypes.EnclaveConfig) *jsonrpc.Request[json.RawMessage] {
+		t.Helper()
+		return makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
 			WorkflowID:    "wf-1",
 			Owner:         testOwner,
-			ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+			ExecutionID:   capExecExecutionID,
 			ReferenceID:   "1",
 			CapabilityID:  "my-cap@1.0.0",
 			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
-			EnclaveConfig: testEnclaveConfigPtr(),
+			EnclaveConfig: cfg,
 			Attestation:   testAttestationB64,
 		})
-		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
+	}
+
+	t.Run("matching config accepted on capability execute", func(t *testing.T) {
+		t.Parallel()
+		h, gwConn := capExecHandler(t)
+		err := h.HandleGatewayMessage(context.Background(), "gw-1", capExecReq(t, testEnclaveConfigPtr()))
 		require.NoError(t, err)
-		resp := gwConn.lastResp
-		require.Nil(t, resp.Error)
+		require.Nil(t, gwConn.lastResp.Error)
 	})
 
 	t.Run("nil config rejected on capability execute (required)", func(t *testing.T) {
-		reg := withEnclaveConfig(&mockCapRegistry{
-			executables: map[string]*mockExecutable{
-				"my-cap@1.0.0": {execResult: capabilities.CapabilityResponse{Payload: &anypb.Any{}}},
-			},
-		})
-		gwConn := &mockGatewayConnector{}
-		h := newTestHandler(t, reg, gwConn)
-		req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
-			WorkflowID:    "wf-1",
-			Owner:         testOwner,
-			ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
-			ReferenceID:   "1",
-			CapabilityID:  "my-cap@1.0.0",
-			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
-			EnclaveConfig: nil, // missing config cannot be checked against DON state
-			Attestation:   testAttestationB64,
-		})
-		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
+		t.Parallel()
+		h, gwConn := capExecHandler(t)
+		// missing config cannot be checked against DON state
+		err := h.HandleGatewayMessage(context.Background(), "gw-1", capExecReq(t, nil))
 		require.NoError(t, err)
-		resp := gwConn.lastResp
-		require.NotNil(t, resp.Error)
+		require.NotNil(t, gwConn.lastResp.Error)
 	})
 
 	t.Run("F below DON minimum rejected on capability execute", func(t *testing.T) {
-		reg := withEnclaveConfig(&mockCapRegistry{
-			executables: map[string]*mockExecutable{
-				"my-cap@1.0.0": {execResult: capabilities.CapabilityResponse{Payload: &anypb.Any{}}},
-			},
-		})
-		gwConn := &mockGatewayConnector{}
-		h := newTestHandler(t, reg, gwConn)
+		t.Parallel()
+		h, gwConn := capExecHandler(t)
 		badCfg := testEnclaveConfig()
 		badCfg.F = testEnclaveF - 1 // below the DON's minimum F
-		req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
-			WorkflowID:    "wf-1",
-			Owner:         testOwner,
-			ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
-			ReferenceID:   "1",
-			CapabilityID:  "my-cap@1.0.0",
-			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
-			EnclaveConfig: &badCfg,
-			Attestation:   testAttestationB64,
-		})
-		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
+		err := h.HandleGatewayMessage(context.Background(), "gw-1", capExecReq(t, &badCfg))
 		require.NoError(t, err)
-		resp := gwConn.lastResp
-		require.NotNil(t, resp.Error)
+		require.NotNil(t, gwConn.lastResp.Error)
 	})
 
 	t.Run("F above DON minimum accepted on capability execute", func(t *testing.T) {
-		reg := withEnclaveConfig(&mockCapRegistry{
-			executables: map[string]*mockExecutable{
-				"my-cap@1.0.0": {execResult: capabilities.CapabilityResponse{Payload: &anypb.Any{}}},
-			},
-		})
-		gwConn := &mockGatewayConnector{}
-		h := newTestHandler(t, reg, gwConn)
+		t.Parallel()
+		h, gwConn := capExecHandler(t)
 		cfg := testEnclaveConfig()
 		cfg.F = testEnclaveF + 1 // a higher F is a stricter quorum; floor check accepts it
-		req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
-			WorkflowID:    "wf-1",
-			Owner:         testOwner,
-			ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
-			ReferenceID:   "1",
-			CapabilityID:  "my-cap@1.0.0",
-			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
-			EnclaveConfig: &cfg,
-			Attestation:   testAttestationB64,
-		})
-		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
+		err := h.HandleGatewayMessage(context.Background(), "gw-1", capExecReq(t, &cfg))
 		require.NoError(t, err)
-		resp := gwConn.lastResp
-		require.Nil(t, resp.Error)
+		require.Nil(t, gwConn.lastResp.Error)
 	})
 
 	t.Run("signers count mismatch rejected on capability execute", func(t *testing.T) {
-		reg := withEnclaveConfig(&mockCapRegistry{
-			executables: map[string]*mockExecutable{
-				"my-cap@1.0.0": {execResult: capabilities.CapabilityResponse{Payload: &anypb.Any{}}},
-			},
-		})
-		gwConn := &mockGatewayConnector{}
-		h := newTestHandler(t, reg, gwConn)
+		t.Parallel()
+		h, gwConn := capExecHandler(t)
 		badCfg := testEnclaveConfig()
 		badCfg.Signers = badCfg.Signers[:2]
-		req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
-			WorkflowID:    "wf-1",
-			Owner:         testOwner,
-			ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
-			ReferenceID:   "1",
-			CapabilityID:  "my-cap@1.0.0",
-			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
-			EnclaveConfig: &badCfg,
-			Attestation:   testAttestationB64,
-		})
-		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
+		err := h.HandleGatewayMessage(context.Background(), "gw-1", capExecReq(t, &badCfg))
 		require.NoError(t, err)
-		resp := gwConn.lastResp
-		require.NotNil(t, resp.Error)
+		require.NotNil(t, gwConn.lastResp.Error)
 	})
 
 	t.Run("signer value mismatch rejected on capability execute", func(t *testing.T) {
-		reg := withEnclaveConfig(&mockCapRegistry{
-			executables: map[string]*mockExecutable{
-				"my-cap@1.0.0": {execResult: capabilities.CapabilityResponse{Payload: &anypb.Any{}}},
-			},
-		})
-		gwConn := &mockGatewayConnector{}
-		h := newTestHandler(t, reg, gwConn)
+		t.Parallel()
+		h, gwConn := capExecHandler(t)
 		badCfg := testEnclaveConfig()
 		badCfg.Signers = [][]byte{
 			make32Byte(0xa1),
@@ -906,30 +736,14 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 			make32Byte(0xc1),
 			make32Byte(0xff), // last signer differs
 		}
-		req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
-			WorkflowID:    "wf-1",
-			Owner:         testOwner,
-			ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
-			ReferenceID:   "1",
-			CapabilityID:  "my-cap@1.0.0",
-			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
-			EnclaveConfig: &badCfg,
-			Attestation:   testAttestationB64,
-		})
-		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
+		err := h.HandleGatewayMessage(context.Background(), "gw-1", capExecReq(t, &badCfg))
 		require.NoError(t, err)
-		resp := gwConn.lastResp
-		require.NotNil(t, resp.Error)
+		require.NotNil(t, gwConn.lastResp.Error)
 	})
 
 	t.Run("matching is order-independent on capability execute", func(t *testing.T) {
-		reg := withEnclaveConfig(&mockCapRegistry{
-			executables: map[string]*mockExecutable{
-				"my-cap@1.0.0": {execResult: capabilities.CapabilityResponse{Payload: &anypb.Any{}}},
-			},
-		})
-		gwConn := &mockGatewayConnector{}
-		h := newTestHandler(t, reg, gwConn)
+		t.Parallel()
+		h, gwConn := capExecHandler(t)
 		shuffled := testEnclaveConfig()
 		// Reverse Signers; the comparison must still pass.
 		n := len(shuffled.Signers)
@@ -938,33 +752,23 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 			rev[n-1-i] = s
 		}
 		shuffled.Signers = rev
-		req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
-			WorkflowID:    "wf-1",
-			Owner:         testOwner,
-			ExecutionID:   "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
-			ReferenceID:   "1",
-			CapabilityID:  "my-cap@1.0.0",
-			Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
-			EnclaveConfig: &shuffled,
-			Attestation:   testAttestationB64,
-		})
-		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
+		err := h.HandleGatewayMessage(context.Background(), "gw-1", capExecReq(t, &shuffled))
 		require.NoError(t, err)
-		resp := gwConn.lastResp
-		require.Nil(t, resp.Error)
+		require.Nil(t, gwConn.lastResp.Error)
 	})
 
 	t.Run("F below DON minimum rejected on secrets get", func(t *testing.T) {
+		t.Parallel()
 		reg := secretsGetTestRegistry(t)
 		gwConn := &mockGatewayConnector{}
 		h := newTestHandler(t, reg, gwConn)
 		params := secretsGetTestParams(t)
+		h.executionHandlers.AddExecution(params.WorkflowID, params.ExecutionID, secretsGetTestHelper())
 		params.EnclaveConfig.F = testEnclaveF - 1 // below the DON's minimum F
 		req := makeRequest(t, confidentialrelaytypes.MethodSecretsGet, params)
 		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
 		require.NoError(t, err)
-		resp := gwConn.lastResp
-		require.NotNil(t, resp.Error)
+		require.NotNil(t, gwConn.lastResp.Error)
 	})
 }
 
@@ -990,50 +794,10 @@ func TestTranslateVaultResponse_BinaryShares(t *testing.T) {
 		},
 	}
 
-	result, err := translateVaultResponse(vaultResp, enclaveKey)
+	result, err := translateVaultResponse(vaultResp.Responses, enclaveKey)
 	require.NoError(t, err)
 	require.Len(t, result.Secrets, 1)
 	require.Equal(t, base64.StdEncoding.EncodeToString(shareBytes), result.Secrets[0].EncryptedShares[0])
-}
-
-// Relay aggregation requires byte-identical responses from every node to reach
-// quorum. A map-valued response is the worst case: protobuf map fields marshal
-// in nondeterministic key order by default, so the same logical value would
-// serialize to different bytes across nodes (and across calls) unless we force
-// deterministic serialization. This guards both the Any payload construction in
-// toSDKCapabilityResponse and the outer marshal. [CL112-05]
-func TestToSDKCapabilityResponse_DeterministicSerialization(t *testing.T) {
-	t.Parallel()
-	val, err := values.Wrap(map[string]any{
-		"alpha":   1,
-		"bravo":   "two",
-		"charlie": true,
-		"delta":   []any{1, 2, 3},
-		"echo":    map[string]any{"nested1": "x", "nested2": "y", "nested3": "z"},
-		"foxtrot": "value-foxtrot",
-		"golf":    "value-golf",
-		"hotel":   "value-hotel",
-	})
-	require.NoError(t, err)
-	valMap, ok := val.(*values.Map)
-	require.True(t, ok)
-
-	capResp := capabilities.CapabilityResponse{Value: valMap}
-
-	var want []byte
-	for i := range 50 {
-		sdkResp, err := toSDKCapabilityResponse(capResp)
-		require.NoError(t, err)
-		got, err := proto.MarshalOptions{Deterministic: true}.Marshal(sdkResp)
-		require.NoError(t, err)
-		require.NotEmpty(t, got)
-		if i == 0 {
-			want = got
-			continue
-		}
-		require.Equal(t, want, got,
-			"serialized capability response must be byte-identical across calls (iteration %d)", i)
-	}
 }
 
 func TestTranslateVaultResponse_HexShares(t *testing.T) {
@@ -1058,7 +822,7 @@ func TestTranslateVaultResponse_HexShares(t *testing.T) {
 		},
 	}
 
-	result, err := translateVaultResponse(vaultResp, enclaveKey)
+	result, err := translateVaultResponse(vaultResp.Responses, enclaveKey)
 	require.NoError(t, err)
 	require.Len(t, result.Secrets, 1)
 	require.Equal(t, base64.StdEncoding.EncodeToString(shareBytes), result.Secrets[0].EncryptedShares[0])
