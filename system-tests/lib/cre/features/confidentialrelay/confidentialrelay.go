@@ -21,8 +21,7 @@ type ConfidentialRelay struct {
 	// TrustEnclaves makes the relay trust fake (non-Nitro) enclaves by
 	// relaxing TEE attestation validation. INSECURE; test/E2E use only.
 	TrustEnclaves bool
-	// RequireBFTQuorum requires a Byzantine quorum of 2*F+1 Workflow DON
-	// signatures instead of the default crash-fault quorum of F+1.
+	// RequireBFTQuorum determines the required signature quorum for the relay.
 	RequireBFTQuorum bool
 }
 
