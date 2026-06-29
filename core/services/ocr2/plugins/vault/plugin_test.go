@@ -2224,11 +2224,12 @@ func TestPlugin_shaForObservation_OmitsCiphertextWhenCiphertextlessObservationsE
 		},
 	}
 
-	shaWithCiphertext, err := shaForObservation(obs, false)
+	r := newTestReportingPlugin(t, withVaultCiphertextlessObservationsEnabled())
+	shaWithCiphertext, err := r.shaForObservation(t.Context(), obs, false)
 	require.NoError(t, err)
-	shaWithoutCiphertext, err := shaForObservation(obs, true)
+	shaWithoutCiphertext, err := r.shaForObservation(t.Context(), obs, true)
 	require.NoError(t, err)
-	shaEmptyCiphertext, err := shaForObservation(&vaultcommon.Observation{
+	shaEmptyCiphertext, err := r.shaForObservation(t.Context(), &vaultcommon.Observation{
 		Id:          obs.Id,
 		RequestType: obs.RequestType,
 		Response: &vaultcommon.Observation_GetSecretsResponse{
@@ -3785,12 +3786,14 @@ func TestPlugin_ValidateObservation_RejectsExcessObservations(t *testing.T) {
 	require.NoError(t, err)
 
 	id2 := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret2"}
-	getReq := &vaultcommon.GetSecretsRequest{Requests: []*vaultcommon.SecretRequest{{Id: id2}}}
+	delReq2 := &vaultcommon.DeleteSecretsRequest{RequestId: "request-2", Ids: []*vaultcommon.SecretIdentifier{id2}}
 	respDel := &vaultcommon.DeleteSecretsResponse{
 		Responses: []*vaultcommon.DeleteSecretResponse{{Id: id1, Success: false, Error: ""}},
 	}
-	respGet := &vaultcommon.GetSecretsResponse{Responses: []*vaultcommon.SecretResponse{{Id: id2}}}
-	obsb := marshalObservations(t, observation{id1, delReq, respDel}, observation{id2, getReq, respGet})
+	respDel2 := &vaultcommon.DeleteSecretsResponse{
+		Responses: []*vaultcommon.DeleteSecretResponse{{Id: id2, Success: false, Error: ""}},
+	}
+	obsb := marshalObservations(t, observation{id1, delReq, respDel}, observation{id2, delReq2, respDel2})
 	err = r.ValidateObservation(
 		t.Context(),
 		seqNr,

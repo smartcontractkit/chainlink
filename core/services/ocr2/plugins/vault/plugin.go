@@ -70,13 +70,6 @@ type ReportingPluginConfig struct {
 	VaultCiphertextlessObservationsEnabled            limits.GateLimiter
 	VaultSignedResponseRequestIDEnabled               limits.GateLimiter
 	VaultGetSecretsShareAggregationIncludesPublicKeys limits.GateLimiter
-	MaxSecretsPerOwner                                limits.BoundLimiter[int]
-	MaxShareLengthBytes                               limits.BoundLimiter[pkgconfig.Size]
-	MaxBatchSize                                      limits.BoundLimiter[int]
-	MaxPendingQueueWriteSize                          limits.BoundLimiter[int]
-	MaxBlobPayloadBytes                               limits.BoundLimiter[pkgconfig.Size]
-	VaultForceEmptyOCRRounds                          limits.GateLimiter
-	VaultOptimizationsEnabled                         limits.GateLimiter
 }
 
 func NewReportingPluginFactory(
@@ -228,11 +221,6 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 
 	return &ReportingPluginConfig{
 		MaxShareLengthBytes:                               maxShareLengthBytesLimiter,
-		MaxRequestBatchSize:                               maxRequestBatchSizeLimiter,
-		MaxCiphertextLengthBytes:                          maxCiphertextLengthBytesLimiter,
-		MaxIdentifierKeyLengthBytes:                       maxIdentifierKeyLengthBytesLimiter,
-		MaxIdentifierOwnerLengthBytes:                     maxIdentifierOwnerLengthBytesLimiter,
-		MaxIdentifierNamespaceLengthBytes:                 maxIdentifierNamespaceLengthBytesLimiter,
 		MaxBlobPayloadBytes:                               maxBlobPayloadBytesLimiter,
 		MaxPendingQueueWriteSize:                          maxPendingQueueWriteSizeLimiter,
 		VaultForceEmptyOCRRounds:                          vaultForceEmptyOCRRounds,
@@ -1594,7 +1582,7 @@ func (r *ReportingPlugin) shaForObservation(ctx context.Context, o *vaultcommon.
 					rsp.GetData().EncryptedDecryptionKeyShares = nil
 				}
 				if omitCiphertext {
-					r.GetData().EncryptedValue = ""
+					rsp.GetData().EncryptedValue = ""
 				}
 			}
 		}
