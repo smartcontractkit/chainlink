@@ -22,13 +22,14 @@ type Topology struct {
 	DonsMetadata          *DonsMetadata          `toml:"dons_metadata" json:"dons_metadata"`
 	GatewayServiceConfigs []GatewayServiceConfig `toml:"gateway_service_configs" json:"gateway_service_configs"`
 	GatewayConnectors     *GatewayConnectors     `toml:"gateway_connectors" json:"gateway_connectors"`
+
+	gatewayConnectorsByDon  map[string]*DonGatewayConfiguration // gateway nodesets.name → connector (for per-family lookup)
+	gatewayDonFamilyPairing *gatewayDonFamilyPairingState       // nil when topology has no gateway; see topology_don_family.go
 }
 
 func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs map[CapabilityFlag]CapabilityConfig) (*Topology, error) {
 	dm := make([]*DonMetadata, len(nodeSet))
 	for i := range nodeSet {
-		// Use ContractDonID from NodeSet when set (resolved from Capabilities Registry contract).
-		// Otherwise use optimistic i+1; the ID may be overwritten later when resolving from the contract.
 		id := nodeSet[i].ContractDonID
 		if id == 0 {
 			id = libc.MustSafeUint64FromInt(i + 1)
@@ -51,8 +52,9 @@ func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs 
 	}
 
 	topology := &Topology{
-		WorkflowDONIDs: []uint64{},
-		DonsMetadata:   donsMetadata,
+		WorkflowDONIDs:         []uint64{},
+		DonsMetadata:           donsMetadata,
+		gatewayConnectorsByDon: make(map[string]*DonGatewayConfiguration),
 	}
 
 	donNames := make([]string, 0, len(wfDONs))
@@ -77,6 +79,7 @@ func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs 
 					return nil, fmt.Errorf("failed to get gateway config for DON %s: %w", d.Name, err)
 				}
 				topology.GatewayConnectors.Configurations = append(topology.GatewayConnectors.Configurations, gc)
+				topology.gatewayConnectorsByDon[d.Name] = gc
 				gatewayCount++
 			}
 		}
@@ -97,7 +100,22 @@ func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs 
 		return nil, errors.New("multiple bootstrap nodes found in topology. Only one bootstrap node is supported due to the limitations of the local environment")
 	}
 
+	// Validate don_family pairing and build lookup state before node TOMLs are generated.
+	if err := topology.initDonFamilyGatewayPairing(); err != nil {
+		return nil, err
+	}
+
 	return topology, nil
+}
+
+// donByName returns DonMetadata for a topology nodesets.name, or nil when unknown.
+func (t *Topology) donByName(name string) *DonMetadata {
+	for _, d := range t.DonsMetadata.List() {
+		if d.Name == name {
+			return d
+		}
+	}
+	return nil
 }
 
 func (t *Topology) NodeSets() []*NodeSet {

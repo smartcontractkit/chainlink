@@ -161,6 +161,9 @@ func SetupTestEnvironment(
 	if tErr != nil {
 		return nil, pkgerrors.Wrap(tErr, "failed to create topology")
 	}
+	if topology.DonsMetadata.RequiresGateway() {
+		testLogger.Info().Msg(topology.DonFamilyGatewayPairingSummary())
+	}
 
 	updatedNodeSets, topoErr := donconfig.PrepareNodeTOMLs(
 		ctx,
@@ -273,7 +276,7 @@ func SetupTestEnvironment(
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Creating Jobs with Job Distributor")))
 
-	gJobErr := gateway.CreateJobs(ctx, creEnvironment, dons, topology.GatewayServiceConfigs, input.GatewayWhitelistConfig)
+	gJobErr := gateway.CreateJobs(ctx, creEnvironment, dons, topology, topology.GatewayServiceConfigs, input.GatewayWhitelistConfig)
 	if gJobErr != nil {
 		return nil, pkgerrors.Wrap(gJobErr, "failed to create gateway jobs with Job Distributor")
 	}
@@ -375,6 +378,7 @@ func SetupTestEnvironment(
 			ChainSelector:   deployedBlockchains.RegistryChain().ChainSelector(),
 			CldEnv:          deployKeystoneContractsOutput.Env,
 			AllowedDonIDs:   topology.WorkflowDONIDs,
+			DONFamilies:     topology.WorkflowDONFamilies(),
 			WorkflowOwners:  []common.Address{deployedBlockchains.RegistryChain().(*evm.Blockchain).SethClient.MustGetRootKeyAddress()}, // registry chain is always EVM
 		},
 	)

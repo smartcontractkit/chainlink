@@ -4,7 +4,33 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
+
+func TestGatewayConfiguration_ExternalHTTPURL(t *testing.T) {
+	t.Parallel()
+
+	cfg := &GatewayConfiguration{
+		Incoming: Incoming{
+			Protocol:     "http",
+			Path:         "/",
+			ExternalPort: 5002,
+		},
+	}
+
+	require.Equal(t, "http://localhost:5002/", cfg.ExternalHTTPURL(infra.Provider{Type: infra.Docker}))
+	require.Equal(t, "http://cre-ns-gateway.example:5002/", cfg.ExternalHTTPURL(infra.Provider{
+		Type: infra.Kubernetes,
+		Kubernetes: &infra.KubernetesInput{
+			Namespace:      "cre-ns",
+			ExternalDomain: "example",
+		},
+	}))
+
+	cfg.Incoming.Host = "explicit-host"
+	require.Equal(t, "http://explicit-host:5002/", cfg.ExternalHTTPURL(infra.Provider{Type: infra.Docker}))
+}
 
 func TestGatewayConfiguration_ToConnectorGateway(t *testing.T) {
 	t.Parallel()
