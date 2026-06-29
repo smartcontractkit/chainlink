@@ -28,9 +28,9 @@ import (
 var errSignedPayloadRequestIDMismatch = errors.New("signed payload request id mismatch")
 
 type baseAggregator struct {
-	capabilitiesRegistry capabilitiesRegistry
-	metrics              *metrics
-	donID                string
+	capabilitiesRegistry        capabilitiesRegistry
+	metrics                     *metrics
+	donID                       string
 	signedResponseRequestIDGate limits.GateLimiter
 	// vaultHandlerDonID scopes registry lookup when several vault DONs exist.
 	//

@@ -310,11 +310,11 @@ func LatestBlock(ctx context.Context, env cldf.Environment, chainSelector uint64
 		return env.BlockChains.SolanaChains()[chainSelector].Client.GetSlot(ctx, solconfig.DefaultCommitment)
 	case chainsel.FamilySui:
 		suiClient := env.BlockChains.SuiChains()[chainSelector].Client
-		seqNum, err := suiClient.SuiGetLatestCheckpointSequenceNumber(ctx)
+		checkpoint, err := suiClient.GetLatestCheckpoint(ctx)
 		if err != nil {
 			return 0, fmt.Errorf("failed to get sui latest checkpoint: %w", err)
 		}
-		return seqNum, nil
+		return checkpoint.GetSequenceNumber(), nil
 	case chainsel.FamilyAptos:
 		chainInfo, err := env.BlockChains.AptosChains()[chainSelector].Client.Info()
 		if err != nil {

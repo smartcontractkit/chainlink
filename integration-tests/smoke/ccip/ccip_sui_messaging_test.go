@@ -17,8 +17,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	evm_fee_quoter "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
-	module_fee_quoter "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
+	module_fee_quoter "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
@@ -379,16 +380,7 @@ func prepareEVM2SuiMessagingTest(t *testing.T) evm2SuiMessagingFixtures {
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
 
-	sender := common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
-	setup := messagingtest.NewTestSetupWithDeployedEnv(
-		t,
-		e,
-		state,
-		sourceChain,
-		destChain,
-		sender,
-		false, // test router
-	)
+	var setup messagingtest.TestSetup
 
 	_, output, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.DeployDummyReceiver{}, sui_cs.DeployDummyReceiverConfig{
@@ -407,7 +399,7 @@ func prepareEVM2SuiMessagingTest(t *testing.T) evm2SuiMessagingFixtures {
 	receiverByteDecoded, err := hex.DecodeString(id)
 	require.NoError(t, err)
 
-	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+	updatedEnv, _, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
 			SuiChainSelector:       destChain,
 			OwnerCapObjectId:       outputMap.Objects.OwnerCapObjectId,
@@ -416,6 +408,22 @@ func prepareEVM2SuiMessagingTest(t *testing.T) evm2SuiMessagingFixtures {
 		}),
 	})
 	require.NoError(t, err)
+	e.Env = updatedEnv
+
+	state, err = stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	e.RefreshAdapters()
+
+	sender := common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
+	setup = messagingtest.NewTestSetupWithDeployedEnv(
+		t,
+		e,
+		state,
+		sourceChain,
+		destChain,
+		sender,
+		false, // test router
+	)
 
 	receiverByte := receiverByteDecoded
 
@@ -451,6 +459,8 @@ func Test_CCIP_Messaging_EVM2Sui_Success(t *testing.T) {
 	waitForSuiRPCSync(t, fx.e.Env.BlockChains.SuiChains()[fx.destChain])
 
 	t.Run("Message to Sui", func(t *testing.T) {
+		testhelpers.WaitForEventFilterRegistrationOnLane(t, fx.state, fx.e.Env.Offchain, fx.sourceChain, fx.destChain)
+
 		message := []byte("Hello Sui, from EVM!")
 		messagingtest.Run(t,
 			messagingtest.TestCase{
@@ -641,6 +651,7 @@ func Test_CCIP_EVM2Sui_ZeroReceiver(t *testing.T) {
 	)
 
 	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
+	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Env.Offchain, sourceChain, destChain)
 
 	t.Run("Message to Sui with zero receiver", func(t *testing.T) {
 		message := []byte("Hello Sui, from EVM!")

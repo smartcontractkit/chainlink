@@ -24,7 +24,6 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commitocr3 "github.com/smartcontractkit/chainlink-ccip/commit"
-	"github.com/smartcontractkit/chainlink-ccip/commit/merkleroot/rmn"
 	execocr3 "github.com/smartcontractkit/chainlink-ccip/execute"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/contractreader"
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
@@ -343,21 +342,6 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 	var transmitter ocr3types.ContractTransmitter[[]byte]
 	pluginConfig := pluginServices.PluginConfig
 	if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit) {
-		if !i.peerWrapper.IsStarted() {
-			return nil, nil, errors.New("peer wrapper is not started")
-		}
-
-		i.lggr.Infow("creating rmn peer client",
-			"bootstrapperLocators", i.bootstrapperLocators,
-			"deltaRound", publicConfig.DeltaRound)
-
-		rmnPeerClient := rmn.NewPeerClient(
-			i.lggr.Named("RMNPeerClient"),
-			i.peerWrapper.PeerGroupFactory,
-			i.bootstrapperLocators,
-			publicConfig.DeltaRound,
-		)
-
 		factory = commitocr3.NewCommitPluginFactory(
 			commitocr3.CommitPluginFactoryParams{
 				Lggr: i.lggr.
@@ -376,8 +360,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				LOOPPCCIPProviderSupported: pluginServices.CCIPProviderSupported,
 				ExtendedReaders:            extendedReaders,
 				ContractWriters:            chainWriters,
-				RmnPeerClient:              rmnPeerClient,
-				RmnCrypto:                  pluginConfig.RMNCrypto})
+			})
 		factory = promwrapper.NewReportingPluginFactory(
 			factory,
 			i.lggr,

@@ -12,6 +12,8 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -54,36 +56,40 @@ func ParseWorkflowAttributes(data []byte) (WorkflowAttributes, error) {
 // Instead of running WASM locally, it delegates execution to the
 // confidential-workflows capability via the CapabilitiesRegistry.
 type ConfidentialModule struct {
-	capRegistry   core.CapabilitiesRegistry
-	binaryURL     string
-	binaryHash    []byte
-	workflowID    string
-	workflowOwner string
-	workflowName  string
-	workflowTag   string
-	lggr          logger.Logger
-	requirements  sync.Map
-	infoOnce      sync.Once
-	provider      func(tee *sdkpb.Tee) bool
-	enabledGate   limits.GateLimiter
+	capRegistry       core.CapabilitiesRegistry
+	binaryURL         string
+	binaryHash        []byte
+	workflowID        string
+	workflowOwner     string
+	workflowName      string
+	workflowTag       string
+	lggr              logger.Logger
+	requirements      sync.Map
+	restritions       sync.Map
+	infoOnce          sync.Once
+	provider          func(tee *sdkpb.Tee) bool
+	executionHandlers *confidentialrelay.ExecutionHandlers
+	enabledGate       limits.GateLimiter
 }
 
 var _ host.RequirementEnforcingModule = (*ConfidentialModule)(nil)
+var _ host.RestrictionAwareModule = (*ConfidentialModule)(nil)
 
-func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, enabledGate limits.GateLimiter, lggr logger.Logger) (*ConfidentialModule, error) {
+func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, enabledGate limits.GateLimiter, lggr logger.Logger) (*ConfidentialModule, error) {
 	if enabledGate == nil {
 		return nil, errors.New("enabledGate must not be nil")
 	}
 	return &ConfidentialModule{
-		capRegistry:   capRegistry,
-		binaryURL:     binaryURL,
-		binaryHash:    binaryHash,
-		workflowID:    workflowID,
-		workflowOwner: workflowOwner,
-		workflowName:  workflowName,
-		workflowTag:   workflowTag,
-		enabledGate:   enabledGate,
-		lggr:          lggr,
+		capRegistry:       capRegistry,
+		executionHandlers: executionHandlers,
+		binaryURL:         binaryURL,
+		binaryHash:        binaryHash,
+		workflowID:        workflowID,
+		workflowOwner:     workflowOwner,
+		workflowName:      workflowName,
+		workflowTag:       workflowTag,
+		enabledGate:       enabledGate,
+		lggr:              lggr,
 	}, nil
 }
 
@@ -100,11 +106,16 @@ func (m *ConfidentialModule) Execute(
 		return nil, fmt.Errorf("confidential-workflows capability is disabled by settings: %w", err)
 	}
 
-	var requirements *sdkpb.Requirements
-	rawRequirements, loaded := m.requirements.LoadAndDelete(helper.GetWorkflowExecutionID())
-	if loaded {
-		requirements = rawRequirements.(*sdkpb.Requirements)
+	workflowExecutionID := helper.GetWorkflowExecutionID()
+	rawSecretsHelper, ok := helper.(host.ExecutionHelperWithRawSecrets)
+	if !ok {
+		return nil, fmt.Errorf("%T is not a host.executionHelperWithRawSecrets and is not safe to use for confidential compute", helper)
 	}
+	m.executionHandlers.AddExecution(m.workflowID, workflowExecutionID, rawSecretsHelper)
+	defer m.executionHandlers.RemoveExecution(m.workflowID, workflowExecutionID)
+
+	requirements := loadAndDelete[*sdkpb.Requirements](&m.requirements, workflowExecutionID)
+	restrictions := loadAndDelete[*sdkpb.Restrictions](&m.restritions, workflowExecutionID)
 
 	capInput := &confworkflowtypes.ConfidentialWorkflowRequest{
 		Execution: &confworkflowtypes.WorkflowExecution{
@@ -112,10 +123,11 @@ func (m *ConfidentialModule) Execute(
 			BinaryHash:        m.binaryHash,
 			SdkExecuteRequest: request,
 			Owner:             m.workflowOwner,
-			ExecutionId:       helper.GetWorkflowExecutionID(),
+			ExecutionId:       workflowExecutionID,
 			OrgId:             contexts.CREValue(ctx).Org,
 			Requirements:      requirements,
 			BinaryUrl:         m.binaryURL,
+			Restrictions:      restrictions,
 		},
 	}
 
@@ -129,6 +141,10 @@ func (m *ConfidentialModule) Execute(
 
 func (m *ConfidentialModule) SetRequirements(executionID string, requirements *sdkpb.Requirements) {
 	m.requirements.Store(executionID, requirements)
+}
+
+func (m *ConfidentialModule) SetRestrictions(executionID string, restrictions *sdkpb.Restrictions) {
+	m.restritions.Store(executionID, restrictions)
 }
 
 func (m *ConfidentialModule) providedTees(ctx context.Context) []*sdkpb.TeeTypeAndRegions {
@@ -148,6 +164,15 @@ func (m *ConfidentialModule) Tee(ctx context.Context, tee *sdkpb.Tee) bool {
 	})
 
 	return m.provider(tee)
+}
+
+func loadAndDelete[T any](m *sync.Map, key string) T {
+	var t T
+	raw, loaded := m.LoadAndDelete(key)
+	if loaded {
+		t = raw.(T)
+	}
+	return t
 }
 
 func doRequest[I, O proto.Message](

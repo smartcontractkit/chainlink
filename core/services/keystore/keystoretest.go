@@ -75,6 +75,7 @@ func NewInMemory(ds sqlutil.DataSource, scryptParams keystore.ScryptParams, logf
 		starknet:     newStarkNetKeyStore(km),
 		sui:          newSuiKeyStore(km),
 		aptos:        newAptosKeyStore(km),
+		stellar:      newStellarKeyStore(km),
 		tron:         newTronKeyStore(km),
 		ton:          newTONKeyStore(km),
 		vrf:          newVRFKeyStore(km),
