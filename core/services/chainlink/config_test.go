@@ -593,9 +593,9 @@ func TestConfig_Marshal(t *testing.T) {
 			TLSEnabled: ptr(true),
 		},
 		ConfidentialRelay: &toml.ConfidentialRelayConfig{
-			Enabled:           new(bool),
-			TrustEnclaves:     new(bool),
-			QuorumFMultiplier: ptr(uint32(3)),
+			Enabled:          new(bool),
+			TrustEnclaves:    new(bool),
+			RequireBFTQuorum: ptr(true),
 		},
 	}
 	full.Billing = toml.Billing{

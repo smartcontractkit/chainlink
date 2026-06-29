@@ -133,13 +133,14 @@ type Handler struct {
 
 	// validator validates TEE attestation documents.
 	validator AttestationValidator
-	// quorumFMultiplier multiplies the Workflow DON fault tolerance when
-	// computing the required signature quorum: threshold = quorumFMultiplier*F + 1.
-	quorumFMultiplier uint32
-	limitsFactory     limits.Factory
+	// requireBFTQuorum selects the required signature quorum: when true the relay
+	// demands a Byzantine quorum of 2*F+1 unique signers, otherwise a crash-fault
+	// quorum of F+1.
+	requireBFTQuorum bool
+	limitsFactory    limits.Factory
 }
 
-func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, lf limits.Factory, validator AttestationValidator, quorumFMultiplier uint32) (*Handler, error) {
+func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, lf limits.Factory, validator AttestationValidator, requireBFTQuorum bool) (*Handler, error) {
 	if responseSigner == nil {
 		return nil, errors.New("response signer is required")
 	}
@@ -151,14 +152,14 @@ func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnecto
 	named := logger.Named(lggr, HandlerName)
 
 	h := &Handler{
-		capRegistry:       capRegistry,
-		gatewayConnector:  conn,
-		responseSigner:    responseSigner,
-		lggr:              named,
-		metrics:           m,
-		validator:         validator,
-		quorumFMultiplier: quorumFMultiplier,
-		limitsFactory:     lf,
+		capRegistry:      capRegistry,
+		gatewayConnector: conn,
+		responseSigner:   responseSigner,
+		lggr:             named,
+		metrics:          m,
+		validator:        validator,
+		requireBFTQuorum: requireBFTQuorum,
+		limitsFactory:    lf,
 	}
 	h.Service, h.eng = services.Config{
 		Name:  HandlerName,
@@ -681,10 +682,11 @@ func (h *Handler) verifyWorkflowAuthorization(don capabilities.DON, params confi
 		return errors.New("missing signed compute requests")
 	}
 
-	// Match the enclave's own quorum: server.go requires config.F+1 unique signers where the
-	// config-tracker sets config.F = quorumFMultiplier*don.F, i.e. quorumFMultiplier*F+1
-	// (the default multiplier of 2 gives the standard 2*F+1).
-	threshold := int(h.quorumFMultiplier)*int(don.F) + 1
+	// Require a quorum of signatures.
+	threshold := int(don.F) + 1
+	if h.requireBFTQuorum {
+		threshold = 2*int(don.F) + 1
+	}
 
 	// The forwarded requests differ only in their signature; they all sign one shared
 	// ComputeRequest hash. Reconstruct that hash once and verify each signature over it.

@@ -228,7 +228,7 @@ func (s *Services) newSubservices(
 				lggr,
 				opts.LimitsFactory,
 				attestationValidator,
-				cfg.CRE().ConfidentialRelay().QuorumFMultiplier(),
+				cfg.CRE().ConfidentialRelay().RequireBFTQuorum(),
 			)
 			srvs = append(srvs, relayService)
 		}

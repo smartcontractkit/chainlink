@@ -133,7 +133,7 @@ func newTestHandler(t *testing.T, registry core.CapabilitiesRegistry, gwConn cor
 	require.NoError(t, err)
 	validator, err := passthrough.New()
 	require.NoError(t, err)
-	h, err := NewHandler(registry, gwConn, newRelayResponseSigner(key), lggr, limits.Factory{Logger: lggr}, validator, 2)
+	h, err := NewHandler(registry, gwConn, newRelayResponseSigner(key), lggr, limits.Factory{Logger: lggr}, validator, true)
 	require.NoError(t, err)
 	return h
 }

@@ -105,24 +105,23 @@ func (c *creConfig) Linking() config.CRELinking {
 	return &linkingConfig{url: url, tlsEnabled: tlsEnabled}
 }
 
-// defaultQuorumFMultiplier is the multiplier applied to the Workflow DON fault
-// tolerance when no QuorumFMultiplier is configured, yielding the standard
-// 2*F+1 quorum.
-const defaultQuorumFMultiplier uint32 = 2
+// defaultRequireBFTQuorum is used when RequireBFTQuorum is not configured,
+// yielding a crash-fault quorum of F+1.
+const defaultRequireBFTQuorum = false
 
 type confidentialRelayConfig struct {
-	enabled           bool
-	trustEnclaves     bool
-	quorumFMultiplier uint32
+	enabled          bool
+	trustEnclaves    bool
+	requireBFTQuorum bool
 }
 
-func (cr *confidentialRelayConfig) Enabled() bool             { return cr.enabled }
-func (cr *confidentialRelayConfig) TrustEnclaves() bool       { return cr.trustEnclaves }
-func (cr *confidentialRelayConfig) QuorumFMultiplier() uint32 { return cr.quorumFMultiplier }
+func (cr *confidentialRelayConfig) Enabled() bool          { return cr.enabled }
+func (cr *confidentialRelayConfig) TrustEnclaves() bool    { return cr.trustEnclaves }
+func (cr *confidentialRelayConfig) RequireBFTQuorum() bool { return cr.requireBFTQuorum }
 
 func (c *creConfig) ConfidentialRelay() config.CREConfidentialRelay {
 	if c.c.ConfidentialRelay == nil {
-		return &confidentialRelayConfig{quorumFMultiplier: defaultQuorumFMultiplier}
+		return &confidentialRelayConfig{requireBFTQuorum: defaultRequireBFTQuorum}
 	}
 	enabled := false
 	if c.c.ConfidentialRelay.Enabled != nil {
@@ -132,11 +131,11 @@ func (c *creConfig) ConfidentialRelay() config.CREConfidentialRelay {
 	if c.c.ConfidentialRelay.TrustEnclaves != nil {
 		trustEnclaves = *c.c.ConfidentialRelay.TrustEnclaves
 	}
-	quorumFMultiplier := defaultQuorumFMultiplier
-	if c.c.ConfidentialRelay.QuorumFMultiplier != nil {
-		quorumFMultiplier = *c.c.ConfidentialRelay.QuorumFMultiplier
+	requireBFTQuorum := defaultRequireBFTQuorum
+	if c.c.ConfidentialRelay.RequireBFTQuorum != nil {
+		requireBFTQuorum = *c.c.ConfidentialRelay.RequireBFTQuorum
 	}
-	return &confidentialRelayConfig{enabled: enabled, trustEnclaves: trustEnclaves, quorumFMultiplier: quorumFMultiplier}
+	return &confidentialRelayConfig{enabled: enabled, trustEnclaves: trustEnclaves, requireBFTQuorum: requireBFTQuorum}
 }
 
 func (c *creConfig) LocalSecretOverrides() map[string]map[string]string {

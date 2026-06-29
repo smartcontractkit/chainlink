@@ -1961,10 +1961,10 @@ type ConfidentialRelayConfig struct {
 	// fake (non-Nitro) enclaves. INSECURE; intended only for tests/E2E that run
 	// against the fake enclave environment.
 	TrustEnclaves *bool `toml:",omitempty"`
-	// QuorumFMultiplier sets the multiplier applied to the Workflow DON fault
-	// tolerance when computing the signature quorum the relay requires:
-	// threshold = QuorumFMultiplier*F + 1. Defaults to 2 (2*F+1).
-	QuorumFMultiplier *uint32 `toml:",omitempty"`
+	// RequireBFTQuorum selects the signature quorum the relay requires from the
+	// Workflow DON: when true a Byzantine quorum of 2*F+1 unique signers, otherwise
+	// a crash-fault quorum of F+1. Defaults to false.
+	RequireBFTQuorum *bool `toml:",omitempty"`
 }
 
 // LinkingConfig holds the configuration for connecting to the CRE linking service
@@ -2031,8 +2031,8 @@ func (c *CreConfig) setFrom(f *CreConfig) {
 		if v := f.ConfidentialRelay.TrustEnclaves; v != nil {
 			c.ConfidentialRelay.TrustEnclaves = v
 		}
-		if v := f.ConfidentialRelay.QuorumFMultiplier; v != nil {
-			c.ConfidentialRelay.QuorumFMultiplier = v
+		if v := f.ConfidentialRelay.RequireBFTQuorum; v != nil {
+			c.ConfidentialRelay.RequireBFTQuorum = v
 		}
 	}
 }

@@ -971,8 +971,8 @@ DebugMode = false # Default
 Enabled = false # Default
 # TrustEnclaves relaxes TEE attestation validation so the relay trusts fake (non-Nitro) enclaves. intended only for tests.
 TrustEnclaves = false # Default
-# QuorumFMultiplier sets the multiplier applied to the Workflow DON fault tolerance when computing the relay's signature quorum: threshold = QuorumFMultiplier*F + 1.
-QuorumFMultiplier = 2 # Default
+# RequireBFTQuorum selects the relay's signature quorum: when true a Byzantine quorum of 2*F+1 unique signers, otherwise a crash-fault quorum of F+1.
+RequireBFTQuorum = false # Default
 
 # Sharding holds settings for node sharding configuration.
 [Sharding]
