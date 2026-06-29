@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	proposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
@@ -97,11 +96,11 @@ func (d deployEthBalMon) Apply(e cldf.Environment, config vaulttypes.DeployEthBa
 	contractsByChain := make(map[uint64]string)
 
 	for _, chainOut := range seqOut.Chains {
-		contractsByChain[chainOut.ChainSelector] = chainOut.EthBalMonContractAddress
+		contractsByChain[chainOut.ChainSelector] = chainOut.ContractAddress
 
 		ethBalmonAddressRef := ds.AddressRef{
 			ChainSelector: chainOut.ChainSelector,
-			Address:       chainOut.EthBalMonContractAddress,
+			Address:       chainOut.ContractAddress,
 			Type:          ds.ContractType(vaulttypes.EthBalMonContractType),
 			Version:       semver.MustParse("1.0.0"),
 			Qualifier:     "",
@@ -111,34 +110,22 @@ func (d deployEthBalMon) Apply(e cldf.Environment, config vaulttypes.DeployEthBa
 			),
 		}
 
-		automationReceiverAddressRef := ds.AddressRef{
-			ChainSelector: chainOut.ChainSelector,
-			Address:       chainOut.AutomationReceiverAddress,
-			Type:          ds.ContractType(vaulttypes.AutomationReceiverContractType),
-			Version:       semver.MustParse("1.0.0"),
-			Qualifier:     "",
-			Labels:        ds.NewLabelSet(),
-		}
-
 		contractMetadata := ds.ContractMetadata{
 			ChainSelector: chainOut.ChainSelector,
-			Address:       chainOut.EthBalMonContractAddress,
+			Address:       chainOut.ContractAddress,
 			Metadata: map[string]any{
-				"deployEthBalMonTxHash":     chainOut.DeployEthBalMonTxHash,
-				"deployBlockNumber":         chainOut.DeployBlockNumber,
-				"automationReceiverAddress": chainOut.AutomationReceiverAddress,
-				"minWaitPeriodSeconds":      chainOut.MinWaitPeriodSeconds,
-				"timelockAddress":           chainOut.TimelockAddress,
-				"mcmsAddress":               chainOut.MCMSAddress,
-				"transferOwnershipTxHash":   chainOut.TransferOwnershipTxHash,
+				"deployTxHash":            chainOut.DeployTxHash,
+				"deployBlockNumber":       chainOut.DeployBlockNumber,
+				"keeperRegistryAddress":   chainOut.KeeperRegistryAddress,
+				"minWaitPeriodSeconds":    chainOut.MinWaitPeriodSeconds,
+				"timelockAddress":         chainOut.TimelockAddress,
+				"mcmsAddress":             chainOut.MCMSAddress,
+				"transferOwnershipTxHash": chainOut.TransferOwnershipTxHash,
 			},
 		}
 
 		if err := memoryDataStore.Addresses().Add(ethBalmonAddressRef); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add EthBalanceMonitor address ref for chain %d: %w", chainOut.ChainSelector, err)
-		}
-		if err := memoryDataStore.Addresses().Add(automationReceiverAddressRef); err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add AutomationReceiver address ref for chain %d: %w", chainOut.ChainSelector, err)
 		}
 		if err := memoryDataStore.ContractMetadata().Add(contractMetadata); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add contract metadata for chain %d: %w", chainOut.ChainSelector, err)
@@ -177,16 +164,15 @@ type DeployEthBalMonSequenceInput struct {
 	MCMSConfig *proposalutils.TimelockConfig                    `json:"mcms_config,omitempty"`
 }
 type DeployEthBalMonPerChainOutput struct {
-	ChainSelector             uint64
-	EthBalMonContractAddress  string
-	DeployEthBalMonTxHash     string
-	DeployBlockNumber         uint64
-	KeeperRegistryAddress     string
-	MinWaitPeriodSeconds      uint64
-	TimelockAddress           string
-	MCMSAddress               string
-	TransferOwnershipTxHash   string
-	AutomationReceiverAddress string
+	ChainSelector           uint64
+	ContractAddress         string
+	DeployTxHash            string
+	DeployBlockNumber       uint64
+	KeeperRegistryAddress   string
+	MinWaitPeriodSeconds    uint64
+	TimelockAddress         string
+	MCMSAddress             string
+	TransferOwnershipTxHash string
 }
 
 type DeployEthBalMonSequenceOutput struct {
@@ -228,96 +214,46 @@ var DeployEthBalMonSequence = operations.NewSequence(
 			if err != nil {
 				return DeployEthBalMonSequenceOutput{}, fmt.Errorf("chain %d: failed to get mcms address: %w", chainSelector, err)
 			}
-			deployAutomationReceiversReport, err := operations.ExecuteOperation(
-				b,
-				DeployAutomationReceiverOperation,
-				deps,
-				DeployAutomationReceiverInput{
-					ChainSelector:    chainSelector,
-					ForwarderAddress: chainConfig.ForwarderAddress,
-				},
-			)
-			if err != nil {
-				return DeployEthBalMonSequenceOutput{}, fmt.Errorf("chain %d: deploy AutomationReceiver operation failed: %w", chainSelector, err)
-			}
-
-			deployEthBalMonContractReport, err := operations.ExecuteOperation(
+			deployReport, err := operations.ExecuteOperation(
 				b,
 				DeployEthBalMonContractOperation,
 				deps,
 				DeployEthBalMonContractInput{
 					ChainSelector:         chainSelector,
-					KeeperRegistryAddress: deployAutomationReceiversReport.Output.AutomationReceiverAddress,
+					KeeperRegistryAddress: chainConfig.KeeperRegistryAddress,
 					MinWaitPeriodSeconds:  minWait,
 				},
 			)
 			if err != nil {
 				return DeployEthBalMonSequenceOutput{}, fmt.Errorf("chain %d: deploy operation failed: %w", chainSelector, err)
 			}
-			deployEthBalMonContractOut := deployEthBalMonContractReport.Output
+			deployOut := deployReport.Output
 
-			performUpkeepSig := crypto.Keccak256([]byte("performUpkeep(bytes)"))
-			var performUpkeepSelector [4]byte
-			copy(performUpkeepSelector[:], performUpkeepSig[:4])
-
-			// Setting authorized call on AutomationReceiver (EthBalMon upkeep)
-			_, err = operations.ExecuteOperation(
-				b,
-				SetCallAllowedOperation,
-				deps,
-				SetCallAllowedOperationInput{
-					ChainSelector:             chainSelector,
-					AutomationReceiverAddress: deployAutomationReceiversReport.Output.AutomationReceiverAddress,
-					TargetAddress:             deployEthBalMonContractOut.ContractAddress,
-					Selector:                  performUpkeepSelector,
-					Allowed:                   true,
-				},
-			)
-			if err != nil {
-				return DeployEthBalMonSequenceOutput{}, fmt.Errorf("chain %d: setCallAllowed operation failed: %w", chainSelector, err)
-			}
-
-			// Transfer AutomationReceiver ownership to Timelock
-			_, err = operations.ExecuteOperation(
-				b,
-				TransferAutomationReceiverOwnershipOperation,
-				deps,
-				TransferAutomationReceiverOwnershipInput{
-					ChainSelector:             chainSelector,
-					AutomationReceiverAddress: deployAutomationReceiversReport.Output.AutomationReceiverAddress,
-					TimelockAddress:           timelockAddr,
-				},
-			)
-			if err != nil {
-				return DeployEthBalMonSequenceOutput{}, fmt.Errorf("chain %d: transfer AutomationReceiver ownership failed: %w", chainSelector, err)
-			}
-
-			transferEthBalMonOwnershipReport, err := operations.ExecuteOperation(
+			transferReport, err := operations.ExecuteOperation(
 				b,
 				TransferOwnershipOperation,
 				deps,
 				TransferEthBalMonOwnershipInput{
 					ChainSelector:   chainSelector,
-					ContractAddress: deployEthBalMonContractOut.ContractAddress,
+					ContractAddress: deployOut.ContractAddress,
 					TimelockAddress: timelockAddr,
 				},
 			)
 			if err != nil {
 				return DeployEthBalMonSequenceOutput{}, fmt.Errorf("chain %d: transfer ownership operation failed: %w", chainSelector, err)
 			}
-			transferEthBalMonOwnershipOut := transferEthBalMonOwnershipReport.Output
+			transferOut := transferReport.Output
 
 			out.Chains = append(out.Chains, DeployEthBalMonPerChainOutput{
-				ChainSelector:             chainSelector,
-				EthBalMonContractAddress:  deployEthBalMonContractOut.ContractAddress,
-				DeployEthBalMonTxHash:     deployEthBalMonContractOut.TxHash,
-				DeployBlockNumber:         deployEthBalMonContractOut.BlockNumber,
-				KeeperRegistryAddress:     deployEthBalMonContractOut.KeeperRegistryAddress,
-				MinWaitPeriodSeconds:      deployEthBalMonContractOut.MinWaitPeriodSeconds,
-				TimelockAddress:           timelockAddr,
-				MCMSAddress:               mcmsAddr,
-				TransferOwnershipTxHash:   transferEthBalMonOwnershipOut.TxHash,
-				AutomationReceiverAddress: deployAutomationReceiversReport.Output.AutomationReceiverAddress,
+				ChainSelector:           chainSelector,
+				ContractAddress:         deployOut.ContractAddress,
+				DeployTxHash:            deployOut.TxHash,
+				DeployBlockNumber:       deployOut.BlockNumber,
+				KeeperRegistryAddress:   deployOut.KeeperRegistryAddress,
+				MinWaitPeriodSeconds:    deployOut.MinWaitPeriodSeconds,
+				TimelockAddress:         timelockAddr,
+				MCMSAddress:             mcmsAddr,
+				TransferOwnershipTxHash: transferOut.TxHash,
 			})
 		}
 		return out, nil

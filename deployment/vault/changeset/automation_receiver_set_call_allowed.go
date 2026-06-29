@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Masterminds/semver/v3"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	vaulttypes "github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
@@ -53,31 +55,59 @@ func (s setCallAllowed) Apply(e cldf.Environment, config vaulttypes.SetCallAllow
 		DataStore:   e.DataStore,
 	}
 
-	for chainSelector, chainCfg := range config.Chains {
-		selector, err := parseSelectorHex(chainCfg.Selector)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("chain %d: invalid selector: %w", chainSelector, err)
-		}
+	_, err := operations.ExecuteSequence(
+		e.OperationsBundle,
+		SetCallAllowedSequence,
+		deps,
+		SetCallAllowedSequenceInput{
+			Chains: config.Chains,
+		},
+	)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("setCallAllowed sequence failed: %w", err)
+	}
 
-		_, err = operations.ExecuteOperation(
-			e.OperationsBundle,
-			SetCallAllowedOperation,
-			deps,
-			SetCallAllowedOperationInput{
+	return cldf.ChangesetOutput{}, nil
+}
+
+// ================================================
+// ================================================
+// SetCallAllowed SEQUENCE
+// ================================================
+// ================================================
+
+type SetCallAllowedSequenceInput struct {
+	Chains map[uint64]vaulttypes.SetCallAllowedChainConfig
+}
+
+type SetCallAllowedSequenceOutput struct{}
+
+var SetCallAllowedSequence = operations.NewSequence(
+	"set-call-allowed-sequence",
+	semver.MustParse("1.0.0"),
+	"Call setCallAllowed on AutomationReceiver for each chain",
+	func(b operations.Bundle, deps VaultDeps, input SetCallAllowedSequenceInput) (SetCallAllowedSequenceOutput, error) {
+		for chainSelector, chainCfg := range input.Chains {
+			selector, err := parseSelectorHex(chainCfg.Selector)
+			if err != nil {
+				return SetCallAllowedSequenceOutput{}, fmt.Errorf("chain %d: invalid selector: %w", chainSelector, err)
+			}
+
+			_, err = operations.ExecuteOperation(b, SetCallAllowedOperation, deps, SetCallAllowedOperationInput{
 				ChainSelector:             chainSelector,
 				AutomationReceiverAddress: chainCfg.AutomationReceiverAddress,
 				TargetAddress:             chainCfg.TargetAddress,
 				Selector:                  selector,
 				Allowed:                   chainCfg.Allowed,
-			},
-		)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("chain %d: setCallAllowed failed: %w", chainSelector, err)
+			})
+			if err != nil {
+				return SetCallAllowedSequenceOutput{}, fmt.Errorf("chain %d: setCallAllowed failed: %w", chainSelector, err)
+			}
 		}
-	}
 
-	return cldf.ChangesetOutput{}, nil
-}
+		return SetCallAllowedSequenceOutput{}, nil
+	},
+)
 
 // parseSelectorHex parses a hex string like "0x4b9f5c20" into a [4]byte selector.
 func parseSelectorHex(s string) ([4]byte, error) {

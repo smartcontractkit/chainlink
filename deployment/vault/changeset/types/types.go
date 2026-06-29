@@ -95,9 +95,9 @@ type TransferERC20Config struct {
 
 // DeployEthBalMonChainConfig is deployment-time configuration for EthBalMon on one chain.
 type DeployEthBalMonChainConfig struct {
-	// ForwarderAddress is the CRE forwarder address passed to the AutomationReceiver constructor.
-	// AutomationReceiver is deployed first and its address is then set as the keeper registry on EthBalMon.
-	ForwarderAddress string `json:"forwarderAddress"`
+	// KeeperRegistryAddress is the address authorized to call performUpkeep on EthBalMon.
+	// In the CRE flow this is the address of a deployed AutomationReceiver.
+	KeeperRegistryAddress string `json:"keeperRegistryAddress"`
 	// SetMinWaitPeriodSeconds is the minimum seconds between balance checks for this deployment.
 	// Optional: nil or 0 means the deploy changeset uses a default (currently 60 seconds).
 	SetMinWaitPeriodSeconds *uint64 `json:"setMinWaitPeriodSeconds,omitempty"`
@@ -183,11 +183,31 @@ type EthBalMonTransferOwnershipInput struct {
 type AutomationReceiverChainConfig struct {
 	// ForwarderAddress is the CRE forwarder address passed to the AutomationReceiver constructor.
 	ForwarderAddress string `json:"forwarderAddress"`
+	// TargetAddress is the contract AR is allowed to call via setCallAllowed (e.g. an EthBalMon address).
+	TargetAddress string `json:"targetAddress"`
+	// Selector is the 4-byte function selector as a hex string (e.g. "0x4b9f5c20").
+	// Defaults to performUpkeep(bytes) if empty.
+	Selector string `json:"selector,omitempty"`
 }
 
 // DeployAutomationReceiverInput is the input to the standalone AutomationReceiver deploy changeset.
 type DeployAutomationReceiverInput struct {
 	Chains map[uint64]AutomationReceiverChainConfig `json:"chains"`
+}
+
+// DeployEthBalMonWithReceiverChainConfig configures the combined EthBalMon + AutomationReceiver deploy on one chain.
+type DeployEthBalMonWithReceiverChainConfig struct {
+	// ForwarderAddress is passed to the AutomationReceiver constructor.
+	ForwarderAddress string `json:"forwarderAddress"`
+	// SetMinWaitPeriodSeconds configures the EthBalMon min wait period.
+	// Optional: nil or 0 defaults to 60 seconds.
+	SetMinWaitPeriodSeconds *uint64 `json:"setMinWaitPeriodSeconds,omitempty"`
+}
+
+// DeployEthBalMonWithReceiverInput is the input to the combined EthBalMon + AutomationReceiver deploy changeset.
+type DeployEthBalMonWithReceiverInput struct {
+	Chains     map[uint64]DeployEthBalMonWithReceiverChainConfig `json:"chains"`
+	MCMSConfig *cldfproposalutils.TimelockConfig                 `json:"mcms_config,omitempty"`
 }
 
 // SetCallAllowedChainConfig configures a single setCallAllowed call on one chain.
