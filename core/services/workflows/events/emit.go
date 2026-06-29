@@ -106,7 +106,7 @@ func EmitWorkflowActivationAbandonedV2(
 	labels map[string]string,
 	binaryURL string,
 	configURL string,
-	reason string,
+	reason eventsv2.ActivationAbandonReason,
 	activationErr error,
 	retryCount int32,
 ) error {
@@ -118,7 +118,7 @@ func EmitWorkflowActivationAbandonedV2(
 	event := &eventsv2.WorkflowActivationAbandoned{
 		CreInfo:      buildCREMetadataV2(labels),
 		Workflow:     buildWorkflowV2(labels, binaryURL, configURL),
-		Timestamp:    time.Now().Format(time.RFC3339),
+		Timestamp:    uint64(time.Now().Unix()),
 		ErrorMessage: errorMessage,
 		Reason:       reason,
 		RetryCount:   retryCount,

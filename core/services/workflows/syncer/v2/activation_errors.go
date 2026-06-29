@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strings"
 
+	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
@@ -19,10 +21,16 @@ const (
 	ActivationNonRetryable
 )
 
-const (
-	activationAbandonReasonNonRetryable       = "non_retryable"
-	activationAbandonReasonRetryLimitExceeded = "retry_limit_exceeded"
-)
+func activationAbandonReasonMetricLabel(reason eventsv2.ActivationAbandonReason) string {
+	switch reason {
+	case eventsv2.ActivationAbandonReason_ACTIVATION_ABANDON_REASON_NON_RETRYABLE:
+		return "non_retryable"
+	case eventsv2.ActivationAbandonReason_ACTIVATION_ABANDON_REASON_RETRY_LIMIT_EXCEEDED:
+		return "retry_limit_exceeded"
+	default:
+		return "unknown"
+	}
+}
 
 type activationPolicyError struct {
 	err    error

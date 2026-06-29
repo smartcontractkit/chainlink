@@ -28,6 +28,7 @@ import (
 	generichost "github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
+	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
@@ -1117,7 +1118,7 @@ func logCustMsg(ctx context.Context, cma custmsg.MessageEmitter, msg string, log
 func (h *eventHandler) EmitActivationAbandoned(
 	ctx context.Context,
 	event Event,
-	reason string,
+	reason eventsv2.ActivationAbandonReason,
 	activationErr error,
 	retryCount int,
 ) error {

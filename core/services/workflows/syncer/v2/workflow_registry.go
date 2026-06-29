@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
@@ -135,7 +136,7 @@ type evtHandler interface {
 	Start(context.Context) error
 
 	Handle(ctx context.Context, event Event) error
-	EmitActivationAbandoned(ctx context.Context, event Event, reason string, activationErr error, retryCount int) error
+	EmitActivationAbandoned(ctx context.Context, event Event, reason eventsv2.ActivationAbandonReason, activationErr error, retryCount int) error
 }
 
 type donNotifier interface {
@@ -463,14 +464,15 @@ func (w *workflowRegistry) abandonActivation(
 	ctx context.Context,
 	sourceIdentifier, sourceName string,
 	evt *reconciliationEvent,
-	reason string,
+	reason eventsv2.ActivationAbandonReason,
 	activationErr error,
 ) {
 	w.droppedActivations.drop(sourceIdentifier, evt.id, evt.signature)
-	w.metrics.incrementActivationDropped(ctx, sourceName, reason)
-	w.metrics.incrementActivationAbandoned(ctx, sourceName, reason)
+	reasonLabel := activationAbandonReasonMetricLabel(reason)
+	w.metrics.incrementActivationDropped(ctx, sourceName, reasonLabel)
+	w.metrics.incrementActivationAbandoned(ctx, sourceName, reasonLabel)
 	w.lggr.Errorw("abandoning workflow activation",
-		"reason", reason,
+		"reason", reasonLabel,
 		"retryCount", evt.retryCount,
 		"maxActivationRetries", w.maxActivationRetries,
 		"type", evt.Name,
@@ -886,7 +888,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 					mu.Unlock()
 
 					if event.Name == WorkflowActivated && activationRetriesExhausted(event.retryCount, w.maxActivationRetries) {
-						w.abandonActivation(ctx, sourceIdentifier, sourceName, event, activationAbandonReasonRetryLimitExceeded, nil)
+						w.abandonActivation(ctx, sourceIdentifier, sourceName, event, eventsv2.ActivationAbandonReason_ACTIVATION_ABANDON_REASON_RETRY_LIMIT_EXCEEDED, nil)
 						continue
 					}
 
@@ -918,12 +920,12 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 						if handleErr != nil {
 							policy := activationRetryPolicyForEvent(evt.Name, handleErr)
 							if policy == ActivationNonRetryable && evt.Name == WorkflowActivated {
-								w.abandonActivation(ctx, sourceIdentifier, sourceName, evt, activationAbandonReasonNonRetryable, handleErr)
+								w.abandonActivation(ctx, sourceIdentifier, sourceName, evt, eventsv2.ActivationAbandonReason_ACTIVATION_ABANDON_REASON_NON_RETRYABLE, handleErr)
 								return
 							}
 							evt.scheduleRetry(w.clock, w.retryInterval, w.maxRetryInterval, true)
 							if evt.Name == WorkflowActivated && activationRetriesExhausted(evt.retryCount, w.maxActivationRetries) {
-								w.abandonActivation(ctx, sourceIdentifier, sourceName, evt, activationAbandonReasonRetryLimitExceeded, handleErr)
+								w.abandonActivation(ctx, sourceIdentifier, sourceName, evt, eventsv2.ActivationAbandonReason_ACTIVATION_ABANDON_REASON_RETRY_LIMIT_EXCEEDED, handleErr)
 								return
 							}
 							mu.Lock()
