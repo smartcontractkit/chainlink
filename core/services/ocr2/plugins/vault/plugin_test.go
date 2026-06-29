@@ -1663,6 +1663,7 @@ func TestPlugin_Observation_GetSecretsRequest_BinarySharesWhenOptimizationsEnabl
 }
 
 func TestPlugin_Observation_GetSecrets_OmitsCiphertextWhenCiphertextlessObservationsEnabled(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withVaultCiphertextlessObservationsEnabled())
@@ -1724,6 +1725,7 @@ func TestPlugin_Observation_GetSecrets_OmitsCiphertextWhenCiphertextlessObservat
 }
 
 func TestPlugin_ValidateObservation_GetSecrets_RejectsCiphertextWhenCiphertextlessObservationsEnabled(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withVaultCiphertextlessObservationsEnabled())
@@ -1822,6 +1824,7 @@ func TestPlugin_ValidateObservation_GetSecrets_RejectsCiphertextWhenCiphertextle
 }
 
 func TestPlugin_StateTransition_GetSecrets_ReadsCiphertextFromKV(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultCiphertextlessObservationsEnabled())
@@ -1897,6 +1900,7 @@ func TestPlugin_StateTransition_GetSecrets_ReadsCiphertextFromKV(t *testing.T) {
 }
 
 func TestPlugin_StateTransition_GetSecrets_Ciphertextless_UsesPreRoundCiphertextAfterUpdateInSameRound(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultCiphertextlessObservationsEnabled())
@@ -1983,6 +1987,7 @@ func TestPlugin_StateTransition_GetSecrets_Ciphertextless_UsesPreRoundCiphertext
 }
 
 func TestPlugin_StateTransition_GetSecrets_Ciphertextless_UsesPreRoundCiphertextAfterDeleteInSameRound(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultCiphertextlessObservationsEnabled())
@@ -2061,6 +2066,7 @@ func TestPlugin_StateTransition_GetSecrets_Ciphertextless_UsesPreRoundCiphertext
 }
 
 func TestPlugin_StateTransition_GetSecrets_Ciphertextless_MultipleUpdatesPreserveOriginalCiphertext(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultCiphertextlessObservationsEnabled())
@@ -2201,6 +2207,7 @@ func marshalObservationsWithRequestIDs(t *testing.T, observations ...observation
 }
 
 func TestPlugin_shaForObservation_OmitsCiphertextWhenCiphertextlessObservationsEnabled(t *testing.T) {
+	t.Parallel()
 	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
 	obs := &vaultcommon.Observation{
 		Id:          vaulttypes.KeyFor(id),
@@ -3694,6 +3701,7 @@ func TestPlugin_ValidateObservations_RequiresObservedIDsInPendingQueue(t *testin
 }
 
 func TestPlugin_ValidateObservation_RejectsTruncatedObservations(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
@@ -3731,6 +3739,7 @@ func TestPlugin_ValidateObservation_RejectsTruncatedObservations(t *testing.T) {
 }
 
 func TestPlugin_ValidateObservation_RejectsOutOfOrderObservations(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
@@ -3769,6 +3778,7 @@ func TestPlugin_ValidateObservation_RejectsOutOfOrderObservations(t *testing.T) 
 }
 
 func TestPlugin_ValidateObservation_RejectsExcessObservations(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
@@ -6607,6 +6617,7 @@ func TestPlugin_StateTransition_OutcomesNotStoppedByPrecursorWireSizeWhenOptimiz
 }
 
 func TestPlugin_ValidateObservation_WireSizeExceedsMax(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withMaxObservationBytes(20))
@@ -6631,6 +6642,7 @@ func TestPlugin_ValidateObservation_WireSizeExceedsMax(t *testing.T) {
 }
 
 func TestPlugin_ValidateObservation_RejectsInvalidSortNonceLength(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
@@ -6739,10 +6751,12 @@ func validatePendingQueueObservation(t *testing.T, r *ReportingPlugin, rdr *kv, 
 }
 
 func TestPlugin_ValidateObservation_PendingQueueObservations(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 
 	t.Run("accepts full observation when all pending items fit", func(t *testing.T) {
+		t.Parallel()
 		rdr := &kv{m: make(map[string]response)}
 		writeDeleteSecretsPendingQueueItems(t, rdr, "request-1", "request-2")
 
@@ -6754,6 +6768,7 @@ func TestPlugin_ValidateObservation_PendingQueueObservations(t *testing.T) {
 	})
 
 	t.Run("accepts wire capped truncation", func(t *testing.T) {
+		t.Parallel()
 		rdr := &kv{m: make(map[string]response)}
 		writeGetSecretsPendingQueueItems(t, rdr, pk, "request-1", "request-2")
 
@@ -6778,6 +6793,7 @@ func TestPlugin_ValidateObservation_PendingQueueObservations(t *testing.T) {
 	})
 
 	t.Run("rejects under stuffed observation", func(t *testing.T) {
+		t.Parallel()
 		rdr := &kv{m: make(map[string]response)}
 		writeGetSecretsPendingQueueItems(t, rdr, pk, "request-1", "request-2")
 
@@ -6796,6 +6812,7 @@ func TestPlugin_ValidateObservation_PendingQueueObservations(t *testing.T) {
 	})
 
 	t.Run("rejects wrong observation order", func(t *testing.T) {
+		t.Parallel()
 		rdr := &kv{m: make(map[string]response)}
 		writeDeleteSecretsPendingQueueItems(t, rdr, "request-1", "request-2")
 
@@ -6809,6 +6826,7 @@ func TestPlugin_ValidateObservation_PendingQueueObservations(t *testing.T) {
 	})
 
 	t.Run("rejects observation id not from pending queue", func(t *testing.T) {
+		t.Parallel()
 		rdr := &kv{m: make(map[string]response)}
 		writeDeleteSecretsPendingQueueItems(t, rdr, "request-1")
 

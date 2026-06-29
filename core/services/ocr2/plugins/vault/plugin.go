@@ -1495,7 +1495,7 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 	//   max observation byte limit.
 	// - that all pending queue items can be fetched as blobs.
 	if !gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
-		if err := r.validatePendingQueueObservations(ctx, readKV, pendingQueueItems, obs); err != nil {
+		if err = r.validatePendingQueueObservations(ctx, readKV, pendingQueueItems, obs); err != nil {
 			return err
 		}
 	}
