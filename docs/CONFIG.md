@@ -2725,6 +2725,7 @@ DebugMode enables additional tracing and logging for workflow engines.
 [CRE.ConfidentialRelay]
 Enabled = false # Default
 TrustEnclaves = false # Default
+QuorumFMultiplier = 2 # Default
 ```
 
 
@@ -2739,6 +2740,12 @@ Enabled controls whether the confidential relay gateway handler should be config
 TrustEnclaves = false # Default
 ```
 TrustEnclaves relaxes TEE attestation validation so the relay trusts fake (non-Nitro) enclaves. intended only for tests.
+
+### QuorumFMultiplier
+```toml
+QuorumFMultiplier = 2 # Default
+```
+QuorumFMultiplier sets the multiplier applied to the Workflow DON fault tolerance when computing the relay's signature quorum: threshold = QuorumFMultiplier*F + 1.
 
 ## Sharding
 ```toml

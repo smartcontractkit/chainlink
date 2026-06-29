@@ -105,17 +105,24 @@ func (c *creConfig) Linking() config.CRELinking {
 	return &linkingConfig{url: url, tlsEnabled: tlsEnabled}
 }
 
+// defaultQuorumFMultiplier is the multiplier applied to the Workflow DON fault
+// tolerance when no QuorumFMultiplier is configured, yielding the standard
+// 2*F+1 quorum.
+const defaultQuorumFMultiplier uint32 = 2
+
 type confidentialRelayConfig struct {
-	enabled       bool
-	trustEnclaves bool
+	enabled           bool
+	trustEnclaves     bool
+	quorumFMultiplier uint32
 }
 
-func (cr *confidentialRelayConfig) Enabled() bool       { return cr.enabled }
-func (cr *confidentialRelayConfig) TrustEnclaves() bool { return cr.trustEnclaves }
+func (cr *confidentialRelayConfig) Enabled() bool             { return cr.enabled }
+func (cr *confidentialRelayConfig) TrustEnclaves() bool       { return cr.trustEnclaves }
+func (cr *confidentialRelayConfig) QuorumFMultiplier() uint32 { return cr.quorumFMultiplier }
 
 func (c *creConfig) ConfidentialRelay() config.CREConfidentialRelay {
 	if c.c.ConfidentialRelay == nil {
-		return &confidentialRelayConfig{}
+		return &confidentialRelayConfig{quorumFMultiplier: defaultQuorumFMultiplier}
 	}
 	enabled := false
 	if c.c.ConfidentialRelay.Enabled != nil {
@@ -125,7 +132,11 @@ func (c *creConfig) ConfidentialRelay() config.CREConfidentialRelay {
 	if c.c.ConfidentialRelay.TrustEnclaves != nil {
 		trustEnclaves = *c.c.ConfidentialRelay.TrustEnclaves
 	}
-	return &confidentialRelayConfig{enabled: enabled, trustEnclaves: trustEnclaves}
+	quorumFMultiplier := defaultQuorumFMultiplier
+	if c.c.ConfidentialRelay.QuorumFMultiplier != nil {
+		quorumFMultiplier = *c.c.ConfidentialRelay.QuorumFMultiplier
+	}
+	return &confidentialRelayConfig{enabled: enabled, trustEnclaves: trustEnclaves, quorumFMultiplier: quorumFMultiplier}
 }
 
 func (c *creConfig) LocalSecretOverrides() map[string]map[string]string {

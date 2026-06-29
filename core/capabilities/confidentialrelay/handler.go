@@ -94,8 +94,30 @@ func newMetrics() (*handlerMetrics, error) {
 	}, nil
 }
 
-// attestationValidatorFunc validates a TEE attestation document.
-type attestationValidatorFunc func(attestation []byte, expectedUserData []byte, trustedMeasurements []byte) error
+// AttestationValidator validates TEE attestation documents, with or without a
+// custom CA root. Both the production Nitro validator and the insecure
+// passthrough validator implement it, so the handler validates the same way
+// regardless of which is configured.
+type AttestationValidator interface {
+	ValidateAttestation(attestation, expectedUserData, trustedMeasurements []byte) error
+	ValidateAttestationWithRoots(attestation, expectedUserData, trustedMeasurements []byte, caRootsPEM string) error
+}
+
+// nitroValidator is the production validator backed by AWS Nitro.
+type nitroValidator struct{}
+
+func (nitroValidator) ValidateAttestation(attestation, expectedUserData, trustedMeasurements []byte) error {
+	return nitro.ValidateAttestation(attestation, expectedUserData, trustedMeasurements)
+}
+
+func (nitroValidator) ValidateAttestationWithRoots(attestation, expectedUserData, trustedMeasurements []byte, caRootsPEM string) error {
+	return nitro.ValidateAttestationWithRoots(attestation, expectedUserData, trustedMeasurements, caRootsPEM)
+}
+
+// NewAttestationValidator returns the production validator backed by AWS Nitro.
+func NewAttestationValidator() AttestationValidator {
+	return nitroValidator{}
+}
 
 // Handler processes enclave relay requests from the gateway.
 // It validates attestations and proxies requests to VaultDON or capability DONs.
@@ -109,17 +131,15 @@ type Handler struct {
 	lggr             logger.Logger
 	metrics          *handlerMetrics
 
-	// validateAttestation validates TEE attestation documents.
-	// Defaults to the Nitro validator; overridden in tests.
-	validateAttestation attestationValidatorFunc
-	// trustEnclaves relaxes attestation validation for fake (non-Nitro)
-	// enclaves. INSECURE; test-only. When set, the custom-CA-roots validation
-	// path is skipped in favour of validateAttestation (the accept-all func).
-	trustEnclaves bool
-	limitsFactory limits.Factory
+	// validator validates TEE attestation documents.
+	validator AttestationValidator
+	// quorumFMultiplier multiplies the Workflow DON fault tolerance when
+	// computing the required signature quorum: threshold = quorumFMultiplier*F + 1.
+	quorumFMultiplier uint32
+	limitsFactory     limits.Factory
 }
 
-func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, lf limits.Factory, trustEnclaves bool) (*Handler, error) {
+func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, lf limits.Factory, validator AttestationValidator, quorumFMultiplier uint32) (*Handler, error) {
 	if responseSigner == nil {
 		return nil, errors.New("response signer is required")
 	}
@@ -129,20 +149,16 @@ func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnecto
 	}
 
 	named := logger.Named(lggr, HandlerName)
-	validate := nitro.ValidateAttestation
-	if trustEnclaves {
-		validate = func(_, _, _ []byte) error { return nil }
-	}
 
 	h := &Handler{
-		capRegistry:         capRegistry,
-		gatewayConnector:    conn,
-		responseSigner:      responseSigner,
-		lggr:                named,
-		metrics:             m,
-		validateAttestation: validate,
-		trustEnclaves:       trustEnclaves,
-		limitsFactory:       lf,
+		capRegistry:       capRegistry,
+		gatewayConnector:  conn,
+		responseSigner:    responseSigner,
+		lggr:              named,
+		metrics:           m,
+		validator:         validator,
+		quorumFMultiplier: quorumFMultiplier,
+		limitsFactory:     lf,
 	}
 	h.Service, h.eng = services.Config{
 		Name:  HandlerName,
@@ -633,10 +649,10 @@ func (h *Handler) verifyAttestationHash(ctx context.Context, attestationB64 stri
 	var validationErr error
 	for _, m := range measurements {
 		var err error
-		if caRootsPEM != "" && !h.trustEnclaves {
-			err = nitro.ValidateAttestationWithRoots(attestationBytes, hash, m, caRootsPEM)
+		if caRootsPEM != "" {
+			err = h.validator.ValidateAttestationWithRoots(attestationBytes, hash, m, caRootsPEM)
 		} else {
-			err = h.validateAttestation(attestationBytes, hash, m)
+			err = h.validator.ValidateAttestation(attestationBytes, hash, m)
 		}
 		if err == nil {
 			return nil
@@ -666,8 +682,9 @@ func (h *Handler) verifyWorkflowAuthorization(don capabilities.DON, params confi
 	}
 
 	// Match the enclave's own quorum: server.go requires config.F+1 unique signers where the
-	// config-tracker sets config.F = 2*don.F, i.e. 2*F+1.
-	threshold := 2*int(don.F) + 1
+	// config-tracker sets config.F = quorumFMultiplier*don.F, i.e. quorumFMultiplier*F+1
+	// (the default multiplier of 2 gives the standard 2*F+1).
+	threshold := int(h.quorumFMultiplier)*int(don.F) + 1
 
 	// The forwarded requests differ only in their signature; they all sign one shared
 	// ComputeRequest hash. Reconstruct that hash once and verify each signature over it.

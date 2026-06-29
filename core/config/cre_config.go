@@ -28,6 +28,10 @@ type CREConfidentialRelay interface {
 	// TrustEnclaves reports whether the relay should trust fake (non-Nitro)
 	// enclaves by relaxing TEE attestation validation. INSECURE; test-only.
 	TrustEnclaves() bool
+	// QuorumFMultiplier is the multiplier applied to the Workflow DON fault
+	// tolerance when computing the relay's signature quorum:
+	// threshold = QuorumFMultiplier*F + 1. Defaults to 2.
+	QuorumFMultiplier() uint32
 }
 
 // CRELinking defines configuration for connecting to the CRE linking service

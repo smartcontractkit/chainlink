@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink-common/pkg/teeattestation/passthrough"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
@@ -51,8 +52,6 @@ func makeCapabilityPayload(t *testing.T, inputs map[string]any) string {
 }
 
 const testAttestationB64 = "ZHVtbXktYXR0ZXN0YXRpb24=" // base64("dummy-attestation")
-
-func noopValidator(_ []byte, _, _ []byte) error { return nil }
 
 type mockGatewayConnector struct {
 	core.UnimplementedGatewayConnector
@@ -132,9 +131,10 @@ func newTestHandler(t *testing.T, registry core.CapabilitiesRegistry, gwConn cor
 	require.NoError(t, err)
 	key, err := p2pkey.NewV2()
 	require.NoError(t, err)
-	h, err := NewHandler(registry, gwConn, newRelayResponseSigner(key), lggr, limits.Factory{Logger: lggr}, false)
+	validator, err := passthrough.New()
 	require.NoError(t, err)
-	h.validateAttestation = noopValidator
+	h, err := NewHandler(registry, gwConn, newRelayResponseSigner(key), lggr, limits.Factory{Logger: lggr}, validator, 2)
+	require.NoError(t, err)
 	return h
 }
 

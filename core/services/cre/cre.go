@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/storage"
+	"github.com/smartcontractkit/chainlink-common/pkg/teeattestation/passthrough"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
@@ -210,6 +211,15 @@ func (s *Services) newSubservices(
 		srvs = append(srvs, gatewayConnectorWrapper)
 
 		if cfg.CRE().ConfidentialRelay().Enabled() {
+			var attestationValidator confidentialrelay.AttestationValidator
+			if cfg.CRE().ConfidentialRelay().TrustEnclaves() {
+				attestationValidator, ierr = passthrough.New()
+				if ierr != nil {
+					return nil, fmt.Errorf("could not create passthrough attestation validator: %w", ierr)
+				}
+			} else {
+				attestationValidator = confidentialrelay.NewAttestationValidator()
+			}
 			relayService := confidentialrelay.NewService(
 				gatewayConnectorWrapper,
 				opts.CapabilitiesRegistry,
@@ -217,7 +227,8 @@ func (s *Services) newSubservices(
 				confidentialRelayPeerID(cfg, capCfg),
 				lggr,
 				opts.LimitsFactory,
-				cfg.CRE().ConfidentialRelay().TrustEnclaves(),
+				attestationValidator,
+				cfg.CRE().ConfidentialRelay().QuorumFMultiplier(),
 			)
 			srvs = append(srvs, relayService)
 		}
