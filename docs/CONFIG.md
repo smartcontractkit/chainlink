@@ -2753,7 +2753,7 @@ TrustEnclaves relaxes TEE attestation validation so the relay trusts fake (non-N
 ```toml
 RequireBFTQuorum = false # Default
 ```
-RequireBFTQuorum selects the relay's kind of signature quorum.
+RequireBFTQuorum selects the relay's signature quorum.
 
 ## Sharding
 ```toml
