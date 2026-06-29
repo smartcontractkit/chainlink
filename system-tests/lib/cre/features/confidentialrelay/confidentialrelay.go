@@ -21,6 +21,9 @@ type ConfidentialRelay struct {
 	// TrustEnclaves makes the relay trust fake (non-Nitro) enclaves by
 	// relaxing TEE attestation validation. INSECURE; test/E2E use only.
 	TrustEnclaves bool
+	// RequireBFTQuorum requires a Byzantine quorum of 2*F+1 Workflow DON
+	// signatures instead of the default crash-fault quorum of F+1.
+	RequireBFTQuorum bool
 }
 
 func (o *ConfidentialRelay) Flag() cre.CapabilityFlag {
@@ -64,9 +67,11 @@ func (o *ConfidentialRelay) PreEnvStartup(
 
 			enabled := true
 			trustEnclaves := o.TrustEnclaves
+			requireBFTQuorum := o.RequireBFTQuorum
 			typedConfig.CRE.ConfidentialRelay = &coretoml.ConfidentialRelayConfig{
-				Enabled:       &enabled,
-				TrustEnclaves: &trustEnclaves,
+				Enabled:          &enabled,
+				TrustEnclaves:    &trustEnclaves,
+				RequireBFTQuorum: &requireBFTQuorum,
 			}
 
 			out, err := tomlser.Marshal(typedConfig)
