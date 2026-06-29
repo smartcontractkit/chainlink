@@ -338,7 +338,9 @@ func mustVaultGatewayURL(t *testing.T, testEnv *ttypes.TestEnvironment) *url.URL
 
 	framework.L.Info().Msg("Getting gateway configuration...")
 	require.NotEmpty(t, testEnv.Dons.GatewayConnectors.Configurations, "expected at least one gateway configuration")
-	gatewayURL, err := url.Parse(testEnv.Dons.GatewayConnectors.Configurations[0].Incoming.Protocol + "://" + testEnv.Dons.GatewayConnectors.Configurations[0].Incoming.Host + ":" + strconv.Itoa(testEnv.Dons.GatewayConnectors.Configurations[0].Incoming.ExternalPort) + testEnv.Dons.GatewayConnectors.Configurations[0].Incoming.Path)
+	connector := testEnv.Dons.GatewayConnectors.Configurations[0]
+	require.NotNil(t, connector.GatewayConfiguration, "gateway connector config is nil")
+	gatewayURL, err := url.Parse(connector.ExternalHTTPURL(testEnv.CreEnvironment.Provider))
 	require.NoError(t, err, "failed to parse gateway URL")
 	framework.L.Info().Msgf("Gateway URL: %s", gatewayURL.String())
 	return gatewayURL
