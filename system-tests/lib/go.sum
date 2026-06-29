@@ -1539,10 +1539,10 @@ github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260625091148-e5618f
 github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260625091148-e5618f5682ee/go.mod h1:2xVZJ3o9udYFeJhwyHXAMlNhptJ99uoiGjzfOicYNX8=
 github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260624154507-ea7ff77a0ddb h1:bsokSvqbT4kewt+JpIySMR3pTlzAhFBxiWcXkWpCFMY=
 github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260624154507-ea7ff77a0ddb/go.mod h1:FbFlai6KYc1SKjJxfU//6iLruq4SyHi4PYS1SRZYoM4=
-github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260624154507-ea7ff77a0ddb h1:TZUVwF0ZexyJKqBjutCGjR/kG3LOa1krTQt/EXFgMYg=
-github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260624154507-ea7ff77a0ddb/go.mod h1:xu0Jum/nGRkjBwT/Vq7WCElWOTBBkFRwG0ZIaw9tF2I=
-github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260624154507-ea7ff77a0ddb h1:2p+8KYL0bhHblGcOJKRH84i9QduKGcY72NYcLJzNdNc=
-github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260624154507-ea7ff77a0ddb/go.mod h1:67YbnoglYD61Pz/jTVCgav9wFq7S35OU8UyQSvPllRw=
+github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260415165642-49f23e4d76cc h1:mvobZx5JV5PhG/9IXPReV+8mAGnupl0HIWQZ43zxzd4=
+github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260415165642-49f23e4d76cc/go.mod h1:gzCVLUlNov/zFXSC7G6zcGkZU1IfNOHaakbAPDe5Woc=
+github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260511195239-0f6e1b177fc7 h1:H4elXlsDnREQpx8JESKxIuHzMCwGlJbL5+MpFCoLZZc=
+github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260511195239-0f6e1b177fc7/go.mod h1:67YbnoglYD61Pz/jTVCgav9wFq7S35OU8UyQSvPllRw=
 github.com/smartcontractkit/chainlink-ccv v0.0.2-0.20260622154332-695181f87033 h1:WjZwKtUA/0TPvzgCt8bcdq+BHMIL65S0oU79mxgZn/Y=
 github.com/smartcontractkit/chainlink-ccv v0.0.2-0.20260622154332-695181f87033/go.mod h1:15M0qBycFN5jkNjaYFkutYkGAmhuT401IfaJvz32lcg=
 github.com/smartcontractkit/chainlink-common v0.11.2-0.20260625162847-bdf9e82b2f75 h1:+wn8Kfs9ImNEWlonkTmtjDQOdEaDzwdpedab+wAzCKI=
