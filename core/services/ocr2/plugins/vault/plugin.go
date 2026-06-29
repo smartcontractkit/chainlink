@@ -55,19 +55,28 @@ type ReportingPluginConfig struct {
 	PrivateKeyShare *tdh2easy.PrivateShare
 
 	// Sourced from the offchain config
-	MaxSecretsPerOwner                     limits.BoundLimiter[int]
-	MaxCiphertextLengthBytes               limits.BoundLimiter[pkgconfig.Size]
-	MaxIdentifierKeyLengthBytes            limits.BoundLimiter[pkgconfig.Size]
-	MaxIdentifierOwnerLengthBytes          limits.BoundLimiter[pkgconfig.Size]
-	MaxIdentifierNamespaceLengthBytes      limits.BoundLimiter[pkgconfig.Size]
-	MaxShareLengthBytes                    limits.BoundLimiter[pkgconfig.Size]
-	MaxRequestBatchSize                    limits.BoundLimiter[int]
-	MaxBatchSize                           limits.BoundLimiter[int]
-	MaxPendingQueueWriteSize               limits.BoundLimiter[int]
-	MaxBlobPayloadBytes                    limits.BoundLimiter[pkgconfig.Size]
-	VaultForceEmptyOCRRounds               limits.GateLimiter
-	VaultOptimizationsEnabled              limits.GateLimiter
-	VaultCiphertextlessObservationsEnabled limits.GateLimiter
+	MaxSecretsPerOwner                                limits.BoundLimiter[int]
+	MaxCiphertextLengthBytes                          limits.BoundLimiter[pkgconfig.Size]
+	MaxIdentifierKeyLengthBytes                       limits.BoundLimiter[pkgconfig.Size]
+	MaxIdentifierOwnerLengthBytes                     limits.BoundLimiter[pkgconfig.Size]
+	MaxIdentifierNamespaceLengthBytes                 limits.BoundLimiter[pkgconfig.Size]
+	MaxShareLengthBytes                               limits.BoundLimiter[pkgconfig.Size]
+	MaxRequestBatchSize                               limits.BoundLimiter[int]
+	MaxBatchSize                                      limits.BoundLimiter[int]
+	MaxPendingQueueWriteSize                          limits.BoundLimiter[int]
+	MaxBlobPayloadBytes                               limits.BoundLimiter[pkgconfig.Size]
+	VaultForceEmptyOCRRounds                          limits.GateLimiter
+	VaultOptimizationsEnabled                         limits.GateLimiter
+	VaultCiphertextlessObservationsEnabled            limits.GateLimiter
+	VaultSignedResponseRequestIDEnabled               limits.GateLimiter
+	VaultGetSecretsShareAggregationIncludesPublicKeys limits.GateLimiter
+	MaxSecretsPerOwner                                limits.BoundLimiter[int]
+	MaxShareLengthBytes                               limits.BoundLimiter[pkgconfig.Size]
+	MaxBatchSize                                      limits.BoundLimiter[int]
+	MaxPendingQueueWriteSize                          limits.BoundLimiter[int]
+	MaxBlobPayloadBytes                               limits.BoundLimiter[pkgconfig.Size]
+	VaultForceEmptyOCRRounds                          limits.GateLimiter
+	VaultOptimizationsEnabled                         limits.GateLimiter
 }
 
 func NewReportingPluginFactory(
@@ -177,34 +186,9 @@ func (r *ReportingPluginFactory) pollForKeyMaterial(ctx context.Context, instanc
 }
 
 func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginConfig, error) {
-	maxCiphertextLengthBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.PerOwner.VaultCiphertextSizeLimit)
-	if err != nil {
-		return nil, fmt.Errorf("VaultCiphertextSizeLimit: %w", err)
-	}
-
-	maxIdentifierKeyLengthBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultIdentifierKeySizeLimit)
-	if err != nil {
-		return nil, fmt.Errorf("VaultIdentifierKeySizeLimit: %w", err)
-	}
-
-	maxIdentifierOwnerLengthBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultIdentifierOwnerSizeLimit)
-	if err != nil {
-		return nil, fmt.Errorf("VaultIdentifierOwnerSizeLimit: %w", err)
-	}
-
-	maxIdentifierNamespaceLengthBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultIdentifierNamespaceSizeLimit)
-	if err != nil {
-		return nil, fmt.Errorf("VaultIdentifierNamespaceSizeLimit: %w", err)
-	}
-
 	maxShareLengthBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultShareSizeLimit)
 	if err != nil {
 		return nil, fmt.Errorf("VaultShareSizeLimit: %w", err)
-	}
-
-	maxRequestBatchSizeLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultRequestBatchSizeLimit)
-	if err != nil {
-		return nil, fmt.Errorf("VaultRequestBatchSizeLimit: %w", err)
 	}
 
 	vaultForceEmptyOCRRounds, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultForceEmptyOCRRounds)
@@ -222,6 +206,16 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		return nil, fmt.Errorf("VaultCiphertextlessObservationsEnabled: %w", err)
 	}
 
+	vaultGetSecretsShareAggregationIncludesPublicKeys, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultGetSecretsShareAggregationIncludesPublicKeys)
+	if err != nil {
+		return nil, fmt.Errorf("VaultGetSecretsShareAggregationIncludesPublicKeys: %w", err)
+	}
+
+	vaultSignedResponseRequestIDEnabled, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultSignedResponseRequestIDEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("VaultSignedResponseRequestIDEnabled: %w", err)
+	}
+
 	maxBlobPayloadBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultMaxBlobPayloadSizeLimit)
 	if err != nil {
 		return nil, fmt.Errorf("VaultMaxBlobPayloadSizeLimit: %w", err)
@@ -233,17 +227,19 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 	}
 
 	return &ReportingPluginConfig{
-		MaxShareLengthBytes:                    maxShareLengthBytesLimiter,
-		MaxRequestBatchSize:                    maxRequestBatchSizeLimiter,
-		MaxCiphertextLengthBytes:               maxCiphertextLengthBytesLimiter,
-		MaxIdentifierKeyLengthBytes:            maxIdentifierKeyLengthBytesLimiter,
-		MaxIdentifierOwnerLengthBytes:          maxIdentifierOwnerLengthBytesLimiter,
-		MaxIdentifierNamespaceLengthBytes:      maxIdentifierNamespaceLengthBytesLimiter,
-		MaxBlobPayloadBytes:                    maxBlobPayloadBytesLimiter,
-		MaxPendingQueueWriteSize:               maxPendingQueueWriteSizeLimiter,
-		VaultForceEmptyOCRRounds:               vaultForceEmptyOCRRounds,
-		VaultOptimizationsEnabled:              vaultOptimizationsEnabled,
-		VaultCiphertextlessObservationsEnabled: vaultCiphertextlessObservationsEnabled,
+		MaxShareLengthBytes:                               maxShareLengthBytesLimiter,
+		MaxRequestBatchSize:                               maxRequestBatchSizeLimiter,
+		MaxCiphertextLengthBytes:                          maxCiphertextLengthBytesLimiter,
+		MaxIdentifierKeyLengthBytes:                       maxIdentifierKeyLengthBytesLimiter,
+		MaxIdentifierOwnerLengthBytes:                     maxIdentifierOwnerLengthBytesLimiter,
+		MaxIdentifierNamespaceLengthBytes:                 maxIdentifierNamespaceLengthBytesLimiter,
+		MaxBlobPayloadBytes:                               maxBlobPayloadBytesLimiter,
+		MaxPendingQueueWriteSize:                          maxPendingQueueWriteSizeLimiter,
+		VaultForceEmptyOCRRounds:                          vaultForceEmptyOCRRounds,
+		VaultOptimizationsEnabled:                         vaultOptimizationsEnabled,
+		VaultCiphertextlessObservationsEnabled:            vaultCiphertextlessObservationsEnabled,
+		VaultSignedResponseRequestIDEnabled:               vaultSignedResponseRequestIDEnabled,
+		VaultGetSecretsShareAggregationIncludesPublicKeys: vaultGetSecretsShareAggregationIncludesPublicKeys,
 	}, nil
 }
 
@@ -307,13 +303,18 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not resolve plugin limits: %w", err)
 	}
 
+	validator, err := vaultcap.NewRequestValidatorFromLimitsFactory(r.limitsFactory)
+	if err != nil {
+		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create request validator: %w", err)
+	}
+
 	r.lggr.Debugw("instantiating VaultReportingPlugin with config",
 		"maxSecretsPerOwner", logLimit(ctx, r.lggr, cfg.MaxSecretsPerOwner),
-		"maxCiphertextLengthBytes", logLimit(ctx, r.lggr, cfg.MaxCiphertextLengthBytes),
-		"maxIdentifierKeyLengthBytes", logLimit(ctx, r.lggr, cfg.MaxIdentifierKeyLengthBytes),
-		"maxIdentifierOwnerLengthBytes", logLimit(ctx, r.lggr, cfg.MaxIdentifierOwnerLengthBytes),
-		"maxIdentifierNamespaceLengthBytes", logLimit(ctx, r.lggr, cfg.MaxIdentifierNamespaceLengthBytes),
-		"maxRequestBatchSize", logLimit(ctx, r.lggr, cfg.MaxRequestBatchSize),
+		"maxCiphertextLengthBytes", logLimit(ctx, r.lggr, validator.MaxCiphertextLengthLimiter),
+		"maxIdentifierKeyLengthBytes", logLimit(ctx, r.lggr, validator.MaxIdentifierKeyLengthLimiter),
+		"maxIdentifierOwnerLengthBytes", logLimit(ctx, r.lggr, validator.MaxIdentifierOwnerLengthLimiter),
+		"maxIdentifierNamespaceLengthBytes", logLimit(ctx, r.lggr, validator.MaxIdentifierNamespaceLengthLimiter),
+		"maxRequestBatchSize", logLimit(ctx, r.lggr, validator.MaxRequestBatchSizeLimiter),
 		"maxShareLengthBytes", logLimit(ctx, r.lggr, cfg.MaxShareLengthBytes),
 		"batchSize", logLimit(ctx, r.lggr, cfg.MaxBatchSize),
 		"maxPendingQueueWriteSize", logLimit(ctx, r.lggr, cfg.MaxPendingQueueWriteSize),
@@ -328,14 +329,6 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		"reportingPluginLimitsMaxBlobPayloadBytes", pluginLimits.MaxBlobPayloadBytes,
 		"maxPerOracleUnexpiredBlobCumulativePayloadBytes", pluginLimits.MaxPerOracleUnexpiredBlobCumulativePayloadBytes,
 		"maxPerOracleUnexpiredBlobCount", pluginLimits.MaxPerOracleUnexpiredBlobCount,
-	)
-
-	validator := vaultcap.NewRequestValidator(
-		cfg.MaxRequestBatchSize,
-		cfg.MaxCiphertextLengthBytes,
-		cfg.MaxIdentifierKeyLengthBytes,
-		cfg.MaxIdentifierOwnerLengthBytes,
-		cfg.MaxIdentifierNamespaceLengthBytes,
 	)
 
 	r.lifecycle.SetConfigDigest(config.ConfigDigest.String())
@@ -612,6 +605,14 @@ func (r *ReportingPlugin) ciphertextlessObservationsEnabled(ctx context.Context)
 	return gateAllows(ctx, r.lggr, r.cfg.VaultCiphertextlessObservationsEnabled, "VaultCiphertextlessObservationsEnabled")
 }
 
+func (r *ReportingPlugin) shareAggregationIncludesPublicKeys(ctx context.Context) bool {
+	return gateAllows(ctx, r.lggr, r.cfg.VaultGetSecretsShareAggregationIncludesPublicKeys, "VaultGetSecretsShareAggregationIncludesPublicKeys")
+}
+
+func (r *ReportingPlugin) signedResponseRequestIDEnabled(ctx context.Context) bool {
+	return gateAllows(ctx, r.lggr, r.cfg.VaultSignedResponseRequestIDEnabled, "VaultSignedResponseRequestIDEnabled")
+}
+
 type pendingQueueStore interface {
 	WritePendingQueue(ctx context.Context, pending []*vaultcommon.StoredPendingQueueItem) error
 }
@@ -823,7 +824,7 @@ func (r *ReportingPlugin) validatePendingQueueObservations(
 		return nil
 	}
 
-	if len(obs.Observations) >= len(observable) {
+	if len(obs.Observations) == len(observable) {
 		return nil
 	}
 
@@ -966,9 +967,21 @@ func (r *ReportingPlugin) observeGetSecrets(ctx context.Context, reader ReadKVSt
 			GetSecretsRequest: tp,
 		}
 	}
+
+	requestsCountForID := map[string]int{}
+	for _, sr := range tp.Requests {
+		var key string
+		if sr.Id == nil {
+			key = "<nil>"
+		} else {
+			key = vaulttypes.KeyFor(sr.Id)
+		}
+		requestsCountForID[key]++
+	}
+
 	resps := []*vaultcommon.SecretResponse{}
 	for _, secretRequest := range tp.Requests {
-		resp, ierr := r.observeGetSecretsRequest(ctx, reader, secretRequest)
+		resp, ierr := r.observeGetSecretsRequest(ctx, reader, secretRequest, requestsCountForID)
 		if ierr != nil {
 			logUserErrorAware(r.lggr, "failed to observe get secret request item", ierr, "id", secretRequest.Id)
 			errorMsg := userFacingError(ierr, "failed to handle get secret request")
@@ -1040,10 +1053,14 @@ func generatePlaintextShare(publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2
 	return &share{data: sb}, nil
 }
 
-func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader ReadKVStore, secretRequest *vaultcommon.SecretRequest) (*vaultcommon.SecretResponse, error) {
+func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader ReadKVStore, secretRequest *vaultcommon.SecretRequest, requestsCountForID map[string]int) (*vaultcommon.SecretResponse, error) {
 	id, err := r.validateSecretIdentifier(ctx, secretRequest.Id)
 	if err != nil {
 		return nil, err
+	}
+
+	if requestsCountForID[vaulttypes.KeyFor(secretRequest.Id)] > 1 {
+		return nil, newUserError("duplicate request for secret identifier " + vaulttypes.KeyFor(id))
 	}
 
 	secret, err := reader.GetSecret(ctx, id)
@@ -1452,9 +1469,26 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 		return fmt.Errorf("invalid observation: sort nonce must be %d bytes, got %d", sortNonceLength, len(obs.SortNonce))
 	}
 
+	readKV := NewReadStore(keyValueReader, r.metrics)
+	var pendingQueueItems []*vaultcommon.StoredPendingQueueItem
+	if !gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
+		var err error
+		pendingQueueItems, err = readKV.GetPendingQueue(ctx)
+		if err != nil {
+			return fmt.Errorf("could not fetch pending queue from store: %w", err)
+		}
+	} else {
+		r.lggr.Warnw("VaultForceEmptyOCRRounds is enabled; pending queue is not read this OCR round — store-backed pending observation items are skipped")
+	}
+
+	pendingGetSecretsByID, err := buildPendingGetSecretsByID(pendingQueueItems)
+	if err != nil {
+		return fmt.Errorf("could not decode pending queue GetSecrets requests: %w", err)
+	}
+
 	idToObs := map[string]*vaultcommon.Observation{}
 	for _, o := range obs.Observations {
-		err := r.validateObservation(ctx, o)
+		err = r.validateObservation(ctx, o, pendingGetSecretsByID)
 		if err != nil {
 			return errors.New("invalid observation: " + err.Error())
 		}
@@ -1468,25 +1502,23 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 	}
 
 	// We expect
-	// - that every observation id corresponds to an item in the pending queue.
+	// - that every request id corresponds to an item in the pending queue.
 	//   This is because honest nodes may omit tail items when the full Observations proto would exceed the
 	//   max observation byte limit.
 	// - that all pending queue items can be fetched as blobs.
-	readKV := NewReadStore(keyValueReader, r.metrics)
-	var pendingQueueItems []*vaultcommon.StoredPendingQueueItem
-	if !gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
-		var err error
-		pendingQueueItems, err = readKV.GetPendingQueue(ctx)
-		if err != nil {
-			return fmt.Errorf("could not fetch pending queue from store: %w", err)
-		}
-	} else {
-		r.lggr.Warnw("VaultForceEmptyOCRRounds is enabled; pending queue is not read this OCR round — store-backed pending observation items are skipped")
-	}
-
 	if !gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
 		if err := r.validatePendingQueueObservations(ctx, readKV, pendingQueueItems, obs); err != nil {
 			return err
+		}
+	}
+
+	pendingIDs := map[string]bool{}
+	for _, i := range pendingQueueItems {
+		pendingIDs[i.Id] = true
+	}
+	for id := range idToObs {
+		if !pendingIDs[id] {
+			return fmt.Errorf("invalid observation: request id %s is not present in the pending queue", id)
 		}
 	}
 
@@ -1546,14 +1578,21 @@ func shaForProto(msg proto.Message) (string, error) {
 	return fmt.Sprintf("%x", sha256.Sum256(protoBytes)), nil
 }
 
-func shaForObservation(o *vaultcommon.Observation, omitCiphertext bool) (string, error) {
+func (r *ReportingPlugin) shaForObservation(ctx context.Context, o *vaultcommon.Observation, omitCiphertext bool) (string, error) {
 	switch o.RequestType {
 	case vaultcommon.RequestType_GET_SECRETS:
 		cloned := proto.CloneOf(o)
-		for _, r := range cloned.GetGetSecretsResponse().Responses {
-			if r.GetData() != nil {
-				// Exclude the encrypted shares from the sha, as these need to be aggregated later.
-				r.GetData().EncryptedDecryptionKeyShares = nil
+		for _, rsp := range cloned.GetGetSecretsResponse().Responses {
+			if rsp.GetData() != nil {
+				if r.shareAggregationIncludesPublicKeys(ctx) {
+					for _, es := range rsp.GetData().EncryptedDecryptionKeyShares {
+						es.Shares = nil
+						es.BinaryShares = nil
+					}
+				} else {
+					// Exclude the encrypted shares from the sha, as these need to be aggregated later.
+					rsp.GetData().EncryptedDecryptionKeyShares = nil
+				}
 				if omitCiphertext {
 					r.GetData().EncryptedValue = ""
 				}
@@ -1566,29 +1605,14 @@ func shaForObservation(o *vaultcommon.Observation, omitCiphertext bool) (string,
 	}
 }
 
-func (r *ReportingPlugin) checkRequestBatchLimit(ctx context.Context, batchSize int) error {
-	if err := r.cfg.MaxRequestBatchSize.Check(ctx, batchSize); err != nil {
-		var errBoundLimited limits.ErrorBoundLimited[int]
-		if errors.As(err, &errBoundLimited) {
-			return fmt.Errorf("max batch size exceeded for request: %w", err)
-		}
-		// Fail closed here: this could cause a loss of liveness but
-		// the current implementation would only return an error that's
-		// not a ErrorBoundLimited if the limiter has been closed.
-		return errors.New("failed to check batch size")
-	}
-
-	return nil
-}
-
-func (r *ReportingPlugin) validateObservation(ctx context.Context, o *vaultcommon.Observation) error {
+func (r *ReportingPlugin) validateObservation(ctx context.Context, o *vaultcommon.Observation, pendingGetSecretsByID map[string]*vaultcommon.GetSecretsRequest) error {
 	if o.Id == "" {
-		return errors.New("observation id cannot be empty")
+		return errors.New("request id cannot be empty")
 	}
 
 	switch o.RequestType {
 	case vaultcommon.RequestType_GET_SECRETS:
-		return r.validateGetSecretsObservation(ctx, o)
+		return r.validateGetSecretsObservation(ctx, o, pendingGetSecretsByID)
 	case vaultcommon.RequestType_CREATE_SECRETS:
 		return r.validateCreateSecretsObservation(ctx, o)
 	case vaultcommon.RequestType_UPDATE_SECRETS:
@@ -1602,14 +1626,26 @@ func (r *ReportingPlugin) validateObservation(ctx context.Context, o *vaultcommo
 	}
 }
 
-func (r *ReportingPlugin) validateGetSecretsObservation(ctx context.Context, o *vaultcommon.Observation) error {
+func (r *ReportingPlugin) validateGetSecretsObservation(ctx context.Context, o *vaultcommon.Observation, pendingGetSecretsByID map[string]*vaultcommon.GetSecretsRequest) error {
 	resp := o.GetGetSecretsResponse()
 	if resp == nil {
 		return errors.New("GetSecrets observation must have a response")
 	}
 
-	if err := r.checkRequestBatchLimit(ctx, len(resp.Responses)); err != nil {
+	pendingReq, ok := pendingGetSecretsByID[o.Id]
+	if !ok {
+		return fmt.Errorf("no GetSecrets request found in pending queue for request id %s", o.Id)
+	}
+	if embedded := o.GetGetSecretsRequest(); embedded != nil && !proto.Equal(embedded, pendingReq) {
+		return errors.New("embedded GetSecrets request does not match pending queue request")
+	}
+
+	if err := r.validator.CheckRequestBatchSize(ctx, len(resp.Responses)); err != nil {
 		return err
+	}
+
+	if len(pendingReq.Requests) != len(resp.Responses) {
+		return errors.New("GetSecrets request and response must have the same number of items")
 	}
 
 	respMap := map[string]*vaultcommon.SecretResponse{}
@@ -1637,13 +1673,17 @@ func (r *ReportingPlugin) validateGetSecretsObservation(ctx context.Context, o *
 			return errors.New("GetSecrets response must not include encrypted value when ciphertextless observations are enabled")
 		}
 
+		secretReq, err := secretRequestForID(pendingReq, rsp.Id)
+		if err != nil {
+			return fmt.Errorf("GetSecrets response id not found in pending queue request: %w", err)
+		}
+		if err := validateGetSecretsShareLabels(secretReq, d); err != nil {
+			return err
+		}
+
 		// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
 		innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: rsp.Id.Owner})
 		for _, ds := range d.GetEncryptedDecryptionKeyShares() {
-			if err := validateEncryptedSharesEntry(ds); err != nil {
-				return err
-			}
-
 			shareSize, err := encryptedShareSizeForLimit(ds)
 			if err != nil {
 				return err
@@ -1666,7 +1706,7 @@ func (r *ReportingPlugin) validateCreateSecretsObservation(ctx context.Context, 
 		return errors.New("CreateSecrets observation must have both request and response")
 	}
 
-	if err := r.checkRequestBatchLimit(ctx, len(o.GetCreateSecretsRequest().EncryptedSecrets)); err != nil {
+	if err := r.validator.CheckRequestBatchSize(ctx, len(o.GetCreateSecretsRequest().EncryptedSecrets)); err != nil {
 		return err
 	}
 
@@ -1710,7 +1750,7 @@ func (r *ReportingPlugin) validateUpdateSecretsObservation(ctx context.Context, 
 		return errors.New("UpdateSecrets observation must have both request and response")
 	}
 
-	if err := r.checkRequestBatchLimit(ctx, len(o.GetUpdateSecretsRequest().EncryptedSecrets)); err != nil {
+	if err := r.validator.CheckRequestBatchSize(ctx, len(o.GetUpdateSecretsRequest().EncryptedSecrets)); err != nil {
 		return err
 	}
 
@@ -1754,7 +1794,7 @@ func (r *ReportingPlugin) validateDeleteSecretsObservation(ctx context.Context, 
 		return errors.New("DeleteSecrets observation must have both request and response")
 	}
 
-	if err := r.checkRequestBatchLimit(ctx, len(o.GetDeleteSecretsRequest().Ids)); err != nil {
+	if err := r.validator.CheckRequestBatchSize(ctx, len(o.GetDeleteSecretsRequest().Ids)); err != nil {
 		return err
 	}
 
@@ -1834,7 +1874,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 	// Phase 1: Process requests from the pending queue by aggregating observations.
 	// ---
 
-	// obsMap is a map from observation id -> list of observations across oracles.
+	// obsMap is a map from request id -> list of observations across oracles.
 	obsMap := map[string][]*vaultcommon.Observation{}
 	oidsToReqIDs := map[uint8][]string{} // for debugging only
 	for _, ao := range aos {
@@ -1873,7 +1913,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		shaToObs := map[string][]*vaultcommon.Observation{}
 		omitCiphertext := r.ciphertextlessObservationsEnabled(ctx)
 		for _, ob := range obs {
-			sha, err := shaForObservation(ob, omitCiphertext)
+			sha, err := r.shaForObservation(ctx, ob, omitCiphertext)
 			if err != nil {
 				r.lggr.Errorw("failed to compute sha for observation", "error", err, "observation", ob)
 				continue
@@ -2624,7 +2664,11 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 				ReportWithInfo: rep,
 			})
 		case vaultcommon.RequestType_CREATE_SECRETS:
-			rep, err := r.generateJSONReport(o.Id, o.RequestType, o.GetCreateSecretsResponse())
+			createResp := proto.Clone(o.GetCreateSecretsResponse()).(*vaultcommon.CreateSecretsResponse)
+			if r.signedResponseRequestIDEnabled(ctx) {
+				createResp.RequestId = o.Id
+			}
+			rep, err := r.generateJSONReport(o.Id, o.RequestType, createResp)
 			if err != nil {
 				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
 				continue
@@ -2634,7 +2678,11 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 				ReportWithInfo: rep,
 			})
 		case vaultcommon.RequestType_UPDATE_SECRETS:
-			rep, err := r.generateJSONReport(o.Id, o.RequestType, o.GetUpdateSecretsResponse())
+			updateResp := proto.Clone(o.GetUpdateSecretsResponse()).(*vaultcommon.UpdateSecretsResponse)
+			if r.signedResponseRequestIDEnabled(ctx) {
+				updateResp.RequestId = o.Id
+			}
+			rep, err := r.generateJSONReport(o.Id, o.RequestType, updateResp)
 			if err != nil {
 				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
 				continue
@@ -2644,7 +2692,11 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 				ReportWithInfo: rep,
 			})
 		case vaultcommon.RequestType_DELETE_SECRETS:
-			rep, err := r.generateJSONReport(o.Id, o.RequestType, o.GetDeleteSecretsResponse())
+			deleteResp := proto.Clone(o.GetDeleteSecretsResponse()).(*vaultcommon.DeleteSecretsResponse)
+			if r.signedResponseRequestIDEnabled(ctx) {
+				deleteResp.RequestId = o.Id
+			}
+			rep, err := r.generateJSONReport(o.Id, o.RequestType, deleteResp)
 			if err != nil {
 				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
 				continue
@@ -2654,7 +2706,11 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 				ReportWithInfo: rep,
 			})
 		case vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS:
-			rep, err := r.generateJSONReport(o.Id, o.RequestType, o.GetListSecretIdentifiersResponse())
+			listResp := proto.Clone(o.GetListSecretIdentifiersResponse()).(*vaultcommon.ListSecretIdentifiersResponse)
+			if r.signedResponseRequestIDEnabled(ctx) {
+				listResp.RequestId = o.Id
+			}
+			rep, err := r.generateJSONReport(o.Id, o.RequestType, listResp)
 			if err != nil {
 				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
 				continue
@@ -2748,13 +2804,9 @@ func (r *ReportingPlugin) ShouldTransmitAcceptedReport(ctx context.Context, seqN
 
 func (r *ReportingPlugin) Close() error {
 	return errors.Join(
+		r.validator.Close(),
 		r.cfg.MaxSecretsPerOwner.Close(),
-		r.cfg.MaxCiphertextLengthBytes.Close(),
-		r.cfg.MaxIdentifierKeyLengthBytes.Close(),
-		r.cfg.MaxIdentifierOwnerLengthBytes.Close(),
-		r.cfg.MaxIdentifierNamespaceLengthBytes.Close(),
 		r.cfg.MaxShareLengthBytes.Close(),
-		r.cfg.MaxRequestBatchSize.Close(),
 		r.cfg.MaxBatchSize.Close(),
 		r.cfg.MaxPendingQueueWriteSize.Close(),
 		r.cfg.VaultForceEmptyOCRRounds.Close(),

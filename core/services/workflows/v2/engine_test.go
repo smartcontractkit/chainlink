@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 	"sync"
 	"testing"
@@ -1679,11 +1680,12 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) { //nolint:paralleltest // 
 		require.NoError(t, err)
 
 		require.Equal(t, execID, <-executionFinishedCh)
-		require.NoError(t, engine.Close())
 
 		requireUserLogs(t, beholderObserver, []string{
 			"onTrigger called",
 		})
+
+		require.NoError(t, engine.Close())
 	})
 }
 
@@ -2440,6 +2442,20 @@ type observedBaseMessage struct {
 	Labels map[string]string
 }
 
+// beholdertest.Messages(t) returns the internal slice without locking, which races with
+// concurrent Emit under -race. Filter by beholder_entity so Messages uses the RLock path.
+const beholderEntityBaseMessage = "BaseMessage"
+
+func beholderBaseMessages(t *testing.T, observer beholdertest.Observer) []beholder.Message {
+	t.Helper()
+	return observer.Messages(t, "beholder_entity", beholderEntityBaseMessage)
+}
+
+func beholderUserLogMessages(t *testing.T, observer beholdertest.Observer) []beholder.Message {
+	t.Helper()
+	return observer.Messages(t, "beholder_entity", fmt.Sprintf("%s.%s", workflowEvents.ProtoPkg, workflowEvents.UserLogs))
+}
+
 // eventLabelsMatchStatus returns observed BaseMessages and the label set still being
 // searched for. missing is nil when a message with all expected labels is found.
 func eventLabelsMatchStatus(msgs []beholder.Message, want map[string]string) (observed []observedBaseMessage, missing map[string]string) {
@@ -2481,7 +2497,7 @@ func requireEventsLabels(t *testing.T, beholderObserver beholdertest.Observer, w
 	}
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		observed, missing := eventLabelsMatchStatus(beholderObserver.Messages(t), want)
+		observed, missing := eventLabelsMatchStatus(beholderBaseMessages(t, beholderObserver), want)
 		if missing != nil {
 			assert.Fail(c, fmt.Sprintf(
 				"event labels not found\n  expected labels: %v\n  observed base messages (%d):\n%s",
@@ -2530,7 +2546,7 @@ func requireEventsMessages(t *testing.T, beholderObserver beholdertest.Observer,
 	}
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		observed, missing := eventMessagesMatchStatus(beholderObserver.Messages(t), expected)
+		observed, missing := eventMessagesMatchStatus(beholderBaseMessages(t, beholderObserver), expected)
 		if len(missing) > 0 {
 			found := expected[:len(expected)-len(missing)]
 			assert.Fail(c, fmt.Sprintf(
@@ -2577,7 +2593,7 @@ func requireUserLogs(t *testing.T, beholderObserver beholdertest.Observer, expec
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		observed, missing := userLogMatchStatus(
-			beholderObserver.Messages(t),
+			beholderUserLogMessages(t, beholderObserver),
 			expectedSubstrings,
 		)
 		if len(missing) > 0 {
@@ -2861,9 +2877,7 @@ func (t *trackingBeholderEmitter) WithMapLabels(labels map[string]string) custms
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	for k, v := range labels {
-		t.labels[k] = v
-	}
+	maps.Copy(t.labels, labels)
 
 	return t
 }
@@ -2887,9 +2901,7 @@ func (t *trackingBeholderEmitter) GetLatestLabels() map[string]string {
 
 	// Return a copy to avoid race conditions
 	result := make(map[string]string, len(t.labels))
-	for k, v := range t.labels {
-		result[k] = v
-	}
+	maps.Copy(result, t.labels)
 	return result
 }
 

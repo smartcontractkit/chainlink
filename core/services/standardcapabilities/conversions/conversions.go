@@ -54,6 +54,18 @@ func GetCapabilityIDFromCommand(command string, config string) string {
 			return ""
 		}
 		return "solana:ChainSelector:" + strconv.FormatUint(selector, 10) + "@1.0.0"
+	case "stellar":
+		var cfg struct {
+			ChainID string `json:"chainId"`
+		}
+		if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+			return ""
+		}
+		selector, ok := chainselectors.StellarChainIdToChainSelector()[cfg.ChainID]
+		if !ok {
+			return ""
+		}
+		return "stellar:ChainSelector:" + strconv.FormatUint(selector, 10) + "@1.0.0"
 	case "consensus":
 		return "consensus@1.0.0-alpha"
 	case "cron":
@@ -77,6 +89,10 @@ func GetCommandFromCapabilityID(capabilityID string) string {
 		return "evm"
 	case strings.HasPrefix(capabilityID, "aptos:ChainSelector:"):
 		return "aptos"
+	case strings.HasPrefix(capabilityID, "solana:ChainSelector:"):
+		return "solana"
+	case strings.HasPrefix(capabilityID, "stellar:ChainSelector:"):
+		return "stellar"
 	case strings.HasPrefix(capabilityID, "consensus"):
 		return "consensus"
 	case strings.HasPrefix(capabilityID, "cron-trigger"):

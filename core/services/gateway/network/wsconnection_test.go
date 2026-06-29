@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
@@ -29,6 +30,49 @@ func (ssl *serverSideLogic) wsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// one wsConnWrapper per client
 	ssl.connWrapper.Reset(c)
+}
+
+// TestWSConnectionWrapper_WriteError_TriggersClose verifies that a write error
+// (e.g. i/o timeout on a stale connection) causes the connection to be closed,
+// which signals closeCh and allows reconnectLoop to re-establish a fresh connection.
+func TestWSConnectionWrapper_WriteError_TriggersClose(t *testing.T) {
+	t.Parallel()
+	lggr := logger.Test(t)
+
+	// server — accepts one connection
+	serverConn := network.NewWSConnectionWrapper(lggr)
+	servicetest.Run(t, serverConn)
+	ssl := &serverSideLogic{connWrapper: serverConn}
+	s := httptest.NewServer(http.HandlerFunc(ssl.wsHandler))
+	serverURL := "ws" + strings.TrimPrefix(s.URL, "http")
+	defer s.Close()
+
+	// client
+	clientConnWrapper := network.NewWSConnectionWrapper(lggr)
+	servicetest.Run(t, clientConnWrapper)
+
+	conn, _, err := websocket.DefaultDialer.Dial(serverURL, nil)
+	require.NoError(t, err)
+
+	closeCh := clientConnWrapper.Reset(conn)
+
+	// Set the write deadline to the past to simulate a write i/o timeout without
+	// affecting the read side — this mimics a half-open / zombie TCP connection
+	// where writes time out but the kernel hasn't detected a read error yet.
+	require.NoError(t, conn.SetWriteDeadline(time.Now().Add(-time.Second)))
+
+	// The write must fail (write deadline already expired).
+	writeErr := clientConnWrapper.Write(t.Context(), websocket.BinaryMessage, []byte("data"))
+	require.Error(t, writeErr, "write should fail due to expired write deadline")
+
+	// The write failure must cause the connection to be closed so that
+	// the reconnect loop can establish a fresh connection.
+	select {
+	case <-closeCh:
+		// correct: write error triggered connection close, reconnect can proceed
+	case <-time.After(5 * time.Second):
+		t.Fatal("closeCh was not signaled after write error; stale connection will block reconnect indefinitely")
+	}
 }
 
 func TestWSConnectionWrapper_ClientReconnect(t *testing.T) {

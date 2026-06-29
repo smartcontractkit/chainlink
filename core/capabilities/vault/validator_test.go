@@ -12,6 +12,7 @@ import (
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
@@ -160,6 +161,18 @@ func TestRequestValidator_BatchSizeLimit(t *testing.T) {
 		return secrets
 	}
 
+	makeDeleteIDs := func(n int) []*vaultcommon.SecretIdentifier {
+		ids := make([]*vaultcommon.SecretIdentifier, n)
+		for i := range ids {
+			ids[i] = &vaultcommon.SecretIdentifier{
+				Key:       fmt.Sprintf("key%d", i),
+				Namespace: "namespace",
+				Owner:     "0x1111111111111111111111111111111111111111",
+			}
+		}
+		return ids
+	}
+
 	tests := []struct {
 		name      string
 		call      func(*testing.T, *RequestValidator) error
@@ -202,6 +215,35 @@ func TestRequestValidator_BatchSizeLimit(t *testing.T) {
 				}, false)
 			},
 			errSubstr: "request batch size exceeds maximum of 2",
+		},
+		{
+			name: "delete accepts batch at the limit",
+			call: func(t *testing.T, v *RequestValidator) error {
+				return v.ValidateDeleteSecretsRequest(t.Context(), &vaultcommon.DeleteSecretsRequest{
+					RequestId: "request-id",
+					Ids:       makeDeleteIDs(2),
+				})
+			},
+		},
+		{
+			name: "delete rejects batch above the limit",
+			call: func(t *testing.T, v *RequestValidator) error {
+				return v.ValidateDeleteSecretsRequest(t.Context(), &vaultcommon.DeleteSecretsRequest{
+					RequestId: "request-id",
+					Ids:       makeDeleteIDs(3),
+				})
+			},
+			errSubstr: "request batch size exceeds maximum of 2",
+		},
+		{
+			name: "delete rejects empty batch",
+			call: func(t *testing.T, v *RequestValidator) error {
+				return v.ValidateDeleteSecretsRequest(t.Context(), &vaultcommon.DeleteSecretsRequest{
+					RequestId: "request-id",
+					Ids:       []*vaultcommon.SecretIdentifier{},
+				})
+			},
+			errSubstr: "request batch must contain at least 1 item",
 		},
 	}
 
@@ -712,6 +754,14 @@ func TestValidateGetSecretsRequest(t *testing.T) {
 				{Id: validID("mykey", "owner1", "")},
 			},
 		},
+		{
+			name: "duplicate secret ID in batch",
+			requests: []*vaultcommon.SecretRequest{
+				{Id: validID("key1", "owner1", "main")},
+				{Id: validID("key1", "owner1", "main")},
+			},
+			errSubstr: "duplicate secret ID found at index 1",
+		},
 	}
 
 	for _, tt := range tests {
@@ -969,5 +1019,36 @@ func TestRequestValidator_PreservesEmptyNamespaceOnStructs(t *testing.T) {
 		req := &vaultcommon.ListSecretIdentifiersRequest{RequestId: "rid", Owner: "owner1", Namespace: ""}
 		require.NoError(t, validator.ValidateListSecretIdentifiersRequest(t.Context(), req))
 		assert.Empty(t, req.Namespace)
+	})
+}
+
+func TestRequestValidator_Close(t *testing.T) {
+	t.Parallel()
+
+	t.Run("factory limiters", func(t *testing.T) {
+		t.Parallel()
+
+		validator, err := NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
+		require.NoError(t, err)
+
+		require.NoError(t, validator.Close())
+		_, err = validator.MaxRequestBatchSizeLimiter.Limit(t.Context())
+		require.Error(t, err)
+	})
+
+	t.Run("injected limiters", func(t *testing.T) {
+		t.Parallel()
+
+		batchLimiter := limits.NewUpperBoundLimiter(10)
+		validator := NewRequestValidator(
+			batchLimiter,
+			limits.NewUpperBoundLimiter(1024*pkgconfig.Byte),
+			limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+			limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+			limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		)
+
+		require.NoError(t, validator.Close())
+		require.Error(t, batchLimiter.Check(t.Context(), 1))
 	})
 }

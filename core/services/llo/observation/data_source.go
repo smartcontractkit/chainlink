@@ -14,11 +14,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 )
@@ -38,14 +36,14 @@ import (
 // Example timings for observationTimeout T = 250ms (cacheTTLMultiplier=2, pacing divisor=2, staleRefresh num/den = 6/4):
 //   - cacheEntryTTL = 2·T = 500ms — TTL applied on successful per-pipeline-group AddMany writes.
 //   - staleRefreshSkipThreshold = (6/4)·T = 375ms — a stream in the plugin scope is not a refresh driver while time.Until(expiresAt) > 375ms.
-//   - observationLoopPacing targets T/2 = 125ms and is capped to (2−6/4)·T − 1ns = 125ms − 1ns (≥ observationLoopPacingMin and ≤ min(T/2, that cap)) — minimum delay between loop iterations after the first (plugin Observe may wake the loop earlier; see loopWakeCh).
+//   - observationLoopPacing targets T/2 = 125ms and is capped to (2−6/4)·T − 1ns = 125ms − 1ns (≥ observationLoopPacingFloor and ≤ min(T/2, that cap)) — minimum delay between loop iterations after the first (plugin Observe may wake the loop earlier; see loopWakeCh).
 //   - per-iteration context uses WithTimeout(..., T) = 250ms — ceiling on wall time for one observation loop iteration (pipeline workers run in parallel under that deadline).
 const (
 	cacheTTLMultiplier                     = 2
 	staleRefreshRemainingNumerator   int64 = 6
 	staleRefreshRemainingDenominator int64 = 4
 
-	observationLoopPacingMin     = 10 * time.Millisecond
+	observationLoopPacingFloor   = 10 * time.Millisecond
 	observationLoopPacingDivisor = 2 // pacing targets T/2, capped below by cache invariant
 )
 
@@ -62,20 +60,17 @@ func staleRefreshSkipThreshold(observationTimeout time.Duration) time.Duration {
 }
 
 // observationLoopPacing returns the minimum time between observation loop iterations to cap CPU while
-// staying responsive relative to T. Scales with T/divisor, clamped to [observationLoopPacingMin, min(T/2,
+// staying responsive relative to T. Scales with T/divisor, clamped to [observationLoopPacingFloor, min(T/2,
 // cacheEntryTTL(T)−staleRefreshSkipThreshold(T)−1ns)] so staleRefreshSkipThreshold+observationLoopPacing < cacheEntryTTL.
 func observationLoopPacing(observationTimeout time.Duration) time.Duration {
 	if observationTimeout <= 0 {
-		return observationLoopPacingMin
+		return observationLoopPacingFloor
 	}
 	p := observationTimeout / observationLoopPacingDivisor
 	invMax := cacheEntryTTL(observationTimeout) - staleRefreshSkipThreshold(observationTimeout) - time.Nanosecond
-	maxP := observationTimeout / 2
-	if invMax < maxP {
-		maxP = invMax
-	}
-	if p < observationLoopPacingMin {
-		p = observationLoopPacingMin
+	maxP := min(invMax, observationTimeout/2)
+	if p < observationLoopPacingFloor {
+		p = observationLoopPacingFloor
 	}
 	if p > maxP {
 		p = maxP
@@ -121,14 +116,14 @@ var (
 	)
 )
 
-type ErrObservationFailed struct {
+type ObservationFailedError struct { //nolint:revive // name matches existing observation failure terminology
 	inner    error
 	reason   string
 	streamID streams.StreamID
 	run      *pipeline.Run
 }
 
-func (e *ErrObservationFailed) Error() string {
+func (e *ObservationFailedError) Error() string {
 	s := fmt.Sprintf("StreamID: %d; Reason: %s", e.streamID, e.reason)
 	if e.inner != nil {
 		s += fmt.Sprintf("; Err: %v", e.inner)
@@ -140,11 +135,11 @@ func (e *ErrObservationFailed) Error() string {
 	return s
 }
 
-func (e *ErrObservationFailed) String() string {
+func (e *ObservationFailedError) String() string {
 	return e.Error()
 }
 
-func (e *ErrObservationFailed) Unwrap() error {
+func (e *ObservationFailedError) Unwrap() error {
 	return e.inner
 }
 
@@ -288,7 +283,7 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 
 			var mu sync.Mutex
 			var wg sync.WaitGroup
-			var errs []ErrObservationFailed
+			var errs []ObservationFailedError
 			successfulStreamIDs := make([]streams.StreamID, 0, len(osv.streamValues))
 			plan := d.buildStreamsRefreshPlan(osv.streamValues, osv.observationTimeout, lggr)
 			ttl := cacheEntryTTL(osv.observationTimeout)
@@ -299,7 +294,7 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 			}
 
 			// Telemetry
-			var telemCh chan<- interface{}
+			var telemCh chan<- any
 			{
 				// Size needs to accommodate the max number of telemetry events that could be generated
 				// Standard case might be about 3 bridge requests per spec and one stream<=>spec
@@ -334,7 +329,7 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 							}
 							promObservationErrorCount.WithLabelValues(streamIDStr).Inc()
 							mu.Lock()
-							errs = append(errs, ErrObservationFailed{inner: err, streamID: sid, reason: "failed to observe stream"})
+							errs = append(errs, ObservationFailedError{inner: err, streamID: sid, reason: "failed to observe stream"})
 							mu.Unlock()
 							continue
 						}

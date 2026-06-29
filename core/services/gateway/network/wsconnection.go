@@ -169,6 +169,17 @@ func (c *wsConnectionWrapper) writePump() {
 			err := conn.WriteMessage(wsMsg.MsgType, wsMsg.Data)
 			if err != nil {
 				c.lggr.Errorw("failed to write message", "msgType", wsMsg.MsgType, "dataLen", len(wsMsg.Data), "error", err)
+				// A write failure (e.g. i/o timeout on a half-open TCP session) does not
+				// produce a read error, so readPump would stay blocked and reconnectLoop
+				// would never get the closeCh signal it needs to redial. Close the conn
+				// here to unblock readPump and trigger the existing reconnect path.
+				// If CAS fails, Reset already swapped the pointer and will close the old
+				// conn itself — don't close it twice.
+				if c.conn.CompareAndSwap(conn, nil) {
+					if closeErr := conn.Close(); closeErr != nil {
+						c.lggr.Errorw("error closing connection after write failure", "error", closeErr)
+					}
+				}
 			}
 			wsMsg.ErrCh <- err
 			close(wsMsg.ErrCh)

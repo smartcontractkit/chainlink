@@ -424,7 +424,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 
 	var timeProvider TimeProvider = &types.LocalTimeProvider{}
 	if !e.cfg.UseLocalTimeProvider {
-		timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, e.logger())
+		timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, e.donTimeRequestTimeout(subCtx, e.cfg.LocalLimiters.DONTimeRequestTimeout), e.logger(), e.metrics)
 	}
 
 	moduleExecuteMaxResponseSizeBytes, err := e.cfg.LocalLimiters.ExecutionResponse.Limit(ctx)
@@ -721,9 +721,10 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	lggr := e.logger().With(platform.KeyOrganizationID, e.orgID)
 
 	var executionTimestamp time.Time
+	var executionDonTimeProvider TimeProvider
 	if tsErr := e.cfg.LocalLimiters.ExecutionTimestampsEnabled.AllowErr(ctx); tsErr == nil {
-		executionTimeProvider := NewDonTimeProvider(e.cfg.DonTimeStore, fullExecutionID, lggr)
-		donTime, dtErr := executionTimeProvider.GetDONTime()
+		executionDonTimeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, fullExecutionID, e.donTimeRequestTimeout(ctx, e.cfg.LocalLimiters.DONTimeRequestTimeout), lggr, e.metrics)
+		donTime, dtErr := executionDonTimeProvider.GetDONTime()
 		if dtErr != nil {
 			executionTimestamp = e.cfg.Clock.Now()
 			lggr.Warnw("Failed to get DON time for execution timestamp, falling back to local time", "err", dtErr, "executionTimestamp", executionTimestamp)
@@ -797,7 +798,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 			}
 			return
 		case shardownership.DenyNotOwner:
-			logFields := []interface{}{
+			logFields := []any{
 				"executionID", executionID,
 				"myShardID", e.cfg.MyShardID,
 				"routingStateId", mapResp.GetRoutingStateId(),
@@ -924,8 +925,19 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	var timeProvider TimeProvider = &types.LocalTimeProvider{}
 	if !e.cfg.UseLocalTimeProvider {
-		timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, executionID, lggr)
+		if e.cfg.FeatureFlags.FeatureUseSingleDONTimeProviderPerExecution.Check(ctx, config.NewTimestamp(executionTimestamp)) == nil && executionDonTimeProvider != nil {
+			timeProvider = executionDonTimeProvider
+		} else {
+			timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, executionID, e.donTimeRequestTimeout(execCtx, e.cfg.LocalLimiters.DONTimeRequestTimeout), lggr, e.metrics)
+		}
 	}
+
+	// Track time the guest spends blocked in DON-time host calls so it can be
+	// excluded from metered compute (see compute_metering.go). The wrapper is
+	// always installed; whether the recorded wait is subtracted is gated by
+	// e.cfg.MeterComputeExcludingHostWait below.
+	suspension := &suspensionTracker{}
+	timeProvider = newMeasuredTimeProvider(timeProvider, e.cfg.Clock, suspension)
 
 	moduleExecuteMaxResponseSizeBytes, err := e.cfg.LocalLimiters.ExecutionResponse.Limit(ctx)
 	if err != nil {
@@ -946,6 +958,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		Engine: e, WorkflowExecutionID: executionID, ExecutionTimestamp: executionTimestamp,
 		UserLogChan: userLogChan, TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
 		executionProfile: newExecutionProfileCollector(),
+		suspension:       suspension,
 	}
 	execHelper.initLimiters(e.cfg.LocalLimiters)
 	e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).RecordTriggerPayloadBytes(ctx, int64(proto.Size(triggerEvent.Payload)))
@@ -966,6 +979,25 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	endTime := e.cfg.Clock.Now()
 	executionDuration := endTime.Sub(startTime)
 
+	// computeDuration is what we meter as RESOURCE_TYPE_COMPUTE. We start from the
+	// end-to-end wall-clock and subtract time the guest spent blocked in DON-time
+	// host calls: that wait is not compute and is non-deterministic across nodes
+	// (a node whose DON-time request lands in the current consensus round returns
+	// in microseconds; one whose request slips to the next round blocks ~a full
+	// round). Operational latency metrics below intentionally keep using
+	// executionDuration.
+	computeDuration := executionDuration
+	if hostWait := suspension.total(); hostWait > 0 {
+		computeDuration -= hostWait
+		if computeDuration < 0 {
+			computeDuration = 0
+		}
+		executionLogger.Debugw("Excluding DON-time wait from metered compute",
+			"wallClockMs", executionDuration.Milliseconds(),
+			"hostWaitMs", hostWait.Milliseconds(),
+			"computeMs", computeDuration.Milliseconds())
+	}
+
 	if isMetering {
 		computeUnit := billing.ResourceType_name[int32(billing.ResourceType_RESOURCE_TYPE_COMPUTE)]
 		mrErr := meteringReport.Settle(computeUnit,
@@ -973,7 +1005,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 				Metering: []capabilities.MeteringNodeDetail{{
 					Peer2PeerID: e.localNode.Load().PeerID.String(),
 					SpendUnit:   computeUnit,
-					SpendValue:  strconv.Itoa(int(executionDuration.Milliseconds())),
+					SpendValue:  strconv.Itoa(int(computeDuration.Milliseconds())),
 				}},
 				CapDON_N: 1,
 			},
@@ -1164,45 +1196,82 @@ func (e *Engine) deductStandardBalances(ctx context.Context, meteringReport *met
 	}
 }
 
+const emitUserLogsTimeout = 30 * time.Second
+
 // separate call for each workflow execution
 func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents.LogLine, executionID string, executionLabels map[string]string) {
 	e.logger().Debugw("Listening for user logs ...")
 	count := 0
 	defer func() { e.logger().Debugw("Listening for user logs done.", "processedLogLines", count) }()
+
+	processLogLine := func(emitCtx context.Context, logLine *protoevents.LogLine) bool {
+		if e.cfg.DebugMode {
+			e.logger().Debugf("User log: <<<%s>>>, local node timestamp: %s", logLine.Message, logLine.NodeTimestamp)
+		}
+		err := e.cfg.LocalLimiters.LogEvent.Check(emitCtx, count)
+		if err != nil {
+			if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[int]](err); ok {
+				e.logger().Warnw("Max user log events per execution reached, dropping event", "maxEvents", errBoundLimited.Limit, "err", err)
+				return false
+			}
+			e.logger().Errorw("Failed to get user log event limit", "err", err)
+			return false
+		}
+		maxUserLogLength, err := e.cfg.LocalLimiters.LogLine.Limit(emitCtx)
+		if err != nil {
+			e.logger().Errorw("Failed to get user log line limit", "err", err)
+			return false
+		}
+		if len(logLine.Message) > int(maxUserLogLength) {
+			logLine.Message = logLine.Message[:maxUserLogLength] + " ...(truncated)"
+		}
+
+		if err := events.EmitUserLogs(emitCtx, executionLabels, []*protoevents.LogLine{logLine}, executionID); err != nil {
+			e.logger().Errorw("Failed to emit user logs", "err", err)
+		}
+		count++
+		return true
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
-			return
-		case logLine, ok := <-userLogChan:
-			if !ok {
-				return
-			}
-			if e.cfg.DebugMode {
-				e.logger().Debugf("User log: <<<%s>>>, local node timestamp: %s", logLine.Message, logLine.NodeTimestamp)
-			}
-			err := e.cfg.LocalLimiters.LogEvent.Check(ctx, count)
-			if err != nil {
-				var errBoundLimited limits.ErrorBoundLimited[int]
-				if errors.As(err, &errBoundLimited) {
-					e.logger().Warnw("Max user log events per execution reached, dropping event", "maxEvents", errBoundLimited.Limit, "err", err)
+			// Ensure we don't hang shutdown if the user logs channel is not drained.
+			drainCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), emitUserLogsTimeout)
+			for {
+				select {
+				case <-drainCtx.Done():
+					e.logger().Warnw("Timeout reached while draining user logs")
+					cancel()
 					return
+				case logLine, ok := <-userLogChan:
+					if !ok || !processLogLine(drainCtx, logLine) {
+						cancel()
+						return
+					}
 				}
-				e.logger().Errorw("Failed to get user log event limit", "err", err)
+			}
+		case logLine, ok := <-userLogChan:
+			if !ok || !processLogLine(ctx, logLine) {
 				return
 			}
-			maxUserLogLength, err := e.cfg.LocalLimiters.LogLine.Limit(ctx)
-			if err != nil {
-				e.logger().Errorw("Failed to get user log line limit", "err", err)
-				return
-			}
-			if len(logLine.Message) > int(maxUserLogLength) {
-				logLine.Message = logLine.Message[:maxUserLogLength] + " ...(truncated)"
-			}
-
-			if err := events.EmitUserLogs(ctx, executionLabels, []*protoevents.LogLine{logLine}, executionID); err != nil {
-				e.logger().Errorw("Failed to emit user logs", "err", err)
-			}
-			count++
 		}
 	}
+}
+
+func (e *Engine) donTimeRequestTimeout(ctx context.Context, limiter limits.TimeLimiter) time.Duration {
+	defaultTimeout := cresettings.Default.PerWorkflow.DONTime.RequestTimeout.DefaultValue
+	if limiter != nil {
+		limit, err := limiter.Limit(ctx)
+		if err != nil {
+			e.logger().Errorw("Failed to get DON time request timeout", "err", err)
+			return defaultTimeout
+		}
+		if limit <= 0 {
+			e.logger().Warnw("DON time request timeout is less than or equal to 0, using default timeout", "defaultTimeout", defaultTimeout)
+			return defaultTimeout
+		}
+		return limit
+	}
+	return defaultTimeout
 }

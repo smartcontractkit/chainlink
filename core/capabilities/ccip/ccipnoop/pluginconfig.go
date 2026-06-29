@@ -14,7 +14,6 @@ func NewPluginConfig(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodecB
 		MessageHasher:       NewMessageHasherV1(lggr, extraDataCodec),
 		TokenDataEncoder:    NewTokenDataEncoder(),
 		GasEstimateProvider: NewGasEstimateProvider(extraDataCodec),
-		RMNCrypto:           &NoopRMNCrypto{},
 		AddressCodec:        AddressCodec{},
 		ChainRW:             chainRWProvider{},
 		ExtraDataCodec:      extraDataDecoder{},

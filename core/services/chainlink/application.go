@@ -337,6 +337,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	if cfg.SuiEnabled() {
 		initOps = append(initOps, InitSui(relayerFactory, keyStore.Sui(), keyStore.CSA(), cfg.SuiConfigs()))
 	}
+	if cfg.StellarEnabled() {
+		initOps = append(initOps, InitStellar(relayerFactory, keyStore.Stellar(), keyStore.CSA(), cfg.StellarConfigs()))
+	}
 
 	relayChainInterops, err := NewCoreRelayerChainInteroperators(initOps...)
 	if err != nil {
@@ -368,8 +371,10 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	}
 	jwtGenerator := nodeauthjwt.NewNodeJWTGenerator(csaSigner, csaPubKey)
 
-	// Wire DurableEmitter for persistent chip ingress delivery when enabled.
+	// Wire DurableEmitter for persistent chip ingress delivery when enabled
 	if cfg.Telemetry().DurableEmitterEnabled() && cfg.Telemetry().ChipIngressEndpoint() != "" {
+		emitterCfg := durableemitter.DefaultConfig()
+		emitterCfg.Metrics = &durableemitter.DurableEmitterMetricsConfig{}
 		durableCfg := durableemitter.SetupConfig{
 			Endpoint:           cfg.Telemetry().ChipIngressEndpoint(),
 			InsecureConnection: cfg.Telemetry().ChipIngressInsecureConnection(),
@@ -380,6 +385,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				AuthKeySigner:    csaKeystore,
 			},
 			RetransmitEnabled: true, // host process owns retransmit
+			EmitterConfig:     &emitterCfg,
+			Meter:             meter,
 		}
 		pgStore := durableemitter.NewPgDurableEventStore(opts.DS)
 		durableEmitter, setupErr := durableemitter.Setup(pgStore, durableCfg, globalLogger)
