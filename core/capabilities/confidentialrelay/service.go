@@ -25,12 +25,13 @@ type Service struct {
 	services.Service
 	eng *services.Engine
 
-	wrapper       *gatewayconnector.ServiceWrapper
-	capRegistry   core.CapabilitiesRegistry
-	p2pKeystore   keystore.P2P
-	peerID        p2pkey.PeerID
-	lggr          logger.Logger
-	limitsFactory limits.Factory
+	wrapper           *gatewayconnector.ServiceWrapper
+	capRegistry       core.CapabilitiesRegistry
+	executionHandlers *ExecutionHandlers
+	p2pKeystore       keystore.P2P
+	peerID            p2pkey.PeerID
+	lggr              logger.Logger
+	limitsFactory     limits.Factory
 
 	handler *Handler
 }
@@ -38,18 +39,20 @@ type Service struct {
 func NewService(
 	wrapper *gatewayconnector.ServiceWrapper,
 	capRegistry core.CapabilitiesRegistry,
+	executionHandlers *ExecutionHandlers,
 	p2pKeystore keystore.P2P,
 	peerID p2pkey.PeerID,
 	lggr logger.Logger,
 	limitsFactory limits.Factory,
 ) *Service {
 	s := &Service{
-		wrapper:       wrapper,
-		capRegistry:   capRegistry,
-		p2pKeystore:   p2pKeystore,
-		peerID:        peerID,
-		lggr:          lggr,
-		limitsFactory: limitsFactory,
+		wrapper:           wrapper,
+		capRegistry:       capRegistry,
+		executionHandlers: executionHandlers,
+		p2pKeystore:       p2pKeystore,
+		peerID:            peerID,
+		lggr:              lggr,
+		limitsFactory:     limitsFactory,
 	}
 	s.Service, s.eng = services.Config{
 		Name:  "ConfidentialRelayService",
@@ -68,7 +71,7 @@ func (s *Service) start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get p2p key for confidential relay signing: %w", err)
 	}
-	h, err := NewHandler(s.capRegistry, conn, newRelayResponseSigner(key), s.lggr, s.limitsFactory)
+	h, err := NewHandler(s.capRegistry, s.executionHandlers, conn, newRelayResponseSigner(key), s.lggr, s.limitsFactory)
 	if err != nil {
 		return err
 	}

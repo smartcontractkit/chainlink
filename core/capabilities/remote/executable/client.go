@@ -127,16 +127,12 @@ func (c *client) Start(ctx context.Context) error {
 			return errors.New("dispatcher set to nil, cannot start client")
 		}
 
-		c.wg.Add(1)
-		go func() {
-			defer c.wg.Done()
+		c.wg.Go(func() {
 			c.checkForExpiredRequests()
-		}()
-		c.wg.Add(1)
-		go func() {
-			defer c.wg.Done()
+		})
+		c.wg.Go(func() {
 			c.checkDispatcherReady()
-		}()
+		})
 
 		c.lggr.Info("ExecutableCapabilityClient started")
 		return nil

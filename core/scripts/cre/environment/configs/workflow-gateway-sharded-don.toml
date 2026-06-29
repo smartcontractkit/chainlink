@@ -38,6 +38,7 @@
 [[nodesets]]
   nodes = 4
   name = "shard0"
+  don_family = "test-don-family"
   don_types = ["workflow", "shard"]
   shard_index = 0
   override_mode = "each"
@@ -97,6 +98,7 @@
 [[nodesets]]
   nodes = 4
   name = "shard1"
+  don_family = "test-don-family"
   don_types = ["workflow", "shard"]
   shard_index = 1
   override_mode = "all"
@@ -125,6 +127,7 @@
 [[nodesets]]
   nodes = 1
   name = "bootstrap-gateway"
+  don_family = "test-don-family"
   don_types = ["bootstrap", "gateway"]
   override_mode = "each"
   http_port_range_start = 10300

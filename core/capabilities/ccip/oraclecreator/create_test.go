@@ -29,7 +29,6 @@ import (
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
 // TestPluginOracleCreatorCreate_InvalidSelector ensures that Create returns an error when an
@@ -80,47 +79,6 @@ func TestPluginOracleCreatorCreate_InvalidSelector(t *testing.T) {
 	require.Contains(t, err.Error(), "unknown chain selector", "unexpected error message: %v", err)
 }
 
-// TestCreateFactoryAndTransmitter_PeerWrapperNotStarted verifies that the
-// helper returns an error when called for a commit plugin but the peer wrapper
-// has not been started – this guards a critical control-flow condition.
-func TestCreateFactoryAndTransmitter_PeerWrapperNotStarted(t *testing.T) {
-	t.Parallel()
-
-	lggr := logger.Test(t)
-
-	p2pk := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-
-	creator := &pluginOracleCreator{
-		lggr:        logger.Sugared(lggr),
-		peerWrapper: &ocrcommon.SingletonPeerWrapper{}, // unstarted but non-nil to prevent panic
-		p2pID:       p2pk,
-	}
-
-	var cfg cctypes.OCR3ConfigWithMeta // zero value => commit plugin type
-
-	factory, transmitter, err := creator.createFactoryAndTransmitter(
-		1,
-		cfg,
-		types.NewRelayID(chainsel.FamilyEVM, "1"),
-		map[cciptypes.ChainSelector]cciptypes.ChainAccessor{},
-		map[cciptypes.ChainSelector]contractreader.Extended{},
-		map[cciptypes.ChainSelector]types.ContractWriter{},
-		/* destChainWriter */ nil,
-		/* destFromAccounts */ nil,
-		ocr3confighelper.PublicConfig{},
-		"evm",
-		"1",
-		ccipcommon.PluginServices{},
-		"",
-		map[cciptypes.ChainSelector]ocr3types.ContractTransmitter[[]byte]{},
-	)
-
-	require.Error(t, err, "expected error when peer wrapper not started")
-	require.Nil(t, factory)
-	require.Nil(t, transmitter)
-	require.Contains(t, err.Error(), "peer wrapper is not started")
-}
-
 // TestCreateFactoryAndTransmitter_NilDestChainWriter verifies that a NoOpTransmitter
 // is created when destChainWriter is nil for both commit and execute plugin types.
 func TestCreateFactoryAndTransmitter_NilDestChainWriter(t *testing.T) {
@@ -167,9 +125,10 @@ func TestCreateFactoryAndTransmitter_NilDestChainWriter(t *testing.T) {
 		name       string
 		pluginType cctypes.PluginType
 	}{
-		// Running only for execute because commit requires the peer wrapper to be started.
-		// pluginOracleCreator is currently using a pointer to a concrete type rather than an interface,
-		// so we can't mock the peer wrapper.
+		{
+			name:       "Commit Plugin",
+			pluginType: cctypes.PluginTypeCCIPCommit,
+		},
 		{
 			name:       "Execute Plugin",
 			pluginType: cctypes.PluginTypeCCIPExec,

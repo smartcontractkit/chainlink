@@ -1,13 +1,13 @@
 Optimize slow tests. See below sections for first checks and former lessons learned on this repo. If done with these suggestions, conduct your own exploration through code and logs to determine bottlenecks and hypothesize fixes. If you need extra logs/traces to confirm/deny theories, add them, or ask the user to.
 
 <first-look>
-1. Replace `t.Sleep()` and coarse polling with `require.Eventually` and tight intervals.
+1. Replace `time.Sleep()` and coarse polling with `require.Eventually` and tight intervals.
 2. Look to add `t.Parallel()` where safe and possible.
 3. Use `testing/synctest` where sensible to improve speed and stability.
 </first-look>
 
 <lessons-learned>
-1. Block mining bottleneck. Lower `cltest.Mine` frequency. Simulation resolve faster. Mine faster than `DeltaRound` or hit "cannot access old blocks" error.
+1. Block mining bottleneck. Lower `cltest.Mine` frequency. Simulation resolves faster. Mine faster than `DeltaRound` or hit "cannot access old blocks" error.
 2. EVM polling slow. Lower `LogPollInterval` to 100ms. Nodes find events faster.
 
 <node-config>

@@ -13,6 +13,7 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
@@ -198,8 +199,15 @@ func (r *RequestValidator) ValidateDeleteSecretsRequest(ctx context.Context, req
 	if request.RequestId == "" {
 		return errors.New("request ID must not be empty")
 	}
-	if len(request.Ids) >= vaulttypes.MaxBatchSize {
-		return errors.New("request batch size exceeds maximum of " + strconv.Itoa(vaulttypes.MaxBatchSize))
+	if err := r.MaxRequestBatchSizeLimiter.Check(ctx, len(request.Ids)); err != nil {
+		var errBoundLimited limits.ErrorBoundLimited[int]
+		if errors.As(err, &errBoundLimited) {
+			return fmt.Errorf("request batch size exceeds maximum of %d: %w", errBoundLimited.Limit, err)
+		}
+		return fmt.Errorf("failed to check request batch size limit: %w", err)
+	}
+	if len(request.Ids) == 0 {
+		return errors.New("request batch must contain at least 1 item")
 	}
 
 	uniqueIDs := map[string]bool{}
@@ -221,6 +229,17 @@ func (r *RequestValidator) ValidateDeleteSecretsRequest(ctx context.Context, req
 	return nil
 }
 
+func (r *RequestValidator) CheckRequestBatchSize(ctx context.Context, batchSize int) error {
+	if err := r.MaxRequestBatchSizeLimiter.Check(ctx, batchSize); err != nil {
+		var errBoundLimited limits.ErrorBoundLimited[int]
+		if errors.As(err, &errBoundLimited) {
+			return fmt.Errorf("max batch size exceeded for request: %w", err)
+		}
+		return errors.New("failed to check batch size")
+	}
+	return nil
+}
+
 func NewRequestValidator(
 	maxRequestBatchSizeLimiter limits.BoundLimiter[int],
 	maxCiphertextLengthLimiter limits.BoundLimiter[pkgconfig.Size],
@@ -235,6 +254,43 @@ func NewRequestValidator(
 		MaxIdentifierOwnerLengthLimiter:     maxIdentifierOwnerLengthLimiter,
 		MaxIdentifierNamespaceLengthLimiter: maxIdentifierNamespaceLengthLimiter,
 	}
+}
+
+// Close releases validator limiter resources.
+func (r *RequestValidator) Close() error {
+	return errors.Join(
+		r.MaxRequestBatchSizeLimiter.Close(),
+		r.MaxCiphertextLengthLimiter.Close(),
+		r.MaxIdentifierKeyLengthLimiter.Close(),
+		r.MaxIdentifierOwnerLengthLimiter.Close(),
+		r.MaxIdentifierNamespaceLengthLimiter.Close(),
+	)
+}
+
+// NewRequestValidatorFromLimitsFactory constructs a RequestValidator from CRE limits settings.
+func NewRequestValidatorFromLimitsFactory(limitsFactory limits.Factory) (*RequestValidator, error) {
+	limiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultRequestBatchSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create request batch size limiter: %w", err)
+	}
+	ciphertextLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.PerOwner.VaultCiphertextSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create ciphertext size limiter: %w", err)
+	}
+	idKeyLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierKeySizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create identifier key size limiter: %w", err)
+	}
+	idOwnerLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierOwnerSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create identifier owner size limiter: %w", err)
+	}
+	idNamespaceLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierNamespaceSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create identifier namespace size limiter: %w", err)
+	}
+	validator := NewRequestValidator(limiter, ciphertextLimiter, idKeyLengthLimiter, idOwnerLengthLimiter, idNamespaceLengthLimiter)
+	return validator, nil
 }
 
 // EnsureRightLabelOnSecret verifies that the TDH2 ciphertext label matches the workflow

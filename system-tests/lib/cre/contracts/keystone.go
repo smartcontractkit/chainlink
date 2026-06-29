@@ -93,10 +93,9 @@ func DeployKeystoneContracts(
 	}, nil
 }
 
-const DonFamily = "test-don-family"
-
 type donConfig struct {
-	id uint32 // the DON id as registered in the capabilities registry
+	id        uint32 // Capabilities Registry DON ID
+	donFamily string // nodesets.don_family → CapabilitiesRegistryNewDONParams.DonFamilies
 	keystone_changeset.DonCapabilities
 	flags []cre.CapabilityFlag
 }
@@ -287,7 +286,7 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 
 		donParams[i] = capabilities_registry_v2.CapabilitiesRegistryNewDONParams{
 			Name:                     don.Name,
-			DonFamilies:              []string{DonFamily}, // Default empty
+			DonFamilies:              []string{don.donFamily},
 			Config:                   []byte("{}"),
 			CapabilityConfigurations: capConfigs,
 			Nodes:                    donNodes,
@@ -434,6 +433,7 @@ func toDons(input cre.ConfigureCapabilityRegistryInput) (*dons, error) {
 
 		dons.c[donName] = donConfig{
 			id:              uint32(donMetadata.ID), //nolint:gosec // G115
+			donFamily:       donMetadata.DonFamily,
 			DonCapabilities: c,
 			flags:           donMetadata.Flags,
 		}

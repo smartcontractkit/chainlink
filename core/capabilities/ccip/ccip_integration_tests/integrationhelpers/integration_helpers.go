@@ -2,8 +2,6 @@ package integrationhelpers
 
 import (
 	"context"
-	"crypto/ed25519"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -12,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -22,9 +19,7 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
@@ -388,66 +383,4 @@ func SetupConfigInfo(chainSelector uint64, readers [][32]byte, fChain uint8, cfg
 			Config:  cfg,
 		},
 	}
-}
-
-func GenerateRMNHomeConfigs(
-	peerID string,
-	offchainPK string,
-	offchainCfg string,
-	chainSelector uint64,
-	f uint64,
-	observerBitmap *big.Int) (rmn_home.RMNHomeStaticConfig, rmn_home.RMNHomeDynamicConfig, error) {
-	peerIDByte, _ := hex.DecodeString(peerID)
-	var peerIDBytes [32]byte
-	copy(peerIDBytes[:], peerIDByte)
-
-	offchainPublicKey, err := hex.DecodeString(offchainPK)
-
-	if err != nil {
-		return rmn_home.RMNHomeStaticConfig{}, rmn_home.RMNHomeDynamicConfig{}, fmt.Errorf("error decoding offchain public key: %w", err)
-	}
-
-	var offchainPublicKeyBytes [32]byte
-	copy(offchainPublicKeyBytes[:], offchainPublicKey)
-
-	staticConfig := rmn_home.RMNHomeStaticConfig{
-		Nodes: []rmn_home.RMNHomeNode{
-			{
-				PeerId:            peerIDBytes,
-				OffchainPublicKey: offchainPublicKeyBytes,
-			},
-		},
-		OffchainConfig: []byte(offchainCfg),
-	}
-
-	dynamicConfig := rmn_home.RMNHomeDynamicConfig{
-		SourceChains: []rmn_home.RMNHomeSourceChain{
-			{
-				ChainSelector:       chainSelector,
-				FObserve:            f,
-				ObserverNodesBitmap: observerBitmap,
-			},
-		},
-		OffchainConfig: []byte(offchainCfg),
-	}
-	return staticConfig, dynamicConfig, nil
-}
-
-func GenerateExpectedRMNHomeNodesInfo(staticConfig rmn_home.RMNHomeStaticConfig, chainID int) []ccipreader.HomeNodeInfo {
-	expectedCandidateNodesInfo := make([]ccipreader.HomeNodeInfo, 0)
-
-	supportedCandidateSourceChains := mapset.NewSet(ccipocr3.ChainSelector(chainID))
-
-	var counter uint32
-	for _, n := range staticConfig.Nodes {
-		pk := ed25519.PublicKey(n.OffchainPublicKey[:])
-		expectedCandidateNodesInfo = append(expectedCandidateNodesInfo, ccipreader.HomeNodeInfo{
-			ID:                    ccipreader.NodeID(counter),
-			PeerID:                n.PeerId,
-			SupportedSourceChains: supportedCandidateSourceChains,
-			OffchainPublicKey:     &pk,
-		})
-		counter++
-	}
-	return expectedCandidateNodesInfo
 }

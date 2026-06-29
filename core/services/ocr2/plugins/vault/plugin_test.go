@@ -112,10 +112,10 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	assert.NotNil(t, typedRP.cfg.PublicKey)
 	assert.NotNil(t, typedRP.cfg.PrivateKeyShare)
 	assertLimit(t, 100, typedRP.cfg.MaxSecretsPerOwner)
-	assertLimit(t, 2000, typedRP.cfg.MaxCiphertextLengthBytes)
-	assertLimit(t, 64, typedRP.cfg.MaxIdentifierOwnerLengthBytes)
-	assertLimit(t, 64, typedRP.cfg.MaxIdentifierNamespaceLengthBytes)
-	assertLimit(t, 64, typedRP.cfg.MaxIdentifierKeyLengthBytes)
+	assertLimit(t, 2000, typedRP.validator.MaxCiphertextLengthLimiter)
+	assertLimit(t, 64, typedRP.validator.MaxIdentifierOwnerLengthLimiter)
+	assertLimit(t, 64, typedRP.validator.MaxIdentifierNamespaceLengthLimiter)
+	assertLimit(t, 64, typedRP.validator.MaxIdentifierKeyLengthLimiter)
 
 	infoObject, ok := info.(ocr3_1types.ReportingPluginInfo1)
 	assert.True(t, ok, "ReportingPluginInfo not of type ReportingPluginInfo1")
@@ -159,10 +159,10 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	assertLimit(t, cresettings.Default.VaultPluginBatchSizeLimit.DefaultValue, typedRP.cfg.MaxBatchSize)
 	assertLimit(t, cresettings.Default.VaultPendingQueueWriteSizeLimit.DefaultValue, typedRP.cfg.MaxPendingQueueWriteSize)
 	assertLimit(t, 2, typedRP.cfg.MaxSecretsPerOwner)
-	assertLimit(t, 2000, typedRP.cfg.MaxCiphertextLengthBytes)
-	assertLimit(t, 64, typedRP.cfg.MaxIdentifierOwnerLengthBytes)
-	assertLimit(t, 64, typedRP.cfg.MaxIdentifierNamespaceLengthBytes)
-	assertLimit(t, 64, typedRP.cfg.MaxIdentifierKeyLengthBytes)
+	assertLimit(t, 2000, typedRP.validator.MaxCiphertextLengthLimiter)
+	assertLimit(t, 64, typedRP.validator.MaxIdentifierOwnerLengthLimiter)
+	assertLimit(t, 64, typedRP.validator.MaxIdentifierNamespaceLengthLimiter)
+	assertLimit(t, 64, typedRP.validator.MaxIdentifierKeyLengthLimiter)
 
 	infoObject, ok = info.(ocr3_1types.ReportingPluginInfo1)
 	assert.True(t, ok, "ReportingPluginInfo not of type ReportingPluginInfo1")
@@ -4064,7 +4064,7 @@ func TestPlugin_Reports(t *testing.T) {
 
 	signedResp := proto.Clone(resp).(*vaultcommon.CreateSecretsResponse)
 	signedResp.RequestId = vaulttypes.KeyFor(id)
-	expectedBytes, err := vaultutils.ToCanonicalJSON(signedResp)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(signedResp, true)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o1.ReportWithInfo.Report))
 
@@ -4081,6 +4081,70 @@ func TestPlugin_Reports(t *testing.T) {
 	err = proto.Unmarshal(o2.ReportWithInfo.Report, o2r)
 	require.NoError(t, err)
 	assert.True(t, proto.Equal(resp2, o2r))
+}
+
+func TestPlugin_Reports_JSONReportOmitUnpopulated(t *testing.T) {
+	t.Parallel()
+
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "secret",
+	}
+	resp := &vaultcommon.CreateSecretsResponse{
+		Responses: []*vaultcommon.CreateSecretResponse{
+			{
+				Id:      id,
+				Success: true,
+				Error:   "",
+			},
+		},
+	}
+	os := &vaultcommon.Outcomes{
+		Outcomes: []*vaultcommon.Outcome{
+			{
+				Id:          vaulttypes.KeyFor(id),
+				RequestType: vaultcommon.RequestType_CREATE_SECRETS,
+				Response: &vaultcommon.Outcome_CreateSecretsResponse{
+					CreateSecretsResponse: resp,
+				},
+			},
+		},
+	}
+	osb, err := proto.Marshal(os)
+	require.NoError(t, err)
+
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+
+	t.Run("signed response request id enabled omits empty fields", func(t *testing.T) {
+		t.Parallel()
+
+		r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultSignedResponseRequestIDEnabled())
+		rs, err := r.Reports(t.Context(), uint64(1), osb)
+		require.NoError(t, err)
+		require.Len(t, rs, 1)
+
+		signedResp := proto.Clone(resp).(*vaultcommon.CreateSecretsResponse)
+		signedResp.RequestId = vaulttypes.KeyFor(id)
+		expectedBytes, err := vaultutils.ToCanonicalJSON(signedResp, true)
+		require.NoError(t, err)
+		assert.Equal(t, expectedBytes, []byte(rs[0].ReportWithInfo.Report))
+	})
+
+	t.Run("signed response request id disabled keeps empty fields", func(t *testing.T) {
+		t.Parallel()
+
+		r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+		rs, err := r.Reports(t.Context(), uint64(1), osb)
+		require.NoError(t, err)
+		require.Len(t, rs, 1)
+
+		expectedBytes, err := vaultutils.ToCanonicalJSON(resp, false)
+		require.NoError(t, err)
+		assert.Equal(t, expectedBytes, []byte(rs[0].ReportWithInfo.Report))
+		assert.Contains(t, string(rs[0].ReportWithInfo.Report), `"error":""`)
+	})
 }
 
 func TestPlugin_Observation_UpdateSecretsRequest_SecretIdentifierInvalid(t *testing.T) {
@@ -4661,7 +4725,7 @@ func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
 
 	signedResp := proto.Clone(resp).(*vaultcommon.UpdateSecretsResponse)
 	signedResp.RequestId = vaulttypes.KeyFor(id)
-	expectedBytes, err := vaultutils.ToCanonicalJSON(signedResp)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(signedResp, true)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
 }
@@ -5057,7 +5121,7 @@ func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
 
 	signedResp := proto.Clone(resp).(*vaultcommon.DeleteSecretsResponse)
 	signedResp.RequestId = vaulttypes.KeyFor(id)
-	expectedBytes, err := vaultutils.ToCanonicalJSON(signedResp)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(signedResp, true)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
 }
@@ -5401,7 +5465,7 @@ func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
 
 	signedResp := proto.Clone(resp).(*vaultcommon.ListSecretIdentifiersResponse)
 	signedResp.RequestId = vaulttypes.KeyFor(id)
-	expectedBytes, err := vaultutils.ToCanonicalJSON(signedResp)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(signedResp, true)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
 }
