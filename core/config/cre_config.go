@@ -28,9 +28,7 @@ type CREConfidentialRelay interface {
 	// TrustEnclaves reports whether the relay should trust fake (non-Nitro)
 	// enclaves by relaxing TEE attestation validation. INSECURE; test-only.
 	TrustEnclaves() bool
-	// RequireBFTQuorum selects the relay's signature quorum: when true it requires
-	// a Byzantine quorum of 2*F+1 unique signers, otherwise a crash-fault quorum
-	// of F+1. Defaults to false.
+	// RequireBFTQuorum selects the required signature quorum
 	RequireBFTQuorum() bool
 }
 

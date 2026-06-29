@@ -133,9 +133,7 @@ type Handler struct {
 
 	// validator validates TEE attestation documents.
 	validator AttestationValidator
-	// requireBFTQuorum selects the required signature quorum: when true the relay
-	// demands a Byzantine quorum of 2*F+1 unique signers, otherwise a crash-fault
-	// quorum of F+1.
+	// requireBFTQuorum selects the required signature quorum
 	requireBFTQuorum bool
 	limitsFactory    limits.Factory
 }

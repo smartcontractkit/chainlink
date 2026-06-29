@@ -105,10 +105,6 @@ func (c *creConfig) Linking() config.CRELinking {
 	return &linkingConfig{url: url, tlsEnabled: tlsEnabled}
 }
 
-// defaultRequireBFTQuorum is used when RequireBFTQuorum is not configured,
-// yielding a crash-fault quorum of F+1.
-const defaultRequireBFTQuorum = false
-
 type confidentialRelayConfig struct {
 	enabled          bool
 	trustEnclaves    bool
@@ -121,7 +117,7 @@ func (cr *confidentialRelayConfig) RequireBFTQuorum() bool { return cr.requireBF
 
 func (c *creConfig) ConfidentialRelay() config.CREConfidentialRelay {
 	if c.c.ConfidentialRelay == nil {
-		return &confidentialRelayConfig{requireBFTQuorum: defaultRequireBFTQuorum}
+		return &confidentialRelayConfig{}
 	}
 	enabled := false
 	if c.c.ConfidentialRelay.Enabled != nil {
@@ -131,7 +127,7 @@ func (c *creConfig) ConfidentialRelay() config.CREConfidentialRelay {
 	if c.c.ConfidentialRelay.TrustEnclaves != nil {
 		trustEnclaves = *c.c.ConfidentialRelay.TrustEnclaves
 	}
-	requireBFTQuorum := defaultRequireBFTQuorum
+	requireBFTQuorum := false
 	if c.c.ConfidentialRelay.RequireBFTQuorum != nil {
 		requireBFTQuorum = *c.c.ConfidentialRelay.RequireBFTQuorum
 	}

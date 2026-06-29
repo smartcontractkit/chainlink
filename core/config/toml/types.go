@@ -1961,9 +1961,7 @@ type ConfidentialRelayConfig struct {
 	// fake (non-Nitro) enclaves. INSECURE; intended only for tests/E2E that run
 	// against the fake enclave environment.
 	TrustEnclaves *bool `toml:",omitempty"`
-	// RequireBFTQuorum selects the signature quorum the relay requires from the
-	// Workflow DON: when true a Byzantine quorum of 2*F+1 unique signers, otherwise
-	// a crash-fault quorum of F+1. Defaults to false.
+	// RequireBFTQuorum selects the required signature quorum.
 	RequireBFTQuorum *bool `toml:",omitempty"`
 }
 

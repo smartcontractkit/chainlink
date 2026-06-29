@@ -971,7 +971,7 @@ DebugMode = false # Default
 Enabled = false # Default
 # TrustEnclaves relaxes TEE attestation validation so the relay trusts fake (non-Nitro) enclaves. intended only for tests.
 TrustEnclaves = false # Default
-# RequireBFTQuorum selects the relay's signature quorum: when true a Byzantine quorum of 2*F+1 unique signers, otherwise a crash-fault quorum of F+1.
+# RequireBFTQuorum selects the relay's signature quorum.
 RequireBFTQuorum = false # Default
 
 # Sharding holds settings for node sharding configuration.
