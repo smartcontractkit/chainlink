@@ -886,6 +886,11 @@ func TestVaultSignedResponseRequestIDEnabled_CRESettingDefaultsDisabled(t *testi
 	require.False(t, cresettings.Default.VaultSignedResponseRequestIDEnabled.DefaultValue)
 }
 
+func TestVaultJSONOmitUnpopulatedEnabled_CRESettingDefaultsDisabled(t *testing.T) {
+	t.Parallel()
+	require.False(t, cresettings.Default.VaultJSONOmitUnpopulatedEnabled.DefaultValue)
+}
+
 func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 	t.Parallel()
 	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")

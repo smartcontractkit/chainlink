@@ -62,6 +62,7 @@ type ReportingPluginConfig struct {
 	VaultForceEmptyOCRRounds                          limits.GateLimiter
 	VaultOptimizationsEnabled                         limits.GateLimiter
 	VaultSignedResponseRequestIDEnabled               limits.GateLimiter
+	VaultJSONOmitUnpopulatedEnabled                   limits.GateLimiter
 	VaultGetSecretsShareAggregationIncludesPublicKeys limits.GateLimiter
 }
 
@@ -197,6 +198,11 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		return nil, fmt.Errorf("VaultSignedResponseRequestIDEnabled: %w", err)
 	}
 
+	vaultJSONOmitUnpopulatedEnabled, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultJSONOmitUnpopulatedEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("VaultJSONOmitUnpopulatedEnabled: %w", err)
+	}
+
 	maxBlobPayloadBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultMaxBlobPayloadSizeLimit)
 	if err != nil {
 		return nil, fmt.Errorf("VaultMaxBlobPayloadSizeLimit: %w", err)
@@ -214,6 +220,7 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		VaultForceEmptyOCRRounds:                          vaultForceEmptyOCRRounds,
 		VaultOptimizationsEnabled:                         vaultOptimizationsEnabled,
 		VaultSignedResponseRequestIDEnabled:               vaultSignedResponseRequestIDEnabled,
+		VaultJSONOmitUnpopulatedEnabled:                   vaultJSONOmitUnpopulatedEnabled,
 		VaultGetSecretsShareAggregationIncludesPublicKeys: vaultGetSecretsShareAggregationIncludesPublicKeys,
 	}, nil
 }
@@ -582,6 +589,10 @@ func (r *ReportingPlugin) shareAggregationIncludesPublicKeys(ctx context.Context
 
 func (r *ReportingPlugin) signedResponseRequestIDEnabled(ctx context.Context) bool {
 	return gateAllows(ctx, r.lggr, r.cfg.VaultSignedResponseRequestIDEnabled, "VaultSignedResponseRequestIDEnabled")
+}
+
+func (r *ReportingPlugin) jsonOmitUnpopulatedEnabled(ctx context.Context) bool {
+	return gateAllows(ctx, r.lggr, r.cfg.VaultJSONOmitUnpopulatedEnabled, "VaultJSONOmitUnpopulatedEnabled")
 }
 
 type pendingQueueStore interface {
@@ -2461,7 +2472,7 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 			if r.signedResponseRequestIDEnabled(ctx) {
 				createResp.RequestId = o.Id
 			}
-			rep, err := r.generateJSONReport(o.Id, o.RequestType, createResp, r.signedResponseRequestIDEnabled(ctx))
+			rep, err := r.generateJSONReport(o.Id, o.RequestType, createResp, r.jsonOmitUnpopulatedEnabled(ctx))
 			if err != nil {
 				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
 				continue
@@ -2475,7 +2486,7 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 			if r.signedResponseRequestIDEnabled(ctx) {
 				updateResp.RequestId = o.Id
 			}
-			rep, err := r.generateJSONReport(o.Id, o.RequestType, updateResp, r.signedResponseRequestIDEnabled(ctx))
+			rep, err := r.generateJSONReport(o.Id, o.RequestType, updateResp, r.jsonOmitUnpopulatedEnabled(ctx))
 			if err != nil {
 				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
 				continue
@@ -2489,7 +2500,7 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 			if r.signedResponseRequestIDEnabled(ctx) {
 				deleteResp.RequestId = o.Id
 			}
-			rep, err := r.generateJSONReport(o.Id, o.RequestType, deleteResp, r.signedResponseRequestIDEnabled(ctx))
+			rep, err := r.generateJSONReport(o.Id, o.RequestType, deleteResp, r.jsonOmitUnpopulatedEnabled(ctx))
 			if err != nil {
 				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
 				continue
@@ -2503,7 +2514,7 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 			if r.signedResponseRequestIDEnabled(ctx) {
 				listResp.RequestId = o.Id
 			}
-			rep, err := r.generateJSONReport(o.Id, o.RequestType, listResp, r.signedResponseRequestIDEnabled(ctx))
+			rep, err := r.generateJSONReport(o.Id, o.RequestType, listResp, r.jsonOmitUnpopulatedEnabled(ctx))
 			if err != nil {
 				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
 				continue
