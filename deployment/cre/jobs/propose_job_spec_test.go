@@ -1771,8 +1771,6 @@ PerSenderBurst = 100
 		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
-		expectedChainID := chainsel.TEST_90000001.EvmChainID
-
 		for _, req := range reqs {
 			if !strings.Contains(req.Spec, `name = "ocr3-consensus-job"`) {
 				continue
@@ -1780,17 +1778,16 @@ PerSenderBurst = 100
 			// log each spec in readable yaml format
 			t.Logf("Job Spec:\n%s", req.Spec)
 			assert.Contains(t, req.Spec, `name = "ocr3-consensus-job"`)
-			assert.Contains(t, req.Spec, `bootstrap_peers = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]`)
-			assert.Contains(t, req.Spec, fmt.Sprintf(`chain_id = "%d"`, expectedChainID))
+			assert.NotContains(t, req.Spec, `bootstrap_peers`)
+			assert.NotContains(t, req.Spec, `chain_id`)
+			assert.NotContains(t, req.Spec, `ocr_contract_address`)
+			assert.NotContains(t, req.Spec, `ocr_key_bundle_id`)
+			assert.NotContains(t, req.Spec, `transmitter_id`)
+			assert.NotContains(t, req.Spec, `onchainSigningStrategy`)
 			assert.Contains(t, req.Spec, `command = "consensus"`)
 			assert.Contains(t, req.Spec, `config = """"""`)
 			assert.Contains(t, req.Spec, `[oracle_factory]`)
 			assert.Contains(t, req.Spec, `enabled = true`)
-			assert.Contains(t, req.Spec, `ocr_contract_address = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"`)
-			assert.Contains(t, req.Spec, `strategyName = "multi-chain"`)
-			assert.Contains(t, req.Spec, `evm = "fake_orc_bundle_evm"`)
-			assert.NotContains(t, req.Spec, `aptos = "fake_orc_bundle_aptos"`)
-			assert.Contains(t, req.Spec, `ocr_key_bundle_id = "fake_orc_bundle_evm"`)
 		}
 	})
 
@@ -1840,26 +1837,21 @@ PerSenderBurst = 100
 		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
-		expectedChainID := chainsel.TEST_90000001.EvmChainID
-
 		for _, req := range reqs {
 			if !strings.Contains(req.Spec, `name = "ocr3-consensus-job-aptos"`) {
 				continue
 			}
-			// log each spec in readable yaml format
 			t.Logf("Job Spec:\n%s", req.Spec)
 			assert.Contains(t, req.Spec, `name = "ocr3-consensus-job-aptos"`)
-			assert.Contains(t, req.Spec, `bootstrap_peers = ["12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001"]`)
-			assert.Contains(t, req.Spec, fmt.Sprintf(`chain_id = "%d"`, expectedChainID))
+			assert.NotContains(t, req.Spec, `bootstrap_peers`)
+			assert.NotContains(t, req.Spec, `chain_id`)
+			assert.NotContains(t, req.Spec, `ocr_contract_address`)
+			assert.NotContains(t, req.Spec, `aptos =`)
+			assert.NotContains(t, req.Spec, `evm =`)
 			assert.Contains(t, req.Spec, `command = "consensus"`)
 			assert.Contains(t, req.Spec, `config = """"""`)
 			assert.Contains(t, req.Spec, `[oracle_factory]`)
 			assert.Contains(t, req.Spec, `enabled = true`)
-			assert.Contains(t, req.Spec, `ocr_contract_address = "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"`)
-			assert.Contains(t, req.Spec, `strategyName = "multi-chain"`)
-			assert.Contains(t, req.Spec, `evm = "fake_orc_bundle_evm"`)
-			assert.Contains(t, req.Spec, `aptos = "fake_orc_bundle_aptos"`)
-			assert.Contains(t, req.Spec, `ocr_key_bundle_id = "fake_orc_bundle_evm"`)
 		}
 	})
 

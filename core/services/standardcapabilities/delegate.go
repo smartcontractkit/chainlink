@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/google/uuid"
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 
@@ -66,6 +67,7 @@ type Delegate struct {
 	creSettings             core.SettingsBroadcaster
 	ocrConfigService        capregconfig.OCRConfigService
 	localCfg                coreconfig.LocalCapabilities
+	capPeering              coreconfig.P2P
 	initErr                 error
 
 	isNewlyCreatedJob bool
@@ -98,6 +100,7 @@ func NewDelegate(
 	creSettings core.SettingsBroadcaster,
 	ocrConfigService capregconfig.OCRConfigService,
 	localCfg coreconfig.LocalCapabilities,
+	capPeering coreconfig.P2P,
 	opts ...func(*gateway.RoundRobinSelector),
 ) *Delegate {
 	initErr := registerOptionalMockStreamsTrigger(logger, localCfg, registry)
@@ -125,6 +128,7 @@ func NewDelegate(
 		creSettings:             creSettings,
 		ocrConfigService:        ocrConfigService,
 		localCfg:                localCfg,
+		capPeering:              capPeering,
 		initErr:                 initErr,
 		selectorOpts:            opts,
 	}
@@ -263,20 +267,44 @@ func (d *Delegate) NewServices(
 		log.Debugw("Resolved capability DON ID from registry", "capabilityID", capabilityID, "donID", capabilityDonID)
 	}
 
+	var defaultBootstrappers []ocrcommontypes.BootstrapperLocator
+	if d.capPeering != nil {
+		defaultBootstrappers = d.capPeering.V2().DefaultBootstrappers()
+	}
+
+	resolvedOracleFactory, resolvedSigning, resolveErr := generic.ResolveOracleFactoryConfig(generic.ResolveOracleFactoryConfigParams{
+		Context:              ctx,
+		Config:               oracleFactoryConfig,
+		OnchainSigning:       oracleFactoryConfig.OnchainSigning,
+		CapabilityID:         capabilityID,
+		LocalCfg:             d.localCfg,
+		DefaultBootstrappers: defaultBootstrappers,
+		OCRKeyBundle:         ocrEvmKeyBundle,
+		OCRKeystore:          d.ks.OCR2(),
+		EthKeystore:          d.ks.Eth(),
+		Logger:               log,
+	})
+	if resolveErr != nil {
+		return nil, fmt.Errorf("failed to resolve oracle factory config: %w", resolveErr)
+	}
+	oracleFactoryConfig = resolvedOracleFactory
+
 	var oracleFactory core.OracleFactory
 	// NOTE: special case for custom Oracle Factory for use in tests
 	if d.newOracleFactoryFn != nil {
 		oracleFactory, err = d.newOracleFactoryFn(generic.OracleFactoryParams{
-			Logger:           log,
-			JobORM:           d.jobORM,
-			JobID:            jobID,
-			JobName:          jobName,
-			KB:               ocrEvmKeyBundle,
-			Config:           oracleFactoryConfig,
-			PeerWrapper:      d.ocrPeerWrapper,
-			RelayerSet:       relayerSet,
-			OCRConfigService: d.ocrConfigService,
-			CapabilityID:     capabilityID,
+			Logger:               log,
+			JobORM:               d.jobORM,
+			JobID:                jobID,
+			JobName:              jobName,
+			KB:                   ocrEvmKeyBundle,
+			Config:               oracleFactoryConfig,
+			OnchainSigningStrategy: resolvedSigning,
+			PeerWrapper:          d.ocrPeerWrapper,
+			RelayerSet:           relayerSet,
+			OCRConfigService:     d.ocrConfigService,
+			CapabilityID:         capabilityID,
+			DefaultBootstrappers: defaultBootstrappers,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create oracle factory from function: %w", err)
@@ -295,13 +323,14 @@ func (d *Delegate) NewServices(
 			JobName:                jobName,
 			KB:                     ocrEvmKeyBundle,
 			Config:                 oracleFactoryConfig,
-			OnchainSigningStrategy: oracleFactoryConfig.OnchainSigning,
+			OnchainSigningStrategy: resolvedSigning,
 			PeerWrapper:            d.ocrPeerWrapper,
 			RelayerSet:             relayerSet,
 			OcrKeystore:            d.ks.OCR2(),
 			EthKeystore:            d.ks.Eth(),
 			OCRConfigService:       d.ocrConfigService,
 			CapabilityID:           capabilityID,
+			DefaultBootstrappers:   defaultBootstrappers,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create oracle factory: %w", err)
@@ -503,15 +532,13 @@ func ValidatedStandardCapabilitiesSpec(tomlString string) (job.Job, error) {
 		return jb, nil
 	}
 
-	// If Oracle Factory is enabled, it must have at least one bootstrap peer
-	if len(jb.StandardCapabilitiesSpec.OracleFactory.BootstrapPeers) == 0 {
-		return jb, errors.New("no bootstrap peers found")
-	}
-
-	// Validate bootstrap peers
-	_, err = ocrcommon.ParseBootstrapPeers(jb.StandardCapabilitiesSpec.OracleFactory.BootstrapPeers)
-	if err != nil {
-		return jb, errors.Wrap(err, "failed to parse bootstrap peers")
+	// Bootstrap peers may be omitted from the job spec; they are resolved at runtime
+	// from Capabilities.Peering.V2.DefaultBootstrappers when not set here.
+	if len(jb.StandardCapabilitiesSpec.OracleFactory.BootstrapPeers) > 0 {
+		_, err = ocrcommon.ParseBootstrapPeers(jb.StandardCapabilitiesSpec.OracleFactory.BootstrapPeers)
+		if err != nil {
+			return jb, errors.Wrap(err, "failed to parse bootstrap peers")
+		}
 	}
 
 	return jb, nil

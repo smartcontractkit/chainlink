@@ -299,6 +299,10 @@ func resolveJob(ctx context.Context, lggr logger.Logger, job pkg.StandardCapabil
 }
 
 func generateOracleFactory(cldEnv cldf.Environment, nodeInfo deployment.Node, job pkg.StandardCapabilityJob) (*pkg.OracleFactory, error) {
+	if job.MinimalOracleFactory {
+		return &pkg.OracleFactory{Enabled: true}, nil
+	}
+
 	contractChainSelector := job.ChainSelectorEVM
 	if job.OCRChainSelector != 0 {
 		contractChainSelector = job.OCRChainSelector

@@ -61,15 +61,14 @@ func Test_ValidatedStandardCapabilitiesSpec(t *testing.T) {
 			expectedError: "failed to parse bootstrap peers",
 		},
 		{
-			name: "invalid oracle config: missing bootstrap peers",
+			name: "valid minimal oracle config: bootstrap peers resolved at runtime",
 			tomlString: `
 			type="standardcapabilities"
-			command="path/to/binary"
+			command="consensus"
 
 			[oracle_factory]
 			enabled=true
 			`,
-			expectedError: "no bootstrap peers found",
 		},
 		{
 			name: "valid spec",
