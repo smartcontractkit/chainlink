@@ -243,16 +243,16 @@ func makeReportingPluginConfig(
 	require.NoError(t, err)
 
 	return &ReportingPluginConfig{
-		MaxBatchSize:                                      bsl,
-		MaxPendingQueueWriteSize:                          maxPendingQueueWriteSizeLimiter,
-		PublicKey:                                         publicKey,
-		PrivateKeyShare:                                   privateKeyShare,
-		MaxSecretsPerOwner:                                msl,
-		MaxShareLengthBytes:                               shareLimiter,
-		MaxBlobPayloadBytes:                               maxBlobPayloadLimiter,
-		VaultForceEmptyOCRRounds:                          limits.NewGateLimiter(false),
-		VaultOptimizationsEnabled:                         limits.NewGateLimiter(false),
-		VaultJSONOmitUnpopulatedEnabled:                   limits.NewGateLimiter(false),
+		MaxBatchSize:                    bsl,
+		MaxPendingQueueWriteSize:        maxPendingQueueWriteSizeLimiter,
+		PublicKey:                       publicKey,
+		PrivateKeyShare:                 privateKeyShare,
+		MaxSecretsPerOwner:              msl,
+		MaxShareLengthBytes:             shareLimiter,
+		MaxBlobPayloadBytes:             maxBlobPayloadLimiter,
+		VaultForceEmptyOCRRounds:        limits.NewGateLimiter(false),
+		VaultOptimizationsEnabled:       limits.NewGateLimiter(false),
+		VaultJSONOmitUnpopulatedEnabled: limits.NewGateLimiter(false),
 		VaultGetSecretsShareAggregationIncludesPublicKeys: limits.NewGateLimiter(false),
 	}
 }
