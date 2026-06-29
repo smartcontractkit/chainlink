@@ -231,9 +231,9 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 
 	switch msg.Method {
 	case types.MethodRegisterTrigger:
-		req, err := pb.UnmarshalTriggerRegistrationRequest(msg.Payload)
-		if err != nil {
-			p.lggr.Errorw("failed to unmarshal trigger registration request", "err", err)
+		req, unmarshalErr := pb.UnmarshalTriggerRegistrationRequest(msg.Payload)
+		if unmarshalErr != nil {
+			p.lggr.Errorw("failed to unmarshal trigger registration request", "err", unmarshalErr)
 			return
 		}
 		callerDon, ok := cfg.workflowDONs[msg.CallerDonId]
@@ -271,23 +271,23 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			p.lggr.Debugw("not ready to aggregate yet", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "minRequired", minRequired)
 			return
 		}
-		aggregated, err := aggregation.AggregateModeRaw(payloads, uint32(callerDon.F+1))
-		if err != nil {
-			p.lggr.Errorw("failed to aggregate trigger registrations", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", err)
+		aggregated, aggregateErr := aggregation.AggregateModeRaw(payloads, uint32(callerDon.F+1))
+		if aggregateErr != nil {
+			p.lggr.Errorw("failed to aggregate trigger registrations", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", aggregateErr)
 			return
 		}
-		unmarshaled, err := pb.UnmarshalTriggerRegistrationRequest(aggregated)
-		if err != nil {
-			p.lggr.Errorw("failed to unmarshal request", "err", err)
+		unmarshaled, unmarshalErr := pb.UnmarshalTriggerRegistrationRequest(aggregated)
+		if unmarshalErr != nil {
+			p.lggr.Errorw("failed to unmarshal request", "err", unmarshalErr)
 			return
 		}
 		ctx, cancel := p.stopCh.NewCtx()
-		callbackCh, err := cfg.underlying.RegisterTrigger(ctx, unmarshaled)
+		callbackCh, registerErr := cfg.underlying.RegisterTrigger(ctx, unmarshaled)
 		capAttrs := metric.WithAttributes(
 			attribute.String("capabilityID", p.capabilityID),
 			attribute.String("callerDonID", strconv.FormatUint(uint64(key.callerDonID), 10)),
 		)
-		if err == nil {
+		if registerErr == nil {
 			p.metrics.registerTriggerCounter.Add(ctx, 1, capAttrs, metric.WithAttributes(attribute.String("outcome", "success")))
 			p.registrations[key] = &pubRegState{
 				callback: callbackCh,
@@ -301,13 +301,13 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			p.metrics.registerTriggerCounter.Add(ctx, 1, capAttrs, metric.WithAttributes(attribute.String("outcome", "error")))
 			cancel()
 			var capErr caperrors.Error
-			if errors.As(err, &capErr) && capErr.Origin() == caperrors.OriginUser {
-				p.registrations[key] = &pubRegState{registrationErr: err}
+			if errors.As(registerErr, &capErr) && capErr.Origin() == caperrors.OriginUser {
+				p.registrations[key] = &pubRegState{registrationErr: registerErr}
 				p.lggr.Errorw("trigger registration failed with user error; will not retry",
-					"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", err)
+					"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", registerErr)
 			} else {
 				p.lggr.Errorw("trigger registration failed with system error; will retry",
-					"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", err)
+					"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", registerErr)
 			}
 		}
 	case types.MethodUnregisterTrigger:
@@ -544,10 +544,7 @@ func (p *triggerPublisher) sendRegistrationChecks() {
 		}
 
 		for offset := 0; offset < len(keys); offset += chunkSize {
-			end := offset + chunkSize
-			if end > len(keys) {
-				end = len(keys)
-			}
+			end := min(offset+chunkSize, len(keys))
 			chunk := keys[offset:end]
 			workflowIDs := make([]string, len(chunk))
 			triggerIDs := make([]string, len(chunk))
@@ -625,9 +622,9 @@ func (p *triggerPublisher) triggerEventLoop(callbackCh <-chan commoncap.TriggerR
 
 func (p *triggerPublisher) enqueueForBatching(rawResponse []byte, key registrationKey, triggerEventID string) {
 	// put in batching queue, group by hash(callerDonId, triggerEventID, response)
-	combined := make([]byte, 4)
-	binary.LittleEndian.PutUint32(combined, key.callerDonID)
-	combined = append(combined, []byte(triggerEventID)...)
+	combined := make([]byte, 0, 4+len(triggerEventID)+len(rawResponse))
+	combined = binary.LittleEndian.AppendUint32(combined, key.callerDonID)
+	combined = append(combined, triggerEventID...)
 	combined = append(combined, rawResponse...)
 	sha := sha256.Sum256(combined)
 	p.bqMu.Lock()
