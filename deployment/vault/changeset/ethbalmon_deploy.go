@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	proposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
@@ -96,11 +97,11 @@ func (d deployEthBalMon) Apply(e cldf.Environment, config vaulttypes.DeployEthBa
 	contractsByChain := make(map[uint64]string)
 
 	for _, chainOut := range seqOut.Chains {
-		contractsByChain[chainOut.ChainSelector] = chainOut.ContractAddress
+		contractsByChain[chainOut.ChainSelector] = chainOut.EthBalMonContractAddress
 
 		ethBalmonAddressRef := ds.AddressRef{
 			ChainSelector: chainOut.ChainSelector,
-			Address:       chainOut.ContractAddress,
+			Address:       chainOut.EthBalMonContractAddress,
 			Type:          ds.ContractType(vaulttypes.EthBalMonContractType),
 			Version:       semver.MustParse("1.0.0"),
 			Qualifier:     "",
@@ -121,15 +122,15 @@ func (d deployEthBalMon) Apply(e cldf.Environment, config vaulttypes.DeployEthBa
 
 		contractMetadata := ds.ContractMetadata{
 			ChainSelector: chainOut.ChainSelector,
-			Address:       chainOut.ContractAddress,
+			Address:       chainOut.EthBalMonContractAddress,
 			Metadata: map[string]any{
-				"deployTxHash":            chainOut.DeployTxHash,
-				"deployBlockNumber":       chainOut.DeployBlockNumber,
-				"keeperRegistryAddress":   chainOut.KeeperRegistryAddress,
-				"minWaitPeriodSeconds":    chainOut.MinWaitPeriodSeconds,
-				"timelockAddress":         chainOut.TimelockAddress,
-				"mcmsAddress":             chainOut.MCMSAddress,
-				"transferOwnershipTxHash": chainOut.TransferOwnershipTxHash,
+				"deployEthBalMonTxHash":     chainOut.DeployEthBalMonTxHash,
+				"deployBlockNumber":         chainOut.DeployBlockNumber,
+				"automationReceiverAddress": chainOut.AutomationReceiverAddress,
+				"minWaitPeriodSeconds":      chainOut.MinWaitPeriodSeconds,
+				"timelockAddress":           chainOut.TimelockAddress,
+				"mcmsAddress":               chainOut.MCMSAddress,
+				"transferOwnershipTxHash":   chainOut.TransferOwnershipTxHash,
 			},
 		}
 
@@ -177,8 +178,8 @@ type DeployEthBalMonSequenceInput struct {
 }
 type DeployEthBalMonPerChainOutput struct {
 	ChainSelector             uint64
-	ContractAddress           string
-	DeployTxHash              string
+	EthBalMonContractAddress  string
+	DeployEthBalMonTxHash     string
 	DeployBlockNumber         uint64
 	KeeperRegistryAddress     string
 	MinWaitPeriodSeconds      uint64
@@ -240,7 +241,7 @@ var DeployEthBalMonSequence = operations.NewSequence(
 				return DeployEthBalMonSequenceOutput{}, fmt.Errorf("chain %d: deploy AutomationReceiver operation failed: %w", chainSelector, err)
 			}
 
-			deployReport, err := operations.ExecuteOperation(
+			deployEthBalMonContractReport, err := operations.ExecuteOperation(
 				b,
 				DeployEthBalMonContractOperation,
 				deps,
@@ -253,32 +254,70 @@ var DeployEthBalMonSequence = operations.NewSequence(
 			if err != nil {
 				return DeployEthBalMonSequenceOutput{}, fmt.Errorf("chain %d: deploy operation failed: %w", chainSelector, err)
 			}
-			deployOut := deployReport.Output
-			transferReport, err := operations.ExecuteOperation(
+			deployEthBalMonContractOut := deployEthBalMonContractReport.Output
+
+			performUpkeepSig := crypto.Keccak256([]byte("performUpkeep(bytes)"))
+			var performUpkeepSelector [4]byte
+			copy(performUpkeepSelector[:], performUpkeepSig[:4])
+
+			// Setting authorized call on AutomationReceiver (EthBalMon upkeep)
+			_, err = operations.ExecuteOperation(
+				b,
+				SetCallAllowedOperation,
+				deps,
+				SetCallAllowedOperationInput{
+					ChainSelector:             chainSelector,
+					AutomationReceiverAddress: deployAutomationReceiversReport.Output.AutomationReceiverAddress,
+					TargetAddress:             deployEthBalMonContractOut.ContractAddress,
+					Selector:                  performUpkeepSelector,
+					Allowed:                   true,
+				},
+			)
+			if err != nil {
+				return DeployEthBalMonSequenceOutput{}, fmt.Errorf("chain %d: setCallAllowed operation failed: %w", chainSelector, err)
+			}
+
+			// Transfer AutomationReceiver ownership to Timelock
+			_, err = operations.ExecuteOperation(
+				b,
+				TransferAutomationReceiverOwnershipOperation,
+				deps,
+				TransferAutomationReceiverOwnershipInput{
+					ChainSelector:             chainSelector,
+					AutomationReceiverAddress: deployAutomationReceiversReport.Output.AutomationReceiverAddress,
+					TimelockAddress:           timelockAddr,
+				},
+			)
+			if err != nil {
+				return DeployEthBalMonSequenceOutput{}, fmt.Errorf("chain %d: transfer AutomationReceiver ownership failed: %w", chainSelector, err)
+			}
+
+			transferEthBalMonOwnershipReport, err := operations.ExecuteOperation(
 				b,
 				TransferOwnershipOperation,
 				deps,
 				TransferEthBalMonOwnershipInput{
 					ChainSelector:   chainSelector,
-					ContractAddress: deployOut.ContractAddress,
+					ContractAddress: deployEthBalMonContractOut.ContractAddress,
 					TimelockAddress: timelockAddr,
 				},
 			)
 			if err != nil {
 				return DeployEthBalMonSequenceOutput{}, fmt.Errorf("chain %d: transfer ownership operation failed: %w", chainSelector, err)
 			}
-			transferOut := transferReport.Output
+			transferEthBalMonOwnershipOut := transferEthBalMonOwnershipReport.Output
 
 			out.Chains = append(out.Chains, DeployEthBalMonPerChainOutput{
-				ChainSelector:           chainSelector,
-				ContractAddress:         deployOut.ContractAddress,
-				DeployTxHash:            deployOut.TxHash,
-				DeployBlockNumber:       deployOut.BlockNumber,
-				KeeperRegistryAddress:   deployOut.KeeperRegistryAddress,
-				MinWaitPeriodSeconds:    deployOut.MinWaitPeriodSeconds,
-				TimelockAddress:         timelockAddr,
-				MCMSAddress:             mcmsAddr,
-				TransferOwnershipTxHash: transferOut.TxHash,
+				ChainSelector:             chainSelector,
+				EthBalMonContractAddress:  deployEthBalMonContractOut.ContractAddress,
+				DeployEthBalMonTxHash:     deployEthBalMonContractOut.TxHash,
+				DeployBlockNumber:         deployEthBalMonContractOut.BlockNumber,
+				KeeperRegistryAddress:     deployEthBalMonContractOut.KeeperRegistryAddress,
+				MinWaitPeriodSeconds:      deployEthBalMonContractOut.MinWaitPeriodSeconds,
+				TimelockAddress:           timelockAddr,
+				MCMSAddress:               mcmsAddr,
+				TransferOwnershipTxHash:   transferEthBalMonOwnershipOut.TxHash,
+				AutomationReceiverAddress: deployAutomationReceiversReport.Output.AutomationReceiverAddress,
 			})
 		}
 		return out, nil
@@ -338,6 +377,143 @@ var DeployAutomationReceiverOperation = operations.NewOperation(
 		return DeployAutomationReceiverOutput{
 			ChainSelector:             input.ChainSelector,
 			AutomationReceiverAddress: automationReceiverAddr.Hex(),
+		}, nil
+	},
+)
+
+// ================================================
+// ================================================
+// SetCallAllowed OPERATION
+// ================================================
+// ================================================
+
+type SetCallAllowedOperationInput struct {
+	ChainSelector             uint64  `json:"chain_selector"`
+	AutomationReceiverAddress string  `json:"automation_receiver_address"`
+	TargetAddress             string  `json:"target_address"`
+	Selector                  [4]byte `json:"selector"`
+	Allowed                   bool    `json:"allowed"`
+}
+
+type SetCallAllowedOperationOutput struct {
+	ChainSelector uint64 `json:"chain_selector"`
+	TxHash        string `json:"tx_hash"`
+}
+
+var SetCallAllowedOperation = operations.NewOperation(
+	"set-call-allowed",
+	semver.MustParse("1.0.0"),
+	"Allow or disallow a (target, selector) pair on AutomationReceiver",
+	func(b operations.Bundle, deps VaultDeps, input SetCallAllowedOperationInput) (SetCallAllowedOperationOutput, error) {
+		chain, ok := deps.Environment.BlockChains.EVMChains()[input.ChainSelector]
+		if !ok {
+			return SetCallAllowedOperationOutput{}, fmt.Errorf("chain not found in environment: %d", input.ChainSelector)
+		}
+
+		receiverAutomationContract, err := automation_receiver.NewAutomationReceiver(
+			common.HexToAddress(input.AutomationReceiverAddress),
+			chain.Client,
+		)
+		if err != nil {
+			return SetCallAllowedOperationOutput{}, fmt.Errorf("failed to instantiate AutomationReceiver at %s: %w", input.AutomationReceiverAddress, err)
+		}
+
+		b.Logger.Infow("Calling setCallAllowed on AutomationReceiver",
+			"chainSelector", input.ChainSelector,
+			"automationReceiverAddress", input.AutomationReceiverAddress,
+			"target", input.TargetAddress,
+			"selector", fmt.Sprintf("0x%x", input.Selector),
+			"allowed", input.Allowed,
+		)
+
+		tx, err := receiverAutomationContract.SetCallAllowed(
+			chain.DeployerKey,
+			common.HexToAddress(input.TargetAddress),
+			input.Selector,
+			input.Allowed,
+		)
+		if err != nil {
+			return SetCallAllowedOperationOutput{}, fmt.Errorf("failed to call setCallAllowed: %w", err)
+		}
+
+		if _, err := chain.Confirm(tx); err != nil {
+			return SetCallAllowedOperationOutput{}, fmt.Errorf("failed to confirm setCallAllowed tx %s: %w", tx.Hash().Hex(), err)
+		}
+
+		b.Logger.Infow("setCallAllowed confirmed",
+			"chainSelector", input.ChainSelector,
+			"txHash", tx.Hash().Hex(),
+		)
+
+		return SetCallAllowedOperationOutput{
+			ChainSelector: input.ChainSelector,
+			TxHash:        tx.Hash().Hex(),
+		}, nil
+	},
+)
+
+// ================================================
+// ================================================
+// Transfer AutomationReceiver Ownership OPERATION
+// ================================================
+// ================================================
+
+type TransferAutomationReceiverOwnershipInput struct {
+	ChainSelector             uint64 `json:"chain_selector"`
+	AutomationReceiverAddress string `json:"automation_receiver_address"`
+	TimelockAddress           string `json:"timelock_address"`
+}
+
+type TransferAutomationReceiverOwnershipOutput struct {
+	ChainSelector uint64 `json:"chain_selector"`
+	TxHash        string `json:"tx_hash"`
+}
+
+var TransferAutomationReceiverOwnershipOperation = operations.NewOperation(
+	"transfer-automation-receiver-ownership",
+	semver.MustParse("1.0.0"),
+	"Transfer AutomationReceiver ownership to Timelock (OZ Ownable single-step)",
+	func(b operations.Bundle, deps VaultDeps, input TransferAutomationReceiverOwnershipInput) (TransferAutomationReceiverOwnershipOutput, error) {
+		chain, ok := deps.Environment.BlockChains.EVMChains()[input.ChainSelector]
+		if !ok {
+			return TransferAutomationReceiverOwnershipOutput{}, fmt.Errorf("chain not found in environment: %d", input.ChainSelector)
+		}
+
+		receiver, err := automation_receiver.NewAutomationReceiver(
+			common.HexToAddress(input.AutomationReceiverAddress),
+			chain.Client,
+		)
+		if err != nil {
+			return TransferAutomationReceiverOwnershipOutput{}, fmt.Errorf("failed to instantiate AutomationReceiver at %s: %w", input.AutomationReceiverAddress, err)
+		}
+
+		b.Logger.Infow("Transferring AutomationReceiver ownership to Timelock",
+			"chainSelector", input.ChainSelector,
+			"automationReceiverAddress", input.AutomationReceiverAddress,
+			"timelockAddress", input.TimelockAddress,
+		)
+
+		tx, err := receiver.TransferOwnership(
+			chain.DeployerKey,
+			common.HexToAddress(input.TimelockAddress),
+		)
+		if err != nil {
+			return TransferAutomationReceiverOwnershipOutput{}, fmt.Errorf("failed to transfer AutomationReceiver ownership: %w", err)
+		}
+
+		if _, err := chain.Confirm(tx); err != nil {
+			return TransferAutomationReceiverOwnershipOutput{}, fmt.Errorf("failed to confirm ownership transfer tx %s: %w", tx.Hash().Hex(), err)
+		}
+
+		b.Logger.Infow("AutomationReceiver ownership transferred successfully",
+			"chainSelector", input.ChainSelector,
+			"timelockAddress", input.TimelockAddress,
+			"txHash", tx.Hash().Hex(),
+		)
+
+		return TransferAutomationReceiverOwnershipOutput{
+			ChainSelector: input.ChainSelector,
+			TxHash:        tx.Hash().Hex(),
 		}, nil
 	},
 )

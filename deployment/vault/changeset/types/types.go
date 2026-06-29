@@ -179,6 +179,34 @@ type EthBalMonTransferOwnershipInput struct {
 	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config,omitempty"`
 }
 
+// AutomationReceiverChainConfig is deployment-time configuration for AutomationReceiver on one chain.
+type AutomationReceiverChainConfig struct {
+	// ForwarderAddress is the CRE forwarder address passed to the AutomationReceiver constructor.
+	ForwarderAddress string `json:"forwarderAddress"`
+}
+
+// DeployAutomationReceiverInput is the input to the standalone AutomationReceiver deploy changeset.
+type DeployAutomationReceiverInput struct {
+	Chains map[uint64]AutomationReceiverChainConfig `json:"chains"`
+}
+
+// SetCallAllowedChainConfig configures a single setCallAllowed call on one chain.
+type SetCallAllowedChainConfig struct {
+	// AutomationReceiverAddress is the deployed AutomationReceiver contract address (hex).
+	AutomationReceiverAddress string `json:"automationReceiverAddress"`
+	// TargetAddress is the contract that AutomationReceiver is allowed (or disallowed) to call (hex).
+	TargetAddress string `json:"targetAddress"`
+	// Selector is the 4-byte function selector as a hex string, e.g. "0x4b9f5c20".
+	Selector string `json:"selector"`
+	// Allowed sets whether the (target, selector) pair is permitted.
+	Allowed bool `json:"allowed"`
+}
+
+// SetCallAllowedInput is the input to the setCallAllowed changeset.
+type SetCallAllowedInput struct {
+	Chains map[uint64]SetCallAllowedChainConfig `json:"chains"`
+}
+
 // EthBalMonAcceptOwnershipInput is the input to the EthBalMon acceptOwnership changeset.
 // Chains is the list of chain selectors on which to call acceptOwnership on the EthBalMon instance.
 type EthBalMonAcceptOwnershipInput struct {
