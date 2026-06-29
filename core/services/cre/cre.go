@@ -79,6 +79,7 @@ type Keystore interface {
 // Opts are the options for the CRE services that are exposed by the application
 type Opts struct {
 	CapabilitiesRegistry    *capabilities.Registry
+	ExecutionHandlers       *confidentialrelay.ExecutionHandlers
 	CapabilitiesDispatcher  remotetypes.Dispatcher
 	CapabilitiesPeerWrapper p2ptypes.PeerWrapper
 
@@ -213,6 +214,7 @@ func (s *Services) newSubservices(
 			relayService := confidentialrelay.NewService(
 				gatewayConnectorWrapper,
 				opts.CapabilitiesRegistry,
+				opts.ExecutionHandlers,
 				keyStore.P2P(),
 				confidentialRelayPeerID(cfg, capCfg),
 				lggr,
@@ -1069,6 +1071,7 @@ func newWorkflowRegistrySyncerV2(
 		dontimeStore,
 		opts.UseLocalTimeProvider,
 		opts.CapabilitiesRegistry,
+		opts.ExecutionHandlers,
 		engineRegistry,
 		custmsg.NewLabeler(),
 		engineLimiters,
