@@ -31,7 +31,6 @@ func makeSignedCreateSecretsResponse(t *testing.T, requestID string, numSigners 
 	t.Helper()
 
 	createResp := &vaultcommon.CreateSecretsResponse{
-		RequestId: requestID,
 		Responses: []*vaultcommon.CreateSecretResponse{
 			{
 				Id: &vaultcommon.SecretIdentifier{
