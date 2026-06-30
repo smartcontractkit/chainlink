@@ -77,7 +77,7 @@ func buildBinary(pkgPath string) ([]byte, error) {
 	buildPath := filepath.Join(tmpDir, "output.wasm")
 	// -trimpath strips machine-specific absolute paths from the binary so the committed
 	// fixture is reproducible across machines (required for the CI dirty-tree check).
-	cmd := exec.CommandContext(cmdCtx, "go", "build", "-trimpath", "-o", buildPath, pkgPath) // #nosec
+	cmd := exec.CommandContext(cmdCtx, "go", "build", "-trimpath", "-buildvcs=false", "-o", buildPath, pkgPath) // #nosec
 	cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
 
 	output, err := cmd.CombinedOutput()
