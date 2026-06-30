@@ -468,7 +468,7 @@ func (t *clientTestServer) sendResponse(messageID string, responseErr error,
 
 type clientSetConfigTestFixture struct {
 	Client interface {
-		SetConfig(commoncap.CapabilityInfo, commoncap.DON, time.Duration, *transmission.TransmissionConfig, [][]byte) error
+		SetConfig(commoncap.CapabilityInfo, commoncap.DON, time.Duration, *transmission.TransmissionConfig, [][]byte, uint32) error
 		Info(context.Context) (commoncap.CapabilityInfo, error)
 		Start(context.Context) error
 		Close() error
