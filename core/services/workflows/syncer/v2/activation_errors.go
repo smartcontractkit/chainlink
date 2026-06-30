@@ -2,6 +2,7 @@ package v2
 
 import (
 	"errors"
+	"math"
 	"strings"
 
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
@@ -20,6 +21,16 @@ const (
 	// (permanent user/config errors).
 	ActivationNonRetryable
 )
+
+func activationRetryCountAsInt32(retryCount int) int32 {
+	if retryCount < 0 {
+		return 0
+	}
+	if retryCount > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	return int32(retryCount)
+}
 
 func activationAbandonReasonMetricLabel(reason eventsv2.ActivationAbandonReason) string {
 	switch reason {

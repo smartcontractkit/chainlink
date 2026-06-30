@@ -118,7 +118,7 @@ func EmitWorkflowActivationAbandonedV2(
 	event := &eventsv2.WorkflowActivationAbandoned{
 		CreInfo:      buildCREMetadataV2(labels),
 		Workflow:     buildWorkflowV2(labels, binaryURL, configURL),
-		Timestamp:    uint64(time.Now().Unix()),
+		Timestamp:    uint64(time.Now().Unix()), //nolint:gosec // G115: unix timestamp is non-negative
 		ErrorMessage: errorMessage,
 		Reason:       reason,
 		RetryCount:   retryCount,

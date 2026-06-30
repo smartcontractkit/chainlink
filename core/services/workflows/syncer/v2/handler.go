@@ -15,8 +15,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
-
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -29,10 +28,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	generichost "github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
-
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
@@ -1125,7 +1123,7 @@ func (h *eventHandler) EmitActivationAbandoned(
 	event Event,
 	reason eventsv2.ActivationAbandonReason,
 	activationErr error,
-	retryCount int,
+	retryCount int32,
 ) error {
 	if event.Name != WorkflowActivated || h == nil || h.emitter == nil {
 		return nil
@@ -1163,7 +1161,7 @@ func (h *eventHandler) EmitActivationAbandoned(
 		payload.ConfigURL,
 		reason,
 		customerFacingError(activationErr),
-		int32(retryCount),
+		retryCount,
 	)
 }
 

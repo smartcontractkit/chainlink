@@ -23,9 +23,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
+	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/versioning"
 )
@@ -136,7 +136,7 @@ type evtHandler interface {
 	Start(context.Context) error
 
 	Handle(ctx context.Context, event Event) error
-	EmitActivationAbandoned(ctx context.Context, event Event, reason eventsv2.ActivationAbandonReason, activationErr error, retryCount int) error
+	EmitActivationAbandoned(ctx context.Context, event Event, reason eventsv2.ActivationAbandonReason, activationErr error, retryCount int32) error
 }
 
 type donNotifier interface {
@@ -480,7 +480,7 @@ func (w *workflowRegistry) abandonActivation(
 		"workflowInfo", evt.Info,
 		"err", activationErr,
 	)
-	if err := w.handler.EmitActivationAbandoned(ctx, evt.Event, reason, activationErr, evt.retryCount); err != nil {
+	if err := w.handler.EmitActivationAbandoned(ctx, evt.Event, reason, activationErr, activationRetryCountAsInt32(evt.retryCount)); err != nil {
 		w.lggr.Errorw("failed to emit activation abandoned event", "err", err)
 	}
 }
