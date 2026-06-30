@@ -1,5 +1,17 @@
 # Changelog Chainlink Core
 
+## 2.54.0
+
+### Minor Changes
+
+- [#22929](https://github.com/smartcontractkit/chainlink/pull/22929) [`f0d09ca`](https://github.com/smartcontractkit/chainlink/commit/f0d09ca537389e76a7e63f7fa2cccae9ca8b4192) - Minor bump to start next version
+
+- [#22905](https://github.com/smartcontractkit/chainlink/pull/22905) [`9570a4d`](https://github.com/smartcontractkit/chainlink/commit/9570a4d44980e9c6d853ee7d5e8a59c5e8f0606b) - #nops: Hard-set UID and GID when CHAINLINK_USER is non-root, and document container RootDir and safe volume mount conventions for operators.
+
+### Patch Changes
+
+- [#22733](https://github.com/smartcontractkit/chainlink/pull/22733) [`6624255`](https://github.com/smartcontractkit/chainlink/commit/66242557bd126cb8fe0bab390d6b75747408cdad) - Require explicit `don_family` on every nodeset for local CRE topologies. Gateway connectors, gateway worker jobs, capabilities registry families, and `env workflow deploy` are scoped by family. Deploy resolves the target workflow DON via `--don-family` (with optional `--shard-index`) or `--workflow-don-name`, and requires `--don-family` when local CRE state is absent. #internal
+
 ## 2.53.0
 
 ### Minor Changes
