@@ -1,5 +1,8 @@
 package v2_test
 
+//go:generate go run ../../../internal/testutils/wasmtest/generator/main.go -pkg core/services/workflows/test/wasm/v2/cmd
+//go:generate go run ../../../internal/testutils/wasmtest/generator/main.go -pkg core/services/workflows/test/wasm/v2/cmd/with_config
+//go:generate go run ../../../internal/testutils/wasmtest/generator/main.go -pkg core/services/workflows/test/wasm/v2/cmd/with_secrets
 import (
 	"context"
 	"crypto/ed25519"
@@ -1515,7 +1518,7 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 	t.Parallel()
 	cmd := "core/services/workflows/test/wasm/v2/cmd"
 	log := logger.Test(t)
-	binaryB := wasmtest.CreateTestBinary(t, cmd, false)
+	binaryB := wasmtest.GetTestBinary(t, cmd, false)
 	module, err := host.NewModule(t.Context(), &host.ModuleConfig{
 		Logger:         log,
 		IsUncompressed: true,
@@ -1597,7 +1600,7 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 
 func TestEngine_WASMBinary_With_Config(t *testing.T) { //nolint:paralleltest // Can't use t.Parallel() with beholdertest.NewObserver(t)
 	cmd := "core/services/workflows/test/wasm/v2/cmd/with_config"
-	binaryB := wasmtest.CreateTestBinary(t, cmd, false)
+	binaryB := wasmtest.GetTestBinary(t, cmd, false)
 
 	// Define a custom config to validate against
 	giveName := "Foo"
@@ -1694,7 +1697,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) { //nolint:paralleltest // 
 func TestSecretsFetcher_Integration(t *testing.T) {
 	t.Parallel()
 	cmd := "core/services/workflows/test/wasm/v2/cmd/with_secrets"
-	binaryB := wasmtest.CreateTestBinary(t, cmd, false)
+	binaryB := wasmtest.GetTestBinary(t, cmd, false)
 
 	// Define a custom config to validate against
 	giveName := "Foo"

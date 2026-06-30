@@ -5,8 +5,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -15,64 +15,53 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var (
-	binaryOnce   = make(map[string]func() ([]byte, error))
-	binaryOnceMu sync.Mutex
-)
-
-// CreateTestBinary looks up the WASM binary from outputPath and optionally brotli-compresses it.
-// Results are cached across test runs by saving the binary to the package directory with a hash.
-// Within a single test process, results are further cached via sync.OnceValues.
-func CreateTestBinary(tb testing.TB, outputPath string, compress bool) []byte {
-	tb.Helper()
-	cacheKey := fmt.Sprintf("%s-%t", outputPath, compress)
-
-	binaryOnceMu.Lock()
-	once, ok := binaryOnce[cacheKey]
+var getRepoRoot = sync.OnceValues(func() (string, error) {
+	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
-		once = sync.OnceValues(func() ([]byte, error) {
-			pkgPath := "github.com/smartcontractkit/chainlink/v2/" + outputPath
-
-			// Find the absolute directory of the package to store the cached binary
-			listCmd := exec.Command("go", "list", "-f", "{{.Dir}}", pkgPath)
-			listCmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
-			out, err := listCmd.Output()
-			if err != nil {
-				return nil, fmt.Errorf("failed to find package dir for %s: %w\n%s", pkgPath, err, string(out))
-			}
-			pkgDir := strings.TrimSpace(string(out))
-
-			hash, err := HashPackage(pkgDir)
-			if err != nil {
-				return nil, fmt.Errorf("failed to hash package: %w", err)
-			}
-
-			// Determine output filename
-			cacheFile := fmt.Sprintf("output-%s.wasm", hash)
-			if compress {
-				cacheFile += ".br"
-			}
-			testdataDir := filepath.Join(pkgDir, "testdata")
-			filePath := filepath.Join(testdataDir, cacheFile)
-
-			if _, err := os.Stat(filePath); os.IsNotExist(err) {
-				return nil, fmt.Errorf("WASM fixture missing or out of date. Run 'go generate ...' to rebuild it. Missing file: %s", filePath)
-			}
-
-			// Read from cache
-			binary, err := os.ReadFile(filePath)
-			if err != nil {
-				return nil, fmt.Errorf("read cache file failed: %w", err)
-			}
-			return binary, nil
-		})
-		binaryOnce[cacheKey] = once
+		return "", fmt.Errorf("could not get caller info")
 	}
-	binaryOnceMu.Unlock()
 
-	result, err := once()
-	require.NoError(tb, err)
-	return result
+	dir := filepath.Dir(filename)
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", fmt.Errorf("could not find repo root (no go.mod found)")
+		}
+		dir = parent
+	}
+})
+
+// GetTestBinary looks up the WASM binary from outputPath and optionally brotli-compresses it.
+func GetTestBinary(tb testing.TB, outputPath string, compress bool) []byte {
+	tb.Helper()
+
+	repoRoot, err := getRepoRoot()
+	require.NoError(tb, err, "failed to get repo root: %s", err)
+
+	pkgDir := filepath.Join(repoRoot, outputPath)
+
+	hash, err := HashPackage(pkgDir)
+	require.NoError(tb, err, "failed to hash package %s: %s", pkgDir, err)
+
+	// Determine output filename
+	cacheFile := fmt.Sprintf("output-%s.wasm", hash)
+	if compress {
+		cacheFile += ".br"
+	}
+	filePath := filepath.Join(pkgDir, "testdata", cacheFile)
+
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		require.NoError(tb, err, "WASM fixture missing or out of date. Please run 'go generate ./...' in the project root to rebuild it. Missing file: %s", filePath)
+	}
+
+	// Read from cache
+	binary, err := os.ReadFile(filePath)
+	require.NoError(tb, err, "read cache file failed: %s", err)
+
+	return binary
 }
 
 // HashPackage computes a SHA-256 hash of all .go files within the specified package directory.

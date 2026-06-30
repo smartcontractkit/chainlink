@@ -1,5 +1,8 @@
 package workflows
 
+//go:generate go run ../../internal/testutils/wasmtest/generator/main.go -pkg core/services/workflows/test/zerotimeout/cmd -compress
+//go:generate go run ../../internal/testutils/wasmtest/generator/main.go -pkg core/services/workflows/test/wasm/legacy/cmd -compress
+//go:generate go run ../../internal/testutils/wasmtest/generator/main.go -pkg core/services/workflows/test/break/cmd -compress
 import (
 	"context"
 	"errors"
@@ -868,7 +871,7 @@ func TestEngine_WriteStepHasZeroStepTimeout(t *testing.T) {
 
 	ctx := t.Context()
 	log := logger.TestLogger(t)
-	binaryB := wasmtest.CreateTestBinary(t, cmd, true)
+	binaryB := wasmtest.GetTestBinary(t, cmd, true)
 
 	spec, err := host.GetWorkflowSpec(
 		ctx,
@@ -2234,7 +2237,7 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 	trigger := basicTestTrigger(t)
 	require.NoError(t, reg.Add(ctx, trigger))
 
-	binaryB := wasmtest.CreateTestBinary(t, cmd, true)
+	binaryB := wasmtest.GetTestBinary(t, cmd, true)
 
 	spec, err := host.GetWorkflowSpec(
 		ctx,
@@ -2308,7 +2311,7 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 	trigger := basicTestTrigger(t)
 	require.NoError(t, reg.Add(ctx, trigger))
 
-	binaryB := wasmtest.CreateTestBinary(t, cmd, true)
+	binaryB := wasmtest.GetTestBinary(t, cmd, true)
 
 	spec, err := host.GetWorkflowSpec(
 		ctx,
