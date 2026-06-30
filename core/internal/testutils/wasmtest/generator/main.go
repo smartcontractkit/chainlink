@@ -17,7 +17,6 @@ import (
 
 func main() {
 	pkgArg := flag.String("pkg", "", "The package to compile, e.g. test/simple/cmd")
-	compressArg := flag.Bool("compress", false, "Whether to brotli compress the output")
 	flag.Parse()
 
 	if *pkgArg == "" {
@@ -36,10 +35,7 @@ func main() {
 	}
 	pkgDir := strings.TrimSpace(string(out))
 
-	fixtureName := "output.wasm"
-	if *compressArg {
-		fixtureName += ".br"
-	}
+	fixtureName := "output.wasm.br"
 	testdataDir := filepath.Join(pkgDir, "testdata")
 	filePath := filepath.Join(testdataDir, fixtureName)
 
@@ -48,7 +44,7 @@ func main() {
 	// here, which CI detects. No staleness heuristic to get wrong.
 	log.Printf("Building WASM fixture: %s", fixtureName)
 
-	binary, err := buildBinary(pkgPath, *compressArg)
+	binary, err := buildBinary(pkgPath)
 	if err != nil {
 		log.Fatalf("build failed: %v", err)
 	}
@@ -68,7 +64,7 @@ func main() {
 	log.Printf("Successfully generated %s", filePath)
 }
 
-func buildBinary(pkgPath string, compress bool) ([]byte, error) {
+func buildBinary(pkgPath string) ([]byte, error) {
 	tmpDir, err := os.MkdirTemp("", "wasmtest-*")
 	if err != nil {
 		return nil, fmt.Errorf("create temp dir: %w", err)
@@ -94,16 +90,15 @@ func buildBinary(pkgPath string, compress bool) ([]byte, error) {
 		return nil, fmt.Errorf("read file failed: %w", err)
 	}
 
-	if compress {
-		var b bytes.Buffer
-		bwr := brotli.NewWriter(&b)
-		if _, err = bwr.Write(binary); err != nil {
-			return nil, err
-		}
-		if err = bwr.Close(); err != nil {
-			return nil, err
-		}
-		binary = b.Bytes()
+	var b bytes.Buffer
+	bwr := brotli.NewWriter(&b)
+	if _, err = bwr.Write(binary); err != nil {
+		return nil, err
 	}
+	if err = bwr.Close(); err != nil {
+		return nil, err
+	}
+	binary = b.Bytes()
+
 	return binary, nil
 }

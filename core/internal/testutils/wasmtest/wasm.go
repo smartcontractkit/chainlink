@@ -1,14 +1,17 @@
 package wasmtest
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
 	"sync"
 	"testing"
 
+	"github.com/andybalholm/brotli"
 	"github.com/stretchr/testify/require"
 )
 
@@ -39,7 +42,7 @@ var (
 // GetTestBinary fetches the pre-compiled WASM binary from the package's testdata/ directory.
 // The binary MUST be generated with `go generate` before running tests.
 // Example:
-// //go:generate go run path/to/internal/testutils/wasmtest/generator/main.go -pkg core/target/package -compress
+// //go:generate go run path/to/internal/testutils/wasmtest/generator/main.go -pkg core/target/package
 func GetTestBinary(tb testing.TB, outputPath string, compress bool) []byte {
 	tb.Helper()
 
@@ -74,18 +77,10 @@ func GetTestBinary(tb testing.TB, outputPath string, compress bool) []byte {
 	return binary
 }
 
-// fixtureFileName returns the deterministic fixture name for a package, optionally brotli-compressed.
-func fixtureFileName(compress bool) string {
-	if compress {
-		return "output.wasm.br"
-	}
-	return "output.wasm"
-}
-
 // readFixture reads the pre-compiled WASM fixture from pkgDir/testdata. A missing fixture is
 // reported as an actionable error directing the caller to regenerate it.
 func readFixture(pkgDir string, compress bool) ([]byte, error) {
-	filePath := filepath.Join(pkgDir, "testdata", fixtureFileName(compress))
+	filePath := filepath.Join(pkgDir, "testdata", "output.wasm.br")
 	binary, err := os.ReadFile(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -93,5 +88,15 @@ func readFixture(pkgDir string, compress bool) ([]byte, error) {
 		}
 		return nil, fmt.Errorf("read fixture failed: %w", err)
 	}
+
+	if !compress {
+		var b bytes.Buffer
+		bwr := brotli.NewReader(bytes.NewReader(binary))
+		if _, err := io.Copy(&b, bwr); err != nil {
+			return nil, fmt.Errorf("decompress fixture failed: %w", err)
+		}
+		return b.Bytes(), nil
+	}
+
 	return binary, nil
 }

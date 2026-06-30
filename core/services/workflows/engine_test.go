@@ -1,8 +1,8 @@
 package workflows
 
-//go:generate go run ../../internal/testutils/wasmtest/generator/main.go -pkg core/services/workflows/test/zerotimeout/cmd -compress
-//go:generate go run ../../internal/testutils/wasmtest/generator/main.go -pkg core/services/workflows/test/wasm/legacy/cmd -compress
-//go:generate go run ../../internal/testutils/wasmtest/generator/main.go -pkg core/services/workflows/test/break/cmd -compress
+//go:generate go run ../../internal/testutils/wasmtest/generator/main.go -pkg core/services/workflows/test/zerotimeout/cmd
+//go:generate go run ../../internal/testutils/wasmtest/generator/main.go -pkg core/services/workflows/test/wasm/legacy/cmd
+//go:generate go run ../../internal/testutils/wasmtest/generator/main.go -pkg core/services/workflows/test/break/cmd
 import (
 	"context"
 	"errors"

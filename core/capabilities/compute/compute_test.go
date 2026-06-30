@@ -1,8 +1,6 @@
 package compute
 
-//go:generate go run ../../internal/testutils/wasmtest/generator/main.go -pkg core/capabilities/compute/test/simple/cmd -compress
 //go:generate go run ../../internal/testutils/wasmtest/generator/main.go -pkg core/capabilities/compute/test/simple/cmd
-//go:generate go run ../../internal/testutils/wasmtest/generator/main.go -pkg core/capabilities/compute/test/fetch/cmd -compress
 //go:generate go run ../../internal/testutils/wasmtest/generator/main.go -pkg core/capabilities/compute/test/fetch/cmd
 
 import (

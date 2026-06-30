@@ -1,7 +1,7 @@
 package v2
 
-//go:generate go run ../../../../internal/testutils/wasmtest/generator/main.go -pkg core/services/workflows/test/wasm/v2/cmd/without_tee -compress
-//go:generate go run ../../../../internal/testutils/wasmtest/generator/main.go -pkg core/services/workflows/test/wasm/v2/cmd/with_tee -compress
+//go:generate go run ../../../../internal/testutils/wasmtest/generator/main.go -pkg core/services/workflows/test/wasm/v2/cmd/without_tee
+//go:generate go run ../../../../internal/testutils/wasmtest/generator/main.go -pkg core/services/workflows/test/wasm/v2/cmd/with_tee
 import (
 	"context"
 	"encoding/base64"
