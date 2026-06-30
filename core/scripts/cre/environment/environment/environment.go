@@ -487,9 +487,11 @@ func startCmd() *cobra.Command {
 				workflowRegistryAddress := libcontracts.MustGetAddressFromDataStore(output.CreEnvironment.CldfEnvironment.DataStore, output.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), output.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 
 				var workflowDonID uint32
+				var donFamily string
 				for idx, don := range output.Dons.List() {
 					if don.HasFlag(cre.WorkflowDON) {
 						workflowDonID = libc.MustSafeUint32(idx + 1)
+						donFamily = don.DonFamily
 						break
 					}
 				}
@@ -498,7 +500,12 @@ func startCmd() *cobra.Command {
 					return errors.New("no workflow DON found")
 				}
 
-				deployErr := deployAndVerifyExampleWorkflow(cmdContext, registryChainOut.CtfOutput().Nodes[0].ExternalHTTPUrl, workflowDonID, exampleWorkflowTimeout, workflowRegistryAddress, output.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
+				donFamily, familyErr := finalizeWorkflowDonFamily(donFamily)
+				if familyErr != nil {
+					return familyErr
+				}
+
+				deployErr := deployAndVerifyExampleWorkflow(cmdContext, registryChainOut.CtfOutput().Nodes[0].ExternalHTTPUrl, workflowDonID, donFamily, exampleWorkflowTimeout, workflowRegistryAddress, output.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
 				if deployErr != nil {
 					fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
 				}

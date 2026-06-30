@@ -7,14 +7,13 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
-
-	"github.com/stretchr/testify/require"
 )
 
 type CapabilitiesRegistry struct {
@@ -71,7 +70,7 @@ type capability struct {
 
 // SetupDON sets up a new DON with the given capabilities and returns the DON ID
 func (r *CapabilitiesRegistry) setupDON(donInfo DonConfiguration, capabilities []capability) int {
-	var hashedCapabilityIDs [][32]byte
+	hashedCapabilityIDs := make([][32]byte, 0, len(capabilities))
 
 	for _, c := range capabilities {
 		id, err := r.contract.GetHashedCapabilityId(&bind.CallOpts{}, c.registryConfig.LabelledName, c.registryConfig.Version)
@@ -79,7 +78,7 @@ func (r *CapabilitiesRegistry) setupDON(donInfo DonConfiguration, capabilities [
 		hashedCapabilityIDs = append(hashedCapabilityIDs, id)
 	}
 
-	var registryCapabilities []kcr.CapabilitiesRegistryCapability
+	registryCapabilities := make([]kcr.CapabilitiesRegistryCapability, 0, len(capabilities))
 	for _, c := range capabilities {
 		registryCapabilities = append(registryCapabilities, c.registryConfig)
 	}
@@ -90,7 +89,7 @@ func (r *CapabilitiesRegistry) setupDON(donInfo DonConfiguration, capabilities [
 	r.backend.Commit()
 
 	peerIDs := make([][32]byte, 0, len(donInfo.p2pKeys))
-	nodes := []kcr.CapabilitiesRegistryNodeParams{}
+	nodes := make([]kcr.CapabilitiesRegistryNodeParams, 0, len(donInfo.p2pKeys))
 	for i, p2pkey := range donInfo.p2pKeys {
 		signer, innerErr := getSignerStringFromOCRKeyBundle(donInfo.KeyBundles[i])
 		require.NoError(r.t, innerErr)
@@ -107,7 +106,7 @@ func (r *CapabilitiesRegistry) setupDON(donInfo DonConfiguration, capabilities [
 	require.NoError(r.t, err)
 	r.backend.Commit()
 
-	var capabilityConfigurations []kcr.CapabilitiesRegistryCapabilityConfiguration
+	capabilityConfigurations := make([]kcr.CapabilitiesRegistryCapabilityConfiguration, 0, len(capabilities))
 	for i, c := range capabilities {
 		configBinary, err2 := proto.Marshal(c.donCapabilityConfig)
 		require.NoError(r.t, err2)

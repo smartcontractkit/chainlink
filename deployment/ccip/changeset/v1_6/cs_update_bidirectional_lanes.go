@@ -6,7 +6,6 @@ import (
 	"slices"
 
 	"github.com/Masterminds/semver/v3"
-	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -29,7 +28,7 @@ import (
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
-	opsutil "github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
@@ -258,8 +257,8 @@ func UpdateLanesLogic(e cldf.Environment, mcmsConfig *cldfproposalutils.Timelock
 	}
 
 	v2FeeQuoterChains := make(map[uint64]struct{})
-	v1FeeQuoterDestsUpdates := make(map[uint64]opsevm.EVMCallInput[[]fee_quoter.FeeQuoterDestChainConfigArgs])
-	v1FeeQuoterPriceUpdates := make(map[uint64]opsevm.EVMCallInput[fee_quoter.InternalPriceUpdates])
+	v1FeeQuoterDestsUpdates := make(map[uint64]opsutils.EVMCallInput[[]fee_quoter.FeeQuoterDestChainConfigArgs])
+	v1FeeQuoterPriceUpdates := make(map[uint64]opsutils.EVMCallInput[fee_quoter.InternalPriceUpdates])
 
 	for chainSel, update := range feeQuoterDestsInput.UpdatesByChain {
 		version, ok := feeQuoterVersionsByChain[chainSel]
@@ -310,7 +309,7 @@ func UpdateLanesLogic(e cldf.Environment, mcmsConfig *cldfproposalutils.Timelock
 		RouterApplyRampUpdatesSequenceInput:               configs.UpdateRouterRampsConfig.ToSequenceInput(state),
 		NonceManagerUpdatesSequenceInput:                  nonceManagerInput,
 	})
-	output, err := opsutil.AddEVMCallSequenceToCSOutput(
+	output, err := opsutils.AddEVMCallSequenceToCSOutput(
 		e,
 		cldf.ChangesetOutput{},
 		report,
@@ -694,7 +693,7 @@ func maybeAddPreviousRampUpdate(
 
 	update := updates[sourceChain]
 	if update.PreviousRampsArgs == nil {
-		update.PreviousRampsArgs = &opsevm.EVMCallInput[[]nonce_manager.NonceManagerPreviousRampsArgs]{
+		update.PreviousRampsArgs = &opsutils.EVMCallInput[[]nonce_manager.NonceManagerPreviousRampsArgs]{
 			Address:       chainState.NonceManager.Address(),
 			ChainSelector: sourceChain,
 			CallInput:     make([]nonce_manager.NonceManagerPreviousRampsArgs, 0),

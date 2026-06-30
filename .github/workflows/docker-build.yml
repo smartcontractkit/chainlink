@@ -282,7 +282,7 @@ jobs:
       id-token: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Deploy
         uses: ./.github/actions/deploy-image
         with:
@@ -305,7 +305,7 @@ jobs:
       id-token: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Deploy
         uses: ./.github/actions/deploy-image
         with:

@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/storage"
+	"github.com/smartcontractkit/chainlink-common/pkg/teeattestation/passthrough"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
@@ -79,6 +80,7 @@ type Keystore interface {
 // Opts are the options for the CRE services that are exposed by the application
 type Opts struct {
 	CapabilitiesRegistry    *capabilities.Registry
+	ExecutionHandlers       *confidentialrelay.ExecutionHandlers
 	CapabilitiesDispatcher  remotetypes.Dispatcher
 	CapabilitiesPeerWrapper p2ptypes.PeerWrapper
 
@@ -210,13 +212,25 @@ func (s *Services) newSubservices(
 		srvs = append(srvs, gatewayConnectorWrapper)
 
 		if cfg.CRE().ConfidentialRelay().Enabled() {
+			var attestationValidator confidentialrelay.AttestationValidator
+			if cfg.CRE().ConfidentialRelay().TrustEnclaves() {
+				attestationValidator, ierr = passthrough.New()
+				if ierr != nil {
+					return nil, fmt.Errorf("could not create passthrough attestation validator: %w", ierr)
+				}
+			} else {
+				attestationValidator = confidentialrelay.NewAttestationValidator()
+			}
 			relayService := confidentialrelay.NewService(
 				gatewayConnectorWrapper,
 				opts.CapabilitiesRegistry,
+				opts.ExecutionHandlers,
 				keyStore.P2P(),
 				confidentialRelayPeerID(cfg, capCfg),
 				lggr,
 				opts.LimitsFactory,
+				attestationValidator,
+				cfg.CRE().ConfidentialRelay().RequireBFTQuorum(),
 			)
 			srvs = append(srvs, relayService)
 		}
@@ -485,8 +499,8 @@ func (s *Services) newRegistrySyncer(
 	localCfg := cfg.Capabilities().Local()
 	if localCfg != nil && len(localCfg.RegistryBasedLaunchAllowlist()) > 0 {
 		s.SetDelegatesDeps = func(stdcapDelegate *standardcapabilities.Delegate) (commonsrv.Service, error) {
-			newServicesFn := func(ctx context.Context, capID string, command string, configJSON string) ([]job.ServiceCtx, error) {
-				return stdcapDelegate.NewServices(ctx, command, configJSON, 0, capID, uuid.New(), job.OracleFactoryConfig{})
+			newServicesFn := func(ctx context.Context, capID string, donID uint32, command string, configJSON string) ([]job.ServiceCtx, error) {
+				return stdcapDelegate.NewServices(ctx, command, configJSON, 0, capID, uuid.New(), job.OracleFactoryConfig{}, donID)
 			}
 			localCapMgr, lcmErr := localcapmgr.NewLocalCapabilityManager(lggr, localCfg, newServicesFn)
 			if lcmErr != nil {
@@ -1069,6 +1083,7 @@ func newWorkflowRegistrySyncerV2(
 		dontimeStore,
 		opts.UseLocalTimeProvider,
 		opts.CapabilitiesRegistry,
+		opts.ExecutionHandlers,
 		engineRegistry,
 		custmsg.NewLabeler(),
 		engineLimiters,

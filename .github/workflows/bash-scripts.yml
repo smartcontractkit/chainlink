@@ -32,7 +32,7 @@ jobs:
           persist-credentials: false
       - name: Run ShellCheck
         if: needs.changes.outputs.bash-scripts-src == 'true'
-        uses: ludeeus/action-shellcheck@00cae500b08a931fb5698e11e79bfbd38e612a38 # v2.0.0
+        uses: ludeeus/action-shellcheck@00cae500b08a931fb5698e11e79bfbd38e612a38 # 2.0.0
         with:
           scandir: "./tools/bin"
           # Consider changing this to check for warnings once all warnings are fixed.

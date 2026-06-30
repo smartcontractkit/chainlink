@@ -15,6 +15,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -73,6 +75,7 @@ type eventHandler struct {
 
 	workflowStore          store.Store
 	capRegistry            core.CapabilitiesRegistry
+	executionHandlers      *confidentialrelay.ExecutionHandlers
 	donTimeStore           *dontime.Store
 	useLocalTimeProvider   bool
 	engineRegistry         *EngineRegistry
@@ -264,6 +267,7 @@ func NewEventHandler(
 	donTimeStore *dontime.Store,
 	useLocalTimeProvider bool,
 	capRegistry core.CapabilitiesRegistry,
+	executionHandlers *confidentialrelay.ExecutionHandlers,
 	engineRegistry *EngineRegistry,
 	emitter custmsg.MessageEmitter,
 	engineLimiters *v2.EngineLimiters,
@@ -292,6 +296,7 @@ func NewEventHandler(
 		lggr:                   lggr,
 		workflowStore:          workflowStore,
 		capRegistry:            capRegistry,
+		executionHandlers:      executionHandlers,
 		donTimeStore:           donTimeStore,
 		useLocalTimeProvider:   useLocalTimeProvider,
 		engineRegistry:         engineRegistry,
@@ -767,7 +772,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	binaryHash := v2.ComputeBinaryHash(binary)
 	confLggr := logger.Named(h.lggr, "WorkflowEngine.ConfidentialModule")
 	confLggr = logger.With(confLggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
-	confidential := v2.NewConfidentialModule(h.capRegistry, binaryURL, binaryHash, workflowID, owner, name.String(), tag, confLggr)
+	confidential := v2.NewConfidentialModule(h.capRegistry, h.executionHandlers, binaryURL, binaryHash, workflowID, owner, name.String(), tag, confLggr)
 	engineModule := h.createEngineModule(ctx, workflowID, binary, moduleConfig, module)
 	selectingModule := generichost.NewRequirementSelectingModule(
 		generichost.ModuleAndHandler{Module: engineModule},
@@ -1174,7 +1179,7 @@ func (h *eventHandler) ensureCapRegistryReady(ctx context.Context) error {
 			// Test that the registry is ready by attempting to get the local node
 			_, err := h.capRegistry.LocalNode(ctx)
 			if err != nil {
-				return fmt.Errorf("capabilities registry not shouldRun: %w", err)
+				return fmt.Errorf("capabilities registry not ready: %w", err)
 			}
 			return nil
 		})

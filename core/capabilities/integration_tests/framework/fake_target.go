@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	_ capabilities.ActionCapability = &fakeTarget{}
+	_ capabilities.ExecutableCapability = &fakeTarget{}
 )
 
 type TargetSink struct {
@@ -55,7 +55,7 @@ func (ts *TargetSink) Close() error {
 	})
 }
 
-func (ts *TargetSink) CreateNewTarget(t *testing.T) capabilities.TargetCapability {
+func (ts *TargetSink) CreateNewTarget(t *testing.T) capabilities.ExecutableCapability {
 	target := fakeTarget{
 		t:        t,
 		targetID: ts.targetID,

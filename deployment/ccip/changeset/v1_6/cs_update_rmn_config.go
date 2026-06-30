@@ -8,28 +8,21 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
-
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
-
-	opsutil "github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
@@ -76,10 +69,10 @@ func (c SetRMNRemoteOnRMNProxyConfig) Validate(e cldf.Environment, state statevi
 }
 
 func (c SetRMNRemoteOnRMNProxyConfig) ToSequenceInput(state stateview.CCIPOnChainState) ccipseq.SetRMNRemoteOnRMNProxySequenceInput {
-	updatesByChain := make(map[uint64]opsevm.EVMCallInput[common.Address], len(c.ChainSelectors))
+	updatesByChain := make(map[uint64]opsutils.EVMCallInput[common.Address], len(c.ChainSelectors))
 
 	for _, chainSel := range c.ChainSelectors {
-		updatesByChain[chainSel] = opsevm.EVMCallInput[common.Address]{
+		updatesByChain[chainSel] = opsutils.EVMCallInput[common.Address]{
 			Address:       state.Chains[chainSel].RMNProxy.Address(),
 			ChainSelector: chainSel,
 			CallInput:     state.Chains[chainSel].RMNRemote.Address(),
@@ -108,7 +101,7 @@ func SetRMNRemoteOnRMNProxyChangeset(e cldf.Environment, cfg SetRMNRemoteOnRMNPr
 		e.BlockChains.EVMChains(),
 		cfg.ToSequenceInput(state),
 	)
-	return opsutil.AddEVMCallSequenceToCSOutput(e, output, report, err, state.EVMMCMSStateByChain(), cfg.MCMSConfig, "Call SetARM on RMNProxies")
+	return opsutils.AddEVMCallSequenceToCSOutput(e, output, report, err, state.EVMMCMSStateByChain(), cfg.MCMSConfig, "Call SetARM on RMNProxies")
 }
 
 type RMNNopConfig struct {
@@ -629,9 +622,9 @@ func SetRMNRemoteConfigChangeset(e cldf.Environment, config ccipseq.SetRMNRemote
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get active digest from RMNHome contract with address %s: %w", rmnHome.Address(), err)
 	}
 
-	input := make(map[uint64]opsevm.EVMCallInput[rmn_remote.RMNRemoteConfig])
+	input := make(map[uint64]opsutils.EVMCallInput[rmn_remote.RMNRemoteConfig])
 	for chainSel, cfg := range config.RMNRemoteConfigs {
-		input[chainSel] = opsevm.EVMCallInput[rmn_remote.RMNRemoteConfig]{
+		input[chainSel] = opsutils.EVMCallInput[rmn_remote.RMNRemoteConfig]{
 			ChainSelector: chainSel,
 			NoSend:        config.MCMSConfig != nil,
 			Address:       state.Chains[chainSel].RMNRemote.Address(),
@@ -649,5 +642,5 @@ func SetRMNRemoteConfigChangeset(e cldf.Environment, config ccipseq.SetRMNRemote
 		e.BlockChains.EVMChains(),
 		input,
 	)
-	return opsutil.AddEVMCallSequenceToCSOutput(e, cldf.ChangesetOutput{}, seqReport, err, state.EVMMCMSStateByChain(), config.MCMSConfig, "Set RMNRemote configs")
+	return opsutils.AddEVMCallSequenceToCSOutput(e, cldf.ChangesetOutput{}, seqReport, err, state.EVMMCMSStateByChain(), config.MCMSConfig, "Set RMNRemote configs")
 }

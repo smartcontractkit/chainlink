@@ -25,6 +25,11 @@ type WorkflowFetcher interface {
 // CREConfidentialRelay defines configuration for the confidential relay handler.
 type CREConfidentialRelay interface {
 	Enabled() bool
+	// TrustEnclaves reports whether the relay should trust fake (non-Nitro)
+	// enclaves by relaxing TEE attestation validation. INSECURE; test-only.
+	TrustEnclaves() bool
+	// RequireBFTQuorum selects the required signature quorum
+	RequireBFTQuorum() bool
 }
 
 // CRELinking defines configuration for connecting to the CRE linking service

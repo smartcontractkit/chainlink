@@ -2,7 +2,6 @@ package cmd_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/hex"
 	"flag"
 	"os"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -73,7 +73,7 @@ func TestShell_OCR2Keys(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().OCR2()
 	cleanup := func() {
-		ctx := context.Background()
+		ctx := t.Context()
 		keys, err := app.GetKeyStore().OCR2().GetAll()
 		require.NoError(t, err)
 		for _, key := range keys {

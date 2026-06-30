@@ -102,7 +102,7 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 
 	// Test cases
 	// NOTE: we are checking the logs for errors, so we need to clear the logs before invocation of the aggregator
-	t.Run("happy path - valid response with enough signatures", func(t *testing.T) {
+	t.Run("happy path - valid response with enough signatures", func(t *testing.T) { //nolint:paralleltest // shared logger state
 		// Prepare valid OCR event with enough valid signatures
 		ocrEvent := &capabilities.OCRTriggerEvent{
 			ConfigDigest: configDigest[:],
@@ -148,7 +148,7 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 		assert.Equal(t, expectedResp.Event.Outputs, result.Event.Outputs)
 	})
 
-	t.Run("error - unmarshallable response", func(t *testing.T) {
+	t.Run("error - unmarshallable response", func(t *testing.T) { //nolint:paralleltest // shared logger state
 		// Invalid bytes that can't be unmarshalled
 		invalidBytes := []byte("not a valid response")
 
@@ -160,7 +160,7 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 		assert.Equal(t, 1, gotLog.Len())
 	})
 
-	t.Run("error - response without OCR event", func(t *testing.T) {
+	t.Run("error - response without OCR event", func(t *testing.T) { //nolint:paralleltest // shared logger state
 		// Create event without OCR data
 		triggerEvent := capabilities.TriggerEvent{
 			ID: eventID,
@@ -182,7 +182,7 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 		assert.Equal(t, 1, gotLog.Len())
 	})
 
-	t.Run("error - response with malformed Output map", func(t *testing.T) {
+	t.Run("error - response with malformed Output map", func(t *testing.T) { //nolint:paralleltest // shared logger state
 		// Create event with malformed Output map
 		o, err := values.NewMap(map[string]any{
 			"UnexpectedKey": "unexpected value",
@@ -208,7 +208,7 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 		assert.Equal(t, 1, gotLog.Len())
 	})
 
-	t.Run("error - unparsable OCR report", func(t *testing.T) {
+	t.Run("error - unparsable OCR report", func(t *testing.T) { //nolint:paralleltest // shared logger state
 		// Create an OCR event with invalid report bytes
 		ocrEvent := &capabilities.OCRTriggerEvent{
 			ConfigDigest: configDigest[:],
@@ -242,7 +242,7 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 		assert.Equal(t, 1, gotLog.Len())
 	})
 
-	t.Run("error - mismatched event ID", func(t *testing.T) {
+	t.Run("error - mismatched event ID", func(t *testing.T) { //nolint:paralleltest // shared logger state
 		// Create a valid report but with wrong event ID
 		wrongIDReport := &capabilitiespb.OCRTriggerReport{
 			EventID:   "wrong-event-id",
@@ -285,7 +285,7 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 		assert.Equal(t, 1, gotLog.Len())
 	})
 
-	t.Run("error - report too old", func(t *testing.T) {
+	t.Run("error - report too old", func(t *testing.T) { //nolint:paralleltest // shared logger state
 		// Create an old report (beyond maxAgeSec)
 		oldTime := currentTime - uint64((maxAgeSec+5)*1000000000) //nolint:gosec // disable G115
 
@@ -330,7 +330,7 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 		assert.Equal(t, 1, gotLog.Len())
 	})
 
-	t.Run("error - not enough valid signatures", func(t *testing.T) {
+	t.Run("error - not enough valid signatures", func(t *testing.T) { //nolint:paralleltest // shared logger state
 		// Only one valid signature when two are required
 		ocrEvent := &capabilities.OCRTriggerEvent{
 			ConfigDigest: configDigest[:],
@@ -363,7 +363,7 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 		assert.Equal(t, 1, gotLog.Len())
 	})
 
-	t.Run("error - signatures from unauthorized signers", func(t *testing.T) {
+	t.Run("error - signatures from unauthorized signers", func(t *testing.T) { //nolint:paralleltest // shared logger state
 		// One valid signature and one unauthorized
 		ocrEvent := &capabilities.OCRTriggerEvent{
 			ConfigDigest: configDigest[:],
@@ -398,7 +398,7 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 		assert.Equal(t, 1, gotLog.Len())
 	})
 
-	t.Run("error - malformed config digest", func(t *testing.T) {
+	t.Run("error - malformed config digest", func(t *testing.T) { //nolint:paralleltest // shared logger state
 		// Invalid config digest
 		ocrEvent := &capabilities.OCRTriggerEvent{
 			ConfigDigest: []byte("invalid config digest"), // Wrong length
@@ -435,7 +435,7 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 		assert.True(t, logContainErr(t, gotLogLine, aggregation.ErrMalformedConfig), "expected error to be contained in log")
 	})
 
-	t.Run("error - malformed signature", func(t *testing.T) {
+	t.Run("error - malformed signature", func(t *testing.T) { //nolint:paralleltest // shared logger state
 		// Invalid signature format
 		ocrEvent := &capabilities.OCRTriggerEvent{
 			ConfigDigest: configDigest[:],

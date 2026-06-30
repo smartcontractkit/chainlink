@@ -6,13 +6,13 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -51,9 +51,9 @@ var AddDONAndSetCandidateSequence = operations.NewSequence(
 	"AddDONAndSetCandidateSequence",
 	semver.MustParse("1.0.0"),
 	"Adds commit / exec DONs for chains and sets their candidates on CCIPHome",
-	func(b operations.Bundle, deps DONSequenceDeps, input AddDONAndSetCandidateSequenceInput) (map[uint64][]opsevm.EVMCallOutput, error) {
-		opOutputs := make(map[uint64][]opsevm.EVMCallOutput, 1) // Only calls against the home chain will be made
-		opOutputs[deps.HomeChain.Selector] = make([]opsevm.EVMCallOutput, len(input.DONs))
+	func(b operations.Bundle, deps DONSequenceDeps, input AddDONAndSetCandidateSequenceInput) (map[uint64][]opsutils.EVMCallOutput, error) {
+		opOutputs := make(map[uint64][]opsutils.EVMCallOutput, 1) // Only calls against the home chain will be made
+		opOutputs[deps.HomeChain.Selector] = make([]opsutils.EVMCallOutput, len(input.DONs))
 
 		for i, don := range input.DONs {
 			encodedSetCandidateCall, err := CCIPHomeABI.Pack(
@@ -64,13 +64,13 @@ var AddDONAndSetCandidateSequence = operations.NewSequence(
 				[32]byte{},
 			)
 			if err != nil {
-				return map[uint64][]opsevm.EVMCallOutput{}, fmt.Errorf("failed to pack set candidate call: %w", err)
+				return map[uint64][]opsutils.EVMCallOutput{}, fmt.Errorf("failed to pack set candidate call: %w", err)
 			}
 			report, err := operations.ExecuteOperation(
 				b,
 				ccipops.AddDONOp,
 				deps.HomeChain,
-				opsevm.EVMCallInput[ccipops.AddDONOpInput]{
+				opsutils.EVMCallInput[ccipops.AddDONOpInput]{
 					Address:       input.CapabilitiesRegistry,
 					ChainSelector: deps.HomeChain.Selector,
 					CallInput: ccipops.AddDONOpInput{
@@ -116,9 +116,9 @@ var SetCandidateSequence = operations.NewSequence(
 	"SetCandidateSequence",
 	semver.MustParse("1.0.0"),
 	"Updates candidates for existing commit / exec DONs across multiple chains",
-	func(b operations.Bundle, deps DONSequenceDeps, input SetCandidateSequenceInput) (map[uint64][]opsevm.EVMCallOutput, error) {
-		opOutputs := make(map[uint64][]opsevm.EVMCallOutput, 1) // Only calls against the home chain will be made
-		opOutputs[deps.HomeChain.Selector] = make([]opsevm.EVMCallOutput, len(input.DONs))
+	func(b operations.Bundle, deps DONSequenceDeps, input SetCandidateSequenceInput) (map[uint64][]opsutils.EVMCallOutput, error) {
+		opOutputs := make(map[uint64][]opsutils.EVMCallOutput, 1) // Only calls against the home chain will be made
+		opOutputs[deps.HomeChain.Selector] = make([]opsutils.EVMCallOutput, len(input.DONs))
 
 		for i, don := range input.DONs {
 			encodedSetCandidateCall, err := CCIPHomeABI.Pack(
@@ -129,13 +129,13 @@ var SetCandidateSequence = operations.NewSequence(
 				don.ExistingDigest,
 			)
 			if err != nil {
-				return map[uint64][]opsevm.EVMCallOutput{}, fmt.Errorf("failed to pack set candidate call: %w", err)
+				return map[uint64][]opsutils.EVMCallOutput{}, fmt.Errorf("failed to pack set candidate call: %w", err)
 			}
 			report, err := operations.ExecuteOperation(
 				b,
 				ccipops.UpdateDONOp,
 				deps.HomeChain,
-				opsevm.EVMCallInput[ccipops.UpdateDONOpInput]{
+				opsutils.EVMCallInput[ccipops.UpdateDONOpInput]{
 					Address:       input.CapabilitiesRegistry,
 					ChainSelector: deps.HomeChain.Selector,
 					CallInput: ccipops.UpdateDONOpInput{
@@ -183,9 +183,9 @@ var PromoteCandidateSequence = operations.NewSequence(
 	"PromoteCandidateSequence",
 	semver.MustParse("1.0.0"),
 	"Promote candidates for existing commit / exec DONs across multiple chains",
-	func(b operations.Bundle, deps DONSequenceDeps, input PromoteCandidateSequenceInput) (map[uint64][]opsevm.EVMCallOutput, error) {
-		opOutputs := make(map[uint64][]opsevm.EVMCallOutput, 1) // Only calls against the home chain will be made
-		opOutputs[deps.HomeChain.Selector] = make([]opsevm.EVMCallOutput, len(input.DONs))
+	func(b operations.Bundle, deps DONSequenceDeps, input PromoteCandidateSequenceInput) (map[uint64][]opsutils.EVMCallOutput, error) {
+		opOutputs := make(map[uint64][]opsutils.EVMCallOutput, 1) // Only calls against the home chain will be made
+		opOutputs[deps.HomeChain.Selector] = make([]opsutils.EVMCallOutput, len(input.DONs))
 
 		for i, don := range input.DONs {
 			encodedPromoteCandidateCall, err := CCIPHomeABI.Pack(
@@ -196,13 +196,13 @@ var PromoteCandidateSequence = operations.NewSequence(
 				don.ActiveDigest,
 			)
 			if err != nil {
-				return map[uint64][]opsevm.EVMCallOutput{}, fmt.Errorf("failed to pack promote candidate call: %w", err)
+				return map[uint64][]opsutils.EVMCallOutput{}, fmt.Errorf("failed to pack promote candidate call: %w", err)
 			}
 			report, err := operations.ExecuteOperation(
 				b,
 				ccipops.UpdateDONOp,
 				deps.HomeChain,
-				opsevm.EVMCallInput[ccipops.UpdateDONOpInput]{
+				opsutils.EVMCallInput[ccipops.UpdateDONOpInput]{
 					Address:       input.CapabilitiesRegistry,
 					ChainSelector: deps.HomeChain.Selector,
 					CallInput: ccipops.UpdateDONOpInput{
@@ -241,9 +241,9 @@ var ApplyChainConfigUpdatesSequence = operations.NewSequence(
 	"ApplyChainConfigUpdatesSequence",
 	semver.MustParse("1.0.0"),
 	"Updates chain configurations on CCIPHome, using multiple ApplyChainConfigUpdates according to a batch size",
-	func(b operations.Bundle, deps DONSequenceDeps, input ApplyChainConfigUpdatesSequenceInput) (map[uint64][]opsevm.EVMCallOutput, error) {
-		opOutputs := make(map[uint64][]opsevm.EVMCallOutput, 1) // Only calls against the home chain will be made
-		opOutputs[deps.HomeChain.Selector] = make([]opsevm.EVMCallOutput, 0)
+	func(b operations.Bundle, deps DONSequenceDeps, input ApplyChainConfigUpdatesSequenceInput) (map[uint64][]opsutils.EVMCallOutput, error) {
+		opOutputs := make(map[uint64][]opsutils.EVMCallOutput, 1) // Only calls against the home chain will be made
+		opOutputs[deps.HomeChain.Selector] = make([]opsutils.EVMCallOutput, 0)
 
 		batches := make([]ccipops.ApplyChainConfigUpdatesOpInput, 0)
 		currentBatch := ccipops.ApplyChainConfigUpdatesOpInput{
@@ -289,7 +289,7 @@ var ApplyChainConfigUpdatesSequence = operations.NewSequence(
 				b,
 				ccipops.ApplyChainConfigUpdatesOp,
 				deps.HomeChain,
-				opsevm.EVMCallInput[ccipops.ApplyChainConfigUpdatesOpInput]{
+				opsutils.EVMCallInput[ccipops.ApplyChainConfigUpdatesOpInput]{
 					Address:       input.CCIPHome,
 					ChainSelector: deps.HomeChain.Selector,
 					CallInput:     batch,

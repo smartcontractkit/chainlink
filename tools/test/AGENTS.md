@@ -29,3 +29,5 @@ Run these commands to validate any changes you make:
 ```sh
 golangci-lint run ./... --fix
 go test ./...
+```
+</commands>

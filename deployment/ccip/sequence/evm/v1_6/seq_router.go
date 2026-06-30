@@ -5,20 +5,20 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
-	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_2"
 )
 
 type RouterApplyRampUpdatesSequenceInput struct {
-	UpdatesByChain map[uint64]opsevm.EVMCallInput[ccipops.RouterApplyRampUpdatesOpInput]
+	UpdatesByChain map[uint64]opsutils.EVMCallInput[ccipops.RouterApplyRampUpdatesOpInput]
 }
 
 type RouterUpdateWrappedNativeSequenceInput struct {
-	UpdatesByChain map[uint64]opsevm.EVMCallInput[common.Address]
+	UpdatesByChain map[uint64]opsutils.EVMCallInput[common.Address]
 }
 
 var (
@@ -26,8 +26,8 @@ var (
 		"RouterApplyRampUpdatesSequence",
 		semver.MustParse("1.0.0"),
 		"Updates OnRamps and OffRamps on Router contracts across multiple EVM chains",
-		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input RouterApplyRampUpdatesSequenceInput) (map[uint64][]opsevm.EVMCallOutput, error) {
-			opOutputs := make(map[uint64][]opsevm.EVMCallOutput, len(input.UpdatesByChain))
+		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input RouterApplyRampUpdatesSequenceInput) (map[uint64][]opsutils.EVMCallOutput, error) {
+			opOutputs := make(map[uint64][]opsutils.EVMCallOutput, len(input.UpdatesByChain))
 			for chainSel, update := range input.UpdatesByChain {
 				chain, ok := chains[chainSel]
 				if !ok {
@@ -37,7 +37,7 @@ var (
 				if err != nil {
 					return nil, fmt.Errorf("failed to execute RouterApplyRampUpdatesOp on %s: %w", chain, err)
 				}
-				opOutputs[chainSel] = []opsevm.EVMCallOutput{report.Output}
+				opOutputs[chainSel] = []opsutils.EVMCallOutput{report.Output}
 			}
 			return opOutputs, nil
 		})
@@ -46,8 +46,8 @@ var (
 		"RouterUpdateWrappedNativeSequence",
 		semver.MustParse("1.0.0"),
 		"Updates Wrapped Native token on Router contracts across multiple EVM chains",
-		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input RouterUpdateWrappedNativeSequenceInput) (map[uint64][]opsevm.EVMCallOutput, error) {
-			opOutputs := make(map[uint64][]opsevm.EVMCallOutput, len(input.UpdatesByChain))
+		func(b operations.Bundle, chains map[uint64]cldf_evm.Chain, input RouterUpdateWrappedNativeSequenceInput) (map[uint64][]opsutils.EVMCallOutput, error) {
+			opOutputs := make(map[uint64][]opsutils.EVMCallOutput, len(input.UpdatesByChain))
 			for chainSel, newWrappedAddress := range input.UpdatesByChain {
 				chain, ok := chains[chainSel]
 				if !ok {
@@ -57,7 +57,7 @@ var (
 				if err != nil {
 					return nil, fmt.Errorf("failed to execute UpdateWrappedNativeAddressOnRouterOp on %s: %w", chain, err)
 				}
-				opOutputs[chainSel] = []opsevm.EVMCallOutput{report.Output}
+				opOutputs[chainSel] = []opsutils.EVMCallOutput{report.Output}
 			}
 			return opOutputs, nil
 		})
