@@ -13,8 +13,6 @@ import (
 	"time"
 
 	"github.com/andybalholm/brotli"
-
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 )
 
 func main() {
@@ -38,25 +36,17 @@ func main() {
 	}
 	pkgDir := strings.TrimSpace(string(out))
 
-	hash, err := wasmtest.HashPackage(pkgDir)
-	if err != nil {
-		log.Fatalf("failed to hash package: %v", err)
-	}
-
-	cacheFile := fmt.Sprintf("output-%s.wasm", hash)
+	fixtureName := "output.wasm"
 	if *compressArg {
-		cacheFile += ".br"
+		fixtureName += ".br"
 	}
 	testdataDir := filepath.Join(pkgDir, "testdata")
-	filePath := filepath.Join(testdataDir, cacheFile)
+	filePath := filepath.Join(testdataDir, fixtureName)
 
-	if _, statErr := os.Stat(filePath); statErr == nil {
-		log.Printf("Fixture already up to date: %s", filePath)
-		return
-	}
-
-	log.Printf("Building WASM fixture: %s", cacheFile)
-	cleanupOldCaches(pkgDir, *compressArg)
+	// Always rebuild. Correctness is enforced by CI's `make generate` + dirty-tree check:
+	// any drift in source, transitive dependencies, or toolchain produces different bytes
+	// here, which CI detects. No staleness heuristic to get wrong.
+	log.Printf("Building WASM fixture: %s", fixtureName)
 
 	binary, err := buildBinary(pkgPath, *compressArg)
 	if err != nil {
@@ -78,23 +68,6 @@ func main() {
 	log.Printf("Successfully generated %s", filePath)
 }
 
-func cleanupOldCaches(pkgDir string, compress bool) {
-	testdataDir := filepath.Join(pkgDir, "testdata")
-	entries, err := os.ReadDir(testdataDir)
-	if err != nil {
-		return
-	}
-	suffix := ".wasm"
-	if compress {
-		suffix = ".wasm.br"
-	}
-	for _, e := range entries {
-		if strings.HasPrefix(e.Name(), "output-") && strings.HasSuffix(e.Name(), suffix) {
-			_ = os.Remove(filepath.Join(testdataDir, e.Name()))
-		}
-	}
-}
-
 func buildBinary(pkgPath string, compress bool) ([]byte, error) {
 	tmpDir, err := os.MkdirTemp("", "wasmtest-*")
 	if err != nil {
@@ -106,7 +79,9 @@ func buildBinary(pkgPath string, compress bool) ([]byte, error) {
 	defer cancel()
 
 	buildPath := filepath.Join(tmpDir, "output.wasm")
-	cmd := exec.CommandContext(cmdCtx, "go", "build", "-o", buildPath, pkgPath) // #nosec
+	// -trimpath strips machine-specific absolute paths from the binary so the committed
+	// fixture is reproducible across machines (required for the CI dirty-tree check).
+	cmd := exec.CommandContext(cmdCtx, "go", "build", "-trimpath", "-o", buildPath, pkgPath) // #nosec
 	cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
 
 	output, err := cmd.CombinedOutput()

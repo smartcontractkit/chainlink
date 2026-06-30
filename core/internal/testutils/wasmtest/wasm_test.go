@@ -9,35 +9,57 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestHashPackage(t *testing.T) {
+func TestFixtureFileName(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		compress bool
+		want     string
+	}{
+		{name: "uncompressed", compress: false, want: "output.wasm"},
+		{name: "compressed", compress: true, want: "output.wasm.br"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, fixtureFileName(tc.compress))
+		})
+	}
+}
+
+func TestReadFixture(t *testing.T) {
 	t.Parallel()
 
-	tmpDir := t.TempDir()
+	t.Run("reads committed fixture", func(t *testing.T) {
+		t.Parallel()
+		pkgDir := t.TempDir()
+		testdataDir := filepath.Join(pkgDir, "testdata")
+		require.NoError(t, os.MkdirAll(testdataDir, 0o755))
+		want := []byte("wasm-bytes")
+		require.NoError(t, os.WriteFile(filepath.Join(testdataDir, "output.wasm"), want, 0o600))
 
-	// Create a dummy .go file
-	goFilePath := filepath.Join(tmpDir, "main.go")
-	err := os.WriteFile(goFilePath, []byte("package main"), 0600)
-	require.NoError(t, err)
+		got, err := readFixture(pkgDir, false)
+		require.NoError(t, err)
+		assert.Equal(t, want, got)
+	})
 
-	hash1, err := HashPackage(tmpDir)
-	require.NoError(t, err)
-	assert.NotEmpty(t, hash1)
+	t.Run("reads compressed fixture", func(t *testing.T) {
+		t.Parallel()
+		pkgDir := t.TempDir()
+		testdataDir := filepath.Join(pkgDir, "testdata")
+		require.NoError(t, os.MkdirAll(testdataDir, 0o755))
+		want := []byte("compressed-bytes")
+		require.NoError(t, os.WriteFile(filepath.Join(testdataDir, "output.wasm.br"), want, 0o600))
 
-	// Change file content
-	err = os.WriteFile(goFilePath, []byte("package main\n\nfunc main() {}"), 0600)
-	require.NoError(t, err)
+		got, err := readFixture(pkgDir, true)
+		require.NoError(t, err)
+		assert.Equal(t, want, got)
+	})
 
-	hash2, err := HashPackage(tmpDir)
-	require.NoError(t, err)
-	assert.NotEmpty(t, hash2)
-	assert.NotEqual(t, hash1, hash2, "hash should change when file content changes")
-
-	// Adding another file changes hash
-	goFilePath2 := filepath.Join(tmpDir, "helper.go")
-	err = os.WriteFile(goFilePath2, []byte("package main"), 0600)
-	require.NoError(t, err)
-
-	hash3, err := HashPackage(tmpDir)
-	require.NoError(t, err)
-	assert.NotEqual(t, hash2, hash3, "hash should change when new file is added")
+	t.Run("missing fixture errors with regenerate guidance", func(t *testing.T) {
+		t.Parallel()
+		_, err := readFixture(t.TempDir(), false)
+		require.Error(t, err)
+		assert.ErrorContains(t, err, "go generate")
+	})
 }

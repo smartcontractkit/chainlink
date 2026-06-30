@@ -115,8 +115,8 @@ ocr_soak_report.csv
 vendor/*
 
 *.wasm
-!**/testdata/output-*.wasm
-!**/testdata/output-*.wasm.br
+!**/testdata/output.wasm
+!**/testdata/output.wasm.br
 contracts/lcov.info
 contracts/out/
 /cache

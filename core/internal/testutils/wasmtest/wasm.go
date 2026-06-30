@@ -1,15 +1,11 @@
 package wasmtest
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
-	"strings"
 	"sync"
 	"testing"
 
@@ -40,7 +36,7 @@ var (
 	binaryCacheMu sync.RWMutex
 )
 
-// GetTestBinary fetches the appropriate WASM binary from testdata/
+// GetTestBinary fetches the pre-compiled WASM binary from the package's testdata/ directory.
 // The binary MUST be generated with `go generate` before running tests.
 // Example:
 // //go:generate go run path/to/internal/testutils/wasmtest/generator/main.go -pkg core/target/package -compress
@@ -68,25 +64,8 @@ func GetTestBinary(tb testing.TB, outputPath string, compress bool) []byte {
 	repoRoot, err := getRepoRoot()
 	require.NoError(tb, err, "failed to get repo root: %s", err)
 
-	pkgDir := filepath.Join(repoRoot, outputPath)
-
-	hash, err := HashPackage(pkgDir)
-	require.NoError(tb, err, "failed to hash package %s: %s", pkgDir, err)
-
-	// Determine output filename
-	cacheFile := fmt.Sprintf("output-%s.wasm", hash)
-	if compress {
-		cacheFile += ".br"
-	}
-	filePath := filepath.Join(pkgDir, "testdata", cacheFile)
-
-	if _, statErr := os.Stat(filePath); os.IsNotExist(statErr) {
-		require.NoError(tb, statErr, "WASM fixture missing or out of date. Please run 'go generate ./...' in the project root to rebuild it. Missing file: %s", filePath)
-	}
-
-	// Read from cache
-	binary, err := os.ReadFile(filePath)
-	require.NoError(tb, err, "read cache file failed: %s", err)
+	binary, err := readFixture(filepath.Join(repoRoot, outputPath), compress)
+	require.NoError(tb, err)
 
 	cachedCopy := make([]byte, len(binary))
 	copy(cachedCopy, binary)
@@ -95,30 +74,24 @@ func GetTestBinary(tb testing.TB, outputPath string, compress bool) []byte {
 	return binary
 }
 
-// HashPackage computes a SHA-256 hash of all .go files within the specified package directory.
-// It is used to uniquely identify the state of the package's source code for WASM compilation caching.
-func HashPackage(pkgDir string) (string, error) {
-	entries, err := os.ReadDir(pkgDir)
+// fixtureFileName returns the deterministic fixture name for a package, optionally brotli-compressed.
+func fixtureFileName(compress bool) string {
+	if compress {
+		return "output.wasm.br"
+	}
+	return "output.wasm"
+}
+
+// readFixture reads the pre-compiled WASM fixture from pkgDir/testdata. A missing fixture is
+// reported as an actionable error directing the caller to regenerate it.
+func readFixture(pkgDir string, compress bool) ([]byte, error) {
+	filePath := filepath.Join(pkgDir, "testdata", fixtureFileName(compress))
+	binary, err := os.ReadFile(filePath)
 	if err != nil {
-		return "", err
-	}
-
-	var files []string
-	for _, e := range entries {
-		if !e.IsDir() && strings.HasSuffix(e.Name(), ".go") {
-			files = append(files, e.Name())
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("WASM fixture missing or out of date. Run 'go generate ./...' to rebuild it. Missing file: %s", filePath)
 		}
+		return nil, fmt.Errorf("read fixture failed: %w", err)
 	}
-	sort.Strings(files)
-
-	h := sha256.New()
-	for _, f := range files {
-		b, err := os.ReadFile(filepath.Join(pkgDir, f))
-		if err != nil {
-			return "", err
-		}
-		h.Write([]byte(f))
-		h.Write(b)
-	}
-	return hex.EncodeToString(h.Sum(nil))[:16], nil
+	return binary, nil
 }
