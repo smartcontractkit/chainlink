@@ -1496,8 +1496,7 @@ func Test_Report_SendReceipt(t *testing.T) {
 }
 
 func Test_Report_EmitReceipt(t *testing.T) {
-	t.Run("happy path", func(t *testing.T) {
-		// No parallel
+	t.Run("happy path", func(t *testing.T) { //nolint:paralleltest // beholdertest.NewObserver is not thread-safe
 		beholderTester := beholdertest.NewObserver(t)
 		billingClient := mocks.NewBillingClient(t)
 

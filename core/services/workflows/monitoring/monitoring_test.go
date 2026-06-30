@@ -10,12 +10,14 @@ import (
 )
 
 func Test_InitMonitoringResources(t *testing.T) {
+	t.Parallel()
 	em, err := monitoring.InitMonitoringResources()
 	require.NoError(t, err)
 	require.NotNil(t, em)
 }
 
 func Test_WorkflowMetricsLabeler(t *testing.T) {
+	t.Parallel()
 	em, err := monitoring.InitMonitoringResources()
 	require.NoError(t, err)
 	testWorkflowsMetricLabeler := monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em)

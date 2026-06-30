@@ -40,7 +40,10 @@ var (
 	binaryCacheMu sync.RWMutex
 )
 
-// GetTestBinary looks up the WASM binary from outputPath and optionally brotli-compresses it.
+// GetTestBinary fetches the appropriate WASM binary from testdata/
+// The binary MUST be generated with `go generate` before running tests.
+// Example:
+// //go:generate go run path/to/internal/testutils/wasmtest/generator/main.go -pkg core/target/package -compress
 func GetTestBinary(tb testing.TB, outputPath string, compress bool) []byte {
 	tb.Helper()
 

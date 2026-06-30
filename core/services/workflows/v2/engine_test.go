@@ -251,14 +251,14 @@ WorkflowLimit = "1"
 	cfg.Hooks = hooks
 	var engine1, engine2, engine3, engine4 *v2.Engine
 
-	t.Run("engine 1 inits successfully", func(t *testing.T) {
+	t.Run("engine 1 inits successfully", func(t *testing.T) { //nolint:paralleltest // subtests share setup
 		engine1, err = v2.NewEngine(cfg)
 		require.NoError(t, err)
 		require.NoError(t, engine1.Start(t.Context()))
 		require.NoError(t, <-initDoneCh)
 	})
 
-	t.Run("engine 2 gets rate-limited by per-owner limit", func(t *testing.T) {
+	t.Run("engine 2 gets rate-limited by per-owner limit", func(t *testing.T) { //nolint:paralleltest // subtests share setup
 		engine2, err = v2.NewEngine(cfg)
 		require.NoError(t, err)
 		require.NoError(t, engine2.Start(t.Context()))
@@ -266,7 +266,7 @@ WorkflowLimit = "1"
 		require.Equal(t, types.ErrPerOwnerWorkflowCountLimitReached, initErr)
 	})
 
-	t.Run("engine 3 inits successfully", func(t *testing.T) {
+	t.Run("engine 3 inits successfully", func(t *testing.T) { //nolint:paralleltest // subtests share setup
 		cfg.WorkflowOwner = testWorkflowOwnerB
 		engine3, err = v2.NewEngine(cfg)
 		require.NoError(t, err)
@@ -274,7 +274,7 @@ WorkflowLimit = "1"
 		require.NoError(t, <-initDoneCh)
 	})
 
-	t.Run("engine 4 gets rate-limited by global limit", func(t *testing.T) {
+	t.Run("engine 4 gets rate-limited by global limit", func(t *testing.T) { //nolint:paralleltest // subtests share setup
 		cfg.WorkflowOwner = testWorkflowOwnerC
 		engine4, err = v2.NewEngine(cfg)
 		require.NoError(t, err)
@@ -361,7 +361,7 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 		},
 	}
 
-	t.Run("too many triggers", func(t *testing.T) {
+	t.Run("too many triggers", func(t *testing.T) { //nolint:paralleltest // subtests share setup
 		cfg2 := defaultTestConfig(t, func(cfg *cresettings.Workflows) {
 			cfg.TriggerSubscriptionLimit.DefaultValue = 1
 		})
@@ -389,7 +389,7 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 		}
 	})
 
-	t.Run("trigger capability not found in the registry", func(t *testing.T) {
+	t.Run("trigger capability not found in the registry", func(t *testing.T) { //nolint:paralleltest // subtests share setup
 		engine, err := v2.NewEngine(cfg)
 		require.NoError(t, err)
 		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(2), nil).Once()
@@ -398,7 +398,7 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 		require.ErrorContains(t, <-initDoneCh, "trigger capability not found")
 	})
 
-	t.Run("successful trigger registration", func(t *testing.T) {
+	t.Run("successful trigger registration", func(t *testing.T) { //nolint:paralleltest // subtests share setup
 		engine, err := v2.NewEngine(cfg)
 		require.NoError(t, err)
 		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(2), nil).Once()
@@ -415,7 +415,7 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 		require.Equal(t, []string{"id_0", "id_1"}, <-subscribedToTriggersCh)
 	})
 
-	t.Run("failed trigger registration and rollback", func(t *testing.T) {
+	t.Run("failed trigger registration and rollback", func(t *testing.T) { //nolint:paralleltest // subtests share setup
 		engine, err := v2.NewEngine(cfg)
 		require.NoError(t, err)
 		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(2), nil).Once()
@@ -524,7 +524,7 @@ func TestEngine_OrganizationIdLogger(t *testing.T) {
 
 	// Wait for execution to finish
 	executionID := <-executionFinishedCh
-	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
+	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID) //nolint:staticcheck // SA1019
 	require.NoError(t, err)
 	require.Equal(t, wantExecID, executionID)
 
@@ -606,7 +606,7 @@ func TestEngine_OrganizationIdLogger_OrgResolverFailure(t *testing.T) {
 
 	// Wait for execution to finish - should complete successfully even with org resolver failure
 	executionID := <-executionFinishedCh
-	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
+	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID) //nolint:staticcheck // SA1019
 	require.NoError(t, err)
 	require.Equal(t, wantExecID, executionID)
 
@@ -744,7 +744,7 @@ func TestEngine_OrganizationIdPreservedAfterLocalNodeSync(t *testing.T) {
 	eventCh <- capabilities.TriggerResponse{Event: mockTriggerEvent}
 
 	executionID := <-executionFinishedCh
-	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
+	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID) //nolint:staticcheck // SA1019
 	require.NoError(t, err)
 	require.Equal(t, wantExecID, executionID)
 
@@ -788,7 +788,7 @@ func (m *mockOrgResolver) Ready() error {
 	return nil
 }
 
-func TestEngine_Execution(t *testing.T) { //nolint:paralleltest // Can't use t.Parallel() with beholdertest.NewObserver(t)
+func TestEngine_Execution(t *testing.T) {
 	module := modulemocks.NewModuleV2(t)
 	module.EXPECT().Start()
 	module.EXPECT().Close()
@@ -823,6 +823,7 @@ func TestEngine_Execution(t *testing.T) { //nolint:paralleltest // Can't use t.P
 	cfg.BeholderEmitter = custmsg.NewLabeler()
 
 	t.Run("successful execution with no capability calls", func(t *testing.T) {
+		t.Parallel()
 		engine, err := v2.NewEngine(cfg)
 		require.NoError(t, err)
 		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
@@ -864,7 +865,7 @@ func TestEngine_Execution(t *testing.T) { //nolint:paralleltest // Can't use t.P
 		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
 			Run(
 				func(_ context.Context, request *sdkpb.ExecuteRequest, executor host.ExecutionHelper) {
-					wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
+					wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID) //nolint:staticcheck // SA1019
 					require.NoError(t, err)
 					// The executor may be the *ExecutionHelper directly or wrapped to
 					// expose raw secrets, so assert against the exported accessor.
@@ -985,7 +986,7 @@ func TestEngine_ExecutionTimeout(t *testing.T) {
 
 	// Wait for execution to finish with timeout status
 	executionID := <-executionFinishedCh
-	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
+	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID) //nolint:staticcheck // SA1019
 	require.NoError(t, err)
 	require.Equal(t, wantExecID, executionID)
 
@@ -1046,7 +1047,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 	require.NoError(t, <-initDoneCh)
 	require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
 
-	t.Run("incorrect ratios config switches to metering mode", func(t *testing.T) {
+	t.Run("incorrect ratios config switches to metering mode", func(t *testing.T) { //nolint:paralleltest // subtests share setup
 		// Setup a metered capability
 		capability := capmocks.NewExecutableCapability(t)
 
@@ -1108,7 +1109,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 
 		// Wait for execution to finish with error status
 		executionID := <-executionFinishedCh
-		wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
+		wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID) //nolint:staticcheck // SA1019
 
 		require.NoError(t, err)
 		require.Equal(t, wantExecID, executionID)
@@ -1119,7 +1120,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 		assert.Contains(t, logged[0].Message, "switching to metering mode")
 	})
 
-	t.Run("correct ratios config produces spending limits", func(t *testing.T) {
+	t.Run("correct ratios config produces spending limits", func(t *testing.T) { //nolint:paralleltest // subtests share setup
 		// Setup a metered capability
 		capability := capmocks.NewExecutableCapability(t)
 
@@ -1203,7 +1204,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 
 		// Wait for execution to finish with error status
 		executionID := <-executionFinishedCh
-		wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
+		wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID) //nolint:staticcheck // SA1019
 
 		require.NoError(t, err)
 		require.Equal(t, wantExecID, executionID)
@@ -1213,7 +1214,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 		require.Empty(t, logged)
 	})
 
-	t.Run("single spend type and no ratios config produces spending limit with no error", func(t *testing.T) {
+	t.Run("single spend type and no ratios config produces spending limit with no error", func(t *testing.T) { //nolint:paralleltest // subtests share setup
 		// Setup a metered capability
 		capability := capmocks.NewExecutableCapability(t)
 
@@ -1284,7 +1285,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 
 		// Wait for execution to finish with error status
 		executionID := <-executionFinishedCh
-		wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
+		wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID) //nolint:staticcheck // SA1019
 
 		require.NoError(t, err)
 		require.Equal(t, wantExecID, executionID)
@@ -1294,7 +1295,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 		require.Empty(t, logged)
 	})
 
-	t.Run("billing type and capability settle spend type mismatch", func(t *testing.T) {
+	t.Run("billing type and capability settle spend type mismatch", func(t *testing.T) { //nolint:paralleltest // subtests share setup
 		// Setup a metered capability
 		capability := capmocks.NewExecutableCapability(t)
 
@@ -1379,7 +1380,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 
 		// Wait for execution to finish with error status
 		executionID := <-executionFinishedCh
-		wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
+		wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID) //nolint:staticcheck // SA1019
 
 		require.NoError(t, err)
 		require.Equal(t, wantExecID, executionID)
@@ -1507,7 +1508,7 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 
 	// Wait for execution to finish with error status
 	executionID := <-executionFinishedCh
-	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID)
+	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID) //nolint:staticcheck // SA1019
 	require.NoError(t, err)
 	require.Equal(t, wantExecID, executionID)
 
@@ -1557,6 +1558,7 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 	wrappedTriggerMock := &TriggerCapabilityWrapper{}
 
 	t.Run("OK happy path", func(t *testing.T) {
+		t.Parallel()
 		wantResponse := "Hello, world!"
 		engine, err := v2.NewEngine(cfg)
 		require.NoError(t, err)
@@ -1590,7 +1592,7 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 			t.Fatalf("unexpected response type %T", output)
 		}
 
-		execID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, "")
+		execID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, "") //nolint:staticcheck // SA1019
 		require.NoError(t, err)
 
 		require.Equal(t, execID, <-executionFinishedCh)
@@ -1598,7 +1600,7 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 	})
 }
 
-func TestEngine_WASMBinary_With_Config(t *testing.T) { //nolint:paralleltest // Can't use t.Parallel() with beholdertest.NewObserver(t)
+func TestEngine_WASMBinary_With_Config(t *testing.T) {
 	cmd := "core/services/workflows/test/wasm/v2/cmd/with_config"
 	binaryB := wasmtest.GetTestBinary(t, cmd, false)
 
@@ -1650,6 +1652,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) { //nolint:paralleltest // 
 	beholderObserver := beholdertest.NewObserver(t)
 
 	t.Run("OK received expected config", func(t *testing.T) {
+		t.Parallel()
 		engine, err := v2.NewEngine(cfg)
 		require.NoError(t, err)
 
@@ -1681,7 +1684,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) { //nolint:paralleltest // 
 			t.Fatalf("unexpected response type %T", output)
 		}
 
-		execID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, "")
+		execID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, "") //nolint:staticcheck // SA1019
 		require.NoError(t, err)
 
 		require.Equal(t, execID, <-executionFinishedCh)
@@ -1888,7 +1891,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		t.Fatalf("unexpected response type %T: %v", output, output)
 	}
 
-	execID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, "")
+	execID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, "") //nolint:staticcheck // SA1019
 	require.NoError(t, err)
 
 	require.Equal(t, execID, <-executionFinishedCh)
@@ -1968,7 +1971,7 @@ func TestEngine_DuplicateTriggerSameConfig(t *testing.T) {
 	eventCh1 <- sharedEvent
 
 	// Exactly one execution finishes.
-	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, sharedEventID)
+	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, sharedEventID) //nolint:staticcheck // SA1019
 	require.NoError(t, err)
 
 	select {
@@ -2052,7 +2055,7 @@ func TestEngine_DeduplicatesSameEventID(t *testing.T) {
 	eventCh <- duplicateEvent
 	eventCh <- duplicateEvent
 
-	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, "same_event_id")
+	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, "same_event_id") //nolint:staticcheck // SA1019
 	require.NoError(t, err)
 
 	select {
@@ -2094,7 +2097,7 @@ func newTriggerSubsSameID(n int, triggerID string) *sdkpb.ExecutionResult {
 func TestEngine_HandleNewDON(t *testing.T) {
 	t.Parallel()
 
-	t.Run("subscribe and update successfully", func(t *testing.T) {
+	t.Run("subscribe and update successfully", func(t *testing.T) { //nolint:paralleltest // subtests share setup
 		module := modulemocks.NewModuleV2(t)
 		capreg := regmocks.NewCapabilitiesRegistry(t)
 		capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil).Once()
@@ -2143,7 +2146,7 @@ func TestEngine_HandleNewDON(t *testing.T) {
 		require.NoError(t, engine.Close())
 	})
 
-	t.Run("only logs set if state is new", func(t *testing.T) {
+	t.Run("only logs set if state is new", func(t *testing.T) { //nolint:paralleltest // subtests share setup
 		var (
 			lggr, obs  = logger.TestObserved(t, zapcore.DebugLevel)
 			initDoneCh = make(chan error)
@@ -2195,7 +2198,7 @@ func TestEngine_HandleNewDON(t *testing.T) {
 		)
 	})
 
-	t.Run("fail to subscribe", func(t *testing.T) {
+	t.Run("fail to subscribe", func(t *testing.T) { //nolint:paralleltest // subtests share setup
 		module := modulemocks.NewModuleV2(t)
 		module.EXPECT().Start().Once()
 		module.EXPECT().Close().Once()
@@ -2229,7 +2232,7 @@ func TestEngine_HandleNewDON(t *testing.T) {
 		require.NoError(t, engine.Close())
 	})
 
-	t.Run("fail to fetch local node then success", func(t *testing.T) {
+	t.Run("fail to fetch local node then success", func(t *testing.T) { //nolint:paralleltest // subtests share setup
 		initDoneCh := make(chan error)
 		donCh := make(chan capabilities.DON)
 		errsCh := make(chan error, 1)

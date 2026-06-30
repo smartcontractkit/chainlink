@@ -19,6 +19,7 @@ import (
 const pathPrefix = "core/services/workflows/cmd/cre/examples"
 
 func Test_AllExampleWorkflowsCompileToWASM(t *testing.T) {
+	t.Parallel()
 	paths := []string{
 		"legacy/data_feeds",
 		"v2/http_read",

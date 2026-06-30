@@ -304,7 +304,7 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 			e.logger,
 			step.ID,
 			*e.localNode.Load(),
-			cp.(capabilities.TargetCapability),
+			cp.(capabilities.TargetCapability), //nolint:staticcheck // SA1019
 		)
 	}
 
@@ -460,10 +460,7 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 	// mark the trigger as successfully registered
 	t.registered = true
 
-	e.wg.Add(1)
-	go func() {
-		defer e.wg.Done()
-
+	e.wg.Go(func() {
 		for {
 			select {
 			case <-e.stopCh:
@@ -480,7 +477,7 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 				}
 			}
 		}
-	}()
+	})
 
 	return nil
 }
@@ -761,7 +758,7 @@ func (e *Engine) worker(ctx context.Context) {
 				continue
 			}
 
-			executionID, err := events.GenerateExecutionID(e.workflow.id, te.ID)
+			executionID, err := events.GenerateExecutionID(e.workflow.id, te.ID) //nolint:staticcheck // SA1019 legacy v1 execution IDs
 			if err != nil {
 				e.logger.With(platform.KeyTriggerID, te.ID).Errorf("could not generate execution ID: %v", err)
 				continue
@@ -1018,11 +1015,12 @@ func (e *Engine) executeStep(
 	if timeoutOverride, ok := config.Underlying[reservedFieldNameStepTimeout]; ok {
 		var desiredTimeout int64
 		err2 := timeoutOverride.UnwrapTo(&desiredTimeout)
-		if err2 != nil {
+		switch {
+		case err2 != nil:
 			e.logger.Warnw("couldn't decode step timeout override, using default", "error", err2, "default", stepTimeoutDuration)
-		} else if desiredTimeout == 0 {
+		case desiredTimeout == 0:
 			e.logger.Debugw("overridden timeout set to 0, using default", "default", stepTimeoutDuration)
-		} else {
+		default:
 			if desiredTimeout > maxStepTimeoutOverrideSec {
 				e.logger.Warnw("desired step timeout is too large, limiting to max value", "maxValue", maxStepTimeoutOverrideSec)
 				desiredTimeout = maxStepTimeoutOverrideSec

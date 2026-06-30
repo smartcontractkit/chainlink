@@ -61,7 +61,9 @@ func (s *stubExecutionHelper) EmitUserMetric(context.Context, *wfpb.WorkflowUser
 }
 
 func TestParseWorkflowAttributes(t *testing.T) {
+	t.Parallel()
 	t.Run("valid JSON with all fields", func(t *testing.T) {
+		t.Parallel()
 		data := []byte(`{"confidential":true,"vault_don_secrets":[{"key":"API_KEY"},{"key":"SIGNING_KEY","namespace":"custom-ns"}]}`)
 		attrs, err := ParseWorkflowAttributes(data)
 		require.NoError(t, err)
@@ -74,6 +76,7 @@ func TestParseWorkflowAttributes(t *testing.T) {
 	})
 
 	t.Run("empty data returns zero value", func(t *testing.T) {
+		t.Parallel()
 		attrs, err := ParseWorkflowAttributes(nil)
 		require.NoError(t, err)
 		assert.False(t, attrs.Confidential)
@@ -85,6 +88,7 @@ func TestParseWorkflowAttributes(t *testing.T) {
 	})
 
 	t.Run("non-confidential workflow", func(t *testing.T) {
+		t.Parallel()
 		data := []byte(`{"confidential":false}`)
 		attrs, err := ParseWorkflowAttributes(data)
 		require.NoError(t, err)
@@ -92,6 +96,7 @@ func TestParseWorkflowAttributes(t *testing.T) {
 	})
 
 	t.Run("malformed JSON returns error", func(t *testing.T) {
+		t.Parallel()
 		_, err := ParseWorkflowAttributes([]byte(`{not json}`))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to parse workflow attributes")
@@ -99,6 +104,7 @@ func TestParseWorkflowAttributes(t *testing.T) {
 }
 
 func TestComputeBinaryHash(t *testing.T) {
+	t.Parallel()
 	binary := []byte("hello world")
 	hash := ComputeBinaryHash(binary)
 	expected := sha256.Sum256(binary)
@@ -109,6 +115,7 @@ func TestComputeBinaryHash(t *testing.T) {
 }
 
 func TestConfidentialModule_Execute(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	lggr := logger.Nop()
 
@@ -129,6 +136,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("success", func(t *testing.T) {
+		t.Parallel()
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		execCap := capmocks.NewExecutableCapability(t)
 
@@ -166,6 +174,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 	})
 
 	t.Run("GetExecutable error", func(t *testing.T) {
+		t.Parallel()
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
 			Return(nil, errors.New("capability not found")).Once()
@@ -178,6 +187,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 	})
 
 	t.Run("capability Execute error", func(t *testing.T) {
+		t.Parallel()
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		execCap := capmocks.NewExecutableCapability(t)
 
@@ -194,6 +204,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 	})
 
 	t.Run("nil payload in response", func(t *testing.T) {
+		t.Parallel()
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		execCap := capmocks.NewExecutableCapability(t)
 
@@ -210,6 +221,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 	})
 
 	t.Run("request fields are forwarded correctly", func(t *testing.T) {
+		t.Parallel()
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		execCap := capmocks.NewExecutableCapability(t)
 
@@ -249,6 +261,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 }
 
 func TestConfidentialModule_Tee(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	lggr := logger.Nop()
 
@@ -268,6 +281,7 @@ func TestConfidentialModule_Tee(t *testing.T) {
 	}
 
 	t.Run("matching region returns true", func(t *testing.T) {
+		t.Parallel()
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		execCap := capmocks.NewExecutableCapability(t)
 
@@ -287,6 +301,7 @@ func TestConfidentialModule_Tee(t *testing.T) {
 	})
 
 	t.Run("non-matching region returns false", func(t *testing.T) {
+		t.Parallel()
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		execCap := capmocks.NewExecutableCapability(t)
 
@@ -302,6 +317,7 @@ func TestConfidentialModule_Tee(t *testing.T) {
 	})
 
 	t.Run("empty tees response returns false", func(t *testing.T) {
+		t.Parallel()
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		execCap := capmocks.NewExecutableCapability(t)
 
@@ -315,6 +331,7 @@ func TestConfidentialModule_Tee(t *testing.T) {
 	})
 
 	t.Run("GetExecutable error returns false", func(t *testing.T) {
+		t.Parallel()
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
 			Return(nil, errors.New("capability not found")).Once()
@@ -324,6 +341,7 @@ func TestConfidentialModule_Tee(t *testing.T) {
 	})
 
 	t.Run("capability Execute error returns false", func(t *testing.T) {
+		t.Parallel()
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		execCap := capmocks.NewExecutableCapability(t)
 
@@ -337,6 +355,7 @@ func TestConfidentialModule_Tee(t *testing.T) {
 	})
 
 	t.Run("nil payload returns false", func(t *testing.T) {
+		t.Parallel()
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		execCap := capmocks.NewExecutableCapability(t)
 
@@ -350,6 +369,7 @@ func TestConfidentialModule_Tee(t *testing.T) {
 	})
 
 	t.Run("request fields are correct", func(t *testing.T) {
+		t.Parallel()
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		execCap := capmocks.NewExecutableCapability(t)
 
@@ -379,6 +399,7 @@ func TestConfidentialModule_Tee(t *testing.T) {
 	})
 
 	t.Run("caches provider across calls", func(t *testing.T) {
+		t.Parallel()
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		execCap := capmocks.NewExecutableCapability(t)
 
@@ -398,6 +419,7 @@ func TestConfidentialModule_Tee(t *testing.T) {
 }
 
 func TestConfidentialModule_SetRequirements(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	lggr := logger.Nop()
 
@@ -416,6 +438,7 @@ func TestConfidentialModule_SetRequirements(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("requirements forwarded in execute", func(t *testing.T) {
+		t.Parallel()
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		execCap := capmocks.NewExecutableCapability(t)
 
@@ -451,6 +474,7 @@ func TestConfidentialModule_SetRequirements(t *testing.T) {
 	})
 
 	t.Run("requirements consumed after execute", func(t *testing.T) {
+		t.Parallel()
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		execCap := capmocks.NewExecutableCapability(t)
 
@@ -635,6 +659,7 @@ func TestConfidentialModule_SetRestrictions(t *testing.T) {
 }
 
 func TestConfidentialModule_InterfaceMethods(t *testing.T) {
+	t.Parallel()
 	mod := &ConfidentialModule{}
 
 	// These are no-ops but should not panic.

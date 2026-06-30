@@ -411,6 +411,7 @@ func EmitUserMetric(ctx context.Context, labels map[string]string, metric *event
 
 // GenerateExecutionID generates a deterministic execution ID from workflowID and triggerEventID
 // hash of (workflowID, triggerEventID)
+//
 // Deprecated: Use GenerateExecutionIDWithTriggerIndex instead.
 func GenerateExecutionID(workflowID, triggerEventID string) (string, error) {
 	s := sha256.New()

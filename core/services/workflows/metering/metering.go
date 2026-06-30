@@ -455,7 +455,7 @@ func (r *Report) Settle(ref string, metadata capabilities.ResponseMetadata) erro
 				value = value.Shift(18) // shift to fixed point value
 			}
 
-			if val, err := r.balance.ConvertToBalance(unit, value); err == nil {
+			if val, convertErr := r.balance.ConvertToBalance(unit, value); convertErr == nil {
 				resourceSpends[unit][idx].CRESpendValue = val
 			}
 
