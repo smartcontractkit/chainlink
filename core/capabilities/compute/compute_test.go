@@ -95,6 +95,7 @@ func setup(t *testing.T, config Config) testHarness {
 }
 
 func TestComputeStartAddsToRegistry(t *testing.T) {
+	t.Parallel()
 	th := setup(t, defaultConfig)
 
 	require.NoError(t, th.compute.Start(t.Context()))
@@ -131,6 +132,7 @@ func TestComputeExecuteMissingConfig(t *testing.T) {
 }
 
 func TestComputeExecuteMissingBinary(t *testing.T) {
+	t.Parallel()
 	th := setup(t, defaultConfig)
 
 	require.NoError(t, th.compute.Start(t.Context()))
@@ -315,10 +317,10 @@ func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
 		delay time.Duration
 	}{
 		{0},
-		{time.Second},
-		{2 * time.Second},
-		{2_500 * time.Millisecond},
-		{3 * time.Second},
+		{50 * time.Millisecond},
+		{100 * time.Millisecond},
+		{150 * time.Millisecond},
+		{200 * time.Millisecond},
 	}
 
 	workflowID := "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"

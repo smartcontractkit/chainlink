@@ -45,7 +45,7 @@ func TestCache(t *testing.T) {
 	mod := &module{
 		module: hmod,
 	}
-	cache.add(id, mod)
+	require.NoError(t, cache.add(id, mod))
 
 	got, ok := cache.get(id)
 	assert.True(t, ok)
@@ -84,7 +84,7 @@ func TestCache_EvictAfterSize(t *testing.T) {
 	mod := &module{
 		module: hmod,
 	}
-	cache.add(id, mod)
+	require.NoError(t, cache.add(id, mod))
 	assert.Len(t, cache.m, 1)
 
 	got, ok := cache.get(id)

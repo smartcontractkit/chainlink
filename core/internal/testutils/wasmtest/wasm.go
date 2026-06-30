@@ -3,6 +3,7 @@ package wasmtest
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,7 +19,7 @@ import (
 var getRepoRoot = sync.OnceValues(func() (string, error) {
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
-		return "", fmt.Errorf("could not get caller info")
+		return "", errors.New("could not get caller info")
 	}
 
 	dir := filepath.Dir(filename)
@@ -28,15 +29,38 @@ var getRepoRoot = sync.OnceValues(func() (string, error) {
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			return "", fmt.Errorf("could not find repo root (no go.mod found)")
+			return "", errors.New("could not find repo root (no go.mod found)")
 		}
 		dir = parent
 	}
 })
 
+var (
+	binaryCache   = make(map[string][]byte)
+	binaryCacheMu sync.RWMutex
+)
+
 // GetTestBinary looks up the WASM binary from outputPath and optionally brotli-compresses it.
 func GetTestBinary(tb testing.TB, outputPath string, compress bool) []byte {
 	tb.Helper()
+
+	cacheKey := fmt.Sprintf("%s:%t", outputPath, compress)
+	binaryCacheMu.RLock()
+	cached, ok := binaryCache[cacheKey]
+	binaryCacheMu.RUnlock()
+	if ok {
+		res := make([]byte, len(cached))
+		copy(res, cached)
+		return res
+	}
+
+	binaryCacheMu.Lock()
+	defer binaryCacheMu.Unlock()
+	if cached, ok = binaryCache[cacheKey]; ok {
+		res := make([]byte, len(cached))
+		copy(res, cached)
+		return res
+	}
 
 	repoRoot, err := getRepoRoot()
 	require.NoError(tb, err, "failed to get repo root: %s", err)
@@ -53,13 +77,17 @@ func GetTestBinary(tb testing.TB, outputPath string, compress bool) []byte {
 	}
 	filePath := filepath.Join(pkgDir, "testdata", cacheFile)
 
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		require.NoError(tb, err, "WASM fixture missing or out of date. Please run 'go generate ./...' in the project root to rebuild it. Missing file: %s", filePath)
+	if _, statErr := os.Stat(filePath); os.IsNotExist(statErr) {
+		require.NoError(tb, statErr, "WASM fixture missing or out of date. Please run 'go generate ./...' in the project root to rebuild it. Missing file: %s", filePath)
 	}
 
 	// Read from cache
 	binary, err := os.ReadFile(filePath)
 	require.NoError(tb, err, "read cache file failed: %s", err)
+
+	cachedCopy := make([]byte, len(binary))
+	copy(cachedCopy, binary)
+	binaryCache[cacheKey] = cachedCopy
 
 	return binary
 }

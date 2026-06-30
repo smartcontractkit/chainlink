@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/andybalholm/brotli"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 )
 
@@ -27,9 +28,11 @@ func main() {
 
 	pkgPath := "github.com/smartcontractkit/chainlink/v2/" + *pkgArg
 
-	listCmd := exec.Command("go", "list", "-f", "{{.Dir}}", pkgPath)
+	listCtx, listCancel := context.WithTimeout(context.Background(), time.Minute)
+	listCmd := exec.CommandContext(listCtx, "go", "list", "-f", "{{.Dir}}", pkgPath)
 	listCmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
 	out, err := listCmd.Output()
+	listCancel()
 	if err != nil {
 		log.Fatalf("failed to find package dir for %s: %v\n%s", pkgPath, err, string(out))
 	}
@@ -47,7 +50,7 @@ func main() {
 	testdataDir := filepath.Join(pkgDir, "testdata")
 	filePath := filepath.Join(testdataDir, cacheFile)
 
-	if _, err := os.Stat(filePath); err == nil {
+	if _, statErr := os.Stat(filePath); statErr == nil {
 		log.Printf("Fixture already up to date: %s", filePath)
 		return
 	}
