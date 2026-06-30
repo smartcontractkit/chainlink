@@ -589,9 +589,10 @@ type pendingQueueStore interface {
 }
 
 func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq types.AttributedQuery, keyValueReader ocr3_1types.KeyValueStateReader, blobBroadcastFetcher ocr3_1types.BlobBroadcastFetcher) (types.Observation, error) {
+	l := r.roundLggr(seqNr)
 	start := time.Now()
 	defer func() {
-		r.lggr.Debugw("observation finished", "seqNr", seqNr, "elapsed", time.Since(start))
+		l.Debugw("observation finished", "elapsed", time.Since(start))
 	}()
 
 	readKV := NewReadStore(keyValueReader, r.metrics)
@@ -609,7 +610,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 
 	// Avoid log spam by only logging if we have any requests to process.
 	if len(currentPendingQueueItems) > 0 {
-		r.lggr.Debugw("observation started", "seqNr", seqNr, "batchSize", len(currentPendingQueueItems))
+		l.Debugw("observation started", "batchSize", len(currentPendingQueueItems))
 	}
 
 	obspb := &vaultcommon.Observations{}
@@ -707,7 +708,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 
 	// Avoid log spam by only logging if we have any requests to process.
 	if len(currentPendingQueueItems) > 0 {
-		r.lggr.Debugw("observation complete", "ids", observedIDs, "batchSize", len(currentPendingQueueItems))
+		l.Debugw("observation complete", "ids", observedIDs, "batchSize", len(currentPendingQueueItems))
 	}
 	return types.Observation(obsb), nil
 }
@@ -730,32 +731,30 @@ func (r *ReportingPlugin) appendPendingQueueObservations(
 
 		payload, err := req.Item.UnmarshalNew()
 		if err != nil {
-			r.lggr.Errorw("failed to unmarshal request payload", "id", req.Id, "error", err)
+			r.roundLggr(seqNr).Errorw("failed to unmarshal request payload", "requestID", req.Id, "error", err)
 			continue
 		}
 
 		switch tp := payload.(type) {
 		case *vaultcommon.GetSecretsRequest:
-			r.observeGetSecrets(ctx, readKV, tp, o)
+			r.observeGetSecrets(ctx, seqNr, req.Id, readKV, tp, o)
 		case *vaultcommon.CreateSecretsRequest:
-			r.observeCreateSecrets(ctx, readKV, tp, o)
+			r.observeCreateSecrets(ctx, seqNr, req.Id, readKV, tp, o)
 		case *vaultcommon.UpdateSecretsRequest:
-			r.observeUpdateSecrets(ctx, readKV, tp, o)
+			r.observeUpdateSecrets(ctx, seqNr, req.Id, readKV, tp, o)
 		case *vaultcommon.DeleteSecretsRequest:
-			r.observeDeleteSecrets(ctx, readKV, tp, o)
+			r.observeDeleteSecrets(ctx, seqNr, req.Id, readKV, tp, o)
 		case *vaultcommon.ListSecretIdentifiersRequest:
-			r.observeListSecretIdentifiers(ctx, readKV, tp, o)
+			r.observeListSecretIdentifiers(ctx, seqNr, req.Id, readKV, tp, o)
 		default:
-			r.lggr.Errorw("unknown request type, skipping...", "requestType", fmt.Sprintf("%T", payload), "id", req.Id)
+			r.typedRequestLggr(seqNr, req.Id, fmt.Sprintf("%T", payload)).Errorw("unknown request type, skipping...")
 			continue
 		}
 
 		obspb.Observations = append(obspb.Observations, o)
 		if applyWireCap && proto.Size(obspb) > r.maxObservationBytes {
 			obspb.Observations = obspb.Observations[:len(obspb.Observations)-1]
-			r.lggr.Warnw("observation proto would exceed max observation bytes; stopping pending-queue observation pack",
-				"seqNr", seqNr,
-				"id", req.Id,
+			r.requestLggr(seqNr, req.Id).Warnw("observation proto would exceed max observation bytes; stopping pending-queue observation pack",
 				"maxObservationBytes", r.maxObservationBytes,
 				"packedObservationCount", len(obspb.Observations),
 				"pendingQueueItemCount", len(currentPendingQueueItems),
@@ -840,7 +839,8 @@ func (r *ReportingPlugin) broadcastBlobPayloads(
 	return filtered, nil
 }
 
-func (r *ReportingPlugin) observeGetSecrets(ctx context.Context, reader ReadKVStore, req proto.Message, o *vaultcommon.Observation) {
+func (r *ReportingPlugin) observeGetSecrets(ctx context.Context, seqNr uint64, requestID string, reader ReadKVStore, req proto.Message, o *vaultcommon.Observation) {
+	l := r.typedRequestLggr(seqNr, requestID, "GetSecrets")
 	tp := req.(*vaultcommon.GetSecretsRequest)
 	o.RequestType = vaultcommon.RequestType_GET_SECRETS
 	if !r.optimizationsEnabled(ctx) {
@@ -864,7 +864,7 @@ func (r *ReportingPlugin) observeGetSecrets(ctx context.Context, reader ReadKVSt
 	for _, secretRequest := range tp.Requests {
 		resp, ierr := r.observeGetSecretsRequest(ctx, reader, secretRequest, requestsCountForID)
 		if ierr != nil {
-			logUserErrorAware(r.lggr, "failed to observe get secret request item", ierr, "id", secretRequest.Id)
+			logUserErrorAware(l, "failed to observe get secret request item", ierr, "id", secretRequest.Id)
 			errorMsg := userFacingError(ierr, "failed to handle get secret request")
 			resps = append(resps, &vaultcommon.SecretResponse{
 				Id: secretRequest.Id,
@@ -873,7 +873,7 @@ func (r *ReportingPlugin) observeGetSecrets(ctx context.Context, reader ReadKVSt
 				},
 			})
 		} else {
-			r.lggr.Debugw("observed get secret request item", "id", resp.Id)
+			l.Debugw("observed get secret request item", "id", resp.Id)
 			resps = append(resps, resp)
 		}
 	}
@@ -991,13 +991,13 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 	}, nil
 }
 
-func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, reader ReadKVStore, req proto.Message, o *vaultcommon.Observation) {
+func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, seqNr uint64, requestID string, reader ReadKVStore, req proto.Message, o *vaultcommon.Observation) {
+	l := r.typedRequestLggr(seqNr, requestID, "CreateSecrets")
 	tp := req.(*vaultcommon.CreateSecretsRequest)
 	o.RequestType = vaultcommon.RequestType_CREATE_SECRETS
 	o.Request = &vaultcommon.Observation_CreateSecretsRequest{
 		CreateSecretsRequest: tp,
 	}
-	l := r.lggr.With("requestID", tp.RequestId, "requestType", "CreateSecrets")
 
 	requestsCountForID := map[string]int{}
 	for _, sr := range tp.EncryptedSecrets {
@@ -1070,13 +1070,13 @@ func (r *ReportingPlugin) observeCreateSecretRequest(ctx context.Context, _ Read
 	return id, nil
 }
 
-func (r *ReportingPlugin) observeUpdateSecrets(ctx context.Context, reader ReadKVStore, req proto.Message, o *vaultcommon.Observation) {
+func (r *ReportingPlugin) observeUpdateSecrets(ctx context.Context, seqNr uint64, requestID string, reader ReadKVStore, req proto.Message, o *vaultcommon.Observation) {
+	l := r.typedRequestLggr(seqNr, requestID, "UpdateSecrets")
 	tp := req.(*vaultcommon.UpdateSecretsRequest)
 	o.RequestType = vaultcommon.RequestType_UPDATE_SECRETS
 	o.Request = &vaultcommon.Observation_UpdateSecretsRequest{
 		UpdateSecretsRequest: tp,
 	}
-	l := r.lggr.With("requestID", tp.RequestId, "requestType", "UpdateSecrets")
 
 	requestsCountForID := map[string]int{}
 	for _, sr := range tp.EncryptedSecrets {
@@ -1129,15 +1129,15 @@ func (r *ReportingPlugin) observeUpdateSecretRequest(ctx context.Context, reader
 	return r.observeCreateSecretRequest(ctx, reader, secretRequest, requestsCountForID)
 }
 
-func (r *ReportingPlugin) observeListSecretIdentifiers(ctx context.Context, reader ReadKVStore, req proto.Message, o *vaultcommon.Observation) {
+func (r *ReportingPlugin) observeListSecretIdentifiers(ctx context.Context, seqNr uint64, requestID string, reader ReadKVStore, req proto.Message, o *vaultcommon.Observation) {
 	tp := req.(*vaultcommon.ListSecretIdentifiersRequest)
+	l := r.typedRequestLggr(seqNr, requestID, "ListSecretIdentifiers").With("owner", tp.Owner)
 	o.RequestType = vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS
 	o.Request = &vaultcommon.Observation_ListSecretIdentifiersRequest{
 		ListSecretIdentifiersRequest: tp,
 	}
-	l := r.lggr.With("requestId", tp.RequestId, "requestType", "ListSecretIdentifiers", "owner", tp.Owner)
 
-	resp, err := r.processListSecretIdentifiersRequest(ctx, l, reader, tp)
+	resp, err := r.processListSecretIdentifiersRequest(ctx, seqNr, requestID, reader, tp)
 	if err != nil {
 		l.Debugw("failed to process list secret identifiers request", "error", err)
 		o.Response = &vaultcommon.Observation_ListSecretIdentifiersResponse{
@@ -1155,7 +1155,7 @@ func (r *ReportingPlugin) observeListSecretIdentifiers(ctx context.Context, read
 	}
 }
 
-func (r *ReportingPlugin) processListSecretIdentifiersRequest(ctx context.Context, l logger.Logger, reader ReadKVStore, req *vaultcommon.ListSecretIdentifiersRequest) (*vaultcommon.ListSecretIdentifiersResponse, error) {
+func (r *ReportingPlugin) processListSecretIdentifiersRequest(ctx context.Context, seqNr uint64, requestID string, reader ReadKVStore, req *vaultcommon.ListSecretIdentifiersRequest) (*vaultcommon.ListSecretIdentifiersResponse, error) {
 	if req.Owner == "" {
 		return nil, errors.New("invalid request: owner cannot be empty")
 	}
@@ -1168,7 +1168,7 @@ func (r *ReportingPlugin) processListSecretIdentifiersRequest(ctx context.Contex
 	if md == nil {
 		// No metadata, so the list is empty.
 		// The user hasn't added any items to the vault DON yet.
-		l.Debugw("successfully read metadata for owner: no metadata found, returning empty list")
+		r.typedRequestLggr(seqNr, requestID, "ListSecretIdentifiers").With("owner", req.Owner).Debugw("successfully read metadata for owner: no metadata found, returning empty list")
 		return &vaultcommon.ListSecretIdentifiersResponse{Identifiers: []*vaultcommon.SecretIdentifier{}, Success: true}, nil
 	}
 
@@ -1196,13 +1196,13 @@ func (r *ReportingPlugin) processListSecretIdentifiersRequest(ctx context.Contex
 	}, nil
 }
 
-func (r *ReportingPlugin) observeDeleteSecrets(ctx context.Context, reader ReadKVStore, req proto.Message, o *vaultcommon.Observation) {
+func (r *ReportingPlugin) observeDeleteSecrets(ctx context.Context, seqNr uint64, requestID string, reader ReadKVStore, req proto.Message, o *vaultcommon.Observation) {
+	l := r.typedRequestLggr(seqNr, requestID, "DeleteSecrets")
 	tp := req.(*vaultcommon.DeleteSecretsRequest)
 	o.RequestType = vaultcommon.RequestType_DELETE_SECRETS
 	o.Request = &vaultcommon.Observation_DeleteSecretsRequest{
 		DeleteSecretsRequest: tp,
 	}
-	l := r.lggr.With("requestId", tp.RequestId, "requestType", "DeleteSecrets")
 
 	requestsCountForID := map[string]int{}
 	for _, sr := range tp.Ids {
@@ -1330,8 +1330,10 @@ func logUserErrorAware(l logger.Logger, msg string, err error, keysAndValues ...
 }
 
 func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64, aq types.AttributedQuery, ao types.AttributedObservation, keyValueReader ocr3_1types.KeyValueStateReader, blobFetcher ocr3_1types.BlobFetcher) error {
+	valLggr := r.roundLggr(seqNr).With("oracleID", ao.Observer)
 	obs := &vaultcommon.Observations{}
 	if err := proto.Unmarshal([]byte(ao.Observation), obs); err != nil {
+		valLggr.Debugw("validate observation failed", "error", err)
 		return errors.New("failed to unmarshal observations: " + err.Error())
 	}
 
@@ -1360,6 +1362,7 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 	for _, o := range obs.Observations {
 		err = r.validateObservation(ctx, o, pendingGetSecretsByID)
 		if err != nil {
+			valLggr.Debugw("validate observation failed", "requestID", o.Id, "error", err)
 			return errors.New("invalid observation: " + err.Error())
 		}
 
@@ -1714,6 +1717,7 @@ func (r *ReportingPlugin) validateListSecretIdentifiersObservation(ctx context.C
 }
 
 func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq types.AttributedQuery, aos []types.AttributedObservation, keyValueReadWriter ocr3_1types.KeyValueStateReadWriter, blobFetcher ocr3_1types.BlobFetcher) (ocr3_1types.ReportsPlusPrecursor, error) {
+	l := r.roundLggr(seqNr)
 	writeKV := NewWriteStore(keyValueReadWriter, r.metrics)
 
 	marshalledObs := map[uint8]*vaultcommon.Observations{}
@@ -1750,7 +1754,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		}
 	}
 
-	r.lggr.Debugw("stateTransition started", "oracleIDsToRequestIDs", oidsToReqIDs)
+	l.Debugw("stateTransition started", "oracleIDsToRequestIDs", oidsToReqIDs)
 
 	os := &vaultcommon.Outcomes{
 		Outcomes: []*vaultcommon.Outcome{},
@@ -1790,14 +1794,14 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 				} else {
 					chosen = shaToObs[sha]
 				}
-				r.lggr.Debugw("sufficient observations for sha", "sha", sha, "requestType", "GetSecrets", "count", len(obs), "threshold", 2*r.onchainCfg.F+1, "id", id)
+				l.Debugw("sufficient observations for sha", "sha", sha, "requestType", "GetSecrets", "count", len(obs), "threshold", 2*r.onchainCfg.F+1, "requestID", id)
 			case o.RequestType != vaultcommon.RequestType_GET_SECRETS && len(obs) >= r.onchainCfg.F+1:
 				// F+1 means that at least 1 honest node has provided this observation, so that's enough for all other request
 				// types.
 				// Technically we could have two shas with F+1 observations. If that happens we'll pick the last one.
 				// This is deterministic since we're sorting by shas above.
 				chosen = shaToObs[sha]
-				r.lggr.Debugw("sufficient observations for sha", "sha", sha, "count", len(obs), "threshold", r.onchainCfg.F+1, "id", id)
+				l.Debugw("sufficient observations for sha", "sha", sha, "count", len(obs), "threshold", r.onchainCfg.F+1, "requestID", id)
 			}
 		}
 
@@ -1806,7 +1810,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 			for sha, obs := range shaToObs {
 				shaToObsCount[sha] = len(obs)
 			}
-			r.lggr.Warnw("insufficient observations found for id", "id", id, "shaToObsCount", shaToObsCount)
+			l.Warnw("insufficient observations found for requestID", "requestID", id, "shaToObsCount", shaToObsCount)
 			continue
 		}
 
@@ -1836,8 +1840,8 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		os.Outcomes = append(os.Outcomes, o)
 		if r.optimizationsEnabled(ctx) && proto.Size(os) > r.maxReportsPlusPrecursorBytes {
 			os.Outcomes = os.Outcomes[:len(os.Outcomes)-1]
-			r.lggr.Warnw("state transition: more observations than can be included in response",
-				"id", id,
+			l.Warnw("state transition: more observations than can be included in response",
+				"requestID", id,
 				"maxReportsPlusPrecursorBytes", r.maxReportsPlusPrecursorBytes,
 				"packedOutcomeCount", len(os.Outcomes),
 				"scheduledRequestIDs", len(obsMap),
@@ -1865,7 +1869,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 	}
 
 	if len(os.Outcomes) > 0 {
-		r.lggr.Debugw("State transition complete", "count", len(os.Outcomes), "err", err)
+		l.Debugw("State transition complete", "outcomeCount", len(os.Outcomes))
 	}
 	return ocr3_1types.ReportsPlusPrecursor(ospb), nil
 }
@@ -2437,6 +2441,7 @@ func (r *ReportingPlugin) Committed(ctx context.Context, seqNr uint64, keyValueR
 }
 
 func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlusPrecursor ocr3_1types.ReportsPlusPrecursor) ([]ocr3types.ReportPlus[[]byte], error) {
+	l := r.roundLggr(seqNr)
 	outcomes := &vaultcommon.Outcomes{}
 	err := proto.Unmarshal([]byte(reportsPlusPrecursor), outcomes)
 	if err != nil {
@@ -2449,7 +2454,7 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 		case vaultcommon.RequestType_GET_SECRETS:
 			rep, err := r.generateProtoReport(o.Id, o.RequestType, o.GetGetSecretsResponse())
 			if err != nil {
-				r.lggr.Errorw("failed to generate Proto report", "error", err, "id", o.Id)
+				l.Errorw("failed to generate Proto report", "error", err, "requestID", o.Id)
 				continue
 			}
 
@@ -2463,7 +2468,7 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 			}
 			rep, err := r.generateJSONReport(o.Id, o.RequestType, createResp, r.signedResponseRequestIDEnabled(ctx))
 			if err != nil {
-				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
+				l.Errorw("failed to generate JSON report", "error", err, "requestID", o.Id)
 				continue
 			}
 
@@ -2477,7 +2482,7 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 			}
 			rep, err := r.generateJSONReport(o.Id, o.RequestType, updateResp, r.signedResponseRequestIDEnabled(ctx))
 			if err != nil {
-				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
+				l.Errorw("failed to generate JSON report", "error", err, "requestID", o.Id)
 				continue
 			}
 
@@ -2491,7 +2496,7 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 			}
 			rep, err := r.generateJSONReport(o.Id, o.RequestType, deleteResp, r.signedResponseRequestIDEnabled(ctx))
 			if err != nil {
-				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
+				l.Errorw("failed to generate JSON report", "error", err, "requestID", o.Id)
 				continue
 			}
 
@@ -2505,7 +2510,7 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 			}
 			rep, err := r.generateJSONReport(o.Id, o.RequestType, listResp, r.signedResponseRequestIDEnabled(ctx))
 			if err != nil {
-				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
+				l.Errorw("failed to generate JSON report", "error", err, "requestID", o.Id)
 				continue
 			}
 
@@ -2517,7 +2522,7 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 	}
 
 	if len(reports) > 0 {
-		r.lggr.Debugw("Reports complete", "count", len(reports))
+		l.Debugw("Reports complete", "reportCount", len(reports))
 	}
 	return reports, nil
 }
