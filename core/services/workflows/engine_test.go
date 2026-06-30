@@ -2686,11 +2686,11 @@ func TestMerge(t *testing.T) {
 		t.Run(tc.name, func(st *testing.T) {
 			st.Parallel()
 			bc, err := values.NewMap(tc.baseConfig)
-			require.NoError(t, err)
+			require.NoError(st, err)
 			got := merge(bc, tc.capabilityConfig)
 			gotMap, err := got.Unwrap()
-			require.NoError(t, err)
-			assert.Equal(t, tc.expectedConfig, gotMap)
+			require.NoError(st, err)
+			assert.Equal(st, tc.expectedConfig, gotMap)
 		})
 	}
 }

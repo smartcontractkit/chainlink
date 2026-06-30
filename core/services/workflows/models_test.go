@@ -293,8 +293,8 @@ targets:
 	for _, tc := range testCases {
 		t.Run(tc.name, func(st *testing.T) {
 			st.Parallel()
-			spec, _, _, err := job.YAMLSpecFactory{}.Spec(t.Context(), tc.yaml, "")
-			require.NoError(t, err)
+			spec, _, _, err := job.YAMLSpecFactory{}.Spec(st.Context(), tc.yaml, "")
+			require.NoError(st, err)
 
 			wf, err := Parse(spec)
 			if tc.errMsg != "" {
@@ -303,7 +303,7 @@ targets:
 				require.NoError(st, err)
 
 				adjacencies, err := wf.AdjacencyMap()
-				require.NoError(t, err)
+				require.NoError(st, err)
 
 				got := map[string]map[string]struct{}{}
 				for k, v := range adjacencies {
