@@ -110,7 +110,7 @@ targets:
       address: "%s"
       params: ["$(report)"]
       abi: "receive(report bytes)"
-      deltaStage: 1s
+      deltaStage: 100ms
       schedule: oneAtATime
 `
 

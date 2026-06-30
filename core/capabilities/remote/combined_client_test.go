@@ -10,11 +10,12 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestCombinedClient_Info(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	info := createTestCapabilityInfo("test-capability-info", commoncap.CapabilityTypeAction)
 	client := remote.NewCombinedClient(info)
 
@@ -24,7 +25,9 @@ func TestCombinedClient_Info(t *testing.T) {
 }
 
 func TestCombinedClient_RegisterTrigger_Success(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	info := createTestCapabilityInfo("test-trigger", commoncap.CapabilityTypeTrigger)
 	client := remote.NewCombinedClient(info)
 
@@ -47,7 +50,9 @@ func TestCombinedClient_RegisterTrigger_Success(t *testing.T) {
 }
 
 func TestCombinedClient_RegisterTrigger_MethodNotDefined(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	info := createTestCapabilityInfo("test-trigger", commoncap.CapabilityTypeTrigger)
 	client := remote.NewCombinedClient(info)
 
@@ -63,7 +68,9 @@ func TestCombinedClient_RegisterTrigger_MethodNotDefined(t *testing.T) {
 }
 
 func TestCombinedClient_RegisterTrigger_ErrorFromSubscriber(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	info := createTestCapabilityInfo("test-trigger", commoncap.CapabilityTypeTrigger)
 	client := remote.NewCombinedClient(info)
 
@@ -87,7 +94,9 @@ func TestCombinedClient_RegisterTrigger_ErrorFromSubscriber(t *testing.T) {
 }
 
 func TestCombinedClient_UnregisterTrigger_Success(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	info := createTestCapabilityInfo("test-trigger", commoncap.CapabilityTypeTrigger)
 	client := remote.NewCombinedClient(info)
 
@@ -107,7 +116,9 @@ func TestCombinedClient_UnregisterTrigger_Success(t *testing.T) {
 }
 
 func TestCombinedClient_UnregisterTrigger_MethodNotDefined(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	info := createTestCapabilityInfo("test-trigger", commoncap.CapabilityTypeTrigger)
 	client := remote.NewCombinedClient(info)
 
@@ -122,7 +133,9 @@ func TestCombinedClient_UnregisterTrigger_MethodNotDefined(t *testing.T) {
 }
 
 func TestCombinedClient_UnregisterTrigger_ErrorFromSubscriber(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	info := createTestCapabilityInfo("test-trigger", commoncap.CapabilityTypeTrigger)
 	client := remote.NewCombinedClient(info)
 
@@ -145,7 +158,9 @@ func TestCombinedClient_UnregisterTrigger_ErrorFromSubscriber(t *testing.T) {
 }
 
 func TestCombinedClient_RegisterToWorkflow_NotSupported(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	info := createTestCapabilityInfo("test-capability", commoncap.CapabilityTypeTrigger)
 	client := remote.NewCombinedClient(info)
 
@@ -161,7 +176,9 @@ func TestCombinedClient_RegisterToWorkflow_NotSupported(t *testing.T) {
 }
 
 func TestCombinedClient_UnregisterFromWorkflow_NotSupported(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	info := createTestCapabilityInfo("test-capability", commoncap.CapabilityTypeTrigger)
 	client := remote.NewCombinedClient(info)
 
@@ -177,7 +194,9 @@ func TestCombinedClient_UnregisterFromWorkflow_NotSupported(t *testing.T) {
 }
 
 func TestCombinedClient_Execute_Success(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	info := createTestCapabilityInfo("test-executable", commoncap.CapabilityTypeAction)
 	client := remote.NewCombinedClient(info)
 
@@ -208,7 +227,9 @@ func TestCombinedClient_Execute_Success(t *testing.T) {
 }
 
 func TestCombinedClient_Execute_MethodNotDefined(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	info := createTestCapabilityInfo("test-executable", commoncap.CapabilityTypeAction)
 	client := remote.NewCombinedClient(info)
 
@@ -229,7 +250,9 @@ func TestCombinedClient_Execute_MethodNotDefined(t *testing.T) {
 }
 
 func TestCombinedClient_Execute_ErrorFromExecutable(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	info := createTestCapabilityInfo("test-executable", commoncap.CapabilityTypeAction)
 	client := remote.NewCombinedClient(info)
 
@@ -259,6 +282,8 @@ func TestCombinedClient_Execute_ErrorFromExecutable(t *testing.T) {
 }
 
 func TestCombinedClient_SetTriggerSubscriber(t *testing.T) {
+	t.Parallel()
+
 	info := createTestCapabilityInfo("test-capability", commoncap.CapabilityTypeTrigger)
 
 	client := remote.NewCombinedClient(info)
@@ -267,7 +292,7 @@ func TestCombinedClient_SetTriggerSubscriber(t *testing.T) {
 
 	client.SetTriggerSubscriber(method, mockTrigger)
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	request := commoncap.TriggerRegistrationRequest{
 		TriggerID: "test-trigger-id",
 		Method:    method,
@@ -281,6 +306,8 @@ func TestCombinedClient_SetTriggerSubscriber(t *testing.T) {
 }
 
 func TestCombinedClient_SetExecutableClient(t *testing.T) {
+	t.Parallel()
+
 	info := createTestCapabilityInfo("test-capability", commoncap.CapabilityTypeAction)
 
 	client := remote.NewCombinedClient(info)
@@ -289,7 +316,7 @@ func TestCombinedClient_SetExecutableClient(t *testing.T) {
 
 	client.SetExecutableClient(method, mockExecutable)
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	request := commoncap.CapabilityRequest{
 		Method: method,
 		Config: nil,
@@ -311,7 +338,9 @@ func TestCombinedClient_SetExecutableClient(t *testing.T) {
 }
 
 func TestCombinedClient_MultipleMethodsAndCapabilities(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	info := createTestCapabilityInfo("test-multi-capability", commoncap.CapabilityTypeAction)
 	client := remote.NewCombinedClient(info)
 

@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types/mocks"
 
@@ -81,8 +80,10 @@ func (c testConfig) SendToSharedPeer() bool {
 }
 
 func TestDispatcher_CleanStartClose(t *testing.T) {
+	t.Parallel()
+
 	lggr := logger.Test(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	peer := mocks.NewPeer(t)
 	recvCh := make(<-chan p2ptypes.Message)
 	peer.On("Receive", mock.Anything).Return(recvCh)
@@ -100,8 +101,10 @@ func TestDispatcher_CleanStartClose(t *testing.T) {
 }
 
 func TestDispatcher_Receive(t *testing.T) {
+	t.Parallel()
+
 	lggr := logger.Test(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	privKey1, peerID1 := newKeyPair(t)
 	_, peerID2 := newKeyPair(t)
 
@@ -145,8 +148,10 @@ func TestDispatcher_Receive(t *testing.T) {
 }
 
 func TestDispatcher_ReceiveForMethod(t *testing.T) {
+	t.Parallel()
+
 	lggr := logger.Test(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	privKey1, peerID1 := newKeyPair(t)
 	_, peerID2 := newKeyPair(t)
 
@@ -197,8 +202,10 @@ func TestDispatcher_ReceiveForMethod(t *testing.T) {
 }
 
 func TestDispatcher_RespondWithError(t *testing.T) {
+	t.Parallel()
+
 	lggr := logger.Test(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	privKey1, peerID1 := newKeyPair(t)
 	_, peerID2 := newKeyPair(t)
 
@@ -231,8 +238,10 @@ func TestDispatcher_RespondWithError(t *testing.T) {
 }
 
 func TestDispatcher_ReceiveFromBothPeers(t *testing.T) {
+	t.Parallel()
+
 	lggr := logger.Test(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	privKey1, peerID1 := newKeyPair(t)
 	_, peerID2 := newKeyPair(t)
 
@@ -272,8 +281,10 @@ func TestDispatcher_ReceiveFromBothPeers(t *testing.T) {
 }
 
 func TestDispatcher_SendToSharedPeer(t *testing.T) {
+	t.Parallel()
+
 	lggr := logger.Test(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	_, peerID1 := newKeyPair(t)
 	_, peerID2 := newKeyPair(t)
 
@@ -331,8 +342,10 @@ func (r *panicOnFirstReceiver) Receive(_ context.Context, msg *remotetypes.Messa
 // dispatcher goroutine and does not prevent subsequent messages from being
 // delivered to the same receiver.
 func TestDispatcher_ReceiverPanicDoesNotKillLoop(t *testing.T) {
+	t.Parallel()
+
 	lggr := logger.Test(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	privKey1, peerID1 := newKeyPair(t)
 	_, peerID2 := newKeyPair(t)
 

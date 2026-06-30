@@ -977,6 +977,10 @@ DebugMode = false # Default
 [CRE.ConfidentialRelay]
 # Enabled controls whether the confidential relay gateway handler should be configured.
 Enabled = false # Default
+# TrustEnclaves relaxes TEE attestation validation so the relay trusts fake (non-Nitro) enclaves. intended only for tests.
+TrustEnclaves = false # Default
+# RequireBFTQuorum selects the relay's signature quorum.
+RequireBFTQuorum = false # Default
 
 # Sharding holds settings for node sharding configuration.
 [Sharding]

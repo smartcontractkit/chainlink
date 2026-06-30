@@ -32,14 +32,12 @@ func (t *parallelExecutor) ExecuteTask(ctx context.Context, fn func(ctx context.
 	select {
 	case t.taskSemaphore <- struct{}{}:
 		stopped := !t.IfNotStopped(func() {
-			t.wg.Add(1)
-			go func() {
+			t.wg.Go(func() {
 				ctxWithStop, cancel := t.stopChan.Ctx(ctx)
 				fn(ctxWithStop)
 				cancel()
 				<-t.taskSemaphore
-				t.wg.Done()
-			}()
+			})
 		})
 
 		if stopped {

@@ -425,6 +425,8 @@ TLSEnabled = true
 
 [CRE.ConfidentialRelay]
 Enabled = false
+TrustEnclaves = false
+RequireBFTQuorum = false
 
 [Billing]
 URL = 'localhost:4319'
