@@ -126,10 +126,10 @@ Assuming you're ready to declare defeat, it's time to turn off the test. How you
 
 ## Chainlink `tools/test` harness
 
-For repeated runs with Postgres setup, `go test -json` capture, and machine-readable reports under `diagnose-*` directories, use the harness from the **repository root** (`go -C tools/test run .`, declared in the root `go.mod`):
+For repeated runs with Postgres setup, `go test -json` capture, and machine-readable reports under `diagnose-*` directories, build the harness binary and run it from the **repository root** (it resolves package patterns relative to the working directory):
 
 ```sh
-go -C tools/test run . diagnose --iterations 50 -- --failfast ./path/to/package
+make test ARGS="diagnose --iterations 50 -- --failfast ./path/to/package"
 ```
 
-See [README.md](./README.md), root `GNUmakefile` targets `new_test` / `new_gotestsum` / `new_test_diagnose`, and the agent playbook [`.agents/skills/diagnose-tests/SKILL.md`](../../.agents/skills/diagnose-tests/SKILL.md).
+See [README.md](./README.md), `make test` in the root `GNUmakefile`, and the agent playbook [`.agents/skills/fix-flaky-tests/SKILL.md`](./.agents/skills/fix-flaky-tests/SKILL.md).

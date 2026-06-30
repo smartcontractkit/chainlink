@@ -2234,6 +2234,98 @@ func (_c *GeneralConfig_StarknetConfigs_Call) RunAndReturn(run func() chainlink.
 	return _c
 }
 
+// StellarConfigs provides a mock function with no fields
+func (_m *GeneralConfig) StellarConfigs() chainlink.RawConfigs {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for StellarConfigs")
+	}
+
+	var r0 chainlink.RawConfigs
+	if rf, ok := ret.Get(0).(func() chainlink.RawConfigs); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(chainlink.RawConfigs)
+		}
+	}
+
+	return r0
+}
+
+// GeneralConfig_StellarConfigs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StellarConfigs'
+type GeneralConfig_StellarConfigs_Call struct {
+	*mock.Call
+}
+
+// StellarConfigs is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) StellarConfigs() *GeneralConfig_StellarConfigs_Call {
+	return &GeneralConfig_StellarConfigs_Call{Call: _e.mock.On("StellarConfigs")}
+}
+
+func (_c *GeneralConfig_StellarConfigs_Call) Run(run func()) *GeneralConfig_StellarConfigs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_StellarConfigs_Call) Return(_a0 chainlink.RawConfigs) *GeneralConfig_StellarConfigs_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_StellarConfigs_Call) RunAndReturn(run func() chainlink.RawConfigs) *GeneralConfig_StellarConfigs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// StellarEnabled provides a mock function with no fields
+func (_m *GeneralConfig) StellarEnabled() bool {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for StellarEnabled")
+	}
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// GeneralConfig_StellarEnabled_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StellarEnabled'
+type GeneralConfig_StellarEnabled_Call struct {
+	*mock.Call
+}
+
+// StellarEnabled is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) StellarEnabled() *GeneralConfig_StellarEnabled_Call {
+	return &GeneralConfig_StellarEnabled_Call{Call: _e.mock.On("StellarEnabled")}
+}
+
+func (_c *GeneralConfig_StellarEnabled_Call) Run(run func()) *GeneralConfig_StellarEnabled_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_StellarEnabled_Call) Return(_a0 bool) *GeneralConfig_StellarEnabled_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_StellarEnabled_Call) RunAndReturn(run func() bool) *GeneralConfig_StellarEnabled_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SuiConfigs provides a mock function with no fields
 func (_m *GeneralConfig) SuiConfigs() chainlink.RawConfigs {
 	ret := _m.Called()

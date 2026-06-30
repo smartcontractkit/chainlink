@@ -8,11 +8,10 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/helpers"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/managed_token"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
-	aptosCommon "github.com/smartcontractkit/chainlink/deployment/common/view/aptos"
 )
 
 type TokenView struct {
-	aptosCommon.ContractMetaData
+	ContractMetaData
 
 	Name       string `json:"name"`
 	Symbol     string `json:"symbol"`
@@ -57,7 +56,7 @@ func GenerateTokenView(chain cldf_aptos.Chain, managedTokenObjectAddress aptos.A
 	}
 
 	return TokenView{
-		ContractMetaData: aptosCommon.ContractMetaData{
+		ContractMetaData: ContractMetaData{
 			Address:        faMetadataAddress.StringLong(),
 			Owner:          objectOwner.StringLong(),
 			TypeAndVersion: typeAndVersion,

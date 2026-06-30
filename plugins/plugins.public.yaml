@@ -10,14 +10,15 @@ defaults:
 plugins:
   aptos:
     - moduleURI: "github.com/smartcontractkit/chainlink-aptos"
-      gitRef: "v0.0.0-20260507123701-77fc93b573bb"
+      gitRef: "v0.0.0-20260609211101-71d38bd6a0a9"
       installPath: "./cmd/chainlink-aptos"
 
   sui:
     - moduleURI: "github.com/smartcontractkit/chainlink-sui"
       # IMP: consult chainlink-sui team before updating this version
-      # current version is v0.0.0-20260427132612-76b9f754a556
-      gitRef: "v0.0.0-20260527160341-aa3adc0abf67"
+      # Must track the gRPC-migrated chainlink-sui used in go.mod, otherwise the DON runs a
+      # pre-migration relayer (no gRPC ChainPoller) and never observes Sui source events.
+      gitRef: "v0.0.0-20260624134342-6bfb9c92859d"
       installPath: "./relayer/cmd/chainlink-sui"
 
   cosmos:
@@ -35,13 +36,18 @@ plugins:
 
   solana:
     - moduleURI: "github.com/smartcontractkit/chainlink-solana"
-      gitRef: "v1.3.1-0.20260522172305-f71b70a4d020"
+      gitRef: "v1.3.1-0.20260605202330-b5a89c32fdc1"
       installPath: "./pkg/solana/cmd/chainlink-solana"
 
   starknet:
     - moduleURI: "github.com/smartcontractkit/chainlink-starknet/relayer"
-      gitRef: "73cd3d46ad0ce2871160369cb6447aeb9b48513f" # 2026-04-08
+      gitRef: "5d83a289da752e966692a9f390970dbc86c95c7a" # chainlink-starknet develop (#695 merged)
       installPath: "./pkg/chainlink/cmd/chainlink-starknet"
+
+  stellar:
+    - moduleURI: "github.com/smartcontractkit/chainlink-stellar"
+      gitRef: "0e9836f8575b711d87335fbadb1ed28b8f678377" # chainlink-stellar #128 (add-multinode merged)
+      installPath: "./cmd/chainlink-stellar"
 
   streams:
     - moduleURI: "github.com/smartcontractkit/chainlink-data-streams"
@@ -50,7 +56,7 @@ plugins:
 
   ton:
     - moduleURI: "github.com/smartcontractkit/chainlink-ton"
-      gitRef: "v1.0.5-0.20260520103847-15ca4de9dba9"
+      gitRef: "v1.0.5-0.20260629213843-c52e07523035"
       installPath: "./cmd/chainlink-ton"
 
   tron:
@@ -60,5 +66,5 @@ plugins:
 
   evm:
     - moduleURI: "github.com/smartcontractkit/chainlink-evm"
-      gitRef: "v0.3.4-0.20260527175653-b78bae59d823"
+      gitRef: "v0.3.4-0.20260623170329-4577ef4ba0ae"
       installPath: "./pkg/cmd/chainlink-evm"

@@ -26,7 +26,6 @@ import (
 	wf_reg_v2_op "github.com/smartcontractkit/chainlink/deployment/cre/workflow_registry/v2/changeset/operations/contracts"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
@@ -196,23 +195,27 @@ func ConfigureWorkflowRegistry(
 		return nil, errors.Wrap(err, fmt.Sprintf("failed to update allowed signers on workflow registry %s", input.ContractVersion.Version))
 	}
 
-	donLimitReport, err := operations.ExecuteOperation(
-		input.CldEnv.OperationsBundle,
-		wf_reg_v2_op.SetDONLimitOp,
-		wf_reg_v2_op.WorkflowRegistryOpDeps{
-			Env:      input.CldEnv,
-			Registry: contract,
-			Strategy: strategy,
-		},
-		wf_reg_v2_op.SetDONLimitOpInput{
-			ChainSelector:    input.ChainSelector,
-			DONFamily:        config.DefaultDONFamily,
-			DONLimit:         libc.MustSafeUint32(defaultWorkflowRegistryDONLimit),
-			UserDefaultLimit: libc.MustSafeUint32(defaultWorkflowRegistryUserDefaultLimit),
-		},
-	)
-	if err != nil || !donLimitReport.Output.Success {
-		return nil, errors.Wrap(err, fmt.Sprintf("failed to set DON Limit on workflow registry %s", input.ContractVersion.Version))
+	// SetDONLimit is per don_family. Multi-family local topologies need one limit each so
+	// workflows registered under feeds-zone-a and feeds-zone-b both have on-chain quota.
+	for _, donFamily := range input.DONFamilies {
+		donLimitReport, err := operations.ExecuteOperation(
+			input.CldEnv.OperationsBundle,
+			wf_reg_v2_op.SetDONLimitOp,
+			wf_reg_v2_op.WorkflowRegistryOpDeps{
+				Env:      input.CldEnv,
+				Registry: contract,
+				Strategy: strategy,
+			},
+			wf_reg_v2_op.SetDONLimitOpInput{
+				ChainSelector:    input.ChainSelector,
+				DONFamily:        donFamily,
+				DONLimit:         libc.MustSafeUint32(defaultWorkflowRegistryDONLimit),
+				UserDefaultLimit: libc.MustSafeUint32(defaultWorkflowRegistryUserDefaultLimit),
+			},
+		)
+		if err != nil || !donLimitReport.Output.Success {
+			return nil, errors.Wrap(err, fmt.Sprintf("failed to set DON limit for family %q on workflow registry %s", donFamily, input.ContractVersion.Version))
+		}
 	}
 
 	return &cre.WorkflowRegistryOutput{

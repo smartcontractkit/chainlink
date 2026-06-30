@@ -15,21 +15,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvexecutor"
-	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	configtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -39,7 +34,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockheaderfeeder"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvexecutor"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -51,7 +49,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
@@ -251,24 +249,21 @@ func TestORM(t *testing.T) {
 		assert.Equal(t, ocrSpecError2, dbSpecErr2.Description)
 	})
 
-
-	t.Run("creates webhook specs along with external_initiator_webhook_specs", func(t *testing.T) {
-		ctx := testutils.Context(t)
+	t.Run("rejects webhook job creation with external initiators", func(t *testing.T) {
 		eiFoo := cltest.MustInsertExternalInitiator(t, borm)
 		eiBar := cltest.MustInsertExternalInitiator(t, borm)
 
-		eiWS := []webhook.TOMLWebhookSpecExternalInitiator{
+		eiWS := []testspecs.TOMLWebhookSpecExternalInitiator{
 			{Name: eiFoo.Name, Spec: cltest.JSONFromString(t, `{}`)},
 			{Name: eiBar.Name, Spec: cltest.JSONFromString(t, `{"bar": 1}`)},
 		}
-		eim := webhook.NewExternalInitiatorManager(db, nil)
-		jb, err := webhook.ValidatedWebhookSpec(ctx, testspecs.GenerateWebhookSpec(testspecs.WebhookSpecParams{ExternalInitiators: eiWS}).Toml(), eim)
+		_, err := job.ValidateSpec(testspecs.GenerateWebhookSpec(testspecs.WebhookSpecParams{ExternalInitiators: eiWS}).Toml())
 		require.NoError(t, err)
 
+		jb := job.Job{Type: job.Webhook, SchemaVersion: 1, WebhookSpec: &job.WebhookSpec{}}
 		err = orm.CreateJob(testutils.Context(t), &jb)
-		require.NoError(t, err)
-
-		cltest.AssertCount(t, db, "external_initiator_webhook_specs", 2)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, job.ErrJobTypeRemoved)
 	})
 
 	t.Run("it creates and deletes records for blockhash store jobs", func(t *testing.T) {
@@ -732,6 +727,16 @@ func TestORM_CreateJob_EVMChainID_Validation(t *testing.T) {
 		assert.ErrorIs(t, err, job.ErrJobTypeRemoved)
 	})
 
+	t.Run("webhook job creation is rejected", func(t *testing.T) {
+		jb := job.Job{
+			Type:        job.Webhook,
+			WebhookSpec: &job.WebhookSpec{},
+		}
+		err := jobORM.CreateJob(testutils.Context(t), &jb)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, job.ErrJobTypeRemoved)
+	})
+
 	t.Run("evm chain id validation for vrf works", func(t *testing.T) {
 		jb := job.Job{
 			Type:    job.VRF,
@@ -958,7 +963,7 @@ func TestORM_CreateJob_OCR2_Sending_Keys_Transmitter_Keys_Validations(t *testing
 }
 
 func TestORM_ValidateKeyStoreMatch(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {})
 
 	keyStore := cltest.NewKeyStore(t, pgtest.NewSqlxDB(t))
@@ -1052,6 +1057,18 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 		tonKey, err := keyStore.TON().Create(ctx)
 		require.NoError(t, err)
 		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, tonKey.ID())
+		require.NoError(t, err)
+	})
+
+	t.Run("test Stellar key validation", func(t *testing.T) { //nolint:paralleltest // same instance
+		ctx := t.Context()
+		jb.OCR2OracleSpec.Relay = relay.NetworkStellar
+		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
+		require.EqualError(t, err, "no Stellar key matching: \"bad key\"")
+
+		stellarKey, err := keyStore.Stellar().Create(ctx)
+		require.NoError(t, err)
+		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, stellarKey.ID())
 		require.NoError(t, err)
 	})
 

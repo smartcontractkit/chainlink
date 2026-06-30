@@ -18,6 +18,7 @@ import (
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/timelock"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms/sequence/operation"
@@ -37,7 +38,7 @@ var (
 
 type (
 	DeployMCMSWithTimelockInput struct {
-		MCMConfig        commontypes.MCMSWithTimelockConfigV2
+		MCMConfig        cldfproposalutils.MCMSWithTimelockConfig
 		TimelockMinDelay *big.Int
 	}
 
@@ -196,7 +197,7 @@ func deployMCM(b operations.Bundle, deps operation.Deps) error {
 	return nil
 }
 
-func initMCM(b operations.Bundle, deps operation.Deps, cfg commontypes.MCMSWithTimelockConfigV2) error {
+func initMCM(b operations.Bundle, deps operation.Deps, cfg cldfproposalutils.MCMSWithTimelockConfig) error {
 	configs := []struct {
 		ctype cldf.ContractType
 		cfg   mcmsTypes.Config

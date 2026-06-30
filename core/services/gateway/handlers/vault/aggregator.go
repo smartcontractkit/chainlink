@@ -1,10 +1,12 @@
 package vault
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"maps"
 	"slices"
 	"strconv"
@@ -161,6 +163,12 @@ func (a *baseAggregator) validateUsingQuorum(don capabilities.DON, resps map[str
 	return nil, errInsufficientResponsesForQuorum
 }
 
+func (a *baseAggregator) unmarshal(r io.Reader, to any) error {
+	d := json.NewDecoder(r)
+	d.DisallowUnknownFields()
+	return d.Decode(to)
+}
+
 // sha computes a hash of the response, taking into account that when a response
 // contains signatures, they should be computed from the hash computation as they are not guaranteed
 // to be identical.
@@ -212,7 +220,7 @@ func (a *baseAggregator) validateUsingSignatures(don capabilities.DON, nodes []c
 	}
 
 	r := &vaulttypes.SignedOCRResponse{}
-	err := json.Unmarshal(*resp.Result, r)
+	err := a.unmarshal(bytes.NewReader(*resp.Result), r)
 	if err != nil {
 		return nil, err
 	}

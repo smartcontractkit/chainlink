@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"testing"
+	"time"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
@@ -20,7 +21,32 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
+func TestClientRequest_Expired_aggregationGrace(t *testing.T) {
+	t.Parallel()
+
+	requestTimeout := 100 * time.Millisecond
+	t.Run("not expired before requestTimeout plus grace", func(t *testing.T) {
+		t.Parallel()
+		c := &ClientRequest{
+			createdAt:      time.Now().Add(-requestTimeout - time.Millisecond), // less than defaultResponseAggregationGrace
+			requestTimeout: requestTimeout,
+		}
+		require.False(t, c.Expired())
+	})
+
+	t.Run("expired after requestTimeout plus grace", func(t *testing.T) {
+		t.Parallel()
+		c := &ClientRequest{
+			createdAt:      time.Now().Add(-requestTimeout - defaultResponseAggregationGrace - time.Millisecond),
+			requestTimeout: requestTimeout,
+		}
+		require.True(t, c.Expired())
+	})
+}
+
 func Test_ClientRequest_VerifyAttestation(t *testing.T) {
+	t.Parallel()
+
 	const workflowExecutionID = "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
 	const referenceID = "step1"
 	spendUnit, spendValue := "testunit", "42"
@@ -76,6 +102,7 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 	}
 
 	t.Run("not enough signers returns error", func(t *testing.T) {
+		t.Parallel()
 		cBad := &ClientRequest{
 			workflowExecutionID:           workflowExecutionID,
 			referenceID:                   referenceID,
@@ -88,6 +115,7 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 	})
 
 	t.Run("not enough signatures returns error", func(t *testing.T) {
+		t.Parallel()
 		respFewSigs := commoncap.CapabilityResponse{
 			Metadata: commoncap.ResponseMetadata{
 				Metering: []commoncap.MeteringNodeDetail{{SpendUnit: spendUnit, SpendValue: spendValue}},
@@ -105,6 +133,7 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 	})
 
 	t.Run("invalid signer index returns error", func(t *testing.T) {
+		t.Parallel()
 		respBadSigner := commoncap.CapabilityResponse{
 			Metadata: commoncap.ResponseMetadata{
 				Metering: []commoncap.MeteringNodeDetail{{SpendUnit: spendUnit, SpendValue: spendValue}},
@@ -125,6 +154,7 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 	})
 
 	t.Run("duplicate signature returns error", func(t *testing.T) {
+		t.Parallel()
 		respDupSig := commoncap.CapabilityResponse{
 			Metadata: commoncap.ResponseMetadata{
 				Metering: []commoncap.MeteringNodeDetail{{SpendUnit: spendUnit, SpendValue: spendValue}},
@@ -145,6 +175,7 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 	})
 
 	t.Run("invalid signature returns error", func(t *testing.T) {
+		t.Parallel()
 		badSig := make([]byte, 65)
 		_, err := rand.Read(badSig)
 		require.NoError(t, err)
@@ -168,6 +199,7 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 	})
 
 	t.Run("wrong payload bytes produces invalid signature", func(t *testing.T) {
+		t.Parallel()
 		wrongBytes := []byte("tampered")
 		respWrongPayload := commoncap.CapabilityResponse{
 			Metadata: commoncap.ResponseMetadata{
@@ -189,6 +221,7 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 	})
 
 	t.Run("valid attestation succeeds", func(t *testing.T) {
+		t.Parallel()
 		err := c.verifyAttestation(validResp)
 		require.NoError(t, err)
 	})
@@ -198,7 +231,7 @@ func newReqForQuorumTest(t *testing.T, remoteNodeCount, required, responsesRecei
 	t.Helper()
 
 	responseReceived := make(map[p2ptypes.PeerID]bool, responsesReceived)
-	for i := 0; i < responsesReceived; i++ {
+	for i := range responsesReceived {
 		var peer p2ptypes.PeerID
 		peer[0] = byte(i)
 		responseReceived[peer] = true
@@ -220,7 +253,7 @@ func TestClientRequest_quorumStillPossible(t *testing.T) {
 	t.Run("7 DON 6 unique 1 pending unreachable", func(t *testing.T) {
 		t.Parallel()
 		counts := make(map[[32]byte]int)
-		for i := 0; i < 6; i++ {
+		for i := range 6 {
 			counts[[32]byte{byte(i)}] = 1
 		}
 		c := newReqForQuorumTest(t, 7, 3, 6, counts)
@@ -231,7 +264,7 @@ func TestClientRequest_quorumStillPossible(t *testing.T) {
 	t.Run("7 DON 5 unique 2 pending still possible", func(t *testing.T) {
 		t.Parallel()
 		counts := make(map[[32]byte]int)
-		for i := 0; i < 5; i++ {
+		for i := range 5 {
 			counts[[32]byte{byte(i)}] = 1
 		}
 		c := newReqForQuorumTest(t, 7, 3, 5, counts)
@@ -242,7 +275,7 @@ func TestClientRequest_quorumStillPossible(t *testing.T) {
 	t.Run("7 DON 7 unique all received unreachable", func(t *testing.T) {
 		t.Parallel()
 		counts := make(map[[32]byte]int)
-		for i := 0; i < 7; i++ {
+		for i := range 7 {
 			counts[[32]byte{byte(i)}] = 1
 		}
 		c := newReqForQuorumTest(t, 7, 3, 7, counts)
@@ -270,7 +303,7 @@ func TestClientRequest_trySendQuorumUnreachableError(t *testing.T) {
 	t.Parallel()
 
 	counts := make(map[[32]byte]int)
-	for i := 0; i < 6; i++ {
+	for i := range 6 {
 		counts[[32]byte{byte(i)}] = 1
 	}
 

@@ -21,6 +21,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
+
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
@@ -32,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
-	coretestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 	corecaps "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
@@ -110,7 +111,8 @@ func Test_InitialStateSyncV2(t *testing.T) {
 		workflow.ID = workflowID
 		upsertWorkflowV2(t, backendTH, wfRegistryC, workflow)
 	}
-	testEventHandler := newTestEvtHandler(nil)
+	engineRegistry := NewEngineRegistry()
+	testEventHandler := newTestEvtHandlerWithRegistry(nil, engineRegistry)
 
 	// Create the worker
 	worker, err := NewWorkflowRegistry(
@@ -132,7 +134,8 @@ func Test_InitialStateSyncV2(t *testing.T) {
 			},
 			err: nil,
 		},
-		NewEngineRegistry(),
+		engineRegistry,
+		WithSyncTickInterval(50*time.Millisecond),
 	)
 	require.NoError(t, err)
 
@@ -140,17 +143,15 @@ func Test_InitialStateSyncV2(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		return len(testEventHandler.GetEvents()) == numberWorkflows
-	}, tests.WaitTimeout(t), time.Second)
+	}, tests.WaitTimeout(t), 100*time.Millisecond)
 
 	for _, event := range testEventHandler.GetEvents() {
 		assert.Equal(t, WorkflowActivated, event.Name)
 	}
 
-	assert.Len(t,
-		worker.GetAllowlistedRequests(t.Context()),
-		activeAllowlistedRequestsCount,
-		"synced allowlisted requests do not match expectations",
-	)
+	require.Eventually(t, func() bool {
+		return len(worker.GetAllowlistedRequests(t.Context())) == activeAllowlistedRequestsCount
+	}, tests.WaitTimeout(t), 100*time.Millisecond, "synced allowlisted requests do not match expectations")
 }
 
 func Test_RegistrySyncer_SkipsEventsNotBelongingToDONV2(t *testing.T) {
@@ -242,7 +243,7 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDONV2(t *testing.T) {
 func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 	t.Parallel()
 	var (
-		ctx       = coretestutils.Context(t)
+		ctx       = t.Context()
 		lggr      = logger.TestLogger(t)
 		emitter   = custmsg.NewLabeler()
 		backendTH = testutils.NewEVMBackendTH(t)
@@ -306,7 +307,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	handler, err := NewEventHandler(lggr, wfStore, nil, true, capRegistry, er, emitter, limiters, featureFlags, rl, wl, store, workflowEncryptionKey, donNotifier)
+	handler, err := NewEventHandler(lggr, wfStore, nil, true, capRegistry, &confidentialrelay.ExecutionHandlers{}, er, emitter, limiters, featureFlags, rl, wl, store, workflowEncryptionKey, donNotifier)
 	require.NoError(t, err)
 
 	worker, err := NewWorkflowRegistry(
@@ -346,7 +347,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 	t.Parallel()
 	var (
-		ctx       = coretestutils.Context(t)
+		ctx       = t.Context()
 		lggr      = logger.TestLogger(t)
 		emitter   = custmsg.NewLabeler()
 		backendTH = testutils.NewEVMBackendTH(t)
@@ -409,7 +410,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	handler, err := NewEventHandler(lggr, wfStore, nil, true, capRegistry, er,
+	handler, err := NewEventHandler(lggr, wfStore, nil, true, capRegistry, &confidentialrelay.ExecutionHandlers{}, er,
 		emitter, limiters, featureFlags, rl, wl, store, workflowEncryptionKey, donNotifier, WithStaticEngine(&mockService{}))
 	require.NoError(t, err)
 
@@ -454,6 +455,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
 	t.Parallel()
 	t.Run("with heavy load", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
 		backendTH := testutils.NewEVMBackendTH(t)
 		donID := uint32(1)
@@ -487,7 +489,8 @@ func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
 			upsertWorkflowV2(t, backendTH, wfRegistryC, workflow)
 		}
 
-		testEventHandler := newTestEvtHandler(nil)
+		engineRegistry := NewEngineRegistry()
+		testEventHandler := newTestEvtHandlerWithRegistry(nil, engineRegistry)
 
 		// Create the worker
 		worker, err := NewWorkflowRegistry(
@@ -509,8 +512,9 @@ func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
 				},
 				err: nil,
 			},
-			NewEngineRegistry(),
+			engineRegistry,
 			WithRetryInterval(1*time.Second),
+			WithSyncTickInterval(50*time.Millisecond),
 		)
 		require.NoError(t, err)
 
@@ -518,7 +522,7 @@ func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
 
 		require.Eventually(t, func() bool {
 			return len(testEventHandler.GetEvents()) == numberWorkflows
-		}, 30*time.Second, 1*time.Second)
+		}, tests.WaitTimeout(t), 100*time.Millisecond)
 
 		for _, event := range testEventHandler.GetEvents() {
 			assert.Equal(t, WorkflowActivated, event.Name)
@@ -559,9 +563,9 @@ func Test_RegistrySyncer_DONUpdate(t *testing.T) {
 		upsertWorkflowV2(t, backendTH, wfRegistryC, workflow)
 	}
 
-	testEventHandler := newTestEvtHandler(nil)
-	donNotifier := corecaps.NewDonNotifier()
 	engineRegistry := NewEngineRegistry()
+	testEventHandler := newTestEvtHandlerWithRegistry(nil, engineRegistry)
+	donNotifier := corecaps.NewDonNotifier()
 
 	// Create the worker
 	worker, err := NewWorkflowRegistry(
@@ -579,6 +583,7 @@ func Test_RegistrySyncer_DONUpdate(t *testing.T) {
 		donNotifier,
 		engineRegistry,
 		WithRetryInterval(1*time.Second),
+		WithSyncTickInterval(50*time.Millisecond),
 	)
 	require.NoError(t, err)
 
@@ -592,17 +597,10 @@ func Test_RegistrySyncer_DONUpdate(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		return len(testEventHandler.GetEvents()) == numberWorkflows
-	}, 60*time.Second, 1*time.Second)
+	}, 60*time.Second, 100*time.Millisecond)
 
 	for _, event := range testEventHandler.GetEvents() {
 		assert.Equal(t, WorkflowActivated, event.Name)
-	}
-
-	// Fill in some placeholder engines that the actual event handler would have created
-	for _, event := range testEventHandler.GetEvents() {
-		data := event.Data.(WorkflowActivatedEvent)
-		err := engineRegistry.Add(data.WorkflowID, data.Source, &mockService{})
-		require.NoError(t, err)
 	}
 
 	// Change the DON to have no family, so workflows should be removed
@@ -615,7 +613,7 @@ func Test_RegistrySyncer_DONUpdate(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		return len(testEventHandler.GetEvents()) == numberWorkflows
-	}, 60*time.Second, 1*time.Second)
+	}, 60*time.Second, 100*time.Millisecond)
 
 	for _, event := range testEventHandler.GetEvents() {
 		assert.Equal(t, WorkflowDeleted, event.Name)

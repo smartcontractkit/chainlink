@@ -1,0 +1,9 @@
+exec chainlink nodes stellar list --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink nodes stellar list - List all existing stellar nodes
+
+USAGE:
+   chainlink nodes stellar list [arguments...]

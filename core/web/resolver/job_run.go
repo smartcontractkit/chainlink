@@ -4,11 +4,9 @@ import (
 	"context"
 
 	"github.com/graph-gophers/graphql-go"
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
 )
@@ -206,20 +204,12 @@ type RunJobPayloadResolver struct {
 	NotFoundErrorUnionType
 }
 
-func NewRunJobPayload(run *pipeline.Run, app chainlink.Application, err error) *RunJobPayloadResolver {
-	var e NotFoundErrorUnionType
-
-	if err != nil {
-		e = NotFoundErrorUnionType{err: err, message: err.Error(), isExpectedErrorFn: func(err error) bool {
-			return errors.Is(err, webhook.ErrJobNotExists)
-		}}
-	}
-
-	return &RunJobPayloadResolver{run: run, app: app, NotFoundErrorUnionType: e}
+func NewRunJobPayload(run *pipeline.Run, app chainlink.Application) *RunJobPayloadResolver {
+	return &RunJobPayloadResolver{run: run, app: app}
 }
 
 func (r *RunJobPayloadResolver) ToRunJobSuccess() (*RunJobSuccessResolver, bool) {
-	if r.err != nil {
+	if r.run == nil {
 		return nil, false
 	}
 
@@ -227,15 +217,7 @@ func (r *RunJobPayloadResolver) ToRunJobSuccess() (*RunJobSuccessResolver, bool)
 }
 
 func (r *RunJobPayloadResolver) ToRunJobCannotRunError() (*RunJobCannotRunErrorResolver, bool) {
-	if r.err == nil {
-		return nil, false
-	}
-
-	if errors.Is(r.err, webhook.ErrJobNotExists) {
-		return nil, false
-	}
-
-	return NewRunJobCannotRunError(r.err), true
+	return nil, false
 }
 
 type RunJobSuccessResolver struct {

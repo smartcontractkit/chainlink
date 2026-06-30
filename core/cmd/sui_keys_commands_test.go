@@ -2,7 +2,6 @@ package cmd_test
 
 import (
 	"bytes"
-	"context"
 	"flag"
 	"os"
 	"testing"
@@ -14,6 +13,7 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -60,7 +60,7 @@ func TestShell_SuiKeys(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().Sui()
 	cleanup := func() {
-		ctx := context.Background()
+		ctx := t.Context()
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
 		for _, key := range keys {

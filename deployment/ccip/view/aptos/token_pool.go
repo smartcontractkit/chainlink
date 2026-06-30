@@ -9,11 +9,10 @@ import (
 	module_rate_limiter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_token_pools/token_pool/rate_limiter"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
-	aptosCommon "github.com/smartcontractkit/chainlink/deployment/common/view/aptos"
 )
 
 type TokenPoolView struct {
-	aptosCommon.ContractMetaData
+	ContractMetaData
 
 	Token              string                       `json:"token"`
 	RemoteChainConfigs map[uint64]RemoteChainConfig `json:"remoteChainConfigs"`
@@ -115,7 +114,7 @@ func GenerateTokenPoolView(chain cldf_aptos.Chain, address aptos.AccountAddress,
 	}
 
 	return TokenPoolView{
-		ContractMetaData: aptosCommon.ContractMetaData{
+		ContractMetaData: ContractMetaData{
 			Address:        address.StringLong(),
 			Owner:          owner.StringLong(),
 			TypeAndVersion: typeAndVersion,

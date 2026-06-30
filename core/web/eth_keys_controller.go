@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -347,9 +346,7 @@ func (ekc *ETHKeysController) getEthBalance(ctx context.Context, state ethkey.St
 	chainID := state.EVMChainID.ToInt()
 	chainService, err := ekc.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
-		if !errors.Is(errors.Cause(err), evmrelay.ErrNoChains) {
-			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "address", state.Address, "err", err)
-		}
+		ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "address", state.Address, "err", err)
 		return nil
 	}
 	chain, ok := chainService.(legacyevm.Chain)
@@ -377,9 +374,7 @@ func (ekc *ETHKeysController) getLinkBalance(ctx context.Context, state ethkey.S
 	chainID := state.EVMChainID.ToInt()
 	chainService, err := ekc.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
-		if !errors.Is(errors.Cause(err), evmrelay.ErrNoChains) {
-			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "err", err)
-		}
+		ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "err", err)
 		return nil
 	}
 	chain, ok := chainService.(legacyevm.Chain)
@@ -408,9 +403,7 @@ func (ekc *ETHKeysController) getKeyMaxGasPriceWei(state ethkey.State, keyAddres
 	chainID := state.EVMChainID.ToInt()
 	chainService, err := ekc.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
-		if !errors.Is(errors.Cause(err), evmrelay.ErrNoChains) {
-			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "err", err)
-		}
+		ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "err", err)
 		return nil
 	}
 	chain, ok := chainService.(legacyevm.Chain)

@@ -113,7 +113,7 @@ func ExecuteShardingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	const numWorkflows = 5
 	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/cron/main.go"
 	var workflowIDs []string
-	for i := 0; i < numWorkflows; i++ {
+	for i := range numWorkflows {
 		workflowName := fmt.Sprintf("shardtest%d", i)
 		workflowConfig := crontypes.WorkflowConfig{
 			Schedule: "*/30 * * * * *",
@@ -179,7 +179,7 @@ func initializeAllArbiterStates(t *testing.T, testEnv *ttypes.TestEnvironment, s
 	logger := framework.L
 
 	shardStatus := make(map[uint32]*ringpb.ShardStatus)
-	for i := 0; i < numShards; i++ {
+	for i := range numShards {
 		if i < 0 || i > math.MaxUint32 {
 			t.Fatalf("shard index %d out of uint32 range", i)
 		}

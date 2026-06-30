@@ -5,13 +5,12 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings"
 	burn_mint_external "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/burn_mint_with_external_minter_fast_transfer_token_pool"
 	hybrid_external "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/hybrid_with_external_minter_fast_transfer_token_pool"
-
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 )
 
 // UpdateDestChainConfigInput defines the input for updating destination chain configuration
@@ -32,7 +31,7 @@ type WithdrawPoolFeesInput struct {
 
 var (
 	// BurnMint Fast Transfer Token Pool Operations
-	BurnMintFastTransferTokenPoolUpdateDestChainConfigOp = opsevm.NewEVMCallOperation(
+	BurnMintFastTransferTokenPoolUpdateDestChainConfigOp = opsutils.NewEVMCallOperation(
 		"BurnMintFastTransferTokenPoolUpdateDestChainConfigOp",
 		semver.MustParse("1.0.0"),
 		"Update destination chain configurations on BurnMint fast transfer token pool contract",
@@ -47,7 +46,7 @@ var (
 		},
 	)
 
-	BurnMintFastTransferTokenPoolUpdateFillerAllowlistOp = opsevm.NewEVMCallOperation(
+	BurnMintFastTransferTokenPoolUpdateFillerAllowlistOp = opsutils.NewEVMCallOperation(
 		"BurnMintFastTransferTokenPoolUpdateFillerAllowlistOp",
 		semver.MustParse("1.0.0"),
 		"Update filler allowlist on BurnMint fast transfer token pool contract",
@@ -63,7 +62,7 @@ var (
 	)
 
 	// BurnMintWithExternalMinter Fast Transfer Token Pool Operations
-	BurnMintWithExternalMinterFastTransferTokenPoolUpdateDestChainConfigOp = opsevm.NewEVMCallOperation(
+	BurnMintWithExternalMinterFastTransferTokenPoolUpdateDestChainConfigOp = opsutils.NewEVMCallOperation(
 		"BurnMintWithExternalMinterFastTransferTokenPoolUpdateDestChainConfigOp",
 		semver.MustParse("1.0.0"),
 		"Update destination chain configurations on BurnMintWithExternalMinter fast transfer token pool contract",
@@ -78,7 +77,7 @@ var (
 		},
 	)
 
-	BurnMintWithExternalMinterFastTransferTokenPoolUpdateFillerAllowlistOp = opsevm.NewEVMCallOperation(
+	BurnMintWithExternalMinterFastTransferTokenPoolUpdateFillerAllowlistOp = opsutils.NewEVMCallOperation(
 		"BurnMintWithExternalMinterFastTransferTokenPoolUpdateFillerAllowlistOp",
 		semver.MustParse("1.0.0"),
 		"Update filler allowlist on BurnMintWithExternalMinter fast transfer token pool contract",
@@ -94,7 +93,7 @@ var (
 	)
 
 	// BurnMint Fast Transfer Token Pool Withdraw Operations
-	BurnMintFastTransferTokenPoolWithdrawPoolFeesOp = opsevm.NewEVMCallOperation(
+	BurnMintFastTransferTokenPoolWithdrawPoolFeesOp = opsutils.NewEVMCallOperation(
 		"BurnMintFastTransferTokenPoolWithdrawPoolFeesOp",
 		semver.MustParse("1.0.0"),
 		"Withdraw pool fees from BurnMint fast transfer token pool contract",
@@ -110,7 +109,7 @@ var (
 	)
 
 	// BurnMintWithExternalMinter Fast Transfer Token Pool Withdraw Operations
-	BurnMintWithExternalMinterFastTransferTokenPoolWithdrawPoolFeesOp = opsevm.NewEVMCallOperation(
+	BurnMintWithExternalMinterFastTransferTokenPoolWithdrawPoolFeesOp = opsutils.NewEVMCallOperation(
 		"BurnMintWithExternalMinterFastTransferTokenPoolWithdrawPoolFeesOp",
 		semver.MustParse("1.0.0"),
 		"Withdraw pool fees from BurnMintWithExternalMinter fast transfer token pool contract",
@@ -126,7 +125,7 @@ var (
 	)
 
 	// HybridWithExternalMinter Fast Transfer Token Pool Operations
-	HybridWithExternalMinterFastTransferTokenPoolUpdateDestChainConfigOp = opsevm.NewEVMCallOperation(
+	HybridWithExternalMinterFastTransferTokenPoolUpdateDestChainConfigOp = opsutils.NewEVMCallOperation(
 		"HybridWithExternalMinterFastTransferTokenPoolUpdateDestChainConfigOp",
 		semver.MustParse("1.0.0"),
 		"Update destination chain configurations on HybridWithExternalMinter fast transfer token pool contract",
@@ -141,7 +140,7 @@ var (
 		},
 	)
 
-	HybridWithExternalMinterFastTransferTokenPoolUpdateFillerAllowlistOp = opsevm.NewEVMCallOperation(
+	HybridWithExternalMinterFastTransferTokenPoolUpdateFillerAllowlistOp = opsutils.NewEVMCallOperation(
 		"HybridWithExternalMinterFastTransferTokenPoolUpdateFillerAllowlistOp",
 		semver.MustParse("1.0.0"),
 		"Update filler allowlist on HybridWithExternalMinter fast transfer token pool contract",
@@ -156,7 +155,7 @@ var (
 		},
 	)
 
-	HybridWithExternalMinterFastTransferTokenPoolWithdrawPoolFeesOp = opsevm.NewEVMCallOperation(
+	HybridWithExternalMinterFastTransferTokenPoolWithdrawPoolFeesOp = opsutils.NewEVMCallOperation(
 		"HybridWithExternalMinterFastTransferTokenPoolWithdrawPoolFeesOp",
 		semver.MustParse("1.0.0"),
 		"Withdraw pool fees from HybridWithExternalMinter fast transfer token pool contract",

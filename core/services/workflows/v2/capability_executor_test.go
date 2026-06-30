@@ -72,7 +72,7 @@ func TestExecutionHelper_ConfidentialHTTPPerWorkflowLimit(t *testing.T) {
 	var capErr caperrors.Error
 	require.ErrorAs(t, err, &capErr, "expected per-workflow call limit exceedance to be classified as capability user error")
 	require.Equal(t, caperrors.OriginUser, capErr.Origin())
-	require.Equal(t, caperrors.InvalidArgument, capErr.Code())
+	require.Equal(t, caperrors.LimitExceeded, capErr.Code())
 }
 
 func TestUserMetricTypeSuffix(t *testing.T) {

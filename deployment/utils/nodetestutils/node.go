@@ -491,7 +491,7 @@ func NewNode(
 	require.NoError(t, master.Unlock(ctx, "password"))
 	require.NoError(t, master.CSA().EnsureKey(ctx))
 	require.NoError(t, master.Workflow().EnsureKey(ctx))
-	require.NoError(t, master.OCR2().EnsureKeys(ctx, corekeys.EVM, corekeys.Solana, corekeys.Aptos))
+	require.NoError(t, master.OCR2().EnsureKeys(ctx, corekeys.EVM, corekeys.Solana, corekeys.Aptos, corekeys.Stellar))
 
 	app, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
 		Opts: cre.Opts{
@@ -514,13 +514,12 @@ func NewNode(
 				return ethClient
 			}
 		},
-		Logger:                   lggr,
-		ExternalInitiatorManager: nil,
-		CloseLogger:              lggr.Sync,
-		UnrestrictedHTTPClient:   &http.Client{},
-		RestrictedHTTPClient:     &http.Client{},
-		AuditLogger:              audit.NoopLogger,
-		RetirementReportCache:    retirement.NewRetirementReportCache(lggr, db),
+		Logger:                 lggr,
+		CloseLogger:            lggr.Sync,
+		UnrestrictedHTTPClient: &http.Client{},
+		RestrictedHTTPClient:   &http.Client{},
+		AuditLogger:            audit.NoopLogger,
+		RetirementReportCache:  retirement.NewRetirementReportCache(lggr, db),
 	})
 	require.NoError(t, err)
 	keys := CreateKeys(t, app,

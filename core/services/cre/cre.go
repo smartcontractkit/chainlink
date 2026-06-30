@@ -11,6 +11,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/uuid"
 	"github.com/jonboulle/clockwork"
+	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/grpc/credentials"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -28,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/storage"
+	"github.com/smartcontractkit/chainlink-common/pkg/teeattestation/passthrough"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
@@ -78,6 +80,7 @@ type Keystore interface {
 // Opts are the options for the CRE services that are exposed by the application
 type Opts struct {
 	CapabilitiesRegistry    *capabilities.Registry
+	ExecutionHandlers       *confidentialrelay.ExecutionHandlers
 	CapabilitiesDispatcher  remotetypes.Dispatcher
 	CapabilitiesPeerWrapper p2ptypes.PeerWrapper
 
@@ -86,6 +89,7 @@ type Opts struct {
 
 	BillingClient metering.BillingClient
 	LinkingClient linkingclient.LinkingServiceClient
+	Meter         metric.Meter
 
 	StorageClient storage.WorkflowClient
 
@@ -208,13 +212,25 @@ func (s *Services) newSubservices(
 		srvs = append(srvs, gatewayConnectorWrapper)
 
 		if cfg.CRE().ConfidentialRelay().Enabled() {
+			var attestationValidator confidentialrelay.AttestationValidator
+			if cfg.CRE().ConfidentialRelay().TrustEnclaves() {
+				attestationValidator, ierr = passthrough.New()
+				if ierr != nil {
+					return nil, fmt.Errorf("could not create passthrough attestation validator: %w", ierr)
+				}
+			} else {
+				attestationValidator = confidentialrelay.NewAttestationValidator()
+			}
 			relayService := confidentialrelay.NewService(
 				gatewayConnectorWrapper,
 				opts.CapabilitiesRegistry,
+				opts.ExecutionHandlers,
 				keyStore.P2P(),
 				confidentialRelayPeerID(cfg, capCfg),
 				lggr,
 				opts.LimitsFactory,
+				attestationValidator,
+				cfg.CRE().ConfidentialRelay().RequireBFTQuorum(),
 			)
 			srvs = append(srvs, relayService)
 		}
@@ -483,8 +499,8 @@ func (s *Services) newRegistrySyncer(
 	localCfg := cfg.Capabilities().Local()
 	if localCfg != nil && len(localCfg.RegistryBasedLaunchAllowlist()) > 0 {
 		s.SetDelegatesDeps = func(stdcapDelegate *standardcapabilities.Delegate) (commonsrv.Service, error) {
-			newServicesFn := func(ctx context.Context, capID string, command string, configJSON string) ([]job.ServiceCtx, error) {
-				return stdcapDelegate.NewServices(ctx, command, configJSON, 0, capID, uuid.New(), job.OracleFactoryConfig{})
+			newServicesFn := func(ctx context.Context, capID string, donID uint32, command string, configJSON string) ([]job.ServiceCtx, error) {
+				return stdcapDelegate.NewServices(ctx, command, configJSON, 0, capID, uuid.New(), job.OracleFactoryConfig{}, donID)
 			}
 			localCapMgr, lcmErr := localcapmgr.NewLocalCapabilityManager(lggr, localCfg, newServicesFn)
 			if lcmErr != nil {
@@ -673,17 +689,11 @@ func newOrgResolver(
 		WorkflowRegistryAddress:       capCfg.WorkflowRegistry().Address(),
 		WorkflowRegistryChainSelector: wrChainDetails.ChainSelector,
 		JWTGenerator:                  opts.JWTGenerator,
+		Client:                        opts.LinkingClient,
+		Meter:                         opts.Meter,
 	}
 
-	var (
-		resolver orgresolver.OrgResolver
-		err      error
-	)
-	if opts.LinkingClient != nil {
-		resolver, err = orgresolver.NewOrgResolverWithClient(orgResolverConfig, opts.LinkingClient, lggr)
-	} else {
-		resolver, err = orgresolver.NewOrgResolver(orgResolverConfig, lggr)
-	}
+	resolver, err := orgResolverConfig.New(lggr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create org resolver: %w", err)
 	}
@@ -977,12 +987,15 @@ func newWorkflowRegistrySyncerV2(
 	if opts.ShardOrchestratorClient != nil {
 		shardOrchestratorClient = opts.ShardOrchestratorClient
 	} else {
-		var c shardorchestrator.ClientInterface
-		c, err = newShardOrchestratorClient(cfg, lggr)
-		if err != nil {
-			return nil, nil, err
+		c, clientErr := newShardOrchestratorClient(cfg, lggr)
+		if clientErr != nil {
+			return nil, nil, clientErr
 		}
-		shardOrchestratorClient = c
+		if c != nil {
+			shardOrchestratorClient = c
+		} else {
+			lggr.Debugw("ShardOrchestrator client not created (shard 0 runs the server)")
+		}
 	}
 
 	shardingEnabled := cfg.Sharding().ShardingEnabled()
@@ -1070,6 +1083,7 @@ func newWorkflowRegistrySyncerV2(
 		dontimeStore,
 		opts.UseLocalTimeProvider,
 		opts.CapabilitiesRegistry,
+		opts.ExecutionHandlers,
 		engineRegistry,
 		custmsg.NewLabeler(),
 		engineLimiters,

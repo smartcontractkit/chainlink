@@ -1006,7 +1006,7 @@ func TestCapability_CRUD(t *testing.T) {
 			},
 		},
 		{
-			name: "CreateSecrets_EmptyNamespace_DefaultsToMain",
+			name: "CreateSecrets_EmptyNamespace_Accepted",
 			response: &vaulttypes.Response{
 				ID:      "response-id",
 				Payload: []byte("hello world"),
@@ -1199,7 +1199,7 @@ func TestCapability_CRUD(t *testing.T) {
 			},
 		},
 		{
-			name: "UpdateSecrets_EmptyNamespace_DefaultsToMain",
+			name: "UpdateSecrets_EmptyNamespace_Accepted",
 			response: &vaulttypes.Response{
 				ID:      "response-id",
 				Payload: []byte("hello world"),
@@ -1445,7 +1445,7 @@ func TestCapability_CRUD(t *testing.T) {
 			},
 		},
 		{
-			name: "DeleteSecrets_EmptyNamespace_DefaultsToMain",
+			name: "DeleteSecrets_EmptyNamespace_Accepted",
 			response: &vaulttypes.Response{
 				ID:      "response-id",
 				Payload: []byte("hello world"),
@@ -1544,7 +1544,7 @@ func TestCapability_CRUD(t *testing.T) {
 			},
 		},
 		{
-			name: "ListSecretIdentifiers_EmptyNamespace_DefaultsToMain",
+			name: "ListSecretIdentifiers_EmptyNamespace_Accepted",
 			response: &vaulttypes.Response{
 				ID:      "response-id",
 				Payload: []byte("hello world"),

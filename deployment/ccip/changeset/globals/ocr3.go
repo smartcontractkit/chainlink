@@ -6,7 +6,7 @@ import (
 
 	"dario.cat/mergo"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 )
 
 // Intention of this file is to be a single source of the truth for OCR3 parameters used by CCIP plugins.
@@ -30,7 +30,7 @@ import (
 var (
 	// CommitOCRParams represents the default OCR3 parameters for all chains (beside Ethereum, see CommitOCRParamsForEthereum).
 	// Most of the intervals here should be generic enough (and chain agnostic) to be reused across different chains.
-	CommitOCRParams = types.OCRParameters{
+	CommitOCRParams = shared.OCRParameters{
 		DeltaProgress: 120 * time.Second,
 		DeltaResend:   30 * time.Second,
 		DeltaInitial:  20 * time.Second,
@@ -54,7 +54,7 @@ var (
 	// more expensive to other EVM compatible chains
 	CommitOCRParamsForEthereum = withOverrides(
 		CommitOCRParams,
-		types.OCRParameters{
+		shared.OCRParameters{
 			// Since a report produced every 2 rounds, whatever cadence we want to produce a report at we should divide by 2.
 			// If we want to produce a report every 12 seconds we would set DeltaRound to 6s.
 			// At a ~12s block time, this gives us a commit report every block.
@@ -65,7 +65,7 @@ var (
 
 var (
 	// ExecOCRParams represents the default OCR3 parameters for all chains (beside Ethereum, see ExecOCRParamsForEthereum).
-	ExecOCRParams = types.OCRParameters{
+	ExecOCRParams = shared.OCRParameters{
 		DeltaProgress:               120 * time.Second,
 		DeltaResend:                 30 * time.Second,
 		DeltaInitial:                20 * time.Second,
@@ -86,7 +86,7 @@ var (
 	// Similarly to Commit, it's here to accommodate Ethereum specific characteristics
 	ExecOCRParamsForEthereum = withOverrides(
 		ExecOCRParams,
-		types.OCRParameters{
+		shared.OCRParameters{
 			// Since exec produces a report every 3 rounds, and ideally we'd want to produce a report for every block
 			// in instances with high traffic, we do approximate block time (~15s) / 3 = 5s.
 			DeltaRound: 5 * time.Second,
@@ -94,7 +94,7 @@ var (
 	)
 )
 
-func withOverrides(base types.OCRParameters, overrides types.OCRParameters) types.OCRParameters {
+func withOverrides(base shared.OCRParameters, overrides shared.OCRParameters) shared.OCRParameters {
 	outcome := base
 	if err := mergo.Merge(&outcome, overrides, mergo.WithOverride); err != nil {
 		panic(fmt.Sprintf("error while building an OCR config %v", err))

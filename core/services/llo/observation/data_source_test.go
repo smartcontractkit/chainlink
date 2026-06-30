@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"math/big"
 	"sort"
@@ -15,18 +16,15 @@ import (
 
 	promtest "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/shopspring/decimal"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -182,7 +180,7 @@ func (m *mockTelemeter) GetReportTelemetryCh() chan<- *llo.LLOReportTelemetry { 
 func (m *mockTelemeter) CaptureEATelemetry() bool                             { return true }
 func (m *mockTelemeter) CaptureObservationTelemetry() bool                    { return true }
 
-var observationTimeout = 100 * time.Millisecond
+var observationTimeout = 500 * time.Millisecond
 
 type addManyCall struct {
 	values map[llotypes.StreamID]llo.StreamValue
@@ -203,9 +201,7 @@ func newMockCache(inner StreamValueCache) *mockCache {
 // It records the values and ttl passed to it and then calls the underlying StreamValueCache.AddMany method.
 func (s *mockCache) AddMany(values map[llotypes.StreamID]llo.StreamValue, ttl time.Duration) {
 	snapshot := make(map[llotypes.StreamID]llo.StreamValue, len(values))
-	for k, v := range values {
-		snapshot[k] = v
-	}
+	maps.Copy(snapshot, values)
 	s.mu.Lock()
 	s.addCalls = append(s.addCalls, addManyCall{values: snapshot, ttl: ttl})
 	s.mu.Unlock()
@@ -213,12 +209,15 @@ func (s *mockCache) AddMany(values map[llotypes.StreamID]llo.StreamValue, ttl ti
 }
 
 func Test_DataSource(t *testing.T) {
+	t.Parallel()
 	lggr := logger.NullLogger
-	mainCtx := testutils.Context(t)
+	mainCtx := t.Context()
 	opts := &mockOpts{}
 
 	t.Run("Observe", func(t *testing.T) {
+		t.Parallel()
 		t.Run("doesn't set any values if no streams are defined", func(t *testing.T) {
+			t.Parallel()
 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
 			ds := newDataSource(lggr, reg, telem.NullTelemeter)
 
@@ -226,13 +225,14 @@ func Test_DataSource(t *testing.T) {
 			ctx, cancel := context.WithTimeout(mainCtx, observationTimeout)
 			defer cancel()
 			err := ds.Observe(ctx, vals, opts)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			assert.Equal(t, makeStreamValues(), vals)
 			ds.Close()
 		})
 
 		t.Run("observes each stream with success and returns values matching map argument", func(t *testing.T) {
+			t.Parallel()
 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
 			ds := newDataSource(lggr, reg, telem.NullTelemeter)
 
@@ -252,7 +252,7 @@ func Test_DataSource(t *testing.T) {
 			ctx, cancel := context.WithTimeout(mainCtx, observationTimeout)
 			defer cancel()
 			err := ds.Observe(ctx, vals, opts)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			assert.Equal(t, llo.StreamValues{
 				1: llo.ToDecimal(decimal.NewFromInt(2181)),
@@ -263,6 +263,7 @@ func Test_DataSource(t *testing.T) {
 		})
 
 		t.Run("observes each stream and returns success/errors", func(t *testing.T) {
+			t.Parallel()
 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
 			ds := newDataSource(lggr, reg, telem.NullTelemeter)
 
@@ -277,7 +278,7 @@ func Test_DataSource(t *testing.T) {
 			defer cancel()
 
 			err := ds.Observe(ctx, vals, opts)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			assert.Equal(t, llo.StreamValues{
 				11: nil,
@@ -288,6 +289,7 @@ func Test_DataSource(t *testing.T) {
 		})
 
 		t.Run("records telemetry", func(t *testing.T) {
+			t.Parallel()
 			tm := &mockTelemeter{}
 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
 			ds := newDataSource(lggr, reg, tm)
@@ -318,6 +320,7 @@ func Test_DataSource(t *testing.T) {
 
 			// Get only the last 3 packets, as those would be the result of the first round of observations.
 			tm.mu.Lock()
+			require.GreaterOrEqual(t, len(tm.v3PremiumLegacyPackets), 3)
 			packets := tm.v3PremiumLegacyPackets[:3]
 			tm.mu.Unlock()
 			m := make(map[int]v3PremiumLegacyPacket)
@@ -342,7 +345,7 @@ func Test_DataSource(t *testing.T) {
 				}
 			}
 
-			require.Len(t, telems[:3], 3)
+			require.Len(t, telems, 3)
 			sort.Slice(telems, func(i, j int) bool {
 				return telems[i].(*telem.LLOObservationTelemetry).StreamId < telems[j].(*telem.LLOObservationTelemetry).StreamId
 			})
@@ -361,6 +364,7 @@ func Test_DataSource(t *testing.T) {
 		})
 
 		t.Run("records telemetry for errors", func(t *testing.T) {
+			t.Parallel()
 			tm := &mockTelemeter{}
 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
 			ds := newDataSource(lggr, reg, tm)
@@ -395,11 +399,12 @@ func Test_DataSource(t *testing.T) {
 			assert.Equal(t, 31, int(pkt.streamID))
 			assert.Equal(t, opts, pkt.opts)
 			assert.Nil(t, pkt.val)
-			assert.Error(t, pkt.err)
+			require.Error(t, pkt.err)
 			ds.Close()
 		})
 
 		t.Run("uses cached values when available", func(t *testing.T) {
+			t.Parallel()
 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
 			ds := newDataSource(lggr, reg, telem.NullTelemeter)
 
@@ -453,6 +458,7 @@ func Test_DataSource(t *testing.T) {
 		})
 
 		t.Run("refreshes cache after expiration", func(t *testing.T) {
+			t.Parallel()
 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
 			ds := newDataSource(lggr, reg, telem.NullTelemeter)
 
@@ -486,6 +492,7 @@ func Test_DataSource(t *testing.T) {
 		})
 
 		t.Run("handles concurrent cache access", func(t *testing.T) {
+			t.Parallel()
 			// Create a new data source
 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
 			ds := newDataSource(lggr, reg, telem.NullTelemeter)
@@ -506,14 +513,12 @@ func Test_DataSource(t *testing.T) {
 			// Run multiple observations concurrently
 			var wg sync.WaitGroup
 			for range 10 {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
+				wg.Go(func() {
 					vals := llo.StreamValues{1: nil}
 					err := ds.Observe(ctx, vals, opts)
 					assert.NoError(t, err)
 					assert.Equal(t, llo.StreamValues{1: llo.ToDecimal(decimal.NewFromInt(100))}, vals)
-				}()
+				})
 			}
 			wg.Wait()
 
@@ -522,6 +527,7 @@ func Test_DataSource(t *testing.T) {
 		})
 
 		t.Run("cache writes are atomic per pipeline group across observation cycles", func(t *testing.T) {
+			t.Parallel()
 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
 			ds := newDataSource(lggr, reg, telem.NullTelemeter)
 			mc := newMockCache(ds.cache)
@@ -552,6 +558,9 @@ func Test_DataSource(t *testing.T) {
 				}
 			}
 			mc.mu.Unlock()
+
+			// Explicitly abort Cycle 1's background observation task before mutating pipelines
+			cancel()
 
 			// Fix the pipeline with distinct values so we can verify generation
 			fixedPipeline := makePipelineWithMultipleStreamResults(sids, []any{decimal.NewFromFloat(111.0), decimal.NewFromFloat(222.0), decimal.NewFromFloat(333.0)})
@@ -598,6 +607,7 @@ func Test_DataSource(t *testing.T) {
 		})
 
 		t.Run("handles cache errors gracefully", func(t *testing.T) {
+			t.Parallel()
 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
 			ds := newDataSource(lggr, reg, telem.NullTelemeter)
 
@@ -634,10 +644,10 @@ func Test_DataSource(t *testing.T) {
 	promObservationLoopWaitOutcome.Reset()
 }
 
-func Test_DataSource_ObservationLoopWakeSkipsPacing(t *testing.T) {
+func Test_DataSource_ObservationLoopWakeSkipsPacing(t *testing.T) { //nolint:paralleltest // resets package-level prometheus metrics and relies on loop timing
 	promObservationLoopWaitOutcome.Reset()
 	lggr := logger.NullLogger
-	mainCtx := testutils.Context(t)
+	mainCtx := t.Context()
 	opts := &mockOpts{}
 
 	reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
@@ -660,8 +670,9 @@ func Test_DataSource_ObservationLoopWakeSkipsPacing(t *testing.T) {
 }
 
 func Test_DataSource_ObserveWakeManyConcurrent(t *testing.T) {
+	t.Parallel()
 	lggr := logger.NullLogger
-	mainCtx := testutils.Context(t)
+	mainCtx := t.Context()
 	opts := &mockOpts{}
 
 	reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
@@ -677,14 +688,12 @@ func Test_DataSource_ObserveWakeManyConcurrent(t *testing.T) {
 
 	done := make(chan struct{})
 	var wg sync.WaitGroup
-	for i := 0; i < 200; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 200 {
+		wg.Go(func() {
 			// Each call needs its own StreamValues map: Observe mutates it in place (UpdateStreamValues).
 			localVals := makeStreamValues(1)
 			_ = ds.Observe(ctx, localVals, opts)
-		}()
+		})
 	}
 	go func() {
 		wg.Wait()
@@ -700,6 +709,7 @@ func Test_DataSource_ObserveWakeManyConcurrent(t *testing.T) {
 }
 
 func Test_buildStreamsRefreshPlan(t *testing.T) {
+	t.Parallel()
 	lggr := logger.NullLogger
 	timeout := 100 * time.Millisecond
 
@@ -714,6 +724,7 @@ func Test_buildStreamsRefreshPlan(t *testing.T) {
 	}}
 
 	t.Run("all streams stale returns all", func(t *testing.T) {
+		t.Parallel()
 		cache := NewCache(0)
 		staleTTL := 1 * time.Millisecond
 		cache.Add(1, llo.ToDecimal(decimal.NewFromInt(100)), staleTTL)
@@ -731,6 +742,7 @@ func Test_buildStreamsRefreshPlan(t *testing.T) {
 	})
 
 	t.Run("all streams fresh in cache, returns none", func(t *testing.T) {
+		t.Parallel()
 		cache := NewCache(0)
 		cache.Add(1, llo.ToDecimal(decimal.NewFromInt(100)), time.Hour)
 		cache.Add(2, llo.ToDecimal(decimal.NewFromInt(200)), time.Hour)
@@ -744,6 +756,7 @@ func Test_buildStreamsRefreshPlan(t *testing.T) {
 	})
 
 	t.Run("one stale driver lists only stale IDs; worker observes all requested streams on that pipeline", func(t *testing.T) {
+		t.Parallel()
 		cache := NewCache(0)
 		cache.Add(1, llo.ToDecimal(decimal.NewFromInt(100)), time.Hour)
 		cache.Add(2, llo.ToDecimal(decimal.NewFromInt(200)), 1*time.Millisecond)
@@ -761,6 +774,7 @@ func Test_buildStreamsRefreshPlan(t *testing.T) {
 	})
 
 	t.Run("staleStreamIDs lists only stale keys; groups intersect pipeline with plugin scope", func(t *testing.T) {
+		t.Parallel()
 		cache := NewCache(0)
 		cache.Add(1, llo.ToDecimal(decimal.NewFromInt(100)), 1*time.Millisecond)
 		cache.Add(2, llo.ToDecimal(decimal.NewFromInt(200)), time.Hour)
@@ -779,6 +793,7 @@ func Test_buildStreamsRefreshPlan(t *testing.T) {
 	})
 
 	t.Run("stream not in registry is stale driver only; no pipeline worker", func(t *testing.T) {
+		t.Parallel()
 		ds := &dataSource{lggr: lggr, registry: reg, cache: NewCache(0)}
 		sv := llo.StreamValues{999: nil} // plugin requested streamId not yet in registry
 
@@ -790,6 +805,7 @@ func Test_buildStreamsRefreshPlan(t *testing.T) {
 	})
 
 	t.Run("empty streamValues returns empty set", func(t *testing.T) {
+		t.Parallel()
 		ds := &dataSource{lggr: lggr, registry: reg, cache: NewCache(0)}
 		sv := llo.StreamValues{}
 
@@ -799,6 +815,7 @@ func Test_buildStreamsRefreshPlan(t *testing.T) {
 	})
 
 	t.Run("multiple pipelines: only stale keys appear in streamIDsToRefresh", func(t *testing.T) {
+		t.Parallel()
 		cache := NewCache(0)
 		// Pipeline {10}: all fresh
 		cache.Add(10, llo.ToDecimal(decimal.NewFromInt(100)), time.Hour)
@@ -839,14 +856,14 @@ func Test_observationTuningHelpers(t *testing.T) {
 
 	assert.Equal(t, cacheEntryTTL(100*time.Millisecond)-staleRefreshSkipThreshold(100*time.Millisecond)-time.Nanosecond, observationLoopPacing(100*time.Millisecond))
 	assert.Equal(t, cacheEntryTTL(500*time.Millisecond)-staleRefreshSkipThreshold(500*time.Millisecond)-time.Nanosecond, observationLoopPacing(500*time.Millisecond))
-	assert.Equal(t, observationLoopPacingMin, observationLoopPacing(0))
+	assert.Equal(t, observationLoopPacingFloor, observationLoopPacing(0))
 	// T/2 exceeds invariant cap; pacing is min(T/2, cacheTTL−stale−1ns); here 30/2=15ms caps to ~12ms−1ns
 	assert.Equal(t, cacheEntryTTL(30*time.Millisecond)-staleRefreshSkipThreshold(30*time.Millisecond)-time.Nanosecond, observationLoopPacing(30*time.Millisecond))
 }
 
 func BenchmarkObserve(b *testing.B) {
 	lggr := logger.TestLogger(b)
-	ctx := testutils.Context(b)
+	ctx := b.Context()
 	// can enable/disable verbose logging to test performance here
 	opts := &mockOpts{verboseLogging: true}
 

@@ -8,11 +8,10 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
-	aptosCommon "github.com/smartcontractkit/chainlink/deployment/common/view/aptos"
 )
 
 type RouterView struct {
-	aptosCommon.ContractMetaData
+	ContractMetaData
 
 	IsTestRouter bool              `json:"isTestRouter"`
 	OnRamps      map[uint64]string `json:"onRamps"`  // Map of DestinationChainSelector to OnRampAddress
@@ -68,7 +67,7 @@ func GenerateRouterView(chain cldf_aptos.Chain, routerAddress aptos.AccountAddre
 	}
 
 	return RouterView{
-		ContractMetaData: aptosCommon.ContractMetaData{
+		ContractMetaData: ContractMetaData{
 			Address:        routerAddress.StringLong(),
 			Owner:          owner.StringLong(),
 			TypeAndVersion: typeAndVersion,

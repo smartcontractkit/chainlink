@@ -43,6 +43,7 @@ import (
 	suistate "github.com/smartcontractkit/chainlink-sui/deployment"
 	tonstate "github.com/smartcontractkit/chainlink-ton/deployment/state"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/maputils"
 	ccipshared "github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
@@ -52,7 +53,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc677"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/maputils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
@@ -262,78 +262,7 @@ func (c CCIPOnChainState) runPostDeploymentValidation(e cldf.Environment, valida
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
-			e.Logger.Infow("Validating chain contracts", "chain", sel)
-			chainState := c.MustGetEVMChainState(sel)
-			var errs []error
-			isRMNEnabledInRmnRemote, err := chainState.ValidateRMNRemote(e, sel, rmnHomeActiveDigest)
-			if err != nil {
-				errs = append(errs, fmt.Errorf("RMNRemote %s: %w", safeAddr(chainState.RMNRemote), err))
-			} else if isRMNEnabledInRmnRemote != isRMNEnabledInRMNHomeBySourceChain[sel] {
-				errs = append(errs, fmt.Errorf("RMNRemote %s rmnEnabled mismatch with RMNHome: expected %v, got %v",
-					chainState.RMNRemote.Address().Hex(), isRMNEnabledInRMNHomeBySourceChain[sel], isRMNEnabledInRmnRemote))
-			}
-			var fqV2 *fqv2ops.FeeQuoterContract
-			if ds, dsErr := ccipshared.PopulateDataStore(e.ExistingAddresses); dsErr == nil {
-				if e.DataStore != nil {
-					_ = ds.Merge(e.DataStore)
-				}
-				chainAddresses := ds.Addresses().Filter(datastore.AddressRefByChainSelector(sel))
-				if fqAddr, fqVer, fqErr := ccipshared.ResolveFeeQuoterAddressAndVersion(chainAddresses, sel); fqErr == nil && fqVer.Major() >= 2 {
-					if evmChain, ok := e.BlockChains.EVMChains()[sel]; ok {
-						if v2, bindErr := fqv2ops.NewFeeQuoterContract(fqAddr, evmChain.Client); bindErr == nil {
-							fqV2 = v2
-						}
-					}
-				}
-			}
-			var fqV2Addr common.Address
-			if fqV2 != nil {
-				fqV2Addr = fqV2.Address()
-			}
-			otherOnRamps := make(map[uint64]common.Address)
-			useTestRouter := chainState.Router == nil
-			connectedChains, routerErr := chainState.ValidateRouter(e, useTestRouter, v16ActiveChains)
-			if routerErr != nil {
-				errs = append(errs, fmt.Errorf("router: %w", routerErr))
-			}
-			if len(connectedChains) > 0 {
-				for _, connectedChain := range connectedChains {
-					if connectedChain == sel {
-						continue
-					}
-					if addr, ok := c.resolveOnRampAddress(e, connectedChain); ok {
-						otherOnRamps[connectedChain] = addr
-					}
-				}
-				if err := chainState.ValidateOffRamp(e, sel, otherOnRamps, isRMNEnabledInRMNHomeBySourceChain, fqV2Addr); err != nil {
-					errs = append(errs, fmt.Errorf("offramp %s: %w", safeAddr(chainState.OffRamp), err))
-				}
-				if err := chainState.ValidateOnRamp(e, sel, connectedChains, fqV2Addr); err != nil {
-					errs = append(errs, fmt.Errorf("onramp %s: %w", safeAddr(chainState.OnRamp), err))
-				}
-				if err := chainState.ValidateNonceManager(e, sel, connectedChains); err != nil {
-					errs = append(errs, fmt.Errorf("nonce manager: %w", err))
-				}
-			}
-			{
-				var backend bind.ContractBackend
-				if evmChain, ok := e.BlockChains.EVMChains()[sel]; ok {
-					backend = evmChain.Client
-				}
-				if err := chainState.ValidateFeeQuoter(e, sel, connectedChains, fqV2, backend); err != nil {
-					errs = append(errs, fmt.Errorf("fee quoter: %w", err))
-				}
-			}
-			if validateOwnership {
-				if chainState.Timelock == nil {
-					errs = append(errs, errors.New("ownership: timelock not configured"))
-				} else if err := chainState.ValidateContractOwnership(e); err != nil {
-					errs = append(errs, fmt.Errorf("ownership: %w", err))
-				}
-			}
-			if err := chainState.ValidateRMNProxy(e); err != nil {
-				errs = append(errs, fmt.Errorf("RMNProxy: %w", err))
-			}
+			errs := c.runSingleChainValidation(e, sel, v16ActiveChains, rmnHomeActiveDigest, isRMNEnabledInRMNHomeBySourceChain, validateOwnership)
 			if len(errs) > 0 {
 				chainErrsMu.Lock()
 				chainErrs[sel] = append(chainErrs[sel], errs...)
@@ -348,6 +277,89 @@ func (c CCIPOnChainState) runPostDeploymentValidation(e cldf.Environment, valida
 	}
 	e.Logger.Infow("Post-deployment validation complete", "chainsValidated", chainsToProcess, "totalErrors", errCount)
 	return chainErrs
+}
+
+func (c CCIPOnChainState) runSingleChainValidation(
+	e cldf.Environment,
+	sel uint64,
+	v16ActiveChains map[uint64]bool,
+	rmnHomeActiveDigest [32]byte,
+	isRMNEnabledInRMNHomeBySourceChain map[uint64]bool,
+	validateOwnership bool,
+) []error {
+	e.Logger.Infow("Validating chain contracts", "chain", sel)
+	chainState := c.MustGetEVMChainState(sel)
+	var errs []error
+	isRMNEnabledInRmnRemote, err := chainState.ValidateRMNRemote(e, sel, rmnHomeActiveDigest)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("RMNRemote %s: %w", safeAddr(chainState.RMNRemote), err))
+	} else if isRMNEnabledInRmnRemote != isRMNEnabledInRMNHomeBySourceChain[sel] {
+		errs = append(errs, fmt.Errorf("RMNRemote %s rmnEnabled mismatch with RMNHome: expected %v, got %v",
+			chainState.RMNRemote.Address().Hex(), isRMNEnabledInRMNHomeBySourceChain[sel], isRMNEnabledInRmnRemote))
+	}
+	var fqV2 *fqv2ops.FeeQuoterContract
+	if ds, dsErr := ccipshared.PopulateDataStore(e.ExistingAddresses); dsErr == nil {
+		if e.DataStore != nil {
+			_ = ds.Merge(e.DataStore)
+		}
+		chainAddresses := ds.Addresses().Filter(datastore.AddressRefByChainSelector(sel))
+		if fqAddr, fqVer, fqErr := ccipshared.ResolveFeeQuoterAddressAndVersion(chainAddresses, sel); fqErr == nil && fqVer.Major() >= 2 {
+			if evmChain, ok := e.BlockChains.EVMChains()[sel]; ok {
+				if v2, bindErr := fqv2ops.NewFeeQuoterContract(fqAddr, evmChain.Client); bindErr == nil {
+					fqV2 = v2
+				}
+			}
+		}
+	}
+	var fqV2Addr common.Address
+	if fqV2 != nil {
+		fqV2Addr = fqV2.Address()
+	}
+	otherOnRamps := make(map[uint64]common.Address)
+	useTestRouter := chainState.Router == nil
+	connectedChains, routerErr := chainState.ValidateRouter(e, useTestRouter, v16ActiveChains)
+	if routerErr != nil {
+		errs = append(errs, fmt.Errorf("router: %w", routerErr))
+	}
+	if len(connectedChains) > 0 {
+		for _, connectedChain := range connectedChains {
+			if connectedChain == sel {
+				continue
+			}
+			if addr, ok := c.resolveOnRampAddress(e, connectedChain); ok {
+				otherOnRamps[connectedChain] = addr
+			}
+		}
+		if err := chainState.ValidateOffRamp(e, sel, otherOnRamps, isRMNEnabledInRMNHomeBySourceChain, fqV2Addr); err != nil {
+			errs = append(errs, fmt.Errorf("offramp %s: %w", safeAddr(chainState.OffRamp), err))
+		}
+		if err := chainState.ValidateOnRamp(e, sel, connectedChains, fqV2Addr); err != nil {
+			errs = append(errs, fmt.Errorf("onramp %s: %w", safeAddr(chainState.OnRamp), err))
+		}
+		if err := chainState.ValidateNonceManager(e, sel, connectedChains); err != nil {
+			errs = append(errs, fmt.Errorf("nonce manager: %w", err))
+		}
+	}
+	{
+		var backend bind.ContractBackend
+		if evmChain, ok := e.BlockChains.EVMChains()[sel]; ok {
+			backend = evmChain.Client
+		}
+		if err := chainState.ValidateFeeQuoter(e, sel, connectedChains, fqV2, backend); err != nil {
+			errs = append(errs, fmt.Errorf("fee quoter: %w", err))
+		}
+	}
+	if validateOwnership {
+		if chainState.Timelock == nil {
+			errs = append(errs, errors.New("ownership: timelock not configured"))
+		} else if err := chainState.ValidateContractOwnership(e); err != nil {
+			errs = append(errs, fmt.Errorf("ownership: %w", err))
+		}
+	}
+	if err := chainState.ValidateRMNProxy(e); err != nil {
+		errs = append(errs, fmt.Errorf("RMNProxy: %w", err))
+	}
+	return errs
 }
 
 // safeAddr returns the hex address of a contract, or "<nil>" if nil.
@@ -1038,7 +1050,6 @@ func LoadOnchainState(e cldf.Environment, opts ...LoadOption) (CCIPOnChainState,
 	if err != nil {
 		return CCIPOnChainState{}, err
 	}
-
 	suiChains, err := suistate.LoadOnchainStatesui(e)
 	if err != nil {
 		return CCIPOnChainState{}, err
@@ -1077,7 +1088,10 @@ func LoadOnchainState(e cldf.Environment, opts ...LoadOption) (CCIPOnChainState,
 	if err := grp.Wait(); err != nil {
 		return state, err
 	}
-	return state, state.Validate()
+	if err := state.Validate(); err != nil {
+		return state, err
+	}
+	return state, nil
 }
 
 // LoadChainState Loads all state for a chain into state
@@ -1104,7 +1118,10 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 		return state, err
 	}
 	state.StaticLinkTokenState = *staticLinkState
+
 	state.ABIByAddress = make(map[string]string)
+	var mu sync.Mutex
+	var work []func(context.Context) error
 	for address, tvStr := range addresses {
 		switch tvStr.String() {
 		case cldf.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0).String():
@@ -1325,141 +1342,225 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			state.Multicall3 = mc
 			state.ABIByAddress[address] = multicall3.Multicall3ABI
 		case cldf.NewTypeAndVersion(ccipshared.PriceFeed, deployment.Version1_0_0).String():
-			feed, err := aggregator_v3_interface.NewAggregatorV3Interface(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			if state.USDFeeds == nil {
-				state.USDFeeds = make(map[ccipshared.TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface)
-			}
-			desc, err := feed.Description(&bind.CallOpts{})
-			if err != nil {
-				return state, err
-			}
-			keys, ok := ccipshared.GetSymbolsFromDescription(desc)
-			if !ok {
-				return state, fmt.Errorf("unknown feed description %s", desc)
-			}
-			for _, key := range keys {
-				state.USDFeeds[key] = feed
-			}
-			state.ABIByAddress[address] = aggregator_v3_interface.AggregatorV3InterfaceABI
+			addr := address
+			work = append(work, func(ctx context.Context) error {
+				feed, err := aggregator_v3_interface.NewAggregatorV3Interface(common.HexToAddress(addr), chain.Client)
+				if err != nil {
+					return err
+				}
+				desc, err := feed.Description(&bind.CallOpts{})
+				if err != nil {
+					return err
+				}
+				keys, ok := ccipshared.GetSymbolsFromDescription(desc)
+				if !ok {
+					return fmt.Errorf("unknown feed description %s", desc)
+				}
+				mu.Lock()
+				if state.USDFeeds == nil {
+					state.USDFeeds = make(map[ccipshared.TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface)
+				}
+				for _, key := range keys {
+					state.USDFeeds[key] = feed
+				}
+				state.ABIByAddress[addr] = aggregator_v3_interface.AggregatorV3InterfaceABI
+				mu.Unlock()
+				return nil
+			})
 		case cldf.NewTypeAndVersion(ccipshared.BurnMintTokenPool, deployment.Version1_5_1).String():
-			ethAddress := common.HexToAddress(address)
-			pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, burn_mint_token_pool.NewBurnMintTokenPool, ethAddress, chain.Client)
-			if err != nil {
-				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
-			}
-			state.BurnMintTokenPools = maputils.AddValueToNestedMap(state.BurnMintTokenPools, metadata.Symbol, metadata.Version, pool)
-			state.ABIByAddress[address] = burn_mint_token_pool.BurnMintTokenPoolABI
+			addr := address
+			work = append(work, func(ctx context.Context) error {
+				ethAddress := common.HexToAddress(addr)
+				pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, burn_mint_token_pool.NewBurnMintTokenPool, ethAddress, chain.Client)
+				if err != nil {
+					return fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
+				}
+				mu.Lock()
+				state.BurnMintTokenPools = maputils.AddValueToNestedMap(state.BurnMintTokenPools, metadata.Symbol, metadata.Version, pool)
+				state.ABIByAddress[addr] = burn_mint_token_pool.BurnMintTokenPoolABI
+				mu.Unlock()
+				return nil
+			})
 		case cldf.NewTypeAndVersion(ccipshared.BurnMintTokenPool, deployment.Version1_5_0).String():
-			ethAddress := common.HexToAddress(address)
-			pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, burn_mint_token_pool_and_proxy.NewBurnMintTokenPoolAndProxy, ethAddress, chain.Client)
-			if err != nil {
-				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
-			}
-			state.BurnMintTokenPoolsAndProxies = maputils.AddValueToNestedMap(state.BurnMintTokenPoolsAndProxies, metadata.Symbol, metadata.Version, pool)
-			state.ABIByAddress[address] = burn_mint_token_pool.BurnMintTokenPoolABI
+			addr := address
+			work = append(work, func(ctx context.Context) error {
+				ethAddress := common.HexToAddress(addr)
+				pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, burn_mint_token_pool_and_proxy.NewBurnMintTokenPoolAndProxy, ethAddress, chain.Client)
+				if err != nil {
+					return fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
+				}
+				mu.Lock()
+				state.BurnMintTokenPoolsAndProxies = maputils.AddValueToNestedMap(state.BurnMintTokenPoolsAndProxies, metadata.Symbol, metadata.Version, pool)
+				state.ABIByAddress[addr] = burn_mint_token_pool.BurnMintTokenPoolABI
+				mu.Unlock()
+				return nil
+			})
 		case cldf.NewTypeAndVersion(ccipshared.BurnMintTokenPool, deployment.Version1_6_1).String():
-			ethAddress := common.HexToAddress(address)
-			pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, burn_mint_token_pool_v1_6_1.NewBurnMintTokenPool, ethAddress, chain.Client)
-			if err != nil {
-				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
-			}
-			state.BurnMintTokenPoolsV1_6_1 = maputils.AddValueToNestedMap(state.BurnMintTokenPoolsV1_6_1, metadata.Symbol, metadata.Version, pool)
-			state.ABIByAddress[address] = burn_mint_token_pool_v1_6_1.BurnMintTokenPoolABI
+			addr := address
+			work = append(work, func(ctx context.Context) error {
+				ethAddress := common.HexToAddress(addr)
+				pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, burn_mint_token_pool_v1_6_1.NewBurnMintTokenPool, ethAddress, chain.Client)
+				if err != nil {
+					return fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
+				}
+				mu.Lock()
+				state.BurnMintTokenPoolsV1_6_1 = maputils.AddValueToNestedMap(state.BurnMintTokenPoolsV1_6_1, metadata.Symbol, metadata.Version, pool)
+				state.ABIByAddress[addr] = burn_mint_token_pool_v1_6_1.BurnMintTokenPoolABI
+				mu.Unlock()
+				return nil
+			})
 		case cldf.NewTypeAndVersion(ccipshared.BurnMintFastTransferTokenPool, deployment.Version1_6_1).String():
-			ethAddress := common.HexToAddress(address)
-			pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, fast_transfer_token_pool.NewBurnMintFastTransferTokenPool, ethAddress, chain.Client)
-			if err != nil {
-				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
-			}
-			state.BurnMintFastTransferTokenPools = maputils.AddValueToNestedMap(state.BurnMintFastTransferTokenPools, metadata.Symbol, metadata.Version, pool)
-			state.ABIByAddress[address] = fast_transfer_token_pool.BurnMintFastTransferTokenPoolABI
+			addr := address
+			work = append(work, func(ctx context.Context) error {
+				ethAddress := common.HexToAddress(addr)
+				pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, fast_transfer_token_pool.NewBurnMintFastTransferTokenPool, ethAddress, chain.Client)
+				if err != nil {
+					return fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
+				}
+				mu.Lock()
+				state.BurnMintFastTransferTokenPools = maputils.AddValueToNestedMap(state.BurnMintFastTransferTokenPools, metadata.Symbol, metadata.Version, pool)
+				state.ABIByAddress[addr] = fast_transfer_token_pool.BurnMintFastTransferTokenPoolABI
+				mu.Unlock()
+				return nil
+			})
 		case cldf.NewTypeAndVersion(ccipshared.BurnMintFastTransferTokenPool, deployment.Version1_6_3Dev).String():
-			ethAddress := common.HexToAddress(address)
-			pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, fast_transfer_token_pool.NewBurnMintFastTransferTokenPool, ethAddress, chain.Client)
-			if err != nil {
-				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
-			}
-			state.BurnMintFastTransferTokenPools = maputils.AddValueToNestedMap(state.BurnMintFastTransferTokenPools, metadata.Symbol, metadata.Version, pool)
-			state.ABIByAddress[address] = fast_transfer_token_pool.BurnMintFastTransferTokenPoolABI
+			addr := address
+			work = append(work, func(ctx context.Context) error {
+				ethAddress := common.HexToAddress(addr)
+				pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, fast_transfer_token_pool.NewBurnMintFastTransferTokenPool, ethAddress, chain.Client)
+				if err != nil {
+					return fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
+				}
+				mu.Lock()
+				state.BurnMintFastTransferTokenPools = maputils.AddValueToNestedMap(state.BurnMintFastTransferTokenPools, metadata.Symbol, metadata.Version, pool)
+				state.ABIByAddress[addr] = fast_transfer_token_pool.BurnMintFastTransferTokenPoolABI
+				mu.Unlock()
+				return nil
+			})
 		case cldf.NewTypeAndVersion(ccipshared.BurnMintWithExternalMinterFastTransferTokenPool, deployment.Version1_6_0).String():
-			ethAddress := common.HexToAddress(address)
-			pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, burn_mint_with_external_minter_fast_transfer_token_pool.NewBurnMintWithExternalMinterFastTransferTokenPool, ethAddress, chain.Client)
-			if err != nil {
-				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
-			}
-			state.BurnMintWithExternalMinterFastTransferTokenPools = maputils.AddValueToNestedMap(state.BurnMintWithExternalMinterFastTransferTokenPools, metadata.Symbol, metadata.Version, pool)
-			state.ABIByAddress[address] = burn_mint_with_external_minter_fast_transfer_token_pool.BurnMintWithExternalMinterFastTransferTokenPoolABI
+			addr := address
+			work = append(work, func(ctx context.Context) error {
+				ethAddress := common.HexToAddress(addr)
+				pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, burn_mint_with_external_minter_fast_transfer_token_pool.NewBurnMintWithExternalMinterFastTransferTokenPool, ethAddress, chain.Client)
+				if err != nil {
+					return fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
+				}
+				mu.Lock()
+				state.BurnMintWithExternalMinterFastTransferTokenPools = maputils.AddValueToNestedMap(state.BurnMintWithExternalMinterFastTransferTokenPools, metadata.Symbol, metadata.Version, pool)
+				state.ABIByAddress[addr] = burn_mint_with_external_minter_fast_transfer_token_pool.BurnMintWithExternalMinterFastTransferTokenPoolABI
+				mu.Unlock()
+				return nil
+			})
 		case cldf.NewTypeAndVersion(ccipshared.HybridWithExternalMinterFastTransferTokenPool, deployment.Version1_6_0).String():
-			ethAddress := common.HexToAddress(address)
-			pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, hybrid_with_external_minter_fast_transfer_token_pool.NewHybridWithExternalMinterFastTransferTokenPool, ethAddress, chain.Client)
-			if err != nil {
-				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
-			}
-			state.HybridWithExternalMinterFastTransferTokenPools = maputils.AddValueToNestedMap(state.HybridWithExternalMinterFastTransferTokenPools, metadata.Symbol, metadata.Version, pool)
-			state.ABIByAddress[address] = hybrid_with_external_minter_fast_transfer_token_pool.HybridWithExternalMinterFastTransferTokenPoolABI
+			addr := address
+			work = append(work, func(ctx context.Context) error {
+				ethAddress := common.HexToAddress(addr)
+				pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, hybrid_with_external_minter_fast_transfer_token_pool.NewHybridWithExternalMinterFastTransferTokenPool, ethAddress, chain.Client)
+				if err != nil {
+					return fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
+				}
+				mu.Lock()
+				state.HybridWithExternalMinterFastTransferTokenPools = maputils.AddValueToNestedMap(state.HybridWithExternalMinterFastTransferTokenPools, metadata.Symbol, metadata.Version, pool)
+				state.ABIByAddress[addr] = hybrid_with_external_minter_fast_transfer_token_pool.HybridWithExternalMinterFastTransferTokenPoolABI
+				mu.Unlock()
+				return nil
+			})
 		case cldf.NewTypeAndVersion(ccipshared.BurnWithFromMintTokenPool, deployment.Version1_5_1).String():
-			ethAddress := common.HexToAddress(address)
-			pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, burn_with_from_mint_token_pool.NewBurnWithFromMintTokenPool, ethAddress, chain.Client)
-			if err != nil {
-				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
-			}
-			state.BurnWithFromMintTokenPools = maputils.AddValueToNestedMap(state.BurnWithFromMintTokenPools, metadata.Symbol, metadata.Version, pool)
-			state.ABIByAddress[address] = burn_with_from_mint_token_pool.BurnWithFromMintTokenPoolABI
+			addr := address
+			work = append(work, func(ctx context.Context) error {
+				ethAddress := common.HexToAddress(addr)
+				pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, burn_with_from_mint_token_pool.NewBurnWithFromMintTokenPool, ethAddress, chain.Client)
+				if err != nil {
+					return fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
+				}
+				mu.Lock()
+				state.BurnWithFromMintTokenPools = maputils.AddValueToNestedMap(state.BurnWithFromMintTokenPools, metadata.Symbol, metadata.Version, pool)
+				state.ABIByAddress[addr] = burn_with_from_mint_token_pool.BurnWithFromMintTokenPoolABI
+				mu.Unlock()
+				return nil
+			})
 		case cldf.NewTypeAndVersion(ccipshared.BurnFromMintTokenPool, deployment.Version1_5_1).String():
-			ethAddress := common.HexToAddress(address)
-			pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, burn_from_mint_token_pool.NewBurnFromMintTokenPool, ethAddress, chain.Client)
-			if err != nil {
-				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
-			}
-			state.BurnFromMintTokenPools = maputils.AddValueToNestedMap(state.BurnFromMintTokenPools, metadata.Symbol, metadata.Version, pool)
-			state.ABIByAddress[address] = burn_from_mint_token_pool.BurnFromMintTokenPoolABI
+			addr := address
+			work = append(work, func(ctx context.Context) error {
+				ethAddress := common.HexToAddress(addr)
+				pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, burn_from_mint_token_pool.NewBurnFromMintTokenPool, ethAddress, chain.Client)
+				if err != nil {
+					return fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
+				}
+				mu.Lock()
+				state.BurnFromMintTokenPools = maputils.AddValueToNestedMap(state.BurnFromMintTokenPools, metadata.Symbol, metadata.Version, pool)
+				state.ABIByAddress[addr] = burn_from_mint_token_pool.BurnFromMintTokenPoolABI
+				mu.Unlock()
+				return nil
+			})
 		case cldf.NewTypeAndVersion(ccipshared.LockReleaseTokenPool, deployment.Version1_5_1).String():
-			ethAddress := common.HexToAddress(address)
-			pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, lock_release_token_pool.NewLockReleaseTokenPool, ethAddress, chain.Client)
-			if err != nil {
-				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
-			}
-			state.LockReleaseTokenPools = maputils.AddValueToNestedMap(state.LockReleaseTokenPools, metadata.Symbol, metadata.Version, pool)
-			state.ABIByAddress[address] = lock_release_token_pool.LockReleaseTokenPoolABI
+			addr := address
+			work = append(work, func(ctx context.Context) error {
+				ethAddress := common.HexToAddress(addr)
+				pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, lock_release_token_pool.NewLockReleaseTokenPool, ethAddress, chain.Client)
+				if err != nil {
+					return fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
+				}
+				mu.Lock()
+				state.LockReleaseTokenPools = maputils.AddValueToNestedMap(state.LockReleaseTokenPools, metadata.Symbol, metadata.Version, pool)
+				state.ABIByAddress[addr] = lock_release_token_pool.LockReleaseTokenPoolABI
+				mu.Unlock()
+				return nil
+			})
 		case cldf.NewTypeAndVersion(ccipshared.LockReleaseTokenPool, deployment.Version1_6_1).String():
-			ethAddress := common.HexToAddress(address)
-			pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, lock_release_token_pool_v1_6_1.NewLockReleaseTokenPool, ethAddress, chain.Client)
-			if err != nil {
-				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
-			}
-			state.LockReleaseTokenPoolsV1_6_1 = maputils.AddValueToNestedMap(state.LockReleaseTokenPoolsV1_6_1, metadata.Symbol, metadata.Version, pool)
-			state.ABIByAddress[address] = lock_release_token_pool_v1_6_1.LockReleaseTokenPoolABI
+			addr := address
+			work = append(work, func(ctx context.Context) error {
+				ethAddress := common.HexToAddress(addr)
+				pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, lock_release_token_pool_v1_6_1.NewLockReleaseTokenPool, ethAddress, chain.Client)
+				if err != nil {
+					return fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
+				}
+				mu.Lock()
+				state.LockReleaseTokenPoolsV1_6_1 = maputils.AddValueToNestedMap(state.LockReleaseTokenPoolsV1_6_1, metadata.Symbol, metadata.Version, pool)
+				state.ABIByAddress[addr] = lock_release_token_pool_v1_6_1.LockReleaseTokenPoolABI
+				mu.Unlock()
+				return nil
+			})
 		case cldf.NewTypeAndVersion(ccipshared.BurnMintToken, deployment.Version1_0_0).String():
-			tok, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			if state.BurnMintTokens677 == nil {
-				state.BurnMintTokens677 = make(map[ccipshared.TokenSymbol]*burn_mint_erc677.BurnMintERC677)
-			}
-			symbol, err := tok.Symbol(nil)
-			if err != nil {
-				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
-			}
-			state.BurnMintTokens677[ccipshared.TokenSymbol(symbol)] = tok
-			state.ABIByAddress[address] = burn_mint_erc677.BurnMintERC677ABI
+			addr := address
+			work = append(work, func(ctx context.Context) error {
+				tok, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(addr), chain.Client)
+				if err != nil {
+					return err
+				}
+				symbol, err := tok.Symbol(nil)
+				if err != nil {
+					return fmt.Errorf("failed to get token symbol of token at %s: %w", addr, err)
+				}
+				mu.Lock()
+				if state.BurnMintTokens677 == nil {
+					state.BurnMintTokens677 = make(map[ccipshared.TokenSymbol]*burn_mint_erc677.BurnMintERC677)
+				}
+				state.BurnMintTokens677[ccipshared.TokenSymbol(symbol)] = tok
+				state.ABIByAddress[addr] = burn_mint_erc677.BurnMintERC677ABI
+				mu.Unlock()
+				return nil
+			})
 		case cldf.NewTypeAndVersion(ccipshared.ERC20Token, deployment.Version1_0_0).String():
-			tok, err := erc20.NewERC20(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			if state.ERC20Tokens == nil {
-				state.ERC20Tokens = make(map[ccipshared.TokenSymbol]*erc20.ERC20)
-			}
-			symbol, err := tok.Symbol(nil)
-			if err != nil {
-				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
-			}
-			state.ERC20Tokens[ccipshared.TokenSymbol(symbol)] = tok
-			state.ABIByAddress[address] = erc20.ERC20ABI
+			addr := address
+			work = append(work, func(ctx context.Context) error {
+				tok, err := erc20.NewERC20(common.HexToAddress(addr), chain.Client)
+				if err != nil {
+					return err
+				}
+				symbol, err := tok.Symbol(nil)
+				if err != nil {
+					return fmt.Errorf("failed to get token symbol of token at %s: %w", addr, err)
+				}
+				mu.Lock()
+				if state.ERC20Tokens == nil {
+					state.ERC20Tokens = make(map[ccipshared.TokenSymbol]*erc20.ERC20)
+				}
+				state.ERC20Tokens[ccipshared.TokenSymbol(symbol)] = tok
+				state.ABIByAddress[addr] = erc20.ERC20ABI
+				mu.Unlock()
+				return nil
+			})
 		case cldf.NewTypeAndVersion(ccipshared.FactoryBurnMintERC20Token, deployment.Version1_6_2).String():
 			tok, err := factoryBurnMintERC20v1_6_2.NewFactoryBurnMintERC20(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -1475,19 +1576,25 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			state.FactoryBurnMintERC20Token1_5_1 = tok
 			state.ABIByAddress[address] = factoryBurnMintERC20v1_5_1.FactoryBurnMintERC20ABI
 		case cldf.NewTypeAndVersion(ccipshared.BurnMintERC20Token, deployment.Version1_0_0).String():
-			tok, err := burn_mint_erc20.NewBurnMintERC20(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			if state.BurnMintERC20 == nil {
-				state.BurnMintERC20 = make(map[ccipshared.TokenSymbol]*burn_mint_erc20.BurnMintERC20)
-			}
-			symbol, err := tok.Symbol(nil)
-			if err != nil {
-				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
-			}
-			state.BurnMintERC20[ccipshared.TokenSymbol(symbol)] = tok
-			state.ABIByAddress[address] = burn_mint_erc20.BurnMintERC20ABI
+			addr := address
+			work = append(work, func(ctx context.Context) error {
+				tok, err := burn_mint_erc20.NewBurnMintERC20(common.HexToAddress(addr), chain.Client)
+				if err != nil {
+					return err
+				}
+				symbol, err := tok.Symbol(nil)
+				if err != nil {
+					return fmt.Errorf("failed to get token symbol of token at %s: %w", addr, err)
+				}
+				mu.Lock()
+				if state.BurnMintERC20 == nil {
+					state.BurnMintERC20 = make(map[ccipshared.TokenSymbol]*burn_mint_erc20.BurnMintERC20)
+				}
+				state.BurnMintERC20[ccipshared.TokenSymbol(symbol)] = tok
+				state.ABIByAddress[addr] = burn_mint_erc20.BurnMintERC20ABI
+				mu.Unlock()
+				return nil
+			})
 		case cldf.NewTypeAndVersion(ccipshared.ERC677Token, deployment.Version1_0_0).String():
 			tok, err := erc677.NewERC677(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -1505,57 +1612,75 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 		// legacy addresses below are commented out to avoid loading them by default, to be uncommented for migrations
 		case cldf.NewTypeAndVersion(ccipshared.OnRamp, deployment.Version1_5_0).String(),
 			cldf.NewTypeAndVersion(ccipshared.EVM2EVMOnRamp, deployment.Version1_5_0).String():
-			if !config.loadLegacyContracts {
-				continue
-			}
-			onRampC, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			sCfg, err := onRampC.GetStaticConfig(nil)
-			if err != nil {
-				return state, fmt.Errorf("failed to get static config chain %s: %w", chain.String(), err)
-			}
-			if state.EVM2EVMOnRamp == nil {
-				state.EVM2EVMOnRamp = make(map[uint64]*evm_2_evm_onramp.EVM2EVMOnRamp)
-			}
-			state.EVM2EVMOnRamp[sCfg.DestChainSelector] = onRampC
-			state.ABIByAddress[address] = evm_2_evm_onramp.EVM2EVMOnRampABI
+			addr := address
+			work = append(work, func(ctx context.Context) error {
+				if !config.loadLegacyContracts {
+					return nil
+				}
+				onRampC, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(common.HexToAddress(addr), chain.Client)
+				if err != nil {
+					return err
+				}
+				sCfg, err := onRampC.GetStaticConfig(nil)
+				if err != nil {
+					return fmt.Errorf("failed to get static config chain %s: %w", chain.String(), err)
+				}
+				mu.Lock()
+				if state.EVM2EVMOnRamp == nil {
+					state.EVM2EVMOnRamp = make(map[uint64]*evm_2_evm_onramp.EVM2EVMOnRamp)
+				}
+				state.EVM2EVMOnRamp[sCfg.DestChainSelector] = onRampC
+				state.ABIByAddress[addr] = evm_2_evm_onramp.EVM2EVMOnRampABI
+				mu.Unlock()
+				return nil
+			})
 		case cldf.NewTypeAndVersion(ccipshared.OffRamp, deployment.Version1_5_0).String(),
 			cldf.NewTypeAndVersion(ccipshared.EVM2EVMOffRamp, deployment.Version1_5_0).String():
-			if !config.loadLegacyContracts {
-				continue
-			}
-			offRamp, err := evm_2_evm_offramp.NewEVM2EVMOffRamp(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			sCfg, err := offRamp.GetStaticConfig(nil)
-			if err != nil {
-				return state, err
-			}
-			if state.EVM2EVMOffRamp == nil {
-				state.EVM2EVMOffRamp = make(map[uint64]*evm_2_evm_offramp.EVM2EVMOffRamp)
-			}
-			state.EVM2EVMOffRamp[sCfg.SourceChainSelector] = offRamp
-			state.ABIByAddress[address] = evm_2_evm_offramp.EVM2EVMOffRampABI
+			addr := address
+			work = append(work, func(ctx context.Context) error {
+				if !config.loadLegacyContracts {
+					return nil
+				}
+				offRamp, err := evm_2_evm_offramp.NewEVM2EVMOffRamp(common.HexToAddress(addr), chain.Client)
+				if err != nil {
+					return err
+				}
+				sCfg, err := offRamp.GetStaticConfig(nil)
+				if err != nil {
+					return err
+				}
+				mu.Lock()
+				if state.EVM2EVMOffRamp == nil {
+					state.EVM2EVMOffRamp = make(map[uint64]*evm_2_evm_offramp.EVM2EVMOffRamp)
+				}
+				state.EVM2EVMOffRamp[sCfg.SourceChainSelector] = offRamp
+				state.ABIByAddress[addr] = evm_2_evm_offramp.EVM2EVMOffRampABI
+				mu.Unlock()
+				return nil
+			})
 		case cldf.NewTypeAndVersion(ccipshared.CommitStore, deployment.Version1_5_0).String():
-			if !config.loadLegacyContracts {
-				continue
-			}
-			commitStore, err := commit_store.NewCommitStore(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			sCfg, err := commitStore.GetStaticConfig(nil)
-			if err != nil {
-				return state, err
-			}
-			if state.CommitStore == nil {
-				state.CommitStore = make(map[uint64]*commit_store.CommitStore)
-			}
-			state.CommitStore[sCfg.SourceChainSelector] = commitStore
-			state.ABIByAddress[address] = commit_store.CommitStoreABI
+			addr := address
+			work = append(work, func(ctx context.Context) error {
+				if !config.loadLegacyContracts {
+					return nil
+				}
+				commitStore, err := commit_store.NewCommitStore(common.HexToAddress(addr), chain.Client)
+				if err != nil {
+					return err
+				}
+				sCfg, err := commitStore.GetStaticConfig(nil)
+				if err != nil {
+					return err
+				}
+				mu.Lock()
+				if state.CommitStore == nil {
+					state.CommitStore = make(map[uint64]*commit_store.CommitStore)
+				}
+				state.CommitStore[sCfg.SourceChainSelector] = commitStore
+				state.ABIByAddress[addr] = commit_store.CommitStoreABI
+				mu.Unlock()
+				return nil
+			})
 		case cldf.NewTypeAndVersion(ccipshared.PriceRegistry, deployment.Version1_2_0).String():
 			if !config.loadLegacyContracts {
 				continue
@@ -1612,43 +1737,61 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			state.BurnMintERC20WithDrip[ccipshared.TokenSymbol(symbol)] = ERC677HelperToken
 			state.ABIByAddress[address] = burn_mint_erc20_with_drip.BurnMintERC20WithDripABI
 		case cldf.NewTypeAndVersion(ccipshared.BurnMintWithExternalMinterTokenPool, deployment.Version1_6_0).String():
-			addr := common.HexToAddress(address)
-			pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, burn_mint_with_external_minter_token_pool.NewBurnMintWithExternalMinterTokenPool, addr, chain.Client)
-			if err != nil {
-				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", addr, err)
-			}
-			state.BurnMintWithExternalMinterTokenPool = maputils.AddValueToNestedMap(state.BurnMintWithExternalMinterTokenPool, metadata.Symbol, metadata.Version, pool)
-			state.ABIByAddress[address] = burn_mint_with_external_minter_token_pool.BurnMintWithExternalMinterTokenPoolABI
+			addr := address
+			work = append(work, func(ctx context.Context) error {
+				a := common.HexToAddress(addr)
+				pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, burn_mint_with_external_minter_token_pool.NewBurnMintWithExternalMinterTokenPool, a, chain.Client)
+				if err != nil {
+					return fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", a, err)
+				}
+				mu.Lock()
+				state.BurnMintWithExternalMinterTokenPool = maputils.AddValueToNestedMap(state.BurnMintWithExternalMinterTokenPool, metadata.Symbol, metadata.Version, pool)
+				state.ABIByAddress[addr] = burn_mint_with_external_minter_token_pool.BurnMintWithExternalMinterTokenPoolABI
+				mu.Unlock()
+				return nil
+			})
 		case cldf.NewTypeAndVersion(ccipshared.HybridWithExternalMinterTokenPool, deployment.Version1_6_0).String():
-			addr := common.HexToAddress(address)
-			pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, hybrid_with_external_minter_token_pool.NewHybridWithExternalMinterTokenPool, addr, chain.Client)
-			if err != nil {
-				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", addr, err)
-			}
-			state.HybridWithExternalMinterTokenPool = maputils.AddValueToNestedMap(state.HybridWithExternalMinterTokenPool, metadata.Symbol, metadata.Version, pool)
-			state.ABIByAddress[address] = hybrid_with_external_minter_token_pool.HybridWithExternalMinterTokenPoolABI
+			addr := address
+			work = append(work, func(ctx context.Context) error {
+				a := common.HexToAddress(addr)
+				pool, metadata, err := ccipshared.NewTokenPoolWithMetadata(ctx, hybrid_with_external_minter_token_pool.NewHybridWithExternalMinterTokenPool, a, chain.Client)
+				if err != nil {
+					return fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", a, err)
+				}
+				mu.Lock()
+				state.HybridWithExternalMinterTokenPool = maputils.AddValueToNestedMap(state.HybridWithExternalMinterTokenPool, metadata.Symbol, metadata.Version, pool)
+				state.ABIByAddress[addr] = hybrid_with_external_minter_token_pool.HybridWithExternalMinterTokenPoolABI
+				mu.Unlock()
+				return nil
+			})
 		case cldf.NewTypeAndVersion(ccipshared.TokenGovernor, deployment.Version1_6_0).String():
-			tokenGovernor, err := token_governor.NewTokenGovernor(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			if state.TokenGovernor == nil {
-				state.TokenGovernor = make(map[ccipshared.TokenSymbol]*token_governor.TokenGovernor)
-			}
-			tokenAddress, err := tokenGovernor.GetToken(&bind.CallOpts{Context: ctx})
-			if err != nil {
-				return state, fmt.Errorf("failed to get token address of token governor at %s: %w", address, err)
-			}
-			token, err := erc20.NewERC20(common.HexToAddress(tokenAddress.String()), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			symbol, err := token.Symbol(&bind.CallOpts{Context: ctx})
-			if err != nil {
-				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
-			}
-			state.TokenGovernor[ccipshared.TokenSymbol(symbol)] = tokenGovernor
-			state.ABIByAddress[address] = token_governor.TokenGovernorABI
+			addr := address
+			work = append(work, func(ctx context.Context) error {
+				tokenGovernor, err := token_governor.NewTokenGovernor(common.HexToAddress(addr), chain.Client)
+				if err != nil {
+					return err
+				}
+				tokenAddress, err := tokenGovernor.GetToken(&bind.CallOpts{Context: ctx})
+				if err != nil {
+					return fmt.Errorf("failed to get token address of token governor at %s: %w", addr, err)
+				}
+				token, err := erc20.NewERC20(common.HexToAddress(tokenAddress.String()), chain.Client)
+				if err != nil {
+					return err
+				}
+				symbol, err := token.Symbol(&bind.CallOpts{Context: ctx})
+				if err != nil {
+					return fmt.Errorf("failed to get token symbol of token at %s: %w", addr, err)
+				}
+				mu.Lock()
+				if state.TokenGovernor == nil {
+					state.TokenGovernor = make(map[ccipshared.TokenSymbol]*token_governor.TokenGovernor)
+				}
+				state.TokenGovernor[ccipshared.TokenSymbol(symbol)] = tokenGovernor
+				state.ABIByAddress[addr] = token_governor.TokenGovernorABI
+				mu.Unlock()
+				return nil
+			})
 		case cldf.NewTypeAndVersion(ccipshared.EVMSignerRegistry, deployment.Version1_0_0).String():
 			signerRegistry, err := signer_registry.NewSignerRegistry(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -1658,73 +1801,79 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			state.SignerRegistry = signerRegistry
 			state.ABIByAddress[address] = signer_registry.SignerRegistryABI
 		case cldf.NewTypeAndVersion(ccipshared.TransparentUpgradeableProxy, deployment.Version1_6_1).String():
-			var (
-				symbol   string
-				err      error
-				isPaused bool
-			)
-			standardToken, err := burn_mint_erc20_transparent.NewBurnMintERC20Transparent(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			pausableToken, err := burn_mint_erc20_pausable_freezable_transparent.NewBurnMintERC20PausableFreezableTransparent(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			if _, isPausedErr := pausableToken.Paused(&bind.CallOpts{Context: ctx}); isPausedErr == nil {
-				isPaused = true
-				symbol, err = pausableToken.Symbol(&bind.CallOpts{Context: ctx})
-			} else {
-				symbol, err = standardToken.Symbol(&bind.CallOpts{Context: ctx})
-			}
-			if err != nil {
-				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
-			}
-			transparent, err := transparent_upgradeable_proxy.NewTransparentUpgradeableProxy(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			storageBytes, err := chain.Client.StorageAt(ctx, transparent.Address(), ccipshared.TUPImplementationSlot, nil)
-			if err != nil {
-				return state, fmt.Errorf("failed to get storage at slot %s for TransparentUpgradeableProxy at %s for %s token on %s: %w", ccipshared.TUPImplementationSlot, transparent.Address(), symbol, chain, err)
-			}
-			erc20Address := common.BytesToAddress(storageBytes)
-			standardToken, err = burn_mint_erc20_transparent.NewBurnMintERC20Transparent(erc20Address, chain.Client)
-			if err != nil {
-				return state, err
-			}
-			storageBytes, err = chain.Client.StorageAt(ctx, transparent.Address(), ccipshared.AdminSlot, nil)
-			if err != nil {
-				return state, fmt.Errorf("failed to get storage at slot %s for TransparentUpgradeableProxy at %s for %s token on %s: %w", ccipshared.AdminSlot, transparent.Address(), symbol, chain, err)
-			}
-			proxyAdmin := common.BytesToAddress(storageBytes)
-			proxy, err := proxy_admin.NewProxyAdmin(proxyAdmin, chain.Client)
-			if err != nil {
-				return state, err
-			}
-			if !isPaused && state.BurnMintERC20Transparent == nil {
-				state.BurnMintERC20Transparent = make(map[ccipshared.TokenSymbol]*burn_mint_erc20_transparent.BurnMintERC20Transparent)
-			}
-			if isPaused && state.BurnMintERC20PausableFreezableTransparent == nil {
-				state.BurnMintERC20PausableFreezableTransparent = make(map[ccipshared.TokenSymbol]*burn_mint_erc20_pausable_freezable_transparent.BurnMintERC20PausableFreezableTransparent)
-			}
-			if state.ProxyAdmin == nil {
-				state.ProxyAdmin = make(map[ccipshared.TokenSymbol]*proxy_admin.ProxyAdmin)
-			}
-			if state.TransparentUpgradeableProxy == nil {
-				state.TransparentUpgradeableProxy = make(map[ccipshared.TokenSymbol]*transparent_upgradeable_proxy.TransparentUpgradeableProxy)
-			}
-			if isPaused {
-				state.BurnMintERC20PausableFreezableTransparent[ccipshared.TokenSymbol(symbol)] = pausableToken
-				state.ABIByAddress[erc20Address.String()] = burn_mint_erc20_pausable_freezable_transparent.BurnMintERC20PausableFreezableTransparentABI
-			} else {
-				state.BurnMintERC20Transparent[ccipshared.TokenSymbol(symbol)] = standardToken
-				state.ABIByAddress[erc20Address.String()] = burn_mint_erc20_transparent.BurnMintERC20TransparentABI
-			}
-			state.ProxyAdmin[ccipshared.TokenSymbol(symbol)] = proxy
-			state.ABIByAddress[proxyAdmin.String()] = proxy_admin.ProxyAdminABI
-			state.TransparentUpgradeableProxy[ccipshared.TokenSymbol(symbol)] = transparent
-			state.ABIByAddress[address] = transparent_upgradeable_proxy.TransparentUpgradeableProxyABI
+			addr := address
+			work = append(work, func(ctx context.Context) error {
+				var (
+					symbol   string
+					err      error
+					isPaused bool
+				)
+				standardToken, err := burn_mint_erc20_transparent.NewBurnMintERC20Transparent(common.HexToAddress(addr), chain.Client)
+				if err != nil {
+					return err
+				}
+				pausableToken, err := burn_mint_erc20_pausable_freezable_transparent.NewBurnMintERC20PausableFreezableTransparent(common.HexToAddress(addr), chain.Client)
+				if err != nil {
+					return err
+				}
+				if _, isPausedErr := pausableToken.Paused(&bind.CallOpts{Context: ctx}); isPausedErr == nil {
+					isPaused = true
+					symbol, err = pausableToken.Symbol(&bind.CallOpts{Context: ctx})
+				} else {
+					symbol, err = standardToken.Symbol(&bind.CallOpts{Context: ctx})
+				}
+				if err != nil {
+					return fmt.Errorf("failed to get token symbol of token at %s: %w", addr, err)
+				}
+				transparent, err := transparent_upgradeable_proxy.NewTransparentUpgradeableProxy(common.HexToAddress(addr), chain.Client)
+				if err != nil {
+					return err
+				}
+				storageBytes, err := chain.Client.StorageAt(ctx, transparent.Address(), ccipshared.TUPImplementationSlot, nil)
+				if err != nil {
+					return fmt.Errorf("failed to get storage at slot %s for TransparentUpgradeableProxy at %s for %s token on %s: %w", ccipshared.TUPImplementationSlot, transparent.Address(), symbol, chain, err)
+				}
+				erc20Address := common.BytesToAddress(storageBytes)
+				standardToken, err = burn_mint_erc20_transparent.NewBurnMintERC20Transparent(erc20Address, chain.Client)
+				if err != nil {
+					return err
+				}
+				storageBytes, err = chain.Client.StorageAt(ctx, transparent.Address(), ccipshared.AdminSlot, nil)
+				if err != nil {
+					return fmt.Errorf("failed to get storage at slot %s for TransparentUpgradeableProxy at %s for %s token on %s: %w", ccipshared.AdminSlot, transparent.Address(), symbol, chain, err)
+				}
+				proxyAdmin := common.BytesToAddress(storageBytes)
+				proxy, err := proxy_admin.NewProxyAdmin(proxyAdmin, chain.Client)
+				if err != nil {
+					return err
+				}
+				mu.Lock()
+				if !isPaused && state.BurnMintERC20Transparent == nil {
+					state.BurnMintERC20Transparent = make(map[ccipshared.TokenSymbol]*burn_mint_erc20_transparent.BurnMintERC20Transparent)
+				}
+				if isPaused && state.BurnMintERC20PausableFreezableTransparent == nil {
+					state.BurnMintERC20PausableFreezableTransparent = make(map[ccipshared.TokenSymbol]*burn_mint_erc20_pausable_freezable_transparent.BurnMintERC20PausableFreezableTransparent)
+				}
+				if state.ProxyAdmin == nil {
+					state.ProxyAdmin = make(map[ccipshared.TokenSymbol]*proxy_admin.ProxyAdmin)
+				}
+				if state.TransparentUpgradeableProxy == nil {
+					state.TransparentUpgradeableProxy = make(map[ccipshared.TokenSymbol]*transparent_upgradeable_proxy.TransparentUpgradeableProxy)
+				}
+				if isPaused {
+					state.BurnMintERC20PausableFreezableTransparent[ccipshared.TokenSymbol(symbol)] = pausableToken
+					state.ABIByAddress[erc20Address.String()] = burn_mint_erc20_pausable_freezable_transparent.BurnMintERC20PausableFreezableTransparentABI
+				} else {
+					state.BurnMintERC20Transparent[ccipshared.TokenSymbol(symbol)] = standardToken
+					state.ABIByAddress[erc20Address.String()] = burn_mint_erc20_transparent.BurnMintERC20TransparentABI
+				}
+				state.ProxyAdmin[ccipshared.TokenSymbol(symbol)] = proxy
+				state.ABIByAddress[proxyAdmin.String()] = proxy_admin.ProxyAdminABI
+				state.TransparentUpgradeableProxy[ccipshared.TokenSymbol(symbol)] = transparent
+				state.ABIByAddress[addr] = transparent_upgradeable_proxy.TransparentUpgradeableProxyABI
+				mu.Unlock()
+				return nil
+			})
 		default:
 			// ManyChainMultiSig 1.0.0 can have any of these labels, it can have either 1,2 or 3 of these -
 			// bypasser, proposer and canceller
@@ -1766,6 +1915,15 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			}
 			return state, fmt.Errorf("unknown contract %s", tvStr)
 		}
+	}
+	// run RPC-bound work in parallel
+	grp, gctx := errgroup.WithContext(ctx)
+	grp.SetLimit(10)
+	for _, w := range work {
+		grp.Go(func() error { return w(gctx) })
+	}
+	if err := grp.Wait(); err != nil {
+		return state, err
 	}
 	return state, nil
 }

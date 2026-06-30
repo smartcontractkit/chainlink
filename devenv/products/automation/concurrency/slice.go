@@ -12,7 +12,7 @@ func DivideSlice[T any](slice []T, parts int) [][]T {
 	remainder := sliceLength % parts
 
 	start := 0
-	for i := 0; i < parts; i++ {
+	for i := range parts {
 		end := start + baseSize
 		if i < remainder { // Distribute the remainder among the first slices
 			end++

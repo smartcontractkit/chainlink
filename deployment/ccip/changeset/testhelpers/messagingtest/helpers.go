@@ -245,7 +245,15 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	// we need to replay missed logs
 	if !tc.Replayed {
 		require.NotNil(tc.T, tc.DeployedEnv)
-		testhelpers.SleepAndReplay(tc.T, tc.DeployedEnv.Env, 30*time.Second, tc.SourceChain, tc.DestChain)
+		destFamily, err := chain_selectors.GetSelectorFamily(tc.DestChain)
+		require.NoError(tc.T, err)
+		if destFamily == chain_selectors.FamilySui {
+			// Sui replay is a no-op in nodetestutils; only EVM log replay matters. Use
+			// SleepReplayAndSettle because ReplayAsync returns before the poller finishes.
+			SleepReplayAndSettle(tc.T, tc.DeployedEnv.Env, 30*time.Second, tc.SourceChain)
+		} else {
+			SleepReplayAndSettle(tc.T, tc.DeployedEnv.Env, 30*time.Second, tc.SourceChain, tc.DestChain)
+		}
 		out.Replayed = true
 	}
 
@@ -312,4 +320,12 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		tc.T.Logf("skipping validation of sent message")
 	}
 	return
+}
+
+// SleepReplayAndSettle sleeps, replays logs, then sleeps again. EVM replay uses ReplayAsync and
+// returns before the log poller finishes ingesting CCIPMessageSent; the post-replay wait gives
+// the DON time to OCR-commit and transmit to the destination (required for Sui offramp polling).
+func SleepReplayAndSettle(t *testing.T, env cldf.Environment, duration time.Duration, chainSelectors ...uint64) {
+	testhelpers.SleepAndReplay(t, env, duration, chainSelectors...)
+	time.Sleep(duration)
 }

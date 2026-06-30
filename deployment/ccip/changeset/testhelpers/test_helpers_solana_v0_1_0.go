@@ -310,11 +310,11 @@ func LatestBlock(ctx context.Context, env cldf.Environment, chainSelector uint64
 		return env.BlockChains.SolanaChains()[chainSelector].Client.GetSlot(ctx, solconfig.DefaultCommitment)
 	case chainsel.FamilySui:
 		suiClient := env.BlockChains.SuiChains()[chainSelector].Client
-		seqNum, err := suiClient.SuiGetLatestCheckpointSequenceNumber(ctx)
+		checkpoint, err := suiClient.GetLatestCheckpoint(ctx)
 		if err != nil {
 			return 0, fmt.Errorf("failed to get sui latest checkpoint: %w", err)
 		}
-		return seqNum, nil
+		return checkpoint.GetSequenceNumber(), nil
 	case chainsel.FamilyAptos:
 		chainInfo, err := env.BlockChains.AptosChains()[chainSelector].Client.Info()
 		if err != nil {
@@ -1473,6 +1473,15 @@ func deploySingleFeed(
 	}
 
 	lggr.Infow("deployed mockTokenFeed", "addr", mockTokenFeed.Address)
+
+	ctx := chain.DeployerKey.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := shared.WaitForContractCode(ctx, chain.Client, mockTokenFeed.Address); err != nil {
+		lggr.Errorw("Contract code not available after deploy", "err", err, "symbol", symbol, "addr", mockTokenFeed.Address)
+		return common.Address{}, "", err
+	}
 
 	desc, err := mockTokenFeed.Contract.Description(&bind.CallOpts{})
 	if err != nil {

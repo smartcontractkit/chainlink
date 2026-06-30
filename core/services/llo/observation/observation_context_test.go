@@ -58,7 +58,7 @@ func makePipelineWithMultipleStreamResults(streamIDs []streams.StreamID, results
 	}
 }
 
-func TestObservationContext_Observe(t *testing.T) {
+func TestObservationContext_Observe(t *testing.T) { //nolint:paralleltest // subtests share one ObservationContext and pipeline run counters
 	ctx := t.Context()
 	r := &mockRegistry{}
 	telem := &mockTelemeter{}
@@ -105,25 +105,25 @@ func TestObservationContext_Observe(t *testing.T) {
 		streamID11: multiPipelinePartialFail,
 	}
 
-	t.Run("returns error in case of missing pipeline", func(t *testing.T) {
+	t.Run("returns error in case of missing pipeline", func(t *testing.T) { //nolint:paralleltest // shares ObservationContext setup
 		_, err := oc.Observe(ctx, missingStreamID, opts)
 		require.EqualError(t, err, "no pipeline for stream: 0")
 	})
-	t.Run("returns error in case of zero results", func(t *testing.T) {
+	t.Run("returns error in case of zero results", func(t *testing.T) { //nolint:paralleltest // shares ObservationContext setup
 		_, err := oc.Observe(ctx, streamID1, opts)
 		require.EqualError(t, err, "invalid number of results, expected: 1 or 3, got: 0")
 	})
-	t.Run("returns composite value from legacy job with single top-level streamID", func(t *testing.T) {
+	t.Run("returns composite value from legacy job with single top-level streamID", func(t *testing.T) { //nolint:paralleltest // shares ObservationContext setup
 		val, err := oc.Observe(ctx, streamID2, opts)
 		require.NoError(t, err)
 
 		assert.Equal(t, "12.34", val.(*llo.Decimal).String())
 	})
-	t.Run("returns error in case of erroring pipeline", func(t *testing.T) {
+	t.Run("returns error in case of erroring pipeline", func(t *testing.T) { //nolint:paralleltest // shares ObservationContext setup
 		_, err := oc.Observe(ctx, streamID3, opts)
 		require.EqualError(t, err, "pipeline error")
 	})
-	t.Run("returns values for multiple stream IDs within the same job based on streamID tag with a single pipeline execution", func(t *testing.T) {
+	t.Run("returns values for multiple stream IDs within the same job based on streamID tag with a single pipeline execution", func(t *testing.T) { //nolint:paralleltest // shares ObservationContext setup
 		val, err := oc.Observe(ctx, streamID4, opts)
 		require.NoError(t, err)
 		assert.Equal(t, "12.34", val.(*llo.Decimal).String())
@@ -145,19 +145,19 @@ func TestObservationContext_Observe(t *testing.T) {
 
 		assert.Equal(t, int32(1), multiPipelineDecimal.runCount.Load())
 	})
-	t.Run("returns value from float64 value", func(t *testing.T) {
+	t.Run("returns value from float64 value", func(t *testing.T) { //nolint:paralleltest // shares ObservationContext setup
 		val, err := oc.Observe(ctx, streamID7, opts)
 		require.NoError(t, err)
 
 		assert.Equal(t, "1.23", val.(*llo.Decimal).String())
 	})
-	t.Run("returns value from int64 value", func(t *testing.T) {
+	t.Run("returns value from int64 value", func(t *testing.T) { //nolint:paralleltest // shares ObservationContext setup
 		val, err := oc.Observe(ctx, streamID8, opts)
 		require.NoError(t, err)
 
 		assert.Equal(t, "5", val.(*llo.Decimal).String())
 	})
-	t.Run("partial extraction failure in multi-stream pipeline", func(t *testing.T) {
+	t.Run("partial extraction failure in multi-stream pipeline", func(t *testing.T) { //nolint:paralleltest // shares ObservationContext setup
 		val, err := oc.Observe(ctx, streamID9, opts)
 		require.NoError(t, err)
 		assert.Equal(t, "100.5", val.(*llo.Decimal).String())
@@ -174,6 +174,7 @@ func TestObservationContext_Observe(t *testing.T) {
 }
 
 func TestObservationContext_Observe_concurrencyStressTest(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	r := &mockRegistry{}
 	telem := &mockTelemeter{}
@@ -249,6 +250,7 @@ func createBridge(t testing.TB, name string, val string, borm bridges.ORM, maxCa
 }
 
 func TestObservationContext_Observe_integrationRealPipeline(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
@@ -276,6 +278,7 @@ func TestObservationContext_Observe_integrationRealPipeline(t *testing.T) {
 	jobStreamID := streams.StreamID(5)
 
 	t.Run("using only streamID attributes", func(t *testing.T) {
+		t.Parallel()
 		jb := job.Job{
 			Type:     job.Stream,
 			StreamID: &jobStreamID,
@@ -326,6 +329,7 @@ result3 -> result3_parse -> multiply3;
 }
 
 func TestObservationContext_Observe_concurrentAtomicOutput(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	const n = 20
 

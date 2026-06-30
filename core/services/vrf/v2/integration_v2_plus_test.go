@@ -118,7 +118,7 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 		vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalABI))
 	require.NoError(t, err)
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
-	h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
+	h, err := backend.Client().HeaderByNumber(t.Context(), nil)
 	require.NoError(t, err)
 	require.LessOrEqual(t, h.Time, uint64(math.MaxInt64))
 	blockTime := time.Unix(int64(h.Time), 0) //nolint:gosec // G115 false positive
@@ -341,7 +341,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment(t *testi
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
-	t.Run("link payment", func(tt *testing.T) {
+	t.Run("link payment", func(tt *testing.T) { //nolint:paralleltest // shares universe setup
 		testSingleConsumerHappyPathBatchFulfillment(
 			t,
 			ownerKey,
@@ -365,7 +365,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment(t *testi
 		)
 	})
 
-	t.Run("native payment", func(tt *testing.T) {
+	t.Run("native payment", func(tt *testing.T) { //nolint:paralleltest // shares universe setup
 		testSingleConsumerHappyPathBatchFulfillment(
 			t,
 			ownerKey,
@@ -395,7 +395,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCa
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
-	t.Run("link payment", func(tt *testing.T) {
+	t.Run("link payment", func(tt *testing.T) { //nolint:paralleltest // shares universe setup
 		testSingleConsumerHappyPathBatchFulfillment(
 			t,
 			ownerKey,
@@ -419,7 +419,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCa
 		)
 	})
 
-	t.Run("native payment", func(tt *testing.T) {
+	t.Run("native payment", func(tt *testing.T) { //nolint:paralleltest // shares universe setup
 		testSingleConsumerHappyPathBatchFulfillment(
 			t,
 			ownerKey,
@@ -446,11 +446,12 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCa
 
 func TestVRFV2PlusIntegration_SingleConsumer_HappyPath(t *testing.T) {
 	t.Parallel()
-	ownerKey := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	t.Run("link payment", func(tt *testing.T) {
+		tt.Parallel()
+		ownerKey := cltest.MustGenerateRandomKey(tt)
+		uni := newVRFCoordinatorV2PlusUniverse(tt, ownerKey, 1, false)
 		testSingleConsumerHappyPath(
-			t,
+			tt,
 			ownerKey,
 			uni.coordinatorV2UniverseCommon,
 			uni.vrfConsumers[0],
@@ -469,8 +470,11 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath(t *testing.T) {
 			})
 	})
 	t.Run("native payment", func(tt *testing.T) {
+		tt.Parallel()
+		ownerKey := cltest.MustGenerateRandomKey(tt)
+		uni := newVRFCoordinatorV2PlusUniverse(tt, ownerKey, 1, false)
 		testSingleConsumerHappyPath(
-			t,
+			tt,
 			ownerKey,
 			uni.coordinatorV2UniverseCommon,
 			uni.vrfConsumers[0],
@@ -556,7 +560,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 2, false)
-	t.Run("link payment", func(tt *testing.T) {
+	t.Run("link payment", func(tt *testing.T) { //nolint:paralleltest // shares universe setup
 		testMultipleConsumersNeedBHS(
 			t,
 			ownerKey,
@@ -572,7 +576,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 			false,
 		)
 	})
-	t.Run("native payment", func(tt *testing.T) {
+	t.Run("native payment", func(tt *testing.T) { //nolint:paralleltest // shares universe setup
 		testMultipleConsumersNeedBHS(
 			t,
 			ownerKey,
@@ -594,7 +598,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_BlockHeaderFeeder(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
-	t.Run("link payment", func(tt *testing.T) {
+	t.Run("link payment", func(tt *testing.T) { //nolint:paralleltest // shares universe setup
 		tt.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 		testBlockHeaderFeeder(
 			t,
@@ -611,7 +615,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_BlockHeaderFeeder(t *testing.T) {
 			false,
 		)
 	})
-	t.Run("native payment", func(tt *testing.T) {
+	t.Run("native payment", func(tt *testing.T) { //nolint:paralleltest // shares universe setup
 		tt.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 		testBlockHeaderFeeder(
 			t,
@@ -634,7 +638,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_NeedsTopUp(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
-	t.Run("link payment", func(tt *testing.T) {
+	t.Run("link payment", func(tt *testing.T) { //nolint:paralleltest // shares universe setup
 		tt.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 		testSingleConsumerNeedsTopUp(
 			t,
@@ -653,7 +657,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_NeedsTopUp(t *testing.T) {
 			false,
 		)
 	})
-	t.Run("native payment", func(tt *testing.T) {
+	t.Run("native payment", func(tt *testing.T) { //nolint:paralleltest // shares universe setup
 		tt.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 		testSingleConsumerNeedsTopUp(
 			t,
@@ -675,6 +679,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_NeedsTopUp(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
+	t.Parallel()
 	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
@@ -682,6 +687,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_BigGasCallback_Sandwich(t *testing.
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_MultipleGasLanes(t *testing.T) {
+	t.Parallel()
 	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
@@ -689,6 +695,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(t *testing.T) {
+	t.Parallel()
 	quarantine.Flaky(t, "DX-1730")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 0, false)
@@ -704,6 +711,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_AlwaysRevertingCallback_StillFulfil
 }
 
 func TestVRFV2PlusIntegration_ConsumerProxy_HappyPath(t *testing.T) {
+	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 0, false)
 	testConsumerProxyHappyPath(
@@ -717,12 +725,14 @@ func TestVRFV2PlusIntegration_ConsumerProxy_HappyPath(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_ConsumerProxy_CoordinatorZeroAddress(t *testing.T) {
+	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 0, false)
 	testConsumerProxyCoordinatorZeroAddress(t, uni.coordinatorV2UniverseCommon)
 }
 
 func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
+	t.Parallel()
 	quarantine.Flaky(t, "DX-2222")
 	owner := evmtestutils.MustNewSimTransactor(t)
 	random := evmtestutils.MustNewSimTransactor(t)
@@ -806,6 +816,7 @@ func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_SimpleConsumerExample(t *testing.T) {
+	t.Parallel()
 	owner := evmtestutils.MustNewSimTransactor(t)
 	random := evmtestutils.MustNewSimTransactor(t)
 	genesisData := gethtypes.GenesisAlloc{
@@ -869,18 +880,19 @@ func TestVRFV2PlusIntegration_TestMaliciousConsumer(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_RequestCost(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+	ctx := t.Context()
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1, false)
 
 	cfg := configtest.NewGeneralConfigSimulated(t, nil)
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	vrfkey, err := app.GetKeyStore().VRF().Create(ctx)
 	require.NoError(t, err)
 	registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, uni.rootContract, vrfkey, &defaultMaxGasPrice)
-	t.Run("non-proxied consumer", func(tt *testing.T) {
+	t.Run("non-proxied consumer", func(tt *testing.T) { //nolint:paralleltest // shares universe setup
 		carol := uni.vrfConsumers[0]
 		carolContract := uni.consumerContracts[0]
 		carolContractAddress := uni.consumerContractAddresses[0]
@@ -913,7 +925,7 @@ func TestVRFV2PlusIntegration_RequestCost(t *testing.T) {
 			"requestRandomWords tx gas cost more than expected")
 	})
 
-	t.Run("proxied consumer", func(tt *testing.T) {
+	t.Run("proxied consumer", func(tt *testing.T) { //nolint:paralleltest // shares universe setup
 		consumerOwner := uni.neil
 		consumerContract := uni.consumerProxyContract
 		consumerContractAddress := uni.consumerProxyContractAddress
@@ -922,7 +934,7 @@ func TestVRFV2PlusIntegration_RequestCost(t *testing.T) {
 		tx, err := consumerContract.CreateSubscriptionAndFund(consumerOwner, assets.Ether(5).ToInt())
 		require.NoError(tt, err)
 		uni.backend.Commit()
-		r, err := uni.backend.Client().TransactionReceipt(testutils.Context(t), tx.Hash())
+		r, err := uni.backend.Client().TransactionReceipt(t.Context(), tx.Hash())
 		require.NoError(tt, err)
 		t.Log("gas used by proxied CreateSubscriptionAndFund:", r.GasUsed)
 
@@ -945,6 +957,7 @@ func TestVRFV2PlusIntegration_RequestCost(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_MaxConsumersCost(t *testing.T) {
+	t.Parallel()
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1, false)
 	carol := uni.vrfConsumers[0]
@@ -953,7 +966,7 @@ func TestVRFV2PlusIntegration_MaxConsumersCost(t *testing.T) {
 
 	cfg := configtest.NewGeneralConfigSimulated(t, nil)
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 	_, err := carolContract.CreateSubscriptionAndFund(carol,
 		big.NewInt(1000000000000000000)) // 0.1 LINK
 	require.NoError(t, err)
@@ -1025,19 +1038,20 @@ func requestAndEstimateFulfillmentCost(
 }
 
 func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+	ctx := t.Context()
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1, false)
 
 	cfg := configtest.NewGeneralConfigSimulated(t, nil)
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	vrfkey, err := app.GetKeyStore().VRF().Create(ctx)
 	require.NoError(t, err)
 	registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, uni.rootContract, vrfkey, &defaultMaxGasPrice)
 
-	t.Run("non-proxied consumer", func(tt *testing.T) {
+	t.Run("non-proxied consumer", func(tt *testing.T) { //nolint:paralleltest // shares universe setup
 		carol := uni.vrfConsumers[0]
 		carolContract := uni.consumerContracts[0]
 		carolContractAddress := uni.consumerContractAddresses[0]
@@ -1054,7 +1068,7 @@ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 		gasRequested := uint32(50_000)
 		nw := uint32(1)
 		requestedIncomingConfs := uint16(3)
-		t.Run("native payment", func(tt *testing.T) {
+		t.Run("native payment", func(tt *testing.T) { //nolint:paralleltest // shares universe setup
 			requestAndEstimateFulfillmentCost(
 				t,
 				subID,
@@ -1073,7 +1087,7 @@ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 			)
 		})
 
-		t.Run("link payment", func(tt *testing.T) {
+		t.Run("link payment", func(tt *testing.T) { //nolint:paralleltest // shares universe setup
 			requestAndEstimateFulfillmentCost(
 				t,
 				subID,
@@ -1093,7 +1107,7 @@ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 		})
 	})
 
-	t.Run("proxied consumer", func(tt *testing.T) {
+	t.Run("proxied consumer", func(tt *testing.T) { //nolint:paralleltest // shares universe setup
 		consumerOwner := uni.neil
 		consumerContract := uni.consumerProxyContract
 		consumerContractAddress := uni.consumerProxyContractAddress
@@ -1137,7 +1151,7 @@ func setupSubscriptionAndFund(
 	require.NoError(t, err)
 	uni.backend.Commit()
 
-	receipt, err := uni.backend.Client().TransactionReceipt(testutils.Context(t), tx.Hash())
+	receipt, err := uni.backend.Client().TransactionReceipt(t.Context(), tx.Hash())
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), receipt.Status)
 	var subID *big.Int
@@ -1174,7 +1188,7 @@ func setupSubscriptionAndFund(
 
 func TestVRFV2PlusIntegration_Migration(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	key1 := cltest.MustGenerateRandomKey(t)
@@ -1188,7 +1202,7 @@ func TestVRFV2PlusIntegration_Migration(t *testing.T) {
 		c.EVM[0].GasEstimator.LimitDefault = new(uint64(5_000_000))
 		c.EVM[0].MinIncomingConfirmations = new(uint32(2))
 		c.Feature.LogPoller = new(true)
-		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
+		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
 
@@ -1238,7 +1252,7 @@ func TestVRFV2PlusIntegration_Migration(t *testing.T) {
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
-	}, testutils.WaitTimeout(t), time.Second)
+	}, testutils.WaitTimeout(t), 100*time.Millisecond)
 
 	mine(t, requestID, subID, uni.backend, db, vrfcommon.V2Plus, testutils.SimulatedChainID)
 	assertRandomWordsFulfilled(t, requestID, true, uni.rootContract, false)
@@ -1347,6 +1361,7 @@ func requestRandomnessAndValidate(t *testing.T,
 }
 
 func TestVRFV2PlusIntegration_CancelSubscription(t *testing.T) {
+	t.Parallel()
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1, false)
 	consumer := uni.vrfConsumers[0]
@@ -1366,7 +1381,7 @@ func TestVRFV2PlusIntegration_CancelSubscription(t *testing.T) {
 
 	linkBalanceBeforeCancel, err := uni.linkContract.BalanceOf(nil, uni.neil.From)
 	require.NoError(t, err)
-	nativeBalanceBeforeCancel, err := uni.backend.Client().BalanceAt(testutils.Context(t), uni.neil.From, nil)
+	nativeBalanceBeforeCancel, err := uni.backend.Client().BalanceAt(t.Context(), uni.neil.From, nil)
 	require.NoError(t, err)
 
 	// non-owner cannot cancel subscription

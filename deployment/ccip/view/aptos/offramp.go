@@ -9,11 +9,10 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_router"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
-	aptosCommon "github.com/smartcontractkit/chainlink/deployment/common/view/aptos"
 )
 
 type OffRampView struct {
-	aptosCommon.ContractMetaData
+	ContractMetaData
 
 	StaticConfig       OffRampStaticConfig                 `json:"staticConfig"`
 	DynamicConfig      OffRampDynamicConfig                `json:"dynamicConfig"`
@@ -81,7 +80,7 @@ func GenerateOffRampView(chain cldf_aptos.Chain, offRampAddress aptos.AccountAdd
 	}
 
 	return OffRampView{
-		ContractMetaData: aptosCommon.ContractMetaData{
+		ContractMetaData: ContractMetaData{
 			Address:        offRampAddress.StringLong(),
 			Owner:          owner.StringLong(),
 			TypeAndVersion: typeAndVersion,

@@ -74,6 +74,25 @@ type BatchNativeTransferState struct {
 	ValidationErrors []TransferValidationError `json:"validation_errors"`
 }
 
+// ERC20Transfer is a single ERC20 transfer (payee, token, amount in token units)
+type ERC20Transfer struct {
+	Payee  string   `json:"payee"`  // Destination address
+	Token  string   `json:"token"`  // ERC20 token contract address
+	Amount *big.Int `json:"amount"` // Amount in token units (not wei)
+}
+
+// TransferERC20Config configures batch ERC20 transfers from timelocks across multiple chains
+type TransferERC20Config struct {
+	// TransfersByChain maps chain selector to ERC20 transfers for that chain
+	TransfersByChain map[uint64][]ERC20Transfer `json:"transfers_by_chain"`
+
+	// MCMSConfig contains timelock and MCMS configuration for building the proposal
+	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config"`
+
+	// Description for the MCMS proposal
+	Description string `json:"description"`
+}
+
 // DeployEthBalMonChainConfig is deployment-time configuration for EthBalMon on one chain.
 type DeployEthBalMonChainConfig struct {
 	// SetKeeperRegistryAddress is the Chainlink Automation registry forwarder (the upkeep
@@ -154,6 +173,14 @@ type EthBalMonTransferOwnershipChainConfig struct {
 // Keys are chain selectors; each value is the new owner for that chain's EthBalMon instance.
 type EthBalMonTransferOwnershipInput struct {
 	Chains map[uint64]EthBalMonTransferOwnershipChainConfig `json:"chains"`
+	// MCMSConfig optionally configures the timelock proposal; when nil, schedule + proposer MCM is used.
+	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config,omitempty"`
+}
+
+// EthBalMonAcceptOwnershipInput is the input to the EthBalMon acceptOwnership changeset.
+// Chains is the list of chain selectors on which to call acceptOwnership on the EthBalMon instance.
+type EthBalMonAcceptOwnershipInput struct {
+	Chains []uint64 `json:"chains"`
 	// MCMSConfig optionally configures the timelock proposal; when nil, schedule + proposer MCM is used.
 	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config,omitempty"`
 }

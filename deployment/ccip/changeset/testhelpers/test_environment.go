@@ -41,7 +41,9 @@ import (
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
-	linkchangesets "github.com/smartcontractkit/cld-changesets/link/changesets"
+	linkchangesets "github.com/smartcontractkit/cld-changesets/tokens/link/changesets"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deploylink"
 
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
 
@@ -709,17 +711,20 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 			Opts:          opts,
 		})
 	}
-	deployLinkApp := commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken),
-		evmChains,
-	)
-
+	evmLinkCfg := linkchangesets.EVMLinkConfig{}
 	if tc.IsStaticLink {
-		deployLinkApp = commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(linkchangesets.DeployStaticLinkToken),
-			evmChains,
-		)
+		evmLinkCfg.Variant = linkchangesets.EVMLinkStatic
 	}
+	evmLinkInput := linkchangesets.DeployLinkTokenInput{
+		EVM: make(map[uint64]linkchangesets.EVMLinkConfig, len(evmChains)),
+	}
+	for _, sel := range evmChains {
+		evmLinkInput.EVM[sel] = evmLinkCfg
+	}
+	deployLinkApp := commonchangeset.Configure(
+		deploylink.DeployLinkTokenChangeset{},
+		evmLinkInput,
+	)
 	e.Env, err = commonchangeset.Apply(t, e.Env, deployLinkApp, commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
 		changeset.DeployPrerequisiteConfig{
@@ -733,11 +738,14 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 	if len(solChains) > 0 {
 		solLinkTokenPrivKey, _ := solanago.NewRandomPrivateKey()
 		deploySolanaLinkApp := commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(linkchangesets.DeploySolanaLinkToken),
-			linkchangesets.DeploySolanaLinkTokenConfig{
-				ChainSelector: solChains[0],
-				TokenPrivKey:  solLinkTokenPrivKey,
-				TokenDecimals: 9,
+			deploylink.DeployLinkTokenChangeset{},
+			linkchangesets.DeployLinkTokenInput{
+				Solana: map[uint64]linkchangesets.SolanaLinkConfig{
+					solChains[0]: {
+						TokenPrivKey:  solLinkTokenPrivKey,
+						TokenDecimals: 9,
+					},
+				},
 			},
 		)
 		e.Env, err = commonchangeset.Apply(t, e.Env,
@@ -876,7 +884,8 @@ func DeployChainContractsToSolChainCSV0_1_1(e DeployedEnv, solChainSelector uint
 				BuildConfig:            buildSolConfig,
 				MCMSWithTimelockConfig: mcmsCfg,
 			},
-		)}, nil
+		),
+	}, nil
 }
 
 func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, preload bool, buildSolConfig *ccipChangeSetSolanaV0_1_1.BuildSolanaConfig) ([]commonchangeset.ConfiguredChangeSet, error) {
@@ -948,7 +957,8 @@ func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, pr
 				BuildConfig:            buildSolConfig,
 				MCMSWithTimelockConfig: mcmsCfg,
 			},
-		)}, nil
+		),
+	}, nil
 }
 
 func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEnvironment, mcmsEnabled bool) DeployedEnv {
@@ -962,9 +972,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	var apps []commonchangeset.ConfiguredChangeSet
 	evmContractParams := make(map[uint64]ccipseq.ChainContractParams)
 
-	var (
-		evmChains, solChains, aptosChains, suiChains []uint64
-	)
+	var evmChains, solChains, aptosChains, suiChains []uint64
 	for _, chain := range allChains {
 		if _, ok := e.Env.BlockChains.EVMChains()[chain]; ok {
 			evmChains = append(evmChains, chain)
@@ -1014,7 +1022,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		programsPath := e.Env.BlockChains.SolanaChains()[solChains[0]].ProgramsPath
 
 		if tEnv.TestConfigs().CCIPSolanaContractVersion == ccipChangeSetSolanaV0_1_1.SolanaContractV0_1_1 {
-			var buildSolConfig = &ccipChangeSetSolanaV0_1_1.BuildSolanaConfig{
+			buildSolConfig := &ccipChangeSetSolanaV0_1_1.BuildSolanaConfig{
 				SolanaContractVersion: ccipChangeSetSolanaV0_1_1.VersionSolanaV0_1_1,
 				DestinationDir:        programsPath,
 			}
@@ -1098,7 +1106,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 					AttestationAPIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
 				},
 				Tokens: cctpContracts,
-			}})
+			},
+		})
 	}
 	if tc.IsLBTC {
 		endpoint := tEnv.MockLBTCAttestationServer(t, tc.IsUSDCAttestationMissing)
@@ -1118,7 +1127,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 					AttestationAPIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
 				},
 				SourcePoolAddressByChain: lbtcPools,
-			}})
+			},
+		})
 	}
 
 	nodeInfo, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)

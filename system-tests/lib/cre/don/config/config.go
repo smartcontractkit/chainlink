@@ -287,18 +287,20 @@ func baseNodeConfig(commonInputs *commonInputs, donMetadata *cre.DonMetadata, no
 
 	if commonInputs.provider.IsDocker() {
 		nodeIdentifier := donMetadata.Name + "-node-" + strconv.Itoa(nodeMetadata.Index)
+		resourceAttributes := map[string]string{
+			"service.name":     "chainlink-node",
+			"service.instance": nodeIdentifier,
+			"node.don":         donMetadata.Name,
+			"node.index":       strconv.Itoa(nodeMetadata.Index),
+		}
+		resourceAttributes["don_family"] = donMetadata.DonFamily // OTel label; mirrors nodeset pairing key
 		c.Telemetry = coretoml.Telemetry{
 			Enabled:             new(true),
 			Endpoint:            new(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":4317"),
 			InsecureConnection:  new(true),
 			LogStreamingEnabled: new(true),
 			TraceSampleRatio:    new(0.0), // Set to > 0 to enable tracing
-			ResourceAttributes: map[string]string{
-				"service.name":     "chainlink-node",
-				"service.instance": nodeIdentifier,
-				"node.don":         donMetadata.Name,
-				"node.index":       strconv.Itoa(nodeMetadata.Index),
-			},
+			ResourceAttributes:  resourceAttributes,
 		}
 		// Note: OTEL_SERVICE_NAME env var should also be set on nodes to ensure
 		// the service name is applied correctly. The ResourceAttributes above may
@@ -541,15 +543,11 @@ func addWorkerNodeConfig(
 		}
 
 		gateways := []coretoml.ConnectorGateway{}
-		if topology != nil && topology.GatewayConnectors != nil && len(topology.GatewayConnectors.Configurations) > 0 {
-			for _, gateway := range topology.GatewayConnectors.Configurations {
-				gateways = append(gateways, coretoml.ConnectorGateway{
-					ID: new(gateway.AuthGatewayID),
-					URL: new(fmt.Sprintf("ws://%s:%d%s",
-						gateway.Outgoing.Host,
-						gateway.Outgoing.Port,
-						gateway.Outgoing.Path)),
-				})
+		// Workflow nodes only receive gateway connectors paired to their don_family.
+		connectors := topology.GatewayConnectorsForDonFamily(donMetadata.DonFamily)
+		if len(connectors.Configurations) > 0 {
+			for _, gateway := range connectors.Configurations {
+				gateways = append(gateways, gateway.ToConnectorGateway())
 			}
 
 			existingConfig.Capabilities.GatewayConnector = coretoml.GatewayConnector{
@@ -756,17 +754,9 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 
 		solBc := bcOut.(*solana.Blockchain)
 
-		ctx, cancelFn := context.WithTimeout(context.Background(), 15*time.Second)
-		chainID, err := solBc.GenesisHash(ctx)
-		if err != nil {
-			cancelFn()
-			return nil, errors.Wrap(err, "failed to get chainID for Solana")
-		}
-		cancelFn()
-
 		solChain = &solanaChain{
 			Name:    fmt.Sprintf("node-%d", solBc.ChainSelector()),
-			ChainID: chainID,
+			ChainID: solBc.SolanaChainID, // use configured chainID instead of chain selector to ensure chainSelector - chainID mapping is valid
 			NodeURL: bcOut.CtfOutput().Nodes[0].InternalHTTPUrl,
 		}
 	}
@@ -873,6 +863,9 @@ func appendSolanaChain(existingConfig *corechainlink.RawConfigs, solChain *solan
 				"Name": solChain.Name,
 				"URL":  solChain.NodeURL,
 			},
+		},
+		"MultiNode": map[string]any{
+			"VerifyChainID": false, // disable chainID verification as Solana uses hash of genesis block as chainID, but we want to use a hardcoded chainID that has corresponding chain selector
 		},
 	})
 }

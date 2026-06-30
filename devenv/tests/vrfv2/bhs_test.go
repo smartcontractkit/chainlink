@@ -26,8 +26,7 @@ import (
 
 func TestVRFV2WithBHS(t *testing.T) {
 	t.Cleanup(func() {
-		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
-		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
+		products.CleanupContainerLogs(t, products.DefaultSettings())
 	})
 
 	outputFile := "../../env-vrfv2-bhs-out.toml"

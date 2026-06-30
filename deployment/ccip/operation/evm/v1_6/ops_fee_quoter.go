@@ -6,19 +6,17 @@ import (
 	"math/big"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
-
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 )
 
@@ -41,13 +39,13 @@ type ApplyFeeTokensUpdatesInput struct {
 }
 
 var (
-	DeployFeeQuoterOp = opsevm.NewEVMDeployOperation(
+	DeployFeeQuoterOp = opsutils.NewEVMDeployOperation(
 		"DeployFeeQuoter",
 		semver.MustParse("1.0.0"),
 		"Deploys FeeQuoter 1.6.x contract on the specified evm chain",
 		shared.FeeQuoter,
 		fee_quoter.FeeQuoterMetaData,
-		&opsevm.ContractOpts{
+		&opsutils.ContractOpts{
 			Version:          &deployment.Version1_6_3, // defaults to v1_6_3, but can be overwritten by input params.FeeQuoterOpts
 			EVMBytecode:      common.FromHex(fee_quoter.FeeQuoterBin),
 			ZkSyncVMBytecode: fee_quoter.ZkBytecode,
@@ -78,7 +76,7 @@ var (
 		},
 	)
 
-	FeeQApplyAuthorizedCallerOp = opsutil.NewEVMCallOperation(
+	FeeQApplyAuthorizedCallerOp = opsutils.NewEVMCallOperation(
 		"FeeQApplyAuthorizedCallerOp",
 		semver.MustParse("1.0.0"),
 		"Apply authorized caller to FeeQuoter 1.6 contract on the specified evm chain",
@@ -90,7 +88,7 @@ var (
 		},
 	)
 
-	FeeQuoterApplyDestChainConfigUpdatesOp = opsevm.NewEVMCallOperation(
+	FeeQuoterApplyDestChainConfigUpdatesOp = opsutils.NewEVMCallOperation(
 		"FeeQuoterApplyDestChainConfigUpdatesOp",
 		semver.MustParse("1.0.0"),
 		"Apply updates to destination chain configs on the FeeQuoter 1.6.0 contract",
@@ -102,7 +100,7 @@ var (
 		},
 	)
 
-	FeeQuoterUpdatePricesOp = opsevm.NewEVMCallOperation(
+	FeeQuoterUpdatePricesOp = opsutils.NewEVMCallOperation(
 		"FeeQuoterUpdatePricesOp",
 		semver.MustParse("1.0.0"),
 		"Update token and gas prices on the FeeQuoter 1.6.0 contract",
@@ -113,7 +111,7 @@ var (
 			return feeQuoter.UpdatePrices(opts, input)
 		},
 	)
-	FeeQuoterApplyTokenTransferFeeCfgOp = opsevm.NewEVMCallOperation(
+	FeeQuoterApplyTokenTransferFeeCfgOp = opsutils.NewEVMCallOperation(
 		"FeeQuoterApplyTokenTransferFeeCfgOp",
 		semver.MustParse("1.0.0"),
 		"Update or Remove token transfer Fee Configs on the FeeQuoter 1.6.0 contract",
@@ -125,7 +123,7 @@ var (
 		},
 	)
 
-	FeeQuoterApplyFeeTokensUpdatesOp = opsevm.NewEVMCallOperation(
+	FeeQuoterApplyFeeTokensUpdatesOp = opsutils.NewEVMCallOperation(
 		"FeeQuoterApplyFeeTokensUpdatesOp",
 		semver.MustParse("1.0.0"),
 		"Add or Remove supported fee tokens FeeQuoter 1.6.0 contract",
@@ -137,7 +135,7 @@ var (
 		},
 	)
 
-	FeeQApplyPremiumMultiplierWeiPerEthUpdateOp = opsevm.NewEVMCallOperation(
+	FeeQApplyPremiumMultiplierWeiPerEthUpdateOp = opsutils.NewEVMCallOperation(
 		"FeeQApplyPremiumMultiplierWeiPerEthUpdateOp",
 		semver.MustParse("1.0.0"),
 		"Applies premiumMultiplierWeiPerEth for tokens in FeeQuoter 1.6.0 contract",

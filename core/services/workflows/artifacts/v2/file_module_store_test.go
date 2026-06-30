@@ -43,6 +43,37 @@ func TestStore_Overwrite(t *testing.T) {
 	assert.Equal(t, []byte("new"), got)
 }
 
+func TestStore_emptyWorkflowID(t *testing.T) {
+	t.Parallel()
+	s, err := NewFileModuleStore(t.TempDir(), false)
+	require.NoError(t, err)
+
+	binary := []byte("data")
+	require.NoError(t, s.StoreModule("", binary, "v1"))
+
+	p, ver, ok, err := s.GetModule("")
+	require.NoError(t, err)
+	require.True(t, ok)
+	assert.Equal(t, "v1", ver)
+	got, err := os.ReadFile(p)
+	require.NoError(t, err)
+	assert.Equal(t, binary, got)
+}
+
+func TestStore_nilBinary(t *testing.T) {
+	t.Parallel()
+	s, err := NewFileModuleStore(t.TempDir(), false)
+	require.NoError(t, err)
+
+	require.NoError(t, s.StoreModule("wf-nil", nil, "v1"))
+	p, _, ok, err := s.GetModule("wf-nil")
+	require.NoError(t, err)
+	require.True(t, ok)
+	got, err := os.ReadFile(p)
+	require.NoError(t, err)
+	assert.Empty(t, got)
+}
+
 func TestStore_MissingModule(t *testing.T) {
 	s, err := NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)

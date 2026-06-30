@@ -50,6 +50,7 @@ func (m *mockStreamValue) Type() llo.LLOStreamValue_Type {
 }
 
 func TestNewCache(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name            string
 		cleanupInterval time.Duration
@@ -69,6 +70,7 @@ func TestNewCache(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			cache := NewCache(tt.cleanupInterval)
 			defer cache.Close()
 			require.NotNil(t, cache)
@@ -81,7 +83,9 @@ func TestNewCache(t *testing.T) {
 }
 
 func TestCache_AddMany(t *testing.T) {
+	t.Parallel()
 	t.Run("adds multiple values with same TTL", func(t *testing.T) {
+		t.Parallel()
 		cache := NewCache(0)
 		defer cache.Close()
 		ttl := time.Second
@@ -99,6 +103,7 @@ func TestCache_AddMany(t *testing.T) {
 	})
 
 	t.Run("empty map is a no-op", func(t *testing.T) {
+		t.Parallel()
 		cache := NewCache(0)
 		defer cache.Close()
 		cache.AddMany(map[llotypes.StreamID]llo.StreamValue{}, time.Second)
@@ -107,6 +112,7 @@ func TestCache_AddMany(t *testing.T) {
 	})
 
 	t.Run("single entry", func(t *testing.T) {
+		t.Parallel()
 		cache := NewCache(0)
 		defer cache.Close()
 		cache.AddMany(map[llotypes.StreamID]llo.StreamValue{
@@ -117,6 +123,7 @@ func TestCache_AddMany(t *testing.T) {
 	})
 
 	t.Run("overwrites existing entries", func(t *testing.T) {
+		t.Parallel()
 		cache := NewCache(0)
 		defer cache.Close()
 		cache.Add(1, &mockStreamValue{value: []byte{0}}, time.Second)
@@ -129,7 +136,9 @@ func TestCache_AddMany(t *testing.T) {
 }
 
 func TestCache_UpdateStreamValues(t *testing.T) {
+	t.Parallel()
 	t.Run("fills map with cached values", func(t *testing.T) {
+		t.Parallel()
 		cache := NewCache(0)
 		defer cache.Close()
 		cache.AddMany(map[llotypes.StreamID]llo.StreamValue{
@@ -147,6 +156,7 @@ func TestCache_UpdateStreamValues(t *testing.T) {
 	})
 
 	t.Run("misses remain nil", func(t *testing.T) {
+		t.Parallel()
 		cache := NewCache(0)
 		defer cache.Close()
 		cache.Add(1, &mockStreamValue{value: []byte{1}}, time.Second)
@@ -160,6 +170,7 @@ func TestCache_UpdateStreamValues(t *testing.T) {
 	})
 
 	t.Run("empty map is a no-op", func(t *testing.T) {
+		t.Parallel()
 		cache := NewCache(0)
 		defer cache.Close()
 		cache.Add(1, &mockStreamValue{value: []byte{1}}, time.Second)
@@ -169,6 +180,7 @@ func TestCache_UpdateStreamValues(t *testing.T) {
 	})
 
 	t.Run("expired entries are filled with nil", func(t *testing.T) {
+		t.Parallel()
 		cache := NewCache(0)
 		defer cache.Close()
 		cache.Add(1, &mockStreamValue{value: []byte{1}}, time.Nanosecond*100)
@@ -180,6 +192,7 @@ func TestCache_UpdateStreamValues(t *testing.T) {
 	})
 
 	t.Run("overwrites existing values in map", func(t *testing.T) {
+		t.Parallel()
 		cache := NewCache(0)
 		defer cache.Close()
 		cache.Add(1, &mockStreamValue{value: []byte{100}}, time.Second)
@@ -190,7 +203,7 @@ func TestCache_UpdateStreamValues(t *testing.T) {
 	})
 }
 
-func TestCache_UpdateStreamValues_RecordsHitEntryAge(t *testing.T) {
+func TestCache_UpdateStreamValues_RecordsHitEntryAge(t *testing.T) { //nolint:paralleltest // resets package-level prometheus metrics
 	promCacheHitEntryAgeMs.Reset()
 	promCacheHitCount.Reset()
 
@@ -215,6 +228,7 @@ func TestCache_UpdateStreamValues_RecordsHitEntryAge(t *testing.T) {
 }
 
 func TestCache_Add_Get(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		streamID  llotypes.StreamID
@@ -250,6 +264,7 @@ func TestCache_Add_Get(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			cache := NewCache(0)
 			defer cache.Close()
 
@@ -268,6 +283,7 @@ func TestCache_Add_Get(t *testing.T) {
 }
 
 func TestCache_Cleanup(t *testing.T) {
+	t.Parallel()
 	cache := NewCache(time.Millisecond)
 	defer cache.Close()
 	streamID := llotypes.StreamID(1)
@@ -281,7 +297,9 @@ func TestCache_Cleanup(t *testing.T) {
 }
 
 func TestCache_Close(t *testing.T) {
+	t.Parallel()
 	t.Run("double close does not panic", func(t *testing.T) {
+		t.Parallel()
 		cache := NewCache(time.Millisecond)
 		cache.Add(1, &mockStreamValue{value: []byte{1}}, time.Second)
 
@@ -292,6 +310,7 @@ func TestCache_Close(t *testing.T) {
 	})
 
 	t.Run("nils values on close", func(t *testing.T) {
+		t.Parallel()
 		cache := NewCache(0)
 		cache.Add(1, &mockStreamValue{value: []byte{1}}, time.Second)
 		require.NoError(t, cache.Close())
@@ -300,6 +319,7 @@ func TestCache_Close(t *testing.T) {
 }
 
 func TestCache_ConcurrentAccess(t *testing.T) {
+	t.Parallel()
 	cache := NewCache(0)
 	defer cache.Close()
 	const numGoroutines = 10
@@ -314,7 +334,7 @@ func TestCache_ConcurrentAccess(t *testing.T) {
 			defer wg.Done()
 			for j := range numOperations {
 				streamID := id*numOperations + j
-				cache.Add(streamID, &mockStreamValue{value: []byte{byte(id)}}, time.Second)
+				cache.Add(streamID, &mockStreamValue{value: []byte{byte(id % 256)}}, time.Second)
 			}
 		}(i)
 	}
@@ -325,12 +345,13 @@ func TestCache_ConcurrentAccess(t *testing.T) {
 		for j := range numOperations {
 			streamID := i*numOperations + j
 			val, _ := cache.Get(streamID)
-			assert.Equal(t, &mockStreamValue{value: []byte{byte(i)}}, val)
+			assert.Equal(t, &mockStreamValue{value: []byte{byte(i % 256)}}, val)
 		}
 	}
 }
 
 func TestCache_ConcurrentReadWrite(t *testing.T) {
+	t.Parallel()
 	cache := NewCache(0)
 	defer cache.Close()
 	const numGoroutines = 10
@@ -345,7 +366,7 @@ func TestCache_ConcurrentReadWrite(t *testing.T) {
 			defer wg.Done()
 			for j := range numOperations {
 				streamID := id*numOperations + j
-				cache.Add(streamID, &mockStreamValue{value: []byte{byte(id)}}, time.Second)
+				cache.Add(streamID, &mockStreamValue{value: []byte{byte(id % 256)}}, time.Second)
 			}
 		}(i)
 	}
@@ -365,6 +386,7 @@ func TestCache_ConcurrentReadWrite(t *testing.T) {
 }
 
 func TestCache_ConcurrentAddGet(t *testing.T) {
+	t.Parallel()
 	cache := NewCache(0)
 	defer cache.Close()
 	const numGoroutines = 10
@@ -379,7 +401,7 @@ func TestCache_ConcurrentAddGet(t *testing.T) {
 			defer wg.Done()
 			for j := range numOperations {
 				streamID := id*numOperations + j
-				cache.Add(streamID, &mockStreamValue{value: []byte{byte(id)}}, time.Second)
+				cache.Add(streamID, &mockStreamValue{value: []byte{byte(id % 256)}}, time.Second)
 			}
 		}(i)
 	}
@@ -399,6 +421,7 @@ func TestCache_ConcurrentAddGet(t *testing.T) {
 }
 
 func TestCache_ConcurrentAddMany(t *testing.T) {
+	t.Parallel()
 	cache := NewCache(0)
 	defer cache.Close()
 	const numGoroutines = 10
@@ -415,7 +438,7 @@ func TestCache_ConcurrentAddMany(t *testing.T) {
 				batch := make(map[llotypes.StreamID]llo.StreamValue, batchSize)
 				for j := range batchSize {
 					streamID := id*numBatches*batchSize + b*batchSize + j
-					batch[streamID] = &mockStreamValue{value: []byte{byte(id)}}
+					batch[streamID] = &mockStreamValue{value: []byte{byte(id % 256)}}
 				}
 				cache.AddMany(batch, time.Second)
 			}
@@ -428,13 +451,14 @@ func TestCache_ConcurrentAddMany(t *testing.T) {
 			for j := range batchSize {
 				streamID := i*numBatches*batchSize + b*batchSize + j
 				val, _ := cache.Get(streamID)
-				assert.Equal(t, &mockStreamValue{value: []byte{byte(i)}}, val)
+				assert.Equal(t, &mockStreamValue{value: []byte{byte(i % 256)}}, val)
 			}
 		}
 	}
 }
 
 func TestCache_ConcurrentAddManyUpdateStreamValues(t *testing.T) {
+	t.Parallel()
 	cache := NewCache(0)
 	defer cache.Close()
 	const numWriters = 5

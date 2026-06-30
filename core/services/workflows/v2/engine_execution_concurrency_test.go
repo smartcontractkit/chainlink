@@ -125,7 +125,7 @@ func TestEngine_ExecutionConcurrencySerializesOverlappingRuns(t *testing.T) {
 		},
 	}
 
-	for i := 0; i < 10_000; i++ {
+	for range 10_000 {
 		runtime.Gosched()
 	}
 	execMu.Lock()

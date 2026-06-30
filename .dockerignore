@@ -27,6 +27,7 @@ tools/gethnet/datadir/geth
 tools/clroot/db.bolt
 tools/clroot/*.log
 tools/clroot/tempkeys
+tools/test/
 
 core/sgx/target/
 core/scripts/cre/

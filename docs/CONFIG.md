@@ -48,6 +48,14 @@ RootDir = '~/.chainlink' # Default
 ```
 RootDir is the Chainlink node's root directory. This is the default directory for logging, database backups, cookies, and other misc Chainlink node files. Chainlink nodes will always ensure this directory has 700 permissions because it might contain sensitive data.
 
+Official prod Docker images run as UID:GID 14933:14933 (user `chainlink`). A non-deterministic GID mismatch is a common cause of read/write errors on bind mounts in Docker/Compose.
+
+RootDir '/home/chainlink' and '~/.chainlink' (which resolves to
+'/home/chainlink/.chainlink') are valid. Choose one and align any persistence mounts to that path. '/home/chainlink' is often preferred because '.chainlink' is hidden by default.
+
+Do not bind-mount over '/home/chainlink' — it replaces the entire home directory and causes permission failures. Mount config and secrets at separate paths (e.g. '/run/secrets/config.toml', '/configs/...') and pass them via CLI flags
+('-c', '-s', '-a', '-p').
+
 ### ShutdownGracePeriod
 ```toml
 ShutdownGracePeriod = '5s' # Default
@@ -911,7 +919,7 @@ VerboseLogging = true # Default
 ```toml
 ExternalInitiatorsEnabled = false # Default
 ```
-ExternalInitiatorsEnabled enables the External Initiator feature. If disabled, `webhook` jobs can ONLY be initiated by a logged-in user. If enabled, `webhook` jobs can be initiated by a whitelisted external initiator.
+ExternalInitiatorsEnabled Unused: used to enables the External Initiator feature for legacy webhook job runs via external initiators
 
 ### MaxRunDuration
 ```toml
@@ -1853,6 +1861,7 @@ AuthTimestampToleranceSec is Authentication timestamp tolerance
 ```toml
 [[Capabilities.GatewayConnector.Gateways]]
 ID = 'example_gateway' # Example
+DonID = 'example_gateway_don' # Example
 URL = 'wss://localhost:8081/node' # Example
 ```
 
@@ -1862,6 +1871,12 @@ URL = 'wss://localhost:8081/node' # Example
 ID = 'example_gateway' # Example
 ```
 ID of the Gateway
+
+### DonID
+```toml
+DonID = 'example_gateway_don' # Example
+```
+DonID is the DON that owns this gateway; used for multi-gateway routing.  All or none of the gateways must have a DonID.
 
 ### URL
 ```toml
@@ -2717,6 +2732,8 @@ DebugMode enables additional tracing and logging for workflow engines.
 ```toml
 [CRE.ConfidentialRelay]
 Enabled = false # Default
+TrustEnclaves = false # Default
+RequireBFTQuorum = false # Default
 ```
 
 
@@ -2725,6 +2742,18 @@ Enabled = false # Default
 Enabled = false # Default
 ```
 Enabled controls whether the confidential relay gateway handler should be configured.
+
+### TrustEnclaves
+```toml
+TrustEnclaves = false # Default
+```
+TrustEnclaves relaxes TEE attestation validation so the relay trusts fake (non-Nitro) enclaves. intended only for tests.
+
+### RequireBFTQuorum
+```toml
+RequireBFTQuorum = false # Default
+```
+RequireBFTQuorum selects the relay's signature quorum.
 
 ## Sharding
 ```toml
@@ -18424,6 +18453,7 @@ MinAttempts configures the minimum number of broadcasted attempts a transaction 
 Enabled = false # Default
 BlockTime = '10s' # Example
 CustomURL = 'https://example.api.io' # Example
+CustomURLs = ['https://relay.example/api', 'https://ofa-secondary.example/api'] # Example
 DualBroadcast = false # Example
 ReadRequestsToMultipleNodes = false # Example
 Bundles = false # Example
@@ -18448,7 +18478,13 @@ BlockTime controls the frequency of the backfill loop of TransactionManagerV2.
 ```toml
 CustomURL = 'https://example.api.io' # Example
 ```
-CustomURL configures the base url of a custom endpoint used by the ChainDualBroadcast chain type.
+CustomURL configures the base url of a custom endpoint used by the dual broadcast functionality (legacy single endpoint). Deprecated: use CustomURLs instead. Cannot be used together with CustomURLs in the same configuration.
+
+### CustomURLs
+```toml
+CustomURLs = ['https://relay.example/api', 'https://ofa-secondary.example/api'] # Example
+```
+CustomURLs configures an ordered list of Order Flow Auction (OFA) endpoint URLs: the first entry is primary (determines broadcast outcome); additional entries are multiplexed as secondaries (fire-and-forget). Cannot be used together with CustomURL in the same configuration.
 
 ### DualBroadcast
 ```toml

@@ -17,8 +17,7 @@ func TestMultipleJobDistributors(t *testing.T) {
 	node := in.NodeSets[0].Out.CLNodes[0].Node
 
 	t.Cleanup(func() {
-		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
-		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
+		products.CleanupContainerLogs(t, products.DefaultSettings())
 	})
 
 	c, err := client.NewWithContext(t.Context(), node.ExternalURL, client.Credentials{

@@ -86,6 +86,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Send second message with different response", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		capabilityPeers, capDonInfo, capInfo := capabilityDon(t, 2, 1)
 
@@ -145,6 +146,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Send second message from non calling Don peer", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		capabilityPeers, capDonInfo, capInfo := capabilityDon(t, 2, 1)
 
@@ -179,6 +181,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Send second message from same peer as first message", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		capabilityPeers, capDonInfo, capInfo := capabilityDon(t, 2, 1)
 
@@ -210,6 +213,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Send second message with same error as first", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		capabilityPeers, capDonInfo, capInfo := capabilityDon(t, 4, 1)
 
@@ -252,6 +256,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Error response with serialized caperrors unwraps correctly as usererror", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		capabilityPeers, capDonInfo, capInfo := capabilityDon(t, 4, 1)
 
@@ -296,6 +301,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Send three messages with different errors", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		capabilityPeers, capDonInfo, capInfo := capabilityDon(t, 4, 1)
 
@@ -355,6 +361,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Execute Request", func(t *testing.T) {
+		t.Parallel()
 		ctx := t.Context()
 		capabilityPeers, capDonInfo, capInfo := capabilityDon(t, 4, 1)
 
@@ -391,6 +398,8 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		assert.Equal(t, resp, values.NewString("response1"))
 	})
 	t.Run("Execute Request With Valid Attestation", func(t *testing.T) {
+		t.Parallel()
+
 		const F = 1
 		const N = 3*F + 1
 		capabilityPeers, capDonInfo, capInfo := capabilityDon(t, N, F)
@@ -461,6 +470,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		}
 
 		t.Run("succeeds on first peer with valid attestation", func(t *testing.T) {
+			t.Parallel()
 			ctx := t.Context()
 
 			dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
@@ -491,6 +501,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			assertValidResponse(t, response.Result)
 		})
 		t.Run("attestation is not valid, but we fallback to identical responses", func(t *testing.T) {
+			t.Parallel()
 			ctx := t.Context()
 
 			dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
@@ -545,7 +556,9 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		})
 
 		t.Run("2F peers return ErrResponsePayloadNotAvailable then success", func(t *testing.T) {
+			t.Parallel()
 			ctx := t.Context()
+
 			dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 			req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 				workflowDonInfo, dispatcher, 10*time.Minute, nil, "", ocrSigners, 0)
@@ -588,7 +601,9 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		})
 
 		t.Run("2F+1 peers return ErrResponsePayloadNotAvailable", func(t *testing.T) {
+			t.Parallel()
 			ctx := t.Context()
+
 			dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 			req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 				workflowDonInfo, dispatcher, 10*time.Minute, nil, "", ocrSigners, 0)
@@ -621,7 +636,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		})
 	})
 
-	t.Run("Executes full schedule", func(t *testing.T) {
+	t.Run("Executes full schedule", func(t *testing.T) { //nolint:paralleltest // beholdertest.NewObserver is not thread-safe
 		beholderTester := beholdertest.NewObserver(t)
 		lggr, obs := logger.TestObserved(t, zapcore.DebugLevel)
 
@@ -718,6 +733,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		// Convert map to slice of delays and sort them
 		var delays []int64
+		delays = make([]int64, 0, len(event.PeerTransmissionDelays))
 		for _, delay := range event.PeerTransmissionDelays {
 			delays = append(delays, delay)
 		}
@@ -742,6 +758,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Uses passed in time out if larger than schedule", func(t *testing.T) {
+		t.Parallel()
 		lggr, obs := logger.TestObserved(t, zapcore.DebugLevel)
 
 		capPeers, capDonInfo, capInfo := capabilityDon(t, 3, 1)
@@ -812,6 +829,8 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 	// will not cause the identical response calculation to break;
 	// also locks in no validation of SpendUnit/SpendValue at that layer.
 	t.Run("with metering metadata", func(t *testing.T) {
+		t.Parallel()
+
 		capabilityPeers, capDonInfo, capInfo := capabilityDon(t, 4, 1)
 
 		capabilityResponseWithMetering1 := commoncap.CapabilityResponse{
@@ -899,7 +918,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		// No Inputs or Config, including transmission schedule
 	}
 
-	t.Run("Executes full schedule for a V2 request", func(t *testing.T) {
+	t.Run("Executes full schedule for a V2 request", func(t *testing.T) { //nolint:paralleltest // beholdertest.NewObserver is not thread-safe
 		beholderTester := beholdertest.NewObserver(t)
 		lggr, obs := logger.TestObserved(t, zapcore.DebugLevel)
 		capPeers, capDonInfo, capInfo := capabilityDon(t, 3, 1)
@@ -971,6 +990,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		// Convert map to slice of delays and sort them
 		var delays []int64
+		delays = make([]int64, 0, len(event.PeerTransmissionDelays))
 		for _, delay := range event.PeerTransmissionDelays {
 			delays = append(delays, delay)
 		}
@@ -989,10 +1009,13 @@ func newClientRequestTestDispatcher() *clientRequestTestDispatcher {
 
 func drainInitialPeerSends(t *testing.T, d *clientRequestTestDispatcher, numCapabilityPeers int) {
 	t.Helper()
-	require.Eventually(t, func() bool {
-		return len(d.msgs) == numCapabilityPeers
-	}, 2*time.Second, time.Millisecond, "timed out waiting for %d buffered outbound messages", numCapabilityPeers)
-	require.Len(t, d.msgs, numCapabilityPeers, "dispatcher outbound buffer before draining initial peer sends")
+	for range 200 {
+		if len(d.msgs) == numCapabilityPeers {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	require.Len(t, d.msgs, numCapabilityPeers, "timed out waiting for buffered outbound messages")
 	for range numCapabilityPeers {
 		<-d.msgs
 	}

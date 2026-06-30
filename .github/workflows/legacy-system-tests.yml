@@ -64,7 +64,7 @@ jobs:
       deployment: false
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.chainlink_version || github.sha }}
       # we cannot pass this resolved image to `test-nightly` job, because when it contains secrets
@@ -245,25 +245,25 @@ jobs:
             logs_archive_name: "logpoller-finality-tag"
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           ref: ${{ inputs.chainlink_version || github.sha }}
 
       - name: Install Just
-        uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
         with:
           just-version: "1.40.0"
 
       - name: Configure AWS credentials using OIDC
-        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
+        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6.2.0
         with:
           role-to-assume: ${{ secrets.AWS_CTF_READ_ACCESS_ROLE_ARN }}
           aws-region: us-west-2
 
       - name: Login to Amazon ECRs (private)
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@183a1442edf41672e66566b7fc560e297a290896 # v2.1.1
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2.1.6
         with:
           registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
         env:
@@ -271,14 +271,14 @@ jobs:
 
       - name: Login to Amazon ECR (public)
         id: login-ecr-public
-        uses: aws-actions/amazon-ecr-login@183a1442edf41672e66566b7fc560e297a290896 # v2.1.1
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2.1.6
         with:
           registry-type: public
         env:
           AWS_REGION: us-east-1
 
       - name: Set up Go
-        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        uses: actions/setup-go@v6
         with:
           cache: true
           go-version-file: devenv/go.mod
@@ -327,7 +327,7 @@ jobs:
 
       - name: Upload Logs
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@v7
         with:
           name: system-tests-container-logs-${{ matrix.logs_archive_name }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: devenv/tests/${{ matrix.tests_dir }}/logs

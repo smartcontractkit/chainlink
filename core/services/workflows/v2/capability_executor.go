@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
@@ -16,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
@@ -42,6 +43,12 @@ type ExecutionHelper struct {
 	callLimiters map[capCall]limits.BoundLimiter[int]
 	mu           sync.Mutex
 	callCounts   map[limits.Limiter[int]]int
+
+	executionProfile *executionProfileCollector
+
+	// suspension accumulates wall-clock time the guest spent blocked in DON-time
+	// host calls, so it can be excluded from metered compute. See compute_metering.go.
+	suspension *suspensionTracker
 }
 
 func (c *ExecutionHelper) initLimiters(limiters *EngineLimiters) {
@@ -103,7 +110,7 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 			c.mu.Unlock()
 			return nil, caperrors.NewPublicUserError(
 				fmt.Errorf("capability call limit exceeded for %s.%s: %w", capName, request.Method, err),
-				caperrors.InvalidArgument,
+				caperrors.LimitExceeded,
 			)
 		}
 		c.callCounts[limiter] = cnt
@@ -215,7 +222,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 
 	execLogger.Debug("Executing capability ...")
 	c.metrics.With(platform.KeyCapabilityID, request.Id).IncrementCapabilityInvocationCounter(ctx)
-	loggerLabels := *c.loggerLabels.Load()
+	loggerLabels := c.eventLabels()
 	_ = events.EmitCapabilityStartedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, request.Method)
 
 	execCtx, execCancel, err := c.cfg.LocalLimiters.CapabilityCallTime.WithTimeout(ctx)
@@ -224,9 +231,14 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	}
 	defer execCancel()
 
-	executionStart := time.Now()
+	executionStart := c.cfg.Clock.Now()
+	c.executionProfile.recordStepStart(meteringRef, request.Id, executionStart)
+
 	capResp, err := capability.Execute(execCtx, capReq)
-	executionDuration := time.Since(executionStart)
+	executionEnd := c.cfg.Clock.Now()
+	executionDuration := executionEnd.Sub(executionStart)
+	c.executionProfile.recordStepEnd(meteringRef, executionEnd, err != nil)
+
 	c.metrics.With(platform.KeyCapabilityID, request.Id).UpdateCapabilityExecutionDurationHistogram(ctx, int64(executionDuration.Seconds()))
 	if err != nil {
 		var capabilityError caperrors.Error
@@ -304,8 +316,7 @@ func (c *ExecutionHelper) EmitUserMetric(ctx context.Context, metric *eventsv2.W
 		return err
 	}
 	metric.Name = userMetricPrefix + metric.Name + suffix
-	loggerLabels := *c.loggerLabels.Load()
-	return events.EmitUserMetric(ctx, loggerLabels, metric)
+	return events.EmitUserMetric(ctx, c.eventLabels(), metric)
 }
 
 // systemCapabilities lists capability IDs that are internal plumbing and must
@@ -316,4 +327,26 @@ var systemCapabilities = map[string]bool{
 
 func isSystemCapability(capID string) bool {
 	return systemCapabilities[capID]
+}
+
+func (c *ExecutionHelper) PossiblyWithRawSecrets() host.ExecutionHelper {
+	if _, ok := c.SecretsFetcher.(RawSecretsFetcher); ok {
+		return &executionHelperWithRawSecrets{c}
+	}
+
+	return c
+}
+
+var _ RawSecretsFetcher = (*executionHelperWithRawSecrets)(nil)
+
+type executionHelperWithRawSecrets struct {
+	*ExecutionHelper
+}
+
+func (e *executionHelperWithRawSecrets) GetRawSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest, fetcher host.EncryptionKeyFetcher) ([]*vaultcommon.SecretResponse, error) {
+	return e.SecretsFetcher.(RawSecretsFetcher).GetRawSecrets(ctx, request, fetcher)
+}
+
+func (e *executionHelperWithRawSecrets) GetOwner() string {
+	return e.SecretsFetcher.(RawSecretsFetcher).GetOwner()
 }

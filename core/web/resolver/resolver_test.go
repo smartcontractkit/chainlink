@@ -26,7 +26,6 @@ import (
 	jobORMMocks "github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
 	keystoreMocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	pipelineMocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
-	webhookmocks "github.com/smartcontractkit/chainlink/v2/core/services/webhook/mocks"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 	authProviderMocks "github.com/smartcontractkit/chainlink/v2/core/sessions/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/web/auth"
@@ -61,7 +60,6 @@ type mocks struct {
 	legacyEVMChains      *legacyEvmORMMocks.LegacyChainContainer
 	relayerChainInterops *chainlinkMocks.FakeRelayerChainInteroperators
 	ethClient            *clienttest.Client
-	eIMgr                *webhookmocks.ExternalInitiatorManager
 	balM                 *evmMonMocks.BalanceMonitor
 	txmStore             *evmtxmgrmocks.EvmTxStore
 	auditLogger          *audit.AuditLoggerService
@@ -122,7 +120,6 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		legacyEVMChains:      legacyEvmORMMocks.NewLegacyChainContainer(t),
 		relayerChainInterops: &chainlinkMocks.FakeRelayerChainInteroperators{},
 		ethClient:            clienttest.NewClient(t),
-		eIMgr:                webhookmocks.NewExternalInitiatorManager(t),
 		balM:                 evmMonMocks.NewBalanceMonitor(t),
 		txmStore:             evmtxmgrmocks.NewEvmTxStore(t),
 		auditLogger:          &audit.AuditLoggerService{},

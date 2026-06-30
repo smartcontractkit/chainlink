@@ -219,6 +219,7 @@ type WorkflowRegistryInput struct {
 	ChainSelector   uint64                  `toml:"-"`
 	CldEnv          *cldf.Environment       `toml:"-"`
 	AllowedDonIDs   []uint64                `toml:"-"`
+	DONFamilies     []string                `toml:"-"` // distinct workflow don_family values for SetDONLimit at env start
 	WorkflowOwners  []common.Address        `toml:"-"`
 	Out             *WorkflowRegistryOutput `toml:"out"`
 }
@@ -527,6 +528,7 @@ type DonMetadata struct {
 	Flags                        []string                            `toml:"flags" json:"flags"`
 	ID                           uint64                              `toml:"id" json:"id"`
 	Name                         string                              `toml:"name" json:"name"`
+	DonFamily                    string                              `toml:"don_family" json:"don_family"` // nodesets.don_family; gateway pairing, cap-registration, and workflow deploy family
 	ExposesRemoteCapabilities    bool                                `toml:"exposes_remote_capabilities" json:"exposes_remote_capabilities"`
 	ShardIndex                   uint                                `toml:"shard_index" json:"shard_index"`
 	CapabilityConfigs            map[CapabilityFlag]CapabilityConfig `toml:"capability_configs" json:"capability_configs"`
@@ -576,11 +578,16 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 	// Propagate merged configs back to NodeSet for consistent access across codebase
 	c.CapabilityConfigs = capConfigs
 
+	if strings.TrimSpace(c.DonFamily) == "" {
+		return nil, fmt.Errorf("nodeset %q has no don_family; set don_family on every nodeset", c.Name)
+	}
+
 	out := &DonMetadata{
 		ID:                           id,
 		Flags:                        c.Flags(),
 		NodesMetadata:                nodes,
 		Name:                         c.Name,
+		DonFamily:                    strings.TrimSpace(c.DonFamily),
 		ns:                           c,
 		ExposesRemoteCapabilities:    c.ExposesRemoteCapabilities,
 		ShardIndex:                   c.ShardIndex,
@@ -653,7 +660,7 @@ func (m *DonMetadata) GatewayConfig(p infra.Provider, gatewayNodeIdx int) (*DonG
 	}
 
 	return &DonGatewayConfiguration{
-		GatewayConfiguration: NewGatewayConfig(p, gatewayNode.Index, gatewayNodeIdx, gatewayNode.HasRole(BootstrapNode), gatewayNode.UUID, m.Name),
+		GatewayConfiguration: NewGatewayConfig(p, gatewayNode.Index, gatewayNodeIdx, gatewayNode.HasRole(BootstrapNode), gatewayNode.UUID, m.Name, m.ns.GatewayDonID),
 	}, nil
 }
 
@@ -725,7 +732,7 @@ func (m *DonMetadata) RequiresGateway() bool {
 
 func (m *DonMetadata) IsWorkflowDON() bool {
 	// is there a case where flags are not set yet?
-	if len(m.Flags) == 0 && len(m.ns.DONTypes) != 0 {
+	if len(m.Flags) == 0 && m.ns != nil && len(m.ns.DONTypes) != 0 {
 		return slices.Contains(m.ns.DONTypes, WorkflowDON)
 	}
 
@@ -734,7 +741,7 @@ func (m *DonMetadata) IsWorkflowDON() bool {
 
 func (m *DonMetadata) IsShardDON() bool {
 	// is there a case where flags are not set yet?
-	if len(m.Flags) == 0 && len(m.ns.DONTypes) != 0 {
+	if len(m.Flags) == 0 && m.ns != nil && len(m.ns.DONTypes) != 0 {
 		return slices.Contains(m.ns.DONTypes, ShardDON)
 	}
 
@@ -790,13 +797,10 @@ func (m *DonMetadata) ConfigureForGatewayAccess(chainID uint64, connectors Gatew
 			}
 
 			if !alreadyPresent {
-				typedConfig.Capabilities.GatewayConnector.Gateways = append(typedConfig.Capabilities.GatewayConnector.Gateways, coretoml.ConnectorGateway{
-					ID: new(gatewayConnector.AuthGatewayID),
-					URL: new(fmt.Sprintf("ws://%s:%d%s",
-						gatewayConnector.Outgoing.Host,
-						gatewayConnector.Outgoing.Port,
-						gatewayConnector.Outgoing.Path)),
-				})
+				typedConfig.Capabilities.GatewayConnector.Gateways = append(
+					typedConfig.Capabilities.GatewayConnector.Gateways,
+					gatewayConnector.ToConnectorGateway(),
+				)
 			}
 		}
 
@@ -1210,6 +1214,9 @@ type NodeSet struct {
 
 	Capabilities []string `toml:"capabilities"` // global capabilities that have no chain-specific configuration (e.g. cron, http-trigger)
 	DONTypes     []string `toml:"don_types"`    // workflow, capabilities, gateway
+	// DonFamily groups workflow and gateway nodesets for per-family gateway pairing in local CRE.
+	// Required on every nodeset; env start fails if missing or unmatched (see topology_don_family.go).
+	DonFamily string `toml:"don_family" validate:"required"`
 	// SupportedEVMChains is filter. Use EVMChains() to get the actual list of chains supported by the nodeset.
 	SupportedEVMChains []uint64          `toml:"supported_evm_chains"` // chain IDs that the DON supports, empty means all chains
 	EnvVars            map[string]string `toml:"env_vars"`             // additional environment variables to be set on each node
@@ -1226,6 +1233,8 @@ type NodeSet struct {
 	// ContractDonID is the donID assigned by the Capabilities Registry contract. 0 = use optimistic i+1.
 	ContractDonID                uint64   `toml:"contract_don_id"`
 	RegistryBasedLaunchAllowlist []string `toml:"registry_based_launch_allowlist"`
+	// GatewayDonID is the gateway DON used for multi-gateway HTTP action routing on gateway nodesets.
+	GatewayDonID string `toml:"gateway_don_id"`
 
 	chainCapabilityIndex      map[CapabilityFlag][]uint64
 	chainCapabilityIndexBuilt bool

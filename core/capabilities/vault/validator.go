@@ -13,6 +13,7 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
@@ -68,8 +69,6 @@ func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *
 			return errors.New("secret must have encrypted value set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
 		}
 
-		req.Id.Namespace = vaulttypes.NormalizeNamespace(req.Id.Namespace)
-
 		if err := r.ValidateSecretIdentifier(ctx, req.Id.Key, req.Id.Owner, req.Id.Namespace); err != nil {
 			return fmt.Errorf("invalid secret identifier at index %d: %w", idx, err)
 		}
@@ -102,6 +101,7 @@ func (r *RequestValidator) ValidateCiphertextSize(ctx context.Context, owner str
 	if err != nil {
 		return fmt.Errorf("failed to decode encrypted value: %w", err)
 	}
+	// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
 	innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: owner})
 	if err := r.MaxCiphertextLengthLimiter.Check(innerCtx, pkgconfig.Size(len(rawCiphertext))*pkgconfig.Byte); err != nil {
 		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
@@ -120,14 +120,12 @@ func (r *RequestValidator) ValidateSecretIdentifier(ctx context.Context, idKey s
 	if idOwner == "" {
 		return errors.New("owner cannot be empty")
 	}
-	if idNamespace == "" {
-		return errors.New("namespace cannot be empty")
-	}
 
-	if !isValidIDComponent(idKey) || !isValidIDComponent(idOwner) || !isValidIDComponent(idNamespace) {
+	if !isValidIDComponent(idKey) || !isValidIDComponent(idOwner) || (idNamespace != "" && !isValidIDComponent(idNamespace)) {
 		return errors.New("key, owner and namespace must only contain alphanumeric characters")
 	}
 
+	// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: idOwner})
 	if err := r.MaxIdentifierOwnerLengthLimiter.Check(ctx, pkgconfig.Size(len(idOwner))); err != nil {
 		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
@@ -164,6 +162,7 @@ func (r *RequestValidator) ValidateGetSecretsRequest(ctx context.Context, reques
 		return fmt.Errorf("request batch size exceeds maximum of %d", vaulttypes.MaxBatchSize)
 	}
 
+	uniqueIDs := map[string]bool{}
 	for idx, req := range request.Requests {
 		if req.Id == nil {
 			return errors.New("secret ID must have id set at index " + strconv.Itoa(idx))
@@ -171,17 +170,22 @@ func (r *RequestValidator) ValidateGetSecretsRequest(ctx context.Context, reques
 		if req.Id.Key == "" {
 			return errors.New("secret ID must have key set at index " + strconv.Itoa(idx) + ": " + req.Id.String())
 		}
-		req.Id.Namespace = vaulttypes.NormalizeNamespace(req.Id.Namespace)
 		if err := r.ValidateSecretIdentifier(ctx, req.Id.Key, req.Id.Owner, req.Id.Namespace); err != nil {
 			return fmt.Errorf("invalid secret identifier at index %d: %w", idx, err)
 		}
+
+		_, ok := uniqueIDs[vaulttypes.KeyFor(req.Id)]
+		if ok {
+			return errors.New("duplicate secret ID found at index " + strconv.Itoa(idx) + ": " + req.Id.String())
+		}
+
+		uniqueIDs[vaulttypes.KeyFor(req.Id)] = true
 	}
 
 	return nil
 }
 
 func (r *RequestValidator) ValidateListSecretIdentifiersRequest(ctx context.Context, request *vaultcommon.ListSecretIdentifiersRequest) error {
-	request.Namespace = vaulttypes.NormalizeNamespace(request.Namespace)
 	if request.RequestId == "" || request.Owner == "" {
 		return errors.New("requestID or owner must not be empty")
 	}
@@ -195,8 +199,15 @@ func (r *RequestValidator) ValidateDeleteSecretsRequest(ctx context.Context, req
 	if request.RequestId == "" {
 		return errors.New("request ID must not be empty")
 	}
-	if len(request.Ids) >= vaulttypes.MaxBatchSize {
-		return errors.New("request batch size exceeds maximum of " + strconv.Itoa(vaulttypes.MaxBatchSize))
+	if err := r.MaxRequestBatchSizeLimiter.Check(ctx, len(request.Ids)); err != nil {
+		var errBoundLimited limits.ErrorBoundLimited[int]
+		if errors.As(err, &errBoundLimited) {
+			return fmt.Errorf("request batch size exceeds maximum of %d: %w", errBoundLimited.Limit, err)
+		}
+		return fmt.Errorf("failed to check request batch size limit: %w", err)
+	}
+	if len(request.Ids) == 0 {
+		return errors.New("request batch must contain at least 1 item")
 	}
 
 	uniqueIDs := map[string]bool{}
@@ -204,7 +215,6 @@ func (r *RequestValidator) ValidateDeleteSecretsRequest(ctx context.Context, req
 		if id == nil {
 			return errors.New("secret ID must not be nil at index " + strconv.Itoa(idx))
 		}
-		id.Namespace = vaulttypes.NormalizeNamespace(id.Namespace)
 		if err := r.ValidateSecretIdentifier(ctx, id.Key, id.Owner, id.Namespace); err != nil {
 			return fmt.Errorf("invalid secret identifier at index %d: %w", idx, err)
 		}
@@ -215,6 +225,17 @@ func (r *RequestValidator) ValidateDeleteSecretsRequest(ctx context.Context, req
 		}
 
 		uniqueIDs[vaulttypes.KeyFor(id)] = true
+	}
+	return nil
+}
+
+func (r *RequestValidator) CheckRequestBatchSize(ctx context.Context, batchSize int) error {
+	if err := r.MaxRequestBatchSizeLimiter.Check(ctx, batchSize); err != nil {
+		var errBoundLimited limits.ErrorBoundLimited[int]
+		if errors.As(err, &errBoundLimited) {
+			return fmt.Errorf("max batch size exceeded for request: %w", err)
+		}
+		return errors.New("failed to check batch size")
 	}
 	return nil
 }
@@ -233,6 +254,43 @@ func NewRequestValidator(
 		MaxIdentifierOwnerLengthLimiter:     maxIdentifierOwnerLengthLimiter,
 		MaxIdentifierNamespaceLengthLimiter: maxIdentifierNamespaceLengthLimiter,
 	}
+}
+
+// Close releases validator limiter resources.
+func (r *RequestValidator) Close() error {
+	return errors.Join(
+		r.MaxRequestBatchSizeLimiter.Close(),
+		r.MaxCiphertextLengthLimiter.Close(),
+		r.MaxIdentifierKeyLengthLimiter.Close(),
+		r.MaxIdentifierOwnerLengthLimiter.Close(),
+		r.MaxIdentifierNamespaceLengthLimiter.Close(),
+	)
+}
+
+// NewRequestValidatorFromLimitsFactory constructs a RequestValidator from CRE limits settings.
+func NewRequestValidatorFromLimitsFactory(limitsFactory limits.Factory) (*RequestValidator, error) {
+	limiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultRequestBatchSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create request batch size limiter: %w", err)
+	}
+	ciphertextLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.PerOwner.VaultCiphertextSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create ciphertext size limiter: %w", err)
+	}
+	idKeyLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierKeySizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create identifier key size limiter: %w", err)
+	}
+	idOwnerLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierOwnerSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create identifier owner size limiter: %w", err)
+	}
+	idNamespaceLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierNamespaceSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create identifier namespace size limiter: %w", err)
+	}
+	validator := NewRequestValidator(limiter, ciphertextLimiter, idKeyLengthLimiter, idOwnerLengthLimiter, idNamespaceLengthLimiter)
+	return validator, nil
 }
 
 // EnsureRightLabelOnSecret verifies that the TDH2 ciphertext label matches the workflow
