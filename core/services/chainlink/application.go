@@ -393,6 +393,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			RetransmitEnabled: true, // host process owns retransmit
 			EmitterConfig:     &emitterCfg,
 			Meter:             meter,
+			MaxPublishTimeout: 10 * time.Second,
 		}
 		pgStore := durableemitter.NewPgDurableEventStore(opts.DS)
 		durableEmitter, setupErr := durableemitter.Setup(pgStore, durableCfg, globalLogger)
