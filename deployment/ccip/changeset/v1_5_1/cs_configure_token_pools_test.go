@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
@@ -715,7 +714,6 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 }
 
 func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
-	quarantine.Flaky(t, "DX-1726")
 	t.Parallel()
 	var err error
 
