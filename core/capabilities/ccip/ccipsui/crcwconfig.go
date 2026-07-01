@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	suiloop "github.com/smartcontractkit/chainlink-sui/relayer/chainreader/loop"
+	suiloop "github.com/smartcontractkit/chainlink-sui/codec/loop"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	suiconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/sui"
 )
