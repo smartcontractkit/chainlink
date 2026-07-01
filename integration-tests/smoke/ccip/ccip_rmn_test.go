@@ -14,7 +14,6 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
@@ -66,7 +65,6 @@ func TestRMN_TwoMessagesOneSourceChainCursed(t *testing.T) {
 }
 
 func TestRMN_GlobalCurseTwoMessagesOnTwoLanes(t *testing.T) {
-	quarantine.Flaky(t, "DX-2043")
 	runRmnTestCase(t, rmnTestCase{
 		name:        "global curse messages on two lanes",
 		waitForExec: false,

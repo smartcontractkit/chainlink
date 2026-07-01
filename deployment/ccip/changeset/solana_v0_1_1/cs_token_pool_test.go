@@ -10,7 +10,6 @@ import (
 	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
@@ -58,7 +57,6 @@ func TestAddTokenPoolWithoutMcms(t *testing.T) {
 }
 
 func TestAddTokenPoolWithMcms(t *testing.T) {
-	quarantine.Flaky(t, "DX-1797")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	doTestTokenPool(t, tenv.Env, TokenPoolTestConfig{MCMS: true, TokenMetadata: shared.CLLMetadata})
@@ -672,7 +670,6 @@ var zeroRateLimitConfig = ccipChangesetSolana.RateLimiterConfig{
 }
 
 func TestAddTokenPoolE2EWithMcms(t *testing.T) {
-	quarantine.Flaky(t, "DX-1774")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))[0]
