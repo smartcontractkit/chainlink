@@ -402,6 +402,13 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		srvcs = append(srvcs, durableEmitter)
 	}
 
+	// THROWAWAY: synthetic workflow-event load generator for load-testing the
+	// downstream workflow service from the reliability staging DON. Remove
+	// before this branch is merged. See synthetic_load_emitter.go.
+	if syntheticLoadEnabled {
+		srvcs = append(srvcs, newSyntheticLoadEmitter(globalLogger, syntheticLoadEventsPerSecond))
+	}
+
 	creServices, err := cre.NewServices(
 		globalLogger,
 		opts.DS,
