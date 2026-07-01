@@ -71,7 +71,7 @@ func Test_verifyCentralizedOwnerOrgMapping(t *testing.T) {
 		err := h.verifyCentralizedOwnerOrgMapping("grpc:malicious-source:v1", victimEOA, orgID)
 
 		require.Error(t, err)
-		assert.ErrorIs(t, err, ErrCentralizedOwnerOrgMismatch)
+		require.ErrorIs(t, err, ErrCentralizedOwnerOrgMismatch)
 
 		entries := logs.FilterMessage(criticalMismatchMsg).All()
 		require.Len(t, entries, 1)
