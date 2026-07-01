@@ -128,6 +128,7 @@ func (s *secretsFetcher) vaultGetSecretsMetadata(ctx context.Context, callbackID
 	}
 	if propagateOrgIDMeta, _ := cresettings.Default.PropagateOrgIDInRequestMetadata.GetOrDefault(ctx, s.creSettingsGetter); propagateOrgIDMeta && s.orgID != "" {
 		metadata.OrgID = s.orgID
+		// WorkflowID is under this gate because we previously skipped setting workflowID on SecretsFetcher entirely. Now setting it safely.
 		metadata.WorkflowID = s.workflowID
 	}
 	return metadata
