@@ -42,6 +42,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	aptoscs "github.com/smartcontractkit/chainlink-aptos/deployment/ccip"
 	"github.com/smartcontractkit/chainlink-aptos/deployment/ccip/config"
+	aptosshared "github.com/smartcontractkit/chainlink-aptos/deployment/ccip/shared"
+	aptossvctypes "github.com/smartcontractkit/chainlink-aptos/deployment/types"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
@@ -58,9 +60,9 @@ func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector ui
 					MaxFeeJuelsPerMsg:            new(big.Int).Mul(big.NewInt(100_000_000), big.NewInt(1e18)), // 100M LINK @ 18 decimals
 					TokenPriceStalenessThreshold: 24 * 60 * 60,
 					FeeTokens:                    []aptos.AccountAddress{mustParseAptosAddress(t, shared.AptosAPTAddress)}, // LINK token will be deployed and added here automatically
-					PremiumMultiplierWeiPerEthByFeeToken: map[shared.TokenSymbol]uint64{
-						shared.APTSymbol:  11e17,
-						shared.LinkSymbol: 9e18,
+					PremiumMultiplierWeiPerEthByFeeToken: map[aptosshared.TokenSymbol]uint64{
+						aptosshared.APTSymbol:  11e17,
+						aptosshared.LinkSymbol: 9e18,
 					},
 				},
 				OffRampParams: config.OffRampParams{
@@ -78,7 +80,7 @@ func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector ui
 				},
 			},
 		},
-		MCMSDeployConfigPerChain: map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
+		MCMSDeployConfigPerChain: map[uint64]aptossvctypes.MCMSWithTimelockConfigV2{
 			chainSelector: {
 				Canceller:        cldftesthelpers.SingleGroupMCMS(t),
 				Proposer:         cldftesthelpers.SingleGroupMCMS(t),
@@ -385,7 +387,7 @@ func DeployRegulatedTransferableTokenAptos(
 	require.NoError(t, err)
 
 	// Deploy + initialize regulated token, transfer ownership/admin to mcms via the changeset.
-	const tokenSymbol shared.TokenSymbol = "TKN"
+	const tokenSymbol aptosshared.TokenSymbol = "TKN"
 	e, err = commoncs.Apply(t, e,
 		commoncs.Configure(aptoscs.DeployRegulatedToken{},
 			config.DeployRegulatedTokenConfig{

@@ -314,6 +314,8 @@ flowchart LR
 	click chain-selectors href "https://github.com/smartcontractkit/chain-selectors"
 	chainlink-aptos --> chainlink-framework/metrics
 	click chainlink-aptos href "https://github.com/smartcontractkit/chainlink-aptos"
+	chainlink-aptos/deployment
+	click chainlink-aptos/deployment href "https://github.com/smartcontractkit/chainlink-aptos"
 	chainlink-automation --> chainlink-common
 	click chainlink-automation href "https://github.com/smartcontractkit/chainlink-automation"
 	chainlink-canton --> chainlink-ccv/build/devenv
@@ -492,6 +494,7 @@ flowchart LR
 	chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based href "https://github.com/smartcontractkit/chainlink"
 	chainlink/deployment --> ccip-contract-examples/chains/evm
+	chainlink/deployment --> chainlink-aptos/deployment
 	chainlink/deployment --> chainlink-ccip/deployment
 	chainlink/deployment --> chainlink-solana/contracts
 	chainlink/deployment --> chainlink-sui/deployment
@@ -675,6 +678,12 @@ flowchart LR
 	end
 	click chainlink-repo href "https://github.com/smartcontractkit/chainlink"
 
+	subgraph chainlink-aptos-repo[chainlink-aptos]
+		 chainlink-aptos
+		 chainlink-aptos/deployment
+	end
+	click chainlink-aptos-repo href "https://github.com/smartcontractkit/chainlink-aptos"
+
 	subgraph chainlink-ccip-repo[chainlink-ccip]
 		 chainlink-ccip
 		 chainlink-ccip/chains/evm
@@ -794,5 +803,5 @@ flowchart LR
 	click testrig-repo href "https://github.com/smartcontractkit/testrig"
 
 	classDef outline stroke-dasharray:6,fill:none;
-	class chainlink-repo,chainlink-ccip-repo,chainlink-ccv-repo,chainlink-common-repo,chainlink-evm-repo,chainlink-framework-repo,chainlink-protos-repo,chainlink-solana-repo,chainlink-sui-repo,chainlink-testing-framework-repo,chainlink-ton-repo,cre-sdk-go-repo,tdh2-repo,testrig-repo outline
+	class chainlink-repo,chainlink-aptos-repo,chainlink-ccip-repo,chainlink-ccv-repo,chainlink-common-repo,chainlink-evm-repo,chainlink-framework-repo,chainlink-protos-repo,chainlink-solana-repo,chainlink-sui-repo,chainlink-testing-framework-repo,chainlink-ton-repo,cre-sdk-go-repo,tdh2-repo,testrig-repo outline
 ```
