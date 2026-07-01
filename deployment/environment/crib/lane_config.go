@@ -25,7 +25,7 @@ import (
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	aptosState "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
+	aptosState "github.com/smartcontractkit/chainlink-aptos/deployment/state"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	solState "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 )

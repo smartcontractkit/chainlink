@@ -47,8 +47,13 @@ import (
 
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
 
+	evmdeploy "github.com/smartcontractkit/chainlink-ccip/chains/evm/deployment/deploy"
+	deployops "github.com/smartcontractkit/chainlink-ccip/deployment/deploy"
+	cciputils "github.com/smartcontractkit/chainlink-ccip/deployment/utils"
+	"github.com/smartcontractkit/chainlink-ccip/deployment/utils/mcms"
+	cs_ccip "github.com/smartcontractkit/chainlink-ccip/deployment/utils/changesets"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	sui_cs_core "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/sui"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
@@ -77,6 +82,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/cciptesthelpertypes"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+
+	_ "github.com/smartcontractkit/chainlink-aptos/deployment/ccip/adapters"
+	_ "github.com/smartcontractkit/chainlink-ccip/chains/evm/deployment/v1_6_0/sequences"
 )
 
 const (
@@ -1397,16 +1405,15 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				},
 			))
 		apps = append(apps, commonchangeset.Configure(
-			// Enable the OCR config on the remote chains.
-			aptoscs.SetOCR3Offramp{},
-			v1_6.SetOCR3OffRampConfig{
-				HomeChainSel:       e.HomeChainSel,
-				RemoteChainSels:    aptosChains,
-				CCIPHomeConfigType: globals.ConfigTypeActive,
-				MCMS: &cldfproposalutils.TimelockConfig{
-					MinDelay:     time.Second,
-					MCMSAction:   mcmstypes.TimelockActionSchedule,
-					OverrideRoot: false,
+			evmdeploy.SetOCR3Config(deployops.GetRegistry(), cs_ccip.GetRegistry()),
+			deployops.SetOCR3ConfigArgs{
+				HomeChainSel:    e.HomeChainSel,
+				RemoteChainSels: aptosChains,
+				ConfigType:      cciputils.ConfigTypeActive,
+				MCMS: mcms.Input{
+					ValidUntil:     uint32(time.Now().Add(24 * time.Hour).Unix()),
+					TimelockDelay:  mcmstypes.NewDuration(time.Second),
+					TimelockAction: mcmstypes.TimelockActionSchedule,
 				},
 			},
 		))

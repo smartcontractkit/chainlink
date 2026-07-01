@@ -40,13 +40,13 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
+	aptoscs "github.com/smartcontractkit/chainlink-aptos/deployment/ccip"
+	"github.com/smartcontractkit/chainlink-aptos/deployment/ccip/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
+	aptosstate "github.com/smartcontractkit/chainlink-aptos/deployment/state"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
@@ -57,7 +57,7 @@ func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector ui
 				FeeQuoterParams: config.FeeQuoterParams{
 					MaxFeeJuelsPerMsg:            new(big.Int).Mul(big.NewInt(100_000_000), big.NewInt(1e18)), // 100M LINK @ 18 decimals
 					TokenPriceStalenessThreshold: 24 * 60 * 60,
-					FeeTokens:                    []aptos.AccountAddress{aptoscs.MustParseAddress(t, shared.AptosAPTAddress)}, // LINK token will be deployed and added here automatically
+					FeeTokens:                    []aptos.AccountAddress{mustParseAptosAddress(t, shared.AptosAPTAddress)}, // LINK token will be deployed and added here automatically
 					PremiumMultiplierWeiPerEthByFeeToken: map[shared.TokenSymbol]uint64{
 						shared.APTSymbol:  11e17,
 						shared.LinkSymbol: 9e18,
@@ -480,7 +480,7 @@ func DeployRegulatedTransferableTokenAptos(
 
 // DeployAptosCCIPReceiver deploys the ccip_dummy_receiver package to all Aptos chains, saving the resulting address in the address book for future use
 func DeployAptosCCIPReceiver(t *testing.T, e cldf.Environment) {
-	state, err := aptosstate.LoadOnchainStateAptos(e)
+	state, err := aptosstate.LoadOnchainState(e)
 	require.NoError(t, err)
 	for selector, onchainState := range state {
 		// ccip_dummy_receiver includes ptt_dummy_receiver, which requires resource-account deployment.
@@ -990,4 +990,12 @@ func DeployLnRTokenAptos(
 	require.NoError(t, err)
 
 	return evmToken, evmPool, tokenMetadataAddress, aptosTokenPool, nil
+}
+
+func mustParseAptosAddress(t *testing.T, addr string) aptos.AccountAddress {
+	t.Helper()
+	var address aptos.AccountAddress
+	err := address.ParseStringRelaxed(addr)
+	require.NoError(t, err)
+	return address
 }

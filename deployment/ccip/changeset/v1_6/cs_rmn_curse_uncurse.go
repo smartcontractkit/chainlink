@@ -30,14 +30,14 @@ import (
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
-	aptosUtils "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
+	"github.com/smartcontractkit/chainlink-aptos/deployment/ccip/dependency"
+	aptosUtils "github.com/smartcontractkit/chainlink-aptos/deployment/ccip/utils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
-	aptos_ops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/aptos"
+	aptos_ops "github.com/smartcontractkit/chainlink-aptos/deployment/ccip/operation/rmn"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	aptosstateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
+	aptosstateview "github.com/smartcontractkit/chainlink-aptos/deployment/state"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 )
