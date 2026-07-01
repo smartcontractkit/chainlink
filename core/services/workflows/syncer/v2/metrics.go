@@ -141,6 +141,7 @@ func (cm *CacheMetrics) recordReload(ctx context.Context, source string) {
 		return
 	}
 	cm.reloadSource.Add(ctx, 1, metric.WithAttributes(attribute.String("source", source)))
+	promModuleCacheReloadTotal.WithLabelValues(source).Inc()
 }
 
 func (cm *CacheMetrics) recordEviction(ctx context.Context, count int) {
@@ -148,6 +149,7 @@ func (cm *CacheMetrics) recordEviction(ctx context.Context, count int) {
 		return
 	}
 	cm.evictionTotal.Add(ctx, int64(count))
+	promModuleCacheEvictionTotal.Add(float64(count))
 }
 
 func (cm *CacheMetrics) recordLoaded(ctx context.Context, count int) {
@@ -155,6 +157,7 @@ func (cm *CacheMetrics) recordLoaded(ctx context.Context, count int) {
 		return
 	}
 	cm.loadedGauge.Record(ctx, int64(count))
+	promModuleCacheLoaded.Set(float64(count))
 }
 
 func (cm *CacheMetrics) recordMemorySaved(ctx context.Context, bytes int64) {
@@ -162,6 +165,7 @@ func (cm *CacheMetrics) recordMemorySaved(ctx context.Context, bytes int64) {
 		return
 	}
 	cm.memorySaved.Record(ctx, bytes)
+	promModuleCacheMemorySavedBytes.Set(float64(bytes))
 }
 
 func (cm *CacheMetrics) recordVersionMismatch(ctx context.Context) {
@@ -169,6 +173,7 @@ func (cm *CacheMetrics) recordVersionMismatch(ctx context.Context) {
 		return
 	}
 	cm.versionMismatch.Add(ctx, 1)
+	promModuleCacheVersionMismatchTotal.Inc()
 }
 
 func (cm *CacheMetrics) recordPinExhausted(ctx context.Context) {
@@ -176,6 +181,7 @@ func (cm *CacheMetrics) recordPinExhausted(ctx context.Context) {
 		return
 	}
 	cm.pinExhausted.Add(ctx, 1)
+	promModuleCachePinExhaustedTotal.Inc()
 	if cachePinExhaustedHook != nil {
 		cachePinExhaustedHook()
 	}
@@ -186,6 +192,7 @@ func (cm *CacheMetrics) recordTryAcquireExhausted(ctx context.Context) {
 		return
 	}
 	cm.tryAcquireExhausted.Add(ctx, 1)
+	promModuleCacheTryAcquireExhaustedTotal.Inc()
 	if cacheTryAcquireExhaustedHook != nil {
 		cacheTryAcquireExhaustedHook()
 	}
