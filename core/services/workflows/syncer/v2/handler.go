@@ -731,7 +731,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	if module.IsLegacyDAG() { // V1 aka "DAG"
 		sdkSpec, specErr := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
 		if specErr != nil {
-			return nil, fmt.Errorf("failed to get workflow sdk spec: %w", err)
+			return nil, fmt.Errorf("failed to get workflow sdk spec: %w", specErr)
 		}
 
 		// WorkflowRegistry V2 contract does not contain secrets
