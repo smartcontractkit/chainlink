@@ -953,13 +953,17 @@ func AddLane(
 	require.NoError(t, err)
 	changesets := []commoncs.ConfiguredChangeSet{}
 
+	var evmTokenPrices map[common.Address]*big.Int
 	switch fromFamily {
 	case chainsel.FamilyEVM:
-		evmTokenPrices := make(map[common.Address]*big.Int, len(tokenPrices))
+		evmTokenPrices = make(map[common.Address]*big.Int, len(tokenPrices))
 		for address, price := range tokenPrices {
 			evmTokenPrices[common.HexToAddress(address)] = price
 		}
-		changesets = append(changesets, AddEVMSrcChangesets(from, to, isTestRouter, gasPrices, evmTokenPrices, fqCfg)...)
+		// ConnectChains wires EVM→Aptos onramp/router; post-reconcile below restores test FQ config.
+		if toFamily != chainsel.FamilyAptos {
+			changesets = append(changesets, AddEVMSrcChangesets(from, to, isTestRouter, gasPrices, evmTokenPrices, fqCfg)...)
+		}
 	case chainsel.FamilySolana:
 		changesets = append(changesets, AddLaneSolanaChangesetsV0_1_0(e, from, to, toFamily)...)
 	case chainsel.FamilyAptos:
@@ -977,6 +981,12 @@ func AddLane(
 		changesets = append(changesets, AddLaneSolanaChangesetsV0_1_0(e, to, from, fromFamily)...)
 	case chainsel.FamilyAptos:
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, nil)...)
+		if fromFamily == chainsel.FamilyEVM {
+			// ConnectChains applies Aptos adapter dest config (staleness threshold 2) onto the
+			// EVM FeeQuoter and skips gas-price refresh when already seeded. Re-apply test lane
+			// config (threshold 90000) and refresh gas prices after ConnectChains.
+			changesets = append(changesets, addEVMFeeQuoterDestAndPricesChangesets(from, to, gasPrices, evmTokenPrices, fqCfg)...)
+		}
 	}
 
 	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, changesets)
@@ -1051,22 +1061,8 @@ func AddLaneSolanaChangesetsV0_1_0(e *DeployedEnv, solChainSelector, remoteChain
 	return solanaChangesets
 }
 
-func AddEVMSrcChangesets(from, to uint64, isTestRouter bool, gasprice map[uint64]*big.Int, tokenPrices map[common.Address]*big.Int, fqCfg fee_quoter.FeeQuoterDestChainConfig) []commoncs.ConfiguredChangeSet {
-	evmSrcChangesets := []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(
-			cldf.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
-			v1_6.UpdateOnRampDestsConfig{
-				UpdatesByChain: map[uint64]map[uint64]v1_6.OnRampDestinationUpdate{
-					from: {
-						to: {
-							IsEnabled:        true,
-							TestRouter:       isTestRouter,
-							AllowListEnabled: false,
-						},
-					},
-				},
-			},
-		),
+func addEVMFeeQuoterDestAndPricesChangesets(from, to uint64, gasprice map[uint64]*big.Int, tokenPrices map[common.Address]*big.Int, fqCfg fee_quoter.FeeQuoterDestChainConfig) []commoncs.ConfiguredChangeSet {
+	return []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterPricesChangeset),
 			v1_6.UpdateFeeQuoterPricesConfig{
@@ -1088,6 +1084,28 @@ func AddEVMSrcChangesets(from, to uint64, isTestRouter bool, gasprice map[uint64
 				},
 			},
 		),
+	}
+}
+
+func AddEVMSrcChangesets(from, to uint64, isTestRouter bool, gasprice map[uint64]*big.Int, tokenPrices map[common.Address]*big.Int, fqCfg fee_quoter.FeeQuoterDestChainConfig) []commoncs.ConfiguredChangeSet {
+	evmSrcChangesets := []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(
+			cldf.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
+			v1_6.UpdateOnRampDestsConfig{
+				UpdatesByChain: map[uint64]map[uint64]v1_6.OnRampDestinationUpdate{
+					from: {
+						to: {
+							IsEnabled:        true,
+							TestRouter:       isTestRouter,
+							AllowListEnabled: false,
+						},
+					},
+				},
+			},
+		),
+	}
+	evmSrcChangesets = append(evmSrcChangesets, addEVMFeeQuoterDestAndPricesChangesets(from, to, gasprice, tokenPrices, fqCfg)...)
+	evmSrcChangesets = append(evmSrcChangesets,
 		commoncs.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
 			v1_6.UpdateRouterRampsConfig{
@@ -1102,7 +1120,7 @@ func AddEVMSrcChangesets(from, to uint64, isTestRouter bool, gasprice map[uint64
 				},
 			},
 		),
-	}
+	)
 
 	return evmSrcChangesets
 }
