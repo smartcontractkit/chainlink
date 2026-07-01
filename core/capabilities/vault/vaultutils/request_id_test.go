@@ -28,8 +28,8 @@ func TestBuildWorkflowGetSecretsRequestID(t *testing.T) {
 		{
 			name: "subscription path",
 			md: capabilities.RequestMetadata{
-				WorkflowID:    "wf-1",
-				ReferenceID:   "7",
+				WorkflowID:  "wf-1",
+				ReferenceID: "7",
 			},
 			want: "wf-1::subscription::7",
 		},

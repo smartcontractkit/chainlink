@@ -154,8 +154,8 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	referenceID := "0"
 
 	requestID := vaultutils.BuildWorkflowGetSecretsRequestID(capabilities.RequestMetadata{
-		WorkflowID:    workflowID,
-		ReferenceID:   referenceID,
+		WorkflowID:  workflowID,
+		ReferenceID: referenceID,
 	})
 
 	sid := &vault.SecretIdentifier{
