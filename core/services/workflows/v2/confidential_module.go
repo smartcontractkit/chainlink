@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 
@@ -68,12 +69,16 @@ type ConfidentialModule struct {
 	infoOnce          sync.Once
 	provider          func(tee *sdkpb.Tee) bool
 	executionHandlers *confidentialrelay.ExecutionHandlers
+	enabledGate       limits.GateLimiter
 }
 
 var _ host.RequirementEnforcingModule = (*ConfidentialModule)(nil)
 var _ host.RestrictionAwareModule = (*ConfidentialModule)(nil)
 
-func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, lggr logger.Logger) *ConfidentialModule {
+func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, enabledGate limits.GateLimiter, lggr logger.Logger) (*ConfidentialModule, error) {
+	if enabledGate == nil {
+		return nil, errors.New("enabledGate must not be nil")
+	}
 	return &ConfidentialModule{
 		capRegistry:       capRegistry,
 		executionHandlers: executionHandlers,
@@ -83,8 +88,9 @@ func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandl
 		workflowOwner:     workflowOwner,
 		workflowName:      workflowName,
 		workflowTag:       workflowTag,
+		enabledGate:       enabledGate,
 		lggr:              lggr,
-	}
+	}, nil
 }
 
 func (m *ConfidentialModule) Start()            {}
@@ -96,6 +102,10 @@ func (m *ConfidentialModule) Execute(
 	request *sdkpb.ExecuteRequest,
 	helper host.ExecutionHelper,
 ) (*sdkpb.ExecutionResult, error) {
+	if err := m.enabledGate.AllowErr(ctx); err != nil {
+		return nil, fmt.Errorf("confidential-workflows capability is disabled by settings: %w", err)
+	}
+
 	workflowExecutionID := helper.GetWorkflowExecutionID()
 	rawSecretsHelper, ok := helper.(host.ExecutionHelperWithRawSecrets)
 	if !ok {
