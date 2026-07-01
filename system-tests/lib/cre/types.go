@@ -66,6 +66,7 @@ const (
 	SolanaCapability            CapabilityFlag = "solana"
 	ConfidentialRelayCapability CapabilityFlag = "confidential-relay"
 	AptosCapability             CapabilityFlag = "aptos"
+	StellarCapability           CapabilityFlag = "stellar"
 	// Add more capabilities as needed
 )
 

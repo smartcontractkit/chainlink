@@ -18,6 +18,7 @@ func NewDefaultCapabilityFlagsProvider() *DefaultCapbilityFlagsProvider {
 			cre.SolanaCapability,
 			cre.EVMCapability,
 			cre.AptosCapability,
+			cre.StellarCapability,
 		},
 	}
 }
@@ -44,6 +45,7 @@ func NewExtensibleCapabilityFlagsProvider(extraGlobalFlags []string) *Extensible
 			cre.EVMCapability,
 			cre.SolanaCapability,
 			cre.AptosCapability,
+			cre.StellarCapability,
 		},
 	}
 }
@@ -72,6 +74,7 @@ func NewSwappableCapabilityFlagsProvider() *DefaultCapbilityFlagsProvider {
 			cre.EVMCapability,
 			cre.SolanaCapability,
 			cre.AptosCapability,
+			cre.StellarCapability,
 		},
 	}
 }
