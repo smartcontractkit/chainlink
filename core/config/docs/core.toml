@@ -922,6 +922,26 @@ Enabled = false # Default
 # By default, we only forward the go runtime metrics. Empty means forward everything.
 Prefixes = ["go_"] # Default
 
+# Metering configures durable resource metering emission and the coarse
+# deployment/node identity dimensions stamped on emitted MeterRecords and
+# MeterSnapshots. These are plumbed to LOOP plugins via env.
+[Metering]
+# MeterRecordsEnabled enables durable MeterRecord emission for LOOP plugins.
+MeterRecordsEnabled = false # Default
+# MeterSnapshotsEnabled enables durable MeterSnapshot emission for LOOP plugins.
+# Requires MeterRecordsEnabled = true.
+MeterSnapshotsEnabled = false # Default
+# Product is the deployment product identity dimension, e.g. 'cre'.
+Product = '' # Default
+# Tenant is the deployment tenant identity dimension, e.g. 'mainline'.
+Tenant = '' # Default
+# Environment is the deployment environment identity dimension, e.g. 'production'.
+Environment = '' # Default
+# Zone is the deployment zone identity dimension, e.g. 'wf-zone-a'.
+Zone = '' # Default
+# NodeID is the node's logical name, e.g. 'clp-cre-wf-zone-a-1' (not the CSA public key).
+NodeID = '' # Default
+
 [CRE.Streams]
 # WsURL is the websockets url for the streams sdk config
 WsURL = "streams.url" # Example

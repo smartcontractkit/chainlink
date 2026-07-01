@@ -75,7 +75,7 @@ func genTestEVMRelayers(t *testing.T, cfg chainlink.GeneralConfig, ds sqlutil.Da
 	f := chainlink.RelayerFactory{
 		Logger: lggr,
 		LoopRegistry: plugins.NewLoopRegistry(lggr, cfg.AppID().String(), cfg.Feature().LogPoller(), cfg.Database(),
-			cfg.Mercury(), cfg.Pyroscope(), cfg.AutoPprof(), cfg.Tracing(), cfg.Telemetry(), nil, "", cfg.LOOPP()),
+			cfg.Mercury(), cfg.Pyroscope(), cfg.AutoPprof(), cfg.Tracing(), cfg.Telemetry(), cfg.Metering(), nil, "", cfg.LOOPP()),
 		CapabilitiesRegistry: capabilities.NewRegistry(lggr),
 	}
 

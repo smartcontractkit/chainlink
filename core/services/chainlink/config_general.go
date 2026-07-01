@@ -588,6 +588,10 @@ func (g *generalConfig) Telemetry() coreconfig.Telemetry {
 	return &telemetryConfig{s: g.c.Telemetry}
 }
 
+func (g *generalConfig) Metering() coreconfig.Metering {
+	return &meteringConfig{s: g.c.Metering}
+}
+
 func (g *generalConfig) CRE() coreconfig.CRE {
 	return &creConfig{s: g.secrets.CRE, c: g.c.CRE}
 }

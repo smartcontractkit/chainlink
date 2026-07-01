@@ -40,6 +40,7 @@ type LoopRegistry struct {
 	autoPPROF              config.AutoPprof
 	cfgTracing             config.Tracing
 	cfgTelemetry           config.Telemetry
+	cfgMetering            config.Metering
 	telemetryAuthHeaders   map[string]string
 	telemetryAuthPubKeyHex string
 	cfgLOOPP               config.LOOPP
@@ -47,7 +48,7 @@ type LoopRegistry struct {
 
 func NewLoopRegistry(lggr logger.Logger, appID string, featureLogPoller bool, dbConfig config.Database,
 	mercury de.Mercury, pyroscope config.Pyroscope, autoPPROF config.AutoPprof, tracing config.Tracing, telemetry config.Telemetry,
-	telemetryAuthHeaders map[string]string, telemetryAuthPubKeyHex string, looppCfg config.LOOPP) *LoopRegistry {
+	metering config.Metering, telemetryAuthHeaders map[string]string, telemetryAuthPubKeyHex string, looppCfg config.LOOPP) *LoopRegistry {
 	return &LoopRegistry{
 		registry:               map[string]*RegisteredLoop{},
 		lggr:                   logger.Named(lggr, "LoopRegistry"),
@@ -59,6 +60,7 @@ func NewLoopRegistry(lggr logger.Logger, appID string, featureLogPoller bool, db
 		autoPPROF:              autoPPROF,
 		cfgTracing:             tracing,
 		cfgTelemetry:           telemetry,
+		cfgMetering:            metering,
 		telemetryAuthHeaders:   telemetryAuthHeaders,
 		telemetryAuthPubKeyHex: telemetryAuthPubKeyHex,
 		cfgLOOPP:               looppCfg,
@@ -165,6 +167,19 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		envCfg.TelemetryLogMaxQueueSize = m.cfgTelemetry.LogMaxQueueSize()
 		envCfg.TelemetryPrometheusBridgeEnabled = m.cfgTelemetry.PrometheusBridge().Enabled()
 		envCfg.TelemetryPrometheusBridgePrefixes = m.cfgTelemetry.PrometheusBridge().Prefixes()
+	}
+
+	// Metering config (emission toggles + deployment/node identity dimensions)
+	// is passed over the env channel to every LOOP plugin, rather than the
+	// standard-capabilities boundary.
+	if m.cfgMetering != nil {
+		envCfg.MeterRecordsEnabled = m.cfgMetering.MeterRecordsEnabled()
+		envCfg.MeterSnapshotsEnabled = m.cfgMetering.MeterSnapshotsEnabled()
+		envCfg.MeteringProduct = m.cfgMetering.Product()
+		envCfg.MeteringTenant = m.cfgMetering.Tenant()
+		envCfg.MeteringEnvironment = m.cfgMetering.Environment()
+		envCfg.MeteringZone = m.cfgMetering.Zone()
+		envCfg.MeteringNodeID = m.cfgMetering.NodeID()
 	}
 	m.lggr.Debugf("Registered loopp %q with port %d", id, envCfg.PrometheusPort)
 

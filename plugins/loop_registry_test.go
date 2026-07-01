@@ -92,6 +92,16 @@ func (m mockCfgTelemetry) PrometheusBridge() config.PrometheusBridge {
 	return mockPrometheusBridge{}
 }
 
+type mockCfgMetering struct{}
+
+func (m mockCfgMetering) MeterRecordsEnabled() bool   { return true }
+func (m mockCfgMetering) MeterSnapshotsEnabled() bool { return true }
+func (m mockCfgMetering) Product() string             { return "cre" }
+func (m mockCfgMetering) Tenant() string              { return "mainline" }
+func (m mockCfgMetering) Environment() string         { return "production" }
+func (m mockCfgMetering) Zone() string                { return "wf-zone-a" }
+func (m mockCfgMetering) NodeID() string              { return "csa-pubkey-1" }
+
 type mockPrometheusBridge struct{}
 
 func (m mockPrometheusBridge) Enabled() bool { return true }
@@ -185,6 +195,7 @@ func TestLoopRegistry_Register(t *testing.T) {
 	mockCfgMercury := &mockCfgMercury{}
 	mockCfgTracing := &mockCfgTracing{}
 	mockCfgTelemetry := &mockCfgTelemetry{}
+	mockCfgMetering := &mockCfgMetering{}
 	registry := make(map[string]*RegisteredLoop)
 
 	// Create a LoopRegistry instance with mockCfgTracing
@@ -197,6 +208,7 @@ func TestLoopRegistry_Register(t *testing.T) {
 		cfgMercury:       mockCfgMercury,
 		cfgTracing:       mockCfgTracing,
 		cfgTelemetry:     mockCfgTelemetry,
+		cfgMetering:      mockCfgMetering,
 	}
 
 	// Test case 1: Register new loop
@@ -250,6 +262,13 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.Equal(t, 512, envCfg.TelemetryLogExportMaxBatchSize)
 	require.Equal(t, 5*time.Second, envCfg.TelemetryLogExportInterval)
 	require.Equal(t, 2048, envCfg.TelemetryLogMaxQueueSize)
+	require.True(t, envCfg.MeterRecordsEnabled)
+	require.True(t, envCfg.MeterSnapshotsEnabled)
+	require.Equal(t, "cre", envCfg.MeteringProduct)
+	require.Equal(t, "mainline", envCfg.MeteringTenant)
+	require.Equal(t, "production", envCfg.MeteringEnvironment)
+	require.Equal(t, "wf-zone-a", envCfg.MeteringZone)
+	require.Equal(t, "csa-pubkey-1", envCfg.MeteringNodeID)
 
 	require.Equal(t, "example.com/chip-ingress", envCfg.ChipIngressEndpoint)
 	require.False(t, envCfg.ChipIngressBatchEmitterEnabled)

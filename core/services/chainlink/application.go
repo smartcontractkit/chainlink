@@ -287,7 +287,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	}
 	loopRegistry := plugins.NewLoopRegistry(globalLogger, cfg.AppID().String(), cfg.Feature().LogPoller(),
 		cfg.Database(), cfg.Mercury(), cfg.Pyroscope(), cfg.AutoPprof(), cfg.Tracing(), cfg.Telemetry(),
-		beholderAuthHeaders, csaPubKeyHex, cfg.LOOPP())
+		cfg.Metering(), beholderAuthHeaders, csaPubKeyHex, cfg.LOOPP())
 
 	relayerFactory := RelayerFactory{
 		Logger:                opts.Logger,

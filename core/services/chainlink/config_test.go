@@ -578,6 +578,15 @@ func TestConfig_Marshal(t *testing.T) {
 			Prefixes: []string{"ocr_"},
 		},
 	}
+	full.Metering = toml.Metering{
+		MeterRecordsEnabled:   ptr(true),
+		MeterSnapshotsEnabled: ptr(true),
+		Product:               ptr("cre"),
+		Tenant:                ptr("mainline"),
+		Environment:           ptr("production"),
+		Zone:                  ptr("wf-zone-a"),
+		NodeID:                ptr("csa-pubkey-1"),
+	}
 	full.CRE = toml.CreConfig{
 		UseLocalTimeProvider: ptr(true),
 		EnableDKGRecipient:   ptr(false),

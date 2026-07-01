@@ -65,6 +65,7 @@ type Core struct {
 	Mercury              Mercury              `toml:",omitempty"`
 	Capabilities         Capabilities         `toml:",omitempty"`
 	Telemetry            Telemetry            `toml:",omitempty"`
+	Metering             Metering             `toml:",omitempty"`
 	Workflows            Workflows            `toml:",omitempty"`
 	CRE                  CreConfig            `toml:",omitempty"`
 	Billing              Billing              `toml:",omitempty"`
@@ -113,6 +114,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.JobDistributor.setFrom(&f.JobDistributor)
 	c.Tracing.setFrom(&f.Tracing)
 	c.Telemetry.setFrom(&f.Telemetry)
+	c.Metering.setFrom(&f.Metering)
 	c.CRE.setFrom(&f.CRE)
 	c.Billing.setFrom(&f.Billing)
 	c.BridgeStatusReporter.setFrom(&f.BridgeStatusReporter)
@@ -3080,6 +3082,65 @@ func (b *Telemetry) ValidateConfig() (err error) {
 	}
 	if ratio := b.TraceSampleRatio; ratio != nil && (*ratio < 0 || *ratio > 1) {
 		err = errors.Join(err, configutils.ErrInvalid{Name: "TraceSampleRatio", Value: *ratio, Msg: "must be between 0 and 1"})
+	}
+	return err
+}
+
+// Metering configures durable resource metering emission and the coarse
+// deployment/node identity dimensions stamped on emitted MeterRecords and
+// MeterSnapshots. These are passed via loop.EnvConfig to every LOOP plugin.
+type Metering struct {
+	// MeterRecordsEnabled enables durable MeterRecord emission for LOOP plugins.
+	MeterRecordsEnabled *bool
+	// MeterSnapshotsEnabled enables durable MeterSnapshot emission. Requires
+	// MeterRecordsEnabled to be true.
+	MeterSnapshotsEnabled *bool
+	// Product is the deployment product identity dimension, e.g. "cre".
+	Product *string
+	// Tenant is the deployment tenant identity dimension, e.g. "mainline".
+	Tenant *string
+	// Environment is the deployment environment dimension, e.g. "production".
+	Environment *string
+	// Zone is the deployment zone dimension, e.g. "wf-zone-a".
+	Zone *string
+	// NodeID is the node's logical name, e.g. "clp-cre-wf-zone-a-1" (NOT the CSA
+	// public key). The billing service uses it to look up the node's CSA key in
+	// the workflow registry; the CSA key itself is attached to events as the
+	// node_csa_key attribute.
+	NodeID *string
+}
+
+func (b *Metering) setFrom(f *Metering) {
+	if v := f.MeterRecordsEnabled; v != nil {
+		b.MeterRecordsEnabled = v
+	}
+	if v := f.MeterSnapshotsEnabled; v != nil {
+		b.MeterSnapshotsEnabled = v
+	}
+	if v := f.Product; v != nil {
+		b.Product = v
+	}
+	if v := f.Tenant; v != nil {
+		b.Tenant = v
+	}
+	if v := f.Environment; v != nil {
+		b.Environment = v
+	}
+	if v := f.Zone; v != nil {
+		b.Zone = v
+	}
+	if v := f.NodeID; v != nil {
+		b.NodeID = v
+	}
+}
+
+func (b *Metering) ValidateConfig() (err error) {
+	if b.MeterSnapshotsEnabled != nil && *b.MeterSnapshotsEnabled && (b.MeterRecordsEnabled == nil || !*b.MeterRecordsEnabled) {
+		err = errors.Join(err, configutils.ErrInvalid{
+			Name:  "MeterSnapshotsEnabled",
+			Value: true,
+			Msg:   "requires MeterRecordsEnabled to be true",
+		})
 	}
 	return err
 }
