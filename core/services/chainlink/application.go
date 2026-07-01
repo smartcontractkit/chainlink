@@ -379,7 +379,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	// Wire DurableEmitter for persistent chip ingress delivery when enabled
 	if cfg.Telemetry().DurableEmitterEnabled() && cfg.Telemetry().ChipIngressEndpoint() != "" {
-		maxBatchSize := 10_000
+		maxBatchSize := 1000
 		emitterCfg := durableemitter.DefaultConfig()
 		emitterCfg.RetransmitBatchSize = maxBatchSize
 		emitterCfg.Metrics = &durableemitter.DurableEmitterMetricsConfig{}
