@@ -1960,3 +1960,50 @@ func defaultMetrics(t *testing.T) *monitoring.WorkflowsMetricLabeler {
 
 	return monitoring.NewWorkflowsMetricLabeler(metrics.NewLabeler(), em)
 }
+
+func Test_Report_ConcurrentSettleAndFormatReport(t *testing.T) {
+	t.Parallel()
+
+	billingClient := mocks.NewBillingClient(t)
+	billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+		Return(&billing.GetWorkflowExecutionRatesResponse{
+			RateCards: successRates,
+		}, nil).Maybe()
+	billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+		Return(&successReserveResponseWithRates, nil).Maybe()
+	billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.Anything).
+		Return(&emptypb.Empty{}, nil).Maybe()
+
+	report := newTestReport(t, logger.Nop(), billingClient)
+	require.NoError(t, report.Reserve(t.Context()))
+
+	numRefs := 10
+	for i := range numRefs {
+		ref := fmt.Sprintf("ref%d", i)
+		_, err := report.Deduct(ref, ByResource(testUnitA, "capID", decimal.NewFromInt(1)))
+		require.NoError(t, err)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		for range 100 {
+			_ = report.FormatReport()
+			_ = report.EmitReceipt(t.Context())
+		}
+		close(done)
+	}()
+
+	for i := range numRefs {
+		go func(idx int) {
+			ref := fmt.Sprintf("ref%d", idx)
+			metadata := capabilities.ResponseMetadata{
+				Metering: []capabilities.MeteringNodeDetail{
+					{Peer2PeerID: "peer1", SpendUnit: testUnitA, SpendValue: "1"},
+				},
+			}
+			_ = report.Settle(ref, metadata)
+		}(i)
+	}
+
+	<-done
+}
