@@ -101,6 +101,32 @@ func EmitWorkflowStatusChangedEventV2(
 	return multiErr
 }
 
+func EmitWorkflowActivationAbandonedV2(
+	ctx context.Context,
+	labels map[string]string,
+	binaryURL string,
+	configURL string,
+	reason eventsv2.ActivationAbandonReason,
+	activationErr error,
+	retryCount int32,
+) error {
+	var errorMessage string
+	if activationErr != nil {
+		errorMessage = activationErr.Error()
+	}
+
+	event := &eventsv2.WorkflowActivationAbandoned{
+		CreInfo:      buildCREMetadataV2(labels),
+		Workflow:     buildWorkflowV2(labels, binaryURL, configURL),
+		Timestamp:    uint64(time.Now().Unix()), //nolint:gosec // G115: unix timestamp is non-negative
+		ErrorMessage: errorMessage,
+		Reason:       reason,
+		RetryCount:   retryCount,
+	}
+
+	return emitProtoMessage(ctx, event)
+}
+
 func EmitExecutionStartedEvent(
 	ctx context.Context,
 	labels map[string]string,
@@ -504,6 +530,9 @@ func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 	case *eventsv2.WorkflowActivated:
 		schema = SchemaWorkflowActivatedV2
 		entity = "workflows.v2." + WorkflowActivated
+	case *eventsv2.WorkflowActivationAbandoned:
+		schema = SchemaWorkflowActivationAbandonedV2
+		entity = "workflows.v2." + WorkflowActivationAbandoned
 	case *eventsv2.WorkflowPaused:
 		schema = SchemaWorkflowPausedV2
 		entity = "workflows.v2." + WorkflowPaused
