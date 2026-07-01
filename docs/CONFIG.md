@@ -1416,6 +1416,7 @@ MaxEncryptedSecretsSize = '26.40kb' # Default
 MaxConfigSize = '50.00kb' # Default
 SyncStrategy = 'event' # Default
 MaxConcurrency = 12 # Default
+MaxActivationRetries = 100 # Default
 ```
 
 
@@ -1473,6 +1474,12 @@ Options are: event which watches for contract events or reconciliation which dif
 MaxConcurrency = 12 # Default
 ```
 MaxConcurrency controls the maximum number of concurrent event handlers in the workflow registry syncer.
+
+### MaxActivationRetries
+```toml
+MaxActivationRetries = 100 # Default
+```
+MaxActivationRetries is the number of failed load/initialization attempts before the syncer stops retrying an active workflow. 0 disables the limit.
 
 ## Capabilities.WorkflowRegistry.WorkflowStorage
 ```toml
@@ -2732,6 +2739,8 @@ DebugMode enables additional tracing and logging for workflow engines.
 ```toml
 [CRE.ConfidentialRelay]
 Enabled = false # Default
+TrustEnclaves = false # Default
+RequireBFTQuorum = false # Default
 ```
 
 
@@ -2740,6 +2749,18 @@ Enabled = false # Default
 Enabled = false # Default
 ```
 Enabled controls whether the confidential relay gateway handler should be configured.
+
+### TrustEnclaves
+```toml
+TrustEnclaves = false # Default
+```
+TrustEnclaves relaxes TEE attestation validation so the relay trusts fake (non-Nitro) enclaves. intended only for tests.
+
+### RequireBFTQuorum
+```toml
+RequireBFTQuorum = false # Default
+```
+RequireBFTQuorum selects the relay's signature quorum.
 
 ## Sharding
 ```toml

@@ -641,7 +641,6 @@ func sendConcurrentVaultCreate(t *testing.T, gwURL, requestID string, jsonReques
 	require.Nil(t, parsed.Error, "gateway returned error: %v", parsed.Error)
 	require.Equal(t, requestID, parsed.ID)
 	require.Equal(t, vaulttypes.MethodSecretsCreate, parsed.Method)
-	requireSignedPayloadRequestID(t, vaulttypes.MethodSecretsCreate, requestID, authorizedOwner, parsed.Result.Payload)
 	var createResp vault_helpers.CreateSecretsResponse
 	require.NoError(t, protojson.Unmarshal(parsed.Result.Payload, &createResp), "failed to decode CreateSecretsResponse")
 	require.Len(t, createResp.Responses, len(namespaces), "Expected one item in the response per namespace")
@@ -881,9 +880,9 @@ func TestVaultOptimizationsEnabled_CRESettingDefaultsDisabled(t *testing.T) {
 	require.False(t, cresettings.Default.VaultOptimizationsEnabled.DefaultValue)
 }
 
-func TestVaultSignedResponseRequestIDEnabled_CRESettingDefaultsDisabled(t *testing.T) {
+func TestVaultJSONOmitUnpopulatedEnabled_CRESettingDefaultsDisabled(t *testing.T) {
 	t.Parallel()
-	require.False(t, cresettings.Default.VaultSignedResponseRequestIDEnabled.DefaultValue)
+	require.False(t, cresettings.Default.VaultJSONOmitUnpopulatedEnabled.DefaultValue)
 }
 
 func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {

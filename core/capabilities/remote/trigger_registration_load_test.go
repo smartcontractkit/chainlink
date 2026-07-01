@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/synctest"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -163,6 +163,8 @@ func (t *noopTrigger) AckEvent(_ context.Context, _ string, _ string, _ string) 
 // --- Test: Subscriber registrationLoop traffic volume ---
 
 func TestRegistrationTrafficVolume(t *testing.T) {
+	t.Parallel()
+
 	cases := []struct {
 		nRegistrations  int
 		capDonSize      int
@@ -177,6 +179,7 @@ func TestRegistrationTrafficVolume(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(fmt.Sprintf("N=%d_cap=%d_wf=%d", tc.nRegistrations, tc.capDonSize, tc.workflowDonSize), func(t *testing.T) {
+			t.Parallel()
 			lggr := logger.Test(t)
 			dispatcher := newCountingDispatcher()
 
@@ -210,14 +213,14 @@ func TestRegistrationTrafficVolume(t *testing.T) {
 					TriggerID: fmt.Sprintf("trigger_%d", i),
 					Metadata:  commoncap.RequestMetadata{WorkflowID: generateWorkflowID(i)},
 				}
-				_, err := subscriber.RegisterTrigger(testutils.Context(t), req)
+				_, err := subscriber.RegisterTrigger(t.Context(), req)
 				require.NoError(t, err)
 			}
 
 			// Reset counters after initial registration sends, then start
 			// the loop so the first tick generates a clean measurement.
 			dispatcher.Reset()
-			require.NoError(t, subscriber.Start(testutils.Context(t)))
+			require.NoError(t, subscriber.Start(t.Context()))
 			t.Cleanup(func() { subscriber.Close() })
 
 			// Wait for exactly one tick (500ms refresh, wait 700ms to give time)
@@ -250,6 +253,7 @@ func TestRegistrationTrafficVolume(t *testing.T) {
 // --- Test: Publisher sendRegistrationChecks traffic volume ---
 
 func TestRegistrationCheckTrafficVolume(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		nRegistrations  int
 		capDonSize      int
@@ -264,93 +268,96 @@ func TestRegistrationCheckTrafficVolume(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(fmt.Sprintf("N=%d", tc.nRegistrations), func(t *testing.T) {
-			ctx := testutils.Context(t)
-			lggr := logger.Test(t)
-			dispatcher := newCountingDispatcher()
+			t.Parallel()
+			synctest.Test(t, func(t *testing.T) {
+				ctx := t.Context()
+				lggr := logger.Test(t)
+				dispatcher := newCountingDispatcher()
 
-			capDonMembers := generatePeers(t, tc.capDonSize)
-			capDon := commoncap.DON{ID: 1, Members: capDonMembers, F: donFaultTolerance(t, tc.capDonSize/3)}
+				capDonMembers := generatePeers(t, tc.capDonSize)
+				capDon := commoncap.DON{ID: 1, Members: capDonMembers, F: donFaultTolerance(t, tc.capDonSize/3)}
 
-			workflowDonMembers := generatePeers(t, tc.workflowDonSize)
-			workflowDon := commoncap.DON{ID: 2, Members: workflowDonMembers, F: donFaultTolerance(t, (tc.workflowDonSize-1)/3)}
+				workflowDonMembers := generatePeers(t, tc.workflowDonSize)
+				workflowDon := commoncap.DON{ID: 2, Members: workflowDonMembers, F: donFaultTolerance(t, (tc.workflowDonSize-1)/3)}
 
-			capInfo := commoncap.CapabilityInfo{
-				ID:             "cap_id@1",
-				CapabilityType: commoncap.CapabilityTypeTrigger,
-				Description:    "Load Test Trigger",
-			}
-
-			underlying := &noopTrigger{info: capInfo}
-
-			// Use the same refresh interval before and after registration so
-			// registrationCheckLoop's ticker matches the measurement window (a
-			// long initial interval would not pick up a later shorter interval
-			// until the next tick of the old ticker).
-			cfg := &commoncap.RemoteTriggerConfig{
-				RegistrationRefresh:     50 * time.Millisecond,
-				RegistrationExpiry:      2 * time.Hour,
-				MinResponsesToAggregate: 1,
-				MessageExpiry:           time.Hour,
-				MaxBatchSize:            100,
-				BatchCollectionPeriod:   time.Second,
-			}
-
-			workflowDONs := map[uint32]commoncap.DON{workflowDon.ID: workflowDon}
-			publisher := remote.NewTriggerPublisher(capInfo.ID, "LogTrigger", dispatcher, lggr)
-			require.NoError(t, publisher.SetConfig(cfg, underlying, capDon, workflowDONs))
-			require.NoError(t, publisher.Start(ctx))
-			t.Cleanup(func() { require.NoError(t, publisher.Close()) })
-
-			// Register N triggers by feeding MethodRegisterTrigger messages.
-			// With F=0 on the workflow DON side used in newServices patterns,
-			// a single sender suffices for quorum. Here F>0 so we need 2F+1
-			// senders. Use all workflow DON members.
-			for i := range tc.nRegistrations {
-				triggerID := fmt.Sprintf("trigger_%d", i)
-				wfID := generateWorkflowID(i)
-
-				for _, sender := range workflowDonMembers {
-					req := commoncap.TriggerRegistrationRequest{
-						TriggerID: triggerID,
-						Metadata:  commoncap.RequestMetadata{WorkflowID: wfID},
-					}
-					marshaled, err := pb.MarshalTriggerRegistrationRequest(req)
-					require.NoError(t, err)
-
-					msg := &remotetypes.MessageBody{
-						Sender:      sender[:],
-						Method:      remotetypes.MethodRegisterTrigger,
-						CallerDonId: workflowDon.ID,
-						Payload:     marshaled,
-					}
-					publisher.Receive(ctx, msg)
+				capInfo := commoncap.CapabilityInfo{
+					ID:             "cap_id@1",
+					CapabilityType: commoncap.CapabilityTypeTrigger,
+					Description:    "Load Test Trigger",
 				}
-			}
 
-			dispatcher.Reset()
+				underlying := &noopTrigger{info: capInfo}
 
-			// Count registration checks after registrations are in place (ignore
-			// any check traffic during the registration burst above).
-			time.Sleep(200 * time.Millisecond)
+				// Use the same refresh interval before and after registration so
+				// registrationCheckLoop's ticker matches the measurement window (a
+				// long initial interval would not pick up a later shorter interval
+				// until the next tick of the old ticker).
+				cfg := &commoncap.RemoteTriggerConfig{
+					RegistrationRefresh:     50 * time.Millisecond,
+					RegistrationExpiry:      2 * time.Hour,
+					MinResponsesToAggregate: 1,
+					MessageExpiry:           time.Hour,
+					MaxBatchSize:            100,
+					BatchCollectionPeriod:   time.Second,
+				}
 
-			snap := dispatcher.Snapshot()
-			checkCount := snap[remotetypes.MethodTriggerRegistrationCheck]
+				workflowDONs := map[uint32]commoncap.DON{workflowDon.ID: workflowDon}
+				publisher := remote.NewTriggerPublisher(capInfo.ID, "LogTrigger", dispatcher, lggr)
+				require.NoError(t, publisher.SetConfig(cfg, underlying, capDon, workflowDONs))
+				require.NoError(t, publisher.Start(ctx))
+				t.Cleanup(func() { require.NoError(t, publisher.Close()) })
 
-			// With MaxBatchSize=100, each registration-check tick sends ceil(N/100) messages per
-			// workflow-DON peer (chunked metadata), not one giant payload.
-			chunksPerTick := (tc.nRegistrations + 99) / 100
-			minPerFullTick := int64(chunksPerTick * tc.workflowDonSize)
+				// Register N triggers by feeding MethodRegisterTrigger messages.
+				// With F=0 on the workflow DON side used in newServices patterns,
+				// a single sender suffices for quorum. Here F>0 so we need 2F+1
+				// senders. Use all workflow DON members.
+				for i := range tc.nRegistrations {
+					triggerID := fmt.Sprintf("trigger_%d", i)
+					wfID := generateWorkflowID(i)
 
-			t.Logf("Registrations: %d, WorkflowDON peers: %d, chunksPerTick: %d", tc.nRegistrations, tc.workflowDonSize, chunksPerTick)
-			t.Logf("Expected min (>= one tick): %d, Actual: %d", minPerFullTick, checkCount)
-			t.Logf("Full snapshot: %v", snap)
+					for _, sender := range workflowDonMembers {
+						req := commoncap.TriggerRegistrationRequest{
+							TriggerID: triggerID,
+							Metadata:  commoncap.RequestMetadata{WorkflowID: wfID},
+						}
+						marshaled, err := pb.MarshalTriggerRegistrationRequest(req)
+						require.NoError(t, err)
 
-			// Allow multiple ticks in the 200ms window (50ms refresh → several ticks).
-			require.GreaterOrEqual(t, checkCount, minPerFullTick,
-				"publisher should send at least chunksPerTick*peers TriggerRegistrationCheck messages per tick")
-			// Total sends stay far below one message per registration (worst case would be N×peers).
-			require.Less(t, checkCount, int64(tc.nRegistrations*tc.workflowDonSize),
-				"registration check traffic must remain far below per-registration fan-out")
+						msg := &remotetypes.MessageBody{
+							Sender:      sender[:],
+							Method:      remotetypes.MethodRegisterTrigger,
+							CallerDonId: workflowDon.ID,
+							Payload:     marshaled,
+						}
+						publisher.Receive(ctx, msg)
+					}
+				}
+
+				dispatcher.Reset()
+
+				// Count registration checks after registrations are in place (ignore
+				// any check traffic during the registration burst above).
+				time.Sleep(200 * time.Millisecond)
+
+				snap := dispatcher.Snapshot()
+				checkCount := snap[remotetypes.MethodTriggerRegistrationCheck]
+
+				// With MaxBatchSize=100, each registration-check tick sends ceil(N/100) messages per
+				// workflow-DON peer (chunked metadata), not one giant payload.
+				chunksPerTick := (tc.nRegistrations + 99) / 100
+				minPerFullTick := int64(chunksPerTick * tc.workflowDonSize)
+
+				t.Logf("Registrations: %d, WorkflowDON peers: %d, chunksPerTick: %d", tc.nRegistrations, tc.workflowDonSize, chunksPerTick)
+				t.Logf("Expected min (>= one tick): %d, Actual: %d", minPerFullTick, checkCount)
+				t.Logf("Full snapshot: %v", snap)
+
+				// Allow multiple ticks in the 200ms window (50ms refresh → several ticks).
+				require.GreaterOrEqual(t, checkCount, minPerFullTick,
+					"publisher should send at least chunksPerTick*peers TriggerRegistrationCheck messages per tick")
+				// Total sends stay far below one message per registration (worst case would be N×peers).
+				require.Less(t, checkCount, int64(tc.nRegistrations*tc.workflowDonSize),
+					"registration check traffic must remain far below per-registration fan-out")
+			})
 		})
 	}
 }
@@ -440,10 +447,13 @@ func BenchmarkRegistrationProcessing(b *testing.B) {
 // --- Test: Subscriber RLock hold duration during registration loop ---
 
 func TestRegistrationLoopLockDuration(t *testing.T) {
+	t.Parallel()
+
 	cases := []int{100, 500, 1000, 2500}
 
 	for _, n := range cases {
 		t.Run(fmt.Sprintf("N=%d", n), func(t *testing.T) {
+			t.Parallel()
 			lggr := logger.Test(t)
 			dispatcher := newCountingDispatcher()
 
@@ -475,7 +485,7 @@ func TestRegistrationLoopLockDuration(t *testing.T) {
 					TriggerID: fmt.Sprintf("trigger_%d", i),
 					Metadata:  commoncap.RequestMetadata{WorkflowID: generateWorkflowID(i)},
 				}
-				_, err := subscriber.RegisterTrigger(testutils.Context(t), req)
+				_, err := subscriber.RegisterTrigger(t.Context(), req)
 				require.NoError(t, err)
 			}
 
@@ -483,7 +493,7 @@ func TestRegistrationLoopLockDuration(t *testing.T) {
 
 			expectedSends := int64(n * 4) // n registrations * 4 cap DON members
 
-			require.NoError(t, subscriber.Start(testutils.Context(t)))
+			require.NoError(t, subscriber.Start(t.Context()))
 			t.Cleanup(func() { subscriber.Close() })
 
 			start := time.Now()
@@ -519,7 +529,8 @@ func TestRegistrationLoopLockDuration(t *testing.T) {
 // DON peers, workflow F=2 → quorum 5). This does not simulate dispatcher drops
 // or shared-channel saturation; see test log for that limitation.
 func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+	ctx := t.Context()
 	lggr := logger.Test(t)
 
 	const (
@@ -732,16 +743,10 @@ func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
 	t.Logf("--- Ratios (illustrative; phase windows differ) ---")
 	t.Logf("registrationLoop RegisterTrigger (one tick) / publisher registration-check sends per tick ≈ %.1fx",
 		regToCheckRatio)
-	ackDenom := ackFanout
-	if ackDenom < 1 {
-		ackDenom = 1
-	}
+	ackDenom := max(ackFanout, 1)
 	t.Logf("registrationLoop per tick / one subscriber AckEvent round ≈ %.1fx",
 		float64(perTickReg)/float64(ackDenom))
-	evDenom := afterEvent
-	if evDenom < 1 {
-		evDenom = 1
-	}
+	evDenom := max(afterEvent, 1)
 	t.Logf("registrationLoop per tick / one trigger event dispatch ≈ %.1fx",
 		float64(perTickReg)/float64(evDenom))
 

@@ -461,6 +461,7 @@ func TestConfig_Marshal(t *testing.T) {
 			MaxConfigSize:           ptr(utils.FileSize(50 * utils.KB)),
 			SyncStrategy:            ptr("event"),
 			MaxConcurrency:          ptr(12),
+			MaxActivationRetries:    new(100),
 			WorkflowStorage: toml.WorkflowStorage{
 				ArtifactStorageHost: ptr(""),
 				URL:                 ptr(""),
@@ -593,7 +594,9 @@ func TestConfig_Marshal(t *testing.T) {
 			TLSEnabled: ptr(true),
 		},
 		ConfidentialRelay: &toml.ConfidentialRelayConfig{
-			Enabled: ptr(false),
+			Enabled:          new(bool),
+			TrustEnclaves:    new(bool),
+			RequireBFTQuorum: new(bool),
 		},
 	}
 	full.Billing = toml.Billing{

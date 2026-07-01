@@ -51,7 +51,6 @@ func TestToCanonicalJSON_OmitsEmptyFields(t *testing.T) {
 		t.Parallel()
 
 		msg := &vaultcommon.CreateSecretsResponse{
-			RequestId: "owner::req-1",
 			Responses: []*vaultcommon.CreateSecretResponse{
 				{
 					Id:      id,
@@ -64,14 +63,12 @@ func TestToCanonicalJSON_OmitsEmptyFields(t *testing.T) {
 		withEmptyFields, err := ToCanonicalJSON(msg, false)
 		require.NoError(t, err)
 		assert.JSONEq(t, `{
-			"requestId":"owner::req-1",
 			"responses":[{"id":{"owner":"owner","namespace":"main","key":"secret1"},"success":true,"error":""}]
 		}`, string(withEmptyFields))
 
 		canonicalJSON, err := ToCanonicalJSON(msg, true)
 		require.NoError(t, err)
 		assert.JSONEq(t, `{
-			"requestId":"owner::req-1",
 			"responses":[{"id":{"owner":"owner","namespace":"main","key":"secret1"},"success":true}]
 		}`, string(canonicalJSON))
 		assert.NotEqual(t, string(withEmptyFields), string(canonicalJSON))
@@ -86,7 +83,7 @@ func TestToCanonicalJSON_OmitsEmptyFields(t *testing.T) {
 
 		withEmptyFields, err := ToCanonicalJSON(msg, false)
 		require.NoError(t, err)
-		assert.JSONEq(t, `{"responses":[],"requestId":""}`, string(withEmptyFields))
+		assert.JSONEq(t, `{"responses":[]}`, string(withEmptyFields))
 
 		canonicalJSON, err := ToCanonicalJSON(msg, true)
 		require.NoError(t, err)
@@ -98,17 +95,16 @@ func TestToCanonicalJSON_OmitsEmptyFields(t *testing.T) {
 		t.Parallel()
 
 		msg := &vaultcommon.CreateSecretsResponse{
-			RequestId: "owner::req-1",
 			Responses: []*vaultcommon.CreateSecretResponse{},
 		}
 
 		withEmptyFields, err := ToCanonicalJSON(msg, false)
 		require.NoError(t, err)
-		assert.JSONEq(t, `{"responses":[],"requestId":"owner::req-1"}`, string(withEmptyFields))
+		assert.JSONEq(t, `{"responses":[]}`, string(withEmptyFields))
 
 		canonicalJSON, err := ToCanonicalJSON(msg, true)
 		require.NoError(t, err)
-		assert.JSONEq(t, `{"requestId":"owner::req-1"}`, string(canonicalJSON))
+		assert.JSONEq(t, `{}`, string(canonicalJSON))
 		assert.NotEqual(t, string(withEmptyFields), string(canonicalJSON))
 	})
 }

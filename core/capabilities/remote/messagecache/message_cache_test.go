@@ -17,6 +17,8 @@ const (
 )
 
 func TestMessageCache_InsertReady(t *testing.T) {
+	t.Parallel()
+
 	cache := messagecache.NewMessageCache[string, string]()
 
 	// not ready with one message
@@ -43,6 +45,8 @@ func TestMessageCache_InsertReady(t *testing.T) {
 }
 
 func TestMessageCache_DeleteOlderThan(t *testing.T) {
+	t.Parallel()
+
 	cache := messagecache.NewMessageCache[string, string]()
 
 	ts := cache.Insert(eventID1, peerID1, 100, []byte(payloadA))

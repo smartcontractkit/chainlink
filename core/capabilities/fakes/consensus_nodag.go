@@ -104,12 +104,12 @@ func (fc *fakeConsensusNoDAG) Report(ctx context.Context, metadata capabilities.
 	}
 
 	switch input.EncoderName {
-	case "evm", "EVM": // report-gen for EVM
+	case "evm", "EVM", "solana", "Solana":
 		if len(input.EncodedPayload) == 0 {
-			return nil, caperrors.NewPublicUserError(errors.New("input value for EVM encoder needs to be a byte array and cannot be empty or nil"), caperrors.InvalidArgument)
+			return nil, caperrors.NewPublicUserError(fmt.Errorf("input value for %s encoder needs to be a byte array and cannot be empty or nil", input.EncoderName), caperrors.InvalidArgument)
 		}
 
-		// Prepend EVM metadata
+		// Prepend the shared 109-byte metadata header
 		rawOutput, err := meta.Encode()
 		if err != nil {
 			return nil, caperrors.NewPublicSystemError(fmt.Errorf("failed to prepend metadata fields: %w", err), caperrors.Internal)

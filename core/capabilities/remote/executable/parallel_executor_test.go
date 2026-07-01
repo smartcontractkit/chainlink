@@ -13,38 +13,37 @@ import (
 )
 
 func Test_CancellingContext_StopsTask(t *testing.T) {
+	t.Parallel()
 	tp := newParallelExecutor(10)
 	servicetest.Run(t, tp)
 
-	var cancelFns []context.CancelFunc
+	cancelFns := make([]context.CancelFunc, 0, 10)
 
-	var counter int32
+	var counter atomic.Int32
 	for range 10 {
 		ctx, cancel := context.WithCancel(t.Context())
+		t.Cleanup(cancel)
 		cancelFns = append(cancelFns, cancel)
 		err := tp.ExecuteTask(ctx, func(ctx context.Context) {
-			atomic.AddInt32(&counter, 1)
+			counter.Add(1)
 			<-ctx.Done()
-			atomic.AddInt32(&counter, -1)
+			counter.Add(-1)
 		})
 
 		require.NoError(t, err)
 	}
 
-	assert.Eventually(t, func() bool {
-		return atomic.LoadInt32(&counter) == 10
-	}, 10*time.Second, 10*time.Millisecond)
+	assert.Eventually(t, func() bool { return counter.Load() == 10 }, 5*time.Second, 10*time.Millisecond)
 
 	for _, cancel := range cancelFns {
 		cancel()
 	}
 
-	assert.Eventually(t, func() bool {
-		return atomic.LoadInt32(&counter) == 0
-	}, 10*time.Second, 10*time.Millisecond)
+	assert.Eventually(t, func() bool { return counter.Load() == 0 }, 5*time.Second, 10*time.Millisecond)
 }
 
 func Test_ExecuteRequestTimesOutWhenParallelExecutionLimitReached(t *testing.T) {
+	t.Parallel()
 	tp := newParallelExecutor(3)
 	servicetest.Run(t, tp)
 
@@ -64,43 +63,41 @@ func Test_ExecuteRequestTimesOutWhenParallelExecutionLimitReached(t *testing.T) 
 }
 
 func Test_ExecutingMultipleTasksInParallel(t *testing.T) {
+	t.Parallel()
 	tp := newParallelExecutor(10)
 	servicetest.Run(t, tp)
 
-	var counter int32
+	var counter atomic.Int32
 	for range 10 {
 		err := tp.ExecuteTask(t.Context(), func(ctx context.Context) {
-			atomic.AddInt32(&counter, 1)
+			counter.Add(1)
 			<-ctx.Done()
-			atomic.AddInt32(&counter, -1)
+			counter.Add(-1)
 		})
 		require.NoError(t, err)
 	}
 
-	assert.Eventually(t, func() bool {
-		return atomic.LoadInt32(&counter) == 10
-	}, 10*time.Second, 10*time.Millisecond)
+	assert.Eventually(t, func() bool { return counter.Load() == 10 }, 5*time.Second, 10*time.Millisecond)
 }
 
 func Test_StopsExecutingMultipleParallelTasksWhenClosed(t *testing.T) {
+	t.Parallel()
 	tp := newParallelExecutor(10)
-	var counter int32
+	var counter atomic.Int32
 	t.Cleanup(func() {
-		assert.Equal(t, int32(0), atomic.LoadInt32(&counter))
+		assert.Eventually(t, func() bool { return counter.Load() == 0 }, 5*time.Second, 10*time.Millisecond)
 	})
 
 	servicetest.Run(t, tp)
 
 	for range 10 {
 		err := tp.ExecuteTask(t.Context(), func(ctx context.Context) {
-			atomic.AddInt32(&counter, 1)
+			counter.Add(1)
 			<-ctx.Done()
-			atomic.AddInt32(&counter, -1)
+			counter.Add(-1)
 		})
 		require.NoError(t, err)
 	}
 
-	assert.Eventually(t, func() bool {
-		return atomic.LoadInt32(&counter) == 10
-	}, 10*time.Second, 10*time.Millisecond)
+	assert.Eventually(t, func() bool { return counter.Load() == 10 }, 5*time.Second, 10*time.Millisecond)
 }

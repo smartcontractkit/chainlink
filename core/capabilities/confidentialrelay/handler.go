@@ -87,8 +87,30 @@ func newMetrics() (*handlerMetrics, error) {
 	}, nil
 }
 
-// attestationValidatorFunc validates a TEE attestation document.
-type attestationValidatorFunc func(attestation []byte, expectedUserData []byte, trustedMeasurements []byte) error
+// AttestationValidator validates TEE attestation documents, with or without a
+// custom CA root. Both the production Nitro validator and the insecure
+// passthrough validator implement it, so the handler validates the same way
+// regardless of which is configured.
+type AttestationValidator interface {
+	ValidateAttestation(attestation, expectedUserData, trustedMeasurements []byte) error
+	ValidateAttestationWithRoots(attestation, expectedUserData, trustedMeasurements []byte, caRootsPEM string) error
+}
+
+// nitroValidator is the production validator backed by AWS Nitro.
+type nitroValidator struct{}
+
+func (nitroValidator) ValidateAttestation(attestation, expectedUserData, trustedMeasurements []byte) error {
+	return nitro.ValidateAttestation(attestation, expectedUserData, trustedMeasurements)
+}
+
+func (nitroValidator) ValidateAttestationWithRoots(attestation, expectedUserData, trustedMeasurements []byte, caRootsPEM string) error {
+	return nitro.ValidateAttestationWithRoots(attestation, expectedUserData, trustedMeasurements, caRootsPEM)
+}
+
+// NewAttestationValidator returns the production validator backed by AWS Nitro.
+func NewAttestationValidator() AttestationValidator {
+	return nitroValidator{}
+}
 
 // Handler processes enclave relay requests from the gateway.
 // It validates attestations and proxies requests to VaultDON or capability DONs.
@@ -103,13 +125,16 @@ type Handler struct {
 	lggr              logger.Logger
 	metrics           *handlerMetrics
 
-	// validateAttestation validates TEE attestation documents.
-	// Defaults to the Nitro validator; overridden in tests.
-	validateAttestation attestationValidatorFunc
-	limitsFactory       limits.Factory
+	// validator validates TEE attestation documents.
+	validator AttestationValidator
+	// requireBFTQuorum selects the required signature quorum: when true the relay
+	// demands a Byzantine quorum of 2*F+1 unique signers, otherwise a crash-fault
+	// quorum of F+1.
+	requireBFTQuorum bool
+	limitsFactory    limits.Factory
 }
 
-func NewHandler(capRegistry core.CapabilitiesRegistry, executionHandlers *ExecutionHandlers, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, lf limits.Factory) (*Handler, error) {
+func NewHandler(capRegistry core.CapabilitiesRegistry, executionHandlers *ExecutionHandlers, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, lf limits.Factory, validator AttestationValidator, requireBFTQuorum bool) (*Handler, error) {
 	if responseSigner == nil {
 		return nil, errors.New("response signer is required")
 	}
@@ -119,14 +144,15 @@ func NewHandler(capRegistry core.CapabilitiesRegistry, executionHandlers *Execut
 	}
 
 	h := &Handler{
-		capRegistry:         capRegistry,
-		executionHandlers:   executionHandlers,
-		gatewayConnector:    conn,
-		responseSigner:      responseSigner,
-		lggr:                logger.Named(lggr, HandlerName),
-		metrics:             m,
-		validateAttestation: nitro.ValidateAttestation,
-		limitsFactory:       lf,
+		capRegistry:       capRegistry,
+		executionHandlers: executionHandlers,
+		gatewayConnector:  conn,
+		responseSigner:    responseSigner,
+		lggr:              logger.Named(lggr, HandlerName),
+		metrics:           m,
+		validator:         validator,
+		requireBFTQuorum:  requireBFTQuorum,
+		limitsFactory:     lf,
 	}
 	h.Service, h.eng = services.Config{
 		Name:  HandlerName,
@@ -540,9 +566,9 @@ func (h *Handler) verifyAttestationHash(ctx context.Context, attestationB64 stri
 	for _, m := range measurements {
 		var err error
 		if caRootsPEM != "" {
-			err = nitro.ValidateAttestationWithRoots(attestationBytes, hash, m, caRootsPEM)
+			err = h.validator.ValidateAttestationWithRoots(attestationBytes, hash, m, caRootsPEM)
 		} else {
-			err = h.validateAttestation(attestationBytes, hash, m)
+			err = h.validator.ValidateAttestation(attestationBytes, hash, m)
 		}
 		if err == nil {
 			return nil
@@ -571,9 +597,13 @@ func (h *Handler) verifyWorkflowAuthorization(don capabilities.DON, params confi
 		return errors.New("missing signed compute requests")
 	}
 
-	// Match the enclave's own quorum: server.go requires config.F+1 unique signers where the
-	// config-tracker sets config.F = 2*don.F, i.e. 2*F+1.
-	threshold := 2*int(don.F) + 1
+	// Match the enclave's own quorum. With requireBFTQuorum the relay demands a
+	// Byzantine quorum of 2*F+1 unique signers; otherwise a crash-fault quorum of
+	// F+1 suffices.
+	threshold := int(don.F) + 1
+	if h.requireBFTQuorum {
+		threshold = 2*int(don.F) + 1
+	}
 
 	// The forwarded requests differ only in their signature; they all sign one shared
 	// ComputeRequest hash. Reconstruct that hash once and verify each signature over it.
