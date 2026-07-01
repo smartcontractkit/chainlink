@@ -78,6 +78,8 @@ func (m *testEvtHandler) EmitActivationAbandoned(context.Context, Event, eventsv
 	return nil
 }
 
+func (m *testEvtHandler) SetTenantID(uint64) {}
+
 func (m *testEvtHandler) ClearEvents() {
 	m.mux.Lock()
 	defer m.mux.Unlock()

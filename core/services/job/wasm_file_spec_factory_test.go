@@ -91,7 +91,7 @@ func createTestBinary(t *testing.T) string {
 	const testBinaryLocation = "testdata/wasm/testmodule.wasm"
 
 	cmd := exec.Command("go", "build", "-o", testBinaryLocation, "github.com/smartcontractkit/chainlink/v2/core/services/job/testdata/wasm")
-	cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
+	cmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS=wasip1", "GOARCH=wasm")
 
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, string(output))

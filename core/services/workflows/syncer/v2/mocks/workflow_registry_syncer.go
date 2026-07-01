@@ -116,6 +116,39 @@ func (_c *WorkflowRegistrySyncer_GetAllowlistedRequests_Call) RunAndReturn(run f
 	return _c
 }
 
+// SetTenantID provides a mock function with given fields: tenantID
+func (_m *WorkflowRegistrySyncer) SetTenantID(tenantID uint64) {
+	_m.Called(tenantID)
+}
+
+// WorkflowRegistrySyncer_SetTenantID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetTenantID'
+type WorkflowRegistrySyncer_SetTenantID_Call struct {
+	*mock.Call
+}
+
+// SetTenantID is a helper method to define mock.On call
+//   - tenantID uint64
+func (_e *WorkflowRegistrySyncer_Expecter) SetTenantID(tenantID interface{}) *WorkflowRegistrySyncer_SetTenantID_Call {
+	return &WorkflowRegistrySyncer_SetTenantID_Call{Call: _e.mock.On("SetTenantID", tenantID)}
+}
+
+func (_c *WorkflowRegistrySyncer_SetTenantID_Call) Run(run func(tenantID uint64)) *WorkflowRegistrySyncer_SetTenantID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(uint64))
+	})
+	return _c
+}
+
+func (_c *WorkflowRegistrySyncer_SetTenantID_Call) Return() *WorkflowRegistrySyncer_SetTenantID_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *WorkflowRegistrySyncer_SetTenantID_Call) RunAndReturn(run func(uint64)) *WorkflowRegistrySyncer_SetTenantID_Call {
+	_c.Run(run)
+	return _c
+}
+
 // HealthReport provides a mock function with no fields
 func (_m *WorkflowRegistrySyncer) HealthReport() map[string]error {
 	ret := _m.Called()

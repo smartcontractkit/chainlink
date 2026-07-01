@@ -676,6 +676,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		atomicSettings,
 		creServices.OCRConfigService,
 		cfg.Capabilities().Local(),
+		creServices.WorkflowRegistrySyncer,
 	)
 	delegates[job.StandardCapabilities] = stdcapDelegate
 	if creServices.SetDelegatesDeps != nil {

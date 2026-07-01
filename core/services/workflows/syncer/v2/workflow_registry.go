@@ -58,6 +58,10 @@ type WorkflowRegistrySyncer interface {
 	// GetAllowlistedRequests returns the latest list of allowlisted requests. This list is fetched periodically
 	// from the workflow registry contract.
 	GetAllowlistedRequests(ctx context.Context) []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest
+
+	// SetTenantID sets the tenant numeric id for the CRE environment. It is sourced
+	// from a job spec (the consensus OCR2 plugin config) and may be set at runtime.
+	SetTenantID(tenantID uint64)
 }
 
 // workflowRegistry is the implementation of the WorkflowRegistrySyncer interface.
@@ -137,6 +141,7 @@ type evtHandler interface {
 
 	Handle(ctx context.Context, event Event) error
 	EmitActivationAbandoned(ctx context.Context, event Event, reason eventsv2.ActivationAbandonReason, activationErr error, retryCount int32) error
+	SetTenantID(tenantID uint64)
 }
 
 type donNotifier interface {
@@ -483,6 +488,11 @@ func (w *workflowRegistry) abandonActivation(
 	if err := w.handler.EmitActivationAbandoned(ctx, evt.Event, reason, activationErr, activationRetryCountAsInt32(evt.retryCount)); err != nil {
 		w.lggr.Errorw("failed to emit activation abandoned event", "err", err)
 	}
+}
+
+// SetTenantID forwards the tenant id for the CRE environment to the event handler.
+func (w *workflowRegistry) SetTenantID(tenantID uint64) {
+	w.handler.SetTenantID(tenantID)
 }
 
 // toLocalHead converts a chainlink-common Head to our local Head struct
