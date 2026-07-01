@@ -32,6 +32,8 @@ type metrics struct {
 	reconcileEventsDispatched metric.Int64Histogram // events dispatched per source per tick
 	reconcileDuration         metric.Int64Histogram // wall-clock ms for parallel event processing
 	reconcileEventsBackoff    metric.Int64Counter   // events skipped due to backoff
+	activationDropped         metric.Int64Counter   // activations dropped after max load/init retries
+	activationAbandoned       metric.Int64Counter   // activations abandoned with reason label
 
 	// On-disk WASM cache write (sync); duration tails indicate IO contention vs typical skew.
 	moduleStoreDuration metric.Int64Histogram
@@ -103,6 +105,20 @@ func (m *metrics) recordReconcileBatch(ctx context.Context, source string, dispa
 func (m *metrics) recordReconcileBackoff(ctx context.Context, source string, count int) {
 	m.reconcileEventsBackoff.Add(ctx, int64(count), metric.WithAttributes(
 		attribute.String("source", source),
+	))
+}
+
+func (m *metrics) incrementActivationDropped(ctx context.Context, source, reason string) {
+	m.activationDropped.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("source", source),
+		attribute.String("reason", reason),
+	))
+}
+
+func (m *metrics) incrementActivationAbandoned(ctx context.Context, source, reason string) {
+	m.activationAbandoned.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("source", source),
+		attribute.String("reason", reason),
 	))
 }
 
@@ -313,6 +329,16 @@ func newMetrics() (*metrics, error) {
 		return nil, err
 	}
 
+	activationDropped, err := beholder.GetMeter().Int64Counter("platform_workflow_registry_syncer_activation_dropped_total")
+	if err != nil {
+		return nil, err
+	}
+
+	activationAbandoned, err := beholder.GetMeter().Int64Counter("platform_workflow_registry_syncer_activation_abandoned_total")
+	if err != nil {
+		return nil, err
+	}
+
 	moduleStoreDuration, err := beholder.GetMeter().Int64Histogram("platform_workflow_registry_syncer_module_store_duration_ms")
 	if err != nil {
 		return nil, err
@@ -335,6 +361,8 @@ func newMetrics() (*metrics, error) {
 		reconcileEventsDispatched: reconcileEventsDispatched,
 		reconcileDuration:         reconcileDuration,
 		reconcileEventsBackoff:    reconcileEventsBackoff,
+		activationDropped:         activationDropped,
+		activationAbandoned:       activationAbandoned,
 		moduleStoreDuration:       moduleStoreDuration,
 	}, nil
 }

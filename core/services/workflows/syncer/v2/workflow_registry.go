@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
+	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/versioning"
 )
@@ -36,6 +37,7 @@ var (
 	defaultRetryInterval         = 12 * time.Second
 	defaultMaxRetryInterval      = 5 * time.Minute
 	defaultMaxConcurrency        = 12
+	defaultMaxActivationRetries  = 100
 	WorkflowRegistryContractName = "WorkflowRegistry"
 
 	GetWorkflowsByDONMethodName                   = "getWorkflowListByDON"
@@ -102,11 +104,13 @@ type workflowRegistry struct {
 
 	engineRegistry *EngineRegistry
 
-	retryInterval    time.Duration
-	maxRetryInterval time.Duration
-	maxConcurrency   int
-	clock            clockwork.Clock
-	syncTickInterval time.Duration
+	retryInterval        time.Duration
+	maxRetryInterval     time.Duration
+	maxActivationRetries int
+	maxConcurrency       int
+	clock                clockwork.Clock
+	droppedActivations   *droppedActivations
+	syncTickInterval     time.Duration
 
 	hooks Hooks
 
@@ -132,6 +136,7 @@ type evtHandler interface {
 	Start(context.Context) error
 
 	Handle(ctx context.Context, event Event) error
+	EmitActivationAbandoned(ctx context.Context, event Event, reason eventsv2.ActivationAbandonReason, activationErr error, retryCount int32) error
 }
 
 type donNotifier interface {
@@ -166,6 +171,14 @@ func WithMaxConcurrency(maxConcurrency int) func(*workflowRegistry) {
 	return func(wr *workflowRegistry) {
 		if maxConcurrency > 0 {
 			wr.maxConcurrency = maxConcurrency
+		}
+	}
+}
+
+func WithMaxActivationRetries(maxActivationRetries int) func(*workflowRegistry) {
+	return func(wr *workflowRegistry) {
+		if maxActivationRetries >= 0 {
+			wr.maxActivationRetries = maxActivationRetries
 		}
 	}
 }
@@ -322,8 +335,10 @@ func NewWorkflowRegistry(
 		engineRegistry:                   engineRegistry,
 		retryInterval:                    defaultRetryInterval,
 		maxRetryInterval:                 defaultMaxRetryInterval,
+		maxActivationRetries:             defaultMaxActivationRetries,
 		maxConcurrency:                   defaultMaxConcurrency,
 		clock:                            clockwork.NewRealClock(),
+		droppedActivations:               newDroppedActivations(),
 		syncTickInterval:                 defaultTickInterval,
 		hooks: Hooks{
 			OnStartFailure: func(_ error) {},
@@ -443,6 +458,33 @@ func (w *workflowRegistry) handleWithMetrics(ctx context.Context, event Event) e
 	return err
 }
 
+// abandonActivation records an in-memory drop for a failed activation. Drop state is cleared on
+// node restart, giving the workflow a fresh retry budget.
+func (w *workflowRegistry) abandonActivation(
+	ctx context.Context,
+	sourceIdentifier, sourceName string,
+	evt *reconciliationEvent,
+	reason eventsv2.ActivationAbandonReason,
+	activationErr error,
+) {
+	w.droppedActivations.drop(sourceIdentifier, evt.id, evt.signature)
+	reasonLabel := activationAbandonReasonMetricLabel(reason)
+	w.metrics.incrementActivationDropped(ctx, sourceName, reasonLabel)
+	w.metrics.incrementActivationAbandoned(ctx, sourceName, reasonLabel)
+	w.lggr.Errorw("abandoning workflow activation",
+		"reason", reasonLabel,
+		"retryCount", evt.retryCount,
+		"maxActivationRetries", w.maxActivationRetries,
+		"type", evt.Name,
+		"id", evt.id,
+		"workflowInfo", evt.Info,
+		"err", activationErr,
+	)
+	if err := w.handler.EmitActivationAbandoned(ctx, evt.Event, reason, activationErr, activationRetryCountAsInt32(evt.retryCount)); err != nil {
+		w.lggr.Errorw("failed to emit activation abandoned event", "err", err)
+	}
+}
+
 // toLocalHead converts a chainlink-common Head to our local Head struct
 func toLocalHead(head *types.Head) Head {
 	return Head{
@@ -483,6 +525,12 @@ func (w *workflowRegistry) generateReconciliationEvents(
 			// state in the db; so we handle as an activation event.
 			case false:
 				signature := fmt.Sprintf("%s-%s-%s", WorkflowActivated, id, toSpecStatus(wfMeta.Status))
+
+				if w.droppedActivations.isDropped(sourceName, id, signature) {
+					workflowsSeen[id] = true
+					delete(pendingEvents, id)
+					continue
+				}
 
 				if _, ok := pendingEvents[id]; ok && pendingEvents[id].signature == signature {
 					events = append(events, pendingEvents[id])
@@ -839,6 +887,11 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 					reconcileReport.NumEventsByType[string(event.Name)]++
 					mu.Unlock()
 
+					if event.Name == WorkflowActivated && activationRetriesExhausted(event.retryCount, w.maxActivationRetries) {
+						w.abandonActivation(ctx, sourceIdentifier, sourceName, event, eventsv2.ActivationAbandonReason_ACTIVATION_ABANDON_REASON_RETRY_LIMIT_EXCEEDED, nil)
+						continue
+					}
+
 					if event.retryCount > 0 && !w.clock.Now().After(event.nextRetryAt) {
 						backoffCount++
 						mu.Lock()
@@ -865,13 +918,24 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 						}()
 						handleErr := w.handleWithMetrics(ctx, evt.Event)
 						if handleErr != nil {
-							evt.updateNextRetryFor(w.clock, w.retryInterval, w.maxRetryInterval)
+							policy := activationRetryPolicyForEvent(evt.Name, handleErr)
+							if policy == ActivationNonRetryable && evt.Name == WorkflowActivated {
+								w.abandonActivation(ctx, sourceIdentifier, sourceName, evt, eventsv2.ActivationAbandonReason_ACTIVATION_ABANDON_REASON_NON_RETRYABLE, handleErr)
+								return
+							}
+							evt.scheduleRetry(w.clock, w.retryInterval, w.maxRetryInterval, true)
+							if evt.Name == WorkflowActivated && activationRetriesExhausted(evt.retryCount, w.maxActivationRetries) {
+								w.abandonActivation(ctx, sourceIdentifier, sourceName, evt, eventsv2.ActivationAbandonReason_ACTIVATION_ABANDON_REASON_RETRY_LIMIT_EXCEEDED, handleErr)
+								return
+							}
 							mu.Lock()
 							pendingEventsBySource[sourceIdentifier][evt.id] = evt
 							reconcileReport.Backoffs[evt.id] = evt.nextRetryAt
 							mu.Unlock()
-							w.lggr.Errorw("failed to handle event, backing off...", "err", handleErr, "type", evt.Name, "nextRetryAt", evt.nextRetryAt, "retryCount", evt.retryCount, "workflowInfo", evt.Info)
+							w.lggr.Errorw("failed to handle event, backing off...", "err", handleErr, "type", evt.Name, "nextRetryAt", evt.nextRetryAt, "retryCount", evt.retryCount, "retryPolicy", policy, "workflowInfo", evt.Info)
+							return
 						}
+						w.droppedActivations.clear(sourceIdentifier, evt.id)
 					}(event)
 				}
 				wg.Wait()
