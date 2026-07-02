@@ -592,7 +592,7 @@ func (w *launcher) addRemoteCapability(ctx context.Context, cid string, capabili
 				w.cachedShims.executableClients[shimKey] = execCap
 			}
 			// V1 capabilities read transmission schedule from every request
-			if errCfg := execCap.SetConfig(info, myDON.DON, defaultTargetRequestTimeout, nil, nil); errCfg != nil {
+			if errCfg := execCap.SetConfig(info, myDON.DON, defaultTargetRequestTimeout, nil, nil, 0); errCfg != nil {
 				return nil, fmt.Errorf("failed to set trigger config: %w", errCfg)
 			}
 			return execCap.(capabilityService), nil
@@ -618,7 +618,7 @@ func (w *launcher) addRemoteCapability(ctx context.Context, cid string, capabili
 				w.cachedShims.executableClients[shimKey] = execCap
 			}
 			// V1 capabilities read transmission schedule from every request
-			if errCfg := execCap.SetConfig(info, myDON.DON, defaultTargetRequestTimeout, nil, nil); errCfg != nil {
+			if errCfg := execCap.SetConfig(info, myDON.DON, defaultTargetRequestTimeout, nil, nil, 0); errCfg != nil {
 				return nil, fmt.Errorf("failed to set trigger config: %w", errCfg)
 			}
 			return execCap.(capabilityService), nil
@@ -989,7 +989,7 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 			if err != nil {
 				return fmt.Errorf("failed to get signers for executable client: %w", err)
 			}
-			err = client.SetConfig(info, myDON.DON, config.RemoteExecutableConfig.RequestTimeout, transmissionConfig, signers)
+			err = client.SetConfig(info, myDON.DON, config.RemoteExecutableConfig.RequestTimeout, transmissionConfig, signers, config.RemoteExecutableConfig.MinResponsesToAggregate)
 			if err != nil {
 				w.lggr.Errorw("failed to update client config", "capID", capID, "method", method, "error", err)
 				continue
