@@ -211,9 +211,8 @@ type DeployEthBalMonWithReceiverInput struct {
 }
 
 // SetCallAllowedChainConfig configures a single setCallAllowed call on one chain.
+// The AutomationReceiver contract address is resolved from the datastore.
 type SetCallAllowedChainConfig struct {
-	// AutomationReceiverAddress is the deployed AutomationReceiver contract address (hex).
-	AutomationReceiverAddress string `json:"automationReceiverAddress"`
 	// TargetAddress is the contract that AutomationReceiver is allowed (or disallowed) to call (hex).
 	TargetAddress string `json:"targetAddress"`
 	// Selector is the 4-byte function selector as a hex string, e.g. "0x4b9f5c20".

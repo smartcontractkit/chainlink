@@ -36,9 +36,6 @@ func (s setCallAllowed) VerifyPreconditions(env cldf.Environment, config vaultty
 		if err := validateChainSelector(chainSelector, env); err != nil {
 			return fmt.Errorf("chain %d: %w", chainSelector, err)
 		}
-		if err := validateEthAddress("automationReceiverAddress", chainCfg.AutomationReceiverAddress); err != nil {
-			return fmt.Errorf("chain %d: %w", chainSelector, err)
-		}
 		if err := validateEthAddress("targetAddress", chainCfg.TargetAddress); err != nil {
 			return fmt.Errorf("chain %d: %w", chainSelector, err)
 		}
@@ -119,12 +116,11 @@ var SetCallAllowedSequence = operations.NewSequence(
 			}
 
 			opReport, err := operations.ExecuteOperation(b, SetCallAllowedProposalOperation, deps, SetCallAllowedProposalOpInput{
-				ChainSelector:             chainSelector,
-				AutomationReceiverAddress: chainCfg.AutomationReceiverAddress,
-				TargetAddress:             chainCfg.TargetAddress,
-				Selector:                  selector,
-				Allowed:                   chainCfg.Allowed,
-				MCMSConfig:                input.MCMSConfig,
+				ChainSelector: chainSelector,
+				TargetAddress: chainCfg.TargetAddress,
+				Selector:      selector,
+				Allowed:       chainCfg.Allowed,
+				MCMSConfig:    input.MCMSConfig,
 			})
 			if err != nil {
 				return SetCallAllowedSequenceOutput{}, fmt.Errorf("chain %d: failed to generate setCallAllowed batch: %w", chainSelector, err)
@@ -157,12 +153,11 @@ var SetCallAllowedSequence = operations.NewSequence(
 // ================================================
 
 type SetCallAllowedProposalOpInput struct {
-	ChainSelector             uint64                        `json:"chain_selector"`
-	AutomationReceiverAddress string                        `json:"automation_receiver_address"`
-	TargetAddress             string                        `json:"target_address"`
-	Selector                  [4]byte                       `json:"selector"`
-	Allowed                   bool                          `json:"allowed"`
-	MCMSConfig                *proposalutils.TimelockConfig `json:"mcms_config,omitempty"`
+	ChainSelector uint64                        `json:"chain_selector"`
+	TargetAddress string                        `json:"target_address"`
+	Selector      [4]byte                       `json:"selector"`
+	Allowed       bool                          `json:"allowed"`
+	MCMSConfig    *proposalutils.TimelockConfig `json:"mcms_config,omitempty"`
 }
 
 type SetCallAllowedProposalOpOutput struct {
@@ -179,7 +174,6 @@ var SetCallAllowedProposalOperation = operations.NewOperation(
 	func(b operations.Bundle, deps VaultDeps, input SetCallAllowedProposalOpInput) (SetCallAllowedProposalOpOutput, error) {
 		b.Logger.Infow("Starting setCallAllowed proposal operation",
 			"chainSelector", input.ChainSelector,
-			"automationReceiverAddress", input.AutomationReceiverAddress,
 			"target", input.TargetAddress,
 			"selector", fmt.Sprintf("0x%08x", input.Selector),
 			"allowed", input.Allowed,
@@ -188,6 +182,15 @@ var SetCallAllowedProposalOperation = operations.NewOperation(
 		chain, ok := deps.Environment.BlockChains.EVMChains()[input.ChainSelector]
 		if !ok {
 			return SetCallAllowedProposalOpOutput{}, fmt.Errorf("chain not found in environment: %d", input.ChainSelector)
+		}
+
+		automationReceiverAddr, err := getRequiredContractAddress(
+			deps.DataStore,
+			input.ChainSelector,
+			cldf.ContractType(vaulttypes.AutomationReceiverContractType),
+		)
+		if err != nil {
+			return SetCallAllowedProposalOpOutput{}, fmt.Errorf("failed to get AutomationReceiver address: %w", err)
 		}
 
 		timelockAddr, err := getRequiredContractAddress(
@@ -208,11 +211,11 @@ var SetCallAllowedProposalOperation = operations.NewOperation(
 		}
 
 		receiver, err := automation_receiver.NewAutomationReceiver(
-			common.HexToAddress(input.AutomationReceiverAddress),
+			common.HexToAddress(automationReceiverAddr),
 			chain.Client,
 		)
 		if err != nil {
-			return SetCallAllowedProposalOpOutput{}, fmt.Errorf("failed to instantiate AutomationReceiver at %s: %w", input.AutomationReceiverAddress, err)
+			return SetCallAllowedProposalOpOutput{}, fmt.Errorf("failed to instantiate AutomationReceiver at %s: %w", automationReceiverAddr, err)
 		}
 
 		setCallAllowedTx, err := receiver.SetCallAllowed(
@@ -235,7 +238,7 @@ var SetCallAllowedProposalOperation = operations.NewOperation(
 							"setCallAllowed",
 						},
 					},
-					To:               input.AutomationReceiverAddress,
+					To:               automationReceiverAddr,
 					Data:             setCallAllowedTx.Data(),
 					AdditionalFields: json.RawMessage(`{"value": 0}`),
 				},
@@ -244,7 +247,7 @@ var SetCallAllowedProposalOperation = operations.NewOperation(
 
 		b.Logger.Infow("Generated setCallAllowed batch",
 			"chainSelector", input.ChainSelector,
-			"automationReceiver", input.AutomationReceiverAddress,
+			"automationReceiver", automationReceiverAddr,
 			"target", input.TargetAddress,
 		)
 

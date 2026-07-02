@@ -8,6 +8,7 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
@@ -30,10 +31,9 @@ func TestSetCallAllowed_VerifyPreconditions(t *testing.T) {
 
 	validChain := func() types.SetCallAllowedChainConfig {
 		return types.SetCallAllowedChainConfig{
-			AutomationReceiverAddress: testAddr1,
-			TargetAddress:             testAddr2,
-			Selector:                  testSelectorHex,
-			Allowed:                   true,
+			TargetAddress: testAddr2,
+			Selector:      testSelectorHex,
+			Allowed:       true,
 		}
 	}
 
@@ -75,27 +75,12 @@ func TestSetCallAllowed_VerifyPreconditions(t *testing.T) {
 			errorMsg:  "not found in environment",
 		},
 		{
-			name: "invalid automation receiver address",
-			cfg: types.SetCallAllowedInput{
-				Chains: map[uint64]types.SetCallAllowedChainConfig{
-					selector: {
-						AutomationReceiverAddress: "not-an-address",
-						TargetAddress:             testAddr2,
-						Selector:                  testSelectorHex,
-					},
-				},
-			},
-			wantError: true,
-			errorMsg:  "automationReceiverAddress is not a valid hex address",
-		},
-		{
 			name: "invalid target address",
 			cfg: types.SetCallAllowedInput{
 				Chains: map[uint64]types.SetCallAllowedChainConfig{
 					selector: {
-						AutomationReceiverAddress: testAddr1,
-						TargetAddress:             "not-an-address",
-						Selector:                  testSelectorHex,
+						TargetAddress: "not-an-address",
+						Selector:      testSelectorHex,
 					},
 				},
 			},
@@ -107,9 +92,8 @@ func TestSetCallAllowed_VerifyPreconditions(t *testing.T) {
 			cfg: types.SetCallAllowedInput{
 				Chains: map[uint64]types.SetCallAllowedChainConfig{
 					selector: {
-						AutomationReceiverAddress: testAddr1,
-						TargetAddress:             testAddr2,
-						Selector:                  "0xzzzz",
+						TargetAddress: testAddr2,
+						Selector:      "0xzzzz",
 					},
 				},
 			},
@@ -121,9 +105,8 @@ func TestSetCallAllowed_VerifyPreconditions(t *testing.T) {
 			cfg: types.SetCallAllowedInput{
 				Chains: map[uint64]types.SetCallAllowedChainConfig{
 					selector: {
-						AutomationReceiverAddress: testAddr1,
-						TargetAddress:             testAddr2,
-						Selector:                  "0x1234",
+						TargetAddress: testAddr2,
+						Selector:      "0x1234",
 					},
 				},
 			},
@@ -167,13 +150,27 @@ func TestSetCallAllowedChangeSet(t *testing.T) {
 	setupMCMSInfrastructure(t, rt, []uint64{selector})
 	fundDeployerAccounts(t, rt.Environment(), []uint64{selector})
 
+	// Deploy the AutomationReceiver so its address is recorded in the datastore.
+	deployCfg := types.DeployAutomationReceiverInput{
+		Chains: map[uint64]types.AutomationReceiverChainConfig{
+			selector: {
+				ForwarderAddress: testAddr1,
+				TargetAddress:    testAddr2,
+				Selector:         testSelectorHex,
+			},
+		},
+	}
+	require.NoError(t, rt.Exec(runtime.ChangesetTask(DeployAutomationReceiverChangeSet, deployCfg)))
+
+	receiverAddr, err := GetContractAddress(rt.State().DataStore, selector, cldf.ContractType(types.AutomationReceiverContractType))
+	require.NoError(t, err)
+
 	cfg := types.SetCallAllowedInput{
 		Chains: map[uint64]types.SetCallAllowedChainConfig{
 			selector: {
-				AutomationReceiverAddress: testAddr1,
-				TargetAddress:             testAddr2,
-				Selector:                  testSelectorHex,
-				Allowed:                   true,
+				TargetAddress: testAddr2,
+				Selector:      testSelectorHex,
+				Allowed:       true,
 			},
 		},
 	}
@@ -190,7 +187,7 @@ func TestSetCallAllowedChangeSet(t *testing.T) {
 	require.Len(t, prop.Operations[0].Transactions, 1)
 	tx := prop.Operations[0].Transactions[0]
 	require.Contains(t, tx.Tags, "setCallAllowed")
-	require.Equal(t, testAddr1, tx.To)
+	require.Equal(t, receiverAddr, tx.To)
 }
 
 func TestSetCallAllowed_VerifyPreconditions_rejectsEmptyChains(t *testing.T) {
@@ -209,7 +206,7 @@ func TestSetCallAllowed_VerifyPreconditions_rejectsEmptyChains(t *testing.T) {
 	require.Contains(t, err.Error(), "chains must not be empty")
 }
 
-func TestSetCallAllowed_Apply_withoutMCMSInDatastore(t *testing.T) {
+func TestSetCallAllowed_Apply_withoutReceiverInDatastore(t *testing.T) {
 	t.Parallel()
 
 	selector := chainselectors.TEST_90000001.Selector
@@ -218,15 +215,17 @@ func TestSetCallAllowed_Apply_withoutMCMSInDatastore(t *testing.T) {
 	))
 	require.NoError(t, err)
 
+	// MCMS infra is present, but the AutomationReceiver was never deployed, so its
+	// address cannot be resolved from the datastore.
+	setupMCMSInfrastructure(t, rt, []uint64{selector})
 	fundDeployerAccounts(t, rt.Environment(), []uint64{selector})
 
 	cfg := types.SetCallAllowedInput{
 		Chains: map[uint64]types.SetCallAllowedChainConfig{
 			selector: {
-				AutomationReceiverAddress: testAddr1,
-				TargetAddress:             testAddr2,
-				Selector:                  testSelectorHex,
-				Allowed:                   true,
+				TargetAddress: testAddr2,
+				Selector:      testSelectorHex,
+				Allowed:       true,
 			},
 		},
 	}
@@ -234,4 +233,5 @@ func TestSetCallAllowed_Apply_withoutMCMSInDatastore(t *testing.T) {
 
 	_, err = SetCallAllowedChangeSet.Apply(rt.Environment(), cfg)
 	require.Error(t, err)
+	require.Contains(t, err.Error(), "AutomationReceiver")
 }
