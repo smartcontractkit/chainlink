@@ -1,5 +1,8 @@
 package compute
 
+//go:generate go run ../../internal/testutils/wasmtest/generator/main.go -pkg core/capabilities/compute/test/simple/cmd
+//go:generate go run ../../internal/testutils/wasmtest/generator/main.go -pkg core/capabilities/compute/test/fetch/cmd
+
 import (
 	"context"
 	"encoding/json"
@@ -92,6 +95,7 @@ func setup(t *testing.T, config Config) testHarness {
 }
 
 func TestComputeStartAddsToRegistry(t *testing.T) {
+	t.Parallel()
 	th := setup(t, defaultConfig)
 
 	require.NoError(t, th.compute.Start(t.Context()))
@@ -110,7 +114,7 @@ func TestComputeExecuteMissingConfig(t *testing.T) {
 	th := setup(t, defaultConfig)
 	require.NoError(t, th.compute.Start(t.Context()))
 
-	binary := wasmtest.CreateTestBinary(t, simpleBinaryCmd, true)
+	binary := wasmtest.GetTestBinary(t, simpleBinaryCmd, true)
 
 	config, err := values.WrapMap(map[string]any{
 		"binary": binary,
@@ -128,6 +132,7 @@ func TestComputeExecuteMissingConfig(t *testing.T) {
 }
 
 func TestComputeExecuteMissingBinary(t *testing.T) {
+	t.Parallel()
 	th := setup(t, defaultConfig)
 
 	require.NoError(t, th.compute.Start(t.Context()))
@@ -153,7 +158,7 @@ func TestComputeExecute(t *testing.T) {
 
 	require.NoError(t, th.compute.Start(t.Context()))
 
-	binary := wasmtest.CreateTestBinary(t, simpleBinaryCmd, true)
+	binary := wasmtest.GetTestBinary(t, simpleBinaryCmd, true)
 
 	config, err := values.WrapMap(map[string]any{
 		"config": []byte(""),
@@ -239,7 +244,7 @@ func TestComputeFetch(t *testing.T) {
 
 	require.NoError(t, th.compute.Start(t.Context()))
 
-	binary := wasmtest.CreateTestBinary(t, fetchBinaryCmd, true)
+	binary := wasmtest.GetTestBinary(t, fetchBinaryCmd, true)
 
 	config, err := values.WrapMap(map[string]any{
 		"config": []byte(""),
@@ -312,10 +317,10 @@ func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
 		delay time.Duration
 	}{
 		{0},
-		{time.Second},
-		{2 * time.Second},
-		{2_500 * time.Millisecond},
-		{3 * time.Second},
+		{50 * time.Millisecond},
+		{100 * time.Millisecond},
+		{150 * time.Millisecond},
+		{200 * time.Millisecond},
 	}
 
 	workflowID := "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
@@ -326,7 +331,7 @@ func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
 		validRequestUUID,
 	}, "/")
 	gatewayResp := gatewayResponse(t, msgID, []byte("response body"), privateKey)
-	binary := wasmtest.CreateTestBinary(t, fetchBinaryCmd, true)
+	binary := wasmtest.GetTestBinary(t, fetchBinaryCmd, true)
 
 	config, err := values.WrapMap(map[string]any{
 		"config": []byte(""),
@@ -426,7 +431,7 @@ func TestComputeFetchMaxResponseSizeBytes(t *testing.T) {
 
 	require.NoError(t, th.compute.Start(t.Context()))
 
-	binary := wasmtest.CreateTestBinary(t, fetchBinaryCmd, true)
+	binary := wasmtest.GetTestBinary(t, fetchBinaryCmd, true)
 
 	config, err := values.WrapMap(map[string]any{
 		"config": []byte(""),

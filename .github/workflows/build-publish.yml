@@ -229,6 +229,7 @@ jobs:
           oci-image-tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
           oci-repository-url: public.ecr.aws/chainlink/chainlink
           pr-close-enabled: false
+          pr-labels: ""
           products: |
             cre-mainline-staging_zone-a
             cre-mainline-staging_zone-b

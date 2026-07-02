@@ -743,7 +743,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		executionID = fullExecutionID
 		e.metrics.IncrementExecutionIDFullCounter(ctx)
 	} else {
-		executionID, err = events.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID)
+		executionID, err = events.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID) //nolint:staticcheck // SA1019 legacy execution ID path
 		if err != nil {
 			e.logger().Errorw("Failed to generate execution ID", "err", err, "triggerID", wrappedTriggerEvent.triggerCapID)
 			triggerDrop(monitoring.TriggerDropReasonExecutionIDGenerationFailed)
