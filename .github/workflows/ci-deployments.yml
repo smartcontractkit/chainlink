@@ -162,11 +162,11 @@ jobs:
         uses: aptos-labs/actions/install-aptos-cli@fdd3a3a628c840d5c35086a87e9cc3141b635505 # 2026-05-20
         with:
           CLI_VERSION: 8.1.0
-      - name: Setup Sui CLI v1.72.2
+      - name: Setup Sui CLI v1.74.1
         uses: ./.github/actions/setup-sui
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          version: mainnet-v1.72.2
+          version: mainnet-v1.74.1
       - name: Setup Postgres
         uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/v1
         with:
