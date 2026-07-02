@@ -4104,6 +4104,411 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
 }
 
+func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_ByzantineDivergentSHA(t *testing.T) {
+	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	// N=4, F=1: 2F+1=3, F+1=2. One Byzantine observation with a divergent SHA must not stall the GET.
+	r := newTestReportingPlugin(t, withLggr(lggr), withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultGetSecretsRelaxedConsensusEnabled())
+
+	seqNr := uint64(1)
+	kv := &kv{m: make(map[string]response)}
+
+	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
+	encKey := "my-encryption-key"
+	req := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{encKey}}},
+	}
+	honestResp := func(share string) *vaultcommon.GetSecretsResponse {
+		return &vaultcommon.GetSecretsResponse{
+			Responses: []*vaultcommon.SecretResponse{{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{Data: &vaultcommon.SecretData{
+					EncryptedValue: "encrypted-value",
+					EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{{
+						EncryptionKey: encKey, Shares: []string{share},
+					}},
+				}},
+			}},
+		}
+	}
+	// Byzantine: divergent SHA via a different EncryptedValue (ciphertext substitution).
+	byzantineResp := func(share string) *vaultcommon.GetSecretsResponse {
+		return &vaultcommon.GetSecretsResponse{
+			Responses: []*vaultcommon.SecretResponse{{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{Data: &vaultcommon.SecretData{
+					EncryptedValue: "byzantine-encrypted-value",
+					EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{{
+						EncryptionKey: encKey, Shares: []string{share},
+					}},
+				}},
+			}},
+		}
+	}
+
+	obsb1 := marshalObservations(t, observation{id, req, honestResp("encrypted-share-1")})
+	obsb2 := marshalObservations(t, observation{id, req, honestResp("encrypted-share-2")})
+	obsbByz := marshalObservations(t, observation{id, req, byzantineResp("byzantine-share")})
+	reportPrecursor, err := r.StateTransition(
+		t.Context(), seqNr, types.AttributedQuery{},
+		[]types.AttributedObservation{
+			{Observer: 0, Observation: types.Observation(obsb1)},
+			{Observer: 1, Observation: types.Observation(obsb2)},
+			{Observer: 2, Observation: types.Observation(obsbByz)},
+		}, kv, nil)
+	require.NoError(t, err)
+
+	os := &vaultcommon.Outcomes{}
+	require.NoError(t, proto.Unmarshal(reportPrecursor, os))
+	assert.Len(t, os.Outcomes, 1)
+
+	got := os.Outcomes[0].GetGetSecretsResponse().Responses[0].GetData().EncryptedDecryptionKeyShares[0].Shares
+	assert.Equal(t, []string{"encrypted-share-1", "encrypted-share-2"}, got)
+	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
+}
+
+func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_Disabled_NoOutcome(t *testing.T) {
+	// Same byzantine-divergent-SHA scenario as above, but with the flag OFF: the legacy 2F+1
+	// same-SHA requirement is unmet (honest group is only F+1=2 < 2F+1=3), so no outcome.
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+
+	seqNr := uint64(1)
+	kv := &kv{m: make(map[string]response)}
+
+	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
+	encKey := "my-encryption-key"
+	req := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{encKey}}},
+	}
+	honestResp := func(share string) *vaultcommon.GetSecretsResponse {
+		return &vaultcommon.GetSecretsResponse{
+			Responses: []*vaultcommon.SecretResponse{{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{Data: &vaultcommon.SecretData{
+					EncryptedValue: "encrypted-value",
+					EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{{
+						EncryptionKey: encKey, Shares: []string{share},
+					}},
+				}},
+			}},
+		}
+	}
+	byzantineResp := func(share string) *vaultcommon.GetSecretsResponse {
+		return &vaultcommon.GetSecretsResponse{
+			Responses: []*vaultcommon.SecretResponse{{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{Data: &vaultcommon.SecretData{
+					EncryptedValue: "byzantine-encrypted-value",
+					EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{{
+						EncryptionKey: encKey, Shares: []string{share},
+					}},
+				}},
+			}},
+		}
+	}
+
+	obsb1 := marshalObservations(t, observation{id, req, honestResp("encrypted-share-1")})
+	obsb2 := marshalObservations(t, observation{id, req, honestResp("encrypted-share-2")})
+	obsbByz := marshalObservations(t, observation{id, req, byzantineResp("byzantine-share")})
+	reportPrecursor, err := r.StateTransition(
+		t.Context(), seqNr, types.AttributedQuery{},
+		[]types.AttributedObservation{
+			{Observer: 0, Observation: types.Observation(obsb1)},
+			{Observer: 1, Observation: types.Observation(obsb2)},
+			{Observer: 2, Observation: types.Observation(obsbByz)},
+		}, kv, nil)
+	require.NoError(t, err)
+
+	os := &vaultcommon.Outcomes{}
+	require.NoError(t, proto.Unmarshal(reportPrecursor, os))
+	assert.Empty(t, os.Outcomes)
+}
+
+func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_InsufficientTotal(t *testing.T) {
+	// N=4, F=1: 2F+1=3. Only 2 observations total (both honest, same SHA). Request legitimacy
+	// (>= 2F+1) fails even though the same-SHA group meets F+1, so no outcome.
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultGetSecretsRelaxedConsensusEnabled())
+
+	seqNr := uint64(1)
+	kv := &kv{m: make(map[string]response)}
+
+	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
+	encKey := "my-encryption-key"
+	req := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{encKey}}},
+	}
+	honestResp := func(share string) *vaultcommon.GetSecretsResponse {
+		return &vaultcommon.GetSecretsResponse{
+			Responses: []*vaultcommon.SecretResponse{{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{Data: &vaultcommon.SecretData{
+					EncryptedValue: "encrypted-value",
+					EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{{
+						EncryptionKey: encKey, Shares: []string{share},
+					}},
+				}},
+			}},
+		}
+	}
+
+	obsb1 := marshalObservations(t, observation{id, req, honestResp("encrypted-share-1")})
+	obsb2 := marshalObservations(t, observation{id, req, honestResp("encrypted-share-2")})
+	reportPrecursor, err := r.StateTransition(
+		t.Context(), seqNr, types.AttributedQuery{},
+		[]types.AttributedObservation{
+			{Observer: 0, Observation: types.Observation(obsb1)},
+			{Observer: 1, Observation: types.Observation(obsb2)},
+		}, kv, nil)
+	require.NoError(t, err)
+
+	os := &vaultcommon.Outcomes{}
+	require.NoError(t, proto.Unmarshal(reportPrecursor, os))
+	assert.Empty(t, os.Outcomes)
+}
+
+func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_NoFPlus1Group(t *testing.T) {
+	// N=4, F=1: 2F+1=3, F+1=2. Three observations each with a distinct SHA (no group reaches F+1=2).
+	// Share sufficiency fails even though total meets 2F+1, so no outcome.
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultGetSecretsRelaxedConsensusEnabled())
+
+	seqNr := uint64(1)
+	kv := &kv{m: make(map[string]response)}
+
+	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
+	encKey := "my-encryption-key"
+	req := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{encKey}}},
+	}
+	resp := func(ciphertext, share string) *vaultcommon.GetSecretsResponse {
+		return &vaultcommon.GetSecretsResponse{
+			Responses: []*vaultcommon.SecretResponse{{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{Data: &vaultcommon.SecretData{
+					EncryptedValue: ciphertext,
+					EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{{
+						EncryptionKey: encKey, Shares: []string{share},
+					}},
+				}},
+			}},
+		}
+	}
+
+	obsb1 := marshalObservations(t, observation{id, req, resp("encrypted-value-a", "share-1")})
+	obsb2 := marshalObservations(t, observation{id, req, resp("encrypted-value-b", "share-2")})
+	obsb3 := marshalObservations(t, observation{id, req, resp("encrypted-value-c", "share-3")})
+	reportPrecursor, err := r.StateTransition(
+		t.Context(), seqNr, types.AttributedQuery{},
+		[]types.AttributedObservation{
+			{Observer: 0, Observation: types.Observation(obsb1)},
+			{Observer: 1, Observation: types.Observation(obsb2)},
+			{Observer: 2, Observation: types.Observation(obsb3)},
+		}, kv, nil)
+	require.NoError(t, err)
+
+	os := &vaultcommon.Outcomes{}
+	require.NoError(t, proto.Unmarshal(reportPrecursor, os))
+	assert.Empty(t, os.Outcomes)
+}
+
+func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_AggregatesAllSharesUpTo2FPlus1(t *testing.T) {
+	// N=10, F=3: 2F+1=7, F+1=4. All 10 honest observations share a SHA (shares are stripped from
+	// the SHA). The winning group (10) is capped at 2F+1=7 shares.
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 4)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(10, 3), withVaultGetSecretsRelaxedConsensusEnabled())
+
+	seqNr := uint64(1)
+	kv := &kv{m: make(map[string]response)}
+
+	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
+	encKey := "my-encryption-key"
+	req := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{encKey}}},
+	}
+	honestResp := func(share string) *vaultcommon.GetSecretsResponse {
+		return &vaultcommon.GetSecretsResponse{
+			Responses: []*vaultcommon.SecretResponse{{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{Data: &vaultcommon.SecretData{
+					EncryptedValue: "encrypted-value",
+					EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{{
+						EncryptionKey: encKey, Shares: []string{share},
+					}},
+				}},
+			}},
+		}
+	}
+
+	aos := []types.AttributedObservation{}
+	for i := 0; i < 10; i++ {
+		obsb := marshalObservations(t, observation{id, req, honestResp(fmt.Sprintf("encrypted-share-%d", i+1))})
+		aos = append(aos, types.AttributedObservation{Observer: commontypes.OracleID(i), Observation: types.Observation(obsb)})
+	}
+	reportPrecursor, err := r.StateTransition(t.Context(), seqNr, types.AttributedQuery{}, aos, kv, nil)
+	require.NoError(t, err)
+
+	os := &vaultcommon.Outcomes{}
+	require.NoError(t, proto.Unmarshal(reportPrecursor, os))
+	assert.Len(t, os.Outcomes, 1)
+
+	twoFPlusOne := 2*r.onchainCfg.F + 1
+	got := os.Outcomes[0].GetGetSecretsResponse().Responses[0].GetData().EncryptedDecryptionKeyShares[0].Shares
+	assert.Len(t, got, twoFPlusOne)
+}
+
+func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_TieBreakPicksLexicographicallySmallestSHA(t *testing.T) {
+	// N=10, F=3: 2F+1=7, F+1=4. Two SHA groups each of size F+1=4 (total 8 >= 2F+1). Both groups
+	// qualify for share sufficiency; chooseGetSecretsObservations iterates SHAs in sorted order and
+	// keeps the first largest group (strict `>`), so the lexicographically smallest SHA must win.
+	// Shares are stripped from the SHA, so within a group only the ciphertext drives the SHA; the
+	// committed ciphertext therefore identifies the winning group. The result must also be stable
+	// across repeated invocations (guards against nondeterministic map iteration in the tie-break).
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 4)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(10, 3), withVaultGetSecretsRelaxedConsensusEnabled())
+
+	seqNr := uint64(1)
+	kv := &kv{m: make(map[string]response)}
+
+	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
+	encKey := "my-encryption-key"
+	req := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{encKey}}},
+	}
+	resp := func(ciphertext, share string) *vaultcommon.GetSecretsResponse {
+		return &vaultcommon.GetSecretsResponse{
+			Responses: []*vaultcommon.SecretResponse{{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{Data: &vaultcommon.SecretData{
+					EncryptedValue: ciphertext,
+					EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{{
+						EncryptionKey: encKey, Shares: []string{share},
+					}},
+				}},
+			}},
+		}
+	}
+
+	// Group A: observers 0-3 (ciphertext-a). Group B: observers 4-7 (ciphertext-b).
+	aos := make([]types.AttributedObservation, 0, 8)
+	for i := 0; i < 4; i++ {
+		obsb := marshalObservations(t, observation{id, req, resp("ciphertext-a", fmt.Sprintf("a-share-%d", i+1))})
+		aos = append(aos, types.AttributedObservation{Observer: commontypes.OracleID(i), Observation: types.Observation(obsb)})
+	}
+	for i := 0; i < 4; i++ {
+		obsb := marshalObservations(t, observation{id, req, resp("ciphertext-b", fmt.Sprintf("b-share-%d", i+1))})
+		aos = append(aos, types.AttributedObservation{Observer: commontypes.OracleID(i + 4), Observation: types.Observation(obsb)})
+	}
+
+	// Determine which group has the lexicographically smaller SHA.
+	shaForCiphertext := func(ciphertext string) string {
+		obsb := marshalObservations(t, observation{id, req, resp(ciphertext, "irrelevant")})
+		op := &vaultcommon.Observations{}
+		require.NoError(t, proto.Unmarshal(obsb, op))
+		sha, err := r.shaForObservation(t.Context(), op.Observations[0], false)
+		require.NoError(t, err)
+		return sha
+	}
+	shaA := shaForCiphertext("ciphertext-a")
+	shaB := shaForCiphertext("ciphertext-b")
+	expectedCiphertext := "ciphertext-a"
+	expectedShares := []string{"a-share-1", "a-share-2", "a-share-3", "a-share-4"}
+	if shaB < shaA {
+		expectedCiphertext = "ciphertext-b"
+		expectedShares = []string{"b-share-1", "b-share-2", "b-share-3", "b-share-4"}
+	}
+
+	// Repeated invocation must produce byte-identical outcomes.
+	var first []byte
+	for run := 0; run < 5; run++ {
+		reportPrecursor, err := r.StateTransition(t.Context(), seqNr, types.AttributedQuery{}, aos, kv, nil)
+		require.NoError(t, err)
+		if first == nil {
+			first = reportPrecursor
+			continue
+		}
+		assert.True(t, bytes.Equal(first, reportPrecursor), "relaxed consensus outcome differs across repeated invocations (run %d)", run)
+	}
+
+	os := &vaultcommon.Outcomes{}
+	require.NoError(t, proto.Unmarshal(first, os))
+	require.Len(t, os.Outcomes, 1)
+	data := os.Outcomes[0].GetGetSecretsResponse().Responses[0].GetData()
+	assert.Equal(t, expectedCiphertext, data.EncryptedValue)
+	assert.ElementsMatch(t, expectedShares, data.EncryptedDecryptionKeyShares[0].Shares)
+}
+
+func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_DeterministicAcrossInvocations(t *testing.T) {
+	// G1 determinism for the relaxed path. chooseGetSecretsObservations iterates a SHA->obs map
+	// and must select deterministically; OCR3.1 delivers identical attributed observations to
+	// every node, so cross-node determinism reduces to same-input determinism. This test forces
+	// the relaxed selection through a multi-SHA map (one honest majority group plus several
+	// divergent Byzantine SHAs) and asserts byte-identical outcomes across repeated invocations.
+	// A regression to unsorted map iteration (`range shaToObs`) would flake here.
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 4)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(10, 3), withVaultGetSecretsRelaxedConsensusEnabled())
+
+	seqNr := uint64(1)
+	kv := &kv{m: make(map[string]response)}
+
+	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
+	encKey := "my-encryption-key"
+	req := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{encKey}}},
+	}
+	resp := func(ciphertext, share string) *vaultcommon.GetSecretsResponse {
+		return &vaultcommon.GetSecretsResponse{
+			Responses: []*vaultcommon.SecretResponse{{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{Data: &vaultcommon.SecretData{
+					EncryptedValue: ciphertext,
+					EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{{
+						EncryptionKey: encKey, Shares: []string{share},
+					}},
+				}},
+			}},
+		}
+	}
+
+	aos := make([]types.AttributedObservation, 0, 10)
+	// Honest majority: 7 observers share a SHA (shares are stripped), distinct shares each.
+	for i := 0; i < 7; i++ {
+		obsb := marshalObservations(t, observation{id, req, resp("ciphertext-honest", fmt.Sprintf("honest-share-%d", i+1))})
+		aos = append(aos, types.AttributedObservation{Observer: commontypes.OracleID(i), Observation: types.Observation(obsb)})
+	}
+	// Byzantine: 3 observers each with a distinct divergent SHA (no group reaches F+1).
+	for i, ct := range []string{"byz-ciphertext-1", "byz-ciphertext-2", "byz-ciphertext-3"} {
+		obsb := marshalObservations(t, observation{id, req, resp(ct, fmt.Sprintf("byz-share-%d", i+1))})
+		aos = append(aos, types.AttributedObservation{Observer: commontypes.OracleID(i + 7), Observation: types.Observation(obsb)})
+	}
+
+	var first []byte
+	for run := 0; run < 10; run++ {
+		reportPrecursor, err := r.StateTransition(t.Context(), seqNr, types.AttributedQuery{}, aos, kv, nil)
+		require.NoError(t, err)
+		if first == nil {
+			first = reportPrecursor
+			continue
+		}
+		assert.True(t, bytes.Equal(first, reportPrecursor), "relaxed consensus outcome differs across repeated invocations (run %d)", run)
+	}
+
+	os := &vaultcommon.Outcomes{}
+	require.NoError(t, proto.Unmarshal(first, os))
+	require.Len(t, os.Outcomes, 1)
+	data := os.Outcomes[0].GetGetSecretsResponse().Responses[0].GetData()
+	assert.Equal(t, "ciphertext-honest", data.EncryptedValue)
+	assert.Len(t, data.EncryptedDecryptionKeyShares[0].Shares, 2*r.onchainCfg.F+1)
+}
+
 func TestPlugin_StateTransition_GetSecretsRequest_CombinesBinaryShares(t *testing.T) {
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)

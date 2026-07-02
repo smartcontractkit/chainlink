@@ -56,21 +56,16 @@ type ReportingPluginConfig struct {
 
 	// Sourced from the offchain config
 	MaxSecretsPerOwner                                limits.BoundLimiter[int]
-	MaxCiphertextLengthBytes                          limits.BoundLimiter[pkgconfig.Size]
-	MaxIdentifierKeyLengthBytes                       limits.BoundLimiter[pkgconfig.Size]
-	MaxIdentifierOwnerLengthBytes                     limits.BoundLimiter[pkgconfig.Size]
-	MaxIdentifierNamespaceLengthBytes                 limits.BoundLimiter[pkgconfig.Size]
 	MaxShareLengthBytes                               limits.BoundLimiter[pkgconfig.Size]
-	MaxRequestBatchSize                               limits.BoundLimiter[int]
 	MaxBatchSize                                      limits.BoundLimiter[int]
 	MaxPendingQueueWriteSize                          limits.BoundLimiter[int]
 	MaxBlobPayloadBytes                               limits.BoundLimiter[pkgconfig.Size]
 	VaultForceEmptyOCRRounds                          limits.GateLimiter
 	VaultOptimizationsEnabled                         limits.GateLimiter
 	VaultCiphertextlessObservationsEnabled            limits.GateLimiter
-	VaultSignedResponseRequestIDEnabled               limits.GateLimiter
 	VaultJSONOmitUnpopulatedEnabled                   limits.GateLimiter
 	VaultGetSecretsShareAggregationIncludesPublicKeys limits.GateLimiter
+	VaultGetSecretsRelaxedConsensusEnabled            limits.GateLimiter
 }
 
 func NewReportingPluginFactory(
@@ -210,6 +205,11 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		return nil, fmt.Errorf("VaultJSONOmitUnpopulatedEnabled: %w", err)
 	}
 
+	vaultGetSecretsRelaxedConsensusEnabled, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultGetSecretsRelaxedConsensusEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("VaultGetSecretsRelaxedConsensusEnabled: %w", err)
+	}
+
 	maxBlobPayloadBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultMaxBlobPayloadSizeLimit)
 	if err != nil {
 		return nil, fmt.Errorf("VaultMaxBlobPayloadSizeLimit: %w", err)
@@ -227,9 +227,9 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		VaultForceEmptyOCRRounds:                          vaultForceEmptyOCRRounds,
 		VaultOptimizationsEnabled:                         vaultOptimizationsEnabled,
 		VaultCiphertextlessObservationsEnabled:            vaultCiphertextlessObservationsEnabled,
-		VaultSignedResponseRequestIDEnabled:               vaultSignedResponseRequestIDEnabled,
 		VaultJSONOmitUnpopulatedEnabled:                   vaultJSONOmitUnpopulatedEnabled,
 		VaultGetSecretsShareAggregationIncludesPublicKeys: vaultGetSecretsShareAggregationIncludesPublicKeys,
+		VaultGetSecretsRelaxedConsensusEnabled:            vaultGetSecretsRelaxedConsensusEnabled,
 	}, nil
 }
 
@@ -601,6 +601,10 @@ func (r *ReportingPlugin) shareAggregationIncludesPublicKeys(ctx context.Context
 
 func (r *ReportingPlugin) jsonOmitUnpopulatedEnabled(ctx context.Context) bool {
 	return gateAllows(ctx, r.lggr, r.cfg.VaultJSONOmitUnpopulatedEnabled, "VaultJSONOmitUnpopulatedEnabled")
+}
+
+func (r *ReportingPlugin) getSecretsRelaxedConsensusEnabled(ctx context.Context) bool {
+	return gateAllows(ctx, r.lggr, r.cfg.VaultGetSecretsRelaxedConsensusEnabled, "VaultGetSecretsRelaxedConsensusEnabled")
 }
 
 type pendingQueueStore interface {
@@ -1595,6 +1599,41 @@ func (r *ReportingPlugin) shaForObservation(ctx context.Context, o *vaultcommon.
 	}
 }
 
+// GetSecrets request legitimacy: the request id must appear in >= 2F+1 observations total (across any SHA).
+// With at most F Byzantine nodes, 2F+1 observations means at least F+1 honest nodes observed the
+// request.
+//
+// Share sufficiency: encrypted shares cannot be cryptographically validated (ValidateObservation
+// checks structure/size only), so a Byzantine node may emit a fake share that still matches an
+// honest SHA. We therefore pick the largest same-SHA group of size >= F+1. All honest nodes read
+// the same KV and produce the same SHA, so every honest observation (>= F+1 of them) falls in this
+// group; a Byzantine-only group cannot reach F+1 (only F Byzantine exist), so the largest
+// qualifying group is the honest one.
+//
+// Share threshold: we return all shares in the chosen group, capped at 2F+1. The group contains
+// >= F+1 honest (valid) shares, and at most F shares in it can be Byzantine fakes. Returning up
+// to 2F+1 shares guarantees that even after discarding up to F invalid shares, >= F+1 valid shares
+// remain — enough to reconstruct (threshold T = F+1).
+//
+// Returns nil when either the request-legitimacy or share-sufficiency threshold is unmet.
+func (r *ReportingPlugin) chooseGetSecretsObservations(totalForID int, shaToObs map[string][]*vaultcommon.Observation) []*vaultcommon.Observation {
+	f := r.onchainCfg.F
+	if totalForID < 2*f+1 {
+		return nil
+	}
+	var chosen []*vaultcommon.Observation
+	for _, sha := range slices.Sorted(maps.Keys(shaToObs)) {
+		obs := shaToObs[sha]
+		if len(obs) >= f+1 && len(obs) > len(chosen) {
+			chosen = obs
+		}
+	}
+	if maxChosen := 2*f + 1; len(chosen) > maxChosen {
+		chosen = chosen[:maxChosen]
+	}
+	return chosen
+}
+
 func (r *ReportingPlugin) validateObservation(ctx context.Context, o *vaultcommon.Observation, pendingGetSecretsByID map[string]*vaultcommon.GetSecretsRequest) error {
 	if o.Id == "" {
 		return errors.New("request id cannot be empty")
@@ -1916,27 +1955,33 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		// Once we have it, we can break, as mathematically only one
 		// sha can reach at least 2F+1 observaions.
 		chosen := []*vaultcommon.Observation{}
-		for _, sha := range slices.Sorted(maps.Keys(shaToObs)) {
-			obs := shaToObs[sha]
+		if r.getSecretsRelaxedConsensusEnabled(ctx) && len(obs) > 0 && obs[0].RequestType == vaultcommon.RequestType_GET_SECRETS {
+			if chosen = r.chooseGetSecretsObservations(len(obs), shaToObs); chosen != nil {
+				r.lggr.Debugw("sufficient observations for sha", "requestType", "GetSecrets", "relaxedConsensus", true, "totalForID", len(obs), "count", len(chosen), "threshold", r.onchainCfg.F+1, "id", id)
+			}
+		} else {
+			for _, sha := range slices.Sorted(maps.Keys(shaToObs)) {
+				obs := shaToObs[sha]
 
-			o := obs[0]
-			switch {
-			case o.RequestType == vaultcommon.RequestType_GET_SECRETS && len(obs) >= 2*r.onchainCfg.F+1:
-				// GetRequests required 2F+1 observations because we need exactly T=F+1 shares to reconstruct the secret.
-				// Since F shares can be fault, that means T+F=2F+1 shares are required, necessitating 2F+1 observations.
-				if r.optimizationsEnabled(ctx) {
-					chosen = shaToObs[sha][:2*r.onchainCfg.F+1]
-				} else {
+				o := obs[0]
+				switch {
+				case o.RequestType == vaultcommon.RequestType_GET_SECRETS && len(obs) >= 2*r.onchainCfg.F+1:
+					// GetRequests required 2F+1 observations because we need exactly T=F+1 shares to reconstruct the secret.
+					// Since F shares can be fault, that means T+F=2F+1 shares are required, necessitating 2F+1 observations.
+					if r.optimizationsEnabled(ctx) {
+						chosen = shaToObs[sha][:2*r.onchainCfg.F+1]
+					} else {
+						chosen = shaToObs[sha]
+					}
+					r.lggr.Debugw("sufficient observations for sha", "sha", sha, "requestType", "GetSecrets", "count", len(obs), "threshold", 2*r.onchainCfg.F+1, "id", id)
+				case o.RequestType != vaultcommon.RequestType_GET_SECRETS && len(obs) >= r.onchainCfg.F+1:
+					// F+1 means that at least 1 honest node has provided this observation, so that's enough for all other request
+					// types.
+					// Technically we could have two shas with F+1 observations. If that happens we'll pick the last one.
+					// This is deterministic since we're sorting by shas above.
 					chosen = shaToObs[sha]
+					r.lggr.Debugw("sufficient observations for sha", "sha", sha, "count", len(obs), "threshold", r.onchainCfg.F+1, "id", id)
 				}
-				r.lggr.Debugw("sufficient observations for sha", "sha", sha, "requestType", "GetSecrets", "count", len(obs), "threshold", 2*r.onchainCfg.F+1, "id", id)
-			case o.RequestType != vaultcommon.RequestType_GET_SECRETS && len(obs) >= r.onchainCfg.F+1:
-				// F+1 means that at least 1 honest node has provided this observation, so that's enough for all other request
-				// types.
-				// Technically we could have two shas with F+1 observations. If that happens we'll pick the last one.
-				// This is deterministic since we're sorting by shas above.
-				chosen = shaToObs[sha]
-				r.lggr.Debugw("sufficient observations for sha", "sha", sha, "count", len(obs), "threshold", r.onchainCfg.F+1, "id", id)
 			}
 		}
 

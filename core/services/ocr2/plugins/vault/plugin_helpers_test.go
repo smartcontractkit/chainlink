@@ -39,6 +39,7 @@ type testPluginBuildOpts struct {
 	vaultJSONOmitUnpopulatedEnabled         bool
 	vaultShareAggregationIncludesPublicKeys bool
 	vaultCiphertextlessObservationsEnabled  bool
+	vaultGetSecretsRelaxedConsensusEnabled  bool
 	marshalBlob                             func(ocr3_1types.BlobHandle) ([]byte, error)
 	unmarshalBlob                           func([]byte) (ocr3_1types.BlobHandle, error)
 	maxObservationBytesOverride             int
@@ -90,6 +91,10 @@ func withVaultGetSecretsShareAggregationIncludesPublicKeys() testPluginOption {
 
 func withVaultJSONOmitUnpopulatedEnabled() testPluginOption {
 	return func(o *testPluginBuildOpts) { o.vaultJSONOmitUnpopulatedEnabled = true }
+}
+
+func withVaultGetSecretsRelaxedConsensusEnabled() testPluginOption {
+	return func(o *testPluginBuildOpts) { o.vaultGetSecretsRelaxedConsensusEnabled = true }
 }
 
 func withOnchainCfg(n int, f int) testPluginOption {
@@ -153,6 +158,9 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 	}
 	if o.vaultJSONOmitUnpopulatedEnabled {
 		cfg.VaultJSONOmitUnpopulatedEnabled = limits.NewGateLimiter(true)
+	}
+	if o.vaultGetSecretsRelaxedConsensusEnabled {
+		cfg.VaultGetSecretsRelaxedConsensusEnabled = limits.NewGateLimiter(true)
 	}
 	ctx := context.Background()
 	pl, err := initializePluginLimits(ctx, limits.Factory{Settings: cresettings.DefaultGetter})
@@ -254,17 +262,17 @@ func makeReportingPluginConfig(
 		MaxBatchSize:             bsl,
 		MaxPendingQueueWriteSize: maxPendingQueueWriteSizeLimiter,
 
-		PublicKey:                                         publicKey,
-		PrivateKeyShare:                                   privateKeyShare,
-		MaxSecretsPerOwner:                                msl,
-		MaxShareLengthBytes:                               shareLimiter,
-		MaxBlobPayloadBytes:                               maxBlobPayloadLimiter,
-		VaultForceEmptyOCRRounds:                          limits.NewGateLimiter(false),
-		VaultOptimizationsEnabled:                         limits.NewGateLimiter(false),
-		VaultSignedResponseRequestIDEnabled:               limits.NewGateLimiter(false),
-		VaultJSONOmitUnpopulatedEnabled:                   limits.NewGateLimiter(false),
+		PublicKey:                       publicKey,
+		PrivateKeyShare:                 privateKeyShare,
+		MaxSecretsPerOwner:              msl,
+		MaxShareLengthBytes:             shareLimiter,
+		MaxBlobPayloadBytes:             maxBlobPayloadLimiter,
+		VaultForceEmptyOCRRounds:        limits.NewGateLimiter(false),
+		VaultOptimizationsEnabled:       limits.NewGateLimiter(false),
+		VaultJSONOmitUnpopulatedEnabled: limits.NewGateLimiter(false),
 		VaultGetSecretsShareAggregationIncludesPublicKeys: limits.NewGateLimiter(false),
 		VaultCiphertextlessObservationsEnabled:            limits.NewGateLimiter(false),
+		VaultGetSecretsRelaxedConsensusEnabled:            limits.NewGateLimiter(false),
 	}
 }
 
