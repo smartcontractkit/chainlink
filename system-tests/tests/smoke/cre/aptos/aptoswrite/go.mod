@@ -3,7 +3,7 @@ module github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/
 go 1.26.4
 
 require (
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260616232143-9a69bb7e7ebf
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260622152157-c8e129347b8b
 	github.com/smartcontractkit/cre-sdk-go v1.9.0-capdev.1.0.20260619133249-34ab259a419e
 	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/aptos v0.0.0-20260619133249-34ab259a419e
 	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.10.0
