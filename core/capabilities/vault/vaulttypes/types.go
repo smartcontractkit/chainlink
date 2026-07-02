@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -35,12 +36,20 @@ const (
 	MaxBatchSize = 10
 )
 
-var Methods = []string{
+// GatewaySecretsMethods are vault JSON-RPC methods reachable through the gateway that
+// require authorization and carry owner-bound secret identifiers in params.
+var GatewaySecretsMethods = []string{
 	MethodSecretsCreate,
 	MethodSecretsUpdate,
 	MethodSecretsDelete,
 	MethodSecretsList,
-	MethodPublicKeyGet,
+}
+
+var Methods = append([]string{MethodPublicKeyGet}, GatewaySecretsMethods...)
+
+// IsGatewaySecretsMethod reports whether method is a gateway-accessible secrets management JSON-RPC method.
+func IsGatewaySecretsMethod(method string) bool {
+	return slices.Contains(GatewaySecretsMethods, method)
 }
 
 // SignedOCRResponse is the response format for OCR signed reports, as returned by the Vault DON.

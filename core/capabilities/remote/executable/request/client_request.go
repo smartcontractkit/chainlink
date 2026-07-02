@@ -226,11 +226,14 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 				CapabilityMethod: capMethodName,
 			}
 
+			timer := time.NewTimer(delay)
+			defer timer.Stop()
+
 			select {
 			case <-innerCtx.Done():
 				lggr.Debugw("context done, not sending request to peer", "peerID", peerID)
 				return
-			case <-time.After(delay):
+			case <-timer.C:
 				lggr.Debugw("sending request to peer", "peerID", peerID)
 				err := dispatcher.Send(peerID, message)
 				if err != nil {

@@ -12,12 +12,13 @@ import (
 
 // ToCanonicalJSON converts a protobuf message to a stable, deterministic
 // representation, including consistent sorting of keys and fields, and
-// consistent spacing.
-func ToCanonicalJSON(msg proto.Message) ([]byte, error) {
+// consistent spacing. When omitUnpopulated is true, zero-value proto fields
+// are omitted from the JSON output.
+func ToCanonicalJSON(msg proto.Message, omitUnpopulated bool) ([]byte, error) {
 	jsonb, err := protojson.MarshalOptions{
 		UseProtoNames:   false,
 		UseEnumNumbers:  false,
-		EmitUnpopulated: true,
+		EmitUnpopulated: !omitUnpopulated,
 	}.Marshal(msg)
 	if err != nil {
 		return nil, err

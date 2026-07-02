@@ -90,14 +90,22 @@ func GetChainReaderConfig(pubKeyStr string) (map[string]any, error) {
 							},
 						},
 					},
+					consts.MethodNameGetARM: {
+						Name:               "get_arm",
+						SignerAddress:      fromAddress,
+						Params:             []codec.SuiFunctionParam{},
+						ResponseFromInputs: []string{"package_id"},
+					},
 				},
 			},
 			consts.ContractNameRMNProxy: map[string]any{
 				"Name": "rmn_remote",
 				"Functions": map[string]*chainreaderConfig.ChainReaderFunction{
 					consts.MethodNameGetARM: {
-						Name:          "get_arm",
-						SignerAddress: fromAddress,
+						Name:               "get_arm",
+						SignerAddress:      fromAddress,
+						Params:             []codec.SuiFunctionParam{},
+						ResponseFromInputs: []string{"package_id"},
 					},
 				},
 			},

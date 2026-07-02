@@ -11,10 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/mock"
-
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/quarantine"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -123,7 +120,6 @@ func TestWSServer_WSClient_DefaultConfig_Success(t *testing.T) {
 }
 
 func TestWSServer_WSClient_DefaultConfig_Failure(t *testing.T) {
-	quarantine.Flaky(t, "DX-1752")
 	t.Parallel()
 	_, acceptor, urlStr := startNewWSServer(t, 10_000)
 

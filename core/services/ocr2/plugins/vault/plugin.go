@@ -55,18 +55,13 @@ type ReportingPluginConfig struct {
 
 	// Sourced from the offchain config
 	MaxSecretsPerOwner                                limits.BoundLimiter[int]
-	MaxCiphertextLengthBytes                          limits.BoundLimiter[pkgconfig.Size]
-	MaxIdentifierKeyLengthBytes                       limits.BoundLimiter[pkgconfig.Size]
-	MaxIdentifierOwnerLengthBytes                     limits.BoundLimiter[pkgconfig.Size]
-	MaxIdentifierNamespaceLengthBytes                 limits.BoundLimiter[pkgconfig.Size]
 	MaxShareLengthBytes                               limits.BoundLimiter[pkgconfig.Size]
-	MaxRequestBatchSize                               limits.BoundLimiter[int]
 	MaxBatchSize                                      limits.BoundLimiter[int]
 	MaxPendingQueueWriteSize                          limits.BoundLimiter[int]
 	MaxBlobPayloadBytes                               limits.BoundLimiter[pkgconfig.Size]
 	VaultForceEmptyOCRRounds                          limits.GateLimiter
 	VaultOptimizationsEnabled                         limits.GateLimiter
-	VaultSignedResponseRequestIDEnabled               limits.GateLimiter
+	VaultJSONOmitUnpopulatedEnabled                   limits.GateLimiter
 	VaultGetSecretsShareAggregationIncludesPublicKeys limits.GateLimiter
 }
 
@@ -177,34 +172,9 @@ func (r *ReportingPluginFactory) pollForKeyMaterial(ctx context.Context, instanc
 }
 
 func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginConfig, error) {
-	maxCiphertextLengthBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.PerOwner.VaultCiphertextSizeLimit)
-	if err != nil {
-		return nil, fmt.Errorf("VaultCiphertextSizeLimit: %w", err)
-	}
-
-	maxIdentifierKeyLengthBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultIdentifierKeySizeLimit)
-	if err != nil {
-		return nil, fmt.Errorf("VaultIdentifierKeySizeLimit: %w", err)
-	}
-
-	maxIdentifierOwnerLengthBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultIdentifierOwnerSizeLimit)
-	if err != nil {
-		return nil, fmt.Errorf("VaultIdentifierOwnerSizeLimit: %w", err)
-	}
-
-	maxIdentifierNamespaceLengthBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultIdentifierNamespaceSizeLimit)
-	if err != nil {
-		return nil, fmt.Errorf("VaultIdentifierNamespaceSizeLimit: %w", err)
-	}
-
 	maxShareLengthBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultShareSizeLimit)
 	if err != nil {
 		return nil, fmt.Errorf("VaultShareSizeLimit: %w", err)
-	}
-
-	maxRequestBatchSizeLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultRequestBatchSizeLimit)
-	if err != nil {
-		return nil, fmt.Errorf("VaultRequestBatchSizeLimit: %w", err)
 	}
 
 	vaultForceEmptyOCRRounds, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultForceEmptyOCRRounds)
@@ -222,9 +192,9 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		return nil, fmt.Errorf("VaultGetSecretsShareAggregationIncludesPublicKeys: %w", err)
 	}
 
-	vaultSignedResponseRequestIDEnabled, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultSignedResponseRequestIDEnabled)
+	vaultJSONOmitUnpopulatedEnabled, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultJSONOmitUnpopulatedEnabled)
 	if err != nil {
-		return nil, fmt.Errorf("VaultSignedResponseRequestIDEnabled: %w", err)
+		return nil, fmt.Errorf("VaultJSONOmitUnpopulatedEnabled: %w", err)
 	}
 
 	maxBlobPayloadBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultMaxBlobPayloadSizeLimit)
@@ -239,16 +209,11 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 
 	return &ReportingPluginConfig{
 		MaxShareLengthBytes:                               maxShareLengthBytesLimiter,
-		MaxRequestBatchSize:                               maxRequestBatchSizeLimiter,
-		MaxCiphertextLengthBytes:                          maxCiphertextLengthBytesLimiter,
-		MaxIdentifierKeyLengthBytes:                       maxIdentifierKeyLengthBytesLimiter,
-		MaxIdentifierOwnerLengthBytes:                     maxIdentifierOwnerLengthBytesLimiter,
-		MaxIdentifierNamespaceLengthBytes:                 maxIdentifierNamespaceLengthBytesLimiter,
 		MaxBlobPayloadBytes:                               maxBlobPayloadBytesLimiter,
 		MaxPendingQueueWriteSize:                          maxPendingQueueWriteSizeLimiter,
 		VaultForceEmptyOCRRounds:                          vaultForceEmptyOCRRounds,
 		VaultOptimizationsEnabled:                         vaultOptimizationsEnabled,
-		VaultSignedResponseRequestIDEnabled:               vaultSignedResponseRequestIDEnabled,
+		VaultJSONOmitUnpopulatedEnabled:                   vaultJSONOmitUnpopulatedEnabled,
 		VaultGetSecretsShareAggregationIncludesPublicKeys: vaultGetSecretsShareAggregationIncludesPublicKeys,
 	}, nil
 }
@@ -313,13 +278,18 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not resolve plugin limits: %w", err)
 	}
 
+	validator, err := vaultcap.NewRequestValidatorFromLimitsFactory(r.limitsFactory)
+	if err != nil {
+		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create request validator: %w", err)
+	}
+
 	r.lggr.Debugw("instantiating VaultReportingPlugin with config",
 		"maxSecretsPerOwner", logLimit(ctx, r.lggr, cfg.MaxSecretsPerOwner),
-		"maxCiphertextLengthBytes", logLimit(ctx, r.lggr, cfg.MaxCiphertextLengthBytes),
-		"maxIdentifierKeyLengthBytes", logLimit(ctx, r.lggr, cfg.MaxIdentifierKeyLengthBytes),
-		"maxIdentifierOwnerLengthBytes", logLimit(ctx, r.lggr, cfg.MaxIdentifierOwnerLengthBytes),
-		"maxIdentifierNamespaceLengthBytes", logLimit(ctx, r.lggr, cfg.MaxIdentifierNamespaceLengthBytes),
-		"maxRequestBatchSize", logLimit(ctx, r.lggr, cfg.MaxRequestBatchSize),
+		"maxCiphertextLengthBytes", logLimit(ctx, r.lggr, validator.MaxCiphertextLengthLimiter),
+		"maxIdentifierKeyLengthBytes", logLimit(ctx, r.lggr, validator.MaxIdentifierKeyLengthLimiter),
+		"maxIdentifierOwnerLengthBytes", logLimit(ctx, r.lggr, validator.MaxIdentifierOwnerLengthLimiter),
+		"maxIdentifierNamespaceLengthBytes", logLimit(ctx, r.lggr, validator.MaxIdentifierNamespaceLengthLimiter),
+		"maxRequestBatchSize", logLimit(ctx, r.lggr, validator.MaxRequestBatchSizeLimiter),
 		"maxShareLengthBytes", logLimit(ctx, r.lggr, cfg.MaxShareLengthBytes),
 		"batchSize", logLimit(ctx, r.lggr, cfg.MaxBatchSize),
 		"maxPendingQueueWriteSize", logLimit(ctx, r.lggr, cfg.MaxPendingQueueWriteSize),
@@ -334,14 +304,6 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		"reportingPluginLimitsMaxBlobPayloadBytes", pluginLimits.MaxBlobPayloadBytes,
 		"maxPerOracleUnexpiredBlobCumulativePayloadBytes", pluginLimits.MaxPerOracleUnexpiredBlobCumulativePayloadBytes,
 		"maxPerOracleUnexpiredBlobCount", pluginLimits.MaxPerOracleUnexpiredBlobCount,
-	)
-
-	validator := vaultcap.NewRequestValidator(
-		cfg.MaxRequestBatchSize,
-		cfg.MaxCiphertextLengthBytes,
-		cfg.MaxIdentifierKeyLengthBytes,
-		cfg.MaxIdentifierOwnerLengthBytes,
-		cfg.MaxIdentifierNamespaceLengthBytes,
 	)
 
 	r.lifecycle.SetConfigDigest(config.ConfigDigest.String())
@@ -618,8 +580,8 @@ func (r *ReportingPlugin) shareAggregationIncludesPublicKeys(ctx context.Context
 	return gateAllows(ctx, r.lggr, r.cfg.VaultGetSecretsShareAggregationIncludesPublicKeys, "VaultGetSecretsShareAggregationIncludesPublicKeys")
 }
 
-func (r *ReportingPlugin) signedResponseRequestIDEnabled(ctx context.Context) bool {
-	return gateAllows(ctx, r.lggr, r.cfg.VaultSignedResponseRequestIDEnabled, "VaultSignedResponseRequestIDEnabled")
+func (r *ReportingPlugin) jsonOmitUnpopulatedEnabled(ctx context.Context) bool {
+	return gateAllows(ctx, r.lggr, r.cfg.VaultJSONOmitUnpopulatedEnabled, "VaultJSONOmitUnpopulatedEnabled")
 }
 
 type pendingQueueStore interface {
@@ -1504,21 +1466,6 @@ func (r *ReportingPlugin) shaForObservation(ctx context.Context, o *vaultcommon.
 	}
 }
 
-func (r *ReportingPlugin) checkRequestBatchLimit(ctx context.Context, batchSize int) error {
-	if err := r.cfg.MaxRequestBatchSize.Check(ctx, batchSize); err != nil {
-		var errBoundLimited limits.ErrorBoundLimited[int]
-		if errors.As(err, &errBoundLimited) {
-			return fmt.Errorf("max batch size exceeded for request: %w", err)
-		}
-		// Fail closed here: this could cause a loss of liveness but
-		// the current implementation would only return an error that's
-		// not a ErrorBoundLimited if the limiter has been closed.
-		return errors.New("failed to check batch size")
-	}
-
-	return nil
-}
-
 func (r *ReportingPlugin) validateObservation(ctx context.Context, o *vaultcommon.Observation, pendingGetSecretsByID map[string]*vaultcommon.GetSecretsRequest) error {
 	if o.Id == "" {
 		return errors.New("request id cannot be empty")
@@ -1554,7 +1501,7 @@ func (r *ReportingPlugin) validateGetSecretsObservation(ctx context.Context, o *
 		return errors.New("embedded GetSecrets request does not match pending queue request")
 	}
 
-	if err := r.checkRequestBatchLimit(ctx, len(pendingReq.Requests)); err != nil {
+	if err := r.validator.CheckRequestBatchSize(ctx, len(resp.Responses)); err != nil {
 		return err
 	}
 
@@ -1616,7 +1563,7 @@ func (r *ReportingPlugin) validateCreateSecretsObservation(ctx context.Context, 
 		return errors.New("CreateSecrets observation must have both request and response")
 	}
 
-	if err := r.checkRequestBatchLimit(ctx, len(o.GetCreateSecretsRequest().EncryptedSecrets)); err != nil {
+	if err := r.validator.CheckRequestBatchSize(ctx, len(o.GetCreateSecretsRequest().EncryptedSecrets)); err != nil {
 		return err
 	}
 
@@ -1660,7 +1607,7 @@ func (r *ReportingPlugin) validateUpdateSecretsObservation(ctx context.Context, 
 		return errors.New("UpdateSecrets observation must have both request and response")
 	}
 
-	if err := r.checkRequestBatchLimit(ctx, len(o.GetUpdateSecretsRequest().EncryptedSecrets)); err != nil {
+	if err := r.validator.CheckRequestBatchSize(ctx, len(o.GetUpdateSecretsRequest().EncryptedSecrets)); err != nil {
 		return err
 	}
 
@@ -1704,7 +1651,7 @@ func (r *ReportingPlugin) validateDeleteSecretsObservation(ctx context.Context, 
 		return errors.New("DeleteSecrets observation must have both request and response")
 	}
 
-	if err := r.checkRequestBatchLimit(ctx, len(o.GetDeleteSecretsRequest().Ids)); err != nil {
+	if err := r.validator.CheckRequestBatchSize(ctx, len(o.GetDeleteSecretsRequest().Ids)); err != nil {
 		return err
 	}
 
@@ -2510,11 +2457,7 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 				ReportWithInfo: rep,
 			})
 		case vaultcommon.RequestType_CREATE_SECRETS:
-			createResp := proto.Clone(o.GetCreateSecretsResponse()).(*vaultcommon.CreateSecretsResponse)
-			if r.signedResponseRequestIDEnabled(ctx) {
-				createResp.RequestId = o.Id
-			}
-			rep, err := r.generateJSONReport(o.Id, o.RequestType, createResp)
+			rep, err := r.generateJSONReport(o.Id, o.RequestType, o.GetCreateSecretsResponse(), r.jsonOmitUnpopulatedEnabled(ctx))
 			if err != nil {
 				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
 				continue
@@ -2524,11 +2467,7 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 				ReportWithInfo: rep,
 			})
 		case vaultcommon.RequestType_UPDATE_SECRETS:
-			updateResp := proto.Clone(o.GetUpdateSecretsResponse()).(*vaultcommon.UpdateSecretsResponse)
-			if r.signedResponseRequestIDEnabled(ctx) {
-				updateResp.RequestId = o.Id
-			}
-			rep, err := r.generateJSONReport(o.Id, o.RequestType, updateResp)
+			rep, err := r.generateJSONReport(o.Id, o.RequestType, o.GetUpdateSecretsResponse(), r.jsonOmitUnpopulatedEnabled(ctx))
 			if err != nil {
 				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
 				continue
@@ -2538,11 +2477,7 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 				ReportWithInfo: rep,
 			})
 		case vaultcommon.RequestType_DELETE_SECRETS:
-			deleteResp := proto.Clone(o.GetDeleteSecretsResponse()).(*vaultcommon.DeleteSecretsResponse)
-			if r.signedResponseRequestIDEnabled(ctx) {
-				deleteResp.RequestId = o.Id
-			}
-			rep, err := r.generateJSONReport(o.Id, o.RequestType, deleteResp)
+			rep, err := r.generateJSONReport(o.Id, o.RequestType, o.GetDeleteSecretsResponse(), r.jsonOmitUnpopulatedEnabled(ctx))
 			if err != nil {
 				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
 				continue
@@ -2552,11 +2487,7 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 				ReportWithInfo: rep,
 			})
 		case vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS:
-			listResp := proto.Clone(o.GetListSecretIdentifiersResponse()).(*vaultcommon.ListSecretIdentifiersResponse)
-			if r.signedResponseRequestIDEnabled(ctx) {
-				listResp.RequestId = o.Id
-			}
-			rep, err := r.generateJSONReport(o.Id, o.RequestType, listResp)
+			rep, err := r.generateJSONReport(o.Id, o.RequestType, o.GetListSecretIdentifiersResponse(), r.jsonOmitUnpopulatedEnabled(ctx))
 			if err != nil {
 				r.lggr.Errorw("failed to generate JSON report", "error", err, "id", o.Id)
 				continue
@@ -2597,12 +2528,12 @@ func (r *ReportingPlugin) generateProtoReport(id string, requestType vaultcommon
 	return wrapReportWithKeyBundleInfo(rpb, rip)
 }
 
-func (r *ReportingPlugin) generateJSONReport(id string, requestType vaultcommon.RequestType, msg proto.Message) (ocr3types.ReportWithInfo[[]byte], error) {
+func (r *ReportingPlugin) generateJSONReport(id string, requestType vaultcommon.RequestType, msg proto.Message, omitUnpopulated bool) (ocr3types.ReportWithInfo[[]byte], error) {
 	if msg == nil {
 		return ocr3types.ReportWithInfo[[]byte]{}, errors.New("invalid report: response cannot be nil")
 	}
 
-	jsonb, err := vaultutils.ToCanonicalJSON(msg)
+	jsonb, err := vaultutils.ToCanonicalJSON(msg, omitUnpopulated)
 	if err != nil {
 		return ocr3types.ReportWithInfo[[]byte]{}, fmt.Errorf("failed to convert proto to canonical JSON: %w", err)
 	}
@@ -2650,13 +2581,9 @@ func (r *ReportingPlugin) ShouldTransmitAcceptedReport(ctx context.Context, seqN
 
 func (r *ReportingPlugin) Close() error {
 	return errors.Join(
+		r.validator.Close(),
 		r.cfg.MaxSecretsPerOwner.Close(),
-		r.cfg.MaxCiphertextLengthBytes.Close(),
-		r.cfg.MaxIdentifierKeyLengthBytes.Close(),
-		r.cfg.MaxIdentifierOwnerLengthBytes.Close(),
-		r.cfg.MaxIdentifierNamespaceLengthBytes.Close(),
 		r.cfg.MaxShareLengthBytes.Close(),
-		r.cfg.MaxRequestBatchSize.Close(),
 		r.cfg.MaxBatchSize.Close(),
 		r.cfg.MaxPendingQueueWriteSize.Close(),
 		r.cfg.VaultForceEmptyOCRRounds.Close(),

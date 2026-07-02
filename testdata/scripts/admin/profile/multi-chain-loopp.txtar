@@ -89,6 +89,11 @@ NetworkNameFull = 'foobar'
 [[Sui.Nodes]]
 Name = 'node'
 URL = 'https://sui.rpc'
+# Empty gRPC fields keep the plugin on its JSON-RPC path and avoid a nil-pointer deref
+# in the Sui LOOPP's NewRelayer (relayer.go: *nodeConfig.GrpcTarget/GrpcToken). Remove
+# once the chainlink-sui ref is bumped to a version that nil-guards these optional fields.
+GrpcTarget = ''
+GrpcToken = ''
 
 [[Ton]]
 ChainID = '-217'

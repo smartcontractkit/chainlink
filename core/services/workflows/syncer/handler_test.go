@@ -9,6 +9,10 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/jonboulle/clockwork"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -32,11 +36,6 @@ import (
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
-
-	"github.com/jonboulle/clockwork"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 type mockFetchResp struct {
@@ -118,7 +117,8 @@ func newMockDecrypter() *mockDecrypter {
 	}
 }
 
-func Test_Handler(t *testing.T) { //nolint:paralleltest // subtests share wfStore and registry
+func Test_Handler(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	emitter := custmsg.NewLabeler()
 	wfStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
@@ -333,7 +333,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 	config := []byte("")
 	wfOwner := testutils.NewAddress().Bytes()
 
-	binary := wasmtest.CreateTestBinary(t, binaryCmd, true)
+	binary := wasmtest.GetTestBinary(t, binaryCmd, true)
 	encodedBinary := []byte(base64.StdEncoding.EncodeToString(binary))
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 
@@ -795,6 +795,13 @@ func testRunningWorkflow(t *testing.T, tc testCase, workflowEncryptionKey workfl
 		}
 		if tc.engineFactoryFn != nil {
 			opts = append(opts, WithEngineFactoryFn(tc.engineFactoryFn))
+		} else {
+			// Default to mock engine for DB-sync tests. Real WASM init (host.NewModule)
+			// These tests verify DB state and engine registry bookkeeping, not WASM module behavior.
+			// See TestEngineFactoryFn_SuccessfulCreation for real WASM coverage.
+			opts = append(opts, WithEngineFactoryFn(func(_ context.Context, _ string, _ string, _ types.WorkflowName, _ []byte, _ []byte) (services.Service, error) {
+				return &mockEngine{}, nil
+			}))
 		}
 
 		store := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
@@ -893,7 +900,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			emitter      = custmsg.NewLabeler()
 			workflowName = testutils.RandomizeName(t.Name())
 
-			binary        = wasmtest.CreateTestBinary(t, binaryCmd, true)
+			binary        = wasmtest.GetTestBinary(t, binaryCmd, true)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
 			secretsURL    = "http://example.com/secrets/" + workflowName
@@ -939,7 +946,12 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
-		h, err := NewEventHandler(lggr, store, registry, donTime, true, NewEngineRegistry(), emitter, limiters, featureFlags, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{}, WithEngineRegistry(er))
+		// Mock engine factory: this test verifies delete behavior, not WASM compilation.
+		// Real host.NewModule races against pgtest's 30s idle_in_transaction_session_timeout.
+		mockFactory := WithEngineFactoryFn(func(_ context.Context, _ string, _ string, _ types.WorkflowName, _ []byte, _ []byte) (services.Service, error) {
+			return &mockEngine{}, nil
+		})
+		h, err := NewEventHandler(lggr, store, registry, donTime, true, NewEngineRegistry(), emitter, limiters, featureFlags, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{}, WithEngineRegistry(er), mockFactory)
 		require.NoError(t, err)
 		err = h.workflowRegisteredEvent(ctx, active)
 		require.NoError(t, err)
@@ -984,7 +996,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			emitter      = custmsg.NewLabeler()
 			workflowName = testutils.RandomizeName(t.Name())
 
-			binary        = wasmtest.CreateTestBinary(t, binaryCmd, true)
+			binary        = wasmtest.GetTestBinary(t, binaryCmd, true)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
 			secretsURL    = "http://example.com/secrets/" + workflowName
@@ -1044,7 +1056,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			emitter      = custmsg.NewLabeler()
 			workflowName = testutils.RandomizeName(t.Name())
 
-			binary        = wasmtest.CreateTestBinary(t, binaryCmd, true)
+			binary        = wasmtest.GetTestBinary(t, binaryCmd, true)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
 			secretsURL    = "http://example.com/secrets/" + workflowName
@@ -1093,7 +1105,11 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		mockAS := newMockArtifactStore(artifactStore, errors.New(failWith))
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
-		h, err := NewEventHandler(lggr, store, registry, donTime, true, NewEngineRegistry(), emitter, limiters, featureFlags, rl, workflowLimits, mockAS, workflowEncryptionKey, &testDonNotifier{}, WithEngineRegistry(er))
+		// Mock engine factory: this test verifies delete-rollback behavior, not WASM compilation.
+		mockFactory := WithEngineFactoryFn(func(_ context.Context, _ string, _ string, _ types.WorkflowName, _ []byte, _ []byte) (services.Service, error) {
+			return &mockEngine{}, nil
+		})
+		h, err := NewEventHandler(lggr, store, registry, donTime, true, NewEngineRegistry(), emitter, limiters, featureFlags, rl, workflowLimits, mockAS, workflowEncryptionKey, &testDonNotifier{}, WithEngineRegistry(er), mockFactory)
 		require.NoError(t, err)
 		err = h.workflowRegisteredEvent(ctx, active)
 		require.NoError(t, err)
@@ -1142,7 +1158,7 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 			emitter      = custmsg.NewLabeler()
 			workflowName = testutils.RandomizeName(t.Name())
 
-			binary        = wasmtest.CreateTestBinary(t, binaryCmd, true)
+			binary        = wasmtest.GetTestBinary(t, binaryCmd, true)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
 			updateConfig  = []byte("updated")
@@ -1194,7 +1210,12 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
 		workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
-		h, err := NewEventHandler(lggr, store, registry, donTime, true, NewEngineRegistry(), emitter, limiters, featureFlags, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{}, WithEngineRegistry(er))
+		// Mock engine factory: this test verifies pause/activate/update lifecycle, not WASM
+		// compilation. Real host.NewModule races against pgtest's 30s idle_in_transaction_session_timeout.
+		mockFactory := WithEngineFactoryFn(func(_ context.Context, _ string, _ string, _ types.WorkflowName, _ []byte, _ []byte) (services.Service, error) {
+			return &mockEngine{}, nil
+		})
+		h, err := NewEventHandler(lggr, store, registry, donTime, true, NewEngineRegistry(), emitter, limiters, featureFlags, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{}, WithEngineRegistry(er), mockFactory)
 		require.NoError(t, err)
 
 		err = h.workflowRegisteredEvent(ctx, active)
@@ -1327,7 +1348,7 @@ func TestEngineFactoryFn_SuccessfulCreation(t *testing.T) {
 	wfOwner := hex.EncodeToString(wfOwnerBytes)
 
 	t.Run("DAG workflow", func(t *testing.T) { //nolint:paralleltest // shares eventHandler setup
-		binary := wasmtest.CreateTestBinary(t, binaryCmd, true)
+		binary := wasmtest.GetTestBinary(t, binaryCmd, true)
 		workflowID, err := pkgworkflows.GenerateWorkflowID(wfOwnerBytes, testutils.RandomizeName(t.Name()), binary, config, secretsURL)
 		require.NoError(t, err)
 		engine, err := eventHandler.engineFactoryFn(ctx, hex.EncodeToString(workflowID[:]), wfOwner, workflowName, config, binary)
@@ -1336,7 +1357,7 @@ func TestEngineFactoryFn_SuccessfulCreation(t *testing.T) {
 	})
 
 	t.Run("NoDAG workflow", func(t *testing.T) { //nolint:paralleltest // shares eventHandler setup
-		binary := wasmtest.CreateTestBinary(t, noDagBinaryCmd, true)
+		binary := wasmtest.GetTestBinary(t, noDagBinaryCmd, true)
 		workflowID, err := pkgworkflows.GenerateWorkflowID(wfOwnerBytes, testutils.RandomizeName(t.Name()), binary, config, secretsURL)
 		require.NoError(t, err)
 		engine, err := eventHandler.engineFactoryFn(ctx, hex.EncodeToString(workflowID[:]), wfOwner, workflowName, config, binary)

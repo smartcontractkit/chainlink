@@ -100,7 +100,6 @@ require (
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/shirou/gopsutil/v4 v4.26.4 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.3.1-0.20260616202821-1d9359b0fe37 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.0 //indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect

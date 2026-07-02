@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
-	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -39,7 +38,6 @@ var testTokenTransferFeeConfig = fee_quoter.TokenTransferFeeConfig{
 }
 
 func TestAddTokenPool_Apply(t *testing.T) {
-	quarantine.Flaky(t, "DX-2088")
 	t.Parallel()
 	// Setup environment and config with 1 Aptos chain
 	deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(

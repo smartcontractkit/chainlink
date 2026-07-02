@@ -233,8 +233,6 @@ github.com/shirou/gopsutil/v4 v4.26.4 h1:B4SXVbcwTyrocPHEmWBC4uCYr4Xcu3MK1TXqbpr
 github.com/shirou/gopsutil/v4 v4.26.4/go.mod h1:LZ6ewCSkBqUpvSOf+LsTGnRinC6iaNUNMGBtDkJBaLQ=
 github.com/sirupsen/logrus v1.9.4 h1:TsZE7l11zFCLZnZ+teH4Umoq5BhEIfIzfRDZ1Uzql2w=
 github.com/sirupsen/logrus v1.9.4/go.mod h1:ftWc9WdOfJ0a92nsE2jF5u5ZwH8Bv2zdeOC42RjbV2g=
-github.com/smartcontractkit/chainlink-solana v1.3.1-0.20260616202821-1d9359b0fe37 h1:kVqpTLKy86CUotqsPlldMZeWRytKklz1CQXm2D44GXI=
-github.com/smartcontractkit/chainlink-solana v1.3.1-0.20260616202821-1d9359b0fe37/go.mod h1:LXWUlBkE+f+FxPeMtaa669kUxJWYhkAzGrwW9affaKU=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.0 h1:Py3ZY0opZSK7a6zcuOsq0EYkQjUASv9UHb5Q7aiz+Ug=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.0/go.mod h1:8NnRD5t7yljxFC3ffIloVKkhWlul4a3oQ63FL7AZc6s=
 github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.14.10-0.20260511081501-829666151188 h1:D9EHR8q4+lfzYP+/MAPREd7p+6LMz3hH4I8JlhF54i8=
