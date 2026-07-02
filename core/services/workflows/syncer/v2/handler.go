@@ -328,8 +328,10 @@ func NewEventHandler(
 }
 
 func (h *eventHandler) start(ctx context.Context) error {
-	if err := h.workflowStore.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start workflow store: %w", err)
+	if h.workflowStore != nil {
+		if err := h.workflowStore.Start(ctx); err != nil {
+			return fmt.Errorf("failed to start workflow store: %w", err)
+		}
 	}
 	if h.moduleLRU != nil {
 		h.moduleLRU.Start()
@@ -346,7 +348,9 @@ func (h *eventHandler) close() error {
 	for _, e := range es {
 		cs = append(cs, e)
 	}
-	cs = append(cs, h.workflowStore)
+	if h.workflowStore != nil {
+		cs = append(cs, h.workflowStore)
+	}
 	cs = append(cs, h.engineLimiters)
 	return services.CloseAll(cs...)
 }
