@@ -180,7 +180,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	return d.NewServices(ctx, command, configJSON, spec.ID, spec.Name.ValueOrZero(), spec.ExternalJobID, spec.StandardCapabilitiesSpec.OracleFactory, 0)
 }
 
-// parseTenantID extracts auth0.tenantID from a capability job spec config. It ignores all other fields so it does not
+// parseTenantID extracts tenantID from the consensus capability job spec config. It ignores all other fields so it does not
 // interfere with the capability plugin's own use of the config. The second return value is false when tenantID is
 // absent, zero, or the config cannot be parsed.
 func parseTenantID(configJSON string) (uint64, bool) {
@@ -188,17 +188,15 @@ func parseTenantID(configJSON string) (uint64, bool) {
 		return 0, false
 	}
 	var c struct {
-		Auth0 struct {
-			TenantID uint64 `json:"tenantID"`
-		} `json:"auth0"`
+		TenantID uint64 `json:"tenantID"`
 	}
 	if err := json.Unmarshal([]byte(configJSON), &c); err != nil {
 		return 0, false
 	}
-	if c.Auth0.TenantID == 0 {
+	if c.TenantID == 0 {
 		return 0, false
 	}
-	return c.Auth0.TenantID, true
+	return c.TenantID, true
 }
 
 // NewServices builds the per-job services for a Standard Capabilities LOOP.

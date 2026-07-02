@@ -16,11 +16,10 @@ func Test_parseTenantID(t *testing.T) {
 		wantOK bool
 	}{
 		{name: "empty config", config: "", want: 0, wantOK: false},
-		{name: "no auth0", config: `{"schedule":"1s"}`, want: 0, wantOK: false},
-		{name: "auth0 without tenantID", config: `{"auth0":{}}`, want: 0, wantOK: false},
-		{name: "auth0 zero tenantID", config: `{"auth0":{"tenantID":0}}`, want: 0, wantOK: false},
-		{name: "auth0 tenantID set", config: `{"auth0":{"tenantID":1}}`, want: 1, wantOK: true},
-		{name: "auth0 tenantID with other fields", config: `{"foo":"bar","auth0":{"tenantID":42}}`, want: 42, wantOK: true},
+		{name: "no tenantID", config: `{"schedule":"1s"}`, want: 0, wantOK: false},
+		{name: "zero tenantID", config: `{"tenantID":0}`, want: 0, wantOK: false},
+		{name: "tenantID set", config: `{"tenantID":1}`, want: 1, wantOK: true},
+		{name: "tenantID with other fields", config: `{"foo":"bar","tenantID":42}`, want: 42, wantOK: true},
 		{name: "invalid json", config: `{not json`, want: 0, wantOK: false},
 	}
 
