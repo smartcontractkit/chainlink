@@ -4105,6 +4105,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 }
 
 func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_ByzantineDivergentSHA(t *testing.T) {
+	t.Parallel()
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -4169,6 +4170,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_ByzantineDive
 }
 
 func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_Disabled_NoOutcome(t *testing.T) {
+	t.Parallel()
 	// Same byzantine-divergent-SHA scenario as above, but with the flag OFF: the legacy 2F+1
 	// same-SHA requirement is unmet (honest group is only F+1=2 < 2F+1=3), so no outcome.
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -4228,6 +4230,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_Disabled_NoOu
 }
 
 func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_InsufficientTotal(t *testing.T) {
+	t.Parallel()
 	// N=4, F=1: 2F+1=3. Only 2 observations total (both honest, same SHA). Request legitimacy
 	// (>= 2F+1) fails even though the same-SHA group meets F+1, so no outcome.
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -4272,6 +4275,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_InsufficientT
 }
 
 func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_NoFPlus1Group(t *testing.T) {
+	t.Parallel()
 	// N=4, F=1: 2F+1=3, F+1=2. Three observations each with a distinct SHA (no group reaches F+1=2).
 	// Share sufficiency fails even though total meets 2F+1, so no outcome.
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -4318,6 +4322,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_NoFPlus1Group
 }
 
 func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_AggregatesAllSharesUpTo2FPlus1(t *testing.T) {
+	t.Parallel()
 	// N=10, F=3: 2F+1=7, F+1=4. All 10 honest observations share a SHA (shares are stripped from
 	// the SHA). The winning group (10) is capped at 2F+1=7 shares.
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 4)
@@ -4346,8 +4351,8 @@ func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_AggregatesAll
 		}
 	}
 
-	aos := []types.AttributedObservation{}
-	for i := 0; i < 10; i++ {
+	aos := make([]types.AttributedObservation, 0, 10)
+	for i := range 10 {
 		obsb := marshalObservations(t, observation{id, req, honestResp(fmt.Sprintf("encrypted-share-%d", i+1))})
 		aos = append(aos, types.AttributedObservation{Observer: commontypes.OracleID(i), Observation: types.Observation(obsb)})
 	}
@@ -4364,6 +4369,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_AggregatesAll
 }
 
 func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_TieBreakPicksLexicographicallySmallestSHA(t *testing.T) {
+	t.Parallel()
 	// N=10, F=3: 2F+1=7, F+1=4. Two SHA groups each of size F+1=4 (total 8 >= 2F+1). Both groups
 	// qualify for share sufficiency; chooseGetSecretsObservations iterates SHAs in sorted order and
 	// keeps the first largest group (strict `>`), so the lexicographically smallest SHA must win.
@@ -4398,11 +4404,11 @@ func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_TieBreakPicks
 
 	// Group A: observers 0-3 (ciphertext-a). Group B: observers 4-7 (ciphertext-b).
 	aos := make([]types.AttributedObservation, 0, 8)
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		obsb := marshalObservations(t, observation{id, req, resp("ciphertext-a", fmt.Sprintf("a-share-%d", i+1))})
 		aos = append(aos, types.AttributedObservation{Observer: commontypes.OracleID(i), Observation: types.Observation(obsb)})
 	}
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		obsb := marshalObservations(t, observation{id, req, resp("ciphertext-b", fmt.Sprintf("b-share-%d", i+1))})
 		aos = append(aos, types.AttributedObservation{Observer: commontypes.OracleID(i + 4), Observation: types.Observation(obsb)})
 	}
@@ -4427,7 +4433,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_TieBreakPicks
 
 	// Repeated invocation must produce byte-identical outcomes.
 	var first []byte
-	for run := 0; run < 5; run++ {
+	for run := range 5 {
 		reportPrecursor, err := r.StateTransition(t.Context(), seqNr, types.AttributedQuery{}, aos, kv, nil)
 		require.NoError(t, err)
 		if first == nil {
@@ -4446,6 +4452,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_TieBreakPicks
 }
 
 func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_DeterministicAcrossInvocations(t *testing.T) {
+	t.Parallel()
 	// G1 determinism for the relaxed path. chooseGetSecretsObservations iterates a SHA->obs map
 	// and must select deterministically; OCR3.1 delivers identical attributed observations to
 	// every node, so cross-node determinism reduces to same-input determinism. This test forces
@@ -4480,7 +4487,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_Deterministic
 
 	aos := make([]types.AttributedObservation, 0, 10)
 	// Honest majority: 7 observers share a SHA (shares are stripped), distinct shares each.
-	for i := 0; i < 7; i++ {
+	for i := range 7 {
 		obsb := marshalObservations(t, observation{id, req, resp("ciphertext-honest", fmt.Sprintf("honest-share-%d", i+1))})
 		aos = append(aos, types.AttributedObservation{Observer: commontypes.OracleID(i), Observation: types.Observation(obsb)})
 	}
@@ -4491,7 +4498,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_Deterministic
 	}
 
 	var first []byte
-	for run := 0; run < 10; run++ {
+	for run := range 10 {
 		reportPrecursor, err := r.StateTransition(t.Context(), seqNr, types.AttributedQuery{}, aos, kv, nil)
 		require.NoError(t, err)
 		if first == nil {
