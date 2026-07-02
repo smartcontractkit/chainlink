@@ -549,6 +549,7 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 			Keys: NodeKeyInput{
 				EVMChainIDs:     c.EVMChains(),
 				SolanaChainIDs:  c.SupportedSolChains,
+				StellarChainIDs: c.SupportedStellarChains,
 				AptosChainIDs:   aptosChainIDs,
 				Password:        "dev-password",
 				ImportedSecrets: nodeSpec.Node.TestSecretsOverrides,
@@ -718,6 +719,10 @@ func (m *DonMetadata) EVMChains() []uint64 {
 
 func (m *DonMetadata) SolanaChains() []string {
 	return slices.Clone(m.ns.SupportedSolChains)
+}
+
+func (m *DonMetadata) StellarChains() []string {
+	return slices.Clone(m.ns.SupportedStellarChains)
 }
 
 func (m *DonMetadata) RequiresOCR() bool {
@@ -1226,7 +1231,8 @@ type NodeSet struct {
 	// Example: [nodesets.capability_configs.http-action.values] IncomingGlobalRPS = 2000.0
 	CapabilityConfigs map[CapabilityFlag]CapabilityConfig `toml:"capability_configs"`
 
-	SupportedSolChains []string `toml:"supported_sol_chains"` // sol chain IDs that the DON supports
+	SupportedSolChains     []string `toml:"supported_sol_chains"`     // sol chain IDs that the DON supports
+	SupportedStellarChains []string `toml:"supported_stellar_chains"` // stellar network IDs (string) that the DON supports
 
 	ExposesRemoteCapabilities bool `toml:"exposes_remote_capabilities"`
 	ShardIndex                uint `toml:"shard_index"`
@@ -1381,7 +1387,10 @@ func (c *NodeSet) ValidateChainCapabilities(bcInput []*blockchain.Input) error {
 
 	knownChains := make(map[uint64]struct{})
 	for _, bc := range bcInput {
-		if strings.EqualFold(bc.Type, blockchain.FamilySolana) {
+		// Solana and Stellar use non-numeric string chain IDs and scope their
+		// capabilities via supported_{sol,stellar}_chains (not the numeric
+		// "<flag>-<chainID>" form), so they aren't in chainCapabilityIndex.
+		if strings.EqualFold(bc.Type, blockchain.FamilySolana) || strings.EqualFold(bc.Type, blockchain.FamilyStellar) {
 			continue
 		}
 		chainIDUint64, convErr := strconv.ParseUint(bc.ChainID, 10, 64)
@@ -1437,10 +1446,11 @@ func (c *NodeSet) MaxFaultyNodes() (uint32, error) {
 }
 
 type NodeKeyInput struct {
-	EVMChainIDs    []uint64
-	SolanaChainIDs []string
-	AptosChainIDs  []uint64
-	Password       string
+	EVMChainIDs     []uint64
+	SolanaChainIDs  []string
+	StellarChainIDs []string
+	AptosChainIDs   []uint64
+	Password        string
 
 	ImportedSecrets string // raw JSON string of secrets to import (usually from a previous run)
 }
@@ -1448,8 +1458,9 @@ type NodeKeyInput struct {
 func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 	start := time.Now()
 	out := &secrets.NodeKeys{
-		EVM:    make(map[uint64]*crypto.EVMKey),
-		Solana: make(map[string]*crypto.SolKey),
+		EVM:     make(map[uint64]*crypto.EVMKey),
+		Solana:  make(map[string]*crypto.SolKey),
+		Stellar: make(map[string]*crypto.StellarKey),
 	}
 
 	if input.ImportedSecrets != "" {
@@ -1492,6 +1503,13 @@ func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 			return nil, fmt.Errorf("failed to generate Sol keys: %w", err)
 		}
 		out.Solana[chainID] = k
+	}
+	for _, chainID := range input.StellarChainIDs {
+		k, err := crypto.NewStellarKey(input.Password)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate Stellar key: %w", err)
+		}
+		out.Stellar[chainID] = k
 	}
 	if len(input.AptosChainIDs) > 0 {
 		k, err := crypto.NewAptosKey(input.Password)
