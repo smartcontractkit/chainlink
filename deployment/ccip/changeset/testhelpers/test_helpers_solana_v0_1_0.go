@@ -971,7 +971,7 @@ func AddLane(
 		for address, price := range tokenPrices {
 			aptosTokenPrices[mustParseAptosAddress(t, address)] = price
 		}
-		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, aptosTokenPrices)...)
+		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, aptosTokenPrices, nil)...)
 	}
 
 	switch toFamily {
@@ -980,13 +980,24 @@ func AddLane(
 	case chainsel.FamilySolana:
 		changesets = append(changesets, AddLaneSolanaChangesetsV0_1_0(e, to, from, fromFamily)...)
 	case chainsel.FamilyAptos:
-		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, nil)...)
+		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, nil, evmTokenPrices)...)
 		if fromFamily == chainsel.FamilyEVM {
+			// ConnectChains resolves the EVM onramp from DataStore; re-apply with the deployed
+			// onramp from chainlink stateview so Aptos offramp source config cannot drift to mocks.
+			for _, cs := range reconcileAptosOffRampEVMSourceChangesets(t, e, state, to, from, isTestRouter) {
+				changesets = append(changesets, withAptosOperationsRegistered(cs))
+			}
 			// ConnectChains applies Aptos adapter dest config (staleness threshold 2) onto the
 			// EVM FeeQuoter and skips gas-price refresh when already seeded. Re-apply test lane
 			// config (threshold 90000) and refresh gas prices after ConnectChains.
-			changesets = append(changesets, addEVMFeeQuoterDestAndPricesChangesets(from, to, gasPrices, evmTokenPrices, fqCfg)...)
+			// MCMS is nil here: smoke-test EVM contracts are deployer-owned, not timelock-owned.
+			changesets = append(changesets, addEVMFeeQuoterDestAndPricesChangesets(from, to, gasPrices, evmTokenPrices, fqCfg, nil)...)
 		}
+	}
+
+	if toFamily == chainsel.FamilyAptos || fromFamily == chainsel.FamilyAptos {
+		mergeEnvDataStoreFromAddressBook(t, &e.Env)
+		ensureAptosOperationsRegistered(&e.Env)
 	}
 
 	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, changesets)
@@ -1061,11 +1072,12 @@ func AddLaneSolanaChangesetsV0_1_0(e *DeployedEnv, solChainSelector, remoteChain
 	return solanaChangesets
 }
 
-func addEVMFeeQuoterDestAndPricesChangesets(from, to uint64, gasprice map[uint64]*big.Int, tokenPrices map[common.Address]*big.Int, fqCfg fee_quoter.FeeQuoterDestChainConfig) []commoncs.ConfiguredChangeSet {
+func addEVMFeeQuoterDestAndPricesChangesets(from, to uint64, gasprice map[uint64]*big.Int, tokenPrices map[common.Address]*big.Int, fqCfg fee_quoter.FeeQuoterDestChainConfig, mcmsCfg *cldfproposalutils.TimelockConfig) []commoncs.ConfiguredChangeSet {
 	return []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterPricesChangeset),
 			v1_6.UpdateFeeQuoterPricesConfig{
+				MCMS: mcmsCfg,
 				PricesByChain: map[uint64]v1_6.FeeQuoterPriceUpdatePerSource{
 					from: {
 						TokenPrices: tokenPrices,
@@ -1077,6 +1089,7 @@ func addEVMFeeQuoterDestAndPricesChangesets(from, to uint64, gasprice map[uint64
 		commoncs.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterDestsChangeset),
 			v1_6.UpdateFeeQuoterDestsConfig{
+				MCMS: mcmsCfg,
 				UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 					from: {
 						to: fqCfg,
@@ -1104,7 +1117,7 @@ func AddEVMSrcChangesets(from, to uint64, isTestRouter bool, gasprice map[uint64
 			},
 		),
 	}
-	evmSrcChangesets = append(evmSrcChangesets, addEVMFeeQuoterDestAndPricesChangesets(from, to, gasprice, tokenPrices, fqCfg)...)
+	evmSrcChangesets = append(evmSrcChangesets, addEVMFeeQuoterDestAndPricesChangesets(from, to, gasprice, tokenPrices, fqCfg, nil)...)
 	evmSrcChangesets = append(evmSrcChangesets,
 		commoncs.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
@@ -1180,7 +1193,7 @@ func AddSuiDestChangeset(e *DeployedEnv, to, from uint64, isTestRouter bool) []c
 	return suiDstChangesets
 }
 
-func AddLaneAptosChangesets(t *testing.T, srcChainSelector, destChainSelector uint64, gasPrices map[uint64]*big.Int, tokenPrices map[aptos.AccountAddress]*big.Int) []commoncs.ConfiguredChangeSet {
+func AddLaneAptosChangesets(t *testing.T, srcChainSelector, destChainSelector uint64, gasPrices map[uint64]*big.Int, aptosTokenPrices map[aptos.AccountAddress]*big.Int, evmTokenPrices map[common.Address]*big.Int) []commoncs.ConfiguredChangeSet {
 	srcFamily, err := chainsel.GetSelectorFamily(srcChainSelector)
 	require.NoError(t, err)
 	destFamily, err := chainsel.GetSelectorFamily(destChainSelector)
@@ -1210,9 +1223,9 @@ func AddLaneAptosChangesets(t *testing.T, srcChainSelector, destChainSelector ui
 	aptosDef := lanes.ChainDefinition{Selector: aptosSelector}
 	if aptosIsSource {
 		aptosDef.RMNVerificationEnabled = false
-		if len(tokenPrices) > 0 {
-			aptosDef.TokenPrices = make(map[string]*big.Int, len(tokenPrices))
-			for addr, price := range tokenPrices {
+		if len(aptosTokenPrices) > 0 {
+			aptosDef.TokenPrices = make(map[string]*big.Int, len(aptosTokenPrices))
+			for addr, price := range aptosTokenPrices {
 				aptosDef.TokenPrices[addr.StringLong()] = price
 			}
 		}
@@ -1230,6 +1243,12 @@ func AddLaneAptosChangesets(t *testing.T, srcChainSelector, destChainSelector ui
 			remoteDef.AllowListEnabled = false
 		} else {
 			remoteDef.RMNVerificationEnabled = false
+			if len(evmTokenPrices) > 0 {
+				remoteDef.TokenPrices = make(map[string]*big.Int, len(evmTokenPrices))
+				for addr, price := range evmTokenPrices {
+					remoteDef.TokenPrices[addr.Hex()] = price
+				}
+			}
 		}
 	default:
 		t.Fatalf("Unsupported remote chain family: %v", remoteFamily)

@@ -35,6 +35,8 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldfoperations "github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
@@ -42,7 +44,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	aptoscs "github.com/smartcontractkit/chainlink-aptos/deployment/ccip"
 	"github.com/smartcontractkit/chainlink-aptos/deployment/ccip/config"
+	"github.com/smartcontractkit/chainlink-aptos/deployment/ccip/operation"
 	aptosshared "github.com/smartcontractkit/chainlink-aptos/deployment/ccip/shared"
+	aptosv1_6 "github.com/smartcontractkit/chainlink-aptos/deployment/ccip/v1_6"
 	aptossvctypes "github.com/smartcontractkit/chainlink-aptos/deployment/types"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -51,6 +55,78 @@ import (
 	aptosstate "github.com/smartcontractkit/chainlink-aptos/deployment/state"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
+
+func mergeEnvDataStoreFromAddressBook(t *testing.T, env *cldf.Environment) {
+	t.Helper()
+	ds, err := shared.PopulateDataStore(env.ExistingAddresses)
+	require.NoError(t, err)
+	mds := datastore.NewMemoryDataStore()
+	if env.DataStore != nil {
+		require.NoError(t, mds.Merge(env.DataStore))
+	}
+	require.NoError(t, mds.Merge(ds.Seal()))
+	env.DataStore = mds.Seal()
+}
+
+func ensureAptosOperationsRegistered(env *cldf.Environment) {
+	for _, op := range operation.GetAptosOperations() {
+		cldfoperations.RegisterOperationRelaxed(env.OperationsBundle.OperationRegistry, op)
+	}
+}
+
+type aptosOpsRegisteredChangeSet struct {
+	inner commoncs.ConfiguredChangeSet
+}
+
+func (w aptosOpsRegisteredChangeSet) Apply(e cldf.Environment) (cldf.ChangesetOutput, error) {
+	ensureAptosOperationsRegistered(&e)
+	return w.inner.Apply(e)
+}
+
+func withAptosOperationsRegistered(cs commoncs.ConfiguredChangeSet) commoncs.ConfiguredChangeSet {
+	return aptosOpsRegisteredChangeSet{inner: cs}
+}
+
+func reconcileAptosOffRampEVMSourceChangesets(
+	t *testing.T,
+	e *DeployedEnv,
+	state stateview.CCIPOnChainState,
+	aptosChainSel, evmChainSel uint64,
+	isTestRouter bool,
+) []commoncs.ConfiguredChangeSet {
+	t.Helper()
+	evmOnRamp, err := state.GetOnRampAddressBytes(evmChainSel)
+	require.NoError(t, err)
+
+	return []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(aptoscs.DynamicCS{}, config.DynamicConfig{
+			ChainSelector: aptosChainSel,
+			Description: fmt.Sprintf(
+				"reconcile Aptos offramp EVM source onramp for lane %d -> %d",
+				evmChainSel, aptosChainSel,
+			),
+			Defs: []cldfoperations.Definition{
+				operation.UpdateOffRampSourcesOp.Def(),
+			},
+			Inputs: []any{
+				operation.UpdateOffRampSourcesInput{
+					Updates: map[uint64]aptosv1_6.OffRampSourceUpdate{
+						evmChainSel: {
+							IsEnabled:                 true,
+							TestRouter:                isTestRouter,
+							IsRMNVerificationDisabled: !e.RmnEnabledSourceChains[evmChainSel],
+							OnRamp:                    evmOnRamp,
+						},
+					},
+				},
+			},
+			MCMSConfig: &cldfproposalutils.TimelockConfig{
+				MinDelay:   time.Second,
+				MCMSAction: mcmstypes.TimelockActionSchedule,
+			},
+		}),
+	}
+}
 
 func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector uint64) commoncs.ConfiguredChangeSet {
 	ccipConfig := config.DeployAptosChainConfig{
