@@ -225,6 +225,8 @@ type SetCallAllowedChainConfig struct {
 // SetCallAllowedInput is the input to the setCallAllowed changeset.
 type SetCallAllowedInput struct {
 	Chains map[uint64]SetCallAllowedChainConfig `json:"chains"`
+	// MCMSConfig optionally configures the timelock proposal; when nil, schedule + proposer MCM is used.
+	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config,omitempty"`
 }
 
 // EthBalMonAcceptOwnershipInput is the input to the EthBalMon acceptOwnership changeset.

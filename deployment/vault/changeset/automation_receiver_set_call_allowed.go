@@ -2,13 +2,22 @@ package changeset
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/ethereum/go-ethereum/common"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+	"github.com/smartcontractkit/mcms"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	proposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_receiver"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	vaulttypes "github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
 
@@ -19,6 +28,9 @@ type setCallAllowed struct{}
 func (s setCallAllowed) VerifyPreconditions(env cldf.Environment, config vaulttypes.SetCallAllowedInput) error {
 	if len(config.Chains) == 0 {
 		return fmt.Errorf("chains must not be empty")
+	}
+	if config.MCMSConfig != nil && config.MCMSConfig.MinDelay < 0 {
+		return fmt.Errorf("MCMS minimum delay cannot be negative: %d", config.MCMSConfig.MinDelay)
 	}
 	for chainSelector, chainCfg := range config.Chains {
 		if err := validateChainSelector(chainSelector, env); err != nil {
@@ -38,16 +50,17 @@ func (s setCallAllowed) VerifyPreconditions(env cldf.Environment, config vaultty
 }
 
 func (s setCallAllowed) Apply(e cldf.Environment, config vaulttypes.SetCallAllowedInput) (cldf.ChangesetOutput, error) {
+	logger := e.Logger
+	logger.Infow("Generating setCallAllowed proposal", "numChains", len(config.Chains))
+
 	evmChains := e.BlockChains.EVMChains()
 
-	var primaryChainSelector uint64
-	for sel := range config.Chains {
-		if primaryChainSelector == 0 || sel < primaryChainSelector {
-			primaryChainSelector = sel
-		}
+	var primaryChain cldf_evm.Chain
+	for chainSelector := range config.Chains {
+		primaryChain = evmChains[chainSelector]
+		break
 	}
 
-	primaryChain := evmChains[primaryChainSelector]
 	deps := VaultDeps{
 		Auth:        primaryChain.DeployerKey,
 		Chain:       primaryChain,
@@ -55,19 +68,22 @@ func (s setCallAllowed) Apply(e cldf.Environment, config vaulttypes.SetCallAllow
 		DataStore:   e.DataStore,
 	}
 
-	_, err := operations.ExecuteSequence(
+	seqReport, err := operations.ExecuteSequence(
 		e.OperationsBundle,
 		SetCallAllowedSequence,
 		deps,
 		SetCallAllowedSequenceInput{
-			Chains: config.Chains,
+			Chains:     config.Chains,
+			MCMSConfig: config.MCMSConfig,
 		},
 	)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("setCallAllowed sequence failed: %w", err)
 	}
 
-	return cldf.ChangesetOutput{}, nil
+	return cldf.ChangesetOutput{
+		MCMSTimelockProposals: seqReport.Output.MCMSTimelockProposals,
+	}, nil
 }
 
 // ================================================
@@ -77,35 +93,167 @@ func (s setCallAllowed) Apply(e cldf.Environment, config vaulttypes.SetCallAllow
 // ================================================
 
 type SetCallAllowedSequenceInput struct {
-	Chains map[uint64]vaulttypes.SetCallAllowedChainConfig
+	Chains     map[uint64]vaulttypes.SetCallAllowedChainConfig `json:"chains"`
+	MCMSConfig *proposalutils.TimelockConfig                   `json:"mcms_config,omitempty"`
 }
 
-type SetCallAllowedSequenceOutput struct{}
+type SetCallAllowedSequenceOutput struct {
+	MCMSTimelockProposals []mcms.TimelockProposal `json:"mcms_timelock_proposals"`
+}
 
 var SetCallAllowedSequence = operations.NewSequence(
 	"set-call-allowed-sequence",
 	semver.MustParse("1.0.0"),
-	"Call setCallAllowed on AutomationReceiver for each chain",
+	"Build a timelock proposal to call setCallAllowed on AutomationReceiver for each chain",
 	func(b operations.Bundle, deps VaultDeps, input SetCallAllowedSequenceInput) (SetCallAllowedSequenceOutput, error) {
+		b.Logger.Infow("Starting setCallAllowed sequence", "chains", len(input.Chains))
+
+		var batches []mcmstypes.BatchOperation
+		timelockAddresses := make(map[uint64]string)
+		mcmAddressByChain := make(map[uint64]string)
+
 		for chainSelector, chainCfg := range input.Chains {
 			selector, err := parseSelectorHex(chainCfg.Selector)
 			if err != nil {
 				return SetCallAllowedSequenceOutput{}, fmt.Errorf("chain %d: invalid selector: %w", chainSelector, err)
 			}
 
-			_, err = operations.ExecuteOperation(b, SetCallAllowedOperation, deps, SetCallAllowedOperationInput{
+			opReport, err := operations.ExecuteOperation(b, SetCallAllowedProposalOperation, deps, SetCallAllowedProposalOpInput{
 				ChainSelector:             chainSelector,
 				AutomationReceiverAddress: chainCfg.AutomationReceiverAddress,
 				TargetAddress:             chainCfg.TargetAddress,
 				Selector:                  selector,
 				Allowed:                   chainCfg.Allowed,
+				MCMSConfig:                input.MCMSConfig,
 			})
 			if err != nil {
-				return SetCallAllowedSequenceOutput{}, fmt.Errorf("chain %d: setCallAllowed failed: %w", chainSelector, err)
+				return SetCallAllowedSequenceOutput{}, fmt.Errorf("chain %d: failed to generate setCallAllowed batch: %w", chainSelector, err)
 			}
+			opOutput := opReport.Output
+
+			batches = append(batches, opOutput.BatchOperation)
+			timelockAddresses[chainSelector] = opOutput.TimelockAddress
+			mcmAddressByChain[chainSelector] = opOutput.MCMSAddress
 		}
 
-		return SetCallAllowedSequenceOutput{}, nil
+		proposal, err := proposeutils.BuildProposalFromBatchesV2(deps.Environment, timelockAddresses, mcmAddressByChain, nil, batches, "AutomationReceiver SetCallAllowed", ethBalMonProposalTimelockConfig(input.MCMSConfig))
+		if err != nil {
+			return SetCallAllowedSequenceOutput{}, fmt.Errorf("failed to build timelock proposal: %w", err)
+		}
+
+		b.Logger.Infow("Generated setCallAllowed proposal",
+			"chains", len(input.Chains), "operations", len(batches))
+
+		return SetCallAllowedSequenceOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
+	},
+)
+
+// ================================================
+// ================================================
+// SetCallAllowed proposal OPERATION
+// ================================================
+// ================================================
+
+type SetCallAllowedProposalOpInput struct {
+	ChainSelector             uint64                        `json:"chain_selector"`
+	AutomationReceiverAddress string                        `json:"automation_receiver_address"`
+	TargetAddress             string                        `json:"target_address"`
+	Selector                  [4]byte                       `json:"selector"`
+	Allowed                   bool                          `json:"allowed"`
+	MCMSConfig                *proposalutils.TimelockConfig `json:"mcms_config,omitempty"`
+}
+
+type SetCallAllowedProposalOpOutput struct {
+	ChainSelector   uint64                   `json:"chain_selector"`
+	BatchOperation  mcmstypes.BatchOperation `json:"batch_operation"`
+	TimelockAddress string                   `json:"timelock_address"`
+	MCMSAddress     string                   `json:"mcms_address"`
+}
+
+var SetCallAllowedProposalOperation = operations.NewOperation(
+	"set-call-allowed-proposal-operation",
+	semver.MustParse("1.0.0"),
+	"Operation to create transaction batch for AutomationReceiver setCallAllowed",
+	func(b operations.Bundle, deps VaultDeps, input SetCallAllowedProposalOpInput) (SetCallAllowedProposalOpOutput, error) {
+		b.Logger.Infow("Starting setCallAllowed proposal operation",
+			"chainSelector", input.ChainSelector,
+			"automationReceiverAddress", input.AutomationReceiverAddress,
+			"target", input.TargetAddress,
+			"selector", fmt.Sprintf("0x%08x", input.Selector),
+			"allowed", input.Allowed,
+		)
+
+		chain, ok := deps.Environment.BlockChains.EVMChains()[input.ChainSelector]
+		if !ok {
+			return SetCallAllowedProposalOpOutput{}, fmt.Errorf("chain not found in environment: %d", input.ChainSelector)
+		}
+
+		timelockAddr, err := getRequiredContractAddress(
+			deps.DataStore,
+			input.ChainSelector,
+			commontypes.RBACTimelock,
+		)
+		if err != nil {
+			return SetCallAllowedProposalOpOutput{}, fmt.Errorf("failed to get timelock address: %w", err)
+		}
+		mcmsAddr, err := getRequiredContractAddress(
+			deps.DataStore,
+			input.ChainSelector,
+			ethBalMonMCMSContractTypeForProposal(input.MCMSConfig),
+		)
+		if err != nil {
+			return SetCallAllowedProposalOpOutput{}, fmt.Errorf("failed to get MCMS address: %w", err)
+		}
+
+		receiver, err := automation_receiver.NewAutomationReceiver(
+			common.HexToAddress(input.AutomationReceiverAddress),
+			chain.Client,
+		)
+		if err != nil {
+			return SetCallAllowedProposalOpOutput{}, fmt.Errorf("failed to instantiate AutomationReceiver at %s: %w", input.AutomationReceiverAddress, err)
+		}
+
+		setCallAllowedTx, err := receiver.SetCallAllowed(
+			cldf.SimTransactOpts(),
+			common.HexToAddress(input.TargetAddress),
+			input.Selector,
+			input.Allowed,
+		)
+		if err != nil {
+			return SetCallAllowedProposalOpOutput{}, fmt.Errorf("failed to generate setCallAllowed calldata on chain %d: %w", input.ChainSelector, err)
+		}
+
+		batch := mcmstypes.BatchOperation{
+			ChainSelector: mcmstypes.ChainSelector(input.ChainSelector),
+			Transactions: []mcmstypes.Transaction{
+				{
+					OperationMetadata: mcmstypes.OperationMetadata{
+						ContractType: vaulttypes.AutomationReceiverContractType,
+						Tags: []string{
+							"setCallAllowed",
+						},
+					},
+					To:               input.AutomationReceiverAddress,
+					Data:             setCallAllowedTx.Data(),
+					AdditionalFields: json.RawMessage(`{"value": 0}`),
+				},
+			},
+		}
+
+		b.Logger.Infow("Generated setCallAllowed batch",
+			"chainSelector", input.ChainSelector,
+			"automationReceiver", input.AutomationReceiverAddress,
+			"target", input.TargetAddress,
+		)
+
+		return SetCallAllowedProposalOpOutput{
+			ChainSelector:   input.ChainSelector,
+			BatchOperation:  batch,
+			TimelockAddress: timelockAddr,
+			MCMSAddress:     mcmsAddr,
+		}, nil
 	},
 )
 
