@@ -563,7 +563,3 @@ replace github.com/doyensec/safeurl => github.com/cedric-cordenier/safeurl v0.0.
 replace github.com/gagliardetto/binary => github.com/archseer/binary v0.0.0-20250226104222-b87d7f4fd58a
 
 replace github.com/smartcontractkit/chainlink-sui => github.com/smartcontractkit/chainlink-sui v0.0.0-20260624134342-6bfb9c92859d
-
-replace github.com/smartcontractkit/chainlink-aptos => /Users/rodrigo/Chainlink/chainlink-aptos
-
-replace github.com/smartcontractkit/chainlink-aptos/deployment => /Users/rodrigo/Chainlink/chainlink-aptos/deployment

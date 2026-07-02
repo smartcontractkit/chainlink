@@ -983,6 +983,20 @@ func AddLane(
 		return err
 	}
 
+	if fromFamily == chainsel.FamilyEVM && toFamily == chainsel.FamilyAptos {
+		evmTokenPrices := make(map[common.Address]*big.Int, len(tokenPrices))
+		for address, price := range tokenPrices {
+			evmTokenPrices[common.HexToAddress(address)] = price
+		}
+		fqChangesets := addEVMFeeQuoterDestAndPricesChangesets(
+			from, to, gasPrices, evmTokenPrices, fqCfg, nil,
+		)
+		e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, fqChangesets)
+		if err != nil {
+			return err
+		}
+	}
+
 	if fromFamily == chainsel.FamilyAptos || toFamily == chainsel.FamilyAptos {
 		if err := ensureEVMRouterLaneConfig(t, e, state, from, to, fromFamily, toFamily, isTestRouter, gasPrices, tokenPrices, fqCfg); err != nil {
 			return err
@@ -1167,6 +1181,40 @@ func AddLaneSolanaChangesetsV0_1_0(e *DeployedEnv, solChainSelector, remoteChain
 	return solanaChangesets
 }
 
+func addEVMFeeQuoterDestAndPricesChangesets(
+	from, to uint64,
+	gasPrices map[uint64]*big.Int,
+	tokenPrices map[common.Address]*big.Int,
+	fqCfg fee_quoter.FeeQuoterDestChainConfig,
+	mcms *cldfproposalutils.TimelockConfig,
+) []commoncs.ConfiguredChangeSet {
+	return []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(
+			cldf.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterPricesChangeset),
+			v1_6.UpdateFeeQuoterPricesConfig{
+				MCMS: mcms,
+				PricesByChain: map[uint64]v1_6.FeeQuoterPriceUpdatePerSource{
+					from: {
+						TokenPrices: tokenPrices,
+						GasPrices:   gasPrices,
+					},
+				},
+			},
+		),
+		commoncs.Configure(
+			cldf.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterDestsChangeset),
+			v1_6.UpdateFeeQuoterDestsConfig{
+				MCMS: mcms,
+				UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
+					from: {
+						to: fqCfg,
+					},
+				},
+			},
+		),
+	}
+}
+
 func AddEVMSrcChangesets(from, to uint64, isTestRouter bool, gasprice map[uint64]*big.Int, tokenPrices map[common.Address]*big.Int, fqCfg fee_quoter.FeeQuoterDestChainConfig) []commoncs.ConfiguredChangeSet {
 	evmSrcChangesets := []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(
@@ -1183,27 +1231,9 @@ func AddEVMSrcChangesets(from, to uint64, isTestRouter bool, gasprice map[uint64
 				},
 			},
 		),
-		commoncs.Configure(
-			cldf.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterPricesChangeset),
-			v1_6.UpdateFeeQuoterPricesConfig{
-				PricesByChain: map[uint64]v1_6.FeeQuoterPriceUpdatePerSource{
-					from: {
-						TokenPrices: tokenPrices,
-						GasPrices:   gasprice,
-					},
-				},
-			},
-		),
-		commoncs.Configure(
-			cldf.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterDestsChangeset),
-			v1_6.UpdateFeeQuoterDestsConfig{
-				UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
-					from: {
-						to: fqCfg,
-					},
-				},
-			},
-		),
+	}
+	evmSrcChangesets = append(evmSrcChangesets, addEVMFeeQuoterDestAndPricesChangesets(from, to, gasprice, tokenPrices, fqCfg, nil)...)
+	evmSrcChangesets = append(evmSrcChangesets,
 		commoncs.Configure(
 			cldf.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
 			v1_6.UpdateRouterRampsConfig{
@@ -1218,7 +1248,7 @@ func AddEVMSrcChangesets(from, to uint64, isTestRouter bool, gasprice map[uint64
 				},
 			},
 		),
-	}
+	)
 
 	return evmSrcChangesets
 }

@@ -567,7 +567,3 @@ replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlin
 replace github.com/doyensec/safeurl => github.com/cedric-cordenier/safeurl v0.0.0-20260525105509-613a4d94ca55
 
 replace github.com/smartcontractkit/chainlink-sui => github.com/smartcontractkit/chainlink-sui v0.0.0-20260624134342-6bfb9c92859d
-
-replace github.com/smartcontractkit/chainlink-aptos => /Users/rodrigo/Chainlink/chainlink-aptos
-
-replace github.com/smartcontractkit/chainlink-aptos/deployment => /Users/rodrigo/Chainlink/chainlink-aptos/deployment
