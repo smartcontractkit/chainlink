@@ -743,7 +743,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		executionID = fullExecutionID
 		e.metrics.IncrementExecutionIDFullCounter(ctx)
 	} else {
-		executionID, err = events.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID)
+		executionID, err = events.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID) //nolint:staticcheck // SA1019 legacy execution ID path
 		if err != nil {
 			e.logger().Errorw("Failed to generate execution ID", "err", err, "triggerID", wrappedTriggerEvent.triggerCapID)
 			triggerDrop(monitoring.TriggerDropReasonExecutionIDGenerationFailed)
@@ -960,6 +960,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		executionProfile: newExecutionProfileCollector(),
 		suspension:       suspension,
 	}
+
 	execHelper.initLimiters(e.cfg.LocalLimiters)
 	e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).RecordTriggerPayloadBytes(ctx, int64(proto.Size(triggerEvent.Payload)))
 	var result *sdkpb.ExecutionResult
@@ -972,7 +973,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		},
 		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
-	}, execHelper)
+	}, execHelper.PossiblyWithRawSecrets())
 	// Non-evictable modules do not record skew; label those as direct.
 	skewRec.RecordReady(execCtx, monitoring.ModuleLoadSourceDirect)
 

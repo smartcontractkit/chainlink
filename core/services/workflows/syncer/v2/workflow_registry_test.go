@@ -558,6 +558,49 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		require.Equal(t, nextRetryAt, events[0].nextRetryAt)
 	})
 
+	t.Run("dropped activation is not re-enqueued", func(t *testing.T) {
+		t.Parallel()
+		lggr := logger.TestLogger(t)
+		ctx := t.Context()
+		workflowDonNotifier := capabilities.NewDonNotifier()
+		er := NewEngineRegistry()
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+				return nil, nil
+			},
+			"",
+			"test-chain-selector",
+			Config{
+				QueryCount:   20,
+				SyncStrategy: SyncStrategyReconciliation,
+			},
+			&eventHandler{},
+			workflowDonNotifier,
+			er,
+		)
+		require.NoError(t, err)
+
+		wfID := wfTypes.WorkflowID([32]byte{1})
+		owner := []byte{}
+		wfName := "wf name 1"
+		metadata := []WorkflowMetadataView{
+			{
+				WorkflowID:   wfID,
+				Owner:        owner,
+				Status:       WorkflowStatusActive,
+				WorkflowName: wfName,
+			},
+		}
+		source := "TestSource"
+		signature := fmt.Sprintf("%s-%s-%s", WorkflowActivated, wfID.Hex(), toSpecStatus(WorkflowStatusActive))
+		wr.droppedActivations.drop(source, wfID.Hex(), signature)
+
+		events, err := wr.generateReconciliationEvents(ctx, map[string]*reconciliationEvent{}, metadata, &types.Head{Height: "123"}, source)
+		require.NoError(t, err)
+		require.Empty(t, events)
+	})
+
 	t.Run("a paused workflow clears a pending activated event", func(t *testing.T) {
 		t.Parallel()
 		lggr := logger.TestLogger(t)

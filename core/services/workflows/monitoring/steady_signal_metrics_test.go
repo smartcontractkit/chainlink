@@ -7,6 +7,7 @@ import (
 )
 
 func TestSteadySignalStateConstants(t *testing.T) {
+	t.Parallel()
 	require.Equal(t, int64(0), SteadySignalStateUnobserved)
 	require.Equal(t, int64(1), SteadySignalStateTransition)
 	require.Equal(t, int64(2), SteadySignalStateSteady)

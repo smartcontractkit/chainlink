@@ -31,6 +31,8 @@ var (
 )
 
 func TestDefaultModeAggregator_Aggregate(t *testing.T) {
+	t.Parallel()
+
 	val, err := values.NewMap(triggerEvent1)
 	require.NoError(t, err)
 	capResponse1 := commoncap.TriggerResponse{
@@ -66,8 +68,12 @@ func TestDefaultModeAggregator_Aggregate(t *testing.T) {
 }
 
 func TestAggregateModeRaw_Correctness(t *testing.T) {
+	t.Parallel()
+
 	for _, sc := range aggregationScenarios(t) {
 		t.Run(sc.name, func(t *testing.T) {
+			t.Parallel()
+
 			result, err := AggregateModeRaw(sc.payloads, sc.minResponses)
 			if sc.expectError {
 				require.Error(t, err)
@@ -108,7 +114,7 @@ func testPayload(tb testing.TB, data string, eventID string) []byte {
 func testDataString(size int, seed int) string {
 	buf := make([]byte, size)
 	for i := range buf {
-		buf[i] = 'A' + byte((seed+i)%26)
+		buf[i] = 'A' + byte((seed+i)%26) //nolint:gosec // G115: modulo 26 is always in byte range
 	}
 	return string(buf)
 }
@@ -134,7 +140,7 @@ func aggregationScenarios(tb testing.TB) []aggregationScenario {
 	}
 	nMixed := func(countA, countB int) [][]byte {
 		p := make([][]byte, countA+countB)
-		for i := 0; i < countA; i++ {
+		for i := range countA {
 			p[i] = pA
 		}
 		for i := countA; i < countA+countB; i++ {
@@ -187,7 +193,7 @@ func aggregationScenarios(tb testing.TB) []aggregationScenario {
 			name: fmt.Sprintf("%d payloads: %d×A + 1×B - returns A (mode)", testDonSize, testDonSize-1),
 			payloads: func() [][]byte {
 				p := make([][]byte, testDonSize)
-				for i := 0; i < testDonSize-1; i++ {
+				for i := range testDonSize - 1 {
 					p[i] = pA
 				}
 				p[testDonSize-1] = pB

@@ -1,5 +1,29 @@
 # Changelog Chainlink Core
 
+## 2.54.0
+
+### Minor Changes
+
+- [#22929](https://github.com/smartcontractkit/chainlink/pull/22929) [`f0d09ca`](https://github.com/smartcontractkit/chainlink/commit/f0d09ca537389e76a7e63f7fa2cccae9ca8b4192) - Minor bump to start next version
+
+- [#22905](https://github.com/smartcontractkit/chainlink/pull/22905) [`9570a4d`](https://github.com/smartcontractkit/chainlink/commit/9570a4d44980e9c6d853ee7d5e8a59c5e8f0606b) - #nops: Hard-set UID and GID when CHAINLINK_USER is non-root, and document container RootDir and safe volume mount conventions for operators.
+
+### Patch Changes
+
+- [#22733](https://github.com/smartcontractkit/chainlink/pull/22733) [`6624255`](https://github.com/smartcontractkit/chainlink/commit/66242557bd126cb8fe0bab390d6b75747408cdad) - Require explicit `don_family` on every nodeset for local CRE topologies. Gateway connectors, gateway worker jobs, capabilities registry families, and `env workflow deploy` are scoped by family. Deploy resolves the target workflow DON via `--don-family` (with optional `--shard-index`) or `--workflow-don-name`, and requires `--don-family` when local CRE state is absent. #internal
+
+## 2.53.0
+
+### Minor Changes
+
+- [#22864](https://github.com/smartcontractkit/chainlink/pull/22864) [`a21c4d7`](https://github.com/smartcontractkit/chainlink/commit/a21c4d7cb8487235b47efe196da5c73cf1e1a8f2) - Minor bump to start next version
+
+### Patch Changes
+
+- [#22306](https://github.com/smartcontractkit/chainlink/pull/22306) [`fe0013a`](https://github.com/smartcontractkit/chainlink/commit/fe0013aa56fcbd272ca9d1fae68e6d2a608d347d) - #updated #nops Updated documentation for SVR multiplexing and CustomURLs configuration.
+
+- [#22892](https://github.com/smartcontractkit/chainlink/pull/22892) [`5481a58`](https://github.com/smartcontractkit/chainlink/commit/5481a58f29aaa0e4986abce898a6312072e18f0d) - Use updated arbitrum gas estimator with refresh interval: 10s -> 2s and gas bump 1.5x -> 1.9x #changed
+
 ## 2.52.0
 
 ### Minor Changes

@@ -2048,6 +2048,12 @@ type WorkflowFetcherConfig struct {
 // validating enclave attestations and proxying capability requests.
 type ConfidentialRelayConfig struct {
 	Enabled *bool `toml:",omitempty"`
+	// TrustEnclaves relaxes TEE attestation validation so the relay trusts
+	// fake (non-Nitro) enclaves. INSECURE; intended only for tests/E2E that run
+	// against the fake enclave environment.
+	TrustEnclaves *bool `toml:",omitempty"`
+	// RequireBFTQuorum selects the required signature quorum.
+	RequireBFTQuorum *bool `toml:",omitempty"`
 }
 
 // LinkingConfig holds the configuration for connecting to the CRE linking service
@@ -2110,6 +2116,12 @@ func (c *CreConfig) setFrom(f *CreConfig) {
 		}
 		if v := f.ConfidentialRelay.Enabled; v != nil {
 			c.ConfidentialRelay.Enabled = v
+		}
+		if v := f.ConfidentialRelay.TrustEnclaves; v != nil {
+			c.ConfidentialRelay.TrustEnclaves = v
+		}
+		if v := f.ConfidentialRelay.RequireBFTQuorum; v != nil {
+			c.ConfidentialRelay.RequireBFTQuorum = v
 		}
 	}
 }
@@ -2481,6 +2493,7 @@ type WorkflowRegistry struct {
 	MaxConfigSize           *utils.FileSize
 	SyncStrategy            *string
 	MaxConcurrency          *int
+	MaxActivationRetries    *int
 	WorkflowStorage         WorkflowStorage
 	ModuleCache             ModuleCache
 	AdditionalSourcesConfig []AdditionalWorkflowSource `toml:"AdditionalSources"`
@@ -2521,6 +2534,10 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 
 	if f.MaxConcurrency != nil {
 		r.MaxConcurrency = f.MaxConcurrency
+	}
+
+	if f.MaxActivationRetries != nil {
+		r.MaxActivationRetries = f.MaxActivationRetries
 	}
 
 	r.WorkflowStorage.setFrom(&f.WorkflowStorage)

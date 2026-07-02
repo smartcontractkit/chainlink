@@ -7,6 +7,7 @@ import (
 )
 
 func TestSteadySignal_SkipCommittedOwnerCheck(t *testing.T) {
+	t.Parallel()
 	var nilSig *SteadySignal
 	assert.False(t, nilSig.SkipCommittedOwnerCheck())
 

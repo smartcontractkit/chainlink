@@ -11,6 +11,7 @@ import (
 )
 
 func TestStore_RoundTrip(t *testing.T) {
+	t.Parallel()
 	s, err := NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 
@@ -28,6 +29,7 @@ func TestStore_RoundTrip(t *testing.T) {
 }
 
 func TestStore_Overwrite(t *testing.T) {
+	t.Parallel()
 	s, err := NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 
@@ -75,6 +77,7 @@ func TestStore_nilBinary(t *testing.T) {
 }
 
 func TestStore_MissingModule(t *testing.T) {
+	t.Parallel()
 	s, err := NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 
@@ -86,6 +89,7 @@ func TestStore_MissingModule(t *testing.T) {
 }
 
 func TestStore_LegacyEntryWithoutEngineVersion(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	s, err := NewFileModuleStore(dir, false)
 	require.NoError(t, err)
@@ -101,6 +105,7 @@ func TestStore_LegacyEntryWithoutEngineVersion(t *testing.T) {
 }
 
 func TestStore_DeleteModule(t *testing.T) {
+	t.Parallel()
 	s, err := NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 
@@ -113,6 +118,7 @@ func TestStore_DeleteModule(t *testing.T) {
 }
 
 func TestStore_DeleteNonExistent(t *testing.T) {
+	t.Parallel()
 	s, err := NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 
@@ -120,6 +126,7 @@ func TestStore_DeleteNonExistent(t *testing.T) {
 }
 
 func TestStore_AtomicWrite(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	s, err := NewFileModuleStore(dir, false)
 	require.NoError(t, err)
@@ -138,6 +145,7 @@ func TestStore_AtomicWrite(t *testing.T) {
 }
 
 func TestStore_CleanOnStartup(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	stale := filepath.Join(dir, "stale-wf", binaryFileName)
 	require.NoError(t, os.MkdirAll(filepath.Dir(stale), 0o755))
@@ -160,12 +168,13 @@ func TestStore_CleanOnStartup(t *testing.T) {
 }
 
 func TestStore_ConcurrentAccess(t *testing.T) {
+	t.Parallel()
 	s, err := NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 
 	const wfSuffix = "ABCDEFGHIJ"
 	var wg sync.WaitGroup
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
@@ -173,7 +182,7 @@ func TestStore_ConcurrentAccess(t *testing.T) {
 			assert.NoError(t, s.StoreModule(wfID, []byte("data"), "v1"))
 		}(i)
 	}
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
@@ -186,7 +195,9 @@ func TestStore_ConcurrentAccess(t *testing.T) {
 }
 
 func TestFileModuleStore_CacheDir(t *testing.T) {
+	t.Parallel()
 	t.Run("explicit dir", func(t *testing.T) {
+		t.Parallel()
 		dir := t.TempDir()
 		s, err := NewFileModuleStore(dir, false)
 		require.NoError(t, err)
@@ -194,6 +205,7 @@ func TestFileModuleStore_CacheDir(t *testing.T) {
 	})
 
 	t.Run("empty config resolves to temp subdir", func(t *testing.T) {
+		t.Parallel()
 		s, err := NewFileModuleStore("", false)
 		require.NoError(t, err)
 		assert.Equal(t, filepath.Join(os.TempDir(), defaultCacheSubdir), s.CacheDir())
@@ -201,6 +213,7 @@ func TestFileModuleStore_CacheDir(t *testing.T) {
 }
 
 func TestNewFileModuleStore_NotWritable(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	require.NoError(t, os.Chmod(dir, 0o555))
 	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })

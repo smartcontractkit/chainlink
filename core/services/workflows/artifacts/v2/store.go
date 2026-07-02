@@ -44,19 +44,19 @@ type ArtifactLimiters struct {
 func makeLimiters(lf limits.Factory) (limiters *ArtifactLimiters, err error) {
 	limiters = new(ArtifactLimiters)
 	configSizeLimit := cresettings.Default.PerWorkflow.WASMConfigSizeLimit
-	limiters.MaxConfigSize, err = limits.MakeBoundLimiter(lf, configSizeLimit)
+	limiters.MaxConfigSize, err = limits.MakeUpperBoundLimiter(lf, configSizeLimit)
 	if err != nil {
 		return
 	}
 
 	secretsSizeLimit := cresettings.Default.PerWorkflow.WASMSecretsSizeLimit
-	limiters.MaxSecretsSize, err = limits.MakeBoundLimiter(lf, secretsSizeLimit)
+	limiters.MaxSecretsSize, err = limits.MakeUpperBoundLimiter(lf, secretsSizeLimit)
 	if err != nil {
 		return
 	}
 
 	binarySizeLimit := cresettings.Default.PerWorkflow.WASMBinarySizeLimit
-	limiters.MaxBinarySize, err = limits.MakeBoundLimiter(lf, binarySizeLimit)
+	limiters.MaxBinarySize, err = limits.MakeUpperBoundLimiter(lf, binarySizeLimit)
 	return
 }
 

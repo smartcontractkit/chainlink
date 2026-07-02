@@ -54,6 +54,16 @@ func (g *GatewayConfiguration) WebSocketURL() string {
 	return fmt.Sprintf("ws://%s:%d%s", g.Outgoing.Host, g.Outgoing.Port, g.Outgoing.Path)
 }
 
+// ExternalHTTPURL returns the gateway ingress URL clients use (tests, deploy, vault).
+// Incoming.Host is often unset in saved topology; fall back to infra external gateway host.
+func (g *GatewayConfiguration) ExternalHTTPURL(p infra.Provider) string {
+	host := g.Incoming.Host
+	if host == "" {
+		host = p.ExternalGatewayHost()
+	}
+	return fmt.Sprintf("%s://%s:%d%s", g.Incoming.Protocol, host, g.Incoming.ExternalPort, g.Incoming.Path)
+}
+
 func (g *GatewayConfiguration) ToConnectorGateway() coretoml.ConnectorGateway {
 	cg := coretoml.ConnectorGateway{
 		ID:  new(g.AuthGatewayID),

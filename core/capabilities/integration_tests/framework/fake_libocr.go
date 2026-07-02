@@ -10,16 +10,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
-
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
 )
 
@@ -167,10 +165,7 @@ func NewFakeLibOCR(t *testing.T, lggr logger.Logger, f uint8, protocolRoundInter
 
 func (m *FakeLibOCR) Start(ctx context.Context) error {
 	return m.StartOnce("FakeLibOCR", func() error {
-		m.wg.Add(1)
-		go func() {
-			defer m.wg.Done()
-
+		m.wg.Go(func() {
 			ticker := time.NewTicker(m.protocolRoundInterval)
 			defer ticker.Stop()
 
@@ -187,7 +182,7 @@ func (m *FakeLibOCR) Start(ctx context.Context) error {
 					}
 				}
 			}
-		}()
+		})
 		return nil
 	})
 }
