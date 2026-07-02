@@ -10,6 +10,7 @@ import (
 )
 
 func TestArtifactFetchError(t *testing.T) {
+	t.Parallel()
 	inner := errors.New("connection refused")
 	fetchErr := &ArtifactFetchError{
 		ArtifactType: "binary",
@@ -18,12 +19,14 @@ func TestArtifactFetchError(t *testing.T) {
 	}
 
 	t.Run("Error preserves full URL for internal debugging", func(t *testing.T) {
+		t.Parallel()
 		assert.Contains(t, fetchErr.Error(), "Expires=123&Signature=xyz")
 		assert.Contains(t, fetchErr.Error(), "binary.wasm")
 		assert.Contains(t, fetchErr.Error(), "connection refused")
 	})
 
 	t.Run("CustomerError is deterministic and omits URL details", func(t *testing.T) {
+		t.Parallel()
 		msg := fetchErr.CustomerError()
 		assert.Equal(t, "Internal error: failed to fetch workflow binary from storage. Contact support if this persists.", msg)
 		assert.NotContains(t, msg, "Expires")
@@ -32,15 +35,18 @@ func TestArtifactFetchError(t *testing.T) {
 	})
 
 	t.Run("CustomerError reflects artifact type", func(t *testing.T) {
+		t.Parallel()
 		configErr := &ArtifactFetchError{ArtifactType: "config", URL: "https://x.com/c?s=1", Err: inner}
 		assert.Contains(t, configErr.CustomerError(), "workflow config")
 	})
 
 	t.Run("Unwrap returns inner error", func(t *testing.T) {
+		t.Parallel()
 		require.ErrorIs(t, fetchErr, inner)
 	})
 
 	t.Run("errors.As matches through wrapping", func(t *testing.T) {
+		t.Parallel()
 		wrapped := fmt.Errorf("outer: %w", fetchErr)
 		var target *ArtifactFetchError
 		require.ErrorAs(t, wrapped, &target)

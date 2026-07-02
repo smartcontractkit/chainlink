@@ -8,8 +8,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
-
-	localMonitoring "github.com/smartcontractkit/chainlink/v2/core/monitoring"
 )
 
 const timestampKey = "computeTimestamp"
@@ -33,6 +31,6 @@ func (c *computeMetricsLabeler) with(keyValues ...string) *computeMetricsLabeler
 }
 
 func (c *computeMetricsLabeler) incrementHTTPRequestCounter(ctx context.Context) {
-	otelLabels := localMonitoring.KvMapToOtelAttributes(c.Labels)
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.computeHTTPRequestCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }

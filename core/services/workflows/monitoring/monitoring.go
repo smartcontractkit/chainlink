@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 
-	monutils "github.com/smartcontractkit/chainlink/v2/core/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 )
 
@@ -530,12 +529,12 @@ func (c WorkflowsMetricLabeler) IncrementWorkflowLimitPerOwnerCounter(ctx contex
 }
 
 func (c WorkflowsMetricLabeler) IncrementRegisterTriggerFailureCounter(ctx context.Context) {
-	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.registerTriggerFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c WorkflowsMetricLabeler) IncrementTriggerWorkflowStarterErrorCounter(ctx context.Context) {
-	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.triggerWorkflowStarterErrorCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 

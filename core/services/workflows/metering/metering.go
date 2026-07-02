@@ -129,7 +129,6 @@ type Report struct {
 	meteringModeErr error
 	steps           map[string]ReportStep
 	rateCard        map[string]decimal.Decimal
-	stepRefLookup   []string
 
 	// workflowRegistryAddress is the address of the workflow registry contract used for billing.
 	// This value is used for ALL workflows regardless of source (contract, GRPC, or file).
@@ -455,7 +454,7 @@ func (r *Report) Settle(ref string, metadata capabilities.ResponseMetadata) erro
 				value = value.Shift(18) // shift to fixed point value
 			}
 
-			if val, err := r.balance.ConvertToBalance(unit, value); err == nil {
+			if val, convertErr := r.balance.ConvertToBalance(unit, value); convertErr == nil {
 				resourceSpends[unit][idx].CRESpendValue = val
 			}
 
@@ -529,6 +528,9 @@ func labelToInt32(label string) int32 {
 }
 
 func (r *Report) FormatReport() *protoEvents.MeteringReport {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
 	protoReport := &protoEvents.MeteringReport{
 		Steps: map[string]*protoEvents.MeteringReportStep{},
 		Metadata: &protoEvents.WorkflowMetadata{
@@ -558,12 +560,9 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 		protoReport.Message = r.meteringModeErr.Error()
 	}
 
-	r.stepRefLookup = []string{}
-
 	for ref, step := range r.steps {
 		stepDetails := &protoEvents.MeteringReportStep{}
 		nodeDetails := []*protoEvents.MeteringReportNodeDetail{}
-		r.stepRefLookup = append(r.stepRefLookup, ref+":"+step.CapabilityID)
 
 		// since map key order is non-deterministic, order the keys to help make tests deterministic
 		orderedUnits := make([]string, 0, len(step.Spends))
@@ -620,6 +619,12 @@ func isRetryableError(err error) bool {
 	}
 }
 
+func (r *Report) isMeteringMode() bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.meteringMode
+}
+
 func (r *Report) SendReceipt(ctx context.Context) error {
 	if !r.reserved {
 		return ErrNoReserve
@@ -629,7 +634,7 @@ func (r *Report) SendReceipt(ctx context.Context) error {
 		return ErrNoBillingClient
 	}
 
-	r.metrics.UpdateWorkflowMeteringModeGauge(ctx, r.meteringMode)
+	r.metrics.UpdateWorkflowMeteringModeGauge(ctx, r.isMeteringMode())
 
 	// TODO: https://smartcontract-it.atlassian.net/browse/CRE-427 more robust check of billing service health
 
@@ -688,8 +693,13 @@ func (r *Report) EmitReceipt(ctx context.Context) error {
 
 	rpt := r.FormatReport()
 
+	var stepRefs []string
+	for ref := range rpt.Steps {
+		stepRefs = append(stepRefs, ref)
+	}
+
 	r.lggr.Debug("Emitting metering report")
-	r.lggr.Tracew("Metering report", "report", rpt, "stepRefs", strings.Join(r.stepRefLookup, ","))
+	r.lggr.Tracew("Metering report", "report", rpt, "stepRefs", strings.Join(stepRefs, ","))
 
 	return wfEvents.EmitMeteringReport(ctx, r.labels, rpt)
 }
