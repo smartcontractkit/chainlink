@@ -955,7 +955,8 @@ func AddLane(
 
 	if fromFamily == chainsel.FamilyAptos || toFamily == chainsel.FamilyAptos {
 		// lanes.ConnectChains configures both legs of the lane, including the non-Aptos
-		// peer, so no additional per-family src/dest changesets are needed.
+		// peer. Some mixed-family adapter combinations can omit the EVM router half,
+		// so reconcile it after ConnectChains has had the first chance to configure.
 		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, isTestRouter, gasPrices, tokenPrices)...)
 	} else {
 		switch fromFamily {
@@ -981,7 +982,124 @@ func AddLane(
 	if err != nil {
 		return err
 	}
+
+	if fromFamily == chainsel.FamilyAptos || toFamily == chainsel.FamilyAptos {
+		if err := ensureEVMRouterLaneConfig(t, e, state, from, to, fromFamily, toFamily, isTestRouter, gasPrices, tokenPrices, fqCfg); err != nil {
+			return err
+		}
+	}
+
 	return nil
+}
+
+func ensureEVMRouterLaneConfig(
+	t *testing.T,
+	e *DeployedEnv,
+	state stateview.CCIPOnChainState,
+	from, to uint64,
+	fromFamily, toFamily string,
+	isTestRouter bool,
+	gasPrices map[uint64]*big.Int,
+	tokenPrices map[string]*big.Int,
+	fqCfg fee_quoter.FeeQuoterDestChainConfig,
+) error {
+	changesets := make([]commoncs.ConfiguredChangeSet, 0, 6)
+
+	if fromFamily == chainsel.FamilyEVM && toFamily == chainsel.FamilyAptos {
+		wired, err := evmSourceRouterWired(e, state, from, to, isTestRouter)
+		if err != nil {
+			return err
+		}
+		if !wired {
+			evmTokenPrices := make(map[common.Address]*big.Int, len(tokenPrices))
+			for address, price := range tokenPrices {
+				evmTokenPrices[common.HexToAddress(address)] = price
+			}
+			changesets = append(changesets, AddEVMSrcChangesets(from, to, isTestRouter, gasPrices, evmTokenPrices, fqCfg)...)
+		}
+	}
+
+	if fromFamily == chainsel.FamilyAptos && toFamily == chainsel.FamilyEVM {
+		wired, err := evmDestRouterWired(e, state, to, from, isTestRouter)
+		if err != nil {
+			return err
+		}
+		if !wired {
+			changesets = append(changesets, AddEVMDestChangesets(e, to, from, isTestRouter)...)
+		}
+	}
+
+	if len(changesets) > 0 {
+		var err error
+		e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, changesets)
+		if err != nil {
+			return err
+		}
+	}
+
+	if fromFamily == chainsel.FamilyEVM && toFamily == chainsel.FamilyAptos {
+		wired, err := evmSourceRouterWired(e, state, from, to, isTestRouter)
+		if err != nil {
+			return err
+		}
+		if !wired {
+			return fmt.Errorf("EVM source router on chain %d missing on-ramp for destination %d", from, to)
+		}
+	}
+
+	if fromFamily == chainsel.FamilyAptos && toFamily == chainsel.FamilyEVM {
+		wired, err := evmDestRouterWired(e, state, to, from, isTestRouter)
+		if err != nil {
+			return err
+		}
+		if !wired {
+			return fmt.Errorf("EVM destination router on chain %d missing off-ramp for source %d", to, from)
+		}
+	}
+
+	return nil
+}
+
+func evmSourceRouterWired(e *DeployedEnv, state stateview.CCIPOnChainState, evmSource, remoteDest uint64, isTestRouter bool) (bool, error) {
+	chainState := state.MustGetEVMChainState(evmSource)
+	routerContract := chainState.Router
+	if isTestRouter {
+		routerContract = chainState.TestRouter
+	}
+	if routerContract == nil {
+		return false, fmt.Errorf("router not found for EVM source chain %d", evmSource)
+	}
+	if chainState.OnRamp == nil {
+		return false, fmt.Errorf("on-ramp not found for EVM source chain %d", evmSource)
+	}
+
+	onRamp, err := routerContract.GetOnRamp(&bind.CallOpts{Context: e.Env.GetContext()}, remoteDest)
+	if err != nil {
+		return false, fmt.Errorf("get on-ramp for EVM source chain %d and destination %d: %w", evmSource, remoteDest, err)
+	}
+
+	return onRamp == chainState.OnRamp.Address(), nil
+}
+
+func evmDestRouterWired(e *DeployedEnv, state stateview.CCIPOnChainState, evmDest, remoteSource uint64, isTestRouter bool) (bool, error) {
+	chainState := state.MustGetEVMChainState(evmDest)
+	routerContract := chainState.Router
+	if isTestRouter {
+		routerContract = chainState.TestRouter
+	}
+	if routerContract == nil {
+		return false, fmt.Errorf("router not found for EVM destination chain %d", evmDest)
+	}
+	if chainState.OffRamp == nil {
+		return false, fmt.Errorf("off-ramp not found for EVM destination chain %d", evmDest)
+	}
+
+	isOffRamp, err := routerContract.IsOffRamp(&bind.CallOpts{Context: e.Env.GetContext()}, remoteSource, chainState.OffRamp.Address())
+	if err != nil {
+		return false, fmt.Errorf("check off-ramp for EVM destination chain %d and source %d: %w", evmDest, remoteSource, err)
+	}
+
+	return isOffRamp, nil
 }
 
 func AddLaneSolanaChangesetsV0_1_0(e *DeployedEnv, solChainSelector, remoteChainSelector uint64, remoteFamily string) []commoncs.ConfiguredChangeSet {
@@ -1181,7 +1299,7 @@ func AddLaneAptosChangesets(t *testing.T, srcChainSelector, destChainSelector ui
 			Selector: selector,
 			GasPrice: gasPrices[selector],
 		}
-		if family == chainsel.FamilyAptos {
+		if selector == srcChainSelector {
 			definition.TokenPrices = tokenPrices
 		}
 		return definition
