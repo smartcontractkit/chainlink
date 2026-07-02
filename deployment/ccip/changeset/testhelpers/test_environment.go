@@ -775,6 +775,9 @@ func NewEnvironment(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 	tEnv.StartNodes(t, crConfig)
 	dEnv = tEnv.DeployedEnvironment()
 	dEnv.Env.ExistingAddresses = ab
+	ds, err := shared.PopulateDataStore(ab)
+	require.NoError(t, err)
+	dEnv.Env.DataStore = ds.Seal()
 	return dEnv
 }
 
