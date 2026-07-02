@@ -46,7 +46,7 @@ plugins:
 
   stellar:
     - moduleURI: "github.com/smartcontractkit/chainlink-stellar"
-      gitRef: "0e9836f8575b711d87335fbadb1ed28b8f678377" # chainlink-stellar #128 (add-multinode merged)
+      gitRef: "e151ad0186f8e055984513f34353e4e44ec69918" # chainlink-stellar local-cre-dev (SimulateTransaction + chainlink-common 1446a98)
       installPath: "./cmd/chainlink-stellar"
 
   streams:
