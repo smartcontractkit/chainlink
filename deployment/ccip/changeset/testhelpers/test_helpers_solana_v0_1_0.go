@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -36,8 +37,9 @@ import (
 	cldlegacysolmcms "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
-	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/helpers"
+	_ "github.com/smartcontractkit/chainlink-aptos/deployment/ccip/adapters"              // register Aptos deploy/lane/curse/mcms adapters
+	_ "github.com/smartcontractkit/chainlink-ccip/chains/evm/deployment/v1_6_0/sequences" // register EVM deploy/lane adapters
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
@@ -57,6 +59,9 @@ import (
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	ccipsolstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
+	"github.com/smartcontractkit/chainlink-ccip/deployment/lanes"
+	cs_ccip "github.com/smartcontractkit/chainlink-ccip/deployment/utils/changesets"
+	ccipmcms "github.com/smartcontractkit/chainlink-ccip/deployment/utils/mcms"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -76,8 +81,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/mock_v3_aggregator_contract"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	ccipChangeSetSolanaV0_1_0 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/bigint"
@@ -950,30 +953,28 @@ func AddLane(
 	require.NoError(t, err)
 	changesets := []commoncs.ConfiguredChangeSet{}
 
-	switch fromFamily {
-	case chainsel.FamilyEVM:
-		evmTokenPrices := make(map[common.Address]*big.Int, len(tokenPrices))
-		for address, price := range tokenPrices {
-			evmTokenPrices[common.HexToAddress(address)] = price
+	if fromFamily == chainsel.FamilyAptos || toFamily == chainsel.FamilyAptos {
+		// lanes.ConnectChains configures both legs of the lane, including the non-Aptos
+		// peer, so no additional per-family src/dest changesets are needed.
+		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, isTestRouter, gasPrices, tokenPrices)...)
+	} else {
+		switch fromFamily {
+		case chainsel.FamilyEVM:
+			evmTokenPrices := make(map[common.Address]*big.Int, len(tokenPrices))
+			for address, price := range tokenPrices {
+				evmTokenPrices[common.HexToAddress(address)] = price
+			}
+			changesets = append(changesets, AddEVMSrcChangesets(from, to, isTestRouter, gasPrices, evmTokenPrices, fqCfg)...)
+		case chainsel.FamilySolana:
+			changesets = append(changesets, AddLaneSolanaChangesetsV0_1_0(e, from, to, toFamily)...)
 		}
-		changesets = append(changesets, AddEVMSrcChangesets(from, to, isTestRouter, gasPrices, evmTokenPrices, fqCfg)...)
-	case chainsel.FamilySolana:
-		changesets = append(changesets, AddLaneSolanaChangesetsV0_1_0(e, from, to, toFamily)...)
-	case chainsel.FamilyAptos:
-		aptosTokenPrices := make(map[aptos.AccountAddress]*big.Int, len(tokenPrices))
-		for address, price := range tokenPrices {
-			aptosTokenPrices[aptoscs.MustParseAddress(t, address)] = price
-		}
-		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, aptosTokenPrices)...)
-	}
 
-	switch toFamily {
-	case chainsel.FamilyEVM:
-		changesets = append(changesets, AddEVMDestChangesets(e, to, from, isTestRouter)...)
-	case chainsel.FamilySolana:
-		changesets = append(changesets, AddLaneSolanaChangesetsV0_1_0(e, to, from, fromFamily)...)
-	case chainsel.FamilyAptos:
-		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, gasPrices, nil)...)
+		switch toFamily {
+		case chainsel.FamilyEVM:
+			changesets = append(changesets, AddEVMDestChangesets(e, to, from, isTestRouter)...)
+		case chainsel.FamilySolana:
+			changesets = append(changesets, AddLaneSolanaChangesetsV0_1_0(e, to, from, fromFamily)...)
+		}
 	}
 
 	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, changesets)
@@ -1159,7 +1160,12 @@ func AddSuiDestChangeset(e *DeployedEnv, to, from uint64, isTestRouter bool) []c
 	return suiDstChangesets
 }
 
-func AddLaneAptosChangesets(t *testing.T, srcChainSelector, destChainSelector uint64, gasPrices map[uint64]*big.Int, tokenPrices map[aptos.AccountAddress]*big.Int) []commoncs.ConfiguredChangeSet {
+// AddLaneAptosChangesets connects an Aptos chain with its (EVM or Aptos) peer via the
+// generic lanes.ConnectChains changeset, which configures both legs of the lane using the
+// adapters registered by the chainlink-aptos and chainlink-ccip EVM adapter packages.
+// Gas prices are keyed by destination chain selector (a missing entry falls back to the
+// adapter default); token prices apply to Aptos chains and are keyed by token address string.
+func AddLaneAptosChangesets(t *testing.T, srcChainSelector, destChainSelector uint64, isTestRouter bool, gasPrices map[uint64]*big.Int, tokenPrices map[string]*big.Int) []commoncs.ConfiguredChangeSet {
 	srcFamily, err := chainsel.GetSelectorFamily(srcChainSelector)
 	require.NoError(t, err)
 	destFamily, err := chainsel.GetSelectorFamily(destChainSelector)
@@ -1170,115 +1176,34 @@ func AddLaneAptosChangesets(t *testing.T, srcChainSelector, destChainSelector ui
 		t.Fatalf("At least one of the provided source/destination chains has to be Aptos. srcFamily: %v destFamily: %v", srcFamily, destFamily)
 	}
 
-	var src, dest config.ChainDefinition
-
-	switch srcFamily {
-	case chainsel.FamilyEVM:
-		src = config.EVMChainDefinition{
-			ChainDefinition: v1_6.ChainDefinition{
-				ConnectionConfig: v1_6.ConnectionConfig{
-					RMNVerificationDisabled: true,
-				},
-				Selector: srcChainSelector,
-			},
+	makeDefinition := func(selector uint64, family string) lanes.ChainDefinition {
+		definition := lanes.ChainDefinition{
+			Selector: selector,
+			GasPrice: gasPrices[selector],
 		}
-	case chainsel.FamilyAptos:
-		src = config.AptosChainDefinition{
-			TokenPrices: tokenPrices,
-			ConnectionConfig: v1_6.ConnectionConfig{
-				RMNVerificationDisabled: true,
-			},
-			Selector:                      srcChainSelector,
-			AddTokenTransferFeeConfigs:    nil,
-			RemoveTokenTransferFeeConfigs: nil,
+		if family == chainsel.FamilyAptos {
+			definition.TokenPrices = tokenPrices
 		}
-	default:
-		t.Fatalf("Unsupported source chain family: %v", srcFamily)
-	}
-
-	switch destFamily {
-	case chainsel.FamilyEVM:
-		dest = config.EVMChainDefinition{
-			ChainDefinition: v1_6.ChainDefinition{
-				ConnectionConfig: v1_6.ConnectionConfig{
-					AllowListEnabled: false,
-				},
-				Selector: destChainSelector,
-				GasPrice: gasPrices[destChainSelector],
-				FeeQuoterDestChainConfig: fee_quoter.FeeQuoterDestChainConfig{
-					IsEnabled:                         true,
-					MaxNumberOfTokensPerMsg:           10,
-					MaxDataBytes:                      30_000,
-					MaxPerMsgGasLimit:                 3_000_000,
-					DestGasOverhead:                   ccipevm.DestGasOverhead,
-					DestGasPerPayloadByteBase:         ccipevm.CalldataGasPerByteBase,
-					DestGasPerPayloadByteHigh:         ccipevm.CalldataGasPerByteHigh,
-					DestGasPerPayloadByteThreshold:    ccipevm.CalldataGasPerByteThreshold,
-					DestDataAvailabilityOverheadGas:   100,
-					DestGasPerDataAvailabilityByte:    16,
-					DestDataAvailabilityMultiplierBps: 1,
-					ChainFamilySelector:               [4]byte{0x28, 0x12, 0xd5, 0x2c},
-					EnforceOutOfOrder:                 false,
-					DefaultTokenFeeUSDCents:           25,
-					DefaultTokenDestGasOverhead:       90_000,
-					DefaultTxGasLimit:                 200_000,
-					GasMultiplierWeiPerEth:            11e8, // TODO what's the scale here ?
-					GasPriceStalenessThreshold:        0,
-					NetworkFeeUSDCents:                10,
-				},
-			},
-			OnRampVersion: []byte{1, 6, 0},
-		}
-	case chainsel.FamilyAptos:
-		dest = config.AptosChainDefinition{
-			ConnectionConfig: v1_6.ConnectionConfig{
-				AllowListEnabled: false,
-			},
-			Selector: destChainSelector,
-			GasPrice: gasPrices[destChainSelector],
-			FeeQuoterDestChainConfig: aptos_fee_quoter.DestChainConfig{
-				IsEnabled:                         true,
-				MaxNumberOfTokensPerMsg:           10,
-				MaxDataBytes:                      30_000,
-				MaxPerMsgGasLimit:                 3_000_000,
-				DestGasOverhead:                   ccipevm.DestGasOverhead,
-				DestGasPerPayloadByteBase:         ccipevm.CalldataGasPerByteBase,
-				DestGasPerPayloadByteHigh:         ccipevm.CalldataGasPerByteHigh,
-				DestGasPerPayloadByteThreshold:    ccipevm.CalldataGasPerByteThreshold,
-				DestDataAvailabilityOverheadGas:   100,
-				DestGasPerDataAvailabilityByte:    16,
-				DestDataAvailabilityMultiplierBps: 1,
-				ChainFamilySelector:               []byte{0xac, 0x77, 0xff, 0xec},
-				EnforceOutOfOrder:                 true,
-				DefaultTokenFeeUsdCents:           25,
-				DefaultTokenDestGasOverhead:       90_000,
-				DefaultTxGasLimit:                 200_000,
-				GasMultiplierWeiPerEth:            11e17,
-				GasPriceStalenessThreshold:        0,
-				NetworkFeeUsdCents:                10,
-			},
-		}
-	default:
-		t.Fatalf("Unsupported dstination chain family: %v", srcFamily)
+		return definition
 	}
 
 	return []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(
-			aptoscs.AddAptosLanes{},
-			config.UpdateAptosLanesConfig{
-				AptosMCMSConfig: &cldfproposalutils.TimelockConfig{
-					MinDelay:     time.Second,
-					MCMSAction:   mcmstypes.TimelockActionSchedule,
-					OverrideRoot: false,
+			lanes.ConnectChains(lanes.GetLaneAdapterRegistry(), cs_ccip.GetRegistry()),
+			lanes.ConnectChainsConfig{
+				MCMS: ccipmcms.Input{
+					ValidUntil:     uint32(time.Now().Add(24 * time.Hour).Unix()),
+					TimelockDelay:  mcmstypes.NewDuration(time.Second),
+					TimelockAction: mcmstypes.TimelockActionSchedule,
 				},
-				Lanes: []config.LaneConfig{
+				Lanes: []lanes.LaneConfig{
 					{
-						Source:     src,
-						Dest:       dest,
-						IsDisabled: false,
+						Version:    semver.MustParse("1.6.0"),
+						ChainA:     makeDefinition(srcChainSelector, srcFamily),
+						ChainB:     makeDefinition(destChainSelector, destFamily),
+						TestRouter: isTestRouter,
 					},
 				},
-				TestRouter: false,
 			},
 		),
 	}
@@ -1943,7 +1868,7 @@ func Transfer(
 	case chainsel.FamilyAptos:
 		feeTokenAddr := aptos.AccountAddress{}
 		if len(feeToken) > 0 {
-			feeTokenAddr = aptoscs.MustParseAddress(t, feeToken)
+			feeTokenAddr = mustParseAptosAddress(t, feeToken)
 		}
 		msg = AptosSendRequest{
 			Data:         data,

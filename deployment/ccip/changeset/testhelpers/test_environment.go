@@ -47,8 +47,13 @@ import (
 
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
 
+	evmdeploy "github.com/smartcontractkit/chainlink-ccip/chains/evm/deployment/deploy"
+	deployops "github.com/smartcontractkit/chainlink-ccip/deployment/deploy"
+	cciputils "github.com/smartcontractkit/chainlink-ccip/deployment/utils"
+	cs_ccip "github.com/smartcontractkit/chainlink-ccip/deployment/utils/changesets"
+	ccipmcms "github.com/smartcontractkit/chainlink-ccip/deployment/utils/mcms"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	sui_cs_core "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/sui"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
@@ -1396,20 +1401,22 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 					CCIPHomeConfigType: globals.ConfigTypeActive,
 				},
 			))
-		apps = append(apps, commonchangeset.Configure(
-			// Enable the OCR config on the remote chains.
-			aptoscs.SetOCR3Offramp{},
-			v1_6.SetOCR3OffRampConfig{
-				HomeChainSel:       e.HomeChainSel,
-				RemoteChainSels:    aptosChains,
-				CCIPHomeConfigType: globals.ConfigTypeActive,
-				MCMS: &cldfproposalutils.TimelockConfig{
-					MinDelay:     time.Second,
-					MCMSAction:   mcmstypes.TimelockActionSchedule,
-					OverrideRoot: false,
+		if len(aptosChains) > 0 {
+			apps = append(apps, commonchangeset.Configure(
+				// Enable the OCR config on the remote chains.
+				evmdeploy.SetOCR3Config(deployops.GetRegistry(), cs_ccip.GetRegistry()),
+				deployops.SetOCR3ConfigArgs{
+					HomeChainSel:    e.HomeChainSel,
+					RemoteChainSels: aptosChains,
+					ConfigType:      cciputils.ConfigTypeActive,
+					MCMS: ccipmcms.Input{
+						ValidUntil:     uint32(time.Now().Add(24 * time.Hour).Unix()),
+						TimelockDelay:  mcmstypes.NewDuration(time.Second),
+						TimelockAction: mcmstypes.TimelockActionSchedule,
+					},
 				},
-			},
-		))
+			))
+		}
 		if tEnv.TestConfigs().CCIPSolanaContractVersion == ccipChangeSetSolanaV0_1_1.SolanaContractV0_1_1 {
 			apps = append(apps, commonchangeset.Configure(
 				// Enable the OCR config on the remote chains.
