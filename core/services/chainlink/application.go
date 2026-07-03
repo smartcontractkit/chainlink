@@ -381,6 +381,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	if cfg.Telemetry().DurableEmitterEnabled() && cfg.Telemetry().ChipIngressEndpoint() != "" {
 		emitterCfg := durableemitter.DefaultConfig()
 		emitterCfg.Metrics = &durableemitter.DurableEmitterMetricsConfig{}
+		emitterCfg.MarkBatchWorkers = 4
+		emitterCfg.RetransmitBatchSize = 1000
+		emitterCfg.RetransmitInterval = 2 * time.Second
 		durableCfg := durableemitter.SetupConfig{
 			Endpoint:           cfg.Telemetry().ChipIngressEndpoint(),
 			InsecureConnection: cfg.Telemetry().ChipIngressInsecureConnection(),
@@ -390,10 +393,12 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				AuthPublicKeyHex: csaPubKeyHex,
 				AuthKeySigner:    csaKeystore,
 			},
-			RetransmitEnabled: true, // host process owns retransmit
-			EmitterConfig:     &emitterCfg,
-			Meter:             meter,
-			MaxPublishTimeout: 10 * time.Second,
+			RetransmitEnabled:  true, // host process owns retransmit
+			EmitterConfig:      &emitterCfg,
+			Meter:              meter,
+			MaxPublishTimeout:  10 * time.Second,
+			BatchSize:          1000,
+			MaxConcurrentSends: 8,
 		}
 		pgStore := durableemitter.NewPgDurableEventStore(opts.DS)
 		durableEmitter, setupErr := durableemitter.Setup(pgStore, durableCfg, globalLogger)
