@@ -381,8 +381,16 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	if cfg.Telemetry().DurableEmitterEnabled() && cfg.Telemetry().ChipIngressEndpoint() != "" {
 		emitterCfg := durableemitter.DefaultConfig()
 		emitterCfg.Metrics = &durableemitter.DurableEmitterMetricsConfig{}
-		emitterCfg.MarkBatchWorkers = 4
-		emitterCfg.RetransmitBatchSize = 1000
+		emitterCfg.InsertBatchSize = 500
+		emitterCfg.InsertBatchWorkers = 6
+		emitterCfg.InsertBatchFlushInterval = 100 * time.Millisecond
+		emitterCfg.MarkBatchSize = 500
+		emitterCfg.MarkBatchWorkers = 6
+		emitterCfg.MarkBatchFlushInterval = 100 * time.Millisecond
+		emitterCfg.PurgeBatchSize = 5000
+		emitterCfg.PurgeInterval = 100 * time.Millisecond
+		// Retransmit safety net: clear any backlog quickly (was 100/5s = 20/s).
+		emitterCfg.RetransmitBatchSize = 2000
 		emitterCfg.RetransmitInterval = 2 * time.Second
 		durableCfg := durableemitter.SetupConfig{
 			Endpoint:           cfg.Telemetry().ChipIngressEndpoint(),
@@ -398,7 +406,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			Meter:              meter,
 			MaxPublishTimeout:  10 * time.Second,
 			BatchSize:          1000,
-			MaxConcurrentSends: 8,
+			BatchInterval:      100 * time.Millisecond,
+			MaxConcurrentSends: 16,
+			MessageBufferSize:  50_000,
 		}
 		pgStore := durableemitter.NewPgDurableEventStore(opts.DS)
 		durableEmitter, setupErr := durableemitter.Setup(pgStore, durableCfg, globalLogger)
