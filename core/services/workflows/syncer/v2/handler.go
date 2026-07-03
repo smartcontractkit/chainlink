@@ -670,8 +670,13 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 	// the registry is asserting an owner it cannot prove ownership of (e.g. an on-chain
 	// EOA), so we log a critical error and reject the workflow (fail-closed).
 	if isCentralizedWorkflowSource(payload.Source) {
-		if verr := h.verifyCentralizedOwnerOrgMapping(payload.Source, owner, orgID); verr != nil {
-			return nil, verr
+		if err := h.engineLimiters.CentralizedWorkflowOwnerVerificationEnabled.AllowErr(ctx); err == nil {
+			if verr := h.verifyCentralizedOwnerOrgMapping(payload.Source, owner, orgID); verr != nil {
+				return nil, verr
+			}
+		} else if !errors.Is(err, limits.ErrorNotAllowed{}) {
+			h.lggr.Warnw("failed to evaluate limit CentralizedWorkflowOwnerVerificationEnabled", "error", err)
+			return nil, err
 		}
 	}
 
@@ -770,7 +775,8 @@ func (h *eventHandler) verifyCentralizedOwnerOrgMapping(source, ownerHex, orgID 
 	}
 	derivedHex := hex.EncodeToString(derived)
 
-	if !strings.EqualFold(strings.TrimPrefix(strings.TrimSpace(ownerHex), "0x"), derivedHex) {
+	claimedOwner := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(ownerHex), "0x"))
+	if strings.ToLower(derivedHex) != claimedOwner {
 		logger.Sugared(h.lggr).Criticalw(
 			"centralized workflow owner does not match owner derived from its organization ID: possible data corruption or malicious workflow registry",
 			"source", source,

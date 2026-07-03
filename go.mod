@@ -85,7 +85,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260415165642-49f23e4d76cc
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260415165642-49f23e4d76cc
 	github.com/smartcontractkit/chainlink-ccv v0.0.2-0.20260622154332-695181f87033
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260701091216-9264d4444ce0
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260703205728-0f3c0e46fd1a
 	github.com/smartcontractkit/chainlink-common/keystore v1.2.0
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260626151909-052e55e62e62
 	github.com/smartcontractkit/chainlink-data-streams v0.1.15-0.20260522094612-5f9f748bd87a
@@ -434,3 +434,5 @@ tool github.com/smartcontractkit/chainlink-common/pkg/loop/cmd/loopinstall
 tool github.com/smartcontractkit/chainlink-common/script/cmd/dependabot
 
 replace github.com/smartcontractkit/chainlink-sui => github.com/smartcontractkit/chainlink-sui v0.0.0-20260624134342-6bfb9c92859d
+
+replace github.com/smartcontractkit/chainlink-common => /Users/prashantyadav/cl-cursor/chainlink-common
