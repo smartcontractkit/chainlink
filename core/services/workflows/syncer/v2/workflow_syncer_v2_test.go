@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink/v2/core/custmsgtypes"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -246,7 +247,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 	var (
 		ctx       = t.Context()
 		lggr      = logger.TestLogger(t)
-		emitter   = custmsg.NewLabeler()
+		emitter   = custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowSyncer)
 		backendTH = testutils.NewEVMBackendTH(t)
 		db        = pgtest.NewSqlxDB(t)
 		orm       = artifacts.NewWorkflowRegistryDS(db, lggr)
@@ -351,7 +352,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 	var (
 		ctx       = t.Context()
 		lggr      = logger.TestLogger(t)
-		emitter   = custmsg.NewLabeler()
+		emitter   = custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowSyncer)
 		backendTH = testutils.NewEVMBackendTH(t)
 		db        = pgtest.NewSqlxDB(t)
 		orm       = artifacts.NewWorkflowRegistryDS(db, lggr)

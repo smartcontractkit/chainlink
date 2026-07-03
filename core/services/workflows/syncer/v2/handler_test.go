@@ -40,6 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink/v2/core/custmsgtypes"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -177,7 +178,7 @@ func Test_Handler(t *testing.T) {
 		t.Parallel()
 		lggr := logger.TestLogger(t)
 		lf := limits.Factory{Logger: lggr}
-		emitter := custmsg.NewLabeler()
+		emitter := custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowSyncer)
 		wfStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
@@ -206,7 +207,7 @@ func Test_Handler(t *testing.T) {
 			return []byte("contents"), nil
 		}
 
-		store, err := artifacts.NewStore(lggr, mockORM, fetcher, retriever, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), lf, artifacts.WithConfig(artifacts.StoreConfig{
+		store, err := artifacts.NewStore(lggr, mockORM, fetcher, retriever, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact), lf, artifacts.WithConfig(artifacts.StoreConfig{
 			ArtifactStorageHost: "example.com",
 		}))
 		require.NoError(t, err)
@@ -699,7 +700,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 			lf                    = limits.Factory{Logger: lggr}
 			db                    = pgtest.NewSqlxDB(t)
 			orm                   = artifacts.NewWorkflowRegistryDS(db, lggr)
-			emitter               = custmsg.NewLabeler()
+			emitter               = custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowSyncer)
 			binary                = wasmtest.GetTestBinary(t, withTeeV2Cmd, true)
 			encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
 			config                = []byte("")
@@ -724,7 +725,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 			signedBinaryURL:                      {Body: encodedBinary, Err: nil},
 			signedConfigURL:                      {Body: config, Err: nil},
 		})
-		artifactStore, err := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), lf, artifacts.WithConfig(artifacts.StoreConfig{
+		artifactStore, err := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact), lf, artifacts.WithConfig(artifacts.StoreConfig{
 			ArtifactStorageHost: "example.com",
 		}))
 		require.NoError(t, err)
@@ -812,7 +813,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 			lf      = limits.Factory{Logger: lggr}
 			db      = pgtest.NewSqlxDB(t)
 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
-			emitter = custmsg.NewLabeler()
+			emitter = custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowSyncer)
 
 			binary                = wasmtest.GetTestBinary(t, noTeeV2Cmd, true)
 			encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
@@ -838,7 +839,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 			signedBinaryURL:                      {Body: encodedBinary, Err: nil},
 			signedConfigURL:                      {Body: config, Err: nil},
 		})
-		artifactStore, err := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), lf, artifacts.WithConfig(artifacts.StoreConfig{
+		artifactStore, err := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact), lf, artifacts.WithConfig(artifacts.StoreConfig{
 			ArtifactStorageHost: "example.com",
 		}))
 		require.NoError(t, err)
@@ -913,7 +914,7 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 			lf      = limits.Factory{Logger: lggr}
 			db      = pgtest.NewSqlxDB(t)
 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
-			emitter = custmsg.NewLabeler()
+			emitter = custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowSyncer)
 
 			binary                = tc.GiveBinary
 			config                = tc.GiveConfig
@@ -948,7 +949,7 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 		require.NoError(t, err)
 
 		fetcher := fetcherFactory(giveWFID[:])
-		artifactStore, err := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), lf, artifacts.WithConfig(artifacts.StoreConfig{
+		artifactStore, err := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact), lf, artifacts.WithConfig(artifacts.StoreConfig{
 			ArtifactStorageHost: "example.com",
 		}))
 		require.NoError(t, err)
@@ -1046,7 +1047,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			lf      = limits.Factory{Logger: lggr}
 			db      = pgtest.NewSqlxDB(t)
 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
-			emitter = custmsg.NewLabeler()
+			emitter = custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowSyncer)
 
 			binary        = wasmtest.GetTestBinary(t, binaryCmd, true)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
@@ -1098,7 +1099,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
 		require.NoError(t, err)
 
-		artifactStore, err := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), lf, artifacts.WithConfig(artifacts.StoreConfig{
+		artifactStore, err := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact), lf, artifacts.WithConfig(artifacts.StoreConfig{
 			ArtifactStorageHost: "example.com",
 		}))
 		require.NoError(t, err)
@@ -1148,7 +1149,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			lf      = limits.Factory{Logger: lggr}
 			db      = pgtest.NewSqlxDB(t)
 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
-			emitter = custmsg.NewLabeler()
+			emitter = custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowSyncer)
 
 			binary                = wasmtest.GetTestBinary(t, binaryCmd, true)
 			config                = []byte("")
@@ -1172,7 +1173,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.NoError(t, err)
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
 		require.NoError(t, err)
-		artifactStore, err := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), lf, artifacts.WithConfig(artifacts.StoreConfig{
+		artifactStore, err := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact), lf, artifacts.WithConfig(artifacts.StoreConfig{
 			ArtifactStorageHost: "example.com",
 		}))
 		require.NoError(t, err)
@@ -1199,7 +1200,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			lf      = limits.Factory{Logger: lggr}
 			db      = pgtest.NewSqlxDB(t)
 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
-			emitter = custmsg.NewLabeler()
+			emitter = custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowSyncer)
 
 			binary                = wasmtest.GetTestBinary(t, binaryCmd, true)
 			encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
@@ -1251,7 +1252,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
 		require.NoError(t, err)
 
-		artifactStore, err := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), lf, artifacts.WithConfig(artifacts.StoreConfig{
+		artifactStore, err := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact), lf, artifacts.WithConfig(artifacts.StoreConfig{
 			ArtifactStorageHost: "example.com",
 		}))
 		require.NoError(t, err)
@@ -1426,7 +1427,7 @@ func (m *mockLinkingService) GetOrganizationFromWorkflowOwner(ctx context.Contex
 
 func Test_Handler_OrganizationID(t *testing.T) { //nolint:paralleltest // beholdertest.NewObserver uses t.Setenv
 	observer := beholdertest.NewObserver(t)
-	emitter := custmsg.NewLabeler()
+	emitter := custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowSyncer)
 	ctx := t.Context()
 
 	// Set up mock gRPC server for linking service
@@ -1486,7 +1487,7 @@ func Test_Handler_OrganizationID(t *testing.T) { //nolint:paralleltest // behold
 	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
 	require.NoError(t, err)
 
-	artifactStore, err := artifacts.NewStore(lggr, mockORM, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), lf, artifacts.WithConfig(artifacts.StoreConfig{
+	artifactStore, err := artifacts.NewStore(lggr, mockORM, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact), lf, artifacts.WithConfig(artifacts.StoreConfig{
 		ArtifactStorageHost: "example.com",
 	}))
 	require.NoError(t, err)
@@ -1557,7 +1558,7 @@ func Test_Handler_OrganizationID(t *testing.T) { //nolint:paralleltest // behold
 	// Test deletion event
 	t.Run("WorkflowDeleted event includes org ID in labels", func(t *testing.T) {
 		deleteObserver := beholdertest.NewObserver(t)
-		deleteEmitter := custmsg.NewLabeler()
+		deleteEmitter := custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowSyncer)
 
 		mockDeleteORM := mocks.NewORM(t)
 		spec := &job.WorkflowSpec{
@@ -1569,7 +1570,7 @@ func Test_Handler_OrganizationID(t *testing.T) { //nolint:paralleltest // behold
 		mockDeleteORM.EXPECT().GetWorkflowSpec(mock.Anything, types.WorkflowID(giveWFID).Hex()).Return(spec, nil)
 		mockDeleteORM.EXPECT().DeleteWorkflowSpec(mock.Anything, types.WorkflowID(giveWFID).Hex()).Return(nil)
 
-		deleteArtifactStore, err := artifacts.NewStore(lggr, mockDeleteORM, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), lf, artifacts.WithConfig(artifacts.StoreConfig{
+		deleteArtifactStore, err := artifacts.NewStore(lggr, mockDeleteORM, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact), lf, artifacts.WithConfig(artifacts.StoreConfig{
 			ArtifactStorageHost: "example.com",
 		}))
 		require.NoError(t, err)

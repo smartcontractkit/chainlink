@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink/v2/core/custmsgtypes"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -120,7 +121,7 @@ func newMockDecrypter() *mockDecrypter {
 func Test_Handler(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
-	emitter := custmsg.NewLabeler()
+	emitter := custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowSyncer)
 	wfStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 	registry := capabilities.NewRegistry(lggr)
 	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
@@ -157,7 +158,7 @@ func Test_Handler(t *testing.T) {
 		mockORM.EXPECT().Update(matches.AnyContext, giveHash, "contents").Return(int64(1), nil)
 
 		decrypter := newMockDecrypter()
-		store := artifacts.NewStoreWithDecryptSecretsFn(lggr, mockORM, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
+		store := artifacts.NewStoreWithDecryptSecretsFn(lggr, mockORM, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact), decrypter.decryptSecrets)
 
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
@@ -186,7 +187,7 @@ func Test_Handler(t *testing.T) {
 		}
 
 		decrypter := newMockDecrypter()
-		store := artifacts.NewStoreWithDecryptSecretsFn(lggr, mockORM, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
+		store := artifacts.NewStoreWithDecryptSecretsFn(lggr, mockORM, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact), decrypter.decryptSecrets)
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
 		h, err := NewEventHandler(lggr, wfStore, registry, donTime, true, NewEngineRegistry(), emitter, limiters, featureFlags, rl, workflowLimits, store, workflowEncryptionKey, &testDonNotifier{})
@@ -210,7 +211,7 @@ func Test_Handler(t *testing.T) {
 		require.NoError(t, err)
 
 		decrypter := newMockDecrypter()
-		store := artifacts.NewStoreWithDecryptSecretsFn(lggr, mockORM, nil, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
+		store := artifacts.NewStoreWithDecryptSecretsFn(lggr, mockORM, nil, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact), decrypter.decryptSecrets)
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
 		h, err := NewEventHandler(lggr, wfStore, registry, donTime, true, NewEngineRegistry(), emitter, limiters, featureFlags, rl, workflowLimits, store, workflowEncryptionKey, &testDonNotifier{})
@@ -265,7 +266,7 @@ func Test_Handler(t *testing.T) {
 		mockORM.EXPECT().GetSecretsURLByHash(matches.AnyContext, giveHash).Return(giveURL, nil)
 
 		decrypter := newMockDecrypter()
-		store := artifacts.NewStoreWithDecryptSecretsFn(lggr, mockORM, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
+		store := artifacts.NewStoreWithDecryptSecretsFn(lggr, mockORM, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact), decrypter.decryptSecrets)
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
 		h, err := NewEventHandler(lggr, wfStore, registry, donTime, true, NewEngineRegistry(), emitter, limiters, featureFlags, rl, workflowLimits, store, workflowEncryptionKey, &testDonNotifier{})
@@ -306,7 +307,7 @@ func Test_Handler(t *testing.T) {
 		mockORM.EXPECT().Update(matches.AnyContext, giveHash, "contents").Return(0, assert.AnError)
 
 		decrypter := newMockDecrypter()
-		store := artifacts.NewStoreWithDecryptSecretsFn(lggr, mockORM, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
+		store := artifacts.NewStoreWithDecryptSecretsFn(lggr, mockORM, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact), decrypter.decryptSecrets)
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
 		h, err := NewEventHandler(lggr, wfStore, registry, donTime, true, NewEngineRegistry(), emitter, limiters, featureFlags, rl, workflowLimits, store, workflowEncryptionKey, &testDonNotifier{})
@@ -773,7 +774,7 @@ func testRunningWorkflow(t *testing.T, tc testCase, workflowEncryptionKey workfl
 			lggr    = logger.TestLogger(t)
 			db      = pgtest.NewSqlxDB(t)
 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
-			emitter = custmsg.NewLabeler()
+			emitter = custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowSyncer)
 
 			binary     = tc.GiveBinary
 			config     = tc.GiveConfig
@@ -817,7 +818,7 @@ func testRunningWorkflow(t *testing.T, tc testCase, workflowEncryptionKey workfl
 		require.NoError(t, err)
 
 		decrypter := newMockDecrypter()
-		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, tc.fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
+		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, tc.fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact), decrypter.decryptSecrets)
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
 		h, err := NewEventHandler(lggr, store, registry, donTime, true, NewEngineRegistry(), emitter, limiters, featureFlags, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{}, opts...)
@@ -897,7 +898,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			lggr         = logger.TestLogger(t)
 			db           = pgtest.NewSqlxDB(t)
 			orm          = artifacts.NewWorkflowRegistryDS(db, lggr)
-			emitter      = custmsg.NewLabeler()
+			emitter      = custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowSyncer)
 			workflowName = testutils.RandomizeName(t.Name())
 
 			binary        = wasmtest.GetTestBinary(t, binaryCmd, true)
@@ -943,7 +944,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.NoError(t, err)
 
 		decrypter := newMockDecrypter()
-		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
+		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact), decrypter.decryptSecrets)
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
 		// Mock engine factory: this test verifies delete behavior, not WASM compilation.
@@ -993,7 +994,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			lggr         = logger.TestLogger(t)
 			db           = pgtest.NewSqlxDB(t)
 			orm          = artifacts.NewWorkflowRegistryDS(db, lggr)
-			emitter      = custmsg.NewLabeler()
+			emitter      = custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowSyncer)
 			workflowName = testutils.RandomizeName(t.Name())
 
 			binary        = wasmtest.GetTestBinary(t, binaryCmd, true)
@@ -1027,7 +1028,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
 		require.NoError(t, err)
 		decrypter := newMockDecrypter()
-		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
+		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact), decrypter.decryptSecrets)
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
 		h, err := NewEventHandler(lggr, store, registry, donTime, true, NewEngineRegistry(), emitter, limiters, featureFlags, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{}, WithEngineRegistry(er))
@@ -1053,7 +1054,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			lggr         = logger.TestLogger(t)
 			db           = pgtest.NewSqlxDB(t)
 			orm          = artifacts.NewWorkflowRegistryDS(db, lggr)
-			emitter      = custmsg.NewLabeler()
+			emitter      = custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowSyncer)
 			workflowName = testutils.RandomizeName(t.Name())
 
 			binary        = wasmtest.GetTestBinary(t, binaryCmd, true)
@@ -1101,7 +1102,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.NoError(t, err)
 
 		decrypter := newMockDecrypter()
-		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
+		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact), decrypter.decryptSecrets)
 		mockAS := newMockArtifactStore(artifactStore, errors.New(failWith))
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
@@ -1155,7 +1156,7 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 			lggr         = logger.TestLogger(t)
 			db           = pgtest.NewSqlxDB(t)
 			orm          = artifacts.NewWorkflowRegistryDS(db, lggr)
-			emitter      = custmsg.NewLabeler()
+			emitter      = custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowSyncer)
 			workflowName = testutils.RandomizeName(t.Name())
 
 			binary        = wasmtest.GetTestBinary(t, binaryCmd, true)
@@ -1206,7 +1207,7 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		require.NoError(t, err)
 
 		decrypter := newMockDecrypter()
-		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
+		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact), decrypter.decryptSecrets)
 		donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
 		workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
@@ -1318,11 +1319,11 @@ func TestEngineFactoryFn_SuccessfulCreation(t *testing.T) {
 	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, limits.Factory{})
 	require.NoError(t, err)
 
-	emitter := custmsg.NewLabeler()
+	emitter := custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowSyncer)
 	decrypter := newMockDecrypter()
 	fetcher := newMockFetcher(map[string]mockFetchResp{})
 	orm := mocks.NewORM(t)
-	artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
+	artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher.FetcherFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact), decrypter.decryptSecrets)
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 
 	eventHandler, err := NewEventHandler(

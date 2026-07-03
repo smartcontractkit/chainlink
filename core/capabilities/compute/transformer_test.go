@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink/v2/core/custmsgtypes"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
@@ -89,7 +90,7 @@ func Test_transformer(t *testing.T) {
 	t.Parallel()
 	var (
 		lgger   = logger.Test(t)
-		emitter = custmsg.NewLabeler()
+		emitter = custmsg.NewLabeler().WithType(custmsgtypes.TypeCompute)
 	)
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()

@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink/v2/core/custmsgtypes"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/secrets"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
@@ -72,7 +73,7 @@ func Test_Handler_SecretsFor(t *testing.T) {
 		fetcher.Fetch,
 		clockwork.NewFakeClock(),
 		encryptionKey,
-		custmsg.NewLabeler(),
+		custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact),
 	)
 	expectedSecrets := map[string]string{
 		"Foo": "Bar",
@@ -136,7 +137,7 @@ func Test_Handler_SecretsFor_RefreshesSecrets(t *testing.T) {
 		fetcher.Fetch,
 		clockwork.NewFakeClock(),
 		encryptionKey,
-		custmsg.NewLabeler(),
+		custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact),
 	)
 
 	expectedSecrets := map[string]string{
@@ -203,7 +204,7 @@ func Test_Handler_SecretsFor_RefreshLogic(t *testing.T) {
 		fetcher.Fetch,
 		clock,
 		encryptionKey,
-		custmsg.NewLabeler(),
+		custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact),
 	)
 
 	expectedSecrets := map[string]string{

@@ -110,6 +110,8 @@ func (m *noopBeholderEmitter) Emit(_ context.Context, _ string) error {
 	return nil
 }
 
+func (m *noopBeholderEmitter) WithType(string) custmsg.MessageEmitter { return m }
+func (m *noopBeholderEmitter) WithLabelsAndType(map[string]string, string) custmsg.MessageEmitter { return m }
 func (m *noopBeholderEmitter) WithMapLabels(labels map[string]string) custmsg.MessageEmitter {
 	return m
 }

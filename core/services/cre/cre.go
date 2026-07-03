@@ -35,6 +35,7 @@ import (
 	linkingclient "github.com/smartcontractkit/chainlink-protos/linking-service/go/v1"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/custmsgtypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
@@ -804,7 +805,7 @@ func newWorkflowRegistrySyncerV1(
 		fetcherFunc,
 		clockwork.NewRealClock(),
 		key,
-		custmsg.NewLabeler(),
+		custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact),
 		artifactsV1.WithMaxArtifactSize(
 			artifactsV1.ArtifactConfig{
 				MaxBinarySize:  uint64(capCfg.WorkflowRegistry().MaxBinarySize()),
@@ -838,7 +839,7 @@ func newWorkflowRegistrySyncerV1(
 		dontimeStore,
 		opts.UseLocalTimeProvider,
 		engineRegistry,
-		custmsg.NewLabeler(),
+		custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowSyncer),
 		engineLimiters,
 		featureFlags,
 		workflowRateLimiter,
@@ -950,7 +951,7 @@ func newWorkflowRegistrySyncerV2(
 		retrieverFunc,
 		clockwork.NewRealClock(),
 		key,
-		custmsg.NewLabeler(),
+		custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact),
 		lf,
 		artifactsV2.WithConfig(artifactsV2.StoreConfig{
 			ArtifactStorageHost: wfReg.WorkflowStorage().ArtifactStorageHost(),
@@ -1083,7 +1084,7 @@ func newWorkflowRegistrySyncerV2(
 		opts.CapabilitiesRegistry,
 		opts.ExecutionHandlers,
 		engineRegistry,
-		custmsg.NewLabeler(),
+		custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowSyncer),
 		engineLimiters,
 		featureFlags,
 		workflowRateLimiter,

@@ -47,6 +47,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/shutdown"
+	"github.com/smartcontractkit/chainlink/v2/core/custmsgtypes"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/store"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
@@ -335,13 +336,12 @@ const ownerPermsMask = os.FileMode(0o700)
 
 // EmitNodeConfig emits the node configuration through beholder as a pb.BaseMessage
 func (s *Shell) EmitNodeConfig(ctx context.Context) {
-	cme := custmsg.NewLabeler()
 	labels := map[string]string{
 		"system":  "Application",
 		"version": static.Version,
 		"commit":  static.Sha,
 	}
-	emitter := cme.WithMapLabels(labels)
+	emitter := custmsg.NewLabeler().WithLabelsAndType(labels, custmsgtypes.TypeNodeConfig)
 
 	// Get the effective TOML configuration (with defaults applied)
 	_, effectiveTOML := s.Config.ConfigTOML()

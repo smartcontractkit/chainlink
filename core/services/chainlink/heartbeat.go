@@ -10,6 +10,7 @@ import (
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/custmsgtypes"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
@@ -59,7 +60,6 @@ func NewHeartbeatConfig(cfg ApplicationOpts) HeartbeatConfig {
 // Update the constructor to accept optional emitter and meter
 func NewHeartbeat(cfg HeartbeatConfig, opts ...HeartbeatOpt) Heartbeat {
 	// setup default emitter and meter
-	cme := custmsg.NewLabeler()
 	labels := map[string]string{"system": "Application", "version": static.Version, "commit": static.Sha}
 	if cfg.P2P != "" {
 		labels["peer_id"] = cfg.P2P
@@ -71,11 +71,10 @@ func NewHeartbeat(cfg HeartbeatConfig, opts ...HeartbeatOpt) Heartbeat {
 		labels["csa_key"] = cfg.CSAPublicKey
 	}
 
-	cme.WithMapLabels(labels)
 	h := Heartbeat{
 		beat:    cfg.Beat,
 		opts:    cfg,
-		emitter: cme.WithMapLabels(labels),
+		emitter: custmsg.NewLabeler().WithLabelsAndType(labels, custmsgtypes.TypeHeartbeat),
 		meter:   beholder.GetMeter(),
 	}
 
