@@ -434,5 +434,3 @@ tool github.com/smartcontractkit/chainlink-common/pkg/loop/cmd/loopinstall
 tool github.com/smartcontractkit/chainlink-common/script/cmd/dependabot
 
 replace github.com/smartcontractkit/chainlink-sui => github.com/smartcontractkit/chainlink-sui v0.0.0-20260624134342-6bfb9c92859d
-
-replace github.com/smartcontractkit/chainlink-common => /Users/prashantyadav/cl-cursor/chainlink-common
