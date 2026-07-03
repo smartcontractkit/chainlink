@@ -44,12 +44,12 @@ func TestEngineConfig_Validate(t *testing.T) {
 	t.Parallel()
 	cfg := defaultTestConfig(t, nil)
 
-	t.Run("nil module", func(t *testing.T) {
+	t.Run("nil module", func(t *testing.T) { //nolint:paralleltest // subtests mutate shared config
 		cfg.Module = nil
 		require.Error(t, cfg.Validate())
 	})
 
-	t.Run("success", func(t *testing.T) {
+	t.Run("success", func(t *testing.T) { //nolint:paralleltest // subtests mutate shared config
 		cfg.Module = modulemocks.NewModuleV2(t)
 		require.NoError(t, cfg.Validate())
 		require.NotEqual(t, 0, cfg.LocalLimits.HeartbeatFrequencyMs)
@@ -57,7 +57,7 @@ func TestEngineConfig_Validate(t *testing.T) {
 		require.NotNil(t, cfg.Hooks.OnInitialized)
 	})
 
-	t.Run("empty workflow tag is allowed", func(t *testing.T) {
+	t.Run("empty workflow tag is allowed", func(t *testing.T) { //nolint:paralleltest // subtests mutate shared config
 		cfg.Module = modulemocks.NewModuleV2(t)
 		cfg.WorkflowTag = "" // V1 workflows don't have tags
 		require.NoError(t, cfg.Validate())

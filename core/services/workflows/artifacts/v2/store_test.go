@@ -5,9 +5,11 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
@@ -19,7 +21,6 @@ import (
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 
 	"github.com/stretchr/testify/require"
@@ -43,17 +44,18 @@ func (m *mockFetcher) RetrieveURL(ctx context.Context, req *storage_service.Down
 }
 
 func Test_Store_DeleteWorkflowArtifacts(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	orm := &orm{ds: db, lggr: lggr}
 
-	workflowOwner := hex.EncodeToString([]byte("anOwner"))
-	workflowName := "aName"
-	workflowID := "anID"
+	workflowOwner := hex.EncodeToString([]byte("owner-" + uuid.New().String()[:8]))
+	workflowName := "name-" + uuid.New().String()[:8]
+	workflowID := "id-" + uuid.New().String()[:8]
 	encryptionKey, err := workflowkey.New()
 	require.NoError(t, err)
 
-	_, err = orm.UpsertWorkflowSpec(testutils.Context(t), &job.WorkflowSpec{
+	_, err = orm.UpsertWorkflowSpec(t.Context(), &job.WorkflowSpec{
 		Workflow:      "",
 		Config:        "",
 		SecretsID:     sql.NullInt64{Int64: 0, Valid: false},
@@ -85,15 +87,16 @@ func Test_Store_DeleteWorkflowArtifacts(t *testing.T) {
 	require.NoError(t, err)
 
 	// Delete the workflow artifacts by ID
-	err = h.DeleteWorkflowArtifacts(testutils.Context(t), workflowID)
+	err = h.DeleteWorkflowArtifacts(t.Context(), workflowID)
 	require.NoError(t, err)
 
 	// Check that the workflow no longer exists
-	_, err = orm.GetWorkflowSpec(testutils.Context(t), workflowID)
+	_, err = orm.GetWorkflowSpec(t.Context(), workflowID)
 	require.ErrorIs(t, err, sql.ErrNoRows)
 }
 
 func Test_Store_DeleteWorkflowArtifactsBatch(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	orm := &orm{ds: db, lggr: lggr}
@@ -101,13 +104,19 @@ func Test_Store_DeleteWorkflowArtifactsBatch(t *testing.T) {
 	encryptionKey, err := workflowkey.New()
 	require.NoError(t, err)
 
-	ctx := testutils.Context(t)
-	for _, id := range []string{"wf-1", "wf-2", "wf-3"} {
+	prefix := uuid.New().String()[:8]
+	wf1 := "wf-1-" + prefix
+	wf2 := "wf-2-" + prefix
+	wf3 := "wf-3-" + prefix
+	owner := "owner-" + prefix
+
+	ctx := t.Context()
+	for _, id := range []string{wf1, wf2, wf3} {
 		_, err = orm.UpsertWorkflowSpec(ctx, &job.WorkflowSpec{
 			Workflow:      "",
 			Config:        "",
 			WorkflowID:    id,
-			WorkflowOwner: "owner",
+			WorkflowOwner: owner,
 			WorkflowName:  "name-" + id,
 			CreatedAt:     time.Now(),
 			SpecType:      job.DefaultSpecType,
@@ -124,24 +133,25 @@ func Test_Store_DeleteWorkflowArtifactsBatch(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	require.NoError(t, h.DeleteWorkflowArtifactsBatch(ctx, []string{"wf-1", "wf-3"}))
+	require.NoError(t, h.DeleteWorkflowArtifactsBatch(ctx, []string{wf1, wf3}))
 
-	_, err = orm.GetWorkflowSpec(ctx, "wf-1")
+	_, err = orm.GetWorkflowSpec(ctx, wf1)
 	require.ErrorIs(t, err, sql.ErrNoRows)
-	_, err = orm.GetWorkflowSpec(ctx, "wf-3")
+	_, err = orm.GetWorkflowSpec(ctx, wf3)
 	require.ErrorIs(t, err, sql.ErrNoRows)
 
-	got, err := orm.GetWorkflowSpec(ctx, "wf-2")
+	got, err := orm.GetWorkflowSpec(ctx, wf2)
 	require.NoError(t, err)
-	require.Equal(t, "name-wf-2", got.WorkflowName)
+	require.Equal(t, "name-"+wf2, got.WorkflowName)
 }
 
 func Test_Store_FetchWorkflowArtifacts_WithStorage(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	orm := &orm{ds: db, lggr: lggr}
 
-	workflowID := "anID"
+	workflowID := "id-" + uuid.New().String()[:8]
 	encryptionKey, err := workflowkey.New()
 	require.NoError(t, err)
 
@@ -176,7 +186,7 @@ func Test_Store_FetchWorkflowArtifacts_WithStorage(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	ctx := contexts.WithCRE(testutils.Context(t), contexts.CRE{Workflow: workflowID})
+	ctx := contexts.WithCRE(t.Context(), contexts.CRE{Workflow: workflowID})
 	binary, config, err := h.FetchWorkflowArtifacts(ctx, workflowID, binaryURL, configURL)
 	require.NoError(t, err)
 	require.Equal(t, []byte(binaryData), binary)
@@ -184,18 +194,19 @@ func Test_Store_FetchWorkflowArtifacts_WithStorage(t *testing.T) {
 }
 
 func Test_Store_FetchWorkflowArtifacts_WithoutStorage(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	orm := &orm{ds: db, lggr: lggr}
 
-	workflowID := "anID"
+	workflowID := "id-" + uuid.New().String()[:8]
 	encryptionKey, err := workflowkey.New()
 	require.NoError(t, err)
 
-	binaryURL := "http://some-url.com/binary.wasm"
+	binaryURL := fmt.Sprintf("http://some-url-%s.com/binary.wasm", workflowID)
 	binaryData := "binary-data"
 	binaryEncoded := base64.StdEncoding.EncodeToString([]byte(binaryData))
-	configURL := "http://some-url.com/config.yaml"
+	configURL := fmt.Sprintf("http://some-url-%s.com/config.yaml", workflowID)
 	configData := "config-data"
 	fetcher := &mockFetcher{
 		responseMap: map[string]mockFetchResp{
@@ -219,7 +230,7 @@ func Test_Store_FetchWorkflowArtifacts_WithoutStorage(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	ctx := contexts.WithCRE(testutils.Context(t), contexts.CRE{Workflow: workflowID})
+	ctx := contexts.WithCRE(t.Context(), contexts.CRE{Workflow: workflowID})
 	binary, config, err := h.FetchWorkflowArtifacts(ctx, workflowID, binaryURL, configURL)
 	require.NoError(t, err)
 	require.Equal(t, []byte(binaryData), binary)
@@ -227,18 +238,19 @@ func Test_Store_FetchWorkflowArtifacts_WithoutStorage(t *testing.T) {
 }
 
 func Test_Store_FetchWorkflowArtifacts_SkipsRetrieving(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	orm := &orm{ds: db, lggr: lggr}
 
-	workflowID := "anID"
+	workflowID := "id-" + uuid.New().String()[:8]
 	encryptionKey, err := workflowkey.New()
 	require.NoError(t, err)
 
-	binaryURL := "http://example.com/id1/binary.wasm"
+	binaryURL := fmt.Sprintf("http://example-%s.com/id1/binary.wasm", workflowID)
 	binaryData := "binary-data"
 	binaryEncoded := base64.StdEncoding.EncodeToString([]byte(binaryData))
-	configURL := "http://example.com/id1/config.yaml"
+	configURL := fmt.Sprintf("http://example-%s.com/id1/config.yaml", workflowID)
 	configData := "config-data"
 	fetcher := &mockFetcher{
 		responseMap: map[string]mockFetchResp{
@@ -262,7 +274,7 @@ func Test_Store_FetchWorkflowArtifacts_SkipsRetrieving(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	ctx := contexts.WithCRE(testutils.Context(t), contexts.CRE{Workflow: workflowID})
+	ctx := contexts.WithCRE(t.Context(), contexts.CRE{Workflow: workflowID})
 	binary, config, err := h.FetchWorkflowArtifacts(ctx, workflowID, binaryURL, configURL)
 	require.NoError(t, err)
 	require.Equal(t, []byte(binaryData), binary)

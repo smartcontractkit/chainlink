@@ -10,7 +10,6 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	linkchangesets "github.com/smartcontractkit/cld-changesets/tokens/link/changesets"
-	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deploylink"
@@ -107,7 +106,6 @@ func initialDeployCS(t *testing.T, e cldf.Environment, buildConfig *ccipChangese
 
 // use this for a quick deploy test
 func TestDeployChainContractsChangesetPreload(t *testing.T) {
-	quarantine.Flaky(t, "DX-1729")
 	t.Parallel()
 
 	homeChainSel := chain_selectors.TEST_90000001.Selector

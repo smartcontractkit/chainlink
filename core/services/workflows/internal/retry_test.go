@@ -54,7 +54,7 @@ func TestRetryableSuccessAfterRetries(t *testing.T) {
 	}
 
 	err := RunWithRetries(ctx, logger.NullLogger, time.Millisecond*10, 5, fn)
-	assert.NoError(t, err, "Expected no error after successful retry")
+	require.NoError(t, err, "Expected no error after successful retry")
 	assert.Equal(t, 2, retries, "Expected two retries before success")
 }
 

@@ -26,10 +26,12 @@ func (s *stubClient) ReportWorkflowTriggerRegistration(context.Context, *ringpb.
 func (s *stubClient) Close() error { return nil }
 
 func TestCheckCommittedOwner(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	wf := "abc123"
 
 	t.Run("allow when mapped shard matches", func(t *testing.T) {
+		t.Parallel()
 		c := &stubClient{resp: &ringpb.GetWorkflowShardMappingResponse{Mappings: map[string]uint32{wf: 2}}}
 		v, _, err := CheckCommittedOwner(ctx, c, wf, 2)
 		require.NoError(t, err)
@@ -37,6 +39,7 @@ func TestCheckCommittedOwner(t *testing.T) {
 	})
 
 	t.Run("deny not owner when mapped to other shard", func(t *testing.T) {
+		t.Parallel()
 		c := &stubClient{resp: &ringpb.GetWorkflowShardMappingResponse{Mappings: map[string]uint32{wf: 1}}}
 		v, _, err := CheckCommittedOwner(ctx, c, wf, 2)
 		require.NoError(t, err)
@@ -44,6 +47,7 @@ func TestCheckCommittedOwner(t *testing.T) {
 	})
 
 	t.Run("deny not owner when workflow missing from map", func(t *testing.T) {
+		t.Parallel()
 		c := &stubClient{resp: &ringpb.GetWorkflowShardMappingResponse{Mappings: map[string]uint32{}}}
 		v, _, err := CheckCommittedOwner(ctx, c, wf, 2)
 		require.NoError(t, err)
@@ -51,6 +55,7 @@ func TestCheckCommittedOwner(t *testing.T) {
 	})
 
 	t.Run("deny orchestrator error", func(t *testing.T) {
+		t.Parallel()
 		c := &stubClient{err: errors.New("rpc down")}
 		v, _, err := CheckCommittedOwner(ctx, c, wf, 2)
 		require.Error(t, err)
