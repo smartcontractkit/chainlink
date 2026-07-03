@@ -389,7 +389,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		emitterCfg.MarkBatchFlushInterval = 100 * time.Millisecond
 		emitterCfg.PurgeBatchSize = 5000
 		emitterCfg.PurgeInterval = 100 * time.Millisecond
-		// Retransmit safety net: clear any backlog quickly (was 100/5s = 20/s).
 		emitterCfg.RetransmitBatchSize = 2000
 		emitterCfg.RetransmitInterval = 2 * time.Second
 		durableCfg := durableemitter.SetupConfig{
@@ -407,7 +406,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			MaxPublishTimeout:  10 * time.Second,
 			BatchSize:          1000,
 			BatchInterval:      100 * time.Millisecond,
-			MaxConcurrentSends: 16,
+			MaxConcurrentSends: 8,
 			MessageBufferSize:  50_000,
 		}
 		pgStore := durableemitter.NewPgDurableEventStore(opts.DS)
