@@ -272,7 +272,7 @@ func Test_CRE_V2_Aptos_Suite(t *testing.T) {
 }
 
 func Test_CRE_V2_Stellar_Suite(t *testing.T) {
-	_ := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-stellar.toml"))
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-stellar.toml"))
 	t.Run("Stellar", func(t *testing.T) {
 		ExecuteStellarTest(t, testEnv)
 	})
