@@ -85,7 +85,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260415165642-49f23e4d76cc
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260415165642-49f23e4d76cc
 	github.com/smartcontractkit/chainlink-ccv v0.0.2-0.20260622154332-695181f87033
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260701091216-9264d4444ce0
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260703215130-fb7f626f085c
 	github.com/smartcontractkit/chainlink-common/keystore v1.2.0
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260626151909-052e55e62e62
 	github.com/smartcontractkit/chainlink-data-streams v0.1.15-0.20260522094612-5f9f748bd87a
@@ -426,8 +426,6 @@ require (
 	pgregory.net/rapid v1.2.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
-
-replace github.com/smartcontractkit/chainlink-common => /Users/pk/TASKS/260703-custmsg-type-label-for-basemessage-emissions/.worktrees/chainlink-common/custmsg-type-label-for-basemessage-emissions
 
 replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20260218133534-cbd44da2856b
 
