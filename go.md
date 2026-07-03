@@ -612,6 +612,9 @@ flowchart LR
 	chainlink/system-tests/tests/smoke/cre/solana/solwrite --> cre-sdk-go/capabilities/blockchain/solana
 	chainlink/system-tests/tests/smoke/cre/solana/solwrite --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/smoke/cre/solana/solwrite href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests/smoke/cre/stellar/stellarread --> cre-sdk-go/capabilities/blockchain/stellar
+	chainlink/system-tests/tests/smoke/cre/stellar/stellarread --> cre-sdk-go/capabilities/scheduler/cron
+	click chainlink/system-tests/tests/smoke/cre/stellar/stellarread href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/smoke/cre/vaultsecret --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/smoke/cre/vaultsecret href "https://github.com/smartcontractkit/chainlink"
 	chainlink/v2 --> chainlink-ccv
@@ -641,6 +644,8 @@ flowchart LR
 	click cre-sdk-go/capabilities/blockchain/evm href "https://github.com/smartcontractkit/cre-sdk-go"
 	cre-sdk-go/capabilities/blockchain/solana --> cre-sdk-go
 	click cre-sdk-go/capabilities/blockchain/solana href "https://github.com/smartcontractkit/cre-sdk-go"
+	cre-sdk-go/capabilities/blockchain/stellar --> cre-sdk-go
+	click cre-sdk-go/capabilities/blockchain/stellar href "https://github.com/smartcontractkit/cre-sdk-go"
 	cre-sdk-go/capabilities/networking/http --> cre-sdk-go
 	click cre-sdk-go/capabilities/networking/http href "https://github.com/smartcontractkit/cre-sdk-go"
 	cre-sdk-go/capabilities/scheduler/cron --> cre-sdk-go
@@ -703,6 +708,7 @@ flowchart LR
 		 chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger
 		 chainlink/system-tests/tests/smoke/cre/solana/solread
 		 chainlink/system-tests/tests/smoke/cre/solana/solwrite
+		 chainlink/system-tests/tests/smoke/cre/stellar/stellarread
 		 chainlink/system-tests/tests/smoke/cre/vaultsecret
 		 chainlink/v2
 		 chainlink/v2/tools/test
@@ -819,6 +825,7 @@ flowchart LR
 		 cre-sdk-go/capabilities/blockchain/aptos
 		 cre-sdk-go/capabilities/blockchain/evm
 		 cre-sdk-go/capabilities/blockchain/solana
+		 cre-sdk-go/capabilities/blockchain/stellar
 		 cre-sdk-go/capabilities/networking/http
 		 cre-sdk-go/capabilities/scheduler/cron
 	end
