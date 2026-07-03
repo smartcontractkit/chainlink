@@ -35,6 +35,7 @@ import (
 	vaultMock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault/mock"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink/v2/core/custmsgtypes"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
@@ -820,7 +821,7 @@ func TestEngine_Execution(t *testing.T) {
 		},
 	}
 	beholderObserver := beholdertest.NewObserver(t)
-	cfg.BeholderEmitter = custmsg.NewLabeler()
+	cfg.BeholderEmitter = custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowEngine)
 
 	t.Run("successful execution with no capability calls", func(t *testing.T) {
 		t.Parallel()
@@ -2881,6 +2882,8 @@ func (t *trackingBeholderEmitter) With(keyValues ...string) custmsg.MessageEmitt
 	return t
 }
 
+func (t *trackingBeholderEmitter) WithType(string) custmsg.MessageEmitter { return t }
+func (t *trackingBeholderEmitter) WithLabelsAndType(map[string]string, string) custmsg.MessageEmitter { return t }
 func (t *trackingBeholderEmitter) WithMapLabels(labels map[string]string) custmsg.MessageEmitter {
 	t.mu.Lock()
 	defer t.mu.Unlock()

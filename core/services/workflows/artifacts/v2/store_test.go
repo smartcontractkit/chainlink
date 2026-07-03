@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink/v2/core/custmsgtypes"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -78,7 +79,7 @@ func Test_Store_DeleteWorkflowArtifacts(t *testing.T) {
 		fetcher.RetrieveURL,
 		clockwork.NewFakeClock(),
 		encryptionKey,
-		custmsg.NewLabeler(),
+		custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact),
 		limits.Factory{Logger: lggr},
 		WithConfig(StoreConfig{
 			ArtifactStorageHost: "example.com",
@@ -127,7 +128,7 @@ func Test_Store_DeleteWorkflowArtifactsBatch(t *testing.T) {
 	fetcher := &mockFetcher{}
 	h, err := NewStore(
 		lggr, orm, fetcher.Fetch, fetcher.RetrieveURL,
-		clockwork.NewFakeClock(), encryptionKey, custmsg.NewLabeler(),
+		clockwork.NewFakeClock(), encryptionKey, custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact),
 		limits.Factory{Logger: lggr},
 		WithConfig(StoreConfig{ArtifactStorageHost: "example.com"}),
 	)
@@ -178,7 +179,7 @@ func Test_Store_FetchWorkflowArtifacts_WithStorage(t *testing.T) {
 		fetcher.RetrieveURL,
 		clockwork.NewFakeClock(),
 		encryptionKey,
-		custmsg.NewLabeler(),
+		custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact),
 		limits.Factory{Logger: lggr},
 		WithConfig(StoreConfig{
 			ArtifactStorageHost: "storage.chain.link",
@@ -222,7 +223,7 @@ func Test_Store_FetchWorkflowArtifacts_WithoutStorage(t *testing.T) {
 		fetcher.RetrieveURL,
 		clockwork.NewFakeClock(),
 		encryptionKey,
-		custmsg.NewLabeler(),
+		custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact),
 		limits.Factory{Logger: lggr},
 		WithConfig(StoreConfig{
 			ArtifactStorageHost: "storage.chain.link",
@@ -266,7 +267,7 @@ func Test_Store_FetchWorkflowArtifacts_SkipsRetrieving(t *testing.T) {
 		nil, // No retrieval function provided, so it should skip retrieving
 		clockwork.NewFakeClock(),
 		encryptionKey,
-		custmsg.NewLabeler(),
+		custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowArtifact),
 		limits.Factory{Logger: lggr},
 		WithConfig(StoreConfig{
 			ArtifactStorageHost: "example.com",

@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 
+	"github.com/smartcontractkit/chainlink/v2/core/custmsgtypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
@@ -1489,7 +1490,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		cfg.WorkflowRegistryAddress = "0xv1EngineDefault"
 	}
 
-	cma := custmsg.NewLabeler().With(platform.KeyWorkflowID, cfg.WorkflowID,
+	cma := custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowEngine).With(platform.KeyWorkflowID, cfg.WorkflowID,
 		platform.KeyWorkflowOwner, cfg.WorkflowOwner,
 		platform.KeyWorkflowName, cfg.WorkflowName.String(),
 		platform.KeyWorkflowVersion, platform.ValueWorkflowVersion,

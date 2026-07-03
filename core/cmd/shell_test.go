@@ -622,4 +622,5 @@ func TestShell_emitNodeConfig(t *testing.T) {
 	require.Equal(t, "Application", baseMsg.Labels["system"])
 	require.Equal(t, static.Version, baseMsg.Labels["version"])
 	require.Equal(t, static.Sha, baseMsg.Labels["commit"])
+	require.Equal(t, "NodeConfig", baseMsg.Labels["type"])
 }

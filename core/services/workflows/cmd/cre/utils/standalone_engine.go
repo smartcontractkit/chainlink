@@ -66,7 +66,7 @@ func NewStandaloneEngine(
 	workflowSettingsCfgFn func(*cresettings.Workflows),
 ) (services.Service, []*sdkpb.TriggerSubscription, error) {
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: defaultOwner, Workflow: defaultWorkflowID})
-	labeler := custmsg.NewLabeler()
+	labeler := custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowEngine)
 	moduleConfig := &host.ModuleConfig{
 		Logger:                  lggr,
 		Labeler:                 labeler,
@@ -198,7 +198,7 @@ func NewStandaloneEngine(
 		FeatureFlags:        featureFlags,
 		GlobalWorkflowLimit: workflowLimits,
 
-		BeholderEmitter: custmsg.NewLabeler(),
+		BeholderEmitter: custmsg.NewLabeler().WithType(custmsgtypes.TypeWorkflowEngine),
 
 		BillingClient: billingClient,
 		Hooks:         lifecycleHooks,

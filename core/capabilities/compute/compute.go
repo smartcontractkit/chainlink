@@ -30,6 +30,7 @@ import (
 	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
+	"github.com/smartcontractkit/chainlink/v2/core/custmsgtypes"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 )
@@ -453,7 +454,7 @@ func NewAction(
 
 	var (
 		lggr    = logger.Named(log, "CustomCompute")
-		labeler = custmsg.NewLabeler()
+		labeler = custmsg.NewLabeler().WithType(custmsgtypes.TypeCompute)
 		compute = &Compute{
 			stopCh:               make(services.StopChan),
 			log:                  lggr,
