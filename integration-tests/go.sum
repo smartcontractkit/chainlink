@@ -1413,8 +1413,7 @@ github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260623200841-e0322b
 github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260623200841-e0322b819f62/go.mod h1:/i8hjTPFdVWHiY+QjeSiVS2Z3GB3WAZznGgXHstC02E=
 github.com/smartcontractkit/chainlink-protos/data-feeds v0.1.1-0.20260501174546-2e8846986b36 h1:SG+wAsNyAcA6Kk19ljuxi3HK9Ll2lpHik8OKoY4x7A0=
 github.com/smartcontractkit/chainlink-protos/data-feeds v0.1.1-0.20260501174546-2e8846986b36/go.mod h1:vL1bDgPSJjV0EqHYs4dDlR+EEE0cJchgvGLYXhwIjXY=
-github.com/smartcontractkit/chainlink-protos/job-distributor v0.19.0 h1:FC+WdJ8YkRUlL94cN2EgdrA5TcJg04b82dqayq9rQz0=
-github.com/smartcontractkit/chainlink-protos/job-distributor v0.19.0/go.mod h1:2ahgl5bI9+fMCD+dBC785Lak38Tb7ApdTe5I8a09Qp0=
+github.com/smartcontractkit/chainlink-protos/job-distributor v0.20.1-0.20260701185448-696c075849ea h1:gdA7tZgcRYMq3ryi7uNopYgn6s26g04Haw9SdmLRHzE=
 github.com/smartcontractkit/chainlink-protos/job-distributor v0.20.1-0.20260701185448-696c075849ea/go.mod h1:2ahgl5bI9+fMCD+dBC785Lak38Tb7ApdTe5I8a09Qp0=
 github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20260512230622-65f10f4cd305 h1:NJdGFhzT6zMaTod4QkBqVD2sg0I25iw1boOYtTpEwRo=
 github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20260512230622-65f10f4cd305/go.mod h1:qSTSwX3cBP3FKQwQacdjArqv0g6QnukjV4XuzO6UyoY=
