@@ -22,7 +22,7 @@ const stellarWorkflowTimeout = 4 * time.Minute
 
 // ExecuteStellarTest runs the Stellar read CRE smoke scenario: it stands up a
 // Chip test sink to capture user logs, then deploys and waits on the read
-// workflow. Write scenarios are intentionally out of scope (Milestone B).
+// workflow.
 func ExecuteStellarTest(t *testing.T, tenv *configuration.TestEnvironment) {
 	stellarChain := mustStellarChainInEnv(t, tenv)
 	lggr := framework.L
