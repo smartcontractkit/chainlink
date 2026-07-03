@@ -115,3 +115,8 @@ plugins:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/aptos"
       gitRef: "5424665d88fc5c239a2af353abcf0f0e0e4cb710"
       installPath: "."
+
+  capability-stellar:
+    - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/stellar"
+      gitRef: "1d455e3e9248230f85d13cee5a0c9a38c751aaeb"
+      installPath: "."
