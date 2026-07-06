@@ -14,7 +14,6 @@ import (
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/quarantine"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
@@ -32,7 +31,6 @@ import (
 )
 
 func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
-	quarantine.Flaky(t, "DX-1741")
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool

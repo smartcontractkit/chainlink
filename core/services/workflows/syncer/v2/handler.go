@@ -729,9 +729,9 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	h.lggr.Debugw("Finished creating module for workflowID", "workflowID", workflowID)
 
 	if module.IsLegacyDAG() { // V1 aka "DAG"
-		sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get workflow sdk spec: %w", err)
+		sdkSpec, specErr := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
+		if specErr != nil {
+			return nil, fmt.Errorf("failed to get workflow sdk spec: %w", specErr)
 		}
 
 		// WorkflowRegistry V2 contract does not contain secrets
@@ -770,7 +770,10 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	binaryHash := v2.ComputeBinaryHash(binary)
 	confLggr := logger.Named(h.lggr, "WorkflowEngine.ConfidentialModule")
 	confLggr = logger.With(confLggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
-	confidential := v2.NewConfidentialModule(h.capRegistry, h.executionHandlers, binaryURL, binaryHash, workflowID, owner, name.String(), tag, confLggr)
+	confidential, err := v2.NewConfidentialModule(h.capRegistry, h.executionHandlers, binaryURL, binaryHash, workflowID, owner, name.String(), tag, h.engineLimiters.ConfidentialWorkflowsEnabled, confLggr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create confidential module: %w", err)
+	}
 	engineModule := h.createEngineModule(ctx, workflowID, binary, moduleConfig, module)
 	selectingModule := generichost.NewRequirementSelectingModule(
 		generichost.ModuleAndHandler{Module: engineModule},

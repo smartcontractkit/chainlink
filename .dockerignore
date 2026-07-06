@@ -22,6 +22,7 @@ integration/
 integration-scripts/
 integration-tests/
 system-tests/
+testdata/
 
 tools/gethnet/datadir/geth
 tools/clroot/db.bolt

@@ -10,8 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/quarantine"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
@@ -104,7 +102,6 @@ func Test_EVMChainsController_Show(t *testing.T) {
 }
 
 func Test_EVMChainsController_Index(t *testing.T) {
-	quarantine.Flaky(t, "DX-1795")
 	t.Parallel()
 
 	// sort test chain ids to make expected comparison easy
