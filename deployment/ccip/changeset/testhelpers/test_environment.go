@@ -1405,6 +1405,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				},
 			))
 		if len(aptosChains) > 0 {
+			validUntil, err := mcmsValidUntil(time.Now().Add(24 * time.Hour))
+			require.NoError(t, err)
 			apps = append(apps, commonchangeset.Configure(
 				// Enable the OCR config on the remote chains.
 				evmdeploy.SetOCR3Config(deployops.GetRegistry(), cs_ccip.GetRegistry()),
@@ -1413,7 +1415,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 					RemoteChainSels: aptosChains,
 					ConfigType:      cciputils.ConfigTypeActive,
 					MCMS: ccipmcms.Input{
-						ValidUntil:     uint32(time.Now().Add(24 * time.Hour).Unix()),
+						ValidUntil:     validUntil,
 						TimelockDelay:  mcmstypes.NewDuration(time.Second),
 						TimelockAction: mcmstypes.TimelockActionSchedule,
 					},

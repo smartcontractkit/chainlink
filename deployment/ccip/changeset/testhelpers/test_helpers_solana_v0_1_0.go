@@ -1335,12 +1335,15 @@ func AddLaneAptosChangesets(t *testing.T, srcChainSelector, destChainSelector ui
 		return definition
 	}
 
+	validUntil, err := mcmsValidUntil(time.Now().Add(24 * time.Hour))
+	require.NoError(t, err)
+
 	return []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(
 			lanes.ConnectChains(lanes.GetLaneAdapterRegistry(), cs_ccip.GetRegistry()),
 			lanes.ConnectChainsConfig{
 				MCMS: ccipmcms.Input{
-					ValidUntil:     uint32(time.Now().Add(24 * time.Hour).Unix()),
+					ValidUntil:     validUntil,
 					TimelockDelay:  mcmstypes.NewDuration(time.Second),
 					TimelockAction: mcmstypes.TimelockActionSchedule,
 				},
