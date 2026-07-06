@@ -56,6 +56,7 @@ func newSyntheticLoadEmitter(lggr logger.Logger, eventsPerSecond int) *synthetic
 }
 
 func (s *syntheticLoadEmitter) start(_ context.Context) error {
+	s.eng.Info("SyntheticLoad: starting")
 	if s.eventsPerSecond <= 0 {
 		s.eng.Warnw("synthetic load emitter started with non-positive rate; nothing will be emitted", "eventsPerSecond", s.eventsPerSecond)
 		return nil
@@ -65,6 +66,7 @@ func (s *syntheticLoadEmitter) start(_ context.Context) error {
 	// rate predictable regardless of ticker precision; the burst is fine for a
 	// load test.
 	tick := func(ctx context.Context) {
+		s.eng.Info("SyntheticLoad: emitting load on tick")
 		for i := 0; i < s.eventsPerSecond; i++ {
 			if err := s.emitter.Emit(ctx, "synthetic load test event"); err != nil {
 				s.eng.Errorw("synthetic load emit failed", "err", err, "emitted", i)
