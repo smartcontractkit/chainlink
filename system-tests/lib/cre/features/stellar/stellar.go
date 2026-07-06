@@ -16,6 +16,7 @@ import (
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
@@ -45,9 +46,6 @@ const (
 	network           = "stellar"
 	capabilityVersion = "1.0.0"
 	requestTimeout    = 30 * time.Second
-	// deltaStage is a write-transmission parameter; reads never use it, but the
-	// capability config carries it. Soroban ledgers close ~5s.
-	deltaStage = 5 * time.Second
 
 	// placeholderForwarder is a syntactically-valid StrKey contract address used
 	// only to satisfy the Stellar chain-capability config validation on the READ
@@ -74,7 +72,17 @@ func (s *Stellar) PreEnvStartup(
 		return &cre.PreEnvStartupOutput{}, nil
 	}
 
-	capabilities := registerStellarCapability(stellarChain.ChainSelector())
+	capabilities := []keystone_changeset.DONCapabilityWithConfig{{
+		Capability: kcr.CapabilitiesRegistryCapability{
+			LabelledName:   "stellar" + ":ChainSelector:" + strconv.FormatUint(stellarChain.ChainSelector(), 10),
+			Version:        capabilityVersion,
+			CapabilityType: 1,
+		},
+		Config: &capabilitiespb.CapabilityConfig{
+			MethodConfigs: readMethodConfigs(),
+		},
+		UseCapRegOCRConfig: true,
+	}}
 
 	capabilityToExtraSignerFamilies := make(map[string][]string, len(capabilities))
 	ocrConfigs := map[string]*ocr3.OracleConfig{}
@@ -103,22 +111,6 @@ func (s *Stellar) PostEnvStartup(
 		return errors.Wrap(jobErr, "failed to create jobs for stellar chain standard capability")
 	}
 	return nil
-}
-
-// registerStellarCapability registers the Stellar chain capability with its read
-// methods. WriteReport / LogTrigger are Milestone B.
-func registerStellarCapability(selector uint64) []keystone_changeset.DONCapabilityWithConfig {
-	return []keystone_changeset.DONCapabilityWithConfig{{
-		Capability: kcr.CapabilitiesRegistryCapability{
-			LabelledName:   "stellar" + ":ChainSelector:" + strconv.FormatUint(selector, 10),
-			Version:        capabilityVersion,
-			CapabilityType: 1,
-		},
-		Config: &capabilitiespb.CapabilityConfig{
-			MethodConfigs: readMethodConfigs(),
-		},
-		UseCapRegOCRConfig: true,
-	}}
 }
 
 // readMethodConfigs maps the Stellar capability's read RPCs (see the generated
@@ -151,7 +143,6 @@ type workerConfig struct {
 	Network             string `json:"network"`
 	ChainID             string `json:"chainId"`
 	CREForwarderAddress string `json:"creForwarderAddress"`
-	DeltaStage          int64  `json:"deltaStage"`
 	IsLocal             bool   `json:"isLocal"`
 }
 
@@ -204,7 +195,6 @@ func createJobs(
 		Network:             network,
 		ChainID:             stellarChain.StellarChainID(),
 		CREForwarderAddress: placeholderForwarder,
-		DeltaStage:          int64(deltaStage),
 		IsLocal:             true,
 	})
 	if mErr != nil {
