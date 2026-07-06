@@ -13,6 +13,7 @@ import (
 )
 
 func TestInMemoryStore_Add(t *testing.T) {
+	t.Parallel()
 	store := NewInMemoryStore(logger.TestLogger(t), clockwork.NewFakeClock())
 
 	execution, err := store.Add(t.Context(), map[string]*WorkflowExecutionStep{
@@ -33,6 +34,7 @@ func TestInMemoryStore_Add(t *testing.T) {
 }
 
 func TestInMemoryStore_UpsertStep(t *testing.T) {
+	t.Parallel()
 	fakeClock := clockwork.NewFakeClock()
 	store := NewInMemoryStore(logger.TestLogger(t), fakeClock)
 
@@ -52,6 +54,7 @@ func TestInMemoryStore_UpsertStep(t *testing.T) {
 }
 
 func TestInMemoryStore_Get(t *testing.T) {
+	t.Parallel()
 	store := NewInMemoryStore(logger.TestLogger(t), clockwork.NewFakeClock())
 	_, err := store.Add(t.Context(), map[string]*WorkflowExecutionStep{}, "test-id", "w1", StatusStarted)
 	require.NoError(t, err)
@@ -64,6 +67,7 @@ func TestInMemoryStore_Get(t *testing.T) {
 }
 
 func TestInMemoryStore_FinishedExecution(t *testing.T) {
+	t.Parallel()
 	store := NewInMemoryStoreWithPruneConfiguration(logger.TestLogger(t), clockwork.NewRealClock(),
 		10*time.Millisecond, 1*time.Hour)
 	servicetest.Run(t, store)
@@ -86,6 +90,7 @@ func TestInMemoryStore_FinishedExecution(t *testing.T) {
 }
 
 func TestInMemoryStore_DeleteByWorkflowID(t *testing.T) {
+	t.Parallel()
 	s := NewInMemoryStore(logger.TestLogger(t), clockwork.NewFakeClock())
 
 	_, err := s.Add(t.Context(), nil, "exec-1", "wf-A", StatusStarted)
@@ -108,6 +113,7 @@ func TestInMemoryStore_DeleteByWorkflowID(t *testing.T) {
 }
 
 func TestInMemoryStore_ExpiresNonCompletedExecutions(t *testing.T) {
+	t.Parallel()
 	expirationDuration := 50 * time.Millisecond
 
 	store := NewInMemoryStoreWithPruneConfiguration(logger.TestLogger(t), clockwork.NewRealClock(),

@@ -10,6 +10,7 @@ import (
 )
 
 func TestLocalSecretsFetcher_GetSecrets(t *testing.T) {
+	t.Parallel()
 	testOwner := "1234567890abcdef1234567890abcdef12345678"
 	wantOwner, err := normalizeOwner(testOwner)
 	require.NoError(t, err)
@@ -21,6 +22,7 @@ func TestLocalSecretsFetcher_GetSecrets(t *testing.T) {
 	fetcher := NewLocalSecretsFetcher(testOwner, secrets)
 
 	t.Run("returns known secrets", func(t *testing.T) {
+		t.Parallel()
 		resp, err := fetcher.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 			Requests: []*sdkpb.SecretRequest{
 				{Id: "api-key", Namespace: "default"},
@@ -45,6 +47,7 @@ func TestLocalSecretsFetcher_GetSecrets(t *testing.T) {
 	})
 
 	t.Run("returns error for unknown secret", func(t *testing.T) {
+		t.Parallel()
 		resp, err := fetcher.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 			Requests: []*sdkpb.SecretRequest{
 				{Id: "nonexistent"},
@@ -61,6 +64,7 @@ func TestLocalSecretsFetcher_GetSecrets(t *testing.T) {
 	})
 
 	t.Run("handles mixed known and unknown", func(t *testing.T) {
+		t.Parallel()
 		resp, err := fetcher.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 			Requests: []*sdkpb.SecretRequest{
 				{Id: "api-key"},
@@ -77,6 +81,7 @@ func TestLocalSecretsFetcher_GetSecrets(t *testing.T) {
 	})
 
 	t.Run("empty map returns errors for all", func(t *testing.T) {
+		t.Parallel()
 		emptyFetcher := NewLocalSecretsFetcher(testOwner, map[string]string{})
 		resp, err := emptyFetcher.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 			Requests: []*sdkpb.SecretRequest{
@@ -90,6 +95,7 @@ func TestLocalSecretsFetcher_GetSecrets(t *testing.T) {
 	})
 
 	t.Run("non-EVM owner is passed through", func(t *testing.T) {
+		t.Parallel()
 		raw := "not-an-evm-address"
 		f := NewLocalSecretsFetcher(raw, map[string]string{"k": "v"})
 		resp, err := f.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{

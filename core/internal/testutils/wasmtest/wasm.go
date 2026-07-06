@@ -2,84 +2,101 @@ package wasmtest
 
 import (
 	"bytes"
-	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/andybalholm/brotli"
-
 	"github.com/stretchr/testify/require"
 )
 
+var getRepoRoot = sync.OnceValues(func() (string, error) {
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", errors.New("could not get caller info")
+	}
+
+	dir := filepath.Dir(filename)
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", errors.New("could not find repo root (no go.mod found)")
+		}
+		dir = parent
+	}
+})
+
 var (
-	binaryOnce   = make(map[string]func() ([]byte, error))
-	binaryOnceMu sync.Mutex
+	binaryCache   = make(map[string][]byte)
+	binaryCacheMu sync.RWMutex
 )
 
-// CreateTestBinary compiles a WASM binary from outputPath and optionally brotli-compresses it.
-// Results are cached for the lifetime of the test process keyed by (outputPath, compress)
-// via sync.OnceValues — the build runs exactly once per key regardless of concurrency.
-// This assumes source at outputPath does not change during a single `go test` invocation.
-func CreateTestBinary(tb testing.TB, outputPath string, compress bool) []byte {
+// GetTestBinary fetches the pre-compiled WASM binary from the package's testdata/ directory.
+// The binary MUST be generated with `go generate` before running tests.
+// Example:
+// //go:generate go run path/to/internal/testutils/wasmtest/generator/main.go -pkg core/target/package
+func GetTestBinary(tb testing.TB, outputPath string, compress bool) []byte {
 	tb.Helper()
-	cacheKey := fmt.Sprintf("%s-%t", outputPath, compress)
 
-	binaryOnceMu.Lock()
-	once, ok := binaryOnce[cacheKey]
-	if !ok {
-		once = sync.OnceValues(func() ([]byte, error) {
-			tmpDir, err := os.MkdirTemp("", "wasmtest-*")
-			if err != nil {
-				return nil, fmt.Errorf("create temp dir: %w", err)
-			}
-			defer os.RemoveAll(tmpDir)
-
-			cmdCtx, cancel := context.WithTimeout(context.Background(), time.Minute)
-			defer cancel()
-			filePath := filepath.Join(tmpDir, "output.wasm")
-			cmd := exec.CommandContext(cmdCtx, "go", "build", "-o", filePath, "github.com/smartcontractkit/chainlink/v2/"+outputPath) // #nosec
-			cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
-
-			output, err := cmd.CombinedOutput()
-			if err != nil {
-				return nil, fmt.Errorf("build failed: %s %w", string(output), err)
-			}
-
-			binary, err := os.ReadFile(filePath)
-			if err != nil {
-				return nil, fmt.Errorf("read file failed: %w", err)
-			}
-
-			if compress {
-				var b bytes.Buffer
-				bwr := brotli.NewWriter(&b)
-				if _, err = bwr.Write(binary); err != nil {
-					return nil, err
-				}
-				if err = bwr.Close(); err != nil {
-					return nil, err
-				}
-
-				cb, err := io.ReadAll(&b)
-				if err != nil {
-					return nil, err
-				}
-				binary = cb
-			}
-
-			return binary, nil
-		})
-		binaryOnce[cacheKey] = once
+	cacheKey := fmt.Sprintf("%s:%t", outputPath, compress)
+	binaryCacheMu.RLock()
+	cached, ok := binaryCache[cacheKey]
+	binaryCacheMu.RUnlock()
+	if ok {
+		res := make([]byte, len(cached))
+		copy(res, cached)
+		return res
 	}
-	binaryOnceMu.Unlock()
 
-	result, err := once()
+	binaryCacheMu.Lock()
+	defer binaryCacheMu.Unlock()
+	if cached, ok = binaryCache[cacheKey]; ok {
+		res := make([]byte, len(cached))
+		copy(res, cached)
+		return res
+	}
+
+	repoRoot, err := getRepoRoot()
+	require.NoError(tb, err, "failed to get repo root: %s", err)
+
+	binary, err := readFixture(filepath.Join(repoRoot, outputPath), compress)
 	require.NoError(tb, err)
-	return result
+
+	cachedCopy := make([]byte, len(binary))
+	copy(cachedCopy, binary)
+	binaryCache[cacheKey] = cachedCopy
+
+	return binary
+}
+
+// readFixture reads the pre-compiled WASM fixture from pkgDir/testdata. A missing fixture is
+// reported as an actionable error directing the caller to regenerate it.
+func readFixture(pkgDir string, compress bool) ([]byte, error) {
+	filePath := filepath.Join(pkgDir, "testdata", "output.wasm.br")
+	binary, err := os.ReadFile(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("WASM fixture missing or out of date. Run 'go generate ./...' to rebuild it. Missing file: %s", filePath)
+		}
+		return nil, fmt.Errorf("read fixture failed: %w", err)
+	}
+
+	if !compress {
+		var b bytes.Buffer
+		bwr := brotli.NewReader(bytes.NewReader(binary))
+		if _, err := io.Copy(&b, bwr); err != nil {
+			return nil, fmt.Errorf("decompress fixture failed: %w", err)
+		}
+		return b.Bytes(), nil
+	}
+
+	return binary, nil
 }
