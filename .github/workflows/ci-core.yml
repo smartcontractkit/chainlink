@@ -345,12 +345,12 @@ jobs:
         with:
           CLI_VERSION: 8.1.0
 
-      - name: Setup Sui CLI v1.72.2
+      - name: Setup Sui CLI v1.74.1
         if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-sui == 'true' }}
         uses: ./.github/actions/setup-sui
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          version: mainnet-v1.72.2
+          version: mainnet-v1.74.1
 
       - name: Setup Postgres
         if: ${{ matrix.type.should-run == 'true' }}
