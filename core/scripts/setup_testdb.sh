@@ -29,6 +29,13 @@ ALTER DATABASE $database OWNER TO $username;
 GRANT ALL PRIVILEGES ON DATABASE "$database" TO "$username";
 ALTER USER $username CREATEDB;
 
+-- The heavyweight test suite runs many Chainlink apps in parallel, each opening its own
+-- connection pool (MaxOpenConns=20 in the test config), so the stock max_connections=100 is
+-- quickly exhausted with: FATAL: sorry, too many clients already (SQLSTATE 53300).
+-- Chainlink's own dockerized test DB runs with max_connections=1000; match it here.
+-- NOTE: max_connections only takes effect after a Postgres *restart* (a reload is not enough).
+ALTER SYSTEM SET max_connections = 1000;
+
 EOF
 
 # Print the SQL commands
@@ -46,6 +53,19 @@ psql -U postgres -h localhost -f $tdir/db-dev-user.sql || exit_error "Failed to 
 
 #test the connection
 PGPASSWORD=$password psql -U $username -h localhost -d $database -c "SELECT 1"  ||  exit_error "Connection failed for $username to $database"
+
+# max_connections was set via ALTER SYSTEM above but only applies after a restart.
+# Warn if the running value is still too low for the parallel heavyweight test suite.
+current_max_conns=$(PGPASSWORD=$password psql -U $username -h localhost -d $database -tAc "SHOW max_connections;" 2>/dev/null)
+if [ -n "$current_max_conns" ] && [ "$current_max_conns" -lt 1000 ]; then
+    echo ""
+    echo "WARNING: Postgres max_connections is currently $current_max_conns."
+    echo "         'ALTER SYSTEM SET max_connections = 1000' has been applied but requires a"
+    echo "         Postgres RESTART to take effect. Until then, parallel heavyweight tests fail"
+    echo "         with: FATAL: sorry, too many clients already (SQLSTATE 53300)."
+    echo "         Restart Postgres, e.g.: brew services restart postgresql@<version>"
+    echo ""
+fi
 
 
 
