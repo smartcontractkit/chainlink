@@ -391,6 +391,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		emitterCfg.PurgeInterval = 100 * time.Millisecond
 		emitterCfg.RetransmitBatchSize = 2000
 		emitterCfg.RetransmitInterval = 2 * time.Second
+		emitterCfg.PublishTimeout = 10 * time.Second
 		durableCfg := durableemitter.SetupConfig{
 			Endpoint:           cfg.Telemetry().ChipIngressEndpoint(),
 			InsecureConnection: cfg.Telemetry().ChipIngressInsecureConnection(),
@@ -403,7 +404,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			RetransmitEnabled:  true, // host process owns retransmit
 			EmitterConfig:      &emitterCfg,
 			Meter:              meter,
-			MaxPublishTimeout:  10 * time.Second,
+			MaxPublishTimeout:  10 * time.Second, // batch emitter rpc timeout
 			BatchSize:          1000,
 			BatchInterval:      100 * time.Millisecond,
 			MaxConcurrentSends: 8,
