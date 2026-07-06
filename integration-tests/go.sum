@@ -1350,10 +1350,10 @@ github.com/smartcontractkit/ccip-owner-contracts v0.1.0 h1:GiBDtlx7539o7AKlDV+9L
 github.com/smartcontractkit/ccip-owner-contracts v0.1.0/go.mod h1:NnT6w4Kj42OFFXhSx99LvJZWPpMjmo4+CpDEWfw61xY=
 github.com/smartcontractkit/chain-selectors v1.0.104 h1:/n9pPGM5W/+r1eHoWZv4VwX9LNS1af4+ICyhM8zKRNM=
 github.com/smartcontractkit/chain-selectors v1.0.104/go.mod h1:qy7whtgG5g+7z0jt0nRyii9bLND9m15NZTzuQPkMZ5w=
-github.com/smartcontractkit/chainlink-aptos v0.0.0-20260703111150-4f731c205b47 h1:/B7TQ67aVjBEcWkZwbvO6L9HnWbLyHdw/G4f0oywRV4=
-github.com/smartcontractkit/chainlink-aptos v0.0.0-20260703111150-4f731c205b47/go.mod h1:QzCiWXguySSjbcZfHclM2DS3rGTKAHZLNJOVreJY93o=
-github.com/smartcontractkit/chainlink-aptos/deployment v0.0.0-20260702131629-96f93764e0fb h1:w+CfvNtwuXi/graj9dHm9WmWp91jgciL97P+qWAYJ7A=
-github.com/smartcontractkit/chainlink-aptos/deployment v0.0.0-20260702131629-96f93764e0fb/go.mod h1:FBy6zgPkTw4oScyLnU5DeG61dBZzIHrwJfbuYDrH2+k=
+github.com/smartcontractkit/chainlink-aptos v0.0.0-20260706100550-d43558069754 h1:ZMLJrtr74dBVg8j7SKFBL+sKOqioq3FcH9hLilegg+A=
+github.com/smartcontractkit/chainlink-aptos v0.0.0-20260706100550-d43558069754/go.mod h1:QzCiWXguySSjbcZfHclM2DS3rGTKAHZLNJOVreJY93o=
+github.com/smartcontractkit/chainlink-aptos/deployment v0.0.0-20260706100550-d43558069754 h1:bFgzlJz8H+y0TLyV0Z+ix2WqcvKRMhcS0SmMc9BRZ4g=
+github.com/smartcontractkit/chainlink-aptos/deployment v0.0.0-20260706100550-d43558069754/go.mod h1:FBy6zgPkTw4oScyLnU5DeG61dBZzIHrwJfbuYDrH2+k=
 github.com/smartcontractkit/chainlink-automation v0.8.1 h1:sTc9LKpBvcKPc1JDYAmgBc2xpDKBco/Q4h4ydl6+UUU=
 github.com/smartcontractkit/chainlink-automation v0.8.1/go.mod h1:Iij36PvWZ6blrdC5A/nrQUBuf3MH3JvsBB9sSyc9W08=
 github.com/smartcontractkit/chainlink-canton v0.0.0-20260615233851-4e78e7c23a58 h1:QT9lFZBf3bFsp7oJWLTQuUXW4FU5QXyJx2a2qZ40G6Q=
