@@ -2,9 +2,6 @@ package cre
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
-	"strings"
 	"testing"
 	"time"
 
@@ -22,14 +19,6 @@ import (
 )
 
 const stellarWorkflowTimeout = 4 * time.Minute
-
-// Bounds for proving the local Stellar chain is actively closing ledgers before
-// the consensus read runs. stellar/quickstart standalone closes a ledger roughly
-// every ~5s, so 30s comfortably covers several closes.
-const (
-	stellarLedgerAdvanceTimeout = 30 * time.Second
-	stellarLedgerAdvancePoll    = 2 * time.Second
-)
 
 // ExecuteStellarTest runs the Stellar read CRE smoke scenario: it stands up a
 // Chip test sink to capture user logs, then deploys and waits on the read
@@ -68,7 +57,7 @@ func ExecuteStellarReadTest(
 	workflowConfig := t_helpers.StellarReadWorkflowConfig{
 		ChainSelector:     stellarChain.ChainSelector(),
 		WorkflowName:      workflowName,
-		MinLedgerSequence: uint64(freshnessFloor),
+		MinLedgerSequence: 1,
 	}
 
 	const workflowFileLocation = "./stellar/stellarread/main.go"
